@@ -12,6 +12,12 @@
   function shortBranch(b) { return b.replace(/^lane\/(show|sim)\//, ''); }
   function laneKind(b) { var m = /^lane\/(show|sim)\//.exec(b); return m ? m[1] : b.split('/')[0]; }
   function changed(node, sig) { if (!node || node.dataset.sig === sig) return false; node.dataset.sig = sig; node.innerHTML = ''; return true; }
+  // the first phrase of a board item's title, at most ~58 characters, cut at a word
+  function headline(t) {
+    var h = t.split(/\s\(|,\s|\s[—–]\s|;\s/)[0];
+    if (h.length > 58) h = h.slice(0, 58).replace(/\s+\S*$/, '') + '…';
+    return h;
+  }
   function said(subject) {
     var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's \w+ review round:\s*/i, '').split(/[,;:]\s/)[0];
     return w.charAt(0).toUpperCase() + w.slice(1);
@@ -165,7 +171,7 @@
       ready.slice(0, 3).forEach(function (x) {
         var row = el('a', 'k-take'); row.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.lane.branch);
         var what = el('span', 'k-take-what');
-        what.appendChild(el('span', 'k-take-top', x.item.title || x.item.id));
+        what.appendChild(el('span', 'k-take-top', headline(x.item.title || x.item.id)));
         what.appendChild(el('span', 'k-take-sub', x.stage.id + ' · ' + shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone')));
         row.appendChild(what); row.appendChild(el('b', null, 'Take →'));
         row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
@@ -176,7 +182,11 @@
     var needs = $('p-needs'); if (needs) { needs.classList.toggle('calm', !ready.length); needs.href = ready.length ? (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch) : '#office'; }
     set('p-at', working.length);
     var dots = $('p-at-dots');
-    if (changed(dots, working.map(function (x) { return x.w.id; }).join(','))) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 30); f.title = C.title(x.w); dots.appendChild(f); });
+    if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
+      if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 30); f.title = C.title(x.w); dots.appendChild(f); });
+      else { all.idle.slice(0, 5).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
+        if (all.idle.length > 5) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - 5))); }
+    }
     var lb2 = $('p-rooms-bar');
     if (lb2) { var lv = o.lanes.filter(function (l) { return l.live; }).length; lb2.innerHTML = '<i style="flex:' + open.length + '" class="open"></i><i style="flex:' + Math.max(0, lv - open.length) + '" class="live"></i><i style="flex:' + (o.lanes.length - lv) + '" class="parked"></i>'; }
     var atCard = $('p-at'); if (atCard) atCard.closest('.k-stat').classList.toggle('quiet', !working.length);

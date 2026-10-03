@@ -790,3 +790,14 @@ body.assetpage .k-head-side .fact { background: #fff; }
 .k-lounge-pill { margin: 16px 0 0; }
 .k-lounge-pill .k-tag { font-size: 13px; padding: 6px 14px; color: #e8e8e8; }
 .k-lounge-pill .k-tag:hover { border-color: #8a8a8a; }
+
+/* round 15 (review r14, 8.5/10): stand-ins full size where frogs are, sleepers in the idle card, words kept whole */
+.k-booth.k-standin { max-width: none; }
+.k-room-body.k-detail .k-desk .k-booth.k-standin { max-width: 140px; }
+.k-dots .k-booth.idle { box-shadow: 0 0 0 2px #555; }
+.k-dots .k-booth.idle video { filter: saturate(.4) brightness(.8); }
+.k-dots-more { align-self: center; font: 600 12px var(--sans); color: #9a9a9a; margin-left: 4px; }
+.k-why i { font-size: 12px; padding: 4px 10px; }
+.k-assets .tags { display: flex; flex-wrap: nowrap; gap: 5px; overflow: hidden; }
+.k-assets .tags .tag { white-space: nowrap; }
+@media (max-width: 760px) { .k-list .k-take-top { -webkit-line-clamp: 2; } }
