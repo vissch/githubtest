@@ -135,6 +135,17 @@ def harvest(root: Path, assets, stage: Path, out: Path, index, report):
                                                       order=GAME_ORDER.index(what) if what in GAME_ORDER else 9))
 
 
+def earlier_title(folder, stem):
+    """'2026-09-28-drive-feel/after' -> 'Earlier · 28 Sep · drive feel, after'."""
+    import datetime, re
+    m = re.match(r'(\d{4}-\d{2}-\d{2})[-_ ]?(.*)', folder)
+    if not m:
+        return f'Earlier · {stem.replace("_", " ")}'
+    day = datetime.date.fromisoformat(m.group(1))
+    rest = re.sub(r'[-_]+', ' ', m.group(2)).replace('/', ', ').strip()
+    return f'Earlier · {day.day} {day:%b}' + (f' · {rest}' if rest else '')
+
+
 def earlier(assets, stage: Path, out: Path, index):
     """The films already on the Drive (src_images links them: drive tests, battle passes, playground rounds) join the
     asset's reel as earlier films, each with a poster cut from it."""
@@ -156,7 +167,7 @@ def earlier(assets, stage: Path, out: Path, index):
                 have['seconds'] = round(float(r.stdout.strip()), 1) if r.returncode == 0 and r.stdout.strip() else None
             known[name] = have
             folder, stem = Path(rel).parent.as_posix(), Path(rel).stem
-            a['earlier'].append(dict(title=f'{stem.replace("_", " ")} ({folder})', file='../films/' + rel, poster=f'film/{name}.jpg', seconds=have.get('seconds'),
+            a['earlier'].append(dict(title=earlier_title(folder, stem), file='../films/' + rel, poster=f'film/{name}.jpg', seconds=have.get('seconds'),
                                      clips=[], stale=False, what='earlier', date=f.get('date') or (folder[:10] if folder[:4].isdigit() else ''), form='battle'))
         a['earlier'].sort(key=lambda f: f['date'] or '')
 
