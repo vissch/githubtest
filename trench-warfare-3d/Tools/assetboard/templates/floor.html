@@ -1,22 +1,29 @@
 {% extends "base.html" %}
-{% block title %}Floor{% endblock %}
+{% block title %}Branches{% endblock %}
+{% block bodyclass %}overview branches{% endblock %}
 {% block main %}
-<section class="floor-head">
-  <div class="tiles" id="counts"></div>
-  <p class="dim small" id="stamp">reading the floor…</p>
+<section class="k-office" id="office" hidden>
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Branches</p>
+    <h2>Every branch, <span class="k-soft">open or parked.</span></h2>
+    <p class="k-stamp"><span class="k-live" aria-hidden="true"></span><span id="stamp">reading the floor…</span> · <a href="index.html#top">the overview &rarr;</a></p>
+  </header>
+  <div class="k-rooms" id="rooms"></div>
+  <div class="k-lines" id="rooms-quiet"></div>
+  <div class="k-lounge" id="lounge">
+    <header><h3>The lounge</h3><span class="k-tag" id="n-lounge"></span></header>
+    <div class="k-naps" id="naps"></div>
+  </div>
 </section>
-<section>
-  <h2>At work <span class="count" id="n-busy"></span></h2>
-  <div class="lanes" id="busy"></div>
+<section class="k-assets k-quietlanes">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Everything else</p>
+    <h2><span id="n-quiet">–</span> branches <span class="k-soft">nobody is in.</span></h2>
+  </header>
+  <div class="k-strip" id="strip" aria-label="Branches by last commit"></div>
+  <p class="k-legend-line"><span><i class="k-sw live"></i>live</span><span><i class="k-sw parked"></i>parked</span><span>height: commits ahead · left to right: newest to oldest</span></p>
+  <details class="k-list"><summary>Every branch as a list</summary><div class="quiet" id="quiet"></div></details>
 </section>
-<section>
-  <h2>The bench <span class="count" id="n-bench"></span></h2>
-  <div class="bench" id="bench"></div>
-</section>
-<section>
-  <h2>Every other branch <span class="count" id="n-quiet"></span></h2>
-  <div class="quiet" id="quiet"></div>
-</section>
-<noscript><p class="warn">The floor is drawn by a script; this page needs it.</p></noscript>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
 {% endblock %}
-{% block script %}<script src="data/ops.js"></script><script src="crew.js"></script><script src="floor.js"></script>{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/crew.js"></script><script src="crew.js"></script><script src="floor.js"></script><script src="office.js"></script>{% endblock %}

@@ -124,14 +124,14 @@ def fixtures():
     keep = ops.CREW
     ops.CREW = tmp / 'cache'
     site = tmp / 'site'
-    ops.crew(site)
-    nothing = not (site / 'img' / 'crew-head.png').exists()
-    (tmp / 'cache').mkdir(exist_ok=True)
-    (tmp / 'cache' / 'crew-head.png').write_bytes(b'frog')
-    ops.crew(site)
+    nothing = ops.crew(site) == {} and 'CREW_MEDIA = {}' in (site / 'data' / 'crew.js').read_text(encoding='utf-8')
+    (tmp / 'cache' / 'crew').mkdir(parents=True, exist_ok=True)
+    (tmp / 'cache' / 'crew' / 'tw-critic.jpg').write_bytes(b'frog')
+    (tmp / 'cache' / 'crew' / 'tw-critic.busy.mp4').write_bytes(b'busy')
+    got = ops.crew(site)
     ops.CREW = keep
-    case("crew: the frog is copied in when the station has it, and its absence is no error",
-         nothing and (site / 'img' / 'crew-head.png').read_bytes() == b'frog')
+    case("crew: each frog's poster and loops are copied in and listed, and none at all is no error",
+         nothing and got == {'tw-critic': {'busy': True, 'doze': False}} and (site / 'img' / 'crew' / 'tw-critic.busy.mp4').read_bytes() == b'busy', got)
 
     notes = tmp / 'notes.json'
     notes.write_text('{"assets": {"Maw": {"colour": "red"}}}')

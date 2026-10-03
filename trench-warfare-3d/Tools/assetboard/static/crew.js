@@ -1,6 +1,7 @@
-// The crew: every Claude session, machine, skill and agent drawn as a frog (img/crew-head.png; ops.py copies it in
-// when the station has one, and without it the frog falls back to a mark). Each one is tinted by its name and holds
-// the mark of its trade; at work it bobs, idle it sleeps. Used by the overview (index.html) and the floor.
+// The crew: every Claude session, machine, skill and agent is a frog at a desk. Each has its own look (Krea2 stills)
+// and two loops (Minimax H3): busy at work, and dozing. ops.py copies them into img/crew/ when the station has them
+// and lists them in data/crew.js (window.CREW_MEDIA); without them a worker is drawn as the mark of its trade.
+// Used by the overview (office.js) and the branches page (floor.js).
 window.Crew = (function () {
   var GLYPH = {   // a small mark per kind of worker, 24x24 strokes
     session: 'M5 6h14v9H9l-4 4z',
@@ -21,32 +22,47 @@ window.Crew = (function () {
     pipeline: 'M3 7h12l-3-3M21 17H9l3 3',
     'unity-pipeline': 'M12 3l8 4.5v9L12 21l-8-4.5v-9zM4 7.5l8 4.5 8-4.5M12 12v9'
   };
-  var noFrog = false;    // set once the picture fails to load: every later frog is drawn as its mark
+  var MEDIA = window.CREW_MEDIA || {};      // key -> {busy: bool, doze: bool}
   function hue(s) { var h = 0; for (var i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) % 360; return h; }
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function label(name) { return (name || '').replace(/^tw-/, '').replace(/^agent:/, '').replace(/-/g, ' '); }
   function mark(key, size) {
     return '<svg viewBox="0 0 24 24" width="' + size + '" height="' + size + '" aria-hidden="true"><path d="' + (GLYPH[key] || GLYPH.skill) + '"/></svg>';
   }
-  // a frog: w = {id, kind, name, state, what}; size in px
-  function frog(w, size) {
-    size = size || 56;
-    var id = w.id || w.name || '';
-    var f = el('div', 'frog k-' + w.kind + ' ' + (w.state || 'idle'));
-    f.style.setProperty('--s', size + 'px');
-    // sessions keep the frog's own green (they lead); the rest turn by their name, machines go steel
-    f.style.setProperty('--turn', w.kind === 'session' ? '0deg' : hue(id) + 'deg');
-    f.title = (w.kind === 'session' ? (w.title || 'Claude session') : label(w.name)) + (w.what ? ': ' + w.what : '');
-    if (!noFrog) {
-      var img = el('img'); img.alt = ''; img.src = 'img/crew-head.png';
-      img.onerror = function () { noFrog = true; f.classList.add('bare'); img.remove(); };
-      f.appendChild(img);
-    } else f.classList.add('bare');
-    var prop = el('span', 'prop'); prop.style.setProperty('--h', hue(id));
-    prop.innerHTML = mark(GLYPH[id] ? id : w.kind, Math.round(size * 0.3));
-    f.appendChild(prop);
-    return f;
+  // which frog plays this worker
+  function key(w) {
+    if (w.kind === 'session' || w.kind === 'machine') return w.kind;
+    var id = (w.id || w.name || '').replace(/^agent:/, '');
+    if (MEDIA[id]) return id;
+    return w.kind === 'agent' ? 'agent' : 'role';
   }
+  function title(w) { return w.kind === 'session' ? (w.title || 'Claude session') : w.kind === 'machine' ? (w.name || 'machine') : label(w.name || w.id); }
+
+  // videos play only while on screen, so a page of thirty frogs costs what the visible few cost
+  var seen = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
+    es.forEach(function (e) { var v = e.target; if (e.isIntersecting) { v.play().catch(function () {}); } else v.pause(); });
+  }, { rootMargin: '120px' }) : null;
+  var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // a booth: the frog's loop (or poster, or mark) in a rounded card; w = {id, kind, name, state, ...}
+  function booth(w, cls) {
+    var k = key(w), m = MEDIA[k], mode = w.state === 'working' ? 'busy' : 'doze';
+    var b = el('div', 'k-booth ' + (w.state || 'idle') + ' kind-' + w.kind + (cls ? ' ' + cls : ''));
+    b.style.setProperty('--h', hue(w.id || w.name || ''));
+    if (m) {
+      var v = el('video'); v.muted = true; v.loop = true; v.playsInline = true; v.setAttribute('playsinline', '');
+      v.preload = 'none'; v.poster = 'img/crew/' + k + '.jpg';
+      if (m[mode] && !still) { v.src = 'img/crew/' + k + '.' + mode + '.mp4'; if (seen) seen.observe(v); else v.autoplay = true; }
+      b.appendChild(v);
+    } else {
+      var g = el('div', 'k-mark'); g.innerHTML = mark(GLYPH[w.id] ? w.id : w.kind, 34); b.appendChild(g);
+    }
+    var badge = el('span', 'k-badge'); badge.innerHTML = mark(GLYPH[w.id] ? w.id : w.kind, 14); b.appendChild(badge);
+    b.title = title(w) + (w.what ? ': ' + w.what : '');
+    return b;
+  }
+  // the old round avatar, now a small booth
+  function frog(w, size) { var b = booth(w, 'k-mini'); b.style.width = b.style.height = (size || 56) + 'px'; return b; }
   // a small mark only (for the stages of a board item)
   function token(w, size) {
     var t = el('div', 'tok k-' + w.kind + ' ' + (w.state || 'idle'));
@@ -59,10 +75,10 @@ window.Crew = (function () {
   // everyone, from a reading of the floor: who is at work where (sessions and machines from the branches, skills and
   // agents from the roster) and who is idle
   function everyone(o) {
-    var at = [], seen = {};
+    var at = [], seenW = {};
     o.lanes.forEach(function (l) {
       l.workers.forEach(function (w) {
-        var k = w.id + '@' + l.branch; if (seen[k]) return; seen[k] = 1;
+        var k = w.id + '@' + l.branch; if (seenW[k]) return; seenW[k] = 1;
         at.push({ w: w, where: l.branch, branches: [l.branch] });
       });
     });
@@ -86,5 +102,13 @@ window.Crew = (function () {
       document.body.appendChild(s);
     }, 20000);
   }
-  return { GLYPH: GLYPH, hue: hue, el: el, label: label, frog: frog, token: token, ago: ago, everyone: everyone, live: live };
+  // the top bar's live pill, on every page that has the floor's data
+  function nowPill(o) {
+    var p = document.getElementById('k-now'); if (!p || !o) return;
+    var all = everyone(o), n = all.at.filter(function (x) { return x.w.state === 'working'; }).length;
+    document.getElementById('k-now-text').textContent = n + ' at work · ' + all.idle.length + ' asleep · ' + o.counts.ready + ' ready';
+    p.hidden = false;
+  }
+  return { GLYPH: GLYPH, MEDIA: MEDIA, hue: hue, el: el, label: label, key: key, title: title, booth: booth, frog: frog,
+           token: token, ago: ago, everyone: everyone, live: live, nowPill: nowPill };
 })();
