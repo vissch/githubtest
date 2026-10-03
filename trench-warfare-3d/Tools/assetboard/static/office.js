@@ -26,8 +26,9 @@
     var tag = el('div', 'k-nametag');
     tag.appendChild(el('b', null, C.title(w)));
     var line = C.doing(w) || (w.kind === 'session' ? '' : w.what) || '';
-    tag.appendChild(el('span', 'k-kind', (w.kind === 'session' ? (w.state === 'working' ? 'Claude' : 'Claude · ' + C.ago(w.age || 0)) : w.kind) + (line ? ' · ' : '')));
-    if (line) tag.lastChild.appendChild(el('span', 'k-doing', line));
+    var kk = el('span', 'k-kind'); tag.appendChild(kk);
+    if (line) kk.appendChild(el('span', 'k-doing', line));
+    else kk.textContent = w.kind === 'session' ? (w.state === 'working' ? 'at work' : C.ago(w.age || 0)) : w.kind;
     d.appendChild(tag);
     d.title = C.title(w) + (w.what ? '\n' + w.what : '');
     return d;

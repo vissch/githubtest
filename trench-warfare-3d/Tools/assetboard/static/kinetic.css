@@ -750,3 +750,26 @@ body.page footer details.k-about summary { font: 400 12px var(--sans); color: #8
 .k-list .k-take-top { -webkit-line-clamp: 2; }
 body.assetpage details.fold > summary .count, body.assetpage h2 .count { font: 600 12px var(--sans); background: #fff; color: #666; border: 0; border-radius: 999px; padding: 3px 10px; }
 .k-assets .novisual span { color: #777; background: transparent; border: 0; font: 500 12px var(--sans); }
+
+/* round 13 (review r12, 8.4/10): the "+N" disc, cards without dead bands, a fuller asset title band */
+.k-nap .k-nap-n { display: flex !important; align-items: center; justify-content: center; width: 68px; height: 68px; aspect-ratio: auto; border-radius: 50%;
+  background: #e6e6e6; color: #333; font: 700 20px/1 var(--sans); -webkit-line-clamp: unset; overflow: visible; }
+.k-mate-cap { display: flex; flex-direction: column; justify-content: center; gap: 6px; align-self: center; padding: 0; }
+.k-mate { align-items: center; }
+.k-mate-foot { flex-direction: column; align-items: flex-start; gap: 6px; }
+.k-mate-foot .k-typing { order: 0; }
+.k-mate-foot > .k-mate-where { order: 1; }
+.k-mate-foot > .k-open { order: 2; }
+.k-mate-foot { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 6px 8px; }
+.k-mate-foot .k-open { grid-column: 1 / -1; justify-self: start; }
+.k-stat { align-content: start; gap: 6px; }
+.k-stat .k-sub { margin-top: 4px; }
+.k-floorgrid { align-items: stretch; }
+.k-room-line { align-content: start; }
+.k-assets .tag { font-size: 12px; padding: 3px 10px; }
+.k-assets .dots i { height: 5px; }
+body.assetpage .head { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px 40px; align-items: end; }
+.k-head-side { display: grid; gap: 10px; align-content: end; }
+.k-head-side .steps { margin: 0; }
+body.assetpage .k-head-side .fact { background: #fff; }
+@media (max-width: 900px) { body.assetpage .head { grid-template-columns: 1fr; } }
