@@ -42,6 +42,7 @@
 </section>
 
 <section>
+  <p class="k-steps-n"><b>{{ a.stages|selectattr('ok')|list|length }} of {{ a.stages|length }}</b> steps done</p>
   <ol class="steps">
     {% for s in a.stages %}<li class="{{ 'ok' if s.ok else 'no' }}" title="{{ s.evidence }}">{{ s.label }}</li>{% endfor %}
   </ol>
