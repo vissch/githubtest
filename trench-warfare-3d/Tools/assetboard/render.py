@@ -41,7 +41,8 @@ def reel(a):
     turn = next((f for f in out if f['file'].endswith(('.game-turn.mp4', '.turn.mp4'))), None)
     own = next((f for f in out if f['what'] == 'game' and f['file'].startswith(f'film/{a["id"]}.')), None)
     if turn and own and not turn['file'].startswith(f'film/{a["id"]}.'):
-        turn = own                                    # a unit drawn with a shared figure opens on its own game film
+        a['card_poster'] = turn.get('poster')            # the grid shows the clean figure; its own game film plays on hover
+        turn = own                                    # and its page opens on that film
     if turn:                                          # a page and a card open on the model going round
         out.remove(turn)
         out.insert(0, turn)

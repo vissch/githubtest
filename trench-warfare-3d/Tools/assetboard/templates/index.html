@@ -69,7 +69,7 @@
       <a class="card" href="a/{{ a.id }}.html" title="{{ a.status_why }}" data-cat="{{ a.category }}" data-levels="{{ a.level_tags|join(' ') }}" data-name="{{ (a.name ~ ' ' ~ a.id)|lower }}">
         <div class="pic">
           <div class="on-it" data-asset="{{ a.id }}"></div>
-          {% if a.reel %}<video loop muted playsinline preload="none" poster="{{ a.reel[0].poster }}" data-src="{{ a.reel[0].file }}"></video>
+          {% if a.reel %}<video loop muted playsinline preload="none" poster="{{ a.card_poster or a.reel[0].poster }}" data-src="{{ a.reel[0].file }}"></video>
           {% elif a.hero %}<img loading="lazy" src="{{ a.hero }}" alt="">
           {% else %}
             <div class="novisual">
@@ -85,7 +85,8 @@
             {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}
           </div>
           <div class="tags">
-                        {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
+                        {% if a.drawn_as and a.reel %}<span class="tag">drawn as the {{ a.drawn_as }}</span>{% endif %}
+            {% if a.live_lanes %}<span class="tag lane">{{ a.live_lanes|length }} live lane{{ 's' if a.live_lanes|length > 1 }}</span>{% endif %}
             {% if a.notes.priority %}<span class="tag pri">priority {{ a.notes.priority }}</span>{% endif %}
             {% if a.notes.wants %}<span class="tag">wants {{ a.notes.wants }}</span>{% endif %}
           </div>
