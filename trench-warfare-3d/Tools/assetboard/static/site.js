@@ -38,8 +38,8 @@
       var head = g[0]; head.classList.add('k-group');
       head.querySelector('.novisual span').textContent = k + ' ×' + g.length;
       var names = document.createElement('div'); names.className = 'k-group-names';
-      g.forEach(function (c, i) { if (i < 6) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); } if (i) c.classList.add('k-grouped'); });
-      if (g.length > 6) { var m = document.createElement('span'); m.textContent = '+' + (g.length - 6); m.title = g.slice(6).map(function (c) { return c.querySelector('.name').textContent; }).join(', '); names.appendChild(m); }
+      g.forEach(function (c, i) { if (i < 12) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); } if (i) c.classList.add('k-grouped'); });
+      if (g.length > 12) { var m = document.createElement('span'); m.textContent = '+' + (g.length - 12); m.title = g.slice(12).map(function (c) { return c.querySelector('.name').textContent; }).join(', '); names.appendChild(m); }
       head.querySelector('.body').appendChild(names);
       head.querySelector('.name').textContent = g.length + ' units';
     });
@@ -59,6 +59,12 @@
     b.addEventListener('click', function () { bucket.classList.add('open'); b.hidden = true; });
     bucket.querySelector('.grid').after(b);
   });
+  var fs = document.querySelector('.k-assets .filters');
+  if (fs) {
+    var fb = document.createElement('button'); fb.type = 'button'; fb.className = 'k-filterbtn'; fb.textContent = 'Filter';
+    fb.addEventListener('click', function () { fs.classList.toggle('open'); fb.textContent = fs.classList.contains('open') ? 'Close filters' : 'Filter'; });
+    fs.insertBefore(fb, fs.firstChild);
+  }
   var q = document.getElementById('q');
   if (q) q.addEventListener('input', function () { state.q = q.value.trim().toLowerCase(); apply(); });
 })();

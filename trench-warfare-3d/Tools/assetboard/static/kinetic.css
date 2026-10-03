@@ -875,3 +875,15 @@ body.filtering .bucket .card.k-over:not([hidden]) { display: flex; }
 .k-next .k-soft { font-size: 12px; }
 .k-next b { font: 600 14px var(--sans); color: var(--k-fire2); }
 @media (min-width: 1101px) { .k-assets .filters { flex-wrap: nowrap; } .k-assets .filters .chips { flex: none; } .k-assets #q { min-width: 150px; width: 170px; } }
+
+/* round 21 (review r20, 8.9/10): one chip a card, a Filter button on phones */
+.k-assets .tags .tag:nth-child(n+2) { display: none; }
+.k-group-names { max-height: 5.8em; }
+.k-filterbtn { display: none; }
+.k-next b { font: 600 13.5px/1.3 var(--sans); color: #f2f2f2; }
+@media (max-width: 760px) {
+  .k-filterbtn { display: inline-flex; font: 600 14px var(--sans); background: var(--k-ink); color: #fff; border: 0; border-radius: 999px; padding: 9px 16px; }
+  .k-assets .filters:not(.open) .chips[data-filter="cat"], .k-assets .filters:not(.open) .chips[data-filter="level"] { display: none; }
+  .k-assets .filters { flex-wrap: wrap; }
+  .k-naps { -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent); mask-image: linear-gradient(90deg, #000 85%, transparent); }
+}

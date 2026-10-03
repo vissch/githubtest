@@ -119,7 +119,7 @@
     }
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
-    if (l.last.length && !onBranches) { var lc = el('p', 'k-last', said(l.last[0].subject) + ' · ' + ago(l.last[0].date)); lc.title = l.last[0].subject; r.appendChild(lc); }
+    if (l.last.length && !onBranches) { var lc = el('p', 'k-last', headline(said(l.last[0].subject)) + ' · ' + ago(l.last[0].date)); lc.title = l.last[0].subject; r.appendChild(lc); }
     return r;
   }
   // a room nobody sits in: one line, and what waits in it
@@ -186,8 +186,11 @@
     var dots = $('p-at-dots');
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
       if (working.length) working.slice(0, 8).forEach(function (x) { var f = C.frog(x.w, 36); f.title = C.title(x.w); dots.appendChild(f); });
-      else if (ready.length) { var nx = el('a', 'k-next'); nx.href = (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch);
-        nx.appendChild(el('span', 'k-soft', 'Next up')); nx.appendChild(el('b', null, ready[0].stage.id + ' on ' + shortBranch(ready[0].lane.branch) + ' →')); dots.appendChild(nx); }
+      else if (o.lanes.some(function (l) { return l.last.length; })) {
+        var lastL = o.lanes.filter(function (l) { return l.last.length; }).sort(function (a, b) { return b.last[0].date.localeCompare(a.last[0].date); })[0];
+        var nx = el('a', 'k-next'); nx.href = (onBranches ? '' : 'floor.html') + '#' + slug(lastL.branch);
+        nx.appendChild(el('span', 'k-soft', 'Last change · ' + shortBranch(lastL.branch) + ' · ' + ago(lastL.last[0].date)));
+        nx.appendChild(el('b', null, headline(said(lastL.last[0].subject)))); dots.appendChild(nx); }
       else { var nf = matchMedia('(max-width: 760px)').matches ? 3 : 5; all.idle.slice(0, nf).forEach(function (r) { var f = C.frog({ id: r.id, kind: r.kind, name: r.name, state: 'idle' }, 30); f.title = C.label(r.name) + ' (asleep)'; dots.appendChild(f); });
         if (all.idle.length > nf) dots.appendChild(el('span', 'k-dots-more', '+' + (all.idle.length - nf))); }
     }
