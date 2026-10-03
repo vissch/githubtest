@@ -657,3 +657,26 @@ body.assetpage details.fold > summary .count { margin-left: 10px; margin-right: 
   .k-typing { top: 12px; right: 12px; }
 }
 @media (prefers-reduced-motion: reduce) { .k-mate, .k-typing i, .k-needs.k-bump { animation: none; } }
+
+/* round 9 (review r8, 8.0/10): phone headline, visible typing, full rows, lighter folds */
+.k-hero h1 { overflow-wrap: break-word; }
+.k-typing { position: static; display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: middle; }
+.k-typing i { width: 6px; height: 6px; }
+.k-mate { animation: k-float 3s ease-in-out infinite; }
+@keyframes k-float { 0%, 100% { translate: 0 0; } 50% { translate: 0 -5px; } }
+.k-crewrow.asleep { grid-template-columns: repeat(6, minmax(0, 1fr)); max-width: none; }
+.k-crewrow.asleep .k-sleeper .k-booth { max-width: 210px; justify-self: center; }
+.k-word { font-size: clamp(60px, 8vw, 120px); opacity: .7; z-index: 0; }
+.k-hero-text { z-index: 2; }
+body.assetpage details.fold { border-radius: 14px; background: #f6f6f6; box-shadow: none; margin: 6px 0; }
+body.assetpage details.fold > summary { padding: 11px 16px; font-size: 15px; }
+body.assetpage details.fold > summary::after { width: 24px; height: 24px; font-size: 16px; background: #fff; }
+body.assetpage details.fold[open] { background: #fff; }
+footer .k-about, body.page footer details.k-about { background: transparent; padding: 0; margin: 0; border-radius: 0; }
+body.page footer details.k-about summary { font: 400 12px var(--sans); color: #8a8a8a; }
+.k-assets .tag.shared { background: #fff4d6; color: #8a5a00; }
+@media (max-width: 760px) {
+  .k-hero h1 { font-size: clamp(30px, 8.6vw, 44px); }
+  .k-crewrow.asleep { display: flex; }
+}
+.k-hero { grid-template-columns: minmax(0, 1fr); } .k-hero-text { min-width: 0; } .k-crewrow { min-width: 0; max-width: 100%; }

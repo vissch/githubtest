@@ -97,6 +97,22 @@
     return r;
   }
 
+  // the office grid's last card takes whatever its row has left, so no row ends in a hole
+  function fillRow() {
+    var g = document.querySelector('.k-floorgrid'); if (!g) return;
+    var cols = getComputedStyle(g).gridTemplateColumns.split(' ').length;
+    var cards = g.querySelectorAll('.k-room'); if (!cards.length) return;
+    var used = 0;
+    cards.forEach(function (c) { c.style.gridColumn = ''; });
+    cards.forEach(function (c, i) {
+      var span = c.classList.contains('wide') ? cols : c.classList.contains('half') ? Math.min(2, cols) : 1;
+      if (used % cols + span > cols) used += cols - used % cols;   // it wraps to a new row
+      used += span;
+      if (i === cards.length - 1 && used % cols) c.style.gridColumn = 'span ' + (span + cols - used % cols);
+    });
+  }
+  window.addEventListener('resize', fillRow);
+
   function draw() {
     var o = window.OPS;
     if (!o) return;
@@ -150,12 +166,12 @@
       working.slice(0, 3).forEach(function (x) {
         var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
         f.appendChild(C.booth(x.w));
-        var cap = el('span', 'k-mate-cap'); cap.appendChild(el('b', null, C.title(x.w)));
+        var cap = el('span', 'k-mate-cap'); var nm = el('b', null, C.title(x.w)); cap.appendChild(nm);
         var task = x.w.doing || (x.w.kind === 'session' ? '' : x.w.what) || '';
         if (task) cap.appendChild(el('span', 'k-mate-task', task));
         var foot = el('span', 'k-mate-foot'); foot.appendChild(el('span', 'k-mate-where', shortBranch(x.where))); foot.appendChild(el('span', 'k-open', 'Open room →'));
         cap.appendChild(foot);
-        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; f.appendChild(dots3);
+        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; nm.appendChild(dots3);
         f.appendChild(cap); f.title = C.title(x.w) + ' · ' + x.where + (x.w.what ? '\n' + x.w.what : '');
         row.appendChild(f);
       });
@@ -220,6 +236,7 @@
       who.slice(0, 3).forEach(function (x) { var f = C.frog(x.w, 44); f.title += ' · on ' + x.where; spot.appendChild(f); });
       if (who.length > 3) spot.appendChild(el('span', 'more', '+' + (who.length - 3)));
     });
+    fillRow();
     if (window.drawBranches) window.drawBranches(o);
   }
   C.live(draw);

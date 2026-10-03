@@ -30,6 +30,19 @@
   if (q) q.addEventListener('input', function () { state.q = q.value.trim().toLowerCase(); apply(); });
 })();
 
+// Cards whose first picture is the same (units the game draws with one shared figure) say so, so the twins read as
+// intended rather than broken.
+(function () {
+  var seen = {};
+  document.querySelectorAll('.card .pic video[poster], .card .pic > img').forEach(function (m) {
+    var k = m.getAttribute('poster') || m.getAttribute('src'); (seen[k] = seen[k] || []).push(m.closest('.card'));
+  });
+  Object.keys(seen).forEach(function (k) {
+    if (seen[k].length < 2) return;
+    seen[k].forEach(function (c) { var t = c.querySelector('.tags'); if (!t) return; var s = document.createElement('span'); s.className = 'tag shared'; s.textContent = 'shared figure ×' + seen[k].length; t.appendChild(s); });
+  });
+})();
+
 // A card's turntable plays while the pointer is on it; nothing is fetched before that.
 document.querySelectorAll('.card video[data-src]').forEach(function (v) {
   var card = v.closest('.card');
