@@ -801,3 +801,13 @@ body.assetpage .k-head-side .fact { background: #fff; }
 .k-assets .tags { display: flex; flex-wrap: nowrap; gap: 5px; overflow: hidden; }
 .k-assets .tags .tag { white-space: nowrap; }
 @media (max-width: 760px) { .k-list .k-take-top { -webkit-line-clamp: 2; } }
+
+/* round 16 (review r15, 8.6/10): headlines that end on a word, one stand-in size, faces under their label */
+.k-room-body.k-detail .k-desk .k-booth.k-standin { max-width: none; }
+.k-stat .k-dots { margin-top: 10px; min-height: 36px; }
+.k-stat .k-sub { margin-top: auto; padding-top: 8px; }
+.k-stage-pill { font-style: normal; font: 700 10.5px var(--sans); text-transform: uppercase; letter-spacing: .04em; background: rgba(255,255,255,.22); color: #fff;
+  border-radius: 999px; padding: 1px 7px; margin-right: 6px; }
+.k-arch { font: 600 12px var(--sans); color: #777; background: #fff; border-radius: 999px; padding: 6px 11px; }
+body.assetpage .fact.lvl, body.assetpage .k-head-side .fact.lvl { background: var(--k-ink); color: #fff; box-shadow: none; }
+.k-naps:has(> .k-nap-more:only-child) { display: inline-flex; }
