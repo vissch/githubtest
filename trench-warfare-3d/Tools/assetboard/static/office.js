@@ -96,7 +96,13 @@
     if (onBranches && l.last.length > 1) {
       var cm = el('div', 'k-files'); cm.appendChild(el('b', null, 'Last commits'));
       var tl = el('ol', 'k-tl');
-      l.last.slice(0, 3).forEach(function (k) { var li = el('li'); li.appendChild(el('span', 'k-tl-what', k.subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, ''))); li.appendChild(el('span', 'k-tl-when', ago(k.date))); li.title = k.date + ' · ' + k.subject; tl.appendChild(li); });
+      var lastDay = '';
+      l.last.slice(0, 3).forEach(function (k) {
+        var what = k.subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's \w+ review round:\s*/i, '').split(/[,;:]\s/)[0];
+        var li = el('li'); li.appendChild(el('span', 'k-tl-what', what.charAt(0).toUpperCase() + what.slice(1)));
+        if (k.date !== lastDay) li.appendChild(el('span', 'k-tl-when', ago(k.date))); lastDay = k.date;
+        li.title = k.date + ' · ' + k.subject; tl.appendChild(li);
+      });
       cm.appendChild(tl);
       side.appendChild(cm);
     }
@@ -232,14 +238,14 @@
     var naps = $('naps');
     var heroSleeps = row && !working.length ? 6 : 0, lounge = all.idle.slice(heroSleeps);
     if (changed(naps, lounge.map(function (r) { return r.id; }).join(','))) {
-      var capL = onBranches ? lounge.length : 9;
+      var capL = 9;
       lounge.slice(0, capL).forEach(function (r) {
         var n = el('div', 'k-nap'); n.title = C.label(r.name) + ': ' + r.does;
         n.appendChild(C.booth({ id: r.id, kind: r.kind, name: r.name, state: 'idle', what: r.does }, 'k-round'));
         n.appendChild(el('b', null, C.label(r.name)));
         naps.appendChild(n);
       });
-      if (lounge.length > capL) { var mo = el('a', 'k-nap k-nap-more'); mo.href = 'floor.html#lounge'; mo.appendChild(el('span', 'k-nap-n', '+' + (lounge.length - capL))); mo.appendChild(el('b', null, 'more asleep')); naps.appendChild(mo); }
+      if (lounge.length > capL) { var mo = el('a', 'k-nap k-nap-more'); mo.href = onBranches ? '#lounge' : 'floor.html#lounge'; mo.title = lounge.slice(capL).map(function (r) { return C.label(r.name); }).join(', '); mo.appendChild(el('span', 'k-nap-n', '+' + (lounge.length - capL))); mo.appendChild(el('b', null, 'more')); naps.appendChild(mo); }
     }
     set('n-lounge', (heroSleeps ? lounge.length + ' more' : all.idle.length) + ' asleep');
     var lg = $('lounge'); if (lg) lg.hidden = !lounge.length;

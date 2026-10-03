@@ -74,7 +74,7 @@
           {% else %}
             <div class="novisual">
               {% if a.stand_in %}<img loading="lazy" src="{{ a.stand_in }}" alt="">{% endif %}
-              <span>{% if a.kind == 'idea' %}idea{% elif a.kind == 'lane' %}on a lane only{% elif a.drawn_as %}drawn as the {{ a.drawn_as }}{% else %}no picture{% endif %}</span>
+              <span>{% if a.kind == 'idea' %}idea{% elif a.kind == 'lane' %}on a lane only{% elif a.drawn_as %}drawn as the {{ a.drawn_as }}{% else %}No picture yet{% endif %}</span>
             </div>
           {% endif %}
         </div>

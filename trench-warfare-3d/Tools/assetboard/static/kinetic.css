@@ -737,3 +737,16 @@ body.page footer details.k-about summary { font: 400 12px var(--sans); color: #8
   .k-crewrow:not(.asleep), .k-crewrow.n1:not(.asleep), .k-crewrow.n2:not(.asleep) { grid-template-columns: 1fr; }
   .k-crewrow .k-mate, .k-crewrow.n1:not(.asleep) .k-mate, .k-crewrow.n2:not(.asleep) .k-mate { grid-template-columns: 96px minmax(0, 1fr); }
 }
+
+/* round 12 (review r11, 8.2/10): nothing ever ghosted, cards on one baseline, a readable "more" */
+@keyframes k-in { from { transform: translateY(10px); } to { transform: none; } }
+.k-room { animation-fill-mode: none; }
+.k-mate-cap { display: grid; grid-template-rows: auto auto 1fr; align-self: stretch; padding: 6px 0; }
+.k-mate-foot { align-self: end; }
+.k-mate { align-items: stretch; }
+.k-mate > .k-booth { align-self: center; }
+.k-nap-n { background: #e6e6e6; color: var(--k-ink); font: 700 18px var(--sans); }
+.k-nap-more b { color: #b5b5b5; }
+.k-list .k-take-top { -webkit-line-clamp: 2; }
+body.assetpage details.fold > summary .count, body.assetpage h2 .count { font: 600 12px var(--sans); background: #fff; color: #666; border: 0; border-radius: 999px; padding: 3px 10px; }
+.k-assets .novisual span { color: #777; background: transparent; border: 0; font: 500 12px var(--sans); }
