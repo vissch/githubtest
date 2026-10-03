@@ -106,7 +106,10 @@ window.Crew = (function () {
   function nowPill(o) {
     var p = document.getElementById('k-now'); if (!p || !o) return;
     var all = everyone(o), n = all.at.filter(function (x) { return x.w.state === 'working'; }).length;
-    document.getElementById('k-now-text').textContent = n + ' at work · ' + all.idle.length + ' asleep · ' + o.counts.ready + ' ready';
+    var t = document.getElementById('k-now-text'); t.innerHTML = '';
+    t.appendChild(el('span', null, n + ' at work'));
+    if (o.counts.ready) t.appendChild(el('span', 'k-now-ready', o.counts.ready + ' ready'));
+    p.classList.toggle('quiet', !n);
     p.hidden = false;
   }
   return { GLYPH: GLYPH, MEDIA: MEDIA, hue: hue, el: el, label: label, key: key, title: title, booth: booth, frog: frog,

@@ -113,7 +113,10 @@
     if (changed(list, JSON.stringify(ready.map(function (x) { return [x.lane.branch, x.stage.id]; })))) {
       ready.slice(0, 3).forEach(function (x) {
         var row = el('a', 'k-take'); row.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.lane.branch);
-        row.appendChild(el('span', null, x.stage.id)); row.appendChild(el('span', 'k-soft2', shortBranch(x.lane.branch))); row.appendChild(el('b', null, 'Take →'));
+        var what = el('span', 'k-take-what');
+        what.appendChild(el('span', 'k-take-top', x.stage.id + ' · ' + shortBranch(x.lane.branch)));
+        what.appendChild(el('span', 'k-take-sub', 'for ' + C.label(x.stage.skill || x.stage.role || 'anyone') + ' · ' + (x.item.title || x.item.id)));
+        row.appendChild(what); row.appendChild(el('b', null, 'Take →'));
         row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
         list.appendChild(row);
       });
@@ -121,6 +124,7 @@
     }
     var needs = $('p-needs'); if (needs) { needs.classList.toggle('calm', !ready.length); needs.href = ready.length ? (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch) : '#office'; }
     set('p-at', working.length);
+    var atCard = $('p-at'); if (atCard) atCard.closest('.k-stat').classList.toggle('quiet', !working.length);
     var nm = working.filter(function (x) { return x.w.kind === 'machine'; }).length;
     set('p-at-sub', (working.length - nm) + ' crew · ' + nm + ' machine' + (nm === 1 ? '' : 's'));
     set('p-idle', all.idle.length);
@@ -131,7 +135,8 @@
 
     // the hero: everyone at work, a frog each
     var row = $('crewrow');
-    if (row && changed(row, JSON.stringify(working.map(function (x) { return [x.w.id, x.where, x.w.doing]; })))) {
+    if (row && changed(row, JSON.stringify([working.map(function (x) { return [x.w.id, x.where, x.w.doing]; }), working.length ? 0 : all.idle.length, ready.length]))) {
+      row.classList.remove('asleep');
       working.slice(0, 4).forEach(function (x) {
         var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
         f.appendChild(C.booth(x.w));
@@ -140,7 +145,15 @@
         row.appendChild(f);
       });
       if (working.length > 4) row.appendChild(el('span', 'k-more', '+' + (working.length - 4)));
-      if (!working.length) row.appendChild(el('p', 'k-soft', 'Nobody at work right now.'));
+      if (!working.length) {           // nobody at work: the hero shows the crew asleep, and what waits
+        row.classList.add('asleep');
+        all.idle.slice(0, 6).forEach(function (r) {
+          var f = el('div', 'k-sleeper'); f.title = C.label(r.name) + ': ' + r.does;
+          f.appendChild(C.booth({ id: r.id, kind: r.kind, name: r.name, state: 'idle' })); f.appendChild(el('span', null, C.label(r.name)));
+          row.appendChild(f);
+        });
+        row.appendChild(el('p', 'k-asleep-line', 'Everyone is asleep' + (ready.length ? ' — ' + ready.length + ' stage' + (ready.length > 1 ? 's wait' : ' waits') + ' for you.' : '.')));
+      }
     }
 
     // the rooms: worked-in rooms large, the rest one line each, the ones that wait on the owner first
@@ -159,7 +172,11 @@
       if (!rooms.children.length) rooms.appendChild(el('p', 'k-empty', 'Nobody is at work right now. Every frog is in the lounge.'));
     }
     var lines = $('rooms-quiet');
-    if (changed(lines, JSON.stringify(still))) still.forEach(function (l) { lines.appendChild(quietRoom(l)); });
+    var cap = onBranches ? still.length : 3;      // the overview shows the first few; the branches page all
+    if (changed(lines, JSON.stringify([still, cap]))) {
+      still.slice(0, cap).forEach(function (l) { lines.appendChild(quietRoom(l)); });
+      if (still.length > cap) { var more = el('a', 'k-room k-room-line k-room-more'); more.href = 'floor.html'; more.appendChild(el('b', null, 'All ' + (o.lanes.length) + ' branches →')); more.appendChild(el('span', 'k-waits', (still.length - cap) + ' more open, ' + (o.lanes.length - open.length) + ' quiet')); lines.appendChild(more); }
+    }
 
     // the lounge: a strip of sleeping frogs, what each is for on hover
     var naps = $('naps');
