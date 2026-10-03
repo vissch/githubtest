@@ -21,7 +21,7 @@
     d.appendChild(C.booth(w));
     var tag = el('div', 'k-nametag');
     tag.appendChild(el('b', null, C.title(w)));
-    var line = w.doing || (w.kind === 'session' ? '' : w.what) || '';
+    var line = C.doing(w) || (w.kind === 'session' ? '' : w.what) || '';
     tag.appendChild(el('span', 'k-kind', (w.kind === 'session' ? (w.state === 'working' ? 'Claude' : 'Claude · ' + C.ago(w.age || 0)) : w.kind) + (line ? ' · ' : '')));
     if (line) tag.lastChild.appendChild(el('span', 'k-doing', line));
     d.appendChild(tag);
@@ -75,15 +75,26 @@
     var r = el('article', 'k-room' + (working ? ' busy' : '') + (l.workers.length > 1 ? ' wide' : ' half')); r.id = slug(l.branch);
     var h = el('header'); h.appendChild(title(l)); h.appendChild(tags(l, working, readyOf(l).length)); r.appendChild(h);
     if (l.items.length) r.appendChild(board(l));
-    var body = el('div', 'k-room-body');
+    var body = el('div', 'k-room-body' + (onBranches ? ' k-detail' : ''));
     var desks = el('div', 'k-desks' + (onBranches ? '' : ' k-desks-sm'));
     l.workers.slice().sort(function (a, b) { return (b.state === 'working') - (a.state === 'working') || C.title(a).localeCompare(C.title(b)); }).forEach(function (w) { desks.appendChild(desk(w)); });
     body.appendChild(desks);
     var side = el('div', 'k-room-side');
     if (l.assets.length) side.appendChild(wall(l, 8));
+    if (onBranches && l.dirty_files && l.dirty_files.length) {
+      var ch = el('div', 'k-files'); ch.appendChild(el('b', null, l.dirty + ' files changing'));
+      l.dirty_files.slice(0, 6).forEach(function (f) { ch.appendChild(el('span', null, f)); });
+      if (l.dirty_files.length > 6) ch.appendChild(el('span', 'k-soft', '+' + (l.dirty_files.length - 6) + ' more'));
+      side.appendChild(ch);
+    }
+    if (onBranches && l.last.length > 1) {
+      var cm = el('div', 'k-files'); cm.appendChild(el('b', null, 'Last commits'));
+      l.last.slice(0, 3).forEach(function (k) { cm.appendChild(el('span', null, k.date + ' · ' + k.subject)); });
+      side.appendChild(cm);
+    }
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
-    if (l.last.length) r.appendChild(el('p', 'k-last', 'last commit ' + l.last[0].date + ' · ' + l.last[0].subject));
+    if (l.last.length && !onBranches) r.appendChild(el('p', 'k-last', 'last commit ' + l.last[0].date + ' · ' + l.last[0].subject));
     return r;
   }
   // a room nobody sits in: one line, and what waits in it
@@ -162,16 +173,16 @@
     var row = $('crewrow');
     if (row && changed(row, JSON.stringify([working.map(function (x) { return [x.w.id, x.where, x.w.doing]; }), working.length ? 0 : all.idle.length, ready.length]))) {
       row.classList.remove('asleep');
-      row.classList.toggle('n1', working.length === 1);
+      row.classList.toggle('n1', working.length === 1); row.classList.toggle('n2', working.length === 2);
       working.slice(0, 3).forEach(function (x) {
         var f = el('a', 'k-mate'); f.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.branches[0] || '');
         f.appendChild(C.booth(x.w));
-        var cap = el('span', 'k-mate-cap'); var nm = el('b', null, C.title(x.w)); cap.appendChild(nm);
-        var task = x.w.doing || (x.w.kind === 'session' ? '' : x.w.what) || '';
+        var cap = el('span', 'k-mate-cap'); var head = el('span', 'k-mate-head'); var nm = el('b', null, C.title(x.w)); head.appendChild(nm); cap.appendChild(head);
+        var task = C.doing(x.w) || (x.w.kind === 'session' ? '' : x.w.what) || '';
         if (task) cap.appendChild(el('span', 'k-mate-task', task));
         var foot = el('span', 'k-mate-foot'); foot.appendChild(el('span', 'k-mate-where', shortBranch(x.where))); foot.appendChild(el('span', 'k-open', 'Open room →'));
         cap.appendChild(foot);
-        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; nm.appendChild(dots3);
+        var dots3 = el('span', 'k-typing'); dots3.innerHTML = '<i></i><i></i><i></i>'; head.appendChild(dots3);
         f.appendChild(cap); f.title = C.title(x.w) + ' · ' + x.where + (x.w.what ? '\n' + x.w.what : '');
         row.appendChild(f);
       });
@@ -188,7 +199,7 @@
     }
 
     // the rooms: worked-in rooms large, the rest one line each, the ones that wait on the owner first
-    var busy = open.filter(function (l) { return l.workers.length; });
+    var busy = open.filter(function (l) { return l.workers.length; }).sort(function (a, b) { return b.workers.length - a.workers.length || a.branch.localeCompare(b.branch); });
     var still = open.filter(function (l) { return !l.workers.length; })
       .sort(function (a, b) { return readyOf(b).length - readyOf(a).length || b.items.length - a.items.length; });
     var rooms = $('rooms');

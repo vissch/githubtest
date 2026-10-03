@@ -680,3 +680,29 @@ body.page footer details.k-about summary { font: 400 12px var(--sans); color: #8
   .k-crewrow.asleep { display: flex; }
 }
 .k-hero { grid-template-columns: minmax(0, 1fr); } .k-hero-text { min-width: 0; } .k-crewrow { min-width: 0; max-width: 100%; }
+
+/* round 10 (review r9, 8.1/10): stand-in frogs, hero cards that fill the row, a detailed room on the branches page */
+.k-booth.k-standin video { filter: grayscale(1) brightness(1.05) contrast(.85); opacity: .7; }
+.k-standin-cap { position: absolute; left: 6px; right: 6px; bottom: 6px; z-index: 3; text-align: center; font: 600 10.5px var(--sans); color: #444;
+  background: rgba(255,255,255,.85); border-radius: 999px; padding: 2px 6px; }
+.k-booth.k-mini .k-standin-cap, .k-booth.k-round .k-standin-cap, .k-desks-sm .k-standin-cap { display: none; }
+.k-crewrow.n2:not(.asleep) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.k-crewrow.n1:not(.asleep) { grid-template-columns: minmax(0, 1fr); max-width: 760px; }
+.k-crewrow.n1 .k-mate { grid-template-columns: 240px minmax(0, 1fr); }
+.k-mate-head { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.k-mate-head b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-mate-head .k-typing { flex: none; margin-left: 0; }
+.k-mate { align-items: center; }
+.k-crewrow.asleep .k-sleeper .k-booth { max-width: 170px; }
+.k-room-body.k-detail { grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr); }
+.k-room.half .k-room-body.k-detail { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); }
+.k-files { display: grid; gap: 3px; background: #262628; border-radius: 14px; padding: 10px 14px; font: 12px var(--mono); color: #b5b5b5; min-width: 0; }
+.k-files b { font: 600 13px var(--sans); color: #f2f2f2; margin-bottom: 3px; }
+.k-files span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.k-assets .novisual { background: repeating-linear-gradient(135deg, #f1f1f1 0 10px, #e9e9e9 10px 20px); color: #666; font: 600 12px var(--sans); }
+.k-assets .novisual span { font-family: var(--sans); letter-spacing: 0; text-transform: none; }
+@media (max-width: 760px) {
+  .k-desks-sm .k-nametag .k-kind { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  .k-crewrow.n1 .k-mate, .k-crewrow .k-mate { grid-template-columns: 110px minmax(0, 1fr); }
+  .k-room-body.k-detail, .k-room.half .k-room-body.k-detail { grid-template-columns: 1fr; }
+}
