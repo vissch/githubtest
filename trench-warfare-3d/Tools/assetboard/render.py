@@ -39,6 +39,9 @@ def reel(a):
     out.sort(key=lambda f: (f['what'] != 'game', f['form'] != 'battle', f.get('order', 0)))
     out += a.get('earlier', [])                       # what was filmed before, oldest first, after what it is now
     turn = next((f for f in out if f['file'].endswith(('.game-turn.mp4', '.turn.mp4'))), None)
+    own = next((f for f in out if f['what'] == 'game' and f['file'].startswith(f'film/{a["id"]}.')), None)
+    if turn and own and not turn['file'].startswith(f'film/{a["id"]}.'):
+        turn = own                                    # a unit drawn with a shared figure opens on its own game film
     if turn:                                          # a page and a card open on the model going round
         out.remove(turn)
         out.insert(0, turn)

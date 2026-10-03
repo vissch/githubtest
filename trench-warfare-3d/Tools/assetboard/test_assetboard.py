@@ -14,6 +14,7 @@ sys.path.insert(0, str(HERE))
 import build      # noqa: E402
 import films      # noqa: E402
 import looks      # noqa: E402
+import render     # noqa: E402
 import src_ops    # noqa: E402
 import model      # noqa: E402
 import src_code   # noqa: E402
@@ -123,6 +124,13 @@ def fixtures():
     case('films: an earlier film is named by its day and what its folder says',
          films.earlier_title('2026-09-28-drive-feel/after', 'Maw') == 'Earlier · 28 Sep · drive feel, after'
          and films.earlier_title('misc', 'Maw_a') == 'Earlier · Maw a', films.earlier_title('2026-09-28-drive-feel/after', 'Maw'))
+    shared = dict(id='Rifle', models=[dict(form='battle', films=[dict(file='film/FigureSoldier.turn.mp4', what='render'),
+                                                              dict(file='film/Rifle.battle.game-battle.mp4', what='game')])])
+    own = dict(id='Maw', models=[dict(form='battle', films=[dict(file='film/Maw.battle.game-moves.mp4', what='game'),
+                                                           dict(file='film/Maw.battle.game-turn.mp4', what='game')])])
+    case('reel: a unit drawn with a shared figure opens on its own game film; a model of its own on its turntable',
+         render.reel(shared)[0]['file'] == 'film/Rifle.battle.game-battle.mp4' and render.reel(own)[0]['file'] == 'film/Maw.battle.game-turn.mp4',
+         [render.reel(shared)[0]['file'], render.reel(own)[0]['file']])
     import ops
     keep = ops.CREW
     ops.CREW = tmp / 'cache'

@@ -850,3 +850,16 @@ body.filtering .bucket .card.k-over:not([hidden]) { display: flex; }
   .k-dots .k-booth { width: 28px !important; height: 28px !important; }
   .k-crewrow.asleep .k-sleeper-more { flex: 0 0 30%; }
 }
+
+/* round 19 (review r18, 8.8/10): the +N tile is a frog tile, small groups in one row, filters in one row */
+.k-sleeper-more { display: grid; justify-items: center; gap: 6px; align-content: start; }
+.k-mosaic { position: relative; width: 100%; max-width: 170px; aspect-ratio: 1; border-radius: 18px; overflow: hidden; display: grid; grid-template-columns: 1fr 1fr; background: #ddd; }
+.k-mosaic img { width: 100%; height: 100%; object-fit: cover; filter: grayscale(.8) brightness(.85); }
+.k-mosaic-n { position: absolute; inset: 0; display: grid; place-items: center; font: 700 28px var(--sans); color: #fff; background: rgba(20,20,20,.38); }
+.k-group-names { max-height: 2.9em; overflow: hidden; }
+.k-group-names a, .k-group-names span { font: 500 11.5px var(--sans); background: #f0f0f0; color: #444; border-radius: 999px; padding: 2px 8px; text-decoration: none; }
+.k-assets .filters { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 18px; }
+.k-assets .filters .chips { flex-wrap: nowrap; }
+.k-assets .filters .chips[data-filter="q"] { margin-left: auto; }
+.k-assets .k-assets input[type=search], .k-assets #q { min-width: 180px; }
+@media (max-width: 760px) { .k-wide-only { display: none; } .k-assets .filters .chips[data-filter="q"] { margin-left: 0; } }
