@@ -79,7 +79,7 @@
           {% endif %}
         </div>
         <div class="body">
-          <div class="name">{{ a.name }}{% if a.archetype is not none %} <span class="id">{{ a.archetype }}</span>{% endif %}</div>
+          <div class="name">{{ a.name }}</div>
           <div class="cat">{{ a.category }}{% if a.kind == 'extra' %} · not a unit{% endif %}{% if a.set %} · {{ a.set }}{% endif %}</div>
           <div class="dots" title="{% for s in a.stages %}{{ s.label }}: {{ 'yes' if s.ok else 'no' }}{% if not loop.last %}, {% endif %}{% endfor %}">
             {% for s in a.stages %}<i class="{{ 'ok' if s.ok else 'no' }}"></i>{% endfor %}

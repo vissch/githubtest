@@ -12,6 +12,10 @@
   function shortBranch(b) { return b.replace(/^lane\/(show|sim)\//, ''); }
   function laneKind(b) { var m = /^lane\/(show|sim)\//.exec(b); return m ? m[1] : b.split('/')[0]; }
   function changed(node, sig) { if (!node || node.dataset.sig === sig) return false; node.dataset.sig = sig; node.innerHTML = ''; return true; }
+  function said(subject) {
+    var w = subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's \w+ review round:\s*/i, '').split(/[,;:]\s/)[0];
+    return w.charAt(0).toUpperCase() + w.slice(1);
+  }
   function ago(day) {
     var d = Math.round((Date.now() - new Date(day + 'T12:00:00').getTime()) / 864e5);
     return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d + ' days ago';
@@ -99,8 +103,7 @@
       var tl = el('ol', 'k-tl');
       var lastDay = '';
       l.last.slice(0, 3).forEach(function (k) {
-        var what = k.subject.replace(/^(tools|docs|sim|show|test)[^:]*:\s*/i, '').replace(/^the board's \w+ review round:\s*/i, '').split(/[,;:]\s/)[0];
-        var li = el('li'); li.appendChild(el('span', 'k-tl-what', what.charAt(0).toUpperCase() + what.slice(1)));
+        var li = el('li'); li.appendChild(el('span', 'k-tl-what', said(k.subject)));
         if (k.date !== lastDay) li.appendChild(el('span', 'k-tl-when', ago(k.date))); lastDay = k.date;
         li.title = k.date + ' · ' + k.subject; tl.appendChild(li);
       });
@@ -109,7 +112,7 @@
     }
     if (side.children.length) body.appendChild(side); else body.classList.add('solo');
     r.appendChild(body);
-    if (l.last.length && !onBranches) r.appendChild(el('p', 'k-last', 'last commit ' + l.last[0].date + ' · ' + l.last[0].subject));
+    if (l.last.length && !onBranches) { var lc = el('p', 'k-last', said(l.last[0].subject) + ' · ' + ago(l.last[0].date)); lc.title = l.last[0].subject; r.appendChild(lc); }
     return r;
   }
   // a room nobody sits in: one line, and what waits in it
@@ -128,6 +131,8 @@
     var g = document.querySelector('.k-floorgrid'); if (!g) return;
     var cols = getComputedStyle(g).gridTemplateColumns.split(' ').length;
     var cards = g.querySelectorAll('.k-room'); if (!cards.length) return;
+    cards.forEach(function (c) { c.style.gridColumn = ''; });
+    if (g.querySelector('.k-room.half')) return;   // a two-row room: the grid packs the lines beside it by itself
     var used = 0;
     cards.forEach(function (c) { c.style.gridColumn = ''; });
     cards.forEach(function (c, i) {
@@ -249,6 +254,7 @@
       if (lounge.length > capL) { var mo = el('a', 'k-nap k-nap-more'); mo.href = onBranches ? '#lounge' : 'floor.html#lounge'; mo.title = lounge.slice(capL).map(function (r) { return C.label(r.name); }).join(', '); mo.appendChild(el('span', 'k-nap-n', '+' + (lounge.length - capL))); mo.appendChild(el('b', null, 'more')); naps.appendChild(mo); }
     }
     set('n-lounge', (heroSleeps ? lounge.length + ' more' : all.idle.length) + ' asleep');
+    set('n-asleep', all.idle.length + ' asleep in the lounge →');
     var lg = $('lounge'); if (lg) lg.hidden = !lounge.length;
 
     // the cards: frogs at work on a branch that touches the asset
