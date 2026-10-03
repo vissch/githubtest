@@ -38,7 +38,8 @@
       var head = g[0]; head.classList.add('k-group');
       head.querySelector('.novisual span').textContent = k + ' ×' + g.length;
       var names = document.createElement('div'); names.className = 'k-group-names';
-      g.forEach(function (c, i) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); if (i) c.classList.add('k-grouped'); });
+      g.forEach(function (c, i) { if (i < 6) { var a = document.createElement('a'); a.href = c.getAttribute('href'); a.textContent = c.querySelector('.name').textContent; names.appendChild(a); } if (i) c.classList.add('k-grouped'); });
+      if (g.length > 6) { var m = document.createElement('span'); m.textContent = '+' + (g.length - 6); m.title = g.slice(6).map(function (c) { return c.querySelector('.name').textContent; }).join(', '); names.appendChild(m); }
       head.querySelector('.body').appendChild(names);
       head.querySelector('.name').textContent = g.length + ' units';
     });
@@ -48,7 +49,9 @@
     var grid = bucket.querySelector('.grid');
     var cols = Math.max(1, getComputedStyle(grid).gridTemplateColumns.split(' ').length);
     var cards = Array.prototype.filter.call(bucket.querySelectorAll('.card'), function (c) { return !c.classList.contains('k-grouped'); });
-    var limit = cards.length > cols * 2 ? cols * 2 : (cards.length > cols && cards.length % cols ? Math.floor(cards.length / cols) * cols : cards.length);
+    var limit = cards.length > cols * 2 ? cols * 2 : cards.length;
+    if (cards.length - limit < 3) limit = cards.length;
+    if (cols >= 4 && cards.length > cols && cards.length <= cols + 2) grid.style.gridTemplateColumns = 'repeat(' + cards.length + ', minmax(0, 1fr))';
     cards.forEach(function (c, i) { if (i >= limit) c.classList.add('k-over'); });
     if (cards.length <= limit) return;
     var b = document.createElement('button'); b.className = 'k-showall'; b.type = 'button';

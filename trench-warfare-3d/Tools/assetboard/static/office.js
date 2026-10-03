@@ -227,7 +227,8 @@
           row.appendChild(f);
         });
         if (all.idle.length > 6) { var mt = el('a', 'k-sleeper k-sleeper-more'); mt.href = 'floor.html'; mt.title = all.idle.slice(6).map(function (r) { return C.label(r.name); }).join(', ');
-          mt.appendChild(el('span', 'k-nap-n', '+' + (all.idle.length - 6))); mt.appendChild(el('span', null, 'more asleep')); row.appendChild(mt); }
+          var mos = el('div', 'k-mosaic'); all.idle.slice(6, 10).forEach(function (r) { var i = el('img'); i.src = 'img/crew/' + C.key({ id: r.id, kind: r.kind, name: r.name }).replace(/^~/, '') + '.jpg'; i.alt = ''; mos.appendChild(i); });
+          mos.appendChild(el('span', 'k-mosaic-n', '+' + (all.idle.length - 6))); mt.appendChild(mos); mt.appendChild(el('span', null, 'more asleep')); row.appendChild(mt); }
         row.appendChild(el('p', 'k-asleep-line', 'Everyone is asleep' + (ready.length ? ' — ' + ready.length + ' stage' + (ready.length > 1 ? 's wait' : ' waits') + ' for you.' : '.')));
       }
     }
@@ -251,7 +252,6 @@
     var cap = onBranches ? still.length : 3;      // the overview shows the first few; the branches page all
     if (changed(lines, JSON.stringify([still, cap]))) {
       still.slice(0, cap).forEach(function (l) { lines.appendChild(quietRoom(l)); });
-      if (onBranches) { var lng = el('a', 'k-room k-room-line k-room-more'); lng.href = 'index.html#lounge'; lng.appendChild(el('b', null, all.idle.length + ' asleep →')); lng.appendChild(el('span', 'k-waits', 'the lounge, on the overview')); lines.appendChild(lng); }
       if (!onBranches) { var more = el('a', 'k-room k-room-line k-room-more'); more.href = 'floor.html'; more.appendChild(el('b', null, 'All ' + (o.lanes.length) + ' branches →')); more.appendChild(el('span', 'k-waits', (still.length > cap ? (still.length - cap) + ' more open, ' : '') + (o.lanes.length - open.length) + ' quiet')); lines.appendChild(more); }
     }
 
@@ -270,6 +270,7 @@
     }
     set('n-lounge', (heroSleeps ? lounge.length + ' more' : all.idle.length) + ' asleep');
     set('n-asleep', all.idle.length + ' asleep in the lounge →');
+    var pill = $('n-asleep'); if (pill) pill.closest('p').hidden = !all.idle.length;
     var lg = $('lounge'); if (lg) lg.hidden = !lounge.length || !!heroSleeps;
 
     // the cards: frogs at work on a branch that touches the asset
