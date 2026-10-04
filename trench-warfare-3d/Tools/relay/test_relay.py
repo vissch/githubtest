@@ -798,6 +798,8 @@ class Runs(Repo):
         cards = sorted((self.tmp / "home" / "runs").glob("*/legs/*/card.md"))
         self.assertEqual(len(cards), 2)
         self.assertTrue(all("cannot open a window" in c.read_text(encoding="utf-8") for c in cards))
+        self.assertTrue(all("UNITY_CLI_ALLOW_LOCKED" in c.read_text(encoding="utf-8") for c in cards))
+        self.assertTrue(all("%LOCALAPPDATA%/unity/bin/unity.exe" in c.read_text(encoding="utf-8") for c in cards))
         self.assertEqual(stop["units"], {"u1": "PASS"})
         self.assertEqual(runner.tally({"a": "PASS", "b": "FAIL", "c": "PASS"}), ", 3 units: 2 PASS, 1 FAIL")
 
@@ -1303,7 +1305,14 @@ class PipelineSource(Repo):
         card = self.leg_file(3, "card.md").read_text(encoding="utf-8")
         self.assertIn("Critic round 1", card)
         self.assertIn("Hard critic", card)                               # the rubric rides on the card
+        self.assertNotIn("brief/tw-env-sim", card)                       # a critic is not handed the producer's brief
+        self.assertFalse(self.leg_file(3, "brief", desk=True).exists())
         self.assertNotIn(str(self.board).replace("\\", "/"), card.replace("\\", "/"))
+        for nn in (1, 2):
+            self.assertTrue(self.leg_file(nn, "brief/tw-env-sim/SKILL.md", desk=True).is_file())
+            self.assertTrue(self.leg_file(nn, "brief/pipeline/references/driving-and-evidence.md", desk=True).is_file())
+            self.assertIn("brief/tw-env-sim/SKILL.md", self.leg_file(nn, "card.md").read_text(encoding="utf-8"))
+            self.assertNotIn("UNITY_CLI_ALLOW_LOCKED", self.leg_file(nn, "card.md").read_text(encoding="utf-8"))
         fix = self.leg_file(4, "card.md").read_text(encoding="utf-8")
         self.assertIn("fix round", fix)
         self.assertIn("1. Fix the first thing", fix)
@@ -1350,7 +1359,7 @@ class PipelineSource(Repo):
 
     def test_the_job_card_names_the_skill_for_the_role_and_every_such_skill_exists(self):
         ctx = {"board": self.board, "work": self.work, "station": "desktop", "skip": set()}
-        self.assertIn("Load the skill `tw-env-sim`", SP.body(SP.next(ctx)))
+        self.assertIn("Read `brief/tw-env-sim/SKILL.md` in your leg folder", SP.body(SP.next(ctx)))
         skills = HERE.parents[2] / ".claude" / "skills"
         for role, skill in SP.ROLE_SKILLS.items():
             self.assertTrue((skills / skill / "SKILL.md").exists(), "%s -> %s" % (role, skill))
