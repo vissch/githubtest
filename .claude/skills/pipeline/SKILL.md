@@ -67,3 +67,5 @@ Driving the editor and capturing evidence at every zoom band, for all of them: `
 - Verdicts come from result files and numbers, never from an exit code alone or from looking at a picture.
 - Never write evidence or run folders into a checkout: an untracked file changes the tree `land.py` checks.
 - Landing is the owner's call. Say what is ready and what the full gate showed; do not run `land.py` unasked.
+  When the owner says land, write `approvals/<lane>.json` on the board in the same turn (`lane`, `date`, `words`: theirs,
+  verbatim): the status site lists the lane under "Approved, not landed" until it is in.

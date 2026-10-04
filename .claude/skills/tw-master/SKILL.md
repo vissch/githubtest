@@ -20,6 +20,8 @@ The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations
 5. A decision only the owner can make: AskUserQuestion, one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
 
 ## Landing a lane (only when the owner says so)
+When the owner says so, first write `approvals/<lane>.json` on the board (`lane`, `date`, `words`: theirs, verbatim), so
+the status site shows the lane as approved until it has landed. `python Tools/assetboard/ops.py --queue` lists what waits.
 1. Check that every stage of the item is DONE (none STALE, BLOCKED or IN_PROGRESS).
 2. Commit the inbox note (`docs/inbox/<date>-<to>-<topic>.md`) and any `decisions.md` row **on the lane**, so they sit inside the gated tree.
 3. Rebase onto origin's integration branch. Never merge lane to lane.
