@@ -71,15 +71,8 @@ def version(name):
     return int(m.group(1)) if m else 1
 
 
-def lanes(repo, today=None):
-    """Every branch with commits integration lacks: name, tip date, ahead, worktree, live or parked, and its commits."""
-    today = today or datetime.date.today()
-    worktrees, cur = {}, None
-    for line in git(repo, 'worktree', 'list', '--porcelain').split('\n'):
-        if line.startswith('worktree '):
-            cur = Path(line[9:]).name
-        elif line.startswith('branch refs/heads/'):
-            worktrees[line[18:]] = cur
+def branch_refs(repo):
+    """{branch: (ref, tip date)} for every branch but integration and main, origin's and this clone's."""
     refs = {}
     for scope in ('refs/remotes/origin', 'refs/heads'):
         for line in git(repo, 'for-each-ref', '--format=%(refname:short)|%(committerdate:short)', scope).split('\n'):
@@ -90,6 +83,19 @@ def lanes(repo, today=None):
             if name in ('origin', 'HEAD', 'main', INTEGRATION[7:]) or not name:
                 continue
             refs[name] = (ref, date)            # a local branch (possibly ahead of origin) wins over the remote one
+    return refs
+
+
+def lanes(repo, today=None):
+    """Every branch with commits integration lacks: name, tip date, ahead, worktree, live or parked, and its commits."""
+    today = today or datetime.date.today()
+    worktrees, cur = {}, None
+    for line in git(repo, 'worktree', 'list', '--porcelain').split('\n'):
+        if line.startswith('worktree '):
+            cur = Path(line[9:]).name
+        elif line.startswith('branch refs/heads/'):
+            worktrees[line[18:]] = cur
+    refs = branch_refs(repo)
     out = []
     for name, (ref, date) in sorted(refs.items()):
         ahead = git(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{INTEGRATION}...{ref}').strip()

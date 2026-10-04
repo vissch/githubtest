@@ -6,6 +6,8 @@ moves them is seen. Against FIXTURES: a code table that changed shape must stop 
 refuse an unknown id, lane families must collapse, and a status must follow its ladder.
 """
 import json
+import os
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -20,6 +22,7 @@ import src_ops    # noqa: E402
 import model      # noqa: E402
 import src_code   # noqa: E402
 import src_git    # noqa: E402
+import src_queue  # noqa: E402
 
 results = []
 
@@ -216,8 +219,84 @@ def fixtures():
         case('status: ' + name, got == want, f'{got}, wanted {want}')
 
 
+DECISIONS = """# Owner decisions
+
+## Process
+| Date | Decision |
+|---|---|
+| 2026-09-01 | **An old row.** It stays. |
+
+## Open: waiting on the owner
+- **A question (2026-09-02):** its first wording.
+Do not build any of these without asking.
+- **Another question** that runs
+  over two lines.
+
+## Plans that live outside the repo
+| Plan file | Topic |
+|---|---|
+| a-plan.md | not a decision |
+"""
+
+
+def queue_fixtures():
+    entries = src_queue.parse(DECISIONS)
+    case('queue: a decisions page is its dated rows and its open bullets, and nothing else',
+         [(e['kind'], e['date'], e['title']) for e in entries] == [('row', '2026-09-01', 'An old row.'),
+             ('open', '2026-09-02', 'A question (2026-09-02):'), ('open', '', 'Another question')], entries)
+    case('queue: a bullet over two lines is one entry, whole', entries[2]['text'].endswith('  over two lines.'), entries[2]['text'])
+
+    # a repo whose integration moved on (a bullet reworded, a row landed) while two lanes each wrote decisions down:
+    # lane a only in this clone, lane b only on origin and touched later
+    with tempfile.TemporaryDirectory() as tmp:
+        repo, page, clock = Path(tmp), Path(tmp) / src_queue.DECISIONS, [0]
+
+        def git(*args):
+            clock[0] += 60
+            when = f'{1790000000 + clock[0]} +0000'
+            env = dict(os.environ, GIT_AUTHOR_DATE=when, GIT_COMMITTER_DATE=when)
+            p = subprocess.run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'core.autocrlf=false', *args],
+                               cwd=repo, capture_output=True, env=env)
+            assert p.returncode == 0, (args, p.stderr)
+            return p.stdout.decode().strip()
+
+        def commit(text, branch=None):
+            if branch:
+                git('checkout', '-q', '-B', branch, base)
+            page.parent.mkdir(parents=True, exist_ok=True)
+            page.write_bytes(text.encode('utf-8'))
+            git('add', '-A')
+            git('commit', '-q', '-m', branch or 'integration')
+            return git('rev-parse', 'HEAD')
+
+        landed = '| 2026-09-03 | **A landed row.** |\n'
+        row = '| 2026-09-01 | **An old row.** It stays. |\n'
+        git('init', '-q', '-b', 'trunk')
+        base = commit(DECISIONS)
+        integ = commit(DECISIONS.replace('A question (2026-09-02):** its first', 'A question, narrowed (2026-09-02):** its second')
+                       .replace(row, row + landed))
+        git('update-ref', 'refs/remotes/' + src_git.INTEGRATION, integ)
+        commit(DECISIONS.replace(row, row + '| 2026-09-04 | **A lane row.** The first wording. |\n')
+               .replace('- **Another', '- **A lane question (2026-09-05):** asked on lane a.\n- **Another'), 'lane/show/a')
+        b = commit(DECISIONS.replace(row, row + landed + '| 2026-09-04 | **A lane row.** The newer wording. |\n'), 'lane/show/b')
+        git('update-ref', 'refs/remotes/origin/lane/show/b', b)
+        git('checkout', '-q', '--detach', base)
+        git('branch', '-q', '-D', 'lane/show/b', 'trunk')
+
+        got = {e['title']: e for e in src_queue.stranded(repo)}
+        case('queue: what a lane wrote down and integration lacks is stranded, a row and an open bullet',
+             sorted(got) == ['A lane question (2026-09-05):', 'A lane row.'], sorted(got))
+        case('queue: an older wording of a bullet integration has since changed is not', not any('A question' in t for t in got), sorted(got))
+        case('queue: a row that also landed is not', 'A landed row.' not in got, sorted(got))
+        case('queue: a branch that was never pushed is read', got.get('A lane question (2026-09-05):', {}).get('lane') == 'lane/show/a', got)
+        r = got.get('A lane row.', {})
+        case('queue: one row on two lanes is reported once, in the wording touched last, with both lanes',
+             r.get('lane') == 'lane/show/b' and 'newer' in r.get('text', '') and r.get('lanes') == ['lane/show/a', 'lane/show/b'], r)
+
+
 if __name__ == '__main__':
     real_tree()
     fixtures()
+    queue_fixtures()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)
