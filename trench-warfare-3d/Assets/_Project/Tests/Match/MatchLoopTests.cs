@@ -57,11 +57,17 @@ namespace TW.Tests
             return slots.Count == 0 ? -1 : slots[n % slots.Count];
         }
 
-        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null, ScriptedEnemy player = null)
+        /// <summary><paramref name="config"/> and <paramref name="built"/> (2026-10-04, the balance sweep) let a caller
+        /// play the same match on other numbers: the first turns the config before any world is built, the second is
+        /// handed every world the session builds, before its first tick (UnitDefinitions.Apply, a system's switch).
+        /// Both null: the match as it always was, tick for tick.</summary>
+        public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null, ScriptedEnemy player = null,
+                                  System.Func<SimConfig, SimConfig> config = null, System.Action<MatchSim> built = null)
         {
             var cfg = SimConfig.Default; cfg.Seed = seed; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2;   // GreyboxCorridor's
+            if (config != null) cfg = config(cfg);
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 8f;
-            using var session = new LockstepSession(() => MatchSim.CreateBattlefield(cfg, field), false, 0, 0, 0f, seed);
+            using var session = new LockstepSession(() => { var made = MatchSim.CreateBattlefield(cfg, field); built?.Invoke(made); return made; }, false, 0, 0, 0f, seed);
             ai ??= new ScriptedEnemy();   // the scene's: every 40 ticks, attacks at 8, support with 180 in reserve
             var said = new StringBuilder();
             var callers = ai.Said;   // a caller's own listener hears it too
