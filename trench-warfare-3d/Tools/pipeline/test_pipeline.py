@@ -44,8 +44,15 @@ class PipelineTest(unittest.TestCase):
         P.REPO = self.repo
         os.environ["TW_BOARD"] = str(self.board)
         os.environ["TW_WORKER_PID"] = str(os.getpid())
+        # Run by a relay leg, pipeline.py would refuse every claim here (the leg's mark, and the marker in the
+        # checkout it works in). These claims are on a throwaway board: work from the temp folder, without the mark.
+        self.leg_mark, self.cwd = os.environ.pop("TW_RELAY", None), os.getcwd()
+        os.chdir(t)
 
     def tearDown(self):
+        os.chdir(self.cwd)
+        if self.leg_mark is not None:
+            os.environ["TW_RELAY"] = self.leg_mark
         P.REPO = self.old
         for k in ("TW_BOARD", "TW_STATION", "TW_WORKER_PID"):
             os.environ.pop(k, None)
