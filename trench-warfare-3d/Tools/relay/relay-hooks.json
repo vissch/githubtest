@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "SessionStart": [{"matcher": "startup", "hooks": [{"type": "command", "command": "\"{PY}\" \"{HOOK}\" session-start \"{LEG}\""}]}],
+    "PostToolBatch": [{"hooks": [{"type": "command", "command": "\"{PY}\" \"{HOOK}\" meter \"{LEG}\""}]}],
+    "PreToolUse": [{"matcher": "*", "hooks": [{"type": "command", "command": "\"{PY}\" \"{HOOK}\" pre-tool \"{LEG}\""}]}],
+    "PreCompact": [{"matcher": "auto", "hooks": [{"type": "command", "command": "\"{PY}\" \"{HOOK}\" pre-compact \"{LEG}\""}]}]
+  }
+}
