@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""Relay settings: limits.json (thresholds and caps), phases.json (model, effort and mode per phase) and style.json
+(how a leg talks to the owner). Each is checked on load, so a bad edit stops the run before a leg starts.
+Stdlib only. ASCII only.
+"""
+import json
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+TUNABLE = ("amber_tokens", "red_tokens", "run_hours", "leg_minutes", "leg_budget_usd")
+FIXED = ("autocompact_tokens", "no_progress_units", "max_plan_parts", "retro_every_legs", "note_max_bytes",
+         "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
+         "done_when_seconds", "gate_seconds")
+MODES = ("read_only", "work")
+EFFORTS = ("low", "medium", "high", "xhigh", "max")
+
+
+def _read(name, folder=None):
+    p = Path(folder or HERE) / name
+    try:
+        return json.loads(p.read_text(encoding="utf-8"))
+    except (OSError, ValueError) as e:
+        raise SystemExit("relay: cannot read %s: %s" % (p, e))
+
+
+def limits(folder=None, overrides=None):
+    """Flat dict of numbers. overrides (the retrospective's tuning, or a CLI flag) are clamped to each bound."""
+    raw = _read("limits.json", folder)
+    out = {}
+    for k in TUNABLE:
+        e = raw.get(k)
+        if not isinstance(e, dict) or not all(isinstance(e.get(x), (int, float)) for x in ("value", "min", "max")):
+            raise SystemExit("relay: limits.json %s needs value, min and max" % k)
+        v = (overrides or {}).get(k, e["value"])
+        out[k] = min(max(v, e["min"]), e["max"])
+    for k in FIXED:
+        if not isinstance(raw.get(k), (int, float)):
+            raise SystemExit("relay: limits.json %s must be a number" % k)
+        out[k] = raw[k]
+    if not out["amber_tokens"] < out["red_tokens"] < out["autocompact_tokens"]:
+        raise SystemExit("relay: limits.json needs amber_tokens < red_tokens < autocompact_tokens")
+    return out
+
+
+def phases(folder=None):
+    raw = _read("phases.json", folder)
+    for name, p in raw.items():
+        if p.get("mode") not in MODES or p.get("effort") not in EFFORTS or not p.get("model"):
+            raise SystemExit("relay: phases.json %s needs model, effort (%s) and mode (%s)"
+                             % (name, "|".join(EFFORTS), "|".join(MODES)))
+        if p["mode"] == "read_only" and not p.get("output"):
+            raise SystemExit("relay: phases.json %s is read_only, so it needs an output file" % name)
+    for need in ("plan", "execute"):
+        if need not in raw:
+            raise SystemExit("relay: phases.json has no %s phase" % need)
+    return raw
+
+
+def style(folder=None):
+    raw = _read("style.json", folder)
+    for k in ("reader", "talk", "report"):
+        if k not in raw:
+            raise SystemExit("relay: style.json has no %s" % k)
+    if not isinstance(raw["report"].get("max_words"), int) or not raw["report"].get("shape"):
+        raise SystemExit("relay: style.json report needs max_words and shape")
+    return raw
+
+
+def style_text(st):
+    """The style rules as the first block of every role prompt: plain lines, not JSON."""
+    t, r = st["talk"], st["report"]
+    lines = ["# How you write", "Reader: %s" % st["reader"]]
+    if t.get("answer_first"):
+        lines.append("- Give the answer first.")
+    lines += ["- Words: %s." % t["words"], "- Sentences: %s." % t["sentences"]]
+    if t.get("explain_terms"):
+        lines.append("- Terms: %s." % t["explain_terms"])
+    if t.get("no"):
+        lines.append("- Never: %s." % ", ".join(t["no"]))
+    for k in ("tables", "details"):
+        if st.get(k):
+            lines.append("- %s: %s." % (k.capitalize(), st[k]))
+    lines.append("Your last message is the report, at most %d words, in exactly this shape:" % r["max_words"])
+    lines += ["  " + s for s in r["shape"]]
+    q = st.get("question_to_owner")
+    if q:
+        lines.append("A question for the owner: at most %d words, one decision, %s."
+                     % (q["max_words"], q.get("give_options", "with options")))
+    return "\n".join(lines) + "\n"
+
+
+def report_problems(text, st):
+    """Why a leg's final report breaks the style, as a list of short strings (empty = fine)."""
+    out = []
+    words = len(text.split())
+    if words > st["report"]["max_words"]:
+        out.append("report is %d words, the limit is %d" % (words, st["report"]["max_words"]))
+    if not text.lstrip().upper().startswith("RESULT:"):
+        out.append("report does not start with RESULT:")
+    return out
