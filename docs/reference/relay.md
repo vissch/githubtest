@@ -96,8 +96,12 @@ record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a c
 `evidence/`, to the relay's own code, or to git's push guard. Every stop writes `relay/<station>/stops/<run>.json`
 on the board, with how each unit ended (`units`), so a failed unit is not hidden behind "nothing left to do".
 A run started where no window can open (Windows session 0: every Claude session on the desktop) says so at its
-start and on every leg card; work that needs a windowed Unity editor then ends BLOCKED. Start such a run from a
-normal terminal. Leg folders and logs stay under
+start and on every leg card; work that needs a windowed Unity editor then ends BLOCKED. Batch mode still works.
+The card tells that leg to drive the editor with the Unity CLI at %LOCALAPPDATA%/unity/bin/unity.exe, the one
+`trench-warfare-3d/Tools/tw` is written for. A different unity earlier on PATH refuses the project lock and starts
+a second editor. Start such a run from a normal terminal. A pipeline leg's work checkout is another lane, so it
+does not have the role's skill. The runner copies that skill into the leg folder and the card points at the copy.
+Leg folders and logs stay under
 `%LOCALAPPDATA%\TrenchWarfare\relay\runs\`.
 
 ## What holds a leg
