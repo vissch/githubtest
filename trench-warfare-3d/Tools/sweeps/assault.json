@@ -1,0 +1,17 @@
+{
+  "about": "The assault ladder (AssaultLadderTests, decisions.md Open, 2026-09-28): a garrison of ten, an attack of N times its number, bare or behind support. The owner's ladder: three to one bare takes the trench, two to one bare is beaten off, support makes two to one enough, one to one takes nothing. The variants turn the rifle, the one number every rung stands on.",
+  "scenario": "ladder",
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "ladder": [
+    {"attackers": 10, "defenders": 10, "support": "None"},
+    {"attackers": 20, "defenders": 10, "support": "None"},
+    {"attackers": 20, "defenders": 10, "support": "Smoke"},
+    {"attackers": 20, "defenders": 10, "support": "Barrage"},
+    {"attackers": 20, "defenders": 10, "support": "Both"},
+    {"attackers": 30, "defenders": 10, "support": "None"}
+  ],
+  "variants": [
+    {"name": "rifle-damage", "patches": [{"unit": "Rifle", "field": "Weapon.Damage", "mul": [0.8, 1.25]}]}
+  ],
+  "targets": {}
+}
