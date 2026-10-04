@@ -4,6 +4,7 @@ note (lane work only). A paper that fails is not handed on. Stdlib only. ASCII o
 
   plan.md   ## Goal  ## Steps  ## Files  ## Checks  ## Done when  ## Risks      (roles/_phase_plan.md)
   note.md   ## Goal  ## Done  ## In flight  ## Next  ## Predictions  ## Dead ends
+  retro.md  ## What happened  ## Tuning  ## Proposals                             (roles/_phase_retro.md)
   critic.md   first line "VERDICT: <stage> ROUND <n>: <score>/100 ..", and three numbered fixes under
               "TOP-3 MANDATED FIXES" (roles/_phase_critic.md; the shape is the tw-critic skill's)
 A prediction is one line:  `<command>` -> exit <n>   or   `<command>` -> contains "<text>"
@@ -17,7 +18,9 @@ import cmdrules
 
 PLAN_SECTIONS = ("Goal", "Steps", "Files", "Checks", "Done when", "Risks")
 NOTE_SECTIONS = ("Goal", "Done", "In flight", "Next", "Predictions", "Dead ends")
-MAY_BE_EMPTY = ("Risks", "Dead ends", "In flight")
+RETRO_SECTIONS = ("What happened", "Tuning", "Proposals")
+MAY_BE_EMPTY = ("Risks", "Dead ends", "In flight", "Tuning", "Proposals")
+TUNE = re.compile(r"^\s*[-*]\s*`?([a-z_]+)`?\s*[:=]\s*([0-9][0-9_.]*)")
 LEG_BREAK = "--- leg break ---"
 PREDICTION = re.compile(r'^\s*[-*]?\s*`([^`]+)`\s*->\s*(exit\s+(\d+)|contains\s+"([^"]+)")\s*$')
 TICKED = re.compile(r"`([^`\n]+)`")
@@ -168,6 +171,25 @@ def plan_for_fixes(plan, fixes, round_no, score, target):
         elif not skipping:
             out.append(line)
     return "\n".join(out) + "\n"
+
+
+def check_retro(text, max_bytes):
+    """Problems with a retrospective, as short strings (empty = its tuning and proposals are taken)."""
+    return _shape(text, RETRO_SECTIONS, max_bytes, "retro.md")[0]
+
+
+def retro_tuning(text, allowed):
+    """{key: number} from the '## Tuning' lines `- <key>: <number> - why`, for the keys a retrospective may move."""
+    out = {}
+    for line in sections(text).get("Tuning", "").splitlines():
+        m = TUNE.match(line)
+        if m and m.group(1) in allowed:
+            try:
+                v = float(m.group(2).replace("_", ""))
+                out[m.group(1)] = int(v) if v == int(v) else v
+            except ValueError:
+                pass
+    return out
 
 
 def predictions(text):
