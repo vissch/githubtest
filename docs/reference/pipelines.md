@@ -142,3 +142,19 @@ repo. The board, the states and the commands are in `docs/reference/stations.md`
 | `pipeline/pipeline.py` | Job board and stage states (DONE, RECHECK, STALE, IN_PROGRESS, READY, BLOCKED) from `tw3d-board` | `python Tools/pipeline/pipeline.py status` |
 | `pipeline/test_pipeline.py` | Its tests, on throwaway git repos | `python Tools/pipeline/test_pipeline.py` |
 | `pipeline/run_detached.py` | Runs a gate, bench, sweep or batch detached from the session: pids with start times, a heartbeat from log growth, a timeout that stops only its own tree, a commit-headroom floor. Runs live in `%LOCALAPPDATA%/TrenchWarfare/runs`, never in a checkout | `python Tools/pipeline/run_detached.py start <name> --timeout 3600 --min-headroom-gb 10 -- <cmd>` then `status <name>` |
+
+## The relay
+
+Runs pipeline jobs and queued lane work as a chain of short headless Claude sessions (legs), so no session fills its
+context. A script picks the work, starts one leg at a time and checks the result. The contract is
+`docs/reference/relay.md`; the `/relay` skill wraps the commands.
+
+| Script | Does | Usage |
+|---|---|---|
+| `relay/relay.py` | The command line: run, status, stop, add, a leg's close-out, view, proofs | `python Tools/relay/relay.py run --work <work checkout> --dry-run` |
+| `relay/runner.py`, `relay/launch.py` | The run loop and its stop rules; starts and owns one leg | through `relay.py run` |
+| `relay/relay_hook.py`, `relay/cmdrules.py` | The Claude Code hooks of a leg: the context meter, the tool guards, the compaction block | wired per leg by `relay/relay-hooks.json` |
+| `relay/prepush.py` | Git pre-push hook: while a leg holds a checkout, only a forward push of its own lane leaves it | installed by the runner at run start |
+| `relay/legcmd.py` | A leg's close-out: the edit gate detached, then commit and push | `python Tools/relay/relay.py leg gate start` |
+| `relay/sources/` | Where work comes from: `pipeline.py` (board jobs), `lane.py` (queued lane work) | one file per source |
+| `relay/test_relay.py` | Its tests, with a stand-in for Claude (`relay/fake_claude.py`) | `python Tools/relay/test_relay.py` |

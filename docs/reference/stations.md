@@ -41,3 +41,8 @@ python Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words>" 
 The pipeline follows `CLAUDE.md`: stages commit on `lane/sim/pipe-<item>` or `lane/show/pipe-<item>`, seam changes are
 seam commits, and nothing lands without the owner. A job with nobody to ask records an open question in
 `decisions.md` and does not land on it.
+
+The relay (`docs/reference/relay.md`) takes this station's jobs unattended: its runner claims a job, runs a plan leg
+and execute legs in its own worktree (`githubtest-relay-work` on the desktop), checks the evidence by script and
+writes the result. It never takes a master stage, and its leg records and stop reasons go to `relay/<station>/` on
+the board.
