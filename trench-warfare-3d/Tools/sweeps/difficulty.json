@@ -1,0 +1,23 @@
+{
+  "about": "The three difficulties (UI/Shell/MissionCard.cs) against a player who only holds his trench (MatchLoopTests, Policy.Defend): side a is that player on seat 0, side b the enemy's script. now: the script's own defaults, which are NORMAL without the SOS barrage. The numbers here are copies of MissionCard's rows: when a row changes, change it here.",
+  "scenario": "match",
+  "policy": "Defend",
+  "minutes": 10,
+  "heroes": false,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "variants": [
+    {"name": "easy", "patches": [
+      {"script_b": "DeployEveryTicks", "set": 60}, {"script_b": "AttackGarrison", "set": 12},
+      {"script_b": "DeploysTanks", "set": false}, {"script_b": "UsesSupport", "set": false},
+      {"script_b": "SupportReserve", "set": 400}, {"script_b": "Defends", "set": false}]},
+    {"name": "normal", "patches": [
+      {"script_b": "DeployEveryTicks", "set": 40}, {"script_b": "AttackGarrison", "set": 8},
+      {"script_b": "DeploysTanks", "set": false}, {"script_b": "UsesSupport", "set": true},
+      {"script_b": "SupportReserve", "set": 180}, {"script_b": "Defends", "set": true}]},
+    {"name": "hard", "patches": [
+      {"script_b": "DeployEveryTicks", "set": 28}, {"script_b": "AttackGarrison", "set": 6},
+      {"script_b": "DeploysTanks", "set": true}, {"script_b": "UsesSupport", "set": true},
+      {"script_b": "SupportReserve", "set": 120}, {"script_b": "Defends", "set": true}]}
+  ],
+  "targets": {}
+}
