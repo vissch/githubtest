@@ -26,6 +26,7 @@ first): fetch, rebase, gate, land again. The local integration ref is moved only
 Exit 0 landed (or would, with --dry-run), 1 refused, 2 the push failed.
 """
 import argparse
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -69,6 +70,9 @@ def main():
     ap.add_argument('--carry-sim', metavar='WHY', default='')
     a = ap.parse_args()
 
+    # a relay leg never lands: the runner marks the checkout a leg works in (Tools/relay/prepush.py)
+    if os.environ.get('TW_RELAY') or (Path(git('rev-parse', '--absolute-git-dir', check=True)[1]) / 'relay-leg.json').exists():
+        refuse('a relay leg holds this checkout: landing is the owner\'s call, never a leg\'s')
     top = Path(git('rev-parse', '--show-toplevel', check=True)[1])
     branch = git('rev-parse', '--abbrev-ref', 'HEAD', check=True)[1]
     lane = 'sim' if branch.startswith('lane/sim/') else 'show' if branch.startswith('lane/show/') else None
