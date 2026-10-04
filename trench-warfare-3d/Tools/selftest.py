@@ -31,7 +31,9 @@ Tools/aosa/land.ps1, in a throwaway git repo with stand-ins for Unity and aosa.p
 report holding no test both fail the land instead of passing on validate.py's exit code, a try 2 that writes no
 report cannot pass on try 1's file while the env-only-twice rule still holds, a card's own change to a settings
 file survives the run while the build's churn is really gone from the tree, an Assets/Resources that was already there is kept,
-a failed snapshot stops the land before any build, and a green run claims no landing.
+a failed snapshot stops the land before any build, and a green run claims no landing. The relay (Tools/relay): land.py and pipeline.py refuse inside a leg, git's
+pre-push hook refuses a held checkout every push but its own lane and does nothing without the marker, and the
+leg's command rules refuse a landing. The relay's full tests are Tools/relay/test_relay.py.
 """
 import pathlib
 import re
@@ -940,6 +942,56 @@ def aosa_land_cases(tmp: pathlib.Path):
     run(['git', 'checkout', '-q', '--', *churn], proj)
 
 
+def relay_cases(tmp: pathlib.Path):
+    # What holds a relay leg (Tools/relay) sits outside the model. Each stop is switched on here and must refuse,
+    # and the same push without the marker must pass, so a hook that refuses everything is caught too.
+    import json
+    import os
+    sys.path.insert(0, str(HERE / 'pipeline'))
+    sys.path.insert(0, str(HERE / 'relay'))
+    import cmdrules
+    import gitio
+    from pipeline import proc_start
+    origin, work, board = tmp / 'relay-origin.git', tmp / 'relay-work', tmp / 'relay-board'
+    run(['git', 'init', '-q', '--bare', str(origin)], tmp)
+    run(['git', 'clone', '-q', str(origin), str(work)], tmp)
+    for sub in ('items', 'results', 'feedback', 'claims'):
+        (board / sub).mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], work)
+    (work / 'a.txt').write_text('a\n')
+    g('checkout', '-qb', 'lane/show/t'); g('add', '.'); g('commit', '-qm', 'base'); g('push', '-q', 'origin', 'lane/show/t')
+
+    def tool(script, *args, **env):
+        p = subprocess.run([sys.executable, str(HERE / script), *args], cwd=work, capture_output=True,
+                           env=dict(os.environ, TW_BOARD=str(board), TW_STATION='desktop', **env))
+        return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
+
+    code, out = tool('land.py', '--dry-run', TW_RELAY='1')
+    case('land.py refuses inside a relay leg', code == 1 and 'relay leg' in out, out)
+    code, out = tool('pipeline/pipeline.py', 'claim', 'thing--shots--0', TW_RELAY='1')
+    case('pipeline.py refuses to claim inside a relay leg', code != 0 and 'relay leg' in out, out)
+
+    marker = gitio.marker_path(work)
+    marker.write_text(json.dumps({'who': 'selftest', 'pid': os.getpid(), 'pid_start': proc_start(os.getpid()),
+                                  'lane': 'lane/show/t'}), encoding='utf-8')
+    gitio.install_prepush(work)
+    code, out = tool('land.py', '--dry-run')
+    case('land.py refuses in a checkout a relay leg holds (the marker, no variable)', code == 1 and 'relay leg' in out, out)
+    (work / 'a.txt').write_text('b\n'); g('commit', '-qam', 'more')
+    code, out = g('push', '-q', 'origin', 'HEAD:refs/heads/other')
+    case('git refuses a held checkout\'s push to another branch (the relay\'s pre-push hook)', code != 0 and 'relay' in out, out)
+    code, out = g('push', '-q', 'origin', 'lane/show/t')
+    case('the same hook lets the leg\'s own lane through', code == 0, out)
+    marker.unlink()
+    code, out = g('push', '-q', 'origin', 'HEAD:refs/heads/other')
+    case('without the marker the hook does nothing', code == 0, out)
+
+    leg = {'lane': 'lane/show/t', 'worktree': str(work), 'board': str(board)}
+    case('the leg\'s command rules refuse land.py and a push to main, and pass a push of its own lane',
+         bool(cmdrules.never('python Tools/land.py', leg)) and bool(cmdrules.never('git push origin main', leg))
+         and cmdrules.never('git push origin lane/show/t', leg) is None)
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -1031,6 +1083,7 @@ def main():
         scorecard_cases()
         gate_scope_cases(tmp)
         land_cases(tmp)
+        relay_cases(tmp)
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:
