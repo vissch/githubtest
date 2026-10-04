@@ -11,10 +11,11 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 | plan | Opus, high | read anything; write only `plan.md` in its leg folder | a plan the runner checks by script |
 | execute | Opus, low | the work, following the plan | commits on the lane, pushed |
 | critic | Opus, high | read its evidence bundle; write only `critic.md`; no subagent | a score out of 100 and three mandated fixes |
+| retro | Opus, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
 
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
-A plan leg and a critic leg end with `leg done`, which runs the runner's own check on their paper, so they can mend
+A plan leg, a critic leg and a retrospective end with `leg done`, which runs the runner's own check on their paper, so they can mend
 it before the runner reads it.
 
 ## The critic
@@ -29,6 +30,21 @@ The verdict stays the script's: a PASS is not turned into a FAIL by a score. The
 round adds a row to `relay/<station>/lessons.md` on the board. A fix round that scores lower is named in the note;
 undoing it is the owner's call. With no room left (the leg cap, the time, the owner's stop) the critic is skipped
 and the note says so. Queued lane work has no evidence bundle and gets no critic.
+
+## The retrospective
+
+Between units, every ten legs (`retro_every_legs`), one leg looks back: Opus high, read-only, in a folder that holds
+this run's leg records, what the guard refused, the critic rounds and the limits with their bounds. It writes a
+short paper with three sections, checked by script.
+
+| Section | What the runner does with it |
+|---|---|
+| What happened | nothing; it is for the reader |
+| Tuning | moves amber, red and the leg time, clamped to the bounds in `limits.json`, for the rest of the run and for later runs on this station (`relay/<station>/tuning.json` on the board). A `--leg-minutes` flag outranks it |
+| Proposals | copies them to `relay/proposals/<run>-<leg>.md` on the board for the owner. Nothing is applied |
+
+A paper that fails its check changes nothing. The run's hours and the spend cap are the owner's: a retrospective
+cannot move them.
 
 ## Where the work comes from
 
