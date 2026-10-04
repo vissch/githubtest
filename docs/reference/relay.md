@@ -61,6 +61,7 @@ The runner claims and completes pipeline jobs. A leg never does, and never lands
 R="python trench-warfare-3d/Tools/relay/relay.py"
 $R run --work <work checkout> --dry-run           # say what it would take; start nothing
 $R run --work <work checkout> [--hours 3] [--max-legs N] [--sources pipeline,lane] [--leg-minutes 90]
+$R run --work <work checkout> --view              # also open a Windows Terminal tab per leg that shows its output
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
 $R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ...
