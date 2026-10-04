@@ -76,7 +76,8 @@ rebase before it continues. Never bundle a seam change into a feature commit.
   `python Tools/codemap.py`. A file split into partials: `python Tools/port_split.py <old file> --rebase`.
 - **Landing a lane**, only when the owner says so: rebase onto origin's integration branch, run the full gate on
   that exact commit, then `python Tools/land.py`. It refuses a tree no green gate tested, a SHOW lane carrying SIM
-  files, and a lane someone landed ahead of, and pushes both branches atomically. Refused: rebase, gate, land.
+  files, a changed tool with `Tools/toolcheck.py` red, and a lane someone landed ahead of, and pushes both branches
+  atomically. Refused: rebase, gate, land.
 - **An owner decision** lands ahead of its lane: commit it alone (only `decisions.md`), cherry-pick it onto a
   `lane/show/decision-<date>-<topic>` off origin's integration branch, `land.py`, then delete it here and on origin.
 - Push your lane small and often.
@@ -84,12 +85,12 @@ rebase before it continues. Never bundle a seam change into a feature commit.
 ## Gate
 ```bash
 # from the repo root, this checkout's editor closed
-powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + the EditMode test modules your lane's changes can reach
+powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly  # before every commit: validate + the EditMode modules your lane's changes can reach, without the Long tests
 powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1            # before landing, and after any sim change: everything
 ```
 Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no tests ran), 5 validate.py failed
 (printed), 3 project held, 1 unity.exe missing. SIM changes also need the determinism, replay and hash tests green
-(EditMode). SHOW changes also need a look in Play at what changed. Test modules, what `-EditOnly` skips, false reds: `workflow.md`, section 5.
+(EditMode; most are Long, so the full gate). SHOW changes also need a look in Play at what changed. Test modules, the Long tier (a test over 3 s: `[Category("Long")]`), what `-EditOnly` skips, false reds: `workflow.md`, section 5.
 
 ## Asking and remembering
 - **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into

@@ -19,7 +19,10 @@ changed (or whose lines the other side changed in one of two identical copies) g
 counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
 a sim file, a build input, an unknown folder, a file moved out of Sim/ and a missing integration ref all run everything.
 gate.ps1, with a stand-in for Unity that writes canned results: a scoped run is green only when its results hold every
-assembly it asked for, keeps its results apart and never records a tree; only the full run records one.
+assembly it asked for, keeps its results apart and never records a tree; only the full run records one; a run before
+a commit leaves the Long tests out, says how long it took and, over its budget, which tests to tag; a lane that
+changes a tool gets toolcheck.py in place of validate.py. land.py runs toolcheck.py for such a lane, with or without
+code in it, and refuses on a red tool test.
 """
 import pathlib
 import shutil
@@ -380,6 +383,32 @@ def land_cases(tmp: pathlib.Path):
     case('land.py refuses a lane that does not contain origin integration (someone landed first)',
          code == 1 and 'rebase' in out, out)
 
+    # the tools are checked too: a lane that changes Tools/, validate.py, gate.ps1 or .github/ runs toolcheck.py
+    # (validate, selftest, every tool's own tests), also when it changes code and the gate went green on its tree
+    g('fetch', '-q'); g('reset', '-q', '--hard', f'origin/{integ}')
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
+    (proj / 'Tools/x').mkdir()
+    (proj / 'Tools/x/test_x.py').write_text('print("1 of 1 cases behaved")\n')
+    (proj / 'Tools/checks').mkdir()
+    (proj / 'Tools/checks/test_shape.py').write_text('raise SystemExit("one of validate.py\'s checks, not a test")\n')
+    g('add', '.'); g('commit', '-qm', 'a tool with its test')
+    code, out = land()
+    case('land.py runs the tools\' own tests for a tools-only lane and lands a green one (Tools/checks holds no tests)',
+         code == 0 and 'Tools/x/test_x.py' in out and 'test_shape' not in out and head(f'origin/{integ}') == head('HEAD'), out)
+    (work / '.github/workflows').mkdir(parents=True)
+    (work / '.github/workflows/checks.yml').write_text('name: checks\n'); g('add', '.'); g('commit', '-qm', 'ci only')
+    code, out = land()
+    case('land.py runs them for a lane that changes only .github/', code == 0 and 'Tools/x/test_x.py' in out, out)
+    (proj / 'Tools/x/test_x.py').write_text('raise SystemExit("x is broken")\n'); g('commit', '-qam', 'break the tool')
+    code, out = land()
+    case('land.py refuses a tools-only lane whose tool test is red, and names the test',
+         code == 1 and 'Tools/x/test_x.py' in out and head(f'origin/{integ}') != head('HEAD'), out)
+    (proj / 'Code.cs').write_text('class C { int y; }\n'); g('add', '.'); g('commit', '-qm', 'and code')
+    marker.write_text(head('HEAD^{tree}') + ' 2026-10-04T00:00:00\n')
+    code, out = land()
+    case('land.py refuses a lane that changes code and breaks a tool test, though the gate went green on its tree',
+         code == 1 and 'Tools/x/test_x.py' in out and head(f'origin/{integ}') != head('HEAD'), out)
+
 
 def gate_scope_cases(tmp: pathlib.Path):
     sys.path.insert(0, str(HERE))
@@ -399,6 +428,7 @@ def gate_scope_cases(tmp: pathlib.Path):
         ('a Presentation/Core file skips only the sim tests', [P + 'Presentation/Core/SimHost.cs'], ['Sim']),
         ('UI and docs changes skip both slow modules', [P + 'UI/HudView.cs', 'docs/reference/tasks.md'], ['Match', 'Sim']),
         ('a tool other than the gate skips both', ['trench-warfare-3d/Tools/codemap.py'], ['Match', 'Sim']),
+        ('a CI workflow skips both', ['.github/workflows/checks.yml'], ['Match', 'Sim']),
         ('one sim file among many others still runs everything', [P + 'UI/HudView.cs', P + 'Net/CommandSeat.cs'], []),
         ('the .meta of a sim file counts as the file', [P + 'Sim/Core/SimWorld.cs.meta'], []),
         ('an asmdef anywhere runs everything', [P + 'UI/TW.UI.asmdef'], []),
@@ -452,6 +482,13 @@ def gate_scope_cases(tmp: pathlib.Path):
     run_git('reset', '-q', '--hard')
     out = ask('--modules', 'sim')
     case('gate_scope: --modules runs exactly what it names', 'assemblies: TW.Tests.Sim\n' in out.replace('\r', ''), out)
+    case('gate_scope: a lane that changes no tool says so', 'tools: no' in out, out)
+    for tool in ('trench-warfare-3d/Tools/new_tool.py', 'trench-warfare-3d/validate.py', 'gate.ps1', '.github/workflows/checks.yml'):
+        (work / tool).parent.mkdir(parents=True, exist_ok=True)
+        (work / tool).write_text('# changed\n')
+        yes = 'tools: yes' in ask('--modules', 'sim') and 'tools: yes' in ask()
+        (work / tool).unlink()
+        case(f'gate_scope: a change to {tool} is a change to the tools, whatever is asked for', yes, out)
     code, out = run([sys.executable, 'Tools/gate_scope.py', '--modules', 'Nope'], proj)
     case('gate_scope: an unknown module name is refused', code == 2 and 'no test module named Nope' in out, out)
     run_git('update-ref', '-d', f'refs/remotes/origin/{integ}')
@@ -462,6 +499,7 @@ def gate_scope_cases(tmp: pathlib.Path):
 FAKE_UNITY = r'''"""A stand-in for `unity test`: writes the results a run would, as TW_FAKE says. For Tools/selftest.py only."""
 import os, sys
 a = sys.argv[1:]
+print('stand-in unity ' + ' '.join(a))
 mode = a[a.index('--mode') + 1]
 asked = a[a.index('-assemblyNames') + 1].split(';') if '-assemblyNames' in a else []
 every = ['TW.Tests.Sim', 'TW.Tests.Match', 'TW.Tests.Show', 'TW.Tests.UI', 'TW.Tests.Project', 'TW.Tests.Playground']
@@ -470,7 +508,7 @@ suites = ['TW.Tests.PlayMode'] if mode == 'PlayMode' else (asked if asked and ho
 if how == 'fewer':
     suites = suites[:1]
 failed = 1 if how == 'fail' else 0
-cases = ''.join(f'<test-suite type="Assembly" name="{s}.dll"><test-case fullname="{s}.A" result="Passed"/></test-suite>' for s in suites)
+cases = ''.join(f'<test-suite type="Assembly" name="{s}.dll"><test-case fullname="{s}.A" result="Passed" duration="4.5"/></test-suite>' for s in suites)
 if failed:
     cases += '<test-suite type="Assembly" name="X.dll"><test-case fullname="X.B" result="Failed"><failure><message>Expected: 1 But was: 2</message></failure></test-case></test-suite>'
 open('test-results.xml', 'w').write(f'<test-run total="{len(suites) + failed}" passed="{len(suites)}" failed="{failed}" skipped="0" '
@@ -489,11 +527,16 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
     marker = pathlib.Path(run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green'], wt)[1].strip())
     scoped, full = proj / 'test-results-EditMode-scoped.xml', proj / 'test-results-EditMode.xml'
 
-    def gate(how, *args):
-        for f in (marker, scoped, full):
+    seconds = marker.with_name('tw-gate-edit-seconds')
+
+    def gate(how, *args, **more):
+        for f in (marker, scoped, full, seconds):
             f.unlink(missing_ok=True)
         import os
-        env = dict(os.environ, TW_GATE_UNITY=str(fake / 'unity.cmd'), TW_FAKE=how)
+        # TW_IN_TOOLCHECK: on a lane that changes a tool the gate would run toolcheck.py, which runs this file
+        env = dict(os.environ, TW_GATE_UNITY=str(fake / 'unity.cmd'), TW_FAKE=how, TW_IN_TOOLCHECK='1')
+        env.update(more)
+        env = {k: v for k, v in env.items() if v}
         p = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(wt / 'gate.ps1'), *args],
                            cwd=wt, capture_output=True, env=env)
         return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
@@ -514,11 +557,26 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
     code, out = gate('honour', '-EditOnly', '-All')
     case('gate: -EditOnly -All runs every module and records no tree',
          code == 0 and full.exists() and not scoped.exists() and not marker.exists() and '-assemblyNames' not in out, out)
+    case('gate: a run before a commit leaves the Long tests out, and one of every module records how long it took',
+         '-testCategory !Long' in out and 'EditMode took' in out and seconds.exists() and seconds.read_text().split()[0].isdigit(), out)
+    code, out = gate('honour', '-Module', 'Show')
+    case('gate: a scoped run leaves them out too and records no time (it is not the whole run)',
+         code == 0 and '-testCategory !Long' in out and not seconds.exists(), out)
+    code, out = gate('honour', '-EditOnly', '-All', '-Long')
+    case('gate: -Long runs them', code == 0 and '-testCategory' not in out and not seconds.exists(), out)
+    code, out = gate('honour', '-EditOnly', '-All', TW_GATE_BUDGET='-1')
+    case('gate: a run over its budget names the slowest tests it ran, to tag',
+         code == 0 and 'Over the budget' in out and '4.5 s  TW.Tests.Show.A' in out, out)
+    (proj / 'Tools/health.py').write_bytes((proj / 'Tools/health.py').read_bytes() + b'# a change to a tool\n')
+    code, out = gate('honour', '-EditOnly', '-Plan', TW_IN_TOOLCHECK='')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    case('gate: a lane that changes a tool is checked by toolcheck.py, not validate.py alone',
+         code == 0 and 'validate python Tools/toolcheck.py' in out, out)
     code, out = gate('honour')
     tree = run(['git', 'rev-parse', 'HEAD^{tree}'], wt)[1].strip()
-    case('gate: only the full run records the tree it tested, for land.py',
-         code == 0 and marker.exists() and marker.read_text().split()[0] == tree, out)
-    for f in (marker, scoped, full, proj / 'test-results-PlayMode.xml', proj / 'test-results.xml'):
+    case('gate: only the full run records the tree it tested, for land.py, and it leaves no test out',
+         code == 0 and marker.exists() and marker.read_text().split()[0] == tree and '-testCategory' not in out, out)
+    for f in (marker, scoped, full, seconds, proj / 'test-results-PlayMode.xml', proj / 'test-results.xml'):
         f.unlink(missing_ok=True)
 
 

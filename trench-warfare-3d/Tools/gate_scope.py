@@ -22,7 +22,8 @@ its own folder, and any file its tests read by path. Tools/checks/test_modules.p
 
 Output, one `key: value` per line, read by gate.ps1: `scoped` (yes when something is skipped), `assemblies`
 (`;`-joined, what to run), `expect` (those of them that hold a test: what the results must show), `classes`
-(`;`-joined full class names, for a runner that selects by name), then one `note`.
+(`;`-joined full class names, for a runner that selects by name), `tools` (yes when the lane changes a tool, so
+the gate runs Tools/toolcheck.py in place of validate.py alone), then one `note`.
 Exit 0; 2 on an unknown module name.
 """
 import argparse
@@ -37,7 +38,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent          # trench-warfare-3d
 REPO = ROOT.parent
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from land import INTEGRATION  # noqa: E402  (one definition of the integration branch)
+from land import INTEGRATION, is_tool  # noqa: E402  (one definition of the integration branch, and of a tool)
 
 P = 'trench-warfare-3d/Assets/_Project/'
 PREFIX = 'TW.Tests.'
@@ -65,7 +66,7 @@ EVERYTHING_SUFFIXES = ('.asmdef', '.asmref', '.rsp', '.dll')
 # is unknown, and unknown runs everything.
 SAFE_PREFIXES = (P + 'Presentation/', P + 'UI/', P + 'Editor/', P + 'Perf/', P + 'Resources/', P + 'Art/',
                  P + 'Shaders/', P + 'Settings/', P + 'Scenes/', P + 'Playground/', P + 'Tests/',
-                 'trench-warfare-3d/Tools/', 'docs/', '.claude/', 'github-test1/')
+                 'trench-warfare-3d/Tools/', 'docs/', '.claude/', '.github/', 'github-test1/')
 SAFE_FILES = ('CLAUDE.md', 'README.md', 'trench-warfare-3d/validate.py')
 
 
@@ -160,6 +161,7 @@ def main():
     a = ap.parse_args()
     mods = modules()
     everything = [m for m in mods if m not in EXPLICIT_ONLY]
+    changed, base = changed_paths(a.tree)
     if a.modules:
         want = [m.strip() for m in a.modules.split(',') if m.strip()]
         by_lower = {m.lower(): m for m in mods}
@@ -172,7 +174,6 @@ def main():
     elif a.all:
         run, note = everything, 'every module (asked for)'
     else:
-        changed, base = changed_paths(a.tree)
         run, skipped = scope(changed, mods)
         if changed is None:
             note = f'every module: {base}'
@@ -186,6 +187,7 @@ def main():
     print('assemblies: ' + ';'.join(mods[m][0] for m in run))
     print('expect: ' + ';'.join(mods[m][0] for m in run if classes([m], mods)))   # an assembly with no test is no suite
     print('classes: ' + ';'.join(classes(run, mods)))
+    print('tools: ' + ('yes' if any(is_tool(c) for c in changed or []) else 'no'))
     print('note: ' + note)
     return 0
 

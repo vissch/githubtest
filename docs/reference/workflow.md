@@ -25,12 +25,17 @@ inbox    7 notes, 1 for you
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). `validate.py` runs one file per check from Tools/checks/:
   `python validate.py --list` says what each is for, `--only <name>` runs one while you fix it, and a new check is
-  a new file there plus its name in `ORDER` in `validate.py`. After changing any tool under `Tools/`, run
-  `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
+  a new file there plus its name in `ORDER` in `validate.py`.
+- **After changing any tool** (`Tools/`, `validate.py`, `gate.ps1`, `.github/`) run `python Tools/toolcheck.py`, the
+  one check of the docs and the tools, no Unity, about two minutes: `validate.py`, `python Tools/selftest.py` (it breaks
+  a throwaway copy of the repo on purpose and checks each break is still caught) and every tool's own tests (any
+  `test_<tool>.py` under `Tools/`, found by name; `--list` names the parts). The gate runs it in place of
+  `validate.py` on a lane that changes a tool, and `land.py` refuses such a lane while it is red.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
-  the exact commit first.
+  the exact commit first, and `toolcheck.py` too when the lane changes a tool.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
-  files, big files, `SceneHooks` references, explained statics, last gate counts). With a history file it prints
+  files, big files, `SceneHooks` references, explained statics, last gate counts, how long the last run before a
+  commit took and whether that is past 300 s). With a history file it prints
   every metric worse than the last clean run, on every run until fixed; `--accept` records a deliberate one.
 - Then read the notes `health.py` marks as yours (`docs/inbox/`).
 
@@ -175,6 +180,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1                 
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly          # validate + the EditMode modules your lane can reach
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -All     # validate + every EditMode test
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -Module Sim,Match  # validate + exactly these modules
+powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -Long    # any -EditOnly run, with the Long tests too
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -Plan    # say what would run; run nothing
 ```
 `-EditOnly` skips a slow module only when nothing your lane changed can reach it. It compares the working tree
@@ -192,12 +198,20 @@ Every other module always runs. The rule is `NEEDS` in Tools/gate_scope.py, and 
 check) fails when a slow module could reach code the rule does not watch. The first line of the gate says what it
 skips and why. A scoped run keeps its results in `test-results-EditMode-scoped.xml`, is no verdict (exit 6) unless
 they hold every assembly it asked for, and never counts for landing: only the full gate records a tree.
+
+**The Long tier.** A test that takes over 3 s carries `[Category("Long")]` (`[Test, Category("Long")]`): 47 sim and
+match tests on 2026-10-04, two thirds of the run time, most of the determinism and whole-battle tests among them.
+Every `-EditOnly` run leaves them out, so the run before a commit stays under 300 s even on a lane that touches the
+sim; `-Long` puts them back, and the full gate always runs every test. So a Long test your change breaks shows at the
+full gate, not at the commit: after a sim change run the full gate (or `-EditOnly -Long`) before you trust it. The
+gate prints how long EditMode took; past 300 s it lists the slowest tests it ran, which are the ones to tag. A test
+belongs to the lane of the code it tests, so tag a sim test on a SIM lane.
 | Exit | Meaning |
 |---|---|
 | 0 | green |
 | 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message |
 | 6 | no verdict: compile error, licence, a suite in which no test ran or none passed, an unknown `-Module`, or a scoped run whose results miss an assembly it asked for. Not a pass |
-| 5 | validate.py failed; its lines are printed (`codemap:` lines are docs that no longer match the code) |
+| 5 | validate.py failed (on a lane that changes a tool: `toolcheck.py`, which says which part); its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
 | 1 | unity.exe is missing |
 | other | unity's own exit code |
@@ -206,7 +220,8 @@ Each suite prints one line of what ran, and keeps its results beside `test-resul
 ```
 EditMode : 343 run, 343 passed, 0 failed, 0 skipped (test-results-EditMode.xml)
 ```
-EditMode takes a few minutes. After a full gate `test-results.xml` holds only PlayMode.
+Every EditMode test takes about eleven minutes on the desktop; without the Long tests about four. After a full gate
+`test-results.xml` holds only PlayMode.
 
 ### False reds
 - **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in

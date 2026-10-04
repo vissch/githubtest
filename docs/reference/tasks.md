@@ -723,6 +723,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Trap:** a bench `shot=` includes the HUD. `shot_tick=N shot_hud=0` hides it (and `CombatFx`'s world overlays,
   `CombatFx.ShowOverlays`) and holds the clock so the still repeats; such a run's timings are not real time.
 
+### The gate, the Long tier and the tools' own check
+- **Files:** `gate.ps1` (what a run before a commit leaves out, the 300 s budget), Tools/gate_scope.py (which test
+  modules a lane's changes reach, and whether it changes a tool), Tools/toolcheck.py (validate, selftest and every
+  tool's tests, as one check), Tools/land.py (what a lane must pass to land).
+- **Tests:** `python Tools/toolcheck.py`, no Unity. The gate's and `land.py`'s own rules are cases in
+  Tools/selftest.py (`gate_cases` with a stand-in for Unity, `land_cases` on a throwaway repo).
+- **How:** a test over 3 s gets `[Test, Category("Long")]`; a new tool's tests go in a `test_<tool>.py` beside it and
+  are found by name. `workflow.md`, sections 1 and 5.
+
 ### Windows build
 - **Files:** `Editor/BuildWindows.cs`, `Resources/ShaderKeep/`.
 - **Tests:** ShaderInclusionTests (every `Shader.Find("TW/...")` must be in Always Included Shaders or used by a

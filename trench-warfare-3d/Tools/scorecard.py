@@ -14,7 +14,10 @@ A run with a regression is recorded but never becomes the baseline, so the regre
 run until it is fixed or accepted.
 
 No Unity needed. Test counts come from the last gate's test-results-<mode>.xml, with their age, so a stale number
-is visible. Each metric says which way is better; "info" metrics are recorded but never flagged.
+is visible. edit_gate_seconds is the EditMode wall time of this checkout's last run before a commit that ran every
+module (gate.ps1 -EditOnly, the Long tests left out), and edit_gate_over_budget is 1 when that is past 300 s: the
+seconds wander from run to run, so the flag is what the history compares. Each metric says which way is better;
+"info" metrics are recorded but never flagged.
 """
 import json
 import re
@@ -37,8 +40,11 @@ DIRECTION = {
     'scenehooks_refs': 'lower', 'scenehooks_files': 'lower', 'statics_explained': 'lower', 'stub_systems': 'info',
     'selftest_failed': 'lower', 'selftest_cases': 'higher',
     'editmode_tests': 'higher', 'editmode_failed': 'lower', 'playmode_tests': 'higher', 'playmode_failed': 'lower',
+    'edit_gate_seconds': 'info', 'edit_gate_over_budget': 'lower',
 }
-OPTIONAL = {'selftest_failed', 'selftest_cases'}   # measured only with --selftest: absent is not a regression
+EDIT_GATE_BUDGET = 300   # seconds; gate.ps1's $EditBudget
+# measured only with --selftest, or only once a whole run before a commit has been made here: absent is not a regression
+OPTIONAL = {'selftest_failed', 'selftest_cases', 'edit_gate_over_budget'}
 
 
 def read(p):
@@ -95,6 +101,13 @@ def scores(with_selftest):
             s[f'{key}_tests'] = int(total.group(1)) if total else -1
             s[f'{key}_failed'] = int(failed.group(1)) if failed else -1
             s[f'{key}_results_age_hours'] = round((time.time() - x.stat().st_mtime) / 3600, 1)
+
+    took = Path(run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-edit-seconds'], cwd=REPO)[1].strip())
+    if took.is_file():
+        seconds = took.read_text(encoding='ascii', errors='replace').split()
+        s['edit_gate_seconds'] = int(seconds[0]) if seconds and seconds[0].isdigit() else -1
+        s['edit_gate_over_budget'] = -1 if s['edit_gate_seconds'] < 0 else int(s['edit_gate_seconds'] > EDIT_GATE_BUDGET)
+        s['edit_gate_age_hours'] = round((time.time() - took.stat().st_mtime) / 3600, 1)
 
     if with_selftest:
         code, out = run([sys.executable, 'Tools/selftest.py'], timeout=900)

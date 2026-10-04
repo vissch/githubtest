@@ -17,7 +17,10 @@ It fetches origin, then refuses, saying why, when:
   quotes, such as docs/17-ui-art-spec.md or Tools/envatlas.py, which EditMode tests read) and the last full gate
   that went green did not test exactly this tree. gate.ps1 records the tree it tested (tw-gate-green in this checkout's
   git dir). A rebase, an amend or one more commit makes a new tree, so the gate runs again. A lane that changes only
-  docs and Tools/ is checked here instead: validate.py, and Tools/selftest.py when Tools/ changed;
+  docs is checked here instead, with validate.py;
+- the lane changes a tool (Tools/, validate.py, gate.ps1, .github/) and Tools/toolcheck.py is not green: validate.py,
+  Tools/selftest.py and every tool's own tests. It runs whether or not the lane also changes code: a green gate says
+  nothing about the tools, and until 2026-10-04 a lane that changed both landed with no tool check at all;
 - a SHOW lane's commits change Sim/, Net/ or Data/ (the SIM part lands first, on its own lane), unless --carry-sim
   names the owner decision that allows it.
 Then it pushes the integration branch and the lane in one atomic push: both move or neither does. The integration
@@ -33,6 +36,9 @@ from pathlib import Path
 INTEGRATION = 'claude/trench-warfare-2d-3d-plan-idt7lf'
 SIM_PATHS = ('trench-warfare-3d/Assets/_Project/Sim/', 'trench-warfare-3d/Assets/_Project/Net/',
              'trench-warfare-3d/Assets/_Project/Data/')
+# the tools: a change under one of these is checked by Tools/toolcheck.py (gate_scope.py tells gate.ps1 the same)
+TOOL_PATHS = ('trench-warfare-3d/Tools/', '.github/')
+TOOL_FILES = ('trench-warfare-3d/validate.py', 'gate.ps1')
 
 
 def git(*args, check=False):
@@ -51,6 +57,10 @@ def refuse(why):
 def is_code(path, tested_names):
     return ((path.startswith('trench-warfare-3d/') and not path.startswith('trench-warfare-3d/Tools/'))
             or path == 'gate.ps1' or Path(path).name in tested_names)
+
+
+def is_tool(path):
+    return path.startswith(TOOL_PATHS) or path in TOOL_FILES
 
 
 def names_tests_read(top):
@@ -109,7 +119,9 @@ def main():
         print(f'carrying {len(sim)} SIM files by: {a.carry_sim}\n{commits}')
 
     tested_names = names_tests_read(top)
-    if any(is_code(f, tested_names) for f in changed):
+    proj = top / 'trench-warfare-3d'
+    code_changed = any(is_code(f, tested_names) for f in changed)
+    if code_changed:
         tree = git('rev-parse', 'HEAD^{tree}', check=True)[1]
         marker = Path(git('rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green', check=True)[1])
         green = marker.read_text(encoding='utf-8').split() if marker.exists() else []
@@ -118,14 +130,20 @@ def main():
                 'no full gate has gone green in this checkout'
             refuse(f'code changed and {seen}; HEAD is tree {tree[:10]}. Run the full gate on this commit, then land.')
         print(f'full gate green on this exact tree ({" ".join(green[1:])})')
-    else:
-        proj = top / 'trench-warfare-3d'
-        checks = [['validate.py']] + ([['Tools/selftest.py']] if any(f.startswith('trench-warfare-3d/Tools/') for f in changed) else [])
-        for c in checks:
-            p = subprocess.run([sys.executable, *c], cwd=proj, capture_output=True)
-            if p.returncode != 0:
-                refuse(f'docs/tools only, and {c[0]} failed:\n' + (p.stdout + p.stderr).decode('utf-8', 'replace')[-1500:])
-            print(f'{c[0]} OK')
+    tools = [f for f in changed if is_tool(f)]
+    if tools:
+        p = subprocess.run([sys.executable, str(Path(__file__).resolve().parent / 'toolcheck.py'), '--project', str(proj)],
+                           cwd=proj, capture_output=True)
+        out = (p.stdout + p.stderr).decode('utf-8', 'replace').strip()
+        if p.returncode != 0:
+            refuse(f'the lane changes the tools ({len(tools)} files: {", ".join(tools[:3])}{" ..." if len(tools) > 3 else ""}) '
+                   f'and Tools/toolcheck.py is not green:\n' + out[-2500:])
+        print(out)
+    elif not code_changed:
+        p = subprocess.run([sys.executable, 'validate.py'], cwd=proj, capture_output=True)
+        if p.returncode != 0:
+            refuse('docs only, and validate.py failed:\n' + (p.stdout + p.stderr).decode('utf-8', 'replace')[-1500:])
+        print('validate.py OK')
 
     push = ['push', '--atomic', 'origin', f'HEAD:refs/heads/{INTEGRATION}',
             f'--force-with-lease=refs/heads/{branch}:{lease}', f'HEAD:refs/heads/{branch}']

@@ -1,8 +1,9 @@
 # Pre-commit gate. docs/reference/workflow.md, "Gate".
 #   ./gate.ps1                    validate + every EditMode test + PlayMode. The only run Tools/land.py accepts.
 #   ./gate.ps1 -EditOnly          validate + the EditMode test modules this lane's changes can reach (before a commit)
-#   ./gate.ps1 -EditOnly -All     validate + every EditMode test
+#   ./gate.ps1 -EditOnly -All     validate + every EditMode module
 #   ./gate.ps1 -Module Sim,Match  validate + exactly these EditMode modules (while iterating)
+#   ./gate.ps1 -EditOnly -Long    any of the three above, with the Long tests too
 #   ./gate.ps1 -EditOnly -Plan    print what would run and the unity command, and run nothing
 #
 # Exit codes: 0 green; 8 a test failed; 6 no verdict (compile error, licence, an unknown module, or a scoped run whose
@@ -23,6 +24,16 @@
 # (test-results-EditMode-scoped.xml) so the last full run's counts stay readable, and is no verdict unless the results
 # hold every assembly that was asked for. The full run is never scoped.
 #
+# THE LONG TIER. A test over 3 s carries [Category("Long")] (47 sim and match tests, two thirds of the run time). Every
+# -EditOnly run leaves them out (-testCategory "!Long") unless -Long is given, so the run before a commit stays under
+# 300 s; the full run keeps every test. After each -EditOnly run the EditMode wall time is printed; over 300 s the
+# slowest tests it ran are listed, which are the ones to tag. A run of every module without the Long tests records its
+# time in tw-gate-edit-seconds in this checkout's git dir, where Tools/scorecard.py reads it.
+#
+# THE TOOLS. When the lane changes a tool (Tools/, validate.py, gate.ps1, .github/: Tools/gate_scope.py says), the
+# docs-and-tools check Tools/toolcheck.py runs in place of validate.py alone: validate.py, Tools/selftest.py and every
+# tool's own tests. Tools/land.py runs the same check before it lands such a lane.
+#
 # EXTERNAL NOISE. A batch test run opens the com.unity.pipeline port like any editor. Another session's
 # `unity command` or the MCP server polling it can make Unity log an error inside the run, and an unexpected error
 # log fails whichever test happens to be running. Two signatures are known (both seen 2026-09-25, a different test
@@ -32,7 +43,7 @@
 #
 # The xml is the verdict, not unity's exit code: failures in it, or a run in which nothing passed, fail the suite
 # even when unity exits 0.
-param([switch]$EditOnly, [switch]$All, [string[]]$Module, [switch]$Plan)
+param([switch]$EditOnly, [switch]$All, [string[]]$Module, [switch]$Plan, [switch]$Long)
 
 $ErrorActionPreference = 'Continue'
 $noise = 'unity-pipeline-port|Failed to handle /api/exec request'
@@ -82,11 +93,29 @@ function Report-Run($label, $code) {
     return $code
 }
 
+# After a run that left the Long tests out: say how long EditMode took, record it when every module ran, and over the
+# budget name the slowest tests in the results (a Long test is not in them, so these are the ones still to tag).
+function Report-Budget($xmlPath, $seconds, $wholeRun) {
+    Write-Host "EditMode took $seconds s (the Long tests left out; the budget for a run before a commit is $EditBudget s)"
+    if ($wholeRun) {
+        $record = git -C $PSScriptRoot rev-parse --path-format=absolute --git-path tw-gate-edit-seconds
+        Set-Content -Path $record -Value "$seconds $(Get-Date -Format s)" -Encoding ascii
+    }
+    if ($seconds -le $EditBudget -or -not (Test-Path $xmlPath)) { return }
+    Write-Host "Over the budget. The slowest tests of this run; tag those over 3 s [Category(`"Long`")] (in their code's lane):" -ForegroundColor Yellow
+    [xml]$x = Get-Content $xmlPath -Raw
+    $x.SelectNodes('//test-case[@duration]') | Sort-Object { [double]$_.duration } -Descending | Select-Object -First 10 |
+        ForEach-Object { Write-Host "  $(([double]$_.duration).ToString('0.0', [Globalization.CultureInfo]::InvariantCulture)) s  $($_.fullname)" }
+}
+
 # The unity CLI's per-run timeout, in seconds. 900 since 2026-09-29: EditMode ran 576 s of the old 600 on a quiet machine,
 # and a run that hits the limit reports no verdict at all, which three lanes' gates did that day. 1800 since 2026-10-01:
 # the laptop ran the whole EditMode suite in 1548 s on integration 600c1a79 (819 s the day before; one test alone at its
 # usual speed), so four gates in a row ended with no verdict at 900.
 $TestTimeout = 1800
+
+# Seconds of EditMode a run before a commit may take. TW_GATE_BUDGET: Tools/selftest.py lowers it to see the warning.
+$EditBudget = if ($env:TW_GATE_BUDGET) { [int]$env:TW_GATE_BUDGET } else { 300 }
 
 # $label names the kept results file (test-results-<label>.xml). $first goes before the `--` (unity CLI options),
 # $editor after it (the editor's own arguments). The rerun of noise failures keeps $editor only: --rerun-failed is
@@ -185,11 +214,21 @@ try {
         }
     } elseif ($EditOnly) { $note = 'every module (-All)' }
     $label = if ($scoped) { 'EditMode-scoped' } else { 'EditMode' }
+    $skipLong = $EditOnly -and -not $Long
+    if ($skipLong) { $editor += @('-testCategory', '!Long'); $note += '; the Long tests left out (-Long runs them)' }
     Write-Host "scope    $note" -ForegroundColor Cyan
+
+    # A lane that changes a tool is checked by toolcheck.py, which runs validate.py first. TW_IN_TOOLCHECK: this gate
+    # was started by toolcheck's own selftest, which must not start toolcheck again.
+    $check = 'validate.py'
+    if ($treeBefore -and -not $env:TW_IN_TOOLCHECK) {
+        $t = Get-Scope @('--tree', $treeBefore)
+        if ($t.code -eq 0 -and $t.tools -eq 'yes') { $check = 'Tools/toolcheck.py' }
+    }
 
     if ($Plan) {
         $tail = if ($editor.Count) { @('--') + $editor } else { @() }
-        Write-Host "validate python validate.py"
+        Write-Host "validate python $check"
         Write-Host "EditMode unity test . --mode EditMode --timeout $TestTimeout $(@($first + $tail) -join ' ')"
         Write-Host "results  test-results-$label.xml$(if ($scoped) { '; must hold ' + ($expected -join ', ') })"
         if ($fullRun) { Write-Host "PlayMode unity test . --mode PlayMode --timeout $TestTimeout -- -nographics"; Write-Host "marker   tw-gate-green is written if all of it is green and the tree did not change" }
@@ -197,14 +236,17 @@ try {
         exit 0
     }
 
-    Write-Host "`n== validate.py ==" -ForegroundColor Cyan
-    python validate.py
-    if ($LASTEXITCODE -ne 0) { Write-Host "validate.py failed (exit 5): fix the lines above" -ForegroundColor Red; exit 5 }
+    Write-Host "`n== $check ==" -ForegroundColor Cyan
+    python $check
+    if ($LASTEXITCODE -ne 0) { Write-Host "$check failed (exit 5): fix the lines above" -ForegroundColor Red; exit 5 }
 
     Write-Host "`n== EditMode ==" -ForegroundColor Cyan
+    $clock = [Diagnostics.Stopwatch]::StartNew()
     $edit = Run-Tests 'EditMode' $label $first $editor
+    $editSeconds = [int]$clock.Elapsed.TotalSeconds
     if ($edit -eq 0 -and $scoped) { $edit = Check-Suites "test-results-$label.xml" $expected }
     if ($edit -ne 0) { Write-Host (Explain $edit) -ForegroundColor Red; exit $edit }
+    if ($skipLong) { Report-Budget "test-results-$label.xml" $editSeconds (-not $scoped) }
 
     if (-not $fullRun) {
         $what = if ($scoped) { "EditMode green for this scope ($note)" } else { "EditMode green" }
