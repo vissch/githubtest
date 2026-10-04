@@ -18,7 +18,8 @@ from pipeline import now, read_json, write_json   # noqa: E402
 import gitio                           # noqa: E402
 
 KEEP = ("run", "leg", "unit", "source", "role", "phase", "model", "effort", "lane", "state", "exit_code", "seconds",
-        "turns", "final_tokens", "level", "denials", "ran_model", "ran_mode", "report", "started_at", "finished_at")
+        "turns", "final_tokens", "level", "denials", "guard_refusals", "ran_model", "ran_mode", "report", "started_at",
+        "finished_at")
 
 
 def folder(board, station):

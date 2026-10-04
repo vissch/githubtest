@@ -117,6 +117,24 @@ def open_view(d):
         return False
 
 
+def notify(text):
+    """A Windows notification that the run stopped, for an owner who is not watching the terminal. Never an error:
+    a notification that cannot show is skipped. The text travels in a variable, not on a command line.
+    TW_RELAY_NOTIFY (a JSON list) replaces the command: the tests use a stub."""
+    ps = ("Add-Type -AssemblyName System.Windows.Forms; Add-Type -AssemblyName System.Drawing; "
+          "$n = New-Object System.Windows.Forms.NotifyIcon; $n.Icon = [System.Drawing.SystemIcons]::Information; "
+          "$n.Visible = $true; $n.ShowBalloonTip(10000, 'TW3D relay', $env:TW_RELAY_TOAST, "
+          "[System.Windows.Forms.ToolTipIcon]::Info); Start-Sleep -Seconds 8; $n.Dispose()")
+    cmd = json.loads(os.environ["TW_RELAY_NOTIFY"]) if os.environ.get("TW_RELAY_NOTIFY") else \
+        ["powershell", "-NoProfile", "-WindowStyle", "Hidden", "-Command", ps]
+    try:
+        subprocess.Popen(cmd, env=dict(os.environ, TW_RELAY_TOAST=str(text)[:200]), stdin=subprocess.DEVNULL,
+                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except OSError:
+        return False
+
+
 def stop_jobs(d):
     """Stop every detached job the leg started: the tree kill does not reach a process whose parent has exited."""
     jobs = legdir.desk(d) / "jobs"
@@ -151,6 +169,36 @@ def tool_uses(d):
     """How many tool calls the session made, by its own output."""
     return sum(1 for e in records(d, "assistant") for c in (e.get("message") or {}).get("content") or []
                if isinstance(c, dict) and c.get("type") == "tool_use")
+
+
+def unguarded(d):
+    """Names of the tool calls the session made that the guard never saw: a call in the output with no line in
+    calls.jsonl. A call Claude Code itself refused before running it (its result is a <tool_use_error>, as for
+    `sleep 60; ..`) never reaches a hook and never ran, so it is not one. None when the calls carry no ids
+    (then the two are compared by count)."""
+    used, harness = {}, set()
+    for e in records(d, "assistant"):
+        for c in (e.get("message") or {}).get("content") or []:
+            if isinstance(c, dict) and c.get("type") == "tool_use":
+                used[c.get("id")] = c.get("name")
+    for e in records(d, "user"):
+        content = (e.get("message") or {}).get("content")
+        for c in content if isinstance(content, list) else []:
+            if isinstance(c, dict) and c.get("type") == "tool_result" and c.get("is_error"):
+                body = c.get("content")
+                text = body if isinstance(body, str) else " ".join(
+                    str(x.get("text", "")) for x in body or [] if isinstance(x, dict))
+                if text.lstrip().startswith("<tool_use_error>"):
+                    harness.add(c.get("tool_use_id"))
+    seen = set()
+    try:
+        with open(Path(d) / "calls.jsonl", encoding="utf-8") as f:
+            seen = {json.loads(line).get("id") for line in f if line.strip()}
+    except (OSError, ValueError):
+        pass
+    if None in used or None in seen:
+        return None
+    return [name for i, name in used.items() if i not in seen and i not in harness]
 
 
 def _pump(stream, path):
@@ -226,7 +274,9 @@ def run_leg(d, lim, timeout_s, stop_file=None):
                        has_result=bool(res), denials=len(res.get("permission_denials") or []),
                        final_tokens=final, transcript_read=readable, metered_tokens=meter.get("tokens"),
                        level=meter.get("level", "green"), hooked=bool(sess), tool_uses=tool_uses(d),
-                       guard_calls=lines(d / "calls.jsonl"), ran_model=init.get("model"),
+                       guard_calls=lines(d / "calls.jsonl"), guard_refusals=lines(d / "denials.jsonl"),
+                       unguarded=unguarded(d),
+                       ran_model=init.get("model"),
                        ran_mode=init.get("permissionMode"))
             rec["guard_intact"] = guard_hash(d) == seal
             leg = legdir.update(d, **rec)
@@ -252,7 +302,10 @@ def ran_clean(leg):
         return "the hooks did not run (no session record), so nothing guarded it"
     if not leg.get("guard_intact"):
         return "its guard files were changed while it ran"
-    if leg.get("tool_uses", 0) > leg.get("guard_calls", 0):
+    if leg.get("unguarded"):                                # by id: a call that ran with no guard on it
+        return "the guard did not see %d of its %d tool calls (the first: %s)" % (
+            len(leg["unguarded"]), leg.get("tool_uses", 0), leg["unguarded"][0])
+    if leg.get("unguarded") is None and leg.get("tool_uses", 0) > leg.get("guard_calls", 0):
         return "the guard saw %d of its %d tool calls" % (leg.get("guard_calls", 0), leg.get("tool_uses", 0))
     if not leg.get("transcript_read"):
         return "its transcript cannot be read, so its context was never measured"
