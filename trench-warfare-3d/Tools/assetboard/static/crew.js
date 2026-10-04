@@ -116,11 +116,15 @@ window.Crew = (function () {
   function live(draw) {
     draw();
     setInterval(function () {
-      var s = document.createElement('script');
-      s.src = 'data/ops.js?t=' + Date.now();
-      s.onload = function () { draw(); s.remove(); };
-      s.onerror = function () { s.remove(); };
-      document.body.appendChild(s);
+      // the beat (written on every read), the queue and the floor, one after the other, then one redraw
+      var files = ['data/beat.js', 'data/queue.js', 'data/ops.js'], i = 0;
+      (function next() {
+        if (i === files.length) { draw(); return; }
+        var s = document.createElement('script');
+        s.src = files[i++] + '?t=' + Date.now();
+        s.onload = s.onerror = function () { s.remove(); next(); };
+        document.body.appendChild(s);
+      })();
     }, 20000);
   }
   // the top bar's live pill, on every page that has the floor's data
@@ -129,7 +133,13 @@ window.Crew = (function () {
     var all = everyone(o), n = all.at.filter(function (x) { return x.w.state === 'working'; }).length;
     var t = document.getElementById('k-now-text'); t.innerHTML = '';
     t.appendChild(el('span', null, n + ' at work'));
-    if (o.counts.ready) t.appendChild(el('span', 'k-now-ready', o.counts.ready + ' ready'));
+    var Q = window.OwnerQueue, waits = Q && window.QUEUE ? Q.count(window.QUEUE) : 0;
+    if (waits) t.appendChild(el('span', 'k-now-ready', waits + ' need you'));
+    else if (!window.QUEUE && o.counts.ready) t.appendChild(el('span', 'k-now-ready', o.counts.ready + ' ready'));
+    // how old the page is: red when nobody has read the floor for an hour
+    var f = Q ? Q.fresh(window.BEAT, Date.now()) : { text: '', stale: false };
+    if (f.text) t.appendChild(el('span', 'k-now-age', f.text));
+    p.classList.toggle('stale', f.stale);
     p.classList.toggle('quiet', !n);
     p.hidden = false;
   }

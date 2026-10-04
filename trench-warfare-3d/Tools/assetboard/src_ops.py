@@ -301,7 +301,8 @@ def collect(repo: Path, site: Path):
         lanes.setdefault(w['branch'], dict(branch=w['branch'], ahead=0, tip='', live=True, newest=True, commits=[], family=w['branch']))
     for l in lanes.values():
         tree = next((w for w in trees.values() if w['branch'] == l['branch']), None)
-        l.update(checkout=tree['name'] if tree else None, dirty=len(tree['dirty']) if tree else 0, dirty_files=(tree['dirty'][:6] if tree else []),
+        l.update(checkout=tree['name'] if tree else None, path=tree['path'] if tree else None,
+                 dirty=len(tree['dirty']) if tree else 0, dirty_files=(tree['dirty'][:6] if tree else []),
                  workers=[], items=[], assets=[], last=[dict(sha=c[0], date=c[1], subject=short(c[2], 100)) for c in l.get('commits', [])[:3]])
         l.pop('commits', None)
     # the assets each lane touches, from the last build of the board (pictures included)

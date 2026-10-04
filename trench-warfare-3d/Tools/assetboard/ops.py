@@ -4,9 +4,13 @@ work on a branch. A page of the asset board (floor.html) that re-reads its data 
 
     python Tools/assetboard/ops.py                 write the page and its data once
     python Tools/assetboard/ops.py --watch 20      and again every 20 seconds until stopped (keeps the page live)
+    python Tools/assetboard/ops.py --queue         read once and print what waits on the owner (the page's "Needs you")
 
 The data is data/ops.js beside the page (a script, not JSON: a page opened from the Drive as a file may not fetch
-JSON, it may load a script). It is written only when it changed. What it reads: src_ops.py.
+JSON, it may load a script), and data/queue.js, the owner queue (src_queue.py). Each is written only when it changed.
+data/beat.js is a few bytes written on EVERY read: the time of the read, so the page can say how old it is and turn
+red when nobody has read for an hour. Without it an unchanged floor and a stopped watcher look the same.
+What it reads: src_ops.py, src_queue.py.
 """
 import argparse
 import json
@@ -20,6 +24,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build      # noqa: E402
 import src_ops    # noqa: E402
+import src_queue  # noqa: E402
 
 
 def write_if_changed(path: Path, text: str):
@@ -37,7 +42,7 @@ def page(out: Path, meta):
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
     write_if_changed(out / 'floor.html', env.get_template('floor.html').render(root=''))
-    for name in ('floor.js', 'crew.js', 'office.js', 'site.css', 'kinetic.css'):
+    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
 
@@ -86,11 +91,39 @@ def ready_since(data, store_path: Path):
     return seen
 
 
+def board_root():
+    sys.path.insert(0, str(build.ROOT / 'Tools' / 'pipeline'))
+    try:
+        import pipeline
+        return pipeline.board_dir()
+    except (SystemExit, Exception):
+        return None
+
+
+def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None):
+    """The owner queue for this reading, and the beat. What a read need not ask again is kept in this station's cache."""
+    cache_path = cache_path or build.LOCAL / 'queue-cache.json'
+    try:
+        cache = json.loads(cache_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        cache = {}
+    q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache)
+    write_if_changed(cache_path, json.dumps(cache, sort_keys=True))
+    write_if_changed(out / 'data' / 'queue.js', f'window.QUEUE = {json.dumps(q, sort_keys=True)};\n')
+    beat = out / 'data' / 'beat.js'
+    beat.parent.mkdir(parents=True, exist_ok=True)
+    tmp = beat.with_suffix('.js.tmp')
+    tmp.write_text(f'window.BEAT = {json.dumps(data["now"].replace(" ", "T"))};\n', encoding='utf-8')
+    tmp.replace(beat)
+    return q
+
+
 def once(out: Path):
     data = src_ops.collect(build.REPO, out)
     ready_since(data, out / 'data' / 'ready-since.json')
+    data['queue'] = queue(data, out)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
-    body = json.dumps({k: v for k, v in data.items() if k != 'now'}, sort_keys=True, default=str)
+    body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'
     if old.exists() and body in old.read_text(encoding='utf-8'):
         return data, False
@@ -101,15 +134,19 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='the floor page of the asset board')
     ap.add_argument('--watch', type=float, default=0, help='seconds between reads; 0 reads once')
     ap.add_argument('--out', default='')
+    ap.add_argument('--queue', action='store_true', help='read once and print what waits on the owner')
     args = ap.parse_args(argv)
     out = build.out_dir(args.out)
+    if args.queue:
+        print('\n'.join(src_queue.lines(once(out)[0]['queue'])))
+        return 0
     import src_git
     commit, branch, as_of = src_git.head(build.REPO)
     page(out, dict(built=time.strftime('%Y-%m-%d %H:%M'), station=__import__('socket').gethostname(), commit=commit, refs_as_of=as_of))
     while True:
         data, changed = once(out)
         c = data['counts']
-        print(f'{data["now"]}  {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
+        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
               f'{c["idle"]} of {len(data["roster"])} skills and agents idle{"" if changed else " (no change)"}', flush=True)
         if not args.watch:
             return 0

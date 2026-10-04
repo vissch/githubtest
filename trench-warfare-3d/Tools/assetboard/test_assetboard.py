@@ -7,15 +7,18 @@ refuse an unknown id, lane families must collapse, and a status must follow its 
 """
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import build      # noqa: E402
 import films      # noqa: E402
+import ops        # noqa: E402
 import looks      # noqa: E402
 import render     # noqa: E402
 import src_ops    # noqa: E402
@@ -296,6 +299,66 @@ def queue_fixtures():
         r = got.get('A lane row.', {})
         case('queue: one row on two lanes is reported once, in the wording touched last, with both lanes',
              r.get('lane') == 'lane/show/b' and 'newer' in r.get('text', '') and r.get('lanes') == ['lane/show/a', 'lane/show/b', 'lane/show/c'], r)
+
+        # the queue: lane a is checked out here, its gate went green on its tip, the owner said land, a stage is ready
+        git('checkout', '-q', 'lane/show/a')
+        git('update-ref', 'refs/heads/lane/show/landed', integ)
+        green, took = repo / '.git' / 'tw-gate-green', repo / '.git' / 'tw-gate-edit-seconds'
+        green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')
+        took.write_text('400 2026-09-08T09:00:00\n')
+        board = repo / 'board'
+        (board / 'approvals').mkdir(parents=True)
+        for name, lane in (('show-a', 'lane/show/a'), ('show-landed', 'lane/show/landed'), ('show-gone', 'lane/show/gone')):
+            (board / 'approvals' / f'{name}.json').write_text(json.dumps(dict(lane=lane, date='2026-09-07', words='yes, land it')))
+        stage = dict(id='gate', state='READY', role='qa', since='2026-09-08 08:00:00')
+        floor = dict(now='2026-09-09 12:00:00', lanes=[dict(branch='lane/show/a', path=str(repo), checkout='repo', dirty=0,
+                                                             items=[dict(id='item', title='An item', stages=[stage, dict(id='land', state='BLOCKED')])])])
+        red = dict(status='completed', conclusion='failure', url='https://ci/1', createdAt='2026-09-08T11:00:00Z')
+        when = time.mktime((2026, 9, 9, 12, 0, 0, 0, 0, -1))
+        q = src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=red)), now=when)
+        case('queue: the open questions on integration, the oldest first, an undated one dated by the commit that wrote it',
+             [d['title'] for d in q['decide']] == ['A question', 'Another question'] and q['decide'][0]['date'] == '2026-09-02'
+             and len(q['decide'][1]['date']) == 10 and q['decide'][0]['days'] == 7, q['decide'])
+        case('queue: a checkout whose green gate tested its tip waits for the word, with how far behind it is',
+             [(l['lane'], l['ahead'], l['behind']) for l in q['land']] == [('lane/show/a', 1, 1)], q['land'])
+        case('queue: an approved lane is listed until it has landed, with the owner\'s words and what holds it up',
+             [(a['lane'], a['words'], a['why']) for a in q['approved']] == [('lane/show/a', 'yes, land it', ['1 behind'])], q['approved'])
+        case('queue: a ready stage of the board', [(r['item'], r['stage'], r['days']) for r in q['ready']] == [('item', 'gate', 1)], q['ready'])
+        kinds = sorted(b['kind'] for b in q['broken'])
+        case('queue: broken is a red checks run, a run before a commit over its budget, and each lane with stranded decisions',
+             kinds == ['ci', 'gate', 'stranded', 'stranded'] and q['ci'] == 'failure', q['broken'])
+        case('queue: its count is the number of entries', q['count'] == 2 + 1 + 1 + 1 + 4 and q['count'] == sum(len(q[g]) for g in src_queue.GROUPS), q['count'])
+        green.write_text('0' * 40 + ' 2026-09-08T10:00:00\n')
+        took.write_text('250 2026-09-08T09:00:00\n')
+        q2 = src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=dict(red, conclusion='success'))), now=when)
+        case('queue: a tip no green gate tested is not listed to land, and the approval says why it has not',
+             not q2['land'] and q2['approved'][0]['why'] == ['1 behind', 'no green gate on its tip'], (q2['land'], q2['approved']))
+        case('queue: a green checks run and a run inside its budget are not broken', sorted(b['kind'] for b in q2['broken']) == ['stranded'] * 2, q2['broken'])
+
+        # the page: its number is the rows it lists, and it knows how old it is
+        node = shutil.which('node')
+        if node:
+            js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const at = new Date("2026-09-09T12:00:00").getTime();'
+                  'console.log(JSON.stringify([Q.count(q), Q.groups(q).map(g => g.rows.length), Q.fresh("2026-09-09T10:59:00", at).stale,'
+                  ' Q.fresh("2026-09-09T11:01:00", at).stale, Q.fresh("2026-09-09T11:01:00", at).text]))')
+            p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'queue.js'), json.dumps(q)], capture_output=True)
+            got = json.loads(p.stdout.decode() or 'null')
+            case('page: "Needs you" is the number of rows the queue lists', got and got[0] == q['count'] == sum(got[1]), (got, p.stderr))
+            case('page: a floor nobody has read for over an hour is stale, one read 59 minutes ago is not',
+                 got and got[2] is True and got[3] is False and got[4] == 'read 59 min ago', got)
+        else:
+            print('      (no node on this machine: the page\'s own two cases were not run)')
+
+        # ops.py writes the queue beside the page, and the beat on every read, changed or not
+        out = repo / 'site'
+        cache_file = repo / 'cache.json'
+        cache_file.write_text(json.dumps(dict(ci=dict(at=time.time(), run=red))))
+        ops.queue(floor, out, cache_file, repo=repo, board=board)
+        first = (out / 'data' / 'queue.js').stat().st_mtime_ns, (out / 'data' / 'beat.js').read_text()
+        ops.queue(dict(floor, now='2026-09-09 12:00:20'), out, cache_file, repo=repo, board=board)
+        case('ops: an unchanged queue is not written again, and the beat is, so the page can tell stale from unchanged',
+             (out / 'data' / 'queue.js').stat().st_mtime_ns == first[0] and first[1] == 'window.BEAT = "2026-09-09T12:00:00";\n'
+             and (out / 'data' / 'beat.js').read_text() == 'window.BEAT = "2026-09-09T12:00:20";\n', first)
 
 
 if __name__ == '__main__':

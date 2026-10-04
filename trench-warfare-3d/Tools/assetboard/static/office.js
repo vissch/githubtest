@@ -171,25 +171,53 @@
     var ready = []; o.lanes.forEach(function (l) { ready = ready.concat(readyOf(l)); });
     ready.sort(function (a, b) { return (a.stage.since || '~').localeCompare(b.stage.since || '~'); });
 
-    // the pulse
+    // the pulse: "Needs you" is the owner queue (src_queue.py), and its number is the number of rows the queue lists.
+    // Before the first queue.js is written it is the board's ready stages, as it was.
+    var Q = window.OwnerQueue;
+    var queue = window.QUEUE || { ready: ready.map(function (x) {
+      return { title: x.item.title || x.item.id, item: x.item.id, stage: x.stage.id, lane: x.lane.branch, role: x.stage.skill || x.stage.role || '', days: null }; }) };
+    var groups = Q ? Q.groups(queue) : [], waiting = groups.reduce(function (n, g) { return n + g.rows.length; }, 0);
+    function qrow(g, r, cls) {
+      var a = el(r.lane || r.url ? 'a' : 'div', cls); a.title = r.tip || r.top;
+      if (r.url) a.href = r.url; else if (r.lane) a.href = (onBranches ? '' : 'floor.html') + '#' + slug(r.lane);
+      var what = el('span', 'k-take-what');
+      what.appendChild(el('span', 'k-take-top', g.key === 'ready' ? headline(r.top) : r.top));
+      var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c) { sub.appendChild(el('span', 'k-qchip', c)); }); what.appendChild(sub);
+      a.appendChild(what);
+      return a;
+    }
     var pr = $('p-ready');
-    if (pr && pr.textContent !== String(ready.length) && pr.textContent !== '–') { var nc = $('p-needs'); nc.classList.remove('k-bump'); void nc.offsetWidth; nc.classList.add('k-bump'); }
-    set('p-ready', ready.length);
-    var list = $('p-ready-list');
-    if (changed(list, JSON.stringify(ready.map(function (x) { return [x.lane.branch, x.stage.id]; })))) {
-      ready.slice(0, 3).forEach(function (x) {
-        var row = el('a', 'k-take'); row.href = (onBranches ? '' : 'floor.html') + '#' + slug(x.lane.branch);
+    if (pr && pr.textContent !== String(waiting) && pr.textContent !== '–') { var nc = $('p-needs'); nc.classList.remove('k-bump'); void nc.offsetWidth; nc.classList.add('k-bump'); }
+    set('p-ready', waiting);
+    var list = $('p-ready-list'), sig = JSON.stringify(groups);
+    if (changed(list, sig)) {
+      groups.forEach(function (g) {
+        var row = el('a', 'k-take k-take-line'); row.href = '#queue';
         var what = el('span', 'k-take-what');
-        what.appendChild(el('span', 'k-take-top', headline(x.item.title || x.item.id)));
-        var sub = el('span', 'k-take-sub'); sub.appendChild(el('i', 'k-stage-pill', x.stage.id));
-        sub.appendChild(document.createTextNode(shortBranch(x.lane.branch) + ' · for ' + C.label(x.stage.skill || x.stage.role || 'anyone') + waited(x.stage.since))); what.appendChild(sub);
-        row.appendChild(what); row.appendChild(el('b', null, 'Take →'));
-        row.title = (x.item.title || x.item.id) + ': ' + x.stage.id + ' is ready (' + (x.stage.skill || x.stage.role || 'no role') + ')';
+        what.appendChild(el('span', 'k-take-top', g.label));
+        what.appendChild(el('span', 'k-take-sub', g.rows.slice(0, 2).map(function (r) { return r.top; }).join(' · ') + (g.rows.length > 2 ? ' · +' + (g.rows.length - 2) : '')));
+        row.appendChild(what); row.appendChild(el('b', null, String(g.rows.length)));
         list.appendChild(row);
       });
-      if (!ready.length) list.appendChild(el('span', null, 'nothing waits on you'));
+      if (!waiting) list.appendChild(el('span', null, 'nothing waits on you'));
     }
-    var needs = $('p-needs'); if (needs) { needs.classList.toggle('calm', !ready.length); needs.href = ready.length ? (onBranches ? '' : 'floor.html') + '#' + slug(ready[0].lane.branch) : '#office'; }
+    var needs = $('p-needs'); if (needs) needs.classList.toggle('calm', !waiting);
+    // the queue itself: a card per group, a row of chips per entry, the oldest first; five rows, the rest folded
+    var cards = $('queue-cards'), qs = $('queue');
+    if (qs) qs.hidden = !waiting;
+    if (changed(cards, sig)) {
+      groups.forEach(function (g) {
+        var card = el('article', 'k-qcard k-q-' + g.key);
+        var h = el('header'); h.appendChild(el('b', null, g.label)); h.appendChild(el('span', 'k-qn', String(g.rows.length))); card.appendChild(h);
+        g.rows.slice(0, 5).forEach(function (r) { card.appendChild(qrow(g, r, 'k-qrow')); });
+        if (g.rows.length > 5) {
+          var more = el('details', 'k-qmore'); more.appendChild(el('summary', null, 'All ' + g.rows.length));
+          g.rows.slice(5).forEach(function (r) { more.appendChild(qrow(g, r, 'k-qrow')); });
+          card.appendChild(more);
+        }
+        cards.appendChild(card);
+      });
+    }
     set('p-at', working.length);
     var dots = $('p-at-dots');
     if (changed(dots, working.map(function (x) { return x.w.id; }).join(',') + '|' + all.idle.length)) {
@@ -214,7 +242,9 @@
     set('p-rooms', open.length);
     var nLive = o.lanes.filter(function (l) { return l.live; }).length;
     set('p-rooms-sub', open.length + ' open · ' + Math.max(0, nLive - open.length) + ' live · ' + (o.lanes.length - nLive) + ' parked');
-    set('stamp', 'read ' + window.OPS_NOW + ', every 20 s');
+    var f = Q ? Q.fresh(window.BEAT, Date.now()) : { stale: false };
+    set('stamp', f.stale ? f.text + ': the watcher has stopped (ops.py --watch 20)' : 'read ' + (window.BEAT || window.OPS_NOW).replace('T', ' ') + ', every 20 s');
+    var st = $('stamp'); if (st) st.parentNode.classList.toggle('stale', f.stale);
 
     // the hero: everyone at work, a frog each
     var row = $('crewrow');

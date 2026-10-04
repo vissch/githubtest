@@ -1,10 +1,24 @@
 #!/usr/bin/env python3
-"""What waits on the owner that the board does not hold. First part: the decisions stranded on lanes.
+"""The owner queue: everything that waits on the owner, from where it is written down. The site's "Needs you".
 
-    python Tools/assetboard/src_queue.py --stranded          from trench-warfare-3d/: list them
+    python Tools/assetboard/ops.py --queue                   from trench-warfare-3d/: the queue, as the site shows it
+    python Tools/assetboard/src_queue.py --stranded          the decisions stranded on lanes
     python Tools/assetboard/src_queue.py --stranded --text   the same, each with its full line, ready to copy
 
-WHY. A decision is written into docs/reference/decisions.md in the turn it is made, on whatever lane that session is
+WHY. Work was made faster than it landed and the owner could not see what waited on them: "Needs you" counted the
+board's ready stages and nothing else (the process critique of 2026-10-04). collect() derives five groups and stores
+nothing but the owner's approvals:
+- decide: the bullets under "## Open" of decisions.md on integration, oldest first. A bullet's date is the one in
+  its title, else the day the commit that first wrote it was made;
+- land: a checkout whose last green full gate tested exactly its HEAD (gate.ps1's tw-gate-green), clean and ahead of
+  integration: it lands on the owner's word;
+- approved: the owner said land and it has not landed. approvals/<lane>.json on the board holds the lane, the date
+  and the owner's words; it is listed, with what holds it up, until the lane is in integration;
+- ready: the board's stages ready to take (what "Needs you" used to be);
+- broken: the last checks run on integration when it is red, a run before a commit that took over 300 s, and the
+  decisions still stranded on a lane.
+
+STRANDED DECISIONS. A decision is written into docs/reference/decisions.md in the turn it is made, on whatever lane that session is
 on, and reaches the integration branch only when the lane lands. Until then no other lane can read it: on 2026-10-04
 about fifteen unlanded lanes each held rows nobody else saw, one of them never pushed.
 
@@ -17,8 +31,13 @@ entry on several lanes is reported once, in the wording of the lane that touched
 some branch has since taken out is not stranded either: it was answered there (that lane's row says how) or reworded,
 and the lanes still showing it are only older.
 """
+import datetime
+import hashlib
+import json
 import re
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -26,6 +45,9 @@ sys.path.insert(0, str(HERE))
 import src_git    # noqa: E402
 
 DECISIONS = 'docs/reference/decisions.md'
+GROUPS = ('broken', 'land', 'approved', 'ready', 'decide')     # the order the site lists them in
+EDIT_BUDGET = 300      # seconds a run before a commit may take: gate.ps1's $EditBudget
+CI_EVERY = 600         # seconds between two questions to GitHub about the last checks run
 ROW = re.compile(r'^\| *(\d{4}-\d{2}-\d{2}) *\| *(.*?) *\|? *$')
 BOLD = re.compile(r'\*\*(.+?)\*\*', re.S)
 DATE = re.compile(r'\d{4}-\d{2}-\d{2}')
@@ -114,6 +136,174 @@ def stranded(repo, integration=None, path=DECISIONS):
             best['lanes'] = lanes
     rows = [e for e in found.values() if e['kind'] == 'row' or not taken_out(repo, e, path)]
     return sorted(rows, key=lambda e: (e['date'] or '9999', e['kind'], e['title']))
+
+
+def headline(title):
+    """The first phrase of a bullet's title: without its date, its "the agent's choices" and its colon."""
+    return re.split(r'\s\(\d{4}-|\s\(|,\s|:$|\?\s', title.replace('`', '') + ' ')[0].strip(' :.') or title
+
+
+def open_questions(repo, integ, cache, path=DECISIONS):
+    blob = src_git.git(repo, 'rev-parse', '--verify', '--quiet', f'{integ}:{path}').strip()
+    dates = cache.setdefault('first_written', {})
+    out = []
+    for e in parse(src_git.git(repo, 'show', blob)) if blob else []:
+        if e['kind'] != 'open':
+            continue
+        date = e['date'] or dates.get(e['title'])
+        if not date:                # the day it was first written down
+            log = src_git.git(repo, 'log', '--reverse', '--format=%ad', '--date=short', '-S' + e['title'], integ, '--', path).split()
+            date = dates[e['title']] = log[0] if log else ''
+        body = re.sub(r'\s+', ' ', re.sub(r'[`*]', '', e['text'][2:]))
+        out.append(dict(title=headline(e['title']), date=date, text=body[:400], choice="agent's choice" in body[:260]))
+    return sorted(out, key=lambda q: (q['date'] or '9999', q['title']))
+
+
+def gate_state(tree):
+    """(HEAD's tree, the tree the last green full gate tested and when, the seconds of the last whole run before a commit)."""
+    out = src_git.git(tree, 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green', 'HEAD^{tree}').split('\n')
+    if len(out) < 2:
+        return '', [], None
+    marker = Path(out[0].strip())
+    green = marker.read_text(encoding='utf-8', errors='replace').split() if marker.is_file() else []
+    took = marker.with_name('tw-gate-edit-seconds')
+    seconds = took.read_text(encoding='ascii', errors='replace').split() if took.is_file() else []
+    return out[1].strip(), green, (int(seconds[0]), seconds[1] if len(seconds) > 1 else '') if seconds and seconds[0].isdigit() else None
+
+
+def drift(repo, integ, ref):
+    """(commits integration has and the ref lacks, commits the ref has and integration lacks)."""
+    n = src_git.git(repo, 'rev-list', '--left-right', '--count', f'{integ}...{ref}').split()
+    return (int(n[0]), int(n[1])) if len(n) == 2 else (0, 0)
+
+
+def merged_into(repo, ref):
+    """The lanes whose tip `ref` contains, by name without origin/."""
+    out = src_git.git(repo, 'branch', '-a', '--merged', ref, '--format=%(refname:short)').split()
+    return {n[7:] if n.startswith('origin/') else n for n in out}
+
+
+def approvals(repo, integ, board, trees):
+    out = []
+    refs = src_git.branch_refs(repo)
+    for f in sorted((Path(board) / 'approvals').glob('*.json')) if board else []:
+        try:
+            a = json.loads(f.read_text(encoding='utf-8'))
+            lane, ref = a['lane'], refs.get(a['lane'], (None,))[0]
+        except (OSError, ValueError, KeyError):
+            continue
+        if not ref or not int(src_git.git(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{integ}...{ref}').strip() or 0):
+            continue                # landed (or gone): the approval has done its work
+        behind, ahead = drift(repo, integ, ref)
+        why = [f'{behind} behind'] if behind else []
+        tree = next((t for t in trees if t['branch'] == lane), None)
+        head, green, _ = gate_state(tree['path']) if tree else ('', [], None)
+        if not tree:
+            why.append('no checkout here')
+        elif not green or green[0] != head:
+            why.append('no green gate on its tip')
+        # an unlanded lane this one contains: it lands first, or with it
+        under = [n for n in merged_into(repo, ref) - merged_into(repo, integ)
+                 if n.startswith('lane/') and src_git.family(n) != src_git.family(lane)]
+        if under:
+            why.append('sits on ' + ', '.join(sorted(under)[:2]))
+        out.append(dict(lane=lane, date=a.get('date', ''), words=a.get('words', ''), ahead=ahead, why=why))
+    return sorted(out, key=lambda a: a['date'])
+
+
+def checks_run(repo, integ, cache, now):
+    """The last checks run on integration, asked of GitHub at most every ten minutes: None when it cannot be known."""
+    seen = cache.get('ci') or {}
+    if now - seen.get('at', 0) < CI_EVERY:
+        return seen.get('run')
+    run = None
+    try:
+        p = subprocess.run(['gh', 'run', 'list', '--workflow', 'checks.yml', '--branch', integ.split('/', 1)[1], '--limit', '1',
+                            '--json', 'conclusion,status,createdAt,url'], cwd=repo, capture_output=True, timeout=30)
+        rows = json.loads(p.stdout.decode('utf-8', 'replace') or '[]') if p.returncode == 0 else []
+        run = rows[0] if rows else None
+    except (OSError, ValueError, subprocess.TimeoutExpired):
+        pass
+    cache['ci'] = dict(at=now, run=run)
+    return run
+
+
+def collect(repo, ops, board=None, cache=None, now=None, integration=None):
+    """The queue, from the floor's data (src_ops.collect: its lanes carry each checkout's path, dirty count and board
+    items). `cache` is a dict the caller keeps between reads (what does not change between two reads is not asked
+    again). Returns the five groups and `count`, the number of entries: the site's "Needs you"."""
+    integ = integration or src_git.INTEGRATION
+    cache = cache if cache is not None else {}
+    now = now or time.time()
+    trees = [l for l in ops['lanes'] if l.get('path')]
+    q = dict(decide=open_questions(repo, integ, cache), land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
+
+    for t in trees:
+        head, green, took = gate_state(t['path'])
+        behind, ahead = drift(repo, integ, 'refs/heads/' + t['branch'])
+        if green and green[0] == head and not t.get('dirty') and ahead:
+            q['land'].append(dict(lane=t['branch'], checkout=t.get('checkout'), date=(green[1] if len(green) > 1 else '')[:10],
+                                  ahead=ahead, behind=behind))
+        if took and took[0] > EDIT_BUDGET:
+            q['broken'].append(dict(kind='gate', title=f'The run before a commit took {took[0]} s', lane=t['branch'], date=took[1][:10]))
+    q['land'].sort(key=lambda l: (l['behind'] > 0, l['date']))
+
+    for l in ops['lanes']:
+        for it in l.get('items', []):
+            for st in it['stages']:
+                if st.get('state') == 'READY':
+                    q['ready'].append(dict(title=it.get('title') or it['id'], item=it['id'], stage=st['id'], lane=l['branch'],
+                                           role=st.get('skill') or st.get('role') or '', date=(st.get('since') or '')[:10], since=st.get('since', '')))
+    q['ready'].sort(key=lambda r: r['since'] or '~')
+
+    run = checks_run(repo, integ, cache, now)
+    if run and run.get('status') == 'completed' and run.get('conclusion') not in ('success', 'skipped', 'neutral'):
+        q['broken'].append(dict(kind='ci', title='The checks run on integration is red', url=run.get('url', ''), date=(run.get('createdAt') or '')[:10]))
+    q['ci'] = 'unknown' if not run else run.get('conclusion') or run.get('status') or 'unknown'
+
+    refs = hashlib.sha1(src_git.git(repo, 'for-each-ref', '--format=%(objectname)', 'refs/heads', 'refs/remotes/origin').encode()).hexdigest()
+    if (cache.get('stranded') or {}).get('refs') != refs:       # stranded() reads every branch: only when a branch moved
+        by_lane = {}
+        for e in stranded(repo, integ):
+            by_lane.setdefault(e['lane'], []).append(e['title'])
+        cache['stranded'] = dict(refs=refs, lanes=by_lane)
+    for lane, titles in sorted(cache['stranded']['lanes'].items()):
+        q['broken'].append(dict(kind='stranded', title=f'{len(titles)} decision{"s" if len(titles) > 1 else ""} written down only on this lane',
+                                lane=lane, date='', text='; '.join(titles)[:400]))
+
+    today = datetime.date.fromtimestamp(now)
+    for g in GROUPS:
+        for e in q[g]:
+            try:
+                e['days'] = (today - datetime.date.fromisoformat(e['date'])).days if e.get('date') else None
+            except ValueError:
+                e['days'] = None
+    q['count'] = sum(len(q[g]) for g in GROUPS)
+    return q
+
+
+def lines(q):
+    """The queue as text, for a session (ops.py --queue)."""
+    label = dict(broken='Broken', land='Say land (gate green on its tip)', approved='Approved, not landed', ready='Ready to take', decide='Decide')
+    out = [f'{q["count"]} wait on the owner (checks on integration: {q["ci"]})']
+    for g in GROUPS:
+        if not q[g]:
+            continue
+        out.append(f'\n{label[g]}: {len(q[g])}')
+        for e in q[g]:
+            age = '' if e.get('days') is None else f'{e["days"]} d'
+            if g == 'decide':
+                what = e['title'] + (' (agent\'s choice)' if e['choice'] else '')
+            elif g == 'land':
+                what = f'{e["lane"]}  {e["ahead"]} commits' + (f', {e["behind"]} behind: rebase and gate again' if e['behind'] else '')
+            elif g == 'approved':
+                what = f'{e["lane"]}  "{e["words"]}"' + (f'  ({"; ".join(e["why"])})' if e['why'] else '')
+            elif g == 'ready':
+                what = f'{e["item"]}: {e["stage"]} on {e["lane"]}'
+            else:
+                what = e['title'] + (f' ({e["lane"]})' if e.get('lane') else '')
+            out.append(f'  {age:>6}  {what}')
+    return out
 
 
 def main(argv=None):

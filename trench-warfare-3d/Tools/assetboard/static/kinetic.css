@@ -906,3 +906,31 @@ body.filtering .bucket .card.k-over:not([hidden]) { display: flex; }
 .k-assets .card:focus-visible { outline: none; transform: translateY(-4px); box-shadow: 0 0 0 2px var(--acc, #22c55e), 0 24px 40px -24px rgba(0,0,0,.4); }
 .k-assets .card:focus-visible .pic::after { opacity: 1; }
 .k-assets .card:focus-visible .pic video { filter: brightness(1.3) contrast(1.05); }
+
+/* the owner queue (2026-10-04): "Needs you" counts everything that waits on the owner, and under the pulse there is
+   one card per group, a row per entry with its age and lane as chips. No prose; the words are on hover. */
+.k-take > b { min-width: 2.2em; text-align: center; }
+.k-take-line .k-take-what { display: flex; align-items: baseline; gap: 10px; }
+.k-take-line .k-take-top { flex: none; } .k-take-line .k-take-sub { flex: 1; min-width: 0; }
+.k-qchip { font: 600 11px var(--sans); padding: 2px 8px; border-radius: 999px; color: #cfcfcf; background: rgba(255,255,255,.1); white-space: nowrap; }
+.k-queue { background: var(--k-ink); color: #eaeaea; border-radius: var(--r-xl); padding: clamp(24px, 4vw, 56px); margin: 12px 0; }
+.k-queue .k-head h2 { color: #f5f5f5; } .k-queue .k-head { margin-bottom: 20px; }
+.k-qgrid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; align-items: start; }
+.k-qcard { background: var(--k-ink2); border: 1px solid #2a2a2c; border-radius: var(--r-l); padding: 18px; display: grid; gap: 6px; min-width: 0; }
+.k-qcard header { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 6px; }
+.k-qcard header b { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: #bdbdbd; }
+.k-qn { font: 600 44px/.9 var(--sans); letter-spacing: -.05em; font-variant-numeric: tabular-nums; color: #fff; }
+.k-qrow { display: block; padding: 8px 12px; border-radius: 12px; background: rgba(255,255,255,.06); color: #f4f4f4; min-width: 0; transition: background .2s; }
+a.k-qrow:hover { background: rgba(255,255,255,.14); }
+.k-qrow .k-take-top { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.k-qrow .k-take-sub { margin-top: 4px; opacity: 1; display: flex; flex-wrap: wrap; gap: 4px; white-space: normal; overflow: visible; }
+.k-q-broken { border-color: #5a2a1f; } .k-q-broken .k-qn { color: #ff7a5c; }
+.k-q-land .k-qn, .k-q-approved .k-qn { color: var(--k-fire2); } .k-q-land .k-qchip:first-child { background: var(--k-work); color: #04210f; }
+.k-q-approved .k-qchip:first-child { background: var(--k-fire2); color: #2a1600; }
+.k-qmore summary { cursor: pointer; font: 600 12px var(--sans); color: #bdbdbd; padding: 6px 12px; } .k-qmore[open] summary { margin-bottom: 4px; }
+.k-qmore .k-qrow { margin-top: 6px; }
+/* how old the page is: red when nobody has read the floor for an hour */
+.k-now-age { color: #9a9a9a; }
+.k-now.stale { background: #b3200a; border-color: var(--k-fire); } .k-now.stale .k-now-age { color: #fff; font-weight: 600; }
+.k-now.stale .k-live, .k-stamp.stale .k-live { background: #fff; animation: none; }
+.k-stamp.stale, .k-office .k-stamp.stale { color: #ff7a5c; font-weight: 600; }
