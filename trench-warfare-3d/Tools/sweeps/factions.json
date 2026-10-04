@@ -1,0 +1,14 @@
+{
+  "about": "Iron against Brass, the script on both seats, every seed from both seats. now: Iron is side a. The mirrors are the seat's own edge: a faction against itself should win as often from either seat. tasks.md, 2026-09-29: Brass beat Iron in 7 of the 8 matches that ended.",
+  "scenario": "match",
+  "policy": "Script",
+  "minutes": 8,
+  "swap_seats": true,
+  "heroes": false,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
+  "variants": [
+    {"name": "iron-mirror", "patches": [{"config": "FactionB", "set": "Iron"}]},
+    {"name": "brass-mirror", "patches": [{"config": "FactionA", "set": "Brass"}]}
+  ],
+  "targets": {}
+}

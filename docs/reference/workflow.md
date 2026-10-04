@@ -271,6 +271,41 @@ gym flags that are new, and per entry and band the pixels that changed (informat
 a whole run does not yet, measured 2026-10-01 at up to 35 % of a close band between two runs of one commit). The report (report.md, report.json) goes to `%LOCALAPPDATA%\TrenchWarfare\nightly\<stamp>-<sha>\`
 (the newest seven kept); exit 0 nothing new, 2 something to look at, 1 could not run. Scheduling it daily is the owner's call.
 
+**A balance number, swept (2026-10-04).** The bench says how units behave; `python Tools/sweep.py run <spec.json>` says
+what a number does to the fight. A spec names variants, and a variant is data, so nothing is recompiled or committed:
+a unit's field (`{"unit": "Machinegunner", "field": "Weapon.Damage", "mul": [0.8, 0.9]}`; a list is a grid, one
+variant a value), the match's config (`{"config": "FactionA", "set": "Brass"}`) or a script's knob
+(`{"script_b": "Odds", "set": 2.5}`). `BalanceSweepTests.Report_TheSweep` (Explicit) writes each into the match before
+its first tick and plays the baseline ("now") and every variant over the same seeds:
+- **match** (`MatchLoopTests.Play`, the script on both seats): every seed twice, the sides changing seats, so a seat's
+  edge is told apart from a side's. Side "a" is whoever the config's FactionA and `script_a` belong to. Heroes are off
+  (only seat 0 gets one). A `policy` other than Script plays seat 0 and never swaps.
+- **ladder** (`AssaultLadderTests.Run`): the spec's rungs, N attackers at a garrison, bare or behind support.
+
+It reports `attrition_ratio` (match: men lost in the open over men lost in a trench; ladder: attackers lost over
+defenders lost), `time_to_breach_s` (from four of a side's men standing in the open between the front lines to the
+trench they take; only seeds where one fell), `trench_retention` (the share of the match a side kept each trench it
+started with), who won from which seat, losses, captures and the other side's men killed per 100 silver. Per metric:
+the baseline's mean and p10-p90 over the seeds, each variant's mean, and whether every seed moved the same way. The
+matches are chaotic, so most numbers come out "mixed": believe "all up" and "all down". A spec's `targets`
+(`{"win_a": [0.4, 0.6]}`) are bands a mean should sit in: each variant is IN or OUT, and the exit is 0 the baseline
+is inside every band (or there are none), 2 it is outside one, 1 could not run.
+
+Runs go to `%LOCALAPPDATA%\TrenchWarfare\sweeps\<stamp>-<sha>\` (`TW_SWEEPS` overrides; the newest 8 kept, a folder
+holding KEEP.txt always): a report per variant, report.md, report.json. `--chunk` variants go to one editor launch
+(4); a variant whose report is there is not played again, so `--resume <run folder>` carries on a run that died. A
+field, unit or value the test cannot write stops the run and is printed with its name. Measured 2026-10-04 on the
+desktop: 48 eight-minute matches (3 variants, 8 seeds, both seats) in 1.5 min; a ladder of six rungs on 8 seeds 3.1
+min a variant; the same spec twice gives byte-identical reports, and a variant that multiplies by one equals the
+baseline. Over ten minutes or so, start it under `Tools/pipeline/run_detached.py`.
+- The standing specs are in `Tools/sweeps/`: `factions.json` (Iron against Brass and each against itself),
+  `assault.json` (the assault ladder, the rifle turned), `difficulty.json` (Easy, Normal, Hard against a player who
+  only defends). `python Tools/test_sweep.py` tests the tool with no editor.
+- A constant is not data. `python Tools/sweep.py compile <spec.json> <out.json>`, then `TW_SWEEP=<out.json> python
+  Tools/abtest.py bench --filter TW.Tests.BalanceSweepTests.Report_TheSweep --file <the .cs> --variant try=<copy>`
+  plays the spec's baseline on each copy of the code.
+- A sweep explores. The number it finds lands only on the owner's word, as a SIM-lane commit with a test that pins it.
+
 ### False reds
 - **After Play in the same editor:** statics not reset by `SceneStatics` (the `Explained` list in
   StaticLifecycleTests) survive leaving Play. `RequestScriptReload` and rerun; a red that survives that is real.
