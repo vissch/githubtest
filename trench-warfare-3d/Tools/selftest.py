@@ -6,6 +6,8 @@ catching anything, every session keeps trusting a check that no longer works. Th
 asserts each break is caught, in a throwaway worktree (your checkout is never touched), about a minute.
 
     python Tools/selftest.py        from trench-warfare-3d/; exit 0 = every case behaved
+    python Tools/selftest.py --only land,relay     only these groups (codemap, port_split, scorecard, land,
+                                                   relay, health): a land.py check in 20 s, not 130
 
 Cases: codemap --check passes on a clean tree, then fails on each of: a command that runs a missing Tools/ script, a
 cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
@@ -355,37 +357,58 @@ def scorecard_cases():
     case('scorecard takes an accepted run as the new baseline', not worse, str(worse))
 
 
+GROUPS = ('codemap', 'port_split', 'scorecard', 'land', 'relay', 'health')
+
+
 def main():
-    run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
+    import argparse
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--only', default='', help='run only these groups, comma separated: ' + ', '.join(GROUPS))
+    a = ap.parse_args()
+    only = [g.strip() for g in a.only.split(',') if g.strip()] or list(GROUPS)
+    unknown = [g for g in only if g not in GROUPS]
+    if unknown:
+        sys.exit('selftest: no group named %s (have: %s)' % (', '.join(unknown), ', '.join(GROUPS)))
+    # Run by a relay leg, the tools tested here would refuse (land.py and pipeline.py do, inside a leg). They run
+    # on throwaway repos, so the leg's mark is taken off; relay_cases puts it back where it tests the refusal.
+    __import__('os').environ.pop('TW_RELAY', None)
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
     wt = tmp / 'wt'
-    code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
-    if code:
-        sys.exit('could not create a worktree: ' + out)
     try:
-        # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
-        changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
-        changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
-        for rel in filter(None, (c.strip() for c in changed)):
-            (wt / rel).parent.mkdir(parents=True, exist_ok=True)
-            shutil.copy2(REPO / rel, wt / rel)
-        for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
-            (wt / rel.strip()).unlink(missing_ok=True)
-        run(['git', 'add', '-A'], wt)
-        run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
-             '--allow-empty', '--no-verify'], wt)
-        codemap_cases(wt)
-        port_split_cases(tmp)
-        port_split_twin_case(tmp)
-        scorecard_cases()
-        land_cases(tmp)
-        relay_cases(tmp)
-        code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
-        case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
+        if 'codemap' in only:                     # the one group that needs a copy of this checkout
+            run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
+            code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
+            if code:
+                sys.exit('could not create a worktree: ' + out)
+            # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
+            changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
+            changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
+            for rel in filter(None, (c.strip() for c in changed)):
+                (wt / rel).parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(REPO / rel, wt / rel)
+            for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
+                (wt / rel.strip()).unlink(missing_ok=True)
+            run(['git', 'add', '-A'], wt)
+            run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
+                 '--allow-empty', '--no-verify'], wt)
+            codemap_cases(wt)
+        if 'port_split' in only:
+            port_split_cases(tmp)
+            port_split_twin_case(tmp)
+        if 'scorecard' in only:
+            scorecard_cases()
+        if 'land' in only:
+            land_cases(tmp)
+        if 'relay' in only:
+            relay_cases(tmp)
+        if 'health' in only:
+            code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
+            case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:
-        run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
+        if wt.exists():
+            run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
         shutil.rmtree(tmp, ignore_errors=True)
-    print(f'{sum(results)} of {len(results)} cases behaved')
+    print(f'{sum(results)} of {len(results)} cases behaved' + ('' if len(only) == len(GROUPS) else ' (only: %s)' % ', '.join(only)))
     sys.exit(0 if all(results) else 1)
 
 
