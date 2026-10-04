@@ -31,6 +31,8 @@ inbox    7 notes, 1 for you
   a throwaway copy of the repo on purpose and checks each break is still caught) and every tool's own tests (any
   `test_<tool>.py` under `Tools/`, found by name; `--list` names the parts). The gate runs it in place of
   `validate.py` on a lane that changes a tool, and `land.py` refuses such a lane while it is red.
+  `python Tools/selftest.py --only land,relay` runs only those groups (`codemap`, `validate`, `gate`,
+  `aosa_land`, `port_split`, `scorecard`, `gate_scope`, `land`, `relay`, `health`), in seconds.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
   the exact commit first, and `toolcheck.py` too when the lane changes a tool.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
