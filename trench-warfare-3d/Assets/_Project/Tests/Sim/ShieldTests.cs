@@ -111,7 +111,7 @@ namespace TW.Tests
             return n;
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void ALineWithShieldsInFrontLosesFewerMen()
         {
             int Fight(bool shields)

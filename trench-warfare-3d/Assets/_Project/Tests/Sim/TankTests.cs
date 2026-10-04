@@ -97,7 +97,7 @@ namespace TW.Tests
         }
 
         // ------------------------------------------------------------------ getting across
-        [Test]
+        [Test, Category("Long")]
         public void Maw_BridgesTheFireTrenches_WithoutDitching()
         {
             using var m = NewMatch();
@@ -107,7 +107,7 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.VehicleDitched, tank), "3 m trenches are inside its 3.5 m");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Tusk_TriesTrenchesTooWideForIt_SometimesDitches_AndClawsOut()
         {
             int ditched = 0, climbed = 0;
@@ -124,7 +124,7 @@ namespace TW.Tests
             Assert.AreEqual(ditched, climbed, "every ditched tank clawed its way out");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Mud_BogsATank_ThatThenDrivesOut()
         {
             int bogged = 0;
@@ -288,7 +288,7 @@ namespace TW.Tests
         }
 
         // ------------------------------------------------------------------ determinism
-        [Test]
+        [Test, Category("Long")]
         public void ATankBattle_IsDeterministic()
         {
             ulong[] Play(uint seed)

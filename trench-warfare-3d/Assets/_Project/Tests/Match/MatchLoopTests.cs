@@ -190,7 +190,7 @@ namespace TW.Tests
                 Assert.GreaterOrEqual(r.Deployed[1] * 1200f / math.max(1, r.EndTick), 1.5f, "men a minute: it spent its silver on men, not only on shells: " + r);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheEnemy_AttacksOnlyWithTheOdds()
         {
             var said = Defended().Decisions;

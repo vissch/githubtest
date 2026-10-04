@@ -178,7 +178,7 @@ namespace TW.Tests
             Assert.AreEqual(4, machines, "the four machines came in as machines");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void EachMachineDrives()
         {
             foreach (byte a in New)
@@ -193,7 +193,7 @@ namespace TW.Tests
             }
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void EachArmedUnitFightsAndTheUnarmedDoNot()
         {
             foreach (byte a in New)

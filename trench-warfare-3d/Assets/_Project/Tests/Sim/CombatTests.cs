@@ -59,7 +59,7 @@ namespace TW.Tests
             Assert.AreEqual(want, m.Fields.Trenches[trench].GarrisonCount, "setup: garrison did not form");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Garrison_ShootsAnAssaultInTheOpen_AndWinsTheExchange()
         {
             using var m = NewMatch();
@@ -192,7 +192,7 @@ namespace TW.Tests
         /// If this goes red while the test above stays green, the circle has closed for real and no garrison can
         /// engage anything, ever.
         /// </summary>
-        [Test]
+        [Test, Category("Long")]
         public void AnAssaultInTheOpenIsWhatStandsAGarrisonUp()
         {
             using var m = NewMatch();
@@ -255,7 +255,7 @@ namespace TW.Tests
             Assert.AreEqual(0f, m.World.Suppression[slot]);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Garrison_SpreadsAlongItsTrench()
         {
             using var m = NewMatch();
@@ -334,7 +334,7 @@ namespace TW.Tests
             Step(m);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Combat_IsDeterministic()
         {
             var a = Battle(7);

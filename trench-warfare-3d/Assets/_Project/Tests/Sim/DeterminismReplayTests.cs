@@ -115,7 +115,7 @@ namespace TW.Tests
             return hashes;
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void SameSeedAndCommands_ProduceIdenticalHashes()
         {
             beamFired = false; minesLaid = false; sapperLaid = false;

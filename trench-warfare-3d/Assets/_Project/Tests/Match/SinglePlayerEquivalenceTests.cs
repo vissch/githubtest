@@ -20,7 +20,7 @@ namespace TW.Tests
     {
         const int Ticks = 1000;
 
-        [Test]
+        [Test, Category("Long")]
         public void OneWorldPlaysTheSameMatchAsTheTwoWorldCanary()
         {
             var one = Play(canary: false, 0, 0, 0f, out int oneEnemy, out bool oneDesync);

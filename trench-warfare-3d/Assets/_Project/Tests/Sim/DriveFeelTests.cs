@@ -164,7 +164,7 @@ namespace TW.Tests
         /// fifteen machines in two ranks behind the spawn point, all sent forward. Nor does any nose hunt either way:
         /// letting go of a hull ahead whenever it kept pace with the one behind (whose speed drops as it swerves) had
         /// the Breaker and the Redoubt flip 68 and 72 times per 100 m here; alone, every machine flips none.</summary>
-        [Test]
+        [Test, Category("Long")]
         public void AColumnOfEveryMachineDrivesOnWithoutTurningOnTheSpot()
         {
             using var m = NewMatch();

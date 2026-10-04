@@ -99,7 +99,7 @@ namespace TW.Tests
             Assert.AreEqual(20, m.Fields.Trenches[0].GarrisonCount);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Advance_SendsGarrisonOverTheTop_ToTheEnemyTrench()
         {
             using var m = NewMatch();
@@ -123,7 +123,7 @@ namespace TW.Tests
             Assert.GreaterOrEqual(watch.Entries, 18);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Fallback_ReturnsUnitsInTheOpen_ToTheirTrench()
         {
             using var m = NewMatch();
@@ -139,7 +139,7 @@ namespace TW.Tests
             Assert.AreEqual(10, Count(w, i => w.TrenchId[i] == 0), "everyone is back in trench 0");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void LockedTrench_PassesArrivalsThrough()
         {
             using var m = NewMatch();
@@ -160,7 +160,7 @@ namespace TW.Tests
         /// The order names a GROUP, not a list of archetype ids (the mask used to be `1 << archetype`, which is what
         /// held every unit id under 32). "Send the line over" leaves the officer in the trench; "send the support" sends him.
         /// </summary>
-        [Test]
+        [Test, Category("Long")]
         public void SelectAdvance_MovesOnlyTheGroupsNamed()
         {
             using var m = NewMatch();
@@ -180,7 +180,7 @@ namespace TW.Tests
 
         /// <summary>The guns (v22): "send the line over" leaves the machine gunners on the parapet to cover it; naming the
         /// guns sends them; a plain advance sends everyone. They were Line, so the riflemen could not go without them.</summary>
-        [Test]
+        [Test, Category("Long")]
         public void SelectAdvance_TheLineGoes_AndTheGunsStayToCoverIt()
         {
             using var m = NewMatch();
@@ -199,7 +199,7 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(w, i => w.TrenchId[i] == 0), "and then the guns went too");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void AnAdvance_SendsTheGunsWithEveryoneElse()
         {
             using var m = NewMatch();
@@ -223,7 +223,7 @@ namespace TW.Tests
             Assert.IsFalse(HasEvent(m.World, SimEventType.CommandRejected), "own trench, valid id");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Vehicle_CrossesTheTrench_WithoutLinks_AndNeverGarrisons()
         {
             using var m = NewMatch();
@@ -240,7 +240,7 @@ namespace TW.Tests
             Assert.AreEqual(NavMode.Tracked, m.Fields.Goals[w.GoalId[tank]].Mode);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void OrdersAndMovement_AreDeterministic()
         {
             ulong[] RunScript()
@@ -264,7 +264,7 @@ namespace TW.Tests
         }
     
 
-        [Test]
+        [Test, Category("Long")]
         public void SameTickDeploys_SpreadOut_AndAllGarrison()
         {
             // Regression: deploys issued in one tick shared one spawn point; the coincident stack was pushed sideways as a

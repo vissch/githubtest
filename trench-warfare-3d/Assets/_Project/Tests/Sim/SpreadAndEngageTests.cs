@@ -247,7 +247,7 @@ namespace TW.Tests
 
         // ---- the rows ------------------------------------------------------------------------------------------
 
-        [Test]
+        [Test, Category("Long")]
         public void ACompanyOnTheMarch_UsesTheWidthOfTheField_AndDoesNotWalkInFile()
         {
             foreach (uint field in new[] { 1917u, 1918u })
@@ -370,7 +370,7 @@ namespace TW.Tests
 
         /// <summary>The same fight head on, over eight seeds: neither side may owe its wins to the order of its slots
         /// or the way it faces.</summary>
-        [Test]
+        [Test, Category("Long")]
         public void AMeetingOfEqualSections_IsAnEvenFight()
         {
             int wins0 = 0, wins1 = 0, left0 = 0, left1 = 0;
@@ -441,7 +441,7 @@ namespace TW.Tests
             Assert.Greater(shots, 0, "the garrison fired on them");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void ABattle_IsFoughtWhereTheSidesMeet()
         {
             var r = Battle(48, 3600);
@@ -451,7 +451,7 @@ namespace TW.Tests
             Assert.Greater(r.StoodToShoot, 0.15f, $"the share of the shots in the open fired standing still ({r})");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheBattle_IsTheSameOnEveryMachine()
         {
             Assert.AreEqual(Battle(24, 1500).Hash, Battle(24, 1500).Hash, "same seed, same lanes, same fight, same hash");

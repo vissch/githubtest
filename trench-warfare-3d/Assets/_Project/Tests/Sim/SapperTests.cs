@@ -254,7 +254,7 @@ namespace TW.Tests
             Assert.AreEqual(0, r.Sapper.ChargesOf(w, rifle), "and a rifleman none");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void ManyErrandsNeverRunTheGoalTableOut()
         {
             using var r = new Rig();

@@ -145,7 +145,7 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.BreakerPhase, it, (int)BreakerPhase.Windup));
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheBreakerIsTheSameOnEveryMachine()
         {
             ulong Play()

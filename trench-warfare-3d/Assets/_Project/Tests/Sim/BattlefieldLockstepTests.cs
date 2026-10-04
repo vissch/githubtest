@@ -313,7 +313,7 @@ namespace TW.Tests
         /// nothing; so this requires men to have died AND a slot to have come back out, the latter detected by
         /// Generation reaching 2 rather than by a count that silence would satisfy.
         /// </summary>
-        [Test]
+        [Test, Category("Long")]
         public void TwoWorldsStayInSync_ThroughDeathsAndTheReuseOfTheirSlots()
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000;

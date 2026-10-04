@@ -443,7 +443,7 @@ namespace TW.Tests
                 + "two shove each other off their marks for as long as they hold the trench.");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheSpreadIsTheSameOnEveryMachine()
         {
             ulong Play()

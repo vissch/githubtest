@@ -92,7 +92,7 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.HeroMoment), "one live hero a side, and the pity is spent");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void AHeroCannotBePinnedHitsHarderAndIsHimselfAgainWhenTheWindowCloses()
         {
             using var m = NewMatch(pity: 1f);
@@ -115,7 +115,7 @@ namespace TW.Tests
             Assert.AreEqual(0u, m.World.Flags[hero] & (uint)UnitFlags.Hero);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void NoDesperationNoHero()
         {
             using var m = NewMatch();
@@ -154,7 +154,7 @@ namespace TW.Tests
             Assert.AreNotEqual(a.World.Hash(), b.World.Hash());
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void ABattleWithAHeroInItIsTheSameOnEveryMachine()
         {
             (ulong, uint) Play()

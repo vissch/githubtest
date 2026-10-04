@@ -171,14 +171,14 @@ namespace TW.Tests
         // man and the bomb, a bare attack at three to one never took the trench and support at two to one took it two
         // times in eight; an attack that failed cost the garrison nobody, so a front could not move.
 
-        [Test]
+        [Test, Category("Long")]
         public void ABareAttackAtThreeToOne_TakesTheTrench()
         {
             var (taken, _, said) = Rung4(3, Support.None);
             Assert.GreaterOrEqual(taken, 3, said);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void ABareAttackAtTwoToOne_IsBeatenOff_ButBleedsTheGarrison()
         {
             // eight seeds: the rung sits on the edge (one seed where eight men got in used to decide it), so four were
@@ -191,7 +191,7 @@ namespace TW.Tests
         /// <summary>The guns hold the parapet (v22): twenty men with four machine gunners against a garrison of ten with
         /// two, behind smoke and a barrage. Sent over with the line the guns are four more men to shoot (5.6 lost a
         /// seed, eight seeds); left on the parapet they fire over the attack and it loses about half that (2.9).</summary>
-        [Test]
+        [Test, Category("Long")]
         public void GunsThatStayToCover_CostTheAttackFewerMen()
         {
             float cover = 0f, go = 0f; int takenCover = 0, takenGo = 0;
@@ -216,7 +216,7 @@ namespace TW.Tests
         /// <summary>The SOS barrage (Hard, ScriptedEnemy.Defends, 2026-09-29): thirty men go over bare at ten riflemen whose
         /// side is played by the script with 1000 silver (no deploys, no attacks of its own). Bare three to one takes a
         /// trench (seven in eight on this ground without it); with the barrage on the men in the open it took none.</summary>
-        [Test]
+        [Test, Category("Long")]
         public void TheSosBarrage_BreaksABareAttackAtThreeToOne()
         {
             int taken = 0, calls = 0;
@@ -267,7 +267,7 @@ namespace TW.Tests
             Assert.LessOrEqual(taken, 1, "and the attack broke on it");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void SmokeOrABarrage_MakesTwoToOneEnough()
         {
             var smoke = Rung4(2, Support.Smoke);
@@ -276,7 +276,7 @@ namespace TW.Tests
             Assert.GreaterOrEqual(barrage.taken, 3, barrage.said);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void AnEqualAttack_WithNothingBehindIt_TakesNothing()
         {
             var (taken, _, said) = Rung4(1, Support.None);

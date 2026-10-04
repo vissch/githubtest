@@ -128,7 +128,7 @@ namespace TW.Tests
             Assert.AreEqual(0u, m.World.Flags[him] & (uint)UnitFlags.Airborne);
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void TheLeapIsTheSameOnEveryMachine()
         {
             ulong Play()

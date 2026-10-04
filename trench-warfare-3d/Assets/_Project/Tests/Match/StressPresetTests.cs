@@ -77,7 +77,7 @@ namespace TW.Tests
             Assert.That(o.FrontGarrison == 0, $"the old preset never mans the front trench, and {o.FrontGarrison} men hold it");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Spread_PlaysTheSameMatch_InSinglePlayerAndTheCanaryUnderLatency()
         {
             var one = Play(spread: true, canary: false);

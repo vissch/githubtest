@@ -152,7 +152,7 @@ namespace TW.Tests
         }
             /// <summary>The Salvo is artillery: once it has something in reach it holds there and fires, instead of driving on
         /// into the enemy's lines as every other machine does (the critic found one parked on the enemy's deploy zone).</summary>
-        [Test]
+        [Test, Category("Long")]
         public void TheSalvoHoldsWhereItIsOnceItHasATarget()
         {
             using var m = NewMatch();
@@ -534,7 +534,7 @@ namespace TW.Tests
 
         /// <summary>The rack is deterministic: the same seed lands the same rockets on the same ticks, and a two-world canary
         /// plays it hash for hash as one world does.</summary>
-        [Test]
+        [Test, Category("Long")]
         public void TheRackIsTheSameEveryRunAndInTheCanary()
         {
             List<Landing> a, b;

@@ -113,7 +113,7 @@ namespace TW.Tests
             Assert.IsTrue(suppressed, "but it keeps heads down");
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void Chlorine_EmptiesTheTrench_DriftsDownwind_AndFallBackBringsTheGarrisonHome()
         {
             using var m = NewMatch();
@@ -159,7 +159,7 @@ namespace TW.Tests
             return hashes;
         }
 
-        [Test]
+        [Test, Category("Long")]
         public void SupportAbilities_AreDeterministic()
         {
             var a = Run(3);
