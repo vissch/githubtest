@@ -22,7 +22,7 @@ Usage (from anywhere in the checkout):
 Environment: TW_BOARD (board repo path), TW_STATION (desktop|laptop; default from stations.json by host name).
 Stdlib only. ASCII only. Git output is read as bytes and decoded as UTF-8 (workflow.md: never text=True).
 """
-import argparse, ctypes, datetime, hashlib, json, os, random, socket, subprocess, sys
+import argparse, ctypes, datetime, hashlib, json, os, random, socket, subprocess, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
@@ -62,6 +62,11 @@ def board_dir():
 
 
 def read_json(p):
+    for i in range(20):                          # on Windows a file being replaced cannot be opened for a moment
+        try:
+            return json.loads(Path(p).read_text(encoding="utf-8"))
+        except PermissionError:
+            time.sleep(0.05 * (i + 1))
     return json.loads(Path(p).read_text(encoding="utf-8"))
 
 
@@ -70,6 +75,12 @@ def write_json(p, obj):
     p.parent.mkdir(parents=True, exist_ok=True)
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n", encoding="utf-8", newline="\n")
+    for i in range(20):                          # on Windows a reader holds the target for a moment: a writer that
+        try:                                     # gave up here left a detached run looking crashed
+            os.replace(tmp, p)
+            return
+        except PermissionError:
+            time.sleep(0.05 * (i + 1))
     os.replace(tmp, p)
 
 
