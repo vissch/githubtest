@@ -25,6 +25,8 @@ inbox    7 notes, 1 for you
 - `validate FAILED`: read the lines under it. `codemap:` lines are docs that no longer match the code
   (`Tools/codemap.py` explains each rule). After changing any tool under `Tools/`, run
   `python Tools/selftest.py`: it breaks a throwaway copy of the repo on purpose and checks each break is still caught.
+  `python Tools/selftest.py --only land,relay` runs only those groups (`codemap`, `port_split`, `scorecard`,
+  `land`, `relay`, `health`), in seconds.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
   the exact commit first.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted

@@ -62,15 +62,40 @@ R="python trench-warfare-3d/Tools/relay/relay.py"
 $R run --work <work checkout> --dry-run           # say what it would take; start nothing
 $R run --work <work checkout> [--hours 3] [--max-legs N] [--sources pipeline,lane] [--leg-minutes 90]
 $R run --work <work checkout> --view              # also open a Windows Terminal tab per leg that shows its output
+$R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
 $R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ...
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
+$R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
+$R hold <who> [--hours 4] [--release]             # one session at a time builds the relay or starts its runs
+$R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 ```
 
 The work checkout is the relay's own worktree (`githubtest-relay-work` on the desktop), switched to each unit's lane
 by the runner. Never give it a checkout a session or an editor is using.
+
+## Three checkouts, one job each
+
+| Checkout | Job |
+|---|---|
+| `githubtest-relay-run` | the frozen copy: a detached checkout that only runs the relay. Start every run from here |
+| `githubtest-relay-dev` | where the relay is built and tested. Editing here never touches a run |
+| `githubtest-relay-work` | where the legs work |
+
+A run uses committed code only: the runner refuses to start when its own code has uncommitted changes
+(`--allow-dirty` is for developing the relay), prints the commit it runs, and keeps it in the stop record. The
+runner still stops when its own code changes under it, so nobody edits the frozen copy; `update` moves it to a
+commit when no run is going.
+
+One session at a time builds the relay or starts its runs. A session takes the hold first (`hold <its name>`); when
+another name has it, the command exits 1 and the session stops and tells the owner. The hold ends by itself after
+its hours. `status` shows the holder, who started the run, and how each unit has ended so far.
+
+Work may be queued while a run is going (`add`): a new file under the board's queue does not stop the run. When a
+run stops, Windows shows one notification (not where no window can open). A refused command that was normal work
+is a bug in the rules: `refusals` lists them, and each becomes a line in the ordinary-work tests and a rule fix.
 
 Inside a leg, the leg card names these:
 
