@@ -934,3 +934,4 @@ a.k-qrow:hover { background: rgba(255,255,255,.14); }
 .k-now.stale { background: #b3200a; border-color: var(--k-fire); } .k-now.stale .k-now-age { color: #fff; font-weight: 600; }
 .k-now.stale .k-live, .k-stamp.stale .k-live { background: #fff; animation: none; }
 .k-stamp.stale, .k-office .k-stamp.stale { color: #ff7a5c; font-weight: 600; }
+@media (max-width: 760px) { body.overview .k-queue { order: 1; padding: 20px 14px; } .k-queue .k-head { margin-bottom: 12px; } }
