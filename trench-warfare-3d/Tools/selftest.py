@@ -22,7 +22,8 @@ gate.ps1, with a stand-in for Unity that writes canned results: a scoped run is 
 assembly it asked for, keeps its results apart and never records a tree; only the full run records one; a run before
 a commit leaves the Long tests out, says how long it took and, over its budget, which tests to tag; a lane that
 changes a tool gets toolcheck.py in place of validate.py. land.py runs toolcheck.py for such a lane, with or without
-code in it, and refuses on a red tool test.
+code in it, and refuses on a red tool test; a second run still refuses when someone pushed to the lane, the
+SHOW-carries-SIM refusal names the commits, and a non-ASCII path counts as code.
 """
 import pathlib
 import shutil
@@ -336,6 +337,8 @@ def land_cases(tmp: pathlib.Path):
     code2, out2 = land('--dry-run', '--carry-sim', 'owner, 2026-09-26: one session on both lanes')
     case('land.py refuses a SHOW lane carrying SIM files unless --carry-sim names the decision',
          code == 1 and 'SIM' in out and code2 == 0 and 'would run' in out2, out + out2)
+    case('[G7] land.py names the SIM commits in that refusal (pathspecs are repo-root, cwd is the project)',
+         'sim on show' in out, out)
 
     # a move out of Sim/ is still SIM work: with rename detection the diff lists only the new path
     g('reset', '-q', '--hard', f'origin/{integ}')
@@ -375,6 +378,14 @@ def land_cases(tmp: pathlib.Path):
     theirs_kept = 'theirs' in run(['git', 'log', '--format=%s', 'origin/lane/show/t'], work)[1]
     case('land.py refuses when someone pushed to origin\'s copy of the lane, and their commit survives',
          code == 1 and theirs_kept, out)
+    # land.py's own fetch must not become the lease: the old check compared origin/<lane> before and after it,
+    # so the first run's fetch made them equal and the second run overwrote their commit
+    code, out = land()
+    theirs_kept = 'theirs' in run(['git', 'log', '--format=%s', 'origin/lane/show/t'], work)[1]
+    case('[G1] land.py still refuses on a second run (its own fetch must not become the lease)',
+         code == 1 and theirs_kept, out)
+    # the lane check now refuses earlier, so reset the fixture: the next case is about the integration ref
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
 
     g('checkout', '-q', integ); g('reset', '-q', '--hard', f'origin/{integ}')
     (work / 'docs/b.md').write_text('b\n'); g('add', '.'); g('commit', '-qm', 'someone else lands'); g('push', '-q', 'origin', integ)
@@ -408,6 +419,17 @@ def land_cases(tmp: pathlib.Path):
     code, out = land()
     case('land.py refuses a lane that changes code and breaks a tool test, though the gate went green on its tree',
          code == 1 and 'Tools/x/test_x.py' in out and head(f'origin/{integ}') != head('HEAD'), out)
+
+    # a non-ASCII path: unquoted (-z) it is code and needs the gate; quoted it was neither SIM nor code
+    g('fetch', '-q'); g('reset', '-q', '--hard', f'origin/{integ}')
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
+    g('config', 'core.quotepath', 'true')      # git's default; say it, so the case does not read a global
+    (proj / 'Assets/_Project/Presentation').mkdir(parents=True, exist_ok=True)
+    (proj / 'Assets/_Project/Presentation/Café.cs').write_text('class Cafe {}\n', encoding='utf-8')
+    g('add', '-A'); g('commit', '-qm', 'a non-ASCII file name')
+    code, out = land()
+    case('[G8] land.py sees a non-ASCII path as code and asks for the gate (no quoted path slips through)',
+         code == 1 and 'gate' in out and head(f'origin/{integ}') != head('HEAD'), out)
 
 
 def gate_scope_cases(tmp: pathlib.Path):

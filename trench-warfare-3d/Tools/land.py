@@ -12,7 +12,7 @@ a push that failed after the local fast-forward left the local integration ref a
 It fetches origin, then refuses, saying why, when:
 - the branch is not lane/sim/* or lane/show/*, or the tree has uncommitted changes;
 - HEAD does not contain origin's integration branch: rebase onto it (and gate again);
-- origin's copy of your lane moved when it was fetched (someone pushed to it): look before overwriting it;
+- origin's copy of your lane holds a commit your HEAD does not (someone pushed to it): look before overwriting it;
 - the lane changes code (anything under trench-warfare-3d/ outside Tools/, gate.ps1, or any file whose name a test
   quotes, such as docs/17-ui-art-spec.md or Tools/envatlas.py, which EditMode tests read) and the last full gate
   that went green did not test exactly this tree. gate.ps1 records the tree it tested (tw-gate-green in this checkout's
@@ -88,18 +88,21 @@ def main():
     if dirty:
         refuse('uncommitted changes (commit them, or they are not what the gate tested):\n' + dirty)
 
-    # the lease is what this clone last knew of origin's copy of the lane, read BEFORE fetching: leasing on the
-    # value just fetched would overwrite whatever someone else pushed to the lane meanwhile
-    code, lease = git('rev-parse', '--verify', '-q', f'origin/{branch}')
-    lease = lease if code == 0 else ''
     git('fetch', '-q', 'origin', check=True)
-    code, now = git('rev-parse', '--verify', '-q', f'origin/{branch}')
-    if (now if code == 0 else '') != lease:
-        refuse(f'origin/{branch} moved when fetched: someone pushed to your lane. See git log HEAD..origin/{branch}, '
-               f'bring it into your work, gate, land.')
+    code, lease = git('rev-parse', '--verify', '-q', f'origin/{branch}')
+    lease = lease if code == 0 else ''        # empty: the lease then means "must not exist"
     base = f'origin/{INTEGRATION}'
     if git('rev-parse', '--verify', '-q', base)[0] != 0:
         refuse(f'{base} does not exist: fetch the integration branch first')
+    # the push rewrites origin's copy of the lane, so every commit on it must already be in HEAD: reachable,
+    # or carried by the rebase (git cherry compares patches). Comparing origin/<lane> before and after this
+    # fetch did not do it: any earlier fetch made the two equal and the push overwrote someone else's commit.
+    if lease and git('merge-base', '--is-ancestor', lease, 'HEAD')[0] != 0:
+        extra = [l for l in git('cherry', 'HEAD', lease, base)[1].split('\n') if l.startswith('+')]
+        if extra:
+            refuse(f'origin/{branch} holds {len(extra)} commit(s) your HEAD does not: someone pushed to your '
+                   f'lane. See git log HEAD..origin/{branch}, bring it into your work, gate, land.\n'
+                   + '\n'.join('  ' + e for e in extra[:10]))
     if git('merge-base', '--is-ancestor', base, 'HEAD')[0] != 0:
         refuse(f'HEAD does not contain {base}: someone landed. git rebase {base}, gate again, land again')
     ahead = git('rev-list', '--count', f'{base}..HEAD', check=True)[1]
@@ -107,12 +110,16 @@ def main():
         print(f'nothing to land: {branch} is already in {base}')
         return
     # --no-renames: a move lists its old path too, so a file moved out of Sim/ or out of Assets/ is still seen
-    changed = [l for l in git('diff', '--name-only', '--no-renames', base, 'HEAD', check=True)[1].split('\n') if l]
+    changed = [l for l in git('diff', '-z', '--name-only', '--no-renames', base, 'HEAD',
+                              check=True)[1].split('\0') if l]
     print(f'{branch}: {ahead} commits, {len(changed)} files on top of {base}')
 
     sim = [f for f in changed if f.startswith(SIM_PATHS)]
     if lane == 'show' and sim:
-        commits = git('log', '--no-renames', '--format=  %h %s', f'{base}..HEAD', '--', *SIM_PATHS)[1]
+        # ':(top)' makes the pathspecs repo-root relative: land.py runs from trench-warfare-3d/, so plain
+        # repo-root paths matched nothing and this list was always empty
+        commits = git('log', '--no-renames', '--format=  %h %s', f'{base}..HEAD', '--',
+                      *(f':(top){p}' for p in SIM_PATHS))[1]
         if not a.carry_sim:
             refuse(f'a SHOW lane carrying {len(sim)} SIM files; the SIM part lands first, on its own lane. If the '
                    f'owner decided otherwise, pass --carry-sim "<the decision>". The commits:\n{commits}')
