@@ -208,6 +208,18 @@ def door_state(wt):
     return out
 
 
+def code_state(folder):
+    """(commit, [changed or new files]) of the checkout the relay's own code runs from, looking only at the
+    folders the runner hashes (Tools/relay, Tools/pipeline). ("", []) when it is not in a git checkout."""
+    folder = Path(folder)
+    r = git_raw(["rev-parse", "HEAD"], folder)
+    if r.returncode:
+        return "", []
+    out = git_raw(["status", "--porcelain", "--untracked-files=all", "--", str(folder), str(folder.parent / "pipeline")],
+                  folder).stdout.decode("utf-8", "replace")
+    return r.stdout.decode().strip(), [l[3:] for l in out.splitlines() if len(l) > 3 and "__pycache__" not in l]
+
+
 def remote_heads(wt):
     """{ref: sha} for every branch on origin, asked of origin itself."""
     out = git(["ls-remote", "--heads", "origin"], wt, check=False)
