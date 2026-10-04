@@ -4,6 +4,7 @@ file: the station is in the path and every leg gets its own file. Nothing here s
 
   relay/<station>/legs/<run>-<nn>.json    one finished leg: unit, phase, how it ended, tokens, the report
   relay/<station>/stops/<run>.json        why a run stopped
+  relay/<station>/lessons.md              one row per critic round: the score and the first mandated fix
 Stdlib only. ASCII only.
 """
 import sys
@@ -33,6 +34,20 @@ def leg_record(board, station, leg, **extra):
 def stop_record(board, station, run, reason, legs, detail="", **extra):
     p = folder(board, station) / "stops" / (run + ".json")
     write_json(p, dict(extra, run=run, reason=reason, detail=detail, legs=legs, stopped_at=now()))
+    return p
+
+
+LESSONS_HEAD = "| When | Unit | Role | Round | Score | Target | First mandated fix |\n|---|---|---|---|---|---|---|\n"
+
+
+def lesson(board, station, unit, round_no, score, target, fix):
+    """Append one critic round to the station's lessons table (the retrospective reads it)."""
+    p = folder(board, station) / "lessons.md"
+    p.parent.mkdir(parents=True, exist_ok=True)
+    row = "| %s | %s | %s | %d | %d | %d | %s |\n" % (now(), unit["id"], unit["role"], round_no, score, target,
+                                                    " ".join(str(fix).replace("|", "/").split())[:160])
+    with open(p, "a", encoding="utf-8", newline="\n") as f:
+        f.write(("" if p.stat().st_size else LESSONS_HEAD) + row)
     return p
 
 

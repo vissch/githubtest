@@ -177,6 +177,8 @@ def refusal(d, leg, inp, C):
     tool, tin = inp.get("tool_name", ""), inp.get("tool_input") or {}
     cmd = tin.get("command") if isinstance(tin.get("command"), str) else ""      # any tool that runs a command
     path = tin.get("file_path") or tin.get("notebook_path") or ""
+    if tool in (leg.get("deny_tools") or ()):
+        return "the %s tool is not part of a %s leg" % (tool, leg.get("phase"))
     if tool in WRITE_TOOLS:
         why = off_limits(path, d, leg, C)
         if why:

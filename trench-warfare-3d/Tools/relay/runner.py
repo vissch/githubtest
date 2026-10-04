@@ -94,16 +94,29 @@ class Run:
                     if before[what].get(k) != after[what].get(k)]
         return bad, self.moved(before["heads"], after["heads"])
 
-    # ----- one leg -----
-    def leg(self, unit, phase, body, plan=None):
+    def no_room(self):
+        """Why no further leg may start (the time, the leg cap, the owner's stop), or None."""
         if time.time() > self.deadline:
-            raise Stop("the run's %.3g hours are up" % self.lim["run_hours"])
+            return "the run's %.3g hours are up" % self.lim["run_hours"]
         if self.a.max_legs and self.legs >= self.a.max_legs:
-            raise Stop("the leg cap (%d) is reached" % self.a.max_legs)
-        self.owner_stop()
+            return "the leg cap (%d) is reached" % self.a.max_legs
+        if self.stop_file.exists():
+            return "stopped by the owner (relay.py stop)"
+        return None
+
+    # ----- one leg -----
+    def leg(self, unit, phase, body, plan=None, fill=None):
+        """One leg. fill (a function): the leg works in a folder of its own under its desk, which fill fills, and
+        is not pointed at the board: a blind critic."""
+        why = self.no_room()
+        if why:
+            raise Stop(why)
         self.legs += 1
-        d = launch.make_leg(self.run, self.legs, unit, phase, self.work, unit["lane"], self.board,
-                            body + (NO_WINDOW if self.no_window else ""), self.lim, plan)
+        work, board = (legdir.desk_path(self.run, self.legs) / "bundle", "") if fill else (self.work, self.board)
+        d = launch.make_leg(self.run, self.legs, unit, phase, work, unit["lane"], board,
+                            body + (NO_WINDOW if self.no_window and not fill else ""), self.lim, plan)
+        if fill:
+            fill(work)
         print("leg %02d  %-7s %s" % (self.legs, phase, unit["id"]), flush=True)
         left, before = self.deadline - time.time(), self.watch()
         leg = launch.run_leg(d, self.lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
@@ -161,6 +174,8 @@ class Run:
                     break
             if outcome == "done":
                 problems = src.verify(unit, self.ctx)
+            if outcome == "done" and not problems:
+                problems = self.critique(src, unit, body, plan)
         if gitio.dirty(self.work):
             gitio.snapshot_dirty(self.work, d)
             src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
@@ -174,6 +189,53 @@ class Run:
         print("unit %s: %s%s" % (unit["id"], verdict, "".join("\n  - " + p for p in problems)), flush=True)
         if self.idle >= self.lim["no_progress_units"]:
             raise Stop("%d units in a row brought no result and no pushed code" % self.idle)
+
+    def critique(self, src, unit, body, plan):
+        """Critic rounds on work the script checks passed. A blind leg scores the evidence; under the target, one
+        execute leg does the three mandated fixes and the critic scores again (limits.json critic_rounds in all).
+        The verdict stays the script's: the scores go in the result's note, the rounds beside the evidence, a row
+        per round in the lessons. Returns the problems a fix round left (empty = still a PASS)."""
+        target, last, scores, note = self.lim["critic_target"], self.lim["critic_rounds"], [], ""
+        problems = []
+        for r in range(1, last + 1):
+            brief = src.critic(unit, self.ctx, r)
+            if not brief:
+                return []
+            if self.no_room():                              # work that passed its checks keeps its verdict
+                note = "no critic round %d: %s" % (r, self.no_room())
+                break
+            d, leg = self.leg(unit, "critic", brief["body"], fill=brief["fill"])
+            f = legdir.desk(d) / self.ph["critic"]["output"]
+            text = f.read_text(encoding="utf-8") if f.exists() else ""
+            bad = papers.check_critic(text, self.lim["critic_max_bytes"]) if text else ["the critic leg wrote no critic.md"]
+            if bad:
+                note = "critic round %d gave no score (%s)" % (r, bad[0])
+                break
+            score, fixes = papers.critic_score(text), papers.critic_fixes(text)
+            src.keep_critic(unit, self.ctx, r, text)
+            boardio.lesson(self.board, self.station, unit, r, score, target, fixes[0])
+            scores.append(score)
+            if score >= target or r == last:
+                break
+            if self.no_room():
+                note = "no fix round: %s" % self.no_room()
+                break
+            self.ctx["since"] = time.time()                 # a fix round makes its evidence again
+            d, leg = self.leg(unit, "execute", body, papers.plan_for_fixes(plan, fixes, r, score, target))
+            if said(leg.get("report")) != "done":
+                problems = ["the fix round after critic round %d reported %s" % (r, said(leg.get("report")) or "nothing")]
+                break
+            problems = src.verify(unit, self.ctx)
+            if problems:
+                break
+        if scores:
+            note = ("critic %s (target %d)" % (", then ".join("%d/100" % s for s in scores), target)
+                    + ("; the fix round scored lower: round %d was the best" % (scores.index(max(scores)) + 1)
+                       if scores[-1] < max(scores) else "") + ("; " + note if note else ""))
+        if note:
+            unit["critic_note"] = note
+            print("unit %s: %s" % (unit["id"], note), flush=True)
+        return problems
 
     def finish(self, src, unit, problems, outcome):
         verdict = src.finish(unit, self.ctx, problems, outcome)
