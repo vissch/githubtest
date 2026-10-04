@@ -16,7 +16,7 @@ UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destr
 LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
-       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT")
+       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY")
 
 
 def jpeg(width, height, size=2000):
@@ -34,12 +34,17 @@ class Base(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="relay-test-"))
         self.old = {k: os.environ.get(k) for k in ENV}
+        os.environ.pop("TW_RELAY", None)                     # run by a relay leg, the tests are still not one
+        self.cwd = os.getcwd()
+        os.chdir(self.tmp)                                   # nor are they in the checkout a leg holds
         os.environ["TW_RELAY_HOME"] = str(self.tmp / "home")
         os.environ["TW_RELAY_NO_WINDOW"] = "0"               # the same whatever terminal runs the tests
+        os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, "-c", "pass"])   # no real notification
         self.lim, self.ph = config.limits(), config.phases()
         self.board, self.d = self.tmp / "board", None
 
     def tearDown(self):
+        os.chdir(self.cwd)
         for k, v in self.old.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -345,6 +350,34 @@ class Guards(Base):
         self.assertTrue(self.denied("Edit", agent=True, file_path=str(self.tmp / "work" / "a.cs")))
         self.assertTrue(self.denied("Bash", agent=True, command="git commit -m x"))
 
+    def test_what_real_legs_were_refused_now_passes_and_the_writers_beside_it_do_not(self):
+        relay = str(HERE / "relay.py").replace("\\", "/")
+        self.leg("plan")
+        for cmd in ('cd Assets && for f in a.cs b.cs c.unity; do ls -la "$f"; done',
+                    "ls gate.ps1 && git --version && git log --oneline -1 && git status --porcelain | head",
+                    "git --version", "python --version",
+                    'cd Tools && python "%s" leg done 2>&1 | head -20' % relay,
+                    'sed -n 276,282p a.cs; echo "=== houses"; python -c "\nimport json;d=json.load(open(\'a.json\'))\n'
+                    'print(len(d), sorted(d)[:3])\n"',
+                    "if test -f a.cs; then echo yes; fi"):
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ('for f in a.cs b.cs; do rm "$f"; done', 'for c in "rm -rf x"; do $c; done',
+                    'python -c "from pathlib import Path; Path(\'a\').write_text(\'x\')"',
+                    'python -c "import subprocess; subprocess.run([\'git\', \'push\'])"',
+                    'python -c "import os; os.remove(\'a\')"', 'python -c "open(\'a\', \'a\').close()"',
+                    'cd Tools && python "%s" leg finish' % relay, 'python "%s" leg done > x' % relay,
+                    "git --version --exec-path=/tmp", "python -m pip install x"):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+        self.leg("execute", nn=2)                              # the unit was a fix to land.py itself
+        for cmd in ('python -c "\nfrom pathlib import Path\nfor f in [\'Tools/land.py\', \'Tools/selftest.py\']:\n'
+                    '    p=Path(f); p.write_bytes(p.read_bytes())\n" && file Tools/land.py',
+                    'python -c "print(open(\'Tools/land.py\').read()[:80])"'):
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ('python -c "exec(open(\'Tools/land.py\').read())"',
+                    'python -c "import runpy; runpy.run_path(\'Tools/land.py\')"',
+                    'python -c "import subprocess; subprocess.run([\'python\', \'Tools/land.py\'])"'):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+
     def test_a_plan_leg_may_check_its_plan_and_its_card_names_the_command(self):
         d = self.leg("plan")
         relay = str(HERE / "relay.py").replace("\\", "/")
@@ -563,7 +596,7 @@ class Repo(Base):
 
     def args(self, **kw):
         a = argparse.Namespace(work=str(self.work), sources=["lane"], hours=None, leg_minutes=None, leg_budget=None,
-                               max_legs=0, dry_run=False, no_push=True, no_quiet=True)
+                               max_legs=0, dry_run=False, no_push=True, no_quiet=True, allow_dirty=True)
         vars(a).update(kw)
         return a
 
@@ -712,6 +745,7 @@ class Runs(Repo):
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
         self.assertEqual(stop["legs"], 2)
         self.assertEqual(stop["units"], {"u1": "FAIL"})         # "nothing left to do" does not hide it
+        self.assertEqual(stop["refusals"], 0)
         self.assertIn("1 unit: 1 FAIL", out)
 
     def test_a_retrospective_tunes_inside_the_bounds_and_leaves_proposals_for_the_owner(self):
@@ -788,6 +822,136 @@ class Runs(Repo):
         with contextlib.redirect_stdout(buf):
             self.assertFalse(launch.open_view(d))               # a tab that cannot open is a note, not an error
         self.assertIn("no viewer tab", buf.getvalue())
+
+    def test_what_the_guard_refused_is_counted_and_can_be_read_back(self):
+        self.queue("u1")
+        self.script({"plan": [{"tool": "Bash", "input": {"command": "rm -rf Assets"}},
+                              {"write": "plan.md", "text": PLAN}], "execute": self.COMMIT})
+        out, stop = self.go()
+        self.assertEqual((stop["refusals"], self.legs()[0]["guard_refusals"]), (1, 1))
+        self.assertIn("the guard refused 1 command", out)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            relay.main(["refusals"])
+        self.assertIn("rm -rf Assets", buf.getvalue())
+        self.assertIn("this phase only reads", buf.getvalue())
+        self.assertIn("1 refused in 1 run.", buf.getvalue())
+
+    def test_a_call_claude_code_refused_itself_is_not_a_call_the_guard_missed(self):
+        d = legdir.new_leg("r7", 1, UNIT, "execute", self.ph["execute"], self.lim, self.work, LANE, self.board)
+        use = lambda i, name: json.dumps({"type": "assistant", "message": {"content": [
+            {"type": "tool_use", "id": i, "name": name, "input": {"command": "x"}}]}})
+        result = lambda i, text, err: json.dumps({"type": "user", "message": {"content": [
+            {"type": "tool_result", "tool_use_id": i, "is_error": err, "content": text}]}})
+        (d / "out.jsonl").write_text("\n".join([
+            use("t1", "Bash"), result("t1", "ok", False),
+            use("t2", "Bash"), result("t2", "<tool_use_error>Blocked: sleep 60 followed by: tail</tool_use_error>", True),
+            use("t3", "Read"), result("t3", [{"type": "text", "text": "file not found"}], True)]) + "\n", encoding="utf-8")
+        (d / "calls.jsonl").write_text(json.dumps({"id": "t1", "tool": "Bash"}) + "\n"
+                                       + json.dumps({"id": "t3", "tool": "Read"}) + "\n", encoding="utf-8")
+        self.assertEqual(launch.unguarded(d), [])               # t2 never ran: Claude Code refused it before any hook
+        good = {"state": "DONE", "exit_code": 0, "has_result": True, "subtype": "success", "ran_mode": "auto",
+                "hooked": True, "guard_intact": True, "transcript_read": True, "final_tokens": 10, "red_tokens": 300000,
+                "tool_uses": 3, "guard_calls": 2}
+        self.assertIsNone(launch.ran_clean(dict(good, unguarded=[])))
+        (d / "calls.jsonl").write_text(json.dumps({"id": "t1", "tool": "Bash"}) + "\n", encoding="utf-8")
+        self.assertEqual(launch.unguarded(d), ["Read"])         # t3 ran (it has a real result) and no guard saw it
+        self.assertIn("did not see 1 of its 3", launch.ran_clean(dict(good, unguarded=["Read"])))
+        self.assertIn("saw 2 of its 3", launch.ran_clean(dict(good, unguarded=None)))    # no ids: by count
+
+    def test_work_queued_during_a_leg_does_not_stop_the_run_and_other_board_changes_do(self):
+        self.queue("u1")
+        q = str(self.board / "relay" / "queue" / "u9.json")
+        self.script(dict(self.GOOD, plan=[{"abs": q, "text": json.dumps(
+            {"id": "u9", "lane": "lane/show/x", "role": "lane", "goal": "g", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]})},
+            {"write": "plan.md", "text": PLAN}]))
+        out, stop = self.go()
+        self.assertNotIn("broke a rule", stop["reason"])
+        self.assertEqual(stop["units"]["u1"], "PASS")
+
+    def test_a_run_uses_committed_code_and_says_who_started_it_and_how_far_it_is(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        real = gitio.code_state
+        gitio.code_state = lambda folder: ("abc1234567890", ["Tools/relay/roles/_common.md"])
+        try:
+            out, stop = self.go(allow_dirty=False)
+            self.assertIn("uncommitted changes (Tools/relay/roles/_common.md)", stop["reason"])
+            self.assertEqual(stop["legs"], 0)
+            gitio.code_state = lambda folder: ("abc1234567890", [])
+            seen = []
+            run_leg = launch.run_leg
+
+            def watched(d, *a):                              # what `status` prints while a leg is going
+                buf = io.StringIO()
+                with contextlib.redirect_stdout(buf):
+                    relay.status()
+                seen.append(buf.getvalue())
+                return run_leg(d, *a)
+            launch.run_leg = watched
+            try:
+                out, stop = self.go(allow_dirty=False, who="pc-73")
+            finally:
+                launch.run_leg = run_leg
+        finally:
+            gitio.code_state = real
+        self.assertEqual((stop["started_by"], stop["code"], stop["units"]), ("pc-73", "abc1234567890", {"u1": "PASS"}))
+        self.assertIn("started by pc-73, relay code abc1234567", out)
+        self.assertIn("started by pc-73, relay code abc1234567; so far 1 legs", seen[0])
+        commit, changed = real(self.work)                       # the real check, on a real checkout
+        self.assertEqual((len(commit), changed), (40, []))
+
+    def test_one_name_holds_the_relay_build_and_a_hold_ends_by_itself(self):
+        def cmd(*args):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                code = relay.main(["hold"] + list(args))
+            return code, buf.getvalue()
+        self.assertEqual(cmd("pc-73")[0], 0)
+        self.assertEqual(cmd("pc-73", "--hours", "2")[0], 0)        # the holder renews
+        code, out = cmd("pc-70")
+        self.assertEqual(code, 1)
+        self.assertIn("HELD by pc-73", out)
+        self.assertEqual(cmd("pc-70", "--release")[0], 1)           # only the holder gives it back
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            relay.status()
+        self.assertIn("held by pc-73", buf.getvalue())
+        p = self.tmp / "home" / relay.HOLD
+        p.write_text(json.dumps(dict(json.loads(p.read_text(encoding="utf-8")), until_s=time.time() - 1)), encoding="utf-8")
+        self.assertEqual(cmd("pc-70")[0], 0)                         # the old hold ran out
+        self.assertEqual(cmd("pc-70", "--release")[0], 0)
+        self.assertIsNone(relay.holder())
+
+    def test_update_moves_only_a_frozen_copy_and_never_under_a_run(self):
+        with self.assertRaises(SystemExit) as e:                    # this checkout is on a branch: it is for building
+            relay.update("HEAD")
+        self.assertIn("frozen copy", str(e.exception))
+        gitio.take_lock(self.work, self.tmp / "home", "relay r1 u1", "lane/show/x")
+        with self.assertRaises(SystemExit) as e:
+            relay.update("HEAD")
+        self.assertIn("a run is going", str(e.exception))
+
+    def test_a_stop_sends_one_notification_and_none_where_no_window_can_open(self):
+        log = self.tmp / "toast.log"
+        stub = self.tmp / "toast_stub.py"
+        stub.write_text("import os\nopen(%r, 'a').write(os.environ.get('TW_RELAY_TOAST', '') + '\\n')\n" % str(log),
+                        encoding="utf-8")
+        os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, str(stub)])
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.go()
+        for _ in range(50):
+            if log.exists() and log.read_text(encoding="utf-8").strip():
+                break
+            time.sleep(0.1)
+        self.assertEqual(log.read_text(encoding="utf-8").splitlines(),
+                         ["Relay stopped: nothing left to do. 2 legs, 1 unit: 1 PASS."])
+        log.unlink()
+        os.environ["TW_RELAY_NO_WINDOW"] = "1"
+        self.go()
+        time.sleep(1)
+        self.assertFalse(log.exists())
 
     def test_a_run_that_cannot_open_a_window_says_so_on_every_card(self):
         self.queue("u1")
@@ -975,8 +1139,8 @@ class Runs(Repo):
 
     def test_a_leg_that_touches_the_board_or_the_relay_stops_the_run_with_no_verdict(self):
         forged = self.board / "results" / "thing--shots--aaaaaaaa--9.json"
-        queued = self.board / "relay" / "queue" / "zz.json"
-        for target in (forged, queued):
+        claimed = self.board / "claims" / "desktop.json"         # (a new queue file is the owner's to add: see
+        for target in (forged, claimed):                         # test_work_queued_during_a_leg_...)
             self.queue("u1")
             self.script({"plan": [{"write": "plan.md", "text": PLAN}],
                          "execute": self.COMMIT + [{"abs": str(target), "text": "{}"}]})

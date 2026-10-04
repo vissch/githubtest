@@ -20,7 +20,8 @@ OPS = set(";&|\n")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n\s*\2\b", re.S)
 HARMLESS = {"2>&1", "1>&2", "2>/dev/null", ">/dev/null", "2>nul", ">nul", "2>$null", "&>/dev/null"}
 SKIP_WORDS = {"(", "{", "!", "then", "do", "else", "elif", "if", "while", "until", "time", "nohup", "command", "exec",
-              "sudo", "env", "xargs", "builtin", "&", "start-process", "start", "timeout", "nice", "winpty", "stdbuf"}
+              "sudo", "env", "xargs", "builtin", "&", "start-process", "start", "timeout", "nice", "winpty", "stdbuf",
+              "done", "fi", "esac"}
 VALUE_FLAGS = {"env": ("-u", "--unset", "-C", "--chdir"), "xargs": ("-I", "-n", "-P", "-L", "-d", "-E", "-s", "-a"),
                "sudo": ("-u", "-g"), "timeout": ("-s", "-k", "--signal", "--kill-after"), "nice": ("-n",),
                "start-process": (), "start": (), "stdbuf": ()}       # wrappers with flags; these take a value
@@ -60,6 +61,12 @@ LOOK_PROGS = {"ls", "cat", "head", "tail", "grep", "rg", "wc", "pwd", "dir", "ty
 LOOK_SCRIPTS = {"pipeline.py": ("status", "why", "next"), "health.py": None, "validate.py": None,
                 "codemap.py": ("--check",), "run_detached.py": ("status",), "aosa.py": ("status", "pick")}
 PYTHONS = {"python", "python3", "py", "pythonw"}
+PY_WRITES = re.compile(r"open\s*\([^)]*,\s*['\"][^'\"]*[wax+]|mode\s*=\s*['\"][^'\"]*[wax+]|\.open\s*\(\s*['\"][^'\"]*[wax+]"
+                       r"|\.write|write_(text|bytes)|unlink|rmtree|rmdir|remove\s*\(|rename|mkdir|makedirs|touch\s*\("
+                       r"|chmod|subprocess|os\.system|popen|shutil|exec\s*\(|eval\s*\(|__import__|importlib|socket"
+                       r"|urllib|requests|ctypes|environ\s*\[|putenv|input\s*\(|\bpip\b", re.I)
+PY_RUNS = re.compile(r"exec\s*\(|runpy|run_path|subprocess|os\.system|popen|import_module|spec_from_file|__import__",
+                     re.I)
 
 
 def norm_path(p):
@@ -153,6 +160,8 @@ def unwrap(words, depth=0, env=None):
     while words:
         w = bare(words[0])
         low = w.lower()
+        if low == "for" and len(words) > 2 and bare(words[2]) == "in":
+            return []                                       # `for f in a b c`: a list of words, no command
         m = ASSIGN.match(w)
         if m and env is not None:
             env.append(m.group(1))
@@ -384,7 +393,8 @@ def never_part(words, leg):
         mod = [low[i + 1] for i, w in enumerate(raw[:-1]) if w == "-m"]
         code = " ".join(raw[i + 1] for i, w in enumerate(raw[:-1]) if w == "-c").lower()
         if ("land.py" in sc or any(m.split(".")[-1] == "land" for m in mod)
-                or re.search(r"\bimport\s+land\b|\bfrom\s+land\b|\bland\.main\b|land\.py", code)):
+                or re.search(r"\bimport\s+land\b|\bfrom\s+land\b|\bland\.main\b", code)
+                or "land.py" in code and PY_RUNS.search(code)):
             return "legs never land"
         if (("pipeline.py" in sc or any(m.split(".")[-1] == "pipeline" for m in mod))
                 and any(a in ("claim", "complete", "release") for a in low)):
@@ -449,6 +459,8 @@ def look_part(words):
         sub, args, cdir, keys, lead = git_parse(words)
         if keys or any(a.startswith(GIT_BAD_ARG) for a in args):
             return False
+        if not sub:
+            return [bare(w) for w in words[1:]] in (["--version"], ["--help"], ["-v"], ["-h"])
         if sub == "branch":
             return all(a in ("--list", "-a", "-r", "-v", "-vv", "--show-current", "--contains", "--merged")
                        or not a.startswith("-") and args[0] in ("--contains", "--merged") for a in args)
@@ -464,8 +476,13 @@ def look_part(words):
     if any(c in w for w in words[1:] if w[:1] not in "\"'" for c in "({"):
         return False                                        # a script block or a sub-expression can do anything
     if p in PYTHONS:
-        if "-c" in args or "-m" in args:
+        if "-m" in args:
             return False
+        if "-c" in args:                                    # a one-liner that reads (json, counts): no write, no run
+            code = args[args.index("-c") + 1] if args.index("-c") + 1 < len(args) else ""
+            return args.index("-c") == 0 and bool(code.strip()) and not PY_WRITES.search(code)
+        if args in (["--version"], ["-V"]):
+            return True
         py = [a for a in args if a.lower().endswith(".py")]
         name = os.path.basename(py[0].replace("\\", "/")).lower() if len(py) == 1 else ""
         if name not in LOOK_SCRIPTS or not re.search(r"(^|/)Tools/([\w-]+/)?[\w.-]+$", py[0].replace("\\", "/")):
@@ -496,15 +513,22 @@ def sub_look(cmd):
     return sub in SUB_LOOK and all(not a.startswith("-") or a in (SUB_LOOK[sub] or ()) for a in args)
 
 
-def read_only_ok(cmd):
-    """Every line and every part only looks. A $( ) may hold one git look-up (merge-base, rev-parse); nothing in
-    front of a command sets a variable."""
+def leg_done_part(words, relay_py):
+    """`python <relay.py> leg done`: the one relay command a leg that only reads may run (it checks its paper)."""
+    w = plain(words)
+    return (bool(relay_py) and prog(words) in PYTHONS and not redirects(words) and len(w) == 4
+            and norm_path(w[1]) == norm_path(relay_py) and w[2:] == ["leg", "done"])
+
+
+def read_only_ok(cmd, relay_py=None):
+    """Every line and every part only looks, or is the leg's own `leg done`. A $( ) may hold one git look-up
+    (merge-base, rev-parse); nothing in front of a command sets a variable."""
     flat, inner = substitutions(cmd)
     if "`" in cmd or not all(sub_look(s) for s in inner):
         return False
     env = []
     cs = commands(flat, env)
-    return bool(cs) and not env and all(look_part(w) for w in cs)
+    return bool(cs) and not env and all(look_part(w) or leg_done_part(w, relay_py) for w in cs)
 
 
 def red_ok(cmd, relay_py):
@@ -522,11 +546,6 @@ def red_ok(cmd, relay_py):
         return (norm_path(words[1]) == norm_path(relay_py) and bare(words[2]) == "leg"
                 and bare(words[3]) in ("gate", "finish", "done"))
     return False
-
-
-def leg_done_ok(cmd, relay_py):
-    """`python <relay.py> leg done`: the one relay command a leg that only reads may run (it checks its plan)."""
-    return red_ok(cmd, relay_py) and prog(commands(cmd)[0]) in PYTHONS and bare(commands(cmd)[0][3]) == "done"
 
 
 def look_only(cmd):

@@ -51,11 +51,11 @@ def trusted(board, p):
 def next(ctx):
     root = Path(ctx["board"]) / "relay"
     for p in sorted((root / "queue").glob("*.json")) if (root / "queue").is_dir() else []:
+        if not trusted(ctx["board"], p):                # asked first: a file nobody committed is not even read
+            print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
+            continue
         u = load(p)
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
-            continue
-        if not trusted(ctx["board"], p):
-            print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
             continue
         return dict(u, source=NAME)
     return None

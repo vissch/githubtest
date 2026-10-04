@@ -18,8 +18,9 @@ sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
 import boardio, config, gitio, launch, legdir, papers, sources      # noqa: E402
 
-NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). A windowed Unity "
-             "editor hangs here. Unity in batch mode works. Work that needs a window: end BLOCKED and say so. "
+NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
+             "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
+             "windowed editor hangs here. "
              "Talk to that editor with the Unity CLI at %LOCALAPPDATA%/unity/bin/unity.exe, which is the one "
              "Tools/tw is written for. A different unity earlier on PATH refuses while Temp/UnityLockfile exists "
              "unless UNITY_CLI_ALLOW_LOCKED=1, and then it starts a second editor. unity status on the CLI in "
@@ -60,20 +61,28 @@ class Run:
         self.heads, self.lanes, self.stop_file = {}, set(), stop_path(self.home)
         self.units, self.no_window = {}, launch.no_window()     # unit id -> PASS | FAIL | BLOCKED
         self.retro_at = 0                                       # the leg count at the last retrospective
+        self.refused = 0                                        # commands the guard refused, over all legs
+        self.who = getattr(a, "who", None) or os.environ.get("USERNAME") or "someone"
+        self.code = ""                                          # the commit the relay's own code is at
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
         why = gitio.busy_reason(self.work, self.home, quiet=0 if self.a.no_quiet else self.lim["quiet_seconds"])
         if why:
             raise Stop("the work checkout cannot be used: " + why)
+        self.code, dirty = gitio.code_state(HERE)
+        if dirty and not getattr(self.a, "allow_dirty", False):
+            raise Stop("the relay's own code has uncommitted changes (%s): a run uses committed code only. Run from "
+                       "the frozen copy (githubtest-relay-run), or commit them" % ", ".join(dirty[:3]))
         gitio.install_prepush(self.work)
         self.heads = gitio.remote_heads(self.work)
+        print("run %s, started by %s, relay code %s" % (self.run, self.who, self.code[:10] or "not in git"), flush=True)
         if self.tuned:
             print("note: limits set by the last retrospective: %s"
                   % ", ".join("%s %g" % kv for kv in sorted(self.tuned.items())), flush=True)
         if self.no_window:
-            print("note: this terminal cannot open a window, so a leg that needs a Unity window will end BLOCKED. "
-                  "Start the run from a normal terminal for that work.", flush=True)
+            print("note: this terminal cannot open a window. Unity batch mode still works; only work that needs a "
+                  "visible window will end BLOCKED (start the run from a normal terminal for that).", flush=True)
         if self.stop_file.exists():                         # a stop asked of an earlier run
             self.stop_file.unlink()
         self.ready = True
@@ -101,8 +110,16 @@ class Run:
         after, bad = self.watch(), []
         for what, label in (("board", "the board's"), ("tools", "the relay's own"), ("door", "git's push guard:")):
             bad += ["%s %s changed" % (label, k) for k in sorted(set(before[what]) | set(after[what]))
-                    if before[what].get(k) != after[what].get(k)]
+                    if before[what].get(k) != after[what].get(k)
+                    and not (what == "board" and k.startswith("relay/queue/"))]   # the owner may queue mid-run:
+        # a queue file counts only once it is committed on the board (sources/lane.py), which a leg cannot do unseen
         return bad, self.moved(before["heads"], after["heads"])
+
+    def progress(self, now_on=""):
+        """What `relay.py status` shows while the run is going: who started it, the units so far, what it is on."""
+        P.write_json(legdir.leg_path(self.run, 1).parents[1] / "progress.json",
+                     {"run": self.run, "started_by": self.who, "code": self.code, "legs": self.legs, "now_on": now_on,
+                      "units": self.units, "refusals": self.refused})
 
     def no_room(self):
         """Why no further leg may start (the time, the leg cap, the owner's stop), or None."""
@@ -132,11 +149,13 @@ class Run:
         if fill:
             fill(work)
         print("leg %02d  %-7s %s" % (self.legs, phase, unit["id"]), flush=True)
+        self.progress("%s, leg %02d (%s)" % (unit["id"], self.legs, phase))
         if getattr(self.a, "view", False) and not self.no_window:
             launch.open_view(d)
         left, before = self.deadline - time.time(), self.watch()
         leg = launch.run_leg(d, self.lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
         broke, moved = self.audit(before, unit)
+        self.refused += leg.get("guard_refusals") or 0
         boardio.leg_record(self.board, self.station, leg, moved_on_origin=moved,
                            style_problems=config.report_problems(leg.get("report") or "", self.style))
         why = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
@@ -311,6 +330,7 @@ class Run:
         verdict = src.finish(unit, self.ctx, problems, outcome)
         self.claimed = None
         self.units[unit["id"]] = verdict
+        self.progress()
         if verdict != "PASS":
             self.ctx["skip"].add(unit["id"])
         return verdict
@@ -360,13 +380,19 @@ class Run:
             except Exception:                               # noqa: BLE001 - a run always ends with a record
                 pass
         boardio.stop_record(self.board, self.station, self.run, reason, self.legs, detail, moved_on_origin=moved,
-                            units=self.units)
+                            units=self.units, refusals=self.refused, started_by=self.who, code=self.code)
         pushed = "not sent (--no-push)" if self.a.no_push else \
             boardio.push(self.board, "relay: run %s, %d legs, %s" % (self.run, self.legs, reason))
         print("STOP: %s. %d legs ran%s. Record on the board: %s."
               % (reason.rstrip("."), self.legs, tally(self.units), pushed), flush=True)
         if detail:
             print("  " + detail, flush=True)
+        if not self.no_window:
+            launch.notify("Relay stopped: %s. %d legs%s." % (" ".join(reason.split()[:12]), self.legs,
+                                                            tally(self.units)))
+        if self.refused:
+            print("  the guard refused %d command%s: read them with `relay.py refusals`; one that was normal work "
+                  "becomes a test and a rule fix." % (self.refused, "" if self.refused == 1 else "s"), flush=True)
         return code
 
 
@@ -394,6 +420,9 @@ def add_args(p):
     p.add_argument("--max-legs", type=int, dest="max_legs", default=0)
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="say what would run; claim and start nothing")
     p.add_argument("--no-push", action="store_true", dest="no_push", help="do not commit and push the board")
+    p.add_argument("--who", help="who starts this run (a session name): shown by `relay.py status`")
+    p.add_argument("--allow-dirty", action="store_true", dest="allow_dirty",
+                   help="run although the relay's own code has uncommitted changes (developing the relay)")
     p.add_argument("--view", action="store_true", help="open a Windows Terminal tab per leg that shows its output")
     p.add_argument("--no-quiet", action="store_true", dest="no_quiet",
                    help="skip the check that the checkout saw no git activity lately (you know nobody is in it)")

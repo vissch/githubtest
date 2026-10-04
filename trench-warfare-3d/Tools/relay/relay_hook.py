@@ -199,7 +199,7 @@ def refusal(d, leg, inp, C):
         if tool in WRITE_TOOLS and not may_write(path, leg, C):
             return "%s; you may write only %s in your leg folder" % (what, leg.get("output") or "note.md")
         if cmd and not (C.red_ok(cmd, relay_py()) if red else
-                        C.read_only_ok(cmd) or C.leg_done_ok(cmd, relay_py())):
+                        C.read_only_ok(cmd, relay_py())):
             return ("%s: git status/diff/log, note.md, and python \"%s\" leg finish | leg done" % (what, relay_py())
                     if red else "%s; this command could change something" % what)
     return None

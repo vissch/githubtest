@@ -12,5 +12,6 @@ plan.md, at most 7 KB (a longer one is refused and the unit fails), exactly thes
 - `## Done when` one line a script can check.
 - `## Risks` what could go wrong and what to do then. Leave out what cannot happen.
 
-Write plan.md with the Write tool: a shell redirect is refused in this phase. Then run the `leg done` command on your
+Refused in this phase, so do not try: `>` and `<<EOF` redirects, `python - <<EOF` scripts, anything that writes.
+A one-line `python -c` that only reads (json, counts) is fine. Write plan.md with the Write tool. Then run the `leg done` command on your
 leg card. It checks the plan the way the runner will; fix what it names and run it again before your report.
