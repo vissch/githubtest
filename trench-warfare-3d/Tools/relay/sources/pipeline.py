@@ -1,6 +1,6 @@
 """Source: jobs on the two-station board (docs/reference/stations.md). The runner claims and completes; the leg only
 does the stage. A master stage (review, gate, land) is the owner's and is never taken."""
-import json, os, sys
+import json, os, re, shutil, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
@@ -118,10 +118,55 @@ def keep_note(unit, ctx, desk, lim):
     pass
 
 
+CRITIC_ROUND = re.compile(r"^critic-r\d+\.md$")
+RUBRIC = Path(__file__).resolve().parents[4] / ".claude" / "skills" / "tw-critic" / "SKILL.md"
+
+
+def rubric():
+    """The tw-critic skill without its front matter: a critic leg works outside the repo, so it cannot load it."""
+    try:
+        text = RUBRIC.read_text(encoding="utf-8")
+    except OSError:
+        return "(the tw-critic skill is missing: score coverage, look, budget, repeatability and cost, 100 in all)"
+    return re.sub(r"\A---\n.*?\n---\n", "", text, flags=re.S).strip()
+
+
+def critic(unit, ctx, round_no):
+    """A blind critic gets the stage's evidence and the stage as the board defines it, never the producer's story."""
+    folder = Path(ctx["board"]) / evidence_dir(unit)
+
+    def fill(dst):
+        dst.mkdir(parents=True, exist_ok=True)
+        for f in sorted(folder.iterdir()) if folder.is_dir() else []:
+            if f.is_file() and not CRITIC_ROUND.match(f.name):
+                shutil.copy2(f, dst / f.name)
+        P.write_json(dst / "stage.json", unit["stage_json"])
+
+    body = "\n".join([
+        "# Critic round %d: pipeline job %s" % (round_no, unit["id"]),
+        "Item: %s. Stage `%s`, role `%s`. Bands asked: %s."
+        % (unit["title"], unit["stage"], unit["role"], ", ".join(unit["bands"]) or "none"),
+        "- Your working folder holds the evidence bundle and stage.json (the stage as the board defines it).",
+        "- Judge only by those files. You are not told how the work was made.",
+        "- Score it out of 100 with the rubric below, for this role. Write critic.md in your leg folder, in the "
+        "rubric's output shape: the VERDICT line first, TOP-3 MANDATED FIXES as a numbered list of three.",
+        "", "# The rubric (the tw-critic skill)", rubric()])
+    return {"body": body, "fill": fill}
+
+
+def keep_critic(unit, ctx, round_no, text):
+    f = Path(ctx["board"]) / evidence_dir(unit) / ("critic-r%d.md" % round_no)
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text, encoding="utf-8", newline="\n")
+
+
 def finish(unit, ctx, problems, outcome):
     """Write the board result. The leg never does: a result must rest on the script's checks."""
     v = verdict(problems, outcome)
-    args = ["complete", unit["id"], "--verdict", v, "--note", ("; ".join(problems) or "checked by relay")[:200]]
+    note = "; ".join(problems) or "checked by relay"
+    if unit.get("critic_note"):
+        note += "; " + unit["critic_note"]
+    args = ["complete", unit["id"], "--verdict", v, "--note", note[:200]]
     if v == "PASS" and unit["bands"]:
         args += ["--evidence"] + ["%s=%s/%s.jpg" % (b, evidence_dir(unit), b) for b in unit["bands"]]
     P.main(args)

@@ -357,6 +357,21 @@ class Guards(Base):
         self.assertIn("leg done", prompt.card_text(legdir.read(d), "body"))
         self.assertNotIn("leg finish", prompt.card_text(legdir.read(d), "body"))
 
+    def test_a_critic_leg_only_reads_writes_its_paper_and_starts_no_subagent(self):
+        d = self.leg("critic")
+        desk = legdir.desk(d)
+        relay = str(HERE / "relay.py").replace("\\", "/")
+        self.assertFalse(self.denied("Write", file_path=str(desk / "critic.md")))
+        self.assertFalse(self.denied("Read", file_path="near.jpg"))
+        self.assertFalse(self.denied("Bash", command="ls"))
+        self.assertFalse(self.denied("Bash", command='python "%s" leg done' % relay))
+        self.assertTrue(self.denied("Agent", prompt="score it for me"))
+        self.assertTrue(self.denied("Write", file_path=str(desk / "bundle" / "near.jpg")))
+        self.assertTrue(self.denied("Edit", file_path=str(self.tmp / "work" / "a.cs")))
+        self.assertTrue(self.denied("Bash", command="rm near.jpg"))
+        self.leg("plan", nn=2)                                 # a plan leg may still start one
+        self.assertFalse(self.denied("Agent", prompt="look this up"))
+
     def test_at_red_only_the_close_out_works(self):
         d = self.leg()
         self.red()
@@ -407,6 +422,17 @@ Add a.txt to the repo.
 a.txt is in HEAD.
 ## Risks
 """
+CRITIC = """VERDICT: shots ROUND 1: %d/100 - the far band is too dark to read.
+CAPTURES: valid
+READABILITY: holds
+FINDINGS: | MAJOR | far band dark | far.jpg, lower third | lift the haze |
+RUBRIC: coverage 20/30, look 15/30, budget 15/20, repeatability 5/10, cost 5/10
+TOP-3 MANDATED FIXES:
+1. Fix the first thing in `out.txt`.
+2. Fix the second thing.
+3. Fix the third thing.
+COULD NOT JUDGE: the motion, from stills.
+"""
 NOTE = """## Goal
 Add a.txt to the repo.
 ## Done
@@ -429,6 +455,21 @@ class Papers(Base):
         self.assertTrue(any("says nothing" in b for b in bad) and any("numbered" in b for b in bad), bad)
         self.assertTrue(any("bytes" in b for b in papers.check_plan(PLAN + "x" * 7000, 6144)))
         self.assertTrue(any("Checks" in b for b in papers.check_plan(PLAN.replace("`git status --porcelain`", "look at it"), 6144)))
+
+    def test_a_critic_paper_needs_a_score_and_three_fixes(self):
+        good = CRITIC % 72
+        self.assertEqual((papers.check_critic(good, 8192), papers.critic_score(good)), ([], 72))
+        self.assertEqual(papers.critic_fixes(good)[2], "Fix the third thing.")
+        self.assertEqual(papers.critic_score("**VERDICT:** shots ROUND 2: 91 / 100 - fine"), 91)
+        for bad, word in ((good.replace("72/100", "about seventy"), "VERDICT"), (CRITIC % 140, "VERDICT"),
+                          (good.replace("3. Fix the third thing.\n", ""), "lists 2 fixes"),
+                          ("I liked it.\n" + good, "VERDICT"), (good + "x" * 9000, "bytes")):
+            self.assertTrue(any(word in b for b in papers.check_critic(bad, 8192)), (word, papers.check_critic(bad, 8192)))
+        fix = papers.plan_for_fixes(PLAN, papers.critic_fixes(good), 1, 72, 85)
+        self.assertIn("scored the work 72/100 in round 1, the target is 85", fix)
+        self.assertIn("1. Fix the first thing", fix)
+        self.assertNotIn("Create `a.txt`", fix)               # the old steps are gone, the rest of the plan stays
+        self.assertIn("## Checks", fix)
 
     def test_a_plan_naming_a_missing_file_is_refused(self):
         for name in ("src/gone.cs", "gone.cs", "Assets\\Gone.cs"):
@@ -1071,6 +1112,19 @@ class CloseOut(Repo):
         (desk / "plan.md").write_text(PLAN, encoding="utf-8")
         self.assertEqual(self.leg_cmd("done")[0], 0)
 
+    def test_in_a_critic_leg_done_checks_the_paper(self):
+        self.d = legdir.new_leg("r1", 3, dict(UNIT, role="lane"), "critic", self.ph["critic"], self.lim,
+                                self.tmp / "bundle", "lane/show/x", "")
+        desk = legdir.desk(self.d)
+        os.environ["TW_RUNS"] = str(desk / "jobs")
+        self.assertEqual(self.leg_cmd("done")[0], 1)
+        (desk / "critic.md").write_text("It is fine.\n", encoding="utf-8")
+        code, out = self.leg_cmd("done")
+        self.assertEqual(code, 1)
+        self.assertIn("VERDICT", out)
+        (desk / "critic.md").write_text(CRITIC % 80, encoding="utf-8")
+        self.assertEqual(self.leg_cmd("done")[0], 0)
+
     def test_outside_a_leg_the_leg_commands_refuse(self):
         os.environ.pop("TW_RUNS")
         with self.assertRaises(SystemExit):
@@ -1106,11 +1160,11 @@ class PipelineSource(Repo):
     PUSH = [{"file": "out.txt", "text": "o\n"}, {"git": ["add", "-A"]}, {"git": ["commit", "-q", "-m", "o"]},
             {"git": ["push", "-q", "origin", "lane/show/pipe-thing"]}]
 
-    def test_a_job_is_claimed_checked_and_completed_by_the_runner_and_master_is_left_alone(self):
-        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH})
+    def go_with_evidence(self, **kw):
+        """A run in which the pictures appear after every leg, as if the leg made them."""
         real = runner.Run.unit
 
-        def with_evidence(run, unit):                       # the pictures appear while the unit runs
+        def with_evidence(run, unit):
             run_leg = launch.run_leg
 
             def after(d, lim, t, *more):
@@ -1124,9 +1178,65 @@ class PipelineSource(Repo):
                 launch.run_leg = run_leg
         runner.Run.unit = with_evidence
         try:
-            out, stop = self.go(sources=["pipeline"])
+            return self.go(sources=["pipeline"], **kw)
         finally:
             runner.Run.unit = real
+
+    def leg_file(self, nn, name, desk=False):
+        return next((self.tmp / "home" / "runs").glob("*/%s/%02d" % ("desk" if desk else "legs", nn))) / name
+
+    FIX = [{"file": "out2.txt", "text": "fixed\n"}, {"git": ["add", "-A"]}, {"git": ["commit", "-q", "-m", "fixes"]},
+           {"git": ["push", "-q", "origin", "lane/show/pipe-thing"]}]
+
+    def test_a_blind_critic_scores_the_evidence_and_a_low_score_gets_one_fix_round(self):
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute#2": self.PUSH,
+                     "critic#3": [{"write": "critic.md", "text": CRITIC % 60}], "execute#4": self.FIX,
+                     "critic#5": [{"write": "critic.md", "text": (CRITIC % 90).replace("ROUND 1", "ROUND 2")}]})
+        out, stop = self.go_with_evidence()
+        res = self.results()
+        self.assertEqual([(r["stage"], r["verdict"]) for r in res], [("shots", "PASS")])
+        self.assertIn("critic 60/100, then 90/100 (target 85)", res[0]["note"])
+        self.assertEqual(stop["legs"], 5)
+        shots = self.board / "evidence" / "thing" / "shots"
+        self.assertIn("60/100", (shots / "critic-r1.md").read_text(encoding="utf-8"))
+        self.assertIn("90/100", (shots / "critic-r2.md").read_text(encoding="utf-8"))
+        rows = (self.board / "relay" / "desktop" / "lessons.md").read_text(encoding="utf-8").splitlines()
+        self.assertEqual(len(rows), 4)                                   # the head, the rule, one row per round
+        self.assertIn("| 1 | 60 | 85 | Fix the first thing", rows[2])
+        # blind: its own folder with the pictures and the stage, no board, no word from the producer
+        leg3 = json.loads(self.leg_file(3, "leg.json").read_text(encoding="utf-8"))
+        self.assertEqual((leg3["phase"], leg3["board"], Path(leg3["worktree"]).name), ("critic", "", "bundle"))
+        self.assertEqual(sorted(f.name for f in Path(leg3["worktree"]).iterdir()), ["far.jpg", "near.jpg", "stage.json"])
+        bundle5 = Path(json.loads(self.leg_file(5, "leg.json").read_text(encoding="utf-8"))["worktree"])
+        self.assertFalse((bundle5 / "critic-r1.md").exists())           # round 2 does not read round 1
+        card = self.leg_file(3, "card.md").read_text(encoding="utf-8")
+        self.assertIn("Critic round 1", card)
+        self.assertIn("Hard critic", card)                               # the rubric rides on the card
+        self.assertNotIn(str(self.board).replace("\\", "/"), card.replace("\\", "/"))
+        fix = self.leg_file(4, "card.md").read_text(encoding="utf-8")
+        self.assertIn("fix round", fix)
+        self.assertIn("1. Fix the first thing", fix)
+
+    def test_a_critic_without_a_score_or_without_room_leaves_the_pass_and_says_so(self):
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH,
+                     "critic": [{"write": "critic.md", "text": "It looks fine to me.\n"}]})
+        out, stop = self.go_with_evidence()
+        res = self.results()
+        self.assertEqual((res[0]["verdict"], stop["legs"]), ("PASS", 3))
+        self.assertIn("critic round 1 gave no score", res[0]["note"])
+        self.assertFalse((self.board / "evidence" / "thing" / "shots" / "critic-r1.md").exists())
+
+    def test_the_leg_cap_skips_the_critic_and_keeps_the_verdict(self):
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH})
+        out, stop = self.go_with_evidence(max_legs=2)
+        res = self.results()
+        self.assertEqual((res[0]["verdict"], stop["legs"]), ("PASS", 2))
+        self.assertIn("no critic round 1: the leg cap (2) is reached", res[0]["note"])
+
+    def test_a_job_is_claimed_checked_and_completed_by_the_runner_and_master_is_left_alone(self):
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH,
+                     "critic": [{"write": "critic.md", "text": CRITIC % 88}]})
+        out, stop = self.go_with_evidence()
         self.assertIn("PASS", out)
         res = self.results()
         self.assertEqual([(r["stage"], r["verdict"]) for r in res], [("shots", "PASS")])

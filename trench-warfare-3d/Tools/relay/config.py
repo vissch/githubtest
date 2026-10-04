@@ -10,7 +10,7 @@ HERE = Path(__file__).resolve().parent
 TUNABLE = ("amber_tokens", "red_tokens", "run_hours", "leg_minutes", "leg_budget_usd")
 FIXED = ("autocompact_tokens", "no_progress_units", "max_plan_parts", "retro_every_legs", "note_max_bytes",
          "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
-         "done_when_seconds", "gate_seconds")
+         "done_when_seconds", "gate_seconds", "critic_target", "critic_rounds", "critic_max_bytes")
 MODES = ("read_only", "work")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 
@@ -48,6 +48,8 @@ def phases(folder=None):
         if p.get("mode") not in MODES or p.get("effort") not in EFFORTS or not p.get("model"):
             raise SystemExit("relay: phases.json %s needs model, effort (%s) and mode (%s)"
                              % (name, "|".join(EFFORTS), "|".join(MODES)))
+        if not isinstance(p.get("deny_tools", []), list):
+            raise SystemExit("relay: phases.json %s: deny_tools must be a list of tool names" % name)
         if p["mode"] == "read_only" and not p.get("output"):
             raise SystemExit("relay: phases.json %s is read_only, so it needs an output file" % name)
     for need in ("plan", "execute"):
