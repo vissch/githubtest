@@ -20,7 +20,7 @@ it before the runner reads it.
 ## The critic
 
 A pipeline job whose script checks pass gets a critic leg. It is blind: it works in a folder of its own that holds
-a copy of the stage's evidence and `stage.json`, it is not pointed at the board, and its card carries the `tw-critic`
+a copy of the stage's evidence and the stage's definition, it is not pointed at the board, and its card carries the `tw-critic`
 rubric and nothing about how the work was made. Under the target (85, `critic_target`) one execute leg does the
 three mandated fixes and makes the evidence again, then the critic scores once more (`critic_rounds`, 2 in all).
 
