@@ -142,6 +142,8 @@ def done(desk, leg):
             bad = papers.check_plan(text, lim["plan_max_bytes"], wt, lim["max_plan_parts"])
         elif leg.get("phase") == "critic":
             bad = papers.check_critic(text, lim["critic_max_bytes"])
+        elif leg.get("phase") == "retro":
+            bad = papers.check_retro(text, lim["retro_max_bytes"])
         for b in bad:
             print("NOT DONE: " + b)
         if not bad:

@@ -108,7 +108,7 @@ class Settings(Base):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))
                        if p.name != "test_relay.py")
         raw = json.loads((HERE / "limits.json").read_text(encoding="utf-8"))
-        unused = [k for k in raw if code.count('"%s"' % k) < 2 and k != "retro_every_legs"]   # config.py names each once
+        unused = [k for k in raw if code.count('"%s"' % k) < 2]                # config.py names each once
         self.assertEqual(unused, [])
 
 
@@ -433,6 +433,15 @@ TOP-3 MANDATED FIXES:
 3. Fix the third thing.
 COULD NOT JUDGE: the motion, from stills.
 """
+RETRO = """## What happened
+Legs 1 and 2 ran clean and ended far under amber.
+## Tuning
+- amber_tokens: 150000 - both legs ended under 60k
+- `leg_minutes`: 60 - no leg took over 20 minutes
+- run_hours: 99 - not mine to move
+## Proposals
+- roles/_phase_plan.md: say that a plan needs no more than six steps (leg 1 wrote eleven).
+"""
 NOTE = """## Goal
 Add a.txt to the repo.
 ## Done
@@ -470,6 +479,13 @@ class Papers(Base):
         self.assertIn("1. Fix the first thing", fix)
         self.assertNotIn("Create `a.txt`", fix)               # the old steps are gone, the rest of the plan stays
         self.assertIn("## Checks", fix)
+
+    def test_a_retrospective_needs_its_sections_and_tunes_only_what_it_may(self):
+        self.assertEqual(papers.check_retro(RETRO, 6144), [])
+        self.assertEqual(papers.retro_tuning(RETRO, config.RETRO_TUNES), {"amber_tokens": 150000, "leg_minutes": 60})
+        self.assertEqual(papers.check_retro("## What happened\nLegs ran clean.\n## Tuning\n## Proposals\n", 6144), [])
+        self.assertTrue(any("Tuning" in b for b in papers.check_retro("## What happened\nLegs ran clean.\n", 6144)))
+        self.assertTrue(any("bytes" in b for b in papers.check_retro(RETRO + "x" * 7000, 6144)))
 
     def test_a_plan_naming_a_missing_file_is_refused(self):
         for name in ("src/gone.cs", "gone.cs", "Assets\\Gone.cs"):
@@ -697,6 +713,47 @@ class Runs(Repo):
         self.assertEqual(stop["legs"], 2)
         self.assertEqual(stop["units"], {"u1": "FAIL"})         # "nothing left to do" does not hide it
         self.assertIn("1 unit: 1 FAIL", out)
+
+    def test_a_retrospective_tunes_inside_the_bounds_and_leaves_proposals_for_the_owner(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, retro=[{"write": "retro.md", "text": RETRO}]))
+        real = config.limits
+        config.limits = lambda *a, **k: dict(real(*a, **k), retro_every_legs=2)
+        try:
+            out, stop = self.go()
+        finally:
+            config.limits = real
+        self.assertEqual((stop["legs"], stop["units"]), (3, {"u1": "PASS"}))     # plan, execute, retrospective
+        tuned = json.loads((self.board / "relay" / "desktop" / "tuning.json").read_text(encoding="utf-8"))["limits"]
+        self.assertEqual((tuned["amber_tokens"], tuned["leg_minutes"]), (200000, 60))   # 150000 is under the bound
+        self.assertNotIn("run_hours", tuned)
+        self.assertIn("leg_minutes is now 60", out)
+        props = list((self.board / "relay" / "proposals").glob("*.md"))
+        self.assertEqual(len(props), 1)
+        self.assertIn("six steps", props[0].read_text(encoding="utf-8"))
+        leg3 = json.loads(next((self.tmp / "home" / "runs").glob("*/legs/03/leg.json")).read_text(encoding="utf-8"))
+        bundle = Path(leg3["worktree"])
+        self.assertEqual((leg3["phase"], leg3["board"]), ("retro", ""))
+        self.assertEqual(len(list((bundle / "legs").glob("*.json"))), 2)
+        self.assertTrue((bundle / "limits.json").exists() and (bundle / "limits-now.json").exists())
+        # the next run on this station starts with the tuning; a flag outranks it
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(runner.Run(self.args()).lim["leg_minutes"], 60)
+            self.assertEqual(runner.Run(self.args(leg_minutes=45)).lim["leg_minutes"], 45)
+
+    def test_a_retrospective_without_its_sections_changes_nothing(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, retro=[{"write": "retro.md", "text": "All good, raise amber_tokens: 260000.\n"}]))
+        real = config.limits
+        config.limits = lambda *a, **k: dict(real(*a, **k), retro_every_legs=2)
+        try:
+            out, stop = self.go()
+        finally:
+            config.limits = real
+        self.assertIn("retrospective: nothing taken", out)
+        self.assertFalse((self.board / "relay" / "desktop" / "tuning.json").exists())
+        self.assertEqual(stop["reason"], "nothing left to do")
 
     def test_a_run_that_cannot_open_a_window_says_so_on_every_card(self):
         self.queue("u1")

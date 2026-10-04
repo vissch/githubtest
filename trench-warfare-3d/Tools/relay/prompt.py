@@ -40,7 +40,7 @@ def card_text(leg, body, plan=None):
     if leg.get("output"):
         lines.append("- Write your result to: %s/%s" % (desk, leg["output"]))
     tool = str(Path(__file__).resolve().parent / "relay.py").replace("\\", "/")
-    if leg.get("phase") in ("plan", "critic"):
+    if leg.get("phase") in ("plan", "critic", "retro"):
         lines.append("- Before you end, check %s the way the runner will: python \"%s\" leg done"
                      % (leg.get("output"), tool))
     if leg.get("mode") == "work":
