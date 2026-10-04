@@ -90,7 +90,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Report_TheMatchLoop`, Explicit, prints four policies
   including the script against itself), CampaignGraphTests (difficulty presets), SinglePlayerEquivalenceTests,
   BehaviourBenchTests (`Report_HowEveryUnitBehaves`, Explicit: the script on both seats, fielding machines, three
-  seeds; every unit scored on what a player sees go wrong, worst unit named; deterministic, so two reports are an A/B).
+  seeds; every unit scored on what a player sees go wrong, worst unit named; deterministic, so two reports are an A/B),
+  BalanceSweepTests (`Report_TheSweep`, Explicit: the same matches, or the assault ladder, on other numbers. A variant
+  is data, a unit's field, the match's config or a script's knob, written before the first tick; it reports attrition,
+  time to breach, trench retention and who wins, per seed. `python Tools/sweep.py run Tools/sweeps/factions.json`:
+  `workflow.md`, section 5. Its two plain tests hold that a patch writes the field it names and fails on any it
+  cannot, and that a variant changing nothing is the same ladder).
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
@@ -808,7 +813,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, StressPresetTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, StressPresetTests
 - **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, VatDecimateTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BodyFacingTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TroopActionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests

@@ -55,6 +55,9 @@ NEEDS = {
 # Slow-module tests that read project files by path, and the folder each reads (it must be one of the module's NEEDS).
 READS = {
     'MineTests': P + 'Sim/',   # one system alone clears the blast list: it greps the sim sources
+    # the spec TW_SWEEP names, compiled outside the tree by Tools/sweep.py; nothing in the project. It lives in
+    # Tests/Match because it calls MatchLoopTests.Play and AssaultLadderTests.Run, so its own folder stands for it
+    'BalanceSweepTests': P + 'Tests/Match/',
 }
 
 # A change here can reach any assembly: the build's inputs, and the gate itself.
