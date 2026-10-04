@@ -244,6 +244,11 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   as balanced (`lane/show/balance-sweep`). Nothing is tuned until they are set.
 - **A standing critic of the process, on a schedule (2026-10-04)?** Offered after the critique and not answered.
   Default taken: none.
+- **CI waits for the `workflow` scope on the desktop's GitHub login (2026-10-04):** the checks workflow, and the
+  removal of the Unity workflow, are one commit on `lane/show/ci-checks`, on the desktop's disk only: GitHub refuses
+  a push that changes a workflow file from a login without that scope. The owner runs
+  `gh auth refresh -h github.com -s workflow` once (it opens a browser), then the lane lands with `land.py`. Until
+  then CI is still the red Unity workflow and `land.py` alone enforces the check. Default taken: not pushed.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
