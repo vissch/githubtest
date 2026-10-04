@@ -1,0 +1,6 @@
+{
+  "plan": {"model": "opus", "effort": "high", "mode": "read_only", "output": "plan.md"},
+  "execute": {"model": "opus", "effort": "low", "mode": "work", "input": "plan.md"},
+  "critic": {"model": "opus", "effort": "high", "mode": "read_only", "output": "critic.md"},
+  "retro": {"model": "opus", "effort": "high", "mode": "read_only", "output": "retro.md"}
+}

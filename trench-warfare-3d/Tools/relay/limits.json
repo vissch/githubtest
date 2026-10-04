@@ -1,0 +1,19 @@
+{
+  "amber_tokens": {"value": 240000, "min": 200000, "max": 260000},
+  "red_tokens": {"value": 300000, "min": 260000, "max": 300000},
+  "autocompact_tokens": 400000,
+  "run_hours": {"value": 3, "min": 0.25, "max": 12},
+  "leg_minutes": {"value": 90, "min": 10, "max": 180},
+  "leg_budget_usd": {"value": 30, "min": 0, "max": 50},
+  "no_progress_units": 2,
+  "max_plan_parts": 4,
+  "retro_every_legs": 10,
+  "note_max_bytes": 4096,
+  "plan_max_bytes": 8192,
+  "prompt_max_bytes": 12288,
+  "evidence_max_kb": 400,
+  "evidence_min_px": 64,
+  "quiet_seconds": 600,
+  "done_when_seconds": 900,
+  "gate_seconds": 2400
+}

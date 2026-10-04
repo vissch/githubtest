@@ -1,0 +1,23 @@
+{
+  "reader": "The owner. He skims. He does not read long text.",
+  "talk": {
+    "answer_first": true,
+    "words": "everyday words, no jargon",
+    "sentences": "short, one idea each",
+    "explain_terms": "any tool or file name gets a few words saying what it is",
+    "no": ["filler", "praise", "repeating the question", "walls of text"]
+  },
+  "report": {
+    "max_words": 120,
+    "shape": [
+      "RESULT: done | blocked | failed, plus one sentence",
+      "NEEDS YOU: only if the owner must do or decide something",
+      "CHANGED: up to 3 bullets",
+      "NEXT: one line"
+    ]
+  },
+  "question_to_owner": {"max_words": 40, "one_decision_per_question": true, "give_options": "2 to 3, the recommended one first"},
+  "notification": {"max_words": 12},
+  "tables": "only for comparing things, short cells",
+  "details": "go in a file, the report gives the path"
+}
