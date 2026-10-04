@@ -3,6 +3,7 @@
 Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.json and roles/ next to this file.
 
   python Tools/relay/relay.py run --work <checkout> [--dry-run] [--hours 3] [--max-legs N] [--sources pipeline,lane]
+                                  [--view]  (a Windows Terminal tab per leg, showing its output)
   python Tools/relay/relay.py status           is a run going, on what, and how the last one stopped
   python Tools/relay/relay.py stop [--now]     end the run before its next leg (--now: end the leg too)
   python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work

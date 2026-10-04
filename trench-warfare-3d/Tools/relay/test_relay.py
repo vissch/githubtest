@@ -16,7 +16,7 @@ UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destr
 LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
-       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW")
+       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT")
 
 
 def jpeg(width, height, size=2000):
@@ -754,6 +754,40 @@ class Runs(Repo):
         self.assertIn("retrospective: nothing taken", out)
         self.assertFalse((self.board / "relay" / "desktop" / "tuning.json").exists())
         self.assertEqual(stop["reason"], "nothing left to do")
+
+    def test_view_opens_one_tab_per_leg_through_a_command_file_and_never_where_no_window_can_open(self):
+        stub, log = self.tmp / "wt_stub.py", self.tmp / "wt.log"
+        stub.write_text("import json, sys\nopen(%r, 'a').write(json.dumps(sys.argv[1:]) + '\\n')\n" % str(log),
+                        encoding="utf-8")
+        os.environ["TW_RELAY_WT"] = json.dumps([sys.executable, str(stub)])
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.go(view=True)
+        for _ in range(50):                                   # the tabs are started, not waited for
+            if log.exists() and len(log.read_text(encoding="utf-8").splitlines()) == 2:
+                break
+            time.sleep(0.1)
+        tabs = [json.loads(l) for l in log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual(len(tabs), 2)
+        for tab in tabs:
+            self.assertEqual(tab[:3] + tab[5:8], ["-w", "tw-relay", "new-tab", "cmd.exe", "/d", "/c"])
+            self.assertRegex(tab[4], r"^[A-Za-z0-9 -]+$")       # the title: nothing a shell could read as more
+            text = Path(tab[8]).read_text(encoding="utf-8")
+            self.assertIn("relay.py", text)
+            self.assertIn("--follow", text)
+        log.unlink()
+        os.environ["TW_RELAY_NO_WINDOW"] = "1"
+        self.queue("u2", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
+        self.go(view=True)
+        time.sleep(1)
+        self.assertFalse(log.exists())
+        os.environ["TW_RELAY_WT"] = json.dumps(["no-such-program-anywhere"])
+        os.environ["TW_RELAY_NO_WINDOW"] = "0"
+        d = legdir.new_leg("r9", 1, UNIT, "execute", self.ph["execute"], self.lim, self.work, LANE, self.board)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertFalse(launch.open_view(d))               # a tab that cannot open is a note, not an error
+        self.assertIn("no viewer tab", buf.getvalue())
 
     def test_a_run_that_cannot_open_a_window_says_so_on_every_card(self):
         self.queue("u1")

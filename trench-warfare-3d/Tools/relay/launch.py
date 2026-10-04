@@ -4,10 +4,11 @@ kills the whole tree, also when the runner itself is interrupted. A Windows Term
 
   make_leg(...)            folders, compiled prompt, card and hooks for one leg
   run_leg(d, lim, secs)    start, log every output line, stop on timeout or a compaction trip, record how it ended
+  open_view(d)             a Windows Terminal tab that follows the leg's output (run --view)
   ran_clean(leg)           why the leg cannot be trusted (it did not run under the hooks, in auto mode, to the end)
 TW_RELAY_CLAUDE (a JSON list) replaces the claude executable: the tests use a stub. Stdlib only. ASCII only.
 """
-import hashlib, json, os, shutil, subprocess, sys, threading, time
+import hashlib, json, os, re, shutil, subprocess, sys, threading, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -93,6 +94,27 @@ def leg_env(d, leg):
     if leg.get("board"):
         env["TW_BOARD"] = leg["board"]
     return env
+
+
+def open_view(d):
+    """A Windows Terminal tab that follows the leg's output (relay.py view --follow). It is only a viewer: closing
+    it does nothing to the leg, and a tab that cannot open is a note, never an error. Nothing that varies passes
+    through wt or cmd quoting: the command is a file in the leg's folder and the title is plain letters.
+    TW_RELAY_WT (a JSON list) replaces wt.exe: the tests use a stub."""
+    d = Path(d)
+    leg = legdir.read(d)
+    cmd = d / "view.cmd"
+    cmd.write_text('@echo off\r\n"%s" "%s" view "%s" --follow\r\n' % (sys.executable, HERE / "relay.py", d),
+                   encoding="utf-8", newline="")
+    title = re.sub(r"[^A-Za-z0-9 -]", "", "leg %02d %s %s" % (leg["leg"], leg["phase"], leg["unit"]))[:40]
+    wt = json.loads(os.environ["TW_RELAY_WT"]) if os.environ.get("TW_RELAY_WT") else ["wt.exe"]
+    try:
+        subprocess.Popen(wt + ["-w", "tw-relay", "new-tab", "--title", title, "cmd.exe", "/d", "/c", str(cmd)],
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        return True
+    except OSError as e:
+        print("note: no viewer tab for leg %02d (%s)" % (leg["leg"], e), flush=True)
+        return False
 
 
 def stop_jobs(d):
