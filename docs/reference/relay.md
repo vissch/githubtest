@@ -10,9 +10,25 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 |---|---|---|---|
 | plan | Opus, high | read anything; write only `plan.md` in its leg folder | a plan the runner checks by script |
 | execute | Opus, low | the work, following the plan | commits on the lane, pushed |
+| critic | Opus, high | read its evidence bundle; write only `critic.md`; no subagent | a score out of 100 and three mandated fixes |
 
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
+A plan leg and a critic leg end with `leg done`, which runs the runner's own check on their paper, so they can mend
+it before the runner reads it.
+
+## The critic
+
+A pipeline job whose script checks pass gets a critic leg. It is blind: it works in a folder of its own that holds
+a copy of the stage's evidence and `stage.json`, it is not pointed at the board, and its card carries the `tw-critic`
+rubric and nothing about how the work was made. Under the target (85, `critic_target`) one execute leg does the
+three mandated fixes and makes the evidence again, then the critic scores once more (`critic_rounds`, 2 in all).
+
+The verdict stays the script's: a PASS is not turned into a FAIL by a score. The scores go into the result's note
+("critic 60/100, then 90/100 (target 85)"), each round is kept beside the evidence as `critic-r<n>.md`, and each
+round adds a row to `relay/<station>/lessons.md` on the board. A fix round that scores lower is named in the note;
+undoing it is the owner's call. With no room left (the leg cap, the time, the owner's stop) the critic is skipped
+and the note says so. Queued lane work has no evidence bundle and gets no critic.
 
 ## Where the work comes from
 
@@ -59,8 +75,12 @@ Automatic compaction is blocked; a leg that reaches it ends the run.
 The time is up (`--hours`, 0.25 to 12), the leg cap, nothing left to do, the owner's `stop`, a work checkout that is
 missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
-record, or a change to the board outside `evidence/`, to the relay's own code, or to git's push guard. Every stop
-writes `relay/<station>/stops/<run>.json` on the board. Leg folders and logs stay under
+record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside
+`evidence/`, to the relay's own code, or to git's push guard. Every stop writes `relay/<station>/stops/<run>.json`
+on the board, with how each unit ended (`units`), so a failed unit is not hidden behind "nothing left to do".
+A run started where no window can open (Windows session 0: every Claude session on the desktop) says so at its
+start and on every leg card; work that needs a windowed Unity editor then ends BLOCKED. Start such a run from a
+normal terminal. Leg folders and logs stay under
 `%LOCALAPPDATA%\TrenchWarfare\relay\runs\`.
 
 ## What holds a leg
