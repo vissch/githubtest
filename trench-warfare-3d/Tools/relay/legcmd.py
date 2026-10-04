@@ -137,8 +137,11 @@ def done(desk, leg):
         if not f.exists():
             print("NOT DONE: %s is not in your leg folder (%s)" % (f.name, desk))
             return 1
-        bad = papers.check_plan(f.read_text(encoding="utf-8"), lim["plan_max_bytes"], wt, lim["max_plan_parts"]) \
-            if leg.get("phase") == "plan" else []
+        text, bad = f.read_text(encoding="utf-8"), []
+        if leg.get("phase") == "plan":
+            bad = papers.check_plan(text, lim["plan_max_bytes"], wt, lim["max_plan_parts"])
+        elif leg.get("phase") == "critic":
+            bad = papers.check_critic(text, lim["critic_max_bytes"])
         for b in bad:
             print("NOT DONE: " + b)
         if not bad:

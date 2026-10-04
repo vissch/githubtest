@@ -103,7 +103,8 @@ def stop_jobs(d):
                        env=dict(os.environ, TW_RUNS=str(jobs)), capture_output=True)
 
 
-SEALED = ("mode", "lane", "desk", "board", "output", "amber_tokens", "red_tokens", "worktree", "phase")
+SEALED = ("mode", "lane", "desk", "board", "output", "amber_tokens", "red_tokens", "worktree", "phase",
+          "deny_tools")
 
 
 def guard_hash(d):

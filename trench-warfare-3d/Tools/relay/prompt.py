@@ -40,8 +40,9 @@ def card_text(leg, body, plan=None):
     if leg.get("output"):
         lines.append("- Write your result to: %s/%s" % (desk, leg["output"]))
     tool = str(Path(__file__).resolve().parent / "relay.py").replace("\\", "/")
-    if leg.get("phase") == "plan":
-        lines.append("- Before you end, check the plan the way the runner will: python \"%s\" leg done" % tool)
+    if leg.get("phase") in ("plan", "critic"):
+        lines.append("- Before you end, check %s the way the runner will: python \"%s\" leg done"
+                     % (leg.get("output"), tool))
     if leg.get("mode") == "work":
         lines += ["- The edit gate, detached: python \"%s\" leg gate start, then: leg gate wait" % tool,
                   "- Close out: python \"%s\" leg finish -m \"<message>\" (commits and pushes when the gate is green "
