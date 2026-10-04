@@ -13,7 +13,9 @@ of it, and a branch that was never pushed is read too), with git show: nothing i
 An entry is a table row or a bullet under "## Open". It is stranded when the lane ADDED it (it is not in the file at
 the lane's merge-base with integration) and integration does not have it. Entries are told apart by their date and
 bold title, not their wording, so an older wording of a bullet integration has since changed is not reported. One
-entry on several lanes is reported once, in the wording of the lane that touched the file last.
+entry on several lanes is reported once, in the wording of the lane that touched the file last. An open bullet that
+some branch has since taken out is not stranded either: it was answered there (that lane's row says how) or reworded,
+and the lanes still showing it are only older.
 """
 import re
 import sys
@@ -71,6 +73,13 @@ def parse(text):
     return out
 
 
+def taken_out(repo, e, path):
+    for sha in src_git.git(repo, 'log', '--all', '--format=%H', '-S' + e['title'], '--', path).split():
+        if e['title'] in src_git.git(repo, 'show', f'{sha}^:{path}') and e['title'] not in src_git.git(repo, 'show', f'{sha}:{path}'):
+            return True
+    return False
+
+
 def stranded(repo, integration=None, path=DECISIONS):
     """[entry] oldest first; each also has lane (whose wording this is), lanes (every lane holding it) and ref."""
     integ = integration or src_git.INTEGRATION
@@ -103,7 +112,8 @@ def stranded(repo, integration=None, path=DECISIONS):
             if best is None or rank > best['rank']:
                 best = found[e['key']] = dict(e, lane=name, ref=ref, rank=rank)
             best['lanes'] = lanes
-    return sorted(found.values(), key=lambda e: (e['date'] or '9999', e['kind'], e['title']))
+    rows = [e for e in found.values() if e['kind'] == 'row' or not taken_out(repo, e, path)]
+    return sorted(rows, key=lambda e: (e['date'] or '9999', e['kind'], e['title']))
 
 
 def main(argv=None):

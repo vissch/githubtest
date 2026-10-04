@@ -260,9 +260,9 @@ def queue_fixtures():
             assert p.returncode == 0, (args, p.stderr)
             return p.stdout.decode().strip()
 
-        def commit(text, branch=None):
+        def commit(text, branch=None, off=None):
             if branch:
-                git('checkout', '-q', '-B', branch, base)
+                git('checkout', '-q', '-B', branch, off or base)
             page.parent.mkdir(parents=True, exist_ok=True)
             page.write_bytes(text.encode('utf-8'))
             git('add', '-A')
@@ -276,8 +276,11 @@ def queue_fixtures():
         integ = commit(DECISIONS.replace('A question (2026-09-02):** its first', 'A question, narrowed (2026-09-02):** its second')
                        .replace(row, row + landed))
         git('update-ref', 'refs/remotes/' + src_git.INTEGRATION, integ)
-        commit(DECISIONS.replace(row, row + '| 2026-09-04 | **A lane row.** The first wording. |\n')
-               .replace('- **Another', '- **A lane question (2026-09-05):** asked on lane a.\n- **Another'), 'lane/show/a')
+        on_a = (DECISIONS.replace(row, row + '| 2026-09-04 | **A lane row.** The first wording. |\n')
+                .replace('- **Another', '- **A lane question (2026-09-05):** asked on lane a.\n- **Another'))
+        asked = '- **An answered question (2026-09-06):** asked on lane a too.\n'
+        a = commit(on_a.replace('- **Another', asked + '- **Another'), 'lane/show/a')
+        commit(on_a.replace(row, row + '| 2026-09-07 | **The answer.** |\n'), 'lane/show/c', off=a)      # c answers it
         b = commit(DECISIONS.replace(row, row + landed + '| 2026-09-04 | **A lane row.** The newer wording. |\n'), 'lane/show/b')
         git('update-ref', 'refs/remotes/origin/lane/show/b', b)
         git('checkout', '-q', '--detach', base)
@@ -285,13 +288,14 @@ def queue_fixtures():
 
         got = {e['title']: e for e in src_queue.stranded(repo)}
         case('queue: what a lane wrote down and integration lacks is stranded, a row and an open bullet',
-             sorted(got) == ['A lane question (2026-09-05):', 'A lane row.'], sorted(got))
+             sorted(got) == ['A lane question (2026-09-05):', 'A lane row.', 'The answer.'], sorted(got))
+        case('queue: an open bullet another lane has since answered and taken out is not', 'An answered question (2026-09-06):' not in got, sorted(got))
         case('queue: an older wording of a bullet integration has since changed is not', not any('A question' in t for t in got), sorted(got))
         case('queue: a row that also landed is not', 'A landed row.' not in got, sorted(got))
-        case('queue: a branch that was never pushed is read', got.get('A lane question (2026-09-05):', {}).get('lane') == 'lane/show/a', got)
+        case('queue: a branch that was never pushed is read', got.get('A lane question (2026-09-05):', {}).get('lanes') == ['lane/show/a', 'lane/show/c'], got)
         r = got.get('A lane row.', {})
         case('queue: one row on two lanes is reported once, in the wording touched last, with both lanes',
-             r.get('lane') == 'lane/show/b' and 'newer' in r.get('text', '') and r.get('lanes') == ['lane/show/a', 'lane/show/b'], r)
+             r.get('lane') == 'lane/show/b' and 'newer' in r.get('text', '') and r.get('lanes') == ['lane/show/a', 'lane/show/b', 'lane/show/c'], r)
 
 
 if __name__ == '__main__':
