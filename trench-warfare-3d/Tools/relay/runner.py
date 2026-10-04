@@ -124,6 +124,8 @@ class Run:
         if fill:
             fill(work)
         print("leg %02d  %-7s %s" % (self.legs, phase, unit["id"]), flush=True)
+        if getattr(self.a, "view", False) and not self.no_window:
+            launch.open_view(d)
         left, before = self.deadline - time.time(), self.watch()
         leg = launch.run_leg(d, self.lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
         broke, moved = self.audit(before, unit)
@@ -384,5 +386,6 @@ def add_args(p):
     p.add_argument("--max-legs", type=int, dest="max_legs", default=0)
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="say what would run; claim and start nothing")
     p.add_argument("--no-push", action="store_true", dest="no_push", help="do not commit and push the board")
+    p.add_argument("--view", action="store_true", help="open a Windows Terminal tab per leg that shows its output")
     p.add_argument("--no-quiet", action="store_true", dest="no_quiet",
                    help="skip the check that the checkout saw no git activity lately (you know nobody is in it)")
