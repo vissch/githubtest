@@ -56,11 +56,15 @@ namespace TW.Tests
         /// theirs. The garrison gets no reinforcement and no order: what is measured is the assault.</summary>
         /// <paramref name="attackGuns"/> of the attackers are machine gunners; with <paramref name="gunsCover"/> the order
         /// names every group but the guns (v22), so they stay on the parapet and fire over the attack.
-        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600, int gunners = 0, int attackGuns = 0, bool gunsCover = false)
+        /// <paramref name="built"/> (2026-10-04, the balance sweep) is handed the match before anyone is put down, so a
+        /// sweep can climb the same rung on other numbers (UnitDefinitions.Apply). Null: the rung as it always was.
+        public static Rung Run(int attackers, int defenders, Support support, uint seed, int ticks = 3600, int gunners = 0, int attackGuns = 0, bool gunsCover = false,
+                               System.Action<MatchSim> built = null)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 1000000; cfg.Seed = seed;
             var field = BattlefieldParams.ShelledForest(Field); field.Bombardment = 0f;   // the battle scene's ground; shells are nobody's decision
             using var m = MatchSim.CreateBattlefield(cfg, field);
+            built?.Invoke(m);
             var w = m.World;
             short own = m.Fields.FrontTrench(0), theirs = m.Fields.FrontTrench(1);
             float theirZ = TrenchZ(m, theirs);
