@@ -26,6 +26,8 @@ The work checkout is the relay's own. Never point `--work` at a checkout a sessi
 ## Rules
 - Ask for the hours if the owner gave none. `--hours` is clamped to 0.25-12 (default 3). `--max-legs` caps the legs;
   two legs is one unit (plan, execute), so leave it off for a long run.
+- `--view` opens a Windows Terminal tab per leg with its output. It needs a desktop: from a Claude session (no
+  window) it does nothing, so give the owner the command to run in a normal terminal.
 - A leg with an edit gate takes 30 minutes or more. Do not poll: the runner ends with one `STOP:` line.
 - `done_when` for `/relay add` is a command that exits 0 when the work is there, as words, not one string. No shell.
 - The runner stops on anything it cannot trust. Read the `STOP:` line and the last file under
