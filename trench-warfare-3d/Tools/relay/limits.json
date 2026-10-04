@@ -18,5 +18,6 @@
   "gate_seconds": 2400,
   "critic_target": 85,
   "critic_rounds": 2,
-  "critic_max_bytes": 8192
+  "critic_max_bytes": 8192,
+  "retro_max_bytes": 6144
 }

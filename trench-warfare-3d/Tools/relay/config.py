@@ -10,7 +10,9 @@ HERE = Path(__file__).resolve().parent
 TUNABLE = ("amber_tokens", "red_tokens", "run_hours", "leg_minutes", "leg_budget_usd")
 FIXED = ("autocompact_tokens", "no_progress_units", "max_plan_parts", "retro_every_legs", "note_max_bytes",
          "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
-         "done_when_seconds", "gate_seconds", "critic_target", "critic_rounds", "critic_max_bytes")
+         "done_when_seconds", "gate_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
+         "retro_max_bytes")
+RETRO_TUNES = ("amber_tokens", "red_tokens", "leg_minutes")    # what a retrospective may move, inside the bounds
 MODES = ("read_only", "work")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
 

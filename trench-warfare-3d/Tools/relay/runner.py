@@ -38,13 +38,15 @@ class Run:
         self.a = a
         over = {k: v for k, v in (("run_hours", a.hours), ("leg_minutes", a.leg_minutes),
                                   ("leg_budget_usd", a.leg_budget)) if v is not None}
-        self.lim = config.limits(overrides=over)
-        for k, v in over.items():
-            if self.lim[k] != v:
-                print("note: %s %s is outside its bounds; using %s" % (k, v, self.lim[k]))
         self.ph, self.style = config.phases(), config.style()
         self.station = P.station()
         self.board = P.board_dir()
+        tuned = {k: v for k, v in boardio.tuning(self.board, self.station).items() if k in config.RETRO_TUNES}
+        self.lim = config.limits(overrides=dict(tuned, **over))     # a flag outranks the last retrospective
+        for k, v in over.items():
+            if self.lim[k] != v:
+                print("note: %s %s is outside its bounds; using %s" % (k, v, self.lim[k]))
+        self.tuned = {k: self.lim[k] for k in tuned if k not in over}
         self.work = Path(a.work).resolve()
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
@@ -53,6 +55,7 @@ class Run:
         self.legs, self.idle, self.claimed, self.ready = 0, 0, None, False
         self.heads, self.lanes, self.stop_file = {}, set(), stop_path(self.home)
         self.units, self.no_window = {}, launch.no_window()     # unit id -> PASS | FAIL | BLOCKED
+        self.retro_at = 0                                       # the leg count at the last retrospective
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
@@ -61,6 +64,9 @@ class Run:
             raise Stop("the work checkout cannot be used: " + why)
         gitio.install_prepush(self.work)
         self.heads = gitio.remote_heads(self.work)
+        if self.tuned:
+            print("note: limits set by the last retrospective: %s"
+                  % ", ".join("%s %g" % kv for kv in sorted(self.tuned.items())), flush=True)
         if self.no_window:
             print("note: this terminal cannot open a window, so a leg that needs a Unity window will end BLOCKED. "
                   "Start the run from a normal terminal for that work.", flush=True)
@@ -237,6 +243,60 @@ class Run:
             print("unit %s: %s" % (unit["id"], note), flush=True)
         return problems
 
+    # ----- the retrospective: between units, every limits.json retro_every_legs legs -----
+    def retro(self):
+        """One leg reads this run's leg records, refusals and critic rounds, and writes retro.md. Its tuning moves
+        amber, red and the leg time inside their bounds, for the rest of this run and the next ones on this
+        station; its proposals go to the board for the owner. A paper that fails its check changes nothing."""
+        n, run_root = self.legs, legdir.leg_path(self.run, 1).parent
+        shipped = HERE / "limits.json"
+
+        def fill(dst):
+            (dst / "legs").mkdir(parents=True)
+            (dst / "denials").mkdir()
+            for f in sorted((boardio.folder(self.board, self.station) / "legs").glob(self.run + "-*.json")):
+                (dst / "legs" / f.name).write_bytes(f.read_bytes())
+            for f in sorted(run_root.glob("*/denials.jsonl")):
+                (dst / "denials" / (f.parent.name + ".jsonl")).write_bytes(f.read_bytes())
+            lessons = boardio.folder(self.board, self.station) / "lessons.md"
+            if lessons.exists():
+                (dst / "lessons.md").write_bytes(lessons.read_bytes())
+            (dst / "limits.json").write_bytes(shipped.read_bytes())
+            P.write_json(dst / "limits-now.json", {k: self.lim[k] for k in config.RETRO_TUNES})
+
+        unit = {"id": "retro-%s-%02d" % (self.run, n + 1), "source": "retro", "role": "retro", "lane": ""}
+        body = "\n".join([
+            "# Retrospective after %d legs of run %s" % (n, self.run),
+            "Your working folder holds: legs/ (one record per leg of this run), denials/ (what the guard refused, "
+            "per leg), lessons.md (critic rounds, if any), limits.json (the settings and their bounds) and "
+            "limits-now.json (the values in force now).",
+            "You may tune only: %s." % ", ".join(config.RETRO_TUNES)])
+        d, leg = self.leg(unit, "retro", body, fill=fill)
+        self.retro_at = self.legs
+        f = legdir.desk(d) / self.ph["retro"]["output"]
+        text = f.read_text(encoding="utf-8") if f.exists() else ""
+        bad = papers.check_retro(text, self.lim["retro_max_bytes"]) if text else ["the leg wrote no retro.md"]
+        if bad:
+            print("retrospective: nothing taken (%s)" % bad[0], flush=True)
+            return
+        tune = papers.retro_tuning(text, config.RETRO_TUNES)
+        if tune:
+            try:
+                new = config.limits(overrides=dict({k: self.lim[k] for k in config.TUNABLE}, **tune))
+            except SystemExit as e:                         # amber over red: keep what we have
+                print("retrospective: tuning refused (%s)" % e, flush=True)
+            else:
+                moved = {k: new[k] for k in tune if new[k] != self.lim[k]}
+                self.lim.update({k: new[k] for k in config.RETRO_TUNES})
+                boardio.keep_tuning(self.board, self.station, self.run, {k: self.lim[k] for k in config.RETRO_TUNES})
+                print("retrospective: %s" % (", ".join("%s is now %g" % kv for kv in sorted(moved.items()))
+                                             or "the tuning it asked for is what is in force"), flush=True)
+        words = papers.sections(text).get("Proposals", "")
+        if words.strip():
+            p = boardio.proposals(self.board, self.run, self.legs, "# Proposals from the retrospective of run %s, "
+                                  "leg %02d\n\n%s" % (self.run, self.legs, words))
+            print("retrospective: proposals for the owner in %s" % p, flush=True)
+
     def finish(self, src, unit, problems, outcome):
         verdict = src.finish(unit, self.ctx, problems, outcome)
         self.claimed = None
@@ -267,6 +327,8 @@ class Run:
                 if not self.ready:
                     self.preflight()
                 self.unit(unit)
+                if self.legs - self.retro_at >= self.lim["retro_every_legs"] and not self.no_room():
+                    self.retro()
         except Stop as s:
             reason, detail = s.args[0], (s.args[1] if len(s.args) > 1 else "")
         except KeyboardInterrupt:
