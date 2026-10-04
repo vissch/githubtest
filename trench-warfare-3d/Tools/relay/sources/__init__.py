@@ -7,6 +7,9 @@
   body(unit)                        the text for the leg card: what this unit is
   verify(unit, ctx)                 problems as short strings, checked by script after the execute legs (empty = PASS)
   keep_note(unit, ctx, desk, lim)   keep a leg's handoff note for the next run, if this source uses notes
+  critic(unit, ctx, round_no)       None when the source has nothing a critic can score; else {"body": the card
+                                    text, "fill": a function that copies the evidence bundle into a folder}
+  keep_critic(unit, ctx, round_no, text)   keep a critic round where this source keeps its evidence
   finish(unit, ctx, problems, outcome)   record PASS | FAIL | BLOCKED where this source keeps its state; outcome is
                                     what the last leg reported (done | blocked | failed)
 

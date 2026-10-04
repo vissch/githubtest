@@ -123,6 +123,14 @@ def keep_note(unit, ctx, desk, lim):
         dst.unlink()                                 # the old note describes a state that is gone
 
 
+def critic(unit, ctx, round_no):
+    return None                                      # lane work leaves no evidence bundle to score
+
+
+def keep_critic(unit, ctx, round_no, text):
+    pass
+
+
 def finish(unit, ctx, problems, outcome):
     v = verdict(problems, outcome)
     if v == "PASS":

@@ -4,6 +4,8 @@ note (lane work only). A paper that fails is not handed on. Stdlib only. ASCII o
 
   plan.md   ## Goal  ## Steps  ## Files  ## Checks  ## Done when  ## Risks      (roles/_phase_plan.md)
   note.md   ## Goal  ## Done  ## In flight  ## Next  ## Predictions  ## Dead ends
+  critic.md   first line "VERDICT: <stage> ROUND <n>: <score>/100 ..", and three numbered fixes under
+              "TOP-3 MANDATED FIXES" (roles/_phase_critic.md; the shape is the tw-critic skill's)
 A prediction is one line:  `<command>` -> exit <n>   or   `<command>` -> contains "<text>"
 and the command must only look (cmdrules.look_only), so the runner can run it before the next leg and score the note
 without a model.
@@ -107,6 +109,65 @@ def check_plan(text, max_bytes, repo=None, max_parts=4):
             if PATHLIKE.match(tok) and repo and "(new)" not in line and not named_file_exists(repo, tok):
                 out.append("plan.md names %s, which does not exist (mark a file to create with (new))" % tok)
     return out
+
+
+CRITIC_VERDICT = re.compile(r"^\W*VERDICT\b.*?(\d{1,3})\s*/\s*100", re.I)
+CRITIC_FIXES = re.compile(r"TOP-3 MANDATED FIXES", re.I)
+CRITIC_HEADING = re.compile(r"^\W*[A-Z][A-Z0-9 -]{3,}:")
+LIST_ITEM = re.compile(r"^\s*(?:\d+[.)]|[-*])\s+(\S.*)$")
+
+
+def critic_score(text):
+    """The score out of 100 from the first line that says anything, or None."""
+    first = next((l for l in text.splitlines() if l.strip()), "")
+    m = CRITIC_VERDICT.match(first)
+    return int(m.group(1)) if m and int(m.group(1)) <= 100 else None
+
+
+def critic_fixes(text):
+    """The list items under TOP-3 MANDATED FIXES, up to the next heading in capitals."""
+    out, on = [], False
+    for line in text.splitlines():
+        if CRITIC_FIXES.search(line):
+            on = True
+        elif on and CRITIC_HEADING.match(line):
+            break
+        elif on and LIST_ITEM.match(line):
+            out.append(LIST_ITEM.match(line).group(1).strip())
+    return out
+
+
+def check_critic(text, max_bytes):
+    """Problems with a critic's paper, as short strings (empty = the score counts)."""
+    out, size = [], len(text.encode("utf-8"))
+    if size > max_bytes:
+        out.append("critic.md is %d bytes, the limit is %d" % (size, max_bytes))
+    if critic_score(text) is None:
+        out.append("critic.md does not start with 'VERDICT: <stage> ROUND <n>: <score>/100 ..' (a score of 0 to 100)")
+    if len(critic_fixes(text)) < 3:
+        out.append("critic.md lists %d fixes under 'TOP-3 MANDATED FIXES': three are needed, as a numbered list"
+                   % len(critic_fixes(text)))
+    return out
+
+
+def plan_for_fixes(plan, fixes, round_no, score, target):
+    """The plan a fix round's execute leg gets: the unit's plan with the critic's three fixes as its only steps."""
+    steps = ["%d. %s" % (i, f) for i, f in enumerate(fixes[:3], 1)]
+    steps.append("%d. Make the unit's evidence again, so every file it asks for is new, and close out as the plan says."
+                 % (len(steps) + 1))
+    steps.append("A fix you judge wrong: do not do it, and say why in your report. Do the others.")
+    out, skipping = [], False
+    for line in plan.splitlines():
+        if re.match(r"^##\s+Steps\s*$", line):
+            out += ["## Steps (fix round: a critic scored the work %d/100 in round %d, the target is %d; do only these)"
+                    % (score, round_no, target)] + steps
+            skipping = True
+        elif re.match(r"^##\s+", line):
+            skipping = False
+            out.append(line)
+        elif not skipping:
+            out.append(line)
+    return "\n".join(out) + "\n"
 
 
 def predictions(text):

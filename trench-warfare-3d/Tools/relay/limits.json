@@ -15,5 +15,8 @@
   "evidence_min_px": 64,
   "quiet_seconds": 600,
   "done_when_seconds": 900,
-  "gate_seconds": 2400
+  "gate_seconds": 2400,
+  "critic_target": 85,
+  "critic_rounds": 2,
+  "critic_max_bytes": 8192
 }
