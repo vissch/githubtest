@@ -9,16 +9,22 @@ The runner is a script. It picks the work, starts one leg at a time, checks the 
 start it, read its lines and tell the owner in short plain words (he skims: answer first, a few bullets).
 
 ```bash
-R="python C:/Users/PC/Documents/GitHub/githubtest-relay/trench-warfare-3d/Tools/relay/relay.py"
+R="python C:/Users/PC/Documents/GitHub/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py"
 WORK="C:/Users/PC/Documents/GitHub/githubtest-relay-work"
 ```
 The work checkout is the relay's own. Never point `--work` at a checkout a session or an editor is using.
+`githubtest-relay-run` is the frozen copy: it only runs the relay. The relay is built in `githubtest-relay-dev`.
+
+**First, every time:** `$R hold <your session name>`. Exit 1 means another session holds the relay: stop and tell
+the owner. Give it back with `$R hold <your session name> --release` when you are done.
 
 | The owner says | Run | Then |
 |---|---|---|
 | `/relay dry` | `$R run --work $WORK --dry-run` | say the one unit it would take |
-| `/relay start` | `$R run --work $WORK --hours <H> [--max-legs N] [--sources pipeline,lane]` in the background | say it started and what it took; report the `STOP:` line when it ends |
-| `/relay status` | `$R status` | one or two lines |
+| `/relay start` | `$R run --work $WORK --who <your session name> --hours <H> [--max-legs N] [--sources pipeline,lane]` in the background | say it started and what it took; report the `STOP:` line when it ends |
+| `/relay status` | `$R status` | one or two lines: who started it, the units so far |
+| `/relay refusals` | `$R refusals` | name any refusal that was normal work: it needs a rule fix and a test |
+| `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too) | confirm with `$R status` |
 | `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
 | watch a leg | `$R view "<leg folder>" --follow` (status prints the folder) | |
