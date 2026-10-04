@@ -5,6 +5,8 @@ file: the station is in the path and every leg gets its own file. Nothing here s
   relay/<station>/legs/<run>-<nn>.json    one finished leg: unit, phase, how it ended, tokens, the report
   relay/<station>/stops/<run>.json        why a run stopped
   relay/<station>/lessons.md              one row per critic round: the score and the first mandated fix
+  relay/<station>/tuning.json             the limits the last retrospective set (inside the bounds of limits.json)
+  relay/proposals/<run>-<nn>.md           a retrospective's proposals for role texts and rules: the owner reads them
 Stdlib only. ASCII only.
 """
 import sys
@@ -12,7 +14,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "pipeline"))
-from pipeline import now, write_json   # noqa: E402
+from pipeline import now, read_json, write_json   # noqa: E402
 import gitio                           # noqa: E402
 
 KEEP = ("run", "leg", "unit", "source", "role", "phase", "model", "effort", "lane", "state", "exit_code", "seconds",
@@ -48,6 +50,28 @@ def lesson(board, station, unit, round_no, score, target, fix):
                                                     " ".join(str(fix).replace("|", "/").split())[:160])
     with open(p, "a", encoding="utf-8", newline="\n") as f:
         f.write(("" if p.stat().st_size else LESSONS_HEAD) + row)
+    return p
+
+
+def tuning(board, station):
+    """{key: number}: what the last retrospective on this station set, or {} when none did."""
+    p = folder(board, station) / "tuning.json"
+    try:
+        return {k: v for k, v in read_json(p)["limits"].items() if isinstance(v, (int, float))} if p.exists() else {}
+    except (OSError, ValueError, KeyError, AttributeError):
+        return {}
+
+
+def keep_tuning(board, station, run, limits):
+    p = folder(board, station) / "tuning.json"
+    write_json(p, {"limits": limits, "run": run, "set_at": now()})
+    return p
+
+
+def proposals(board, run, nn, text):
+    p = Path(board) / "relay" / "proposals" / ("%s-%02d.md" % (run, nn))
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
     return p
 
 
