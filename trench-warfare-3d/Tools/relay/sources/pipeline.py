@@ -19,6 +19,38 @@ ROLE_SKILLS = {"balance-simulator": "tw-balance-sim", "env-simulator": "tw-env-s
                "bug-catcher": "tw-bug-catcher", "hard-critic": "tw-critic"}
 
 
+def skills_root():
+    """The skills live in this repo. A pipeline leg works in another checkout, on another lane, which does not
+    have them. parents: sources, relay, Tools, trench-warfare-3d, repo root."""
+    return Path(__file__).resolve().parents[4] / ".claude" / "skills"
+
+
+def brief_name(role):
+    name = ROLE_SKILLS.get(role)
+    if name and (skills_root() / name / "SKILL.md").is_file():
+        return name
+    return None
+
+
+def place_brief(role, desk):
+    """Copy the role's skill into the leg's desk, plus any sibling skill its text links to with ../, so those
+    links still resolve. A leg can read its desk. The work checkout is not given the skill. None when this role
+    has no brief on this machine."""
+    name = brief_name(role)
+    if not name:
+        return None
+    root = skills_root()
+    text = (root / name / "SKILL.md").read_text(encoding="utf-8")
+    names = {name}
+    for sib in re.findall(r"\.\./([A-Za-z0-9_-]+)/", text):
+        if (root / sib).is_dir():
+            names.add(sib)
+    dest = Path(desk) / "brief"
+    for n in sorted(names):
+        shutil.copytree(root / n, dest / n)
+    return "brief/%s/SKILL.md" % name
+
+
 def jpeg_size(data):
     """(width, height) from a JPEG's frame header, or None when the bytes are not a JPEG picture."""
     if data[:2] != b"\xff\xd8":
@@ -70,10 +102,10 @@ def body(unit):
         "Item: %s" % unit["title"],
         "RECHECK means: rerun only this stage's checks on the outputs it already has. REGENERATE means: the full stage.",
         "The stage, as the board defines it:", "```json", json.dumps(unit["stage_json"], indent=1), "```",
-        ("- Load the skill `%s` and follow it: it is the brief for the role `%s`."
-         % (ROLE_SKILLS[unit["role"]], unit["role"])) if unit["role"] in ROLE_SKILLS else
-        "- Load the skill for the role `%s` and follow it. There is no .claude/agents folder: the skill is the brief."
-        % unit["role"],
+        ("- Read `brief/%s/SKILL.md` in your leg folder and follow it: it is the brief for the role `%s`. "
+         "The work checkout does not have that skill, so it is copied into the leg folder. Do not load it by name."
+         % (brief_name(unit["role"]), unit["role"])) if brief_name(unit["role"]) else
+        "- Follow the stage notes. There is no brief on this machine for the role `%s`." % unit["role"],
         "- This checkout is the relay's pipeline worktree: pipeline git work is allowed here.",
         "- Do NOT claim, complete or release the job: the runner does that after it has checked your result.",
         "- Evidence: one fresh JPG per band (%s), at most %d KB each, named <band>.jpg, in the board folder %s/."
