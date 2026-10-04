@@ -325,7 +325,22 @@ def cmd_next(board, a):
     print("nothing for", st)
 
 
+def refuse_in_leg():
+    """A relay leg (Tools/relay) never claims, completes or releases: its runner does, after checking the result."""
+    held = False
+    if not os.environ.get("TW_RELAY"):           # the marker the runner leaves in the checkout a leg works in
+        r = subprocess.run(["git", "rev-parse", "--absolute-git-dir"], capture_output=True, text=True)
+        marker = Path(r.stdout.strip()) / "relay-leg.json" if r.returncode == 0 else None
+        try:
+            held = bool(marker) and marker.exists() and json.loads(marker.read_text(encoding="utf-8")).get("pid") != os.getpid()
+        except (OSError, ValueError, AttributeError):
+            held = True
+    if os.environ.get("TW_RELAY") or held:
+        raise SystemExit("a relay leg does not claim, complete or release a job: the runner does")
+
+
 def cmd_claim(board, a):
+    refuse_in_leg()
     st = station()
     refuse_if_busy(board, st)
     item, stage, info = find_job(board, a.job)
@@ -338,6 +353,7 @@ def cmd_claim(board, a):
 
 
 def cmd_complete(board, a):
+    refuse_in_leg()
     st = station()
     cur = board.claim(st)
     if not cur or cur["job"] != a.job:
@@ -361,6 +377,7 @@ def cmd_complete(board, a):
 
 
 def cmd_release(board, a):
+    refuse_in_leg()
     p = board.claim_path(station())
     if p.exists():
         p.unlink()
