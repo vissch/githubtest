@@ -19,7 +19,11 @@ import pipeline as P                                                # noqa: E402
 import boardio, config, gitio, launch, legdir, papers, sources      # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). A windowed Unity "
-             "editor hangs here. Unity in batch mode works. Work that needs a window: end BLOCKED and say so.")
+             "editor hangs here. Unity in batch mode works. Work that needs a window: end BLOCKED and say so. "
+             "Talk to that editor with the Unity CLI at %LOCALAPPDATA%/unity/bin/unity.exe, which is the one "
+             "Tools/tw is written for. A different unity earlier on PATH refuses while Temp/UnityLockfile exists "
+             "unless UNITY_CLI_ALLOW_LOCKED=1, and then it starts a second editor. unity status on the CLI in "
+             "%LOCALAPPDATA%/unity/bin does list a batch editor.")
 VERDICT = re.compile(r"^\W*RESULT\W+(done|blocked|failed)\b", re.I)
 
 
@@ -121,6 +125,10 @@ class Run:
         work, board = (legdir.desk_path(self.run, self.legs) / "bundle", "") if fill else (self.work, self.board)
         d = launch.make_leg(self.run, self.legs, unit, phase, work, unit["lane"], board,
                             body + (NO_WINDOW if self.no_window and not fill else ""), self.lim, plan)
+        if phase in ("plan", "execute"):
+            place = getattr(sources.load(unit["source"]), "place_brief", None)
+            if place:
+                place(unit["role"], legdir.desk(d))
         if fill:
             fill(work)
         print("leg %02d  %-7s %s" % (self.legs, phase, unit["id"]), flush=True)
