@@ -16,7 +16,7 @@ R="python trench-warfare-3d/Tools/pipeline/run_detached.py"
 ## Before anything: which checkout am I in
 
 The pipeline runs git only in its own worktrees: `githubtest-desk-show`, `githubtest-desk-sim`, `githubtest-desk-gate`
-on the desktop, `githubtest-pipe` on the laptop. In any other checkout (the owner's lanes, the main clone), refuse
+on the desktop, `githubtest-pipe` on the laptop, and `githubtest-relay-work` for the relay's legs (the `relay` skill). In any other checkout (the owner's lanes, the main clone), refuse
 git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` so the board is current.
 
 ## Commands
