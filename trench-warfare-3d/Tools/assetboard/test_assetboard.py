@@ -58,8 +58,11 @@ def real_tree():
     tags = assets['House0']['level_tags']
     case('real tree: the village houses are placed only where there is a river', 'ShelledForest' in tags and 'WinterLine' not in tags, tags)
     case('real tree: the Salvo has its sixteen rocket tubes', sum(s.startswith('Socket_Tube') for m in assets['Salvo']['models'] for s in m['sockets']) == 16)
-    case('real tree: the jetpack leap is an event nothing draws', 'LeapStarted' in extra['orphan_events']
-         and any(not r['ok'] for r in assets['Jetpack']['vfx']['rows']), extra['orphan_events'])
+    # until the troop actions (lane/show/troop-anims) the jetpack's leap was the known event nothing drew; it is drawn
+    # now (AnimationController reads LeapStarted), and a mission trigger stands for the events that still are not
+    case('real tree: the jetpack leap is drawn, and an event nothing draws is still listed',
+         'LeapStarted' not in extra['orphan_events'] and all(r['ok'] for r in assets['Jetpack']['vfx']['rows'])
+         and 'MissionTriggerFired' in extra['orphan_events'], extra['orphan_events'])
     case('real tree: an idea from the notes file is a bucket of its own', assets['Arditi']['status'] == 'IDEA')
     clips = code['clips']
     groups = []
