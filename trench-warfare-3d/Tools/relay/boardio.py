@@ -2,7 +2,7 @@
 """What the relay writes on the board (tw3d-board/relay/<station>/), so the other station can see it. One writer per
 file: the station is in the path and every leg gets its own file. Nothing here stores a status to edit later.
 
-  relay/<station>/legs/<run>-<nn>.json    one finished leg: unit, phase, how it ended, tokens, cost, the report
+  relay/<station>/legs/<run>-<nn>.json    one finished leg: unit, phase, how it ended, tokens, cost, week used, report
   relay/<station>/stops/<run>.json        why a run stopped
   relay/<station>/lessons.md              one row per critic round: the score and the first mandated fix
   relay/<station>/tuning.json             the limits the last retrospective set (inside the bounds of limits.json)
@@ -19,7 +19,8 @@ import gitio                           # noqa: E402
 
 KEEP = ("run", "leg", "unit", "source", "role", "phase", "model", "effort", "lane", "state", "exit_code", "seconds",
         "turns", "final_tokens", "level", "denials", "guard_refusals", "ran_model", "ran_mode", "report", "started_at",
-        "finished_at", "cost_usd", "tokens_in", "tokens_out", "cache_read", "cache_write")
+        "finished_at", "cost_usd", "tokens_in", "tokens_out", "cache_read", "cache_write", "week_start", "week_end",
+        "week_used")
 
 
 def folder(board, station):

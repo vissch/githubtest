@@ -9,6 +9,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py refusals [--runs N]   what the guard refused in the last N runs (default 3)
   python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
   python Tools/relay/relay.py day              one screen: the budget, the run, the queue in its order, what needs the owner
+  python Tools/relay/relay.py usage            where the plan's week stands, from the newest reading on this machine
+  python Tools/relay/relay.py usage put [--statusline]   keep a reading given on stdin as JSON (usage.py)
   python Tools/relay/relay.py prio <id> <n>    move a queued unit: 0 to 99, the lower runs first (50 when none is set)
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
@@ -26,7 +28,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner   # noqa: E402
+import boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -170,6 +172,29 @@ def day_screen():
     return 0
 
 
+def usage_cmd(put, statusline):
+    """Where the plan's week stands. `put` keeps a reading given on stdin as JSON, in either shape usage.py takes;
+    with --statusline it is a Claude Code status line command: it keeps the reading and prints the short line the
+    status line shows. Exit 1: no reading (none came in, or the newest is too old)."""
+    home, lim = legdir.home(), config.limits()
+    if put:
+        try:
+            raw = json.loads(sys.stdin.read() or "{}")
+        except ValueError:
+            raw = {}
+        reading = usage.put(home, raw)
+        if statusline:
+            reading = reading or usage.read(home, lim)      # early in a session nothing comes in: show the last one
+            print("week %.0f%%" % reading["week"] if reading else "week ?")
+            return 0
+        print(usage.line(reading) or "no weekly figure in what came in: nothing kept")
+        return 0 if reading else 1
+    reading = usage.read(home, lim)
+    print(usage.line(reading) or day.week_line(P.board_dir(), home, lim)
+          or "Week: not measured. Nothing has read the plan's weekly limit here or in a leg yet.")
+    return 0 if reading else 1
+
+
 def stop(now):
     P.write_json(runner.stop_path(legdir.home()), {"now": bool(now), "asked_at": P.now()})
     print("stop asked: the run ends %s." % ("now, mid-leg" if now else "before its next leg"))
@@ -304,6 +329,9 @@ def main(argv=None):
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
     sub.add_parser("budget").add_argument("--days", type=int, default=8)
     sub.add_parser("day")
+    p = sub.add_parser("usage")
+    p.add_argument("put", nargs="?", choices=("put",))
+    p.add_argument("--statusline", action="store_true")
     p = sub.add_parser("prio")
     p.add_argument("id")
     p.add_argument("n", type=int)
@@ -342,6 +370,8 @@ def main(argv=None):
         return budget(a.days)
     if a.cmd == "day":
         return day_screen()
+    if a.cmd == "usage":
+        return usage_cmd(bool(a.put), a.statusline)
     if a.cmd == "prio":
         return prio(a.id, a.n)
     if a.cmd == "add":

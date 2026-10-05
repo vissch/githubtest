@@ -9,7 +9,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import cmdrules, config, gitio, launch, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
+import cmdrules, config, gitio, launch, ledger, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
 from sources import pipeline as SP                                                 # noqa: E402
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
@@ -40,10 +40,13 @@ class Base(unittest.TestCase):
         os.environ["TW_RELAY_HOME"] = str(self.tmp / "home")
         os.environ["TW_RELAY_NO_WINDOW"] = "0"               # the same whatever terminal runs the tests
         os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, "-c", "pass"])   # no real notification
+        self.limits = config.limits                          # these tests count in dollars or in measured legs:
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
         self.lim, self.ph = config.limits(), config.phases()
         self.board, self.d = self.tmp / "board", None
 
     def tearDown(self):
+        config.limits = self.limits
         os.chdir(self.cwd)
         for k, v in self.old.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
@@ -689,6 +692,46 @@ class Runs(Repo):
         guard = legdir.leg_path(stop["run"], 2)                                 # the hooks really ran
         self.assertTrue((guard / "session.json").exists())
         self.assertIn("LEG CARD", (guard / "card.md").read_text(encoding="utf-8").upper())
+
+    def test_a_leg_record_holds_what_the_leg_used_of_the_week(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        asked, real = [], launch.usage.read
+
+        def reading(home=None, lim=None, **kw):           # a new reading every time: 0.5 points more of the week
+            asked.append(1)
+            n = len(asked)
+            return {"at": "2026-10-05T10:%02d:00Z" % n, "at_s": 1000 + 60 * n, "week": 40.0 + n / 2.0,
+                    "five_hour": 3.0, "resets": "2026-10-08 16:00", "windows": {}}
+        launch.usage.read = reading
+        try:
+            out, stop = self.go()
+        finally:
+            launch.usage.read = real
+        self.assertIn("unit u1: PASS", out)
+        plan, execute = self.legs()
+        self.assertEqual((plan["week_start"]["week"], plan["week_end"]["week"], plan["week_used"]), (40.5, 41.0, 0.5))
+        self.assertEqual((execute["week_start"]["week"], execute["week_used"]), (41.5, 0.5))
+        self.assertEqual(sorted(plan["week_end"]), ["at", "at_s", "resets", "week"])
+        self.assertEqual(ledger.standing(self.board)["week"], 42.0)
+        self.assertEqual(ledger.week(ledger.spent(self.board), ledger.rate(self.board)), (1.0, 0))
+
+    def test_a_leg_with_no_reading_or_a_reading_that_breaks_is_not_measured_and_runs_all_the_same(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        real = launch.usage.read
+
+        def broken(home=None, lim=None, **kw):
+            raise OSError("the file is gone")
+        launch.usage.read = broken
+        try:
+            out, stop = self.go()
+        finally:
+            launch.usage.read = real
+        self.assertIn("unit u1: PASS", out)
+        for leg in self.legs():
+            self.assertEqual((leg["week_start"], leg["week_end"], leg["week_used"]), (None, None, None))
+        self.assertIsNone(ledger.rate(self.board))
 
     def test_the_guards_are_live_inside_a_run(self):
         self.queue("u1")

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-"""One screen for the master and the owner (relay.py day): what the day has left, is a run going or how the last
-one stopped, what is queued in the order the runner takes it with the usual cost of each unit, what needs the
-owner, and who holds the relay build.
+"""One screen for the master and the owner (relay.py day): what the day has left, where the plan's week stands when
+something read it, is a run going or how the last one stopped, what is queued in the order the runner takes it
+with the usual cost of each unit, what needs the owner, and who holds the relay build.
 
   lines(board, home, lim, ph, holder=None)   the screen, as plain lines
   queue(board)                               (the units not done yet in the runner's order, what is wrong with the rest)
@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import ledger, runner                   # noqa: E402
+import ledger, runner, usage            # noqa: E402
 from sources import lane                # noqa: E402
 
 FINE = ("PASS",)                         # how a unit ends when it needs nobody
@@ -107,19 +107,31 @@ def run_lines(board, home):
     return out, needs
 
 
+def week_line(board, home, lim):
+    """Where the plan's week stands: from a reading on this machine that is new enough, else from the newest one a
+    leg left on the board, else None: a line with no source is not shown."""
+    return usage.line(usage.read(home, lim)) or usage.line(ledger.standing(board), old=True)
+
+
 def lines(board, home, lim, ph, holder=None):
     """What `relay.py day` prints. At most limits.json day_queue_rows rows in each list, no line over
     day_line_chars: a row is cut there, a sentence goes on over the next line."""
     width, rows = int(lim["day_line_chars"]), int(lim["day_queue_rows"])
-    out = [ledger.one_line(board, lim["day_budget_usd"], home, lim)]
+    out = fit(ledger.one_line(board, lim["day_budget_usd"], home, lim), width)
+    out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
     run, needs = run_lines(board, home)
     for line in run:
         out += fit(line, width)
     units, problems = queue(board)
     if units:
         price = ledger.need(ledger.usuals(board, home, lim), ph, ("plan", "execute"))
-        out.append("Queue: %d unit%s, about $%.2f at the usual cost of $%.2f a unit (plan and execute)."
-                   % (len(units), "" if len(units) == 1 else "s", price * len(units), price))
+        per_usd = ledger.rate(board, home, lim)
+        if per_usd is None:
+            out.append("Queue: %d unit%s, about $%.2f at the usual cost of $%.2f a unit (plan and execute)."
+                       % (len(units), "" if len(units) == 1 else "s", price * len(units), price))
+        else:
+            out.append("Queue: %d unit%s, about %.1f%% of the week at the usual %.1f%% a unit (plan and execute)."
+                       % (len(units), "" if len(units) == 1 else "s", price * len(units) * per_usd, price * per_usd))
         for n, u in enumerate(units[:rows], 1):
             out.append(cut("  %2d. %-34s priority %-3d %s" % (n, u["id"], lane.priority_of(u, lim), u["lane"]), width))
         if len(units) > rows:
