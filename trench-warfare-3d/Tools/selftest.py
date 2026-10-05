@@ -674,12 +674,23 @@ elif how in ('noise', 'mixedfail') and '--rerun-failed' not in a:
     fails.append(('X.B', NOISE))
     if how == 'mixedfail':
         fails.append(('X.C', 'Expected: 3 But was: 4'))
+odd = []
+if how == 'incon':
+    odd.append(('X.I', 'Inconclusive', None, 'Assume.That failed: no bake'))
+elif how == 'ignored':
+    odd.append(('X.G', 'Skipped', 'Ignored', 'Assert.Ignore: no GPU here'))
 failed = len(fails)
 cases = ''.join(f'<test-suite type="Assembly" name="{s}.dll"><test-case fullname="{s}.A" result="Passed" duration="4.5"/></test-suite>' for s in suites)
 for name, msg in fails:
     cases += (f'<test-suite type="Assembly" name="X.dll"><test-case fullname="{name}" result="Failed">'
               f'<failure><message><![CDATA[{msg}]]></message></failure></test-case></test-suite>')
-open('test-results.xml', 'w').write(f'<test-run total="{len(suites) + failed}" passed="{len(suites)}" failed="{failed}" skipped="0" '
+for name, result, label, why in odd:
+    lab = f' label="{label}"' if label else ''
+    cases += (f'<test-suite type="Assembly" name="X.dll"><test-case fullname="{name}" result="{result}"{lab}>'
+              f'<reason><message><![CDATA[{why}]]></message></reason></test-case></test-suite>')
+nincon = sum(1 for o in odd if o[1] == 'Inconclusive')
+open('test-results.xml', 'w').write(f'<test-run total="{len(suites) + failed + len(odd)}" passed="{len(suites)}" failed="{failed}" '
+                                    f'skipped="{len(odd) - nincon}" inconclusive="{nincon}" '
                                     f'result="{"Failed" if failed else "Passed"}">{cases}</test-run>')
 sys.exit(0 if how == 'softfail' else (8 if failed else 0))
 '''
@@ -729,6 +740,12 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
     code, out = gate('softfail', '-Module', 'Show')
     case('[G10] a red xml under unity exit 0 prints the failed tests',
          code == 8 and 'FAILED X.B' in out and 'though unity exited 0' in out, out)
+    code, out = gate('incon', '-Module', 'Show')
+    case('[G11] an Inconclusive test is named and turns the gate red',
+         code == 8 and 'INCONCLUSIVE X.I' in out, out)
+    code, out = gate('ignored', '-Module', 'Show')
+    case('[G11] an Ignored test is named, and it alone keeps the run green',
+         code == 0 and 'IGNORED X.G' in out, out)
     code, out = gate('honour', '-Module', 'Nope')
     case('gate: an unknown module runs nothing and is no verdict (exit 6)', code == 6 and 'no test module named Nope' in out, out)
     code, out = gate('honour', '-EditOnly', '-All')

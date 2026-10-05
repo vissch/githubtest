@@ -45,7 +45,9 @@
 # are rerun once and that verdict stands. A real failure is never retried.
 #
 # The xml is the verdict, not unity's exit code: failures in it, or a run in which nothing passed, fail the suite
-# even when unity exits 0.
+# even when unity exits 0. So does a test that ended Inconclusive (a failed `Assume.That`, `Assert.Inconclusive`):
+# it claims nothing. Every Inconclusive and every Ignored (`Assert.Ignore`) test is printed by name; an Explicit
+# skip is not.
 param([switch]$EditOnly, [switch]$All, [string[]]$Module, [switch]$Plan, [switch]$Long)
 
 $ErrorActionPreference = 'Continue'
@@ -81,6 +83,24 @@ function Show-Failures($xmlPath) {
     return $allNoise
 }
 
+# Name what the counts hide. An Inconclusive test (a failed Assume.That, or Assert.Inconclusive) claims nothing,
+# so it is red. An Ignored test (Assert.Ignore) is named only. An Explicit skip is a test never asked for: not named.
+# Returns how many were Inconclusive.
+function Show-Odd($xmlPath) {
+    if (-not (Test-Path $xmlPath)) { return 0 }
+    [xml]$x = Get-Content $xmlPath -Raw
+    foreach ($c in @($x.SelectNodes('//test-case[@result="Skipped"][@label="Ignored"]'))) {
+        Write-Host "  IGNORED $($c.fullname)" -ForegroundColor Yellow
+        Write-Host "          $((("$($c.reason.message.InnerText)".Trim() -split "`n") | Select-Object -First 1))"
+    }
+    $incon = @($x.SelectNodes('//test-case[@result="Inconclusive"]'))
+    foreach ($c in $incon) {
+        Write-Host "  INCONCLUSIVE $($c.fullname)" -ForegroundColor Red
+        Write-Host "               $((("$($c.reason.message.InnerText)".Trim() -split "`n") | Select-Object -First 1))"
+    }
+    return $incon.Count
+}
+
 # Print what actually ran and keep a copy per label (the next run overwrites test-results.xml). A "pass" that ran no
 # tests is no verdict: the EditMode run prints nothing to the console, so without this line green and empty look alike.
 function Report-Run($label, $code) {
@@ -93,6 +113,9 @@ function Report-Run($label, $code) {
     # the xml is the verdict, not unity's exit code (memory: unity-batch-gate-verdicts)
     if ($code -eq 0 -and ([int]$r.failed -gt 0 -or $r.result -ne 'Passed')) { Write-Host "$label : the xml says $($r.result), $($r.failed) failed, though unity exited 0: not a pass." -ForegroundColor Red; return 8 }
     if ($code -eq 0 -and [int]$r.passed -eq 0) { Write-Host "$label : nothing passed ($($r.skipped) skipped): not a pass." -ForegroundColor Red; return 6 }
+    # Inconclusive and Ignored tests hide inside the counts; name them whatever unity's exit code said.
+    $incon = Show-Odd 'test-results.xml'
+    if ($incon -gt 0) { Write-Host "$label : $incon test(s) Inconclusive (above): a test that claims nothing is not a pass." -ForegroundColor Red; return 8 }
     return $code
 }
 

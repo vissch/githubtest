@@ -225,7 +225,7 @@ belongs to the lane of the code it tests, so tag a sim test on a SIM lane.
 | Exit | Meaning |
 |---|---|
 | 0 | green |
-| 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message |
+| 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message; a test that ended Inconclusive is red too |
 | 6 | no verdict: compile error, licence, a suite in which no test ran or none passed, an unknown `-Module`, or a run whose results miss an assembly the module list holds. Not a pass |
 | 5 | validate.py failed (on a lane that changes a tool: `toolcheck.py`, which says which part); its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
@@ -236,6 +236,8 @@ Each suite prints one line of what ran, and keeps its results beside `test-resul
 ```
 EditMode : 343 run, 343 passed, 0 failed, 0 skipped (test-results-EditMode.xml)
 ```
+Inconclusive tests are printed as `INCONCLUSIVE <test>` and are red; Ignored tests as `IGNORED <test>`, which is not.
+An Explicit skip only counts.
 Every EditMode test takes about eleven minutes on the desktop; without the Long tests about four. After a full gate
 `test-results.xml` holds only PlayMode.
 
