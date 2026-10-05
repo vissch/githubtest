@@ -92,6 +92,8 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-05 | **The master may start relay runs alone, inside the day's budget. Nothing lands without the owner's word.** (The owner's answers to the plan for the relay's master, budget and agents, 2026-10-05.) |
 | 2026-10-05 | **Small tools-only fixes with a test may queue themselves** for the relay. All other new work waits for the owner's yes. (The owner's answers to the plan for the relay's master, budget and agents, 2026-10-05.) |
 | 2026-10-05 | **What a relay leg learns is applied automatically**: kept short, each learning with the leg that proved it. (The owner's answers to the plan for the relay's master, budget and agents, 2026-10-05.) |
+| 2026-10-05 | **The owner reads the relay's day in percent of the plan's weekly limit, not in dollars.** The dollar figure stays the yardstick the stop rules count in until the day's cap can be set in percent. A guess from cost is fine while nothing is measured (a full week taken as `week_usd` in `Tools/relay/limits.json`). Anthropic's usage call may be used for the readings, at most once in five minutes (`docs/reference/relay.md`, "The day in percent of the week"). (The owner, 2026-10-05, in the session that put the `/master` skill on the laptop.) |
+| 2026-10-06 | **The owner's plan is Max 20x**, so the guessed week is $1,830 of leg cost (`week_usd` in `Tools/relay/limits.json`). (The owner, asked "20x or 5x?", 2026-10-06.) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
