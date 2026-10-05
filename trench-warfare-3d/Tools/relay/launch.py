@@ -269,6 +269,7 @@ def run_leg(d, lim, timeout_s, stop_file=None):
             sess = relay_hook.read_json(d / legdir.SESSION, {}) or {}
             meter = relay_hook.read_json(d / legdir.METER, {}) or {}
             final, _, readable = relay_hook.context_tokens(sess.get("transcript_path") or "")
+            use = res.get("usage") or {}
             rec.update(exit_code=child.returncode, cost_usd=res.get("total_cost_usd"), turns=res.get("num_turns"),
                        subtype=res.get("subtype"), is_error=bool(res.get("is_error")), report=res.get("result") or "",
                        has_result=bool(res), denials=len(res.get("permission_denials") or []),
@@ -277,6 +278,9 @@ def run_leg(d, lim, timeout_s, stop_file=None):
                        guard_calls=lines(d / "calls.jsonl"), guard_refusals=lines(d / "denials.jsonl"),
                        unguarded=unguarded(d),
                        ran_model=init.get("model"),
+                       tokens_in=use.get("input_tokens"), tokens_out=use.get("output_tokens"),
+                       cache_read=use.get("cache_read_input_tokens"),
+                       cache_write=use.get("cache_creation_input_tokens"),
                        ran_mode=init.get("permissionMode"))
             rec["guard_intact"] = guard_hash(d) == seal
             leg = legdir.update(d, **rec)

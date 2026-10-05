@@ -4,7 +4,9 @@ the --settings file) as Claude Code would, does what a script file tells it for 
 closing records. No model, no network, no cost.
 
 TW_FAKE_SCRIPT is a JSON file: {"<phase>": [action, ...]}; a phase may also be keyed "<phase>#<leg number>".
-Top-level keys: "mode" (the permission mode it reports), "no_hooks" (skip the hooks), "no_result" (print no result).
+Top-level keys: "mode" (the permission mode it reports), "no_hooks" (skip the hooks), "no_result" (print no result),
+"cost" (what a leg reports as its cost: a number, or {"<phase>": number}; a cost over --max-budget-usd ends the leg
+as Claude does: subtype error_max_budget_usd, exit 1).
 Actions:  {"write": "<name in the desk folder>", "text": ".."}   {"file": "<path in the checkout>", "text": ".."}
           {"abs": "<any path>", "text": ".."}   {"git": ["add", "-A"]}   {"tool": "Bash", "input": {..}}  (asks the pre-tool hook; refused = not done)
           {"tokens": n}  (a model call of that size, then the meter hook)   {"sleep": seconds}
@@ -70,9 +72,17 @@ def main():
             report = a["report"]
         elif "exit" in a:
             code = a["exit"]
+    cost = script.get("cost", 0)
+    cost = cost.get(leg["phase"], 0) if isinstance(cost, dict) else cost
+    cap = float(args[args.index("--max-budget-usd") + 1]) if "--max-budget-usd" in args else None
+    subtype = script.get("subtype", "success" if code == 0 else "error")
+    if cap is not None and cost > cap:
+        cost, code, subtype = cap, 1, "error_max_budget_usd"
     if not script.get("no_result"):
-        print(json.dumps({"type": "result", "subtype": script.get("subtype", "success" if code == 0 else "error"), "num_turns": len(actions),
-                          "total_cost_usd": 0, "result": report, "refused": refused, "permission_denials": []}), flush=True)
+        print(json.dumps({"type": "result", "subtype": subtype, "num_turns": len(actions), "total_cost_usd": cost,
+                          "usage": {"input_tokens": 10, "output_tokens": 20, "cache_read_input_tokens": 30,
+                                    "cache_creation_input_tokens": 40},
+                          "result": report, "refused": refused, "permission_denials": []}), flush=True)
     return code
 
 

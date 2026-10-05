@@ -2,8 +2,8 @@
 """The run loop: pick a unit, plan it (one leg), execute the plan (one leg per part), check the result by script,
 record it, and go on until a stop rule fires. Every decision here is a script's; the model only does the legs.
 
-Stop rules: the run's time is up, the leg cap, nothing left to do, the owner's stop (relay.py stop), the checkout is
-missing, busy or left dirty, a leg that cannot be trusted (timeout, compaction trip, not auto mode, no hooks, no
+Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_usd, counted by ledger.py
+over every leg started today), nothing left to do, the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a leg that cannot be trusted (timeout, compaction trip, not auto mode, no hooks, no
 result), limits.json no_progress_units units in a row with no result, or any error. Whatever stops it, the stop is
 recorded and a pipeline claim is released. The checkout is held (lock and leg marker) from the first unit to the stop
 record, so git's push guard also covers a job a leg left running.
@@ -16,7 +16,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
-import boardio, config, gitio, launch, legdir, papers, sources      # noqa: E402
+import boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
@@ -42,7 +42,8 @@ class Run:
     def __init__(self, a):
         self.a = a
         over = {k: v for k, v in (("run_hours", a.hours), ("leg_minutes", a.leg_minutes),
-                                  ("leg_budget_usd", a.leg_budget)) if v is not None}
+                                  ("leg_budget_usd", a.leg_budget),
+                                  ("day_budget_usd", getattr(a, "day_budget", None))) if v is not None}
         self.ph, self.style = config.phases(), config.style()
         self.station = P.station()
         self.board = P.board_dir()
@@ -121,21 +122,43 @@ class Run:
                      {"run": self.run, "started_by": self.who, "code": self.code, "legs": self.legs, "now_on": now_on,
                       "units": self.units, "refusals": self.refused})
 
-    def no_room(self):
-        """Why no further leg may start (the time, the leg cap, the owner's stop), or None."""
+    def day_left(self):
+        """What is left of the day's budget, or None when no day budget is set (0)."""
+        budget = self.lim["day_budget_usd"]
+        return budget - ledger.spent(self.board, lim=self.lim)["usd"] if budget else None
+
+    def no_budget(self, phases):
+        """Why the day's budget does not cover legs of these phases at their usual cost, or None. Asked before a
+        leg starts: a leg that runs out of budget half way leaves work nobody can use."""
+        left = self.day_left()
+        if left is None:
+            return None
+        budget = self.lim["day_budget_usd"]
+        if left <= 0:
+            return "the day's budget is spent ($%.2f of $%.2f)" % (budget - left, budget)
+        price = ledger.usuals(self.board, lim=self.lim)
+        need = sum(price(p, self.ph.get(p, {}).get("model"), self.ph.get(p, {}).get("effort")) for p in phases)
+        if left < need:
+            return ("the day's budget has $%.2f left of $%.2f, and %s usually costs $%.2f"
+                    % (left, budget, "a %s leg" % phases[0] if len(phases) == 1 else "a unit", need))
+        return None
+
+    def no_room(self, phase=None):
+        """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
+        With a phase, the budget must also cover the usual cost of such a leg."""
         if time.time() > self.deadline:
             return "the run's %.3g hours are up" % self.lim["run_hours"]
         if self.a.max_legs and self.legs >= self.a.max_legs:
             return "the leg cap (%d) is reached" % self.a.max_legs
         if self.stop_file.exists():
             return "stopped by the owner (relay.py stop)"
-        return None
+        return self.no_budget([phase] if phase else [])
 
     # ----- one leg -----
     def leg(self, unit, phase, body, plan=None, fill=None):
         """One leg. fill (a function): the leg works in a folder of its own under its desk, which fill fills, and
         is not pointed at the board: a blind critic."""
-        why = self.no_room()
+        why = self.no_room(phase)
         if why:
             raise Stop(why)
         self.legs += 1
@@ -153,7 +176,10 @@ class Run:
         if getattr(self.a, "view", False) and not self.no_window:
             launch.open_view(d)
         left, before = self.deadline - time.time(), self.watch()
-        leg = launch.run_leg(d, self.lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
+        lim, day = self.lim, self.day_left()
+        if day is not None and not 0 < lim["leg_budget_usd"] <= day:     # the leg may spend what the day has left
+            lim = dict(lim, leg_budget_usd=round(max(day, 0.01), 2))
+        leg = launch.run_leg(d, lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
         broke, moved = self.audit(before, unit)
         self.refused += leg.get("guard_refusals") or 0
         boardio.leg_record(self.board, self.station, leg, moved_on_origin=moved,
@@ -163,6 +189,8 @@ class Run:
             snap = gitio.snapshot_dirty(self.work, d)
             if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
                 why = "the run's %.3g hours are up (mid-leg)" % self.lim["run_hours"]
+            if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
+                why = "the day's budget is spent ($%.2f, mid-leg)" % self.lim["day_budget_usd"]
             if leg["state"] == "STOPPED" and self.stop_file.exists():
                 raise Stop("stopped by the owner (relay.py stop --now), mid-leg %02d" % self.legs,
                            "uncommitted work saved in %s" % d if snap else "")
@@ -187,6 +215,9 @@ class Run:
             print("unit %s: already done, no leg needed" % unit["id"])
             self.finish(src, unit, [], "done")
             return
+        why = self.no_budget(["plan", "execute"])            # asked before the plan: a plan with no execute is lost
+        if why:
+            raise Stop(why)
         src.claim(unit)
         self.claimed = src
         remote_before, body = gitio.remote_head(self.work, unit["lane"]), src.body(unit)
@@ -236,8 +267,8 @@ class Run:
             brief = src.critic(unit, self.ctx, r)
             if not brief:
                 return []
-            if self.no_room():                              # work that passed its checks keeps its verdict
-                note = "no critic round %d: %s" % (r, self.no_room())
+            if self.no_room("critic"):                      # work that passed its checks keeps its verdict
+                note = "no critic round %d: %s" % (r, self.no_room("critic"))
                 break
             d, leg = self.leg(unit, "critic", brief["body"], fill=brief["fill"])
             f = legdir.desk(d) / self.ph["critic"]["output"]
@@ -252,8 +283,8 @@ class Run:
             scores.append(score)
             if score >= target or r == last:
                 break
-            if self.no_room():
-                note = "no fix round: %s" % self.no_room()
+            if self.no_room("execute"):
+                note = "no fix round: %s" % self.no_room("execute")
                 break
             self.ctx["since"] = time.time()                 # a fix round makes its evidence again
             d, leg = self.leg(unit, "execute", body, papers.plan_for_fixes(plan, fixes, r, score, target))
@@ -351,13 +382,16 @@ class Run:
                 if not unit:
                     break
                 if self.a.dry_run:
+                    why = self.no_budget(["plan", "execute"])
+                    if why:
+                        raise Stop(why)
                     print("would run: %s %s (%s) in %s on %s" % (unit["source"], unit["id"], unit.get("todo", unit["role"]),
                                                                 self.work.name, unit["lane"]))
                     return 0
                 if not self.ready:
                     self.preflight()
                 self.unit(unit)
-                if self.legs - self.retro_at >= self.lim["retro_every_legs"] and not self.no_room():
+                if self.legs - self.retro_at >= self.lim["retro_every_legs"] and not self.no_room("retro"):
                     self.retro()
         except Stop as s:
             reason, detail = s.args[0], (s.args[1] if len(s.args) > 1 else "")
@@ -380,13 +414,16 @@ class Run:
             except Exception:                               # noqa: BLE001 - a run always ends with a record
                 pass
         boardio.stop_record(self.board, self.station, self.run, reason, self.legs, detail, moved_on_origin=moved,
-                            units=self.units, refusals=self.refused, started_by=self.who, code=self.code)
+                            units=self.units, refusals=self.refused, started_by=self.who, code=self.code,
+                            day_usd=round(ledger.spent(self.board, lim=self.lim)["usd"], 2),
+                            day_budget_usd=self.lim["day_budget_usd"])
         pushed = "not sent (--no-push)" if self.a.no_push else \
             boardio.push(self.board, "relay: run %s, %d legs, %s" % (self.run, self.legs, reason))
         print("STOP: %s. %d legs ran%s. Record on the board: %s."
               % (reason.rstrip("."), self.legs, tally(self.units), pushed), flush=True)
         if detail:
             print("  " + detail, flush=True)
+        print("  " + ledger.one_line(self.board, self.lim["day_budget_usd"], lim=self.lim), flush=True)
         if not self.no_window:
             launch.notify("Relay stopped: %s. %d legs%s." % (" ".join(reason.split()[:12]), self.legs,
                                                             tally(self.units)))
@@ -417,6 +454,8 @@ def add_args(p):
     p.add_argument("--hours", type=float, help="stop the run after this long (default: limits.json run_hours)")
     p.add_argument("--leg-minutes", type=float, dest="leg_minutes")
     p.add_argument("--leg-budget", type=float, dest="leg_budget")
+    p.add_argument("--day-budget", type=float, dest="day_budget",
+                   help="no leg starts once today's legs cost this much (default: limits.json day_budget_usd; 0: off)")
     p.add_argument("--max-legs", type=int, dest="max_legs", default=0)
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="say what would run; claim and start nothing")
     p.add_argument("--no-push", action="store_true", dest="no_push", help="do not commit and push the board")

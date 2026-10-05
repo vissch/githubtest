@@ -1303,6 +1303,108 @@ class Runs(Repo):
         self.assertFalse((self.board / "relay" / "queue" / "u10.json").exists())
 
 
+class Budget(Repo):
+    """The day's budget: no leg starts once today's legs cost limits.json day_budget_usd (ledger.py does the sum)."""
+    def legs(self):
+        return [json.loads(l.read_text(encoding="utf-8")) for l in sorted((self.board / "relay" / "desktop" / "legs").glob("*.json"))]
+
+    def spent(self, cost, phase="plan", n=1):
+        """A leg another run finished earlier today."""
+        p = self.board / "relay" / "desktop" / "legs" / ("%s-1-%02d.json" % (time.strftime("%Y%m%d-%H%M%S"), n))
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(json.dumps({"run": p.stem[:-3], "leg": n, "unit": "earlier", "phase": phase, "model": "opus",
+                                 "effort": "high", "cost_usd": cost,
+                                 "started_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}), encoding="utf-8")
+
+    def test_ordinary_work_under_the_budget_passes_and_its_cost_is_recorded(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        self.assertEqual((stop["reason"], stop["legs"], self.code), ("nothing left to do", 2, 0))
+        self.assertEqual([(l["phase"], l["cost_usd"], l["tokens_in"], l["tokens_out"], l["cache_read"], l["cache_write"])
+                          for l in self.legs()], [("plan", 1, 10, 20, 30, 40), ("execute", 2, 10, 20, 30, 40)])
+        self.assertEqual((stop["day_usd"], stop["day_budget_usd"]), (3.0, 50))
+        self.assertIn("Today: $3.00 of $50.00 spent, $47.00 left.", out)
+
+    def test_a_spent_day_starts_no_leg(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(6)
+        out, stop = self.go(day_budget=5)
+        self.assertEqual((stop["reason"], stop["legs"], stop["units"]),
+                         ("the day's budget is spent ($6.00 of $5.00)", 0, {}))
+        self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+        self.assertIsNone(gitio.lock_holder(self.work, legdir.home()))
+
+    def test_a_dry_run_says_the_day_is_spent(self):
+        self.queue("u1")
+        self.spent(6)
+        out, stop = self.go(dry_run=True, day_budget=5)
+        self.assertIn("would run: nothing (the day's budget is spent ($6.00 of $5.00))", out)
+        self.assertIsNone(stop)
+
+    def test_a_unit_starts_only_when_the_day_covers_its_plan_and_its_execute(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(2, "plan", 1)
+        self.spent(2, "execute", 2)
+        out, stop = self.go(day_budget=5)                        # 1 left, and a unit usually costs 2 + 2
+        self.assertEqual(stop["reason"], "the day's budget has $1.00 left of $5.00, and a unit usually costs $4.00")
+        self.assertEqual(stop["legs"], 0)
+
+    def test_the_run_stops_between_units_when_the_next_one_no_longer_fits(self):
+        self.queue("u1")
+        self.queue("u2", done_when=("git", "cat-file", "-e", "HEAD:b.txt"))     # not there after u1: it needs legs
+        self.script(dict(self.GOOD, cost={"plan": 2, "execute": 2}))
+        out, stop = self.go(day_budget=6)                        # no cost known yet: 3 + 3 a unit, which just fits
+        self.assertEqual((stop["legs"], stop["units"], stop["day_usd"]), (2, {"u1": "PASS"}, 4.0))
+        self.assertEqual(stop["reason"], "the day's budget has $2.00 left of $6.00, and a unit usually costs $4.00")
+        self.assertFalse((self.board / "relay" / "done" / "u2.json").exists())
+
+    def test_a_leg_may_spend_only_what_the_day_has_left(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 9}))
+        out, stop = self.go(day_budget=6)
+        self.assertEqual((stop["legs"], stop["units"]), (2, {}))
+        self.assertEqual(stop["reason"], "leg 02 the day's budget is spent ($6.00, mid-leg)")
+        self.assertEqual(self.legs()[1]["cost_usd"], 5)          # 6, less the plan's 1: Claude stopped it there
+        self.assertEqual(stop["day_usd"], 6.0)
+
+    def test_the_legs_own_cap_still_holds_when_the_day_has_more(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 4}))
+        out, stop = self.go(leg_budget=2)
+        self.assertEqual(self.legs()[0]["cost_usd"], 2)
+        self.assertNotIn("the day's budget", stop["reason"])
+        self.assertIn("leg 01", stop["reason"])
+
+    def test_a_day_budget_of_zero_switches_it_off(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(400)
+        out, stop = self.go(day_budget=0)
+        self.assertIn("unit u1: PASS", out)
+        self.assertIn("(no day budget)", out)
+
+    def test_a_flag_outside_the_bounds_is_clamped_and_said(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        out, stop = self.go(day_budget=9999)
+        self.assertIn("note: day_budget_usd 9999 is outside its bounds; using 500", out)
+        self.assertEqual(stop["day_budget_usd"], 500)
+
+    def test_the_budget_command_and_status_show_today(self):
+        self.spent(2.5)
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            self.assertEqual(relay.main(["budget"]), 0)
+            self.assertEqual(relay.main(["status"]), 0)
+        self.assertIn("$2.50 spent of $50.00, $47.50 left. 1 leg.", buf.getvalue())
+        self.assertIn("earlier", buf.getvalue())
+        self.assertIn("Today: $2.50 of $50.00 spent, $47.50 left.", buf.getvalue())
+
+
 class CloseOut(Repo):
     """The leg's own commands: the gate as a detached job, then commit and push by script."""
     def setUp(self):
