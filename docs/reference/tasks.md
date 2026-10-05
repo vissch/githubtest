@@ -746,6 +746,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Tools/selftest.py (`gate_cases` with a stand-in for Unity, `land_cases` on a throwaway repo).
 - **How:** a test over 3 s gets `[Test, Category("Long")]`; a new tool's tests go in a `test_<tool>.py` beside it and
   are found by name. `workflow.md`, sections 1 and 5.
+
 ### The gym: every clip, unit, ability, death and event, one at a time, in the battle's drawing
 - **Files:**
   - `Perf/GymCatalogue.cs`: the entries, read from the enums and the unit table. `EventHow` has one row per
