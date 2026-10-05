@@ -1,6 +1,6 @@
 ---
 name: relay
-description: Run Trench Warfare 3D work as a relay - a chain of short headless Claude sessions (legs) that plan, then execute, so no session fills its context. Start a run, see what it is doing, stop it, queue lane work for it, or dry-run to see what it would pick. Use for "/relay start", "/relay status", "/relay stop", "/relay add", "/relay dry", "run the relay for N hours", "why did the relay stop". NOT for taking one pipeline job by hand (pipeline skill) and NOT for landing (tw-master).
+description: Run Trench Warfare 3D work as a relay - a chain of short headless Claude sessions (legs) that plan, then execute, so no session fills its context. Start a run, see what it is doing, stop it, queue lane work for it, or dry-run to see what it would pick. Use for "/relay start", "/relay status", "/relay stop", "/relay add", "/relay dry", "run the relay for N hours", "why did the relay stop". NOT for taking one pipeline job by hand (pipeline skill), NOT for landing (tw-master) and NOT for "what is going on, what do you need from me" (master).
 ---
 
 # Relay
@@ -25,6 +25,8 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay status` | `$R status` | one or two lines: who started it, the units so far |
 | `/relay refusals` | `$R refusals` | name any refusal that was normal work: it needs a rule fix and a test |
 | `/relay budget` | `$R budget` | one line: what today's legs cost, of how much, and what is left |
+| `/relay day` | `$R day` | the whole picture in one screen; the `/master` skill starts every turn from it |
+| `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set) | say the new order |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too) | confirm with `$R status` |
 | `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
