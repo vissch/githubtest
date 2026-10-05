@@ -9,7 +9,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import config, day, gitio, relay   # noqa: E402
+import config, day, gitio, relay, usage   # noqa: E402
 from sources import lane            # noqa: E402
 
 ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION")
@@ -26,9 +26,12 @@ class Base(unittest.TestCase):
         (self.board / "relay" / "queue").mkdir(parents=True)
         self.old = {k: os.environ.get(k) for k in ENV}
         os.environ.update(TW_RELAY_HOME=str(self.home), TW_BOARD=str(self.board), TW_STATION="desktop")
+        self.limits = config.limits                         # these tests count in dollars or in measured legs:
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
         self.lim, self.ph = config.limits(), config.phases()
 
     def tearDown(self):
+        config.limits = self.limits
         for k, v in self.old.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
         shutil.rmtree(self.tmp, ignore_errors=True)
@@ -206,6 +209,49 @@ class Day(Base):
         out = self.screen()
         self.assertEqual(out[0], "Today: $18.00 of $50.00 spent, $32.00 left.")
         self.assertIn("Queue: 1 unit, about $6.00 at the usual cost of $6.00 a unit (plan and execute).", out)
+
+    def test_with_a_measured_leg_the_screen_is_in_percent_of_the_week(self):
+        self.queue("a")
+        for c in (1, 2, 3):
+            self.leg(c, "plan")
+            self.leg(c * 2, "execute")
+        d = self.board / "relay" / "desktop" / "legs"
+        f = sorted(d.glob("*.json"))[-1]                        # the newest leg, $6: it used 1.2 points of the week
+        rec = json.loads(f.read_text(encoding="utf-8"))
+        f.write_text(json.dumps(dict(rec, week_used=1.2, week_end={
+            "at": "2026-10-05T16:54:00Z", "at_s": 1, "week": 41.0, "resets": "2026-10-08 16:00"})), encoding="utf-8")
+        out = self.screen()
+        self.assertEqual(out[0] + " " + out[1].strip(),         # a sentence too long for the screen goes on below
+                         "Today: 3.6% of the week used by the relay, 6.4% left of a day's cap of about 10.0%. "
+                         "5 of 6 legs estimated from their cost.")
+        self.assertEqual(out[2], "Week: 41% used at a leg's last reading (2026-10-05 16:54 UTC), "
+                                 "starts over 2026-10-08 16:00 UTC.")
+        self.assertIn("Queue: 1 unit, about 1.2% of the week at the usual 1.2% a unit (plan and execute).", out)
+        self.assertFalse([l for l in out if "$" in l])
+
+    def test_a_reading_on_this_machine_outranks_the_one_a_leg_left(self):
+        self.leg(1, "plan")
+        f = next((self.board / "relay" / "desktop" / "legs").glob("*.json"))
+        f.write_text(json.dumps(dict(json.loads(f.read_text(encoding="utf-8")), week_end={
+            "at": "2026-10-05T16:54:00Z", "at_s": 1, "week": 41.0})), encoding="utf-8")
+        self.assertTrue(self.screen()[1].startswith("Week: 41% used at a leg's last reading"))
+        usage.put(self.home, {"seven_day": {"utilization": 55.0, "resets_at": "2026-10-08T16:00:00+00:00"}})
+        out = self.screen()
+        self.assertTrue(out[1].startswith("Week: 55% used (read "), out[1])
+        self.assertTrue(out[0].startswith("Today: $1.00 of"), out[0])   # a reading alone measures no leg
+
+    def test_as_shipped_the_screen_is_in_percent_from_the_first_leg_on_and_says_it_is_a_guess(self):
+        config.limits = self.limits                             # the file as shipped: it holds a guessed week
+        self.queue("a")
+        self.leg(18.3, "plan")
+        code, out = self.main("day")
+        out = out.splitlines()
+        self.assertEqual(code, 0)
+        self.assertTrue(out[0].startswith("Today: about 1.0% of the week used by the relay, "), out[0])
+        self.assertIn("A guess: no leg is measured yet, so a full week is taken as $%d of leg cost."
+                      % self.limits()["week_usd"], " ".join(l.strip() for l in out[:3]))
+        self.assertTrue([l for l in out if l.startswith("Queue: 1 unit, about ") and "% of the week" in l], out)
+        self.assertFalse([l for l in out if len(l) > self.lim["day_line_chars"]], out)
 
     def test_a_long_queue_still_fits_one_screen(self):
         for n in range(40):

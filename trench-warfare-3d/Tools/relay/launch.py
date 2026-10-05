@@ -20,6 +20,7 @@ import config                                 # noqa: E402
 import legdir                                 # noqa: E402
 import prompt                                 # noqa: E402
 import relay_hook                             # noqa: E402
+import usage                                  # noqa: E402
 
 POLL_S = 2
 BAD_END = ("TIMEOUT", "COMPACT", "STOPPED")
@@ -226,12 +227,21 @@ def records(d, kind, subtype=None):
     return out
 
 
+def week_now(lim):
+    """The newest reading of the plan's weekly limit on this machine (usage.py), or None. It never fails a leg."""
+    try:
+        return usage.read(lim=lim)
+    except Exception:                              # noqa: BLE001
+        return None
+
+
 def run_leg(d, lim, timeout_s, stop_file=None):
     """stop_file: the owner's stop request; one that says "now" ends the leg at once (state STOPPED)."""
     d = Path(d)
     leg = legdir.read(d)
     os.makedirs(leg["worktree"], exist_ok=True)
     seal = guard_hash(d)
+    week = week_now(lim)                           # where the week stood before the leg, if anything read it
     with open(d / legdir.PROMPT, "rb") as stdin:
         child = subprocess.Popen(argv(d, leg, lim), cwd=leg["worktree"], stdin=stdin, stdout=subprocess.PIPE,
                                  stderr=subprocess.STDOUT, env=leg_env(d, leg),
@@ -255,6 +265,8 @@ def run_leg(d, lim, timeout_s, stop_file=None):
             state = "COMPACT" if (d / legdir.COMPACT).exists() else "DONE"
     finally:                                       # also on Ctrl+C or an error in the runner: never leave it running
         rec = {"state": state, "finished_at": now(), "seconds": round(time.time() - start)}
+        after = week_now(lim)
+        rec.update(week_start=usage.brief(week), week_end=usage.brief(after), week_used=usage.delta(week, after))
         try:                                       # an error in here must not replace the one that brought us here
             if child.poll() is None:
                 kill_tree(child.pid)

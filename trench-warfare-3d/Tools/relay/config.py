@@ -12,7 +12,7 @@ FIXED = ("autocompact_tokens", "no_progress_units", "max_plan_parts", "retro_eve
          "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
          "done_when_seconds", "gate_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
          "retro_max_bytes", "usual_leg_usd", "price_legs", "queue_priority", "queue_priority_max",
-         "day_queue_rows", "day_line_chars")
+         "day_queue_rows", "day_line_chars", "usage_max_age_seconds", "week_usd")
 RETRO_TUNES = ("amber_tokens", "red_tokens", "leg_minutes")    # what a retrospective may move, inside the bounds
 MODES = ("read_only", "work")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
