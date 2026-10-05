@@ -646,6 +646,9 @@ def cmd_compare(a):
     priors = load_json(docs() / "priors.json", {})
     hb = HIGHER_BETTER | ({canon(a.metric)} if a.higher_better else set())
     v = verdict(A, B, a.metric, hb, priors)
+    if not a.json:
+        # the argument order decides the verdict (A1): name the sides, so a call made the wrong way round shows
+        print("candidate %s vs baseline %s" % (a.A, a.B))
     if a.json:
         print(json.dumps(v, sort_keys=True, indent=1))
         return 0 if v["verdict"] == "pass" else (2 if v["verdict"] == "refused" else 1)
@@ -1250,13 +1253,21 @@ def cmd_snapshot(a):
     for kind in ("WinBench", "WinBenchDev"):
         src, dst = builds_dir() / kind, builds_dir() / ("%s@%s" % (kind, label))
         if not (src / "TrenchWarfare.exe").exists():
-            print("%s: no player at %s, nothing to copy" % (kind, src)); rc = 1; continue
+            # a first build has no live player yet: a note, not a failure (A13), so it never blocks a land
+            print("%s: no player at %s, nothing to copy" % (kind, src)); continue
         if dst.exists():
             print("%s: %s already exists, left as it is" % (kind, dst.name)); continue
-        shutil.copytree(src, dst)
-        ok = tree_files(src) == tree_files(dst) and tree_bytes(src) == tree_bytes(dst)
-        print("%s -> %s: %s, %s" % (kind, dst.name, gb(tree_bytes(dst)), "verified" if ok else "COPY DIFFERS"))
-        rc |= 0 if ok else 1
+        ok = False
+        try:
+            shutil.copytree(src, dst)
+            ok = tree_files(src) == tree_files(dst) and tree_bytes(src) == tree_bytes(dst)
+        except Exception as e:
+            print("%s: copy failed: %s" % (kind, e))
+        if not ok:
+            # a half-copied snapshot would be read later as a valid A/B baseline: throw it away and fail (A13)
+            shutil.rmtree(dst, ignore_errors=True)
+            print("%s -> %s: COPY DIFFERS, removed %s" % (kind, dst.name, dst.name)); rc = 2; continue
+        print("%s -> %s: %s, verified" % (kind, dst.name, gb(tree_bytes(dst))))
     return rc
 
 

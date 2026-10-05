@@ -18,7 +18,7 @@ The RTX 5090 is not the target: frame time here is a proxy. The target is a GTX 
 |---|---|
 | status (the mode it may run: P player / E editor / B rebuild) | `python Tools/aosa/aosa.py status` |
 | bench, interleaved A/B, ≥ 3 repeats | `python Tools/aosa/aosa.py bench <label> --player --against <base> --repeats 3 [--scenario barrage\|armour\|vfx] [--knobs k=v]` |
-| verdict (rules 1-4) | `python Tools/aosa/aosa.py compare <base> <label> --json` (exit 0 pass, 1 fail, 2 refused) |
+| verdict (rules 1-4) | `python Tools/aosa/aosa.py compare <label> <base> --json` (exit 0 pass, 1 fail, 2 refused) |
 | learn noise bands and priors | `python Tools/aosa/aosa.py learn`, then `pick --n 3` |
 | player build | `Unity.exe -batchmode -quit -projectPath <wt> -executeMethod TW.Editor.BuildWindows.CommandLine [-twdev] -logFile <f>`. `build-info.json` records `git_sha` and `dirty_files` |
 | one-off comparison | `python Tools/perfcmp.py before.json after.json`. It refuses a different `hash_start` or build kind but **not** a different commit: check `git_sha` yourself, and `hash_end` for a presentation-only change |

@@ -39,7 +39,7 @@ Pass each agent the paths it needs and nothing else. Their briefs are in this fo
 
 - Run `aosa.py bench <label> --player --against <base> --repeats 3` for each patch the lander has built into a
   player. In mode E use `--editor`.
-- Run `aosa.py compare <base> <label> --json`. Rules 1-4 come from that output. Rules 5-8 come from the critic and
+- Run `aosa.py compare <label> <base> --json`. Rules 1-4 come from that output. Rules 5-8 come from the critic and
   the gate.
 - If every rule holds, the lander commits (one change per commit). Otherwise the change is reverted and the rule
   number is recorded.

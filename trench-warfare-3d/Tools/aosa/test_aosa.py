@@ -350,6 +350,60 @@ class AosaTest(unittest.TestCase):
         self.assertIn("canary=0 label=e-1", out)
         self.assertNotIn("quality=5", out)
 
+    def test_compare_header_names_the_sides(self):
+        # [A1] the first argument is the candidate and the second the baseline; the verdict inverts if they are
+        # swapped, so the table says which side is which (three docs told the agent to call it the wrong way round)
+        self.ab()
+        code, out = self.run_cli("compare", "cand", "base")
+        self.assertEqual(code, 0, out)
+        self.assertIn("candidate cand vs baseline base", out)
+        self.assertLess(out.index("candidate cand vs baseline base"), out.index("VERDICT"))
+
+    # ---- snapshot ----------------------------------------------------------------------------------------------
+    def live_player(self, kind="WinBench"):
+        d = Path(os.environ["TW_BUILDS"]) / kind
+        d.mkdir(parents=True, exist_ok=True)
+        (d / "TrenchWarfare.exe").write_bytes(b"x" * 64)
+        (d / "data.bin").write_bytes(b"y" * 32)
+        return d
+
+    def test_snapshot_removes_a_broken_copy_and_fails(self):
+        # [A13] an interrupted copytree used to be kept as a valid snapshot and the land went on building over the
+        # live players: a copy that does not match the source is removed and the exit code is non-zero
+        import shutil as sh
+        self.live_player("WinBench")
+        self.live_player("WinBenchDev")
+        real = sh.copytree
+
+        def short(src, dst, *a, **kw):
+            Path(dst).mkdir(parents=True)
+            (Path(dst) / "TrenchWarfare.exe").write_bytes(b"x" * 8)      # half a file, as a kill mid-copy leaves
+            return dst
+
+        sh.copytree = short
+        try:
+            code, out = self.run_cli("snapshot", "--label", "abc1234")
+        finally:
+            sh.copytree = real
+        self.assertNotEqual(code, 0, out)
+        self.assertIn("COPY DIFFERS, removed WinBench@abc1234", out)
+        self.assertFalse((Path(os.environ["TW_BUILDS"]) / "WinBench@abc1234").exists(), out)
+
+    def test_snapshot_no_player_is_not_a_failure(self):
+        # [A13] a first build has no live player yet: a printed note, exit 0, so it never blocks a land
+        code, out = self.run_cli("snapshot", "--label", "abc1234")
+        self.assertEqual(code, 0, out)
+        self.assertIn("nothing to copy", out)
+
+    def test_snapshot_verifies_a_good_copy(self):
+        # [A13] the good path still copies and verifies both kinds
+        self.live_player("WinBench")
+        self.live_player("WinBenchDev")
+        code, out = self.run_cli("snapshot", "--label", "abc1234")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out.count("verified"), 2, out)
+        self.assertTrue((Path(os.environ["TW_BUILDS"]) / "WinBenchDev@abc1234" / "TrenchWarfare.exe").exists())
+
     # ---- ledger / retro / status ---------------------------------------------------------------------------------
     def test_ledger_retro_status(self):
         self.assertEqual(aosa.current_cycle(), 0)

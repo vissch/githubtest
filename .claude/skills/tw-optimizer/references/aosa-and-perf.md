@@ -83,7 +83,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - **`cycle.md`** (the orchestrator, ≤20 min per cycle):
   - Read, `status`, `pick`, then `git fetch && git rebase origin/claude/trench-warfare-2d-3d-plan-idt7lf`.
   - Write each prediction before measuring. Fan out.
-  - Judge with `aosa.py bench <label> --player --against <base> --repeats 3` and `aosa.py compare <base> <label> --json` (rules 1-4). Rules 5-8 come from the critic and the gate.
+  - Judge with `aosa.py bench <label> --player --against <base> --repeats 3` and `aosa.py compare <label> <base> --json` (rules 1-4). Rules 5-8 come from the critic and the gate.
   - Record: `attempt add`, `learn`, `age --moved`, `ledger add`, LESSONS. Then commit the docs.
 - **`diagnoser.md`** reads `tw-perf/1` reports. It:
   - voids a run whose `shot=` is not the standard view;

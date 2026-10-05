@@ -56,7 +56,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 3. The first run after a Burst job edit can run managed code; rerun before trusting a single determinism failure.
 4. A stale `Library/BurstCache` gives NullReference or IndexOutOfRange inside Burst jobs; delete it with the editor closed.
 
-Also seen: `No graphic device is available` under `-nographics` (`land.ps1:38`), and the `LockstepLoopbackTests.Stress_ThreeThousandUnits…` 10.5 s timeout (`ASK.md:78-83`; `LESSONS.md:93-100`: "Rerun once. Only a second red is a finding.").
+Also seen: `No graphic device is available` under `-nographics` (`land.ps1:62`), and the `LockstepLoopbackTests.Stress_ThreeThousandUnits…` 10.5 s timeout (`ASK.md:78-83`; `LESSONS.md:93-100`: "Rerun once. Only a second red is a finding.").
 
 ### Pixel and offline tools
 - **`CaptureRig.Diff(pathA, pathB, outPath=null)`** (`P\Editor\CaptureRig.cs:490-530+`): a pixel counts as changed above a luma difference of 0.02. It returns `changed_frac`, `luma_mean_abs`, `luma_p99_abs`, `red/green/blue_delta`, `box_x/y/w/h/frac`, and the before/after of `luma_mean, blown_frac, black_frac, men_in_frame, contrast_median, contrast_p10, vertices, rain, pose_error_m`. `aosa.py stilldiff` uses a different measure (a per-channel threshold of 8).

@@ -27,8 +27,14 @@ changes a tool gets toolcheck.py in place of validate.py. land.py runs toolcheck
 code in it, and refuses on a red tool test; it refuses a marker a stand-in Unity wrote; a second run still refuses
 when someone pushed to the lane, the
 SHOW-carries-SIM refusal names the commits, and a non-ASCII path counts as code.
+Tools/aosa/land.ps1, in a throwaway git repo with stand-ins for Unity and aosa.py: a missing unity.exe and a
+report holding no test both fail the land instead of passing on validate.py's exit code, a try 2 that writes no
+report cannot pass on try 1's file while the env-only-twice rule still holds, a card's own change to a settings
+file survives the run and the log names what it reverted, an Assets/Resources that was already there is kept,
+a failed snapshot stops the land before any build, and a green run claims no landing.
 """
 import pathlib
+import re
 import shutil
 import subprocess
 import sys
@@ -779,6 +785,131 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
         f.unlink(missing_ok=True)
 
 
+FAKE_AOSA_UNITY = r'''"""A stand-in for `unity test` as Tools/aosa/land.ps1 calls it: writes the report to --output as
+TW_FAKE_AOSA says, and dirties a churn file the way a real build does. For Tools/selftest.py only."""
+import os, sys
+a = sys.argv[1:]
+out = a[a.index('--output') + 1]
+how = os.environ.get('TW_FAKE_AOSA', 'pass')
+tries = os.path.join(os.path.dirname(out), 'aosa-tries.txt')
+n = (int(open(tries).read()) if os.path.exists(tries) else 0) + 1
+open(tries, 'w').write(str(n))
+print('stand-in aosa unity try %d: %s' % (n, ' '.join(a)))
+# a real build rewrites URP's prefilter fields: churn land.ps1 must revert
+open('ProjectSettings/GraphicsSettings.asset', 'a').write('  m_churn: %d\n' % n)
+ENV = "Unhandled log message: '[Error] No graphic device is available'. Use UnityEngine.TestTools.LogAssert.Expect"
+step = how.split('-then-')[n - 1] if '-then-' in how else how
+if step == 'nothing':
+    sys.exit(6)
+if step in ('envfail', 'envfail-twice'):
+    open(out, 'w').write('<test-run total="1" passed="0" failed="1" result="Failed">'
+                         '<test-suite type="Assembly" name="X.dll"><test-case fullname="X.E" result="Failed">'
+                         '<failure><message><![CDATA[%s]]></message></failure></test-case></test-suite></test-run>' % ENV)
+    sys.exit(8)
+total, passed = ('0', '0') if step == 'empty' else ('1', '1')
+open(out, 'w').write('<test-run total="%s" passed="%s" failed="0" result="Passed">'
+                     '<test-suite type="Assembly" name="X.dll"><test-case fullname="X.A" result="Passed" duration="1"/>'
+                     '</test-suite></test-run>' % (total, passed))
+sys.exit(0)
+'''
+
+
+def aosa_land_cases(tmp: pathlib.Path):
+    """Tools/aosa/land.ps1's own rules, with a stand-in for Unity and for aosa.py. The real land.ps1 never runs: the
+    copy below lives in a throwaway git repo, so $PSScriptRoot makes that temp tree the project."""
+    import os
+    root = tmp / 'aland'
+    proj = root / 'trench-warfare-3d'
+    (proj / 'Tools/aosa').mkdir(parents=True)
+    (proj / 'ProjectSettings').mkdir()
+    (proj / 'Assets/_Project/Settings').mkdir(parents=True)
+    (proj / 'Assets/_AosaLocal').mkdir(parents=True)
+    shutil.copy2(PROJ / 'Tools/aosa/land.ps1', proj / 'Tools/aosa/land.ps1')
+    (proj / 'validate.py').write_text('print("validation OK")\n')
+    # a stand-in aosa.py: only `snapshot` is reached here, and its exit code is TW_FAKE_SNAP
+    (proj / 'Tools/aosa/aosa.py').write_text('import os, sys\nprint("stand-in aosa " + " ".join(sys.argv[1:]))\n'
+                                             'sys.exit(int(os.environ.get("TW_FAKE_SNAP", "0")))\n')
+    (proj / 'Assets/UniversalRenderPipelineGlobalSettings.asset').write_text('urp: 1\n')
+    (proj / 'Assets/_Project/Settings/TW-URP.asset').write_text('twurp: 1\n')
+    (proj / 'ProjectSettings/GraphicsSettings.asset').write_text('gfx: 1\n')
+    run(['git', 'init', '-q', str(root)], tmp)
+    run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'add', '.'], root)
+    run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base'], root)
+    (proj / 'Assets/_AosaLocal/PipelineServerOff.asset').write_text('off\n')      # untracked by design (A08)
+    fake = tmp / 'fake-aosa-unity'
+    fake.mkdir()
+    (fake / 'fake_aosa_unity.py').write_text(FAKE_AOSA_UNITY)
+    (fake / 'unity.cmd').write_text(f'@"{sys.executable}" "%~dp0fake_aosa_unity.py" %*\r\n')
+    log = tmp / 'aland.log'
+    churn = ['Assets/UniversalRenderPipelineGlobalSettings.asset', 'Assets/_Project/Settings/TW-URP.asset',
+             'ProjectSettings/GraphicsSettings.asset']
+
+    def land(how, *args, cli=None, **more):
+        log.unlink(missing_ok=True)
+        for f in list(tmp.glob('aosa-*')):
+            f.unlink(missing_ok=True)
+        env = dict(os.environ, TW_AOSA_UNITY=cli if cli is not None else str(fake / 'unity.cmd'),
+                   TW_FAKE_AOSA=how, TEMP=str(tmp), TMP=str(tmp), TW_FAKE_SNAP='0')
+        env.update(more)
+        p = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
+                            str(proj / 'Tools/aosa/land.ps1'), '-Log', str(log), *args],
+                           cwd=proj, capture_output=True, env=env)
+        text = log.read_text(encoding='utf-8', errors='replace') if log.exists() else ''
+        return p.returncode, text + (p.stdout + p.stderr).decode('utf-8', 'replace')
+
+    code, out = land('pass', '-EditOnly', '-NoBuild', cli=str(tmp / 'no-such-unity.exe'))
+    case("[A2] a missing unity.exe fails the land instead of passing on validate.py's exit code",
+         code == 1 and 'unity.exe not found' in out and 'gate green' not in out, out)
+
+    code, out = land('empty', '-EditOnly', '-NoBuild')
+    case('[A2] a report that holds no test is no verdict (exit 6), not a pass',
+         code == 6 and 'no passed test' in out and 'gate green' not in out, out)
+
+    code, out = land('envfail-then-nothing', '-EditOnly', '-NoBuild')
+    case("[A3] a try 2 that writes no report cannot pass on try 1's file",
+         code != 0 and 'gate green' not in out, out)
+
+    code, out = land('envfail-twice', '-EditOnly', '-NoBuild')
+    case("[A3] the env-only-twice rule still accepts a run whose failures are all the environment's",
+         code == 0 and 'ENV-ONLY twice' in out, out)
+
+    run(['git', 'checkout', '-q', '--', *churn], proj)   # the runs above left the stand-in's churn behind
+    (proj / 'Assets/_Project/Settings/TW-URP.asset').write_text("twurp: 2   # the card's own change\n")
+    code, out = land('pass', '-EditOnly', '-NoBuild')
+    kept = (proj / 'Assets/_Project/Settings/TW-URP.asset').read_text()
+    reverted = [l for l in out.splitlines() if 'reverted build churn:' in l]
+    mine = [l for l in out.splitlines() if "kept the card's own change:" in l]
+    case("[A4] a card's own change to a churn file survives the land, and the log names what it reverted",
+         code == 0 and "card's own change" in kept
+         and len(reverted) == 1 and reverted[0].endswith('GraphicsSettings.asset')
+         and len(mine) == 1 and mine[0].endswith('TW-URP.asset'), out + '\n---\n' + kept)
+    run(['git', 'checkout', '-q', '--', *churn], proj)
+
+    res = proj / 'Assets/Resources'
+    res.mkdir()
+    (res / 'mine.txt').write_text('a card put this here\n')
+    code, out = land('pass', '-EditOnly', '-NoBuild')
+    case('[A4] an untracked Assets/Resources that was there before the run is left alone',
+         code == 0 and (res / 'mine.txt').exists() and 'kept Assets/Resources' in out, out)
+    shutil.rmtree(res)
+    run(['git', 'checkout', '-q', '--', *churn], proj)
+
+    code, out = land('pass', '-EditOnly', TW_FAKE_SNAP='2')
+    case('[A13] a failed snapshot stops the land before any build starts',
+         code == 1 and 'FAILED snapshot (2)' in out and 'build release' not in out, out)
+    run(['git', 'checkout', '-q', '--', *churn], proj)
+
+    text = (proj / 'Tools/aosa/land.ps1').read_text(encoding='utf-8')
+    usage = [m.lower() for m in re.findall(r'\[-(\w+)', text.split('\n')[2])]
+    pstart = text.index('param(')
+    declared = [m.lower() for m in re.findall(r'\$(\w+)', text[pstart:text.index('\n', pstart)])]
+    code, out = land('pass', '-EditOnly', '-NoBuild')
+    case('[A15] the usage line offers only declared switches, and a green run claims no landing',
+         not [u for u in usage if u not in declared] and code == 0 and 'LANDED' not in out
+         and 'OK: gate green, nothing landed' in out, str(usage) + ' vs ' + str(declared) + '\n' + out)
+    run(['git', 'checkout', '-q', '--', *churn], proj)
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -820,6 +951,7 @@ def main():
         codemap_cases(wt)
         validate_cases(wt)
         gate_cases(wt, tmp)
+        aosa_land_cases(tmp)
         port_split_cases(tmp)
         port_split_twin_case(tmp)
         port_split_no_conflict_case(tmp)

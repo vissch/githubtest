@@ -208,7 +208,7 @@ any other card, with rule 6 (readability) as a hard condition on every moment.
 |---|---|
 | `python Tools/aosa/aosa.py status` | editor lock, build freshness, budget left, WIP; exit 0 always |
 | `aosa.py bench <label> [--player/--editor] [--scenario S] [--knobs k=v,...] [--repeats N] [--against <label>]` | runs benches, interleaving A/B when `--against` is given; writes `runs/` |
-| `aosa.py compare <A> <B> [--metric M]` | the cmp.py table plus the verdict for rules 1-4 |
+| `aosa.py compare <candidate> <baseline> [--metric M]` | the cmp.py table plus the verdict for rules 1-4 |
 | `aosa.py bench <label> --player --shot-tick N --no-hud --repeats 3` then `aosa.py stilldiff <label>` | an image run: the still is taken N ticks into the window on the held clock, with the HUD hidden, and the worst pair's changed fraction must stay below 0.001 for rule 5's "same image". Image runs are never perf samples, and `compare` refuses them |
 | `aosa.py attempt add <json>` / `aosa.py learn` / `aosa.py pick` / `aosa.py age` | the learning record |
 | `aosa.py budget` / `aosa.py refimg ...` | image spend |
