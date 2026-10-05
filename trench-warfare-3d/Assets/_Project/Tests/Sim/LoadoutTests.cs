@@ -194,7 +194,7 @@ namespace TW.Tests
             cfg.LoadoutB = Ten(VehicleArchetype.Breaker, InfantryArchetype.Sniper);
             var back = ReplayPlayer.Parse(new ReplayRecorder(cfg, default, 1).Serialize());
 
-            Assert.AreEqual(35, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v35's: bump with the format (v6 on its own lane, before the overhaul landed)");
+            Assert.AreEqual(36, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v36's: bump with the format (v6 on its own lane, before the overhaul landed)");
             Assert.AreEqual(RosterEntry.SlotCount, back.Config.LoadoutA.Length);
             var chosen = Odd();
             for (int s = 0; s < RosterEntry.SlotCount; s++) Assert.AreEqual(chosen[s], back.Config.LoadoutA[s], $"slot {s}");

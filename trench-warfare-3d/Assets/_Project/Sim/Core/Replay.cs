@@ -110,7 +110,11 @@ namespace TW.Sim
         // and the push between two men up has no step at a metre. Hash content changes; the system chain is unchanged.
         // v35 (2026-09-30, the Bullfrog): VehicleArchetype.Bullfrog 37 in UnitDefinitions.All: the unit table's and the
         // combat catalogue's fingerprints change. Layout and chain unchanged.
-        public const ushort FormatVersion = 35;
+        // v36 (2026-10-06, the fleet fires): SeaLanding resolves the blast system when it fires, not at Initialize, so
+        // the fleet's guns actually fire on a coast map (a naval shell, its crater, SimEventType.ShipFired), and a
+        // craft that cannot put its men ashore (the field is full) refunds the hold instead of losing it. Same
+        // inputs, a different battle: a v35 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 36;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
