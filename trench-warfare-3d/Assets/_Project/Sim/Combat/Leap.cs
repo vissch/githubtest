@@ -1,4 +1,4 @@
-// Phase: A3 (implemented 2026-09-25) — the jetpack trooper. Owner's brief: "A jet pack troop that can jump from a
+﻿// Phase: A3 (implemented 2026-09-25) — the jetpack trooper. Owner's brief: "A jet pack troop that can jump from a
 // distance."
 // A man with InfantrySpec.JumpRange, off cooldown and not pinned, who has an enemy-held fire trench within reach,
 // leaves the ground: LeapSystem picks the landing cell (the trench cell of his target if the target is in an
@@ -63,10 +63,11 @@ namespace TW.Sim.Combat
                 {
                     InAir[i] = 0;
                     GraceTicks[i] = spec.LandingGraceTicks;
+                    if (GraceTicks[i] == 0) w.Flags[i] &= ~(uint)UnitFlags.Airborne;   // no grace: down and a target at once (never leave the flag set)
                     if (blast != null && spec.LandingBlastDamage > 0f)
                         blast.Queue(new Impact { Pos = w.Position[i], Damage = spec.LandingBlastDamage, Radius = spec.LandingBlastRadius, Suppression = 40f, Source = LandingSource, Player = w.Team[i] });
                 }
-                if (GraceTicks[i] > 0 && --GraceTicks[i] == 0) w.Flags[i] &= ~(uint)UnitFlags.Airborne;
+                else if (GraceTicks[i] > 0 && --GraceTicks[i] == 0) w.Flags[i] &= ~(uint)UnitFlags.Airborne;   // the grace lasts its full ticks: not counted down on the landing tick
                 if (LeapCooldown[i] > 0) LeapCooldown[i]--;
                 if (InAir[i] != 0 || GraceTicks[i] > 0 || LeapCooldown[i] > 0) continue;
                 if (w.Suppression[i] >= SuppressionRules.PinnedThreshold) continue;

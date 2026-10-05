@@ -1,4 +1,4 @@
-// Phase: A5 (implemented core: the gas field, and the smoke field the smoke screen lays)
+﻿// Phase: A5 (implemented core: the gas field, and the smoke field the smoke screen lays)
 // — depends on: MapData (4 m field grid, wind, Trench / Crater sinks), FlowFieldManager (where a gassed garrison runs to).
 // Two float concentration grids at 4 m, one for gas and one for smoke, stepped by the same job. Per tick: sources
 // hold their cells at strength, the field is advected by the map wind (semi-Lagrangian), diffused (5-point) and
@@ -215,6 +215,7 @@ namespace TW.Sim.Combat
                 {
                     uint f = Flags[i];
                     if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f || (f & (uint)UnitFlags.Vehicle) != 0) continue;
+                    if ((f & (uint)UnitFlags.Airborne) != 0) continue;   // over the cloud, not in it (UnitPose.Airborne)
                     float3 p = Position[i];
                     int gx = math.clamp((int)(p.x / MapData.FieldCellSize), 0, Width - 1), gz = math.clamp((int)(p.z / MapData.FieldCellSize), 0, Length - 1);
                     float c = Gas[gz * Width + gx];

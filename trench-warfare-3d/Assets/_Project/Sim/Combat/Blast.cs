@@ -1,4 +1,4 @@
-// Phase: A5 (implemented core) — depends on: MapData (trench / crater cells, heightfield), Suppression.
+﻿// Phase: A5 (implemented core) — depends on: MapData (trench / crater cells, heightfield), Suppression.
 // Anything that explodes queues an Impact; this system resolves the tick's impacts in one Burst job.
 //
 // Damage falls from 100 % at the centre to 25 % at the edge of the radius, and is then cut by four things that are
@@ -210,6 +210,7 @@ namespace TW.Sim.Combat
                     {
                         uint f = Flags[i];
                         if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
+                        if ((f & (uint)UnitFlags.Airborne) != 0) continue;   // in the air: no target, no suppression, no push (UnitPose.Airborne) - a jumper is spared his own landing burst
                         float3 d = Position[i] - im.Pos; d.y = 0f;
                         float dist = SimMath.Length(d);
                         if (dist >= im.Radius) continue;

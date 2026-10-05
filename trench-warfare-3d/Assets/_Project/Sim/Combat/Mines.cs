@@ -1,4 +1,4 @@
-// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them is Sim/Units/Sapper.cs,
+﻿// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them is Sim/Units/Sapper.cs,
 // 2026-09-28) — mines and tripwires on the ground.
 // Depends on: BlastSystem (Queue: a mine's burst; Resolved: a shell that digs sets off the mines in its crater),
 // MapData (where a mine may lie), VehicleProfile (how wide a hull is).
@@ -274,6 +274,7 @@ namespace TW.Sim.Combat
                     {
                         uint f = Flags[i];
                         if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
+                        if ((f & (uint)UnitFlags.Airborne) != 0) continue;   // he puts no weight on a wire (UnitPose.Airborne)
                         float3 p = Position[i];
                         int key = Key((int)math.floor(p.x / Cell), (int)math.floor(p.z / Cell));
                         if (!cells.TryGetFirstValue(key, out int m, out var it)) continue;
