@@ -194,6 +194,11 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Tests/Sim/StrayTests.cs', '// Phase: x\n' + test('// var t = Resources.Load("x");')))
     expect('test_modules', 'two test files with one name', 'two test files are named MineTests.cs',
            lambda: new_cs('Tests/Show/MineTests.cs', '// Phase: x\n' + test('')))
+    kettle = P / 'Resources/Vehicles/Kettle'
+    expect('asset_gate', 'a model changed without its line in Tools/assetgate.json', 'assetgate.json is out of date for 1 file(s)',
+           lambda: shutil.copyfile(kettle / 'Kettle_LOD0.fbx', kettle / 'Kettle_LOD1.fbx'))
+    expect('asset_gate', 'a waiver nobody needs any more', 'matches nothing now',
+           lambda: edit(proj / 'Tools/assetgate.waivers.json', '"rule": "budget"', '"rule": "root"'))
     wf = wt / 'docs/reference/workflow.md'
     expect('codemap_docs', 'what codemap --check finds', 'codemap: ',
            lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))

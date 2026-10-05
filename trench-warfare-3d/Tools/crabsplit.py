@@ -32,6 +32,7 @@ import numpy as np
 from mathutils import Vector, Matrix, Euler
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 SHEETS, OUTDIR, RENDERDIR = argv[0:-2], argv[-2], argv[-1]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 
@@ -528,3 +529,4 @@ for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt
     im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
 with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
 print("DONE")
+splitlog.write(__file__, argv)

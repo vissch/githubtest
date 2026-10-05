@@ -21,6 +21,7 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import convex_hull_2d
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 fbx, outdir, renderdir = argv[0], argv[1], argv[2]
 os.makedirs(outdir, exist_ok=True); os.makedirs(renderdir, exist_ok=True)
 SCALE = float(os.environ.get("TW_SCALE", "22.7"))     # sheet units -> metres (two-storey house = 7 m)
@@ -423,3 +424,4 @@ for ci, c in enumerate(clusters):
         hname, len(mem), len(hobjs), size_m.x, size_m.z, size_m.y, sum(m["tris"] for m in manifest if m["house"] == hname)))
 with open(os.path.join(outdir, "houses.json"), "w") as f: json.dump({"chunks": manifest}, f, indent=1)
 print("DONE", len(manifest), "chunks")
+splitlog.write(__file__, argv)

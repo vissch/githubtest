@@ -20,6 +20,7 @@
 import bpy, bmesh, sys, os, math, json, shutil
 from mathutils import Vector, Matrix
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 SRC, OUT, RENDERDIR = argv[0:3], argv[3], argv[4]
 NAME = os.path.splitext(os.path.basename(OUT))[0]   # the playground folder and file name: Art/Units/<NAME>/<NAME>.fbx
 os.makedirs(os.path.dirname(OUT), exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
@@ -516,3 +517,4 @@ for k, o in enumerate(lods):
 info["skeleton"] = [{"name": n, "parent": p, "head": [round(x * SC, 4) for x in hd]} for n, p, hd, tl in BONES]
 json.dump(info, open(os.path.join(d, "frogrig.json"), "w"), indent=1)
 print("DONE", [(l["lod"], l["verts"], l["tris"], len(l["bones"]), l["max_per_vertex"]) for l in info["lods"]])
+splitlog.write(__file__, argv)

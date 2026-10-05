@@ -7,7 +7,7 @@ import os, struct, zlib, sys, math, json, csv
 KTIME = 46186158000.0
 
 def read_fbx(path):
-    data = open(path, 'rb').read()
+    with open(path, 'rb') as fh: data = fh.read()
     assert data[:20] == b'Kaydara FBX Binary  ', path
     version = struct.unpack_from('<I', data, 23)[0]
     pos = 27
