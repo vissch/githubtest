@@ -295,6 +295,112 @@ def port_split_twin_case(tmp: pathlib.Path):
          code == 1 and 'Log();' not in big.read_text() and 'Log();' not in (r / 'A/Big.Moved.cs').read_text(), out)
 
 
+
+def split_repo(tmp: pathlib.Path, name, lane_edit):
+    """A repo whose main branch split A/Big.cs into A/Big.Moved.cs, plus a branch off the base with one edit."""
+    r = tmp / name
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    big = r / 'A/Big.cs'
+    lines = ['class Big', '{'] + [f'    int keep{i} = {i};' for i in range(12)] + \
+            [f'    int move{i} = {i};' for i in range(12)] + ['}', '']
+    big.write_text('\n'.join(lines))
+    g('add', '.'); g('commit', '-qm', 'base')
+    g('checkout', '-qb', 'edits')
+    lane_edit(big)
+    g('commit', '-qam', 'edits')
+    g('checkout', '-q', 'main')
+    big.write_text('\n'.join([l for l in lines if 'move' not in l]))
+    (r / 'A/Big.Moved.cs').write_text('\n'.join(['partial class Big', '{'] +
+                                                [f'    int move{i} = {i};' for i in range(12)] + ['}', '']))
+    g('add', '.'); g('commit', '-qm', 'split')
+    return r, g, big
+
+
+def port_split_no_conflict_case(tmp: pathlib.Path):
+    # A rebase that stops on another file leaves the split file clean. Porting it must refuse, not revert it.
+    r = tmp / 'no-conflict-repo'
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    big, other = r / 'A/Big.cs', r / 'A/Other.cs'
+    lines = ['class Big', '{'] + [f'    int keep{i} = {i};' for i in range(12)] + \
+            [f'    int move{i} = {i};' for i in range(12)] + ['}', '']
+    big.write_text('\n'.join(lines))
+    other.write_text('\n'.join(['class Other', '{', '    int shared = 0;', '}', '']))
+    g('add', '.'); g('commit', '-qm', 'base')
+    g('checkout', '-qb', 'lane')
+    edit(other, 'int shared = 0;', 'int shared = 1;')
+    g('commit', '-qam', 'lane edit')
+    g('checkout', '-q', 'main')
+    edit(other, 'int shared = 0;', 'int shared = 2;')
+    big.write_text('\n'.join([l for l in lines if 'move' not in l]))
+    (r / 'A/Big.Moved.cs').write_text('\n'.join(['partial class Big', '{'] +
+                                                [f'    int move{i} = {i};' for i in range(12)] + ['}', '']))
+    g('add', '.'); g('commit', '-qm', 'split')
+    g('checkout', '-q', 'lane')
+    code, reb = g('rebase', 'main')
+    edit(big, 'int keep3 = 3;', 'int keep3 = 30;')      # an unstaged edit to a file git has no conflict on
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase'], r)
+    case('[H1] port_split --rebase keeps the unstaged edits of a file git has no conflict on',
+         'int keep3 = 30;' in big.read_text() and 'no conflict' in out and 'Traceback' not in out, reb + out)
+
+
+def port_split_rerun_case(tmp: pathlib.Path):
+    add = lambda big: edit(big, 'int move5 = 5;', 'int move5 = 5;\n    int added = 1;')
+
+    # mid-rebase: the first run writes the addition into the sibling, so a second run must refuse
+    r, g, big = split_repo(tmp, 'rerun-repo', add)
+    g('checkout', '-qb', 'lane', 'main~1')
+    add(big)
+    g('commit', '-qam', 'lane edit')
+    code, reb = g('rebase', 'main')
+    moved = r / 'A/Big.Moved.cs'
+    code1, out1 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase'], r)
+    once = moved.read_text().count('int added = 1;')
+    code2, out2 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--rebase'], r)
+    case('[H2] a second port_split --rebase at the same stop refuses instead of porting again',
+         code1 == 0 and once == 1 and code2 != 0 and 'Big.Moved.cs' in out2
+         and moved.read_text().count('int added = 1;') == 1, reb + out1 + out2)
+
+    # --from/--to cannot refuse on the siblings, so the edit itself must be recognised as already in place
+    r2, g2, big2 = split_repo(tmp, 'rerun2-repo', add)
+    moved2 = r2 / 'A/Big.Moved.cs'
+    code3, out3 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--from', 'main~1', '--to', 'edits'], r2)
+    code4, out4 = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--from', 'main~1', '--to', 'edits'], r2)
+    case('[H2] an addition already in a target is skipped, not inserted twice',
+         code3 == 0 and code4 == 0 and moved2.read_text().count('int added = 1;') == 1
+         and 'already in place' in out4, out3 + out4)
+
+
+def port_split_merge_case(tmp: pathlib.Path):
+    # Both sides already have A/Big.Extra.cs at the merge base, so only the side that ADDED A/Big.Moved.cs is split.
+    r = tmp / 'merge-repo'
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    big = r / 'A/Big.cs'
+    lines = ['class Big', '{'] + [f'    int keep{i} = {i};' for i in range(12)] + \
+            [f'    int move{i} = {i};' for i in range(12)] + ['}', '']
+    big.write_text('\n'.join(lines))
+    (r / 'A/Big.Extra.cs').write_text('\n'.join(['partial class Big', '{', '    int extra0 = 0;', '}', '']))
+    g('add', '.'); g('commit', '-qm', 'base')
+    g('checkout', '-qb', 'split')
+    big.write_text('\n'.join([l for l in lines if 'move' not in l]))
+    (r / 'A/Big.Moved.cs').write_text('\n'.join(['partial class Big', '{'] +
+                                                [f'    int move{i} = {i};' for i in range(12)] + ['}', '']))
+    g('add', '.'); g('commit', '-qm', 'split')
+    g('checkout', '-q', 'main')
+    edit(big, 'int move9 = 9;', 'int move9 = 99;')
+    g('commit', '-qam', 'main edit')
+    code, mrg = g('merge', 'split')
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--merge'], r)
+    case('[H3] port_split --merge takes the side that added the partials, not any side that has one',
+         code == 0 and 'the side you are merging in' in out
+         and 'int move9 = 99;' in (r / 'A/Big.Moved.cs').read_text()
+         and 'move' not in big.read_text(), mrg + out)
+
 def land_cases(tmp: pathlib.Path):
     # A bare origin with the integration branch, and a clone with a lane on it. land.py runs from the clone.
     integ = 'claude/trench-warfare-2d-3d-plan-idt7lf'
@@ -645,6 +751,9 @@ def main():
         gate_cases(wt, tmp)
         port_split_cases(tmp)
         port_split_twin_case(tmp)
+        port_split_no_conflict_case(tmp)
+        port_split_rerun_case(tmp)
+        port_split_merge_case(tmp)
         scorecard_cases()
         gate_scope_cases(tmp)
         land_cases(tmp)

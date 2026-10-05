@@ -20,6 +20,8 @@ USAGE (from trench-warfare-3d/, when a rebase or merge stops on a conflict in th
     (compile, fix any .rej by hand, git add the files, git rebase --continue; repeat at the next stop)
   --rebase keeps the upstream file (mid-rebase that is --ours) and carries REBASE_HEAD's edits. --merge finds which
   side has the split, keeps that side's file and carries the other side's edits since the merge base.
+  A second run at the same stop is refused while a sibling partial is modified: the first run's edits are still
+  there. --merge needs exactly one side to have added the partials since the merge base, else use --from/--to.
 
 The targets are FILE and every sibling named like it (CombatFx.*.cs), plus any file given with --into. An edit is
 applied where its lines (context and removed) appear exactly once across the targets. If they do not, outer context
@@ -94,6 +96,11 @@ def place(body, targets, text, everywhere, edited):
     """
     if any(k != '+' and s in edited for k, s in body):
         return None
+    if not any(k == '-' for k, _ in body):
+        # A pure addition whose result is already in a target was put there by an earlier run: leave it alone.
+        af = [s for k, s in body if k != '-']
+        if any(find(af, text[t]) for t in targets):
+            return 'ALREADY'
     changed = [i for i, (k, _) in enumerate(body) if k != ' ']
     lead, trail = changed[0], len(body) - 1 - changed[-1]
     keep = 0 if any(k == '-' for k, _ in body) else 1
@@ -133,22 +140,29 @@ def main():
         keep = '--ours'
         a.base, a.rev = 'REBASE_HEAD~1', 'REBASE_HEAD'
     elif a.merge:
-        # Whichever side has the split keeps its version of the file; the other side's edits are carried across.
-        split_here = any(n.startswith(old.stem + '.') and n.endswith(old.suffix) and n != old.name
-                         for n in git('ls-tree', '--name-only', 'HEAD', './', cwd=here).split())
+        # Whichever side *added* the partials has the split; the other side's edits are carried across. Partials both
+        # sides already had at the merge base say nothing about which side split the file, so they are subtracted out.
+        def partials(rev):
+            return {n for n in git('ls-tree', '--name-only', rev, './', cwd=here).split()
+                    if n.startswith(old.stem + '.') and n.endswith(old.suffix) and n != old.name}
         base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
+        mine, theirs = partials('HEAD') - partials(base), partials('MERGE_HEAD') - partials(base)
+        if mine and not theirs:
+            split_here = True
+        elif theirs and not mine:
+            split_here = False
+        else:
+            sys.exit(f'cannot tell which side split {old.name}: '
+                     f'{"both sides added" if mine else "neither side added"} a partial of it since the merge base '
+                     f'{base[:8]} (port with --from/--to instead)')
         keep = '--ours' if split_here else '--theirs'
         a.base, a.rev = base, 'MERGE_HEAD' if split_here else 'HEAD'
         print(f'the split is on {"your side (HEAD)" if split_here else "the side you are merging in"}; '
               f'carrying the edits of {a.rev} since {base[:8]}')
     elif not a.rev:
         ap.error('--from needs --to')
-    kept = None
-    if keep and a.dry_run:
-        # A dry run leaves the conflicted file alone and reads the side it would keep from the index (2 ours, 3 theirs).
-        kept = git('show', f':{2 if keep == "--ours" else 3}:./{old.name}', cwd=here).lstrip('\ufeff')
-    elif keep:
-        git('checkout', keep, '--', old.name, cwd=here)
+    # Nothing is written before every refusal has had its say: the checkout below throws away the file's unstaged
+    # edits, so a file git has no conflict on, or a stop a port already ran at, has to be refused first.
     if keep and not git('ls-files', '-u', '--', old.name, cwd=here).strip():
         sys.exit(f'git has no conflict on {old.name}: nothing to port (did the rebase stop on it? did the split delete '
                  f'it? then port with --from/--to into its siblings)')
@@ -157,6 +171,21 @@ def main():
     targets += [pathlib.Path(p) for p in a.into]
     if not targets:
         sys.exit(f'no target files next to {old}')
+    siblings = [t.name for t in targets if t != old]
+    if keep and not a.dry_run and siblings:
+        # The checkout resets only the old file, so a second run at the same stop would find the first run's edits
+        # still in the siblings and put them in again.
+        # Unstaged changes only: a partial the merge itself brought in is staged, and that is not a port's doing.
+        dirty = git('diff', '--name-only', '--', *siblings, cwd=here).strip()
+        if dirty:
+            sys.exit(f'a port already ran at this stop: {dirty.splitlines()[0].strip()} is modified. Reset the '
+                     f'siblings (git checkout -- ' + ' '.join(siblings) + ') and rerun, or finish by hand.')
+    kept = None
+    if keep and a.dry_run:
+        # A dry run leaves the conflicted file alone and reads the side it would keep from the index (2 ours, 3 theirs).
+        kept = git('show', f':{2 if keep == "--ours" else 3}:./{old.name}', cwd=here).lstrip('\ufeff')
+    elif keep:
+        git('checkout', keep, '--', old.name, cwd=here)
 
     diff = git('diff', '-U3', '--no-color', a.base, a.rev, '--', old.name, cwd=old.parent)
     hs = hunks(diff)
@@ -188,6 +217,9 @@ def main():
             spot = place(body, targets, text, everywhere, edited)
             added = sum(1 for k, _ in body if k == '+')
             removed = sum(1 for k, _ in body if k == '-')
+            if spot == 'ALREADY':
+                print(f'already in place {label}  (+{added} -{removed})')
+                continue
             if not spot:
                 rejected.append({'header': label, 'lines': body})
                 print(f'NOT APPLIED {label}  (+{added} -{removed}): its lines are not in any target exactly once')
