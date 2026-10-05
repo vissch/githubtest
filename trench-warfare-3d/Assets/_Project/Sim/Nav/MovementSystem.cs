@@ -1,4 +1,4 @@
-// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
+﻿// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
 // Infantry movement. Every alive infantry slot follows the flow field of its goal, takes a separation push from its
 // neighbours (and keeps clear of vehicles), and moves at base speed × stance × terrain. A unit without a goal gets
 // the team's default goal (its front trench). Arriving at the goal trench garrisons the unit: it stops, crouches
@@ -358,10 +358,11 @@ namespace TW.Sim.Nav
                 float pushX = Push[i].x;
                 if (leaping)
                 {
-                    // the last tick of the leap puts him exactly on the target cell, so the arrival rule below finds him
-                    // in the trench body and garrisons him
+                    // the last tick of the leap puts him exactly on the target cell; LeapSystem owns the Airborne
+                    // clear from there (the landing grace), and the arrival rule below skips him while he is in the air,
+                    // so he is garrisoned the ordinary way the tick after touchdown
                     LeapTicks[i] = leap - 1;
-                    if (leap == 1) { np = LeapTarget[i]; f &= ~(uint)UnitFlags.Airborne; }
+                    if (leap == 1) np = LeapTarget[i];
                 }
                 int ncell = CellOf(np);
                 if (!leaping && !CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, ncell))
@@ -401,7 +402,7 @@ namespace TW.Sim.Nav
                 if (inTrench && !nowTrench && !leaping) stance = Stance.Vault;
 
                 // arrival: the goal is this trench
-                if (!isGarrisoned && goal >= 0 && nowTrench && (to & (byte)NavLayer.Link) == 0)   // off the ladder, in the trench body
+                if (!isGarrisoned && !leaping && goal >= 0 && nowTrench && (to & (byte)NavLayer.Link) == 0)   // off the ladder, in the trench body, and down
                 {
                     var g = Goals[goal];
                     short t = CellTrenchId[ncell];
@@ -417,7 +418,7 @@ namespace TW.Sim.Nav
                         }
                     }
                 }
-                if (nowTrench) f |= (uint)UnitFlags.InTrench; else f &= ~(uint)UnitFlags.InTrench;
+                if (!leaping) { if (nowTrench) f |= (uint)UnitFlags.InTrench; else f &= ~(uint)UnitFlags.InTrench; }   // over a trench is not in it (Jump cleared the flag; Exposed stays)
                 StanceOf[i] = (byte)stance;
                 Flags[i] = f;
             }

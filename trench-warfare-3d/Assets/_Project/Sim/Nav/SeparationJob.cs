@@ -1,4 +1,4 @@
-// Phase: A1 (implemented)
+﻿// Phase: A1 (implemented)
 // Soft repulsion between infantry within 2r, plus avoidance of vehicles. Each slot reads its own 3x3 hash buckets
 // and the (short) vehicle list and writes only its own velocity adjustment, so the job is parallel and deterministic.
 // A garrison and a man outside the trench never push each other (the trench wall is between them).
@@ -45,6 +45,7 @@ namespace TW.Sim.Nav
             Push[i] = float3.zero;
             uint f = Flags[i];
             if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.Vehicle) != 0) return;
+            if ((f & (uint)UnitFlags.Airborne) != 0) return;   // a man in the air is not pushed (UnitPose.Airborne)
             float3 p = Position[i];
             int cx = math.clamp((int)(p.x / Hash.CellSize), 0, Hash.Width - 1);
             int cz = math.clamp((int)(p.z / Hash.CellSize), 0, Hash.Length - 1);
@@ -62,7 +63,7 @@ namespace TW.Sim.Nav
                 {
                     do
                     {
-                        if (j == i || (Flags[j] & (uint)UnitFlags.Vehicle) != 0) continue;
+                        if (j == i || (Flags[j] & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Airborne)) != 0) continue;   // and he shoves nobody under him
                         // a garrison and a man on the surface are on either side of the trench wall: no push through it,
                         // or the men lining the wall hold an arrival off the ladder for good
                         if ((garrison >= 0 && (Flags[j] & (uint)UnitFlags.InTrench) == 0) || (TrenchId[j] >= 0 && (f & (uint)UnitFlags.InTrench) == 0)) continue;
