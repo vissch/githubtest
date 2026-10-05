@@ -39,6 +39,7 @@ except ImportError:
 
 if bpy is not None:                         # the run below is Blender only; outside, only the helpers import
     argv = sys.argv[sys.argv.index("--") + 1:]
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
     SHEETS, OUTDIR, RENDERDIR = argv[0:-2], argv[-2], argv[-1]
     os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 
@@ -989,3 +990,4 @@ if bpy is not None:                         # imported for its pure helpers (tes
     elif os.environ.get("TW_RECUT"): recut(os.environ["TW_RECUT"], SHEETS[0])
     else: split_sheets()
     print("DONE")
+    splitlog.write(__file__, argv)

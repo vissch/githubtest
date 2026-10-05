@@ -23,6 +23,7 @@ from mathutils import Vector, Matrix
 from mathutils.bvhtree import BVHTree
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 NAME, OUTDIR, RENDERDIR = argv[0], argv[-2], argv[-1]
 FBX = argv[1:-2]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
@@ -485,3 +486,4 @@ manifest["lodList"] = [{"lod": e["lod"], "verts": e["verts"], "tris": e["tris"],
                         "parts": [dict(name=n, **e["parts"][n]) for n in ALL_PARTS]} for e in manifest["lods"]]
 json.dump(manifest, open(os.path.join(OUTDIR, "tank3.json"), "w"), indent=1)
 print("DONE")
+splitlog.write(__file__, argv)

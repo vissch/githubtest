@@ -8,9 +8,10 @@ How art gets from the owner's source files into `trench-warfare-3d/Assets/_Proje
 **The source files are not in the repo.** They sit in the owner's Downloads on the workstation, or on their Google
 Drive. A pipeline that needs one says so. If it is missing, ask the owner. Do not guess a substitute.
 
-**Parameters the last run used were not recorded** for the Blender splits. Where a table below says UNRECORDED,
-re-derive the value from the current output (`houses.json`, the FBX sizes) before regenerating. A fresh run with
-defaults will not reproduce what ships.
+**Parameters the last run used were not recorded** for the Blender splits made before 2026-10-05. Where a table
+below says UNRECORDED, re-derive the value from the current output (`houses.json`, the FBX sizes) before
+regenerating. A fresh run with defaults will not reproduce what ships. Since 2026-10-05 every split writes its own
+record (`Tools/splitlog.py`, below), and the Salvo and the Skimmer have one that a fresh run proved.
 
 ## Blender splits (Tripo sheets → one FBX per part)
 
@@ -77,6 +78,48 @@ Traps, all silent:
 - **Re-slicing a kit prop** needs `TW_KEEP=1`, or it comes out turned 180°.
 - **Import settings.** `Editor/TankImport.cs` and `Editor/EnvKitImport.cs` set import rules by folder. Vehicle and
   chunk meshes must stay Read/Write enabled; setting it by hand does not stick, the postprocessor resets it.
+
+## The gate on models, and the record of each split
+
+| Script | Does | Usage |
+|---|---|---|
+| `assetgate.py` | Reads every model FBX under `Assets/_Project` (not the animation clips) from the file itself, no Unity and no Blender: hard rules that fail the check, and numbers recorded one line per file in `Tools/assetgate.json`. `validate.py` runs it (`Tools/checks/asset_gate.py`): it hashes the files and measures only the changed ones (0.3 s; everything, 10 s) | `python Tools/assetgate.py` checks; `--record` measures everything and rewrites `Tools/assetgate.json`, printing what moved and what got worse; `--file <fbx> [--kind vehicle\|bench\|figure\|prop]` reports one file and its LOD siblings, in the tree or not: run it on a fresh split before copying it in |
+| `splitlog.py` | The record of a split, written by the split itself as its last line: arguments, every `TW_*` variable, each source by hash (and its `.fbm` textures), Blender's version, each file written by hash, and the command line to run it again. Into the project: `Tools/splits/<script>-<folder>.json` (outside `Assets`: no `.meta`, not in a build); anywhere else: a file named split.json in the out folder | `python Tools/splitlog.py` lists the records and checks them; `--adopt <fbx> --why "..."` after editing a model in the file on purpose; `--witness <split.json> <project folder>` records a scratch run against the project's files when every model matches |
+| `test_assetgate.py`, `test_splitlog.py` | Their tests (`Tools/toolcheck.py` runs them): each rule on a model built in the test, sound and with its one fault; the committed `assetgate.json` measured again from scratch | `python Tools/test_assetgate.py` |
+
+**Hard rules** (a broken one fails `validate.py` unless `Tools/assetgate.waivers.json` has a line for that file and
+rule with a `why`; a waiver that matches nothing fails too):
+
+| Rule | On | Says |
+|---|---|---|
+| `root` | `Resources/Vehicles` | one node named `Hull` or `Body`, every mesh and `Socket_*` under it (`TankModel.Load` walks from it: anything else is never drawn) |
+| `lod-names` | vehicles, the bench's (`Playground/Art/Tanks`) | a lower LOD has no node LOD0 lacks |
+| `lod-pivot` | the same | a node keeps its parent, position and rotation at every LOD |
+| `lod-shape` | the same | a part at a lower LOD stays on LOD0's surface: no vertex further off than 0.12 of the part's bounding diagonal (`SPIKE`), no LOD0 vertex further from it than 0.25 (`HOLE`) |
+| `uv-missing`, `uv-bounds` | every model | a mesh with no UV set; a UV outside 0..1 |
+| `budget` | `Resources/Vehicles` LOD0, `Art/Characters` | 5,000 triangles; 2,000 vertices (decisions.md, 2026-09-21) |
+
+`lod-shape` was set on 2026-10-05 from the 21 lower LODs in the tree. Eighteen measure at most 0.061 and 0.133. The
+three that are another sculpt (Maw and Tusk LOD1, Tripo's far sheet; Mercy LOD2, Tripo's lower model)
+measure 0.21-0.50 and 0.53-0.65: the rule found exactly those, and they are waived by name. The Mercy's LOD0
+decimated blind in Blender measured 0.16 and 0.20 at half its triangles and 0.36 for the hole at 15 %. The Croaker
+decimated the same way stays under both marks down to 8 %, as its shipped LOD2 does: the rule catches a part that
+left LOD0's surface, not a low count.
+
+**Recorded numbers** have no pass mark (Tripo's meshes are open by nature): triangles, vertices, `open` (edges with
+one face), `nonmanifold` (more than two), `flat` (zero-area triangles), `uv_flat`, `density_spread` (texel density
+of the densest part over the thinnest), `spike` and `hole`, and `shape`, a hash of the model itself. Blender stamps
+the time into each FBX, so a split run twice gives new bytes and the same `shape`; `--record` then says "the same
+model, new bytes".
+
+**Adding or changing a model:** run the split, `python Tools/assetgate.py --record`, read what it printed, and commit
+the art, `Tools/assetgate.json` and the split's record together. A rule broken on purpose needs its waiver in the
+same commit.
+
+**Art from before the records** gets one without being rewritten: run its split into a scratch folder with the
+command its table gives, then `python Tools/splitlog.py --witness <scratch>/split.json <the project folder>`. Done
+for the Salvo and the Skimmer on 2026-10-05 from the commands below (`C:\tw\z4-z6`, `C:\tw\s0-s2`): nodes,
+placements, vertices, faces and UVs came out identical to what ships. Every other set is still UNRECORDED.
 
 ## Battle lineup
 

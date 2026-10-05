@@ -1,0 +1,57 @@
+{
+ "script": "Tools/mechsplit.py",
+ "script_sha": "d16fb34ef4473679",
+ "blender": "5.0.0",
+ "date": "2026-10-05",
+ "args": [
+  "Salvo",
+  "C:/tw/z4/m.fbx",
+  "C:/tw/z5/m.fbx",
+  "C:/tw/z6/m.fbx",
+  "Assets/_Project/Resources/Vehicles/Salvo",
+  "<renderdir>"
+ ],
+ "env": {
+  "TW_BATTLE": "1",
+  "TW_KEEP": "Wheel_L:0.4,Wheel_R:0.4,Turret:0.35,Gun:0.35,Hull:0.3",
+  "TW_KIND": "halftrack",
+  "TW_PIECE_TRIS": "12"
+ },
+ "command": "TW_BATTLE=1 TW_KEEP=Wheel_L:0.4,Wheel_R:0.4,Turret:0.35,Gun:0.35,Hull:0.3 TW_KIND=halftrack TW_PIECE_TRIS=12 \"C:\\Program Files\\Blender Foundation\\Blender 5.0\\blender.exe\" -b --factory-startup -P Tools/mechsplit.py -- Salvo C:/tw/z4/m.fbx C:/tw/z5/m.fbx C:/tw/z6/m.fbx Assets/_Project/Resources/Vehicles/Salvo <renderdir>",
+ "inputs": [
+  {
+   "path": "C:/tw/z4/m.fbx",
+   "bytes": 309004,
+   "sha": "fcbf8cdedc056a07",
+   "textures": "2520f85c5b7dab95"
+  },
+  {
+   "path": "C:/tw/z5/m.fbx",
+   "bytes": 127340,
+   "sha": "25835bf9f3b82525",
+   "textures": "4a304bebe14b3127"
+  },
+  {
+   "path": "C:/tw/z6/m.fbx",
+   "bytes": 72444,
+   "sha": "5e2b86e6d18975b3",
+   "textures": "af050b818913578e"
+  }
+ ],
+ "outputs": [
+  {
+   "path": "Assets/_Project/Resources/Vehicles/Salvo/Salvo_LOD0.fbx",
+   "sha": "deaeb7446a507527",
+   "shape": "62c9434d18bc504e"
+  },
+  {
+   "path": "Assets/_Project/Resources/Vehicles/Salvo/Salvo_LOD1.fbx",
+   "sha": "24fbc64106852d53",
+   "shape": "1c86ca5a384adf7c"
+  }
+ ],
+ "witness": {
+  "date": "2026-10-05",
+  "how": "run into a scratch folder; every model it wrote is, by shape, the one recorded here"
+ }
+}

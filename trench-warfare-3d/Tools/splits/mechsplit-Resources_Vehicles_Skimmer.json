@@ -1,0 +1,58 @@
+{
+ "script": "Tools/mechsplit.py",
+ "script_sha": "d16fb34ef4473679",
+ "blender": "5.0.0",
+ "date": "2026-10-05",
+ "args": [
+  "Skimmer",
+  "C:/tw/s0/m.fbx",
+  "C:/tw/s1/m.fbx",
+  "C:/tw/s2/m.fbx",
+  "Assets/_Project/Resources/Vehicles/Skimmer",
+  "<renderdir>"
+ ],
+ "env": {
+  "TW_BATTLE": "1",
+  "TW_KEEP": "FanRing:0.5,Fan:0.35,Hull:0.3",
+  "TW_KIND": "hover",
+  "TW_LOD2_TRIS": "1400",
+  "TW_TURN": "90"
+ },
+ "command": "TW_BATTLE=1 TW_KEEP=FanRing:0.5,Fan:0.35,Hull:0.3 TW_KIND=hover TW_LOD2_TRIS=1400 TW_TURN=90 \"C:\\Program Files\\Blender Foundation\\Blender 5.0\\blender.exe\" -b --factory-startup -P Tools/mechsplit.py -- Skimmer C:/tw/s0/m.fbx C:/tw/s1/m.fbx C:/tw/s2/m.fbx Assets/_Project/Resources/Vehicles/Skimmer <renderdir>",
+ "inputs": [
+  {
+   "path": "C:/tw/s0/m.fbx",
+   "bytes": 247776,
+   "sha": "3aa37c4e92dfd243",
+   "textures": "3b723c2dfd4ce621"
+  },
+  {
+   "path": "C:/tw/s1/m.fbx",
+   "bytes": 119904,
+   "sha": "7d8b04e6b73a89d6",
+   "textures": "df025b4fa973d5b4"
+  },
+  {
+   "path": "C:/tw/s2/m.fbx",
+   "bytes": 72256,
+   "sha": "01a22a9a643670f5",
+   "textures": "12000dd839ca1f18"
+  }
+ ],
+ "outputs": [
+  {
+   "path": "Assets/_Project/Resources/Vehicles/Skimmer/Skimmer_LOD0.fbx",
+   "sha": "4d2a4f0e3b0ac8cf",
+   "shape": "64983adb1b3621d9"
+  },
+  {
+   "path": "Assets/_Project/Resources/Vehicles/Skimmer/Skimmer_LOD1.fbx",
+   "sha": "481bcb2778e88506",
+   "shape": "4db26d6664710cdd"
+  }
+ ],
+ "witness": {
+  "date": "2026-10-05",
+  "how": "run into a scratch folder; every model it wrote is, by shape, the one recorded here"
+ }
+}

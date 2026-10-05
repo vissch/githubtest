@@ -36,6 +36,7 @@ from mathutils import Vector, Matrix, Euler
 from mathutils.bvhtree import BVHTree
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 FULL_FBX, FAR_FBX, OUTDIR, RENDERDIR = argv[0], argv[1], argv[2], argv[3]
 os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 
@@ -588,3 +589,4 @@ for img, name, size in ((full["Maw"]["img"], "TankAtlas_LOD0.jpg", 2048), (far["
     im.save_render(path, scene=scene)
 with open(os.path.join(OUTDIR, "tanks.json"), "w") as f: json.dump(manifest, f, indent=1)
 print("DONE")
+splitlog.write(__file__, argv)

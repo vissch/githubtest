@@ -21,6 +21,7 @@ from mathutils import Vector, Matrix
 from mathutils.geometry import convex_hull_2d
 
 argv = sys.argv[sys.argv.index("--") + 1:]
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))); import splitlog   # Tools/splitlog.py: this run, written down
 fbx, outdir, renderdir = argv[0], argv[1], argv[2]
 os.makedirs(outdir, exist_ok=True); os.makedirs(renderdir, exist_ok=True)
 SCALE = float(os.environ.get("TW_SCALE", "22.7"))     # sheet units -> metres (two-storey house = 7 m)
@@ -432,3 +433,4 @@ if over:
     for h in sorted(over): print("OVER LIMIT %s %d chunks, HouseKit holds %d" % (h, over[h], MAX_CHUNKS))
     sys.exit(1)
 print("DONE", len(manifest), "chunks")
+splitlog.write(__file__, argv)
