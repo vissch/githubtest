@@ -94,6 +94,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-05 | **What a relay leg learns is applied automatically**: kept short, each learning with the leg that proved it. (The owner's answers to the plan for the relay's master, budget and agents, 2026-10-05.) |
 | 2026-10-05 | **The owner reads the relay's day in percent of the plan's weekly limit, not in dollars.** The dollar figure stays the yardstick the stop rules count in until the day's cap can be set in percent. A guess from cost is fine while nothing is measured (a full week taken as `week_usd` in `Tools/relay/limits.json`). Anthropic's usage call may be used for the readings, at most once in five minutes (`docs/reference/relay.md`, "The day in percent of the week"). (The owner, 2026-10-05, in the session that put the `/master` skill on the laptop.) |
 | 2026-10-06 | **The owner's plan is Max 20x**, so the guessed week is $1,830 of leg cost (`week_usd` in `Tools/relay/limits.json`). (The owner, asked "20x or 5x?", 2026-10-06.) |
+| 2026-10-06 | **The relay may spend 5 % of the week on the units' look**: "lets improve the units visuals, vfx, animation etc. you have 5 %". It is new work with the owner's yes, capped at 5 % of the week for this work, and it is more than a $50 day (about 2.7 %). Which units are queued is the master's proposal; nothing lands on it. (The owner's own words to the `/master` session on the laptop, 2026-10-06.) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
