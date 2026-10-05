@@ -59,7 +59,7 @@ class Context:
                     d = json.loads(text(p))
                 except Exception:
                     continue
-                self._asmdefs[d['name']] = (p, d['references'])
+                self._asmdefs[d['name']] = (p, d.get('references', []))
         return self._asmdefs
 
     @property

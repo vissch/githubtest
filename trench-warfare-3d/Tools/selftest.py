@@ -12,8 +12,9 @@ Cases: codemap --check passes on a clean tree, then fails on each of: a command 
 cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
 tasks.md never names, an agent-memory.md over its cap. validate.py prints the two lines its callers read on a clean
 tree, and each check in Tools/checks catches the break it is for, alone (--only), without hiding another check or
-stopping it when it crashes. port_split.py, on a small repo built here: an edit to moved
-code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
+stopping it when it crashes; an asmdef with no references key does not take it down, a test in an
+[Explicit]-only assembly that is not [Explicit] is caught, and an [Explicit] one there is left alone.
+port_split.py, on a small repo built here: an edit to moved code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
 changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
 counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
@@ -181,6 +182,13 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Presentation/Core/WrongUsing.cs', '// Phase: x\nusing TW.Sim.Core;\nnamespace TW.Presentation { class WrongUsing { } }\n'))
     expect('audio_volume', 'the project muted in its settings asset', 'm_Volume is 0',
            lambda: edit(proj / 'ProjectSettings/AudioManager.asset', 'm_Volume: 1', 'm_Volume: 0'))
+
+    (P / 'Presentation/VFX/TW.Presentation.VFX.asmdef').write_text('{ "name": "TW.Presentation.VFX" }\n')
+    code, out = validate()
+    case('[G9] an asmdef with no "references" key does not crash validate, or blame a check for it',
+         'Traceback' not in out and 'crashed (KeyError' not in out and 'assemblies, ' in out, f'exit {code}:\n{out[:800]}')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
     test = lambda body: 'using NUnit.Framework;\n' + body + '\nnamespace TW.Tests { public class StrayTests { [Test] public void A() {} } }\n'
     T = 'Assets/_Project/Tests'
     expect('test_modules', 'a sim test left in the landing folder, and says where it goes',
@@ -196,6 +204,15 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Tests/Sim/StrayTests.cs', '// Phase: x\n' + test('// var t = Resources.Load("x");')))
     expect('test_modules', 'two test files with one name', 'two test files are named MineTests.cs',
            lambda: new_cs('Tests/Show/MineTests.cs', '// Phase: x\n' + test('')))
+    still = lambda attrs: ('// Phase: x\nusing NUnit.Framework;\nnamespace TW.Tests {\npublic class StillStrayTests {\n'
+                           '[' + attrs + ']\npublic void A() {}\n} }\n')
+    expect('test_modules', 'a test in an [Explicit]-only assembly that is not [Explicit]',
+           f'{T}/Stills/StillStrayTests.cs',
+           lambda: new_cs('Tests/Stills/StillStrayTests.cs', still('Test')))
+    new_cs('Tests/Stills/StillStrayTests.cs', still('Test, Explicit("by name")'))
+    code, out = validate('--only', 'test_modules')
+    case('[TU6] an [Explicit] test in Tests/Stills is left alone', code == 0, out)
+    run(['git', 'clean', '-qfd'], wt)
     wf = wt / 'docs/reference/workflow.md'
     expect('codemap_docs', 'what codemap --check finds', 'codemap: ',
            lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))

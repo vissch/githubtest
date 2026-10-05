@@ -205,9 +205,11 @@ with the merge-base on origin's integration branch, so a lane that touched the s
 | any asmdef, `Packages/`, `ProjectSettings/`, `gate.ps1`, a path the rule does not know | runs | runs |
 | any other Presentation folder, UI, Editor, Perf, Resources, Art, Shaders, Scenes, other tests, docs, tools | skipped | skipped |
 
-Every other module always runs. The rule is `NEEDS` in Tools/gate_scope.py, and `validate.py` (the `test_modules`
-check) fails when a slow module could reach code the rule does not watch. The first line of the gate says what it
-skips and why. A scoped run keeps its results in `test-results-EditMode-scoped.xml`, is no verdict (exit 6) unless
+Every other module always runs, except `TW.Tests.Stills`, which no gate run selects at all (`EXPLICIT_ONLY` in
+Tools/gate_scope.py) because every test there is `[Explicit]`; the same `test_modules` check fails when a test in
+that assembly is not `[Explicit]`, so nothing there is left unrun. The rule is `NEEDS` in Tools/gate_scope.py, and
+`validate.py` (the `test_modules` check) fails when a slow module could reach code the rule does not watch. The
+first line of the gate says what it skips and why. A scoped run keeps its results in `test-results-EditMode-scoped.xml`, is no verdict (exit 6) unless
 they hold every assembly it asked for, and never counts for landing: only the full gate records a tree. The full run
 checks its results against the module list too (`gate_scope.py --all`), and when it cannot get that list it stays
 green but records no tree. A run with `TW_GATE_UNITY` set (a stand-in for Unity, for `Tools/selftest.py`) writes a

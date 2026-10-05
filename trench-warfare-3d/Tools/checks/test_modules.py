@@ -1,10 +1,32 @@
 import re
 import sys
 
-WHY = 'The test modules hold: the landing folder is empty, and a slow module reaches only what gate_scope.py lists for it.'
+WHY = ('The test modules hold: the landing folder is empty, a slow module reaches only what gate_scope.py lists for it, '
+       'and every test in an [Explicit]-only assembly is [Explicit].')
 
 READS_PROJECT = re.compile(r'\b(Resources\.Load|AssetDatabase|Application\.dataPath|StreamReader|'
                            r'File\.(ReadAll|ReadLines|Open|Exists)|Directory\.(GetFiles|EnumerateFiles|GetDirectories))')
+
+
+TEST_ATTR = re.compile(r'\b(?:Test|TestCase|UnityTest)\b')   # \bTest\b misses [TestFixture]: good
+
+
+def explicit_gaps(txt):
+    """Line and attribute text of each test in this file that no [Explicit] covers ([Explicit] on the fixture counts)."""
+    gaps, type_explicit, block = [], False, []
+    for n, line in enumerate(txt.splitlines(), 1):
+        s = line.strip()
+        if s.startswith('['):
+            block.append((n, s))
+            continue
+        if block:
+            joined = ' '.join(t for _, t in block)
+            if re.search(r'\b(class|struct)\b', s):
+                type_explicit = 'Explicit' in joined
+            elif TEST_ATTR.search(joined) and 'Explicit' not in joined and not type_explicit:
+                gaps.append((block[0][0], joined))
+            block = []
+    return gaps
 
 
 def home(txt):
@@ -22,7 +44,8 @@ def home(txt):
 
 def run(ctx):
     """Tools/gate_scope.py skips a slow test module (Sim, Match) when no changed path is under that module's NEEDS.
-    That is only sound while the module's tests can reach nothing else, so this holds them to it."""
+    That is only sound while the module's tests can reach nothing else, so this holds them to it. It also holds
+    EXPLICIT_ONLY to its word: every test in an [Explicit]-only assembly is [Explicit]."""
     root = ctx.root.resolve()
     sys.path.insert(0, str(root / 'Tools'))
     import gate_scope
@@ -82,4 +105,16 @@ def run(ctx):
             if cs.stem in seen:
                 errors.append(f'two test files are named {cs.name} ({rel(seen[cs.stem])}, {rel(cs)}): a test class is found by its file name')
             seen.setdefault(cs.stem, cs)
+
+    # 5. EXPLICIT_ONLY drops an assembly from every scoped run on its word that every test there is [Explicit]: hold it to that
+    for m in sorted(gate_scope.EXPLICIT_ONLY):
+        if m not in mods:
+            continue
+        name, folder = mods[m]
+        for cs, txt in sorted(sources.items()):
+            if (root.parent / folder) not in cs.parents:
+                continue
+            for n, _attrs in explicit_gaps(txt):
+                errors.append(f'{rel(cs)}:{n}: {name} is in EXPLICIT_ONLY in Tools/gate_scope.py, so no gate run selects it, and this '
+                              f'test is not [Explicit]: nothing runs it. Mark it [Explicit("...")], or drop "{m}" from EXPLICIT_ONLY.')
     return errors

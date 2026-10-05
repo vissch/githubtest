@@ -43,7 +43,8 @@ from land import INTEGRATION, is_tool  # noqa: E402  (one definition of the inte
 P = 'trench-warfare-3d/Assets/_Project/'
 PREFIX = 'TW.Tests.'
 
-# Assemblies whose every test is [Explicit] (run by name, with a graphics device): no gate run selects them.
+# Assemblies whose every test is [Explicit] (run by name, with a graphics device): no gate run selects them
+# (the `test_modules` check holds every test there to it).
 EXPLICIT_ONLY = {'Stills'}
 
 # The slow modules, and the path prefixes whose change means the module must run.
