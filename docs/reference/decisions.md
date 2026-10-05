@@ -220,10 +220,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
   Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
   infantry, or the look of one faction's infantry; the Cutter as it is.
-- **The crabs' feet (2026-09-28):** `Editor/TankImport.cs` puts a node three levels down out of place by its parent's
-  offset, turned. Measured on the Croaker and fixed for the four new models only. The six walkers carry the same error
-  (their feet, by their shins' offsets, 0.2-0.3 m); `TankModel` and the gait were tuned around it. Putting them right
-  changes six shipped machines and wants its own look in Play.
 - **VFX pass (2026-09-28, loop mode; defaults taken for work only they do not decide, nothing landed on them).**
   From the tw3d-board catalogue (evidence, vfx-run, phase1-catalogue) section 6 (Q1, blood, is answered above):
   Q2 the beam is fire, not an electric lance (default fire: the new FireLance sheet was generated on it); Q3 keep the
