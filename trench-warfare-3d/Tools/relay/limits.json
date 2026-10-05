@@ -12,6 +12,8 @@
   "queue_priority_max": 99,
   "day_queue_rows": 12,
   "day_line_chars": 100,
+  "usage_max_age_seconds": 600,
+  "week_usd": 1830,
   "no_progress_units": 2,
   "max_plan_parts": 4,
   "retro_every_legs": 10,

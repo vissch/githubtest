@@ -27,9 +27,12 @@ class Ledger(unittest.TestCase):
         self.board, self.home, self.n = self.tmp / "board", self.tmp / "home", 0
         self.old = os.environ.get("TW_RELAY_HOME")
         os.environ["TW_RELAY_HOME"] = str(self.home)
+        self.limits = config.limits                         # these tests count in dollars or in measured legs:
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
         self.lim = config.limits()
 
     def tearDown(self):
+        config.limits = self.limits
         os.environ.pop("TW_RELAY_HOME", None) if self.old is None else os.environ.__setitem__("TW_RELAY_HOME", self.old)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
@@ -51,6 +54,99 @@ class Ledger(unittest.TestCase):
         self.assertEqual(ledger.day_of(stamp(1)), day(1))
         for bad in (None, "", "yesterday", 5):
             self.assertIsNone(ledger.day_of(bad))
+
+    def test_with_no_leg_measured_there_is_no_rate_and_the_lines_stay_in_dollars(self):
+        self.leg(8.0)
+        self.assertIsNone(ledger.rate(self.board))
+        self.assertIsNone(ledger.week(ledger.spent(self.board), None))
+        self.assertIsNone(ledger.standing(self.board))
+        self.assertEqual(ledger.one_line(self.board, 50), "Today: $8.00 of $50.00 spent, $42.00 left.")
+        self.assertIn("$8.00 spent of $50.00", ledger.lines(self.board, 50)[0])
+
+    def test_the_rate_is_what_the_measured_legs_used_of_the_week_over_what_they_cost(self):
+        self.leg(4.0, week_used=1.0)
+        self.leg(6.0, week_used=2.0)
+        self.leg(100.0)                                         # not measured: it does not move the rate
+        self.assertAlmostEqual(ledger.rate(self.board), 0.3)
+        for bad in ("1.0", True, -1, None):                     # none of these is a measurement
+            self.leg(50.0, week_used=bad)
+        self.assertAlmostEqual(ledger.rate(self.board), 0.3)
+
+    def test_measured_legs_that_used_nothing_give_no_rate(self):
+        self.leg(4.0, week_used=0.0)
+        self.assertIsNone(ledger.rate(self.board))
+        self.assertEqual(ledger.one_line(self.board, 50), "Today: $4.00 of $50.00 spent, $46.00 left.")
+
+    def test_the_day_is_said_in_percent_of_the_week_once_a_leg_is_measured(self):
+        self.leg(4.0, "plan", unit="a", week_used=0.5)
+        self.leg(6.0, "execute", unit="a", week_used=1.5)       # 2.0 points for $10: 0.2 a dollar
+        self.assertEqual(ledger.week(ledger.spent(self.board), ledger.rate(self.board)), (2.0, 0))
+        self.assertEqual(ledger.one_line(self.board, 50),
+                         "Today: 2.0% of the week used by the relay, 8.0% left of a day's cap of about 10.0%.")
+        self.assertEqual(ledger.one_line(self.board, 0), "Today: 2.0% of the week used by the relay (no day budget).")
+        out = ledger.lines(self.board, 50)
+        self.assertEqual(out[0], "Today %s: 2.0%% of the week used by the relay, the day's cap is about 10.0%%. "
+                                 "2 legs." % day())
+        self.assertEqual(out[1].split(), ["a", "plan", "0.5%", "execute", "1.5%"])
+        self.assertFalse([l for l in out if "$" in l])
+
+    def test_a_leg_that_was_not_measured_is_counted_from_its_cost_and_said_to_be(self):
+        self.leg(10.0, "plan", unit="a", week_used=2.0)         # 0.2 a dollar
+        self.leg(5.0, "execute", unit="a")                      # not measured: 5 * 0.2 = 1.0
+        self.leg(5.0, "plan", unit="b", days_ago=1)             # yesterday, not measured
+        self.assertEqual(ledger.week(ledger.spent(self.board), 0.2), (3.0, 1))
+        self.assertEqual(ledger.one_line(self.board, 50), "Today: 3.0% of the week used by the relay, 7.0% left of a "
+                                                          "day's cap of about 10.0%. 1 of 2 legs estimated from their cost.")
+        out = ledger.lines(self.board, 50)
+        self.assertTrue(out[0].endswith("2 legs, 1 estimated from cost."), out[0])
+        self.assertEqual(out[1].split(), ["a", "plan", "2.0%", "execute", "about", "1.0%"])
+        self.assertEqual(out[-1].split(), [day(1), "about", "1.0%", "1", "leg"])
+
+    def test_the_day_can_be_over_its_cap_and_nothing_is_left_then(self):
+        self.leg(10.0, week_used=2.0)
+        self.assertEqual(ledger.one_line(self.board, 5),
+                         "Today: 2.0% of the week used by the relay, 0.0% left of a day's cap of about 1.0%.")
+
+    def test_where_the_week_stood_is_the_newest_reading_a_leg_left(self):
+        self.leg(1.0, week_start={"at": "2026-10-05T10:00:00Z", "week": 40.0}, week_end=None)
+        self.assertEqual(ledger.standing(self.board)["week"], 40.0)     # a leg that got no reading at its end
+        self.leg(1.0, week_start={"at": "2026-10-05T11:00:00Z", "week": 41.0},
+                 week_end={"at": "2026-10-05T11:30:00Z", "week": 42.5, "resets": "2026-10-08 16:00"})
+        self.leg(1.0)                                           # a newer leg with no reading does not hide it
+        self.assertEqual(ledger.standing(self.board)["week"], 42.5)
+
+    def test_with_no_leg_measured_the_week_is_guessed_from_cost_and_every_line_says_so(self):
+        lim = dict(self.lim, week_usd=1000)                     # a full week taken as $1000: 0.1 points a dollar
+        self.leg(10.0, "plan", unit="a")
+        self.leg(5.0, "plan", unit="b", days_ago=1)
+        self.assertAlmostEqual(ledger.rate(self.board, lim=lim), 0.1)
+        self.assertTrue(ledger.guessed(self.board, lim=lim))
+        self.assertEqual(ledger.one_line(self.board, 50, lim=lim),
+                         "Today: about 1.0% of the week used by the relay, 4.0% left of a day's cap of about 5.0%. "
+                         "A guess: no leg is measured yet, so a full week is taken as $1000 of leg cost.")
+        out = ledger.lines(self.board, 50, lim=lim)
+        self.assertEqual(out[0], "Today %s: about 1.0%% of the week used by the relay, the day's cap is about 5.0%%. "
+                                 "1 leg. A guess: no leg is measured yet, so a full week is taken as $1000 of leg "
+                                 "cost." % day())
+        self.assertEqual(out[1].split(), ["a", "plan", "about", "1.0%"])
+        self.assertEqual(out[-1].split(), [day(1), "about", "0.5%", "1", "leg"])
+
+    def test_one_measured_leg_ends_the_guess(self):
+        lim = dict(self.lim, week_usd=1000)
+        self.leg(10.0, week_used=4.0)                           # measured: 0.4 points a dollar, not the guessed 0.1
+        self.leg(5.0)
+        self.assertAlmostEqual(ledger.rate(self.board, lim=lim), 0.4)
+        self.assertFalse(ledger.guessed(self.board, lim=lim))
+        self.assertEqual(ledger.one_line(self.board, 0, lim=lim),
+                         "Today: 6.0% of the week used by the relay (no day budget). "
+                         "1 of 2 legs estimated from their cost.")
+
+    def test_the_shipped_guess_is_a_week_of_a_plausible_size(self):
+        real = self.limits()                                    # the file as shipped, not this class's no-guess copy
+        self.assertTrue(500 <= real["week_usd"] <= 5000, real["week_usd"])
+        self.leg(18.3)
+        self.assertTrue(ledger.one_line(self.board, 50, lim=real).startswith(
+            "Today: about %.1f%% of the week used by the relay" % (1830.0 / real["week_usd"])))
 
     def test_an_empty_board_has_spent_nothing(self):
         s = ledger.spent(self.board)
