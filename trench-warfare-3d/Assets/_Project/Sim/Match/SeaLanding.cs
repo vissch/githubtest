@@ -57,6 +57,7 @@ namespace TW.Sim.Match
         readonly MapData map;
         NativeArray<float3> ships;              // where each gunboat lies: fixed for the match, hashed with the rest
         BlastSystem blast;
+        bool blastFound;        // resolved on the first Step, not in Initialize: see Step
         NativeArray<byte> team, state, aboard;
         NativeArray<int> timer, nextOut;
         NativeArray<float3> pos;
@@ -91,7 +92,6 @@ namespace TW.Sim.Match
         {
             this.world = world;
             if (map.HasSea) world.SeaLift = this;
-            blast = world.GetSystem<BlastSystem>();          // null without combat: then the fleet only sits there
             ships = new NativeArray<float3>(Ships, Allocator.Persistent);
             for (int k = 0; k < Ships; k++)
             {
@@ -185,6 +185,11 @@ namespace TW.Sim.Match
         public void Step(SimWorld w)
         {
             if (!map.HasSea) return;
+            // lazily, because AddSystem calls Initialize at once and MatchSim registers Blast after Landing:
+            // asking for it there gets null for good. Step order comes from ISimSystem.Order, so the impact still
+            // resolves this tick. Stays null only in a world built without combat. Not hashed: both machines
+            // register the same systems.
+            if (!blastFound) { blast = w.GetSystem<BlastSystem>(); blastFound = true; }
             // a boat comes in with stores whether or not anybody is reinforcing: the shore of a held beach is working
             // day and night, and a sea with nothing on it reads as a painted backdrop
             if (w.Tick >= StoresFirst && w.Tick % StoresEvery == 0)
@@ -252,7 +257,7 @@ namespace TW.Sim.Match
                         timer[i]++;
                         if (--nextOut[i] > 0) break;
                         nextOut[i] = OutTicks;
-                        if (!PutAshore(w, i)) { state[i] = (byte)LandingState.Retracting; timer[i] = 0; }
+                        if (!PutAshore(w, i)) { RefundHold(w, i); state[i] = (byte)LandingState.Retracting; timer[i] = 0; }
                         break;
                     }
 
@@ -266,6 +271,22 @@ namespace TW.Sim.Match
                     }
                 }
                 pos[i] = p;
+            }
+        }
+
+        /// <summary>
+        /// Pays back any man still in the hold when the craft gives up and pulls off (the field was full).
+        /// The hold was paid for at the deploy, so a man who cannot be put ashore is paid back, not lost.
+        /// On the normal path every berth is already 0, so nothing changes there.
+        /// </summary>
+        void RefundHold(SimWorld w, int craft)
+        {
+            for (int b = 0; b < aboard[craft]; b++)
+            {
+                int berth = craft * Berths + b;
+                if (cargoHp[berth] <= 0f) continue;
+                w.Silver[team[craft]] += w.Roster[team[craft] * RosterEntry.SlotCount + cargoSlot[berth]].Cost;
+                cargoHp[berth] = 0f;
             }
         }
 
