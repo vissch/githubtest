@@ -167,5 +167,45 @@ namespace TW.Tests
                 if (m.World.IsAlive(i) && ChassisKind.IsTank(m.World.ChassisOf(m.World.Archetype[i]))) tanks++;
             Assert.AreEqual(1, tanks, "a tank comes ashore off its own boat");
         }
+
+        // [U1] AddSystem calls Initialize at once and MatchSim registers Blast after Landing, so the old code's
+        // `blast = world.GetSystem<BlastSystem>()` in Initialize stayed null for good and the fleet never fired.
+        [Test]
+        public void TheFleetLaysAShellInland()
+        {
+            using var m = Coast();
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            int fired = 0;
+            for (int t = 0; t < SeaLandingSystem.ShipEvery + 5; t++)
+            {
+                m.Step(none);
+                var ev = m.World.Events.Events;                 // the buffer is cleared every tick
+                for (int e = 0; e < ev.Length; e++) if (ev[e].Type == SimEventType.ShipFired) fired++;
+            }
+            Assert.Greater(fired, 0, "the gunboats fire once the match is past the first salvo tick");
+        }
+
+        // [U4] The field was full while the craft unloaded: it retracted and the men still in the hold were lost,
+        // though SimWorld.Deploy had already charged for them.
+        [Test]
+        public void AFullFieldPaysBackTheMenItCouldNotTake()
+        {
+            var cfg = SimConfig.Default;
+            cfg.Seed = 0xC0FFEEu; cfg.StartingSilver = 100000; cfg.SilverPerSecond = 0f; cfg.MaxSlots = 4;
+            var field = BattlefieldParams.ShelledForest(1917);
+            field.Bombardment = 0f;
+            using var m = MatchSim.CreateBattlefield(cfg, field);
+            Deploy(m, 1, 0, 6);                                  // one craft, Berths = 8, so all six go aboard
+            int cost = m.World.Roster[RosterEntry.SlotCount].Cost;
+
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            // no further than tick 450: the fleet's first salvo is at SeaLandingSystem.ShipEvery (460) and a shell
+            // could free a slot and muddy the sum
+            for (int t = 0; t < 450; t++) m.Step(none);
+
+            Assert.AreEqual(4, m.World.AliveCount, "the field holds four and no more");
+
+            Assert.AreEqual(100000 - 4 * cost, m.World.Silver[1], "four landed, the two the full field refused are paid back");
+        }
     }
 }
