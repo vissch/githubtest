@@ -51,7 +51,7 @@ cannot move them.
 | Source | A unit is | Checked by script | Result goes to |
 |---|---|---|---|
 | `pipeline` | a READY, STALE or RECHECK job on the board for this station (`docs/reference/stations.md`); never a master stage | one fresh JPG per band, the lane pushed | the board, written by the runner |
-| `lane` | a committed file `relay/queue/<id>.json` on the board: `id`, `lane`, `role`, `goal`, `done_when` (a command as a list of words) | `done_when` exits 0, the lane pushed | `relay/done/<id>.json` |
+| `lane` | a committed file `relay/queue/<id>.json` on the board: `id`, `lane`, `role`, `goal`, `done_when` (a command as a list of words), and optionally `priority` | `done_when` exits 0, the lane pushed | `relay/done/<id>.json` |
 
 The runner claims and completes pipeline jobs. A leg never does, and never lands.
 
@@ -70,10 +70,13 @@ $R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ..
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
+$R day                                            # one screen: budget, run, queue in its order, what needs the owner
+$R prio <id> <n>                                  # move a queued unit: 0 to 99, the lower runs first (50 when none is set)
 $R hold <who> [--hours 4] [--release]             # one session at a time builds the relay or starts its runs
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
+python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen and the queue's order
 ```
 
 The work checkout is the relay's own worktree (`githubtest-relay-work` on the desktop), switched to each unit's lane
@@ -134,6 +137,19 @@ No leg starts once today's legs cost the day's budget: `day_budget_usd` in `limi
 - `ledger.py` does the sum from this machine's copy of the board, so another station's legs count once the board
   is pulled. `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show
   one line of it.
+
+## The master's screen and the queue's order
+
+`$R day` prints one screen, and reads only: what the day has left, is a run going on this machine or how the newest
+run on the board stopped, the queue in the order the runner takes it with the usual cost of a unit (a usual plan
+plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), and
+who holds the relay build. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
+(100). It reads this machine's copy of the board. The `/master` skill starts every turn from it.
+
+The queue runs by priority, then by name: a queue file may hold `"priority"`, a whole number from 0 to
+`queue_priority_max` (99), and the lower runs first. A unit that names none has `queue_priority` (50).
+`$R prio <id> <n>` writes it and commits the file on the board, mid-run too. It refuses a unit that is done and a
+queue file nobody committed.
 
 ## What stops a run
 

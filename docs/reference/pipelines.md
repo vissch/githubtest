@@ -160,3 +160,5 @@ context. A script picks the work, starts one leg at a time and checks the result
 | `relay/ledger.py` | The day's spend, added up from the leg records on the board; the usual cost of a leg | `python Tools/relay/relay.py budget` |
 | `relay/test_relay.py` | Its tests, with a stand-in for Claude (`relay/fake_claude.py`) | `python Tools/relay/test_relay.py` |
 | `relay/test_ledger.py` | The tests of the day's spend | `python Tools/relay/test_ledger.py` |
+| `relay/day.py` | The master's one screen: budget, run, queue in its order, what needs the owner. Reads only | `python Tools/relay/relay.py day` |
+| `relay/test_day.py` | The tests of that screen and of the queue's order (`relay.py prio`) | `python Tools/relay/test_day.py` |
