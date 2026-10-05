@@ -69,7 +69,11 @@ namespace TW.Sim
         // table's bytes change; VehicleKinematicsSystem drives with momentum (Velocity carries the way from tick to tick),
         // follows the field 3-6 cells ahead before its lane bends it, steers round a hull on its line, and the Breaker charges where the men are. Same
         // inputs, different tracks: a v22 replay does not replay. Layout and chain unchanged.
-        public const ushort FormatVersion = 23;
+        // v24 (2026-10-06, the fleet fires): SeaLanding resolves the blast system when it fires, not at Initialize, so
+        // the fleet's guns actually fire on a coast map (a naval shell, its crater, SimEventType.ShipFired), and a
+        // craft that cannot put its men ashore (the field is full) refunds the hold instead of losing it. Same
+        // inputs, a different battle: a v23 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 24;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
