@@ -38,7 +38,8 @@
 # `unity command` or the MCP server polling it can make Unity log an error inside the run, and an unexpected error
 # log fails whichever test happens to be running. Two signatures are known (both seen 2026-09-25, a different test
 # each run): "Sharing violation on path ...\.unity-pipeline-port" and "Failed to handle /api/exec request". When
-# EVERY failure carries one of them and none carries an assertion (Expected / But was / Assert), the failed tests
+# EVERY failure carries one of them and none carries an assertion (Expected: / But was: / Assert.;
+# Unity's own `LogAssert.Expect` wrapper is not one), the failed tests
 # are rerun once and that verdict stands. A real failure is never retried.
 #
 # The xml is the verdict, not unity's exit code: failures in it, or a run in which nothing passed, fail the suite
@@ -47,7 +48,7 @@ param([switch]$EditOnly, [switch]$All, [string[]]$Module, [switch]$Plan, [switch
 
 $ErrorActionPreference = 'Continue'
 $noise = 'unity-pipeline-port|Failed to handle /api/exec request'
-$assertion = 'Expected|But was|Assert'
+$assertion = 'Expected:|But was:|\bAssert\.'
 
 # How a scoped run tells Unity which tests to run. 'assemblyNames': the editor's own -assemblyNames, passed after `--`.
 # 'filter': the unity CLI's --filter with every class name of the chosen modules. Whichever is set, Check-Suites
@@ -127,9 +128,9 @@ function Run-Tests($mode, $label, [string[]]$first, [string[]]$editor) {
     & $unity test . --mode $mode --timeout $TestTimeout @first @tail | Out-Host
     $code = $LASTEXITCODE
     $verdict = Report-Run $label $code       # the run's results stay in test-results-<label>.xml whatever follows
-    if ($code -ne 8) { return $verdict }
+    if ($code -ne 8 -and $verdict -ne 8) { return $verdict }
     $noiseOnly = Show-Failures 'test-results.xml'
-    if (-not $noiseOnly) { return $code }
+    if (-not $noiseOnly) { return 8 }
     Write-Host "`nEvery failure is external pipeline noise (see the header of gate.ps1). Rerunning the failed tests once." -ForegroundColor Yellow
     Remove-Item 'test-results.xml' -ErrorAction SilentlyContinue
     & $unity test . --mode $mode --timeout $TestTimeout --rerun-failed @tail | Out-Host

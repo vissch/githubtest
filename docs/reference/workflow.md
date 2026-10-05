@@ -241,7 +241,8 @@ Every EditMode test takes about eleven minutes on the desktop; without the Long 
   violation on path ...\.unity-pipeline-port'` or `'[Error] Failed to handle /api/exec request: Main thread
   operation timed out'`. Another session's CLI or the MCP server reached the batch run's pipeline port, and the
   logged error failed whichever test was running (a different one each run, seen twice on 2026-09-25). The gate
-  reruns the failed tests once when every failure is one of these and none is an assertion.
+  reruns the failed tests once when every failure is one of these and none is an assertion (`Expected:`, `But was:`,
+  `Assert.`; the wrapper names `LogAssert.Expect` itself, which does not count).
 - **First run after a Burst job edit** can run managed code and differ from the next run. Every sim job has
   `CompileSynchronously = true`; keep it on new jobs. Rerun before trusting a single determinism failure.
 - **Stale `Library/BurstCache`** after a job struct changes: NullReference or IndexOutOfRange inside Burst jobs.

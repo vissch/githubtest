@@ -635,13 +635,24 @@ how = os.environ.get('TW_FAKE', 'honour')
 suites = ['TW.Tests.PlayMode'] if mode == 'PlayMode' else (asked if asked and how != 'ignore' else every)
 if how == 'fewer':
     suites = suites[:1]
-failed = 1 if how == 'fail' else 0
+# the real wrapper Unity puts round an unexpected log: it holds the word Assert but no assertion of the test's own
+NOISE = (r"Unhandled log message: '[Error] WriteToProjectRoot failed: Sharing violation on path "
+         r"C:\x\Temp\.unity-pipeline-port'. Use UnityEngine.TestTools.LogAssert.Expect")
+fails = []
+if how in ('fail', 'softfail'):
+    fails.append(('X.B', 'Expected: 1 But was: 2'))
+elif how in ('noise', 'mixedfail') and '--rerun-failed' not in a:
+    fails.append(('X.B', NOISE))
+    if how == 'mixedfail':
+        fails.append(('X.C', 'Expected: 3 But was: 4'))
+failed = len(fails)
 cases = ''.join(f'<test-suite type="Assembly" name="{s}.dll"><test-case fullname="{s}.A" result="Passed" duration="4.5"/></test-suite>' for s in suites)
-if failed:
-    cases += '<test-suite type="Assembly" name="X.dll"><test-case fullname="X.B" result="Failed"><failure><message>Expected: 1 But was: 2</message></failure></test-case></test-suite>'
+for name, msg in fails:
+    cases += (f'<test-suite type="Assembly" name="X.dll"><test-case fullname="{name}" result="Failed">'
+              f'<failure><message><![CDATA[{msg}]]></message></failure></test-case></test-suite>')
 open('test-results.xml', 'w').write(f'<test-run total="{len(suites) + failed}" passed="{len(suites)}" failed="{failed}" skipped="0" '
                                     f'result="{"Failed" if failed else "Passed"}">{cases}</test-run>')
-sys.exit(8 if failed else 0)
+sys.exit(0 if how == 'softfail' else (8 if failed else 0))
 '''
 
 
@@ -680,6 +691,15 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
          code == 0 and 'wider than asked' in out and not marker.exists(), out)
     code, out = gate('fail', '-Module', 'Show')
     case('gate: a failed test fails a scoped run (exit 8)', code == 8 and 'FAILED X.B' in out, out)
+    code, out = gate('noise', '-Module', 'Show')
+    case("[G2] a failure that is only Unity's unhandled-log wrapper is rerun once, and the rerun stands",
+         code == 0 and 'external pipeline noise' in out and 'EditMode-scoped-rerun' in out, out)
+    code, out = gate('mixedfail', '-Module', 'Show')
+    case('[G2] a real assertion beside the noise is not rerun',
+         code == 8 and 'Rerunning' not in out and 'FAILED X.C' in out, out)
+    code, out = gate('softfail', '-Module', 'Show')
+    case('[G10] a red xml under unity exit 0 prints the failed tests',
+         code == 8 and 'FAILED X.B' in out and 'though unity exited 0' in out, out)
     code, out = gate('honour', '-Module', 'Nope')
     case('gate: an unknown module runs nothing and is no verdict (exit 6)', code == 6 and 'no test module named Nope' in out, out)
     code, out = gate('honour', '-EditOnly', '-All')
