@@ -7,6 +7,7 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py status           is a run going, on what, and how the last one stopped
   python Tools/relay/relay.py stop [--now]     end the run before its next leg (--now: end the leg too)
   python Tools/relay/relay.py refusals [--runs N]   what the guard refused in the last N runs (default 3)
+  python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work
@@ -23,7 +24,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import boardio, config, gitio, launch, legcmd, legdir, runner   # noqa: E402
+import boardio, config, gitio, launch, ledger, legcmd, legdir, runner   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -149,9 +150,17 @@ def status():
         print("NOT RUNNING." + (" Last run %s: %s (%d legs%s)." % (last["run"], last["reason"], last["legs"],
                                                                  runner.tally(last.get("units") or {}))
                                 if last else " No run yet."))
+    print(ledger.one_line(P.board_dir(), config.limits()["day_budget_usd"]))
     h = holder()
     if h:
         print("The relay build is held by %s until %s (relay.py hold)." % (h["who"], h["until"]))
+    return 0
+
+
+def budget(days):
+    """Today's legs against the day's budget (limits.json day_budget_usd), per unit and phase, then the days before."""
+    for line in ledger.lines(P.board_dir(), config.limits()["day_budget_usd"], max(1, days)):
+        print(line)
     return 0
 
 
@@ -264,6 +273,7 @@ def main(argv=None):
     sub.add_parser("status")
     sub.add_parser("stop").add_argument("--now", action="store_true")
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
+    sub.add_parser("budget").add_argument("--days", type=int, default=8)
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
     p = sub.add_parser("hold")
     p.add_argument("who")
@@ -295,6 +305,8 @@ def main(argv=None):
         return hold(a.who, a.hours, a.release)
     if a.cmd == "refusals":
         return refusals(a.runs)
+    if a.cmd == "budget":
+        return budget(a.days)
     if a.cmd == "add":
         return add(a)
     if a.cmd == "proof":
