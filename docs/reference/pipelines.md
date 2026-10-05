@@ -157,4 +157,6 @@ context. A script picks the work, starts one leg at a time and checks the result
 | `relay/prepush.py` | Git pre-push hook: while a leg holds a checkout, only a forward push of its own lane leaves it | installed by the runner at run start |
 | `relay/legcmd.py` | A leg's close-out: the edit gate detached, then commit and push | `python Tools/relay/relay.py leg gate start` |
 | `relay/sources/` | Where work comes from: `pipeline.py` (board jobs), `lane.py` (queued lane work) | one file per source |
+| `relay/ledger.py` | The day's spend, added up from the leg records on the board; the usual cost of a leg | `python Tools/relay/relay.py budget` |
 | `relay/test_relay.py` | Its tests, with a stand-in for Claude (`relay/fake_claude.py`) | `python Tools/relay/test_relay.py` |
+| `relay/test_ledger.py` | The tests of the day's spend | `python Tools/relay/test_ledger.py` |

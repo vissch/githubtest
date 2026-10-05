@@ -24,6 +24,7 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay start` | `$R run --work $WORK --who <your session name> --hours <H> [--max-legs N] [--sources pipeline,lane]` in the background | say it started and what it took; report the `STOP:` line when it ends |
 | `/relay status` | `$R status` | one or two lines: who started it, the units so far |
 | `/relay refusals` | `$R refusals` | name any refusal that was normal work: it needs a rule fix and a test |
+| `/relay budget` | `$R budget` | one line: what today's legs cost, of how much, and what is left |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too) | confirm with `$R status` |
 | `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
@@ -34,6 +35,9 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
   two legs is one unit (plan, execute), so leave it off for a long run.
 - `--view` opens a Windows Terminal tab per leg with its output. It needs a desktop: from a Claude session (no
   window) it does nothing, so give the owner the command to run in a normal terminal.
+- The day has a budget (`limits.json` `day_budget_usd`, 50; `docs/reference/relay.md`): no unit starts once
+  today's legs cost that much, and the run stops saying so. `--day-budget <n>` sets another number for one run;
+  use it only when the owner names the number.
 - A leg with an edit gate takes 30 minutes or more. Do not poll: the runner ends with one `STOP:` line.
 - `done_when` for `/relay add` is a command that exits 0 when the work is there, as words, not one string. No shell.
 - The runner stops on anything it cannot trust. Read the `STOP:` line and the last file under

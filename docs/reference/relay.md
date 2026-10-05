@@ -61,6 +61,7 @@ The runner claims and completes pipeline jobs. A leg never does, and never lands
 R="python trench-warfare-3d/Tools/relay/relay.py"
 $R run --work <work checkout> --dry-run           # say what it would take; start nothing
 $R run --work <work checkout> [--hours 3] [--max-legs N] [--sources pipeline,lane] [--leg-minutes 90]
+$R run --work <work checkout> --day-budget 20     # today's legs may cost this much (default: limits.json, 50)
 $R run --work <work checkout> --view              # also open a Windows Terminal tab per leg that shows its output
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
@@ -68,9 +69,11 @@ $R stop [--now]                                   # end before the next leg (--n
 $R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ...
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
+$R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
 $R hold <who> [--hours 4] [--release]             # one session at a time builds the relay or starts its runs
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
+python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
 ```
 
 The work checkout is the relay's own worktree (`githubtest-relay-work` on the desktop), switched to each unit's lane
@@ -112,9 +115,29 @@ A hook measures the context after every tool batch. At amber (240k tokens) the l
 start the gate. At red (300k) only the close-out works: `git status/diff/log`, the handoff note, and the `leg` commands.
 Automatic compaction is blocked; a leg that reaches it ends the run.
 
+## The day's budget
+
+No leg starts once today's legs cost the day's budget: `day_budget_usd` in `limits.json`, 50, and 0 switches it off.
+`--day-budget` on `run` outranks the file, inside the bounds 0 to 500. A retrospective cannot move it.
+
+- What is counted: the cost Claude prints per leg (`total_cost_usd`), kept in the leg record on the board as
+  `cost_usd`, for every leg started that local day on every station. On a plan login it is not money: it is the
+  yardstick. The owner's own sessions are not counted.
+- A leg whose record holds no cost (it was killed, or an older relay wrote it) takes it from its leg folder on this
+  machine, else it counts at the usual cost of its phase and is marked estimated.
+- The usual cost of a leg is the median of the newest `price_legs` (200) records with a known cost: legs of the
+  same phase, model and effort when there are three or more, else legs of the phase, else every leg, else
+  `usual_leg_usd` (3).
+- No unit starts unless what is left covers a usual plan plus a usual execute. No leg starts unless it covers that
+  leg's usual cost. A leg may spend the smaller of `leg_budget_usd` and what is left; a leg that ends on that cap
+  stops the run.
+- `ledger.py` does the sum from this machine's copy of the board, so another station's legs count once the board
+  is pulled. `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show
+  one line of it.
+
 ## What stops a run
 
-The time is up (`--hours`, 0.25 to 12), the leg cap, nothing left to do, the owner's `stop`, a work checkout that is
+The time is up (`--hours`, 0.25 to 12), the leg cap, the day's budget (above), nothing left to do, the owner's `stop`, a work checkout that is
 missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
 record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside
