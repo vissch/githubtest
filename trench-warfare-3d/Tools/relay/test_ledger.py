@@ -141,6 +141,14 @@ class Ledger(unittest.TestCase):
         self.assertEqual(ledger.one_line(self.board, 5), "Today: $8.00 of $5.00 spent, $0.00 left.")
         self.assertEqual(ledger.one_line(self.board, 50), "Today: $8.00 of $50.00 spent, $42.00 left.")
 
+    def test_the_one_line_says_how_many_legs_are_counted_at_the_usual_cost(self):
+        self.leg(8)
+        self.leg(None)
+        self.assertEqual(ledger.one_line(self.board, 50),
+                         "Today: $16.00 of $50.00 spent, $34.00 left. 1 of 2 legs counted at the usual cost.")
+        self.assertEqual(ledger.one_line(self.board, 0),
+                         "Today: $16.00 spent (no day budget). 1 of 2 legs counted at the usual cost.")
+
 
 class Settings(unittest.TestCase):
     def test_the_day_budget_ships_at_50_and_a_flag_is_held_to_its_bounds(self):

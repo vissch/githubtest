@@ -137,7 +137,7 @@ class Run:
         if left <= 0:
             return "the day's budget is spent ($%.2f of $%.2f)" % (budget - left, budget)
         price = ledger.usuals(self.board, lim=self.lim)
-        need = sum(price(p, self.ph.get(p, {}).get("model"), self.ph.get(p, {}).get("effort")) for p in phases)
+        need = ledger.need(price, self.ph, phases)
         if left < need:
             return ("the day's budget has $%.2f left of $%.2f, and %s usually costs $%.2f"
                     % (left, budget, "a %s leg" % phases[0] if len(phases) == 1 else "a unit", need))
