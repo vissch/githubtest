@@ -55,8 +55,10 @@ namespace TW.Editor
         static void OnPlay(PlayModeStateChange c)
         {
             if (c != PlayModeStateChange.EnteredPlayMode) return;
-            string r = SessionState.GetString(Request, null);
-            if (r == null) return;
+            // "" and not null: SessionState hands back an empty string for a key nobody set, whatever default is passed,
+            // so every ordinary Play started a study with no out dir and logged two errors (seen 2026-10-05)
+            string r = SessionState.GetString(Request, "");
+            if (string.IsNullOrEmpty(r) || r.IndexOf('|') < 0) return;
             SessionState.EraseString(Request);
             var h = Object.FindFirstObjectByType<SimHost>();
             if (h == null) { Debug.LogError("MachineStudy: no SimHost"); EditorApplication.Exit(1); return; }
