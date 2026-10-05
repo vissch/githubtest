@@ -73,7 +73,13 @@ namespace TW.Sim
         // the fleet's guns actually fire on a coast map (a naval shell, its crater, SimEventType.ShipFired), and a
         // craft that cannot put its men ashore (the field is full) refunds the hold instead of losing it. Same
         // inputs, a different battle: a v23 replay does not replay. Layout and chain unchanged.
-        public const ushort FormatVersion = 24;
+        // v25 (2026-10-06, the leap lands safely): a man in the air is really out of the fight. LeapSystem owns the
+        // Airborne clear (MoveJob no longer clears it on touchdown), so the landing grace holds for
+        // LandingGraceTicks; his own landing burst, mines, blast, ground fire and gas no longer reach him while he
+        // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
+        // Same inputs, a different battle (he keeps his hp and joins the line later): a v24 replay does not replay.
+        // Layout and chain unchanged.
+        public const ushort FormatVersion = 25;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
