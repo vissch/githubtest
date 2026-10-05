@@ -71,12 +71,15 @@ $R view <leg folder> [--follow]                   # a leg's output as readable l
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
 $R day                                            # one screen: budget, run, queue in its order, what needs the owner
+$R usage                                          # where the plan's week stands, from the newest reading on this machine
+$R usage put [--statusline]                       # keep a reading given on stdin as JSON (see "The day in percent")
 $R prio <id> <n>                                  # move a queued unit: 0 to 99, the lower runs first (50 when none is set)
 $R hold <who> [--hours 4] [--release]             # one session at a time builds the relay or starts its runs
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
 python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen and the queue's order
+python trench-warfare-3d/Tools/relay/test_usage.py   # the tests of the weekly-limit readings
 ```
 
 The work checkout is the relay's own worktree (`githubtest-relay-work` on the desktop), switched to each unit's lane
@@ -137,6 +140,40 @@ No leg starts once today's legs cost the day's budget: `day_budget_usd` in `limi
 - `ledger.py` does the sum from this machine's copy of the board, so another station's legs count once the board
   is pulled. `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show
   one line of it.
+
+## The day in percent of the week
+
+The owner reads the day in percent of the plan's weekly limit, not in dollars. The dollar figure stays underneath:
+it is what the runner's stop rules above count in, because it is known for every leg.
+
+- **A reading** is how much of the week is used, 0 to 100, with the time the week starts over. `usage.py` keeps the
+  newest one in a file in the relay's home on that machine (not in the repo). It calls nobody and reads no login: a source
+  hands the reading in through `$R usage put`.
+- **Sources.** `$R usage put --statusline` is a Claude Code status line command: it takes the status line's input,
+  keeps `rate_limits.seven_day`, and prints `week 41%`. A status line only runs in a terminal session, so it feeds
+  readings only while one is open on that machine. `$R usage put` also takes the answer of the usage call behind
+  Claude Code's own `/usage` screen (`seven_day.utilization`). **Nothing in the repo makes that call yet.** When a
+  caller is added it calls at most once in five minutes (the owner's rule, `decisions.md` 2026-10-05).
+- **A leg is measured** when a reading no older than `usage_max_age_seconds` (600) is there as it starts and a
+  newer one as it ends. Its record then holds `week_start`, `week_end` and `week_used` (percent points). The
+  figure is the whole account's: a session of the owner's that works while the leg runs is counted into the leg.
+- **A leg that is not measured** is counted from its cost, at the rate the measured legs show: what the newest
+  `price_legs` measured legs used of the week over what they cost. Such a figure is marked `about`, and the lines
+  say how many legs are estimated.
+- **Until one leg is measured** the rate is a guess: a full week is taken as `week_usd` dollars of leg cost
+  (`limits.json`, 1830), so one dollar is about 0.055 points and a $50 day about 2.7% of the week. Every line then
+  says `about` and ends on "A guess: ...". The first measured leg replaces the guess. `week_usd` 0 switches the
+  guess off, and the lines stay in dollars until a leg is measured.
+- **Where 1830 comes from.** Anthropic publishes no figure. People who ran into the weekly limit and priced their
+  own usage at API list prices report, for Max 20x, about $1,830 (one user, late September 2026) and $1,740 to
+  $2,200 (another, August 2026), and for Max 5x about $1,170 (October 2026). The owner's plan is Max 20x
+  (`decisions.md` 2026-10-06), so 1830 it is; on Max 5x the figures would be about 1.6 times higher (1170).
+  The limit is also metered in Anthropic's own units and has been moved by promotions, so read a guessed figure as
+  right to within a factor of two, not to the decimal.
+- `$R day`, `$R budget`, `$R status` and the `STOP:` line say the day, each unit, the queue and the day's cap in
+  percent whenever there is a rate, measured or guessed.
+- `$R day` also says where the week stands: from a reading on this machine that is new enough, else from the
+  newest one a leg left on the board, with its time. With neither, the line is left out.
 
 ## The master's screen and the queue's order
 

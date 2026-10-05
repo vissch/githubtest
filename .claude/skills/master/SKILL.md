@@ -22,11 +22,14 @@ Run `$R day` before you answer anything. It prints, from the board and this mach
 
 | Line | Says |
 |---|---|
-| `Today: ...` | what today's legs cost against the day's budget, and what is left |
+| `Today: ...` | what today's legs used of the plan's weekly limit, in percent, against the day's cap: measured, or guessed from cost while no leg is measured |
+| `Week: ...` | where the plan's week stands and when it starts over; left out when nothing has read it |
 | `Run going: ...` or `No run going. Last run ...` | is a run going here, else how the newest run on the board stopped (`It stopped: ...`) |
 | `Queue: ...` and its rows | what is queued, in the order the runner takes it, with the usual cost |
 | `Needs you: ...` | units that did not pass, and queue files the runner will not take |
 | `The relay build is held by ...` | who holds the relay now |
+
+Say the day in percent of the week, as the lines do, and keep their `about` and `estimated`: those figures are counted from cost, not measured. When the line ends on "A guess: ...", say once that the percent is a guess from cost (a full week taken as the dollars in `limits.json` `week_usd`) and may be off by a factor of two. Never turn dollars into percent yourself (`docs/reference/relay.md`, "The day in percent of the week").
 
 Answer from those lines. Do not guess what a run did: for more, `$R status`, `$R budget`, `$R refusals`, and the
 newest file under `tw3d-board/relay/<station>/stops/`.
