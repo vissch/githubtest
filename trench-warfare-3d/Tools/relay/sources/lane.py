@@ -1,9 +1,11 @@
 """Source: free lane work the owner queued on the board, one file per unit:
 
   <board>/relay/queue/<id>.json   {"id" (= the file name), "lane", "role", "goal" (the owner's words),
-                                   "done_when": ["program", "arg", ...]  (run in the checkout; exit 0 = done)}
+                                   "done_when": ["program", "arg", ...]  (run in the checkout; exit 0 = done),
+                                   "priority": 0 to 99, optional (relay.py prio): the lower runs first}
   <board>/relay/done/<id>.json    written by the runner when done_when passes; a unit with one is never picked again
   <board>/relay/notes/<id>.md     the last leg's handoff note, when the unit is not done yet
+The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
 This is the only source with a handoff note: its state is not on the board or in a ledger. The note reaches the next
 run's legs on the card, with each of its predictions scored hit or miss by script.
 """
@@ -36,7 +38,16 @@ def load(p):
         raise SystemExit("relay: %s: %s is not a lane/sim or lane/show lane" % (p.name, u["lane"]))
     if not isinstance(u["done_when"], list) or not all(isinstance(w, str) for w in u["done_when"]):
         raise SystemExit('relay: %s: done_when must be a list of words, e.g. ["python", "Tools/x.py", "--check"]' % p.name)
+    pr, top = u.get("priority"), config.limits()["queue_priority_max"]
+    if pr is not None and (not isinstance(pr, int) or isinstance(pr, bool) or not 0 <= pr <= top):
+        raise SystemExit("relay: %s: priority must be a whole number from 0 to %d (the lower runs first)" % (p.name, top))
     return u
+
+
+def priority_of(u, lim=None):
+    """A unit's place in the queue: the lower runs first. A unit that names none has limits.json queue_priority."""
+    pr = u.get("priority") if isinstance(u, dict) else None
+    return pr if isinstance(pr, int) and not isinstance(pr, bool) else (lim or config.limits())["queue_priority"]
 
 
 def trusted(board, p):
@@ -48,12 +59,29 @@ def trusted(board, p):
     return tracked and not gitio.git(["status", "--porcelain", "--", rel], board)
 
 
+def files(board):
+    """(the queue files the runner may take, in its order: priority, then name; the files it skips because nobody
+    committed them). A file that cannot be read sorts as one with no priority: load() says what is wrong with it
+    when its turn comes, as before."""
+    root, ok, skipped, lim = Path(board) / "relay" / "queue", [], [], config.limits()
+    for p in sorted(root.glob("*.json")) if root.is_dir() else []:
+        (ok if trusted(board, p) else skipped).append(p)    # asked first: a file nobody committed is not even read
+
+    def place(p):
+        try:
+            u = read_json(p)
+        except (OSError, ValueError):
+            u = None
+        return priority_of(u, lim), p.name
+    return sorted(ok, key=place), skipped
+
+
 def next(ctx):
     root = Path(ctx["board"]) / "relay"
-    for p in sorted((root / "queue").glob("*.json")) if (root / "queue").is_dir() else []:
-        if not trusted(ctx["board"], p):                # asked first: a file nobody committed is not even read
-            print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
-            continue
+    ok, skipped = files(ctx["board"])
+    for p in skipped:
+        print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
+    for p in ok:
         u = load(p)
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue

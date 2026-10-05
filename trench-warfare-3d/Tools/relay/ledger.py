@@ -3,6 +3,7 @@
 
   spent(board, day)         what the legs started that local day cost: {day, usd, legs, estimated, units}
   usual(board, phase, ..)   the usual cost of one leg of a phase: the median of the newest legs with a known cost
+  need(price, ph, phases)   the usual cost of legs of these phases together (a unit: plan and execute)
   history(board, days)      [{day, usd, legs, estimated}] for the last days, oldest first
 Cost is the figure Claude prints per leg (total_cost_usd): it weighs the model, and cached reads count little. On a
 plan login it is not money, it is the yardstick the day's budget (limits.json day_budget_usd) is counted in.
@@ -96,6 +97,12 @@ def usual(board, phase, model=None, effort=None, home=None, lim=None):
     return usuals(board, home, lim)(phase, model, effort)
 
 
+def need(price, ph, phases):
+    """The usual cost of one leg of each of these phases together, each at the model and effort phases.json (ph)
+    gives it. price is what usuals() returned."""
+    return sum(price(p, ph.get(p, {}).get("model"), ph.get(p, {}).get("effort")) for p in phases)
+
+
 def _days(board, since, home, lim):
     """{day: {day, usd, legs, estimated, units: {unit: {phase: usd}}}} for the legs started on since or later."""
     out, price = {}, None
@@ -149,8 +156,10 @@ def lines(board, budget, days=7, home=None, lim=None):
 
 
 def one_line(board, budget, home=None, lim=None):
-    """One line for `relay.py status` and the stop line."""
+    """One line for `relay.py status`, `relay.py day` and the stop line. It says so when legs are counted at
+    the usual cost, not their own."""
     now = spent(board, None, home, lim)
+    est = " %d of %d legs counted at the usual cost." % (now["estimated"], now["legs"]) if now["estimated"] else ""
     if not budget:
-        return "Today: $%.2f spent (no day budget)." % now["usd"]
-    return "Today: $%.2f of $%.2f spent, $%.2f left." % (now["usd"], budget, max(0.0, budget - now["usd"]))
+        return "Today: $%.2f spent (no day budget).%s" % (now["usd"], est)
+    return "Today: $%.2f of $%.2f spent, $%.2f left.%s" % (now["usd"], budget, max(0.0, budget - now["usd"]), est)

@@ -8,6 +8,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py stop [--now]     end the run before its next leg (--now: end the leg too)
   python Tools/relay/relay.py refusals [--runs N]   what the guard refused in the last N runs (default 3)
   python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
+  python Tools/relay/relay.py day              one screen: the budget, the run, the queue in its order, what needs the owner
+  python Tools/relay/relay.py prio <id> <n>    move a queued unit: 0 to 99, the lower runs first (50 when none is set)
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work
@@ -24,7 +26,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import boardio, config, gitio, launch, ledger, legcmd, legdir, runner   # noqa: E402
+import boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -123,10 +125,7 @@ def proof(name):
 def status():
     """Plain lines: the run that holds a checkout now (unit, leg, minutes), else how the last run stopped."""
     home, live = legdir.home(), 0
-    for f in sorted((home / "locks").glob("*.json")) if (home / "locks").is_dir() else []:
-        rec = P.read_json(f)
-        if P.proc_start(rec["pid"]) != rec["pid_start"]:
-            continue
+    for rec in day.live(home):
         live += 1
         run = rec["who"].split()[1] if len(rec["who"].split()) > 1 else ""
         legs = sorted((home / "runs" / run / "legs").glob("*/leg.json")) if run else []
@@ -160,6 +159,13 @@ def status():
 def budget(days):
     """Today's legs against the day's budget (limits.json day_budget_usd), per unit and phase, then the days before."""
     for line in ledger.lines(P.board_dir(), config.limits()["day_budget_usd"], max(1, days)):
+        print(line)
+    return 0
+
+
+def day_screen():
+    """One screen for the master and the owner (day.py): reads only."""
+    for line in day.lines(P.board_dir(), legdir.home(), config.limits(), config.phases(), holder()):
         print(line)
     return 0
 
@@ -234,10 +240,8 @@ def update(ref):
     """Move the frozen copy of the relay (a detached checkout that only runs it) to a commit. Refused while a run
     is going, in a checkout that is on a branch (that one is for building), and over uncommitted changes."""
     home = legdir.home()
-    for f in sorted((home / "locks").glob("*.json")) if (home / "locks").is_dir() else []:
-        rec = P.read_json(f)
-        if P.proc_start(rec["pid"]) == rec["pid_start"]:
-            raise SystemExit("relay: a run is going (%s): update after it stops" % rec["who"])
+    for rec in day.live(home):
+        raise SystemExit("relay: a run is going (%s): update after it stops" % rec["who"])
     if gitio.git(["rev-parse", "--abbrev-ref", "HEAD"], HERE) != "HEAD":
         raise SystemExit("relay: this checkout is on a branch (%s): it is for building. Update the frozen copy, "
                          "githubtest-relay-run" % gitio.git(["rev-parse", "--abbrev-ref", "HEAD"], HERE))
@@ -265,6 +269,31 @@ def add(a):
     return 0
 
 
+def prio(uid, n):
+    """Move one queued unit: write its priority (the lower runs first) and commit the file on the board, which is
+    the only kind the runner trusts. Refused for a file nobody committed: committing it here would let a leg's
+    own file into the queue."""
+    board = P.board_dir()
+    p = board / "relay" / "queue" / (uid + ".json")
+    if not p.exists():
+        raise SystemExit("relay: nothing is queued as %s" % uid)
+    if not lane_source.trusted(board, p):
+        raise SystemExit("relay: %s is not committed on the board: nobody but a leg may have written it" % p.name)
+    unit = lane_source.load(p)
+    if (board / "relay" / "done" / (uid + ".json")).exists():
+        raise SystemExit("relay: %s is done already" % uid)
+    before = p.read_bytes()
+    P.write_json(p, dict(unit, priority=n))
+    try:
+        lane_source.load(p)
+    except SystemExit:
+        p.write_bytes(before)
+        raise
+    print("%s now has priority %d (the lower runs first). Board: %s."
+          % (uid, n, boardio.push(board, "relay: priority %s %d" % (uid, n))))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="relay.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -274,6 +303,10 @@ def main(argv=None):
     sub.add_parser("stop").add_argument("--now", action="store_true")
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
     sub.add_parser("budget").add_argument("--days", type=int, default=8)
+    sub.add_parser("day")
+    p = sub.add_parser("prio")
+    p.add_argument("id")
+    p.add_argument("n", type=int)
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
     p = sub.add_parser("hold")
     p.add_argument("who")
@@ -307,6 +340,10 @@ def main(argv=None):
         return refusals(a.runs)
     if a.cmd == "budget":
         return budget(a.days)
+    if a.cmd == "day":
+        return day_screen()
+    if a.cmd == "prio":
+        return prio(a.id, a.n)
     if a.cmd == "add":
         return add(a)
     if a.cmd == "proof":
