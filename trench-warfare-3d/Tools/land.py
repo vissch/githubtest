@@ -132,6 +132,9 @@ def main():
         tree = git('rev-parse', 'HEAD^{tree}', check=True)[1]
         marker = Path(git('rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green', check=True)[1])
         green = marker.read_text(encoding='utf-8').split() if marker.exists() else []
+        if green and green[0].startswith('stand-in:'):
+            refuse('the last green full gate ran with TW_GATE_UNITY set, so a stand-in tested the gate itself, not '
+                   'the game. Run the full gate with the real Unity (unset TW_GATE_UNITY), then land.')
         if not green or green[0] != tree:
             seen = f'the last green full gate tested tree {green[0][:10]} ({" ".join(green[1:])})' if green else \
                 'no full gate has gone green in this checkout'

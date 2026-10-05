@@ -208,7 +208,10 @@ with the merge-base on origin's integration branch, so a lane that touched the s
 Every other module always runs. The rule is `NEEDS` in Tools/gate_scope.py, and `validate.py` (the `test_modules`
 check) fails when a slow module could reach code the rule does not watch. The first line of the gate says what it
 skips and why. A scoped run keeps its results in `test-results-EditMode-scoped.xml`, is no verdict (exit 6) unless
-they hold every assembly it asked for, and never counts for landing: only the full gate records a tree.
+they hold every assembly it asked for, and never counts for landing: only the full gate records a tree. The full run
+checks its results against the module list too (`gate_scope.py --all`), and when it cannot get that list it stays
+green but records no tree. A run with `TW_GATE_UNITY` set (a stand-in for Unity, for `Tools/selftest.py`) writes a
+marker token `land.py` refuses by name.
 
 **The Long tier.** A test that takes over 3 s carries `[Category("Long")]` (`[Test, Category("Long")]`): 47 sim and
 match tests on 2026-10-04, two thirds of the run time, most of the determinism and whole-battle tests among them.
@@ -221,7 +224,7 @@ belongs to the lane of the code it tests, so tag a sim test on a SIM lane.
 |---|---|
 | 0 | green |
 | 8 | a test failed (the xml decides, even if unity exited 0); each failed test is printed with its message |
-| 6 | no verdict: compile error, licence, a suite in which no test ran or none passed, an unknown `-Module`, or a scoped run whose results miss an assembly it asked for. Not a pass |
+| 6 | no verdict: compile error, licence, a suite in which no test ran or none passed, an unknown `-Module`, or a run whose results miss an assembly the module list holds. Not a pass |
 | 5 | validate.py failed (on a lane that changes a tool: `toolcheck.py`, which says which part); its lines are printed (`codemap:` lines are docs that no longer match the code) |
 | 3 | the checkout is held by an editor or another batch run |
 | 1 | unity.exe is missing |

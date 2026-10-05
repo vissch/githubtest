@@ -15,14 +15,16 @@
 #
 # A green FULL run records the tree it tested (the working tree as it would be committed, untracked files included)
 # in tw-gate-green in this checkout's git dir. Tools/land.py lands code only when HEAD is exactly that tree. The tree
-# is taken before the tests and again after; if anything changed in between, nothing is recorded.
+# is taken before the tests and again after; if anything changed in between, nothing is recorded. With TW_GATE_UNITY
+# set (a stand-in for Unity) the marker carries a stand-in: token, which Tools/land.py refuses by name.
 #
 # SCOPE. The EditMode tests are one assembly per module (Assets/_Project/Tests/<Module>), and the sim and match tests
 # are nearly all of the run time. -EditOnly asks Tools/gate_scope.py which modules the lane's changes can reach (the
 # working tree against the merge-base with origin's integration branch) and skips a slow module only when none can;
 # the rule is in that file and deny-by-default. A scoped run never writes tw-gate-green, keeps its results apart
 # (test-results-EditMode-scoped.xml) so the last full run's counts stay readable, and is no verdict unless the results
-# hold every assembly that was asked for. The full run is never scoped.
+# hold every assembly that was asked for. The full run is never scoped: it asks for the whole module list and is no
+# verdict unless its results hold it too; without that list it stays green but records no tree.
 #
 # THE LONG TIER. A test over 3 s carries [Category("Long")] (47 sim and match tests, two thirds of the run time). Every
 # -EditOnly run leaves them out (-testCategory "!Long") unless -Long is given, so the run before a commit stays under
@@ -163,16 +165,16 @@ function Get-Scope([string[]]$scopeArgs) {
 # A scoped run is a verdict only when the results hold every assembly that was asked for and has tests. Fewer: the
 # selection did not do what the gate thinks (exit 6). More: Unity ignored the selection and ran a wider set, which
 # tested at least as much, so the verdict stands and the line says so.
-function Check-Suites($xmlPath, [string[]]$expected) {
+function Check-Suites($xmlPath, [string[]]$expected, [bool]$scopedRun) {
     [xml]$x = Get-Content $xmlPath -Raw
     $ran = @($x.SelectNodes('//test-suite[@type="Assembly"]') | ForEach-Object { $_.name -replace '\.dll$', '' })
     $missing = @($expected | Where-Object { $ran -notcontains $_ })
     if ($missing.Count) {
-        Write-Host "The results hold no tests from $($missing -join ', ') (they hold: $($ran -join ', ')). The selection did not run what was asked: not a verdict. Run gate.ps1 -EditOnly -All." -ForegroundColor Red
+        Write-Host "The results hold no tests from $($missing -join ', ') (they hold: $($ran -join ', ')). The selection did not run what was asked: not a verdict.$(if ($scopedRun) { ' Run gate.ps1 -EditOnly -All.' })" -ForegroundColor Red
         return 6
     }
     $more = @($ran | Where-Object { $expected -notcontains $_ })
-    if ($more.Count) { Write-Host "Unity also ran $($more -join ', '): the selection was not applied, so this run was wider than asked." -ForegroundColor Yellow }
+    if ($more.Count -and $scopedRun) { Write-Host "Unity also ran $($more -join ', '): the selection was not applied, so this run was wider than asked." -ForegroundColor Yellow }
     return 0
 }
 
@@ -214,6 +216,14 @@ try {
             }
         }
     } elseif ($EditOnly) { $note = 'every module (-All)' }
+    # The full run checks its results against the module list too: a module missing from them is no verdict. Without
+    # the list the run still stands, but it records no tree (there is nothing to check the results against).
+    $listed = $true
+    if ($fullRun) {
+        $f = Get-Scope @('--all')
+        if ($f.code -eq 0 -and $f.expect) { $expected = @($f.expect -split ';' | Where-Object { $_ }) }
+        else { $listed = $false; Write-Host "Tools/gate_scope.py did not list the modules: the results are not checked against it, and no tree is recorded." -ForegroundColor Yellow }
+    }
     $label = if ($scoped) { 'EditMode-scoped' } else { 'EditMode' }
     $skipLong = $EditOnly -and -not $Long
     if ($skipLong) { $editor += @('-testCategory', '!Long'); $note += '; the Long tests left out (-Long runs them)' }
@@ -245,7 +255,7 @@ try {
     $clock = [Diagnostics.Stopwatch]::StartNew()
     $edit = Run-Tests 'EditMode' $label $first $editor
     $editSeconds = [int]$clock.Elapsed.TotalSeconds
-    if ($edit -eq 0 -and $scoped) { $edit = Check-Suites "test-results-$label.xml" $expected }
+    if ($edit -eq 0 -and $expected.Count) { $edit = Check-Suites "test-results-$label.xml" $expected $scoped }
     if ($edit -ne 0) { Write-Host (Explain $edit) -ForegroundColor Red; exit $edit }
     if ($skipLong) { Report-Budget "test-results-$label.xml" $editSeconds (-not $scoped) }
 
@@ -262,9 +272,12 @@ try {
     # record the tree only if it is the one the tests started on: an edit during the run was never tested
     $tree = Working-Tree
     $marker = git -C $PSScriptRoot rev-parse --path-format=absolute --git-path tw-gate-green
-    if ($fullRun -and -not $scoped -and $null -ne $tree -and $tree -eq $treeBefore) {
-        Set-Content -Path $marker -Value "$tree $(Get-Date -Format s)" -Encoding ascii
-        Write-Host "`nGate green. Tested tree $($tree.Substring(0, 10)): commit exactly this and Tools/land.py will land it." -ForegroundColor Green
+    if ($fullRun -and -not $scoped -and $listed -and $null -ne $tree -and $tree -eq $treeBefore) {
+        # a stand-in Unity tested the gate, not the game: the token makes Tools/land.py refuse this marker by name
+        $tok = if ($env:TW_GATE_UNITY) { 'stand-in:' } else { '' }
+        Set-Content -Path $marker -Value "$tok$tree $(Get-Date -Format s)" -Encoding ascii
+        if ($tok) { Write-Host "`nGate green, but a stand-in Unity ran it (TW_GATE_UNITY): the marker says so and Tools/land.py will refuse it." -ForegroundColor Yellow }
+        else { Write-Host "`nGate green. Tested tree $($tree.Substring(0, 10)): commit exactly this and Tools/land.py will land it." -ForegroundColor Green }
     } else {
         Write-Host "`nGate green, but the files changed during the run (or git could not read them), so no tree is recorded for Tools/land.py. Gate again." -ForegroundColor Yellow
     }

@@ -19,10 +19,12 @@ changed (or whose lines the other side changed in one of two identical copies) g
 counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
 a sim file, a build input, an unknown folder, a file moved out of Sim/ and a missing integration ref all run everything.
 gate.ps1, with a stand-in for Unity that writes canned results: a scoped run is green only when its results hold every
-assembly it asked for, keeps its results apart and never records a tree; only the full run records one; a run before
+assembly it asked for, keeps its results apart and never records a tree; only the full run records one, it is no
+verdict when its results miss a module the list holds, and under the stand-in its marker says so; a run before
 a commit leaves the Long tests out, says how long it took and, over its budget, which tests to tag; a lane that
 changes a tool gets toolcheck.py in place of validate.py. land.py runs toolcheck.py for such a lane, with or without
-code in it, and refuses on a red tool test; a second run still refuses when someone pushed to the lane, the
+code in it, and refuses on a red tool test; it refuses a marker a stand-in Unity wrote; a second run still refuses
+when someone pushed to the lane, the
 SHOW-carries-SIM refusal names the commits, and a non-ASCII path counts as code.
 """
 import pathlib
@@ -436,6 +438,16 @@ def land_cases(tmp: pathlib.Path):
     code, out = land()
     case('land.py lands code whose exact tree went green', code == 0 and head(f'origin/{integ}') == head('HEAD'), out)
 
+    (proj / 'Code.cs').write_text('class C { int y; }\n'); g('commit', '-qam', 'stand-in gate')
+    marker.write_text('stand-in:' + head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    code, out = land()
+    case('[G3] land.py refuses a marker a stand-in Unity wrote (TW_GATE_UNITY)',
+         code == 1 and 'stand-in' in out and head(f'origin/{integ}') != head('HEAD'), out)
+    marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
+    code, out = land()
+    case('land.py lands that same commit once the real gate has gone green on it',
+         code == 0 and head(f'origin/{integ}') == head('HEAD'), out)
+
     sim = proj / 'Assets/_Project/Sim'
     sim.mkdir(parents=True); (sim / 'S.cs').write_text('class S {}\n'); g('add', '.'); g('commit', '-qm', 'sim on show')
     marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
@@ -723,7 +735,12 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
     code, out = gate('honour')
     tree = run(['git', 'rev-parse', 'HEAD^{tree}'], wt)[1].strip()
     case('gate: only the full run records the tree it tested, for land.py, and it leaves no test out',
-         code == 0 and marker.exists() and marker.read_text().split()[0] == tree and '-testCategory' not in out, out)
+         code == 0 and marker.exists() and marker.read_text().split()[0].endswith(tree) and '-testCategory' not in out, out)
+    case('[G3] a stand-in full run marks the tree so land.py refuses it',
+         code == 0 and marker.exists() and marker.read_text().split()[0] == 'stand-in:' + tree, out)
+    code, out = gate('fewer')
+    case('[G4] a full run whose results miss an assembly the module list holds is no verdict and records no tree',
+         code == 6 and 'TW.Tests.Sim' in out and not marker.exists(), out)
     for f in (marker, scoped, full, seconds, proj / 'test-results-PlayMode.xml', proj / 'test-results.xml'):
         f.unlink(missing_ok=True)
 
