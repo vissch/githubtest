@@ -35,6 +35,10 @@ namespace TW.Editor
     {
         public const string EnvVar = "TW_GYM";
         const string Request = "TW.Gym.Request";
+        // What Run leaves for the Play it starts: this mark, then the options. SessionState.GetString hands back "" for a
+        // key nobody set, whatever default is passed, and "" is also a run of the whole catalogue: without the mark every
+        // ordinary Play in the editor started one (seen 2026-10-05).
+        const string Armed = "gym:";
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static string LastRun = "";
@@ -50,7 +54,7 @@ namespace TW.Editor
                 if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "the open scene has unsaved changes: save or discard them first";
                 EditorSceneManager.OpenScene(Scene);
             }
-            SessionState.SetString(Request, options ?? "");
+            SessionState.SetString(Request, Armed + (options ?? ""));
             EditorApplication.EnterPlaymode();
             return "entering Play for the gym: " + options;
         }
@@ -75,10 +79,10 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
+            string req = SessionState.GetString(Request, "");
+            if (!req.StartsWith(Armed, System.StringComparison.Ordinal)) return;   // a Play nobody asked the gym for
             SessionState.EraseString(Request);   // a crash must not leave the editor looping
-            StartRunner(req);
+            StartRunner(req.Substring(Armed.Length));
         }
 
         static void StartRunner(string options)
