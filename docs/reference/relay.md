@@ -61,7 +61,8 @@ The runner claims and completes pipeline jobs. A leg never does, and never lands
 R="python trench-warfare-3d/Tools/relay/relay.py"
 $R run --work <work checkout> --dry-run           # say what it would take; start nothing
 $R run --work <work checkout> [--hours 3] [--max-legs N] [--sources pipeline,lane] [--leg-minutes 90]
-$R run --work <work checkout> --day-budget 20     # today's legs may cost this much (default: limits.json, 50)
+$R run --work <work checkout> --day-pct 15        # the day's cap in percent of the week, when the owner named one (default 11)
+$R run --work <work checkout> --day-budget 20     # the day's cap in dollars of cost for this run; the percent cap is then not used
 $R run --work <work checkout> --view              # also open a Windows Terminal tab per leg that shows its output
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
@@ -71,7 +72,9 @@ $R add --unit <file>                              # the same, the unit from a fi
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
-$R day                                            # one screen: budget, run, queue in its order, what needs the owner, his answers
+$R day                                            # one screen: budget, pace, run, queue in its order, what needs the owner, his answers
+$R agents [--day <day>]                           # what the agents cost that sessions here spawned outside the relay
+$R agents book [--out <file> | --file <file>]     # add that to the day's budget ("Agents outside the relay")
 $R usage                                          # where the plan's week stands, from the newest reading on this machine
 $R usage put [--statusline]                       # keep a reading given on stdin as JSON (see "The day in percent")
 $R prio <id> <n>                                  # move a queued unit: 0 to 99, the lower runs first (50 when none is set)
@@ -81,6 +84,7 @@ python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a sta
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
 python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen, the queue's order, his answers, add --unit
 python trench-warfare-3d/Tools/relay/test_usage.py   # the tests of the weekly-limit readings
+python trench-warfare-3d/Tools/relay/test_agents.py  # the tests of the agents outside the relay
 ```
 
 The work checkout is the relay's own worktree (`githubtest-relay-work` on the desktop), switched to each unit's lane
@@ -124,28 +128,81 @@ Automatic compaction is blocked; a leg that reaches it ends the run.
 
 ## The day's budget
 
-No leg starts once today's legs cost the day's budget: `day_budget_usd` in `limits.json`, 50, and 0 switches it off.
-`--day-budget` on `run` outranks the file, inside the bounds 0 to 500. A retrospective cannot move it.
+All agents spawned to work on the project share one day: **11% of the plan's weekly limit** (`day_budget_pct` in
+`limits.json`; the owner, `decisions.md` 2026-10-07). No leg starts once the day has used that much.
+`--day-pct <N>` on `run` sets another figure for that run, inside 0 to 100: only when the owner named one for the
+day. A retrospective cannot move it.
 
-- What is counted: the cost Claude prints per leg (`total_cost_usd`), kept in the leg record on the board as
-  `cost_usd`, for every leg started that local day on every station. On a plan login it is not money: it is the
-  yardstick. The owner's own sessions are not counted.
-- A leg whose record holds no cost (it was killed, or an older relay wrote it) takes it from its leg folder on this
-  machine, else it counts at the usual cost of its phase and is marked estimated.
+- **What is counted.** Every leg started that local day, on every station, and the agents sessions spawned
+  outside the relay once they are booked ("Agents outside the relay" below). The owner's own talk with a session
+  is not counted.
+- **In percent.** A measured leg counts what it used of the week; any other leg is counted from its cost ("The day
+  in percent of the week" below). So the cap holds whenever there is a rate, measured or guessed.
+- **In dollars, as the fallback.** While nothing can be said in percent (`week_usd` 0 and no leg measured), the cap
+  is `day_budget_usd` (50). `--day-budget <n>` gives one run a cap in dollars, inside 0 to 500, and the percent cap
+  is then not used; 0 means no cap at all.
+- **A leg's cost** is what Claude prints for it (`total_cost_usd`), kept in the leg record on the board as
+  `cost_usd`. On a plan login it is not money: it is the yardstick. A record with no cost (the leg was killed, or
+  an older relay wrote it) takes it from its leg folder on this machine, else it counts at the usual cost of its
+  phase and is marked estimated.
 - The usual cost of a leg is the median of the newest `price_legs` (200) records with a known cost: legs of the
   same phase, model and effort when there are three or more, else legs of the phase, else every leg, else
   `usual_leg_usd` (3).
-- No unit starts unless what is left covers a usual plan plus a usual execute. No leg starts unless it covers that
-  leg's usual cost. A leg may spend the smaller of `leg_budget_usd` and what is left; a leg that ends on that cap
-  stops the run.
-- `ledger.py` does the sum from this machine's copy of the board, so another station's legs count once the board
-  is pulled. `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show
-  one line of it.
+- No unit starts unless what the day has left covers a usual plan plus a usual execute. No leg starts unless it
+  covers that leg's usual cost. A leg may spend the smaller of `leg_budget_usd` and what the day has left; a leg
+  that ends on that cap stops the run.
+- **Every relay counts.** `ledger.py` does the sum from this machine's copy of the board, so another station's legs
+  count once the board is pulled. A second relay with a board clone of its own is read too: `TW_BOARD_ALSO` names
+  the other clone (several paths: apart by `;` on Windows), for both relays, and a leg record that is in both
+  counts once.
+- `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show one line
+  of it. The stop record holds `day_pct` and `day_budget_pct` beside `day_usd`.
+
+## The day's pace
+
+The cap is spent slowly, not at once (the owner, 2026-10-07). It is spread evenly from `pace_from_hour` to
+`pace_to_hour` (`limits.json`: 0 and 24, local time), and **what the pace allows by now is the cap times the share
+of that window that has passed**: 5.5% of the week by noon, about 0.46% an hour. What earlier hours left unused
+stays allowed later the same day. The same hour for both ends switches the pace off.
+
+- The pace decides when a unit or a leg may **start**: only when what it allows, less what the day has used,
+  covers the usual cost (a usual plan plus a usual execute for a unit).
+- **The run waits.** When the day covers the work and the pace does not yet, the run prints
+  `paced: a unit may start at HH:MM`, waits, and goes on; the owner's `stop` ends the wait. It keeps the work
+  checkout while it waits. `$R status` shows "waiting for the day's pace until HH:MM".
+- After a wait the run asks the day again (another relay may have spent it meanwhile) and reads the queue
+  again, so a unit the owner moved to the front during the wait is the one that starts.
+- When the wait would end after the run's own time (`--hours`), the run stops instead, with
+  `the day's pace lets a unit start at HH:MM, after this run's N hours are up`. A dry run never waits: it says
+  the time.
+- A leg that has started may spend what the **day** has left, not only what the pace allows: a leg cut off half way
+  leaves work nobody can use. So the day can run ahead of the pace by one leg.
+- `$R day` and `$R budget` print the line `Pace: 5.5% of the week allowed by 12:00, about 2.4% of it free.`, and
+  when it does not cover the next unit, the time it will.
+
+## Agents outside the relay
+
+A session can spawn agents of its own (subagents, a workflow's agents). They work on the project and cost the same
+week, so the day counts them (`agents.py`).
+
+- **Where the figure comes from.** Claude Code logs every answer of such an agent with its tokens, on the machine
+  that ran it. `$R agents` adds up the agents of the day whose folder or first prompt names the project
+  (`agents.json`, `names`), and prices the tokens at the list prices in the same file. It is never a measurement:
+  every line says `about`. A model the file does not name is priced as its dearest one, and the lines say so.
+- **A leg's own agents are not counted again**: the cost Claude prints for a leg covers the agents it spawned. A
+  leg's session is known by its leg folder and by the folder it runs in (`agents.json`, `leg_folders`).
+- **Booking.** `$R agents book` writes the day's total of this station to `relay/<station>/agents/<day>.json` on
+  the board and pushes it; a later booking the same day replaces it. A run books its own machine before every
+  unit, so on the station that runs the relay nobody has to.
+- **A machine without the board** (the laptop) writes a file, `$R agents book --out <file>`, and the station that
+  holds the board books it: `$R agents book --file <file>`.
+- **While a run is going** a booking waits in the relay's home and the run writes it on the board before its next
+  unit. Nothing but the run writes the board while a leg works, or the leg would be blamed for the change.
 
 ## The day in percent of the week
 
-The owner reads the day in percent of the plan's weekly limit, not in dollars. The dollar figure stays underneath:
-it is what the runner's stop rules above count in, because it is known for every leg.
+The owner reads the day in percent of the plan's weekly limit, not in dollars, and the day's cap is set in it. The
+dollar figure stays underneath: it is known for every leg, so a leg that is not measured is counted from it.
 
 - **A reading** is how much of the week is used, 0 to 100, with the time the week starts over. `usage.py` keeps the
   newest one in a file in the relay's home on that machine (not in the repo). It calls nobody and reads no login: a source
@@ -162,7 +219,7 @@ it is what the runner's stop rules above count in, because it is known for every
   `price_legs` measured legs used of the week over what they cost. Such a figure is marked `about`, and the lines
   say how many legs are estimated.
 - **Until one leg is measured** the rate is a guess: a full week is taken as `week_usd` dollars of leg cost
-  (`limits.json`, 1830), so one dollar is about 0.055 points and a $50 day about 2.7% of the week. Every line then
+  (`limits.json`, 1830), so one dollar is about 0.055 points and the day's 11% about $200 of cost. Every line then
   says `about` and ends on "A guess: ...". The first measured leg replaces the guess. `week_usd` 0 switches the
   guess off, and the lines stay in dollars until a leg is measured.
 - **Where 1830 comes from.** Anthropic publishes no figure. People who ran into the weekly limit and priced their
@@ -172,13 +229,14 @@ it is what the runner's stop rules above count in, because it is known for every
   The limit is also metered in Anthropic's own units and has been moved by promotions, so read a guessed figure as
   right to within a factor of two, not to the decimal.
 - `$R day`, `$R budget`, `$R status` and the `STOP:` line say the day, each unit, the queue and the day's cap in
-  percent whenever there is a rate, measured or guessed.
+  percent whenever there is a rate, measured or guessed. The cap itself is exact (11.0%); what is used of it is
+  `about` while a leg or an agent in it is counted from cost.
 - `$R day` also says where the week stands: from a reading on this machine that is new enough, else from the
   newest one a leg left on the board, with its time. With neither, the line is left out.
 
 ## The master's screen and the queue's order
 
-`$R day` prints one screen, and reads only: what the day has left, is a run going on this machine or how the newest
+`$R day` prints one screen, and reads only: what the day has left, what the pace allows by now, is a run going on this machine or how the newest
 run on the board stopped, the queue in the order the runner takes it with the usual cost of a unit (a usual plan
 plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), what
 he answered on the Decide page that no session has taken up, and who holds the relay build. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
@@ -208,7 +266,7 @@ their order, are in the `/master` skill, "Decisions".
 
 ## What stops a run
 
-The time is up (`--hours`, 0.25 to 12), the leg cap, the day's budget (above), nothing left to do, the owner's `stop`, a work checkout that is
+The time is up (`--hours`, 0.25 to 12), the leg cap, the day's budget (above), the day's pace when waiting for it would outlast the run, nothing left to do, the owner's `stop`, a work checkout that is
 missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
 record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside
