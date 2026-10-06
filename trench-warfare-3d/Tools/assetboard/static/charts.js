@@ -18,7 +18,14 @@
   function fmt(n) { return n >= 10000 ? (n / 1000).toFixed(n >= 100000 ? 0 : 1) + 'K' : String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ','); }
   function hourLabel(h) { return h.slice(11) + ':00'; }
   function dayLabel(d) { var t = new Date(d.slice(0, 10) + 'T12:00:00'); return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'][t.getDay()] + ' ' + t.getDate(); }
-  var pure = { ticks: ticks, fmt: fmt, hourLabel: hourLabel, dayLabel: dayLabel };
+  // The hour graph in a plot this many px wide. On a wide page it is drawn 1000 units across and scaled to fit. Scaled
+  // into a phone's 350 px its words were 4 px tall, so in a narrow plot it is drawn at the plot's own size: a unit is
+  // a px, the words keep their size, the columns are thin and a name stands under every twelfth hour, not every sixth.
+  function hourPlot(width) {
+    if (!(width > 0) || width >= 560) return { W: 1000, H: 300, L: 46, R: 10, every: 6, narrow: false };
+    return { W: Math.max(280, Math.round(width)), H: 240, L: 38, R: 4, every: 12, narrow: true };
+  }
+  var pure = { ticks: ticks, fmt: fmt, hourLabel: hourLabel, dayLabel: dayLabel, hourPlot: hourPlot };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
 
   var C = window.Crew, B = window.Board, page = document.getElementById('graphs');
@@ -78,28 +85,28 @@
 
   // ---- the work by room, hour by hour: a column an hour, a colour a room
   function rooms(G) {
-    var k = card('g-rooms'), hours = G.hours || [], names = G.rooms || [];
-    if (!fresh(k, JSON.stringify(hours))) return;
+    var k = card('g-rooms'), hours = G.hours || [], names = G.rooms || [], P = hourPlot(k.plot.clientWidth);
+    if (!fresh(k, JSON.stringify([hours, P.W]))) return;
     if (k.legend && !k.legend.children.length) names.forEach(function (r) {
       var b = el('button'); b.type = 'button'; b.title = ROOM[r] + ': ' + ROOM_DOES[r] + '. Open it in the house.'; var i = el('i'); i.style.background = css('--g-' + r); b.appendChild(i); b.appendChild(document.createTextNode(ROOM[r]));
       b.addEventListener('click', function () { var V = window.HouseView; if (V && V.open) { V.open(r); go('#house'); } else location.href = 'house.html?room=' + r; }); k.legend.appendChild(b); });
     var total = function (h) { return names.reduce(function (n, r) { return n + (h[r] || 0); }, 0); }, top = Math.max.apply(null, hours.map(total).concat([0]));
     table(k, ['Hour'].concat(names.map(function (r) { return ROOM[r]; }), ['All']), hours.filter(total).reverse().map(function (h) { return [h.h + ':00'].concat(names.map(function (r) { return h[r] || 0; }), [total(h)]); }));
     if (!top) return empty(k, 'No tool call on this station in the last ' + hours.length + ' hours.');
-    var W = 1000, H = 300, L = 46, R = 10, T = 12, Bm = 40, yt = ticks(top, 4), ymax = yt[yt.length - 1], slot = (W - L - R) / hours.length, bw = Math.min(24, slot - 2);
+    var W = P.W, H = P.H, L = P.L, R = P.R, T = 12, Bm = 40, yt = ticks(top, 4), ymax = yt[yt.length - 1], slot = (W - L - R) / hours.length, bw = Math.max(2, Math.min(24, slot - 2));
     var y = function (v) { return T + (H - T - Bm) * (1 - v / ymax); }, svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Tool calls an hour by room, the last ' + hours.length + ' hours' });
     grid(svg, yt, L, W - R, y);
     hours.forEach(function (h, i) {
       var x = L + i * slot + (slot - bw) / 2, base = 0, g = s('g'), live = names.filter(function (r) { return h[r] > 0; });
       live.forEach(function (r, n) {
-        var y1 = y(base + h[r]), y0 = y(base), ht = Math.max(1, y0 - y1 - (n ? 2 : 0));       // a 2 px gap of the surface between two rooms
+        var y1 = y(base + h[r]), y0 = y(base), ht = Math.max(1, y0 - y1 - (n ? (P.narrow ? 1 : 2) : 0));       // a gap of the surface between two rooms
         g.appendChild(s('path', { 'class': 'g-mark', d: bar(x, y1, bw, ht, n === live.length - 1 ? 4 : 0), fill: css('--g-' + r) })); base += h[r];
       });
       g.appendChild(s('rect', { 'class': 'g-hit', x: L + i * slot, y: T, width: slot, height: H - T - Bm }));
       hover(k, g, function () { return '<b>' + dayLabel(h.h) + ', ' + hourLabel(h.h) + '</b>' + (total(h) ? names.filter(function (r) { return h[r]; }).reverse().map(function (r) { return row(css('--g-' + r), ROOM[r], fmt(h[r])); }).join('') + row('', 'All', fmt(total(h))) : '<em>nothing</em>'); });
       svg.appendChild(g);
       var hh = +h.h.slice(11);
-      if (hh % 6 === 0) svg.appendChild(text(L + i * slot + slot / 2, H - Bm + 16, hh === 0 ? dayLabel(h.h) : hourLabel(h.h), { 'text-anchor': 'middle', 'class': hh === 0 ? 'g-lab' : '' }));
+      if (hh % P.every === 0) svg.appendChild(text(L + i * slot + slot / 2, H - Bm + 16, hh === 0 ? dayLabel(h.h) : hourLabel(h.h), { 'text-anchor': 'middle', 'class': hh === 0 ? 'g-lab' : '' }));
       if (hh === 0 && i) svg.appendChild(s('line', { x1: L + i * slot, x2: L + i * slot, y1: T, y2: H - Bm + 4, stroke: css('--g-axis'), 'stroke-width': 1 }));
     });
     k.plot.insertBefore(svg, k.tip);
@@ -239,5 +246,8 @@
   var nb = document.getElementById('t-notes-b');
   if (nb) nb.addEventListener('click', function () { if (!B) return; B.open(B.all); if (B.docked()) go('#profile'); });
   if (B) B.onchange(function () { if (window.GRAPHS && window.OPS) tiles(window.GRAPHS, window.OPS); });
+  // the hour graph is laid out for the width it has: a phone turned, or a window made narrow, draws it again
+  var again = 0;
+  window.addEventListener('resize', function () { clearTimeout(again); again = setTimeout(function () { if (window.GRAPHS && window.OPS) rooms(window.GRAPHS); }, 150); });
   C.live(draw);
 })(typeof window !== 'undefined' ? window : this);

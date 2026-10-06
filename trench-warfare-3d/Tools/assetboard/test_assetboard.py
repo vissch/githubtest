@@ -902,14 +902,20 @@ def board():
           'console.log(JSON.stringify([B.pick(N, {asset: "Maw"}).map(n => n.id), B.pick(N, {kind: "lane", id: "lane/show/x", lane: "lane/show/x"}).map(n => n.id), B.open(N, {kind: "lane", id: "lane/show/x", lane: "lane/show/x"}),'
           ' B.pick(N, {kind: "queue", id: "decide: A question"}).map(n => n.id), B.pick(N, {kind: "worker", id: "skill"}).length, B.open(N, {kind: "page", id: "all"}),'
           ' B.merged(N, [{id: "1"}, {id: "9"}], [{id: "u"}]).map(n => n.id), B.slug("lane/show/frog-house"),'
-          ' G.ticks(1510, 4), G.ticks(3, 4), G.ticks(0, 4), G.fmt(4028), G.fmt(12900), G.hourLabel("2026-10-05 13"), G.dayLabel("2026-10-05")]))')
+          ' G.ticks(1510, 4), G.ticks(3, 4), G.ticks(0, 4), G.fmt(4028), G.fmt(12900), G.hourLabel("2026-10-05 13"), G.dayLabel("2026-10-05"),'
+          ' G.hourPlot(354), G.hourPlot(1180), G.hourPlot(0)]))')
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'board.js'), str(HERE / 'static' / 'charts.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('page: a thing shows the notes about it (its model, its branch, or the very thing), the open ones first, and counts the open ones',
          got and got[:6] == [['1'], ['3', '2'], 1, ['4'], 0, 3], (got, p.stderr[-300:]))
     case('page: a note just sent shows until a reading lists it, once; one not sent shows too', got and got[6] == ['1', '2', '3', '4', '9', 'u'] and got[7] == 'room-lane-show-frog-house', got and got[6:8])
     case('page: a graph\'s axis has clean steps that reach its largest number, and its numbers are written short',
-         got and got[8] == [0, 500, 1000, 1500, 2000] and got[9] == [0, 1, 2, 3] and got[10] == [0, 1] and got[11:] == ['4,028', '12.9K', '13:00', 'Mon 5'], got and got[8:])
+         got and got[8] == [0, 500, 1000, 1500, 2000] and got[9] == [0, 1, 2, 3] and got[10] == [0, 1] and got[11:15] == ['4,028', '12.9K', '13:00', 'Mon 5'], got and got[8:15])
+    phone, wide, unknown = (got or [None] * 18)[15:18]
+    case('page: in a plot as narrow as a phone the hour graph is drawn at the plot\'s own size (a unit is a px, so its words keep their size) with a name under every twelfth hour; '
+         'on a wide page, and before the plot has a width, it is the wide drawing',
+         phone and phone['narrow'] and phone['W'] == 354 and phone['every'] == 12 and (phone['W'] - phone['L'] - phone['R']) / 48 >= 4
+         and wide == unknown and not wide['narrow'] and wide['W'] == 1000 and wide['every'] == 6, (phone, wide, unknown))
 
 
 def png(path: Path, w, h):
