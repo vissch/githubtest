@@ -135,28 +135,35 @@ def unity_cli():
 def lanes():
     _, me = run(['git', 'branch', '--show-current'], cwd=REPO)
     me = me.strip()
+    # a checkout with no branch (detached: a gate on a commit, a rebase bench) is named by its commit, and "you" is
+    # this folder, not a branch name: a detached checkout is somebody's too
+    _, here = run(['git', 'rev-parse', '--show-toplevel'], cwd=REPO)
+    here = os.path.normcase(os.path.normpath(here.strip()))
+    mine = me or 'HEAD'
     _, porcelain = run(['git', 'worktree', 'list', '--porcelain'], cwd=REPO)
     trees = []
     for block in porcelain.strip().split('\n\n'):
         f = dict((l.split(' ', 1) + [''])[:2] for l in block.split('\n') if l)
         branch = f.get('branch', '').replace('refs/heads/', '') or '(detached)'
-        trees.append((f.get('worktree', '?'), branch))
+        trees.append((f.get('worktree', '?'), branch, f.get('HEAD', '')))
     print(f'{len(trees)} checkouts; conflicts are against your branch {me or "(detached)"}')
-    for path, branch in trees:
+    for path, branch, head in trees:
+        rev = head if branch == '(detached)' and head else branch
+        you = os.path.normcase(os.path.normpath(path)) == here
         if not Path(path).exists():
             print(f'\n{Path(path).name}  [{branch}]  folder is gone: `git worktree prune` forgets it')
             continue
-        _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', branch], cwd=REPO)
-        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{branch}...{integration_ref()}'], cwd=REPO)
+        _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', rev], cwd=REPO)
+        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{rev}...{integration_ref()}'], cwd=REPO)
         ahead, behind = (counts.split() + ['?', '?'])[:2]
         _, dirty = run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
         n = len([l for l in dirty.split('\n') if l.strip()])
         print(f'\n{Path(path).name}  [{branch}]  +{ahead} -{behind} vs integration'
-              + (f'  {n} uncommitted' if n else '') + ('  (you)' if branch == me else ''))
+              + (f'  {n} uncommitted' if n else '') + ('  (you)' if you else ''))
         print(f'  {last.strip()[:110]}')
-        if branch in (me, '(detached)') or not me:
+        if you:
             continue
-        code, out = run(['git', 'merge-tree', '--write-tree', '--name-only', '--no-messages', me, branch], cwd=REPO)
+        code, out = run(['git', 'merge-tree', '--write-tree', '--name-only', '--no-messages', mine, rev], cwd=REPO)
         files = [l for l in out.strip().split('\n')[1:] if l.strip()]
         if code == 0:
             print('  merges cleanly with yours')

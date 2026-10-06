@@ -940,7 +940,48 @@ def scorecard_cases():
     case('scorecard takes an accepted run as the new baseline', not worse, str(worse))
 
 
+LONG = chr(92) * 2 + '?' + chr(92)   # Windows' prefix for a path over 260 characters
+
+
+def scrub(path):
+    """Delete a folder of ours for real. git writes its objects read-only, and on Windows rmtree stops at the first
+    of them: with errors ignored every run left its folder behind (151 of them, 770 MB, by 2026-10-07). A long path
+    there needs the long-path prefix (LONG)."""
+    import os, stat
+    p = str(path)
+    if os.name == 'nt' and not p.startswith(LONG):
+        p = LONG + os.path.abspath(p)
+
+    def writable(fn, target, _exc):
+        try:
+            os.chmod(target, stat.S_IWRITE)
+            fn(target)
+        except OSError:
+            pass
+    shutil.rmtree(p, onerror=writable)
+
+
+STALE_HOURS = 6   # no run takes an hour: a folder this old is a killed run's, or one from before scrub()
+
+
+def sweep_stale():
+    """The folders older runs left in the temp folder, and the worktrees a killed run left registered (one with a
+    broken index made git's own upkeep fail on every fetch)."""
+    import time
+    root = pathlib.Path(tempfile.gettempdir())
+    for d in root.glob('tw-selftest-*'):
+        try:
+            if time.time() - d.stat().st_mtime < STALE_HOURS * 3600:
+                continue
+        except OSError:
+            continue
+        if (d / 'wt').exists():
+            run(['git', 'worktree', 'remove', '--force', str(d / 'wt')], REPO)
+        scrub(d)
+
+
 def main():
+    sweep_stale()
     run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
     wt = tmp / 'wt'
@@ -975,7 +1016,9 @@ def main():
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:
         run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
-        shutil.rmtree(tmp, ignore_errors=True)
+        scrub(tmp)
+        run(['git', 'worktree', 'prune'], REPO)
+        case('the run leaves no folder behind', not tmp.exists(), str(tmp))
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)
 
