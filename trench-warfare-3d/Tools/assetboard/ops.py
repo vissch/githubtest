@@ -139,14 +139,15 @@ def board_root():
         return None
 
 
-def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None):
-    """The owner queue for this reading, and the beat. What a read need not ask again is kept in this station's cache."""
+def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None, answers=None):
+    """The owner queue for this reading, and the beat. What a read need not ask again is kept in this station's cache.
+    `answers` is briefs.answers(): what he answered on the Decide page that no session has taken up."""
     cache_path = cache_path or build.LOCAL / 'queue-cache.json'
     try:
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         cache = {}
-    q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache)
+    q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache, answers=answers)
     write_if_changed(cache_path, json.dumps(cache, sort_keys=True))
     write_if_changed(out / 'data' / 'queue.js', f'window.QUEUE = {json.dumps(q, sort_keys=True)};\n')
     beat = out / 'data' / 'beat.js'
@@ -179,10 +180,12 @@ def owner_notes(out: Path):
 def once(out: Path):
     data = src_ops.collect(build.REPO, out)
     ready_since(data, out / 'data' / 'ready-since.json')
-    data['queue'] = queue(data, out)
+    # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
+    got = briefs.answers(briefs.read_all(briefs.folder()), notes.read_all(notes.folder()))
+    data['queue'] = queue(data, out, answers=got)
     graphs(data, out)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
-    briefs.site(briefs.folder(), out)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
+    briefs.site(briefs.folder(), out, got=got)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'

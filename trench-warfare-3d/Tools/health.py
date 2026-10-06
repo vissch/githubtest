@@ -110,16 +110,18 @@ def owner_notes(branch):
     try:
         import briefs
         every = [b for b in briefs.read_all(briefs.folder()) if b.get('state') != 'answered']
-        got = briefs.waiting(every, waiting)
+        got = briefs.answers(every, waiting)
     except Exception as e:
         print(f'briefs   not read ({e})')
         return
     print(f'briefs   {len(every)} open for the owner, {len(got)} he has answered and nobody has taken up')
-    for b, n in got:
-        mark = 'FOR YOU ' if not b.get('lane') or b['lane'] == branch else '        '
-        print(f'         {mark}{b["id"]}: {n["text"].splitlines()[0][:80]}')
+    for a in got:
+        # an answer that queues work is the master's to take up (/master): it is the one that queues on the relay's board
+        mark = 'MASTER  ' if a['go'] == 'queue' else 'FOR YOU ' if not a['lane'] or a['lane'] == branch else '        '
+        print(f'         {mark}{a["id"]}: {a["notes"][-1]["text"].splitlines()[0][:60]} -> {briefs.leads(a)}')
     if got:
-        print(f'         take one up: its row in docs/reference/decisions.md, then python Tools/assetboard/briefs.py take ID --by {branch}')
+        print(f'         all his notes on each: python Tools/assetboard/briefs.py waiting. Take one up: its row in docs/reference/decisions.md, then')
+        print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says ask first)')
 
 
 def unity_cli():

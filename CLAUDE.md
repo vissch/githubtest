@@ -11,7 +11,7 @@ tests → how to see it); do not read it through. Open anything else only when t
 |---|---|
 | which file to change, which test guards it | `docs/reference/tasks.md` |
 | a command: open the editor, eval, compile, one test, the gate, a screenshot, a build; every `tw eval` helper | `docs/reference/workflow.md` (section 6 lists the helpers) |
-| what the owner decided, and what is still waiting on them | `docs/reference/decisions.md`. A decision you need from the owner goes to him as a brief with pictures: `python Tools/assetboard/briefs.py add` (short by rule; he answers on the board's Decide page) |
+| what the owner decided, and what is still waiting on them | `docs/reference/decisions.md`. A decision you need from the owner goes to him as a brief with pictures: `python Tools/assetboard/briefs.py add` (short by rule; he answers on the board's Decide page). An option that plainly leads to work says so with `briefs.py then`: his click is then his yes to queue it (`docs/reference/pipelines.md`, the briefs row) |
 | a switch, arg or prefs key | `docs/reference/feature-flags.md` |
 | importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
 | assemblies, folders, sim system order | `docs/reference/code-map.md` |

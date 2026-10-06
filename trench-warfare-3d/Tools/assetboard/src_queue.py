@@ -15,8 +15,9 @@ nothing but the owner's approvals:
 - approved: the owner said land and it has not landed. approvals/<lane>.json on the board holds the lane, the date
   and the owner's words; it is listed, with what holds it up, until the lane is in integration;
 - ready: the board's stages ready to take (what "Needs you" used to be);
-- broken: the last checks run on integration when it is red, a run before a commit that took over 300 s, and the
-  decisions still stranded on a lane.
+- broken: the last checks run on integration when it is red, a run before a commit that took over 300 s, the
+  decisions still stranded on a lane, and the answers he gave on the Decide page that no session has taken up for
+  over two hours (one row for all of them; the caller hands them in, briefs.py answers()).
 
 STRANDED DECISIONS. A decision is written into docs/reference/decisions.md in the turn it is made, on whatever lane that session is
 on, and reaches the integration branch only when the lane lands. Until then no other lane can read it: on 2026-10-04
@@ -47,6 +48,7 @@ import src_git    # noqa: E402
 DECISIONS = 'docs/reference/decisions.md'
 GROUPS = ('broken', 'land', 'approved', 'ready', 'decide')     # the order the site lists them in
 EDIT_BUDGET = 300      # seconds a run before a commit may take: gate.ps1's $EditBudget
+UNTAKEN_HOURS = 2      # an answer of his on the Decide page that no session took up in this long is broken (the agent's choice)
 CI_EVERY = 600         # seconds between two questions to GitHub about the last checks run
 ROW = re.compile(r'^\| *(\d{4}-\d{2}-\d{2}) *\| *(.*?) *\|? *$')
 BOLD = re.compile(r'\*\*(.+?)\*\*', re.S)
@@ -242,10 +244,28 @@ def checks_run(repo, integ, cache, now):
     return run
 
 
-def collect(repo, ops, board=None, cache=None, now=None, integration=None):
+def untaken(answers, now):
+    """The row of Broken for what he answered on the Decide page and nobody took up, or None. Nothing wakes a session
+    when he answers: an answer waits until he next talks to one, and past UNTAKEN_HOURS the board says so. One row for
+    all that wait, however many: `answers` is briefs.py answers(), each with `when`, the time of his last note."""
+    waits = []
+    for a in answers or []:
+        try:
+            waits.append((now - time.mktime(time.strptime(str(a.get('when', ''))[:19], '%Y-%m-%d %H:%M:%S')), a))
+        except ValueError:
+            continue                            # a note with no time it can read: it cannot be said to be late
+    if not waits or max(w for w, _ in waits) <= UNTAKEN_HOURS * 3600:
+        return None
+    longest, first = max(waits, key=lambda x: x[0])
+    return dict(kind='untaken', title=f'{len(waits)} answer{"s" if len(waits) > 1 else ""} of yours nobody has taken up, the oldest {int(longest // 3600)} h ago',
+                url='decide.html', date=str(first['when'])[:10], text='; '.join(a.get('title', a.get('id', '')) for _, a in sorted(waits, key=lambda x: -x[0]))[:400])
+
+
+def collect(repo, ops, board=None, cache=None, now=None, integration=None, answers=None):
     """The queue, from the floor's data (src_ops.collect: its lanes carry each checkout's path, dirty count and board
     items). `cache` is a dict the caller keeps between reads (what does not change between two reads is not asked
-    again). Returns the five groups and `count`, the number of entries: the site's "Needs you"."""
+    again). `answers` is what he answered on the Decide page that no session has taken up (briefs.py answers(); this
+    function reads no folder itself). Returns the five groups and `count`, the number of entries: the site's "Needs you"."""
     integ = integration or src_git.INTEGRATION
     cache = cache if cache is not None else {}
     now = now or time.time()
@@ -288,6 +308,9 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None):
     for lane, titles in sorted(cache['stranded']['lanes'].items()):
         q['broken'].append(dict(kind='stranded', title=f'{len(titles)} decision{"s" if len(titles) > 1 else ""} written down only on this lane',
                                 lane=lane, date='', text='; '.join(titles)[:400]))
+    late = untaken(answers, now)
+    if late:
+        q['broken'].append(late)
 
     today = datetime.date.fromtimestamp(now)
     for g in GROUPS:

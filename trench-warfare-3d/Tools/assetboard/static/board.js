@@ -36,7 +36,9 @@
   function caption(v, now) { return (HOW[v.how] || 'Last seen') + ' ' + when(Math.max(0, now - (v.at || 0))) + ' · ' + (v.name || ''); }
   // whether the panel shows a way to close it: a drawer always; docked, only what the owner opened himself
   function closable(s, docked, resting) { return !docked || !(s.follow || resting); }
-  var pure = { slug: slug, short: short, about: about, pick: pick, open: open, merged: merged, when: when, caption: caption, closable: closable };
+  // what a note sends to the listener (notes.py, /note): its text, what it is about, and the stamp of the Then line he saw
+  function sends(n) { return { text: n.text, kind: n.kind, about: n.about, title: n.title, lane: n.lane, asset: n.asset, page: n.page, then: n.then || '' }; }
+  var pure = { slug: slug, short: short, about: about, pick: pick, open: open, merged: merged, when: when, caption: caption, closable: closable, sends: sends };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
 
   var ROOT = document.body.dataset.root || '', LS = 'tw3d-notes-unsent';
@@ -61,13 +63,15 @@
   function flush() {
     if (!unsent.length) return Promise.resolve();
     var n = unsent[0];
-    return post('/note', { text: n.text, kind: n.kind, about: n.about, title: n.title, lane: n.lane, asset: n.asset, page: n.page }).then(function (note) {
+    return post('/note', sends(n)).then(function (note) {
       unsent.shift(); keep(); sent.push(note); changed(); return flush();
     }, function (e) { if (alive) { n.why = e.message; keep(); } changed(); });
   }
+  // s.then: the stamp of the "Then: ..." line the Decide page showed under the option he clicked (decide.js). It is kept
+  // with a note that waits in this browser too, so a click sent hours later still says what he saw when he clicked.
   function write(s, text) {
     var n = { id: 'unsent-' + Date.now(), when: new Date().toISOString().slice(0, 16).replace('T', ' '), from: 'owner', state: 'unsent', text: text,
-      kind: s.kind || 'page', about: s.id || '', title: s.title || '', lane: s.lane || '', asset: s.asset || '', page: location.pathname.split('/').slice(-1)[0] + location.search, answers: [] };
+      kind: s.kind || 'page', about: s.id || '', title: s.title || '', lane: s.lane || '', asset: s.asset || '', page: location.pathname.split('/').slice(-1)[0] + location.search, then: s.then || '', answers: [] };
     unsent.push(n); keep(); changed();
     return flush();
   }

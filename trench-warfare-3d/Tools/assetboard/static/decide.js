@@ -2,7 +2,9 @@
 // for, the options as buttons (the first is the one the writer would take, and why), and the pictures or films that
 // bear on it. briefs.py writes a brief and ops.py puts the open ones in data/briefs.js on every read. A click on an
 // option leaves a note (board.js, notes.py): that is the owner's word, and the session that takes it up writes the
-// row in decisions.md and closes the brief. Under the briefs: the questions of the queue nobody wrote a brief for
+// row in decisions.md and closes the brief. An option may say what happens then ("Then: ..." under it, briefs.py then):
+// a click on it is his yes to that work, so the click carries the stamp of the line this page showed. A closed brief
+// says who took it up and what was queued. Under the briefs: the questions of the queue nobody wrote a brief for
 // yet, with what decisions.md says of each. Which brief is for which question is a plain function
 // (test_assetboard.py runs it under node); the overview uses it to send a row of "Decide" to its brief.
 (function (root) {
@@ -26,7 +28,28 @@
     var o = (b.options || []).filter(function (x) { return x.key === key; })[0];
     return o ? key + ': ' + o.text + (said ? '\n' + said : '') : String(said || '');
   }
-  var pure = { slug: slug, match: match, order: order, bare: bare, word: word };
+  // what happens when he takes an option, as the page says it under the option: the line, and the lane of the unit it queues
+  function thenLine(o) {
+    var t = o && o.then; if (!t || !t.says) return '';
+    return 'Then: ' + t.says + (t.unit ? ' · ' + String(t.unit.lane || '').replace(/^lane\/(show|sim)\//, '$1 lane ') : '');
+  }
+  // the stamp of the Then line an option shows. It goes with the click, so a yes is a yes to that line and no other (briefs.py)
+  function stampOf(b, key) { var o = (b.options || []).filter(function (x) { return x.key === key; })[0]; return o && o.then && o.then.stamp ? String(o.then.stamp) : ''; }
+  // what became of a closed brief: who took it up, and the unit that was queued or why none was
+  function became(a) {
+    if (!a || !(a.queued || a.outcome)) return '';
+    return 'Taken up' + (a.by ? ' by ' + String(a.by).replace(/^lane\/(show|sim)\//, '') : '') + ': ' + (a.queued ? 'queued as ' + a.queued : a.outcome);
+  }
+  // what his answer waits for, from what briefs.py says it leads to (ops.py puts that on the brief as `waits`); said only
+  // of the note it was worked out for, so a click of a moment ago is not told an older click's fate
+  function waitsFor(b, note) {
+    var w = b && b.waits, same = w && note && w.note === note.id;
+    if (same && w.go === 'queue') return 'the master queues ' + w.unit + ' when you next talk to him';
+    if (same && w.go === 'nothing') return 'nothing to build; the master writes it down when you next talk to him';
+    if (same && w.go === 'ask') return 'the master asks you before any work is queued';
+    return 'waits for a session to take it up';
+  }
+  var pure = { slug: slug, match: match, order: order, bare: bare, word: word, then: thenLine, stamp: stampOf, became: became, waits: waitsFor };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
   root.Briefs = pure;
 
@@ -57,8 +80,11 @@
     var took = b.answer ? b.answer.option : mine && /^[A-D]: /.test(mine.text) ? mine.text.charAt(0) : '';
     b.options.forEach(function (o) {
       var bt = el('button', 'd-opt' + (o.key === b.pick ? ' d-pick' : '') + (o.key === took ? ' on' : '')); bt.type = 'button'; bt.disabled = b.state === 'answered'; bt.setAttribute('aria-pressed', o.key === took ? 'true' : 'false');
-      bt.appendChild(el('span', 'd-key', o.key)); bt.appendChild(el('span', 'd-opt-text', o.text)); if (o.key === b.pick) bt.appendChild(el('span', 'd-tag', 'the writer would'));
-      bt.addEventListener('click', function () { if (B && B.note) B.note(subject(b), pure.word(b, o.key, '')); });
+      var tt = el('span', 'd-opt-text', o.text), line = pure.then(o);
+      if (line) { var th = el('span', 'd-then', line); if (o.then.unit) th.title = 'Queues ' + o.then.unit.id + ': ' + o.then.unit.goal; tt.appendChild(th); }
+      bt.appendChild(el('span', 'd-key', o.key)); bt.appendChild(tt); if (o.key === b.pick) bt.appendChild(el('span', 'd-tag', 'the writer would'));
+      // the click says which Then line this button showed: that, and nothing written later, is what he said yes to
+      bt.addEventListener('click', function () { if (B && B.note) { var s = subject(b); s.then = pure.stamp(b, o.key); B.note(s, pure.word(b, o.key, '')); } });
       ops.appendChild(bt);
     });
     tx.appendChild(ops);
@@ -69,9 +95,13 @@
       form.addEventListener('submit', function (e) { e.preventDefault(); var t = inp.value.trim(); if (!t) { inp.focus(); return; } inp.value = ''; if (B && B.note) B.note(subject(b), t); });
       tx.appendChild(form);
     }
-    if (b.answer) tx.appendChild(el('p', 'd-said d-closed', 'Decided ' + b.answer.when + ': ' + [b.answer.option === 'other' ? '' : b.answer.option, b.answer.said ? '"' + b.answer.said + '"' : ''].filter(Boolean).join(' · ')));
+    if (b.answer) {
+      var dn = el('p', 'd-said d-closed', 'Decided ' + b.answer.when + ': ' + [b.answer.option === 'other' ? '' : b.answer.option, b.answer.said ? '"' + b.answer.said + '"' : ''].filter(Boolean).join(' · ')), bc = pure.became(b.answer);
+      if (bc) dn.appendChild(el('span', 'd-became', bc));
+      tx.appendChild(dn);
+    }
     else if (mine) tx.appendChild(el('p', 'd-said' + (mine.state === 'unsent' ? ' d-unsent' : ''), (mine.state === 'unsent' ? 'Not sent yet (the note box is not running): ' : 'You said, ' + String(mine.when).slice(5, 16) + ': ') + mine.text.split('\n').join(' · ') +
-      (mine.state === 'done' ? ' · taken up' : mine.state === 'unsent' ? '' : ' · waits for a session to take it up')));
+      (mine.state === 'done' ? ' · taken up' : mine.state === 'unsent' ? '' : ' · ' + pure.waits(b, mine))));
     c.appendChild(tx); c.appendChild(evidence(b));
     return c;
   }

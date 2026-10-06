@@ -11,18 +11,32 @@ why), and shows the pictures or films that bear on it. It is short by rule: add(
     python Tools/assetboard/briefs.py add --title "The house's look" --for "What the house is drawn like ..." \
         --option "Near-black where nobody works" --option "Every room light" --why "It is the site's own look" \
         --evidence shots/after.png="As built" --evidence shots/before.png="Before" [--about "A title under Open in decisions.md"] [--lane lane/show/x]
-    python Tools/assetboard/briefs.py take ID --by lane/show/x    he answered on the page: close it with what his note says, and answer the note
+    python Tools/assetboard/briefs.py then ID B --says "Queues a sim lane: houses cut the damage" --unit unit.json
+                                                                  what happens when he takes B: the unit that is queued (a file of the
+                                                                  relay's queue), or with no --unit that nothing is built
+    python Tools/assetboard/briefs.py waiting [--json]            what he has answered on the page and nobody has taken up, and what each leads to
+    python Tools/assetboard/briefs.py unit ID --note NOTE --out unit.json     the unit his click queues, when his click is a yes to it
+    python Tools/assetboard/briefs.py take ID --note NOTE --by lane/show/x [--queued UNIT | --outcome "words"]
+                                                                  close it with what his notes say and what became of it, and answer the notes
     python Tools/assetboard/briefs.py answer ID B "his words"     he answered somewhere else: the brief is closed with it
 
 A brief is a folder of its own beside the owner's notes (the folder decisions of the Drive's TW3D-pipeline; TW_BRIEFS
 names another): brief.json and a copy of each piece of evidence, so it still shows when the original is gone. The
 board shows them on decide.html (ops.py puts them in the site on every read, static/decide.js draws them); the owner
 picks an option there, which leaves a note (notes.py) that is his word; the session that takes it up writes the row
-in decisions.md and closes the brief with `answer`.
+in decisions.md and closes the brief with `take`.
 --no-evidence "why" is for a decision nothing can be shown of; a brief without either is refused.
+
+WHEN A CLICK IS A YES TO WORK (the owner, 2026-10-06). An option may say what happens then: "Then: ..." under it on the
+page, and the unit that is queued. A click on such an option is his yes for that unit, and only then: the page sends
+the stamp of the Then line it showed with the click, and answers() says `queue` only when every note he left about
+the brief is a click on that option with the stamp the option has now. Anything else (no Then line, one added or
+changed after his click, clicks on two options, his own words) is `ask`: the master asks him first. This is the one
+place that rule is written; the relay shows that answers wait and decides nothing.
 """
 import argparse
 import datetime
+import hashlib
 import json
 import os
 import re
@@ -44,6 +58,9 @@ FILMS = ('.mp4', '.webm')
 FILM_MAX = 30 * 2 ** 20
 WIDE = 1600             # a picture of evidence is kept at most this wide
 SHOWN_DAYS = 7          # an answered brief stays on the page this long
+UNIT_ID = re.compile(r'[\w.-]+\Z')
+UNIT_LANES = ('lane/sim/', 'lane/show/')
+UNIT_KEYS = ('id', 'lane', 'role', 'goal', 'done_when')     # a file of the relay's queue (Tools/relay/sources/lane.py)
 
 
 def folder():
@@ -161,8 +178,77 @@ def read_all(where: Path):
     return sorted(out, key=lambda b: (b.get('asked', ''), b['id']))
 
 
-def answer(where: Path, bid, option, said='', by='', now=None):
-    """The owner decided: close the brief with the option he took and his words. Returns the brief."""
+def stamp(says, unit=None):
+    """A Then line in eight characters. The page sends it with the click, so a click is a yes to the line it showed and
+    to no other: a line added or changed afterwards has another stamp."""
+    return hashlib.sha1(json.dumps([one(says), unit or None], sort_keys=True).encode('utf-8')).hexdigest()[:8]
+
+
+def check_then(says, unit=None):
+    """Why a Then line would be refused: every reason. `unit` is what gets queued, a file of the relay's queue as a
+    dict (id, lane, goal, done_when, and a role when it is not "lane"), or None when nothing is built. Its rules are
+    those of Tools/relay/sources/lane.py load(): a unit refused there would be a yes nobody can act on."""
+    bad = []
+    if not one(says):
+        bad.append('it does not say what happens then')
+    elif words(says) > CAPTION_WORDS:
+        bad.append(f'what happens then takes {words(says)} words; {CAPTION_WORDS} at most')
+    if unit is None:
+        return bad
+    if not isinstance(unit, dict):
+        return bad + ['the unit is not a file of the queue: {"id", "lane", "goal", "done_when"}']
+    gone = [k for k in ('id', 'lane', 'goal', 'done_when') if not unit.get(k)]
+    if gone:
+        bad.append(f'the unit has no {", ".join(gone)}')
+    more = [k for k in unit if k not in UNIT_KEYS]
+    if more:
+        bad.append(f'the unit has {", ".join(more)}, which a file of the queue does not')
+    if unit.get('id') and not (isinstance(unit['id'], str) and UNIT_ID.match(unit['id'])):
+        bad.append('the unit\'s id is letters, digits, . _ - only')
+    if unit.get('lane') and not str(unit['lane']).startswith(UNIT_LANES):
+        bad.append(f'{unit["lane"]} is not a lane/sim or lane/show lane')
+    if unit.get('done_when') and not (isinstance(unit['done_when'], list) and all(isinstance(w, str) and w for w in unit['done_when'])):
+        bad.append('done_when is a command as a list of words, e.g. ["python", "Tools/x.py", "--check"]')
+    return bad
+
+
+def find(where: Path, bid):
+    """The one brief called `bid`: its id, or the end of it."""
+    hits = [b for b in read_all(where) if b['id'] == bid or b['id'].endswith(bid)]
+    if len(hits) != 1:
+        raise ValueError(f'{len(hits)} briefs are called {bid}')
+    return hits[0]
+
+
+def then(where: Path, notes, bid, option, says, unit=None):
+    """Say on an option what happens when the owner takes it: `says` is the line the page shows under it, `unit` the
+    unit that is queued (None: nothing is built). Returns the brief. Refused on a brief that is closed, and on one he
+    has already answered: a line he did not see when he clicked is not one he said yes to. `notes` is
+    notes.read_all()."""
+    b = find(where, bid)
+    if b.get('state') == 'answered':
+        raise ValueError(f'{b["id"]} is closed')
+    if any(n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done' for n in notes):
+        raise ValueError(f'{b["id"]}: he has answered it already, and a Then line added now is not one he saw')
+    o = [x for x in b['options'] if x['key'] == option]
+    if not o:
+        raise ValueError(f'{b["id"]} has the options {", ".join(x["key"] for x in b["options"])}')
+    bad = check_then(says, unit)
+    if unit and not bad:
+        unit = dict(id=unit['id'], lane=unit['lane'], role=unit.get('role') or 'lane', goal=unit['goal'], done_when=list(unit['done_when']))
+        used = [x['id'] for x in read_all(where) for p in x['options'] if ((p.get('then') or {}).get('unit') or {}).get('id') == unit['id'] and (x['id'], p['key']) != (b['id'], option)]
+        if used:
+            bad.append(f'the unit {unit["id"]} is already what an option of {used[0]} queues: a unit\'s id is used once')
+    if bad:
+        raise ValueError('not a Then line yet: ' + '; '.join(bad))
+    o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit), **(dict(unit=unit) if unit else {}))
+    (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    return b
+
+
+def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcome=''):
+    """The owner decided: close the brief with the option he took and his words, and with what became of it when that
+    is known (`queued`: the unit on the relay's queue; `outcome`: in words, when nothing was queued). Returns the brief."""
     hits = [b for b in read_all(where) if b['id'] == bid or b['id'].endswith(bid)]
     if len(hits) != 1:
         raise ValueError(f'{len(hits)} briefs are called {bid}')
@@ -177,6 +263,7 @@ def answer(where: Path, bid, option, said='', by='', now=None):
         raise ValueError('an answer that is none of the options needs his words')
     now = now or datetime.datetime.now()
     b.update(state='answered', answer=dict(option=option, said=one(said), by=one(by), when=f'{now:%Y-%m-%d %H:%M}'))
+    b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome)) if one(v)})
     (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     return b
 
@@ -202,20 +289,88 @@ def said(b, text):
     return 'other', one(text)
 
 
-def take(where: Path, notes_where: Path, bid, by='', now=None):
-    """Take the owner's answer up in one step: close the brief with what his note says and answer every open note of
-    his about it. A brief somebody has already taken is refused, so two sessions do not both act on one answer.
-    Write the row in decisions.md first. Returns (the brief, his note)."""
-    import notes
-    hits = [(b, n) for b, n in waiting(read_all(where), notes.read_all(notes_where)) if b['id'] == bid or b['id'].endswith(bid)]
+def answers(briefs, notes):
+    """What the owner has answered on the page and no session has taken up: one record a brief, with every open note
+    of his about it (not only the last: words he typed before a click are his too), and what it leads to:
+      go 'queue'    his click is a yes to the unit the option names: queue it without asking
+      go 'nothing'  his click is a yes to an option that says nothing is built
+      go 'ask'      anything else, and `why`: the master asks him before any work is queued
+    A click is a yes only when every open note about the brief is a click on the page on that one option (from the
+    owner, kind page, no words of his own) and carries the stamp the option's Then line has now."""
+    out = []
+    for b, last in waiting(briefs, notes):
+        his = [n for n in notes if n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done']
+        picks = [said(b, n['text']) for n in his]
+        option = picks[-1][0]
+        o = ([x for x in b['options'] if x['key'] == option] or [{}])[0]
+        t = o.get('then') or {}
+        if not o:
+            why = 'he answered in his own words'
+        elif not t.get('stamp'):
+            why = 'the option has no Then line'
+        elif any(w for _, w in picks):
+            why = 'he added words of his own'
+        elif any(k != option for k, _ in picks):
+            why = 'his notes do not all pick the same option'
+        elif any(n.get('from') != 'owner' or n.get('kind') != 'page' for n in his):
+            why = 'a note about it is not a click of his on the page'
+        elif any(n.get('then') != t.get('stamp') for n in his):
+            why = 'the Then line is not the one the page showed when he clicked'
+        else:
+            why = ''
+        out.append(dict(id=b['id'], title=b['title'], lane=b.get('lane', ''), option=option, text=o.get('text', ''), said=' / '.join(w for _, w in picks if w),
+                        when=last['when'], note=last['id'], notes=[dict(id=n['id'], when=n['when'], text=n['text']) for n in his],
+                        go='ask' if why else 'queue' if t.get('unit') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit')))
+    return out
+
+
+def one_answer(where: Path, notes, bid, note):
+    """The record of answers() for one brief, for the session that read `note` as his last word on it. Refused when
+    he has answered again since: what the session is about to act on is no longer what he said."""
+    hits = [a for a in answers(read_all(where), notes) if a['id'] == bid or a['id'].endswith(bid)]
     if len(hits) != 1:
         raise ValueError(f'{bid}: {len(hits)} open briefs of that name have an answer of the owner\'s waiting')
-    b, n = hits[0]
-    option, words = said(b, n['text'])
-    b = answer(where, b['id'], option, words, by, now)
+    a = hits[0]
+    if not one(note):
+        raise ValueError(f'{a["id"]}: say which note of his you read (--note {a["note"]}), so an answer he changes meanwhile is not closed unread')
+    if a['note'] != note:
+        raise ValueError(f'{a["id"]}: his last note about it is {a["note"]} ({a["when"]}), not {note}: read it first')
+    return a
+
+
+def unit(where: Path, notes, bid, note):
+    """The unit his click queues, as the file the relay's queue takes. Only when the click is a yes to it."""
+    a = one_answer(where, notes, bid, note)
+    if a['go'] != 'queue':
+        raise ValueError(f'{a["id"]}: nothing is queued on this answer alone ({a["why"] or "the option says nothing is built"}): ask him first')
+    return a['unit']
+
+
+def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='', outcome='', option=''):
+    """Take the owner's answer up in one step: close the brief with what his notes say and with what became of it, and
+    answer every open note of his about it. A brief somebody has already taken is refused, so two sessions do not both
+    act on one answer; so is one he has answered again since `note`, the note the session read. What became of it:
+    `queued` (the unit on the relay's queue) or `outcome` (in words, when nothing was queued). An answer that is a yes
+    to a Then line carries it already; any other answer needs one of the two, so no brief closes without saying.
+    `option` overrules the option read from his notes, for an answer the session had to ask him about.
+    Write the row in decisions.md first. Returns (the brief, his note)."""
+    import notes
+    a = one_answer(where, notes.read_all(notes_where), bid, note)
+    if one(queued) and one(outcome):
+        raise ValueError('what became of it is a unit that was queued or words, not both')
+    if not one(queued) and not one(outcome):
+        if a['go'] == 'ask':
+            raise ValueError(f'{a["id"]}: say what became of it: --queued UNIT, or --outcome "words" when nothing was queued')
+        queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
+    if one(option) and a['go'] != 'ask':
+        raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer you had to ask him about')
+    took = one(option) or a['option']
+    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome)
+    became = f'Queued as {one(queued)}.' if one(queued) else one(outcome).rstrip('.') + '.'
+    n = [m for m in notes.read_all(notes_where) if m['id'] == a['note']][0]
     for m in notes.read_all(notes_where):
         if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done':
-            notes.answer(notes_where, m['id'], f'Taken up: the brief is closed with {option}{" (your own words)" if option == "other" else ""}.', by=by, now=now)
+            notes.answer(notes_where, m['id'], f'Taken up: the brief is closed with {took}{" (your own words)" if took == "other" else ""}. {became}', by=by, now=now)
     return b, n
 
 
@@ -236,10 +391,16 @@ def missing(briefs, titles):
     return [t for t in titles if not any(same(t, h) for h in have)]
 
 
-def site(where: Path, out: Path, now=None):
+def site(where: Path, out: Path, now=None, got=()):
     """Put the briefs the page shows in the site: data/briefs.js, and their evidence under img/brief/<id>/ (a file
-    is copied once). Folders of briefs no longer shown are removed. Returns what the page was given."""
+    is copied once). Folders of briefs no longer shown are removed. Returns what the page was given. `got` is
+    answers(): a brief he has answered is given `waits`, what his answer leads to and the note that was read for, so
+    the page tells him what his click did."""
     listed = shown(read_all(where), now)
+    for a in got:
+        for b in listed:
+            if b['id'] == a['id']:
+                b['waits'] = dict(go=a['go'], note=a['note'], unit=(a['unit'] or {}).get('id', ''))
     for b in listed:
         for e in b['evidence']:
             src, dst = where / b['id'] / e['file'], out / 'img' / 'brief' / b['id'] / e['file']
@@ -270,20 +431,48 @@ def lines(briefs):
         out.append(f'      {b["title"]}: {b["what_for"]}')
         for o in b['options']:
             out.append(f'      {o["key"]}{" (the writer\'s)" if o["key"] == b["pick"] else ""}  {o["text"]}')
+            if o.get('then'):
+                out.append(f'         then: {o["then"]["says"]}' + (f' (queues {o["then"]["unit"]["id"]} on {o["then"]["unit"]["lane"]})' if o['then'].get('unit') else ' (nothing is built)'))
         out.append(f'      evidence: {len(b["evidence"])}' + (f' ({b["no_evidence"]})' if b.get('no_evidence') else ''))
         if a:
             out.append(f'      answered {a["when"]}: {a["option"]}{" · " + a["said"] if a.get("said") else ""}')
+            if a.get('queued') or a.get('outcome'):
+                out.append(f'      taken up{" by " + a["by"] if a.get("by") else ""}: {"queued as " + a["queued"] if a.get("queued") else a["outcome"]}')
+    return out
+
+
+def leads(a):
+    """What an answer leads to, in a few words, for a session's lines."""
+    return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else 'nothing to build' if a['go'] == 'nothing' else f'ask first ({a["why"]})'
+
+
+def waiting_lines(got):
+    """The answers nobody has taken up, as text: every note of his about each, and what it leads to."""
+    out = []
+    for a in got:
+        out.append(f'{a["go"]:8}{a["id"]}')
+        out.append(f'        {a["title"]}')
+        for n in a['notes']:
+            out.append(f'        {n["when"][5:16]}  {" | ".join(n["text"].splitlines())}      (note {n["id"]})')
+        out.append(f'        {leads(a)}')
     return out
 
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description='decision briefs for the owner')
-    ap.add_argument('what', nargs='?', default='list', choices=('list', 'add', 'answer', 'take', 'missing'))
+    ap.add_argument('what', nargs='?', default='list', choices=('list', 'add', 'then', 'waiting', 'unit', 'answer', 'take', 'missing'))
     ap.add_argument('args', nargs='*')
     ap.add_argument('--all', action='store_true', help='the answered ones too')
     ap.add_argument('--title', default='')
     ap.add_argument('--for', dest='what_for', default='', help=f'what the decision is for, {FOR_WORDS} words at most')
-    ap.add_argument('--option', action='append', default=[], help='an option; the first is the one you would take')
+    ap.add_argument('--option', action='append', default=[], help='add: an option; the first is the one you would take. take: the option he chose, for an answer you had to ask him about')
+    ap.add_argument('--says', default='', help=f'then: what happens when he takes the option, {CAPTION_WORDS} words at most')
+    ap.add_argument('--unit', default='', help='then: the unit that is queued, a JSON file in the shape of the relay\'s queue (id, lane, goal, done_when)')
+    ap.add_argument('--note', default='', help='unit, take: the note of his you read (waiting names it)')
+    ap.add_argument('--queued', default='', help='take: the unit that was queued for it')
+    ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
+    ap.add_argument('--out', default='', help='unit: the file the unit is written to')
+    ap.add_argument('--json', action='store_true', help='waiting: as JSON')
     ap.add_argument('--why', default='', help='why the first option')
     ap.add_argument('--evidence', action='append', default=[], help='PATH=what it shows; a picture or a short film')
     ap.add_argument('--no-evidence', default='', help='why nothing can be shown')
@@ -302,12 +491,44 @@ def main(argv=None):
                 raise ValueError('answer ID OPTION ["his words"]')
             b = answer(where, a.args[0], a.args[1], ' '.join(a.args[2:]), a.by)
             print(f'briefs: {b["id"]} is closed with {b["answer"]["option"]}')
+        elif a.what == 'then':
+            if len(a.args) != 2:
+                raise ValueError('then ID OPTION --says "what happens then" [--unit unit.json]')
+            import notes
+            u = None
+            if a.unit:
+                try:
+                    u = json.loads(Path(a.unit).read_text(encoding='utf-8-sig'))
+                except (OSError, ValueError) as e:
+                    raise ValueError(f'the unit {a.unit} does not read: {e}')
+            b = then(where, notes.read_all(notes.folder()), a.args[0], a.args[1], a.says, u)
+            t = [o for o in b['options'] if o['key'] == a.args[1]][0]['then']
+            print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "builds nothing"}')
+        elif a.what == 'waiting':
+            import notes
+            got = answers(read_all(where), notes.read_all(notes.folder()))
+            if a.json:
+                print(json.dumps(got, indent=1, sort_keys=True))
+            else:
+                print('\n'.join([f'briefs: {len(got)} answer{"" if len(got) == 1 else "s"} of the owner\'s nobody has taken up'] + waiting_lines(got)))
+        elif a.what == 'unit':
+            if len(a.args) != 1:
+                raise ValueError('unit ID --note NOTE [--out unit.json]')
+            import notes
+            u = unit(where, notes.read_all(notes.folder()), a.args[0], a.note)
+            text = json.dumps(u, indent=2, sort_keys=True) + '\n'
+            if a.out:
+                Path(a.out).write_text(text, encoding='utf-8', newline='\n')
+                print(f'briefs: the unit {u["id"]} is in {a.out}')
+            else:
+                print(text, end='')
         elif a.what == 'take':
             if len(a.args) != 1:
-                raise ValueError('take ID [--by your-branch]')
+                raise ValueError('take ID --note NOTE [--by your-branch] [--queued UNIT | --outcome "words"]')
             import notes
-            b, n = take(where, notes.folder(), a.args[0], a.by)
-            print(f'briefs: {b["id"]} is closed with {b["answer"]["option"]}, and his note {n["id"]} is answered')
+            b, n = take(where, notes.folder(), a.args[0], a.by, note=a.note, queued=a.queued, outcome=a.outcome, option=a.option[0] if len(a.option) == 1 else '')
+            w = b['answer']
+            print(f'briefs: {b["id"]} is closed with {w["option"]} ({"queued as " + w["queued"] if w.get("queued") else w.get("outcome", "")}), and his notes about it are answered')
         elif a.what == 'missing':
             import src_queue
             import src_git

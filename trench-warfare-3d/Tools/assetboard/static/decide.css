@@ -32,6 +32,9 @@
 .d-opt.on { background: var(--plate); color: var(--k-ink); border-color: var(--plate); }
 .d-opt.on .d-key { background: var(--k-ink); color: #fff; } .d-opt.on .d-tag { border-color: #b82506; color: #b82506; }
 .d-opt:disabled { cursor: default; opacity: .75; } .d-opt.on:disabled { opacity: 1; }
+/* what happens when he takes the option (briefs.py then): under its text, in the soft tone; darker on the light plate of the one taken */
+.d-then { display: block; margin-top: 3px; color: var(--k-soft); font: 500 12.5px/1.35 var(--sans); } .d-opt.on .d-then { color: #55555a; }
+.d-became { display: block; margin-top: 4px; color: #c9c9c5; }
 .d-why { margin: 0; color: #c9c9c5; font: 400 14px/1.45 var(--sans); max-width: 60ch; } .d-why b { color: #fff; font-weight: 600; }
 .d-say { display: flex; gap: 8px; margin-top: 2px; }
 .d-say input { flex: 1; min-width: 0; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #6a6a6e; background: #111113; color: #fff; font: 15px var(--sans); }

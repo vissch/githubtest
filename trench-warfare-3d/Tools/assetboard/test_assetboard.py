@@ -353,6 +353,17 @@ def queue_fixtures():
              'one integration reworded since the lane left it still is',
              [d['title'] for d in q3['decide']] == ['A question'] and [(d['title'], d['lane']) for d in q3['answered']] == [('Another question', 'lane/show/a')]
              and q3['count'] == q2['count'] - 1 and q2['answered'] == [], (q3['decide'], q3['answered'], q3['count'], q2['count']))
+        # what he answered on the Decide page and no session took up: nothing wakes one, so past two hours the board says it
+        ago = lambda sec: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(when - sec))
+        calm = dict(ci=dict(at=when, run=dict(red, conclusion='success')))
+        q4 = src_queue.collect(repo, floor, board=board, cache=dict(calm), now=when, answers=[dict(id='b2', title='The second', when=ago(600)), dict(id='b1', title='The first', when=ago(2 * 3600 + 60))])
+        q5 = src_queue.collect(repo, floor, board=board, cache=dict(calm), now=when, answers=[dict(id='b1', title='The first', when=ago(2 * 3600 - 60))])
+        late = [b for b in q4['broken'] if b['kind'] == 'untaken']
+        case('queue: answers of his on the Decide page that nobody has taken up for over two hours are one broken row for all that wait, counted once, that leads to the page; '
+             'under two hours there is none, nor when no answers are handed in',
+             len(late) == 1 and late[0]['title'] == '2 answers of yours nobody has taken up, the oldest 2 h ago' and late[0]['url'] == 'decide.html' and late[0]['text'] == 'The first; The second'
+             and late[0]['days'] == 0 and q4['count'] == q2['count'] + 1 and not [b for b in q5['broken'] if b['kind'] == 'untaken'] and q5['count'] == q2['count']
+             and not [b for b in q2['broken'] if b['kind'] == 'untaken'], (late, q4['count'], q5['count'], q2['count']))
 
         # the page: its number is the rows it lists, and it knows how old it is
         node = shutil.which('node')
@@ -378,6 +389,9 @@ def queue_fixtures():
         case('ops: an unchanged queue is not written again, and the beat is, so the page can tell stale from unchanged',
              (out / 'data' / 'queue.js').stat().st_mtime_ns == first[0] and first[1] == 'window.BEAT = "2026-09-09T12:00:00";\n'
              and (out / 'data' / 'beat.js').read_text() == 'window.BEAT = "2026-09-09T12:00:20";\n', first)
+        ops.queue(dict(floor, now='2026-09-09 12:00:40'), out, cache_file, repo=repo, board=board, answers=[dict(id='b1', title='The first', when='2026-01-01 10:00:00')])
+        case('ops: the queue it writes lists the answers nobody has taken up that it was handed', '"kind": "untaken"' in (out / 'data' / 'queue.js').read_text(encoding='utf-8')
+             and '"kind": "untaken"' not in json.dumps(q2), (out / 'data' / 'queue.js').read_text(encoding='utf-8')[:200])
 
 
 # A shell command and the room it is work in (src_acts.of_command), a group per rule. Most are shapes the transcripts
@@ -694,6 +708,11 @@ def board():
          all(f.parent == where for f in tmp.rglob('*') if f.is_file()) and re.fullmatch(r'[0-9a-z-]+', ok[1]['note']['id']) is not None, files)
     closed = send('/close', dict(key=key, id=ok[1]['note']['id']))
     case('notes: the owner can close a note from the page', closed[0] == 200 and closed[1]['note']['state'] == 'done' and send('/close', dict(key=key, id='nothing-like-it'))[0] == 400, closed)
+    seen = send('/note', dict(key=key, text='A: Fix it', kind='page', about='brief:b1', then='ab12cd34'))
+    head = (where / (seen[1]['note']['id'] + '.md')).read_text(encoding='utf-8').replace('\r\n', '\n') if seen[0] == 200 else ''
+    case('notes: a click on the Decide page carries the stamp of the Then line the page showed: it is in the head of the note and read back, and a note without one has no such line',
+         seen[0] == 200 and '\nthen: ab12cd34\n' in head and {n['id']: n for n in notes.read_all(where)}[seen[1]['note']['id']].get('then') == 'ab12cd34'
+         and '\nthen:' not in (where / (ok[1]['note']['id'] + '.md')).read_text(encoding='utf-8'), head[:300])
     box.shutdown()
     box.server_close()
 
@@ -1013,9 +1032,9 @@ def decisions():
     his = notes.write(box, 'B: Light\nbut keep the rug', kind='page', about='brief:' + third['id'], now=day)
     notes.write(box, 'a late word', kind='page', about='brief:' + b['id'], now=day)             # about a brief already closed: waits on nobody
     wait = [(x['id'], n['id']) for x, n in briefs.waiting(briefs.read_all(where), notes.read_all(box))]
-    took, was = briefs.take(where, box, third['id'], by='lane/show/x', now=day)
+    took, was = briefs.take(where, box, third['id'], by='lane/show/x', now=day, note=his['id'], outcome='Nothing to build: the rug stays')
     twice = []
-    for again_by in (lambda: briefs.take(where, box, third['id'], by='lane/show/y', now=day), lambda: briefs.answer(where, third['id'], 'A', by='lane/show/y', now=day)):
+    for again_by in (lambda: briefs.take(where, box, third['id'], by='lane/show/y', now=day, note=his['id'], outcome='Again'), lambda: briefs.answer(where, third['id'], 'A', by='lane/show/y', now=day)):
         try:
             again_by()
         except ValueError as e:
@@ -1033,24 +1052,144 @@ def decisions():
     finally:
         os.environ.pop('TW_BRIEFS') if keep is None else os.environ.__setitem__('TW_BRIEFS', keep)
 
+    # an option can say what happens then. A click on it is his yes to that work, and only to the line the page showed
+    def unit_of(n):
+        return dict(id=f'unit-{n}', lane=f'lane/sim/unit-{n}', goal='Men behind a building take less damage.', done_when=['python', 'Tools/otr.py', 'CoverTests'])
+
+    def ask(title):
+        return briefs.add(where, now=day, **dict(good, title=title))
+
+    def says(q, key, line, u=None):
+        return briefs.then(where, notes.read_all(box), q['id'], key, line, u)
+
+    def then_of(q):
+        return {o['key']: o.get('then') for o in {x['id']: x for x in briefs.read_all(where)}[q['id']]['options']}
+
+    def click(q, key, sec, more='', **kw):      # what the page leaves on a click: the option's text, and the stamp of the Then line it showed
+        o = [x for x in {x['id']: x for x in briefs.read_all(where)}[q['id']]['options'] if x['key'] == key][0]
+        return notes.write(box, f'{key}: {o["text"]}' + (f'\n{more}' if more else ''), about='brief:' + q['id'], now=day + datetime.timedelta(seconds=sec),
+                           **dict(dict(kind='page', then=(then_of(q)[key] or {}).get('stamp', '')), **kw))
+
+    def took(q, **kw):                          # the answer a brief is closed with, or why it was not closed
+        try:
+            return briefs.take(where, box, q['id'], by='master', now=day, **kw)[0]['answer']
+        except ValueError as e:
+            return dict(refused=str(e))
+
+    def got():
+        return {a['id']: a for a in briefs.answers(briefs.read_all(where), notes.read_all(box))}
+
+    def no(f):
+        try:
+            f()
+        except ValueError as e:
+            return str(e)
+        return ''
+    cover, other, u1, line = ask('Do houses give cover'), ask('Another question'), unit_of(1), 'Queues a sim lane: men behind a building take less damage'
+    says(cover, 'A', line, u1)
+    says(cover, 'B', 'Nothing to build')
+    opts = then_of(cover)
+    # `third` is closed and its notes are answered: nothing but its being closed refuses a Then line on it
+    wrong = [lambda: says(third, 'A', 'Too late'), lambda: says(cover, 'Z', 'No such option'), lambda: says(cover, 'A', ' '.join(['w'] * (briefs.CAPTION_WORDS + 1))), lambda: says(cover, 'A', '', u1),
+             lambda: says(cover, 'A', 'Queues it', dict(u1, lane='feature/x')), lambda: says(cover, 'A', 'Queues it', dict(u1, done_when='python Tools/otr.py CoverTests')),
+             lambda: says(cover, 'A', 'Queues it', dict(u1, goal='')), lambda: says(cover, 'A', 'Queues it', dict(u1, id='has a space')), lambda: says(cover, 'A', 'Queues it', dict(u1, priority=1)),
+             lambda: says(other, 'A', 'Queues it', u1)]
+    refused = [no(f) for f in wrong]
+    case('brief: an option can say what happens then: the line the page shows and the unit that is queued, or that nothing is built. A line that is empty or long, a unit the relay would refuse, '
+         'a unit another option already queues, an option there is not and a closed brief are refused, and nothing is written',
+         opts['A'] == dict(says=line, stamp=briefs.stamp(line, dict(u1, role='lane')), unit=dict(u1, role='lane')) and opts['B'] == dict(says='Nothing to build', stamp=briefs.stamp('Nothing to build'))
+         and all(refused) and len(refused) == 10 and then_of(cover) == opts and not any(then_of(other).values()) and not any(then_of(third).values()), (opts, refused))
+    case('brief: the stamp of a Then line is eight characters that change with the line and with the unit, so a click is a yes to one line only',
+         len({briefs.stamp(line, u1), briefs.stamp(line + '!', u1), briefs.stamp(line, dict(u1, goal='Something else.')), briefs.stamp(line)}) == 4
+         and briefs.stamp(' ' + line + '  ', u1) == briefs.stamp(line, u1) and len(opts['A']['stamp']) == 8, opts['A']['stamp'])
+    plain, quiet, stale, bare, worded, both, forged, by_hand, remark = (ask(t) for t in ('No Then on this one', 'Nothing follows', 'The line changed', 'Clicked with no stamp', 'Words before the click',
+                                                                                       'First A then B', 'Not his click', 'Written by hand', 'A click with a remark'))
+    for q, key, n in ((stale, 'A', 2), (bare, 'A', 3), (worded, 'A', 4), (both, 'A', 5), (both, 'B', 6), (forged, 'A', 7), (by_hand, 'A', 8), (remark, 'A', 10)):
+        says(q, key, f'Queues unit {n}', unit_of(n))
+    says(quiet, 'A', 'Nothing to build: it stays as it is')
+    c_plain, c1, c2, c_quiet = click(plain, 'A', 1), click(cover, 'A', 2), click(cover, 'A', 3), click(quiet, 'A', 4)
+    click(stale, 'A', 5, then=briefs.stamp('An older line', unit_of(2)))
+    click(bare, 'A', 6, then='')                                   # an old watcher drops the stamp
+    notes.write(box, 'only if it costs no frames', kind='page', about='brief:' + worded['id'], now=day + datetime.timedelta(seconds=7))
+    c_worded, _, c_both = click(worded, 'A', 8), click(both, 'A', 9), click(both, 'B', 10)
+    click(forged, 'A', 11, who='an agent')
+    click(by_hand, 'A', 12, kind='queue')
+    click(remark, 'A', 13, more='but keep the rug')
+    g = got()
+    go = {q['title']: g.get(q['id'], {}).get('go') for q in (cover, quiet, plain, stale, bare, worded, both, forged, by_hand, remark, other)}
+    case('brief: a click that carries the stamp its option has now is his yes: the answer says queue and gives the unit, or nothing when the option builds nothing; two clicks on the one option are one yes, '
+         'and a brief he has not answered is not listed',
+         (go[cover['title']], go[quiet['title']], go[other['title']]) == ('queue', 'nothing', None) and g[cover['id']]['unit'] == dict(u1, role='lane') and g[cover['id']]['note'] == c2['id']
+         and [n['id'] for n in g[cover['id']]['notes']] == [c1['id'], c2['id']] and g[quiet['id']]['says'] == 'Nothing to build: it stays as it is' and g[quiet['id']]['unit'] is None, go)
+    case('brief: a click on an option with no Then line is no yes to work: the master asks first', go[plain['title']] == 'ask' and 'no Then line' in g[plain['id']]['why'], g[plain['id']])
+    case('brief: a click that carries the stamp of an older Then line, or none, is no yes to the line the option has now',
+         (go[stale['title']], go[bare['title']]) == ('ask', 'ask') and 'showed' in g[stale['id']]['why'] and 'showed' in g[bare['id']]['why'], (g[stale['id']]['why'], g[bare['id']]['why']))
+    case('brief: words of his own beside a click make it no yes, in a note of their own or under the click, and every note of his is given, not the last only',
+         go[worded['title']] == 'ask' and g[worded['id']]['option'] == 'A' and g[worded['id']]['said'] == 'only if it costs no frames' and len(g[worded['id']]['notes']) == 2
+         and 'words of his own' in g[worded['id']]['why'] and go[remark['title']] == 'ask' and g[remark['id']]['said'] == 'but keep the rug', (g[worded['id']], g[remark['id']]))
+    case('brief: clicks on two options are no yes to either; the last is the option the answer names',
+         go[both['title']] == 'ask' and g[both['id']]['option'] == 'B' and g[both['id']]['note'] == c_both['id'] and 'same option' in g[both['id']]['why'], g[both['id']])
+    case('brief: a note that is not the owner\'s click on a page is no yes, whatever stamp it carries',
+         (go[forged['title']], go[by_hand['title']]) == ('ask', 'ask') and 'not a click of his' in g[forged['id']]['why'], (g[forged['id']]['why'], g[by_hand['id']]['why']))
+    every = notes.read_all(box)
+    case('brief: the unit a click queues is given only when the click is a yes to it, and only for the note that is his last word',
+         briefs.unit(where, every, cover['id'], c2['id']) == dict(u1, role='lane') and all(no(lambda q=q, n=n: briefs.unit(where, every, q['id'], n)) for q, n in
+                                                                                         ((cover, c1['id']), (cover, ''), (plain, c_plain['id']), (quiet, c_quiet['id']))),
+         no(lambda: briefs.unit(where, every, cover['id'], c1['id'])))
+    case('brief: a Then line cannot be put on a brief he has already answered: it would not be one he saw', 'already' in no(lambda: says(plain, 'A', 'Queues unit 9', unit_of(9))) and not any(then_of(plain).values()), then_of(plain))
+    site2 = tmp / 'site2'
+    told = {x['id']: x.get('waits') for x in briefs.site(where, site2, now=day, got=list(g.values()))}
+    case('brief: the page is told what each answer of his leads to and the note that was read for, and nothing of a brief he has not answered',
+         told[cover['id']] == dict(go='queue', note=c2['id'], unit='unit-1') and told[plain['id']] == dict(go='ask', note=c_plain['id'], unit='') and told[other['id']] is None, told)
+    t_bad = [took(cover, note=c1['id']).get('refused'), took(cover).get('refused'), took(plain, note=c_plain['id']).get('refused'),
+             took(plain, note=c_plain['id'], queued='unit-x', outcome='and words').get('refused'), took(cover, note=c2['id'], option='B').get('refused')]
+    still = got()
+    t_cover, t_quiet, t_plain = took(cover, note=c2['id']), took(quiet, note=c_quiet['id']), took(plain, note=c_plain['id'], outcome='Nothing to build: it stays as built')
+    t_worded, t_both = took(worded, note=c_worded['id'], queued='unit-4'), took(both, note=c_both['id'], queued='unit-5', option='A')
+    his_two = [n for n in notes.read_all(box) if n['about'] == 'brief:' + cover['id']]
+    case('brief: taking an answer up says what became of it: a yes to a Then line carries its unit or its "nothing to build", any other answer needs the unit that was queued or the words why none was. '
+         'A note older than his last, no note, a unit and words together, and another option than his click are refused and close nothing',
+         all(t_bad) and len(t_bad) == 5 and sorted(still) == sorted(g) and t_cover.get('queued') == 'unit-1' and 'outcome' not in t_cover and t_cover.get('option') == 'A'
+         and t_quiet.get('outcome') == 'Nothing to build: it stays as it is' and 'queued' not in t_quiet and t_plain.get('outcome') == 'Nothing to build: it stays as built'
+         and (t_both.get('option'), t_both.get('queued')) == ('A', 'unit-5') and [n['state'] for n in his_two] == ['done', 'done'] and 'Queued as unit-1.' in his_two[0]['answers'][-1]['text']
+         and sorted(got()) == sorted(x['id'] for x in (stale, bare, forged, by_hand, remark)), (t_bad, t_cover, t_quiet, t_plain, t_both))
+    case('brief: words he typed before a click are in the answer the brief is closed with',
+         (t_worded.get('option'), t_worded.get('said'), t_worded.get('queued')) == ('A', 'only if it costs no frames', 'unit-4'), t_worded)
+
     node = shutil.which('node')
     if not node:
         print('      (no node on this machine: the decisions page\'s own cases were not run)')
         return
     js = ('const D = require(process.argv[1]);'
-          'const B = [{id: "b1", title: "The house\'s look", about: "The house look", state: "open", asked: "2026-10-06 10:00", options: [{key: "A", text: "Near-black"}, {key: "B", text: "Light"}]},'
+          'const T = {says: "Queues a sim lane", stamp: "ab12cd34", unit: {id: "unit-1", lane: "lane/sim/house-cover", goal: "g"}}, W = {waits: {go: "queue", note: "n1", unit: "unit-1"}};'
+          'const B = [{id: "b1", title: "The house\'s look", about: "The house look", state: "open", asked: "2026-10-06 10:00", options: [{key: "A", text: "Near-black", then: T}, {key: "B", text: "Light", then: {says: "Nothing to build", stamp: "ee00ee00"}}, {key: "C", text: "Later"}]},'
           ' {id: "b0", title: "Older", about: "", state: "open", asked: "2026-10-01 09:00"}, {id: "b2", title: "Closed", about: "Forward+", state: "answered", asked: "2026-10-02 09:00", answer: {when: "2026-10-05 10:00"}},'
           ' {id: "b3", title: "Closed later", state: "answered", asked: "2026-10-02 09:00", answer: {when: "2026-10-06 10:00"}}];'
           'const Q = [{title: "The house look"}, {title: "Forward+"}, {title: "the HOUSE\'S look"}, {title: "Repo hygiene"}];'
           'console.log(JSON.stringify([D.match(B, "the house look!").id, D.match(B, "The house\'s look").id, D.match(B, "Forward+"), D.match(B, ""), D.order(B).open.map(b => b.id), D.order(B).done.map(b => b.id),'
-          ' D.bare(B, Q).map(q => q.title), D.word(B[0], "B", ""), D.word(B[0], "A", "but keep the rug"), D.word(B[0], "Z", "my own words"), D.slug("  The Frog\'s far LOD size ")]))')
-    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'decide.js')], capture_output=True)
+          ' D.bare(B, Q).map(q => q.title), D.word(B[0], "B", ""), D.word(B[0], "A", "but keep the rug"), D.word(B[0], "Z", "my own words"), D.slug("  The Frog\'s far LOD size "),'
+          ' [D.then(B[0].options[0]), D.then(B[0].options[1]), D.then(B[0].options[2])], [D.stamp(B[0], "A"), D.stamp(B[0], "B"), D.stamp(B[0], "C"), D.stamp(B[1], "A")],'
+          ' [D.became({by: "lane/show/x", queued: "unit-1"}), D.became({outcome: "Nothing to build"}), D.became({option: "A"})],'
+          ' [D.waits(W, {id: "n1"}), D.waits(W, {id: "n2"}), D.waits({waits: {go: "ask", note: "n1"}}, {id: "n1"}), D.waits({waits: {go: "nothing", note: "n1"}}, {id: "n1"}), D.waits({}, {id: "n1"})],'
+          ' require(process.argv[2]).sends({text: "A: Near-black", kind: "page", about: "brief:b1", title: "T", lane: "", asset: "", page: "decide.html", then: "ab12cd34", id: "unsent-1", state: "unsent"}),'
+          ' require(process.argv[2]).sends({text: "x"}).then]))')
+    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'decide.js'), str(HERE / 'static' / 'board.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('decide: a question of the queue leads to its open brief, by the title it is about or its own; one whose brief is answered, and one with none, are listed without',
          got and got[:4] == ['b1', 'b1', None, None] and got[6] == ['Forward+', 'Repo hygiene'], (got and got[:7], p.stderr[-300:]))
     case('decide: the open briefs come oldest first, the answered after them, the last answered first', got and got[4:6] == [['b0', 'b1'], ['b3', 'b2']], got and got[4:6])
     case('decide: picking an option says the option in the note that is left, and his own words go as they are',
-         got and got[7:] == ['B: Light', 'A: Near-black\nbut keep the rug', 'my own words', 'the-frog-s-far-lod-size'], got and got[7:])
+         got and got[7:11] == ['B: Light', 'A: Near-black\nbut keep the rug', 'my own words', 'the-frog-s-far-lod-size'], got and got[7:11])
+    case('decide: an option that says what happens then shows it under its text with the lane of the unit it queues, and one that says nothing shows nothing',
+         got and got[11] == ['Then: Queues a sim lane · sim lane house-cover', 'Then: Nothing to build', ''], got and got[11])
+    case('decide: a click carries the stamp of the Then line its own option shows, and none when the option has none',
+         got and got[12] == ['ab12cd34', 'ee00ee00', '', ''] and got[15] == dict(text='A: Near-black', kind='page', about='brief:b1', title='T', lane='', asset='', page='decide.html', then='ab12cd34') and got[16] == '',
+         got and (got[12], got[15:]))
+    case('decide: a closed brief says who took it up and what was queued, or why nothing was; one closed without either says no more than before',
+         got and got[13] == ['Taken up by x: queued as unit-1', 'Taken up: Nothing to build', ''], got and got[13])
+    case('decide: an answer of his is told what it waits for only for the note that was read for: the master queues the unit, writes down that nothing is built, or asks first',
+         got and got[14] == ['the master queues unit-1 when you next talk to him', 'waits for a session to take it up', 'the master asks you before any work is queued',
+                             'nothing to build; the master writes it down when you next talk to him', 'waits for a session to take it up'], got and got[14])
     try:
         import jinja2  # noqa: F401
     except ImportError:
