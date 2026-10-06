@@ -629,7 +629,7 @@ on 2026-10-07 the relay's queue was 86, 89 and 96 units in three files.
 | How we work: lanes, the seam, the gate, landing | `CLAUDE.md` | whoever changes the rule, on the owner's word |
 | Task, files, tests, how to see it | `tasks.md` | whoever changes the code |
 | What the owner decided, and what waits on him | `decisions.md`; the Decide page shows the open ones as briefs (`Tools/assetboard/briefs.py`) | the session he answered |
-| A method: commands, landing, briefs, a pipeline | this file, `pipelines.md`, or the doc of the tool | whoever changes the tool |
+| A method: commands, landing, briefs, a pipeline, a code review and the check of its fixes | this file, `pipelines.md`, `review.md`, or the doc of the tool | whoever changes the tool |
 | An incident that cost time | `agent-memory.md` (capped) | the session it happened to |
 | A note from one lane to another | `docs/inbox/` | the sender; the receiver deletes it |
 | Work in flight that the next session must pick up | a handoff on the Drive, listed by `Tools/handoffs.py` | the session that stops |
@@ -647,6 +647,7 @@ python Tools/handoffs.py new HANDOFF_AGENT_x.md --topic "x" --for "one line" --r
 python Tools/handoffs.py done HANDOFF_AGENT_x.md      # the work is finished
 python Tools/handoffs.py check                 # exit 1: a handoff nobody listed, two current on one topic, a stale index
 ```
-The tool keeps the list (a JSON file beside the handoffs) and writes the folder's index page from it; nobody edits
+`python Tools/test_handoffs.py` is its tests. The tool keeps the list (a JSON file beside the handoffs) and writes
+the folder's index page from it; nobody edits
 that page by hand. Register a handoff in the turn you write it, and name the one it replaces. When its work is
 finished or its method has moved into the docs, mark it `done` or `replace` it with `repo:` and the doc's path.
