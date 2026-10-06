@@ -478,7 +478,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   thrower plays `Clip.Throw` from its swing (`AnimationController`, the `threw` latch).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
-  burst and lobs a man's height).
+  burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
+  FarGrowTests.
 - **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
   heave and smoke in the shell-burst handler (`fx.columnSoil`, `fx.columnCap`, `fx.columnPlay`, `fx.smokeNight*`; the VFX
   pass's burst recipes, `fx.recipes`, default 0 = the old burst, `CombatFx.Recipes.cs`; the medic's glint behind it, `CombatFx.Support.cs`, the gas and smoke banks, `CombatFx.Banks.cs`, the incoming shells, `CombatFx.Barrage.cs`; fire from far off, halo and thinning, `FlipbookFx.FarFire.cs`; the smoke weight and lean, `fx.smokeWeight`/`fx.smokeLean`, `FlipbookFx.Smoke.cs`; the fire in a shell burst, the bloom on the hole and the pockets in its cloud, `fx.shellFire`, the grit `fx.shellGrit`, `CombatFx.ShellFire.cs`; the census of which events the picture draws most, `VfxEventCensusTests.cs` (explicit, run by name); each class's small arms, `fx.classArms`, `CombatFx.Weapons.cs`; each machine's gun and the mortar's arc, the Salvo's ripple and each gun's own piece near the eye, `TankRenderer.Guns.cs`; each weapon's own drawing among the men and the close assault's thrown bundle, `CombatFx.Close.cs`; each burst by what made it (mortar, rocket, calibre, mine, tripwire), `CombatFx.Bursts.cs`; the effects' quality tier (Low/Medium/High/Epic: every budget, the close-up reach; the knob `fx.quality`, the setting EFFECTS DETAIL), `Presentation/Core/FxQuality.cs`, tested in `FxQualityTests.cs`), when a
@@ -818,7 +819,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:hooks -->
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
-| `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Chunks, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
+| `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer |
@@ -830,7 +831,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | `DrawnWreck` | TankRenderer | BattlefieldComposer |
 | `IsTankSlot` | TankRenderer | CombatFx, CombatFx.Deaths, CombatFx.Ground |
 | `Flash` | NightLights | CombatFx.Chunks, TankRenderer, TankRenderer.Riders, TankRenderer.Salvo |
-| `FireLight` | NightLights | Flamethrower |
+| `FireLight` | NightLights | Flamethrower, TankRenderer |
 | `FirePool` | NightLights.Pools | NightLights, TankRenderer |
 | `CookOff` | CombatFx | PropDestruction |
 | `FootFall` | CombatFx | TankRenderer |
@@ -839,11 +840,11 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
-- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests, WreckModelTests
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FarGrowTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MeleeTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** VfxStills, WalkerStills, WreckStills
-- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
+- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->
