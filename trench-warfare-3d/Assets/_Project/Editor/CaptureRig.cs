@@ -100,6 +100,12 @@ namespace TW.Editor
             /// from the last one showed the last one's lamps, a frame into their fade.</summary>
             public static bool LampsFade;
 
+            /// <summary>Let a set go CLOSER than the tactical camera's own ZoomMin, down to this zoom. NaN (the
+            /// default) keeps the existing behaviour exactly: Pose clamps to tc.ZoomMin and nothing else in the rig
+            /// can get the camera nearer. Half a frame's height for a 2 m man needs a zoom near 3.4 m and ZoomMin
+            /// is 6, so a picture meant to show what a man carries could not be framed at all (look-07).</summary>
+            public static float ZoomFloor = float.NaN;
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
@@ -198,7 +204,8 @@ namespace TW.Editor
 
             void Pose(TacticalCamera tc, Camera cam, Shot shot)
             {
-                tc.Zoom = Mathf.Clamp(shot.Zoom, tc.NearZoom, tc.ZoomMax);
+                float zmin = float.IsNaN(ZoomFloor) ? tc.NearZoom : Mathf.Min(ZoomFloor, tc.NearZoom);   // look-07: a set may go closer
+                tc.Zoom = Mathf.Clamp(shot.Zoom, zmin, tc.ZoomMax);
                 tc.Focus = shot.Focus;
                 if (!LampsFade) { var night = FindFirstObjectByType<TW.Presentation.Terrain.NightLights>(); if (night != null) night.CutLamps(); }
                 // what TacticalCamera.Update sets for this zoom: the close-up band (grit, footprints, litter, the effects'
