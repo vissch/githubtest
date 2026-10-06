@@ -97,3 +97,24 @@ def push(board, message):
     except gitio.GitError as e:
         return "board push failed: %s" % e
     return "push failed: the commit is kept locally"
+
+
+def push_kept(board):
+    """Push what an earlier push() left on this machine's board: it keeps the commit when the push fails, and with
+    nothing new to commit the next push() ends before it pushes. For a caller that finds its own work committed
+    already (`relay.py add --unit`, called again). Reported like push(), never raised."""
+    if not (Path(board) / ".git").exists():
+        return "no board repo"
+    ahead = gitio.git_raw(["rev-list", "--count", "@{u}..HEAD"], board)
+    if ahead.returncode or ahead.stdout.decode("utf-8", "replace").strip() in ("", "0"):
+        return "nothing to push"                 # also a board with no origin to compare with
+    try:
+        for _ in range(3):
+            if gitio.git_raw(["pull", "--rebase", "-q"], board).returncode:
+                gitio.git(["rebase", "--abort"], board, check=False)
+                continue
+            if gitio.git_raw(["push", "-q"], board).returncode == 0:
+                return "pushed"
+    except gitio.GitError as e:
+        return "board push failed: %s" % e
+    return "push failed: the commit is kept locally"

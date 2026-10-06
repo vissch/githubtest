@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """One screen for the master and the owner (relay.py day): what the day has left, where the plan's week stands when
 something read it, is a run going or how the last one stopped, what is queued in the order the runner takes it
-with the usual cost of each unit, what needs the owner, and who holds the relay build.
+with the usual cost of each unit, what needs the owner, what he answered on the asset board's Decide page that no
+session has taken up, and who holds the relay build.
 
-  lines(board, home, lim, ph, holder=None)   the screen, as plain lines
+  lines(board, home, lim, ph, holder=None, answered=None)   the screen, as plain lines
   queue(board)                               (the units not done yet in the runner's order, what is wrong with the rest)
   live(home)                                 the lock records of the runs going on this machine
 Only what has a source today is shown. Learnings, tools waiting to land, proposed work and the asset queue are not
@@ -113,9 +114,27 @@ def week_line(board, home, lim):
     return usage.line(usage.read(home, lim)) or usage.line(ledger.standing(board), old=True)
 
 
-def lines(board, home, lim, ph, holder=None):
+def answer_lines(answered, width, rows):
+    """The block "Your answers": what the owner answered on the Decide page that no session has taken up, as
+    answers.read() gives it: (rows, why). The one block that also speaks when its source cannot be read: left out, a
+    Drive that is not mounted would read as "nothing waits". A row starts with what he picked, so a long title is
+    what gets cut."""
+    got, why = answered
+    if why:
+        return fit("Your answers: not read (%s)." % why, width)
+    if not got:
+        return ["Your answers: nothing waits."]
+    out = fit("Your answers: %d not taken up. What each leads to: briefs.py waiting." % len(got), width)
+    out += [cut("  - %s: %s" % (r["picked"], r["title"]), width) for r in got[:rows]]
+    if len(got) > rows:
+        out.append("  ... and %d more" % (len(got) - rows))
+    return out
+
+
+def lines(board, home, lim, ph, holder=None, answered=None):
     """What `relay.py day` prints. At most limits.json day_queue_rows rows in each list, no line over
-    day_line_chars: a row is cut there, a sentence goes on over the next line."""
+    day_line_chars: a row is cut there, a sentence goes on over the next line. `answered` is answers.read(): with
+    None the block "Your answers" is left out (a caller that did not look says nothing about it)."""
     width, rows = int(lim["day_line_chars"]), int(lim["day_queue_rows"])
     out = fit(ledger.one_line(board, lim["day_budget_usd"], home, lim), width)
     out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
@@ -143,6 +162,8 @@ def lines(board, home, lim, ph, holder=None):
     out += [cut("  - " + n, width) for n in needs[:rows]]
     if len(needs) > rows:
         out.append("  ... and %d more" % (len(needs) - rows))
+    if answered is not None:
+        out += answer_lines(answered, width, rows)
     if holder:
         out += fit("The relay build is held by %s until %s." % (holder["who"], holder["until"]), width)
     return out
