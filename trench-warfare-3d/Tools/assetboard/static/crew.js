@@ -112,14 +112,19 @@ window.Crew = (function () {
     });
     return { at: at, idle: idle };
   }
-  // read the floor again every 20 s: a new script tag for data/ops.js, the old one dropped
+  // read the floor again every 20 s: a new script tag for data/ops.js, the old one dropped. A page with several
+  // parts (the control screen has the office, the house and the graphs) reads once for all of them: one clock, and
+  // every part's draw after the same reading
+  var draws = [];
   function live(draw) {
     draw();
+    draws.push(draw);
+    if (draws.length > 1) return;
     setInterval(function () {
       // the beat (written on every read), the queue and the floor, one after the other, then one redraw
-      var files = ['data/beat.js', 'data/queue.js', 'data/ops.js'], i = 0;
+      var files = ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ops.js'], i = 0;      // the notes are board.js's to read again
       (function next() {
-        if (i === files.length) { draw(); return; }
+        if (i === files.length) { draws.forEach(function (d) { try { d(); } catch (e) { if (window.console) console.error(e); } }); return; }
         var s = document.createElement('script');
         s.src = files[i++] + '?t=' + Date.now();
         s.onload = s.onerror = function () { s.remove(); next(); };

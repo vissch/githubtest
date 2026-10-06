@@ -22,6 +22,8 @@ It checks, in order, and prints one line each:
               branch (origin's, when fetched), and any file outside your lane that this branch changed or has
               uncommitted: a SHOW branch carrying Sim/ files fails here.
   5. inbox    the notes in docs/inbox/, on your branch and on the integration branch, marking those for you.
+     notes    what the owner wrote on the asset board (Tools/assetboard/notes.py), marking those for your branch.
+     briefs   the decision briefs that wait on the owner, and the ones he has answered that no session has taken up.
   6. compile  only with --compile.
 
 Exit code: 0 all good, 1 something to fix before committing. HELD and "behind" are reported, not failed: they
@@ -85,6 +87,39 @@ def inbox(branch):
         if recipient(n) is None:
             where += '  (addressed to no lane that exists: rename it or delete it)'
         print(f'         {"FOR YOU " if n in mine else "        "}docs/inbox/{n}{where}')
+
+
+def owner_notes(branch):
+    """What the owner wrote on the asset board about a model, a branch or a question (Tools/assetboard/notes.py):
+    the open notes, those for this branch and for everyone marked. They are the owner's word, like a decision row."""
+    try:
+        sys.path.insert(0, str(ROOT / 'Tools' / 'assetboard'))
+        import notes
+        waiting = [n for n in notes.read_all(notes.folder()) if n['state'] != 'done']
+    except Exception as e:      # the notes are on a Drive that may not be mounted here; that stops nothing
+        print(f'notes    not read ({e})')
+        return
+    mine = notes.for_lane(waiting, branch)
+    print(f'notes    {len(waiting)} open from the owner on the asset board, {len(mine)} for you')
+    for n in mine:
+        on = n.get('asset') or n.get('title') or n.get('kind', '')
+        print(f'         FOR YOU {n["id"]}  ({on}): {n["text"].splitlines()[0][:90]}')
+    if mine:
+        print(f'         read: python Tools/assetboard/notes.py --for {branch}   answer: python Tools/assetboard/notes.py done ID "what you did" --by {branch}')
+    # the decision briefs (Tools/assetboard/briefs.py): how many wait on him, and which he has answered on the page
+    try:
+        import briefs
+        every = [b for b in briefs.read_all(briefs.folder()) if b.get('state') != 'answered']
+        got = briefs.waiting(every, waiting)
+    except Exception as e:
+        print(f'briefs   not read ({e})')
+        return
+    print(f'briefs   {len(every)} open for the owner, {len(got)} he has answered and nobody has taken up')
+    for b, n in got:
+        mark = 'FOR YOU ' if not b.get('lane') or b['lane'] == branch else '        '
+        print(f'         {mark}{b["id"]}: {n["text"].splitlines()[0][:80]}')
+    if got:
+        print(f'         take one up: its row in docs/reference/decisions.md, then python Tools/assetboard/briefs.py take ID --by {branch}')
 
 
 def unity_cli():
@@ -210,6 +245,7 @@ def main():
             print(f'         ... and {len(outside) - 12} more outside your lane')
         bad |= bool(outside)
     inbox(branch)
+    owner_notes(branch)
 
     if '--compile' in sys.argv:
         occ = ROOT / 'Tools' / 'aosa' / 'occ.py'

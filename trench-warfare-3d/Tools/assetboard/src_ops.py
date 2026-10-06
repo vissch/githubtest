@@ -4,14 +4,21 @@ Read from this machine, nothing typed in:
 - the branches (src_git.lanes): every lane with commits integration lacks, its checkout, its last commits;
 - the checkouts: what is uncommitted in each, which is work going on in it now;
 - the Claude sessions: their transcripts under ~/.claude/projects. A transcript written to in the last few minutes
-  is a session at work; its folder says which checkout (so which branch), its title and last request say on what,
-  its Skill calls say which skills it has taken up, and its subagents (subagents/*.meta.json) which agents it sent;
+  is a session at work, and so is one whose subagents are still running; its folder says which checkout (so which
+  branch), or, started outside every checkout, the paths its last calls name; its title and last request say on
+  what, its Skill calls say which skills it has taken up, and its subagents (subagents/*.meta.json) which agents
+  it sent;
 - the machines: the processes running against a checkout (a Unity editor or test run, the gate, Blender, a film);
 - the pipeline board (Tools/pipeline): each item's lane, its stages, the role (skill) each stage wants, a claim.
 
 The roster is the project's skills (.claude/skills) and agents (.claude/agents, and the user's ~/.claude/agents).
 A skill or agent with nothing to do is on the bench.
+
+For the house page every worker also says which room its work is in (`act`) and every roster entry which room it
+works in when called (`home`); src_acts.py holds those rules. A session's room is where its last tool calls point,
+the war room while it waits on the owner or is in plan mode, the bunkhouse when it rests.
 """
+import collections
 import datetime
 import json
 import os
@@ -20,13 +27,20 @@ import subprocess
 import time
 from pathlib import Path
 
+import src_acts
 import src_git
 
 WORKING = 10 * 60        # a transcript written to this recently is a session at work
 RECENT = 3 * 3600        # ... this recently: it was here today, shown resting on its branch
+LONG = 24 * 3600         # ... not for this long: it is not asked about its agents either
 SKILL_FRESH = 90 * 60    # a skill a working session took up this recently is working with it
 AGENT_FRESH = 4 * 60     # a subagent whose transcript moved this recently is still running
 TAIL = 4 * 1024 * 1024
+AGENT_TAIL = 512 * 1024  # of an agent's own log: enough for its last calls
+POINTS = 40              # the last tool calls of a session that are asked: which room, and which checkout
+ENOUGH = 3               # ... and how many of them must name a checkout for a session started outside every one
+ASKS = ('AskUserQuestion', 'ExitPlanMode')     # a call that is not over until the owner answers
+PLAN_MARKS = {'plan_mode': True, 'plan_mode_reentry': True, 'plan_mode_exit': False}    # the notes a transcript keeps of going in and out of plan mode
 PROJECTS = Path(os.path.expanduser('~')) / '.claude' / 'projects'
 MACHINES = [            # (process name, a pattern in its command line, what it is doing)
     ('Unity.exe', r'\b(-runTests|test)\b', 'Unity test run'),
@@ -58,19 +72,22 @@ def short(s, n=140):
 
 
 def roster(repo: Path):
-    """The skills and agents, each with what it is for (its description up to the first full stop)."""
+    """The skills and agents, each with what it is for (its description up to the first full stop) and the room it
+    works in when it is called (`home`)."""
     out = []
     for f in sorted((repo / '.claude' / 'skills').glob('*/SKILL.md')):
         t = f.read_text(encoding='utf-8', errors='replace')
         d = re.search(r'^description:\s*(.+)$', t, re.M)
         text = fix_text(d.group(1)).strip().strip('"') if d else ''
         what = re.split(r'\s[—–-]\s', text, 1)[-1]
-        out.append(dict(id=f.parent.name, kind='skill', name=f.parent.name, does=short(what.split('. ')[0], 110)))
+        does = short(what.split('. ')[0], 110)
+        out.append(dict(id=f.parent.name, kind='skill', name=f.parent.name, does=does, home=src_acts.of_skill(f.parent.name, does)))
     for folder, where in ((repo / '.claude' / 'agents', 'project'), (Path(os.path.expanduser('~')) / '.claude' / 'agents', 'yours')):
         for f in sorted(folder.glob('*.md')):
             t = f.read_text(encoding='utf-8', errors='replace')
             d = re.search(r'^description:\s*(.+)$', t, re.M)
-            out.append(dict(id='agent:' + f.stem, kind='agent', name=f.stem, does=short(fix_text(d.group(1)) if d else '', 110), where=where))
+            does = short(fix_text(d.group(1)) if d else '', 110)
+            out.append(dict(id='agent:' + f.stem, kind='agent', name=f.stem, does=does, where=where, home=src_acts.of_agent(f.stem, does)))
     return out
 
 
@@ -117,15 +134,58 @@ def owner_of(path, trees):
     return best
 
 
-def read_tail(f: Path):
+def spellings(trees):
+    """Each checkout with the ways a command or a path may spell it, the longest path first: with backslashes or
+    forward slashes (C:/Users/x/repo) and as Git Bash does (/c/Users/x/repo), in any case. A name counts only whole:
+    followed by a separator, a quote, a space or nothing, so githubtest is not found in githubtest-pipe."""
+    out = []
+    for root in trees:
+        p = re.sub(r'/+', '/', str(root).replace('\\', '/').lower()).rstrip('/')
+        forms = sorted({p, re.sub(r'^([a-z]):/', r'/\1/', p)})
+        out.append((root, re.compile('(?:' + '|'.join(re.escape(f) for f in forms) + r')(?=[/\s\'"`;)|&<>,]|$)')))
+    return sorted(out, key=lambda x: -len(str(x[0])))
+
+
+def pointed(inp, spell):
+    """The checkout a tool call points into: the one its file, its folder or its command names. Of several the
+    longest path, so a worktree inside a checkout is itself and not the checkout around it."""
+    text = ' '.join(str(inp.get(k) or '') for k in ('file_path', 'path', 'notebook_path', 'command'))
+    text = re.sub(r'[\\/]+', '/', text.lower())
+    return next((root for root, rx in spell if rx.search(text)), None)
+
+
+def home_of(cwd, named, trees):
+    """The checkout a session works in. Its own folder decides when that is inside one. A session started outside
+    every checkout (the laptop starts them in Documents/claude and reaches the checkouts by path) belongs to the one
+    most of its last calls point into (`named`: the checkout each named, or None, in the order they were made),
+    when at least ENOUGH do; of two named as often, the one named last."""
+    tree = owner_of(cwd, trees) if cwd else None
+    if tree is None:
+        hits = collections.Counter(t for t in named if t is not None)
+        best = max(hits, key=lambda t: (hits[t], max(i for i, n in enumerate(named) if n == t)), default=None)
+        tree = best if best is not None and hits[best] >= ENOUGH else None
+    return tree
+
+
+def read_tail(f: Path, tail=TAIL):
+    """The entries in the last `tail` bytes of a transcript (the first line of the cut is half a line and is skipped)."""
     with open(f, 'rb') as h:
-        h.seek(max(0, f.stat().st_size - TAIL))
+        h.seek(max(0, f.stat().st_size - tail))
         data = h.read()
     for line in data.split(b'\n'):
         try:
-            yield json.loads(line)
+            d = json.loads(line)
         except ValueError:
             continue
+        if isinstance(d, dict):
+            yield d
+
+
+def uses(d):
+    """The tool calls one entry of a transcript makes."""
+    if d.get('type') != 'assistant':
+        return []
+    return [c for c in (d.get('message') or {}).get('content') or [] if isinstance(c, dict) and c.get('type') == 'tool_use']
 
 
 def ts(s):
@@ -135,45 +195,104 @@ def ts(s):
         return None
 
 
-def sessions(trees, now):
-    """Every Claude session written to in the last RECENT seconds that works in one of these checkouts."""
+def running(f: Path, now):
+    """The subagents of a session that are still running: (what it was sent as, its log) for each whose log moved in
+    the last AGENT_FRESH seconds."""
+    sub = f.with_suffix('') / 'subagents'
     out = []
+    for meta in sorted(sub.glob('*.meta.json')) if sub.is_dir() else []:
+        log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
+        try:
+            if now - log.stat().st_mtime <= AGENT_FRESH:
+                out.append((meta, log))
+        except OSError:
+            continue
+    return out
+
+
+def agent(meta: Path, log: Path):
+    """A running subagent: its type, what it was last asked, and the room it is in: where the last calls in its own
+    log point, else the room of its trade. Agents of one type share an id on the floor, so each also has a `uid` of
+    its own, from the name of its log."""
+    try:
+        m = json.loads(meta.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        m = {}
+    kind = m.get('agentType') or 'agent'
+    what = agent_task(last_ask(log), m.get('description', ''))
+    calls = [(ts(d.get('timestamp')), src_acts.of_tool(c.get('name'), c.get('input'))) for d in read_tail(log, AGENT_TAIL) for c in uses(d)]
+    key = log.stem[len('agent-'):] if log.stem.startswith('agent-') else log.stem
+    return dict(type=kind, what=what, uid=f'agent:{kind}#{key[:6]}', act=src_acts.pick(calls) or src_acts.of_agent(kind, what))
+
+
+def sessions(trees, now):
+    """Every Claude session written to in the last RECENT seconds, or with an agent still running, that works in one
+    of these checkouts. Each says what it is on (title, last request, the skills it took up, its running agents) and,
+    from its last POINTS tool calls: the room each is work in (`calls`, for src_acts.pick), whether the last one
+    still waits for the owner's answer (`wait`), and the checkout they point into when its own folder is in none.
+    `plan` is whether it is in plan mode. It is at work (`working`) when its transcript moved in the last WORKING
+    seconds or an agent of its is still running: a parent waiting on its agents writes nothing for a long time."""
+    out, spell = [], spellings(trees)
     for f in PROJECTS.glob('*/*.jsonl'):
         age = now - f.stat().st_mtime
-        if age > RECENT:
+        logs = running(f, now) if age <= LONG else []
+        if age > RECENT and not logs:
             continue
-        s = dict(id=f.stem, age=int(age), cwd=None, title='', prompt='', doing='', skills={}, agents=[])
+        s = dict(id=f.stem, age=int(age), cwd=None, title='', prompt='', doing='', skills={}, agents=[], calls=[], wait='', plan=False)
+        last, ask = collections.deque(maxlen=POINTS), None
         for d in read_tail(f):
             s['cwd'] = d.get('cwd') or s['cwd']
             if d.get('type') == 'ai-title':
                 s['title'] = d.get('aiTitle', '')
             elif d.get('type') == 'last-prompt':
                 s['prompt'] = d.get('lastPrompt', '')
-            elif d.get('type') == 'assistant' and not d.get('isSidechain'):
-                for c in (d.get('message') or {}).get('content') or []:
-                    if not isinstance(c, dict) or c.get('type') != 'tool_use':
-                        continue
-                    inp = c.get('input') or {}
+            elif d.get('isSidechain'):
+                continue
+            elif d.get('type') == 'assistant':
+                for c in uses(d):
+                    inp = c.get('input') if isinstance(c.get('input'), dict) else {}
                     if c.get('name') == 'Skill' and inp.get('skill'):
                         s['skills'][inp['skill'].split(':')[-1]] = (ts(d.get('timestamp')), short(inp.get('args', ''), 90))
                     s['doing'] = short(inp.get('description') or inp.get('prompt') or c.get('name', ''), 110)
-            elif d.get('type') == 'user' and not d.get('isSidechain'):
+                    last.append((ts(d.get('timestamp')), c.get('name'), inp))
+                    ask = c.get('id') if c.get('name') in ASKS else None
+            elif d.get('type') == 'user':
+                if 'permissionMode' in d:              # only what the owner typed carries it
+                    s['plan'] = d['permissionMode'] == 'plan'
                 for c in (d.get('message') or {}).get('content') or []:
-                    if isinstance(c, dict) and c.get('type') == 'text' and c.get('text', '').startswith('<command-name>/'):
+                    if not isinstance(c, dict):
+                        continue
+                    if c.get('type') == 'text' and c.get('text', '').startswith('<command-name>/'):
                         name = re.search(r'<command-name>/([\w:-]+)', c['text']).group(1)
                         s['skills'][name.split(':')[-1]] = (ts(d.get('timestamp')), '')
-        tree = owner_of(s['cwd'], trees) if s['cwd'] else None
+                    elif c.get('type') == 'tool_result' and ask and c.get('tool_use_id') == ask:
+                        ask = None                     # the owner answered
+            elif d.get('type') == 'attachment':        # a plan approved, or the mode switched, with nothing typed since
+                s['plan'] = PLAN_MARKS.get((d.get('attachment') or {}).get('type'), s['plan'])
+        s['calls'] = [(when, src_acts.of_tool(name, inp)) for when, name, inp in last]
+        s['wait'] = 'owner' if ask else ''
+        tree = home_of(s['cwd'], [pointed(inp, spell) for _, _, inp in last], trees)
         if tree is None:
             continue
         s['tree'] = tree
-        sub = f.with_suffix('') / 'subagents'
-        for meta in sub.glob('*.meta.json') if sub.is_dir() else []:
-            log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
-            if log.exists() and now - log.stat().st_mtime <= AGENT_FRESH:
-                m = json.loads(meta.read_text(encoding='utf-8'))
-                s['agents'].append(dict(type=m.get('agentType', 'agent'), what=agent_task(last_ask(log), m.get('description', ''))))
+        s['agents'] = [agent(meta, log) for meta, log in logs]
+        s['working'] = age <= WORKING or bool(logs)
         out.append(s)
     return out
+
+
+def session_worker(s):
+    """A session as a worker on its branch, with the room it is in (`act`): the war room while it waits on the owner
+    (then it says so: `wait`) or is at work in plan mode; the bunkhouse when it rests; else where its last calls
+    point. A question nobody answered goes on waiting after the transcript went quiet: that is when the owner has to
+    see it, so a session that waits says so for as long as it is listed, at work or not."""
+    working = s['working']
+    act = 'plan' if s['wait'] or (working and s['plan']) else 'bunk' if not working else src_acts.pick(s['calls']) or 'work'
+    w = dict(kind='session', id='session:' + s['id'][:8], name='Claude', title=short(s['title'], 60), what=short(s['prompt'], 160),
+             doing=s['doing'] if working else '', state='working' if working else 'resting', age=s['age'], act=act)
+    if s['wait']:
+        w['wait'] = s['wait']
+    return w
 
 
 def tidy(t: str, n=60):
@@ -324,29 +443,31 @@ def collect(repo: Path, site: Path):
             lanes[branch] = dict(branch=branch, ahead=0, tip='', live=True, newest=True, checkout=None, dirty=0, dirty_files=[], workers=[], items=[], assets=[], last=[])
         lanes[branch]['workers'].append(worker)
 
+    home = {r['id']: r['home'] for r in people}     # a skill at work is in the room the roster gives it
     for s in sessions(list(trees), now):
         branch = trees[s['tree']]['branch']
-        working = s['age'] <= WORKING
-        put(branch, dict(kind='session', id='session:' + s['id'][:8], name='Claude', title=short(s['title'], 60), what=short(s['prompt'], 160),
-                         doing=s['doing'] if working else '', state='working' if working else 'resting', age=s['age']))
-        if not working:
+        put(branch, session_worker(s))
+        if not s['working']:
             continue
         for name, (when, args) in s['skills'].items():
             if when and now - when <= SKILL_FRESH:
-                put(branch, dict(kind='skill', id=name, name=name, what=args or short(s['title'] or s['prompt'], 100), state='working'))
+                put(branch, dict(kind='skill', id=name, name=name, what=args or short(s['title'] or s['prompt'], 100), state='working',
+                                 act=home.get(name) or src_acts.of_skill(name)))
                 busy.setdefault(name, []).append(branch)
         for a in s['agents']:
             aid = 'agent:' + a['type']
-            put(branch, dict(kind='agent', id=aid, name=a['type'], what=a['what'], state='working'))
+            put(branch, dict(kind='agent', id=aid, uid=a['uid'], name=a['type'], what=a['what'], state='working', act=a['act']))
             busy.setdefault(aid, []).append(branch)
     for m in machines(list(trees)):
-        put(trees[m['tree']]['branch'], dict(kind='machine', id=f'pid:{m["pid"]}', name=m['what'], what=f'since {(m["started"] or "")[11:16]}', state='working'))
+        put(trees[m['tree']]['branch'], dict(kind='machine', id=f'pid:{m["pid"]}', name=m['what'], what=f'since {(m["started"] or "")[11:16]}', state='working',
+                                             act=src_acts.of_machine(m['what'])))
     for st, c in claims.items():
         it = next((i for i in items if c.get('job', '').startswith(i['id'])), None)
         stage = next((s for s in it['stages'] if s['id'] in c.get('job', '')), None) if it else None
         if it and stage:
             sk = stage['skill'] or stage['role']
-            put(it['lane'], dict(kind='skill' if stage['skill'] else 'role', id=sk, name=sk, what=f'{it["id"]}: {stage["id"]} on the {st}', state='working'))
+            put(it['lane'], dict(kind='skill' if stage['skill'] else 'role', id=sk, name=sk, what=f'{it["id"]}: {stage["id"]} on the {st}', state='working',
+                                 act=home.get(sk) or src_acts.of_skill(sk)))
             busy.setdefault(sk, []).append(it['lane'])
     for r in people:
         r['busy'] = busy.get(r['id'], [])

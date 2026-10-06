@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}House{% endblock %}
+{% block bodyclass %}overview house{% endblock %}
+{% block head %}<link rel="stylesheet" href="house.css">{% endblock %}
+{% block main %}
+<section class="k-office h-house" id="househome">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>The house</p>
+    <h2>Seven rooms, <span class="k-soft">and who is in which.</span></h2>
+    <p class="k-stamp"><span class="k-live" aria-hidden="true"></span><span id="stamp">reading the floor…</span> · <a href="index.html#deck">the control screen &rarr;</a> · <a href="floor.html">every branch &rarr;</a></p>
+  </header>
+{% with full = true %}{% include "_house.html" %}{% endwith %}
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="house.js"></script><script src="housedraw.js"></script>{% endblock %}

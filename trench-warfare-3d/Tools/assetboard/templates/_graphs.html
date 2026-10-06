@@ -1,0 +1,36 @@
+{# The five graphs: graphs.html shows them full size under its tiles, the control screen (index.html) under the house.
+   charts.js draws into these ids. #}
+  <div class="g-grid">
+    <article class="g-card g-wide" id="g-rooms">
+      <h3>Where the work was, hour by hour</h3>
+      <p class="g-what">Tool calls an hour on this station, the last 48 hours, by the room each is work in. Click a room to open it in the house.</p>
+      <div class="g-legend"></div>
+      <div class="g-plot"></div>
+      <details><summary>As a table</summary><div class="g-scroll"></div></details>
+    </article>
+    <article class="g-card" id="g-lanes">
+      <h3>Which branch got the work</h3>
+      <p class="g-what">Tool calls by branch, the last seven days. Click a branch for its room.</p>
+      <div class="g-plot"></div>
+      <details><summary>As a table</summary><div class="g-scroll"></div></details>
+    </article>
+    <article class="g-card" id="g-needs">
+      <h3>What waited on you</h3>
+      <p class="g-what">The number of things in "Needs you", reading by reading.</p>
+      <div class="g-plot"></div>
+      <details><summary>As a table</summary><div class="g-scroll"></div></details>
+    </article>
+    <article class="g-card" id="g-commits">
+      <h3>Landed on integration</h3>
+      <p class="g-what">Commits a day, the last 30 days.</p>
+      <div class="g-plot"></div>
+      <details><summary>As a table</summary><div class="g-scroll"></div></details>
+    </article>
+    <article class="g-card" id="g-models">
+      <h3>The models, and how far along</h3>
+      <p class="g-what">By kind, from an idea (dark) to final in the battle (light). Click a part for those models.</p>
+      <div class="g-legend"></div>
+      <div class="g-plot"></div>
+      <details><summary>As a table</summary><div class="g-scroll"></div></details>
+    </article>
+  </div>

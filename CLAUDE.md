@@ -11,11 +11,11 @@ tests → how to see it); do not read it through. Open anything else only when t
 |---|---|
 | which file to change, which test guards it | `docs/reference/tasks.md` |
 | a command: open the editor, eval, compile, one test, the gate, a screenshot, a build; every `tw eval` helper | `docs/reference/workflow.md` (section 6 lists the helpers) |
-| what the owner decided, and what is still waiting on them | `docs/reference/decisions.md` |
+| what the owner decided, and what is still waiting on them | `docs/reference/decisions.md`. A decision you need from the owner goes to him as a brief with pictures: `python Tools/assetboard/briefs.py add` (short by rule; he answers on the board's Decide page) |
 | a switch, arg or prefs key | `docs/reference/feature-flags.md` |
 | importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
 | assemblies, folders, sim system order | `docs/reference/code-map.md` |
-| notes other sessions left for you | `docs/inbox/` (one file per note; `health.py` lists them) |
+| notes other sessions left for you, and the owner's notes from the asset board | `docs/inbox/` (one file per note) and `python Tools/assetboard/notes.py --for <branch>` (the owner's word: answer with `done ID "what you did"`); `health.py` lists both |
 | design of a system (why it is built this way) | `docs/README.md` (index of docs 00-20) |
 | known risks and the refactor backlog | `docs/reference/maintainability-audit-2026-09.md` |
 

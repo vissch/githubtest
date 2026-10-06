@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Decide{% endblock %}
+{% block bodyclass %}overview decide{% endblock %}
+{% block head %}<link rel="stylesheet" href="decide.css">{% endblock %}
+{% block main %}
+{# Every decision that waits on the owner, as a brief he can decide from (briefs.py writes them, decide.js draws
+   them): what it is for, the options as buttons, the pictures that bear on it. Under them, the questions of the
+   queue nobody wrote a brief for yet. #}
+<section class="k-office d-page" id="decide">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Decide</p>
+    <h2>Your call, <span class="k-soft">with what it is for and what there is to see.</span></h2>
+    <p class="d-count" id="d-count" aria-live="polite">reading the briefs…</p>
+  </header>
+  <details class="d-fold" id="d-fold" hidden><summary>All the open briefs, by title</summary><nav class="d-index" id="d-index" aria-label="The open briefs"></nav></details>
+  <div class="d-list" id="d-open"></div>
+  <div class="d-bare" id="d-bare" hidden></div>
+  <div class="d-list d-done" id="d-done" hidden></div>
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/briefs.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script>{% endblock %}

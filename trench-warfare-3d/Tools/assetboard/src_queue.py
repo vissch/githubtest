@@ -143,9 +143,23 @@ def headline(title):
     return re.split(r'\s\(\d{4}-|\s\(|,\s|:$|\?\s', title.replace('`', '') + ' ')[0].strip(' :.') or title
 
 
+def answered_here(repo, integ, path=DECISIONS):
+    """The open bullets this checkout has taken out since it left integration, by key: answered here (its row says
+    how), committed or not, and on integration only once the lane lands. A checkout that is only behind took none out."""
+    try:
+        here = {e['key'] for e in parse((Path(repo) / path).read_text(encoding='utf-8')) if e['kind'] == 'open'}
+    except OSError:
+        return set()
+    base = src_git.git(repo, 'merge-base', integ, 'HEAD').strip()
+    blob = src_git.git(repo, 'rev-parse', '--verify', '--quiet', f'{base}:{path}').strip() if base else ''
+    return {e['key'] for e in parse(src_git.git(repo, 'show', blob)) if e['kind'] == 'open'} - here if blob else set()
+
+
 def open_questions(repo, integ, cache, path=DECISIONS):
+    """The open bullets on integration, oldest first. `answered` marks one this checkout has already taken out."""
     blob = src_git.git(repo, 'rev-parse', '--verify', '--quiet', f'{integ}:{path}').strip()
     dates = cache.setdefault('first_written', {})
+    gone = answered_here(repo, integ, path)
     out = []
     for e in parse(src_git.git(repo, 'show', blob)) if blob else []:
         if e['kind'] != 'open':
@@ -155,7 +169,7 @@ def open_questions(repo, integ, cache, path=DECISIONS):
             log = src_git.git(repo, 'log', '--reverse', '--format=%ad', '--date=short', '-S' + e['title'], integ, '--', path).split()
             date = dates[e['title']] = log[0] if log else ''
         body = re.sub(r'\s+', ' ', re.sub(r'[`*]', '', e['text'][2:]))
-        out.append(dict(title=headline(e['title']), date=date, text=body[:400], choice="agent's choice" in body[:260]))
+        out.append(dict(title=headline(e['title']), date=date, text=body[:400], choice="agent's choice" in body[:260], answered=e['key'] in gone))
     return sorted(out, key=lambda q: (q['date'] or '9999', q['title']))
 
 
@@ -236,7 +250,11 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None):
     cache = cache if cache is not None else {}
     now = now or time.time()
     trees = [l for l in ops['lanes'] if l.get('path')]
-    q = dict(decide=open_questions(repo, integ, cache), land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
+    asked = open_questions(repo, integ, cache)
+    q = dict(decide=[d for d in asked if not d['answered']], land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
+    # answered in this checkout and not landed: no longer the owner's to decide, so not in the count; the page says where it is
+    here = src_git.git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()
+    q['answered'] = [dict(d, lane=here) for d in asked if d['answered']]
 
     for t in trees:
         head, green, took = gate_state(t['path'])

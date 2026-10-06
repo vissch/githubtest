@@ -37,8 +37,28 @@
   var onBranches = !!document.getElementById('strip');
   function readyOf(l) { var out = []; l.items.forEach(function (it) { it.stages.forEach(function (s) { if (s.state === 'READY') out.push({ item: it, stage: s, lane: l }); }); }); return out; }
 
-  function desk(w) {
+  var Bd = window.Board;
+  function laneSubject(l) {
+    var links = [{ label: 'Its room on the branches page', href: 'floor.html#' + slug(l.branch) }];
+    l.items.forEach(function (it) { links.push({ label: 'Board item: ' + headline(it.title || it.id), href: 'process.html' }); });
+    var facts = [laneKind(l.branch), (l.ahead || 0) + ' ahead'].concat(l.dirty ? [l.dirty + ' files changing'] : [], l.checkout ? ['checked out in ' + l.checkout] : [], l.last[0] ? ['last change ' + ago(l.last[0].date)] : []);
+    return { kind: 'lane', id: l.branch, kindLabel: 'branch', title: shortBranch(l.branch), sub: l.last[0] ? said(l.last[0].subject) : '', lane: l.branch, assets: l.assets, links: links, facts: facts };
+  }
+  function desk(w, l) {
     var d = el('div', 'k-desk ' + (w.state || 'idle'));
+    if (Bd && l) {
+      d.classList.add('b-click'); d.tabIndex = 0; d.setAttribute('role', 'button');
+      var s = laneSubject(l); s.kind = 'worker'; s.id = w.id; s.kindLabel = w.kind === 'session' ? 'Claude session' : w.kind; s.title = C.title(w); s.sub = C.doing(w) || w.what || '';
+      s.facts = [w.state === 'working' ? 'at work' : 'resting', 'on ' + shortBranch(l.branch)]; s.links = [{ label: 'Where it is in the house', href: 'house.html?pin=' + encodeURIComponent(w.id) }].concat(s.links);
+      // on the control screen the house is on the page: the click picks this worker's frog there, and the profile
+      // beside the house says the rest; a frog the house does not have (or a page without it) gets the panel
+      var show = function () {
+        var V = window.HouseView, deck = $('profile') && $('deck');
+        if (deck && V && V.pin && V.pin(w.uid || w.id)) { deck.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); return; }
+        Bd.open(s);
+      };
+      d.addEventListener('click', show); d.addEventListener('keydown', function (e) { if (e.key === 'Enter') show(); });
+    }
     d.appendChild(C.booth(w));
     var tag = el('div', 'k-nametag');
     tag.appendChild(el('b', null, C.title(w)));
@@ -62,6 +82,7 @@
     var t = el('div', 'k-room-title');
     t.appendChild(el('span', 'k-lane k-lane-' + laneKind(l.branch), laneKind(l.branch)));
     t.appendChild(el('h3', null, shortBranch(l.branch)));
+    if (Bd) t.appendChild(Bd.button(laneSubject(l)));
     return t;
   }
   function board(l) {
@@ -99,7 +120,7 @@
     if (l.items.length) r.appendChild(board(l));
     var body = el('div', 'k-room-body' + (onBranches ? ' k-detail' : ''));
     var desks = el('div', 'k-desks' + (onBranches ? '' : ' k-desks-sm'));
-    l.workers.slice().sort(function (a, b) { return (b.state === 'working') - (a.state === 'working') || C.title(a).localeCompare(C.title(b)); }).forEach(function (w) { desks.appendChild(desk(w)); });
+    l.workers.slice().sort(function (a, b) { return (b.state === 'working') - (a.state === 'working') || C.title(a).localeCompare(C.title(b)); }).forEach(function (w) { desks.appendChild(desk(w, l)); });
     body.appendChild(desks);
     var side = el('div', 'k-room-side');
     if (l.assets.length) side.appendChild(wall(l, 8));
@@ -178,21 +199,26 @@
       return { title: x.item.title || x.item.id, item: x.item.id, stage: x.stage.id, lane: x.lane.branch, role: x.stage.skill || x.stage.role || '', days: null }; }) };
     var groups = Q ? Q.groups(queue) : [], waiting = groups.reduce(function (n, g) { return n + g.rows.length; }, 0);
     function qrow(g, r, cls) {
-      var a = el(r.lane || r.url ? 'a' : 'div', cls); a.title = r.tip || r.top;
-      if (r.url) a.href = r.url; else if (r.lane) a.href = (onBranches ? '' : 'floor.html') + '#' + slug(r.lane);
+      // a decision leads to its brief on the decisions page (decide.js), or to its place among those without one
+      var Bf = g.key === 'decide' ? window.Briefs : null, bf = Bf ? Bf.match(window.BRIEFS, r.top) : null, to = Bf ? 'decide.html#' + (bf ? bf.id : 'q-' + Bf.slug(r.top)) : '';
+      var a = el(r.lane || r.url || to ? 'a' : 'div', cls); a.title = r.tip || r.top;
+      if (to) a.href = to; else if (r.url) a.href = r.url; else if (r.lane) a.href = (onBranches ? '' : 'floor.html') + '#' + slug(r.lane);
       var what = el('span', 'k-take-what');
       what.appendChild(el('span', 'k-take-top', g.key === 'ready' ? headline(r.top) : r.top));
       var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c) { sub.appendChild(el('span', 'k-qchip', c)); }); what.appendChild(sub);
+      if (bf) sub.appendChild(el('span', 'k-qchip k-qbrief', 'brief, with ' + (bf.evidence.length ? bf.evidence.length + (bf.evidence.length === 1 ? ' picture' : ' pictures') : 'no picture')));
       a.appendChild(what);
+      if (Bd) a.appendChild(Bd.button({ kind: 'queue', id: g.key + ': ' + r.top, kindLabel: g.label.toLowerCase(), title: r.top, sub: r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '',
+        links: r.lane ? [{ label: 'Its branch, ' + shortBranch(r.lane), href: 'floor.html#' + slug(r.lane) }] : r.url ? [{ label: 'Open it', href: r.url }] : [], facts: r.chips }));
       return a;
     }
     var pr = $('p-ready');
     if (pr && pr.textContent !== String(waiting) && pr.textContent !== '–') { var nc = $('p-needs'); nc.classList.remove('k-bump'); void nc.offsetWidth; nc.classList.add('k-bump'); }
     set('p-ready', waiting);
-    var list = $('p-ready-list'), sig = JSON.stringify(groups);
+    var list = $('p-ready-list'), sig = JSON.stringify([groups, (window.BRIEFS || []).map(function (b) { return [b.id, b.state]; })]);
     if (changed(list, sig)) {
       groups.forEach(function (g) {
-        var row = el('a', 'k-take k-take-line'); row.href = '#queue';
+        var row = el('a', 'k-take k-take-line k-chip-' + g.key); row.href = '#q-' + g.key;          // to its own card of the queue
         var what = el('span', 'k-take-what');
         what.appendChild(el('span', 'k-take-top', g.label));
         what.appendChild(el('span', 'k-take-sub', g.rows.slice(0, 2).map(function (r) { return r.top; }).join(' · ') + (g.rows.length > 2 ? ' · +' + (g.rows.length - 2) : '')));
@@ -207,7 +233,7 @@
     if (qs) qs.hidden = !waiting;
     if (changed(cards, sig)) {
       groups.forEach(function (g) {
-        var card = el('article', 'k-qcard k-q-' + g.key);
+        var card = el('article', 'k-qcard k-q-' + g.key); card.id = 'q-' + g.key;
         var h = el('header'); h.appendChild(el('b', null, g.label)); h.appendChild(el('span', 'k-qn', String(g.rows.length))); card.appendChild(h);
         g.rows.slice(0, 5).forEach(function (r) { card.appendChild(qrow(g, r, 'k-qrow')); });
         if (g.rows.length > 5) {

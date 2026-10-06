@@ -9,12 +9,15 @@
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="{{ root }}site.css">
 <link rel="stylesheet" href="{{ root }}kinetic.css">
+<link rel="stylesheet" href="{{ root }}board.css">
+{% block head %}{% endblock %}
 </head>
-<body class="{% block bodyclass %}page{% endblock %}">
+<body class="{% block bodyclass %}page{% endblock %}" data-root="{{ root }}">
 <header class="top">
   <a class="brand" href="{{ root }}index.html"><span class="k-star" aria-hidden="true"></span>TW3D <b>studio</b></a>
   <nav>
     <a href="{{ root }}index.html#top">Overview</a>
+    <a href="{{ root }}decide.html">Decide</a>
     <a href="{{ root }}index.html#assets">Assets</a>
     <a href="{{ root }}floor.html">Branches</a>
     <a href="{{ root }}process.html">Process</a>
@@ -30,6 +33,7 @@
   is typed by hand. A film marked "game" was recorded from the game (gamefilm.py); "render" is drawn in Blender without the game's
   lighting or effects.</span></details>
 </footer>
+<script src="{{ root }}data/notebox.js"></script><script src="{{ root }}data/notes.js"></script><script src="{{ root }}board.js"></script>
 {% block script %}{% endblock %}
 </body>
 </html>
