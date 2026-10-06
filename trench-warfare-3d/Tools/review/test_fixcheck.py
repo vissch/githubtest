@@ -107,6 +107,7 @@ class Repo(unittest.TestCase):
         argv = ['--tree', str(self.tree), '--base', self.base, '--head', head, '--lane', lane, '--ids'] + ids
         argv += ['--out', str(out), '--unit', 'rv-test']
         argv += ['--unity', kw['unity']] if kw.get('unity') is not None else ['--unity', '']
+        argv += kw.get('extra') or []
         said = io.StringIO()
         with contextlib.redirect_stdout(said):
             code = F.main(argv)
@@ -144,6 +145,25 @@ class PythonFixes(Repo):
         code, rec, said = self.check(head, ['D1'])
         self.assertEqual((code, rec['ids']['D1']['verdict'], rec['ids']['D1']['why']),
                          (0, 'NO TEST', 'it is a sentence in a doc'), said)
+
+    def test_a_follow_up_that_only_mends_a_test_names_the_fix_already_in_the_base(self):
+        self.base = self.py_fix(test_body='        self.assertTrue(thing.answer() > 0)\n')   # the fix, its test cannot fail
+        text = (self.tree / (P + 'Tools/test_thing.py')).read_text(encoding='utf-8')
+        self.put(P + 'Tools/test_thing.py',
+                 text.replace('# [T1] it answered one\n        self.assertTrue(thing.answer() > 0)',
+                              '# [T1b] it answered one\n        self.assertEqual(thing.answer(), 2)'))
+        head = self.commit('the test can fail now [T1b]')
+        code, rec, said = self.check(head, ['T1b'])
+        self.assertEqual((code, rec['ids']['T1b']['verdict']), (1, 'FAIL'), said)
+        self.assertIn('fix in base', rec['ids']['T1b']['why'])
+        code, rec, said = self.check(head, ['T1b'], extra=['--fix-in-base', 'T1b=' + self.base])
+        self.assertEqual((code, rec['ids']['T1b']['verdict']), (0, 'PROVED'), said)
+        self.put('docs/notes.md', 'notes, again\n')
+        head = self.commit('[T1b] fix in base: %s' % self.base[:10])
+        code, rec, said = self.check(head, ['T1b'])
+        self.assertEqual((code, rec['ids']['T1b']['verdict'], rec['ids']['T1b']['fix_in_base']),
+                         (0, 'PROVED', self.base), said)
+        self.assertEqual(self.git('status', '--porcelain'), '')
 
     def test_the_tree_is_back_on_the_fix_and_clean_afterwards(self):
         head = self.py_fix()
