@@ -14,7 +14,9 @@ script. For the commits base..head on a lane it answers four things:
      or a sentence `[ID] no test: why` in a commit message.
   2. Each tagged test is RED on the old code and GREEN on the fix. The old code is the tree at head with every
      file that is not a test put back to base, so the new tests run against the code as it was. A test that is
-     green there cannot fail and proves nothing. A test that is red there only because the old code does not
+     green there cannot fail and proves nothing. A follow-up that only makes an earlier fix's test able to fail
+     names that fix (`[ID] fix in base: <commit>` in a commit message, or --fix-in-base ID=COMMIT): the files
+     that commit changed are put back too. A test that is red there only because the old code does not
      compile with it is said so (`weak`): it shows the fix added a name, not that the bug was real.
   3. No file gained a UTF-8 BOM.
   4. No file is outside the lane: a sim lane keeps to Sim/, Net/, Data/ and the sim tests, a show lane keeps out
@@ -240,17 +242,21 @@ def run_all(tree, tests, unity):
     return out
 
 
-def old_code(tree, base, head, files):
+def old_code(tree, base, head, files, earlier=None):
     """Put every changed file that is not a test back to base, as a commit of its own that is never pushed: a tool
     that reads HEAD (selftest.py builds its copy from it) then sees the old code too. Made with plumbing, so no
-    hook runs on it."""
-    for status, path in files:
+    hook runs on it. earlier (a commit already in the base): the fix these tests are for was made there, so the
+    files that commit changed go back to what they were before it as well."""
+    back = [(st, path, base) for st, path in files]
+    if earlier:
+        back += [(st, path, earlier + '^') for st, path in changed(tree, earlier + '^', earlier)]
+    for status, path, to in back:
         if is_test(path):
             continue
         if status == 'A':
-            git(['rm', '-q', '-f', '--', path], tree)
+            git(['rm', '-q', '-f', '--ignore-unmatch', '--', path], tree)
         else:
-            git(['checkout', '-q', base, '--', path], tree)
+            git(['checkout', '-q', to, '--', path], tree)
     git(['add', '-A'], tree)
     commit = git(['commit-tree', git(['write-tree'], tree).strip(), '-p', head, '-m',
                   'fixcheck: the new tests on the old code'], tree).strip()
@@ -273,7 +279,8 @@ def verdict_of(i, tests, old, new, named, why):
         return 'PROVED', 'red on the old code, green on the fix'
     if 'compile' in o or 'missing' in o:
         return 'WEAK', 'red on the old code only because the old code lacks a name the test uses: not proof of the bug'
-    return 'FAIL', 'its test is green on the old code too: the test cannot fail'
+    return 'FAIL', ('its test is green on the old code too: the test cannot fail. If the fix it tests is already in '
+                    'the base, say `[%s] fix in base: <commit>` in a commit message' % i)
 
 
 def main(argv=None):
@@ -287,6 +294,9 @@ def main(argv=None):
     ap.add_argument('--out')
     ap.add_argument('--unity', default=os.environ.get('TW_UNITY') or (str(UNITY) if UNITY.exists() else ''))
     ap.add_argument('--no-run', action='store_true', help='only what git can say: ids, BOMs, lane')
+    ap.add_argument('--fix-in-base', action='append', default=[], metavar='ID=COMMIT',
+                    help='the fix this id tests is a commit already in the base: run its tests against the code '
+                         'before that commit (a commit message may say the same: `[ID] fix in base: <commit>`)')
     a = ap.parse_args(argv)
     tree = Path(a.tree).resolve()
     if 'fixcheck' not in tree.name.lower():
@@ -307,14 +317,22 @@ def main(argv=None):
                 tagged[i] += [t for t in ts if t not in tagged[i]]
     tests = [t for ts in tagged.values() for t in ts]
     tests = [t for n, t in enumerate(tests) if t not in tests[:n]]
+    earlier = dict(x.split('=', 1) for x in a.fix_in_base)
+    for i in a.ids:
+        m = re.search(r'\[%s\]\s+fix in base:\s*([0-9a-f]{7,40})' % re.escape(i), messages)
+        if m and i not in earlier:
+            earlier[i] = m.group(1)
+    earlier = {i: git(['rev-parse', '--verify', c + '^{commit}'], tree).strip() for i, c in earlier.items()}
     old, new = {}, {}
     if tests and not a.no_run:
-        try:
-            old_code(tree, base, head, files)
-            old = run_all(tree, tests, a.unity)
-        finally:
-            git(['update-ref', '--no-deref', 'HEAD', head], tree)
-            git(['reset', '-q', '--hard', head], tree)
+        for fix in sorted(set(earlier.get(i) or '' for i in a.ids if tagged[i])):     # one old tree per earlier fix
+            batch = [t for i in a.ids if (earlier.get(i) or '') == fix for t in tagged[i]]
+            try:
+                old_code(tree, base, head, files, fix or None)
+                old.update(run_all(tree, [t for n, t in enumerate(batch) if t not in batch[:n]], a.unity))
+            finally:
+                git(['update-ref', '--no-deref', 'HEAD', head], tree)
+                git(['reset', '-q', '--hard', head], tree)
         new = run_all(tree, tests, a.unity)
     ids = {}
     for i in a.ids:
@@ -322,7 +340,9 @@ def main(argv=None):
         v, said = verdict_of(i, tagged[i], old, new, '[%s]' % i in messages, why.group(1).strip() if why else '')
         if a.no_run and tagged[i] and v != 'FAIL':
             v, said = 'UNCHECKED', 'not run (--no-run)'
-        ids[i] = {'verdict': v, 'why': said,
+        if earlier.get(i) and v in ('PROVED', 'WEAK'):
+            said += ' (the old code: before %s, a fix already in the base)' % earlier[i][:8]
+        ids[i] = {'verdict': v, 'why': said, 'fix_in_base': earlier.get(i, ''),
                   'tests': [dict(t, old=old.get(key(t)), new=new.get(key(t))) for t in tagged[i]]}
     boms, outside = gained_bom(tree, base, head, files), outside_lane(kind_of(a.lane), paths)
     got = [x['verdict'] for x in ids.values()]
