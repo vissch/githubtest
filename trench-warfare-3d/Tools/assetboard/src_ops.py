@@ -7,7 +7,8 @@ Read from this machine, nothing typed in:
   is a session at work; its folder says which checkout (so which branch), its title and last request say on what,
   its Skill calls say which skills it has taken up, and its subagents (subagents/*.meta.json) which agents it sent;
 - the machines: the processes running against a checkout (a Unity editor or test run, the gate, Blender, a film);
-- the pipeline board (Tools/pipeline): each item's lane, its stages, the role (skill) each stage wants, a claim.
+- the pipeline board (Tools/pipeline): each item's lane, its stages, the role (skill) each stage wants, a claim;
+- the relay (src_relay.py): a run that is going is a worker on the branch of its unit, with the leg it is on.
 
 The roster is the project's skills (.claude/skills) and agents (.claude/agents, and the user's ~/.claude/agents).
 A skill or agent with nothing to do is on the bench.
@@ -21,6 +22,7 @@ import time
 from pathlib import Path
 
 import src_git
+import src_relay
 
 WORKING = 10 * 60        # a transcript written to this recently is a session at work
 RECENT = 3 * 3600        # ... this recently: it was here today, shown resting on its branch
@@ -289,6 +291,17 @@ def board(root: Path, skills):
     return out, claims
 
 
+def relay(root: Path, now):
+    """The relay's runs, read with the pipeline's own test of "is this process still the one"."""
+    import sys
+    sys.path.insert(0, str(root / 'Tools' / 'pipeline'))
+    try:
+        import pipeline
+        return src_relay.collect(pipeline.board_dir(), now, lambda pid, start: bool(pid) and pipeline.proc_start(pid) == start)
+    except (SystemExit, Exception):
+        return dict(runs=[], last=None, does='runs work as a chain of short sessions')
+
+
 def collect(repo: Path, site: Path):
     now = time.time()
     root = repo / 'trench-warfare-3d'
@@ -348,12 +361,19 @@ def collect(repo: Path, site: Path):
             sk = stage['skill'] or stage['role']
             put(it['lane'], dict(kind='skill' if stage['skill'] else 'role', id=sk, name=sk, what=f'{it["id"]}: {stage["id"]} on the {st}', state='working'))
             busy.setdefault(sk, []).append(it['lane'])
+    rel = relay(root, now)
+    people.append(dict(id='agent:relay', kind='agent', name='relay', does=rel['does'], where='project'))
+    for run in rel['runs']:
+        if run['lane']:
+            put(run['lane'], dict(kind='agent', id='agent:relay', name='relay', what=src_relay.leg_line(run), state='working',
+                                  legs=run['legs'], run=run['run'], minutes=run['minutes']))
+            busy.setdefault('agent:relay', []).append(run['lane'])
     for r in people:
         r['busy'] = busy.get(r['id'], [])
     ordered = sorted(lanes.values(), key=lambda l: (-sum(w['state'] == 'working' for w in l['workers']), -len(l['workers']), -len(l['items']),
                                                      -(l['dirty'] > 0), '' if not l['tip'] else ''.join(chr(255 - ord(c)) for c in l['tip']), l['branch']))
     return dict(now=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), lanes=ordered, roster=people,
-                integration=src_git.INTEGRATION[7:], counts=dict(
+                integration=src_git.INTEGRATION[7:], relay=rel, counts=dict(
                     sessions=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'session' and w['state'] == 'working'),
                     machines=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'machine'),
                     ready=sum(1 for l in ordered for it in l['items'] for s in it['stages'] if s['state'] == 'READY'),
