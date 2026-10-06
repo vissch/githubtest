@@ -448,6 +448,10 @@ def queue_fixtures():
         case('page: the part of the overview that draws "Needs you" builds no address of a branch page: a row of his is a link to Q.leads, a row of the agents\' is no link',
              'floor.html' not in block and 'slug(r.lane)' not in block and "el('a', 'k-qrow k-mine')" in block.replace(" + (r.shot ? ' k-shown' : '')", '') and "el('div', 'k-qrow k-theirs')" in block
              and 'big.appendChild(Bf.card(byId[sel.brief]))' in block and block.count('.href = ') == block.count('.href = Q.leads(r)') + block.count(".href = 'decide.html'") + block.count(".href = '#queue'"), block[:200])
+        his, theirs = block[block.index('function mine(r)'):block.index('function notMine(')], block[block.index('function notMine('):block.index('a.appendChild(Bd.button(subj));')]
+        case('page: no control stands inside another in "Needs you": a row of his is a link with no button in it, a row of the agents\' is no button itself and holds the one note button, '
+             'and that button is called by what it is about, not by its pencil',
+             '.button(' not in his and "'role'" not in theirs and 'tabIndex' not in theirs and "x.b.setAttribute('aria-label'," in panel, (his[:120], theirs[-200:]))
 
         # what a click on a row opens: a few lines that say what it is, and the pictures the board holds for it
         green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')          # the gate is green on its tip again

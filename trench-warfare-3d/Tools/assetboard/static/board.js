@@ -40,7 +40,9 @@
   function closable(s, docked, resting) { return !docked || !(s.follow || resting); }
   // what a note sends to the listener (notes.py, /note): its text, what it is about, and the stamp of the Then line he saw
   function sends(n) { return { text: n.text, kind: n.kind, about: n.about, title: n.title, lane: n.lane, asset: n.asset, page: n.page, then: n.then || '' }; }
-  var pure = { slug: slug, short: short, about: about, pick: pick, open: open, merged: merged, when: when, caption: caption, closable: closable, sends: sends };
+  // what a note button is called: its pencil is a sign for the eye, and a title is only a description
+  function called(s, n) { return 'Notes about ' + (s.title || s.id) + (n ? ', ' + n + ' open' : ''); }
+  var pure = { slug: slug, short: short, about: about, pick: pick, open: open, merged: merged, when: when, caption: caption, closable: closable, sends: sends, called: called };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
 
   var ROOT = document.body.dataset.root || '', LS = 'tw3d-notes-unsent';
@@ -250,7 +252,7 @@
     b.addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); show(s); });
     buttons.push({ b: b, s: s, label: label || '' }); mark(buttons[buttons.length - 1]); return b;
   }
-  function mark(x) { var n = open(all(), x.s); x.b.textContent = (x.label ? x.label + ' ' : '') + (n ? '✎ ' + n : '✎'); x.b.classList.toggle('b-has', n > 0); }
+  function mark(x) { var n = open(all(), x.s); x.b.textContent = (x.label ? x.label + ' ' : '') + (n ? '✎ ' + n : '✎'); x.b.classList.toggle('b-has', n > 0); x.b.setAttribute('aria-label', (x.label ? x.label + ': ' : '') + called(x.s, n)); }
   function changed() {
     buttons = buttons.filter(function (x) { return x.b.isConnected || !x.seen; }); buttons.forEach(function (x) { x.seen = x.seen || x.b.isConnected; mark(x); });
     inline.forEach(function (x) { notesBlock(x.s, x.into); });
