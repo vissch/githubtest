@@ -157,10 +157,11 @@ context. A script picks the work, starts one leg at a time and checks the result
 | `relay/prepush.py` | Git pre-push hook: while a leg holds a checkout, only a forward push of its own lane leaves it | installed by the runner at run start |
 | `relay/legcmd.py` | A leg's close-out: the edit gate detached, then commit and push | `python Tools/relay/relay.py leg gate start` |
 | `relay/sources/` | Where work comes from: `pipeline.py` (board jobs), `lane.py` (queued lane work) | one file per source |
-| `relay/ledger.py` | The day's spend, added up from the leg records on the board; the usual cost of a leg | `python Tools/relay/relay.py budget` |
+| `relay/ledger.py` | The day's spend, added up from the leg records on the board, against the day's cap (11% of the week) and its pace; the usual cost of a leg | `python Tools/relay/relay.py budget` |
+| `relay/agents.py` | What the agents cost that sessions spawned outside the relay, from Claude Code's own logs, booked on the board so the day counts them (`agents.json`: names and list prices) | `python Tools/relay/relay.py agents`, `agents book` |
 | `relay/test_relay.py` | Its tests, with a stand-in for Claude (`relay/fake_claude.py`) | `python Tools/relay/test_relay.py` |
 | `relay/test_ledger.py` | The tests of the day's spend | `python Tools/relay/test_ledger.py` |
 | `relay/usage.py` | The readings of the plan's weekly limit a source hands in, and what a leg used of the week. Calls nobody | `python Tools/relay/relay.py usage` |
 | `relay/test_usage.py` | The tests of those readings | `python Tools/relay/test_usage.py` |
-| `relay/day.py` | The master's one screen: budget, run, queue in its order, what needs the owner. Reads only | `python Tools/relay/relay.py day` |
+| `relay/day.py` | The master's one screen: budget, pace, run, queue in its order, what needs the owner. Reads only | `python Tools/relay/relay.py day` |
 | `relay/test_day.py` | The tests of that screen and of the queue's order (`relay.py prio`) | `python Tools/relay/test_day.py` |

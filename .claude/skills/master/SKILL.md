@@ -22,7 +22,8 @@ Run `$R day` before you answer anything. It prints, from the board and this mach
 
 | Line | Says |
 |---|---|
-| `Today: ...` | what today's legs used of the plan's weekly limit, in percent, against the day's cap: measured, or guessed from cost while no leg is measured |
+| `Today: ...` | what today's agents used of the plan's weekly limit, in percent, against the day's cap (11% unless the owner named another figure): measured, or guessed from cost while no leg is measured. Agents booked from outside the relay are named in the same line |
+| `Pace: ...` | what the day allows by now (the cap spread evenly over the 24 hours) and how much of that is still free; when nothing is free, the time the next unit may start. No such line: see "Older scripts" in "The day's budget" |
 | `Week: ...` | where the plan's week stands and when it starts over; left out when nothing has read it |
 | `Run going: ...` or `No run going. Last run ...` | is a run going here, else how the newest run on the board stopped (`It stopped: ...`) |
 | `Queue: ...` and its rows | what is queued, in the order the runner takes it, with the usual cost |
@@ -34,6 +35,32 @@ Say the day in percent of the week, as the lines do, and keep their `about` and 
 
 Answer from those lines. Do not guess what a run did: for more, `$R status`, `$R budget`, `$R refusals`, and the
 newest file under `tw3d-board/relay/<station>/stops/`.
+
+## The day's budget
+
+All agents spawned to work on the project share one day: **11% of the plan's weekly limit**, unless the owner names
+another figure (the owner, 2026-10-07). It is spent slowly: the cap is spread evenly over the 24 hours, and what
+earlier hours left unused may be spent later the same day. The scripts hold both (`docs/reference/relay.md`, "The
+day's budget" and "The day's pace"); you read them.
+
+- **What counts:** every leg of every relay whose board this machine reads, and the agents a session spawned outside
+  the relay once they are booked (`$R agents book`). The owner's own talk with a session does not count.
+- **Another figure for a day** is the owner's word only: pass `--day-pct <N>` on that day's runs and write the row
+  in `decisions.md`. Never pass `--day-pct` or `--day-budget` to get around the day or the pace.
+- **A grant for one piece of work** ("5% for the units' look") caps that work. It sits inside the day's 11% unless
+  he says "on top".
+- **The pace.** The runner starts no unit the pace does not cover: it waits, or it stops and says when the next unit
+  may start. So give one run long hours instead of starting many short ones, and never start a second relay to spend
+  faster.
+- **Agents outside the relay.** Put project work in the queue when the queue can carry it. Agents a session spawns
+  for the project count too: `$R agents` says what this machine's sessions spawned today (from Claude Code's own
+  logs, at list prices, always `about`), and `$R agents book` adds it to the day. A run books its own machine
+  before every unit. Book by hand when no run is going and you or another session here spawned agents; this needs
+  no word from the owner, it only counts what was spent. A machine without the board writes a file
+  (`$R agents book --out FILE`) and the board's machine books it (`$R agents book --file FILE`).
+- **Older scripts.** If `$R day` prints no `Pace:` line, the relay on this machine is older than 2026-10-07: it
+  holds a $50 day at most (about 2.7%) and no pace. Say so plainly, start short runs (`--hours 1` or `--max-legs`),
+  and read `$R budget` between them. Delete this bullet when every station prints the line.
 
 ## How you talk
 
@@ -47,6 +74,8 @@ CHANGED: up to 3 bullets
 NEXT: one line
 ```
 A question to the owner is one decision, at most 40 words, with 2 or 3 options and the one you would pick first.
+Every decision you name carries its score, and a major one goes above `RESULT:` on a line of its own ("Scored
+decisions").
 
 ## What you may do alone
 
@@ -59,9 +88,9 @@ A question to the owner is one decision, at most 40 words, with 2 or 3 options a
 | nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
 | "stop" | `$R stop` (before the next leg) or `$R stop --now`; confirm with `$R status` |
 
-Size a run to the budget: the runner itself starts no unit the day does not cover (`docs/reference/relay.md`,
-"The day's budget"), so do not pass `--day-budget` to get around the day. Ask for hours only if the owner gave none
-and the queue is longer than the day covers.
+Size a run to the budget: the runner itself starts no unit the day or the pace does not cover ("The day's budget"
+above), so pass no flag to get around them. Ask for hours only if the owner gave none and the queue is longer than
+the day covers. Nothing in this table is yours when it would be a major decision ("Scored decisions").
 
 ## What waits for the owner's word
 
@@ -91,16 +120,51 @@ $B waiting        # each answer: every note he left about it, the note to name (
 |---|---|
 | `queue` | The option showed "Then: ..." with its unit, and his click is his yes to it. `$B unit ID --note NOTE --out FILE`, then `$R add --unit FILE` and read `Board: pushed`. Then the row in `decisions.md`. Then `$B take ID --note NOTE --by <your session name>`. In this order: stopped halfway, each step can be run again |
 | `nothing` | The option says nothing is built. The row, then `$B take ID --note NOTE --by <your session name>` |
-| `ask` | It is no yes to work: no Then line, one written after his click, clicks on two options, or words of his own. Read all his notes. When it needs no work (he keeps what is built, or sets a rule): the row, then `$B take ... --outcome "<why nothing is queued>"`, alone. When it leads to work: ask him, one decision, with the unit you would queue; on his yes write the unit as a file (`id`, `lane`, `goal`, `done_when`), `$R add --unit FILE`, the row, `$B take ... --queued <unit id>` (add `--option X` when you had to ask which option he meant) |
+| `write` (was `ask` until 2026-10-06 evening) | His answer is the decision, but it names no unit: no Then line, one written after his click, clicks on two options (the last is his answer), or words of his own. Read all his notes. Do not put it to him again. When it needs no work (he keeps what is built, or sets a rule): the row, then `$B take ... --outcome "<why nothing is queued>"`. When it leads to work: write the unit as a file (`id`, `lane`, `goal` in his words, `done_when`), `$R add --unit FILE`, the row, `$B take ... --queued <unit id>` (add `--option X` when his notes pick two). Ask him only when his words do not say what to build |
 
-- Whether a click is a yes is written in `briefs.py` and nowhere else. Do not judge it from his notes yourself, and
-  never queue on an `ask`.
+- What an answer leads to is written in `briefs.py` and nowhere else. The owner, 2026-10-06: "they are a decision to
+  the question"; his answer also queues its work, with no second yes.
 - `take` refuses when he has answered again since NOTE: run `waiting` again and read the new note.
 - `$R add --unit` says `queued already, the same unit` when you ran it before: go on. When the board refuses the id
   for another unit, queue the same unit under `<id>-2` and close with `--queued <id>-2`.
 - `add --unit` may be newer than the frozen copy: until `update` has brought it there, run it from
   `githubtest-relay-dev` (pull it first). It only writes the board; a run still starts from the frozen copy.
 - Say in your four lines what you queued and for which answer. He sees the same on the brief: "Taken up by ...".
+
+## Scored decisions
+
+Every decision gets a score before you say it or write it down: one you ask the owner for, one you take alone, and
+one you read in a leg's report (the owner, 2026-10-07: "score decisions on their risk or change, especially
+systematic or dangerous decisions"). One point for each yes:
+
+| # | Risk (R) | Change (C) |
+|---|---|---|
+| 1 | It is hard to undo: landed, deleted, pushed over, sent out | It touches more than one lane or unit |
+| 2 | It can break the sim, replays or the gate, or stop other agents' work | It changes a rule, tool, skill or prompt that agents follow from now on |
+| 3 | It reaches outside its lane: the board, the Drive, another checkout or machine | It changes what the player sees or how the game plays |
+| 4 | It costs over 2% of the week, or takes the day over its cap | It changes a file format, the replay version or a shared name |
+| 5 | No script or test can check the result | It overturns an earlier row in `decisions.md` |
+
+Write it `R2 C1`. Then the marks:
+
+- **DANGEROUS**: risk point 1 or 2 is a yes.
+- **SYSTEMIC**: change point 2 or 4 is a yes.
+- **MAJOR**: R is 3 or more, C is 3 or more, or it carries either mark.
+
+What follows from the score:
+
+- **A major decision is the first line of your reply**, above `RESULT:`:
+  `MAJOR DECISION (R4 C3, DANGEROUS): <the decision in one sentence>`. Ask it alone, with its options. It is never
+  yours to take, also when "What you may do alone" would let you. Taking up what he answered on the Decide page is
+  carrying out his decision, not taking one.
+- **A decision that is not major**, taken by you or by a leg: one `CHANGED` bullet that starts with the score, such
+  as `- (R1 C0) put look-07 ahead of look-06`. A major one a leg took alone goes on the first line all the same,
+  as `MAJOR DECISION TAKEN (...)`, with how to undo it.
+- **The row in `decisions.md`** starts with the score and every mark it carries, then the decision in bold:
+  `**R4 C3 DANGEROUS MAJOR.** **The relay ...**`.
+- **A brief you write for the Decide page** starts its `why` with the same score and marks.
+- Between two scores, take the higher. Never lower a score to be able to act alone.
+- The steps in "What you may do alone" are not decisions and need no score. A choice between ways of doing the work is.
 
 ## Never
 

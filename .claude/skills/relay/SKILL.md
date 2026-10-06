@@ -24,7 +24,8 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay start` | `$R run --work $WORK --who <your session name> --hours <H> [--max-legs N] [--sources pipeline,lane]` in the background | say it started and what it took; report the `STOP:` line when it ends |
 | `/relay status` | `$R status` | one or two lines: who started it, the units so far |
 | `/relay refusals` | `$R refusals` | name any refusal that was normal work: it needs a rule fix and a test |
-| `/relay budget` | `$R budget` | one line: what today's legs cost, of how much, and what is left |
+| `/relay budget` | `$R budget` | one line: what today's legs cost, of how much, what is left, and what the pace allows by now |
+| `/relay agents` | `$R agents`, `$R agents book` | what the agents cost that sessions here spawned outside the relay; `book` adds it to the day |
 | `/relay day` | `$R day` | the whole picture in one screen; the `/master` skill starts every turn from it |
 | `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set) | say the new order |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
@@ -37,9 +38,13 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
   two legs is one unit (plan, execute), so leave it off for a long run.
 - `--view` opens a Windows Terminal tab per leg with its output. It needs a desktop: from a Claude session (no
   window) it does nothing, so give the owner the command to run in a normal terminal.
-- The day has a budget (`limits.json` `day_budget_usd`, 50; `docs/reference/relay.md`): no unit starts once
-  today's legs cost that much, and the run stops saying so. `--day-budget <n>` sets another number for one run;
-  use it only when the owner names the number.
+- The day has a budget for all agents on the project: 11% of the plan's weekly limit (`limits.json`
+  `day_budget_pct`; `docs/reference/relay.md`, "The day's budget"). No unit starts once the day has used that
+  much, and the run stops saying so. `--day-pct <n>` sets another figure for one run; use it only when the owner
+  names the figure.
+- The budget is spent evenly over the day ("The day's pace"): a run waits when it is ahead of the pace and prints
+  `paced: a unit may start at HH:MM`. That is not a hang. Give one run long hours; do not start more runs to get
+  around the wait.
 - A leg with an edit gate takes 30 minutes or more. Do not poll: the runner ends with one `STOP:` line.
 - `done_when` for `/relay add` is a command that exits 0 when the work is there, as words, not one string. No shell.
 - The runner stops on anything it cannot trust. Read the `STOP:` line and the last file under
