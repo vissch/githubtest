@@ -400,7 +400,10 @@ namespace TW.Presentation.Tactical
         {
             this.books = books; this.ground = ground; this.drawn = drawn;
             if (books == null || !books.Ready) return;
-            float glowNight = SceneMood.Night ? 1.0f : 0.8f, tint = SceneTints.Now.Glow;   // a fire burns, it does not flash: see the note on Relight
+            // By DAY the jet all but vanished: the day close shot measured 68853 lit pixels and nearly all of them
+            // were the burning man and the mud round him, with a thin yellow line where the stream should be. Fire
+            // is not dimmer at noon, it is only harder to win against the sky, so the day arm comes up to the night's.
+            float glowNight = 1.0f, tint = SceneTints.Now.Glow;   // a fire burns, it does not flash: see the note on Relight
 
             for (int i = jets.Count - 1; i >= 0; i--)
             {
@@ -469,6 +472,49 @@ namespace TW.Presentation.Tactical
             float a = w / Mathf.Max(0.01f, h);
             if (a > most) h = w / most;
             else if (a < least) w = h * least;
+        }
+
+        /// <summary>
+        /// The envelope's taper, lifted out of StepJet so a test can read it. i of links along a run of len metres:
+        /// u is 0 at the mouth and 1 at the head, along is how far past the mouth the link's CENTRE sits, thick is
+        /// how deep the fire is there in metres (before the per-link breath, which is noise and not shape).
+        /// The head carries the smaller factor because it is drawn from a different book - Book.Head's bolus fills
+        /// more of its cell than the stream sheet does - so the two still come out the same size on screen.
+        /// </summary>
+        public static void Link(int i, int links, float len, out float u, out float along, out float thick)
+        {
+            u = links > 1 ? i / (links - 1f) : 1f;
+            bool head = i == links - 1;
+            float step = len / (links - 0.5f);
+            along = step * (i + 0.5f) - step * 0.30f + (head ? step * 0.10f : 0f);
+            // WIDENS to the target. It used to run 3.5 -> 3.7 m, which is a pipe, and the master's word for the
+            // result was a glow round the man: the mouth was as deep as the head, and the near cards - the longest
+            // and the most opaque - owned the picture. A gout leaves the nozzle about as wide as the man holding it
+            // and spreads as it burns, so the ratio belongs in the taper and not in the overlap.
+            thick = Mathf.Lerp(1.55f, 3.90f, Mathf.Min(1f, u * 1.05f)) * (head ? 0.85f : 1f);
+        }
+
+        /// <summary>How long a link's card is, in metres. Always more than the spacing: see the note on fusing.</summary>
+        public static float Span(int i, int links, float len)
+        {
+            float u = links > 1 ? i / (links - 1f) : 1f;
+            bool head = i == links - 1;
+            return (len / (links - 0.5f)) * Mathf.Lerp(2.35f, head ? 2.35f : 2.75f, u);
+        }
+
+        public const int JetSmokes = 3;
+
+        /// <summary>
+        /// Where the dark smoke hangs. Burning fuel turns over into soot along the WHOLE run, not only where it
+        /// lands, and by day that dark mass is the only thing the bright core has to read against: without it the
+        /// jet measured all but invisible at noon. Three stations down the outer half of the run, hung above it and
+        /// growing as they go back.
+        /// </summary>
+        public static void SmokeAt(int s, out float u, out float hang, out float size)
+        {
+            u = 0.45f + s * 0.25f;
+            hang = 1.2f + 0.6f * u;
+            size = 2.4f + 2.0f * u;
         }
 
         static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
@@ -587,15 +633,18 @@ namespace TW.Presentation.Tactical
                     // one shape was a single gesture the eye could travel. Past half their own length of overlap, and
                     // close enough in the book that neighbours are not on visibly different poses, the union of the
                     // silhouettes has no waist and the chain stops being countable.
-                    const int Links = 4;   // three made every link a third of the run long: see the segment length below
+                    // FOUR links up close, TWO at the standard view. At 120 m the whole run is sixty pixels wide,
+                    // so four faint cards share out the light until none of them is a mark - measured, the std shot
+                    // held the fire as a round orange dot with no direction in it at all. Two links and more glow is
+                    // one short bright tongue, which is all a shot that size has room to say.
+                    int Links = cam != null && Vector3.Distance(cam.transform.position, mouth) > 60f ? 2 : 4;
+                    float jetGlow = glow * (Links == 2 ? 1.6f : 1f);
                     bool flipHead = Mathf.PerlinNoise(j.Seed * 3.1f, 0f) < 0.5f;
-                    float step = len / (Links - 0.5f);                      // the last link's centre lands ON the impact
                     // and the first one starts AT the mouth, not a fifth of the way out: the stream had begun
                     // in mid-air over empty mud with no nozzle and no operator under its near end.
-                    Vector3 root = mouth - along * (step * 0.30f);
                     for (int i = 0; i < Links; i++)
                     {
-                        float u = Links > 1 ? i / (Links - 1f) : 1f;
+                        Link(i, Links, len, out float u, out float alongM, out float taper);
                         bool head = i == Links - 1;
                         // The LAST link is not part of the weave. Fusing every link at the same overlap cured the string
                         // of beads and then went straight past it: with five cards all inside one envelope, the right
@@ -617,7 +666,7 @@ namespace TW.Presentation.Tactical
                         // between the second and the third - measured, warm coverage collapsed 85% across one bin
                         // and the arc appeared to kink there, which read as the curve being applied unevenly when it
                         // was really a hole. Short links still, but never so short that two of them do not meet.
-                        float segLen = step * Mathf.Lerp(2.35f, head ? 2.35f : 2.75f, u);   // still pinching at 1.95: measured 72% coverage lost in one bin
+                        float segLen = Span(i, Links, len);   // still pinching at 1.95: measured 72% coverage lost in one bin
                         float cw = segLen / fill * (head ? 0.85f : 1f);
                                                 // A fine tip, not a hairline: at 0.95 the first quarter of the stream measured under nine
                         // pixels thick over 240 of length, which reads as a thrown spear rather than as fuel under
@@ -630,7 +679,7 @@ namespace TW.Presentation.Tactical
                         // the core hiding inside it. Widening the envelope's root and easing off its head is the only
                         // thing that moves the ratio: it had gone 4.36 -> 4.68 -> 5.26 against a 2.0-3.0 target while
                         // three separate attempts aimed at the core.
-                        float thick = Mathf.Lerp(3.5f, 3.7f, Mathf.Min(1f, u * 1.05f)) * breath * (head ? 0.85f : 1f);
+                        float thick = taper * breath;
                         float ch = thick / Mathf.Max(0.05f, hi - lo);       // the drawing fills only part of its cell
                         Shapely(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, ref cw, ref ch);
                         // the arc: fuel leaves flat and the far end rises as it slows
@@ -654,7 +703,7 @@ namespace TW.Presentation.Tactical
                         // the budget: the sag was only ever on the envelope, while the core - five opaque, bright
                         // links - ran dead straight underneath it and owned the warm centroid the eye actually reads.
                         // Half a curve and half a rod averages to a rod.
-                        Vector3 at = root + along * (step * (i + 0.5f) + (head ? step * 0.10f : 0f)) + Arc(cam, u, len, along);
+                        Vector3 at = mouth + along * alongM + Arc(cam, u, len, along);
                         bool flip = (i & 1) == 1;
                         // Far enough apart in the BOOK to be different drawings. A stagger of a frame or two still
                         // showed the same cel five times in a row and the eye read the repeat instantly, which is the
@@ -704,7 +753,7 @@ namespace TW.Presentation.Tactical
                                   // ramp exists to move downstream: measured, the mouth went 85 -> 133 mean luminance while
                                   // the head stayed at 92, so the two changes were cancelling. The head must out-burn the
                                   // mouth - that is where the fuel has finished atomising.
-                                  glow: glow * Mathf.Lerp(0.38f, 1.60f, Mathf.Min(1f, u * 1.10f)),
+                                  glow: jetGlow * Mathf.Lerp(0.38f, 1.60f, Mathf.Min(1f, u * 1.10f)),
                                   velocity: j.ManVel,
                                   // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
                                   // put the TIP on frame-11.6, clamped to zero - the very first cel of the book, where
@@ -931,6 +980,18 @@ namespace TW.Presentation.Tactical
                 // it was the biggest shape in the frame, so a stream hitting a bank read as "small ember, large smoke"
                 books.Add(FlipbookFx.Book.Smoke, far + Vector3.up * (0.6f + Random.value * 0.5f), 3.2f + Random.value * 1.5f, 1.9f + Random.value,
                           velocity: j.Aim * 1.6f + Vector3.up * (1.2f + Random.value), grow: 1.2f, alpha: 0.15f, pop: 0.4f, delay: 0.35f, startFrame: 3.2f + Random.value * 1.2f);
+                // and the smoke that comes off the RUN, not only off the impact. See SmokeAt: unlit soot hanging
+                // over the stream is what gives the bright core a dark value to be read against, which is the whole
+                // difference between a jet at noon and a yellow smear on the sky.
+                for (int s = 0; s < JetSmokes; s++)
+                {
+                    SmokeAt(s, out float su, out float hang, out float size);
+                    Vector3 puff = Vector3.Lerp(mouth, far, su) + Vector3.up * hang;
+                    books.Add(FlipbookFx.Book.Smoke, puff, size, 1.7f + Random.value * 0.6f,
+                              velocity: j.Aim * 1.1f + Vector3.up * (1.0f + Random.value * 0.6f), grow: 1.25f,
+                              alpha: 0.22f, glow: 0f, pop: 0.35f, delay: 0.1f * s,
+                              startFrame: 2.5f + Random.value * 1.5f);
+                }
                 if (Random.value < 0.6f) SceneHooks.Sparks?.Invoke(far + Vector3.up * 0.9f, 4);
             }
             // and what it sweeps over catches. Sampled along the stream rather than at its end, because a jet held on
