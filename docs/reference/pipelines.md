@@ -121,13 +121,14 @@ How the owner's pack is read (32 sheets, 8x4 cells, 12 fps, named `<colour>_<kin
 ### Outside references for effect drawing
 
 Places to study a look before drawing it, and to hand a critic beside a capture. Every link was opened on 2026-10-06
-unless marked. None of it is in the repo or the pack. A studio's clip is for study and for the critic only: the sheet
-generator copies its reference closely, so its `<Video 1>` stays a clip from `refs360` unless the owner says otherwise.
+unless marked. None of it is in the repo or the pack. **Outside clips are used only as reference** (the owner,
+2026-10-06): to study, to hand a critic, and as the sheet generator's `<Video 1>` style reference. A clip or a frame
+of one never goes into the game, the pack or the repo itself; what ships is the new drawing the generator makes.
 
 | Source | What it is | Use it for |
 |---|---|---|
 | Sakugabooru, `https://www.sakugabooru.com/post?tags=<tag>` | Hand-drawn animation clips, stepped frame by frame, tagged by effect and by animator. Free | The nearest match to the owner's look (cel flames, two-tone smoke): shapes and timing of bursts, smoke, debris, water |
-| Refs library - 1500 vfx, `https://realtimevfx.com/t/refs-library-1500-vfx/25346` | 1,500 tagged clips of effects from shipped games, each with its source link; a zip on Google Drive made for the Eagle app. Free. The download itself was not opened | How other games solve one effect, by element and camera |
+| Refs library - 1500 vfx, `https://realtimevfx.com/t/refs-library-1500-vfx/25346` | 1,500 tagged clips of effects from shipped games, each with its source link; one `VFX_library.zip` of 13.32 GB on Google Drive (dated 2023-12-24), made for the Eagle app. Free. Not downloaded | How other games solve one effect, by element and camera |
 | Ten tips from the League of Legends VFX style guide, `https://www.vfxapprentice.com/blog/10-league-of-legends-vfx-design-tips` | Rules for value, saturation, shape and short timing seen from a raised camera. Riot's own article and PDF are gone from their site | A readability rubric for `tw-critic` |
 | Company of Heroes explosions taken apart, `http://valdism.blogspot.com/2014/02/vfx-showcase-company-of-heroes.html` | Screenshots and notes on artillery bursts in an RTS camera | J01 and the shell looks |
 | Duc Vu, "2D FX Explosion Tutorial: Basic to Advanced", `https://ducvu.gumroad.com/l/2d-fx-smoke-explosion-tutorial` | A tutorial by the artist of the 24 `refs360` clips. Price not read | How the reference style is built |

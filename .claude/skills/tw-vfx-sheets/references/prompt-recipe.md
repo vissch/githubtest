@@ -5,8 +5,8 @@ plus three of its peak frames as `<Picture 1..3>`, anchor black at the first and
 (`MiniMaxH3AddGuide`), and describe a NEW subject in the reference's style.
 
 To study the shape and timing you want before writing the `{action}`, see "Outside references for effect drawing" in
-`docs/reference/pipelines.md`. Those clips are for study and for the critic; `<Video 1>` stays a clip from `refs360`
-unless the owner says otherwise.
+`docs/reference/pipelines.md`. An outside clip may also be the `<Video 1>` reference, and only that (the owner,
+2026-10-06): the clip and its frames never go into the game, the pack or the repo.
 
 ## Template (batch6 `prompt_for`; batch7 is the same with its own style)
 ```
