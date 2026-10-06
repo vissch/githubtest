@@ -246,6 +246,26 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   a push that changes a workflow file from a login without that scope. The owner runs
   `gh auth refresh -h github.com -s workflow` once (it opens a browser), then the lane lands with `land.py`. Until
   then CI is still the red Unity workflow and `land.py` alone enforces the check. Default taken: not pushed.
+- **The fleet's guns in a match (2026-10-06):** the review fix U1 (on `lane/sim/review-fixes`, not landed) makes the
+  fleet fire for the first time: one 300-damage shell every 23 s, the whole match, on every map with a sea, and about
+  half of them fall on or behind the sea side's own lines (`SeaLanding.Step`, the aim). That is ambient shelling, and
+  the row of 2026-09-28 says no constant bombardment on the field. It also turns
+  `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` red in the full gate (22 men lost with the guns
+  covering against 25 going over; it needs under 20), so the lane cannot land as it is. Options: (1) the guns stay
+  silent in a match unless something switches them on (a test, the debug panel, an ability later): the fix stays in
+  the code and the 2026-09-28 row holds (the agent's advice); (2) the fleet fires at enemy ground only and the test is
+  measured again: every coast battle changes; (3) hold the lane until the relay's `rv-09b-fleet-aim` has shot and
+  scored both aims. Default taken: nothing landed. The lane is rebased on the desktop's disk (replay v31 and v32, the
+  nine BOMs gone) and not pushed: pushing it replaces origin's copy, a force push, yours to say.
+- **Is `lane/show/unit-look` finished? (2026-10-06):** 50 commits, the last one `[look-09]` (the flame jet) at 16:14,
+  level with integration that afternoon. Nobody has said the look units are done, so it was not gated or landed with
+  the others. Options: (1) it is finished: rebase, full gate, land; (2) more look units come first: leave it. Default
+  taken: left alone.
+- **The old branches on origin (2026-10-06):** three lanes landed today under a new name after their rebase
+  (`lane/sim/melee-v25`, `lane/sim/wreck-decay-v30`, `lane/show/wreck-stages-v2`), and the branches they were cut from
+  are still on origin, far behind: `lane/sim/melee-v23`, `lane/sim/wreck-decay`, `lane/show/wreck-stages`.
+  `lane/sim/bullfrog` still sits on `melee-v23` until it is rebased. Options: (1) delete the three once bullfrog is
+  rebased (the agent's advice); (2) keep them. Default taken: kept.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
