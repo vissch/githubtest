@@ -955,27 +955,27 @@ a.k-qrow:hover { background: rgba(255,255,255,.14); }
 /* whose it is (2026-10-06): "Needs you" is his decisions only, each row a link to its brief with a picture of what it
    is about; what an agent moves next is folded beside it, quiet, and no row of it leads anywhere. */
 .k-q-yours { grid-column: 1 / -1; border-color: #4a2416; }
-.k-q-yours.k-q-none { grid-column: auto; border-color: #2a2a2c; } .k-q-none .k-qn { color: #7d7d7d; }
+.k-q-yours.k-q-none { grid-column: auto; border-color: var(--s-line); } .k-q-none .k-qn { color: var(--t-low); }
 .k-q-yours .k-qn { color: var(--k-fire); }
-.k-qnone { margin: 0; color: #bdbdbd; font: 500 14px/1.45 var(--sans); max-width: 46ch; }
+.k-qnone { margin: 0; color: var(--t-body); font: 500 14px/1.45 var(--sans); max-width: 46ch; }
 .k-qrows { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 8px; }
 .k-qrow.k-mine { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 14px; padding: 10px 14px 10px 10px; border: 1px solid transparent; }
 .k-qrow.k-mine.k-shown { grid-template-columns: 128px minmax(0, 1fr) auto; }
 .k-qrow.k-mine:hover, .k-qrow.k-mine:focus-visible { border-color: var(--k-fire); outline: none; }
-.k-qshot { width: 128px; height: 72px; object-fit: cover; border-radius: 8px; background: #0c0c0e; display: block; }
+.k-qshot { width: 128px; height: 72px; object-fit: cover; border-radius: 8px; background: var(--s-deep); display: block; }
 .k-mine .k-take-what { padding-right: 0; display: grid; gap: 4px; } .k-mine .k-take-top { white-space: normal; font: 600 16px/1.25 var(--sans); display: block; overflow: visible; }
-.k-qpick { color: #c9c9c5; font: 500 12.5px/1.35 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.k-qpick { color: var(--t-light); font: 500 12.5px/1.35 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .k-qgo { padding: 8px 14px; border-radius: 999px; background: var(--k-fire); color: #1d0a04; font: 700 12px var(--sans); white-space: nowrap; }
 .k-qgo::after { content: " \2192"; }
-.k-qall { justify-self: start; margin-top: 4px; color: #e9e9e9; font: 600 13px var(--sans); text-decoration: underline; }
+.k-qall { justify-self: start; margin-top: 4px; color: var(--t-near); font: 600 13px var(--sans); text-decoration: underline; }
 details.k-q-theirs { display: block; align-self: start; grid-column: 1 / -1; padding: 14px 18px; } details.k-q-theirs[open] { columns: 3 300px; column-gap: 14px; }
 details.k-q-theirs > * + * { margin-top: 6px; } .k-q-theirs summary { column-span: all; } .k-q-theirs .k-qrow, .k-q-theirs .k-qh { break-inside: avoid; break-after: avoid; } .k-q-theirs .k-qrow { break-after: auto; }
 .k-q-theirs summary { display: flex; align-items: baseline; gap: 10px; cursor: pointer; list-style: none; } .k-q-theirs summary::-webkit-details-marker { display: none; }
-.k-q-theirs summary b { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: #bdbdbd; }
+.k-q-theirs summary b { font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--t-body); }
 .k-q-theirs summary b::before { content: "\25B8  "; } .k-q-theirs[open] summary b::before { content: "\25BE  "; }
-.k-q-theirs .k-qsay { color: #8f8f8f; font: 500 13px var(--sans); flex: 1; } .k-q-theirs .k-qn { font-size: 28px; color: #9a9a9a; }
+.k-q-theirs .k-qsay { color: var(--t-dim); font: 500 13px var(--sans); flex: 1; } .k-q-theirs .k-qn { font-size: 28px; color: var(--t-soft); }
 .k-q-theirs summary:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 4px; border-radius: 6px; }
-.k-qh { margin: 14px 2px 2px; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: #8f8f8f; }
+.k-qh { margin: 14px 2px 2px; font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .1em; color: var(--t-dim); }
 .k-qrow.k-theirs { cursor: pointer; } .k-qrow.k-theirs:hover, .k-qrow.k-theirs:focus-visible { background: rgba(255,255,255,.14); outline: none; }
 .c-pulse .k-list .k-take-theirs { background: rgba(18, 18, 18, .16); } .c-pulse .k-list .k-take-theirs b { background: transparent; color: #fff; padding: 3px 4px; }
 @media (max-width: 760px) { .k-qrow.k-mine.k-shown { grid-template-columns: 88px minmax(0, 1fr); } .k-qshot { width: 88px; height: 50px; } .k-qgo { grid-column: 1 / -1; justify-self: start; } }
