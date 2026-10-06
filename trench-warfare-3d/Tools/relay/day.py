@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""One screen for the master and the owner (relay.py day): what the day has left, where the plan's week stands when
-something read it, is a run going or how the last one stopped, what is queued in the order the runner takes it
+"""One screen for the master and the owner (relay.py day): what the day has left, what the day's pace allows by
+now, where the plan's week stands when something read it, is a run going or how the last one stopped, what is queued in the order the runner takes it
 with the usual cost of each unit, what needs the owner, what he answered on the asset board's Decide page that no
 session has taken up, and who holds the relay build.
 
@@ -131,19 +131,22 @@ def answer_lines(answered, width, rows):
     return out
 
 
-def lines(board, home, lim, ph, holder=None, answered=None):
+def lines(board, home, lim, ph, holder=None, answered=None, now=None):
     """What `relay.py day` prints. At most limits.json day_queue_rows rows in each list, no line over
     day_line_chars: a row is cut there, a sentence goes on over the next line. `answered` is answers.read(): with
-    None the block "Your answers" is left out (a caller that did not look says nothing about it)."""
+    None the block "Your answers" is left out (a caller that did not look says nothing about it). now: the time
+    the pace is read at (a test's own clock)."""
     width, rows = int(lim["day_line_chars"]), int(lim["day_queue_rows"])
+    units, problems = queue(board)
+    price = ledger.need(ledger.usuals(board, home, lim), ph, ("plan", "execute"))
     out = fit(ledger.one_line(board, lim["day_budget_usd"], home, lim), width)
+    pace = ledger.pace_line(ledger.day_budget(board, lim, home, now), lim, now, price if units else None)
+    out += fit(pace, width) if pace else []
     out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
     run, needs = run_lines(board, home)
     for line in run:
         out += fit(line, width)
-    units, problems = queue(board)
     if units:
-        price = ledger.need(ledger.usuals(board, home, lim), ph, ("plan", "execute"))
         per_usd = ledger.rate(board, home, lim)
         if per_usd is None:
             out.append("Queue: %d unit%s, about $%.2f at the usual cost of $%.2f a unit (plan and execute)."

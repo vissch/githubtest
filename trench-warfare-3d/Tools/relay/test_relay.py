@@ -3,7 +3,8 @@
 Each test works in a temporary folder: no real board, checkout or Claude session is touched. Runs use fake_claude.py,
 which calls the leg's real hooks, so a passing run also proves the guards and the meter were on.
 """
-import argparse, contextlib, io, json, os, shutil, subprocess, sys, tempfile, threading, time, unittest
+import argparse, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
+import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -14,7 +15,7 @@ from sources import pipeline as SP                                              
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
 LANE = "lane/show/pipe-house5"
-ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT",
+ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT", "TW_AGENT_LOGS",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
        "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY")
 
@@ -40,8 +41,10 @@ class Base(unittest.TestCase):
         os.environ["TW_RELAY_HOME"] = str(self.tmp / "home")
         os.environ["TW_RELAY_NO_WINDOW"] = "0"               # the same whatever terminal runs the tests
         os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, "-c", "pass"])   # no real notification
+        os.environ["TW_AGENT_LOGS"] = str(self.tmp / "agent-logs")    # nor this machine's real sessions (agents.py)
         self.limits = config.limits                          # these tests count in dollars or in measured legs:
-        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
+                                             day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
         self.lim, self.ph = config.limits(), config.phases()
         self.board, self.d = self.tmp / "board", None
 
@@ -1456,6 +1459,195 @@ class Budget(Repo):
         self.assertIn("$2.50 spent of $50.00, $47.50 left. 1 leg.", buf.getvalue())
         self.assertIn("earlier", buf.getvalue())
         self.assertIn("Today: $2.50 of $50.00 spent, $47.50 left.", buf.getvalue())
+
+
+class Pace(Repo):
+    """The day's cap in percent of the week, and the pace: a unit the pace does not cover yet waits for it."""
+    legs, spent = Budget.legs, Budget.spent
+
+    def setUp(self):
+        super().setUp()
+        # limits.json as shipped (11% a day, even over 24 hours), a full week taken as $1000: a dollar is 0.1 points
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=1000)
+        self.keep = (runner.clock, runner.sleep, os.environ.pop(ledger.ALSO, None))
+        self.slept = []
+        runner.clock = lambda: self.now
+        runner.sleep = self.sleep
+        self.at(23)
+
+    def tearDown(self):
+        runner.clock, runner.sleep = self.keep[:2]
+        os.environ.pop(ledger.ALSO, None) if self.keep[2] is None else os.environ.__setitem__(ledger.ALSO, self.keep[2])
+        super().tearDown()
+
+    def at(self, hour, minute=0):
+        self.now = datetime.datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    def sleep(self, seconds):
+        """Waiting moves this test's clock and takes no time."""
+        self.slept.append(seconds)
+        self.now += datetime.timedelta(seconds=seconds)
+
+    def test_a_day_over_its_percent_cap_starts_no_leg(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(111)                                         # 11.1 points
+        out, stop = self.go()
+        self.assertEqual((stop["reason"], stop["legs"], stop["units"]),
+                         ("the day's budget is spent (11.10% of 11.00% of the week)", 0, {}))
+        self.assertEqual((stop["day_pct"], stop["day_budget_pct"]), (11.1, 11))
+        self.assertIn("0.0% left of a day's cap of 11.0%", out)
+
+    def test_work_under_the_cap_passes_and_the_stop_record_holds_the_day_in_percent(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        self.assertNotIn("paced:", out)
+        self.assertEqual((stop["day_usd"], stop["day_pct"], stop["day_budget_pct"]), (3.0, 0.3, 11))
+        self.assertEqual(self.slept, [])
+
+    def test_a_unit_the_pace_does_not_cover_waits_for_it_and_then_runs(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
+        self.at(0, 30)                      # 0.23 points allowed; a unit usually costs $3 + $3: 0.6 points, at 01:19
+        out, stop = self.go()
+        self.assertIn("paced: a unit may start at 01:19; the day's budget is spent evenly over the day", out)
+        self.assertEqual(out.count("paced:"), 1)
+        self.assertLess(out.index("paced:"), out.index("leg 01"))
+        self.assertIn("unit u1: PASS", out)
+        self.assertEqual(stop["reason"], "nothing left to do")
+        self.assertTrue(49 * 60 - 30 <= sum(self.slept) <= 49 * 60 + 30, sum(self.slept))
+        self.assertTrue(all(s <= runner.PACE_STEP for s in self.slept))
+
+    def test_after_a_wait_the_queue_is_read_again_and_the_unit_that_is_first_now_runs(self):
+        self.queue("u2")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
+        self.at(0, 30)
+
+        def moved(seconds):                                     # while the run waits, the owner says "do u1 first"
+            self.sleep(seconds)
+            if not (self.board / "relay" / "queue" / "u1.json").exists():
+                self.queue("u1", raw=json.dumps({"id": "u1", "lane": "lane/show/x", "role": "lane", "priority": 1,
+                                                 "goal": "Add a.txt", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        runner.sleep = moved
+        out, stop = self.go()
+        self.assertIn("unit u2: the wait is over, the queue is read again", out)
+        self.assertIn("leg 01  plan    u1", out)
+        self.assertEqual(stop["units"].get("u1"), "PASS")
+
+    def test_a_day_that_another_relay_spent_during_the_wait_starts_nothing(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.at(0, 30)
+
+        def spent_elsewhere(seconds):                           # the wait ends at 01:19; by then the day is gone
+            self.sleep(seconds)
+            if not self.legs():
+                self.spent(111)
+        runner.sleep = spent_elsewhere
+        out, stop = self.go()
+        self.assertEqual((stop["reason"], stop["legs"]), ("the day's budget is spent (11.10% of 11.00% of the week)", 0))
+
+    def test_a_wait_that_would_outlast_the_run_stops_it_and_says_the_time(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.at(0, 30)
+        out, stop = self.go(hours=0.25)
+        self.assertEqual((stop["reason"], stop["legs"]),
+                         ("the day's pace lets a unit start at 01:19, after this run's 0.25 hours are up", 0))
+        self.assertEqual(self.slept, [])
+        self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+
+    def test_a_dry_run_does_not_wait_and_says_the_time(self):
+        self.queue("u1")
+        self.at(0, 30)
+        out, stop = self.go(dry_run=True)
+        self.assertIn("would run: nothing (the day's pace lets a unit start at 01:19)", out)
+        self.assertEqual(self.slept, [])
+        self.at(1, 19)
+        self.assertIn("would run: lane u1", self.go(dry_run=True)[0])
+
+    def test_hours_nobody_used_can_be_spent_later_the_same_day(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 20, "execute": 25}))     # 4.5 points at once, late in the day
+        self.at(20)
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        self.assertEqual((self.slept, stop["day_pct"]), ([], 4.5))
+
+    def test_a_leg_may_spend_what_the_day_has_left_not_only_what_the_pace_allows(self):
+        self.queue("u1")
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 9}))
+        self.at(2)                          # 0.92 points allowed by 02:00: $9.17, and the plan takes $1 of it
+        out, stop = self.go()
+        self.assertEqual(self.legs()[1]["cost_usd"], 9)          # the pace decides when a leg starts, not its cap
+        self.assertIn("unit u1: PASS", out)
+
+    def test_the_owner_can_stop_a_run_that_waits_for_the_pace(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.at(0, 30)
+
+        def asked(seconds):
+            self.sleep(seconds)
+            runner.P.write_json(runner.stop_path(legdir.home()), {"now": False})
+        runner.sleep = asked
+        out, stop = self.go()
+        self.assertEqual((stop["reason"], stop["legs"], len(self.slept)), ("stopped by the owner (relay.py stop)", 0, 1))
+
+    def test_the_owner_can_name_another_figure_for_the_day(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(6)                                           # 0.6 points
+        out, stop = self.go(day_pct=0.5)
+        self.assertEqual(stop["reason"], "the day's budget is spent (0.60% of 0.50% of the week)")
+        self.assertEqual(stop["day_budget_pct"], 0.5)
+        out, stop = self.go(day_pct=500, dry_run=True)
+        self.assertIn("note: day_budget_pct 500 is outside its bounds; using 100", out)
+
+    def test_a_day_given_in_dollars_is_counted_in_dollars(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(6)
+        out, stop = self.go(day_budget=5)
+        self.assertEqual(stop["reason"], "the day's budget is spent ($6.00 of $5.00)")
+        self.assertNotIn("day_pct", stop)
+
+    def test_the_day_that_only_just_covers_no_unit_says_so_in_percent(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.spent(52, "plan", 1)
+        self.spent(52, "execute", 2)                            # 10.4 points; a unit usually costs 52 + 52
+        out, stop = self.go()
+        self.assertEqual(stop["reason"], "the day's budget has 0.60% left of 11.00% of the week, and a unit usually "
+                                         "costs about 10.40%")
+
+    def test_a_run_books_the_agents_sessions_spawned_outside_the_relay_before_a_unit(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        f = Path(os.environ["TW_AGENT_LOGS"]) / "p" / "s" / "subagents" / "agent-a1.jsonl"
+        f.parent.mkdir(parents=True)
+        f.write_text(json.dumps({                               # 6M output tokens of Opus 5.5: $120, 12 points
+            "cwd": "C:/x/githubtest-pipe", "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S.000Z", time.gmtime()),
+            "message": {"role": "assistant", "id": "m1", "model": "claude-opus-5-5",
+                        "usage": {"output_tokens": 6000000}}}), encoding="utf-8")
+        out, stop = self.go()
+        self.assertEqual((stop["reason"], stop["legs"]), ("the day's budget is spent (12.00% of 11.00% of the week)", 0))
+        rec = json.loads(next((self.board / "relay" / "desktop" / "agents").glob("*.json")).read_text(encoding="utf-8"))
+        self.assertEqual((rec["usd"], rec["agents"], rec["by"][:4]), (120.0, 1, "run "))
+        self.assertIn("used by the relay and 1 agent outside it", out)
+
+    def test_the_legs_of_a_second_relay_count_toward_the_same_day(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        mine, self.board = self.board, self.tmp / "board-2"
+        self.spent(111)                                         # the other relay's board holds the day's spend
+        self.board = mine
+        self.assertIn("would run: lane u1", self.go(dry_run=True)[0])
+        os.environ[ledger.ALSO] = str(self.tmp / "board-2")
+        out, stop = self.go()
+        self.assertEqual((stop["reason"], stop["legs"]), ("the day's budget is spent (11.10% of 11.00% of the week)", 0))
 
 
 class CloseOut(Repo):
