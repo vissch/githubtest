@@ -67,6 +67,10 @@ fix with every file that is not a test put back, so the new tests meet the code 
 | `UNCHECKED` | its tests need Unity and none was given, or a tagged test was not found by its name. Never a pass |
 | `FAIL` | green on the old code too (the test cannot fail), red on the fix, no test and no reason, or no commit names it |
 
+A follow-up unit that only makes an earlier fix's test able to fail has nothing to be red against: that fix is
+already in its base. It says so in a commit message, `[N2b] fix in base: <the commit of the fix>`, and the script
+puts the files of that commit back as well before the old run.
+
 Exit 0 PASS, 1 FAIL, 2 UNCHECKED. The tree must be a checkout nobody else uses, with "fixcheck" in its folder name:
 the script moves its HEAD and resets it. Python tests run anywhere; Unity tests run in batch mode by name, so that
 checkout needs a Library of its own. `python Tools/review/test_fixcheck.py` is its tests: each verdict shown both
