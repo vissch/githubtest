@@ -13,6 +13,14 @@ halves is where it breaks, so read section 3 before cutting anything.
 Details: `references/generator.md` (every script, its flags and constants), `references/prompt-recipe.md` (the H3
 prompt that works), `references/firebooks-contract.md` (what the game accepts, and how to register a book).
 
+## Concepts first (the owner, 2026-10-06)
+Before a new effect, animation or character is built, or the look of one is changed, put two to four concepts or
+references to the owner and build the one he picks. A concept is a picture or a short film generated on the desktop's
+GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write them as one brief:
+`python Tools/assetboard/briefs.py concepts --title ... --for ... --concept PATH="what it is" --concept ... --why ...`
+(from `trench-warfare-3d/`, your own choice first). He picks on the board's Decide page. A fix that changes no look
+(a bug, a number, a test) needs none.
+
 ## 0. Preflight
 
 | Check | How | If it fails |

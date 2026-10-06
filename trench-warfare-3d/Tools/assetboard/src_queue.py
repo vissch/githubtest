@@ -47,6 +47,11 @@ import src_git    # noqa: E402
 
 DECISIONS = 'docs/reference/decisions.md'
 GROUPS = ('broken', 'land', 'approved', 'ready', 'decide')     # the order the site lists them in
+
+
+def slug(s):
+    """A question's title however it is spelled: the rule of briefs.py slug() and decide.js."""
+    return re.sub(r'[^a-z0-9]+', '-', str(s).lower()).strip('-')[:48] or 'decision'
 EDIT_BUDGET = 300      # seconds a run before a commit may take: gate.ps1's $EditBudget
 UNTAKEN_HOURS = 2      # an answer of his on the Decide page that no session took up in this long is broken (the agent's choice)
 CI_EVERY = 600         # seconds between two questions to GitHub about the last checks run
@@ -271,10 +276,13 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     now = now or time.time()
     trees = [l for l in ops['lanes'] if l.get('path')]
     asked = open_questions(repo, integ, cache)
-    q = dict(decide=[d for d in asked if not d['answered']], land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
+    # a question he has answered on its brief is decided (his answer is the decision): it waits on a session, not on him
+    his = {slug(t): a for a in answers or [] for t in (a.get('about'), a.get('title')) if t}
+    q = dict(decide=[d for d in asked if not d['answered'] and slug(d['title']) not in his], land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
     # answered in this checkout and not landed: no longer the owner's to decide, so not in the count; the page says where it is
     here = src_git.git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()
     q['answered'] = [dict(d, lane=here) for d in asked if d['answered']]
+    q['decided'] = [dict(d, brief=his[slug(d['title'])].get('id', '')) for d in asked if not d['answered'] and slug(d['title']) in his]
 
     for t in trees:
         head, green, took = gate_state(t['path'])

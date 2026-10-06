@@ -34,6 +34,7 @@ sys.path.insert(0, str(HERE))
 import briefs     # noqa: E402
 import build      # noqa: E402
 import notes      # noqa: E402
+import src_git    # noqa: E402
 import src_graphs  # noqa: E402
 import src_ops    # noqa: E402
 import src_queue  # noqa: E402
@@ -177,15 +178,36 @@ def owner_notes(out: Path):
     return shown
 
 
+def landed_items(board: Path, repo: Path = None):
+    """The items of the board whose lane is on the integration branch already: their steps are not his to approve any more."""
+    merged = {b.strip() for b in src_git.git(repo or build.REPO, 'branch', '-r', '--merged', src_git.INTEGRATION).splitlines()}
+    return {i for i, item in briefs.board_items(board).items() if 'origin/' + str(item.get('lane', '')) in merged}
+
+
+def step_briefs(data):
+    """A brief for every step an asset has passed (briefs.py steps), and the steps that owe a capture. A board that is
+    not there, or does not read, is no reason to have no site: then nothing is written and nothing is owed."""
+    try:
+        board = board_root()
+        if not board or not (Path(board) / 'items').is_dir():
+            return []
+        states = {(it['id'], s['id']): s.get('state') for l in data['lanes'] for it in l.get('items', []) for s in it['stages']}
+        return briefs.steps(briefs.folder(), Path(board), states=states, landed=landed_items(Path(board)))[1]
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the steps were not put to the owner ({type(e).__name__}: {e})')
+        return []
+
+
 def once(out: Path):
     data = src_ops.collect(build.REPO, out)
     ready_since(data, out / 'data' / 'ready-since.json')
     # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
+    owed = step_briefs(data)        # before the answers are read: a step that passed since the last read is on the page now
     got = briefs.answers(briefs.read_all(briefs.folder()), notes.read_all(notes.folder()))
     data['queue'] = queue(data, out, answers=got)
     graphs(data, out)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
-    briefs.site(briefs.folder(), out, got=got)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
+    briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'

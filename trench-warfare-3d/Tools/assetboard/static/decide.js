@@ -15,9 +15,12 @@
     var want = slug(title); if (!want) return null;
     return (briefs || []).filter(function (b) { return b.state !== 'answered' && (slug(b.about) === want || slug(b.title) === want); })[0] || null;
   }
-  // the briefs in the order the page shows them: the open ones oldest first, then the answered, newest first
-  function order(briefs) {
-    var open = (briefs || []).filter(function (b) { return b.state !== 'answered'; }).sort(function (a, b) { return String(a.asked).localeCompare(String(b.asked)); });
+  // the briefs in the order the page shows them: the open ones he has not answered, newest first; under them the open
+  // ones he has answered and no session has taken up (`said` tells which: his note on the page, else what ops.py put on
+  // the brief as `waits`); then the answered, newest first
+  function order(briefs, said) {
+    var has = function (b) { return !!(said ? said(b) : b.waits); };
+    var open = (briefs || []).filter(function (b) { return b.state !== 'answered'; }).sort(function (a, b) { return has(a) - has(b) || String(b.asked).localeCompare(String(a.asked)); });
     var done = (briefs || []).filter(function (b) { return b.state === 'answered'; }).sort(function (a, b) { return String((b.answer || {}).when).localeCompare(String((a.answer || {}).when)); });
     return { open: open, done: done };
   }
@@ -46,8 +49,8 @@
     var w = b && b.waits, same = w && note && w.note === note.id;
     if (same && w.go === 'queue') return 'the master queues ' + w.unit + ' when you next talk to him';
     if (same && w.go === 'nothing') return 'nothing to build; the master writes it down when you next talk to him';
-    if (same && w.go === 'ask') return 'the master asks you before any work is queued';
-    return 'waits for a session to take it up';
+    if (same && w.go === 'write') return 'what it leads to is queued next, without asking you again';
+    return 'a session takes it up next';
   }
   var pure = { slug: slug, match: match, order: order, bare: bare, word: word, then: thenLine, stamp: stampOf, became: became, waits: waitsFor };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
@@ -67,13 +70,13 @@
       if (!e.src) { f.appendChild(el('p', 'd-gone', 'This piece of evidence is gone: ' + e.file)); }
       else if (e.kind === 'film') { m = el('video'); m.muted = true; m.loop = true; m.playsInline = true; m.controls = true; m.preload = 'metadata'; m.src = ROOT + e.src; if (!still) m.autoplay = true; f.appendChild(m); }
       else { m = el('img'); m.loading = 'lazy'; m.alt = e.caption; m.src = ROOT + e.src; a.appendChild(m); f.appendChild(a); }
-      f.appendChild(el('figcaption', null, e.caption)); box.appendChild(f);
+      f.appendChild(el('figcaption', null, e.caption)); if (e.option) f.className = 'd-concept'; box.appendChild(f);
     });
     if (!b.evidence.length) box.appendChild(el('p', 'd-none', 'Nothing to show: ' + String(b.no_evidence || 'no reason given').replace(/\.+$/, '') + '.'));
     return box;
   }
   function card(b) {
-    var c = el('article', 'd-card' + (b.state === 'answered' ? ' d-done' : '')), tx = el('div', 'd-text'), mine = said(b); c.id = b.id;
+    var mine = said(b), c = el('article', 'd-card' + (b.state === 'answered' ? ' d-done' : mine && mine.state !== 'unsent' ? ' d-yours' : '')), tx = el('div', 'd-text'); c.id = b.id;      // d-yours: his answer is the decision, though no session has closed the brief
     tx.appendChild(el('p', 'd-meta', 'asked ' + String(b.asked).slice(0, 10) + (b.lane ? ' · ' + b.lane.replace(/^lane\/(show|sim)\//, '') : '') + (b.about && b.about !== b.title ? ' · in the queue as "' + b.about + '"' : '')));
     tx.appendChild(el('h3', null, b.title)); tx.appendChild(el('p', 'd-for', b.what_for));
     var ops = el('div', 'd-options'); ops.setAttribute('role', 'group'); ops.setAttribute('aria-label', 'The options');
@@ -100,7 +103,7 @@
       if (bc) dn.appendChild(el('span', 'd-became', bc));
       tx.appendChild(dn);
     }
-    else if (mine) tx.appendChild(el('p', 'd-said' + (mine.state === 'unsent' ? ' d-unsent' : ''), (mine.state === 'unsent' ? 'Not sent yet (the note box is not running): ' : 'You said, ' + String(mine.when).slice(5, 16) + ': ') + mine.text.split('\n').join(' · ') +
+    else if (mine) tx.appendChild(el('p', 'd-said' + (mine.state === 'unsent' ? ' d-unsent' : ''), (mine.state === 'unsent' ? 'Not sent yet (the note box is not running): ' : 'You decided, ' + String(mine.when).slice(5, 16) + ': ') + mine.text.split('\n').join(' · ') +
       (mine.state === 'done' ? ' · taken up' : mine.state === 'unsent' ? '' : ' · ' + pure.waits(b, mine))));
     c.appendChild(tx); c.appendChild(evidence(b));
     return c;
@@ -119,16 +122,20 @@
     });
   }
   function draw() {
-    var all = pure.order(root.BRIEFS || []), qs = (root.QUEUE && root.QUEUE.decide) || [], left = pure.bare(root.BRIEFS, qs);
+    var all = pure.order(root.BRIEFS || [], said), qs = (root.QUEUE && root.QUEUE.decide) || [], left = pure.bare(root.BRIEFS, qs);
     if (root.OPS) C.nowPill(root.OPS);
-    var n = document.getElementById('d-count'); if (n) n.textContent = all.open.length + (all.open.length === 1 ? ' brief open' : ' briefs open') + (left.length ? ' · ' + left.length + ' questions without one' : '');
+    var yours = all.open.filter(said).length, todo = all.open.length - yours;          // a brief he has answered is decided: it no longer waits on him
+    var n = document.getElementById('d-count'); if (n) n.textContent = todo + ' to decide' + (yours ? ' · ' + yours + ' decided by you, in progress' : '') + (left.length ? ' · ' + left.length + (left.length === 1 ? ' question' : ' questions') + ' without a brief' : '');
     var box = document.getElementById('d-open'), inp = box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' ? document.activeElement : null;
     var sig = JSON.stringify([all.open, all.open.map(said)]);
     if (box.dataset.sig !== sig && !(inp && inp.value)) {          // not while he is typing an answer of his own
       box.dataset.sig = sig; box.innerHTML = '';
-      all.open.forEach(function (b) { box.appendChild(card(b)); });
+      all.open.forEach(function (b, i) {
+        if (said(b) && !(i && said(all.open[i - 1]))) box.appendChild(el('h3', 'd-h', 'Decided by you, in progress'));
+        box.appendChild(card(b));
+      });
       index(all.open);
-      if (!all.open.length) box.appendChild(el('p', 'd-empty', 'No brief is open.' + (left.length ? ' The questions below have none yet.' : ' Nothing waits on a decision.')));
+      if (!todo) box.insertBefore(el('p', 'd-empty', all.open.length ? 'Nothing is left to decide.' : 'No brief is open.' + (left.length ? ' The questions below have none yet.' : ' Nothing waits on a decision.')), box.firstChild);
     }
     var bare = document.getElementById('d-bare');
     if (bare.dataset.sig !== JSON.stringify(left)) {
@@ -140,6 +147,16 @@
         t.appendChild(el('p', null, q.text || ''));
         r.appendChild(t); if (B) r.appendChild(B.button({ kind: 'queue', id: 'decide: ' + q.title, kindLabel: 'decide', title: q.title, sub: q.text || '', facts: [] }, 'Answer'));
         bare.appendChild(r);
+      });
+    }
+    // the steps of an asset with no capture to approve from (briefs.py steps): no brief is written for one, so it is said here
+    var owed = document.getElementById('d-owed'), ow = root.OWED || [];
+    if (owed && owed.dataset.sig !== JSON.stringify(ow)) {
+      owed.dataset.sig = JSON.stringify(ow); owed.innerHTML = ''; owed.hidden = !ow.length;
+      if (ow.length) owed.appendChild(el('h3', 'd-h', 'Steps with nothing to show you yet'));
+      ow.forEach(function (o) {
+        var r = el('div', 'd-row'), t = el('div'); t.appendChild(el('b', null, o.item + ': the ' + o.stage + ' step'));
+        t.appendChild(el('p', null, o.why.charAt(0).toUpperCase() + o.why.slice(1) + '.')); r.appendChild(t); owed.appendChild(r);
       });
     }
     // a question he answered that its lane has written down and not landed: decided, and said to be where it is

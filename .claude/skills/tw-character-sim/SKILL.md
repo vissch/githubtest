@@ -8,6 +8,14 @@ description: Character simulator for Trench Warfare 3D infantry — walk each un
 Deep reference: `references/infantry.md`. Driving and capture: `../pipeline/references/driving-and-evidence.md`.
 Repo pages: `docs/reference/tasks.md` sections "Infantry rendering (VAT)" and "Animation"; `docs/15-character-controller.md`.
 
+## Concepts first (the owner, 2026-10-06)
+Before a new effect, animation or character is built, or the look of one is changed, put two to four concepts or
+references to the owner and build the one he picks. A concept is a picture or a short film generated on the desktop's
+GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write them as one brief:
+`python Tools/assetboard/briefs.py concepts --title ... --for ... --concept PATH="what it is" --concept ... --why ...`
+(from `trench-warfare-3d/`, your own choice first). He picks on the board's Decide page. A fix that changes no look
+(a bug, a number, a test) needs none.
+
 ## What the unit set really is (read this first)
 - **Only two figures are baked: Soldier and Sniper.** `VATRenderer.FigureOfArchetype(a) => a == 3 ? 1 : 0`, so every
   infantry type except the sniper is drawn as Soldier, whatever its role.

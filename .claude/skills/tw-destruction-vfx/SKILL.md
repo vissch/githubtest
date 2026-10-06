@@ -10,6 +10,14 @@ pieces cost the CPU nothing a frame. There is no PhysX, no GameObject per piece 
 Deep reference: `references/architecture.md` (every system, constant, handler and test, snapshot at 558c667).
 Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheets: `../tw-vfx-sheets/SKILL.md`.
 
+## Concepts first (the owner, 2026-10-06)
+Before a new effect, animation or character is built, or the look of one is changed, put two to four concepts or
+references to the owner and build the one he picks. A concept is a picture or a short film generated on the desktop's
+GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write them as one brief:
+`python Tools/assetboard/briefs.py concepts --title ... --for ... --concept PATH="what it is" --concept ... --why ...`
+(from `trench-warfare-3d/`, your own choice first). He picks on the board's Decide page. A fix that changes no look
+(a bug, a number, a test) needs none.
+
 ## Where things live (SHOW lane unless marked)
 | Layer | Code | Notes |
 |---|---|---|

@@ -121,7 +121,7 @@ def owner_notes(branch):
         print(f'         {mark}{a["id"]}: {a["notes"][-1]["text"].splitlines()[0][:60]} -> {briefs.leads(a)}')
     if got:
         print(f'         all his notes on each: python Tools/assetboard/briefs.py waiting. Take one up: its row in docs/reference/decisions.md, then')
-        print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says ask first)')
+        print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says decided: write its unit)')
 
 
 def unity_cli():

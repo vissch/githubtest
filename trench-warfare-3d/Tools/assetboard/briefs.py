@@ -19,20 +19,37 @@ why), and shows the pictures or films that bear on it. It is short by rule: add(
     python Tools/assetboard/briefs.py take ID --note NOTE --by lane/show/x [--queued UNIT | --outcome "words"]
                                                                   close it with what his notes say and what became of it, and answer the notes
     python Tools/assetboard/briefs.py answer ID B "his words"     he answered somewhere else: the brief is closed with it
+    python Tools/assetboard/briefs.py concepts --title "The flame jet" --for "What the flamethrower's jet looks like ..." \
+        --concept a.png="One long card, ragged edge" --concept b.html="Three puffs in a row" --why "It reads at 120 m" [--lane lane/show/x]
+                                                                  concepts or references to pick from, before the work is built
+    python Tools/assetboard/briefs.py steps [--board DIR] [--dry-run]     a brief for every step an asset has passed, from its captures;
+                                                                  and the steps that owe a capture
 
 A brief is a folder of its own beside the owner's notes (the folder decisions of the Drive's TW3D-pipeline; TW_BRIEFS
 names another): brief.json and a copy of each piece of evidence, so it still shows when the original is gone. The
 board shows them on decide.html (ops.py puts them in the site on every read, static/decide.js draws them); the owner
 picks an option there, which leaves a note (notes.py) that is his word; the session that takes it up writes the row
 in decisions.md and closes the brief with `take`.
+EVERY STEP OF AN ASSET (the owner, 2026-10-06). `steps` writes a brief for each stage of an item on the pipeline's
+board that has passed: approve it, send it back, or ask for better captures, with the step's own pictures. A step
+with nothing a page can show gets no brief and is listed as owing a capture; so is a stage that names no band.
+ops.py runs it on every read.
+CONCEPTS FIRST (the owner, 2026-10-06). Work on an effect, an animation or a character starts with a brief of two to
+four concepts or references he picks from: `concepts`. Each is a picture, a short film, or a page drawn in HTML or
+SVG (photographed here). Nothing of that work is built before he has picked.
 --no-evidence "why" is for a decision nothing can be shown of; a brief without either is refused.
 
 WHEN A CLICK IS A YES TO WORK (the owner, 2026-10-06). An option may say what happens then: "Then: ..." under it on the
 page, and the unit that is queued. A click on such an option is his yes for that unit, and only then: the page sends
 the stamp of the Then line it showed with the click, and answers() says `queue` only when every note he left about
 the brief is a click on that option with the stamp the option has now. Anything else (no Then line, one added or
-changed after his click, clicks on two options, his own words) is `ask`: the master asks him first. This is the one
-place that rule is written; the relay shows that answers wait and decides nothing.
+changed after his click, clicks on two options, his own words) is `write`. This is the one place that rule is
+written; the relay shows that answers wait and decides nothing.
+HIS ANSWER IS THE DECISION (the owner, the same evening: "they are a decision to the question", and yes to "should
+your answer on a brief also queue its work, with no second yes?"). So `write` is no question back to him: the session
+that takes the answer up writes the unit his answer leads to (id, lane, goal, done_when), queues it, and closes the
+brief with it; or closes it with the words why nothing is built. It asks him only when his words do not say what to
+build. Until that evening the word was `ask`: the master asked him before any work was queued.
 """
 import argparse
 import datetime
@@ -138,7 +155,7 @@ def keep(src: Path, dst: Path):
     return dst
 
 
-def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None):
+def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid=''):
     """Write a brief and return it. `evidence` is [(path, caption)]; the first option is the one the writer would take.
     A brief that is not short, shows nothing without saying why, or names a file that is not there, is a ValueError
     that says every reason."""
@@ -147,7 +164,9 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
     if bad:
         raise ValueError('not a brief yet: ' + '; '.join(bad))
     now = now or datetime.datetime.now()
-    bid, n = f'{now:%Y-%m-%d}-{slug(title)}', 1
+    if bid and (where / bid).exists():
+        raise ValueError(f'the brief {bid} is there already')
+    bid, n = bid or f'{now:%Y-%m-%d}-{slug(title)}', 1
     while (where / bid).exists():
         n += 1
         bid = f'{now:%Y-%m-%d}-{slug(title)}-{n}'
@@ -294,7 +313,8 @@ def answers(briefs, notes):
     of his about it (not only the last: words he typed before a click are his too), and what it leads to:
       go 'queue'    his click is a yes to the unit the option names: queue it without asking
       go 'nothing'  his click is a yes to an option that says nothing is built
-      go 'ask'      anything else, and `why`: the master asks him before any work is queued
+      go 'write'    anything else, and `why`: his answer is the decision all the same, but it names no unit, so the
+                    session writes the unit it leads to and queues it (or says why nothing is built)
     A click is a yes only when every open note about the brief is a click on the page on that one option (from the
     owner, kind page, no words of his own) and carries the stamp the option's Then line has now."""
     out = []
@@ -318,9 +338,9 @@ def answers(briefs, notes):
             why = 'the Then line is not the one the page showed when he clicked'
         else:
             why = ''
-        out.append(dict(id=b['id'], title=b['title'], lane=b.get('lane', ''), option=option, text=o.get('text', ''), said=' / '.join(w for _, w in picks if w),
+        out.append(dict(id=b['id'], title=b['title'], about=b.get('about', ''), lane=b.get('lane', ''), option=option, text=o.get('text', ''), said=' / '.join(w for _, w in picks if w),
                         when=last['when'], note=last['id'], notes=[dict(id=n['id'], when=n['when'], text=n['text']) for n in his],
-                        go='ask' if why else 'queue' if t.get('unit') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit')))
+                        go='write' if why else 'queue' if t.get('unit') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit')))
     return out
 
 
@@ -342,7 +362,7 @@ def unit(where: Path, notes, bid, note):
     """The unit his click queues, as the file the relay's queue takes. Only when the click is a yes to it."""
     a = one_answer(where, notes, bid, note)
     if a['go'] != 'queue':
-        raise ValueError(f'{a["id"]}: nothing is queued on this answer alone ({a["why"] or "the option says nothing is built"}): ask him first')
+        raise ValueError(f'{a["id"]}: this answer names no unit ({a["why"] or "the option says nothing is built"}): write the unit it leads to yourself')
     return a['unit']
 
 
@@ -352,18 +372,18 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     act on one answer; so is one he has answered again since `note`, the note the session read. What became of it:
     `queued` (the unit on the relay's queue) or `outcome` (in words, when nothing was queued). An answer that is a yes
     to a Then line carries it already; any other answer needs one of the two, so no brief closes without saying.
-    `option` overrules the option read from his notes, for an answer the session had to ask him about.
+    `option` overrules the option read from his notes, for an answer whose option his notes do not settle.
     Write the row in decisions.md first. Returns (the brief, his note)."""
     import notes
     a = one_answer(where, notes.read_all(notes_where), bid, note)
     if one(queued) and one(outcome):
         raise ValueError('what became of it is a unit that was queued or words, not both')
     if not one(queued) and not one(outcome):
-        if a['go'] == 'ask':
+        if a['go'] == 'write':
             raise ValueError(f'{a["id"]}: say what became of it: --queued UNIT, or --outcome "words" when nothing was queued')
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
-    if one(option) and a['go'] != 'ask':
-        raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer you had to ask him about')
+    if one(option) and a['go'] != 'write':
+        raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
     took = one(option) or a['option']
     b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome)
     became = f'Queued as {one(queued)}.' if one(queued) else one(outcome).rstrip('.') + '.'
@@ -391,7 +411,154 @@ def missing(briefs, titles):
     return [t for t in titles if not any(same(t, h) for h in have)]
 
 
-def site(where: Path, out: Path, now=None, got=()):
+BROWSERS = ('msedge', 'chrome', 'chromium', r'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe', r'C:\Program Files\Microsoft\Edge\Application\msedge.exe',
+            r'C:\Program Files\Google\Chrome\Application\chrome.exe')
+PAGES = ('.html', '.htm', '.svg')       # a concept drawn as a page: photographed, so the brief shows a picture of it
+
+
+def shoot(src: Path, dst: Path, size=(1280, 720)):
+    """A picture of a page (a concept drawn in HTML or SVG), taken by a headless browser. A ValueError when no browser
+    is found or nothing was written: a concept nobody can see is not put to the owner."""
+    import subprocess
+    import tempfile
+    import time
+    exe = next((shutil.which(b) or (b if Path(b).is_file() else '') for b in BROWSERS if shutil.which(b) or Path(b).is_file()), '')
+    if not exe:
+        raise ValueError(f'no browser to photograph {src.name} with: make a picture of it yourself and give that')
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    dst = dst.resolve()
+    with tempfile.TemporaryDirectory(prefix='tw-shoot-', ignore_cleanup_errors=True) as prof:
+        subprocess.run([exe, '--headless', '--disable-gpu', '--hide-scrollbars', '--force-prefers-reduced-motion', f'--window-size={size[0]},{size[1]}',
+                        '--virtual-time-budget=4000', f'--user-data-dir={Path(prof).resolve()}', f'--screenshot={dst}', src.resolve().as_uri()], capture_output=True, timeout=120)
+        for _ in range(60):                 # the browser returns before the picture is on the disk (seen 2026-10-06): wait for it
+            if dst.is_file() and dst.stat().st_size:
+                break
+            time.sleep(0.5)
+    if not dst.is_file() or not dst.stat().st_size:
+        raise ValueError(f'the browser made no picture of {src.name}')
+    return dst
+
+
+def concepts(where: Path, title, what_for, shown, why, about='', lane='', by='', now=None, shooter=None):
+    """A brief whose options are concepts or references the owner picks from, before anything is built. The owner,
+    2026-10-06: "whenever we do vfx, animations or characters, lets make concepts first or search references ... then
+    concepts land in the decisions and the user will pick". `shown` is [(path, what it is)], two to four, the writer's
+    own choice first: a picture or a short film (generated, or a reference that was found), or a page drawn in HTML or
+    SVG, which is photographed. Each is an option, and its picture carries the option's letter. Returns the brief."""
+    import tempfile
+    shown = [(Path(p), one(c)) for p, c in shown]
+    if not 2 <= len(shown) <= MOST_OPTIONS:
+        raise ValueError(f'not a brief yet: {len(shown)} concepts; 2 to {MOST_OPTIONS} to pick from, the one you would take first')
+    with tempfile.TemporaryDirectory(prefix='tw-concepts-') as tmp:
+        ev = []
+        for i, (p, c) in enumerate(shown):
+            if p.suffix.lower() in PAGES and p.is_file():
+                p = (shooter or shoot)(p, Path(tmp) / f'{i + 1}-{slug(p.stem)}.png')
+            ev.append((str(p), f'{"ABCD"[i]}: {c}'))
+        b = add(where, title, what_for, [c for _, c in shown], why, ev, about=about, lane=lane, by=by, now=now)
+    b['kind'] = 'concepts'
+    for i, e in enumerate(b['evidence']):
+        e['option'] = 'ABCD'[i]
+    (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    return b
+
+
+STEP_OPTIONS = ('Approve this step', 'Send it back: I say below what is wrong with it', 'I cannot judge it from these pictures: capture it better')
+STEP_THEN = 'Nothing is built: the step counts as approved'
+STEP_SKIP = ('master',)         # a stage of this role is the gate or the landing: his word for those is "land", not a look at a picture
+
+
+def board_items(board: Path):
+    """The items on the pipeline's board (Tools/pipeline/pipeline.py), by the name of their file. One that does not
+    read is passed over."""
+    out = {}
+    for f in sorted((board / 'items').glob('*.json')) if (board / 'items').is_dir() else []:
+        try:
+            item = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if isinstance(item, dict) and isinstance(item.get('stages'), list):
+            out[f.stem] = item
+    return out
+
+
+def newest_result(board: Path, item, stage):
+    """The last result a stage has on the board, or None."""
+    got = []
+    for f in (board / 'results').glob(f'{item}--{stage}--*.json') if (board / 'results').is_dir() else []:
+        try:
+            r = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+        if isinstance(r, dict) and r.get('item') == item and r.get('stage') == stage:
+            got.append(r)
+    return max(got, key=lambda r: (str(r.get('finished_at', '')), r.get('attempt', 0))) if got else None
+
+
+def step_evidence(board: Path, item, stage, result):
+    """What a step has to show: [(path, caption)], the captures its result names first (a band each), then the other
+    pictures and films in the step's folder of evidence. Text and numbers are not something a page shows."""
+    out, seen = [], set()
+
+    def shows(p):
+        return p.is_file() and p.suffix.lower() in PICTURES + FILMS and not (p.suffix.lower() in FILMS and p.stat().st_size > FILM_MAX)
+    for band, rel in sorted((result.get('evidence') or {}).items()):
+        p = board / str(rel)
+        if shows(p) and p.resolve() not in seen:
+            seen.add(p.resolve())
+            out.append((str(p), f'{stage}: {re.sub(r"[-_]+", " ", str(band))}'))
+    home = board / 'evidence' / item / stage
+    for p in sorted(home.iterdir()) if home.is_dir() else []:
+        if shows(p) and p.resolve() not in seen:
+            seen.add(p.resolve())
+            out.append((str(p), f'{stage}: {re.sub(r"[-_]+", " ", p.stem)}'))
+    return out[:MOST_EVIDENCE]
+
+
+def steps(where: Path, board: Path, states=None, landed=(), now=None, write=True):
+    """Put every step an asset has passed to the owner as a brief he can approve from its captures. The owner,
+    2026-10-06: "put in decisions each step a asset goes through, making sure we do captures that make it easy to
+    approve". A step is a stage of an item on the pipeline's board whose last result is PASS. Its brief is named after
+    the step's job, so a step is put to him once, whichever machine writes it, and again only when it is rebuilt.
+    `states` is {(item, stage): state} from pipeline.evaluate when the caller has it: a step whose inputs changed since
+    it passed is not put to him. `landed` names the items whose lane is on the integration branch already.
+    Returns (briefs written, owed): owed is [(item, stage, why)], the steps with no capture a page can show. Such a step
+    gets no brief: an approval of something he cannot see is no approval. `write` False writes nothing and returns
+    what would be written as (item, stage, brief id, pieces of evidence)."""
+    written, owed = [], []
+    for iid, item in board_items(board).items():
+        if iid in landed:
+            continue
+        stages = [s for s in item['stages'] if isinstance(s, dict) and s.get('id') and s.get('role') not in STEP_SKIP]
+        for n, s in enumerate(stages):
+            sid, r = s['id'], newest_result(board, iid, s['id'])
+            passed = bool(r) and r.get('verdict') == 'PASS' and (states is None or states.get((iid, sid), 'DONE') == 'DONE')
+            ev = step_evidence(board, iid, sid, r) if passed else []
+            if passed and not ev:
+                owed.append((iid, sid, 'it passed with nothing a page can show: no brief until it has a capture'))
+            elif not s.get('bands'):
+                owed.append((iid, sid, 'it names no capture (no band): the pipeline lets it pass with nothing to show'))
+            if not ev:
+                continue
+            bid = 'step-' + slug(r.get('job') or f'{iid}--{sid}')
+            if (where / bid).exists():
+                continue                        # put to him already, open or decided
+            if not write:
+                written.append((iid, sid, bid, len(ev)))
+                continue
+            head = ' '.join(one(item.get('title') or iid).split()[:20]).rstrip('.,;:')
+            after = f'Your yes lets the step {stages[n + 1]["id"]} build on it.' if n + 1 < len(stages) else 'It is the last step before the gate.'
+            what_for = f'{head}. Its step {sid} passed on the {r.get("station") or "board"}, {str(r.get("finished_at", ""))[:10]}. {after}'
+            why = ' '.join(f'It passed its own check, attempt {r.get("attempt", 1)}{": " + one(r["note"]) if one(r.get("note")) else ""}'.split()[:WHY_WORDS])
+            b = add(where, f'{iid}: the {sid} step', what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
+            b['step'] = dict(item=iid, stage=sid, job=r.get('job', ''), attempt=r.get('attempt', 1))
+            b['options'][0]['then'] = dict(says=STEP_THEN, stamp=stamp(STEP_THEN))
+            (where / bid / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+            written.append(b)
+    return written, owed
+
+
+def site(where: Path, out: Path, now=None, got=(), owed=()):
     """Put the briefs the page shows in the site: data/briefs.js, and their evidence under img/brief/<id>/ (a file
     is copied once). Folders of briefs no longer shown are removed. Returns what the page was given. `got` is
     answers(): a brief he has answered is given `waits`, what his answer leads to and the note that was read for, so
@@ -416,6 +583,8 @@ def site(where: Path, out: Path, now=None, got=()):
         if d.is_dir() and d.name not in [b['id'] for b in listed]:
             shutil.rmtree(d, ignore_errors=True)
     text = f'window.BRIEFS = {json.dumps(listed, sort_keys=True)};\n'
+    if owed:                                # the steps that passed with nothing to show him (steps()): the page lists them
+        text += f'window.OWED = {json.dumps([dict(item=i, stage=s, why=w) for i, s, w in owed], sort_keys=True)};\n'
     f = out / 'data' / 'briefs.js'
     if not f.exists() or f.read_text(encoding='utf-8') != text:
         f.parent.mkdir(parents=True, exist_ok=True)
@@ -443,7 +612,7 @@ def lines(briefs):
 
 def leads(a):
     """What an answer leads to, in a few words, for a session's lines."""
-    return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else 'nothing to build' if a['go'] == 'nothing' else f'ask first ({a["why"]})'
+    return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else 'nothing to build' if a['go'] == 'nothing' else f'decided: write its unit and queue it, or say why nothing is built ({a["why"]})'
 
 
 def waiting_lines(got):
@@ -460,7 +629,7 @@ def waiting_lines(got):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description='decision briefs for the owner')
-    ap.add_argument('what', nargs='?', default='list', choices=('list', 'add', 'then', 'waiting', 'unit', 'answer', 'take', 'missing'))
+    ap.add_argument('what', nargs='?', default='list', choices=('list', 'add', 'then', 'waiting', 'unit', 'answer', 'take', 'missing', 'steps', 'concepts'))
     ap.add_argument('args', nargs='*')
     ap.add_argument('--all', action='store_true', help='the answered ones too')
     ap.add_argument('--title', default='')
@@ -473,9 +642,12 @@ def main(argv=None):
     ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
     ap.add_argument('--out', default='', help='unit: the file the unit is written to')
     ap.add_argument('--json', action='store_true', help='waiting: as JSON')
+    ap.add_argument('--board', default='', help='steps: the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout)')
+    ap.add_argument('--dry-run', action='store_true', help='steps: write nothing, say what would be written')
     ap.add_argument('--why', default='', help='why the first option')
     ap.add_argument('--evidence', action='append', default=[], help='PATH=what it shows; a picture or a short film')
     ap.add_argument('--no-evidence', default='', help='why nothing can be shown')
+    ap.add_argument('--concept', action='append', default=[], help='concepts: PATH=what it is; a picture, a short film, or a page in HTML or SVG. Yours first')
     ap.add_argument('--about', default='', help='the title of the question in decisions.md this brief is for')
     ap.add_argument('--lane', default='')
     ap.add_argument('--by', default='')
@@ -529,6 +701,20 @@ def main(argv=None):
             b, n = take(where, notes.folder(), a.args[0], a.by, note=a.note, queued=a.queued, outcome=a.outcome, option=a.option[0] if len(a.option) == 1 else '')
             w = b['answer']
             print(f'briefs: {b["id"]} is closed with {w["option"]} ({"queued as " + w["queued"] if w.get("queued") else w.get("outcome", "")}), and his notes about it are answered')
+        elif a.what == 'concepts':
+            b = concepts(where, a.title, a.what_for, [(e.rsplit('=', 1) + [''])[:2] for e in a.concept], a.why, a.about, a.lane, a.by)
+            print(f'briefs: {b["id"]} is written with {len(b["evidence"])} concepts to pick from, in {where}')
+        elif a.what == 'steps':
+            import ops
+            board = Path(a.board) if a.board else ops.board_root()
+            if not board or not (Path(board) / 'items').is_dir():
+                raise ValueError(f'no board at {board}: name it with --board')
+            new, owed = steps(where, Path(board), landed=ops.landed_items(Path(board)), write=not a.dry_run)
+            print(f'briefs: {len(new)} step{"" if len(new) == 1 else "s"} {"would be" if a.dry_run else ""} put to the owner, {len(owed)} owe a capture'.replace('  ', ' '))
+            for b in new:
+                print(f'      {b[2]}  ({b[3]} to show)' if a.dry_run else f'      {b["id"]}  ({len(b["evidence"])} to show)')
+            for i, s, w in owed:
+                print(f'      owes a capture: {i} / {s}: {w}')
         elif a.what == 'missing':
             import src_queue
             import src_git

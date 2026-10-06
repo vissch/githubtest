@@ -353,6 +353,12 @@ def queue_fixtures():
              'one integration reworded since the lane left it still is',
              [d['title'] for d in q3['decide']] == ['A question'] and [(d['title'], d['lane']) for d in q3['answered']] == [('Another question', 'lane/show/a')]
              and q3['count'] == q2['count'] - 1 and q2['answered'] == [], (q3['decide'], q3['answered'], q3['count'], q2['count']))
+        # a question he has answered on its brief is decided: his answer is the decision, so it no longer waits on him
+        q6 = src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=dict(red, conclusion='success'))), now=when,
+                               answers=[dict(id='b9', title='Its brief has another title', about='another QUESTION!', when='')])
+        case('queue: a question he has answered on its brief is decided: not his to decide any more and not counted, by the title the brief is about however it is spelled; the others still are',
+             [d['title'] for d in q6['decide']] == ['A question'] and [(d['title'], d['brief']) for d in q6['decided']] == [('Another question', 'b9')]
+             and q6['count'] == q2['count'] - 1 and q2['decided'] == [], (q6['decide'], q6['decided'], q6['count'], q2['count']))
         # what he answered on the Decide page and no session took up: nothing wakes one, so past two hours the board says it
         ago = lambda sec: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(when - sec))
         calm = dict(ci=dict(at=when, run=dict(red, conclusion='success')))
@@ -1121,16 +1127,16 @@ def decisions():
          'and a brief he has not answered is not listed',
          (go[cover['title']], go[quiet['title']], go[other['title']]) == ('queue', 'nothing', None) and g[cover['id']]['unit'] == dict(u1, role='lane') and g[cover['id']]['note'] == c2['id']
          and [n['id'] for n in g[cover['id']]['notes']] == [c1['id'], c2['id']] and g[quiet['id']]['says'] == 'Nothing to build: it stays as it is' and g[quiet['id']]['unit'] is None, go)
-    case('brief: a click on an option with no Then line is no yes to work: the master asks first', go[plain['title']] == 'ask' and 'no Then line' in g[plain['id']]['why'], g[plain['id']])
+    case('brief: a click on an option with no Then line names no unit: his answer is the decision, and the session writes the unit it leads to', go[plain['title']] == 'write' and 'no Then line' in g[plain['id']]['why'], g[plain['id']])
     case('brief: a click that carries the stamp of an older Then line, or none, is no yes to the line the option has now',
-         (go[stale['title']], go[bare['title']]) == ('ask', 'ask') and 'showed' in g[stale['id']]['why'] and 'showed' in g[bare['id']]['why'], (g[stale['id']]['why'], g[bare['id']]['why']))
+         (go[stale['title']], go[bare['title']]) == ('write', 'write') and 'showed' in g[stale['id']]['why'] and 'showed' in g[bare['id']]['why'], (g[stale['id']]['why'], g[bare['id']]['why']))
     case('brief: words of his own beside a click make it no yes, in a note of their own or under the click, and every note of his is given, not the last only',
-         go[worded['title']] == 'ask' and g[worded['id']]['option'] == 'A' and g[worded['id']]['said'] == 'only if it costs no frames' and len(g[worded['id']]['notes']) == 2
-         and 'words of his own' in g[worded['id']]['why'] and go[remark['title']] == 'ask' and g[remark['id']]['said'] == 'but keep the rug', (g[worded['id']], g[remark['id']]))
+         go[worded['title']] == 'write' and g[worded['id']]['option'] == 'A' and g[worded['id']]['said'] == 'only if it costs no frames' and len(g[worded['id']]['notes']) == 2
+         and 'words of his own' in g[worded['id']]['why'] and go[remark['title']] == 'write' and g[remark['id']]['said'] == 'but keep the rug', (g[worded['id']], g[remark['id']]))
     case('brief: clicks on two options are no yes to either; the last is the option the answer names',
-         go[both['title']] == 'ask' and g[both['id']]['option'] == 'B' and g[both['id']]['note'] == c_both['id'] and 'same option' in g[both['id']]['why'], g[both['id']])
+         go[both['title']] == 'write' and g[both['id']]['option'] == 'B' and g[both['id']]['note'] == c_both['id'] and 'same option' in g[both['id']]['why'], g[both['id']])
     case('brief: a note that is not the owner\'s click on a page is no yes, whatever stamp it carries',
-         (go[forged['title']], go[by_hand['title']]) == ('ask', 'ask') and 'not a click of his' in g[forged['id']]['why'], (g[forged['id']]['why'], g[by_hand['id']]['why']))
+         (go[forged['title']], go[by_hand['title']]) == ('write', 'write') and 'not a click of his' in g[forged['id']]['why'], (g[forged['id']]['why'], g[by_hand['id']]['why']))
     every = notes.read_all(box)
     case('brief: the unit a click queues is given only when the click is a yes to it, and only for the note that is his last word',
          briefs.unit(where, every, cover['id'], c2['id']) == dict(u1, role='lane') and all(no(lambda q=q, n=n: briefs.unit(where, every, q['id'], n)) for q, n in
@@ -1140,7 +1146,7 @@ def decisions():
     site2 = tmp / 'site2'
     told = {x['id']: x.get('waits') for x in briefs.site(where, site2, now=day, got=list(g.values()))}
     case('brief: the page is told what each answer of his leads to and the note that was read for, and nothing of a brief he has not answered',
-         told[cover['id']] == dict(go='queue', note=c2['id'], unit='unit-1') and told[plain['id']] == dict(go='ask', note=c_plain['id'], unit='') and told[other['id']] is None, told)
+         told[cover['id']] == dict(go='queue', note=c2['id'], unit='unit-1') and told[plain['id']] == dict(go='write', note=c_plain['id'], unit='') and told[other['id']] is None, told)
     t_bad = [took(cover, note=c1['id']).get('refused'), took(cover).get('refused'), took(plain, note=c_plain['id']).get('refused'),
              took(plain, note=c_plain['id'], queued='unit-x', outcome='and words').get('refused'), took(cover, note=c2['id'], option='B').get('refused')]
     still = got()
@@ -1156,6 +1162,84 @@ def decisions():
     case('brief: words he typed before a click are in the answer the brief is closed with',
          (t_worded.get('option'), t_worded.get('said'), t_worded.get('queued')) == ('A', 'only if it costs no frames', 'unit-4'), t_worded)
 
+    # concepts first: a brief whose options are concepts or references to pick from (briefs.py concepts)
+    cw, page_c = tmp / 'concept-briefs', tmp / 'art' / 'three puffs.html'
+    page_c.write_text('<html><body>three puffs</body></html>', encoding='utf-8')
+    (tmp / 'art' / 'notes.txt').write_text('words', encoding='utf-8')
+    shot = lambda src, dst: png(dst, 80, 45)
+    cb = briefs.concepts(cw, 'The flame jet', 'What the flamethrower\'s jet looks like from the standard view.', [(str(small), 'One long card, ragged edge'), (str(page_c), 'Three puffs in a row'),
+                                                                                                                    (str(film), 'A reference: a film of one')], 'It reads at 120 m.', lane='lane/show/x', now=day, shooter=shot)
+
+    def refused(*a, **k):
+        try:
+            briefs.concepts(*a, **k)
+        except ValueError as e:
+            return str(e)
+    case('concepts: each concept is an option he picks, with its picture under the option\'s letter; a page drawn in HTML is photographed; the writer\'s own is first',
+         cb['kind'] == 'concepts' and [o['text'] for o in cb['options']] == ['One long card, ragged edge', 'Three puffs in a row', 'A reference: a film of one'] and cb['pick'] == 'A'
+         and [(e['option'], e['caption'], e['kind'], Path(e['file']).suffix) for e in cb['evidence']] == [('A', 'A: One long card, ragged edge', 'picture', '.png'), ('B', 'B: Three puffs in a row', 'picture', '.png'),
+                                                                                                         ('C', 'C: A reference: a film of one', 'film', '.mp4')]
+         and all((cw / cb['id'] / e['file']).is_file() for e in cb['evidence']) and briefs.read_all(cw) == [cb], cb)
+    case('concepts: one concept is no choice, a concept that is no picture, film or page is refused, and so is a page no browser photographed',
+         '1 concepts' in (refused(cw, 'T', 'For.', [(str(small), 'Only one')], 'Why.') or '') and 'not a picture or a film' in (refused(cw, 'T', 'For.', [(str(small), 'One'), (str(tmp / 'art' / 'notes.txt'), 'Words')], 'Why.') or '')
+         and 'no picture' in (refused(cw, 'T', 'For.', [(str(small), 'One'), (str(page_c), 'A page')], 'Why.', shooter=lambda s, d: (_ for _ in ()).throw(ValueError('the browser made no picture of it'))) or '')
+         and len(briefs.read_all(cw)) == 1, None)
+
+    # every step an asset passes is put to him as a brief with the step's captures (briefs.py steps)
+    bd, sw = tmp / 'board', tmp / 'step-briefs'
+    (bd / 'items').mkdir(parents=True)
+    (bd / 'results').mkdir()
+    (bd / 'items' / 'house.json').write_text(json.dumps(dict(id='house', title='The village house, nine chunks.', lane='lane/show/house', stages=[
+        dict(id='numbers', station='laptop', role='balance'), dict(id='look', station='desktop', role='vfx', bands=['intact', 'down'], after=['numbers']),
+        dict(id='far', station='desktop', role='vfx', bands=['t1'], after=['look']), dict(id='gate', station='desktop', role='master', after=['far'])])), encoding='utf-8')
+    (bd / 'items' / 'shed.json').write_text(json.dumps(dict(id='shed', title='A shed', lane='lane/show/shed', stages=[dict(id='look', role='vfx', bands=['intact'])])), encoding='utf-8')
+    png(bd / 'evidence' / 'house' / 'look' / 'intact.png', 60, 40), png(bd / 'evidence' / 'house' / 'look' / 'down.png', 60, 40), png(bd / 'evidence' / 'house' / 'look' / 'side_sheet.png', 60, 40)
+    png(bd / 'evidence' / 'shed' / 'look' / 'intact.png', 60, 40), png(bd / 'evidence' / 'house' / 'far' / 't1.png', 60, 40)
+    (bd / 'evidence' / 'house' / 'numbers').mkdir(parents=True)
+    (bd / 'evidence' / 'house' / 'numbers' / 'table.md').write_text('numbers', encoding='utf-8')
+
+    def result(item, stage, n, verdict, ev, job=None, at='2026-10-04T20:00:00Z'):
+        job = job or f'{item}--{stage}--abcd1234'
+        (bd / 'results' / f'{job}--{n}.json').write_text(json.dumps(dict(item=item, stage=stage, attempt=n, verdict=verdict, evidence=ev, job=job, station='desktop',
+                                                                         finished_at=at, note='checked by relay')), encoding='utf-8')
+    result('house', 'numbers', 1, 'PASS', {'table': 'evidence/house/numbers/table.md'})
+    result('house', 'look', 1, 'FAIL', {}, at='2026-10-04T19:00:00Z')
+    result('house', 'look', 2, 'PASS', {'intact': 'evidence/house/look/intact.png', 'down': 'evidence/house/look/down.png'})
+    result('house', 'far', 1, 'PASS', {'t1': 'evidence/house/far/t1.png'})
+    result('house', 'gate', 1, 'PASS', {})
+    result('shed', 'look', 1, 'PASS', {'intact': 'evidence/shed/look/intact.png'})
+    dry = briefs.steps(sw, bd, states={('house', 'far'): 'STALE'}, landed={'shed'}, write=False)
+    wrote, owed = briefs.steps(sw, bd, states={('house', 'far'): 'STALE'}, landed={'shed'}, now=day)
+    sb = wrote[0] if wrote else {}
+    case('steps: a step an asset has passed is a brief he can approve from its captures: the ones its result names first, then the other pictures of the step; '
+         'a step whose inputs changed since, the gate, and an item that has landed get none; a dry run writes nothing and says the same',
+         [b['id'] for b in wrote] == ['step-house-look-abcd1234'] and dry[0] == [('house', 'look', 'step-house-look-abcd1234', 3)] and len(briefs.read_all(sw)) == 1
+         and [e['caption'] for e in sb['evidence']] == ['look: down', 'look: intact', 'look: side sheet'] and sb['lane'] == 'lane/show/house'
+         and sb['step'] == dict(item='house', stage='look', job='house--look--abcd1234', attempt=2) and 'Its step look passed on the desktop, 2026-10-04' in sb['what_for']
+         and 'lets the step far build on it' in sb['what_for'] and [o['text'] for o in sb['options']] == list(briefs.STEP_OPTIONS), (wrote, dry))
+    case('steps: a step that passed with nothing a page can show gets no brief and is owed a capture, and so is a stage that names no band; the gate owes none',
+         owed == dry[1] and [(i, st) for i, st, _ in owed] == [('house', 'numbers')] and 'nothing a page can show' in owed[0][2]
+         and [w for _, _, w in briefs.steps(tmp / 'none', bd, landed={'shed'}, write=False)[1] if 'no band' in w] == []
+         and [(i, st) for i, st, w in briefs.steps(tmp / 'none', tmp / 'board2', write=False)[1]] == [], owed)
+    (bd / 'results' / 'house--numbers--abcd1234--1.json').unlink()
+    case('steps: a stage that names no band is owed a capture before it has run: the pipeline would let it pass with nothing to show',
+         [(i, st, 'no band' in w) for i, st, w in briefs.steps(tmp / 'none', bd, landed={'shed'}, write=False)[1]] == [('house', 'numbers', True)], None)
+    again_w, _ = briefs.steps(sw, bd, landed={'shed'}, now=day)
+    result('house', 'look', 1, 'PASS', {'intact': 'evidence/house/look/intact.png'}, job='house--look--ffff0000', at='2026-10-05T09:00:00Z')
+    rebuilt, _ = briefs.steps(sw, bd, states={('house', 'far'): 'STALE'}, landed={'shed'}, now=day)
+    case('steps: a step is put to him once, whichever machine reads the board, and again when it is rebuilt; a step whose state is not known is put to him',
+         [b['id'] for b in again_w] == ['step-house-far-abcd1234'] and [b['id'] for b in rebuilt] == ['step-house-look-ffff0000'] and len(briefs.read_all(sw)) == 3, (again_w, rebuilt))
+    sn = [notes.write(tmp / 'step-notes', 'A: ' + briefs.STEP_OPTIONS[0], kind='page', about='brief:' + sb['id'], then=sb['options'][0]['then']['stamp'], now=day),
+          notes.write(tmp / 'step-notes', 'B: ' + briefs.STEP_OPTIONS[1] + '\nthe roof is too dark', kind='page', about='brief:step-house-far-abcd1234', now=day)]
+    sgo = {a['id']: a['go'] for a in briefs.answers(briefs.read_all(sw), notes.read_all(tmp / 'step-notes'))}
+    case('steps: his click on "approve" is a yes that builds nothing, so no session asks him again; sending a step back with his words is for the session to turn into feedback',
+         sgo == {sb['id']: 'nothing', 'step-house-far-abcd1234': 'write'} and len(sn) == 2, sgo)
+    out_s = tmp / 'step-site'
+    briefs.site(sw, out_s, now=day, owed=owed)
+    case('steps: the page is told which steps owe a capture; with none owed the briefs file says nothing of it',
+         'window.OWED = [{"item": "house", "stage": "numbers"' in (out_s / 'data' / 'briefs.js').read_text(encoding='utf-8')
+         and 'OWED' not in (briefs.site(sw, tmp / 'step-site2', now=day) and (tmp / 'step-site2' / 'data' / 'briefs.js').read_text(encoding='utf-8')), None)
+
     node = shutil.which('node')
     if not node:
         print('      (no node on this machine: the decisions page\'s own cases were not run)')
@@ -1166,18 +1250,18 @@ def decisions():
           ' {id: "b0", title: "Older", about: "", state: "open", asked: "2026-10-01 09:00"}, {id: "b2", title: "Closed", about: "Forward+", state: "answered", asked: "2026-10-02 09:00", answer: {when: "2026-10-05 10:00"}},'
           ' {id: "b3", title: "Closed later", state: "answered", asked: "2026-10-02 09:00", answer: {when: "2026-10-06 10:00"}}];'
           'const Q = [{title: "The house look"}, {title: "Forward+"}, {title: "the HOUSE\'S look"}, {title: "Repo hygiene"}];'
-          'console.log(JSON.stringify([D.match(B, "the house look!").id, D.match(B, "The house\'s look").id, D.match(B, "Forward+"), D.match(B, ""), D.order(B).open.map(b => b.id), D.order(B).done.map(b => b.id),'
+          'console.log(JSON.stringify([D.match(B, "the house look!").id, D.match(B, "The house\'s look").id, D.match(B, "Forward+"), D.match(B, ""), D.order(B).open.map(b => b.id).concat(D.order(B, x => x.id === "b1").open.map(b => b.id), D.order([B[1], Object.assign({}, B[0], W)]).open.map(b => b.id)), D.order(B).done.map(b => b.id),'
           ' D.bare(B, Q).map(q => q.title), D.word(B[0], "B", ""), D.word(B[0], "A", "but keep the rug"), D.word(B[0], "Z", "my own words"), D.slug("  The Frog\'s far LOD size "),'
           ' [D.then(B[0].options[0]), D.then(B[0].options[1]), D.then(B[0].options[2])], [D.stamp(B[0], "A"), D.stamp(B[0], "B"), D.stamp(B[0], "C"), D.stamp(B[1], "A")],'
           ' [D.became({by: "lane/show/x", queued: "unit-1"}), D.became({outcome: "Nothing to build"}), D.became({option: "A"})],'
-          ' [D.waits(W, {id: "n1"}), D.waits(W, {id: "n2"}), D.waits({waits: {go: "ask", note: "n1"}}, {id: "n1"}), D.waits({waits: {go: "nothing", note: "n1"}}, {id: "n1"}), D.waits({}, {id: "n1"})],'
+          ' [D.waits(W, {id: "n1"}), D.waits(W, {id: "n2"}), D.waits({waits: {go: "write", note: "n1"}}, {id: "n1"}), D.waits({waits: {go: "nothing", note: "n1"}}, {id: "n1"}), D.waits({}, {id: "n1"})],'
           ' require(process.argv[2]).sends({text: "A: Near-black", kind: "page", about: "brief:b1", title: "T", lane: "", asset: "", page: "decide.html", then: "ab12cd34", id: "unsent-1", state: "unsent"}),'
           ' require(process.argv[2]).sends({text: "x"}).then]))')
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'decide.js'), str(HERE / 'static' / 'board.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('decide: a question of the queue leads to its open brief, by the title it is about or its own; one whose brief is answered, and one with none, are listed without',
          got and got[:4] == ['b1', 'b1', None, None] and got[6] == ['Forward+', 'Repo hygiene'], (got and got[:7], p.stderr[-300:]))
-    case('decide: the open briefs come oldest first, the answered after them, the last answered first', got and got[4:6] == [['b0', 'b1'], ['b3', 'b2']], got and got[4:6])
+    case('decide: the open briefs come newest first, one he has answered under the ones he has not, the closed after them, the last closed first', got and got[4:6] == [['b1', 'b0', 'b0', 'b1', 'b0', 'b1'], ['b3', 'b2']], got and got[4:6])
     case('decide: picking an option says the option in the note that is left, and his own words go as they are',
          got and got[7:11] == ['B: Light', 'A: Near-black\nbut keep the rug', 'my own words', 'the-frog-s-far-lod-size'], got and got[7:11])
     case('decide: an option that says what happens then shows it under its text with the lane of the unit it queues, and one that says nothing shows nothing',
@@ -1187,9 +1271,9 @@ def decisions():
          got and (got[12], got[15:]))
     case('decide: a closed brief says who took it up and what was queued, or why nothing was; one closed without either says no more than before',
          got and got[13] == ['Taken up by x: queued as unit-1', 'Taken up: Nothing to build', ''], got and got[13])
-    case('decide: an answer of his is told what it waits for only for the note that was read for: the master queues the unit, writes down that nothing is built, or asks first',
-         got and got[14] == ['the master queues unit-1 when you next talk to him', 'waits for a session to take it up', 'the master asks you before any work is queued',
-                             'nothing to build; the master writes it down when you next talk to him', 'waits for a session to take it up'], got and got[14])
+    case('decide: an answer of his is told what it waits for only for the note that was read for: the master queues the unit, writes down that nothing is built, or writes the unit his answer leads to',
+         got and got[14] == ['the master queues unit-1 when you next talk to him', 'a session takes it up next', 'what it leads to is queued next, without asking you again',
+                             'nothing to build; the master writes it down when you next talk to him', 'a session takes it up next'], got and got[14])
     try:
         import jinja2  # noqa: F401
     except ImportError:

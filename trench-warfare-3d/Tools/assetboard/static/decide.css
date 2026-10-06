@@ -42,7 +42,9 @@
 .d-say button { height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--k-fire); color: #1d0a04; font: 700 14px var(--sans); cursor: pointer; }
 .d-say button:hover, .d-say button:focus-visible { background: #ff6a42; }
 .d-said { margin: 0; padding: 10px 14px; border-radius: var(--r-m); background: #232326; border-left: 3px solid var(--k-fire2); color: #f1f1ef; font: 500 14px/1.4 var(--sans); overflow-wrap: anywhere; }
-.d-said.d-closed { border-left-color: var(--k-work); } .d-said.d-unsent { border-left-color: var(--alarm); }
+/* a concept to pick from (briefs.py concepts): its picture is framed as an option, the letter in its caption */
+.d-concept { outline: 1px solid #3a3a3e; outline-offset: 3px; border-radius: var(--r-m); } .d-concept figcaption { color: #fff; font-weight: 600; }
+.d-said.d-closed, .d-yours .d-said { border-left-color: var(--k-work); } .d-yours { opacity: .9; } .d-said.d-unsent { border-left-color: var(--alarm); }
 
 .d-evidence { display: grid; gap: 10px; align-content: start; min-width: 0; }
 .d-evidence.d-n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
