@@ -43,7 +43,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 |---|---|
 | 2026-09-22 | The sea lies beyond the **enemy** line. Deployed reinforcements **ride the boats in**, not instant spawns. |
 | 2026-09-23 | **Coast and snow levels are the focus, coast first**, each a real `BattlefieldParams` preset with its own mission card, not a reskin. The volcano/lava level is deprioritised. |
-| 2026-10-06 | **The four big ruins go in the rear, with the other buildings.** The owner, in his own words, to "Where the four big ruins stand" (Boilerhouse, Townhouse, Guildhall, Gasholder): "lets put them also in the rear with the other buildings". Read as the player's own rear, where the compound stands, and not behind the enemy line as the brief's first option had it: that reading is the agent's and is put to him before anything is placed. Not built. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The four big ruins go in the rear, with the other buildings.** The owner, in his own words, to "Where the four big ruins stand" (Boilerhouse, Townhouse, Guildhall, Gasholder): "lets put them also in the rear with the other buildings". Read as the player's own rear, where the compound stands, and not behind the enemy line as the brief's first option had it: asked, he confirmed it: "Our own rear" (owner, 2026-10-06, AskUserQuestion). Not built, and no work is queued for it yet. (owner, 2026-10-06, on the Decide page) |
 
 ## Destruction and combat
 | Date | Decision |
