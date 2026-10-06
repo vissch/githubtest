@@ -44,8 +44,8 @@ namespace TW.Editor
         public static string LastRun = "";
 
         /// <summary>Play the catalogue unattended. Options: tabs=scenes,clips,units,abilities,deaths,events (all when absent),
-        /// filter=&lt;part of a name, or parts split by |&gt;, film=&lt;seconds: a unit fights an enemy line, filmed to mp4&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
-        /// minutes=&lt;wall-clock limit, default 45&gt;, quit=1 (exit the editor when done; CommandLine adds it).</summary>
+        /// filter=&lt;part of a name, or parts split by |&gt;, film=&lt;seconds: a unit fights an enemy line, filmed to mp4&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1; all: the six zooms, never a strip), out=&lt;run folder&gt;,
+        /// light=day (a clear noon instead of night and rain, so a figure can be judged), minutes=&lt;wall-clock limit, default 45&gt;, quit=1 (exit the editor when done; CommandLine adds it).</summary>
         public static string Run(string options = "")
         {
             if (EditorApplication.isPlaying) { StartRunner(options); return "gym running in this Play session: " + options; }
@@ -256,12 +256,46 @@ namespace TW.Editor
 
             var director = GymDirector.Attach(host);
             if (!director.Quiet()) Debug.LogWarning("Gym: could not stop the ambient shells (worlds unaligned)");
+            // light=day: the same ground under a clear noon. The default is untouched - the night field is what the
+            // game is - but a figure, a pose and a missing effect cannot be judged in rain at night, which is what
+            // the first filming produced 350 sheets of (unit-look/baseline).
+            if (Gym.Opt(Options, "light") == "day")
+            {
+                var sky0 = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+                if (sky0 == null) Debug.LogWarning("Gym: light=day, but there is no Atmosphere in the scene");
+                else { sky0.Relight(TW.Presentation.Terrain.BiomeProfile.ClearDay()); sky0.Rain = 0f; sky0.Squalls = 0f; yield return null; }
+            }
+            // The noise floor: how much of an IDLE close frame repaints on its own (rain, flicker, a lamp). Measured
+            // here, in this run's own weather, because the flag below ("nothing drawn") is worth nothing except as a
+            // comparison against it - a guessed constant is how the first filming flagged 0 of 350.
+            float floor = 0f;
+            for (int c = 0; c < 2; c++)
+            {
+                if (c == 0) { director.Clear(); yield return new WaitForSeconds(1f); }
+                string ca = Path.Combine(raw, "calib" + c + "_a.png"), cb = Path.Combine(raw, "calib" + c + "_b.png");
+                CaptureRig.Shot(ca, director.Stage.x, director.Stage.y, GymStrip.Zoom, 30f, 25f, 800, 450);
+                float cu = Time.realtimeSinceStartup + 30f;
+                while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < cu) yield return null;
+                yield return new WaitForSeconds(0.5f);
+                CaptureRig.Shot(cb, director.Stage.x, director.Stage.y, GymStrip.Zoom, 30f, 25f, 800, 450);
+                cu = Time.realtimeSinceStartup + 30f;
+                while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < cu) yield return null;
+                yield return null;   // the rig writes the last still and its sidecar the frame after the queue empties; deleting before that left calib*_b.png in every run
+                float cf = Gym.JsonNumber(CaptureRig.Diff(ca, cb), "changed_frac");
+                if (!float.IsNaN(cf) && cf > floor) floor = cf;
+                TryDelete(ca); TryDelete(cb); TryDelete(Path.ChangeExtension(ca, ".json")); TryDelete(Path.ChangeExtension(cb, ".json"));
+            }
+            float threshold = GymStrip.Threshold(floor);
+            File.AppendAllText(Path.Combine(dir, "gym-run.txt"), "noise floor: " + floor.ToString("0.0000", Inv) + " of a close frame; nothing-drawn threshold " + threshold.ToString("0.0000", Inv) + "\n");
+            Debug.Log("Gym: noise floor " + floor.ToString("0.0000", Inv) + ", threshold " + threshold.ToString("0.0000", Inv));
             var entries = Select(GymCatalogue.All(host.Local.World));
             Debug.Log($"Gym: {entries.Count} entries -> {dir}");
 
             var summary = new StringBuilder();
             var summaryFlags = new HashSet<string>();
-            summary.Append("{\n  \"sha\": \"").Append(sha).Append("\", \"options\": \"").Append(Gym.Esc(Options)).Append("\", \"entries\": [\n");
+            summary.Append("{\n  \"sha\": \"").Append(sha).Append("\", \"options\": \"").Append(Gym.Esc(Options))
+                   .Append("\", \"noise_floor\": ").Append(floor.ToString("0.0000", Inv)).Append(", \"threshold\": ").Append(threshold.ToString("0.0000", Inv))
+                   .Append(", \"entries\": [\n");
             int flagged = 0, done = 0; string stopped = null;
             float t0 = Time.realtimeSinceStartup;
             foreach (var e in entries)
@@ -278,6 +312,38 @@ namespace TW.Editor
                 var r = director.Begin(e);
                 int pinned = -1, slot = -1;
                 float wait;
+                var shots = new List<string>(); var jsons = new List<string>();
+                // The TIME STRIP: one close band at five moments across the entry's life, instead of six zooms of one
+                // moment. A death, an ability, an event or a unit's fire IS a moment in time, and the first filming
+                // proved a single still cannot tell "nothing was drawn" from "the still missed it" - its three far
+                // bands showed the whole small stage as a dot, and it flagged 0 of 350. Clips (a pose) and Scenes (a
+                // whole stage you want the overviews of) keep their bands; bands=all forces the old path everywhere.
+                bool strip = GymStrip.Expects(e) && Gym.Opt(Options, "bands") != "all";
+                string stem = Safe(e.Tab + "_" + e.Name);
+                // every strip frame shares ONE camera pose, worked out before staging: r.Focus moves with the director
+                // (an ability aims 30 m up the field), and a frame shot from somewhere else makes its diff against the
+                // 'before' frame meaningless - the whole picture changed because the camera did
+                Vector2 sfocus = e.Tab == GymTab.Abilities ? director.Stage + new Vector2(0f, 30f) : director.Stage;
+                // a still is the pose, not the weather: no camera shake (a barrage moved the camera 1-10 m off its
+                // pose and voided the stills) and no lightning (a flash blew out 5 % of a trench still); both come
+                // back after the capture. For a strip this has to hold across every frame, the 'before' one included.
+                float shake = TW.Presentation.Tactical.CameraShake.Strength;
+                var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+                bool lightning = sky != null && sky.Lightning;
+                bool held = TW.Presentation.Terrain.Storm.Hold;
+                if (strip)
+                {
+                    TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
+                    if (sky != null) sky.Lightning = false;
+                    TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
+                    // the 'before' frame: the empty stage this entry is about to happen on. Everything the strip
+                    // measures is measured against it.
+                    string before = Path.Combine(raw, stem + "_" + GymStrip.Names[0] + ".png");
+                    CaptureRig.Shot(before, sfocus.x, sfocus.y, GymStrip.Zoom, 30f, 25f, 800, 450);
+                    float bu = Time.realtimeSinceStartup + 30f;
+                    while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < bu) yield return null;
+                    shots.Add(before); jsons.Add(Path.ChangeExtension(before, ".json"));
+                }
                 if (e.Tab == GymTab.Scenes)
                 {
                     yield return StartCoroutine(director.Scene((GymScene)e.Id));
@@ -288,11 +354,36 @@ namespace TW.Editor
                     try { wait = Stage(director, e, ref pinned, ref slot); }
                     catch (System.Exception ex) { Debug.LogException(ex); wait = -1f; r.Log.Add("staging threw: " + ex.Message); }
                 }
-                if (wait < 0f) { SafeWrite(dir, summary, e, r, null, new List<string> { "not staged" }, ref flagged, ref done, null, null); continue; }
+                if (wait < 0f)
+                {
+                    TW.Presentation.Tactical.CameraShake.Strength = shake;
+                    if (sky != null) sky.Lightning = lightning;
+                    TW.Presentation.Terrain.Storm.Hold = held;
+                    SafeWrite(dir, summary, e, r, null, new List<string> { "not staged" }, ref flagged, ref done, null, null); continue;
+                }
                 // film=<seconds>: a unit fights an enemy rifle line 70 m off its nose (inside every machine's reach), filmed below
                 float film = e.Tab == GymTab.Units && slot >= 0 && float.TryParse(Gym.Opt(Options, "film"), NumberStyles.Float, Inv, out float fs) ? fs : 0f;
                 if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
-                if (e.Tab == GymTab.Scenes && r.Watch.Count > 0)
+                if (strip)
+                {
+                    var moments = GymStrip.Moments(wait);
+                    float begun = Time.time;
+                    for (int i = 0; i < moments.Length; i++)
+                    {
+                        float at = begun + moments[i];
+                        while (Time.time < at) yield return null;
+                        string png = Path.Combine(raw, stem + "_" + GymStrip.Names[i + 1] + ".png");
+                        CaptureRig.Shot(png, sfocus.x, sfocus.y, GymStrip.Zoom, 30f, 25f, 800, 450);
+                        float su = Time.realtimeSinceStartup + 30f;
+                        while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < su) yield return null;
+                        shots.Add(png); jsons.Add(Path.ChangeExtension(png, ".json"));
+                    }
+                    yield return null;
+                    TW.Presentation.Tactical.CameraShake.Strength = shake;
+                    if (sky != null) sky.Lightning = lightning;
+                    TW.Presentation.Terrain.Storm.Hold = held;
+                }
+                else if (e.Tab == GymTab.Scenes && r.Watch.Count > 0)
                 {
                     // the watched men's drawn facing, a frame at a time, while the scene settles (GymDirector.SampleFacing)
                     float settleUntil = Time.time + wait;
@@ -300,22 +391,14 @@ namespace TW.Editor
                 }
                 else yield return new WaitForSeconds(wait);
 
-                var shots = new List<string>(); var jsons = new List<string>();
                 if (e.Tab == GymTab.Scenes && (GymScene)e.Id == GymScene.AdvanceUnderFire) director.FocusOnWatched();
                 bool capture = e.Expect != GymExpect.Covered && e.Expect != GymExpect.Excluded;
-                if (capture)
+                if (capture && !strip)
                 {
                     int bands = e.Tab == GymTab.Clips || Gym.Opt(Options, "bands") == "close" ? 3 : GymCatalogue.Bands.Length;
-                    string stem = Safe(e.Tab + "_" + e.Name);
-                    // a still is the pose, not the weather: no camera shake (a barrage moved the camera 1-10 m off its
-                    // pose and voided the stills) and no lightning (a flash blew out 5 % of a trench still); both come
-                    // back after the capture
-                    float shake = TW.Presentation.Tactical.CameraShake.Strength;
-                    var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
-                    bool lightning = sky != null && sky.Lightning;
                     TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
                     if (sky != null) sky.Lightning = false;
-                    bool held = TW.Presentation.Terrain.Storm.Hold; TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
+                    TW.Presentation.Terrain.Storm.Hold = true;
                     for (int b = 0; b < bands; b++)
                     {
                         var band = GymCatalogue.Bands[b];
@@ -351,13 +434,21 @@ namespace TW.Editor
                     r.Log.Add("film: " + RiderLab.ClearEnemies(slot, 150f));
                 }
                 director.End();
+                // What the strip measures: how much of the close frame each moment differs from the 'before' frame by.
+                // The raw PNGs are still on disk here; they are deleted below only when the entry came out unflagged.
+                List<float> stripChanged = null;
+                if (strip && shots.Count >= 2)
+                {
+                    stripChanged = new List<float>();
+                    for (int i = 1; i < shots.Count; i++) stripChanged.Add(Gym.JsonNumber(CaptureRig.Diff(shots[0], shots[i]), "changed_frac"));
+                }
                 List<string> flags;
-                try { flags = Judge(host, director, e, r, pinned, slot, jsons); }
+                try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, floor); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags = new List<string> { "judging threw: " + ex.Message }; }
                 string sheet = capture ? Path.Combine(dir, e.Tab.ToString(), Safe(e.Name) + ".jpg") : null;
                 try { if (capture) Gym.Sheet(shots, sheet, e.Tab == GymTab.Clips ? 640 : 480); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags.Add("sheet failed: " + ex.Message); }
-                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null);
+                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null, stripChanged);
                 foreach (var f in flags) summaryFlags.Add(e + " | " + Regex.Replace(f, @"[0-9.]+", "#"));
                 if (flags.Count == 0) foreach (var f in shots) { TryDelete(f); TryDelete(Path.ChangeExtension(f, ".json")); }
             }
@@ -460,7 +551,8 @@ namespace TW.Editor
         }
 
         /// <summary>The entry's flags: what a person should look at. Empty means it did what the catalogue expects.</summary>
-        static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons)
+        static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons,
+                                  List<float> stripChanged = null, float floor = 0f)
         {
             var flags = new List<string>();
             if (r.Errors > 0) flags.Add(r.Errors + " log errors");
@@ -508,12 +600,16 @@ namespace TW.Editor
                 if (blown > 0.02f) flags.Add(Path.GetFileNameWithoutExtension(j) + ": blown " + blown.ToString("0.000", Inv));
                 if (pose >= 0.5f) flags.Add(Path.GetFileNameWithoutExtension(j) + ": camera off pose " + pose.ToString("0.00", Inv) + " m (invalid still)");
             }
+            // The measured flag the first filming could not raise: an entry that promises something on screen and whose
+            // whole strip stays inside the noise an idle stage makes on its own drew nothing a player would see.
+            string nothing = GymStrip.Expects(e) ? GymStrip.NothingDrawn(stripChanged, floor) : null;
+            if (nothing != null) flags.Add(nothing);
             if (e.Tab == GymTab.Clips && jsons.Count > 0 && File.Exists(jsons[0]) && Gym.JsonNumber(File.ReadAllText(jsons[0]), "men_in_frame") < 1f) flags.Add("no man in the T3 frame");
             return flags;
         }
 
         static void WriteEntry(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
-                               ref int flagged, ref int done, string sheet = null, AnimState? pose = null)
+                               ref int flagged, ref int done, string sheet = null, AnimState? pose = null, List<float> stripChanged = null)
         {
             done++; if (flags.Count > 0) flagged++;
             var sb = new StringBuilder();
@@ -537,6 +633,12 @@ namespace TW.Editor
                 var p = pose.Value;
                 sb.Append("  \"pose\": {\"clip\": \"").Append(p.Clip).Append("\", \"frame\": ").Append(p.Frame.ToString("0.00", Inv)).Append(", \"rung\": \"").Append(p.Rung)
                   .Append("\", \"shown_yaw\": ").Append(p.ShownYaw.ToString("0.000", Inv)).Append(", \"body_yaw\": ").Append(p.BodyYaw.ToString("0.000", Inv)).Append("},\n");
+            }
+            if (stripChanged != null)
+            {
+                sb.Append("  \"strip_changed\": [");
+                for (int i = 0; i < stripChanged.Count; i++) sb.Append(i > 0 ? ", " : "").Append(float.IsNaN(stripChanged[i]) ? "-1" : stripChanged[i].ToString("0.0000", Inv));   // -1: the diff could not be read
+                sb.Append("],\n");
             }
             sb.Append("  \"sheet\": ").Append(sheet == null ? "null" : "\"" + Gym.Esc(sheet) + "\"").Append(",\n  \"log\": [");
             for (int i = 0; i < r.Log.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(Gym.Esc(r.Log[i])).Append('"');
@@ -594,9 +696,9 @@ namespace TW.Editor
         }
 
         static void SafeWrite(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
-                              ref int flagged, ref int done, string sheet, AnimState? pose)
+                              ref int flagged, ref int done, string sheet, AnimState? pose, List<float> stripChanged = null)
         {
-            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose); }
+            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose, stripChanged); }
             catch (System.Exception ex) { Debug.LogException(ex); }
         }
 

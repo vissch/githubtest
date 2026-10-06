@@ -180,9 +180,14 @@ namespace TW.Presentation.Terrain
             TW.Presentation.Tactical.DebrisRenderer.LavaLevel = -10000f;
         }
 
-        void Start()
+        void Start() => ApplyField(BiomeProfile.For(Field));
+
+        /// <summary>
+        /// Put a battlefield's whole look on: the component's fields, the shader globals, the mood, the fog, the
+        /// directional light and the grade volume. Start's body, lifted out so Relight can run it a second time.
+        /// </summary>
+        void ApplyField(BiomeProfile biome)
         {
-            var biome = BiomeProfile.For(Field);
             Apply(biome);
             Profile = biome;
             PushBiome(biome);
@@ -211,6 +216,22 @@ namespace TW.Presentation.Terrain
                 if (want != was) { shadowDistanceWas = was; pipe.shadowDistance = want; }
             }
             if (Grade) BuildGrade();
+        }
+
+        /// <summary>
+        /// Change the light on a field that is already standing, at run time. For the gym's `light=day`: the
+        /// baseline filming was 350 sheets of night and rain, and a figure cannot be judged in the dark. The old
+        /// grade volume is DESTROYED first — two global volumes at priority 10 stack their exposure, and a doubled
+        /// grade would blow out every still it was supposed to make readable.
+        /// </summary>
+        public void Relight(BiomeProfile p)
+        {
+            if (p == null) return;
+            var old = transform.Find("Grade");
+            if (old != null) Destroy(old.gameObject);
+            if (profile != null) { Destroy(profile); profile = null; }
+            vignette = null; focus = null; gradeAdjust = null; gradeTones = null;
+            ApplyField(p);
         }
 
         Vignette vignette; DepthOfField focus;

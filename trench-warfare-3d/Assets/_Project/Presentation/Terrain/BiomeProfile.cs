@@ -202,6 +202,33 @@ namespace TW.Presentation.Terrain
         };
 
         /// <summary>
+        /// The night field's GROUND under a clear noon sky. Not a Biome member and not reachable from ForGround:
+        /// nothing in a match picks it. It exists for the gym (`light=day`), because a figure cannot be judged in
+        /// the dark — the baseline filming was 350 sheets of night and rain, and on them a missing effect and a
+        /// badly drawn one look the same. Same ground, same flooding, same world tint: only the light changes, so
+        /// what the day shows is what the night was hiding.
+        /// </summary>
+        public static BiomeProfile ClearDay()
+        {
+            var n = NightMud();
+            n.Name = "clear day"; n.Dark = false; n.GlowScale = 0.8f;
+            n.Haze = new Color(0.72f, 0.78f, 0.86f);
+            n.Key = new Color(1.00f, 0.96f, 0.90f); n.KeyIntensity = 1.15f; n.ShadowStrength = 0.72f;
+            n.KeyEuler = new Vector3(50f, 122f, 0f);          // a high sun on the night field's own heading
+            n.Ambient = new Color(0.42f, 0.46f, 0.52f);
+            n.ShadeTint = new Color(0.58f, 0.65f, 0.80f);
+            n.SkyMirror = new Color(0.70f, 0.76f, 0.86f);
+            n.Wetness = 0.25f; n.WetGlint = 0.20f; n.Rain = 0f;
+            n.Depth = 600f;                                    // no rain curtain to hide the distance behind
+            n.Mist = new Color(0.74f, 0.79f, 0.87f); n.MistDensity = 0.08f;
+            n.Bank = new Color(0.72f, 0.77f, 0.85f);
+            n.Exposure = 1.0f; n.Vignette = 0.05f; n.Bloom = 0.4f; n.Saturation = 0f; n.Contrast = 10f;
+            n.GroundLight = new Color(0.26f, 0.26f, 0.24f, 0.8f);
+            n.WantsRain = false; n.WantsStorm = false; n.WantsLamps = false;
+            return n;
+        }
+
+        /// <summary>
         /// The lava field. The key light is UNDER THE FLOOR — that is the whole design, and everything else follows
         /// from it. The directional light is kept weak and high so it does almost nothing; the ground light does the
         /// work. Fog is magenta and, crucially, BRIGHT, because it is lit from within by the floor it lies on.
