@@ -1,4 +1,8 @@
-// Phase: C1 (unit look, look-05, 2026-10-06) — who threw the streak.
+// Phase: C1 (unit look, look-05/look-06, 2026-10-06) — who threw the streak, and the shape of the stream.
+//
+// look-06: the jet is ONE LONG CARD (FlameJetCard), a ribbon from the nozzle to the target, and the three shape
+// tests below measure that ribbon. They cannot compile against the chain this replaced - there is no
+// FlameJetCard there - which is how they were seen to fail on look-05's code.
 //
 // look-03's close shot (unit-look/flame/after_close.jpg) has a thin pink streak running from the flamethrower man
 // toward the trench, and the master read it as the flame man still throwing a round. He is not: CombatFx.OnSimEvent
@@ -40,45 +44,67 @@ namespace TW.Tests
             }
         }
 
-        // The SHAPE of the envelope. FlipbookFx.Add early-returns unless the pack is loaded, which EditMode cannot
-        // make true, so what is testable here is the geometry the chain is laid on - Flamethrower.Link and Span -
-        // and that is where the master's complaint lives: "no shaped stream from muzzle to target".
+        // The SHAPE of the stream. FlipbookFx.Add early-returns unless the pack is loaded, which EditMode cannot
+        // make true, and the card is a mesh EditMode cannot render either, so what is testable here is the geometry
+        // the stream is built on - FlameJetCard.Spine, HalfAt and Across - and that is exactly where the master's
+        // complaint lives: "a thin pale-yellow stick from the muzzle and a separate blob of orange fire a few metres
+        // out, with no taper joining them".
+        //
+        // These three replace TheEnvelopeWidensFromMouthToHead and NeighbouringLinksOverlapAndTheLastOneLandsOnThe-
+        // Target, which measured the chain of links the card replaces (Flamethrower.Link/Span are gone).
 
         [Test]
-        public void TheEnvelopeWidensFromMouthToHead()
+        public void OneCardRunsUnbrokenFromMouthToHead()
         {
-            const int links = 4;
-            float last = -1f, mouth = 0f, head = 0f;
-            for (int i = 0; i < links; i++)
+            const int segs = FlameJetCard.Segments;
+            const float len = 11f;
+            float prevFar = -1f;
+            for (int i = 0; i < segs; i++)
             {
-                Flamethrower.Link(i, links, 11f, out float u, out float along, out float thick);
-                Assert.AreEqual(i / (links - 1f), u, 1e-4f, "u runs 0 at the mouth to 1 at the head");
-                Assert.Greater(thick, last, "link " + i + " must be no thinner than the one behind it: fuel spreads as it burns");
-                last = thick;
-                if (i == 0) mouth = thick;
-                if (i == links - 1) head = thick;
-                Assert.Greater(along, 0f, "every link sits downrange of the mouth");
+                FlameJetCard.Spine(i, segs, len, out float near, out float far, out _);
+                if (i == 0) Assert.AreEqual(0f, near, 1e-4f, "the card starts AT the nozzle, not a fifth of the way out");
+                else Assert.AreEqual(prevFar, near, 1e-4f,
+                    "segment " + i + " must start exactly where " + (i - 1) + " ended: a gap is a waist, and a waist is "
+                    + "what made the chain read as a stick and a separate blob");
+                Assert.Greater(far, near, "every segment runs downrange");
+                prevFar = far;
             }
-            float ratio = head / mouth;
-            // The band the file has argued itself to over three rounds: under 2 the stream is a pipe and reads as a
-            // glow round the man, over 3.5 the head swallows the run and it reads as a tadpole.
-            Assert.That(ratio, Is.InRange(2.0f, 3.5f), "head/mouth was " + ratio);
+            Assert.AreEqual(len, prevFar, 1e-4f, "and it ends ON the target");
         }
 
         [Test]
-        public void NeighbouringLinksOverlapAndTheLastOneLandsOnTheTarget()
+        public void TheCardWidensFromMouthToHead()
         {
-            const int links = 4;
-            const float len = 11f;
-            for (int i = 0; i < links - 1; i++)
+            const int segs = FlameJetCard.Segments;
+            FlameJetCard.Spine(0, segs, 11f, out _, out _, out float atMouth);
+            FlameJetCard.Spine(segs, segs, 11f, out _, out _, out float atHead);
+            Assert.AreEqual(1.55f, atMouth * 2f, 0.05f, "the owner's width at the mouth");
+            Assert.AreEqual(3.90f, atHead * 2f, 0.05f, "the owner's width at the head");
+            float last = -1f;
+            for (int i = 0; i <= segs; i++)
             {
-                Flamethrower.Link(i, links, len, out _, out float a0, out _);
-                Flamethrower.Link(i + 1, links, len, out _, out float a1, out _);
-                float reach = (Flamethrower.Span(i, links, len) + Flamethrower.Span(i + 1, links, len)) * 0.5f;
-                Assert.Less(a1 - a0, reach, "links " + i + " and " + (i + 1) + " must fuse: a gap is a waist, and a waist is a string of beads");
+                FlameJetCard.Spine(i, segs, 11f, out _, out _, out float half);
+                Assert.GreaterOrEqual(half, last, "the taper never narrows: fuel spreads as it burns");
+                last = half;
             }
-            Flamethrower.Link(links - 1, links, len, out _, out float end, out _);
-            Assert.That(end, Is.InRange(len * 0.85f, len * 1.05f), "the head lands on the target, not short of it: " + end);
+        }
+
+        [Test]
+        public void TheCardHasASideEvenWhenAimedAtTheEye()
+        {
+            // A stream fired straight down the line of sight is what the old fallback chain of round fireballs
+            // existed for: a card in the screen plane has no length left to draw along. The ribbon is a mesh and
+            // Across falls back off the collapsed cross product, so there is always a side to give it - which is
+            // why the fallback could go.
+            Vector3 aim = Vector3.forward;
+            foreach (var eye in new[] { Vector3.forward, Vector3.back, aim * 3f, Vector3.zero })
+            {
+                Vector3 across = FlameJetCard.Across(aim, eye);
+                Assert.AreEqual(1f, across.magnitude, 1e-3f, "a side, even looking down the barrel: eye " + eye);
+                Assert.Less(Mathf.Abs(Vector3.Dot(across, aim.normalized)), 1e-3f, "and it is across the run, not along it");
+            }
+            Vector3 side = FlameJetCard.Across(aim, Vector3.right);
+            Assert.AreEqual(1f, side.magnitude, 1e-3f);
         }
 
         [Test]

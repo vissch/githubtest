@@ -470,20 +470,31 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   since 2026-09-28, see "Fire in the sim"; since look-03, 2026-10-06, its `Shot` is the route to this picture:
   `CombatFx.FlameShot` reads the match's own weapon table for `SetsBurning` and calls
   `flames.BurstFrom(..., CombatFx.FlameShotSeconds, sim: true)` instead of a tracer. A `sim: true` jet and the fuel it
-  spills are drawn but call no `Catch`: the sim says who burns, `UnitAlight`), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+  spills are drawn but call no `Catch`: the sim says who burns, `UnitAlight`), `Presentation/Camera/FlameJetCard.cs` + `Shaders/FlameJet_URP.shader` (since look-06, 2026-10-06
+  the STREAM itself is not a flipbook card at all: it is one continuous ribbon mesh from the nozzle to the
+  target, sixteen quads, 1.55 m wide at the mouth and 3.90 m at the head, with the fire computed across it from
+  a scrolling value noise. The chain of flipbook links it replaced - `Link`, `Span`, `JetLinks`, `CoreLinks` -
+  is gone, and with it the fallback for a stream aimed at the eye: `FlameJetCard.Across` always finds the ribbon
+  a side. Everything else in the file is still a flipbook card: the licks, the terminus, the fan, the smoke, the
+  pools, torches and pyres), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
 - **Tests:** `Tests/Show/FlameRouteTests.cs` (the route: a flame man's `Shot` routes, a rifleman's does not, and a
   `sim: true` jet lights nobody itself), `Tests/Show/FlameShapeTests.cs` (`CombatFx.TracerReport`, which names the
-  side of every streak on screen so a capture rig can say WHO threw one).
+  side of every streak on screen so a capture rig can say WHO threw one, and the card's shape:
+  `FlameJetCard.Spine` unbroken from mouth to head, `HalfAt` widening to the owner's numbers, `Across` finding a
+  side even down the barrel).
 - **See it:** `Tools/flamefight [before|after] [night|day]` stages a flame section against a rifle section and
   photographs it close (16 m), side-on (a low camera 14 m off the aim: the view a stream has a shape in) and at the
   standard view (120 m), writing a `<name>.json` sidecar with the muzzle and the target as pixels; `Tools/flameshots
   <prefix>` captures the four reference shots deterministically; `Tools/flamecheck.py` rejects a shot with no fire in
-  it, and `Tools/flameband.py` (tests: `Tools/test_flameband.py`) asks the harder question - whether the lit pixels
-  form a BAND from muzzle to target or a blob round the man. look-03 passed flamecheck with 143028 lit pixels and
-  fails flameband on width.
+  it, and `Tools/flameband.py` (tests: `Tools/test_flameband.py`) asks the harder question - whether there is a
+  STREAM, judged apart from the light it throws. Since look-06 it masks the over-bright warm CORE (lum >= 215)
+  and measures only its largest connected piece: `root` (it starts at the nozzle), `span` (it is a run) and
+  `width`. Before that it measured every lit pixel, which at close range is the firelight on the mud and not the
+  jet, and it was red on all twelve of flame2's pictures for that reason. It judges the SIDE shot: over the
+  shoulder the target projects behind the muzzle, and at 120 m the core is seventy-five pixels.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.

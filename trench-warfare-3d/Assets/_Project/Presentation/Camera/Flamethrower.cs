@@ -65,7 +65,7 @@ namespace TW.Presentation.Tactical
 
         const int MaxJets = 6, MaxPools = 48, MaxTorches = 24, MaxPyres = 16;
         const float RootEvery = 1f / 12f;
-        const int JetLinks = 9;              // the fallback chain, for when the stream is aimed too near the eye to draw   // the root is renewed on the book's own clock, not once a frame
+                                            // the root is renewed on the book's own clock, not once a frame
         const float PuffEvery = 0.027f;     // a puff this often per jet. Fewer and larger than it wants to be: at
                                             // thirty a second there are two dozen cels over each other and the stream
                                             // is a bright smear, which is the one thing a drawn flame must not be.
@@ -405,6 +405,8 @@ namespace TW.Presentation.Tactical
             // is not dimmer at noon, it is only harder to win against the sky, so the day arm comes up to the night's.
             float glowNight = 1.0f, tint = SceneTints.Now.Glow;   // a fire burns, it does not flash: see the note on Relight
 
+            // The streams are ONE mesh, built here and handed to the renderer once however many men are firing.
+            FlameJetCard.Begin();
             for (int i = jets.Count - 1; i >= 0; i--)
             {
                 var j = jets[i];
@@ -412,6 +414,7 @@ namespace TW.Presentation.Tactical
                 StepJet(ref j, now, cam, books, drawn, ground, glowNight * tint);
                 jets[i] = j;
             }
+            FlameJetCard.Draw(cam);
             for (int i = pools.Count - 1; i >= 0; i--)
             {
                 var p = pools[i];
@@ -474,33 +477,6 @@ namespace TW.Presentation.Tactical
             else if (a < least) w = h * least;
         }
 
-        /// <summary>
-        /// The envelope's taper, lifted out of StepJet so a test can read it. i of links along a run of len metres:
-        /// u is 0 at the mouth and 1 at the head, along is how far past the mouth the link's CENTRE sits, thick is
-        /// how deep the fire is there in metres (before the per-link breath, which is noise and not shape).
-        /// The head carries the smaller factor because it is drawn from a different book - Book.Head's bolus fills
-        /// more of its cell than the stream sheet does - so the two still come out the same size on screen.
-        /// </summary>
-        public static void Link(int i, int links, float len, out float u, out float along, out float thick)
-        {
-            u = links > 1 ? i / (links - 1f) : 1f;
-            bool head = i == links - 1;
-            float step = len / (links - 0.5f);
-            along = step * (i + 0.5f) - step * 0.30f + (head ? step * 0.10f : 0f);
-            // WIDENS to the target. It used to run 3.5 -> 3.7 m, which is a pipe, and the master's word for the
-            // result was a glow round the man: the mouth was as deep as the head, and the near cards - the longest
-            // and the most opaque - owned the picture. A gout leaves the nozzle about as wide as the man holding it
-            // and spreads as it burns, so the ratio belongs in the taper and not in the overlap.
-            thick = Mathf.Lerp(1.55f, 3.90f, Mathf.Min(1f, u * 1.05f)) * (head ? 0.85f : 1f);
-        }
-
-        /// <summary>How long a link's card is, in metres. Always more than the spacing: see the note on fusing.</summary>
-        public static float Span(int i, int links, float len)
-        {
-            float u = links > 1 ? i / (links - 1f) : 1f;
-            bool head = i == links - 1;
-            return (len / (links - 0.5f)) * Mathf.Lerp(2.35f, head ? 2.35f : 2.75f, u);
-        }
 
         public const int JetSmokes = 3;
 
@@ -517,15 +493,14 @@ namespace TW.Presentation.Tactical
             size = 2.4f + 2.0f * u;
         }
 
-        static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
-        {
-            Vector3 down = cam != null
-                ? -(cam.transform.up - Vector3.Project(cam.transform.up, along)).normalized
-                : Vector3.down;
-            // skewed so the low point is past the middle and the last quarter is still falling
-            float t = Mathf.Sin(Mathf.Pow(u, 0.78f) * Mathf.PI);
-            return down * (t * len * 0.135f);
-        }
+        /// <summary>
+        /// Which way is DOWN the picture, across the run. The sag's amplitude is applied to this and its profile
+        /// along the run is FlameJetCard.Sag: the card bows by the same curve everything hung off it does, because
+        /// half a curve and half a rod averages to a rod.
+        /// </summary>
+        static Vector3 Down(Camera cam, Vector3 along) => cam != null
+            ? -(cam.transform.up - Vector3.Project(cam.transform.up, along)).normalized
+            : Vector3.down;
 
         Vector3 Hit(Vector3 mouth, Vector3 aim, float reach, out bool struck)
         {
@@ -590,185 +565,24 @@ namespace TW.Presentation.Tactical
             Vector3 along = cam != null ? cam.transform.right * Mathf.Cos(roll) + cam.transform.up * Mathf.Sin(roll) : j.Aim;
             Vector3 side = Vector3.Cross(Vector3.up, j.Aim);
             Vector3 far = Hit(mouth, j.Aim, Reach * valve, out bool struck);
-            // A card lies in the screen plane, so a stream pointed at the camera has no length to draw along. How much
-            // of its world length survives on screen is the sine of the angle to the view; under about 0.6 there is not
-            // enough of it left to read and the old chain, which is round cards and does not care, takes back over.
+            // How much of the run survives on SCREEN: the sine of the angle between the aim and the view. It used to
+            // decide between two drawings of the stream - the flipbook chain faded in under about 0.6, because a card
+            // lies in the screen plane and a card aimed at the eye has no length to draw along. The card is a MESH
+            // now and FlameJetCard.Across always finds it a side, so there is nothing left to cross-fade to and the
+            // fallback chain is gone. What is still true is that the loose cards hung off the stream - the licks, the
+            // terminus - are drawn in the screen plane and have to be placed along the run's on-screen length.
             float onScreen = cam != null ? Mathf.Sqrt(Mathf.Max(0f, 1f - Mathf.Pow(Vector3.Dot(j.Aim, cam.transform.forward), 2f))) : 1f;
-            float chainWeight = 1f - Mathf.SmoothStep(0.35f, 0.70f, onScreen);
-            float drawnWeight = 1f - chainWeight;
 
             if (now >= j.NextRoot)
             {
                 j.NextRoot = (j.NextRoot <= 0f ? now : j.NextRoot) + RootEvery;
                 float reach = Reach * valve;
-                if (drawnWeight > 0.05f)
+                float len = Vector3.Distance(mouth, far) * onScreen;   // on SCREEN: these are cards in the view plane
+                // The jet is ONE LONG CARD now (FlameJetCard), pushed below outside this root gate: it is
+                // geometry and has to follow the man every frame, not once every RootEvery. What is still laid as
+                // flipbook cards on the root clock is everything that is NOT the stream - the licks torn off its
+                // head, the terminus where it lands, and the fan up an obstacle it struck.
                 {
-                    // the valve: out over the first second, held while he holds it, and played out when he lets go
-                    const float Open = 11f, Hold = 18f, Last = 28f;
-                    float frame = left < (Last - Hold) / 12f ? Mathf.Min(Last, Hold + (((Last - Hold) / 12f) - left) * 12f)
-                                : age * 12f < Open ? age * 12f
-                                : Open + Mathf.Repeat(age * 12f - Open, Hold - Open);
-                    float len = Vector3.Distance(mouth, far) * onScreen;
-                    FlipbookFx.Geometry(FlipbookFx.Book.Jet, out float lo, out float hi, out float fill);
-                    float breath = 0.90f + Mathf.PerlinNoise(j.Seed, now * 7f) * 0.20f;
-
-                    // The stream is a CHAIN of the drawn stream, not one card of it, and this is the third answer to
-                    // the same question. One card was right about the drawing and wrong about everything else. Blown up
-                    // to the full eleven metres, the sheet's own curve hooks back and crosses its own tail, so the
-                    // silhouette closes around a lens of background and stops being a stream at all - it reads as a
-                    // paisley. The taper runs the wrong way too: the drawing carries its mass at the far end and its
-                    // point at the root, so at full length the eye travels tip-to-nozzle and the fire looks INHALED.
-                    // And thickness tied to length made an eleven-metre jet seven metres deep - four times the height
-                    // of the man holding it. A flamethrower stream is about as thick as a man is wide.
-                    //
-                    // So: short overlapping copies laid along the aim, each about a man and a half tall and swelling
-                    // toward the tip, each a few frames behind the one in front. None of them is long enough for the
-                    // curve to double back, the swell runs the right way, and the thickness is an absolute size in
-                    // metres instead of a fraction of the reach. It is the old chain's shape logic with the pack's
-                    // drawing in place of the round fireball the chain used to be made of.
-                    // The links have to FUSE. At a 43% overlap and three and a half frames apart they stayed five
-                    // separate drawings: each outline closed before the next began, so the stream had a waist at every
-                    // joint and necked almost to nothing between the third and fourth. Five contours in a row is a
-                    // string of beads, and a string of beads is a worse read than one ugly shape, because at least the
-                    // one shape was a single gesture the eye could travel. Past half their own length of overlap, and
-                    // close enough in the book that neighbours are not on visibly different poses, the union of the
-                    // silhouettes has no waist and the chain stops being countable.
-                    // FOUR links up close, TWO at the standard view. At 120 m the whole run is sixty pixels wide,
-                    // so four faint cards share out the light until none of them is a mark - measured, the std shot
-                    // held the fire as a round orange dot with no direction in it at all. Two links and more glow is
-                    // one short bright tongue, which is all a shot that size has room to say.
-                    int Links = cam != null && Vector3.Distance(cam.transform.position, mouth) > 60f ? 2 : 4;
-                    float jetGlow = glow * (Links == 2 ? 1.6f : 1f);
-                    bool flipHead = Mathf.PerlinNoise(j.Seed * 3.1f, 0f) < 0.5f;
-                    // and the first one starts AT the mouth, not a fifth of the way out: the stream had begun
-                    // in mid-air over empty mud with no nozzle and no operator under its near end.
-                    for (int i = 0; i < Links; i++)
-                    {
-                        Link(i, Links, len, out float u, out float alongM, out float taper);
-                        bool head = i == Links - 1;
-                        // The LAST link is not part of the weave. Fusing every link at the same overlap cured the string
-                        // of beads and then went straight past it: with five cards all inside one envelope, the right
-                        // edge of the stream stopped being any card's drawn contour and became the CARD BOUNDARY - a
-                        // hard vertical cut with a flat top, a rectangle with one corner rounded off. A gout of fire
-                        // has a head, and the head is the loosest shape in it. So the tip link overlaps a little less,
-                        // is turned off the axis and hangs slightly past the chain, which leaves its own silhouette -
-                        // not a seam - to draw the end of the stream. SMALLER than the links behind it, though, and
-                        // only slightly turned: at 1.15x and seventeen degrees it stopped being the stream's leading
-                        // edge and became a blunt two-lobed paw tied to the end of it, convex on every side, with a
-                        // visible notch where it met the chain. A head still has to be part of the line of action.
-                        // Length scales WITH the link, not with the run. Dropping the link count stretched step, and
-                        // because the thickness ramp is in absolute metres the root cards came out ten metres long and
-                        // under one thick - flat slivers that vanished against the mud and took the near half of the
-                        // stream with them. A short tight link at the nozzle growing to a long loose one at the head is
-                        // the shape anyway; it just has to be said in the length as well as in the thickness.
-                        // The near end needs MORE overlap, not less. At 1.35 steps long against a spacing of one
-                        // step, the first links overlapped by only a quarter of their length and the chain tore open
-                        // between the second and the third - measured, warm coverage collapsed 85% across one bin
-                        // and the arc appeared to kink there, which read as the curve being applied unevenly when it
-                        // was really a hole. Short links still, but never so short that two of them do not meet.
-                        float segLen = Span(i, Links, len);   // still pinching at 1.95: measured 72% coverage lost in one bin
-                        float cw = segLen / fill * (head ? 0.85f : 1f);
-                                                // A fine tip, not a hairline: at 0.95 the first quarter of the stream measured under nine
-                        // pixels thick over 240 of length, which reads as a thrown spear rather than as fuel under
-                        // pressure. Fine is a proportion to the head, not an absolute thinness.
-                        // LINEAR, not quadratic. Squaring the ramp dumped all of the growth into the far half, so
-                        // with the terminus stacked on top of it the head measured seven and a half times the mouth -
-                        // a tadpole. Fuel does widen downrange, but it widens all the way along.
-                        // The MOUTH is what sets the head/mouth ratio, and raising the core's floor last round did nothing for it
-                        // (measured 62 -> 60 px) because the silhouette at the nozzle is drawn by the ENVELOPE, not by
-                        // the core hiding inside it. Widening the envelope's root and easing off its head is the only
-                        // thing that moves the ratio: it had gone 4.36 -> 4.68 -> 5.26 against a 2.0-3.0 target while
-                        // three separate attempts aimed at the core.
-                        float thick = taper * breath;
-                        float ch = thick / Mathf.Max(0.05f, hi - lo);       // the drawing fills only part of its cell
-                        Shapely(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, ref cw, ref ch);
-                        // the arc: fuel leaves flat and the far end rises as it slows
-                        // A SAG, not a ramp. Rising steadily over its whole run is what helium does; thickened petrol
-                        // leaves the nozzle flat and fast, loses the argument with gravity through the middle of its
-                        // flight, and only goes up again where it piles into something and burns. A dead-straight
-                        // centreline climbing from nozzle to head was the single thing making the jet read as a decal
-                        // laid across the picture rather than as fuel thrown through the air.
-                        // Measured, the last version was FLAT: the middle third sat level with the nozzle to within a
-                        // few pixels and then ramped, which reads as a horizontal girder with fire painted on it. A
-                        // sag has to go BELOW the mouth before it comes up, and by enough to see.
-                        // The sag has to be measured on the SCREEN, not in the world, and this is why two rounds of
-                        // it read as a dead straight line however far the amplitude was pushed. The chord from the
-                        // nozzle to the target already climbs the picture - the man is near the camera and firing
-                        // away up-slope - so a world-space drop of a metre and a half was simply swallowed by a
-                        // screen-space rise of far more. What the eye judges is the deviation from the CHORD, so the
-                        // sag is applied perpendicular to it, in the card plane, and budgeted against the run's own
-                        // on-screen length rather than in metres.
-                        // The arc is hung off Arc(), and it is applied to the CORE chain as well. Measured on the
-                        // last build the stream still bowed 13px the wrong way, and the reason was not the sign or
-                        // the budget: the sag was only ever on the envelope, while the core - five opaque, bright
-                        // links - ran dead straight underneath it and owned the warm centroid the eye actually reads.
-                        // Half a curve and half a rod averages to a rod.
-                        Vector3 at = mouth + along * alongM + Arc(cam, u, len, along);
-                        bool flip = (i & 1) == 1;
-                        // Far enough apart in the BOOK to be different drawings. A stagger of a frame or two still
-                        // showed the same cel five times in a row and the eye read the repeat instantly, which is the
-                        // thing that makes a chain look like a chain; three and a half frames apart, no two links in
-                        // the stream are on the same picture. The roll jitter is small and clamped for the same reason
-                        // the links are short - let a card turn far off the travel direction and its own curve doubles
-                        // back across the axis and closes the silhouette again.
-                        // the head is turned well off the axis on purpose; the interior links only breathe
-                        // per-link turn and size, not just per-link cel: mirroring alternate links was not enough
-                        // on its own, because this drawing is near enough symmetrical that its mirror reads the same.
-                        // The same hook at the same angle at the same size three times along a run is a printed
-                        // pattern, and a printed pattern is the opposite of turbulence.
-                        float vary = 1f + (Mathf.PerlinNoise(j.Seed + i * 5.3f, 0.5f) - 0.5f) * 0.30f;
-                        cw *= vary; ch *= vary;
-                        float jitter = (Mathf.PerlinNoise(j.Seed + i * 1.7f, now * 3f) - 0.5f) * 0.16f
-                                     + (Mathf.PerlinNoise(j.Seed + i * 2.9f, 1.5f) - 0.5f) * 0.55f
-                                     + (head ? 0.34f + (flipHead ? -0.10f : 0.10f) : 0f);   // nose-down out of the tangent, and never axis-aligned
-                        // The head is a DIFFERENT BOOK. Every stream sheet in the pack is drawn as a curl, and a
-                        // curl has a hole through the middle of it. Buried in a chain that never shows; on the
-                        // leading mass it is fatal - clean terrain read straight through the centre of the hottest
-                        // object in the picture, which makes the whole jet a ring of paint rather than a body of
-                        // burning fuel. FireHead is an explosion sheet, measured at 0.91 solid through its own
-                        // centroid where the stream books run 0.65 to 0.72: a closed bolus, which is what the front
-                        // of a gout actually is.
-                        books.Add(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, at, cw, RootEvery * 1.15f,
-                                  flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  // mirrored AND turned through half a circle flips a card about the aim; Mirror alone
-                                  // would put the root of a rooted book at its FAR end
-                                  roll: (flip ? roll + Mathf.PI : roll) + jitter,
-                                  // The HEAD is fully opaque, and the thinning lives behind it. Carrying opacity down the run still left the
-                                  // head the most transparent part of the stream, which is backwards: the head is where unburnt fuel is
-                                  // thickest, and terrain reading through it makes the whole jet a coloured gel rather than a body.
-                                                                    // Glow ramped along the run. The nozzle cel is the one authored into the hot band,
-                                  // so raising the ceiling made the stream brightest exactly where the fuel is still
-                                  // cold and has not caught - measured, mouth-to-head luminance went from 1.09 to
-                                  // 1.41 the wrong way. A pressurised stream is dim at the mouth and peaks a third of
-                                  // the way out, where combustion finishes.
-                                  height: ch, alpha: (head ? 1f : 0.88f - 0.06f * u) * valve * drawnWeight,
-                                  // This ramp was meant to make the stream dim at the mouth and brightest a third of the way out, and measured
-                                  // on the render it does the opposite: mean luminance peaks in bin 3 near the nozzle at 160
-                                  // and falls to 79-104 at the head, with the hot-core median sitting at 36% along. The
-                                  // reason is the u * 2.2: it saturates at u = 0.45, so the whole downstream half is served
-                                  // one flat value while the cards out there are thinner and more transparent than the ones
-                                  // at the mouth. Ramping the whole length instead of the first half lets the head win.
-                                  // Floor pulled DOWN rather than ceiling pushed up. Widening the envelope's root (above) stacks more
-                                  // layers of card over the same pixels, so it quietly added at the mouth the brightness this
-                                  // ramp exists to move downstream: measured, the mouth went 85 -> 133 mean luminance while
-                                  // the head stayed at 92, so the two changes were cancelling. The head must out-burn the
-                                  // mouth - that is where the fuel has finished atomising.
-                                  glow: jetGlow * Mathf.Lerp(0.38f, 1.60f, Mathf.Min(1f, u * 1.10f)),
-                                  velocity: j.ManVel,
-                                  // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
-                                  // put the TIP on frame-11.6, clamped to zero - the very first cel of the book, where
-                                  // the valve has barely opened and the drawing is at its thinnest and dimmest - while
-                                  // the root sat on the fullest one. So the stream was brightest at the nozzle and
-                                  // faded into the impact: the gesture pointed downrange and the value pointed back up
-                                  // the barrel, which is the eye being told two opposite things at once. Counting from
-                                  // the tip instead puts the most developed cel at the far end, where the fire is.
-                                  // Floored at Open-2, never at 0. Counting back from the tip is right, but let a root
-                                  // link reach the book's first cels and it is drawing the valve barely open - a thin
-                                  // sliver that does not fill its card - so the near half of the stream came apart
-                                  // into detached darts with mud showing between them. Every link has to be on a cel
-                                  // where the drawing is a full stream; only WHICH full stream may differ.
-                                  startFrame: Mathf.Max(Open - 2f, frame - (Links - 1 - i) * 2.0f));
-                    }
                     // Licks torn off the far end. The widening is correct and deliberate - burning fuel slows, tumbles
                     // and spreads, so a flamethrower is the one kind of jet that gains mass downrange - but a widening
                     // shape whose contour never breaks is a poured slab rather than a stream. Real fire sheds pieces at
@@ -803,56 +617,9 @@ namespace TW.Presentation.Tactical
                                   RootEvery * 1.15f,
                                   lmir ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: roll + wob * 0.9f, height: lh,
-                                  alpha: valve * drawnWeight, glow: glow * 1.35f,
+                                  alpha: valve, glow: glow * 1.35f,
                                   velocity: j.ManVel + Vector3.up * 0.7f,
                                   startFrame: 8f + Mathf.Repeat(now * 12f + i * 3f, 10f));
-                    }
-
-                    // THE CORE. A pressurised stream is not one thickness of fire: it is a dense opaque rod with a
-                    // looser, thinner envelope boiling off it, and drawing only the envelope is what let the barbed
-                    // wire read straight through the middle of the jet. So a second, shorter chain rides the same
-                    // spine at about half the thickness, fully opaque, and it is a DIFFERENT DRAWING - FireCore, cut
-                    // from the pack's other rooted stream. Measured against FireJet over their body frames it has the
-                    // same root discipline but more cover and fewer holes, which is exactly what the inside of a jet
-                    // wants. Being a different glyph also ends the complaint that would not die however much the links
-                    // were jittered and mirrored: one drawing repeated five times along a run is a printed pattern, and
-                    // no amount of turning it fixes that. Two drawings interleaved is turbulence.
-                    const int CoreLinks = 9;   // shorter links, so the mouth one is not long enough to hit the clamp
-                    float cStep = len / (CoreLinks - 0.35f);
-                    for (int i = 0; i < CoreLinks; i++)
-                    {
-                        float u = CoreLinks > 1 ? i / (CoreLinks - 1f) : 1f;
-                        float cSeg = cStep * 2.3f;
-                        // Thicker. The envelope's sheets are curls and a curl has holes; sampling inside the stream's
-                        // silhouette returned the cold background colour unchanged, which means the body was a wash
-                        // rather than paint. The core is the only opaque thing in the jet, so it is the core that has
-                        // to be wide enough to fill what the envelope leaves open.
-                        // The core owns the mouth silhouette - it is the only opaque thing in the jet - so raising the
-                        // ENVELOPE's floor and not this one left the near links pinned flat against the aspect clamp,
-                        // and a card pinned at the clamp has a boundary measurably straighter than any brush in the
-                        // build: 1.8 px RMS over 120, against 5-22 px for every hand-drawn contour beside it.
-                        float cThick = Mathf.Lerp(2.60f, 3.40f, u) * breath;   // 1.70 still left a 41 px nozzle bin against a 306 px
-                                                                              // head - measured 4.4:1, a tadpole. The mouth of a
-                                                                              // pressurised jet is the one place the fuel is dense.
-                        FlipbookFx.Geometry(FlipbookFx.Book.Core, out float cLo, out float cHi, out float cFill);
-                        // The envelope stopped stamping when it got a second drawing, and the repeat simply moved into
-                        // the core: its signature is a cream crescent hook, it is the brightest value in the picture,
-                        // and three of them at one handedness and one size evenly spaced is a thing the eye locks onto
-                        // instantly. Two drawings alternating is still a pattern if one of them has an unmistakable
-                        // glyph, so the glyph itself has to be flipped and resized down the run.
-                        bool cFlip = (i & 1) == 0;
-                        float cVary = 1f + (Mathf.PerlinNoise(j.Seed + i * 7.1f, 3.5f) - 0.5f) * 0.30f;
-                        float cW = cSeg / cFill * cVary, cH = cThick * cVary / Mathf.Max(0.05f, cHi - cLo);
-                        Shapely(FlipbookFx.Book.Core, ref cW, ref cH);
-                        books.Add(FlipbookFx.Book.Core,
-                                  mouth + along * (cStep * (i + 0.5f)) + Arc(cam, u, len, along),
-                                  cW, RootEvery * 1.15f,
-                                  cFlip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  roll: (cFlip ? roll + Mathf.PI : roll)
-                                      + (Mathf.PerlinNoise(j.Seed + i * 3.7f, 2.5f) - 0.5f) * 0.40f,
-                                  height: cH,
-                                  alpha: valve * drawnWeight, glow: glow, velocity: j.ManVel,
-                                  startFrame: Mathf.Max(3f, 16f - (CoreLinks - 1 - i) * 2.2f));
                     }
 
                     // THE TERMINUS. Where the stream runs out - whether it met anything or not - the fuel stops being
@@ -879,7 +646,7 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Bloom, new Vector3(far.x, bY, far.z) + toEye * 0.9f,
                                   Mathf.Lerp(1.9f, 2.8f, valve), RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  height: bH, alpha: valve * drawnWeight, glow: glow,
+                                  height: bH, alpha: valve, glow: glow,
                                   startFrame: 1f + Mathf.Repeat(now * 12f, 7f));
                     }
 
@@ -899,7 +666,7 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Fan, sunk, reach * 0.42f, RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: FlipbookFx.ScreenRoll(cam, peel),
-                                  height: reach * 0.42f, alpha: Coal * 0.8f * valve * drawnWeight, glow: glow,
+                                  height: reach * 0.42f, alpha: Coal * 0.8f * valve, glow: glow,
                                   startFrame: 2f + Mathf.Repeat(now * 12f, 12f));
                         // and a smaller one, mirrored, lower, and a few frames out of phase. Two copies of one drawing at
                         // the same size standing side by side is a repeat, and a repeat reads as a sticker; at three
@@ -908,37 +675,43 @@ namespace TW.Presentation.Tactical
                                   reach * 0.26f, RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.None : FlipbookFx.Kind.Mirror,
                                   roll: FlipbookFx.ScreenRoll(cam, (Vector3.up * 0.7f - j.Aim * 1.1f).normalized),
-                                  height: reach * 0.26f, alpha: Coal * 0.5f * valve * drawnWeight, glow: glow,
+                                  height: reach * 0.26f, alpha: Coal * 0.5f * valve, glow: glow,
                                   startFrame: 2f + Mathf.Repeat(now * 12f + 5f, 12f));
                     }
                 }
+            }
 
-                // the chain, which is now either the fallback when the stream is pointed at the eye, or the loose fire
-                // boiling off its far half when it is not
-                if (chainWeight > 0.05f || true)
-                {
-                    int links = chainWeight > 0.05f ? JetLinks : 4;
-                    float from = chainWeight > 0.05f ? 0.10f : 0.55f;
-                    for (int i = 0; i < links; i++)
-                    {
-                        float u = links > 1 ? i / (links - 1f) : 1f;
-                        float along01 = from + (0.90f - from) * u;
-                        float wob = (Mathf.PerlinNoise(j.Seed + i * 0.37f, now * 5f) - 0.5f) * 2f * u;
-                        Vector3 at = mouth + j.Aim * (reach * along01)
-                                   + side * wob * 0.55f
-                                   + Vector3.up * (u * u * 1.15f + wob * 0.25f);
-                        float swell = along01 < 0.78f ? along01 : 0.78f - (along01 - 0.78f) * 0.9f;
-                        float w = (0.80f + 2.15f * swell) * Cell;
-                        float tip = 1f - Mathf.SmoothStep(0.72f, 1f, along01) * 0.6f;
-                        float a = Coal * (0.95f - 0.30f * along01) * tip * valve
-                                * (chainWeight > 0.05f ? chainWeight : 0.45f);
-                        books.Add(FlipbookFx.Book.Fire, at, w, RootEvery * 1.15f,
-                                  (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  height: w * (0.72f + 0.20f * along01),
-                                  alpha: a, glow: glow,
-                                  startFrame: 4f + Mathf.Repeat(now * 12f + i * 2.7f, 9f));
-                    }
-                }
+            // THE STREAM ITSELF: one long card from the nozzle to the target, rebuilt every frame.
+            //
+            // Not on the root clock, and not a flipbook card. A flipbook card is dropped and then lives out its own
+            // life wherever it was dropped, which is right for a puff of burning fuel and wrong for the stream: the
+            // man turns, the nozzle rides him, and a stream that is a twelfth of a second behind his aim reads as a
+            // thing hanging in the air beside him. So the ribbon is rebuilt from the current mouth and aim every
+            // frame and the only thing that moves inside it is the shader's scroll.
+            //
+            // WIDTH is FlameJetCard's and the owner's - 1.55 m at the mouth to 3.90 m at the head - and nothing here
+            // may narrow it. What varies with distance is the GLOW: at 120 m the whole run is sixty pixels and four
+            // faint links used to share out the light until none of them was a mark, so past 60 m the ramp is
+            // multiplied by 1.6 and the card reads as one short bright tongue. That is the old two-link idea kept as
+            // the thing it was actually doing - brightness - instead of as a segment count.
+            {
+                // FULL reach, not the valve's. far is Reach * valve, which is right for the terminus - the place the
+                // fuel is landing right now - and wrong for the stream: photographed a third of a second into a
+                // burst the card stopped 60% of the way to the men it was burning, and the owner asked for a card
+                // "from the nozzle to the target". The valve belongs in the brightness, which is where it is.
+                Vector3 head = Hit(mouth, j.Aim, Reach, out _);
+                float cardLen = Vector3.Distance(mouth, head);
+                Vector3 toEye = cam != null ? (cam.transform.position - Vector3.Lerp(mouth, head, 0.5f)).normalized : Vector3.back;
+                float far60 = cam != null && Vector3.Distance(cam.transform.position, mouth) > 60f ? 1.6f : 1f;
+                // the sag, in the card's own plane: the same curve the licks and the terminus hang off
+                Vector3 sag = Down(cam, head - mouth) * (cardLen * 0.135f);
+                FlameJetCard.Push(mouth, (head - mouth).normalized, cardLen, toEye, sag,
+                                  phase: j.Seed * 3.7f + now * 0.15f,
+                                  // a FLOOR under the valve. A valve chokes a stream, it does not dissolve it, and
+                                  // the capture rig lands wherever in the burst it lands: at alpha = valve the day
+                                  // side shot came back with a pale warm tongue the lit mud behind it beat.
+                                  alpha: Mathf.Lerp(0.55f, 1f, valve),
+                                  glowMouth: glow * far60 * 0.55f, glowHead: glow * far60 * 1.60f);
             }
 
             // and the boil: loose fire torn off the end of the stream, which is the one thing a chain cannot do. It is
@@ -949,7 +722,7 @@ namespace TW.Presentation.Tactical
                 // a quarter of the old rate while the drawn stream is carrying the body. Thirty of these over the top of
                 // it was the crowd the stream was built to replace, and it filled in the negative space that makes the
                 // drawing read; at the old rate they also cost more than everything else in the jet put together.
-                j.NextPuff = (j.NextPuff <= 0f ? now : j.NextPuff) + PuffEvery * Mathf.Lerp(4f, 1f, chainWeight);
+                j.NextPuff = (j.NextPuff <= 0f ? now : j.NextPuff) + PuffEvery * 4f;
                 float t = 0.55f + Mathf.Repeat((j.NextPuff - j.Started) / 0.19f, 1f) * 0.60f;   // past the end of the chain, so the tip frays outward
                 Vector3 spread = new Vector3(Random.value - 0.5f, Random.value - 0.35f, Random.value - 0.5f) * 2.4f * t;
                 float speed = (4.0f + Random.value * 3.0f) * valve;
