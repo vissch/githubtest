@@ -15,7 +15,7 @@ tests → how to see it); do not read it through. Open anything else only when t
 | a switch, arg or prefs key | `docs/reference/feature-flags.md` |
 | importing, splitting, baking art; any `Tools/` script | `docs/reference/pipelines.md` |
 | assemblies, folders, sim system order | `docs/reference/code-map.md` |
-| notes other sessions left for you, and the owner's notes from the asset board | `docs/inbox/` (one file per note) and `python Tools/assetboard/notes.py --for <branch>` (the owner's word: answer with `done ID "what you did"`); `health.py` lists both |
+| notes other sessions left for you, and the owner's notes from the asset board | `docs/inbox/` (one file per note) and `python Tools/assetboard/notes.py --for <branch>` (the owner's word: answer with `done ID "what you did"`); `health.py` lists both. Work another session handed over: `python Tools/handoffs.py` names the current handoff of each topic (`docs/reference/workflow.md`, section 10) |
 | design of a system (why it is built this way) | `docs/README.md` (index of docs 00-20) |
 | known risks and the refactor backlog | `docs/reference/maintainability-audit-2026-09.md` |
 
