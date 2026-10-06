@@ -80,6 +80,30 @@ namespace TW.Presentation.Tactical
         {
             if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = team, Width = width });
         }
+
+        /// <summary>
+        /// Every tracer on screen right now, as "team from -&gt; to", for a capture rig to print beside its pictures.
+        /// look-03's close shot had a thin pink streak running from the flamethrower man toward the trench and the
+        /// master read it as the flame man still throwing a round. A tracer's colour at night is its SIDE's
+        /// (tracerNightA green for team 0, tracerNightB dark red for team 1), so the streak's team names its shooter
+        /// and no amount of looking at the picture does. Diagnostic only: nothing in the game reads this.
+        /// </summary>
+        public string TracerReport()
+        {
+            float now = Time.time;
+            var sb = new System.Text.StringBuilder();
+            int live = 0;
+            for (int i = 0; i < tracers.Count; i++)
+            {
+                var t = tracers[i];
+                if (now < t.Born || t.Born < now - TracerSeconds) continue;   // queued by ShotStagger, or already pruned
+                live++;
+                sb.Append(" [team=").Append(t.Team)
+                  .Append(" from=").Append(t.From.ToString("F1"))
+                  .Append(" to=").Append(t.To.ToString("F1")).Append(']');
+            }
+            return "tracers=" + live + sb;
+        }
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Flash> flashes = new List<Flash>(256);
