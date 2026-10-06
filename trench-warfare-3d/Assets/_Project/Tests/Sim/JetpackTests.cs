@@ -148,6 +148,42 @@ namespace TW.Tests
             Assert.AreEqual(hpBeforeTouchdown, m.World.Hp[him], 0.001f, "[C1] his own landing burst took nothing off him");
         }
 
+        /// <summary>[C1b] Even a spec with no landing grace at all keeps Airborne for the one tick his own burst
+        /// needs: the burst is queued in the Step that lands him and BlastSystem resolves it the tick after.</summary>
+        [Test]
+        public void AZeroGraceJumperStillSurvivesHisOwnLandingBurst()
+        {
+            using var m = NewMatch();
+            var zero = m.World.Units.Infantry[InfantryArchetype.Jetpack];
+            zero.LandingGraceTicks = 0;
+            m.World.Units.Infantry[InfantryArchetype.Jetpack] = zero;
+            short t = EnemyLine(m, 4);
+            float z = TrenchZ(m, t) - 20f;
+            int him = Still(m, 0, InfantryArchetype.Jetpack, 120f, z);
+            int flight = (int)math.ceil(20f / (zero.JumpSpeed * m.World.Config.TickSeconds));
+            float hpBeforeTouchdown = -1f;
+            Run(m, (int)LeapSystem.CheckEvery + flight + 4, () => m.Movement.LeapTicks[him] == 0 && hpBeforeTouchdown > 0f, w =>
+            {
+                if (m.Movement.LeapTicks[him] > 0) hpBeforeTouchdown = w.Hp[him];
+            });
+            Assert.Greater(hpBeforeTouchdown, 0f, "[C1b] setup: he leapt and was in the air");
+            // one tick at a time, stopping on the tick his own burst goes off: after Airborne clears four riflemen
+            // at point blank take hp off him, so a loose run would go red for the wrong reason
+            bool burst = false;
+            for (int k = 0; k < 10 && !burst; k++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int j = 0; j < ev.Length; j++)
+                    if (ev[j].Type == SimEventType.Explosion && ev[j].A == LeapSystem.LandingSource) burst = true;
+            }
+            Assert.IsTrue(burst, "[C1b] his landing burst went off");
+            Assert.IsTrue(m.World.IsAlive(him), "[C1b] a zero-grace jumper survives his own landing");
+            Assert.AreEqual(hpBeforeTouchdown, m.World.Hp[him], 0.001f, "[C1b] his own landing burst took nothing off him");
+            Step(m);
+            Assert.AreEqual(0u, m.World.Flags[him] & (uint)UnitFlags.Airborne, "[C1b] and the grace is one tick, not forty");
+        }
+
         /// <summary>[N2] The flight crosses the trench body for several ticks; he is garrisoned (and InTrench) only once
         /// he is down.</summary>
         [Test]
@@ -164,7 +200,9 @@ namespace TW.Tests
             var spec = InfantrySpec.For(InfantryArchetype.Jetpack);
             int flight = (int)math.ceil(27f / (spec.JumpSpeed * m.World.Config.TickSeconds));
             int airTicks = 0;
-            Run(m, (int)LeapSystem.CheckEvery + flight + 6, () => m.World.TrenchId[him] == t, w =>
+            // no early-out: Run calls the action BEFORE each Step and breaks on the predicate right after it, so
+            // stopping on "garrisoned" skipped the very tick the old arrival rule garrisoned him in the air.
+            Run(m, (int)LeapSystem.CheckEvery + flight + 6, null, w =>
             {
                 if (m.Movement.LeapTicks[him] <= 0) return;
                 airTicks++;
@@ -191,6 +229,7 @@ namespace TW.Tests
             var spec = InfantrySpec.For(InfantryArchetype.Jetpack);
             int flight = (int)math.ceil(24f / (spec.JumpSpeed * m.World.Config.TickSeconds));
             int mine = -2, airTicks = 0;
+            float3 minePos = float3.zero; bool armedWhenHePassed = false, passedIt = false;
             float hp0 = -1f, supp0 = -1f, hpMin = float.MaxValue, suppMax = -1f;
             bool burnedInAir = false;
             var log = Run(m, (int)LeapSystem.CheckEvery + flight + 2, () => m.Movement.LeapTicks[him] == 0 && mine >= 0, w =>
@@ -199,11 +238,19 @@ namespace TW.Tests
                 airTicks++;
                 if (mine == -2)
                 {
-                    float3 mid = 0.5f * (w.Position[him] + m.Movement.LeapTarget[him]);
+                    // three quarters along what is left of the line, not half: at half he passes it at air tick ~20,
+                    // the very tick it arms (MineSystem.ArmTicks), so the asserts below could pass unarmed.
+                    float3 mid = math.lerp(w.Position[him], m.Movement.LeapTarget[him], 0.75f);
+                    minePos = mid;
                     mine = m.Mines.Place(w, mid, float3.zero, 0f, 1, MineKind.Mine);
                     Assert.GreaterOrEqual(mine, 0, "[C3] setup: a mine on his flight path");
                     hp0 = w.Hp[him]; supp0 = w.Suppression[him];
                     return;
+                }
+                if (!passedIt && math.distance(w.Position[him].xz, minePos.xz) <= 1f)
+                {
+                    passedIt = true;
+                    armedWhenHePassed = m.Mines.Mines[mine].State == (int)MineState.Armed;
                 }
                 hpMin = math.min(hpMin, w.Hp[him]); suppMax = math.max(suppMax, w.Suppression[him]);
                 if ((w.Flags[him] & (uint)UnitFlags.Burning) != 0) burnedInAir = true;
@@ -218,6 +265,8 @@ namespace TW.Tests
             Assert.AreEqual(hp0, hpMin, 0.001f, "[C3] nothing on the ground took hp off him in the air");
             Assert.LessOrEqual(suppMax, supp0 + 0.001f, "[C3] and nothing suppressed him (suppression only decays in the air)");
             Assert.IsFalse(burnedInAir, "[C3] he did not catch fire from a cell he flew over");
+            Assert.IsTrue(passedIt, "[C3] setup: he flew within a metre of the mine");
+            Assert.IsTrue(armedWhenHePassed, "[C3] setup: the mine was armed when he passed over it");
             Assert.AreEqual(0, Count(log, SimEventType.MineTriggered, mine, him), "[C3] he did not set the mine off");
             Assert.AreNotEqual((int)MineState.Spent, m.Mines.Mines[mine].State, "[C3] the mine is still there");
         }

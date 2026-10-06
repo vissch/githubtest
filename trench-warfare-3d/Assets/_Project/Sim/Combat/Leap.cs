@@ -4,7 +4,8 @@
 // leaves the ground: LeapSystem picks the landing cell (the trench cell of his target if the target is in an
 // enemy trench, else the nearest cell of the nearest enemy-held fire trench), hands MovementSystem a straight line
 // (LeapTicks / LeapTarget) and the goal of that trench, and flags him Airborne. MoveJob flies him over wire and
-// walls and lands him ON the cell, where the ordinary arrival rule garrisons him without a ladder. Airborne he is
+// walls and lands him ON the cell; the ordinary arrival rule garrisons him without a ladder the tick AFTER
+// touchdown, while Airborne is still set, so he spends his whole grace standing in the enemy trench. Airborne he is
 // no target and takes no suppression (TargetAcquisition, DirectFire); landing he is granted LandingGraceTicks more
 // of that so a single man is not simply dead on arrival, and his landing bursts a grenade under him
 // (LandingBlast* through BlastSystem). State here: LeapCooldown, GraceTicks, InAir (was he leaping last tick),
@@ -62,8 +63,9 @@ namespace TW.Sim.Combat
                 if (InAir[i] != 0 && movement.LeapTicks[i] == 0)
                 {
                     InAir[i] = 0;
-                    GraceTicks[i] = spec.LandingGraceTicks;
-                    if (GraceTicks[i] == 0) w.Flags[i] &= ~(uint)UnitFlags.Airborne;   // no grace: down and a target at once (never leave the flag set)
+                    // floored at one tick: the burst below is resolved by BlastSystem next tick (Blast 720 < Leap 1105),
+                    // and BlastJob spares only a man still Airborne, so a zero-grace jumper would take his own burst.
+                    GraceTicks[i] = math.max(spec.LandingGraceTicks, 1);
                     if (blast != null && spec.LandingBlastDamage > 0f)
                         blast.Queue(new Impact { Pos = w.Position[i], Damage = spec.LandingBlastDamage, Radius = spec.LandingBlastRadius, Suppression = 40f, Source = LandingSource, Player = w.Team[i] });
                 }
