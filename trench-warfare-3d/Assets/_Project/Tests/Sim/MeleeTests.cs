@@ -257,6 +257,18 @@ namespace TW.Tests
             bool byCrab = false;
             foreach (var e in log) if (e.Type == SimEventType.Death && e.A == man && e.B == crab) byCrab = true;
             Assert.IsTrue(byCrab, "killed by the crab");
+            // of its weight as it comes down, not taken by its claws while it is still in the air (TankGunnery clawed
+            // him four ticks before the landing, which then hit nobody; review, 2026-10-06)
+            uint died = 0;
+            bool landedOn = false;
+            foreach (var e in log)
+            {
+                if (e.Type == SimEventType.Death && e.A == man) died = e.Tick;
+                if (e.Type == SimEventType.Hit && e.A == crab && e.B == man && e.Tick == land.Tick) landedOn = true;
+            }
+            Assert.AreEqual(land.Tick, died, "he dies when it comes down, not before");
+            Assert.IsTrue(landedOn, "under the landing's weight");
+            Assert.AreEqual(0, Count(log, SimEventType.VehicleClawed, crab), "and its claws stayed shut on the way over");
             Assert.Greater(m.Pounce.Cooldown[crab], 0, "and it waits before the next");
             Assert.Less(math.distance(land.Pos.xz, manAt.xz), 0.5f, "it came down where he stood");
             Assert.AreEqual(0u, w.Flags[crab] & (uint)UnitFlags.Pouncing, "and is no longer pouncing");

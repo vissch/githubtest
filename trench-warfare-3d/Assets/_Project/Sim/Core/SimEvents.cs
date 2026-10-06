@@ -95,7 +95,7 @@ namespace TW.Sim
         // b = the man he threw at, pos = where it left his hand, dir = from there to where it lands (it goes off this
         // tick: BlastSystem's Explosion follows, Source = SourceId.Grenade), scalar = the metres thrown.
         GrenadeThrown,
-        // 2026-09-28 (format v24, lane/sim/melee): hand to hand (MeleeSystem). A blow: a = attacker, b = defender, pos = the
+        // 2026-09-28 (format v25, lane/sim/melee): hand to hand (MeleeSystem). A blow: a = attacker, b = defender, pos = the
         // attacker, dir.xz = unit direction to the defender, dir.y = the style (MeleeSystem.StyleStab 0, StyleButt 1,
         // StyleSmash 2, StyleFists 3), scalar = damage dealt, 0 when the defender blocked it, -1 when it missed (a landed
         // blow is also a Hit, a killing one a Death with the attacker as killer).

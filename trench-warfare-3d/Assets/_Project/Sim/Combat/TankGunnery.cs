@@ -439,7 +439,9 @@ namespace TW.Sim.Combat
                     // The claws. A walker takes hold of whatever comes within reach of its front and crushes it: a man
                     // dies, a hull takes it as a close assault against its armour. It is what a walker has instead of
                     // the machine guns a tank carries, and the reason infantry cannot simply walk up to one.
-                    if (spec.ClawReach > 0f && ClawCooldown[i] <= 0)
+                    // (not while it is wound up to leap or in the air: the claws took the man four ticks before it came
+                    // down, and it landed on nobody; review, 2026-10-06)
+                    if (spec.ClawReach > 0f && ClawCooldown[i] <= 0 && (f & (uint)UnitFlags.Pouncing) == 0)
                     {
                         float reach = spec.ClawReach + Drive[Archetype[i]].HalfLength;
                         int victim = -1; float best = reach * reach;
