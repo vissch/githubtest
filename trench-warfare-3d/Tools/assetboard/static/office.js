@@ -213,6 +213,8 @@
       return a;
     }
     // a row of the agents' is no link: a click opens what it is, in a few lines, and takes a note. It leads nowhere.
+    // The row itself is no control: the one control in it is its note button (board.js), which the keyboard reaches
+    // and a screen reader names. A row that was a button with that button inside it was a control in a control.
     function notMine(g, r, m) {
       var a = el('div', 'k-qrow k-theirs'); a.title = r.tip || r.top; m = m || {};
       var what = el('span', 'k-take-what');
@@ -225,8 +227,7 @@
         sub: !has && r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '', links: r.url ? [{ label: /^decide\.html/.test(r.url) ? 'The Decide page' : 'Open it', href: r.url }] : [],
         facts: r.chips, detail: m.detail || [], shots: m.shots || [], actions: m.actions || [] };
       var open = function () { Bd.open(subj); };
-      a.classList.add('b-click'); a.tabIndex = 0; a.setAttribute('role', 'button');
-      a.addEventListener('click', open); a.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      a.classList.add('b-click'); a.addEventListener('click', open);
       a.appendChild(Bd.button(subj));
       return a;
     }
