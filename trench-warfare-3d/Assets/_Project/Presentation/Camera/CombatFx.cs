@@ -475,6 +475,19 @@ namespace TW.Presentation.Tactical
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
         }
 
+        /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between
+        /// the Flamethrower's shots (4 a second), so a man who keeps firing keeps one unbroken stream.</summary>
+        public const float FlameShotSeconds = 0.45f;
+
+        /// <summary>Is this Shot the shot of a weapon that sets burning? By the match's own weapon table, never by id.</summary>
+        public static bool FlameShot(SimWorld w, TW.Sim.Combat.CombatCatalogueSystem catalogue, SimEvent e)
+        {
+            if (e.Type != SimEventType.Shot || catalogue == null || !catalogue.Weapon.IsCreated) return false;
+            if (e.A < 0 || e.A >= w.HighWater) return false;
+            byte a = w.Archetype[e.A];
+            return a < catalogue.Weapon.Length && catalogue.Weapon[a].SetsBurning;
+        }
+
         void OnSimEvent(SimEvent e)
         {
             var w = Host.Local.World;
@@ -483,6 +496,21 @@ namespace TW.Presentation.Tactical
             {
                 case SimEventType.Shot:
                 {
+                    // a weapon that sets burning (the Flamethrower, archetype 36) throws no round: the shot is a burst of
+                    // the stream from his nozzle onto the man he fired at, and no tracer, flare or spurt of dirt
+                    if (FlameShot(w, Host.Local.Catalogue, e))
+                    {
+                        if (e.B >= 0 && e.B < w.Position.Length)
+                        {
+                            Vector3 at = (Vector3)w.Position[e.B];
+                            at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z) + 0.6f;
+                            Vector3 man = e.A < w.Position.Length ? (Vector3)w.Position[e.A] : at;
+                            man.y = RenderGround.Sample(Host.Local.Map, man.x, man.z);
+                            if (!flames.BurstFrom(e.A, at, FlameShotSeconds, sim: true))
+                                flames.Burst(e.A, man + Vector3.up * 1.1f, at - (man + Vector3.up * 1.1f), man, FlameShotSeconds, sim: true);
+                        }
+                        break;
+                    }
                     if (tracers.Count >= 1500 || e.B < 0 || e.B >= w.Position.Length) break;
                     float scale = 1f;
                     var cam = Camera.main;

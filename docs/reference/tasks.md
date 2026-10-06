@@ -466,14 +466,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
 
 ### Flamethrower
-- **Files:** `Presentation/Camera/Flamethrower.cs` (presentation only, driven by the debug panel's flame tools; the
-  sim's flamethrower unit, archetype 36, burns men for real since 2026-09-28, see "Fire in the sim", and is not yet
-  wired to this picture: route a `Shot` from a `SetsBurning` weapon to `Jet`), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
+- **Files:** `Presentation/Camera/Flamethrower.cs` (the sim's flamethrower unit, archetype 36, burns men for real
+  since 2026-09-28, see "Fire in the sim"; since look-03, 2026-10-06, its `Shot` is the route to this picture:
+  `CombatFx.FlameShot` reads the match's own weapon table for `SetsBurning` and calls
+  `flames.BurstFrom(..., CombatFx.FlameShotSeconds, sim: true)` instead of a tracer. A `sim: true` jet and the fuel it
+  spills are drawn but call no `Catch`: the sim says who burns, `UnitAlight`), `Shaders/Flame_URP.shader`, books cut by `Tools/firebooks.py`. Pools, pyres and the torch on a burning
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
-- **Tests:** none.
-- **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
+- **Tests:** `Tests/Show/FlameRouteTests.cs` (the route: a flame man's `Shot` routes, a rifleman's does not, and a
+  `sim: true` jet lights nobody itself).
+- **See it:** `Tools/flamefight [before|after]` stages a flame section against a rifle section and photographs it
+  close and at the standard view; `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
@@ -822,7 +826,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Match:** AssaultLadderTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, StressPresetTests
 - **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, VatDecimateTests, WalkerPivotTests
-- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BodyFacingTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, GymStripTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TroopActionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BodyFacingTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FlameRouteTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, GymCatalogueTests, GymStripTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, TroopActionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckRecordTests
 - **Stills:** VfxStills, WalkerStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
