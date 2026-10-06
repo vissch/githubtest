@@ -39,5 +39,63 @@ namespace TW.Tests
                 Object.DestroyImmediate(go);
             }
         }
+
+        // The SHAPE of the envelope. FlipbookFx.Add early-returns unless the pack is loaded, which EditMode cannot
+        // make true, so what is testable here is the geometry the chain is laid on - Flamethrower.Link and Span -
+        // and that is where the master's complaint lives: "no shaped stream from muzzle to target".
+
+        [Test]
+        public void TheEnvelopeWidensFromMouthToHead()
+        {
+            const int links = 4;
+            float last = -1f, mouth = 0f, head = 0f;
+            for (int i = 0; i < links; i++)
+            {
+                Flamethrower.Link(i, links, 11f, out float u, out float along, out float thick);
+                Assert.AreEqual(i / (links - 1f), u, 1e-4f, "u runs 0 at the mouth to 1 at the head");
+                Assert.Greater(thick, last, "link " + i + " must be no thinner than the one behind it: fuel spreads as it burns");
+                last = thick;
+                if (i == 0) mouth = thick;
+                if (i == links - 1) head = thick;
+                Assert.Greater(along, 0f, "every link sits downrange of the mouth");
+            }
+            float ratio = head / mouth;
+            // The band the file has argued itself to over three rounds: under 2 the stream is a pipe and reads as a
+            // glow round the man, over 3.5 the head swallows the run and it reads as a tadpole.
+            Assert.That(ratio, Is.InRange(2.0f, 3.5f), "head/mouth was " + ratio);
+        }
+
+        [Test]
+        public void NeighbouringLinksOverlapAndTheLastOneLandsOnTheTarget()
+        {
+            const int links = 4;
+            const float len = 11f;
+            for (int i = 0; i < links - 1; i++)
+            {
+                Flamethrower.Link(i, links, len, out _, out float a0, out _);
+                Flamethrower.Link(i + 1, links, len, out _, out float a1, out _);
+                float reach = (Flamethrower.Span(i, links, len) + Flamethrower.Span(i + 1, links, len)) * 0.5f;
+                Assert.Less(a1 - a0, reach, "links " + i + " and " + (i + 1) + " must fuse: a gap is a waist, and a waist is a string of beads");
+            }
+            Flamethrower.Link(links - 1, links, len, out _, out float end, out _);
+            Assert.That(end, Is.InRange(len * 0.85f, len * 1.05f), "the head lands on the target, not short of it: " + end);
+        }
+
+        [Test]
+        public void SmokeHangsOverTheOuterRun()
+        {
+            Assert.GreaterOrEqual(Flamethrower.JetSmokes, 3, "one puff at the impact is the old behaviour");
+            float last = -1f;
+            for (int s = 0; s < Flamethrower.JetSmokes; s++)
+            {
+                Flamethrower.SmokeAt(s, out float u, out float hang, out float size);
+                Assert.GreaterOrEqual(u, 0.4f, "the smoke belongs over the outer run, where the fuel has burnt");
+                Assert.LessOrEqual(u, 1f);
+                Assert.Greater(u, last, "the stations spread along the run rather than stacking");
+                last = u;
+                Assert.Greater(hang, 1f, "ABOVE the stream: dark over bright is what makes the core read by day");
+                Assert.Greater(size, 2f);
+            }
+        }
     }
 }
