@@ -176,8 +176,9 @@
     INK = INK_LIT;
   }
   // where each room's name stands: over the middle of its back wall, or outside its front edge when it has none.
-  // The hall's stands over its back rail, beside the notice board: over the board it covered the board's number
-  var NAMEAT = { lab: [280, 640, H.TALL, -1], shop: [910, 0, H.TALL, -1], studio: [0, 1480, H.TALL, -1], hall: [1090, 640, 26, -1], bunk: [1640, 0, H.TALL, -1],
+  // The hall's stands over its back rail, between the notice board and the doorway: over the board it covered the
+  // board's number, and further right it stood in the doorway, over whoever walked through
+  var NAMEAT = { lab: [280, 640, H.TALL, -1], shop: [910, 0, H.TALL, -1], studio: [0, 1480, H.TALL, -1], hall: [1040, 640, 26, -1], bunk: [1640, 0, H.TALL, -1],
                  work: [910, 1800, 0, 1], plan: [2020, 900, 0, 1] };
 
   // ---- the things that stand up: built once, in an order in which each is drawn after what is behind it

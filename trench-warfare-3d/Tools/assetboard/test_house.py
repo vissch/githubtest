@@ -47,6 +47,19 @@ for (const t of H.THINGS) { if (t.over || !t.box) continue; const b = t.box;
   H.ALONG_U.forEach(l => { if (l[0] > b[1] && l[0] < b[3] && l[1] < b[2] && l[2] > b[0]) out.faults.push('a walkway runs through a ' + t.kind); });
   H.ALONG_V.forEach(l => { if (l[0] > b[0] && l[0] < b[2] && l[1] < b[3] && l[2] > b[1]) out.faults.push('a walkway runs through a ' + t.kind); });
   for (const [r, i, s] of spots) if (s.walk && s.u > b[0] && s.u < b[2] && s.v > b[1] && s.v < b[3]) out.faults.push(r + i + ' stands inside a ' + t.kind); }
+// room to walk: how near a walkway comes to a plant, and to the end of a rail where it goes through a gap
+const gapOf = (a, b, lo, hi) => Math.max(0, lo - b, a - hi);
+out.plants = []; out.doors = [];
+for (const t of H.THINGS) { if (t.kind !== 'plant') continue; const b = t.box; let near = 1e9;
+  H.ALONG_U.forEach(l => { near = Math.min(near, Math.max(gapOf(l[1], l[2], b[0], b[2]), gapOf(l[0], l[0], b[1], b[3]))); });
+  H.ALONG_V.forEach(l => { near = Math.min(near, Math.max(gapOf(l[1], l[2], b[1], b[3]), gapOf(l[0], l[0], b[0], b[2]))); });
+  if (near < H.CLEAR) out.plants.push(t.room + ' ' + b.slice(0, 2) + ': ' + near); }
+const door = (fixU, at, from, to) => { for (const w of H.WALLS) { if ((w.fix === 'u') === fixU || !(w.at > from && w.at < to)) continue;
+  for (const g of w.gaps || []) if (at >= g[0] && at <= g[1]) { const ends = [g[0] > w.from ? at - g[0] : 1e9, g[1] < w.to ? g[1] - at : 1e9];
+    if (Math.min(...ends) < H.CLEAR) out.doors.push('the walkway at ' + at + ' passes the end of the wall ' + w.fix + '=' + w.at + ' at ' + Math.min(...ends)); } } };
+H.ALONG_V.forEach(l => door(true, l[0], l[1], l[2])); H.ALONG_U.forEach(l => door(false, l[0], l[1], l[2]));
+const back = H.WALLS.filter(w => w.fix === 'v' && w.at === 640 && w.h < H.TALL)[0];
+out.hallDoor = 1210 - back.gaps[1][0];
 // the hall: what the notice board says is not stood before
 const face = H.boardFace(), over = b => b[0] < face[2] && b[2] > face[0] && b[1] < face[3] && b[3] > face[1];
 out.hallOver = H.SPOTS.hall.filter(s => over(H.frogBox(s.u, s.v))).map(s => s.u + ',' + s.v);
@@ -152,6 +165,8 @@ def main():
     case('plan: every step of every way runs along one axis, so only the four diagonal walk loops are ever needed', not o['diagonal'], o['diagonal'])
     case('plan: no walkway crosses a wall except at a gap or runs through furniture, and no spot stands inside any', not o['faults'], o['faults'][:6])
     case('plan: a frog steps onto its mat going down-right, the way the mirrored falling-asleep clip starts', not o['matEntry'], o['matEntry'])
+    case('plan: no walkway comes nearer a plant than a frog is wide, nor nearer the end of a rail it passes; by the hall\'s right corner the rail ends twice that far from the walkway',
+         not o['plants'] and not o['doors'] and o['hallDoor'] >= 100, (o['plants'], o['doors'], o['hallDoor']))
     case('plan: nobody who waits in the hall is drawn over what the notice board says (its words and its number); on the far side of the rug, where they stood, one was',
          not o['hallOver'] and o['farSide'], (o['hallOver'], o['farSide']))
     case('plan: the longest walk in the house is under 3,500 sprite pixels', 1500 < o['farthest'] < 3500, o['farthest'])
