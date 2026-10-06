@@ -81,7 +81,9 @@ namespace TW.Tests
             Assert.AreEqual(184f, CombatTables.WeaponFor(InfantryArchetype.Sniper).RangeMax, 1e-3f, "the sniper: 230 m");
             Assert.AreEqual(48f, CombatTables.AdvanceFireRange, 1e-3f, "under >> men engage from 48 m, not 60");
             Assert.AreEqual(56f, EngageSystem.HuntRadius, 1e-3f, "and go after men within 56 m, not 70");
-            Assert.AreEqual(288f, TankSpec.Pavise.Gun0.RangeMax, 1e-3f, "the Pavise's long gun: 360 m");
+            // the machines' guns are the metres of 2026-10-01 (110-155 m, set against the field: decisions.md), not 0.8 of
+            // the old design; their minimum ranges keep the cut
+            Assert.AreEqual(150f, TankSpec.Pavise.Gun0.RangeMax, 1e-3f, "the Pavise's long gun: 150 m since 2026-10-01, not 0.8 of 360");
             Assert.AreEqual(46f * 0.8f, TankSpec.Kettle.Gun0.RangeMin, 1e-3f, "the Kettle's minimum range shrinks with it");
             Assert.AreEqual(3.4f, TankSpec.Pincer.ClawReach, 1e-6f, "claws keep their reach");
             Assert.AreEqual(28f, InfantrySpec.For(InfantryArchetype.Jetpack).JumpRange, 1e-6f, "and the jetpack its leap");
