@@ -47,6 +47,10 @@ for (const t of H.THINGS) { if (t.over || !t.box) continue; const b = t.box;
   H.ALONG_U.forEach(l => { if (l[0] > b[1] && l[0] < b[3] && l[1] < b[2] && l[2] > b[0]) out.faults.push('a walkway runs through a ' + t.kind); });
   H.ALONG_V.forEach(l => { if (l[0] > b[0] && l[0] < b[2] && l[1] < b[3] && l[2] > b[1]) out.faults.push('a walkway runs through a ' + t.kind); });
   for (const [r, i, s] of spots) if (s.walk && s.u > b[0] && s.u < b[2] && s.v > b[1] && s.v < b[3]) out.faults.push(r + i + ' stands inside a ' + t.kind); }
+// the hall: what the notice board says is not stood before
+const face = H.boardFace(), over = b => b[0] < face[2] && b[2] > face[0] && b[1] < face[3] && b[3] > face[1];
+out.hallOver = H.SPOTS.hall.filter(s => over(H.frogBox(s.u, s.v))).map(s => s.u + ',' + s.v);
+out.farSide = over(H.frogBox(910, 830));
 out.rooms = H.ROOMS.map(r => r.id);
 out.inRoom = spots.filter(([r, i, s]) => H.roomAt(s.u, s.v) !== r).map(([r, i]) => r + i);
 
@@ -148,6 +152,8 @@ def main():
     case('plan: every step of every way runs along one axis, so only the four diagonal walk loops are ever needed', not o['diagonal'], o['diagonal'])
     case('plan: no walkway crosses a wall except at a gap or runs through furniture, and no spot stands inside any', not o['faults'], o['faults'][:6])
     case('plan: a frog steps onto its mat going down-right, the way the mirrored falling-asleep clip starts', not o['matEntry'], o['matEntry'])
+    case('plan: nobody who waits in the hall is drawn over what the notice board says (its words and its number); on the far side of the rug, where they stood, one was',
+         not o['hallOver'] and o['farSide'], (o['hallOver'], o['farSide']))
     case('plan: the longest walk in the house is under 3,500 sprite pixels', 1500 < o['farthest'] < 3500, o['farthest'])
 
     case('who: a worker is in the room its work names; whoever waits on the owner is in the hall; whoever rests is in the bunkhouse',
