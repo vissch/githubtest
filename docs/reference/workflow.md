@@ -38,6 +38,9 @@ inbox    7 notes, 1 for you
   commit took and whether that is past 300 s). With a history file it prints
   every metric worse than the last clean run, on every run until fixed; `--accept` records a deliberate one.
 - Then read the notes `health.py` marks as yours (`docs/inbox/`).
+- `handoffs` counts the handoffs on the Drive (section 10). Taking work over from another session: run
+  `python Tools/handoffs.py`, it names the current handoff of each topic. `MEND` lines are for whoever wrote the
+  handoff they name, or for you when you are replacing it.
 
 ## 2. The machine you share
 
@@ -615,3 +618,35 @@ apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --contin
   to diff), then `Shaders/Toon_URP.shader` and the URP asset in `Settings/`. Start with
   `git log -p --since=<when> -- Assets/_Project/Presentation/Terrain/BiomeProfile.cs Assets/_Project/Presentation/Terrain/Atmosphere.cs Assets/_Project/Shaders Assets/_Project/Settings`.
   There is no dusk look: the biomes are NightMud, Lava and Winter (`BiomeProfile.Biome`).
+
+## 10. Where a fact lives, and handing work over
+
+Write a fact once, in the store that owns its kind, and point at it from anywhere else. A second copy goes stale:
+on 2026-10-07 the relay's queue was 86, 89 and 96 units in three files.
+
+| Kind of fact | Its one home | Who writes it |
+|---|---|---|
+| How we work: lanes, the seam, the gate, landing | `CLAUDE.md` | whoever changes the rule, on the owner's word |
+| Task, files, tests, how to see it | `tasks.md` | whoever changes the code |
+| What the owner decided, and what waits on him | `decisions.md`; the Decide page shows the open ones as briefs (`Tools/assetboard/briefs.py`) | the session he answered |
+| A method: commands, landing, briefs, a pipeline | this file, `pipelines.md`, or the doc of the tool | whoever changes the tool |
+| An incident that cost time | `agent-memory.md` (capped) | the session it happened to |
+| A note from one lane to another | `docs/inbox/` | the sender; the receiver deletes it |
+| Work in flight that the next session must pick up | a handoff on the Drive, listed by `Tools/handoffs.py` | the session that stops |
+| A machine's traps and how-to (paths, ssh, what is installed) | that machine's agent memory | any session there |
+| **A number that changes by the hour**: the queue, the integration tip, the replay version, what is running | nowhere in prose. Name the command that prints it (`git log`, the relay's day screen, `python Tools/health.py --lanes`) | nobody |
+
+**A handoff** is a file named HANDOFF_AGENT_(topic).md in the Drive's TW3D-pipeline folder: that folder reaches
+both stations, and a live message between sessions is held and expires. It holds what the next session cannot get
+from the repo: what the owner asked in his words, what is half done and where, what was tried. It does not hold
+method (that goes in the docs above) or decisions (their row).
+
+```bash
+python Tools/handoffs.py                       # the current handoff of each topic
+python Tools/handoffs.py new HANDOFF_AGENT_x.md --topic "x" --for "one line" --replaces HANDOFF_AGENT_old.md
+python Tools/handoffs.py done HANDOFF_AGENT_x.md      # the work is finished
+python Tools/handoffs.py check                 # exit 1: a handoff nobody listed, two current on one topic, a stale index
+```
+The tool keeps the list (a JSON file beside the handoffs) and writes the folder's index page from it; nobody edits
+that page by hand. Register a handoff in the turn you write it, and name the one it replaces. When its work is
+finished or its method has moved into the docs, mark it `done` or `replace` it with `repo:` and the doc's path.
