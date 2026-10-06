@@ -36,7 +36,7 @@
     { fix: 'u', at: 560, from: 0, to: 640, h: TALL }, { fix: 'v', at: 0, from: 560, to: 2020, h: TALL },
     { fix: 'u', at: 560, from: 640, to: 1800, h: LOW, gaps: [[640, 740], [1060, 1260]] },
     { fix: 'v', at: 1160, from: 0, to: 2020, h: LOW, gaps: [[460, 660], [1160, 1360]] },
-    { fix: 'v', at: 640, from: 560, to: 2020, h: LOW, gaps: [[560, 660], [1160, 1360]] },
+    { fix: 'v', at: 640, from: 560, to: 2020, h: LOW, gaps: [[560, 660], [1100, 1360]] },      // the hall's back rail stops well short of the walkway at u 1210: a frog is 106 wide on the plan
     { fix: 'u', at: 1260, from: 0, to: 1800, h: LOW, gaps: [[540, 740], [1060, 1260]] },
     { fix: 'v', at: 1800, from: 0, to: 1260, h: CURB }, { fix: 'u', at: 2020, from: 0, to: 1160, h: CURB }
   ];
@@ -47,6 +47,7 @@
   var ALONG_V = [[60, 1210, 1750], [225, 690, 1110], [510, 690, 1750], [610, 590, 1790], [780, 215, 590], [910, 900, 1110], [1210, 215, 1210],
                  [1245, 1210, 1790], [1310, 30, 1210], [1420, 690, 1110], [1535, 30, 627], [1760, 30, 627], [1930, 690, 1110]];                         // u fixed
   var GATE = { u: 1990, v: 1210 };      // where the path from the hall's front corner leaves the picture
+  var CLEAR = 50;                       // how far a walkway stays from a plant and from the end of a rail it passes, on the plan
 
   // spots: where a frog does its work. (u, v) is where it is drawn; (au, av) the point on a walkway it comes from.
   // walk: it steps from there onto the spot (a desk is not stepped onto: the frog is simply drawn seated).
@@ -75,6 +76,8 @@
                   spot(1570, 1030, 1570, 1110), spot(1680, 1030, 1680, 1110, { flip: true }), spot(1790, 1030, 1790, 1110), spot(1885, 860, 1930, 860), spot(1885, 940, 1930, 940));
 
   // what stands in the rooms, on the plan: [u0, v0, u1, v1, height]; `over` may be walked on. housedraw.js draws each by its kind.
+  // A plant stands CLEAR (50) or more from every walkway: the two in the hall stood in the corners where two walkways
+  // meet, 32 to 42 from them, and whoever walked by was drawn through the leaves.
   var THINGS = [
     { kind: 'bench', room: 'lab', box: [60, 720, 110, 1085, 46] }, { kind: 'bench', room: 'lab', box: [290, 720, 340, 1085, 46] },
     { kind: 'machine', room: 'shop', box: [640, 14, 770, 100, 124], look: 0 }, { kind: 'machine', room: 'shop', box: [800, 14, 930, 100, 104], look: 1 },
@@ -85,9 +88,9 @@
     { kind: 'lamp', room: 'studio', box: [95, 1285, 125, 1315, 150] }, { kind: 'lamp', room: 'studio', box: [95, 1650, 125, 1680, 150] },
     { kind: 'camera', room: 'studio', box: [440, 1640, 476, 1676, 96] },
     { kind: 'board', room: 'hall', box: [790, 742, 1030, 758, 150] }, { kind: 'rug', room: 'hall', box: [700, 790, 1120, 1050, 0], over: true },
-    { kind: 'plant', room: 'hall', box: [1128, 722, 1168, 762, 70] }, { kind: 'plant', room: 'hall', box: [650, 1030, 690, 1070, 70] },
+    { kind: 'plant', room: 'hall', box: [1052, 744, 1092, 784, 70] }, { kind: 'plant', room: 'hall', box: [668, 1006, 708, 1046, 70] },
     { kind: 'table', room: 'plan', box: [1530, 830, 1830, 970, 48] }, { kind: 'easel', room: 'plan', box: [1960, 700, 1976, 800, 140] },
-    { kind: 'plant', room: 'plan', box: [1960, 1090, 2000, 1130, 70] }
+    { kind: 'plant', room: 'plan', box: [1840, 740, 1880, 780, 70] }
   ];
   // a mat lies where the sleeping frog is drawn: the clip leaves it up and back from the point it stood on (84 behind to 37 ahead, 16 to the far side)
   SPOTS.bunk.forEach(function (s, i) { THINGS.push({ kind: 'mat', room: 'bunk', box: [s.u - 98, s.v - 52, s.u + 62, s.v + 20, 9], over: true, spot: i }); });
@@ -339,7 +342,7 @@
   // the box a standing frog is drawn in, by where its feet are (housedraw.js draws and clicks it by the same box)
   function frogBox(u, v) { var c = iso(u, v); return [c[0] - 46, c[1] - 156, c[0] + 46, c[1] + 4]; }
 
-  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox,
+  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox, CLEAR: CLEAR,
     GATE: GATE, GATE_NODE: GATE_NODE, SPOTS: SPOTS, THINGS: THINGS, NODES: NODES, route: route, length: length, heading: heading, roomOf: roomOf, frogs: frogs, Sim: Sim,
     DWELL: DWELL, demo: demo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.House = api;
