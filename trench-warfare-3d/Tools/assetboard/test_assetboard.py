@@ -56,7 +56,8 @@ def real_tree():
         if a['kind'] != 'idea':
             by.setdefault(a['category'], []).append(a['id'])
     case('real tree: 16 characters', len(by['character']) == 16, by['character'])
-    case('real tree: 21 vehicle archetypes and the three machines that are not units', len(by['vehicle']) == 24, by['vehicle'])
+    # 22 since the Bullfrog (archetype 37) landed with the sim on 2026-10-06
+    case('real tree: 22 vehicle archetypes and the three machines that are not units', len(by['vehicle']) == 25, by['vehicle'])
     case('real tree: 14 chunked buildings and the five Siege structures', len(by['building']) == 19, by['building'])
     want = {'Sniper': 'FINAL', 'Rifle': 'FINAL', 'Maw': 'FINAL', 'Pincer': 'FINAL', 'Officer': 'NEEDS_VISUAL', 'Breaker': 'NEEDS_VISUAL',
             'MarkIV': 'NEEDS_VISUAL', 'Brute': 'IN_PROGRESS', 'Frog': 'IN_PROGRESS', 'Skimmer': 'READY_UNUSED', 'Salvo': 'READY_UNUSED',
