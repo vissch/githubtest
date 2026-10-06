@@ -98,8 +98,9 @@ namespace TW.Presentation.Tactical
         /// is asked for and nothing draws it.
         /// </summary>
         public static string Report() => "cards=" + cards + " quads=" + (tris.Count / 6) + " drawn=" + drawn
-                                       + " material=" + (material != null);
+                                       + " len=" + lastLen.ToString("F1") + "m material=" + (material != null);
         static int cards, drawn;
+        static float lastLen;
 
         /// <summary>Start a frame's worth of streams. Called once a frame before any Push.</summary>
         public static void Begin()
@@ -108,11 +109,42 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>
-        /// The SAG's profile along the run: 0 at both ends, deepest a little past the middle, and still falling
-        /// through the last quarter. Flamethrower.Arc is this same curve, which is why it lives here - the card and
-        /// everything still drawn as a flipbook card have to hang off ONE centreline or the stream reads as two.
+        /// The SAG's profile along the run: BALLISTIC. Nought at the nozzle and still falling hardest at the head,
+        /// the way thrown fuel falls - not a bow. Flamethrower.Arc is this same curve, which is why it lives here:
+        /// the card and everything still drawn as a flipbook card have to hang off ONE centreline or the stream
+        /// reads as two.
+        ///
+        /// look-06 had `sin(u^0.78 * pi)`, which is 0 at BOTH ends, so the stream left the nozzle on the straight
+        /// chord, bowed away from it, and came back to land exactly on it again. The master's eye is on the head,
+        /// and at the head that curve IS the chord: "a ruler-straight wedge". A falling parabola has no return.
         /// </summary>
-        public static float Sag(float u) => Mathf.Sin(Mathf.Pow(Mathf.Clamp01(u), 0.78f) * Mathf.PI);
+        public static float Sag(float u)
+        {
+            float x = Mathf.Clamp01(u);
+            return x * x * 0.85f + x * 0.15f;
+        }
+
+        /// <summary>
+        /// The slow sideways WAVER, in metres across the run. Fire hunts: the jet swings off its own axis as the
+        /// valve breathes and the man's hand moves, and two cycles over an eleven-metre run at about a third of a
+        /// metre is what reads as that rather than as a wobble. Anchored at the nozzle (the first metre barely
+        /// moves) because the mouth is bolted to the weapon and only the free fuel can wander.
+        /// phase keeps two burning men from waving in step; t scrolls it.
+        /// </summary>
+        public static float Waver(float u, float t, float phase)
+        {
+            float x = Mathf.Clamp01(u);
+            return 0.35f * Mathf.Clamp01(x * 3f) * Mathf.Sin(x * 4f * Mathf.PI - t * 1.30f + phase * 2.9f);
+        }
+
+        /// <summary>
+        /// How much WIDER the card is drawn when the camera is far away. 1 out to 60 m - nothing changes at the
+        /// zooms the owner judged the widths at - rising to 2.3 by 120 m, where the whole run is sixty pixels and a
+        /// correctly-proportioned stream is a thread. This multiplies the width only inside Push; HalfAt, and with
+        /// it the owner's 1.55 m and 3.90 m, are untouched.
+        /// </summary>
+        public static float FarWiden(float camDist) =>
+            Mathf.Lerp(1f, 2.3f, Mathf.Clamp01((camDist - 60f) / 60f));
 
         /// <summary>
         /// One stream. mouth is the nozzle, aim the unit direction, len the run in metres; sag is the cross-run
@@ -120,26 +152,29 @@ namespace TW.Presentation.Tactical
         /// so two jets are never the same picture; alpha and the glow ramp set the brightness.
         /// </summary>
         public static void Push(Vector3 mouth, Vector3 aim, float len, Vector3 toEye, Vector3 sag,
-                               float phase, float alpha, float glowMouth, float glowHead)
+                               float phase, float alpha, float glowMouth, float glowHead, float camDist = 0f)
         {
             if (len <= 0.05f || alpha <= 0.01f) return;
             cards++;
+            lastLen = len;
             Vector3 along = aim.sqrMagnitude > 1e-8f ? aim.normalized : Vector3.forward;
             Vector3 across = Across(along, toEye);
+            float wide = FarWiden(camDist), t = Time.time;
             for (int i = 0; i < Segments; i++)
             {
                 Spine(i, Segments, len, out float near, out float far, out float halfNear);
                 float u0 = i / (float)Segments, u1 = (i + 1) / (float)Segments;
-                float halfFar = HalfAt(u1);
-                Vector3 a = mouth + along * near + sag * Sag(u0);
-                Vector3 b = mouth + along * far + sag * Sag(u1);
+                halfNear *= wide;
+                float halfFar = HalfAt(u1) * wide;
+                Vector3 a = mouth + along * near + sag * Sag(u0) + across * Waver(u0, t, phase);
+                Vector3 b = mouth + along * far + sag * Sag(u1) + across * Waver(u1, t, phase);
                 var s0 = new Vector4(halfNear, phase, alpha, Mathf.Lerp(glowMouth, glowHead, u0));
                 var s1 = new Vector4(halfFar, phase, alpha, Mathf.Lerp(glowMouth, glowHead, u1));
                 int v0 = pos.Count;
-                pos.Add(a - across * halfNear); vu.Add(new Vector2(-1f, u0)); shape.Add(s0);
-                pos.Add(a + across * halfNear); vu.Add(new Vector2(1f, u0)); shape.Add(s0);
-                pos.Add(b + across * halfFar); vu.Add(new Vector2(1f, u1)); shape.Add(s1);
-                pos.Add(b - across * halfFar); vu.Add(new Vector2(-1f, u1)); shape.Add(s1);
+                pos.Add(a - across * halfNear * RimPad); vu.Add(new Vector2(-1f, u0)); shape.Add(s0);
+                pos.Add(a + across * halfNear * RimPad); vu.Add(new Vector2(1f, u0)); shape.Add(s0);
+                pos.Add(b + across * halfFar * RimPad); vu.Add(new Vector2(1f, u1)); shape.Add(s1);
+                pos.Add(b - across * halfFar * RimPad); vu.Add(new Vector2(-1f, u1)); shape.Add(s1);
                 tris.Add(v0); tris.Add(v0 + 1); tris.Add(v0 + 2);
                 tris.Add(v0); tris.Add(v0 + 2); tris.Add(v0 + 3);
             }
@@ -186,6 +221,66 @@ namespace TW.Presentation.Tactical
             noise.SetPixels32(px); noise.Apply(true, true);
             material = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             material.SetTexture("_Noise", noise);
+        }
+
+        // ------------------------------------------------------------------------------------------------------
+        // THE EDGE, MIRRORED FROM THE SHADER (look-09). FlameJet_URP.shader has a block of constants with these
+        // same names and these same values, and the four lines of arithmetic below are the same four lines. It is
+        // duplicated on purpose: EditMode cannot render, and the master's standing complaint - "its top and bottom
+        // edges are straight lines for hundreds of pixels" - is about the CONTOUR, so the contour has to be a
+        // number a test can take. FlameShapeTests prints the constants it used, so a drift between the two blocks
+        // shows up in the gate's output instead of hiding.
+        //
+        // The one thing that is NOT exact: the shader's two body reads (slow, fast) take v, and this takes the
+        // contour's own typical v. The CUT term, which is what makes the edge ragged and what the test measures,
+        // takes no v at all and is exact.
+        // ------------------------------------------------------------------------------------------------------
+
+        /// <summary>Where the DRAWN fire stops, in units of HalfAt, before the noise eats it.</summary>
+        public const float RimBase = 0.72f, RimTear = 0.42f, RimSoft = 0.26f;
+
+        /// <summary>
+        /// How deep the high-frequency noise bites into that edge, in METRES - not in units of the width. A tear in
+        /// burning fuel is about a foot across wherever on the run it happens, so a notch that scaled with the
+        /// stream would vanish at the mouth, which is the stretch the eye reads as a laser.
+        /// </summary>
+        public const float CutMetres = 0.60f;
+
+        /// <summary>The two high-frequency reads the cut is made of: tiles along the run, coprime so the pair never
+        /// settles into a locally straight stretch the way one read does.</summary>
+        public const float FineA = 23f, FineB = 41f;
+
+        /// <summary>
+        /// How much wider the MESH is built than the fire drawn on it. The eaten rim can reach RimBase+RimTear =
+        /// 1.14 of HalfAt, and a contour that reaches the quad's own side is a straight line again.
+        /// </summary>
+        public const float RimPad = 1.25f;
+
+        /// <summary>
+        /// The value noise the shader samples, as a function rather than as a texture: the very field Build() fills
+        /// _Noise from, two octaves of Tile, wrapped. Bilinear sampling of that 64x64 texture is an approximation
+        /// of this, not the other way round.
+        /// </summary>
+        public static float Noise(float x, float y)
+        {
+            float fx = x - Mathf.Floor(x), fy = y - Mathf.Floor(y);
+            return Mathf.Clamp01(Tile(fx * 4f, fy * 4f, 4) * .55f + Tile(fx * 9f, fy * 9f, 9) * .45f);
+        }
+
+        /// <summary>
+        /// The |v| at which the drawn fire reaches FULL brightness, in units of HalfAt(u): the silhouette of the
+        /// bright body, which is what a photograph's upper contour is. side is +1 or -1, the two edges of the card.
+        /// </summary>
+        public static float EdgeV(float u, float t, float phase, float side)
+        {
+            float v = 0.5f * Mathf.Sign(side == 0f ? 1f : side);
+            float slow = Noise(u * 2.10f - t * 1.10f + phase, v * 0.50f + phase * 0.7f);
+            float fast = Noise(u * 5.60f - t * 2.40f + phase * 2.3f, v * 1.15f + 0.37f);
+            float tear = slow * 0.60f + fast * 0.40f;
+            float a = Noise(u * FineA - t * 3.10f, 0.11f + phase * 0.31f);
+            float b = Noise(u * FineB + t * 1.70f, 0.63f + phase * 0.17f);
+            float fine = a * 0.58f + b * 0.42f;
+            return RimBase + RimTear * tear - RimSoft - CutMetres * fine / HalfAt(u);
         }
 
         static float Tile(float x, float z, int period)
