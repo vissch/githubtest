@@ -73,6 +73,10 @@ namespace TW.Presentation
         /// as it was, every man in the rear trench. Read once, in Awake, and only when the stress preset is on.</summary>
         public const string StressSpreadKnob = "stress.spread";
         bool stressSpread = false;
+        /// <summary>Knob (the owner, 2026-10-06): 1 = the stress preset may field a hero; 0 (default) = no hero on either
+        /// side, so the bench times a steady scene. The only place this default lives.</summary>
+        public const string StressHeroesKnob = "stress.heroes";
+        public static bool StressHeroes => Knobs.Get(StressHeroesKnob, false);
 
         public MatchSim Local { get; private set; }
         /// <summary>The canary's second world. NULL in single player: tooling that wrote "both worlds" uses WriteWorlds.</summary>
@@ -112,15 +116,27 @@ namespace TW.Presentation
             return l;
         }
 
+        /// <summary>The stress preset as the owner set it on 2026-10-06: no hero on either side, so the bench times a
+        /// steady scene instead of one a hero charges about 43 s in. TeamMask = 0 blocks the natural and the pity hero
+        /// for every team (HeroSystem.Step guards both on the mask). Applied to each world the session builds, so the
+        /// canary's second world gets the same value and cannot desync.</summary>
+        public static MatchSim StressPreset(MatchSim m)
+        {
+            if (!StressHeroes) m.World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask = 0;
+            return m;
+        }
+
         MatchSim NewMatch(SimConfig cfg)
         {
+            MatchSim m;
             if (GeneratedBattlefield)
             {
                 var field = MatchLaunch.Field(Ground, BattlefieldSeed);
                 field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
-                return MatchSim.CreateBattlefield(cfg, field);
+                m = MatchSim.CreateBattlefield(cfg, field);
             }
-            return PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
+            else m = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
+            return StressUnits > 0 ? StressPreset(m) : m;   // the gate that leaves the other presets alone
         }
 
         void Awake()
