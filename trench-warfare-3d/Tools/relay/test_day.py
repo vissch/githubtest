@@ -5,7 +5,7 @@
 Each test works in a temporary folder with a board, a relay home and the two folders of the owner's answers of its
 own: none reads the Drive.
 """
-import contextlib, io, json, os, shutil, subprocess, sys, tempfile, time, unittest
+import contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -33,7 +33,8 @@ class Base(unittest.TestCase):
         os.environ.update(TW_RELAY_HOME=str(self.home), TW_BOARD=str(self.board), TW_STATION="desktop",
                           TW_BRIEFS=str(self.briefs), TW_NOTES=str(self.notes))
         self.limits = config.limits                         # these tests count in dollars or in measured legs:
-        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
+                                             day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
         self.lim, self.ph = config.limits(), config.phases()
 
     def tearDown(self):
@@ -542,6 +543,39 @@ class AddUnit(Base):
         self.assertIn("house-cover is queued already, the same unit. Board: pushed.", out)
         self.assertEqual(git(["log", "-1", "--format=%s"], origin).strip(), "relay: queue house-cover")
         self.assertIn("Board: nothing to push.", self.main("add", "--unit", self.file())[1])
+
+
+class Pace(Base):
+    """The screen says what the day's pace allows by now, and when the next unit may start."""
+    def at(self, hour, minute=0):
+        return datetime.datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    def test_the_screen_has_a_pace_line_under_the_day(self):
+        lim = dict(self.limits(), week_usd=1000)                # as shipped: 11% a day, even over 24 hours
+        self.queue("a")
+        self.leg(10.0, "plan")
+        out = day.lines(self.board, self.home, lim, self.ph, now=self.at(12))
+        self.assertTrue(out[0].startswith("Today: about 1.0% of the week used by the relay, 10.0% left of a day's "
+                                          "cap of 11.0%."), out[0])
+        pace = [l for l in out if l.startswith("Pace: ")]
+        self.assertEqual(pace, ["Pace: 5.5% of the week allowed by 12:00, about 4.5% of it free."])
+        self.assertLess(out.index(pace[0]), [i for i, l in enumerate(out) if l.startswith("No run going")][0])
+        self.assertFalse([l for l in out if len(l) > lim["day_line_chars"]], out)
+
+    def test_ahead_of_the_pace_the_screen_says_when_the_next_unit_may_start(self):
+        lim = dict(self.limits(), week_usd=1000)
+        self.queue("a")
+        self.leg(10.0, "plan")                                  # a unit usually costs 10 + 10: 2.0 points
+        out = " ".join(l.strip() for l in day.lines(self.board, self.home, lim, self.ph, now=self.at(1)))
+        self.assertIn("Pace: 0.5% of the week allowed by 01:00, and the day is about 0.5% ahead of that. "
+                      "The next unit may start at 06:33.", out)
+        self.done("a")                                          # nothing queued: no time is named
+        out = " ".join(l.strip() for l in day.lines(self.board, self.home, lim, self.ph, now=self.at(1)))
+        self.assertNotIn("The next unit", out)
+
+    def test_with_no_pace_there_is_no_pace_line(self):
+        self.leg(10.0, "plan")
+        self.assertFalse([l for l in day.lines(self.board, self.home, self.lim, self.ph) if l.startswith("Pace")])
 
 
 if __name__ == "__main__":
