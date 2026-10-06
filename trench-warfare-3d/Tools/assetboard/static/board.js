@@ -165,6 +165,23 @@
       p.appendChild(head);
     });
     part('b-facts', s.facts || [], function (p) { (s.facts || []).forEach(function (f) { p.appendChild(el('span', null, f)); }); });
+    // what it is, in a few lines (a row of the queue: src_queue.py details)
+    part('b-detail', s.detail || [], function (p) { (s.detail || []).forEach(function (t) { p.appendChild(el('p', t.indexOf('· ') === 0 ? 'b-point' : null, t)); }); });
+    // the pictures that show it, each a click away at full size; a row that could show something and has nothing says so
+    part('b-shots', [s.shots || [], !!s.detail], function (p) {
+      if (!s.shots || !s.shots.length) { if (s.detail && s.detail.length && s.wantsShots) p.appendChild(el('p', 'b-novisual', 'No picture of this yet.')); return; }
+      s.shots.forEach(function (x) { var a = el('a', 'b-shot'), m = el('img'); a.href = ROOT + x.src; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open ' + (x.name || 'it') + ' full size';
+        m.loading = 'lazy'; m.alt = x.caption || x.name || ''; m.src = ROOT + x.src; a.appendChild(m); var f = el('figure'); f.appendChild(a); f.appendChild(el('figcaption', null, x.caption || x.name || '')); p.appendChild(f); });
+    });
+    // what he can say should happen: a click leaves that as a note of his, and the button shows it was said
+    part('b-actions', [s.actions || [], pick(all(), s).filter(function (n) { return n.state !== 'done'; }).map(function (n) { return n.text; })], function (p) {
+      if (!s.actions || !s.actions.length) return;
+      p.appendChild(el('h4', null, 'What should happen?'));
+      var said = pick(all(), s).filter(function (n) { return n.state !== 'done'; }).map(function (n) { return n.text; }), row = el('div', 'b-acts');
+      s.actions.forEach(function (a) { var b = el('button', 'b-act' + (said.indexOf(a.say) >= 0 ? ' on' : ''), a.label); b.type = 'button'; b.title = 'Leaves the note: ' + a.say;
+        b.setAttribute('aria-pressed', said.indexOf(a.say) >= 0 ? 'true' : 'false'); b.addEventListener('click', function () { if (said.indexOf(a.say) < 0) write(s, a.say); }); row.appendChild(b); });
+      p.appendChild(row); p.appendChild(el('p', 'b-acts-say', 'A click leaves that as your note. Or say it in your own words below.'));
+    });
     part('b-visual', [s.kind, s.id, v ? [v.src, v.at] : !!w], function (p) {
       if (!v) { if (w && (w.kind === 'session' || w.kind === 'agent')) p.appendChild(el('p', 'b-novisual', 'No picture or film in its hands yet.')); return; }
       var a = el('a', 'b-shot'), m, src = ROOT + v.src + '?' + v.at; a.href = ROOT + v.src; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open ' + v.name;

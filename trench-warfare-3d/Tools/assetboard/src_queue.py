@@ -331,6 +331,91 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     return q
 
 
+PICTURES = ('.png', '.jpg', '.jpeg', '.webp', '.gif')
+MOST_SHOTS = 3
+
+
+def newest_pictures(folder, most=MOST_SHOTS):
+    """The newest pictures under a folder, newest first. A folder that is not there has none."""
+    try:
+        found = [(f.stat().st_mtime, str(f)) for f in Path(folder).rglob('*') if f.suffix.lower() in PICTURES and f.is_file()]
+    except OSError:
+        return []
+    return [p for _, p in sorted(found, reverse=True)[:most]]
+
+
+def clip(s, n=110):
+    s = re.sub(r'\s+', ' ', str(s or '')).strip()
+    return s if len(s) <= n else s[:n - 1].rstrip() + '…'
+
+
+def details(q, repo, ops, board=None, integration=None):
+    """What a click on a row of the queue opens (the owner, 2026-10-06: "once i click on it i see detailed information
+    but compact and to the point with hopefully some visuals"). Every entry gets `detail`, at most five short lines that
+    say what it is and what happens when he acts, and `pictures`, at most three files that show it: the evidence the
+    board holds for the item, or for the items of the lane. The caller puts the pictures in the site. Returns q."""
+    integ = integration or src_git.INTEGRATION
+    board = Path(board) if board else None
+    items = {}
+    for f in sorted((board / 'items').glob('*.json')) if board and (board / 'items').is_dir() else []:
+        try:
+            items[f.stem] = json.loads(f.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            continue
+
+    def shown(ids):
+        out = []
+        for i in ids:
+            out += newest_pictures(board / 'evidence' / i) if board else []
+        return out[:MOST_SHOTS]
+
+    def of_lane(lane):
+        return [i for i, it in items.items() if isinstance(it, dict) and it.get('lane') == lane]
+
+    def work(lane):
+        """What a lane holds on top of integration: its newest commits in their own words, and how much it changes."""
+        ref = next((r for r in ('refs/heads/' + lane, 'refs/remotes/origin/' + lane) if src_git.git(repo, 'rev-parse', '--verify', '--quiet', r).strip()), '')
+        if not ref:
+            return []
+        subjects = [clip(s, 80) for s in src_git.git(repo, 'log', '--format=%s', '-n', '2', f'{integ}..{ref}').splitlines() if s.strip()]
+        files = re.match(r'\s*(\d+) file', src_git.git(repo, 'diff', '--shortstat', f'{integ}...{ref}'))
+        return ['· ' + s for s in subjects] + ([f'It changes {files.group(1)} file{"" if files.group(1) == "1" else "s"}.'] if files else [])
+
+    for e in q.get('land', []):
+        e['detail'] = [f'The full gate went green on its tip{", " + e["date"] if e.get("date") else ""}. It holds {e["ahead"]} commit{"" if e["ahead"] == 1 else "s"} the game does not have yet.'] + work(e['lane']) + (
+            [f'It is {e["behind"]} commit{"" if e["behind"] == 1 else "s"} behind the integration branch: on your word it is rebased and gated again, then it lands.'] if e.get('behind') else ['On your word it lands as it is.'])
+        e['pictures'] = shown(of_lane(e['lane']))
+    for e in q.get('approved', []):
+        e['detail'] = [f'You said land on {e.get("date", "")}: "{clip(e.get("words"), 60)}".'] + ([('It has not landed: ' + ', '.join(e['why']) + '.')] if e.get('why') else []) + work(e['lane'])
+        e['pictures'] = shown(of_lane(e['lane']))
+    for e in q.get('ready', []):
+        it = items.get(e.get('item'), {})
+        st = next((s for s in it.get('stages', []) if isinstance(s, dict) and s.get('id') == e.get('stage')), {})
+        e['detail'] = [clip(it.get('title') or e.get('title'), 180) + '.',
+                       f'Its step {e.get("stage")} is ready to be taken{" on the " + st["station"] if st.get("station") else ""}{" by the " + e["role"] + " role" if e.get("role") else ""}. Nobody has taken it.']
+        if st.get('notes'):
+            e['detail'].append('The step: ' + clip(st['notes'], 120))
+        later = [s['id'] for s in it.get('stages', []) if isinstance(s, dict) and e.get('stage') in (s.get('after') or [])]
+        if later:
+            e['detail'].append('Waiting behind it: ' + ', '.join(later) + '.')
+        e['pictures'] = shown([e['item']] if e.get('item') else [])
+    for e in q.get('broken', []):
+        if e.get('kind') == 'stranded':
+            titles = [t.strip() for t in str(e.get('text', '')).split(';') if t.strip()]
+            e['detail'] = ['These decisions of yours are written down on this lane only. The other lanes do not see them until it lands.'] + ['· ' + clip(t, 90) for t in titles[:4]]
+            e['pictures'] = shown(of_lane(e.get('lane', '')))
+        elif e.get('kind') == 'untaken':
+            e['detail'] = ['You answered these on the Decide page and no session has taken them up. Nothing wakes a session: it happens when you next talk to one.'] + [
+                '· ' + clip(t, 90) for t in str(e.get('text', '')).split(';')[:4] if t.strip()]
+        elif e.get('kind') == 'ci':
+            e['detail'] = ['The checks GitHub runs on the integration branch are red. The game itself is judged by the gate on the desktop, not by this run.']
+        elif e.get('kind') == 'gate':
+            e['detail'] = ['The run before a commit on this lane took longer than its budget. Slow checks get skipped: it wants a look.']
+    for e in q.get('decide', []):
+        e['detail'] = [clip(e.get('text'), 380)] if e.get('text') else []
+    return q
+
+
 def lines(q):
     """The queue as text, for a session (ops.py --queue)."""
     label = dict(broken='Broken', land='Say land (gate green on its tip)', approved='Approved, not landed', ready='Ready to take', decide='Decide')

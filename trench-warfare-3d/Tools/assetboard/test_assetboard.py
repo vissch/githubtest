@@ -385,11 +385,44 @@ def queue_fixtures():
         else:
             print('      (no node on this machine: the page\'s own two cases were not run)')
 
+        # what a click on a row opens: a few lines that say what it is, and the pictures the board holds for it
+        green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')          # the gate is green on its tip again
+        (board / 'items').mkdir()
+        (board / 'items' / 'item.json').write_text(json.dumps(dict(id='item', title='An item about a house', lane='lane/show/a', stages=[
+            dict(id='gate', station='desktop', role='qa', notes='Run the gate on the exact tree.'), dict(id='land', after=['gate'])])))
+        for n in ('one', 'two', 'three', 'four'):
+            png(board / 'evidence' / 'item' / 'look' / f'{n}.png', 40, 30)
+        (board / 'evidence' / 'item' / 'look' / 'notes.md').write_text('words')
+        qd = src_queue.details(src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=red)), now=when), repo, floor, board=board)
+        land_d, ready_d = qd['land'][0], qd['ready'][0]
+        case('queue: a click on a row has what it is in at most five short lines: a lane to land says its newest work and what his word does, a ready step what it is and what waits behind it',
+             all(isinstance(e.get('detail'), list) and 0 < len(e['detail']) <= 5 and all(isinstance(t, str) and t for t in e['detail']) for g in src_queue.GROUPS for e in qd[g])
+             and land_d['detail'][0] == 'The full gate went green on its tip, 2026-09-08. It holds 1 commit the game does not have yet.' and land_d['detail'][1:3] == ['· lane/show/a', 'It changes 1 file.']
+             and land_d['detail'][-1].startswith('It is 1 commit behind the integration branch: on your word')
+             and ready_d['detail'] == ['An item about a house.', 'Its step gate is ready to be taken on the desktop by the qa role. Nobody has taken it.', 'The step: Run the gate on the exact tree.',
+                                       'Waiting behind it: land.'], (land_d['detail'], ready_d['detail'], [(g, e.get('detail')) for g in src_queue.GROUPS for e in qd[g]]))
+        case('queue: a row shows at most three pictures, the newest the board holds for its item or for the items of its lane; what is no picture is not one',
+             len(ready_d['pictures']) == 3 and all(p.endswith('.png') for p in ready_d['pictures']) and land_d['pictures'] == ready_d['pictures']
+             and [e for g in src_queue.GROUPS for e in qd[g] if len(e.get('pictures', [])) > 3] == [], (ready_d['pictures'], land_d['pictures']))
+        if node:
+            js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const g = Q.groups(q);'
+                  'console.log(JSON.stringify([g.map(x => x.more.length === x.rows.length), Q.more("land", q.land[0]).actions.map(a => a.label), Q.more("ready", q.ready[0]).actions.map(a => a.say),'
+                  ' Q.more("broken", {kind: "stranded"}).actions.length, Q.more("broken", {kind: "ci"}).actions.length, Q.more("decide", {}).actions.length, Q.more("land", q.land[0]).detail.length,'
+                  ' Q.more("ready", {detail: ["1", "2", "3", "4", "5", "6"], shots: [1, 2, 3, 4]}).detail.length, Q.more("ready", {shots: [1, 2, 3, 4]}).shots.length]))')
+            p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'queue.js'), json.dumps(qd)], capture_output=True)
+            got = json.loads(p.stdout.decode() or 'null')
+            case('page: every row has what a click opens; a lane to land and a ready step offer what he can say should happen, a red checks run and a question offer none',
+                 got and all(got[0]) and got[1] == ['Land it', 'Not yet'] and got[2] == ['Take this step next.', 'Leave this step for now.'] and got[3:] == [1, 0, 0, len(land_d['detail']), 5, 3], (got, p.stderr[-300:]))
+
         # ops.py writes the queue beside the page, and the beat on every read, changed or not
         out = repo / 'site'
         cache_file = repo / 'cache.json'
         cache_file.write_text(json.dumps(dict(ci=dict(at=time.time(), run=red))))
         ops.queue(floor, out, cache_file, repo=repo, board=board)
+        wrote = (out / 'data' / 'queue.js').read_text(encoding='utf-8')
+        case('ops: the queue it writes has each row\'s lines and its pictures in the site, and no path of this machine',
+             '"detail": ["The full gate went green' in wrote and '"shots": [{"name": ' in wrote and '"pictures"' not in wrote and str(board) not in wrote
+             and len(list((out / 'img' / 'queue').glob('*'))) == 3, wrote[:300])
         first = (out / 'data' / 'queue.js').stat().st_mtime_ns, (out / 'data' / 'beat.js').read_text()
         ops.queue(dict(floor, now='2026-09-09 12:00:20'), out, cache_file, repo=repo, board=board)
         case('ops: an unchanged queue is not written again, and the beat is, so the page can tell stale from unchanged',

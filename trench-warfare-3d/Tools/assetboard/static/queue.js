@@ -24,10 +24,24 @@
                                 chips: chips([e.stage, short(e.lane), age(e.days)]) };
     return { top: e.title, lane: e.lane, url: e.url, tip: e.text || e.title, chips: chips([short(e.lane), age(e.days)]) };
   }
+  // what a click on a row opens (board.js): the few lines src_queue.py details() wrote, the pictures that show it, and
+  // what he can say should happen. A click on one of those leaves a note in his words: it is his word, as a typed one is.
+  var SAY = {
+    land: [['Land it', 'Land it.'], ['Not yet', 'Not yet: do not land it.']],
+    approved: [['Land it now', 'Land it now.'], ['Hold it', 'Hold it: do not land it yet.']],
+    ready: [['Take it next', 'Take this step next.'], ['Leave it', 'Leave this step for now.']],
+    stranded: [['Land this lane', 'Land this lane, so its decisions reach the others.']],
+    untaken: [['Take them up now', 'Take my answers up now.']]
+  };
+  function more(g, e) {
+    var acts = SAY[g === 'broken' ? e.kind : g] || [];
+    return { detail: (e.detail || []).slice(0, 5), shots: (e.shots || []).slice(0, 3), actions: acts.map(function (a) { return { label: a[0], say: a[1] }; }) };
+  }
   // the groups that hold something, in the order they are listed
   function groups(q) {
     return GROUPS.map(function (g) {
-      return { key: g.key, label: g.label, verb: g.verb, rows: ((q && q[g.key]) || []).map(function (e) { return row(g.key, e); }) };
+      return { key: g.key, label: g.label, verb: g.verb, rows: ((q && q[g.key]) || []).map(function (e) { return row(g.key, e); }),
+               more: ((q && q[g.key]) || []).map(function (e) { return more(g.key, e); }) };
     }).filter(function (g) { return g.rows.length; });
   }
   function count(q) { return groups(q).reduce(function (n, g) { return n + g.rows.length; }, 0); }
@@ -39,6 +53,6 @@
     return { minutes: m, stale: m > STALE_MINUTES,
              text: m < 1 ? 'read just now' : m < 120 ? 'read ' + m + ' min ago' : m < 2880 ? 'read ' + Math.round(m / 60) + ' h ago' : 'read ' + Math.round(m / 1440) + ' days ago' };
   }
-  var api = { groups: groups, count: count, fresh: fresh, short: short, STALE_MINUTES: STALE_MINUTES };
+  var api = { groups: groups, count: count, fresh: fresh, short: short, more: more, STALE_MINUTES: STALE_MINUTES };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.OwnerQueue = api;
 })(typeof window !== 'undefined' ? window : this);

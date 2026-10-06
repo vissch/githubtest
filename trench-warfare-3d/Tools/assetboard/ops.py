@@ -140,6 +140,21 @@ def board_root():
         return None
 
 
+def row_shot(out: Path, path):
+    """A picture that shows a row of the queue, in the site as img/queue/<name>: made once, and again when the
+    picture changed. None when it cannot be shown."""
+    import hashlib
+    src = Path(path)
+    try:
+        st = src.stat()
+    except OSError:
+        return None
+    key = hashlib.sha1(f'{src}|{int(st.st_mtime)}|{st.st_size}'.encode('utf-8')).hexdigest()[:12]
+    had = [f for f in (out / 'img' / 'queue').glob(key + '.*')] if (out / 'img' / 'queue').is_dir() else []
+    dst = had[0] if had else src_visuals.shrink(src, out / 'img' / 'queue' / (key + '.jpg'))
+    return dict(src=dst.relative_to(out).as_posix(), name=src.name) if dst else None
+
+
 def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None, answers=None):
     """The owner queue for this reading, and the beat. What a read need not ask again is kept in this station's cache.
     `answers` is briefs.answers(): what he answered on the Decide page that no session has taken up."""
@@ -149,6 +164,13 @@ def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=Non
     except (OSError, ValueError):
         cache = {}
     q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache, answers=answers)
+    try:                                # what a click on a row opens: a few lines and the pictures that show it
+        src_queue.details(q, repo or build.REPO, data, board=board or board_root())
+        for g in src_queue.GROUPS:
+            for e in q[g]:
+                e['shots'] = [s for s in (row_shot(out, p) for p in e.pop('pictures', [])) if s]
+    except Exception as e:      # noqa: BLE001  a row without its detail is still a row
+        print(f'ops: the rows of the queue have no detail ({type(e).__name__}: {e})')
     write_if_changed(cache_path, json.dumps(cache, sort_keys=True))
     write_if_changed(out / 'data' / 'queue.js', f'window.QUEUE = {json.dumps(q, sort_keys=True)};\n')
     beat = out / 'data' / 'beat.js'

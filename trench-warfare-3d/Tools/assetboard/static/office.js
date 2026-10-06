@@ -198,7 +198,7 @@
     var queue = window.QUEUE || { ready: ready.map(function (x) {
       return { title: x.item.title || x.item.id, item: x.item.id, stage: x.stage.id, lane: x.lane.branch, role: x.stage.skill || x.stage.role || '', days: null }; }) };
     var groups = Q ? Q.groups(queue) : [], waiting = groups.reduce(function (n, g) { return n + g.rows.length; }, 0);
-    function qrow(g, r, cls) {
+    function qrow(g, r, cls, m) {
       // a decision leads to its brief on the decisions page (decide.js), or to its place among those without one
       var Bf = g.key === 'decide' ? window.Briefs : null, bf = Bf ? Bf.match(window.BRIEFS, r.top) : null, to = Bf ? 'decide.html#' + (bf ? bf.id : 'q-' + Bf.slug(r.top)) : '';
       var a = el(r.lane || r.url || to ? 'a' : 'div', cls); a.title = r.tip || r.top;
@@ -208,8 +208,18 @@
       var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c) { sub.appendChild(el('span', 'k-qchip', c)); }); what.appendChild(sub);
       if (bf) sub.appendChild(el('span', 'k-qchip k-qbrief', 'brief, with ' + (bf.evidence.length ? bf.evidence.length + (bf.evidence.length === 1 ? ' picture' : ' pictures') : 'no picture')));
       a.appendChild(what);
-      if (Bd) a.appendChild(Bd.button({ kind: 'queue', id: g.key + ': ' + r.top, kindLabel: g.label.toLowerCase(), title: r.top, sub: r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '',
-        links: r.lane ? [{ label: 'Its branch, ' + shortBranch(r.lane), href: 'floor.html#' + slug(r.lane) }] : r.url ? [{ label: 'Open it', href: r.url }] : [], facts: r.chips }));
+      m = m || {};
+      // the pictures of a row: what the board holds for it, then what the briefs about its lane show
+      var shots = (m.shots || []).slice();
+      (window.BRIEFS || []).forEach(function (b) { if (r.lane && b.lane === r.lane) (b.evidence || []).forEach(function (e) { if (e.src && e.kind !== 'film' && shots.length < 3) shots.push({ src: e.src, name: e.file, caption: e.caption }); }); });
+      var has = m.detail && m.detail.length;          // the lines say it: then no tip under the title, and a ready step by its short name
+      var subj = { kind: 'queue', id: g.key + ': ' + r.top, kindLabel: g.label.toLowerCase(), title: g.key === 'ready' ? headline(r.top) : r.top, sub: !has && r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '',
+        links: (bf ? [{ label: 'Its brief, with the options', href: to }] : []).concat(r.lane ? [{ label: 'Its branch, ' + shortBranch(r.lane), href: 'floor.html#' + slug(r.lane) }] : r.url ? [{ label: 'Open it', href: r.url }] : []),
+        facts: r.chips, detail: m.detail || [], shots: shots, actions: m.actions || [], wantsShots: g.key === 'land' || g.key === 'ready' || g.key === 'approved' };
+      // a click on the row opens what it is, with its pictures and what he can say should happen; a decision with a brief
+      // goes to the brief, which is that page already. A click with a key held still follows the link.
+      if (Bd && !bf) a.addEventListener('click', function (ev) { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return; ev.preventDefault(); Bd.open(subj); });
+      if (Bd) a.appendChild(Bd.button(subj));
       return a;
     }
     var pr = $('p-ready');
@@ -235,10 +245,10 @@
       groups.forEach(function (g) {
         var card = el('article', 'k-qcard k-q-' + g.key); card.id = 'q-' + g.key;
         var h = el('header'); h.appendChild(el('b', null, g.label)); h.appendChild(el('span', 'k-qn', String(g.rows.length))); card.appendChild(h);
-        g.rows.slice(0, 5).forEach(function (r) { card.appendChild(qrow(g, r, 'k-qrow')); });
+        g.rows.slice(0, 5).forEach(function (r, i) { card.appendChild(qrow(g, r, 'k-qrow', g.more && g.more[i])); });
         if (g.rows.length > 5) {
           var more = el('details', 'k-qmore'); more.appendChild(el('summary', null, 'All ' + g.rows.length));
-          g.rows.slice(5).forEach(function (r) { more.appendChild(qrow(g, r, 'k-qrow')); });
+          g.rows.slice(5).forEach(function (r, i) { more.appendChild(qrow(g, r, 'k-qrow', g.more && g.more[i + 5])); });
           card.appendChild(more);
         }
         cards.appendChild(card);

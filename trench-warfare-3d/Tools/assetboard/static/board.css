@@ -23,6 +23,16 @@
   background: linear-gradient(100deg, transparent, rgba(255, 74, 28, .7), rgba(255, 176, 58, .45), transparent); }
 .b-shot-cap { margin: 6px 2px 0; color: #9a9a97; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .b-novisual { margin: 0; padding: 20px 12px; border-radius: 14px; border: 1px dashed #343437; color: #8a8a86; font-size: 12.5px; text-align: center; }
+/* a row of the queue, opened: what it is in a few lines, the pictures that show it, what he can say should happen */
+.b-detail { margin: 10px 0 0; } .b-detail p { margin: 0 0 7px; color: #e6e6e3; font: 400 14px/1.45 var(--sans, sans-serif); overflow-wrap: anywhere; }
+.b-detail p.b-point { margin: 0 0 3px; color: #c9c9c5; font-size: 13px; }
+.b-shots { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 12px 0 0; } .b-shots figure { margin: 0; min-width: 0; }
+.b-shots figcaption { margin: 4px 2px 0; color: #9a9a97; font-size: 11.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.b-shots figure:first-child:nth-last-child(1), .b-shots .b-novisual { grid-column: 1 / -1; }
+.b-actions h4 { margin: 16px 0 8px; } .b-acts { display: flex; flex-wrap: wrap; gap: 8px; }
+.b-act { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #6a6a6e; background: #1b1b1e; color: #fff; font: 600 14px var(--sans, sans-serif); cursor: pointer; }
+.b-act:hover, .b-act:focus-visible { border-color: #ff4a1c; outline: none; } .b-act.on { background: #f1f1ef; color: #141416; border-color: #f1f1ef; cursor: default; }
+.b-acts-say { margin: 8px 2px 0; color: #9a9a97; font-size: 12px; }
 .b-links { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 0; }
 .b-links a { display: block; padding: 10px 12px; border-radius: 10px; background: #232326; color: #fff; text-decoration: none; font-weight: 600; border: 1px solid transparent; }
 .b-links a:hover, .b-links a:focus-visible { border-color: #ff4a1c; }
