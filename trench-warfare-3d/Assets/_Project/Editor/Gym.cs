@@ -271,7 +271,7 @@ namespace TW.Editor
             float floor = 0f;
             for (int c = 0; c < 2; c++)
             {
-                if (c == 0) { director.Clear(); yield return new WaitForSeconds(1f); }
+                if (c == 0) { Debug.Log("Gym: " + director.Bare()); yield return new WaitForSeconds(1f); }
                 string ca = Path.Combine(raw, "calib" + c + "_a.png"), cb = Path.Combine(raw, "calib" + c + "_b.png");
                 CaptureRig.Shot(ca, director.Stage.x, director.Stage.y, GymStrip.Zoom, 30f, 25f, 800, 450);
                 float cu = Time.realtimeSinceStartup + 30f;
@@ -288,6 +288,58 @@ namespace TW.Editor
             float threshold = GymStrip.Threshold(floor);
             // one floor per distinct strip zoom: a 6 m frame repaints more of itself on its own than a 16 m one
             var floors = new Dictionary<float, float> { { GymStrip.Zoom, floor } };
+            // A floor PER ZOOM, measured up front on the idle bare stage (look-08). The strip's zoom comes from how
+            // tall the subject is, so a run uses a handful of them, and a 6 m frame repaints 0.2466 of itself on its
+            // own where a 16 m one repaints a hundredth. Judging a close entry against the 16 m floor - or against
+            // three times its own - is what flagged every close entry in round 3. Measured here rather than lazily
+            // beside the staged subject, because a staged stage is not idle: he breathes, the machine idles.
+            foreach (float z in new[] { GymStrip.ZoomFor(GymStrip.SubjectHeight(false, false), 25f),
+                                        GymStrip.ZoomFor(GymStrip.SubjectHeight(true, false), 25f),
+                                        GymStrip.ZoomFor(GymStrip.SubjectHeight(false, true), 25f),
+                                        GymStrip.Zoom, GymStrip.FlyerZoom })
+            {
+                if (floors.ContainsKey(z)) continue;
+                float got = float.NaN;
+                yield return StartCoroutine(MeasureFloor(raw, director.Stage, z, float.NaN, v => got = v));
+                floors[z] = float.IsNaN(got) ? floor : got;
+                Debug.Log("Gym: noise floor at zoom " + z.ToString("0.0", Inv) + " is " + floors[z].ToString("0.0000", Inv)
+                          + ", threshold " + GymStrip.Threshold(floors[z]).ToString("0.0000", Inv));
+            }
+            // THE CONTROLS (look-08): a strip of the idle stage, which by construction draws nothing new. Shot at the
+            // closest and the widest zoom the run uses and judged exactly as an entry is, against its own zoom's
+            // floor. A control that comes out UNFLAGGED says the rule can no longer fail, so the run's own
+            // "nothing drawn" flags are worth nothing - it goes into summary.json either way, for FLAGS.md to read.
+            var controls = new StringBuilder();
+            foreach (float z in new[] { GymStrip.ZoomFor(GymStrip.SubjectHeight(false, false), 25f), GymStrip.FlyerZoom })
+            {
+                var ch = new List<float>();
+                string c0 = Path.Combine(raw, "ctrl_" + z.ToString("0", Inv) + "_0.png");
+                CaptureRig.Shot(c0, director.Stage.x, director.Stage.y, z, 30f, 25f, 800, 450);
+                float cu2 = Time.realtimeSinceStartup + 30f;
+                while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < cu2) yield return null;
+                for (int i = 1; i < GymStrip.Frames; i++)
+                {
+                    yield return new WaitForSeconds(0.5f);
+                    string ci = Path.Combine(raw, "ctrl_" + z.ToString("0", Inv) + "_" + i + ".png");
+                    CaptureRig.Shot(ci, director.Stage.x, director.Stage.y, z, 30f, 25f, 800, 450);
+                    cu2 = Time.realtimeSinceStartup + 30f;
+                    while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < cu2) yield return null;
+                    yield return null;
+                    ch.Add(Gym.JsonNumber(CaptureRig.Diff(c0, ci), "changed_frac"));
+                    TryDelete(ci); TryDelete(Path.ChangeExtension(ci, ".json"));
+                }
+                TryDelete(c0); TryDelete(Path.ChangeExtension(c0, ".json"));
+                float cfl = floors.TryGetValue(z, out float cf2) ? cf2 : floor;
+                string verdict = GymStrip.NothingDrawn(ch, cfl);
+                float cbest = 0f; foreach (var v in ch) if (!float.IsNaN(v) && v > cbest) cbest = v;
+                controls.Append(controls.Length == 0 ? "" : ", ").Append("{\"zoom\": ").Append(z.ToString("0.0", Inv))
+                        .Append(", \"floor\": ").Append(cfl.ToString("0.0000", Inv))
+                        .Append(", \"threshold\": ").Append(GymStrip.Threshold(cfl).ToString("0.0000", Inv))
+                        .Append(", \"best\": ").Append(cbest.ToString("0.0000", Inv))
+                        .Append(", \"flagged\": ").Append(verdict != null ? "true" : "false")
+                        .Append(", \"flag\": ").Append(verdict == null ? "null" : "\"" + Gym.Esc(verdict) + "\"").Append("}");
+                Debug.Log("Gym: control at zoom " + z.ToString("0.0", Inv) + ": " + (verdict ?? "NOT FLAGGED - the rule cannot fail here"));
+            }
             File.AppendAllText(Path.Combine(dir, "gym-run.txt"), "noise floor: " + floor.ToString("0.0000", Inv) + " of a close frame; nothing-drawn threshold " + threshold.ToString("0.0000", Inv) + "\n");
             Debug.Log("Gym: noise floor " + floor.ToString("0.0000", Inv) + ", threshold " + threshold.ToString("0.0000", Inv));
             var entries = Select(GymCatalogue.All(host.Local.World));
@@ -307,13 +359,18 @@ namespace TW.Editor
                 if (Gym.Size(dir) > MaxRunBytes) { stopped = "the run passed 1 GB"; break; }
 
                 // bare=1: an EMPTY stage, and no smouldering hull the renderer kept after the sim despawned it
-                if (Gym.Opt(Options, "bare") == "1") Debug.Log("Gym: " + director.Bare());
+                // ALWAYS for a strip entry (look-08): round 3 photographed Units/Skimmer with the previous entry's
+                // wreck in frame and seven unit entries with a hull or a walker leg between the camera and the man,
+                // because Clear() leaves standing what the renderer still draws. bare=1 forces it for every tab.
+                string bared = null;
+                if (Gym.Opt(Options, "bare") == "1" || GymStrip.Expects(e)) { bared = director.Bare(); Debug.Log("Gym: " + bared); }
                 else director.Clear();
                 yield return new WaitForSeconds(1.5f);
                 // each entry draws from its own seed, so its pictures do not hang on what the entries before it drew
                 UnityEngine.Random.InitState(Seed(e.Tab + "/" + e.Name));
                 director.NextStage();
                 var r = director.Begin(e);
+                if (bared != null) r.Log.Add(bared);
                 int pinned = -1, slot = -1;
                 float wait;
                 var shots = new List<string>(); var jsons = new List<string>();
@@ -342,6 +399,7 @@ namespace TW.Editor
                 // could not tell the overlay from the effect it is there to isolate.
                 bool hudOpt = Gym.Opt(Options, "hud") == "1";
                 bool overlaysWere = TW.Presentation.Tactical.CombatFx.ShowOverlays;
+                bool ringsWere = TW.Presentation.Tactical.TankRenderer.ShowRings;
                 // STAGING FIRST, trigger second (look-04): the victim, the machine or the unit has to be standing in
                 // the 'before' frame, or the measured change is "a man appeared" and not "an effect was drawn".
                 if (e.Tab == GymTab.Scenes)
@@ -386,27 +444,20 @@ namespace TW.Editor
                     TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
                     if (sky != null) sky.Lightning = false;
                     TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
-                    Overlays(GymStrip.ShowsOverlays(e, hudOpt));
+                    Overlays(GymStrip.ShowsOverlays(e, hudOpt), GymStrip.ShowsSelection(e, hudOpt));
                     // The noise floor at THIS zoom, measured on the staged-but-not-triggered stage: a tighter frame
                     // repaints a larger share of itself on its own, so one floor measured at 16 m is the wrong
                     // yardstick for a 6 m one. Once per distinct zoom, kept for the rest of the run.
                     float zfloor;
                     if (!floors.TryGetValue(szoom, out zfloor))
                     {
-                        string za = Path.Combine(raw, "calibz_a.png"), zb = Path.Combine(raw, "calibz_b.png");
-                        CaptureRig.Shot(za, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
-                        float zu = Time.realtimeSinceStartup + 30f;
-                        while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < zu) yield return null;
-                        yield return new WaitForSeconds(0.5f);
-                        CaptureRig.Shot(zb, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
-                        zu = Time.realtimeSinceStartup + 30f;
-                        while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < zu) yield return null;
-                        yield return null;
-                        float zf = Gym.JsonNumber(CaptureRig.Diff(za, zb), "changed_frac");
-                        zfloor = float.IsNaN(zf) ? floor : Mathf.Max(zf, 0f);
+                        // a fallback only: every zoom the run can use was measured on the idle stage before the
+                        // catalogue. Here the subject is standing in frame and breathing, so this floor reads high.
+                        float got2 = float.NaN;
+                        yield return StartCoroutine(MeasureFloor(raw, sfocus, szoom, saimY, v => got2 = v));
+                        zfloor = float.IsNaN(got2) ? floor : got2;
                         floors[szoom] = zfloor;
-                        foreach (var tmp in new[] { za, zb }) { TryDelete(tmp); TryDelete(Path.ChangeExtension(tmp, ".json")); }
-                        Debug.Log("Gym: noise floor at zoom " + szoom.ToString("0.0", Inv) + " is " + zfloor.ToString("0.0000", Inv));
+                        Debug.Log("Gym: noise floor at zoom " + szoom.ToString("0.0", Inv) + " is " + zfloor.ToString("0.0000", Inv) + " (measured late, with the subject staged)");
                     }
                     stripFloor = zfloor;
                     // the 'before' frame: the subject standing on the stage, a tick before the trigger. Everything the
@@ -424,7 +475,7 @@ namespace TW.Editor
                     {
                         float at2 = begun + moments[i];
                         while (Time.time < at2) yield return null;
-                        Overlays(GymStrip.ShowsOverlays(e, hudOpt));   // re-asserted: the HUD rebuilds itself between frames
+                        Overlays(GymStrip.ShowsOverlays(e, hudOpt), GymStrip.ShowsSelection(e, hudOpt));   // re-asserted: the HUD rebuilds itself between frames
                         string png = Path.Combine(raw, stem + "_" + GymStrip.Names[i + 1] + ".png");
                         CaptureRig.Shot(png, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
                         float su = Time.realtimeSinceStartup + 30f;
@@ -464,7 +515,7 @@ namespace TW.Editor
                     TW.Presentation.Tactical.CameraShake.Strength = shake;
                     if (sky != null) sky.Lightning = lightning;
                     TW.Presentation.Terrain.Storm.Hold = held;
-                    Overlays(overlaysWere);
+                    Overlays(overlaysWere, ringsWere);
                     CaptureRig.NoSubject();
                 }
                 else if (e.Tab != GymTab.Scenes)
@@ -553,7 +604,7 @@ namespace TW.Editor
             summary.Append(",\n  \"noise_floors\": {");
             bool f0 = true;
             foreach (var kv in floors) { summary.Append(f0 ? "" : ", ").Append('"').Append(kv.Key.ToString("0.0", Inv)).Append("\": ").Append(kv.Value.ToString("0.0000", Inv)); f0 = false; }
-            summary.Append("}\n}\n");
+            summary.Append("},\n  \"controls\": [").Append(controls.ToString()).Append("]\n}\n");
             var recurring = Recurring(dir, summaryFlags);
             summary.Length -= 2;   // reopen the object: drop "}\n"
             summary.Append(",\n  \"recurring\": [");
@@ -880,6 +931,27 @@ namespace TW.Editor
             catch (System.Exception ex) { Debug.LogWarning("Gym: could not append lessons: " + ex.Message); }
         }
 
+        /// <summary>
+        /// The noise floor at one camera pose: two stills half a second apart with nothing triggered, and the share
+        /// of the frame that repainted between them (rain, flicker, a lamp, a man breathing). `aimY` NaN leaves the
+        /// rig's own aim. Hands the number to `got`, or NaN when the rig gave nothing.
+        /// </summary>
+        IEnumerator MeasureFloor(string raw, Vector2 at, float zoom, float aimY, System.Action<float> got)
+        {
+            string a = Path.Combine(raw, "calibz_a.png"), b = Path.Combine(raw, "calibz_b.png");
+            CaptureRig.Shot(a, at.x, at.y, zoom, 30f, 25f, 800, 450, aimY);
+            float u = Time.realtimeSinceStartup + 30f;
+            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < u) yield return null;
+            yield return new WaitForSeconds(0.5f);
+            CaptureRig.Shot(b, at.x, at.y, zoom, 30f, 25f, 800, 450, aimY);
+            u = Time.realtimeSinceStartup + 30f;
+            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < u) yield return null;
+            yield return null;   // the rig writes the last still and its sidecar the frame after the queue empties
+            float f = Gym.JsonNumber(CaptureRig.Diff(a, b), "changed_frac");
+            foreach (var tmp in new[] { a, b }) { TryDelete(tmp); TryDelete(Path.ChangeExtension(tmp, ".json")); }
+            got(float.IsNaN(f) ? float.NaN : Mathf.Max(f, 0f));
+        }
+
         static void SafeWrite(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
                               ref int flagged, ref int done, string sheet, AnimState? pose, List<float> stripChanged = null,
                               string truth = null, bool machineChanged = false, bool previewOnly = false)
@@ -894,9 +966,12 @@ namespace TW.Editor
         /// A gym strip hides them (look-04): an aiming disc or a selection ring repaints a large share of a close
         /// frame, and the strip's measurement is there to isolate the EFFECT, not the instrument's own furniture.
         /// </summary>
-        static void Overlays(bool show)
+        static void Overlays(bool show, bool rings)
         {
             TW.Presentation.Tactical.CombatFx.ShowOverlays = show;
+            // the cyan ground ring under a machine is drawn in the WORLD by TankRenderer, so the UIDocument sweep
+            // below never touched it: round 3 has it lying across the hull of every vehicle entry (look-08).
+            TW.Presentation.Tactical.TankRenderer.ShowRings = rings;
             var display = show
                 ? new UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle>(UnityEngine.UIElements.StyleKeyword.Null)
                 : new UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle>(UnityEngine.UIElements.DisplayStyle.None);

@@ -64,7 +64,8 @@ namespace TW.Tests
         {
             Assert.AreEqual(0.004f, GymStrip.Threshold(0f), 1e-6f);
             Assert.AreEqual(0.004f, GymStrip.Threshold(0.001f), 1e-6f, "3 x 0.001 is under the floor");
-            Assert.AreEqual(0.030f, GymStrip.Threshold(0.010f), 1e-6f);
+            // look-08: past a floor of 0.005 the line is the floor plus 1 % of the frame, not three times the floor
+            Assert.AreEqual(0.020f, GymStrip.Threshold(0.010f), 1e-6f);
         }
 
         [Test]
@@ -210,6 +211,44 @@ namespace TW.Tests
             Assert.GreaterOrEqual(frac, 0.5f, "a man must fill half a close view's height");
             float old = 2f * Mathf.Cos(pitch * Mathf.Deg2Rad) / (1.1547f * GymStrip.ZoomFor(2f, pitch, share));
             Assert.Less(old, 0.3f, "and the old floor could not frame him: that is what this is for");
+        }
+
+
+        // ---------------------------------------------------------------- look-08: a line that can still fail
+        [Test]
+        public void ThresholdLeavesRoundThreesShotUnflagged()
+        {
+            // Round 3's Deaths/Shot, shot at 6 m where the idle floor is 0.2466: the strip moved 0.2725, 0.2594,
+            // 0.2525, 0.2530 of the frame - clearly more than idle - and the old rule (three times the floor, 0.7398)
+            // flagged it "nothing drawn". On the old Threshold the first assert below fails.
+            var shot = new[] { 0.2725f, 0.2594f, 0.2525f, 0.2530f };
+            Assert.IsNull(GymStrip.NothingDrawn(shot, 0.2466f), "a strip that moved a quarter of the frame drew something");
+            Assert.IsNotNull(GymStrip.NothingDrawn(new[] { 0.2470f }, 0.2466f), "and a strip sitting AT the floor is still flagged");
+            Assert.AreEqual(0.2566f, GymStrip.Threshold(0.2466f), 1e-4f, "the floor plus 1 % of the frame");
+        }
+
+        [Test]
+        public void ThresholdKeepsTheOldThreeTimesRuleAtATinyFloor()
+        {
+            Assert.AreEqual(0.004f, GymStrip.Threshold(0.0005f), 1e-6f, "never under 0.4 % of the frame");
+            Assert.AreEqual(0.009f, GymStrip.Threshold(0.003f), 1e-6f, "3 x floor is the tighter of the two here");
+            Assert.AreEqual(0.03f, GymStrip.Threshold(0.02f), 1e-6f, "floor + 0.01 takes over once 3 x floor runs away");
+            foreach (float f in new[] { 0f, 0.001f, 0.01f, 0.1f, 0.5f })
+                Assert.LessOrEqual(GymStrip.Threshold(f), 3f * f > 0.004f ? 3f * f : 0.004f, "never looser than the old rule");
+        }
+
+        [Test]
+        public void AStripHidesTheMachinesGroundRing()
+        {
+            var maw = new GymEntry { Tab = GymTab.Units, Name = "Maw", Expect = GymExpect.Fires };
+            Assert.IsFalse(GymStrip.ShowsSelection(maw, false), "the cyan ring is an instrument, not the machine");
+            Assert.IsTrue(GymStrip.ShowsSelection(maw, true), "hud=1 puts it back");
+            var clip = new GymEntry { Tab = GymTab.Clips, Name = "Walk", Expect = GymExpect.Fires };
+            Assert.IsTrue(GymStrip.ShowsSelection(clip, false), "a clip or a scene is the game as it is played");
+            var ring = new GymEntry { Tab = GymTab.Units, Name = "SelectionRing", Expect = GymExpect.Fires };
+            Assert.IsTrue(GymStrip.ShowsSelection(ring, false), "an entry about the ring keeps its subject");
+            Assert.IsFalse(GymStrip.AboutSelection(maw));
+            Assert.IsTrue(GymStrip.AboutSelection(ring));
         }
 
     }

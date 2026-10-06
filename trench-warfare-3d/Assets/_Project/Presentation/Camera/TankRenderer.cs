@@ -45,6 +45,14 @@ namespace TW.Presentation.Tactical
         // the sides' colours (horns, ground ring): blue and red read against the night grade and against each other
         public static readonly Color TeamA = new Color(0.35f, 0.85f, 1.0f), TeamB = new Color(0.88f, 0.25f, 0.16f);
 
+        /// <summary>Is the ground ring under a machine - the team-coloured contact disc and its rider pips - drawn?
+        /// True in the game. A gym strip turns it off (look-08): it is an instrument, not the machine, and in round 3
+        /// it lay bright cyan across the hull of every vehicle entry, the loudest thing in a picture meant to be of
+        /// the vehicle. Reset by SceneStatics, as CombatFx.ShowOverlays is.</summary>
+        public static bool ShowRings = true;
+
+        static TankRenderer() => SceneStatics.Register(nameof(TankRenderer), () => ShowRings = true);
+
         struct Spring
         {
             public float Value, Velocity;
@@ -1336,7 +1344,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The contact blob and side ring under a tank: the footprint plus a margin, on the ground, turned with the hull.</summary>
         void QueueDisc(View v)
         {
-            if (discMat == null || discCount >= discM.Length) return;
+            if (discMat == null || discCount >= discM.Length || !ShowRings) return;
             var m = v.Model;
             // a walker has no tracks to measure, so its ring comes from its own footprint (VehicleProfile) instead of
             // the model's default gauge, which is a tank's and swallows a crab
