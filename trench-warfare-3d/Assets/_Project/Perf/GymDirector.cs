@@ -212,6 +212,45 @@ namespace TW.Perf
         }
         readonly List<(int slot, ushort gen)> spawned = new List<(int, ushort)>();
 
+        /// <summary>An EMPTY stage: Clear(), every wreck the renderer still draws dropped, then NextStage() until no
+        /// living man or machine stands within 40 m of the spot. Why: NextStage cycles five places 60 m apart, so a
+        /// spot comes round again, and a machine the sim despawned is still drawn as a smouldering hull - seven of
+        /// the unit entries in round3 had a hull behind the man, which is exactly what a picture of ONE man must not
+        /// have (look-07). Gives up after ten turns and says so, keeping the emptiest spot it found.</summary>
+        public string Bare(float clearance = 40f)
+        {
+            Clear();
+            var tanks = Object.FindFirstObjectByType<TW.Presentation.Tactical.TankRenderer>();
+            if (tanks != null) tanks.ClearWrecks();
+            if (Host == null || Host.Local == null) return "bare: no host";
+            Vector2 best = Stage; float bestNearest = -1f;
+            for (int turn = 0; turn < 10; turn++)
+            {
+                var at = NextStage();
+                float nearest = Nearest(at);
+                if (nearest > bestNearest) { bestNearest = nearest; best = at; }
+                if (nearest > clearance)
+                    return "bare: empty stage at (" + at.x.ToString("0") + ", " + at.y.ToString("0") + "), nearest unit "
+                         + (float.IsPositiveInfinity(nearest) ? "none" : nearest.ToString("0") + " m");
+            }
+            Stage = best;
+            return "bare: NO empty stage in ten turns; the emptiest is (" + best.x.ToString("0") + ", " + best.y.ToString("0")
+                 + ") with a unit " + bestNearest.ToString("0") + " m away";
+        }
+
+        /// <summary>How far the nearest living unit of any team is from `at`, or +infinity when there is none.</summary>
+        float Nearest(Vector2 at)
+        {
+            var w = Host.Local.World;
+            float nearest = float.PositiveInfinity;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if (!w.IsAlive(i)) continue;
+                nearest = Mathf.Min(nearest, Vector2.Distance(at, new Vector2(w.Position[i].x, w.Position[i].z)));
+            }
+            return nearest;
+        }
+
         /// <summary>Pin `clip` on a man of `figure` at `at`: the clips tab.</summary>
         public int PlayClip(int figure, Clip clip, Vector2 at, float rate = 1f)
         {

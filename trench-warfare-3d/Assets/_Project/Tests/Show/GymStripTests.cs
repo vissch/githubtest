@@ -164,5 +164,53 @@ namespace TW.Tests
             Assert.AreEqual(0f, day.SnowCoverage, 1e-6f);
             Assert.AreEqual(0f, day.HeatStrength, 1e-6f);
         }
+
+        // ----------------------------------------------------------- the camera's side (look-07, 2026-10-06)
+        // round3/FLAGS.md claimed no infantryman carries a weapon from pictures all taken from BEHIND him at a third
+        // of the cell's height. These four guard the arithmetic that lets the gym stand in front of a man and get
+        // close enough to see what he holds.
+
+        [Test]
+        public void NoViewsOptionIsTodaysSingleStandardView()
+        {
+            CollectionAssert.AreEqual(new[] { GymStrip.GymView.Std }, GymStrip.ParseViews(null));
+            CollectionAssert.AreEqual(new[] { GymStrip.GymView.Std }, GymStrip.ParseViews(""));
+            CollectionAssert.AreEqual(new[] { GymStrip.GymView.Std }, GymStrip.ParseViews("sideways,up"));
+            // and the standard view is always first, so the frame that is diffed and flagged never changes
+            Assert.AreEqual(GymStrip.GymView.Std, GymStrip.ParseViews("side,front")[0]);
+        }
+
+        [Test]
+        public void TheFrontViewLooksHimInTheFace()
+        {
+            Assert.AreEqual(210f, GymStrip.ViewYaw(GymStrip.GymView.Front, 30f), 1e-3f);
+            Assert.AreEqual(120f, GymStrip.ViewYaw(GymStrip.GymView.Side, 30f), 1e-3f);
+            Assert.AreEqual(30f, GymStrip.ViewYaw(GymStrip.GymView.Back, 30f), 1e-3f);
+            Assert.AreEqual(170f, GymStrip.ViewYaw(GymStrip.GymView.Front, 350f), 1e-3f, "wrapped into 0..360");
+        }
+
+        [Test]
+        public void TheStandardViewKeepsTodaysPose()
+        {
+            Assert.IsNaN(GymStrip.ViewYaw(GymStrip.GymView.Std, 30f), "NaN means: do not pin a yaw, shoot as before");
+            Assert.AreEqual(25f, GymStrip.ViewPitch(GymStrip.GymView.Std), 1e-6f);
+            Assert.AreEqual(GymStrip.Share, GymStrip.ViewShare(GymStrip.GymView.Std), 1e-6f);
+            Assert.AreEqual("", GymStrip.ViewSuffix(GymStrip.GymView.Std), "its file names are unchanged");
+        }
+
+        [Test]
+        public void AManFillsHalfAFrontViewsHeight()
+        {
+            // The rig's frame is 1.1547 * zoom metres tall (CaptureRig.Pose keeps distance * tan30 / tan(fov/2)), so
+            // a 2 m man foreshortened by the pitch fills height * cos(pitch) / (1.1547 * zoom) of it. With ZoomMin's
+            // 6 m floor that is 0.286 - the share FLAGS.md read a silhouette from.
+            float pitch = GymStrip.ViewPitch(GymStrip.GymView.Front), share = GymStrip.ViewShare(GymStrip.GymView.Front);
+            float zoom = GymStrip.ZoomFor(2f, pitch, share, GymStrip.CloseZoomFloor);
+            float frac = 2f * Mathf.Cos(pitch * Mathf.Deg2Rad) / (1.1547f * zoom);
+            Assert.GreaterOrEqual(frac, 0.5f, "a man must fill half a close view's height");
+            float old = 2f * Mathf.Cos(pitch * Mathf.Deg2Rad) / (1.1547f * GymStrip.ZoomFor(2f, pitch, share));
+            Assert.Less(old, 0.3f, "and the old floor could not frame him: that is what this is for");
+        }
+
     }
 }

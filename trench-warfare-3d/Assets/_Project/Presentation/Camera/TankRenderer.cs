@@ -1007,6 +1007,15 @@ namespace TW.Presentation.Tactical
             wrecks.Add(v);
         }
 
+        /// <summary>Drop every wreck this renderer still draws, with its debris. The sim despawns a machine but the
+        /// renderer keeps its hull smouldering for a while (Smoulder), so a tool that clears the stage - the gym's
+        /// Bare() - leaves a burnt-out hull in the next picture of an empty field (look-07: seven of the unit entries
+        /// had a hull behind the man). Not used by the game itself.</summary>
+        public void ClearWrecks()
+        {
+            for (int k = wrecks.Count - 1; k >= 0; k--) Drop(k);
+        }
+
         void Drop(int k)
         {
             var v = wrecks[k];

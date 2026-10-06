@@ -306,7 +306,9 @@ namespace TW.Editor
                 if (drive.AvailableFreeSpace < MinFreeBytes) { stopped = "under 10 GB free on " + drive.Name; break; }
                 if (Gym.Size(dir) > MaxRunBytes) { stopped = "the run passed 1 GB"; break; }
 
-                director.Clear();
+                // bare=1: an EMPTY stage, and no smouldering hull the renderer kept after the sim despawned it
+                if (Gym.Opt(Options, "bare") == "1") Debug.Log("Gym: " + director.Bare());
+                else director.Clear();
                 yield return new WaitForSeconds(1.5f);
                 // each entry draws from its own seed, so its pictures do not hang on what the entries before it drew
                 UnityEngine.Random.InitState(Seed(e.Tab + "/" + e.Name));
@@ -429,6 +431,33 @@ namespace TW.Editor
                         while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < su) yield return null;
                         shots.Add(png); jsons.Add(Path.ChangeExtension(png, ".json"));
                     }
+                    // views=front,side: the SAME entry photographed again from the man's front and side, close enough
+                    // that he fills half the frame. Only the first view (Std) is diffed and flagged: the noise floor
+                    // is measured per pose, and a frame shot from somewhere else cannot be compared with the 'before'
+                    // frame. These passes are evidence for the eye - what he carries, what his silhouette is.
+                    var gviews = GymStrip.ParseViews(Gym.Opt(Options, "views"));
+                    for (int vi = 1; vi < gviews.Length; vi++)
+                    {
+                        var gv = gviews[vi];
+                        float subjYaw = slot >= 0 && host.Local != null && slot < host.Local.World.HighWater
+                                      ? host.Local.World.Yaw[slot] * Mathf.Rad2Deg : 0f;
+                        float vyaw = GymStrip.ViewYaw(gv, subjYaw), vpitch = GymStrip.ViewPitch(gv);
+                        float vzoom = GymStrip.ZoomFor(sheight, vpitch, GymStrip.ViewShare(gv), GymStrip.CloseZoomFloor);
+                        // YawPin 0 makes shot.Yaw a WORLD yaw, and ZoomFloor lets the rig go inside tc.ZoomMin
+                        CaptureRig.Rig.YawPin = 0f; CaptureRig.Rig.ZoomFloor = GymStrip.CloseZoomFloor;
+                        r.Log.Add("view " + GymStrip.ViewSuffix(gv) + ": yaw " + vyaw.ToString("0", Inv) + " (he faces "
+                                  + subjYaw.ToString("0", Inv) + "), pitch " + vpitch.ToString("0", Inv) + ", zoom " + vzoom.ToString("0.0", Inv));
+                        for (int i = 0; i < GymStrip.Frames; i++)
+                        {
+                            string vpng = Path.Combine(raw, stem + "_" + GymStrip.ViewSuffix(gv) + "_" + GymStrip.Names[i] + ".png");
+                            CaptureRig.Shot(vpng, sfocus.x, sfocus.y, vzoom, vyaw, vpitch, 800, 450, saimY);
+                            float vu = Time.realtimeSinceStartup + 30f;
+                            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < vu) yield return null;
+                            shots.Add(vpng);   // the sheet, not `jsons`: these frames are not judged
+                            yield return new WaitForSeconds(0.3f);
+                        }
+                        CaptureRig.Rig.YawPin = float.NaN; CaptureRig.Rig.ZoomFloor = float.NaN;
+                    }
                     truth = slot >= 0 ? director.Truth(slot) : null;
                     machineChanged = slot >= 0 && director.MachineChanged(slot);
                     yield return null;
@@ -501,7 +530,9 @@ namespace TW.Editor
                 if (strip && shots.Count >= 2)
                 {
                     stripChanged = new List<float>();
-                    for (int i = 1; i < shots.Count; i++) stripChanged.Add(Gym.JsonNumber(CaptureRig.Diff(shots[0], shots[i]), "changed_frac"));
+                    // the first GymStrip.Frames shots only: any further ones are the views= passes, shot from a
+                    // different pose, so a diff against shots[0] would measure the camera move and not the effect
+                    for (int i = 1; i < shots.Count && i < GymStrip.Frames; i++) stripChanged.Add(Gym.JsonNumber(CaptureRig.Diff(shots[0], shots[i]), "changed_frac"));
                 }
                 List<string> flags;
                 try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, stripFloor, previewOnly, machineChanged); }
