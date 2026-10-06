@@ -53,6 +53,12 @@ namespace TW.Sim.Match
         public const int ShipEvery = 460;       // ticks between two salvos from the fleet (23 s)
         public const float ShipDamage = 300f, ShipRadius = 7.5f, ShipSuppression = 80f, ShipCrater = 2.4f;
         public const int ShipSource = SourceId.Ship;   // Explosion.a for a naval shell
+        /// <summary>The fleet's guns are silent in a match unless something switches them on (the owner, 2026-10-06, on
+        /// "No constant bombardment on the field" of 2026-09-28): a test, the debug panel, an ability later. A shell
+        /// every 23 s for a whole match was ambient shelling, and half of it fell on the sea side's own lines. Set the
+        /// same in every world, like AmbientBombardmentSystem.ShellsPerMinute; not hashed and not in the replay header,
+        /// so whatever switches it on in a recorded match has to do it by a command.</summary>
+        public bool FleetFires;
 
         readonly MapData map;
         NativeArray<float3> ships;              // where each gunboat lies: fixed for the match, hashed with the rest
@@ -202,7 +208,7 @@ namespace TW.Sim.Match
             }
             // the fleet's guns: one ship at a time lays a shell on the ground inland of the beach, which is what a
             // gunboat is for and what makes the sea worth looking at while nothing is landing
-            if (blast != null && w.Tick > 200 && w.Tick % ShipEvery == 0)
+            if (FleetFires && blast != null && w.Tick > 200 && w.Tick % ShipEvery == 0)
             {
                 int k = (int)((w.Tick / ShipEvery) % Ships);
                 var rng = SimRandom.For(w.Config.Seed, w.Tick, SimRandom.SystemId.IndirectFire, 0x5ED0u + (uint)k);

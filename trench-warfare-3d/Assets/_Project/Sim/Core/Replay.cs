@@ -111,9 +111,10 @@ namespace TW.Sim
         // v35 (2026-09-30, the Bullfrog): VehicleArchetype.Bullfrog 37 in UnitDefinitions.All: the unit table's and the
         // combat catalogue's fingerprints change. Layout and chain unchanged.
         // v36 (2026-10-06, the fleet fires): SeaLanding resolves the blast system when it fires, not at Initialize, so
-        // the fleet's guns actually fire on a coast map (a naval shell, its crater, SimEventType.ShipFired), and a
-        // craft that cannot put its men ashore (the field is full) refunds the hold instead of losing it. Same
-        // inputs, a different battle: a v35 replay does not replay. Layout and chain unchanged.
+        // the fleet's guns can fire on a coast map (a naval shell, its crater, SimEventType.ShipFired) once
+        // SeaLandingSystem.FleetFires is switched on (off in a match: the owner, 2026-10-06), and a craft that cannot
+        // put its men ashore (the field is full) refunds the hold instead of losing it. A battle with a full field
+        // plays differently: a v35 replay does not replay. Layout and chain unchanged.
         // v37 (2026-10-06, the leap lands safely): a man in the air is really out of the fight. LeapSystem owns the
         // Airborne clear (MoveJob no longer clears it on touchdown), so the landing grace holds for
         // LandingGraceTicks; his own landing burst, mines, blast, ground fire and gas no longer reach him while he

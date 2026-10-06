@@ -174,6 +174,7 @@ namespace TW.Tests
         public void TheFleetLaysAShellInland()
         {
             using var m = Coast();
+            m.Landing.FleetFires = true;                        // silent unless switched on: the test below
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             int fired = 0;
             for (int t = 0; t < SeaLandingSystem.ShipEvery + 5; t++)
@@ -183,6 +184,29 @@ namespace TW.Tests
                 for (int e = 0; e < ev.Length; e++) if (ev[e].Type == SimEventType.ShipFired) fired++;
             }
             Assert.Greater(fired, 0, "the gunboats fire once the match is past the first salvo tick");
+        }
+
+        // The owner, 2026-10-06: the guns stay silent in a match unless something switches them on (no constant
+        // bombardment on the field, 2026-09-28). Three salvo ticks of a match as it is made: no shell, no burst.
+        [Test]
+        public void TheFleetIsSilentInAMatch_UnlessSwitchedOn()
+        {
+            using var m = Coast();
+            Assert.IsFalse(m.Landing.FleetFires, "off as a match is made");
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            int fired = 0, bursts = 0;
+            for (int t = 0; t < 3 * SeaLandingSystem.ShipEvery + 5; t++)
+            {
+                m.Step(none);
+                var ev = m.World.Events.Events;
+                for (int e = 0; e < ev.Length; e++)
+                {
+                    if (ev[e].Type == SimEventType.ShipFired) fired++;
+                    if (ev[e].Type == SimEventType.Explosion && ev[e].A == SeaLandingSystem.ShipSource) bursts++;
+                }
+            }
+            Assert.AreEqual(0, fired, "no ship fires");
+            Assert.AreEqual(0, bursts, "and no naval shell lands");
         }
 
         // [U4] The field was full while the craft unloaded: it retracted and the men still in the hold were lost,
