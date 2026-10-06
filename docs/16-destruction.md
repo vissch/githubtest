@@ -803,7 +803,7 @@ next stage's hit points, however hard the hit. Nothing skips a stage.
   with his enemies within 3 m of it (a garrison below the rim, men in a dip). Every round keeps their heads down; a
   machine gun's hits wear it (half the round). A living target always wins, and tank guns do not do it.
 
-Replay versions: v16 the kinds and the event (the seam), v17 blasts, v18 machines, v19 machine guns, v20 guns
+Replay versions: v26 the kinds and the event (the seam), v27 blasts, v28 machines, v29 machine guns, v30 guns
 turning on a wreck (`Shot.b <= -2` names the prop: `PropTarget`).
 Tests: `WreckDecayTests` (every stage with its cover and block, sizes, the cook-off, the record outliving its wreck,
 generated wrecks, a barrage and a Maw grinding through two sims in lockstep, the Tusk that does not grind, scrap
