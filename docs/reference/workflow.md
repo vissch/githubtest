@@ -419,6 +419,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.WeightLab.Halt(slot)` | Editor/WeightLab.cs | The machine's drive taken away (its Speed to 0): with momentum it sheds its way at its Brake and runs on to a stop, as at a halt. |
 | `TW.Editor.WeightLab.Trace(slot, csv, seconds)` | Editor/WeightLab.cs | Traces the machine in `slot` for `seconds` of game time into `csv`. |
 | `TW.Editor.WeightLab.TraceStatus()` | Editor/WeightLab.cs | The trace in progress, or, once done, where it went and the stop's numbers: dip, rebound, settled. |
+| `TW.Editor.WreckLab.Shell(x, z, damage, radius)` | Editor/WreckLab.cs | One shell at a point in every world, bursting next tick. |
+| `TW.Editor.WreckLab.Wreck(x, z)` | Editor/WreckLab.cs | The wreck prop nearest a point within 8 m: "prop N Kind hp H", or "none". |
 <!-- /gen:eval-api -->
 
 ## 7. Windows build and benchmark
