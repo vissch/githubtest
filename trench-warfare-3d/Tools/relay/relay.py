@@ -4,11 +4,15 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
 
   python Tools/relay/relay.py run --work <checkout> [--dry-run] [--hours 3] [--max-legs N] [--sources pipeline,lane]
                                   [--view]  (a Windows Terminal tab per leg, showing its output)
+                                  [--day-pct N]  (the day's cap in percent of the week, when the owner named one)
   python Tools/relay/relay.py status           is a run going, on what, and how the last one stopped
   python Tools/relay/relay.py stop [--now]     end the run before its next leg (--now: end the leg too)
   python Tools/relay/relay.py refusals [--runs N]   what the guard refused in the last N runs (default 3)
   python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
-  python Tools/relay/relay.py day              one screen: the budget, the run, the queue in its order, what needs the owner
+  python Tools/relay/relay.py day              one screen: the budget, the pace, the run, the queue in its order, what
+                                               needs the owner
+  python Tools/relay/relay.py agents [--day D]      what the agents cost that sessions here spawned outside the relay
+  python Tools/relay/relay.py agents book [--out F | --file F] [--who NAME]   add that to the day's budget (agents.py)
   python Tools/relay/relay.py usage            where the plan's week stands, from the newest reading on this machine
   python Tools/relay/relay.py usage put [--statusline]   keep a reading given on stdin as JSON (usage.py)
   python Tools/relay/relay.py prio <id> <n>    move a queued unit: 0 to 99, the lower runs first (50 when none is set)
@@ -29,7 +33,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import answers, boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
+import agents, answers, boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -160,7 +164,8 @@ def status():
 
 
 def budget(days):
-    """Today's legs against the day's budget (limits.json day_budget_usd), per unit and phase, then the days before."""
+    """Today's legs against the day's budget (limits.json day_budget_pct, or day_budget_usd while nothing can be
+    said in percent), the pace, per unit and phase, then the days before."""
     for line in ledger.lines(P.board_dir(), config.limits()["day_budget_usd"], max(1, days)):
         print(line)
     return 0
@@ -171,6 +176,52 @@ def day_screen():
     for line in day.lines(P.board_dir(), legdir.home(), config.limits(), config.phases(), holder(),
                           answers.read(*answers.folders())):
         print(line)
+    return 0
+
+
+def agents_cmd(a):
+    """What the agents cost that this machine's sessions spawned outside the relay (agents.py), and `book`: add it
+    to the day's budget. --out writes the booking to a file in place of the board (a machine that does not hold
+    the board hands the file over); --file books such a file. While a run is going here the booking waits for it:
+    the run writes it on the board before its next unit."""
+    board, home, station = P.board_dir(), legdir.home(), P.station()
+    if a.file and a.out:
+        raise SystemExit("relay: agents book takes --out or --file, not both")
+    if a.what != "book":
+        counted = agents.count(a.day)
+        there = agents.path(board, {"station": station, "day": counted["day"]})
+        try:
+            booked = P.read_json(there) if there.exists() else None
+        except (OSError, ValueError):
+            booked = None
+        for line in agents.lines(counted, ledger.rate(board), booked):
+            print(line)
+        return 0
+    if a.file:
+        try:
+            rec = P.read_json(Path(a.file))
+        except (OSError, ValueError) as e:
+            raise SystemExit("relay: the booking %s does not read: %s" % (a.file, e))
+        if agents.check(rec):
+            raise SystemExit("relay: %s is no booking of agents: %s" % (a.file, agents.check(rec)))
+    else:
+        rec = agents.record(agents.count(a.day), station, a.who or "")
+    said = "%s %s: about $%.2f, %d agent%s" % (rec["station"], rec["day"], rec["usd"], rec["agents"],
+                                             "" if rec["agents"] == 1 else "s")
+    if a.out:
+        P.write_json(Path(a.out), rec)
+        print("written to %s (%s). Book it where the board is: relay.py agents book --file <that file>." % (a.out, said))
+        return 0
+    if day.live(home):
+        agents.hand_in(home, rec)
+        print("%s. A run is going here: it adds this to the day before its next unit." % said)
+        return 0
+    if not rec["agents"] and not agents.path(board, rec).exists():
+        print("nothing to book: no session here spawned an agent for the project on %s." % rec["day"])
+        return 0
+    agents.keep(board, rec)
+    print("booked %s. Board: %s." % (said, boardio.push(board, "relay: agents outside the relay, %s %s"
+                                                         % (rec["station"], rec["day"]))))
     return 0
 
 
@@ -371,6 +422,12 @@ def main(argv=None):
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
     sub.add_parser("budget").add_argument("--days", type=int, default=8)
     sub.add_parser("day")
+    p = sub.add_parser("agents")
+    p.add_argument("what", nargs="?", choices=("book",))
+    p.add_argument("--day", help="a local day, 2026-10-07 (default: today)")
+    p.add_argument("--out", help="book: write the booking to this file, not to the board")
+    p.add_argument("--file", help="book: a booking another machine wrote with --out")
+    p.add_argument("--who", help="book: who books (a session name)")
     p = sub.add_parser("usage")
     p.add_argument("put", nargs="?", choices=("put",))
     p.add_argument("--statusline", action="store_true")
@@ -413,6 +470,8 @@ def main(argv=None):
         return budget(a.days)
     if a.cmd == "day":
         return day_screen()
+    if a.cmd == "agents":
+        return agents_cmd(a)
     if a.cmd == "usage":
         return usage_cmd(bool(a.put), a.statusline)
     if a.cmd == "prio":

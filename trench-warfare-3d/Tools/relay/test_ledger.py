@@ -28,7 +28,8 @@ class Ledger(unittest.TestCase):
         self.old = os.environ.get("TW_RELAY_HOME")
         os.environ["TW_RELAY_HOME"] = str(self.home)
         self.limits = config.limits                         # these tests count in dollars or in measured legs:
-        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
+        config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
+                                             day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
         self.lim = config.limits()
 
     def tearDown(self):
@@ -244,6 +245,137 @@ class Ledger(unittest.TestCase):
                          "Today: $16.00 of $50.00 spent, $34.00 left. 1 of 2 legs counted at the usual cost.")
         self.assertEqual(ledger.one_line(self.board, 0),
                          "Today: $16.00 spent (no day budget). 1 of 2 legs counted at the usual cost.")
+
+
+class Pace(unittest.TestCase):
+    """The day's cap in percent of the week, spent evenly over the day, for every relay and every booked agent."""
+    leg = Ledger.leg
+
+    def setUp(self):
+        Ledger.setUp(self)
+        # a full week taken as $1000 of leg cost: one dollar is 0.1 points. The cap and the pace as shipped.
+        self.lim = dict(self.limits(), week_usd=1000)
+        self.also = os.environ.pop(ledger.ALSO, None)
+
+    def tearDown(self):
+        os.environ.pop(ledger.ALSO, None) if self.also is None else os.environ.__setitem__(ledger.ALSO, self.also)
+        Ledger.tearDown(self)
+
+    def at(self, hour, minute=0):
+        return datetime.datetime.now().replace(hour=hour, minute=minute, second=0, microsecond=0)
+
+    def budget(self, hour, minute=0, **lim):
+        return ledger.day_budget(self.board, dict(self.lim, **lim), now=self.at(hour, minute))
+
+    def test_the_cap_ships_at_11_percent_spread_over_the_whole_day(self):
+        real = self.limits()
+        self.assertEqual((real["day_budget_pct"], real["pace_from_hour"], real["pace_to_hour"]), (11, 0, 24))
+        self.assertEqual(self.limits(overrides={"day_budget_pct": 500})["day_budget_pct"], 100)
+        self.assertNotIn("day_budget_pct", config.RETRO_TUNES)
+
+    def test_the_pace_allows_the_share_of_the_day_that_is_gone(self):
+        for hour, minute, share in ((0, 0, 0.0), (6, 0, 0.25), (12, 0, 0.5), (18, 30, 18.5 / 24), (23, 59, 23.983 / 24)):
+            self.assertAlmostEqual(ledger.pace_share(self.at(hour, minute), self.lim), share, 3)
+        work = dict(self.lim, pace_from_hour=8, pace_to_hour=24)        # nothing before 08:00, all of it by midnight
+        self.assertEqual(ledger.pace_share(self.at(6), work), 0.0)
+        self.assertAlmostEqual(ledger.pace_share(self.at(16), work), 0.5)
+        self.assertIsNone(ledger.pace_share(self.at(12), dict(self.lim, pace_to_hour=0)))   # the same hour: no pace
+
+    def test_the_day_is_counted_in_percent_against_the_cap_and_the_pace(self):
+        self.leg(10.0)                                          # 1.0 point
+        b = self.budget(12)
+        self.assertEqual((b["unit"], b["cap"]), ("pct", 11.0))
+        for key, want in (("spent", 1.0), ("left", 10.0), ("allowed", 5.5), ("free", 4.5), ("left_usd", 100.0),
+                          ("free_usd", 45.0)):
+            self.assertAlmostEqual(b[key], want, 6, key)
+        self.assertTrue(b["about"])                             # the rate is the guess
+
+    def test_what_earlier_hours_left_unused_is_allowed_later_the_same_day(self):
+        self.assertAlmostEqual(self.budget(18)["free"], 8.25)   # nothing spent by 18:00: three quarters of the cap
+        self.leg(80.0)
+        self.assertAlmostEqual(self.budget(18)["free"], 0.25)
+        self.assertAlmostEqual(self.budget(6)["free"], -5.25)   # the same spend early in the day is ahead of the pace
+
+    def test_with_no_rate_or_no_percent_cap_the_day_is_counted_in_dollars(self):
+        self.leg(10.0)
+        for lim in (dict(week_usd=0), dict(day_budget_pct=0)):
+            b = self.budget(12, **lim)
+            self.assertEqual((b["unit"], b["cap"], b["spent"], b["allowed"], b["free_usd"]),
+                             ("usd", 50.0, 10.0, 25.0, 15.0))
+        self.assertIsNone(self.budget(12, day_budget_pct=0, day_budget_usd=0))
+        self.assertIsNone(self.budget(12, pace_to_hour=0)["allowed"])
+
+    def test_the_pace_says_when_it_covers_a_cost(self):
+        self.leg(10.0)                                          # 1.0 point spent
+        b = self.budget(6)                                      # 2.75 allowed, 1.75 free: $17.50
+        self.assertEqual(ledger.pace_at(b, 10.0, self.lim, self.at(6)), self.at(6))    # covered now
+        # $30 more is 3.0 points: 4.0 of 11 is allowed 8 h 43 min 38 s into the day, said as the next whole minute
+        self.assertEqual(ledger.pace_at(b, 30.0, self.lim, self.at(6)), self.at(8, 44))
+        self.assertIsNone(ledger.pace_at(b, 101.0, self.lim, self.at(6)))              # more than the day has left
+        late = ledger.day_budget(self.board, self.lim, now=ledger.pace_at(b, 30.0, self.lim, self.at(6)))
+        self.assertGreaterEqual(late["free_usd"], 30.0)         # at that time the pace does cover it
+
+    def test_the_lines_say_the_cap_and_the_pace(self):
+        self.leg(10.0)
+        self.assertEqual(ledger.one_line(self.board, 50, lim=self.lim),
+                         "Today: about 1.0% of the week used by the relay, 10.0% left of a day's cap of 11.0%. "
+                         "A guess: no leg is measured yet, so a full week is taken as $1000 of leg cost.")
+        b = self.budget(12)
+        self.assertEqual(ledger.pace_line(b, self.lim, self.at(12)),
+                         "Pace: 5.5% of the week allowed by 12:00, about 4.5% of it free.")
+        self.assertEqual(ledger.pace_line(b, self.lim, self.at(12), need_usd=50.0),
+                         "Pace: 5.5% of the week allowed by 12:00, about 4.5% of it free. "
+                         "The next unit may start at 13:06.")
+        self.assertEqual(ledger.pace_line(self.budget(1), self.lim, self.at(1), need_usd=5.0),
+                         "Pace: 0.5% of the week allowed by 01:00, and the day is about 0.5% ahead of that. "
+                         "The next unit may start at 03:17.")
+        out = ledger.lines(self.board, 50, lim=self.lim, now=self.at(12))
+        self.assertIn("the day's cap is 11.0%.", out[0])
+        self.assertEqual(out[1], "Pace: 5.5% of the week allowed by 12:00, about 4.5% of it free.")
+        self.leg(100.0)
+        self.assertEqual(ledger.pace_line(self.budget(12), self.lim, self.at(12)),
+                         "Pace: 5.5% of the week allowed by 12:00. The day's cap is spent.")
+        self.assertIsNone(ledger.pace_line(self.budget(12, pace_to_hour=0), self.lim))
+        self.assertIsNone(ledger.pace_line(None, self.lim))
+
+    def test_a_second_relays_board_counts_and_a_copied_record_counts_once(self):
+        mine = self.leg(10.0)
+        other = self.tmp / "board-2"
+        self.board, first = other, self.board
+        self.leg(20.0, unit="look")                             # a leg only the second relay's board holds
+        self.board = first
+        name = "%s-%02d.json" % (mine["run"], mine["leg"])      # and a copy of a record both boards hold
+        (other / "relay" / "desktop" / "legs" / name).write_text(json.dumps(mine), encoding="utf-8")
+        self.assertEqual(ledger.spent(self.board)["usd"], 10.0)
+        os.environ[ledger.ALSO] = os.pathsep.join([str(other), str(self.board), ""])
+        s = ledger.spent(self.board)
+        self.assertEqual((s["usd"], s["legs"], sorted(s["units"])), (30.0, 2, ["look", "u1"]))
+        self.assertAlmostEqual(self.budget(12)["spent"], 3.0)
+
+    def book(self, usd, agents=2, station="laptop", days_ago=0, raw=None):
+        p = self.board / "relay" / station / "agents" / (day(days_ago) + ".json")
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(raw if raw is not None else json.dumps({"day": day(days_ago), "usd": usd, "agents": agents}),
+                     encoding="utf-8")
+
+    def test_agents_booked_from_outside_the_relay_count_toward_the_day(self):
+        self.leg(10.0)
+        self.book(5.0, 3)
+        self.book(2.0, 1, station="desktop")
+        self.book(40.0, 9, days_ago=1)
+        self.book(0, raw="not json", station="other")           # a file that does not read counts as nothing
+        s = ledger.spent(self.board)
+        self.assertEqual((s["usd"], s["agents_usd"], s["agents"], s["legs"]), (17.0, 7.0, 4, 1))
+        self.assertAlmostEqual(self.budget(12)["spent"], 1.7)
+        self.assertEqual(ledger.one_line(self.board, 50, lim=dict(self.lim, week_usd=0, day_budget_pct=0)),
+                         "Today: $17.00 of $50.00 spent, $33.00 left. $7.00 of it by 4 agents outside the relay.")
+        self.assertTrue(ledger.one_line(self.board, 50, lim=self.lim).startswith(
+            "Today: about 1.7% of the week used by the relay and 4 agents outside it, 9.3% left of a day's cap of "
+            "11.0%."))
+        out = ledger.lines(self.board, 50, lim=self.lim, now=self.at(12))
+        self.assertEqual([l.split() for l in out if l.strip().startswith("agents outside")],
+                         [["agents", "outside", "the", "relay", "about", "0.7%", "(4", "agents)"]])
+        self.assertEqual(out[-1].split(), [day(1), "about", "4.0%", "0", "legs"])
 
 
 class Settings(unittest.TestCase):

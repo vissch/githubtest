@@ -2,21 +2,24 @@
 """The run loop: pick a unit, plan it (one leg), execute the plan (one leg per part), check the result by script,
 record it, and go on until a stop rule fires. Every decision here is a script's; the model only does the legs.
 
-Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_usd, counted by ledger.py
-over every leg started today), nothing left to do, the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a leg that cannot be trusted (timeout, compaction trip, not auto mode, no hooks, no
-result), limits.json no_progress_units units in a row with no result, or any error. Whatever stops it, the stop is
-recorded and a pipeline claim is released. The checkout is held (lock and leg marker) from the first unit to the stop
-record, so git's push guard also covers a job a leg left running.
+Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_pct percent points of the
+week, or day_budget_usd dollars while nothing can be said in percent; counted by ledger.py over every leg started
+today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
+the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a leg that cannot be trusted
+(timeout, compaction trip, not auto mode, no hooks, no result), limits.json no_progress_units units in a row with
+no result, or any error. Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
+held (lock and leg marker) from the first unit to the stop record, so git's push guard also covers a job a leg left
+running. A run that is ahead of the day's pace waits for it between legs, and keeps the checkout while it waits.
 Stdlib only. ASCII only.
 """
-import os, re, sys, time
+import datetime, os, re, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
-import boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
+import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
@@ -25,6 +28,9 @@ NO_WINDOW = ("\n- This run cannot open a window (it was not started from the own
              "Tools/tw is written for. A different unity earlier on PATH refuses while Temp/UnityLockfile exists "
              "unless UNITY_CLI_ALLOW_LOCKED=1, and then it starts a second editor. unity status on the CLI in "
              "%LOCALAPPDATA%/unity/bin does list a batch editor.")
+PACE_STEP = 30                          # seconds between two looks at the clock while a run waits for the pace
+clock = datetime.datetime.now           # the wall clock the day's pace is read from
+sleep = time.sleep
 VERDICT = re.compile(r"^\W*RESULT\W+(done|blocked|failed)\b", re.I)
 
 
@@ -43,7 +49,10 @@ class Run:
         self.a = a
         over = {k: v for k, v in (("run_hours", a.hours), ("leg_minutes", a.leg_minutes),
                                   ("leg_budget_usd", a.leg_budget),
-                                  ("day_budget_usd", getattr(a, "day_budget", None))) if v is not None}
+                                  ("day_budget_usd", getattr(a, "day_budget", None)),
+                                  ("day_budget_pct", getattr(a, "day_pct", None))) if v is not None}
+        if "day_budget_usd" in over:
+            over.setdefault("day_budget_pct", 0)                # a day given in dollars is counted in dollars
         self.ph, self.style = config.phases(), config.style()
         self.station = P.station()
         self.board = P.board_dir()
@@ -65,6 +74,7 @@ class Run:
         self.refused = 0                                        # commands the guard refused, over all legs
         self.who = getattr(a, "who", None) or os.environ.get("USERNAME") or "someone"
         self.code = ""                                          # the commit the relay's own code is at
+        self.waited = False                                     # the last budget check waited for the day's pace
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
@@ -87,6 +97,16 @@ class Run:
         if self.stop_file.exists():                         # a stop asked of an earlier run
             self.stop_file.unlink()
         self.ready = True
+
+    def book_agents(self):
+        """Between units: count what the agents cost that this machine's sessions spawned outside the relay today,
+        keep the sum on the board, and take up the bookings other machines handed in (agents.py). The day's budget
+        is every agent's. It is never a reason to stop a run."""
+        try:
+            agents.take_in(self.board, self.home)
+            agents.book(self.board, self.station, by="run " + self.run)
+        except (SystemExit, Exception) as e:                # noqa: BLE001
+            print("note: the agents outside the relay were not booked (%s)" % (str(e) or type(e).__name__), flush=True)
 
     def owner_stop(self):
         if self.stop_file.exists():
@@ -122,26 +142,56 @@ class Run:
                      {"run": self.run, "started_by": self.who, "code": self.code, "legs": self.legs, "now_on": now_on,
                       "units": self.units, "refusals": self.refused})
 
+    def day(self):
+        """The day's budget as ledger.py counts it now: cap, spent, left, what the pace allows. None: no budget."""
+        return ledger.day_budget(self.board, self.lim, now=clock())
+
     def day_left(self):
-        """What is left of the day's budget, or None when no day budget is set (0)."""
-        budget = self.lim["day_budget_usd"]
-        return budget - ledger.spent(self.board, lim=self.lim)["usd"] if budget else None
+        """What is left of the day's budget, in dollars of cost, or None when no day budget is set."""
+        b = self.day()
+        return b["left_usd"] if b else None
 
     def no_budget(self, phases):
-        """Why the day's budget does not cover legs of these phases at their usual cost, or None. Asked before a
-        leg starts: a leg that runs out of budget half way leaves work nobody can use."""
-        left = self.day_left()
-        if left is None:
-            return None
-        budget = self.lim["day_budget_usd"]
-        if left <= 0:
-            return "the day's budget is spent ($%.2f of $%.2f)" % (budget - left, budget)
+        """Why the day's budget does not let legs of these phases start at their usual cost, or None. Asked before
+        a leg starts: a leg that runs out of budget half way leaves work nobody can use.
+        The day's cap is spent evenly over the day (ledger.pace_share). When the day covers the legs and the pace
+        does not yet, the run waits here for the pace, when that time comes before the run's own time is up, and
+        then asks the day again. A dry run does not wait, and a wait that would outlast the run does not start:
+        both say the time."""
         price = ledger.usuals(self.board, lim=self.lim)
         need = ledger.need(price, self.ph, phases)
-        if left < need:
-            return ("the day's budget has $%.2f left of $%.2f, and %s usually costs $%.2f"
-                    % (left, budget, "a %s leg" % phases[0] if len(phases) == 1 else "a unit", need))
-        return None
+        what = "a %s leg" % phases[0] if len(phases) == 1 else "a unit"
+        told = False
+        while True:
+            b = self.day()
+            if b is None:
+                return None
+            if b["left"] <= 0:
+                return "the day's budget is spent (%s of %s)" % (ledger.amount(b, b["spent"]),
+                                                                 ledger.amount(b, b["cap"], of=True))
+            if b["left_usd"] < need:
+                return ("the day's budget has %s left of %s, and %s usually costs %s%s"
+                        % (ledger.amount(b, b["left"]), ledger.amount(b, b["cap"], of=True), what,
+                           "about " if b["unit"] == "pct" else "", ledger.amount(b, need, usd=True)))
+            at = ledger.pace_at(b, need, self.lim, clock()) if phases else None
+            if at is None or b["free_usd"] >= need:             # no pace, or it covers the legs now
+                return None
+            wait, when = (at - clock()).total_seconds(), at.strftime("%H:%M")
+            if self.a.dry_run:
+                return "the day's pace lets %s start at %s" % (what, when)
+            if time.time() + wait > self.deadline:
+                return ("the day's pace lets %s start at %s, after this run's %.3g hours are up"
+                        % (what, when, self.lim["run_hours"]))
+            if self.stop_file.exists():
+                return "stopped by the owner (relay.py stop)"
+            if not told:
+                told = True
+                print("paced: %s may start at %s; the day's budget is spent evenly over the day" % (what, when),
+                      flush=True)
+                if self.ready:
+                    self.progress("waiting for the day's pace until %s" % when)
+            self.waited = True
+            sleep(max(1.0, min(PACE_STEP, wait)))
 
     def no_room(self, phase=None):
         """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
@@ -190,7 +240,8 @@ class Run:
             if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
                 why = "the run's %.3g hours are up (mid-leg)" % self.lim["run_hours"]
             if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
-                why = "the day's budget is spent ($%.2f, mid-leg)" % self.lim["day_budget_usd"]
+                b = self.day()
+                why = "the day's budget is spent (%s, mid-leg)" % (ledger.amount(b, b["cap"], of=True) if b else "$0")
             if leg["state"] == "STOPPED" and self.stop_file.exists():
                 raise Stop("stopped by the owner (relay.py stop --now), mid-leg %02d" % self.legs,
                            "uncommitted work saved in %s" % d if snap else "")
@@ -215,9 +266,13 @@ class Run:
             print("unit %s: already done, no leg needed" % unit["id"])
             self.finish(src, unit, [], "done")
             return
+        self.waited = False
         why = self.no_budget(["plan", "execute"])            # asked before the plan: a plan with no execute is lost
         if why:
             raise Stop(why)
+        if self.waited:                                      # the queue's order may have changed while it waited:
+            print("unit %s: the wait is over, the queue is read again" % unit["id"], flush=True)
+            return                                           # the loop picks the unit that is first now
         src.claim(unit)
         self.claimed = src
         remote_before, body = gitio.remote_head(self.work, unit["lane"]), src.body(unit)
@@ -390,6 +445,7 @@ class Run:
                     return 0
                 if not self.ready:
                     self.preflight()
+                self.book_agents()
                 self.unit(unit)
                 if self.legs - self.retro_at >= self.lim["retro_every_legs"] and not self.no_room("retro"):
                     self.retro()
@@ -413,10 +469,12 @@ class Run:
                 moved = self.moved(self.heads, gitio.remote_heads(self.work))
             except Exception:                               # noqa: BLE001 - a run always ends with a record
                 pass
+        b = self.day()
+        in_pct = dict(day_pct=round(b["spent"], 2), day_budget_pct=b["cap"]) if b and b["unit"] == "pct" else {}
         boardio.stop_record(self.board, self.station, self.run, reason, self.legs, detail, moved_on_origin=moved,
                             units=self.units, refusals=self.refused, started_by=self.who, code=self.code,
                             day_usd=round(ledger.spent(self.board, lim=self.lim)["usd"], 2),
-                            day_budget_usd=self.lim["day_budget_usd"])
+                            day_budget_usd=self.lim["day_budget_usd"], **in_pct)
         pushed = "not sent (--no-push)" if self.a.no_push else \
             boardio.push(self.board, "relay: run %s, %d legs, %s" % (self.run, self.legs, reason))
         print("STOP: %s. %d legs ran%s. Record on the board: %s."
@@ -455,7 +513,11 @@ def add_args(p):
     p.add_argument("--leg-minutes", type=float, dest="leg_minutes")
     p.add_argument("--leg-budget", type=float, dest="leg_budget")
     p.add_argument("--day-budget", type=float, dest="day_budget",
-                   help="no leg starts once today's legs cost this much (default: limits.json day_budget_usd; 0: off)")
+                   help="the day's cap in dollars of cost, for this run: no leg starts once today's legs cost this "
+                        "much, and the percent cap is not used (0: no cap at all)")
+    p.add_argument("--day-pct", type=float, dest="day_pct",
+                   help="the day's cap in percent of the plan's week, for this run (default: limits.json "
+                        "day_budget_pct): only when the owner named another figure for the day")
     p.add_argument("--max-legs", type=int, dest="max_legs", default=0)
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="say what would run; claim and start nothing")
     p.add_argument("--no-push", action="store_true", dest="no_push", help="do not commit and push the board")
