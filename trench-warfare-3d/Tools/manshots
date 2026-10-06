@@ -1,0 +1,121 @@
+#!/usr/bin/env bash
+# Photograph an infantryman close enough to see WHAT HE CARRIES: each of the seven men alone on open ground, by
+# day, from the front, from the side and at the standard view, standing and while firing.
+#   usage: Tools/manshots [<out dir>]        default: G:/My Drive/TW3D-pipeline/unit-look/weapons
+#
+# WHY (look-07). round3/FLAGS.md said "no infantryman shows a weapon: Rifle, MG, Sniper and Officer are one
+# silhouette". That verdict came off the gym's standard strip frames, which are all shot at yaw 30, pitch 25
+# (Editor/Gym.cs) - a camera BEHIND him and above him, where his own body hides a rifle held across his chest and
+# where a barrel held level is seen end-on. Seven of those entries also had a staged hull in frame. So the claim
+# was never testable from those pictures. This rig re-shoots the same entries with the two things that were
+# missing: `views=front,side` (look-07 part 1: a world-yaw camera in front of him and off his shoulder, zoomed
+# until he fills half the frame) and `bare=1` (GymDirector.Bare: a stage with nothing within 40 m).
+#
+# TWO RUNS, not one. The views= passes happen AFTER the entry's trigger but they do not re-trigger it, so on their
+# own they photograph a man standing still. `film=<secs>` holds him and puts a rifle line 70 m off his nose
+# (Gym.cs, RiderLab.Enemies), so the second run's front and side frames catch him firing. Standing and firing are
+# separate runs because the firing run also fights, moves and dies, and a dead man photographs nothing.
+#
+# The evidence is the per-entry SHEET, <run>/Units/<Name>.jpg: Gym.Sheet lays the std strip frames, then the front
+# frames, then the side frames into one jpg (Gym.cs). The raw pngs are deleted for an unflagged entry, the sheet
+# never is, so the sheet is what gets copied out and what gets looked at.
+#
+# BATCH MODE, and never -nographics: this machine has no desktop session, a windowed editor hangs, and the
+# captures need the card. CaptureRig renders into a RenderTexture, so no Game View is asked for. Tools/flamefight
+# documents that path at length; this follows it.
+set -u
+P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; T="$P/Tools/tw"
+WP="$(cygpath -m "$P" 2>/dev/null || echo "$P")"       # forward slashes: C# takes them, the shell does not eat them
+OUT="${1:-G:/My Drive/TW3D-pipeline/unit-look/weapons}"
+# The seven the owner named. `filter` is OR-ed on '|' (Gym.Matches) against UnitLook.Name.
+MEN='Rifle|Assault|MG|Sniper|Officer|Medic|Engineer'
+RUNS="$(cygpath -m "$LOCALAPPDATA" 2>/dev/null || echo "$LOCALAPPDATA")/TrenchWarfare/gym"
+STAND="$RUNS/look07-standing"; FIRE="$RUNS/look07-firing"
+LOG="$P/Tools/manshots.log"
+val() { grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//'; }
+
+mkdir -p "$OUT"
+rm -rf "$(cygpath -u "$STAND" 2>/dev/null || echo "$STAND")" "$(cygpath -u "$FIRE" 2>/dev/null || echo "$FIRE")"
+
+# ---- the editor: batch, with the card, and only if one is not already answering -------------------------------
+if ! unity status --json --no-banner 2>&1 | grep -q '"state": *"ready"'; then
+  UEXE="${ProgramFiles:-C:\Program Files}/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe"
+  echo "launching a batch editor (log: $LOG)"
+  ( "$UEXE" -batchmode -projectPath "$(cygpath -w "$P")" -logFile "$(cygpath -w "$LOG")" >/dev/null 2>&1 & )
+fi
+for i in $(seq 1 90); do
+  R=$("$T" eval 'return "up";' 2>/dev/null | val)
+  [ "$R" = "up" ] && break
+  sleep 10
+done
+[ "${R:-}" = "up" ] || { echo "the editor never answered an eval - not capturing" >&2; exit 1; }
+echo "editor ready after ${i}0 s"
+
+# Unity keeps the LAST GOOD assemblies when a compile fails, so a run would silently photograph the previous
+# build. Refuse instead (Tools/flamefight learnt this the hard way).
+if "$T" run console_status | grep -q '"compilationFailed": true'; then
+  echo "COMPILE FAILED - not capturing" >&2; exit 1
+fi
+
+# ---- what the SOURCE models actually contain -------------------------------------------------------------------
+# The baker's comment says "the models carry none" (Editor/VATBaker.cs:16). A binary FBX will not say so to grep
+# (its arrays are deflated), so ask the importer: every renderer and submesh in the two source files. This is the
+# evidence for "if a weapon mesh exists in the source, where is it dropped".
+echo "source models:"
+"$T" eval 'var sb=new System.Text.StringBuilder();
+foreach(var f in TW.Editor.VATBaker.Figures){
+  sb.Append(f.Name+"="+f.Path+" -> ");
+  var go=UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEngine.GameObject>(f.Path);
+  if(go==null){ sb.Append("NOT IMPORTED; "); continue; }
+  foreach(var r in go.GetComponentsInChildren<UnityEngine.Renderer>(true)){
+    var sm=r as UnityEngine.SkinnedMeshRenderer; var mf=r.GetComponent<UnityEngine.MeshFilter>();
+    var mesh=sm!=null?sm.sharedMesh:(mf!=null?mf.sharedMesh:null);
+    sb.Append(r.name+"["+(mesh==null?"no mesh":mesh.subMeshCount+" sub, "+(mesh.triangles.Length/3)+" tris")+"] ");
+  }
+  sb.Append("; ");
+}
+return sb.ToString();' 180 | val | sed 's/; /\n  /g; s/^/  /'
+
+# ---- the two runs ----------------------------------------------------------------------------------------------
+# `minutes=` is the run's own watchdog: it stops and writes summary.json with "stopped", so a timeout still leaves
+# usable pictures. Wait on summary.json, never on the wall clock.
+gym() {   # gym <label> <out dir> <extra options>
+  local lbl="$1" dir="$2" extra="$3"
+  local udir; udir="$(cygpath -u "$dir" 2>/dev/null || echo "$dir")"
+  echo "$lbl: $("$T" eval "return TW.Editor.Gym.Run(\"tabs=units filter=${MEN} light=day bare=1 views=front,side out=${dir} minutes=25 quit=0 ${extra}\");" 180 | val)"
+  for j in $(seq 1 180); do
+    [ -f "$udir/summary.json" ] && break
+    sleep 10
+  done
+  if [ -f "$udir/summary.json" ]; then
+    echo "  $lbl done after ${j}0 s: $(python - "$udir/summary.json" <<'PY'
+import json,sys
+s=json.load(open(sys.argv[1]))
+print("%d entries, %d flagged, %s s, stopped=%s"%(s.get("done",0),s.get("flagged",0),s.get("seconds","?"),s.get("stopped")))
+PY
+)"
+  else
+    echo "  $lbl NEVER WROTE summary.json - partial pictures only" >&2
+  fi
+  ls "$udir/Units"/*.jpg 2>/dev/null | wc -l | sed 's/^/  sheets: /'
+}
+gym standing "$STAND" ""
+gym firing   "$FIRE"  "film=6"
+
+# ---- out to the owner's folder ---------------------------------------------------------------------------------
+# One jpg per man per run, named so the pair sits side by side: <Man>_standing.jpg, <Man>_firing.jpg.
+n=0
+for pair in "standing:$STAND" "firing:$FIRE"; do
+  tag="${pair%%:*}"; d="$(cygpath -u "${pair#*:}" 2>/dev/null || echo "${pair#*:}")"
+  for f in "$d"/Units/*.jpg; do
+    [ -f "$f" ] || continue
+    b="$(basename "$f" .jpg)"
+    cp "$f" "$OUT/${b}_${tag}.jpg" && n=$((n+1))
+  done
+  cp "$d/summary.json" "$OUT/summary_${tag}.json" 2>/dev/null
+done
+echo "copied $n jpg to $OUT"
+
+# The editor holds the checkout and the GPU; the gate will not run while it does.
+"$T" eval 'UnityEditor.EditorApplication.isPlaying=false; return 0;' 90 >/dev/null 2>&1
+echo "stop the editor before the gate:  Tools/tw run editor_quit   (or kill Unity.exe)"
