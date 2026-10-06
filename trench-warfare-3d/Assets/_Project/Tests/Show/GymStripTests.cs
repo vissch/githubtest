@@ -251,5 +251,35 @@ namespace TW.Tests
             Assert.IsTrue(GymStrip.AboutSelection(ring));
         }
 
+
+        // look-08, fault 2: round 3 passed Units/Medic, Shield, Engineer, Officer, Para, Vehicle and Jetpack with the
+        // man behind a hull or a walker leg, because subject_in_frame only asks whether his POSITION projects into
+        // the cell. On the old code there was no VisibleShare and no `hidden` flag at all, so these two tests did
+        // not compile against it - the fault was that nothing measured this.
+        [Test]
+        public void VisibleShareIsTheSubjectsOwnPixelsOverALoneRiflemans()
+        {
+            // a man alone on a bare stage repaints 0.0600 of the frame when he stops being drawn, over a 0.0100 floor
+            Assert.AreEqual(1f, GymStrip.VisibleShare(0.06f, 0.06f, 0.01f), 1e-4f, "nothing in front of him: all of him");
+            Assert.AreEqual(0.5f, GymStrip.VisibleShare(0.035f, 0.06f, 0.01f), 1e-4f, "half of him behind a hull");
+            Assert.AreEqual(0f, GymStrip.VisibleShare(0.01f, 0.06f, 0.01f), 1e-4f, "at the floor: not one pixel of him got through");
+            Assert.AreEqual(0f, GymStrip.VisibleShare(0.004f, 0.06f, 0.01f), 1e-4f, "under the floor is still none of him, never negative");
+            Assert.AreEqual(1f, GymStrip.VisibleShare(0.09f, 0.06f, 0.01f), 1e-4f, "more than the reference is still all of him");
+            Assert.IsTrue(float.IsNaN(GymStrip.VisibleShare(float.NaN, 0.06f, 0.01f)), "a vehicle has no hide hook: no number");
+            Assert.IsTrue(float.IsNaN(GymStrip.VisibleShare(0.06f, float.NaN, 0.01f)), "no reference measured: no number");
+            Assert.IsFalse(float.IsNaN(GymStrip.VisibleShare(0.02f, 0.0100f, 0.01f)), "a reference at the floor does not divide by zero");
+        }
+
+        [Test]
+        public void HiddenFlagsASubjectUnderSixtyPercentAndNeverANaN()
+        {
+            Assert.IsNull(GymStrip.Hidden(1f), "fully visible");
+            Assert.IsNull(GymStrip.Hidden(GymStrip.MinVisible), "exactly at the line is not flagged");
+            Assert.IsNotNull(GymStrip.Hidden(0.59f), "just under the line is flagged");
+            Assert.IsNotNull(GymStrip.Hidden(0f), "behind a hull");
+            StringAssert.Contains("hidden", GymStrip.Hidden(0.2f));
+            Assert.IsNull(GymStrip.Hidden(float.NaN), "nothing measured is not evidence of hiding");
+            Assert.AreEqual(0.60f, GymStrip.MinVisible, 1e-6f, "the share stated in round4/FLAGS.md");
+        }
     }
 }

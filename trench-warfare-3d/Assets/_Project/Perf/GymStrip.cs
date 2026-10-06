@@ -226,6 +226,48 @@ namespace TW.Perf
             return AboutSelection(e);
         }
 
+        // ------------------------------------------------------- how much of the subject is really drawn (look-08)
+        // round3's `subject_in_frame` is a VIEWPORT test: it says the subject's position projects inside the cell,
+        // not that a single pixel of him reached it. In Units/Medic, Shield, Engineer, Officer, Para, Vehicle and
+        // Jetpack the man stood behind a hull or a walker leg, in frame and invisible, and every picture passed.
+        //
+        // The measure. At the 'before' moment the gym shoots the pose, stops drawing the man in that one slot
+        // (VATRenderer.Hide) and shoots again: the share of the frame that changed between the two IS the man, as
+        // the camera sees him - occluders included, because a pixel another object owns does not change when he
+        // stops being drawn. `cfRef` is the same measurement on a rifleman standing alone on a bare stage at the
+        // same zoom and share, so the ratio is "how much of him got through" and not a number in pixels.
+        //
+        // Only a MAN gets a number: VATRenderer.Hide works per sim slot, and no equivalent exists for a tank hull
+        // or a walker (TankRenderer draws them from the world, with no per-slot mask), so a vehicle or walker
+        // subject is left at NaN and the sidecar says so.
+
+        /// <summary>The share of the subject that must reach the frame before the picture is worth reading.</summary>
+        public const float MinVisible = 0.60f;
+
+        /// <summary>
+        /// How much of the subject the camera actually sees, 0 to 1. `cfWith` is Diff(pose, same pose with the man
+        /// not drawn), `cfRef` the same diff for a lone rifleman on a bare stage, both of them measured against the
+        /// zoom's own noise floor. NaN in gives NaN out: nothing was measured, which is not evidence of hiding.
+        /// </summary>
+        public static float VisibleShare(float cfWith, float cfRef, float floor)
+        {
+            if (float.IsNaN(cfWith) || float.IsNaN(cfRef)) return float.NaN;
+            if (!(floor > 0f)) floor = 0f;
+            float den = cfRef - floor;
+            if (den < 1e-4f) den = 1e-4f;
+            float s = (cfWith - floor) / den;
+            return s < 0f ? 0f : s > 1f ? 1f : s;
+        }
+
+        /// <summary>The flag line for a subject the frame mostly does not show, or null. NaN is never flagged.</summary>
+        public static string Hidden(float share)
+        {
+            if (float.IsNaN(share) || share >= MinVisible) return null;
+            return "hidden: the camera sees only " + (share * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                 + "% of the subject (under " + (MinVisible * 100f).ToString("0", System.Globalization.CultureInfo.InvariantCulture)
+                 + "%), so the picture is of what stands in front of him";
+        }
+
         /// <summary>Is this entry about the ring/marker itself, so hiding it would hide the subject of the picture?</summary>
         public static bool AboutSelection(GymEntry e)
         {

@@ -340,6 +340,13 @@ namespace TW.Editor
                         .Append(", \"flag\": ").Append(verdict == null ? "null" : "\"" + Gym.Esc(verdict) + "\"").Append("}");
                 Debug.Log("Gym: control at zoom " + z.ToString("0.0", Inv) + ": " + (verdict ?? "NOT FLAGGED - the rule cannot fail here"));
             }
+            // THE OCCLUSION REFERENCE (look-08, fault 2): how much of a close frame one rifleman owns when nothing
+            // stands in front of him. Measured here, on the bare stage, in the same run and at the same zoom and
+            // share a strip uses, so every entry's share is measured against this run's own weather and camera.
+            float visRef = float.NaN;
+            yield return StartCoroutine(MeasureSubjectRef(raw, host, director, v => visRef = v));
+            Debug.Log("Gym: a lone rifleman owns " + (float.IsNaN(visRef) ? "(not measured)" : visRef.ToString("0.0000", Inv))
+                      + " of his own close frame; a subject under " + (GymStrip.MinVisible * 100f).ToString("0", Inv) + "% of that is flagged hidden");
             File.AppendAllText(Path.Combine(dir, "gym-run.txt"), "noise floor: " + floor.ToString("0.0000", Inv) + " of a close frame; nothing-drawn threshold " + threshold.ToString("0.0000", Inv) + "\n");
             Debug.Log("Gym: noise floor " + floor.ToString("0.0000", Inv) + ", threshold " + threshold.ToString("0.0000", Inv));
             var entries = Select(GymCatalogue.All(host.Local.World));
@@ -348,7 +355,9 @@ namespace TW.Editor
             var summary = new StringBuilder();
             var summaryFlags = new HashSet<string>();
             summary.Append("{\n  \"sha\": \"").Append(sha).Append("\", \"options\": \"").Append(Gym.Esc(Options))
-                   .Append("\", \"noise_floor\": ").Append(floor.ToString("0.0000", Inv)).Append(", \"threshold\": ").Append(threshold.ToString("0.0000", Inv))
+                   .Append("\", \"subject_visible_ref\": ").Append(float.IsNaN(visRef) ? "null" : visRef.ToString("0.0000", Inv))
+                   .Append(", \"min_visible\": ").Append(GymStrip.MinVisible.ToString("0.00", Inv))
+                   .Append(", \"noise_floor\": ").Append(floor.ToString("0.0000", Inv)).Append(", \"threshold\": ").Append(threshold.ToString("0.0000", Inv))
                    .Append(", \"entries\": [\n");
             int flagged = 0, done = 0; string stopped = null;
             float t0 = Time.realtimeSinceStartup;
@@ -374,7 +383,7 @@ namespace TW.Editor
                 int pinned = -1, slot = -1;
                 float wait;
                 var shots = new List<string>(); var jsons = new List<string>();
-                string truth = null; bool machineChanged = false; float stripFloor = floor;
+                string truth = null; bool machineChanged = false; float stripFloor = floor; float subjVis = float.NaN;
                 // The TIME STRIP: one close band at five moments across the entry's life, instead of six zooms of one
                 // moment. A death, an ability, an event or a unit's fire IS a moment in time, and the first filming
                 // proved a single still cannot tell "nothing was drawn" from "the still missed it" - its three far
@@ -467,6 +476,36 @@ namespace TW.Editor
                     float bu = Time.realtimeSinceStartup + 30f;
                     while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < bu) yield return null;
                     shots.Add(before); jsons.Add(Path.ChangeExtension(before, ".json"));
+                    // HOW MUCH OF HIM THE CAMERA SEES (look-08, fault 2). The same pose, shot again with the man in
+                    // this one slot not drawn: the share of the frame that changes between the two is his own pixels
+                    // AS SEEN - a pixel a hull owns does not change when he stops being drawn. Taken here, before
+                    // the trigger, so no effect of the entry is counted as part of him.
+                    if (slot >= 0 && !sVeh && !sWalk)
+                    {
+                        var vatHide = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+                        if (vatHide == null) r.Log.Add("visible: not measured - no VATRenderer in the scene");
+                        else
+                        {
+                            string hid = Path.Combine(raw, stem + "_vis.png");
+                            vatHide.Hide(slot, true);
+                            yield return null; yield return null;   // the mask is read in VATRenderer's own LateUpdate
+                            CaptureRig.Shot(hid, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
+                            float hu = Time.realtimeSinceStartup + 30f;
+                            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < hu) yield return null;
+                            yield return null;
+                            vatHide.Hide(slot, false);
+                            float cfWith = Gym.JsonNumber(CaptureRig.Diff(before, hid), "changed_frac");
+                            subjVis = GymStrip.VisibleShare(cfWith, visRef, stripFloor);
+                            r.Log.Add("visible: his own pixels are " + (float.IsNaN(cfWith) ? "(unread)" : cfWith.ToString("0.0000", Inv))
+                                      + " of the frame against a lone rifleman's " + (float.IsNaN(visRef) ? "(unmeasured)" : visRef.ToString("0.0000", Inv))
+                                      + " over the floor " + stripFloor.ToString("0.0000", Inv) + ", so "
+                                      + (float.IsNaN(subjVis) ? "no share" : (subjVis * 100f).ToString("0", Inv) + "% of him"));
+                            TryDelete(hid); TryDelete(Path.ChangeExtension(hid, ".json"));
+                        }
+                    }
+                    else if (slot >= 0)
+                        r.Log.Add("visible: not measured - VATRenderer.Hide masks a MAN in one sim slot and there is no "
+                                  + "per-slot equivalent for a " + (sWalk ? "walker" : "machine") + ", which TankRenderer draws from the world");
                     try { Trigger(director, e, slot, previewOnly); }
                     catch (System.Exception ex) { Debug.LogException(ex); r.Log.Add("trigger threw: " + ex.Message); }
                     var moments = GymStrip.Moments(wait);
@@ -586,12 +625,12 @@ namespace TW.Editor
                     for (int i = 1; i < shots.Count && i < GymStrip.Frames; i++) stripChanged.Add(Gym.JsonNumber(CaptureRig.Diff(shots[0], shots[i]), "changed_frac"));
                 }
                 List<string> flags;
-                try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, stripFloor, previewOnly, machineChanged); }
+                try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, stripFloor, previewOnly, machineChanged, subjVis); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags = new List<string> { "judging threw: " + ex.Message }; }
                 string sheet = capture ? Path.Combine(dir, e.Tab.ToString(), Safe(e.Name) + ".jpg") : null;
                 try { if (capture) Gym.Sheet(shots, sheet, e.Tab == GymTab.Clips ? 640 : 480); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags.Add("sheet failed: " + ex.Message); }
-                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null, stripChanged, truth, machineChanged, previewOnly);
+                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null, stripChanged, truth, machineChanged, previewOnly, subjVis, visRef);
                 foreach (var f in flags) summaryFlags.Add(e + " | " + Regex.Replace(f, @"[0-9.]+", "#"));
                 if (flags.Count == 0) foreach (var f in shots) { TryDelete(f); TryDelete(Path.ChangeExtension(f, ".json")); }
             }
@@ -757,7 +796,8 @@ namespace TW.Editor
 
         /// <summary>The entry's flags: what a person should look at. Empty means it did what the catalogue expects.</summary>
         static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons,
-                                  List<float> stripChanged = null, float floor = 0f, bool previewOnly = false, bool machineChanged = false)
+                                  List<float> stripChanged = null, float floor = 0f, bool previewOnly = false, bool machineChanged = false,
+                                  float subjectVisible = float.NaN)
         {
             // Did the staging make the entry's event happen FOR REAL? An entry whose event was only replayed into the
             // effects, whose victim lived or whose ability the sim refused says nothing about what the game draws, so
@@ -830,13 +870,18 @@ namespace TW.Editor
                 if (!float.IsNaN(frac) && frac < 0.15f)
                     flags.Add(which + ": subject fills only " + (frac * 100f).ToString("0", Inv) + "% of the frame's height");
             }
+            // ...and was he DRAWN, not merely in frame (look-08, fault 2): subject_in_frame is a viewport test and
+            // passed seven round-3 entries whose man stood behind a hull or a walker leg.
+            string hiddenFlag = GymStrip.Hidden(subjectVisible);
+            if (hiddenFlag != null) flags.Add(hiddenFlag);
             if (e.Tab == GymTab.Clips && jsons.Count > 0 && File.Exists(jsons[0]) && Gym.JsonNumber(File.ReadAllText(jsons[0]), "men_in_frame") < 1f) flags.Add("no man in the T3 frame");
             return flags;
         }
 
         static void WriteEntry(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
                                ref int flagged, ref int done, string sheet = null, AnimState? pose = null, List<float> stripChanged = null,
-                               string truth = null, bool machineChanged = false, bool previewOnly = false)
+                               string truth = null, bool machineChanged = false, bool previewOnly = false,
+                               float subjectVisible = float.NaN, float subjectVisibleRef = float.NaN)
         {
             done++; if (flags.Count > 0) flagged++;
             var sb = new StringBuilder();
@@ -876,6 +921,11 @@ namespace TW.Editor
                 for (int i = 0; i < stripChanged.Count; i++) sb.Append(i > 0 ? ", " : "").Append(float.IsNaN(stripChanged[i]) ? "-1" : stripChanged[i].ToString("0.0000", Inv));   // -1: the diff could not be read
                 sb.Append("],\n");
             }
+            // How much of the subject the camera really saw, and the lone rifleman this run measured him against.
+            // null for a vehicle or a walker: VATRenderer.Hide is per sim slot and only men go through it (look-08).
+            sb.Append("  \"subject_visible_frac\": ").Append(float.IsNaN(subjectVisible) ? "null" : subjectVisible.ToString("0.000", Inv))
+              .Append(", \"subject_visible_ref\": ").Append(float.IsNaN(subjectVisibleRef) ? "null" : subjectVisibleRef.ToString("0.0000", Inv))
+              .Append(", \"min_visible\": ").Append(GymStrip.MinVisible.ToString("0.00", Inv)).Append(",\n");
             sb.Append("  \"sheet\": ").Append(sheet == null ? "null" : "\"" + Gym.Esc(sheet) + "\"").Append(",\n  \"log\": [");
             for (int i = 0; i < r.Log.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(Gym.Esc(r.Log[i])).Append('"');
             sb.Append("],\n  \"flags\": [");
@@ -952,11 +1002,56 @@ namespace TW.Editor
             got(float.IsNaN(f) ? float.NaN : Mathf.Max(f, 0f));
         }
 
+        /// <summary>
+        /// cfRef for the occlusion measure (look-08): the share of a close frame ONE rifleman owns when he stands
+        /// alone on a bare stage. Shot exactly as a strip's 'before' frame is - same zoom, same share, same pose,
+        /// the same overlays hidden - and then shot again with him not drawn; the diff is all of him. NaN when the
+        /// man could not be staged or the rig gave nothing, which leaves every share NaN and nothing flagged.
+        /// </summary>
+        IEnumerator MeasureSubjectRef(string raw, SimHost host, GymDirector director, System.Action<float> got)
+        {
+            float result = float.NaN;
+            var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            if (vat == null) { Debug.LogWarning("Gym: no VATRenderer, so no occlusion reference"); got(result); yield break; }
+            bool overlaysWere = TW.Presentation.Tactical.CombatFx.ShowOverlays;
+            bool ringsWere = TW.Presentation.Tactical.TankRenderer.ShowRings;
+            Debug.Log("Gym: " + director.Bare());
+            yield return new WaitForSeconds(1.5f);
+            var at = director.NextStage();
+            int slot = director.Spawn(0, GymCatalogue.ArchetypeForFigure(0), at.x, at.y, 30f);   // the rifleman
+            if (slot < 0) { Debug.LogWarning("Gym: could not stage the reference rifleman"); got(result); yield break; }
+            yield return new WaitForSeconds(1.5f);
+            float h = GymStrip.SubjectHeight(false, false), zoom = GymStrip.ZoomFor(h, 25f);
+            Vector3 foot = host != null && host.Presenter != null ? (Vector3)host.Presenter.Drawn(slot) : new Vector3(at.x, 0f, at.y);
+            CaptureRig.Subject = foot; CaptureRig.SubjectHeight = h;
+            Overlays(false, false);
+            string a = Path.Combine(raw, "visref_a.png"), b = Path.Combine(raw, "visref_b.png");
+            CaptureRig.Shot(a, foot.x, foot.z, zoom, 30f, 25f, 800, 450, foot.y + h * 0.5f);
+            float u = Time.realtimeSinceStartup + 30f;
+            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < u) yield return null;
+            vat.Hide(slot, true);
+            yield return null; yield return null;   // the mask is read in VATRenderer\'s own LateUpdate
+            CaptureRig.Shot(b, foot.x, foot.z, zoom, 30f, 25f, 800, 450, foot.y + h * 0.5f);
+            u = Time.realtimeSinceStartup + 30f;
+            while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < u) yield return null;
+            yield return null;
+            vat.Hide(slot, false);
+            float cf = Gym.JsonNumber(CaptureRig.Diff(a, b), "changed_frac");
+            if (!float.IsNaN(cf) && cf > 0f) result = cf;
+            foreach (var tmp in new[] { a, b }) { TryDelete(tmp); TryDelete(Path.ChangeExtension(tmp, ".json")); }
+            CaptureRig.NoSubject();
+            Overlays(overlaysWere, ringsWere);
+            Debug.Log("Gym: " + director.Bare());
+            yield return new WaitForSeconds(0.5f);
+            got(result);
+        }
+
         static void SafeWrite(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
                               ref int flagged, ref int done, string sheet, AnimState? pose, List<float> stripChanged = null,
-                              string truth = null, bool machineChanged = false, bool previewOnly = false)
+                              string truth = null, bool machineChanged = false, bool previewOnly = false,
+                              float subjectVisible = float.NaN, float subjectVisibleRef = float.NaN)
         {
-            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose, stripChanged, truth, machineChanged, previewOnly); }
+            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose, stripChanged, truth, machineChanged, previewOnly, subjectVisible, subjectVisibleRef); }
             catch (System.Exception ex) { Debug.LogException(ex); }
         }
 
