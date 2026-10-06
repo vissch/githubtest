@@ -193,6 +193,7 @@ shoot std 120
 echo "  $("$T" eval 'var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>(); var w=cf.Host.Local.World;
 var fx=TW.Presentation.Tactical.Flamethrower.Active; var sb=new System.Text.StringBuilder();
 sb.Append(UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>().TracerReport()+" ");
+sb.Append(TW.Presentation.Tactical.FlameJetCard.Report()+" ");
 sb.Append("jets="+fx.Jets+" fires="+fx.Fires+" man="+(w.IsAlive('"$SLOT"')?w.Hp['"$SLOT"'].ToString("F0")+" hp":"dead"));
 for(int i='"$SLOT"'+1;i<='"$SLOT"'+4;i++) sb.Append(i==w.HighWater?"":" e"+i+"="+(w.IsAlive(i)?w.Hp[i].ToString("F0"):"dead"));
 return sb.ToString();' | val)"
