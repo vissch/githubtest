@@ -30,6 +30,20 @@
 # Start the editor first:  Unity.exe -batchmode -projectPath <checkout> -logFile <log>   (never -nographics: the
 # pictures need the card).
 #
+# LOOK-09 added three things, all of them so that a question is settled by a PICTURE instead of by reading code:
+#   * the final report prints every CombatFx tracer's from/to in PIXELS of the side picture, through the very same
+#     viewport maths snap() writes the sidecars with. The master saw "thin straight pale-yellow lines running along
+#     and past the stream" in both side views; a pair of pixel coordinates landing on a line names its shooter, and
+#     reading CombatFx.OnSimEvent cannot. The list is private, so the rig reaches it by reflection: this is a
+#     diagnostic rig and that keeps the change out of production code.
+#   * a CONTROL SHOT, <prefix>_<tag>noflame, taken from the side camera one frame after Flamethrower.Active.Clear()
+#     drops every jet, pool, torch and pyre. Anything still drawn in it is NOT the flame man's. flame2 argued the
+#     pink streak away from the code and from TracerReport; this proves the same kind of claim by subtraction.
+#   * the spawn and the camera's frame point are VARIABLES, and close is also snapped from three frame points
+#     (close_x50, close_x60, close_x70). flame3's close shot showed only a short flare between the man and a tree
+#     trunk, and the rig stands him where that trunk is; the three probes find a frame with the whole run in clear
+#     view instead of guessing at one.
+#
 # Game time is stepped, never slept: a wall-clock wait lands on a different cel every run and the phase difference
 # then reads as a regression (Tools/flameshots says why at length).
 set -u
@@ -40,6 +54,10 @@ case "$LIGHT" in night) TAG="" ;; day) TAG="day_" ;; *) echo "light must be nigh
 # a file beside the folder, while the stale ones inside it still measured fine).
 WP="$(cygpath -m "$P" 2>/dev/null || echo "$P")"
 OUT="$P/Tools/flame-shots"; mkdir -p "$OUT"
+# The staging and the framing, as numbers rather than buried literals (look-09). SPAWN is where the flame man is put
+# and the riflemen are lined up ten metres off; FRAME is the point the game camera is framed on for close and std.
+SPAWN_X=60; SPAWN_Z=60; FRAME_X=60; FRAME_Z=65
+CLOSE_PROBES="50 60 70"   # extra close shots, one per frame-point x, to find ground clear of the trench-line trunks
 val() { grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//'; }
 step() { "$T" eval "UnityEditor.EditorApplication.isPaused=true; for(int i=0;i<${1};i++) UnityEditor.EditorApplication.Step(); return 0;" >/dev/null 2>&1; }
 
@@ -92,7 +110,7 @@ fi
 "$T" eval 'TW.Editor.RiderLab.ClearEnemies(0, 999f); return 0;' 90 >/dev/null 2>&1
 SLOT=$("$T" eval 'UnityEngine.Random.InitState(20250925);
 var fx=TW.Presentation.Tactical.Flamethrower.Active; fx.Clear();
-var m=TW.Editor.TankCapture.Spawn(0, 36, 60f, 60f, 0f);
+var m=TW.Editor.TankCapture.Spawn(0, 36, '"$SPAWN_X"'f, '"$SPAWN_Z"'f, 0f);
 if(!m.StartsWith("slot ")) return "spawn failed: "+m;
 int s=int.Parse(m.Substring(5).Split(new string[]{" "}, System.StringSplitOptions.None)[0]);
 TW.Editor.RiderLab.Enemies(s, 4, 10f);
@@ -101,7 +119,7 @@ return s.ToString();' 90 | val)
 case "$SLOT" in
   ''|*[!0-9]*) echo "STAGING FAILED ($SLOT)" >&2; exit 1 ;;
 esac
-echo "  flame man in slot $SLOT at (60, 60), 4 riflemen 10 m off his nose"
+echo "  flame man in slot $SLOT at ($SPAWN_X, $SPAWN_Z), 4 riflemen 10 m off his nose"
 
 # Wait for the fight to actually START, do not count frames at it. On a freshly started editor the first
 # frames after the staging go on settling (the sim had not fired a shot yet: man=100 hp, every enemy 100,
@@ -153,16 +171,16 @@ TW.Editor.TankCapture.Shot(@\"${WP}/Tools/flame-shots/${PRE}_${TAG}$1.png\", W, 
 # given back afterwards - never left off, or every later shot in this run frames whatever the side view framed.
 tcon() { "$T" eval 'var tc=UnityEngine.Camera.main.GetComponent<TW.Presentation.Tactical.TacticalCamera>(); tc.enabled=true; return 0;' >/dev/null 2>&1; }
 
-shoot() {   # shoot <name> <zoom>   - the game's own camera, framed on the fight
+shoot() {   # shoot <name> <zoom> [frame x]   - the game's own camera, framed on the fight
   tcon
   "$T" eval "var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
-tc.FrameFrom(new UnityEngine.Vector2(60f, 65f), ${2}f, 0f); return 0;" >/dev/null 2>&1
+tc.FrameFrom(new UnityEngine.Vector2(${3:-$FRAME_X}f, ${FRAME_Z}f), ${2}f, 0f); return 0;" >/dev/null 2>&1
   step 1    # TacticalCamera writes the transform in LateUpdate: without a frame here the shot is framed where the
             # PREVIOUS one was (side and std came back with byte-identical sidecars the first time)
   snap "$1"
 }
 
-shoot_side() {   # a LOW camera, level with his chest, 14 m off the side of the aim: the view a stream has a shape in
+pose_side() {   # a LOW camera, level with his chest, 14 m off the side of the aim: the view a stream has a shape in
   "$T" eval "var cam=UnityEngine.Camera.main; cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>().enabled=false;
 var mouth=new UnityEngine.Vector3(${AIM0}f,${AIM1}f,${AIM2}f); var at=new UnityEngine.Vector3(${AIM3}f,${AIM4}f,${AIM5}f);
 var mid=(mouth+at)*0.5f; var fwd=at-mouth; fwd.y=0f;
@@ -171,7 +189,22 @@ var side=UnityEngine.Vector3.Cross(UnityEngine.Vector3.up, fwd);
 var eye=mid+side*14f+UnityEngine.Vector3.up*4f;
 cam.transform.position=eye; cam.transform.rotation=UnityEngine.Quaternion.LookRotation((mid-eye).normalized, UnityEngine.Vector3.up);
 return 0;" >/dev/null 2>&1
+}
+
+shoot_side() {
+  pose_side
   snap side
+  tcon
+}
+
+# THE CONTROL SHOT. Clear() drops the jets, the burning pools, the men alight and the pyres - everything Flamethrower
+# draws - and nothing else in the frame. One frame later, from the same side pose, whatever is still drawn is not his.
+# The sim keeps burning men, so the effect refills on later frames and the std shot after this is a normal one.
+shoot_noflame() {
+  pose_side
+  "$T" eval 'TW.Presentation.Tactical.Flamethrower.Active.Clear(); return 0;' >/dev/null 2>&1
+  step 1
+  snap noflame
   tcon
 }
 
@@ -185,18 +218,43 @@ IFS=, read -r AIM0 AIM1 AIM2 AIM3 AIM4 AIM5 <<< "$AIM"
 echo "  muzzle ($AIM0, $AIM1, $AIM2) -> target ($AIM3, $AIM4, $AIM5)"
 
 shoot close 16
+for FX in $CLOSE_PROBES; do shoot "close_x$FX" 16 "$FX"; done
 shoot_side
+shoot_noflame
 shoot std 120
 
 # What the sim and the effect each think is happening. jets=0 while his target is losing hit points IS the bug this
 # rig exists for: the sim is burning men and nothing is drawing the jet.
 echo "  $("$T" eval 'var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>(); var w=cf.Host.Local.World;
 var fx=TW.Presentation.Tactical.Flamethrower.Active; var sb=new System.Text.StringBuilder();
-sb.Append(UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>().TracerReport()+" ");
+sb.Append(cf.TracerReport()+" ");
 sb.Append(TW.Presentation.Tactical.FlameJetCard.Report()+" ");
 sb.Append("jets="+fx.Jets+" fires="+fx.Fires+" man="+(w.IsAlive('"$SLOT"')?w.Hp['"$SLOT"'].ToString("F0")+" hp":"dead"));
 for(int i='"$SLOT"'+1;i<='"$SLOT"'+4;i++) sb.Append(i==w.HighWater?"":" e"+i+"="+(w.IsAlive(i)?w.Hp[i].ToString("F0"):"dead"));
 return sb.ToString();' | val)"
+
+# EVERY TRACER IN PIXELS OF THE SIDE PICTURE (look-09, question 2). The same viewport maths snap() writes the
+# sidecars with - viewport coordinates scaled to 1600x900, y flipped to image rows - so a pale line the master can
+# point at on after_side.jpg can be matched to a shooter by its coordinates. The camera is put back in the side pose
+# first, because a pixel is only a pixel of one view. tracers is private to CombatFx: read by reflection, because
+# this is a diagnostic rig and production code should not grow an accessor for it.
+pose_side
+echo "  tracers in side pixels: $("$T" eval 'var cf=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>();
+var cam=UnityEngine.Camera.main; int W=1600,H=900; cam.aspect=W/(float)H;
+var iv=System.Globalization.CultureInfo.InvariantCulture;
+var fi=typeof(TW.Presentation.Tactical.CombatFx).GetField("tracers", System.Reflection.BindingFlags.NonPublic|System.Reflection.BindingFlags.Instance);
+var list=(System.Collections.IList)fi.GetValue(cf);
+var ty=fi.FieldType.GetGenericArguments()[0];
+var fF=ty.GetField("From"); var fT=ty.GetField("To"); var fB=ty.GetField("Born"); var fTm=ty.GetField("Team");
+var sb=new System.Text.StringBuilder(); float now=UnityEngine.Time.time; int live=0;
+System.Func<UnityEngine.Vector3,string> px = v => { var q=cam.WorldToViewportPoint(v);
+  return "("+(q.x*W).ToString("F0",iv)+","+((1f-q.y)*H).ToString("F0",iv)+")"; };
+for(int i=0;i<list.Count;i++){ var t=list[i]; float born=(float)fB.GetValue(t);
+  if(now<born || born<now-cf.TracerSeconds) continue; live++;
+  sb.Append(" [team="+(byte)fTm.GetValue(t)+" "+px((UnityEngine.Vector3)fF.GetValue(t))+"->"+px((UnityEngine.Vector3)fT.GetValue(t))+"]"); }
+cam.ResetAspect();
+return "live="+live+" of "+list.Count+sb;' 90 | val)"
+tcon
 
 # A capture with no fire in it is worse than no capture: it measures cleanly and the numbers mean nothing.
 # flamecheck asks "is there fire at all"; flameband asks "is it a BAND from the muzzle to the target, or a blob round

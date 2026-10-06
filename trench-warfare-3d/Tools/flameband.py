@@ -40,6 +40,23 @@ sides, and the pre-registered verdict for look-06 was: red on before_side and be
 after_side and after_day_side (the card). Measured: root 0.52 / 0.97 against 0.16 / 0.16; span 0.25 / 0.08 against
 0.37 / 0.31.
 
+A SECOND VERDICT, --wiggle (look-09). The band measure says the fire is a stream; it says nothing about whether
+that stream is SHAPED like fire. look-06's card passed the band and the master still rejected it: "a RULER-STRAIGHT
+wedge, its top and bottom edges straight lines for hundreds of pixels". So --wiggle measures the one thing that
+sentence is about - how far the stream's UPPER CONTOUR departs from a straight line - and it is deliberately the
+HARSHEST reading available: per column the topmost row of the stream piece, then a 150-column window slid along it,
+a least-squares line fitted inside each window, and the SMALLEST residual RMS of any window reported. One ruler
+-straight stretch anywhere along the stream is enough to fail it, which is exactly the complaint.
+
+  wiggle >= 2.5 px in every 150-column window: the edge is BROKEN, exit 0.
+  wiggle <  2.5 px somewhere: RULER, exit 1.
+  the piece spans fewer than 400 columns: CANNOT JUDGE, exit 2, never a pass. A 150 px window needs a long
+  contour to mean anything, and the close shot (over the shoulder) and the 120 m shot do not have one.
+
+Pre-registered, and measured on the pictures the master rejected: flame3/after_side.jpg 1.59 px and
+flame3/after_day_side.jpg 0.32 px - both RULER, both red. The threshold sits above both with margin and below the
++-6 px ragged edge of test_flameband.py's hermetic case.
+
 What this measure still cannot do: the CLOSE shot is taken over the man's shoulder, where the target projects
 behind the muzzle and u runs past 1.7, so root and span mean nothing there; and at the standard view (120 m) the
 whole run is sixty pixels and the core is a few dozen. Measure the SIDE shots with this and read the other two by
@@ -51,6 +68,7 @@ from PIL import Image
 from scipy import ndimage
 
 ROOT_MAX, SPAN_MIN, WIDTH_MAX = 0.30, 0.28, 0.16
+WIGGLE_MIN, WIGGLE_WINDOW, WIGGLE_COLUMNS = 2.5, 150, 400
 CORE_LUM, CORE_WARM = 215.0, 25.0
 
 
@@ -92,13 +110,51 @@ def band(mask, muzzle, target):
     return root, span, width, n
 
 
+def wiggle(mask):
+    """The smallest 150-column straight-line residual RMS of the stream's upper contour, in pixels.
+
+    Returns (wiggle, columns). `columns` is how many columns the piece spans; under WIGGLE_COLUMNS the number
+    cannot be judged and main() says so rather than passing it.
+    """
+    piece, _ = stream(mask)
+    ys, xs = np.nonzero(piece)
+    if xs.size == 0:
+        return 0.0, 0
+    cols = np.unique(xs)
+    top = np.array([ys[xs == c].min() for c in cols], dtype=np.float64)   # the topmost row per column
+    n = int(cols.size)
+    if n < WIGGLE_WINDOW:
+        return 0.0, n
+    worst = None
+    for i in range(0, n - WIGGLE_WINDOW + 1):
+        wx, wy = cols[i:i + WIGGLE_WINDOW].astype(np.float64), top[i:i + WIGGLE_WINDOW]
+        m, c = np.polyfit(wx, wy, 1)
+        rms = float(np.sqrt(np.mean((wy - (m * wx + c)) ** 2)))
+        worst = rms if worst is None else min(worst, rms)
+    return float(worst), n
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("image")
     ap.add_argument("--muzzle", help="x,y in pixels")
     ap.add_argument("--target", help="x,y in pixels")
     ap.add_argument("--sidecar", help='json beside the picture: {"muzzle":[x,y],"target":[x,y]}')
+    ap.add_argument("--wiggle", action="store_true",
+                    help="judge the EDGE instead: is the stream's upper contour ruler-straight anywhere?")
     a = ap.parse_args(argv)
+
+    if a.wiggle:
+        # The edge verdict needs no muzzle and no target: it is a property of the stream's own contour.
+        w, cols = wiggle(core_mask(a.image))
+        if cols < WIGGLE_COLUMNS:
+            print("CANNOT JUDGE  wiggle: the stream spans %d columns (<%d) - too short a contour to fit a %d px "
+                  "window to  %s" % (cols, WIGGLE_COLUMNS, WIGGLE_WINDOW, a.image))
+            return 2
+        print("%s wiggle=%.2f px (>=%.2f %s)  over %d columns, worst %d px window  %s" % (
+            "RAGGED" if w >= WIGGLE_MIN else "RULER ",
+            w, WIGGLE_MIN, "ok" if w >= WIGGLE_MIN else "FAIL", cols, WIGGLE_WINDOW, a.image))
+        return 0 if w >= WIGGLE_MIN else 1
 
     if a.sidecar:
         with open(a.sidecar, "r", encoding="utf-8") as fh:
