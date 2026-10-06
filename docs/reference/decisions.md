@@ -83,7 +83,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-23 | Unit selection the way Dust Front does it, with ten control groups. An armoury screen showing unit cutouts. |
 | 2026-09-24 | Hover card beside the cursor over a unit. |
 | 2026-09-27 | **The battle bar may shrink at 16:9.** With ten roster slots and seven support cards it is 1,732 px wide and draws at 0.91 on a 16:9 screen (`HudView.BarFit`), rather than narrowing the infantry cards to fit (180 to 154 px). `HudLayoutTests` holds it at no less than 0.9. Revisit with the HUD's next layout pass. |
-| 2026-10-06 | **The six support cards stay shared, and a card the player's faction cannot call is hidden.** The owner, to "Which support cards each faction gets": "Keep the six shared for now; hide any card the player's faction cannot call". The fault to fix is the drop card on an Iron player's bar, which does nothing when pressed. A split per faction waits for the roster redesign. Not built. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The six support cards stay shared, and a card the player's faction cannot call is hidden.** The owner, to "Which support cards each faction gets": "Keep the six shared for now; hide any card the player's faction cannot call". The fault to fix is the drop card on an Iron player's bar, which does nothing when pressed. A split per faction waits for the roster redesign. Landed 2026-10-06 with `lane/show/faction-cards-v2`. (owner, 2026-10-06, on the Decide page) |
 
 ## Process
 | Date | Decision |
@@ -138,7 +138,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **The effects pass is pushed to GitHub and reviewed for landing next.** The owner, to "Back up the effects pass to GitHub?" (`lane/show/pipe-vfx`, 91 commits on the desktop's disk only since 2026-09-29): he clicked "Push it now: a copy on GitHub, nothing lands" and then twice "Push it, and have it reviewed for landing next"; the last is his answer. Asked again the same afternoon, he said yes (AskUserQuestion): pushed from the desktop at 698c1bd3, and looked over for landing without changing it. It carries no sim file; merged with the integration branch it conflicts in this file and in tasks.md only; its 14 test files sit in the old Tests/EditMode folder and move to their modules at the rebase; it is 158 commits behind and has no full gate on a rebased tree. The rebase, the gate and the landing wait on his word. (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **The desktop's GitHub login gets the workflow permission.** The owner, to "One browser click so GitHub's check stops being red": "Grant it: one command on the desktop opens a browser prompt, then it lands". The step is his: `gh auth refresh -h github.com -s workflow` on the desktop opens the browser; after it `lane/show/ci-checks` can be pushed and landed. Until then CI stays the red Unity workflow. (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **`main` is left as it is.** The owner, to "What a fresh download of the project gets": "Leave it; everyone working on it already knows which branch to take". A fresh download still gets the game of 2026-09-25. Nothing to do. (owner, 2026-10-06, on the Decide page) |
-| 2026-10-06 | **The six `-land` branches on origin are deleted.** The owner, to "Delete the six leftover -land branches": "Delete all six now: nothing is lost, every commit is on the integration branch". Not deleted at the time of writing: it is a push to origin. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The six `-land` branches on origin are deleted.** The owner, to "Delete the six leftover -land branches": "Delete all six now: nothing is lost, every commit is on the integration branch". Deleted the same evening, each checked as an ancestor of the integration branch first; the other old branches on origin are kept (the row of the same day). (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **The speed test's report keeps one set of names for the frame's counts.** The owner, to "The speed test writes the same three numbers twice": "Keep the names the optimiser and its stored results read; drop the other three". Which set that is (the `frame_budget_*` names, the optimiser being the aosa loop) was the agent's reading of the brief; asked again the same afternoon with the names spelled out, he said yes to it: queued for the relay as the unit speed-names (owner, 2026-10-06, AskUserQuestion). (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **Heroes are off in the stress bench.** The owner, to "Heroes in the speed test": "Heroes off in the stress bench: it times a steady scene, and matches its own tests". The bench gets a new baseline with it. Not built. (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **A played match is recorded only when a debug option is switched on.** The owner, to "Record played matches so a bug can be replayed": "Record only when switched on: a debug option that pays the per-step check for that match alone". No new replay format. Not built. (owner, 2026-10-06, on the Decide page) |
@@ -194,39 +194,25 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **The fleet's guns stay silent in a match unless switched on** (the owner, on the Decide page: "The guns stay silent in a match unless switched on (a test, the debug panel, an ability later); the fix stays"). The review fix U1 made the fleet fire for the first time, a 300-damage shell every 23 s on every map with a sea, half of them on the sea side's own lines: ambient shelling, against the row of 2026-09-28. `SeaLandingSystem.FleetFires` is off as a match is made (`LandingTests.TheFleetIsSilentInAMatch_UnlessSwitchedOn`); a test switches it on. Nothing in the game switches it on yet: no debug button, no ability. Landed with `lane/sim/review-fixes` (replay v36, v37). |
 
 ## Open: waiting on the owner
-- **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
-  out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
-  garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
-  in the open to duel across wire or a trench, and men in an enemy trench are stormed, not hunted; (4) he hunts within
-  70 m and stops to shoot at half his weapon's range (45 m under a `>>` order), kneeling; (5) mud costs a path twice
-  dry ground, not four times; (6) machines keep to lanes too but do not hunt (their guns choose their own targets).
-  Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now fought out to the
-  last man, and the side caught in front of the other's trench line loses. (Deployment across the whole width was
-  one of these and is decided: the table above.)
-  The owner, 2026-10-06, on the Decide page, in his own words: "we should do the latest six rules. the one where everyone spreads out is the
-  correct one". Read as: keep the six as built. That reading is the agent's; he is asked, and the bullet stays until he says.
 - **After dead ground (2026-10-06):** the owner removes it (How units move and fight) and asks for a better way: "we must think about how
   we can prevent this in the future in a better way: the man werent able to enter the trench." Open: what that way is. Measured with
-  dead ground off: the enemy's machine guns (170 m) killed 17 of 23 men walking up in ten minutes; the 20 % range cut, not in
-  integration yet, shortens them to 136 m, and nobody has measured that.
+  dead ground off: the enemy's machine guns (170 m) killed 17 of 23 men walking up in ten minutes; the 20 % range cut, in
+  integration since 2026-10-06, shortens them to 136 m, and nobody has measured that. Brief on the Decide page: "After dead
+  ground: how do men reach their trench alive?".
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
-- **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
-  The owner, 2026-10-06, on the Decide page, in his own words: "we find a solution for this so they dont clump together anymore". None of the
-  brief's options; which clumping he means is asked before anything is built.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
   game's machine, left alone). Still to check in Play: rockets reaching the ground on their burst's frame, the trails at
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
-  The owner, 2026-10-06, on the Decide page: "the rocket truck is very slow in reloading" (a remark, none of the brief's options: asked again).
-  The halted Kettle is decided (How units move and fight, 2026-10-06).
-- **A man lying down at range is an easier mark than a man sprinting (2026-10-01, found building men under fire):** past 60 m a sprinting man is hit at 0.39 of a shooter's chance (`CombatTables.RunningTarget` 0.35, and his stance's -0.1 cover) and a man lying in the open at 0.60 (`StanceRules.CoverBonusInOpen` 0.4), so going to ground at range costs a man more than running did; with the rushes the deaths per man-minute in the open did not fall (1.3-1.8 before, 1.5-1.6 after). Options: (a) leave it (default taken: the hit model is unchanged); (b) a lying man harder to hit the further off he is (to about 0.30 by 60 m), which helps an attack further: the rushes alone turned six stalemates of the scripts' match into five and a win.
+  The Salvo's reload and the halted Kettle are decided (Process and How units move and fight, 2026-10-06). The Skimmer
+  against the Tusk is asked on the Decide page: "The Skimmer cannot hurt a Tusk: keep it that way?".
 - **Names and jobs for the six models without a settled one (2026-09-28):** proposed and not answered: Brute as the
   Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
   Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
   infantry, or the look of one faction's infantry; the Cutter as it is.
   The owner, 2026-10-06: all six are for the frog faction, which is the main faction (How units move and fight). Still open: what each
-  does in it, and what "instantly playable" needs first.
+  does in it, and what "instantly playable" needs first. Brief on the Decide page: "The frog faction: what is playable first?".
 - **VFX pass (2026-09-28, loop mode; defaults taken for work only they do not decide, nothing landed on them).**
   From the tw3d-board catalogue (evidence, vfx-run, phase1-catalogue) section 6 (Q1, blood, is answered above):
   Q2 the beam is fire, not an electric lance (default fire: the new FireLance sheet was generated on it); Q3 keep the
@@ -249,7 +235,7 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   and the rockets keep the cut (37 m and 48 m). Options: (1) keep the metres as measured (taken); (2) cut them by 20 %
   too and measure the bench again. Default taken: (1), landed with the lane.
 - **The night look, second part (2026-10-06):** `lane/show/night-look-2` (six commits of 2026-10-01, rebased on the
-  desktop as `lane/show/night-look-3`, not pushed) was never shown to the owner: every flame streaks its reflection
+  desktop as `lane/show/night-look-3`, pushed 2026-10-07) was never shown to the owner: every flame streaks its reflection
   across the wet mud (`look.fireStreak`), a flame's glint on wet mud is orange not lilac (`look.glintUnblue`), props
   stand dark against the lifted distance (`look.silhouette`), the light pools softer and their rims amber
   (`look.poolUnblue`). It changes every night battle, so it does not land without his yes. Seen on today's captures:
@@ -257,6 +243,21 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   at play zoom, and at wide views the far props look like flat cut-outs. Options: (1) land it as built; (2) land it
   switched off, each change a knob to turn on later; (3) leave it. Default taken: not landed. Brief with six before
   and after pictures: `2026-10-06-the-night-look-second-part`.
+- **Asked on the Decide page on 2026-10-06, each a brief with pictures; nothing is built or landed on any of them until he answers.**
+  The default named is the brief writer's first option.
+  - **Houses give cover: by how much?** He said "reduced damage taken when behind a building"; the amount is his. Default: half, like a tank wreck. A sim change.
+  - **Forward+: you wrote approved. Switch the renderer?** Default: try it on a side lane first, the same night views before and after.
+  - **Infantry weapons: how they get into the game.** He picked big shapes. Default: one rebake takes the old rifle out, then every weapon is a loose part.
+  - **Roster v3: go on with Great Works and commanders, or park it?** Default: park it until the frog faction is playable.
+  - **The review fixes: how far now?** 85 units wait, about 50 relay hours. Default: the six top ones first, then show him.
+  - **The animation critique: start it again?** It stopped at step 3 of 5. Default: fix the battle camera, film again, finish the scoring.
+  - **The new graphs: which direction?** Four drawn directions for the board. Default: the front line, by age.
+  - **Four old questions that were never answered** (a compilation: house strength on two scales, three faults on the walking machines). Default: all four defaults.
+  - **The code review's nine calls for you** (a compilation). Default: all nine defaults.
+  - **The optimiser's four open asks** (a compilation). Default: all four defaults.
+  - **Finished work waiting for your land: land each when its tests are green?** (a compilation) Default: land each when green, the effects pass after his film.
+  - **Old and parked work: keep or drop?** (a compilation; three rows exist only on the desktop's disk) Default: save all to GitHub, carry on only the keeps.
+  - **The board's look: four small things left after navy** (a compilation). Default: all four defaults.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
