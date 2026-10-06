@@ -56,6 +56,9 @@ NEEDS = {
 # Slow-module tests that read project files by path, and the folder each reads (it must be one of the module's NEEDS).
 READS = {
     'MineTests': P + 'Sim/',   # one system alone clears the blast list: it greps the sim sources
+    # only its Explicit report reads a file, the sweep's spec, named when Tools/sweep.py runs it; the two plain tests
+    # read nothing. It plays whole matches through MatchLoopTests and AssaultLadderTests, so it is a Match test.
+    'BalanceSweepTests': P + 'Tests/Match/',
 }
 
 # A change here can reach any assembly: the build's inputs, and the gate itself.
