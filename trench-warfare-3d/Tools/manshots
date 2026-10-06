@@ -38,7 +38,11 @@ mkdir -p "$OUT"
 rm -rf "$(cygpath -u "$STAND" 2>/dev/null || echo "$STAND")" "$(cygpath -u "$FIRE" 2>/dev/null || echo "$FIRE")"
 
 # ---- the editor: batch, with the card, and only if one is not already answering -------------------------------
-if ! unity status --json --no-banner 2>&1 | grep -q '"state": *"ready"'; then
+# The CLI by FULL PATH. A bare `unity` finds ~/.local/bin/unity, which LAUNCHES an editor instead of asking one
+# (Tools/tw lines 24-29, 2026-10-03): `unity status` through it starts an editor that sits on a dialog nobody can
+# see and never answers, so the rig hangs before it takes a picture. That is how look-07's first try failed.
+UCLI="$(cygpath -m "$LOCALAPPDATA" 2>/dev/null || echo "$LOCALAPPDATA")/unity/bin/unity.exe"
+if ! "$UCLI" status --json --no-banner --project-path "$(cygpath -w "$P")" 2>&1 | grep -q '"state": *"ready"'; then
   UEXE="${ProgramFiles:-C:\Program Files}/Unity/Hub/Editor/6000.0.50f1/Editor/Unity.exe"
   echo "launching a batch editor (log: $LOG)"
   ( "$UEXE" -batchmode -projectPath "$(cygpath -w "$P")" -logFile "$(cygpath -w "$LOG")" >/dev/null 2>&1 & )
@@ -79,6 +83,7 @@ return sb.ToString();' 180 | val | sed 's/; /\n  /g; s/^/  /'
 # ---- the two runs ----------------------------------------------------------------------------------------------
 # `minutes=` is the run's own watchdog: it stops and writes summary.json with "stopped", so a timeout still leaves
 # usable pictures. Wait on summary.json, never on the wall clock.
+N=0
 gym() {   # gym <label> <out dir> <extra options>
   local lbl="$1" dir="$2" extra="$3"
   local udir; udir="$(cygpath -u "$dir" 2>/dev/null || echo "$dir")"
@@ -98,23 +103,20 @@ PY
     echo "  $lbl NEVER WROTE summary.json - partial pictures only" >&2
   fi
   ls "$udir/Units"/*.jpg 2>/dev/null | wc -l | sed 's/^/  sheets: /'
+  # Copy NOW, not after both runs. Gym.Prune (Gym.cs:145) keeps the run it is writing plus the newest OTHER run
+  # folder, and it judges "newest" by CreationTimeUtc: on NTFS a folder deleted and recreated under the same name
+  # inherits the old stamp (file tunnelling), so this run's fresh folder can sort last and the SECOND gym call
+  # deletes the first call's sheets. Seen 2026-10-06: both runs said "sheets: 7", the copy found 7.
+  for f in "$udir"/Units/*.jpg; do
+    [ -f "$f" ] || continue
+    cp "$f" "$OUT/$(basename "$f" .jpg)_${lbl}.jpg" && N=$((N+1))
+  done
+  cp "$udir/summary.json" "$OUT/summary_${lbl}.json" 2>/dev/null
 }
 gym standing "$STAND" ""
 gym firing   "$FIRE"  "film=6"
 
-# ---- out to the owner's folder ---------------------------------------------------------------------------------
-# One jpg per man per run, named so the pair sits side by side: <Man>_standing.jpg, <Man>_firing.jpg.
-n=0
-for pair in "standing:$STAND" "firing:$FIRE"; do
-  tag="${pair%%:*}"; d="$(cygpath -u "${pair#*:}" 2>/dev/null || echo "${pair#*:}")"
-  for f in "$d"/Units/*.jpg; do
-    [ -f "$f" ] || continue
-    b="$(basename "$f" .jpg)"
-    cp "$f" "$OUT/${b}_${tag}.jpg" && n=$((n+1))
-  done
-  cp "$d/summary.json" "$OUT/summary_${tag}.json" 2>/dev/null
-done
-echo "copied $n jpg to $OUT"
+echo "copied $N jpg to $OUT"
 
 # The editor holds the checkout and the GPU; the gate will not run while it does.
 "$T" eval 'UnityEditor.EditorApplication.isPlaying=false; return 0;' 90 >/dev/null 2>&1
