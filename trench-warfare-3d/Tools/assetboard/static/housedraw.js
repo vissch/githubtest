@@ -175,8 +175,9 @@
     });
     INK = INK_LIT;
   }
-  // where each room's name stands: over the middle of its back wall, or outside its front edge when it has none
-  var NAMEAT = { lab: [280, 640, H.TALL, -1], shop: [910, 0, H.TALL, -1], studio: [0, 1480, H.TALL, -1], hall: [910, 750, 150, -1], bunk: [1640, 0, H.TALL, -1],
+  // where each room's name stands: over the middle of its back wall, or outside its front edge when it has none.
+  // The hall's stands over its back rail, beside the notice board: over the board it covered the board's number
+  var NAMEAT = { lab: [280, 640, H.TALL, -1], shop: [910, 0, H.TALL, -1], studio: [0, 1480, H.TALL, -1], hall: [1090, 640, 26, -1], bunk: [1640, 0, H.TALL, -1],
                  work: [910, 1800, 0, 1], plan: [2020, 900, 0, 1] };
 
   // ---- the things that stand up: built once, in an order in which each is drawn after what is behind it
@@ -397,7 +398,7 @@
     b = p.anim ? sprite(p.anim, p.frame, u, v, z, p.flip) : null;
     var c = iso(u, v);
     if (!b) f.box = mark(f, u, v, p.lying ? 26 : 34);
-    else f.box = p.lying ? [c[0] - 70, c[1] - 88, c[0] + 76, c[1] + 12] : [c[0] - 46, c[1] - 156, c[0] + 46, c[1] + 4];
+    else f.box = p.lying ? [c[0] - 70, c[1] - 88, c[0] + 76, c[1] + 12] : H.frogBox(u, v);
     if (f.st === 'sleep') zzz(u, v, t, f.n);
     if (f.w.wait === 'owner' && f.st !== 'walk') bubble(u, v, '?');
   }
@@ -470,6 +471,9 @@
   var tagOf = {}, roomTag = {};
   function tags() {
     var want = {}, placed = [], n = sim.census(), chosen = shown();
+    // what the notice board says is kept free: no name of a room or of a frog is put over it
+    var face = H.boardFace(), fa = toScreen(face[0], face[1]), fb = toScreen(face[2], face[3]);
+    placed.push([fa[0], fa[1], fb[0], fb[1]]);
     H.ROOMS.forEach(function (r) {
       var e = roomTag[r.id], a = NAMEAT[r.id];
       if (!e) { e = roomTag[r.id] = el('button', 'h-room h-' + r.id); e.type = 'button'; e.title = r.name + ': ' + r.does; e.appendChild(el('b', null, r.name)); e.appendChild(el('span')); tagsBox.appendChild(e);

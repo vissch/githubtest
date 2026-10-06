@@ -60,8 +60,9 @@
                   spot(705, 160, 705, 215), spot(865, 160, 865, 215, { flip: true }), spot(1025, 160, 1025, 215), spot(1180, 160, 1180, 215, { flip: true }));
   // studio: six marks on the stage, either side of the line across it
   [[290, 1400], [290, 1560], [170, 1400], [410, 1560], [410, 1400], [170, 1560]].forEach(function (m, i) { SPOTS.studio.push(spot(m[0], m[1], m[0], 1480, { flip: i % 2 === 1 })); });
-  // hall: in front of the notice board, for whoever waits on the owner
-  SPOTS.hall.push(spot(910, 830, 910, 900), spot(820, 830, 820, 900), spot(1000, 830, 1000, 900, { flip: true }), spot(760, 970, 760, 900), spot(1060, 970, 1060, 900, { flip: true }));
+  // hall: on the rug before the notice board, for whoever waits on the owner. They stand on the near side of the walkway
+  // across the rug: on the far side (v 830) a frog's head was drawn over the board's number, the one thing the board says
+  SPOTS.hall.push(spot(910, 970, 910, 900), spot(820, 970, 820, 900), spot(1000, 970, 1000, 900, { flip: true }), spot(730, 970, 730, 900), spot(1090, 970, 1090, 900, { flip: true }));
   // bunkhouse: three columns of mats. A frog steps onto its mat going down-right, which is how the falling-asleep
   // clip starts once mirrored, and lies with its head that way
   [[1420, 1310], [1645, 1535], [1870, 1760]].forEach(function (c) {
@@ -327,7 +328,18 @@
     return { now: 'demo', demo: true, lanes: [lane, other], roster: roster, integration: 'demo', counts: {} };
   }
 
-  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V,
+  // The part of the notice board that says something (its words, its number, the first squares), as a box on the
+  // picture: [x0, y0, x1, y1] in the plan's own view. Nothing is put over it: no frog stands before it, and
+  // housedraw.js keeps the names and the hall's own name off it.
+  function boardFace() {
+    var th = THINGS.filter(function (t) { return t.kind === 'board'; })[0], b = th.box, u0 = b[0] + 12, u1 = b[0] + 12 + (b[2] - b[0] - 24) * 0.62, z0 = 40, z1 = b[4] - 12;
+    var a = iso(u0, b[3], z1), c = iso(u1, b[3], z0);
+    return [a[0], a[1], c[0], c[1]];
+  }
+  // the box a standing frog is drawn in, by where its feet are (housedraw.js draws and clicks it by the same box)
+  function frogBox(u, v) { var c = iso(u, v); return [c[0] - 46, c[1] - 156, c[0] + 46, c[1] + 4]; }
+
+  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox,
     GATE: GATE, GATE_NODE: GATE_NODE, SPOTS: SPOTS, THINGS: THINGS, NODES: NODES, route: route, length: length, heading: heading, roomOf: roomOf, frogs: frogs, Sim: Sim,
     DWELL: DWELL, demo: demo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.House = api;
