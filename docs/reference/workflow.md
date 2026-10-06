@@ -355,7 +355,11 @@ capture the same build twice and treat anything inside that spread as noise. `py
 refuses a fire capture with no fire in it, and `python Tools/flameband.py <png> --muzzle x,y --target x,y`
 (or `--sidecar <json>`, which `Tools/flamefight` writes beside every shot) refuses one whose fire is a blob round the
 shooter rather than a band running to his target - it prints `reach`, `centroid` and `width` and exits 1 if any
-fails. Its own tests are `Tools/test_flameband.py`, run by `Tools/toolcheck.py`. PerfBench's `shot_tick=N shot_hud=0` gives stills that repeat bit for
+fails. Its own tests are `Tools/test_flameband.py`, run by `Tools/toolcheck.py`.
+`python Tools/gymcheck.py <jpg> [more...]` answers the gym's own question "is the cyan selection bracket still in
+this picture": it counts strongly cyan pixels (hue 170-200 deg, saturation over 0.35, value over 0.6) and exits 1
+over 0.02 % of the frame. Measured over round 3 the two groups do not overlap - every machine entry holds some
+(Breaker 0.0231 down to Banner 0.0007) and every infantry entry holds exactly none. Tests: `Tools/test_gymcheck.py`. PerfBench's `shot_tick=N shot_hud=0` gives stills that repeat bit for
 bit: the clock is held and the HUD, which animates on real time, is hidden.
 
 A paused game view does not repaint. After changing anything, step one frame before capturing.
