@@ -5,28 +5,28 @@
 .d-count { color: var(--k-soft); font: 500 14px var(--sans); margin: 10px 0 0; }
 .d-page .k-head h2 .k-soft { white-space: normal; }          /* this page's soft half is a clause, not two words: it wraps */
 .d-fold { margin: 0 0 18px; } .d-fold[open] > summary { display: none; }
-.d-fold > summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; border-radius: var(--r-m); background: var(--k-ink2); border: 1px solid #2a2a2c; color: #fff; font: 600 15px var(--sans); cursor: pointer; }
+.d-fold > summary { min-height: 44px; display: flex; align-items: center; padding: 0 14px; border-radius: var(--r-m); background: var(--k-ink2); border: 1px solid var(--s-line); color: #fff; font: 600 15px var(--sans); cursor: pointer; }
 .d-index { columns: 3 300px; column-gap: 8px; margin: 0; }
 .d-index a { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; break-inside: avoid; margin: 0 0 6px; padding: 9px 12px; border-radius: var(--r-m);
-  background: var(--k-ink2); border: 1px solid #2a2a2c; border-left: 3px solid #2a2a2c; color: #e6e6e6; font: 500 14px/1.3 var(--sans); text-decoration: none; }
+  background: var(--k-ink2); border: 1px solid var(--s-line); border-left: 3px solid var(--s-line); color: var(--t-near); font: 500 14px/1.3 var(--sans); text-decoration: none; }
 .d-index a:hover, .d-index a:focus-visible { border-color: var(--k-fire); outline: none; }
-.d-index a.said { border-left-color: var(--k-fire2); color: #9a9a97; }
+.d-index a.said { border-left-color: var(--k-fire2); color: var(--t-soft); }
 .d-index a span { flex: none; color: var(--k-soft); font: 500 12px var(--sans); white-space: nowrap; }
 .d-list { display: grid; gap: 12px; }
 .d-card { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: clamp(16px, 2vw, 28px); padding: clamp(16px, 1.8vw, 26px); border-radius: var(--r-l);
-  background: var(--k-ink2); border: 1px solid #2a2a2c; scroll-margin-top: 80px; }
+  background: var(--k-ink2); border: 1px solid var(--s-line); scroll-margin-top: 80px; }
 .d-card.d-at { border-color: var(--k-fire); }
 .d-text { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .d-meta { margin: 0; color: var(--k-soft); font: 500 12px var(--sans); }
 .d-card h3 { margin: 0; color: #fff; font: 600 clamp(22px, 2vw, 30px)/1.08 var(--sans); letter-spacing: -.03em; }
-.d-for { margin: 0; color: #e6e6e6; font: 400 16px/1.45 var(--sans); max-width: 56ch; }
+.d-for { margin: 0; color: var(--t-near); font: 400 16px/1.45 var(--sans); max-width: 56ch; }
 .d-options { display: grid; gap: 8px; margin-top: 4px; }
 .d-opt { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 12px; min-height: 48px; padding: 8px 14px 8px 8px; border-radius: 26px;
   border: 1px solid rgba(255, 255, 255, .22); background: transparent; color: #fff; font: 600 15px/1.3 var(--sans); text-align: left; cursor: pointer;
   transition: border-color .2s, background .2s, color .2s; }
 .d-opt:hover:not(:disabled), .d-opt:focus-visible { border-color: var(--k-fire); outline: none; }
 .d-opt:focus-visible { box-shadow: 0 0 0 2px var(--k-fire2); }
-.d-key { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: #2a2a2c; color: #fff; font: 700 14px var(--sans); }
+.d-key { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--s-line); color: #fff; font: 700 14px var(--sans); }
 .d-pick .d-key { background: var(--k-fire); }
 .d-tag { padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(255, 74, 28, .6); color: #ffd2c4; font: 600 11px/1 var(--sans); white-space: nowrap; }
 .d-opt.on { background: var(--plate); color: var(--k-ink); border-color: var(--plate); }
@@ -34,35 +34,35 @@
 .d-opt:disabled { cursor: default; opacity: .75; } .d-opt.on:disabled { opacity: 1; }
 /* what happens when he takes the option (briefs.py then): under its text, in the soft tone; darker on the light plate of the one taken */
 .d-then { display: block; margin-top: 3px; color: var(--k-soft); font: 500 12.5px/1.35 var(--sans); } .d-opt.on .d-then { color: #55555a; }
-.d-became { display: block; margin-top: 4px; color: #c9c9c5; }
-.d-why { margin: 0; color: #c9c9c5; font: 400 14px/1.45 var(--sans); max-width: 60ch; } .d-why b { color: #fff; font-weight: 600; }
+.d-became { display: block; margin-top: 4px; color: var(--t-light); }
+.d-why { margin: 0; color: var(--t-light); font: 400 14px/1.45 var(--sans); max-width: 60ch; } .d-why b { color: #fff; font-weight: 600; }
 .d-say { display: flex; gap: 8px; margin-top: 2px; }
-.d-say input { flex: 1; min-width: 0; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid #6a6a6e; background: #111113; color: #fff; font: 15px var(--sans); }
-.d-say input::placeholder { color: #8a8a8a; } .d-say input:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 1px; }
+.d-say input { flex: 1; min-width: 0; height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--s-mute2); background: var(--s-panel); color: #fff; font: 15px var(--sans); }
+.d-say input::placeholder { color: var(--t-dim); } .d-say input:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 1px; }
 .d-say button { height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: var(--k-fire); color: #1d0a04; font: 700 14px var(--sans); cursor: pointer; }
 .d-say button:hover, .d-say button:focus-visible { background: #ff6a42; }
-.d-said { margin: 0; padding: 10px 14px; border-radius: var(--r-m); background: #232326; border-left: 3px solid var(--k-fire2); color: #f1f1ef; font: 500 14px/1.4 var(--sans); overflow-wrap: anywhere; }
+.d-said { margin: 0; padding: 10px 14px; border-radius: var(--r-m); background: var(--s-raise); border-left: 3px solid var(--k-fire2); color: var(--t-bright); font: 500 14px/1.4 var(--sans); overflow-wrap: anywhere; }
 /* a concept to pick from (briefs.py concepts): its picture is framed as an option, the letter in its caption */
-.d-concept { outline: 1px solid #3a3a3e; outline-offset: 3px; border-radius: var(--r-m); } .d-concept figcaption { color: #fff; font-weight: 600; }
+.d-concept { outline: 1px solid var(--s-line2); outline-offset: 3px; border-radius: var(--r-m); } .d-concept figcaption { color: #fff; font-weight: 600; }
 .d-said.d-closed, .d-yours .d-said { border-left-color: var(--k-work); } .d-yours { opacity: .9; } .d-said.d-unsent { border-left-color: var(--alarm); }
 
 .d-evidence { display: grid; gap: 10px; align-content: start; min-width: 0; }
 .d-evidence.d-n2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .d-evidence.d-n3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } .d-evidence.d-n3 figure:first-child { grid-column: 1 / -1; }
 .d-evidence figure { margin: 0; min-width: 0; }
-.d-evidence a { display: block; border-radius: var(--r-m); overflow: hidden; border: 1px solid #2a2a2c; background: #0c0c0e; }
+.d-evidence a { display: block; border-radius: var(--r-m); overflow: hidden; border: 1px solid var(--s-line); background: var(--s-deep); }
 .d-evidence a:hover, .d-evidence a:focus-visible { border-color: var(--k-fire); }
-.d-evidence img, .d-evidence video { display: block; width: 100%; height: auto; max-height: 520px; object-fit: contain; background: #0c0c0e; border-radius: var(--r-m); }
+.d-evidence img, .d-evidence video { display: block; width: 100%; height: auto; max-height: 520px; object-fit: contain; background: var(--s-deep); border-radius: var(--r-m); }
 .d-evidence a img { border-radius: 0; }
-.d-evidence figcaption { margin: 6px 2px 0; color: #c9c9c5; font: 500 13px/1.35 var(--sans); }
-.d-none, .d-gone { margin: 0; padding: 22px 16px; border-radius: var(--r-m); border: 1px dashed #3a3a3e; color: #9a9a97; font: 14px/1.4 var(--sans); }
+.d-evidence figcaption { margin: 6px 2px 0; color: var(--t-light); font: 500 13px/1.35 var(--sans); }
+.d-none, .d-gone { margin: 0; padding: 22px 16px; border-radius: var(--r-m); border: 1px dashed var(--s-line2); color: var(--t-soft); font: 14px/1.4 var(--sans); }
 .d-empty { color: var(--k-soft); font: 15px var(--sans); margin: 4px 2px; }
 
-.d-h { margin: 26px 2px 10px; color: #f5f5f5; font: 600 20px/1.1 var(--sans); letter-spacing: -.02em; }
+.d-h { margin: 26px 2px 10px; color: var(--t-bright); font: 600 20px/1.1 var(--sans); letter-spacing: -.02em; }
 .d-bare { display: grid; gap: 8px; }
-.d-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 14px 16px; border-radius: var(--r-m); background: var(--k-ink2); border: 1px solid #2a2a2c; scroll-margin-top: 80px; }
+.d-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 14px; align-items: start; padding: 14px 16px; border-radius: var(--r-m); background: var(--k-ink2); border: 1px solid var(--s-line); scroll-margin-top: 80px; }
 .d-row b { color: #fff; font: 600 16px/1.25 var(--sans); } .d-age { margin-left: 10px; color: var(--k-soft); font: 500 12.5px var(--sans); }
-.d-row p { margin: 6px 0 0; color: #c9c9c5; font: 14px/1.45 var(--sans); max-width: 110ch; }
+.d-row p { margin: 6px 0 0; color: var(--t-light); font: 14px/1.45 var(--sans); max-width: 110ch; }
 .d-row .b-btn { min-height: 36px; padding: 6px 14px; }
 .d-done .d-card { opacity: .9; }
 

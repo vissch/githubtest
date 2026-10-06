@@ -8,9 +8,9 @@ html { scroll-padding-top: 76px; }          /* a jump on the page lands under th
 .c-screen .c-hero { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 10px 24px; height: auto; min-height: 0;
   padding: clamp(18px, 1.8vw, 26px) clamp(20px, 2.4vw, 36px); }
 .c-screen .c-hero h1 { font-size: clamp(28px, 3vw, 46px); margin: 0; font-variant-numeric: tabular-nums; }
-.c-screen .c-hero h1 .k-soft { color: #6f6f6f; }          /* the soft tone on the light band: 4:1, where the dark panels' grey gives 2.3:1 */
+.c-screen .c-hero h1 .k-soft { color: var(--p-ink6); }          /* the soft tone on the light band: 4:1, where the dark panels' grey gives 2.3:1 */
 .c-screen .c-hero .k-eyebrow { margin: 0 0 8px; color: #b82e0c; }
-.c-stamp { margin: 0 0 4px; color: #4f4f4f; font-variant-numeric: tabular-nums; }
+.c-stamp { margin: 0 0 4px; color: var(--p-ink4); font-variant-numeric: tabular-nums; }
 /* a reading that is late (three missed) is amber and still, long before the hour after which it turns red */
 .c-stamp.late { color: #7a4a00; } .c-stamp.late .k-live { background: #d98a00; animation: none; box-shadow: none; }
 .c-stamp.stale { color: var(--alarm); }
@@ -33,7 +33,7 @@ html { scroll-padding-top: 76px; }          /* a jump on the page lands under th
 .c-pulse .k-list .k-take-sub { display: none; }
 .c-pulse .k-list .k-take-top { font-size: 13px; white-space: nowrap; }
 .c-pulse .k-list .k-take b { padding: 3px 9px; color: #b82506; }
-.c-pulse .k-list .k-chip-broken { background: #fff; color: #b82506; } .c-pulse .k-list .k-chip-broken:hover { background: #ffe9e2; }
+.c-pulse .k-list .k-chip-broken { background: var(--p-card); color: #b82506; } .c-pulse .k-list .k-chip-broken:hover { background: #ffe9e2; }
 .c-pulse .k-list .k-chip-broken b { background: #b82506; color: #fff; }
 button.k-stat { border: 0; font: inherit; text-align: left; cursor: pointer; }
 .c-pulse .k-stat:focus-visible, .c-pulse .k-take:focus-visible, .c-expand:focus-visible, .c-everyone summary:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 2px; }
@@ -46,13 +46,13 @@ button.k-stat { border: 0; font: inherit; text-align: left; cursor: pointer; }
 .c-deck .c-house { display: flex; flex-direction: column; }
 body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house comes first, whatever order a dark panel has on a phone */
 .c-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; margin: 0 2px 12px; }
-.c-bar h2 { margin: 0; padding: 0; font: 600 clamp(22px, 2vw, 30px)/1.05 var(--sans); letter-spacing: -.03em; color: #f5f5f5; }
+.c-bar h2 { margin: 0; padding: 0; font: 600 clamp(22px, 2vw, 30px)/1.05 var(--sans); letter-spacing: -.03em; color: var(--t-bright); }
 /* one size of section head down the page: the house is the main thing, what follows does not speak louder */
 .c-screen .k-queue .k-head, .c-screen #office .k-head { margin: 0 2px 12px; }
 .c-screen .k-queue .k-h-one, .c-screen #office .k-h-one { font-size: clamp(22px, 2vw, 30px) !important; }
 .k-qchip.k-qbrief { background: var(--k-fire); color: #1d0a04; }          /* this decision has a brief to decide from (decide.html) */
 .c-expand { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; padding: 7px 13px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .18);
-  color: #d8d8d4; font: 600 12.5px/1 var(--sans); text-decoration: none; transition: border-color .2s, color .2s; }
+  color: var(--t-pale); font: 600 12.5px/1 var(--sans); text-decoration: none; transition: border-color .2s, color .2s; }
 .c-expand::after { content: "↗"; font-size: 13px; transition: transform .25s var(--ease); }
 .c-expand:hover { border-color: var(--k-fire); color: #fff; } .c-expand:hover::after { transform: translate(2px, -2px); }
 .c-deck .h-rooms { margin-bottom: 10px; }
@@ -61,7 +61,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 .c-deck .h-key { margin-top: 10px; }
 /* everyone as a list, folded: what the picture says in words, for a keyboard, a screen reader and a full house */
 .c-everyone { margin-top: 8px; }
-.c-everyone summary { display: inline-block; padding: 7px 13px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .18); color: #d8d8d4; font: 600 12.5px/1 var(--sans); cursor: pointer; list-style: none; }
+.c-everyone summary { display: inline-block; padding: 7px 13px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .18); color: var(--t-pale); font: 600 12.5px/1 var(--sans); cursor: pointer; list-style: none; }
 .c-everyone summary::-webkit-details-marker { display: none; }
 .c-everyone summary::after { content: " +"; } .c-everyone[open] summary::after { content: " −"; }
 .c-everyone summary:hover { border-color: var(--k-fire); color: #fff; }
@@ -70,7 +70,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 /* the profile is as tall as the house and scrolls inside itself: its height never pushes the house's row */
 .c-profile { min-width: 0; }
 .c-deck > .c-profile.b-docked { position: relative; inset: auto; z-index: auto; width: auto; height: 0; min-height: 100%; max-height: none; overflow-y: auto; padding: 18px 18px 20px;
-  border: 0; border-radius: var(--r-xl); background: var(--k-ink); box-shadow: none; scrollbar-width: thin; scrollbar-color: #4a4a4e transparent; }
+  border: 0; border-radius: var(--r-xl); background: var(--k-ink); box-shadow: none; scrollbar-width: thin; scrollbar-color: var(--s-line4) transparent; }
 .b-docked > * { break-inside: avoid; }
 .b-docked > .b-face { float: left; width: 84px; margin: 0 14px 8px 0; }
 .b-docked > .b-face .k-booth { width: 100%; }
@@ -80,14 +80,14 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 .b-docked > .b-head .b-x { width: 40px; height: 40px; }
 .b-docked > .b-head h3 { font-size: 20px; }
 .b-docked > .b-head .b-sub { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.b-hint { clear: both; margin: 0; padding-top: 6px; color: #9a9a97; font-size: 12px; }
+.b-hint { clear: both; margin: 0; padding-top: 6px; color: var(--t-soft); font-size: 12px; }
 /* in the look of the page: what it is as pills, where it leads as pill buttons */
 .b-docked > .b-facts { clear: both; padding-top: 2px; }
 .b-docked > .b-facts span { padding: 5px 11px; border-radius: 999px; }
 .b-docked > .b-links { flex-direction: row; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
 .b-docked > .b-links a { padding: 9px 14px; border-radius: 999px; background: transparent; border: 1px solid rgba(255, 255, 255, .2); font-size: 12.5px; }
 .b-docked > .b-visual .b-shot { border-radius: var(--r-m); }
-.b-docked .b-form textarea { border-color: #6a6a6e; border-radius: var(--r-m); } .b-docked .b-form textarea::placeholder { color: #8a8a8a; }
+.b-docked .b-form textarea { border-color: var(--s-mute2); border-radius: var(--r-m); } .b-docked .b-form textarea::placeholder { color: var(--t-dim); }
 .b-follow { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255, 74, 28, .55); color: #ffd2c4;
   font: 600 11px/1 var(--sans); white-space: nowrap; }
 .b-follow::before { content: ""; width: 10px; height: 6px; border-radius: 50%; border: 1.5px dashed var(--k-fire); }          /* the ring under the frog it follows */
