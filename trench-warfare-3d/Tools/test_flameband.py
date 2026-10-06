@@ -12,15 +12,21 @@ The four cases are the four ways the measure has to behave:
                                                   measured ITS width, which is why it could never pass a jet that
                                                   lights the ground. See the header of flameband.py.
   an empty frame                          BLOB  - nothing spans anything
+
+and two more for the EDGE verdict (--wiggle, look-09), which is a different statistic on the same piece:
+  the same tapering wedge, drawn with STRAIGHT edges     RULER,  red - what the master rejected
+  the same wedge with a per-column random edge of +-6 px RAGGED, green - what fire's silhouette looks like
 """
 import os
+import random
 import sys
 import tempfile
 
 from PIL import Image, ImageDraw
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from flameband import band, core_mask, ROOT_MAX, SPAN_MIN, WIDTH_MAX   # noqa: E402
+from flameband import (band, core_mask, wiggle, ROOT_MAX, SPAN_MIN, WIDTH_MAX,   # noqa: E402
+                       WIGGLE_MIN, WIGGLE_COLUMNS)
 
 W, H = 800, 600
 MUZZLE, TARGET = (100, 300), (700, 300)
@@ -39,6 +45,37 @@ def measure(draw_it):
         return band(core_mask(path), MUZZLE, TARGET)
     finally:
         os.remove(path)
+
+
+def measure_edge(draw_it):
+    """The same drawing path, measured with the EDGE statistic instead of the band one."""
+    img = Image.new("RGB", (W, H), (18, 20, 34))
+    draw_it(ImageDraw.Draw(img))
+    path = os.path.join(tempfile.gettempdir(), "flameband_edge_case.png")
+    img.save(path)
+    try:
+        return wiggle(core_mask(path))
+    finally:
+        os.remove(path)
+
+
+def ragged_band(d):
+    """The same wedge, with the edge pushed +-6 px: a silhouette noise has eaten into.
+
+    The offset is HELD FOR THREE COLUMNS, not redrawn every column, and that detail is the measure's own doing
+    rather than a convenience. core_mask ends in a 3x3 binary_opening, so a one-column spike is eroded away before
+    wiggle ever sees it: an edge redrawn every column measures 2.03 px, the same amplitude held for three columns
+    measures 2.77 px. Real fire noise has a scale too. The seed is fixed, so both numbers are the same every run.
+    """
+    rng = random.Random(90901)
+    x0, x1 = MUZZLE[0], TARGET[0]
+    hi = lo = 0.0
+    for x in range(x0, x1 + 1):
+        t = (x - x0) / float(x1 - x0)
+        half = 3 + 27 * t
+        if (x - x0) % 3 == 0:
+            hi, lo = rng.uniform(-6, 6), rng.uniform(-6, 6)
+        d.line([(x, 300 - half + hi), (x, 300 + half + lo)], fill=CORE)
 
 
 def check(name, cond, detail):
@@ -97,6 +134,21 @@ def main():
     check("empty fails root", root > ROOT_MAX, "root=%.2f (>%.2f)" % (root, ROOT_MAX))
     check("empty fails width", width > WIDTH_MAX, "width=%.2f (>%.2f)" % (width, WIDTH_MAX))
     check("empty is unlit", n == 0, "core=%d px" % n)
+
+    print("flameband --wiggle: the straight-edged wedge is a RULER")
+    w, cols = measure_edge(tapering_band)
+    check("straight edge is long enough to judge", cols >= WIGGLE_COLUMNS, "columns=%d (>=%d)" % (cols, WIGGLE_COLUMNS))
+    check("straight edge fails wiggle", w < WIGGLE_MIN, "wiggle=%.2f px (<%.2f)" % (w, WIGGLE_MIN))
+
+    print("flameband --wiggle: the same wedge with a +-6 px ragged edge")
+    w, cols = measure_edge(ragged_band)
+    check("ragged edge is long enough to judge", cols >= WIGGLE_COLUMNS, "columns=%d (>=%d)" % (cols, WIGGLE_COLUMNS))
+    check("ragged edge passes wiggle", w >= WIGGLE_MIN, "wiggle=%.2f px (>=%.2f)" % (w, WIGGLE_MIN))
+    # The band verdict must still pass on the ragged wedge: making the edge noisy is not allowed to cost the stream
+    # its band. (This is the pair that would catch a "fix" that simply broke the jet into pieces.)
+    root, span, width, n = measure(ragged_band)
+    check("ragged edge is still a band", root <= ROOT_MAX and span >= SPAN_MIN and width <= WIDTH_MAX,
+          "root=%.2f span=%.2f width=%.2f core=%d px" % (root, span, width, n))
 
     if failures:
         print("test_flameband FAILED: " + "; ".join(failures))
