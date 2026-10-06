@@ -1,6 +1,6 @@
 ---
 name: master
-description: The owner's one contact for the Trench Warfare 3D relay - say what is going on, what the day's budget has left, what is queued and what needs the owner, start a relay run sized to the budget, move a unit up or down the queue, and write the owner's decisions down. Use for "/master", "what is going on", "what do you need from me", "what did the relay do today", "start work for today", "do X first". NOT for landing or stage review (tw-master), NOT for the single relay commands (relay), NOT for taking one pipeline job by hand (pipeline).
+description: The owner's one contact for the Trench Warfare 3D relay - say what is going on, what the day's budget has left, what is queued and what needs the owner, start a relay run sized to the budget, move a unit up or down the queue, write the owner's decisions down, and take up what he answered on the board's Decide page. Use for "/master", "what is going on", "what do you need from me", "what did the relay do today", "start work for today", "do X first". NOT for landing or stage review (tw-master), NOT for the single relay commands (relay), NOT for taking one pipeline job by hand (pipeline).
 ---
 
 # Master
@@ -27,6 +27,7 @@ Run `$R day` before you answer anything. It prints, from the board and this mach
 | `Run going: ...` or `No run going. Last run ...` | is a run going here, else how the newest run on the board stopped (`It stopped: ...`) |
 | `Queue: ...` and its rows | what is queued, in the order the runner takes it, with the usual cost |
 | `Needs you: ...` | units that did not pass, and queue files the runner will not take |
+| `Your answers: ...` | what the owner answered on the asset board's Decide page that no session has taken up, each with what he picked. Take them up first: "Decisions". `not read (...)` means the Drive's folders were not there: say so, it is not "nothing waits" |
 | `The relay build is held by ...` | who holds the relay now |
 
 Say the day in percent of the week, as the lines do, and keep their `about` and `estimated`: those figures are counted from cost, not measured. When the line ends on "A guess: ...", say once that the percent is a guess from cost (a full week taken as the dollars in `limits.json` `week_usd`) and may be off by a factor of two. Never turn dollars into percent yourself (`docs/reference/relay.md`, "The day in percent of the week").
@@ -55,6 +56,7 @@ A question to the owner is one decision, at most 40 words, with 2 or 3 options a
 | "start", or nothing is running and the queue has work the day still covers | `$R hold <your session name>` (exit 1: another session holds it, stop and say who). Then `$R run --work $WORK --dry-run`; if it names a unit, `$R run --work $WORK --who <your session name> --hours <H>` in the background. Say that it started, on what, and what the day has left |
 | "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day` |
 | "queue this" | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work |
+| nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
 | "stop" | `$R stop` (before the next leg) or `$R stop --now`; confirm with `$R status` |
 
 Size a run to the budget: the runner itself starts no unit the day does not cover (`docs/reference/relay.md`,
@@ -65,7 +67,8 @@ and the queue is longer than the day covers.
 
 - **Landing.** Nothing lands without it. When he says so, follow "Landing a lane" in the `tw-master` skill: you do
   not run `Tools/land.py` on your own, and a leg never can.
-- **New work.** Anything but a small tools-only fix with a test waits for his yes before it is queued.
+- **New work.** Anything but a small tools-only fix with a test waits for his yes before it is queued. His click on
+  an option of the Decide page that showed what would be queued is that yes ("Decisions"); no other answer is.
 - **A change to the relay, the pipeline, the gate or `Tools/land.py`.** Propose it; do not queue it.
 - **Stage review of pipeline items** is the `tw-master` skill's "Review with the owner".
 
@@ -74,6 +77,30 @@ and the queue is longer than the day covers.
 Ask one decision at a time. When the owner answers, write the row into `docs/reference/decisions.md` in the same
 turn (date, the decision in bold, where it came from), in a commit of its own on the lane you are on. A decision
 that is only in the chat is lost.
+
+**He also answers on the asset board's Decide page**, where each decision that waits on him is a short brief with
+options. Nothing wakes you when he does. When `$R day` says `Your answers: N not taken up`, take them up before
+anything else:
+
+```bash
+B="python <a checkout that has it>/trench-warfare-3d/Tools/assetboard/briefs.py"   # the asset board's lane, or any checkout at integration once it has landed
+$B waiting        # each answer: every note he left about it, the note to name (NOTE), and what it leads to
+```
+
+| `waiting` says | You do |
+|---|---|
+| `queue` | The option showed "Then: ..." with its unit, and his click is his yes to it. `$B unit ID --note NOTE --out FILE`, then `$R add --unit FILE` and read `Board: pushed`. Then the row in `decisions.md`. Then `$B take ID --note NOTE --by <your session name>`. In this order: stopped halfway, each step can be run again |
+| `nothing` | The option says nothing is built. The row, then `$B take ID --note NOTE --by <your session name>` |
+| `ask` | It is no yes to work: no Then line, one written after his click, clicks on two options, or words of his own. Read all his notes. When it needs no work (he keeps what is built, or sets a rule): the row, then `$B take ... --outcome "<why nothing is queued>"`, alone. When it leads to work: ask him, one decision, with the unit you would queue; on his yes write the unit as a file (`id`, `lane`, `goal`, `done_when`), `$R add --unit FILE`, the row, `$B take ... --queued <unit id>` (add `--option X` when you had to ask which option he meant) |
+
+- Whether a click is a yes is written in `briefs.py` and nowhere else. Do not judge it from his notes yourself, and
+  never queue on an `ask`.
+- `take` refuses when he has answered again since NOTE: run `waiting` again and read the new note.
+- `$R add --unit` says `queued already, the same unit` when you ran it before: go on. When the board refuses the id
+  for another unit, queue the same unit under `<id>-2` and close with `--queued <id>-2`.
+- `add --unit` may be newer than the frozen copy: until `update` has brought it there, run it from
+  `githubtest-relay-dev` (pull it first). It only writes the board; a run still starts from the frozen copy.
+- Say in your four lines what you queued and for which answer. He sees the same on the brief: "Taken up by ...".
 
 ## Never
 
