@@ -241,6 +241,14 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   102 m), and at 0.8 the lightest guns (88 m) would no longer cross no man's land. The minimum ranges of the mortar
   and the rockets keep the cut (37 m and 48 m). Options: (1) keep the metres as measured (taken); (2) cut them by 20 %
   too and measure the bench again. Default taken: (1), landed with the lane.
+- **Balance: most matches never end (2026-10-07, measured with the balance sweep on integration 658ff0f8, seeds 1 to 8, both
+  seats, heroes off):** Iron against Brass at 8 minutes: 16 of 16 matches have no winner. At 20 minutes: Iron wins 3, Brass 7,
+  6 have no winner; of the 10 that end Iron wins 30 % and Brass 70 %, outside his band of 40 to 60 %. Iron against Iron: 12 of 16
+  have no winner. Against a player who only holds his trench the enemy wins 50 % on Easy, 62 % on Normal and 25 % on Hard in ten
+  minutes. Time to breach is 43 to 55 s in every setup; a side keeps 98 to 100 % of its trenches (the holding player 90 to 96 %).
+  Options: (1) find out first why matches do not end, bands after that (the default taken: nothing is tuned); (2) set the two
+  bands now (breach 40 to 60 s, trenches kept 85 % or more); (3) leave both unjudged and tune Iron against Brass on the 20-minute
+  matches. The sweep's four reports and the chart are on the Drive (decisions-evidence, 2026-10-07, balance).
 - **The night look, second part (2026-10-06):** `lane/show/night-look-2` (six commits of 2026-10-01, rebased on the
   desktop as `lane/show/night-look-3`, pushed 2026-10-07) was never shown to the owner: every flame streaks its reflection
   across the wet mud (`look.fireStreak`), a flame's glint on wet mud is orange not lilac (`look.glintUnblue`), props
