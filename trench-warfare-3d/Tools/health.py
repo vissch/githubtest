@@ -24,6 +24,7 @@ It checks, in order, and prints one line each:
   5. inbox    the notes in docs/inbox/, on your branch and on the integration branch, marking those for you.
      notes    what the owner wrote on the asset board (Tools/assetboard/notes.py), marking those for your branch.
      briefs   the decision briefs that wait on the owner, and the ones he has answered that no session has taken up.
+     handoffs the handoffs on the Drive (Tools/handoffs.py): how many are current, and what its index has to mend.
   6. compile  only with --compile.
 
 Exit code: 0 all good, 1 something to fix before committing. HELD and "behind" are reported, not failed: they
@@ -122,6 +123,23 @@ def owner_notes(branch):
     if got:
         print(f'         all his notes on each: python Tools/assetboard/briefs.py waiting. Take one up: its row in docs/reference/decisions.md, then')
         print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says decided: write its unit)')
+
+
+def handed_over():
+    """The handoffs on the Drive (Tools/handoffs.py): how many are current, and what the index has to mend. Reported,
+    not failed: the Drive is outside the repo, and a station without it still works."""
+    try:
+        import handoffs
+        where = handoffs.folder()
+        if not where.is_dir():
+            raise OSError(f'{where} is not there')
+        head, mend = handoffs.line(where)
+    except Exception as e:
+        print(f'handoffs not read ({e})')
+        return
+    print(f'handoffs {head}')
+    for m in mend:
+        print(f'         MEND {m}')
 
 
 def unity_cli():
@@ -255,6 +273,7 @@ def main():
         bad |= bool(outside)
     inbox(branch)
     owner_notes(branch)
+    handed_over()
 
     if '--compile' in sys.argv:
         occ = ROOT / 'Tools' / 'aosa' / 'occ.py'
