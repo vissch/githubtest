@@ -51,9 +51,29 @@ def write_json(p, obj):
 
 
 def append(d, name, obj):
+    """One line onto a log, under a lock on the file's first byte. Tool calls of one batch run their hooks at the
+    same moment, and an append on Windows is a seek and a write: without the lock one of two lines is lost, and
+    the runner's audit then counts a call the guard never saw."""
     obj = dict(obj, t=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
-    with open(Path(d) / name, "a", encoding="utf-8", newline="\n") as f:
-        f.write(json.dumps(obj, sort_keys=True) + "\n")
+    line = (json.dumps(obj, sort_keys=True) + "\n").encode("utf-8")
+    fd = os.open(str(Path(d) / name), os.O_RDWR | os.O_CREAT | getattr(os, "O_BINARY", 0))
+    try:
+        if os.name == "nt":
+            import msvcrt
+            os.lseek(fd, 0, os.SEEK_SET)
+            msvcrt.locking(fd, msvcrt.LK_LOCK, 1)        # waits, a second at a time, ten times, then raises
+        else:
+            import fcntl
+            fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            os.lseek(fd, 0, os.SEEK_END)
+            os.write(fd, line)
+        finally:
+            if os.name == "nt":
+                os.lseek(fd, 0, os.SEEK_SET)
+                msvcrt.locking(fd, msvcrt.LK_UNLCK, 1)
+    finally:
+        os.close(fd)
 
 
 def relay_py():
