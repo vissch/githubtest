@@ -67,10 +67,11 @@ $R run --work <work checkout> --who <name>        # who starts it: shown by stat
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
 $R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ...
+$R add --unit <file>                              # the same, the unit from a file in the queue file's shape
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
-$R day                                            # one screen: budget, run, queue in its order, what needs the owner
+$R day                                            # one screen: budget, run, queue in its order, what needs the owner, his answers
 $R usage                                          # where the plan's week stands, from the newest reading on this machine
 $R usage put [--statusline]                       # keep a reading given on stdin as JSON (see "The day in percent")
 $R prio <id> <n>                                  # move a queued unit: 0 to 99, the lower runs first (50 when none is set)
@@ -78,7 +79,7 @@ $R hold <who> [--hours 4] [--release]             # one session at a time builds
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
-python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen and the queue's order
+python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen, the queue's order, his answers, add --unit
 python trench-warfare-3d/Tools/relay/test_usage.py   # the tests of the weekly-limit readings
 ```
 
@@ -179,14 +180,31 @@ it is what the runner's stop rules above count in, because it is known for every
 
 `$R day` prints one screen, and reads only: what the day has left, is a run going on this machine or how the newest
 run on the board stopped, the queue in the order the runner takes it with the usual cost of a unit (a usual plan
-plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), and
-who holds the relay build. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
+plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), what
+he answered on the Decide page that no session has taken up, and who holds the relay build. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
 (100). It reads this machine's copy of the board. The `/master` skill starts every turn from it.
 
 The queue runs by priority, then by name: a queue file may hold `"priority"`, a whole number from 0 to
 `queue_priority_max` (99), and the lower runs first. A unit that names none has `queue_priority` (50).
 `$R prio <id> <n>` writes it and commits the file on the board, mid-run too. It refuses a unit that is done and a
 queue file nobody committed.
+
+**The owner's answers.** A decision that waits on the owner is put to him on the asset board's Decide page as a
+short brief with options, and his click or his own words there is a note in a folder on the Drive. The screen says
+whether such answers wait: `Your answers: nothing waits.`, or `Your answers: N not taken up.` with a row each (what
+he picked, then the brief's title), or `Your answers: not read (...)` when the two folders are not there. That last
+form is the one place the screen speaks of a source it could not read: left out, a Drive that is not mounted would
+read as "nothing waits". The reader is `answers.py`; it reads the folders `decisions` and `notes` of the Drive's
+TW3D-pipeline as the asset board writes them (`TW_BRIEFS` and `TW_NOTES` name others), and it decides nothing.
+
+Whether an answer is his yes to queue work is the asset board's rule, written in its briefs tool (briefs.py, on the
+asset board's lane, which this lane does not hold) and nowhere else:
+a click on an option that showed what would be queued is a yes to that unit (decisions.md, 2026-10-06, on the asset
+board's lane), anything else is asked first. The station he clicked on works that out and writes the unit as a
+file; `$R add --unit <file>` queues it. A file crosses ssh where quoted words do not, which is how the laptop
+queues on the desktop's board. The same unit added again is queued once: the call ends 0 and pushes the board
+again, so a take-up that stopped halfway can be repeated; another unit under a taken id is refused. The steps, in
+their order, are in the `/master` skill, "Decisions".
 
 ## What stops a run
 
