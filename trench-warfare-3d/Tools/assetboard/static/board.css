@@ -1,7 +1,7 @@
 /* The panel a click opens (board.js): what was clicked, where it leads, the owner's notes about it and a box for a new
    one. And the graphs page (charts.js). Their own file: kinetic.css is a log of review rounds. */
 .b-panel { position: fixed; top: 0; right: 0; bottom: 0; z-index: 90; width: min(400px, 100vw); overflow-y: auto; padding: 20px 20px 28px;
-  background: var(--s-well); color: var(--t-near); border-left: 1px solid var(--s-line); box-shadow: -24px 0 60px -30px rgba(0, 0, 0, .8);
+  background: var(--glass-top, none), var(--s-well); color: var(--t-near); border-left: 1px solid var(--glass-edge2, var(--s-line1)); box-shadow: -24px 0 60px -30px rgba(0, 0, 0, .8);
   font: 14px/1.45 Inter, "Segoe UI", system-ui, sans-serif; }
 .b-panel[hidden], .b-panel > [hidden] { display: none; }
 .b-panel header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin: 0 0 12px; }
@@ -12,7 +12,7 @@
 .b-x { flex: none; width: 34px; height: 34px; border-radius: 50%; border: 1px solid var(--s-line2); background: transparent; color: var(--t-pale); font-size: 20px; line-height: 1; cursor: pointer; }
 .b-x:hover, .b-x:focus-visible { background: var(--s-line); color: #fff; }
 .b-facts { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 4px; }
-.b-facts span { padding: 4px 9px; border-radius: 8px; background: var(--s-raise); color: var(--t-light2); font-size: 12.5px; }
+.b-facts span { padding: 6px 12px; border-radius: 999px; background: var(--k-blue-soft, var(--s-raise)); color: #a9c8ff; font-size: 12.5px; font-weight: 600; }
 /* the last picture or film a worker had in its hands (src_visuals.py), and what it is to it */
 .b-visual { margin: 14px 0 0; }
 .b-shot { position: relative; display: block; aspect-ratio: 16 / 10; border-radius: 14px; overflow: hidden; background: var(--s-deep); border: 1px solid var(--s-line); }
@@ -31,11 +31,13 @@
 .b-shots figure:first-child:nth-last-child(1), .b-shots .b-novisual { grid-column: 1 / -1; }
 .b-actions h4 { margin: 16px 0 8px; } .b-acts { display: flex; flex-wrap: wrap; gap: 8px; }
 .b-act { min-height: 44px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--s-mute2); background: var(--s-card); color: #fff; font: 600 14px var(--sans, sans-serif); cursor: pointer; }
-.b-act:hover, .b-act:focus-visible { border-color: #ff4a1c; outline: none; } .b-act.on { background: #f1f1ef; color: #141416; border-color: #f1f1ef; cursor: default; }
+.b-act:hover, .b-act:focus-visible { border-color: #ff4a1c; outline: none; } .b-act.on { background: var(--t-bright); color: var(--s-deep); border-color: var(--t-bright); cursor: default; }
 .b-acts-say { margin: 8px 2px 0; color: var(--t-soft); font-size: 12px; }
-.b-links { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 0; }
-.b-links a { display: block; padding: 10px 12px; border-radius: 10px; background: var(--s-raise); color: #fff; text-decoration: none; font-weight: 600; border: 1px solid transparent; }
-.b-links a:hover, .b-links a:focus-visible { border-color: #ff4a1c; }
+/* where it leads: a row across the panel each */
+.b-links { display: flex; flex-direction: column; gap: 8px; margin: 14px 0 0; }
+.b-links a { display: block; padding: 11px 16px; border-radius: 999px; background: color-mix(in srgb, var(--s-deep) 45%, transparent); color: #fff; text-decoration: none; font-weight: 600; font-size: 13.5px;
+  border: 1px solid var(--glass-edge2, var(--s-line2)); transition: border-color .2s, background .2s; }
+.b-links a:hover, .b-links a:focus-visible { border-color: #ff4a1c; background: var(--s-deep); }
 .b-wall { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
 .b-asset { display: block; border-radius: 10px; overflow: hidden; background: var(--s-raise); color: var(--t-near); text-decoration: none; border: 1px solid transparent; }
 .b-asset:hover, .b-asset:focus-visible { border-color: #ff4a1c; }
@@ -45,7 +47,7 @@
 /* the notes stand on one line down the panel, a dot each for its state: open amber, answered blue, not sent red */
 .b-note { position: relative; padding: 0 0 14px 20px; margin: 0; }
 .b-note::before { content: ""; position: absolute; left: 0; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: #ffb03a; box-shadow: 0 0 0 3px rgba(255, 176, 58, .18); }
-.b-note::after { content: ""; position: absolute; left: 4px; top: 18px; bottom: 2px; width: 1px; background: var(--s-line2); }
+.b-note::after { content: ""; position: absolute; left: 4px; top: 18px; bottom: 2px; width: 0; border-left: 1px dashed var(--s-line4); }
 .b-note:last-child { padding-bottom: 4px; } .b-note:last-child::after { display: none; }
 .b-note.b-done::before { background: #5b9dff; box-shadow: 0 0 0 3px rgba(91, 157, 255, .18); }
 .b-note.b-unsent::before { background: #ff5a4f; box-shadow: 0 0 0 3px rgba(255, 90, 79, .18); }
@@ -94,16 +96,16 @@
 /* ---- the graphs page */
 /* the graphs' own colours on the navy card: a room keeps its colour; the five steps of a model run from a blue that
    still reads on the card to near-white (charts.js reads all of them here) */
-.g-page { --g-surface: #172033; --g-ink: #ffffff; --g-ink2: #b5bed2; --g-muted: #8291b3; --g-grid: #222d47; --g-axis: #34425f;
-  --g-work: #4b93ee; --g-lab: #e8652e; --g-shop: #22b07d; --g-studio: #d99a1c; --g-plan: #e0609a; --g-one: #4b93ee; --g-off: #56658c;
+.g-page { --g-surface: var(--k-ink2); --g-ink: #ffffff; --g-ink2: var(--t-body); --g-muted: var(--t-dim); --g-grid: var(--s-line); --g-axis: var(--s-line3);
+  --g-work: #4b93ee; --g-lab: #e8652e; --g-shop: #2bc48a; --g-studio: #d99a1c; --g-plan: #e0609a; --g-one: #4b93ee; --g-off: #56658c;
   --g-st1: #3f74c9; --g-st2: #5590e6; --g-st3: #74abff; --g-st4: #a3c7ff; --g-st5: #dbe8fc; }
 .g-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; }
-.g-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); color: var(--g-ink); text-decoration: none; min-width: 0; }
+.g-tile { display: grid; align-content: start; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); color: var(--g-ink); text-decoration: none; min-width: 0; }
 a.g-tile:hover, a.g-tile:focus-visible, button.g-tile:hover, button.g-tile:focus-visible { border-color: #ff4a1c; }
 button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .g-tile .g-l { color: var(--g-ink2); font-size: 13px; }
 .g-tile .g-n { font: 600 38px/1 Inter, "Segoe UI", system-ui, sans-serif; letter-spacing: -.03em; }
-.g-tile .g-d { color: var(--g-muted); font-size: 12.5px; min-height: 1.2em; }
+.g-tile .g-d { color: var(--g-muted); font-size: 12.5px; min-height: 2.7em; }          /* two lines kept free: a tile whose line wraps keeps its number level with the others */
 .g-tile svg { display: block; width: 100%; height: 34px; margin-top: 4px; }
 .g-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .g-card { position: relative; padding: 18px 18px 14px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); min-width: 0; }

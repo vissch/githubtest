@@ -15,7 +15,7 @@
   var q = new URLSearchParams(location.search), demo = q.has('demo'), shot = q.has('shot');
   var still = !shot && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var sim = new H.Sim(F), COS = H.COS, SIN = H.SIN, iso = H.iso;
-  var DIMMEST = q.get('plates') === 'light' ? 0.1 : 0.88;         // how far a room nobody is awake in goes to the night colour
+  var DIMMEST = q.get('plates') === 'light' ? 0.1 : 0.86;         // how far a room nobody is awake in goes to the night colour
 
   // ---- colours: the site's own (kinetic.css): one orange-red accent with amber beside it, green for what is at
   // work. A room is a rounded plate: light where someone is awake, navy where nobody is, so the lit plates are
@@ -25,7 +25,11 @@
   var PLATE = [242, 242, 242], GREY = [230, 230, 230], EDGE = [205, 205, 205], SOFT = [154, 154, 154], WHITE = [255, 255, 255];
   var DARK = [18, 18, 18], DARK2 = [28, 28, 29], DARK3 = [42, 42, 44], FIRE = [255, 74, 28], FIRE2 = [255, 176, 58], WORK = [34, 197, 94], LEAF = [34, 160, 84];
   var look = getComputedStyle(stage);
-  function shade(name, or) { var v = look.getPropertyValue(name).split(',').map(Number); return v.length === 3 && v.every(isFinite) ? v : or; }
+  function shade(name, or) {          // "r, g, b" or #rrggbb
+    var raw = look.getPropertyValue(name).trim(), hex = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(raw);
+    var v = hex ? hex.slice(1).map(function (h) { return parseInt(h, 16); }) : raw.split(',').map(Number);
+    return v.length === 3 && v.every(isFinite) ? v : or;
+  }
   var NIGHT = shade('--h-night', DARK), DIMLINE = shade('--h-dimline', [154, 154, 154]), POND = shade('--h-pond', DARK2);
   var INK_LIT = 'rgba(18,18,18,.62)', INK = INK_LIT, LINE = 2.2, ROUND = 44, GAP = 7;      // a room's corners, and the dark between two rooms
   var LOOK = {
@@ -48,7 +52,7 @@
   }
   // is this room drawn as one nobody is awake in: its outlines are the thin blue line then, where a lit room's are ink
   function dimmed(room) { return DIMMEST > 0.5 && !!room && (1 - lit[room]) * 1.7 > 0.5; }
-  function inkOf(room) { return dimmed(room) ? css(DIMLINE, 0.36) : INK_LIT; }
+  function inkOf(room) { return dimmed(room) ? css(DIMLINE, 0.58) : INK_LIT; }
 
   // ---- the camera: the whole house, or one room
   var W = 0, Hh = 0, dpr = 1, cam = { x: 0, y: 0, s: 0.4 }, aim = { x: 0, y: 0, s: 0.4 }, focus = q.get('room') || '';
@@ -123,7 +127,7 @@
       var L = LOOK[r.id], w = r.u1 - r.u0, d = r.v1 - r.v0;
       onFloor(function () {
         ctx.beginPath(); ctx.roundRect(r.u0 + GAP, r.v0 + GAP, w - 2 * GAP, d - 2 * GAP, ROUND); ctx.fillStyle = tone(L.floor, r.id); ctx.fill();
-        var dim = dimmed(r.id), ln = dim ? css(mix(NIGHT, DIMLINE, 0.22)) : tone(L.line, r.id);
+        var dim = dimmed(r.id), ln = dim ? css(mix(NIGHT, DIMLINE, 0.3)) : tone(L.line, r.id);
         ctx.strokeStyle = dim ? css(DIMLINE, 0.5) : 'rgba(255,255,255,.16)'; ctx.lineWidth = 3; ctx.stroke();          // the edge of a card: a dark plate still reads as a room
         ctx.save(); ctx.clip();
         ctx.fillStyle = ln; ctx.strokeStyle = ln; ctx.lineWidth = 2;
@@ -240,11 +244,11 @@
     'v0:bunk': function (t) {
       onWallV(0, function () {         // three windows on the night
         for (var i = 0; i < 3; i++) { var x = 1340 + i * 230;
-          rect(x, -156, 150, 104, css(mix([12, 12, 14], [58, 58, 64], 0.3 + 0.2 * lit.bunk)), INK);
+          rect(x, -156, 150, 104, css(mix([10, 13, 22], [50, 58, 82], 0.3 + 0.2 * lit.bunk)), INK);
           ctx.fillStyle = 'rgba(255,255,255,.85)'; for (var k = 0; k < 6; k++) { var tw = 0.5 + 0.5 * Math.sin(t * 1.3 + k * 2.1 + i); ctx.globalAlpha = 0.35 + 0.65 * tw; ctx.fillRect(x + 12 + (k * 53 + i * 31) % 126, -146 + (k * 37 + i * 17) % 80, 3, 3); }
           ctx.globalAlpha = 1; rect(x + 73, -156, 4, 104, tone(GREY, 'bunk')); }
         ctx.fillStyle = css(FIRE2, 0.95); ctx.beginPath(); ctx.arc(1378, -124, 15, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = css(mix([12, 12, 14], [58, 58, 64], 0.3 + 0.2 * lit.bunk)); ctx.beginPath(); ctx.arc(1386, -128, 13, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = css(mix([10, 13, 22], [50, 58, 82], 0.3 + 0.2 * lit.bunk)); ctx.beginPath(); ctx.arc(1386, -128, 13, 0, Math.PI * 2); ctx.fill();
       });
     }
   };
@@ -495,6 +499,8 @@
       // a name pushed off the top by the others has no place: it is left out (the list and a hover still say it),
       // where it used to be put back on top of them
       if (y < 4 && f !== chosen && f !== hover) return;
+      // the chosen one pushed off the top goes under its frog: clamped back to the top it lay over the room's name
+      if (y < 4) y = Math.min(Hh - h - 4, toScreen(0, f.box[3])[1] + 6);
       x = Math.max(4, Math.min(W - w - 4, x)); y = Math.max(4, y);
       placed.push([x, y, x + w, y + h]); want[f.key] = true;
       e.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)'; e.hidden = false;

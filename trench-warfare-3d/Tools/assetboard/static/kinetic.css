@@ -3,10 +3,10 @@
    2026-10-06 in navy glass, after the owner's picture of that day: deep navy, dark panels with a thin blue-white
    edge, a glow only where a colour says something. site.css keeps the layout of each part; this file restyles it. */
 :root, :root:not([data-theme]) {
-  --bg: #0b101d; --plate: #172033; --plate2: #1e2a44; --edge: #26324d; --line: #3a4868;
-  --text: #d3d9ea; --bright: #f1f4f8; --dim: #8d9bb9;
-  --amber: #ff4a1c; --amber-hi: #ff4a1c; --alarm: #ff5a4f; --ok: #2bb673; --info: #3b82f6; --bone: #9aa5be;
-  --k-grey: #121a2c; --k-ink: #111827; --k-ink2: #172033; --k-soft: #8d9bb9; --k-fire: #ff4a1c; --k-fire2: #ffb03a;
+  --bg: #141925; --plate: #202637; --plate2: #283045; --edge: #2f3852; --line: #3d4969;
+  --text: #d6d9e4; --bright: #f2f3f6; --dim: #a7aebf;
+  --amber: #ff4a1c; --amber-hi: #ff4a1c; --alarm: #ff5a4f; --ok: #2bb673; --info: #3b82f6; --bone: #99a1b5;
+  --k-grey: #1a1f2e; --k-ink: #1a1f2e; --k-ink2: #202637; --k-soft: #a7aebf; --k-fire: #ff4a1c; --k-fire2: #ffb03a;
   --sans: Inter, "Segoe UI", system-ui, sans-serif; --mono: "Roboto Mono", Consolas, monospace;
   --r-xl: 22px; --r-l: 18px; --r-m: 12px; --ease: cubic-bezier(.2, .7, .1, 1);
   color-scheme: dark;
@@ -14,17 +14,17 @@
      them (--t-*), and a plate with the words on it (--p-*). A look is these values: here the navy glass of the
      owner's picture (2026-10-06), each step as light as the grey it replaced, so what was readable still is.
      A plate was light grey with ink on it; it is a glass panel now, and its ink is light. */
-  --s-deep: #0a0f1a; --s-panel: #111827; --s-well: #151e31; --s-card: #172033; --s-raise: #1e2a44; --s-line: #26324d; --s-line1: #2e3c5b; --s-line2: #344263;
-  --s-line3: #3b4a6c; --s-line4: #445378; --s-mute: #4f5f85; --s-mute2: #66759a; --s-mute3: #8694b2; --s-mute4: #9aa5be;
-  --t-faint: #63739a; --t-low: #7182a8; --t-dim: #8291b3; --t-soft: #8d9bb9; --t-mid: #99a4c0; --t-mid2: #abb5cb; --t-body: #b5bed2; --t-light: #bec9e0;
-  --t-light2: #c7d0e4; --t-pale: #d3d9ea; --t-near: #e3e8f2; --t-bright: #f1f4f8;
-  --p-ink: #f1f4f8; --p-ink1: #e9edf5; --p-ink2: #dde3ee; --p-ink3: #cdd5e4; --p-ink4: #b9c3d8; --p-ink5: #a9b4cb; --p-ink6: #9ca8c2;
-  --p-line2: #3a4868; --p-line: #36446a; --p-line0: #3f4c6e; --p-edge: #2a3655; --p-sunk: #222e4a; --p-plate: #121a2c; --p-soft: #222e4a; --p-soft2: #222e4a;
-  --p-plate2: #141d31; --p-card: #18223a;
+  --s-deep: #141824; --s-panel: #1a1f2e; --s-well: #1d2332; --s-card: #202637; --s-raise: #283045; --s-line: #2f3852; --s-line1: #384361; --s-line2: #3d4969;
+  --s-line3: #414b65; --s-line4: #495573; --s-mute: #546184; --s-mute2: #65708c; --s-mute3: #8890a8; --s-mute4: #99a1b5;
+  --t-faint: #78829d; --t-low: #848ea6; --t-dim: #959db2; --t-soft: #a7aebf; --t-mid: #b3b9c8; --t-mid2: #c3c8d4; --t-body: #ced2db; --t-light: #ced3e0;
+  --t-light2: #d6dae4; --t-pale: #d6d9e4; --t-near: #e5e7ee; --t-bright: #f2f3f6;
+  --p-ink: #f2f3f6; --p-ink1: #eaecf2; --p-ink2: #e1e3ec; --p-ink3: #d2d6e2; --p-ink4: #c0c4d1; --p-ink5: #b0b5c5; --p-ink6: #a1a8bb;
+  --p-line2: #3d4969; --p-line: #3d4969; --p-line0: #414b65; --p-edge: #2f3852; --p-sunk: #283045; --p-plate: #1a1f2e; --p-soft: #283045; --p-soft2: #283045;
+  --p-plate2: #1d2332; --p-card: #202637;
   /* the glass: a thin blue-white edge and a little light from above; a glow only where a colour says something */
-  --glass-edge: rgba(148, 170, 255, .14); --glass-edge2: rgba(148, 170, 255, .26); --glass-top: linear-gradient(180deg, rgba(255, 255, 255, .045), rgba(255, 255, 255, 0) 140px);
+  --glass-edge: rgba(160, 178, 235, .24); --glass-edge2: rgba(160, 178, 235, .42); --glass-top: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 140px);
   --glow-fire: 0 0 0 1px rgba(255, 150, 110, .6), 0 14px 44px -14px rgba(255, 74, 28, .65);
-  --glow-work: 0 0 0 1px rgba(52, 211, 153, .55), 0 12px 40px -16px rgba(34, 197, 94, .6);
+  --glow-work: 0 0 0 1px rgba(52, 211, 153, .7), 0 0 28px -6px rgba(34, 197, 94, .55);
   --k-blue: #5b9dff; --k-blue-soft: rgba(91, 157, 255, .16);
 }
 html { scroll-behavior: smooth; }
@@ -664,7 +664,7 @@ body.assetpage details.fold > summary .count { margin-left: 10px; margin-right: 
 .k-room-more { border-style: dashed; background: transparent; transition: background .2s, transform .35s var(--ease); }
 .k-room-more:hover { background: var(--s-raise); }
 .k-needs.k-bump { animation: k-bump .7s var(--ease); }
-@keyframes k-bump { 0% { transform: scale(1); } 35% { transform: scale(1.025); box-shadow: 0 0 0 6px color-mix(in srgb, var(--k-fire) 35%, transparent); } 100% { transform: scale(1); } }
+@keyframes k-bump { 0% { transform: scale(1); } 35% { transform: scale(1.025); box-shadow: var(--glow-fire), 0 0 0 6px color-mix(in srgb, var(--k-fire) 35%, transparent); } 100% { transform: scale(1); } }
 .k-about summary { cursor: pointer; color: var(--t-dim); font-size: 12px; display: inline; }
 .k-about[open] summary { color: var(--t-body); }
 .k-about span { display: block; margin-top: 6px; }
@@ -948,7 +948,7 @@ a.k-qrow:hover { background: rgba(255,255,255,.14); }
 .k-qmore .k-qrow { margin-top: 6px; }
 /* how old the page is: red when nobody has read the floor for an hour */
 .k-now-age { color: var(--t-soft); }
-.k-now.stale { background: #b3200a; border-color: var(--k-fire); } .k-now.stale .k-now-age { color: #fff; font-weight: 600; }
+.k-now.stale { background: #8f1d0c; border-color: var(--k-fire); } .k-now.stale .k-now-age { color: #fff; font-weight: 600; }
 .k-now.stale .k-live, .k-stamp.stale .k-live { background: #fff; animation: none; }
 .k-stamp.stale, .k-office .k-stamp.stale { color: #ff7a5c; font-weight: 600; }
 @media (max-width: 760px) { body.overview .k-queue { order: 1; padding: 20px 14px; } .k-queue .k-head { margin-bottom: 12px; } }
@@ -982,30 +982,32 @@ details.k-q-theirs > * + * { margin-top: 6px; } .k-q-theirs summary { column-spa
 /* the navy glass look (owner's picture, 2026-10-06): the whole board. The values are the tokens at the top; here is
    what the tokens alone do not say: the page's two faint lights, a panel's edge and top light, the glow of the tile
    that needs him, and what stood dark on a light plate and has to stand light on a dark one. */
-body { background: radial-gradient(900px 520px at 6% -10%, rgba(56, 100, 210, .22), transparent 70%), radial-gradient(820px 480px at 98% -8%, rgba(124, 74, 210, .15), transparent 70%), var(--bg);
-  background-attachment: fixed; }
-.top { border-bottom: 1px solid rgba(148, 170, 255, .08); }
+body { background: radial-gradient(900px 520px at 6% -10%, rgba(70, 104, 200, .2), transparent 70%), radial-gradient(820px 480px at 98% -8%, rgba(124, 84, 200, .13), transparent 70%), var(--bg); }
+.top { border-bottom: 1px solid rgba(148, 170, 255, .1); }
 .top nav { border: 1px solid var(--glass-edge); }
-.k-now { border-color: var(--glass-edge2); background: rgba(17, 24, 39, .6); }
+.top nav a[aria-current="page"] { background: var(--s-line); color: #fff; }          /* where he is */
+.k-now { border-color: var(--glass-edge2); background: color-mix(in srgb, var(--k-ink) 60%, transparent); }
 /* a panel: the house, the queue, the office, the assets, a section of another page */
 .k-office, .k-queue, .k-assets, .k-hero, body.page main > section, body.page main > article, body.assetpage .head, body.assetpage main > section:not(.head):not(.reel-wrap) {
-  background: var(--glass-top), var(--k-ink); border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04), 0 30px 60px -44px rgba(0, 0, 0, .7); }
+  background: var(--glass-top), var(--k-ink); border: 1px solid var(--glass-edge); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08), 0 30px 60px -44px rgba(0, 0, 0, .7); }
 body.assetpage details.fold > section, body.page main > section section { border: 0; box-shadow: none; }
 /* a card in a panel */
 .k-stat.k-black, .k-stat.k-grey, .k-stat.k-white, .k-room, .k-qcard { background: var(--glass-top), var(--k-ink2); border: 1px solid var(--glass-edge); color: var(--t-bright); }
 .k-stat.k-black:hover, .k-stat.k-grey:hover, .k-stat.k-white:hover, .k-room:hover, .k-room-line:hover { border-color: var(--glass-edge2); }
 .k-assets .card, .k-seg a, body.page details, .k-strip { border: 1px solid var(--glass-edge); }
 .k-assets .card:hover, .k-assets .card:focus-visible { border: 1px solid var(--glass-edge); }
+footer .k-about, body.page footer details.k-about { border: 0; }
 .k-assets .pic { background: var(--s-deep); }
-/* the tile that needs him: orange into magenta, and the one glow on the page that is not green */
-.k-fire { background: linear-gradient(135deg, #ff7a2e 0%, #ff4a1c 38%, #e4253f 72%, #c2188b 100%); box-shadow: var(--glow-fire); }
+body.assetpage .looks img, body.assetpage .shots img { border: 1px solid var(--glass-edge); }          /* a dark sheet on the dark panel still has an edge */
+/* the tile that needs him: orange into magenta, sinking into the dark at its foot where the pills stand, and the one
+   warm glow on the page */
+.k-fire { background: linear-gradient(180deg, rgba(44, 8, 26, 0) 36%, rgba(44, 8, 26, .55) 100%), linear-gradient(135deg, #ff7a2e 0%, #ff4a1c 40%, #e4253f 78%, #c2188b 100%); box-shadow: var(--glow-fire); }
 .k-needs.calm { background: var(--glass-top), var(--k-ink2); border: 1px solid rgba(52, 211, 153, .4); box-shadow: none; }
-@keyframes k-bump { 0% { transform: scale(1); } 35% { transform: scale(1.025); box-shadow: var(--glow-fire), 0 0 0 6px color-mix(in srgb, var(--k-fire) 35%, transparent); } 100% { transform: scale(1); } }
 .k-room.busy { border-color: rgba(52, 211, 153, .4); background: radial-gradient(70% 60% at 100% 0%, color-mix(in srgb, var(--k-work) 12%, transparent), transparent 70%), var(--k-ink2); }
 .k-q-broken { border-color: rgba(255, 110, 80, .45); }
 /* what was dark on a light plate: the chosen chip is the light pill, a bar is light, a soft pill is a raised one */
 .k-assets .chip:hover { background: var(--p-soft); }
-.k-assets .chip.on { background: var(--t-bright); color: #0b101d; border-color: var(--t-bright); }
+.k-assets .chip.on { background: var(--t-bright); color: var(--s-deep); border-color: var(--t-bright); }
 .k-assets .tag.film { background: var(--s-line2); }
 .k-assets .tag.lane { background: var(--k-blue-soft); color: #a9c8ff; }
 .k-assets .tag.shared { background: rgba(255, 176, 58, .16); color: #ffcf7a; }
@@ -1017,15 +1019,21 @@ body.assetpage details.fold > section, body.page main > section section { border
 .k-bar1.parked, .k-sw.parked { background: var(--s-line4); }
 .k-list summary, .k-list summary:hover { background: var(--s-raise); color: #fff; border-color: var(--glass-edge2); }
 .k-list .qrow { border-color: var(--p-edge); color: var(--p-ink3); }
-.k-top3, .k-busts > summary, .k-arch, .k-open, .k-showall { background: var(--p-soft); color: var(--p-ink); }
-.k-mate:hover .k-open, .k-showall:hover { background: var(--s-line3); color: #fff; }
+.k-top3, .k-busts > summary, .k-arch, .k-showall { background: var(--p-soft); color: var(--p-ink); }
+.k-showall:hover { background: var(--s-line3); color: #fff; }
+.k-filterbtn { background: var(--s-raise); border: 1px solid var(--glass-edge2); }
 .k-stack figcaption { color: var(--p-ink) !important; }
-.k-mate-task, .k-mate-cap span { color: #4ade80 !important; }
+.k-stack:focus-within .k-stack-all, .k-stack:hover .k-stack-all { background: var(--p-card); border: 1px solid var(--glass-edge2); }
+.k-stack-all a { color: var(--p-ink4); }
+.k-nap-n, .k-nap .k-nap-n { background: var(--s-line2); color: var(--t-bright); }
+.k-dots .k-booth.idle { box-shadow: 0 0 0 2px var(--s-mute); }
 .k-stage.st-DONE { background: rgba(34, 197, 94, .16); color: #6ee7a8; }
 .k-stage.st-RUNNING { background: var(--k-blue-soft); color: #a9c8ff; }
 .k-stage.st-STALE { background: rgba(255, 90, 79, .16); color: #ff9a8f; }
 body.assetpage .fact.lvl, body.assetpage .k-head-side .fact.lvl { background: var(--k-blue-soft); color: #a9c8ff; }
-body.assetpage .steps li:not(.ok) { box-shadow: inset 0 0 0 1.5px var(--p-line); color: var(--t-dim); }
+body.assetpage .steps li:not(.ok) { box-shadow: inset 0 0 0 1.5px var(--p-line); color: var(--t-soft); }
 body.assetpage details.fold[open] > summary::after { background: var(--s-line3); }
 body.assetpage .reel-wrap { border: 1px solid var(--glass-edge); }
-.k-now.stale { background: #8f1d0c; }
+/* small words that fell under 4.5:1 on the navy (measured on the page): one step lighter; a text box's hint too */
+.k-tag.k-quiet, .k-last, .k-tl-when, .k-assets .novisual span { color: var(--t-soft); }
+.k-assets #q::placeholder, .b-form textarea::placeholder { color: var(--t-dim); opacity: 1; }

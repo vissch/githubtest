@@ -8,12 +8,12 @@ html { scroll-padding-top: 76px; }          /* a jump on the page lands under th
 /* ---- the head: one line, so the house is on the first screen. The headline is the answer (control.js). */
 .c-screen .c-hero { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px 24px; height: auto; min-height: 0;
   padding: clamp(18px, 1.8vw, 26px) clamp(20px, 2.4vw, 36px); }
-.c-screen .c-hero h1 { font-size: clamp(28px, 3vw, 46px); margin: 0; font-variant-numeric: tabular-nums; }
+.c-screen .c-hero h1 { font-size: clamp(28px, 3vw, 46px); font-weight: 500; margin: 0; font-variant-numeric: tabular-nums; }
 .c-screen .c-hero h1 .k-soft { color: var(--p-ink6); }          /* the soft tone of the band: 7:1 on its navy */
 .c-screen .c-hero .k-eyebrow { display: none; }          /* the brand is in the bar above, and the headline is the line */
 .c-screen .c-hero .k-hero-text { flex: 1 1 auto; }
 /* when the floor was read, as a pill with its light; beside it a pulse line, the page's sign that it is live */
-.c-stamp { margin: 0; padding: 8px 14px; border: 1px solid var(--glass-edge2); border-radius: 999px; background: rgba(11, 16, 29, .45); color: var(--p-ink4); font-variant-numeric: tabular-nums; }
+.c-stamp { margin: 0; padding: 8px 14px; border: 1px solid var(--glass-edge2); border-radius: 999px; background: color-mix(in srgb, var(--s-deep) 55%, transparent); color: var(--p-ink4); font-variant-numeric: tabular-nums; }
 .c-screen .c-hero::after { content: ""; flex: none; width: 62px; height: 30px; background: linear-gradient(90deg, var(--k-fire2), var(--k-fire));
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 30' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 16h13l4-7 6 14 7-21 6 20 4-6h18'/%3E%3C/svg%3E") center / contain no-repeat;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 62 30' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M2 16h13l4-7 6 14 7-21 6 20 4-6h18'/%3E%3C/svg%3E") center / contain no-repeat; }
@@ -30,15 +30,18 @@ html { scroll-padding-top: 76px; }          /* a jump on the page lands under th
 .c-pulse .k-stat .k-n { font-size: clamp(34px, 3vw, 50px); }
 .c-pulse .k-needs .k-n { font-size: clamp(40px, 3.6vw, 60px); margin-top: 2px; }
 .c-pulse .k-stat .k-l { font-size: 14px; }
-.c-pulse .k-stat .k-sub { margin-top: 2px; white-space: normal; }
+.c-pulse .k-stat .k-n ~ .k-l { font-weight: 500; letter-spacing: -.01em; }          /* a label under its number is said quietly; the number speaks */
+.c-pulse .k-stat .k-sub { margin-top: 2px; white-space: normal; opacity: .85; }
 /* on the orange tile small white words are 3:1. The labels are ink there (6:1) and each group sits on a dark pill
    (white on it over 5:1); what is broken is the one light pill, so it is the first thing read. */
 .c-pulse .k-needs > .k-l { color: #1d0a04; opacity: 1; }
+.c-pulse .k-needs.calm > .k-l { color: var(--t-mid2); }          /* nothing waits: the tile is navy, and ink on it was 1.3:1 */
 .c-screen .k-fire::before { display: none; }          /* the sweep ran for ever, and stood still as a smear with motion off */
 .c-pulse .k-list { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.c-pulse .k-list .k-take { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 4px 4px 4px 12px; border-radius: 999px; background: rgba(40, 8, 14, .34);
-  border: 1px solid rgba(255, 255, 255, .34); color: #fff; }
-.c-pulse .k-list .k-take:hover { background: rgba(40, 8, 14, .52); border-color: rgba(255, 255, 255, .6); }
+.c-pulse .k-list .k-take { display: inline-flex; align-items: center; gap: 8px; margin: 0; padding: 4px 4px 4px 12px; border-radius: 999px; background: rgba(44, 8, 26, .22);
+  border: 1px solid rgba(255, 255, 255, .5); color: #fff; }
+.c-pulse .k-list .k-take:hover { background: rgba(44, 8, 26, .5); border-color: #fff; }
+.c-pulse .k-needs .k-take:focus-visible { outline-color: #fff; }          /* the amber ring on the orange tile was 1.7:1 */
 .c-pulse .k-list .k-take-sub { display: none; }
 .c-pulse .k-list .k-take-top { font-size: 13px; white-space: nowrap; }
 .c-pulse .k-list .k-take b { padding: 3px 9px; color: #b82506; }
@@ -48,8 +51,9 @@ button.k-stat { border: 0; font: inherit; text-align: left; cursor: pointer; }
 .c-pulse .k-stat:focus-visible, .c-pulse .k-take:focus-visible, .c-expand:focus-visible, .c-everyone summary:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 2px; }
 .c-spark { display: block; width: 100%; height: 30px; margin-top: 2px; overflow: visible; }
 /* the number that moves while he looks has the green edge of what is at work; it loses it when the reading is late */
-.c-pulse .c-calls { border-color: rgba(52, 211, 153, .5); box-shadow: var(--glow-work); }
+.c-pulse .c-calls, .c-pulse .c-calls:hover { border-color: rgba(52, 211, 153, .6); box-shadow: var(--glow-work); }
 .c-screen:has(.c-stamp.late) .c-pulse .c-calls, .c-screen:has(.c-stamp.stale) .c-pulse .c-calls { border-color: var(--glass-edge); box-shadow: none; }
+.c-screen:has(.c-stamp.late) .c-pulse .k-live, .c-screen:has(.c-stamp.stale) .c-pulse .k-live { animation: none; box-shadow: none; }          /* and the light of who is at work stops pinging */
 .c-pulse .c-notes { background: linear-gradient(160deg, rgba(148, 170, 255, .2), rgba(148, 170, 255, .05) 70%), var(--k-ink2); }
 .c-pulse .k-legend { color: var(--t-mid2); }
 
@@ -84,7 +88,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 /* the profile is as tall as the house and scrolls inside itself: its height never pushes the house's row */
 .c-profile { min-width: 0; }
 .c-deck > .c-profile.b-docked { position: relative; inset: auto; z-index: auto; width: auto; height: 0; min-height: 100%; max-height: none; overflow-y: auto; padding: 18px 18px 20px;
-  border: 1px solid var(--glass-edge); border-radius: var(--r-xl); background: var(--glass-top), var(--k-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .04);
+  border: 1px solid var(--glass-edge); border-radius: var(--r-xl); background: var(--glass-top), var(--k-ink); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08);
   scrollbar-width: thin; scrollbar-color: var(--s-line4) transparent; }
 .b-docked > * { break-inside: avoid; }
 .b-docked > .b-face { float: left; width: 92px; margin: 2px 16px 8px 2px; }
@@ -100,12 +104,9 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 .b-docked > .b-head h3 { font-size: 20px; }
 .b-docked > .b-head .b-sub { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 .b-hint { clear: both; margin: 0; padding-top: 6px; color: var(--t-soft); font-size: 12px; }
-/* in the look of the page: what it is as blue pills, where it leads as rows across the panel */
+/* what it is as pills and where it leads as rows are the panel's own look (board.css); here only their place */
 .b-docked > .b-facts { clear: both; padding-top: 4px; }
-.b-docked > .b-facts span { padding: 6px 12px; border-radius: 999px; background: var(--k-blue-soft); color: #a9c8ff; font-weight: 600; }
-.b-docked > .b-links { gap: 8px; margin-top: 14px; }
-.b-docked > .b-links a { padding: 12px 14px; border-radius: 14px; background: rgba(11, 16, 29, .35); border: 1px solid var(--glass-edge2); font-size: 13.5px; transition: border-color .2s, background .2s; }
-.b-docked > .b-links a:hover, .b-docked > .b-links a:focus-visible { border-color: var(--k-fire); background: rgba(11, 16, 29, .6); }
+.b-docked > .b-links { margin-top: 14px; }
 .b-docked > .b-visual .b-shot { border-radius: var(--r-m); }
 .b-docked .b-form textarea { border-color: var(--s-mute2); border-radius: var(--r-m); } .b-docked .b-form textarea::placeholder { color: var(--t-dim); }
 .b-follow { flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px; border-radius: 999px; border: 1px solid rgba(255, 74, 28, .55); color: #ffd2c4;
@@ -128,6 +129,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   .c-deck .c-house { padding-top: 12px; } .c-bar { margin-bottom: 8px; } .c-bar h2 { font-size: 22px; } .c-deck .h-rooms { margin-bottom: 8px; }
 }
 @media (max-width: 1240px) {
+  .c-screen .c-hero::after { display: none; }          /* no room beside the stamp: the pulse line wrapped to a row of its own */
   .c-screen .c-pulse { grid-template-columns: repeat(3, minmax(0, 1fr)); } .c-screen .c-pulse .k-needs { grid-column: auto; }
   .c-deck { grid-template-columns: minmax(0, 1fr); }
   /* under the house the profile is wide: who it is and the picture on the left, where it leads and the notes on the right */
@@ -135,7 +137,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   .c-graphs .g-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .c-graphs .g-card { grid-column: auto; } .c-graphs .g-card.g-wide { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
-  .c-screen .c-hero::after { display: none; } .c-stamp { border-radius: 14px; }          /* the stamp wraps on a phone: a card, and no room for the pulse line */
+  .c-stamp { border-radius: 14px; }          /* the stamp wraps on a phone: a card */
   body.c-screen .c-hero { order: 0; } body.c-screen .c-pulse { order: 1; } body.c-screen .c-deck { order: 2; } body.c-screen .k-queue { order: 3; }
   body.c-screen .c-graphs { order: 4; } body.c-screen #office { order: 5; } body.c-screen .k-assets { order: 6; }
   .c-screen .c-pulse { grid-template-columns: repeat(2, minmax(0, 1fr)); } .c-screen .c-pulse .k-needs, .c-screen .c-pulse .c-notes { grid-column: 1 / -1; }
