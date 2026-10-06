@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
-"""Tests for the master's one screen (Tools/relay/day.py, `relay.py day`) and the queue's order
-(`relay.py prio`, sources/lane.py). Run: python Tools/relay/test_day.py
-Each test works in a temporary folder with a board and a relay home of its own.
+"""Tests for the master's one screen (Tools/relay/day.py, `relay.py day`), the queue's order
+(`relay.py prio`, sources/lane.py), the owner's answers on the screen (answers.py) and a unit queued from a file
+(`relay.py add --unit`). Run: python Tools/relay/test_day.py
+Each test works in a temporary folder with a board, a relay home and the two folders of the owner's answers of its
+own: none reads the Drive.
 """
 import contextlib, io, json, os, shutil, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
@@ -9,10 +11,10 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import config, day, gitio, relay, usage   # noqa: E402
+import answers, config, day, gitio, relay, usage   # noqa: E402
 from sources import lane            # noqa: E402
 
-ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION")
+ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION", "TW_BRIEFS", "TW_NOTES")
 
 
 def git(args, cwd):
@@ -24,8 +26,12 @@ class Base(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="day-test-"))
         self.board, self.home = self.tmp / "board", self.tmp / "home"
         (self.board / "relay" / "queue").mkdir(parents=True)
+        self.briefs, self.notes = self.tmp / "decisions", self.tmp / "notes"    # what the owner answered: empty folders
+        self.briefs.mkdir()
+        self.notes.mkdir()
         self.old = {k: os.environ.get(k) for k in ENV}
-        os.environ.update(TW_RELAY_HOME=str(self.home), TW_BOARD=str(self.board), TW_STATION="desktop")
+        os.environ.update(TW_RELAY_HOME=str(self.home), TW_BOARD=str(self.board), TW_STATION="desktop",
+                          TW_BRIEFS=str(self.briefs), TW_NOTES=str(self.notes))
         self.limits = config.limits                         # these tests count in dollars or in measured legs:
         config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0)   # no guessed week (see Guess)
         self.lim, self.ph = config.limits(), config.phases()
@@ -74,6 +80,20 @@ class Base(unittest.TestCase):
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(json.dumps(dict({"run": run, "reason": "nothing left to do", "legs": 2, "units": {}}, **kw)),
                      encoding="utf-8")
+
+    def brief(self, bid, title="A question", state="open", keys="AB", crlf=False):
+        """A decision put to the owner, as the asset board writes it."""
+        d = self.briefs / bid
+        d.mkdir(parents=True)
+        text = json.dumps({"id": bid, "title": title, "state": state,
+                           "options": [{"key": k, "text": "Option " + k} for k in keys]}, indent=1) + "\n"
+        (d / "brief.json").write_bytes(text.replace("\n", "\r\n" if crlf else "\n").encode("utf-8"))
+
+    def note(self, name, about, text, when="2026-10-06 12:00:00", state="open", crlf=False):
+        """A note the owner left on a page, as the asset board writes it: a click is "A: the option's text"."""
+        raw = ("---\nid: %s\nwhen: %s\nfrom: owner\nkind: page\nabout: %s\ntitle: T\npage: decide.html\nstate: %s\n"
+               "---\n%s\n" % (name, when, about, state, text))
+        (self.notes / (name + ".md")).write_bytes(raw.replace("\n", "\r\n" if crlf else "\n").encode("utf-8"))
 
     def screen(self, holder=None):
         return day.lines(self.board, self.home, self.lim, self.ph, holder)
@@ -319,6 +339,209 @@ class Day(Base):
         before = sorted((str(p), p.stat().st_mtime_ns) for p in self.tmp.rglob("*"))
         self.main("day")
         self.assertEqual(sorted((str(p), p.stat().st_mtime_ns) for p in self.tmp.rglob("*")), before)
+
+
+class Answers(Base):
+    """What the owner answered on the Decide page and nobody took up is on the master's screen (answers.py)."""
+    def day(self):
+        code, out = self.main("day")
+        self.assertEqual(code, 0)
+        return out.splitlines()
+
+    def test_an_answer_nobody_took_up_is_on_the_screen_between_what_needs_him_and_the_holder(self):
+        self.brief("2026-10-06-the-house-s-look", "The house's look")
+        self.note("2026-10-06-120000-brief-a", "brief:2026-10-06-the-house-s-look", "A: Option A")
+        self.assertEqual(self.main("hold", "pc-10")[0], 0)
+        out = self.day()
+        at = out.index("Your answers: 1 not taken up. What each leads to: briefs.py waiting.")
+        self.assertEqual(out[at + 1], "  - A: The house's look")
+        self.assertEqual(out[at - 1], "Needs you: nothing.")
+        self.assertTrue(out[at + 2].startswith("The relay build is held by pc-10"), out)
+
+    def test_with_no_answer_waiting_the_screen_says_so(self):
+        self.brief("b1")                                        # a brief he has not answered waits on him, not on us
+        self.assertIn("Your answers: nothing waits.", self.day())
+
+    def test_the_lines_alone_say_nothing_of_answers_nobody_looked_for(self):
+        self.brief("b1")
+        self.note("n1", "brief:b1", "A: Option A")
+        self.assertFalse([l for l in self.screen() if "Your answers" in l])
+
+    def test_folders_that_are_not_there_are_said_and_fail_nothing(self):
+        os.environ["TW_BRIEFS"] = str(self.tmp / "gone")
+        out = " ".join(l.strip() for l in self.day())
+        self.assertIn("Your answers: not read (", out)
+        self.assertIn("is not there).", out)
+        self.assertNotIn("Your answers: nothing waits.", out)   # a Drive that is not mounted is not "nothing waits"
+        os.environ.update(TW_BRIEFS=str(self.briefs), TW_NOTES=str(self.tmp / "gone"))
+        self.assertIn("Your answers: not read (", " ".join(self.day()))
+
+    def test_his_last_word_is_his_answer_and_a_brief_counts_once(self):
+        self.brief("b1", "Clicked twice")                       # the notes' names sort the other way than their times:
+        self.note("n9", "brief:b1", "A: Option A", "2026-10-06 11:44:41")      # it is the time that says which is last
+        self.note("n8", "brief:b1", "B: Option B", "2026-10-06 11:44:46")
+        self.brief("b2", "In his words")
+        self.note("n1", "brief:b2", "neither, do it later", "2026-10-06 11:50:00")
+        self.brief("b3", "No such option", keys="AB")
+        self.note("n4", "brief:b3", "D: Option D", "2026-10-06 11:55:00")
+        rows, why = answers.read(self.briefs, self.notes)
+        self.assertEqual(why, "")
+        self.assertEqual([(r["id"], r["picked"], r["when"]) for r in rows],
+                         [("b1", "B", "2026-10-06 11:44:46"), ("b2", "your own words", "2026-10-06 11:50:00"),
+                          ("b3", "your own words", "2026-10-06 11:55:00")])
+        out = self.day()
+        self.assertIn("Your answers: 3 not taken up. What each leads to: briefs.py waiting.", out)
+        self.assertIn("  - B: Clicked twice", out)
+        self.assertIn("  - your own words: In his words", out)
+
+    def test_what_is_taken_up_or_about_no_brief_waits_on_nobody(self):
+        self.brief("closed", state="answered")
+        self.note("n1", "brief:closed", "a late word")           # the brief is closed
+        self.brief("done")
+        self.note("n2", "brief:done", "A: Option A", state="done")     # his note is answered
+        self.note("n3", "brief:gone", "A: Option A")             # no such brief
+        self.note("n4", "brief:../board", "A: Option A")         # not a brief's name: nothing outside is looked up,
+        (self.board / "brief.json").write_text(json.dumps(       # though a file that reads as a brief is there
+            {"id": "../board", "title": "Outside", "state": "open", "options": []}), encoding="utf-8")
+        self.note("n5", "land: proving-ground", "land it")       # a note about something else
+        self.brief("b9")
+        self.note("n7", "notes:b9", "A: Option A")               # about something else whose name ends like a brief's
+        (self.notes / "readme.md").write_text("not a note", encoding="utf-8")
+        (self.briefs / "broken").mkdir()
+        (self.briefs / "broken" / "brief.json").write_text("{ not json", encoding="utf-8")
+        self.note("n6", "brief:broken", "A: Option A")
+        self.assertEqual(answers.read(self.briefs, self.notes), ([], ""))
+        self.assertIn("Your answers: nothing waits.", self.day())
+
+    def test_files_written_on_windows_read_the_same(self):
+        self.brief("b1", "Lines that end both ways", crlf=True)
+        self.note("n1", "brief:b1", "B: Option B\nand a word", crlf=True)
+        self.brief("b2", "Unix lines")
+        self.note("n2", "brief:b2", "A: Option A", "2026-10-06 12:00:01")
+        self.assertEqual([(r["id"], r["picked"]) for r in answers.read(self.briefs, self.notes)[0]],
+                         [("b1", "B"), ("b2", "A")])
+
+    def test_the_rows_are_ascii_fit_the_screen_and_a_long_list_has_a_tail(self):
+        width, rows = self.lim["day_line_chars"], self.lim["day_queue_rows"]
+        for n in range(rows + 3):
+            self.brief("b%02d" % n, "The enemy\u2019s barrage \u2014 Normal too? " + "long " * (40 if n == 0 else 0))
+            self.note("n%02d" % n, "brief:b%02d" % n, "A: Option A", "2026-10-06 12:%02d:00" % n)
+        out = self.day()
+        at = out.index("Your answers: %d not taken up. What each leads to: briefs.py waiting." % (rows + 3))
+        mine = out[at + 1:at + rows + 2]
+        self.assertEqual(mine[-1], "  ... and 3 more")
+        self.assertTrue(all(l.startswith("  - A: The enemy?s barrage ? Normal too?") for l in mine[:-1]), mine)
+        self.assertTrue(mine[0].endswith("..."), mine[0])       # what he picked comes first: the title is what is cut
+        self.assertTrue(all(l.isascii() and len(l) <= width for l in out), out)
+
+    def test_reading_never_raises(self):
+        f = self.tmp / "a-file"
+        f.write_text("x", encoding="utf-8")
+        self.assertEqual(answers.read(f, self.notes)[0], [])
+        self.assertIn("is not there", answers.read(f, self.notes)[1])
+        (self.briefs / "b1").mkdir()
+        (self.briefs / "b1" / "brief.json").write_text("[1, 2]", encoding="utf-8")     # JSON, not a brief
+        self.note("n1", "brief:b1", "A: Option A")
+        self.assertEqual(answers.read(self.briefs, self.notes), ([], ""))
+
+    def test_the_folders_are_the_drives_unless_named(self):
+        os.environ.pop("TW_BRIEFS")
+        os.environ.pop("TW_NOTES")
+        self.assertEqual([p.as_posix() for p in answers.folders()],
+                         ["G:/My Drive/TW3D-pipeline/decisions", "G:/My Drive/TW3D-pipeline/notes"])
+        os.environ.update(TW_BRIEFS=str(self.briefs), TW_NOTES=str(self.notes))
+        self.assertEqual(answers.folders(), (self.briefs, self.notes))
+
+
+class AddUnit(Base):
+    """`relay.py add --unit FILE`: a unit queued from a file, as an answer of the owner's names it."""
+    UNIT = {"id": "house-cover", "lane": "lane/sim/house-cover", "goal": 'Men behind a building take "less" damage; $5 says so.',
+            "done_when": ["python", "Tools/otr.py", "CoverTests"]}
+
+    def file(self, unit=None, raw=None, name="unit.json"):
+        p = self.tmp / name
+        p.write_text(raw if raw is not None else json.dumps(self.UNIT if unit is None else unit), encoding="utf-8")
+        return str(p)
+
+    def queued(self, uid="house-cover"):
+        return self.board / "relay" / "queue" / (uid + ".json")
+
+    def test_a_unit_from_a_file_is_queued_as_the_file_says(self):
+        code, out = self.main("add", "--unit", self.file())
+        self.assertEqual(code, 0)
+        self.assertEqual(out.strip(), "queued house-cover on lane/sim/house-cover. Board: no board repo.")
+        self.assertEqual(json.loads(self.queued().read_text(encoding="utf-8")), dict(self.UNIT, role="lane"))
+        self.assertEqual(self.order(), ["house-cover"])
+        self.assertTrue(any("house-cover" in l for l in self.screen()))
+
+    def test_the_same_unit_again_is_queued_once_and_ends_0(self):
+        self.main("add", "--unit", self.file())
+        self.main("prio", "house-cover", "5")                   # moved since: it is still the same unit
+        before = self.queued().read_bytes()
+        code, out = self.main("add", "--unit", self.file())
+        self.assertEqual(code, 0)
+        self.assertIn("house-cover is queued already, the same unit.", out)
+        self.assertEqual(self.queued().read_bytes(), before)
+        self.assertEqual(len(list((self.board / "relay" / "queue").glob("*.json"))), 1)
+
+    def test_another_unit_under_an_id_that_is_taken_is_refused(self):
+        self.main("add", "--unit", self.file())
+        before = self.queued().read_bytes()
+        with self.assertRaises(SystemExit) as e:
+            self.main("add", "--unit", self.file(dict(self.UNIT, goal="Something else.")))
+        self.assertIn("house-cover is queued already", str(e.exception))
+        self.assertNotIn("the same unit", str(e.exception))
+        self.assertEqual(self.queued().read_bytes(), before)
+
+    def test_a_unit_the_queue_would_not_take_is_refused_and_leaves_no_file(self):
+        gone = {k: v for k, v in self.UNIT.items() if k != "done_when"}
+        for bad in (dict(raw="{ not json"), dict(unit=gone), dict(unit=dict(self.UNIT, lane="feature/x")),
+                    dict(unit=dict(self.UNIT, done_when="python Tools/otr.py")), dict(unit=dict(self.UNIT, id="has a space")),
+                    dict(unit=dict(self.UNIT, id="../up")), dict(unit=dict(self.UNIT, priority=1)), dict(unit=["a", "list"]),
+                    dict(unit={k: v for k, v in self.UNIT.items() if k != "id"})):
+            with self.assertRaises(SystemExit, msg=str(bad)):
+                self.main("add", "--unit", self.file(**bad))
+        with self.assertRaises(SystemExit):
+            self.main("add", "--unit", str(self.tmp / "no-such-file.json"))
+        with self.assertRaises(SystemExit) as e:                 # an id that is a path is refused before a file is written
+            self.main("add", "--unit", self.file(dict(self.UNIT, id="../up")))
+        self.assertIn("names no id", str(e.exception))
+        self.assertEqual(list((self.board / "relay").rglob("*.json")), [])
+
+    def test_a_file_and_words_together_are_refused_and_the_words_alone_still_queue(self):
+        for more in (["u2"], ["--lane", "lane/show/x"], ["--goal", "x"], ["--done-when", "git", "status"]):
+            with self.assertRaises(SystemExit, msg=str(more)):
+                self.main("add", "--unit", self.file(), *more)
+        with self.assertRaises(SystemExit) as e:
+            self.main("add", "u2", "--lane", "lane/show/x", "--done-when", "git", "status")
+        self.assertIn("--goal", str(e.exception))
+        self.assertEqual(list((self.board / "relay" / "queue").glob("*.json")), [])
+        code, out = self.main("add", "u2", "--lane", "lane/show/x", "--goal", "Add a.txt", "--done-when", "git", "status")
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(self.queued("u2").read_text(encoding="utf-8")),
+                         {"id": "u2", "lane": "lane/show/x", "role": "lane", "goal": "Add a.txt", "done_when": ["git", "status"]})
+
+    def test_a_push_that_failed_goes_out_when_the_same_unit_is_added_again(self):
+        origin = self.tmp / "origin.git"
+        git(["init", "-q", "--bare", str(origin)], self.tmp)
+        git(["init", "-q"], self.board)
+        git(["config", "user.email", "t@example.com"], self.board)
+        git(["config", "user.name", "t"], self.board)
+        git(["commit", "-q", "--allow-empty", "-m", "start"], self.board)
+        branch = git(["rev-parse", "--abbrev-ref", "HEAD"], self.board).strip()
+        git(["remote", "add", "origin", str(origin)], self.board)
+        git(["push", "-q", "-u", "origin", branch], self.board)
+        git(["remote", "set-url", "origin", str(self.tmp / "unplugged.git")], self.board)
+        code, out = self.main("add", "--unit", self.file())
+        self.assertEqual(code, 0)
+        self.assertIn("Board: push failed: the commit is kept locally.", out)
+        self.assertEqual(git(["log", "--format=%s"], origin).strip(), "start")
+        git(["remote", "set-url", "origin", str(origin)], self.board)
+        code, out = self.main("add", "--unit", self.file())
+        self.assertEqual(code, 0)
+        self.assertIn("house-cover is queued already, the same unit. Board: pushed.", out)
+        self.assertEqual(git(["log", "-1", "--format=%s"], origin).strip(), "relay: queue house-cover")
+        self.assertIn("Board: nothing to push.", self.main("add", "--unit", self.file())[1])
 
 
 if __name__ == "__main__":

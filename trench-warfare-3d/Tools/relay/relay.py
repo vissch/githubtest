@@ -15,6 +15,7 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work
+  python Tools/relay/relay.py add --unit <file>     the same, the unit from a file in the shape of the queue's
   python Tools/relay/relay.py leg gate start|status|wait, leg finish, leg done      a leg's close-out (legcmd.py)
   python Tools/relay/relay.py proof meter      a small real leg with low thresholds: amber, red, a refused edit
   python Tools/relay/relay.py proof timeout    a leg that is killed at its time limit
@@ -28,7 +29,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
+import answers, boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -167,7 +168,8 @@ def budget(days):
 
 def day_screen():
     """One screen for the master and the owner (day.py): reads only."""
-    for line in day.lines(P.board_dir(), legdir.home(), config.limits(), config.phases(), holder()):
+    for line in day.lines(P.board_dir(), legdir.home(), config.limits(), config.phases(), holder(),
+                          answers.read(*answers.folders())):
         print(line)
     return 0
 
@@ -278,19 +280,59 @@ def update(ref):
     return 0
 
 
+def unit_from(path):
+    """The unit a file names, for `add --unit`: the queue file's own shape (id, lane, goal, done_when, and a role
+    when it is not "lane"). What is wrong with the unit itself is lane.load's to say, once it is a queue file."""
+    try:
+        u = P.read_json(Path(path))
+    except (OSError, ValueError) as e:
+        raise SystemExit("relay: the unit file %s does not read: %s" % (path, e))
+    if not isinstance(u, dict) or not isinstance(u.get("id"), str) or not lane_source.ID.match(u["id"]):
+        raise SystemExit("relay: the unit file %s names no id (letters, digits, . _ - only)" % path)
+    more = sorted(k for k in u if k not in lane_source.NEED)
+    if more:
+        raise SystemExit("relay: the unit file %s has %s, which a unit to queue does not" % (path, ", ".join(more)))
+    return dict(u, role=u.get("role") or "lane")
+
+
 def add(a):
-    """Queue one unit of lane work: a committed file on the board, which is the only kind the runner trusts."""
+    """Queue one unit of lane work: a committed file on the board, which is the only kind the runner trusts.
+    The unit comes in words (an id, --lane, --goal, --done-when) or as a file (--unit): an answer of the owner's on
+    the Decide page names its unit as a file, and a file crosses ssh where quoted words do not.
+    The same unit from a file, queued a second time, is queued once: the call pushes the board again and ends 0, so
+    a take-up that stopped halfway can be repeated. Another unit under an id that is taken is refused."""
     board = P.board_dir()
-    p = board / "relay" / "queue" / (a.id + ".json")
+    if a.unit:
+        if a.id or a.lane or a.goal or a.done_when:
+            raise SystemExit("relay: add --unit takes the whole unit from the file: no id, --lane, --goal or "
+                             "--done-when beside it")
+        unit = unit_from(a.unit)
+    else:
+        missing = [n for n, v in (("an id", a.id), ("--lane", a.lane), ("--goal", a.goal),
+                                  ("--done-when", a.done_when)) if not v]
+        if missing:
+            raise SystemExit("relay: add needs %s (or --unit FILE)" % ", ".join(missing))
+        unit = {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when}
+    p = board / "relay" / "queue" / (unit["id"] + ".json")
     if p.exists():
-        raise SystemExit("relay: %s is queued already" % a.id)
-    P.write_json(p, {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when})
+        try:
+            there = P.read_json(p)
+        except (OSError, ValueError):
+            there = None
+        if a.unit and isinstance(there, dict) and {k: there.get(k) for k in lane_source.NEED} == unit:
+            said = boardio.push(board, "relay: queue %s" % unit["id"])
+            if said == "nothing to push":            # committed the first time; that push may have failed
+                said = boardio.push_kept(board)
+            print("%s is queued already, the same unit. Board: %s." % (unit["id"], said))
+            return 0
+        raise SystemExit("relay: %s is queued already" % unit["id"])
+    P.write_json(p, unit)
     try:
         lane_source.load(p)
     except SystemExit:
         p.unlink()
         raise
-    print("queued %s on %s. Board: %s." % (a.id, a.lane, boardio.push(board, "relay: queue %s" % a.id)))
+    print("queued %s on %s. Board: %s." % (unit["id"], unit["lane"], boardio.push(board, "relay: queue %s" % unit["id"])))
     return 0
 
 
@@ -341,11 +383,12 @@ def main(argv=None):
     p.add_argument("--hours", type=float, default=4)
     p.add_argument("--release", action="store_true")
     p = sub.add_parser("add")
-    p.add_argument("id")
-    p.add_argument("--lane", required=True)
+    p.add_argument("id", nargs="?")
+    p.add_argument("--unit", help="the unit as a file in the shape of the queue's, in place of the words")
+    p.add_argument("--lane")
     p.add_argument("--role", default="lane")
-    p.add_argument("--goal", required=True)
-    p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER, required=True)
+    p.add_argument("--goal")
+    p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER)
     p = sub.add_parser("proof")
     p.add_argument("name", choices=("meter", "timeout"))
     p = sub.add_parser("view")
