@@ -192,67 +192,80 @@
     var ready = []; o.lanes.forEach(function (l) { ready = ready.concat(readyOf(l)); });
     ready.sort(function (a, b) { return (a.stage.since || '~').localeCompare(b.stage.since || '~'); });
 
-    // the pulse: "Needs you" is the owner queue (src_queue.py), and its number is the number of rows the queue lists.
-    // Before the first queue.js is written it is the board's ready stages, as it was.
-    var Q = window.OwnerQueue;
-    var queue = window.QUEUE || { ready: ready.map(function (x) {
-      return { title: x.item.title || x.item.id, item: x.item.id, stage: x.stage.id, lane: x.lane.branch, role: x.stage.skill || x.stage.role || '', days: null }; }) };
-    var groups = Q ? Q.groups(queue) : [], waiting = groups.reduce(function (n, g) { return n + g.rows.length; }, 0);
-    function qrow(g, r, cls, m) {
-      // a decision leads to its brief on the decisions page (decide.js), or to its place among those without one
-      var Bf = g.key === 'decide' ? window.Briefs : null, bf = Bf ? Bf.match(window.BRIEFS, r.top) : null, to = Bf ? 'decide.html#' + (bf ? bf.id : 'q-' + Bf.slug(r.top)) : '';
-      var a = el(r.lane || r.url || to ? 'a' : 'div', cls); a.title = r.tip || r.top;
-      if (to) a.href = to; else if (r.url) a.href = r.url; else if (r.lane) a.href = (onBranches ? '' : 'floor.html') + '#' + slug(r.lane);
+    // the pulse: "Needs you" is what waits on the owner (src_queue.py YOURS) and its number is the rows listed. What
+    // waits on an agent is listed apart, folded, and is not his number.
+    var Q = window.OwnerQueue, queue = window.QUEUE || {};
+    var groups = Q ? Q.groups(queue) : [], waiting = Q ? Q.total(groups) : 0, theirs = Q && Q.agents ? Q.agents(queue) : [], chores = Q ? Q.total(theirs) : 0;
+    function chipsOf(r) { var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c) { sub.appendChild(el('span', 'k-qchip', c)); }); return sub; }
+    // a row of his is a plain link to its brief on the Decide page (what it is for, the options with the agent's pick,
+    // the pictures, a box for his own words) and to nothing else. No script stands between the click and the brief, so
+    // a page that runs old scripts, or none, cannot send him to a branch.
+    function mine(r) {
+      var a = el('a', 'k-qrow k-mine' + (r.shot ? ' k-shown' : '')); a.href = Q.leads(r); a.title = r.tip || r.top;
+      if (r.shot) { var i = el('img', 'k-qshot'); i.loading = 'lazy'; i.alt = ''; i.src = r.shot; a.appendChild(i); }
+      var what = el('span', 'k-take-what');
+      what.appendChild(el('span', 'k-take-top', r.top));
+      if (r.pick) what.appendChild(el('span', 'k-qpick', 'The agent would: ' + r.pick));
+      what.appendChild(chipsOf(r)); a.appendChild(what);
+      a.appendChild(el('span', 'k-qgo', 'Decide'));
+      return a;
+    }
+    // a row of the agents' is no link: a click opens what it is, in a few lines, and takes a note. It leads nowhere.
+    function notMine(g, r, m) {
+      var a = el('div', 'k-qrow k-theirs'); a.title = r.tip || r.top; m = m || {};
       var what = el('span', 'k-take-what');
       what.appendChild(el('span', 'k-take-top', g.key === 'ready' ? headline(r.top) : r.top));
-      var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c) { sub.appendChild(el('span', 'k-qchip', c)); }); what.appendChild(sub);
-      if (bf) sub.appendChild(el('span', 'k-qchip k-qbrief', 'brief, with ' + (bf.evidence.length ? bf.evidence.length + (bf.evidence.length === 1 ? ' picture' : ' pictures') : 'no picture')));
-      a.appendChild(what);
-      m = m || {};
-      // the pictures of a row: what the board holds for it, then what the briefs about its lane show
-      var shots = (m.shots || []).slice();
-      (window.BRIEFS || []).forEach(function (b) { if (r.lane && b.lane === r.lane) (b.evidence || []).forEach(function (e) { if (e.src && e.kind !== 'film' && shots.length < 3) shots.push({ src: e.src, name: e.file, caption: e.caption }); }); });
-      var has = m.detail && m.detail.length;          // the lines say it: then no tip under the title, and a ready step by its short name
-      var subj = { kind: 'queue', id: g.key + ': ' + r.top, kindLabel: g.label.toLowerCase(), title: g.key === 'ready' ? headline(r.top) : r.top, sub: !has && r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '',
-        links: (bf ? [{ label: 'Its brief, with the options', href: to }] : []).concat(r.lane ? [{ label: 'Its branch, ' + shortBranch(r.lane), href: 'floor.html#' + slug(r.lane) }] : r.url ? [{ label: 'Open it', href: r.url }] : []),
-        facts: r.chips, detail: m.detail || [], shots: shots, actions: m.actions || [], wantsShots: g.key === 'land' || g.key === 'ready' || g.key === 'approved' };
-      // a click on the row opens what it is, with its pictures and what he can say should happen; a decision with a brief
-      // goes to the brief, which is that page already. A click with a key held still follows the link.
-      if (Bd && !bf) a.addEventListener('click', function (ev) { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return; ev.preventDefault(); Bd.open(subj); });
-      if (Bd) a.appendChild(Bd.button(subj));
+      what.appendChild(chipsOf(r)); a.appendChild(what);
+      if (!Bd) return a;
+      var has = m.detail && m.detail.length;          // the lines say it: then no tip under the title
+      // a note on a lane to land is his word on landing it, whichever list the lane is in (src_queue.py reads "land: <lane>")
+      var subj = { kind: 'queue', id: (g.key === 'said' || g.key === 'owed' ? 'land' : g.key) + ': ' + r.top, kindLabel: 'with the agents · ' + g.label.toLowerCase(), title: g.key === 'ready' ? headline(r.top) : r.top,
+        sub: !has && r.tip && r.tip !== r.top ? r.tip : '', lane: r.lane || '', links: r.url ? [{ label: /^decide\.html/.test(r.url) ? 'The Decide page' : 'Open it', href: r.url }] : [],
+        facts: r.chips, detail: m.detail || [], shots: m.shots || [], actions: m.actions || [] };
+      var open = function () { Bd.open(subj); };
+      a.classList.add('b-click'); a.tabIndex = 0; a.setAttribute('role', 'button');
+      a.addEventListener('click', open); a.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+      a.appendChild(Bd.button(subj));
       return a;
     }
     var pr = $('p-ready');
     if (pr && pr.textContent !== String(waiting) && pr.textContent !== '–') { var nc = $('p-needs'); nc.classList.remove('k-bump'); void nc.offsetWidth; nc.classList.add('k-bump'); }
     set('p-ready', waiting);
-    var list = $('p-ready-list'), sig = JSON.stringify([groups, (window.BRIEFS || []).map(function (b) { return [b.id, b.state]; })]);
+    set('p-ready-l', waiting === 1 ? 'decision waits on you' : waiting ? 'decisions wait on you' : 'nothing waits on you');
+    var his = []; groups.forEach(function (g) { g.rows.forEach(function (r) { his.push(r); }); });
+    var list = $('p-ready-list'), sig = JSON.stringify([groups, theirs]);
     if (changed(list, sig)) {
-      groups.forEach(function (g) {
-        var row = el('a', 'k-take k-take-line k-chip-' + g.key); row.href = '#q-' + g.key;          // to its own card of the queue
-        var what = el('span', 'k-take-what');
-        what.appendChild(el('span', 'k-take-top', g.label));
-        what.appendChild(el('span', 'k-take-sub', g.rows.slice(0, 2).map(function (r) { return r.top; }).join(' · ') + (g.rows.length > 2 ? ' · +' + (g.rows.length - 2) : '')));
-        row.appendChild(what); row.appendChild(el('b', null, String(g.rows.length)));
+      his.slice(0, 3).forEach(function (r) {
+        var row = el('a', 'k-take k-take-line'); row.href = Q.leads(r); row.title = r.tip || r.top;
+        var what = el('span', 'k-take-what'); what.appendChild(el('span', 'k-take-top', r.top)); row.appendChild(what); row.appendChild(el('b', null, '→'));
         list.appendChild(row);
       });
-      if (!waiting) list.appendChild(el('span', null, 'nothing waits on you'));
+      if (his.length > 3) { var rest = el('a', 'k-take k-take-line'); rest.href = 'decide.html'; rest.appendChild(el('span', 'k-take-what')).appendChild(el('span', 'k-take-top', 'and ' + (his.length - 3) + ' more')); rest.appendChild(el('b', null, '→')); list.appendChild(rest); }
+      if (chores) { var th = el('a', 'k-take k-take-line k-take-theirs'); th.href = '#queue'; th.title = 'What an agent moves next. Nothing in it needs you.';
+        th.appendChild(el('span', 'k-take-what')).appendChild(el('span', 'k-take-top', 'with the agents')); th.appendChild(el('b', null, String(chores))); list.appendChild(th); }
     }
     var needs = $('p-needs'); if (needs) needs.classList.toggle('calm', !waiting);
-    // the queue itself: a card per group, a row of chips per entry, the oldest first; five rows, the rest folded
+    // under the pulse: his decisions, each a row that leads to its brief; then, folded, what is with the agents
     var cards = $('queue-cards'), qs = $('queue');
-    if (qs) qs.hidden = !waiting;
+    if (qs) qs.hidden = !waiting && !chores;
     if (changed(cards, sig)) {
-      groups.forEach(function (g) {
-        var card = el('article', 'k-qcard k-q-' + g.key); card.id = 'q-' + g.key;
-        var h = el('header'); h.appendChild(el('b', null, g.label)); h.appendChild(el('span', 'k-qn', String(g.rows.length))); card.appendChild(h);
-        g.rows.slice(0, 5).forEach(function (r, i) { card.appendChild(qrow(g, r, 'k-qrow', g.more && g.more[i])); });
-        if (g.rows.length > 5) {
-          var more = el('details', 'k-qmore'); more.appendChild(el('summary', null, 'All ' + g.rows.length));
-          g.rows.slice(5).forEach(function (r, i) { more.appendChild(qrow(g, r, 'k-qrow', g.more && g.more[i + 5])); });
-          card.appendChild(more);
-        }
-        cards.appendChild(card);
-      });
+      var card = el('article', 'k-qcard k-q-yours' + (waiting ? '' : ' k-q-none')); card.id = 'q-yours';
+      var h = el('header'); h.appendChild(el('b', null, 'Yours to decide')); h.appendChild(el('span', 'k-qn', String(waiting))); card.appendChild(h);
+      if (!waiting) card.appendChild(el('p', 'k-qnone', 'Nothing waits on you. A decision shows here as a brief: what it is for, the options, something to look at.'));
+      var rows = el('div', 'k-qrows');
+      his.slice(0, 6).forEach(function (r) { rows.appendChild(mine(r)); });
+      if (his.length) card.appendChild(rows);
+      if (his.length > 6) { var more = el('a', 'k-qall', 'All ' + his.length + ' on the Decide page'); more.href = 'decide.html'; card.appendChild(more); }
+      cards.appendChild(card);
+      if (chores) {
+        var fold = el('details', 'k-qcard k-q-theirs'); fold.id = 'q-theirs';
+        var sm = el('summary'); sm.appendChild(el('b', null, 'With the agents')); sm.appendChild(el('span', 'k-qsay', 'nothing here needs you')); sm.appendChild(el('span', 'k-qn', String(chores))); fold.appendChild(sm);
+        theirs.forEach(function (g) {
+          fold.appendChild(el('h4', 'k-qh', g.label + ' · ' + g.rows.length));
+          g.rows.forEach(function (r, i) { fold.appendChild(notMine(g, r, g.more && g.more[i])); });
+        });
+        cards.appendChild(fold);
+      }
     }
     set('p-at', working.length);
     var dots = $('p-at-dots');
@@ -311,7 +324,7 @@
         if (all.idle.length > 6) { var mt = el('a', 'k-sleeper k-sleeper-more'); mt.href = 'floor.html'; mt.title = all.idle.slice(6).map(function (r) { return C.label(r.name); }).join(', ');
           var mos = el('div', 'k-mosaic'); all.idle.slice(6, 10).forEach(function (r) { var i = el('img'); i.src = 'img/crew/' + C.key({ id: r.id, kind: r.kind, name: r.name }).replace(/^~/, '') + '.jpg'; i.alt = ''; mos.appendChild(i); });
           mos.appendChild(el('span', 'k-mosaic-n', '+' + (all.idle.length - 6))); mt.appendChild(mos); mt.appendChild(el('span', null, 'more asleep')); row.appendChild(mt); }
-        row.appendChild(el('p', 'k-asleep-line', 'Everyone is asleep' + (ready.length ? ' — ' + ready.length + ' stage' + (ready.length > 1 ? 's wait' : ' waits') + ' for you.' : '.')));
+        row.appendChild(el('p', 'k-asleep-line', 'Everyone is asleep' + (waiting ? ' — ' + waiting + ' decision' + (waiting > 1 ? 's wait' : ' waits') + ' for you.' : '.')));
       }
     }
 

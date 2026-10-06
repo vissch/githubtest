@@ -6,12 +6,17 @@
     python Tools/assetboard/src_queue.py --stranded --text   the same, each with its full line, ready to copy
 
 WHY. Work was made faster than it landed and the owner could not see what waited on them: "Needs you" counted the
-board's ready stages and nothing else (the process critique of 2026-10-04). collect() derives five groups and stores
-nothing but the owner's approvals:
-- decide: the bullets under "## Open" of decisions.md on integration, oldest first. A bullet's date is the one in
-  its title, else the day the commit that first wrote it was made;
-- land: a checkout whose last green full gate tested exactly its HEAD (gate.ps1's tw-gate-green), clean and ahead of
-  integration: it lands on the owner's word;
+board's ready stages and nothing else (the process critique of 2026-10-04). Then it counted everything, and the owner
+could not tell what was his (2026-10-06, see collect). collect() derives two lists, YOURS and AGENTS, and stores nothing
+but the owner's approvals. His:
+- briefs: the open decision briefs he has not answered (briefs.py), newest first. A brief is the shape anything is
+  put to him in: what it is for, the options, something to look at;
+- decide: the bullets under "## Open" of decisions.md on integration nobody has written a brief for, oldest first. A
+  bullet's date is the one in its title, else the day the commit that first wrote it was made.
+An agent's:
+- said, owed (and land): a checkout whose last green full gate tested exactly its HEAD (gate.ps1's tw-gate-green),
+  clean and ahead of integration. `said`: he has given his word on it. `owed`: nobody has written its brief, so it is
+  not put to him yet. `land`: its brief is open, and is listed among `briefs`;
 - approved: the owner said land and it has not landed. approvals/<lane>.json on the board holds the lane, the date
   and the owner's words; it is listed, with what holds it up, until the lane is in integration;
 - ready: the board's stages ready to take (what "Needs you" used to be);
@@ -46,7 +51,9 @@ sys.path.insert(0, str(HERE))
 import src_git    # noqa: E402
 
 DECISIONS = 'docs/reference/decisions.md'
-GROUPS = ('broken', 'land', 'approved', 'ready', 'decide')     # the order the site lists them in
+YOURS = ('briefs', 'decide')                                   # what waits on the owner: the site's "Needs you", and its number
+AGENTS = ('broken', 'said', 'approved', 'owed', 'ready')       # what waits on an agent: listed apart, never counted as his
+GROUPS = YOURS + AGENTS                                        # the order the site lists them in
 
 
 def slug(s):
@@ -266,11 +273,34 @@ def untaken(answers, now):
                 url='decide.html', date=str(first['when'])[:10], text='; '.join(a.get('title', a.get('id', '')) for _, a in sorted(waits, key=lambda x: -x[0]))[:400])
 
 
-def collect(repo, ops, board=None, cache=None, now=None, integration=None, answers=None):
+def short(lane):
+    return re.sub(r'^lane/(show|sim)/', '', str(lane or ''))
+
+
+def brief_row(b):
+    """An open brief as a row of the queue: what the page needs to list it and to lead to it on the Decide page."""
+    ev = [e for e in b.get('evidence') or [] if isinstance(e, dict)]
+    stills = [e for e in ev if e.get('kind') != 'film' and e.get('file')]
+    pick = next((o.get('text', '') for o in b.get('options') or [] if o.get('key') == b.get('pick')), '')
+    return dict(brief=b['id'], title=b.get('title', ''), date=str(b.get('asked', ''))[:10], lane=b.get('lane', ''), about=b.get('about', ''), kind=b.get('kind', ''),
+                what_for=b.get('what_for', ''), options=len(b.get('options') or []), pick=pick, stills=len(stills), films=len(ev) - len(stills),
+                shot=f'img/brief/{b["id"]}/{stills[0]["file"]}' if stills else '')        # where briefs.py site() puts its first picture
+
+
+def collect(repo, ops, board=None, cache=None, now=None, integration=None, answers=None, briefs=None, notes=None):
     """The queue, from the floor's data (src_ops.collect: its lanes carry each checkout's path, dirty count and board
     items). `cache` is a dict the caller keeps between reads (what does not change between two reads is not asked
-    again). `answers` is what he answered on the Decide page that no session has taken up (briefs.py answers(); this
-    function reads no folder itself). Returns the five groups and `count`, the number of entries: the site's "Needs you"."""
+    again). `answers` is what he answered on the Decide page that no session has taken up (briefs.py answers()),
+    `briefs` every brief there is (briefs.py read_all()) and `notes` his notes (notes.py read_all()); this function
+    reads no folder itself.
+
+    WHOSE IT IS (the owner, 2026-10-06, of a "Needs you" of thirteen rows: "i dont have any decisions to make in the
+    branches, i have no clue what to pick or what needs me"). Not one of the thirteen was an open decision: four he had
+    answered on their briefs, on two he had written "land it" that morning, seven were agents' chores. So the queue is
+    two lists. YOURS is what his word is the next step for, each in a shape he can decide from: the open briefs he has
+    not answered, and the open questions nobody wrote a brief for. AGENTS is everything an agent moves next: what is
+    broken, the lanes he said land on, the lanes whose gate is green and that owe him a brief before they are put to
+    him, the ready steps. `count` is YOURS and nothing else; `agents` counts the rest."""
     integ = integration or src_git.INTEGRATION
     cache = cache if cache is not None else {}
     now = now or time.time()
@@ -278,21 +308,43 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     asked = open_questions(repo, integ, cache)
     # a question he has answered on its brief is decided (his answer is the decision): it waits on a session, not on him
     his = {slug(t): a for a in answers or [] for t in (a.get('about'), a.get('title')) if t}
-    q = dict(decide=[d for d in asked if not d['answered'] and slug(d['title']) not in his], land=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
+    taken = {a.get('id') for a in answers or []}
+    waiting = [b for b in briefs or [] if b.get('state') != 'answered' and b['id'] not in taken]
+    # ... and one whose brief a session has closed is decided for good: its bullet stays under Open until that lane lands
+    closed = {slug(t) for b in briefs or [] if b.get('state') == 'answered' for t in (b.get('about'), b.get('title')) if t}
+    written = {slug(t) for b in waiting for t in (b.get('about'), b.get('title')) if t}       # it is listed as its brief
+    todo = [d for d in asked if not d['answered'] and slug(d['title']) not in his and slug(d['title']) not in closed]
+    q = dict(briefs=sorted((brief_row(b) for b in waiting), key=lambda r: r['date'], reverse=True), decide=[d for d in todo if slug(d['title']) not in written],
+             land=[], said=[], owed=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
     # answered in this checkout and not landed: no longer the owner's to decide, so not in the count; the page says where it is
     here = src_git.git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()
     q['answered'] = [dict(d, lane=here) for d in asked if d['answered']]
     q['decided'] = [dict(d, brief=his[slug(d['title'])].get('id', '')) for d in asked if not d['answered'] and slug(d['title']) in his]
 
+    # his word on a lane to land: a note he left on its row ("land: <lane>", board.js), or his answer on its brief
+    word = {}
+    for n in notes or []:
+        if n.get('from') == 'owner' and n.get('state') != 'done' and str(n.get('about', '')).startswith('land: '):
+            word[slug(n['about'])] = dict(words=clip(n.get('text'), 80), date=str(n.get('when', ''))[:10])
+    for a in answers or []:
+        if str(a.get('about', '')).startswith('land: '):
+            word[slug(a['about'])] = dict(words=clip(a.get('said') or a.get('text'), 80), date=str(a.get('when', ''))[:10])
     for t in trees:
         head, green, took = gate_state(t['path'])
         behind, ahead = drift(repo, integ, 'refs/heads/' + t['branch'])
         if green and green[0] == head and not t.get('dirty') and ahead:
-            q['land'].append(dict(lane=t['branch'], checkout=t.get('checkout'), date=(green[1] if len(green) > 1 else '')[:10],
-                                  ahead=ahead, behind=behind))
+            lane = dict(lane=t['branch'], checkout=t.get('checkout'), date=(green[1] if len(green) > 1 else '')[:10], ahead=ahead, behind=behind)
+            key = slug('land: ' + short(t['branch']))
+            if key in word:                     # he has said it: the rebase, the gate and the landing are an agent's
+                q['said'].append(dict(lane, **word[key]))
+            elif key in written:                # it is put to him as its brief, which is in `briefs`
+                q['land'].append(lane)
+            else:                               # a green gate told in commits is nothing he can judge: it owes him a brief
+                q['owed'].append(lane)
         if took and took[0] > EDIT_BUDGET:
             q['broken'].append(dict(kind='gate', title=f'The run before a commit took {took[0]} s', lane=t['branch'], date=took[1][:10]))
-    q['land'].sort(key=lambda l: (l['behind'] > 0, l['date']))
+    for g in ('land', 'said', 'owed'):
+        q[g].sort(key=lambda l: (l['behind'] > 0, l['date']))
 
     for l in ops['lanes']:
         for it in l.get('items', []):
@@ -321,13 +373,14 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
         q['broken'].append(late)
 
     today = datetime.date.fromtimestamp(now)
-    for g in GROUPS:
+    for g in GROUPS + ('land',):
         for e in q[g]:
             try:
                 e['days'] = (today - datetime.date.fromisoformat(e['date'])).days if e.get('date') else None
             except ValueError:
                 e['days'] = None
-    q['count'] = sum(len(q[g]) for g in GROUPS)
+    q['count'] = sum(len(q[g]) for g in YOURS)
+    q['agents'] = sum(len(q[g]) for g in AGENTS)
     return q
 
 
@@ -381,9 +434,15 @@ def details(q, repo, ops, board=None, integration=None):
         files = re.match(r'\s*(\d+) file', src_git.git(repo, 'diff', '--shortstat', f'{integ}...{ref}'))
         return ['· ' + s for s in subjects] + ([f'It changes {files.group(1)} file{"" if files.group(1) == "1" else "s"}.'] if files else [])
 
-    for e in q.get('land', []):
+    for e in q.get('land', []) + q.get('owed', []):
         e['detail'] = [f'The full gate went green on its tip{", " + e["date"] if e.get("date") else ""}. It holds {e["ahead"]} commit{"" if e["ahead"] == 1 else "s"} the game does not have yet.'] + work(e['lane']) + (
             [f'It is {e["behind"]} commit{"" if e["behind"] == 1 else "s"} behind the integration branch: on your word it is rebased and gated again, then it lands.'] if e.get('behind') else ['On your word it lands as it is.'])
+        e['pictures'] = shown(of_lane(e['lane']))
+    for e in q.get('owed', []):
+        e['detail'] = ['Nothing for you yet. Before it is put to you an agent writes its brief: what it adds to the game, with a capture from the game.'] + e['detail'][:1]
+    for e in q.get('said', []):
+        e['detail'] = [f'You said "{e.get("words", "")}"{" on " + e["date"] if e.get("date") else ""}. The rest is an agent\'s.',
+                       f'It is {e["behind"]} commit{"" if e["behind"] == 1 else "s"} behind the game as it is now: an agent rebases it, runs the full gate again, then lands it.' if e.get('behind') else 'An agent lands it as it is.']
         e['pictures'] = shown(of_lane(e['lane']))
     for e in q.get('approved', []):
         e['detail'] = [f'You said land on {e.get("date", "")}: "{clip(e.get("words"), 60)}".'] + ([('It has not landed: ' + ', '.join(e['why']) + '.')] if e.get('why') else []) + work(e['lane'])
@@ -418,8 +477,9 @@ def details(q, repo, ops, board=None, integration=None):
 
 def lines(q):
     """The queue as text, for a session (ops.py --queue)."""
-    label = dict(broken='Broken', land='Say land (gate green on its tip)', approved='Approved, not landed', ready='Ready to take', decide='Decide')
-    out = [f'{q["count"]} wait on the owner (checks on integration: {q["ci"]})']
+    label = dict(briefs='HIS: briefs he has not answered', decide='HIS: open questions with no brief (write one: briefs.py add)', broken='Broken', said='He said land: rebase, gate, land',
+                 approved='Approved, not landed', owed='Gate green, no brief: write one with a capture (briefs.py add --about "land: <lane>")', ready='Ready to take')
+    out = [f'{q["count"]} wait on the owner, {q.get("agents", 0)} on an agent (checks on integration: {q["ci"]})']
     for g in GROUPS:
         if not q[g]:
             continue
@@ -428,7 +488,11 @@ def lines(q):
             age = '' if e.get('days') is None else f'{e["days"]} d'
             if g == 'decide':
                 what = e['title'] + (' (agent\'s choice)' if e['choice'] else '')
-            elif g == 'land':
+            elif g == 'briefs':
+                what = f'{e["title"]}  ({e["brief"]}, {e["stills"] + e["films"]} to see)'
+            elif g == 'said':
+                what = f'{e["lane"]}  "{e["words"]}"' + (f'  ({e["behind"]} behind)' if e['behind'] else '')
+            elif g == 'owed':
                 what = f'{e["lane"]}  {e["ahead"]} commits' + (f', {e["behind"]} behind: rebase and gate again' if e['behind'] else '')
             elif g == 'approved':
                 what = f'{e["lane"]}  "{e["words"]}"' + (f'  ({"; ".join(e["why"])})' if e['why'] else '')

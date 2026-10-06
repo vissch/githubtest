@@ -329,20 +329,22 @@ def queue_fixtures():
         case('queue: the open questions on integration, the oldest first, an undated one dated by the commit that wrote it',
              [d['title'] for d in q['decide']] == ['A question', 'Another question'] and q['decide'][0]['date'] == '2026-09-02'
              and len(q['decide'][1]['date']) == 10 and q['decide'][0]['days'] == 7, q['decide'])
-        case('queue: a checkout whose green gate tested its tip waits for the word, with how far behind it is',
-             [(l['lane'], l['ahead'], l['behind']) for l in q['land']] == [('lane/show/a', 1, 1)], q['land'])
+        case('queue: a checkout whose green gate tested its tip is not put to him told in commits: it owes him a brief, and says how far behind it is',
+             [(l['lane'], l['ahead'], l['behind']) for l in q['owed']] == [('lane/show/a', 1, 1)] and q['land'] == [] and q['said'] == [], (q['owed'], q['land'], q['said']))
         case('queue: an approved lane is listed until it has landed, with the owner\'s words and what holds it up',
              [(a['lane'], a['words'], a['why']) for a in q['approved']] == [('lane/show/a', 'yes, land it', ['1 behind'])], q['approved'])
         case('queue: a ready stage of the board', [(r['item'], r['stage'], r['days']) for r in q['ready']] == [('item', 'gate', 1)], q['ready'])
         kinds = sorted(b['kind'] for b in q['broken'])
         case('queue: broken is a red checks run, a run before a commit over its budget, and each lane with stranded decisions',
              kinds == ['ci', 'gate', 'stranded', 'stranded'] and q['ci'] == 'failure', q['broken'])
-        case('queue: its count is the number of entries', q['count'] == 2 + 1 + 1 + 1 + 4 and q['count'] == sum(len(q[g]) for g in src_queue.GROUPS), q['count'])
+        case('queue: its count is what waits on him and nothing else: the two open questions. What is broken, approved, owed a brief or ready is an agent\'s, counted apart',
+             q['count'] == 2 == sum(len(q[g]) for g in src_queue.YOURS) and q['agents'] == 4 + 1 + 1 + 1 == sum(len(q[g]) for g in src_queue.AGENTS)
+             and not set(src_queue.YOURS) & set(src_queue.AGENTS), (q['count'], q['agents']))
         green.write_text('0' * 40 + ' 2026-09-08T10:00:00\n')
         took.write_text('250 2026-09-08T09:00:00\n')
         q2 = src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=dict(red, conclusion='success'))), now=when)
         case('queue: a tip no green gate tested is not listed to land, and the approval says why it has not',
-             not q2['land'] and q2['approved'][0]['why'] == ['1 behind', 'no green gate on its tip'], (q2['land'], q2['approved']))
+             not q2['land'] and not q2['owed'] and q2['approved'][0]['why'] == ['1 behind', 'no green gate on its tip'], (q2['land'], q2['owed'], q2['approved']))
         case('queue: a green checks run and a run inside its budget are not broken', sorted(b['kind'] for b in q2['broken']) == ['stranded'] * 2, q2['broken'])
         # the owner answered a question and this checkout took its bullet out (not committed): it no longer waits on him
         kept = page.read_bytes()
@@ -368,10 +370,44 @@ def queue_fixtures():
         case('queue: answers of his on the Decide page that nobody has taken up for over two hours are one broken row for all that wait, counted once, that leads to the page; '
              'under two hours there is none, nor when no answers are handed in',
              len(late) == 1 and late[0]['title'] == '2 answers of yours nobody has taken up, the oldest 2 h ago' and late[0]['url'] == 'decide.html' and late[0]['text'] == 'The first; The second'
-             and late[0]['days'] == 0 and q4['count'] == q2['count'] + 1 and not [b for b in q5['broken'] if b['kind'] == 'untaken'] and q5['count'] == q2['count']
+             and late[0]['days'] == 0 and q4['agents'] == q2['agents'] + 1 and q4['count'] == q2['count'] and not [b for b in q5['broken'] if b['kind'] == 'untaken'] and q5['agents'] == q2['agents']
              and not [b for b in q2['broken'] if b['kind'] == 'untaken'], (late, q4['count'], q5['count'], q2['count']))
 
-        # the page: its number is the rows it lists, and it knows how old it is
+        # WHOSE IT IS (the owner, 2026-10-06: "i have no clue what to pick or what needs me"). On the real board that day not
+        # one of thirteen rows was an open decision. Each rule below is one of the ways a row that was not his got there.
+        green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')          # the gate is green on its tip again
+        calm2 = lambda: dict(ci=dict(at=when, run=dict(red, conclusion='success')))
+        base_q = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when)
+        brief = lambda bid, title, state='open', **kw: dict(dict(id=bid, title=title, state=state, asked='2026-09-08 09:00', pick='A', what_for='What it is for.',
+            options=[dict(key='A', text='Do it'), dict(key='B', text='Leave it')], evidence=[dict(file='1-shot.png', kind='picture', caption='c'), dict(file='2-run.mp4', kind='film', caption='c')]), **kw)
+        qa = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-closed', 'Its brief', 'answered', about='Another question')])
+        case('queue: a question whose brief a session has closed is decided for good, though its bullet stays under Open until that lane lands: not his, not counted',
+             [d['title'] for d in qa['decide']] == ['A question'] and qa['count'] == base_q['count'] - 1 and qa['briefs'] == [], (qa['decide'], qa['count'], base_q['count']))
+        qb = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-open', 'Its brief', about='Another question', lane='lane/show/a'), brief('b-step', 'A step to approve')])
+        rb = {r['brief']: r for r in qb['briefs']}
+        case('queue: an open brief he has not answered is his, whatever it is about (a question, a step, concepts), and is listed with what the page needs to show it; '
+             'a question with a brief is listed once, as its brief',
+             sorted(rb) == ['b-open', 'b-step'] and [d['title'] for d in qb['decide']] == ['A question'] and qb['count'] == 3
+             and rb['b-step'] == dict(brief='b-step', title='A step to approve', date='2026-09-08', lane='', about='', kind='', what_for='What it is for.', options=2, pick='Do it',
+                                      stills=1, films=1, shot='img/brief/b-step/1-shot.png', days=1), (qb['briefs'], qb['decide'], qb['count']))
+        qc = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-open', 'Its brief', about='Another question')],
+                               answers=[dict(id='b-open', title='Its brief', about='Another question', when='')])
+        case('queue: a brief he has answered is not his any more: neither the brief nor its question is listed or counted',
+             qc['briefs'] == [] and [d['title'] for d in qc['decide']] == ['A question'] and qc['count'] == base_q['count'] - 1, (qc['briefs'], qc['decide'], qc['count']))
+        note = lambda about, text, **kw: dict(dict(id='n1', when='2026-09-09 09:40:39', state='open', kind='queue', about=about, text=text, lane='lane/show/a'), **{'from': 'owner'}, **kw)
+        qn = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, notes=[note('land: a', 'land it')])
+        case('queue: a lane he has said land on (a note of his on its row) is an agent\'s to rebase, gate and land: listed with his words, and neither owed a brief nor put to him again',
+             [(l['lane'], l['words'], l['date'], l['days']) for l in qn['said']] == [('lane/show/a', 'land it', '2026-09-09', 0)] and qn['owed'] == [] and qn['land'] == []
+             and qn['count'] == base_q['count'] and qn['agents'] == base_q['agents'], (qn['said'], qn['owed'], qn['count']))
+        qo = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, notes=[note('land: a', 'land it', state='done'), note('land: other', 'land it'), dict(note('land: a', 'x'), **{'from': 'agent'})])
+        case('queue: a note that is answered, about another lane, or not his, is not his word on this one', qo['said'] == [] and len(qo['owed']) == 1, (qo['said'], qo['owed']))
+        ql = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-land', 'The lane a adds a house', about='land: a', lane='lane/show/a')])
+        case('queue: a lane to land is put to him as a brief somebody wrote for it (about "land: <lane>"), and counted once, as that brief',
+             [l['lane'] for l in ql['land']] == ['lane/show/a'] and ql['owed'] == [] and [r['brief'] for r in ql['briefs']] == ['b-land'] and ql['count'] == base_q['count'] + 1
+             and ql['agents'] == base_q['agents'] - 1, (ql['land'], ql['owed'], ql['count']))
+        green.write_text('0' * 40 + ' 2026-09-08T10:00:00\n')
+
+        # the page: its number is the rows of his it lists, each leads to its brief, and it knows how old it is
         node = shutil.which('node')
         if node:
             js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const at = new Date("2026-09-09T12:00:00").getTime();'
@@ -379,11 +415,27 @@ def queue_fixtures():
                   ' Q.fresh("2026-09-09T11:01:00", at).stale, Q.fresh("2026-09-09T11:01:00", at).text]))')
             p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'queue.js'), json.dumps(q)], capture_output=True)
             got = json.loads(p.stdout.decode() or 'null')
-            case('page: "Needs you" is the number of rows the queue lists', got and got[0] == q['count'] == sum(got[1]), (got, p.stderr))
+            case('page: "Needs you" is the number of rows of his the queue lists', got and got[0] == q['count'] == sum(got[1]), (got, p.stderr))
             case('page: a floor nobody has read for over an hour is stale, one read 59 minutes ago is not',
                  got and got[2] is True and got[3] is False and got[4] == 'read 59 min ago', got)
+            js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const mine = Q.groups(q), theirs = Q.agents(q);'
+                  'const rows = g => g.reduce((a, x) => a.concat(x.rows), []);'
+                  'console.log(JSON.stringify([rows(mine).map(Q.leads), mine.map(g => g.key), theirs.map(g => g.key), Q.total(theirs), rows(mine).map(r => [r.shot || "", r.pick || ""]),'
+                  ' rows(theirs).filter(r => r.brief).length, JSON.stringify([mine, theirs]).indexOf("floor.html")]))')
+            both = dict(qb, said=qn['said'], owed=[])
+            p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'queue.js'), json.dumps(both)], capture_output=True)
+            got = json.loads(p.stdout.decode() or 'null')
+            case('page: every row of his leads to its brief on the Decide page, or to its place among the questions without one, and to nothing else; a brief shows its first picture and the '
+                 'pick of who wrote it; what is the agents\' is a list apart that is not his number, and no row of either names the branches page',
+                 got and got[0] == ['decide.html#b-open', 'decide.html#b-step', 'decide.html#q-a-question'] and got[1] == ['briefs', 'decide'] and got[2] == ['broken', 'said', 'approved', 'ready']
+                 and got[3] == both['agents'] and got[4][0] == ['img/brief/b-open/1-shot.png', 'Do it'] and got[5] == 0 and got[6] == -1, (got, p.stderr[-300:]))
         else:
-            print('      (no node on this machine: the page\'s own two cases were not run)')
+            print('      (no node on this machine: the page\'s own cases were not run)')
+        src = (HERE / 'static' / 'office.js').read_text(encoding='utf-8')
+        block = src[src.index('// the pulse: "Needs you"'):src.index("set('p-at', working.length)")]
+        case('page: the part of the overview that draws "Needs you" builds no address of a branch page: a row of his is a link to Q.leads, a row of the agents\' is no link',
+             'floor.html' not in block and 'slug(r.lane)' not in block and "el('a', 'k-qrow k-mine')" in block.replace(" + (r.shot ? ' k-shown' : '')", '') and "el('div', 'k-qrow k-theirs')" in block
+             and block.count('.href = ') == block.count('.href = Q.leads(r)') + block.count(".href = 'decide.html'") + block.count(".href = '#queue'"), block[:200])
 
         # what a click on a row opens: a few lines that say what it is, and the pictures the board holds for it
         green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')          # the gate is green on its tip again
@@ -394,25 +446,28 @@ def queue_fixtures():
             png(board / 'evidence' / 'item' / 'look' / f'{n}.png', 40, 30)
         (board / 'evidence' / 'item' / 'look' / 'notes.md').write_text('words')
         qd = src_queue.details(src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=red)), now=when), repo, floor, board=board)
-        land_d, ready_d = qd['land'][0], qd['ready'][0]
-        case('queue: a click on a row has what it is in at most five short lines: a lane to land says its newest work and what his word does, a ready step what it is and what waits behind it',
-             all(isinstance(e.get('detail'), list) and 0 < len(e['detail']) <= 5 and all(isinstance(t, str) and t for t in e['detail']) for g in src_queue.GROUPS for e in qd[g])
-             and land_d['detail'][0] == 'The full gate went green on its tip, 2026-09-08. It holds 1 commit the game does not have yet.' and land_d['detail'][1:3] == ['· lane/show/a', 'It changes 1 file.']
-             and land_d['detail'][-1].startswith('It is 1 commit behind the integration branch: on your word')
+        land_d, ready_d = qd['owed'][0], qd['ready'][0]
+        said_d = src_queue.details(src_queue.collect(repo, floor, board=board, cache=dict(ci=dict(at=when, run=red)), now=when, notes=[note('land: a', 'land it')]), repo, floor, board=board)['said'][0]
+        case('queue: a click on a row of the agents\' has what it is in at most five short lines: a lane with a green gate says nothing is his yet and what it owes him, a lane he said land on '
+             'says his words and what an agent does next, a ready step what it is and what waits behind it',
+             all(isinstance(e.get('detail'), list) and 0 < len(e['detail']) <= 5 and all(isinstance(t, str) and t for t in e['detail']) for g in src_queue.AGENTS + ('decide',) for e in qd[g])
+             and land_d['detail'] == ['Nothing for you yet. Before it is put to you an agent writes its brief: what it adds to the game, with a capture from the game.',
+                                      'The full gate went green on its tip, 2026-09-08. It holds 1 commit the game does not have yet.']
+             and said_d['detail'] == ['You said "land it" on 2026-09-09. The rest is an agent\'s.', 'It is 1 commit behind the game as it is now: an agent rebases it, runs the full gate again, then lands it.']
              and ready_d['detail'] == ['An item about a house.', 'Its step gate is ready to be taken on the desktop by the qa role. Nobody has taken it.', 'The step: Run the gate on the exact tree.',
-                                       'Waiting behind it: land.'], (land_d['detail'], ready_d['detail'], [(g, e.get('detail')) for g in src_queue.GROUPS for e in qd[g]]))
+                                       'Waiting behind it: land.'], (land_d['detail'], said_d['detail'], ready_d['detail'], [(g, e.get('detail')) for g in src_queue.GROUPS for e in qd[g]]))
         case('queue: a row shows at most three pictures, the newest the board holds for its item or for the items of its lane; what is no picture is not one',
              len(ready_d['pictures']) == 3 and all(p.endswith('.png') for p in ready_d['pictures']) and land_d['pictures'] == ready_d['pictures']
              and [e for g in src_queue.GROUPS for e in qd[g] if len(e.get('pictures', [])) > 3] == [], (ready_d['pictures'], land_d['pictures']))
         if node:
-            js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const g = Q.groups(q);'
-                  'console.log(JSON.stringify([g.map(x => x.more.length === x.rows.length), Q.more("land", q.land[0]).actions.map(a => a.label), Q.more("ready", q.ready[0]).actions.map(a => a.say),'
-                  ' Q.more("broken", {kind: "stranded"}).actions.length, Q.more("broken", {kind: "ci"}).actions.length, Q.more("decide", {}).actions.length, Q.more("land", q.land[0]).detail.length,'
+            js = ('const Q = require(process.argv[1]); const q = JSON.parse(process.argv[2]); const g = Q.agents(q);'
+                  'console.log(JSON.stringify([g.map(x => x.more.length === x.rows.length), Q.more("owed", q.owed[0]).actions.map(a => a.label), Q.more("ready", q.ready[0]).actions.map(a => a.say),'
+                  ' Q.more("broken", {kind: "stranded"}).actions.length, Q.more("broken", {kind: "ci"}).actions.length, Q.more("decide", {}).actions.length, Q.more("owed", q.owed[0]).detail.length,'
                   ' Q.more("ready", {detail: ["1", "2", "3", "4", "5", "6"], shots: [1, 2, 3, 4]}).detail.length, Q.more("ready", {shots: [1, 2, 3, 4]}).shots.length]))')
             p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'queue.js'), json.dumps(qd)], capture_output=True)
             got = json.loads(p.stdout.decode() or 'null')
-            case('page: every row has what a click opens; a lane to land and a ready step offer what he can say should happen, a red checks run and a question offer none',
-                 got and all(got[0]) and got[1] == ['Land it', 'Not yet'] and got[2] == ['Take this step next.', 'Leave this step for now.'] and got[3:] == [1, 0, 0, len(land_d['detail']), 5, 3], (got, p.stderr[-300:]))
+            case('page: every row of the agents\' has what a click opens; a ready step offers what he can say should happen; a lane that owes him a brief, a red checks run and a question offer none',
+                 got and all(got[0]) and got[1] == [] and got[2] == ['Take this step next.', 'Leave this step for now.'] and got[3:] == [1, 0, 0, len(land_d['detail']), 5, 3], (got, p.stderr[-300:]))
 
         # ops.py writes the queue beside the page, and the beat on every read, changed or not
         out = repo / 'site'
@@ -421,13 +476,38 @@ def queue_fixtures():
         ops.queue(floor, out, cache_file, repo=repo, board=board)
         wrote = (out / 'data' / 'queue.js').read_text(encoding='utf-8')
         case('ops: the queue it writes has each row\'s lines and its pictures in the site, and no path of this machine',
-             '"detail": ["The full gate went green' in wrote and '"shots": [{"name": ' in wrote and '"pictures"' not in wrote and str(board) not in wrote
+             '"detail": ["Nothing for you yet.' in wrote and '"shots": [{"name": ' in wrote and '"pictures"' not in wrote and str(board) not in wrote
              and len(list((out / 'img' / 'queue').glob('*'))) == 3, wrote[:300])
         first = (out / 'data' / 'queue.js').stat().st_mtime_ns, (out / 'data' / 'beat.js').read_text()
         ops.queue(dict(floor, now='2026-09-09 12:00:20'), out, cache_file, repo=repo, board=board)
         case('ops: an unchanged queue is not written again, and the beat is, so the page can tell stale from unchanged',
              (out / 'data' / 'queue.js').stat().st_mtime_ns == first[0] and first[1] == 'window.BEAT = "2026-09-09T12:00:00";\n'
              and (out / 'data' / 'beat.js').read_text() == 'window.BEAT = "2026-09-09T12:00:20";\n', first)
+        # an open tab reads its data every 20 seconds and its scripts never: the beat carries the stamp of the scripts, and
+        # loads a page that runs other ones again (the owner clicked on a page from before the change, 2026-10-06)
+        was = ops.SITE['v']
+        ops.SITE['v'] = 'stamp-2'
+        ops.queue(dict(floor, now='2026-09-09 12:00:30'), out, cache_file, repo=repo, board=board)
+        ops.SITE['v'] = was
+        stamped = (out / 'data' / 'beat.js').read_text()
+        case('ops: once the pages are in the site the beat carries the stamp of their scripts; the stamp is the scripts and templates, whatever their line ends',
+             stamped.startswith('window.BEAT = "2026-09-09T12:00:30";\n(function (v) {') and stamped.rstrip().endswith('})("stamp-2");') and re.fullmatch(r'[0-9a-f]{10}', ops.site_version())
+             and ops.site_version() == ops.site_version(), stamped[:120])
+        if node:
+            # the beat in a page: `src` is how it was loaded (with the page, or again by the page's clock), `at` the stamp the page loaded with
+            js = ('const text = require("fs").readFileSync(process.argv[1], "utf8"); const out = [];'
+                  'function run(src, at, typed, seen) { let n = 0; const store = seen ? {"tw-site": seen} : {};'
+                  ' const window = at === null ? {} : {SITE_AT: at}; const document = {currentScript: {src}, querySelectorAll: () => typed ? [{value: typed}] : [{value: ""}]};'
+                  ' const sessionStorage = {getItem: k => store[k] || null, setItem: (k, v) => { store[k] = v; }}; const location = {reload: () => { n++; }};'
+                  ' new Function("window", "document", "sessionStorage", "location", text)(window, document, sessionStorage, location); return [n, window.SITE_AT || ""]; }'
+                  'out.push(run("file:///s/data/beat.js", null), run("file:///s/data/beat.js?t=1", "stamp-2"), run("file:///s/data/beat.js?t=1", "stamp-1"), run("file:///s/data/beat.js?t=1", null),'
+                  ' run("file:///s/data/beat.js?t=1", "stamp-1", "half a note"), run("file:///s/data/beat.js?t=1", "stamp-1", "", "stamp-2"));'
+                  'console.log(JSON.stringify(out))')
+            p = subprocess.run([node, '-e', js, str(out / 'data' / 'beat.js')], capture_output=True)
+            got = json.loads(p.stdout.decode() or 'null')
+            case('page: a page that loads notes the stamp it runs and is left alone, and so is one whose stamp is still the site\'s; a page with another stamp, or from before pages had '
+                 'one, is loaded again, once; never while he has words in a box',
+                 got == [[0, 'stamp-2'], [0, 'stamp-2'], [1, 'stamp-1'], [1, ''], [0, 'stamp-1'], [0, 'stamp-1']], (got, p.stderr[-300:]))
         ops.queue(dict(floor, now='2026-09-09 12:00:40'), out, cache_file, repo=repo, board=board, answers=[dict(id='b1', title='The first', when='2026-01-01 10:00:00')])
         case('ops: the queue it writes lists the answers nobody has taken up that it was handed', '"kind": "untaken"' in (out / 'data' / 'queue.js').read_text(encoding='utf-8')
              and '"kind": "untaken"' not in json.dumps(q2), (out / 'data' / 'queue.js').read_text(encoding='utf-8')[:200])

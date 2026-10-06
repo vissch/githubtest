@@ -12,6 +12,10 @@ The data is data/ops.js beside the page (a script, not JSON: a page opened from 
 JSON, it may load a script), and data/queue.js, the owner queue (src_queue.py). Each is written only when it changed.
 data/beat.js is a few bytes written on EVERY read: the time of the read, so the page can say how old it is and turn
 red when nobody has read for an hour. Without it an unchanged floor and a stopped watcher look the same.
+The beat also carries the stamp of the site's scripts (site_version), and a few lines that load the page again when
+that stamp is not the one the page loaded with: an open tab read its data every 20 seconds and its scripts never, so
+the owner clicked on yesterday's page (2026-10-06). While it watches, a changed script or template is put in the site
+on the next read; a change to this Python still needs the watcher stopped and started.
 data/crew.js and data/frog.js list the owner's pictures this station has: a portrait per worker (crew) and the
 sheets of the walking frog (frog, packed by sprites.py). Both are written when the pages are, not on every read.
 data/graphs.js is what graphs.html draws (src_graphs.py) and data/notes.js the owner's notes and their answers
@@ -51,6 +55,33 @@ def write_if_changed(path: Path, text: str):
     return True
 
 
+SITE = dict(v='')       # the stamp of the scripts and pages last put in the site by page(); '' before that
+
+
+def site_version():
+    """The site's scripts, styles and templates in ten characters: another stamp is another site."""
+    import hashlib
+    h = hashlib.sha1()
+    for f in sorted((HERE / 'static').iterdir()) + sorted((HERE / 'templates').iterdir()):
+        if f.is_file():
+            h.update(f.name.encode('utf-8'))
+            h.update(f.read_bytes().replace(b'\r\n', b'\n'))
+    return h.hexdigest()[:10]
+
+
+# What the beat runs in the page. Loaded with the page (a plain script tag), it notes the stamp the page runs. Read
+# again by the page's clock (crew.js adds ?t=), it compares: another stamp, or a page from before pages had one, is
+# loaded again. Never while he has words in a box, and once a stamp, so a page that cannot change does not spin.
+RELOAD = ('(function (v) { var d = document, s = d.currentScript; if (!s || !/[?&]t=/.test(s.src)) { window.SITE_AT = v; return; } if (window.SITE_AT === v) return;'
+          ' if ([].some.call(d.querySelectorAll("textarea, input[type=text]"), function (x) { return x.value; })) return;'
+          ' try { if (sessionStorage.getItem("tw-site") === v) return; sessionStorage.setItem("tw-site", v); } catch (e) { if (window.SITE_TRIED === v) return; }'
+          ' window.SITE_TRIED = v; location.reload(); })(%s);\n')
+
+
+def beat_text(now, version=''):
+    return f'window.BEAT = {json.dumps(now.replace(" ", "T"))};\n' + (RELOAD % json.dumps(version) if version else '')
+
+
 def page(out: Path, meta):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
@@ -63,6 +94,7 @@ def page(out: Path, meta):
     frog(out)
     # where the pages send a note, and the key they must show (a file beside the page: a page from elsewhere cannot read it)
     write_if_changed(out / 'data' / 'notebox.js', f'window.NOTEBOX = {json.dumps(dict(url=f"http://127.0.0.1:{notes.PORT}", key=notes.key_of(notes.folder())))};\n')
+    SITE['v'] = site_version()
 
 
 CREW = Path(os.environ.get('LOCALAPPDATA', str(Path.home()))) / 'TrenchWarfare' / 'assetboard'
@@ -155,15 +187,16 @@ def row_shot(out: Path, path):
     return dict(src=dst.relative_to(out).as_posix(), name=src.name) if dst else None
 
 
-def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None, answers=None):
+def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=None, answers=None, all_briefs=None, all_notes=None):
     """The owner queue for this reading, and the beat. What a read need not ask again is kept in this station's cache.
-    `answers` is briefs.answers(): what he answered on the Decide page that no session has taken up."""
+    `answers` is briefs.answers(): what he answered on the Decide page that no session has taken up. `all_briefs` and
+    `all_notes` are every brief and every note of his: what is his to decide is told from them (src_queue.collect)."""
     cache_path = cache_path or build.LOCAL / 'queue-cache.json'
     try:
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         cache = {}
-    q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache, answers=answers)
+    q = src_queue.collect(repo or build.REPO, data, board=board or board_root(), cache=cache, answers=answers, briefs=all_briefs, notes=all_notes)
     try:                                # what a click on a row opens: a few lines and the pictures that show it
         src_queue.details(q, repo or build.REPO, data, board=board or board_root())
         for g in src_queue.GROUPS:
@@ -176,7 +209,7 @@ def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=Non
     beat = out / 'data' / 'beat.js'
     beat.parent.mkdir(parents=True, exist_ok=True)
     tmp = beat.with_suffix('.js.tmp')
-    tmp.write_text(f'window.BEAT = {json.dumps(data["now"].replace(" ", "T"))};\n', encoding='utf-8')
+    tmp.write_text(beat_text(data['now'], SITE['v']), encoding='utf-8')
     tmp.replace(beat)
     return q
 
@@ -225,8 +258,9 @@ def once(out: Path):
     ready_since(data, out / 'data' / 'ready-since.json')
     # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
     owed = step_briefs(data)        # before the answers are read: a step that passed since the last read is on the page now
-    got = briefs.answers(briefs.read_all(briefs.folder()), notes.read_all(notes.folder()))
-    data['queue'] = queue(data, out, answers=got)
+    every, his = briefs.read_all(briefs.folder()), notes.read_all(notes.folder())
+    got = briefs.answers(every, his)
+    data['queue'] = queue(data, out, answers=got, all_briefs=every, all_notes=his)
     graphs(data, out)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
@@ -250,14 +284,18 @@ def main(argv=None):
         return 0
     import src_git
     commit, branch, as_of = src_git.head(build.REPO)
-    page(out, dict(built=time.strftime('%Y-%m-%d %H:%M'), station=__import__('socket').gethostname(), commit=commit, refs_as_of=as_of))
+    meta = dict(built=time.strftime('%Y-%m-%d %H:%M'), station=__import__('socket').gethostname(), commit=commit, refs_as_of=as_of)
+    page(out, meta)
     if args.watch:
         box, _ = notes.serve()
         print(f'notes: {"taking the pages notes on 127.0.0.1:" + str(notes.PORT) if box else "port " + str(notes.PORT) + " is taken, most likely by another watcher"}, into {notes.folder()}', flush=True)
     while True:
+        if args.watch and site_version() != SITE['v']:      # a script or a template changed: it is in the site on this read, and the beat tells the open pages
+            page(out, dict(meta, built=time.strftime('%Y-%m-%d %H:%M')))
+            print(f'ops: the scripts changed, the site has them now ({SITE["v"]})', flush=True)
         data, changed = once(out)
         c = data['counts']
-        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["notes"]} notes open, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
+        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
               f'{c["idle"]} of {len(data["roster"])} skills and agents idle{"" if changed else " (no change)"}', flush=True)
         if not args.watch:
             return 0
