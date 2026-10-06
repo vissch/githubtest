@@ -1,4 +1,4 @@
-﻿// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
+// Phase: A1 (implemented) — depends on: FlowFieldManager, SpatialHash, SeparationJob, MapData, StanceRules
 // Infantry movement. Every alive infantry slot follows the flow field of its goal, takes a separation push from its
 // neighbours (and keeps clear of vehicles), and moves at base speed × stance × terrain. A unit without a goal gets
 // the team's default goal (its front trench). Arriving at the goal trench garrisons the unit: it stops, crouches

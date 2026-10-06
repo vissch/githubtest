@@ -1,4 +1,4 @@
-﻿// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them is Sim/Units/Sapper.cs,
+// Phase: A5 / docs/21 SIM-D (implemented 2026-09-26: the mine half; the sapper that lays them is Sim/Units/Sapper.cs,
 // 2026-09-28) — mines and tripwires on the ground.
 // Depends on: BlastSystem (Queue: a mine's burst; Resolved: a shell that digs sets off the mines in its crater),
 // MapData (where a mine may lie), VehicleProfile (how wide a hull is).

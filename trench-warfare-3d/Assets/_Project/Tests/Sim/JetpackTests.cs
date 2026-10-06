@@ -1,4 +1,4 @@
-﻿// Phase: A3 (implemented 2026-09-25) — the jetpack trooper: he leaps into an enemy-held trench without a ladder
+// Phase: A3 (implemented 2026-09-25) — the jetpack trooper: he leaps into an enemy-held trench without a ladder
 // and is posted there, nothing hits him in the air, his landing bursts under the garrison, he does not leap again
 // until his pack is ready, a man with no enemy trench in reach stays on his feet, and it is the same on every machine.
 using System.Collections.Generic;

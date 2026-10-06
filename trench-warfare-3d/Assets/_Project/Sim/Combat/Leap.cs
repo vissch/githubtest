@@ -1,4 +1,4 @@
-﻿// Phase: A3 (implemented 2026-09-25) — the jetpack trooper. Owner's brief: "A jet pack troop that can jump from a
+// Phase: A3 (implemented 2026-09-25) — the jetpack trooper. Owner's brief: "A jet pack troop that can jump from a
 // distance."
 // A man with InfantrySpec.JumpRange, off cooldown and not pinned, who has an enemy-held fire trench within reach,
 // leaves the ground: LeapSystem picks the landing cell (the trench cell of his target if the target is in an

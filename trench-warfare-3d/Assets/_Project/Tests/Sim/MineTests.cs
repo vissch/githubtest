@@ -1,4 +1,4 @@
-﻿// Phase: A5 / docs/21 SIM-D (2026-09-26) — mines and tripwires in the sim: an enemy sets a mine off and the own side
+// Phase: A5 / docs/21 SIM-D (2026-09-26) — mines and tripwires in the sim: an enemy sets a mine off and the own side
 // never does, a mine is not live until it is armed, a tripwire is crossed along its length, a hull sets one off under
 // its tracks, a shell's crater cooks off the mines in it, a mine never lies in a trench, and it all hashes and repeats
 // exactly. Placed by the system call the sapper will use (units-meta).

@@ -1,4 +1,4 @@
-﻿// Phase: A5 (implemented core: the gas field, and the smoke field the smoke screen lays)
+// Phase: A5 (implemented core: the gas field, and the smoke field the smoke screen lays)
 // — depends on: MapData (4 m field grid, wind, Trench / Crater sinks), FlowFieldManager (where a gassed garrison runs to).
 // Two float concentration grids at 4 m, one for gas and one for smoke, stepped by the same job. Per tick: sources
 // hold their cells at strength, the field is advected by the map wind (semi-Lagrangian), diffused (5-point) and

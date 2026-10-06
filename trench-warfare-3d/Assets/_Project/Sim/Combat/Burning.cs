@@ -1,4 +1,4 @@
-﻿// Phase: A5 (implemented 2026-09-26, docs/21 phase 4) — fire on men and on the ground.
+// Phase: A5 (implemented 2026-09-26, docs/21 phase 4) — fire on men and on the ground.
 // Depends on: BlastSystem (Resolved: an Incendiary burst is what lights things), MapData (nav cells), FlowFieldManager
 // (where a burning garrison runs to).
 //
