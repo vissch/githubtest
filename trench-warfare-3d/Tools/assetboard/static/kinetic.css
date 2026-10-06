@@ -1037,3 +1037,13 @@ body.assetpage .reel-wrap { border: 1px solid var(--glass-edge); }
 /* small words that fell under 4.5:1 on the navy (measured on the page): one step lighter; a text box's hint too */
 .k-tag.k-quiet, .k-last, .k-tl-when, .k-assets .novisual span { color: var(--t-soft); }
 .k-assets #q::placeholder, .b-form textarea::placeholder { color: var(--t-dim); opacity: 1; }
+/* his decisions on the overview are whole briefs (decide.css draws the card): large, the pictures beside the options */
+.k-qbig { margin-top: 6px; } .k-qbig .d-card { background: rgba(255, 255, 255, .04); } .k-qbig + .k-qrows { margin-top: 10px; }
+.k-q-yours { padding: clamp(18px, 1.8vw, 26px); }
+.k-qab { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 14px; align-items: start; } .k-qab.k-qone { grid-template-columns: minmax(0, 1fr); }
+.k-qlist { display: grid; gap: 8px; } .k-qlist .k-qgo, .k-qlist .k-qpick { display: none; }
+.k-qlist .k-qrow.k-mine, .k-qlist .k-qrow.k-mine.k-shown { grid-template-columns: 92px minmax(0, 1fr); padding: 8px; } .k-qlist .k-qrow.k-mine:not(.k-shown) { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; }
+.k-qlist .k-qshot { width: 92px; height: 56px; } .k-qlist .k-take-top { font-size: 14px; }
+.k-qlist .k-mine.on { border-color: var(--k-fire); background: rgba(255, 74, 28, .12); }
+.k-qab + .k-qrows { margin-top: 10px; }
+@media (max-width: 1000px) { .k-qab { grid-template-columns: minmax(0, 1fr); } }

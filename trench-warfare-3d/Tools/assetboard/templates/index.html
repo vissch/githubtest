@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block bodyclass %}overview c-screen{% endblock %}
-{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css"><link rel="stylesheet" href="decide.css">{% endblock %}
 {% block main %}
 {% set counts = {} %}{% for status, group in sections %}{% set _ = counts.update({status: group|length}) %}{% endfor %}
 {# The control screen: one page that says who is at work on what, what waits on the owner and how the day went.
@@ -42,7 +42,7 @@
 </section>
 
 <section class="k-queue" id="queue" hidden>
-  <header class="k-head"><h2 class="k-h-one">Needs you <span class="k-soft k-wide-only">· oldest first</span></h2></header>
+  <header class="k-head"><h2 class="k-h-one">Needs you <span class="k-soft k-wide-only">· newest first</span></h2></header>
   <div class="k-qgrid" id="queue-cards"></div>
 </section>
 

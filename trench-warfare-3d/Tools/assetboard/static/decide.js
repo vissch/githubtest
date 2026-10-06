@@ -57,7 +57,7 @@
   root.Briefs = pure;
 
   var page = document.getElementById('decide'), C = root.Crew, B = root.Board;
-  if (!page || !C) return;
+  if (!C) return;
   var el = C.el, ROOT = document.body.dataset.root || '', still = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function subject(b) { return { kind: 'page', id: 'brief:' + b.id, kindLabel: 'decision', title: b.title, lane: b.lane || '' }; }
   // what the owner already said about a brief on this page: his last note about it
@@ -108,6 +108,9 @@
     c.appendChild(tx); c.appendChild(evidence(b));
     return c;
   }
+  // the overview draws his open briefs under the house with the same card (office.js), so a decision reads the same in both places
+  pure.card = card; pure.said = said;
+  if (!page) return;
   // thirty briefs are a long page: every open one by its title at the top, a click away, marked once he has said something
   function index(open) {
     var ix = document.getElementById('d-index'); if (!ix) return;

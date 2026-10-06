@@ -383,11 +383,11 @@ def queue_fixtures():
         qa = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-closed', 'Its brief', 'answered', about='Another question')])
         case('queue: a question whose brief a session has closed is decided for good, though its bullet stays under Open until that lane lands: not his, not counted',
              [d['title'] for d in qa['decide']] == ['A question'] and qa['count'] == base_q['count'] - 1 and qa['briefs'] == [], (qa['decide'], qa['count'], base_q['count']))
-        qb = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-open', 'Its brief', about='Another question', lane='lane/show/a'), brief('b-step', 'A step to approve')])
+        qb = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-open', 'Its brief', about='Another question', lane='lane/show/a'), brief('b-step', 'A step to approve', asked='2026-09-08 09:30')])
         rb = {r['brief']: r for r in qb['briefs']}
         case('queue: an open brief he has not answered is his, whatever it is about (a question, a step, concepts), and is listed with what the page needs to show it; '
              'a question with a brief is listed once, as its brief',
-             sorted(rb) == ['b-open', 'b-step'] and [d['title'] for d in qb['decide']] == ['A question'] and qb['count'] == 3
+             [r['brief'] for r in qb['briefs']] == ['b-step', 'b-open'] and [d['title'] for d in qb['decide']] == ['A question'] and qb['count'] == 3
              and rb['b-step'] == dict(brief='b-step', title='A step to approve', date='2026-09-08', lane='', about='', kind='', what_for='What it is for.', options=2, pick='Do it',
                                       stills=1, films=1, shot='img/brief/b-step/1-shot.png', days=1), (qb['briefs'], qb['decide'], qb['count']))
         qc = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-open', 'Its brief', about='Another question')],
@@ -427,15 +427,23 @@ def queue_fixtures():
             got = json.loads(p.stdout.decode() or 'null')
             case('page: every row of his leads to its brief on the Decide page, or to its place among the questions without one, and to nothing else; a brief shows its first picture and the '
                  'pick of who wrote it; what is the agents\' is a list apart that is not his number, and no row of either names the branches page',
-                 got and got[0] == ['decide.html#b-open', 'decide.html#b-step', 'decide.html#q-a-question'] and got[1] == ['briefs', 'decide'] and got[2] == ['broken', 'said', 'approved', 'ready']
-                 and got[3] == both['agents'] and got[4][0] == ['img/brief/b-open/1-shot.png', 'Do it'] and got[5] == 0 and got[6] == -1, (got, p.stderr[-300:]))
+                 got and got[0] == ['decide.html#b-step', 'decide.html#b-open', 'decide.html#q-a-question'] and got[1] == ['briefs', 'decide'] and got[2] == ['broken', 'said', 'approved', 'ready']
+                 and got[3] == both['agents'] and got[4][1] == ['img/brief/b-open/1-shot.png', 'Do it'] and got[5] == 0 and got[6] == -1, (got, p.stderr[-300:]))
         else:
             print('      (no node on this machine: the page\'s own cases were not run)')
+        # the owner, the same evening: "the screen to the right of the house should be exclusively for agents. Under the house
+        # and the agents we can put the decisions. We need those a bit bigger since they hold visual data"
+        panel, deciding = (HERE / 'static' / 'board.js').read_text(encoding='utf-8'), (HERE / 'static' / 'decide.js').read_text(encoding='utf-8')
+        case('page: the place beside the house takes a worker and nothing else: any other thing opens in the drawer, and at rest it says nobody is selected, not the notes',
+             'function forDock(s) { return !!s && (!!s.worker || s === NOBODY); }' in panel and 'if (dockEl && docked && !forDock(s)) {' in panel and 'show(NOBODY); resting = true;' in panel
+             and 'show(ALL); resting = true;' not in panel, '')
+        case('page: the overview draws a decision with the Decide page\'s own card, so it reads the same in both places', 'pure.card = card; pure.said = said;' in deciding
+             and deciding.index('pure.card = card') < deciding.index('if (!page) return;'), '')
         src = (HERE / 'static' / 'office.js').read_text(encoding='utf-8')
         block = src[src.index('// the pulse: "Needs you"'):src.index("set('p-at', working.length)")]
         case('page: the part of the overview that draws "Needs you" builds no address of a branch page: a row of his is a link to Q.leads, a row of the agents\' is no link',
              'floor.html' not in block and 'slug(r.lane)' not in block and "el('a', 'k-qrow k-mine')" in block.replace(" + (r.shot ? ' k-shown' : '')", '') and "el('div', 'k-qrow k-theirs')" in block
-             and block.count('.href = ') == block.count('.href = Q.leads(r)') + block.count(".href = 'decide.html'") + block.count(".href = '#queue'"), block[:200])
+             and 'big.appendChild(Bf.card(byId[sel.brief]))' in block and block.count('.href = ') == block.count('.href = Q.leads(r)') + block.count(".href = 'decide.html'") + block.count(".href = '#queue'"), block[:200])
 
         # what a click on a row opens: a few lines that say what it is, and the pictures the board holds for it
         green.write_text(git('rev-parse', 'HEAD^{tree}') + ' 2026-09-08T10:00:00\n')          # the gate is green on its tip again

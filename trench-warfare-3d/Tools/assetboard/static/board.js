@@ -4,8 +4,10 @@
 // says where, and holds the key it asks for); notes.py writes it as a file every session reads, and an answer comes
 // back in data/notes.js, which is read again every 20 seconds. When no listener answers, the note is kept in this
 // browser and sent when one does: the page says so, it never pretends a note was saved.
-// On the control screen (index.html) the panel is not a drawer: Board.dock() makes it a part of the page that is
-// always there, the profile of the worker the house has selected, with the last picture or film it had in its hands.
+// On the control screen (index.html) Board.dock() gives the panel a place in the page that is always there: the
+// profile of the worker the house has selected, with the last picture or film it had in its hands. That place is the
+// workers' and nobody else's (the owner, 2026-10-06: "the screen to the right of the house should be exclusively for
+// agents"): a row of the queue, a branch, the notes open in the drawer over the page, and the profile stays as it was.
 // The matching and the counting are plain functions (test_assetboard.py runs them under node).
 (function (root) {
   'use strict';
@@ -126,6 +128,15 @@
 
   // ---- the panel: a drawer over the page, or (docked) a part of the page that is always there
   var docked = false, rest = null, resting = false, ALL = { kind: 'page', id: 'all', kindLabel: 'board', title: 'All notes', sub: 'What you wrote on the board, and what the agents answered.' };
+  // dockEl: the page's place for the workers. While the drawer is open over it, `kept` is what that place shows.
+  var dockEl = null, drawer = null, kept = null, NOBODY = { kind: 'page', id: 'nobody', kindLabel: 'agents', title: 'Nobody is selected', sub: 'Click a frog in the house: what it is doing, the last picture it had in its hands, and your notes to it.', bare: true };
+  function forDock(s) { return !!s && (!!s.worker || s === NOBODY); }
+  // do something to the workers' place while the drawer is open over it
+  function inDock(f) {
+    var was = [panel, subject, onclose, docked, resting];
+    panel = dockEl; docked = true; subject = kept.s; onclose = kept.onclose; resting = kept.resting;
+    try { f(); } finally { kept = { s: subject, onclose: onclose, resting: resting }; panel = was[0]; subject = was[1]; onclose = was[2]; docked = was[3]; resting = was[4]; }
+  }
   var still = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function keys() { document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !panel.hidden && !busy()) shut(); }); }
   function build() {
@@ -135,10 +146,11 @@
   // the page gives the panel a place of its own. `back`, when the owner closes what he opened, shows what the panel
   // is for on this page (the house: the worker it follows); when it shows nothing, the panel has every note
   function dock(into, back) {
-    panel = into; docked = true; rest = back || null; panel.classList.add('b-panel', 'b-docked'); panel.hidden = false; keys();
+    panel = dockEl = into; docked = true; rest = back || null; panel.classList.add('b-panel', 'b-docked'); panel.hidden = false; keys();
+    if (subject && !forDock(subject)) subject = null;
     if (subject) draw(); else home();
   }
-  function home() { if (rest) rest(); if (!subject) { show(ALL); resting = true; draw(); } }
+  function home() { if (rest) rest(); if (!subject) { show(NOBODY); resting = true; draw(); } }
   // a part of the panel is made again only when what it says changed: a film in it plays on through a reading
   function part(cls, sig, make) {
     var p = panel.querySelector(':scope > .' + cls);
@@ -203,10 +215,16 @@
         if (a.pic) { var i = el('img'); i.loading = 'lazy'; i.alt = ''; i.src = ROOT + a.pic; c.appendChild(i); } c.appendChild(el('span', null, a.name || a.id)); wall.appendChild(c); });
       p.appendChild(wall);
     });
-    var notes = part('b-notes-here', [s.kind, s.id], function () {}); notes.hidden = false;
-    notesBlock(s, notes);
+    var notes = part('b-notes-here', [s.kind, s.id], function () {}); notes.hidden = !!s.bare;
+    if (!s.bare) notesBlock(s, notes);
   }
   function show(s, opt) {
+    if (dockEl && !docked && forDock(s)) { inDock(function () { show(s, opt); }); return; }          // the house moved on under the drawer
+    if (dockEl && docked && !forDock(s)) {          // not a worker: the drawer, and the workers' place keeps what it shows
+      kept = { s: subject, onclose: onclose, resting: resting };
+      if (!drawer) { drawer = el('aside', 'b-panel'); drawer.hidden = true; drawer.setAttribute('aria-label', 'About what you clicked'); document.body.appendChild(drawer); }
+      panel = drawer; docked = false; subject = null; onclose = null; resting = false;
+    }
     if (!panel) build();
     if (onclose && subject && (!s || s.id !== subject.id)) { var was = onclose; onclose = null; was(); }
     subject = s; onclose = (opt && opt.onclose) || null; resting = false;
@@ -217,6 +235,11 @@
     if (!panel || panel.hidden || (docked && subject && !closable(subject, docked, resting))) return;
     if (!docked) { panel.hidden = true; document.body.classList.remove('b-open'); }
     subject = null; var was = onclose; onclose = null; if (was) was();
+    if (dockEl && !docked) {          // the drawer closed: back to the workers' place, as it was left
+      panel = dockEl; docked = true; subject = kept.s; onclose = kept.onclose; resting = kept.resting; kept = null;
+      if (subject) draw(); else home();
+      return;
+    }
     if (docked && !subject) home();
   }
 
@@ -232,6 +255,7 @@
     buttons = buttons.filter(function (x) { return x.b.isConnected || !x.seen; }); buttons.forEach(function (x) { x.seen = x.seen || x.b.isConnected; mark(x); });
     inline.forEach(function (x) { notesBlock(x.s, x.into); });
     if (subject && panel && !panel.hidden) draw();
+    if (dockEl && !docked && kept && kept.s) inDock(draw);
     cards(); top();
     listeners.forEach(function (f) { f(); });
   }

@@ -8,6 +8,8 @@
   var C = window.Crew, el = C && C.el;
   if (!C) return;
   function $(id) { return document.getElementById(id); }
+  // the overview shows the briefs as the Decide page does: it needs that page's styles (a page built before this has no link to them)
+  if ($('queue-cards') && !document.querySelector('link[href$="decide.css"]')) { var css = document.createElement('link'); css.rel = 'stylesheet'; css.href = 'decide.css'; document.head.appendChild(css); }
   function set(id, text) { var e = $(id); if (e) e.textContent = text; }
   function shortBranch(b) { return b.replace(/^lane\/(show|sim)\//, ''); }
   function laneKind(b) { var m = /^lane\/(show|sim)\//.exec(b); return m ? m[1] : b.split('/')[0]; }
@@ -248,14 +250,34 @@
     // under the pulse: his decisions, each a row that leads to its brief; then, folded, what is with the agents
     var cards = $('queue-cards'), qs = $('queue');
     if (qs) qs.hidden = !waiting && !chores;
-    if (changed(cards, sig)) {
+    var soft = qs && qs.querySelector('.k-h-one .k-soft'); if (soft && soft.textContent !== '· newest first') soft.textContent = '· newest first';
+    // his answer on a card shows at once (board.js tells this page), and the cards are not drawn again under his hands
+    var Bf = window.Briefs, at = document.activeElement, typing = cards && at && cards.contains(at) && at.tagName === 'INPUT' && at.value;
+    var csig = sig + JSON.stringify((window.BRIEFS || []).map(function (b) { var n = Bf && Bf.said ? Bf.said(b) : null; return [b.id, b.state, n ? n.id + n.state : '']; }));
+    if (!typing && changed(cards, csig)) {
       var card = el('article', 'k-qcard k-q-yours' + (waiting ? '' : ' k-q-none')); card.id = 'q-yours';
       var h = el('header'); h.appendChild(el('b', null, 'Yours to decide')); h.appendChild(el('span', 'k-qn', String(waiting))); card.appendChild(h);
       if (!waiting) card.appendChild(el('p', 'k-qnone', 'Nothing waits on you. A decision shows here as a brief: what it is for, the options, something to look at.'));
-      var rows = el('div', 'k-qrows');
-      his.slice(0, 6).forEach(function (r) { rows.appendChild(mine(r)); });
-      if (his.length) card.appendChild(rows);
-      if (his.length > 6) { var more = el('a', 'k-qall', 'All ' + his.length + ' on the Decide page'); more.href = 'decide.html'; card.appendChild(more); }
+      // a decision is its whole brief, large, since what decides it is a picture (the owner, 2026-10-06: "we need those a
+      // bit bigger since they hold visual data"); a question nobody wrote a brief for is a row that leads to the Decide page
+      var byId = {}; (window.BRIEFS || []).forEach(function (b) { byId[b.id] = b; });
+      // He picked how (concept A, 2026-10-06): a list of them, and the one he clicks opens beside it. One decision alone
+      // needs no list and takes the whole width. A list row is still a link to its brief: the click opens it here instead.
+      var rows = el('div', 'k-qrows'), briefed = [];
+      his.slice(0, 8).forEach(function (r) { if (r.brief && byId[r.brief] && Bf && Bf.card) briefed.push(r); else rows.appendChild(mine(r)); });
+      if (briefed.length) {
+        var sel = briefed.filter(function (r) { return r.brief === draw.sel; })[0] || briefed[0], wrap = el('div', 'k-qab' + (briefed.length > 1 ? '' : ' k-qone')), lst = el('div', 'k-qlist'), big = el('div', 'd-list k-qbig');
+        briefed.forEach(function (r) {
+          var a = mine(r); if (r.brief === sel.brief) { a.classList.add('on'); a.setAttribute('aria-current', 'true'); }
+          a.addEventListener('click', function (ev) { if (ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.button) return; ev.preventDefault(); draw.sel = r.brief; cards.dataset.sig = ''; draw(); });
+          lst.appendChild(a);
+        });
+        big.appendChild(Bf.card(byId[sel.brief]));
+        if (briefed.length > 1) wrap.appendChild(lst);
+        wrap.appendChild(big); card.appendChild(wrap);
+      }
+      if (rows.firstChild) card.appendChild(rows);
+      if (his.length > 8) { var more = el('a', 'k-qall', 'All ' + his.length + ' on the Decide page'); more.href = 'decide.html'; card.appendChild(more); }
       cards.appendChild(card);
       if (chores) {
         var fold = el('details', 'k-qcard k-q-theirs'); fold.id = 'q-theirs';
@@ -384,5 +406,6 @@
     fillRow();
     if (window.drawBranches) window.drawBranches(o);
   }
+  if (Bd && Bd.onchange) Bd.onchange(draw);
   C.live(draw);
 })();

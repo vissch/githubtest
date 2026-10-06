@@ -314,7 +314,7 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     closed = {slug(t) for b in briefs or [] if b.get('state') == 'answered' for t in (b.get('about'), b.get('title')) if t}
     written = {slug(t) for b in waiting for t in (b.get('about'), b.get('title')) if t}       # it is listed as its brief
     todo = [d for d in asked if not d['answered'] and slug(d['title']) not in his and slug(d['title']) not in closed]
-    q = dict(briefs=sorted((brief_row(b) for b in waiting), key=lambda r: r['date'], reverse=True), decide=[d for d in todo if slug(d['title']) not in written],
+    q = dict(briefs=[brief_row(b) for b in sorted(waiting, key=lambda b: str(b.get('asked', '')), reverse=True)], decide=[d for d in todo if slug(d['title']) not in written],
              land=[], said=[], owed=[], approved=approvals(repo, integ, board, trees), ready=[], broken=[])
     # answered in this checkout and not landed: no longer the owner's to decide, so not in the count; the page says where it is
     here = src_git.git(repo, 'rev-parse', '--abbrev-ref', 'HEAD').strip()
