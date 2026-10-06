@@ -658,13 +658,13 @@ namespace TW.Presentation.Terrain
         /// <summary>A crater landed: repaint its texels and re-read the chunks it touches.</summary>
         void OnSimEvent(TW.Sim.SimEvent e)
         {
+            if (e.Type == TW.Sim.SimEventType.Explosion) { LightScorch(e); return; }
             if (e.Type != TW.Sim.SimEventType.CraterStamp && e.Type != TW.Sim.SimEventType.WireBreached) return;
             var map = Host.Local.Map;
             if (e.Type == TW.Sim.SimEventType.CraterStamp)
             {
                 hollowsDirty = true;
-                if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
-                scorchMarks.Add(e); scorchBorn.Add(Time.time);
+                AddScorch(e);
             }
             float r = e.Scalar + 8f; // Include the inferred rim and its pale outer shoulder.
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));
@@ -680,6 +680,46 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Queue the tiles a crater covers, so its burn is repainted at whatever it has faded to.</summary>
+        public const int MaxScorchMarks = 128;   // 64 until the light scorches below joined the craters
+
+        void AddScorch(TW.Sim.SimEvent e)
+        {
+            if (scorchMarks.Count >= MaxScorchMarks) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
+            scorchMarks.Add(e); scorchBorn.Add(Time.time);
+        }
+
+        /// <summary>The radius of the scorch a burst that digs no crater leaves, by its shape (the sim's BlastShape in
+        /// dir.y) and its blast radius; 0 for a shape that leaves none (a shell's is its crater's, from CraterStamp).
+        /// A beam chars the line it walks, a strafe's rounds pock it, an incendiary blackens what it burnt.</summary>
+        public static float LightScorchRadius(int shape, float blast)
+        {
+            switch (shape)
+            {
+                case 4: return Mathf.Clamp(blast * 0.8f, 1.6f, 3.2f);    // BlastShape.Beam
+                case 6: return 1.1f;                                     // BlastShape.Strafe
+                case 3: return Mathf.Clamp(blast * 0.75f, 2f, 5f);       // BlastShape.Incendiary
+                default: return 0f;
+            }
+        }
+
+        Vector3 lastLightScorch = new Vector3(-1000f, 0f, -1000f);
+
+        /// <summary>A burst that digs no crater still burns the ground it struck (VFX round 3: the beam "leaves no scorch
+        /// path", the strafe "no impact marks", the incendiary no "dark charred ground"). Painted as a crater's scorch is,
+        /// with no change to the ground's height; one a stride, so a beam's hundred bursts are a dozen marks.</summary>
+        void LightScorch(TW.Sim.SimEvent e)
+        {
+            float radius = LightScorchRadius(Mathf.RoundToInt(e.Dir.y), e.Scalar);
+            if (radius <= 0f || Host == null || Host.Local == null) return;
+            var at = new Vector3(e.Pos.x, 0f, e.Pos.z);
+            float stride = radius * 0.8f;
+            if ((at - lastLightScorch).sqrMagnitude < stride * stride) return;
+            lastLightScorch = at;
+            e.Scalar = radius / 1.25f;   // the painter's radius is 1.25 of the mark's
+            AddScorch(e);
+            QueueScorchTiles(e);
+        }
+
         void QueueScorchTiles(TW.Sim.SimEvent mark)
         {
             var map = Host.Local.Map;

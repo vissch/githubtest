@@ -68,6 +68,11 @@ namespace TW.Presentation.Terrain
         /// <summary>Fire a star shell on the next frame instead of waiting for the timer (bench scenarios, captures of
         /// the moment). Presentation only: nothing in the sim sees a star shell.</summary>
         public void FireStarShell() { nextFlare = 0f; }
+        /// <summary>A star shell now, over a point (the effect being filmed) instead of the ground ahead of the camera.</summary>
+        public void FireStarShell(Vector3 over) { nextFlare = 0f; flareSite = over; }
+        /// <summary>No star shell until the next FireStarShell, and any one burning put out (captures of other effects).</summary>
+        public void HoldStarShells() { nextFlare = float.MaxValue; flareBorn = -100f; }
+        Vector3? flareSite;
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
         Material glow, flareGlow;
@@ -116,7 +121,7 @@ namespace TW.Presentation.Terrain
             // blue glow in the lifted haze (critique rounds 1, 5)
             bool warmFlare = WarmFlareLook;
             if (warmFlare) Flare = FlareNeutral;
-            flareLight = MakeLight("Star shell", Flare, 0f, 95f);
+            flareLight = MakeLight("Star shell", Flare, 0f, 110f);
             flare = flareLight.transform; flareLight.enabled = false;
             AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(warmFlare ? 5f : 9f, .25f, .3f, .2f) },
                 new[] { warmFlare ? new Color(FlareGlowWarm.r, FlareGlowWarm.g, FlareGlowWarm.b, 1.4f) : new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
@@ -134,7 +139,9 @@ namespace TW.Presentation.Terrain
             AddGlowMesh(host, glow, centres, shapes, colors);
             flashMesh = host.GetComponent<MeshFilter>().sharedMesh; flashMesh.MarkDynamic();
             for (int i = 0; i < cards * 4; i++) flashShape.Add(new Vector4((i / 4) < poolSize ? 1f : 0f, 0f, (i / 4) * .19f, .15f));
-            // embers: what a shell leaves glowing in its hole for a few seconds. Cards only, no lights.
+            // embers: what a shell leaves glowing in its hole for about two seconds, with its light. Cards only, no lights.
+            // They lived 7-12 s until VFX round 1 (2026-10-01): an orange orb on every impact for the whole of a still
+            // sequence, and a barrage left a field of them ("nothing glows or floats on long after").
             var emberHost = new GameObject("Ember glows") { hideFlags = HideFlags.DontSave };
             emberHost.transform.SetParent(transform, false);
             var ec = new Vector3[EmberCount]; var es = new Vector4[EmberCount]; var ecol = new Color[EmberCount];
@@ -469,7 +476,7 @@ namespace TW.Presentation.Terrain
                     g.Light.transform.position = at - Vector3.up * 1.1f;
                     g.Light.color = new Color(1f, .34f, .10f); g.Light.range = 6f + 0.55f * r; g.Light.enabled = true;
                     g.Peak = 4f + 1f * r; g.Born = Time.time; g.Life = 2.1f;
-                    embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 7f + 5f * Hash(Frame, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
+                    embers[nextEmber] = new Ember { Pos = at - Vector3.up * 1.25f, Born = Time.time, Life = 1.4f + 0.8f * Hash(Frame, 29), Size = Mathf.Clamp(e.Scalar * .55f, 1.6f, 4f) };
                     nextEmber = (nextEmber + 1) % EmberCount;
                 }
             }
@@ -568,16 +575,20 @@ namespace TW.Presentation.Terrain
                 Vector3 look = cam != null ? cam.transform.position + cam.transform.forward * (cam.transform.position.y / Mathf.Max(.15f, -cam.transform.forward.y)) : new Vector3(map.SizeMeters.x * .5f, 0f, map.SizeMeters.y * .5f);
                 float z = Mathf.Lerp(look.z, map.SizeMeters.y * .5f, .45f) + (Hash(Frame, 19) - .5f) * 30f;
                 float x = Mathf.Clamp(look.x + (Hash(Frame, 23) - .5f) * 40f, 8f, map.SizeMeters.x - 8f);
+                if (flareSite.HasValue) { x = flareSite.Value.x - 6f; z = flareSite.Value.z; flareSite = null; }   // it drifts 9 m east over its life
                 flareFrom = new Vector3(x, RenderGround.Sample(map, x, Mathf.Clamp(z, 0f, map.SizeMeters.y - 1f)) + 42f, z);
                 flareBorn = Time.time; flareLight.enabled = true;
             }
             float age = (Time.time - flareBorn) / FlareLife;
-            if (age >= 1f) { if (flareLight.enabled) { flareLight.enabled = false; flareGlow.SetColor("_Tint", Color.black); } return; }
+            if (age >= 1f) { flareBurn = 0f; if (flareLight.enabled) { flareLight.enabled = false; flareGlow.SetColor("_Tint", Color.black); } return; }
             float sway = Mathf.Sin(Time.time * .9f) * 2.5f;
             flare.position = flareFrom + new Vector3(sway + age * 9f, -age * 26f, Mathf.Cos(Time.time * .7f) * 2f);
             float burn = Mathf.SmoothStep(0f, 1f, age / .06f) * (1f - Mathf.SmoothStep(.8f, 1f, age));
-            flareLight.intensity = 420f * burn * (.92f + .08f * Mathf.Sin(Time.time * 31f));
+            // 420 lit the mud under it 0.24 at 42 m, hardly over the lamps' reach band: a star shell that lit nothing (VFX
+            // round 1). 900 puts the ground beneath into the hot band and the mid band out to about 70 m.
+            flareLight.intensity = 900f * burn * (.92f + .08f * Mathf.Sin(Time.time * 31f));
             flareGlow.SetColor("_Tint", Color.white * burn);
+            flareBurn = burn;   // its painted pool (NightLights.Pools.cs)
             if (burn > .5f && Time.time >= nextDrip) { nextDrip = Time.time + .14f; SceneHooks.Sparks?.Invoke(flare.position, 1); }   // the star shell sheds burning drops
         }
     }

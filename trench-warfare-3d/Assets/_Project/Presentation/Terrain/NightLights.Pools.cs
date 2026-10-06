@@ -68,15 +68,42 @@ namespace TW.Presentation.Terrain
         /// <summary>SceneHooks.FirePool: a fire's pool, held for this frame (life 0) or for life seconds.</summary>
         public void AddFirePool(Vector3 at, Color color, float strength, float reach, float life)
         {
-            if (strength <= 0f || reach <= 0f || firePools.Count >= MaxFirePools) return;
+            if (strength <= 0f || reach <= 0f) return;
             float k = Mathf.Min(strength, 4f);
-            firePools.Add(new FirePoolEntry
+            var e = new FirePoolEntry
             {
                 At = at, Reach = Mathf.Min(reach, 20f),
                 Tint = new Vector3(color.r * PoolWarmth.x * k, color.g * PoolWarmth.y * k, color.b * PoolWarmth.z * k),
                 Frame = life <= 0f ? Time.frameCount : -1, Until = Time.time + life,
-            });
+            };
+            // A fire renews its pool every 0.16 s with a life a little longer, so each one lay on its own last copy, and
+            // men alight side by side laid theirs over the same mud: the pools ADD. A pool that falls well inside one
+            // already lit is that one, burning brighter or wider if it is: the brightest of them, never the sum.
+            if (MergeFirePool(firePools, e) >= 0) return;
+            if (firePools.Count < MaxFirePools) firePools.Add(e);
         }
+
+        /// <summary>Folds a new fire pool into one already lit whose middle it falls in (within MergeShare of the larger
+        /// reach): that one keeps the brighter tint, the wider reach and the later end. The index it went into, or -1.</summary>
+        static int MergeFirePool(List<FirePoolEntry> pools, FirePoolEntry e)
+        {
+            for (int i = 0; i < pools.Count; i++)
+            {
+                var p = pools[i];
+                float reach = Mathf.Max(p.Reach, e.Reach) * MergeShare;
+                if ((p.At - e.At).sqrMagnitude > reach * reach) continue;
+                if (e.Tint.sqrMagnitude > p.Tint.sqrMagnitude) p.Tint = e.Tint;
+                p.Reach = Mathf.Max(p.Reach, e.Reach);
+                if (e.Frame >= 0 && p.Frame >= 0) p.Frame = Mathf.Max(p.Frame, e.Frame);
+                else { p.Until = Mathf.Max(p.Frame >= 0 ? Time.time : p.Until, e.Frame >= 0 ? Time.time : e.Until); p.Frame = -1; }
+                pools[i] = p;
+                return i;
+            }
+            return -1;
+        }
+
+        /// <summary>A fire pool this close to one already lit, as a share of the larger reach, is that pool.</summary>
+        public const float MergeShare = 0.45f;
 
         /// <summary>Fire pools that have gone out: last frame's, and the timed ones past their time.</summary>
         void ExpireFirePools()
@@ -139,6 +166,12 @@ namespace TW.Presentation.Terrain
             float fireGain = poolStrength * FirePoolGain * firePoolStrength;
             if (fireGain > 0f)
                 for (int i = 0; i < firePools.Count; i++) { var e = firePools[i]; Keep(ref n, eye, e.At, e.Reach, e.Tint * fireGain); }
+            // the star shell's own pool: the real light adds a share of the mud's albedo, and wet mud at night has next to
+            // none, so the flare "barely lit the field" at any intensity (VFX rounds 1-3). It hangs FlarePoolHeight over the
+            // ground under the flare, not at the flare: a pool's light falls off across its reach, and from 42 m up none
+            // of a 55 m reach arrived (round 5). It follows the flare's drift and goes out with its burn.
+            if (flareBurn > 0f && flare != null)
+                Keep(ref n, eye, new Vector3(flare.position.x, flareFrom.y - 42f + FlarePoolHeight, flare.position.z), FlarePoolReach, new Vector3(Flare.r, Flare.g, Flare.b) * (poolStrength * FlarePoolGain * flareBurn));
             Shader.SetGlobalVectorArray(PoolsId, poolAt);
             Shader.SetGlobalVectorArray(PoolTintId, poolTint);
             Shader.SetGlobalFloat(PoolCountId, n);
@@ -177,6 +210,11 @@ namespace TW.Presentation.Terrain
         /// glow card is smaller (5 m, was 9) and warm, so it reads as a burning flare, not a blue orb. Read once, at Start.</summary>
         static bool WarmFlareLook => Knobs.Get("look.warmFlare", 1f) > 0f;
         public static readonly Color FlareNeutral = new Color(1f, 0.96f, 0.88f), FlareGlowWarm = new Color(1f, 0.82f, 0.55f);
+
+        /// <summary>The star shell's painted pool: its reach, how high over the ground under the flare it hangs, and its
+        /// strength against a lantern's PoolGain.</summary>
+        public const float FlarePoolReach = 55f, FlarePoolHeight = 12f, FlarePoolGain = 1.4f;   // 75 and 1.6 lit the whole picture evenly at the standard view: no edge (round 4)
+        float flareBurn;   // how hard the star shell burns now, 0..1 (UpdateFlare)
 
         /// <summary>look.moreFires (6; 0 none): burning trees in no man's land past the MaxFires that carry a real light,
         /// each with its flames, its glow card and a painted pool, but no light: the renderer takes eight an object, and the

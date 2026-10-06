@@ -468,6 +468,7 @@ namespace TW.Presentation.Tactical
             books?.Dispose();
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
+            DestroyMarkerMaterials();
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
@@ -766,7 +767,7 @@ namespace TW.Presentation.Tactical
                     // (docs/02): the marker is the whole corridor, not a spot at its start
                     var corridor = new Vector3(e.Dir.x, 0f, e.Dir.z); float corridorLength = corridor.magnitude;
                     bool line = corridorLength > 1e-3f;
-                    markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + 10f, Mine = e.B == 0 });
+                    markers.Add(new Marker { Pos = p, Dir = line ? corridor / corridorLength : Vector3.zero, Length = line ? corridorLength : 0f, Radius = radius, Until = Time.time + MarkerLife(e.A, Host.Local.World.Config.TickSeconds), Mine = e.B == 0 });
                     OnAbilityFired(e);   // the aircraft's run-in, the beam's charge (CombatFx.Abilities.cs)
                     Banner(e.B == 0 ? $"Your {AbilityWord(e.A)} is on its way" : $"INCOMING {AbilityWord(e.A).ToUpper()}", 3f, BannerRules.Rank(e.Type, e.B == 0));
                     break;
@@ -904,36 +905,7 @@ namespace TW.Presentation.Tactical
 
             // target markers (both sides see where support fire was called) and the aiming circle
             Prune(markers, now, static (m, at) => at > m.Until);
-            for (int pass = 0; pass < 2 && ShowOverlays; pass++)
-            {
-                var rpMark = new RenderParams(pass == 0 ? markMine : markTheirs) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
-                // a point ability: a disc on the ground where it was called (not at sea level)
-                batch.Clear();
-                for (int i = 0; i < markers.Count; i++)
-                {
-                    var m = markers[i];
-                    if (m.Mine != (pass == 0) || m.Length > 0f) continue;
-                    batch.Add(Matrix4x4.TRS(new Vector3(m.Pos.x, RenderGround.Sample(Host.Local.Map, m.Pos.x, m.Pos.z) + 0.4f, m.Pos.z), Quaternion.identity, new Vector3(m.Radius * 2f, 0.05f, m.Radius * 2f)));
-                }
-                if (batch.Count > 0) Flush(sphere, rpMark);
-                // a line ability: the whole corridor, as wide as the payload scatters
-                batch.Clear();
-                for (int i = 0; i < markers.Count; i++)
-                {
-                    var m = markers[i];
-                    if (m.Mine != (pass == 0) || m.Length <= 0f) continue;
-                    // in pieces, each on its own ground sample, so a long corridor follows a ridge instead of floating over it
-                    var rot = Quaternion.LookRotation(m.Dir);
-                    for (float s = 0f; s < m.Length; s += MarkerSegment)
-                    {
-                        float len = Mathf.Min(MarkerSegment, m.Length - s);
-                        var mid = m.Pos + m.Dir * (s + len * 0.5f);
-                        mid.y = RenderGround.Sample(Host.Local.Map, mid.x, mid.z) + 0.4f;
-                        batch.Add(Matrix4x4.TRS(mid, rot, new Vector3(m.Radius * 2f, 0.05f, len)));
-                    }
-                }
-                if (batch.Count > 0) Flush(cube, rpMark);
-            }
+            if (ShowOverlays) DrawMarkers(now, bounds);   // CombatFx.Markers.cs: a rim and a faint fill, not a plate
             DrawMineMarks(bounds);         // our mines and tripwires on the ground (CombatFx.Mines.cs)
             DrawAim(bounds);               // the disc or the corridor being aimed (CombatFx.Abilities.cs)
             TickAbilities(now, bounds);    // the aircraft's run, the beam's sweep

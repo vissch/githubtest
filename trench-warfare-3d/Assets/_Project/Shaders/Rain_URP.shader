@@ -40,7 +40,7 @@ Shader "TW/Rain (URP)"
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 quad : TEXCOORD0; float2 random : TEXCOORD1; };
-            struct Varyings { float4 positionCS : SV_POSITION; half alpha : TEXCOORD0; };
+            struct Varyings { float4 positionCS : SV_POSITION; half alpha : TEXCOORD0; float2 quad : TEXCOORD1; };
 
             Varyings vert(Attributes v)
             {
@@ -70,12 +70,23 @@ Shader "TW/Rain (URP)"
                 float3 face = saturate((0.5 - abs(cell - 0.5)) * 10.0);
                 // snow hands over to the haze at about 80 m instead of being drawn all the way out
                 float far = _Flutter > 0.0 ? 0.55 * saturate((80.0 - reach) / 40.0) : (1.0 - saturate((reach - 95.0) / 40.0));
-                o.alpha = _Color.a * face.x * face.y * face.z * saturate((reach - 3.0) / 8.0) * far * (0.55 + 0.45 * v.random.x)
+                // a flake a few metres from the lens is a hand-sized white diamond on the picture (VFX round 1: "square and
+                // diamond flakes"): snow fades out by 10 m from the eye; rain by 6 m (3 until round 3: a streak that near
+                // the lens crossed a fifth of the picture, "far too long and thick")
+                float nearFade = _Flutter > 0.0 ? saturate((reach - 10.0) / 12.0) : saturate((reach - 6.0) / 10.0);
+                o.quad = v.quad;
+                o.alpha = _Color.a * face.x * face.y * face.z * nearFade * far * (0.55 + 0.45 * v.random.x)
                     * saturate((_Level - v.random.y * 0.9) * 7.0) * (0.6 + 0.6 * _Level);   // this streak only falls when it rains hard enough
                 return o;
             }
 
-            half4 frag(Varyings i) : SV_Target { return half4(_Color.rgb, i.alpha); }
+            half4 frag(Varyings i) : SV_Target
+            {
+                // a flake is round and soft-edged, not the quad it is drawn on; a rain streak only softens its sides
+                float2 q = float2(i.quad.x, i.quad.y * 2.0 - 1.0);
+                half shape = _Flutter > 0.0 ? saturate((1.0 - length(q)) * 2.5) : saturate((1.0 - abs(q.x)) * 2.0);
+                return half4(_Color.rgb, i.alpha * shape);
+            }
             ENDHLSL
         }
     }

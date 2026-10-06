@@ -23,6 +23,12 @@ namespace TW.Presentation.Terrain
         /// <summary>The colour a fresh shell hole burns the ground toward.</summary>
         public static readonly Color Burnt = new Color(.10f, .09f, .08f);
 
+        /// <summary>How burnt the ground is at t of a mark's radius (0 its middle, 1 its rim): a charred core out to about
+        /// half the radius, then falling to nothing at the rim. It was .45 at the very middle falling in a straight line,
+        /// which left a lone shell hole "a faint grey smudge" at the play zoom (VFX round 3).</summary>
+        public static float Burn(float t) => Mathf.Min(BurnCore, BurnCore * 1.9f * (1f - t));
+        public const float BurnCore = .72f;
+
         struct Mark { public float X, Z, Radius, Fresh; }
 
         readonly List<Mark> near = new List<Mark>();
@@ -80,7 +86,7 @@ namespace TW.Presentation.Terrain
                     var mark = near[k];
                     if (Mathf.Abs(wx - mark.X) > mark.Radius || Mathf.Abs(wz - mark.Z) > mark.Radius) continue;
                     float distance = Vector2.Distance(new Vector2(wx, wz), new Vector2(mark.X, mark.Z));
-                    burn = Mathf.Max(burn, .45f * (1f - distance / mark.Radius) * mark.Fresh * mark.Fresh);   // this order, as before
+                    burn = Mathf.Max(burn, Burn(distance / mark.Radius) * mark.Fresh * mark.Fresh);   // this order, as before
                 }
                 buffer[row + i] = Texel(Color.Lerp(c, Burnt, burn));
             }

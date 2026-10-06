@@ -80,6 +80,9 @@ namespace TW.Tests
                 if (k < 10) return 1.4f + 0.25f * k;
                 return 4f + (seconds - 4f) * (k - 9) / 6f;
             }
+            // a strafe's aircraft is five seconds coming: one still of the marked corridor, the rest from its arrival on
+            // (round 3: eight of sixteen stills showed only the marker)
+            if (scene == "strafe") return k == 0 ? 0.5f : 4.5f + (seconds - 4.5f) * (k - 1) / Mathf.Max(1, frames - 2);
             return seconds * k / Mathf.Max(1, frames - 1);
         }
 
@@ -143,6 +146,17 @@ namespace TW.Tests
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
             Time.captureDeltaTime = 1f / 30f;   // the game clock steps 1/30 s a frame while filming (a still stalls ~0.3 s)
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+            // the field's own star shells (one 6 s in, then every half minute) lit other effects' stills cold or yellow
+            // and hung a stray glow in their sky (VFX round 1): only the flare scene fires one
+            var lights = Object.FindFirstObjectByType<TW.Presentation.Terrain.NightLights>();
+            if (lights != null) lights.HoldStarShells();
+            // nor the storm's lightning: a bolt crossed the first still of two scenes (rounds 2 and 3)
+            // (and what it has drawn goes with it: switched off mid-strike, its bolt stood in every still of round 4's last pass)
+            foreach (var storm in Object.FindObjectsByType<TW.Presentation.Terrain.Storm>(FindObjectsSortMode.None))
+            {
+                storm.enabled = false;
+                foreach (Transform child in storm.transform) if (child.name.StartsWith("Lightning")) child.gameObject.SetActive(false);
+            }
 
             var map = Host.Local.Map;
             var size = map.SizeMeters;
@@ -156,11 +170,22 @@ namespace TW.Tests
                     for (float xx = 20f; xx < size.x - 20f && x < 0f; xx += 6f)
                     {
                         bool clear = true;
-                        foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 34f) clear = false;
+                        foreach (var u in used) if (Mathf.Abs(u.x - xx) < Apart && Mathf.Abs(u.y - zz) < Apart) clear = false;
                         if (clear && Open(map, xx, zz, room)) { x = xx; z = zz; }
                     }
                 if (x < 0f) { TestContext.Out.WriteLine(scene + ": no open ground left"); continue; }
                 used.Add(new Vector2(x, z));
+                if (written == 0)
+                {
+                    // the first shot of a run comes out with the camera and the grade not yet settled (VFX round 1: still 1
+                    // of the first scene in a pass framed and lit unlike the rest): one thrown away first
+                    string warm = Path.Combine(dir, "warmup.png");
+                    if (tc != null) tc.BaseYaw = -90f;
+                    var wf = Frame(scene); CaptureRig.Shot(warm, x, z, wf.zoom, wf.yaw, wf.pitch, 1280, 720, wf.aim);
+                    yield return Drain(warm);
+                    if (File.Exists(warm)) File.Delete(warm);
+                    for (int f = 0; f < 45; f++) yield return null;   // one shot was not enough (round 3): the camera glides to its pose
+                }
                 TestContext.Out.WriteLine(scene + " at " + x + ", " + z + ": " + VfxLab.Scene(scene, x, z));
                 var (seconds, frames) = Timing(scene);
                 float start = Time.time;
@@ -190,6 +215,9 @@ namespace TW.Tests
             Assert.Greater(written, 0, "no stills were written");
         }
 
-        static int Late(string scene) => scene == "rain" ? 2 : scene == "flare" ? 1 : 0;
+        // what lights the whole field, then what drifts over it (a smoke screen walked into the strafe's stills, 34 m off),
+        // goes last (56 m apart left no open ground for a third scene); and effects are filmed this far apart
+        static int Late(string scene) => scene == "rain" ? 3 : scene == "flare" ? 2 : scene == "gas" || scene == "smoke" ? 1 : 0;
+        const float Apart = 34f;
     }
 }
