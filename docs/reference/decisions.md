@@ -256,6 +256,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   are still on origin, far behind: `lane/sim/melee-v23`, `lane/sim/wreck-decay`, `lane/show/wreck-stages`.
   `lane/sim/bullfrog` still sits on `melee-v23` until it is rebased. Options: (1) delete the three once bullfrog is
   rebased (the agent's advice); (2) keep them. Default taken: kept.
+- **The machines' reach is not cut by the 20 % (2026-10-06, the agent's choice):** the range cut of 2026-09-28 (every
+  reach 0.8 of its design) and the machines' new reaches of 2026-10-01 (110-155 m) met when `lane/sim/men-under-fire`
+  was rebased. The 2026-10-01 metres are kept as they are, not multiplied by 0.8: they were set against the field (no
+  machine reaches the enemy's front trench from its spawn, every one reaches across no man's land from its own trench,
+  102 m), and at 0.8 the lightest guns (88 m) would no longer cross no man's land. The minimum ranges of the mortar
+  and the rockets keep the cut (37 m and 48 m). Options: (1) keep the metres as measured (taken); (2) cut them by 20 %
+  too and measure the bench again. Default taken: (1), landed with the lane.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
