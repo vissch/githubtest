@@ -339,10 +339,33 @@
     var a = iso(u0, b[3], z1), c = iso(u1, b[3], z0);
     return [a[0], a[1], c[0], c[1]];
   }
+  // Where a frog's name goes on the picture, in px on the stage. Over its frog; when that place is taken, a step to
+  // one side (it still stands over the frog, or begins at it), or up onto the name in the way, whichever moves it
+  // least. Never more than TAG_FAR above its place: a name pushed up past the others stood 100 px from its frog and
+  // said nothing about who it named, and three of them piled up over a doorway. With no place that near, null: the
+  // name is left out (the list and a hover still say it).
+  // cx, top: the middle and the top of the frog's box; w, h: the name's size; placed: the boxes taken, [x0, y0, x1, y1];
+  // W: the stage's width. Returns [x, y, how far up from its place].
+  var TAG_FAR = 24;           // px more than the name's own height: one row up, and the step between two neighbours' heads
+  function tagHit(x, y, w, h, placed) {
+    for (var k = 0; k < placed.length; k++) { var r = placed[k]; if (x < r[2] + 4 && x + w + 4 > r[0] && y < r[3] + 2 && y + h + 2 > r[1]) return r; }
+    return null;
+  }
+  function tagPlace(cx, top, w, h, placed, W) {
+    var base = top - h - 4, best = null;
+    [0, w / 2 - 14, 14 - w / 2, w / 2 + 8, -w / 2 - 8].forEach(function (dx, i) {
+      var x = clamp(cx - w / 2 + dx, 4, Math.max(4, W - w - 4)), y = base, r = tagHit(x, y, w, h, placed), n = 0;
+      while (r && n++ < 4) { y = r[1] - h - 3; r = tagHit(x, y, w, h, placed); }
+      if (r || y < 4 || base - y > h + TAG_FAR) return;
+      var cost = base - y + [0, 4, 4, 8, 8][i];
+      if (!best || cost < best[3]) best = [x, y, base - y, cost];
+    });
+    return best && best.slice(0, 3);
+  }
   // the box a standing frog is drawn in, by where its feet are (housedraw.js draws and clicks it by the same box)
   function frogBox(u, v) { var c = iso(u, v); return [c[0] - 46, c[1] - 156, c[0] + 46, c[1] + 4]; }
 
-  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox, CLEAR: CLEAR,
+  var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox, CLEAR: CLEAR, tagPlace: tagPlace, TAG_FAR: TAG_FAR,
     GATE: GATE, GATE_NODE: GATE_NODE, SPOTS: SPOTS, THINGS: THINGS, NODES: NODES, route: route, length: length, heading: heading, roomOf: roomOf, frogs: frogs, Sim: Sim,
     DWELL: DWELL, demo: demo };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.House = api;

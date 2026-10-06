@@ -487,8 +487,10 @@
       x = Math.max(4, Math.min(W - w - 4, x)); y = Math.max(4, Math.min(Hh - h - 4, y));
       placed.push([x, y, x + w, y + h]); e.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)';
     });
-    // whoever the panel is about is placed first, so its name is never the one that gives way
-    list.slice().sort(function (a, b) { return (b === chosen) - (a === chosen) || (b.box ? b.box[3] : 0) - (a.box ? a.box[3] : 0); }).forEach(function (f) {
+    // whoever the panel is about is placed first, so its name is never the one that gives way; then whoever is at
+    // work in a place of its own, and last whoever only walks by, so a walker's name never takes a worker's place
+    function rank(f) { return f === chosen ? 2 : f.st === 'walk' ? 0 : 1; }
+    list.slice().sort(function (a, b) { return rank(b) - rank(a) || (b.box ? b.box[3] : 0) - (a.box ? a.box[3] : 0); }).forEach(function (f) {
       // on a phone a room fills the picture and the names of whoever shows at its edges covered it: there, only the room's own
       var awake = f.st !== 'sleep' && f.st !== 'down', near = W >= 560 || !focus || (f.at ? f.at.room : f.goal && f.goal.room) === focus;
       var show = f.box && (f === hover || f === chosen || (awake && near && cam.s >= 0.26) || (focus === 'bunk' && cam.s > 0.7));
@@ -499,14 +501,12 @@
       if (e.dataset.sig !== name + '|' + sub + '|' + f.w.kind) { e.dataset.sig = name + '|' + sub + '|' + f.w.kind; e.firstChild.textContent = name; e.lastChild.textContent = sub; e.className = 'h-tag k-' + f.w.kind + (sub ? '' : ' h-bare'); e.hidden = false; e.dataset.w = e.offsetWidth; e.dataset.h = e.offsetHeight; }
       e.classList.toggle('h-walk', f.st === 'walk'); e.classList.toggle('h-on', f === hover || f === pinned); e.classList.toggle('h-shown', f === chosen);
       e.setAttribute('aria-pressed', f === pinned ? 'true' : 'false');
-      var p = toScreen((f.box[0] + f.box[2]) / 2, f.box[1]), w = +e.dataset.w || 80, h = +e.dataset.h || 30, x = p[0] - w / 2, y = p[1] - h - 4, tries = 0, hit = true;
-      while (hit && tries++ < 8) { hit = false; for (var k = 0; k < placed.length; k++) { var r = placed[k]; if (x < r[2] + 4 && x + w + 4 > r[0] && y < r[3] + 2 && y + h + 2 > r[1]) { y = r[1] - h - 3; hit = true; } } }
-      // a name pushed off the top by the others has no place: it is left out (the list and a hover still say it),
-      // where it used to be put back on top of them
-      if (y < 4 && f !== chosen && f !== hover) return;
-      // the chosen one pushed off the top goes under its frog: clamped back to the top it lay over the room's name
-      if (y < 4) y = Math.min(Hh - h - 4, toScreen(0, f.box[3])[1] + 6);
-      x = Math.max(4, Math.min(W - w - 4, x)); y = Math.max(4, y);
+      // a name stays with its frog: over it, a step aside, or one row up (house.js, tagPlace). One with no place that
+      // near is left out (the list and a hover still say it): pushed up past the others it stood far from its frog
+      var p = toScreen((f.box[0] + f.box[2]) / 2, f.box[1]), w = +e.dataset.w || 80, h = +e.dataset.h || 30, at = H.tagPlace(p[0], p[1], w, h, placed, W);
+      if (!at && f !== chosen && f !== hover) { e.hidden = true; return; }
+      // the chosen one with no place goes under its frog: it is never the one left out
+      var x = at ? at[0] : Math.max(4, Math.min(W - w - 4, p[0] - w / 2)), y = at ? at[1] : Math.max(4, Math.min(Hh - h - 4, toScreen(0, f.box[3])[1] + 6));
       placed.push([x, y, x + w, y + h]); want[f.key] = true;
       e.style.transform = 'translate(' + Math.round(x) + 'px,' + Math.round(y) + 'px)'; e.hidden = false;
     });
