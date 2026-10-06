@@ -69,8 +69,11 @@ def real_tree():
     tags = assets['House0']['level_tags']
     case('real tree: the village houses are placed only where there is a river', 'ShelledForest' in tags and 'WinterLine' not in tags, tags)
     case('real tree: the Salvo has its sixteen rocket tubes', sum(s.startswith('Socket_Tube') for m in assets['Salvo']['models'] for s in m['sockets']) == 16)
-    case('real tree: the jetpack leap is an event nothing draws', 'LeapStarted' in extra['orphan_events']
-         and any(not r['ok'] for r in assets['Jetpack']['vfx']['rows']), extra['orphan_events'])
+    # the sapper since the VFX pass (2026-09-28) drew the jetpack's leap, which had been this case's example
+    case('real tree: the sapper laying is an event nothing draws', 'SapperLaying' in extra['orphan_events']
+         and any(not r['ok'] for r in assets['Sapper']['vfx']['rows']), extra['orphan_events'])
+    case('real tree: the jetpack leap is drawn', 'LeapStarted' not in extra['orphan_events']
+         and all(r['ok'] for r in assets['Jetpack']['vfx']['rows']), assets['Jetpack']['vfx']['rows'])
     case('real tree: an idea from the notes file is a bucket of its own', assets['Arditi']['status'] == 'IDEA')
     clips = code['clips']
     groups = []
