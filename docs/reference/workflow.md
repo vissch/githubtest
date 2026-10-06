@@ -194,6 +194,13 @@ powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -Module Sim,Matc
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -Long    # any -EditOnly run, with the Long tests too
 powershell -NoProfile -ExecutionPolicy Bypass -File ../gate.ps1 -EditOnly -Plan    # say what would run; run nothing
 ```
+An agent session that starts the full gate as a background job loses it when the session ends (25 minutes, no
+verdict). Start it so that it outlives the session:
+```bash
+python Tools/gate_bg.py            # the full gate as a process of its own; the log is tw-gate.log in this checkout's git dir
+python Tools/gate_bg.py --wait     # wait for it and print the verdict (exit 0: green)
+python Tools/gate_bg.py --status   # running, green, or how it ended
+```
 `-EditOnly` skips a slow module only when nothing your lane changed can reach it. It compares the working tree
 with the merge-base on origin's integration branch, so a lane that touched the sim runs the sim tests on every commit:
 

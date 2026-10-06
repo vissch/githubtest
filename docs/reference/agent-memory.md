@@ -140,3 +140,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-10-03. "Unity cannot run from an administrator session" was believed for four days and was wrong.** Batch mode runs
   elevated (it logs a warning) and has the graphics card. What hung was a windowed editor with no desktop, and a `unity`
   launcher ahead of the CLI on PATH. A batch editor left open answers `tw eval`, enters Play and renders (`workflow.md`, section 3).
+- **2026-10-07. A full gate died with the session that started it** (PlayMode part, no verdict, half an hour). Start it
+  with `Tools/gate_bg.py`. The same night: `selftest.py` had left 151 folders in the temp folder (rmtree stops at git's
+  read-only objects on Windows), one a registered worktree with a broken index that failed git's upkeep on every fetch.
