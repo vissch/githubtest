@@ -20,22 +20,16 @@ namespace TW.Tests
 
         struct Outcome
         {
-            public int RearGarrison, RearPostless, FrontGarrison, Alive;
+            public int RearGarrison, RearPostless, FrontGarrison, Alive, HeroCount, HeroTeamMask;
             public bool RearLocked, FrontLocked, Desync;
             public ulong Hash;
         }
-
-        /// <summary>The player's side may have a hero (HeroSystem, units-meta): on this map one comes at about tick 860 and
-        /// leads 57 of the front trench's 77 men over the top, which is the game working, not the spread failing
-        /// (measured in the editor, 2026-09-27). These tests are about the preset, so every world they build, the
-        /// peer's too, runs without heroes.</summary>
-        static MatchSim NoHeroes(MatchSim m) { m.World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask = 0; return m; }
 
         static Outcome Play(bool spread, bool canary)
         {
             var cfg = SimConfig.Default;
             cfg.StartingSilver = PerSide * 25;   // SimHost's stress silver
-            using var session = new LockstepSession(() => NoHeroes(MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u))),
+            using var session = new LockstepSession(() => SimHost.StressPreset(MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u))),
                                                     canary, canary ? 2 : 0, canary ? 1 : 0, canary ? 0.05f : 0f, cfg.Seed);
             var ai = new ScriptedEnemy { StressUnits = PerSide, StressSpread = spread };
             int guard = Ticks * 40;
@@ -47,7 +41,9 @@ namespace TW.Tests
             short rear = m.Fields.RearTrench(0), front = m.Fields.FrontTrench(0);
             Assert.That(rear >= 0 && front >= 0 && rear != front, "the player should own a rear and a front trench at this tick");
             var o = new Outcome { RearLocked = m.Fields.Trenches[rear].Locked != 0, FrontLocked = m.Fields.Trenches[front].Locked != 0,
-                                  Desync = session.Desync, Hash = w.Hash(), Alive = w.AliveCount };
+                                  Desync = session.Desync, Hash = w.Hash(), Alive = w.AliveCount,
+                                  HeroCount = w.GetSystem<TW.Sim.Combat.HeroSystem>().HeroCount,
+                                  HeroTeamMask = w.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask };
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!w.IsAlive(i) || w.Team[i] != 0) continue;
@@ -75,6 +71,32 @@ namespace TW.Tests
             Assert.That(!o.RearLocked && !o.FrontLocked, "the old preset locks nothing");
             Assert.That(o.RearPostless >= 60, $"the old preset stands the whole army in the rear trench; only {o.RearPostless} there have no post");
             Assert.That(o.FrontGarrison == 0, $"the old preset never mans the front trench, and {o.FrontGarrison} men hold it");
+        }
+
+        /// <summary>The owner, 2026-10-06: the stress preset fields no hero on either side, so the bench times a steady
+        /// scene. A hero need not appear at 200 a side in 900 ticks, so the mask is the proof, with the id counter beside it.</summary>
+        [Test]
+        public void StressPreset_FieldsNoHeroOnEitherSide()
+        {
+            var o = Play(spread: true, canary: false);
+            TestContext.WriteLine($"heroes: mask {o.HeroTeamMask}, {o.HeroCount} ever raised");
+            Assert.That(o.HeroTeamMask, Is.EqualTo(0), "the stress preset let a team field a hero");
+            Assert.That(o.HeroCount, Is.EqualTo(0), $"{o.HeroCount} heroes rose in the stress preset");
+        }
+
+        [Test]
+        public void StressPreset_HeroesKnob_IsThePresetBefore20261006()
+        {
+            try
+            {
+                Knobs.Set(SimHost.StressHeroesKnob, "1");
+                var cfg = SimConfig.Default;
+                cfg.StartingSilver = PerSide * 25;
+                var m = SimHost.StressPreset(MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u)));
+                Assert.That(m.World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask, Is.EqualTo(1),
+                            "stress.heroes=1 should leave the sim's own default mask alone");
+            }
+            finally { Knobs.Clear(); }
         }
 
         [Test, Category("Long")]
