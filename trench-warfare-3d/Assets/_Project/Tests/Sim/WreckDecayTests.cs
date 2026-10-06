@@ -413,6 +413,9 @@ namespace TW.Tests
             return null;
         }
 
+        // the machine gun stands inside its own reach and outside a rifle's: 150 m of design, cut with every reach
+        // (CombatTables.RangeScale, the owner, 2026-09-28): 120 m, between the rifle's 104 and the gun's 136
+        const float GunOff = 150f * CombatTables.RangeScale;
         const int Settle = 10;
 
         /// <summary>Run `ticks` (counting after the first Settle): the shooter's shots at the wreck and at anyone, and the
@@ -443,8 +446,8 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             using var twin = NewMatch();
-            var men = Hidden(m, InfantryArchetype.Machinegunner, 150f, out int wreck, out int gun);
-            Hidden(twin, InfantryArchetype.Machinegunner, 150f, out _, out _);
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            Hidden(twin, InfantryArchetype.Machinegunner, GunOff, out _, out _);
             var (atWreck, atMen, suppressed) = Watch(m, wreck, gun, men, 400, twin: twin);
             Assert.AreEqual(0, atMen, "below the rim and out of their rifles' range, nobody is seen");
             Assert.Greater(atWreck, 20, "so the gun fires at the wreck they are behind (Shot.b names it)");
@@ -466,7 +469,7 @@ namespace TW.Tests
         public void ALivingTargetAlwaysWins()
         {
             using var m = NewMatch();
-            var men = Hidden(m, InfantryArchetype.Machinegunner, 150f, out int wreck, out int gun);
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
             // an enemy in the open, 20 m from the gun, toward nobody's trench: seen at once
             var p = m.World.Position[gun];
             int bait = -1;
@@ -514,7 +517,7 @@ namespace TW.Tests
             // hashed as numbers and read by the picture: an insert would renumber everything after it
             Assert.AreEqual(4, (int)PropKind.Wreck); Assert.AreEqual(5, (int)PropKind.Bridge);
             Assert.AreEqual(6, (int)PropKind.BrokenWreck); Assert.AreEqual(7, (int)PropKind.Scrap); Assert.AreEqual(8, (int)PropKind.Cleared);
-            Assert.AreEqual((int)SimEventType.RocketFired + 1, (int)SimEventType.PropWorn);
+            Assert.AreEqual((int)SimEventType.PounceLanded + 1, (int)SimEventType.PropWorn);   // after hand to hand's five (v25)
         }
 
         [Test]
