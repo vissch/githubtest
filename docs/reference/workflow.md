@@ -433,6 +433,17 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Textures(path, top)` | Editor/CaptureRig.cs | Every texture in memory, largest first, with what it really costs, and a count of the distinct materials and shaders the props are drawn with. |
 | `TW.Editor.CaptureRig.Stress(unitsPerSide, path, frames, settleSeconds)` | Editor/CaptureRig.cs | Profiles the game with `unitsPerSide` riflemen deployed by EACH side (so 1000 is the documented 2,000-man stress preset), then puts the scene back as ... |
 | `TW.Editor.CrabManifest.MachineOf(assetPath)` | Editor/CrabManifest.cs | The machine a model file belongs to: "Kettle" for .../Kettle_LOD1.fbx. |
+| `TW.Editor.DeathLab.Absurd(intensity)` | Editor/DeathLab.cs | Pins how absurd the deaths are (0 today's, 1 the new look, 2 ludicrous; negative: the knob decides). |
+| `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
+| `TW.Editor.DeathLab.Shell(x, z, radius, damage)` | Editor/DeathLab.cs | One shell, bursting next tick in every world (the men it kills die of it as they would in battle). |
+| `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
+| `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
+| `TW.Editor.DeathLab.Scene(name, x, z)` | Editor/DeathLab.cs | A whole staging by name at (x, z): a row of men and what kills them. |
+| `TW.Editor.DeathLab.Machine(archetype, x, z)` | Editor/DeathLab.cs | A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the picture draws it there (a machine killed the ... |
+| `TW.Editor.DeathLab.Parts(x, z)` | Editor/DeathLab.cs | One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z) along x, a metre apart and a metre up, in the ... |
+| `TW.Editor.DeathLab.DriveAt(slot, x, z)` | Editor/DeathLab.cs | A machine driven straight at a point (VehicleKinematicsSystem.DriveStraight), not along a flow field (the crush stills' Maw sat still on a field goal ... |
+| `TW.Editor.DeathLab.Later(seconds, act)` | Editor/DeathLab.cs | `act` once, `seconds` of play from now (a frame at a time, from the editor's update). |
+| `TW.Editor.DeathLab.Disarm(slot)` | Editor/DeathLab.cs | A machine's guns put out of action (GunHealth 0, as a knocked-out gun) once its gunnery has taken the slot on: the first tick after a spawn sets ... |
 | `TW.Editor.EnvPropEditing.LearnLooks()` | Editor/EnvPropEditor.cs | Makes each kind's look from the hand edits (the owner's way of setting them, 2026-09-22): the scale the edited props were given becomes the kind's ... |
 | `TW.Editor.Gym.Run(options)` | Editor/Gym.cs | Play the catalogue unattended. |
 | `TW.Editor.Gym.Root()` | Editor/Gym.cs | The folder gym runs go in: TW_GYM, else %LOCALAPPDATA%\TrenchWarfare\gym. |
