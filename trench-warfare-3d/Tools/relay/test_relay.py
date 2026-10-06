@@ -297,6 +297,16 @@ class Guards(Base):
         self.assertEqual((ok.returncode, ok.stdout.strip()), (0, b""))
         self.assertEqual(len((d / "calls.jsonl").read_text(encoding="utf-8").splitlines()), 2)
 
+    def test_hooks_that_log_at_the_same_moment_lose_no_line(self):
+        # one batch of tool calls runs its hooks together; a lost line reads to the audit as an unguarded call
+        d = self.leg()
+        code = ("import sys; sys.path.insert(0, sys.argv[1]); import relay_hook as H\n"
+                "for i in range(40): H.append(sys.argv[2], 'calls.jsonl', {'id': sys.argv[3] + '-%d' % i})\n")
+        ps = [subprocess.Popen([sys.executable, "-c", code, str(HERE), str(d), str(k)]) for k in range(8)]
+        self.assertEqual({p.wait() for p in ps}, {0})
+        ids = [json.loads(x)["id"] for x in (d / "calls.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual((len(ids), len(set(ids))), (320, 320))
+
     def test_rules_that_cannot_be_read_refuse_everything(self):
         d = self.leg()
         (d / "leg.json").write_text("{ not json", encoding="utf-8")
