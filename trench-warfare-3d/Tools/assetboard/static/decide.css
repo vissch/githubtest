@@ -1,5 +1,5 @@
 /* The decisions page (decide.html, decide.js): a brief a card, its text on the left and what it shows on the right.
-   In the look of kinetic.css, whose tokens are used: near-black cards, pills for the options, one accent for the
+   In the look of kinetic.css, whose tokens are used: navy cards, pills for the options, one accent for the
    option the writer would take. Its own file: kinetic.css is a log of review rounds. */
 .d-page .k-head { margin-bottom: 18px; }
 .d-count { color: var(--k-soft); font: 500 14px var(--sans); margin: 10px 0 0; }
@@ -29,7 +29,7 @@
 .d-key { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: var(--s-line); color: #fff; font: 700 14px var(--sans); }
 .d-pick .d-key { background: var(--k-fire); }
 .d-tag { padding: 4px 9px; border-radius: 999px; border: 1px solid rgba(255, 74, 28, .6); color: #ffd2c4; font: 600 11px/1 var(--sans); white-space: nowrap; }
-.d-opt.on { background: var(--plate); color: var(--k-ink); border-color: var(--plate); }
+.d-opt.on { background: var(--t-bright); color: #0b101d; border-color: var(--t-bright); }          /* the one taken is the light pill, as a chosen chip is */
 .d-opt.on .d-key { background: var(--k-ink); color: #fff; } .d-opt.on .d-tag { border-color: #b82506; color: #b82506; }
 .d-opt:disabled { cursor: default; opacity: .75; } .d-opt.on:disabled { opacity: 1; }
 /* what happens when he takes the option (briefs.py then): under its text, in the soft tone; darker on the light plate of the one taken */

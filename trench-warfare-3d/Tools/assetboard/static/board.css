@@ -42,16 +42,20 @@
 .b-asset img { display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; background: var(--s-panel); }
 .b-asset span { display: block; padding: 6px 8px; font-size: 12.5px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .b-none { color: var(--t-soft); margin: 0 0 8px; }
-.b-note { padding: 10px 12px; border-radius: 10px; background: var(--s-raise); margin: 0 0 8px; border-left: 3px solid #ffb03a; }
-.b-note.b-done { border-left-color: var(--s-line3); }
-.b-note.b-unsent { border-left-color: #d03b3b; }
+/* the notes stand on one line down the panel, a dot each for its state: open amber, answered blue, not sent red */
+.b-note { position: relative; padding: 0 0 14px 20px; margin: 0; }
+.b-note::before { content: ""; position: absolute; left: 0; top: 4px; width: 9px; height: 9px; border-radius: 50%; background: #ffb03a; box-shadow: 0 0 0 3px rgba(255, 176, 58, .18); }
+.b-note::after { content: ""; position: absolute; left: 4px; top: 18px; bottom: 2px; width: 1px; background: var(--s-line2); }
+.b-note:last-child { padding-bottom: 4px; } .b-note:last-child::after { display: none; }
+.b-note.b-done::before { background: #5b9dff; box-shadow: 0 0 0 3px rgba(91, 157, 255, .18); }
+.b-note.b-unsent::before { background: #ff5a4f; box-shadow: 0 0 0 3px rgba(255, 90, 79, .18); }
 .b-note-head { display: flex; flex-wrap: wrap; gap: 8px; align-items: baseline; font-size: 12px; color: var(--t-soft); }
 .b-state { font-weight: 700; color: #ffcf7a; }
-.b-done .b-state { color: var(--t-soft); } .b-unsent .b-state { color: #f08a8a; }
+.b-done .b-state { color: #8fbaff; } .b-unsent .b-state { color: #ff9a8f; }
 .b-on { color: var(--t-light2); }
 .b-text { margin: 4px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--t-bright); }
-.b-answer { margin: 8px 0 0; padding: 8px 10px; border-radius: 8px; background: var(--s-card); white-space: pre-wrap; overflow-wrap: anywhere; }
-.b-answer b { color: #9fd0a7; font-weight: 600; font-size: 12px; display: block; }
+.b-answer { margin: 8px 0 0; padding: 8px 10px; border-radius: 10px; background: rgba(11, 16, 29, .45); border: 1px solid var(--glass-edge, rgba(148, 170, 255, .14)); white-space: pre-wrap; overflow-wrap: anywhere; }
+.b-answer b { color: #6ee7a8; font-weight: 600; font-size: 12px; display: block; }
 .b-why { margin: 6px 0 0; color: #f0a8a8; font-size: 12.5px; }
 .b-link { margin: 6px 0 0; padding: 0; border: 0; background: none; color: var(--t-soft); font: inherit; font-size: 12.5px; text-decoration: underline; cursor: pointer; }
 .b-link:hover { color: #fff; }
@@ -88,10 +92,13 @@
 }
 
 /* ---- the graphs page */
-.g-page { --g-surface: #1c1c1d; --g-ink: #ffffff; --g-ink2: #c3c2b7; --g-muted: #898781; --g-grid: #2c2c2a; --g-axis: #383835;
-  --g-work: #3987e5; --g-lab: #d95926; --g-shop: #199e70; --g-studio: #c98500; --g-plan: #d55181; --g-one: #3987e5; --g-off: #5a5a57; }
+/* the graphs' own colours on the navy card: a room keeps its colour; the five steps of a model run from a blue that
+   still reads on the card to near-white (charts.js reads all of them here) */
+.g-page { --g-surface: #172033; --g-ink: #ffffff; --g-ink2: #b5bed2; --g-muted: #8291b3; --g-grid: #222d47; --g-axis: #34425f;
+  --g-work: #4b93ee; --g-lab: #e8652e; --g-shop: #22b07d; --g-studio: #d99a1c; --g-plan: #e0609a; --g-one: #4b93ee; --g-off: #56658c;
+  --g-st1: #3f74c9; --g-st2: #5590e6; --g-st3: #74abff; --g-st4: #a3c7ff; --g-st5: #dbe8fc; }
 .g-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; }
-.g-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--s-line); color: var(--g-ink); text-decoration: none; min-width: 0; }
+.g-tile { display: grid; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); color: var(--g-ink); text-decoration: none; min-width: 0; }
 a.g-tile:hover, a.g-tile:focus-visible, button.g-tile:hover, button.g-tile:focus-visible { border-color: #ff4a1c; }
 button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .g-tile .g-l { color: var(--g-ink2); font-size: 13px; }
@@ -99,7 +106,7 @@ button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .g-tile .g-d { color: var(--g-muted); font-size: 12.5px; min-height: 1.2em; }
 .g-tile svg { display: block; width: 100%; height: 34px; margin-top: 4px; }
 .g-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
-.g-card { position: relative; padding: 18px 18px 14px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--s-line); min-width: 0; }
+.g-card { position: relative; padding: 18px 18px 14px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); min-width: 0; }
 .g-card.g-wide { grid-column: 1 / -1; }
 .g-card h3 { margin: 0; font: 600 17px/1.2 Inter, "Segoe UI", sans-serif; color: var(--g-ink); letter-spacing: -.01em; }
 .g-card .g-what { margin: 4px 0 10px; color: var(--g-ink2); font-size: 13px; }

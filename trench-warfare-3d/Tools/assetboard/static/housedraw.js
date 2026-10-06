@@ -15,15 +15,19 @@
   var q = new URLSearchParams(location.search), demo = q.has('demo'), shot = q.has('shot');
   var still = !shot && window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   var sim = new H.Sim(F), COS = H.COS, SIN = H.SIN, iso = H.iso;
-  var DIMMEST = q.get('plates') === 'light' ? 0.1 : 0.8;          // how far a room nobody is awake in goes to near-black
+  var DIMMEST = q.get('plates') === 'light' ? 0.1 : 0.88;         // how far a room nobody is awake in goes to the night colour
 
-  // ---- colours: the site's own (kinetic.css): light grey plates and near-black, one orange-red accent with amber
-  // beside it, green for what is at work. A room is a rounded plate: light where someone is awake, near-black where
-  // nobody is, so the lit plates are where the work is. What stands in a room is grey, white or ink, and each room
-  // has one thing in the accent.
+  // ---- colours: the site's own (kinetic.css): one orange-red accent with amber beside it, green for what is at
+  // work. A room is a rounded plate: light where someone is awake, navy where nobody is, so the lit plates are
+  // where the work is. What stands in a lit room is grey, white or ink, and each room has one thing in the accent;
+  // a room nobody is awake in is drawn in thin blue lines on its navy plate. The night colour, that line and the
+  // pond are the stage's (house.css, --h-night, --h-dimline, --h-pond), so the picture follows the page's look.
   var PLATE = [242, 242, 242], GREY = [230, 230, 230], EDGE = [205, 205, 205], SOFT = [154, 154, 154], WHITE = [255, 255, 255];
   var DARK = [18, 18, 18], DARK2 = [28, 28, 29], DARK3 = [42, 42, 44], FIRE = [255, 74, 28], FIRE2 = [255, 176, 58], WORK = [34, 197, 94], LEAF = [34, 160, 84];
-  var NIGHT = DARK, INK = 'rgba(18,18,18,.62)', LINE = 2.2, ROUND = 44, GAP = 7;      // a room's corners, and the dark between two rooms
+  var look = getComputedStyle(stage);
+  function shade(name, or) { var v = look.getPropertyValue(name).split(',').map(Number); return v.length === 3 && v.every(isFinite) ? v : or; }
+  var NIGHT = shade('--h-night', DARK), DIMLINE = shade('--h-dimline', [154, 154, 154]), POND = shade('--h-pond', DARK2);
+  var INK_LIT = 'rgba(18,18,18,.62)', INK = INK_LIT, LINE = 2.2, ROUND = 44, GAP = 7;      // a room's corners, and the dark between two rooms
   var LOOK = {
     lab: { floor: [244, 244, 244], line: [224, 224, 224], wall: [250, 250, 250] },
     shop: { floor: [230, 230, 230], line: [210, 210, 210], wall: [240, 240, 240] },
@@ -40,8 +44,11 @@
   function css(c, a) { return 'rgba(' + (c[0] | 0) + ',' + (c[1] | 0) + ',' + (c[2] | 0) + ',' + (a == null ? 1 : a) + ')'; }
   function tone(c, room, k) {            // a colour as it looks in this room now; k lightens (+) or darkens (-)
     if (k) c = k > 0 ? mix(c, [255, 255, 255], k) : mix(c, [0, 0, 0], -k);
-    return css(mix(c, NIGHT, Math.min(DIMMEST, (1 - (room ? lit[room] : 1)) * 1.7)));        // a room nobody is awake in is a near-black plate
+    return css(mix(c, NIGHT, Math.min(DIMMEST, (1 - (room ? lit[room] : 1)) * 1.7)));        // a room nobody is awake in is a navy plate
   }
+  // is this room drawn as one nobody is awake in: its outlines are the thin blue line then, where a lit room's are ink
+  function dimmed(room) { return DIMMEST > 0.5 && !!room && (1 - lit[room]) * 1.7 > 0.5; }
+  function inkOf(room) { return dimmed(room) ? css(DIMLINE, 0.36) : INK_LIT; }
 
   // ---- the camera: the whole house, or one room
   var W = 0, Hh = 0, dpr = 1, cam = { x: 0, y: 0, s: 0.4 }, aim = { x: 0, y: 0, s: 0.4 }, focus = q.get('room') || '';
@@ -116,9 +123,10 @@
       var L = LOOK[r.id], w = r.u1 - r.u0, d = r.v1 - r.v0;
       onFloor(function () {
         ctx.beginPath(); ctx.roundRect(r.u0 + GAP, r.v0 + GAP, w - 2 * GAP, d - 2 * GAP, ROUND); ctx.fillStyle = tone(L.floor, r.id); ctx.fill();
-        ctx.strokeStyle = 'rgba(255,255,255,.16)'; ctx.lineWidth = 3; ctx.stroke();          // the edge of a card: a dark plate still reads as a room
+        var dim = dimmed(r.id), ln = dim ? css(mix(NIGHT, DIMLINE, 0.22)) : tone(L.line, r.id);
+        ctx.strokeStyle = dim ? css(DIMLINE, 0.5) : 'rgba(255,255,255,.16)'; ctx.lineWidth = 3; ctx.stroke();          // the edge of a card: a dark plate still reads as a room
         ctx.save(); ctx.clip();
-        ctx.fillStyle = tone(L.line, r.id); ctx.strokeStyle = tone(L.line, r.id); ctx.lineWidth = 2;
+        ctx.fillStyle = ln; ctx.strokeStyle = ln; ctx.lineWidth = 2;
         var i, j;
         if (r.id === 'hall') { for (i = 0; i * 70 < w; i++) for (j = 0; j * 70 < d; j++) if ((i + j) % 2) ctx.fillRect(r.u0 + i * 70, r.v0 + j * 70, 70, 70); }
         else if (r.id === 'work') { for (j = 0; j * 46 < d; j++) { ctx.fillRect(r.u0, r.v0 + j * 46, w, 2); for (i = 0; i * 180 < w + 180; i++) ctx.fillRect(r.u0 + i * 180 - (j % 3) * 60, r.v0 + j * 46, 2, 46); } }
@@ -137,13 +145,14 @@
       ctx.beginPath(); ctx.roundRect(1260 + GAP, 1160 + GAP, 760 - 2 * GAP, 330, ROUND); ctx.fill();
       ctx.fillStyle = 'rgba(242,242,242,.92)'; for (var i = 0; i < 9; i++) { ctx.beginPath(); ctx.roundRect(1330 + i * 76, 1186 + (i % 2) * 8, 56, 40, 20); ctx.fill(); }
     });
-    disc(330, 330, 150, 0, 'rgba(28,28,29,.96)', 'rgba(255,255,255,.2)'); disc(330, 330, 118, 0, 'rgba(255,255,255,.06)');
+    disc(330, 330, 150, 0, css(POND, 0.96), css(DIMLINE, 0.4)); disc(330, 330, 118, 0, 'rgba(255,255,255,.06)');
     [[280, 300, 26], [390, 372, 20], [352, 262, 15]].forEach(function (p, i) { disc(p[0], p[1], p[2], 0, css(LEAF, 0.95), 'rgba(18,18,18,.5)'); if (!i) disc(p[0] + 6, p[1] - 4, 7, 4, css(FIRE)); });
     var rip = (t * 0.25) % 1; disc(330, 330, 40 + rip * 70, 0, null, 'rgba(242,242,242,' + (0.4 * (1 - rip)).toFixed(3) + ')');
     // the rug, the stage and the mats
     H.THINGS.forEach(function (th) {
       if (!th.over) return;
       var b = th.box, room = th.room;
+      INK = inkOf(room);
       if (th.kind === 'rug') onFloor(function () {       // the accent of the hall: an orange card with the site's eight-point star
         var cu = (b[0] + b[2]) / 2, cv = (b[1] + b[3]) / 2, k;
         ctx.beginPath(); ctx.roundRect(b[0], b[1], b[2] - b[0], b[3] - b[1], 36); ctx.fillStyle = tone(FIRE, room); ctx.fill();
@@ -160,6 +169,7 @@
         box(b[2] - 46, b[1] + 9, b[2] - 9, b[3] - 9, b[4], b[4] + 8, [252, 250, 244], room);          // the pillow, at the head end
       }
     });
+    INK = INK_LIT;
   }
   // where each room's name stands: over the middle of its back wall, or outside its front edge when it has none
   var NAMEAT = { lab: [280, 640, H.TALL, -1], shop: [910, 0, H.TALL, -1], studio: [0, 1480, H.TALL, -1], hall: [910, 750, 150, -1], bunk: [1640, 0, H.TALL, -1],
@@ -426,7 +436,7 @@
     });
     function line(fs) { fs.sort(function (a, b) { return a.depth - b.depth; }).forEach(function (f) { frog(f, t); }); }
     line(first);
-    for (i = 0; i < statics.length; i++) { statics[i].draw(t); line(slots[i]); }
+    for (i = 0; i < statics.length; i++) { INK = inkOf(statics[i].room); statics[i].draw(t); INK = INK_LIT; line(slots[i]); }
     if (sh && sh.box) ring(sh, t, true);
     tags();
   }

@@ -26,7 +26,9 @@
   var el = C.el, NS = 'http://www.w3.org/2000/svg';
   var ROOM = { work: 'Workroom', lab: 'Lab', shop: 'Workshop', studio: 'Studio', plan: 'War room' };
   var ROOM_DOES = { work: 'code, docs, commits', lab: 'reading, searching, tests', shop: 'builds, Unity, tools', studio: 'films, art, animation', plan: 'plans, briefing agents' };
+  // the five steps of a model, dark to light: the page's own colours (board.css, --g-st1 to --g-st5), else these
   var STATUS = [['IDEA', 'Idea', '#184f95'], ['NEEDS_VISUAL', 'Needs a visual', '#256abf'], ['IN_PROGRESS', 'In progress', '#3987e5'], ['READY_UNUSED', 'Ready, not used', '#6da7ec'], ['FINAL', 'Final, in the battle', '#b7d3f6']];
+  STATUS.forEach(function (st, i) { st[2] = getComputedStyle(page).getPropertyValue('--g-st' + (i + 1)).trim() || st[2]; });
   var KIND = { character: 'Characters', vehicle: 'Vehicles', building: 'Buildings' };
   function css(name) { return getComputedStyle(page).getPropertyValue(name).trim(); }
   var calm = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;

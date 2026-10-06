@@ -13,35 +13,42 @@
 .h-chip.on { background: #f2f2f2; color: #121212; border-color: #f2f2f2; } .h-chip.on b { color: #555; }
 .h-chip:focus-visible, .h-tag:focus-visible, .h-row:focus-visible, .h-sleeper:focus-visible { outline: 2px solid #ffb03a; outline-offset: 2px; }
 
-.h-stage { position: relative; aspect-ratio: 3388 / 1602; min-height: 280px; border-radius: 24px; overflow: hidden; isolation: isolate;
-  background: radial-gradient(120% 90% at 50% 38%, #1f1f20 0%, #141414 55%, #0c0c0c 100%); }
+/* the stage: navy, with a faint grid in the plan's own two directions. The canvas reads three of its colours here
+   (housedraw.js): what a room nobody is awake in dims to, the line such a room is drawn with, and the pond. */
+.h-stage { position: relative; aspect-ratio: 3388 / 1602; min-height: 280px; border-radius: var(--r-l, 18px); overflow: hidden; isolation: isolate;
+  --h-night: 15, 22, 40; --h-dimline: 122, 158, 255; --h-pond: 14, 21, 38;
+  border: 1px solid rgba(148, 170, 255, .1);
+  background: repeating-linear-gradient(60deg, rgba(130, 160, 255, .045) 0 1px, transparent 1px 46px), repeating-linear-gradient(120deg, rgba(130, 160, 255, .045) 0 1px, transparent 1px 46px),
+    radial-gradient(120% 90% at 50% 38%, #172341 0%, #0f182c 55%, #090e1b 100%); }
 #h-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
 .h-tags { position: absolute; inset: 0; pointer-events: none; }
-.h-tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; max-width: 200px; padding: 4px 9px 5px 18px; border: 0; border-radius: 10px;
-  background: rgba(16, 16, 18, .84); color: #fff; font: 600 12px/1.2 Inter, "Segoe UI", sans-serif; text-align: left; white-space: nowrap; pointer-events: auto; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .35); will-change: transform; }
-.h-room { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 0; border-radius: 999px; background: rgba(242, 242, 242, .94);
-  color: #121212; font: 700 11.5px/1 Inter, "Segoe UI", sans-serif; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; pointer-events: auto; cursor: pointer;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, .35); will-change: transform; }
-.h-room span { font-weight: 700; color: #5f5f5f; letter-spacing: 0; font-variant-numeric: tabular-nums; }
-.h-room.lit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; }
-.h-room.on { background: #ffb03a; } .h-room:focus-visible { outline: 2px solid #ffb03a; outline-offset: 2px; }
-.h-tag::before { content: ""; position: absolute; left: 7px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--kc, var(--s-mute4)); }
+.h-tag { position: absolute; left: 0; top: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; max-width: 200px; padding: 4px 9px 5px 18px; border: 1px solid rgba(148, 170, 255, .2); border-radius: 10px;
+  background: rgba(11, 16, 29, .9); color: #fff; font: 600 12px/1.2 Inter, "Segoe UI", sans-serif; text-align: left; white-space: nowrap; pointer-events: auto; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .4); will-change: transform; }
+/* a room's name: a dark pill, a green light on it when someone is awake there, an amber edge when stepped into */
+.h-room { position: absolute; left: 0; top: 0; display: inline-flex; align-items: center; gap: 7px; padding: 5px 11px; border: 1px solid rgba(148, 170, 255, .3); border-radius: 999px; background: rgba(11, 16, 29, .88);
+  color: #f1f4f8; font: 700 11.5px/1 Inter, "Segoe UI", sans-serif; letter-spacing: .04em; text-transform: uppercase; white-space: nowrap; pointer-events: auto; cursor: pointer;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, .4); will-change: transform; }
+.h-room span { font-weight: 700; color: #8d9bb9; letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.h-room.lit::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, .2); }
+.h-room:hover { border-color: rgba(148, 170, 255, .6); }
+.h-room.on { border-color: #ffb03a; color: #ffcf7a; } .h-room:focus-visible { outline: 2px solid #ffb03a; outline-offset: 2px; }
+.h-tag::before { content: ""; position: absolute; left: 7px; top: 8px; width: 6px; height: 6px; border-radius: 50%; background: var(--kc, #9a9a9a); }
 .h-tag b, .h-tag span { display: block; max-width: 174px; overflow: hidden; text-overflow: ellipsis; }
-.h-tag span { font-weight: 500; color: #b9bcc6; font-size: 11.5px; } .h-tag.h-bare span { display: none; }
+.h-tag span { font-weight: 500; color: #b5bed2; font-size: 11.5px; } .h-tag.h-bare span { display: none; }
 .h-tag.h-walk span { color: #ffcf8a; }
-.h-tag.h-on { background: #f2f2f2; color: #121212; z-index: 2; } .h-tag.h-on span { color: #555; }
-/* whoever the profile is about (the frog picked, or on the control screen the one the house follows): the light name, ringed in the accent like the floor under it */
-.h-tag.h-shown { background: #f2f2f2; color: #121212; z-index: 2; box-shadow: 0 0 0 2px #ff4a1c, 0 2px 10px rgba(0, 0, 0, .35); } .h-tag.h-shown span { color: #555; }
+.h-tag.h-on { background: #1e2a44; border-color: rgba(148, 170, 255, .55); z-index: 2; }
+/* whoever the profile is about (the frog picked, or on the control screen the one the house follows): ringed in the accent like the floor under it */
+.h-tag.h-shown { background: rgba(11, 16, 29, .96); border-color: #ff4a1c; z-index: 2; box-shadow: 0 0 0 1px #ff4a1c, 0 6px 22px -6px rgba(255, 74, 28, .55); }
 
-.h-card { position: absolute; z-index: 3; width: 300px; display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 16px; background: #f2f2f2; color: #121212;
-  box-shadow: 0 14px 40px rgba(0, 0, 0, .5); pointer-events: none; font: 500 12.5px/1.35 Inter, "Segoe UI", sans-serif; }
+.h-card { position: absolute; z-index: 3; width: 300px; display: flex; gap: 12px; align-items: flex-start; padding: 12px; border-radius: 16px; background: #18223a; color: #e3e8f2;
+  border: 1px solid rgba(148, 170, 255, .26); box-shadow: 0 14px 40px rgba(0, 0, 0, .55); pointer-events: none; font: 500 12.5px/1.35 Inter, "Segoe UI", sans-serif; }
 .h-card[hidden] { display: none; }
 .h-card .k-booth { width: 84px; flex: none; }
 .h-card-text { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.h-card-text b { font-size: 14px; line-height: 1.2; }
-.h-card-state { color: #15803d; font-weight: 600; } .h-card-doing { color: #121212; } .h-card-what { color: #666; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
-.h-card-where { color: var(--t-low); font-size: 11.5px; }
+.h-card-text b { font-size: 14px; line-height: 1.2; color: #fff; }
+.h-card-state { color: #4ade80; font-weight: 600; } .h-card-doing { color: #fff; } .h-card-what { color: #b5bed2; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.h-card-where { color: var(--t-dim); font-size: 11.5px; }
 
 .h-key { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 16px; margin: 12px 2px 0; color: var(--t-soft); font: 500 12px/1.4 Inter, "Segoe UI", sans-serif; }
 .h-key span { display: inline-flex; align-items: center; gap: 6px; } .h-key i { width: 8px; height: 8px; border-radius: 50%; background: var(--kc); }
