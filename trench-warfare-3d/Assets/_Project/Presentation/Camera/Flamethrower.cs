@@ -692,8 +692,9 @@ namespace TW.Presentation.Tactical
             // WIDTH is FlameJetCard's and the owner's - 1.55 m at the mouth to 3.90 m at the head - and nothing here
             // may narrow it. What varies with distance is the GLOW: at 120 m the whole run is sixty pixels and four
             // faint links used to share out the light until none of them was a mark, so past 60 m the ramp is
-            // multiplied by 1.6 and the card reads as one short bright tongue. That is the old two-link idea kept as
-            // the thing it was actually doing - brightness - instead of as a segment count.
+            // multiplied by 2.6 and the card is widened as well (FlameJetCard.FarWiden), and it reads as one short
+            // bright tongue. That is the old two-link idea kept as the thing it was actually doing - brightness -
+            // instead of as a segment count.
             {
                 // FULL reach, not the valve's. far is Reach * valve, which is right for the terminus - the place the
                 // fuel is landing right now - and wrong for the stream: photographed a third of a second into a
@@ -702,7 +703,12 @@ namespace TW.Presentation.Tactical
                 Vector3 head = Hit(mouth, j.Aim, Reach, out _);
                 float cardLen = Vector3.Distance(mouth, head);
                 Vector3 toEye = cam != null ? (cam.transform.position - Vector3.Lerp(mouth, head, 0.5f)).normalized : Vector3.back;
-                float far60 = cam != null && Vector3.Distance(cam.transform.position, mouth) > 60f ? 1.6f : 1f;
+                float camDist = cam != null ? Vector3.Distance(cam.transform.position, mouth) : 0f;
+                // The glow past 60 m, to go with FlameJetCard.FarWiden. 1.6 was not enough: flame3/after_std.jpg and
+                // after_day_std.jpg came back with NO tongue at all at 120 m - the owner's bar is "at least a short
+                // bright tongue with a direction" - so the card is both wider and brighter out there. Neither
+                // multiplier does anything inside 60 m, which is where the widths were judged.
+                float far60 = camDist > 60f ? 2.6f : 1f;
                 // the sag, in the card's own plane: the same curve the licks and the terminus hang off
                 Vector3 sag = Down(cam, head - mouth) * (cardLen * 0.135f);
                 FlameJetCard.Push(mouth, (head - mouth).normalized, cardLen, toEye, sag,
@@ -711,7 +717,8 @@ namespace TW.Presentation.Tactical
                                   // the capture rig lands wherever in the burst it lands: at alpha = valve the day
                                   // side shot came back with a pale warm tongue the lit mud behind it beat.
                                   alpha: Mathf.Lerp(0.55f, 1f, valve),
-                                  glowMouth: glow * far60 * 0.55f, glowHead: glow * far60 * 1.60f);
+                                  glowMouth: glow * far60 * 0.55f, glowHead: glow * far60 * 1.60f,
+                                  camDist: camDist);
             }
 
             // and the boil: loose fire torn off the end of the stream, which is the one thing a chain cannot do. It is

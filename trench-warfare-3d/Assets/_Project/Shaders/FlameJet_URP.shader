@@ -20,7 +20,7 @@ Shader "TW/Flame Jet (URP)"
     Properties
     {
         _Noise ("Noise (R)", 2D) = "gray" {}
-        _Strength ("Strength", Float) = 2.8
+        _Strength ("Strength", Float) = 2.1
     }
     SubShader
     {
@@ -66,12 +66,43 @@ Shader "TW/Flame Jet (URP)"
                 half slow = SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(u * 2.10 - t * 1.10 + phase, v * 0.50 + phase * 0.7)).r;
                 half fast = SAMPLE_TEXTURE2D(_Noise, sampler_Noise, float2(u * 5.60 - t * 2.40 + phase * 2.3, v * 1.15 + 0.37)).r;
                 half tear = slow * 0.60 + fast * 0.40;
-                // The DRAWN edge sits well inside the mesh's rim and the noise eats into it, so the silhouette is
-                // ragged all the way along and the quad's straight side is never the contour. Soft-shouldered, not a
-                // step: a hard threshold on an additive card that is already over-bright clips to white everywhere
-                // inside it and the taper stops being visible at all.
-                float rim = 0.40 + 0.58 * tear;
-                half body = saturate((rim - av) / 0.34);
+                // The DRAWN edge sits inside the mesh's rim and the noise eats into it, so the silhouette is ragged
+                // all the way along and the quad's straight side is never the contour. Soft-shouldered, not a step:
+                // a hard threshold on an additive card that is already over-bright clips to white everywhere inside
+                // it and the taper stops being visible at all.
+                // THE CUT (look-09). The silhouette has to be ragged where the card is BRIGHTEST, not only where
+                // it fades: the master's picture of look-06 had "hard straight red-orange bands like a laser" along
+                // the top and bottom of a flat white slab. The two reads above vary over about two cycles across the
+                // whole run, so the contour they give is locally a straight line for hundreds of pixels however
+                // ragged it looks over the whole length. These two are twenty-three and forty-one tiles along the
+                // run, coprime, and they EAT THE RIM - they are subtracted from it, not min'd against it, so there
+                // is no stretch anywhere along the stream where the smooth edge wins and the line goes straight.
+                //
+                // The depth is in METRES (divided by the half width, shape.x), not in units of the width: a tear in
+                // burning fuel is about half a metre across wherever on the run it happens. Scaled to the width it
+                // would shrink to nothing at the mouth, which is the stretch that read as a laser.
+                //
+                // Mirrored in C# as FlameJetCard.EdgeV so FlameShapeTests can measure the contour; the constant
+                // block below carries the same names and values as the one there.
+                #define RIM_BASE   0.72
+                #define RIM_TEAR   0.42
+                #define RIM_SOFT   0.26
+                #define CUT_METRES 0.60
+                #define FINE_A     23.0
+                #define FINE_B     41.0
+                #define RIM_PAD    1.25
+                // LOD 0, not the mip chain: at twenty-three tiles along a 700 px run one tile is thirty texels to
+                // the pixel, the hardware would pick a blurred mip, and a blurred cut is a straight edge again -
+                // which is the whole bug. FlameJetCard.EdgeV mirrors the sharp read, so the test and the picture
+                // measure the same contour.
+                half fa = SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, float2(u * FINE_A - t * 3.10, 0.11 + phase * 0.31), 0).r;
+                half fb = SAMPLE_TEXTURE2D_LOD(_Noise, sampler_Noise, float2(u * FINE_B + t * 1.70, 0.63 + phase * 0.17), 0).r;
+                half fine = fa * 0.58 + fb * 0.42;
+                // av is in units of the PADDED mesh; the rim below is in units of the stream's own half width, so
+                // the eaten contour can reach 1.14 of it without ever touching the quad's straight side.
+                av *= RIM_PAD;
+                float rim = RIM_BASE + RIM_TEAR * tear - CUT_METRES * fine / max(i.shape.x, 0.05);
+                half body = saturate((rim - av) / RIM_SOFT);
                 body *= saturate(u * 25.0);                     // nothing drawn at the nozzle lip itself
                 body *= 1.0 - smoothstep(0.70, 1.00, u);        // and the head FRAYS out rather than being cut off
                 // A BRIGHT CORE and a darker ragged edge: heat is highest at v~0 and rises downrange, because fuel
@@ -82,9 +113,14 @@ Shader "TW/Flame Jet (URP)"
                 // against, so the floor under the core comes up and the strength with it. The RAMP along the run
                 // stays gentle - the mouth has to be a hard bright rod, not a faint root.
                 half heat = body * (0.26 + 1.05 * core) * (0.78 + 0.45 * u) * (0.62 + 0.70 * slow);
+                // COLOUR IN THE CORE. look-06 took the white step at heat 0.70 with a strength of 2.8, and over an
+                // additive card that means most of the stream is past 1 on every channel: the master's picture is a
+                // flat white shape with a coloured fringe, and a flat shape has no taper and no interior. The white
+                // is now a THIN HEART - the step is narrow and sits near the top of the range - and the strength is
+                // down, so what clips is the heart and the rest keeps its orange and its yellow.
                 half3 colour = lerp(half3(1.0, 0.16, 0.03), half3(1.0, 0.48, 0.10), smoothstep(0.10, 0.35, heat));
-                colour = lerp(colour, half3(1.0, 0.85, 0.42), smoothstep(0.35, 0.65, heat));
-                colour = lerp(colour, half3(1.0, 0.98, 0.90), smoothstep(0.70, 0.95, heat));
+                colour = lerp(colour, half3(1.0, 0.78, 0.30), smoothstep(0.38, 0.78, heat));
+                colour = lerp(colour, half3(1.0, 0.98, 0.90), smoothstep(0.88, 1.08, heat));
                 return half4(colour * heat * _Strength * i.shape.z * i.shape.w, 1.0);
             }
             ENDHLSL
