@@ -4,6 +4,10 @@ Pure text-to-video gave a generic look the owner rejected. What works: feed H3 a
 plus three of its peak frames as `<Picture 1..3>`, anchor black at the first and last frame
 (`MiniMaxH3AddGuide`), and describe a NEW subject in the reference's style.
 
+To study the shape and timing you want before writing the `{action}`, see "Outside references for effect drawing" in
+`docs/reference/pipelines.md`. Those clips are for study and for the critic; `<Video 1>` stays a clip from `refs360`
+unless the owner says otherwise.
+
 ## Template (batch6 `prompt_for`; batch7 is the same with its own style)
 ```
 <Video 1> is a reference animation of a 2D game explosion effect, and <Picture 1>, <Picture 2> and <Picture 3> are

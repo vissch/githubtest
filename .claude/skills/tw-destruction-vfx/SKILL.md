@@ -29,7 +29,7 @@ Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheet
    - T3 close (zoom 6-9): detail, only behind `_TWClose` / `SceneHooks.CloseUp`, so it costs nothing at T1.
    - T1 standard (zoom 30): the budget view.
    - Overview/far (120-600): silhouette, flash and column only.
-4. **Source** each look: an existing book, then an unconverted pack sheet, then a new sheet (tw-vfx-sheets). Prefer reuse.
+4. **Source** each look: an existing book, then an unconverted pack sheet, then a new sheet (tw-vfx-sheets). Prefer reuse. To study what a look should be, see "Outside references for effect drawing" in `docs/reference/pipelines.md`.
 5. **Wire it:** the CombatFx handler, the FlipbookFx book, debris, light, shake. A `Book` enum entry and its `Sheets` row are added **together, at the same ordinal**, with the PNG. Check `books.Ready`.
 6. **Prove it** (below). Keep a destructible inventory with a coverage percentage (props, house kits, trench sections, wrecks) on the board item.
 

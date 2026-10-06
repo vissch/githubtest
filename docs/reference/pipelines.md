@@ -118,6 +118,48 @@ How the owner's pack is read (32 sheets, 8x4 cells, 12 fps, named `<colour>_<kin
   them yourself (`git diff --stat` on the PNGs). It writes no `.meta`; Unity makes one when it imports a new PNG.
 - A capture of the result goes through `Tools/flameshots` and `Tools/flamecheck.py` (`workflow.md`, section 6).
 
+### Outside references for effect drawing
+
+Places to study a look before drawing it, and to hand a critic beside a capture. Every link was opened on 2026-10-06
+unless marked. None of it is in the repo or the pack. A studio's clip is for study and for the critic only: the sheet
+generator copies its reference closely, so its `<Video 1>` stays a clip from `refs360` unless the owner says otherwise.
+
+| Source | What it is | Use it for |
+|---|---|---|
+| Sakugabooru, `https://www.sakugabooru.com/post?tags=<tag>` | Hand-drawn animation clips, stepped frame by frame, tagged by effect and by animator. Free | The nearest match to the owner's look (cel flames, two-tone smoke): shapes and timing of bursts, smoke, debris, water |
+| Refs library - 1500 vfx, `https://realtimevfx.com/t/refs-library-1500-vfx/25346` | 1,500 tagged clips of effects from shipped games, each with its source link; a zip on Google Drive made for the Eagle app. Free. The download itself was not opened | How other games solve one effect, by element and camera |
+| Ten tips from the League of Legends VFX style guide, `https://www.vfxapprentice.com/blog/10-league-of-legends-vfx-design-tips` | Rules for value, saturation, shape and short timing seen from a raised camera. Riot's own article and PDF are gone from their site | A readability rubric for `tw-critic` |
+| Company of Heroes explosions taken apart, `http://valdism.blogspot.com/2014/02/vfx-showcase-company-of-heroes.html` | Screenshots and notes on artillery bursts in an RTS camera | J01 and the shell looks |
+| Duc Vu, "2D FX Explosion Tutorial: Basic to Advanced", `https://ducvu.gumroad.com/l/2d-fx-smoke-explosion-tutorial` | A tutorial by the artist of the 24 `refs360` clips. Price not read | How the reference style is built |
+| Stylised effects threads, `https://realtimevfx.com/t/inspirational-resources-for-stylized-effects/625` and `https://realtimevfx.com/t/where-to-find-good-vfx-references/2294` | Link lists: the Wind Waker effect analysis (cel smoke), slow-motion and weapons footage of real bursts and dirt | Real behaviour to exaggerate from |
+| Gabriel Aguiar, Unique Stylized Explosions Vol. 1, `https://gabrielaguiarprod.itch.io/unique-stylized-explosions-vol1` | 37 stylised explosions for Unity. Not owned | Look reference only |
+| War FX (Jean Moreno), `https://assetstore.unity.com/packages/vfx/particles/war-fx-5669` | Free Unity particle pack of grounded military effects | How a shell burst is layered. Study only: the game draws flipbook cards, not particle systems |
+| SineVFX Top Down Effects 2.0, `https://assetstore.unity.com/packages/vfx/particles/spells/top-down-effects-2-0-323684` | Paid pack of ground rings and markers that follow the terrain | Look reference for a ground marker on cratered ground |
+
+Sakugabooru tags, with the clip counts read that day: `explosions` 24,020, `smoke` 62,251, `debris` 27,965, `fire`
+16,636, `sparks` 15,259, `impact_frames` 13,758, `liquid` 30,605, `lightning` 14,112, `wind` 12,433, `mecha` 17,773,
+`missiles` 2,970, `itano_circus` 606. Animator tags: `hideaki_anno`, `mitsuo_iso`, `takashi_hashimoto`,
+`yoh_yoshinari`, `yutaka_nakamura`, `ichiro_itano`, `yoshimichi_kameda`.
+
+Where to look first, by moment (`docs/reference/aosa/JUICE.md`). The tags exist; which animator suits which effect is
+a judgement nobody has checked against the clips, so look before relying on one.
+
+| Need | Search |
+|---|---|
+| J01 shell burst, earth column | `hideaki_anno`, `mitsuo_iso`; the Company of Heroes page |
+| J02 cook-off, layered fire and smoke | `takashi_hashimoto`, `yoh_yoshinari` |
+| J03 volley, hits, flash frames | `yoshimichi_kameda`, `impact_frames`, `sparks` |
+| J04 walker mounting a parapet | `mecha` |
+| J05 leg blown off, flying chunks | `yutaka_nakamura`, `debris` |
+| J07 lightning | `lightning` |
+| J08 landing craft, water | `takashi_hashimoto`, `liquid` |
+| J09 gas rolling | `smoke`, `wind` |
+| Rockets in flight, a salvo | `ichiro_itano`, `itano_circus`, `missiles` |
+
+Looked for and not found (2026-10-06): public effect breakdowns of Company of Heroes 3, Valkyria Chronicles, Iron
+Harvest, Arcane's hand-drawn smoke, Hi-Fi Rush's sound words, Foxhole and The Great War: Western Front. For those,
+take frames from gameplay video.
+
 ## UI art spec
 
 | Script | Does | Usage |
