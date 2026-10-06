@@ -53,6 +53,7 @@ namespace TW.Presentation
                 // a machine that wears another's model (TankRenderer.StandIns) wears its picture too
                 case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: return "Maw";
                 case VehicleArchetype.A7V: return "Brute";
+                case VehicleArchetype.Bullfrog: return "Croaker";   // until its own model is in the battle
                 case VehicleArchetype.RenaultFT: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Tusk";
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
                 case InfantryArchetype.Sentry: return "MG";
@@ -146,6 +147,7 @@ namespace TW.Presentation
                 case VehicleArchetype.RenaultFT: return "Renault FT";
                 case VehicleArchetype.Whippet: return "Whippet";
                 case VehicleArchetype.Austin: return "Austin";
+                case VehicleArchetype.Bullfrog: return "Bullfrog";
                 default: return "Vehicle";
             }
         }
@@ -190,6 +192,7 @@ namespace TW.Presentation
                 case VehicleArchetype.RenaultFT: return "Renault FT, stand-in: the Tusk's turret gun in a small hull. Ditches in wide trenches";
                 case VehicleArchetype.Whippet: return "Whippet, stand-in: a fast tank with machine guns only";
                 case VehicleArchetype.Austin: return "Austin, stand-in: an armoured car with twin machine guns. Wheels bog in mud";
+                case VehicleArchetype.Bullfrog: return "Bullfrog, prototype toad mech: twin gatlings that pin men. Hops over trenches and wire";
                 default: return "Vehicle: immune to small arms, grenades within 8 m hurt it";
             }
         }

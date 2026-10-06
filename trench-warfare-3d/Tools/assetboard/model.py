@@ -164,7 +164,7 @@ def build(P: Path, code: dict, notes: dict):
     for name in code['infantry']:
         a = new_asset(name, 'character')
         sim, where, pname, slots, pools = unit_common(a, name, 'infantry')
-        figure = figures[rule['then'] if a['archetype'] == rule['archetype'] else rule['other']]
+        figure = figures[rule['by'].get(a['archetype'], rule['other'])]
         own = figure == name or notes['assets'].get(name, {}).get('model_of') == figure
         own_figure = figure if own else name
         a['models'] = src_files.figure_models(P, own_figure)

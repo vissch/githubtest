@@ -105,10 +105,11 @@ def read_all(P: Path):
 
     f = P / 'Presentation/Camera/TankRenderer.cs'
     src = read(f)
-    rows = re.findall(r'\("(\w+)",\s*VehicleArchetype\.(\w+),\s*"(\w+)",\s*([\w.]+),\s*(true|false)\)',
+    # the last column is Lift: metres drawn above the ground, 0f for a machine that stands on it
+    rows = re.findall(r'\("(\w+)",\s*VehicleArchetype\.(\w+),\s*"(\w+)",\s*([\w.]+),\s*([\w.]+)\)',
                       body_after(src, 'Machines =', f.name))
     need([r[0] for r in rows], 1, f.name, 'rows in Machines', ['Pincer'])
-    t['machines'] = {arch: dict(model=model, root=root, scale=scale, hover=hover == 'true') for model, arch, root, scale, hover in rows}
+    t['machines'] = {arch: dict(model=model, root=root, scale=scale, hover=lift not in ('0f', '0')) for model, arch, root, scale, lift in rows}
     fallback = body_after(src, 'TankModel ModelFor(byte archetype)', f.name)
     if 'VehicleArchetype.Tusk' not in fallback or 'maw' not in fallback:
         raise ProbeError(f'{f.name}: ModelFor no longer falls back to the Tusk and the Maw; the board\'s "drawn as" rule needs a look')
@@ -119,10 +120,10 @@ def read_all(P: Path):
     if not m:
         raise ProbeError(f'{f.name}: no FigureNames table')
     t['figures'] = need(re.findall(r'"(\w+)"', m.group(1)), 1, f.name, 'figure names', ['Soldier'])
-    m = re.search(r'FigureOfArchetype\(int archetype\)\s*=>\s*archetype == (\d+) \? (\d+) : (\d+);', src)
+    m = re.search(r'FigureOfArchetype\(int archetype\)\s*=>\s*((?:archetype == \d+ \? \d+ : )+)(\d+);', src)
     if not m:
-        raise ProbeError(f'{f.name}: FigureOfArchetype is no longer "archetype == N ? a : b"; teach the board the new rule')
-    t['figure_rule'] = dict(archetype=int(m.group(1)), then=int(m.group(2)), other=int(m.group(3)))
+        raise ProbeError(f'{f.name}: FigureOfArchetype is no longer a chain of "archetype == N ? a :" ending in b; teach the board the new rule')
+    t['figure_rule'] = dict(by={int(n): int(a) for n, a in re.findall(r'archetype == (\d+) \? (\d+)', m.group(1))}, other=int(m.group(2)))
 
     f = P / 'Presentation/Core/UnitLook.cs'
     src = read(f)
