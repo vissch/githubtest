@@ -764,26 +764,36 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
     builds only.
   - `Presentation/Core/AnimationController.Pin.cs`: hold one man on one clip, presentation only.
   - `Editor/Gym.cs`: **TW > Gym**, `Gym.Run`, `Gym.CommandLine`.
-  - `Perf/GymStrip.cs`: the time strip's arithmetic — which tabs are filmed in time, when the frames are taken, and
-    the measured "nothing drawn" flag against the run's own noise floor.
+  - `Perf/GymStrip.cs`: the time strip's arithmetic — which tabs are filmed in time, when the frames are taken, how
+    close the camera has to be to frame the subject, the measured "nothing drawn" flag against the run's own noise
+    floor, and the `not staged` flag for an entry whose event never happened in the sim.
 
   The agents' guide to it is the `tw-gym` skill (on `lane/show/pipe-skills2` until that lands).
 - **Tests:**
   - GymCatalogueTests: a new event, ability or death kind with no gym row fails.
   - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
   - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
-  - GymStripTests: which tabs strip, the moments, the threshold, and the "nothing drawn" flag failing both ways.
+  - GymStripTests: which tabs strip, the moments, the threshold, the "nothing drawn" flag failing both ways, the
+    subject's zoom (a man, a tank, a walker, an aircraft), the hidden overlays, and the `not staged` flag.
 - **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
   "<options>"`.
   - The run goes to `%LOCALAPPDATA%\TrenchWarfare\gym\<run>` (`TW_GYM`), never into the checkout.
   - Each entry gets a JPG and a JSON sidecar, and the run's summary file lists every flag. Deaths, abilities,
-    events and units are a TIME STRIP: one close band (16 m) at five moments — a 'before' frame, then across the
-    entry's life — so a reviewer can tell "nothing was drawn" from "the still missed it". Clips and scenes keep
-    their six zoom bands; `bands=all` forces the bands everywhere.
+    events and units are a TIME STRIP: five moments at ONE pose that frames the entry's SUBJECT — the zoom comes
+    from how tall he is (a man ~6 m, a tank ~10, a walker ~15, an aircraft 40 aimed 15 m up), not from a band. The
+    'before' frame is taken after the subject is placed and just before the trigger, so what the strip measures is
+    the effect and not "a man appeared". Clips and scenes keep their six zoom bands; `bands=all` forces the bands
+    everywhere. The HUD, the selection marker and an ability's aiming disc are hidden unless `hud=1`.
+  - The sidecar carries a `truth` block: the sim's own account of the entry — did the victim die and who killed him,
+    was the machine destroyed or set alight, did the ability fire or was it refused, was the event only a preview. An
+    entry whose staging never made its event happen is flagged `not staged` and is NOT judged on its pictures.
+  - Each still of a strip also carries `subject_in_frame` and `subject_height_frac`: a subject off frame, or filling
+    under 15 % of the frame's height, is flagged instead of being read.
   - `light=day` films under a clear noon instead of night and rain, so a figure can be judged. The default is the
     night field, unchanged.
-  - The run measures its own noise floor first (two stills of the idle stage, 0.5 s apart) and writes it and the
+  - The run measures its own noise floor (two stills 0.5 s apart), once at 16 m before the catalogue and then once
+    per distinct strip zoom — a tighter frame repaints more of itself on its own — and writes them and the
     threshold into the run's summary file; an entry that promises something drawn and never beats the threshold is flagged
     `nothing drawn` and keeps its raw PNGs.
 - **Trap:** a death or effect raised inside `WriteWorlds` never reaches the picture, because `SimWorld.Step` clears

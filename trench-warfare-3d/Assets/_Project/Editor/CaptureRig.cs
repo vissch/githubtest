@@ -30,6 +30,22 @@ namespace TW.Editor
 {
     public static class CaptureRig
     {
+        // ---- the subject (look-04, 2026-10-06) ---------------------------------------------------------------
+        // Round 2's gym strips framed the stage, not the victim: a man was a few pixels in a 16 m frame and a
+        // reviewer could not say whether anything was drawn ON him. A caller that knows what its picture is OF sets
+        // Subject (his feet, in world space) and SubjectHeight (how tall he stands); every still then carries whether
+        // he was in frame and what share of the frame's height he filled, so "the camera missed him" is a measurement
+        // and not an argument. SubjectHeight NaN (the default) leaves the keys out, exactly as before.
+
+        /// <summary>The world point the picture is OF: the subject's feet. Only read when SubjectHeight is set.</summary>
+        public static Vector3 Subject;
+
+        /// <summary>How tall the subject stands, in metres; NaN means no subject and no subject_* keys.</summary>
+        public static float SubjectHeight = float.NaN;
+
+        /// <summary>Forget the subject: the next stills carry no subject_* keys.</summary>
+        public static void NoSubject() { SubjectHeight = float.NaN; }
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -270,6 +286,18 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            // the subject this picture is OF, measured in the viewport the shot was rendered from
+            if (!float.IsNaN(SubjectHeight) && cam != null)
+            {
+                Vector3 foot = cam.WorldToViewportPoint(Subject);
+                Vector3 head = cam.WorldToViewportPoint(Subject + Vector3.up * SubjectHeight);
+                bool inside = foot.z > 0f && head.z > 0f
+                           && foot.x >= 0f && foot.x <= 1f && foot.y >= 0f && foot.y <= 1f
+                           && head.x >= 0f && head.x <= 1f && head.y >= 0f && head.y <= 1f;
+                N(sb, "subject_in_frame", inside ? 1 : 0);
+                N(sb, "subject_height_frac", Mathf.Abs(head.y - foot.y));
+                N(sb, "subject_vx", foot.x); N(sb, "subject_vy", foot.y);
+            }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);

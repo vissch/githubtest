@@ -94,6 +94,65 @@ namespace TW.Perf
                  + " (noise floor " + floor.ToString("0.0000", System.Globalization.CultureInfo.InvariantCulture) + ")";
         }
 
+
+        // ----------------------------------------------------------------- framing the subject (look-04, 2026-10-06)
+        // Round 2's strips could not be trusted: Deaths/Shot.jpg held no man in any cell and Events/VehicleDestroyed
+        // showed the same whole tank five times. One close zoom of the whole stage is not a picture OF the victim, so
+        // the strip now frames the SUBJECT - the man, the machine, the unit - and the zoom is worked out from how tall
+        // he is. The rig's frame is 1.1547 * Zoom metres tall whatever the fov (CaptureRig.Rig.Pose keeps the ground
+        // distance * tan30 / tan(fov/2)), so the share of the cell a subject fills is his height / (1.1547 * Zoom),
+        // foreshortened by the camera's pitch.
+
+        /// <summary>The zoom band a strip may be shot at. ZoomMin is the tactical camera's own floor.</summary>
+        public const float ZoomMin = 6f, ZoomMax = 16f;
+
+        /// <summary>The share of the cell's height a subject should fill.</summary>
+        public const float Share = 0.33f;
+
+        /// <summary>How tall the subject stands, in metres: a man, a tank hull, a walker (the crabsplit and tanksplit
+        /// bakes x VehicleSize). Guesses from the bakes, not measured - subject_height_frac in the sidecar is the
+        /// proof, and a wrong one shows up in the first run.</summary>
+        public static float SubjectHeight(bool vehicle, bool walker) => walker ? 6.5f : vehicle ? 4.4f : 2.0f;
+
+        /// <summary>The zoom that makes a subject `heightM` tall fill `share` of the cell, clamped to the band.</summary>
+        public static float ZoomFor(float heightM, float pitchDeg, float share = Share)
+        {
+            if (!(heightM > 0f)) heightM = 2f;
+            if (!(share > 0f)) share = Share;
+            double tan30 = System.Math.Tan(30.0 * System.Math.PI / 180.0);
+            double z = heightM * System.Math.Cos(pitchDeg * System.Math.PI / 180.0) / (share * 2.0 * tan30);
+            if (z < ZoomMin) z = ZoomMin;
+            if (z > ZoomMax) z = ZoomMax;
+            return (float)z;
+        }
+
+        /// <summary>An aircraft flies at PlaneLow, 25 m up, outside an 18 m frame: its strip is shot wide and aimed up.</summary>
+        public const float FlyerZoom = 40f, FlyerAimY = 15f;
+
+        /// <summary>The abilities whose subject is in the air.</summary>
+        public static bool Flyer(GymEntry e) =>
+            e.Tab == GymTab.Abilities && (e.Id == 5 || e.Id == 8 || e.Id == 10 || e.Id == 12);   // BomberRun, ReconFlight, StrafeRun, ParaDrop
+
+        /// <summary>Is the ability's aiming disc, the selection marker and the HUD drawn in a gym shot? Only when the
+        /// run asked for it (hud=1): an overlay repaints a tenth of the frame and the measurement cannot tell it from
+        /// the effect it is meant to isolate.</summary>
+        public static bool ShowsOverlays(GymEntry e, bool hudOption) => hudOption;
+
+        /// <summary>
+        /// The flag for an entry whose STAGING never made its event happen in the sim: a preview replayed into the
+        /// effects, a victim who lived, an ability the sim refused, a machine that was neither destroyed nor set
+        /// alight. Such an entry is not judged - it says nothing about what the game draws. Null when the sim did it.
+        /// </summary>
+        public static string NotStaged(GymEntry e, bool previewOnly, bool victimStaged, bool victimDied,
+                                      bool abilityFired, bool machineChanged)
+        {
+            if (previewOnly) return "not staged: the event was replayed into the effects only; nothing happened in the sim";
+            if (e.Tab == GymTab.Deaths && victimStaged && !victimDied) return "not staged: the victim lived, so there is no death to photograph";
+            if (e.Tab == GymTab.Abilities && e.Expect != GymExpect.Rejected && !abilityFired) return "not staged: the sim refused the ability, so nothing was fired";
+            if (e.Tab == GymTab.Events && !machineChanged) return "not staged: the machine was neither destroyed nor set alight in the world";
+            return null;
+        }
+
         /// <summary>The strip frames' file-name suffixes, in order, starting with the 'before' frame.</summary>
         public static readonly string[] Names = { "0before", "1start", "2peak", "3end", "4after" };
     }

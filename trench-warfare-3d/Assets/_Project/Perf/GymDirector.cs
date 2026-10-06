@@ -22,6 +22,7 @@ using UnityEngine;
 using TW.Presentation;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 
 namespace TW.Perf
 {
@@ -40,6 +41,8 @@ namespace TW.Perf
             public float3 Focus;
             /// <summary>A death entry's victim; VictimDied is set only by HIS Death event.</summary>
             public int Victim = -1; public bool VictimDied;
+            /// <summary>The killer slot his Death event named (SimEvent.B), or -1: the sim's own account of the cause.</summary>
+            public int VictimCause = -1;
             /// <summary>The men a scene watches, and what happened to them.</summary>
             public readonly HashSet<int> Watch = new HashSet<int>();
             public int WatchedHits, WatchedNearMisses, WatchedDeaths, WatchedSuppressed;
@@ -93,7 +96,7 @@ namespace TW.Perf
             {
                 case SimEventType.CommandRejected: r.Rejects++; break;
                 case SimEventType.Death:
-                    if (e.A == r.Victim) r.VictimDied = true;
+                    if (e.A == r.Victim) { r.VictimDied = true; r.VictimCause = e.B; }
                     if (r.Watch.Contains(e.A)) r.WatchedDeaths++;
                     break;
                 case SimEventType.Hit: if (r.Watch.Contains(e.B)) r.WatchedHits++; break;
@@ -262,18 +265,41 @@ namespace TW.Perf
         public byte FactionSeat(byte faction) => Host != null && Host.FactionB == faction && Host.FactionA != faction ? (byte)1 : (byte)0;
 
         /// <summary>Kill a man of `archetype` by `kind`, staging the cause; the sim does the killing inside a tick.
-        /// Returns the victim's slot (also Current.Victim), or -1.</summary>
+        /// Returns the victim's slot (also Current.Victim), or -1. Kept as DeathStage + DeathTrigger in one call for
+        /// the inspector's single-entry button; the filming run uses the two halves (look-04).</summary>
         public int Death(DeathKind kind, int archetype, Vector2 at)
+        {
+            int victim = DeathStage(kind, archetype, at);
+            if (victim < 0) return -1;
+            DeathTrigger(kind, victim, at);
+            return victim;
+        }
+
+        /// <summary>
+        /// The first half of a death: the victim and the men who will shoot him are put on the stage, and nothing is
+        /// done to him yet. Split from the trigger (look-04, 2026-10-06) so the strip's 'before' frame can be taken
+        /// with the victim standing there and framed — round 2's 'before' frame was of an empty field, so the measured
+        /// change was "a man appeared", not "an effect was drawn", and Deaths/Shot.jpg had no man in any cell.
+        /// </summary>
+        public int DeathStage(DeathKind kind, int archetype, Vector2 at)
         {
             int victim = Spawn(1, archetype, at.x, at.y, 180f);   // the enemy side, so our fire and our abilities find him
             if (victim < 0) return -1;
             Hold(victim);   // where the shells and the gas are sent: he walked for his front trench and the barrage missed him
             if (Current != null) Current.Victim = victim;
+            // the rifle line that does the shooting is staged, not triggered: it has to be standing in the 'before' frame
+            if (kind == DeathKind.Shot || kind == DeathKind.Blast) Row(0, 0, 4, at + new Vector2(0f, -30f), 2f);
+            return victim;
+        }
+
+        /// <summary>The second half: what actually kills him, on the tick the strip starts measuring from.</summary>
+        public void DeathTrigger(DeathKind kind, int victim, Vector2 at)
+        {
+            if (Host == null || victim < 0) return;
             switch (kind)
             {
                 case DeathKind.Shot:
                     Host.WriteWorlds(m => m.World.Hp[victim] = 1f);
-                    Row(0, 0, 4, at + new Vector2(0f, -30f), 2f);
                     break;
                 case DeathKind.Blast:
                     // the 16 m box (pattern 2), on a man with 1 hp left as Shot does: twelve shells over the 25 m disc put
@@ -294,7 +320,38 @@ namespace TW.Perf
                     Spawn(0, VehicleArchetype.Maw, at.x, at.y - 25f, 0f);
                     break;
             }
-            return victim;
+        }
+
+        /// <summary>
+        /// What the sim says about one slot right now, as a line for the sidecar: whether it lives, its hit points,
+        /// and for a machine its module state, how hard it burns and how many legs it has lost. The gym's verdicts on
+        /// deaths and dead machines are only worth reading beside this (look-04).
+        /// </summary>
+        public string Truth(int slot)
+        {
+            if (Host == null || Host.Local == null || slot < 0) return "no slot";
+            var w = Host.Local.World;
+            if (slot >= w.HighWater) return "slot " + slot + " out of the world";
+            bool alive = (w.Flags[slot] & (uint)UnitFlags.Alive) != 0;
+            var sb = new System.Text.StringBuilder();
+            sb.Append("slot ").Append(slot).Append(alive ? " alive" : " dead").Append(", hp ").Append(w.Hp[slot].ToString("0.0"));
+            var mod = Host.Local.Modules;
+            if (mod != null && mod.State.IsCreated && slot < mod.State.Length)
+                sb.Append(", state ").Append((VehicleState)mod.State[slot]).Append(", fire ").Append(mod.Fire[slot].ToString("0.00"))
+                  .Append(", legs lost ").Append(mod.LegsLost[slot]);
+            return sb.ToString();
+        }
+
+        /// <summary>Is this machine knocked out, cooking off, dead or alight? The Events tab's "did it happen for real".</summary>
+        public bool MachineChanged(int slot)
+        {
+            if (Host == null || Host.Local == null || slot < 0) return false;
+            var w = Host.Local.World;
+            if (slot >= w.HighWater) return true;                                  // despawned: it died
+            if ((w.Flags[slot] & (uint)UnitFlags.Alive) == 0) return true;
+            var mod = Host.Local.Modules;
+            if (mod == null || !mod.State.IsCreated || slot >= mod.State.Length) return false;
+            return mod.State[slot] != (byte)VehicleState.Active || mod.Fire[slot] > 0.05f;
         }
 
         /// <summary>Replay one event into this frame's presentation (never the sim, never the men): for events too

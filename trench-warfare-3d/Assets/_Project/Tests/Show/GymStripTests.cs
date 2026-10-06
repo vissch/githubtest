@@ -8,6 +8,8 @@
 using NUnit.Framework;
 using TW.Perf;
 using TW.Presentation.Terrain;
+using TW.Sim.Match;
+using UnityEngine;
 
 namespace TW.Tests
 {
@@ -79,6 +81,73 @@ namespace TW.Tests
             Assert.IsNull(GymStrip.NothingDrawn(new float[0], floor));
             Assert.IsNull(GymStrip.NothingDrawn(null, floor));
             Assert.IsNull(GymStrip.NothingDrawn(new[] { float.NaN, float.NaN }, floor), "unreadable diffs say nothing either way");
+        }
+
+
+        // ------------------------------------------------------- framing the subject and the sim's truth (look-04)
+        // The bug these guard. Round 2's strips were shot at one fixed 16 m band aimed at the stage, so a 2 m man was
+        // a handful of pixels and Deaths/Shot.jpg had no man in any of its five cells; and Events/VehicleDestroyed.jpg
+        // showed the same undamaged tank five times because the event had only been replayed into the effects while
+        // the machine never died in the sim - and the gym called that entry PASSED.
+
+        [Test]
+        public void TheZoomFramesTheSubjectAndStaysInTheBand()
+        {
+            float man = GymStrip.ZoomFor(GymStrip.SubjectHeight(false, false), 25f);
+            float tank = GymStrip.ZoomFor(GymStrip.SubjectHeight(true, false), 25f);
+            float walker = GymStrip.ZoomFor(GymStrip.SubjectHeight(true, true), 25f);
+            Assert.AreEqual(6f, man, 0.5f, "a man wants the closest zoom the camera allows");
+            Assert.AreEqual(15f, walker, 1f, "a walker is tall: it needs the wide end of the band");
+            Assert.Greater(walker, tank); Assert.Greater(tank, man);
+            foreach (float z in new[] { man, tank, walker })
+            {
+                Assert.GreaterOrEqual(z, GymStrip.ZoomMin);
+                Assert.LessOrEqual(z, GymStrip.ZoomMax);
+            }
+            // a subject taller than the band allows is clamped, not shot from a mile off
+            Assert.AreEqual(GymStrip.ZoomMax, GymStrip.ZoomFor(40f, 25f), 1e-4f);
+            Assert.AreEqual(GymStrip.ZoomMin, GymStrip.ZoomFor(0.2f, 25f), 1e-4f);
+            // the frame is 1.1547 * zoom metres tall: at the zoom it picks, the subject fills about a third of it
+            float frac = GymStrip.SubjectHeight(true, true) * Mathf.Cos(25f * Mathf.Deg2Rad) / (1.1547f * walker);
+            Assert.AreEqual(GymStrip.Share, frac, 0.03f, "the walker should fill about a third of the cell's height");
+        }
+
+        [Test]
+        public void AnAircraftIsShotWideAndAimedUp()
+        {
+            foreach (var id in new[] { OffMapAbilityId.StrafeRun, OffMapAbilityId.BomberRun, OffMapAbilityId.ParaDrop, OffMapAbilityId.ReconFlight })
+                Assert.IsTrue(GymStrip.Flyer(new GymEntry { Tab = GymTab.Abilities, Id = (int)id, Name = id.ToString() }), id + " flies");
+            Assert.IsFalse(GymStrip.Flyer(new GymEntry { Tab = GymTab.Abilities, Id = (int)OffMapAbilityId.HeBarrage, Name = "HeBarrage" }));
+            Assert.IsFalse(GymStrip.Flyer(new GymEntry { Tab = GymTab.Deaths, Id = (int)OffMapAbilityId.StrafeRun, Name = "Blast" }), "only an ability flies");
+            // PlaneLow is 25 m up: a frame 1.1547 * zoom tall aimed at FlyerAimY has to reach it
+            Assert.Greater(GymStrip.FlyerZoom * 1.1547f * 0.5f + GymStrip.FlyerAimY, 25f, "the aircraft must be inside the frame");
+        }
+
+        [Test]
+        public void TheHudAndTheAimingDiscAreHiddenUnlessTheRunAsksForThem()
+        {
+            var e = Entry(GymTab.Abilities, GymExpect.Fires);
+            Assert.IsFalse(GymStrip.ShowsOverlays(e, false), "an aiming disc repaints the frame the measurement is reading");
+            Assert.IsTrue(GymStrip.ShowsOverlays(e, true), "hud=1 asks for them back");
+        }
+
+        [Test]
+        public void AnEntryWhoseStagingNeverHappenedIsNotJudged()
+        {
+            var ev = Entry(GymTab.Events, GymExpect.Preview);
+            StringAssert.Contains("not staged", GymStrip.NotStaged(ev, true, false, false, false, false), "replayed to the effects only");
+            StringAssert.Contains("not staged", GymStrip.NotStaged(ev, false, false, false, false, false), "the machine neither died nor caught fire");
+            Assert.IsNull(GymStrip.NotStaged(ev, false, false, false, false, true), "the sim really destroyed it: judge the pictures");
+
+            var death = Entry(GymTab.Deaths, GymExpect.Fires);
+            StringAssert.Contains("not staged", GymStrip.NotStaged(death, false, true, false, false, false), "the victim lived");
+            Assert.IsNull(GymStrip.NotStaged(death, false, true, true, false, false), "he died: judge the pictures");
+
+            var ability = Entry(GymTab.Abilities, GymExpect.Fires);
+            StringAssert.Contains("not staged", GymStrip.NotStaged(ability, false, false, false, false, false), "the sim refused it");
+            Assert.IsNull(GymStrip.NotStaged(ability, false, false, false, true, false), "it fired: judge the pictures");
+            // an ability the catalogue EXPECTS the sim to refuse is not "not staged": drawing nothing is its right answer
+            Assert.IsNull(GymStrip.NotStaged(Entry(GymTab.Abilities, GymExpect.Rejected), false, false, false, false, false));
         }
 
         [Test]

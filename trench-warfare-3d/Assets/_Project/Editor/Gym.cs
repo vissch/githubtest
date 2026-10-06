@@ -286,6 +286,8 @@ namespace TW.Editor
                 TryDelete(ca); TryDelete(cb); TryDelete(Path.ChangeExtension(ca, ".json")); TryDelete(Path.ChangeExtension(cb, ".json"));
             }
             float threshold = GymStrip.Threshold(floor);
+            // one floor per distinct strip zoom: a 6 m frame repaints more of itself on its own than a 16 m one
+            var floors = new Dictionary<float, float> { { GymStrip.Zoom, floor } };
             File.AppendAllText(Path.Combine(dir, "gym-run.txt"), "noise floor: " + floor.ToString("0.0000", Inv) + " of a close frame; nothing-drawn threshold " + threshold.ToString("0.0000", Inv) + "\n");
             Debug.Log("Gym: noise floor " + floor.ToString("0.0000", Inv) + ", threshold " + threshold.ToString("0.0000", Inv));
             var entries = Select(GymCatalogue.All(host.Local.World));
@@ -313,6 +315,7 @@ namespace TW.Editor
                 int pinned = -1, slot = -1;
                 float wait;
                 var shots = new List<string>(); var jsons = new List<string>();
+                string truth = null; bool machineChanged = false; float stripFloor = floor;
                 // The TIME STRIP: one close band at five moments across the entry's life, instead of six zooms of one
                 // moment. A death, an ability, an event or a unit's fire IS a moment in time, and the first filming
                 // proved a single still cannot tell "nothing was drawn" from "the still missed it" - its three far
@@ -320,10 +323,11 @@ namespace TW.Editor
                 // whole stage you want the overviews of) keep their bands; bands=all forces the old path everywhere.
                 bool strip = GymStrip.Expects(e) && Gym.Opt(Options, "bands") != "all";
                 string stem = Safe(e.Tab + "_" + e.Name);
-                // every strip frame shares ONE camera pose, worked out before staging: r.Focus moves with the director
-                // (an ability aims 30 m up the field), and a frame shot from somewhere else makes its diff against the
-                // 'before' frame meaningless - the whole picture changed because the camera did
+                // every strip frame shares ONE camera pose, worked out after the subject is placed and before anything
+                // is triggered: a frame shot from somewhere else makes its diff against the 'before' frame meaningless.
                 Vector2 sfocus = e.Tab == GymTab.Abilities ? director.Stage + new Vector2(0f, 30f) : director.Stage;
+                float szoom = GymStrip.Zoom, saimY = float.NaN, sheight = float.NaN;
+                bool previewOnly = false;
                 // a still is the pose, not the weather: no camera shake (a barrage moved the camera 1-10 m off its
                 // pose and voided the stills) and no lightning (a flash blew out 5 % of a trench still); both come
                 // back after the capture. For a strip this has to hold across every frame, the 'before' one included.
@@ -331,19 +335,13 @@ namespace TW.Editor
                 var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
                 bool lightning = sky != null && sky.Lightning;
                 bool held = TW.Presentation.Terrain.Storm.Hold;
-                if (strip)
-                {
-                    TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
-                    if (sky != null) sky.Lightning = false;
-                    TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
-                    // the 'before' frame: the empty stage this entry is about to happen on. Everything the strip
-                    // measures is measured against it.
-                    string before = Path.Combine(raw, stem + "_" + GymStrip.Names[0] + ".png");
-                    CaptureRig.Shot(before, sfocus.x, sfocus.y, GymStrip.Zoom, 30f, 25f, 800, 450);
-                    float bu = Time.realtimeSinceStartup + 30f;
-                    while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < bu) yield return null;
-                    shots.Add(before); jsons.Add(Path.ChangeExtension(before, ".json"));
-                }
+                // hud=1 puts the HUD, the selection marker and an ability's aiming disc back in the picture. They are
+                // off by default (look-04): an aiming disc repaints a tenth of the frame, so the strip's measurement
+                // could not tell the overlay from the effect it is there to isolate.
+                bool hudOpt = Gym.Opt(Options, "hud") == "1";
+                bool overlaysWere = TW.Presentation.Tactical.CombatFx.ShowOverlays;
+                // STAGING FIRST, trigger second (look-04): the victim, the machine or the unit has to be standing in
+                // the 'before' frame, or the measured change is "a man appeared" and not "an effect was drawn".
                 if (e.Tab == GymTab.Scenes)
                 {
                     yield return StartCoroutine(director.Scene((GymScene)e.Id));
@@ -351,14 +349,11 @@ namespace TW.Editor
                 }
                 else
                 {
-                    try { wait = Stage(director, e, ref pinned, ref slot); }
+                    try { wait = Place(director, e, ref pinned, ref slot, out previewOnly); }
                     catch (System.Exception ex) { Debug.LogException(ex); wait = -1f; r.Log.Add("staging threw: " + ex.Message); }
                 }
                 if (wait < 0f)
                 {
-                    TW.Presentation.Tactical.CameraShake.Strength = shake;
-                    if (sky != null) sky.Lightning = lightning;
-                    TW.Presentation.Terrain.Storm.Hold = held;
                     SafeWrite(dir, summary, e, r, null, new List<string> { "not staged" }, ref flagged, ref done, null, null); continue;
                 }
                 // film=<seconds>: a unit fights an enemy rifle line 70 m off its nose (inside every machine's reach), filmed below
@@ -366,24 +361,90 @@ namespace TW.Editor
                 if (film > 0f) { r.Log.Add("film: " + RiderLab.Stop(slot) + ", " + RiderLab.Enemies(slot, 12, 70f)); }   // held, so the take keeps it (a Salvo drove into a trench)
                 if (strip)
                 {
+                    yield return new WaitForSeconds(1f);   // the staging settles: he stands still, the machine is at rest
+                    // THE SUBJECT: the picture is of him, so the zoom comes from how tall he is, not from a band.
+                    Vector3 foot = new Vector3(sfocus.x, 0f, sfocus.y);
+                    bool sVeh = false, sWalk = false;
+                    if (slot >= 0 && host.Local != null && slot < host.Local.World.HighWater)
+                    {
+                        var w0 = host.Local.World;
+                        byte ch = w0.ChassisOf(w0.Archetype[slot]);
+                        sVeh = TW.Sim.ChassisKind.IsArmoured(ch); sWalk = TW.Sim.ChassisKind.IsWalker(ch);
+                        if (host.Presenter != null) foot = (Vector3)host.Presenter.Drawn(slot);
+                    }
+                    sheight = GymStrip.SubjectHeight(sVeh, sWalk);
+                    szoom = GymStrip.ZoomFor(sheight, 25f);
+                    saimY = foot.y + sheight * 0.5f;
+                    sfocus = new Vector2(foot.x, foot.z);
+                    if (GymStrip.Flyer(e)) { szoom = GymStrip.FlyerZoom; saimY = GymStrip.FlyerAimY; sheight = 25f; }   // PlaneLow is 25 m up
+                    CaptureRig.Subject = foot; CaptureRig.SubjectHeight = sheight;
+                    r.Log.Add("subject: " + (sWalk ? "walker" : sVeh ? "machine" : "man") + " " + sheight.ToString("0.0", Inv) + " m at ("
+                              + foot.x.ToString("0.0", Inv) + ", " + foot.y.ToString("0.0", Inv) + ", " + foot.z.ToString("0.0", Inv)
+                              + "), zoom " + szoom.ToString("0.0", Inv) + (slot >= 0 ? "; " + director.Truth(slot) : ""));
+                    TW.Presentation.Tactical.CameraShake.Strength = 0f; TW.Presentation.Tactical.CameraShake.Reset();
+                    if (sky != null) sky.Lightning = false;
+                    TW.Presentation.Terrain.Storm.Hold = true;   // the bolt itself (Atmosphere only lights it)
+                    Overlays(GymStrip.ShowsOverlays(e, hudOpt));
+                    // The noise floor at THIS zoom, measured on the staged-but-not-triggered stage: a tighter frame
+                    // repaints a larger share of itself on its own, so one floor measured at 16 m is the wrong
+                    // yardstick for a 6 m one. Once per distinct zoom, kept for the rest of the run.
+                    float zfloor;
+                    if (!floors.TryGetValue(szoom, out zfloor))
+                    {
+                        string za = Path.Combine(raw, "calibz_a.png"), zb = Path.Combine(raw, "calibz_b.png");
+                        CaptureRig.Shot(za, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
+                        float zu = Time.realtimeSinceStartup + 30f;
+                        while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < zu) yield return null;
+                        yield return new WaitForSeconds(0.5f);
+                        CaptureRig.Shot(zb, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
+                        zu = Time.realtimeSinceStartup + 30f;
+                        while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < zu) yield return null;
+                        yield return null;
+                        float zf = Gym.JsonNumber(CaptureRig.Diff(za, zb), "changed_frac");
+                        zfloor = float.IsNaN(zf) ? floor : Mathf.Max(zf, 0f);
+                        floors[szoom] = zfloor;
+                        foreach (var tmp in new[] { za, zb }) { TryDelete(tmp); TryDelete(Path.ChangeExtension(tmp, ".json")); }
+                        Debug.Log("Gym: noise floor at zoom " + szoom.ToString("0.0", Inv) + " is " + zfloor.ToString("0.0000", Inv));
+                    }
+                    stripFloor = zfloor;
+                    // the 'before' frame: the subject standing on the stage, a tick before the trigger. Everything the
+                    // strip measures is measured against it, so the measurement isolates the EFFECT.
+                    string before = Path.Combine(raw, stem + "_" + GymStrip.Names[0] + ".png");
+                    CaptureRig.Shot(before, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
+                    float bu = Time.realtimeSinceStartup + 30f;
+                    while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < bu) yield return null;
+                    shots.Add(before); jsons.Add(Path.ChangeExtension(before, ".json"));
+                    try { Trigger(director, e, slot, previewOnly); }
+                    catch (System.Exception ex) { Debug.LogException(ex); r.Log.Add("trigger threw: " + ex.Message); }
                     var moments = GymStrip.Moments(wait);
                     float begun = Time.time;
                     for (int i = 0; i < moments.Length; i++)
                     {
-                        float at = begun + moments[i];
-                        while (Time.time < at) yield return null;
+                        float at2 = begun + moments[i];
+                        while (Time.time < at2) yield return null;
+                        Overlays(GymStrip.ShowsOverlays(e, hudOpt));   // re-asserted: the HUD rebuilds itself between frames
                         string png = Path.Combine(raw, stem + "_" + GymStrip.Names[i + 1] + ".png");
-                        CaptureRig.Shot(png, sfocus.x, sfocus.y, GymStrip.Zoom, 30f, 25f, 800, 450);
+                        CaptureRig.Shot(png, sfocus.x, sfocus.y, szoom, 30f, 25f, 800, 450, saimY);
                         float su = Time.realtimeSinceStartup + 30f;
                         while (CaptureRig.Pending() != "0" && Time.realtimeSinceStartup < su) yield return null;
                         shots.Add(png); jsons.Add(Path.ChangeExtension(png, ".json"));
                     }
+                    truth = slot >= 0 ? director.Truth(slot) : null;
+                    machineChanged = slot >= 0 && director.MachineChanged(slot);
                     yield return null;
                     TW.Presentation.Tactical.CameraShake.Strength = shake;
                     if (sky != null) sky.Lightning = lightning;
                     TW.Presentation.Terrain.Storm.Hold = held;
+                    Overlays(overlaysWere);
+                    CaptureRig.NoSubject();
                 }
-                else if (e.Tab == GymTab.Scenes && r.Watch.Count > 0)
+                else if (e.Tab != GymTab.Scenes)
+                {
+                    try { Trigger(director, e, slot, previewOnly); }
+                    catch (System.Exception ex) { Debug.LogException(ex); r.Log.Add("trigger threw: " + ex.Message); }
+                    yield return new WaitForSeconds(wait);
+                }
+                else if (r.Watch.Count > 0)
                 {
                     // the watched men's drawn facing, a frame at a time, while the scene settles (GymDirector.SampleFacing)
                     float settleUntil = Time.time + wait;
@@ -443,12 +504,12 @@ namespace TW.Editor
                     for (int i = 1; i < shots.Count; i++) stripChanged.Add(Gym.JsonNumber(CaptureRig.Diff(shots[0], shots[i]), "changed_frac"));
                 }
                 List<string> flags;
-                try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, floor); }
+                try { flags = Judge(host, director, e, r, pinned, slot, jsons, stripChanged, stripFloor, previewOnly, machineChanged); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags = new List<string> { "judging threw: " + ex.Message }; }
                 string sheet = capture ? Path.Combine(dir, e.Tab.ToString(), Safe(e.Name) + ".jpg") : null;
                 try { if (capture) Gym.Sheet(shots, sheet, e.Tab == GymTab.Clips ? 640 : 480); }
                 catch (System.Exception ex) { Debug.LogException(ex); flags.Add("sheet failed: " + ex.Message); }
-                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null, stripChanged);
+                SafeWrite(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pinned >= 0 && host.Animation != null ? host.Animation.State[pinned] : (AnimState?)null, stripChanged, truth, machineChanged, previewOnly);
                 foreach (var f in flags) summaryFlags.Add(e + " | " + Regex.Replace(f, @"[0-9.]+", "#"));
                 if (flags.Count == 0) foreach (var f in shots) { TryDelete(f); TryDelete(Path.ChangeExtension(f, ".json")); }
             }
@@ -457,6 +518,11 @@ namespace TW.Editor
             summary.Append("  ],\n  \"done\": ").Append(done).Append(", \"flagged\": ").Append(flagged)
                    .Append(", \"seconds\": ").Append((Time.realtimeSinceStartup - t0).ToString("0", Inv))
                    .Append(", \"stopped\": ").Append(stopped == null ? "null" : "\"" + Gym.Esc(stopped) + "\"").Append("\n}\n");
+            summary.Length -= 2;   // reopen the object: drop "}" and its newline
+            summary.Append(",\n  \"noise_floors\": {");
+            bool f0 = true;
+            foreach (var kv in floors) { summary.Append(f0 ? "" : ", ").Append('"').Append(kv.Key.ToString("0.0", Inv)).Append("\": ").Append(kv.Value.ToString("0.0000", Inv)); f0 = false; }
+            summary.Append("}\n}\n");
             var recurring = Recurring(dir, summaryFlags);
             summary.Length -= 2;   // reopen the object: drop "}\n"
             summary.Append(",\n  \"recurring\": [");
@@ -509,9 +575,26 @@ namespace TW.Editor
             return list;
         }
 
-        /// <summary>Put the entry on the stage; seconds to wait before the photographs, or -1 when it cannot be staged.</summary>
+        /// <summary>Put the entry on the stage; seconds to wait before the photographs, or -1 when it cannot be staged.
+        /// Place then Trigger in one call: the inspector's single-entry button and the band (non-strip) path.</summary>
         static float Stage(GymDirector d, GymEntry e, ref int pinned, ref int slot)
         {
+            float wait = Place(d, e, ref pinned, ref slot, out bool previewOnly);
+            if (wait >= 0f) Trigger(d, e, slot, previewOnly);
+            return wait;
+        }
+
+        /// <summary>
+        /// The first half: everything that has to be STANDING THERE before the strip's 'before' frame is taken - the
+        /// victim, the machine, the unit, the rifle line - and nothing that makes the entry's event happen. Split from
+        /// Trigger on 2026-10-06 (look-04): round 2's 'before' frame was of an empty field, so a strip's measured
+        /// change was "a man appeared" rather than "an effect was drawn", and the subject could not be framed before
+        /// it existed. Returns the seconds to wait after the trigger, or -1 when the entry cannot be staged.
+        /// `previewOnly` says the trigger will only replay the event into the effects: nothing happens in the sim.
+        /// </summary>
+        static float Place(GymDirector d, GymEntry e, ref int pinned, ref int slot, out bool previewOnly)
+        {
+            previewOnly = false;
             var at = d.Stage;
             switch (e.Tab)
             {
@@ -519,6 +602,7 @@ namespace TW.Editor
                 {
                     pinned = d.PlayClip(e.Figure, (Clip)e.Id, at);
                     if (pinned < 0) return -1f;
+                    slot = pinned;
                     return Mathf.Clamp(Clips.Table[e.Id].Seconds * 0.6f, 0.4f, 4f);   // photographed mid-clip
                 }
                 case GymTab.Units:
@@ -529,31 +613,77 @@ namespace TW.Editor
                 {
                     var target = at + new Vector2(0f, 30f);
                     d.Current.Focus = new Unity.Mathematics.float3(target.x, 0f, target.y);
-                    d.Ability((OffMapAbilityId)e.Id, target);
                     return 12f;
                 }
                 case GymTab.Deaths:
                 {
                     var kind = (DeathKind)e.Id;
-                    return d.Death(kind, 0, at) >= 0 ? (kind == DeathKind.Gas ? 40f : kind == DeathKind.Crushed ? 20f : 12f) : -1f;
+                    slot = d.DeathStage(kind, 0, at);
+                    return slot >= 0 ? (kind == DeathKind.Gas ? 40f : kind == DeathKind.Crushed ? 20f : 12f) : -1f;
                 }
                 case GymTab.Events:
                 {
                     if (e.Expect != GymExpect.Preview) return 0f;
                     var t = (SimEventType)e.Id;
-                    bool vehicle = t.ToString().StartsWith("Vehicle", System.StringComparison.Ordinal) || t == SimEventType.WreckRecorded;
+                    bool vehicle = VehicleEvent(t);
                     slot = d.Spawn(0, vehicle ? VehicleArchetype.Maw : 0, at.x, at.y, 30f);
-                    d.Preview(t, slot, at, new Unity.Mathematics.float3(0f, 0f, 1f), 1f);
-                    return 3f;
+                    if (slot < 0) return -1f;
+                    d.Hold(slot);
+                    previewOnly = !vehicle;
+                    // a machine's event is staged FOR REAL (look-04): round 2's VehicleDestroyed.jpg showed the same
+                    // whole tank in all five cells because the event was only replayed to the effects. A hull set
+                    // alight with almost no hit points left is burnt, knocked out, cooked off and despawned by the
+                    // sim's own step, so the wreck, the cook-off and the fire are the game's, not a replay's.
+                    return vehicle ? 12f : 3f;
                 }
             }
             return -1f;
         }
 
+        /// <summary>Does this event belong to a machine, so the gym can stage it by setting a hull alight?</summary>
+        static bool VehicleEvent(SimEventType t) =>
+            t.ToString().StartsWith("Vehicle", System.StringComparison.Ordinal) || t == SimEventType.WreckRecorded;
+
+        /// <summary>The second half: what makes the entry's event happen, on the tick the strip measures from.</summary>
+        static void Trigger(GymDirector d, GymEntry e, int slot, bool previewOnly)
+        {
+            var at = d.Stage;
+            switch (e.Tab)
+            {
+                case GymTab.Abilities:
+                    d.Ability((OffMapAbilityId)e.Id, at + new Vector2(0f, 30f));
+                    break;
+                case GymTab.Deaths:
+                    d.DeathTrigger((DeathKind)e.Id, slot, at);
+                    break;
+                case GymTab.Events:
+                {
+                    if (e.Expect != GymExpect.Preview) break;
+                    var t = (SimEventType)e.Id;
+                    if (previewOnly) { d.Preview(t, slot, at, new Unity.Mathematics.float3(0f, 0f, 1f), 1f); break; }
+                    if (slot < 0 || d.Host == null) break;
+                    d.Host.WriteWorlds(m =>
+                    {
+                        if (m.World != null && slot < m.World.HighWater) m.World.Hp[slot] = 1f;
+                        if (m.Modules != null && m.Modules.Fire.IsCreated && slot < m.Modules.Fire.Length) m.Modules.Fire[slot] = 0.9f;
+                    });
+                    d.Current?.Log.Add("staged for real: the hull is alight (fire 0.9) with 1 hp; the sim burns, knocks out and cooks it off");
+                    break;
+                }
+            }
+        }
+
         /// <summary>The entry's flags: what a person should look at. Empty means it did what the catalogue expects.</summary>
         static List<string> Judge(SimHost host, GymDirector d, GymEntry e, GymDirector.Result r, int pinned, int slot, List<string> jsons,
-                                  List<float> stripChanged = null, float floor = 0f)
+                                  List<float> stripChanged = null, float floor = 0f, bool previewOnly = false, bool machineChanged = false)
         {
+            // Did the staging make the entry's event happen FOR REAL? An entry whose event was only replayed into the
+            // effects, whose victim lived or whose ability the sim refused says nothing about what the game draws, so
+            // it is flagged "not staged" and NOT judged on what the pictures show (look-04, 2026-10-06: round 2 called
+            // VehicleDestroyed proven off five cells of the same undamaged tank).
+            string unstaged = GymStrip.Expects(e)
+                ? GymStrip.NotStaged(e, previewOnly, r.Victim >= 0, r.VictimDied, r.Count(SimEventType.AbilityFired) > 0, machineChanged)
+                : null;
             var flags = new List<string>();
             if (r.Errors > 0) flags.Add(r.Errors + " log errors");
             if (r.Canary && r.Desync) flags.Add("desync");
@@ -602,14 +732,29 @@ namespace TW.Editor
             }
             // The measured flag the first filming could not raise: an entry that promises something on screen and whose
             // whole strip stays inside the noise an idle stage makes on its own drew nothing a player would see.
-            string nothing = GymStrip.Expects(e) ? GymStrip.NothingDrawn(stripChanged, floor) : null;
+            if (unstaged != null) flags.Add(unstaged);
+            string nothing = unstaged == null && GymStrip.Expects(e) ? GymStrip.NothingDrawn(stripChanged, floor) : null;
             if (nothing != null) flags.Add(nothing);
+            // was the picture OF the subject? CaptureRig writes subject_in_frame and subject_height_frac when it was
+            // told what the shot is of; a strip whose victim is off frame or a few pixels tall cannot be read at all.
+            foreach (var j in jsons)
+            {
+                if (!File.Exists(j)) continue;
+                string sj = File.ReadAllText(j);
+                float inFrameS = Gym.JsonNumber(sj, "subject_in_frame"), frac = Gym.JsonNumber(sj, "subject_height_frac");
+                if (float.IsNaN(inFrameS)) continue;
+                string which = Path.GetFileNameWithoutExtension(j);
+                if (inFrameS < 0.5f) { flags.Add(which + ": subject off frame"); continue; }
+                if (!float.IsNaN(frac) && frac < 0.15f)
+                    flags.Add(which + ": subject fills only " + (frac * 100f).ToString("0", Inv) + "% of the frame's height");
+            }
             if (e.Tab == GymTab.Clips && jsons.Count > 0 && File.Exists(jsons[0]) && Gym.JsonNumber(File.ReadAllText(jsons[0]), "men_in_frame") < 1f) flags.Add("no man in the T3 frame");
             return flags;
         }
 
         static void WriteEntry(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
-                               ref int flagged, ref int done, string sheet = null, AnimState? pose = null, List<float> stripChanged = null)
+                               ref int flagged, ref int done, string sheet = null, AnimState? pose = null, List<float> stripChanged = null,
+                               string truth = null, bool machineChanged = false, bool previewOnly = false)
         {
             done++; if (flags.Count > 0) flagged++;
             var sb = new StringBuilder();
@@ -619,6 +764,15 @@ namespace TW.Editor
               .Append(", \"rejects\": ").Append(r.Rejects).Append(", \"previews\": ").Append(r.Previews)
               .Append(", \"canary\": ").Append(r.Canary ? "true" : "false").Append(", \"desync\": ").Append(r.Canary ? (r.Desync ? "true" : "false") : "null").Append(",\n");   // a desync is only seen with the canary
             sb.Append("  \"victim\": ").Append(r.Victim).Append(", \"victim_died\": ").Append(r.VictimDied ? "true" : "false").Append(",\n");
+            // THE SIM'S TRUTH for this entry, beside the pictures: round 2's verdicts could not be checked because the
+            // sidecar said nothing about whether the man really died or the machine was really destroyed (look-04).
+            sb.Append("  \"truth\": {\"victim\": ").Append(r.Victim).Append(", \"died\": ").Append(r.VictimDied ? "true" : "false")
+              .Append(", \"cause_killer_slot\": ").Append(r.VictimCause)
+              .Append(", \"machine_changed\": ").Append(machineChanged ? "true" : "false")
+              .Append(", \"ability_fired\": ").Append(r.Count(SimEventType.AbilityFired))
+              .Append(", \"rejected\": ").Append(r.Rejects)
+              .Append(", \"preview_only\": ").Append(previewOnly ? "true" : "false")
+              .Append(", \"world\": ").Append(truth == null ? "null" : "\"" + Gym.Esc(truth) + "\"").Append("},\n");
             sb.Append("  \"consequence\": {\"men\": ").Append(r.Watch.Count).Append(", \"hits\": ").Append(r.WatchedHits).Append(", \"near_misses\": ").Append(r.WatchedNearMisses)
               .Append(", \"suppressed\": ").Append(r.WatchedSuppressed).Append(", \"deaths\": ").Append(r.WatchedDeaths)
               .Append(", \"turnabouts_per_man_min\": ").Append((r.WatchedSeconds > 0f ? r.Turnabouts / (r.WatchedSeconds / 60f) : 0f).ToString("0.0", Inv))
@@ -696,10 +850,27 @@ namespace TW.Editor
         }
 
         static void SafeWrite(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
-                              ref int flagged, ref int done, string sheet, AnimState? pose, List<float> stripChanged = null)
+                              ref int flagged, ref int done, string sheet, AnimState? pose, List<float> stripChanged = null,
+                              string truth = null, bool machineChanged = false, bool previewOnly = false)
         {
-            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose, stripChanged); }
+            try { WriteEntry(dir, summary, e, r, jsons, flags, ref flagged, ref done, sheet, pose, stripChanged, truth, machineChanged, previewOnly); }
             catch (System.Exception ex) { Debug.LogException(ex); }
+        }
+
+        /// <summary>
+        /// Show or hide everything that is HUD: the ability aiming disc and the selection marker (CombatFx draws both
+        /// in the world), the banner, and every UI Toolkit document - as Perf/PerfBench.HideHud does for an image run.
+        /// A gym strip hides them (look-04): an aiming disc or a selection ring repaints a large share of a close
+        /// frame, and the strip's measurement is there to isolate the EFFECT, not the instrument's own furniture.
+        /// </summary>
+        static void Overlays(bool show)
+        {
+            TW.Presentation.Tactical.CombatFx.ShowOverlays = show;
+            var display = show
+                ? new UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle>(UnityEngine.UIElements.StyleKeyword.Null)
+                : new UnityEngine.UIElements.StyleEnum<UnityEngine.UIElements.DisplayStyle>(UnityEngine.UIElements.DisplayStyle.None);
+            foreach (var doc in Object.FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
+                if (doc.rootVisualElement != null) doc.rootVisualElement.style.display = display;
         }
 
         static string Safe(string s)
