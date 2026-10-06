@@ -247,6 +247,15 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   102 m), and at 0.8 the lightest guns (88 m) would no longer cross no man's land. The minimum ranges of the mortar
   and the rockets keep the cut (37 m and 48 m). Options: (1) keep the metres as measured (taken); (2) cut them by 20 %
   too and measure the bench again. Default taken: (1), landed with the lane.
+- **The night look, second part (2026-10-06):** `lane/show/night-look-2` (six commits of 2026-10-01, rebased on the
+  desktop as `lane/show/night-look-3`, not pushed) was never shown to the owner: every flame streaks its reflection
+  across the wet mud (`look.fireStreak`), a flame's glint on wet mud is orange not lilac (`look.glintUnblue`), props
+  stand dark against the lifted distance (`look.silhouette`), the light pools softer and their rims amber
+  (`look.poolUnblue`). It changes every night battle, so it does not land without his yes. Seen on today's captures:
+  the far ruins dark against the haze is the strongest change; the pools read dimmer and redder, the streak is faint
+  at play zoom, and at wide views the far props look like flat cut-outs. Options: (1) land it as built; (2) land it
+  switched off, each change a knob to turn on later; (3) leave it. Default taken: not landed. Brief with six before
+  and after pictures: `2026-10-06-the-night-look-second-part`.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
