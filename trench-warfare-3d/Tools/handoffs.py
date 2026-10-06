@@ -79,8 +79,8 @@ def render(where: Path, d):
             continue
         out += [f'## {SAYS[state]}', '']
         if state == 'replaced':
-            out += ['| Topic | File | Replaced by |', '|---|---|---|']
-            out += [f'| {h[n]["topic"]} | `{n}` | `{h[n].get("by", "")}` |' for n in rows]
+            out += ['| Topic | File | Replaced by | Read this one |', '|---|---|---|---|']
+            out += [f'| {h[n]["topic"]} | `{n}` | `{h[n].get("by", "")}` | `{newest(h, n)}` |' for n in rows]
         else:
             out += ['| Topic | File | Changed | What it is for |', '|---|---|---|---|']
             out += [f'| {h[n]["topic"]} | `{n}` | {changed(where, n)} | {h[n].get("for", "")} |' for n in rows]
@@ -94,6 +94,16 @@ def render(where: Path, d):
         out += [f'| `{n}` | {d["others"][n]} |' for n in sorted(d['others'])]
         out.append('')
     return '\n'.join(out)
+
+
+def newest(h, name):
+    """Where a chain of replacements ends: the file to read. A chain that comes back on itself ends where it turns."""
+    seen = [name]
+    while h.get(name, {}).get('state') == 'replaced' and h[name].get('by') in h and h[name]['by'] not in seen:
+        name = h[name]['by']
+        seen.append(name)
+    by = h.get(name, {}).get('by', '')
+    return by if h.get(name, {}).get('state') == 'replaced' and by.startswith('repo:') else name
 
 
 def problems(where: Path, d=None):
@@ -115,6 +125,8 @@ def problems(where: Path, d=None):
                 out.append(f'{n}: replaced, and by nothing')
             elif not by.startswith('repo:') and by not in h:
                 out.append(f'{n}: replaced by {by}, which is not a listed handoff (a doc in the repo is `repo:<path>`)')
+            elif h.get(newest(h, n), {}).get('state') == 'replaced':
+                out.append(f'{n}: its replacements come back on themselves and end on no file to read')
     out += [f'topic "{t}": {len(ns)} current handoffs ({", ".join(ns)}); one is current, replace the others'
             for t, ns in sorted(topics.items()) if len(ns) > 1]
     index = where / 'INDEX.md'
