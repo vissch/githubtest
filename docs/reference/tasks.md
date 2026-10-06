@@ -63,7 +63,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   the front; goes over the top when its front garrison is at least `AttackGarrison` and `Odds` + 1 (three) times the
   player's front garrison, or, at `Odds` (two) times, first lays an HE line 60 m along the player's garrison and, if the
   silver runs to it, a 40 m smoke screen just in front of it, and goes `BarrageLeadTicks` later (`PlannedAttack`);
-  shells or gasses the player's front only out of silver it has beyond the reserve. When it goes over the top its
+  shells or gasses the player's front only out of silver it has beyond the reserve. **Patience (2026-09-29):** every `PatienceTicks`
+  (two minutes) without going over the top, the odds it wants behind a barrage fall a step toward `PatienceOdds`
+  (two, one and a half, then even; `WantedOdds`), and `Said` names them. With the trench mouth hidden from far guns
+  (v23) nobody died between attacks, so both armies grew alike and the script against itself took no trench in ten
+  minutes; behind smoke and a barrage, even odds trade man for man and one and a half to one takes the trench. When it goes over the top its
   machine gunners stay on the parapet and fire over the attack (`OverTheTop`: every group but `OrderGroup.Gun`, v22).
   On Hard (`Defends`, `SimHost.PeerDefends`, the missions' and campaign's difficulty) it answers an attack: five or
   more of the player's men in the open 8-70 m before its front trench bring an HE line down on them (`Sos`, the SOS
@@ -188,6 +192,13 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   front trench killed the player's reinforcements between their spawn and their lines: in ten minutes of a match the
   player lost 17 of 23 men without an attack being made, and no army ever grew past ten (`MatchLoopTests` on the show
   lane). Artillery, gas and aircraft still reach him.
+  **The trench mouth (v23, owner 2026-09-29):** closer in, from `DeadGroundLipMetres` (1.5 m) in front of the trench's
+  line back to `DeadGroundMetres`, the parapet hides him from a far-side shooter more than `DeadGroundCloseMetres`
+  (40 m) away, unless that shooter is a sniper (`InDeadGround`). With dead ground alone, six ten-minute matches with the
+  enemy's script on both seats lost 227 men there, most of all their dead, shot at 100-130 m as they stepped down into
+  their own trench, so the side with the longer guns (Brass: sniper, machine gun) snowballed. With the mouth hidden
+  from everyone nobody died in ten minutes (garrisons pin each other on the fire step); with snipers still seeing it,
+  only a side that fields snipers bleeds the other there. Tests: DeadGroundTests.
 
 ### Shells, barrages, gas, fire
 - **Files:** `Sim/Combat/Blast.cs` (`BlastRules`: trench bay 0.7, traverse 0.5; `BlastShape`; `Impact.SafeBehind`),

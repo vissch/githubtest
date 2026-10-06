@@ -200,7 +200,10 @@ namespace TW.Tests
                 if (!d.Contains("barrage called") && !d.Contains("bare")) continue;
                 var parts = d.Split(' ');
                 int mine = int.Parse(parts[parts.Length - 3]), held = int.Parse(parts[parts.Length - 1]);
-                float want = d.Contains("bare") ? 3f : 2f;
+                // patience lowers the odds behind a barrage, never below even, and says so
+                int at = d.IndexOf("odds ", System.StringComparison.Ordinal);
+                float want = d.Contains("bare") ? 3f : at >= 0 ? float.Parse(d.Substring(at + 5, 3), System.Globalization.CultureInfo.InvariantCulture) : 2f;
+                Assert.GreaterOrEqual(want, 1f, d);
                 Assert.GreaterOrEqual(mine, want * held, d);
                 Assert.GreaterOrEqual(mine, 8, d);
             }
@@ -222,6 +225,21 @@ namespace TW.Tests
             var d = Defended();
             Assert.Greater(d.Short, 20, "it was short of men for a while");
             Assert.LessOrEqual(d.Hoarded, d.Short / 20, $"short of men, it sat on its silver {d.Hoarded} times in {d.Short}");
+        }
+
+        [Test]
+        public void TheScriptAgainstItself_TakesTrenches()
+        {
+            // With the trench mouth hidden from far guns (v23) nobody died between attacks, both sides grew alike, and
+            // the script waiting for two to one never went over: six ten-minute matches against itself took no trench.
+            // Patience lowers the odds it wants behind a barrage every two minutes without an attack.
+            int decided = 0;
+            for (uint s = 0; s < 3; s++)
+            {
+                var r = Play(Policy.Script, 10, 0xC0FFEEu + s * 7919u);
+                if (r.CapturedByPlayer + r.CapturedByEnemy > 0) decided++;
+            }
+            Assert.GreaterOrEqual(decided, 2, "a trench changed hands in ten minutes, on two seeds of three");
         }
 
         [Test, Explicit("ten minutes of each policy against the scene's enemy, for tuning")]

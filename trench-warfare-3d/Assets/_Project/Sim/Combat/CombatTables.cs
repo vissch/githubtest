@@ -33,6 +33,12 @@ namespace TW.Sim.Combat
         public const float RunningTargetFloor = 0.35f;   // the share of the chance left at RunningTargetFar and beyond
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
         public const float DeadGroundMetres = 10f;       // a man this far behind his own front trench is out of the far side's sight (TargetAcquisition)
+        // ---- the trench mouth (2026-09-29, v23): closer in than DeadGroundMetres, from DeadGroundLipMetres in front of the
+        // trench's line back, a man coming up to his own trench is hidden by its parapet from a shooter on the far side
+        // who is more than DeadGroundCloseMetres from him, unless the shooter is a sniper (owner, 2026-09-29). Ten-minute matches lost most of their dead there: men shot
+        // at 100-130 m by the far garrison as they stepped down into their own trench (MatchLoopTests, TrenchMouthTests).
+        public const float DeadGroundLipMetres = 1.5f;   // the trench's line is its middle: a man dropping in stands up to this far in front of it
+        public const float DeadGroundCloseMetres = 40f;  // an attacker this close looks over the parapet at him
         // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
         // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
         // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle

@@ -137,3 +137,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
   Count events from a log, not from pixels. A knob A/B on held-clock stills settles "is it drawn at all" in one run.
 - **2026-09-25 (AOSA). Normalise sim costs by men alive:** spreading the stress army cut Sim.Step 39% only because more
   men died.
+- **2026-09-29 (sim/match-flow). An elevated session cannot run Unity:** three gate runs, the unchanged tree's too, "timed
+  out after 600 seconds" with no verdict, and `tw up` opened no editor. Unity waits on its "running as administrator"
+  prompt, which batch mode never answers. Check the session's elevation before gating; offline, `otr.py` still runs.
