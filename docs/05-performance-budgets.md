@@ -614,3 +614,41 @@ the picture would not show it.
 
 When the men's shadows are on (smaller armies), their shadow pass also loses its pixel work: with no clip and no
 colour it has none left.
+
+## The stress bench times a steady scene again: no hero in the preset (2026-10-06)
+
+The bench's own battle was not steady. The stress preset gave the player's side a hero, and about 43 s in (tick ~860,
+well before the bench's `settle_ticks=1800`) he led the front trench over the top. The timings carried that charge: by
+the time the window opened, **2,009 of the 3,000 men were already dead** (413 with no hero) and the survivors were in a running melee, so
+every milestone's numbers were a measurement of a collapse, not of the trench fight the budget is written against.
+`SimHost.StressPreset` now sets `HeroSystem.TeamMask = 0` whenever `StressUnits > 0`; the knob `stress.heroes` (default
+off) puts the old behaviour back, and no other preset is touched (`StressPresetTests.StressPreset_FieldsNoHeroOnEitherSide`).
+
+New baseline. Four runs, one tree, one batch editor (RTX 4070 laptop, 640x480, quality 5, no canary), interleaved
+`off-1 on-1 off-2 on-2` so machine drift cannot sit on one side; `stress=1500 settle_ticks=1800 ticks=400`. The `on-*`
+runs are the preset exactly as it was before this change, off the same build, so old and new compare like for like.
+Reports: `docs/reference/perf-pass-2026-09/runs/heroes-{off,on}-{1,2}.json`.
+
+| Window 1800..2200 | hero (the old preset) | no hero (the new baseline) |
+|---|---|---|
+| hash_start | 2914A6D3C0D55BAD | 149C1850821C4139 |
+| men alive, start / end | 991 / 765 | **2587 / 2409** |
+| fps mean | 226.0, 227.2 | **202.9, 201.0** |
+| cpu_frame_ms p50 / p95 / p99 | 3.283/10.2/19.18, 3.291/10.29/19.92 | **4.349/10.18/11.65, 4.301/10.58/12.54** |
+| main_ms on tick frames p50 / p95 | 3.447/16.86, 3.475/17.86 | **4.164/4.87, 4.178/5.29** |
+| TW.Sim.Step per tick | 1.794, 1.809 ms | **3.679, 4.080 ms** |
+| TW.Host.Update per tick | 13.413, 13.463 ms | **14.731, 15.980 ms** |
+| gc_bytes p99 | 46,330, 46,330 | **1,191, 1,087** |
+| VAT vertices p50 | 1.07 M | **1.92 M** |
+
+The new baseline is **slower and much steadier**, which is the point: 2.6x the men alive cost p50 ~1.05 ms more frame
+time and 2.2x the sim step, while p99 drops from 19-20 ms to 11.7-12.5 ms and the p95 of a tick frame from ~17 ms to
+~5 ms. The old spikes were the melee, not the renderer. The men's shadows also go off at the larger army
+(`vat_shadows_on` 1 -> 0, `LodTiers.VertexBudget`), and `TW.Terrain.*` and `TW.Props.Compose` fall to zero because the
+hero's charge was what kept chewing terrain and recomposing props.
+
+Run-to-run spread, the pair against itself: p50 within 1.1 %, p95 within 3.9 %, p99 within 7.6 %, per-system markers
+within 11 % (`TW.Host.Update`). All inside the noise bands the procedure above allows, so the hero/no-hero gap is real.
+
+`perfcmp.py` needs `--force` on this table by design: `hash_start` differs because the preset now builds a different
+battle.
