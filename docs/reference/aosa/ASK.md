@@ -21,9 +21,6 @@ director ranks the shell burst at T1 as the first moment to improve, and card C2
 **A04. Coast obstacles.** The coast has no wire, no obstacles and no defender's trench on the sand. Placing them is a
 map-design call, and card C25 is parked on it.
 
-**A05. Ruins placement.** The ruins set is cut, imported and tested, and nothing places it (agent-memory 2026-09-24).
-Where should the ruins go?
-
 **A06. Redoubt's leg count.** Its profile says 6 legs and its model has 4. Damage lames the wrong leg, and two legs
 can be shot off with no visible effect (docs/20 A17). The fix is either `Legs = 4`, which is a balance change on the
 SIM lane, or a re-split of the model.
@@ -44,17 +41,6 @@ branch only and never merge it; (c) keep gating and accept the occasional misrou
 The loop's recommendation is (b). Until you answer, the loop runs only player benches, offline compiles and
 patch authors. Waiting on the gate: C48, the missing player effects (runs/3/C48.patch, EditMode 328/328), and
 the C13 default of 100 ms.
-
-**A07. Shadows on the men at the standard view (cycle 3, C15).** Raising `vat.vertexBudget` from 1.5 M to 3.4 M
-turns the men's shadows on at 1,500 a side. The sweep ran on the release player, interleaved against the current
-build, 2 runs per value (runs/3 vb3400000, vb4000000 against base4):
-- VAT vertices double: 1.6 M -> 3.2 M. That breaks your rule that standard-view vertices never rise.
-- GPU p95 goes from 3.08 to about 3.4 ms (+0.3). The main thread and draw calls do not move.
-- At night the look barely changes. 1.4% of pixels differ, mostly slightly darker ground among the men in the
-  trench (runs/3/sh34-1.png against runs/2/v1-1.png, both held-clock stills of the same frame).
-The loop's recommendation: not at night at T1. It could be worth a look as a daylight-only or T2/T3-only setting,
-and the knob already allows either. Do you want the vertices rule relaxed for this, and if so, for which weather
-or tier?
 
 **A09. Night tracers: depth or weight? (cycle 9, cards C104/C107)** Drawn under the smoke, tracers read as bullets
 flying through it (+3.2 on a 0-10 blind scale, 12 pairs), and the men are unchanged in every pair. But the barrage
@@ -112,6 +98,9 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
 
 ## Answered
 
+- **A05 (2026-10-06): in the rear with the other buildings.** The owner, on the Decide page, to "Where the four big
+  ruins stand": "lets put them also in the rear with the other buildings". Queued for the relay as the unit
+  ruins-in-rear (2026-10-07). Not built yet.
 - **A08 (2026-09-25): option (b).** The worktree gets an untracked `Assets/_AosaLocal/PipelineServerOff.asset`
   (AutoStart off). It is never committed and never merged. `land.ps1` refuses to start an editor without it, and
   it warns if the server starts anyway. Editor gates resume.
