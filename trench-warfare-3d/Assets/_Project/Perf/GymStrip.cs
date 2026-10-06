@@ -59,14 +59,22 @@ namespace TW.Perf
         }
 
         /// <summary>
-        /// How much of the frame must change before we believe something was drawn. Three times the measured noise
-        /// floor (rain and flicker move pixels on an idle stage), and never under 0.4 % of the frame — a burst that
-        /// touches fewer pixels than that is invisible to a player anyway.
+        /// How much of the frame must change before we believe something was drawn: the measured noise floor plus
+        /// 1 % of the frame, but never more than three times the floor and never under 0.4 % of it.
+        ///
+        /// Why not three times the floor alone (look-08). A strip is now shot at the zoom the SUBJECT needs, and at
+        /// 6 m a close frame repaints 0.2466 of itself on its own - three times that is 0.74, a line no effect on a
+        /// stage can cross, so every close entry was flagged and the flag said nothing. Round 3's Deaths/Shot moved
+        /// 0.2725 of the frame, clearly more than idle, and was flagged all the same. A % of the frame OVER the
+        /// floor is a line that scales: at a tiny floor 3x is still the tighter of the two and nothing changes, at a
+        /// close floor it is reachable - and an entry that truly draws nothing sits AT the floor and still fails.
         /// </summary>
         public static float Threshold(float floor)
         {
             if (!(floor > 0f)) floor = 0f;
             float t = 3f * floor;
+            float over = floor + 0.01f;
+            if (over < t) t = over;
             return t > 0.004f ? t : 0.004f;
         }
 
@@ -201,6 +209,32 @@ namespace TW.Perf
         /// run asked for it (hud=1): an overlay repaints a tenth of the frame and the measurement cannot tell it from
         /// the effect it is meant to isolate.</summary>
         public static bool ShowsOverlays(GymEntry e, bool hudOption) => hudOption;
+
+        /// <summary>
+        /// Is the cyan contact ring under a machine (TankRenderer's team-coloured disc and its rider pips) drawn in a
+        /// gym shot? Only when the run asked for it (hud=1) or the entry is ABOUT the ring itself.
+        ///
+        /// Why (look-08). round3 flagged it on every machine - Events/Vehicle*, Units/Maw, Breaker, Pincer, Banner,
+        /// Skimmer: a bright cyan bracket lying across the hull and the ground, a tenth of a close frame, drawn in
+        /// the world (so Overlays' UIDocument sweep never touched it) and the loudest thing in a picture that is
+        /// supposed to be of the machine. It is an instrument, like the aiming disc, so a strip hides it.
+        /// </summary>
+        public static bool ShowsSelection(GymEntry e, bool hudOption)
+        {
+            if (hudOption) return true;
+            if (!Strips(e.Tab)) return true;        // a clip or a scene is the game as it is played
+            return AboutSelection(e);
+        }
+
+        /// <summary>Is this entry about the ring/marker itself, so hiding it would hide the subject of the picture?</summary>
+        public static bool AboutSelection(GymEntry e)
+        {
+            string n = e.Name;
+            if (string.IsNullOrEmpty(n)) return false;
+            return n.IndexOf("Select", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || n.IndexOf("Marker", System.StringComparison.OrdinalIgnoreCase) >= 0
+                || n.IndexOf("Ring", System.StringComparison.OrdinalIgnoreCase) >= 0;
+        }
 
         /// <summary>
         /// The flag for an entry whose STAGING never made its event happen in the sim: a preview replayed into the
