@@ -15,7 +15,6 @@ using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
 using TW.Sim.Units;
-using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -93,43 +92,6 @@ namespace TW.Tests
         /// <summary>The rise itself, on the one map flat enough to measure it directly: the playtest bowl, whose
         /// neighbouring cells differ by about 0.004 m. On rolling ground the terrain noise swamps it, which is why
         /// the test above asserts the identity instead.</summary>
-        /// <summary>A man walking to his post squeezes past his mates at theirs (2026-10-01). In the scripts' own match, seed
-        /// 2, a man dropped into the fire trench at (24, 68) with his post 11 m along it, and the man at the post beside him
-        /// held him off: the 2 m spacing's hard core under a metre shoved him back a step every few ticks (forward, forward,
-        /// forward, back), and he was drawn turning about on each back-step (the gym's facing measure). Counted over the
-        /// whole garrison, the first two minutes: a man's step reversed against the one before.</summary>
-        [Test]
-        public void AManWalkingToHisPostSqueezesPastHisMates()
-        {
-            int reversals = 0;
-            var last = new Dictionary<long, float2>(); var lastStep = new Dictionary<long, float2>();
-            uint seen = uint.MaxValue;
-            MatchLoopTests.Play(MatchLoopTests.Policy.Script, 2, 2u, new ScriptedEnemy(), 8, m =>
-            {
-                var w = m.World;
-                if (w.Tick == seen) return; seen = w.Tick;
-                for (int i = 0; i < w.HighWater; i++)
-                {
-                    if (!w.IsAlive(i) || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0 || w.TrenchId[i] < 0) continue;
-                    long key = ((long)i << 16) | w.Generation[i];
-                    float2 p = w.Position[i].xz;
-                    if (last.TryGetValue(key, out var q))
-                    {
-                        float2 step = p - q;
-                        if (lastStep.TryGetValue(key, out var ls))
-                        {
-                            float a = math.length(step), b = math.length(ls);
-                            if (a > 0.015f && b > 0.015f && math.dot(step, ls) < -0.5f * a * b) reversals++;
-                        }
-                        lastStep[key] = step;
-                    }
-                    last[key] = p;
-                }
-            });
-            TestContext.WriteLine($"garrison men's steps reversed {reversals} times in two minutes");
-            Assert.Less(reversals, 8, "a man on his way to his post is not shoved back and forth by the men at theirs");
-        }
-
         [Test]
         public void AFiringPostIsAStepAboveTheTrenchFloor()
         {

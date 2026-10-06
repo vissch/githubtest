@@ -86,7 +86,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   garrison with machine guns falls only behind support (two gunners in ten: bare attacks fail at three to one, two to
   one behind smoke and a barrage takes it four times in four). The enemy before 2026-09-29 attacked with eight men
   whatever stood before them, and from two minutes in spent every coin on harassing fire and never deployed again.
-- **Tests:** MatchLoopTests (ten-minute matches against a player who only defends: the enemy keeps deploying, attacks
+- **Tests:** SteadyStepTests (over the scripts' own match, no man's step is turned back on the one before: to his post in the trench, closing on an enemy in the open), MatchLoopTests (ten-minute matches against a player who only defends: the enemy keeps deploying, attacks
   only with the odds, never sits on silver while it is short of men for the odds, and breaks him on two seeds of three;
   `Report_TheMatchLoop`, Explicit, prints four policies
   including the script against itself), CampaignGraphTests (difficulty presets), SinglePlayerEquivalenceTests.
@@ -805,7 +805,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, StressPresetTests
+- **Match:** AssaultLadderTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
 - **PlayMode:** HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FrameBudgetCoverageTests, GaitTests, GrenadeLookTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, ViewGroundTests, WalkerJointTests, WreckModelTests
