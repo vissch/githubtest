@@ -185,13 +185,10 @@ namespace TW.Tests
             using var a = MatchSim.CreateBattlefield(cfg, loud);
             using var b = MatchSim.CreateBattlefield(cfg, quiet);
             for (int t = 0; t < 1200; t++) { Step(a); Step(b); }   // one minute
-            // ShelledForest is a coast, so the fleet's guns lay a shell of their own every ShipEvery ticks past
-            // tick 200 ([U1]: they used to be silent). Those craters are not the bombardment's.
-            int naval = 1200 / SeaLandingSystem.ShipEvery;
             Assert.That(a.Bombardment.Fired, Is.InRange(35, 90), "about sixty shells in a minute");
-            Assert.AreEqual(a.Bombardment.Fired + naval, a.Deformation.Applied + a.Deformation.Queue.Length, "every shell leaves a crater");
+            Assert.AreEqual(a.Bombardment.Fired, a.Deformation.Applied + a.Deformation.Queue.Length, "every shell leaves a crater");
             Assert.AreEqual(0, b.Bombardment.Fired);
-            Assert.AreEqual(naval, b.Deformation.Applied + b.Deformation.Queue.Length, "a quiet sector still has its gunboats");
+            Assert.AreEqual(0, b.Deformation.Applied);
         }
 
         [Test]
