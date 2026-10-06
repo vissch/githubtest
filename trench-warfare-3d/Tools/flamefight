@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+# A REAL flame fight, captured deterministically: one flamethrower man (archetype 36) against a held rifle section
+# nine metres off his nose, photographed close (T2, 16 m) and at the standard view (O120, 120 m).
+#   usage: Tools/flamefight <prefix>
+#
+# Tools/flameshots pokes the effect by hand (fx.Burst) and so cannot tell whether anything ROUTES a sim Shot to it.
+# This rig never calls Burst: it stages the fight and photographs whatever the game draws, so an unwired build comes
+# back with rifle tracers and no fire and the pictures say so.
+#
+# Nine metres, not the gym's seventy: the weapon reaches twelve, and at seventy he never fires at all.
+#
+# Everything about the restart, the compile refusal, the scene check and stepping instead of sleeping is Tools/
+# flameshots' reasoning; the comments there say why each one is not optional.
+set -u
+P="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"; T="$P/Tools/tw"; PRE="${1:-fight}"
+val() { grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//'; }
+
+# Unity keeps the LAST GOOD assemblies when a compile fails, so play mode still runs and the shots come out silently
+# of the previous build. Refuse rather than photograph the wrong code.
+if "$T" run console_status | grep -q '"compilationFailed": true'; then
+  echo "COMPILE FAILED - not capturing. Fix it first:" >&2
+  grep -a -o 'Assets[^)]*): error CS[0-9]*: [^"]*' "$LOCALAPPDATA/Unity/Editor/Editor.log" 2>/dev/null | tail -5 >&2
+  exit 1
+fi
+
+# A recompile during Play nulls SimHost.Local and the session then throws every frame, which reads as a code fault
+# and is only a stale session. Every run after an edit begins with a fresh Play.
+"$T" run editor_stop >/dev/null 2>&1; sleep 8
+"$T" run clear_console >/dev/null 2>&1
+"$T" run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity" >/dev/null 2>&1
+"$T" run editor_play >/dev/null 2>&1; sleep 30
+"$T" pause false >/dev/null 2>&1
+
+# The right scene, with the effect alive in it. A fresh editor opens an untitled one and the run still "succeeds",
+# capturing a blue sky over flat grey ground - two shots of nothing, both of which measure cleanly.
+SC=$("$T" eval 'return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name+"/"+(TW.Presentation.Tactical.Flamethrower.Active!=null);' | val)
+echo "  scene=$SC"
+case "$SC" in
+  GreyboxCorridor/True) ;;
+  *) echo "WRONG SCENE OR NO FLAMETHROWER ($SC) - not capturing" >&2; exit 1 ;;
+esac
+
+# PAUSE FIRST, then stage. Each CLI call is a second or two of wall clock and the editor only actually stops inside
+# one, so staging an unpaused fight lets it run itself out in the gaps between calls.
+"$T" pause true >/dev/null 2>&1
+
+# Flamethrower.cs makes dozens of Random draws (tongue placement, card sizes, frame phases, handedness); seeding
+# before the staging makes two runs of this script the same picture.
+STAGE=$("$T" eval 'UnityEngine.Random.InitState(20250925);
+var fx=TW.Presentation.Tactical.Flamethrower.Active; fx.Clear();
+var m=TW.Editor.TankCapture.Spawn(0, 36, 100f, 100f, 0f);
+if(!m.StartsWith("slot ")) return "spawn failed: "+m;
+int s=int.Parse(m.Substring(5).Split(new string[]{" "}, System.StringSplitOptions.None)[0]);
+TW.Editor.RiderLab.Enemies(s, 8, 9f);
+TW.Editor.RiderLab.Stop(s);
+return s.ToString();' | val)
+case "$STAGE" in
+  ''|*[!0-9]*) echo "STAGING FAILED ($STAGE)" >&2; exit 1 ;;
+esac
+echo "  flame man in slot $STAGE, 8 riflemen 9 m off his nose"
+
+# Let the fight start. Steps, not a sleep: a wall-clock wait lands on a different cel every run and the phase
+# difference then reads as a regression.
+"$T" stepto 2.5 >/dev/null 2>&1
+
+# Each shot: frame the band, step a little further so the frame after reframing is drawn, capture.
+shoot() {   # shoot <name> <zoom>
+  "$T" eval "var cam=UnityEngine.Camera.main; var tc=cam.GetComponent<TW.Presentation.Tactical.TacticalCamera>();
+tc.FrameFrom(new UnityEngine.Vector2(100f, 104.5f), ${2}f, 0f); return 0;" >/dev/null 2>&1
+  "$T" stepto 0.4 >/dev/null 2>&1
+  "$T" shot "${PRE}_$1" >/dev/null 2>&1
+  echo "  $P/Tools/flame-shots/${PRE}_$1.png"
+}
+
+# T2 (close) and O120 (the standard view) are the gym's own band zooms, Perf/GymCatalogue.cs.
+shoot close 16
+shoot std 120
+
+# A capture with no fire in it is worse than no capture: it measures cleanly and the numbers mean nothing. Only the
+# close one is checked - at 120 m a correct jet is a few hundred pixels and would fail the floor honestly.
+echo "  flamecheck (close):"
+python "$P/Tools/flamecheck.py" "$P/Tools/flame-shots/${PRE}_close.png" || \
+  echo "  !! ${PRE}_close CONTAINS NO FIRE (expected before the wiring; a defect after it)" >&2
+
+"$T" pause false >/dev/null 2>&1
