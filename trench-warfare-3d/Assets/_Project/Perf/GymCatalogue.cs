@@ -182,6 +182,10 @@ namespace TW.Perf
                 case SimEventType.WreckRecorded:
                 case SimEventType.SapperOrdered: case SimEventType.SapperLaying:   // a sapper at work needs an order and time
                 case SimEventType.GrenadeThrown:   // a man in the open 5-22 m from a trench: an assault, not a staged line
+                // hand to hand (replay v25) needs two men within 8 m and the seconds of a fight, a pounce a crab and a man 10 m
+                // in front of it; a worn wreck (v26) a dead machine and fire on it. Not staged yet: replayed
+                case SimEventType.MeleeBlow: case SimEventType.WeaponDropped: case SimEventType.WeaponPickedUp:
+                case SimEventType.PounceCrouched: case SimEventType.PounceLanded: case SimEventType.PropWorn:
                     return (GymExpect.Preview, "preview (effects only): replayed into the presentation's frame at a staged unit; the men never see it");
                 // no picture of their own
                 case SimEventType.ObjectiveCaptured: return (GymExpect.Excluded, "HUD only");
