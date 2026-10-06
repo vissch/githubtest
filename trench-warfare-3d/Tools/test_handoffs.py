@@ -123,8 +123,26 @@ class IndexTest(Folder):
     def test_the_index_puts_current_first_and_names_the_replacement(self):
         text = (self.where / 'INDEX.md').read_text(encoding='utf-8')
         self.assertLess(text.index('## Current'), text.index('## Replaced'))
-        self.assertIn('| relay | `HANDOFF_AGENT_relay.md` | `HANDOFF_AGENT_relay_2.md` |', text)
+        self.assertIn('| relay | `HANDOFF_AGENT_relay.md` | `HANDOFF_AGENT_relay_2.md` | `HANDOFF_AGENT_relay_2.md` |', text)
         self.assertIn('| look | `look/HANDOFF_AGENT_look.md` |', text)
+
+    def test_a_chain_of_replacements_names_the_file_at_its_end(self):
+        self.make('HANDOFF_AGENT_relay_3.md')
+        self.run_ok('new', 'HANDOFF_AGENT_relay_3.md', '--topic', 'relay', '--for', 'the third word',
+                    '--replaces', 'HANDOFF_AGENT_relay_2.md')
+        text = (self.where / 'INDEX.md').read_text(encoding='utf-8')
+        self.assertIn('| relay | `HANDOFF_AGENT_relay.md` | `HANDOFF_AGENT_relay_2.md` | `HANDOFF_AGENT_relay_3.md` |', text)
+        self.run_ok('replace', 'HANDOFF_AGENT_relay_3.md', 'repo:docs/reference/relay.md')
+        text = (self.where / 'INDEX.md').read_text(encoding='utf-8')
+        self.assertIn('| `HANDOFF_AGENT_relay_2.md` | `repo:docs/reference/relay.md` |', text.replace('`HANDOFF_AGENT_relay_3.md` | ', ''))
+
+    def test_replacements_that_come_back_on_themselves_fail(self):
+        d = H.read(self.where)
+        d['handoffs']['HANDOFF_AGENT_relay_2.md'].update(state='replaced', by='HANDOFF_AGENT_relay.md')
+        H.write(self.where, d)
+        code, said = self.call('check')
+        self.assertEqual(code, 1)
+        self.assertIn('come back on themselves', said)
 
     def test_done_and_park_move_a_handoff_out_of_current(self):
         self.run_ok('done', 'HANDOFF_AGENT_relay_2.md')
