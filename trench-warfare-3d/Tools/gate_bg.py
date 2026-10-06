@@ -3,7 +3,7 @@
 
 WHY. The full gate takes 25 minutes. Started as a background job of an agent session it dies with that session: on
 2026-10-07 a gate died in its PlayMode part when its session ended, with no verdict and a half hour lost. This starts
-gate.ps1 as a process of its own (no console, its own process group, outside the caller's job) and writes everything
+gate.ps1 as a process of its own (no window, its own process group, outside the caller's job) and writes everything
 it prints to tw-gate.log in this checkout's git dir, beside the tw-gate-green marker the gate itself writes.
 
     python Tools/gate_bg.py            from trench-warfare-3d/: start the full gate, print the log's path, return
@@ -91,7 +91,9 @@ def main():
            f"Add-Content -Path '{log}' -Value \"gate exit $LASTEXITCODE\" -Encoding utf8"]
     flags = 0
     if os.name == 'nt':
-        flags = 0x00000008 | 0x00000200 | 0x01000000   # DETACHED_PROCESS, CREATE_NEW_PROCESS_GROUP, CREATE_BREAKAWAY_FROM_JOB
+        # CREATE_NO_WINDOW, CREATE_NEW_PROCESS_GROUP, CREATE_BREAKAWAY_FROM_JOB. Not DETACHED_PROCESS: with no console
+        # at all PowerShell exits 0 having run nothing (tried 2026-10-07)
+        flags = 0x08000000 | 0x00000200 | 0x01000000
     try:
         p = subprocess.Popen(cmd, cwd=REPO, creationflags=flags, stdin=subprocess.DEVNULL,
                              stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, close_fds=True)
