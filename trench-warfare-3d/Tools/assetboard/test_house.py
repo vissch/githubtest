@@ -67,6 +67,20 @@ out.farSide = over(H.frogBox(910, 830));
 out.rooms = H.ROOMS.map(r => r.id);
 out.inRoom = spots.filter(([r, i, s]) => H.roomAt(s.u, s.v) !== r).map(([r, i]) => r + i);
 
+// the names over the frogs: a name 120 by 30 for a frog whose box has its middle at 500 and its top at 300
+const tp = (placed, cx) => H.tagPlace(cx || 500, 300, 120, 30, placed, 1000);
+out.tagFree = tp([]); out.tagFar = H.TAG_FAR;
+out.tagAside = tp([[330, 266, 450, 296]]);                    // the name of a frog to the left reaches over this one's place
+out.tagUp = tp([[300, 266, 700, 296]]);                       // a long name lies across it
+out.tagNone = [tp([[300, 200, 700, 296]]), tp([[300, 266, 700, 296], [300, 232, 700, 262]])];      // a wall of names, and two rows of them
+// five frogs in one doorway, 24 px apart: every name that is put is by its own frog and clear of the others
+const names = []; out.tagDoor = { put: 0, far: 0, off: 0, clash: 0 };
+for (let i = 0; i < 5; i++) { const cx = 400 + i * 24, at = tp(names, cx); if (!at) continue; out.tagDoor.put++;
+  if (at[2] > 30 + H.TAG_FAR) out.tagDoor.far++;
+  if (at[0] > cx + 8 || at[0] + 120 < cx - 8) out.tagDoor.off++;
+  for (const r of names) if (at[0] < r[2] && at[0] + 120 > r[0] && at[1] < r[3] && at[1] + 30 > r[1]) out.tagDoor.clash++;
+  names.push([at[0], at[1], at[0] + 120, at[1] + 30]); }
+
 // who is where
 const W = (o) => Object.assign({ kind: 'session', id: 'session:a', state: 'working' }, o);
 out.roomOf = [H.roomOf(W({ act: 'lab' })), H.roomOf(W({ act: 'plan', wait: 'owner' })), H.roomOf(W({ doing: 'Grep' })), H.roomOf(W({ doing: 'editing the page' })),
@@ -171,6 +185,12 @@ def main():
          not o['hallOver'] and o['farSide'], (o['hallOver'], o['farSide']))
     case('plan: the longest walk in the house is under 3,500 sprite pixels', 1500 < o['farthest'] < 3500, o['farthest'])
 
+    aside, up = o['tagAside'], o['tagUp']
+    case('names: a frog\'s name stands over it; when that place is taken it steps aside at the same height and still reaches its frog, or goes up onto the name in the way, never further than its own height and a little',
+         o['tagFree'] == [440, 266, 0] and aside and aside[2] == 0 and aside[0] != 440 and aside[0] <= 508 and aside[0] + 120 >= 492
+         and up and 0 < up[2] <= 30 + o['tagFar'] and up[1] == 233, (o['tagFree'], aside, up))
+    case('names: with no place that near its frog a name is left out, not pushed up past the others; of five frogs in one doorway some are named, each by its own frog, and no two names lie over each other',
+         o['tagNone'] == [None, None] and 2 <= o['tagDoor']['put'] < 5 and not o['tagDoor']['far'] and not o['tagDoor']['off'] and not o['tagDoor']['clash'], (o['tagNone'], o['tagDoor']))
     case('who: a worker is in the room its work names; whoever waits on the owner is in the hall; whoever rests is in the bunkhouse',
          o['roomOf'][:2] == ['lab', 'hall'] and o['roomOf'][4:6] == ['bunk', 'bunk'], o['roomOf'])
     case('who: a reading from before the rooms is read by the last tool call, and a room nobody knows is the workroom',
