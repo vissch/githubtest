@@ -25,7 +25,10 @@
     if (!(width > 0) || width >= 560) return { W: 1000, H: 300, L: 46, R: 10, every: 6, narrow: false };
     return { W: Math.max(280, Math.round(width)), H: 240, L: 38, R: 4, every: 12, narrow: true };
   }
-  var pure = { ticks: ticks, fmt: fmt, hourLabel: hourLabel, dayLabel: dayLabel, hourPlot: hourPlot };
+  // what a mark that leads somewhere is called, for whoever does not see it (a screen reader says a link by its name)
+  function laneName(branch, calls) { return branch + ', ' + fmt(calls) + ' tool calls in seven days'; }
+  function modelName(kind, status, n, of) { return kind + ', ' + status.toLowerCase() + ': ' + n + ' of ' + of; }
+  var pure = { ticks: ticks, fmt: fmt, hourLabel: hourLabel, dayLabel: dayLabel, hourPlot: hourPlot, laneName: laneName, modelName: modelName };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
 
   var C = window.Crew, B = window.Board, page = document.getElementById('graphs');
@@ -66,13 +69,22 @@
     var r = k.plot.getBoundingClientRect(), x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
     k.tip.style.left = Math.max(0, Math.min(r.width - k.tip.offsetWidth, x)) + 'px'; k.tip.style.top = Math.max(0, Math.min(r.height - k.tip.offsetHeight, y)) + 'px';
   }
+  // the same words for whoever comes to a mark with the keyboard: beside the mark, where the pointer would be
+  function tipBy(k, g, html) { var b = g.getBoundingClientRect(); tipAt(k, { clientX: b.left + b.width / 2, clientY: b.top + b.height / 2 }, html); }
   function row(color, label, value) { return '<span><span>' + (color ? '<i style="background:' + color + '"></i>' : '') + label + '</span><b>' + value + '</b></span>'; }
-  function hover(k, g, html, href) {
+  // A mark that leads somewhere is a link with a name (`name`), in a drawing that is a group of such links; the words
+  // of its tooltip show on focus as on hover. A mark that leads nowhere, an axis and a label are for the eye only: the
+  // table under the graph says the same to whoever does not see them.
+  function hover(k, g, html, href, name) {
     g.addEventListener('mousemove', function (e) { g.classList.add('g-on'); tipAt(k, e, html()); });
     g.addEventListener('mouseleave', function () { g.classList.remove('g-on'); k.tip.hidden = true; });
-    if (href) { g.classList.add('g-go'); g.setAttribute('tabindex', '0'); g.setAttribute('role', 'link');
-      g.addEventListener('click', function () { go(href); }); g.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(href); }); }
+    if (!href) { g.setAttribute('aria-hidden', 'true'); return; }
+    g.classList.add('g-go'); g.setAttribute('tabindex', '0'); g.setAttribute('role', 'link'); g.setAttribute('aria-label', name || '');
+    g.addEventListener('click', function () { go(href); }); g.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(href); });
+    g.addEventListener('focus', function () { g.classList.add('g-on'); tipBy(k, g, html()); });
+    g.addEventListener('blur', function () { g.classList.remove('g-on'); k.tip.hidden = true; });
   }
+  function unseen(e) { e.setAttribute('aria-hidden', 'true'); return e; }
   function table(k, head, rows) {
     if (!k.table) return;
     var t = el('table'), th = el('tr'); head.forEach(function (h) { th.appendChild(el('th', null, h)); });
@@ -120,14 +132,14 @@
     if (!list.length) return empty(k, 'No work in a checkout of this repository in the last seven days.');
     if (rest) list = list.concat([{ branch: 'the other ' + ((G.lanes || []).length - 8), calls: rest, other: true }]);
     var W = 480, rowH = 30, L = 150, R = 56, H = list.length * rowH + 8, top = Math.max.apply(null, list.map(function (l) { return l.calls; }));
-    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Tool calls by branch, the last seven days' });
+    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'group', 'aria-label': 'Tool calls by branch, the last seven days' });
     list.forEach(function (l, i) {
       var yy = 4 + i * rowH, w = Math.max(2, (W - L - R) * l.calls / top), g = s('g'), name = B ? B.short(l.branch) : l.branch;
       g.appendChild(text(L - 10, yy + 18, name.length > 20 ? name.slice(0, 19) + '…' : name, { 'text-anchor': 'end', 'class': 'g-lab' }));
       g.appendChild(s('path', { 'class': 'g-mark', d: bar(L, yy + 5, w, 18, 4, 'right'), fill: css(l.other ? '--g-off' : '--g-one') }));
       g.appendChild(text(L + w + 8, yy + 18, fmt(l.calls), { 'class': 'g-val' }));
       g.appendChild(s('rect', { 'class': 'g-hit', x: 0, y: yy, width: W, height: rowH }));
-      hover(k, g, function () { return '<b>' + l.branch + '</b>' + row('', 'tool calls, 7 days', fmt(l.calls)) + (l.other ? '' : '<em>click: its room on the branches page</em>'); }, l.other ? '' : 'floor.html#' + (B ? B.slug(l.branch) : ''));
+      hover(k, g, function () { return '<b>' + l.branch + '</b>' + row('', 'tool calls, 7 days', fmt(l.calls)) + (l.other ? '' : '<em>click: its room on the branches page</em>'); }, l.other ? '' : 'floor.html#' + (B ? B.slug(l.branch) : ''), laneName(l.branch, l.calls));
       svg.appendChild(g);
     });
     k.plot.insertBefore(svg, k.tip);
@@ -195,18 +207,18 @@
     var kinds = Object.keys(KIND).filter(function (c) { return list.some(function (m) { return m.kind === c; }); }), n = function (c, st) { var m = list.filter(function (x) { return x.kind === c && x.status === st; })[0]; return m ? m.n : 0; };
     table(k, ['Kind'].concat(STATUS.map(function (st) { return st[1]; })), kinds.map(function (c) { return [KIND[c]].concat(STATUS.map(function (st) { return n(c, st[0]); })); }));
     var W = 480, rowH = 40, L = 92, R = 40, H = kinds.length * rowH + 6, sum = function (c) { return STATUS.reduce(function (a, st) { return a + n(c, st[0]); }, 0); }, top = Math.max.apply(null, kinds.map(sum));
-    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': 'Models by kind and status' });
+    var svg = s('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'group', 'aria-label': 'Models by kind and status' });
     kinds.forEach(function (c, i) {
       var yy = 4 + i * rowH, x = L, live = STATUS.filter(function (st) { return n(c, st[0]); });
-      svg.appendChild(text(L - 10, yy + 21, KIND[c], { 'text-anchor': 'end', 'class': 'g-lab' }));
+      svg.appendChild(unseen(text(L - 10, yy + 21, KIND[c], { 'text-anchor': 'end', 'class': 'g-lab' })));
       live.forEach(function (st, j) {
         var v = n(c, st[0]), w = (W - L - R) * v / top, g = s('g'), wd = Math.max(2, w - (j < live.length - 1 ? 2 : 0));
         g.appendChild(s('path', { 'class': 'g-mark', d: bar(x, yy + 6, wd, 22, j === live.length - 1 ? 4 : 0, 'right'), fill: st[2] }));
         g.appendChild(s('rect', { 'class': 'g-hit', x: x, y: yy, width: Math.max(w, 6), height: rowH }));
-        hover(k, g, function () { return '<b>' + KIND[c] + '</b>' + row(st[2], st[1], v) + row('', 'of', sum(c)) + '<em>click: these models on the overview</em>'; }, 'index.html#' + st[0]);
+        hover(k, g, function () { return '<b>' + KIND[c] + '</b>' + row(st[2], st[1], v) + row('', 'of', sum(c)) + '<em>click: these models on the overview</em>'; }, 'index.html#' + st[0], modelName(KIND[c], st[1], v, sum(c)));
         svg.appendChild(g); x += w;
       });
-      svg.appendChild(text(x + 8, yy + 21, sum(c), { 'class': 'g-val' }));
+      svg.appendChild(unseen(text(x + 8, yy + 21, sum(c), { 'class': 'g-val' })));
     });
     k.plot.insertBefore(svg, k.tip);
   }
