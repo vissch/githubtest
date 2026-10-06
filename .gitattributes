@@ -26,3 +26,16 @@
 *.md   text eol=lf
 *.json text eol=lf
 *.ps1  text eol=crlf
+# Shaders and the extensionless shell scripts in Tools/ had no rule, so text=auto wanted CRLF for them in the
+# working copy and git printed "LF will be replaced by CRLF" on every diff that touched one. Tools/selftest.py
+# builds a worktree out of git's own output and took that warning line for a path (WinError 123), so toolcheck -
+# and with it the whole gate - went red on a line-ending notice. A shell script with CRLF would not run at all,
+# so the rule is LF, the same as every other script here.
+# The script names are unanchored on purpose: a pattern with a slash in it is anchored to THIS file's directory,
+# and the Unity project is a folder down.
+*.shader     text eol=lf
+.gitattributes text eol=lf
+flamefight   text eol=lf
+flameshots   text eol=lf
+manshots     text eol=lf
+tw           text eol=lf

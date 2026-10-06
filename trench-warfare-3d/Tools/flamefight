@@ -56,7 +56,14 @@ WP="$(cygpath -m "$P" 2>/dev/null || echo "$P")"
 OUT="$P/Tools/flame-shots"; mkdir -p "$OUT"
 # The staging and the framing, as numbers rather than buried literals (look-09). SPAWN is where the flame man is put
 # and the riflemen are lined up ten metres off; FRAME is the point the game camera is framed on for close and std.
-SPAWN_X=60; SPAWN_Z=60; FRAME_X=60; FRAME_Z=65
+# They are OVERRIDES, not literals, because the default staging is not the only one worth photographing: at (60,60)
+# the ground rises into the parapet six metres out and a splintered trunk stands across the stream, so the close
+# shot is a short flare (FlameJetCard.Report prints len=6.0m against a Reach of 11). Staged at (45,40) the same
+# fight reads len=11.0m and the close shot shows the whole run - but the SIDE camera there has a trunk of its own
+# across the middle, which splits the stream and makes flameband call it a BLOB. So the measured shots keep (60,60)
+# and the open-ground pair is taken on top:
+#   FF_SPAWN_X=45 FF_SPAWN_Z=40 FF_FRAME_X=45 FF_FRAME_Z=45 Tools/flamefight open night
+SPAWN_X=${FF_SPAWN_X:-60}; SPAWN_Z=${FF_SPAWN_Z:-60}; FRAME_X=${FF_FRAME_X:-60}; FRAME_Z=${FF_FRAME_Z:-65}
 CLOSE_PROBES="50 60 70"   # extra close shots, one per frame-point x, to find ground clear of the trench-line trunks
 val() { grep -o '"result": "[^"]*"' | sed 's/.*: "//;s/"$//'; }
 step() { "$T" eval "UnityEditor.EditorApplication.isPaused=true; for(int i=0;i<${1};i++) UnityEditor.EditorApplication.Step(); return 0;" >/dev/null 2>&1; }
