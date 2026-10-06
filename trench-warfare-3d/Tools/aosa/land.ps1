@@ -6,24 +6,33 @@ param([switch]$EditOnly, [switch]$NoBuild, [string]$Log = "$env:TEMP\aosa-land.l
 
 $ErrorActionPreference = 'Continue'
 $proj = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)          # trench-warfare-3d
-# TW_AOSA_UNITY: Tools/selftest.py points this at a stand-in that writes canned results, to test land.ps1's own
-# rules. Unset (every real land) the path is unchanged.
+# TW_AOSA_UNITY / TW_AOSA_EDITOR: Tools/selftest.py points these at stand-ins that write canned results and never
+# build, to test land.ps1's own rules. Unset (every real land) both paths are unchanged.
 $cli = if ($env:TW_AOSA_UNITY) { $env:TW_AOSA_UNITY } else { Join-Path $env:LOCALAPPDATA 'unity\bin\unity.exe' }
-$editor = 'C:\Program Files\Unity\Hub\Editor\6000.0.50f1\Editor\Unity.exe'
+$editor = if ($env:TW_AOSA_EDITOR) { $env:TW_AOSA_EDITOR } else { 'C:\Program Files\Unity\Hub\Editor\6000.0.50f1\Editor\Unity.exe' }
 (Get-Process -Id $PID).PriorityClass = 'BelowNormal'                  # inherited by everything started below
 function Say($m) { "$(Get-Date -Format HH:mm:ss) $m" | Out-File $Log -Append -Encoding utf8 }
 "" | Out-File $Log -Encoding utf8
 Set-Location $proj
+# git status --porcelain prints paths from the repo root and the project is a subfolder, so a checkout of those
+# paths only matches from the top.
+$repoTop = (git rev-parse --show-toplevel)
+if (-not $repoTop) { $repoTop = $proj }
 $churn = @('Assets/UniversalRenderPipelineGlobalSettings.asset', 'Assets/_Project/Settings/TW-URP.asset', 'ProjectSettings/GraphicsSettings.asset')
 # A4: what the run started with. Only churn this run dirtied is reverted; a card's own change to a churn file is kept,
 # and an Assets/Resources that was already here is never removed. Both are said in the log.
 $preDirty = @(git status --porcelain -- $churn 2>$null | ForEach-Object { $_.Substring(3).Trim() })
 $preResources = Test-Path 'Assets/Resources'
+$unchurnFailed = $false
 function Unchurn {
     $now = @(git status --porcelain -- $churn 2>$null | ForEach-Object { $_.Substring(3).Trim() })
     $mine = @($now | Where-Object { $preDirty -contains $_ })
     $theirs = @($now | Where-Object { $preDirty -notcontains $_ })
-    if ($theirs.Count) { git checkout -- $theirs 2>$null; Say "reverted build churn: $($theirs -join ', ')" }
+    if ($theirs.Count) {
+        $co = (git -C $repoTop checkout -- $theirs 2>&1)
+        if ($LASTEXITCODE -eq 0) { Say "reverted build churn: $($theirs -join ', ')" }
+        else { $script:unchurnFailed = $true; Say "FAILED to revert build churn: $($theirs -join ', ') (git checkout exit $LASTEXITCODE) $co" }
+    }
     if ($mine.Count) { Say "kept the card's own change: $($mine -join ', ')" }
     if ($preResources) { Say "kept Assets/Resources: it was here before this run" }
     elseif (-not (git ls-files Assets/Resources)) { Remove-Item -Recurse -Force Assets/Resources, Assets/Resources.meta -ErrorAction SilentlyContinue }
@@ -95,5 +104,6 @@ if (-not $NoBuild) {
 }
 Unchurn          # URP rewrites its prefilter fields on every build: churn, never a change
 if (-not $NoBuild) { python Tools/aosa/aosa.py prune --apply | Out-File $Log -Append -Encoding utf8 }   # storage retention (README "Storage")
+if ($unchurnFailed) { Say "FAILED: the build's churn is still in the tree"; exit 1 }
 Say "OK: gate green, nothing landed"
 exit 0

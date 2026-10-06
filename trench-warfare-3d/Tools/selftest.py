@@ -30,7 +30,7 @@ SHOW-carries-SIM refusal names the commits, and a non-ASCII path counts as code.
 Tools/aosa/land.ps1, in a throwaway git repo with stand-ins for Unity and aosa.py: a missing unity.exe and a
 report holding no test both fail the land instead of passing on validate.py's exit code, a try 2 that writes no
 report cannot pass on try 1's file while the env-only-twice rule still holds, a card's own change to a settings
-file survives the run and the log names what it reverted, an Assets/Resources that was already there is kept,
+file survives the run while the build's churn is really gone from the tree, an Assets/Resources that was already there is kept,
 a failed snapshot stops the land before any build, and a green run claims no landing.
 """
 import pathlib
@@ -840,6 +840,10 @@ def aosa_land_cases(tmp: pathlib.Path):
     fake.mkdir()
     (fake / 'fake_aosa_unity.py').write_text(FAKE_AOSA_UNITY)
     (fake / 'unity.cmd').write_text(f'@"{sys.executable}" "%~dp0fake_aosa_unity.py" %*\r\n')
+    # A4b: a stand-in for the Unity editor land.ps1 builds with. It only leaves a marker and fails, so a
+    # regression that reaches a build in a selftest cannot start the real editor.
+    (fake / 'unity-editor.cmd').write_text('@echo started >> "%TEMP%\\aosa-editor-started.txt"'
+                                           + '\r\n@exit /b 1\r\n')
     log = tmp / 'aland.log'
     churn = ['Assets/UniversalRenderPipelineGlobalSettings.asset', 'Assets/_Project/Settings/TW-URP.asset',
              'ProjectSettings/GraphicsSettings.asset']
@@ -849,6 +853,7 @@ def aosa_land_cases(tmp: pathlib.Path):
         for f in list(tmp.glob('aosa-*')):
             f.unlink(missing_ok=True)
         env = dict(os.environ, TW_AOSA_UNITY=cli if cli is not None else str(fake / 'unity.cmd'),
+                   TW_AOSA_EDITOR=str(fake / 'unity-editor.cmd'),
                    TW_FAKE_AOSA=how, TEMP=str(tmp), TMP=str(tmp), TW_FAKE_SNAP='0')
         env.update(more)
         p = subprocess.run(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File',
@@ -877,12 +882,17 @@ def aosa_land_cases(tmp: pathlib.Path):
     (proj / 'Assets/_Project/Settings/TW-URP.asset').write_text("twurp: 2   # the card's own change\n")
     code, out = land('pass', '-EditOnly', '-NoBuild')
     kept = (proj / 'Assets/_Project/Settings/TW-URP.asset').read_text()
+    gfx = (proj / 'ProjectSettings/GraphicsSettings.asset').read_text()
     reverted = [l for l in out.splitlines() if 'reverted build churn:' in l]
     mine = [l for l in out.splitlines() if "kept the card's own change:" in l]
-    case("[A4] a card's own change to a churn file survives the land, and the log names what it reverted",
-         code == 0 and "card's own change" in kept
+    case("[A4b] the build's churn is really gone from the tree and the card's own change is kept",
+         code == 0 and gfx == 'gfx: 1\n' and 'm_churn' not in gfx and "card's own change" in kept
          and len(reverted) == 1 and reverted[0].endswith('GraphicsSettings.asset')
-         and len(mine) == 1 and mine[0].endswith('TW-URP.asset'), out + '\n---\n' + kept)
+         and len(mine) == 1 and mine[0].endswith('TW-URP.asset'),
+         out + '\n---\n' + kept + '\n---\n' + gfx)
+    text = (proj / 'Tools/aosa/land.ps1').read_text(encoding='utf-8')
+    case("[A4b] the churn revert reads git's exit code instead of hiding it",
+         'git checkout -- $theirs 2>$null' not in text and 'FAILED to revert build churn' in text, text)
     run(['git', 'checkout', '-q', '--', *churn], proj)
 
     res = proj / 'Assets/Resources'
@@ -895,8 +905,9 @@ def aosa_land_cases(tmp: pathlib.Path):
     run(['git', 'checkout', '-q', '--', *churn], proj)
 
     code, out = land('pass', '-EditOnly', TW_FAKE_SNAP='2')
-    case('[A13] a failed snapshot stops the land before any build starts',
-         code == 1 and 'FAILED snapshot (2)' in out and 'build release' not in out, out)
+    case('[A13] [A4b] a failed snapshot stops the land before any build starts, and no editor is startable there',
+         code == 1 and 'FAILED snapshot (2)' in out and 'build release' not in out
+         and not (tmp / 'aosa-editor-started.txt').exists(), out)
     run(['git', 'checkout', '-q', '--', *churn], proj)
 
     text = (proj / 'Tools/aosa/land.ps1').read_text(encoding='utf-8')
