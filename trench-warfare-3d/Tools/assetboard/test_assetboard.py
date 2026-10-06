@@ -902,7 +902,7 @@ def board():
           ' B.pick(N, {kind: "queue", id: "decide: A question"}).map(n => n.id), B.pick(N, {kind: "worker", id: "skill"}).length, B.open(N, {kind: "page", id: "all"}),'
           ' B.merged(N, [{id: "1"}, {id: "9"}], [{id: "u"}]).map(n => n.id), B.slug("lane/show/frog-house"),'
           ' G.ticks(1510, 4), G.ticks(3, 4), G.ticks(0, 4), G.fmt(4028), G.fmt(12900), G.hourLabel("2026-10-05 13"), G.dayLabel("2026-10-05"),'
-          ' G.hourPlot(354), G.hourPlot(1180), G.hourPlot(0)]))')
+          ' G.hourPlot(354), G.hourPlot(1180), G.hourPlot(0), G.laneName("lane/show/x", 12900), G.modelName("Vehicles", "Ready, not used", 3, 14)]))')
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'board.js'), str(HERE / 'static' / 'charts.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('page: a thing shows the notes about it (its model, its branch, or the very thing), the open ones first, and counts the open ones',
@@ -915,6 +915,13 @@ def board():
          'on a wide page, and before the plot has a width, it is the wide drawing',
          phone and phone['narrow'] and phone['W'] == 354 and phone['every'] == 12 and (phone['W'] - phone['L'] - phone['R']) / 48 >= 4
          and wide == unknown and not wide['narrow'] and wide['W'] == 1000 and wide['every'] == 6, (phone, wide, unknown))
+    src = (HERE / 'static' / 'charts.js').read_text(encoding='utf-8')
+    named = re.findall(r"role: '(img|group)', 'aria-label'", src)
+    case('page: a mark of a graph that leads somewhere is a link with a name (the branch and its calls, the kind and its status), its tooltip shows on focus too, '
+         'and the drawing it is in is a group, not a picture; a mark that leads nowhere is hidden from a screen reader, which has the table',
+         got and got[18:20] == ['lane/show/x, 12.9K tool calls in seven days', 'Vehicles, ready, not used: 3 of 14']
+         and "g.setAttribute('aria-label', name" in src and "addEventListener('focus'" in src and "if (!href) { g.setAttribute('aria-hidden', 'true'); return; }" in src
+         and sorted(named) == ['group', 'group', 'img', 'img', 'img'], (got and got[18:20], named))
 
 
 def png(path: Path, w, h):
