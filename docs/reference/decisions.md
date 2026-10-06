@@ -35,12 +35,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-01 | **Men at night at the close bands stay as they are** (the owner: "that's fine"): no rim or extra fill on the men; a man in a shell hole or on open mud away from a lamp or a flash reads as a dark shape. |
 | 2026-10-01 | **The fog bank round the field stays as it is from overview and far zoom** (the owner, on the gym's O120/O240/Far shots: "fine"). From 240-600 m up the field floats lit in the night's dark blue; the backdrop under the bank is not lifted. |
 | 2026-10-06 | **Forward+: approved.** The owner, on the board, to "Forward+ renderer: the perf pass was to switch and let the owner judge the night look. Not recorded as done.": "approved". Read as: the switch to the Forward+ renderer is approved (the reading is the agent's; he did not say whether he has judged the night look under it). Not done on this lane: it is for a show lane to switch and record. (owner, 2026-10-06) |
+| 2026-10-06 | **The frog's far model stays at 300 triangles.** The owner, to "How detailed the frog is far away": "Keep 300 triangles: more buys one hundredth of overlap, measured". Nothing to build. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The shelled ruins' flat tan is left as it is.** The owner, to "Shelled ruins turn into dark-brown crates at night": "Leave it: these ruins stay dark-brown boxes at night". No repaint and no re-cut of the house sets. Nothing to build. (owner, 2026-10-06, on the Decide page) |
 
 ## Levels
 | Date | Decision |
 |---|---|
 | 2026-09-22 | The sea lies beyond the **enemy** line. Deployed reinforcements **ride the boats in**, not instant spawns. |
 | 2026-09-23 | **Coast and snow levels are the focus, coast first**, each a real `BattlefieldParams` preset with its own mission card, not a reskin. The volcano/lava level is deprioritised. |
+| 2026-10-06 | **The four big ruins go in the rear, with the other buildings.** The owner, in his own words, to "Where the four big ruins stand" (Boilerhouse, Townhouse, Guildhall, Gasholder): "lets put them also in the rear with the other buildings". Read as the player's own rear, where the compound stands, and not behind the enemy line as the brief's first option had it: that reading is the agent's and is put to him before anything is placed. Not built. (owner, 2026-10-06, on the Decide page) |
 
 ## Destruction and combat
 | Date | Decision |
@@ -68,6 +71,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-28 | **Every Playground unit goes into the battle, spawn-only** (owner, AskUserQuestion: "all"; rosters: "Spawn-only"). The Brute (tank), the Frog (infantry figure), the Croaker (two-legged frog mech), the Mercy (field ambulance jeep) and the Hopper (frog gunship) become battle units the Unit Sandbox, the gym and a loadout field, like the Skimmer and the Salvo, in no `FactionRoster` slot or pool (the original game's rosters stay). Each new archetype id is a SIM seam commit; the Frog may reuse an infantry archetype. First, one filmed battle pass of the units that already fight (Skimmer, Salvo) against infantry (owner: "lets do 1 sim pass, then we go ahead"). |
 | 2026-09-30 | **The absurd deaths are on**: `fx.deathAbsurd` defaults to 1 (owner: "turn it on and let me test it"). The knob stays, 0 is still today's deaths exactly. |
 | 2026-10-06 | **Hand to hand and the crab pounce are landed** (owner: "land", to the open question of this date). `lane/sim/melee-v25` is on integration at `ca9ea5f9` as it was gated: every attack reach cut by 20 %, men fighting hand to hand inside 8 m, crabs leaping on a man about 10 m in front, replay v25 (older replays stop loading). The claws stay shut through the leap (`561feebf`). Not fixed, the owner's to ask for: the pounce looks for its man over every unit instead of the grid (a cost, not a wrong result), and `MeleeSystem.Killed` is carried over a tick outside the hash. The 2026-09-29 "yes lets go" was for the old `lane/sim/melee-v23` and landed nothing. |
+| 2026-10-06 | **The trench is the shelter.** The owner, to "Shelters that really protect from shells": "The trench is the shelter: keep today's trench protection (a shell in your bay does 0.7), shelters stay decoration". This is how the ruling of 2026-09-23 (shelters reduce artillery damage) holds in the sim: through the trench. Shelters are not put on the sim's map. Nothing to build. (owner, 2026-10-06, on the Decide page) |
 
 ## Interface
 | Date | Decision |
@@ -76,6 +80,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-23 | Unit selection the way Dust Front does it, with ten control groups. An armoury screen showing unit cutouts. |
 | 2026-09-24 | Hover card beside the cursor over a unit. |
 | 2026-09-27 | **The battle bar may shrink at 16:9.** With ten roster slots and seven support cards it is 1,732 px wide and draws at 0.91 on a 16:9 screen (`HudView.BarFit`), rather than narrowing the infantry cards to fit (180 to 154 px). `HudLayoutTests` holds it at no less than 0.9. Revisit with the HUD's next layout pass. |
+| 2026-10-06 | **The six support cards stay shared, and a card the player's faction cannot call is hidden.** The owner, to "Which support cards each faction gets": "Keep the six shared for now; hide any card the player's faction cannot call". The fault to fix is the drop card on an Iron player's bar, which does nothing when pressed. A split per faction waits for the roster redesign. Not built. (owner, 2026-10-06, on the Decide page) |
 
 ## Process
 | Date | Decision |
@@ -119,6 +124,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **A click on the Decide page is the owner's yes to queue the work, when the brief showed what would be queued.** An option of a brief may carry a line "Then: ..." that names the unit queued if he picks it, or says that nothing is built. A click on such an option is his yes for that unit: the master queues it without asking again. The click carries a stamp of the Then line the page showed, so a Then line added or changed after the click does not count. An option with no Then line, an answer in his own words, or clicks on two options: the master asks first, as before. An answer that plainly needs no work is closed by the master alone, with the reason on the brief. (AskUserQuestion, 2026-10-06, the session that took over the decisions-to-master handoff.) |
 | 2026-10-06 | **`lane/show/frog-house` is committed, pushed and made ready to land; the land push stays the owner's.** On the laptop its commits follow `Tools/toolcheck.py` and not the edit gate: that checkout has no Unity Library, the laptop takes nothing heavy, and the lane changes no game code. The Unity tests run on the desktop in the full gate before landing. The exception is the agent's proposal, approved with the plan. (AskUserQuestion, 2026-10-06.) |
 | 2026-10-06 | **The master does not wake by himself yet.** An answer on the Decide page waits until the owner next talks to the master; answers that have waited over two hours show on the board as broken. Whether a session takes answers up unasked is decided once this has been used for some days. The two hours are the agent's choice. (AskUserQuestion, 2026-10-06.) |
+| 2026-10-06 | **The house's empty rooms stay near-black.** The owner, to "The house in the site's look: the empty rooms": "Near-black where nobody works, white where someone does (as built)". Nothing to build. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The graphs join the site's look.** The owner, to "The graphs' colours": "Greys, with orange only for today or the newest bar; rooms told apart by shade". Not built: the asset board lane's own work. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The two-developer fun test is no longer a gate.** The owner, to "The two-developer fun test: still a gate?": "Not a gate any more: write that down, and play one match with the other developer on today's build for feedback". What the test was to decide (how many units, the animated crowd) was decided on 2026-09-20 and is built. The match is the owner's to play; no work waits on it. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The old test project goes; the art files stay as they are.** The owner, to "Tidy the repository: the old test project and the big art files": "Remove the old test project now; leave the art files as they are until size hurts". The folder `github-test1/` (1,979 files, 37 MB) is removed in one commit; no Git LFS while the repository is at 537 MB. Not done yet. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The way of working gets one re-score, and no standing critic.** The owner, to "A critic that re-scores how we work, on a schedule?": "One re-score once the two fixes are in; schedule it only if that helps". Not run yet. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The effects pass is pushed to GitHub and reviewed for landing next.** The owner, to "Back up the effects pass to GitHub?" (`lane/show/pipe-vfx`, 91 commits on the desktop's disk only since 2026-09-29): he clicked "Push it now: a copy on GitHub, nothing lands" and then twice "Push it, and have it reviewed for landing next"; the last is his answer. Not pushed at the time of writing. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The desktop's GitHub login gets the workflow permission.** The owner, to "One browser click so GitHub's check stops being red": "Grant it: one command on the desktop opens a browser prompt, then it lands". The step is his: `gh auth refresh -h github.com -s workflow` on the desktop opens the browser; after it `lane/show/ci-checks` can be pushed and landed. Until then CI stays the red Unity workflow. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **`main` is left as it is.** The owner, to "What a fresh download of the project gets": "Leave it; everyone working on it already knows which branch to take". A fresh download still gets the game of 2026-09-25. Nothing to do. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The six `-land` branches on origin are deleted.** The owner, to "Delete the six leftover -land branches": "Delete all six now: nothing is lost, every commit is on the integration branch". Not deleted at the time of writing: it is a push to origin. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The speed test's report keeps one set of names for the frame's counts.** The owner, to "The speed test writes the same three numbers twice": "Keep the names the optimiser and its stored results read; drop the other three". Which set that is (the `frame_budget_*` names, the optimiser being the aosa loop) is the agent's reading of the brief. Not built. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **Heroes are off in the stress bench.** The owner, to "Heroes in the speed test": "Heroes off in the stress bench: it times a steady scene, and matches its own tests". The bench gets a new baseline with it. Not built. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **A played match is recorded only when a debug option is switched on.** The owner, to "Record played matches so a bug can be replayed": "Record only when switched on: a debug option that pays the per-step check for that match alone". No new replay format. Not built. (owner, 2026-10-06, on the Decide page) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
@@ -152,6 +169,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-01 | **No machine duels across the field from its spawn: the machines' guns reach less** (the owner: "not good, reduce range"; the spawns are about 225 m apart on the Shelled Forest and the guns reached 200-360 m, so the enemy Kettle's mortar knocked our Pincer out 2.3-6 s in on every seed). Built on `lane/sim/machine-range` (replay v26): no machine reaches the enemy's front trench from its spawn (161 m) and every one reaches across no man's land from its own (102 m), so the guns 110-150 m by weight and the mortar and the rockets 155 m. Measured on 6 seeds of the bench's start: the first machine-on-machine hit 1.6-3.7 s in at 214-225 m became 19.6-21.8 s at 114-149 m, and machines knocked out in the first 30 s 5-7 became 1-2. The tips read the reaches off the specs (`lane/show/range-tips`, which lands first). |
 | 2026-09-29 | **The enemy's SOS barrage is on for Normal too.** The owner's decision of 2026-09-29, written down then only in the change itself (commit b406f70d, on integration); this row was added on 2026-10-06, when the open bullet "The SOS barrage is Hard only" was found still standing, and his words were not kept. On Normal and Hard the enemy brings an HE line down on five or more of the player's men in the open within 70 m of its front trench (`SimHost.PeerDefends`); Easy fires no support at all. Measured before it: one barrage breaks a bare attack at three to one every time (30 men losing 26; 7 trenches of 8 taken without it) while the enemy has the barrage's 150 silver. (owner, 2026-09-29) |
 | 2026-10-06 | **Houses give sim cover.** The owner, on the board, to "Do houses give sim cover? Needs a hash change.": "yes reduced damage taken when behind a building". Not built: it is a change of the sim and of the replay format, for a sim lane to take; by how much the damage is reduced he has not said. (owner, 2026-10-06) |
+| 2026-10-06 | **Dead ground is removed.** The owner, in his own words, to "Dead ground: men behind their own trench cannot be shot at": "we remove it now, however we must think about how we can prevent this in the future in a better way: the man werent able to enter the trench." Not built: a change to the sim, and old replays break. What takes its place is open (below). (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The machine guns stay a group of their own.** The owner, to "Machine guns stay in the trench to cover an attack": "Keep it as built: the guns are a group of their own". Nothing to build. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The enemy attacks sooner and smaller.** The owner, to "The enemy waits for the odds before it attacks": "Make it attack sooner and smaller, so the front is busier early". How much sooner and how small is not said: asked before it is built. Not built. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The assault's ratios stay as built, to be judged in play.** The owner, to "How many attackers it takes to take a trench": "Keep the ratios as built and judge them in play". Nothing to build. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The Sapper goes into all six factions' pools once the battle bar has a lay-mine button.** The owner, to "When the Sapper joins the factions": "Into all six factions' pools once the button exists". This changes the row of 2026-09-26, which put him in both pools. Not built: the button comes first. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **A stopped Kettle turns on the spot to face its target, then fires.** The owner, to "A stopped Kettle never fires": "Fix it: a stopped Kettle turns on the spot to face its target, then fires". Not built: it changes how a machine behaves, so old replays break. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **Balanced means: of the matches that end, each faction wins 40 to 60 %.** The owner, to "What counts as balanced?": "Factions first: of matches that end, each side wins 40 to 60 %". Time to breach and how long a side keeps its trenches are reported and not judged until he sets them. The balance sweep does not judge the band yet. (owner, 2026-10-06, on the Decide page) |
+| 2026-10-06 | **The frog faction is the main faction, and the six unsettled models are its units.** The owner, in his own words, to "Names and jobs for six finished models" (Brute, Croaker, Hopper, Mercy, Frog, Cutter): "therse are for the frog faction, i want this to be the most important and instantly playable models in the game currently. frog faction is the main faction". Not built. What each model does in that faction, and what "instantly playable" needs first, is put to him before it is built (below). (owner, 2026-10-06, on the Decide page) |
 
 ## Open: waiting on the owner
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
@@ -163,68 +188,30 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now fought out to the
   last man, and the side caught in front of the other's trench line loses. (Deployment across the whole width was
   one of these and is decided: the table above.)
-- **The assault (2026-09-28), the agent's choices:** an attack needs about three to one bare, or two to one behind
-  smoke or a barrage, to take a trench, and a failed attack at two to one costs the garrison about a third
-  (`AssaultLadderTests`, `tasks.md` Infantry combat). Made by: a running man a harder mark at range
-  (`CombatTables.RunningTarget`, floor 0.35 past 60 m), a miss at a man on the fire step suppressing him fully, and
-  hand grenades (riflemen two, assault men four, thrown at a trench man from 5-22 m, held while a friend is near the
-  mark; since 2026-09-29 in the air half a second to 1.2 s before it goes off, so the throw can be drawn). Each is one constant or one rule to turn; the ratios are the thing to judge in play.
-- **The guns hold the parapet (2026-09-29), the agent's choice:** machine gunners (and the Sentry) are their own order
-  group, `OrderGroup.Gun`, so a player can send the riflemen over and keep the guns firing from the trench to cover
-  them; a plain "over the top" still sends everyone. They were Line with the riflemen. Found beside it, a bug: the
-  HUD's category chips sent archetype ids where the sim reads groups (picking the gunners sent the officers and
-  medics), fixed on `lane/show/order-chips`.
-- **Dead ground (2026-09-29), the agent's choice:** a man more than 10 m behind his own front trench is out of sight of
-  the other side's small arms (the approaches and communication trenches the map does not draw). Without it the
-  machine gun's 170 m covered the other side's whole rear area. The alternative was a shorter machine gun.
-- **The enemy plans its attacks (2026-09-29), the agent's choices:** it masses until it has two to one and lays a barrage
-  and smoke first, or three to one bare, and only then goes over the top; it deploys men before it saves for support.
-  Measured in ten-minute matches (`MatchLoopTests`): it now breaks a player who only sits in his trench in five to nine
-  minutes, and the same script on both sides either holds a stalemate or snowballs once one side gets ahead. `Odds`,
-  `AttackGarrison` and `UsesSupport` are the difficulty knobs (Easy has no support, so it needs three to one).
-- **The Sapper's pool (2026-09-28):** the 2026-09-26 row puts `InfantryArchetype.Sapper` in both faction pools; the
-  Proving Ground seam keeps him, and every stand-in, out of every pool until the owner says which of the sixteen the
-  shipped factions field. Adding one to a pool is one line in `FactionRoster.Pools` (a seam commit).
+  The owner, 2026-10-06, on the Decide page, in his own words: "we should do the latest six rules. the one where everyone spreads out is the
+  correct one". Read as: keep the six as built. That reading is the agent's; he is asked, and the bullet stays until he says.
+- **After dead ground (2026-10-06):** the owner removes it (How units move and fight) and asks for a better way: "we must think about how
+  we can prevent this in the future in a better way: the man werent able to enter the trench." Open: what that way is. Measured with
+  dead ground off: the enemy's machine guns (170 m) killed 17 of 23 men walking up in ten minutes; the 20 % range cut, not in
+  integration yet, shortens them to 136 m, and nobody has measured that.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
-- **M1.5 fun-gate playtest** with both developers is still not done. docs/11 says nothing after it is scheduled until it passes; work has continued on the owner's word.
-- **Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today.
-- **Where the ruins set goes.** It is cut, imported and tested, and nothing places it (`BattlefieldComposer` only uses Houses and Military).
 - **Not scaled with the giant machines:** trench cross width, slope limit, turn rates, speeds, `MaxGrow`. Balance, not geometry.
-- **Record live matches for debugging?** A recorder needs a hash every tick, which single player turns off for
-  speed. Options: pay for per-tick hashing, or a commands-only replay format (a seam change). Audit R9.
-- **`main`** is at afc6fe8, far behind the integration branch, and is what a fresh clone checks out. Fast-forward it,
-  or make the integration branch the default?
-- **Repo hygiene** from the maintainability audit: Git LFS for FBX and `.bytes`, removing `github-test1/`.
-- **The house kits' tan in a night ruin** (asset playground): a shelled Boilerhouse's chunks show its tan plaster
-  (atlas 82/68/57), which reads as dark brown crates under the night light. Palette/source art; the cut faces
-  themselves are fixed in the playground's prototype and, since 2026-09-27, in `housesplit.py`; the game's committed
-  chunks were cut before it and are not regenerated (most sets' split settings are unrecorded; re-cutting changes
-  every building). Owner: re-cut the sets, or leave them. Measured 2026-09-27 (loop 2): those brown faces are FLAT (colour
-  spread under 2/255 over an 80x120 px patch of a shelled ruin), painted so by the kit; repainting them with masonry is
-  an art call, not a split fix.
-- **Faction abilities after the merge (2026-09-27):** every faction may call the overhaul's six abilities and Brass
-  alone the paratroopers (`FactionRoster.AbilityMask`). Split them per faction? And the HUD shows the drop card to an
-  Iron player, whose call the sim then refuses: hide cards the side's faction cannot call (`HudView.Offered`)?
-- **Heroes in the stress bench:** `HeroSystem.TeamMask` is 1, so the stress preset's player side can get a hero who
-  takes the front trench over the top (about tick 860 on ShelledForest). Bench runs compared across builds carry that
-  event; the preset's tests run without heroes. Turn heroes off in the stress preset itself?
-- **The bench report's frame budget twice:** `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws` (overhaul) and
-  `frame_budget_*` (aosa) read the same `FrameBudget`. Keep one set of names?
-- **The `-land` branches on origin** (`lane/show/*-land`, pushed by `land.py` when the lanes landed on 2026-09-27) are
-  copies of what is on the integration branch. Delete them once every lane session has caught up
-  (`docs/inbox/2026-09-27-all-lanes-landed.md`).
-- **The frog's far LOD size:** 300 tris ships (pop overlap 0.855 with the shoulders kept); 380 tris 0.865, 460 0.868
-  (measured 2026-09-27 on the derived LODs; the source level and the rig made no difference).
+  The owner, 2026-10-06, on the Decide page, in his own words: "we find a solution for this so they dont clump together anymore". None of the
+  brief's options; which clumping he means is asked before anything is built.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
   game's machine, left alone). Still to check in Play: rockets reaching the ground on their burst's frame, the trails at
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
+  The owner, 2026-10-06, on the Decide page: "the rocket truck is very slow in reloading" (a remark, none of the brief's options: asked again).
+  The halted Kettle is decided (How units move and fight, 2026-10-06).
 - **A man lying down at range is an easier mark than a man sprinting (2026-10-01, found building men under fire):** past 60 m a sprinting man is hit at 0.39 of a shooter's chance (`CombatTables.RunningTarget` 0.35, and his stance's -0.1 cover) and a man lying in the open at 0.60 (`StanceRules.CoverBonusInOpen` 0.4), so going to ground at range costs a man more than running did; with the rushes the deaths per man-minute in the open did not fall (1.3-1.8 before, 1.5-1.6 after). Options: (a) leave it (default taken: the hit model is unchanged); (b) a lying man harder to hit the further off he is (to about 0.30 by 60 m), which helps an attack further: the rushes alone turned six stalemates of the scripts' match into five and a win.
 - **Names and jobs for the six models without a settled one (2026-09-28):** proposed and not answered: Brute as the
   Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
   Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
   infantry, or the look of one faction's infantry; the Cutter as it is.
+  The owner, 2026-10-06: all six are for the frog faction, which is the main faction (How units move and fight). Still open: what each
+  does in it, and what "instantly playable" needs first.
 - **VFX pass (2026-09-28, loop mode; defaults taken for work only they do not decide, nothing landed on them).**
   From the tw3d-board catalogue (evidence, vfx-run, phase1-catalogue) section 6 (Q1, blood, is answered above):
   Q2 the beam is fire, not an electric lance (default fire: the new FireLance sheet was generated on it); Q3 keep the
@@ -239,17 +226,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   **the jetpack man is not drawn in the air**: the sim flies him on a straight line at ground height and nothing lifts
   his figure, so L15's smoke arc is a line along the ground (default: leave; lifting the drawn man on an arc is units
   work, not the VFX pass).
-- **Push `lane/show/pipe-vfx`? (2026-10-04):** 91 commits and 133 files that have been on the desktop's disk only
-  since 2026-09-29; a failed disk loses them. Asked twice and not answered. Default taken: not pushed.
-- **The bands the balance sweep must hold (2026-10-04):** which win rate, time to breach and trench retention count
-  as balanced (`lane/show/balance-sweep`). Nothing is tuned until they are set.
-- **A standing critic of the process, on a schedule (2026-10-04)?** Offered after the critique and not answered.
-  Default taken: none.
-- **CI waits for the `workflow` scope on the desktop's GitHub login (2026-10-04):** the checks workflow, and the
-  removal of the Unity workflow, are one commit on `lane/show/ci-checks`, on the desktop's disk only: GitHub refuses
-  a push that changes a workflow file from a login without that scope. The owner runs
-  `gh auth refresh -h github.com -s workflow` once (it opens a browser), then the lane lands with `land.py`. Until
-  then CI is still the red Unity workflow and `land.py` alone enforces the check. Default taken: not pushed.
 - **The fleet's guns in a match (2026-10-06):** the review fix U1 (on `lane/sim/review-fixes`, not landed) makes the
   fleet fire for the first time: one 300-damage shell every 23 s, the whole match, on every map with a sea, and about
   half of them fall on or behind the sea side's own lines (`SeaLanding.Step`, the aim). That is ambient shelling, and
