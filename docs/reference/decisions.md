@@ -66,6 +66,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-09-28 | **Breaking a wreck does not lower its salvage value**: a wreck is worth what it was when the machine died (`WreckRecord` and the debrief unchanged). (AskUserQuestion.) |
 | 2026-09-28 | **Every Playground unit goes into the battle, spawn-only** (owner, AskUserQuestion: "all"; rosters: "Spawn-only"). The Brute (tank), the Frog (infantry figure), the Croaker (two-legged frog mech), the Mercy (field ambulance jeep) and the Hopper (frog gunship) become battle units the Unit Sandbox, the gym and a loadout field, like the Skimmer and the Salvo, in no `FactionRoster` slot or pool (the original game's rosters stay). Each new archetype id is a SIM seam commit; the Frog may reuse an infantry archetype. First, one filmed battle pass of the units that already fight (Skimmer, Salvo) against infantry (owner: "lets do 1 sim pass, then we go ahead"). |
 | 2026-09-30 | **The absurd deaths are on**: `fx.deathAbsurd` defaults to 1 (owner: "turn it on and let me test it"). The knob stays, 0 is still today's deaths exactly. |
+| 2026-10-06 | **Hand to hand and the crab pounce are landed** (owner: "land", to the open question of this date). `lane/sim/melee-v25` is on integration at `ca9ea5f9` as it was gated: every attack reach cut by 20 %, men fighting hand to hand inside 8 m, crabs leaping on a man about 10 m in front, replay v25 (older replays stop loading). The claws stay shut through the leap (`561feebf`). Not fixed, the owner's to ask for: the pounce looks for its man over every unit instead of the grid (a cost, not a wrong result), and `MeleeSystem.Killed` is carried over a tick outside the hash. The 2026-09-29 "yes lets go" was for the old `lane/sim/melee-v23` and landed nothing. |
 
 ## Interface
 | Date | Decision |
@@ -245,17 +246,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   a push that changes a workflow file from a login without that scope. The owner runs
   `gh auth refresh -h github.com -s workflow` once (it opens a browser), then the lane lands with `land.py`. Until
   then CI is still the red Unity workflow and `land.py` alone enforces the check. Default taken: not pushed.
-- **Land hand to hand and the crab pounce? (2026-10-06):** `lane/sim/melee-v25` is the melee lane you said "yes lets
-  go" to on 2026-09-29, rebased onto today's integration (the old `lane/sim/melee-v23` is left as it was). Landing
-  it puts three things in every match: every attack reach cut by 20 %, men fighting hand to hand inside 8 m, and
-  crabs leaping on a man about 10 m in front. Replay goes from v23 to v25, so older replays stop loading. Changed
-  since your yes: `MeleeTests` moved to `Tests/Sim`, and one fix from a review on 2026-10-06 (a leaping crab's claws
-  killed the man four ticks before it landed, so the landing hit nobody; the claws now stay shut through the leap,
-  and the pounce test checks he dies of the landing). Not changed, from the same review, yours to ask for: the
-  pounce looks for its man over every unit instead of the grid (cost, not a wrong result), and `MeleeSystem.Killed`
-  is carried over a tick outside the hash. Options: land it as it is (the default once you say so); land it and
-  fix those two after; or hold it. Nothing lands on the 2026-09-29 yes: that was for the old tip. After it lands,
-  `lane/sim/bullfrog` and the other sim lanes that bump the replay rebase and renumber.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
