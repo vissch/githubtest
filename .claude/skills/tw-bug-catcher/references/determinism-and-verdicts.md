@@ -73,6 +73,8 @@ Also seen: `No graphic device is available` under `-nographics` (`land.ps1:62`),
 - A real red in the other lane's code is theirs: an inbox note with the test name and message, and no patching of their files (`D\reference\tasks.md:26-29`).
 
 ### What a good bug card contains (synthesised from the above)
+The card's numbered parts are in `../SKILL.md`, "The bug card": it has two more (the red command, the guesses), and
+where the two lists differ, that one holds.
 1. **Symptom and expected vs actual.** Name the metric or assertion message verbatim, from the xml.
 2. **Verdict provenance.** Say which runner (gate xml, in-editor run after `RequestScriptReload`, or otr). Name which false-red signature it is not. Say whether it reproduced on a rerun.
 3. **Lane and owner file.** Use the SimProbe.Unit split, the tasks.md row, and the guarding test.
