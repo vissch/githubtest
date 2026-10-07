@@ -56,4 +56,29 @@ The ready-made tier script is `AgentScripts/aosa_tiers.cs` (EditorPrefs `aosa.di
 
 ## Evidence on the board
 JPG, at most 400 KB, at `evidence/<item>/<stage>/<band>.jpg` on `tw3d-board`. Keep the PNG and its JSON sidecar
-under `trench-warfare-3d/Captures/` (git-ignored), never as untracked files a gate would record.
+under `trench-warfare-3d/Captures/` (git-ignored), never as untracked files a gate would record. Copy the sidecar
+beside the evidence JPG on the board as `<band>.json`: the critic's validity rules (`pose_error_m`, `blown_frac`) read
+it, and a relay critic is handed only the top-level files of that folder. Add `frames.txt` there, one line per
+image: view and band, moment, clock held or running, what is in frame. Facts only: the sidecar holds none of these.
+
+## After a critic round: fix it and prove it
+The critic's paper is on the board beside the evidence: `evidence/<item>/<stage>/critic-r<n>.md`. A relay fix card
+carries only its three fix lines, so read the whole paper first.
+1. **CAPTURES first.** INVALID or UNCHECKED means the stills are the fault: shoot them again, a sidecar beside each, before changing any art or code.
+2. **Reproduce, then measure the claim.** Shoot the critic's frame again from its sidecar (`focus_x`, `focus_z`, `zoom`, `yaw`, `pitch`), at the same moment (`stepabs`, or `shot_tick` on the bench), under `Hold()`. Put a number on the claim: a sidecar field, `Diff`, `shotstats.py`, a probe row. A claim the number does not bear out is rebutted with that number, not fixed.
+3. **Find the cause yourself.** The critic has not seen the code: its `GUESS:` is a guess. Its `want:` is how far to go; read OVERDONE before turning anything up.
+4. **One fix, one pair.** Before and after from the same pose, moment, seed and held weather, and the unchanged build shot twice for the noise. `Diff(before, after, out)` has to show a change larger than that noise, in the region the finding names. A fix whose pair cannot be told apart has not reached the screen.
+5. **Check it where it ships:** in the battle (GreyboxCorridor) at T1, not only on a bench or in the playground, and look that readability did not drop.
+
+**Hand back, in the evidence folder** (top level, JPG at most 400 KB, a sidecar beside each still):
+- every band again, fresh: `<band>.jpg` and `<band>.json`;
+- per fix, the pair as `fix<k>-x.jpg` and `fix<k>-y.jpg`: a coin decides which is the old one, and the key goes in your report, never in the folder;
+- where the subject is small in the frame (a man can be 30 px), the same pair cropped to the region the finding names, at native resolution or 2× nearest-neighbour: `fix<k>-crop-x.jpg`, `fix<k>-crop-y.jpg`;
+- each shot the critic asked for, at the view it asked for: `shot<k>.jpg` and `shot<k>.json`;
+- `frames.txt` again, with a line for every new image.
+
+Delete the pairs, crops and shots of earlier rounds. Keep out of that folder anything that says what you changed or
+why: the next critic is blind, and it is handed every top-level file there.
+
+**Your report, not the folder,** has one line per mandated fix, `FIX <k>: done | rebutted | shot made; <measure>
+before -> after (noise <n>); <files>`, and the x/y key.
