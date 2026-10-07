@@ -1789,11 +1789,17 @@ class PipelineSource(Repo):
         SP.P.REPO = self.p_repo
         super().tearDown()
 
-    def evidence(self, data):
+    def evidence(self, data, sidecar='{"pose_error_m": 0}', frames="near.jpg: rear, zoom 17\nfar.jpg: rear, zoom 30\n"):
         folder = self.board / "evidence" / "thing" / "shots"
         folder.mkdir(parents=True, exist_ok=True)
         for band in ("near", "far"):
             (folder / (band + ".jpg")).write_bytes(data)
+            (folder / (band + ".json")).unlink(missing_ok=True)
+            if sidecar is not None:
+                (folder / (band + ".json")).write_text(sidecar, encoding="utf-8")
+        (folder / "frames.txt").unlink(missing_ok=True)
+        if frames is not None:
+            (folder / "frames.txt").write_text(frames, encoding="utf-8")
 
     def results(self):
         return [json.loads(p.read_text(encoding="utf-8")) for p in sorted((self.board / "results").glob("*.json"))]
@@ -1847,7 +1853,8 @@ class PipelineSource(Repo):
         # blind: its own folder with the pictures and the stage, no board, no word from the producer
         leg3 = json.loads(self.leg_file(3, "leg.json").read_text(encoding="utf-8"))
         self.assertEqual((leg3["phase"], leg3["board"], Path(leg3["worktree"]).name), ("critic", "", "bundle"))
-        self.assertEqual(sorted(f.name for f in Path(leg3["worktree"]).iterdir()), ["far.jpg", "near.jpg", "stage.json"])
+        self.assertEqual(sorted(f.name for f in Path(leg3["worktree"]).iterdir()),
+                         ["far.jpg", "far.json", "frames.txt", "near.jpg", "near.json", "stage.json"])
         bundle5 = Path(json.loads(self.leg_file(5, "leg.json").read_text(encoding="utf-8"))["worktree"])
         self.assertFalse((bundle5 / "critic-r1.md").exists())           # round 2 does not read round 1
         card = self.leg_file(3, "card.md").read_text(encoding="utf-8")
@@ -1904,17 +1911,27 @@ class PipelineSource(Repo):
         self.evidence(jpeg(640, 360))
         self.assertEqual(SP.verify(unit, ctx), [])
         self.assertTrue(all("older" in p for p in SP.verify(unit, dict(ctx, since=time.time() + 60))))
+        # a still is scored by its sidecar and frames.txt: a job without them fails here, not a critic round later
+        self.evidence(jpeg(640, 360), sidecar=None)
+        self.assertTrue(all("has no sidecar" in p for p in SP.verify(unit, ctx)) and len(SP.verify(unit, ctx)) == 2)
+        self.evidence(jpeg(640, 360), sidecar="not json")
+        self.assertTrue(all("not a JSON object" in p for p in SP.verify(unit, ctx)) and len(SP.verify(unit, ctx)) == 2)
+        self.evidence(jpeg(640, 360), frames=None)
+        self.assertTrue(all("frames.txt" in p for p in SP.verify(unit, ctx)) and len(SP.verify(unit, ctx)) == 2)
+        self.evidence(jpeg(640, 360), frames="near.jpg: rear\n")
+        self.assertEqual(SP.verify(unit, ctx), ["frames.txt has no line that starts far.jpg:"])
+        self.evidence(jpeg(640, 360), sidecar=None,
+                      frames="near.jpg: a mock-up, no sidecar\nfar.jpg: No sidecar, a concept sheet\n")
+        self.assertEqual(SP.verify(unit, ctx), [])                      # a still the game did not render
 
     def test_the_job_card_asks_for_the_sidecars_the_critic_scores_by_and_they_reach_its_folder(self):
         ctx = {"board": self.board, "work": self.work, "station": "desktop", "skip": set()}
         unit = SP.next(ctx)
         card = SP.body(unit)
-        for name in ("<band>.jpg", "<band>.json", "frames.txt"):
+        for name in ("<band>.jpg", "<band>.json", "frames.txt", "`<band>.jpg:`", "`no sidecar`"):
             self.assertIn(name, card)
         self.evidence(jpeg(640, 360))
-        shots = self.board / "evidence" / "thing" / "shots"
-        for name in ("near.json", "far.json", "frames.txt", "critic-r1.md"):
-            (shots / name).write_text("{}", encoding="utf-8")
+        (self.board / "evidence" / "thing" / "shots" / "critic-r1.md").write_text("VERDICT", encoding="utf-8")
         bundle = self.tmp / "bundle-check"
         SP.critic(unit, ctx, 2)["fill"](bundle)
         self.assertEqual(sorted(f.name for f in bundle.iterdir()),
