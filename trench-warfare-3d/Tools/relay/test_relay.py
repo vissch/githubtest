@@ -16,6 +16,7 @@ from sources import pipeline as SP                                              
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
 LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT", "TW_AGENT_LOGS",
+       "TW_IDEAS",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
        "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY")
 
@@ -42,6 +43,7 @@ class Base(unittest.TestCase):
         os.environ["TW_RELAY_NO_WINDOW"] = "0"               # the same whatever terminal runs the tests
         os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, "-c", "pass"])   # no real notification
         os.environ["TW_AGENT_LOGS"] = str(self.tmp / "agent-logs")    # nor this machine's real sessions (agents.py)
+        os.environ["TW_IDEAS"] = str(self.tmp / "ideas")              # nor the real runs of the board's ideas agent
         self.limits = config.limits                          # these tests count in dollars or in measured legs:
         config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
                                              day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)

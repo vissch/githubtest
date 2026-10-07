@@ -11,7 +11,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import agents, config, ledger, relay   # noqa: E402
 
-ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION", agents.LOGS, ledger.ALSO)
+ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION", agents.LOGS, agents.IDEAS, ledger.ALSO)
 OPUS, HAIKU = "claude-opus-5-5", "claude-haiku-4-5-20251001"
 
 
@@ -30,8 +30,9 @@ class Base(unittest.TestCase):
         self.logs, self.board, self.home = self.tmp / "projects", self.tmp / "board", self.tmp / "home"
         self.logs.mkdir()
         self.old = {k: os.environ.get(k) for k in ENV}
+        self.ideas = self.tmp / "ideas"                     # never the Drive's: its runs are real money of the day
         os.environ.update({"TW_RELAY_HOME": str(self.home), "TW_BOARD": str(self.board), "TW_STATION": "laptop",
-                           agents.LOGS: str(self.logs)})
+                           agents.LOGS: str(self.logs), agents.IDEAS: str(self.ideas)})
         os.environ.pop(ledger.ALSO, None)
         self.st, self.n = agents.settings(), 0
 
@@ -53,6 +54,16 @@ class Base(unittest.TestCase):
                  for i, (aid, model, use, ago) in enumerate(answers)]
         f.write_text("\n".join(json.dumps(r) for r in rows) + "\nnot json\n", encoding="utf-8")
         return f
+
+    def run_of_ideas(self, usd, host=None, days_ago=0, **more):
+        """One line of the ideas folder's spend.jsonl, as ideas.py writes it when a run of its agent ends."""
+        self.ideas.mkdir(exist_ok=True)
+        line = dict({"when": day(days_ago) + " 14:02", "run": "r%d" % self.n, "asked": "auto", "usd": usd, "ideas": 1,
+                     "why": ""}, **more)
+        if host != "":
+            line["host"] = host or agents.socket.gethostname()
+        with open(self.ideas / "spend.jsonl", "a", encoding="utf-8") as f:
+            f.write(json.dumps(line, sort_keys=True) + "\n")
 
     def main(self, *argv):
         buf = io.StringIO()
@@ -139,6 +150,46 @@ class Count(Base):
         self.assertEqual((self.st["cache_write_5m_factor"], self.st["cache_write_1h_factor"]), (1.25, 2.0))
 
 
+class IdeasRuns(Base):
+    def test_a_run_the_board_started_here_today_is_counted_and_no_other(self):
+        self.run_of_ideas(1.76)
+        self.run_of_ideas(1.70)
+        self.run_of_ideas(9.0, host="THE-OTHER-PC")            # the Drive shows it here too: it is that machine's
+        self.run_of_ideas(9.0, days_ago=1)
+        self.run_of_ideas(0.0)                                 # a run that cost nothing is no run to book
+        self.run_of_ideas("1.5")
+        with open(self.ideas / "spend.jsonl", "a", encoding="utf-8") as f:
+            f.write("not json\n[1]\n")
+        c = agents.count()
+        self.assertEqual((c["runs"], round(c["runs_usd"], 2), round(c["usd"], 2), c["agents"]), (2, 3.46, 3.46, 0))
+        self.assertEqual(agents.count(host="the-other-pc")["runs_usd"], 9.0)    # a host's name in any case
+        self.assertEqual(agents.count(day(1))["runs_usd"], 9.0)
+
+    def test_the_runs_are_added_to_what_the_agents_cost(self):
+        self.agent([("m1", OPUS, {"output_tokens": M}, 0)])
+        self.run_of_ideas(2.5)
+        c = agents.count()
+        self.assertEqual((c["usd"], c["agents"], c["runs"]), (22.5, 1, 1))
+        said = "\n".join(agents.lines(c))
+        self.assertIn("1 agent, about $22.50 at list prices", said)
+        self.assertIn("the ideas agent", said)
+        self.assertIn("1 run the board started here", said)
+
+    def test_a_run_that_names_no_host_is_counted_nowhere_and_said(self):
+        self.run_of_ideas(1.7, host="")
+        for host in (None, "THE-OTHER-PC"):
+            c = agents.count(host=host)
+            self.assertEqual((c["runs"], c["usd"], c["runs_unowned"]), (0, 0.0, 1))
+        self.assertIn("1 ideas run of the day names no host", "\n".join(agents.lines(agents.count())))
+
+    def test_with_no_ideas_folder_nothing_is_counted_and_the_folder_is_the_one_the_board_uses(self):
+        self.assertEqual((agents.count()["runs"], agents.count()["usd"]), (0, 0.0))       # no folder: not an error
+        self.assertEqual(agents.ideas_folder(), self.ideas)
+        os.environ.pop(agents.IDEAS)
+        self.assertIn(agents.ideas_folder().as_posix().split("/")[-2:],
+                      (["TW3D-pipeline", "ideas"], ["assetboard", "ideas"]))
+
+
 class Book(Base):
     def setUp(self):
         super().setUp()
@@ -163,6 +214,30 @@ class Book(Base):
         rec, before = agents.book(self.board, "laptop")
         self.assertEqual((rec["usd"], rec["agents"], before["usd"]), (40.0, 2, 20.0))
         self.assertEqual(ledger.spent(self.board)["usd"], 40.0)                 # replaced, not added twice
+
+    def test_a_day_with_only_runs_of_the_ideas_agent_is_booked_and_the_ledger_counts_it(self):
+        self.run_of_ideas(1.76)
+        rec, before = agents.book(self.board, "laptop", by="me")
+        self.assertEqual((rec["usd"], rec["agents"], rec["runs"], rec["runs_usd"], before), (1.76, 0, 1, 1.76, None))
+        self.assertEqual((self.held()["runs"], ledger.spent(self.board)["usd"]), (1, 1.76))
+        self.run_of_ideas(1.70)                                                 # later the same day: the new total
+        self.assertEqual(agents.book(self.board, "laptop")[0]["usd"], 3.46)
+        self.assertEqual(ledger.spent(self.board)["usd"], 3.46)
+        keep, agents.socket.gethostname = agents.socket.gethostname, lambda: "THE-OTHER-PC"
+        try:
+            self.assertEqual(agents.book(self.board, "desktop")[0]["runs"], 0)  # the other machine books none of them
+        finally:
+            agents.socket.gethostname = keep
+        self.assertEqual(ledger.spent(self.board)["usd"], 3.46)
+
+    def test_the_command_counts_and_books_the_runs_of_the_ideas_agent(self):
+        self.run_of_ideas(2.0)
+        code, out = self.main("agents")
+        self.assertIn("this machine: 0 agents, about $2.00 at list prices (about 0.2% of the week).", out)
+        self.assertIn("Not booked for the day yet", out)
+        f = self.tmp / "laptop.json"
+        self.assertIn("about $2.00, 0 agents and 1 ideas run)", self.main("agents", "book", "--out", str(f))[1])
+        self.assertIn("booked laptop %s: about $2.00, 0 agents and 1 ideas run." % day(), self.main("agents", "book")[1])
 
     def test_a_day_with_no_such_agent_writes_nothing(self):
         rec, before = agents.book(self.board, "laptop")

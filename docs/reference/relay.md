@@ -202,6 +202,12 @@ week, so the day counts them (`agents.py`).
   every line says `about`. A model the file does not name is priced as its dearest one, and the lines say so.
 - **A leg's own agents are not counted again**: the cost Claude prints for a leg covers the agents it spawned. A
   leg's session is known by its leg folder and by the folder it runs in (`agents.json`, `leg_folders`).
+- **The board's ideas agent is counted with them.** The asset board's watcher starts it as a session of its own
+  (`Tools/assetboard/ideas.py`), so no agent log has it. Each run is a line in `spend.jsonl` in the ideas folder
+  (`TW_IDEAS`, else the Drive's `ideas`), with the cost Claude printed and the host that ran it. `$R agents` adds
+  the day's lines that name this machine, and says them on a line of their own. The folder is on the Drive, so
+  both stations see every line: a run counts on the machine it names and nowhere else. A line that names no host
+  is counted nowhere, and `$R agents` says how many there are.
 - **Booking.** `$R agents book` writes the day's total of this station to `relay/<station>/agents/<day>.json` on
   the board and pushes it; a later booking the same day replaces it. A run books its own machine before every
   unit, so on the station that runs the relay nobody has to.

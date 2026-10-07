@@ -210,6 +210,8 @@ def agents_cmd(a):
         rec = agents.record(agents.count(a.day), station, a.who or "")
     said = "%s %s: about $%.2f, %d agent%s" % (rec["station"], rec["day"], rec["usd"], rec["agents"],
                                              "" if rec["agents"] == 1 else "s")
+    if rec.get("runs"):
+        said += " and %d ideas run%s" % (rec["runs"], "" if rec["runs"] == 1 else "s")
     if a.out:
         P.write_json(Path(a.out), rec)
         print("written to %s (%s). Book it where the board is: relay.py agents book --file <that file>." % (a.out, said))
@@ -218,7 +220,7 @@ def agents_cmd(a):
         agents.hand_in(home, rec)
         print("%s. A run is going here: it adds this to the day before its next unit." % said)
         return 0
-    if not rec["agents"] and not agents.path(board, rec).exists():
+    if not rec["agents"] and not rec.get("runs") and not agents.path(board, rec).exists():
         print("nothing to book: no session here spawned an agent for the project on %s." % rec["day"])
         return 0
     agents.keep(board, rec)
