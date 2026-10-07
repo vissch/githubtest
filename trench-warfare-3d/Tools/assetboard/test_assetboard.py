@@ -12,6 +12,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 import tempfile
@@ -1570,8 +1571,8 @@ def ideas_cases():
     s3 = ideas.tick(where, nwhere, now=day + datetime.timedelta(minutes=4), launch=launch, lim=lim)
     spend = [json.loads(r) for r in (where / 'spend.jsonl').read_text(encoding='utf-8').splitlines()]
     ans = [n for n in notes.read_all(nwhere) if n['id'] == n_more['id']][0]
-    case('tick: a run that ended is a line of what it cost and made, his note is answered with the ideas by name, and the next request starts at once',
-         spend == [dict(when='2026-10-07 12:04', run=run, asked='button', usd=1.23, ideas=2, why='')] and ans['state'] == 'done' and '2 of the 3 asked for: A field telephone' in ans['answers'][0]['text']
+    case('tick: a run that ended is a line of what it cost and made and which machine ran it, his note is answered with the ideas by name, and the next request starts at once',
+         spend == [dict(when='2026-10-07 12:04', run=run, asked='button', usd=1.23, ideas=2, why='', host=socket.gethostname())] and ans['state'] == 'done' and '2 of the 3 asked for: A field telephone' in ans['answers'][0]['text']
          and len(started) == 2 and s3['running']['asked'].startswith('something for the frog') and s3['last']['ideas'] == 2 and s3['left'] == 1, (spend, ans['answers'], s3))
     s4 = ideas.tick(where, nwhere, now=day + datetime.timedelta(minutes=40), launch=launch, lim=lim)
     case('tick: a run past its minutes is stopped and written down as stopped, with no idea and its note answered; it still counts as a run of the day',
