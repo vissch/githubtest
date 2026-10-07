@@ -39,8 +39,10 @@ waits on him, what is done (stands(), read from what is committed on the board's
 THE BOARD STARTS THE AGENT (the owner, 2026-10-07: "Board starts it"). The button "3 more ideas" and the box leave a
 note (about ideas:more, ideas:request); `tick`, run by ops.py --watch on every read, starts one headless session with
 the tw-ideas skill for the oldest request, or for one idea when none is open. One run at a time; ideas.json holds
-how many a day and how much one may spend; every run is a line in spend.jsonl for the day's budget
-(relay.py agents book). The session may read, search the web and run this tool; it writes nowhere else.
+how many a day and how much one may spend; every run is a line in spend.jsonl for the day's budget, with the host
+that ran it: the folder is the Drive's and both stations see it, so the relay counts a run on the machine it names
+(Tools/relay/agents.py, relay.py agents book). The session may read, search the web and run this tool; it writes
+nowhere else.
 """
 import argparse
 import datetime
@@ -48,6 +50,7 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
 from pathlib import Path
@@ -719,7 +722,7 @@ def finish(where: Path, notes_where: Path, rec, why='', now=None):
     except (OSError, ValueError):
         why = why or 'the session left no result'
     made = [i for i in read_all(where) if i.get('run') == rec['run']]
-    line = dict(when=f'{now:%Y-%m-%d %H:%M}', run=rec['run'], asked=rec['asked'], usd=round(usd, 2), ideas=len(made), why=why)
+    line = dict(when=f'{now:%Y-%m-%d %H:%M}', run=rec['run'], asked=rec['asked'], usd=round(usd, 2), ideas=len(made), why=why, host=socket.gethostname())
     with open(where / 'spend.jsonl', 'a', encoding='utf-8') as f:
         f.write(json.dumps(line, sort_keys=True) + '\n')
     if rec.get('note'):
