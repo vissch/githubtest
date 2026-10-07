@@ -25,6 +25,8 @@ It checks, in order, and prints one line each:
      notes    what the owner wrote on the asset board (Tools/assetboard/notes.py), marking those for your branch.
      briefs   the decision briefs that wait on the owner, and the ones he has answered that no session has taken up.
      handoffs the handoffs on the Drive (Tools/handoffs.py): how many are current, and what its index has to mend.
+     tasks    what agents left unfinished and nobody has been on for an hour and a half, and the owner's feedback
+              captures from the game (Tools/assetboard/tasks.py): work anyone may pick up.
   6. compile  only with --compile.
 
 Exit code: 0 all good, 1 something to fix before committing. HELD and "behind" are reported, not failed: they
@@ -151,6 +153,23 @@ def handed_over():
     print(f'handoffs {head}')
     for m in mend:
         print(f'         MEND {m}')
+
+
+def left_tasks(branch):
+    """The task board (Tools/assetboard/tasks.py): what agents left unfinished, and the owner's captures from the game
+    (F10). Read without taking anything in or writing anything: that is the board's watcher's."""
+    try:
+        sys.path.insert(0, str(ROOT / 'Tools' / 'assetboard'))
+        import tasks
+        T = tasks.read(live=False)
+    except Exception as e:      # the tasks' folder is on a Drive that may not be mounted here; that stops nothing
+        print(f'tasks    not read ({e})')
+        return
+    print(f'tasks    {T["left"]} left unfinished and nobody on them, {T["captures"]} of them feedback from the game; {T["queued"]} queued for the relay')
+    for r in [r for r in T['rows'] if r['kind'] == 'capture' and r['state'] == 'left'][:3]:
+        print(f'         FEEDBACK {r["id"]}: {r["title"][:80]}')
+    if T['left']:
+        print(f'         the list: python Tools/assetboard/tasks.py   a capture: python Tools/assetboard/feedback.py show ID   finished one: python Tools/assetboard/tasks.py done ID "what you did" --by {branch}')
 
 
 def unity_cli():
@@ -285,6 +304,7 @@ def main():
     inbox(branch)
     owner_notes(branch)
     handed_over()
+    left_tasks(branch)
 
     if '--compile' in sys.argv:
         occ = ROOT / 'Tools' / 'aosa' / 'occ.py'

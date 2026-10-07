@@ -1,0 +1,21 @@
+{% extends "base.html" %}
+{% block title %}Tasks{% endblock %}
+{% block bodyclass %}overview tasks{% endblock %}
+{% block head %}<link rel="stylesheet" href="tasks.css">{% endblock %}
+{% block main %}
+{# The tasks agents left unfinished (tasks.py reads them, tasks.js and taskboard.js draw them): a row each, grouped by
+   what they are, listed once nobody has been on them for an hour and a half. A capture from the game (F10) is a
+   task from its first minute. A click on a row opens what it is and takes his word: queue it for the relay, or not
+   needed. #}
+<section class="k-office t-page" id="taskboard">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Tasks</p>
+    <h2>Left unfinished, <span class="k-soft">and nobody on it for an hour and a half.</span></h2>
+    <p class="t-count" id="t-count" aria-live="polite">reading the tasks…</p>
+  </header>
+  <div id="t-board"></div>
+  <p class="t-foot" id="t-foot"></p>
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/tasks.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="tasks.js"></script><script src="taskboard.js"></script>{% endblock %}

@@ -36,6 +36,7 @@ import os
 import shutil
 import sys
 import time
+import traceback
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -50,6 +51,7 @@ import src_ops    # noqa: E402
 import src_queue  # noqa: E402
 import src_relay  # noqa: E402
 import src_visuals  # noqa: E402
+import tasks      # noqa: E402
 
 
 def write_if_changed(path: Path, text: str):
@@ -93,10 +95,10 @@ def page(out: Path, meta):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
-    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html'):
+    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
     for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
-                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'site.css', 'kinetic.css'):
+                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -295,6 +297,22 @@ def the_ideas(out: Path, watching):
         print(f'ops: the ideas were not put in the site ({type(e).__name__}: {e})', flush=True)
 
 
+def the_tasks(out: Path, q, his, watching):
+    """The tasks agents left unfinished, for this reading (tasks.py), in the site as data/tasks.js. Only the watcher
+    takes the game's captures in, writes this station's rows for the other and takes up what he said about a task: a
+    session that reads the floor once changes nothing outside the site. Tasks that do not read are no reason to have
+    no site."""
+    try:
+        T = tasks.read(ready=q.get('ready'), every_note=his, board=board_root(), live=watching)
+        for line in tasks.act(T) if watching else []:
+            print(f'tasks: {line}', flush=True)
+        tasks.site(T, out)
+        return dict(left=T['left'], queued=T['queued'])
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the tasks were not read ({type(e).__name__}: {e})', flush=True)
+        return dict(left=0, queued=0)
+
+
 def once(out: Path, watching=False):
     data = src_ops.collect(build.REPO, out)
     ready_since(data, out / 'data' / 'ready-since.json')
@@ -303,12 +321,13 @@ def once(out: Path, watching=False):
     every, his = briefs.read_all(briefs.folder()), notes.read_all(notes.folder())
     got = briefs.answers(every, his)
     data['queue'] = queue(data, out, answers=got, all_briefs=every, all_notes=his)
+    data['tasks'] = the_tasks(out, data['queue'], his, watching)
     graphs(data, out, all_briefs=every, answers=got)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
-    body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes')}, sort_keys=True, default=str)
+    body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes', 'tasks')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'
     if old.exists() and body in old.read_text(encoding='utf-8'):
         return data, False
@@ -336,9 +355,20 @@ def main(argv=None):
         if args.watch and site_version() != SITE['v']:      # a script or a template changed: it is in the site on this read, and the beat tells the open pages
             page(out, dict(meta, built=time.strftime('%Y-%m-%d %H:%M')))
             print(f'ops: the scripts changed, the site has them now ({SITE["v"]})', flush=True)
-        data, changed = once(out, watching=bool(args.watch))
+        try:
+            data, changed = once(out, watching=bool(args.watch))
+        except Exception:       # noqa: BLE001
+            # one read that fails must not end the watcher (2026-10-07: a git call could start no thread at 15:38, and
+            # the board stood still until someone looked): say so, and read again
+            if not args.watch:
+                raise
+            print(f'{time.strftime("%Y-%m-%d %H:%M:%S")}  ops: this read failed, the next one is in {args.watch:g} s', flush=True)
+            traceback.print_exc()
+            sys.stderr.flush()
+            time.sleep(args.watch)
+            continue
         c = data['counts']
-        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
+        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {data["tasks"]["left"]} tasks left unfinished, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
               f'{c["idle"]} of {len(data["roster"])} skills and agents idle{"" if changed else " (no change)"}', flush=True)
         if not args.watch:
             return 0
