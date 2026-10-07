@@ -13,6 +13,9 @@ namespace TW.Presentation
         public static bool Modal;
         /// <summary>A key-rebind capture is waiting for a key: even Space and Esc belong to it.</summary>
         public static bool Listening;
+        /// <summary>He is typing words into a box (the feedback capture's): no key is a command, the debug overlays' and
+        /// the HUD toggle's included, which read the keyboard raw and so ignore Modal.</summary>
+        public static bool Typing;
         static int escapeFrame = -1;
 
         /// <summary>Gameplay may read input this frame.</summary>
@@ -23,6 +26,6 @@ namespace TW.Presentation
         public static bool EscapeConsumed => escapeFrame == Time.frameCount;
 
         /// <summary>Reset on scene load so a stale Modal from a destroyed screen cannot dead-lock the field.</summary>
-        public static void Reset() { Modal = false; Listening = false; escapeFrame = -1; }
+        public static void Reset() { Modal = false; Listening = false; Typing = false; escapeFrame = -1; }
     }
 }
