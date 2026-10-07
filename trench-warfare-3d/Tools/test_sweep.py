@@ -38,6 +38,10 @@ class SpecTest(unittest.TestCase):
         self.assertEqual(variants[1]["patches"], [base, {"on": "unit", "unit": "Machinegunner", "field": "Weapon.Damage", "op": "mul", "value": "0.8"}])
         self.assertEqual(variants[3]["patches"][2]["value"], "true", "a switch is written as the test reads it")
 
+    def test_a_harness_patch_is_written_like_a_script_s(self):
+        spec = {"variants": [{"name": "walk", "patches": [{"harness": "Sea", "set": False}]}]}
+        self.assertEqual(S.compile_spec(spec)[1][1]["patches"], [{"on": "harness", "unit": "", "field": "Sea", "op": "set", "value": "false"}])
+
     def test_two_grids_in_one_variant_are_every_pair(self):
         spec = {"variants": [{"name": "g", "patches": [{"unit": "Rifle", "field": "Weapon.Damage", "mul": [1, 2]},
                                                        {"unit": "Rifle", "field": "Weapon.RangeMax", "set": [90, 110, 130]}]}]}
