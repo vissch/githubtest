@@ -1,7 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7, look spec L01) — part of CombatFx (see CombatFx.cs for
 // the event dispatch). Which drawn parts a burst gets, by what went off (the sim's Dir.y: 0 shell, 1 falling masonry,
 // 2 cook-off), whether it was flying (Dir.xz) and whether it landed in water. Pure, so a test can hold it. Behind the
-// knob fx.recipes: 0 (the default until it has been seen in Play at every zoom) returns the old burst exactly.
+// knob fx.recipes: 1 by default (owner, 2026-10-07, after the films); 0 returns the old burst exactly.
 using UnityEngine;
 using TW.Presentation;
 
@@ -27,7 +27,7 @@ namespace TW.Presentation.Tactical
 
         public const string RecipesKnob = "fx.recipes";
         public const float RingRadius = 6f;       // a shell this big (the sim's radius, m) throws a ring along the ground (the barrage's 8 m shells, not its 5 m)
-        public const float DefaultRecipes = 0f;   // the old burst until the recipes have been seen in Play (catalogue: proof per zoom)
+        public const float DefaultRecipes = 1f;   // on since 2026-10-07 (owner, after the films of all eleven: decisions.md); 0 is the old burst
 
         /// <summary>fx.recipes, 0 (the old burst) or 1 (the VFX pass's recipes).</summary>
         public static float ReadRecipes() => Mathf.Clamp01(Knobs.Get(RecipesKnob, DefaultRecipes));

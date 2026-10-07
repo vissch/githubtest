@@ -54,7 +54,7 @@ namespace TW.Presentation.Tactical
         // knob fx.columnPlay (Awake, AOSA C109): the part of the Column book the old dry column plays on a moonlit field
         // before it fades out (FlipbookFx.ColumnPlayCut, the card's cut). 1 = the old card; default 0.4 (cycle 10).
         float columnPlay = FlipbookFx.DefaultColumnPlay;
-        // knob fx.recipes (Awake, VFX pass 2026-09-28): which drawn parts a burst gets (CombatFx.Recipes.cs). 0 = the old burst.
+        // knob fx.recipes (Awake, VFX pass 2026-09-28): which drawn parts a burst gets (CombatFx.Recipes.cs). 1 by default; 0 = the old burst.
         float recipes = DefaultRecipes;
         /// <summary>The world-space gameplay overlays drawn outside any UIDocument: the called-strike target discs, the
         /// aiming shape and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
