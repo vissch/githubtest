@@ -30,7 +30,7 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set) | say the new order |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too) | confirm with `$R status` |
-| `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" [--role <role>] --done-when <program> <arg> ...` | say it is queued |
+| `/relay add` | `$R add <id> --lane lane/show/<x> --role <role> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
 | `/relay role` | `$R role <role> <id> [<id> ...]` (a role from `Tools/pipeline/roles.json`; between legs) | say which units now get which brief |
 | watch a leg | `$R view "<leg folder>" --follow` (status prints the folder) | |
 
