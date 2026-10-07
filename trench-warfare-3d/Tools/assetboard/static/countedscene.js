@@ -280,7 +280,8 @@
       order.forEach(function (l) {
         if (!l.w) { l.w = l.e.offsetWidth; l.h = l.e.offsetHeight; }
         var x0 = l.x - l.w / 2, x1 = x0 + l.w, y0 = l.side === 'above' ? l.y - l.h : l.y, lift = 0, hide = l.z >= 1 || x1 < 0 || x0 > w, tries = 0;
-        function hit(top) { for (var i = 0; i < placed.length; i++) { var p = placed[i]; if (x0 < p[2] + 3 && x1 > p[0] - 3 && top < p[3] + 2 && top + l.h > p[1] - 2) return p; } return null; }
+        var gap = l.side === 'above' ? 9 : 2;          // a label that can be lifted keeps its distance; one on the floor only must not touch
+        function hit(top) { for (var i = 0; i < placed.length; i++) { var p = placed[i]; if (x0 < p[2] + gap && x1 > p[0] - gap && top < p[3] + 2 && top + l.h > p[1] - 2) return p; } return null; }
         for (var p = hide ? null : hit(y0); p; p = hit(y0 - lift)) {
           if (l.side !== 'above' || ++tries > 4) { hide = true; break; }
           lift = y0 + l.h - p[1] + 5;
