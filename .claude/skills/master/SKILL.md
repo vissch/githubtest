@@ -16,6 +16,59 @@ These are the desktop's paths: runs start there, from the frozen copy. On anothe
 still work from any checkout of the relay lane, but they show that machine's copy of the board: pull the
 board first. (`$R status` also needs `TW_STATION` set when the host is not in `Tools/pipeline/stations.json`.)
 
+## On the laptop
+
+This section is for a session on the laptop (host `MSI`); on the desktop skip it.
+The laptop has no run copy and no work checkout, so here you can look and report, not start or stop a run.
+Its `Documents/GitHub/tw3d-board` is behind origin and holds another session's uncommitted work: never read
+numbers from its files, never commit or push it. Read a snapshot of origin instead:
+
+```bash
+B=C:/Users/thomas.visscher_magi/Documents/GitHub/tw3d-board
+SNAP="$TEMP/tw-board-snap"; rm -rf "$SNAP"; mkdir -p "$SNAP/board" "$SNAP/home"
+git -C $B fetch -q origin && git -C $B archive origin/main | tar -x -C "$SNAP/board"
+export TW_STATION=laptop TW_BOARD="$SNAP/board" TW_RELAY_HOME="$SNAP/home"
+R="python C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py"
+```
+`$R day`, `$R budget`, `$R status`, `$R refusals` and `$R agents` are fine on the snapshot. `$R add` and `$R prio`
+commit and push the board, and `$R run`, `$R stop` and `$R hold` act on this machine: on the laptop say what you
+would do and that it has to be done on the desktop (`ssh emtd-desktop`, only on the owner's word).
+
+**The cap and the pace on this screen are worked out by the laptop's copy of the scripts.** Runs happen on the
+desktop, and the desktop holds the 11% and the pace only once its frozen copy has them. Look before you say so
+(reading over ssh needs no word from the owner):
+
+```bash
+ssh emtd-desktop "python C:/Users/PC/Documents/GitHub/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py day"
+```
+A `Pace:` line there means the desktop holds both. No such line: tell the owner the desktop still stops at its old
+$50 day (about 2.7%) and has no pace, whatever this screen says ("Older scripts" below).
+
+**The laptop's own agents** count toward the day ("The day's budget"). When `$R agents` shows any, hand them over
+as a file, the way a unit goes (`<name>` is the file's name; the desktop's relay must be the 2026-10-07 one or newer):
+
+```bash
+$R agents book --out "$TEMP/agents-laptop.json" --who <your session name>
+scp "$TEMP/agents-laptop.json" emtd-desktop:C:/Users/PC/AppData/Local/Temp/
+ssh emtd-desktop "python C:/Users/PC/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py agents book --file C:/Users/PC/AppData/Local/Temp/agents-laptop.json"
+```
+Read `booked laptop ...` or `A run is going here: it adds this ...` in what it prints.
+
+**The owner's answers on the Decide page ("Decisions").** On the laptop:
+
+```bash
+B="python C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest-frog-house/trench-warfare-3d/Tools/assetboard/briefs.py"
+```
+`$B waiting`, `$B unit` and `$B take` are done here: the laptop is where he clicks, so it sees his notes first. The
+unit is queued on the desktop's board, and it goes there as a file (quoted words do not survive ssh):
+
+```bash
+scp FILE emtd-desktop:C:/Users/PC/AppData/Local/Temp/
+ssh emtd-desktop "git -C C:/Users/PC/Documents/GitHub/githubtest-relay-dev pull -q --ff-only; python C:/Users/PC/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py add --unit C:/Users/PC/AppData/Local/Temp/<the file's name>"
+```
+Read `Board: pushed` in what it prints. His answer on a brief is the word this needs (the owner, 2026-10-06 evening):
+for `queue` the unit the option names, for `write` the unit you write from his answer. Nothing else is queued from here.
+
 ## Every turn starts from one screen
 
 Run `$R day` before you answer anything. It prints, from the board and this machine:
@@ -84,7 +137,8 @@ decisions").
 | "what is going on", "what needs me" | `$R day`, then the answer in the shape above |
 | "start", or nothing is running and the queue has work the day still covers | `$R hold <your session name>` (exit 1: another session holds it, stop and say who). Then `$R run --work $WORK --dry-run`; if it names a unit, `$R run --work $WORK --who <your session name> --hours <H>` in the background. Say that it started, on what, and what the day has left |
 | "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day` |
-| "queue this" | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work (the `relay` skill's rules for `done_when` and the goal hold) |
+| "queue this" | `$R add <id> --lane lane/show/<x> --role <role> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work (the `relay` skill's rules for `done_when` and the goal hold). The role is the kind of work, from "Which role a unit gets" below; `add` refuses without one |
+| a queued unit has the wrong role, or `lane` where a role fits | `$R role <role> <id> [<id> ..]`, between legs |
 | nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
 | nothing: he said "Do it" to an idea on the board's overview page, or answered a step of his on its route | "Ideas he said yes to": the idea goes on the pipeline's board, without asking him again |
 | "stop" | `$R stop` (before the next leg) or `$R stop --now`; confirm with `$R status` |
@@ -97,6 +151,23 @@ the day covers. Nothing in this table is yours when it would be a major decision
 
 - **Landing.** Nothing lands without it. When he says so, follow "Landing a lane" in the `tw-master` skill: you do
   not run `Tools/land.py` on your own, and a leg never can.
+- **Which role a unit gets.** Its legs are handed that role's brief; a unit queued as `lane` gets none (105 of the
+  first 112 legs ran that way, 53 of them on looks and effects). Pick by what the work is:
+
+  | The work | Role |
+  |---|---|
+  | fixing review findings (`rv-...`) | `review-fix` |
+  | looks, effects, deaths, destruction | `destruction-vfx-simulator` |
+  | infantry animation and clips | `character-simulator` |
+  | tanks and walkers: motion, tracks, legs | `vehicle-simulator` |
+  | frame time, draw calls, budgets | `optimizer` |
+  | unit and ability numbers | `balance-simulator` |
+  | battlefields, terrain, props | `env-simulator` |
+  | a bug patrol over results and the build | `bug-catcher` |
+  | tools, docs, anything no row fits | `lane` |
+
+  Two rows fit: take the one whose checks the `done_when` runs. `Tools/relay/routes.json` may give a role's legs
+  another model: say so when the owner asks what a unit will run on.
 - **New work.** Anything but a small tools-only fix with a test waits for his yes before it is queued. His click on
   an option of the Decide page that showed what would be queued is that yes ("Decisions"); no other answer is.
 - **A change to the relay, the pipeline, the gate or `Tools/land.py`.** Propose it; do not queue it.
