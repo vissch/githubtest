@@ -1220,7 +1220,7 @@ def control():
         html = env.get_template('index.html').render(sections=[], levels=[], total=0, root='')
         ids = re.findall(r'\bid="([^"]+)"', html)
         loads = re.findall(r'(?:src|href)="([^"#:?]+\.(?:js|css))"', html)
-        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'o-stage', 'o-canvas', 'o-legend', 'o-ctl', 'o-list', 'o-list-box', 'o-card', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'ideas', 'ideas-cards', 'queue', 'office', 'assets'}
+        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'o-stage', 'o-canvas', 'o-legend', 'o-ctl', 'o-list', 'o-list-box', 'o-card', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'ideas', 'ideas-cards', 'queue', 'tasks', 'tasks-cards', 'office', 'assets'}
         case('control: the overview is the control screen: the tiles, the house with the profile beside it and the counted office (smaller, its list folded) are on it, the five graphs are not, and no id is there twice',
              need <= set(ids) and len(ids) == len(set(ids)) and not [i for i in ids if re.fullmatch(r'g-(rooms|lanes|needs|commits|models)', i)]
              and 'class="o-wrap o-compact"' in html and re.search(r'<details class="o-list-box" id="o-list-box">', html) is not None, (sorted(need - set(ids)), sorted(i for i in set(ids) if ids.count(i) > 1)))
@@ -1235,8 +1235,8 @@ def control():
              and -1 < full.find('id="o-stage"') < full.find('id="t-at"') < full.find('id="o-list"') and full.count('id="t-calls"') == 1)
         case('control: the house and the counted office keep a page of their own, one click from the screen, and the top bar no longer lists them',
              'href="house.html"' in html and 'href="graphs.html"' in html and html.count('href="house.html"') == 1 and html.count('href="graphs.html"') == 1, html.count('href="house.html"'))
-        at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'ideas', 'queue', 'graphs', 'office', 'assets')}
-        case('control: down the page: the head and the tiles, the house, the ideas, what waits on the owner, the counted office, the branch rooms, the models',
+        at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'ideas', 'queue', 'tasks', 'graphs', 'office', 'assets')}
+        case('control: down the page: the head and the tiles, the house, the ideas, what waits on the owner, the tasks left unfinished, the counted office, the branch rooms, the models',
              -1 not in at.values() and list(at.values()) == sorted(at.values()) and html.find('c-pulse') < at['deck'], at)
 
     node = shutil.which('node')
@@ -1272,7 +1272,7 @@ def control():
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'crew.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('control: a page with several live parts reads the floor once every 20 seconds for all of them, each file once, and then every part draws',
-         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/ops.js']], (got, p.stderr[-300:]))
+         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/tasks.js', 'data/ops.js']], (got, p.stderr[-300:]))
 
 
 def decisions():
@@ -2068,6 +2068,8 @@ def critiques_cases():
 
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
+    os.environ['TW_TASKS'] = tempfile.mkdtemp(prefix='tw-tasks-test-')      # ... nor into the tasks' folder, nor takes a capture of his in
+    os.environ['TW_FEEDBACK'] = tempfile.mkdtemp(prefix='tw-feedback-test-')
     real_tree()
     fixtures()
     queue_fixtures()
