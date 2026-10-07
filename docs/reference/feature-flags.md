@@ -19,6 +19,16 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
   `GreyboxTerrainView` / `SceneMood` unless a mission is launched from the menu (`MatchLaunch`). For a visual test
   of winter set both, and put both back: they dirty the scene.
 
+**Bench knobs** (set with `-twknob` or `TW_KNOBS`, or `knobs=` in a `PerfBench` line). Not in the generated table
+below, which lists statics and inspector fields only.
+
+| Knob | Read at | Default | What it does |
+|---|---|---|---|
+| `stress.spread` | `Presentation/Core/SimHost.cs` | off | The stress preset fills the posts of each of the player's trenches and sends the rest on, instead of standing the whole army in the rear trench. Changes `hash_start`. |
+| `stress.heroes` | `Presentation/Core/SimHost.cs` | off | Puts the hero back in the stress preset (the preset before 2026-10-06). Off, the preset sets `HeroSystem.TeamMask = 0` so the bench times a steady trench fight; see `docs/05-performance-budgets.md`. |
+
+Both are read only when `StressUnits > 0`, so no other preset sees them.
+
 <!-- gen:flags -->
 | Switch | Kind | Read at (under Assets/_Project) | Effect |
 |---|---|---|---|
