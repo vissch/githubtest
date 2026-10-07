@@ -1644,6 +1644,62 @@ def ideas_cases():
     old = ideas.site(where, out, [], None, now=day + datetime.timedelta(days=ideas.SHOWN_DAYS + 1))
     case('site: an answered idea leaves the page after a week, with its pictures; an open one stays',
          i['id'] not in [x['id'] for x in old['ideas']] and not (out / 'img' / 'idea' / i['id']).exists() and m['id'] in [x['id'] for x in old['ideas']], [x['id'] for x in old['ideas']])
+
+    # ---- where an accepted idea stands on its route: from what is committed on the board's origin, nothing else
+    where2, board = tmp / 'ideas2', tmp / 'board'
+
+    def git(*a):
+        return subprocess.run(['git', '-C', str(board), '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'core.autocrlf=false', *a], capture_output=True)
+
+    def pushed(files):
+        """Write files on the board and commit them; origin/main is that commit, as after a fetch."""
+        for name, body in files.items():
+            (board / name).parent.mkdir(parents=True, exist_ok=True)
+            (board / name).write_text(json.dumps(body), encoding='utf-8')
+        git('add', '-A'), git('commit', '-q', '-m', 'x'), git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+
+    def accepted(title, kind, rid):
+        x = ideas.add(where2, pictures=P, entries=[], now=day, shooter=shooter, **{**good, 'title': title, 'kind': kind})
+        x = ideas.answer(where2, x['id'], 'accepted', now=day)
+        x['routed'] = rid
+        ideas.save(where2, x)
+        return x
+
+    def result(rid, stage, verdict, n, when):
+        return {f'results/{rid}--{stage}--abc123--{n}.json': dict(item=rid, stage=stage, attempt=n, verdict=verdict, finished_at=when)}
+    board.mkdir()
+    subprocess.run(['git', 'init', '-q', str(board)], capture_output=True)
+    pushed({'readme.json': {}})
+    look = accepted('Tracer glow on wet mud', 'look', 'idea-tracer-glow')                 # concept > you pick > build > critic > land
+    tool = accepted('A weekly digest page', 'tool', 'unit:idea-weekly-digest')
+    odd = accepted('Rain fills the shell holes', 'level', 'idea-rain')
+    stages = [dict(id='concept', role='concept-artist'), dict(id='you-pick', role='master', after=['concept']), dict(id='build', role='destruction-vfx-simulator', after=['concept', 'you-pick']),
+              dict(id='critic', role='hard-critic', after=['build']), dict(id='land', role='master', after=['critic'])]
+    listed = ideas.read_all(where2)
+    s0 = ideas.stands(listed, board)
+    pushed({'items/idea-tracer-glow.json': dict(id='idea-tracer-glow', stages=stages), 'items/idea-rain.json': dict(id='idea-rain', stages=stages[:2]), 'relay/queue/idea-weekly-digest.json': dict(id='idea-weekly-digest')})
+    s1 = ideas.stands(listed, board)
+    (board / 'results').mkdir()
+    (board / 'results' / 'idea-tracer-glow--concept--abc123--1.json').write_text(json.dumps(dict(item='idea-tracer-glow', stage='concept', attempt=1, verdict='PASS', finished_at='2026-10-07 13:00')), encoding='utf-8')
+    s_tree = ideas.stands(listed, board)                   # written on this station and not committed: another session's work, or a leg's
+    pushed(result('idea-tracer-glow', 'concept', 'PASS', 1, '2026-10-07 13:00'))
+    s_pick = ideas.stands(listed, board)
+    pushed({**result('idea-tracer-glow', 'you-pick', 'PASS', 1, '2026-10-07 13:30'),
+            **result('idea-tracer-glow', 'build', 'PASS', 1, '2026-10-07 14:00'), **result('idea-tracer-glow', 'build', 'FAIL', 2, '2026-10-07 15:00'), **result('idea-tracer-glow-2', 'critic', 'PASS', 1, '2026-10-07 15:30')})
+    s2 = ideas.stands(listed, board)
+    pushed({'relay/done/idea-weekly-digest.json': {}})
+    s3 = ideas.stands(listed, board)
+    case('stands: an idea no session has put on the board yet says so; once its item is pushed, its first step is next and the rest wait; a tool idea is next while its unit is queued',
+         s0[look['id']] == dict(on=False, steps=[]) and s0[tool['id']] == dict(on=False, steps=[]) and s1[look['id']] == dict(on=True, steps=['next', '', '', '', '']) and s1[tool['id']] == dict(on=True, steps=['next', '']), (s0, s1))
+    case('stands: a result that is on this station and not on the board\'s origin moves nothing', s_tree == s1, s_tree)
+    case('stands: a step is done when its newest result passed, a step of his own waits on him once all before it is done, and a later FAIL takes a pass back; another item\'s result is not this one\'s',
+         s_pick[look['id']]['steps'] == ['done', 'you', '', '', ''] and s2[look['id']]['steps'] == ['done', 'done', 'next', '', ''] and s3[tool['id']] == dict(on=True, steps=['done', 'you']), (s_pick, s2, s3))
+    case('stands: an item whose stages are not the idea\'s route gets no words, not wrong ones; with no board there is nothing to say',
+         s2[odd['id']] == dict(on=True, steps=[]) and ideas.stands(listed, tmp / 'no-board') == {} and ideas.stands([m], board) == {}, s2[odd['id']])
+    out2 = tmp / 'site-stands'
+    d2 = ideas.site(where2, out2, [], None, now=day, board=board)
+    case('site: the page is given where each routed idea stands, and the idea\'s own file is not written for it',
+         {x['id']: x.get('stands') for x in d2['ideas']} == s3 and '"stands"' in (out2 / 'data' / 'ideas.js').read_text(encoding='utf-8') and 'stands' not in ideas.find(where2, look['id']), d2['ideas'][0].get('stands'))
     keep_tick, calls = ideas.tick, []
     ideas.tick = lambda *a, **k: calls.append(1) or dict(running=None, left=1, last=None, off='', took=[])
     keep_env = {k: os.environ.get(k) for k in ('TW_IDEAS',)}
@@ -1708,6 +1764,17 @@ def ideas_cases():
          and 'could not start: no claude' in got[14] and got[15] == 'The last run made no idea (stopped after 30 minutes).' and got[16] == '' and got[17].startswith('Not connected'), got and got[11:18])
     case('page: a reference says the site it was found on, and the card\'s small line says the kind, the size and the score in words',
          got and got[18:] == ['iwm.org.uk', '', 'unit · a few days · risk 1 · change 3 · major', 'look · about a day · risk 0 · change 1'], got and got[18:])
+    src = ('const I = require(process.argv[1]); const R = [{says: "Concept"}, {says: "You pick", own: true}, {says: "Numbers"}, {says: "Build"}];'
+           'const at = (steps, on) => I.stands({route: R, routed: "idea-x", stands: {on: on !== false, steps: steps}});'
+           'console.log(JSON.stringify([I.stands({route: R}), I.stands({route: R, routed: "idea-x"}), at([], false), at(["next", "", "", ""]), at(["done", "you", "next", ""]), at(["done", "done", "done", "done"]), at([])]))')
+    p = subprocess.run([node, '-e', src, str(HERE / 'static' / 'ideas.js')], capture_output=True)
+    got = json.loads(p.stdout.decode() or 'null')
+    case('page: an accepted idea\'s row says where it stands: not on the board yet, what is next, what waits on him (said first), or that every step is done; with nothing known it says only where it is',
+         got == ['queued for the pipeline', 'on the board as idea-x', 'not on the board yet: the master puts it there at its next turn', 'next: Concept', 'waits on you: You pick · next: Numbers', 'every step is done',
+                 'on the board as idea-x'], (got, p.stderr[-300:]))
+    page_js = (HERE / 'static' / 'ideas.js').read_text(encoding='utf-8')
+    case('page: each step of the route is drawn with what the board says of it, and every such word has its look: done, next, waits on him',
+         "'i-s-' + at[n]" in page_js and all(f'.i-route li.i-s-{w}' in css for w in ('done', 'next', 'you')) and 'pure.stands(i)' in page_js, '')
 
 
 if __name__ == '__main__':
