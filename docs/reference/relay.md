@@ -55,6 +55,16 @@ cannot move them.
 
 The runner claims and completes pipeline jobs. A leg never does, and never lands.
 
+**A unit's role.** A board stage and a queue file each name a `role`. `Tools/pipeline/roles.json` is the one table
+of roles: each maps to the skill that is its brief, or to nothing for a role that is known and has none. For a role
+with a brief the runner copies that skill into the leg's folder before a plan or an execute leg, and the card says
+to read it; both sources do this. A role may also have a file `Tools/relay/roles/<role>.md`, which is added to the
+leg's system prompt: `review-fix` has one, the standing rules of a unit that fixes review findings, so a goal need
+not repeat them. `pipeline.py` refuses a board stage whose role is not in the table and `$R add` refuses such a
+unit. A queue file that already holds an unknown role still runs, without a brief, and its card says so.
+`$R role <role> <id> [<id> ...]` changes the role of queued units in one board commit. It refuses a unit that is
+done, a queue file nobody committed and a role the table does not have.
+
 ## Commands
 
 ```bash
@@ -67,8 +77,9 @@ $R run --work <work checkout> --view              # also open a Windows Terminal
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
-$R add <id> --lane lane/show/<x> --goal "<words>" --done-when <program> <arg> ...
+$R add <id> --lane lane/show/<x> --goal "<words>" [--role <role>] --done-when <program> <arg> ...
 $R add --unit <file>                              # the same, the unit from a file in the queue file's shape
+$R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before

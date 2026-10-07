@@ -122,6 +122,22 @@ class PipelineTest(unittest.TestCase):
             self.states()
         self.assertIn("stale itself", str(e.exception))
 
+    def test_a_stage_with_a_role_nobody_knows_is_refused(self):
+        def with_role(role):
+            item = json.loads(json.dumps(ITEM))
+            item["stages"][1]["role"] = role
+            (self.board / "items" / "crate.json").write_text(json.dumps(item))
+        with_role("charcter-simulator")                      # a slip of the hand: its worker would get no brief
+        with self.assertRaises(SystemExit) as e:
+            self.states()
+        self.assertIn("charcter-simulator", str(e.exception))
+        self.assertIn("roles.json", str(e.exception))
+        for role in ("character-simulator", "character", "critic", "lowpoly", "sim", "master"):
+            with_role(role)                                  # the long names, and the short ones the board holds
+            self.assertEqual(self.states()["balance"], "READY")
+        self.assertEqual(sorted(k for k, v in P.roles().items() if v == "tw-character-sim"),
+                         ["character", "character-simulator"])
+
     def test_pass_without_band_evidence_is_refused(self):
         self.run_stage("balance", "laptop")
         os.environ["TW_STATION"] = "desktop"

@@ -124,10 +124,19 @@ def proc_start(pid):
 
 # ---------- the board ----------
 
+def roles():
+    """Every role a stage or a queued unit may name, with the skill that is its brief (None: a role that is known
+    and has no brief). One table for this tool and for the relay, which hands a leg that skill."""
+    return read_json(HERE.parent / "roles.json")
+
+
 def lint_item(item, name):
     """Refuse definitions that would make the state machine lie."""
-    seen = set()
+    seen, known = set(), roles()
     for s in item["stages"]:
+        if s.get("role") is not None and s["role"] not in known:     # its worker would run without a brief, unsaid
+            raise SystemExit("%s: stage %s has the role %s, which is not in Tools/pipeline/roles.json (have: %s)"
+                             % (name, s["id"], s["role"], ", ".join(sorted(known))))
         for a in s.get("after", []):
             if a not in seen:
                 raise SystemExit("%s: stage %s comes after %s, which is not an earlier stage" % (name, s["id"], a))

@@ -30,10 +30,15 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set) | say the new order |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too) | confirm with `$R status` |
-| `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
+| `/relay add` | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" [--role <role>] --done-when <program> <arg> ...` | say it is queued |
+| `/relay role` | `$R role <role> <id> [<id> ...]` (a role from `Tools/pipeline/roles.json`; between legs) | say which units now get which brief |
 | watch a leg | `$R view "<leg folder>" --follow` (status prints the folder) | |
 
 ## Rules
+- A unit's role decides the brief its legs get (the table in the `pipeline` skill; `Tools/pipeline/roles.json`).
+  Queue a unit that fixes review findings with `--role review-fix`, or `"role"` in its unit file: the standing rules
+  ride in the role file, so the goal names only the findings and what is special to the unit. A role the table does
+  not have is refused. `lane`, the default, has no brief.
 - Ask for the hours if the owner gave none. `--hours` is clamped to 0.25-12 (default 3). `--max-legs` caps the legs;
   two legs is one unit (plan, execute), so leave it off for a long run.
 - `--view` opens a Windows Terminal tab per leg with its output. It needs a desktop: from a Claude session (no
