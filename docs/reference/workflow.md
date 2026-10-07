@@ -284,8 +284,10 @@ a whole run does not yet, measured 2026-10-01 at up to 35 % of a close band betw
 **A balance number, swept (2026-10-04).** The bench says how units behave; `python Tools/sweep.py run <spec.json>` says
 what a number does to the fight. A spec names variants, and a variant is data, so nothing is recompiled or committed:
 a unit's field (`{"unit": "Machinegunner", "field": "Weapon.Damage", "mul": [0.8, 0.9]}`; a list is a grid, one
-variant a value), the match's config (`{"config": "FactionA", "set": "Brass"}`) or a script's knob
-(`{"script_b": "Odds", "set": 2.5}`). `BalanceSweepTests.Report_TheSweep` (Explicit) writes each into the match before
+variant a value), the match's config (`{"config": "FactionA", "set": "Brass"}`), a script's knob
+(`{"script_b": "Odds", "set": 2.5}`; `BuysInTurn` is the script's buying rule, old against new) or the match's footing
+(`{"harness": "Sea", "set": false}`: nobody lands by boat, so seat 1's men walk up as seat 0's do).
+`BalanceSweepTests.Report_TheSweep` (Explicit) writes each into the match before
 its first tick and plays the baseline ("now") and every variant over the same seeds:
 - **match** (`MatchLoopTests.Play`, the script on both seats): every seed twice, the sides changing seats, so a seat's
   edge is told apart from a side's. Side "a" is whoever the config's FactionA and `script_a` belong to. Heroes are off
@@ -295,7 +297,11 @@ its first tick and plays the baseline ("now") and every variant over the same se
 It reports `attrition_ratio` (match: men lost in the open over men lost in a trench; ladder: attackers lost over
 defenders lost), `time_to_breach_s` (from four of a side's men standing in the open between the front lines to the
 trench they take; only seeds where one fell), `trench_retention` (the share of the match a side kept each trench it
-started with), who won from which seat, losses, captures and the other side's men killed per 100 silver. Per metric:
+started with), who won from which seat, losses, captures and the other side's men killed per 100 silver; where the
+dead stood (`lost_trench`, `lost_open`, `dead_rear` ... `dead_far`, by the lines as the match began), the army
+(`men_10`, `rifle_share_20`, `bought_classes`, `machines`), the script's own over-the-top `orders`, a man's time from
+purchase to the front trench (`march_s`) and the front garrison at the script's attack checks (`front_men`,
+`odds2_share`). Each match's line in `<variant>.txt` is followed by a `detail` line of JSON by seat. Per metric:
 the baseline's mean and p10-p90 over the seeds, each variant's mean, and whether every seed moved the same way. The
 matches are chaotic, so most numbers come out "mixed": believe "all up" and "all down". A spec's `targets`
 (`{"win_a": [0.4, 0.6]}`) are bands a mean should sit in: each variant is IN or OUT, and the exit is 0 the baseline
