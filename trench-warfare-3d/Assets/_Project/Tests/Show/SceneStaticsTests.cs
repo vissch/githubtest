@@ -25,6 +25,23 @@ namespace TW.Tests
             Assert.AreSame(wheel, HudBridge.WheelClaimed, "a scene load must not clear the wheel claim");
         }
 
+        // What Reset() DOES put back had no test at all: only the three statics nobody else owns are its
+        // job, and a Reset that quietly stopped doing one of them (a debug bombardment left armed, the lightning's
+        // time scale held, a modal keeping the keyboard) would have read as green here.
+        [Test]
+        public void A_Scene_Load_Puts_Back_The_Statics_Nobody_Owns()
+        {
+            SimHost.BombardmentOverride = 5f;
+            Time.timeScale = 0.25f;
+            InputFocus.Modal = true;
+            InputFocus.Listening = true;
+            SceneStatics.Reset();
+            Assert.AreEqual(-1f, SimHost.BombardmentOverride, "a scene load disarms the debug bombardment");
+            Assert.AreEqual(1f, Time.timeScale, "a scene load gives the time scale back, whatever held it");
+            Assert.IsFalse(InputFocus.Modal, "a scene load closes the shell's modal");
+            Assert.IsFalse(InputFocus.Listening, "a scene load stops the key-binding listen");
+        }
+
         [Test]
         public void The_End_Of_A_Session_Clears_Them()
         {
