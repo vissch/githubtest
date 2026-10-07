@@ -36,16 +36,23 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 |---|---|---|
 | balance-simulator | `tw-balance-sim` | laptop (data, ideas), desktop (sweeps) |
 | env-simulator | `tw-env-sim` | desktop |
-| character-simulator | `tw-character-sim` | desktop |
+| character-simulator, character | `tw-character-sim` | desktop |
 | vehicle-simulator | `tw-vehicle-sim` | desktop |
 | destruction-vfx-simulator | `tw-destruction-vfx`, and `tw-vfx-sheets` for new sheets | desktop |
 | optimizer | `tw-optimizer` | desktop (counters), laptop (low-end bench) |
 | bug-catcher | `tw-bug-catcher` | desktop |
-| hard-critic, `/improve-loop` | `tw-critic` | either |
+| hard-critic, critic, `/improve-loop` | `tw-critic` | either |
 | master | `tw-master` | review either; gate and land on the desktop |
 | gym (proving ground for every role) | `tw-gym` | desktop (runs); either (reading) |
 | lowpoly | `tw-lowpoly` | desktop (Blender) |
 | housekeeping | `tw-housekeeping`: after every long job | both |
+| review-fix | none: its rules are `Tools/relay/roles/review-fix.md`, which the relay adds to the leg's prompt | desktop |
+| sim, lowpoly, lane, pipeline | none: follow the stage notes or the unit's goal | as the stage says |
+
+The scripts read the same table from `Tools/pipeline/roles.json`: a stage or a queued unit with a role that is not
+in it is refused. A new role goes into both, in one commit; a test holds them to each other. Use the long names for
+new stages. Do not rename a role on an item that has results: the role is part of the job id, so the stage would
+run again.
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 

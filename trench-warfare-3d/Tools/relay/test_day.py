@@ -201,6 +201,59 @@ class Prio(Base):
         self.assertEqual(git(["log", "--format=%s"], self.board).strip(), "start")
 
 
+class Role(Base):
+    """`relay.py role <role> <id> ...`: give queued units the role whose brief their legs get."""
+    def read(self, uid):
+        return json.loads((self.board / "relay" / "queue" / (uid + ".json")).read_text(encoding="utf-8"))
+
+    def start_board(self):
+        git(["init", "-q"], self.board)
+        git(["config", "user.email", "t@example.com"], self.board)
+        git(["config", "user.name", "t"], self.board)
+        git(["commit", "-q", "--allow-empty", "-m", "start"], self.board)
+
+    def test_role_writes_the_role_on_every_unit_named_and_keeps_the_rest(self):
+        before = {uid: json.loads(self.queue(uid, 20).read_text(encoding="utf-8")) for uid in ("a", "b", "c")}
+        code, out = self.main("role", "review-fix", "a", "c")
+        self.assertEqual(code, 0)
+        self.assertIn("a, c now have the role review-fix", out)
+        self.assertEqual({uid: self.read(uid) for uid in before},
+                         {"a": dict(before["a"], role="review-fix"), "b": before["b"],
+                          "c": dict(before["c"], role="review-fix")})
+        self.assertEqual(self.order(), ["a", "b", "c"])                          # the queue's order is not touched
+
+    def test_role_refuses_a_role_nobody_knows_an_unknown_unit_and_a_done_one_and_then_changes_nothing(self):
+        p = self.queue("a")
+        text = p.read_text(encoding="utf-8")
+        self.queue("b")
+        self.done("b")
+        for argv, said in ((("painter", "a"), "no role named painter"),
+                           (("review-fix", "a", "nope"), "nothing is queued as nope"),
+                           (("review-fix", "a", "b"), "b is done already")):
+            with self.assertRaises(SystemExit) as e:
+                self.main("role", *argv)
+            self.assertIn(said, str(e.exception))
+            self.assertEqual(p.read_text(encoding="utf-8"), text)                # all of them, or none
+
+    def test_role_commits_the_change_on_the_board_once_and_refuses_a_file_nobody_committed(self):
+        self.start_board()
+        self.queue("a")
+        self.queue("b")
+        git(["add", "-A"], self.board)
+        git(["commit", "-q", "-m", "queue a b"], self.board)
+        code, out = self.main("role", "vehicle-simulator", "a", "b")
+        self.assertEqual(code, 0)
+        self.assertEqual(git(["status", "--porcelain"], self.board), "")          # committed: the runner trusts it
+        self.assertEqual(git(["log", "--format=%s"], self.board).splitlines()[:2],
+                         ["relay: role vehicle-simulator a, b", "queue a b"])
+        p = self.queue("c")                                     # written, never committed: a leg could have done it
+        text = p.read_text(encoding="utf-8")
+        with self.assertRaises(SystemExit) as e:
+            self.main("role", "review-fix", "a", "c")
+        self.assertIn("not committed on the board", str(e.exception))
+        self.assertEqual((p.read_text(encoding="utf-8"), self.read("a")["role"]), (text, "vehicle-simulator"))
+
+
 class Day(Base):
     """`relay.py day`: one screen the master starts every turn from."""
     def test_an_empty_board_still_prints_a_full_screen(self):
@@ -484,6 +537,30 @@ class AddUnit(Base):
         self.assertIn("house-cover is queued already, the same unit.", out)
         self.assertEqual(self.queued().read_bytes(), before)
         self.assertEqual(len(list((self.board / "relay" / "queue").glob("*.json"))), 1)
+
+    def test_a_unit_given_a_role_since_is_still_the_same_unit(self):
+        self.main("add", "--unit", self.file())
+        self.main("role", "balance-simulator", "house-cover")
+        before = self.queued().read_bytes()
+        code, out = self.main("add", "--unit", self.file())
+        self.assertEqual(code, 0)
+        self.assertIn("house-cover is queued already, the same unit.", out)
+        self.assertEqual(self.queued().read_bytes(), before)
+
+    def test_a_unit_may_name_its_role_and_a_role_nobody_knows_is_refused_before_a_file_is_written(self):
+        code, _ = self.main("add", "--unit", self.file(dict(self.UNIT, role="balance-simulator")))
+        self.assertEqual(code, 0)
+        self.assertEqual(json.loads(self.queued().read_text(encoding="utf-8"))["role"], "balance-simulator")
+        for argv in (["--unit", self.file(dict(self.UNIT, id="u3", role="balance-sim"))],
+                     ["u3", "--lane", "lane/show/x", "--goal", "g", "--role", "balance-sim", "--done-when", "git", "status"]):
+            with self.assertRaises(SystemExit) as e:
+                self.main("add", *argv)
+            self.assertIn("no role named balance-sim", str(e.exception))
+            self.assertIn("balance-simulator", str(e.exception))                 # the error lists the names there are
+        self.assertFalse(self.queued("u3").exists())
+        code, _ = self.main("add", "u3", "--lane", "lane/show/x", "--goal", "g", "--role", "review-fix",
+                            "--done-when", "git", "status")
+        self.assertEqual((code, json.loads(self.queued("u3").read_text(encoding="utf-8"))["role"]), (0, "review-fix"))
 
     def test_another_unit_under_an_id_that_is_taken_is_refused(self):
         self.main("add", "--unit", self.file())

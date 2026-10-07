@@ -16,6 +16,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py usage            where the plan's week stands, from the newest reading on this machine
   python Tools/relay/relay.py usage put [--statusline]   keep a reading given on stdin as JSON (usage.py)
   python Tools/relay/relay.py prio <id> <n>    move a queued unit: 0 to 99, the lower runs first (50 when none is set)
+  python Tools/relay/relay.py role <role> <id> [<id> ..]   give queued units a role from Tools/pipeline/roles.json:
+                                               their legs get that role's brief
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work
@@ -364,13 +366,15 @@ def add(a):
         if missing:
             raise SystemExit("relay: add needs %s (or --unit FILE)" % ", ".join(missing))
         unit = {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when}
+    known_role(unit["role"])
     p = board / "relay" / "queue" / (unit["id"] + ".json")
     if p.exists():
         try:
             there = P.read_json(p)
         except (OSError, ValueError):
             there = None
-        if a.unit and isinstance(there, dict) and {k: there.get(k) for k in lane_source.NEED} == unit:
+        same = [k for k in lane_source.NEED if k != "role"]     # its role, like its priority, may have moved since
+        if a.unit and isinstance(there, dict) and all(there.get(k) == unit[k] for k in same):
             said = boardio.push(board, "relay: queue %s" % unit["id"])
             if said == "nothing to push":            # committed the first time; that push may have failed
                 said = boardio.push_kept(board)
@@ -412,6 +416,37 @@ def prio(uid, n):
     return 0
 
 
+def known_role(name):
+    """Refuse a role the table does not have: its legs would run without a brief and nothing would say so."""
+    have = P.roles()
+    if name not in have:
+        raise SystemExit("relay: no role named %s in Tools/pipeline/roles.json (have: %s)" % (name, ", ".join(sorted(have))))
+
+
+def role(name, uids):
+    """Give queued units a role, so their legs get that role's brief: one commit on the board for all of them.
+    All of them or none: one unit that cannot be changed stops the call before a file is written. Refused, as
+    prio is, for a unit that is done and for a file nobody committed."""
+    known_role(name)
+    board = P.board_dir()
+    units = []
+    for uid in uids:
+        p = board / "relay" / "queue" / (uid + ".json")
+        if not p.exists():
+            raise SystemExit("relay: nothing is queued as %s" % uid)
+        if not lane_source.trusted(board, p):
+            raise SystemExit("relay: %s is not committed on the board: nobody but a leg may have written it" % p.name)
+        if (board / "relay" / "done" / (uid + ".json")).exists():
+            raise SystemExit("relay: %s is done already" % uid)
+        units.append((p, lane_source.load(p)))
+    for p, unit in units:
+        P.write_json(p, dict(unit, role=name))
+    said = ", ".join(uids)
+    print("%s now %s the role %s. Board: %s." % (said, "has" if len(uids) == 1 else "have", name,
+                                                 boardio.push(board, "relay: role %s %s" % (name, said))))
+    return 0
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(prog="relay.py")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -434,6 +469,9 @@ def main(argv=None):
     p = sub.add_parser("prio")
     p.add_argument("id")
     p.add_argument("n", type=int)
+    p = sub.add_parser("role")
+    p.add_argument("role")
+    p.add_argument("ids", nargs="+")
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
     p = sub.add_parser("hold")
     p.add_argument("who")
@@ -476,6 +514,8 @@ def main(argv=None):
         return usage_cmd(bool(a.put), a.statusline)
     if a.cmd == "prio":
         return prio(a.id, a.n)
+    if a.cmd == "role":
+        return role(a.role, a.ids)
     if a.cmd == "add":
         return add(a)
     if a.cmd == "proof":
