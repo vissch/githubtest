@@ -160,7 +160,8 @@ button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .o-list-box > summary { padding: 6px 0; cursor: pointer; color: var(--t-soft); font-size: 13px; }
 .o-list { display: grid; grid-template-columns: repeat(auto-fit, minmax(360px, 1fr)); gap: 12px; margin-top: 6px; }
 .o-sec { min-width: 0; padding: 14px 16px; border-radius: 14px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); }
-.o-sec.o-work { grid-column: 1 / -1; }
+.o-sec.o-s-work { grid-column: 1 / -1; }
+.o-sec.o-s-days th { white-space: nowrap; }
 .o-sec table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .o-sec caption { padding-bottom: 6px; text-align: left; font: 600 15px/1.2 Inter, "Segoe UI", sans-serif; color: #fff; }
 .o-sec th, .o-sec td { padding: 5px 8px; border-top: 1px solid var(--g-grid); vertical-align: top; }
@@ -179,7 +180,7 @@ button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 @media (max-width: 700px) {
   .o-stage { aspect-ratio: 3 / 5.5; min-height: 0; max-height: none; }
   .graphs .k-office.g-page { padding-left: 14px; padding-right: 14px; }          /* the floor gets the width a phone has */
-  .o-lab b { font-size: 17px; } .o-lab span { max-width: 92px; font-size: 11px; } .o-stk small { display: none; }
+  .o-lab b { font-size: 17px; } .o-lab span { max-width: 86px; font-size: 11px; } .o-stk small { display: none; }
   .o-tag b { font-size: 20px; } .o-tag small { font-size: 12px; }
   .o-hint { flex: 1 1 100%; margin: 0; }
   .o-card { left: 8px; top: 8px; width: calc(100% - 16px); padding: 10px 10px 12px; } .o-days { gap: 3px; } .o-days i { font-size: 10px; } .o-days b { font-size: 11.5px; }
