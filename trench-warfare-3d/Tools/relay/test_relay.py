@@ -1905,6 +1905,21 @@ class PipelineSource(Repo):
         self.assertEqual(SP.verify(unit, ctx), [])
         self.assertTrue(all("older" in p for p in SP.verify(unit, dict(ctx, since=time.time() + 60))))
 
+    def test_the_job_card_asks_for_the_sidecars_the_critic_scores_by_and_they_reach_its_folder(self):
+        ctx = {"board": self.board, "work": self.work, "station": "desktop", "skip": set()}
+        unit = SP.next(ctx)
+        card = SP.body(unit)
+        for name in ("<band>.jpg", "<band>.json", "frames.txt"):
+            self.assertIn(name, card)
+        self.evidence(jpeg(640, 360))
+        shots = self.board / "evidence" / "thing" / "shots"
+        for name in ("near.json", "far.json", "frames.txt", "critic-r1.md"):
+            (shots / name).write_text("{}", encoding="utf-8")
+        bundle = self.tmp / "bundle-check"
+        SP.critic(unit, ctx, 2)["fill"](bundle)
+        self.assertEqual(sorted(f.name for f in bundle.iterdir()),
+                         ["far.jpg", "far.json", "frames.txt", "near.jpg", "near.json", "stage.json"])
+
     def test_the_job_card_names_the_skill_for_the_role_and_every_such_skill_exists(self):
         ctx = {"board": self.board, "work": self.work, "station": "desktop", "skip": set()}
         self.assertIn("Read `brief/tw-env-sim/SKILL.md` in your leg folder", SP.body(SP.next(ctx)))
