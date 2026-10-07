@@ -254,6 +254,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   - **Houses give cover: by how much?** He said "reduced damage taken when behind a building"; the amount is his. Default: half, like a tank wreck. A sim change.
   - **The animation critique: start it again?** It stopped at step 3 of 5. Default: fix the battle camera, film again, finish the scoring.
   - **The optimiser's four open asks** (a compilation). Default: all four defaults.
+- **The new graphs, second try: which direction? (2026-10-07):** he picked none of the first four and asked for bolder ones made
+  with other tools. Four concept pieces from this week's real numbers, nothing built on the board: (A) the office, counted: a 3D
+  office floor he can turn, crates per branch, his frogs at their desks (three.js); (B) the sand table: the week as ridges on a
+  glass war-room table (Blender); (C) the week's dispatch: a 15 second film of the front moving over the days (Remotion); (D) the
+  staff map: a hand-inked night-blue wall map of every branch (Python). Default named: A, because it is a web page already and can
+  run live. Each needs numbers the board does not keep yet (a week hour by hour, a branch's work per day, the relay's cost).
+  Brief on the Decide page: "The new graphs, second try: which direction?".
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
