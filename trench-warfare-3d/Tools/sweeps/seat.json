@@ -1,0 +1,19 @@
+{
+  "about": "The seat's own edge: Iron against Iron, the script on both seats, seats NOT swapped (a mirror from both seats is the same match twice), so a is seat 0, which walks up, and b is seat 1, which lands by boat. now: the old buying rule, the boats, the scene's ground (1917). walk: the sea lift off, both sides walk up. in-turn: the new buying rule. old-f@N / in-turn-f@N: another ground of the same kind, the boats on. walk-f@N: another ground, both walking. A seat should win as often as the other. Measured 2026-10-07 (decisions-evidence 2026-10-07 balance mixed-army): it does not, on most grounds.",
+  "scenario": "match",
+  "policy": "Script",
+  "minutes": 20,
+  "swap_seats": false,
+  "heroes": false,
+  "seeds": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
+  "base": [{"config": "FactionB", "set": "Iron"}, {"script_a": "BuysInTurn", "set": false}, {"script_b": "BuysInTurn", "set": false}],
+  "variants": [
+    {"name": "walk", "patches": [{"harness": "Sea", "set": false}]},
+    {"name": "in-turn", "patches": [{"script_a": "BuysInTurn", "set": true}, {"script_b": "BuysInTurn", "set": true}]},
+    {"name": "in-turn-walk", "patches": [{"script_a": "BuysInTurn", "set": true}, {"script_b": "BuysInTurn", "set": true}, {"harness": "Sea", "set": false}]},
+    {"name": "old-f", "patches": [{"harness": "FieldSeed", "set": [2, 3, 4, 5]}]},
+    {"name": "in-turn-f", "patches": [{"script_a": "BuysInTurn", "set": true}, {"script_b": "BuysInTurn", "set": true}, {"harness": "FieldSeed", "set": [2, 3, 4, 5]}]},
+    {"name": "walk-f", "patches": [{"harness": "Sea", "set": false}, {"harness": "FieldSeed", "set": [2, 3, 4, 5]}]}
+  ],
+  "targets": {}
+}
