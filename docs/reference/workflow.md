@@ -651,3 +651,13 @@ python Tools/handoffs.py check                 # exit 1: a handoff nobody listed
 the folder's index page from it; nobody edits
 that page by hand. Register a handoff in the turn you write it, and name the one it replaces. When its work is
 finished or its method has moved into the docs, mark it `done` or `replace` it with `repo:` and the doc's path.
+
+## 11. Agents you start
+
+- **By name, not a general agent:** `tw-critic` for a critic round, `tw-reviewer` for a review unit or a second
+  reader of a fix, `tw-scout` for search and mapping. They are files in `.claude/agents/`, each with its model and
+  its skill fixed, so no brief is written fresh. Counted on 2026-10-08: 318 of 667 agent calls were critic rounds
+  and 68 code reviews, nearly all on a general agent.
+- **Any other agent:** name its model in the call. Search and listing: `sonnet`. Planning, judging, fixing: `opus`.
+  An agent with no model named runs on the session's, whatever that is (28 of 38 planning agents ran on the
+  dearest model that way).
