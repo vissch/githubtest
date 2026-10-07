@@ -267,6 +267,20 @@ def captures():
          and rows[0]['title'] == 'A capture with no words' and all(r['idle'] <= 1 for r in rows), [(r['id'], r['title'], r['idle']) for r in rows])
     menu = feedback.lines(dict(ex, in_match=False, scene='MainMenu'), dict(host='HERE'))
     case('capture: one taken on a menu says no match was running', menu[0] == 'On a menu (MainMenu): no match was running.' and len(menu) == 2, menu)
+    # his box for words is open: the capture waits for them (folders of its own, so the cases after this count what they did)
+    src, dst = TMP / 'inbox-open', TMP / 'store-open'
+    for name, age_min in (('open-now', 2), ('open-forgotten', 45)):
+        f = src / name
+        f.mkdir(parents=True)
+        (f / 'capture.json').write_text(json.dumps(dict(ex, id=name)), encoding='utf-8')
+        png(f / 'shot.png')
+        (f / feedback.OPEN).write_text('', encoding='utf-8')
+        for g in f.iterdir():
+            os.utime(g, (NOW - age_min * MIN, NOW - age_min * MIN))
+    took = feedback.take_in(src, dst, host='HERE', now=NOW, checkout=lambda p: {})
+    case('capture: while his box for words is open the capture waits for them; one whose game ended with the box open is taken in after half an hour, and the marker is not part of it',
+         took == ['open-forgotten-HERE'] and (src / 'open-now' / 'capture.json').exists() and not (src / 'open-forgotten').exists()
+         and sorted(p.name for p in (dst / 'open-forgotten-HERE').iterdir()) == ['board.json', 'capture.json', 'shot.png'], (took, sorted(p.name for p in src.iterdir())))
 
 
 def his_word(P, board):
