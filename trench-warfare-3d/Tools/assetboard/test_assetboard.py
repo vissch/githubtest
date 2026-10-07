@@ -1778,6 +1778,117 @@ def ideas_cases():
          "'i-s-' + at[n]" in page_js and all(f'.i-route li.i-s-{w}' in css for w in ('done', 'next', 'you')) and 'pure.stands(i)' in page_js, '')
 
 
+def critiques_cases():
+    """The critique loops (critiques.py): a paper in the critic's shape is read for its score and its fixes; a loop is
+    a folder with its papers and the pictures the critic judged; the relay's rounds are taken from the board's origin
+    and nowhere else; and the ideas agent's context lists the loops, so an idea can answer a finding and say which."""
+    import critiques
+    tmp = Path(tempfile.mkdtemp(prefix='tw-critiques-test-'))
+    where = tmp / 'critiques'
+    paper = ('VERDICT: shots ROUND 1: 62/100 - the far band is empty\nCAPTURES: valid\n'
+             'FINDINGS: | MAJOR | no smoke at far | MEASURED | far.json | smoke at 240 m |\nTOP-3 MANDATED FIXES:\n'
+             '1. Barrage smoke, far band; now: no column; want: a column readable at 240 m; proof: far.jpg again\n'
+             '2. Crater rim; now: rim luma equals mud; want: rim 0.05 lighter; proof: Diff of the pair\n'
+             '3. Shot wanted: T3 at tick 140\nOVERDONE: nothing\n4. not a fix, it stands under another heading\n')
+    got = critiques.read_paper(paper)
+    case('critiques: a paper in the critic\'s shape gives its score, its sentence and its three fixes; a numbered line under the next heading is no fix',
+         got['score'] == 62 and got['verdict'] == 'the far band is empty' and len(got['fixes']) == 3 and got['fixes'][0].startswith('Barrage smoke') and got['fixes'][2] == 'Shot wanted: T3 at tick 140', got)
+    free = critiques.read_paper('It looks fine to me.\n\nVERDICT: thing: 90/100 - fine\n')
+    high = critiques.read_paper('VERDICT: thing ROUND 1: 250/100 - too good\n')
+    case('critiques: a paper in another shape is kept with no score and no fixes: a VERDICT that is not the first line, or a number over 100, is not a score',
+         free == dict(score=None, verdict='', fixes=[]) and high['score'] is None, (free, high))
+
+    pic = tmp / 'far.jpg'
+    pic.write_bytes(b'\xff\xd8' + b'0' * 64)
+
+    def refused(*a, **k):
+        try:
+            critiques.save(where, *a, **k)
+        except ValueError as e:
+            return str(e)
+        return ''
+    case('critiques: a loop is kept with a title, what was judged and a paper, or not at all',
+         'title' in refused([(paper, 'round 1')], '', 'the barrage') and 'title' in refused([(paper, 'round 1')], 'Barrage', '') and 'at least one paper' in refused([], 'Barrage', 'the barrage')
+         and not list(where.glob('*')), list(where.glob('*')) if where.is_dir() else '')
+    c = critiques.save(where, [(paper, 'round 1')], 'Barrage at night: the evidence stage', 'the stills of a night barrage', by='a trial', role='destruction-vfx-simulator',
+                       pictures=[(pic, 'The far band')], note='the far band was shot too late', day='2026-10-06')
+    home = where / c['id']
+    case('critiques: a loop is a folder of its own named by its day and title, with the paper as it was written and the picture the critic judged',
+         c['id'] == '2026-10-06-' + briefs.slug('Barrage at night: the evidence stage') and (home / 'critique.json').is_file() and (home / 'paper-1.md').read_text(encoding='utf-8') == paper
+         and (home / 'far.jpg').read_bytes() == pic.read_bytes() and c['papers'][0]['score'] == 62 and c['pictures'] == [dict(file='far.jpg', caption='The far band')], c)
+    round2 = paper.replace('62/100', '88/100').replace('ROUND 1', 'ROUND 2')
+    c = critiques.save(where, [(paper, 'round 1'), (round2, 'round 2')], 'Barrage at night: the evidence stage', 'the stills of a night barrage', day='2026-10-06', pictures=[(pic, 'The far band')])
+    case('critiques: kept again under the same day and title, a loop gains only the paper and the picture it does not hold yet',
+         [(p['label'], p['score']) for p in c['papers']] == [('round 1', 62), ('round 2', 88)] and len(list(home.glob('paper-*.md'))) == 2 and len(c['pictures']) == 1, c['papers'])
+
+    # ---- the relay's rounds, from the board's origin
+    def g(repo, *a):
+        return subprocess.run(['git', '-C', str(repo), '-c', 'user.name=t', '-c', 'user.email=t@t', '-c', 'core.autocrlf=false', *a], capture_output=True, text=True)
+    far, board = tmp / 'board-origin', tmp / 'board'
+    (far / 'evidence' / 'thing' / 'shots' / 'older').mkdir(parents=True)
+    (far / 'items').mkdir()
+    subprocess.run(['git', 'init', '-q', '-b', 'main', str(far)], capture_output=True)
+    (far / 'items' / 'thing.json').write_text(json.dumps(dict(id='thing', title='A thing', lane='lane/show/pipe-thing', stages=[dict(id='shots', role='env-simulator', bands=['near'])])), encoding='utf-8')
+    (far / 'evidence' / 'thing' / 'shots' / 'critic-r1.md').write_text(paper, encoding='utf-8', newline='\n')
+    (far / 'evidence' / 'thing' / 'shots' / 'near.jpg').write_bytes(b'\xff\xd8near')
+    (far / 'evidence' / 'thing' / 'shots' / 'notes.md').write_text('not a critic round', encoding='utf-8')
+    (far / 'evidence' / 'thing' / 'shots' / 'older' / 'deep.jpg').write_bytes(b'\xff\xd8deep')
+    g(far, 'add', '-A'), g(far, 'commit', '-q', '-m', 'round 1')
+    subprocess.run(['git', 'clone', '-q', str(far), str(board)], capture_output=True)
+    (board / 'evidence' / 'thing' / 'shots' / 'critic-r7.md').write_text(round2, encoding='utf-8')        # in the checkout only: nobody committed it
+    took = critiques.collect(where, board)
+    b = critiques.find(where, 'board-thing-shots') if took else {}
+    case('collect: a critic round on the board\'s origin becomes a loop named by its item and stage, with the item\'s title, the stage\'s role and its evidence pictures; a file in this station\'s checkout is not read',
+         took == ['board-thing-shots'] and b['title'] == 'A thing: the stage shots' and b['role'] == 'env-simulator' and [p['label'] for p in b['papers']] == ['round 1']
+         and [p['file'] for p in b['pictures']] == ['near.jpg'] and (where / 'board-thing-shots' / 'near.jpg').read_bytes() == b'\xff\xd8near', (took, b))
+    case('collect: asked again with nothing new on the board, it takes nothing', critiques.collect(where, board) == [], '')
+    (far / 'evidence' / 'thing' / 'shots' / 'critic-r2.md').write_text(round2, encoding='utf-8', newline='\n')
+    g(far, 'add', '-A'), g(far, 'commit', '-q', '-m', 'round 2')
+    before = critiques.collect(where, board)
+    g(board, 'fetch', '-q', 'origin')
+    took = critiques.collect(where, board)
+    b = critiques.find(where, 'board-thing-shots')
+    case('collect: a second round is added once it is fetched, and not before', before == [] and took == ['board-thing-shots'] and [(p['label'], p['score']) for p in b['papers']] == [('round 1', 62), ('round 2', 88)], (before, took, b['papers']))
+    case('collect: with no board on this station it takes nothing and says nothing went wrong', critiques.collect(where, tmp / 'no-board') == [] and critiques.collect(where, None) == [], '')
+
+    # ---- what the ideas agent is shown
+    long_fix = paper.replace('proof: far.jpg again', 'proof: ' + 'word ' * 90).replace(
+        'the far band is empty', 'standing 9\u21920, fidelity T3\u2265T2 \u2014 and a sign \u2603 of no known kind')
+    critiques.save(where, [(long_fix, 'run 1')], 'A newer loop with a long fix', 'something else', day='2099-01-01')
+    kept = critiques.read_all(where)
+    rows = critiques.for_context(kept, where, most=2)
+    text = '\n'.join(ideas.context_lines(dict(goals='G', routes={}, ledger=[], missing=[], taste=[], critiques=rows, critiques_kept=len(kept))))
+    case('context: the ideas agent is shown the newest loops first, each with every paper\'s score, the fixes of its newest paper cut to a line, its pictures and the folder they are in; the rest are counted',
+         [r['id'] for r in rows] == [kept[0]['id'], kept[1]['id']] and kept[0]['when'] == '2099-01-01' and '3 loops kept, the newest 2 here' in text and 'scores of 100: 62, 88' in text
+         and max(len(f) for f in rows[0]['fixes']) == critiques.FIX_CHARS and str(where / kept[1]['id']) in text and '- Barrage smoke, far band' in text, text[:900])
+    case('context: a critic\'s arrows and dashes reach the agent as ASCII, so the list prints through any pipe; the paper keeps them',
+         rows[0]['verdict'] == 'standing 9->0, fidelity T3>=T2 - and a sign ? of no known kind' and text[text.index('# What the critics found'):].isascii()
+         and '\u2192' in (where / kept[0]['id'] / 'paper-1.md').read_text(encoding='utf-8'), rows[0]['verdict'])
+    plain = '\n'.join(ideas.context_lines(dict(goals='G', routes={}, ledger=[], missing=[], taste=[])))
+    case('context: with no loop kept the agent is told nothing about critics', 'critics' not in plain, plain)
+    iwhere, svg = tmp / 'ideas', tmp / 'sketch.svg'
+    svg.write_bytes(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
+    i = ideas.add(iwhere, 'Smoke that reads at the far band', 'A barrage column keeps one tall dark card at distance so it reads from 240 m.', 'The critic found the far band empty.', 'look',
+                  [dict(path=str(pic), caption='The far band today', kind='capture')], size='S', score='R1 C1', entries=[], critique='board-thing-shots')
+    j = ideas.add(iwhere, 'A second idea of its own', 'Something that no critic asked for and that stands by itself.', 'It serves the look of the front.', 'look',
+                  [dict(path=str(pic), caption='The far band today', kind='capture')], size='S', score='R1 C1', entries=[])
+    case('ideas: an idea made from a finding names its critique loop, and an idea of its own names none', i.get('critique') == 'board-thing-shots' and 'critique' not in j, (i.get('critique'), j.get('critique')))
+    keep = os.environ.get('TW_CRITIQUES')
+    os.environ['TW_CRITIQUES'] = str(where)
+    try:
+        import contextlib
+        import io
+        said_ = io.StringIO()
+        with contextlib.redirect_stdout(said_):
+            listed = critiques.main([])
+            unknown = critiques.main(['show', 'no-such-loop'])
+            shown = critiques.main(['show', 'board-thing-shots'])
+    finally:
+        os.environ.pop('TW_CRITIQUES', None) if keep is None else os.environ.__setitem__('TW_CRITIQUES', keep)
+    case('critiques: the command lists the kept loops with their scores, shows one with its fixes, and says so when asked for one that is not kept',
+         (listed, unknown, shown) == (0, 1, 0) and '3 loops kept' in said_.getvalue() and 'no critique no-such-loop' in said_.getvalue() and 'round 2): 88/100' in said_.getvalue(), said_.getvalue()[:600])
+
+
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
     real_tree()
@@ -1788,5 +1899,6 @@ if __name__ == '__main__':
     control()
     decisions()
     ideas_cases()
+    critiques_cases()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)
