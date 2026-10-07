@@ -1,5 +1,6 @@
-{# The office, counted: the week's numbers as things on a floor that can be turned. graphs.html shows it full size
-   under its tiles, the control screen (index.html) smaller under what waits on the owner (it sets `compact`).
+{# The office, counted: the week's numbers as things on a floor that can be turned. graphs.html shows it full size,
+   with four tiles under it (the control screen has tiles of its own at its head); the control screen (index.html)
+   shows it smaller under what waits on the owner (it sets `compact`).
    countedscene.js draws into the canvas with three.js; counted.js writes the labels, the legend, the card of a
    picked branch and the list, which says every number in plain words: it is what a screen reader gets, and all there
    is when the browser gives no WebGL. #}
@@ -24,6 +25,14 @@
         <button type="button" data-do="again" aria-label="Play it again from the start" title="Play it again">&#8635;</button>
       </div>
     </div>
+{% if not compact %}
+    <div class="g-tiles">
+      <a class="g-tile" href="house.html" title="Who is at work, in the house"><span class="g-l">At work now</span><span class="g-n" id="t-at">–</span><span class="g-d" id="t-at-d"></span><svg id="t-at-s" aria-hidden="true"></svg></a>
+      <a class="g-tile" href="index.html#queue" title="What waits on you, on the overview"><span class="g-l">Needs you</span><span class="g-n" id="t-needs">–</span><span class="g-d" id="t-needs-d"></span><svg id="t-needs-s" aria-hidden="true"></svg></a>
+      <a class="g-tile" href="#o-stage" title="The week's work, above"><span class="g-l">Tool calls today</span><span class="g-n" id="t-calls">–</span><span class="g-d" id="t-calls-d"></span><svg id="t-calls-s" aria-hidden="true"></svg></a>
+      <button class="g-tile" type="button" id="t-notes-b" title="Every note you left, and the answers"><span class="g-l">Your notes</span><span class="g-n" id="t-notes">–</span><span class="g-d" id="t-notes-d"></span></button>
+    </div>
+{% endif %}
     <details class="o-list-box" id="o-list-box"{% if not compact %} open{% endif %}>
       <summary>The same numbers as a list</summary>
       <div class="o-list" id="o-list"></div>
