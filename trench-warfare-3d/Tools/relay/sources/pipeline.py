@@ -72,6 +72,10 @@ def body(unit):
         "- Do NOT claim, complete or release the job: the runner does that after it has checked your result.",
         "- Evidence: one fresh JPG per band (%s), at most %d KB each, named <band>.jpg, in the board folder %s/."
         % (", ".join(unit["bands"]) or "none asked", kb, evidence_dir(unit)),
+        "- Beside each still the game rendered, its capture sidecar as <band>.json, and one frames.txt in that folder: "
+        "a line of facts per image (view and band, moment, clock held or running, what is in frame). A still the game "
+        "did not render (a concept sheet, a mock-up) has no sidecar: its frames.txt line says so. The critic sees only "
+        "that folder and scores a capture without its sidecar at 7 in 10 at most.",
         "- Commit your outputs on the lane with the edit gate green, and push the lane."])
 
 
