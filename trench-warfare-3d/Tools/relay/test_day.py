@@ -594,7 +594,8 @@ class AddUnit(Base):
             self.main("add", "u2", "--lane", "lane/show/x", "--done-when", "git", "status")
         self.assertIn("--goal", str(e.exception))
         self.assertEqual(list((self.board / "relay" / "queue").glob("*.json")), [])
-        code, out = self.main("add", "u2", "--lane", "lane/show/x", "--goal", "Add a.txt", "--done-when", "git", "status")
+        code, out = self.main("add", "u2", "--lane", "lane/show/x", "--role", "lane", "--goal", "Add a.txt", "--done-when", "git",
+                              "status")
         self.assertEqual(code, 0)
         self.assertEqual(json.loads(self.queued("u2").read_text(encoding="utf-8")),
                          {"id": "u2", "lane": "lane/show/x", "role": "lane", "goal": "Add a.txt", "done_when": ["git", "status"]})
