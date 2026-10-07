@@ -392,9 +392,10 @@ baseline. Over ten minutes or so, start it under `Tools/pipeline/run_detached.py
   itself, and `report` prints the path. Open `<run>/film/index.html` from the run folder; nothing is served.
 - The standing specs are in `Tools/sweeps/`: `factions.json` (Iron against Brass and each against itself),
   `assault.json` (the assault ladder, the rifle turned), `difficulty.json` (Easy, Normal, Hard against a player who
-  only defends). `python Tools/test_sweep.py` and `python Tools/test_sweepfilm.py` test the tools with no editor.
-  only defends). `python Tools/test_sweep.py` tests the tool with no editor; `python Tools/test_abtest.py` tests
-  abtest.py's report and nightly.py's compare_bench the same way.
+  only defends), `buying.json` (what the script buys, the old rule against `BuysInTurn`, on five grounds),
+  `seat.json` (the seat's own edge: a mirror with the seats not swapped, the boats on and off, on five grounds).
+  `python Tools/test_sweep.py` and `python Tools/test_sweepfilm.py` test the tools with no editor; `python
+  Tools/test_abtest.py` tests abtest.py's report and nightly.py's compare_bench the same way.
 - A constant is not data. `python Tools/sweep.py compile <spec.json> <out.json>`, then `TW_SWEEP=<out.json> python
   Tools/abtest.py bench --filter TW.Tests.BalanceSweepTests.Report_TheSweep --file <the .cs> --variant try=<copy>`
   plays the spec's baseline on each copy of the code.
