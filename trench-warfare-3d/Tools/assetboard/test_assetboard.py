@@ -23,6 +23,7 @@ sys.path.insert(0, str(HERE))
 import briefs     # noqa: E402
 import build      # noqa: E402
 import films      # noqa: E402
+import ideas      # noqa: E402
 import ops        # noqa: E402
 import looks      # noqa: E402
 import render     # noqa: E402
@@ -1047,7 +1048,7 @@ def control():
         html = env.get_template('index.html').render(sections=[], levels=[], total=0, root='')
         ids = re.findall(r'\bid="([^"]+)"', html)
         loads = re.findall(r'(?:src|href)="([^"#:?]+\.(?:js|css))"', html)
-        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'g-rooms', 'g-lanes', 'g-needs', 'g-commits', 'g-models', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'queue', 'office', 'assets'}
+        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'g-rooms', 'g-lanes', 'g-needs', 'g-commits', 'g-models', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'ideas', 'ideas-cards', 'queue', 'office', 'assets'}
         case('control: the overview is the control screen: the tiles, the house with the profile beside it and the five graphs are on it, and no id is there twice',
              need <= set(ids) and len(ids) == len(set(ids)), (sorted(need - set(ids)), sorted(i for i in set(ids) if ids.count(i) > 1)))
         order = [loads.index(u) for u in ('crew.js', 'office.js', 'house.js', 'housedraw.js', 'charts.js', 'control.js')] if {'crew.js', 'office.js', 'house.js', 'housedraw.js', 'charts.js', 'control.js'} <= set(loads) else []
@@ -1056,8 +1057,8 @@ def control():
              and not [u for u in loads if not u.startswith('data/') and not (HERE / 'static' / u).exists()], loads)
         case('control: the house and the graphs keep a page of their own, one click from the screen, and the top bar no longer lists them',
              'href="house.html"' in html and 'href="graphs.html"' in html and html.count('href="house.html"') == 1 and html.count('href="graphs.html"') == 1, html.count('href="house.html"'))
-        at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'queue', 'graphs', 'office', 'assets')}
-        case('control: down the page: the head and the tiles, the house, what waits on the owner, the graphs, the branch rooms, the models',
+        at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'ideas', 'queue', 'graphs', 'office', 'assets')}
+        case('control: down the page: the head and the tiles, the house, the ideas, what waits on the owner, the graphs, the branch rooms, the models',
              -1 not in at.values() and list(at.values()) == sorted(at.values()) and html.find('c-pulse') < at['deck'], at)
 
     node = shutil.which('node')
@@ -1093,7 +1094,7 @@ def control():
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'crew.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('control: a page with several live parts reads the floor once every 20 seconds for all of them, each file once, and then every part draws',
-         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ops.js']], (got, p.stderr[-300:]))
+         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/ops.js']], (got, p.stderr[-300:]))
 
 
 def decisions():
@@ -1413,6 +1414,302 @@ def decisions():
          [u for u in loads if u not in readings and not (out / u).exists()])
 
 
+def ideas_cases():
+    """The ideas (ideas.py) and their part of the control screen (ideas.js): an idea is a short card that shows
+    something; one that is already decided, passed over, queued or on a lane is refused; his three buttons change it;
+    and the watcher starts the agent when he asked or none is open, one run at a time, so many a day."""
+    tmp = Path(tempfile.mkdtemp(prefix='tw-ideas-test-'))
+    where, nwhere, bwhere = tmp / 'ideas', tmp / 'notes', tmp / 'briefs'
+    day = datetime.datetime(2026, 10, 7, 12, 0, 0)
+    pic, svg = tmp / 'front.png', tmp / 'sketch.svg'
+    pic.write_bytes(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
+    svg.write_text('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="36"><rect width="64" height="36" fill="#223"/></svg>', encoding='utf-8')
+    shots = []
+
+    def shooter(src, dst):
+        shots.append(src.name)
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_bytes(pic.read_bytes())
+        return dst
+    good = dict(title='Stretcher frogs carry the wounded', pitch='Two frogs with a stretcher fetch a badly hurt man from the front and walk him back to the rear.', why_now='The frog faction is the main faction and has no medic.',
+                kind='unit', size='M', score='R1 C3 MAJOR')
+    P = [dict(path=str(svg), caption='Two frogs, one stretcher', kind='sketch'), dict(path=str(pic), caption='The front today', kind='capture')]
+
+    def refused(**over):
+        try:
+            ideas.add(where, **{**good, 'pictures': P, 'entries': [], 'now': day, 'shooter': shooter, **over})
+        except ValueError as e:
+            return str(e)
+        return ''
+    case('ideas: an idea with nothing to look at is refused, and so is one that is not short, of no kind, or scored major without saying so',
+         'shows 0 pictures' in refused(pictures=[]) and '35 at most' in refused(pitch='word ' * 36) and 'its kind is one of' in refused(kind='game') and 'is MAJOR' in refused(score='R1 C3')
+         and 'score reads' in refused(score='low') and 'why now' in refused(why_now='') and not list(where.glob('*')), (refused(pictures=[]), refused(score='R1 C3')))
+    case('ideas: a reference found online says where it was found, or the idea is refused',
+         'where it was found' in refused(pictures=[dict(path=str(pic), caption='A stretcher party, 1917', kind='reference')])
+         and not refused(pictures=[dict(path=str(pic), caption='A stretcher party, 1917', kind='reference', source='https://example.org/a.jpg')], title='A reference idea of its own'), '')
+    i = ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, asked='the frog faction', run='r1', **good)
+    home = where / i['id']
+    case('ideas: an idea is a folder of its own with its pictures in it; a sketch drawn as a page is photographed; it carries the route of its kind and that route\'s stamp',
+         (home / 'idea.json').is_file() and [p['file'] for p in i['pictures']] == ['1-sketch.png', '2-front.png'] and all((home / p['file']).is_file() for p in i['pictures']) and shots == ['sketch.svg']
+         and [s['says'] for s in i['route']][:3] == ['Game design', 'Concept', 'You pick'] and i['route'][2]['own'] and i['stamp'] == ideas.stamp('unit') != ideas.stamp('look') and i['state'] == 'open' and i['asked'] == 'the frog faction',
+         (i['pictures'], shots, i['route'][:3]))
+    case('ideas: every kind has a route that ends with the owner\'s word to land, and a step of his own is a master stage',
+         all(r[-1][0] == 'master' and r[-1][2] and all((role == 'master') == own for role, _, own in r) for r in ideas.ROUTES.values()) and set(ideas.ROUTES) == set(ideas.KIND_SAYS), '')
+
+    # ---- what is not suggested
+    b1 = briefs.add(bwhere, 'The enemy waits for the odds before it attacks', 'When the enemy AI starts an attack.', ['Keep it as built: it attacks only once it has the odds', 'Make it attack sooner and smaller, so the front is busier early'],
+                    'It is built and played.', no_evidence='Nothing to show.', now=day)
+    briefs.answer(bwhere, b1['id'], 'A', outcome='nothing changes: asked how much sooner, you said to ignore this and forget it', now=day)
+    b2 = briefs.add(bwhere, 'Houses give cover: by how much?', 'How much a house cuts the damage.', ['Half', 'A quarter'], 'Half reads.', no_evidence='Nothing to show.', now=day)
+    L = ideas.ledger_briefs(briefs.read_all(bwhere))
+    by = {e['id']: e['state'] for e in L}
+    case('ledger: a brief he answered is an entry and so is each option: the one he took, the ones he passed over; an open brief waits on him; "forget it" is a withdrawal',
+         by[b1['id']] == 'withdrawn' and by[b1['id'] + '#A'] == 'he took it' and by[b1['id'] + '#B'] == 'not chosen' and by[b2['id']] == 'waits on him' and by[b2['id'] + '#A'] == 'waits on him', by)
+    md = ('## Look\n| Date | Decision |\n|---|---|\n| 2026-09-28 | **No constant bombardment on the field** (the owner: "too much chaos"). A match gets no ambient shelling. |\n'
+          '| 2026-10-07 | **R1 C2 DANGEROUS SYSTEMIC MAJOR.** **A side wins its own trenches back nearest first.** Not built. |\n| 2026-10-06 | **The enemy attacks sooner and smaller.** Withdrawn the same evening. |\n'
+          '## Open: waiting on the owner\n- **Shelters that protect** from shells: which.\n')
+    D = ideas.ledger_decisions(src_queue.parse(md))
+    case('ledger: a row of decisions.md is read by its headline, not its score; a no, a withdrawal and an open question are told from the words',
+         [(e['title'], e['state']) for e in D] == [('No constant bombardment on the field', 'left as it is'), ('A side wins its own trenches back nearest first.', 'decided'),
+                                                    ('The enemy attacks sooner and smaller.', 'withdrawn'), ('Shelters that protect', 'waits on him')], [(e['title'], e['state']) for e in D])
+    U = ideas.ledger_units([dict(id='kettle-turns', goal='A stopped Kettle turns on the spot.'), dict(id='record-match', goal='Record a match.'), dict(goal='no id')], done={'record-match'})
+    N = ideas.ledger_lanes([('origin/lane/show/night-look-3', 'night: lamps'), ('origin/lane/rig/gait-attitude', 'gait')])
+    case('ledger: a unit of the queue is queued or done, a lane that has not landed is in flight, each under the words of its name',
+         [(e['title'], e['state']) for e in U] == [('kettle turns', 'queued'), ('record match', 'done')] and [(e['title'], e['state']) for e in N] == [('night look 3', 'in flight'), ('gait attitude', 'in flight')], (U, N))
+    led = L + D + U + N
+    hit = lambda t, p='': [e['id'] for _, e in ideas.match(t, p, led)]      # noqa: E731
+    case('ledger: an idea he withdrew is found again, as it was worded and in other words; so is one that is queued; a fresh one is not, and one shared word is never enough',
+         hit('The enemy attacks sooner and smaller') and hit('Enemy AI should attack sooner in smaller waves', 'The enemy attacks sooner and with smaller groups.') and 'kettle-turns' in hit('Kettle turns to face its target')
+         and not hit('Carrier pigeons bring the match report', 'A pigeon lands with the casualty list.') and not hit('A trench periscope', 'Men look over the parapet of the trench.') and not hit('Enemy supply mules'),
+         (hit('The enemy attacks sooner and smaller'), hit('A trench periscope', 'Men look over the parapet of the trench.'), hit('Enemy supply mules')))
+    same = dict(good, title='The enemy attacks sooner and smaller', pitch='Make the enemy attack earlier with smaller groups so the front is busy early.', kind='mechanic')
+    try:
+        ideas.add(where, pictures=P, entries=led, now=day, shooter=shooter, **same)
+        why = ''
+    except ValueError as e:
+        why = str(e)
+    near = ideas.match(same['title'], same['pitch'], led)[0][1]['id']
+    again = ideas.add(where, pictures=P, entries=led, now=day, shooter=shooter, differs={e['id']: 'Only on Hard, as a setting' for _, e in ideas.match(same['title'], same['pitch'], led)}, **same)
+    case('ideas: an idea that is in the ledger is refused with the entry it is the same thing as; it is written only when it says of each such entry how it is another thing, and the card keeps what it was held against',
+         'the same thing as' in why and '--differs' in why and again['checked']['near'] and all(n['differs'] for n in again['checked']['near']) and again['checked']['entries'] == len(led), (why[:200], again['checked']))
+    ideas.answer(where, again['id'], 'rejected', 'No.', now=day)
+    led2 = led + ideas.ledger_ideas(ideas.read_all(where), now=day)
+    try:
+        ideas.add(where, pictures=P, entries=led2, now=day, shooter=shooter, differs={e['id']: 'Different' for _, e in ideas.match(same['title'], same['pitch'], led2)}, **same)
+        never = ''
+    except ValueError as e:
+        never = str(e)
+    case('ideas: what he said never to is not put to him again, whatever the idea says of itself', 'he said never' in never, never[:200])
+    parked = ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, **dict(good, title='Medals on veteran squads', pitch='A squad that survives three assaults wears a ribbon.'))
+    ideas.answer(where, parked['id'], 'parked', 'Later.', now=day)
+    soon, late = ideas.ledger_ideas(ideas.read_all(where), now=day + datetime.timedelta(days=3)), ideas.ledger_ideas(ideas.read_all(where), now=day + datetime.timedelta(days=ideas.PARKED_DAYS + 1))
+    case('ledger: an idea he parked is held back for two weeks and may then come back; one he said never to stays for good',
+         {e['id']: e['state'] for e in soon}.get(parked['id']) == 'not now' and parked['id'] not in [e['id'] for e in late] and {e['id']: e['state'] for e in late}.get(again['id']) == 'never', (soon, late))
+
+    # ---- his answer on the card
+    j = ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, **dict(good, title='A whistle before the assault', pitch='An officer blows a whistle and the trench goes over the top together.', kind='mechanic'))
+    k = ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, **dict(good, title='Photo mode with a period frame', pitch='Pause, fly the camera, save a sepia plate.', kind='interface'))
+    tock = [0]
+
+    def note(about, text, **kw):            # each a second after the last: his notes are read in the order he left them
+        tock[0] += 1
+        return notes.write(nwhere, text, kind='page', about=about, now=day - datetime.timedelta(minutes=5) + datetime.timedelta(seconds=tock[0]), **kw)
+    stale = note('idea:' + i['id'], 'Do it', then='0000dead')
+    took1 = ideas.take(where, nwhere, now=day)
+    case('take: "Do it" counts only with the stamp of the route the card showed; otherwise the idea stays open and his note says why',
+         took1 == [(i['id'], 'the route was not the one he saw')] and ideas.find(where, i['id'])['state'] == 'open' and [n for n in notes.read_all(nwhere) if n['id'] == stale['id']][0]['state'] == 'done', took1)
+    note('idea:' + i['id'], 'Do it', then=i['stamp'])
+    note('idea:' + j['id'], 'Not now: after the frog faction')
+    note('idea:' + k['id'], 'Never')
+    words_ = note('idea:' + i['id'] + 'x', 'make it bigger')
+    forged = notes.write(nwhere, 'Do it', kind='page', about='idea:' + j['id'], who='an agent', then=j['stamp'], now=day)
+    took2 = ideas.take(where, nwhere, now=day)
+    st = {x['id']: x for x in ideas.read_all(where)}
+    case('take: his three buttons make the idea accepted, parked with his reason, or closed for good, and each note is answered with what happened; a note that is not his changes nothing',
+         sorted(took2) == sorted([(i['id'], 'accepted'), (j['id'], 'parked'), (k['id'], 'rejected')]) and st[i['id']]['state'] == 'accepted' and st[j['id']]['answer']['said'] == 'after the frog faction' and st[k['id']]['state'] == 'rejected'
+         and [n for n in notes.read_all(nwhere) if n['id'] == forged['id']][0]['state'] == 'open' and 'Its route: Game design > Concept' in [n for n in notes.read_all(nwhere) if n['about'] == 'idea:' + i['id']][-1]['answers'][0]['text'], (took2, st[j['id']].get('answer')))
+    try:
+        ideas.answer(where, i['id'], 'rejected', now=day)
+        twice = ''
+    except ValueError as e:
+        twice = str(e)
+    case('ideas: an idea is answered once', 'accepted already' in twice and [n for n in notes.read_all(nwhere) if n['id'] == words_['id']][0]['state'] == 'done', twice)
+
+    # ---- what he asked for, and the run the watcher starts for it
+    m = ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, **dict(good, title='Rain fills the shell holes', pitch='Craters fill with water after ten minutes of rain.', kind='level'))
+    n_more, n_ask, n_fix = note('ideas:more', 'Three more ideas.'), note('ideas:request', 'something for the frog faction\'s artillery'), note('idea:' + m['id'], 'make the ponds deeper, men should swim')
+    w = ideas.wanted(where, notes.read_all(nwhere))
+    case('wanted: the button asks for three, the box for three on what he typed, and his own words about an idea for one better version of it',
+         [(x['note'], x['n']) for x in w] == [(n_more['id'], 3), (n_ask['id'], 3), (n_fix['id'], 1)] and w[0]['asked'] == 'button' and 'artillery' in w[1]['asked'] and m['id'] in w[2]['says'], w)
+    lim = dict(runs_per_day=3, auto_per_day=1, auto_rest_minutes=60, usd_per_run=2.0, minutes=30, model='')
+    started = []
+
+    class Proc:
+        def __init__(self):
+            self.code, self.killed, self.pid = None, False, 4242
+
+        def poll(self):
+            return self.code
+
+        def kill(self):
+            self.killed, self.code = True, -9
+
+    def launch(cmd, cwd, env, out):
+        started.append(dict(cmd=cmd, cwd=cwd, env=env, out=out, p=Proc()))
+        return started[-1]['p']
+    s1 = ideas.tick(where, nwhere, now=day, launch=launch, lim=lim)
+    s2 = ideas.tick(where, nwhere, now=day + datetime.timedelta(seconds=20), launch=launch, lim=lim)
+    case('tick: a request of his starts one run, for the oldest; while it runs nothing else is started and the page is told it runs',
+         len(started) == 1 and s1['running'] and s1['running']['asked'] == 'button' and s2['running'] and s1['left'] == 2 and (where / 'running.json').is_file() and started[0]['env']['TW_IDEAS'] == str(where)
+         and 'tw-ideas' in started[0]['cmd'][-1] and 'exactly 3' in started[0]['cmd'][-1], (s1, len(started)))
+    run = started[0]['env']['TW_IDEAS_RUN']
+    for t in ('A field telephone the enemy can cut', 'Observation balloon spots for the guns'):
+        ideas.add(where, pictures=P, entries=[], now=day, shooter=shooter, run=run, **dict(good, title=t, pitch='A new thing on the field.', kind='mechanic'))
+    started[0]['out'].write_text('warming up\n' + json.dumps(dict(total_cost_usd=1.234, result='Two ideas written.', is_error=False)), encoding='utf-8')
+    started[0]['p'].code = 0
+    s3 = ideas.tick(where, nwhere, now=day + datetime.timedelta(minutes=4), launch=launch, lim=lim)
+    spend = [json.loads(r) for r in (where / 'spend.jsonl').read_text(encoding='utf-8').splitlines()]
+    ans = [n for n in notes.read_all(nwhere) if n['id'] == n_more['id']][0]
+    case('tick: a run that ended is a line of what it cost and made, his note is answered with the ideas by name, and the next request starts at once',
+         spend == [dict(when='2026-10-07 12:04', run=run, asked='button', usd=1.23, ideas=2, why='')] and ans['state'] == 'done' and '2 of the 3 asked for: A field telephone' in ans['answers'][0]['text']
+         and len(started) == 2 and s3['running']['asked'].startswith('something for the frog') and s3['last']['ideas'] == 2 and s3['left'] == 1, (spend, ans['answers'], s3))
+    s4 = ideas.tick(where, nwhere, now=day + datetime.timedelta(minutes=40), launch=launch, lim=lim)
+    case('tick: a run past its minutes is stopped and written down as stopped, with no idea and its note answered; it still counts as a run of the day',
+         started[1]['p'].killed and 'stopped after 30 minutes' in s4['last']['why'] and [n for n in notes.read_all(nwhere) if n['id'] == n_ask['id']][0]['answers'][0]['text'].startswith('No idea came of it')
+         and len(started) == 3 and s4['running'] and s4['left'] == 0, (s4, len(started)))
+    started[2]['out'].write_text(json.dumps(dict(total_cost_usd=0.5, result='x', is_error=True)), encoding='utf-8')
+    started[2]['p'].code = 1
+    n_late = note('ideas:more', 'Three more ideas.')
+    s5 = ideas.tick(where, nwhere, now=day + datetime.timedelta(minutes=50), launch=launch, lim=lim)
+    case('tick: the day\'s runs are a number: when they are used a request waits, nothing is started, and the page says why',
+         len(started) == 3 and not s5['running'] and s5['left'] == 0 and 'runs are used' in s5['off'] and 'error' in s5['last']['why'] and [n for n in notes.read_all(nwhere) if n['id'] == n_late['id']][0]['state'] == 'open', (s5, len(started)))
+    e_where, e_notes, e_started = tmp / 'empty', tmp / 'empty-notes', []
+
+    def launch2(cmd, cwd, env, out):
+        e_started.append(dict(cmd=cmd, out=out, p=Proc()))
+        return e_started[-1]['p']
+    a1 = ideas.tick(e_where, e_notes, now=day, launch=launch2, lim=lim)
+    e_started[0]['out'].write_text(json.dumps(dict(total_cost_usd=0.2, result='none', is_error=False)), encoding='utf-8')
+    e_started[0]['p'].code = 0
+    a2 = ideas.tick(e_where, e_notes, now=day + datetime.timedelta(minutes=5), launch=launch2, lim=lim)
+    case('tick: with no idea open one is made unasked, so the screen has one ready; that happens so often a day and no more, so an agent that finds nothing does not spend the day',
+         a1['running']['asked'] == 'auto' and a1['running']['n'] == 1 and len(e_started) == 1 and not a2['running'] and a2['left'] == 2, (a1, a2, len(e_started)))
+    r_where, r_started = tmp / 'rest', []
+
+    def launch3(cmd, cwd, env, out):
+        r_started.append(dict(out=out, p=Proc()))
+        return r_started[-1]['p']
+    lim3 = dict(lim, auto_per_day=3, runs_per_day=8)
+    ideas.tick(r_where, tmp / 'rest-notes', now=day, launch=launch3, lim=lim3)
+    r_started[0]['out'].write_text(json.dumps(dict(total_cost_usd=0.2, result='none', is_error=False)), encoding='utf-8')
+    r_started[0]['p'].code = 0
+    r2 = ideas.tick(r_where, tmp / 'rest-notes', now=day + datetime.timedelta(minutes=5), launch=launch3, lim=lim3)
+    r3 = ideas.tick(r_where, tmp / 'rest-notes', now=day + datetime.timedelta(minutes=30), launch=launch3, lim=lim3)
+    r4 = ideas.tick(r_where, tmp / 'rest-notes', now=day + datetime.timedelta(minutes=66), launch=launch3, lim=lim3)
+    case('tick: an unasked run that found nothing is not tried again for an hour; then it is',
+         not r2['running'] and not r3['running'] and len(r_started) == 2 and r4['running'] and r4['running']['asked'] == 'auto', (r2, r3, r4, len(r_started)))
+    gone = ideas.tick(tmp / 'crashed', tmp / 'crashed-notes', now=day, launch=launch2, lim=lim)       # started by a watcher that is gone: nobody holds its process
+    ideas.RUNS.clear()
+    still = ideas.tick(tmp / 'crashed', tmp / 'crashed-notes', now=day + datetime.timedelta(minutes=10), launch=launch2, lim=lim, alive=lambda r: r['pid'] == 4242)
+    dead = ideas.tick(tmp / 'crashed', tmp / 'crashed-notes', now=day + datetime.timedelta(minutes=11), launch=launch2, lim=dict(lim, auto_per_day=0), alive=lambda r: False)
+    case('tick: a run whose watcher was stopped is asked of the system by its process: while that lives the run goes on, and once it is gone the run is written off with what it left',
+         gone['running'] and still['running'] and not dead['running'] and dead['last'] and 'left no result' in dead['last']['why'] and not ideas.pid_alive(dict(pid=0)) and ideas.pid_alive(dict(pid=os.getpid())), (still, dead))
+    cmd = ideas.command(dict(says='One idea.', n=1, asked='auto'), 'r9', lim, exe='claude')
+    allow = cmd[cmd.index('--allowedTools') + 1:cmd.index('--disallowedTools')]
+    case('tick: the session it starts may read, search and run the ideas tool and nothing else; it writes only in the folder it runs in, asks nobody, starts no agent, and is cut off at the money of the run',
+         cmd[cmd.index('--permission-mode') + 1] == 'acceptEdits' and cmd[cmd.index('--max-budget-usd') + 1] == '2.0' and {'AskUserQuestion', 'Agent'} <= set(cmd[cmd.index('--disallowedTools') + 1:cmd.index('--max-budget-usd')])
+         and sorted(allow) == sorted(['Read', 'Grep', 'Glob', 'WebSearch', 'WebFetch', f'Bash(python {ideas.TOOL} *)']) and '--add-dir' not in cmd and '--dangerously-skip-permissions' not in cmd
+         and started[0]['cwd'] == str(where / 'runs' / run) and started[0]['out'] == where / 'runs' / f'{run}.json', (allow, started[0]['cwd']))
+    keep_env = {k_: os.environ.get(k_) for k_ in ('TW_IDEAS', 'TW_IDEAS_RUN', 'TW_IDEAS_SCRATCH')}
+    os.environ.update(TW_IDEAS=str(where), TW_IDEAS_RUN='r9', TW_IDEAS_SCRATCH=str(tmp / 'scratch'))
+    import contextlib
+    import io
+    said_ = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(said_):
+            codes = [ideas.main(['answer', m['id'], 'accepted']), ideas.main(['take']), ideas.main(['tick']), ideas.main(['fetch', 'https://example.org/a.jpg', '--out', str(tmp / 'elsewhere' / 'a.jpg')]), ideas.main(['list'])]
+    finally:
+        for k_, v in keep_env.items():
+            os.environ.pop(k_, None) if v is None else os.environ.__setitem__(k_, v)
+    case('tick: inside a run the tool reads the context and adds ideas; it does not answer for the owner, start another run, or keep a reference outside its own folder',
+         codes == [1, 1, 1, 1, 0] and ideas.find(where, m['id'])['state'] == 'open' and not (tmp / 'elsewhere').exists() and said_.getvalue().count('not for a run the board started') == 3 and 'own folder' in said_.getvalue(), (codes, said_.getvalue()[:300]))
+
+    # ---- the site and the page
+    out = tmp / 'site'
+    data = ideas.site(where, out, notes.read_all(nwhere), dict(running=None, left=0, last=None, off='x'), now=day)
+    js = (out / 'data' / 'ideas.js').read_text(encoding='utf-8')
+    case('site: the page gets the ideas with their pictures beside it, what he asked for that waits, and whether a run is going',
+         js.startswith('window.IDEAS = ') and {x['id'] for x in data['ideas']} >= {i['id'], m['id']} and all((out / p['src']).is_file() for x in data['ideas'] for p in x['pictures'])
+         and [a['note'] for a in data['asked']] == [n_late['id']] and data['left'] == 0 and data['says'] == ['Do it', 'Not now', 'Never'], data['asked'])
+    old = ideas.site(where, out, [], None, now=day + datetime.timedelta(days=ideas.SHOWN_DAYS + 1))
+    case('site: an answered idea leaves the page after a week, with its pictures; an open one stays',
+         i['id'] not in [x['id'] for x in old['ideas']] and not (out / 'img' / 'idea' / i['id']).exists() and m['id'] in [x['id'] for x in old['ideas']], [x['id'] for x in old['ideas']])
+    keep_tick, calls = ideas.tick, []
+    ideas.tick = lambda *a, **k: calls.append(1) or dict(running=None, left=1, last=None, off='', took=[])
+    keep_env = {k: os.environ.get(k) for k in ('TW_IDEAS',)}
+    os.environ['TW_IDEAS'] = str(where)
+    try:
+        ops.the_ideas(tmp / 'site2', False)
+        reads = len(calls)
+        ops.the_ideas(tmp / 'site2', True)
+    finally:
+        ideas.tick = keep_tick
+        for k_, v in keep_env.items():
+            os.environ.pop(k_, None) if v is None else os.environ.__setitem__(k_, v)
+    case('ops: a read that only reads starts no agent; the watcher does, and either puts the ideas in the site', reads == 0 and len(calls) == 1 and (tmp / 'site2' / 'data' / 'ideas.js').is_file(), (reads, len(calls)))
+    c = ideas.taste([dict(text='A: Keep it', when='2026-10-06 10:00', **{'from': 'owner'}), dict(text='Do it', when='2026-10-06 11:00', **{'from': 'owner'}),
+                     dict(text='lets use less lights and instead try to simulate them or bake them', when='2026-10-07 09:00', title='Forward+', **{'from': 'owner'}), dict(text='I rebased the lane for you.', when='2026-10-07 10:00', **{'from': 'an agent'})])
+    case('context: his taste is what he wrote in his own words, not his clicks and not what agents wrote; with no goals page the agent is told where the goals are',
+         [t['said'] for t in c] == ['lets use less lights and instead try to simulate them or bake them'] and ('docs/00-overview.md' in ideas.goals(tmp) or (tmp / ideas.GOALS).exists()), c)
+
+    try:
+        from jinja2 import Environment, FileSystemLoader, select_autoescape
+    except ImportError:
+        print('      (no jinja2 on this machine: the ideas\' place on the control screen was not checked)')
+    else:
+        env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
+        env.globals.update(STATUS_LABEL=model.STATUS_LABEL, CATEGORY=render.CATEGORY, BLURB=render.BLURB, KIND=render.KIND, meta=dict(built='then', station='here', commit='abc', refs_as_of='then'))
+        html = env.get_template('index.html').render(sections=[], levels=[], total=0, root='')
+        loads = re.findall(r'(?:src|href)="([^"#:?]+\.(?:js|css))"', html)
+        at = [html.find(f'id="{x}"') for x in ('deck', 'ideas', 'ideas-cards', 'queue')]
+        case('page: the ideas are on the overview under the house and over what waits on him, hidden until their script draws them, and the script comes after the notes\' and the briefs\'',
+             -1 not in at and at == sorted(at) and re.search(r'<section[^>]*id="ideas"[^>]*hidden', html) and {'ideas.js', 'ideas.css', 'data/ideas.js'} <= set(loads)
+             and loads.index('crew.js') < loads.index('decide.js') < loads.index('ideas.js') and (HERE / 'static' / 'ideas.js').exists() and (HERE / 'static' / 'ideas.css').exists(), (at, loads))
+        keep_crew = ops.CREW
+        ops.CREW = tmp / 'nothing'
+        ops.page(tmp / 'pagesite', dict(built='then', station='here', commit='abc', refs_as_of='then'))
+        ops.CREW = keep_crew
+        case('page: the watcher puts the ideas\' script and style in the site with the others', (tmp / 'pagesite' / 'ideas.js').is_file() and (tmp / 'pagesite' / 'ideas.css').is_file(), '')
+    css = (HERE / 'static' / 'ideas.css').read_text(encoding='utf-8')
+    greys = [c_ for c_ in re.findall(r'#[0-9a-fA-F]{3,6}\b', css) if len(set(c_[1:].lower())) == 1 and c_.lower() not in ('#fff', '#ffffff')]
+    case('page: the ideas\' greys come from the board\'s tokens, none is written out', not greys and 'var(--k-fire)' in css, greys)
+
+    node = shutil.which('node')
+    if not node:
+        print('      (no node on this machine: the ideas\' own page rules were not run)')
+        return
+    src = ('const I = require(process.argv[1]);'
+           'const ideas = [{id: "a", state: "open", made: "2026-10-07 10:00"}, {id: "b", state: "open", made: "2026-10-07 12:00"}, {id: "c", state: "open", made: "2026-10-07 11:00"},'
+           ' {id: "d", state: "accepted", answer: {when: "2026-10-07 09:00"}}, {id: "e", state: "rejected", answer: {when: "2026-10-07 09:30"}}, {id: "f", state: "accepted", answer: {when: "2026-10-07 13:00"}}];'
+           'const o = I.order(ideas, i => i.id === "b"); const S = ["Do it", "Not now", "Never"];'
+           'console.log(JSON.stringify([o.open.map(i => i.id), o.done.map(i => i.id), I.featured(o.open, "a").id, I.featured(o.open, "gone").id, I.featured([], "a"),'
+           ' I.word("Never", "  too silly "), I.word("Do it", ""), I.asked(S, "Never: too silly"), I.asked(S, "Do it"), I.asked(S, "Do it properly this time"), I.asked(S, "Not now\\nlater"),'
+           ' I.status({running: {since: "2026-10-07 14:02:10", asked: "button", n: 3}, asked: [{}], left: 4}, false), I.status({asked: [{}], left: 3}, false), I.status({asked: [{}], left: 0}, false),'
+           ' I.status({asked: [{}], left: 2, off: "no claude on this station\'s path"}, false), I.status({asked: [], left: 3, last: {ideas: 0, why: "stopped after 30 minutes"}}, false), I.status({asked: [], left: 5}, false), I.status({}, true),'
+           ' I.site("https://www.iwm.org.uk/collections/item/1"), I.site("a file"), I.meta({kind: "unit", size: "M", score: "R1 C3 MAJOR", asked: "the frog faction"}), I.meta({kind: "look", size: "S", score: "R0 C1", asked: "auto"})]))')
+    p = subprocess.run([node, '-e', src, str(HERE / 'static' / 'ideas.js')], capture_output=True)
+    got = json.loads(p.stdout.decode() or 'null')
+    case('page: the open ideas he has not answered come first, newest first, then the ones his answer is on its way for; the accepted follow, and what he turned down is not listed',
+         got and got[:5] == [['c', 'a', 'b'], ['f', 'd'], 'a', 'c', None], (got and got[:5], p.stderr[-300:]))
+    case('page: a button leaves its own words and his reason after a colon, and a note is read back the same way; words that only begin like a button are his own',
+         got and got[5:11] == ['Never: too silly', 'Do it', 'Never', 'Do it', '', 'Not now'], got and got[5:11])
+    case('page: the line under the box says what the agent is doing about what he asked: at work since when, about to start, out of runs, could not start, or made nothing',
+         got and got[11].startswith('The ideas agent is at work since 14:02, on three more.') and '1 more request waits behind it.' in got[11] and got[12] == 'Asked. The agent starts within a minute.' and 'starts tomorrow' in got[13]
+         and 'could not start: no claude' in got[14] and got[15] == 'The last run made no idea (stopped after 30 minutes).' and got[16] == '' and got[17].startswith('Not connected'), got and got[11:18])
+    case('page: a reference says the site it was found on, and the card\'s small line says the kind, the size and the score in words',
+         got and got[18:] == ['iwm.org.uk', '', 'unit · a few days · risk 1 · change 3 · major', 'look · about a day · risk 0 · change 1'], got and got[18:])
+
+
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
     real_tree()
@@ -1422,5 +1719,6 @@ if __name__ == '__main__':
     board()
     control()
     decisions()
+    ideas_cases()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)

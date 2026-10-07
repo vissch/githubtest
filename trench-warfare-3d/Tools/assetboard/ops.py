@@ -21,7 +21,9 @@ sheets of the walking frog (frog, packed by sprites.py). Both are written when t
 data/graphs.js is what graphs.html draws (src_graphs.py) and data/notes.js the owner's notes and their answers
 (notes.py); both are made again on every read. The same read gives each session and agent its `visual`, the last
 picture or film it had in its hands, copied small into img/last/ (src_visuals.py), and puts the open decision briefs
-(briefs.py) in data/briefs.js with their evidence under img/brief/, for decide.html. While it watches, this also takes the notes the owner writes on the
+(briefs.py) in data/briefs.js with their evidence under img/brief/, for decide.html, and the ideas he picks from
+(ideas.py) in data/ideas.js with their pictures under img/idea/. While it watches, it also starts the ideas agent when
+he asked for ideas or none is open (ideas.py tick: one run at a time, so many a day). While it watches, this also takes the notes the owner writes on the
 pages (a listener on this machine only, notes.py) and data/notebox.js tells the pages where it is.
 What it reads: src_ops.py, src_queue.py.
 """
@@ -37,6 +39,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import briefs     # noqa: E402
 import build      # noqa: E402
+import ideas      # noqa: E402
 import notes      # noqa: E402
 import src_git    # noqa: E402
 import src_graphs  # noqa: E402
@@ -88,7 +91,7 @@ def page(out: Path, meta):
     env.globals.update(meta=meta)
     for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
-    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'charts.js', 'control.js', 'control.css', 'decide.js', 'decide.css', 'site.css', 'kinetic.css'):
+    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'charts.js', 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -253,7 +256,20 @@ def step_briefs(data):
         return []
 
 
-def once(out: Path):
+def the_ideas(out: Path, watching):
+    """The ideas the page shows (ideas.py), and while this watches the agent that makes them: his answers on the cards are
+    taken, and a run is started when he asked for ideas or none is open. A read that only reads starts nothing. Ideas
+    that fail are no reason to have no site."""
+    try:
+        status = ideas.tick() if watching else None
+        if status and (status['last'] or status['took']):
+            print(f'ideas: {len(status["took"])} of his answers taken' + (f', a run ended with {status["last"]["ideas"]} ideas for ${status["last"]["usd"]}' if status['last'] else ''), flush=True)
+        ideas.site(ideas.folder(), out, notes.read_all(notes.folder()), status and {k: status[k] for k in ('running', 'left', 'last', 'off')})
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the ideas were not put in the site ({type(e).__name__}: {e})', flush=True)
+
+
+def once(out: Path, watching=False):
     data = src_ops.collect(build.REPO, out)
     ready_since(data, out / 'data' / 'ready-since.json')
     # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
@@ -264,6 +280,7 @@ def once(out: Path):
     graphs(data, out)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
+    the_ideas(out, watching)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'
@@ -293,7 +310,7 @@ def main(argv=None):
         if args.watch and site_version() != SITE['v']:      # a script or a template changed: it is in the site on this read, and the beat tells the open pages
             page(out, dict(meta, built=time.strftime('%Y-%m-%d %H:%M')))
             print(f'ops: the scripts changed, the site has them now ({SITE["v"]})', flush=True)
-        data, changed = once(out)
+        data, changed = once(out, watching=bool(args.watch))
         c = data['counts']
         print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
               f'{c["idle"]} of {len(data["roster"])} skills and agents idle{"" if changed else " (no change)"}', flush=True)
