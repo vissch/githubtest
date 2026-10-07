@@ -212,7 +212,6 @@ namespace TW.Tests
                 [VehicleArchetype.MarkIV] = "Maw", [VehicleArchetype.MarkV] = "Maw", [VehicleArchetype.A7V] = "Brute",
                 [VehicleArchetype.RenaultFT] = "Tusk", [VehicleArchetype.Whippet] = "Tusk", [VehicleArchetype.Austin] = "Tusk",
                 [VehicleArchetype.Breaker] = "Maw",   // shipped without a model of its own: the fallback, written down
-                [VehicleArchetype.Bullfrog] = "Croaker",   // in the sim since 2026-10-06; its own model is not in the battle yet
             };
             foreach (var u in ProvingGround.Catalogue())
             {
