@@ -74,11 +74,20 @@ A real red in the other lane's code is theirs: file a card and an inbox note, an
 2. Symptom, expected vs actual, and the assertion message verbatim.
 3. Lane and owner file (from `SimProbe.Unit`, the tasks.md row, and the guarding test).
 4. **Repro:**
+   - **one command that goes red** on that commit and station, run at least once (a test filter, an `otr.py` class,
+     a `Tools/tw eval` line). If there is none yet, say so first on the card: it is what the fixer needs most;
    - the `SimProbe.Match()` line (seed, battlefield seed, ground, bombardment, stress, tick, mission);
-   - the command script with ticks and a ±N tick sweep (order timing depends on frame rate);
+   - the command script with ticks and a ±N tick sweep (order timing depends on frame rate), cut down until every
+     order left in it is needed for the fault to show;
    - canary and latency settings; the commit; the station.
 5. For a desync: `DesyncTick`, `FirstDifference`, the `Arrays` diff, and the FormatVersion or chain impact.
-6. A discriminating test that fails on the old code, where one can be written.
-7. Routing: the owning stage's feedback request, or an inbox note `docs/inbox/<date>-<lane>-<topic>.md`.
+6. **Guesses**, most likely first, each written as "if X is the cause, changing Y makes it go away", and marked
+   tested or untested. Whoever fixes starts from them and tries one change at a time.
+7. A discriminating test that fails on the old code, where one can be written.
+8. Routing: the owning stage's feedback request, or an inbox note `docs/inbox/<date>-<lane>-<topic>.md`.
 
 **Never fix.** The card goes to the master, who turns it into a feedback request for the stage that owns the file.
+
+## Sources
+The red command, the cut-down repro and the written guesses on the card are adapted, in our own words, from
+`diagnosing-bugs` in github.com/mattpocock/skills at f3fc5632f401 (MIT). Ideas only; no text or script copied.
