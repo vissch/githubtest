@@ -84,7 +84,7 @@ decisions").
 | "what is going on", "what needs me" | `$R day`, then the answer in the shape above |
 | "start", or nothing is running and the queue has work the day still covers | `$R hold <your session name>` (exit 1: another session holds it, stop and say who). Then `$R run --work $WORK --dry-run`; if it names a unit, `$R run --work $WORK --who <your session name> --hours <H>` in the background. Say that it started, on what, and what the day has left |
 | "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day` |
-| "queue this" | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work |
+| "queue this" | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work (the `relay` skill's rules for `done_when` and the goal hold) |
 | nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
 | nothing: he said "Do it" to an idea on the board's overview page, or answered a step of his on its route | "Ideas he said yes to": the idea goes on the pipeline's board, without asking him again |
 | "stop" | `$R stop` (before the next leg) or `$R stop --now`; confirm with `$R status` |

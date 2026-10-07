@@ -7,14 +7,13 @@ the goal adds what is special to this one.
 - Every bug gets a test that fails on the old code and passes on the fix. Put the id in square brackets in a comment
   on the test, like [U1], and in the assert's message, like "[U1] the fleet never fired". A script runs each tagged
   test on the code before your fix: green there fails the unit, and so does red for another finding's reason.
-- Write the test before the fix. Its expected value comes from the finding, a worked example or a recorded run,
-  never from the same sum the code does.
-- When the cause is not plain from the report: get one command that shows the fault, cut the case down until every
-  part of it is needed, then write your guesses in order, each as "if X is the cause, changing Y makes it go away".
-  Try one change at a time.
-- If you made a test red by editing code or a fixture, save the diff of that edit in your leg folder and name the
-  file in your report: it proves the edit was in the build that ran.
-- In a commit message name the test of each id as `[ID] test: Class.Method`, or `[ID] no test: why`. Every id of
+- A test's expected value comes from the finding or a worked example, never from the sum the code does, and never
+  from a run of the code the finding is about.
+- Execute leg only, when the cause is not plain from the report: get one command that shows the fault, write up to
+  three guesses in order, each naming the one change that would prove it, and try one change at a time. Still not
+  plain after three: put the guesses under `## Dead ends` in note.md and end BLOCKED.
+- In a commit message name the test of each id as `[ID] test: Class.Method`, or `[ID] no test: why`, and under it
+  the cause in one line. Every id of
   the goal stands in square brackets in a commit message on the lane, also when it needed no change (say which).
 - No file may gain a UTF-8 BOM: look at `git diff --cached` before you commit.
 - The edit gate does not run PlayMode tests: a PlayMode test you add or change you run yourself, wait for it inside
