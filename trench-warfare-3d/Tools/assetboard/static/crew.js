@@ -122,7 +122,7 @@ window.Crew = (function () {
     if (draws.length > 1) return;
     setInterval(function () {
       // the beat (written on every read), the queue and the floor, one after the other, then one redraw
-      var files = ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ops.js'], i = 0;      // the notes are board.js's to read again
+      var files = ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/ops.js'], i = 0;      // the notes are board.js's to read again
       (function next() {
         if (i === files.length) { draws.forEach(function (d) { try { d(); } catch (e) { if (window.console) console.error(e); } }); return; }
         var s = document.createElement('script');

@@ -123,6 +123,17 @@ def owner_notes(branch):
     if got:
         print(f'         all his notes on each: python Tools/assetboard/briefs.py waiting. Take one up: its row in docs/reference/decisions.md, then')
         print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says decided: write its unit)')
+    # the ideas he picks from (Tools/assetboard/ideas.py): how many are open, and which he has said yes to
+    try:
+        import ideas
+        every = ideas.read_all(ideas.folder())
+    except Exception as e:
+        print(f'ideas    not read ({e})')
+        return
+    yes = [i for i in every if i['state'] == 'accepted']
+    print(f'ideas    {sum(1 for i in every if i["state"] == "open")} open for the owner, {len(yes)} he has said yes to')
+    for i in yes[-5:]:
+        print(f'         YES     {i["id"]}  ({i["kind"]}): {i["title"]}')
 
 
 def handed_over():

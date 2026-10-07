@@ -1,0 +1,56 @@
+/* The ideas on the control screen (index.html #ideas, ideas.js): one idea large, as a brief is (decide.css: its text
+   on the left, what it shows on the right), the other open ones small under it, then the button and the box that ask
+   for more. Colours from kinetic.css's tokens only. Its own file: the board's other sheets are logs of review rounds. */
+.i-ideas { background: var(--glass-top), var(--k-ink); border: 1px solid var(--glass-edge); color: var(--t-near); border-radius: var(--r-xl); margin: 12px 0; padding: 18px clamp(14px, 1.5vw, 22px) clamp(14px, 1.5vw, 22px); min-width: 0; }
+.i-ideas .k-head { margin: 0 2px 12px; } .i-ideas .k-h-one { color: var(--t-bright); font-size: clamp(22px, 2vw, 30px) !important; }
+.i-list { display: grid; gap: 12px; }
+.i-card { background: rgba(255, 255, 255, .04); }
+.i-h { margin: 6px 0 0; color: var(--k-soft); font: 600 11px var(--sans); text-transform: uppercase; letter-spacing: .1em; }
+/* the route: who works on it, in order; a step of his own is the accent */
+.i-route { display: flex; flex-wrap: wrap; gap: 6px 22px; margin: 0; padding: 0; list-style: none; }
+.i-route li { position: relative; display: flex; align-items: center; padding: 5px 10px; border-radius: 999px; background: var(--s-raise); border: 1px solid var(--s-line); color: var(--t-light); font: 600 12px/1 var(--sans); white-space: nowrap; }
+.i-route li:not(:last-child)::after { content: "\2192"; position: absolute; right: -17px; color: var(--t-faint); font-weight: 400; }          /* the arrow stands between two steps, and at a row's end when the route wraps */
+.i-route li.i-own { border-color: rgba(255, 74, 28, .6); color: #ffd2c4; }
+.i-acts { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.i-act { min-height: 44px; padding: 0 20px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .22); background: transparent; color: #fff; font: 700 15px var(--sans); cursor: pointer; transition: border-color .2s, background .2s, color .2s; }
+.i-act.i-go { background: var(--k-fire); border-color: var(--k-fire); color: #1d0a04; }
+.i-act:hover:not(:disabled), .i-act:focus-visible { border-color: var(--k-fire); outline: none; } .i-act.i-go:hover:not(:disabled) { background: #ff6a42; }
+.i-act:focus-visible { box-shadow: 0 0 0 2px var(--k-fire2); }
+.i-act:disabled { cursor: default; opacity: .45; } .i-act.on, .i-act.on:disabled { opacity: 1; background: var(--t-bright); border-color: var(--t-bright); color: var(--s-deep); }
+/* asking for a better version is the quiet button: the card has one loud one, the yes */
+.i-card .d-say button { background: transparent; border: 1px solid rgba(255, 255, 255, .22); color: #fff; white-space: nowrap; }
+.i-card .d-say button:hover, .i-card .d-say button:focus-visible { background: transparent; border-color: var(--k-fire); }
+.i-hint { margin: 0; color: var(--t-dim); font: 400 12.5px/1.4 var(--sans); }
+.i-pkind { display: inline-block; margin-right: 4px; padding: 2px 7px; border-radius: 999px; background: var(--s-raise); border: 1px solid var(--s-line); color: var(--t-soft); font: 600 11px/1.2 var(--sans); }
+.i-p-generated { border-color: var(--k-blue); color: #cfe0ff; } .i-p-reference { border-color: var(--s-mute2); }
+/* the other open ideas: a row of small cards, a click shows one large */
+.i-smalls { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.i-small { display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 10px; align-items: center; min-height: 64px; padding: 8px; border-radius: var(--r-m); background: var(--k-ink2); border: 1px solid var(--s-line); color: inherit; text-align: left; cursor: pointer; }
+.i-small:not(:has(img)) { grid-template-columns: minmax(0, 1fr); padding: 10px 12px; }
+.i-small img { width: 84px; height: 52px; object-fit: cover; border-radius: 8px; background: var(--s-deep); }
+.i-small-text { display: grid; gap: 2px; min-width: 0; } .i-small b { color: #fff; font: 600 14px/1.25 var(--sans); } .i-small span span { color: var(--k-soft); font: 500 12px var(--sans); }
+.i-small:hover, .i-small:focus-visible { border-color: var(--k-fire); outline: none; } .i-small.on { border-color: var(--k-fire); background: rgba(255, 74, 28, .12); }
+/* asking for more */
+.i-ask { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; align-items: center; padding: 12px; border-radius: var(--r-l); background: var(--k-ink2); border: 1px solid var(--s-line); }
+.i-more { min-height: 44px; padding: 0 20px; border-radius: 999px; border: 0; background: var(--t-bright); color: var(--s-deep); font: 700 15px var(--sans); cursor: pointer; white-space: nowrap; }
+.i-more:hover:not(:disabled), .i-more:focus-visible { background: #fff; outline: 2px solid var(--k-fire2); outline-offset: 1px; } .i-more:disabled { opacity: .5; cursor: default; }
+.i-ask-form { margin: 0; }
+.i-status { margin: 0 2px; color: var(--t-light); font: 500 14px/1.4 var(--sans); }
+.i-status.i-running::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 8px; border-radius: 50%; background: var(--k-fire2); animation: i-beat 1.4s ease-in-out infinite; }
+@keyframes i-beat { 50% { opacity: .25; } }
+.i-empty { margin: 0; padding: 22px 16px; border-radius: var(--r-m); border: 1px dashed var(--s-line2); color: var(--t-soft); font: 15px/1.4 var(--sans); }
+.i-done { display: grid; gap: 8px; } .i-done .d-h { margin: 10px 2px 2px; } .i-done .i-route { margin-top: 8px; }
+
+@media (max-width: 760px) { .i-ask { grid-template-columns: minmax(0, 1fr); } .i-act { flex: 1 1 auto; } body.c-screen .i-ideas { order: 3; }
+  .i-card .d-say { flex-wrap: wrap; } .i-card .d-say input { flex: 1 1 100%; } .i-card .d-say button { flex: 1 1 auto; } }          /* a phone: the box over its button, or the box is three letters wide */
+@media (prefers-reduced-motion: reduce) { .i-act { transition: none; } .i-status.i-running::before { animation: none; } }
+/* the critic's round, 2026-10-07 */
+.i-pictures figure { position: relative; } .i-pictures figure > .i-pkind { position: absolute; top: 10px; left: 10px; z-index: 1; margin: 0; background: rgba(20, 24, 36, .82); color: var(--t-near); }
+.i-acts .i-never { margin-left: auto; border-color: transparent; color: var(--t-soft); font-weight: 600; }          /* for good, so set apart from the two beside it and quiet */
+.i-route li:not(:last-child)::after, .i-hint { color: var(--t-soft); } .i-card .d-say input::placeholder, .i-ask-form input::placeholder { color: var(--t-soft); }
+.i-small b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.i-small:focus-visible, .i-act:focus-visible, .i-more:focus-visible { outline: 2px solid var(--k-fire2); outline-offset: 2px; }
+.i-card h3:focus { outline: none; }
+.i-status.i-off { color: var(--alarm); } .i-status.i-off::before { content: "!"; display: inline-grid; place-items: center; width: 18px; height: 18px; margin-right: 8px; border-radius: 50%; background: var(--alarm); color: var(--s-deep); font-weight: 700; font-size: 12px; }
+@media (max-width: 1000px) { .i-card .i-pictures { order: -1; } }          /* one column: the picture first, he decides from it */
+@media (max-width: 760px) { .i-card form.d-say { flex-wrap: wrap; } .i-card form.d-say input { flex: 1 1 100%; width: 100%; } .i-acts .i-never { margin-left: 0; } }
