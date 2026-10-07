@@ -48,6 +48,7 @@ CODE = 'trench-warfare-3d/Assets/_Project/'
 SIM = tuple(CODE + d for d in ('Sim/', 'Net/', 'Data/', 'Tests/Sim/'))
 BOM = b'\xef\xbb\xbf'
 TEST_ATTR = re.compile(r'^\s*\[(Test|UnityTest|TestCase|TestCaseSource)\b')
+NOTES = []          # why a tagged test did not run: the last lines its runner printed, kept in the record
 CS_METHOD = re.compile(r'^\s*public\s+(?:static\s+)?[\w<>\[\], .]+?\s+(\w+)\s*\(')
 
 
@@ -195,6 +196,9 @@ def run_selftest(tree, tests):
     for t in tests:
         m = re.search(r'^(ok|FAIL)\s+%s' % re.escape(t['name']), said, re.M)
         out[key(t)] = 'missing' if not m else 'green' if m.group(1) == 'ok' else 'red'
+    if 'missing' in out.values():
+        NOTES.append('Tools/selftest.py did not print every tagged case (exit %d). Its last lines: %s'
+                     % (p.returncode, ' / '.join(l.strip() for l in said.strip().splitlines()[-6:])[-700:]))
     return out
 
 
@@ -218,6 +222,9 @@ def run_unity(tree, tests, unity):
                     seen[c.get('fullname', '')] = c.get('result', '')
             said = log.read_text(encoding='utf-8', errors='replace') if log.exists() else ''
             broken = not seen and re.search(r'error CS\d+', said)
+            if broken:
+                NOTES.append('Unity %s did not compile: %s' % (platform, ' / '.join(
+                    l.strip() for l in said.splitlines() if re.search(r'error CS\d+', l))[:700]))
             for t in batch:
                 got = [r for n, r in seen.items() if n == t['name'] or n.startswith(t['name'] + '(')]
                 out[key(t)] = ('compile' if broken else 'missing' if not got
@@ -278,12 +285,14 @@ def verdict_of(i, tests, old, new, named, why):
     if 'red' in o:
         return 'PROVED', 'red on the old code, green on the fix'
     if 'compile' in o or 'missing' in o:
-        return 'WEAK', 'red on the old code only because the old code lacks a name the test uses: not proof of the bug'
+        return 'WEAK', ('not shown red on the old code: the test did not run there (the old code does not compile '
+                        'with it, or its runner stopped before it). Not proof of the bug')
     return 'FAIL', ('its test is green on the old code too: the test cannot fail. If the fix it tests is already in '
                     'the base, say `[%s] fix in base: <commit>` in a commit message' % i)
 
 
 def main(argv=None):
+    del NOTES[:]
     ap = argparse.ArgumentParser(description='did these commits fix what they say?')
     ap.add_argument('--tree', required=True)
     ap.add_argument('--base', required=True)
@@ -348,7 +357,7 @@ def main(argv=None):
     got = [x['verdict'] for x in ids.values()]
     verdict = ('FAIL' if 'FAIL' in got or boms or outside else 'UNCHECKED' if 'UNCHECKED' in got else 'PASS')
     rec = {'unit': a.unit, 'lane': a.lane, 'base': base, 'head': head, 'verdict': verdict, 'ids': ids,
-           'gained_bom': boms, 'outside_lane': outside, 'files': len(files),
+           'gained_bom': boms, 'outside_lane': outside, 'files': len(files), 'notes': NOTES[:8],
            'counts': {v: got.count(v) for v in ('PROVED', 'WEAK', 'NO TEST', 'UNCHECKED', 'FAIL')},
            'checked_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M'), 'unity': bool(a.unity) and not a.no_run}
     out = Path(a.out) if a.out else (DRIVE / (a.unit + '.json') if a.unit and DRIVE.parent.is_dir() else None)
@@ -360,6 +369,8 @@ def main(argv=None):
         print('  %-9s [%s] %s' % (ids[i]['verdict'], i, ids[i]['why']))
         for t in ids[i]['tests']:
             print('            %s  old %s, fix %s' % (t['name'], t['old'], t['new']))
+    for n in NOTES[:8]:
+        print('  note      %s' % n)
     for p in boms:
         print('  FAIL      gained a UTF-8 BOM: %s' % p)
     for p in outside:
