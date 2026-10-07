@@ -111,7 +111,7 @@ namespace TW.Presentation.Tactical
             public int BarrelTurn, BarrelFrame;   // which barrel cluster fires, and the frame it last changed
             /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
             /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
-            public float Squash = 1f;
+            public float HopSquash = 1f;
             /// <summary>Radians a dead hopper lies heeled over to one side.</summary>
             public float Heel;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
@@ -811,7 +811,7 @@ namespace TW.Presentation.Tactical
                 // slump Wreckify gave it back up): it goes down on its belly, nose low, heeled to one side, guns dropped
                 float ease = 1f - Mathf.Exp(-dt * 4f);
                 v.HopPhase = 0f; v.Bob = Mathf.Lerp(v.Bob, 0f, ease); v.Spin = 0f;
-                v.Squash = Mathf.Lerp(v.Squash, DeadSquash, ease);
+                v.HopSquash = Mathf.Lerp(v.HopSquash, DeadSquash, ease);
                 v.HopTilt = Mathf.Lerp(v.HopTilt, -DeadNose, ease);
                 v.Heel = Mathf.Lerp(v.Heel, (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel, ease);
                 v.GunPitch[0] = Mathf.Lerp(v.GunPitch[0], -DeadGuns, ease); v.GunPitch[1] = Mathf.Lerp(v.GunPitch[1], -DeadGuns * 0.5f, ease);   // one gun lower than the other
@@ -825,7 +825,7 @@ namespace TW.Presentation.Tactical
                 if (v.HopPhase >= 1f)
                 {
                     v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
-                    v.Squash = 0.82f;   // it lands flat and comes back up
+                    v.HopSquash = 0.82f;   // it lands flat and comes back up
                     // it lands: dust thrown out from under each side
                     if (books != null && books.Ready)
                     {
@@ -843,7 +843,7 @@ namespace TW.Presentation.Tactical
             // gathered low as it leaves the ground, long at the top; sitting, a slow breath
             float shape = p > 0f ? 1f + 0.09f * Mathf.Sin(Mathf.PI * p) - 0.14f * Mathf.Exp(-(p * 9f) * (p * 9f))
                                  : 1f + 0.012f * Mathf.Sin(Time.time * 1.7f + v.Slot);
-            v.Squash = Mathf.Lerp(v.Squash, shape, 1f - Mathf.Exp(-dt * 14f));
+            v.HopSquash = Mathf.Lerp(v.HopSquash, shape, 1f - Mathf.Exp(-dt * 14f));
             v.Spin = Mathf.MoveTowards(v.Spin, 0f, dt * 1.2f);
             if (v.Spin > 0f) v.SpinAngle = Mathf.Repeat(v.SpinAngle + v.Spin * SpinRate * dt, Mathf.PI * 2f);
         }
@@ -876,8 +876,8 @@ namespace TW.Presentation.Tactical
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            float wide = v.Squash == 1f ? 1f : 1f / Mathf.Sqrt(Mathf.Max(0.5f, v.Squash));
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), new Vector3(wide, v.Squash, wide));
+            float wide = v.HopSquash == 1f ? 1f : 1f / Mathf.Sqrt(Mathf.Max(0.5f, v.HopSquash));
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), new Vector3(wide, v.HopSquash, wide));
             // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
             // across a slope has its downhill legs reach further rather than its feet float
             if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
@@ -1157,7 +1157,7 @@ namespace TW.Presentation.Tactical
             if (v.Archetype == VehicleArchetype.Bullfrog)
             {
                 // the wreck it leaves keeps the slump HopPose gave the dead toad
-                v.Squash = DeadSquash; v.Bob = 0f; v.HopTilt = -DeadNose; v.HopPhase = 0f; v.Heel = (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel;
+                v.HopSquash = DeadSquash; v.Bob = 0f; v.HopTilt = -DeadNose; v.HopPhase = 0f; v.Heel = (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel;
                 v.GunPitch[0] = -DeadGuns; v.GunPitch[1] = -DeadGuns * 0.5f;
             }
             Pose(v, v.Model.Lods[0], v.World);
