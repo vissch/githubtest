@@ -30,7 +30,10 @@ the status site shows the lane as approved until it has landed. `python Tools/as
    - Generated blocks: `python Tools/codemap.py`.
    - Split files: `port_split.py`.
    - Unity YAML is never hand-merged: BLOCKED, and ask.
-4. **Code lanes:** the full gate in the gate worktree (`githubtest-desk-gate`) with that lane checked out, editor closed. The green marker is per worktree, and an untracked file changes the recorded tree.
+4. **Code lanes, before the gate:** `/code-review` on the lane's diff against origin's integration branch. A finding
+   you confirm at its line is fixed on the lane, or becomes a feedback request for the stage that owns it; one you
+   do not confirm is dropped, and said so. The gate then runs on the tree the review left.
+   **Code lanes:** the full gate in the gate worktree (`githubtest-desk-gate`) with that lane checked out, editor closed. The green marker is per worktree, and an untracked file changes the recorded tree.
    **Lanes that touch only `.claude/`, `Tools/` or `docs/`:** `validate.py` plus `selftest.py` are enough.
 5. `python Tools/land.py --dry-run`, then `python Tools/land.py`. A SHOW lane carrying SIM files needs `--carry-sim "<the owner's decision>"`.
 6. Before saying "land", the owner runs `python Tools/health.py --lanes` on the laptop: this machine cannot see the laptop's checkouts.
