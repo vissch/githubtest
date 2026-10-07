@@ -307,10 +307,14 @@ def the_tasks(out: Path, q, his, watching):
         for line in tasks.act(T) if watching else []:
             print(f'tasks: {line}', flush=True)
         tasks.site(T, out)
-        return dict(left=T['left'], queued=T['queued'])
+        return dict(left=T['left'], queued=T['queued'], captures=T['captures'])
     except Exception as e:      # noqa: BLE001
         print(f'ops: the tasks were not read ({type(e).__name__}: {e})', flush=True)
-        return dict(left=0, queued=0)
+        try:
+            tasks.failed(out, f'{type(e).__name__}: {e}')       # the page says its rows are from the reading before
+        except Exception as e2:      # noqa: BLE001
+            print(f'ops: and the page could not be told so ({type(e2).__name__}: {e2})', flush=True)
+        return dict(left=0, queued=0, captures=0)
 
 
 def once(out: Path, watching=False):

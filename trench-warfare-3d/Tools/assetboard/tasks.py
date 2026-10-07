@@ -12,7 +12,13 @@ overview) and takes up what the owner said about a task (act()).
 HIS WORD. He chose (2026-10-07) that the button on a task queues it for the relay; the board starts no agent. A click
 is a note of his about the task, as every click on the board is. On the next read act() writes the task as a unit
 file into units-for-master/, where the master takes the units it adds to the relay's queue, and answers his note
-with the unit's name. A task that is a unit already is not written twice; the answer says where it stands.
+with the unit's name. A task that is a unit already is not written twice; the answer says where it stands. A unit
+that cannot be written is said to him on his note, and the task goes back to the list. "Not needed" after "Queue it"
+takes the unit file back while the master has not taken it, and says so when the relay already has it.
+
+WHEN SOMETHING IS WRONG the page says so in plain sight: the Drive both stations read is away (nothing is taken in or
+written until it is back, so nothing is stranded on one machine: `drive_away`), a reading failed (failed(): the rows
+of the reading before stay, marked as old), the watcher stopped (`read_at`, which the page ages).
 
 TWO STATIONS. A subagent's log is on the machine it ran on. Each station writes its own rows to tasks/<host>.json in
 the tasks' folder, and reads the other's, so both boards list both. The relay's queue is read off the pipeline
@@ -131,7 +137,7 @@ def stations(where: Path, host, mine, now, write=True):
         except (OSError, ValueError):
             continue
         if isinstance(d, dict) and isinstance(d.get('rows'), list):
-            theirs += [r for r in d['rows'] if isinstance(r, dict) and r.get('id') and r.get('kind') in ('agent', 'session')]
+            theirs += [r for r in d['rows'] if isinstance(r, dict) and r.get('id') and r.get('kind') in ('agent', 'session', 'paused', 'capture')]
             heard.append(dict(host=str(d.get('host') or f.stem), at=int(f.stat().st_mtime)))
     return theirs, heard
 
@@ -146,19 +152,25 @@ def read(ready=None, every_note=None, now=None, cache_path=None, projects=None, 
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         cache = {}
-    if cache.get('v') != 1:
-        cache = dict(v=1)
+    if cache.get('v') != 2:
+        cache = dict(v=2)
     projects = projects or src_ops.PROJECTS
+    gone = src_tasks.away()                         # the Drive is away: nothing is taken in or written where only this station looks
     mine = src_tasks.local(projects, now, cache, host)
-    theirs, heard = stations(where, host, mine, now, write=live)
-    if live:
+    mine += src_tasks.capture_rows([], [dict(b, host=host) for b in feedback.broken(now=now)])     # an F10 that failed, on this station
+    theirs, heard = stations(where, host, mine, now, write=live and not gone)
+    if live and not gone:
         feedback.take_in(host=host, now=now)
     rel = relay(board, cache, now, fetch=fetch and live)
-    shared = (src_tasks.capture_rows(feedback.read_all()) + src_tasks.handoffs(where, projects, now)
-              + src_tasks.unit_files(where / 'units-for-master', rel['queue'], rel['done']) + src_tasks.relay_rows(rel, now) + src_tasks.ready_rows(ready, now))
-    T = src_tasks.collect(mine, theirs, shared, every_note if every_note is not None else notes.read_all(notes.folder()), now)
-    T['relay'] = dict(waiting=len([u for u in rel['queue'] if u not in rel['done']]), as_of=rel['as_of'])
+    units = where / 'units-for-master'
+    shared = (src_tasks.capture_rows(feedback.read_all()) + src_tasks.handoffs(where, projects, now, cache)
+              + src_tasks.unit_files(units, rel['queue'], rel['done']) + src_tasks.relay_rows(rel, now) + src_tasks.ready_rows(ready, now))
+    T = src_tasks.collect(mine, theirs, shared, every_note if every_note is not None else notes.read_all(notes.folder()), now, rel, src_tasks.unit_names(units))
+    T['relay'] = dict(waiting=len([u for u in rel['queue'] if u not in rel['done']]), as_of=rel['as_of'], taken=sorted(rel['queue']))
     T['stations'] = heard
+    T['read_at'] = int(now)
+    T['drive_away'] = gone
+    T['waiting_here'] = feedback.waiting(now=now) if gone else 0
     if live:
         put(cache_path, json.dumps(cache, sort_keys=True))
     return T
@@ -168,16 +180,26 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
     """Take up what he said: a task he queued becomes a unit file for the relay, once, and his note is answered with
     its name; a task he dropped has its note answered, so it does not stay open. Returns what was done, as lines."""
     notes_where, units, did = notes_where or notes.folder(), units or src_tasks.root() / 'units-for-master', []
+    if T.get('drive_away'):
+        return ['the Drive is away: nothing he said was taken up, it is when the Drive is back']
     for r in T['rows']:
-        if r['state'] != 'queued' or r.get('unit'):
+        if r['state'] not in ('queued', 'relay') or not r.get('note') or (r.get('answered') and r.get('unit')):
             continue
-        if r['kind'] in ('unit', 'relay'):
-            uid = r['id'].split('-', 1)[1]
+        if r['kind'] in ('unit', 'relay') or r['state'] == 'relay':
+            uid = src_tasks.unit_id(r)
             text = f'Unit {uid}: ' + ('it is a unit file already, in units-for-master. The master adds it to the relay\'s queue.' if r['kind'] == 'unit' else 'it is in the relay\'s queue already and runs again in its turn.')
         else:
             u = src_tasks.unit_for(r)
             bad = briefs.check_then('queued', u)
             if bad:
+                # said to him where he said it, and the task goes back to the list: a row that says "queued" with no unit is a lie
+                why = 'Not queued: the task could not be written as a unit of the relay (' + '; '.join(bad) + ').'
+                try:
+                    notes.answer(notes_where, r['note'], why, by=BY, now=now)
+                    r['state'], r['refused'] = 'left', why
+                    r['detail'] = src_tasks.detail(r)
+                except (OSError, ValueError) as e:
+                    why += f' Its note was not answered ({e})'
                 did.append(f'{r["id"]}: not written as a unit ({"; ".join(bad)})')
                 continue
             uid = u['id']
@@ -192,11 +214,35 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
         r['unit'] = uid
         r['detail'] = src_tasks.detail(r)
         did.append(f'{r["id"]}: queued as {uid}')
+    taken = set((T.get('relay') or {}).get('taken') or [])
     for n in notes.read_all(notes_where):
         if n['state'] != 'done' and n.get('from', 'owner') == 'owner' and str(n.get('about', '')).startswith('task: ') and n['text'].strip() == src_tasks.DROP_SAY:
-            notes.answer(notes_where, n['id'], 'Taken off the task board.', by=BY, now=now)
-            did.append(f'{n["about"][6:]}: dropped')
+            # the unit he queued it as goes with it, while it is only a file for the master: left there, the master
+            # still queues what he said is not needed. A unit file somebody else wrote (a unit- row) is not the board's to remove.
+            tid = n['about'][len('task: '):]
+            uid = src_tasks.unit_id(dict(id=tid, kind=tid.split('-', 1)[0]))
+            text = 'Taken off the task board.'
+            if uid.startswith('task-') and uid in taken:
+                text += f' The relay already has it as unit {uid} and will still run it: tell the master to take it out of the queue.'
+            elif uid.startswith('task-') and (units / f'{uid}.json').exists():
+                (units / f'{uid}.json').unlink()
+                text += f' Its unit file {uid}.json was taken back before the relay had it.'
+            notes.answer(notes_where, n['id'], text, by=BY, now=now)
+            did.append(f'{tid}: dropped')
     return did
+
+
+def failed(out: Path, why, now=None):
+    """A reading of the tasks failed. The page keeps the rows of the reading before, and says in plain sight that
+    they are old and why: left as it was, an old page looks like a current one."""
+    path = out / 'data' / 'tasks.js'
+    try:
+        text = path.read_text(encoding='utf-8')
+        T = json.loads(text[len('window.TASKS = '):].rstrip().rstrip(';'))
+    except (OSError, ValueError):
+        T = dict(rows=[])
+    T['failed'] = dict(at=int(now or time.time()), why=str(why)[:300])
+    return put(path, f'window.TASKS = {json.dumps(T, sort_keys=True)};\n')
 
 
 def site(T, out: Path):
@@ -212,9 +258,10 @@ def site(T, out: Path):
                 shots = [dict(src=dst.relative_to(out).as_posix(), name='the screen when you pressed F10')]
         r['shots'] = shots
         r.pop('ask', None)                          # what a unit is written from: a session's to read, too long for a page
-        r.pop('lines', None)
+        for k in ('lines', 'log', 'parent_log', 'parent', 'sid', 'cwd', 'branch', 'first', 'turns'):      # a unit's too, and paths of one machine
+            r.pop(k, None)
         rows.append(r)
-    return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict(T, rows=rows), sort_keys=True)};\n')
+    return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict(T, rows=rows, relay={k: v for k, v in T["relay"].items() if k != "taken"}), sort_keys=True)};\n')
 
 
 def idle(minutes):
@@ -223,13 +270,14 @@ def idle(minutes):
 
 def lines(T):
     """The tasks as text, for a session."""
-    out = [f'{T["left"]} left unfinished ({T["captures"]} of them feedback from the game), {T["queued"]} queued for the relay; {T["relay"]["waiting"]} units wait in the relay\'s queue']
+    out = [f'{T["left"]} left unfinished wait for an agent, {T["captures"]} captures from the game wait for the owner, {T["queued"]} queued for the relay, {T.get("with_relay", 0)} with the relay; '
+           f'{T["relay"]["waiting"]} units wait in the relay\'s queue' + ('; THE DRIVE IS AWAY: nothing is taken in or written' if T.get('drive_away') else '')]
     kind = None
     for r in T['rows']:
         if r['kind'] != kind:
             kind = r['kind']
             out.append(f'\n{kind}:')
-        out.append(f'  {r["id"]:44} {"QUEUED " if r["state"] == "queued" else ""}idle {idle(r["idle"])}{" on " + r["where"] if r.get("where") else ""}  {r["title"]}')
+        out.append(f'  {r["id"]:44} {"QUEUED " if r["state"] == "queued" else "WITH THE RELAY " if r["state"] == "relay" else ""}idle {idle(r["idle"])}{" on " + r["where"] if r.get("where") else ""}  {r["title"]}')
     return out
 
 

@@ -13,8 +13,12 @@ own folder is seen by nobody else, so
 each read of the board moves the finished captures into the tasks' folder (store(): the Drive both stations read),
 and there a capture is a task from its first minute (src_tasks.py).
 
-take_in() copies, compares every byte, and only then removes the game's copy. It also writes down what the game
-cannot know cheaply: the checkout the game ran from, its branch and its commit at that moment (board.json).
+take_in() copies, compares every byte, and only then removes the game's copy. It also writes down the checkout the
+game ran from as it is at that moment (board.json): its branch, its commit and how many files were changed. The game
+says its own branch and commit at the press (build.branch, build.commit), and those are what a row shows: the
+checkout may have moved on by the time the board takes the capture in, and the row says so when it did.
+A folder the game left that never becomes a capture (no state file half an hour on, or more bytes than a capture
+is) is not skipped in silence: broken() lists it and the board shows it as an F10 that failed.
 The format is feedback.example.json, which the game's tests and these tests both read.
 """
 import argparse
@@ -76,6 +80,33 @@ def finished(folder: Path, now):
         return False
 
 
+def broken(src: Path = None, now=None):
+    """The folders in the game's folder that are no capture and will not become one: no state file that reads after
+    OPEN_FOR seconds, or more than MOST bytes. [{name, folder, why, at}]."""
+    src, now, out = src or inbox(), now or time.time(), []
+    for folder in sorted(p for p in src.iterdir() if p.is_dir()) if src.is_dir() else []:
+        try:
+            at = folder.stat().st_mtime
+            if read(folder) is None:
+                if now - at < OPEN_FOR or not any(folder.iterdir()) or (folder / 'capture.json').exists():
+                    continue                        # still being written, an empty folder that is nobody's, or another schema's file
+                why = 'the game made its folder and wrote no state file'
+            elif sum(f.stat().st_size for f in folder.iterdir() if f.is_file()) > MOST:
+                why = f'it is larger than {MOST // 2 ** 20} MB, which is no capture'
+            else:
+                continue
+        except OSError:
+            continue
+        out.append(dict(name=folder.name, folder=str(folder), why=why, at=at))
+    return out
+
+
+def waiting(src: Path = None, now=None):
+    """How many finished captures wait in the game's folder (what the page says while the Drive is away)."""
+    src, now = src or inbox(), now or time.time()
+    return sum(1 for p in src.iterdir() if p.is_dir() and finished(p, now)) if src.is_dir() else 0
+
+
 def checkout_of(project):
     """The branch and commit of the checkout the game ran from, as they are now: {} when it is no checkout."""
     if not project or not Path(project).is_dir():
@@ -135,18 +166,51 @@ def lines(c, meta):
     out = []
     if m:
         req, rep = m.get('request') or {}, m.get('report') or {}
-        out.append(f'In {req.get("Title") or c.get("scene", "the battle")}, {clock(rep.get("DurationSeconds"))} into the match (tick {m.get("tick", 0)}), seed {req.get("BattlefieldSeed", "?")}.')
+        out.append(f'In {req.get("Title") or c.get("scene", "the battle")}, {clock(rep.get("DurationSeconds"))} into the match (tick {m.get("tick", 0)}), match seed {req.get("MatchSeed", "?")}, ground seed {req.get("BattlefieldSeed", "?")}.')
         alive = [sum(u.get('count', 0) for u in m.get('units') or [] if u.get('team') == t) for t in (0, 1)]
         silver = m.get('silver') or [0, 0]
         out.append(f'On the field: {alive[0]} of ours and {alive[1]} of theirs alive; silver {silver[0]} and {silver[1 if len(silver) > 1 else 0]}.')
         if m.get('holds_before') and m['holds_before'] != 'None':
             out.append(f'The match was already held ({m["holds_before"]}) when you pressed F10.')
+        v, picked, errs = c.get('view') or {}, len(str(m.get('selected') or '').split()), c.get('errors') or []
+        saw = ([f'the cursor on the ground at {v["cursor_ground"].get("x", 0):.0f}, {v["cursor_ground"].get("z", 0):.0f}'] if v.get('cursor_on_ground') and isinstance(v.get('cursor_ground'), dict) else []) \
+            + ([f'{v["armed"]} armed'] if v.get('armed') and v['armed'] != 'None' else []) + ([f'{picked} selected'] if picked else []) \
+            + ([f'{len(errs)} error{"" if len(errs) == 1 else "s"} in the console before it, the last: {str(errs[-1])[:120]}'] if errs else [])
+        if saw:
+            out.append('At the press: ' + '; '.join(saw) + '.')
     else:
         out.append(f'On a menu ({c.get("scene", "")}): no match was running.')
     b = c.get('build') or {}
-    game = f'the editor, {meta.get("branch", "?")} at {meta.get("commit", "?")}' + (f' with {meta["dirty"]} files changed' if meta.get('dirty') else '') if b.get('editor') else f'a build, version {b.get("version", "?")}'
+    if b.get('editor'):
+        # the game's own word at the press, when it gave one; the board's later look at the checkout otherwise, and beside it when the two differ
+        branch, commit = b.get('branch') or meta.get('branch', '?'), b.get('commit') or meta.get('commit', '?')
+        game = f'the editor, {branch} at {commit}' + (f' with {meta["dirty"]} files changed' if meta.get('dirty') else '')
+        if b.get('commit') and meta.get('commit') and meta['commit'] != b['commit']:
+            game += f' (the checkout had moved to {meta["commit"]} when the board took the capture in)'
+    else:
+        game = f'a build, version {b.get("version", "?")}' + (f', built from {built_from(b)}' if built_from(b) else '')
     out.append(f'Captured {c.get("when_local", "")} on {meta.get("host", "?")}, in {game}.')
-    return out
+    return out[:1] + out[1:-1][:3] + out[-1:]
+
+
+def built_from(b):
+    """The commit a build was made from, as its build-info.json says (the game copies that file into build_info)."""
+    try:
+        info = json.loads(b.get('build_info') or '{}')
+    except ValueError:
+        return ''
+    if not isinstance(info, dict):
+        return ''
+    commit = next((str(info[k]) for k in ('commit', 'sha', 'git', 'revision') if info.get(k)), '')
+    return (f'{info["branch"]} at ' if info.get('branch') and commit else '') + commit[:8]
+
+
+def place(c):
+    """Where and when in the game a capture was taken, in a few words: what tells two captures without words apart."""
+    if not c.get('in_match'):
+        return f'on a menu ({c.get("scene", "")})'
+    m = c.get('match') or {}
+    return f'{(m.get("request") or {}).get("Title") or c.get("scene", "the battle")}, {clock((m.get("report") or {}).get("DurationSeconds"))} in'
 
 
 def read_all(where: Path = None):
@@ -169,7 +233,7 @@ def read_all(where: Path = None):
         ask = (f'{note or "(He left no words: the picture and the state are the feedback.)"}\n\nThe capture: {folder}\n'
                f'- {shot.name if shot.exists() else "no picture"}: the screen as he saw it, HUD included\n- capture.json: the match, the view, the settings and the build at that moment\n'
                + '\n'.join(lines(c, meta)))
-        out.append(dict(id=folder.name, note=note, when=str(c.get('when_local', ''))[:16], at=at, host=meta.get('host', ''), scene=c.get('scene', ''), folder=str(folder),
+        out.append(dict(id=folder.name, note=note, when=str(c.get('when_local', ''))[:16], at=at, host=meta.get('host', ''), scene=c.get('scene', ''), folder=str(folder), place=place(c),
                         shot=str(shot) if shot.exists() else '', lines=lines(c, meta), ask=ask, meta=meta))
     return out
 
