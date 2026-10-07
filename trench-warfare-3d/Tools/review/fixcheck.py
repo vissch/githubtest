@@ -144,6 +144,10 @@ def _inside(lines, n):
     return False
 
 
+def _indent(line):
+    return len(line) - len(line.lstrip())
+
+
 def cs_test(path, lines, n):
     starts = []                                     # (line of the first attribute, method name)
     i = 0
@@ -161,11 +165,15 @@ def cs_test(path, lines, n):
     k = n + 1                                       # a tag in the comment above a test belongs to that test
     while k < len(lines) and (not lines[k].strip() or lines[k].strip().startswith('//')):
         k += 1
-    method = next((m for s, m in starts if s == k), None) if lines[n].strip().startswith('//') else None
-    if not method:
-        method = next((m for s, m in reversed(starts) if s <= n), starts[0][1])
+    at = next((s for s, m in starts if s == k), None) if lines[n].strip().startswith('//') else None
+    if at is None:
+        at = next((s for s, m in reversed(starts) if s <= n), starts[0][0])
+    method = next(m for s, m in starts if s == at)
     ns = next((re.match(r'^\s*namespace ([\w.]+)', l) for l in lines if re.match(r'^\s*namespace ([\w.]+)', l)), None)
-    cls = next((re.search(r'\bclass (\w+)', l) for l in reversed(lines[:n + 1]) if re.search(r'\bclass (\w+)', l)), None)
+    # the class that holds the test: the nearest one above it that is indented less than the test is. A helper
+    # class nested beside the tests is indented as they are, and is passed over.
+    cls = next((re.search(r'\bclass (\w+)', l) for l in reversed(lines[:at])
+                if re.search(r'\bclass (\w+)', l) and _indent(l) < _indent(lines[at])), None)
     if not cls:
         return None
     full = '.'.join(x for x in (ns.group(1) if ns else '', cls.group(1), method) if x)

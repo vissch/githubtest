@@ -248,6 +248,13 @@ class UnityFixes(Repo):
         play = F.find_tests(P + 'Assets/_Project/Tests/PlayMode/X.cs', CS_TEST, ['U1'])
         self.assertEqual(play['U1'][0]['platform'], 'PlayMode')
 
+    def test_a_helper_class_nested_beside_the_tests_is_not_the_tests_class(self):
+        text = CS_TEST.replace('        [Test]\n        public void AlwaysGreen()',
+                               '        sealed class Rig\n        {\n            public int N;\n        }\n\n'
+                               '        [Test]\n        public void AlwaysGreen()')
+        found = F.find_tests(P + 'Assets/_Project/Tests/Sim/ThingTests.cs', text, ['U2'])
+        self.assertEqual(found['U2'][0]['name'], 'TW.Tests.ThingTests.AlwaysGreen')
+
     def test_red_then_green_is_proved_and_green_twice_fails(self):
         code, rec, said = self.check(self.cs_fix(), ['U1', 'U2'], lane='lane/sim/x', unity=str(self.unity))
         self.assertEqual(rec['ids']['U1']['verdict'], 'PROVED', said)
