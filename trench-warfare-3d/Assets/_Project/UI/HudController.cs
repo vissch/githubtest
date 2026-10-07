@@ -268,7 +268,7 @@ namespace TW.UI
             using var perf = TW.Sim.PerfMarkers.HudLate.Auto();
             if (!flagOn)
             {
-                if (KeyMap.DownRaw(GameAction.HudToggle)) { HudBridge.UseToolkitHud = true; ApplyFlag(); }
+                if (!InputFocus.Typing && KeyMap.DownRaw(GameAction.HudToggle)) { HudBridge.UseToolkitHud = true; ApplyFlag(); }
                 return;
             }
             if (built && refs.Bar.panel == null) built = false;   // the document rebuilt its tree under us (live reload)
