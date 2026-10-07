@@ -18,8 +18,10 @@ the owner clicked on yesterday's page (2026-10-06). While it watches, a changed 
 on the next read; a change to this Python still needs the watcher stopped and started.
 data/crew.js and data/frog.js list the owner's pictures this station has: a portrait per worker (crew) and the
 sheets of the walking frog (frog, packed by sprites.py). Both are written when the pages are, not on every read.
-data/graphs.js is what graphs.html draws (src_graphs.py) and data/notes.js the owner's notes and their answers
-(notes.py); both are made again on every read. The same read gives each session and agent its `visual`, the last
+data/graphs.js is what the office, counted draws on graphs.html and on the control screen (src_graphs.py, with the
+relay's cost from src_relay.py) and data/notes.js the owner's notes and their answers (notes.py); both are made again
+on every read. data/frogtex.js is the two frog sheets that scene shows, as text: a page opened from the Drive as a
+file may not give WebGL a picture file, it may give it a picture written out in a script. The same read gives each session and agent its `visual`, the last
 picture or film it had in its hands, copied small into img/last/ (src_visuals.py), and puts the open decision briefs
 (briefs.py) in data/briefs.js with their evidence under img/brief/, for decide.html, and the ideas he picks from
 (ideas.py) in data/ideas.js with their pictures under img/idea/. While it watches, it also starts the ideas agent when
@@ -28,6 +30,7 @@ pages (a listener on this machine only, notes.py) and data/notebox.js tells the 
 What it reads: src_ops.py, src_queue.py.
 """
 import argparse
+import base64
 import json
 import os
 import shutil
@@ -45,6 +48,7 @@ import src_git    # noqa: E402
 import src_graphs  # noqa: E402
 import src_ops    # noqa: E402
 import src_queue  # noqa: E402
+import src_relay  # noqa: E402
 import src_visuals  # noqa: E402
 
 
@@ -91,7 +95,8 @@ def page(out: Path, meta):
     env.globals.update(meta=meta)
     for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
-    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'charts.js', 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'site.css', 'kinetic.css'):
+    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
+                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -126,11 +131,17 @@ def crew(out: Path):
     return media
 
 
+SCENE_FROGS = ('office', 'sleep_loop')      # the two sheets the office, counted shows: a frog at its desk, a frog asleep
+
+
 def frog(out: Path):
     """The frog that walks through the house is the owner's art too: sprites.py packs it into sheets in this
     station's cache (frog/, beside crew/), with frog.json saying what is on each. The sheets it names are copied
     into the site's img/frog/ and data/frog.js is that manifest. A station that never packed them, or whose pack
-    lost a sheet, gets an empty one, and housedraw.js draws each worker as the mark of its kind."""
+    lost a sheet, gets an empty one, and housedraw.js draws each worker as the mark of its kind.
+    The office, counted (countedscene.js) draws on WebGL, which takes no picture from a file beside a page that was
+    itself opened as a file. So the two sheets it shows are also written out as text, at half size, in
+    data/frogtex.js, each with how its frames lie on it; empty without a pack, and the scene then draws a mark."""
     src = CREW / 'frog'
     try:
         man = json.loads((src / 'frog.json').read_text(encoding='utf-8'))
@@ -145,6 +156,13 @@ def frog(out: Path):
             dst.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src / n, dst)
     write_if_changed(out / 'data' / 'frog.js', f'window.FROG = {json.dumps(man, sort_keys=True)};\n')
+    tex = {}
+    for key in SCENE_FROGS if names else ():
+        a = man.get('anims', {}).get(key)
+        if a:
+            tex[key] = dict(src='data:image/png;base64,' + base64.b64encode((src / f'{key}@0.5.png').read_bytes()).decode('ascii'),
+                            n=a['n'], cols=a['cols'], w=a['w'], h=a['h'], fps=a.get('fps', 8))
+    write_if_changed(out / 'data' / 'frogtex.js', f'window.FROGTEX = {json.dumps(tex, sort_keys=True)};\n')
     return man
 
 
@@ -217,13 +235,21 @@ def queue(data, out: Path, cache_path: Path = None, repo: Path = None, board=Non
     return q
 
 
-def graphs(data, out: Path, now=None):
-    """What graphs.html draws, for this reading (src_graphs.py). The transcripts are read through a cache and the
-    floor's history is kept in this station's cache folder, so neither is in the site. The same pass over the
-    transcripts says which picture or film each worker last had in its hands; that goes on the workers in `data`."""
+def graphs(data, out: Path, now=None, all_briefs=None, answers=None):
+    """What the office, counted draws, for this reading (src_graphs.py). The transcripts are read through a cache and
+    the floor's history is kept in this station's cache folder, so neither is in the site. The same pass over the
+    transcripts says which picture or film each worker last had in its hands; that goes on the workers in `data`.
+    `all_briefs` and `answers` are the briefs and what he answered, as once() read them; the relay's legs are read
+    from the board and from this station's relay homes (src_relay.py)."""
     trees = {Path(l['path']): dict(branch=l['branch']) for l in data['lanes'] if l.get('path')}
     now, seen = now or time.time(), {}
-    g = src_graphs.collect(build.REPO, out, data, trees, now, build.LOCAL / 'graphs-cache.json', build.LOCAL / 'history.jsonl', seen=seen)
+    try:
+        relay = src_relay.week(src_relay.boards(board_root()), src_relay.homes(), now)
+    except Exception as e:      # noqa: BLE001  a record that does not read is no reason to have no page: the shells are left out
+        print(f'ops: the relay\'s legs were not read ({type(e).__name__}: {e})')
+        relay = None
+    g = src_graphs.collect(build.REPO, data, trees, now, build.LOCAL / 'graphs-cache.json', build.LOCAL / 'history.jsonl', seen=seen,
+                           briefs=all_briefs, answers=answers, relay=relay)
     src_visuals.attach(data['lanes'], seen, out, now)
     write_if_changed(out / 'data' / 'graphs.js', f'window.GRAPHS = {json.dumps(g, sort_keys=True)};\n')
     return g
@@ -277,7 +303,7 @@ def once(out: Path, watching=False):
     every, his = briefs.read_all(briefs.folder()), notes.read_all(notes.folder())
     got = briefs.answers(every, his)
     data['queue'] = queue(data, out, answers=got, all_briefs=every, all_notes=his)
-    graphs(data, out)
+    graphs(data, out, all_briefs=every, answers=got)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)
