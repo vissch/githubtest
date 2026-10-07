@@ -730,6 +730,28 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
   `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
 
+### Feedback capture (F10: the screen and the state of the game, for the task board)
+- **Files:** `UI/Shell/FeedbackCapture.cs` (the record and its folder), `UI/Shell/FeedbackScreen.cs` with
+  `UI/Resources/Shell/Feedback.uxml` (the box for his words), `UI/Shell/ShellRouter.cs` (`Feedback`, the key and the
+  picture), `Presentation/Core/KeyMap.cs` (`GameAction.Feedback`, F10). The board's side is
+  `Tools/assetboard/feedback.py`; the format both sides test against is `Tools/assetboard/feedback.example.json`.
+- **Tests:** FeedbackCaptureTests (the format key by key against the example, the folder, the box), FeedbackPlayTests
+  (a real match: what the file says, the hold, his own pause kept), KeyMapTests.
+- **What it does:** on the frame of the press the router writes the state file and asks for the picture
+  (`ScreenCapture.CaptureScreenshot`: the only capture a built game can make with the HUD in it); the box comes up on
+  the next frame, so it is never in the picture. The box is a modal screen: that is what holds the match
+  (`MatchClock.Hold.Menu`) and stands the gameplay keys down. Enter saves his words, Esc closes without, F10 again
+  saves and closes. The capture is kept either way. On a menu there is no match and the file says `in_match` false.
+- **Where it goes:** a folder per capture under LOCALAPPDATA, TrenchWarfare, feedback (TW_FEEDBACK names another):
+  the state file, the picture, and a file named writing while the box is open. The board's watcher takes a capture in
+  once that file is gone and lists it as a task (`pipelines.md`, the asset board's table).
+- **Trap:** a new field of the record is a new key of the file. Add it to the example when the board should read it;
+  rename one the example has and FeedbackCaptureTests goes red, which is the point.
+- **Trap:** the match is not recorded, so a capture cannot be returned to: it names the seed and the tick, no more
+  (owner, 2026-10-07).
+- **See it:** press F10 in Play, type, press Enter; the folder is logged nowhere, look in the folder above. In batch
+  mode no picture is asked for (there is no screen).
+
 ### The Proving Ground (the test level: every unit, waves on demand)
 - **What it is:** an endless match (`SimConfig.Endless`) started from the main menu's PROVING GROUND, where any unit
   the tables define can be fielded by either side. Owner's request and answers: `decisions.md`, "The Proving Ground".
@@ -932,10 +954,10 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 
 <!-- gen:tests -->
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
-- **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
+- **PlayMode:** FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FigurePartsTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MeleeTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, VfxStills, WalkerStills, WreckStills
-- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
+- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->

@@ -251,7 +251,7 @@ namespace TW.Presentation
         /// <summary>
         /// The key printed in a card's badge. Ten roster slots take the whole digit row ("1".."9", then "0" for the
         /// tenth), which is why the support cards moved off 9 and 0 onto F5-F7: F1-F4 are the debug overlays, F9 the
-        /// HUD toggle and F10 the debug panel, so F5, F6, F7 are the only free block on the function row.
+        /// HUD toggle and F10 the feedback capture, so F5, F6, F7 are the only free block on the function row.
         /// </summary>
         public static string Hotkey(int slot) => slot >= 0 && slot < RosterEntry.SlotCount ? ((slot + 1) % 10).ToString() : "";
 
