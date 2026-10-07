@@ -13,6 +13,10 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 | critic | Opus, high | read its evidence bundle; write only `critic.md`; no subagent | a score out of 100 and three mandated fixes |
 | retro | Opus, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
 
+A role's legs of one phase run on another model or effort when `routes.json` says so (`config.route`; Opus or
+Sonnet only). One route is in it, a trial: the execute legs of `review-fix` units on Sonnet at medium effort, measured by
+`Tools/review/fixcheck.py` against the Opus legs before it. A route stays only on the owner's word.
+
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
 A plan leg, a critic leg and a retrospective end with `leg done`, which runs the runner's own check on their paper, so they can mend
@@ -77,7 +81,7 @@ $R run --work <work checkout> --view              # also open a Windows Terminal
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
-$R add <id> --lane lane/show/<x> --goal "<words>" [--role <role>] --done-when <program> <arg> ...
+$R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <program> <arg> ...
 $R add --unit <file>                              # the same, the unit from a file in the queue file's shape
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
