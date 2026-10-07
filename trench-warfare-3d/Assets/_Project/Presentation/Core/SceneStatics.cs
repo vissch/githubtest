@@ -10,6 +10,11 @@
 // components have already wired theirs, and HudBootstrap builds the HUD in its own sceneLoaded handler, which Unity
 // may run before or after ShellRouter's. Their owners clear them in OnDisable; ResetSession clears them too.
 //
+// A per-scene registration (RegisterPerScene) is for a static that caches something the scene owned: a view, a
+// renderer, a mesh that the Single LoadScene destroyed. Reset() runs those at its end, so the cache is forgotten
+// before any code in the new scene can hand out the dead reference (MetaServices did: the destroyed strategic map
+// view read as "not null" behind its interface and threw MissingReferenceException on the first campaign DEPLOY).
+//
 // ResetSession() runs when no scene is live: when the editor leaves Play (Editor/PlayModeStaticsReset.cs) and
 // before tests that read these statics. The editor reloads the domain on entering Play but not on leaving it,
 // so without this an EditMode test run after a Play session sees the last frame of that session — CameraShake's
@@ -27,13 +32,16 @@ namespace TW.Presentation
     public static class SceneStatics
     {
         static readonly List<KeyValuePair<string, Action>> session = new List<KeyValuePair<string, Action>>();
+        static readonly List<KeyValuePair<string, Action>> perScene = new List<KeyValuePair<string, Action>>();
 
-        /// <summary>Per scene load: statics nobody owns. Leaves SceneHooks alone (see the file header).</summary>
+        /// <summary>Per scene load: statics nobody owns, then every per-scene registration. Leaves SceneHooks alone
+        /// (see the file header).</summary>
         public static void Reset()
         {
             SimHost.BombardmentOverride = -1f;
             Time.timeScale = 1f;
             InputFocus.Reset();
+            for (int i = 0; i < perScene.Count; i++) perScene[i].Value();
         }
 
         /// <summary>Register what to put back when a Play session ends. One entry per owner: registering the same
@@ -43,6 +51,21 @@ namespace TW.Presentation
             for (int i = 0; i < session.Count; i++)
                 if (session[i].Key == owner) { session[i] = new KeyValuePair<string, Action>(owner, reset); return; }
             session.Add(new KeyValuePair<string, Action>(owner, reset));
+        }
+
+        /// <summary>Register what to forget on every scene load: a cache of things the ending scene owned. Same
+        /// replace-by-owner rule as Register. These also run when a Play session ends (ResetSession calls Reset).</summary>
+        public static void RegisterPerScene(string owner, Action reset)
+        {
+            for (int i = 0; i < perScene.Count; i++)
+                if (perScene[i].Key == owner) { perScene[i] = new KeyValuePair<string, Action>(owner, reset); return; }
+            perScene.Add(new KeyValuePair<string, Action>(owner, reset));
+        }
+
+        /// <summary>Who forgets its scene's things on every scene load (the tests read it).</summary>
+        public static IEnumerable<string> PerSceneRegistered
+        {
+            get { foreach (var kv in perScene) yield return kv.Key; }
         }
 
         /// <summary>Who has registered a reset (StaticLifecycleTests reads it).</summary>
