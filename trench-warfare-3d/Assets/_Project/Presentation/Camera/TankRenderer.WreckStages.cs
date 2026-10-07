@@ -165,6 +165,7 @@ namespace TW.Presentation.Tactical
                 if (age < ClearSinkSeconds) continue;
                 foreach (var p in v.Pieces) debris.Remove(p);
                 shards.RemoveAll(s => s.Owner == v);
+                FreeHopRig(v);
                 wrecks.RemoveAt(k);
             }
         }

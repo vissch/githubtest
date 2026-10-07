@@ -1,4 +1,6 @@
 // Phase: Playground (2026-09-28, lane/show/playground) — skinned legs on a hull whose legs are welded to it
+// Here, not in the Playground, since 2026-10-07: the battle draws the same legs (TankRenderer.HopLegs.cs), and the
+// Playground's assembly reads this one, not the other way round. It was Playground/Runtime/LegRig.cs.
 // Tripo welded the Bullfrog's four legs into its hull, so no part can move them. Tools/legrig.py gives each hull LOD's
 // vertices bone weights (Blender's bone heat on an armature laid into the legs: thigh, shin, foot; arm, forearm, hand;
 // the body's bones hold the torso) and writes <Name>_legs.json; this class skins the rig's own copy of each hull mesh on
@@ -10,9 +12,9 @@
 using System;
 using UnityEngine;
 
-namespace TW.Playground
+namespace TW.Presentation.Tactical
 {
-    public sealed class LegRig
+    public sealed class WeldedLegRig
     {
         [Serializable] sealed class BoneData { public string name, parent; public float[] head, tail; }
         [Serializable] sealed class LodData { public float[] verts; public int[] wi; public float[] ww; }
@@ -47,11 +49,11 @@ namespace TW.Playground
 
         public int Bone(string name) => Array.IndexOf(Names, name);
 
-        LegRig(FileData f, Mesh[] copies)
+        WeldedLegRig(FileData f, Mesh[] copies, int[] fileLod, float scale, float[] within)
         {
             int n = f.bones.Length;
             Names = new string[n]; head = new Vector3[n]; parent = new int[n]; Pose = new Quaternion[n]; m = new Matrix4x4[n]; q = new Quaternion[n];
-            for (int b = 0; b < n; b++) { Names[b] = f.bones[b].name; head[b] = V(f.bones[b].head, 0); Pose[b] = Quaternion.identity; }
+            for (int b = 0; b < n; b++) { Names[b] = f.bones[b].name; head[b] = V(f.bones[b].head, 0) * scale; Pose[b] = Quaternion.identity; }
             for (int b = 0; b < n; b++) parent[b] = string.IsNullOrEmpty(f.bones[b].parent) ? -1 : Bone(f.bones[b].parent);
             float yaw = f.yaw * Mathf.Deg2Rad;
             Right = new Vector3(Mathf.Cos(yaw), 0f, -Mathf.Sin(yaw)); Forward = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
@@ -61,7 +63,7 @@ namespace TW.Playground
             for (int k = 0; k < lods; k++)
             {
                 rest[k] = copies[k].vertices; restN[k] = copies[k].normals;
-                var d = f.lods[Mathf.Min(k, f.lods.Length - 1)];
+                var d = f.lods[Mathf.Min(fileLod != null && k < fileLod.Length ? fileLod[k] : k, f.lods.Length - 1)];
                 int nv = rest[k].Length, nw = d.verts.Length / 3;
                 wi[k] = new int[nv * 4]; ww[k] = new float[nv * 4];
                 for (int i = 0; i < nv; i++)
@@ -70,10 +72,11 @@ namespace TW.Playground
                     int best = -1; float bd = float.MaxValue; var p = rest[k][i];
                     for (int j = 0; j < nw; j++)
                     {
-                        float dx = d.verts[j * 3] - p.x, dy = d.verts[j * 3 + 1] - p.y, dz = d.verts[j * 3 + 2] - p.z, dd = dx * dx + dy * dy + dz * dz;
+                        float dx = d.verts[j * 3] * scale - p.x, dy = d.verts[j * 3 + 1] * scale - p.y, dz = d.verts[j * 3 + 2] * scale - p.z, dd = dx * dx + dy * dy + dz * dz;
                         if (dd < bd) { bd = dd; best = j; }
                     }
-                    if (bd > 1e-6f) throw new InvalidOperationException($"LOD{k} vertex {i} is {Mathf.Sqrt(bd):0.000} from any weighted vertex");
+                    float near = within != null && k < within.Length ? within[k] : 1e-3f;
+                    if (bd > near * near * scale * scale) throw new InvalidOperationException($"LOD{k} vertex {i} is {Mathf.Sqrt(bd):0.000} from any weighted vertex");
                     Array.Copy(d.wi, best * 4, wi[k], i * 4, 4); Array.Copy(d.ww, best * 4, ww[k], i * 4, 4);
                 }
                 bodyW[k] = new float[nv];
@@ -98,18 +101,24 @@ namespace TW.Playground
 
         /// <summary>The legs for this hull, on the given copies of its LOD meshes (readable), or null (no file, or the
         /// meshes no longer match it: a warning).</summary>
-        public static LegRig Parse(string json, Mesh[] copies, string who)
+        /// <param name="fileLod">Which of the file's LODs each copy is (null: in order). The battle's far model is the Playground's LOD2.</param>
+        /// <param name="scale">How much larger than the file's hull the copies are (the battle draws the Bullfrog 1.6 times its sculpt).
+        /// The throat and the belly squash are in the file's units and are the Playground's alone.</param>
+        /// <param name="within">How near (file units) a copy's vertex must be to a weighted one, per copy (null: a millimetre,
+        /// the same mesh). A copy that is another cut of the same sculpt (the battle's far model) takes the weights of the
+        /// nearest point of the densest LOD instead: give it the gap its cut leaves.</param>
+        public static WeldedLegRig Parse(string json, Mesh[] copies, string who, int[] fileLod = null, float scale = 1f, float[] within = null)
         {
             if (string.IsNullOrEmpty(json) || copies == null) return null;
             try
             {
                 var f = JsonUtility.FromJson<FileData>(json);
                 if (f?.bones == null || f.lods == null || f.lods.Length == 0) return null;
-                return new LegRig(f, copies);
+                return new WeldedLegRig(f, copies, fileLod, scale, within);
             }
             catch (Exception ex)
             {
-                Debug.LogWarning($"LegRig {who}: legs left still ({ex.Message}); run Tools/legrig.py on the current hull (docs/22)");
+                Debug.LogWarning($"WeldedLegRig {who}: legs left still ({ex.Message}); run Tools/legrig.py on the current hull (docs/22)");
                 return null;
             }
         }

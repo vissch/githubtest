@@ -15,7 +15,7 @@
 // feet on it), and the crouch, the top of the hop and the landing looked alike in stills (critic g6). The turret gets
 // the inverse scale: the hull's scale is uniform across its width and the turret turns only about the hull's up, so the
 // two cancel exactly and the saddle and guns never shear.
-// The legs move although Tripo welded them to the body: they are skinned (LegRig, bones and weights from
+// The legs move although Tripo welded them to the body: they are skinned (WeldedLegRig, bones and weights from
 // Tools/legrig.py) on the rig's own copy of each hull mesh and posed through the hop by Drives: the hind legs unfold and
 // swing to trail straight back off the take-off, the forelegs sweep back under it and then reach forward and down for
 // the landing, and knocked out all four sprawl (tucked in the sitting pose all the way, it read as a statue lifted,
@@ -28,6 +28,7 @@
 // shudders with the guns and leans back against them. (Critic g6: a rigid statue that bounced; firing, nothing moved.)
 // Only the hull moves in the rig's frame (its height, pitch and squash), and the rig's root along the circle, as WalkerDrive
 // moves it: a clock that only dt advances, so three copies at three LODs hop identically (VehicleRig's rule).
+using TW.Presentation.Tactical;
 using UnityEngine;
 
 namespace TW.Playground
@@ -39,7 +40,7 @@ namespace TW.Playground
         public bool InPlace;                       // hops on the spot (to look at)
         public float Period = 1.15f;               // seconds per hop: crouch, flight, landing
         public float Height = 1.3f;                // metres the body rises at the top of a hop, at 2 m/s (more with pace; 0.9 hardly read at the battle's 78 m, g7)
-        public const float Crouch = 0.18f, Flight = 0.5f;   // shares of a hop; the landing takes the rest
+        public const float Crouch = HopLegs.Crouch, Flight = HopLegs.Flight;   // shares of a hop; the landing takes the rest
         /// <summary>Seconds it sits between hops (settled, breathing), on top of Period: hop after hop without a pause read
         /// as a machine bouncing, not a toad hopping. The pace is kept: each hop goes further.</summary>
         public float Rest = 0.3f;
@@ -59,8 +60,9 @@ namespace TW.Playground
         bool wasAir;
         Vector3[] toes;   // the hull's lowest LOD0 vertices, in its frame (rig units): what it stands on
         VehicleRig.Part saddle;
-        Mesh[] legMesh; LegRig legs; int[] standOn, belly, legPts;
+        Mesh[] legMesh; WeldedLegRig legs; int[] standOn, belly, legPts;
         float deadSplay = 1f, deadDy = float.NaN;
+        HopLegs.Bones bones;
         readonly int[] thigh = { -1, -1 }, shin = { -1, -1 }, foot = { -1, -1 }, arm = { -1, -1 }, fore = { -1, -1 }, hand = { -1, -1 };
         /// <summary>The legs' drives this frame (0..1; see Drives): the hind legs unfolding, the forelegs tucked, reaching.</summary>
         public float Extend { get; private set; }
@@ -134,7 +136,7 @@ namespace TW.Playground
                 if (hull.F != null && hull.F.sharedMesh == src) hull.F.sharedMesh = copy;
                 hull.Lods[k] = copy;
             }
-            legs = LegRig.Parse(json, legMesh, rig.name);
+            legs = WeldedLegRig.Parse(json, legMesh, rig.name);
             if (legs == null) return;
             // it stands on its lowest vertices and on everything that follows a leg: an unfolding leg's knee or heel can
             // come lower than the feet it started on
@@ -158,6 +160,7 @@ namespace TW.Playground
                 thigh[s] = legs.Bone("Thigh_" + sides[s]); shin[s] = legs.Bone("Shin_" + sides[s]); foot[s] = legs.Bone("Foot_" + sides[s]);
                 arm[s] = legs.Bone("Arm_" + sides[s]); fore[s] = legs.Bone("Fore_" + sides[s]); hand[s] = legs.Bone("Hand_" + sides[s]);
             }
+            bones = new HopLegs.Bones(legs);
             // how high the push stands it at take-off (stretched, level): the flight starts from there, not from the ground
             PoseLegs(Push, 0.6f, 0f, 0f, 0f, 0f, 0f, 0f);   // the pose at the end of the crouch (Drives)
             float w = 1f / Mathf.Sqrt(Spring);
@@ -172,44 +175,13 @@ namespace TW.Playground
             foreach (var m in legMesh) if (m != null) { if (Application.isPlaying) Destroy(m); else DestroyImmediate(m); }
         }
 
-        /// <summary>The legs through a hop at phase u, as five drives (0..1): extend, the hind legs unfolding (straight
+        /// <summary>The legs through a hop at phase u, as six drives (0..1): extend, the hind legs unfolding (straight
         /// out in the first tenth of the flight, folding back up by two thirds of it); trail, those legs swung from
         /// pushing down to trailing straight back behind (propped on them from below, the body rose 2.5 m, twice the hop,
         /// before it left the ground); tuck, the forelegs swept back under it leaving the ground; reach, the forelegs out
         /// forward and down for the landing; absorb, the hind knees folding as it gathers and lands.</summary>
         public static void Drives(float u, out float extend, out float trail, out float open, out float tuck, out float reach, out float absorb)
-        {
-            extend = trail = open = tuck = reach = absorb = 0f;
-            if (u < Crouch)
-            {
-                float c = u / Crouch;
-                absorb = 0.5f * Mathf.Sin(Mathf.Min(c / 0.6f, 1f) * Mathf.PI);   // gathers
-                // and pushes off: the hind legs start to unfold with the feet still on the ground, which stands the body
-                // up on them (unfolding only in the air, it rose with its legs still folded, critic g10)
-                extend = Push * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 1f, c));
-                // leaning back as it pushes, so it leaves along a diagonal instead of standing up on stilts first (g11)
-                trail = 0.6f * Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.75f, 1f, c));
-            }
-            else if (u < Crouch + Flight)
-            {
-                float k = (u - Crouch) / Flight;
-                // the swing back leads the rest of the unfold: unfolding first, the legs propped it up to 1.9 m
-                // (and waits for it: still unfolding while it swung, the legs stood it 0.7 m over the arc at k = 0.04)
-                extend = Mathf.Lerp(Push, 1f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.07f, 0.2f, k))) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 0.7f, k)));
-                trail = Mathf.Lerp(0.6f, 1f, Mathf.SmoothStep(0f, 1f, k / 0.07f));
-                // the knee opens from its push to its trail after the swing: opening while it swung dropped the ankle
-                open = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.07f, 0.2f, k));
-                tuck = Mathf.SmoothStep(0f, 1f, k / 0.15f) * (1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.5f, k)));
-                // from 0.3, over the end of the tuck: from 0.45 the legs sat at rest mid-flight (g10)
-                reach = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.3f, 0.8f, k));
-            }
-            else
-            {
-                float q = (u - Crouch - Flight) / (1f - Crouch - Flight);
-                reach = 1f - Mathf.SmoothStep(0f, 1f, q / 0.4f);
-                absorb = Mathf.Sin(Mathf.Min(q / 0.5f, 1f) * Mathf.PI);
-            }
-        }
+            => HopLegs.Drives(u, out extend, out trail, out open, out tuck, out reach, out absorb);
 
         /// <summary>Pose the bones from the drives (and splay: knocked out, the legs sprawl; brace: firing, the forelegs
         /// set forward). Pitch turns about the body's right (+ swings a bone's far end from forward to down to back),
@@ -219,28 +191,9 @@ namespace TW.Playground
             if (legs == null) return;
             if (LegOverride is Vector4 o) { extend = o.x; trail = open = 1f; tuck = o.y; reach = o.z; splay = o.w; absorb = 0f; brace = 0f; }
             Extend = extend; Tuck = tuck; ReachDrive = reach;
-            for (int s = 0; s < 2; s++)
-            {
-                // sprawled 45 degrees out (20 left it sitting up, g10)
-                float out_ = (s == 0 ? -1f : 1f) * 45f * splay;
-                float ex = Mathf.Min(1f, extend + (s == 0 ? kickL : kickR));
-                if (s == 1) Extend = Mathf.Max(extend, Mathf.Min(1f, extend + Mathf.Max(kickL, kickR)));
-                // the roll outside the pitch: a sprawled leg folds and kicks in its own plane, flat along the ground (the
-                // pitch outside swung a sprawled leg's kick straight up over the back like a tail, critic g13)
-                Quaternion R(float pitch, float roll = 0f) => Quaternion.AngleAxis(roll, legs.Forward) * Quaternion.AngleAxis(pitch, legs.Right);
-                // (the forelegs do not fold as it gathers or lands: turned about the shoulder the hands left the ground and
-                // the body stood up on the elbows, +0.2 m in the crouch)
-                // trailing, the thighs ride up 32 degrees: the body leaves nose up, and at 20 that swung the trailing feet
-                // into the ground, which stood it 0.7 m over its arc
-                // trailing, the leg opens nearly straight behind (knee 100 degrees; at 65 it zig-zagged, the knee up and the
-                // foot down, g10); pushing, it presses down; absorbing, the knee folds (5 degrees did not show)
-                Set(thigh[s], R(ex * Mathf.Lerp(-22f, 25f, trail) + 12f * absorb, out_));
-                Set(shin[s], R(ex * Mathf.Lerp(55f, 100f, open) - 15f * absorb + 20f * splay));
-                Set(foot[s], R(ex * Mathf.Lerp(25f, 60f, open)));
-                Set(arm[s], R(-38f * reach + 24f * tuck - 15f * brace - 10f * splay, out_));
-                Set(fore[s], R(-12f * reach + 20f * tuck));
-                Set(hand[s], R(20f * reach - 10f * tuck));   // (35: the palm behind the wrist sheared)
-            }
+            // each side's own unfold (a kick is one leg's), then the bones from the drives: HopLegs, which the battle poses by too
+            Extend = Mathf.Max(extend, Mathf.Min(1f, extend + Mathf.Max(kickL, kickR)));
+            HopLegs.Pose(legs, bones, Mathf.Min(1f, extend + kickL), Mathf.Min(1f, extend + kickR), trail, open, tuck, reach, absorb, splay, brace);
             legs.Solve();
             // the body sinking (and shifting forward) over its planted feet: each leg folds to take it, and the belly
             // flattens on the ground under it
@@ -324,7 +277,7 @@ namespace TW.Playground
         }
 
         public const float Squash = 0.84f, Spring = 1.12f;   // the hull's height at the flattest landing, and at take-off
-        public const float Push = 0.4f;   // how far the hind legs unfold on the ground, pushing off
+        public const float Push = HopLegs.Push;   // how far the hind legs unfold on the ground, pushing off
         float takeoff;   // metres the push stands the body up at take-off: the flight's arc starts there and eases into its own
 
         /// <summary>The hop's shape at phase u (0..1): lift in metres per metre of Height, pitch in degrees (nose up +),
@@ -411,7 +364,7 @@ namespace TW.Playground
                 hull.T.localRotation = hull.RestRot * tilt;
                 if (legs != null)
                 {
-                    // the ground in the hull's frame, for the legs to lie on (LegRig.HasGround)
+                    // the ground in the hull's frame, for the legs to lie on (WeldedLegRig.HasGround)
                     var up = Quaternion.Inverse(hull.RestRot * tilt) * Vector3.up; var dsc = hull.T.localScale;
                     legs.HasGround = true;
                     legs.GroundN = Vector3.Scale(dsc, up);
