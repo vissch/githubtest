@@ -1,0 +1,31 @@
+{# The office, counted: the week's numbers as things on a floor that can be turned. graphs.html shows it full size
+   under its tiles, the control screen (index.html) smaller under what waits on the owner (it sets `compact`).
+   countedscene.js draws into the canvas with three.js; counted.js writes the labels, the legend, the card of a
+   picked branch and the list, which says every number in plain words: it is what a screen reader gets, and all there
+   is when the browser gives no WebGL. #}
+  <div class="o-wrap{% if compact %} o-compact{% endif %}">
+    <div class="o-stage" id="o-stage">
+      <canvas id="o-canvas" tabindex="0" role="img" aria-label="The office, counted: this week's numbers as things on a floor. Arrow keys turn it, plus and minus bring it nearer. The same numbers are in the list under it."></canvas>
+      <div class="o-veil" aria-hidden="true"></div>
+      <div class="o-labels" aria-hidden="true"></div>
+      <div class="o-card" id="o-card" aria-live="polite" hidden></div>
+      <p class="o-why" id="o-why"></p>
+    </div>
+    <div class="o-bar">
+      <div class="o-legend" id="o-legend" aria-label="What a thing stands for"></div>
+      <div class="o-ctl" id="o-ctl" role="group" aria-label="Turn the floor">
+        <span class="o-hint">Drag to turn, tap a stack for its week</span>
+        <button type="button" data-do="left" aria-label="Turn left" title="Turn left">&larr;</button>
+        <button type="button" data-do="right" aria-label="Turn right" title="Turn right">&rarr;</button>
+        <button type="button" data-do="up" aria-label="Look from higher up" title="Look from higher up">&uarr;</button>
+        <button type="button" data-do="down" aria-label="Look from lower down" title="Look from lower down">&darr;</button>
+        <button type="button" data-do="in" aria-label="Nearer" title="Nearer">+</button>
+        <button type="button" data-do="out" aria-label="Further away" title="Further away">&minus;</button>
+        <button type="button" data-do="again" aria-label="Play it again from the start" title="Play it again">&#8635;</button>
+      </div>
+    </div>
+    <details class="o-list-box" id="o-list-box"{% if not compact %} open{% endif %}>
+      <summary>The same numbers as a list</summary>
+      <div class="o-list" id="o-list"></div>
+    </details>
+  </div>

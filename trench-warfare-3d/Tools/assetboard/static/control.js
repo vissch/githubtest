@@ -1,10 +1,9 @@
 // The control screen's own part (index.html, control.css). What it says: the headline is the answer (how many are
 // at work, how much waits on the owner), and beside the time of the last reading how long ago that was, counted
 // every second, so a watcher that fell behind shows within a minute and not after the hour it takes to turn red.
-// How it moves: a tile's number counts to its value, on the first reading and whenever a reading changes it, and a
-// graph grows from its baseline the first time it is on the screen; none of that when the reader asked for less
-// motion. The parts draw themselves (office.js, housedraw.js, charts.js, board.js); this only watches what they
-// wrote. The words and the steps of a count are plain functions (test_assetboard.py runs them under node).
+// How it moves: a tile's number counts to its value, on the first reading and whenever a reading changes it; not
+// when the reader asked for less motion. The parts draw themselves (office.js, housedraw.js, counted.js, board.js);
+// this only watches what they wrote. The words and the steps of a count are plain functions (test_assetboard.py runs them under node).
 (function (root) {
   'use strict';
   // a number as the tiles write it (4,028) and back
@@ -52,7 +51,7 @@
   if ('MutationObserver' in window) ['p-at', 'p-ready'].forEach(function (id) { if ($(id)) new MutationObserver(say).observe($(id), { childList: true, characterData: true, subtree: true }); });
   say(); old(); setInterval(old, 1000);
 
-  if (calm || !('MutationObserver' in window)) { document.querySelectorAll('.c-graphs .g-card').forEach(function (c) { c.classList.add('c-seen'); }); return; }
+  if (calm || !('MutationObserver' in window)) return;
 
   // ---- the numbers on the tiles
   var TIME = 700;
@@ -73,16 +72,4 @@
     to(e.textContent);
   }
   ['p-ready', 'p-at', 'p-rooms', 't-calls', 't-notes'].forEach(function (id) { var e = document.getElementById(id); if (e) count(e); });
-
-  // ---- the graphs: a card is seen when a third of it is on the screen; its columns then rise one after the other
-  var cards = document.querySelectorAll('.c-graphs .g-card');
-  function seen(c) {
-    Array.prototype.forEach.call(c.querySelectorAll('.g-plot svg > g'), function (g, i, all) { g.style.transitionDelay = Math.round(i * Math.min(14, 420 / all.length)) + 'ms'; });
-    c.classList.add('c-seen');
-    setTimeout(function () { Array.prototype.forEach.call(c.querySelectorAll('.g-plot svg > g'), function (g) { g.style.transitionDelay = ''; }); }, 1400);
-  }
-  if ('IntersectionObserver' in window) {
-    var io = new IntersectionObserver(function (es) { es.forEach(function (x) { if (x.isIntersecting) { io.unobserve(x.target); seen(x.target); } }); }, { threshold: 0.3 });
-    Array.prototype.forEach.call(cards, function (c) { io.observe(c); });
-  } else Array.prototype.forEach.call(cards, seen);
 })(typeof window !== 'undefined' ? window : this);

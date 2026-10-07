@@ -1,16 +1,21 @@
-"""The numbers behind the graphs page (graphs.html), made again on every read of ops.py, so the graphs follow the
-work without anyone redrawing them.
+"""The numbers behind the office, counted (graphs.html and the control screen: static/counted.js draws them as
+things on a floor and as a plain list), made again on every read of ops.py, so the page follows the work without
+anyone redrawing it.
 
 Derived where it can be, kept where it cannot:
-- the work, hour by hour and room by room, and which branch got it: from the Claude transcripts on this station
-  (every tool call has a time; src_acts.py says which room it is work in). A transcript is read once: a cache keeps,
-  per file, how far it was read and what was counted, and the next read takes only what was written since;
+- the work of the week (today and the six days before it, each from its midnight), hour by hour and room by room,
+  and which branch got it, day by day: from the Claude transcripts on this station (every tool call has a time;
+  src_acts.py says which room it is work in). A transcript is read once: a cache keeps, per file, how far it was
+  read and what was counted, and the next read takes only what was written since;
 - the commits a day on integration: from git;
-- the models by kind and status: from the board's last build (data/assets.json), when there is one;
+- the owner's decisions (waiting on him, answered and waiting on the crew, asked and closed in the week): from the
+  briefs and the owner queue of the same read (briefs.py, src_queue.py);
+- what the relay's legs cost: from the legs' own records (src_relay.py), passed in by ops.py;
 - how many were at work and how much waited on the owner over time: nothing holds yesterday's answer, so each read
   leaves a sample in this station's cache (history.jsonl), at most one a SAMPLE_EVERY seconds unless a number moved.
 
-Everything here is this station's view: its transcripts, its history.
+Everything here is this station's view: its transcripts, its history. A branch gets the work of the checkout that is
+on it now: a checkout that changed branch in the week takes its week with it.
 """
 import collections
 import datetime
@@ -24,8 +29,7 @@ import src_ops
 import src_visuals
 
 VERSION = 2              # of the cache: a new number has every transcript read again from its start
-DAYS = 7                 # the work of this many days is counted
-HOURS = 48               # ... and drawn hour by hour for this many hours
+DAYS = 7                 # the work of this many days is counted: today and the six before it
 COMMIT_DAYS = 30
 SAMPLE_EVERY = 300       # seconds between two samples of the floor when nothing moved
 KEEP_DAYS = 14           # of history
@@ -34,6 +38,12 @@ ROOMS = ('work', 'lab', 'shop', 'studio', 'plan')      # the rooms a call can be
 
 def hour_of(t):
     return datetime.datetime.fromtimestamp(t).strftime('%Y-%m-%d %H')
+
+
+def week_days(now):
+    """The days the page counts, oldest first, today the last."""
+    day0 = datetime.datetime.fromtimestamp(now).date()
+    return [str(day0 - datetime.timedelta(days=k)) for k in range(DAYS - 1, -1, -1)]
 
 
 def take(f: Path, entry, spell, side=False):
@@ -80,8 +90,9 @@ def take(f: Path, entry, spell, side=False):
 
 
 def activity(trees, now, cache, projects=None):
-    """The tool calls of the last DAYS days on this station: per hour and room, and per branch. `trees` is
-    {checkout path: {'branch': ...}} (src_ops.checkouts); `cache` is kept between reads by the caller."""
+    """The tool calls of the week on this station (week_days): per hour and room, per day, and per branch with its
+    days and the hours it was busy in. `trees` is {checkout path: {'branch': ...}} (src_ops.checkouts); `cache` is
+    kept between reads by the caller."""
     projects = projects or src_ops.PROJECTS
     spell = src_ops.spellings(list(trees))
     files = cache.setdefault('files', {})
@@ -98,29 +109,36 @@ def activity(trees, now, cache, projects=None):
             continue
     for key in [k for k in files if k not in seen]:      # a transcript nobody wrote to for a week, or one that is gone
         del files[key]
-    first = hour_of(since)
-    hours, lanes = collections.defaultdict(lambda: dict.fromkeys(ROOMS, 0)), collections.Counter()
+    days = week_days(now)
+    first = days[0] + ' 00'                             # the week starts at a midnight: a day is whole, or it is today
+    hours, lanes = collections.defaultdict(lambda: dict.fromkeys(ROOMS, 0)), {}
     by_path = {str(p): w['branch'] for p, w in trees.items()}
     for key, e in files.items():
-        n = 0
+        mine = collections.Counter()
         for h, rooms in e.get('hours', {}).items():
             if h < first:
                 continue
             for room, k in rooms.items():
                 hours[h][room] += k
-                n += k
+                mine[h] += k
         # the branch a transcript worked on: where it was started, or, started outside every checkout (an agent's
         # log has its session's folder), the checkout most of its calls point into
         own = e.get('cwd') and src_ops.owner_of(e['cwd'], list(trees))
         tree = str(own) if own else max(e.get('named', {}), key=lambda t: e['named'][t], default=None)
-        if n and tree in by_path and (own or e['named'][tree] >= src_ops.ENOUGH):
-            lanes[by_path[tree]] += n
+        if mine and tree in by_path and (own or e['named'][tree] >= src_ops.ENOUGH):
+            lanes.setdefault(by_path[tree], collections.Counter()).update(mine)
     last = datetime.datetime.fromtimestamp(now).replace(minute=0, second=0, microsecond=0)
-    strip = [(last - datetime.timedelta(hours=k)).strftime('%Y-%m-%d %H') for k in range(HOURS - 1, -1, -1)]
-    today = datetime.datetime.fromtimestamp(now).strftime('%Y-%m-%d')
+    start = datetime.datetime.strptime(first, '%Y-%m-%d %H')
+    strip = [(start + datetime.timedelta(hours=k)).strftime('%Y-%m-%d %H') for k in range(int((last - start).total_seconds() // 3600) + 1)]
+
+    def of_day(at, d):
+        return sum(k for h, k in at.items() if h.startswith(d))
+    rows = [dict(branch=b, calls=sum(at.values()), days=[of_day(at, d) for d in days], busy=sum(1 for k in at.values() if k)) for b, at in lanes.items()]
     return dict(hours=[dict(h=h, **hours[h]) if h in hours else dict(h=h, **dict.fromkeys(ROOMS, 0)) for h in strip],
-                lanes=[dict(branch=b, calls=n) for b, n in lanes.most_common()],
-                today=sum(sum(r.values()) for h, r in hours.items() if h.startswith(today)),
+                days=[dict(day=d, calls=sum(sum(r.values()) for h, r in hours.items() if h.startswith(d)),
+                           **{room: sum(r[room] for h, r in hours.items() if h.startswith(d)) for room in ROOMS}) for d in days],
+                lanes=sorted(rows, key=lambda r: (-r['calls'], r['branch'])),
+                today=sum(sum(r.values()) for h, r in hours.items() if h.startswith(days[-1])),
                 week=sum(sum(r.values()) for r in hours.values()))
 
 
@@ -135,14 +153,14 @@ def commits(repo: Path, now):
     return [dict(day=str(day0 - datetime.timedelta(days=k)), n=n.get(str(day0 - datetime.timedelta(days=k)), 0)) for k in range(COMMIT_DAYS - 1, -1, -1)]
 
 
-def models(site: Path):
-    """The models by kind and status, from the board's last build; nothing when the board was not built here."""
-    try:
-        assets = json.loads((site / 'data' / 'assets.json').read_text(encoding='utf-8'))['assets']
-    except (OSError, ValueError, KeyError):
-        return []
-    n = collections.Counter((a.get('category'), a.get('status')) for a in assets)
-    return [dict(kind=k, status=s, n=c) for (k, s), c in sorted(n.items(), key=lambda x: (str(x[0][0]), str(x[0][1])))]
+def decisions(briefs, answers, waiting, now):
+    """The owner's decisions as the page counts them. `waiting`: on him now, the number "Needs you" shows (the owner
+    queue's count, src_queue.py). `crew`: he has answered and no session has taken it up (briefs.answers). And of the
+    week: `asked`, the briefs put to him, and `closed`, the briefs a session closed with his answer."""
+    first = week_days(now)[0]
+    return dict(waiting=int(waiting or 0), crew=len(answers or []),
+                asked=sum(1 for b in briefs or [] if str(b.get('asked', ''))[:10] >= first),
+                closed=sum(1 for b in briefs or [] if b.get('state') == 'answered' and str((b.get('answer') or {}).get('when', ''))[:10] >= first))
 
 
 def sample(data, now):
@@ -185,9 +203,11 @@ def thin(rows, n=400):
     return [r for i, r in enumerate(rows) if (len(rows) - 1 - i) % step == 0]
 
 
-def collect(repo: Path, site: Path, data, trees, now, cache_path: Path, store: Path, seen=None):
-    """Everything graphs.html draws, for this reading. `seen`, when given, is filled with what the same pass over
-    the transcripts found for src_visuals.py: {transcript: the pictures and films it named}."""
+def collect(repo: Path, data, trees, now, cache_path: Path, store: Path, seen=None, briefs=None, answers=None, relay=None):
+    """Everything the office draws, for this reading. `seen`, when given, is filled with what the same pass over the
+    transcripts found for src_visuals.py: {transcript: the pictures and films it named}. `briefs` and `answers` are
+    briefs.read_all() and briefs.answers(); `relay` is src_relay.week(), or None when the station has no leg records:
+    the page then draws no shells and says why."""
     try:
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
@@ -202,5 +222,7 @@ def collect(repo: Path, site: Path, data, trees, now, cache_path: Path, store: P
     tmp.write_text(json.dumps(cache), encoding='utf-8')
     tmp.replace(cache_path)
     rows = history(store, sample(data, now), now)
-    return dict(rooms=list(ROOMS), hours=act['hours'], lanes=act['lanes'][:12], today=act['today'], week=act['week'],
-                commits=commits(repo, now), models=models(site), history=thin(rows), since=rows[0]['t'] if rows else int(now))
+    return dict(rooms=list(ROOMS), hours=act['hours'], days=act['days'], lanes=act['lanes'],
+                today=act['today'], week=act['week'], commits=commits(repo, now), relay=relay,
+                decisions=decisions(briefs, answers, (data.get('queue') or {}).get('count', 0), now),
+                history=thin(rows), since=rows[0]['t'] if rows else int(now))
