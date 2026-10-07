@@ -1,5 +1,6 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-7) - CombatFx.RecipeFor, the drawn parts of a burst by what
-// went off. fx.recipes 0 (the default) must hand every burst the old parts, so the AOSA-tuned column and smoke are untouched.
+// went off. The recipes are on by default (owner, 2026-10-07); fx.recipes 0 must hand every burst the old parts, so the
+// AOSA-tuned column and smoke can be had back untouched.
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
@@ -19,16 +20,17 @@ namespace TW.Tests
         }
 
         [Test]
-        public void Knob_DefaultIsTheOldBurst()
+        public void Knob_DefaultIsTheRecipes_ZeroIsTheOldBurst()
         {
             Assert.AreEqual("fx.recipes", CombatFx.RecipesKnob);
+            Assert.AreEqual(1f, CombatFx.ReadRecipes(), "on by default (owner, 2026-10-07)");
+            Assert.IsTrue(CombatFx.RecipeFor(0f, 0.8f, false, CombatFx.ReadRecipes()).Plume, "the default draws the plume");
+            Knobs.Set(CombatFx.RecipesKnob, "0");
             Assert.AreEqual(0f, CombatFx.ReadRecipes());
             foreach (float shape in new[] { 0f, 1f, 2f })
             foreach (float lean in new[] { 0f, 0.7f })
             foreach (bool wet in new[] { false, true })
                 AssertOld(CombatFx.RecipeFor(shape, lean, wet, CombatFx.ReadRecipes()), $"shape {shape}, lean {lean}, wet {wet}");
-            Knobs.Set(CombatFx.RecipesKnob, "1");
-            Assert.AreEqual(1f, CombatFx.ReadRecipes());
         }
 
         [Test]
