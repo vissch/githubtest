@@ -20,7 +20,10 @@ namespace TW.Presentation
         ArmBarrage, ArmGas, ArmDrop,
         Advance, Fallback, LockTrench, HoldFire,
         SpeedDown, SpeedUp,
-        DebugFlowField, DebugStats, DebugNextGoal, DebugCapsules, DebugPanel, HudToggle,
+        DebugFlowField, DebugStats, DebugNextGoal, DebugCapsules,
+        // F10. This slot was DebugPanel, which no code ever read (the debug panel opens from its button): since 2026-10-07
+        // it is the feedback capture (ShellRouter.Feedback). The slot keeps its place, so saved bindings keep theirs.
+        Feedback, HudToggle,
         // docs/21 phase 5: the four line abilities (appended, so saved bindings keep their places)
         ArmCreeping, ArmSmoke, ArmStrafe, ArmBeam,
     }
@@ -78,7 +81,7 @@ namespace TW.Presentation
             D(GameAction.Deploy4, Key.Digit4); D(GameAction.Deploy5, Key.Digit5); D(GameAction.Deploy6, Key.Digit6);
             D(GameAction.Deploy7, Key.Digit7); D(GameAction.Deploy8, Key.Digit8);
             // ten roster slots take the whole digit row, so the support cards moved onto the free block of the
-            // function row: F1-F4 are the debug overlays, F9 the HUD toggle and F10 the debug panel
+            // function row: F1-F4 are the debug overlays, F9 the HUD toggle and F10 the feedback capture
             D(GameAction.Deploy9, Key.Digit9); D(GameAction.Deploy10, Key.Digit0);
             D(GameAction.ArmBarrage, Key.F5);
             D(GameAction.ArmGas, Key.F6);
@@ -93,7 +96,7 @@ namespace TW.Presentation
             D(GameAction.DebugStats, Key.F2);
             D(GameAction.DebugNextGoal, Key.F3);
             D(GameAction.DebugCapsules, Key.F4);
-            D(GameAction.DebugPanel, Key.F10);
+            D(GameAction.Feedback, Key.F10);
             D(GameAction.HudToggle, Key.F9);
             D(GameAction.ArmCreeping, Key.C);
             D(GameAction.ArmSmoke, Key.M);
@@ -228,7 +231,7 @@ namespace TW.Presentation
                 case GameAction.DebugStats: return "DEBUG: STATS";
                 case GameAction.DebugNextGoal: return "DEBUG: NEXT GOAL";
                 case GameAction.DebugCapsules: return "DEBUG: CAPSULES";
-                case GameAction.DebugPanel: return "DEBUG PANEL";
+                case GameAction.Feedback: return "FEEDBACK CAPTURE";
                 case GameAction.HudToggle: return "OLD / NEW HUD";
             }
             string n = a.ToString();

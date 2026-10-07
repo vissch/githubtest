@@ -7,6 +7,8 @@
 // VisualElement (ShellScreen), so EditMode tests bind them with no panel.
 // The Proving Ground (2026-09-28): a match started from its launch screen gets its panel pushed when the scene binds;
 // F8 opens the panel over any match and folds it when it is up. The panel is an Overlay: Esc passes it by.
+// The feedback capture (2026-10-07): F10, anywhere the shell is, writes the game as it is and takes the picture
+// (FeedbackCapture), and a frame later puts up the box for his words (FeedbackScreen), which holds the match.
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
@@ -40,6 +42,10 @@ namespace TW.UI
         HudController hud;
         readonly List<ShellScreen> stack = new List<ShellScreen>();
         bool debriefShown; float endedAt = -1f;
+        /// <summary>Takes the picture of a feedback capture. A field, so a test stands in for it; a batch run has no screen
+        /// and is asked for nothing.</summary>
+        public System.Action<string> Shoot = path => { if (!Application.isBatchMode) ScreenCapture.CaptureScreenshot(path); };
+        FeedbackRecord captured; string capturedIn;   // written this frame: its box comes up on the next, so the box is not in the picture
 
         void Awake()
         {
@@ -54,6 +60,9 @@ namespace TW.UI
         {
             SceneManager.sceneLoaded -= OnSceneLoaded;
             if (Instance == this) Instance = null;
+            // the game quits, or Play ends, with a capture open: it is closed with what he had typed
+            DropCaptured();
+            foreach (var s in stack) if (s is FeedbackScreen open) open.Abandon();
         }
 
         void Start() => Bind(SceneManager.GetActiveScene());
@@ -61,6 +70,7 @@ namespace TW.UI
         void OnSceneLoaded(Scene s, LoadSceneMode mode)
         {
             SceneStatics.Reset();
+            DropCaptured();
             ClearStack();
             Bind(s);
         }
@@ -144,6 +154,7 @@ namespace TW.UI
         // ---- per frame ----------------------------------------------------------------------------------------------
         void Update()
         {
+            if (capturedIn != null) OpenFeedbackBox();
             for (int i = 0; i < stack.Count; i++) stack[i].Tick();
             // Esc: the top screen's business, else the pause menu (unless an armed ability just used it)
             if (!InputFocus.Listening && KeyMap.DownRaw(GameAction.Menu) && !InputFocus.EscapeConsumed)
@@ -156,6 +167,8 @@ namespace TW.UI
                 }
             }
             if (Host != null && !debriefShown && !InputFocus.Listening && !InputFocus.Modal && ProvingKeyDown()) ToggleProvingGround();
+            // F10, read raw: it works over a menu, the pause screen and the debrief too. Not while a key is being rebound.
+            if (!InputFocus.Listening && KeyMap.DownRaw(GameAction.Feedback)) Feedback();
             // the debrief, a beat after the end
             if (Host != null && Host.Local != null && !debriefShown && Host.Local.World.WinnerTeam >= 0)
             {
@@ -179,6 +192,46 @@ namespace TW.UI
             foreach (var s in stack)
                 if (s is ProvingGroundPanel panel) { panel.Fold(!panel.Folded); return; }
             if (Top == null) Push(new ProvingGroundPanel());
+        }
+
+        /// <summary>F10. With the box up: save his words and close it. Otherwise capture: the game as it is goes to disk now
+        /// (the state file and, at the end of this frame, the screen with the HUD on it), and the box for his words comes
+        /// up on the next frame. Its being modal is what holds the match; nothing is held on this frame, so the picture
+        /// shows the HUD as he saw it and not a PAUSED plate. On a menu there is no match and the file says so.</summary>
+        public void Feedback()
+        {
+            if (capturedIn != null) return;
+            for (int i = stack.Count - 1; i >= 0; i--)
+                if (stack[i] is FeedbackScreen open) { open.Close(true); return; }
+            string folder = null;
+            try
+            {
+                var record = FeedbackCapture.Gather(Host, Clock, Stats, Camera.main, System.DateTime.Now);
+                folder = FeedbackCapture.Write(record);
+                Shoot?.Invoke(System.IO.Path.Combine(folder, FeedbackCapture.ShotName));
+                captured = record; capturedIn = folder;
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning($"ShellRouter: the feedback capture was not written: {e.Message}");
+                if (folder != null) FeedbackCapture.Done(folder);   // what there is stands, without words
+            }
+        }
+
+        void OpenFeedbackBox()
+        {
+            var record = captured; string folder = capturedIn;
+            captured = null; capturedIn = null;
+            Push(new FeedbackScreen(record, folder));
+            if (!(Top is FeedbackScreen)) FeedbackCapture.Done(folder);   // no UXML for the box: the capture stands without words
+        }
+
+        /// <summary>A capture whose box never came up (the scene went away first) is closed as it is.</summary>
+        void DropCaptured()
+        {
+            if (capturedIn == null) return;
+            FeedbackCapture.Done(capturedIn);
+            captured = null; capturedIn = null;
         }
 
         public void ShowDebrief(string reason = null)
