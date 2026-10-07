@@ -44,7 +44,7 @@ COULD NOT JUDGE: what the evidence cannot settle
 | gym | `GymCatalogueTests` green (no enum value without an entry), run folder outside the checkout, 0 unexplained flags | coverage of catalogue 30 · every entry triggers what it claims (events counted) 30 · sheets readable per band 15 · run time and size 15 · retention works 10 |
 | lowpoly | the silhouette IoU ≥ 0.85 against the level above, no empty part, pivots unchanged, original untouched | triangle/draw gain 30 · pop at the swap band (critic, blind) 30 · every band sheet 20 · budget met 10 · cost 10 |
 | housekeeping | never deletes an unrecognised, tracked or newest-2 item (dry run first) | space recovered 40 · classification correct on a hand sample 40 · report clarity 20 |
-| plan / skill | every cited path, command and symbol exists at HEAD (grep each one), owner's words quoted verbatim, every "done" or "stop" is something a command or a count can check | fidelity to the owner's brief 30 · technical correctness against the repo 30 · actionable (an agent can run it cold) 20 · compact 20: each line changes what an agent would do, each fact has one home and the rest point to it, a ban says what to do instead |
+| plan / skill | every cited path and symbol exists at HEAD (grep each one), owner's words quoted verbatim | fidelity to the owner's brief 30 · technical correctness against the repo 30 · actionable 20: an agent can run it cold, each finish line is something a command or a count can check, a ban says what to do instead · compact 20: each line changes what an agent would do, each fact has one home and the rest point to it |
 
 ## Angles (rotate them between rounds, so a second round does not reread with the same eyes)
 1. **Fidelity:** does it do exactly what the owner asked, in the owner's words, no more and no less?
@@ -73,6 +73,5 @@ COULD NOT JUDGE: what the evidence cannot settle
 Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
 lines in the board's `lessons.md`.
 
-## Sources
-The "plan / skill" row's checkable-finish, one-home and say-what-to-do points are adapted, in our own words, from
-`writing-for-agents` in github.com/mattpocock/skills at f3fc5632f401 (MIT). Ideas only; no text copied.
+Sources: the "plan / skill" row's finish-line, one-home and say-what-to-do points rework ideas from
+`writing-for-agents` in github.com/mattpocock/skills at f3fc5632f401 (MIT).
