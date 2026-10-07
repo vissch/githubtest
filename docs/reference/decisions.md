@@ -171,6 +171,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-07 | **A standard plan for cutting models into the parts their animation needs; the walking machines are cut up again by it.** The owner, to "Four old questions that were never answered" (house strength on two scales, and three faults on the walking machines that no drawing code can fix), in his own words: "we need to make a standardised plan for seperating items for animations. in this case we have to backtrack them with cutting them up more." So the three walker faults are not left as they are: a plan page comes first (which parts every kind of model is cut into, where the pivots sit, how a cut is checked), then the walkers go back through the cut by that plan. The plan page is the file PLAN_model_cutting.md on the Drive (written 2026-10-07; its four calls are in the open list). The house strength question is not answered by this and stays with its listed default. (owner, 2026-10-07, on the Decide page) |
 | 2026-10-07 | **R1 C1.** **The six top review fixes run first, then the owner looks at what changed.** The owner, to "The review fixes: how far now?": "The six top ones first, about 3.5 hours, then I show you what changed". In the relay's queue `rv-11` to `rv-15` have priority 10 and `rv-10` has 20, and each of the six goals names the test that proves it. The five units handed in the same night (`rv-03c`, `rv-c1`, `rv-c2`, `rv2-01`, `rv2-02`) run behind them at 30, the other review fixes after those. Nothing lands on this answer. (owner, 2026-10-07, on the Decide page) |
 | 2026-10-07 | **R1 C2 SYSTEMIC.** **Every goal that waits in the relay's queue says: do not start the full gate yourself, and do not end your turn while a gate runs.** Taken by the master alone, as a stopgap. Three units failed because a leg ended while its gate was still running (`look-01`, `heroes-off-bench`, `rv-04`), and the relay reads that as failed. The full gate on a fix lane's tip is run after the unit, outside the leg. It holds until the relay itself waits for the gate; that change is the owner's to say. (the master, 2026-10-07) |
+| 2026-10-07 | **The new graphs are the office, counted.** The owner, to "The new graphs, second try: which direction?" (four concept pieces made with four tools): "The office, counted (three.js): every number a thing, you can turn it". Built on the graphs page and the control screen in place of today's five graphs (`lane/show/board-office-counted`): a 3D office floor he can turn, crates per branch, his frogs at their desks, paper for decisions, sandbags for commits landed, with a plain list of the same numbers where 3D is missing. A number the board cannot stand behind is left out, not drawn. The sand table, the dispatch film and the staff map are not built. (owner, 2026-10-07, on the Decide page) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
@@ -222,6 +223,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-07 | **R1 C2 DANGEROUS SYSTEMIC.** **In a normal match a list of ten holds only the player's own faction's units and never one that costs nothing; the test level may field anything.** The review's call S3: today a list may name any unit (another faction's, a test-only one, a free one); no menu sets such a list yet, only tests do. The test level keeps the row of 2026-09-28. Not built: the sim refuses such a list, so old replays stop loading. (owner, 2026-10-07, on the Decide page, to "The code review's nine calls for you": "Take the listed default for all nine") |
 | 2026-10-07 | **R1 C2 DANGEROUS SYSTEMIC.** **A landing turned back by a full field gives back the unit's wait with the silver.** It came out of the review fix U4: the boat turns back and the silver is paid back, but the unit's button still counts down as if the men had landed. The button is ready again at once. Not built: a rule of the sim changes, so old replays stop loading. (owner, 2026-10-07, on the Decide page, to "The code review's nine calls for you": "Take the listed default for all nine") |
 | 2026-10-07 | **R0 C0.** **The jetpack man keeps his two safe seconds after landing in a trench, to be judged in play.** For two seconds after he lands nothing hurts him (no bullet, shell, gas or mine): that is how the review fix C1 repaired his landing on 2026-10-06. Nothing to build; nobody has watched it in play yet. (owner, 2026-10-07, on the Decide page, to "The code review's nine calls for you": "Take the listed default for all nine") |
+| 2026-10-07 | **Balance: the measuring is fixed first.** The owner, to "Why matches do not end: what next?": "Fix the measuring first: the computer buys a mixed army, and find why the boat side wins; then measure again". What the report showed him: a match with no winner is one where nobody attacks (in 11 of 12 such matches neither side made one assault; every side that took a first trench won, 20 of 20); the script's Iron and Brass armies differ in one man (Iron an Officer, reach 64 m; Brass a Sniper, 184 m) among about 97 riflemen, and that decides it (Iron 5, Brass 15, nobody 12 of 32; with a Sniper for Iron 13, 12, 7); the side that lands by boat wins far more, cause unknown. So: the script's buying is changed so a faction's other men reach the field (the old rule kept as a setting, to measure both), the sweep is mended so it says where men die, the boat side's edge is looked for, and the same matches are measured again (`lane/show/script-mixed-army`). No unit's number is tuned and Iron's roster is not changed. The computer is the player's opponent in Skirmish, so its new army shows in play: he sees the numbers before it lands. (owner, 2026-10-07, on the Decide page) |
 
 ## Open: waiting on the owner
 - **After dead ground (2026-10-06):** the owner removes it (How units move and fight) and asks for a better way: "we must think about how
@@ -262,19 +264,15 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   - **Houses give cover: by how much?** He said "reduced damage taken when behind a building"; the amount is his. Default: half, like a tank wreck. A sim change.
   - **The animation critique: start it again?** It stopped at step 3 of 5. Default: fix the battle camera, film again, finish the scoring.
   - **The optimiser's four open asks** (a compilation). Default: all four defaults.
-- **Why matches do not end: what next? (2026-10-07, measured on integration dd0aa09c, 20-minute matches, seeds 1 to 16, both seats,
-  heroes off):** he asked to find out why first (How units move and fight). Found: (1) a match with no winner is one where nobody
-  attacks: of 12 such matches in 32, neither side made one assault in 11, and every side that took a first trench won (20 of 20);
-  (2) the script's Iron and Brass armies differ in one man, the fourth it buys (after him it can only afford riflemen: 97 of them in
-  20 minutes): Iron an Officer (reach 64 m), Brass a Sniper (184 m, the only weapon that thins a trench across the 100 m between the
-  lines). Today Iron 5, Brass 15, nobody 12 of 32; with the Sniper in Iron's slot Iron 13, Brass 12, nobody 7; (3) the seat counts as
-  much: the side that lands by boat (seat 1) wins far more (Brass 11 of 16 landing, 4 of 16 walking; Iron against Iron 7 to 1), cause
-  not known. Not the cause: the Officer's price, reach or aura, the rifle's reach, machines, silver, support, waiting, time. Last
-  night's "Iron against Iron: 12 of 16 no winner" was 6 different matches of 8; on 16 seeds it is 8 of 16. Options: (1) fix the
-  measuring first: the script buys a mixed army, and find the boat side's edge, then measure again (the default named); (2) give Iron
-  the Sniper now; (3) add a way to end, a timer or a win on trenches held; (4) leave it and judge balance in play. Nothing is tuned.
-  The findings with every number and the code lines are on the Drive (decisions-evidence, 2026-10-07, balance, why-no-end). Brief on
-  the Decide page: "Why matches do not end: what next?".
+- **Fewer real lights at night: which way? (2026-10-07):** he said fewer real lights, the rest simulated or baked (Look and view).
+  Counted in a run: 60 point lights exist, 43 of them fixed lamps that always burn (lanterns, prop lamps, trench lamps, burning trees,
+  torches), about 95 % of what is lit at any moment; a thing takes light from 8 at most. Already painted without a real light: the pools
+  on ground and props (nearest 32), ten more burning trees, burning machines, running lamps, horizon fires. Options: (1) the 8 lamps
+  nearest the view stay real, the other 35 painted only (the default named: closest to today, men beside a lamp get brighter);
+  (2) all 43 painted only: reads as today at play and wide view, plainly dimmer close by a lamp cluster until the pools are tuned;
+  (3) bake all 43 into one light picture per field: large, no preview; (4) leave it. Nothing was timed, so the gain in speed is not
+  known. The stills are test previews (real renders, lamps switched off in a scratch test), no game code changed. Brief on the Decide
+  page: "Fewer real lights at night: which way?".
 - **The frog faction: how does the Hopper fly first? (2026-10-07):** the plan for the frog faction is written (the file
   PLAN_frog_faction.md on the Drive, TW3D-pipeline; read from code, nothing run): nine units of work, five of them change the rules
   and should land as one stack. Today the Hopper is a ground machine drawn 9 m up: it follows the tanks' route, sets off mines and is
@@ -293,13 +291,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   on film before the other five; the tip of each leg becomes its own foot that stays planted (needs one change in the leg code); the
   re-cut starts from the models in the game; parapet and duckboards are a ground-data fault and get their own brief. Default named:
   all four. Brief on the Decide page: "The cutting plan: four calls".
-- **The new graphs, second try: which direction? (2026-10-07):** he picked none of the first four and asked for bolder ones made
-  with other tools. Four concept pieces from this week's real numbers, nothing built on the board: (A) the office, counted: a 3D
-  office floor he can turn, crates per branch, his frogs at their desks (three.js); (B) the sand table: the week as ridges on a
-  glass war-room table (Blender); (C) the week's dispatch: a 15 second film of the front moving over the days (Remotion); (D) the
-  staff map: a hand-inked night-blue wall map of every branch (Python). Default named: A, because it is a web page already and can
-  run live. Each needs numbers the board does not keep yet (a week hour by hour, a branch's work per day, the relay's cost).
-  Brief on the Decide page: "The new graphs, second try: which direction?".
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
