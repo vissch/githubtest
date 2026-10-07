@@ -4,7 +4,7 @@
 // camera, as it begins to render, hands the nearest MaxPools of the flames in `lanterns` (all of them hang there, with
 // their flicker) to the Toon shader as a global array (_TWPools, _TWPoolTint, _TWPoolCount). Chosen per camera, not in
 // Update: the capture rig poses the camera after Update, and the pools then gathered round the spot it had left (Play,
-// 2026-09-29). Behind knobs:
+// 2026-09-29). The flames in the picture come first (look.poolsByView, NightLights.RealLamps.cs). Behind knobs:
 //   look.pools      how strong the pools are (1 by default since the owner's word, 2026-09-29); 0 sets no pool: the old night. At 1 a lantern's pool
 //                   is PoolGain times its light over the mud: the mud is near black when wet, and at a gain of 1 the pools
 //                   barely showed (Play, 2026-09-29: warm pixels 0.03 to 0.08 %); 4 reads as the edit's torch patches, 8
@@ -55,6 +55,7 @@ namespace TW.Presentation.Terrain
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
+        readonly Plane[] poolPlanes = new Plane[6];
         float poolStrength, poolReach = PoolReach, firePoolStrength = 1f; int poolKnobs = -1; bool poolsSet, poolHooked;
 
         /// <summary>A fire's pool: where, its colour times its strength, its reach, and when it goes out (a frame stamp for a
@@ -94,7 +95,7 @@ namespace TW.Presentation.Terrain
         {
             if (!poolHooked)
             {
-                RenderPipelineManager.beginCameraRendering += PoolsFor; poolHooked = true;
+                RenderPipelineManager.beginCameraRendering += ForCamera; poolHooked = true;
                 SceneHooks.FirePool = AddFirePool;
             }
             ExpireFirePools();
@@ -119,26 +120,39 @@ namespace TW.Presentation.Terrain
             }
         }
 
-        /// <summary>The nearest flames to this camera, as pools.</summary>
-        void PoolsFor(ScriptableRenderContext context, Camera cam)
+        /// <summary>What each game camera is handed as it begins to render: which fixed lamps keep their real light
+        /// (NightLights.RealLamps.cs), then the painted pools. Both go by where this camera looks.</summary>
+        void ForCamera(ScriptableRenderContext context, Camera cam)
         {
-            if (poolStrength <= 0f || !SceneMood.Night || cam.cameraType != CameraType.Game) return;
+            if (cam.cameraType != CameraType.Game) return;
+            Vector3 focus = ViewFocus(cam);
+            RealLampsFor(cam, focus);
+            PoolsFor(cam, focus);
+        }
+
+        /// <summary>The flames this camera sees best, as pools: those whose pool reaches into its picture first (look.poolsByView
+        /// 1, since 2026-10-07; PoolKey), or the nearest to the camera itself as before (0). By the camera alone, the pools
+        /// gathered under and behind it: at the play view 2 of the 12 that light the men were in the picture.</summary>
+        void PoolsFor(Camera cam, Vector3 focus)
+        {
+            if (poolStrength <= 0f || !SceneMood.Night) return;
             Vector3 eye = cam.transform.position;
+            if (poolsByView) GeometryUtility.CalculateFrustumPlanes(cam, poolPlanes);
             int n = 0;
             for (int i = 0; i < lanterns.Count; i++)
             {
                 var l = lanterns[i];
-                if (l == null || !l.enabled) continue;
+                if (l == null || i >= lampOut.Count || lampOut[i]) continue;   // a lamp that only keeps its painted pool has its Light off: lampOut says which are really out
                 Vector3 at = l.transform.position;
                 float vary = 1f + poolVary * (2f * Hash(Mathf.RoundToInt(at.x * 3f), Mathf.RoundToInt(at.z * 3f)) - 1f);
                 float reach = poolReach * Mathf.Clamp(l.range / LanternRange, 0.8f, 1.3f) * vary;
-                float strength = poolStrength * PoolGain * l.intensity / Mathf.Max(0.01f, LanternIntensity);
+                float strength = poolStrength * PoolGain * lanternLevel[i] / Mathf.Max(0.01f, LanternIntensity);   // the lamp's own light, not what the real-lamp rule leaves of it
                 Vector3 warmth = Vector3.Lerp(PoolWarmth, PoolAmber, poolAmber);
-                Keep(ref n, eye, at, reach, new Vector3(l.color.r * warmth.x, l.color.g * warmth.y, l.color.b * warmth.z) * strength);
+                Keep(ref n, eye, focus, at, reach, new Vector3(l.color.r * warmth.x, l.color.g * warmth.y, l.color.b * warmth.z) * strength);
             }
             float fireGain = poolStrength * FirePoolGain * firePoolStrength;
             if (fireGain > 0f)
-                for (int i = 0; i < firePools.Count; i++) { var e = firePools[i]; Keep(ref n, eye, e.At, e.Reach, e.Tint * fireGain); }
+                for (int i = 0; i < firePools.Count; i++) { var e = firePools[i]; Keep(ref n, eye, focus, e.At, e.Reach, e.Tint * fireGain); }
             Shader.SetGlobalVectorArray(PoolsId, poolAt);
             Shader.SetGlobalVectorArray(PoolTintId, poolTint);
             Shader.SetGlobalFloat(PoolCountId, n);
@@ -151,9 +165,11 @@ namespace TW.Presentation.Terrain
 
         /// <summary>Keeps a pool among the MaxPools a camera sees best: nearest first, a bigger one counting as nearer by its
         /// reach squared against a lantern's (a burning wreck 12 m across wins over a lamp at the same distance).</summary>
-        void Keep(ref int n, Vector3 eye, Vector3 p, float reach, Vector3 tint)
+        void Keep(ref int n, Vector3 eye, Vector3 focus, Vector3 p, float reach, Vector3 tint)
         {
-            float d = PoolRank((p - eye).sqrMagnitude, reach);
+            bool seen = poolsByView;   // does the pool reach into the picture: its sphere against the six sides of the view
+            for (int k = 0; k < 6 && seen; k++) if (poolPlanes[k].GetDistanceToPoint(p) < -reach) seen = false;
+            float d = PoolKey(poolsByView, seen, (p - eye).sqrMagnitude, (p - focus).sqrMagnitude, reach);
             int at = n < MaxPools ? n++ : MaxPools;       // keep the best MaxPools, worst last
             if (at == MaxPools) { if (d >= poolD[MaxPools - 1]) return; at = MaxPools - 1; }
             while (at > 0 && poolD[at - 1] > d) { poolD[at] = poolD[at - 1]; poolAt[at] = poolAt[at - 1]; poolTint[at] = poolTint[at - 1]; at--; }
@@ -204,7 +220,7 @@ namespace TW.Presentation.Terrain
         /// <summary>No pools once the lights are gone.</summary>
         void ClearPools()
         {
-            if (poolHooked) { RenderPipelineManager.beginCameraRendering -= PoolsFor; poolHooked = false; }
+            if (poolHooked) { RenderPipelineManager.beginCameraRendering -= ForCamera; poolHooked = false; }
             SceneHooks.FirePool = null;
             Shader.SetGlobalFloat(ThroughHazeId, 0f); Shader.SetGlobalFloat(PoolSoftId, 0f); Shader.SetGlobalFloat(PropRimId, 0f); Shader.SetGlobalFloat(UnblueId, 0f); Shader.SetGlobalFloat(PoolShoulderId, 0f);
             firePools.Clear();

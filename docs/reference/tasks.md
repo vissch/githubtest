@@ -627,12 +627,27 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `SceneHooks.FireLight`; the men (`VAT_URP`) and machines (`Tank_URP`) take the pools too, with a warm rim on the edge
   turned to a fire, `TWPoolsOnFigure`), shader include `TWLightPools.hlsl`; `Editor/LookLab.cs` sets knobs
   from `unity command eval` for before-and-after stills.
+  Which fixed lamps keep a real light (the owner, 2026-10-07: the 8 nearest the view; the others are their painted
+  pool, glow card and glass): `Presentation/Terrain/RealLampSet.cs` (the rule: nearest the view's focus on the ground,
+  a lamp keeps its place until another is 2 m nearer, a 0.6 s eased fade, a jump of over 30 m sets them at once) and
+  `Presentation/Terrain/NightLights.RealLamps.cs` (each game camera chooses as it begins to render and switches the
+  Lights in `lanterns`; nothing else: flashes, crater glows, the star shell and the machines' lights are other lists).
+  `lights.realLamps` (8; 43 or more: every lamp real, as before), `lights.waterLamps` (4: lamps by the water sheet, in
+  the picture, stay real beyond the eight, because `Water_URP` takes real lights only; 0 none), `look.poolsByView`
+  (1: the 32 painted pools go first to the flames whose pool reaches into the picture, nearest the camera first, then
+  to the rest, nearest the middle of the picture, `NightLights.PoolKey`; 0: nearest the camera, seen or not, as before).
+  `CaptureRig` cuts the lamps as it poses a still (`NightLights.CutLamps`; `CaptureRig.Rig.LampsFade` leaves the fade
+  running for a row of stills along a moving view).
+  The rule stands aside where no pools are drawn (by day, `look.pools` 0). A lamp that is out is `lampOut`, not
+  `Light.enabled` (that now says whether its light is real at the moment). The night exactly as before:
+  `lights.realLamps=43,look.poolsByView=0`.
   Rare comic sound words over the field (the owner kept them, rare): `UI/Selection/ComicWords.cs` (CRACK on a near
   miss, CLANG on a shell a hull stopped, KRUMP on a burst of 6 m or more, KA-BOOM on a cook-off; one word at most each
   `fx.comicGap` s (8), the weightiest since the last, two on screen at most, only where the camera sees it; `fx.comicWords`
   0 off; built and ticked by `SelectionController` beside DeathMarks, styled `.hud-comic` in `BattleHud.uss`). Tests:
   ComicWordsTests.
-- **Tests:** NightLookTests, BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
+- **Tests:** NightLookTests, RealLampSetTests (the eight nearest, no pop on a tie or a pan, 43 is the old night, the water
+  rule, and that only the fixed lamps are switched), BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
   repaints only its own tile of the ground colour, `Presentation/Terrain/ScorchTilePainter.cs`), HollowRescanTests and
   DrainageTests (crater hollows and rill drainage, presentation only).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
@@ -938,7 +953,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** GymPlayTests, HudLayoutPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
-- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WreckModelTests
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MeleeTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, VfxStills, WalkerStills, WreckStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
