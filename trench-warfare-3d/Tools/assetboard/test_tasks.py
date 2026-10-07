@@ -461,7 +461,7 @@ def page_rules():
          'for five minutes; and nothing when all is well',
          got and got[18] == ['DESK was last read 3 h ago: its agents and sessions may be missing here.']
          and got[19] == ['The tasks could not be read at HH:MM (boom). What is below is from the reading before.',
-                         'The shared Drive is away on this station. 2 captures wait in the game\'s folder. Nothing is taken in and nothing you say here is taken up until it is back.']
+                         'The shared Drive is away on this station. 2 captures wait in the game\'s folder. Nothing is taken in, and nothing you say here is taken up while it is away.']
          and got[20] == ['This list was read 6 min ago and not since: the board\'s watcher may have stopped.'] and got[21] == [], got and got[18:22])
     case('tasks page: the control screen\'s first rows are one of each group in turn, so the captures do not crowd the rest out, and never his own stops; the foot says what the board cannot see',
          got and got[22] == ['capture0', 'agent0', 'handoff0', 'capture1', 'agent1', 'capture2'] and got[23].endswith('Read on MSI just now, DESK 3 h ago. It cannot see X.'), got and got[22:])
@@ -485,6 +485,10 @@ def delivered():
     log(P / 'p' / 'parent01.jsonl', parent, 300)
     for name in ('handed01', 'failedto', 'complete', 'waitedfor', 'silent01', 'backthen'):
         agent(P, 'parent01', name, [asked('Review the sim'), failed(ago=6000)], 300, desc='Review ' + name)
+    # handed its report back, was asked for another round five seconds later and died on it at once: the round is lost
+    parent.insert(1, back('nextround', 6010))
+    log(P / 'p' / 'parent01.jsonl', parent, 300)
+    agent(P, 'parent01', 'nextround', [asked('Review the sim', ago=9000), ended(ago=6011), asked('Now the second round', ago=6005), failed(ago=6004)], 300, desc='Review nextround')
     # the same failure, told to a session that never spoke again: nobody was there to go on without it
     log(P / 'p' / 'parent02.jsonl', [asked('review the relay', side=False), ended(ago=7000, side=False), back('stillout', 5990, 'failed')], 300)
     agent(P, 'parent02', 'stillout', [asked('Review the sim'), failed(ago=6000)], 300, desc='Review stillout')
@@ -493,14 +497,27 @@ def delivered():
     rows = {r['id']: r for r in src_tasks.collect(mine, now=NOW)['rows']}
     case('tasks: an agent whose log ends on a failed call is not a task when its report had reached its session: handed back, told as completed, or the result of an agent the session waited for. '
          'It is one when nothing came back, when only the failure did, and when the report that came back was an earlier run\'s',
-         sorted(rows) == ['agent-backthen', 'agent-failedto', 'agent-silent01', 'agent-stillout'], sorted(rows))
+         sorted(rows) == ['agent-backthen', 'agent-failedto', 'agent-nextround', 'agent-silent01', 'agent-stillout'], sorted(rows))
+    case('tasks: a report counts only when it came after the agent\'s last request: one that handed back, was asked again seconds later and failed at once is a lost round',
+         'agent-nextround' in rows and src_tasks.read_agent(P / 'p' / 'parent01' / 'subagents' / 'agent-nextround.jsonl')['asked'] == src_tasks.stamp(at(6005)), sorted(rows))
+    log(P / 'p' / 'parent03.jsonl', [asked('review the relay', side=False), back('freshone', 590), ended(ago=500, side=False)], 10)
+    agent(P, 'parent03', 'freshone', [asked('Review the sim', ago=900), failed(ago=600)], 10, desc='Review freshone')
+    young = [r['id'] for r in src_tasks.local(P, NOW, {}, 'HERE')]
+    case('tasks: the check is made before a row is written at all, not when it has aged: the other station lists what this one writes, and a finished agent must not reach it',
+         'agent-freshone' not in young and 'agent-silent01' in young, young)
     told = rows.get('agent-failedto', {})
     case('tasks: an agent that failed, whose session was told and went on, says so, and its unit tells the leg to check first that the task was not done another way',
          src_tasks.TOLD in told.get('why', '') and src_tasks.TOLD in ' '.join(told.get('detail', [])) and 'Check that first' in src_tasks.unit_for(told)['goal']
          and src_tasks.TOLD not in rows['agent-silent01']['why'] and src_tasks.TOLD not in rows['agent-stillout']['why'] and 'Do the task.' in src_tasks.unit_for(rows['agent-silent01'])['goal'], told)
     again = src_tasks.local(P, NOW, cache, 'HERE')
-    case('tasks: a session\'s transcript is read for what came back once, and again only when it changed', len(cache['heard']) == 2 and len(again) == len(mine)
-         and src_tasks.heard_of(P / 'p' / 'parent01.jsonl')['handed01'].keys() == {'back', 'told'}, cache.get('heard'))
+    f = P / 'p' / 'parent01.jsonl'
+    case('tasks: a session\'s transcript is read for what came back once, and after that only what it gained', len(cache['heard']) == 3 and len(again) == len(mine)
+         and cache['heard'][str(f)]['read'] == f.stat().st_size and src_tasks.heard_of(f)['handed01'].keys() == {'back', 'told'}, cache.get('heard'))
+    with open(f, 'ab') as h:
+        h.write((json.dumps(back('silent01', 5000)) + '\n').encode())
+    os.utime(f, (NOW - 300 * MIN, NOW - 300 * MIN))
+    later = [r['id'] for r in src_tasks.local(P, NOW, cache, 'HERE')]
+    case('tasks: a report that reaches the session later takes the agent off the list', 'agent-silent01' not in later and 'agent-failedto' in later, later)
 
 
 def long_lines():
@@ -525,11 +542,19 @@ def in_hand():
         os.utime(where / f'HANDOFF_AGENT_{n}.md', (NOW - 600 * MIN, NOW - 600 * MIN))
     filler = [result('y' * 4000, ago=20000 - k, side=False) for k in range(90)]           # hours of work after the handoff was opened: 360 KB
     f = log(P / 'p' / 'worker01.jsonl', [asked('continue from the handoff', side=False), calling('Read', dict(file_path=str(where / 'HANDOFF_AGENT_long_haul.md')), ago=30000, side=False)] + filler, 5)
+    # the session that wrote a handoff, listed the folder or told an agent about it has not opened it
+    (where / 'handoffs.json').write_text(json.dumps(dict(handoffs={'HANDOFF_AGENT_long_haul.md': dict(topic='the long haul', state='current', **{'for': 'Fix the board.'}),
+                                                                   'HANDOFF_AGENT_written.md': dict(topic='just written', state='current', **{'for': 'Carry on.'}),
+                                                                   'HANDOFF_AGENT_old.md': dict(topic='replaced', state='replaced', **{'for': 'Nothing.'})})), encoding='utf-8')
+    (where / 'HANDOFF_AGENT_written.md').write_text('# handoff\n', encoding='utf-8')
+    os.utime(where / 'HANDOFF_AGENT_written.md', (NOW - 600 * MIN, NOW - 600 * MIN))
+    log(P / 'p' / 'writer01.jsonl', [asked('write the handoff', side=False), calling('Write', dict(file_path=str(where / 'HANDOFF_AGENT_written.md'), content='# handoff'), side=False),
+                                     calling('Bash', dict(command='ls HANDOFF_AGENT_written.md'), side=False), calling('Agent', dict(prompt='Read HANDOFF_AGENT_written.md and carry on'), side=False)], 5)
     cache = {}
     got = [(r['id'], bool(r.get('fault'))) for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
     case('tasks: a handoff a session opened at its start and is still working from, hours and many lines later, is in that session\'s hands and is not listed; '
          'a handoff file the index does not know is listed as a fault, and one the index knows as replaced is not',
-         got == [('handoff-stray', True)] and f.stat().st_size > src_tasks.TAIL and 'HANDOFF_AGENT_long_haul.md' not in json.dumps(src_tasks.entries(src_tasks.tail(f))), got)
+         got == [('handoff-stray', True), ('handoff-written', False)] and f.stat().st_size > src_tasks.TAIL and 'HANDOFF_AGENT_long_haul.md' not in json.dumps(src_tasks.entries(src_tasks.tail(f))), got)
     read = cache['named'][str(f)]['read']
     with open(f, 'ab') as h:
         h.write((json.dumps(calling('Read', dict(file_path='HANDOFF_AGENT_stray.md'), side=False)) + '\n').encode())
@@ -537,11 +562,12 @@ def in_hand():
     os.utime(f, (NOW - 3 * MIN, NOW - 3 * MIN))
     got = [r['id'] for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
     case('tasks: only what a log gained since the last reading is read, and a line still being written waits for the next',
-         got == [] and read == f.stat().st_size - len(json.dumps(calling('Read', dict(file_path='HANDOFF_AGENT_stray.md'), side=False))) - 1 - 34
+         got == ['handoff-written'] and read == f.stat().st_size - len(json.dumps(calling('Read', dict(file_path='HANDOFF_AGENT_stray.md'), side=False))) - 1 - 34
          and cache['named'][str(f)]['read'] == f.stat().st_size - 34, (got, read, cache['named'][str(f)]['read'], f.stat().st_size))
     os.utime(f, (NOW - 200 * MIN, NOW - 200 * MIN))
     got = [r['id'] for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
-    case('tasks: when that session goes quiet for an hour and a half the handoff it held is listed', got == ['handoff-long_haul', 'handoff-stray'] and cache['named'] == {}, got)
+    case('tasks: when that session goes quiet for an hour and a half the handoff it held is listed; a handoff is held by the session that opened it, not by the one that wrote it, listed it '
+         'or named it to an agent', got == ['handoff-long_haul', 'handoff-stray', 'handoff-written'] and list(cache['named']) == [str(P / 'p' / 'writer01.jsonl')], (got, list(cache['named'])))
 
 
 def one_life():
@@ -568,6 +594,22 @@ def one_life():
          [[(r['id'], r['state'], r.get('legs'), r.get('verdict'), r['detail'][-1]) for r in x['rows']] for x in (a, b, c, d)])
     gone = got(rel(), set())['rows'][0]
     case('tasks: a queued task whose unit file is gone, and which the relay never had, is queued with no unit, so the unit is written again', gone['state'] == 'queued' and gone['unit'] == '' and a['rows'][0]['unit'] == 'task-agent-x', gone)
+    moved = [task(touched=int(NOW - 100 * MIN), changed=int(NOW - 200 * MIN))]         # its parent session moved after he spoke; the agent's own log did not
+    stays = [got(rel(), set(), notes=[n], rows=moved) for n in (note(src_tasks.DROP_SAY, 150 * MIN), note('Done on the lane.', 150 * MIN, who='lane/show/x'))]
+    case('tasks: a word about a task is judged against the task\'s own change, not against its parent session moving or somebody opening it: what he dropped stays dropped, what was closed stays closed',
+         [x['rows'] for x in stays] == [[], []] and [x['dropped'] + x['done'] for x in stays] == [1, 1], [[r['state'] for r in x['rows']] for x in stays])
+    fin = rel(done=['task-agent-x'], done_at={'task-agent-x': at(120 * MIN)})       # done and out of the queue: nothing keeps the unit alive but the record
+    edited = got(fin, set(), rows=[task(touched=int(NOW - 125 * MIN), changed=int(NOW - 125 * MIN))], notes=[note(src_tasks.QUEUE_SAY, 300 * MIN, answers=['Unit task-agent-x: written'], state='done')])
+    again = got(fin, set(), rows=[task(touched=int(NOW - 95 * MIN), changed=int(NOW - 95 * MIN))], notes=[note(src_tasks.QUEUE_SAY, 300 * MIN, answers=['Unit task-agent-x: written'], state='done')])
+    case('tasks: a task the relay finished is done though the leg that did it changed it on the way; changed again after the relay was done, it is a new task, with no unit and both buttons',
+         edited['rows'] == [] and edited['done'] == 1 and [(r['state'], r['unit'], r['note']) for r in again['rows']] == [('left', '', '')], ([r['state'] for r in edited['rows']], again['rows']))
+    stale = got(rel(), set(), notes=[note(src_tasks.QUEUE_SAY, 300 * MIN), note(src_tasks.DROP_SAY, 300 * MIN), note(src_tasks.QUEUE_SAY, 300 * MIN, state='done')])['rows'][0]
+    case('tasks: his open clicks that the task has outlived are named on the row, for the board to answer: the page would go on showing them as said',
+         stale['state'] == 'left' and len(stale['stale']) == 2, stale.get('stale'))
+    running = dict(queue={'u1': dict(id='u1', lane='lane/sim/x', goal='g'), 'u2': dict(id='u2', lane='lane/sim/x', goal='g'), 'u3': dict(id='u3', lane='lane/sim/x', goal='g')}, done=[], stops=[],
+                   legs=[dict(unit='u1', state='RUNNING', started_at=at(100 * MIN)), dict(unit='u2', state='DONE', started_at=at(200 * MIN), finished_at=at(100 * MIN)), dict(unit='u3', state='RUNNING', started_at=at(7 * 3600))])
+    case('tasks: a unit whose newest leg has not ended is the relay at work and is not listed as given up on; one that ended is, and so is a leg that never ended and started six hours ago',
+         [r['id'] for r in src_tasks.collect([], shared=src_tasks.relay_rows(running, NOW), now=NOW)['rows']] == ['relay-u2', 'relay-u3'], [r['id'] for r in src_tasks.relay_rows(running, NOW)])
     old = 300 * MIN
     states = [got(rel(), set(), notes=[n])['rows'] for n in (note(src_tasks.DROP_SAY, old), note('Done on the lane.', old, who='lane/show/x'), note(src_tasks.QUEUE_SAY, old, answers=['Unit task-agent-x: written'], state='done'))]
     fresh = [got(rel(), set(), notes=[n]) for n in (note(src_tasks.DROP_SAY, 60 * MIN), note('Done on the lane.', 60 * MIN, who='lane/show/x'))]
@@ -599,6 +641,17 @@ def taken_back(P, board):
     ans = {n['id']: n for n in notes.read_all(where)}[d['id']]['answers'][-1]['text']
     case('tasks: a drop of a task the relay already has says the relay will still run it, and removes nothing', (units / 'task-agent-y.json').exists() and 'The relay already has it as unit task-agent-y' in ans, ans)
     (units / 'task-agent-y.json').unlink()
+    d = say('unit-never-queued', src_tasks.DROP_SAY)
+    r = say('relay-tried-and-failed', src_tasks.DROP_SAY)
+    tasks.act(dict(rows=[], relay=dict(taken=['tried-and-failed'])), where, units, now=day)
+    ans = {n['id']: n['answers'][-1]['text'] for n in notes.read_all(where) if n['answers']}
+    case('tasks: a drop of a unit somebody else wrote, or of a unit in the relay\'s queue, says it only leaves the list: the file stays for the master, the relay may run it again',
+         (units / 'never-queued.json').exists() and 'never-queued.json is somebody else\'s and stays' in ans[d['id']] and 'The relay still has unit tried-and-failed' in ans[r['id']], (ans[d['id']], ans[r['id']]))
+    old = notes.write(where, src_tasks.QUEUE_SAY, kind='queue', about='task: session-cutsess9', title='x', now=day)
+    did = tasks.act(dict(rows=[dict(id='session-cutsess9', state='left', stale=[old['id']])], relay={}), where, units, now=day)
+    ans = {n['id']: n for n in notes.read_all(where)}[old['id']]
+    case('tasks: a click of his that the task has outlived is answered and closed, so the page stops showing it as said and he knows to say it again',
+         ans['state'] == 'done' and ans['answers'][-1]['text'].startswith('Not taken up: the task changed after you said this') and not (units / 'task-session-cutsess9.json').exists(), (ans['answers'], did))
     # a unit the relay's rules refuse
     q = say('session-asksess1', src_tasks.QUEUE_SAY)
     keep, briefs.check_then = briefs.check_then, lambda says, unit=None: ['the lane is not one the relay takes']

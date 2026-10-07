@@ -98,7 +98,7 @@
     if (!T) return out;
     if (T.failed) out.push('The tasks could not be read at ' + clock(T.failed.at) + ' (' + T.failed.why + '). What is below is from the reading before.');
     else if (T.read_at && (nowSec - T.read_at) / 60 > OLD) out.push('This list was read ' + span((nowSec - T.read_at) / 60) + ' ago and not since: the board\'s watcher may have stopped.');
-    if (T.drive_away) out.push('The shared Drive is away on this station.' + (T.waiting_here ? ' ' + n(T.waiting_here, '1 capture waits', 'captures wait') + ' in the game\'s folder.' : '') + ' Nothing is taken in and nothing you say here is taken up until it is back.');
+    if (T.drive_away) out.push('The shared Drive is away on this station.' + (T.waiting_here ? ' ' + n(T.waiting_here, '1 capture waits', 'captures wait') + ' in the game\'s folder.' : '') + ' Nothing is taken in, and nothing you say here is taken up while it is away.');
     ((T.stations) || []).forEach(function (s) { var m = (nowSec - s.at) / 60; if (m > UNHEARD) out.push(s.host + ' was last read ' + span(m) + ' ago: its agents and sessions may be missing here.'); });
     return out;
   }

@@ -73,7 +73,7 @@ def relay(board, cache, now, fetch=True):
     """The relay's queue as the pipeline board's origin/main has it: {queue {id: unit}, done [ids], legs, stops, as_of}.
     Read with git from the commit, so a board whose checkout is behind or in another session's hands is neither
     needed nor touched. Read again only when origin/main moved."""
-    empty = dict(queue={}, done=[], legs=[], stops=[], as_of='')
+    empty = dict(queue={}, done=[], done_at={}, legs=[], stops=[], as_of='')
     if not board or not Path(board).is_dir():
         return empty
     seen = cache.setdefault('relay', {})
@@ -99,7 +99,7 @@ def relay(board, cache, now, fetch=True):
         except ValueError:
             pass
         at = end + 1 + size + 1
-    data = dict(empty, as_of=git(board, 'log', '-1', '--format=%ci', REF).decode().strip()[:16])
+    data = dict(empty, queue={}, done=[], done_at={}, legs=[], stops=[], as_of=git(board, 'log', '-1', '--format=%ci', REF).decode().strip()[:16])
     for n, d in blobs.items():
         part = n.split('/')
         if not isinstance(d, dict):
@@ -108,6 +108,7 @@ def relay(board, cache, now, fetch=True):
             data['queue'][d['id']] = dict(id=d['id'], lane=d.get('lane', ''), goal=str(d.get('goal', ''))[:600])
         elif part[1] == 'done':
             data['done'].append(d.get('id') or Path(n).stem)
+            data['done_at'][d.get('id') or Path(n).stem] = d.get('done_at') or ''
         elif len(part) == 4 and part[2] == 'legs':
             data['legs'].append({k: d.get(k) for k in ('unit', 'state', 'started_at', 'finished_at')} | dict(report=str(d.get('report') or '')[:400]))
         elif len(part) == 4 and part[2] == 'stops':
@@ -152,8 +153,8 @@ def read(ready=None, every_note=None, now=None, cache_path=None, projects=None, 
         cache = json.loads(cache_path.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         cache = {}
-    if cache.get('v') != 2:
-        cache = dict(v=2)
+    if cache.get('v') != 3:
+        cache = dict(v=3)
     projects = projects or src_ops.PROJECTS
     gone = src_tasks.away()                         # the Drive is away: nothing is taken in or written where only this station looks
     mine = src_tasks.local(projects, now, cache, host)
@@ -214,6 +215,14 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
         r['unit'] = uid
         r['detail'] = src_tasks.detail(r)
         did.append(f'{r["id"]}: queued as {uid}')
+    # a click of his that the task has outlived: answered, so the page stops showing it as said
+    for r in T['rows']:
+        for nid in r.get('stale') or []:
+            try:
+                notes.answer(notes_where, nid, 'Not taken up: the task changed after you said this. It is on the list as it is now; say it again if it still holds.', by=BY, now=now)
+                did.append(f'{r["id"]}: an older word of his no longer holds, and was answered')
+            except (OSError, ValueError) as e:
+                did.append(f'{r["id"]}: its older note was not answered ({e})')
     taken = set((T.get('relay') or {}).get('taken') or [])
     for n in notes.read_all(notes_where):
         if n['state'] != 'done' and n.get('from', 'owner') == 'owner' and str(n.get('about', '')).startswith('task: ') and n['text'].strip() == src_tasks.DROP_SAY:
@@ -227,6 +236,10 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
             elif uid.startswith('task-') and (units / f'{uid}.json').exists():
                 (units / f'{uid}.json').unlink()
                 text += f' Its unit file {uid}.json was taken back before the relay had it.'
+            elif tid.startswith('relay-'):
+                text += f' The relay still has unit {uid} in its queue and may run it again: taking it out is the master\'s.'
+            elif tid.startswith('unit-') and (units / f'{uid}.json').exists():
+                text += f' Its unit file {uid}.json is somebody else\'s and stays in units-for-master: the master will queue it unless that file is removed.'
             notes.answer(notes_where, n['id'], text, by=BY, now=now)
             did.append(f'{tid}: dropped')
     return did
@@ -258,7 +271,7 @@ def site(T, out: Path):
                 shots = [dict(src=dst.relative_to(out).as_posix(), name='the screen when you pressed F10')]
         r['shots'] = shots
         r.pop('ask', None)                          # what a unit is written from: a session's to read, too long for a page
-        for k in ('lines', 'log', 'parent_log', 'parent', 'sid', 'cwd', 'branch', 'first', 'turns'):      # a unit's too, and paths of one machine
+        for k in ('lines', 'log', 'parent_log', 'parent', 'sid', 'cwd', 'branch', 'first', 'turns', 'stale', 'changed'):      # a unit's too, and paths of one machine
             r.pop(k, None)
         rows.append(r)
     return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict(T, rows=rows, relay={k: v for k, v in T["relay"].items() if k != "taken"}), sort_keys=True)};\n')
