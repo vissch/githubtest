@@ -531,10 +531,10 @@ RECUT = {
         keep={"Body": "Hull", "Gun": "Gun", "Banner": "Banner"},
         legs=[
             dict(thigh=[(0.430, 0.613, -0.7045)], shin=[], foot=[],
-                 split=((0.836, 0.473, -0.9335), 0.31), stub=0.10,
+                 split=((0.836, 0.473, -0.9335), 0.29), stub=0.10,     # just over the spike's own top ring
                  hip=(0.156, 0.655, -0.534),            # the middle of the arm's open inner end
                  knee=(0.6525, 0.745, -0.8215),         # the middle of the ball at the arm's outer end
-                 ankle_y=0.31),
+                 ankle_y=0.29),
             dict(thigh=[(0.373, 0.528, 0.259), (0.365, 0.687, 0.2555), (0.5885, 0.952, 0.471)],   # elbow ball, arm, knee ball
                  shin=[(0.7455, 0.738, 0.6735)],
                  foot=[(0.8055, 0.2655, 0.7545), (0.7505, 0.273, 0.6765)],                       # the spike and the small one
@@ -613,24 +613,32 @@ def halve(bm, y, stub):
     if stub > 0:
         uv = lower.loops.layers.uv.active
         rim = [e for e in lower.edges if e.is_boundary and all(abs(v.co.z - y) < 1e-5 for v in e.verts)]
+        # the stub wears the foot's own colour: each cut vertex takes the paint of the foot's vertex below it (the
+        # cut itself runs through the band where the shin's paint fades into the foot's, and a stub painted with
+        # that showed as a pale patch on a turned ankle, 2026-10-07)
+        paint = {}
+        if uv is not None:
+            for v in {v for e in rim for v in e.verts}:
+                below = [l.link_loop_next for l in v.link_loops if l.link_loop_next.vert.co.z < y - 1e-5]                       + [l.link_loop_prev for l in v.link_loops if l.link_loop_prev.vert.co.z < y - 1e-5]
+                src = min(below, key=lambda l: l.vert.co.z) if below else v.link_loops[0]
+                paint[v] = src[uv].uv.copy()
         out = bmesh.ops.extrude_edge_only(lower, edges=rim)["geom"]
-        for v in [g for g in out if isinstance(g, bmesh.types.BMVert)]:
+        raised = [g for g in out if isinstance(g, bmesh.types.BMVert)]
+        for v in raised:
+            if uv is not None:
+                under = [e.other_vert(v) for e in v.link_edges if e.other_vert(v) in paint and (e.other_vert(v).co - v.co).length < 1e-7]
+                paint[v] = paint[under[0]]
             v.co = mid + (v.co - mid) * 0.8 + Vector((0, 0, stub))
         walls = [g for g in out if isinstance(g, bmesh.types.BMFace)]
         for f in walls:
             f.normal_update()
             away = f.calc_center_median() - mid; away.z = 0
             if f.normal.dot(away) < 0: f.normal_flip()
-            if uv is None: continue
-            low = [l for l in f.loops if abs(l.vert.co.z - y) < 1e-5]
-            src = None
-            for l in low:
-                for other in l.vert.link_loops:
-                    if other.face not in walls: src = other[uv].uv.copy(); break
-                if src is not None: break
-            if src is not None:
-                for l in f.loops: l[uv].uv = src
-        cap(lower, y + stub, True)
+            if uv is not None:
+                for l in f.loops: l[uv].uv = paint[l.vert]
+        for f in cap(lower, y + stub, True):
+            if uv is not None:
+                for l in f.loops: l[uv].uv = paint[l.vert]
     else: cap(lower, y, True)
     return upper, lower, mid
 
@@ -733,8 +741,7 @@ def recut(name, vehicles):
         entry["lods"].append({"lod": lod, "parts": sorted(n for n in objs if not n.startswith("Socket")), "verts": verts, "tris": tris})
         print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (name, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
     manifest["crabs"][name] = entry
-    with open(os.path.join(OUTDIR, "crabs.json"), "w", newline="
-") as f: json.dump(manifest, f, indent=1)
+    with open(os.path.join(OUTDIR, "crabs.json"), "w", newline="\n") as f: json.dump(manifest, f, indent=1)
 
 # ------------------------------------------------------------------------------------------------------------ main
 def split_sheets():
