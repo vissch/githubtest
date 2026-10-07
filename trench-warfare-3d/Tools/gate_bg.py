@@ -53,8 +53,12 @@ def verdict(log):
         lines = [l for l in log.read_text(encoding='utf-8', errors='replace').splitlines() if l.strip()]
     except OSError:
         return 'no log'
+    # the wrapper's 'gate exit N' comes after the gate's own verdict: green is read first, wherever it stands
     for l in reversed(lines):
-        if l.startswith('Gate green') or l.startswith('gate exit '):
+        if l.startswith('Gate green'):
+            return l
+    for l in reversed(lines):
+        if l.startswith('gate exit '):
             return l
     return lines[-1] if lines else 'empty log'
 
