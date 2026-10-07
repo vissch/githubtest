@@ -27,7 +27,37 @@
 /* on the control screen: one card, the first few rows, the way to the rest */
 .t-card { grid-column: 1 / -1; }
 .t-card .k-qn { color: var(--t-near); }
+/* what he can say about a row, on the row: the first is the likely one, the rest are quiet until he is on them */
+.t-acts { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; grid-column: 1 / -1; }
+.t-act { font: 600 12px var(--sans); padding: 6px 12px; border-radius: 999px; border: 1px solid var(--k-fire); background: rgba(255, 74, 28, .16); color: #ffc2ad; cursor: pointer; }
+.t-act:hover, .t-act:focus-visible { background: var(--k-fire); color: #fff; outline: none; }
+.t-act.t-act-quiet { background: transparent; color: var(--t-body); border-color: var(--k-line, rgba(255, 255, 255, .22)); }
+.t-act.t-act-quiet:hover, .t-act.t-act-quiet:focus-visible { border-color: var(--k-fire); color: var(--t-near); }
+.t-h .t-act { text-transform: none; letter-spacing: 0; padding: 4px 10px; }
+.t-h .t-h-label { min-width: 0; }
+.t-h { flex-wrap: wrap; }
+.t-note { margin: -4px 0 10px; color: var(--t-soft); font: 400 13px/1.45 var(--sans); max-width: 80ch; }
+.t-row.t-relay { border-left: 3px solid var(--k-fire); }
+/* the row's words never push the page wider than the screen */
+.t-row .k-take-what, .t-row .k-take-sub { min-width: 0; }
+.t-row .k-take-top, .t-sub, .t-count, .t-page .k-head h2 { overflow-wrap: anywhere; }
+.t-row .k-take-sub { flex-wrap: wrap; }
+/* something is wrong with the reading: said where it cannot be missed */
+.t-warn { margin: 0 0 20px; padding: 12px 16px; border: 1px solid var(--k-fire2); border-left-width: 4px; border-radius: 10px; background: rgba(255, 170, 60, .10); }
+.t-warn p, .t-warn-line { margin: 0; color: var(--t-near); font: 500 14px/1.5 var(--sans); }
+.t-warn p + p { margin-top: 6px; }
+.t-warn-line { padding: 0 0 10px; color: var(--k-fire2); }
+/* his own stops: folded until he opens them */
+details.t-group > summary { cursor: pointer; list-style: none; }
+details.t-group > summary::before { content: '+'; color: var(--t-low); width: 10px; }
+details.t-group[open] > summary::before { content: '−'; }
+details.t-group > summary::-webkit-details-marker { display: none; }
+/* a capture's picture is the feedback: large enough to tell two apart, larger still under the pointer */
+.t-capture .t-row .k-qshot { transition: transform .12s ease; transform-origin: left center; }
+.t-capture .t-row:hover .k-qshot { transform: scale(1.9); position: relative; z-index: 3; box-shadow: 0 10px 30px rgba(0, 0, 0, .55); }
 @media (max-width: 760px) {
   .k-qrow.t-row.t-shown, .t-capture .k-qrow.t-row.t-shown { grid-template-columns: 96px minmax(0, 1fr); }
   .t-row .k-qshot, .t-capture .t-row .k-qshot { width: 96px; height: 54px; }
+  .t-capture .t-row:hover .k-qshot { transform: none; }
+  .t-rows, .t-capture .t-rows { grid-template-columns: minmax(0, 1fr); }
 }

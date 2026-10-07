@@ -13,7 +13,9 @@
   "unity": "6000.0.50f1",
   "editor": true,
   "project": "C:/Users/someone/Documents/GitHub/githubtest/trench-warfare-3d",
-  "build_info": ""
+  "build_info": "",
+  "branch": "lane/show/feedback-capture",
+  "commit": "55b5d13b"
  },
  "machine": {
   "name": "MSI",
@@ -36,15 +38,18 @@
   "holds_before": "None",
   "speed": 1.0,
   "units": [
-   {"team": 0, "archetype": 0, "count": 96},
-   {"team": 0, "archetype": 4, "count": 2},
-   {"team": 1, "archetype": 0, "count": 110},
-   {"team": 1, "archetype": 5, "count": 4}
+   {"team": 0, "archetype": 0, "count": 96, "name": "Rifle"},
+   {"team": 0, "archetype": 4, "count": 2, "name": "Officer"},
+   {"team": 1, "archetype": 0, "count": 110, "name": "Rifle"},
+   {"team": 1, "archetype": 5, "count": 4, "name": "Shield"}
   ],
+  "positions": "0 0 0 41.5 12.2 100;1 0 4 44 13.7 100;2 1 0 118.3 60 72;",
+  "selected": "0 1",
   "request": {
    "MissionId": "m1",
    "Title": "THE SHELLED FOREST",
    "Difficulty": "REGULAR",
+   "MatchSeed": 12648430,
    "BattlefieldSeed": 1917
   },
   "report": {
@@ -57,7 +62,11 @@
   "euler": {"x": 25.0, "y": 291.0, "z": 0.0},
   "fov": 25.0,
   "focus": {"x": 45.0, "y": 71.0},
-  "zoom": 30.0
+  "zoom": 30.0,
+  "cursor": {"x": 960.0, "y": 410.0},
+  "cursor_on_ground": true,
+  "cursor_ground": {"x": 46.5, "y": 0.0, "z": 68.0},
+  "armed": "None"
  },
  "perf": {
   "frame_ms": 16.9,
@@ -66,5 +75,6 @@
   "indirect_draws": 14
  },
  "settings": {},
- "knobs": "{}"
+ "knobs": "{}",
+ "errors": ["21:13:58  NullReferenceException: Object reference not set to an instance of an object"]
 }

@@ -118,13 +118,25 @@ def listed():
     log(P / 'p' / 'cutsess1.jsonl', [asked('fix the wire', side=False), calling(side=False)], 100)
     log(P / 'p' / 'asksess1.jsonl', [asked('plan the lane', side=False), calling('AskUserQuestion', dict(questions=[]), side=False)], 100)
     log(P / 'p' / 'freshcut.jsonl', [asked('fix the wire', side=False), calling(side=False)], 20)
+    log(P / 'p' / 'stopsess.jsonl', [asked('try the other shader', side=False), interrupted(side=False)], 100)
     cache = {}
     mine = src_tasks.local(P, NOW, cache, 'HERE')
     T = src_tasks.collect(mine, now=NOW)
     ids = sorted(r['id'] for r in T['rows'])
     case('tasks: a cut-off agent is listed at 91 minutes and not at 89; never one that finished, one he stopped, one its session ran again to the end, one whose session is still at work, '
-         'one of another project or one from before the window; a session cut off or left on a question is listed the same way',
-         ids == ['agent-cutlong', 'session-asksess1', 'session-cutsess1'], ids)
+         'one of another project or one from before the window; a session cut off or left on a question is listed the same way, and one he stopped himself apart from them',
+         ids == ['agent-cutlong', 'session-asksess1', 'session-cutsess1', 'session-stopsess'] and {r['id']: r['kind'] for r in T['rows']}['session-stopsess'] == 'paused'
+         and T['paused'] == 1 and T['left'] == 3, (ids, T['paused'], T['left']))
+    cut = next(r for r in mine if r['id'] == 'session-cutsess1')
+    u = src_tasks.unit_for(dict(cut, words=[]))
+    case('tasks: the unit of a cut-off session tells the leg where the work is: the station, the folder, the transcript and its session, what it was asked and its last lines, '
+         'and that those files are on that station only',
+         all(x in u['goal'] for x in ('station HERE', 'githubtest-pipe', str(P / 'p' / 'cutsess1.jsonl'), 'session cutsess1', 'fix the wire', 'Its last lines', 'on HERE only', 'in the middle of a tool call'))
+         and u['id'] == 'task-session-cutsess1', u['goal'])
+    ag = next(r for r in mine if r['id'] == 'agent-cutlong')
+    u = src_tasks.unit_for(dict(ag, words=[]))
+    case('tasks: the unit of a cut-off agent names its log and the session that started it',
+         str(P / 'p' / 'quiet001' / 'subagents' / 'agent-cutlong.jsonl') in u['goal'] and 'quiet001' in u['goal'] and 'Review the sim' in u['goal'], u['goal'])
     row = next((r for r in T['rows'] if r['id'] == 'agent-cutlong'), {})
     case('tasks: a row says what the task was, who started it, on which station, how long nobody has been on it and how it stopped',
          row.get('title') == 'Cut 91 minutes ago' and row.get('where') == 'HERE' and row.get('by') == 'carry on with the lane' and row.get('idle') == 91
@@ -134,7 +146,7 @@ def listed():
     os.utime(P / 'p' / 'busy0001.jsonl', (NOW - 200 * MIN, NOW - 200 * MIN))
     again = src_tasks.collect(src_tasks.local(P, NOW, cache, 'HERE'), now=NOW)
     case('tasks: when its session goes quiet too, the agent it left cut off is listed; a log is read again only when it changed',
-         'agent-parentup' in [r['id'] for r in again['rows']] and len(cache['files']) == seen and seen == 14, (sorted(r['id'] for r in again['rows']), seen))
+         'agent-parentup' in [r['id'] for r in again['rows']] and len(cache['files']) == seen and seen == 15, (sorted(r['id'] for r in again['rows']), seen))
     return P
 
 
@@ -259,12 +271,19 @@ def captures():
     one = next(c for c in every if c['id'] == '2026-10-07-200000-HERE')
     case('capture: read back, a capture has his words, its picture and five lines at most that say where in the match it was and which game it was',
          [c['id'] for c in every] == ['2026-10-07-200500-HERE', '2026-10-07-200300-HERE', '2026-10-07-200000-HERE'] and one['note'] == 'The tank drove through the wire.'
-         and one['shot'].endswith('shot.png') and len(one['lines']) <= 5 and 'THE SHELLED FOREST, 03:00 into the match (tick 5400), seed 1917' in one['lines'][0]
-         and '98 of ours and 114 of theirs' in one['lines'][1] and 'lane/show/x at abc12345 with 2 files changed' in one['lines'][-1], one['lines'])
+         and one['shot'].endswith('shot.png') and len(one['lines']) <= 5 and 'THE SHELLED FOREST, 03:00 into the match (tick 5400), match seed 12648430, ground seed 1917' in one['lines'][0]
+         and '98 of ours and 114 of theirs' in one['lines'][1] and 'the cursor on the ground at 46, 68; 2 selected; 1 error in the console' in one['lines'][2], one['lines'])
+    case('capture: the commit a row names is the one the game wrote at the press; when the checkout had moved on by the time the board took the capture in, the row says both',
+         'lane/show/feedback-capture at 55b5d13b with 2 files changed (the checkout had moved to abc12345 when the board took the capture in)' in one['lines'][-1]
+         and 'lane/show/x at abc12345.' in feedback.lines(dict(ex, build=dict(ex['build'], branch='', commit='')), dict(host='H', branch='lane/show/x', commit='abc12345'))[-1]
+         and 'moved' not in feedback.lines(ex, dict(host='H', branch='lane/show/feedback-capture', commit='55b5d13b'))[-1], one['lines'][-1])
+    built = feedback.lines(dict(ex, build=dict(version='0.9', editor=False, build_info=json.dumps(dict(commit='0123456789abcdef', branch='lane/show/b', dirty=False)))), dict(host='H'))[-1]
+    case('capture: one from a build says which commit the build was made from, as the build\'s own file has it', 'a build, version 0.9, built from lane/show/b at 01234567.' in built
+         and feedback.lines(dict(ex, build=dict(version='0.9', editor=False, build_info='not json')), dict(host='H'))[-1].endswith('a build, version 0.9.'), built)
     rows = src_tasks.collect([], shared=src_tasks.capture_rows(every), now=NOW)['rows']
     case('capture: a capture is a task from its first minute, the newest first, his words its title, and one with no words says so',
          [r['id'] for r in rows] == ['capture-2026-10-07-200300-HERE', 'capture-2026-10-07-200500-HERE', 'capture-2026-10-07-200000-HERE'] and rows[1]['title'] == 'The tank drove through the wire.'
-         and rows[0]['title'] == 'A capture with no words' and all(r['idle'] <= 1 for r in rows), [(r['id'], r['title'], r['idle']) for r in rows])
+         and rows[0]['title'] == 'No words: THE SHELLED FOREST, 03:00 in' and all(r['idle'] <= 1 for r in rows), [(r['id'], r['title'], r['idle']) for r in rows])
     menu = feedback.lines(dict(ex, in_match=False, scene='MainMenu'), dict(host='HERE'))
     case('capture: one taken on a menu says no match was running', menu[0] == 'On a menu (MainMenu): no match was running.' and len(menu) == 2, menu)
     # his box for words is open: the capture waits for them (folders of its own, so the cases after this count what they did)
@@ -294,7 +313,7 @@ def his_word(P, board):
     ids = [r['id'] for r in T['rows']]
     case('tasks: one reading lists the captures first, then the agents, the sessions, the handoffs, the unit files and the relay\'s; it counts what is left and how long the relay\'s queue is',
          [r['kind'] for r in T['rows']] == sorted((r['kind'] for r in T['rows']), key=src_tasks.KINDS.index) and {'capture', 'agent', 'session', 'handoff', 'unit', 'relay'} <= {r['kind'] for r in T['rows']}
-         and T['left'] == len(ids) and T['queued'] == 0 and T['relay']['waiting'] == 2 and T['captures'] == 3, (ids, T['relay'], T['left']))
+         and T['left'] + T['captures'] + T['paused'] == len(ids) and T['queued'] == 0 and T['relay']['waiting'] == 2 and T['captures'] == 3 and T['paused'] == 1, (ids, T['relay'], T['left']))
     say = lambda tid, text, **k: notes.write(where, text, kind='queue', about='task: ' + tid, title=tid, now=k.pop('now', day), **k)
     q = say('agent-cutlong', src_tasks.QUEUE_SAY)
     say('agent-cutlong', 'Mind the wire test while you are at it.', now=day - datetime.timedelta(minutes=5))
@@ -340,7 +359,7 @@ def his_word(P, board):
     other = tasks.read(every_note=[], now=NOW, cache_path=TMP / 'cache-THERE.json', projects=TMP / 'no-projects', board=None, host='THERE', live=True, fetch=False)
     from_here = [r for r in other['rows'] if r.get('where') == 'HERE']
     case('tasks: a station writes its own agents and sessions where the other reads them, so both boards list both, each row with the station it is on',
-         theirs['host'] == 'HERE' and {r['kind'] for r in theirs['rows']} == {'agent', 'session'} and 'agent-cutlong' in [r['id'] for r in from_here]
+         theirs['host'] == 'HERE' and {r['kind'] for r in theirs['rows']} == {'agent', 'session', 'paused'} and 'agent-cutlong' in [r['id'] for r in from_here]
          and sorted(s['host'] for s in other['stations']) == ['HERE', 'THERE'] and (src_tasks.root() / 'tasks' / 'THERE.json').exists(), [r['id'] for r in from_here])
 
     # a session that only reads changes nothing
@@ -365,7 +384,14 @@ def site(T):
         shown = True
         print('      (no Pillow on this machine: the capture\'s picture was not put in the site)')
     case('tasks: the site gets the tasks as a script, a capture with its picture beside the page, and no row carries the long text a unit is written from or a path of this machine',
-         text.startswith('window.TASKS = ') and shown and all('ask' not in r and 'picture' not in r for r in data['rows']) and data['stale_minutes'] == 90, cap)
+         text.startswith('window.TASKS = ') and shown and all(not {'ask', 'picture', 'log', 'parent_log', 'cwd', 'turns', 'first'} & set(r) for r in data['rows']) and data['stale_minutes'] == 90
+         and 'taken' not in data['relay'] and data['read_at'] == int(NOW) and str(TMP) not in text.replace('\\\\', '\\'), cap)
+    tasks.failed(out, 'RuntimeError: the Drive hung', now=NOW + 60)
+    after = json.loads((out / 'data' / 'tasks.js').read_text(encoding='utf-8')[len('window.TASKS = '):].rstrip().rstrip(';'))
+    case('tasks: a reading that failed leaves the rows of the one before and says on the page that they are old, when it failed and why',
+         after['failed'] == dict(at=int(NOW + 60), why='RuntimeError: the Drive hung') and [r['id'] for r in after['rows']] == [r['id'] for r in data['rows']], after.get('failed'))
+    tasks.site(T, out)
+    case('tasks: the next reading that works takes the mark away', '"failed": {' not in (out / 'data' / 'tasks.js').read_text(encoding='utf-8'), None)
     case('tasks: a session reads the same list as text', tasks.lines(T)[0].startswith(f'{T["left"]} left unfinished') and any('QUEUED' in l for l in tasks.lines(T)), tasks.lines(T)[:3])
     try:
         import jinja2  # noqa: F401
@@ -392,32 +418,235 @@ def page_rules():
         print('      (no node on this machine: the tasks page\'s own cases were not run)')
         return
     js = ('const T = require(process.argv[1]);'
-          'const R = [{id: "a", kind: "agent", title: "Review", what: "Review the sim", state: "left", idle: 91, where: "MSI", agent: "Explore", detail: ["An agent."], words: ["x"]},'
-          ' {id: "c", kind: "capture", title: "The wire", state: "left", idle: 3, shots: [{src: "img/task/c.jpg"}], detail: ["In the forest."]},'
-          ' {id: "u", kind: "unit", title: "rv-1", what: "Fix it", state: "queued", idle: 4000, lane: "lane/sim/x"}, {id: "h", kind: "handoff", title: "Landing", state: "left", idle: 130}];'
-          'const D = {rows: R, relay: {waiting: 96, as_of: "2026-10-07 01:26"}, stations: [{host: "MSI", at: 1000}, {host: "DESK", at: 1000 - 3 * 3600}], stale_minutes: 90};'
-          'const said = r => r.id === "a" ? [T.QUEUE] : r.id === "h" ? [T.DROP] : [];'
+          'const R = [{id: "a", kind: "agent", title: "Review", what: "Review the sim", state: "left", idle: 91, where: "MSI", agent: "general-purpose", stopped: "2026-10-07 01:42", detail: ["An agent."], words: ["x"]},'
+          ' {id: "c", kind: "capture", title: "The wire", state: "left", idle: 3, stopped: "2026-10-07 21:14", shots: [{src: "img/task/c.jpg"}], detail: ["In the forest."]},'
+          ' {id: "u", kind: "unit", title: "rv-1", what: "Fix it", state: "queued", idle: 4000, lane: "lane/sim/x"}, {id: "h", kind: "handoff", title: "Landing", state: "left", idle: 130},'
+          ' {id: "r", kind: "session", title: "The wire", state: "relay", idle: 200, legs: 2, verdict: "FAIL", unit: "task-r"}, {id: "p", kind: "paused", title: "Shader", state: "left", idle: 300}];'
+          'const D = {rows: R, relay: {waiting: 96, as_of: "2026-10-07 01:26"}, stations: [{host: "MSI", at: 1000}, {host: "DESK", at: 1000 - 3 * 3600}], stale_minutes: 90, read_at: 1000, blind: "It cannot see X."};'
+          'const said = r => r.id === "a" ? [T.QUEUE] : r.id === "h" ? [T.DROP] : r.id === "u" ? [T.DROP] : [];'
           'const G = T.groups(D), S = T.groups(D, said);'
           'console.log(JSON.stringify([G.map(g => [g.key, g.rows.map(r => r.id)]), S.map(g => [g.key, g.rows.map(r => r.id + ":" + r.state)]), T.head(D, G), T.head(D, S), T.head(null, []), T.head({rows: []}, []),'
-          ' G[0].rows[0], G[1].rows[0].chips, T.subject(R[0], "Agents that were cut off", []).actions.map(a => a.say), T.subject(R[0], "x", [T.QUEUE]).actions, T.subject(R[2], "x", []).actions,'
-          ' [T.subject(R[0], "Agents that were cut off", []).id, T.subject(R[0], "Agents that were cut off", []).kind, T.subject(R[0], "x", []).lane],'
-          ' [T.span(0), T.span(45), T.span(119), T.span(120), T.span(2879), T.span(2880)], T.heard(D, 1060), [T.state(R[2], [T.DROP]), T.state(R[0], [T.DROP, T.QUEUE]), T.state(R[0], ["other words"])]]))')
+          ' G[0].rows[0], G[1].rows[0].chips, G.map(g => g.rows.map(r => r.acts.map(a => a.label))), T.subject(R[0], "x", [T.QUEUE]).actions.map(a => a.label), T.subject(R[4], "x", []).actions,'
+          ' [T.subject(R[0], "Agents", []).id, T.subject(R[0], "Agents", []).kind, T.subject(R[0], "x", []).lane],'
+          ' [T.span(0), T.span(45), T.span(119), T.span(120), T.span(2879), T.span(2880)], T.heard(D, 1060), [T.state(R[2], [T.DROP]), T.state(R[0], [T.DROP, T.QUEUE]), T.state(R[0], ["other words"]), T.state(R[4], [T.DROP])],'
+          ' G.filter(g => g.key === "session")[0].rows[0].chips, G.filter(g => g.folded).map(g => g.key), G[0].note.length > 0,'
+          ' T.warnings(D, 1060), T.warnings(Object.assign({}, D, {failed: {at: 1000, why: "boom"}, drive_away: true, waiting_here: 2, stations: []}), 1060).map(w => w.replace(/at \\d\\d:\\d\\d/, "at HH:MM")),'
+          ' T.warnings(Object.assign({}, D, {stations: []}), 1000 + 6 * 60), T.warnings(null, 5),'
+          ' T.firstOf([{key: "capture", rows: [1, 2, 3, 4, 5, 6, 7]}, {key: "agent", rows: [1, 2]}, {key: "handoff", rows: [1]}, {key: "paused", folded: true, rows: [1]}], 6).map(x => x[0].key + x[1]),'
+          ' T.foot(D, 1060)]))')
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'tasks.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
-    case('tasks page: the rows are grouped by what they are, the captures first; a task he drops is gone from his click on and one he queues says so, before the next reading does',
-         got and got[0] == [['capture', ['c']], ['agent', ['a']], ['handoff', ['h']], ['unit', ['u']]] and got[1] == [['capture', ['c:left']], ['agent', ['a:queued']], ['unit', ['u:queued']]],
-         (got and got[:2], p.stderr[-400:]))
-    case('tasks page: the line under the title counts what waits for an agent, what he queued and how long the relay\'s queue is, in words that fit one and none',
-         got and got[2:6] == ['3 tasks wait for an agent · 1 queued for the relay · 96 units in the relay\'s queue as of 2026-10-07 01:26',
-                              '1 task waits for an agent · 2 queued for the relay · 96 units in the relay\'s queue as of 2026-10-07 01:26', 'The tasks have not been read yet.', 'Nothing is left unfinished'], got and got[2:6])
-    case('tasks page: a capture\'s row has its picture, when it was taken and where in the match; another\'s says how long nobody has been on it, on which station, and what kind of agent it was',
-         got and got[6] == dict(id='c', top='The wire', sub='In the forest.', shot='img/task/c.jpg', chips=['captured 3 min ago'], state='left', tip='In the forest.')
-         and got[7] == ['nobody on it for 91 min', 'on MSI', 'Explore agent', '1 note of yours'], got and got[6:8])
-    case('tasks page: a click on a task offers the two things he can say while nothing has been said, and no button once it is queued; the panel is about the task and nothing wider, so the '
-         'notes under it are the notes about it',
-         got and got[8] == ['Queue this for the relay.', 'Not needed: drop this task.'] and got[9] == [] and got[10] == [] and got[11] == ['task: a', 'queue', None], got and got[8:12])
-    case('tasks page: how long is said in minutes, then hours, then days; each station says when it was last heard from; of his two set phrases the drop wins, and other words change nothing',
-         got and got[12] == ['under a minute', '45 min', '119 min', '2 h', '48 h', '2 days'] and got[13] == 'MSI just now, DESK 3 h ago' and got[14] == ['queued', 'dropped', 'left'], got and got[12:])
+    case('tasks page: the rows are grouped by what they are, the captures first and his own stops last; a task he drops is gone from his click on, one he queues says so, and a queued one he '
+         'drops is taken back, before the next reading does',
+         got and got[0] == [['capture', ['c']], ['agent', ['a']], ['session', ['r']], ['handoff', ['h']], ['unit', ['u']], ['paused', ['p']]]
+         and got[1] == [['capture', ['c:left']], ['agent', ['a:queued']], ['session', ['r:relay']], ['paused', ['p:left']]], (got and got[:2], p.stderr[-400:]))
+    case('tasks page: the line under the title counts his captures apart from what waits for an agent, then what he queued, what the relay has, and how long the relay\'s queue is and how old '
+         'that figure is; his own stops are counted in neither',
+         got and got[2:6] == ['1 capture of yours waits for your word · 2 tasks wait for an agent · 1 queued for the relay · 1 with the relay · the relay\'s queue holds 96 units (its board last changed 2026-10-07 01:26)',
+                              '1 capture of yours waits for your word · nothing waits for an agent · 1 queued for the relay · 1 with the relay · the relay\'s queue holds 96 units (its board last changed 2026-10-07 01:26)',
+                              'The tasks have not been read yet.', 'Nothing is left unfinished'], got and got[2:6])
+    case('tasks page: a capture\'s row has its picture, when it was taken and where in the match; another\'s says how long nobody has been on it, when it stopped, on which station, and what kind of agent it was',
+         got and got[6] == dict(id='c', top='The wire', sub='In the forest.', shot='img/task/c.jpg', chips=['captured 3 min ago', '2026-10-07 21:14'], state='left', tip='In the forest.',
+                                acts=[dict(label='Queue it for the relay', say='Queue this for the relay.'), dict(label='Not needed', say='Not needed: drop this task.')])
+         and got[7] == ['nobody on it for 91 min', 'stopped 2026-10-07 01:42', 'on MSI', 'general agent', '1 note of yours'], got and got[6:8])
+    case('tasks page: every row carries what he can say about it: both while nothing was said, the way back while it is only queued, nothing once the relay has it; the panel offers the same',
+         got and got[8] == [[['Queue it for the relay', 'Not needed']], [['Queue it for the relay', 'Not needed']], [[]], [['Queue it for the relay', 'Not needed']], [['Take it back']], [['Queue it for the relay', 'Not needed']]]
+         and got[9] == ['Take it back'] and got[10] == [] and got[11] == ['task: a', 'queue', None], got and got[8:12])
+    case('tasks page: how long is said in minutes, then hours, then days; each station says when it was last heard from; of his two set phrases the drop wins, other words change nothing, '
+         'and a drop does not take back what the relay already has',
+         got and got[12] == ['under a minute', '45 min', '119 min', '2 h', '48 h', '2 days'] and got[13] == 'MSI just now, DESK 3 h ago' and got[14] == ['dropped', 'dropped', 'left', 'relay'], got and got[12:15])
+    case('tasks page: a task the relay has says so first, with its legs and what the relay\'s check said, in words; his own stops are folded; the captures\' group says they wait for him',
+         got and got[15] == ['with the relay, 2 legs run', 'nobody on it for 3 h', 'its check failed'] and got[16] == ['paused'] and got[17] is True, got and got[15:18])
+    case('tasks page: what is wrong with the reading is said above the rows: a station not heard from, a reading that failed, the Drive away with the captures that wait, a list nobody has read '
+         'for five minutes; and nothing when all is well',
+         got and got[18] == ['DESK was last read 3 h ago: its agents and sessions may be missing here.']
+         and got[19] == ['The tasks could not be read at HH:MM (boom). What is below is from the reading before.',
+                         'The shared Drive is away on this station. 2 captures wait in the game\'s folder. Nothing is taken in and nothing you say here is taken up until it is back.']
+         and got[20] == ['This list was read 6 min ago and not since: the board\'s watcher may have stopped.'] and got[21] == [], got and got[18:22])
+    case('tasks page: the control screen\'s first rows are one of each group in turn, so the captures do not crowd the rest out, and never his own stops; the foot says what the board cannot see',
+         got and got[22] == ['capture0', 'agent0', 'handoff0', 'capture1', 'agent1', 'capture2'] and got[23].endswith('Read on MSI just now, DESK 3 h ago. It cannot see X.'), got and got[22:])
+
+
+def back(aid, ago, status=None):
+    """What a session's transcript keeps when an agent comes back: its report handed back, or a notification."""
+    if status is None:
+        text = f'<agent-message from="{aid}">\n[Subagent hand-back] The text below is the final report of a subagent this session delegated to.\n  Here is the report.\n</agent-message>'
+    else:
+        text = f'<task-notification>\n<task-id>{aid}</task-id>\n<tool-use-id>toolu_1</tool-use-id>\n<output-file>C:\\x\\{aid}.output</output-file>\n<status>{status}</status>\n<summary>Agent stopped</summary>\n</task-notification>'
+    return dict(type='queue-operation', operation='enqueue', timestamp=at(ago), content=text)
+
+
+def delivered():
+    """A1: an agent whose log ends on a failed call is lost only if its report never reached its session."""
+    P = TMP / 'projects-back'
+    parent = [asked('review the relay', side=False), back('handed01', 5990), back('handed01', 5989, 'failed'), back('failedto', 5990, 'failed'), back('complete', 5990, 'completed'),
+              dict(type='user', isSidechain=False, timestamp=at(5990), toolUseResult=dict(agentId='waitedfor', status='completed', content='the report'), message=dict(content=[dict(type='tool_result', tool_use_id='t9', content='the report')])),
+              back('backthen', 20000), back('stillout', 5990, 'failed'), ended(ago=5000, side=False)]
+    log(P / 'p' / 'parent01.jsonl', parent, 300)
+    for name in ('handed01', 'failedto', 'complete', 'waitedfor', 'silent01', 'backthen'):
+        agent(P, 'parent01', name, [asked('Review the sim'), failed(ago=6000)], 300, desc='Review ' + name)
+    # the same failure, told to a session that never spoke again: nobody was there to go on without it
+    log(P / 'p' / 'parent02.jsonl', [asked('review the relay', side=False), ended(ago=7000, side=False), back('stillout', 5990, 'failed')], 300)
+    agent(P, 'parent02', 'stillout', [asked('Review the sim'), failed(ago=6000)], 300, desc='Review stillout')
+    cache = {}
+    mine = src_tasks.local(P, NOW, cache, 'HERE')
+    rows = {r['id']: r for r in src_tasks.collect(mine, now=NOW)['rows']}
+    case('tasks: an agent whose log ends on a failed call is not a task when its report had reached its session: handed back, told as completed, or the result of an agent the session waited for. '
+         'It is one when nothing came back, when only the failure did, and when the report that came back was an earlier run\'s',
+         sorted(rows) == ['agent-backthen', 'agent-failedto', 'agent-silent01', 'agent-stillout'], sorted(rows))
+    told = rows.get('agent-failedto', {})
+    case('tasks: an agent that failed, whose session was told and went on, says so, and its unit tells the leg to check first that the task was not done another way',
+         src_tasks.TOLD in told.get('why', '') and src_tasks.TOLD in ' '.join(told.get('detail', [])) and 'Check that first' in src_tasks.unit_for(told)['goal']
+         and src_tasks.TOLD not in rows['agent-silent01']['why'] and src_tasks.TOLD not in rows['agent-stillout']['why'] and 'Do the task.' in src_tasks.unit_for(rows['agent-silent01'])['goal'], told)
+    again = src_tasks.local(P, NOW, cache, 'HERE')
+    case('tasks: a session\'s transcript is read for what came back once, and again only when it changed', len(cache['heard']) == 2 and len(again) == len(mine)
+         and src_tasks.heard_of(P / 'p' / 'parent01.jsonl')['handed01'].keys() == {'back', 'told'}, cache.get('heard'))
+
+
+def long_lines():
+    """A6: a last line longer than the tail is still the last line."""
+    P = TMP / 'projects-long'
+    big = 'x' * (src_tasks.TAIL + 50000)
+    f = log(P / 'p' / 'longsess.jsonl', [asked('fix the wire', side=False), ended(side=False), asked('and the gas', ago=5000, side=False), calling('Write', dict(file_path='a.txt', content=big), ago=4000, side=False)], 100)
+    g = agent(P, 'longsess', 'longtail', [asked('Review the sim'), ended(), asked('again'), calling('Write', dict(file_path='a.txt', content=big))], 100)
+    case('tasks: a log whose last line is longer than the part read from its end is read further back: its open tool call is a cut, not a quiet end',
+         src_tasks.read_session(f)['end'] == 'cut' and src_tasks.read_agent(g)['end'] == 'cut' and src_tasks.ending(src_tasks.entries(src_tasks.tail(f)))[0] == 'done',
+         (src_tasks.read_session(f)['end'], src_tasks.read_agent(g)['end']))
+
+
+def in_hand():
+    """A7: a handoff a session opened hours ago and is still working from is in its hands. A6: a file the index does not know."""
+    P, where = TMP / 'projects-hand', TMP / 'root-hand'
+    where.mkdir(parents=True)
+    (where / 'handoffs.json').write_text(json.dumps(dict(handoffs={'HANDOFF_AGENT_long_haul.md': dict(topic='the long haul', state='current', **{'for': 'Fix the board.'}),
+                                                                   'HANDOFF_AGENT_old.md': dict(topic='replaced', state='replaced', **{'for': 'Nothing.'})})), encoding='utf-8')
+    for n in ('long_haul', 'old', 'stray'):
+        (where / f'HANDOFF_AGENT_{n}.md').write_text('# handoff\n', encoding='utf-8')
+        os.utime(where / f'HANDOFF_AGENT_{n}.md', (NOW - 600 * MIN, NOW - 600 * MIN))
+    filler = [result('y' * 4000, ago=20000 - k, side=False) for k in range(90)]           # hours of work after the handoff was opened: 360 KB
+    f = log(P / 'p' / 'worker01.jsonl', [asked('continue from the handoff', side=False), calling('Read', dict(file_path=str(where / 'HANDOFF_AGENT_long_haul.md')), ago=30000, side=False)] + filler, 5)
+    cache = {}
+    got = [(r['id'], bool(r.get('fault'))) for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
+    case('tasks: a handoff a session opened at its start and is still working from, hours and many lines later, is in that session\'s hands and is not listed; '
+         'a handoff file the index does not know is listed as a fault, and one the index knows as replaced is not',
+         got == [('handoff-stray', True)] and f.stat().st_size > src_tasks.TAIL and 'HANDOFF_AGENT_long_haul.md' not in json.dumps(src_tasks.entries(src_tasks.tail(f))), got)
+    read = cache['named'][str(f)]['read']
+    with open(f, 'ab') as h:
+        h.write((json.dumps(calling('Read', dict(file_path='HANDOFF_AGENT_stray.md'), side=False)) + '\n').encode())
+        h.write(b'{"type": "assistant", "half a line')
+    os.utime(f, (NOW - 3 * MIN, NOW - 3 * MIN))
+    got = [r['id'] for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
+    case('tasks: only what a log gained since the last reading is read, and a line still being written waits for the next',
+         got == [] and read == f.stat().st_size - len(json.dumps(calling('Read', dict(file_path='HANDOFF_AGENT_stray.md'), side=False))) - 1 - 34
+         and cache['named'][str(f)]['read'] == f.stat().st_size - 34, (got, read, cache['named'][str(f)]['read'], f.stat().st_size))
+    os.utime(f, (NOW - 200 * MIN, NOW - 200 * MIN))
+    got = [r['id'] for r in src_tasks.collect([], shared=src_tasks.handoffs(where, P, NOW, cache), now=NOW)['rows']]
+    case('tasks: when that session goes quiet for an hour and a half the handoff it held is listed', got == ['handoff-long_haul', 'handoff-stray'] and cache['named'] == {}, got)
+
+
+def one_life():
+    """A3, A4: a task is left, queued, with the relay, done, and shows once; a note is about the task as it was."""
+    ts = lambda ago: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(NOW - ago))
+    task = lambda **k: dict(dict(id='agent-x', kind='agent', title='Review', ask='Review the sim', what='Review the sim', lane='', where='HERE', by='', agent='Explore', why='in the middle of a tool call',
+                                 stopped='then', touched=int(NOW - 200 * MIN)), **k)
+    note = lambda text, ago, who='owner', answers=(), state='open', tid='agent-x': {'id': f'n-{text[:6]}-{ago}', 'when': ts(ago), 'about': 'task: ' + tid, 'text': text, 'from': who, 'state': state,
+                                                                                   'answers': [dict(text=a, when=ts(ago), by='the task board') for a in answers]}
+    queued = note(src_tasks.QUEUE_SAY, 60 * MIN, answers=['Unit task-agent-x: written to units-for-master for the relay.'], state='done')
+    legs = [dict(unit='task-agent-x', state='DONE', finished_at=at(4 * 3600), report='RESULT: half of it'), dict(unit='task-agent-x', state='DONE', finished_at=at(3 * 3600), report='RESULT: the check failed')]
+    rel = lambda **k: dict(dict(queue={}, done=[], legs=[], stops=[]), **k)
+    got = lambda relay, have, notes=(queued,), rows=None: src_tasks.collect(rows if rows is not None else [task()], shared=src_tasks.relay_rows(relay, NOW), notes=list(notes), now=NOW, relay=relay, have=have)
+    a = got(rel(), {'task-agent-x'})
+    with_it = rel(queue={'task-agent-x': dict(id='task-agent-x', lane='lane/show/task-agent-x', goal='Do the task.')}, legs=legs, stops=[dict(stopped_at=at(3 * 3600), units={'task-agent-x': 'FAIL'})])
+    b = got(with_it, set())
+    c = got(dict(with_it, done=['task-agent-x']), set())
+    d = got(with_it, set(), rows=[])
+    case('tasks: a queued task has one life and shows once: queued while its unit file waits for the master; with the relay once the unit is in its queue, with the legs run and the last verdict, '
+         'and not a second time as the relay\'s own row; gone when the relay\'s record says done; and the relay\'s row alone when the task it came from is no longer there',
+         [(r['id'], r['state']) for r in a['rows']] == [('agent-x', 'queued')] and a['queued'] == 1 and 'take it back' in a['rows'][0]['detail'][-1]
+         and [(r['id'], r['state'], r.get('legs'), r.get('verdict')) for r in b['rows']] == [('agent-x', 'relay', 2, 'FAIL')] and b['with_relay'] == 1 and b['queued'] == 0 and '2 legs run' in b['rows'][0]['detail'][-1]
+         and c['rows'] == [] and c['done'] == 1 and [r['id'] for r in d['rows']] == ['relay-task-agent-x'],
+         [[(r['id'], r['state'], r.get('legs'), r.get('verdict'), r['detail'][-1]) for r in x['rows']] for x in (a, b, c, d)])
+    gone = got(rel(), set())['rows'][0]
+    case('tasks: a queued task whose unit file is gone, and which the relay never had, is queued with no unit, so the unit is written again', gone['state'] == 'queued' and gone['unit'] == '' and a['rows'][0]['unit'] == 'task-agent-x', gone)
+    old = 300 * MIN
+    states = [got(rel(), set(), notes=[n])['rows'] for n in (note(src_tasks.DROP_SAY, old), note('Done on the lane.', old, who='lane/show/x'), note(src_tasks.QUEUE_SAY, old, answers=['Unit task-agent-x: written'], state='done'))]
+    fresh = [got(rel(), set(), notes=[n]) for n in (note(src_tasks.DROP_SAY, 60 * MIN), note('Done on the lane.', 60 * MIN, who='lane/show/x'))]
+    kept = got(rel(), {'task-agent-x'}, notes=[note(src_tasks.QUEUE_SAY, old, answers=['Unit task-agent-x: written'], state='done'), note('Mind the wire.', old)])['rows'][0]
+    case('tasks: what was said about a task holds for the task as it was: a task touched after the note (a handoff written again, a session cut again) is a new task and is listed again, '
+         'whether the note dropped it, closed it or queued it; a note newer than the touch holds, a unit that is still alive holds, and his own words stay with the task',
+         all(len(r) == 1 and r[0]['state'] == 'left' for r in states) and [f['rows'] for f in fresh] == [[], []] and [f['dropped'] + f['done'] for f in fresh] == [1, 1]
+         and kept['state'] == 'queued' and kept['words'] == ['Mind the wire.'], ([[x['state'] for x in r] for r in states], kept['state']))
+
+
+def taken_back(P, board):
+    """A5, B4, B1: a drop after a queue takes the unit back; a unit that cannot be written is said; the Drive away."""
+    where, units = notes.folder(), src_tasks.root() / 'units-for-master'
+    day = datetime.datetime.fromtimestamp(NOW)
+    read = lambda live=True: tasks.read(every_note=notes.read_all(where), now=NOW, cache_path=TMP / 'cache-HERE.json', projects=P, board=board, host='HERE', live=live, fetch=False)
+    say = lambda tid, text: notes.write(where, text, kind='queue', about='task: ' + tid, title=tid, now=day + datetime.timedelta(seconds=30))
+    had = (units / 'task-agent-cutlong.json').exists()
+    d = say('agent-cutlong', src_tasks.DROP_SAY)
+    T = read()
+    did = tasks.act(T, where, units, now=day)
+    ans = {n['id']: n for n in notes.read_all(where)}[d['id']]['answers'][-1]['text']
+    case('tasks: "not needed" after "queue it" takes the unit file back while the master has not taken it, says so on his note, and the task leaves the list',
+         had and not (units / 'task-agent-cutlong.json').exists() and 'task-agent-cutlong.json was taken back' in ans and 'agent-cutlong' not in [r['id'] for r in T['rows']]
+         and (units / 'never-queued.json').exists(), (had, ans, did))
+    # the relay already has the unit: the file is not the board's to pull, and he is told the relay will still run it
+    (units / 'task-agent-y.json').write_text('{}', encoding='utf-8')
+    d = say('agent-y', src_tasks.DROP_SAY)
+    tasks.act(dict(rows=[], relay=dict(taken=['task-agent-y'])), where, units, now=day)
+    ans = {n['id']: n for n in notes.read_all(where)}[d['id']]['answers'][-1]['text']
+    case('tasks: a drop of a task the relay already has says the relay will still run it, and removes nothing', (units / 'task-agent-y.json').exists() and 'The relay already has it as unit task-agent-y' in ans, ans)
+    (units / 'task-agent-y.json').unlink()
+    # a unit the relay's rules refuse
+    q = say('session-asksess1', src_tasks.QUEUE_SAY)
+    keep, briefs.check_then = briefs.check_then, lambda says, unit=None: ['the lane is not one the relay takes']
+    try:
+        T = read()
+        did = tasks.act(T, where, units, now=day)
+    finally:
+        briefs.check_then = keep
+    row = next(r for r in T['rows'] if r['id'] == 'session-asksess1')
+    after = next(r for r in read()['rows'] if r['id'] == 'session-asksess1')
+    ans = {n['id']: n for n in notes.read_all(where)}[q['id']]
+    case('tasks: a task that cannot be written as a unit is not left saying "queued": his note is answered with the reason, the task is back on the list with it, and it is not tried again every reading',
+         ans['state'] == 'done' and ans['answers'][-1]['text'].startswith('Not queued: ') and 'the lane is not one the relay takes' in ans['answers'][-1]['text'] and row['state'] == 'left'
+         and after['state'] == 'left' and 'could not be written as a unit' in after['detail'][-1] and not (units / 'task-session-asksess1.json').exists() and tasks.act(read(), where, units, now=day) == [],
+         (ans['answers'], after['state'], after['detail']))
+    # the Drive both stations read is away
+    wait = capture('2026-10-07-220000')
+    q = say('session-asksess1', src_tasks.QUEUE_SAY)
+    (src_tasks.root() / 'tasks' / 'HERE.json').unlink(missing_ok=True)
+    keep, src_tasks.away = src_tasks.away, lambda: True
+    try:
+        T = read()
+        did = tasks.act(T, where, units, now=day)
+    finally:
+        src_tasks.away = keep
+    case('tasks: with the Drive away nothing is taken in or written where only this station would see it: the capture stays in the game\'s folder and is counted, his click is not taken up, '
+         'no station file is written, and the reading says the Drive is away',
+         T['drive_away'] is True and T['waiting_here'] == 1 and wait.exists() and not (units / 'task-session-asksess1.json').exists() and not (src_tasks.root() / 'tasks' / 'HERE.json').exists()
+         and did == ['the Drive is away: nothing he said was taken up, it is when the Drive is back'] and {n['id']: n for n in notes.read_all(where)}[q['id']]['state'] != 'done', (T['drive_away'], T['waiting_here'], did))
+    T = read()
+    tasks.act(T, where, units, now=day)
+    case('tasks: when the Drive is back the capture is taken in and his click is taken up', T['drive_away'] is False and not wait.exists() and (units / 'task-session-asksess1.json').exists(), None)
+    # an F10 that failed: a folder the game made and wrote no state file into
+    dead = feedback.inbox() / '2026-10-07-230000'
+    dead.mkdir()
+    (dead / feedback.OPEN).write_text('', encoding='utf-8')
+    for g in (dead / feedback.OPEN, dead):
+        os.utime(g, (NOW - 45 * MIN, NOW - 45 * MIN))
+    young = feedback.inbox() / '2026-10-07-230100'
+    young.mkdir()
+    (young / feedback.OPEN).write_text('', encoding='utf-8')
+    T = read()
+    hit = [r for r in T['rows'] if r['id'].startswith('capture-broken-')]
+    case('tasks: a folder the game made for a capture and wrote no state file into is said on the board as an F10 that failed, half an hour on; one still being written is not, and neither is taken in',
+         [r['id'] for r in hit] == ['capture-broken-2026-10-07-230000-HERE'] and hit[0].get('fault') is True and 'wrote no state file' in hit[0]['title'] + ' '.join(hit[0]['detail']) and dead.exists() and young.exists(),
+         [r['id'] for r in hit])
+    shutil.rmtree(dead)
+    shutil.rmtree(young)
 
 
 def watcher():
@@ -475,6 +704,11 @@ if __name__ == '__main__':
     captures()
     T = his_word(P, board)
     site(T)
+    delivered()
+    long_lines()
+    in_hand()
+    one_life()
+    taken_back(P, board)
     page_rules()
     watcher()
     this_station()
