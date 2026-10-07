@@ -33,6 +33,12 @@ stands. Before you propose a thing, look whether the game has it: search `docs/r
 its files and how to see it) and `docs/reference/feature-flags.md` for its words. An idea for a debrief screen is
 no idea when a debrief screen exists; an idea that makes the existing one better is, and says what exists.
 
+**Say only what you read.** The task list says what a system is for, not what its file holds. A card that says
+"MatchStats already records how each man died" was written from the file's name: the file counts the dead by team
+and no cause, so the idea was sold on a fact that is not one and sized as if it were (a run of 2026-10-07).
+Before you write "already", "records" or "has", read the line that shows it. Where you cannot (many stations hold
+no game code), say what you know and size the idea for the case that the rest is not there.
+
 ## What makes an idea
 
 - **Specific.** "Stretcher frogs carry the wounded to the rear" is an idea. "Improve the medics" is not.
