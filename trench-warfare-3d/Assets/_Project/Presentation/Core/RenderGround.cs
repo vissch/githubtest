@@ -24,7 +24,13 @@ namespace TW.Presentation
     /// <summary>The scene's mood, set by Atmosphere; effects in other assemblies (tracers) read it.</summary>
     public static class SceneMood
     {
+        // Atmosphere sets it at the start of every scene, so a scene load needs no help. The END of a Play session
+        // does: nothing runs then, and a night field left this true made the next thing the editor ran draw by night.
+        // Registered for the session only — a per-scene reset would race Atmosphere's own Awake on the scene load.
+        static SceneMood() => SceneStatics.Register(nameof(SceneMood), Reset);
         public static bool Night;
+        /// <summary>Back to day (SceneStatics, when Play ends).</summary>
+        public static void Reset() => Night = false;
     }
 
     /// <summary>
