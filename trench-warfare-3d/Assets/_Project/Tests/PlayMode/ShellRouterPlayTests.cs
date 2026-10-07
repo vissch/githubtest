@@ -9,6 +9,7 @@ using UnityEngine;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using TW.UI;
+using TW.Presentation;
 
 namespace TW.Tests
 {
@@ -39,6 +40,71 @@ namespace TW.Tests
             finally
             {
                 Object.Destroy(go);
+                ShellBoot.Disabled = boot;
+            }
+            yield return null;
+        }
+
+        /// <summary>A screen that counts what the router does to it.</summary>
+        sealed class CountingScreen : ShellScreen
+        {
+            readonly VisualTreeAsset tree;
+            public int Uncovered, Unbound;
+            public CountingScreen(VisualTreeAsset tree) { this.tree = tree; }
+            public override VisualTreeAsset Tree(ShellAssets a) => tree;
+            protected override void OnBind() { }
+            protected override void OnUnbind() { Unbound++; }
+            public override void OnUncovered() { Uncovered++; }
+        }
+
+        // [L1] ClearStack popped one by one, so each Pop uncovered the screen below — in the NEW scene, since
+        // OnSceneLoaded clears the stack: the map screen rebuilt its 3D view inside the battle scene and reclaimed
+        // HudBridge.PointerOverUi, which the next screen's OnUnbind then nulled (the HUD's click mask lost).
+        [UnityTest]
+        public IEnumerator ClearingTheStackUnbindsWithoutUncovering()
+        {
+            bool boot = ShellBoot.Disabled; ShellBoot.Disabled = true;
+            var assets = ShellAssets.Load();
+            Assert.That(assets != null && assets.Panel != null && assets.MainMenu != null, "ShellAssets missing: run TW/UI/Build Shell Assets");
+            // a router left by an earlier test keeps this one's Awake from binding (Instance wins and destroys it):
+            // Destroy is deferred to the end of the frame, so take the frame
+            if (ShellRouter.Instance != null) { Object.Destroy(ShellRouter.Instance.gameObject); yield return null; }
+            var go = new GameObject("shell router cleardown test");
+            var mask = HudBridge.PointerOverUi;
+            try
+            {
+                var doc = go.AddComponent<UIDocument>();
+                doc.panelSettings = assets.Panel;
+                var router = go.AddComponent<ShellRouter>();
+                router.Assets = assets;
+                yield return null;   // Start binds the test scene
+                router.ClearStack();  // drop whatever the bind pushed: this test owns the stack
+
+                var lower = new CountingScreen(assets.MainMenu);
+                var upper = new CountingScreen(assets.MainMenu);
+                router.Push(lower);
+                router.Push(upper);
+                Assert.That(router.Depth, Is.EqualTo(2));
+
+                System.Func<Vector2, bool> hudMask = _ => true;   // the HUD's click mask, as HudBootstrap leaves it
+                HudBridge.PointerOverUi = hudMask;
+                lower.Uncovered = 0;
+
+                router.ClearStack();
+
+                Assert.That(router.Depth, Is.EqualTo(0));
+                Assert.That(upper.Unbound, Is.EqualTo(1), "the top screen is unbound");
+                Assert.That(lower.Unbound, Is.EqualTo(1), "and so is the one below it");
+                Assert.That(lower.Uncovered, Is.EqualTo(0),
+                    "ClearStack uncovered the screen below: in a scene load it would rebuild that screen's 3D view in the new scene");
+                Assert.That(HudBridge.PointerOverUi, Is.SameAs(hudMask),
+                    "the HUD's click mask did not survive the teardown");
+                Assert.That(doc.rootVisualElement.childCount, Is.EqualTo(0), "nothing is left on the panel");
+            }
+            finally
+            {
+                Object.Destroy(go);
+                HudBridge.PointerOverUi = mask;
                 ShellBoot.Disabled = boot;
             }
             yield return null;
