@@ -115,6 +115,18 @@ class Settings(Base):
         self.assertEqual(config.report_problems("RESULT: done. Pictures are on the board.", st), [])
         self.assertEqual(len(config.report_problems("word " * 200, st)), 2)
 
+    def test_a_review_fix_leg_is_told_its_standing_rules_and_every_execute_leg_the_gate_rules(self):
+        import prompt
+        st, top = config.style(), self.lim["prompt_max_bytes"]       # system_text refuses a prompt over the limit
+        fix, plain = (prompt.system_text(role, "execute", st, top) for role in ("review-fix", "lane"))
+        self.assertIn("fails on the old code", fix)
+        self.assertIn("`[ID] test: Class.Method`", fix)
+        self.assertNotIn("[ID] test:", plain)                        # the role file rides only with its role
+        for text in (fix, plain):
+            self.assertIn("Never start the full gate", text)
+            self.assertIn("Never end your turn while a gate", text)
+        self.assertNotIn("full gate", prompt.system_text("lane", "plan", st, top))    # a plan leg runs no gate
+
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))
                        if p.name != "test_relay.py")
@@ -705,6 +717,31 @@ class Runs(Repo):
         guard = legdir.leg_path(stop["run"], 2)                                 # the hooks really ran
         self.assertTrue((guard / "session.json").exists())
         self.assertIn("LEG CARD", (guard / "card.md").read_text(encoding="utf-8").upper())
+
+    ROLED = {"id": "u1", "lane": "lane/show/x", "goal": "Add a.txt", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}
+
+    def test_a_queued_unit_with_a_role_gets_the_brief_of_that_role_as_a_board_job_does(self):
+        self.queue("u1", raw=json.dumps(dict(self.ROLED, role="vehicle-simulator")))
+        self.script(self.GOOD)
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        runs = self.tmp / "home" / "runs"
+        for nn in ("01", "02"):                                                 # the plan leg and the execute leg
+            self.assertTrue((next(runs.glob("*/desk/" + nn)) / "brief" / "tw-vehicle-sim" / "SKILL.md").is_file(), nn)
+            self.assertIn("Read `brief/tw-vehicle-sim/SKILL.md` in your leg folder",
+                          (next(runs.glob("*/legs/" + nn)) / "card.md").read_text(encoding="utf-8"))
+
+    def test_a_queued_unit_with_the_role_lane_or_one_nobody_knows_runs_without_a_brief(self):
+        from sources import lane as SL
+        self.assertIn("no brief for the role `painter`", SL.body(dict(self.ROLED, role="painter")))
+        self.assertNotIn("brief", SL.body(dict(self.ROLED, role="lane")))
+        self.assertNotIn("brief", SL.body(dict(self.ROLED, role="review-fix")))   # its rules ride in the system prompt
+        for role in ("lane", "painter", "review-fix"):
+            self.assertIsNone(SL.place_brief(role, self.tmp / "desk"))
+        self.assertFalse((self.tmp / "desk").exists())
+        self.queue("u1", raw=json.dumps(dict(self.ROLED, role="painter")))        # a file from before the table:
+        self.script(self.GOOD)                                                  # it still runs, and passes
+        self.assertIn("unit u1: PASS", self.go()[0])
 
     def test_a_leg_record_holds_what_the_leg_used_of_the_week(self):
         self.queue("u1")
@@ -1874,6 +1911,26 @@ class PipelineSource(Repo):
         skills = HERE.parents[2] / ".claude" / "skills"
         for role, skill in SP.ROLE_SKILLS.items():
             self.assertTrue((skills / skill / "SKILL.md").exists(), "%s -> %s" % (role, skill))
+
+    def test_the_role_table_and_the_pipeline_skills_table_name_the_same_roles(self):
+        """Tools/pipeline/roles.json is what the scripts read, the table in the pipeline skill is what a session
+        reads: a role in one and not in the other is a leg without a brief, or a brief nobody can name."""
+        text = (HERE.parents[2] / ".claude" / "skills" / "pipeline" / "SKILL.md").read_text(encoding="utf-8")
+        table = text.split("## Role skills", 1)[1].split("\n## ", 1)[0]
+        said = {}
+        for line in table.splitlines():
+            cells = [c.strip() for c in line.strip().strip("|").split("|")]
+            if line.startswith("|") and len(cells) >= 2 and cells[0] != "Role" and not set(cells[0]) <= set("-"):
+                for name in cells[0].split(","):
+                    if not name.strip().startswith("`/"):                        # a slash command, not a role
+                        said[name.strip().strip("`")] = cells[1]
+        roles = SP.P.roles()
+        self.assertEqual(sorted(said), sorted(roles))
+        for role, skill in roles.items():
+            if skill:
+                self.assertIn("`%s`" % skill, said[role], role)
+        self.assertEqual(SP.ROLE_SKILLS, {r: s for r, s in roles.items() if s})
+        self.assertEqual((SP.ROLE_SKILLS["character"], SP.ROLE_SKILLS["critic"]), ("tw-character-sim", "tw-critic"))
 
     def test_inside_a_leg_the_pipeline_tool_refuses_to_claim_or_complete(self):
         env = dict(os.environ, TW_RELAY="1")

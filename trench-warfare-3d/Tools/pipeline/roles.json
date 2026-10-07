@@ -1,0 +1,18 @@
+{
+  "balance-simulator": "tw-balance-sim",
+  "env-simulator": "tw-env-sim",
+  "character-simulator": "tw-character-sim",
+  "vehicle-simulator": "tw-vehicle-sim",
+  "destruction-vfx-simulator": "tw-destruction-vfx",
+  "optimizer": "tw-optimizer",
+  "bug-catcher": "tw-bug-catcher",
+  "hard-critic": "tw-critic",
+  "character": "tw-character-sim",
+  "critic": "tw-critic",
+  "sim": null,
+  "lowpoly": null,
+  "master": null,
+  "lane": null,
+  "pipeline": null,
+  "review-fix": null
+}

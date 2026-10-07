@@ -36,13 +36,20 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 |---|---|---|
 | balance-simulator | `tw-balance-sim` | laptop (data, ideas), desktop (sweeps) |
 | env-simulator | `tw-env-sim` | desktop |
-| character-simulator | `tw-character-sim` | desktop |
+| character-simulator, character | `tw-character-sim` | desktop |
 | vehicle-simulator | `tw-vehicle-sim` | desktop |
 | destruction-vfx-simulator | `tw-destruction-vfx`, and `tw-vfx-sheets` for new sheets | desktop |
 | optimizer | `tw-optimizer` | desktop (counters), laptop (low-end bench) |
 | bug-catcher | `tw-bug-catcher` | desktop |
-| hard-critic, `/improve-loop` | `tw-critic` | either |
+| hard-critic, critic, `/improve-loop` | `tw-critic` | either |
 | master | `tw-master` | review either; gate and land on the desktop |
+| review-fix | none: its rules are `Tools/relay/roles/review-fix.md`, which the relay adds to the leg's prompt | desktop |
+| sim, lowpoly, lane, pipeline | none: follow the stage notes or the unit's goal | as the stage says |
+
+The scripts read the same table from `Tools/pipeline/roles.json`: a stage or a queued unit with a role that is not
+in it is refused. A new role goes into both, in one commit; a test holds them to each other. Use the long names for
+new stages. Do not rename a role on an item that has results: the role is part of the job id, so the stage would
+run again.
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 
@@ -51,7 +58,7 @@ Driving the editor and capturing evidence at every zoom band, for all of them: `
 1. `$P next` on this station. Nothing: say so and stop.
 2. `$P claim <job>`. Refused as busy: another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
-   The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
+   The skill of the stage's role says how (the table above). A job over a few minutes (gate, bench, sweep,
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.
 4. Commit outputs on the stage's lane (`lane/sim/pipe-<item>` or `lane/show/pipe-<item>`) with
    `gate.ps1 -EditOnly` green first. A path on the seam list (`CLAUDE.md`) stops the job: BLOCKED, and ask.

@@ -140,6 +140,7 @@ repo. The board, the states and the commands are in `docs/reference/stations.md`
 | Script | Does | Usage |
 |---|---|---|
 | `pipeline/pipeline.py` | Job board and stage states (DONE, RECHECK, STALE, IN_PROGRESS, READY, BLOCKED) from `tw3d-board` | `python Tools/pipeline/pipeline.py status` |
+| `pipeline/roles.json` | The one table of roles: role -> the skill that is its brief, or null for a known role with none. Read by `pipeline.py` (a stage with an unknown role is refused) and by the relay (`relay/sources/briefs.py`) | edit it together with the table in the `pipeline` skill; a test holds the two to each other |
 | `pipeline/test_pipeline.py` | Its tests, on throwaway git repos | `python Tools/pipeline/test_pipeline.py` |
 | `pipeline/run_detached.py` | Runs a gate, bench, sweep or batch detached from the session: pids with start times, a heartbeat from log growth, a timeout that stops only its own tree, a commit-headroom floor. Runs live in `%LOCALAPPDATA%/TrenchWarfare/runs`, never in a checkout | `python Tools/pipeline/run_detached.py start <name> --timeout 3600 --min-headroom-gb 10 -- <cmd>` then `status <name>` |
 
@@ -156,7 +157,7 @@ context. A script picks the work, starts one leg at a time and checks the result
 | `relay/relay_hook.py`, `relay/cmdrules.py` | The Claude Code hooks of a leg: the context meter, the tool guards, the compaction block | wired per leg by `relay/relay-hooks.json` |
 | `relay/prepush.py` | Git pre-push hook: while a leg holds a checkout, only a forward push of its own lane leaves it | installed by the runner at run start |
 | `relay/legcmd.py` | A leg's close-out: the edit gate detached, then commit and push | `python Tools/relay/relay.py leg gate start` |
-| `relay/sources/` | Where work comes from: `pipeline.py` (board jobs), `lane.py` (queued lane work) | one file per source |
+| `relay/sources/` | Where work comes from: `pipeline.py` (board jobs), `lane.py` (queued lane work); `briefs.py` hands a leg of either source the skill of its unit's role | one file per source |
 | `relay/ledger.py` | The day's spend, added up from the leg records on the board, against the day's cap (11% of the week) and its pace; the usual cost of a leg | `python Tools/relay/relay.py budget` |
 | `relay/agents.py` | What the agents cost that sessions spawned outside the relay, from Claude Code's own logs, booked on the board so the day counts them (`agents.json`: names and list prices) | `python Tools/relay/relay.py agents`, `agents book` |
 | `relay/test_relay.py` | Its tests, with a stand-in for Claude (`relay/fake_claude.py`) | `python Tools/relay/test_relay.py` |

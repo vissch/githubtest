@@ -6,6 +6,8 @@
   <board>/relay/done/<id>.json    written by the runner when done_when passes; a unit with one is never picked again
   <board>/relay/notes/<id>.md     the last leg's handoff note, when the unit is not done yet
 The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
+The role is a name in Tools/pipeline/roles.json (relay.py role): the unit's legs get that role's brief, as a board
+job's do. "lane" is the role with none.
 This is the only source with a handoff note: its state is not on the board or in a ledger. The note reaches the next
 run's legs on the card, with each of its predictions scored hit or miss by script.
 """
@@ -17,7 +19,8 @@ from pipeline import now, read_json, write_json   # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config, gitio, papers                      # noqa: E402
-from sources import verdict                       # noqa: E402
+from sources import briefs, verdict               # noqa: E402
+from sources.briefs import place_brief            # noqa: E402,F401  (the runner asks a source for it)
 
 NAME = "lane"
 NEED = ("id", "lane", "role", "goal", "done_when")
@@ -118,6 +121,10 @@ def body(unit):
              "- Commit with the edit gate green for that exact tree, and push the lane.",
              "- If you cannot finish, write note.md in your leg folder for the next leg (sections: Goal, Done, "
              "In flight, Next, Predictions, Dead ends). A prediction is `command` -> exit N, with a look-only command."]
+    if briefs.card_line(unit["role"]):
+        lines.append(briefs.card_line(unit["role"]))
+    elif unit["role"] not in briefs.P.roles():       # a queue file from before the table, or written by hand
+        lines.append("- There is no brief for the role `%s`: it is not in Tools/pipeline/roles.json." % unit["role"])
     if unit.get("note"):
         lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
         lines += ["", "Its predictions, checked just now by script:"]

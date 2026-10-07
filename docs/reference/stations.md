@@ -14,6 +14,12 @@ An item lists stages. A stage names its `station`, the lane ref it reads (`lane`
 `path#/json/pointer` for one field), its `outputs`, the stages it comes `after`, and the zoom `bands` a PASS must
 bring evidence for. A stage may not read its own outputs.
 
+A stage's `role`, when it has one, must be a name in `Tools/pipeline/roles.json`: the table gives each role the
+skill that is its brief (the `pipeline` skill, "Role skills"). An unknown role is refused, because its worker would
+run without a brief and nothing would say so. The table also holds the short names older items use (`character`,
+`critic`). Do not rename a role on an item that has results: the role is part of a stage's job id, so the finished
+stage would run again.
+
 | State | Meaning | Next |
 |---|---|---|
 | DONE | a PASS for the current inputs and the current upstream results | nothing |
