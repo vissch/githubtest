@@ -543,7 +543,7 @@
     var room = f.goal ? f.goal.room : f.at ? f.at.room : '', links = [], slug = lane ? window.Board.slug(lane) : '';
     if (lane && !demo) links.push({ label: 'Its branch, ' + lane.replace(/^lane\/(show|sim)\//, ''), href: here(slug, 'floor.html#' + slug) });
     if (w.wait === 'owner') links.push({ label: 'What waits on you', href: here('queue', 'index.html#queue') });
-    links.push({ label: 'The work in numbers', href: here('graphs', 'graphs.html') });
+    links.push({ label: 'The office, counted', href: here('graphs', 'graphs.html') });
     var facts = [w.kind, f.leaving ? 'leaving' : room ? 'in the ' + H.ROOM[room].name.toLowerCase() : '', w.wait === 'owner' ? 'waiting on you' : w.state === 'working' ? 'at work' : w.kind === 'session' ? 'resting, ' + C.ago(w.age || 0) : 'asleep'];
     return { kind: 'worker', id: w.id, title: C.title(w), sub: C.doing(w) || w.what || '', lane: lane, assets: l.assets || [], links: links, facts: facts.filter(Boolean),
       kindLabel: w.kind === 'session' ? 'Claude session' : w.kind, worker: w, visual: w.visual || null, follow: !!follow };

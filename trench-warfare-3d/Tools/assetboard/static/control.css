@@ -1,5 +1,5 @@
 /* The control screen (index.html): the tiles, the house with the profile of the selected worker beside it, what
-   waits on the owner, the graphs. Layout, motion and what only this page has (the head as one band, the glow of a
+   waits on the owner, the office counted. Layout, motion and what only this page has (the head as one band, the glow of a
    tile, the docked profile); the parts keep their own files (house.css, board.css) and the look is kinetic.css's,
    whose tokens are used here. Its own file: kinetic.css is a log of review rounds whose later rules override
    earlier ones. */
@@ -113,12 +113,8 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   font: 600 11px/1 var(--sans); white-space: nowrap; }
 .b-follow::before { content: ""; width: 10px; height: 6px; border-radius: 50%; border: 1.5px dashed var(--k-fire); }          /* the ring under the frog it follows */
 
-/* ---- the graphs: the hours wide, the rest three in a row */
-.c-graphs .g-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-.c-graphs .g-card { grid-column: span 2; }
-.c-graphs .g-card.g-wide { grid-column: span 4; }
-.c-graphs .g-card h3 { font-size: 16px; }
-.c-graphs .g-card summary { padding: 6px 0; }
+/* ---- the office, counted: lower than on its own page, its list folded (board.css has the rest) */
+@media (min-width: 701px) { .c-graphs .o-compact .o-stage { aspect-ratio: 16 / 6.4; max-height: 540px; min-height: 340px; } }          /* on a phone it is the tall stage of board.css */
 
 /* a low screen (a laptop: 768 high and a browser's bars): the head and the tiles give their height to the house */
 @media (min-width: 1241px) and (max-height: 860px) {
@@ -134,7 +130,6 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   .c-deck { grid-template-columns: minmax(0, 1fr); }
   /* under the house the profile is wide: who it is and the picture on the left, where it leads and the notes on the right */
   .c-deck > .c-profile.b-docked { height: auto; min-height: 0; overflow: visible; columns: 2; column-gap: 28px; }
-  .c-graphs .g-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .c-graphs .g-card { grid-column: auto; } .c-graphs .g-card.g-wide { grid-column: 1 / -1; }
 }
 @media (max-width: 760px) {
   .c-stamp { border-radius: 14px; }          /* the stamp wraps on a phone: a card */
@@ -142,7 +137,6 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   body.c-screen .c-graphs { order: 4; } body.c-screen #office { order: 5; } body.c-screen .k-assets { order: 6; }
   .c-screen .c-pulse { grid-template-columns: repeat(2, minmax(0, 1fr)); } .c-screen .c-pulse .k-needs, .c-screen .c-pulse .c-notes { grid-column: 1 / -1; }
   .c-deck > .c-profile.b-docked { left: auto; border-radius: var(--r-l); columns: auto; }
-  .c-graphs .g-grid { grid-template-columns: minmax(0, 1fr); }
   .c-bar h2 { font-size: 22px; }
   /* a finger: the rooms' labels on the small picture covered it and say what the buttons above say; what is pressed is 44 px */
   .c-deck .h-room { display: none; }
@@ -151,7 +145,7 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
 }
 
 /* ---- motion, where the reader has not asked for less. Each move says something: what is new came in, a number is
-   where it is because it counted there, a graph stands on its baseline, the profile is about someone else now. */
+   where it is because it counted there, the profile is about someone else now. */
 @media (prefers-reduced-motion: no-preference) {
   @keyframes c-rise { from { opacity: 0; transform: translateY(14px); } }
   @keyframes c-slide { from { opacity: 0; transform: translateX(28px); } }
@@ -173,17 +167,6 @@ body.c-screen .c-deck .c-house { order: 0; }          /* in the deck the house c
   /* a new picture in its hands is drawn in from the left, an orange streak ahead of it */
   .b-shot > img, .b-shot > video { animation: c-reveal .55s var(--ease) .08s backwards; }
   .b-shot > .b-streak { animation: c-wipe .8s var(--ease) .05s; }
-  /* a graph grows from its baseline the first time it is on the screen (control.js marks the card seen) */
-  .c-graphs .g-plot svg > g, .c-graphs .g-plot .g-mark { transform-box: fill-box; }
-  .c-graphs #g-rooms .g-plot svg > g, .c-graphs #g-commits .g-plot svg > g { transform-origin: 50% 100%; transition: transform .6s var(--ease); }
-  .c-graphs #g-rooms:not(.c-seen) .g-plot svg > g, .c-graphs #g-commits:not(.c-seen) .g-plot svg > g { transform: scaleY(0); }
-  .c-graphs #g-lanes .g-mark, .c-graphs #g-models .g-mark { transform-origin: 0 50%; transition: transform .6s var(--ease); }
-  .c-graphs #g-lanes:not(.c-seen) .g-mark, .c-graphs #g-models:not(.c-seen) .g-mark { transform: scaleX(0); }
-  .c-graphs #g-lanes .g-val, .c-graphs #g-models .g-val { transition: opacity .4s var(--ease) .35s; }
-  .c-graphs #g-lanes:not(.c-seen) .g-val, .c-graphs #g-models:not(.c-seen) .g-val { opacity: 0; }
-  .c-graphs #g-needs .g-plot svg { transition: clip-path .6s var(--ease); clip-path: inset(0 0 0 0); }
-  .c-graphs #g-needs:not(.c-seen) .g-plot svg { clip-path: inset(0 100% 0 0); }
-  .c-graphs .g-card { transition: border-color .25s; }
 }
 /* the reader asked for less: nothing on this page loops or slides, whichever file started it */
 @media (prefers-reduced-motion: reduce) {

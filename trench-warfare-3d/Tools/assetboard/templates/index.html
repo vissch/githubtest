@@ -7,9 +7,10 @@
 {# The control screen: one page that says who is at work on what, what waits on the owner and how the day went.
    The tiles, then the house (housedraw.js) with the profile of the worker it has selected beside it (board.js,
    docked into #profile), then the ideas he picks from (ideas.js; the owner, 2026-10-07: "on the overview page under
-   the house"), then what waits on the owner, then the graphs (charts.js), the branch rooms and the models.
+   the house"), then what waits on the owner, then the office, counted (the week's numbers as things on a
+   floor: counted.js, countedscene.js), the branch rooms and the models.
    The headline is the answer once the floor is read (control.js): how many are at work, how much waits.
-   The house and the graphs are the same parts house.html and graphs.html show full size. #}
+   The house and the counted office are the same parts house.html and graphs.html show full size. #}
 <section class="k-hero c-hero" id="top">
   <div class="k-hero-text">
     <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Trench Warfare 3D · the studio, live</p>
@@ -22,7 +23,7 @@
   <div class="k-stat k-fire k-needs" id="p-needs"><span class="k-l">Needs you</span><span class="k-n" id="p-ready">–</span>
     <span class="k-l" id="p-ready-l">waiting on you</span><span class="k-list" id="p-ready-list"></span></div>
   <a class="k-stat k-black" href="#deck"><span class="k-n"><span class="k-live" aria-hidden="true"></span><span id="p-at">–</span></span><span class="k-l">at work now</span><span class="k-dots" id="p-at-dots"></span><span class="k-sub" id="p-at-sub"></span></a>
-  <a class="k-stat k-black c-calls" href="#g-rooms" title="The work hour by hour, below"><span class="k-n" id="t-calls">–</span><span class="k-l">tool calls today</span><svg class="c-spark" id="t-calls-s" aria-hidden="true"></svg><span class="k-sub" id="t-calls-d"></span></a>
+  <a class="k-stat k-black c-calls" href="#graphs" title="The week's work as things on a floor, below"><span class="k-n" id="t-calls">–</span><span class="k-l">tool calls today</span><svg class="c-spark" id="t-calls-s" aria-hidden="true"></svg><span class="k-sub" id="t-calls-d"></span></a>
   <a class="k-stat k-grey" href="floor.html"><span class="k-n" id="p-rooms">–</span><span class="k-l">branches open</span><span class="k-bar k-bar-rooms" id="p-rooms-bar"></span><span class="k-sub" id="p-rooms-sub"></span></a>
   <a class="k-stat k-white k-models" href="#assets"><span class="k-n">{{ counts.get('FINAL', 0) }}<small>/{{ total }}</small></span><span class="k-l">models final, in the battle</span>
     <span class="k-bar" aria-hidden="true">{% for status, group in sections %}<i class="s-{{ status }}" style="flex:{{ group|length }}"></i>{% endfor %}</span>
@@ -54,10 +55,11 @@
 
 <section class="k-office g-page c-graphs" id="graphs">
   <header class="c-bar">
-    <h2>The work <span class="k-soft k-wide-only">· in numbers</span></h2>
-    <a class="c-expand" href="graphs.html" title="The graphs on a page of their own">Full size</a>
+    <h2>The office, counted <span class="k-soft k-wide-only">· every number a thing</span></h2>
+    <a class="c-expand" href="graphs.html" title="The counted office on a page of its own, with its list open">Full size</a>
   </header>
-{% include "_graphs.html" %}
+{% set compact = true %}
+{% include "_counted.html" %}
 </section>
 
 <section class="k-office" id="office" hidden>
@@ -136,4 +138,4 @@
   {% endfor %}
 </section>
 {% endblock %}
-{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/briefs.js"></script><script src="data/ideas.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="ideas.js"></script><script src="office.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="charts.js"></script><script src="control.js"></script>{% endblock %}
+{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/frogtex.js"></script><script src="data/briefs.js"></script><script src="data/ideas.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="ideas.js"></script><script src="office.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="three.min.js"></script><script src="countedscene.js"></script><script src="counted.js"></script><script src="control.js"></script>{% endblock %}

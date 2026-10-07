@@ -37,6 +37,7 @@ import src_graphs  # noqa: E402
 import src_code   # noqa: E402
 import src_git    # noqa: E402
 import src_queue  # noqa: E402
+import src_relay  # noqa: E402
 import src_visuals  # noqa: E402
 
 results = []
@@ -751,8 +752,17 @@ def house():
         case('frog: the sheets the manifest names are copied into the site and it is the page\'s data; a station with none gets an empty one and no error',
              none and got == man and copied == sorted(f.name for f in cache.glob('*.png')) and (site / 'img' / 'frog' / 'think.png').read_bytes() == (cache / 'think.png').read_bytes()
              and (site / 'data' / 'frog.js').read_text(encoding='utf-8') == f'window.FROG = {json.dumps(man, sort_keys=True)};\n', (none, copied))
+        import base64
+        tex = json.loads((site / 'data' / 'frogtex.js').read_text(encoding='utf-8').split(' = ', 1)[1].rstrip(';\n'))
+        case('frog: the office on the graphs page draws on WebGL, which takes no picture file beside a page opened as a file: the sheets it shows are written out as text, '
+             'half size, with how their frames lie; a sheet the pack has not is left out, and a station with no pack gets an empty one',
+             none and (tmp / 'frogsite' / 'data' / 'frogtex.js').exists() and list(tex) == ['office']
+             and tex['office']['src'] == 'data:image/png;base64,' + base64.b64encode((cache / 'office@0.5.png').read_bytes()).decode('ascii')
+             and {k: tex['office'][k] for k in ('n', 'cols', 'w', 'h', 'fps')} == {k: a['office'][k] for k in ('n', 'cols', 'w', 'h', 'fps')} and set(ops.SCENE_FROGS) == {'office', 'sleep_loop'},
+             {k: v for k, v in tex.get('office', {}).items() if k != 'src'})
         (cache / 'think@0.5.png').unlink()
-        case('frog: a pack that lost a sheet is no pack: the page is told there are no frogs, not sent to draw a hole', ops.frog(site) == {} and 'FROG = {}' in (site / 'data' / 'frog.js').read_text(encoding='utf-8'))
+        case('frog: a pack that lost a sheet is no pack: the page is told there are no frogs, not sent to draw a hole', ops.frog(site) == {} and 'FROG = {}' in (site / 'data' / 'frog.js').read_text(encoding='utf-8')
+             and (site / 'data' / 'frogtex.js').read_text(encoding='utf-8') == 'window.FROGTEX = {};\n')
         ops.CREW = keep
 
     # the page itself: everything house.html loads from the site is put there by ops.page (the readings are ops.once's)
@@ -775,15 +785,22 @@ def house():
     gl = re.findall(r'(?:src|href)="([^"#:]+\.(?:js|css))"', (out / 'graphs.html').read_text(encoding='utf-8')) if (out / 'graphs.html').exists() else []
     box = (out / 'data' / 'notebox.js').read_text(encoding='utf-8') if (out / 'data' / 'notebox.js').exists() else ''
     gh = (out / 'graphs.html').read_text(encoding='utf-8') if (out / 'graphs.html').exists() else ''
-    case('board: the graphs page and the note panel are written with what they load, the page has its five graphs and leads back to the control screen, and the pages are told where notes go and with which key',
-         {'charts.js', 'board.js', 'board.css', 'data/notebox.js', 'data/graphs.js'} <= set(gl) and not [u for u in gl if u not in readings and not (out / u).exists()]
-         and all(f'id="g-{g}"' in gh for g in ('rooms', 'lanes', 'needs', 'commits', 'models')) and 'href="index.html#graphs"' in gh
+    case('board: the graphs page and the note panel are written with what they load, the page has the counted office (its floor, legend, buttons and list) and none of the five graphs it took the place of, '
+         'it leads back to the control screen, and the pages are told where notes go and with which key',
+         {'counted.js', 'countedscene.js', 'three.min.js', 'board.js', 'board.css', 'data/notebox.js', 'data/graphs.js', 'data/frogtex.js'} <= set(gl) and not [u for u in gl if u not in readings and not (out / u).exists()]
+         and all(f'id="o-{g}"' in gh for g in ('stage', 'canvas', 'legend', 'ctl', 'list', 'card')) and not re.search(r'id="g-(rooms|lanes|needs|commits|models)"', gh) and 'href="index.html#graphs"' in gh
          and notes.key_of(notes.folder()) in box and '127.0.0.1' in box, ([u for u in gl if u not in readings and not (out / u).exists()], box))
+    three = (out / 'three.min.js').read_text(encoding='utf-8') if (out / 'three.min.js').exists() else ''
+    lic = (out / 'three.LICENSE.txt').read_text(encoding='utf-8') if (out / 'three.LICENSE.txt').exists() else ''
+    case('board: the library the floor is drawn with is in the site beside the page, with its licence, since a page opened from the Drive as a file can ask nobody for it: '
+         'no page of the floor takes a script from another host',
+         'Three.js Authors' in three[:600] and 'const e="160"' in three[:600] and 'MIT License' in lic and 'three.js authors' in lic
+         and not re.findall(r'<script[^>]+src="(?:https?:)?//', gh) and not re.findall(r'<script[^>]+src="(?:https?:)?//', (out / 'house.html').read_text(encoding='utf-8')), (three[:200], lic[:60]))
     case('control: the files the control screen loads beyond the other pages\' are put in the site by ops.page too', (out / 'control.js').exists() and (out / 'control.css').exists())
 
 
 def board():
-    """The owner's notes (notes.py), the numbers behind the graphs (src_graphs.py), and the page's own rules for both."""
+    """The owner's notes (notes.py), the numbers behind the counted office (src_graphs.py, src_relay.py), and the page's own rules for both."""
     import urllib.error
     import urllib.request
     tmp = Path(tempfile.mkdtemp(prefix='tw-board-test-'))
@@ -871,10 +888,12 @@ def board():
     cache = {}
     act = src_graphs.activity(trees, now, cache, projects=proj)
     by = {h['h'][-2:]: {r: h[r] for r in src_graphs.ROOMS if h[r]} for h in act['hours'] if any(h[r] for r in src_graphs.ROOMS)}
-    case('graphs: every tool call is counted once, in its hour and its room; an agent\'s call in its own log only; a call that only waits not at all',
-         by == {'13': dict(work=1, lab=1), '15': dict(work=1, lab=1)} and act['today'] == 4 and len(act['hours']) == src_graphs.HOURS, (by, act['today']))
-    case('graphs: the work is the branch\'s its calls point into, when the session was started outside every checkout',
-         act['lanes'] == [dict(branch='lane/show/x', calls=3)], act['lanes'])
+    case('graphs: every tool call is counted once, in its hour and its room; an agent\'s call in its own log only; a call that only waits not at all; '
+         'and the page gets every hour of the week, from the midnight six days back to this hour',
+         by == {'13': dict(work=1, lab=1), '15': dict(work=1, lab=1)} and act['today'] == 4 and len(act['hours']) == 6 * 24 + 16
+         and (act['hours'][0]['h'], act['hours'][-1]['h']) == ('2026-09-29 00', '2026-10-05 15'), (by, act['today'], len(act['hours'])))
+    case('graphs: the work is the branch\'s its calls point into, when the session was started outside every checkout, with the day it was done on and the hours it was busy in',
+         act['lanes'] == [dict(branch='lane/show/x', calls=3, days=[0, 0, 0, 0, 0, 0, 3], busy=2)], act['lanes'])
     with open(main_log, 'a', encoding='utf-8') as h:
         h.write(json.dumps(call(now - 10, 'Bash', dict(command='ls'))) + '\n' + json.dumps(call(now - 5, 'Edit', dict(file_path='y')))[:40])     # and a line still being written
     os.utime(main_log, (now, now))
@@ -883,6 +902,58 @@ def board():
     case('graphs: a second read takes only what was written since, and leaves a line still being written for the next',
          act2['today'] == 5 and cache['files'][str(main_log)]['off'] > off and cache['files'][str(main_log)]['off'] < main_log.stat().st_size
          and src_graphs.activity(trees, now, cache, projects=proj)['today'] == 5, (act2['today'], off, cache['files'][str(main_log)]['off']))
+    # a branch's week, day by day: a transcript started in a checkout, with calls before the week (one of them less than seven times 24 hours ago), on its first midnight, and either side of last midnight
+    proj2, two = tmp / 'projects2', tmp / 'checkout2'
+    two.mkdir()
+    at = lambda days, hh, mm: (datetime.datetime(2026, 10, 5, hh, mm) - datetime.timedelta(days=days)).timestamp()
+    log2 = proj2 / 'p' / 'session2.jsonl'
+    log2.parent.mkdir(parents=True)
+    whens = [at(8, 15, 0), at(7, 20, 0), at(6, 0, 10), at(2, 10, 0), at(2, 10, 20), at(1, 23, 50), at(0, 0, 10)]
+    log2.write_text('\n'.join(json.dumps(dict(call(t, 'Edit', dict(file_path='a.cs')), cwd=str(two))) for t in whens) + '\n', encoding='utf-8')
+    os.utime(log2, (now, now))
+    week = src_graphs.activity({one: dict(branch='lane/show/x'), two: dict(branch='lane/show/y')}, now, {}, projects=proj2)
+    case('graphs: a branch has its work day by day for the week (today and the six days before, each from its midnight) and the hours it was busy in; a call before the week is not in it',
+         week['lanes'] == [dict(branch='lane/show/y', calls=5, days=[1, 0, 0, 0, 2, 1, 1], busy=4)] and src_graphs.week_days(now) == ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05'],
+         week['lanes'])
+    case('graphs: the week day by day is the same calls: a number a day, by room, that adds up to the week, and today is its last day',
+         [d['day'] for d in week['days']] == src_graphs.week_days(now) and [d['calls'] for d in week['days']] == [1, 0, 0, 0, 2, 1, 1] and all(d['calls'] == sum(d[r] for r in src_graphs.ROOMS) for d in week['days'])
+         and week['week'] == 5 and week['today'] == 1 and sum(sum(h[r] for r in src_graphs.ROOMS) for h in week['hours']) == 5, week['days'])
+    # the owner's decisions, from the briefs and the queue's count
+    ask = lambda day, **more: dict(id=day, asked=day + ' 09:00', **more)
+    some = [ask('2026-09-20', state='answered', answer=dict(when='2026-09-21 10:00')), ask('2026-09-25', state='answered', answer=dict(when='2026-09-30 10:00')),
+            ask('2026-09-29', state='answered', answer=dict(when='2026-10-05 08:00')), ask('2026-10-01', state='open'), ask('2026-10-05', state='open'),
+            ask('2026-10-02', state='open', answer=dict(when='2026-10-03 10:00'))]          # an answer on a brief nobody closed is not a closed brief
+    case('graphs: his decisions are counted from the briefs: what waits on him is the number "Needs you" shows, what waits on the crew is what he answered that nobody took up, '
+         'and of the week how many were put to him and how many were closed with his answer',
+         src_graphs.decisions(some, [dict(id='2026-10-01')], 4, now) == dict(waiting=4, crew=1, asked=4, closed=2) and src_graphs.decisions(None, None, None, now) == dict(waiting=0, crew=0, asked=0, closed=0),
+         src_graphs.decisions(some, [dict(id='2026-10-01')], 4, now))
+    # the relay's legs: a record in the relay's home, a record on the board, one leg once
+    utc = lambda t: datetime.datetime.fromtimestamp(t, datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+    noon = lambda days: at(days, 12, 0)
+    home, home2, brd = tmp / 'tw' / 'relay', tmp / 'tw' / 'relay2', tmp / 'board'
+    for name in ('TW_RELAY_HOME', 'TW_BOARD_ALSO'):          # this station's own relay is not part of the fixture
+        os.environ.pop(name, None)
+
+    def leg(folder, name, **rec):
+        f = folder / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(json.dumps(rec), encoding='utf-8')
+    leg(home, 'runs/r1/legs/01/leg.json', run='r1', leg=1, started_at=utc(noon(0)), cost_usd=2.5, source='lane')
+    leg(home, 'runs/r1/legs/02/leg.json', run='r1', leg=2, started_at=utc(noon(0)), source='lane')                    # it was killed: no cost on record
+    leg(home, 'runs/r1/legs/03/leg.json', run='r1', leg=3, state='NEW', source='lane')                                 # it never started
+    leg(home, 'runs/proof-1/legs/01/leg.json', run='proof-1', leg=1, started_at=utc(noon(0)), cost_usd=9.0, source='proof')
+    leg(home2, 'runs/r2/legs/01/leg.json', run='r2', leg=1, started_at=utc(noon(9)), cost_usd=40.0, source='lane')    # before the week
+    leg(brd, 'relay/desktop/legs/r1-01.json', run='r1', leg=1, started_at=utc(noon(0)), source='lane')                 # the same leg, as an older relay wrote it: no cost
+    leg(brd, 'relay/laptop/legs/r3-01.json', run='r3', leg=1, started_at=utc(noon(1)), cost_usd=1.25, source='lane')   # another station's leg
+    (brd / 'relay' / 'laptop' / 'legs' / 'r3-02.json').write_text('{ not json', encoding='utf-8')
+    rw = src_relay.week([brd], src_relay.homes(tmp / 'tw'), now)
+    case('relay: a leg is counted once, by its run and number, wherever its record lies, with the cost a record of it holds; a leg with no cost on record is a leg and is never guessed at; '
+         'a proof run, a leg that never started and a record that does not read are left out; the week is today and six days before',
+         rw and (rw['usd'], rw['legs'], rw['unpriced']) == (3.75, 3, 1) and rw['days'][-1] == dict(day='2026-10-05', usd=2.5, legs=2, unpriced=1)
+         and rw['days'][-2] == dict(day='2026-10-04', usd=1.25, legs=1, unpriced=0) and [d['day'] for d in rw['days']] == src_graphs.week_days(now)
+         and [h.name for h in src_relay.homes(tmp / 'tw')] == ['relay', 'relay2'], rw)
+    case('relay: a station with no record of any leg has no number at all, not a nought: the page then draws no shells and says why',
+         src_relay.week([tmp / 'no-board'], src_relay.homes(tmp / 'nothing'), now) is None and src_relay.week([], [home2], now) == dict(usd=0.0, legs=0, unpriced=0, days=[dict(day=d, usd=0.0, legs=0, unpriced=0) for d in src_graphs.week_days(now)]))
     store = tmp / 'history.jsonl'
     floor = lambda n, q: dict(lanes=[dict(workers=[dict(kind='session', state='working')] * n, items=[], dirty=0)], queue=dict(count=q))
     steps = [(0, 1, 3), (20, 1, 3), (40, 2, 3), (60, 2, 3), (60 + src_graphs.SAMPLE_EVERY, 2, 3), (src_graphs.KEEP_DAYS * 86400 + 1000, 0, 4)]
@@ -899,33 +970,109 @@ def board():
     if not node:
         print('      (no node on this machine: the page\'s cases for notes and graphs were not run)')
         return
-    js = ('const B = require(process.argv[1]), G = require(process.argv[2]);'
+    js = ('const B = require(process.argv[1]);'
           'const N = [{id: "1", kind: "asset", about: "Maw", asset: "Maw", state: "open", when: "2026-10-01"}, {id: "2", kind: "lane", about: "lane/show/x", lane: "lane/show/x", state: "done", when: "2026-10-03"},'
           ' {id: "3", kind: "worker", about: "session:ab", lane: "lane/show/x", state: "open", when: "2026-10-02"}, {id: "4", kind: "queue", about: "decide: A question", state: "open", when: "2026-10-04"}];'
           'console.log(JSON.stringify([B.pick(N, {asset: "Maw"}).map(n => n.id), B.pick(N, {kind: "lane", id: "lane/show/x", lane: "lane/show/x"}).map(n => n.id), B.open(N, {kind: "lane", id: "lane/show/x", lane: "lane/show/x"}),'
           ' B.pick(N, {kind: "queue", id: "decide: A question"}).map(n => n.id), B.pick(N, {kind: "worker", id: "skill"}).length, B.open(N, {kind: "page", id: "all"}),'
-          ' B.merged(N, [{id: "1"}, {id: "9"}], [{id: "u"}]).map(n => n.id), B.slug("lane/show/frog-house"),'
-          ' G.ticks(1510, 4), G.ticks(3, 4), G.ticks(0, 4), G.fmt(4028), G.fmt(12900), G.hourLabel("2026-10-05 13"), G.dayLabel("2026-10-05"),'
-          ' G.hourPlot(354), G.hourPlot(1180), G.hourPlot(0), G.laneName("lane/show/x", 12900), G.modelName("Vehicles", "Ready, not used", 3, 14)]))')
-    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'board.js'), str(HERE / 'static' / 'charts.js')], capture_output=True)
+          ' B.merged(N, [{id: "1"}, {id: "9"}], [{id: "u"}]).map(n => n.id), B.slug("lane/show/frog-house")]))')
+    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'board.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('page: a thing shows the notes about it (its model, its branch, or the very thing), the open ones first, and counts the open ones',
          got and got[:6] == [['1'], ['3', '2'], 1, ['4'], 0, 3], (got, p.stderr[-300:]))
     case('page: a note just sent shows until a reading lists it, once; one not sent shows too', got and got[6] == ['1', '2', '3', '4', '9', 'u'] and got[7] == 'room-lane-show-frog-house', got and got[6:8])
-    case('page: a graph\'s axis has clean steps that reach its largest number, and its numbers are written short',
-         got and got[8] == [0, 500, 1000, 1500, 2000] and got[9] == [0, 1, 2, 3] and got[10] == [0, 1] and got[11:15] == ['4,028', '12.9K', '13:00', 'Mon 5'], got and got[8:15])
-    phone, wide, unknown = (got or [None] * 18)[15:18]
-    case('page: in a plot as narrow as a phone the hour graph is drawn at the plot\'s own size (a unit is a px, so its words keep their size) with a name under every twelfth hour; '
-         'on a wide page, and before the plot has a width, it is the wide drawing',
-         phone and phone['narrow'] and phone['W'] == 354 and phone['every'] == 12 and (phone['W'] - phone['L'] - phone['R']) / 48 >= 4
-         and wide == unknown and not wide['narrow'] and wide['W'] == 1000 and wide['every'] == 6, (phone, wide, unknown))
-    src = (HERE / 'static' / 'charts.js').read_text(encoding='utf-8')
-    named = re.findall(r"role: '(img|group)', 'aria-label'", src)
-    case('page: a mark of a graph that leads somewhere is a link with a name (the branch and its calls, the kind and its status), its tooltip shows on focus too, '
-         'and the drawing it is in is a group, not a picture; a mark that leads nowhere is hidden from a screen reader, which has the table',
-         got and got[18:20] == ['lane/show/x, 12.9K tool calls in seven days', 'Vehicles, ready, not used: 3 of 14']
-         and "g.setAttribute('aria-label', name" in src and "addEventListener('focus'" in src and "if (!href) { g.setAttribute('aria-hidden', 'true'); return; }" in src
-         and sorted(named) == ['group', 'group', 'img', 'img', 'img'], (got and got[18:20], named))
+    counted(node)
+
+
+def counted(node):
+    """The counted office's own rules (static/counted.js), under node: how many things a number is, which branches
+    stand on the floor, what the labels and the list say, where each thing stands."""
+    days = ['2026-09-29', '2026-09-30', '2026-10-01', '2026-10-02', '2026-10-03', '2026-10-04', '2026-10-05']
+    lane = lambda name, by: dict(branch='lane/show/' + name, calls=sum(by), days=by, busy=len([n for n in by if n]))
+    G = dict(week=9000, today=600, days=[dict(day=d, calls=0) for d in days],
+             lanes=[lane('big', [4198, 0, 0, 0, 0, 0, 0]), lane('fixes', [0, 0, 0, 278, 357, 652, 546]), lane('slow', [0, 0, 0, 0, 0, 1960, 40]), lane('small', [0, 0, 3, 0, 0, 0, 0])]
+             + [lane(f'more-{k:02d}', [0, 0, 0, 0, 0, 20 - k, 0]) for k in range(10)],
+             commits=[dict(day=f'2026-09-{k:02d}', n=1) for k in range(6, 29)] + [dict(day=d, n=n) for d, n in zip(days, [25, 10, 0, 46, 15, 144, 17])],
+             decisions=dict(waiting=1, crew=8, closed=50, asked=56), relay=dict(usd=283.93, legs=78, unpriced=1, days=[dict(day=days[-1], usd=51.25, legs=15, unpriced=0)]))
+    O = dict(lanes=[dict(branch='lane/show/small', workers=[dict(id='s1', name='Claude', kind='session', state='working'), dict(id='s2', name='idle one', kind='session', state='resting')]),
+                    dict(branch='lane/show/new', workers=[dict(id='m1', name='the gate', kind='machine', state='working')])],
+             roster=[dict(id='critic', name='critic', busy=['lane/show/small'])])
+    js = ('const K = require(process.argv[1]), G = JSON.parse(process.argv[2]), O = JSON.parse(process.argv[3]);'
+          'const T = K.things(G, O, 5), S = Object.fromEntries(T.stations.map(s => [s.name, s])), bare = K.things(Object.assign({}, G, {relay: null}), O, 9), L = K.lines(G, O, T);'
+          'const wide = K.plan(9, false), tall = K.plan(6, true), one = K.plan(2, true);'
+          'console.log(JSON.stringify([K.unit(4198, K.CRATE, K.TALLEST), K.unit(10859, K.CRATE, K.TALLEST), K.unit(0, K.CRATE, K.TALLEST), K.unit(9e9, K.CRATE, K.TALLEST), K.pieces(4198, 100), K.pieces(3, 100), K.pieces(149, 100), K.pieces(0, 100),'
+          ' K.whole(283.93, 10), K.whole(4, 10), K.whole(0, 10),'
+          ' K.bands([0, 0, 0, 278, 357, 652, 546], 100, 18), K.bands([4198, 0, 0, 0, 0, 0, 0], 100, 42).every(d => d === 0), K.bands([], 100, 0),'
+          ' T.stations.map(s => s.name), [S.big.full, S.big.hot, S.fixes.full, S.fixes.part, S.fixes.hot, S.small.full, S.small.part, S.small.hot], K.things(G, O, 9).stations.find(s => s.name === "slow").hot, T.crate,'
+          ' K.crew(O), K.things(G, O, 9).stations.find(s => s.name === "new"),'
+          ' [T.bags, T.shells, T.sheets, T.bag, T.shell, T.calls], bare.shells,'
+          ' [K.stationLabel(S.big), K.stationLabel(S.fixes), K.stationLabel(S.small), K.stationLabel(S.fixes, true)], K.brief("decision-2026-10-07-balance"), K.brief("vfx-polish"), K.brief("decision-2026-10-07-balance", 11),'
+          ' K.tags(T), K.tags(bare).shells, K.tags(T, true),'
+          ' K.legend(T).map(l => l.text), K.legend(bare).find(l => l.key === "shell").text,'
+          ' K.card(S.fixes, G.days.map(d => d.day)),'
+          ' L.map(s => s.key), L[0].rows.slice(0, 2), L[0].rows.slice(-3), L[1].rows[6], L[2].rows.map(r => r.slice(0, 2)), L[3].rows, L[4].rows, K.lines(G, O, bare)[4],'
+          ' [wide.narrow, wide.stations.length, new Set(wide.stations.map(s => s.x + "," + s.z)).size, wide.stations.every(s => s.side === "above" && Math.abs(s.x) + 1.2 <= wide.half.w && s.z - 1.2 >= wide.half.back)],'
+          ' [tall.narrow, tall.stations.map(s => s.side), new Set(tall.stations.map(s => s.x + "," + s.z)).size, tall.stations.slice(0, 3).every(s => s.z < tall.stations[3].z), tall.stations.every(s => Math.abs(s.x) + 1.2 <= tall.half.w),'
+          '  [tall.tray, tall.closed, tall.crew].every(q => Math.abs(q.x) + 1 <= tall.rug.w / 2), tall.bags.x + tall.bags.cols * 1.12 < tall.shells.x, tall.rug.z > tall.stations[3].z + 4, tall.bags.z > tall.rug.z + tall.rug.d],'
+          ' one.stations.map(s => s.side),'
+          ' [K.things({}, null, 9).stations.length, K.lines({}, null, K.things({}, null, 9)).map(s => s.rows.length), K.plan(0, true).stations.length, K.tags(K.things({}, null, 9)).shells.n]]))')
+    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'counted.js'), json.dumps(G), json.dumps(O)], capture_output=True)
+    got = json.loads(p.stdout.decode() or 'null') or [None] * 60
+    err = p.stderr.decode()[-400:]
+    case('counted: a thing stands for the smallest step that keeps the largest number within reach: a crate is 100 calls until a branch has more than 48 of them, then 200, then 500; past the last step it is the last',
+         got[:4] == [100, 500, 100, 50000], (got[:4], err))
+    case('counted: a number is whole crates and a part of one on top when what is left is worth showing: a branch with three calls is a sliver, not nothing and not a crate; shells and bags are whole, one for anything at all',
+         got[4:11] == [dict(full=42, part=0), dict(full=0, part=0.15), dict(full=1, part=0.49), dict(full=0, part=0), 28, 1, 0], got[4:11])
+    case('counted: the crates of a stack are its days from the floor up, so a week shows in it; a stack with nothing in it has none',
+         got[11] == [3, 3, 3, 4, 4, 4, 5, 5, 5, 5, 5, 5, 5, 6, 6, 6, 6, 6] and got[12] is True and got[13] == [], got[11:14])
+    case('counted: the busiest branches stand on the floor, and a branch somebody is at work on now takes the place of the least busy one nobody is on',
+         got[14] == ['big', 'slow', 'fixes', 'small', 'new'] and got[18] == {'lane/show/small': ['Claude', 'critic'], 'lane/show/new': ['the gate']}
+         and got[19] and (got[19]['calls'], got[19]['crew'], got[19]['full'], got[19]['part']) == (0, ['the gate'], 0, 0), (got[14], got[18], got[19]))
+    case('counted: today\'s crates are the orange ones, the top of the stack: the crates whose calls fell today, so forty calls today on a stack of twenty crates colour none',
+         got[15] == [42, 0, 18, 0.33, 6, 0, 0.15, 0] and got[16] == 0 and got[17] == 100, got[15:18])
+    case('counted: the commits of the last seven days are sandbags, the relay\'s cost shells, his decisions sheets; a station with no relay record has no shells and no number',
+         got[20] == [dict(n=26, commits=257, today=17), dict(n=28, usd=283.93, legs=78, unpriced=1), dict(waiting=1, closed=50, crew=8, asked=56), 10, 10, dict(week=9000, today=600, floor=8034)] and got[21] is None, got[20:22])
+    case('counted: the label over a stack is the week\'s number, the branch and one short fact: today\'s calls when there are any, else the hours it was busy in; a long name keeps its start and its end',
+         got[22] == [dict(n='4,198', name='big', small='1 busy hour', hot=False, work=False), dict(n='1,833', name='fixes', small='546 today', hot=True, work=False),
+                     dict(n='3', name='small', small='1 busy hour', hot=False, work=True), dict(n='1,833', name='fixes', small='546 today', hot=True, work=False)]
+         and got[23:26] == ['decision…balance', 'vfx-polish', 'decis…lance'], got[22:26])
+    case('counted: the words under the piles say one and many, the relay\'s tag says how many legs and how many of them have no cost on record, and without a record it says so and shows no number',
+         got[26] == dict(waiting=dict(n='1', small='waits on you'), closed=dict(n='50', small='answered, closed'), crew=dict(n='8', small='wait on the crew'), bags=dict(n='257', small='commits landed · 17 today'),
+                         shells=dict(n='$284', small='the relay · 78 legs, 1 without a cost'))
+         and got[27] == dict(n='–', small='no relay leg on record here') and got[28]['closed']['small'] == 'closed' and got[28]['bags']['small'] == 'commits landed' and got[28]['shells']['small'] == 'the relay · 78 legs', got[26:29])
+    case('counted: the legend says what one thing stands for, with the step in use, that the relay\'s figure is Claude\'s and not a bill, and, without a record, that there are no shells',
+         got[29] and got[29][0] == '1 crate = 100 tool calls of a branch this week' and 'not a bill' in got[29][4] and '$10' in got[29][4] and got[29][5] == '1 sandbag = 10 commits landed on integration'
+         and got[30] == 'no shells: this station has no record of a relay leg', got[29:31])
+    case('counted: a branch that is picked shows its week day by day, today marked, who is at work on it, and leads to its room',
+         got[31] == dict(title='lane/show/fixes', head='1,833 tool calls this week, busy in 4 hours', crew='nobody is at work on it now', href='floor.html#room-lane-show-fixes',
+                         days=[dict(day=d, n=n, today=t) for d, n, t in zip(['Tue 29', 'Wed 30', 'Thu 1', 'Fri 2', 'Sat 3', 'Sun 4', 'Mon 5'], [0, 0, 0, 278, 357, 652, 546], [False] * 6 + [True])]), got[31])
+    case('counted: the same numbers as a list, for a screen reader and for a browser with no WebGL: every branch by name up to twelve with its days, the rest as one sum, the work in no branch\'s checkout, and the whole; '
+         'the week day by day; his decisions; what landed; the relay',
+         got[32] == ['work', 'days', 'decisions', 'landed', 'relay']
+         and got[33] == [['big', '4,198', '0 today · busy in 1 hour · Tue 29: 4,198', 'floor.html#room-lane-show-big'],
+                         ['fixes', '1,833', '546 today · busy in 4 hours · Fri 2: 278, Sat 3: 357, Sun 4: 652, Mon 5: 546', 'floor.html#room-lane-show-fixes']]
+         and got[34] == [['the other 2 branches', '23', ''], ['in no checkout of a branch', '811', 'sessions started elsewhere, or in a checkout that is gone'], ['all the work', '9,000', '600 today']]
+         and got[35] == ['Mon 5', '0 tool calls', '17 commits landed · $51 relay, 15 legs']
+         and got[36] == [['waits on you', '1'], ['answered by you, waiting on the crew', '8'], ['answered and closed this week', '50'], ['put to you this week', '56']]
+         and got[37] == [['commits this week', '257', '17 today'], ['commits in 30 days', '280', '']] and got[38] == [['cost of its legs this week', '$284', '78 legs, 1 without a cost on record']]
+         and got[39]['rows'] == [] and 'no record of a relay leg' in got[39]['note'], got[32:40])
+    case('counted: on a wide floor every branch has a place of its own in an arc, its label above it; on a narrow one they stand three in a row, the busiest at the back with their labels above '
+         'and the front row\'s on the floor before it, the table, the sandbags and the shells in rows of their own in front, nothing beside the floor',
+         got[40] == [False, 9, 9, True] and got[41] == [True, ['above'] * 3 + ['below'] * 3, 6, True, True, True, True, True, True] and got[42] == ['above', 'above'], got[40:43])
+    case('counted: a station with nothing to count has an empty floor and a list that says nought, not an error', got[43] == [0, [1, 0, 4, 2, 0], 0, '–'], got[43])
+    scene, rules, css = [(HERE / 'static' / n).read_text(encoding='utf-8') for n in ('countedscene.js', 'counted.js', 'board.css')]
+    part = (HERE / 'templates' / '_counted.html').read_text(encoding='utf-8')
+    case('counted: the floor is turned with a mouse, a finger and the keyboard: a drag, two fingers, the arrow keys and the buttons under it; a finger moving up or down still scrolls the page, '
+         'and the wheel only comes nearer with Ctrl held; with less motion asked for nothing moves by itself',
+         all(w in scene for w in ("'pointerdown'", "'pointermove'", "'pointerup'", "'pointercancel'", "'keydown'", 'ArrowLeft', "if (!e.ctrlKey && !e.metaKey) return;", 'opt.calm'))
+         and 'touch-action: pan-y' in css and len(re.findall(r'data-do="(left|right|up|down|in|out|again)"', part)) == 7 and "scene.act(b.getAttribute('data-do'))" in rules
+         and 'prefers-reduced-motion: reduce' in rules)
+    case('counted: the picture has a name and says where the same numbers are, its labels are for the eye only, the list is a table a screen reader reads, '
+         'and a browser that gives no WebGL, or takes it away, gets the list with a line that says why',
+         'role="img"' in part and 'aria-label="The office, counted' in part and 'tabindex="0"' in part and 'class="o-labels" aria-hidden="true"' in part and 'id="o-list"' in part
+         and "th.scope = 'row'" in rules and "el('caption'" in rules and 'gives no WebGL' in rules and "'webglcontextlost'" in scene and 'catch (e) { return null; }' in scene and '.o-flat canvas' in css)
+    case('counted: neither script asks another host for anything, and the frogs come from the sheets the site wrote out as text',
+         not re.search(r'https?://(?!www\.w3\.org)', scene + rules) and 'opt.frogs' in scene and 'window.FROGTEX' in rules)
 
 
 def png(path: Path, w, h):
@@ -1049,13 +1196,20 @@ def control():
     src_ops.PROJECTS = proj
     try:
         seen2 = {}
-        src_graphs.collect(build.REPO, tmp / 'site', dict(lanes=[], queue=dict(count=0)), {}, now, cache_path, tmp / 'history.jsonl', seen=seen2)
+        page_data = src_graphs.collect(build.REPO, dict(lanes=[], queue=dict(count=3)), {}, now, cache_path, tmp / 'history.jsonl', seen=seen2,
+                                       briefs=[dict(id='b', asked='2020-01-01 09:00', state='open')], answers=[dict(id='b')], relay=dict(usd=1.5, legs=1, unpriced=0, days=[]))
+        bare = src_graphs.collect(build.REPO, dict(lanes=[], queue=dict(count=0)), {}, now, cache_path, tmp / 'history2.jsonl')
     finally:
         src_ops.PROJECTS = keep_projects
     case('visual: a cache of the version before is not trusted: its transcripts are read again, and the new one says which version it is',
          [x[1] for x in seen2.get(str(s1), [])] == [str(a), str(b)] and json.loads(cache_path.read_text(encoding='utf-8')).get('version') == src_graphs.VERSION, seen2.get(str(s1)))
 
-    # ---- the page: one screen with the house, the profile and the graphs, each id once
+    case('graphs: one reading gives the page everything the counted office shows: the week\'s hours and days, every branch\'s week, thirty days of commits, '
+         'his decisions with the queue\'s own count, and the relay\'s cost as it was read, or nothing when it was not; the models of the graph that is gone are not in it',
+         {'hours', 'days', 'lanes', 'today', 'week', 'commits', 'decisions', 'relay', 'history', 'since', 'rooms'} == set(page_data) and page_data['decisions'] == dict(waiting=3, crew=1, asked=0, closed=0)
+         and page_data['relay'] == dict(usd=1.5, legs=1, unpriced=0, days=[]) and bare['relay'] is None and len(page_data['days']) == 7 and len(page_data['commits']) == src_graphs.COMMIT_DAYS, sorted(page_data))
+
+    # ---- the page: one screen with the house, the profile and the counted office, each id once
     try:
         from jinja2 import Environment, FileSystemLoader, select_autoescape
     except ImportError:
@@ -1066,17 +1220,22 @@ def control():
         html = env.get_template('index.html').render(sections=[], levels=[], total=0, root='')
         ids = re.findall(r'\bid="([^"]+)"', html)
         loads = re.findall(r'(?:src|href)="([^"#:?]+\.(?:js|css))"', html)
-        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'g-rooms', 'g-lanes', 'g-needs', 'g-commits', 'g-models', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'ideas', 'ideas-cards', 'queue', 'office', 'assets'}
-        case('control: the overview is the control screen: the tiles, the house with the profile beside it and the five graphs are on it, and no id is there twice',
-             need <= set(ids) and len(ids) == len(set(ids)), (sorted(need - set(ids)), sorted(i for i in set(ids) if ids.count(i) > 1)))
-        order = [loads.index(u) for u in ('crew.js', 'office.js', 'house.js', 'housedraw.js', 'charts.js', 'control.js')] if {'crew.js', 'office.js', 'house.js', 'housedraw.js', 'charts.js', 'control.js'} <= set(loads) else []
-        case('control: it loads the house\'s, the graphs\' and its own files, the frog and the graphs\' data, each after what it needs, and every one is a file of the board',
-             order and order == sorted(order) and {'house.css', 'control.css', 'data/frog.js', 'data/graphs.js', 'data/ops.js'} <= set(loads)
+        need = {'house', 'h-canvas', 'h-tags', 'h-card', 'h-rooms', 'h-list', 'c-h-at', 'c-h-needs', 'c-age', 'profile', 'deck', 'graphs', 'o-stage', 'o-canvas', 'o-legend', 'o-ctl', 'o-list', 'o-list-box', 'o-card', 'stamp', 'p-ready', 'p-at', 't-calls', 't-calls-s', 't-notes-b', 'ideas', 'ideas-cards', 'queue', 'office', 'assets'}
+        case('control: the overview is the control screen: the tiles, the house with the profile beside it and the counted office (smaller, its list folded) are on it, the five graphs are not, and no id is there twice',
+             need <= set(ids) and len(ids) == len(set(ids)) and not [i for i in ids if re.fullmatch(r'g-(rooms|lanes|needs|commits|models)', i)]
+             and 'class="o-wrap o-compact"' in html and re.search(r'<details class="o-list-box" id="o-list-box">', html) is not None, (sorted(need - set(ids)), sorted(i for i in set(ids) if ids.count(i) > 1)))
+        parts = ('crew.js', 'office.js', 'house.js', 'housedraw.js', 'three.min.js', 'countedscene.js', 'counted.js', 'control.js')
+        order = [loads.index(u) for u in parts] if set(parts) <= set(loads) else []
+        case('control: it loads the house\'s, the counted office\'s and its own files, the frog and the numbers\' data, each after what it needs, and every one is a file of the board',
+             order and order == sorted(order) and {'house.css', 'control.css', 'data/frog.js', 'data/frogtex.js', 'data/graphs.js', 'data/ops.js'} <= set(loads)
              and not [u for u in loads if not u.startswith('data/') and not (HERE / 'static' / u).exists()], loads)
-        case('control: the house and the graphs keep a page of their own, one click from the screen, and the top bar no longer lists them',
+        full = env.get_template('graphs.html').render(root='')
+        case('control: the counted office is one part on both pages, and on its own page its list stands open',
+             'class="o-wrap"' in full and '<details class="o-list-box" id="o-list-box" open>' in full and full.count('id="o-stage"') == 1 and html.count('id="o-stage"') == 1)
+        case('control: the house and the counted office keep a page of their own, one click from the screen, and the top bar no longer lists them',
              'href="house.html"' in html and 'href="graphs.html"' in html and html.count('href="house.html"') == 1 and html.count('href="graphs.html"') == 1, html.count('href="house.html"'))
         at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'ideas', 'queue', 'graphs', 'office', 'assets')}
-        case('control: down the page: the head and the tiles, the house, the ideas, what waits on the owner, the graphs, the branch rooms, the models',
+        case('control: down the page: the head and the tiles, the house, the ideas, what waits on the owner, the counted office, the branch rooms, the models',
              -1 not in at.values() and list(at.values()) == sorted(at.values()) and html.find('c-pulse') < at['deck'], at)
 
     node = shutil.which('node')
