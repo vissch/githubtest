@@ -256,6 +256,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   at play zoom, and at wide views the far props look like flat cut-outs. Options: (1) land it as built; (2) land it
   switched off, each change a knob to turn on later; (3) leave it. Default taken: not landed. Brief with six before
   and after pictures: `2026-10-06-the-night-look-second-part`.
+- **Frog Corps: which units make the faction (2026-10-07):** 29 frog unit ideas are drawn outside the repo (four
+  rounds of concept pictures, three passes by an art critic, a design case per unit), with a page per unit on the
+  Drive under TW3D-pipeline, folder frog-corps. Two rosters are on offer: by game fit (a cheap swarm that owns the
+  Cross step with Iron: Tadpoles, Leaper, Froglet Sapper, Old Bullfrog, Gas Toad, Glue Spitter, Mortar Toad) or by
+  strongest picture. Nothing is built, and nothing is until he picks. The brief with the pictures is on the Decide
+  page. Two names collide with units that exist (Croaker, Bullfrog) and need new ones if they are picked.
+- **Frog Corps: four small questions (2026-10-07):** one brief, four rows: Tadpoles deploy three per click (today one
+  man per click); no smoke card, a rain card in its place; a second airship as the Great Work, built after the Brass
+  one; the helmet as a deep dome (reads well small, the German shape) or a shallow dish. The default of each is drawn
+  on the sheet. None is built.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
