@@ -102,6 +102,12 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
 - **`docs/reference/agent-memory.md`** is a short dated log of incidents that cost time, capped at 150 lines. A
   fact, procedure or decision goes to its reference page instead.
 
+## Agents you start
+- **By name, not a general agent:** `tw-critic` for a critic round, `tw-reviewer` for a review unit or a second
+  reader, `tw-scout` for search and mapping (`.claude/agents/`). Each has its model and its skill fixed.
+- **Any other agent:** name its model in the call. Search and listing: `sonnet`. Planning, judging, fixing: `opus`.
+  An agent with no model named runs on the session's, whatever that is.
+
 ## Unity specifics
 - One editor per checkout; never put the project on a synced folder. Commit `.meta` files with their assets.
 - Packages change only through the `unity-package-management` skill's Client API script, never by hand.
