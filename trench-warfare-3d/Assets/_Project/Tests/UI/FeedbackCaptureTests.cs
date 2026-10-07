@@ -22,7 +22,7 @@ namespace TW.Tests
         string root;
 
         [SetUp] public void SetUp() { root = Path.Combine(Application.temporaryCachePath, "feedback-test-" + Guid.NewGuid().ToString("N")); }
-        [TearDown] public void TearDown() { if (Directory.Exists(root)) Directory.Delete(root, true); }
+        [TearDown] public void TearDown() { if (Directory.Exists(root)) Directory.Delete(root, true); FeedbackCapture.Forget(); InputFocus.Reset(); }
 
         static FeedbackRecord Filled()
         {
@@ -120,7 +120,84 @@ namespace TW.Tests
             Assert.That(r.settings, Is.Not.Null);
         }
 
+        // ---- what tells one moment from another ---------------------------------------------------------------------
+        [Test]
+        public void TheRecordNamesTheCommitTheGameRanFromAtThePress()
+        {
+            var r = FeedbackCapture.Gather(null, null, null, null, new DateTime(2026, 10, 7, 21, 14, 3));
+            Assert.That(r.build.commit, Does.Match("^[0-9a-f]{8}$"), "the board reads the checkout later, when it may have moved on: the game says it now");
+            Assert.That(r.build.branch, Is.Not.Empty);
+        }
+
+        [Test]
+        public void ACheckoutIsReadFromItsFilesAWorktreeAndPackedRefsIncluded()
+        {
+            // a worktree: .git is a file naming its own folder, whose commondir holds the refs, here only in packed-refs
+            string repo = Path.Combine(root, "repo"), tree = Path.Combine(root, "tree"), own = Path.Combine(repo, ".git", "worktrees", "tree");
+            Directory.CreateDirectory(own); Directory.CreateDirectory(Path.Combine(tree, "game"));
+            File.WriteAllText(Path.Combine(tree, ".git"), "gitdir: " + own.Replace('\\', '/') + "\n");
+            File.WriteAllText(Path.Combine(own, "HEAD"), "ref: refs/heads/lane/show/x\n");
+            File.WriteAllText(Path.Combine(own, "commondir"), "../..\n");
+            File.WriteAllText(Path.Combine(repo, ".git", "packed-refs"), "# pack-refs with: peeled\n1111111122222222333333334444444455555555 refs/heads/other\nabcdef0123456789abcdef0123456789abcdef01 refs/heads/lane/show/x\n");
+            var b = new FeedbackRecord.Build();
+            FeedbackCapture.Checkout(Path.Combine(tree, "game"), b);
+            Assert.That(b.branch, Is.EqualTo("lane/show/x"));
+            Assert.That(b.commit, Is.EqualTo("abcdef01"));
+            // a loose ref outranks the packed one; a detached HEAD is its own commit; no checkout says nothing
+            Directory.CreateDirectory(Path.Combine(repo, ".git", "refs", "heads", "lane", "show"));
+            File.WriteAllText(Path.Combine(repo, ".git", "refs", "heads", "lane", "show", "x"), "99999999aaaaaaaabbbbbbbbccccccccdddddddd\n");
+            FeedbackCapture.Checkout(Path.Combine(tree, "game"), b);
+            Assert.That(b.commit, Is.EqualTo("99999999"));
+            File.WriteAllText(Path.Combine(own, "HEAD"), "0123456789abcdef0123456789abcdef01234567\n");
+            FeedbackCapture.Checkout(Path.Combine(tree, "game"), b);
+            Assert.That(b.commit, Is.EqualTo("01234567"));
+            var none = new FeedbackRecord.Build();
+            Assert.DoesNotThrow(() => FeedbackCapture.Checkout(Path.Combine(root, "nowhere", "game"), none));
+            Assert.That(none.commit, Is.Empty);
+        }
+
+        [Test]
+        public void TheFrameTimeIsTheMeanBeforeThePressNotThePressItself()
+        {
+            FeedbackCapture.Forget();
+            for (int i = 0; i < 60; i++) FeedbackCapture.Frame(0.016f);
+            FeedbackCapture.Frame(0.2f);   // the press's own hitch
+            var r = FeedbackCapture.Gather(null, null, null, null, new DateTime(2026, 10, 7, 21, 14, 3));
+            Assert.That(r.perf.frame_ms, Is.InRange(15f, 30f), "one long frame read as the frame time says 5 fps of a game that ran at 60");
+        }
+
+        [Test]
+        public void TheLastErrorsOfTheConsoleAreInTheRecord()
+        {
+            FeedbackCapture.Forget();
+            FeedbackCapture.Heard("only a warning", "", LogType.Warning);
+            FeedbackCapture.Heard("NullReferenceException: the wire\n  at Somewhere", "", LogType.Exception);
+            var r = FeedbackCapture.Gather(null, null, null, null, new DateTime(2026, 10, 7, 21, 14, 3));
+            Assert.That(r.errors.Length, Is.EqualTo(1));
+            Assert.That(r.errors[0], Does.EndWith("NullReferenceException: the wire"));
+            for (int i = 0; i < FeedbackCapture.MaxErrors + 5; i++) FeedbackCapture.Heard("error " + i, "", LogType.Error);
+            r = FeedbackCapture.Gather(null, null, null, null, new DateTime(2026, 10, 7, 21, 14, 3));
+            Assert.That(r.errors.Length, Is.EqualTo(FeedbackCapture.MaxErrors));
+            Assert.That(r.errors[r.errors.Length - 1], Does.EndWith("error " + (FeedbackCapture.MaxErrors + 4)), "the newest are the ones kept");
+        }
+
         // ---- the folder ---------------------------------------------------------------------------------------------
+        [Test]
+        public void ACaptureThatFailedPartWayLeavesNoFolderTheBoardWouldWaitOn()
+        {
+            string claimed = FeedbackCapture.Claim(Filled(), root);
+            Assert.That(File.Exists(Path.Combine(claimed, FeedbackCapture.OpenName)));
+            FeedbackCapture.Withdraw(claimed);
+            Assert.That(Directory.Exists(claimed), Is.False, "a folder marked open with no state file is one the board never takes and never reports");
+            string written = FeedbackCapture.Write(Filled(), root);
+            FeedbackCapture.Withdraw(written);
+            Assert.That(File.Exists(Path.Combine(written, FeedbackCapture.FileName)), "what was written stands");
+            Assert.That(File.Exists(Path.Combine(written, FeedbackCapture.OpenName)), Is.False);
+            string blocked = Path.Combine(root, "a-file");
+            File.WriteAllText(blocked, "");
+            Assert.Catch(() => FeedbackCapture.Write(Filled(), Path.Combine(blocked, "under")), "a root that cannot be made is an error the caller hears");
+        }
+
         [Test]
         public void ACaptureIsAFolderOfItsOwnEvenInTheSameSecond()
         {
@@ -190,6 +267,79 @@ namespace TW.Tests
             box.Query<Button>().ForEach(b => Assert.That(b.ClassListContains("tw-btn"), $"button '{b.name}' has no skin class"));
             Assert.That(box.Q("feedback-screen").ClassListContains("tw-screen"), Is.False, "tw-screen paints the whole screen: the match must stay visible under the box");
             Assert.That(Resources.Load<VisualTreeAsset>(FeedbackScreen.TreePath), Is.Not.Null, "the router loads the box by this name");
+        }
+
+        [Test]
+        public void TheBoxTakesThePointerAndTheNoticeLineDoesNot()
+        {
+            Assert.That(Box().Q("feedback-screen").pickingMode, Is.EqualTo(PickingMode.Position), "left to pass clicks, RESUME under the box pops the box and his words");
+            var line = Resources.Load<VisualTreeAsset>(ShellRouter.NoticeTree);
+            Assert.That(line, Is.Not.Null, "the router loads the notice line by this name");
+            var made = line.Instantiate();
+            Assert.That(made.Q<Label>("notice-text"), Is.Not.Null);
+            Assert.That(made.Q("notice-screen").pickingMode, Is.EqualTo(PickingMode.Ignore));
+        }
+
+        [Test]
+        public void WordsAreKeptWhenTheBoxGoesAwayUnasked()
+        {
+            // what the debrief, a scene load and a pop from a screen under it do to the box: Unbind, with no Close
+            var r = Filled(); r.note = "";
+            string dir = FeedbackCapture.Write(r, root);
+            var screen = new FeedbackScreen(r, dir);
+            screen.Bind(Box(), null);
+            Assert.That(InputFocus.Typing, "the debug keys and the HUD toggle stand down while he types");
+            screen.Words = "  half a sentence about the wi  ";
+            screen.Unbind();
+            Assert.That(FeedbackCapture.Read(dir).note, Is.EqualTo("half a sentence about the wi"));
+            Assert.That(File.Exists(Path.Combine(dir, FeedbackCapture.OpenName)), Is.False);
+            Assert.That(InputFocus.Typing, Is.False);
+        }
+
+        [Test]
+        public void EscIsTheOneKeyThatLeavesHisWordsOut()
+        {
+            var r = Filled(); r.note = "";
+            string dir = FeedbackCapture.Write(r, root);
+            var screen = new FeedbackScreen(r, dir);
+            screen.Bind(Box(), null);
+            screen.Words = "never mind";
+            screen.OnEscape();
+            Assert.That(FeedbackCapture.Read(dir).note, Is.Empty);
+            Assert.That(File.Exists(Path.Combine(dir, FeedbackCapture.OpenName)), Is.False);
+        }
+
+        [Test]
+        public void EnterSavesAndShiftEnterBreaksTheLineThroughTheKeyHandler()
+        {
+            var r = Filled(); r.note = "";
+            string dir = FeedbackCapture.Write(r, root);
+            var screen = new FeedbackScreen(r, dir);
+            screen.Bind(Box(), null);
+            screen.Words = "ab";
+            int stopped = 0;
+            screen.OnKey(KeyCode.A, 'a', false, () => stopped++);
+            Assert.That(stopped, Is.EqualTo(0), "a letter is the field's own business");
+            screen.OnKey(KeyCode.Return, '\0', true, () => stopped++);
+            screen.OnKey(KeyCode.None, '\n', true, () => stopped++);
+            Assert.That(stopped, Is.EqualTo(2), "both halves of Enter stop before the field: left alone it stops taking keys");
+            Assert.That(screen.Words.Replace("\n", ""), Is.EqualTo("ab"));
+            Assert.That(screen.Words.Length, Is.EqualTo(3), "one line break, not two");
+            Assert.That(File.Exists(Path.Combine(dir, FeedbackCapture.OpenName)), "Shift+Enter does not close");
+            screen.OnKey(KeyCode.KeypadEnter, '\0', false, () => stopped++);
+            Assert.That(File.Exists(Path.Combine(dir, FeedbackCapture.OpenName)), Is.False, "Enter is his done");
+            Assert.That(FeedbackCapture.Read(dir).note.Replace("\n", ""), Is.EqualTo("ab"));
+        }
+
+        [Test]
+        public void ReboundToALetterTheCaptureKeyDoesNotCloseTheBoxHeTypesIn()
+        {
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.F10));
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.F1));
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.F12));
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.F), Is.False);
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.Space), Is.False);
+            Assert.That(FeedbackScreen.ClosesTheBox(UnityEngine.InputSystem.Key.None), Is.False);
         }
 
         [Test]
