@@ -61,7 +61,8 @@ fix with every file that is not a test put back, so the new tests meet the code 
 
 | It prints | Means |
 |---|---|
-| `PROVED` | red on the old code, green on the fix |
+| `PROVED` | red on the old code with a failure that names the id, green on the fix |
+| `RED` | red on the old code and green on the fix, but the failure there does not name the id. A unit fixes several things at once, so the test may be red for another fix's reason: read what it said (the record keeps it). Give the assert a message that holds the id, like `"[U1] the fleet never fired"`, and it reads as proved |
 | `WEAK` | not shown red on the old code: the test did not run there (the old code does not compile with it, or its runner stopped before it). Not proof of the bug; the `note` lines say what the runner printed |
 | `NO TEST` | a commit says why there is none |
 | `UNCHECKED` | its tests need Unity and none was given, or a tagged test was not found by its name. Never a pass |
