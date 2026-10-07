@@ -264,6 +264,14 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   - **Houses give cover: by how much?** He said "reduced damage taken when behind a building"; the amount is his. Default: half, like a tank wreck. A sim change.
   - **The animation critique: start it again?** It stopped at step 3 of 5. Default: fix the battle camera, film again, finish the scoring.
   - **The optimiser's four open asks** (a compilation). Default: all four defaults.
+- **Infantry weapons: which look? (2026-10-07):** he asked for concept art made with ComfyUI first (Process). Four concept sheets
+  (Krea2 with the Clash Royale LoRA), the same eight soldier types on each, a frog holding one, and a strip at game size: (A) brass and
+  walnut, parade pieces with horn-shaped muzzles (the default named: gold shows against mud, coat and skin, and the horns change the
+  outline); (B) toy box, fat painted shapes; (C) swamp-made, the frogs' own of bamboo and shell; (D) trench-built, plank, pipe and rope.
+  Known weak: the four differ in material and colour, hardly in outline; at far size rifle, assault gun and machine gun read as one
+  short bar (five of eight types read). Nothing is built; the route into the game (rebake, overlay, a figure per type) is still open.
+  Sheets, prompts and seeds are on the Drive (decisions-evidence, 2026-10-07, weapons-concepts). Brief on the Decide page: "Infantry
+  weapons: which look?".
 - **Fewer real lights at night: which way? (2026-10-07):** he said fewer real lights, the rest simulated or baked (Look and view).
   Counted in a run: 60 point lights exist, 43 of them fixed lamps that always burn (lanterns, prop lamps, trench lamps, burning trees,
   torches), about 95 % of what is lit at any moment; a thing takes light from 8 at most. Already painted without a real light: the pools
