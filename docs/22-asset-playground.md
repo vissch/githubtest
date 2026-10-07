@@ -293,7 +293,7 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
   island as its own piece), fades leg weights out towards the midline so the belly never follows a leg, and writes
   `Art/Tanks/Bullfrog/Bullfrog_legs.json`. The joints are laid out in the body's own frame: the sculpt stands turned
   15.3 degrees on its base (the four feet's clusters show it), which the guns and sockets are built around, so it is
-  not re-turned. `Runtime/LegRig.cs` matches each Unity vertex to its welded weights (a vertex more than a millimetre
+  not re-turned. `Presentation/Camera/WeldedLegRig.cs` (the Playground's `Runtime/LegRig.cs` until the battle drew the legs too) matches each Unity vertex to its welded weights (a vertex more than a millimetre
   from any: the mesh changed, the legs stay still with a warning, and the hopper test fails) and skins positions and
   normals of the LOD on show. Every low vertex of a limb past its wrist or ankle (on the digits' side of a plane through
   it, within 0.65) rides the hand or foot whole: shared with the forearm a finger stretched into a blade, and a capsule
@@ -322,7 +322,7 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
 - **Life** (2026-09-28, "you can do better than this"): a hit jolts it away from the blow (`HopDrive.Flinch`, from
   `VehicleRig.Hurt`: rocks up to 7 degrees, squashes 8 %, the legs take it; up in 0.05 s, gone over 0.2 s); it sits
   0.3 s between hops (`Rest`; hop after hop read as a machine bouncing), keeping its pace; sitting, its throat swells
-  twice every 3.2 s (`LegRig.Throat`: the white under the chin pushed out along its normals, 0.11 hull units, weights
+  twice every 3.2 s (`WeldedLegRig.Throat`: the white under the chin pushed out along its normals, 0.11 hull units, weights
   found from the body frame at load); knocked out, its legs sprawl 45 degrees so it drops onto its belly and a hind leg
   kicks three times, weaker each time (1.1, 1.8, 2.6 s), and the cook-off throws the body 0.55 m up off them; the
   barrels' heat is a small warm light at each tip (`VehicleRig.HeatLamps`, as the square of the heat) with less soot
@@ -334,11 +334,11 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
   the sink, the foot or hand keeping its angle, and the clamp lowers the body by as much): -0.15 m in the crouch before
   the push, -0.12 m landing, a hit drops it (0.25 m times the jolt) and shoves it along the blow, firing it squats 5 cm
   and is pushed back 4 cm. The belly rests 1 cm above the feet, so it flattens and spreads under the sink
-  (`LegRig.Squash`, the bottom 0.5 hull units by body weight); the palm's heel now rides the hand whole
+  (`WeldedLegRig.Squash`, the bottom 0.5 hull units by body weight); the palm's heel now rides the hand whole
   (`legrig.py PALM_BACK` 0.45: shared with the forearm it rose a third as far as the wrist). Knocked out it lies on its
   belly 0.1 m below its standing height (stood on its sprawled legs it was 0.44 m above, a table): the height comes
   from the body's underside alone and is kept once it is down (the kicks dropped it 0.21 m and back), the legs roll out
-  before they stretch (together, a shin swung 0.46 m through the ground) and lie on a ground plane (`LegRig.HasGround`)
+  before they stretch (together, a shin swung 0.46 m through the ground) and lie on a ground plane (`WeldedLegRig.HasGround`)
   with the roll outside the pitch, so a kick goes out along the ground (it went up over the back like a tail). Firing:
   lean 4 degrees and shake 1.5 (2 and 0.4 hardly showed), the saddle driven back 3-4.5 cm along its guns, the throat
   pumping with the burst, the heat light over the middle of the barrels and a wisp of smoke off them after a burst. A

@@ -114,6 +114,8 @@ namespace TW.Presentation.Tactical
             public float HopSquash = 1f;
             /// <summary>Radians a dead hopper lies heeled over to one side.</summary>
             public float Heel;
+            /// <summary>A hopper's own posed legs (TankRenderer.HopLegs.cs), made when it is first posed.</summary>
+            public HopRig Hop;
             /// <summary>Metres it is drawn above the ground (Machines' Lift), and how fast its wreck is falling.</summary>
             public float Lift, Fall; public bool Landed;
             public bool Fresh = true;              // not drawn yet: its first frame measures no speed
@@ -386,6 +388,8 @@ namespace TW.Presentation.Tactical
             if (discMat != null) Destroy(discMat);
             if (discMesh != null) Destroy(discMesh);
             if (flameMesh != null) Destroy(flameMesh);
+            foreach (var v in views.Values) FreeHopRig(v);
+            foreach (var v in wrecks) FreeHopRig(v);
         }
 
         /// <summary>The hull and the drive profile of THIS match, not the compiled defaults: a definition or a bake
@@ -825,10 +829,12 @@ namespace TW.Presentation.Tactical
                 v.HopTilt = Mathf.Lerp(v.HopTilt, -DeadNose, ease);
                 v.Heel = Mathf.Lerp(v.Heel, (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel, ease);
                 v.GunPitch[0] = Mathf.Lerp(v.GunPitch[0], -DeadGuns, ease); v.GunPitch[1] = Mathf.Lerp(v.GunPitch[1], -DeadGuns * 0.5f, ease);   // one gun lower than the other
+                PoseHopLegs(v, 0f, false, true, dt);   // and its legs sprawl
                 return;
             }
             float moved = new Vector2(v.Pos.x - v.LastPos.x, v.Pos.z - v.LastPos.z).magnitude;
             bool going = Mathf.Abs(v.Speed) > 0.25f && !v.Stalled;
+            bool landed = false;
             if (going || v.HopPhase > 0f)
             {
                 v.HopPhase += Mathf.Max(moved / HopStride, going ? 0f : dt * 2.5f);
@@ -836,6 +842,7 @@ namespace TW.Presentation.Tactical
                 {
                     v.HopPhase = going ? v.HopPhase - Mathf.Floor(v.HopPhase) : 0f;
                     v.HopSquash = 0.82f;   // it lands flat and comes back up
+                    landed = true;
                     // it lands: dust thrown out from under each side
                     if (books != null && books.Ready)
                     {
@@ -856,6 +863,7 @@ namespace TW.Presentation.Tactical
             v.HopSquash = Mathf.Lerp(v.HopSquash, shape, 1f - Mathf.Exp(-dt * 14f));
             v.Spin = Mathf.MoveTowards(v.Spin, 0f, dt * 1.2f);
             if (v.Spin > 0f) v.SpinAngle = Mathf.Repeat(v.SpinAngle + v.Spin * SpinRate * dt, Mathf.PI * 2f);
+            PoseHopLegs(v, v.HopPhase, landed, false, dt);   // its legs through the hop (TankRenderer.HopLegs.cs)
         }
 
         static float Kick(float r) => r <= 0f ? 0f : Mathf.Sin(Mathf.Clamp01((1f - r) * 6f) * Mathf.PI * 0.5f) * r;   // snaps back, runs out slow
@@ -1227,6 +1235,7 @@ namespace TW.Presentation.Tactical
         {
             var v = wrecks[k];
             foreach (var p in v.Pieces) debris.Remove(p);
+            FreeHopRig(v);
             wrecks.RemoveAt(k);
             // its prop is drawn as the stand-in again (the prop layer is in an assembly this one does not reference)
             if (v.Linked) foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb.GetType().Name == "BattlefieldProps") mb.SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
@@ -1908,7 +1917,7 @@ namespace TW.Presentation.Tactical
                 var p = l.Parts[i];
                 float tread = p.Role == TankPartRole.Track && v.Model.TreadRuns ? (p.Side < 0 ? v.TreadL : v.TreadR) : 0f;
                 if (v.Dead && p.Parent < 0 && QueueCarcass(v, lod, world[i], damage, tint, TeamBand(v, p))) continue;   // a wreck's hull, as its carcass
-                Queue(p.Mesh, MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p));
+                Queue(HopMesh(v, p, lod), MaterialFor(v.Archetype, lod), world[i], tread, damage, tint, TeamBand(v, p));
             }
         }
 
