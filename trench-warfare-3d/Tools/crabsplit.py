@@ -27,6 +27,8 @@
 #
 # usage: blender -b --factory-startup -P crabsplit.py -- <pincer> <kettle> <censer> <pavise> <outdir> <renderdir>
 #   (each .fbx beside its Tripo .fbm folder; keep paths short, Blender cannot read textures past MAX_PATH)
+# or, to cut ONE walker again to the standard from the model already in the game (RECUT below, 2026-10-07):
+#   TW_RECUT=<Name> blender -b --factory-startup -P crabsplit.py -- <Vehicles dir> <outdir> <renderdir>
 import bpy, bmesh, sys, os, math, json, glob
 import numpy as np
 from mathutils import Vector, Matrix, Euler
@@ -348,17 +350,18 @@ def build_loose(crab, src, cfg):
     return parts, piv
 
 # ---------------------------------------------------------------------------------------------------- the skeleton
-def hierarchy(name, parts):
+def hierarchy(name, parts, body="Body"):
     """part -> parent. Everything hangs off the Body, the way a tank's parts hang off its Hull: TankModel walks the
-    tree from the root part, so anything parented to the FBX's own empty instead would never be drawn."""
+    tree from the root part, so anything parented to the FBX's own empty instead would never be drawn. A walker cut
+    again to the standard calls its root part the Hull (`body`)."""
     P = {}
     for n in parts:
-        if n == "Body": continue
+        if n == body: continue
         if n.startswith("Gun_"): P[n] = "Turret_" + n[-1]
         elif n.startswith("Jaw_"): P[n] = "Claw_" + n[-1]
         elif n.startswith("Shin_"): P[n] = "Thigh_" + n[5:]
         elif n.startswith("Foot_"): P[n] = "Shin_" + n[5:]
-        else: P[n] = "Body"
+        else: P[n] = body
     return {n: p for n, p in P.items() if p in parts and p != n}
 
 def sockets(name, parts, piv):
@@ -382,7 +385,7 @@ def sockets(name, parts, piv):
 # ------------------------------------------------------------------------------------------------- objects, export
 TURN = Matrix.Rotation(math.pi, 4, 'Z')   # see the header: the export puts Blender -Y at Unity -Z
 
-def make_objects(crab, lod, parts, piv, sock, s, mat, decimate):
+def make_objects(crab, lod, parts, piv, sock, s, mat, decimate, body="Body"):
     objs = {}
     for n, bm in parts.items():
         me = bpy.data.meshes.new(n)
@@ -399,7 +402,7 @@ def make_objects(crab, lod, parts, piv, sock, s, mat, decimate):
             bpy.ops.object.modifier_apply(modifier="dec")
     root = bpy.data.objects.new(crab, None); bpy.context.scene.collection.objects.link(root)
     root.empty_display_size = 0.3
-    P = hierarchy(crab, parts)
+    P = hierarchy(crab, parts, body)
     for n, o in objs.items():
         par = P.get(n)
         pobj = objs.get(par, root) if par else root
@@ -492,39 +495,285 @@ def render_checks(crab, lod, root, objs):
     for n, o in objs.items(): o.rotation_euler, o.location = saved[n]
     bpy.context.view_layer.update()
 
-# ------------------------------------------------------------------------------------------------------------ main
-bpy.ops.wm.read_factory_settings(use_empty=True)
-manifest = {"source": "Tools/crabsplit.py", "crabs": {}}
-for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter"), SHEETS):
-    cfg = CRABS[crab]
-    print("== %s" % crab)
-    src, img, mat = load(fbx, crab)
-    parts, piv = build_pincer(src, cfg) if "cut" in cfg else build_loose(crab, src, cfg)
-    sock = sockets(crab, parts, piv)
-    s = cfg["scale"]
+# ---------------------------------------------------------------------------------------- the re-cut (2026-10-07)
+# One walker cut again to the standard for a walking machine (PLAN_model_cutting.md on the Drive, the owner's
+# "standardised plan for separating items for animations"): the root part `Hull` with its pivot on the origin, every leg
+# `Thigh` > `Shin` > `Foot` with the pivots at hip, knee and ankle, `Socket_Toe` on the sole, the legs named by side and
+# numbered from the rear. It starts from the model already in the game, not from a Tripo sheet: the near FBX holds every
+# triangle of the sculpt (LOD0 is exported unsimplified), and crabs.json says where each of its parts stands. Blender's
+# own FBX import shows the nested nodes of such a file out of place (the exporter's fault, see the header of
+# Editor/TankImport.cs), so only each mesh's own vertices are read from it and each is put at its manifest pivot.
+#
+# A machine's entry says which loose pieces of the sculpt make each leg. Every number is in the manifest's frame
+# (metres, Y up, front +Z, the machine's left -X) and is given for the machine's RIGHT side, legs from the rear; the
+# left side is the mirror. A piece is named by the middle of its box (a seed):
+#   keep      today's part -> the part its pieces stay in, for every piece no leg takes
+#   legs      per leg: thigh, shin, foot (lists of seeds); hip, knee (points); ankle_y, the height at which the foot
+#             comes out of the shin (the ankle is the middle of the foot's section there); and for a leg whose shin and
+#             foot the sculptor welded into one piece, split=(seed, y): that piece is cut level at y, both cuts are
+#             closed, and the foot gets a short stub up inside the shin so a turned ankle shows leg, not a slit
+# A hip more than JOINT_TOL off the Hull's surface is moved onto it. Every joint is then measured against the piece it
+# hangs from and the piece that hangs from it, the measures go into the manifest ("recut"), and a joint that lies on
+# neither stops the run.
+#
+# usage: TW_RECUT=<Name> blender -b --factory-startup -P crabsplit.py -- <Vehicles dir> <outdir> <renderdir>
+#   (<Vehicles dir> is Assets/_Project/Resources/Vehicles; <outdir> the same to replace the model, or a scratch folder
+#   to look first. Only that machine's two FBX files and its entry in crabs.json are written. The atlas is not touched.)
+JOINT_TOL = 0.02          # 5 cm at the size the walkers are drawn (VehicleSize.Walker 2.5)
+
+RECUT = {
+    # The Banner's sculpt, as found 2026-10-07 (42 loose pieces): a belly plate under a jar; four legs, each a fixed
+    # V-shaped arm from the belly plate down to an elbow and up to a ball at the knee, an armour plate hanging from that
+    # ball, and a claw spike under the plate (the front legs have a second, smaller spike). The first split took the
+    # front spikes for claws, the front arms and plates for part of the gun, the rear arms for part of the body, and
+    # each rear plate with its spike for a whole leg. The jar and all that stands on it stay the part they were (Gun).
+    "Banner": dict(
+        keep={"Body": "Hull", "Gun": "Gun", "Banner": "Banner"},
+        legs=[
+            dict(thigh=[(0.430, 0.613, -0.7045)], shin=[], foot=[],
+                 split=((0.836, 0.473, -0.9335), 0.31), stub=0.10,
+                 hip=(0.156, 0.655, -0.534),            # the middle of the arm's open inner end
+                 knee=(0.6525, 0.745, -0.8215),         # the middle of the ball at the arm's outer end
+                 ankle_y=0.31),
+            dict(thigh=[(0.373, 0.528, 0.259), (0.365, 0.687, 0.2555), (0.5885, 0.952, 0.471)],   # elbow ball, arm, knee ball
+                 shin=[(0.7455, 0.738, 0.6735)],
+                 foot=[(0.8055, 0.2655, 0.7545), (0.7505, 0.273, 0.6765)],                       # the spike and the small one
+                 hip=(0.178, 0.607, 0.083),             # the middle of the arm's inner end, on the belly plate's side
+                 knee=(0.5885, 0.952, 0.471),           # the middle of the knee ball
+                 ankle_y=0.44),                         # just inside the plate's lower rim
+        ]),
+}
+
+def from_unity(u): return Vector((-u[0], -u[2], u[1]))
+
+def game_model(name, vehicles):
+    """The machine as the game has it: every loose piece of its near model, in this script's frame at the manifest's
+    size, with the part it is in today; the manifest's entry; and a material wearing its atlas."""
+    with open(os.path.join(vehicles, "crabs.json")) as f: manifest = json.load(f)
+    entry = manifest["crabs"][name]
+    before = set(bpy.data.objects)
+    bpy.ops.import_scene.fbx(filepath=os.path.join(vehicles, name, "%s_LOD0.fbx" % name))
+    pieces = []
+    for o in [o for o in bpy.data.objects if o not in before and o.type == 'MESH']:
+        at = from_unity(entry["pivots"][o.name])
+        bm = bmesh.new(); bm.from_mesh(o.data)
+        # a mesh's own vertices are Y up with the front at -Z (what the export baked in), whatever its node says
+        for v in bm.verts: v.co = at + Vector((-v.co.x, v.co.z, v.co.y))
+        bmesh.ops.remove_doubles(bm, verts=bm.verts, dist=1e-5)
+        me = bpy.data.meshes.new("whole"); bm.to_mesh(me); bm.free()
+        ob = bpy.data.objects.new("whole", me); bpy.context.scene.collection.objects.link(ob)
+        for fs in loose_parts(ob): pieces.append((sub_bmesh(ob, fs), o.name))
+        bpy.data.objects.remove(ob, do_unlink=True); bpy.data.meshes.remove(me)
+    for o in [o for o in bpy.data.objects if o not in before]: bpy.data.objects.remove(o, do_unlink=True)
+    img = bpy.data.images.load(os.path.join(vehicles, "%sAtlas.jpg" % name)); img.name = name + "_atlas"
+    mat = bpy.data.materials.new(name + "_mat"); mat.use_nodes = True
+    tex = mat.node_tree.nodes.new("ShaderNodeTexImage"); tex.image = img
+    mat.node_tree.links.new(tex.outputs["Color"], mat.node_tree.nodes["Principled BSDF"].inputs["Base Color"])
+    return manifest, entry, pieces, mat
+
+def take(pieces, seed, taken):
+    """The loose piece whose box is centred on the seed (a manifest-frame point), and nothing else."""
+    want = from_unity(seed)
+    best = min((i for i in range(len(pieces)) if i not in taken), key=lambda i: (centre(pieces[i][0]) - want).length)
+    off = (centre(pieces[best][0]) - want).length
+    if off > 0.03: raise RuntimeError("no loose piece is centred on %s (the nearest is %.3f off)" % (seed, off))
+    taken.add(best)
+    return pieces[best][0]
+
+def cap(bm, z, up):
+    """Close a level cut: fill the open edges lying at height z, the new faces looking up or down, painted with the
+    colour of the wall they meet. Returns the new faces."""
+    uv = bm.loops.layers.uv.active
+    rim = [e for e in bm.edges if e.is_boundary and all(abs(v.co.z - z) < 1e-5 for v in e.verts)]
+    if not rim: return []
+    made = bmesh.ops.triangle_fill(bm, use_beauty=True, edges=rim)["geom"]
+    faces = [g for g in made if isinstance(g, bmesh.types.BMFace)]
+    for f in faces:
+        f.normal_update()
+        if (f.normal.z > 0) != up: f.normal_flip()
+        if uv is None: continue
+        for l in f.loops:
+            for other in l.vert.link_loops:
+                if other.face not in faces: l[uv].uv = other[uv].uv; break
+    return faces
+
+def halve(bm, y, stub):
+    """A piece cut level at manifest height y: (what is above, what is below), both closed. The lower one gets a stub
+    `stub` high standing up inside the upper one. Also the middle of the cut."""
+    co, no = Vector((0, 0, y)), Vector((0, 0, 1))
+    def side(keep_upper):
+        h = bm.copy()
+        bmesh.ops.bisect_plane(h, geom=h.verts[:] + h.edges[:] + h.faces[:], dist=1e-6, plane_co=co, plane_no=no,
+                               clear_inner=keep_upper, clear_outer=not keep_upper)
+        return h
+    upper, lower = side(True), side(False)
+    ring = [v.co.copy() for v in lower.verts if abs(v.co.z - y) < 1e-5]
+    mid = sum(ring, Vector()) / len(ring)
+    cap(upper, y, False)
+    if stub > 0:
+        uv = lower.loops.layers.uv.active
+        rim = [e for e in lower.edges if e.is_boundary and all(abs(v.co.z - y) < 1e-5 for v in e.verts)]
+        out = bmesh.ops.extrude_edge_only(lower, edges=rim)["geom"]
+        for v in [g for g in out if isinstance(g, bmesh.types.BMVert)]:
+            v.co = mid + (v.co - mid) * 0.8 + Vector((0, 0, stub))
+        walls = [g for g in out if isinstance(g, bmesh.types.BMFace)]
+        for f in walls:
+            f.normal_update()
+            away = f.calc_center_median() - mid; away.z = 0
+            if f.normal.dot(away) < 0: f.normal_flip()
+            if uv is None: continue
+            low = [l for l in f.loops if abs(l.vert.co.z - y) < 1e-5]
+            src = None
+            for l in low:
+                for other in l.vert.link_loops:
+                    if other.face not in walls: src = other[uv].uv.copy(); break
+                if src is not None: break
+            if src is not None:
+                for l in f.loops: l[uv].uv = src
+        cap(lower, y + stub, True)
+    else: cap(lower, y, True)
+    return upper, lower, mid
+
+def section_middle(bms, y):
+    """The middle of where a foot crosses height y: of its biggest piece, cut there."""
+    big = max(bms, key=lambda b: len(b.faces)).copy()
+    out = bmesh.ops.bisect_plane(big, geom=big.verts[:] + big.edges[:] + big.faces[:], dist=1e-6,
+                                 plane_co=Vector((0, 0, y)), plane_no=Vector((0, 0, 1)))["geom_cut"]
+    ring = [g.co.copy() for g in out if isinstance(g, bmesh.types.BMVert)]
+    big.free()
+    if not ring: raise RuntimeError("the foot does not cross height %.3f" % y)
+    return sum(ring, Vector()) / len(ring)
+
+def off_surface(bm, p):
+    """How far a point stands off a piece: the distance to its surface, less than nothing inside it."""
+    from mathutils.bvhtree import BVHTree
+    bm.normal_update()
+    loc, normal, index, dist = BVHTree.FromBMesh(bm).find_nearest(p)
+    return (-dist if (p - loc).dot(normal) < 0 else dist), loc
+
+def mirrored(v): return Vector((-v.x, v.y, v.z))
+
+def recut(name, vehicles):
+    cfg, shape = RECUT[name], CRABS[name]
+    manifest, old, pieces, mat = game_model(name, vehicles)
+    print("== %s, cut again: %d loose pieces in today's %d parts" % (name, len(pieces), len(old["pivots"])))
+    taken, parts, piv, sock, joints = set(), {}, {}, {}, {}
+    for side, flip in (("R", False), ("L", True)):
+        def at(p):
+            v = from_unity(p)
+            return mirrored(v) if flip else v
+        def seeds(ss): return [take(pieces, (-s[0], s[1], s[2]) if flip else s, taken) for s in ss]
+        for k, leg in enumerate(cfg["legs"]):
+            tag = "%s%d" % (side, k + 1)
+            thigh, shin, foot = seeds(leg["thigh"]), seeds(leg["shin"]), seeds(leg["foot"])
+            mid = None
+            if "split" in leg:
+                seed, y = leg["split"]
+                upper, lower, mid = halve(seeds([seed])[0], y, leg.get("stub", 0.0))
+                shin.append(upper); foot.append(lower)
+            parts["Thigh_" + tag] = join(thigh); parts["Shin_" + tag] = join(shin); parts["Foot_" + tag] = join(foot)
+            piv["Thigh_" + tag] = at(leg["hip"]); piv["Shin_" + tag] = at(leg["knee"])
+            cut_there = mid is not None and abs(leg["ankle_y"] - leg["split"][1]) < 1e-6
+            piv["Foot_" + tag] = mid if cut_there else section_middle(foot, leg["ankle_y"])
+            tip = min((v.co for b in foot for v in b.verts), key=lambda c: c.z)
+            sock["Socket_Toe_" + tag] = ("Foot_" + tag, tip.copy())
+    # the left side mirrors the right: one set of joints, measured on the right
+    for n in [n for n in piv if n[-2] == "L"]:
+        piv[n] = mirrored(piv[n[:-2] + "R" + n[-1]])
+    rest = {}
+    for i, (bm, was) in enumerate(pieces):
+        if i in taken: continue
+        if was not in cfg["keep"]: raise RuntimeError("a piece of today's %s is in no leg and is not kept" % was)
+        rest.setdefault(cfg["keep"][was], []).append(bm)
+    for n, bms in rest.items(): parts[n] = join(bms)
+    piv["Hull"] = Vector((0, 0, 0))
+    for was, now in cfg["keep"].items():
+        if now != "Hull": piv[now] = from_unity(old["pivots"][was])
+    for s, v in old["sockets"].items():
+        sock[s] = (cfg["keep"][v["part"]], from_unity(v["pos"]))
+
+    # hips onto the hull, then every joint against both pieces it joins
+    for n in sorted(piv):
+        if not n.startswith("Thigh_"): continue
+        off, on = off_surface(parts["Hull"], piv[n])
+        if off > JOINT_TOL:
+            print("  %s: its hip stood %.3f off the hull, moved onto it" % (n, off))
+            piv[n] = on
+    P = hierarchy(name, parts, "Hull")
+    bad = []
+    for n in sorted(P):
+        if n[:4] not in ("Thig", "Shin", "Foot"): continue
+        a, _ = off_surface(parts[P[n]], piv[n]); b, _ = off_surface(parts[n], piv[n])
+        joints[n] = {"off_parent": round(a, 4), "off_own": round(b, 4)}
+        print("  joint %-9s %7.3f off %-9s %7.3f off itself" % (n, a, P[n], b))
+        if a > JOINT_TOL: bad.append("%s stands %.3f off %s" % (n, a, P[n]))
+    for s, (owner, pos) in sock.items():
+        if s.startswith("Socket_Toe_"):
+            low = min(v.co.z for v in parts[owner].verts)
+            if abs(pos.z - low) > 1e-4: bad.append("%s is not on the sole" % s)
+    if bad: raise RuntimeError("; ".join(bad))
+
     lo, hi = bm_bounds(list(parts.values()))
-    piv = {n: p - Vector((0, 0, lo.z)) for n, p in piv.items()}      # the model's feet become z = 0
-    sock = {n: (o, v - Vector((0, 0, lo.z))) for n, (o, v) in sock.items()}
-    for bm in parts.values(): bmesh.ops.transform(bm, matrix=Matrix.Translation((0, 0, -lo.z)), verts=bm.verts)
-    entry = manifest["crabs"].setdefault(crab, {"scale": s, "lods": []})
-    entry["size_m"] = [abs(x) for x in unity((hi - lo) * s)]
-    entry["pivots"] = {n: unity(p * s) for n, p in piv.items()}
-    entry["sockets"] = {n: {"part": o, "pos": unity(p * s)} for n, (o, p) in sock.items()}
-    entry["parents"] = hierarchy(crab, parts)
-    entry["legs"] = sorted([n for n in parts if n.startswith("Leg_") or n.startswith("Thigh_")])
+    entry = {"scale": old["scale"], "lods": []}
+    entry["size_m"] = [abs(x) for x in unity(hi - lo)]
+    entry["pivots"] = {n: unity(p) for n, p in piv.items()}
+    entry["sockets"] = {n: {"part": o, "pos": unity(p)} for n, (o, p) in sock.items()}
+    entry["parents"] = P
+    entry["legs"] = sorted(n for n in parts if n.startswith("Thigh_"))
+    entry["recut"] = {"standard": "PLAN_model_cutting 2026-10-07", "from": "the near model in the game", "root": "Hull",
+                      "joint_tol": JOINT_TOL, "joints": joints}
     for lod in (0, 1):
         for o in list(bpy.context.scene.objects):
             if o.type in ('MESH', 'EMPTY') and o.name != "cam": bpy.data.objects.remove(o, do_unlink=True)
-        root, objs = make_objects(crab, lod, parts, piv, sock, s, mat, 1.0 if lod == 0 else cfg["decimate"])
-        render_checks(crab, lod, root, objs)
-        export(root, os.path.join(OUTDIR, crab, "%s_LOD%d.fbx" % (crab, lod)))
+        root, objs = make_objects(name, lod, parts, piv, sock, 1.0, mat, 1.0 if lod == 0 else shape["decimate"], "Hull")
+        render_checks(name, lod, root, objs)
+        export(root, os.path.join(OUTDIR, name, "%s_LOD%d.fbx" % (name, lod)))
         tris = sum(len(p.vertices) - 2 for o in objs.values() if o.type == 'MESH' for p in o.data.polygons)
         verts = sum(len(o.data.vertices) for o in objs.values() if o.type == 'MESH')
         entry["lods"].append({"lod": lod, "parts": sorted(n for n in objs if not n.startswith("Socket")), "verts": verts, "tris": tris})
-        print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (crab, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
-    im = img.copy(); im.scale(1024, 1024)
-    scene = bpy.context.scene
-    scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
-    im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
-with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
+        print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (name, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
+    manifest["crabs"][name] = entry
+    with open(os.path.join(OUTDIR, "crabs.json"), "w", newline="
+") as f: json.dump(manifest, f, indent=1)
+
+# ------------------------------------------------------------------------------------------------------------ main
+def split_sheets():
+    """The sheets as Tripo made them, every machine of the run, and the manifest of all of them."""
+    manifest = {"source": "Tools/crabsplit.py", "crabs": {}}
+    for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter"), SHEETS):
+        cfg = CRABS[crab]
+        print("== %s" % crab)
+        src, img, mat = load(fbx, crab)
+        parts, piv = build_pincer(src, cfg) if "cut" in cfg else build_loose(crab, src, cfg)
+        sock = sockets(crab, parts, piv)
+        s = cfg["scale"]
+        lo, hi = bm_bounds(list(parts.values()))
+        piv = {n: p - Vector((0, 0, lo.z)) for n, p in piv.items()}      # the model's feet become z = 0
+        sock = {n: (o, v - Vector((0, 0, lo.z))) for n, (o, v) in sock.items()}
+        for bm in parts.values(): bmesh.ops.transform(bm, matrix=Matrix.Translation((0, 0, -lo.z)), verts=bm.verts)
+        entry = manifest["crabs"].setdefault(crab, {"scale": s, "lods": []})
+        entry["size_m"] = [abs(x) for x in unity((hi - lo) * s)]
+        entry["pivots"] = {n: unity(p * s) for n, p in piv.items()}
+        entry["sockets"] = {n: {"part": o, "pos": unity(p * s)} for n, (o, p) in sock.items()}
+        entry["parents"] = hierarchy(crab, parts)
+        entry["legs"] = sorted([n for n in parts if n.startswith("Leg_") or n.startswith("Thigh_")])
+        for lod in (0, 1):
+            for o in list(bpy.context.scene.objects):
+                if o.type in ('MESH', 'EMPTY') and o.name != "cam": bpy.data.objects.remove(o, do_unlink=True)
+            root, objs = make_objects(crab, lod, parts, piv, sock, s, mat, 1.0 if lod == 0 else cfg["decimate"])
+            render_checks(crab, lod, root, objs)
+            export(root, os.path.join(OUTDIR, crab, "%s_LOD%d.fbx" % (crab, lod)))
+            tris = sum(len(p.vertices) - 2 for o in objs.values() if o.type == 'MESH' for p in o.data.polygons)
+            verts = sum(len(o.data.vertices) for o in objs.values() if o.type == 'MESH')
+            entry["lods"].append({"lod": lod, "parts": sorted(n for n in objs if not n.startswith("Socket")), "verts": verts, "tris": tris})
+            print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (crab, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
+        im = img.copy(); im.scale(1024, 1024)
+        scene = bpy.context.scene
+        scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
+        im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
+    with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
+
+bpy.ops.wm.read_factory_settings(use_empty=True)
+if os.environ.get("TW_RECUT"): recut(os.environ["TW_RECUT"], SHEETS[0])
+else: split_sheets()
 print("DONE")
