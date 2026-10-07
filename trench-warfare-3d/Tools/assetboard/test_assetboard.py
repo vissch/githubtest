@@ -1231,8 +1231,9 @@ def control():
              order and order == sorted(order) and {'house.css', 'control.css', 'data/frog.js', 'data/frogtex.js', 'data/graphs.js', 'data/ops.js'} <= set(loads)
              and not [u for u in loads if not u.startswith('data/') and not (HERE / 'static' / u).exists()], loads)
         full = env.get_template('graphs.html').render(root='')
-        case('control: the counted office is one part on both pages, and on its own page its list stands open',
-             'class="o-wrap"' in full and '<details class="o-list-box" id="o-list-box" open>' in full and full.count('id="o-stage"') == 1 and html.count('id="o-stage"') == 1)
+        case('control: the counted office is one part on both pages; on its own page the floor comes first, the four tiles under it, and its list stands open',
+             'class="o-wrap"' in full and '<details class="o-list-box" id="o-list-box" open>' in full and full.count('id="o-stage"') == 1 and html.count('id="o-stage"') == 1
+             and -1 < full.find('id="o-stage"') < full.find('id="t-at"') < full.find('id="o-list"') and full.count('id="t-calls"') == 1)
         case('control: the house and the counted office keep a page of their own, one click from the screen, and the top bar no longer lists them',
              'href="house.html"' in html and 'href="graphs.html"' in html and html.count('href="house.html"') == 1 and html.count('href="graphs.html"') == 1, html.count('href="house.html"'))
         at = {k: html.find(f'id="{k}"') for k in ('top', 'deck', 'queue', 'graphs', 'office', 'assets')}
