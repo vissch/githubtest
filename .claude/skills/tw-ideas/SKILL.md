@@ -25,6 +25,8 @@ Run `python Tools/assetboard/ideas.py context` and read all of it. It gives you,
 - **His taste**, in his own words. Read these as the brief for tone: he likes the absurd and the visual, things he
   can click and watch; he turned down an audit that cut the exciting parts.
 - **The routes**: an idea's kind says which agents work on it and where his decisions fall.
+- **What the critics found**: the critique loops that are kept, newest first, each with its scores, the fixes its
+  last paper asked for, and the folder its papers and pictures are in ("Ideas from a critique", below).
 
 If the context says a source was NOT READ on this station, say so in your last message: the ledger is thin there.
 
@@ -38,6 +40,25 @@ no idea when a debrief screen exists; an idea that makes the existing one better
 and no cause, so the idea was sold on a fact that is not one and sized as if it were (a run of 2026-10-07).
 Before you write "already", "records" or "has", read the line that shows it. Where you cannot (many stations hold
 no game code), say what you know and size the idea for the case that the rest is not there.
+
+## Ideas from a critique
+
+A critic judged real pictures of the game and wrote down what is wrong, so a finding is the best-grounded hint you
+get. The owner, 2026-10-08: the ideas agent makes "ideas based off critique as well".
+
+- **Look for what comes back.** One fix line is the producer's to mend in its own fix round, not an idea. The same
+  thing found in several loops, or in round 2 after a fix, is: nobody has answered it. Dark props sinking into night
+  mud in five papers is an idea (a rim light for unlit props); one prop reading poorly in one still is not.
+- **Read the paper before you build on it.** Open the loop's folder and read the finding's own line: the list in the
+  context is cut. A critic is right about what looks wrong and often wrong about why, and it asks for things a
+  stage never owed (a row scores a whole role). Take the symptom, find the cause yourself, and drop a fix that a
+  note on the loop says was a misreading.
+- **A low score is not the idea.** "Raise the house5 evidence from 43" is nothing he can picture. What the player
+  would see differently is.
+- **Use its pictures.** The stills the critic judged are in the loop's folder: one of them as `--capture` ("today")
+  beside your sketch ("with the idea") is the strongest pair.
+- **Name the loop:** `--critique ID`, the id in brackets after the loop's title. The idea is still held against the
+  ledger like any other: a fix that is queued, decided or passed over stays out.
 
 ## What makes an idea
 
