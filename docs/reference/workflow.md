@@ -380,7 +380,8 @@ that moved, and where. Rain and wind move 1-3% of pixels between identical poses
 
 **Other capture tools** (all in `Editor/`): `TW.Editor.CaptureRig.Series` / `Sheet` / `Diff` / `Bench`,
 `TW.Editor.TankCapture.Spawn(team, archetype, x, z)` then `Shot` or `Follow(slot)`, and
-`TW.Editor.HudCapture.Shoot(path)`, the only path that includes the HUD.
+`TW.Editor.HudCapture.Shoot(path)`, the only path a script has that includes the HUD. (By hand, F10 in Play writes
+the screen with the HUD and the state of the game into a folder: `tasks.md`, "Feedback capture".)
 
 Staging traps:
 - Move the camera with `TacticalCamera.FrameFrom(new Vector2(x, z), zoom, yaw)`. Setting `Camera.main.transform`

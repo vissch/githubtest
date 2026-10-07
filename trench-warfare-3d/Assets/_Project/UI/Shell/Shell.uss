@@ -48,6 +48,14 @@
 .shell-confirm__row { flex-direction: row; }
 .shell-confirm__row > .tw-btn { margin: 0 6px; min-width: 120px; }
 .shell-hint { margin-top: 14px; -unity-text-align: middle-center; }
+/* the box for his words after F10 (FeedbackScreen): a plate low on the screen, over the HUD's bar, the match in view above it */
+.shell-feedback { justify-content: flex-end; padding-bottom: 232px; }
+.shell-feedback__plate { width: 780px; max-width: 86%; padding: 14px 24px 24px 24px; align-items: stretch; }
+.shell-feedback__title { margin-top: 8px; }
+.shell-feedback__said { margin: 4px 0 10px 0; white-space: normal; }
+.shell-feedback__note { margin: 0; }
+.shell-feedback__note .unity-text-field__input { min-height: 84px; white-space: normal; -unity-text-align: upper-left; }
+.shell-feedback__row { justify-content: flex-end; margin-top: 10px; }
 
 .shell-settings { width: 1100px; height: 760px; }
 .shell-tabs { flex-direction: row; margin-bottom: 10px; }
