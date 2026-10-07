@@ -46,6 +46,11 @@ namespace TW.Presentation.Tactical
                                      Curtain = source == (int)TW.Sim.Match.OffMapAbilityId.CreepingBarrage };
         }
 
+        /// <summary>The plume a shell leaves (ShellPlume): its width in blast radii, its seconds, how far it swells and the
+        /// opacity it is born with (before fx.smokeWeight); with the absurd deaths on, how high it starts (blast radii)
+        /// and how fast it climbs (m/s), so it stands over the crater and not on it.</summary>
+        public const float PlumeWidth = 2.2f, PlumeLife = 6f, PlumeGrow = 0.9f, PlumeAlpha = 1f, PlumeLiftBase = 0.5f, PlumeLiftRise = 1.2f;
+
         public const float BloodSnipeDamage = 60f;   // a hit this hard (the sniper's 95, not a rifle's 22-30) sprays the heavy sheet
         public const float BloodFarZoom = 120f;      // past this (the overview) no blood (decisions.md: far zoom shows none)
 

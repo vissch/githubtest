@@ -80,6 +80,17 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>fx.recipes: the plume a shell leaves, at night, in the night smoke's dark warm grey (NightSmoke's paint: the
+        /// Smoke puffs it stands in for have it). Moonlit, it was a pale blue wisp, lighter than the ground (film 2026-10-07).
+        /// Called after the biome's tints on a moonlit field only; value 0 sets nothing.</summary>
+        public void NightPlume(float value, float warm, float fire)
+        {
+            if (value <= 0f) return;
+            var m = mats[(int)Book.ShellPlume];
+            PaintNight(m, NightTint(value, warm));
+            if (m != null) m.SetFloat("_BurstLit", fire);
+        }
+
         public static float SmokeLife(float weight) => Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(weight));
 
         /// <summary>A smoke card's width, height, life and opacity as it is born (height 0: the drawing's own aspect, taken
