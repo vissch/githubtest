@@ -134,7 +134,9 @@ namespace TW.Presentation.Tactical
             books.Tint(FlipbookFx.Book.SmokeBank, t.Dust);
             books.Tint(FlipbookFx.Book.GroundRing, t.Dust);
             books.Tint(FlipbookFx.Book.DustPuff, t.Dust);
+            books.Tint(FlipbookFx.Book.GasBank, FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid) ? GasBankNight : GasBankDay);   // CombatFx.Banks.cs
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightSmoke(smokeNight, smokeNightWarm, smokeNightFire);   // AOSA C59/C61: after the biome's smoke tint
+            if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightPlume(smokeNight, smokeNightWarm, smokeNightFire);   // fx.recipes: the plume as the night smoke (the book is drawn with the recipes only)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.ColumnBurstLit(columnBurstLit);   // AOSA C108: before C103's (1 sets nothing)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
@@ -920,11 +922,13 @@ namespace TW.Presentation.Tactical
                                 books.Add(FlipbookFx.Book.Smoke, p + off, r * size * shrink * night, life * shrink * fade, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                     velocity: drift * speed + Vector3.up * rise, grow: Mathf.Lerp(2.4f, 1.5f, closeUp), roll: roll, alpha: FlipbookFx.SmokeOpacity(0.65f, smokeAlpha, closeUp) * fade, pop: 0.3f, delay: 0.5f + k * 0.15f);
                             }
-                            // fx.recipes: one standing plume in place of the seven puffs; it drifts down wind and leans with the shell
-                            // (L03: 1.5r, five seconds; a big shell leaves a second, later one beside it)
+                            // fx.recipes: one plume in place of the seven puffs; it drifts down wind and leans with the shell (L03; a big
+                            // shell leaves a second, later one beside it). Film 2026-10-07: at 1.5r, 5 s and 0.8 it left almost nothing
+                            // 2 s after the burst, so it is wider, fuller and plays its book over its life (FlipbookFx, the sheet). With
+                            // the absurd deaths on it starts off the ground and climbs, as their puffs do: nothing lies under it
                             for (int k = 0; recipe.Plume && k < (r >= RingRadius ? 2 : 1); k++)
-                                books.Add(FlipbookFx.Book.ShellPlume, p + flight * (r * 0.3f * lean) + (k == 0 ? Vector3.zero : new Vector3(r * 0.35f, 0f, r * 0.2f)), r * 1.5f * shrink * night * far, 5f * shrink, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
-                                    velocity: drift * 1.2f + flight * (r * 0.2f * lean), grow: 0.6f, alpha: FlipbookFx.SmokeOpacity(0.8f, smokeAlpha, closeUp), pop: 0.2f, delay: k == 0 ? 0.5f : 0.8f);
+                                books.Add(FlipbookFx.Book.ShellPlume, p + flight * (r * 0.3f * lean) + (k == 0 ? Vector3.zero : new Vector3(r * 0.35f, 0f, r * 0.2f)) + Vector3.up * (lift ? r * PlumeLiftBase : 0f), r * PlumeWidth * shrink * night * far, PlumeLife * shrink, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | ((mirror ^ k == 1) ? FlipbookFx.Kind.Mirror : 0),
+                                    velocity: drift * 1.2f + flight * (r * 0.2f * lean) + Vector3.up * (lift ? PlumeLiftRise : 0f), grow: PlumeGrow, alpha: FlipbookFx.SmokeOpacity(PlumeAlpha, smokeAlpha, closeUp), pop: 0.2f, delay: k == 0 ? 0.5f : 0.8f);
                         }
                     }
                     else if (bursts.Count < 64) bursts.Add(new Burst { Pos = p, Radius = e.Scalar, Born = Time.time, Variant = (Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 3 });

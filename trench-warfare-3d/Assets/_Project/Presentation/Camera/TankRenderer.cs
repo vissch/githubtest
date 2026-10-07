@@ -980,8 +980,15 @@ namespace TW.Presentation.Tactical
                     v.NextColumn = now + WreckSmokeEvery;
                     var cam = Camera.main;
                     float far = FlipbookFx.FarGrow(cam != null && cam.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
-                    books.Add(FlipbookFx.Book.WreckSmoke, at + Vector3.up * 0.3f, (3f + 4f * fire) * Mathf.Max(0.4f, smoke) * far, WreckSmokeEvery * 2.6f,
-                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: Mathf.Clamp01(0.35f + fire * 0.3f) * Mathf.Clamp01(smoke * 1.5f),
+                    // film 2026-10-07: at 3-7 m and 0.35-0.65 the column was a thread over the fire (its drawing is 0.43 of the
+                    // card, and fx.smokeLean narrows that), so wider and fuller, and a second card behind it, mirrored and a
+                    // third of the loop on, so the two drawings' rings close into one body of smoke
+                    float wide = (WreckSmokeBase + 4f * fire) * Mathf.Max(0.4f, smoke) * far, thick = Mathf.Clamp01(WreckSmokeAlpha + fire * 0.3f) * Mathf.Clamp01(smoke * 1.5f);
+                    books.Add(FlipbookFx.Book.WreckSmoke, at + Vector3.up * 0.5f, wide * 0.85f, WreckSmokeEvery * 2.6f,
+                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | FlipbookFx.Kind.Mirror, alpha: thick * 0.8f,
+                        startFrame: Mathf.Repeat(now * 12f + 9f, 27f));
+                    books.Add(FlipbookFx.Book.WreckSmoke, at + Vector3.up * 0.3f, wide, WreckSmokeEvery * 2.6f,
+                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: thick,
                         startFrame: Mathf.Repeat(now * 12f, 27f));
                 }
                 else
@@ -1350,8 +1357,23 @@ namespace TW.Presentation.Tactical
                         {
                             books.Add(FlipbookFx.Book.Flash, at + Vector3.up * (2f * hull), 16f * hull, 0.2f, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 6f : 3f, pop: 0.4f);
                             for (int k = 0; k < 5; k++)
-                                books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * ((2f + k * 1.2f) * hull), (5f + k) * hull, UnityEngine.Random.Range(5f, 8f), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                    velocity: Vector3.up * (3f - k * 0.3f), grow: 2f, alpha: 0.85f, pop: 0.3f, delay: 0.3f + k * 0.2f);
+                            {
+                                float puffLife = UnityEngine.Random.Range(5f, 8f);   // drawn either way: the shared stream
+                                if (recipes < 0.5f)
+                                {
+                                    books.Add(FlipbookFx.Book.Smoke, at + Vector3.up * ((2f + k * 1.2f) * hull), (5f + k) * hull, puffLife, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                        velocity: Vector3.up * (3f - k * 0.3f), grow: 2f, alpha: 0.85f, pop: 0.3f, delay: 0.3f + k * 0.2f);
+                                    continue;
+                                }
+                                // fx.recipes (film 2026-10-07): the five on one axis, 5-9 m and swelling to three times that, were one flat
+                                // slab with straight sides by day, its top out of the picture (the climbing puffs that broke its edge are
+                                // the WreckSmoke column now). Smaller, thinner, each off the axis its own way and turned: a boiling head
+                                // that clears, over the column
+                                uint h = FxQuality.Hash(e.Tick * 31u + (uint)e.A * 7u + (uint)k);
+                                float sx = FxQuality.Hash01(h) - 0.5f, sz = FxQuality.Hash01(h + 1u) - 0.5f;
+                                books.Add(FlipbookFx.Book.Smoke, at + new Vector3(sx * 3f, 1.5f + k * 1.1f, sz * 3f) * hull, (3.2f + 0.5f * k) * hull, puffLife * 0.8f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                    velocity: new Vector3(sx * 1.6f, 2.4f - k * 0.3f, sz * 1.6f), grow: 1.3f, roll: sx * 1.6f, alpha: 0.7f, pop: 0.3f, delay: 0.3f + k * 0.2f);
+                            }
                         }
                         Scrap(at, 14, 13f, 0.35f, 1f, 60f, default, e.Tick + (uint)e.A);   // the hull's plates go up with the rounds, burning as they come down
                     }
@@ -1588,6 +1610,7 @@ namespace TW.Presentation.Tactical
         }
 
         const float MendEvery = 0.4f, MendWidth = 1.2f;
+        const float WreckSmokeBase = 6f, WreckSmokeAlpha = 0.6f;   // the column card's width with no fire (m; +4 at full fire) and its opacity (+0.3 at full fire), before fx.smokeWeight
         const float WreckSmokeEvery = 1.2f;   // L22: s between a burning hull's WreckSmoke cards (each lives 2.6 of these)
 
         /// <summary>
