@@ -67,8 +67,12 @@ namespace TW.Presentation.Tactical
             /// <summary>What the gait measures a leg's reach from. The hip, on every leg but a held one: there it is the
             /// hip lowered by the foot (hip - (ankle - toe), as modelled), because a foot held upright puts its ankle
             /// that far above its toe, and the thigh and the shin reach the toe from this point exactly as they reach
-            /// the ankle from the hip.</summary>
-            public Vector3 Seat;
+            /// the ankle from the hip. Worked out from the hip, never stored: a rig built by hand (the playground's
+            /// WalkerDrive) that knows nothing of held feet has its seat on its hip. Stored, it was left at zero there
+            /// and the Croaker walked 3.5 m off the ground (2026-10-07).</summary>
+            public Vector3 Seat => Hip - SeatDrop;
+            /// <summary>The held foot as modelled, ankle minus toe; zero on every leg that is not held.</summary>
+            public Vector3 SeatDrop;
         }
 
         public sealed class Lod
@@ -375,7 +379,7 @@ namespace TW.Presentation.Tactical
                     Outward = flat.normalized, Reach = rest.magnitude, Drop = Mathf.Max(0.05f, -rest.y), Bone = bone,
                     RestRot = restRot, RestDir = restDir,
                     ParentRot = parts[hip].Parent >= 0 ? rot[parts[hip].Parent] : Quaternion.identity,
-                    Held = held, Seat = held ? pos[hip] - (pos[tip] - toeInBody) : pos[hip],
+                    Held = held, SeatDrop = held ? pos[tip] - toeInBody : Vector3.zero,
                 };
             }
         }
