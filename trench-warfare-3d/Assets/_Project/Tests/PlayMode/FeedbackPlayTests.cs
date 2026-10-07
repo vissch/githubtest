@@ -247,6 +247,8 @@ namespace TW.Tests
             Assert.That(shots.Count, Is.EqualTo(1));
             router.Feedback();       // the next frame's press is a press
             Assert.That(Directory.GetDirectories(root).Length, Is.EqualTo(2));
+            Assert.That(router.NoticeText, Is.Null, "the line about the last capture is gone before this one's picture is taken");
+            Assert.That(shots.Count, Is.EqualTo(2));
         }
 
         [UnityTest]

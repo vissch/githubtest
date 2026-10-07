@@ -243,6 +243,7 @@ namespace TW.UI
             if (capturedIn != null || boxClosedFrame == Time.frameCount) return;
             for (int i = stack.Count - 1; i >= 0; i--)
                 if (stack[i] is FeedbackScreen open) { open.Close(true); return; }
+            ClearNotice();   // the line about the last capture is not part of this one's picture
             string folder = null;
             try
             {
