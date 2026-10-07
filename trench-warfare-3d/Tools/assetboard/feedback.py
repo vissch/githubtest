@@ -7,7 +7,9 @@
 WHY (the owner, 2026-10-07: "inside the game i want a button i can press f10 that will pause the game, take a
 screenshot and save the variables and metadata of the game so i can give feedback. it should connect to the tasks
 board"). The game writes a capture as a folder on the machine it runs on (inbox(): capture.json, the state, and
-shot.png, the screen with the HUD; UI/Shell/FeedbackCapture.cs). A machine's own folder is seen by nobody else, so
+shot.png, the screen with the HUD; UI/Shell/FeedbackCapture.cs). While his box for words is open the folder also
+holds a file named writing, and the capture waits: his words reach the state file when the box closes. A machine's
+own folder is seen by nobody else, so
 each read of the board moves the finished captures into the tasks' folder (store(): the Drive both stations read),
 and there a capture is a task from its first minute (src_tasks.py).
 
@@ -34,6 +36,8 @@ SCHEMA = 'tw-feedback/1'
 SETTLE = 5              # seconds a capture's files must have been left alone before it is taken in
 NO_SHOT = 30            # ... and how long a capture with no picture waits for one (a game with no screen writes none)
 MOST = 64 * 2 ** 20     # bytes of one capture: more is not a capture
+OPEN = 'writing'        # a file the game leaves in a capture while his box for words is open: his words are not in it yet
+OPEN_FOR = 30 * 60      # ... and one older than this is from a game that ended with the box open: what there is, is taken
 
 
 def inbox():
@@ -56,11 +60,13 @@ def read(folder: Path):
 
 
 def finished(folder: Path, now):
-    """Whether the game is done with a capture: its state file reads, and its picture is there and has been left
-    alone, or no picture came in NO_SHOT seconds."""
+    """Whether the game is done with a capture: its state file reads, he is not still writing his words (OPEN), and
+    its picture is there and has been left alone, or no picture came in NO_SHOT seconds."""
     if read(folder) is None:
         return False
     try:
+        if (folder / OPEN).exists() and now - (folder / OPEN).stat().st_mtime < OPEN_FOR:
+            return False
         wrote = (folder / 'capture.json').stat().st_mtime
         shot = folder / 'shot.png'
         if shot.exists():
@@ -93,7 +99,7 @@ def take_in(src: Path = None, dst: Path = None, host=None, now=None, checkout=ch
     for folder in sorted(p for p in src.iterdir() if p.is_dir()) if src.is_dir() else []:
         if not finished(folder, now):
             continue
-        files = [f for f in folder.iterdir() if f.is_file() and not f.name.endswith('.tmp')]
+        files = [f for f in folder.iterdir() if f.is_file() and not f.name.endswith('.tmp') and f.name != OPEN]
         if sum(f.stat().st_size for f in files) > MOST:
             continue
         c = read(folder)
@@ -109,7 +115,7 @@ def take_in(src: Path = None, dst: Path = None, host=None, now=None, checkout=ch
             (to / 'board.json').write_text(json.dumps(meta, indent=1, sort_keys=True) + '\n', encoding='utf-8')
             for f in files:
                 f.unlink()
-            for f in folder.iterdir():          # a .tmp the game left behind
+            for f in folder.iterdir():          # a .tmp or a stale marker the game left behind
                 f.unlink()
             folder.rmdir()
         except OSError:
