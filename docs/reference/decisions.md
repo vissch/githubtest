@@ -253,9 +253,7 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **Asked on the Decide page on 2026-10-06, each a brief with pictures; nothing is built or landed on any of them until he answers.**
   The default named is the brief writer's first option.
   - **Houses give cover: by how much?** He said "reduced damage taken when behind a building"; the amount is his. Default: half, like a tank wreck. A sim change.
-  - **The review fixes: how far now?** 85 units wait, about 50 relay hours. Default: the six top ones first, then show him.
   - **The animation critique: start it again?** It stopped at step 3 of 5. Default: fix the battle camera, film again, finish the scoring.
-  - **The code review's nine calls for you** (a compilation). Default: all nine defaults.
   - **The optimiser's four open asks** (a compilation). Default: all four defaults.
 
 ## Plans that live outside the repo
