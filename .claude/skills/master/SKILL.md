@@ -86,6 +86,7 @@ decisions").
 | "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day` |
 | "queue this" | `$R add <id> --lane lane/show/<x> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work |
 | nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
+| nothing: he said "Do it" to an idea on the board's overview page, or answered a step of his on its route | "Ideas he said yes to": the idea goes on the pipeline's board, without asking him again |
 | "stop" | `$R stop` (before the next leg) or `$R stop --now`; confirm with `$R status` |
 
 Size a run to the budget: the runner itself starts no unit the day or the pace does not cover ("The day's budget"
@@ -130,6 +131,47 @@ $B waiting        # each answer: every note he left about it, the note to name (
 - `add --unit` may be newer than the frozen copy: until `update` has brought it there, run it from
   `githubtest-relay-dev` (pull it first). It only writes the board; a run still starts from the frozen copy.
 - Say in your four lines what you queued and for which answer. He sees the same on the brief: "Taken up by ...".
+- An answer to a brief named `gate-<item>-<stage>` is not taken up from this table: it is a step of his on the
+  route of an idea, and `gates` in "Ideas he said yes to" acts on it and closes the brief.
+
+## Ideas he said yes to
+
+On the board's overview page an ideas agent proposes things to do and the owner picks. His "Do it" is his yes to
+the route the card showed (which specialist does which part, and where his own steps are), so the idea goes on the
+pipeline's board with no second yes. Nothing wakes you: look after "Your answers".
+
+```bash
+I="python <a checkout that has it>/trench-warfare-3d/Tools/assetboard/idearoute.py"   # lane/show/ideas, or any checkout at integration once it has landed
+BOARD="C:/Users/PC/Documents/GitHub/tw3d-board"                                       # the board `$R day` reads
+$I --board $BOARD        # looks, writes nothing: ideas to put on the board, steps of his to put to him
+```
+
+| It says, or `$B waiting` shows | You do |
+|---|---|
+| `0 accepted ideas`, `0 steps of his`, and no answer to a `gate-...` brief waits | nothing |
+| anything else, and `$R day` says `Run going` | wait until the run has stopped: the board is not written or pushed under a leg |
+| anything else, and no run is going | pull the board, `$I route --board $BOARD`, `$I gates --board $BOARD`, then commit and push the board (below). For each line `unit ...` that `route` printed: `$R add --unit <its file>` |
+| `owes a capture: <item> / <stage>` | the step before his passed with nothing a page can show, so he cannot judge it. Say so in `Needs you`; do not pass his step for him |
+
+```bash
+git -C $BOARD pull --rebase -q
+$I route --board $BOARD && $I gates --board $BOARD
+git -C $BOARD ls-files -m -o --exclude-standard -- items results feedback | xargs -r git -C $BOARD add --
+git -C $BOARD diff --cached --quiet || { git -C $BOARD commit -q -m "ideas: <what route and gates printed, one line>" && git -C $BOARD push -q; }
+```
+
+- `route` writes `items/<id>.json` for an idea with a route of specialists and marks the idea; an idea for a tool
+  is one unit file for the queue. `gates` puts a ready step of his to him as a brief with the pictures of the step
+  before, and acts on the ones he answered: Go on writes the step's PASS, Send it back is feedback on the step
+  before, Stop here drops the idea. Both can be run again: what is on the board already is left alone.
+- Only those three folders are committed. Nothing staged is fine: `gates` may have written only a brief, and
+  briefs are on the Drive. A rejected push: pull with rebase, push again.
+- The stages run like any job of the board, under the day's budget; a stage of the role `master` is never a
+  leg's. The last one, the landing, is his word to `tw-master`, as for every lane.
+- The roles a route names (`game-designer`, `concept-artist`, `ux`, `ui-artist` and the older ones) must be in
+  `Tools/pipeline/roles.json` of the frozen copy: the pipeline refuses an item with a role it does not know, and
+  a leg gets its brief from that table. Refused: the frozen copy is older than the route, so `$R update`
+  between two runs. Never rename a role on the item to get past it.
 
 ## Scored decisions
 
