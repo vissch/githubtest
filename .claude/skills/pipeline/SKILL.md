@@ -42,6 +42,10 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | optimizer | `tw-optimizer` | desktop (counters), laptop (low-end bench) |
 | bug-catcher | `tw-bug-catcher` | desktop |
 | hard-critic, critic, `/improve-loop` | `tw-critic` | either |
+| game-designer | `tw-game-design` | either |
+| concept-artist | `tw-concept-art` | desktop (generated pictures), either (drawn pages, references) |
+| ux | `tw-ux` | either (the flow), desktop (the review of what was built) |
+| ui-artist | `tw-ui-art` | either |
 | master | `tw-master` | review either; gate and land on the desktop |
 | review-fix | none: its rules are `Tools/relay/roles/review-fix.md`, which the relay adds to the leg's prompt | desktop |
 | sim, lowpoly, lane, pipeline | none: follow the stage notes or the unit's goal | as the stage says |
