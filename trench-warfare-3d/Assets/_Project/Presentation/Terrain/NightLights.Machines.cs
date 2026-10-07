@@ -42,8 +42,8 @@ namespace TW.Presentation.Terrain
             for (int j = 0; j < lanterns.Count && j < lanternHome.Count; j++)
             {
                 float dx = lanternHome[j].x - at.x, dz = lanternHome[j].z - at.z;
-                if (dx * dx + dz * dz > reach * reach || !lanterns[j].enabled) continue;
-                lanterns[j].enabled = false;
+                if (dx * dx + dz * dz > reach * reach || lampOut[j]) continue;
+                lampOut[j] = true; lanterns[j].enabled = false;   // out for good: the real-lamp rule never lights it again
                 if (nightGlows == null) continue;
                 if (cols == null) cols = nightGlows.colors;
                 for (int k = 0; k < 4 && j * 4 + k < cols.Length; k++) cols[j * 4 + k] = Color.clear;
