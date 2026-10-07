@@ -84,6 +84,21 @@ namespace TW.Tests
             Assert.That(o.HeroCount, Is.EqualTo(0), $"{o.HeroCount} heroes rose in the stress preset");
         }
 
+        /// <summary>The gate, not the preset: a match built with StressUnits == 0 is left alone, so its heroes are the
+        /// sim's own (HeroSystem.TeamMask = 1). Remove the gate in SimHost.ApplyStressPreset and this goes red.</summary>
+        [Test]
+        public void NoStressUnits_KeepsItsHeroes()
+        {
+            Knobs.Clear();
+            var cfg = SimConfig.Default;
+            using var plain = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u));
+            using var stressed = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917u));
+            Assert.That(SimHost.ApplyStressPreset(0, plain).World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask, Is.EqualTo(1),
+                        "a match that is not a stress run should keep the sim's own hero mask");
+            Assert.That(SimHost.ApplyStressPreset(PerSide, stressed).World.GetSystem<TW.Sim.Combat.HeroSystem>().TeamMask, Is.EqualTo(0),
+                        "a stress run should field no hero");
+        }
+
         [Test]
         public void StressPreset_HeroesKnob_IsThePresetBefore20261006()
         {
