@@ -95,7 +95,7 @@
   // the label over a stack: the week's number, the branch, and one short fact: today's calls when there are any, else
   // the hours it was busy in (the card of a picked branch and the list have both, and who is at work)
   function stationLabel(s, narrow) {
-    return { n: fmt(s.calls), name: brief(s.name, narrow ? 11 : 16), small: s.today ? fmt(s.today) + ' today' : s.busy ? plural(s.busy, 'busy hour') : '', hot: s.today > 0, work: s.crew.length > 0 };
+    return { n: fmt(s.calls), name: brief(s.name, narrow ? 10 : 16), small: s.today ? fmt(s.today) + ' today' : s.busy ? plural(s.busy, 'busy hour') : '', hot: s.today > 0, work: s.crew.length > 0 };
   }
   // the words under the table's piles, the sandbags and the shells; on a narrow floor the short ones (the list has the rest)
   function tags(T, narrow) {
@@ -172,7 +172,7 @@
     ((G.relay && G.relay.days) || []).forEach(function (d) { relay[d.day] = d; });
     out.push({ key: 'days', head: 'The week, day by day', note: '', rows: days.map(function (d) {
       var r = relay[d.day];
-      return [dayLabel(d.day), plural(d.calls, 'tool call'), [plural(commits[d.day] || 0, 'commit') + ' landed', r ? money(r.usd) + ' relay, ' + plural(r.legs, 'leg') : ''].filter(Boolean).join(' · ')];
+      return [dayLabel(d.day), plural(d.calls, 'tool call'), [plural(commits[d.day] || 0, 'commit') + ' landed', r && r.legs ? money(r.usd) + ' relay, ' + plural(r.legs, 'leg') : ''].filter(Boolean).join(' · ')];
     }) });
     out.push({ key: 'decisions', head: 'Your decisions', note: '', rows: [
       [T.sheets.waiting === 1 ? 'waits on you' : 'wait on you', fmt(T.sheets.waiting), 'the number "Needs you" shows', 'decide.html'],
@@ -257,7 +257,7 @@
     if (host.dataset.sig === sig) return;
     host.dataset.sig = sig; host.innerHTML = '';
     secs.forEach(function (s) {
-      var sec = el('section', 'o-sec o-' + s.key), t = el('table'), cap = el('caption', null, s.head), tb = el('tbody');
+      var sec = el('section', 'o-sec o-s-' + s.key), t = el('table'), cap = el('caption', null, s.head), tb = el('tbody');
       t.appendChild(cap);
       s.rows.forEach(function (r) {
         var tr = el('tr'), th = el('th'); th.scope = 'row';

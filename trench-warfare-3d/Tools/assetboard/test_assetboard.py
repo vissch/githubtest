@@ -1007,7 +1007,7 @@ def counted(node):
           ' T.stations.map(s => s.name), [S.big.full, S.big.hot, S.fixes.full, S.fixes.part, S.fixes.hot, S.small.full, S.small.part, S.small.hot], K.things(G, O, 9).stations.find(s => s.name === "slow").hot, T.crate,'
           ' K.crew(O), K.things(G, O, 9).stations.find(s => s.name === "new"),'
           ' [T.bags, T.shells, T.sheets, T.bag, T.shell, T.calls], bare.shells,'
-          ' [K.stationLabel(S.big), K.stationLabel(S.fixes), K.stationLabel(S.small), K.stationLabel(S.fixes, true)], K.brief("decision-2026-10-07-balance"), K.brief("vfx-polish"), K.brief("decision-2026-10-07-balance", 11),'
+          ' [K.stationLabel(S.big), K.stationLabel(S.fixes), K.stationLabel(S.small), K.stationLabel(S.fixes, true)], K.brief("decision-2026-10-07-balance"), K.brief("vfx-polish"), K.brief("decision-2026-10-07-balance", 10),'
           ' K.tags(T), K.tags(bare).shells, K.tags(T, true),'
           ' K.legend(T).map(l => l.text), K.legend(bare).find(l => l.key === "shell").text,'
           ' K.card(S.fixes, G.days.map(d => d.day)),'
@@ -1036,7 +1036,7 @@ def counted(node):
     case('counted: the label over a stack is the week\'s number, the branch and one short fact: today\'s calls when there are any, else the hours it was busy in; a long name keeps its start and its end',
          got[22] == [dict(n='4,198', name='big', small='1 busy hour', hot=False, work=False), dict(n='1,833', name='fixes', small='546 today', hot=True, work=False),
                      dict(n='3', name='small', small='1 busy hour', hot=False, work=True), dict(n='1,833', name='fixes', small='546 today', hot=True, work=False)]
-         and got[23:26] == ['decision…balance', 'vfx-polish', 'decis…lance'], got[22:26])
+         and got[23:26] == ['decision…balance', 'vfx-polish', 'decis…ance'], got[22:26])
     case('counted: the words under the piles say one and many, the relay\'s tag says how many legs and how many of them have no cost on record, and without a record it says so and shows no number',
          got[26] == dict(waiting=dict(n='1', small='waits on you'), closed=dict(n='50', small='answered, closed'), crew=dict(n='8', small='wait on the crew'), bags=dict(n='257', small='commits landed · 17 today'),
                          shells=dict(n='$284', small='the relay · 78 legs, 1 without a cost'))
