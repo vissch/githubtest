@@ -265,6 +265,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   tenth card on the frogs' battle bar (he wrote "i dont understand"; the plan's default is a frog sniper) and what "red and blue colors"
   means for the menu's faction choice (read as: you in blue, the enemy in red). Each is asked again with a drawing; nothing is built on
   either until he answers.
+- **The office, counted, is built: land it? (2026-10-07):** his pick for the new graphs (Process) is built on
+  `lane/show/board-office-counted`, on the graphs page and the control screen, the five old graphs gone there. Every number is real:
+  a branch's tool calls day by day, commits landed, decisions, and the relay's cost from the legs' own records (checked against the
+  relay's ledger to the cent where the ledger has a cost). Tool tests and the tool check are green; it was looked at headless at 1600
+  and 390 px with real WebGL, nobody has seen it on a real phone. Known small faults: long branch names are cut on a phone, lifted
+  labels jump while turning, the site grows about 1.4 MB. Options: (1) land it, small faults after (the default named); (2) fix
+  first; (3) keep today's graphs. Brief with five pictures on the Decide page: "The office, counted, is built: land it?".
 - **Infantry weapons: which look? (2026-10-07):** he asked for concept art made with ComfyUI first (Process). Four concept sheets
   (Krea2 with the Clash Royale LoRA), the same eight soldier types on each, a frog holding one, and a strip at game size: (A) brass and
   walnut, parade pieces with horn-shaped muzzles (the default named: gold shows against mud, coat and skin, and the horns change the
