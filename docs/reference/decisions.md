@@ -277,6 +277,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   and 390 px with real WebGL, nobody has seen it on a real phone. Known small faults: long branch names are cut on a phone, lifted
   labels jump while turning, the site grows about 1.4 MB. Options: (1) land it, small faults after (the default named); (2) fix
   first; (3) keep today's graphs. Brief with five pictures on the Decide page: "The office, counted, is built: land it?".
+- **Frog Corps: which units make the faction (2026-10-07):** 29 frog unit ideas are drawn outside the repo (four
+  rounds of concept pictures, three passes by an art critic, a design case per unit), with a page per unit on the
+  Drive under TW3D-pipeline, folder frog-corps. Two rosters are on offer: by game fit (a cheap swarm that owns the
+  Cross step with Iron: Tadpoles, Leaper, Froglet Sapper, Old Bullfrog, Gas Toad, Glue Spitter, Mortar Toad) or by
+  strongest picture. Nothing is built, and nothing is until he picks. The brief with the pictures is on the Decide
+  page. Two names collide with units that exist (Croaker, Bullfrog) and need new ones if they are picked.
+- **Frog Corps: four small questions (2026-10-07):** one brief, four rows: Tadpoles deploy three per click (today one
+  man per click); no smoke card, a rain card in its place; a second airship as the Great Work, built after the Brass
+  one; the helmet as a deep dome (reads well small, the German shape) or a shallow dish. The default of each is drawn
+  on the sheet. None is built.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
