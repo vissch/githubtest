@@ -60,16 +60,26 @@ namespace TW.Presentation
         public static IHomeFrontView HomeFront { get; private set; }
         public static IStrategicMapView Map { get; private set; }
 
-        static MetaServices() => SceneStatics.Register(nameof(MetaServices), Reset);
+        static MetaServices()
+        {
+            SceneStatics.Register(nameof(MetaServices), Reset);
+            SceneStatics.RegisterPerScene(nameof(MetaServices), Reset);   // a scene load destroys the views; forget them
+        }
+
+        /// <summary>The view is held behind an interface, so a destroyed GameObject is a plain non-null reference:
+        /// == null on the interface says "alive" and Show throws MissingReferenceException. Ask the Object instead.</summary>
+        static bool Gone(object v) => v == null || (v is UnityEngine.Object o && o == null);
 
         public static IHomeFrontView EnsureHomeFront()
         {
+            if (Gone(HomeFront)) HomeFront = null;
             if (HomeFront == null && MakeHomeFront != null) HomeFront = MakeHomeFront();
             return HomeFront;
         }
 
         public static IStrategicMapView EnsureMap()
         {
+            if (Gone(Map)) Map = null;
             if (Map == null && MakeMap != null) Map = MakeMap();
             return Map;
         }
