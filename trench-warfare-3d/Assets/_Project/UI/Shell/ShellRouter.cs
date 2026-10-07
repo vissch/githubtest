@@ -126,7 +126,21 @@ namespace TW.UI
 
         public void Replace(ShellScreen screen) { Pop(); Push(screen); }
 
-        public void ClearStack() { while (stack.Count > 0) Pop(); }
+        /// <summary>Take the whole stack off, top down, without uncovering anything: a Pop per screen would run
+        /// OnUncovered() on the screen below in the NEW scene (a scene load clears the stack), rebuilding the
+        /// strategic map view inside the battle scene and overwriting HudBridge.PointerOverUi, which the next
+        /// screen's OnUnbind then nulls — the HUD's click mask lost for the match.</summary>
+        public void ClearStack()
+        {
+            for (int i = stack.Count - 1; i >= 0; i--)
+            {
+                var s = stack[i];
+                stack.RemoveAt(i);
+                s.Root?.RemoveFromHierarchy();   // before Unbind, which clears Root (see Pop)
+                s.Unbind();
+            }
+            ApplyHolds();
+        }
 
         void ApplyHolds()
         {
