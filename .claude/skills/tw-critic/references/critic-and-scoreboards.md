@@ -34,6 +34,17 @@ DELTAS (concrete, max 5):
   - Measure figure/ground (`contrast_median`, `contrast_p10`, man-vs-man) before critiquing a shared-look shader (LESSONS.md:129-135).
   - Check that the evidence can contain the effect: tick range, extreme knob (LESSONS.md:143-159).
 
+### Running the loop by hand (written 2026-10-07; the skill's section 5 points here)
+For pipeline jobs the relay runs critic rounds by script, with the target and rounds of its own limits file (85 and
+2 on 2026-10-07): it builds the blind folder, keeps each paper beside the evidence and adds a row to its own lessons
+table. It takes no noise floor and keeps the last round's work, only noting which round scored best. By hand:
+1. **Noise floor first:** capture the unchanged build twice. A gain inside that noise is no gain.
+2. **The producer builds the bundle** from rendered stills (a closed form agreeing with itself is not evidence), as `../../pipeline/references/driving-and-evidence.md` says under "Evidence on the board" and "After a critic round".
+3. **Brief the critic blind,** in the foreground (a background child reports to the main session, not to you): a copy of the bundle in a temporary folder, the skill page, the stage contract and the role's `lessons.md` lines. For text work: the owner's words, the commit and its base. Never the producer's account of the work.
+4. **The producer answers every top-3 line:** fixed, shot made, or rebutted with a number. Rebuttals are fine; silent skips are not. It tests the outcome, not the limit, and each fix's test fails on the old code.
+5. **Stop** at the target (85 unless the owner names another) or the round limit (3). **Keep the best round, not the last.** Ask the owner after 2 rounds with no gain, or when the evidence stays INVALID.
+6. **Record** the paper on the board as `evidence/<item>/<stage>/critic-r<n>.md`, and its top finding verbatim in the board's `lessons.md` (`| date | role | finding | critic-r<n> |`). A flaw that recurs across items becomes a proposed checklist line for that role, which the owner approves.
+
 ### Scoreboards
 **`D\20-rig-scoreboard.md`** (the walkers)
 - **Rules** (:1-17):
