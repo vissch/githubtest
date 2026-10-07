@@ -191,7 +191,7 @@ def run_python(tree, tests):
     for t in tests:
         rel = Path(t['file']).relative_to('trench-warfare-3d').as_posix() if t['file'].startswith('trench-warfare-3d/') else t['file']
         p = subprocess.run([sys.executable, rel, t['name']], cwd=proj, capture_output=True,
-                           env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
+                           env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUTF8='1'))
         said = (p.stdout + p.stderr).decode('utf-8', 'replace')
         ran = re.search(r'^Ran (\d+) test', said, re.M)
         out[key(t)] = 'missing' if not ran or ran.group(1) == '0' else 'green' if p.returncode == 0 else 'red'
@@ -201,9 +201,11 @@ def run_python(tree, tests):
 
 
 def run_selftest(tree, tests):
+    # PYTHONUTF8: on a cp1252 pipe the self-test dies while printing the detail of a failing case, and every
+    # case after it is never printed (it read as "did not run on the old code" for all of rv-01's cases)
     proj = project_of(tree)
     p = subprocess.run([sys.executable, 'Tools/selftest.py'], cwd=proj, capture_output=True,
-                       env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1'))
+                       env=dict(os.environ, PYTHONDONTWRITEBYTECODE='1', PYTHONUTF8='1'))
     said = (p.stdout + p.stderr).decode('utf-8', 'replace')
     out = {}
     for t in tests:
