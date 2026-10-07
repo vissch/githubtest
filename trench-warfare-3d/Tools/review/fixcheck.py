@@ -227,7 +227,9 @@ def run_unity(tree, tests, unity):
     out = {}
     for platform in sorted({t['platform'] for t in tests}):
         batch = [t for t in tests if t['platform'] == platform]
-        with tempfile.TemporaryDirectory(prefix='fixcheck-') as tmp:
+        # ignore_cleanup_errors: Unity's licensing client can keep unity.log open after Unity has gone, and a temp
+        # folder that cannot be removed must not cost the verdict (it cost rv-11's first run, 2026-10-07)
+        with tempfile.TemporaryDirectory(prefix='fixcheck-', ignore_cleanup_errors=True) as tmp:
             xml, log = Path(tmp) / 'results.xml', Path(tmp) / 'unity.log'
             cmd = unity_cmd(unity) + ['-batchmode', '-runTests', '-projectPath', str(project_of(tree)),
                                       '-testPlatform', platform, '-testFilter', ';'.join(t['name'] for t in batch),
