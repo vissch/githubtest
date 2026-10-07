@@ -24,8 +24,12 @@ tests = (proj / 'Assets/_Project/Tests/Sim/ThingTests.cs').read_text(encoding='u
 if 'NewName' in tests and 'NewName' not in src:
     Path(arg('-logFile')).write_text("ThingTests.cs(9,9): error CS0117: 'Thing' has no 'NewName'\n", encoding='utf-8')
     sys.exit(1)
-rows = ''.join('<test-case fullname="%s" result="%s"/>' % (n, 'Passed' if 'FIXED' in src or 'Always' in n else 'Failed')
-               for n in names)
+def row(n):
+    if 'FIXED' in src or 'Always' in n:
+        return '<test-case fullname="%s" result="Passed"/>' % n
+    said = 'the thing is not fixed' if 'SAYS_NO_ID' in tests else '[U1] the thing is not fixed'
+    return '<test-case fullname="%s" result="Failed"><failure><message>%s</message></failure></test-case>' % (n, said)
+rows = ''.join(row(n) for n in names)
 Path(arg('-testResults')).write_text('<test-run>' + rows + '</test-run>', encoding='utf-8')
 '''
 FAKE_SELFTEST = r'''
@@ -95,7 +99,8 @@ class Repo(unittest.TestCase):
         self.git('commit', '-q', '-m', message)
         return self.git('rev-parse', 'HEAD')
 
-    def py_fix(self, test_body='        self.assertEqual(thing.answer(), 2)\n', message='the thing answers two [T1]'):
+    def py_fix(self, test_body="        self.assertEqual(thing.answer(), 2, '[T1] it answered one')\n",
+               message='the thing answers two [T1]'):
         self.put(P + 'Tools/thing.py', 'def answer():\n    return 2\n')
         text = (self.tree / (P + 'Tools/test_thing.py')).read_text(encoding='utf-8')
         new = '    def test_answer(self):\n        # [T1] it answered one\n' + test_body + '\n'
@@ -120,6 +125,13 @@ class PythonFixes(Repo):
         self.assertEqual((code, rec['verdict'], rec['ids']['T1']['verdict']), (0, 'PASS', 'PROVED'), said)
         t = rec['ids']['T1']['tests'][0]
         self.assertEqual((t['name'], t['old'], t['new']), ('ThingTest.test_answer', 'red', 'green'))
+
+    def test_red_for_a_reason_that_does_not_name_the_finding_is_red_not_proved(self):
+        code, rec, said = self.check(self.py_fix(test_body='        self.assertEqual(thing.answer(), 2)\n'), ['T1'])
+        self.assertEqual((code, rec['verdict'], rec['ids']['T1']['verdict'], rec['counts']['RED']),
+                         (0, 'PASS', 'RED', 1), said)
+        self.assertIn('1 != 2', rec['ids']['T1']['tests'][0]['old_said'])
+        self.assertIn('does not name [T1]', rec['ids']['T1']['why'])
 
     def test_a_test_that_cannot_fail_fails_the_unit(self):
         code, rec, said = self.check(self.py_fix(test_body='        self.assertTrue(thing.answer() > 0)\n'), ['T1'])
@@ -151,7 +163,7 @@ class PythonFixes(Repo):
         text = (self.tree / (P + 'Tools/test_thing.py')).read_text(encoding='utf-8')
         self.put(P + 'Tools/test_thing.py',
                  text.replace('# [T1] it answered one\n        self.assertTrue(thing.answer() > 0)',
-                              '# [T1b] it answered one\n        self.assertEqual(thing.answer(), 2)'))
+                              '# [T1b] it answered one\n        self.assertEqual(thing.answer(), 2, "[T1b] one")'))
         head = self.commit('the test can fail now [T1b]')
         code, rec, said = self.check(head, ['T1b'])
         self.assertEqual((code, rec['ids']['T1b']['verdict']), (1, 'FAIL'), said)
@@ -240,6 +252,12 @@ class UnityFixes(Repo):
         code, rec, said = self.check(self.cs_fix(), ['U1', 'U2'], lane='lane/sim/x', unity=str(self.unity))
         self.assertEqual(rec['ids']['U1']['verdict'], 'PROVED', said)
         self.assertEqual((rec['ids']['U2']['verdict'], code), ('FAIL', 1), said)
+
+    def test_a_unity_failure_that_does_not_name_the_id_is_red(self):
+        head = self.cs_fix(tests=CS_TEST.replace('// [U2] a tag', '// SAYS_NO_ID [U2] a tag'))
+        code, rec, said = self.check(head, ['U1'], lane='lane/sim/x', unity=str(self.unity))
+        self.assertEqual((rec['ids']['U1']['verdict'], rec['ids']['U1']['tests'][0]['old_said']),
+                         ('RED', 'the thing is not fixed'), said)
 
     def test_without_a_unity_it_says_unchecked_never_pass(self):
         code, rec, said = self.check(self.cs_fix(), ['U1'], lane='lane/sim/x', unity='')

@@ -14,7 +14,9 @@ script. For the commits base..head on a lane it answers four things:
      or a sentence `[ID] no test: why` in a commit message.
   2. Each tagged test is RED on the old code and GREEN on the fix. The old code is the tree at head with every
      file that is not a test put back to base, so the new tests run against the code as it was. A test that is
-     green there cannot fail and proves nothing. A follow-up that only makes an earlier fix's test able to fail
+     green there cannot fail and proves nothing. Red there is PROVED only when the failure names the id (an
+     assert message that holds `[ID]`, a self-test case titled with it); red with a failure that does not name it
+     is RED: a unit fixes several things at once, and a test can be red on the old code for another fix's reason. A follow-up that only makes an earlier fix's test able to fail
      names that fix (`[ID] fix in base: <commit>` in a commit message, or --fix-in-base ID=COMMIT): the files
      that commit changed are put back too. A test that is red there only because the old code does not
      compile with it is said so (`weak`): it shows the fix added a name, not that the bug was real.
@@ -49,6 +51,7 @@ SIM = tuple(CODE + d for d in ('Sim/', 'Net/', 'Data/', 'Tests/Sim/'))
 BOM = b'\xef\xbb\xbf'
 TEST_ATTR = re.compile(r'^\s*\[(Test|UnityTest|TestCase|TestCaseSource)\b')
 NOTES = []          # why a tagged test did not run: the last lines its runner printed, kept in the record
+SAID = {}           # what a red test said when it failed (its message), by test: filled by the runners
 CS_METHOD = re.compile(r'^\s*public\s+(?:static\s+)?[\w<>\[\], .]+?\s+(\w+)\s*\(')
 
 
@@ -184,6 +187,8 @@ def run_python(tree, tests):
         said = (p.stdout + p.stderr).decode('utf-8', 'replace')
         ran = re.search(r'^Ran (\d+) test', said, re.M)
         out[key(t)] = 'missing' if not ran or ran.group(1) == '0' else 'green' if p.returncode == 0 else 'red'
+        if out[key(t)] == 'red':
+            SAID[key(t)] = ' '.join(said.split())[-500:]
     return out
 
 
@@ -196,6 +201,8 @@ def run_selftest(tree, tests):
     for t in tests:
         m = re.search(r'^(ok|FAIL)\s+%s' % re.escape(t['name']), said, re.M)
         out[key(t)] = 'missing' if not m else 'green' if m.group(1) == 'ok' else 'red'
+        if out[key(t)] == 'red':
+            SAID[key(t)] = 'FAIL  ' + t['name']
     if 'missing' in out.values():
         NOTES.append('Tools/selftest.py did not print every tagged case (exit %d). Its last lines: %s'
                      % (p.returncode, ' / '.join(l.strip() for l in said.strip().splitlines()[-6:])[-700:]))
@@ -216,10 +223,11 @@ def run_unity(tree, tests, unity):
                                       '-testPlatform', platform, '-testFilter', ';'.join(t['name'] for t in batch),
                                       '-testResults', str(xml), '-logFile', str(log)]
             subprocess.run(cmd + (['-nographics'] if platform == 'PlayMode' else []), capture_output=True)
-            seen = {}
+            seen, why = {}, {}
             if xml.exists():
                 for c in ET.parse(xml).getroot().iter('test-case'):
                     seen[c.get('fullname', '')] = c.get('result', '')
+                    why[c.get('fullname', '')] = ' '.join((c.findtext('failure/message') or '').split())[:500]
             said = log.read_text(encoding='utf-8', errors='replace') if log.exists() else ''
             broken = not seen and re.search(r'error CS\d+', said)
             if broken:
@@ -229,6 +237,9 @@ def run_unity(tree, tests, unity):
                 got = [r for n, r in seen.items() if n == t['name'] or n.startswith(t['name'] + '(')]
                 out[key(t)] = ('compile' if broken else 'missing' if not got
                                else 'green' if all(r == 'Passed' for r in got) else 'red')
+                if out[key(t)] == 'red':
+                    SAID[key(t)] = ' / '.join(w for n, w in why.items()
+                                              if w and (n == t['name'] or n.startswith(t['name'] + '(')))[:500]
     return out
 
 
@@ -270,7 +281,7 @@ def old_code(tree, base, head, files, earlier=None):
     git(['update-ref', '--no-deref', 'HEAD', commit], tree)
 
 
-def verdict_of(i, tests, old, new, named, why):
+def verdict_of(i, tests, old, new, named, why, old_said=None):
     if not named:
         return 'FAIL', 'no commit message names [%s]' % i
     if not tests:
@@ -283,7 +294,10 @@ def verdict_of(i, tests, old, new, named, why):
     if any(x != 'green' for x in n):
         return 'FAIL', 'a tagged test is red on the fix'
     if 'red' in o:
-        return 'PROVED', 'red on the old code, green on the fix'
+        if any(old.get(key(t)) == 'red' and '[%s]' % i in (old_said or {}).get(key(t), '') for t in tests):
+            return 'PROVED', 'red on the old code with a failure that names [%s], green on the fix' % i
+        return 'RED', ('red on the old code, green on the fix; its failure there does not name [%s], so it may be '
+                       'red for another change of the same unit: read what it said' % i)
     if 'compile' in o or 'missing' in o:
         return 'WEAK', ('not shown red on the old code: the test did not run there (the old code does not compile '
                         'with it, or its runner stopped before it). Not proof of the bug')
@@ -332,7 +346,8 @@ def main(argv=None):
         if m and i not in earlier:
             earlier[i] = m.group(1)
     earlier = {i: git(['rev-parse', '--verify', c + '^{commit}'], tree).strip() for i, c in earlier.items()}
-    old, new = {}, {}
+    old, new, old_said = {}, {}, {}
+    SAID.clear()
     if tests and not a.no_run:
         for fix in sorted(set(earlier.get(i) or '' for i in a.ids if tagged[i])):     # one old tree per earlier fix
             batch = [t for i in a.ids if (earlier.get(i) or '') == fix for t in tagged[i]]
@@ -342,23 +357,26 @@ def main(argv=None):
             finally:
                 git(['update-ref', '--no-deref', 'HEAD', head], tree)
                 git(['reset', '-q', '--hard', head], tree)
+        old_said = dict(SAID)
         new = run_all(tree, tests, a.unity)
     ids = {}
     for i in a.ids:
         why = re.search(r'\[%s\]\s+no test:\s*(.+)' % re.escape(i), messages)
-        v, said = verdict_of(i, tagged[i], old, new, '[%s]' % i in messages, why.group(1).strip() if why else '')
+        v, said = verdict_of(i, tagged[i], old, new, '[%s]' % i in messages, why.group(1).strip() if why else '',
+                             old_said)
         if a.no_run and tagged[i] and v != 'FAIL':
             v, said = 'UNCHECKED', 'not run (--no-run)'
-        if earlier.get(i) and v in ('PROVED', 'WEAK'):
+        if earlier.get(i) and v in ('PROVED', 'RED', 'WEAK'):
             said += ' (the old code: before %s, a fix already in the base)' % earlier[i][:8]
         ids[i] = {'verdict': v, 'why': said, 'fix_in_base': earlier.get(i, ''),
-                  'tests': [dict(t, old=old.get(key(t)), new=new.get(key(t))) for t in tagged[i]]}
+                  'tests': [dict(t, old=old.get(key(t)), new=new.get(key(t)), old_said=old_said.get(key(t), ''))
+                            for t in tagged[i]]}
     boms, outside = gained_bom(tree, base, head, files), outside_lane(kind_of(a.lane), paths)
     got = [x['verdict'] for x in ids.values()]
     verdict = ('FAIL' if 'FAIL' in got or boms or outside else 'UNCHECKED' if 'UNCHECKED' in got else 'PASS')
     rec = {'unit': a.unit, 'lane': a.lane, 'base': base, 'head': head, 'verdict': verdict, 'ids': ids,
            'gained_bom': boms, 'outside_lane': outside, 'files': len(files), 'notes': NOTES[:8],
-           'counts': {v: got.count(v) for v in ('PROVED', 'WEAK', 'NO TEST', 'UNCHECKED', 'FAIL')},
+           'counts': {v: got.count(v) for v in ('PROVED', 'RED', 'WEAK', 'NO TEST', 'UNCHECKED', 'FAIL')},
            'checked_at': datetime.datetime.now().strftime('%Y-%m-%d %H:%M'), 'unity': bool(a.unity) and not a.no_run}
     out = Path(a.out) if a.out else (DRIVE / (a.unit + '.json') if a.unit and DRIVE.parent.is_dir() else None)
     if out:
@@ -369,6 +387,8 @@ def main(argv=None):
         print('  %-9s [%s] %s' % (ids[i]['verdict'], i, ids[i]['why']))
         for t in ids[i]['tests']:
             print('            %s  old %s, fix %s' % (t['name'], t['old'], t['new']))
+            if t['old_said']:
+                print('                on the old code it said: %s' % t['old_said'][:160])
     for n in NOTES[:8]:
         print('  note      %s' % n)
     for p in boms:
