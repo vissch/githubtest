@@ -1387,13 +1387,56 @@ class Runs(Repo):
         g = lambda args: subprocess.run(["git"] + args, cwd=str(self.board), check=True, capture_output=True)
         g(["init", "-q"])
         with contextlib.redirect_stdout(io.StringIO()):
-            relay.main(["add", "u9", "--lane", "lane/show/x", "--goal", "Add a.txt", "--done-when", "git", "cat-file",
-                        "-e", "HEAD:a.txt"])
+            relay.main(["add", "u9", "--lane", "lane/show/x", "--role", "lane", "--goal", "Add a.txt", "--done-when",
+                        "git", "cat-file", "-e", "HEAD:a.txt"])
             out, _ = self.go(dry_run=True)
         self.assertIn("would run: lane u9", out)
         with self.assertRaises(SystemExit), contextlib.redirect_stdout(io.StringIO()):
-            relay.main(["add", "u10", "--lane", "main", "--goal", "g", "--done-when", "true"])
+            relay.main(["add", "u10", "--lane", "main", "--role", "lane", "--goal", "g", "--done-when", "true"])
         self.assertFalse((self.board / "relay" / "queue" / "u10.json").exists())
+
+    def test_add_in_words_names_its_role_or_is_refused(self):
+        g = lambda args: subprocess.run(["git"] + args, cwd=str(self.board), check=True, capture_output=True)
+        g(["init", "-q"])
+        with self.assertRaises(SystemExit) as e, contextlib.redirect_stdout(io.StringIO()):
+            relay.main(["add", "u11", "--lane", "lane/show/x", "--goal", "g", "--done-when", "true"])
+        self.assertIn("add needs --role", str(e.exception))
+        self.assertIn("review-fix", str(e.exception))                # it lists the roles there are
+        self.assertFalse((self.board / "relay" / "queue" / "u11.json").exists())
+        with contextlib.redirect_stdout(io.StringIO()):
+            relay.main(["add", "u11", "--lane", "lane/show/x", "--role", "review-fix", "--goal", "g", "--done-when", "true"])
+        self.assertEqual(json.loads((self.board / "relay" / "queue" / "u11.json").read_text(encoding="utf-8"))["role"],
+                         "review-fix")
+
+    def test_a_route_moves_one_roles_legs_of_one_phase_and_no_other(self):
+        shipped = {(r["role"], r["phase"]): r for r in config.routes()}
+        self.assertEqual(shipped[("review-fix", "execute")]["model"], "sonnet")     # the trial of 2026-10-08
+        made = {}
+        for n, (role, phase) in enumerate((("review-fix", "execute"), ("review-fix", "plan"), ("lane", "execute")), 1):
+            d = launch.make_leg("r8", n, dict(UNIT, role=role), phase, self.work, "lane/show/x", self.board, "x", self.lim)
+            made[(role, phase)] = legdir.read(d)
+        ph = config.phases()
+        self.assertEqual((made[("review-fix", "execute")]["model"], made[("review-fix", "execute")]["effort"]),
+                         ("sonnet", "medium"))
+        for key in (("review-fix", "plan"), ("lane", "execute")):                   # untouched: the phase's own
+            self.assertEqual((made[key]["model"], made[key]["effort"]), (ph[key[1]]["model"], ph[key[1]]["effort"]))
+        d = launch.make_leg("r8", 4, dict(UNIT, role="review-fix"), "execute", self.work, "lane/show/x", self.board,
+                            "x", self.lim, model="opus")
+        self.assertEqual(legdir.read(d)["model"], "opus")                           # a caller's model still wins
+
+    def test_a_route_that_cannot_run_is_refused(self):
+        bad = self.tmp / "badroutes"
+        shutil.copytree(HERE, bad, ignore=shutil.ignore_patterns("*.py", "roles", "sources", "__pycache__"))
+        for rows, why in (([{"role": "lane", "phase": "execute", "model": "haiku"}], "model is"),
+                          ([{"role": "lane", "phase": "paint", "model": "sonnet"}], "a phase of phases.json"),
+                          ([{"role": "lane", "phase": "plan"}], "changes nothing"),
+                          ([{"role": "lane", "phase": "plan", "model": "sonnet"}] * 2, "twice")):
+            (bad / "routes.json").write_text(json.dumps({"routes": rows}), encoding="utf-8")
+            with self.assertRaises(SystemExit) as e:
+                config.routes(bad)
+            self.assertIn(why, str(e.exception))
+        (bad / "routes.json").write_text(json.dumps({"routes": []}), encoding="utf-8")
+        self.assertEqual(config.route("review-fix", "execute", bad), {})            # no route: the phase's own
 
 
 class Budget(Repo):

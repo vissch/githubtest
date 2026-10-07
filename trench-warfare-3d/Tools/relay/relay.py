@@ -20,7 +20,7 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
                                                their legs get that role's brief
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
-  python Tools/relay/relay.py add <id> --lane lane/show/x --goal ".." --done-when <program> <arg> ..   queue lane work
+  python Tools/relay/relay.py add <id> --lane lane/show/x --role <role> --goal ".." --done-when <program> <arg> ..   queue lane work
   python Tools/relay/relay.py add --unit <file>     the same, the unit from a file in the shape of the queue's
   python Tools/relay/relay.py leg gate start|status|wait, leg finish, leg done      a leg's close-out (legcmd.py)
   python Tools/relay/relay.py proof meter      a small real leg with low thresholds: amber, red, a refused edit
@@ -365,6 +365,9 @@ def add(a):
                                   ("--done-when", a.done_when)) if not v]
         if missing:
             raise SystemExit("relay: add needs %s (or --unit FILE)" % ", ".join(missing))
+        if not a.role:                               # 105 of 112 legs ran as `lane`, which has no brief
+            raise SystemExit("relay: add needs --role: the kind of work, so its legs get that role's brief (%s). "
+                             "`lane` is plain lane work with no brief." % ", ".join(sorted(P.roles())))
         unit = {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when}
     known_role(unit["role"])
     p = board / "relay" / "queue" / (unit["id"] + ".json")
@@ -481,7 +484,7 @@ def main(argv=None):
     p.add_argument("id", nargs="?")
     p.add_argument("--unit", help="the unit as a file in the shape of the queue's, in place of the words")
     p.add_argument("--lane")
-    p.add_argument("--role", default="lane")
+    p.add_argument("--role", help="a role of Tools/pipeline/roles.json; `lane` for work no role fits")
     p.add_argument("--goal")
     p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER)
     p = sub.add_parser("proof")

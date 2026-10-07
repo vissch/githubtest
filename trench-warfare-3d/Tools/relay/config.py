@@ -65,6 +65,38 @@ def phases(folder=None):
     return raw
 
 
+ROUTE_MODELS = ("opus", "sonnet")     # a leg runs in auto mode, which the smallest model does not get
+
+
+def routes(folder=None):
+    """routes.json, checked: the legs that do not run on their phase's model and effort. A list of
+    {role, phase, model and/or effort, why}; a role and phase may stand in it once."""
+    raw = _read("routes.json", folder)
+    rows, seen, known = raw.get("routes"), set(), phases(folder)
+    if not isinstance(rows, list):
+        raise SystemExit("relay: routes.json needs a list named routes")
+    for r in rows:
+        if not isinstance(r, dict) or not isinstance(r.get("role"), str) or not r["role"] or r.get("phase") not in known:
+            raise SystemExit("relay: routes.json: every route names a role and a phase of phases.json (%s)" % r)
+        if (r["role"], r["phase"]) in seen:
+            raise SystemExit("relay: routes.json names %s/%s twice" % (r["role"], r["phase"]))
+        seen.add((r["role"], r["phase"]))
+        if "model" not in r and "effort" not in r:
+            raise SystemExit("relay: routes.json: the route %s/%s changes nothing" % (r["role"], r["phase"]))
+        if r.get("model", ROUTE_MODELS[0]) not in ROUTE_MODELS or r.get("effort", EFFORTS[0]) not in EFFORTS:
+            raise SystemExit("relay: routes.json %s/%s: model is %s, effort is %s"
+                             % (r["role"], r["phase"], "|".join(ROUTE_MODELS), "|".join(EFFORTS)))
+    return rows
+
+
+def route(role, phase, folder=None):
+    """What routes.json changes for a leg of this role and phase: {} or {model and/or effort}."""
+    for r in routes(folder):
+        if r["role"] == role and r["phase"] == phase:
+            return {k: r[k] for k in ("model", "effort") if k in r}
+    return {}
+
+
 def style(folder=None):
     raw = _read("style.json", folder)
     for k in ("reader", "talk", "report"):
