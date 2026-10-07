@@ -54,7 +54,8 @@ TAIL = 262144           # bytes of a log's end that say how it ended
 ENOUGH = 3              # tool calls of a session that must name the project when its folder does not
 ASK = 2500              # characters of what a task was asked that are kept
 TURNS = 6               # the last lines of talk of a log that go into its unit
-SLACK = 300             # seconds a report may reach the parent before the agent's own last line is written
+DONE_SLACK = 300        # seconds after the relay finished a unit in which a touch is still the leg's own
+RUNNING = 6 * 3600      # a relay leg with no end, started this recently, is still running
 NAMES = ('trench-warfare-3d', 'trench warfare', 'githubtest', 'tw3d')
 ASKS = ('AskUserQuestion', 'ExitPlanMode')
 QUEUE_SAY = 'Queue this for the relay.'
@@ -212,7 +213,12 @@ def read_agent(f: Path):
     except (OSError, ValueError):
         meta = {}
     ask = text_of(first)
-    return dict(end=state, why=why, ask=ask[:ASK], cwd=first.get('cwd') or '', last=last, type=meta.get('agentType') or 'agent',
+    # when it was last asked something (a request, not a tool's result): a report that reached its session before
+    # that is an earlier round's. With no request in the part read, the part's first line stands in: later than the
+    # request, so an old report is never taken for the last one's.
+    requests = [stamp(d.get('timestamp')) for d in rows if d.get('type') == 'user' and d.get('timestamp') and not any(isinstance(c, dict) and c.get('type') == 'tool_result' for c in ((d.get('message') or {}).get('content') if isinstance((d.get('message') or {}).get('content'), list) else []))]
+    asked = next((t for t in reversed(requests) if t), None) or next((stamp(d.get('timestamp')) for d in rows if d.get('timestamp')), None)
+    return dict(end=state, why=why, ask=ask[:ASK], cwd=first.get('cwd') or '', last=last, asked=asked, type=meta.get('agentType') or 'agent',
                 desc=meta.get('description') or '', ours=names_project(first.get('cwd'), ask), turns=last_turns(rows, side=True))
 
 
@@ -253,18 +259,27 @@ def read_session(f: Path):
     return s
 
 
-def heard_of(f: Path):
+def heard_of(f: Path, e=None):
     """What a session's transcript holds of its agents coming back: {agent id: {back: when, told: when}}.
     `back` is the agent's report reaching the session (a hand-back, a notification that it completed, or the result
     of an agent the session waited for); `told` is a notification that it stopped any other way. Only the lines that
-    can be one are parsed (MARKS), so a long transcript is read in a pass and no more."""
-    out = {}
+    can be one are parsed (MARKS). `e` is what an earlier reading kept ({read: bytes, got: {...}}): only what the
+    transcript gained since is read, so a session still at work costs its new lines and no more."""
+    e = e if e is not None else {}
+    size = f.stat().st_size
+    if e.get('read', 0) > size:
+        e.clear()
+    out = e.setdefault('got', {})
 
     def mark(aid, key, at):
-        e = out.setdefault(str(aid), {})
-        e[key] = max(e.get(key, 0), at)
+        x = out.setdefault(str(aid), {})
+        x[key] = max(x.get(key, 0), at)
     with open(f, 'rb') as h:
-        for line in h:
+        h.seek(e.get('read', 0))
+        data = h.read()
+        whole = data.rfind(b'\n') + 1
+        e['read'] = e.get('read', 0) + whole
+        for line in data[:whole].split(b'\n'):
             if not any(m in line for m in MARKS):
                 continue
             try:
@@ -329,7 +344,7 @@ def local(projects: Path, now, cache, host=''):
             title = clip(s['title'] or s['ask'], 70)
             if s['ours'] and s['end'] in ('cut', 'asks', 'stopped'):
                 rows.append(dict(id='session-' + f.stem[:8], kind='paused' if s['end'] == 'stopped' else 'session', title=title or 'A session', what=clip(s['ask'], 200), ask=s['ask'], lane='', where=host,
-                                 by='', touched=int(newest), why=s['why'], asks=s['end'] == 'asks', stopped=when(s['last'] or at),
+                                 by='', touched=int(newest), changed=int(at), why=s['why'], asks=s['end'] == 'asks', stopped=when(s['last'] or at),
                                  sid=f.stem, log=str(f), cwd=s['cwd'], branch=s['branch'], first=s['first'], turns=s['turns']))
             # an agent the same session ran again to its end is not lost: the later run is the task, done
             redone = {a['desc'] for _, a, m in agents if a['end'] == 'done' and a['desc']}
@@ -337,16 +352,16 @@ def local(projects: Path, now, cache, host=''):
                 if a['end'] != 'cut' or not (a['ours'] or s['ours']) or a['desc'] in redone:
                     continue
                 aid, why = g.stem[len('agent-'):], a['why']
-                if now - max(moved, at) > STALE:    # only a row that would be listed: its session is quiet, so this is read once
-                    got = cached(heard, f, heard_of)[0].get(aid) or {}
-                    seen.add('heard:' + str(f))
-                    near = (a['last'] or moved) - SLACK
-                    if got.get('back', 0) >= near:
-                        continue                    # its report reached the session: what failed after that lost nothing
-                    if got.get('told', 0) >= near and s['spoke'] > got['told']:
-                        why = f'{why}; {TOLD}'
+                # before the row is written anywhere (the other station lists what this one writes): did its report reach its session?
+                got = heard_of(f, heard.setdefault(str(f), {})).get(aid) or {}
+                seen.add('heard:' + str(f))
+                since_asked = a.get('asked') or a['last'] or moved
+                if got.get('back', 0) >= since_asked:
+                    continue                        # its report reached the session after its last request: what failed after that lost nothing
+                if got.get('told', 0) >= since_asked and s['spoke'] > got['told']:
+                    why = f'{why}; {TOLD}'
                 rows.append(dict(id='agent-' + aid[:10], kind='agent', title=clip(a['desc'] or a['ask'], 70), what=clip(a['ask'], 200), ask=a['ask'], lane='', where=host,
-                                 by=title, agent=a['type'], touched=int(max(moved, at)), why=why, stopped=when(a['last'] or moved),
+                                 by=title, agent=a['type'], touched=int(max(moved, at)), changed=int(moved), why=why, stopped=when(a['last'] or moved),
                                  log=str(g), parent=f.stem, parent_log=str(f), cwd=a['cwd'], turns=a['turns']))
         except OSError:
             continue
@@ -360,9 +375,9 @@ def local(projects: Path, now, cache, host=''):
 def named(projects: Path, now, cache):
     """{handoff file name: when a session that ever opened it last moved}, over the logs still being written (moved
     in the last STALE seconds). A session that opened a handoff at its start and has worked for hours no longer
-    names it in its last lines: what a log has named is kept (cache['named']) and only what was added since is read.
-    Only what a tool call was given counts: a folder listing that happens to show the name is a result, and nobody
-    opened the file."""
+    names it in its last lines: what a log has opened is kept (cache['named']) and only what was added since is read.
+    Only a Read of the file counts: the session that wrote it, a folder listing that shows its name, a command or a
+    prompt that mentions it have not opened it, and a handoff its own writer still "holds" would never be listed."""
     store, out, live = cache.setdefault('named', {}), {}, set()
     logs = (list(projects.glob('*/*.jsonl')) + list(projects.glob('*/*/subagents/*.jsonl'))) if projects.is_dir() else []
     for f in logs:
@@ -385,7 +400,7 @@ def named(projects: Path, now, cache):
                         if d.get('type') != 'assistant':
                             continue
                         for c in (d.get('message') or {}).get('content') or []:
-                            if isinstance(c, dict) and c.get('type') == 'tool_use':
+                            if isinstance(c, dict) and c.get('type') == 'tool_use' and c.get('name') == 'Read':
                                 given = json.dumps(c.get('input') or {})
                                 e['names'] = sorted(set(e['names']) | set(HANDOFF.findall(given)))
                 e['read'] += whole
@@ -419,11 +434,11 @@ def handoffs(where: Path, projects: Path, now, cache=None):
             rows.append(dict(id='handoff-' + slug, kind='handoff', title=clip(f'{name} is not in the handoff index', 70), fault=True, lane='', where='', by='', file=name,
                              what='A handoff file the index does not know: no agent is pointed to it.',
                              ask=f'The handoff {name} in {where} is not in the handoff index (handoffs.json). Read it, then register it with Tools/handoffs.py or say why it should go.',
-                             touched=int(max(changed, seen.get(name, 0))), stopped=when(changed)))
+                             touched=int(max(changed, seen.get(name, 0))), changed=int(changed), stopped=when(changed)))
             continue
         rows.append(dict(id='handoff-' + slug, kind='handoff', title=clip(h.get('topic') or name, 70), what=clip(h.get('for'), 200),
                          ask=f'Read the handoff {name} in {where} and carry on from it. It is for: {h.get("for", "")}', lane='', where='', by='', file=name,
-                         touched=int(max(changed, seen.get(name, 0))), stopped=when(changed)))
+                         touched=int(max(changed, seen.get(name, 0))), changed=int(changed), stopped=when(changed)))
     return rows
 
 
@@ -472,6 +487,8 @@ def relay_rows(relay, now):
         if not u or uid in (relay.get('done') or []):
             continue
         at = stamp(last.get('finished_at') or last.get('started_at')) or 0
+        if not last.get('finished_at') and now - at < RUNNING:
+            continue                                # its newest leg has not ended: the relay is on it now
         rows.append(dict(id='relay-' + uid, kind='relay', title=uid, what=clip(u.get('goal'), 200), ask=str(u.get('goal', ''))[:ASK], lane=u.get('lane', ''), where='', by='', legs=len(legs),
                          verdict=verdict, report=clip(last.get('report'), 300), touched=int(at), stopped=when(at)))
     return rows
@@ -516,22 +533,30 @@ def unit_id(r):
 def said(rows, notes, relay=None, have=None):
     """Put on each row what was said about it and where it stands: `state` (left, queued, relay, dropped, done), his
     words, the note that queued it and its unit. The last of his two set phrases wins; a note from anyone but him
-    closes the task. A note older than the task's last touch is about what the task was, and holds nothing now,
-    unless its unit is still alive (a file for the master, or in the relay's queue): then the unit is the task.
+    closes the task. A note older than the task's own last change (`changed`: the agent's log, the session's
+    transcript, the handoff's file; not its parent session moving or somebody opening it) is about what the task was,
+    and holds nothing now, unless its unit is still alive (a file for the master, or in the relay's queue): then the
+    unit is the task. A unit the relay finished closes the task, unless the task changed after the relay was done.
+    His open notes that no longer hold are listed on the row (`stale`): tasks.py answers them, so the page does not go
+    on showing a click that nothing will take up.
     `relay` is the relay's record (queue, done, legs, stops), `have` the ids of the unit files that are there; with
     `have` None nothing is known of the files and a queued task is taken at its note's word."""
     relay = relay or {}
-    queue, done, legs = relay.get('queue') or {}, set(relay.get('done') or []), legs_of(relay)
+    queue, done, legs, done_at = relay.get('queue') or {}, set(relay.get('done') or []), legs_of(relay), relay.get('done_at') or {}
     by = {}
     for n in sorted(notes or [], key=lambda n: str(n.get('when', ''))):
         if str(n.get('about', '')).startswith('task: '):
             by.setdefault(n['about'][len('task: '):], []).append(n)
     for r in rows:
-        r['state'], r['words'], r['note'], r['unit'] = 'left', [], '', ''
+        r['state'], r['words'], r['note'], r['unit'], r['stale'] = 'left', [], '', '', []
         uid = unit_id(r)
         alive = uid in queue or (have is not None and uid in have)
+        mine = r.get('changed', r.get('touched', 0))
+        finished = uid in done and mine <= (stamp(done_at.get(uid)) or float('inf')) + DONE_SLACK       # done, and not changed since
         for n in by.get(r['id'], []):
-            text, old = str(n.get('text', '')).strip(), said_at(n) < r.get('touched', 0)
+            text, old = str(n.get('text', '')).strip(), said_at(n) < mine
+            if old and n.get('state') != 'done' and n.get('from', 'owner') == 'owner' and text in (QUEUE_SAY, DROP_SAY):
+                r['stale'].append(n['id'])
             if n.get('from', 'owner') != 'owner':
                 if not old:
                     r['state'], r['closed'] = 'done', f'{n.get("from")}: {clip(text, 160)}'
@@ -542,7 +567,7 @@ def said(rows, notes, relay=None, have=None):
                     if no and not old:
                         r['refused'] = clip(no[-1]['text'], 300)
                     continue                        # he closed the note before it was taken up, or it could not be queued
-                if old and not alive:
+                if old and not alive and not finished:
                     continue
                 r['state'], r['note'], r['answered'] = 'queued', n['id'], bool(took)
                 r['unit'] = took[-1]['text'].split()[1].rstrip(':.') if took else ''
@@ -555,8 +580,10 @@ def said(rows, notes, relay=None, have=None):
                 r['words'].append(clip(text, 400))
         if r['state'] != 'queued':
             continue
-        if uid in done:
+        if finished:
             r['state'], r['closed'] = 'done', f'the relay finished unit {uid}'
+        elif uid in done:
+            r['state'], r['unit'], r['note'] = 'left', '', ''       # finished once, and changed since: a new task
         elif uid in queue:
             r['state'], r['unit'] = 'relay', uid
             mine = legs.get(uid)
