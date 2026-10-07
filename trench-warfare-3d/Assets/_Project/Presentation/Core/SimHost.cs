@@ -126,6 +126,10 @@ namespace TW.Presentation
             return m;
         }
 
+        /// <summary>The gate itself, testable: only a stress run (StressUnits &gt; 0) gets the preset, every other match
+        /// keeps the sim's own settings, heroes included.</summary>
+        public static MatchSim ApplyStressPreset(int stressUnits, MatchSim m) => stressUnits > 0 ? StressPreset(m) : m;
+
         MatchSim NewMatch(SimConfig cfg)
         {
             MatchSim m;
@@ -136,7 +140,7 @@ namespace TW.Presentation
                 m = MatchSim.CreateBattlefield(cfg, field);
             }
             else m = PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
-            return StressUnits > 0 ? StressPreset(m) : m;   // the gate that leaves the other presets alone
+            return ApplyStressPreset(StressUnits, m);   // the gate that leaves the other presets alone
         }
 
         void Awake()
