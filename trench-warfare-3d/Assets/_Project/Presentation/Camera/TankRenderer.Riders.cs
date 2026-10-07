@@ -217,7 +217,7 @@ namespace TW.Presentation.Tactical
         {
             int c = archetype - VehicleArchetype.Pincer;
             if (c < 0 || c >= WalkerRows || factor <= 0.05f) return false;
-            var model = TankModel.Load(Machines[c].Name, (byte)archetype, "Body", VehicleSize.Walker * factor);
+            var model = TankModel.Load(Machines[c].Name, (byte)archetype, Machines[c].Root, VehicleSize.Walker * factor);
             if (model == null) return false;
             WalkerSizeFactor[c] = factor;
             var old = models[c];

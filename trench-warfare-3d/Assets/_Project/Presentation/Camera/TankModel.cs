@@ -61,6 +61,14 @@ namespace TW.Presentation.Tactical
             public Quaternion[] RestRot;    // each chain part's orientation in the body's frame, as modelled
             public Vector3[] RestDir;       // each bone's direction in the body's frame, as modelled
             public Quaternion ParentRot;    // the hip's parent's orientation in the body's frame (the body's own)
+            /// <summary>A leg cut to the standard (thigh, shin, foot) on a machine in HeldFeet: its foot keeps the way
+            /// it was modelled while it stands, and the thigh and the shin alone do the reaching.</summary>
+            public bool Held;
+            /// <summary>What the gait measures a leg's reach from. The hip, on every leg but a held one: there it is the
+            /// hip lowered by the foot (hip - (ankle - toe), as modelled), because a foot held upright puts its ankle
+            /// that far above its toe, and the thigh and the shin reach the toe from this point exactly as they reach
+            /// the ankle from the hip.</summary>
+            public Vector3 Seat;
         }
 
         public sealed class Lod
@@ -113,6 +121,9 @@ namespace TW.Presentation.Tactical
             {
                 var go = Resources.Load<GameObject>($"Vehicles/{name}/{name}_LOD{lod}");
                 var hull = go != null ? Find(go.transform, root) : null;
+                // a walker cut again to the standard calls its root part the Hull, the others still Body: either name
+                // finds it, so what loads a crab by the old name (the seat sheet, a resize, a test) loads it cut again
+                if (hull == null && go != null && (root == "Body" || root == "Hull")) { root = root == "Body" ? "Hull" : "Body"; hull = Find(go.transform, root); }
                 if (hull == null)
                 {
                     if (lod == 0) { Debug.LogWarning($"TankModel: Resources/Vehicles/{name}/{name}_LOD0 is missing or has no {root}"); return null; }
@@ -186,8 +197,8 @@ namespace TW.Presentation.Tactical
         /// leg came apart. Every leg piece's pivot is moved, in its parent's frame: a hip to the nearest
         /// point of the body's surface, a knee or an ankle to the end of the piece above (EndToward); what it carries (the next piece, a toe socket) goes with it. LOD0 decides;
         /// LOD1 takes the same moves by name (`moved`), so the two cannot pop apart. Returns the moves made.
-        /// Only the machines in JoinedLegs: Pavise and Banner have hips as far off (3.5-3.9 m drawn) and are not
-        /// joined yet; they wait on their own look.</summary>
+        /// Only the machines in JoinedLegs: the Pavise has hips as far off (3.5 m drawn) and is not joined yet. The
+        /// Banner needs none of it: it is cut again with its joints where the pieces meet (HeldFeet, ModelCutTests).</summary>
         static Dictionary<string, Vector3> Assemble(Lod lod, Dictionary<string, Vector3> moved)
         {
             var made = new Dictionary<string, Vector3>();
@@ -214,6 +225,11 @@ namespace TW.Presentation.Tactical
             }
             return made;
         }
+
+        /// <summary>The walkers cut to the standard (PLAN_model_cutting, 2026-10-07: every leg a thigh, a shin and a
+        /// foot, pivoted at hip, knee and ankle, modelled standing). Their feet are held (LegRig.Held, WalkerGait.Solve)
+        /// and they stand as they were modelled. Every other walker walks as it did (WalkerUnchangedTests).</summary>
+        public static readonly string[] HeldFeet = { "Banner" };
 
         /// <summary>The walkers whose legs are joined on loading (see Assemble).</summary>
         public static readonly string[] JoinedLegs = { "Kettle", "Redoubt" };
@@ -352,12 +368,14 @@ namespace TW.Presentation.Tactical
 
                 Vector3 flat = new Vector3(rest.x, 0f, rest.z);
                 if (flat.sqrMagnitude < 1e-6f) flat = parts[hip].Outward;
+                bool held = chain.Count == 3 && System.Array.IndexOf(HeldFeet, model.Name) >= 0;
                 lod.Legs[leg] = new LegRig
                 {
                     Chain = chain.ToArray(), Hip = pos[hip], Toe = toe, Rest = rest,
                     Outward = flat.normalized, Reach = rest.magnitude, Drop = Mathf.Max(0.05f, -rest.y), Bone = bone,
                     RestRot = restRot, RestDir = restDir,
                     ParentRot = parts[hip].Parent >= 0 ? rot[parts[hip].Parent] : Quaternion.identity,
+                    Held = held, Seat = held ? pos[hip] - (pos[tip] - toeInBody) : pos[hip],
                 };
             }
         }
