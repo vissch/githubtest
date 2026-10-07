@@ -40,6 +40,10 @@
 @keyframes i-beat { 50% { opacity: .25; } }
 .i-empty { margin: 0; padding: 22px 16px; border-radius: var(--r-m); border: 1px dashed var(--s-line2); color: var(--t-soft); font: 15px/1.4 var(--sans); }
 .i-done { display: grid; gap: 8px; } .i-done .d-h { margin: 10px 2px 2px; } .i-done .i-route { margin-top: 8px; }
+/* where an accepted idea is on its route, in the board's own colours: green is done, amber is next, orange waits on him */
+.i-route li.i-s-done { border-color: color-mix(in srgb, var(--ok) 55%, var(--s-line)); color: var(--t-soft); } .i-route li.i-s-done::before { content: "\2713"; margin-right: 6px; color: var(--ok); }
+.i-route li.i-s-next { border-color: var(--k-fire2); color: var(--t-bright); }
+.i-route li.i-s-you { background: var(--k-fire); border-color: var(--k-fire); color: var(--s-deep); }
 
 @media (max-width: 760px) { .i-ask { grid-template-columns: minmax(0, 1fr); } .i-act { flex: 1 1 auto; } body.c-screen .i-ideas { order: 3; }
   .i-card .d-say { flex-wrap: wrap; } .i-card .d-say input { flex: 1 1 100%; } .i-card .d-say button { flex: 1 1 auto; } }          /* a phone: the box over its button, or the box is three letters wide */

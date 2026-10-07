@@ -33,6 +33,8 @@ HIS ANSWER. The card has three buttons. "Do it" is his yes to the route the card
 of that route, as a click on a brief carries the stamp of its Then line): the idea is accepted and waits for the
 desktop to put it on the pipeline's board. "Not now" parks it; it may come back after PARKED_DAYS. "Never" closes it
 for good, with his reason when he gave one. Words of his own about an idea are a request for a better version of it.
+An accepted idea's row then says where it stands on its route: not on the board yet, which step is next, which
+waits on him, what is done (stands(), read from what is committed on the board's origin and nothing else).
 
 THE BOARD STARTS THE AGENT (the owner, 2026-10-07: "Board starts it"). The button "3 more ideas" and the box leave a
 note (about ideas:more, ideas:request); `tick`, run by ops.py --watch on every read, starts one headless session with
@@ -239,6 +241,53 @@ def board_units(board):
             if isinstance(u, dict) and u.get('id'):
                 units.append(u)
     return units, done
+
+
+def stands(ideas, board):
+    """Where each idea that went to the board stands, for the page: {idea id: dict(on, steps)}, one word for each step
+    of its route. 'done': the step's newest result is a PASS. 'you': it is a step of the owner's own and all it comes
+    after is done. 'next': the same for an agent's step (ready, or being worked on). '': it still waits. An idea for a
+    tool is one unit of the queue: 'next' while it is queued, 'done' once the relay has done it, and then the landing
+    is his. `on` False: no session has put it on the board yet, so nothing can have started.
+    Read from the board's origin/main as last fetched, as board_units reads it: this station's checkout may be behind
+    or hold another session's work. An item whose stages are not the idea's route gets no words, not wrong ones."""
+    import src_git
+    routed = [i for i in ideas if i.get('routed')]
+    if not routed or not board or not Path(board).is_dir():
+        return {}
+    names = src_git.git(Path(board), 'ls-tree', '-r', '--name-only', 'origin/main', 'items', 'results').split()
+    units = None
+
+    def read(name):
+        try:
+            return json.loads(src_git.git(Path(board), 'show', f'origin/main:{name}'))
+        except ValueError:
+            return None
+    out = {}
+    for i in routed:
+        rid = str(i['routed'])
+        if rid.startswith('unit:'):
+            units = units or board_units(board)
+            queued, did = rid[5:] in [u['id'] for u in units[0]], rid[5:] in units[1]
+            out[i['id']] = dict(on=queued or did, steps=['done', 'you'] if did else ['next', ''] if queued else [])
+            continue
+        item = read(f'items/{rid}.json') if f'items/{rid}.json' in names else None
+        stages = item.get('stages') if isinstance(item, dict) else None
+        if not isinstance(stages, list):
+            out[i['id']] = dict(on=False, steps=[])
+            continue
+        newest = {}
+        for n in names:
+            if n.startswith(f'results/{rid}--'):
+                r = read(n)
+                if isinstance(r, dict) and r.get('item') == rid:
+                    newest[r.get('stage')] = max(newest.get(r.get('stage'), r), r, key=lambda x: (str(x.get('finished_at', '')), x.get('attempt', 0)))
+        done = {s for s, r in newest.items() if r.get('verdict') == 'PASS'}
+        steps = []
+        if len(stages) == len(i.get('route', [])):
+            steps = ['done' if s.get('id') in done else '' if not set(s.get('after', [])) <= done else 'you' if s.get('role') == 'master' else 'next' for s in stages]
+        out[i['id']] = dict(on=True, steps=steps)
+    return out
 
 
 def ledger(where: Path = None, repo: Path = None, board=None, drive: Path = None, now=None, briefs_where: Path = None):
@@ -479,10 +528,20 @@ def shown(ideas, now=None):
     return [i for i in ideas if i['state'] == 'open' or (i.get('answer') or {}).get('when', '') >= since]
 
 
-def site(where: Path, out: Path, all_notes=(), status=None, now=None):
+def site(where: Path, out: Path, all_notes=(), status=None, now=None, board=None):
     """Put the ideas the page shows in the site: data/ideas.js, and their pictures under img/idea/<id>/. `status` is
-    what tick() says: whether a run is going, and how many are left today. Returns what the page was given."""
+    what tick() says: whether a run is going, and how many are left today. An idea that went to the board says where
+    it stands on its route (stands(), from `board`, else the pipeline's board of this station). Returns what the page
+    was given."""
     listed = shown(read_all(where), now)
+    if any(i.get('routed') for i in listed):
+        if board is None:
+            import ops
+            board = ops.board_root()
+        at = stands(listed, board)
+        for i in listed:
+            if i['id'] in at:
+                i['stands'] = at[i['id']]
     for i in listed:
         for p in i['pictures']:
             src, dst = where / i['id'] / p['file'], out / 'img' / 'idea' / i['id'] / p['file']

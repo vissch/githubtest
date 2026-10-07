@@ -42,7 +42,18 @@
   // the master's score in words: "R1 C3 MAJOR" is risk 1 of 5, change 3 of 5, and a major decision
   function score(sc) { var m = /^R(\d) C(\d)(.*)$/.exec(String(sc || '')); return m ? 'risk ' + m[1] + ' · change ' + m[2] + (/MAJOR/.test(m[3]) ? ' · major' : '') : String(sc || ''); }
   function meta(i) { return [i.kind, SIZE[i.size] || i.size, score(i.score)].filter(Boolean).join(' · '); }
-  var pure = { order: order, featured: featured, word: word, asked: asked, status: status, site: site, meta: meta, score: score };
+  // where an accepted idea is on its route, in words: i.stands is what the board's records say of each step
+  // ('done', 'you', 'next' or ''); what waits on him is said first
+  function stands(i) {
+    var s = i.stands, r = i.route || [];
+    if (!i.routed) return 'queued for the pipeline';
+    if (!s) return 'on the board as ' + i.routed;
+    if (!s.on) return 'not on the board yet: the master puts it there at its next turn';
+    var at = function (w) { return r.filter(function (x, n) { return s.steps[n] === w; }).map(function (x) { return x.says; }); }, you = at('you'), next = at('next');
+    if (!you.length && !next.length) return s.steps.length && s.steps.every(function (w) { return w === 'done'; }) ? 'every step is done' : 'on the board as ' + i.routed;
+    return [you.length ? 'waits on you: ' + you.join(', ') : '', next.length ? 'next: ' + next.join(', ') : ''].filter(Boolean).join(' · ');
+  }
+  var pure = { order: order, featured: featured, word: word, asked: asked, status: status, site: site, meta: meta, score: score, stands: stands };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
   root.Ideas = pure;
 
@@ -71,7 +82,12 @@
   }
   function route(i) {
     var r = el('ol', 'i-route'); r.setAttribute('aria-label', 'Who works on it, in order');
-    i.route.forEach(function (s) { var li = el('li', s.own ? 'i-own' : null, s.says); li.title = s.own ? 'A decision of yours, put to you with pictures' : 'The ' + s.role + ' agent'; r.appendChild(li); });
+    var at = (i.stands && i.stands.steps) || [], SAID = { done: 'Done', you: 'Waits on you', next: 'Next' };
+    i.route.forEach(function (s, n) {
+      var li = el('li', [s.own ? 'i-own' : '', at[n] ? 'i-s-' + at[n] : ''].filter(Boolean).join(' ') || null, s.says); li.title = s.own ? 'A decision of yours, put to you with pictures' : 'The ' + s.role + ' agent';
+      if (at[n]) { li.title = SAID[at[n]] + '. ' + li.title; li.setAttribute('aria-label', s.says + ': ' + SAID[at[n]].toLowerCase()); }
+      r.appendChild(li);
+    });
     return r;
   }
   function card(i, says) {
@@ -147,7 +163,7 @@
     if (all.done.length) {
       var dn = el('div', 'i-done'); dn.appendChild(el('h3', 'd-h', 'Accepted, on their way'));
       all.done.forEach(function (i) {
-        var r = el('div', 'd-row'), t = el('div'); t.appendChild(el('b', null, i.title)); t.appendChild(el('span', 'd-age', 'you said yes ' + String((i.answer || {}).when).slice(5, 16) + (i.routed ? ' · on the board as ' + i.routed : ' · queued for the pipeline')));
+        var r = el('div', 'd-row'), t = el('div'); t.appendChild(el('b', null, i.title)); t.appendChild(el('span', 'd-age', 'you said yes ' + String((i.answer || {}).when).slice(5, 16) + ' · ' + pure.stands(i)));
         t.appendChild(route(i)); r.appendChild(t); dn.appendChild(r);
       });
       home.appendChild(dn);
