@@ -73,10 +73,35 @@ def body(unit):
         "- Evidence: one fresh JPG per band (%s), at most %d KB each, named <band>.jpg, in the board folder %s/."
         % (", ".join(unit["bands"]) or "none asked", kb, evidence_dir(unit)),
         "- Beside each still the game rendered, its capture sidecar as <band>.json, and one frames.txt in that folder: "
-        "a line of facts per image (view and band, moment, clock held or running, what is in frame). A still the game "
-        "did not render (a concept sheet, a mock-up) has no sidecar: its frames.txt line says so. The critic sees only "
-        "that folder and scores a capture without its sidecar at 7 in 10 at most.",
+        "a line of facts per image that starts `<band>.jpg:` (view and band, moment, clock held or running, what is "
+        "in frame). A still the rig did not shoot as it stands (a contact sheet, a diff, a concept sheet, a mock-up) "
+        "has no sidecar: its frames.txt line says `no sidecar`. The runner fails a job without these, and the critic "
+        "sees only that folder.",
         "- Commit your outputs on the lane with the edit gate green, and push the lane."])
+
+
+def sidecar_problem(folder, band, since):
+    """What is wrong with the facts beside a still, or None. The critic scores a capture by its sidecar and reads
+    the frame's limits in frames.txt; a still the rig did not shoot as it stands says `no sidecar` on its line."""
+    try:
+        lines = (folder / "frames.txt").read_text(encoding="utf-8").splitlines()
+    except (OSError, ValueError):
+        return "no readable frames.txt beside the evidence (one line of facts per image, starting <band>.jpg:)"
+    mine = [l for l in lines if l.startswith(band + ".jpg:")]
+    if not mine:
+        return "frames.txt has no line that starts %s.jpg:" % band
+    f = folder / (band + ".json")
+    if not f.is_file():
+        return None if "no sidecar" in mine[0].lower() else (
+            "evidence %s.jpg has no sidecar %s.json, and its frames.txt line does not say `no sidecar`" % (band, band))
+    try:
+        if not isinstance(json.loads(f.read_text(encoding="utf-8")), dict):
+            raise ValueError
+    except (OSError, ValueError):
+        return "sidecar %s is not a JSON object" % f.name
+    if f.stat().st_mtime < since:
+        return "sidecar %s is older than this unit: it was not written with this still" % f.name
+    return None
 
 
 def verify(unit, ctx):
@@ -96,6 +121,8 @@ def verify(unit, ctx):
             out.append("evidence %s is %d KB, the limit is %d" % (f.name, size // 1024, kb))
         elif f.stat().st_mtime < ctx.get("since", 0):
             out.append("evidence %s is older than this unit: it was not made by these legs" % f.name)
+        elif sidecar_problem(folder, band, ctx.get("since", 0)):
+            out.append(sidecar_problem(folder, band, ctx.get("since", 0)))
     if gitio.branch(ctx["work"]) != unit["lane"]:
         out.append("the work checkout is on %s, not %s" % (gitio.branch(ctx["work"]), unit["lane"]))
     elif not gitio.dirty(ctx["work"]) and not gitio.pushed(ctx["work"], unit["lane"]):
