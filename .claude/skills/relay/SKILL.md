@@ -52,6 +52,10 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
   around the wait.
 - A leg with an edit gate takes 30 minutes or more. Do not poll: the runner ends with one `STOP:` line.
 - `done_when` for `/relay add` is a command that exits 0 when the work is there, as words, not one string. No shell.
+  Run it once in the work checkout before you queue: it must fail now. A check that is already green proves
+  nothing, and on a pushed lane the runner, which asks it before any leg, marks the unit done with no work.
+- A unit is one thin slice that can be shown working on its own. The goal says what should happen and what is out
+  of scope, in the owner's words; it names behaviour, not line numbers, which move before the leg reads them.
 - The runner stops on anything it cannot trust. Read the `STOP:` line and the last file under
   `tw3d-board/relay/<station>/stops/`; say the reason as it is, do not guess.
 - "the work checkout cannot be used": it names why (missing, uncommitted files, a Unity editor open, git activity in
@@ -59,3 +63,9 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 - Do not edit `Tools/relay/` or `Tools/pipeline/` while a run is going: the runner sees its own code change and stops.
 - Legs never land. Landing stays the owner's word (tw-master).
 - Leg folders and logs: `%LOCALAPPDATA%\TrenchWarfare\relay\runs\<run>\`. Tests: `python Tools/relay/test_relay.py`.
+
+## Sources
+The thin-slice, out-of-scope, independent-expected-value, written-guesses and mechanical-or-judgement rules, here
+and in `Tools/relay/roles/` (`_phase_plan.md`, `review-fix.md`, `_phase_retro.md`), are adapted, in our own words,
+from `to-tickets`, `triage`, `tdd`, `diagnosing-bugs` and `retro` in github.com/mattpocock/skills at f3fc5632f401
+(MIT). Ideas only; no text or script copied.
