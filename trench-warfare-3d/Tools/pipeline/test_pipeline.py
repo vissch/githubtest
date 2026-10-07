@@ -138,6 +138,18 @@ class PipelineTest(unittest.TestCase):
         self.assertEqual(sorted(k for k, v in P.roles().items() if v == "tw-character-sim"),
                          ["character", "character-simulator"])
 
+    def test_the_roles_an_accepted_ideas_route_names_are_known_and_have_a_brief(self):
+        """Tools/assetboard/idearoute.py writes an item from an idea the owner accepted, and its first stages are
+        these four: a role missing here is an item the board refuses, a role with no skill a leg with no brief."""
+        briefs = {"game-designer": "tw-game-design", "concept-artist": "tw-concept-art", "ux": "tw-ux",
+                  "ui-artist": "tw-ui-art"}
+        self.assertEqual({r: P.roles().get(r) for r in briefs}, briefs)
+        for role in briefs:
+            item = json.loads(json.dumps(ITEM))
+            item["stages"][1]["role"] = role
+            (self.board / "items" / "crate.json").write_text(json.dumps(item))
+            self.assertEqual(self.states()["balance"], "READY", role)
+
     def test_pass_without_band_evidence_is_refused(self):
         self.run_stage("balance", "laptop")
         os.environ["TW_STATION"] = "desktop"
