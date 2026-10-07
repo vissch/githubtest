@@ -5,6 +5,9 @@
 //   1. SimHost's stress preset deploys `stress` riflemen a side (SimHost.StressOverride, read in Awake).
 //      S04: `knobs=stress.spread=1` makes the player's army fill the posts of each of its trenches and send the rest
 //      over the top; the default is the preset as it was, the whole army in the rear trench (hash_start differs).
+//      2026-10-06: the preset fields no hero on either side (HeroSystem.TeamMask = 0), so the window times a steady
+//      trench fight instead of a hero's charge; `knobs=stress.heroes=1` puts the old hero back. Baseline and the
+//      four runs behind it: `docs/05-performance-budgets.md`.
 //   2. The match fast-forwards to `settle_ticks`, then PAUSES there while `warm` frames render, so late shader
 //      variants, Burst and pools are warm and the window always opens on the same tick: a deterministic sim means
 //      two runs then measure the same fight (hash_start in the report proves it).
