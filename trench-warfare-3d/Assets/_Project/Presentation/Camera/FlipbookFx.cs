@@ -86,7 +86,7 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -105,6 +105,7 @@ namespace TW.Presentation.Tactical
         // what makes hand-drawn animation read as drawn, and a book stretched to fit a card plays at whatever rate the
         // card happened to want. A book with no Fps keeps the old behaviour and spends itself over the life exactly.   // Play: the part of the book used (0 = all); Lit: 0 = own values (default: additive 0, else 1); RampIn: seconds to fade in; Mood: how much the mood tints the shade (0 = default 1)
         // Deep: a cloud as deep as it is wide (fx.smokeSoft)
+        // Bank: a Deep cloud that lies ON the ground (the gas): not thinned against the ground it lies on, or fx.smokeSoft takes most of it
         static readonly Sheet[] Sheets =
         {
             new Sheet { Name = "Burst",  Cols = 4, Rows = 4, Frames = 16, Erode = true, Tint = new Color(0.58f, 0.53f, 0.48f), Low = 0.12f, High = 0.62f, Play = 0.7f, Mood = 0.45f, Deep = true },   // a cloud born of fire: the full night tint turned it saturated blue; a warm grey, not brown (bench s1: 0.55/0.50/0.45 read as mud)
@@ -171,7 +172,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "FireBloom", Cols = 8, Rows = 4, Frames = 21, Fire = true, Snap = true, Tint = new Color(1.38f, 0.64f, 0.18f), Low = 0.12f, High = 0.74f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.39f, 0.75f), Ink = new Vector2(0.05f, 0.98f), Fill = 0.84f },
             // VFX pass wave 1 (2026-09-28): Low/High, Ink, Fill and the fire Bands from the Tools/firebooks.py printout.
             // Tints are starting points: CombatFx.ApplyTints sets the biome's (catalogue IN-2). Smoke-like books erode like Smoke.
-            new Sheet { Name = "GasBank", Cols = 8, Rows = 4, Frames = 30, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.73f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },
+            new Sheet { Name = "GasBank", Cols = 8, Rows = 4, Frames = 30, Snap = true, Fps = 12f, Erode = true, Deep = true, Bank = true, Mood = 0.45f, Lit = 0.75f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.60f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },   // Lit and High as the old Gas book: its middle ink (0.39) in the light, so it is green and not grey (film 2026-10-07)
             new Sheet { Name = "GasVent", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.17f, High = 0.66f, Ink = new Vector2(0.00f, 0.35f), Fill = 0.94f },
             new Sheet { Name = "SmokeBank", Cols = 8, Rows = 4, Frames = 22, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 0.31f, Ink = new Vector2(0.03f, 0.87f), Fill = 0.94f },
             new Sheet { Name = "MortarBurst", Cols = 8, Rows = 4, Frames = 21, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.09f, High = 0.77f, Ink = new Vector2(0.05f, 0.65f), Fill = 0.54f },
@@ -183,7 +184,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "Smoulder", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.07f, High = 0.85f, Ink = new Vector2(0.05f, 0.92f), Fill = 0.45f },
             new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 0f, Ground = true, Lit = 0.75f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.20f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },
             new Sheet { Name = "DustPuff", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.16f, High = 0.91f, Ink = new Vector2(0.18f, 0.82f), Fill = 0.90f },
-            new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 12f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.8f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 1.30f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },
+            new Sheet { Name = "ShellPlume", Cols = 8, Rows = 4, Frames = 23, Snap = true, Fps = 0f, Erode = true, Deep = true, Mood = 0.45f, Lit = 0.8f, RampIn = 0.3f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.17f, High = 1.30f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.90f },   // no Fps: the book over the card's life (at 12 a second its full cloud was thin wisps after 1.4 s and the card stood 3 s more: film 2026-10-07)
             // wave 2: Low/High, Ink, Fill and the fire Bands from the firebooks printout (tw3d-board logs/firebooks-w2.log)
             new Sheet { Name = "FireLance", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.92f, Bands = new Vector4(0.12f, 0.30f, 0.59f, 0.75f), Ink = new Vector2(0.02f, 0.97f), Fill = 0.62f },
             new Sheet { Name = "MendSparks", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.40f, 0.78f, 0.32f), Low = 0.00f, High = 0.59f, Bands = new Vector4(0.13f, 0.25f, 0.43f, 0.75f), Ink = new Vector2(0.09f, 0.95f), Fill = 0.90f },
@@ -646,7 +647,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
                 m.SetFloat("_Erode", s.Erode ? 1f : 0f);
                 m.SetFloat("_ShadeMood", s.Mood > 0f ? s.Mood : 1f);
-                m.SetFloat("_Soft", s.Deep ? soft : 0f);
+                m.SetFloat("_Soft", s.Deep && !s.Bank ? soft : 0f);
                 m.SetFloat("_Hard", BookHard((Book)k, hard, columnHard));
                 // fire is premultiplied over (One, OneMinusSrcAlpha), additive books add, everything else is straight alpha
                 m.SetFloat("_SrcBlend", (float)(s.Additive || s.Fire ? UnityEngine.Rendering.BlendMode.One : UnityEngine.Rendering.BlendMode.SrcAlpha));
