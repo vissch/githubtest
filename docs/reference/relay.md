@@ -15,7 +15,7 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 
 A role's legs of one phase run on another model or effort when `routes.json` says so (`config.route`; Opus or
 Sonnet only). One route is in it, a trial: the execute legs of `review-fix` units on Sonnet at medium effort, measured by
-`Tools/review/fixcheck.py` against the Opus legs before it. A route stays only on the owner's word.
+the fix check of the review lane (fixcheck, not on this line yet) against the Opus legs before it. A route stays only on the owner's word.
 
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
