@@ -64,6 +64,12 @@ namespace TW.Editor
             /// moves again in between.</summary>
             public static float YawPin = float.NaN;
 
+            /// <summary>Leave the night lamps' fade running across the poses of a set (a row of stills that follows a
+            /// moving view). False, the default: every posed still is a cut, so the lamps that keep a real light are
+            /// the ones for THIS pose, set at once (NightLights.RealLamps.cs). Without it a still posed a few metres
+            /// from the last one showed the last one's lamps, a frame into their fade.</summary>
+            public static bool LampsFade;
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
@@ -147,6 +153,7 @@ namespace TW.Editor
             {
                 tc.Zoom = Mathf.Clamp(shot.Zoom, tc.ZoomMin, tc.ZoomMax);
                 tc.Focus = shot.Focus;
+                if (!LampsFade) { var night = FindFirstObjectByType<TW.Presentation.Terrain.NightLights>(); if (night != null) night.CutLamps(); }
                 // what TacticalCamera.Update sets for this zoom: the close-up band (grit, footprints, litter, the effects'
                 // close sizes). The camera is off for the set and its OnDisable put both at 0, so every close still was
                 // drawn as the standard view (found 2026-09-23: CloseUp read 0 in a zoom-5 series).

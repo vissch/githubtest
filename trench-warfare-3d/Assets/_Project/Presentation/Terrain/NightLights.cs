@@ -11,6 +11,8 @@
 // the hole it leaves keeps a low ember light for two seconds after (three of those, apart from the flash pool).
 // Flare: a star shell goes up over the ground ahead of the camera every half minute or so and sinks on its parachute,
 // lighting sixty metres of no man's land cold white. Distant fires glow through the fog bank beyond the far edges.
+// Since 2026-10-07 only the eight lamps and fires nearest the view keep their Light (NightLights.RealLamps.cs,
+// lights.realLamps); the rest are their painted pool, glow card and glass. Flashes, embers and the flare are as they were.
 using System.Collections.Generic;
 using UnityEngine;
 using TW.Presentation;
@@ -51,6 +53,8 @@ namespace TW.Presentation.Terrain
         const float HearthHold = 0.5f;
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
+        // each lamp's light before the real-lamp rule dims it (its flicker included): what its painted pool burns at
+        readonly List<float> lanternLevel = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
         readonly List<Vector3> firePoints = new List<Vector3>();
         /// <summary>Where the lamps hang and the big fires burn, once built (SmallLife puts moths and ash there).</summary>
@@ -77,6 +81,7 @@ namespace TW.Presentation.Terrain
         {
             frame0 = Time.frameCount;
             nextFlare = Time.time + 6f; flareBorn = -100f; nextGuns = 0f;
+            realLamps.Reset();   // and the real lamps are chosen afresh: no lamp keeps its place from the view before
         }
         bool subscribed, built;
         Light flareLight; Transform flare; Vector3 flareFrom;
@@ -341,7 +346,8 @@ namespace TW.Presentation.Terrain
             var fireGlow = new Material(glow) { hideFlags = HideFlags.HideAndDontSave };
             fireGlow.SetFloat("_Squash", .35f); owned.Add(fireGlow);
             AddGlowMesh(fireHost, fireGlow, fireCentres.ToArray(), fireShapes.ToArray(), fireColors.ToArray());
-            foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternHome.Add(l.transform.position); }
+            foreach (var l in lanterns) { lanternBase.Add(l.intensity); lanternLevel.Add(l.intensity); lanternHome.Add(l.transform.position); }
+            BuiltLamps(map);   // which lamps stand by water (NightLights.RealLamps.cs)
             // dugout stoves smoke and rained-on fires steam (CombatFx draws the puffs)
             SceneHooks.SmokeSources.Clear();
             for (int i = 0; i < sites.Count && SceneHooks.SmokeSources.Count < 8; i += step) SceneHooks.SmokeSources.Add(sites[i].Position + sites[i].Rotation * new Vector3(-.8f, 0f, -.6f) + Vector3.up * 2.3f);
@@ -513,8 +519,10 @@ namespace TW.Presentation.Terrain
                 // the wind rocks every lamp and tears at every flame: the pools of light wander a hand's width
                 float rock = .025f + .012f * Atmosphere.WindNow.magnitude;
                 lanterns[i].transform.position = lanternHome[i] + new Vector3(Mathf.Sin(t * .31f) * rock, 0f, Mathf.Cos(t * .23f + 1.7f) * rock);
-                lanterns[i].intensity = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
+                lanternLevel[i] = lanternBase[i] * (.86f + .10f * Mathf.Sin(t) * Mathf.Sin(t * .43f) + .04f * Mathf.Sin(t * 3.1f));
+                lanterns[i].intensity = lanternLevel[i] * realLamps.Level(i);   // lights.realLamps: 1 for a lamp that keeps its real light
             }
+            UpdateRealLamps();   // the knobs, and which lamps stand by water (NightLights.RealLamps.cs)
             PushPools();   // look.pools: the nearest flames' painted pools (NightLights.Pools.cs)
             for (int i = 0; i < poolSize; i++)
             {
