@@ -17,7 +17,7 @@ namespace TW.Tests
             ("Maw", VehicleArchetype.Maw, "Hull", VehicleSize.Tank), ("Tusk", VehicleArchetype.Tusk, "Hull", VehicleSize.Tank),
             ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker),
             ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker),
-            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker),
+            ("Banner", VehicleArchetype.Banner, "Hull", VehicleSize.Walker), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker),
             ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f), ("Salvo", VehicleArchetype.Salvo, "Hull", 1f),
         };
 

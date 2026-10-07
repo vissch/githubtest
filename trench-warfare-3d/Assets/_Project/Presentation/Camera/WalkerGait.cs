@@ -155,7 +155,7 @@ namespace TW.Presentation.Tactical
 
         /// <summary>Where one hip actually is in the world, with the machine sitting as it is sitting.</summary>
         public Vector3 HipAt(TankModel.LegRig rig, Vector3 pos, float yaw)
-            => new Vector3(pos.x, Height, pos.z) + Carriage(yaw) * rig.Hip;
+            => new Vector3(pos.x, Height, pos.z) + Carriage(yaw) * rig.Seat;
 
         /// <summary>Where a leg wants to stand, on the flat: out from its own hip along the way that leg sticks
         /// out, at the radius worked out in Stand.</summary>
@@ -163,7 +163,7 @@ namespace TW.Presentation.Tactical
         {
             float r = i >= 0 && i < homeFlat.Length ? homeFlat[i] : 0f;
             Vector2 s = i >= 0 && i < splay.Length ? splay[i] : Vector2.right;
-            return pos + body * new Vector3(rig.Hip.x + s.x * r, 0f, rig.Hip.z + s.y * r);
+            return pos + body * new Vector3(rig.Seat.x + s.x * r, 0f, rig.Seat.z + s.y * r);
         }
 
         /// <summary>How high the body rides over the ground its feet are on.
@@ -189,7 +189,10 @@ namespace TW.Presentation.Tactical
             {
                 var r = rigs[i];
                 if (r == null) continue;
-                best = Mathf.Min(best, MaxSpan(r) * StepSafety * Mathf.Sqrt(1f - Lean * Lean) - r.Hip.y);
+                // a leg cut to the standard was modelled standing (PLAN_model_cutting: "the leg is modelled a little
+                // bent, the toe lower than the hip"), so the body rides where the sculpt has it over its toes
+                best = Mathf.Min(best, r.Held ? -(r.Hip.y + r.Rest.y)
+                                              : MaxSpan(r) * StepSafety * Mathf.Sqrt(1f - Lean * Lean) - r.Seat.y);
                 n++;
             }
             stand = n == 0 ? 0f : best;
@@ -203,7 +206,17 @@ namespace TW.Presentation.Tactical
             {
                 var r = rigs[i];
                 if (r == null) { splay[i] = Vector2.right; continue; }
-                float drop = stand + r.Hip.y;
+                float drop = stand + r.Seat.y;
+                if (r.Held)
+                {
+                    // it stands where it was modelled standing, but no further out than HeldStance of what the leg
+                    // can reach at that height: a foot modelled at full stretch has no room left to trail
+                    Vector3 toe = r.Hip + r.Rest - r.Seat;
+                    var out2 = new Vector2(toe.x, toe.z);
+                    homeFlat[i] = Mathf.Min(out2.magnitude, Rise(MaxSpan(r) * StepSafety, drop) * HeldStance);
+                    splay[i] = out2.sqrMagnitude > 1e-4f ? out2.normalized : Vector2.right;
+                    continue;
+                }
                 homeFlat[i] = (Rise(MaxSpan(r) * StepSafety, drop) + Rise(MinSpan(r), drop)) * 0.5f;
                 // out along the way the leg sticks out from the body's middle. The HIP says that honestly; Rest
                 // does not, because a limb posed across the body points the wrong way entirely.
@@ -344,7 +357,7 @@ namespace TW.Presentation.Tactical
                     // and not so far in that it would have to fold past what it is able to. Most of a leg's reach
                     // is spent getting down to the ground, so both bounds are taken on the flat at the height the
                     // foot will actually land.
-                    Vector3 hip = pos + body * rig.Hip + Vector3.up * (Height - pos.y);
+                    Vector3 hip = pos + body * rig.Seat + Vector3.up * (Height - pos.y);
                     float restFlat = i < homeFlat.Length ? homeFlat[i] : new Vector2(rig.Rest.x, rig.Rest.z).magnitude;
                     for (int pass = 0; pass < 2; pass++)
                     {
@@ -354,7 +367,7 @@ namespace TW.Presentation.Tactical
                         // reach once the body comes back up — which is how a foot ended up 1.05 m from a hip whose
                         // leg is 0.90 m long. A taller hip means a longer drop and so a tighter bound, so taking
                         // the taller of the two is the safe way round.
-                        float drop = Mathf.Max(hip.y - target.y, Stand(rigs) + rig.Hip.y);
+                        float drop = Mathf.Max(hip.y - target.y, Stand(rigs) + rig.Seat.y);
                         float outer = Rise(MaxSpan(rig) * StepSafety, drop);
                         float inner = Rise(MinSpan(rig), drop);
                         // if it cannot get down to that ground at all, stand it at its natural offset and let the
@@ -648,7 +661,7 @@ namespace TW.Presentation.Tactical
                 float cspan = MaxSpan(cr);
                 if (cspan <= 1e-4f) continue;
                 float reach = cspan * StepSafety;
-                float cdrop = standNow + cr.Hip.y, chf = i < homeFlat.Length ? homeFlat[i] : reach;
+                float cdrop = standNow + cr.Seat.y, chf = i < homeFlat.Length ? homeFlat[i] : reach;
                 float slack = reach - Mathf.Sqrt(chf * chf + cdrop * cdrop);
                 // A leg the rig cannot stand on at all — `Rise` saturated its home offset to zero AND it is
                 // already past its reach — tracks no ground and must not be allowed to weld the hull level.
@@ -656,8 +669,8 @@ namespace TW.Presentation.Tactical
                 // on every slope, which is the fault this whole change set out to fix.
                 if (chf <= 0f && slack <= 0f) continue;
                 slack = Mathf.Max(0f, slack);
-                capP = Mathf.Min(capP, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.z)));
-                capR = Mathf.Min(capR, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Hip.x)));
+                capP = Mathf.Min(capP, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Seat.z)));
+                capR = Mathf.Min(capR, slack / Mathf.Max(0.25f, Mathf.Abs(cr.Seat.x)));
             }
             // ...but a reachable leg standing at its limit now yields a cap of zero, and a hull welded rigid
             // reads worse than one that leans a little too far. Two degrees is the floor.
@@ -679,7 +692,7 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < rigs.Length; i++)
             {
                 if (rigs[i] == null || Feet[i].Lost || Feet[i].Swing >= 0f) continue;
-                Vector3 arm = tilt * rigs[i].Hip;          // the hip relative to the body's middle, leaning and all
+                Vector3 arm = tilt * rigs[i].Seat;         // the hip relative to the body's middle, leaning and all
                 float dx = Feet[i].Anchor.x - (pos.x + arm.x), dz = Feet[i].Anchor.z - (pos.z + arm.z);
                 float flat = Mathf.Sqrt(dx * dx + dz * dz);
                 ceiling = Mathf.Min(ceiling, Feet[i].Anchor.y + Rise(MaxSpan(rigs[i]) * StepSafety, flat) - arm.y);
@@ -797,7 +810,8 @@ namespace TW.Presentation.Tactical
         {
             if (r.Chain.Length == 1) return r.Reach * StretchMin;
             float upper = r.Bone[0], lower = 0f;
-            for (int k = 1; k < r.Bone.Length; k++) lower += r.Bone[k];
+            int links = r.Held ? 2 : r.Bone.Length;        // a held foot does not reach: the thigh and the shin do
+            for (int k = 1; k < links; k++) lower += r.Bone[k];
             return Mathf.Abs(upper - lower) + 0.02f;
         }
 
@@ -815,8 +829,64 @@ namespace TW.Presentation.Tactical
         {
             if (r.Chain.Length == 1) return r.Reach;
             float sum = 0f;
-            for (int k = 0; k < r.Bone.Length; k++) sum += r.Bone[k];
+            int links = r.Held ? 2 : r.Bone.Length;        // measured from LegRig.Seat, which has the foot in it
+            for (int k = 0; k < links; k++) sum += r.Bone[k];
             return sum;
+        }
+
+        /// <summary>How far out a held leg stands at most, as a share of what it can reach at its ride height
+        /// (Stand): the rest is room for the foot to trail before the leg runs out.</summary>
+        public const float HeldStance = 0.75f;
+
+        /// <summary>A held leg (TankModel.HeldFeet): the foot stays the way it was modelled, upright in the WORLD and
+        /// turned with the body's heading, so while it stands it neither swings with its shin nor tips with the hull;
+        /// the thigh and the shin put its ankle where that foot needs it. When the ankle is out of their reach the
+        /// foot leans toward the hip by as little as brings it back in, which is the heel coming up as a leg runs
+        /// out and the toe rolling off. False when even a foot laid along the leg cannot reach (the body has outrun
+        /// it): the caller then draws the leg the way every other jointed leg is drawn, long.</summary>
+        bool SolveHeld(TankModel.LegRig rig, Matrix4x4 bodyToWorld, Vector3 want, Vector3 dn)
+        {
+            float upper = rig.Bone[0], lower = rig.Bone[1];
+            float far = upper + lower - 1e-3f, near = Mathf.Abs(upper - lower) + 1e-3f;
+            Vector3 ahead = bodyToWorld.MultiplyVector(Vector3.forward);
+            Quaternion level = Quaternion.Inverse(bodyToWorld.rotation) * Quaternion.AngleAxis(Mathf.Atan2(ahead.x, ahead.z) * Mathf.Rad2Deg, Vector3.up);
+            Quaternion hold = level * rig.RestRot[2];
+            Quaternion foot = hold;
+            Vector3 ankle = want - foot * rig.Toe;
+            if ((ankle - rig.Hip).magnitude > far)
+            {
+                Quaternion along = Quaternion.FromToRotation(rig.RestDir[2], dn) * rig.RestRot[2];
+                if ((want - along * rig.Toe - rig.Hip).magnitude > far) return false;
+                float lo = 0f, hi = 1f;                   // the least lean that reaches
+                for (int k = 0; k < 12; k++)
+                {
+                    float mid = (lo + hi) * 0.5f;
+                    if ((want - Quaternion.Slerp(hold, along, mid) * rig.Toe - rig.Hip).magnitude > far) lo = mid; else hi = mid;
+                }
+                foot = Quaternion.Slerp(hold, along, hi);
+                ankle = want - foot * rig.Toe;
+            }
+            Vector3 d = ankle - rig.Hip;
+            float dist = d.magnitude;
+            if (dist < 1e-4f) return false;
+            Vector3 dir = d / dist;
+            float reach = Mathf.Clamp(dist, near, far);
+            float cos = Mathf.Clamp((upper * upper + reach * reach - lower * lower) / (2f * upper * reach), -1f, 1f);
+            float alpha = Mathf.Acos(cos) * Mathf.Rad2Deg;
+            Vector3 axis = Vector3.Cross(dir, Vector3.up);
+            if (axis.sqrMagnitude < 1e-4f) axis = Vector3.Cross(dir, rig.Outward);
+            if (axis.sqrMagnitude < 1e-4f) axis = Vector3.right;
+            axis.Normalize();
+            // the knee on the side that raises it, as on every jointed leg
+            Vector3 up0 = Quaternion.AngleAxis(alpha, axis) * dir, up1 = Quaternion.AngleAxis(-alpha, axis) * dir;
+            Vector3 upperDir = up0.y > up1.y ? up0 : up1;
+            Vector3 knee = rig.Hip + upperDir * upper;
+            Vector3 lowerDir = ankle - knee;
+            lowerDir = lowerDir.sqrMagnitude > 1e-6f ? lowerDir.normalized : dir;
+            bone[0] = Quaternion.FromToRotation(rig.RestDir[0], upperDir) * rig.RestRot[0];
+            bone[1] = Quaternion.FromToRotation(rig.RestDir[1], lowerDir) * rig.RestRot[1];
+            bone[2] = foot;
+            return true;
         }
 
         /// <summary>How high a hip must sit above a foot that is `flat` metres away from it horizontally, for a span
@@ -856,6 +926,10 @@ namespace TW.Presentation.Tactical
                 if (n == 1)
                 {
                     bone[0] = Quaternion.FromToRotation(rig.RestDir[0], dn) * rig.RestRot[0];
+                }
+                else if (rig.Held && n == 3 && SolveHeld(rig, bodyToWorld, want, dn))
+                {
+                    // thigh, shin and a foot held as modelled: the three are set, and nothing is drawn long
                 }
                 else
                 {
