@@ -44,7 +44,8 @@ namespace TW.Editor
         public static string Setup(int archetype = 6, int riders = 8, float x = -1f, float z = -1f, int team = 0, float yawDeg = 0f, bool climb = true)
         {
             var h = Host; if (h == null || h.Local == null) return "no SimHost / not in Play";
-            if (!ChassisKind.IsArmoured(RosterEntry.ForArchetype((byte)archetype).Chassis)) return "archetype " + archetype + " is not a vehicle (4, 5 tanks; 6..11 walkers)";
+            // the match's own table, not the shipped ids: ForArchetype knows nothing past the Redoubt (the Bullfrog was refused, 2026-10-07)
+            if (!ChassisKind.IsArmoured(h.Local.World.ChassisOf((byte)archetype))) return "archetype " + archetype + " is not a vehicle in this match's unit table";
             var size = h.Local.Map.SizeMeters;
             if (x < 0f) x = size.x * 0.5f;
             if (z < 0f) z = size.y * 0.45f;
