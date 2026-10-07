@@ -49,6 +49,18 @@ namespace TW.Presentation
     {
         public static readonly ClipInfo[] Table = Build();
 
+        // The table is readonly but its ROWS are written: Apply overwrites every length with the loaded atlas's own.
+        // Those lengths outlive the Play session that loaded that atlas (the domain is not reloaded on leaving Play),
+        // so the next thing the editor runs — the next bake, a test — would time its clips to the last atlas seen.
+        static Clips() => SceneStatics.Register(nameof(Clips), Reset);
+
+        /// <summary>Put the built table back: forget the lengths an atlas lent it (SceneStatics, when Play ends).</summary>
+        public static void Reset()
+        {
+            var built = Build();
+            for (int c = 0; c < Table.Length && c < built.Length; c++) Table[c] = built[c];
+        }
+
         /// <summary>The bake's own lengths replace the table's estimates (VATRenderer, once the atlas is loaded).</summary>
         public static void Apply(float[] rowSeconds)
         {
