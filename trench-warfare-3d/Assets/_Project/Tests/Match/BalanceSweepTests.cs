@@ -11,7 +11,8 @@
 //  - "harness": the match's own footing, not a number of the game (Harness). Sea = false: nobody lands by boat, so
 //    seat 1's men walk up from their spawn point as seat 0's do (the sea lift is taken off the world before its first
 //    tick; the ground, the beach and the stores boat stay). FieldSeed: another ground of the same kind (the scene's
-//    is 1917). Bombardment: the ambient shells a minute (the scene's 8). A match only.
+//    is 1917). Bombardment: the ambient shells a minute (the scene's 8). WindZ: the wind along the field in m/s
+//    (the scene's -1: gas and smoke drift toward seat 0). A match only.
 // An unknown unit, field or value throws with its name: a sweep that silently changed nothing reads as "no effect".
 // Two scenarios, both the gate's own harnesses, neither copied:
 //  - match: MatchLoopTests.Play, the scene's ground and economy, by default the script on both seats; with swapSeats
@@ -68,8 +69,9 @@ namespace TW.Tests
         [Serializable] public class Variant { public string name; public Patch[] patches; }
         /// <summary>What a "harness" patch turns: the footing of the match, which is the sweep's and no number of the
         /// game. Sea: seat 1 lands its men by boat (the scene's field); false, both sides walk up from a spawn point.
-        /// FieldSeed: the ground (the scene's ShelledForest 1917). Bombardment: ambient shells a minute (the scene's 8).</summary>
-        public class Harness { public bool Sea = true; public uint FieldSeed = 1917u; public float Bombardment = 8f; }
+        /// FieldSeed: the ground (the scene's ShelledForest 1917). Bombardment: ambient shells a minute (the scene's 8).
+        /// WindZ: the map's wind along the field, m/s (the scene's -1, toward seat 0's rear).</summary>
+        public class Harness { public bool Sea = true; public uint FieldSeed = 1917u; public float Bombardment = 8f, WindZ = -1f; }
         [Serializable]
         public class Spec
         {
@@ -268,6 +270,11 @@ namespace TW.Tests
             public readonly int[] FrontMax = new int[2], Checks = new int[2], Odds2 = new int[2], Odds3 = new int[2];
             // what the scripts said they did
             public readonly int[] Orders = new int[2], Barrages = new int[2], Sos = new int[2];
+            // who killed the dead (by the killer's class; KilledByNoMan: a shell, gas, fire), from where and how far
+            public readonly int[][] KilledBy = { new int[Archetypes.Count], new int[Archetypes.Count] }; public readonly int[] KilledByNoMan = new int[2];
+            public readonly int[] ShotFromTrench = new int[2], Shot = new int[2]; public readonly double[] ShotRange = new double[2];
+            // minute by minute: the living, the dead so far, the front garrison
+            public readonly List<int>[] AliveAt = { new List<int>(), new List<int>() }, DeadAt = { new List<int>(), new List<int>() }, FrontAt = { new List<int>(), new List<int>() };
         }
 
         static void Heard(Watch x, int seat, string said)
@@ -390,6 +397,12 @@ namespace TW.Tests
                     x.Where[team][Zone(x, team, was, ev[k].Pos.z)]++;
                     int why = ev[k].B;
                     x.Cause[team][why >= 0 ? 0 : why == (int)DeathCause.Blast ? 1 : why == (int)DeathCause.Gas ? 2 : 3]++;
+                    if (why >= 0 && why < w.Archetype.Length) x.KilledBy[team][w.Archetype[why]]++; else x.KilledByNoMan[team]++;
+                    if (why >= 0 && why < w.Position.Length)
+                    {
+                        x.Shot[team]++; x.ShotRange[team] += math.distance(w.Position[why].xz, ev[k].Pos.xz);
+                        if (x.WasIn[why] >= 0 || w.TrenchId[why] >= 0) x.ShotFromTrench[team]++;
+                    }
                     if (x.BoughtAt[slot] >= 0) { x.DiedOnTheWay[team]++; x.BoughtAt[slot] = -1; }
                 }
             }
@@ -429,6 +442,17 @@ namespace TW.Tests
                     if (mine >= 8 && mine >= 2 * held) x.Odds2[t]++;
                     if (mine >= 8 && mine >= 3 * held) x.Odds3[t]++;
                 }
+            if (w.Tick % 1200 == 0)
+            {
+                var alive = new int[2];
+                for (int i = 0; i < w.HighWater; i++)
+                    if (w.IsAlive(i) && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0) alive[w.Team[i] & 1]++;
+                for (int t = 0; t < 2; t++)
+                {
+                    short front = t == 0 ? f0 : f1;
+                    x.AliveAt[t].Add(alive[t]); x.DeadAt[t].Add(x.LostOpen[t] + x.LostTrench[t]); x.FrontAt[t].Add(front >= 0 ? trenches[front].GarrisonCount : 0);
+                }
+            }
             for (int at = 0; at < MixTicks.Length; at++)
                 if (w.Tick == MixTicks[at])
                 {
@@ -490,6 +514,10 @@ namespace TW.Tests
                 return $"{{\"checks\":{x.Checks[t]},\"mean\":{mean.ToString("F2", Inv)},\"sd\":{sd.ToString("F2", Inv)},\"max\":{x.FrontMax[t]},\"odds2\":{x.Odds2[t]},\"odds3\":{x.Odds3[t]}}}";
             }));
             sb.Append(",\"orders\":" + Ints(x.Orders) + ",\"barrages\":" + Ints(x.Barrages) + ",\"sos\":" + Ints(x.Sos));
+            sb.Append(",\"killed_by\":" + Both(t => Classes(x.KilledBy[t])) + ",\"killed_by_no_man\":" + Ints(x.KilledByNoMan));
+            sb.Append(",\"shot\":" + Ints(x.Shot) + ",\"shot_from_trench\":" + Ints(x.ShotFromTrench)
+                + ",\"shot_range_m\":" + Both(t => (x.Shot[t] > 0 ? x.ShotRange[t] / x.Shot[t] : 0.0).ToString("F1", Inv)));
+            sb.Append(",\"alive_by_minute\":" + Both(t => Ints(x.AliveAt[t])) + ",\"dead_by_minute\":" + Both(t => Ints(x.DeadAt[t])) + ",\"front_by_minute\":" + Both(t => Ints(x.FrontAt[t])));
             sb.Append(",\"assaults\":" + Ints(x.Assaults) + ",\"captures\":" + Ints(x.Captures) + ",\"machines\":" + Ints(x.Machines) + "}");
             return sb.ToString();
         }
@@ -518,6 +546,7 @@ namespace TW.Tests
                     if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0;
                     // both sides walk: a deploy the lift does not take stands its man at the spawn point (SimWorld.Deploy)
                     if (!harness.Sea) m.World.SeaLift = null;
+                    if (harness.WindZ != -1f) m.Map.Wind = new float2(m.Map.Wind.x, harness.WindZ);
                     ApplyUnits(m, v);
                 },
                 ground => { ground.Seed = harness.FieldSeed; ground.Bombardment = harness.Bombardment; return ground; });
