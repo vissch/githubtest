@@ -19,9 +19,11 @@ nothing is committed: BalanceSweepTests.Report_TheSweep writes each variant into
      "targets": {"win_a": [0.4, 0.6]}}     the band a metric's mean should sit in; none: it only reports
 
 A patch is one of {"unit": NAME, "field": PATH, "set"|"mul": V}, {"config": FIELD, "set"|"mul": V},
-{"script_a"|"script_b": FIELD, "set"|"mul": V}. A LIST for V is a grid: the variant becomes one per value, named
-name@value (two grids in one variant: every pair). Side "a" is whoever the config's FactionA / LoadoutA and script_a
-belong to, on either seat. A wrong unit, field or value fails the run with its name.
+{"script_a"|"script_b": FIELD, "set"|"mul": V}, {"harness": FIELD, "set": V}. A LIST for V is a grid: the variant
+becomes one per value, named name@value (two grids in one variant: every pair). Side "a" is whoever the config's
+FactionA / LoadoutA and script_a belong to, on either seat. A wrong unit, field or value fails the run with its name.
+"harness" is the match's footing, not a number of the game: {"harness": "Sea", "set": false} lands nobody by boat, so
+seat 1's men walk up from a spawn point as seat 0's do (BalanceSweepTests.Harness; a match only).
 
 run: the baseline ("now": the base patches only) and every variant, --chunk variants to an editor launch, into
 %LOCALAPPDATA%\\TrenchWarfare\\sweeps\\<yyyyMMdd-HHmm>-<sha>\\ (outside every checkout; the newest 8 kept, a folder
@@ -49,7 +51,7 @@ import abtest  # noqa: E402  (the batch test runner, the editor lock and the res
 PROJECT, REPO = abtest.PROJECT, abtest.REPO
 FILTER = 'TW.Tests.BalanceSweepTests.Report_TheSweep'
 KEEP = 8
-SIDES = ('unit', 'config', 'script_a', 'script_b')
+SIDES = ('unit', 'config', 'script_a', 'script_b', 'harness')
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._=@+-]*$')
 SPEC_KEYS = {'about', 'scenario', 'policy', 'minutes', 'swap_seats', 'heroes', 'seeds', 'base', 'ladder', 'variants', 'targets'}
 RUNG_KEYS = {'attackers', 'defenders', 'support', 'gunners', 'attack_guns', 'guns_cover'}
