@@ -160,7 +160,8 @@ namespace TW.Presentation.Tactical
         {
             ("Pincer", VehicleArchetype.Pincer, "Body", VehicleSize.Walker, 0f), ("Kettle", VehicleArchetype.Kettle, "Body", VehicleSize.Walker, 0f),
             ("Censer", VehicleArchetype.Censer, "Body", VehicleSize.Walker, 0f), ("Pavise", VehicleArchetype.Pavise, "Body", VehicleSize.Walker, 0f),
-            ("Banner", VehicleArchetype.Banner, "Body", VehicleSize.Walker, 0f), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, 0f),
+            // the Banner is cut again to the standard (2026-10-07): its root part is the Hull
+            ("Banner", VehicleArchetype.Banner, "Hull", VehicleSize.Walker, 0f), ("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker, 0f),
             ("Skimmer", VehicleArchetype.Skimmer, "Hull", 1f, HoverLift),    // 7 m across its pods
             ("Salvo", VehicleArchetype.Salvo, "Hull", 1f, 0f),       // 8 m long; its rockets are the sim's (TankSpec.Rockets, TankRenderer.Salvo.cs)
             // the playground's four (2026-09-28), written in metres by the splitters' TW_BATTLE=1 (Tools/battleform.py)

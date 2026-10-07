@@ -308,7 +308,7 @@ namespace TW.Tests
             {
                 ("Maw", VehicleArchetype.Maw, "Hull"), ("Tusk", VehicleArchetype.Tusk, "Hull"),
                 ("Pincer", VehicleArchetype.Pincer, "Body"), ("Kettle", VehicleArchetype.Kettle, "Body"), ("Censer", VehicleArchetype.Censer, "Body"),
-                ("Pavise", VehicleArchetype.Pavise, "Body"), ("Banner", VehicleArchetype.Banner, "Body"), ("Redoubt", VehicleArchetype.Redoubt, "Body"),
+                ("Pavise", VehicleArchetype.Pavise, "Body"), ("Banner", VehicleArchetype.Banner, "Hull"), ("Redoubt", VehicleArchetype.Redoubt, "Body"),
                 ("Skimmer", VehicleArchetype.Skimmer, "Hull"), ("Salvo", VehicleArchetype.Salvo, "Hull"),
             };
             foreach (var (name, archetype, _) in Four) all.Add((name, archetype, "Hull"));

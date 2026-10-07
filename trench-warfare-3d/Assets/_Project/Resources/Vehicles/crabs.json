@@ -774,37 +774,45 @@
      "lod": 0,
      "parts": [
       "Banner",
-      "Body",
-      "Claw_L",
-      "Claw_R",
+      "Foot_L1",
+      "Foot_L2",
+      "Foot_R1",
+      "Foot_R2",
       "Gun",
-      "Shin_LF",
-      "Shin_RF",
-      "Thigh_LB",
-      "Thigh_LF",
-      "Thigh_RB",
-      "Thigh_RF"
+      "Hull",
+      "Shin_L1",
+      "Shin_L2",
+      "Shin_R1",
+      "Shin_R2",
+      "Thigh_L1",
+      "Thigh_L2",
+      "Thigh_R1",
+      "Thigh_R2"
      ],
-     "verts": 967,
-     "tris": 1645
+     "verts": 1021,
+     "tris": 1745
     },
     {
      "lod": 1,
      "parts": [
       "Banner",
-      "Body",
-      "Claw_L",
-      "Claw_R",
+      "Foot_L1",
+      "Foot_L2",
+      "Foot_R1",
+      "Foot_R2",
       "Gun",
-      "Shin_LF",
-      "Shin_RF",
-      "Thigh_LB",
-      "Thigh_LF",
-      "Thigh_RB",
-      "Thigh_RF"
+      "Hull",
+      "Shin_L1",
+      "Shin_L2",
+      "Shin_R1",
+      "Shin_R2",
+      "Thigh_L1",
+      "Thigh_L2",
+      "Thigh_R1",
+      "Thigh_R2"
      ],
-     "verts": 647,
-     "tris": 1021
+     "verts": 663,
+     "tris": 1045
     }
    ],
    "size_m": [
@@ -813,63 +821,115 @@
     3.3983
    ],
    "pivots": {
-    "Claw_L": [
-     -0.8052,
-     0.5312,
-     0.6516
+    "Thigh_R1": [
+     0.152,
+     0.6632,
+     -0.4779
     ],
-    "Claw_R": [
-     0.8052,
-     0.5312,
-     0.6516
+    "Shin_R1": [
+     0.6525,
+     0.745,
+     -0.8215
     ],
-    "Banner": [
-     0.293,
-     2.6961,
-     -1.1364
+    "Foot_R1": [
+     0.8934,
+     0.31,
+     -0.9575
+    ],
+    "Thigh_R2": [
+     0.178,
+     0.607,
+     0.083
+    ],
+    "Shin_R2": [
+     0.5885,
+     0.952,
+     0.471
+    ],
+    "Foot_R2": [
+     0.8124,
+     0.44,
+     0.7435
+    ],
+    "Thigh_L1": [
+     -0.152,
+     0.6632,
+     -0.4779
+    ],
+    "Shin_L1": [
+     -0.6525,
+     0.745,
+     -0.8215
+    ],
+    "Foot_L1": [
+     -0.8934,
+     0.31,
+     -0.9575
+    ],
+    "Thigh_L2": [
+     -0.178,
+     0.607,
+     0.083
+    ],
+    "Shin_L2": [
+     -0.5885,
+     0.952,
+     0.471
+    ],
+    "Foot_L2": [
+     -0.8124,
+     0.44,
+     0.7435
+    ],
+    "Hull": [
+     -0.0,
+     0.0,
+     -0.0
     ],
     "Gun": [
      -0.0,
      1.201,
      -0.0
     ],
-    "Thigh_LB": [
-     -0.8359,
-     0.943,
-     -0.9338
-    ],
-    "Thigh_RB": [
-     0.8359,
-     0.943,
-     -0.9338
-    ],
-    "Thigh_LF": [
-     -0.3727,
-     0.6541,
-     0.259
-    ],
-    "Shin_LF": [
-     -0.7504,
-     0.3968,
-     0.6765
-    ],
-    "Thigh_RF": [
-     0.3727,
-     0.6541,
-     0.259
-    ],
-    "Shin_RF": [
-     0.7504,
-     0.3968,
-     0.6765
-    ],
-    "Body": [
-     -0.0,
-     0.0,
-     -0.0913
+    "Banner": [
+     0.293,
+     2.6961,
+     -1.1364
     ]
    },
    "sockets": {
+    "Socket_Toe_R1": {
+     "part": "Foot_R1",
+     "pos": [
+      0.8774,
+      0.0034,
+      -0.9537
+     ]
+    },
+    "Socket_Toe_R2": {
+     "part": "Foot_R2",
+     "pos": [
+      0.8127,
+      -0.0001,
+      0.7346
+     ]
+    },
+    "Socket_Toe_L1": {
+     "part": "Foot_L1",
+     "pos": [
+      -0.8774,
+      0.0034,
+      -0.9537
+     ]
+    },
+    "Socket_Toe_L2": {
+     "part": "Foot_L2",
+     "pos": [
+      -0.8127,
+      -0.0001,
+      0.7346
+     ]
+    },
     "Socket_Muzzle": {
      "part": "Gun",
      "pos": [
@@ -879,7 +939,7 @@
      ]
     },
     "Socket_Eye": {
-     "part": "Body",
+     "part": "Hull",
      "pos": [
       -0.0,
       0.6736,
@@ -887,7 +947,7 @@
      ]
     },
     "Socket_Fire": {
-     "part": "Body",
+     "part": "Hull",
      "pos": [
       -0.0,
       0.8666,
@@ -895,7 +955,7 @@
      ]
     },
     "Socket_Exhaust": {
-     "part": "Body",
+     "part": "Hull",
      "pos": [
       -0.0,
       0.6739,
@@ -904,23 +964,83 @@
     }
    },
    "parents": {
-    "Claw_L": "Body",
-    "Claw_R": "Body",
-    "Banner": "Body",
-    "Gun": "Body",
-    "Thigh_LB": "Body",
-    "Thigh_RB": "Body",
-    "Thigh_LF": "Body",
-    "Shin_LF": "Thigh_LF",
-    "Thigh_RF": "Body",
-    "Shin_RF": "Thigh_RF"
+    "Thigh_R1": "Hull",
+    "Shin_R1": "Thigh_R1",
+    "Foot_R1": "Shin_R1",
+    "Thigh_R2": "Hull",
+    "Shin_R2": "Thigh_R2",
+    "Foot_R2": "Shin_R2",
+    "Thigh_L1": "Hull",
+    "Shin_L1": "Thigh_L1",
+    "Foot_L1": "Shin_L1",
+    "Thigh_L2": "Hull",
+    "Shin_L2": "Thigh_L2",
+    "Foot_L2": "Shin_L2",
+    "Banner": "Hull",
+    "Gun": "Hull"
    },
    "legs": [
-    "Thigh_LB",
-    "Thigh_LF",
-    "Thigh_RB",
-    "Thigh_RF"
-   ]
+    "Thigh_L1",
+    "Thigh_L2",
+    "Thigh_R1",
+    "Thigh_R2"
+   ],
+   "recut": {
+    "standard": "PLAN_model_cutting 2026-10-07",
+    "from": "the near model in the game",
+    "root": "Hull",
+    "joint_tol": 0.02,
+    "joints": {
+     "Foot_L1": {
+      "off_parent": 0.0,
+      "off_own": -0.0601
+     },
+     "Foot_L2": {
+      "off_parent": -0.0256,
+      "off_own": -0.0668
+     },
+     "Foot_R1": {
+      "off_parent": 0.0,
+      "off_own": -0.0601
+     },
+     "Foot_R2": {
+      "off_parent": -0.0256,
+      "off_own": -0.0668
+     },
+     "Shin_L1": {
+      "off_parent": -0.0939,
+      "off_own": 0.086
+     },
+     "Shin_L2": {
+      "off_parent": -0.0898,
+      "off_own": 0.1183
+     },
+     "Shin_R1": {
+      "off_parent": -0.0946,
+      "off_own": 0.0861
+     },
+     "Shin_R2": {
+      "off_parent": -0.0898,
+      "off_own": 0.1126
+     },
+     "Thigh_L1": {
+      "off_parent": 0.0,
+      "off_own": -0.0392
+     },
+     "Thigh_L2": {
+      "off_parent": -0.0286,
+      "off_own": -0.0844
+     },
+     "Thigh_R1": {
+      "off_parent": 0.0,
+      "off_own": -0.0392
+     },
+     "Thigh_R2": {
+      "off_parent": -0.0286,
+      "off_own": -0.0844
+     }
+    }
+   }
   },
   "Redoubt": {
    "scale": 3.6,
