@@ -66,6 +66,7 @@ namespace TW.Presentation.Tactical
             var kb = Keyboard.current;
             if (kb == null) return;
             uint t = Host.Local.World.Tick;
+            if (InputFocus.Typing) return;   // he is typing into the feedback box: F1 to F4 are not commands
             if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
             if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
             if (kb.f3Key.wasPressedThisFrame) ViewGoal++;

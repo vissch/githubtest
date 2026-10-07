@@ -1,10 +1,11 @@
 <ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
     <!-- The box for the owner's words after F10 (FeedbackScreen): a plate low on the screen over the held match. No
          tw-screen on it: that class paints the whole screen, and he is writing about what he sees.
-         Loaded from Resources, so no ShellAssets field. -->
+         Loaded from Resources, so no ShellAssets field. The root takes the pointer (picking-mode Position): while he
+         types, a click beside the plate reaches no button of a menu under the box. -->
     <Style src="../../Skin/dustfront.uss" />
     <Style src="../../Shell/Shell.uss" />
-    <ui:VisualElement name="feedback-screen" class="shell-screen shell-feedback" picking-mode="Ignore">
+    <ui:VisualElement name="feedback-screen" class="shell-screen shell-feedback" picking-mode="Position">
         <ui:VisualElement name="feedback-plate" class="tw-panel shell-feedback__plate">
             <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
             <ui:Label name="feedback-title" text="CAPTURED" class="tw-h2 shell-feedback__title" />

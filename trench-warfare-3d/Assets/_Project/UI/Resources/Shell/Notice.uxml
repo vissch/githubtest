@@ -1,0 +1,11 @@
+<ui:UXML xmlns:ui="UnityEngine.UIElements" editor-extension-mode="False">
+    <!-- One line low on the screen for a few seconds (ShellRouter.Notice): what just happened to a feedback capture.
+         It takes no pointer and is no screen of the stack. Loaded from Resources, so no ShellAssets field. -->
+    <Style src="../../Skin/dustfront.uss" />
+    <Style src="../../Shell/Shell.uss" />
+    <ui:VisualElement name="notice-screen" class="shell-screen shell-notice" picking-mode="Ignore">
+        <ui:VisualElement name="notice-plate" class="tw-panel shell-notice__plate" picking-mode="Ignore">
+            <ui:Label name="notice-text" text="" class="tw-caption shell-notice__text" picking-mode="Ignore" />
+        </ui:VisualElement>
+    </ui:VisualElement>
+</ui:UXML>

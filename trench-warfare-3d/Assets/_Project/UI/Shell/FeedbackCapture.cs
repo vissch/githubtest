@@ -10,6 +10,9 @@
 // are in the state file before it moves.
 // The format is Tools/assetboard/feedback.example.json; FeedbackCaptureTests holds this record to it key by key. The
 // field names below ARE the file's keys, which is why they are not spelled as the rest of the code's are.
+// What tells one moment from another (2026-10-07, after the critique): the checkout's branch and commit as they were
+// at the press (read from the .git files, no process started), every man's place in one packed line, what was
+// selected, where the cursor stood and on what ground, the armed ability, and the last errors the console took.
 // Not in a capture: the match itself. It is not recorded (owner, 2026-10-07: "Picture and state only"), so a capture
 // names the seed and the tick and cannot be returned to.
 using System;
@@ -40,6 +43,8 @@ namespace TW.UI
         public GameSettings settings = GameSettings.Defaults();
         /// <summary>Knobs.ToJson(): the run-time knobs that were set and read, as its own JSON in a string.</summary>
         public string knobs = "{}";
+        /// <summary>The last errors and exceptions the console took before the press, oldest first: "HH:mm:ss  first line".</summary>
+        public string[] errors = new string[0];
 
         [Serializable]
         public sealed class Build
@@ -50,6 +55,9 @@ namespace TW.UI
             public string project = "";
             /// <summary>In a build, the build-info.json beside the exe as it is (the commit it was built from), else empty.</summary>
             public string build_info = "";
+            /// <summary>In the editor, the checkout's branch and commit (8 characters) at the press: the board reads them
+            /// later, when the checkout may have moved on. Empty when the project is in no checkout, and in a build.</summary>
+            public string branch = "", commit = "";
         }
 
         [Serializable]
@@ -61,7 +69,7 @@ namespace TW.UI
             public string quality = "";
         }
 
-        [Serializable] public sealed class Units { public int team, archetype, count; }
+        [Serializable] public sealed class Units { public int team, archetype, count; public string name = ""; }
 
         [Serializable]
         public sealed class Match
@@ -77,6 +85,11 @@ namespace TW.UI
             public string holds_before = "None";
             public float speed = 1f;
             public Units[] units = new Units[0];
+            /// <summary>Every man and machine alive, one after another in one line: "slot team archetype x z hp;". A line
+            /// and not an array, so six hundred men are one line of the file and not four thousand.</summary>
+            public string positions = "";
+            /// <summary>The slots he had selected, with spaces between.</summary>
+            public string selected = "";
             public MatchLaunch.Request request = new MatchLaunch.Request();
             public MatchReport report = new MatchReport();
         }
@@ -88,8 +101,15 @@ namespace TW.UI
             public float fov;
             public Vector2 focus;
             public float zoom;
+            /// <summary>The cursor on the screen, in pixels from the bottom left; where it pointed on the ground, when it
+            /// was over the field (cursor_on_ground); the support ability that was armed, or None.</summary>
+            public Vector2 cursor;
+            public bool cursor_on_ground;
+            public Vector3 cursor_ground;
+            public string armed = "None";
         }
 
+        /// <summary>frame_ms is the mean of the frames before the press, not the frame of the press.</summary>
         [Serializable] public sealed class Perf { public float frame_ms; public int draw_calls; public long vertices; public int indirect_draws; }
     }
 
@@ -99,6 +119,7 @@ namespace TW.UI
         public const string EnvVar = "TW_FEEDBACK";
         public const string FileName = "capture.json", ShotName = "shot.png", OpenName = "writing";
         public const int MaxNote = 2000;
+        public const int MaxErrors = 8, MaxErrorLength = 240;
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
 
         /// <summary>The folder captures go in: TW_FEEDBACK, else %LOCALAPPDATA%\TrenchWarfare\feedback.</summary>
@@ -111,7 +132,7 @@ namespace TW.UI
 
         /// <summary>The game as it is now. Reads only: nothing in the match changes. With no host (a menu) the record has
         /// the scene, the settings, the machine and the build, and says in_match false.</summary>
-        public static FeedbackRecord Gather(SimHost host, MatchClock clock, MatchStats stats, Camera cam, DateTime now)
+        public static FeedbackRecord Gather(SimHost host, MatchClock clock, MatchStats stats, Camera cam, DateTime now, HudController hud = null)
         {
             var r = new FeedbackRecord
             {
@@ -125,21 +146,30 @@ namespace TW.UI
             };
             r.build.version = Application.version; r.build.unity = Application.unityVersion; r.build.editor = Application.isEditor;
             string above = Path.GetDirectoryName(Application.dataPath) ?? "";
-            if (Application.isEditor) r.build.project = above.Replace('\\', '/');
+            if (Application.isEditor) { r.build.project = above.Replace('\\', '/'); Checkout(above, r.build); }
             else r.build.build_info = ReadOrEmpty(Path.Combine(above, "build-info.json"));
             r.machine.name = SystemInfo.deviceName; r.machine.gpu = SystemInfo.graphicsDeviceName; r.machine.cpu = SystemInfo.processorType;
             r.machine.ram_mb = SystemInfo.systemMemorySize; r.machine.screen_w = Screen.width; r.machine.screen_h = Screen.height;
             r.machine.fullscreen = Screen.fullScreen;
             int q = QualitySettings.GetQualityLevel(); var names = QualitySettings.names;
             r.machine.quality = q >= 0 && q < names.Length ? names[q] : q.ToString(Inv);
-            r.perf.frame_ms = Time.unscaledDeltaTime * 1000f;
+            r.perf.frame_ms = frameMs > 0f ? frameMs : Time.unscaledDeltaTime * 1000f;
+            r.errors = errors.ToArray();
             r.perf.draw_calls = FrameBudget.DrawCalls; r.perf.vertices = FrameBudget.Vertices; r.perf.indirect_draws = FrameBudget.IndirectDraws;
             if (cam != null)
             {
                 r.view.position = cam.transform.position; r.view.euler = cam.transform.eulerAngles; r.view.fov = cam.fieldOfView;
                 var tc = cam.GetComponent<TacticalCamera>();
                 if (tc != null) { r.view.focus = tc.Focus; r.view.zoom = tc.Zoom; }
+                var panel = cam.GetComponent<TestPanel>();
+                if (panel != null)
+                {
+                    r.view.armed = panel.Armed.ToString();
+                    if (panel.TryGroundPoint(out var ground)) { r.view.cursor_on_ground = true; r.view.cursor_ground = ground; }
+                }
             }
+            var mouse = UnityEngine.InputSystem.Mouse.current;
+            if (mouse != null) r.view.cursor = mouse.position.ReadValue();
             if (host == null || host.Local == null) return r;
 
             var w = host.Local.World;
@@ -152,6 +182,8 @@ namespace TW.UI
             m.holds_before = clock != null ? clock.Holds.ToString() : "None";
             m.speed = clock != null ? clock.Speed : host.TimeScale;
             m.units = Count(w);
+            m.positions = Places(w);
+            if (hud != null && hud.Selection != null) m.selected = Slots(hud.Selection.Model.Items);
             m.request = MatchLaunch.Running ?? MatchLaunch.Request.From(host);
             m.report = stats != null ? stats.Report(m.request) : new MatchReport();
             return r;
@@ -168,8 +200,100 @@ namespace TW.UI
                 by.TryGetValue(key, out int n); by[key] = n + 1;
             }
             var list = new List<FeedbackRecord.Units>(by.Count);
-            foreach (var kv in by) list.Add(new FeedbackRecord.Units { team = kv.Key >> 8, archetype = kv.Key & 0xFF, count = kv.Value });
+            foreach (var kv in by) list.Add(new FeedbackRecord.Units { team = kv.Key >> 8, archetype = kv.Key & 0xFF, count = kv.Value, name = UnitLook.Name((byte)(kv.Key & 0xFF)) ?? "" });
             return list.ToArray();
+        }
+
+        /// <summary>Where everyone alive stands: "slot team archetype x z hp;" for each, metres to one decimal.</summary>
+        static string Places(SimWorld w)
+        {
+            var sb = new System.Text.StringBuilder(w.AliveCount * 24);
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if (!w.IsAlive(i)) continue;
+                var p = w.Position[i];
+                sb.Append(i.ToString(Inv)).Append(' ').Append(((int)w.Team[i]).ToString(Inv)).Append(' ').Append(((int)w.Archetype[i]).ToString(Inv)).Append(' ')
+                  .Append(p.x.ToString("0.#", Inv)).Append(' ').Append(p.z.ToString("0.#", Inv)).Append(' ').Append(w.Hp[i].ToString("0", Inv)).Append(';');
+            }
+            return sb.ToString();
+        }
+
+        static string Slots(IReadOnlyList<UnitHandle> items)
+        {
+            var sb = new System.Text.StringBuilder(items.Count * 5);
+            for (int i = 0; i < items.Count; i++) { if (i > 0) sb.Append(' '); sb.Append(items[i].Slot.ToString(Inv)); }
+            return sb.ToString();
+        }
+
+        // ---- what the game keeps between presses, so a capture can say it -------------------------------------------
+        static float frameMs;
+        static readonly List<string> errors = new List<string>();
+        // kept across scene loads (an error before a restart is still his to report), put back when Play ends
+        static FeedbackCapture() => SceneStatics.Register(nameof(FeedbackCapture), Forget);
+
+        /// <summary>Every frame (the router's Update): the running mean a capture reports as its frame time. The frame of
+        /// the press alone is the worst witness: it is the one the press itself made longer.</summary>
+        public static void Frame(float unscaledSeconds)
+        {
+            float ms = unscaledSeconds * 1000f;
+            frameMs = frameMs <= 0f ? ms : Mathf.Lerp(frameMs, ms, 0.05f);
+        }
+
+        /// <summary>The console's log hook (the router subscribes): errors and exceptions are kept, the last MaxErrors.</summary>
+        public static void Heard(string condition, string stackTrace, LogType type)
+        {
+            if (type != LogType.Error && type != LogType.Exception && type != LogType.Assert) return;
+            string line = (condition ?? "").Split('\n')[0].Trim();
+            if (line.Length > MaxErrorLength) line = line.Substring(0, MaxErrorLength);
+            if (errors.Count >= MaxErrors) errors.RemoveAt(0);
+            errors.Add(DateTime.Now.ToString("HH:mm:ss", Inv) + "  " + line);
+        }
+
+        /// <summary>Nothing heard and no frames counted (a test's clean start).</summary>
+        public static void Forget() { errors.Clear(); frameMs = 0f; }
+
+        /// <summary>The branch and commit of the checkout a project folder is in, from the .git files as they are: HEAD,
+        /// the ref it names, packed-refs. A worktree's .git is a file that names its own folder, whose commondir holds
+        /// the refs. Anything unreadable leaves both empty: the board then reads the checkout itself, later.</summary>
+        public static void Checkout(string project, FeedbackRecord.Build b)
+        {
+            try
+            {
+                string at = project, dot = null;
+                for (int up = 0; up < 4 && !string.IsNullOrEmpty(at); up++, at = Path.GetDirectoryName(at))
+                {
+                    string d = Path.Combine(at, ".git");
+                    if (Directory.Exists(d)) { dot = d; break; }
+                    if (File.Exists(d))
+                    {
+                        string named = File.ReadAllText(d).Trim();
+                        if (named.StartsWith("gitdir:", StringComparison.Ordinal)) dot = Path.GetFullPath(Path.Combine(at, named.Substring(7).Trim()));
+                        break;
+                    }
+                }
+                if (dot == null) return;
+                string head = File.ReadAllText(Path.Combine(dot, "HEAD")).Trim(), sha = head;
+                if (head.StartsWith("ref:", StringComparison.Ordinal))
+                {
+                    string name = head.Substring(4).Trim(), common = dot;
+                    string shared = Path.Combine(dot, "commondir");
+                    if (File.Exists(shared)) common = Path.GetFullPath(Path.Combine(dot, File.ReadAllText(shared).Trim()));
+                    b.branch = name.StartsWith("refs/heads/", StringComparison.Ordinal) ? name.Substring(11) : name;
+                    sha = "";
+                    foreach (string home in new[] { dot, common })
+                    {
+                        string loose = Path.Combine(home, name);
+                        if (File.Exists(loose)) { sha = File.ReadAllText(loose).Trim(); break; }
+                    }
+                    string packed = Path.Combine(common, "packed-refs");
+                    if (sha.Length == 0 && File.Exists(packed))
+                        foreach (string line in File.ReadAllLines(packed))
+                            if (line.EndsWith(" " + name, StringComparison.Ordinal)) { sha = line.Substring(0, line.IndexOf(' ')); break; }
+                }
+                else b.branch = "HEAD";
+                b.commit = sha.Length >= 8 ? sha.Substring(0, 8) : "";
+            }
+            catch (Exception) { b.branch = ""; b.commit = ""; }
         }
 
         static string ReadOrEmpty(string path)
@@ -182,13 +306,34 @@ namespace TW.UI
         /// (the record's id follows). The folder is marked open: call Done when his words are in.</summary>
         public static string Write(FeedbackRecord r, string root = null)
         {
+            string dir = Claim(r, root);
+            try { Save(r, dir); }
+            catch (Exception) { Withdraw(dir); throw; }
+            return dir;
+        }
+
+        /// <summary>The folder a new capture goes in, made and marked open, before anything is written into it: whoever
+        /// asks holds its name from here on, so a write that fails later has a folder to take back (Withdraw).</summary>
+        public static string Claim(FeedbackRecord r, string root = null)
+        {
             root = string.IsNullOrEmpty(root) ? Root() : root;
             string stem = r.id, dir = Path.Combine(root, stem);
             for (int n = 2; Directory.Exists(dir); n++) { r.id = stem + "-" + n.ToString(Inv); dir = Path.Combine(root, r.id); }
             Directory.CreateDirectory(dir);
             File.WriteAllText(Path.Combine(dir, OpenName), "");
-            Save(r, dir);
             return dir;
+        }
+
+        /// <summary>A capture went wrong part way. With a state file it stands as it is and is closed; without one it is
+        /// nothing the board can read, and a folder left marked open would sit there for ever: it is removed.</summary>
+        public static void Withdraw(string dir)
+        {
+            try
+            {
+                if (File.Exists(Path.Combine(dir, FileName))) { Done(dir); return; }
+                if (Directory.Exists(dir)) Directory.Delete(dir, true);
+            }
+            catch (Exception e) { Debug.LogWarning($"FeedbackCapture: could not take back {dir}: {e.Message}"); }
         }
 
         /// <summary>The state file, whole or not at all (written beside it and swapped in, as the settings are).</summary>

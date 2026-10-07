@@ -56,6 +56,12 @@
 .shell-feedback__note { margin: 0; }
 .shell-feedback__note .unity-text-field__input { min-height: 84px; white-space: normal; -unity-text-align: upper-left; }
 .shell-feedback__row { justify-content: flex-end; margin-top: 10px; }
+/* what he selects in the field reads on the dark plate (the default is dark blue on near black) */
+.shell-feedback__note .unity-text-field__input { --unity-selection-color: rgba(214, 162, 74, 0.45); --unity-cursor-color: rgb(236, 226, 204); }
+/* the line that says what happened to a capture (ShellRouter.Notice): where the box was, so his eye is already there */
+.shell-notice { justify-content: flex-end; padding-bottom: 232px; }
+.shell-notice__plate { padding: 10px 28px; max-width: 86%; }
+.shell-notice__text { white-space: normal; -unity-text-align: middle-center; color: var(--tw-accent); }
 
 .shell-settings { width: 1100px; height: 760px; }
 .shell-tabs { flex-direction: row; margin-bottom: 10px; }
