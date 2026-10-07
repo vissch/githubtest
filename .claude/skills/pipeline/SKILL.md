@@ -46,8 +46,13 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | gym (proving ground for every role) | `tw-gym` | desktop (runs); either (reading) |
 | lowpoly | `tw-lowpoly` | desktop (Blender) |
 | housekeeping | `tw-housekeeping`: after every long job | both |
+| reviewer (code review, second reader of a fix) | `tw-review` | either |
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
+
+Three of these jobs are also agents a session starts by name (`.claude/agents/`), each with its model and its
+skill fixed: `tw-critic` (a critic round, Opus), `tw-reviewer` (a review unit or a second reader, Opus), `tw-scout`
+(search and mapping, Sonnet). Start those, not a general agent with a prompt written fresh.
 
 ## The learning loop (Brief 2 §B5; every role runs it)
 "Allways make loops of learning and improving" (the owner). Lessons live in **one file**, `tw3d-board/lessons.md`: one
