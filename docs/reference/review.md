@@ -62,7 +62,7 @@ fix with every file that is not a test put back, so the new tests meet the code 
 | It prints | Means |
 |---|---|
 | `PROVED` | red on the old code, green on the fix |
-| `WEAK` | red on the old code only because the old code lacks a name the test uses: not proof of the bug |
+| `WEAK` | not shown red on the old code: the test did not run there (the old code does not compile with it, or its runner stopped before it). Not proof of the bug; the `note` lines say what the runner printed |
 | `NO TEST` | a commit says why there is none |
 | `UNCHECKED` | its tests need Unity and none was given, or a tagged test was not found by its name. Never a pass |
 | `FAIL` | green on the old code too (the test cannot fail), red on the fix, no test and no reason, or no commit names it |
