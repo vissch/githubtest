@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block bodyclass %}overview c-screen{% endblock %}
-{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css"><link rel="stylesheet" href="decide.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css"><link rel="stylesheet" href="decide.css"><link rel="stylesheet" href="tasks.css">{% endblock %}
 {% block main %}
 {% set counts = {} %}{% for status, group in sections %}{% set _ = counts.update({status: group|length}) %}{% endfor %}
 {# The control screen: one page that says who is at work on what, what waits on the owner and how the day went.
@@ -44,6 +44,12 @@
 <section class="k-queue" id="queue" hidden>
   <header class="k-head"><h2 class="k-h-one">Needs you <span class="k-soft k-wide-only">· newest first</span></h2></header>
   <div class="k-qgrid" id="queue-cards"></div>
+</section>
+
+<section class="k-queue" id="tasks" hidden>
+  <header class="k-head"><h2 class="k-h-one">Left unfinished <span class="k-soft k-wide-only">· nobody on it for an hour and a half</span></h2>
+    <p class="k-stamp"><a href="tasks.html">the task board &rarr;</a></p></header>
+  <div class="k-qgrid" id="tasks-cards"></div>
 </section>
 
 <section class="k-office g-page c-graphs" id="graphs">
@@ -130,4 +136,4 @@
   {% endfor %}
 </section>
 {% endblock %}
-{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/briefs.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="office.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="charts.js"></script><script src="control.js"></script>{% endblock %}
+{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/briefs.js"></script><script src="data/tasks.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="office.js"></script><script src="tasks.js"></script><script src="taskboard.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="charts.js"></script><script src="control.js"></script>{% endblock %}

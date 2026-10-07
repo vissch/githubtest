@@ -1,0 +1,70 @@
+{
+ "schema": "tw-feedback/1",
+ "id": "2026-10-07-211403",
+ "when_local": "2026-10-07 21:14:03",
+ "when_utc": "2026-10-07T19:14:03Z",
+ "note": "The tank drove through the wire and the wire stayed up.",
+ "shot": "shot.png",
+ "scene": "GreyboxCorridor",
+ "in_match": true,
+ "hud_toolkit": true,
+ "build": {
+  "version": "1.0",
+  "unity": "6000.0.50f1",
+  "editor": true,
+  "project": "C:/Users/someone/Documents/GitHub/githubtest/trench-warfare-3d",
+  "build_info": ""
+ },
+ "machine": {
+  "name": "MSI",
+  "gpu": "NVIDIA GeForce RTX 4070",
+  "cpu": "13th Gen Intel(R) Core(TM) i7-13700H",
+  "ram_mb": 32474,
+  "screen_w": 1920,
+  "screen_h": 1080,
+  "fullscreen": false,
+  "quality": "High"
+ },
+ "match": {
+  "tick": 5400,
+  "tick_seconds": 0.03333334,
+  "winner": -1,
+  "silver": [320, 410],
+  "alive": 212,
+  "high_water": 640,
+  "hash": "9f3c1d2a44b07e51",
+  "holds_before": "None",
+  "speed": 1.0,
+  "units": [
+   {"team": 0, "archetype": 0, "count": 96},
+   {"team": 0, "archetype": 4, "count": 2},
+   {"team": 1, "archetype": 0, "count": 110},
+   {"team": 1, "archetype": 5, "count": 4}
+  ],
+  "request": {
+   "MissionId": "m1",
+   "Title": "THE SHELLED FOREST",
+   "Difficulty": "REGULAR",
+   "BattlefieldSeed": 1917
+  },
+  "report": {
+   "Winner": -1,
+   "DurationSeconds": 180.0
+  }
+ },
+ "view": {
+  "position": {"x": 12.5, "y": 31.0, "z": 48.25},
+  "euler": {"x": 25.0, "y": 291.0, "z": 0.0},
+  "fov": 25.0,
+  "focus": {"x": 45.0, "y": 71.0},
+  "zoom": 30.0
+ },
+ "perf": {
+  "frame_ms": 16.9,
+  "draw_calls": 212,
+  "vertices": 1184220,
+  "indirect_draws": 14
+ },
+ "settings": {},
+ "knobs": "{}"
+}

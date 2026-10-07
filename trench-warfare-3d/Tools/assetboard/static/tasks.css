@@ -1,0 +1,33 @@
+/* The task board (tasks.html, and its block on the control screen; tasks.js, taskboard.js): the tasks agents left
+   unfinished, a row each, grouped by what they are. In the look of kinetic.css, whose tokens and row parts are used:
+   the queue's rows, with a line of what the task was under the title and a larger picture on a capture, since the
+   picture is the feedback. Its own file: kinetic.css is a log of review rounds. */
+.t-page .k-head { margin-bottom: 18px; }
+.t-page .k-head h2 .k-soft { white-space: normal; }
+.t-count { color: var(--k-soft); font: 500 14px var(--sans); margin: 10px 0 0; }
+.t-foot { color: var(--t-low); font: 400 13px/1.45 var(--sans); margin: 26px 0 0; max-width: 90ch; }
+.t-none { margin: 0; color: var(--t-body); font: 500 15px/1.5 var(--sans); max-width: 60ch; }
+.t-group + .t-group { margin-top: 28px; }
+.t-h { margin: 0 0 10px; display: flex; align-items: baseline; gap: 10px; color: var(--t-body); font: 600 12px var(--sans); text-transform: uppercase; letter-spacing: .1em; }
+.t-n { color: var(--t-low); font: 600 12px var(--sans); font-variant-numeric: tabular-nums; }
+.t-rows { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 400px), 1fr)); gap: 8px; align-items: start; }
+.k-qrow.t-row { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 14px; padding: 10px 12px; border: 1px solid transparent; }
+.k-qrow.t-row.t-shown { grid-template-columns: 168px minmax(0, 1fr); padding-left: 10px; }
+.k-qrow.t-row:hover, .k-qrow.t-row:focus-visible { border-color: var(--k-fire); }
+.t-row .k-qshot { width: 168px; height: 95px; }
+.t-row .k-take-what { gap: 4px; }
+.t-row .k-take-top { white-space: normal; font: 600 15px/1.25 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.t-sub { color: var(--t-soft); font: 400 13px/1.4 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.t-row.t-queued { border-left: 3px solid var(--k-fire2); }
+.k-qchip.t-state { background: var(--k-fire2); color: #2a1600; }
+/* a capture: fewer to a line and a picture large enough to read the field in */
+.t-capture .t-rows { grid-template-columns: repeat(auto-fill, minmax(min(100%, 560px), 1fr)); }
+.t-capture .k-qrow.t-row.t-shown { grid-template-columns: 256px minmax(0, 1fr); }
+.t-capture .t-row .k-qshot { width: 256px; height: 144px; }
+/* on the control screen: one card, the first few rows, the way to the rest */
+.t-card { grid-column: 1 / -1; }
+.t-card .k-qn { color: var(--t-near); }
+@media (max-width: 760px) {
+  .k-qrow.t-row.t-shown, .t-capture .k-qrow.t-row.t-shown { grid-template-columns: 96px minmax(0, 1fr); }
+  .t-row .k-qshot, .t-capture .t-row .k-qshot { width: 96px; height: 54px; }
+}

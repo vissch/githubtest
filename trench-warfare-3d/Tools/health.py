@@ -24,6 +24,8 @@ It checks, in order, and prints one line each:
   5. inbox    the notes in docs/inbox/, on your branch and on the integration branch, marking those for you.
      notes    what the owner wrote on the asset board (Tools/assetboard/notes.py), marking those for your branch.
      briefs   the decision briefs that wait on the owner, and the ones he has answered that no session has taken up.
+     tasks    what agents left unfinished and nobody has been on for an hour and a half, and the owner's feedback
+              captures from the game (Tools/assetboard/tasks.py): work anyone may pick up.
   6. compile  only with --compile.
 
 Exit code: 0 all good, 1 something to fix before committing. HELD and "behind" are reported, not failed: they
@@ -122,6 +124,23 @@ def owner_notes(branch):
     if got:
         print(f'         all his notes on each: python Tools/assetboard/briefs.py waiting. Take one up: its row in docs/reference/decisions.md, then')
         print(f'         python Tools/assetboard/briefs.py take ID --note NOTE --by {branch} (--queued UNIT or --outcome "words" when it says decided: write its unit)')
+
+
+def left_tasks(branch):
+    """The task board (Tools/assetboard/tasks.py): what agents left unfinished, and the owner's captures from the game
+    (F10). Read without taking anything in or writing anything: that is the board's watcher's."""
+    try:
+        sys.path.insert(0, str(ROOT / 'Tools' / 'assetboard'))
+        import tasks
+        T = tasks.read(live=False)
+    except Exception as e:      # the tasks' folder is on a Drive that may not be mounted here; that stops nothing
+        print(f'tasks    not read ({e})')
+        return
+    print(f'tasks    {T["left"]} left unfinished and nobody on them, {T["captures"]} of them feedback from the game; {T["queued"]} queued for the relay')
+    for r in [r for r in T['rows'] if r['kind'] == 'capture' and r['state'] == 'left'][:3]:
+        print(f'         FEEDBACK {r["id"]}: {r["title"][:80]}')
+    if T['left']:
+        print(f'         the list: python Tools/assetboard/tasks.py   a capture: python Tools/assetboard/feedback.py show ID   finished one: python Tools/assetboard/tasks.py done ID "what you did" --by {branch}')
 
 
 def unity_cli():
@@ -255,6 +274,7 @@ def main():
         bad |= bool(outside)
     inbox(branch)
     owner_notes(branch)
+    left_tasks(branch)
 
     if '--compile' in sys.argv:
         occ = ROOT / 'Tools' / 'aosa' / 'occ.py'
