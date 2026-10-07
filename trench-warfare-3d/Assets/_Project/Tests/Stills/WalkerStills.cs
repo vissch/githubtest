@@ -27,6 +27,12 @@
 // What it asserts is deliberately thin: that a file was written, that it is a plausible size, and that the machine
 // stayed alive to be photographed. It is an INSTRUMENT, not a judgement. Nothing here scores anything — the pictures
 // go to a critique that has not seen the code, which is the half of the loop that was missing.
+//
+// OneWalkerIsFilmedThroughAStep (2026-10-07, the Banner's re-cut) is the before-and-after of ONE machine: the same
+// locked-off side row, a close row on a rear and on a front foot from the frame it lands, and one frame at the zoom
+// the game is played at. Environment: TW_STILLS_MACHINE the walker (default banner), TW_STILLS_DIR where the stills go
+// (default %TEMP%/tw-walkerfilm: never inside the checkout), TW_STILLS_FIELD the look (Winter is the day field).
+// The game clock steps 1/30 s a frame while it films, so two runs sample a step alike.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -257,6 +263,183 @@ namespace TW.Tests
             TestContext.Out.WriteLine($"wrote {written.Count} side-on stills to {dir}");
             Assert.That(written.Count, Is.GreaterThanOrEqualTo(Machines.Length * 10),
                 "too few side-on frames landed to judge a gait cycle");
+        }
+
+        /// <summary>The gait of a drawn machine (TankRenderer's private views, read by reflection as WreckStills does):
+        /// its feet are the truth of where a foot stands, which a still alone cannot say.</summary>
+        static WalkerGait GaitOf(int slot)
+        {
+            var r = Object.FindFirstObjectByType<TankRenderer>();
+            if (r == null) return null;
+            const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            var views = r.GetType().GetField("views", Any)?.GetValue(r) as System.Collections.IDictionary;
+            if (views == null || !views.Contains(slot)) return null;
+            var v = views[slot];
+            return v.GetType().GetField("Legs", Any)?.GetValue(v) as WalkerGait;
+        }
+
+        [UnityTest, Explicit("One walker, side on, a foot close up and at play zoom; run by name, with a graphics device.")]
+        public IEnumerator OneWalkerIsFilmedThroughAStep()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            if (System.Enum.TryParse(System.Environment.GetEnvironmentVariable("TW_STILLS_FIELD"), true, out TW.Presentation.Terrain.Biome field))
+            {
+                foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
+                foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
+            }
+            yield return new EnterPlayMode();
+            // everything after the reload is a fresh enumerator (WreckStills: a closure made before it comes back null)
+            yield return FilmOne();
+        }
+
+        static IEnumerator FilmOne()
+        {
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            string dir = System.Environment.GetEnvironmentVariable("TW_STILLS_DIR");
+            if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-walkerfilm");
+            Directory.CreateDirectory(dir);
+            string wanted = System.Environment.GetEnvironmentVariable("TW_STILLS_MACHINE");
+            if (string.IsNullOrEmpty(wanted)) wanted = "banner";
+            int which = System.Array.FindIndex(Machines, m => m.name == wanted.ToLowerInvariant());
+            Assert.That(which, Is.GreaterThanOrEqualTo(0), $"TW_STILLS_MACHINE={wanted} is not one of the six walkers");
+            var mk = Machines[which];
+
+            // quiet: nobody deploys, nobody shells the lane
+            Host.ScriptedPeer = false; Host.PeerAttacks = false;
+            Host.WriteWorlds(m => { var b = m.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
+            for (int f = 0; f < 120; f++) yield return null;
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+            Time.captureDeltaTime = 1f / 30f;
+            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+
+            // a lane of open ground 44 m long, the most level one there is: no trench, wire or prop in it. It lies along
+            // the map's +x edge, because the camera looks from that side and stands 15 to 40 m off: from outside the map
+            // nothing stands between (a lane in the middle was filmed through a wreck and a row of ruins, which are
+            // dressing the sim's map does not list)
+            var map = Host.Local.Map;
+            var size = map.SizeMeters;
+            float x = -1f, z = -1f, best = float.MaxValue;
+            for (float zz = 20f; zz < size.y - 60f; zz += 2f)
+                for (float xx = size.x - 30f; xx <= size.x - 12f; xx += 2f)
+                {
+                    bool open = true;
+                    for (float dz = -4f; dz <= 40f && open; dz += 2f)
+                        for (float dx = -6f; dx <= 8f && open; dx += 2f)
+                            if ((map.LayerAt(new Unity.Mathematics.float3(xx + dx, 0f, zz + dz)) & (TW.Sim.Terrain.NavLayer.Trench | TW.Sim.Terrain.NavLayer.Link | TW.Sim.Terrain.NavLayer.Blocked | TW.Sim.Terrain.NavLayer.Wire | TW.Sim.Terrain.NavLayer.Bunker)) != 0) open = false;
+                    for (int i = 0; i < map.Props.Length && open; i++)
+                    {
+                        var pp = map.Props[i].Pos;
+                        if (pp.x > xx - 7f && pp.z > zz - 6f && pp.z < zz + 42f) open = false;
+                    }
+                    if (!open) continue;
+                    // how far the ground rises and falls along it, where the feet go: a walk is judged on the level
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    for (float dz = -2f; dz <= 40f; dz += 1f)
+                        for (float dx = -4f; dx <= 4f; dx += 2f)
+                        {
+                            float y = RenderGround.Sample(map, xx + dx, zz + dz);
+                            lo = Mathf.Min(lo, y); hi = Mathf.Max(hi, y);
+                        }
+                    if (hi - lo < best) { x = xx; z = zz; best = hi - lo; }
+                }
+            // no such lane on this field: the spot the side-on strip uses, whatever stands on it
+            if (x < 0f) { x = size.x * 0.5f; z = 60f; TestContext.Out.WriteLine("no open lane: filmed where the side-on strip films"); }
+            TestContext.Out.WriteLine($"lane from {x:0}, {z:0} on a {size.x:0} x {size.y:0} m map; its ground rises and falls {best:0.00} m");
+
+            string warm = Path.Combine(dir, "warmup.png");
+            CaptureRig.Shot(warm, x, z, 26f, 0f, 16f);
+            yield return Drain(warm);
+            File.Delete(warm); File.Delete(Path.ChangeExtension(warm, ".json"));
+
+            string spawned = TankCapture.Spawn(0, mk.archetype, x, z, 0f);
+            Assert.That(spawned, Does.StartWith("slot "), mk.name + ": " + spawned);
+            int slot = int.Parse(spawned.Substring(5));
+            // nothing to shoot at: a machine that stops to fire is not walking
+            TestContext.Out.WriteLine(RiderLab.ClearEnemies(slot, 1000f));
+            RiderLab.Drive(slot, 36f);
+            float since = Time.time;
+            while (Time.time - since < 4f) yield return null;      // into its stride
+
+            var world = Host.Local.World;
+            var gait = GaitOf(slot);
+            Assert.That(gait, Is.Not.Null, mk.name + " is drawn without a gait");
+            int written = 0;
+
+            // ---- the side row: the camera does not move; the machine walks through the frame past fixed ground
+            {
+                var p = Host.Presenter.Drawn(slot);
+                float fx = p.x, fz = p.z + 2.4f, y0 = RenderGround.Sample(map, p.x, p.z), start = Time.time;
+                for (int k = 0; k < 12 && world.IsAlive(slot); k++)
+                {
+                    while (Time.time < start + k * 0.15f) yield return null;
+                    string path = Path.Combine(dir, $"{mk.name}_side_{k:00}.png");
+                    if (tc != null) tc.BaseYaw = -90f;
+                    CaptureRig.Shot(path, fx, fz, 13f, 0f, 18f, 1920, 1080, y0 + 2.0f);
+                    yield return Drain(path);
+                    if (File.Exists(path) && new FileInfo(path).Length > 20000) written++;
+                }
+            }
+
+            // ---- a foot close up, from the frame it lands: the rear leg and the front leg of the side the camera sees
+            var cam = Camera.main;
+            bool leftSeen = cam == null || cam.transform.position.x < Host.Presenter.Drawn(slot).x;
+            int perSide = Mathf.Max(1, gait.Feet.Length / 2);
+            int rear = leftSeen ? 0 : perSide, front = rear + perSide - 1;
+            var log = new System.Text.StringBuilder();
+            log.AppendLine($"camera sees the {(leftSeen ? "left" : "right")} side; rear leg {rear}, front leg {front}");
+            foreach (var (label, leg) in new[] { ("rear", rear), ("front", front) })
+            {
+                // wait for this foot to come down (in the air, then planted), three seconds at most
+                float t0 = Time.time; bool up = false;
+                while (Time.time - t0 < 3f && world.IsAlive(slot))
+                {
+                    bool air = gait.Feet[leg].Swing >= 0f;
+                    if (up && !air) break;
+                    up |= air;
+                    yield return null;
+                }
+                Vector3 anchor = gait.Feet[leg].Anchor;
+                float start = Time.time;
+                for (int k = 0; k < 10 && world.IsAlive(slot); k++)
+                {
+                    while (Time.time < start + k * 0.12f) yield return null;
+                    var ft = gait.Feet[leg];
+                    log.AppendLine($"{label} {k} t {Time.time - start:0.00} swing {ft.Swing:0.00} at {ft.At.x:0.000} {ft.At.y:0.000} {ft.At.z:0.000} planted {anchor.x:0.000} {anchor.y:0.000} {anchor.z:0.000} body {Host.Presenter.Drawn(slot).z:0.00} height {gait.Height:0.00}");
+                    string path = Path.Combine(dir, $"{mk.name}_{label}_{k:00}.png");
+                    if (tc != null) tc.BaseYaw = -90f;
+                    CaptureRig.Shot(path, anchor.x, anchor.z, 7f, 0f, 12f, 1600, 900, anchor.y + 1.0f);
+                    yield return Drain(path);
+                    if (File.Exists(path) && new FileInfo(path).Length > 20000) written++;
+                }
+            }
+            File.WriteAllText(Path.Combine(dir, mk.name + "_feet.txt"), log.ToString());
+
+            // ---- and as the game is played: the standard zoom and tilt
+            for (int k = 0; k < 2 && world.IsAlive(slot); k++)
+            {
+                var p = Host.Presenter.Drawn(slot);
+                string path = Path.Combine(dir, $"{mk.name}_play_{k:00}.png");
+                if (tc != null) tc.BaseYaw = -90f;
+                CaptureRig.Shot(path, p.x, p.z, 30f, 40f, 25f, 1600, 900);
+                yield return Drain(path);
+                if (File.Exists(path) && new FileInfo(path).Length > 20000) written++;
+                float w0 = Time.time;
+                while (Time.time - w0 < 0.4f) yield return null;
+            }
+
+            foreach (string row in new[] { "side", "rear", "front" })
+                CaptureRig.Sheet(dir, mk.name + "_" + row, Path.Combine(dir, $"{mk.name}_{row}_strip.png"), row == "side" ? 4 : 5, 640);
+            Time.captureDeltaTime = 0f;
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            yield return new ExitPlayMode();
+            TestContext.Out.WriteLine($"wrote {written} stills of the {mk.name} to {dir}");
+            Assert.That(written, Is.GreaterThanOrEqualTo(30), "too few frames landed to judge a step");
         }
 
         [UnityTest, Explicit("Enters Play and writes PNGs; run it by name, with a graphics device.")]
