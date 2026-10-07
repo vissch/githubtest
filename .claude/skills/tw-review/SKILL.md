@@ -1,6 +1,6 @@
 ---
 name: tw-review
-description: Code review for Trench Warfare 3D - review one unit of code for correctness (findings in the report's format with P0-P3 severity), or be the sceptical second reader of one finished fix unit after fixcheck has run. Use for "review unit N", "review these commits for correctness", "second reader of rv-03", "is this fix real". NOT for scoring looks or plans out of 100 (tw-critic), NOT for landing review (tw-master), NOT for finding bugs by running the game (tw-bug-catcher).
+description: Code review for Trench Warfare 3D - review one unit of code for correctness (findings in the report's format with P0-P3 severity), or be the sceptical second reader of one finished fix unit after fixcheck has run. Use for "review unit N", "review these commits for correctness", "second reader of rv-03", "is this fix real". NOT for scoring looks or plans out of 100 (the skill tw-critic), NOT for landing review (the skill tw-master), NOT for finding bugs by running the game (the skill tw-bug-catcher).
 ---
 
 # Code review and the second reader
@@ -45,8 +45,10 @@ Be sceptical: find out whether the commits do what they claim.
 Read the commit messages in full first; they state the claims. Then, citing file and line at the head commit:
 
 - **Each finding:** does the change fix it? Would the new test fail on the old code, and for this finding's own
-  reason? Read the test and the old code. Say where you disagree with `fixcheck` (`PROVED`, `RED`, `WEAK`, `FAIL`
-  are explained in `docs/reference/review.md`).
+  reason? Read the test and the old code. Say where you disagree with `fixcheck`. Its six verdicts: `PROVED` red on
+  the old code for this finding's reason and green on the fix; `RED` red there, but the failure does not name the
+  finding; `WEAK` not shown red on the old code; `NO TEST` a commit says why there is none; `UNCHECKED` its tests
+  did not run; `FAIL` the test cannot fail, or the fix is red, or nothing names the finding.
 - **The hash:** if a commit says no hashed value moves, check every value the changed field takes in the shipped
   tables. If the hash moves, there is a seam commit of its own with a `ReplayRecorder.FormatVersion` bump.
 - **BOMs:** `git cat-file -p <head>:<path> | head -c 3 | xxd -p` must not print `efbbbf` for a file the commits
