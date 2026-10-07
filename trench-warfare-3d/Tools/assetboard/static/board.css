@@ -94,9 +94,9 @@
   .b-panel { top: auto; left: 0; width: auto; max-height: 82vh; border-left: 0; border-top: 1px solid var(--s-line); border-radius: 18px 18px 0 0; }
 }
 
-/* ---- the tiles of the graphs page, and the colours their small lines take */
+/* ---- the tiles of the graphs page (under the floor there), and the colours their small lines take */
 .g-page { --g-surface: var(--k-ink2); --g-ink: #ffffff; --g-ink2: var(--t-body); --g-muted: var(--t-dim); --g-grid: var(--s-line); --g-one: #4b93ee; --g-lab: #e8652e; --g-shop: #2bc48a; }
-.g-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 0 0 12px; }
+.g-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 4px 0 2px; }
 .g-tile { display: grid; align-content: start; gap: 4px; padding: 16px 18px; border-radius: 16px; background: var(--g-surface); border: 1px solid var(--glass-edge, var(--s-line)); color: var(--g-ink); text-decoration: none; min-width: 0; }
 a.g-tile:hover, a.g-tile:focus-visible, button.g-tile:hover, button.g-tile:focus-visible { border-color: #ff4a1c; }
 button.g-tile { font: inherit; text-align: left; cursor: pointer; }
@@ -176,10 +176,12 @@ button.g-tile { font: inherit; text-align: left; cursor: pointer; }
 .o-stage.o-flat { aspect-ratio: auto; min-height: 0; max-height: none; padding: 14px 16px; }
 .o-flat canvas, .o-flat .o-veil, .o-flat .o-labels, .o-flat .o-card { display: none; }
 .o-flat .o-why { display: block; }
+.o-stage.o-flat + .o-bar { display: none; }          /* no floor: nothing to explain and nothing to turn */
 /* a phone held upright: the stage is tall, the script lays the floor out in rows for it, and the words are smaller */
 @media (max-width: 700px) {
   .o-stage { aspect-ratio: 3 / 5.5; min-height: 0; max-height: none; }
   .graphs .k-office.g-page { padding-left: 14px; padding-right: 14px; }          /* the floor gets the width a phone has */
+  .graphs .g-page .k-stamp { flex-wrap: wrap; row-gap: 4px; } .graphs .g-page .k-stamp a { white-space: nowrap; } #g-stamp { flex: 1 1 70%; min-width: 0; }          /* its two links wrapped a word a line */
   .o-lab b { font-size: 17px; } .o-lab span { max-width: 86px; font-size: 11px; } .o-stk small { display: none; }
   .o-tag b { font-size: 20px; } .o-tag small { font-size: 12px; }
   .o-hint { flex: 1 1 100%; margin: 0; }
