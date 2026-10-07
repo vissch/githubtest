@@ -1,0 +1,7 @@
+{
+  "about": "Read by config.routes(). A leg runs on its phase's model and effort (phases.json) unless a route here names its role and phase. model: opus or sonnet. A route is a trial until the owner says it stays: its why says what it is measured by.",
+  "routes": [
+    {"role": "review-fix", "phase": "execute", "model": "sonnet", "effort": "medium",
+     "why": "trial, the owner 2026-10-08: ten review-fix units, measured by Tools/review/fixcheck.py, the unit verdict, minutes and cost against the Opus legs of AGENTS_BASELINE_2026-10-07.md. The plan leg stays on Opus."}
+  ]
+}
