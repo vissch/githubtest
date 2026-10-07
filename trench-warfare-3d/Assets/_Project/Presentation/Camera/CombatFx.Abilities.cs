@@ -147,7 +147,7 @@ namespace TW.Presentation.Tactical
                 var s = sweeps[i];
                 if (simNow > s.T1 + 0.5f) { sweeps.RemoveAt(i); continue; }
                 float groundY = RenderGround.Sample(map, s.Start.x, s.Start.z);
-                bool drawnBeam = recipes >= 0.5f && books != null && books.Ready;   // fx.recipes 0 (the default): the old column
+                bool drawnBeam = recipes >= 0.5f && books != null && books.Ready;   // fx.recipes 0: the old column
                 if (simNow < s.T0)
                 {
                     // the charge: a glow gathering over the start of the corridor, brighter and larger as it comes
