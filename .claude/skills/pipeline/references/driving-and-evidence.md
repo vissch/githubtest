@@ -59,9 +59,9 @@ JPG, at most 400 KB, at `evidence/<item>/<stage>/<band>.jpg` on `tw3d-board`. Ke
 under `trench-warfare-3d/Captures/` (git-ignored), never as untracked files a gate would record. Copy the sidecar
 beside the evidence JPG on the board as `<band>.json`: the critic's validity rules (`pose_error_m`, `blown_frac`) read
 it, and a relay critic is handed only the top-level files of that folder. Add `frames.txt` there, one line per
-image: view and band, moment, clock held or running, what is in frame. Facts only: the sidecar holds none of these.
-A still the game did not render (a concept sheet, a mock-up) has no sidecar: its `frames.txt` line says so, or the
-critic scores it as a capture that lost its sidecar.
+image, starting `<band>.jpg:`: view and band, moment, clock held or running, what is in frame. Facts only: the
+sidecar holds none of these. A still the rig did not shoot as it stands (a contact sheet, a diff, a concept sheet,
+a mock-up) has no sidecar: its `frames.txt` line says `no sidecar`. The relay fails a job whose still has neither.
 
 ## After a critic round: fix it and prove it
 The critic's paper is on the board beside the evidence: `evidence/<item>/<stage>/critic-r<n>.md`. A relay fix card

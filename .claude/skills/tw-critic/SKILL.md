@@ -23,7 +23,7 @@ loop it wins.
 - **The bundle's files:** `<band>.jpg` with its sidecar `<band>.json`; `fix<k>-x.jpg` and `fix<k>-y.jpg`, a before/after pair for fix k of the last round (you are not told which is the old one); `fix<k>-crop-x.jpg`, the same pair cropped; `shot<k>.jpg`, a shot the last critic asked for; `frames.txt`, one line of facts per image.
 - **Read the frame's limits before judging** (`frames.txt`, the stage notes): clock held or running, tick, camera, tier. A held clock freezes rain, motes and flames, so frozen particles are not a fault. Machines parked for the shot say nothing about how they move.
 - **INVALID captures score nothing:** `pose_error_m` ≥ 0.5, weather not pinned the same for A and B, `blown_frac` ≥ 0.02, the wrong camera or tier, or an effect outside its tick range (an invalid capture, not a missing effect). The paper still carries a number: a band that rests only on INVALID captures scores 0, and fix 1 is the reshoot.
-- **UNCHECKED:** a game capture with no `.json` beside it. Nothing scored from it goes above 7. A still that `frames.txt` says the game did not render (a concept sheet, a mock-up) has no sidecar and is not UNCHECKED; with no such line, it is a capture.
+- **UNCHECKED:** a game capture with no `.json` beside it. Nothing scored from it goes above 7. A still whose `frames.txt` line says `no sidecar` (the rig did not shoot it as it stands: a contact sheet, a diff, a concept sheet, a mock-up) is not UNCHECKED; a plain game capture marked so still is.
 - **Name the symptom and the outcome wanted, not the cause.** A blind critic has not seen the code, and critics here have been right about what looks wrong and wrong about why. A cause is optional, inside the finding's own line as `GUESS: ...`, never a line of its own.
 - **Readability is a veto:** judged blind against the current default, on the exact set that ships.
 - **A reference is a direction, not a pixel target:** name the difference in value, hue, gloss, edge, size and timing.
@@ -68,10 +68,15 @@ COULD NOT JUDGE: what no shot or command can settle
 | housekeeping | never deletes an unrecognised, tracked or newest-2 item (dry run first) | space recovered 40 · classification correct on a hand sample 40 · report clarity 20 |
 | plan / skill / code change | every cited path and symbol exists at that commit (grep each one), owner's words quoted verbatim where the work quotes him | fidelity to the owner's brief 30 · technical correctness against the repo 30 · actionable 20: an agent can run it cold, each finish line is something a command or a count can check, a ban says what to do instead · compact 20: each line changes what an agent would do, each fact has one home and the rest point to it |
 
-**Finding your row.** A role named `<x>-simulator` uses row `<x>`. When no row fits (the design, concept, UX and UI
-roles among them), or the row's bands sit in a file your folder does not hold: the hard checks are the checks
-`stage.json` names, the bands are every output the stage asks for is shown 40 · look against the stage's own
-reference 30 (visual ≤ 15) · repeatability 15 · cost 15, and the VERDICT sentence says `no row`.
+**Finding your row.** A role named `<x>-simulator` uses row `<x>`. A row whose bands are written out above is used
+even when the folder cannot confirm its hard checks: a band with no evidence scores 0, and the checks you could not
+confirm go under COULD NOT JUDGE. Only when no row fits (the design, concept, UX and UI roles among them), or the
+row gives its bands by pointing at a file your folder does not hold (`vehicle`, `env`): the hard checks are the
+checks `stage.json` names, the bands are every output the stage asks for is shown 40 · look against the stage's own
+reference 30 (visual ≤ 15) · repeatability 15 · cost 15, and the VERDICT sentence says `no row`. With no reference
+in the folder, look is judged against the stage's notes. **Cost is the one band that may be left out,** and only
+here: when the folder holds no cost figure and `stage.json` names no cost check, score the other three out of 85,
+scale to 100, show that sum in RUBRIC and name cost under COULD NOT JUDGE; it is then neither a finding nor a fix.
 
 **Text work** (the last row):
 - Evidence is `file:line` at the commit you were given (the working tree when it is uncommitted), or a command and its output. Say which claims you ran and which you only read; only what you ran is MEASURED.
