@@ -60,20 +60,27 @@ namespace TW.Tests
         /// <summary><paramref name="config"/> and <paramref name="built"/> (2026-10-04, the balance sweep) let a caller
         /// play the same match on other numbers: the first turns the config before any world is built, the second is
         /// handed every world the session builds, before its first tick (UnitDefinitions.Apply, a system's switch).
-        /// Both null: the match as it always was, tick for tick.</summary>
+        /// <paramref name="ground"/> (2026-10-07) turns the field's own params the same way (another ground, no ambient
+        /// shelling). All null: the match as it always was, tick for tick.</summary>
         public static Report Play(Policy policy, int minutes, uint seed = 0xC0FFEE, ScriptedEnemy ai = null, int attackAt = 8, System.Action<MatchSim> each = null, ScriptedEnemy player = null,
-                                  System.Func<SimConfig, SimConfig> config = null, System.Action<MatchSim> built = null)
+                                  System.Func<SimConfig, SimConfig> config = null, System.Action<MatchSim> built = null,
+                                  System.Func<BattlefieldParams, BattlefieldParams> ground = null)
         {
             var cfg = SimConfig.Default; cfg.Seed = seed; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2;   // GreyboxCorridor's
             if (config != null) cfg = config(cfg);
             var field = BattlefieldParams.ShelledForest(1917u); field.Bombardment = 8f;
+            if (ground != null) field = ground(field);
             using var session = new LockstepSession(() => { var made = MatchSim.CreateBattlefield(cfg, field); built?.Invoke(made); return made; }, false, 0, 0, 0f, seed);
             ai ??= new ScriptedEnemy();   // the scene's: every 40 ticks, attacks at 8, support with 180 in reserve
             var said = new StringBuilder();
             var callers = ai.Said;   // a caller's own listener hears it too
             ai.Said = x => { said.AppendLine("  enemy: " + x); callers?.Invoke(x); };
             var mirror = policy == Policy.Script ? player ?? new ScriptedEnemy { Side = 0 } : null;   // (the behaviour bench seats its own, fielding machines)
-            if (mirror != null) mirror.Said = x => said.AppendLine("  player: " + x);
+            if (mirror != null)
+            {
+                var heard = mirror.Said;   // a caller's own listener hears the player's script too (the balance sweep)
+                mirror.Said = x => { said.AppendLine("  player: " + x); heard?.Invoke(x); };
+            }
             var seat = new Seat(session.LocalDriver);
             var m = session.Local; var w = m.World;
             var r = new Report { Winner = -1, AttackAt = attackAt, Deployed = new int[2], ByFire = new int[2], ByBlast = new int[2], ByGas = new int[2], ByOther = new int[2] };
@@ -229,6 +236,61 @@ namespace TW.Tests
             var d = Defended();
             Assert.Greater(d.Short, 20, "it was short of men for a while");
             Assert.LessOrEqual(d.Hoarded, d.Short / 20, $"short of men, it sat on its silver {d.Hoarded} times in {d.Short}");
+        }
+
+        static int[] Turns(ScriptedEnemy script, SimWorld w, int count)
+        {
+            var turn = new int[count];
+            for (int n = 0; n < count; n++) turn[n] = script.Turn(w, n);
+            return turn;
+        }
+
+        [Test]
+        public void TheEnemy_BuyingInTurn_TakesARiflemanThenEachOtherArmedClass_AndAMachineARoundWhenItFieldsThem()
+        {
+            using var m = MatchSim.CreateGreybox(SimConfig.Default);
+            var w = m.World;
+            // Iron, seat 0: rifle, assault, machine gunner, officer, shield, then a repair man (never) and four machines
+            var iron = new ScriptedEnemy { Side = 0, BuysInTurn = true };
+            CollectionAssert.AreEqual(new[] { 0, 1, 0, 2, 0, 3, 0, 4, 0, 1 }, Turns(iron, w, 10), "Iron: every second man a rifleman, the others in turn");
+            // Brass, seat 1: rifle, assault, machine gunner, sniper, a medic (never), jetpack
+            var brass = new ScriptedEnemy { Side = 1, BuysInTurn = true };
+            CollectionAssert.AreEqual(new[] { 0, 1, 0, 2, 0, 3, 0, 5, 0, 1 }, Turns(brass, w, 10), "Brass: the medic is in no turn");
+            iron.LineMen = 2;
+            CollectionAssert.AreEqual(new[] { 0, 0, 1, 0, 0, 2, 0, 0, 3 }, Turns(iron, w, 9), "two riflemen before each other man");
+            iron.LineMen = 1; iron.DeploysTanks = true;
+            var withMachines = Turns(iron, w, 18);
+            Assert.AreEqual(6, withMachines[8], "a round of men ends on its first machine");
+            Assert.AreEqual(0, withMachines[9], "then the men again");
+            Assert.AreEqual(7, withMachines[17], "and the next round on its second machine");
+            for (int n = 0; n < 18; n++)
+                if (n % 9 != 8) Assert.IsFalse(w.Roster[withMachines[n]].IsVehicle, $"turn {n} is a man");
+            // a slot the mission locked is in no turn: the sim would refuse it, and the script would save for it for good
+            w.SlotUnlocked[3] = 0; iron.DeploysTanks = false;
+            CollectionAssert.AreEqual(new[] { 0, 1, 0, 2, 0, 4, 0, 1 }, Turns(iron, w, 8), "the locked officer is passed over");
+        }
+
+        [Test, Category("Long")]
+        public void TheEnemy_BuyingInTurn_FieldsEveryArmedClass_AndByTheOldRule_RiflemenAndLittleElse()
+        {
+            // one match, ten minutes: the old rule on seat 0 (Iron), the new on seat 1 (Brass), and what each bought.
+            // The old rule's purse only ever reaches the rifleman after the opening (97 riflemen of 100 in twenty minutes).
+            var bought = new int[2][] { new int[Archetypes.Count], new int[Archetypes.Count] };
+            var r = Play(Policy.Script, 10, 3, new ScriptedEnemy { BuysInTurn = true }, 8, m =>
+            {
+                var ev = m.World.Events.Events;
+                for (int k = 0; k < ev.Length; k++)
+                    if (ev[k].Type == SimEventType.UnitDeployed) bought[(int)ev[k].Dir.y & 1][m.World.Archetype[ev[k].A]]++;
+            }, new ScriptedEnemy { Side = 0, BuysInTurn = false });
+            int oldMen = 0, newMen = 0;
+            for (int a = 0; a < Archetypes.Count; a++) { oldMen += bought[0][a]; newMen += bought[1][a]; }
+            Assert.Greater(oldMen, 8, "the old rule deployed: " + r);
+            Assert.Greater(newMen, 8, "the new rule deployed: " + r);
+            Assert.GreaterOrEqual(bought[0][InfantryArchetype.Rifle], oldMen * 3 / 4, $"the old rule: {bought[0][InfantryArchetype.Rifle]} riflemen of {oldMen}");
+            Assert.LessOrEqual(bought[1][InfantryArchetype.Rifle], newMen * 6 / 10, $"in turn: {bought[1][InfantryArchetype.Rifle]} riflemen of {newMen}");
+            foreach (byte a in new[] { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner, InfantryArchetype.Sniper, InfantryArchetype.Jetpack })
+                Assert.Greater(bought[1][a], 0, $"in turn, Brass fields class {a}: " + r);
+            Assert.AreEqual(0, bought[1][InfantryArchetype.Medic], "and no man who cannot shoot");
         }
 
         [Test, Explicit("ten minutes of each policy against the scene's enemy, for tuning")]
