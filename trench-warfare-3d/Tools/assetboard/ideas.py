@@ -9,10 +9,10 @@ idea already ready for the user when he sees the screen. but also a button where
 well as a typable box ... when asked for more ideas we usually present 3."
 
     python Tools/assetboard/ideas.py                        the open ideas
-    python Tools/assetboard/ideas.py context [--json]       what the ideas agent reads first: the goals, what not to suggest, his taste, the routes
+    python Tools/assetboard/ideas.py context [--json]       what the ideas agent reads first: the goals, what not to suggest, his taste, the routes, what the critics found
     python Tools/assetboard/ideas.py check --title "..." --pitch "..."      what an idea would be refused for, without writing it
     python Tools/assetboard/ideas.py add --title "Stretcher frogs" --pitch "..." --why-now "..." --kind unit --size M --score "R1 C3 MAJOR" \
-        --sketch stretcher.svg="Two frogs, one stretcher" --capture shots/front.png="The front today" [--differs ENTRY="how it is another thing"]
+        --sketch stretcher.svg="Two frogs, one stretcher" --capture shots/front.png="The front today" [--differs ENTRY="how it is another thing"] [--critique ID]
     python Tools/assetboard/ideas.py fetch URL --out ref.jpg       a reference found online, as a file `add --reference` takes
     python Tools/assetboard/ideas.py take                   read what he said on the page about the ideas, and close those notes
     python Tools/assetboard/ideas.py wanted                 what he asked for that no run has answered
@@ -28,6 +28,11 @@ the lanes that have not landed, the relay's queue, the units handed to the maste
 add() refuses an idea that matches one of them, unless the idea names that entry and says how it is another thing
 (--differs). What he answered "Never" to is refused whatever is said. The agent reads the same ledger first
 (`context`); the check is what holds when the agent did not.
+
+WHAT THE CRITICS FOUND (the owner, 2026-10-08: "make sure theyre findable by the idea agent so he can make ideas based
+off critique as well"). critiques.py keeps every critique loop in one folder; `context` lists the newest with their
+scores and the fixes they asked for, and `tick` takes the relay's rounds from the board before it starts a run. An
+idea made from a finding names the loop (`--critique ID`). A critique is a hint: it is no entry of the ledger.
 
 HIS ANSWER. The card has three buttons. "Do it" is his yes to the route the card showed (the click carries the stamp
 of that route, as a click on a brief carries the stamp of its Then line): the idea is accepted and waits for the
@@ -418,7 +423,7 @@ def find(where: Path, iid):
     return hits[0]
 
 
-def add(where: Path, title, pitch, why_now, kind, pictures, size='M', score='', asked='', differs=None, entries=None, by='', run='', now=None, shooter=None):
+def add(where: Path, title, pitch, why_now, kind, pictures, size='M', score='', asked='', differs=None, entries=None, by='', run='', now=None, shooter=None, critique=''):
     """Write an idea and return it. `pictures` is [dict(path, caption, kind, source)]: a sketch (a picture, or a page in
     HTML or SVG, which is photographed), a capture of the game, a reference found online (with its link), or a
     generated picture. `entries` is the ledger it is held against (None: read it here). An idea that is not short,
@@ -449,6 +454,8 @@ def add(where: Path, title, pitch, why_now, kind, pictures, size='M', score='', 
     seen = [dict(id=e['id'], title=e['title'], state=e['state'], differs=one((differs or {}).get(e['id']))) for _, e in match(title, pitch, entries)[:5]]
     i = dict(id=iid, title=one(title), pitch=one(pitch), why_now=one(why_now), kind=kind, size=size, score=one(score), state='open', made=f'{now:%Y-%m-%d %H:%M}', by=one(by),
              asked=one(asked) or 'auto', run=one(run), route=[dict(role=r, says=s, own=o) for r, s, o in ROUTES[kind]], stamp=stamp(kind), pictures=shown, checked=dict(entries=len(entries), near=seen))
+    if one(critique):
+        i['critique'] = one(critique)       # the critique loop a finding of which this idea answers (critiques.py)
     return save(where, i)
 
 
@@ -586,12 +593,16 @@ def taste(all_notes, most=40):
     return [dict(when=n.get('when', '')[:10], about=n.get('title') or n.get('about', ''), said=one(n['text'])[:400]) for n in sorted(own, key=lambda n: n.get('when', ''), reverse=True)[:most]]
 
 
-def context(where: Path = None, now=None):
-    """What the ideas agent reads before it proposes anything: the goals, what not to suggest, his taste, the routes."""
+def context(where: Path = None, now=None, critiques_where: Path = None):
+    """What the ideas agent reads before it proposes anything: the goals, what not to suggest, his taste, the routes,
+    and what the critics found (`critiques_where`: where the loops are kept, None for the usual folder)."""
+    import critiques
     import notes
     where = where or folder()
     entries, missing = ledger(where, now=now)
+    kept = critiques.read_all(critiques_where or critiques.folder())
     return dict(goals=goals(), ledger=entries, missing=missing, taste=taste(notes.read_all(notes.folder())),
+                critiques=critiques.for_context(kept, critiques_where or critiques.folder()), critiques_kept=len(kept),
                 routes={k: dict(for_=KIND_SAYS[k], route=route_line(k)) for k in ROUTES},
                 limits=dict(title_words=TITLE_WORDS, pitch_words=PITCH_WORDS, why_words=WHY_WORDS, caption_words=CAPTION_WORDS, pictures=MOST_PICTURES, sizes=SIZES, kinds=PICTURE_KINDS),
                 open=[dict(id=i['id'], title=i['title'], kind=i['kind']) for i in read_all(where) if i['state'] == 'open'])
@@ -609,6 +620,9 @@ def context_lines(c):
         out += [f'[{e["state"]}] {e["title"]}   ({e["id"]})' for e in rows]
     out += ['', f'# His taste, in his own words ({len(c["taste"])} notes, newest first)']
     out += [f'{t["when"]}  on "{t["about"]}": {t["said"]}' for t in c['taste']]
+    if c.get('critiques'):
+        import critiques
+        out += critiques.context_lines(c['critiques'], c.get('critiques_kept'))
     return out
 
 
@@ -769,6 +783,17 @@ def stop(rec, p=None):
         pass
 
 
+def gather():
+    """Before a run: keep the critic rounds the relay left on the board since the last one, so the run reads them.
+    No board on this station, or no Drive: the run reads the loops that are kept already."""
+    try:
+        import critiques
+        import ops
+        return critiques.collect(critiques.folder(), ops.board_root())
+    except Exception:           # noqa: BLE001
+        return []
+
+
 def tick(where: Path = None, notes_where: Path = None, now=None, launch=None, alive=None, lim=None):
     """What the watcher does on every read. Take what he said about the ideas; look whether the run that is going has
     ended (or has run past its minutes: then it is stopped); and when none runs and something is wanted, start one.
@@ -803,6 +828,8 @@ def tick(where: Path = None, notes_where: Path = None, now=None, launch=None, al
         rest = autos and not autos[-1].get('ideas') and (now - datetime.datetime.strptime(autos[-1]['when'], '%Y-%m-%d %H:%M')).total_seconds() < 60 * lim.get('auto_rest_minutes', 0)
         want = asks[0] if asks else dict(asked='auto', says='One idea, the best you have, so the screen has one ready.', n=1) if none_open and len(autos) < lim['auto_per_day'] and not rest else None
         if want:
+            if launch is None:
+                gather()
             try:
                 rec = start(where, want, now=now, launch=launch, lim=lim)
             except (ValueError, OSError) as e:
@@ -857,12 +884,15 @@ def main(argv=None):
     ap.add_argument('--generated', action='append', default=[], help='PATH=what it shows; a generated picture')
     ap.add_argument('--source', action='append', default=[], help='the link of a --reference, in their order')
     ap.add_argument('--differs', action='append', default=[], help='ENTRY=how the idea is another thing than that entry of the ledger')
+    ap.add_argument('--critique', default='', help='the critique loop a finding of which the idea answers (critiques.py lists them)')
     ap.add_argument('--asked', default=os.environ.get('TW_IDEAS_ASKED', ''), help='what was asked for (the run says it)')
     ap.add_argument('--run', default=os.environ.get('TW_IDEAS_RUN', ''))
     ap.add_argument('--by', default='')
     ap.add_argument('--out', default='', help='fetch: the file the picture is kept as')
     a = ap.parse_args(argv)
     where = folder()
+    if hasattr(sys.stdout, 'reconfigure'):
+        sys.stdout.reconfigure(errors='replace')        # one arrow in a decision's row stopped the whole context on a cp1252 pipe
     try:
         if os.environ.get('TW_IDEAS_RUN') and a.what not in IN_A_RUN:
             raise ValueError(f'{a.what} is not for a run the board started: a run reads the context and adds ideas ({", ".join(IN_A_RUN)})')
@@ -872,7 +902,10 @@ def main(argv=None):
                 bad = tried(a.title, a.pitch, ledger(where)[0], differs)
                 print('ideas: nothing in the ledger is the same thing' if not bad else 'ideas: ' + '\n       '.join(bad))
                 return 1 if bad else 0
-            i = add(where, a.title, a.pitch, a.why_now, a.kind, pictures_of(a), a.size, a.score, a.asked, differs, by=a.by or 'the ideas agent', run=a.run)
+            if a.critique:
+                import critiques
+                critiques.find(critiques.folder(), a.critique)
+            i = add(where, a.title, a.pitch, a.why_now, a.kind, pictures_of(a), a.size, a.score, a.asked, differs, by=a.by or 'the ideas agent', run=a.run, critique=a.critique)
             print(f'ideas: {i["id"]} is written, in {where}; its route: {route_line(i["kind"])}')
         elif a.what == 'context':
             c = context(where)
