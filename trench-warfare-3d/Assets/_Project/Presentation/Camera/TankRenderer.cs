@@ -182,7 +182,6 @@ namespace TW.Presentation.Tactical
             (VehicleArchetype.A7V, VehicleArchetype.Brute),          // a box with its gun in the hull
             (VehicleArchetype.RenaultFT, VehicleArchetype.Tusk),     // a small tank under a turret
             (VehicleArchetype.Whippet, VehicleArchetype.Tusk), (VehicleArchetype.Austin, VehicleArchetype.Tusk),
-            (VehicleArchetype.Bullfrog, VehicleArchetype.Croaker),   // the toad mech (landed 2026-10-06, sim only): the other legged frog machine, until its own model is in the battle
         };
 
         /// <summary>The archetype whose model a machine is drawn with: its own, or the one it stands in for.</summary>
