@@ -31,6 +31,11 @@ def row(n):
     return '<test-case fullname="%s" result="Failed"><failure><message>%s</message></failure></test-case>' % (n, said)
 rows = ''.join(row(n) for n in names)
 Path(arg('-testResults')).write_text('<test-run>' + rows + '</test-run>', encoding='utf-8')
+if 'HOLDS_LOG' in tests:      # as Unity's licensing client does: something keeps the log open after Unity has gone
+    import subprocess, time
+    subprocess.Popen([sys.executable, '-c', 'import sys, time; f = open(sys.argv[1], "a"); time.sleep(4)', arg('-logFile')],
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    time.sleep(0.8)
 '''
 FAKE_SELFTEST = r'''
 import subprocess
@@ -265,6 +270,13 @@ class UnityFixes(Repo):
         code, rec, said = self.check(head, ['U1'], lane='lane/sim/x', unity=str(self.unity))
         self.assertEqual((rec['ids']['U1']['verdict'], rec['ids']['U1']['tests'][0]['old_said']),
                          ('RED', 'the thing is not fixed'), said)
+
+    def test_a_log_something_still_holds_open_does_not_cost_the_verdict(self):
+        # seen 2026-10-07 on rv-11: Unity's licensing client kept unity.log open, the temp folder could not be
+        # removed, and the PermissionError came before the record was written
+        head = self.cs_fix(tests=CS_TEST.replace('// [U2] a tag', '// HOLDS_LOG [U2] a tag'))
+        code, rec, said = self.check(head, ['U1'], lane='lane/sim/x', unity=str(self.unity))
+        self.assertEqual(rec['ids']['U1']['verdict'], 'PROVED', said)
 
     def test_without_a_unity_it_says_unchecked_never_pass(self):
         code, rec, said = self.check(self.cs_fix(), ['U1'], lane='lane/sim/x', unity='')
