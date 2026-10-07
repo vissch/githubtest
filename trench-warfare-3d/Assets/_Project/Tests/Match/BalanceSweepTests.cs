@@ -12,7 +12,9 @@
 //    seat 1's men walk up from their spawn point as seat 0's do (the sea lift is taken off the world before its first
 //    tick; the ground, the beach and the stores boat stay). FieldSeed: another ground of the same kind (the scene's
 //    is 1917). Bombardment: the ambient shells a minute (the scene's 8). WindZ: the wind along the field in m/s
-//    (the scene's -1: gas and smoke drift toward seat 0). A match only.
+//    (the scene's -1: gas and smoke drift toward seat 0). SpawnAheadA / SpawnAheadB: seat 0's / seat 1's spawn point
+//    moved that many metres toward the front (the field's trenches are not mirrored: each of seat 1's lies 4 m nearer
+//    its own spawn point than seat 0's, a trench's width). A match only.
 // An unknown unit, field or value throws with its name: a sweep that silently changed nothing reads as "no effect".
 // Two scenarios, both the gate's own harnesses, neither copied:
 //  - match: MatchLoopTests.Play, the scene's ground and economy, by default the script on both seats; with swapSeats
@@ -70,8 +72,9 @@ namespace TW.Tests
         /// <summary>What a "harness" patch turns: the footing of the match, which is the sweep's and no number of the
         /// game. Sea: seat 1 lands its men by boat (the scene's field); false, both sides walk up from a spawn point.
         /// FieldSeed: the ground (the scene's ShelledForest 1917). Bombardment: ambient shells a minute (the scene's 8).
-        /// WindZ: the map's wind along the field, m/s (the scene's -1, toward seat 0's rear).</summary>
-        public class Harness { public bool Sea = true; public uint FieldSeed = 1917u; public float Bombardment = 8f, WindZ = -1f; }
+        /// WindZ: the map's wind along the field, m/s (the scene's -1, toward seat 0's rear). SpawnAheadA, SpawnAheadB:
+        /// metres seat 0's and seat 1's spawn point is moved toward the front (a man who walks up starts there).</summary>
+        public class Harness { public bool Sea = true; public uint FieldSeed = 1917u; public float Bombardment = 8f, WindZ = -1f, SpawnAheadA, SpawnAheadB; }
         [Serializable]
         public class Spec
         {
@@ -547,6 +550,13 @@ namespace TW.Tests
                     // both sides walk: a deploy the lift does not take stands its man at the spawn point (SimWorld.Deploy)
                     if (!harness.Sea) m.World.SeaLift = null;
                     if (harness.WindZ != -1f) m.Map.Wind = new float2(m.Map.Wind.x, harness.WindZ);
+                    if (harness.SpawnAheadA != 0f || harness.SpawnAheadB != 0f)
+                    {
+                        var init = m.World.Init;
+                        float toward = init.SpawnB.z > init.SpawnA.z ? 1f : -1f;
+                        init.SpawnA.z += toward * harness.SpawnAheadA; init.SpawnB.z -= toward * harness.SpawnAheadB;
+                        m.World.Init = init;
+                    }
                     ApplyUnits(m, v);
                 },
                 ground => { ground.Seed = harness.FieldSeed; ground.Bombardment = harness.Bombardment; return ground; });
