@@ -26,6 +26,14 @@
 // has to spare. Before, it went over the top with eight men whatever stood in front of them, and kept 180 silver
 // back from the first minute: once the player held six men it spent every coin on a barrage or gas every ten seconds
 // and never deployed another man (MatchLoopTests).
+// It buys a mixed army (2026-10-07, the owner on the balance findings: "the computer buys a mixed army"). It tried
+// one armed slot in turn every two seconds and bought it if it had the silver; after the opening 300 the purse gains 4
+// a try, so it only ever reached the rifleman's 25: twenty minutes were 97 riflemen and one each of three others, no
+// fifth man and never a machine (hand count and sweep, decisions-evidence 2026-10-07 why-no-end). BuysInTurn: it wants
+// ONE thing at a time, the next in its turn, and saves until it can pay for it: a rifleman, one of its other armed
+// men, a rifleman, the next of the others (LineMen riflemen before each), and with DeploysTanks a machine after every
+// round of men, its machines in turn. The turn moves when it buys, not with the clock. BuysInTurn = false is the rule
+// as it was, tick for tick, so a sweep plays old against new in one build (script_a / script_b).
 // A6 replaces this with WaveAiSystem.
 using UnityEngine;
 using TW.Net;
@@ -44,6 +52,16 @@ namespace TW.Presentation
         public int DeployEveryTicks = 40;
         public bool Attacks = true;
         public bool DeploysTanks;
+        /// <summary>What it buys (2026-10-07). true: the next thing in its turn (Turn), and it saves until it can pay for
+        /// it, so every armed class its faction fields reaches the field, and with DeploysTanks its machines. false: the
+        /// rule as it was: every DeployEveryTicks the next armed slot by the clock, bought only if the silver is there,
+        /// which after the opening is the rifleman alone; a machine only with its whole price in hand, which it never has.</summary>
+        public bool BuysInTurn = false;
+        /// <summary>BuysInTurn: the riflemen (roster slot 0) it buys before each of its other men. 1: every second man
+        /// holds the line with a rifle; 0: none but when it fields no other class.</summary>
+        public int LineMen = 1;
+        /// <summary>BuysInTurn: how many things it has bought, which is its place in the turn.</summary>
+        public int Bought;
         public int AttackGarrison = 8;
         public bool UsesSupport = true;
         public int SupportReserve = 180;
@@ -155,6 +173,50 @@ namespace TW.Presentation
                 && e.Archetype != InfantryArchetype.Para;
         }
 
+        /// <summary>BuysInTurn: the roster slot of the n-th thing it buys, -1 if it fields nothing it can buy. A round is
+        /// every other armed class of its roster once, LineMen riflemen (slot 0) before each: rifle, assault, rifle,
+        /// machine gunner, rifle, its fourth man, rifle, its fifth. With DeploysTanks a round ends on a machine, the
+        /// r-th round on its r-th. A locked slot is never in the turn: it would wait on it for good.</summary>
+        public int Turn(SimWorld pw, int n)
+        {
+            int others = 0, machines = 0;
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+            {
+                if (s > 0 && ArmedOf(pw, Side, s)) others++;
+                if (DeploysTanks && MachineOf(pw, s)) machines++;
+            }
+            bool rifle = Armed(pw, 0) && pw.SlotUnlocked[Side * RosterEntry.SlotCount] != 0;
+            int line = rifle ? (others == 0 ? 1 : Mathf.Max(0, LineMen)) : 0;
+            int men = others == 0 ? line : others * (line + 1);
+            int round = men + (machines > 0 ? 1 : 0);
+            if (round == 0 || n < 0) return -1;
+            int at = n % round;
+            if (at >= men)
+            {
+                int want = (n / round) % machines;
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                    if (MachineOf(pw, s) && want-- == 0) return s;
+                return -1;
+            }
+            if (others == 0 || at % (line + 1) < line) return 0;
+            int other = at / (line + 1);
+            for (int s = 1; s < RosterEntry.SlotCount; s++)
+                if (ArmedOf(pw, Side, s) && other-- == 0) return s;
+            return -1;
+        }
+
+        /// <summary>A machine in its roster slot that it may deploy.</summary>
+        bool MachineOf(SimWorld pw, int slot)
+            => pw.Roster[Side * RosterEntry.SlotCount + slot].IsVehicle && pw.SlotUnlocked[Side * RosterEntry.SlotCount + slot] != 0;
+
+        /// <summary>BuysInTurn: the price of what it is saving for, 0 when it saves for nothing (the old rule).</summary>
+        int SavingFor(SimWorld pw)
+        {
+            if (!BuysInTurn) return 0;
+            int slot = Turn(pw, Bought);
+            return slot < 0 ? 0 : pw.Roster[Side * RosterEntry.SlotCount + slot].Cost;
+        }
+
         /// <summary>The enemy's first machine, whatever its faction calls it; -1 if it fields none.</summary>
         int MachineSlot(SimWorld pw)
         {
@@ -169,7 +231,7 @@ namespace TW.Presentation
             if (t % (uint)Mathf.Max(1, DeployEveryTicks) == 0)
             {
                 // keep a reserve for support fire once the first squad is out; silver is the only brake on the script
-                int slot = ArmedSlot(pw, (int)(t / (uint)Mathf.Max(1, DeployEveryTicks)));
+                int slot = BuysInTurn ? Turn(pw, Bought) : ArmedSlot(pw, (int)(t / (uint)Mathf.Max(1, DeployEveryTicks)));
                 if (slot >= 0)
                 {
                     int cost = pw.Roster[Side * RosterEntry.SlotCount + slot].Cost;
@@ -187,10 +249,16 @@ namespace TW.Presentation
                     if (UsesSupport && Defends && t > 600 && held >= Mathf.Max(AttackGarrison, ours)
                         && OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.HeBarrage, out var sos))
                         reserve = Mathf.Max(reserve, sos.Cost);
-                    if (pw.Silver[Side] >= cost + reserve) enemy.Issue(SimCommand.Deploy(t, Side, slot));
+                    // in turn: it waits for the silver and for the slot's cooldown, then the turn moves on (a deploy the
+                    // sim refuses, the field full, is passed over: the turn never stands still on anything but the price)
+                    if (pw.Silver[Side] >= cost + reserve && (!BuysInTurn || pw.SlotCooldown[Side * RosterEntry.SlotCount + slot] == 0))
+                    {
+                        enemy.Issue(SimCommand.Deploy(t, Side, slot));
+                        Bought++;
+                    }
                 }
             }
-            if (DeploysTanks && t % 100 == 70)
+            if (DeploysTanks && !BuysInTurn && t % 100 == 70)
             {
                 int slot = MachineSlot(pw);
                 int ri = Side * RosterEntry.SlotCount + slot;
@@ -245,9 +313,10 @@ namespace TW.Presentation
             {
                 short mine = view.Fields.FrontTrench(Other);
                 var ability = (supportCount & 1) == 0 ? OffMapAbilityId.HeBarrage : OffMapAbilityId.ChlorineGas;
-                // harassing fire only out of silver to spare: the reserve stays for the barrage before an attack
+                // harassing fire only out of silver to spare: the reserve stays for the barrage before an attack, and
+                // what it is saving for (BuysInTurn) stays its own: a machine's price passes a barrage's on the way up
                 if (mine >= 0 && view.Fields.Trenches[mine].GarrisonCount >= 6 && view.Abilities.CooldownOf(Side, ability) == 0
-                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && pw.Silver[Side] >= stats.Cost + SupportReserve)
+                    && OffMapAbilitySystem.TryGetStats((int)ability, out var stats) && pw.Silver[Side] >= stats.Cost + SupportReserve + SavingFor(pw))
                 {
                     Vector3 sum = Vector3.zero; int n = 0;
                     for (int i = 0; i < pw.HighWater; i++)
