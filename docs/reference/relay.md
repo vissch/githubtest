@@ -14,8 +14,10 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 | retro | Opus, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
 
 A role's legs of one phase run on another model or effort when `routes.json` says so (`config.route`; Opus or
-Sonnet only). One route is in it, a trial: the execute legs of `review-fix` units on Sonnet at medium effort, measured by
-the fix check of the review lane (fixcheck, not on this line yet) against the Opus legs before it. A route stays only on the owner's word.
+Sonnet only), for every unit of the role or only for the units the route lists. The budget prices such a leg by
+its route (`config.routed`). One route is in it, a trial: the execute legs of ten listed `review-fix` units on
+Sonnet, nothing else changed, with ten more named in its `why` as the control on Opus. It is measured per unit by
+the fix check of the review lane (fixcheck, not on this line yet). A route stays only on the owner's word.
 
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
@@ -82,7 +84,7 @@ $R run --work <work checkout> --who <name>        # who starts it: shown by stat
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
 $R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <program> <arg> ...
-$R add --unit <file>                              # the same, the unit from a file in the queue file's shape
+$R add --unit <file> [--role <role>]              # the same from a file in the queue file's shape; --role when it names none
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
