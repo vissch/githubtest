@@ -688,17 +688,19 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Battle HUD (UI Toolkit, the live one)
 - **Files:** `UI/HudController.cs`, `UI/HudView.cs`, `UI/HudText.cs` (every word), `UI/HudLayout.cs`,
-  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`,
-  `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`, `UI/HudDialogue.cs` (the speaker strip) and
-  `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`; `Presentation/Core/HudBridge.cs` is the
-  seam between the camera assembly and UI (the camera may not reference UI). A unit's name, tip and portrait, and the
-  words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`, keyed by archetype, so both HUDs say
-  the same.
+  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/TrenchFlagRequests.cs` (lock / hold-fire: what we last asked
+  for ahead of the sim, so a toggle in a tactical pause can be undone), `UI/HudBootstrap.cs`,
+  `UI/Resources/Hud/BattleHud.uxml`, `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`,
+  `UI/HudDialogue.cs` (the speaker strip) and `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`;
+  `Presentation/Core/HudBridge.cs` is the seam between the camera assembly and UI (the camera may not reference UI).
+  A unit's name, tip and portrait, and the words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`,
+  keyed by archetype, so both HUDs say the same.
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one),
   HudTogglePlayTests (PlayMode: F9 through `HudHotkeys`/`HudController.ApplyFlag` always leaves exactly one HUD up),
-  UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
-  match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
+  HudOrderPlayTests (PlayMode: a second lock click in a tactical pause undoes the first, through
+  `TrenchFlagRequests`), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the
+  unit names and tooltips match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **Centre banner** (a trench taken, an ability, the match end): `ObjectiveTracker.BannerFor` (`UI/ObjectiveTracker.cs`,
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
   replaces which. `CombatFx.cs` draws an IMGUI copy only while the legacy HUD is on (F9).

@@ -13,6 +13,8 @@ namespace TW.Tests
     public class HudOrderPlayTests
     {
         GameObject go, hudGo;
+        GameObject camGo, hostGo;        // [I3] the lock test builds a real HUD over its own match
+        HudController lockHud;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -28,6 +30,9 @@ namespace TW.Tests
             MatchLaunch.Current = null;
             if (hudGo != null) Object.Destroy(hudGo);
             if (go != null) Object.Destroy(go);
+            if (lockHud != null) Object.Destroy(lockHud.gameObject);
+            if (hostGo != null) Object.Destroy(hostGo);
+            if (camGo != null) Object.Destroy(camGo);
             HudBootstrap.Disabled = false; ShellBoot.Disabled = false;
             yield return null;
         }
@@ -87,6 +92,42 @@ namespace TW.Tests
 
             Assert.That(foundNoOne, Is.EqualTo(0), "[Z011.1] the order must not go to an empty trench (OrderFoundNoOne)");
             Assert.That(left, Is.GreaterThan(0), "[Z011.1] men of the manned trench must go over the top");
+        }
+
+        /// <summary>
+        /// [I3] lock / hold-fire are absolute flags the sim applies a few ticks later and not at all while paused,
+        /// so a second click computed from stale sim state resent the same value and the toggle could not be undone
+        /// in a tactical pause. Drives HudController.ToggleFront twice through a real paused match.
+        /// </summary>
+        [UnityTest]
+        public IEnumerator ASecondLockClickInTacticalPauseMustUndoTheFirst()
+        {
+            camGo = new GameObject("main-camera"); camGo.tag = "MainCamera";
+            camGo.AddComponent<Camera>();
+
+            hostGo = new GameObject("sim-host");
+            var host = hostGo.AddComponent<SimHost>();
+            host.GeneratedBattlefield = false; host.PlaytestMap = true;
+            host.ScriptedPeer = false; host.PeerAttacks = false;
+
+            lockHud = HudBootstrap.Create(host);
+            yield return null; yield return null;
+
+            short t = lockHud.Host.Local.Fields.FrontTrench(0);
+            Assert.That(t, Is.GreaterThanOrEqualTo((short)0), "no owned front trench to lock");
+
+            lockHud.Clock.Toggle(MatchClock.Hold.Tactical);
+            yield return null;
+            Assert.That(lockHud.Clock.Paused, Is.True, "the tactical pause did not take hold");
+
+            lockHud.ToggleFront(CommandType.TrenchLock);
+            lockHud.ToggleFront(CommandType.TrenchLock);
+
+            lockHud.Clock.Remove(MatchClock.Hold.Tactical);
+            for (int i = 0; i < 20; i++) yield return null;
+
+            Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(0),
+                "[I3] a second lock click in tactical pause must undo the first");
         }
 
         static int Alive(SimWorld w)
