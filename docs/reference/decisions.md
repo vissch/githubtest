@@ -200,6 +200,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **The fleet's guns stay silent in a match unless switched on** (the owner, on the Decide page: "The guns stay silent in a match unless switched on (a test, the debug panel, an ability later); the fix stays"). The review fix U1 made the fleet fire for the first time, a 300-damage shell every 23 s on every map with a sea, half of them on the sea side's own lines: ambient shelling, against the row of 2026-09-28. `SeaLandingSystem.FleetFires` is off as a match is made (`LandingTests.TheFleetIsSilentInAMatch_UnlessSwitchedOn`); a test switches it on. Nothing in the game switches it on yet: no debug button, no ability. Landed with `lane/sim/review-fixes` (replay v36, v37). |
 
 ## Open: waiting on the owner
+- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
+  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
+  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
+  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
+  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
+  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
+  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
+  trench line cannot be made to agree column by column.
+  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
+  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
+  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
+  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
+  sight checks, accepting a lipped crest.
+  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
+  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
   garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
