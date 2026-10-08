@@ -114,6 +114,36 @@ namespace TW.Tests
             return n;
         }
 
+        /// <summary>
+        /// THE RIDGE SEAM'S GUARD. `BattlefieldParams.Rise` is a dial, and `0` must stay bit-identical to the
+        /// field as it was before the dial existed. These three hashes were measured on this lane at commit
+        /// dedfcd09, BEFORE the first edit of the ridge work; everything the ridge adds is gated on
+        /// `p.Rise != 0f`.
+        ///
+        /// A hash here that moves means the edit LEAKED into the level field - a branch that is not gated, or a
+        /// change reaching a non-crest trench. FIX THE EDIT, NEVER RE-PIN THE NUMBER.
+        /// </summary>
+        [Test]
+        public void Rise_Zero_LeavesTheThreePresets_Unchanged()
+        {
+            const ulong Forest = 330536166753067018UL, Winter = 15193885026306347569UL, Landing = 5359672224418286410UL;
+            using var forest = BattlefieldGenerator.Create(BattlefieldParams.ShelledForest(1917), Allocator.Persistent);
+            using var winter = BattlefieldGenerator.Create(BattlefieldParams.WinterLine(1917), Allocator.Persistent);
+            using var landing = BattlefieldGenerator.Create(BattlefieldParams.Landing(1917), Allocator.Persistent);
+            Assert.AreEqual(Forest, forest.Hash(SimHash.Offset), "ShelledForest(1917) moved: the ridge leaked into the level field");
+            Assert.AreEqual(Winter, winter.Hash(SimHash.Offset), "WinterLine(1917) moved: the ridge leaked into the level field");
+            Assert.AreEqual(Landing, landing.Hash(SimHash.Offset), "Landing(1917) moved: the ridge leaked into the level field");
+
+            var p = BattlefieldParams.ShelledForest(1917);
+            p.Rise = 9f;
+            var round = BattlefieldParams.Deserialize(p.Serialize());
+            Assert.AreEqual(9f, round.Rise, 0f, "Rise survives the blob");
+            Assert.AreEqual(p.SeaMargin, round.SeaMargin, 0f, "Rise was appended after SeaMargin, not into it");
+
+            var old = BattlefieldParams.ShelledForest(1917).Serialize();
+            Assert.AreEqual(0f, BattlefieldParams.Deserialize(old).Rise, 0f, "a blob without the field reads 0");
+        }
+
         [Test]
         public void Generator_SameParamsSameMap_DifferentSeedDifferentMap()
         {
