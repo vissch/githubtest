@@ -86,17 +86,18 @@ namespace TW.Editor
                 var font = AssetDatabase.LoadAssetAtPath<Font>(ttfAsset);
                 if (font == null) { Debug.LogError($"UiAssetBuilder: {ttfAsset} did not import as a Font."); continue; }
                 string assetPath = FontsFolder + "/" + job.Asset;
-                var fa = FontAsset.CreateFontAsset(font, job.Size, job.Padding, job.Mode, job.Atlas, job.Atlas, AtlasPopulationMode.Static, false);
+                var fa = FontAsset.CreateFontAsset(font, job.Size, job.Padding, job.Mode, job.Atlas, job.Atlas, AtlasPopulationMode.Dynamic, false);
                 if (fa == null) { Debug.LogError($"UiAssetBuilder: could not create a font asset from {ttfAsset}."); continue; }
                 fa.TryAddCharacters(Characters(), out string missing);
                 if (!string.IsNullOrEmpty(missing)) Debug.Log($"UiAssetBuilder: {job.Asset} lacks {missing.Length} glyph(s): {missing}");
+                if (fa.characterTable == null || fa.characterTable.Count == 0)
+                {
+                    Debug.LogError($"UiAssetBuilder: {job.Asset} baked no characters from {job.Ttf}; leaving the committed asset untouched.");
+                    continue;
+                }
                 fa.name = Path.GetFileNameWithoutExtension(job.Asset);
                 if (fa.material != null) fa.material.name = fa.name + " Material";
-                if (File.Exists(UiSkinGenerator.FullPath(assetPath))) AssetDatabase.DeleteAsset(assetPath);
-                AssetDatabase.CreateAsset(fa, assetPath);
-                if (fa.material != null) AssetDatabase.AddObjectToAsset(fa.material, fa);
-                if (fa.atlasTextures != null) for (int i = 0; i < fa.atlasTextures.Length; i++) if (fa.atlasTextures[i] != null) { fa.atlasTextures[i].name = fa.name + " Atlas " + i; AssetDatabase.AddObjectToAsset(fa.atlasTextures[i], fa); }
-                EditorUtility.SetDirty(fa);
+                WriteFontAsset(fa, assetPath);
                 Debug.Log($"UiAssetBuilder: baked {assetPath} from {job.Ttf} ({job.Size} pt, {job.Atlas} px)");
             }
             AssetDatabase.SaveAssets();
@@ -122,6 +123,30 @@ namespace TW.Editor
             foreach (var guid in AssetDatabase.FindAssets("t:StyleSheet", new[] { "Assets/_Project/UI" }))
                 AssetDatabase.ImportAsset(AssetDatabase.GUIDToAssetPath(guid), ImportAssetOptions.ForceUpdate);
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>Writes a baked FontAsset to assetPath, keeping the GUID of whatever is already there instead of
+        /// delete+create (which handed every skin label a fresh GUID on each bake, see F13).</summary>
+        static void WriteFontAsset(FontAsset fa, string assetPath)
+        {
+            string full = UiSkinGenerator.FullPath(assetPath);
+            var existing = File.Exists(full) ? AssetDatabase.LoadAssetAtPath<FontAsset>(assetPath) : null;
+            if (existing != null)
+            {
+                foreach (var sub in AssetDatabase.LoadAllAssetRepresentationsAtPath(assetPath)) Object.DestroyImmediate(sub, true);
+                EditorUtility.CopySerialized(fa, existing);
+                if (fa.material != null) AssetDatabase.AddObjectToAsset(fa.material, existing);
+                if (fa.atlasTextures != null) for (int i = 0; i < fa.atlasTextures.Length; i++) if (fa.atlasTextures[i] != null) AssetDatabase.AddObjectToAsset(fa.atlasTextures[i], existing);
+                AssetDatabase.ImportAsset(assetPath, ImportAssetOptions.ForceUpdate);
+                EditorUtility.SetDirty(existing);
+            }
+            else
+            {
+                AssetDatabase.CreateAsset(fa, assetPath);
+                if (fa.material != null) AssetDatabase.AddObjectToAsset(fa.material, fa);
+                if (fa.atlasTextures != null) for (int i = 0; i < fa.atlasTextures.Length; i++) if (fa.atlasTextures[i] != null) { fa.atlasTextures[i].name = fa.name + " Atlas " + i; AssetDatabase.AddObjectToAsset(fa.atlasTextures[i], fa); }
+                EditorUtility.SetDirty(fa);
+            }
         }
 
         static void EnsureFolder(string assetFolder)
