@@ -7,6 +7,8 @@ TW_FAKE_SCRIPT is a JSON file: {"<phase>": [action, ...]}; a phase may also be k
 Top-level keys: "mode" (the permission mode it reports), "no_hooks" (skip the hooks), "no_result" (print no result),
 "cost" (what a leg reports as its cost: a number, or {"<phase>": number}; a cost over --max-budget-usd ends the leg
 as Claude does: subtype error_max_budget_usd, exit 1).
+Started with --resume it is the session's next turn: it runs "<phase>+resume" when the script has that key, else it
+says the phase's own report again (a leg that still has nothing to say); no session-start hook, the same transcript.
 Actions:  {"write": "<name in the desk folder>", "text": ".."}   {"file": "<path in the checkout>", "text": ".."}
           {"abs": "<any path>", "text": ".."}   {"git": ["add", "-A"]}   {"tool": "Bash", "input": {..}}  (asks the pre-tool hook; refused = not done)
           {"tokens": n}  (a model call of that size, then the meter hook)   {"sleep": seconds}
@@ -35,13 +37,18 @@ def main():
     desk = Path(leg["desk"])
     script = json.loads(Path(os.environ["TW_FAKE_SCRIPT"]).read_text(encoding="utf-8"))
     actions = script.get("%s#%d" % (leg["phase"], leg["leg"]), script.get(leg["phase"], []))
+    resumed = "--resume" in args
+    if resumed:
+        actions = script.get(leg["phase"] + "+resume", [a for a in actions if "report" in a][-1:])
     cmds = {} if script.get("no_hooks") else json.loads(Path(args[args.index("--settings") + 1]).read_text(encoding="utf-8"))["hooks"]
     transcript = desk / "fake-transcript.jsonl"
-    transcript.write_text("", encoding="utf-8")
+    if not resumed:
+        transcript.write_text("", encoding="utf-8")
     base = {"session_id": "fake", "transcript_path": str(transcript)}
     print(json.dumps({"type": "system", "subtype": "init", "model": leg["model"],
                       "permissionMode": script.get("mode", "auto")}), flush=True)
-    hook(cmds, "SessionStart", dict(base, source="startup"))
+    if not resumed:
+        hook(cmds, "SessionStart", dict(base, source="startup"))
     report, code, refused = "RESULT: done. The fake leg ran.", 0, []
     for a in actions:
         if "write" in a:
