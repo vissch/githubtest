@@ -19,6 +19,9 @@ namespace TW.Presentation
         ShelledForest = 0,
         WinterLine = 1,
         Landing = 2,
+        /// <summary>The Narrows: as wide as the wood, half as long, so the front trenches stand 50 m apart instead
+        /// of 100. Appended, never inserted: the value is serialized in mission cards.</summary>
+        Narrows = 3,
     }
 
     public static class MatchLaunch
@@ -31,6 +34,15 @@ namespace TW.Presentation
             {
                 case Ground.WinterLine: return TW.Sim.Terrain.BattlefieldParams.WinterLine(seed);
                 case Ground.Landing: return TW.Sim.Terrain.BattlefieldParams.Landing(seed);
+                // The Narrows is built inline rather than as a fourth preset: a preset lives in TW.Sim, and this
+                // field needs no sim change at all (docs/design/idea-the-narrows-a-field-half-as-deep.md, 5).
+                // Half the wood's length at the same width, so only depth changes and the gap halves to 50 m.
+                // No river (its half width never scales under 6 m: up to 17 m of water in a 50 m gap) and no sea.
+                case Ground.Narrows: return new TW.Sim.Terrain.BattlefieldParams
+                {
+                    Seed = seed, Width = 90f, Length = 120f, Forest = 0.35f, Shelling = 0.7f, Mud = 0.5f,
+                    WaterLevel = 0.15f, River = false, Wrecks = 1, Bombardment = 8f, Sea = false,
+                };
                 default: return TW.Sim.Terrain.BattlefieldParams.ShelledForest(seed);
             }
         }
