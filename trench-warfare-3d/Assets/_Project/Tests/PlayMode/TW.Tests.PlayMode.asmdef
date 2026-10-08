@@ -17,7 +17,8 @@
     "TW.Data",
     "TW.UI",
     "TW.Presentation.Camera",
-    "TW.Perf"
+    "TW.Perf",
+    "Unity.InputSystem"
   ],
   "includePlatforms": [],
   "excludePlatforms": [],
