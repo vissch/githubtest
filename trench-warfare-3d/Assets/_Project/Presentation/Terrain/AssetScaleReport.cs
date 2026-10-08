@@ -41,9 +41,15 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>Every module of the kit, measured on the composed field of a seed. The kit must be built.</summary>
-        /// <summary>The three grounds the game ships (BattlefieldParams presets), for the audit and its gate test.</summary>
+        /// <summary>Every ground the game ships, for the audit and its gate test. The first three are BattlefieldParams
+        /// presets; the Narrows has no preset (it is built inline in MatchLaunch.Field, which is the one place a Ground
+        /// becomes a battlefield), so it is read from there rather than restated here.</summary>
         public static readonly (string name, System.Func<uint, BattlefieldParams> make)[] Grounds =
-            { ("ShelledForest", BattlefieldParams.ShelledForest), ("Landing", BattlefieldParams.Landing), ("WinterLine", BattlefieldParams.WinterLine) };
+            {
+                ("ShelledForest", BattlefieldParams.ShelledForest), ("Landing", BattlefieldParams.Landing),
+                ("WinterLine", BattlefieldParams.WinterLine),
+                ("Narrows", s => MatchLaunch.Field(Ground.Narrows, s)),
+            };
 
         public static List<Row> Measure(BattlefieldKit kit, PropLayout layout, uint seed = 1917, System.Func<uint, BattlefieldParams> ground = null)
         {
