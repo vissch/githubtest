@@ -33,6 +33,7 @@ namespace TW.UI
         string audioNote;
         const string SoundOffNote = "SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.";
         IDisposable listening; Button listeningCap;
+        GameAction listeningAction; bool listeningSecondary;
         readonly List<Resolution> resolutions = new List<Resolution>();
         readonly Dictionary<GameAction, (Button primary, Button secondary)> caps = new Dictionary<GameAction, (Button, Button)>();
 
@@ -59,7 +60,11 @@ namespace TW.UI
 
         protected override void OnUnbind()
         {
-            listening?.Dispose(); listening = null; InputFocus.Listening = false;
+            // A capture left running (BACK clicked while a cap said PRESS A KEY) holds MatchClock.Hold.Modal:
+            // Stopper.Dispose only runs Finish(), never the cancel callback, so nothing else would ever let it go
+            // and the match would stay frozen for good.
+            if (listening != null) Router?.Clock?.Remove(MatchClock.Hold.Modal);
+            listening?.Dispose(); listening = null; listeningCap = null; InputFocus.Listening = false;
             if (!Mathf.Approximately(appliedScale, PreviewScale)) { var s = SettingsStore.Current.Clone(); s.Interface.UiScale = appliedScale; SettingsApplier.ApplyInterface(s); }
             // The audio preview goes back if they left without applying. After APPLY, SettingsStore.Current IS
             // the draft, so this is a no-op; without it a previewed volume would outlive the screen that
@@ -135,8 +140,8 @@ namespace TW.UI
         void Listen(GameAction a, bool secondary, Button cap)
         {
             listening?.Dispose();
-            if (listeningCap != null) RefreshCap(a, secondary);
-            listeningCap = cap;
+            if (listeningCap != null) RefreshCap(listeningAction, listeningSecondary);
+            listeningCap = cap; listeningAction = a; listeningSecondary = secondary;
             cap.text = "PRESS A KEY"; cap.EnableInClassList("tw-keycap--listening", true);
             Router?.Clock?.Add(MatchClock.Hold.Modal);
             listening = KeyMap.Listen(key =>
