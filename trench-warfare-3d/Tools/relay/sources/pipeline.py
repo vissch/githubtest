@@ -28,6 +28,17 @@ def jpeg_size(data):
     return None
 
 
+def waits_on_someone(board, item, sid, job):
+    """True for a job whose last attempt ended BLOCKED: it asked a person something, and nothing has changed since,
+    or its id would be another (the id is a hash of its inputs and of the feedback requests on its stage). The
+    pipeline calls such a job READY, which is right for a person and wrong for the relay: every new run took the
+    Ridge's battlefield job again, planned it for about 6 dollars and ended BLOCKED on the same question
+    (2026-10-08, attempts 1 and 2). It is taken again when an input moves or someone answers with
+    `pipeline.py feedback <item> <stage> "..."`."""
+    res = P.valid_result(board.results(item["id"], sid), job)
+    return bool(res) and res.get("verdict") == "BLOCKED"
+
+
 def next(ctx, only=None):
     board = P.Board(ctx["board"])
     for item in board.items().values():
@@ -37,7 +48,8 @@ def next(ctx, only=None):
             if only and (item["id"], sid) != only:
                 continue
             if (info["station"] == ctx["station"] and info["state"] in ("READY", "STALE", "RECHECK")
-                    and st.get("role") not in SKIP_ROLES and info["job"] not in ctx["skip"]):
+                    and st.get("role") not in SKIP_ROLES and info["job"] not in ctx["skip"]
+                    and not waits_on_someone(board, item, sid, info["job"])):
                 return {"id": info["job"], "source": NAME, "role": st.get("role") or "pipeline",
                         "lane": st.get("lane") or item["lane"], "item": item["id"], "stage": sid,
                         "todo": "RECHECK" if info["state"] == "RECHECK" else "REGENERATE",

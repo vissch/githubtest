@@ -2195,6 +2195,24 @@ class PipelineSource(Repo):
                            capture_output=True)
         self.assertIn(b"relay leg", r.stderr)
 
+    def test_a_job_that_ended_blocked_is_not_taken_again_until_someone_answers(self):
+        """The Ridge's battlefield job, 2026-10-08: BLOCKED on a question for the owner, and planned again by the
+        next run for nothing."""
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": [{"report": "RESULT: blocked - this needs a SIM lane, the owner must open one."}]})
+        out, stop = self.go(sources=["pipeline"])
+        self.assertEqual([(r["verdict"], r["attempt"]) for r in self.results()], [("BLOCKED", 1)])
+        self.g(["switch", "-q", gitio.INTEGRATION])
+        out, stop = self.go(sources=["pipeline"])                               # a new run, nothing has changed
+        self.assertEqual((stop["reason"], stop["legs"]), ("nothing left to do", 0))
+        self.assertEqual(len(self.results()), 1)
+        SP.P.cmd_feedback(SP.P.Board(self.board), argparse.Namespace(                # he answers: a new job
+            item="thing", stage="shots", words="A sim lane is open: build it there.", check="RidgeTests green"))
+        self.g(["switch", "-q", gitio.INTEGRATION])
+        out, stop = self.go(sources=["pipeline"])
+        self.assertEqual(stop["legs"], 2)
+        self.assertEqual(len(self.results()), 2)
+
     def test_a_run_that_stops_mid_job_gives_the_claim_back_and_writes_no_result(self):
         self.script({"plan": [{"exit": 2}]})
         _, stop = self.go(sources=["pipeline"])
