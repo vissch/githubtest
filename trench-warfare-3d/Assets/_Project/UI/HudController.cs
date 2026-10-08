@@ -285,6 +285,7 @@ namespace TW.UI
             bool over = w.WinnerTeam >= 0;
             float tickSeconds = w.Config.TickSeconds;
             using (hotkeysMarker.Auto()) hotkeys.Update();
+            if (!flagOn) return;   // [I1] F9 just stepped back to the IMGUI HUD: LegacyInterim must not switch it off again
             using (legacyMarker.Auto()) LegacyInterim();
 
             // gauges
