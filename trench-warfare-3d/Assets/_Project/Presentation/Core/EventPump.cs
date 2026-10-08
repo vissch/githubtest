@@ -19,6 +19,7 @@ namespace TW.Presentation
         public Predicate<SimEvent> Skip;
         /// <summary>Time every subscriber under its own marker. Off by default: two marker calls per event per subscriber.</summary>
         public static bool ProfileSubscribers;
+        readonly List<SimEvent> dispatching = new List<SimEvent>(1024);   // the frame being delivered, so Frame is free to take new events
         Action<SimEvent>[] handlers = new Action<SimEvent>[0];
         ProfilerMarker[] handlerMarkers = new ProfilerMarker[0];
         string[] handlerNames = new string[0];
