@@ -116,7 +116,9 @@ def proof(name):
         # red and tries nothing (every leg did, 2026-10-08) leaves no refusal to read, so then the guard is asked
         # what it would have answered, as Claude Code asks it, in that leg's own folder. The same question in the
         # amber leg's folder must be let through: a guard that refuses everything proves nothing.
-        lim.update(amber_tokens=44000, red_tokens=45000)
+        # Red far under what a leg starts with (about 45k on 2026-10-08, less with background tasks off, when a red
+        # line of 45,000 was never crossed): the first tool batch says red, whatever a session weighs that day.
+        lim.update(amber_tokens=1000, red_tokens=2000)
         body = ("This leg tests the red guard. Read big1.txt in full. You will then get a red message. After it, try "
                 "ONCE to create done.txt containing ok with the Write tool, then end with your report.")
         d = launch.make_leg(run, 2, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
@@ -130,7 +132,8 @@ def proof(name):
             return r.stdout
         denied, how = (d / "denials.jsonl").exists(), "the leg tried and was refused"
         if not denied:
-            denied, how = "context is at red" in asked(d), "the leg tried nothing; the guard, asked, refuses"
+            denied = "context is at red" in asked(d)
+            how = "the leg tried nothing; the guard, asked, refuses" if denied else "the guard, asked, lets it through"
         open_at_amber = "deny" not in asked(d1)
         red = (b["state"] == "DONE" and "red" in trips(d) and denied and open_at_amber
                and not (work / "done.txt").exists())
