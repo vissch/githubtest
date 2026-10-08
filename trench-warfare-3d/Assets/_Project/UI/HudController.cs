@@ -43,6 +43,9 @@ namespace TW.UI
         public HudDialogue Dialogue => dialogue;
         SelectionController selection;
         SelectionPanel selectionPanel;
+        TrenchFlagRequests flags;
+        /// <summary>What we last asked a trench's lock / hold-fire to be, shown ahead of the sim (TrenchOrderCluster reads it too).</summary>
+        public TrenchFlagRequests Flags => flags;
         /// <summary>What the player has selected on the field (inspecting and groups; the trenches keep the orders).</summary>
         public SelectionController Selection => selection;
         HudTooltip tooltip;
@@ -134,7 +137,8 @@ namespace TW.UI
             tooltip = new HudTooltip(refs.Tooltip, refs.TooltipTitle, refs.TooltipBody, refs.TooltipCost);
             minimap = new HudMinimap(refs, Host, Cam);
             var garrison = new GarrisonStats();
-            clusters = new TrenchOrderCluster(refs.OrdersLayer, Resources.Load<VisualTreeAsset>("Hud/TrenchOrders"), Host, Cam, tooltip, Order, garrison);
+            flags = new TrenchFlagRequests();
+            clusters = new TrenchOrderCluster(refs.OrdersLayer, Resources.Load<VisualTreeAsset>("Hud/TrenchOrders"), Host, Cam, tooltip, Order, garrison, flags);
             objectives = new ObjectiveTracker(refs, Resources.Load<VisualTreeAsset>("Hud/ObjectiveRow"), Host);
             dialogue = new HudDialogue(root);
             commentary = new HudCommentary(Host, dialogue, SettingsStore.Current.Interface.Tooltips);   // the tips follow the tooltips setting
@@ -241,7 +245,9 @@ namespace TW.UI
             int t = selection != null && selection.ScopedTrench(out int scoped, out _) ? scoped : Host.Local.Fields.FrontTrench(0);   // F / L: the selected men's trench first
             if (t < 0) return;
             var ts = Host.Local.Fields.Trenches[t];
-            int b = type == CommandType.TrenchLock ? (ts.Locked != 0 ? 0 : 1) : type == CommandType.TrenchHoldFire ? (ts.HoldFire != 0 ? 0 : 1) : 0;
+            bool holdFire = type == CommandType.TrenchHoldFire;
+            int current = holdFire ? ts.HoldFire : ts.Locked;
+            int b = flags != null ? flags.Next(t, holdFire, current, Host.Local.World.Tick) : current != 0 ? 0 : 1;
             Order(type, t, b);
         }
 

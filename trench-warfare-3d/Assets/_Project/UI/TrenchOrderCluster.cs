@@ -82,13 +82,14 @@ namespace TW.UI
         readonly List<Vector3> anchors = new List<Vector3>(8);   // x, y = panel, z = trench index
         readonly Action<CommandType, int, int> issue;
         readonly GarrisonStats garrison;
+        readonly TrenchFlagRequests flags;
         public bool Interactive = true;
         /// <summary>The trench whose men badge is under the cursor, or -1.</summary>
         public int HoveredTrench { get; private set; } = -1;
 
-        public TrenchOrderCluster(VisualElement ordersLayer, VisualTreeAsset template, SimHost host, TacticalCamera cam, HudTooltip tooltip, Action<CommandType, int, int> issue, GarrisonStats garrison = null)
+        public TrenchOrderCluster(VisualElement ordersLayer, VisualTreeAsset template, SimHost host, TacticalCamera cam, HudTooltip tooltip, Action<CommandType, int, int> issue, GarrisonStats garrison = null, TrenchFlagRequests flags = null)
         {
-            layer = ordersLayer; this.host = host; this.cam = cam; this.tooltip = tooltip; this.issue = issue; this.garrison = garrison;
+            layer = ordersLayer; this.host = host; this.cam = cam; this.tooltip = tooltip; this.issue = issue; this.garrison = garrison; this.flags = flags;
             int n = host.Local.Fields.Trenches.Length;
             for (int t = 0; t < n; t++) pool.Add(Make(template, t));
         }
@@ -120,25 +121,41 @@ namespace TW.UI
                 var w = host.Local.World;   // the sim takes order groups, not archetypes
                 if (mask != 0) issue(CommandType.TrenchSelectAdvance, t, TrenchScope.Groups(mask, a => TrenchScope.GroupOf(w, a))); else issue(CommandType.TrenchAdvance, t, 0);
             };
-            c.Lock.clicked += () => issue(CommandType.TrenchLock, t, host.Local.Fields.Trenches[t].Locked != 0 ? 0 : 1);
+            c.Lock.clicked += () => issue(CommandType.TrenchLock, t, NextFlag(t, false));
             c.Advance.RegisterCallback<PointerEnterEvent>(_ => HoveredAdvanceTrench = t);
             c.Advance.RegisterCallback<PointerLeaveEvent>(_ => { if (HoveredAdvanceTrench == t) HoveredAdvanceTrench = -1; });
             if (c.HoldTag != null)
             {
                 c.HoldTag.pickingMode = PickingMode.Position;
-                c.HoldTag.RegisterCallback<ClickEvent>(_ => issue(CommandType.TrenchHoldFire, t, host.Local.Fields.Trenches[t].HoldFire != 0 ? 0 : 1));
+                c.HoldTag.RegisterCallback<ClickEvent>(_ => issue(CommandType.TrenchHoldFire, t, NextFlag(t, true)));
             }
             if (tooltip != null)
             {
                 tooltip.Attach(c.Fallback, "FALL BACK", HudText.FallbackTip);
                 tooltip.Attach(c.Advance, () => AdvanceHeading(t), () => AdvanceText(t));
-                tooltip.Attach(c.Lock, () => host.Local.Fields.Trenches[t].Locked != 0 ? "LOCKED" : "OPEN", () => host.Local.Fields.Trenches[t].Locked != 0 ? HudText.LockedTip : HudText.OpenTip);
+                tooltip.Attach(c.Lock, () => ShownFlag(t, false) != 0 ? "LOCKED" : "OPEN", () => ShownFlag(t, false) != 0 ? HudText.LockedTip : HudText.OpenTip);
                 if (c.HoldTag != null)
-                    tooltip.Attach(c.HoldTag, () => host.Local.Fields.Trenches[t].HoldFire != 0 ? "HOLDING FIRE" : "FIRING AT WILL",
-                                   () => (host.Local.Fields.Trenches[t].HoldFire != 0 ? HudText.HoldingTip : HudText.FiringTip) + ". Click or F to switch");
+                    tooltip.Attach(c.HoldTag, () => ShownFlag(t, true) != 0 ? "HOLDING FIRE" : "FIRING AT WILL",
+                                   () => (ShownFlag(t, true) != 0 ? HudText.HoldingTip : HudText.FiringTip) + ". Click or F to switch");
             }
             Hide(c);
             return c;
+        }
+
+        /// <summary>What we last asked trench t's lock (holdFire=false) or hold-fire (holdFire=true) to be, ahead of
+        /// the sim while that request is outstanding (TrenchFlagRequests): the icon flips on the click.</summary>
+        int ShownFlag(int t, bool holdFire)
+        {
+            var ts = host.Local.Fields.Trenches[t];
+            int sim = holdFire ? ts.HoldFire : ts.Locked;
+            return flags != null ? flags.Shown(t, holdFire, sim, host.Local.World.Tick) : sim;
+        }
+
+        int NextFlag(int t, bool holdFire)
+        {
+            var ts = host.Local.Fields.Trenches[t];
+            int sim = holdFire ? ts.HoldFire : ts.Locked;
+            return flags != null ? flags.Next(t, holdFire, sim, host.Local.World.Tick) : sim != 0 ? 0 : 1;
         }
 
         static VisualElement Fallback()
@@ -305,7 +322,7 @@ namespace TW.UI
                     c.LastX = x; c.LastY = by;
                 }
                 var ts = fields.Trenches[t];
-                bool locked = ts.Locked != 0, held = ts.HoldFire != 0, manned = ts.GarrisonCount > 0;
+                bool locked = ShownFlag(t, false) != 0, held = ShownFlag(t, true) != 0, manned = ts.GarrisonCount > 0;
                 if (locked != c.LastLocked || float.IsNaN(c.LastX) || !c.Shown)
                 {
                     c.LockIcon?.EnableInClassList("tw-ico-lock-closed", locked); c.LockIcon?.EnableInClassList("tw-ico-lock-open", !locked);

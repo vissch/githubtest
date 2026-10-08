@@ -659,16 +659,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 
 ### Battle HUD (UI Toolkit, the live one)
 - **Files:** `UI/HudController.cs`, `UI/HudView.cs`, `UI/HudText.cs` (every word), `UI/HudLayout.cs`,
-  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/HudBootstrap.cs`, `UI/Resources/Hud/BattleHud.uxml`,
-  `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`, `UI/HudDialogue.cs` (the speaker strip) and
-  `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`; `Presentation/Core/HudBridge.cs` is the
-  seam between the camera assembly and UI (the camera may not reference UI). A unit's name, tip and portrait, and the
-  words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`, keyed by archetype, so both HUDs say
-  the same.
+  `UI/HudMinimap.cs`, `UI/TrenchOrderCluster.cs`, `UI/TrenchFlagRequests.cs` (lock / hold-fire: what we last asked
+  for ahead of the sim, so a toggle in a tactical pause can be undone), `UI/HudBootstrap.cs`,
+  `UI/Resources/Hud/BattleHud.uxml`, `UI/HudHotkeys.cs` (keys, through `KeyMap`), `UI/HudTooltip.cs`,
+  `UI/HudDialogue.cs` (the speaker strip) and `UI/HudCommentary.cs` (what is said on it), `UI/ObjectiveTracker.cs`;
+  `Presentation/Core/HudBridge.cs` is the seam between the camera assembly and UI (the camera may not reference UI).
+  A unit's name, tip and portrait, and the words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`,
+  keyed by archetype, so both HUDs say the same.
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   HudTogglePlayTests (PlayMode: F9 through `HudHotkeys`/`HudController.ApplyFlag` always leaves exactly one HUD up),
-  UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
-  match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
+  HudOrderPlayTests (PlayMode: a second lock click in a tactical pause undoes the first, through
+  `TrenchFlagRequests`), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the
+  unit names and tooltips match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **Centre banner** (a trench taken, an ability, the match end): `ObjectiveTracker.BannerFor` (`UI/ObjectiveTracker.cs`,
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
   replaces which. `CombatFx.cs` draws an IMGUI copy only while the legacy HUD is on (F9).
@@ -935,7 +937,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 
 <!-- gen:tests -->
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
-- **PlayMode:** CampaignDeployPlayTests, GymPlayTests, HudLayoutPlayTests, HudTogglePlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, SettingsPausePlayTests, ShellRouterPlayTests
+- **PlayMode:** CampaignDeployPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, HudTogglePlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, SettingsPausePlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FigurePartsTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MeleeTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
