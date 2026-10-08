@@ -150,14 +150,20 @@ namespace TW.Presentation
         {
             using var update = PerfMarkers.HostUpdate.Auto();
             float tick = Local.World.Config.TickSeconds;
-            accumulator += Time.deltaTime * Mathf.Max(0f, TimeScale);
-            int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
-            while (accumulator >= tick && guard-- > 0)
+            if (TimeScale > 0f)
             {
-                SyncEnemy();
-                bool a = session.StepOnce(enemy);
-                if (a) LocalStepped();
-                if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
+                accumulator += Time.deltaTime * TimeScale;
+                int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
+                while (accumulator >= tick && guard-- > 0)
+                {
+                    SyncEnemy();
+                    bool a = session.StepOnce(enemy);
+                    if (a) LocalStepped();
+                    if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
+                }
+                // What the guard could not pay is dropped, never owed: a debt would keep stepping the full guard every
+                // frame long after the slow frame, and keep stepping right through a pause.
+                if (accumulator > tick) accumulator = tick;
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
