@@ -59,7 +59,8 @@ LOOK_PROGS = {"ls", "cat", "head", "tail", "grep", "rg", "wc", "pwd", "dir", "ty
               "format-table", "format-list", "ft", "fl", "out-string", "out-host", "write-output", "write-host",
               "set-location", "push-location", "pop-location", "get-process", "convertfrom-json", "compare-object"}
 LOOK_SCRIPTS = {"pipeline.py": ("status", "why", "next"), "health.py": None, "validate.py": None,
-                "codemap.py": ("--check",), "run_detached.py": ("status",), "aosa.py": ("status", "pick")}
+                "codemap.py": ("--check",), "run_detached.py": ("status",), "aosa.py": ("status", "pick"),
+                "editor_lock.py": ("status", "guard")}       # the lock is how a leg asks "is the project free"
 PYTHONS = {"python", "python3", "py", "pythonw"}
 PY_WRITES = re.compile(r"open\s*\([^)]*,\s*['\"][^'\"]*[wax+]|mode\s*=\s*['\"][^'\"]*[wax+]|\.open\s*\(\s*['\"][^'\"]*[wax+]"
                        r"|\.write|write_(text|bytes)|unlink|rmtree|rmdir|remove\s*\(|rename|mkdir|makedirs|touch\s*\("
