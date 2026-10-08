@@ -125,7 +125,11 @@ namespace TW.UI
             }
             SetText("info-title", n.Name);
             SetText("info-blurb", n.Blurb);
-            SetText("info-enemy", "ENEMY  ·  " + HomeFrontScreen.FactionNames[Mathf.Clamp(n.EnemyFaction, 0, HomeFrontScreen.FactionNames.Length - 1)] + (n.Finale ? "  ·  THE LAST BATTLE" : ""));
+            // the node's enemy field is 1 for every node, but the battle gives the enemy the other side of the
+            // player (StagingScreen.ToRequest): a Brass player fights Iron, so say Iron (L5)
+            byte ours = (byte)Mathf.Clamp(profile != null ? profile.Faction : 0, 0, 1);
+            byte enemy = n.EnemyFaction != ours ? n.EnemyFaction : (byte)(1 - ours);
+            SetText("info-enemy", "ENEMY  ·  " + HomeFrontScreen.FactionNames[Mathf.Clamp(enemy, 0, HomeFrontScreen.FactionNames.Length - 1)] + (n.Finale ? "  ·  THE LAST BATTLE" : ""));
             var state = CampaignGraph.StateOf(n, profile, Selected);
             SetText("info-progress", CampaignGraph.Done(n, profile) + " / " + n.Missions.Length + " MISSIONS WON  ·  " + (state == NodeState.Locked ? "NEEDS " + string.Join(" AND ", Names(n.Prerequisites)) : StateChips[(int)state]));
             BuildMissions(n);

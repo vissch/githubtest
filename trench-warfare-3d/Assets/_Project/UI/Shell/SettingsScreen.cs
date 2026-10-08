@@ -180,9 +180,9 @@ namespace TW.UI
                 }
                 if (choices.Count == 0) { choices.Add($"{Screen.width} x {Screen.height}"); resolutions.Add(Screen.currentResolution); }
                 res.choices = choices;
-                int cur = 0;
-                for (int i = 0; i < resolutions.Count; i++) if (resolutions[i].width == (draft.Video.Width > 0 ? draft.Video.Width : Screen.width) && resolutions[i].height == (draft.Video.Height > 0 ? draft.Video.Height : Screen.height)) cur = i;
-                res.index = cur;
+                int cur = PickResolution(resolutions, draft.Video.Width > 0 ? draft.Video.Width : Screen.width,
+                                         draft.Video.Height > 0 ? draft.Video.Height : Screen.height, draft.Video.RefreshRateHz);
+                res.index = cur >= 0 ? cur : 0;
                 res.RegisterValueChangedCallback(_ => { var r = resolutions[Mathf.Clamp(res.index, 0, resolutions.Count - 1)]; draft.Video.Width = r.width; draft.Video.Height = r.height; draft.Video.RefreshRateHz = Mathf.RoundToInt((float)r.refreshRateRatio.value); });
             }
             var fs = Root.Q<DropdownField>("dropdown-fullscreen");
@@ -290,5 +290,21 @@ namespace TW.UI
             if (listening != null) { listening.Dispose(); listening = null; if (listeningCap != null) { foreach (var kv in caps) { RefreshCap(kv.Key, false); RefreshCap(kv.Key, true); } listeningCap = null; } Router?.Clock?.Remove(MatchClock.Hold.Modal); return; }
             Back();
         }
+
+        /// <summary>The row for a size, preferring the asked refresh rate, else the highest rate of that size. -1: no
+        /// row has that size. Matching by size alone picked a 60 Hz row for a 144 Hz setting (L6).</summary>
+        static int PickResolution(List<Resolution> rows, int w, int h, int hz)
+        {
+            int best = -1, bestHz = -1;
+            for (int i = 0; i < rows.Count; i++)
+            {
+                if (rows[i].width != w || rows[i].height != h) continue;
+                int rate = Mathf.RoundToInt((float)rows[i].refreshRateRatio.value);
+                if (hz > 0 && rate == hz) return i;
+                if (rate > bestHz) { bestHz = rate; best = i; }
+            }
+            return best;
+        }
+
     }
 }

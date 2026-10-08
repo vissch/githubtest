@@ -159,6 +159,24 @@ namespace TW.Tests
             finally { staging.Unbind(); }
         }
 
+        // [L5] every node carries EnemyFaction = 1, but the battle gives the enemy the other side of the player:
+        // a Brass player (Faction 1) fights Iron, so the map must say IRON.
+        [Test]
+        public void TheMapNamesTheSideTheBattleActuallyGivesTheEnemy()
+        {
+            var profile = new CampaignProfile { Faction = 1 };
+            var map = new StrategicMapScreen(profile);
+            map.Bind(Instantiate("StrategicMap", "Assets/_Project/UI/Resources/Shell/"), null);
+            try
+            {
+                map.Select("lowlands");
+                var text = map.Root.Q<Label>("info-enemy")?.text ?? "";
+                Assert.That(text, Does.Contain("IRON"), "[L5] a Brass player fights Iron, but the map names the enemy " + text);
+                Assert.That(text, Does.Not.Contain("BRASS"), "[L5] the map names the player's own faction as the enemy: " + text);
+            }
+            finally { map.Unbind(); }
+        }
+
         [Test]
         public void TheMapKeepsTheChosenMissionWhenItsNodeIsSelectedAgain()
         {
