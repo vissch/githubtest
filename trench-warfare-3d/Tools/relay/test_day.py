@@ -509,8 +509,20 @@ class Answers(Base):
 
 class AddUnit(Base):
     """`relay.py add --unit FILE`: a unit queued from a file, as an answer of the owner's names it."""
-    UNIT = {"id": "house-cover", "lane": "lane/sim/house-cover", "goal": 'Men behind a building take "less" damage; $5 says so.',
+    UNIT = {"id": "house-cover", "lane": "lane/sim/house-cover", "role": "lane",
+            "goal": 'Men behind a building take "less" damage; $5 says so.',
             "done_when": ["python", "Tools/otr.py", "CoverTests"]}
+
+    def test_a_unit_file_that_names_no_role_is_refused_and_takes_one_from_the_call(self):
+        bare = {k: v for k, v in self.UNIT.items() if k != "role"}
+        with self.assertRaises(SystemExit) as e:
+            self.main("add", "--unit", self.file(bare))
+        self.assertIn("names no role", str(e.exception))
+        self.assertFalse(self.queued().exists())                     # not queued as `lane`, unsaid
+        code, _ = self.main("add", "--unit", self.file(bare), "--role", "balance-simulator")
+        self.assertEqual((code, json.loads(self.queued().read_text(encoding="utf-8"))["role"]), (0, "balance-simulator"))
+        self.main("add", "--unit", self.file(dict(self.UNIT, id="u5", role="lane")), "--role", "optimizer")
+        self.assertEqual(json.loads(self.queued("u5").read_text(encoding="utf-8"))["role"], "lane")   # the file's own wins
 
     def file(self, unit=None, raw=None, name="unit.json"):
         p = self.tmp / name
