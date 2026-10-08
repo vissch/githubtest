@@ -300,6 +300,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
+  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
+  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
+  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
+  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
+  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
+  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
+  trench line cannot be made to agree column by column.
+  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
+  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
+  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
+  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
+  sight checks, accepting a lipped crest.
+  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
+  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
