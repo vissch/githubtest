@@ -1,7 +1,9 @@
 {
-  "about": "Read by config.routes(). A leg runs on its phase's model and effort (phases.json) unless a route here names its role and phase. model: opus or sonnet. A route is a trial until the owner says it stays: its why says what it is measured by.",
+  "about": "Read by config.routes(). A leg runs on its phase's model and effort (phases.json) unless a route here names its role and phase, and its unit when the route lists units. model: opus or sonnet. A route is a trial until the owner says it stays.",
   "routes": [
-    {"role": "review-fix", "phase": "execute", "model": "sonnet", "effort": "medium",
-     "why": "trial, the owner 2026-10-08: ten review-fix units, measured by Tools/review/fixcheck.py, the unit verdict, minutes and cost against the Opus legs of AGENTS_BASELINE_2026-10-07.md. The plan leg stays on Opus."}
+    {"role": "review-fix", "phase": "execute", "model": "sonnet",
+     "units": ["rv-12-hud-f9", "rv-14-winding-fonts", "rv-10-golden-hash", "rv-03c-leap-cooldown-test", "rv-c2-review-calls-show",
+               "rv2-02-tests-that-can-fail", "rv-05-event-buffer", "rv-07-burst-replay", "rv-09-craters-crush", "rv-17-p2-u02a"],
+     "why": "trial, the owner 2026-10-08: can a review fix be executed on Sonnet. Only the model changes: the effort is the phase's, the plan leg stays on Opus, and every review-fix unit gets the same role text. The ten units are every second one of the first twenty in the queue's order on 2026-10-08; the other ten (rv-13, rv-15, rv-11b, rv-c1, rv2-01, rv-04, rv-06, rv-08, rv-16, rv-18) run on Opus beside them as the control. Measured per unit by the fix check of the review lane (fixcheck), the unit's verdict, minutes and cost."}
   ]
 }
