@@ -53,7 +53,11 @@ namespace TW.Editor
             foreach (var n in SkinSpec.PortraitNames) { known.Add("Portraits/" + n + ".png"); CheckPortrait(n, r); }
             CheckSheets(r, known);
             foreach (var f in SkinSpec.Fonts)
-                if (AssetDatabase.LoadAssetAtPath<UnityEngine.TextCore.Text.FontAsset>(SkinSpec.Root + f) == null) r.Failures.Add($"font asset missing: {SkinSpec.Root}{f} (TW/UI/Bake Skin Fonts)");
+            {
+                var fa = AssetDatabase.LoadAssetAtPath<UnityEngine.TextCore.Text.FontAsset>(SkinSpec.Root + f);
+                if (fa == null) r.Failures.Add($"font asset missing: {SkinSpec.Root}{f} (TW/UI/Bake Skin Fonts)");
+                else if (fa.characterTable.Count == 0 && fa.sourceFontFile == null) r.Failures.Add($"font asset has no glyphs and no source font: {SkinSpec.Root}{f} (TW/UI/Bake Skin Fonts)");
+            }
             CheckRosterPortraits(r);
             r.Placeholders.AddRange(UiSkinGenerator.StillPlaceholder());
             return r;
