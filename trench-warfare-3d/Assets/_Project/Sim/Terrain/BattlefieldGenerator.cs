@@ -57,6 +57,18 @@ namespace TW.Sim.Terrain
         /// </summary>
         public bool ShoreDefences;
 
+        /// <summary>
+        /// SIGNED METRES OF RISE along the front axis: a battlefield with a real slope in it, rather than the
+        /// rolling-but-level ground every preset has had. `+` raises TEAM 1's end (high Z) so the far trench
+        /// stands on a crest and team 0's lies in the hollow below it; `-` mirrors that. ZERO IS TODAY'S FIELD -
+        /// every map that existed before this dial keeps the geometry, and the MapData hash, it had.
+        ///
+        /// It is a dial rather than a preset's private shape because the height has to reach the heightfield,
+        /// the dug-in trench platforms and line of sight at once (BattlefieldGenerator.RiseAt), and all three
+        /// read it from the params. The profile that turns it into ground lives with RiseAt.
+        /// </summary>
+        public float Rise;
+
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
 
@@ -106,6 +118,7 @@ namespace TW.Sim.Terrain
             w.Write(SeaMargin);   // appended, like Sea before it: an older replay simply has no such field
             w.Write(TestLevel);   // appended likewise
             w.Write(ShoreDefences);   // appended too: absent means no shore defences, so an older map keeps its geometry
+            w.Write(Rise);        // appended after TestLevel: an older blob reads 0, which is the level field
             return ms.ToArray();
         }
 
@@ -120,6 +133,7 @@ namespace TW.Sim.Terrain
                 SeaMargin = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,   // 0 = the default
                 TestLevel = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
                 ShoreDefences = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),   // absent = a bare shore
+                Rise = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,        // 0 = level ground
             };
         }
     }
