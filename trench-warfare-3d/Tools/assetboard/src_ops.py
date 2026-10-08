@@ -234,7 +234,12 @@ def sessions(trees, now):
     seconds or an agent of its is still running: a parent waiting on its agents writes nothing for a long time."""
     out, spell = [], spellings(trees)
     for f in PROJECTS.glob('*/*.jsonl'):
-        age = now - f.stat().st_mtime
+        try:
+            age = now - f.stat().st_mtime
+        except OSError:
+            # a transcript the system cannot open (2026-10-08: a session run from a deep folder had a path longer than
+            # Windows takes, and every read of the board failed on it for half an hour): passed over, not fatal
+            continue
         logs = running(f, now) if age <= LONG else []
         if age > RECENT and not logs:
             continue
