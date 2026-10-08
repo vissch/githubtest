@@ -87,6 +87,10 @@ namespace TW.UI
         {
             Root.Q("controls-list")?.Clear(); caps.Clear();
             BuildControls(); BuildVideo(); BuildAudio(); BuildInterface();
+            // The pages now read the draft, so the live UI must too (L4). Rebuilding a slider only sets its value
+            // without notifying, so DEFAULTS after a drag left the engine on the dragged scale while the page said
+            // 1.0 — and OnUnbind's revert compares appliedScale with the draft, so it saw nothing to put back.
+            SettingsApplier.ApplyInterface(draft);
         }
 
         // ---- controls -------------------------------------------------------------------------------------------------
