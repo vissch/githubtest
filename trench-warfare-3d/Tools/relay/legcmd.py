@@ -4,6 +4,9 @@
   relay.py leg gate start         start the edit gate (gate.ps1 -EditOnly) detached, for the files as they are now
   relay.py leg gate status        RUNNING | GREEN | RED | STALE (green, but the files changed since) | NONE
   relay.py leg gate wait [--max S]   wait for the gate, at most S seconds (default 540: one tool call)
+  relay.py leg play <filter> [--max S]   run the PlayMode tests the filter names (a class or a full test name) in
+                                  this checkout and wait for them: GREEN | RED with total, passed, failed and each
+                                  failed test, or RUNNING after S seconds (the same command again waits on)
   relay.py leg finish [-m MSG]    commit and push when the gate is green for exactly these files; if it is not,
                                   save the uncommitted work as a patch beside the leg and say so
   relay.py leg done               exit 0 when nothing is left: no uncommitted file, the lane pushed. In a plan leg:
@@ -11,9 +14,14 @@
 
 gate.ps1 -EditOnly records no tree, so the relay keeps its own record: gate.json in the leg's desk folder holds the
 tree the gate started on. The leg is found through TW_RUNS, which the runner sets to <desk>/jobs.
-TW_RELAY_GATE (a JSON list) replaces the gate command: the tests use a stub. Stdlib only. ASCII only.
+A PlayMode run is a detached job too, so the runner stops it with the leg and the leg never looks for "its" Unity
+in the process list (rv-12-hud-f9 waited on another checkout's editor until its turn ended). Its report goes in
+the desk folder, never in the checkout.
+TW_RELAY_GATE (a JSON list) replaces the gate command, TW_RELAY_PLAY (a JSON list, the filter and the report's path
+are added to it) the PlayMode command: the tests use stubs. Stdlib only. ASCII only.
 """
-import json, os, subprocess, sys, tempfile, time
+import contextlib, io, json, os, subprocess, sys, tempfile, time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -23,7 +31,7 @@ from pipeline import now, read_json, write_json   # noqa: E402
 import run_detached                               # noqa: E402
 import config, gitio, papers                      # noqa: E402
 
-GATE = "gate.json"
+GATE, PLAY = "gate.json", "play.json"
 EXIT = {"GREEN": 0, "RED": 1, "RUNNING": 2, "STALE": 3, "NONE": 4}
 
 
@@ -87,6 +95,8 @@ def gate_start(desk, leg):
     wt = leg["worktree"]
     if verdict(desk, wt)[0] == "RUNNING":
         raise SystemExit("relay: a gate is already running: python relay.py leg gate wait")
+    if play_verdict(desk)[0] == "RUNNING":
+        raise SystemExit("relay: a PlayMode run holds the project: wait for it first (python relay.py leg play <filter>)")
     root = gitio.git(["rev-parse", "--show-toplevel"], wt)
     job = "gate-%d" % (len(list((desk / "jobs").glob("gate-*"))) + 1 if (desk / "jobs").is_dir() else 1)
     write_json(desk / GATE, {"job": job, "tree": working_tree(wt), "started_at": now()})
@@ -102,6 +112,90 @@ def gate_wait(desk, leg, max_s):
         st, why = verdict(desk, leg["worktree"])
         if st != "RUNNING" or time.time() >= end:
             print("%s: %s" % (st, why))
+            return EXIT[st]
+        time.sleep(5)
+
+
+# ---------- a PlayMode run, started and waited for ----------
+
+def play_command(pattern, results):
+    stub = os.environ.get("TW_RELAY_PLAY")
+    if stub:
+        return json.loads(stub) + [pattern, str(results)]
+    cli = Path(os.environ.get("LOCALAPPDATA", "")) / "unity" / "bin" / "unity.exe"     # the CLI gate.ps1 runs
+    return [str(cli), "test", ".", "--mode", "PlayMode", "--filter", pattern, "--output", str(results),
+            "--timeout", str(config.limits()["play_seconds"]), "--", "-nographics"]
+
+
+def play_counts(results):
+    """(total, passed, failed, the run's own result word, a line per failed test) from the NUnit report; None when
+    there is no report to read."""
+    try:
+        run = ET.parse(str(results)).getroot()
+    except (OSError, ET.ParseError):
+        return None
+    if run.tag != "test-run":
+        return None
+    num = lambda k: int(run.get(k) or 0)
+    lines = []
+    for c in run.iter("test-case"):
+        if (c.get("result") or "").startswith("Failed"):
+            msg = " | ".join(x.strip() for x in (c.findtext("failure/message") or "").strip().splitlines()[:3])
+            lines.append("  FAILED %s: %s" % (c.get("fullname"), msg))
+    return num("total"), num("passed"), num("failed"), run.get("result") or "", lines
+
+
+def play_verdict(desk):
+    """(GREEN | RED | RUNNING | NONE, a few words, a line per failed test). The report is the verdict, not the exit
+    code, as in gate.ps1: a failure in it, or a run in which nothing passed, is red."""
+    rec = read_json(desk / PLAY) if (desk / PLAY).exists() else None
+    job = desk / "jobs" / rec["job"] / "run.json" if rec else None
+    if not rec or not job.exists():
+        return "NONE", "no PlayMode run was started in this leg", []
+    st, detail, run = job_state(job)
+    if st in ("RUNNING", "STALLED"):
+        return "RUNNING", "%s, started %s; wait on with the same command" % (detail, rec["started_at"]), []
+    c = play_counts(rec["results"])
+    where = "the report: %s; the log: %s" % (rec["results"], run.get("log"))
+    if c is None or c[0] == 0:
+        return "RED", ("no verdict: %s %s and no test ran (a compile error, a filter that names no test, or the "
+                       "project is held); %s" % (st, detail, where)), []
+    total, passed, failed, word, lines = c
+    counts = "total %d, passed %d, failed %d (%s); %s" % (total, passed, failed, rec["filter"], where)
+    if failed or word != "Passed" or not passed:
+        return "RED", counts, lines
+    return "GREEN", counts, []
+
+
+def play(desk, leg, pattern, max_s):
+    """Start the run unless one is going, then wait at most max_s seconds. Called again while it is RUNNING, it only
+    waits; called after a verdict, it runs the tests again (the leg fixed something)."""
+    wt = leg["worktree"]
+    if leg.get("mode") != "work":
+        raise SystemExit("relay: a %s leg runs no tests" % leg.get("phase"))
+    if play_verdict(desk)[0] != "RUNNING":
+        if verdict(desk, wt)[0] == "RUNNING":
+            raise SystemExit("relay: the edit gate holds the project: wait for it first (python relay.py leg gate wait)")
+        proj = Path(gitio.git(["rev-parse", "--show-toplevel"], wt)) / "trench-warfare-3d"
+        if not os.environ.get("TW_RELAY_PLAY"):
+            held = subprocess.run([sys.executable, "Tools/editor_lock.py", "guard"], cwd=str(proj),
+                                  stdin=subprocess.DEVNULL, capture_output=True)
+            if held.returncode:
+                print("HELD: an editor or another batch run holds this checkout's project. Stop the editor you "
+                      "started, then run this again. Ask the lock (python Tools/editor_lock.py status), never the "
+                      "process list: another checkout's Unity is not yours.")
+                return EXIT["STALE"]
+        n = len(list((desk / "jobs").glob("play-*"))) + 1 if (desk / "jobs").is_dir() else 1
+        results = desk / ("playmode-%d.xml" % n)
+        write_json(desk / PLAY, {"job": "play-%d" % n, "filter": pattern, "results": str(results), "started_at": now()})
+        with contextlib.redirect_stdout(io.StringIO()):       # its "started" line: the verdict below names the log
+            run_detached.main(["start", "play-%d" % n, "--timeout", str(config.limits()["play_seconds"] + 60),
+                               "--cwd", str(proj if proj.is_dir() else wt), "--"] + play_command(pattern, results))
+    end = time.time() + max_s
+    while True:
+        st, why, lines = play_verdict(desk)
+        if st != "RUNNING" or time.time() >= end:
+            print("\n".join(["%s: %s" % (st, why)] + lines))
             return EXIT[st]
         time.sleep(5)
 
@@ -170,6 +264,8 @@ def main(a):
         st, why = verdict(desk, leg["worktree"])
         print("%s: %s" % (st, why))
         return EXIT[st]
+    if a.what == "play":
+        return play(desk, leg, a.filter, a.max)
     if a.what == "finish":
         return finish(desk, guard, leg, a.message)
     return done(desk, leg)
@@ -180,6 +276,9 @@ def add_args(p):
     g = sub.add_parser("gate")
     g.add_argument("op", choices=("start", "status", "wait"))
     g.add_argument("--max", type=int, default=540)
+    pl = sub.add_parser("play")
+    pl.add_argument("filter")
+    pl.add_argument("--max", type=int, default=540)
     f = sub.add_parser("finish")
     f.add_argument("-m", "--message", default="")
     sub.add_parser("done")

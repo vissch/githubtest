@@ -45,6 +45,8 @@ def card_text(leg, body, plan=None):
                      % (leg.get("output"), tool))
     if leg.get("mode") == "work":
         lines += ["- The edit gate, detached: python \"%s\" leg gate start, then: leg gate wait" % tool,
+                  "- A PlayMode test, started and waited for: python \"%s\" leg play <its class or full name> (prints "
+                  "total, passed, failed; the same command again while it says RUNNING)" % tool,
                   "- Close out: python \"%s\" leg finish -m \"<message>\" (commits and pushes when the gate is green "
                   "for exactly these files), then: leg done" % tool]
     lines += ["", body.strip(), ""]

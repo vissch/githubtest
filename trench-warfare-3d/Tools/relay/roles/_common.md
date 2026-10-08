@@ -15,8 +15,13 @@ You are one short session in a chain. Nobody is watching and nobody can answer y
 - Read logs and big files in parts (search, tail). Never read a whole log.
 
 # Waiting
-- Never write `sleep N; <command>`: Claude Code refuses it before it runs. Wait for the gate with `leg gate wait`,
-  for another detached job with one `run_detached.py status` call after its usual time.
+- The end of your turn is the end of the leg. Nobody wakes a leg and no notice ever comes: nothing runs in the
+  background, and a last message that says you will wait for something is a failed leg.
+- One call may last ten minutes. Wait for the gate with `leg gate wait`, for a PlayMode run with `leg play`, for
+  another detached job with one `run_detached.py status` call after its usual time. Never write
+  `sleep N; <command>`: Claude Code refuses it before it runs.
+- Another checkout's Unity may be running on this machine. It is not yours: never wait for, or stop, a process you
+  did not start. Is this checkout's project free? Ask `python Tools/editor_lock.py status`, never the process list.
 
 # Unity on this machine
 - A leg may run where no window can open (Windows session 0); your leg card says so when it is the case. A windowed
