@@ -129,17 +129,23 @@ def proof(name):
     elif name == "wait":
         # Claude Code's own limit for one command is two minutes; past it the command went to the background with
         # "you will be notified", and the leg ended its turn to wait (rv-12-hud-f9). Here the leg must outlast it.
-        body = ("Run this shell command in ONE call and wait for it to finish: python -c \"import time; "
-                "time.sleep(150); print(6 * 7003)\". Then end with your report, with the number it printed in the "
-                "RESULT line. There is nothing to commit and no gate to run.")
+        # A leg that names a time limit of its own proves nothing here: the proof is about the limit a leg gets.
+        body = ("This leg tests waiting. Run this shell command in ONE Bash call, and leave the tool's timeout "
+                "parameter out of that call entirely: python -c \"import time; time.sleep(150); print(6 * 7003)\". "
+                "Then end with your report, with the number it printed in the RESULT line. There is nothing to "
+                "commit and no gate to run.")
         d = launch.make_leg(run, 1, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
         leg = launch.run_leg(d, lim, 480)
         out = (d / legdir.OUT).read_text(encoding="utf-8", errors="replace")
+        calls = [c["input"] for e in launch.records(d, "assistant") for c in (e.get("message") or {}).get("content") or []
+                 if isinstance(c, dict) and c.get("type") == "tool_use" and "7003" in str((c.get("input") or {}).get("command"))]
+        own = not calls or any("timeout" in c or c.get("run_in_background") for c in calls)
         backed = "moved to the background" in out or "running in background" in out
         told = runner.said(leg.get("report")) == "done" and "42018" in (leg.get("report") or "")
-        ok = leg["state"] == "DONE" and told and not backed
-        print("state %s after %s s, the report has the result: %s, something went to the background: %s, $%s"
-              % (leg["state"], leg["seconds"], told, backed, leg["cost_usd"]))
+        ok = leg["state"] == "DONE" and told and not backed and not own
+        print("state %s after %s s, the report has the result: %s, something went to the background: %s, the leg "
+              "set a time limit of its own (then this proves nothing): %s, $%s"
+              % (leg["state"], leg["seconds"], told, backed, own, leg["cost_usd"]))
     else:
         raise SystemExit("relay: no proof named %s" % name)
     print("leg folder: %s" % d)
