@@ -397,8 +397,11 @@ class Guards(Base):
                     "python Tools/pipeline/pipeline.py status", "ls Assets", "git log 2>&1 | head", "ls 2>/dev/null",
                     "sed -n 1,20p a.cs", "cd Tools && ls", "test -f a && echo y", "git branch --contains HEAD",
                     "git remote -v", "git stash list", "jq .id items/x.json", "git config --get user.name",
-                    "python Tools/editor_lock.py status 2>&1 | head -20", "python Tools/editor_lock.py guard"):
+                    "python Tools/editor_lock.py status 2>&1 | head -20", "python Tools/editor_lock.py guard",
+                    "git branch -a --contains e23f5353 | head -10", "git branch -r --merged origin/main"):
             self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ("git branch -a new-branch", "git branch --contains HEAD -D lane/show/x", "git branch -m --contains x y"):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)                 # a look at branches makes or drops none
         for cmd in ("python Tools/editor_lock.py claim leg-1 --minutes 15", "python Tools/editor_lock.py release leg-1",
                     "python Tools/editor_lock.py wait --timeout 1800"):       # a claim writes, a wait is not a look
             self.assertTrue(self.denied("Bash", command=cmd), cmd)
