@@ -297,7 +297,7 @@ def on_the_page(b):
     a, theirs, hand, cap, queued = rows()
     where, out = taskbrief.folder(), TMP / 'site'
     g = good()
-    b = taskbrief.add(where, a, g['title'], g['about'], g['part_of'], g['stands'], g['links'] + [('board', 'The decisions that wait', 'decide.html')], g['pictures'], may_show=g['may_show'], now=DAY)
+    b = taskbrief.add(where, a, g['title'], g['about'], g['part_of'], g['stands'], [('doc', 'The <brief> it was given', str(DOC)), ('board', 'The decisions that wait', 'decide.html')], g['pictures'], may_show=g['may_show'], now=DAY)
     T = dict(rows=[dict(a), dict(queued)], relay=dict(waiting=0, as_of='', taken=[]), stale_minutes=90)
     taskbrief.attach(T, where)
     unit = src_tasks.unit_for(T['rows'][0])
@@ -316,7 +316,7 @@ def on_the_page(b):
          and r['shots'] == [dict(src=f'img/task/agent-b1/{b["pictures"][0]["file"]}', name='A still it was to judge', caption='A still it was to judge', film=False)] and (out / r['shots'][0]['src']).is_file()
          and 'brief' not in r and 'ask' not in r and r['told'].startswith('You are a harsh'), r)
     case('site: a doc it links is a page of its own beside the board, with the doc\'s text as text; no row carries a path of this machine; a task with no brief is as it was',
-         r['links'][0]['href'].startswith('task/agent-b1/') and page.is_file() and 'Score the night battle &lt;out of 100&gt;.' in page.read_text(encoding='utf-8') and r['links'][1] == dict(label='The decisions that wait', href='decide.html', kind='board', title='decide.html')
+         r['links'][0]['href'].startswith('task/agent-b1/') and page.is_file() and 'Score the night battle &lt;out of 100&gt;.' in page.read_text(encoding='utf-8') and '<h1>The &lt;brief&gt; it was given</h1>' in page.read_text(encoding='utf-8') and r['links'][1] == dict(label='The decisions that wait', href='decide.html', kind='board', title='decide.html')
          and str(TMP) not in text.replace('\\\\', '\\').replace(r['told'], '') and by['unit-q']['title'] == 'rv-1' and 'about' not in by['unit-q'] and by['unit-q']['shots'] == [], (r['links'], by['unit-q']))
     case('site: what the brief of a task no longer listed showed is removed from the site', not (out / 'img' / 'task' / 'agent-gone').exists() and not (out / 'task' / 'agent-gone').exists() and (out / 'img' / 'task' / 'agent-b1').is_dir(), None)
     # the watcher's own order: read, the briefs put on, the gate, the site
