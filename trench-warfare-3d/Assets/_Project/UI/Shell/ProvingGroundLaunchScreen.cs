@@ -24,8 +24,8 @@ namespace TW.UI
         public override bool HidesHud => true;
 
         public const byte Empty = 255;
-        public static readonly string[] GroundNames = { "SHELLED WOOD", "WINTER LINE", "THE LANDING" };
-        public static readonly Ground[] Grounds = { Ground.ShelledForest, Ground.WinterLine, Ground.Landing };
+        public static readonly string[] GroundNames = { "SHELLED WOOD", "WINTER LINE", "THE LANDING", "THE NARROWS" };
+        public static readonly Ground[] Grounds = { Ground.ShelledForest, Ground.WinterLine, Ground.Landing, Ground.Narrows };
         public static readonly string[] BombardmentNames = { "QUIET", "LIGHT", "HEAVY", "DRUMFIRE" };
         public static readonly float[] Bombardments = { 0f, 8f, 30f, 70f };
         public static readonly int[] Silvers = { 300, 1000, 5000, 20000 };
