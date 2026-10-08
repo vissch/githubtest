@@ -91,6 +91,18 @@ namespace TW.Sim.Terrain
         public static BattlefieldParams WinterLine(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 110f, Length = 240f, Forest = 0.25f, Shelling = 0.5f, Mud = 0.15f, WaterLevel = MapData.NoWater, River = false, Wrecks = 2, Bombardment = 7f, Sea = false };
 
+        /// <summary>
+        /// The Ridge: one side holds the high ground. Team 1's front trench stands on a crest 9 m over team 0's,
+        /// which lies in the hollow below it - a steep bank off the crest, then a long gentle slope down to the
+        /// hollow. Attacking uphill is the point: the crest sees the foot of the slope, the hollow cannot see what
+        /// stands behind the crest line. Wet and shelled enough that the climb is slow going.
+        ///
+        /// The LOOK is not carried here (as with WinterLine): the biome, the camera and the mission card are the
+        /// show lane's, and TW.Sim cannot see Presentation without closing a reference cycle.
+        /// </summary>
+        public static BattlefieldParams Ridge(uint seed) => new BattlefieldParams
+        { Seed = seed, Width = 110f, Length = 240f, Rise = 9f, Forest = 0.25f, Shelling = 0.6f, Mud = 0.4f, WaterLevel = 0.15f, River = false, Wrecks = 2, Bombardment = 8f, Sea = false };
+
         public byte[] Serialize()
         {
             using var ms = new MemoryStream();
@@ -129,6 +141,28 @@ namespace TW.Sim.Terrain
         public const float SeaMargin = 36f;     // metres of coast added to the map beyond the layout, when the params do not say
         /// <summary>How much coast this battlefield actually gets. Params win; zero means the default above.</summary>
         public static float SeaMarginOf(in BattlefieldParams p) => p.SeaMargin > 0f ? p.SeaMargin : SeaMargin;
+        // ---- the ridge profile (BattlefieldParams.Rise) -----------------------------------------------------
+        // Downhill from the crest line the height falls in two pieces: a steep bank, then a long gentle slope that
+        // reaches 0 at its foot. The two rises sum to the whole fall, so the foot is exactly the level field.
+        // At Rise 9 that is 4.551 m over 15 m (0.303 per metre) and 4.449 m over 55 m (0.081 per metre).
+        public const float BankRun = 15f, SlopeRun = 55f, BankRise = 4.5f, SlopeRise = 4.4f;
+        /// <summary>
+        /// Metres of ground this battlefield's ridge adds at z, before anything is dug in. Rise 0 is the level
+        /// field and returns 0. A positive Rise raises team 1's end (high Z), a negative one team 0's; the crest
+        /// line is that team's front trench, and everything behind it is the flat rear.
+        /// </summary>
+        public static float RiseAt(in BattlefieldParams p, float z)
+        {
+            if (p.Rise == 0f) return 0f;
+            float frontZ = FrontAt * p.Length / 480f;
+            float crestZ = p.Rise > 0f ? p.Length - frontZ : frontZ;
+            float d = p.Rise > 0f ? crestZ - z : z - crestZ;   // metres downhill of the crest; negative is uphill
+            float r = math.abs(p.Rise), bank = BankRise / (BankRise + SlopeRise);
+            if (d <= 0f) return r;                                             // the flat rear behind the crest
+            if (d <= BankRun) return r - r * bank * (d / BankRun);             // the steep bank
+            if (d <= BankRun + SlopeRun) return r * (1f - bank) * (1f - (d - BankRun) / SlopeRun);
+            return 0f;
+        }
         public const float ShoreAt = 19f;       // where the water meets the sand, measured from the top of the beach
         const float ShallowSlope = 0.085f;      // how fast the bed falls away under the water
         const float SeaFallback = 0.15f;        // the water table a dry field is given when it is made a coast
@@ -146,6 +180,7 @@ namespace TW.Sim.Terrain
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
             float[] trenchZ = { ReserveZ, FrontZ, L - FrontZ, L - ReserveZ };
+            int crestT = p.Rise > 0f ? 2 : 1;   // the trench that sits on the crest, when there is a ridge at all
             // Nothing on a battlefield is ruled (owner, 2026-09-21). A trench follows the ground: its line wanders on two
             // octaves of noise (about 36 m and 13 m) and jogs a cell forward or back at traverses spaced 12 to 24 m
             // apart. Ladders stand at uneven intervals, each in a short straight piece so it opens onto clear ground.
@@ -181,9 +216,24 @@ namespace TW.Sim.Terrain
                 float h = BaseHeight + 2.6f * (Noise(p.Seed, wx, wz, 70f) - 0.5f) + 0.7f * (Noise(p.Seed + 1u, wx, wz, 18f) - 0.5f);
                 float keep = math.min(Ramp(wz - HqDepth, 0f, 16f * sz), Ramp(L - HqDepth - wz, 0f, 16f * sz));   // HQ areas are level
                 int nx = math.min(map.NavWidth - 1, x / 2);
-                for (int t = 0; t < trenchZ.Length; t++) keep = math.min(keep, Ramp(math.abs(wz - line[t][nx]) - 5f, 0f, 14f * sz));   // dug-in ground follows the trench
-                float dugIn = DugInHeight + 0.4f * Noise(p.Seed + 2u, wx, wz, 9f);   // never lower: the trench floor must clear the water table
-                hf.Set(x, z, math.lerp(dugIn, h, keep));
+                for (int t = 0; t < trenchZ.Length; t++)
+                {
+                    // Dug-in ground follows the trench: 5 m level either side of its line. The crest trench is the
+                    // exception - levelling it downhill as well would put a flat lip in front of it and blind it, so
+                    // it gets its shelf uphill only and the bank starts 2 m in front of the line.
+                    float flat = 5f;
+                    if (p.Rise != 0f && t == crestT)
+                    {
+                        float dc = wz - line[t][nx];
+                        flat = (p.Rise > 0f ? dc > 0f : dc < 0f) ? 5f : 2f;   // uphill is behind the crest line
+                    }
+                    keep = math.min(keep, Ramp(math.abs(wz - line[t][nx]) - flat, 0f, 14f * sz));
+                }
+                // The crest platform is cut level: its dug-in noise is sampled at the crest line's own z out to the
+                // end of the blend ramp, where keep is already 1, or the noise would eat the bank's first fall.
+                float dugInZ = p.Rise != 0f && math.abs(wz - line[crestT][nx]) <= 5f + 14f * sz ? line[crestT][nx] : wz;
+                float dugIn = DugInHeight + 0.4f * Noise(p.Seed + 2u, wx, dugInZ, 9f);   // never lower: the trench floor must clear the water table
+                hf.Set(x, z, math.lerp(dugIn, h, keep) + RiseAt(p, wz));   // the ridge carries the open ground and the platforms alike
             }
 
             // ---- 2. the river: a channel across the width, two fords and a plank bridge -------------------------
