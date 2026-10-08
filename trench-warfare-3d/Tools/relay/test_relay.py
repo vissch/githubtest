@@ -1120,6 +1120,44 @@ class Runs(Repo):
         self.assertEqual(stop["units"], {"u1": "PASS"})
         self.assertEqual(runner.tally({"a": "PASS", "b": "FAIL", "c": "PASS"}), ", 3 units: 2 PASS, 1 FAIL")
 
+    WAITS = "I'll pause here and wait for the background PlayMode test run to finish before proceeding."
+
+    def results(self, stop, nn):
+        """The result records of one leg's session: one per turn it was given."""
+        return launch.records(legdir.leg_path(stop["run"], nn), "result")
+
+    def test_a_leg_that_ends_with_no_result_line_gets_one_more_turn_and_its_work_counts(self):
+        """rv-12-hud-f9, 2026-10-08: the leg ended its turn to wait, and the unit was recorded as failed."""
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.COMMIT + [{"report": self.WAITS}],
+                     "execute+resume": [{"report": "RESULT: done. The test had finished: 1 run, 1 passed."}],
+                     "cost": {"plan": 1, "execute": 2}})
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        leg = self.legs()[1]
+        self.assertEqual((leg["resumed"], leg["state"], leg["cost_usd"]), (1, "DONE", 4))    # both turns are paid for
+        self.assertEqual(len(self.results(stop, 2)), 2)
+        self.assertIn("no line that starts with RESULT", (legdir.leg_path(stop["run"], 2) / "resume.txt").read_text(encoding="utf-8"))
+        self.assertEqual(self.legs()[0].get("resumed"), 0)                      # the plan leg said done: one turn
+
+    def test_a_leg_that_still_has_no_result_after_its_extra_turn_fails_and_gets_no_third(self):
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.COMMIT + [{"report": self.WAITS}]})
+        out, stop = self.go()
+        self.assertIn("unit u1: FAIL", out)
+        self.assertIn("execute leg 1 of 1 reported failed", out)
+        self.assertEqual(len(self.results(stop, 2)), 2)
+
+    def test_no_extra_turn_at_red_for_a_leg_that_only_reads_or_one_that_gave_its_verdict(self):
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}, {"report": "The plan is written."}],
+                     "execute": self.COMMIT + [{"tokens": 301000}, {"report": self.WAITS}]})
+        out, stop = self.go()
+        self.assertEqual(len(self.results(stop, 1)), 1)                         # a plan leg's paper is its result
+        self.assertEqual((len(self.results(stop, 2)), self.legs()[1]["level"]), (1, "red"))   # at red it was told to close
+        self.assertIn("unit u1: FAIL", out)
+        self.assertEqual(launch.said("RESULT: failed. A check is red."), "failed")
+
     def test_a_blocked_or_failed_leg_is_never_a_pass(self):
         for word, verdict in (("**RESULT: blocked** - needs the owner", "BLOCKED"), ("RESULT: failed. A check is red.", "FAIL")):
             shutil.rmtree(self.board / "relay", ignore_errors=True)

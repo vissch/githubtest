@@ -20,7 +20,7 @@ import gitio                           # noqa: E402
 KEEP = ("run", "leg", "unit", "source", "role", "phase", "model", "effort", "lane", "state", "exit_code", "seconds",
         "turns", "final_tokens", "level", "denials", "guard_refusals", "ran_model", "ran_mode", "report", "started_at",
         "finished_at", "cost_usd", "tokens_in", "tokens_out", "cache_read", "cache_write", "week_start", "week_end",
-        "week_used")
+        "week_used", "resumed")
 
 
 def folder(board, station):

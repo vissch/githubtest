@@ -31,19 +31,11 @@ NO_WINDOW = ("\n- This run cannot open a window (it was not started from the own
 PACE_STEP = 30                          # seconds between two looks at the clock while a run waits for the pace
 clock = datetime.datetime.now           # the wall clock the day's pace is read from
 sleep = time.sleep
-VERDICT = re.compile(r"^\W*RESULT\W+(done|blocked|failed)\b", re.I | re.M)
+said = launch.said                      # the one rule for a report's verdict; run_leg reads it too
 
 
 class Stop(Exception):
     pass
-
-
-def said(report):
-    """done | blocked | failed, from the first line of a leg's report that starts with RESULT (markdown around it is
-    fine); else None. Words before that line do not hide it: rv-12-hud-f9's last leg (2026-10-08) wrote "Leg
-    complete." above "RESULT: done", and a finished, pushed unit was recorded as failed."""
-    m = VERDICT.search(report or "")
-    return m.group(1).lower() if m else None
 
 
 class Run:

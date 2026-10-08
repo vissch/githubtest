@@ -30,6 +30,7 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py proof timeout    a leg that is killed at its time limit
   python Tools/relay/relay.py proof wait       a leg that runs a command longer than two minutes and is still there
                                                when it ends: nothing went to the background, the report has its result
+  python Tools/relay/relay.py proof report     a leg that ends its first turn with no RESULT line and is given one more
   python Tools/relay/relay.py view <leg folder> [--follow]   the leg's output as readable lines
 Stdlib only. ASCII only.
 """
@@ -167,6 +168,21 @@ def proof(name):
         print("state %s after %s s, the report has the result: %s, something went to the background: %s, the leg "
               "set a time limit of its own (then this proves nothing): %s, $%s"
               % (leg["state"], leg["seconds"], told, backed, own, leg["cost_usd"]))
+    elif name == "report":
+        # A leg that ends its turn with no RESULT line (it "waits") gets one more turn in the same session.
+        body = ("This leg tests the extra turn. In your FIRST turn do exactly this: run the shell command "
+                "`echo alpha`, then end the turn with only these words: I will wait for it. Write no RESULT line in "
+                "that turn. If you are then given another turn, do what it says. There is nothing to commit and no "
+                "gate to run.")
+        d = launch.make_leg(run, 1, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
+        leg = launch.run_leg(d, lim, 300)
+        turns = launch.records(d, "result")
+        first = launch.said((turns[0].get("result") if turns else "") or "")
+        ok = (leg["state"] == "DONE" and leg.get("resumed") == 1 and len(turns) == 2 and first is None
+              and launch.said(leg.get("report")) is not None)
+        print("state %s, turns given %d, the first ended with a verdict: %s, the leg was given its extra turn: %s, "
+              "the report now says: %s, $%s" % (leg["state"], len(turns), first, leg.get("resumed") == 1,
+                                               launch.said(leg.get("report")), leg["cost_usd"]))
     else:
         raise SystemExit("relay: no proof named %s" % name)
     print("leg folder: %s" % d)
@@ -544,7 +560,7 @@ def main(argv=None):
     p.add_argument("--goal")
     p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER)
     p = sub.add_parser("proof")
-    p.add_argument("name", choices=("meter", "timeout", "wait"))
+    p.add_argument("name", choices=("meter", "timeout", "wait", "report"))
     p = sub.add_parser("view")
     p.add_argument("leg")
     p.add_argument("--follow", action="store_true")
