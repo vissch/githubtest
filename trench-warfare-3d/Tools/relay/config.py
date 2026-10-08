@@ -11,7 +11,7 @@ TUNABLE = ("amber_tokens", "red_tokens", "run_hours", "leg_minutes", "leg_budget
            "day_budget_pct")
 FIXED = ("autocompact_tokens", "no_progress_units", "max_plan_parts", "retro_every_legs", "note_max_bytes",
          "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
-         "done_when_seconds", "gate_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
+         "done_when_seconds", "gate_seconds", "play_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
          "retro_max_bytes", "usual_leg_usd", "price_legs", "queue_priority", "queue_priority_max",
          "day_queue_rows", "day_line_chars", "usage_max_age_seconds", "week_usd", "pace_from_hour",
          "pace_to_hour")

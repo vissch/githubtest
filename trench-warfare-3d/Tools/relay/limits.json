@@ -28,6 +28,7 @@
   "quiet_seconds": 600,
   "done_when_seconds": 900,
   "gate_seconds": 2400,
+  "play_seconds": 900,
   "critic_target": 85,
   "critic_rounds": 2,
   "critic_max_bytes": 8192,

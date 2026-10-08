@@ -26,6 +26,10 @@ WRITE_TOOLS = ("Write", "Edit", "NotebookEdit", "MultiEdit")
 READ_ONLY_TOOLS = ("Read", "Grep", "Glob", "Bash", "PowerShell", "Skill", "TodoWrite", "ToolSearch", "WebFetch",
                    "WebSearch", "Agent", "Task", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet") + WRITE_TOOLS
 RED_TOOLS = ("Read", "Grep", "Glob", "Bash", "PowerShell") + WRITE_TOOLS
+WAKE_TOOLS = ("ScheduleWakeup", "CronCreate", "Monitor")     # each promises a later turn, and a leg has none
+NO_WAKE = ("nobody wakes a leg: when your turn ends the leg is over, so nothing runs in the background and no "
+           "notice will come. Run it in the foreground (one call may last ten minutes). A longer job: `leg gate "
+           "start`, `leg play`, or run_detached.py start, then wait for it with one call")
 USAGE = ("input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens", "output_tokens")
 BLIND_BATCHES = 3
 HERE = Path(__file__).resolve().parent
@@ -199,6 +203,8 @@ def refusal(d, leg, inp, C):
     path = tin.get("file_path") or tin.get("notebook_path") or ""
     if tool in (leg.get("deny_tools") or ()):
         return "the %s tool is not part of a %s leg" % (tool, leg.get("phase"))
+    if tool in WAKE_TOOLS or tin.get("run_in_background"):
+        return NO_WAKE
     if tool in WRITE_TOOLS:
         why = off_limits(path, d, leg, C)
         if why:

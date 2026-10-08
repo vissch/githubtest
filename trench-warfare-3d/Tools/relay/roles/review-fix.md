@@ -16,5 +16,5 @@ the goal adds what is special to this one.
   the cause in one line. Every id of
   the goal stands in square brackets in a commit message on the lane, also when it needed no change (say which).
 - No file may gain a UTF-8 BOM: look at `git diff --cached` before you commit.
-- The edit gate does not run PlayMode tests: a PlayMode test you add or change you run yourself, wait for it inside
-  the turn, and put its total, passed and failed counts in the commit message.
+- The edit gate does not run PlayMode tests: a PlayMode test you add or change you run with `leg play`, which
+  waits for it, and you put its total, passed and failed counts in the commit message.

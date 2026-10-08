@@ -134,8 +134,18 @@ Inside a leg, the leg card names these:
 |---|---|
 | `$R leg gate start` | starts `gate.ps1 -EditOnly` detached and records the tree it started on |
 | `$R leg gate wait` | waits up to 9 minutes; prints GREEN, RED, RUNNING, STALE (the files changed since) or NONE |
+| `$R leg play <filter>` | runs the PlayMode tests the filter names (a class or a full test name) for this checkout and waits up to 9 minutes; prints GREEN or RED with total, passed, failed and each failed test, or RUNNING (the same command again waits on). The report is `playmode-<n>.xml` in the leg's folder |
 | `$R leg finish -m "<message>"` | commits and pushes when the gate is green for exactly these files; otherwise saves the work as a patch beside the leg |
 | `$R leg done` | exit 0 when nothing is uncommitted and the lane is pushed |
+
+**Nobody wakes a leg.** The end of a leg's turn is the end of the leg, so nothing in it may wait for a notice. A leg
+runs with Claude Code's background tasks switched off (`NO_WAKING` in `launch.py`): a command that outlasts its
+time stops with an error and is not "moved to the background", and one call may last ten minutes, so a wait of
+9 minutes fits in one. The guard refuses `run_in_background` on any tool and the tools that promise a later turn
+(`ScheduleWakeup`, `CronCreate`, `Monitor`). A PlayMode run is a detached job like the gate, so the runner stops it
+with the leg and a leg never looks for "its" Unity in the process list. The cause: `rv-12-hud-f9`, 2026-10-08,
+whose execute leg waited on another checkout's editor and ended its turn "to wait for the notification".
+`$R proof wait` shows it on a real leg: a command of two and a half minutes, and the report has its result.
 
 ## Context limits
 
