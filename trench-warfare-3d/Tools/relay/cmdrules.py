@@ -463,8 +463,9 @@ def look_part(words):
         if not sub:
             return [bare(w) for w in words[1:]] in (["--version"], ["--help"], ["-v"], ["-h"])
         if sub == "branch":
+            asks = any(a in ("--contains", "--merged") for a in args)       # then a bare word is the commit asked about,
             return all(a in ("--list", "-a", "-r", "-v", "-vv", "--show-current", "--contains", "--merged")
-                       or not a.startswith("-") and args[0] in ("--contains", "--merged") for a in args)
+                       or not a.startswith("-") and asks for a in args)    # wherever the flag stands: `-a --contains X`
         if sub in ("worktree", "stash", "tag"):
             return args[:1] in (["list"], ["--list"], ["-l"])
         if sub == "remote":
