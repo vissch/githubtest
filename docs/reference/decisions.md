@@ -279,6 +279,28 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   man per click); no smoke card, a rain card in its place; a second airship as the Great Work, built after the Brass
   one; the helmet as a deep dome (reads well small, the German shape) or a shallow dish. The default of each is drawn
   on the sheet. None is built.
+- **The night with 8 real lamps is built: land it? (2026-10-08):** his pick of 2026-10-07 (Look and view) is built on
+  `lane/show/night-lamps-8`, full gate green on 2026-10-07 on the effects pass; it is rebased and gated again before it lands.
+  On the stills today and new look almost the same at play zoom; men by a trench lamp are brighter (known, accepted);
+  in a fast pan a few sandbags turn orange for one still. Options: (1) land it, the flicker fixed after (the default
+  named); (2) fix the flicker first; (3) keep today's 43 real lamps. Brief with three pictures on the Decide page:
+  "The night with 8 real lamps is built: land it?".
+- **The Banner, cut again: land it, and cut the next? (2026-10-08):** his answer of 2026-10-07 (Process: only the Banner
+  first, cut it, film it, then decide the rest) is built on `lane/show/banner-recut`, full gate green on 2026-10-07 on the
+  effects pass. Fifteen parts where there were eleven; on the stills a rear spike stays planted while the leg moves over
+  it and the belly is off the ground. Flaws: the body's height jumps as a step starts (today's does too, and the test
+  lane is not level), a small step where plate meets spike, stills only (no real-time film), no turn, no death, no far
+  model. Options: (1) land it, cut the Redoubt next (the default named; he chose all six of its legs to move, Process
+  2026-10-08); (2) land it, find the height jump before another machine is cut; (3) not yet: level ground, a turn and a
+  death on film first. Brief with the sheet and a short film on the Decide page: "The Banner, cut again, holds its feet:
+  land it, and cut the next?".
+- **Infantry weapons: toy box, and brass as its upgrade. Right? (2026-10-08):** his words of 2026-10-07 (Process: keep both
+  looks, one the upgrade of the other, at most four on a sheet) are nine weapons on three sheets, the issued look above
+  and the upgraded look below. The reading that toy box is the base and brass and walnut the upgrade is the agent's and
+  is what the brief asks. Weak spots said to him: the sabre is a notched cutlass, ivory creeps into the upgrades, the
+  wrench is for an Engineer no unit list has. Nothing is built in the game; the route into the game stays open.
+  Options: (1) yes, next the route into the game; (2) yes, with changes; (3) another round. Brief with three sheets on
+  the Decide page: "Infantry weapons: toy box, and brass as its upgrade. Right?".
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
