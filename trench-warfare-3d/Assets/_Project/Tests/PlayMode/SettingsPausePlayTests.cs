@@ -1,9 +1,7 @@
-// Phase: B6 (test added 2026-10-08 for code review finding L7) — the settings screen's key capture, walked through a
-// real panel, because a Button only answers a click when it is on one. L2 (a capture left running by BACK keeps
-// MatchClock.Hold.Modal and freezes the match) is fixed in SettingsScreen.OnUnbind but has no test here: its walk
-// starts with Esc, and a batch PlayMode run processes no input event any MonoBehaviour.Update can see (proven: a probe
-// component at the router's own execution order, with the input system pumped by hand, counted zero presses). That
-// test needs an editor with a window; it is written and waiting in the relay leg folder.
+// Phase: B6 (tests added 2026-10-08 for code review findings L7, L2, L4) — the settings screen walked through a real
+// panel, because a Button only answers a click when it is on one. L2's walk starts at Esc, and a batch PlayMode run
+// processes no key event a MonoBehaviour.Update can see, so this test pushes the pause menu the way the Esc branch
+// itself does (ShellRouter.Update -> Push(new PauseMenuScreen())) and walks the rest with real clicks.
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
@@ -17,6 +15,10 @@ namespace TW.Tests
     public class SettingsPausePlayTests
     {
         bool savedBoot;
+        GameObject host;
+        PanelSettings savedPanel;
+        Vector2Int savedReference;   // what the panel asset held before this test, put back in TearDown
+        Vector2Int liveReference;    // what the player's own UI scale asks for: what BACK must leave behind
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -33,6 +35,9 @@ namespace TW.Tests
         public IEnumerator TearDown()
         {
             if (ShellRouter.Instance != null) Object.Destroy(ShellRouter.Instance.gameObject);
+            if (savedPanel != null) { savedPanel.referenceResolution = savedReference; savedPanel = null; }
+            if (host != null) { Object.Destroy(host); host = null; }
+            MatchLaunch.Current = null;
             InputFocus.Reset();
             HudBootstrap.Disabled = false;
             ShellBoot.Disabled = savedBoot;
@@ -92,6 +97,88 @@ namespace TW.Tests
 
             Click(router.Top.Root, "btn-back");
             yield return null;
+        }
+
+        // [L2] A key capture takes MatchClock.Hold.Modal; before the fix only the key and cancel callbacks released it,
+        // so BACK with a cap still saying PRESS A KEY closed the screen with the hold on. RESUME drops only Hold.Menu,
+        // so the match stayed frozen for the rest of the game. The walk the finding gives, minus the Esc key press
+        // (batch delivers none): the pause menu is pushed exactly as the router's Esc branch pushes it.
+        [UnityTest]
+        public IEnumerator AKeyCaptureLeftRunningMustNotFreezeTheMatch()
+        {
+            MatchLaunch.Current = new MatchLaunch.Request { GeneratedBattlefield = false, PlaytestMap = false };
+            host = new GameObject("l2-host"); host.SetActive(false);
+            var sim = host.AddComponent<SimHost>();
+            host.SetActive(true);
+            yield return null;
+
+            var router = ShellBoot.EnsureRoot();
+            Assert.That(router, Is.Not.Null, "ShellAssets missing: run TW/UI/Build Shell Assets");
+            yield return null;
+            Assert.That(router.Clock, Is.Not.Null, "[L2] the router found no match clock, so this test proves nothing");
+
+            router.Push(new PauseMenuScreen());
+            yield return null;
+            Click(router.Top.Root, "btn-settings");
+            yield return null;
+            Assert.That(router.Top, Is.InstanceOf<SettingsScreen>(), "SETTINGS opens the settings screen");
+
+            var caps = Caps(router.Top);
+            Assert.That(caps.Count, Is.GreaterThan(0), "the controls page needs a key-cap for this test");
+            Click(caps[0]);
+            yield return null;
+            Assert.That(caps[0].text, Is.EqualTo("PRESS A KEY"), "clicking the key-cap did not start a capture");
+
+            Click(router.Top.Root, "btn-back");
+            yield return null;
+            Click(router.Top.Root, "btn-resume");
+            yield return null;
+
+            Assert.That(router.Clock.Has(MatchClock.Hold.Modal), Is.False,
+                "[L2] the match is still held by the key capture after BACK and RESUME");
+            uint before = sim.Local.World.Tick;
+            for (int i = 0; i < 30; i++) yield return null;
+            Assert.That(router.Clock.Holds, Is.EqualTo(MatchClock.Hold.None),
+                "[L2] the match is still held after RESUME: " + router.Clock.Holds);
+            Assert.That(sim.Local.World.Tick, Is.GreaterThan(before), "[L2] the sim stopped counting ticks after the key capture");
+        }
+
+        // [L4] Refill() (DEFAULTS) rebuilt the interface page from the draft but never put the draft's UI scale into
+        // the engine: SetValueWithoutNotify raises no callback. So DEFAULTS left the whole UI at the dragged scale
+        // while the page read 1.0, and OnUnbind's revert compared the draft with itself and skipped.
+        [UnityTest]
+        public IEnumerator DefaultsThenBackMustPutTheUiScaleBack()
+        {
+            var panel = Resources.Load<PanelSettings>(HudBootstrap.PanelResource);
+            Assert.That(panel, Is.Not.Null, "missing " + HudBootstrap.PanelResource + ": run TW/UI/Build All UI Assets");
+            savedReference = panel.referenceResolution; savedPanel = panel;
+            // the baseline is the live settings' own scale, recorded from the engine — not a formula and not a
+            // number read back from the screen under test
+            SettingsApplier.ApplyInterface(SettingsStore.Current);
+            liveReference = panel.referenceResolution;
+
+            var router = ShellBoot.EnsureRoot();
+            Assert.That(router, Is.Not.Null, "ShellAssets missing: run TW/UI/Build Shell Assets");
+            yield return null;
+            Click(router.Top.Root, "btn-settings");
+            yield return null;
+            Assert.That(router.Top, Is.InstanceOf<SettingsScreen>(), "SETTINGS opens the settings screen");
+
+            var slider = router.Top.Root.Q<Slider>("slider-ui-scale");
+            Assert.That(slider, Is.Not.Null, "no slider-ui-scale");
+            float drag = Mathf.Approximately(slider.value, slider.highValue) ? slider.lowValue : slider.highValue;
+            slider.value = drag;
+            yield return null;
+            Assert.That(panel.referenceResolution, Is.Not.EqualTo(liveReference),
+                "dragging the UI scale slider changed nothing, so this test would pass on a broken DEFAULTS");
+
+            Click(router.Top.Root, "btn-defaults");
+            yield return null;
+            Click(router.Top.Root, "btn-back");
+            yield return null;
+
+            Assert.That(panel.referenceResolution, Is.EqualTo(liveReference),
+                "[L4] the UI stayed at the previewed scale after DEFAULTS and BACK");
         }
     }
 }
