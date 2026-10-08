@@ -50,7 +50,7 @@ namespace TW.Presentation.Meta
             {
                 int i = Add(a, n, Smooth(a, centre), new Vector2(0, 0)), j = Add(b, n, Smooth(b, centre), new Vector2(1, 0));
                 int k = Add(c, n, Smooth(c, centre), new Vector2(1, 1)), l = Add(d, n, Smooth(d, centre), new Vector2(0, 1));
-                T.Add(i); T.Add(j); T.Add(k); T.Add(i); T.Add(k); T.Add(l);
+                T.Add(i); T.Add(k); T.Add(j); T.Add(i); T.Add(l); T.Add(k);
             }
 
             public Mesh Finish(string name)
@@ -93,8 +93,8 @@ namespace TW.Presentation.Meta
                 Vector3 p0 = d0 * rBottom, p1 = d1 * rBottom, p2 = d1 * rTop + Vector3.up * height, p3 = d0 * rTop + Vector3.up * height;
                 Vector3 n = ((d0 + d1) * 0.5f + Vector3.up * ((rBottom - rTop) / Mathf.Max(0.01f, height))).normalized;
                 b.Quad(p0, p1, p2, p3, n, centre);
-                if (rTop > 0.001f) { int c = b.Add(Vector3.up * height, Vector3.up, Vector3.up, Vector2.one * 0.5f); int i = b.Add(p3, Vector3.up, Vector3.up, Vector2.zero), j = b.Add(p2, Vector3.up, Vector3.up, Vector2.one); b.T.Add(c); b.T.Add(i); b.T.Add(j); }
-                { int c = b.Add(Vector3.zero, Vector3.down, Vector3.down, Vector2.one * 0.5f); int i = b.Add(p1, Vector3.down, Vector3.down, Vector2.zero), j = b.Add(p0, Vector3.down, Vector3.down, Vector2.one); b.T.Add(c); b.T.Add(i); b.T.Add(j); }
+                if (rTop > 0.001f) { int c = b.Add(Vector3.up * height, Vector3.up, Vector3.up, Vector2.one * 0.5f); int i = b.Add(p3, Vector3.up, Vector3.up, Vector2.zero), j = b.Add(p2, Vector3.up, Vector3.up, Vector2.one); b.T.Add(c); b.T.Add(j); b.T.Add(i); }
+                { int c = b.Add(Vector3.zero, Vector3.down, Vector3.down, Vector2.one * 0.5f); int i = b.Add(p1, Vector3.down, Vector3.down, Vector2.zero), j = b.Add(p0, Vector3.down, Vector3.down, Vector2.one); b.T.Add(c); b.T.Add(j); b.T.Add(i); }
             }
             return b.Finish(name);
         }
@@ -107,7 +107,7 @@ namespace TW.Presentation.Meta
             {
                 float a0 = s * Mathf.PI * 2f / segments, a1 = (s + 1) * Mathf.PI * 2f / segments;
                 Vector3 d0 = new Vector3(Mathf.Cos(a0), 0f, Mathf.Sin(a0)), d1 = new Vector3(Mathf.Cos(a1), 0f, Mathf.Sin(a1));
-                b.Quad(d0 * rInner, d1 * rInner, d1 * rOuter, d0 * rOuter, Vector3.up, Vector3.zero);
+                b.Quad(d0 * rInner, d0 * rOuter, d1 * rOuter, d1 * rInner, Vector3.up, Vector3.zero);
             }
             return b.Finish(name);
         }
