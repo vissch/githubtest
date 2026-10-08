@@ -31,7 +31,11 @@ namespace TW.UI
             int w = s.Video.Width > 0 ? s.Video.Width : Screen.currentResolution.width;
             int h = s.Video.Height > 0 ? s.Video.Height : Screen.currentResolution.height;
             var mode = (FullScreenMode)Mathf.Clamp(s.Video.FullscreenMode, 0, 3);
-            if (Screen.width != w || Screen.height != h || Screen.fullScreenMode != mode) Screen.SetResolution(w, h, mode);
+            int hz = s.Video.RefreshRateHz;   // listed and stored but never applied before (L6)
+            var rate = hz > 0 ? new RefreshRate { numerator = (uint)hz, denominator = 1 } : Screen.currentResolution.refreshRateRatio;
+            if (Screen.width != w || Screen.height != h || Screen.fullScreenMode != mode
+                || (hz > 0 && Mathf.RoundToInt((float)Screen.currentResolution.refreshRateRatio.value) != hz))
+                Screen.SetResolution(w, h, mode, rate);
         }
 
         /// <summary>
