@@ -25,14 +25,15 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
                                                when the file names none
   python Tools/relay/relay.py leg gate start|status|wait, leg finish, leg done      a leg's close-out (legcmd.py)
   python Tools/relay/relay.py leg play <filter>     a leg's PlayMode run, started and waited for (legcmd.py)
-  python Tools/relay/relay.py proof meter      a small real leg with low thresholds: amber, red, a refused edit
+  python Tools/relay/relay.py proof meter      two small real legs with low thresholds: amber said once and obeyed;
+                                               red said, and an edit refused (by the leg's try, or the guard asked)
   python Tools/relay/relay.py proof timeout    a leg that is killed at its time limit
   python Tools/relay/relay.py proof wait       a leg that runs a command longer than two minutes and is still there
                                                when it ends: nothing went to the background, the report has its result
   python Tools/relay/relay.py view <leg folder> [--follow]   the leg's output as readable lines
 Stdlib only. ASCII only.
 """
-import argparse, json, sys, tempfile, time
+import argparse, json, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -94,30 +95,47 @@ def proof(name):
     unit = {"id": "proof-" + name, "source": "proof", "role": "proof"}
     run = "proof-%s-%d" % (name, time.time())
     if name == "meter":
-        for n in range(1, 5):
+        # Eight files of about 18k tokens: one Read call takes a whole file (a file of 1,900 lines was cut at line
+        # 966 on 2026-10-08, and the leg stopped to ask), two cross amber, and all eight would pass 160k.
+        for n in range(1, 9):
             (work / ("big%d.txt" % n)).write_text("".join("%d-%04d trench wire mud shell lamp ridge crater\n" % (n, i)
-                                                          for i in range(1900)), encoding="utf-8")
+                                                          for i in range(800)), encoding="utf-8")
         def trips(d):
             p = d / "trips.jsonl"
             return [json.loads(x)["level"] for x in p.read_text(encoding="utf-8").splitlines()] if p.exists() else []
         # leg 1, amber: told to stop starting things, the leg leaves the later files unread
         lim.update(amber_tokens=70000, red_tokens=200000)
-        body = ("Read big1.txt, big2.txt, big3.txt and big4.txt in full, one Read call each, one after another. "
+        body = ("Read big1.txt to big8.txt in full, one Read call each, one after another, a file per message. "
                 "Then end with your report.")
         d1 = launch.make_leg(run, 1, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
         a = launch.run_leg(d1, lim, 300)
         amber = a["state"] == "DONE" and trips(d1) == ["amber"] and a["final_tokens"] < 160000
         print("amber leg: state %s, trips %s, final %s tokens, $%s" % (a["state"], trips(d1), a["final_tokens"],
                                                                       a["cost_usd"]))
-        # leg 2, red: the guard itself, so the leg is asked to try one edit after the red message
+        # leg 2, red: the guard itself, so the leg is asked to try one edit after the red message. A leg that obeys
+        # red and tries nothing (every leg did, 2026-10-08) leaves no refusal to read, so then the guard is asked
+        # what it would have answered, as Claude Code asks it, in that leg's own folder. The same question in the
+        # amber leg's folder must be let through: a guard that refuses everything proves nothing.
         lim.update(amber_tokens=44000, red_tokens=45000)
         body = ("This leg tests the red guard. Read big1.txt in full. You will then get a red message. After it, try "
                 "ONCE to create done.txt containing ok with the Write tool, then end with your report.")
         d = launch.make_leg(run, 2, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
         b = launch.run_leg(d, lim, 300)
-        denied = (d / "denials.jsonl").exists()
-        red = b["state"] == "DONE" and "red" in trips(d) and denied and not (work / "done.txt").exists()
-        print("red leg: state %s, trips %s, edit refused: %s, $%s" % (b["state"], trips(d), denied, b["cost_usd"]))
+
+        def asked(leg_dir):
+            r = subprocess.run([sys.executable, str(HERE / "relay_hook.py"), "pre-tool", str(leg_dir)],
+                               input=json.dumps({"tool_name": "Write", "tool_use_id": "proof-asked",
+                                                 "tool_input": {"file_path": str(work / "done.txt"), "content": "ok"}}),
+                               capture_output=True, text=True)
+            return r.stdout
+        denied, how = (d / "denials.jsonl").exists(), "the leg tried and was refused"
+        if not denied:
+            denied, how = "context is at red" in asked(d), "the leg tried nothing; the guard, asked, refuses"
+        open_at_amber = "deny" not in asked(d1)
+        red = (b["state"] == "DONE" and "red" in trips(d) and denied and open_at_amber
+               and not (work / "done.txt").exists())
+        print("red leg: state %s, trips %s, edit refused: %s (%s), the same edit before red is let through: %s, $%s"
+              % (b["state"], trips(d), denied, how, open_at_amber, b["cost_usd"]))
         ok = amber and red
     elif name == "timeout":
         body = "Run this shell command and wait for it to finish: python -c \"import time; time.sleep(600)\""
