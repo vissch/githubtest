@@ -144,7 +144,7 @@ namespace TW.Perf
         /// <summary>The name the report writes: "none", "barrage", "armour", "vfx", "beam".</summary>
         public static string ScenarioName(BenchScenario s) => s == BenchScenario.Barrage ? "barrage" : s == BenchScenario.Armour ? "armour" : s == BenchScenario.Vfx ? "vfx" : s == BenchScenario.Beam ? "beam" : s == BenchScenario.Lineup ? "lineup" : "none";
 
-        /// <summary>A Ground by its enum name, any case (`WinterLine`, `winterline`), or by a short name: `forest`, `winter`.
+        /// <summary>A Ground by its enum name, any case (`WinterLine`, `winterline`), or by a short name: `forest`, `winter`, `narrows`.
         /// Numbers are refused, so `ground=1` cannot quietly mean a map. False for anything else.</summary>
         public static bool TryParseGround(string v, out Ground g)
         {
@@ -154,6 +154,7 @@ namespace TW.Perf
             {
                 case "forest": g = Ground.ShelledForest; return true;
                 case "winter": g = Ground.WinterLine; return true;
+                case "narrows": g = Ground.Narrows; return true;
             }
             foreach (Ground x in Enum.GetValues(typeof(Ground)))
                 if (string.Equals(s, x.ToString(), StringComparison.OrdinalIgnoreCase)) { g = x; return true; }
