@@ -116,6 +116,15 @@ class Settings(Base):
         self.assertEqual(config.report_problems("RESULT: done. Pictures are on the board.", st), [])
         self.assertEqual(len(config.report_problems("word " * 200, st)), 2)
 
+    def test_a_verdict_is_read_from_its_own_line_also_under_a_line_of_words(self):
+        """rv-12-hud-f9, 2026-10-08: "Leg complete." above the RESULT line turned a done into a failed."""
+        self.assertEqual(runner.said("Leg complete.\n\nRESULT: done - I3 fixed, committed and pushed."), "done")
+        self.assertEqual(runner.said("**RESULT:** blocked, the owner must pick."), "blocked")
+        self.assertEqual(runner.said("Summary first.\nRESULT: failed - the gate is red.\nRESULT: done later"), "failed")
+        for nothing in ("I'll pause here and wait for the background PlayMode test run to finish.",
+                        "The result: done, I think.", "As a result done is near.", "", None):
+            self.assertIsNone(runner.said(nothing), nothing)
+
     def test_a_review_fix_leg_is_told_its_standing_rules_and_every_execute_leg_the_gate_rules(self):
         import prompt
         st, top = config.style(), self.lim["prompt_max_bytes"]       # system_text refuses a prompt over the limit
