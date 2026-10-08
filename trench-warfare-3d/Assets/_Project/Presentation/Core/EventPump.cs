@@ -19,6 +19,7 @@ namespace TW.Presentation
         public Predicate<SimEvent> Skip;
         /// <summary>Time every subscriber under its own marker. Off by default: two marker calls per event per subscriber.</summary>
         public static bool ProfileSubscribers;
+        readonly List<SimEvent> dispatching = new List<SimEvent>(1024);   // the frame being delivered, so Frame is free to take new events
         Action<SimEvent>[] handlers = new Action<SimEvent>[0];
         ProfilerMarker[] handlerMarkers = new ProfilerMarker[0];
         string[] handlerNames = new string[0];
@@ -66,22 +67,36 @@ namespace TW.Presentation
         }
 
         /// <summary>Dispatch and clear. Call once per render frame after all ticks for the frame were stepped.</summary>
+        /// A throwing subscriber is logged and skipped for that event only: the frame is taken off `Frame` before the
+        /// first handler runs, so no event is delivered twice, none is lost behind a throw, and the list cannot grow.
         public void Dispatch()
         {
             using var dispatch = PerfMarkers.EventsDispatch.Auto();
-            for (int i = 0; i < Frame.Count; i++)
+            for (int i = 0; i < Frame.Count; i++) dispatching.Add(Frame[i]);   // not AddRange: that allocates an enumerator
+            Frame.Clear();
+            for (int i = 0; i < dispatching.Count; i++)
             {
-                var e = Frame[i];
+                var e = dispatching[i];
                 if (Skip != null && Skip(e)) continue;
                 var h = handlers;   // re-read per event: a handler added mid-dispatch hears the next event, as with a delegate
                 if (ProfileSubscribers)
                 {
                     var m = handlerMarkers;
-                    for (int k = 0; k < h.Length; k++) { m[k].Begin(); h[k](e); m[k].End(); }
+                    for (int k = 0; k < h.Length; k++)
+                    {
+                        m[k].Begin();
+                        try { h[k](e); }
+                        catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
+                        finally { m[k].End(); }
+                    }
                 }
-                else for (int k = 0; k < h.Length; k++) h[k](e);
+                else for (int k = 0; k < h.Length; k++)
+                {
+                    try { h[k](e); }
+                    catch (Exception ex) { UnityEngine.Debug.LogException(ex); }
+                }
             }
-            Frame.Clear();
+            dispatching.Clear();
         }
     }
 }
