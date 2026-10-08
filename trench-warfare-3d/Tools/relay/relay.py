@@ -24,8 +24,11 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py add --unit <file> [--role <role>]   the same, the unit from a file in the shape of the queue's; --role
                                                when the file names none
   python Tools/relay/relay.py leg gate start|status|wait, leg finish, leg done      a leg's close-out (legcmd.py)
+  python Tools/relay/relay.py leg play <filter>     a leg's PlayMode run, started and waited for (legcmd.py)
   python Tools/relay/relay.py proof meter      a small real leg with low thresholds: amber, red, a refused edit
   python Tools/relay/relay.py proof timeout    a leg that is killed at its time limit
+  python Tools/relay/relay.py proof wait       a leg that runs a command longer than two minutes and is still there
+                                               when it ends: nothing went to the background, the report has its result
   python Tools/relay/relay.py view <leg folder> [--follow]   the leg's output as readable lines
 Stdlib only. ASCII only.
 """
@@ -123,6 +126,20 @@ def proof(name):
         gone = launch.proc_start(leg["child_pid"]) is None
         ok = leg["state"] == "TIMEOUT" and gone
         print("state %s after %s s, process gone: %s, mode %s" % (leg["state"], leg["seconds"], gone, leg["ran_mode"]))
+    elif name == "wait":
+        # Claude Code's own limit for one command is two minutes; past it the command went to the background with
+        # "you will be notified", and the leg ended its turn to wait (rv-12-hud-f9). Here the leg must outlast it.
+        body = ("Run this shell command in ONE call and wait for it to finish: python -c \"import time; "
+                "time.sleep(150); print(6 * 7003)\". Then end with your report, with the number it printed in the "
+                "RESULT line. There is nothing to commit and no gate to run.")
+        d = launch.make_leg(run, 1, unit, "execute", work, "lane/show/proof", "", body, lim, model="sonnet")
+        leg = launch.run_leg(d, lim, 480)
+        out = (d / legdir.OUT).read_text(encoding="utf-8", errors="replace")
+        backed = "moved to the background" in out or "running in background" in out
+        told = runner.said(leg.get("report")) == "done" and "42018" in (leg.get("report") or "")
+        ok = leg["state"] == "DONE" and told and not backed
+        print("state %s after %s s, the report has the result: %s, something went to the background: %s, $%s"
+              % (leg["state"], leg["seconds"], told, backed, leg["cost_usd"]))
     else:
         raise SystemExit("relay: no proof named %s" % name)
     print("leg folder: %s" % d)
@@ -500,7 +517,7 @@ def main(argv=None):
     p.add_argument("--goal")
     p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER)
     p = sub.add_parser("proof")
-    p.add_argument("name", choices=("meter", "timeout"))
+    p.add_argument("name", choices=("meter", "timeout", "wait"))
     p = sub.add_parser("view")
     p.add_argument("leg")
     p.add_argument("--follow", action="store_true")

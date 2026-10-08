@@ -10,14 +10,15 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import cmdrules, config, gitio, launch, ledger, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
+import cmdrules, config, gitio, launch, ledger, legcmd, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
 from sources import pipeline as SP                                                 # noqa: E402
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
 LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT", "TW_AGENT_LOGS",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
-       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY")
+       "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY",
+       "TW_RELAY_PLAY")
 
 
 def jpeg(width, height, size=2000):
@@ -133,6 +134,49 @@ class Settings(Base):
         raw = json.loads((HERE / "limits.json").read_text(encoding="utf-8"))
         unused = [k for k in raw if code.count('"%s"' % k) < 2]                # config.py names each once
         self.assertEqual(unused, [])
+
+
+class NobodyWakesALeg(Base):
+    """rv-12-hud-f9, 2026-10-08: the leg put its waits in the background, a command that outlasted its two minutes
+    was "moved to the background" with "you will be notified", and the leg ended its turn to wait for the notice."""
+    def test_a_leg_runs_with_background_tasks_off_and_its_own_waits_fit_in_one_call(self):
+        d = self.leg()
+        env = launch.leg_env(d, legdir.read(d))
+        self.assertEqual(env.get("CLAUDE_CODE_DISABLE_BACKGROUND_TASKS"), "1")
+        ap = argparse.ArgumentParser()
+        legcmd.add_args(ap)
+        for words in (["gate", "wait"], ["play", "TW.Tests.X"]):               # each waits this long by default
+            self.assertLess(ap.parse_args(words).max * 1000, int(env["BASH_DEFAULT_TIMEOUT_MS"]), words)
+        self.assertLessEqual(int(env["BASH_DEFAULT_TIMEOUT_MS"]), int(env["BASH_MAX_TIMEOUT_MS"]))
+
+    def test_the_guard_refuses_what_would_wait_for_a_notice(self):
+        self.leg()
+        self.assertTrue(self.denied("Bash", command="python Tools/codemap.py", run_in_background=True))
+        why = json.loads((self.d / "denials.jsonl").read_text(encoding="utf-8").splitlines()[0])["why"]
+        self.assertIn("nobody wakes a leg", why)
+        self.assertTrue(self.denied("PowerShell", command="Get-Date", run_in_background=True))
+        self.assertTrue(self.denied("Agent", prompt="look for the test", run_in_background=True))
+        for tool in ("ScheduleWakeup", "CronCreate", "Monitor"):
+            self.assertTrue(self.denied(tool, delaySeconds=60, reason="waiting for the gate"), tool)
+        relay_py = str(HERE / "relay.py").replace("\\", "/")
+        for tin in ({"command": "python Tools/codemap.py"}, {"command": "python Tools/codemap.py", "run_in_background": False},
+                    {"command": 'python "%s" leg play TW.Tests.HudTogglePlayTests' % relay_py},
+                    {"command": 'python "%s" leg gate wait' % relay_py, "timeout": 600000}):
+            self.assertFalse(self.denied("Bash", **tin), tin)
+        self.assertFalse(self.denied("Agent", prompt="look for the test"))
+
+    def test_every_leg_is_told_its_turn_is_its_end_and_an_execute_leg_how_to_run_a_playmode_test(self):
+        import prompt
+        st, top = config.style(), self.lim["prompt_max_bytes"]
+        for phase in ("plan", "execute"):
+            text = prompt.system_text("review-fix", phase, st, top)
+            self.assertIn("The end of your turn is the end of the leg", text)
+            self.assertIn("never wait for, or stop, a process you\n  did not start", text)
+        self.assertIn("`leg play", prompt.system_text("lane", "execute", st, top))
+        self.assertNotIn("you run yourself", prompt.system_text("review-fix", "execute", st, top))
+        card = prompt.card_text(legdir.read(self.leg()), "the goal")
+        self.assertIn("leg play <its class or full name>", card)
+        self.assertNotIn("leg play", prompt.card_text(legdir.read(self.leg("plan", 2)), "the goal"))
 
 
 class Meter(Base):
@@ -1833,6 +1877,62 @@ class CloseOut(Repo):
         os.environ.pop("TW_RUNS")
         with self.assertRaises(SystemExit):
             self.leg_cmd("done")
+
+    def unity(self, total, passed, failed, sleep=0):
+        """A stand-in for the Unity CLI's test run: it writes the NUnit report the real one would, where it is told
+        to. total -1: it writes nothing and exits 1, as on a compile error."""
+        stub = self.tmp / "unity_stub.py"
+        stub.write_text(
+            "import sys, time\n"
+            "total, passed, failed, sleep = map(int, sys.argv[1:5])\n"
+            "name, out = sys.argv[5], sys.argv[6]\n"
+            "time.sleep(sleep)\n"
+            "if total < 0:\n"
+            "    sys.exit(1)\n"
+            "fail = '<failure><message><![CDATA[[I1] F9 left no HUD at all\\n  Expected: 1\\n  But was:  0]]></message></failure>'\n"
+            "cases = ''.join('<test-case fullname=\"%s.T%d\" result=\"%s\">%s</test-case>'\n"
+            "                % (name, i, 'Failed' if i < failed else 'Passed', fail if i < failed else '') for i in range(total))\n"
+            "open(out, 'w', encoding='utf-8').write('<?xml version=\"1.0\" encoding=\"utf-8\"?><test-run id=\"2\" '\n"
+            "    'total=\"%d\" passed=\"%d\" failed=\"%d\" result=\"%s\"><test-suite>%s</test-suite></test-run>'\n"
+            "    % (total, passed, failed, 'Failed(Child)' if failed else 'Passed', cases))\n"
+            "sys.exit(2 if failed else 0)\n", encoding="utf-8")
+        os.environ["TW_RELAY_PLAY"] = json.dumps([sys.executable, str(stub)] + [str(n) for n in (total, passed, failed, sleep)])
+
+    def test_play_waits_for_the_run_and_reads_the_verdict_from_the_report(self):
+        desk = legdir.desk(self.d)
+        self.unity(2, 2, 0)
+        code, out = self.leg_cmd("play", "TW.Tests.HudTogglePlayTests", "--max", "60")
+        self.assertEqual((code, out[:41]), (0, "GREEN: total 2, passed 2, failed 0 (TW.Te"), out)
+        self.assertTrue((desk / "playmode-1.xml").exists())                     # the report is the leg's paper,
+        self.assertEqual(gitio.dirty(self.work), [])                            # never a file in the checkout
+        self.unity(1, 0, 1)                                                     # rv-12's own run: one test, failed
+        code, out = self.leg_cmd("play", "TW.Tests.HudTogglePlayTests", "--max", "60")
+        self.assertEqual((code, out[:39]), (1, "RED: total 1, passed 0, failed 1 (TW.Te"), out)
+        self.assertIn("FAILED TW.Tests.HudTogglePlayTests.T0: [I1] F9 left no HUD at all | Expected: 1", out)
+        self.assertTrue((desk / "playmode-2.xml").exists())                     # a second run, a second report
+        for total, passed in ((-1, 0), (0, 0), (2, 0)):                         # no report, no test, nothing passed
+            self.unity(total, passed, 0)
+            code, out = self.leg_cmd("play", "TW.Tests.Nothing", "--max", "60")
+            self.assertEqual((code, out[:3]), (1, "RED"), out)
+        self.assertIn("nothing", out.lower())
+
+    def test_play_called_again_waits_on_the_same_run_and_the_gate_does_not_start_beside_it(self):
+        self.unity(1, 1, 0, sleep=6)
+        code, out = self.leg_cmd("play", "TW.Tests.Slow", "--max", "1")
+        self.assertEqual((code, out[:7]), (2, "RUNNING"), out)
+        with self.assertRaises(SystemExit):                                     # one batch run per project at a time
+            self.leg_cmd("gate", "start")
+        code, out = self.leg_cmd("play", "TW.Tests.Slow", "--max", "60")
+        self.assertEqual((code, out[:5]), (0, "GREEN"), out)
+        self.assertEqual(sorted(p.name for p in (legdir.desk(self.d) / "jobs").glob("play-*")), ["play-1"])
+
+    def test_a_leg_that_only_reads_runs_no_playmode_test(self):
+        self.d = legdir.new_leg("r1", 2, dict(UNIT, role="lane"), "plan", self.ph["plan"], self.lim, self.work,
+                                "lane/show/x", self.board)
+        os.environ["TW_RUNS"] = str(legdir.desk(self.d) / "jobs")
+        self.unity(1, 1, 0)
+        with self.assertRaises(SystemExit):
+            self.leg_cmd("play", "TW.Tests.X")
 
 
 class PipelineSource(Repo):

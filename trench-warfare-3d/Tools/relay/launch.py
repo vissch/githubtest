@@ -87,11 +87,19 @@ def argv(d, leg, lim):
     return a
 
 
+# Nobody wakes a leg: the end of its turn is the end of the leg. Claude Code moves a command that outlasts its time
+# limit to the background and says "you will be notified", and a leg that believes it ends its turn to wait
+# (rv-12-hud-f9, 2026-10-08). With background tasks off such a command stops with an error the leg must act on, and
+# `run_in_background` is gone. One call may last ten minutes, so `leg gate wait` and `leg play` (540 s) fit in one.
+NO_WAKING = {"CLAUDE_CODE_DISABLE_BACKGROUND_TASKS": "1", "BASH_DEFAULT_TIMEOUT_MS": "600000",
+             "BASH_MAX_TIMEOUT_MS": "600000"}
+
+
 def leg_env(d, leg):
     """The leg is not told where its guard folder is. TW_RELAY makes land.py and pipeline.py refuse inside the leg;
     the leg's detached jobs (gate, bench) go under its desk, so it can read their logs and the runner can stop them."""
     env = dict(os.environ, TW_RELAY="1", TW_WORKER_PID=str(os.getpid()), TW_RUNS=str(Path(leg["desk"]) / "jobs"),
-               PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1")
+               PYTHONUTF8="1", PYTHONDONTWRITEBYTECODE="1", **NO_WAKING)
     env.pop("TW_RELAY_LEG", None)
     if leg.get("board"):
         env["TW_BOARD"] = leg["board"]
