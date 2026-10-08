@@ -46,9 +46,11 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | gym (proving ground for every role) | `tw-gym` | desktop (runs); either (reading) |
 | lowpoly | `tw-lowpoly` | desktop (Blender) |
 | housekeeping | `tw-housekeeping`: after every long job | both |
-| reviewer (code review, second reader of a fix) | `tw-review` | either |
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
+
+Code review and the second read of a fix have a skill and no role yet: `tw-review` (the relay's role table gets
+its row when that line is on integration).
 
 Three of these jobs are also agents a session starts by name (`.claude/agents/`), each with its model and its
 skill fixed: `tw-critic` (a critic round, Opus), `tw-reviewer` (a review unit or a second reader, Opus), `tw-scout`
