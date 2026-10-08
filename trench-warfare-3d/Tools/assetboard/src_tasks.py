@@ -653,9 +653,19 @@ def where_it_was(r):
     return '\n'.join(out)
 
 
+def brief_lines(b):
+    """A task's brief (taskbrief.py) as lines for its unit: the leg reads what the owner read on the page."""
+    if not b:
+        return ''
+    links = ''.join(f'\n  {l["label"]}: {l.get("href") or l["target"]}' for l in b.get('links') or [])
+    return (f'What it is, as it was read for the owner\'s page on {b.get("when", "")} (check it against the work):\n  {b["about"]}\n  Part of: {b["part_of"]}\n'
+            f'  Where it stands: {b["stands"]}{links}')
+
+
 def unit_for(r):
     """The relay unit a task becomes when he queues it: a file of the relay's queue (id, lane, role, goal, done_when;
-    Tools/relay/sources/lane.py load()). Its goal is all a leg on the other station gets: what was asked, where the
+    Tools/relay/sources/lane.py load()). Its goal is all a leg on the other station gets: what it is about when it
+    was read for the page (brief_lines), what was asked, where the
     work was and how it ended, his words, and where the picture is. done_when is the relay's own: the unit's id in a
     commit message on the lane. The task leaves the board when the relay's record says the unit is done."""
     uid = unit_id(r)
@@ -671,7 +681,8 @@ def unit_for(r):
                 ready='This pipeline step is ready and nobody took it.').get(r['kind'], 'This task was left unfinished.')
     how = f'\nIt stopped {r.get("stopped", "")}: {r["why"]}.' if r.get('why') else ''
     was = where_it_was(r)
-    goal = (f'{head}{how}\n\n{r.get("ask") or r.get("what") or r["title"]}{says}\n\n' + (was + '\n\n' if was else '')
+    read = brief_lines(r.get('brief'))
+    goal = (f'{head}{how}\n\n' + (read + '\n\nWhat it was asked:\n' if read else '') + f'{r.get("ask") or r.get("what") or r["title"]}{says}\n\n' + (was + '\n\n' if was else '')
             + f'If the task only reads (a review, a survey), write what you found as docs/inbox/<today>-all-{uid}.md and commit that. '
             f'Put [{uid}] in the message of the commit that finishes it.')
     check = ("import subprocess,sys;o=subprocess.run(['git','log','--format=%B','" + INTEGRATION + "..HEAD'],capture_output=True).stdout.decode('utf-8','replace');"

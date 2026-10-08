@@ -32,11 +32,20 @@
     return b;
   }
   function rowEl(g, r, raw) {
-    var a = el('div', 'k-qrow k-theirs t-row t-' + r.state + (r.shot ? ' t-shown' : '')); a.title = r.tip || r.top;
-    if (r.shot) { var i = el('img', 'k-qshot'); i.loading = 'lazy'; i.alt = ''; i.src = r.shot; a.appendChild(i); }
+    var a = el('div', 'k-qrow k-theirs t-row t-' + r.state + (r.shot ? ' t-shown' : '') + (r.read ? ' t-read' : '')); a.title = r.tip || r.top;
+    if (r.shot && r.film) { var v = el('video', 'k-qshot'); v.muted = true; v.loop = true; v.autoplay = true; v.playsInline = true; v.setAttribute('playsinline', ''); v.preload = 'metadata'; v.src = r.shot; a.appendChild(v); }
+    else if (r.shot) { var i = el('img', 'k-qshot'); i.loading = 'lazy'; i.alt = ''; i.src = r.shot; a.appendChild(i); }
     var what = el('span', 'k-take-what');
     what.appendChild(el('span', 'k-take-top', r.top));
     if (r.sub && r.sub !== r.top) what.appendChild(el('span', 't-sub', r.sub));
+    if (r.stands) what.appendChild(el('span', 't-stands', 'Now: ' + r.stands));
+    if (r.part) what.appendChild(el('span', 't-part', 'Part of: ' + r.part));
+    if (r.links.length) {         // where it leads, a click away without opening the task
+      var links = el('span', 't-links');
+      r.links.forEach(function (l) { var x = el('a', 't-link', l.label + ' →'); x.href = l.href; x.target = '_blank'; x.rel = 'noopener'; if (l.title) x.title = l.title;
+        x.addEventListener('click', function (e) { e.stopPropagation(); }); links.appendChild(x); });
+      what.appendChild(links);
+    }
     var sub = el('span', 'k-take-sub'); r.chips.forEach(function (c, k) { sub.appendChild(el('span', 'k-qchip' + ((r.state === 'queued' || r.state === 'relay') && !k ? ' t-state' : ''), c)); });
     what.appendChild(sub); a.appendChild(what);
     if (!Bd) return a;

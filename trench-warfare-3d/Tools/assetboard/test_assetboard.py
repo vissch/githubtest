@@ -2068,6 +2068,7 @@ def critiques_cases():
 
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
+    os.environ.update(TW_TASKBRIEFS=tempfile.mkdtemp(prefix='tw-taskbrief-test-'), TW_TASKBRIEF_OFF='1')      # ... and no reading of a task is started from a test
     os.environ['TW_TASKS'] = tempfile.mkdtemp(prefix='tw-tasks-test-')      # ... nor into the tasks' folder, nor takes a capture of his in
     os.environ['TW_FEEDBACK'] = tempfile.mkdtemp(prefix='tw-feedback-test-')
     real_tree()

@@ -18,6 +18,17 @@
 .t-row .k-take-what { gap: 4px; }
 .t-row .k-take-top { white-space: normal; font: 600 15px/1.25 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .t-sub { color: var(--t-soft); font: 400 13px/1.4 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* a task that was read before it was listed: what it is about (three lines), what it was part of, where it leads */
+.t-sub { -webkit-line-clamp: 3; }
+.t-part { color: var(--t-low); font: 500 12px/1.4 var(--sans); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.t-stands { color: var(--t-near); font: 500 13px/1.4 var(--sans); display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+.t-links { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.t-link { color: #9fc4ff; font: 600 12px/1.5 var(--sans); text-decoration: none; overflow-wrap: anywhere; }
+.t-link:hover, .t-link:focus-visible { color: #fff; text-decoration: underline; outline: none; }
+.t-row video.k-qshot { object-fit: cover; background: #000; }
+/* ... and its picture over its words, wide enough to see what the work was */
+.k-qrow.t-row.t-read.t-shown { grid-template-columns: minmax(0, 1fr); padding-left: 12px; }
+.t-row.t-read .k-qshot { width: 100%; height: auto; aspect-ratio: 16 / 9; max-height: 250px; object-fit: cover; }
 .t-row.t-queued { border-left: 3px solid var(--k-fire2); }
 .k-qchip.t-state { background: var(--k-fire2); color: #2a1600; }
 /* a capture: fewer to a line and a picture large enough to read the field in */

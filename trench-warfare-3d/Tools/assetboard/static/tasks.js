@@ -20,6 +20,7 @@
   var QUEUE = 'Queue this for the relay.', DROP = 'Not needed: drop this task.';
   var SAY = [{ label: 'Queue it for the relay', say: QUEUE }, { label: 'Not needed', say: DROP }];
   var BACK = [{ label: 'Take it back', say: DROP }];
+  var LINKS = 3;                  // links a row carries; the panel has them all
   var OLD = 5, UNHEARD = 30;      // minutes: a reading older than this is said, and a station not heard from for this long
   function short(b) { return String(b || '').replace(/^lane\/(show|sim)\//, ''); }
   function span(min) { min = Math.max(0, Math.round(min || 0)); return min < 1 ? 'under a minute' : min < 120 ? min + ' min' : min < 2880 ? Math.round(min / 60) + ' h' : Math.round(min / 1440) + ' days'; }
@@ -41,6 +42,7 @@
     if (st === 'queued') c.push('queued for the relay');
     if (st === 'relay' && r.kind !== 'relay') c.push('with the relay' + (r.legs ? ', ' + n(r.legs, '1 leg run', 'legs run') : ''));
     if (r.fault) c.push('a fault');
+    if (r.nocontext) c.push('no context found');
     c.push(r.kind === 'capture' ? 'captured ' + span(r.idle) + ' ago' : 'nobody on it for ' + span(r.idle));
     if (r.stopped) c.push(r.kind === 'capture' ? r.stopped : r.kind === 'ready' ? 'ready since ' + r.stopped : r.kind === 'handoff' || r.kind === 'unit' ? 'written ' + r.stopped : 'stopped ' + r.stopped);
     if (r.where) c.push('on ' + r.where);
@@ -57,15 +59,23 @@
   // one row: what it is, a line under it, the chips, its picture when it has one, and the buttons it carries
   function row(r, said) {
     var st = state(r, said);
-    return { id: r.id, top: r.title, sub: r.kind === 'capture' ? ((r.detail || [])[0] || '') : (r.what || ''), shot: r.shots && r.shots[0] ? r.shots[0].src : '', chips: chips(r, st), state: st,
-             tip: (r.detail || [])[0] || r.title, acts: actions(r, st) };
+    // a task that was read before it was listed (taskbrief.py) says what it is about, what it was part of, and
+    // carries the first of its links; one that was not says what its agent was asked, as before
+    var first = r.shots && r.shots[0] ? r.shots[0] : null;
+    return { id: r.id, top: r.title, sub: r.about || (r.kind === 'capture' ? ((r.detail || [])[0] || '') : (r.what || '')), part: r.part_of || '', stands: r.stands || '', read: !!r.about, shot: first ? first.src : '', film: !!(first && first.film),
+             links: (r.links || []).slice(0, LINKS).map(function (l) { return { label: l.label, href: l.href, title: l.title || '' }; }), chips: chips(r, st), state: st,
+             tip: r.about || (r.detail || [])[0] || r.title, acts: actions(r, st) };
   }
   // what a click on a row opens (board.js): the lines tasks.py wrote, the picture, and the same buttons the row has.
   // The subject is the task and nothing wider, so the notes under it are the notes about it.
   function subject(r, label, said) {
     var st = state(r, said);
-    return { kind: 'queue', id: 'task: ' + r.id, kindLabel: 'task · ' + String(label || r.kind).toLowerCase(), title: r.title, facts: chips(r, st), detail: (r.detail || []).slice(0, 5),
-             shots: (r.shots || []).slice(0, 3), wantsShots: r.kind === 'capture', actions: actions(r, st) };
+    // with a brief: what it is, what it was part of and where it stands come first, then the lines tasks.py wrote,
+    // and every picture, film and link the brief has
+    var read = r.about ? [r.about, 'Part of: ' + r.part_of, 'Where it stands: ' + r.stands] : r.nocontext ? ['Nothing could say what this is about: ' + r.nocontext + '. Below is what its records hold.'] : [];
+    return { kind: 'queue', id: 'task: ' + r.id, kindLabel: 'task · ' + String(label || r.kind).toLowerCase(), title: r.title, facts: chips(r, st), detail: read.concat((r.detail || []).slice(0, 5)),
+             shots: (r.shots || []).slice(0, r.about ? 5 : 3), links: (r.links || []).map(function (l) { return { label: l.label, href: l.href, title: l.title || '' }; }),
+             wantsShots: r.kind === 'capture', actions: actions(r, st) };
   }
   // the groups that hold something, in order; a task he dropped is not listed
   function groups(T, saidOf) {
@@ -85,6 +95,7 @@
     out.push(left ? n(left, '1 task waits for an agent', 'tasks wait for an agent') : mine ? 'nothing waits for an agent' : 'Nothing is left unfinished');
     if (queued) out.push(n(queued, '1 queued for the relay', 'queued for the relay'));
     if (relay) out.push(n(relay, '1 with the relay', 'with the relay'));
+    if (T.reading) out.push(n(T.reading, '1 more is being read first', 'more are being read first'));
     if (T.relay && T.relay.waiting) out.push('the relay\'s queue holds ' + n(T.relay.waiting, '1 unit', 'units') + (T.relay.as_of ? ' (its board last changed ' + T.relay.as_of + ')' : ''));
     return out.join(' · ');
   }
@@ -99,6 +110,7 @@
     if (T.failed) out.push('The tasks could not be read at ' + clock(T.failed.at) + ' (' + T.failed.why + '). What is below is from the reading before.');
     else if (T.read_at && (nowSec - T.read_at) / 60 > OLD) out.push('This list was read ' + span((nowSec - T.read_at) / 60) + ' ago and not since: the board\'s watcher may have stopped.');
     if (T.drive_away) out.push('The shared Drive is away on this station.' + (T.waiting_here ? ' ' + n(T.waiting_here, '1 capture waits', 'captures wait') + ' in the game\'s folder.' : '') + ' Nothing is taken in, and nothing you say here is taken up while it is away.');
+    if (T.reading && T.reading_off) out.push(n(T.reading, '1 task waits', 'tasks wait') + ' to be read before ' + (T.reading === 1 ? 'it is' : 'they are') + ' listed, and nothing is reading: ' + T.reading_off + '.');
     ((T.stations) || []).forEach(function (s) { var m = (nowSec - s.at) / 60; if (m > UNHEARD) out.push(s.host + ' was last read ' + span(m) + ' ago: its agents and sessions may be missing here.'); });
     return out;
   }
@@ -115,7 +127,7 @@
   // the words under the rows: the rule, where the list was read, and what the board cannot see
   function foot(T, nowSec) {
     if (!T) return '';
-    return 'A task is listed once nothing has touched it for ' + span(T.stale_minutes) + '; a capture from the game at once. Read on ' + heard(T, nowSec) + '.'
+    return 'A task is listed once nothing has touched it for ' + span(T.stale_minutes) + ' and an agent has read what it is about; a capture from the game at once. Read on ' + heard(T, nowSec) + '.'
       + (T.dropped ? ' ' + T.dropped + ' you took off the list.' : '') + (T.blind ? ' ' + T.blind : '');
   }
   var api = { KINDS: KINDS, SAY: SAY, BACK: BACK, QUEUE: QUEUE, DROP: DROP, span: span, state: state, chips: chips, row: row, subject: subject, groups: groups, count: count, head: head, heard: heard, short: short,

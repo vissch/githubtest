@@ -41,6 +41,7 @@ import notes      # noqa: E402
 import src_ops    # noqa: E402
 import src_tasks  # noqa: E402
 import src_visuals  # noqa: E402
+import taskbrief  # noqa: E402
 
 FETCH_EVERY = 900       # seconds between two fetches of the pipeline board
 BY = 'the task board'
@@ -259,8 +260,10 @@ def failed(out: Path, why, now=None):
 
 
 def site(T, out: Path):
-    """Put the tasks in the site: data/tasks.js, and a capture's picture as img/task/<id>.jpg (made once)."""
-    rows = []
+    """Put the tasks in the site: data/tasks.js, and a capture's picture as img/task/<id>.jpg (made once). A task that
+    has its brief (taskbrief.py: what it is about, read before it was listed) is shown by it: its title and words,
+    its pictures under img/task/<id>/ and its docs under task/<id>/."""
+    rows, where = [], taskbrief.folder()
     for r in T['rows']:
         r = dict(r)
         src, shots = r.pop('picture', ''), []
@@ -270,10 +273,12 @@ def site(T, out: Path):
             if dst:
                 shots = [dict(src=dst.relative_to(out).as_posix(), name='the screen when you pressed F10')]
         r['shots'] = shots
+        taskbrief.dress(r, where, out)
         r.pop('ask', None)                          # what a unit is written from: a session's to read, too long for a page
         for k in ('lines', 'log', 'parent_log', 'parent', 'sid', 'cwd', 'branch', 'first', 'turns', 'stale', 'changed'):      # a unit's too, and paths of one machine
             r.pop(k, None)
         rows.append(r)
+    taskbrief.sweep(out, {r['id'] for r in rows})
     return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict(T, rows=rows, relay={k: v for k, v in T["relay"].items() if k != "taken"}), sort_keys=True)};\n')
 
 

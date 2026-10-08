@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 TMP = Path(tempfile.mkdtemp(prefix='tw-tasks-test-'))
 # no case writes into the owner's own folders: set before anything reads them
-os.environ.update(TW_TASKS=str(TMP / 'root'), TW_FEEDBACK=str(TMP / 'inbox'), TW_NOTES=str(TMP / 'notes'), TW_BRIEFS=str(TMP / 'briefs'))
+os.environ.update(TW_TASKS=str(TMP / 'root'), TW_FEEDBACK=str(TMP / 'inbox'), TW_NOTES=str(TMP / 'notes'), TW_BRIEFS=str(TMP / 'briefs'), TW_TASKBRIEFS=str(TMP / 'taskbriefs'), TW_TASKBRIEF_OFF='1')
 import briefs     # noqa: E402
 import feedback   # noqa: E402
 import notes      # noqa: E402
@@ -446,7 +446,7 @@ def page_rules():
                               '1 capture of yours waits for your word · nothing waits for an agent · 1 queued for the relay · 1 with the relay · the relay\'s queue holds 96 units (its board last changed 2026-10-07 01:26)',
                               'The tasks have not been read yet.', 'Nothing is left unfinished'], got and got[2:6])
     case('tasks page: a capture\'s row has its picture, when it was taken and where in the match; another\'s says how long nobody has been on it, when it stopped, on which station, and what kind of agent it was',
-         got and got[6] == dict(id='c', top='The wire', sub='In the forest.', shot='img/task/c.jpg', chips=['captured 3 min ago', '2026-10-07 21:14'], state='left', tip='In the forest.',
+         got and got[6] == dict(id='c', top='The wire', sub='In the forest.', part='', stands='', read=False, shot='img/task/c.jpg', film=False, links=[], chips=['captured 3 min ago', '2026-10-07 21:14'], state='left', tip='In the forest.',
                                 acts=[dict(label='Queue it for the relay', say='Queue this for the relay.'), dict(label='Not needed', say='Not needed: drop this task.')])
          and got[7] == ['nobody on it for 91 min', 'stopped 2026-10-07 01:42', 'on MSI', 'general agent', '1 note of yours'], got and got[6:8])
     case('tasks page: every row carries what he can say about it: both while nothing was said, the way back while it is only queued, nothing once the relay has it; the panel offers the same',

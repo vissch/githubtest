@@ -25,7 +25,10 @@ file may not give WebGL a picture file, it may give it a picture written out in 
 picture or film it had in its hands, copied small into img/last/ (src_visuals.py), and puts the open decision briefs
 (briefs.py) in data/briefs.js with their evidence under img/brief/, for decide.html, and the ideas he picks from
 (ideas.py) in data/ideas.js with their pictures under img/idea/. While it watches, it also starts the ideas agent when
-he asked for ideas or none is open (ideas.py tick: one run at a time, so many a day). While it watches, this also takes the notes the owner writes on the
+he asked for ideas or none is open (ideas.py tick: one run at a time, so many a day). The tasks agents left unfinished
+are in data/tasks.js (tasks.py), each with the brief an agent wrote of it before it was listed (taskbrief.py: its
+pictures under img/task/<id>/, its docs under task/<id>/); while it watches it starts that agent too, and a task with
+no brief yet is held off the page. While it watches, this also takes the notes the owner writes on the
 pages (a listener on this machine only, notes.py) and data/notebox.js tells the pages where it is.
 What it reads: src_ops.py, src_queue.py.
 """
@@ -51,6 +54,7 @@ import src_ops    # noqa: E402
 import src_queue  # noqa: E402
 import src_relay  # noqa: E402
 import src_visuals  # noqa: E402
+import taskbrief  # noqa: E402
 import tasks      # noqa: E402
 
 
@@ -304,8 +308,17 @@ def the_tasks(out: Path, q, his, watching):
     no site."""
     try:
         T = tasks.read(ready=q.get('ready'), every_note=his, board=board_root(), live=watching)
+        # what each task is about is read by an agent before it is listed (taskbrief.py; the owner, 2026-10-08): the
+        # watcher starts that reading, a task with its brief carries it, and one without waits off the page, counted
+        s = taskbrief.tick(T) if watching else None
+        if s and s['last']:
+            print(f'tasks: a reading ended with {s["last"]["made"]} of {len(s["last"]["ids"])} briefs for ${s["last"]["usd"]}' + (f' ({s["last"]["why"]})' if s['last']['why'] else ''), flush=True)
+        taskbrief.attach(T)
         for line in tasks.act(T) if watching else []:
             print(f'tasks: {line}', flush=True)
+        taskbrief.hold(T)
+        T['reading_off'] = (s or {}).get('off', '') if T['reading'] else ''
+        T['reading_now'] = bool(s and s['running'])
         tasks.site(T, out)
         return dict(left=T['left'], queued=T['queued'], captures=T['captures'])
     except Exception as e:      # noqa: BLE001

@@ -166,6 +166,15 @@ def left_tasks(branch):
         print(f'tasks    not read ({e})')
         return
     print(f'tasks    {T["left"]} left unfinished and nobody on them, {T["captures"]} of them feedback from the game; {T["queued"]} queued for the relay')
+    try:                        # what each is about is read by an agent before it is listed (taskbrief.py): how far that is
+        import datetime
+        import taskbrief
+        where = taskbrief.folder()
+        read = sum(1 for r in T['rows'] if taskbrief.current(where, r))
+        today = taskbrief.spent(where, f'{datetime.datetime.now():%Y-%m-%d}')
+        print(f'         {read} of the {len(T["rows"])} listed have their brief; today {len(today)} readings, ${sum(r.get("usd", 0) for r in today):.2f}. One by hand: python Tools/assetboard/taskbrief.py context ID')
+    except Exception as e:
+        print(f'         their briefs were not read ({e})')
     for r in [r for r in T['rows'] if r['kind'] == 'capture' and r['state'] == 'left'][:3]:
         print(f'         FEEDBACK {r["id"]}: {r["title"][:80]}')
     if T['left']:

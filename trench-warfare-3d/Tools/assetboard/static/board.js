@@ -184,8 +184,9 @@
     // the pictures that show it, each a click away at full size; a row that could show something and has nothing says so
     part('b-shots', [s.shots || [], !!s.detail], function (p) {
       if (!s.shots || !s.shots.length) { if (s.detail && s.detail.length && s.wantsShots) p.appendChild(el('p', 'b-novisual', 'No picture of this yet.')); return; }
-      s.shots.forEach(function (x) { var a = el('a', 'b-shot'), m = el('img'); a.href = ROOT + x.src; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open ' + (x.name || 'it') + ' full size';
-        m.loading = 'lazy'; m.alt = x.caption || x.name || ''; m.src = ROOT + x.src; a.appendChild(m); var f = el('figure'); f.appendChild(a); f.appendChild(el('figcaption', null, x.caption || x.name || '')); p.appendChild(f); });
+      s.shots.forEach(function (x) { var a = el('a', 'b-shot'), m = el(x.film ? 'video' : 'img'); a.href = ROOT + x.src; a.target = '_blank'; a.rel = 'noopener'; a.title = 'Open ' + (x.name || 'it') + ' full size';
+        if (x.film) { m.muted = true; m.loop = true; m.autoplay = true; m.playsInline = true; m.setAttribute('playsinline', ''); m.preload = 'metadata'; } else { m.loading = 'lazy'; m.alt = x.caption || x.name || ''; }
+        m.src = ROOT + x.src; a.appendChild(m); var f = el('figure'); f.appendChild(a); f.appendChild(el('figcaption', null, x.caption || x.name || '')); p.appendChild(f); });
     });
     // what he can say should happen: a click leaves that as a note of his, and the button shows it was said
     part('b-actions', [s.actions || [], pick(all(), s).filter(function (n) { return n.state !== 'done'; }).map(function (n) { return n.text; })], function (p) {
