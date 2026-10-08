@@ -18,56 +18,9 @@ board first. (`$R status` also needs `TW_STATION` set when the host is not in `T
 
 ## On the laptop
 
-This section is for a session on the laptop (host `MSI`); on the desktop skip it.
-The laptop has no run copy and no work checkout, so here you can look and report, not start or stop a run.
-Its `Documents/GitHub/tw3d-board` is behind origin and holds another session's uncommitted work: never read
-numbers from its files, never commit or push it. Read a snapshot of origin instead:
-
-```bash
-B=C:/Users/thomas.visscher_magi/Documents/GitHub/tw3d-board
-SNAP="$TEMP/tw-board-snap"; rm -rf "$SNAP"; mkdir -p "$SNAP/board" "$SNAP/home"
-git -C $B fetch -q origin && git -C $B archive origin/main | tar -x -C "$SNAP/board"
-export TW_STATION=laptop TW_BOARD="$SNAP/board" TW_RELAY_HOME="$SNAP/home"
-R="python C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py"
-```
-`$R day`, `$R budget`, `$R status`, `$R refusals` and `$R agents` are fine on the snapshot. `$R add` and `$R prio`
-commit and push the board, and `$R run`, `$R stop` and `$R hold` act on this machine: on the laptop say what you
-would do and that it has to be done on the desktop (`ssh emtd-desktop`, only on the owner's word).
-
-**The cap and the pace on this screen are worked out by the laptop's copy of the scripts.** Runs happen on the
-desktop, and the desktop holds the 11% and the pace only once its frozen copy has them. Look before you say so
-(reading over ssh needs no word from the owner):
-
-```bash
-ssh emtd-desktop "python C:/Users/PC/Documents/GitHub/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py day"
-```
-A `Pace:` line there means the desktop holds both. No such line: tell the owner the desktop still stops at its old
-$50 day (about 2.7%) and has no pace, whatever this screen says ("Older scripts" below).
-
-**The laptop's own agents** count toward the day ("The day's budget"). When `$R agents` shows any, hand them over
-as a file, the way a unit goes (`<name>` is the file's name; the desktop's relay must be the 2026-10-07 one or newer):
-
-```bash
-$R agents book --out "$TEMP/agents-laptop.json" --who <your session name>
-scp "$TEMP/agents-laptop.json" emtd-desktop:C:/Users/PC/AppData/Local/Temp/
-ssh emtd-desktop "python C:/Users/PC/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py agents book --file C:/Users/PC/AppData/Local/Temp/agents-laptop.json"
-```
-Read `booked laptop ...` or `A run is going here: it adds this ...` in what it prints.
-
-**The owner's answers on the Decide page ("Decisions").** On the laptop:
-
-```bash
-B="python C:/Users/thomas.visscher_magi/Documents/GitHub/githubtest-frog-house/trench-warfare-3d/Tools/assetboard/briefs.py"
-```
-`$B waiting`, `$B unit` and `$B take` are done here: the laptop is where he clicks, so it sees his notes first. The
-unit is queued on the desktop's board, and it goes there as a file (quoted words do not survive ssh):
-
-```bash
-scp FILE emtd-desktop:C:/Users/PC/AppData/Local/Temp/
-ssh emtd-desktop "git -C C:/Users/PC/Documents/GitHub/githubtest-relay-dev pull -q --ff-only; python C:/Users/PC/Documents/GitHub/githubtest-relay-dev/trench-warfare-3d/Tools/relay/relay.py add --unit C:/Users/PC/AppData/Local/Temp/<the file's name>"
-```
-Read `Board: pushed` in what it prints. His answer on a brief is the word this needs (the owner, 2026-10-06 evening):
-for `queue` the unit the option names, for `write` the unit you write from his answer. Nothing else is queued from here.
+The laptop has no run copy and no work checkout: there you look and report, queue his answers over ssh as files,
+and hand the laptop's own agents over as a booking file. Its board checkout is not to be read or pushed. The
+commands for all of that: `references/laptop.md`. On the desktop skip it.
 
 ## Every turn starts from one screen
 
@@ -190,7 +143,7 @@ $B waiting        # each answer: every note he left about it, the note to name (
 
 | `waiting` says | You do |
 |---|---|
-| `queue` | The option showed "Then: ..." with its unit, and his click is his yes to it. `$B unit ID --note NOTE --out FILE`, then `$R add --unit FILE` and read `Board: pushed`. Then the row in `decisions.md`. Then `$B take ID --note NOTE --by <your session name>`. In this order: stopped halfway, each step can be run again |
+| `queue` | The option showed "Then: ..." with its unit, and his click is his yes to it. `$B unit ID --note NOTE --out FILE`, then `$R add --unit FILE --role <role>` (the role from "Which role a unit gets"; a file that names none is refused) and read `Board: pushed`. Then the row in `decisions.md`. Then `$B take ID --note NOTE --by <your session name>`. In this order: stopped halfway, each step can be run again |
 | `nothing` | The option says nothing is built. The row, then `$B take ID --note NOTE --by <your session name>` |
 | `write` (was `ask` until 2026-10-06 evening) | His answer is the decision, but it names no unit: no Then line, one written after his click, clicks on two options (the last is his answer), or words of his own. Read all his notes. Do not put it to him again. When it needs no work (he keeps what is built, or sets a rule): the row, then `$B take ... --outcome "<why nothing is queued>"`. When it leads to work: write the unit as a file (`id`, `lane`, `goal` in his words, `done_when`), `$R add --unit FILE`, the row, `$B take ... --queued <unit id>` (add `--option X` when his notes pick two). Ask him only when his words do not say what to build |
 
@@ -221,7 +174,7 @@ $I --board $BOARD        # looks, writes nothing: ideas to put on the board, ste
 |---|---|
 | `0 accepted ideas`, `0 steps of his`, and no answer to a `gate-...` brief waits | nothing |
 | anything else, and `$R day` says `Run going` | wait until the run has stopped: the board is not written or pushed under a leg |
-| anything else, and no run is going | pull the board, `$I route --board $BOARD`, `$I gates --board $BOARD`, then commit and push the board (below). For each line `unit ...` that `route` printed: `$R add --unit <its file>` |
+| anything else, and no run is going | pull the board, `$I route --board $BOARD`, `$I gates --board $BOARD`, then commit and push the board (below). For each line `unit ...` that `route` printed: `$R add --unit <its file> --role <the stage's role, or the role of the work>` |
 | `owes a capture: <item> / <stage>` | the step before his passed with nothing a page can show, so he cannot judge it. Say so in `Needs you`; do not pass his step for him |
 
 ```bash
