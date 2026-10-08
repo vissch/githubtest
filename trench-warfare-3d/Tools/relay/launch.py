@@ -3,7 +3,9 @@
 kills the whole tree, also when the runner itself is interrupted. A Windows Terminal tab only shows the leg's output.
 
   make_leg(...)            folders, compiled prompt, card and hooks for one leg
-  run_leg(d, lim, secs)    start, log every output line, stop on timeout or a compaction trip, record how it ended
+  run_leg(d, lim, secs)    start, log every output line, stop on timeout or a compaction trip, record how it ended;
+                           a working leg that ends with no RESULT line gets one more turn in the same session
+  said(report)             done | blocked | failed, from the report's RESULT line
   open_view(d)             a Windows Terminal tab that follows the leg's output (run --view)
   ran_clean(leg)           why the leg cannot be trusted (it did not run under the hooks, in auto mode, to the end)
 TW_RELAY_CLAUDE (a JSON list) replaces the claude executable: the tests use a stub. Stdlib only. ASCII only.
@@ -24,6 +26,20 @@ import usage                                  # noqa: E402
 
 POLL_S = 2
 BAD_END = ("TIMEOUT", "COMPACT", "STOPPED")
+VERDICT = re.compile(r"^\W*RESULT\W+(done|blocked|failed)\b", re.I | re.M)
+RESUME, RESUME_MIN_S = "resume.txt", 120
+NUDGE = ("Your turn ended, and with it the leg, with no report: no line that starts with RESULT. Nobody wakes a leg "
+         "and nothing of yours runs in the background. If you were waiting for something, look at it now with one "
+         "foreground call (leg gate wait, leg play, or the job's log). Then finish what your leg card asks, or say "
+         "why you cannot, and end with the report in its shape. This is the one extra turn a leg gets.\n")
+
+
+def said(report):
+    """done | blocked | failed, from the first line of a leg's report that starts with RESULT (markdown around it is
+    fine); else None. Words before that line do not hide it: rv-12-hud-f9's last leg (2026-10-08) wrote "Leg
+    complete." above "RESULT: done", and a finished, pushed unit was recorded as failed."""
+    m = VERDICT.search(report or "")
+    return m.group(1).lower() if m else None
 
 
 def no_window():
@@ -244,6 +260,21 @@ def week_now(lim):
         return None
 
 
+def owes_report(d, leg, child, left_s):
+    """The session to give one more turn, or None. A working leg whose session ended cleanly with no RESULT line has
+    most often stopped to wait for something (rv-12-hud-f9 and rv-04-flow-goals, "Waiting for the gate"): the turn's
+    end is the leg's end, so its work would be lost and its unit recorded as failed. Not at red (it was told to
+    close), not without time left, not a leg that only reads (its paper is its result)."""
+    if leg.get("mode") != "work" or child.returncode != 0 or left_s < RESUME_MIN_S or (d / legdir.COMPACT).exists():
+        return None
+    res = (records(d, "result") or [{}])[-1]
+    if res.get("subtype") != "success" or res.get("is_error") or said(res.get("result")):
+        return None
+    if (relay_hook.read_json(d / legdir.METER, {}) or {}).get("level") == "red":
+        return None
+    return (relay_hook.read_json(d / legdir.SESSION, {}) or {}).get("session_id") or None
+
+
 def run_leg(d, lim, timeout_s, stop_file=None):
     """stop_file: the owner's stop request; one that says "now" ends the leg at once (state STOPPED)."""
     d = Path(d)
@@ -251,27 +282,42 @@ def run_leg(d, lim, timeout_s, stop_file=None):
     os.makedirs(leg["worktree"], exist_ok=True)
     seal = guard_hash(d)
     week = week_now(lim)                           # where the week stood before the leg, if anything read it
-    with open(d / legdir.PROMPT, "rb") as stdin:
-        child = subprocess.Popen(argv(d, leg, lim), cwd=leg["worktree"], stdin=stdin, stdout=subprocess.PIPE,
-                                 stderr=subprocess.STDOUT, env=leg_env(d, leg),
-                                 creationflags=0x00000200 if os.name == "nt" else 0)   # its own process group
-    start, state = time.time(), "STOPPED"
-    legdir.update(d, state="RUNNING", child_pid=child.pid, child_start=proc_start(child.pid), started_at=now())
-    t = threading.Thread(target=_pump, args=(child.stdout, d / legdir.OUT), daemon=True)
-    t.start()
+    start, state, child, t, again = time.time(), "STOPPED", None, None, None
     try:
-        while child.poll() is None:
-            if (d / legdir.COMPACT).exists():
-                state = "COMPACT"
+        while True:                                # once, and once more for a leg that owes its report
+            if again:
+                (d / RESUME).write_text(NUDGE, encoding="utf-8", newline="\n")
+            with open(d / (RESUME if again else legdir.PROMPT), "rb") as stdin:
+                child = subprocess.Popen(argv(d, leg, lim) + (["--resume", again] if again else []),
+                                         cwd=leg["worktree"], stdin=stdin, stdout=subprocess.PIPE,
+                                         stderr=subprocess.STDOUT, env=leg_env(d, leg),
+                                         creationflags=0x00000200 if os.name == "nt" else 0)   # its own process group
+            state = "STOPPED"
+            if again:
+                legdir.update(d, child_pid=child.pid, child_start=proc_start(child.pid), resumed=1)
+            else:
+                legdir.update(d, state="RUNNING", child_pid=child.pid, child_start=proc_start(child.pid),
+                              started_at=now())
+            t = threading.Thread(target=_pump, args=(child.stdout, d / legdir.OUT), daemon=True)
+            t.start()
+            while child.poll() is None:
+                if (d / legdir.COMPACT).exists():
+                    state = "COMPACT"
+                    break
+                if time.time() - start > timeout_s:
+                    state = "TIMEOUT"
+                    break
+                if stop_file and (relay_hook.read_json(stop_file) or {}).get("now"):
+                    break                                  # state stays STOPPED
+                time.sleep(POLL_S)
+            else:
+                state = "COMPACT" if (d / legdir.COMPACT).exists() else "DONE"
+            if state != "DONE" or again:
                 break
-            if time.time() - start > timeout_s:
-                state = "TIMEOUT"
+            t.join(timeout=5)                      # the result record is the last line the session writes
+            again = owes_report(d, leg, child, timeout_s - (time.time() - start))
+            if not again:
                 break
-            if stop_file and (relay_hook.read_json(stop_file) or {}).get("now"):
-                break                                      # state stays STOPPED
-            time.sleep(POLL_S)
-        else:
-            state = "COMPACT" if (d / legdir.COMPACT).exists() else "DONE"
     finally:                                       # also on Ctrl+C or an error in the runner: never leave it running
         rec = {"state": state, "finished_at": now(), "seconds": round(time.time() - start)}
         after = week_now(lim)
@@ -285,13 +331,17 @@ def run_leg(d, lim, timeout_s, stop_file=None):
                     pass
             stop_jobs(d)                           # a leg that is over has no job left to wait for
             t.join(timeout=5)
-            res = (records(d, "result") or [{}])[-1]
+            results = records(d, "result")         # one per turn: a resumed session names each turn's own cost
+            res = (results or [{}])[-1]
             init = (records(d, "system", "init") or [{}])[0]
             sess = relay_hook.read_json(d / legdir.SESSION, {}) or {}
             meter = relay_hook.read_json(d / legdir.METER, {}) or {}
             final, _, readable = relay_hook.context_tokens(sess.get("transcript_path") or "")
             use = res.get("usage") or {}
-            rec.update(exit_code=child.returncode, cost_usd=res.get("total_cost_usd"), turns=res.get("num_turns"),
+            costs = [r["total_cost_usd"] for r in results if isinstance(r.get("total_cost_usd"), (int, float))]
+            turns = [r["num_turns"] for r in results if isinstance(r.get("num_turns"), int)]
+            rec.update(exit_code=child.returncode, cost_usd=sum(costs) if costs else res.get("total_cost_usd"),
+                       turns=sum(turns) if turns else res.get("num_turns"), resumed=1 if again else 0,
                        subtype=res.get("subtype"), is_error=bool(res.get("is_error")), report=res.get("result") or "",
                        has_result=bool(res), denials=len(res.get("permission_denials") or []),
                        final_tokens=final, transcript_read=readable, metered_tokens=meter.get("tokens"),

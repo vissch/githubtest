@@ -147,6 +147,14 @@ with the leg and a leg never looks for "its" Unity in the process list. The caus
 whose execute leg waited on another checkout's editor and ended its turn "to wait for the notification".
 `$R proof wait` shows it on a real leg: a command of two and a half minutes, and the report has its result.
 
+**One more turn for a leg that owes its report.** A leg's verdict is the first line of its report that starts with
+`RESULT` (words above it do not hide it). A working leg whose session ends cleanly with no such line, most often
+because it stopped to wait, is given one more turn in the same session (`claude -p --resume`), told that the turn's
+end was the leg's end and to finish and report; `resume.txt` in the leg's folder holds those words. One extra
+turn, never two; not at red, not for a leg that only reads, not with under two minutes left. Both turns are paid
+for: the leg's cost and turns are the sum of its result records, and its record says `resumed: 1`.
+`$R proof report` shows it on a real leg.
+
 ## Context limits
 
 A hook measures the context after every tool batch. At amber (240k tokens) the leg is told to finish its step and
