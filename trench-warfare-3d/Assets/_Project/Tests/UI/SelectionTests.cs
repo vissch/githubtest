@@ -236,6 +236,35 @@ namespace TW.Tests
             Assert.That(TrenchScope.Step(ref t2, ref m2, true, true, true, 2, 5), Is.False, "a vehicle breaks it: they never advance by type");
         }
 
+        /// <summary>[I2] A man can still be TrenchId-garrisoned in a trench the enemy now holds (overrun, not yet
+        /// re-sorted); Of must drop the scope rather than hand ScopedTrench an order target we do not own.</summary>
+        [Test]
+        public void OfDropsTheScopeWhenTheTrenchIsNotOurs()
+        {
+            using var match = TW.Sim.Match.MatchSim.CreateGreybox(TW.Sim.SimConfig.Default);
+            var w = match.World;
+            var trenches0 = match.Fields.Trenches;
+            int t = -1;
+            for (int i = 0; i < trenches0.Length; i++) if (trenches0[i].OwnerTeam == 0) { t = i; break; }
+            Assert.That(t, Is.GreaterThanOrEqualTo(0), "the greybox gives team 0 at least one trench");
+            int s = w.Spawn(0, 0, default, 100f, 3f, false);   // a rifleman garrisoned in trench t
+            w.TrenchId[s] = (short)t;
+            var selection = new[] { new UnitHandle(s, w.Generation[s]) };
+
+            Assert.That(TrenchScope.Of(w, selection, out int okT, out _), Is.True, "the ordinary case: his own trench still scopes");
+            Assert.That(okT, Is.EqualTo(t));
+
+            var trenches = match.Fields.Trenches;
+            byte savedOwner = trenches[t].OwnerTeam;
+            var st = trenches[t]; st.OwnerTeam = 1; trenches[t] = st;
+            try
+            {
+                Assert.That(TrenchScope.Of(w, selection, out int lostT, out int lostMask), Is.False, "[I2] men in an enemy trench must not scope an order to it");
+                Assert.That(lostT, Is.EqualTo(-1)); Assert.That(lostMask, Is.EqualTo(0));
+            }
+            finally { st = trenches[t]; st.OwnerTeam = savedOwner; trenches[t] = st; }
+        }
+
         [Test]
         public void ASelectionThatCoversEveryCategoryPresentIsAPlainAdvance()
         {
