@@ -60,7 +60,11 @@ namespace TW.UI
 
         protected override void OnUnbind()
         {
-            listening?.Dispose(); listening = null; InputFocus.Listening = false;
+            // A capture left running (BACK clicked while a cap said PRESS A KEY) holds MatchClock.Hold.Modal:
+            // Stopper.Dispose only runs Finish(), never the cancel callback, so nothing else would ever let it go
+            // and the match would stay frozen for good.
+            if (listening != null) Router?.Clock?.Remove(MatchClock.Hold.Modal);
+            listening?.Dispose(); listening = null; listeningCap = null; InputFocus.Listening = false;
             if (!Mathf.Approximately(appliedScale, PreviewScale)) { var s = SettingsStore.Current.Clone(); s.Interface.UiScale = appliedScale; SettingsApplier.ApplyInterface(s); }
             // The audio preview goes back if they left without applying. After APPLY, SettingsStore.Current IS
             // the draft, so this is a no-op; without it a previewed volume would outlive the screen that
