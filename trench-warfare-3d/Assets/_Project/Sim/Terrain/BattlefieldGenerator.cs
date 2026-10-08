@@ -38,6 +38,18 @@ namespace TW.Sim.Terrain
         /// </summary>
         public float SeaMargin;
 
+        /// <summary>
+        /// SIGNED METRES OF RISE along the front axis: a battlefield with a real slope in it, rather than the
+        /// rolling-but-level ground every preset has had. `+` raises TEAM 1's end (high Z) so the far trench
+        /// stands on a crest and team 0's lies in the hollow below it; `-` mirrors that. ZERO IS TODAY'S FIELD -
+        /// every map that existed before this dial keeps the geometry, and the MapData hash, it had.
+        ///
+        /// It is a dial rather than a preset's private shape because the height has to reach the heightfield,
+        /// the dug-in trench platforms and line of sight at once (BattlefieldGenerator.RiseAt), and all three
+        /// read it from the params. The profile that turns it into ground lives with RiseAt.
+        /// </summary>
+        public float Rise;
+
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
 
@@ -85,6 +97,7 @@ namespace TW.Sim.Terrain
             using var w = new BinaryWriter(ms);
             w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment); w.Write(Sea);
             w.Write(SeaMargin);   // appended, like Sea before it: an older replay simply has no such field
+            w.Write(Rise);        // appended after SeaMargin: an older blob reads 0, which is the level field
             return ms.ToArray();
         }
 
@@ -97,6 +110,7 @@ namespace TW.Sim.Terrain
                 Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
                 Sea = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
                 SeaMargin = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,   // 0 = the default
+                Rise = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,        // 0 = level ground
             };
         }
     }
