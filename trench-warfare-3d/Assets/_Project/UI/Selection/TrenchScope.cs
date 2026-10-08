@@ -6,7 +6,9 @@
 // and picking the riflemen sends the assault men too: Widen is every category the order will really move, and Groups
 // is what is sent. Until 2026-09-29 the archetype mask itself was sent, which the sim read as groups: picking the
 // riflemen sent the machine gunners too, and picking the gunners sent the officers and medics instead.
-// A mask that covers every category present is a plain advance (mask 0). Pure rules, tested without a world.
+// A mask that covers every category present is a plain advance (mask 0). [I2] Of also drops a scope whose trench we
+// do not own: men can be TrenchId-garrisoned in a trench the enemy now holds (overrun, not yet re-sorted), and
+// ScopedTrench feeds that trench straight into G/Backspace, F/L and the "ALL OF TRENCH n" panel line.
 using System.Collections.Generic;
 using TW.Sim;
 
@@ -43,6 +45,9 @@ namespace TW.UI
                           alive ? w.TrenchId[s] : -1, alive ? w.Archetype[s] : 255))
                 { trench = -1; mask = 0; return false; }
             }
+            var fields = w.GetSystem<TW.Sim.Nav.FlowFieldManager>();
+            if (fields == null || trench >= fields.Trenches.Length || fields.Trenches[trench].OwnerTeam != 0)
+            { trench = -1; mask = 0; return false; }
             return true;
         }
 
