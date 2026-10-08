@@ -396,8 +396,12 @@ class Guards(Base):
         for cmd in ("git log --oneline -5", "git status", "rg foo Assets | head -5", "git diff HEAD~1 --stat",
                     "python Tools/pipeline/pipeline.py status", "ls Assets", "git log 2>&1 | head", "ls 2>/dev/null",
                     "sed -n 1,20p a.cs", "cd Tools && ls", "test -f a && echo y", "git branch --contains HEAD",
-                    "git remote -v", "git stash list", "jq .id items/x.json", "git config --get user.name"):
+                    "git remote -v", "git stash list", "jq .id items/x.json", "git config --get user.name",
+                    "python Tools/editor_lock.py status 2>&1 | head -20", "python Tools/editor_lock.py guard"):
             self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ("python Tools/editor_lock.py claim leg-1 --minutes 15", "python Tools/editor_lock.py release leg-1",
+                    "python Tools/editor_lock.py wait --timeout 1800"):       # a claim writes, a wait is not a look
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
         for cmd in ("git status\ngit log --oneline -3", "ls Assets\n# then the tools\nls Tools",
                     "git diff $(git merge-base HEAD origin/claude/trench-warfare-2d-3d-plan-idt7lf) --stat",
                     "git log $(git rev-parse --short HEAD) -1", "Get-Item a.cs | Select-Object Name, Length",
