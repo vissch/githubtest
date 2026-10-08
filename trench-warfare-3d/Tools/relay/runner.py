@@ -151,7 +151,7 @@ class Run:
         b = self.day()
         return b["left_usd"] if b else None
 
-    def no_budget(self, phases):
+    def no_budget(self, phases, unit=None):
         """Why the day's budget does not let legs of these phases start at their usual cost, or None. Asked before
         a leg starts: a leg that runs out of budget half way leaves work nobody can use.
         The day's cap is spent evenly over the day (ledger.pace_share). When the day covers the legs and the pace
@@ -159,7 +159,7 @@ class Run:
         then asks the day again. A dry run does not wait, and a wait that would outlast the run does not start:
         both say the time."""
         price = ledger.usuals(self.board, lim=self.lim)
-        need = ledger.need(price, self.ph, phases)
+        need = ledger.need(price, config.routed(self.ph, unit) if unit else self.ph, phases)   # a routed leg at its own price
         what = "a %s leg" % phases[0] if len(phases) == 1 else "a unit"
         told = False
         while True:
@@ -193,7 +193,7 @@ class Run:
             self.waited = True
             sleep(max(1.0, min(PACE_STEP, wait)))
 
-    def no_room(self, phase=None):
+    def no_room(self, phase=None, unit=None):
         """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
         With a phase, the budget must also cover the usual cost of such a leg."""
         if time.time() > self.deadline:
@@ -202,13 +202,13 @@ class Run:
             return "the leg cap (%d) is reached" % self.a.max_legs
         if self.stop_file.exists():
             return "stopped by the owner (relay.py stop)"
-        return self.no_budget([phase] if phase else [])
+        return self.no_budget([phase] if phase else [], unit)
 
     # ----- one leg -----
     def leg(self, unit, phase, body, plan=None, fill=None):
         """One leg. fill (a function): the leg works in a folder of its own under its desk, which fill fills, and
         is not pointed at the board: a blind critic."""
-        why = self.no_room(phase)
+        why = self.no_room(phase, unit)
         if why:
             raise Stop(why)
         self.legs += 1
@@ -267,7 +267,7 @@ class Run:
             self.finish(src, unit, [], "done")
             return
         self.waited = False
-        why = self.no_budget(["plan", "execute"])            # asked before the plan: a plan with no execute is lost
+        why = self.no_budget(["plan", "execute"], unit)      # asked before the plan: a plan with no execute is lost
         if why:
             raise Stop(why)
         if self.waited:                                      # the queue's order may have changed while it waited:
@@ -437,7 +437,7 @@ class Run:
                 if not unit:
                     break
                 if self.a.dry_run:
-                    why = self.no_budget(["plan", "execute"])
+                    why = self.no_budget(["plan", "execute"], unit)
                     if why:
                         raise Stop(why)
                     print("would run: %s %s (%s) in %s on %s" % (unit["source"], unit["id"], unit.get("todo", unit["role"]),

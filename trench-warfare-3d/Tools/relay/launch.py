@@ -63,7 +63,7 @@ def make_leg(run, nn, unit, phase, worktree, lane, board, body, lim=None, plan=N
     """One leg, ready to start: folders, compiled prompt, card, hooks. The same path for every source and phase."""
     lim = lim or config.limits()
     ph = dict(config.phases()[phase])
-    ph.update(config.route(unit["role"], phase))     # routes.json: this role's legs of this phase run otherwise
+    ph.update(config.route(unit["role"], phase, unit=unit.get("id")))   # routes.json: these legs run otherwise
     if model:
         ph["model"] = model
     d = legdir.new_leg(run, nn, unit, phase, ph, lim, worktree, lane, board)

@@ -70,14 +70,22 @@ ROUTE_MODELS = ("opus", "sonnet")     # a leg runs in auto mode, which the small
 
 def routes(folder=None):
     """routes.json, checked: the legs that do not run on their phase's model and effort. A list of
-    {role, phase, model and/or effort, why}; a role and phase may stand in it once."""
+    {role, phase, model and/or effort, why, and optionally units: [ids]}; a role and phase may stand in it once.
+    With units, the route holds for those units only: a trial names its units, the others of the role are its
+    control. The role must be one of Tools/pipeline/roles.json: a misspelt one would never apply, unsaid."""
     raw = _read("routes.json", folder)
     rows, seen, known = raw.get("routes"), set(), phases(folder)
+    roles = _read("roles.json", HERE.parent / "pipeline")
     if not isinstance(rows, list):
         raise SystemExit("relay: routes.json needs a list named routes")
     for r in rows:
         if not isinstance(r, dict) or not isinstance(r.get("role"), str) or not r["role"] or r.get("phase") not in known:
             raise SystemExit("relay: routes.json: every route names a role and a phase of phases.json (%s)" % r)
+        if r["role"] not in roles:
+            raise SystemExit("relay: routes.json: no role named %s in Tools/pipeline/roles.json" % r["role"])
+        if "units" in r and (not isinstance(r["units"], list) or not r["units"]
+                             or not all(isinstance(u, str) and u for u in r["units"])):
+            raise SystemExit("relay: routes.json %s/%s: units is a list of unit ids, or is left out" % (r["role"], r["phase"]))
         if (r["role"], r["phase"]) in seen:
             raise SystemExit("relay: routes.json names %s/%s twice" % (r["role"], r["phase"]))
         seen.add((r["role"], r["phase"]))
@@ -89,12 +97,18 @@ def routes(folder=None):
     return rows
 
 
-def route(role, phase, folder=None):
-    """What routes.json changes for a leg of this role and phase: {} or {model and/or effort}."""
+def route(role, phase, folder=None, unit=None):
+    """What routes.json changes for a leg of this role and phase: {} or {model and/or effort}. unit: the unit's id;
+    a route that names its units holds for no other."""
     for r in routes(folder):
-        if r["role"] == role and r["phase"] == phase:
+        if r["role"] == role and r["phase"] == phase and ("units" not in r or unit in r["units"]):
             return {k: r[k] for k in ("model", "effort") if k in r}
     return {}
+
+
+def routed(ph, unit, folder=None):
+    """phases.json as it holds for this unit: each phase with its route applied. The budget prices a leg by it."""
+    return {name: dict(p, **route(unit.get("role"), name, folder, unit.get("id"))) for name, p in ph.items()}
 
 
 def style(folder=None):

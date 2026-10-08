@@ -1401,7 +1401,8 @@ class Runs(Repo):
         with self.assertRaises(SystemExit) as e, contextlib.redirect_stdout(io.StringIO()):
             relay.main(["add", "u11", "--lane", "lane/show/x", "--goal", "g", "--done-when", "true"])
         self.assertIn("add needs --role", str(e.exception))
-        self.assertIn("review-fix", str(e.exception))                # it lists the roles there are
+        self.assertIn("with a brief: balance-simulator", str(e.exception))   # roles whose legs get a brief, first
+        self.assertIn("review-fix", str(e.exception).split("With none")[0])  # its brief is its own role text
         self.assertFalse((self.board / "relay" / "queue" / "u11.json").exists())
         with contextlib.redirect_stdout(io.StringIO()):
             relay.main(["add", "u11", "--lane", "lane/show/x", "--role", "review-fix", "--goal", "g", "--done-when", "true"])
@@ -1409,25 +1410,44 @@ class Runs(Repo):
                          "review-fix")
 
     def test_a_route_moves_one_roles_legs_of_one_phase_and_no_other(self):
-        shipped = {(r["role"], r["phase"]): r for r in config.routes()}
-        self.assertEqual(shipped[("review-fix", "execute")]["model"], "sonnet")     # the trial of 2026-10-08
-        made = {}
-        for n, (role, phase) in enumerate((("review-fix", "execute"), ("review-fix", "plan"), ("lane", "execute")), 1):
-            d = launch.make_leg("r8", n, dict(UNIT, role=role), phase, self.work, "lane/show/x", self.board, "x", self.lim)
-            made[(role, phase)] = legdir.read(d)
-        ph = config.phases()
-        self.assertEqual((made[("review-fix", "execute")]["model"], made[("review-fix", "execute")]["effort"]),
-                         ("sonnet", "medium"))
-        for key in (("review-fix", "plan"), ("lane", "execute")):                   # untouched: the phase's own
-            self.assertEqual((made[key]["model"], made[key]["effort"]), (ph[key[1]]["model"], ph[key[1]]["effort"]))
-        d = launch.make_leg("r8", 4, dict(UNIT, role="review-fix"), "execute", self.work, "lane/show/x", self.board,
-                            "x", self.lim, model="opus")
-        self.assertEqual(legdir.read(d)["model"], "opus")                           # a caller's model still wins
+        config.routes()                                              # the shipped file reads, whatever it holds
+        mine = self.tmp / "myroutes"                                 # the test's own routes: the shipped ones may go
+        shutil.copytree(HERE, mine, ignore=shutil.ignore_patterns("*.py", "roles", "sources", "__pycache__"))
+        (mine / "routes.json").write_text(json.dumps({"routes": [
+            {"role": "review-fix", "phase": "execute", "model": "sonnet", "effort": "medium", "units": ["in-trial"]},
+            {"role": "optimizer", "phase": "plan", "effort": "medium"}]}), encoding="utf-8")
+        real = config.route
+        config.route = lambda role, phase, folder=None, unit=None: real(role, phase, mine, unit)
+        self.addCleanup(setattr, config, "route", real)
+        ph, made = config.phases(), {}
+        legs = (("review-fix", "execute", "in-trial"), ("review-fix", "execute", "control"),
+                ("review-fix", "plan", "in-trial"), ("lane", "execute", "in-trial"), ("optimizer", "plan", "any"))
+        for n, (role, phase, uid) in enumerate(legs, 1):
+            d = launch.make_leg("r8", n, dict(UNIT, role=role, id=uid), phase, self.work, "lane/show/x", self.board,
+                                "x", self.lim)
+            made[(role, phase, uid)] = (legdir.read(d)["model"], legdir.read(d)["effort"])
+        own = lambda phase: (ph[phase]["model"], ph[phase]["effort"])
+        self.assertEqual(made[("review-fix", "execute", "in-trial")], ("sonnet", "medium"))
+        self.assertEqual(made[("review-fix", "execute", "control")], own("execute"))    # same role, not a listed unit
+        self.assertEqual(made[("review-fix", "plan", "in-trial")], own("plan"))         # another phase
+        self.assertEqual(made[("lane", "execute", "in-trial")], own("execute"))         # another role
+        self.assertEqual(made[("optimizer", "plan", "any")], (ph["plan"]["model"], "medium"))   # no units: every unit
+        d = launch.make_leg("r8", 9, dict(UNIT, role="review-fix", id="in-trial"), "execute", self.work, "lane/show/x",
+                            self.board, "x", self.lim, model="opus")
+        self.assertEqual(legdir.read(d)["model"], "opus")                               # a caller's model still wins
+        # the budget prices a routed leg by its route: need() is asked with the unit's own phases
+        asked = []
+        price = lambda phase, model=None, effort=None: asked.append((phase, model, effort)) or 1.0
+        ledger.need(price, config.routed(ph, {"role": "review-fix", "id": "in-trial"}), ("plan", "execute"))
+        ledger.need(price, config.routed(ph, {"role": "review-fix", "id": "control"}), ("execute",))
+        self.assertEqual(asked, [("plan",) + own("plan"), ("execute", "sonnet", "medium"), ("execute",) + own("execute")])
 
     def test_a_route_that_cannot_run_is_refused(self):
         bad = self.tmp / "badroutes"
         shutil.copytree(HERE, bad, ignore=shutil.ignore_patterns("*.py", "roles", "sources", "__pycache__"))
         for rows, why in (([{"role": "lane", "phase": "execute", "model": "haiku"}], "model is"),
+                          ([{"role": "review_fix", "phase": "execute", "model": "sonnet"}], "no role named review_fix"),
+                          ([{"role": "lane", "phase": "execute", "model": "sonnet", "units": []}], "units is a list"),
                           ([{"role": "lane", "phase": "paint", "model": "sonnet"}], "a phase of phases.json"),
                           ([{"role": "lane", "phase": "plan"}], "changes nothing"),
                           ([{"role": "lane", "phase": "plan", "model": "sonnet"}] * 2, "twice")):

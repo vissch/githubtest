@@ -21,7 +21,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --role <role> --goal ".." --done-when <program> <arg> ..   queue lane work
-  python Tools/relay/relay.py add --unit <file>     the same, the unit from a file in the shape of the queue's
+  python Tools/relay/relay.py add --unit <file> [--role <role>]   the same, the unit from a file in the shape of the queue's; --role
+                                               when the file names none
   python Tools/relay/relay.py leg gate start|status|wait, leg finish, leg done      a leg's close-out (legcmd.py)
   python Tools/relay/relay.py proof meter      a small real leg with low thresholds: amber, red, a refused edit
   python Tools/relay/relay.py proof timeout    a leg that is killed at its time limit
@@ -333,7 +334,15 @@ def update(ref):
     return 0
 
 
-def unit_from(path):
+def role_help():
+    """The roles a unit may name, those whose legs get a brief first."""
+    have = P.roles()
+    brief = sorted(r for r, s in have.items() if s or (HERE / "roles" / (r + ".md")).is_file())
+    return "with a brief: %s. With none: lane (plain lane work), %s" % (
+        ", ".join(brief), ", ".join(sorted(r for r in have if r not in brief and r not in ("lane", "master", "pipeline"))))
+
+
+def unit_from(path, role=None):
     """The unit a file names, for `add --unit`: the queue file's own shape (id, lane, goal, done_when, and a role
     when it is not "lane"). What is wrong with the unit itself is lane.load's to say, once it is a queue file."""
     try:
@@ -345,7 +354,10 @@ def unit_from(path):
     more = sorted(k for k in u if k not in lane_source.NEED)
     if more:
         raise SystemExit("relay: the unit file %s has %s, which a unit to queue does not" % (path, ", ".join(more)))
-    return dict(u, role=u.get("role") or "lane")
+    if not (u.get("role") or role):                  # every unit file of the first days became `lane`, unsaid
+        raise SystemExit("relay: the unit file %s names no role: add --role, the kind of work, so its legs get that "
+                         "role's brief (%s)" % (path, role_help()))
+    return dict(u, role=u.get("role") or role)
 
 
 def add(a):
@@ -359,15 +371,15 @@ def add(a):
         if a.id or a.lane or a.goal or a.done_when:
             raise SystemExit("relay: add --unit takes the whole unit from the file: no id, --lane, --goal or "
                              "--done-when beside it")
-        unit = unit_from(a.unit)
+        unit = unit_from(a.unit, a.role)
     else:
         missing = [n for n, v in (("an id", a.id), ("--lane", a.lane), ("--goal", a.goal),
                                   ("--done-when", a.done_when)) if not v]
         if missing:
             raise SystemExit("relay: add needs %s (or --unit FILE)" % ", ".join(missing))
         if not a.role:                               # 105 of 112 legs ran as `lane`, which has no brief
-            raise SystemExit("relay: add needs --role: the kind of work, so its legs get that role's brief (%s). "
-                             "`lane` is plain lane work with no brief." % ", ".join(sorted(P.roles())))
+            raise SystemExit("relay: add needs --role: the kind of work, so its legs get that role's brief (%s)"
+                             % role_help())
         unit = {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when}
     known_role(unit["role"])
     p = board / "relay" / "queue" / (unit["id"] + ".json")
