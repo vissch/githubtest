@@ -467,6 +467,36 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
+  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
+  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
+  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
+  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
+  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
+  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
+  trench line cannot be made to agree column by column.
+  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
+  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
+  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
+  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
+  sight checks, accepting a lipped crest.
+  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
+  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
+- **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
+  out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
+  garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
+  in the open to duel across wire or a trench, and men in an enemy trench are stormed, not hunted; (4) he hunts within
+  70 m and stops to shoot at half his weapon's range (45 m under a `>>` order), kneeling; (5) mud costs a path twice
+  dry ground, not four times; (6) machines keep to lanes too but do not hunt (their guns choose their own targets).
+  Measured in the test battle (both sides ordered forward every 5 s): fights in the open are now fought out to the
+  last man, and the side caught in front of the other's trench line loses. (Deployment across the whole width was
+  one of these and is decided: the table above.)
+  The owner, 2026-10-06, on the Decide page, in his own words: "we should do the latest six rules. the one where everyone spreads out is the
+  correct one". Read as: keep the six as built. That reading is the agent's; he is asked, and the bullet stays until he says.
+- **After dead ground (2026-10-06):** the owner removes it (How units move and fight) and asks for a better way: "we must think about how
+  we can prevent this in the future in a better way: the man werent able to enter the trench." Open: what that way is. Measured with
+  dead ground off: the enemy's machine guns (170 m) killed 17 of 23 men walking up in ten minutes; the 20 % range cut, not in
+  integration yet, shortens them to 136 m, and nobody has measured that.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
   in the suppression path excludes a machine. `AddSuppression` (DirectFire.cs:326) skips only `Airborne`, and splash
