@@ -3,11 +3,9 @@
 Pictures and films before words. Things to click and act on.
 
 <a id="goal-control-room"></a>
-[![The control room index](goals/control-room.png)](decisions.md)
+[![The control room index](goals/control-room.png)](decisions.md#d-control-room)
 
-"i dont have to see this wall of text on a page, im more intrested in visual changes"
-
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-control-room).
 
 1. **The control room.** "we need to start landing and merging some of the controlroom index ideas, we have idea
    agent we need to implemenet and updated data visualization". (2026-10-08.)
@@ -17,9 +15,9 @@ Pictures and films before words. Things to click and act on.
      Nothing wakes the master, and nothing puts an accepted idea on the board by itself. (Rows of 2026-10-07.)
    - Serves it: something on the board he can see, click or answer. Kind: interface or tool.
 <a id="goal-way-we-work"></a>
-[![Tasks left unfinished](goals/the-work.png)](decisions.md)
+[![Tasks left unfinished](goals/the-work.png)](decisions.md#d-way-we-work)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-way-we-work).
 
 2. **The way we work.** The board lists what agents left unfinished, "so we dont lose track of unfinished tasks and
    can spawn an agent". (2026-10-07.)
@@ -28,9 +26,9 @@ Pictures and films before words. Things to click and act on.
    - Not landed, 2026-10-07: the six top review fixes run first, then he looks at what changed.
    - Serves it: a tool or a check that saves his time, or keeps work from getting lost. Kind: tool.
 <a id="goal-frogs"></a>
-[![The Bullfrog, alive, in a battle](goals/bullfrog.png)](decisions.md)
+[![The Bullfrog, alive, in a battle](goals/bullfrog.png)](decisions.md#d-frogs)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-frogs).
 
 3. **Frogs first.** The frog faction's models are to be "the most important and instantly playable models in the
    game currently". (2026-10-06.) "i want to be able to play with all the new models intergrate them". (2026-09-30.)
@@ -42,9 +40,9 @@ Pictures and films before words. Things to click and act on.
      four badly hurt men out of view, and they come back at full health. Roster v3 waits until the frogs are playable.
    - Serves it: a job, a look or an effect for one frog unit. Kind: unit, mechanic or look.
 <a id="goal-matches"></a>
-[![A match on the field](goals/a-match.jpg)](decisions.md)
+[![A match on the field](goals/a-match.jpg)](decisions.md#d-matches)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-matches).
 
 4. **Matches that end.** "Factions first: of matches that end, each side wins 40 to 60 %". (2026-10-06.)
    - Better: each faction inside that band. Time to breach and trench keeping are reported, not judged. (2026-10-06.)
@@ -57,9 +55,9 @@ Pictures and films before words. Things to click and act on.
      No unit's number is tuned before the matches are measured again.
    - Serves it: a rule that makes a side attack, or that shows why it does not. Kind: mechanic.
 <a id="goal-units"></a>
-[![A weapon sheet](goals/weapons.png)](decisions.md)
+[![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-units).
 
 5. **Units that look their part.** "each class unit has a different vfx specific to that class. Think of grenades.
    Laser weapons. Mortars." "Make sure that as much as possible each unit has a 3d model". (Rows of 2026-09-28.)
@@ -70,9 +68,9 @@ Pictures and films before words. Things to click and act on.
      "lets improve the units visuals, vfx, animation etc. you have 5 %" of the week. (2026-10-06.)
    - Serves it: a look, an effect or a move that tells one unit from the next. Kind: unit or look.
 <a id="goal-night"></a>
-[![The lamp on the sandbags, today beside the new reach](goals/night-lamps.jpg)](decisions.md)
+[![The lamp on the sandbags, today beside the new reach](goals/night-lamps.jpg)](decisions.md#d-night)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-night).
 
 6. **The night.** The night look is his two edits of a game screenshot, the palette of one and the effects of the
    other; of its first part, on the captures, he said "its good". (Rows of 2026-09-29.)
@@ -85,9 +83,9 @@ Pictures and films before words. Things to click and act on.
    - Serves it: warm light and shapes that read, inside today's night and with no more real lights. Kind: look.
 <a id="goal-deaths"></a>
 [The film of a Bullfrog on fire beside a tank](goals/bullfrog-down.mp4)
-[![A wreck on fire in the snow](goals/wreck-fire.jpg)](decisions.md)
+[![A Bullfrog on fire beside a tank](goals/bullfrog-on-fire.png)](decisions.md#d-deaths)
 
-[Its sources](decisions.md).
+[Its sources](decisions.md#d-deaths).
 
 7. **Absurd deaths.** "lots of the fun arrives as units die, we need to make this more absurd"; "we need blood".
    (Rows of 2026-09-28.) "turn it on and let me test it". (2026-09-30.)
