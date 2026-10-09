@@ -122,7 +122,10 @@ namespace TW.Sim
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
         // v38 (2026-10-09, [U6]): a side wins its own trenches back nearest first, Reserve then Main (SectorControl.Unlocked).
-        public const ushort FormatVersion = 40;
+        // v41 (2026-10-09, [N5.2]): a knocked-out hull does not fire at a wreck. DirectFire.AtWreck returns for a
+        // KnockedOut slot, so a dead hull stops machine-gunning the wreck its enemies stand by (shots, suppression
+        // and wreck wear) until it cooks off. Layout and chain unchanged.
+        public const ushort FormatVersion = 41;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
