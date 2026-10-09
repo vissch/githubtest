@@ -193,6 +193,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **The fleet's guns stay silent in a match unless switched on** (the owner, on the Decide page: "The guns stay silent in a match unless switched on (a test, the debug panel, an ability later); the fix stays"). The review fix U1 made the fleet fire for the first time, a 300-damage shell every 23 s on every map with a sea, half of them on the sea side's own lines: ambient shelling, against the row of 2026-09-28. `SeaLandingSystem.FleetFires` is off as a match is made (`LandingTests.TheFleetIsSilentInAMatch_UnlessSwitchedOn`); a test switches it on. Nothing in the game switches it on yet: no debug button, no ability. Landed with `lane/sim/review-fixes` (replay v36, v37). |
 
 ## Open: waiting on the owner
+- **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
+  is fixed (a wreck now shelters and suppresses only the men in its shadow, and a screen on the line blinds the shot:
+  `docs/02-contracts.md`, replay v43). The rest of it, "list and suppress only men the shooter could engage, not below
+  the rim", is **not** done: the owner's call of 2026-09-28 is that a gun with nobody to shoot at keeps a hidden
+  garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
+  that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
+  only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
   garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
