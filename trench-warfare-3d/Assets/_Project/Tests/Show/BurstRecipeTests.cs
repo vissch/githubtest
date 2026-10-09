@@ -238,5 +238,22 @@ namespace TW.Tests
             StringAssert.Contains("LeapBack(drawnAt(", body, "the jet is hung from where the man is drawn (drawnAt)");
             StringAssert.DoesNotContain("Presenter.Drawn(", body, "the presenter's y is the sim's zero: on ground above zero the jet is under the ground");
         }
+        [Test]
+        public void AJetpackLeap_EndsByTheSimsClock_AtTwiceTheSpeedAndInAPause()
+        {
+            // review E.3: LeapStarted's scalar is sim seconds. A leap of one second, begun at 50 s of sim and 10 s on the wall
+            var leap = CombatFx.LeapStart(3, 50f, 10f, 1f);
+            Assert.AreEqual(3, leap.Slot);
+            Assert.AreEqual(10f, leap.NextFlame, "the flame is a cadence on the wall clock"); Assert.AreEqual(10f, leap.NextPuff, "and the puffs");
+            Assert.IsFalse(CombatFx.LeapOver(leap, 50.9f), "in the air until the sim's second is up");
+            Assert.IsTrue(CombatFx.LeapOver(leap, 51.05f), "landed: the jet stops with him");
+            // at 2x the sim runs two seconds to the wall's one: he lands half a wall second on, and the jet stops then
+            float wall = 10f, sim = 50f; int frames = 0;
+            while (!CombatFx.LeapOver(leap, sim) && frames < 600) { wall += 1f / 60f; sim += 2f / 60f; frames++; }
+            Assert.That(wall - 10f, Is.InRange(0.49f, 0.55f), "at 2x the leap is over half a wall second on");
+            // paused, the sim's clock stands however long the wall clock runs: he hangs in the air and the leap is not over
+            Assert.IsFalse(CombatFx.LeapOver(leap, 50.4f), "held in a pause he is still in the air");
+            Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
+        }
     }
 }

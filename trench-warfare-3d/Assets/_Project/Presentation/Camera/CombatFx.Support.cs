@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
         readonly Dictionary<int, float> healNext = new Dictionary<int, float>();
 
         // L15: the jetpack men in the air (LeapStarted to its scalar's seconds later)
-        struct Leap { public int Slot; public float Until, NextFlame, NextPuff; }
+        public struct Leap { public int Slot; public float Until, NextFlame, NextPuff; }   // Until: the sim's clock; NextFlame, NextPuff: the wall clock
         readonly List<Leap> leaps = new List<Leap>();
         public const float LeapFlameEvery = 1f / 12f, LeapPuffEvery = 0.08f;
         public const float LeapBackUp = 1.1f;   // his pack above his feet (m): where the jet is rooted
@@ -26,6 +26,15 @@ namespace TW.Presentation.Tactical
         /// sampled under him, the bank he climbs, his hop). Never over the presenter's point: its y is the sim's zero, and
         /// a jet hung from that burned under any ground above zero.</summary>
         public static Vector3 LeapBack(Vector3 standing) => standing + Vector3.up * LeapBackUp;
+
+        /// <summary>A leap begun: over when the sim's clock passes its seconds in the air (LeapStarted's scalar is sim
+        /// seconds: timed by the wall clock the jet burned on from a standing man at 2x, and ran out over a man a pause
+        /// held in the air). The flame and the puffs keep the wall clock: they are a cadence.</summary>
+        public static Leap LeapStart(int slot, float simNow, float wallNow, float seconds)
+            => new Leap { Slot = slot, Until = simNow + Mathf.Max(0.2f, seconds), NextFlame = wallNow, NextPuff = wallNow };
+
+        /// <summary>Whether he has landed, by the sim's clock.</summary>
+        public static bool LeapOver(in Leap l, float simNow) => simNow > l.Until;
 
         /// <summary>Whether a medic's glint shows now, and if so when his next may: pure, so a test can hold it.</summary>
         public static bool HealGlint(float now, float next, float zoom, float recipes) => recipes >= 0.5f && zoom < HealNearZoom && now >= next;
@@ -57,8 +66,7 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.GroundRing, from + Vector3.up * 0.15f, 3f, 0.5f, FlipbookFx.Kind.Flat, grow: 1f, alpha: 0.4f);
             for (int k = 0; k < 2; k++)
                 books.Add(FlipbookFx.Book.Spurt, from + new Vector3(k == 0 ? 0.3f : -0.3f, 0f, 0f), 1.2f, 0.5f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (k == 1 ? FlipbookFx.Kind.Mirror : 0));
-            float now = Time.time;
-            leaps.Add(new Leap { Slot = e.A, Until = now + Mathf.Max(0.2f, e.Scalar), NextFlame = now, NextPuff = now });
+            leaps.Add(LeapStart(e.A, SimNow, Time.time, e.Scalar));
         }
 
         /// <summary>L15 flight: a jet of fire pointing down from his back, re-lit every 1/12 s the way the flamethrower's root
@@ -68,10 +76,11 @@ namespace TW.Presentation.Tactical
             if (leaps.Count == 0) return;
             var w = Host.Local.World;
             var cam = Camera.main;
+            float simNow = SimNow;   // he lands by the sim's clock (CombatFx.Abilities.cs)
             for (int i = leaps.Count - 1; i >= 0; i--)
             {
                 var l = leaps[i];
-                if (now > l.Until || books == null || !books.Ready || l.Slot >= w.HighWater || (w.Flags[l.Slot] & (uint)UnitFlags.Alive) == 0) { leaps.RemoveAt(i); continue; }   // killed in the air: the jet goes with him
+                if (LeapOver(l, simNow) || books == null || !books.Ready || l.Slot >= w.HighWater || (w.Flags[l.Slot] & (uint)UnitFlags.Alive) == 0) { leaps.RemoveAt(i); continue; }   // killed in the air: the jet goes with him
                 Vector3 back = LeapBack(drawnAt(l.Slot));   // where he is drawn, as every other effect hung on a man
                 if (now >= l.NextFlame)
                 {
