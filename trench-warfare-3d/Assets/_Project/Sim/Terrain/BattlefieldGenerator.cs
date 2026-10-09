@@ -38,6 +38,15 @@ namespace TW.Sim.Terrain
         /// </summary>
         public float SeaMargin;
 
+        /// <summary>
+        /// This generated battlefield is a TEST LEVEL: a loadout may name any archetype, including another
+        /// faction's and one that costs nothing (SimWorld.FillRosters gates on Init.TestLevel). Default false,
+        /// so a normal match keeps the rule that a list of ten holds only the player's own faction's units.
+        /// The Proving Ground's launch screen sets it, because the owner's row of 2026-09-28 lets that screen
+        /// pick any ten.
+        /// </summary>
+        public bool TestLevel;
+
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
 
@@ -85,6 +94,7 @@ namespace TW.Sim.Terrain
             using var w = new BinaryWriter(ms);
             w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment); w.Write(Sea);
             w.Write(SeaMargin);   // appended, like Sea before it: an older replay simply has no such field
+            w.Write(TestLevel);   // appended likewise
             return ms.ToArray();
         }
 
@@ -97,6 +107,7 @@ namespace TW.Sim.Terrain
                 Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
                 Sea = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
                 SeaMargin = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,   // 0 = the default
+                TestLevel = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
             };
         }
     }
@@ -121,7 +132,7 @@ namespace TW.Sim.Terrain
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
         {
-            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMarginOf(p) : 0f)), allocator) { TestLevel = false };
+            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMarginOf(p) : 0f)), allocator) { TestLevel = p.TestLevel };
             map.WaterLevel = p.WaterLevel;
             if (p.Sea)
             {
