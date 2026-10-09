@@ -284,7 +284,8 @@ namespace TW.Sim.Nav
                         w.Events.Add(w.Tick, SimEventType.VehicleCrushed, i, 0, p);
                     }
                 }
-                if (speed > CrushSpeed) FindMenUnder(w, i, p, prof);
+                // a crab's leap carries its velocity through the air, not way over the ground it passes above (review, N5.1)
+                if (speed > CrushSpeed && (f & (uint)UnitFlags.Pouncing) == 0) FindMenUnder(w, i, p, prof);
                 if (speed > 0.2f) navChanged |= FellUnder(w, i, p, prof);
                 navChanged |= GrindWrecks(w, i, p, prof, speed);   // VehicleKinematics.Wrecks
             }
