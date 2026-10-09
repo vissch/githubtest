@@ -1,10 +1,12 @@
 // Phase: B6 (implemented) — [I1] F9 through the real hotkey path (HudHotkeys -> HudController.ApplyFlag) must
 // always leave exactly one HUD shown: not the IMGUI BattleHud and the Toolkit HUD together, and never neither.
 using System.Collections;
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using UnityEngine.InputSystem.LowLevel;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using TW.Presentation;
@@ -23,6 +25,9 @@ namespace TW.Tests
         bool savedToolkitHud;
         InputSettings.BackgroundBehavior savedBackground;
         InputSettings.EditorInputBehaviorInPlayMode savedEditorInput;
+        Scene ownScene;
+        Scene savedActive;
+        readonly List<Camera> untagged = new List<Camera>();
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -38,8 +43,16 @@ namespace TW.Tests
             InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             kb = InputSystem.AddDevice<Keyboard>();
 
+            // [I1c] a scene of our own, so every GameObject below lands in it and no other class's scene holds them;
+            // and no camera but ours stays tagged MainCamera, which is the only camera HudController looks for.
+            savedActive = SceneManager.GetActiveScene();
+            ownScene = SceneManager.CreateScene("hud-toggle-" + Time.frameCount);
+            SceneManager.SetActiveScene(ownScene);
+            foreach (var c in Camera.allCameras)
+                if (c.CompareTag("MainCamera")) { c.tag = "Untagged"; untagged.Add(c); }
+
             camGo = new GameObject("main-camera"); camGo.tag = "MainCamera";
-            camGo.AddComponent<Camera>();
+            var cam = camGo.AddComponent<Camera>();
             legacy = camGo.AddComponent<BattleHud>();
 
             hostGo = new GameObject("sim-host");
@@ -47,6 +60,9 @@ namespace TW.Tests
             legacy.Host = host;
 
             hud = HudBootstrap.Create(host);
+            // [I1c] a stray MainCamera must fail here, not in the body: HudController finds `legacy` only through
+            // Camera.main, so another scene's camera leaves this test's BattleHud on next to the Toolkit HUD.
+            Assert.That(Camera.main, Is.EqualTo(cam), "[I1c] Camera.main is not this test's own camera" + Cameras());
             yield return null;
         }
 
@@ -61,7 +77,28 @@ namespace TW.Tests
             if (camGo != null) Object.Destroy(camGo);
             HudBridge.UseToolkitHud = savedToolkitHud;
             HudBootstrap.Disabled = false; ShellBoot.Disabled = false;
+            // [I1c] give the other scenes their tags back, then drop ours. Ours was created, never loaded Single, so
+            // it is never the last loaded scene and the unload cannot fail.
+            foreach (var c in untagged) if (c != null) c.tag = "MainCamera";
+            untagged.Clear();
+            if (savedActive.IsValid() && savedActive.isLoaded) SceneManager.SetActiveScene(savedActive);
+            if (ownScene.IsValid() && ownScene.isLoaded) yield return SceneManager.UnloadSceneAsync(ownScene);
             yield return null;
+        }
+
+        // [I1c] proof and guard in one: when another class leaves a scene loaded whose camera is tagged
+        // MainCamera, Camera.main is that camera, HudController never finds this test's BattleHud and never switches
+        // it off, so two HUDs are shown before any F9 press. The message names every tagged camera and its scene.
+        static string Cameras()
+        {
+            var sb = new System.Text.StringBuilder(" | MainCamera-tagged cameras: ");
+            bool any = false;
+            foreach (var c in Camera.allCameras)
+                if (c.CompareTag("MainCamera"))
+                { sb.Append(any ? ", " : "").Append(c.name).Append(" (").Append(c.gameObject.scene.name).Append(")"); any = true; }
+            if (!any) sb.Append("none");
+            return sb.Append(" | Camera.main: ").Append(Camera.main == null ? "null"
+                : Camera.main.name + " (" + Camera.main.gameObject.scene.name + ")").ToString();
         }
 
         static int ShownCount(UIDocument doc, BattleHud legacy)
@@ -86,7 +123,7 @@ namespace TW.Tests
             yield return null;
             yield return null;   // the first Refresh caches `legacy` and switches it off (HudController.LegacyInterim)
 
-            Assert.That(ShownCount(doc, legacy), Is.EqualTo(1), "[I1] before any F9 press there must already be exactly one HUD");
+            Assert.That(ShownCount(doc, legacy), Is.EqualTo(1), "[I1] before any F9 press there must already be exactly one HUD" + Cameras());
 
             yield return PressF9();
             Assert.That(ShownCount(doc, legacy), Is.EqualTo(1), "[I1] F9 left no HUD at all (or two) after the first press");

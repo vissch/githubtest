@@ -39,6 +39,12 @@ namespace TW.Tests
             try
             {
                 yield return SceneManager.LoadSceneAsync(MatchLaunch.MenuScene, LoadSceneMode.Single);
+            // [I1c] the menu load above tears the battle scene down, but left loaded its camera is tagged MainCamera
+            // and wins Camera.main for whatever class runs next (HudTogglePlayTests saw two HUDs). Leave an empty
+            // scene with no camera behind instead.
+            var after = SceneManager.CreateScene("after-campaign-deploy");
+            SceneManager.SetActiveScene(after);
+            yield return SceneManager.UnloadSceneAsync(MatchLaunch.MenuScene);
                 var router = ShellBoot.EnsureRoot();
                 Assert.That(router, Is.Not.Null, "ShellAssets missing: run TW/UI/Build Shell Assets");
                 yield return null;
