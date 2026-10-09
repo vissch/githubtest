@@ -289,9 +289,15 @@ HEADLESS = [            # a session the board or the relay started by itself, by
 ]
 
 
-def headless(cwd):
+ASKED = [               # ... and by what it was asked first, where the folder says nothing (a relay leg runs in the unit's own checkout)
+    (r'^Read your leg card and do the leg', 'relay leg', 'work'),
+]
+
+
+def headless(cwd, prompt=''):
     """(name, room) of a session one of the tools started by itself, or None."""
-    return next(((name, room) for rx, name, room in HEADLESS if re.search(rx, (cwd or '') + '/', re.I)), None)
+    return (next(((name, room) for rx, name, room in HEADLESS if re.search(rx, (cwd or '') + '/', re.I)), None)
+            or next(((name, room) for rx, name, room in ASKED if re.search(rx, prompt or '')), None))
 
 
 def sessions(trees, now, live=None, skip=()):
@@ -359,7 +365,7 @@ def sessions(trees, now, live=None, skip=()):
                 s['plan'] = PLAN_MARKS.get((d.get('attachment') or {}).get('type'), s['plan'])
         s['calls'] = [(when, src_acts.of_tool(name, inp)) for when, name, inp in last]
         s['wait'] = 'owner' if ask else ''
-        if ended and headless(s['cwd']):
+        if ended and headless(s['cwd'], s['prompt']):
             continue                            # a run a tool started and that is over has left: it does not rest here for hours
         s['tree'] = home_of(s['cwd'], [pointed(inp, spell) for _, _, inp in last], trees)
         s['agents'] = [agent(meta, log) for meta, log in logs]
@@ -374,7 +380,7 @@ def session_worker(s):
     point. A question nobody answered goes on waiting after the transcript went quiet: that is when the owner has to
     see it, so a session that waits says so for as long as it is listed, at work or not."""
     working = s['working']
-    auto = headless(s.get('cwd'))               # a session a tool started by itself has that tool's name and room
+    auto = headless(s.get('cwd'), s.get('prompt'))      # a session a tool started by itself has that tool's name and room
     act = 'plan' if s['wait'] or (working and s['plan']) else 'bunk' if not working else src_acts.pick(s['calls']) or (auto[1] if auto else 'work')
     w = dict(kind='session', vendor='claude', id='session:' + s['id'][:8], name=auto[0] if auto else 'Claude', title=short(s['title'], 60),
              what=short(s['prompt'], 160), doing=s['doing'] if working else '', state='working' if working else 'resting', age=s['age'], act=act)

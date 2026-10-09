@@ -754,10 +754,12 @@ def house():
     case('house: a session the board started by itself has that tool\'s name, and a session in no checkout says the folder it was started in',
          (names['ideasrun']['name'], names['briefrun']['name'], names['inside00']['name']) == ('ideas agent', 'task brief agent', 'Claude')
          and names['outside1'].get('where') == 'claude' and 'where' not in names['inside00'], {k: (w['name'], w.get('where')) for k, w in names.items()})
+    write('legover0', [said(one), dict(type='last-prompt', lastPrompt='Read your leg card and do the leg.'), call(1, 'Edit', dict(file_path='a.cs'))], 30)
     others_live = dict(someone0=dict(status='busy'))
     over = {s['id']: s for s in src_ops.sessions(trees, now, others_live)}
     case('house: when Claude lists its running sessions, one it does not list is over: it rests however lately it wrote, and a run a tool started is gone from the floor',
-         'inside00' in over and not over['inside00']['working'] and 'ideasrun' not in over and 'briefrun' not in over and read()['inside00']['working'] and 'ideasrun' in read(),
+         'inside00' in over and not over['inside00']['working'] and 'ideasrun' not in over and 'briefrun' not in over and 'legover0' not in over
+         and read()['inside00']['working'] and 'ideasrun' in read() and src_ops.session_worker(read()['legover0'])['name'] == 'relay leg',
          {k: s['working'] for k, s in over.items()})
     long_name = tmp / ('d' * 120) / ('e' * 120) / 'f.jsonl'
     case('house: a path longer than Windows takes is reached by its long form, a short one as it is',
