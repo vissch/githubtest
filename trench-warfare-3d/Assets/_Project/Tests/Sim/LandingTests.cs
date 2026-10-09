@@ -231,5 +231,37 @@ namespace TW.Tests
 
             Assert.AreEqual(100000 - 4 * cost, m.World.Silver[1], "four landed, the two the full field refused are paid back");
         }
+
+        // [U4c] The owner's call of 2026-10-07: "A landing turned back by a full field gives back the unit's wait
+        // with the silver." The refund paid the silver back but left the slot's cooldown running, so the button
+        // the man never used stayed dark for the rest of his wait.
+        [Test]
+        public void AFullFieldPaysBackTheWaitWithTheSilver()
+        {
+            var cfg = SimConfig.Default;
+            cfg.Seed = 0xC0FFEEu; cfg.StartingSilver = 100000; cfg.SilverPerSecond = 0f; cfg.MaxSlots = 4;
+            var field = BattlefieldParams.ShelledForest(1917);
+            field.Bombardment = 0f;
+            using var m = MatchSim.CreateBattlefield(cfg, field);
+
+            const int RedoubtSlot = 9;                           // Brass's walking fort: CooldownTicks 600, longer than the craft's run in
+            int ri = 1 * RosterEntry.SlotCount + RedoubtSlot;
+            Deploy(m, 0, 0, 4);                                  // player 0 is inland, so his four riflemen fill the field of four at once
+            Deploy(m, 1, RedoubtSlot);                           // the sea team's fort embarks and has the hold to itself
+            Assert.AreEqual(599, m.World.SlotCooldown[ri], "[U4c] his wait starts at the deploy (600, one tick already run)");
+
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            int before = m.World.Silver[1], waitBefore = -1, waitOnRefund = -1;
+            for (int t = 0; t < 450; t++)                        // short of the fleet's first salvo at ShipEvery (460)
+            {
+                int wait = m.World.SlotCooldown[ri];
+                m.Step(none);
+                if (m.World.Silver[1] > before) { waitBefore = wait; waitOnRefund = m.World.SlotCooldown[ri]; break; }
+            }
+
+            Assert.AreNotEqual(-1, waitOnRefund, "[U4c] the full field turned the man back and paid his silver");
+            Assert.Greater(waitBefore, 1, "[U4c] the wait had not run out by itself");
+            Assert.AreEqual(0, waitOnRefund, "[U4c] the wait goes back with the silver: the button is ready at once");
+        }
     }
 }

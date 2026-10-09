@@ -291,7 +291,9 @@ namespace TW.Sim.Match
             {
                 int berth = craft * Berths + b;
                 if (cargoHp[berth] <= 0f) continue;
-                w.Silver[team[craft]] += w.Roster[team[craft] * RosterEntry.SlotCount + cargoSlot[berth]].Cost;
+                int ri = team[craft] * RosterEntry.SlotCount + cargoSlot[berth];
+                w.Silver[team[craft]] += w.Roster[ri].Cost;
+                w.SlotCooldown[ri] = 0;   // [U4c] his wait goes back with his silver: the button is ready at once
                 cargoHp[berth] = 0f;
             }
         }
