@@ -302,11 +302,14 @@ their order, are in the `/master` skill, "Decisions".
 ## What stops a run
 
 The time is up (`--hours`, 0.25 to 12), the leg cap, the day's budget (above), the day's pace when waiting for it would outlast the run, nothing left to do, the owner's `stop`, a work checkout that is
-missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, uncommitted work
+missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, five units in a
+row whose lane cannot be switched to (`stuck_lanes`), uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
 record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside
 `evidence/`, to the relay's own code, or to git's push guard. Every stop writes `relay/<station>/stops/<run>.json`
 on the board, with how each unit ended (`units`), so a failed unit is not hidden behind "nothing left to do".
+A unit whose lane the work checkout cannot switch to (another checkout has that branch out) is recorded FAIL with no
+leg, and the next unit is taken; until 2026-10-09 it ended the whole run.
 A run started where no window can open (Windows session 0: every Claude session on the desktop) says so at its
 start and on every leg card; work that needs a windowed Unity editor then ends BLOCKED. Batch mode still works.
 The card tells that leg to drive the editor with the Unity CLI at %LOCALAPPDATA%/unity/bin/unity.exe, the one

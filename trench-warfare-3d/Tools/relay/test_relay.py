@@ -1288,11 +1288,39 @@ class Runs(Repo):
         (self.board / "relay" / "queue").mkdir(parents=True)
         self.queue("u1")
         self.script(self.GOOD)
-        other = self.tmp / "other"
-        self.g(["worktree", "add", "-q", str(other), "-b", "lane/show/x"])        # the lane is checked out elsewhere
-        _, stop = self.go()
-        self.assertIn("error", stop["reason"])
+        real = gitio.switch_lane
+
+        def boom(*a):
+            raise RuntimeError("boom")
+        gitio.switch_lane = boom                              # an error nobody foresaw, with the checkout held
+        try:
+            _, stop = self.go()
+        finally:
+            gitio.switch_lane = real
+        self.assertIn("error: boom", stop["reason"])
         self.assertIsNone(gitio.lock_holder(self.work, legdir.home()))
+
+    HELD = {"lane": "lane/show/held", "role": "lane", "goal": "g", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}
+
+    def test_a_lane_checked_out_elsewhere_fails_its_unit_and_the_next_unit_still_runs(self):
+        # 2026-10-09: a spare checkout had lane/show/banner-recut out and the whole run ended with 0 legs, twice
+        self.g(["worktree", "add", "-q", str(self.tmp / "other"), "-b", "lane/show/held"])
+        self.queue("u1", raw=json.dumps(dict(self.HELD, id="u1")))
+        self.queue("u2")
+        self.script(self.GOOD)
+        out, stop = self.go()
+        self.assertEqual(stop["units"], {"u1": "FAIL", "u2": "PASS"})
+        self.assertEqual((stop["reason"], stop["legs"]), ("nothing left to do", 2))     # u1 cost no leg
+        self.assertIn("its lane lane/show/held cannot be switched to", out)
+        self.assertIsNone(gitio.lock_holder(self.work, legdir.home()))
+
+    def test_a_row_of_lanes_that_cannot_be_switched_to_stops_the_run(self):
+        self.g(["worktree", "add", "-q", str(self.tmp / "other"), "-b", "lane/show/held"])
+        for i in range(1, 8):
+            self.queue("u%d" % i, raw=json.dumps(dict(self.HELD, id="u%d" % i)))
+        _, stop = self.go()
+        self.assertIn("5 units in a row whose lane cannot be switched to", stop["reason"])
+        self.assertEqual((len(stop["units"]), stop["legs"]), (5, 0))
 
     def test_a_queue_file_with_a_bad_id_or_a_string_command_is_refused(self):
         for raw in ({"id": "../../escaped", "lane": "lane/show/x", "role": "lane", "goal": "g", "done_when": ["true"]},
