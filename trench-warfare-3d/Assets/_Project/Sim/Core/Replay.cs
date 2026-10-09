@@ -122,7 +122,7 @@ namespace TW.Sim
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
         // v38 (2026-10-09, [U6]): a side wins its own trenches back nearest first, Reserve then Main (SectorControl.Unlocked).
-        public const ushort FormatVersion = 39;
+        public const ushort FormatVersion = 40;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
