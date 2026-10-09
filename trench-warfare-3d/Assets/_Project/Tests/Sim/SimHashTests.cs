@@ -40,7 +40,7 @@ namespace TW.Tests
             Assert.AreEqual(System.Math.Atan2(-3, -0.5), SimMath.Atan2(-3f, -0.5f), 1e-4);
         }
 
-        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 20 has
+        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 37 has
         /// them in the greybox match. Two SIM lanes that each add a system merge without a conflict into a chain
         /// neither of them ran, and a determinism rerun then compares the merged build with itself and passes (the
         /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
@@ -64,6 +64,43 @@ namespace TW.Tests
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
             Assert.AreEqual(37, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
+        }
+
+        const int Seed = 1917;
+
+        /// <summary>
+        /// [T24] Golden-hash pin: TheHashChainIsTheOneItsFormatVersionNames guards the ORDER of systems, but says
+        /// nothing about what any of them actually hash, so a system that silently stopped folding a field in would
+        /// pass it and still desync a real match. This pins the value itself. To re-pin after a deliberate change,
+        /// bump ReplayRecorder.FormatVersion, take the `actual 0x...` this test prints, paste it in below, and say so
+        /// in the commit message.
+        /// </summary>
+        [Test]
+        public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
+        {
+            Assert.AreEqual(37, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int t = 0; t < 300; t++) match.Step(none);
+            Assert.AreEqual(0x4022caa3fa0fb500UL, match.World.Hash(),
+                "the greybox hash after 300 idle ticks moved from its FormatVersion 37 pin: a field was added, " +
+                "moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
+        }
+
+        /// <summary>[T24] The same pin on the generated Landing battlefield, so a change that only shows up with
+        /// terrain, deployment, or the coast systems (BattlefieldGenerator, SeaLandingSystem) has its own guard
+        /// rather than riding on the greybox pin alone. Re-pin the same way.</summary>
+        [Test]
+        public void TheLandingBattlefieldHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
+        {
+            Assert.AreEqual(37, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            var cfg = SimConfig.Default; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2f;
+            using var match = TW.Sim.Match.MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int t = 0; t < 300; t++) match.Step(none);
+            Assert.AreEqual(0xd4157dde88c7a4a2UL, match.World.Hash(),
+                "the Landing battlefield hash after 300 idle ticks moved from its FormatVersion 37 pin: a field was " +
+                "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
     }
 }
