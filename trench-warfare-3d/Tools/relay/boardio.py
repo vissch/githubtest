@@ -4,12 +4,13 @@ file: the station is in the path and every leg gets its own file. Nothing here s
 
   relay/<station>/legs/<run>-<nn>.json    one finished leg: unit, phase, how it ended, tokens, cost, week used, report
   relay/<station>/stops/<run>.json        why a run stopped
+  relay/<station>/live/<run>.json         a run that is going: what it is on, how far it is. Gone once it has stopped
   relay/<station>/lessons.md              one row per critic round: the score and the first mandated fix
   relay/<station>/tuning.json             the limits the last retrospective set (inside the bounds of limits.json)
   relay/proposals/<run>-<nn>.md           a retrospective's proposals for role texts and rules: the owner reads them
 Stdlib only. ASCII only.
 """
-import sys
+import os, subprocess, sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -20,7 +21,9 @@ import gitio                           # noqa: E402
 KEEP = ("run", "leg", "unit", "source", "role", "phase", "model", "effort", "lane", "state", "exit_code", "seconds",
         "turns", "final_tokens", "level", "denials", "guard_refusals", "ran_model", "ran_mode", "report", "started_at",
         "finished_at", "cost_usd", "tokens_in", "tokens_out", "cache_read", "cache_write", "week_start", "week_end",
-        "week_used", "resumed")
+        "week_used", "resumed", "said", "needs_you", "head_before", "head_after", "commits", "commits_more",
+        "session_id")
+QUICK_S = 30                            # between two legs a call to origin gets this long; then the run goes on
 
 
 def folder(board, station):
@@ -35,9 +38,27 @@ def leg_record(board, station, leg, **extra):
     return p
 
 
+def live_path(board, station, run):
+    return folder(board, station) / "live" / (run + ".json")
+
+
+def live_record(board, station, run, **fields):
+    """The run that is going, for a reader on another machine. Written again at every step, so `beat` is when it
+    was last seen alive: a run that was killed leaves its file behind, and only an old beat says so."""
+    p = live_path(board, station, run)
+    write_json(p, dict(fields, run=run, station=station, beat=now()))
+    return p
+
+
 def stop_record(board, station, run, reason, legs, detail="", **extra):
+    """Why a run stopped. Its live record goes in the same step, so the commit that brings the one takes the other
+    away: a run never has both."""
     p = folder(board, station) / "stops" / (run + ".json")
-    write_json(p, dict(extra, run=run, reason=reason, detail=detail, legs=legs, stopped_at=now()))
+    write_json(p, dict(extra, run=run, station=station, reason=reason, detail=detail, legs=legs, stopped_at=now()))
+    try:
+        live_path(board, station, run).unlink()
+    except OSError:
+        pass
     return p
 
 
@@ -77,22 +98,61 @@ def proposals(board, run, nn, text):
     return p
 
 
-def push(board, message):
-    """Commit and push only what the relay wrote (relay/ and evidence/); a failed push keeps the local commit and
-    is reported, never raised. A rebase that fails is aborted, so the board is never left half-rebased."""
+def _origin(args, board, wait):
+    """The exit code of a git call that talks to origin and leaves the clone's files alone (fetch, push). With wait
+    (seconds) it is given up after that long and counts as failed: nothing is read from it, so a helper process
+    git left behind cannot hold the caller."""
+    if not wait:
+        return gitio.git_raw(args, board).returncode
+    try:
+        return subprocess.run(["git"] + args, cwd=str(board), stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                              stderr=subprocess.DEVNULL, timeout=wait,
+                              env=dict(os.environ, GIT_TERMINAL_PROMPT="0")).returncode
+    except subprocess.TimeoutExpired:
+        return 1
+
+
+def _onto_origin(board, wait):
+    """Put this clone's commits on top of origin's; 0 when that is done. With no time limit it is git's own pull.
+    With one, only the fetch is timed: a git that is given up is not always ended (Git for Windows starts the real
+    one behind a launcher), and a pull left alive would go on to rebase, changing the board's files under the next
+    leg, which is then blamed for them. The rebase talks to nobody and is not timed."""
+    if not wait:
+        return gitio.git_raw(["pull", "--rebase", "-q"], board).returncode
+    return _origin(["fetch", "-q"], board, wait) or gitio.git_raw(["rebase", "-q", "@{u}"], board).returncode
+
+
+def keep(board, message, leave=()):
+    """Commit what the relay wrote on the board (relay/, evidence/, results/), on this machine only. None when a
+    commit was made, else why there is none, in push()'s words. leave: folders left out. The runner leaves out
+    the queue between two legs: a queue file counts once it is committed, and a leg may have written one."""
     if not (Path(board) / ".git").exists():
         return "no board repo"
+    gitio.git(["rebase", "--abort"], board, check=False)    # one an interrupt left half way: a commit on it is lost
+    have = [n for n in ("relay", "evidence", "results") if (Path(board) / n).exists()]   # a missing one fails all
+    if not have:                                            # and with only a folder to leave out, git adds all else
+        return "nothing to push"
+    gitio.git(["add", "--"] + have + [":(exclude)" + n for n in leave], board, check=False)
+    if not gitio.git(["diff", "--cached", "--name-only"], board):
+        return "nothing to push"
+    gitio.git(["commit", "-q", "-m", message], board)
+    return None
+
+
+def push(board, message, tries=3, wait=None, leave=()):
+    """Commit and push only what the relay wrote (relay/ and evidence/); a failed push keeps the local commit and
+    is reported, never raised. A rebase that fails is aborted, so the board is never left half-rebased.
+    Origin moves all day (other sessions queue work): every try first puts this clone's commits on top of it.
+    The runner's push between two legs is one try with a time limit (tries=1, wait=QUICK_S)."""
     try:
-        have = [n for n in ("relay", "evidence", "results") if (Path(board) / n).exists()]   # a missing one fails all
-        gitio.git(["add", "--"] + have, board, check=False)
-        if not gitio.git(["diff", "--cached", "--name-only"], board):
-            return "nothing to push"
-        gitio.git(["commit", "-q", "-m", message], board)
-        for _ in range(3):
-            if gitio.git_raw(["pull", "--rebase", "-q"], board).returncode:
+        said = keep(board, message, leave)
+        if said:
+            return said
+        for _ in range(tries):
+            if _onto_origin(board, wait):
                 gitio.git(["rebase", "--abort"], board, check=False)
                 continue
-            if gitio.git_raw(["push", "-q"], board).returncode == 0:
+            if _origin(["push", "-q"], board, wait) == 0:
                 return "pushed"
     except gitio.GitError as e:
         return "board push failed: %s" % e

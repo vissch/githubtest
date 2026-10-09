@@ -343,6 +343,7 @@ def run_leg(d, lim, timeout_s, stop_file=None):
             rec.update(exit_code=child.returncode, cost_usd=sum(costs) if costs else res.get("total_cost_usd"),
                        turns=sum(turns) if turns else res.get("num_turns"), resumed=1 if again else 0,
                        subtype=res.get("subtype"), is_error=bool(res.get("is_error")), report=res.get("result") or "",
+                       said=said(res.get("result")), session_id=sess.get("session_id") or "",
                        has_result=bool(res), denials=len(res.get("permission_denials") or []),
                        final_tokens=final, transcript_read=readable, metered_tokens=meter.get("tokens"),
                        level=meter.get("level", "green"), hooked=bool(sess), tool_uses=tool_uses(d),
