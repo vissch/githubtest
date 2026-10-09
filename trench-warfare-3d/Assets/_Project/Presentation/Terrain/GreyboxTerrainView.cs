@@ -663,8 +663,11 @@ namespace TW.Presentation.Terrain
             if (e.Type == TW.Sim.SimEventType.CraterStamp)
             {
                 hollowsDirty = true;
-                if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
-                scorchMarks.Add(e); scorchBorn.Add(Time.time);
+                if (ScorchTilePainter.Burns(e))
+                {
+                    if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
+                    scorchMarks.Add(e); scorchBorn.Add(Time.time);
+                }
             }
             float r = e.Scalar + 8f; // Include the inferred rim and its pale outer shoulder.
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));

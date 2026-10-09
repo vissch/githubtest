@@ -587,10 +587,13 @@ namespace TW.Presentation.Terrain
             UpdateFlare();
         }
 
+        /// <summary>A star shell only goes up at night: by day there is nothing to light (the distant guns above stay).</summary>
+        public static bool FlareDue(bool night, float now, float nextFlare) => night && now >= nextFlare;
+
         void UpdateFlare()
         {
             var map = Host.Local.Map;
-            if (Time.time >= nextFlare)
+            if (FlareDue(SceneMood.Night, Time.time, nextFlare))
             {
                 nextFlare = Time.time + Mathf.Lerp(FlareEvery.x, FlareEvery.y, Hash(Frame, 17));
                 var cam = Camera.main;
