@@ -266,6 +266,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-10 | **The goals page quotes him as Machines on each other, and the frog click opens the ten cards.** They keep a distance fitting their size, and trench crossing is not part of that work. The frogs picture and Its sources both open the ten-card row (#d-frogs), and the Hopper's flight link opens #d-hopper; none of the three opens the six-model row. The matches picture opens the row that fixes the measuring first: no unit's number is tuned, and Iron's roster is not changed. The script's buying does change. (corrected after the page scored 49 of 100) |
 
 ## Open: waiting on the owner
+- **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
+  is fixed (a wreck now shelters and suppresses only the men in its shadow, and a screen on the line blinds the shot:
+  `docs/02-contracts.md`, replay v43). The rest of it, "list and suppress only men the shooter could engage, not below
+  the rim", is **not** done: the owner's call of 2026-09-28 is that a gun with nobody to shoot at keeps a hidden
+  garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
+  that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
+  only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and

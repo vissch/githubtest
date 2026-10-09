@@ -19,9 +19,10 @@ namespace TW.Tests
     {
         static readonly float3 At = new float3(151f, 0f, 241f);
 
-        static MatchSim NewMatch(uint seed = 0xBEEF)
+        static MatchSim NewMatch(uint seed = 0xBEEF, int silver = 0)
         {
             var cfg = SimConfig.Default; cfg.Seed = seed;
+            if (silver > 0) cfg.StartingSilver = silver;
             return MatchSim.CreatePlaytest(cfg);
         }
 
@@ -29,6 +30,14 @@ namespace TW.Tests
         {
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             m.Step(none);
+        }
+
+        static void Step(MatchSim m, SimCommand cmd)
+        {
+            var one = new NativeArray<SimCommand>(1, Allocator.Temp);
+            one[0] = cmd;
+            m.Step(one);
+            one.Dispose();
         }
 
         static void Shell(MatchSim m, float3 at, float damage, float radius = 10f) => m.Blast.Queue(new Impact { Pos = at, Damage = damage, Radius = radius, Player = -1 });
@@ -374,22 +383,25 @@ namespace TW.Tests
 
         const NavLayer NotOpen = NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Bunker | NavLayer.Wire;
 
-        /// <summary>Three enemy riflemen (team 1) in a trench beside a wreck, below its rim, and one `gun` of team 0 in the
-        /// open `distance` metres off along the field with a clear sight of the wreck; everyone held and too tough to die.
+        /// <summary>Three enemy riflemen (team 1) in a trench behind a wreck, below its rim, and one `gun` of team 0 in the
+        /// open `distance` metres off with a clear sight of the wreck; everyone held and too tough to die. Gun, wreck and
+        /// men stand on one line along z, the men 2 m past the wreck and no more than 1.2 m off the line, so they are
+        /// inside the 2 m shadow its body casts ([N5.3]). `flankX` moves the wreck that far off the line in x instead, so
+        /// the men stand on its flank: inside its shelter's reach, outside its shadow.
         /// Returns the men; the wreck and the gun come out.</summary>
-        static int[] Hidden(MatchSim m, byte gun, float distance, out int wreck, out int shooter)
+        static int[] Hidden(MatchSim m, byte gun, float distance, out int wreck, out int shooter, float flankX = 0f)
         {
             var map = m.Map;
             for (int t = 0; t < map.TrenchCells.Length; t++)
             {
                 var c = map.NavCellCenter(map.TrenchCells[t]);
-                foreach (var off in new[] { new float3(2f, 0f, 0f), new float3(-2f, 0f, 0f), new float3(0f, 0f, 2f), new float3(0f, 0f, -2f) })
+                foreach (var off in new[] { new float3(0f, 0f, 2f), new float3(0f, 0f, -2f) })
                 {
-                    var at = c + off;
+                    var at = c + off + new float3(flankX, 0f, 0f);
                     if ((map.LayerAt(at) & NotOpen) != 0) continue;
-                    foreach (float side in new[] { -1f, 1f })
                     {
-                        var g = at + new float3(0f, 0f, side * distance);
+                        float side = math.sign(off.z);
+                        var g = at + new float3(-flankX, 0f, side * distance);
                         if (g.z < 6f || g.z > map.SizeMeters.y - 6f || (map.LayerAt(g) & NotOpen) != 0) continue;
                         var eye = new float3(g.x, map.Height.Sample(g.x, g.z) + 1.6f, g.z);
                         var top = new float3(at.x, map.Height.Sample(at.x, at.z) + 1.5f, at.z);
@@ -544,6 +556,48 @@ namespace TW.Tests
                 }
             }
             Assert.Greater(shots, 5, "and he does still fire at it on his own scan ticks");
+        }
+
+        [Test]
+        // [N5.3] a wreck "sheltered" every living man on foot within 3.6 to 4.5 m of it, on any side, and every round
+        // fired at it suppressed them all: one gun pinned a trench bay on the wreck's flank for as long as it was in
+        // range. Only the men in the wreck's shadow (past it on the gun's line, within its body) count now.
+        public void AManOnTheWrecksFlankIsNeitherShelteredNorSuppressed()
+        {
+            using var m = NewMatch();
+            // the wreck 4 m off the gun -> men line: the nearest man is 3.4 m away, inside its 4 m shelter reach and
+            // 2.8 m off the line of fire, outside the 2 m shadow its body casts
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun, flankX: 4f);
+            var (atWreck, _, suppressed) = Watch(m, wreck, gun, men, 400);
+            Assert.AreEqual(0, atWreck, "[N5.3] he fired at a wreck sheltering nobody");
+            // no round goes at the wreck, so none of this is the wreck's: what is left (about 1) is a stray near miss
+            // from the rest of the field, a fortieth of the 99.6 the flank took while every round in reach suppressed it
+            Assert.Less(suppressed, 2f, "[N5.3] a man beside the wreck, not behind it, was suppressed");
+        }
+
+        [Test]
+        // [N5.3] the only sight test was the heightfield to the wreck's top: smoke on the line was not read, so a gun
+        // kept blind-firing at a wreck through a screen that hides it (TargetAcquisition.Sees does read it).
+        public void ABlindingScreenOnTheLineStopsTheFireAtTheWreck()
+        {
+            using var m = NewMatch(silver: 100000);
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            float3 wp = m.Map.Props[wreck].Pos, gp = m.World.Position[gun];
+            float3 mid = (wp + gp) * 0.5f;
+            // the pots walk +z from where the line is called (heading 0), 5 of them over its length: centred on the midpoint
+            var call = new float3(mid.x, 0f, mid.z - 20f);
+            Step(m, new SimCommand { Player = 0, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.SmokeScreen, B = AbilityArgs.Pack(0, 0, 40), Pos = call });
+            int warm = 0;
+            while (m.Gas.SmokeAt(mid) <= SmokeLos.Thick && warm < 300) { Step(m); warm++; }
+            Assert.Less(warm, 300, "a thick screen stands on the gun -> wreck line");
+            int shots = 0;
+            for (int t = 0; t < 60; t++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.Shot && ev[i].A == gun && PropTarget.IsProp(ev[i].B)) shots++;
+            }
+            Assert.AreEqual(0, shots, "[N5.3] he fired at the wreck through a blinding screen");
         }
 
         [Test]
