@@ -14,6 +14,8 @@ why), and shows the pictures or films that bear on it. It is short by rule: add(
     python Tools/assetboard/briefs.py then ID B --says "Queues a sim lane: houses cut the damage" --unit unit.json
                                                                   what happens when he takes B: the unit that is queued (a file of the
                                                                   relay's queue), or with no --unit that nothing is built
+    python Tools/assetboard/briefs.py then ID A --says "The desktop lands it within minutes" --land C:/path/to/checkout/trench-warfare-3d
+                                                                  what happens when he takes A: that checkout is landed (lander.py), on the lane the brief names
     python Tools/assetboard/briefs.py waiting [--json]            what he has answered on the page and nobody has taken up, and what each leads to
     python Tools/assetboard/briefs.py unit ID --note NOTE --out unit.json     the unit his click queues, when his click is a yes to it
     python Tools/assetboard/briefs.py take ID --note NOTE --by lane/show/x [--queued UNIT | --outcome "words"]
@@ -197,10 +199,22 @@ def read_all(where: Path):
     return sorted(out, key=lambda b: (b.get('asked', ''), b['id']))
 
 
-def stamp(says, unit=None):
+def stamp(says, unit=None, land=None):
     """A Then line in eight characters. The page sends it with the click, so a click is a yes to the line it showed and
-    to no other: a line added or changed afterwards has another stamp."""
-    return hashlib.sha1(json.dumps([one(says), unit or None], sort_keys=True).encode('utf-8')).hexdigest()[:8]
+    to no other: a line added or changed afterwards has another stamp. So has one that lands another checkout."""
+    return hashlib.sha1(json.dumps([one(says), unit or None] + ([land] if land else []), sort_keys=True).encode('utf-8')).hexdigest()[:8]
+
+
+def check_land(land):
+    """Why a landing would be refused as what an option leads to: every reason. `land` is dict(checkout, lane) and
+    carry_sim when land.py needs the owner decision named: the folder trench-warfare-3d of the checkout that lands, on
+    the station that lands (lander.py), and the lane it must be on."""
+    if not isinstance(land, dict) or [k for k in land if k not in ('checkout', 'lane', 'carry_sim')]:
+        return ['the landing is {"checkout", "lane"} and, for a show lane that carries sim commits, "carry_sim"']
+    bad = [] if one(land.get('checkout')) else ['the landing names no checkout']
+    if not str(land.get('lane') or '').startswith(UNIT_LANES):
+        bad.append(f'{land.get("lane") or "nothing"} is not a lane/sim or lane/show lane')
+    return bad
 
 
 def check_then(says, unit=None):
@@ -239,9 +253,11 @@ def find(where: Path, bid):
     return hits[0]
 
 
-def then(where: Path, notes, bid, option, says, unit=None):
+def then(where: Path, notes, bid, option, says, unit=None, land=None):
     """Say on an option what happens when the owner takes it: `says` is the line the page shows under it, `unit` the
-    unit that is queued (None: nothing is built). Returns the brief. Refused on a brief that is closed, and on one he
+    unit that is queued (None: nothing is built), `land` the checkout that is landed when he clicks (check_land; the
+    owner, 2026-10-09: "Desktop lands on my click", so a landing he said yes to is not put to him a second time as a
+    command to type). Returns the brief. Refused on a brief that is closed, and on one he
     has already answered: a line he did not see when he clicked is not one he said yes to. `notes` is
     notes.read_all()."""
     b = find(where, bid)
@@ -253,6 +269,9 @@ def then(where: Path, notes, bid, option, says, unit=None):
     if not o:
         raise ValueError(f'{b["id"]} has the options {", ".join(x["key"] for x in b["options"])}')
     bad = check_then(says, unit)
+    if land is not None:
+        land = {k: one(v) for k, v in land.items() if one(v)} if isinstance(land, dict) else land
+        bad += check_land(land) + (['an option queues a unit or lands a lane, not both'] if unit else [])
     if unit and not bad:
         unit = dict(id=unit['id'], lane=unit['lane'], role=unit.get('role') or 'lane', goal=unit['goal'], done_when=list(unit['done_when']))
         used = [x['id'] for x in read_all(where) for p in x['options'] if ((p.get('then') or {}).get('unit') or {}).get('id') == unit['id'] and (x['id'], p['key']) != (b['id'], option)]
@@ -260,7 +279,7 @@ def then(where: Path, notes, bid, option, says, unit=None):
             bad.append(f'the unit {unit["id"]} is already what an option of {used[0]} queues: a unit\'s id is used once')
     if bad:
         raise ValueError('not a Then line yet: ' + '; '.join(bad))
-    o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit), **(dict(unit=unit) if unit else {}))
+    o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit, land), **(dict(unit=unit) if unit else {}), **(dict(land=land) if land else {}))
     (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     return b
 
@@ -313,10 +332,12 @@ def answers(briefs, notes):
     of his about it (not only the last: words he typed before a click are his too), and what it leads to:
       go 'queue'    his click is a yes to the unit the option names: queue it without asking
       go 'nothing'  his click is a yes to an option that says nothing is built
+      go 'land'     his click is a yes to landing the checkout the option names: lander.py lands it, nobody else
       go 'write'    anything else, and `why`: his answer is the decision all the same, but it names no unit, so the
                     session writes the unit it leads to and queues it (or says why nothing is built)
     A click is a yes only when every open note about the brief is a click on the page on that one option (from the
-    owner, kind page, no words of his own) and carries the stamp the option's Then line has now."""
+    owner, kind page, no words of his own) and carries the stamp the option's Then line has now, which is the stamp
+    of what that line says, queues and lands: a unit or a landing swapped under a line he clicked is no yes of his."""
     out = []
     for b, last in waiting(briefs, notes):
         his = [n for n in notes if n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done']
@@ -328,6 +349,8 @@ def answers(briefs, notes):
             why = 'he answered in his own words'
         elif not t.get('stamp'):
             why = 'the option has no Then line'
+        elif t['stamp'] != stamp(t.get('says'), t.get('unit'), t.get('land')):
+            why = 'the Then line was changed and not stamped again'
         elif any(w for _, w in picks):
             why = 'he added words of his own'
         elif any(k != option for k, _ in picks):
@@ -340,7 +363,7 @@ def answers(briefs, notes):
             why = ''
         out.append(dict(id=b['id'], title=b['title'], about=b.get('about', ''), lane=b.get('lane', ''), option=option, text=o.get('text', ''), said=' / '.join(w for _, w in picks if w),
                         when=last['when'], note=last['id'], notes=[dict(id=n['id'], when=n['when'], text=n['text']) for n in his],
-                        go='write' if why else 'queue' if t.get('unit') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit')))
+                        go='write' if why else 'queue' if t.get('unit') else 'land' if t.get('land') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit'), land=t.get('land')))
     return out
 
 
@@ -381,6 +404,8 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     if not one(queued) and not one(outcome):
         if a['go'] == 'write':
             raise ValueError(f'{a["id"]}: say what became of it: --queued UNIT, or --outcome "words" when nothing was queued')
+        if a['go'] == 'land':
+            raise ValueError(f'{a["id"]}: his click lands {a["land"]["lane"]}, which lander.py does and closes; say --outcome only when it has landed another way')
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
     if one(option) and a['go'] != 'write':
         raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
@@ -568,6 +593,8 @@ def site(where: Path, out: Path, now=None, got=(), owed=()):
         for b in listed:
             if b['id'] == a['id']:
                 b['waits'] = dict(go=a['go'], note=a['note'], unit=(a['unit'] or {}).get('id', ''))
+                if (b.get('landing') or {}).get('note') == a['note']:
+                    b['waits']['refused'] = b['landing'].get('said', '')
     for b in listed:
         for e in b['evidence']:
             src, dst = where / b['id'] / e['file'], out / 'img' / 'brief' / b['id'] / e['file']
@@ -637,6 +664,8 @@ def main(argv=None):
     ap.add_argument('--option', action='append', default=[], help='add: an option; the first is the one you would take. take: the option he chose, for an answer you had to ask him about')
     ap.add_argument('--says', default='', help=f'then: what happens when he takes the option, {CAPTION_WORDS} words at most')
     ap.add_argument('--unit', default='', help='then: the unit that is queued, a JSON file in the shape of the relay\'s queue (id, lane, goal, done_when)')
+    ap.add_argument('--land', default='', help='then: the checkout (its folder trench-warfare-3d, on the station that lands) his click lands, on the lane the brief names')
+    ap.add_argument('--carry-sim', default='', help='then, with --land: the owner decision land.py is to be told, for a show lane that carries sim commits')
     ap.add_argument('--note', default='', help='unit, take: the note of his you read (waiting names it)')
     ap.add_argument('--queued', default='', help='take: the unit that was queued for it')
     ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
@@ -665,7 +694,7 @@ def main(argv=None):
             print(f'briefs: {b["id"]} is closed with {b["answer"]["option"]}')
         elif a.what == 'then':
             if len(a.args) != 2:
-                raise ValueError('then ID OPTION --says "what happens then" [--unit unit.json]')
+                raise ValueError('then ID OPTION --says "what happens then" [--unit unit.json | --land CHECKOUT [--carry-sim WHY]]')
             import notes
             u = None
             if a.unit:
@@ -673,9 +702,10 @@ def main(argv=None):
                     u = json.loads(Path(a.unit).read_text(encoding='utf-8-sig'))
                 except (OSError, ValueError) as e:
                     raise ValueError(f'the unit {a.unit} does not read: {e}')
-            b = then(where, notes.read_all(notes.folder()), a.args[0], a.args[1], a.says, u)
+            ld = dict(checkout=a.land, lane=find(where, a.args[0]).get('lane', ''), carry_sim=a.carry_sim) if a.land else None
+            b = then(where, notes.read_all(notes.folder()), a.args[0], a.args[1], a.says, u, ld)
             t = [o for o in b['options'] if o['key'] == a.args[1]][0]['then']
-            print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "builds nothing"}')
+            print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "lands " + t["land"]["lane"] + " from " + t["land"]["checkout"] if t.get("land") else "builds nothing"}')
         elif a.what == 'waiting':
             import notes
             got = answers(read_all(where), notes.read_all(notes.folder()))

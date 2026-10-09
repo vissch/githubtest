@@ -8,7 +8,7 @@ the next specialist agent." Asked what waits on a decision of his in the middle:
 
     python Tools/assetboard/idearoute.py                    what would be put on the board, and which steps of his are ready (writes nothing)
     python Tools/assetboard/idearoute.py route [--board DIR]      write the items and units of the accepted ideas
-    python Tools/assetboard/idearoute.py gates [--board DIR]      put his ready steps to him as briefs, and act on the ones he answered
+    python Tools/assetboard/idearoute.py gates [--board DIR]      pass his ready steps on his "Do it" (--ask: put them to him as briefs), and act on the briefs he answered
 
 An accepted idea (ideas.py) becomes an item of the board (Tools/pipeline/pipeline.py) whose stages are its route. A
 step of his own is a stage of the role master, which no worker takes: `gates` puts it to him as a brief with the
@@ -50,6 +50,8 @@ DOES = {
 }
 GATE_OPTIONS = ('Go on: the next steps start', 'Send it back: I say below what is wrong', 'Stop here: drop this idea')
 GATE_THEN = 'The steps that waited on you start'
+DO_IT = 'The owner said "Do it" to the idea, and that is his yes to this step: "do it means the recommanded" (2026-10-09). Not put to him again.'
+PICKED = 'Your "Do it" on the idea took the option its writer would take ("do it means the recommanded", 2026-10-09). You were not asked again.'
 slug = briefs.slug
 
 
@@ -133,28 +135,53 @@ def route(where: Path, board: Path, write=True):
     return out
 
 
-def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evaluate=None, now=None, by='idearoute.py gates', write=True):
-    """The steps of the owner's own, of the ideas on the board. One that is ready (the step before it passed) is put
-    to him as a brief with the pictures of that step; one with nothing to show is owed a capture and gets no brief. A
-    brief he has answered is acted on: Go on completes the step (a PASS result, as pipeline.py complete writes it), so
-    what waited on it is ready; Send it back is feedback on the step before; Stop here drops the idea.
+def passed(p, b, iid, s, info, note):
+    """Complete a step of the owner's own: a PASS result, as pipeline.py complete writes it."""
+    attempt = 1 + max([r['attempt'] for r in b.results(iid, s['id']) if r['job'] == info['job']] or [0])
+    p.write_json(b.root / 'results' / f'{info["job"]}--{attempt}.json',
+                 dict(job=info['job'], item=iid, stage=s['id'], attempt=attempt, verdict='PASS', station=s['station'], token='owner', consumed=info['consumed'], upstream_rev=info['upstream_rev'],
+                      evidence={}, note=note, feedback=[], finished_at=p.now()))
+
+
+def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evaluate=None, now=None, by='idearoute.py gates', write=True, ask=False):
+    """The steps of the owner's own, of the ideas on the board.
+    ASKED ONCE (the owner, 2026-10-09, of fifteen ideas he had said "Do it" to and that each came back as a brief:
+    "do it means the recommanded. which is usually A"). So a step of his that is ready passes by itself, with no
+    brief, and a concepts brief of the idea's lane he has not answered is closed with the option its writer would
+    take. His yes on the idea was his yes to that. What he sees next of the idea is what was built.
+    `ask` True is how it was until then, should he want his steps back: a step that is ready (the step before it
+    passed) is put to him as a brief with the pictures of that step; one with nothing to show is owed a capture and
+    gets no brief.
+    Either way a brief of a step he has answered is acted on: Go on completes the step (a PASS result, as pipeline.py
+    complete writes it), so what waited on it is ready; Send it back is feedback on the step before; Stop here drops
+    the idea.
     `evaluate(item, board)` is pipeline.evaluate (the tests give their own). The last step, the landing, is not put to
-    him here: that is his word to tw-master. `write` False writes nothing and says what would be asked.
-    Returns dict(asked=[brief ids], done=[(brief id, what happened)], owed=[(item, stage, why)])."""
+    him here. `write` False writes nothing and says what would be asked or passed.
+    Returns dict(asked=[brief ids], done=[(brief id, what happened)], owed=[(item, stage, why)], passed=[(item, stage)])."""
     import notes
     p = pipeline()
     b = p.Board(board)
     evaluate = evaluate or p.evaluate
-    out = dict(asked=[], done=[], owed=[])
+    out = dict(asked=[], done=[], owed=[], passed=[])
     mine = {i.get('routed'): i for i in ideas.read_all(where) if i.get('routed')}
     for iid, it in briefs.board_items(Path(board)).items():
         if iid not in mine or mine[iid].get('stopped'):
             continue
         states = evaluate(it, b)
         own = [s for s in it['stages'][:-1] if s.get('role') == 'master']
+        if not ask and write and it.get('lane'):
+            said = {n.get('about') for n in notes.read_all(notes_where)}
+            for x in briefs.read_all(briefs_where):
+                if x.get('kind') == 'concepts' and x.get('lane') == it['lane'] and x.get('state') != 'answered' and 'brief:' + x['id'] not in said:
+                    briefs.answer(briefs_where, x['id'], x['pick'], by=by, now=now, outcome=PICKED)
         for s in own:
             bid, info = f'gate-{iid}-{s["id"]}', states[s['id']]
             if info['state'] != 'READY' or (briefs_where / bid).exists():
+                continue
+            if not ask:
+                out['passed'].append((iid, s['id']))
+                if write:
+                    passed(p, b, iid, s, info, DO_IT)
                 continue
             ev = []
             for a in s.get('after', []):
@@ -181,11 +208,8 @@ def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evalu
                 continue
             info, stamp_ = states[s['id']], f'{(now or datetime.datetime.now()):%Y%m%d%H%M%S}'
             if a['option'] == 'A' and info['state'] == 'READY':
-                attempt = 1 + max([r['attempt'] for r in b.results(iid, s['id']) if r['job'] == info['job']] or [0])
-                p.write_json(b.root / 'results' / f'{info["job"]}--{attempt}.json',
-                             dict(job=info['job'], item=iid, stage=s['id'], attempt=attempt, verdict='PASS', station=s['station'], token='owner', consumed=info['consumed'], upstream_rev=info['upstream_rev'],
-                                  evidence={}, note=f'The owner on the board: {a["said"] or a["text"]}', feedback=[], finished_at=p.now()))
-                what = 'the step is passed; what waited on it is ready'
+                passed(p, b, iid, s, info, f'The owner on the board: {a["said"] or a["text"]}')
+                what ='the step is passed; what waited on it is ready'
             elif a['option'] == 'B':
                 for prev in s.get('after', []):
                     fid = f'FR-owner-{stamp_}-{slug(prev)[:8]}'
@@ -209,8 +233,9 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='accepted ideas on the board of the pipeline')
     ap.add_argument('what', nargs='?', default='look', choices=('look', 'route', 'gates'))
     ap.add_argument('--board', default='', help='the board of the pipeline (default: TW_BOARD, or tw3d-board beside the checkout)')
+    ap.add_argument('--ask', action='store_true', help='gates: put his steps to him as briefs again (until 2026-10-09 every step was)')
     a = ap.parse_args(argv)
-    board = Path(a.board) if a.board else ops.board_root()
+    board =Path(a.board) if a.board else ops.board_root()
     try:
         if not board or not (Path(board) / 'items').is_dir():
             raise ValueError(f'no board at {board}: name it with --board')
@@ -222,8 +247,11 @@ def main(argv=None):
             if got and a.what == 'route':
                 print('      nothing is committed: commit the board as the master does, between two legs; a unit goes in with relay.py add --unit FILE')
         if a.what in ('look', 'gates'):
-            g = gates(ideas.folder(), briefs.folder(), notes.folder(), Path(board), write=a.what == 'gates')
-            print(f'idearoute: {len(g["asked"])} step{"" if len(g["asked"]) == 1 else "s"} of his {"put" if a.what == "gates" else "to put"} to him, {len(g["done"])} of his answers acted on, {len(g["owed"])} owe a capture')
+            g = gates(ideas.folder(), briefs.folder(), notes.folder(), Path(board), write=a.what == 'gates', ask=a.ask)
+            print(f'idearoute: {len(g["passed"])} step{"" if len(g["passed"]) == 1 else "s"} of his {"passed" if a.what == "gates" else "to pass"} on his "Do it", {len(g["asked"])} {"put" if a.what == "gates" else "to put"} to him, '
+                  f'{len(g["done"])} of his answers acted on, {len(g["owed"])} owe a capture')
+            for i_, s in g['passed']:
+                print(f'      passes {i_} / {s}')
             for bid in g['asked']:
                 print(f'      asks {bid}')
             for bid, w in g['done']:

@@ -7,6 +7,7 @@ what does not" is tested against the state machine the relay reads, not against 
 import datetime
 import json
 import os
+import shutil
 import sys
 import tempfile
 from pathlib import Path
@@ -107,22 +108,36 @@ def main():
         pipeline.write_json(board / 'results' / f'{info["job"]}--1.json', dict(job=info['job'], item=iid, stage=stage, attempt=1, verdict='PASS', station='desktop', token='t', consumed=info['consumed'],
                                                                               upstream_rev=info['upstream_rev'], evidence=ev, note='made', feedback=[], finished_at=pipeline.now()))
     s0 = states()
-    g0 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g0 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     passes('game-design')
     passes('concept')
     s1 = states()
     case('gates: by the pipeline\'s own states, the idea starts at game design; once the concept is made his pick is ready AND the numbers go on beside it, while the art that needs his pick waits',
-         s0['game-design'] == 'READY' and s0['concept'] == 'BLOCKED' and g0 == dict(asked=[], done=[], owed=[]) and s1['you-pick'] == 'READY' and s1['numbers'] == 'READY' and s1['ux'] == 'BLOCKED' and s1['ui-art'] == 'BLOCKED', (s0, s1))
-    look = idearoute.gates(where, bwhere, nwhere, board, now=day, write=False)
-    g1 = idearoute.gates(where, bwhere, nwhere, board, now=day)
-    g1b = idearoute.gates(where, bwhere, nwhere, board, now=day)
+         s0['game-design'] == 'READY' and s0['concept'] == 'BLOCKED' and g0 == dict(asked=[], done=[], owed=[], passed=[]) and s1['you-pick'] == 'READY' and s1['numbers'] == 'READY' and s1['ux'] == 'BLOCKED' and s1['ui-art'] == 'BLOCKED', (s0, s1))
+    side = tmp / 'side'                 # the same floor a second time, for the rule of 2026-10-09: his "Do it" passes his step
+    shutil.copytree(tmp, side, ignore=shutil.ignore_patterns('side'))
+    S = pipeline.Board(side / 'board')
+    brief = briefs.concepts(side / 'briefs', 'The whistle: which whistle', 'Which whistle the officer blows before the men go over.', [(pic, 'A brass pea whistle'), (pic, 'A tin siren')],
+                            'It reads at the standard view.', lane=S.items()[iid].get('lane', ''), now=day)
+    d0 = idearoute.gates(side / 'ideas', side / 'briefs', side / 'notes', side / 'board', now=day, write=False)
+    still = pipeline.evaluate(S.items()[iid], S)['you-pick']['state']
+    d1 = idearoute.gates(side / 'ideas', side / 'briefs', side / 'notes', side / 'board', now=day)
+    d2 = idearoute.gates(side / 'ideas', side / 'briefs', side / 'notes', side / 'board', now=day)
+    picked = briefs.find(side / 'briefs', brief['id'])
+    case('gates: his "Do it" on the idea is his yes to his own step: it passes by itself with no brief, a concepts brief of the idea is closed with its writer\'s option, and a look writes nothing',
+         d0['passed'] == [(iid, 'you-pick')] and d0['asked'] == [] and still == 'READY' and d1['passed'] == [(iid, 'you-pick')] and d1['asked'] == [] and d2['passed'] == []
+         and pipeline.evaluate(S.items()[iid], S)['you-pick']['state'] == 'DONE' and not (side / 'briefs' / f'gate-{iid}-you-pick').exists()
+         and picked['state'] == 'answered' and picked['answer']['option'] == picked['pick'] and 'not asked again' in picked['answer']['outcome'], (d0, still, d1, d2, picked.get('answer')))
+    look = idearoute.gates(where, bwhere, nwhere, board, now=day, write=False, ask=True)
+    g1 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
+    g1b = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     bid = f'gate-{iid}-you-pick'
     br = briefs.find(bwhere, bid) if (bwhere / bid).exists() else {}
     case('gates: his step is put to him once, as a brief with the pictures of the step before, three options, and Go on says what happens then; a look writes nothing',
          look['asked'] == [bid] and g1['asked'] == [bid] and g1b['asked'] == [] and len(br.get('evidence', [])) == 1 and br['evidence'][0]['caption'].startswith('concept') and [o['text'] for o in br['options']] == list(idearoute.GATE_OPTIONS)
          and br['options'][0]['then']['says'] == idearoute.GATE_THEN and br['step']['gate'] and 'ui-art' in br['what_for'], (look, g1, br))
     notes.write(nwhere, 'A: ' + idearoute.GATE_OPTIONS[0], kind='page', about='brief:' + bid, then=br['options'][0]['then']['stamp'], now=day)
-    g2 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g2 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     s2 = states()
     passes('numbers')
     passes('ux')
@@ -132,10 +147,10 @@ def main():
          g2['done'] == [(bid, 'the step is passed; what waited on it is ready')] and s2['you-pick'] == 'DONE' and s2['ui-art'] == 'BLOCKED' and s3['ui-art'] == 'READY' and closed['state'] == 'answered' and closed['answer']['option'] == 'A'
          and not [n for n in notes.read_all(nwhere) if n['state'] != 'done'], (g2, s2, s3))
     passes('ui-art')
-    g3 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g3 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     bid2 = f'gate-{iid}-you-build-it'
     notes.write(nwhere, 'B: ' + idearoute.GATE_OPTIONS[1] + '\nthe whistle is too small on the HUD', kind='page', about='brief:' + bid2, now=day)
-    g4 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g4 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     s4 = states()
     fb = [json.loads(f.read_text(encoding='utf-8')) for f in (board / 'feedback').glob('FR-*.json')]
     case('gates: Send it back is feedback on the step before with his words, which makes that step to be done again; nothing after it starts',
@@ -145,19 +160,19 @@ def main():
     iid, keep = iid2, iid
     passes('ux', shown=False)
     passes('ui-art', shown=False)
-    g5 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g5 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     case('gates: a step of his whose step before has nothing a page can show gets no brief and is said to owe a capture',
          g5['asked'] == [] and [(a, b) for a, b, _ in g5['owed']] == [(iid2, 'you-pick')] and not (bwhere / f'gate-{iid2}-you-pick').exists(), g5)
     f = board / 'evidence' / iid2 / 'ui-art' / 'shown.png'
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_bytes(pic.read_bytes())
-    g6 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g6 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     bid3 = f'gate-{iid2}-you-pick'
     notes.write(nwhere, 'C: ' + idearoute.GATE_OPTIONS[2], kind='page', about='brief:' + bid3, now=day)
-    g7 = idearoute.gates(where, bwhere, nwhere, board, now=day)
-    g8 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    g7 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
+    g8 = idearoute.gates(where, bwhere, nwhere, board, now=day, ask=True)
     case('gates: Stop here drops the idea: the brief is closed, the idea says when, and no step of it is put to him again',
-         g6['asked'] == [bid3] and g7['done'] and 'dropped' in g7['done'][0][1] and ideas.find(where, slate['id']).get('stopped') and g8 == dict(asked=[], done=[], owed=[]) and briefs.find(bwhere, bid3)['state'] == 'answered', (g6, g7, g8))
+         g6['asked'] == [bid3] and g7['done'] and 'dropped' in g7['done'][0][1] and ideas.find(where, slate['id']).get('stopped') and g8 == dict(asked=[], done=[], owed=[], passed=[]) and briefs.find(bwhere, bid3)['state'] == 'answered', (g6, g7, g8))
     iid = keep
     print(f'{sum(results)} of {len(results)} cases behaved')
     return 0 if all(results) else 1
