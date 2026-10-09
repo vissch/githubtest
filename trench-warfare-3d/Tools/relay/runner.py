@@ -69,6 +69,7 @@ class Run:
         self.who = getattr(a, "who", None) or os.environ.get("USERNAME") or "someone"
         self.code = ""                                          # the commit the relay's own code is at
         self.waited = False                                     # the last budget check waited for the day's pace
+        self.stuck = 0                                          # units in a row whose lane could not be switched to
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
@@ -251,7 +252,22 @@ class Run:
         self.owner_stop()
         self.lanes.add(unit["lane"])
         gitio.take_lock(self.work, self.home, "relay %s %s" % (self.run, unit["id"]), unit["lane"])
-        print("unit %s: lane %s (%s)" % (unit["id"], unit["lane"], gitio.switch_lane(self.work, unit["lane"])))
+        try:
+            how = gitio.switch_lane(self.work, unit["lane"])
+        except gitio.GitError as e:
+            # A lane this checkout cannot switch to (another checkout has the branch out) fails its own unit, not
+            # the run: nothing is claimed and no leg has run, so the next unit in the queue is taken. Not through
+            # src.finish: a pipeline job that was never claimed cannot be completed.
+            self.units[unit["id"]] = "FAIL"
+            self.ctx["skip"].add(unit["id"])
+            self.progress()
+            self.stuck += 1
+            print("unit %s: FAIL\n  - its lane %s cannot be switched to: %s" % (unit["id"], unit["lane"], e), flush=True)
+            if self.stuck >= self.lim["stuck_lanes"]:
+                raise Stop("%d units in a row whose lane cannot be switched to" % self.stuck, str(e))
+            return
+        self.stuck = 0
+        print("unit %s: lane %s (%s)" % (unit["id"], unit["lane"], how))
         self.ctx["since"] = time.time()
         unit = src.refresh(unit, self.ctx)
         if not unit:

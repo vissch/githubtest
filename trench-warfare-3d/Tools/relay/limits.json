@@ -18,6 +18,7 @@
   "usage_max_age_seconds": 600,
   "week_usd": 1830,
   "no_progress_units": 2,
+  "stuck_lanes": 5,
   "max_plan_parts": 4,
   "retro_every_legs": 10,
   "note_max_bytes": 4096,
