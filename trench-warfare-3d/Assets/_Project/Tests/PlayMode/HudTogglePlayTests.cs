@@ -21,6 +21,8 @@ namespace TW.Tests
         HudController hud;
         Keyboard kb;
         bool savedToolkitHud;
+        InputSettings.BackgroundBehavior savedBackground;
+        InputSettings.EditorInputBehaviorInPlayMode savedEditorInput;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -28,6 +30,12 @@ namespace TW.Tests
             HudBootstrap.Disabled = true; ShellBoot.Disabled = true;
             savedToolkitHud = HudBridge.UseToolkitHud;
             HudBridge.UseToolkitHud = true;
+            // [I1b] in batch mode there is no focused Game view, so the defaults keep queued key events out of the
+            // player's keyboard state and KeyMap.DownRaw never sees F9. Both settings are restored in TearDown.
+            savedBackground = InputSystem.settings.backgroundBehavior;
+            savedEditorInput = InputSystem.settings.editorInputBehaviorInPlayMode;
+            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
+            InputSystem.settings.editorInputBehaviorInPlayMode = InputSettings.EditorInputBehaviorInPlayMode.AllDeviceInputAlwaysGoesToGameView;
             kb = InputSystem.AddDevice<Keyboard>();
 
             camGo = new GameObject("main-camera"); camGo.tag = "MainCamera";
@@ -46,6 +54,8 @@ namespace TW.Tests
         public IEnumerator TearDown()
         {
             if (kb != null) InputSystem.RemoveDevice(kb);
+            InputSystem.settings.backgroundBehavior = savedBackground;
+            InputSystem.settings.editorInputBehaviorInPlayMode = savedEditorInput;
             if (hud != null) Object.Destroy(hud.gameObject);
             if (hostGo != null) Object.Destroy(hostGo);
             if (camGo != null) Object.Destroy(camGo);
