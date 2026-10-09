@@ -109,5 +109,30 @@ namespace TW.Tests
             Assert.GreaterOrEqual(HudView.BarFit(HudLayout.ReferenceWidthPx), 0.9f, "at the reference width the bar keeps nine tenths of its size");
             Assert.Less(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), 1f, "a 4:3 window shrinks it rather than losing the support row");
         }
+
+        /// <summary>[Q3] The debug panel is hidden in the shipped game; the editor, a Development build, or the
+        /// -twpanel start option bring it back.</summary>
+        [Test]
+        public void ShippedGameOffersNoDebugPanelUnlessStarted()
+        {
+            Assert.IsFalse(TestPanel.OfferedIn(false, false, false), "[Q3] the shipped game still offers the debug panel");
+            Assert.IsTrue(TestPanel.OfferedIn(true, false, false), "[Q3] the editor must still offer the debug panel");
+            Assert.IsTrue(TestPanel.OfferedIn(false, true, false), "[Q3] a Development build must still offer the debug panel");
+            Assert.IsTrue(TestPanel.OfferedIn(false, false, true), "[Q3] the -twpanel start option must offer the debug panel");
+        }
+
+        [Test]
+        public void AShippedBuildCannotOpenTheDebugPanelThroughVisible()
+        {
+            var go = new GameObject("TestPanel");
+            try
+            {
+                var panel = go.AddComponent<TestPanel>();
+                panel.Offered = false;
+                panel.Visible = true;
+                Assert.IsFalse(panel.Visible, "[Q3] a shipped build can still open the debug drawer");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }

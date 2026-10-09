@@ -3,6 +3,7 @@
 // cooldown, one block per trench with >> ↩ lock hold-fire, the enemy's orders (to stage an assault against you),
 // time control, camera presets and restart. Everything goes through SimHost.Issue / IssuePeer so the lockstep path
 // is exercised exactly as it will be with a real opponent.
+using System;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Sim;
@@ -14,9 +15,30 @@ namespace TW.Presentation.Tactical
 {
     public sealed class TestPanel : MonoBehaviour
     {
+        /// <summary>Player arg: show the debug panel in a non-Development build (docs/reference/feature-flags.md).</summary>
+        public const string PanelArg = "-twpanel";
+
+        /// <summary>Whether the debug drawer is offered at all: the editor and a Development build always keep it;
+        /// a shipped build only when launched with <see cref="PanelArg"/>.</summary>
+        public static bool OfferedIn(bool editor, bool development, bool startOption) => editor || development || startOption;
+
         public SimHost Host;
         public TacticalCamera Cam;
-        public bool Visible = false;   // the BattleHud is the playing interface; this is the debug drawer
+
+        /// <summary>Hidden in the shipped game unless offered (Q3): a shipped build cannot flip Visible true behind that gate.</summary>
+        public bool Offered = true;
+
+        bool visible = false;   // the BattleHud is the playing interface; this is the debug drawer
+        public bool Visible
+        {
+            get => visible && Offered;
+            set { if (Offered) visible = value; }
+        }
+
+        void Awake()
+        {
+            Offered = OfferedIn(Application.isEditor, Debug.isDebugBuild, Array.IndexOf(Environment.GetCommandLineArgs(), PanelArg) >= 0);
+        }
 
         static readonly string[] SlotNames = { "Rifleman", "Assault", "MG team", "Sniper", "Tank (Maw)" };
         const float Width = 300f;
@@ -218,6 +240,7 @@ namespace TW.Presentation.Tactical
             EnsureStyles();
             if (!Visible)
             {
+                if (!Offered) return;   // the shipped game offers no way back in (Q3)
                 if (GUI.Button(new Rect(Screen.width - 104, 8, 90, 24), "Debug panel")) Visible = true;
                 return;
             }
