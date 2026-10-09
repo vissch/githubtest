@@ -40,6 +40,8 @@ namespace TW.Tests
             ["AudioLevels.Ambience"] = "a player setting, applied from settings.json by SettingsApplier",
             ["AudioLevels.Sfx"] = "a player setting, applied from settings.json by SettingsApplier",
             ["AudioLevels.Music"] = "a player setting, applied from settings.json by SettingsApplier",
+            ["FxQuality.Tier"] = "a player setting (the effects' tier), applied from settings.json by SettingsApplier; a bench pins it with the knob fx.quality",
+            ["FxQuality.Now"] = "the profile of the tier above, set with it by FxQuality.Set",
             ["BattleHud.MinimapRect"] = "legacy IMGUI HUD layout, laid out again every frame it draws; retired in the audit backlog",
             ["BattleHud.barWarned"] = "a warn-once latch for the legacy IMGUI HUD; retired in the audit backlog",
             ["BattlefieldProps.EditorCamera"] = "the prop editor's camera, set and cleared by EnvPropEditor, not by a match",
@@ -62,6 +64,7 @@ namespace TW.Tests
             ["InputFocus.Modal"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.Listening"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.escapeFrame"] = "a frame stamp, cleared by SceneStatics.Reset on every scene load",
+            ["InputFocus.Typing"] = "the feedback box is taking the keys; cleared by SceneStatics.Reset on every scene load, and by the box when it closes",
             ["ProfileStore.current"] = "the backing field of Current, above",
             ["ProfileStore.Writable"] = "whether this process may write profile.json (the live editor/play rule)",
             ["PropHandle.All"] = "the prop handles in the scene, kept by their own OnEnable/OnDisable (editor stand-ins)",
@@ -154,6 +157,9 @@ namespace TW.Tests
             "DebrisRenderer.CastsShadow", "FlipbookFx.Sheets", "TankModel.JoinedLegs",
             "ProvingGround.Ideas", "ProvingGround.AiNames",
             "ProvingGround.AiPresets", "AssetScaleReport.Grounds", "AssetScaleTable.rules", "BattlefieldKit.EnvSets",
+            // added by the landing stack of 2026-10-09 (effects pass, the Bullfrog's legs, the F10 capture); nothing writes a row:
+            "BenchLineup.Men", "BenchLineup.Machines", "BenchLineup.Bursts", "FxQuality.Names",
+            "TankRenderer.HopLegsLod", "TankRenderer.HopLegsWithin", "FeedbackScreen.RequiredNames",
             "ProceduralSoldier.Pivot",         };
 
         /// <summary>Caches filled lazily, row by row, where each row is a pure function of its own index: the value a
