@@ -1,0 +1,5 @@
+{
+  "_": "The model a second opinion asks each vendor for, and list prices in USD per million tokens (input, cached input, output) for a 'what this would have cost' figure: the owner's plans cover these runs, so nothing here is money spent. Grok prints its own figure; Codex prints tokens only. Read 2026-10-09 from the vendors' pricing pages. Codex's model is the best one the installed codex.exe (0.150.0-alpha, of 2026-08-29) may use: it refuses gpt-6-astra with 'requires a newer version of Codex', so move this row when Codex is updated.",
+  "grok": {"model": "grok-4.7", "in": 2.0, "cached": 0.5, "out": 6.0},
+  "codex": {"model": "gpt-5.6-sol", "in": 4.0, "cached": 0.4, "out": 20.0}
+}

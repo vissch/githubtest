@@ -6,10 +6,11 @@ file: the station is in the path and every leg gets its own file. Nothing here s
   relay/<station>/stops/<run>.json        why a run stopped
   relay/<station>/lessons.md              one row per critic round: the score and the first mandated fix
   relay/<station>/tuning.json             the limits the last retrospective set (inside the bounds of limits.json)
+  relay/<station>/second/<run>-<nn>-r<round>-<vendor>.json   one second opinion by another vendor (second.py)
   relay/proposals/<run>-<nn>.md           a retrospective's proposals for role texts and rules: the owner reads them
 Stdlib only. ASCII only.
 """
-import sys
+import sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -53,6 +54,35 @@ def lesson(board, station, unit, round_no, score, target, fix):
     with open(p, "a", encoding="utf-8", newline="\n") as f:
         f.write(("" if p.stat().st_size else LESSONS_HEAD) + row)
     return p
+
+
+SECOND_KEEP = ("vendor", "model", "ran_model", "state", "seconds", "score", "fixes", "paper_problems", "untrusted",
+               "tokens_in", "tokens_out", "cache_read", "cost_usd", "cost_from")
+
+
+def second_record(board, station, run, leg_no, unit, round_no, rec, critic_score, unusable):
+    """One second opinion by another vendor (second.py), beside the leg records and not among them: ledger.py counts
+    the files in legs/, so these never move the day or the week of the Claude plan. `unusable` is why its score
+    does not count (None: it does); `list_usd` is what the tokens would have cost, not money spent."""
+    row = {k: rec.get(k) for k in SECOND_KEEP if k not in ("cost_usd", "cost_from")}
+    row.update(run=run, after_leg=leg_no, unit=unit["id"], role=unit["role"], round=round_no, at=now(),
+               day=time.strftime("%Y-%m-%d"), critic_score=critic_score, unusable=unusable,
+               list_usd=rec.get("cost_usd"), list_usd_from=rec.get("cost_from"))
+    p = folder(board, station) / "second" / ("%s-%02d-r%d-%s.json" % (run, leg_no, round_no, rec.get("vendor")))
+    write_json(p, row)
+    return p
+
+
+def seconds_today(board):
+    """How many second opinions every station started today (limits.json second_per_day caps them by count: they
+    draw on the other vendor's plan, which has no percent here)."""
+    day, n = time.strftime("%Y-%m-%d"), 0
+    for f in Path(board).glob("relay/*/second/*.json"):
+        try:
+            n += read_json(f).get("day") == day
+        except (OSError, ValueError, AttributeError):
+            continue
+    return n
 
 
 def tuning(board, station):

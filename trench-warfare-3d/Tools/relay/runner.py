@@ -19,7 +19,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
-import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
+import agents, boardio, config, gitio, launch, ledger, legdir, papers, second, sources   # noqa: E402
 
 NO_WINDOW = ("\n- This run cannot open a window (it was not started from the owner's desktop). Only work that "
              "needs a visible window is blocked: end BLOCKED and say so. Unity itself works in batch mode; a "
@@ -70,6 +70,8 @@ class Run:
         self.code = ""                                          # the commit the relay's own code is at
         self.waited = False                                     # the last budget check waited for the day's pace
         self.stuck = 0                                          # units in a row whose lane could not be switched to
+        asked = getattr(a, "second", None)                      # a flag outranks limits.json; "off" is nobody
+        self.second = config.second_critic() if asked is None else "" if asked == "off" else asked
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
@@ -86,6 +88,10 @@ class Run:
         if self.tuned:
             print("note: limits set by the last retrospective: %s"
                   % ", ".join("%s %g" % kv for kv in sorted(self.tuned.items())), flush=True)
+        if self.second:
+            print('note: %s scores each critic round a second time, recording only (--second, or limits.json '
+                  '"second_critic"): at most %d a day over every station.' % (self.second, self.lim["second_per_day"]),
+                  flush=True)
         if self.no_window:
             print("note: this terminal cannot open a window. Unity batch mode still works; only work that needs a "
                   "visible window will end BLOCKED (start the run from a normal terminal for that).", flush=True)
@@ -327,6 +333,7 @@ class Run:
         The verdict stays the script's: the scores go in the result's note, the rounds beside the evidence, a row
         per round in the lessons. Returns the problems a fix round left (empty = still a PASS)."""
         target, last, scores, note = self.lim["critic_target"], self.lim["critic_rounds"], [], ""
+        others = []                                         # what a second vendor said of each round, in words
         problems = []
         for r in range(1, last + 1):
             brief = src.critic(unit, self.ctx, r)
@@ -346,6 +353,7 @@ class Run:
             src.keep_critic(unit, self.ctx, r, text)
             boardio.lesson(self.board, self.station, unit, r, score, target, fixes[0])
             scores.append(score)
+            others.append(self.second_opinion(src, unit, brief, r, score))
             if score >= target or r == last:
                 break
             if self.no_room("execute"):
@@ -362,11 +370,38 @@ class Run:
         if scores:
             note = ("critic %s (target %d)" % (", then ".join("%d/100" % s for s in scores), target)
                     + ("; the fix round scored lower: round %d was the best" % (scores.index(max(scores)) + 1)
-                       if scores[-1] < max(scores) else "") + ("; " + note if note else ""))
+                       if scores[-1] < max(scores) else "") + "".join("; " + o for o in others if o)
+                    + ("; " + note if note else ""))
         if note:
             unit["critic_note"] = note
             print("unit %s: %s" % (unit["id"], note), flush=True)
         return problems
+
+    def second_opinion(self, src, unit, brief, r, score):
+        """The same round scored by another vendor (limits.json second_critic, or --second), recording only: its
+        paper lies beside the critic's and a row goes on the board. The critic's own score keeps steering, and
+        whatever goes wrong here is words for the unit's note, never a stop. Returns those words ("" when off)."""
+        v, keep = self.second, getattr(src, "keep_second", None)
+        if not v or not brief.get("second") or not keep:
+            return ""
+        try:
+            used, cap = boardio.seconds_today(self.board), self.lim["second_per_day"]
+            if used >= cap:
+                return "no second opinion on round %d: today's %d are used" % (r, cap)
+            left = (self.deadline - time.time()) / 60
+            if left < 2:
+                return "no second opinion on round %d: the run's time is up" % r
+            home = self.home / "runs" / self.run / "second" / ("%02d-r%d-%s" % (self.legs, r, v))
+            rec = second.critic(v, brief["fill"], brief["second"], home=home,
+                                minutes=min(self.lim["second_minutes"], left), max_bytes=self.lim["critic_max_bytes"])
+            why = second.usable(rec)
+            if not why:
+                keep(unit, self.ctx, r, v, rec["report"])
+            boardio.second_record(self.board, self.station, self.run, self.legs, unit, r, rec, score, why)
+            return ("%s on round %d: %d/100" % (v, r, rec["score"]) if not why
+                    else "%s on round %d: no score (%s)" % (v, r, " ".join(why.split())[:90]))
+        except (Exception, SystemExit) as e:                # noqa: BLE001
+            return "%s on round %d failed (%s)" % (v, r, " ".join((str(e) or type(e).__name__).split())[:90])
 
     # ----- the retrospective: between units, every limits.json retro_every_legs legs -----
     def retro(self):
@@ -535,5 +570,8 @@ def add_args(p):
     p.add_argument("--allow-dirty", action="store_true", dest="allow_dirty",
                    help="run although the relay's own code has uncommitted changes (developing the relay)")
     p.add_argument("--view", action="store_true", help="open a Windows Terminal tab per leg that shows its output")
+    p.add_argument("--second", choices=config.SECOND_VENDORS + ("off",),
+                   help="another vendor scores each critic round a second time, recording only (second.py; "
+                        "default: limits.json second_critic)")
     p.add_argument("--no-quiet", action="store_true", dest="no_quiet",
                    help="skip the check that the checkout saw no git activity lately (you know nobody is in it)")

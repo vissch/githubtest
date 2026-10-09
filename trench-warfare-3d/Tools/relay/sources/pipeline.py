@@ -155,7 +155,11 @@ def keep_note(unit, ctx, desk, lim):
     pass
 
 
-CRITIC_ROUND = re.compile(r"^critic-r\d+\.md$")
+CRITIC_ROUND = re.compile(r"^critic-r\d+(-[a-z]+)?\.md$")   # a round's paper, and a second vendor's beside it
+PAPER = ("Write critic.md in your leg folder, in the rubric's output shape: the VERDICT line first, TOP-3 MANDATED "
+         "FIXES as a numbered list of three.")
+PAPER_SAID = ("Your last message is critic.md, in the rubric's output shape: the VERDICT line first, TOP-3 MANDATED "
+              "FIXES as a numbered list of three.")          # a second opinion writes no file (second.py)
 RUBRIC = Path(__file__).resolve().parents[4] / ".claude" / "skills" / "tw-critic" / "SKILL.md"
 
 
@@ -179,22 +183,29 @@ def critic(unit, ctx, round_no):
                 shutil.copy2(f, dst / f.name)
         P.write_json(dst / "stage.json", unit["stage_json"])
 
-    body = "\n".join([
-        "# Critic round %d: pipeline job %s" % (round_no, unit["id"]),
-        "Item: %s. Stage `%s`, role `%s`. Bands asked: %s."
-        % (unit["title"], unit["stage"], unit["role"], ", ".join(unit["bands"]) or "none"),
-        "- Your working folder holds the evidence bundle and stage.json (the stage as the board defines it).",
-        "- Judge only by those files. You are not told how the work was made.",
-        "- Score it out of 100 with the rubric below, for this role. Write critic.md in your leg folder, in the "
-        "rubric's output shape: the VERDICT line first, TOP-3 MANDATED FIXES as a numbered list of three.",
-        "", "# The rubric (the tw-critic skill)", rubric()])
-    return {"body": body, "fill": fill}
+    def body(paper):
+        return "\n".join([
+            "# Critic round %d: pipeline job %s" % (round_no, unit["id"]),
+            "Item: %s. Stage `%s`, role `%s`. Bands asked: %s."
+            % (unit["title"], unit["stage"], unit["role"], ", ".join(unit["bands"]) or "none"),
+            "- Your working folder holds the evidence bundle and stage.json (the stage as the board defines it).",
+            "- Judge only by those files. You are not told how the work was made.",
+            "- Score it out of 100 with the rubric below, for this role. " + paper,
+            "", "# The rubric (the tw-critic skill)", rubric()])
+    return {"body": body(PAPER), "fill": fill, "second": body(PAPER_SAID)}
 
 
 def keep_critic(unit, ctx, round_no, text):
     f = Path(ctx["board"]) / evidence_dir(unit) / ("critic-r%d.md" % round_no)
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_text(text, encoding="utf-8", newline="\n")
+
+
+def keep_second(unit, ctx, round_no, vendor, text):
+    """Another vendor's paper on the same round, beside the critic's own: critic-r<n>-<vendor>.md."""
+    f = Path(ctx["board"]) / evidence_dir(unit) / ("critic-r%d-%s.md" % (round_no, vendor))
+    f.parent.mkdir(parents=True, exist_ok=True)
+    f.write_text(text.rstrip() + "\n", encoding="utf-8", newline="\n")
 
 
 def finish(unit, ctx, problems, outcome):

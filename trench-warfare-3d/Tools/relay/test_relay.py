@@ -18,7 +18,7 @@ LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT", "TW_AGENT_LOGS",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
        "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY",
-       "TW_RELAY_PLAY")
+       "TW_RELAY_PLAY", "TW_RELAY_GROK", "TW_RELAY_CODEX", "TW_FAKE_SECOND", "TW_FAKE_SECOND_ARGV")
 
 
 def jpeg(width, height, size=2000):
@@ -43,6 +43,8 @@ class Base(unittest.TestCase):
         os.environ["TW_RELAY_NO_WINDOW"] = "0"               # the same whatever terminal runs the tests
         os.environ["TW_RELAY_NOTIFY"] = json.dumps([sys.executable, "-c", "pass"])   # no real notification
         os.environ["TW_AGENT_LOGS"] = str(self.tmp / "agent-logs")    # nor this machine's real sessions (agents.py)
+        for k in ("TW_RELAY_GROK", "TW_RELAY_CODEX"):        # nor a real vendor: a test that wants one names a stand-in
+            os.environ[k] = json.dumps([str(self.tmp / "no-vendor-in-a-test.exe")])
         self.limits = config.limits                          # these tests count in dollars or in measured legs:
         config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
                                              day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
@@ -101,6 +103,16 @@ class Settings(Base):
     def test_overrides_are_clamped_to_the_bounds(self):
         lim = config.limits(overrides={"red_tokens": 900000, "run_hours": 99})
         self.assertEqual((lim["red_tokens"], lim["run_hours"]), (300000, 12))
+
+    def test_nobody_gives_a_second_opinion_as_shipped_and_only_a_known_vendor_can(self):
+        import providers
+        self.assertEqual(config.second_critic(), "")
+        self.assertEqual(config.SECOND_VENDORS, providers.NAMES)
+        cfg = self.tmp / "cfg2"
+        cfg.mkdir()
+        (cfg / "limits.json").write_text(json.dumps({"second_critic": "claude"}), encoding="utf-8")
+        with self.assertRaises(SystemExit):
+            config.second_critic(cfg)
 
     def test_a_bad_limits_file_stops_the_run(self):
         bad = self.tmp / "cfg"
@@ -2132,6 +2144,108 @@ class PipelineSource(Repo):
         res = self.results()
         self.assertEqual((res[0]["verdict"], stop["legs"]), ("PASS", 2))
         self.assertIn("no critic round 1: the leg cap (2) is reached", res[0]["note"])
+
+    # ----- a second opinion by another vendor beside the critic's own (second.py): it records, it steers nothing -----
+    def vendor(self, name="grok", **script):
+        f, self.started = self.tmp / "second.json", self.tmp / "second-argv.jsonl"
+        f.write_text(json.dumps(script), encoding="utf-8")
+        os.environ.update({"TW_FAKE_SECOND": str(f), "TW_FAKE_SECOND_ARGV": str(self.started),
+                           "TW_RELAY_" + name.upper(): json.dumps([sys.executable, str(HERE / "fake_vendor.py"), name])})
+
+    def seconds(self):
+        return [json.loads(p.read_text(encoding="utf-8")) for p in sorted((self.board / "relay").glob("*/second/*.json"))]
+
+    ONE_ROUND = {"plan": [{"write": "plan.md", "text": PLAN}], "execute": PUSH,
+                 "critic": [{"write": "critic.md", "text": CRITIC % 88}]}
+
+    def test_no_vendor_is_started_unless_a_second_opinion_is_asked_for(self):
+        self.script(self.ONE_ROUND)
+        self.vendor(report=CRITIC % 40)
+        out, stop = self.go_with_evidence()
+        self.assertFalse(self.started.exists())
+        self.assertEqual(self.seconds(), [])
+        self.assertEqual(self.results()[0]["note"], "checked by relay; critic 88/100 (target 85)")
+        out, stop = self.go_with_evidence(second="off")
+        self.assertFalse(self.started.exists())
+
+    def test_a_second_vendor_scores_each_round_and_steers_nothing(self):
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute#2": self.PUSH,
+                     "critic#3": [{"write": "critic.md", "text": CRITIC % 60}], "execute#4": self.FIX,
+                     "critic#5": [{"write": "critic.md", "text": (CRITIC % 90).replace("ROUND 1", "ROUND 2")}]})
+        self.vendor(report=CRITIC % 95)                       # it would have passed round 1: the fix round still runs
+        out, stop = self.go_with_evidence(second="grok")
+        res = self.results()
+        self.assertEqual(([(r["stage"], r["verdict"]) for r in res], stop["legs"]), ([("shots", "PASS")], 5))
+        self.assertIn("critic 60/100, then 90/100 (target 85)", res[0]["note"])
+        self.assertIn("grok on round 1: 95/100; grok on round 2: 95/100", res[0]["note"])
+        shots = self.board / "evidence" / "thing" / "shots"
+        self.assertIn("95/100", (shots / "critic-r1-grok.md").read_text(encoding="utf-8"))
+        self.assertIn("60/100", (shots / "critic-r1.md").read_text(encoding="utf-8"))
+        rows = self.seconds()
+        self.assertEqual([(r["round"], r["critic_score"], r["score"], r["unusable"], r["vendor"]) for r in rows],
+                         [(1, 60, 95, None, "grok"), (2, 90, 95, None, "grok")])
+        self.assertEqual(len(self.started.read_text(encoding="utf-8").splitlines()), 2)
+        # blind in every later round, for both critics: no paper of round 1, whoever wrote it
+        bundle5 = Path(json.loads(self.leg_file(5, "leg.json").read_text(encoding="utf-8"))["worktree"])
+        second2 = next((self.tmp / "home" / "runs").glob("*/second/*-r2-grok")) / "bundle"
+        for b in (bundle5, second2):
+            self.assertEqual([f.name for f in b.iterdir() if f.name.startswith("critic-")], [], b)
+        self.assertEqual(sorted(f.name for f in second2.iterdir()),
+                         ["far.jpg", "far.json", "frames.txt", "near.jpg", "near.json", "stage.json"])
+        prompt = (second2.parent / "prompt.txt").read_text(encoding="utf-8")
+        self.assertIn("Your last message is critic.md", prompt)
+        self.assertNotIn("Write critic.md", prompt)
+        self.assertNotIn(str(self.board).replace("\\", "/"), prompt.replace("\\", "/"))
+
+    def failing_second(self, why, **script):
+        """A second opinion that fails is words in the note: the verdict, the critic's score and the run stand."""
+        self.script(self.ONE_ROUND)
+        if script:
+            self.vendor(**script)                             # else: the vendor is not installed (Base.setUp)
+        out, stop = self.go_with_evidence(second="grok")
+        res = self.results()
+        self.assertEqual((res[0]["verdict"], self.code, stop["legs"]), ("PASS", 0, 3), out)
+        self.assertIn("critic 88/100 (target 85); grok on round 1: no score (" + why, res[0]["note"])
+        self.assertFalse((self.board / "evidence" / "thing" / "shots" / "critic-r1-grok.md").exists())
+        self.assertEqual([bool(r["unusable"]) for r in self.seconds()], [True])
+
+    def test_a_second_paper_the_parser_cannot_read_is_a_note(self):
+        self.failing_second("critic.md does not start with", report="It looks fine to me.")
+
+    def test_a_second_opinion_that_cannot_be_trusted_is_a_note_and_its_score_is_not_kept(self):
+        self.failing_second("untrusted: files in its working folder changed", report=CRITIC % 95, write="made.txt")
+        self.assertEqual(self.seconds()[0]["score"], 95)      # on the row for the reader, never in the evidence
+
+    def test_a_second_vendor_that_breaks_off_is_a_note(self):
+        self.failing_second("grok ended as nothing", report=CRITIC % 95, no_result=True, exit=1)
+
+    def test_a_second_vendor_that_is_not_installed_is_a_note(self):
+        self.failing_second("")
+        self.assertEqual(self.seconds()[0]["state"], "ERROR")
+
+    def test_second_opinions_are_capped_by_count_a_day_over_every_station(self):
+        self.script(self.ONE_ROUND)
+        self.vendor(report=CRITIC % 95)
+        day = time.strftime("%Y-%m-%d")
+        for i in range(self.lim["second_per_day"]):
+            f = self.board / "relay" / "laptop" / "second" / ("r-%02d-r1-codex.json" % i)
+            f.parent.mkdir(parents=True, exist_ok=True)
+            f.write_text(json.dumps({"day": day}), encoding="utf-8")
+        out, stop = self.go_with_evidence(second="grok")
+        self.assertIn("no second opinion on round 1: today's %d are used" % self.lim["second_per_day"],
+                      self.results()[0]["note"])
+        self.assertFalse(self.started.exists())
+        self.assertEqual(self.results()[0]["verdict"], "PASS")
+
+    def test_a_second_opinion_is_no_leg_and_does_not_move_the_days_spend(self):
+        self.script(dict(self.ONE_ROUND, cost=2.0))
+        self.vendor(report=CRITIC % 95)
+        out, stop = self.go_with_evidence(second="grok")
+        self.assertEqual((stop["legs"], len(self.seconds())), (3, 1))
+        day = ledger.spent(self.board, lim=self.lim)
+        self.assertEqual((day["legs"], round(day["usd"], 2)), (3, 6.0))           # three Claude legs, nothing else
+        self.assertEqual(len(list((self.board / "relay" / "desktop" / "legs").glob("*.json"))), 3)
+        self.assertEqual(self.seconds()[0]["list_usd"], 0.02)                     # said, and counted nowhere
 
     def test_a_job_is_claimed_checked_and_completed_by_the_runner_and_master_is_left_alone(self):
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH,

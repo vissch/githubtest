@@ -31,6 +31,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py proof wait       a leg that runs a command longer than two minutes and is still there
                                                when it ends: nothing went to the background, the report has its result
   python Tools/relay/relay.py proof report     a leg that ends its first turn with no RESULT line and is given one more
+  python Tools/relay/relay.py proof second grok|codex [--open]   another vendor's read-only run is asked to write a
+                                               file and nothing changes; --open: the rail off, where it must (second.py)
   python Tools/relay/relay.py view <leg folder> [--follow]   the leg's output as readable lines
 Stdlib only. ASCII only.
 """
@@ -41,7 +43,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import agents, answers, boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, usage   # noqa: E402
+import agents, answers, boardio, config, day, gitio, launch, ledger, legcmd, legdir, runner, second, usage   # noqa: E402
 from sources import lane as lane_source  # noqa: E402
 
 
@@ -560,7 +562,9 @@ def main(argv=None):
     p.add_argument("--goal")
     p.add_argument("--done-when", dest="done_when", nargs=argparse.REMAINDER)
     p = sub.add_parser("proof")
-    p.add_argument("name", choices=("meter", "timeout", "wait", "report"))
+    p.add_argument("name", choices=("meter", "timeout", "wait", "report", "second"))
+    p.add_argument("vendor", nargs="?", choices=config.SECOND_VENDORS, help="for `proof second`")
+    p.add_argument("--open", action="store_true", help="for `proof second`: the rail off, to show the proof can fail")
     p = sub.add_parser("view")
     p.add_argument("leg")
     p.add_argument("--follow", action="store_true")
@@ -594,6 +598,10 @@ def main(argv=None):
     if a.cmd == "add":
         return add(a)
     if a.cmd == "proof":
+        if a.name == "second":
+            if not a.vendor:
+                raise SystemExit("relay: proof second <%s>" % "|".join(config.SECOND_VENDORS))
+            return second.proof(a.vendor, a.open)
         return proof(a.name)
     if a.cmd == "view":
         return view(a.leg, a.follow)
