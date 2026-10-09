@@ -298,5 +298,23 @@ namespace TW.Tests
             Assert.LessOrEqual(accents, ScatterLayers.MaxAccent);
             Assert.LessOrEqual(flowers, ScatterLayers.MaxFlowers);
         }
+
+        [Test]
+        public void EveryWireCellHasAFrame()
+        {
+            int flat = 0;
+            bool sawUp = false, sawDown = false, sawFlat = false;
+            for (int key = 0; key < 20000; key++)
+            {
+                var stand = BattlefieldComposer.StandOf(key);
+                if (stand == BattlefieldComposer.WireStand.Flat) { flat++; sawFlat = true; }
+                else if (stand == BattlefieldComposer.WireStand.Down) sawDown = true;
+                else sawUp = true;
+            }
+            // [B3] a wire cell with no frame drawn in it: every key resolves to one of the three stands
+            Assert.That(sawUp && sawDown && sawFlat, "[B3] a wire cell with no frame drawn in it");
+            float share = flat / 20000f;
+            Assert.That(share, Is.EqualTo(BattlefieldComposer.FlatChance).Within(0.015f), "[B3] the flat share should match the row's own 7%");
+        }
     }
 }
