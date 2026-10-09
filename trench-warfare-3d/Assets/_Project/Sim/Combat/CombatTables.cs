@@ -87,11 +87,11 @@ namespace TW.Sim.Combat
         {
             switch (archetype)
             {
-                case 1:  // assault: SMG / trench gun
+                case 1:  // assault gun: 2.5 a second in the battle; 3 is the figure the cooldown comes from
                     return new WeaponStats { Id = 1, Damage = 22f, RangeMax = 45f * RangeScale, RoundsPerSecond = 3f, Accuracy = 0.45f, SuppressionPerShot = 7f, PenetrationMm = 4f };
-                case 2:  // machinegunner
+                case 2:  // machinegunner: 5 a second in the battle; 7 is the figure the cooldown comes from
                     return new WeaponStats { Id = 2, Damage = 24f, RangeMax = 170f * RangeScale, RoundsPerSecond = 7f, Accuracy = 0.30f, SuppressionPerShot = 9f, PenetrationMm = 9f };
-                case 3:  // sniper
+                case 3:  // sniper: a shot every 68 ticks (0.29 a second) in the battle; 0.3 is the figure the cooldown comes from
                     return new WeaponStats { Id = 3, Damage = 95f, RangeMax = 230f * RangeScale, RoundsPerSecond = 0.3f, Accuracy = 0.9f, SuppressionPerShot = 20f, PenetrationMm = 14f };
                 case 4:  // Maw: hull machine guns (its sponson 6-pdrs are TankGunnerySystem's)
                     return new WeaponStats { Id = 4, Damage = 24f, RangeMax = 120f * RangeScale, RoundsPerSecond = 5f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 9f };
@@ -121,7 +121,7 @@ namespace TW.Sim.Combat
                     return new WeaponStats { Id = archetype };   // RangeMax 0: acquires nothing, fires nothing
                 case VehicleArchetype.Breaker:    // hull machine guns either side of the ram
                     return new WeaponStats { Id = 18, Damage = 26f, RangeMax = 110f * RangeScale, RoundsPerSecond = 6f, Accuracy = 0.32f, SuppressionPerShot = 10f, PenetrationMm = 9f };
-                default: // rifleman (and the repair engineer, who carries one)
+                default: // rifleman (and the repair engineer, who carries one): a shot every 41 ticks (0.49 a second); 0.5 is the figure the cooldown comes from
                     return new WeaponStats { Id = 0, Damage = 36f, RangeMax = 130f * RangeScale, RoundsPerSecond = 0.5f, Accuracy = 0.55f, SuppressionPerShot = 12f, PenetrationMm = 6f };
             }
         }
@@ -129,6 +129,12 @@ namespace TW.Sim.Combat
         /// <summary>Ticks between shots for a weapon at the sim's tick rate (at least 1).</summary>
         public static int CooldownTicks(in WeaponStats w, float tickSeconds)
             => math.max(1, (int)math.round(1f / (math.max(0.05f, w.RoundsPerSecond) * tickSeconds)));
+
+        /// <summary>Ticks from one shot to the next: the cooldown plus the tick the shot itself burns (DirectFire).</summary>
+        public static int ShotGapTicks(in WeaponStats w, float tickSeconds) => CooldownTicks(w, tickSeconds) + 1;
+
+        /// <summary>The pace a weapon really fires at, shots a second (RoundsPerSecond is only what the cooldown comes from).</summary>
+        public static float ShotsPerSecond(in WeaponStats w, float tickSeconds) => 1f / (ShotGapTicks(w, tickSeconds) * tickSeconds);
 
         /// <summary>1 inside half range, falling linearly to 0.5 at maximum range.</summary>
         public static float RangeFalloff(float dist, float rangeMax)

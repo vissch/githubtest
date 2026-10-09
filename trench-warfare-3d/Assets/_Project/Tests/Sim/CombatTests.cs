@@ -337,6 +337,21 @@ namespace TW.Tests
             Step(m);
         }
 
+        // The pace the guns really fire at (the owner's call of 2026-10-07): RoundsPerSecond is only the figure the
+        // cooldown comes from, and DirectFire burns one more tick per shot. Untagged on purpose: it is green on the
+        // old code too, because the call corrected the writing, not the pace.
+        [Test]
+        public void TheGunsFireAtThePaceTheirCooldownAndTheBurntTickGive()
+        {
+            float ts = SimConfig.Default.TickSeconds;
+            Assert.AreEqual(4, CombatTables.ShotGapTicks(CombatTables.WeaponFor(2), ts), "the machinegunner's shots are 4 ticks apart");
+            Assert.AreEqual(5f, CombatTables.ShotsPerSecond(CombatTables.WeaponFor(2), ts), 1e-4f, "the machinegunner fires 5 a second, not the written 7");
+            Assert.AreEqual(8, CombatTables.ShotGapTicks(CombatTables.WeaponFor(1), ts), "the assault gun's shots are 8 ticks apart");
+            Assert.AreEqual(2.5f, CombatTables.ShotsPerSecond(CombatTables.WeaponFor(1), ts), 1e-4f, "the assault gun fires 2.5 a second, not the written 3");
+            Assert.AreEqual(41, CombatTables.ShotGapTicks(CombatTables.WeaponFor(0), ts), "the rifle is as written: a shot every 41 ticks");
+            Assert.AreEqual(68, CombatTables.ShotGapTicks(CombatTables.WeaponFor(3), ts), "the sniper is as written: a shot every 68 ticks");
+        }
+
         [Test, Category("Long")]
         public void Combat_IsDeterministic()
         {
