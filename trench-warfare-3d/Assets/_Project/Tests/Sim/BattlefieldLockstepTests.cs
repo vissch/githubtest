@@ -96,6 +96,19 @@ namespace TW.Tests
             return "nothing we can name: the difference is in state that Hash() folds in but this check does not read";
         }
 
+        /// <summary>
+        /// [T9] Folds every system's own Hash(), in the same order FirstDifference reads them, into one value. Tick
+        /// itself is folded into World.Hash() (SimWorld.cs:392), so a world0/world-after compare against LastHash or
+        /// World.Hash() can only ever prove the tick counter moved; this is the one value that can actually say the
+        /// SYSTEMS' state changed.
+        /// </summary>
+        static ulong SystemsHash(SimWorld w)
+        {
+            ulong h = SimHash.Offset;
+            for (int i = 0; i < w.Systems.Count; i++) h = SimHash.Value(w.Systems[i].Hash(SimHash.Offset), h);
+            return h;
+        }
+
         /// <summary>The ground, which SimWorld.Hash() does not cover. Cheap, so it is checked often but not per tick.</summary>
         static void SameGround(MatchSim a, MatchSim b, string what)
             => Assert.AreEqual(a.Map.Hash(SimHash.Offset), b.Map.Hash(SimHash.Offset),
@@ -103,10 +116,18 @@ namespace TW.Tests
                 "SimWorld.Hash() does not fold MapData.Hash in, and DeformationSystem hashes its crater inputs " +
                 "rather than the heightfield it wrote, so a unit has to walk on it before the tick hash notices.");
 
+        /// <summary>
+        /// [T9] The actual guard for "do the two worlds start equal": LastHash is 0UL until the first Step (SimWorld.cs
+        /// :240-253 only writes it on a tick it hashes, and nothing hashes before Step is ever called), so comparing
+        /// LastHash before the first Step compares 0 with 0 and passes no matter what the worlds hold.
+        /// </summary>
+        static void SameStart(MatchSim a, MatchSim b, string what)
+            => Assert.AreEqual(a.World.Hash(), b.World.Hash(), $"{what}: the two worlds do not even start equal");
+
         static void StayInSync(MatchSim a, MatchSim b, int ticks, string what)
         {
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
-            Assert.AreEqual(a.World.LastHash, b.World.LastHash, $"{what}: the two worlds do not even start equal");
+            SameStart(a, b, what);
             SameGround(a, b, what);
             for (int t = 0; t < ticks; t++)
             {
@@ -119,6 +140,26 @@ namespace TW.Tests
                             $"local {a.World.LastHash:X16} peer {b.World.LastHash:X16}");
             }
             SameGround(a, b, what);
+        }
+
+        /// <summary>
+        /// [T9] Proves the guard this file relies on actually guards something. LastHash is 0UL on both worlds
+        /// before the first Step (SimWorld.cs:247-253), so a start check that reads LastHash cannot tell two
+        /// different worlds apart; World.Hash() can, because it folds Silver in (SimWorld.cs:163, :402).
+        /// </summary>
+        [Test]
+        public void TheStartGuardCatchesTwoWorldsThatDifferBeforeTheFirstStep()
+        {
+            var field = BattlefieldParams.ShelledForest(SceneSeed);
+            var cfgA = SimConfig.Default; cfgA.StartingSilver = 300;
+            var cfgB = SimConfig.Default; cfgB.StartingSilver = 999;
+            using var a = MatchSim.CreateBattlefield(cfgA, field);
+            using var b = MatchSim.CreateBattlefield(cfgB, field);
+
+            Assert.AreEqual(0UL, a.World.LastHash,
+                "[T9] LastHash is 0 before the first Step, so it cannot be the guard");
+            Assert.Throws<AssertionException>(() => SameStart(a, b, "two worlds, different starting silver"),
+                "[T9] the start guard passed on two worlds that do not start equal");
         }
 
         /// <summary>
@@ -146,7 +187,7 @@ namespace TW.Tests
             var field = BattlefieldParams.ShelledForest(SceneSeed);
             using var a = MatchSim.CreateBattlefield(cfg, field);
             using var b = MatchSim.CreateBattlefield(cfg, field);
-            Assert.AreEqual(a.World.LastHash, b.World.LastHash, "the two worlds do not even start equal");
+            SameStart(a, b, "deployed");
             // NOT `using var`: a NativeArray declared that way is a readonly struct and cannot be indexed into
             // (CS1654). Allocated once outside the loop and disposed in the finally, which is cheaper anyway.
             var none = new NativeArray<SimCommand>(0, Allocator.Temp);
@@ -281,12 +322,16 @@ namespace TW.Tests
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2f;
             using var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(SceneSeed));
-            ulong world0 = m.World.LastHash, ground0 = m.Map.Hash(SimHash.Offset);
+            // [T9] not m.World.LastHash: Tick is folded into World.Hash() (SimWorld.cs:392), so comparing it before
+            // and after 400 ticks only ever proves the tick counter moved. SystemsHash folds the systems' own
+            // Hash() instead, which is the value that can actually say their STATE changed.
+            ulong systems0 = SystemsHash(m.World), ground0 = m.Map.Hash(SimHash.Offset);
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             for (int t = 0; t < 400; t++) m.Step(none);
 
-            Assert.AreNotEqual(world0, m.World.LastHash,
-                "400 idle ticks changed no hashed state at all, so the two idle sync tests agree about nothing");
+            Assert.AreNotEqual(systems0, SystemsHash(m.World),
+                "[T9] 400 idle ticks changed no SYSTEM state at all (only the tick counter moved), so the two idle "
+                + "sync tests agree about nothing");
             Assert.Greater(m.Bombardment.Fired, 0,
                 $"no ambient shell fell in 400 ticks (Bombardment = {m.Bombardment.ShellsPerMinute}/min, first due "
                 + $"at tick {cfg.TickRate * 8}), so nothing was there to crater the ground");
@@ -320,7 +365,7 @@ namespace TW.Tests
             var field = BattlefieldParams.ShelledForest(SceneSeed);
             using var a = MatchSim.CreateBattlefield(cfg, field);
             using var b = MatchSim.CreateBattlefield(cfg, field);
-            Assert.AreEqual(a.World.LastHash, b.World.LastHash, "the two worlds do not even start equal");
+            SameStart(a, b, "deaths and slot reuse");
 
             // Men standing in no man's land, which is where the ambient shells fall (AmbientBombardment aims at the
             // band between the front lines). Both worlds are seeded identically, by the same loop, in the same order.
