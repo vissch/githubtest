@@ -128,7 +128,12 @@ namespace TW.Sim
         // v42 (2026-10-09, [N5.6]): a gun turns on a wreck only on its own scan tick (slot % 3 == tick % 3, the
         // stagger TargetAcquisition acquires on), so a man whose mark ducked on an off tick keeps his cooldown for
         // the scan that can give the man back. Layout and chain unchanged.
-        public const ushort FormatVersion = 42;
+        // v43 (2026-10-09, [N5.3]): a wreck shelters only the men in its shadow, and a screen on the line blinds the
+        // shot. DirectFire.AtWreck lists and suppresses only enemies past the wreck on the shooter's line and within
+        // its body (WreckBlastReach x size), holds its cooldown when nobody is in that shadow, and returns when
+        // SmokeBlindMetres of thick smoke lie on the line. A gun no longer pins a trench bay on a wreck's flank.
+        // Layout and chain unchanged.
+        public const ushort FormatVersion = 43;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

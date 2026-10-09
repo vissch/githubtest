@@ -10,7 +10,8 @@
 // job with no target (a living target always wins), not pinned and not holding a trench, fires at the nearest wreck in
 // his range and sight that shelters his enemies: a Shot whose b names the prop (PropTarget), a hit (a hull-sized mark)
 // from a machine gun wears it by WreckFireShare of the round, and every round keeps the heads behind it down (the near
-// miss's suppression on each enemy within its reach). Nothing is drawn for a man with a target, so a field with no one
+// miss's suppression on each enemy in its shadow: within its reach, past it on the shooter's line and no wider than its
+// body; a man on its flank is neither sheltered nor suppressed, and a blinding screen on the line stops the shot, [N5.3]). Nothing is drawn for a man with a target, so a field with no one
 // behind a wreck fights as before. Tank guns are TankGunnerySystem's and do not do this.
 // The props' hit points are in MapData's hash, so this system still hashes nothing of its own.
 using Unity.Collections;
@@ -29,12 +30,13 @@ namespace TW.Sim.Combat
         public float3 Way;
     }
 
-    /// <summary>A wreck men are behind this tick: where it is, which, how far its shelter reaches, whose men (a bit a side).</summary>
+    /// <summary>A wreck men are behind this tick: where it is, which, how far its shelter reaches, how wide its body is
+    /// (half-width of the shadow it casts), whose men (a bit a side).</summary>
     public struct Shelter
     {
         public float3 Pos;
         public int Prop, Teams;
-        public float Reach;
+        public float Reach, Body;
     }
 
     public sealed partial class DirectFireSystem
@@ -97,7 +99,7 @@ namespace TW.Sim.Combat
                         if (math.distancesq(w.Position[j].xz, prop.Pos.xz) <= reach * reach) teams |= 1 << (w.Team[j] & 7);
                     } while (hash.Map.TryGetNextValue(out j, ref it));
                 }
-                if (teams != 0) shelters.Add(new Shelter { Pos = prop.Pos, Prop = p, Teams = teams, Reach = reach });
+                if (teams != 0) shelters.Add(new Shelter { Pos = prop.Pos, Prop = p, Teams = teams, Reach = reach, Body = PropRules.WreckBlastReach * (prop.Scale > 0f ? prop.Scale : 1f) });
             }
         }
 
@@ -106,6 +108,8 @@ namespace TW.Sim.Combat
             /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight with its enemies behind
             /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not,
             /// nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).
+            /// Only the enemies in the wreck's shadow count and are kept down, and a blinding screen on the line stops
+            /// the shot ([N5.3]).
             /// Only on his own scan tick (TargetAcquisition's stagger, one tick in three): a man whose mark ducked on an
             /// off tick has no target yet, and must keep his cooldown for the scan that can give the man back ([N5.6]).</summary>
             void AtWreck(int i)
@@ -131,19 +135,32 @@ namespace TW.Sim.Combat
                 float3 eye = new float3(p.x, Height.Sample(p.x, p.z) + HeightfieldRaycast.EyeHeight((Stance)StanceOf[i]), p.z);
                 float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
                 if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) return;
+                // a screen on the line blinds the shot, as TargetAcquisition.Sees reads it ([N5.3])
+                if (SmokeOn && SmokeLos.MetresThrough(Smoke, SmokeW, SmokeL, eye, top) >= CombatTables.SmokeBlindMetres) return;
 
-                FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                 float3 d3 = s.Pos - p; d3.y = 0f;
                 float dist = SimMath.Length(d3);
                 float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
+                // nobody in its shadow: no shot and no cooldown spent ([N5.3])
+                if (InShadow(i, s, dir, 0f) == 0) return;
+                FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                 Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
                 float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                 if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (f & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
                 var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
                 if (rng.NextFloat() < math.clamp(chance, 0.02f, 0.95f) && CombatTables.WearsWrecks(weapon))
                     CoverStops.Add(new WreckRound { Cell = CellOf(s.Pos), Target = PropTarget.Encode(s.Prop), Damage = weapon.Damage * DamageMul[i] * WreckFireShare, Way = dir });
-                // hit or not, every round keeps their heads down
+                // hit or not, every round keeps the heads in its shadow down
                 float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
+                InShadow(i, s, dir, near);
+            }
+
+            /// <summary>The enemies of slot i in the wreck's shadow: within its shelter's reach, past it on the shooter's
+            /// line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. How many, and
+            /// with `near` above zero their heads kept down by that much ([N5.3]: a man on the wreck's flank is neither).</summary>
+            int InShadow(int i, in Shelter s, float3 along, float near)
+            {
+                int n = 0;
                 int cx0 = math.clamp((int)((s.Pos.x - s.Reach) / Spatial.CellSize), 0, Spatial.Width - 1), cx1 = math.clamp((int)((s.Pos.x + s.Reach) / Spatial.CellSize), 0, Spatial.Width - 1);
                 int cz0 = math.clamp((int)((s.Pos.z - s.Reach) / Spatial.CellSize), 0, Spatial.Length - 1), cz1 = math.clamp((int)((s.Pos.z + s.Reach) / Spatial.CellSize), 0, Spatial.Length - 1);
                 for (int z = cz0; z <= cz1; z++)
@@ -154,9 +171,15 @@ namespace TW.Sim.Combat
                     {
                         if ((Flags[j] & (uint)UnitFlags.Alive) == 0 || Hp[j] <= 0f || Team[j] == Team[i]) continue;
                         if (math.distancesq(Position[j].xz, s.Pos.xz) > s.Reach * s.Reach) continue;
-                        AddSuppression(j, near * SuppressionMul[j]);
+                        float3 rel = Position[j] - s.Pos; rel.y = 0f;
+                        float t = rel.x * along.x + rel.z * along.z;
+                        float side = math.abs(rel.x * along.z - rel.z * along.x);
+                        if (t < 0f || side > s.Body) continue;
+                        n++;
+                        if (near > 0f) AddSuppression(j, near * SuppressionMul[j]);
                     } while (Spatial.Map.TryGetNextValue(out j, ref it));
                 }
+                return n;
             }
         }
 

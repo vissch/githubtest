@@ -244,6 +244,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-08 | **R1 C2 DANGEROUS SYSTEMIC MAJOR.** **After dead ground: a man behind his own front trench is half as easy to hit, and can still be shot.** The owner, to "After dead ground: how do men reach their trench alive?": first in his own words "its fine, we should have lots of maps with different ration so this doesnt matter alot", then he picked "A softer rule: a man behind his own front trench is half as easy to hit, but can still be shot". His pick is taken as the answer, being his last word on the brief; his own words stand beside it: maps will differ, so the walk up matters less than it did. It follows "Dead ground is removed" (2026-10-06, above): the far side sees such a man again, and a shot at him hits half as often. Not built: queued for the relay as `dead-ground-half` on `lane/sim/no-dead-ground`, behind `no-dead-ground`, one replay version for both; the unit measures how many reinforcements arrive alive with the old rule, no rule and the half rule. (owner, 2026-10-07, on the Decide page; taken up by the master 2026-10-08) |
 
 ## Open: waiting on the owner
+- **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
+  is fixed (a wreck now shelters and suppresses only the men in its shadow, and a screen on the line blinds the shot:
+  `docs/02-contracts.md`, replay v43). The rest of it, "list and suppress only men the shooter could engage, not below
+  the rim", is **not** done: the owner's call of 2026-09-28 is that a gun with nobody to shoot at keeps a hidden
+  garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
+  that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
+  only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
