@@ -323,7 +323,7 @@ namespace TW.Presentation.Terrain
                     stand == WireStand.Flat ? 84f + Rand(key, 36) * 6f : down ? 62f + Rand(key, 36) * 25f : (Rand(key, 36) - .5f) * 14f,
                     yaw, (Rand(key, 37) - .5f) * 10f);
                 float size = .85f + Rand(key, 38) * .35f;
-                var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .05f : 0f), wz);
+                var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (stand == WireStand.Flat ? .05f : down ? .15f : 0f), wz);
                 // half the belt is still the old knife rests; the rest is the imported obstacles, most with the same
                 // four strands run through them (a fence section carries its own)
                 float kind = Rand(key, 44);
