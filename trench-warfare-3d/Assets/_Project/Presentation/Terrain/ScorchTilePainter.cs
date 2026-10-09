@@ -23,6 +23,10 @@ namespace TW.Presentation.Terrain
         /// <summary>The colour a fresh shell hole burns the ground toward.</summary>
         public static readonly Color Burnt = new Color(.10f, .09f, .08f);
 
+        /// <summary>A hole burns the ground round it; a mound of rubble (Deformation's negative-depth stamp) does
+        /// not. >= so a hole of depth 0 still keeps its burn.</summary>
+        public static bool Burns(TW.Sim.SimEvent mark) => mark.Dir.y >= 0f;
+
         struct Mark { public float X, Z, Radius, Fresh; }
 
         readonly List<Mark> near = new List<Mark>();
@@ -50,6 +54,7 @@ namespace TW.Presentation.Terrain
             for (int m = 0; m < marks.Count; m++)
             {
                 var mark = marks[m];
+                if (!Burns(mark)) continue;   // rubble (a negative-depth stamp): leaves no burnt ring
                 float radius = mark.Scalar * 1.25f;
                 if (radius <= 0f) continue;   // the per-texel test skips it for every texel
                 // a metre of slack: this only drops marks that cannot pass the exact test below for any texel

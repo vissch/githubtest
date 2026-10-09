@@ -64,6 +64,16 @@ namespace TW.Tests
         }
 
         [Test]
+        public void StarShell_NeverGoesUpByDay()
+        {
+            // [W12] the winter field is a day field (BiomeProfile.Winter, Dark = false) that still wants its lamps,
+            // but no star shell: the distant guns above stay by day (NightLights.Update's nextGuns path).
+            Assert.IsTrue(NightLights.FlareDue(true, 100f, 90f), "[W12] a due flare at night fires");
+            Assert.IsFalse(NightLights.FlareDue(false, 100f, 90f), "[W12] a star shell went up by day");
+            Assert.IsFalse(NightLights.FlareDue(true, 80f, 90f), "[W12] not due yet, even at night");
+        }
+
+        [Test]
         public void ThePools_TurnAFlameOrange_NotPale()
         {
             var w = NightLights.PoolWarmth;

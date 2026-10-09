@@ -128,6 +128,52 @@ namespace TW.Tests
         }
 
         [Test]
+        public void Rubble_LeavesNoBurntRing_ButAShellHoleKeepsIts()
+        {
+            // [Gt7] Deformation sends a collapsing building's rubble as a CraterStamp with a negative Dir.y (depth);
+            // a shell hole's is positive. The painter must burn the ground only for the hole, not the rubble.
+            var rubble = new List<TW.Sim.SimEvent> { new TW.Sim.SimEvent { Type = TW.Sim.SimEventType.CraterStamp, Pos = new float3(2f, 0f, 2f), Scalar = 2f, Dir = new float3(0f, -1.2f, 0f) } };
+            var hole = new List<TW.Sim.SimEvent> { new TW.Sim.SimEvent { Type = TW.Sim.SimEventType.CraterStamp, Pos = new float3(2f, 0f, 2f), Scalar = 2f, Dir = new float3(0f, 1.2f, 0f) } };
+            var born = new List<float> { 0f };
+            const float now = 0f;
+
+            var plain = NewColorTexture(16, 16);
+            var burnt = NewColorTexture(16, 16);
+            var rubbleTex = NewColorTexture(16, 16);
+            try
+            {
+                var painter = new ScorchTilePainter();
+                painter.Begin(0, 0, 16, 16, Tpm, new List<TW.Sim.SimEvent>(), born, now);
+                while (!painter.PaintRow(Ground)) { }
+                painter.Write(plain);
+
+                painter.Begin(0, 0, 16, 16, Tpm, hole, born, now);
+                while (!painter.PaintRow(Ground)) { }
+                painter.Write(burnt);
+
+                painter.Begin(0, 0, 16, 16, Tpm, rubble, born, now);
+                while (!painter.PaintRow(Ground)) { }
+                painter.Write(rubbleTex);
+
+                var plainPx = plain.GetPixels32(); var burntPx = burnt.GetPixels32(); var rubblePx = rubbleTex.GetPixels32();
+                bool anyDiffHole = false, anyDiffRubble = false;
+                for (int i = 0; i < plainPx.Length; i++)
+                {
+                    if (!Same(plainPx[i], burntPx[i])) anyDiffHole = true;
+                    if (!Same(plainPx[i], rubblePx[i])) anyDiffRubble = true;
+                }
+                Assert.IsTrue(anyDiffHole, "[Gt7] a shell hole lost its burn");
+                Assert.IsFalse(anyDiffRubble, "[Gt7] the ground round the rubble is burnt black");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(plain);
+                UnityEngine.Object.DestroyImmediate(burnt);
+                UnityEngine.Object.DestroyImmediate(rubbleTex);
+            }
+        }
+
+        [Test]
         public void Texel_RoundsAsSetPixelDoes_OnEveryBytesEdge()
         {
             // Row d (0..48) holds, for every byte k, each channel's k + 0.5 half-point (worked out four ways) moved by
