@@ -93,4 +93,6 @@
     --tw-order-gap: 6px;
     --tw-order-off: 40px;
     --tw-minimap-bezel: 14px;
+    --tw-film-inset: 10px;   /* HudLayout.FilmInsetPx: the card film sits inside the portrait window */
+    --tw-film-line: 2px;     /* HudLayout.FilmLinePx: the bone line counting the film's loop */
 }

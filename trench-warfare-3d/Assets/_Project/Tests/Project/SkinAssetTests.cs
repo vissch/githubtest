@@ -66,6 +66,8 @@ namespace TW.Tests
             Token("--tw-order-gap", HudLayout.OrderGapPx);
             Token("--tw-order-off", HudLayout.OrderOffPx);
             Token("--tw-minimap-bezel", HudLayout.MinimapBezelPx);
+            Token("--tw-film-inset", HudLayout.FilmInsetPx);
+            Token("--tw-film-line", HudLayout.FilmLinePx);
         }
 
         static Texture2D Png(string rel)

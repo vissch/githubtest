@@ -61,6 +61,36 @@ namespace TW.Tests
         }
 
         [Test]
+        public void EveryCardCarriesItsFilmWindowAboveThePortraitAndBelowTheRim()
+        {
+            // The tiny film draws over the portrait it replaces, and under everything that explains the card: the
+            // rim, the lock, the nameplate, the cost, the hotkey and the cooldown shade (CardFilm).
+            foreach (var (what, holder) in new[] { ("UnitCard.uxml", Instantiate(CardPath)), ("the code fallback", FallbackCard()) })
+            {
+                var card = holder.Q<Button>("card");
+                Assert.That(card, Is.Not.Null, what);
+                var film = card.Q("film"); var line = card.Q("filmline");
+                Assert.That(film, Is.Not.Null, $"{what} has no element named 'film'");
+                Assert.That(line, Is.Not.Null, $"{what} has no element named 'filmline'");
+                Assert.That(film.pickingMode, Is.EqualTo(PickingMode.Ignore), $"{what}: the film must not eat the card's click");
+                Assert.That(line.pickingMode, Is.EqualTo(PickingMode.Ignore), $"{what}: nor the line");
+                int Idx(string n) => card.IndexOf(card.Q(n));
+                Assert.That(Idx("film"), Is.GreaterThan(Idx("portrait")), $"{what}: the film draws over the portrait");
+                Assert.That(Idx("filmline"), Is.GreaterThan(Idx("film")), $"{what}: the line draws over the film");
+                foreach (var over in new[] { "rim", "lock", "name", "cost", "hotkey", "cooldown" })
+                    Assert.That(Idx(over), Is.GreaterThan(Idx("filmline")), $"{what}: '{over}' must draw over the film");
+            }
+        }
+
+        /// <summary>The card tree HudView builds in code (no template asset): one card, built the same way.</summary>
+        static VisualElement FallbackCard()
+        {
+            var root = Instantiate(HudPath);
+            var refs = HudView.Build(root, null, DefaultRoster(), new[] { 150, 120 });
+            return refs.Cards[0].Root.parent;
+        }
+
+        [Test]
         public void BuildMakesOneCardPerSlotAndPerSupportAbilityAndNoFocusableButton()
         {
             var root = Instantiate(HudPath);

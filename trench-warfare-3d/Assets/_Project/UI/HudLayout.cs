@@ -54,6 +54,10 @@ namespace TW.UI
         public const float MinimapScale = 2.5f;  // minimap pixels per nav cell; round 11: 3.2 made the corner twice the left column
         public const float MinimapBezelPx = 14f;  // round 7 cut it from 24 to 8; round 11: 14 so the plate's rivets and lit edge show, like the gauges
         public const float TooltipDelaySeconds = 0.35f;
+        // the tiny film a card plays under the pointer (CardFilm): inset inside the card's window, and the bone
+        // line that counts its three-second loop along the bottom of that window.
+        public const float FilmInsetPx = 10f;
+        public const float FilmLinePx = 2f;
         public const float BannerSeconds = 3f;
 
         /// <summary>The reference-space width the panel gives a screen of this aspect (height is always ReferenceHeight).</summary>

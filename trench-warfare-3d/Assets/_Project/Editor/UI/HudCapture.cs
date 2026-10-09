@@ -27,7 +27,7 @@ namespace TW.Editor
         public static readonly string[] Probes =
         {
             "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
-            "group-infantry", "group-armour", "group-support", "card", "tooltip", "banner", "pause-plate",
+            "group-infantry", "group-armour", "group-support", "card", "film", "tooltip", "banner", "pause-plate",
             "settings-plate", "tabs", "debrief-plate", "stats-table", "title", "menu-stack", "mission-list", "info-panel",
         };
 
@@ -44,9 +44,38 @@ namespace TW.Editor
             var cam = Camera.main;
             if (cam == null) { Debug.LogWarning("HudCapture: no main camera."); return null; }
             string full = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(Application.dataPath, "..", path));
+            if (Application.isBatchMode)
+            {
+                // A batch editor renders and ticks the player loop, but WaitForEndOfFrame never fires in it, so the
+                // coroutine below would wait for a frame end that never comes (Tools/assetboard/gamefilm.py draws from
+                // EditorApplication.update for the same reason). Same steps, counted in editor ticks instead.
+                Batch(doc.panelSettings, cam, full, width, height);
+                return full;
+            }
             var runner = new GameObject("HudCapture") { hideFlags = HideFlags.HideAndDontSave }.AddComponent<Runner>();
             runner.StartCoroutine(runner.Run(doc.panelSettings, cam, full, width, height));
             return full;
+        }
+
+        /// <summary>The capture in a batch editor: aim the panel at a texture, give it two ticks to draw into it, then
+        /// probe, render the camera and composite exactly as the coroutine does.</summary>
+        static void Batch(PanelSettings panel, Camera cam, string full, int w, int h)
+        {
+            var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
+            var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
+            var oldTarget = panel.targetTexture; bool oldClear = panel.clearColor; var oldColor = panel.colorClearValue;
+            panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
+            int tick = 0;
+            EditorApplication.CallbackFunction step = null;
+            step = () =>
+            {
+                if (++tick < 3) return;   // one tick to lay the panel out at the new size, one to draw it
+                EditorApplication.update -= step;
+                Runner.Finish(panel, cam, rtUi, rtScene, full, w, h);
+                panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
+                rtUi.Release(); rtScene.Release(); Object.DestroyImmediate(rtUi); Object.DestroyImmediate(rtScene);
+            };
+            EditorApplication.update += step;
         }
 
         sealed class Runner : MonoBehaviour
@@ -62,11 +91,20 @@ namespace TW.Editor
                 panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
                 yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
                 yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                Finish(panel, cam, rtUi, rtScene, full, w, h);
+                panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
+                rtUi.Release(); rtScene.Release(); Destroy(rtUi); Destroy(rtScene);
+                Destroy(gameObject);
+            }
+
+            /// <summary>Probe the rectangles, render the field, composite the panel over it and write both files.
+            /// The caller owns the two textures and the panel's old target.</summary>
+            internal static void Finish(PanelSettings panel, Camera cam, RenderTexture rtUi, RenderTexture rtScene, string full, int w, int h)
+            {
                 string rects = Probe(panel, w, h);
                 var camTarget = cam.targetTexture;
                 cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
                 var scene = Read(rtScene); var ui = Read(rtUi);
-                panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
                 var px = scene.GetPixels32(); var upx = ui.GetPixels32();
                 for (int i = 0; i < px.Length; i++)
                 {
@@ -79,8 +117,7 @@ namespace TW.Editor
                 File.WriteAllBytes(full, scene.EncodeToPNG());
                 File.WriteAllText(full + ".json", rects);
                 Debug.Log($"HudCapture: wrote {full} ({w}x{h})");
-                Destroy(scene); Destroy(ui); rtUi.Release(); rtScene.Release(); Destroy(rtUi); Destroy(rtScene);
-                Destroy(gameObject);
+                Object.DestroyImmediate(scene); Object.DestroyImmediate(ui);
             }
 
             /// <summary>JSON {"w","h","rects":{name:[x,y,w,h]}} in capture pixels, top-left origin; the first

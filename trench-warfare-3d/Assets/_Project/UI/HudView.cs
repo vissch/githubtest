@@ -16,7 +16,7 @@ namespace TW.UI
     public sealed class CardRefs
     {
         public Button Root;
-        public VisualElement Portrait, Cooldown, Rim, Lock, Weapon;
+        public VisualElement Portrait, Film, FilmLine, Cooldown, Rim, Lock, Weapon;
         public Label Name, Cost, Hotkey, Badge;
         public int Slot = -1;                      // roster slot, or -1 for a support card
         public byte Archetype;
@@ -24,6 +24,8 @@ namespace TW.UI
         public string Title, Tip;                  // tooltip text, built once
         public string Label;                       // the nameplate (shorter than Title on the support cards)
         public string PortraitClass;
+        /// <summary>The portrait name its tiny film is baked under (CardFilm), null for a card with no film.</summary>
+        public string FilmName;
         public int BaseCost;
         // cached state
         public int LastCostText = int.MinValue, LastCooldownPct = -1, LastBadge = -1;
@@ -186,7 +188,7 @@ namespace TW.UI
             holder.AddToClassList(SlotClass);   // the gap rule's hook: a runtime TemplateContainer carries no unity-template-container class
             if (parent.childCount == 1) holder.AddToClassList(FirstSlotClass);   // USS has no :first-child, so the group's first card is marked here
             c.Root = holder.Q<Button>("card");
-            c.Portrait = holder.Q("portrait"); c.Cooldown = holder.Q("cooldown"); c.Rim = holder.Q("rim"); c.Lock = holder.Q("lock"); c.Weapon = holder.Q("weapon");
+            c.Portrait = holder.Q("portrait"); c.Film = holder.Q("film"); c.FilmLine = holder.Q("filmline"); c.Cooldown = holder.Q("cooldown"); c.Rim = holder.Q("rim"); c.Lock = holder.Q("lock"); c.Weapon = holder.Q("weapon");
             c.Name = holder.Q<Label>("name"); c.Cost = holder.Q<Label>("cost"); c.Hotkey = holder.Q<Label>("hotkey"); c.Badge = holder.Q<Label>("badge");
             return c;
         }
@@ -198,7 +200,7 @@ namespace TW.UI
             var b = new Button { name = "card" }; b.AddToClassList("tw-card"); b.AddToClassList("hud-card"); holder.Add(b);
             void Ve(string n, string cls) { var v = new VisualElement { name = n, pickingMode = PickingMode.Ignore }; v.AddToClassList(cls); b.Add(v); }
             void Lb(string n, string cls) { var l = new Label { name = n, pickingMode = PickingMode.Ignore }; l.AddToClassList(cls); b.Add(l); }
-            Ve("portrait", "tw-card__portrait"); Ve("cooldown", "tw-card__cooldown"); Ve("rim", "tw-card__rim"); Ve("lock", "tw-card__lock"); Ve("weapon", "tw-card__weapon");
+            Ve("portrait", "tw-card__portrait"); Ve("film", "tw-card__film"); Ve("filmline", "tw-card__filmline"); Ve("cooldown", "tw-card__cooldown"); Ve("rim", "tw-card__rim"); Ve("lock", "tw-card__lock"); Ve("weapon", "tw-card__weapon");
             Lb("name", "tw-card__nameplate"); Lb("cost", "tw-card__cost"); Lb("hotkey", "tw-card__hotkey"); Lb("badge", "tw-card__badge");
             return holder;
         }
@@ -209,6 +211,7 @@ namespace TW.UI
         {
             c.PortraitClass = "tw-portrait-" + portraitName;
             c.Portrait.AddToClassList(c.PortraitClass);
+            c.FilmName = portraitName;   // CardFilmPlayer looks for CardFilms/<portraitName>; no sheet, no film
         }
 
         static void SetWeaponBadge(CardRefs c, byte archetype)

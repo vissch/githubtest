@@ -3,6 +3,8 @@
          (is-locked is-cooling is-poor is-armed is-over). The children ignore picking so the Button gets the click. -->
     <ui:Button name="card" class="tw-card hud-card" text="">
         <ui:VisualElement name="portrait" class="tw-card__portrait" picking-mode="Ignore" />
+        <ui:VisualElement name="film" class="tw-card__film" picking-mode="Ignore" />
+        <ui:VisualElement name="filmline" class="tw-card__filmline" picking-mode="Ignore" />
         <ui:VisualElement name="cooldown" class="tw-card__cooldown" picking-mode="Ignore" />
         <ui:VisualElement name="rim" class="tw-card__rim" picking-mode="Ignore" />
         <ui:VisualElement name="lock" class="tw-card__lock" picking-mode="Ignore" />
