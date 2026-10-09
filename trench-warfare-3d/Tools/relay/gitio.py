@@ -62,6 +62,19 @@ def changed_files(wt, before, after):
     return [l for l in git(["diff", "--name-only", before, after], wt).splitlines() if l]
 
 
+def commits(wt, before, after, most=20):
+    """(the commits from before to after, oldest first and `most` at the most, each {sha, subject}; how many more
+    there were). For a leg's record: what it added to its lane. Nothing when either end is unknown, or when the
+    lane did not only grow (a rebase: the commits in between are then mostly other people's)."""
+    if not before or not after or before == after:
+        return [], 0
+    if git_raw(["merge-base", "--is-ancestor", before, after], wt).returncode:
+        return [], 0
+    out = git(["log", "--reverse", "--format=%H%x09%s", "%s..%s" % (before, after)], wt, check=False)
+    rows = [l.split("\t", 1) for l in out.splitlines() if "\t" in l]
+    return [{"sha": sha[:10], "subject": subject[:120]} for sha, subject in rows[:most]], max(0, len(rows) - most)
+
+
 def code_changed(wt, before, after):
     """A change that touches something outside docs/: a docs-only commit does not count as progress."""
     return [f for f in changed_files(wt, before, after) if not f.startswith("docs/")]
