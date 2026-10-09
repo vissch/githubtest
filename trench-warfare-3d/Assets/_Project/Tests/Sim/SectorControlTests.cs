@@ -58,7 +58,8 @@ namespace TW.Tests
             finally { objectives.Dispose(); states.Dispose(); }
         }
 
-        // [U6] Attacking the enemy's line keeps the old order: the lowest OrderIndex first.
+        // Attacking the enemy's line keeps the old order: the lowest OrderIndex first.
+        // A guard: green on the old rule too.
         [Test]
         public void AttackingTheEnemyKeepsItsOrder()
         {
@@ -67,13 +68,13 @@ namespace TW.Tests
             try
             {
                 Assert.IsFalse(SectorControlSystem.Unlocked(objectives, states, Reserve1, 0),
-                    "[U6] on side 1 team 0 still needs side 1's Main line before its Reserve line");
+                    "on side 1 team 0 still needs side 1's Main line before its Reserve line");
                 Assert.IsTrue(SectorControlSystem.Unlocked(objectives, states, Main1, 0),
-                    "[U6] side 1's Main line is the first of the enemy's that team 0 may take");
+                    "side 1's Main line is the first of the enemy's that team 0 may take");
 
                 states[Main1] = new ObjectiveState { Owner = 0, CapturingTeam = 255 };
                 Assert.IsTrue(SectorControlSystem.Unlocked(objectives, states, Reserve1, 0),
-                    "[U6] with side 1's Main line taken, team 0 may go on to its Reserve line");
+                    "with side 1's Main line taken, team 0 may go on to its Reserve line");
             }
             finally { objectives.Dispose(); states.Dispose(); }
         }

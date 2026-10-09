@@ -127,6 +127,24 @@ namespace TW.Tests
             Assert.AreEqual(a.Hash(SimHash.Offset), d.Hash(SimHash.Offset), "a replay header rebuilds the same map");
         }
 
+        // [S3b] The test-level switch rides in the battlefield params, so it has to survive the replay header's
+        // round trip and reach the map the generator builds.
+        [Test]
+        public void ATestLevelFieldSurvivesBeingWrittenDownAndReadBack()
+        {
+            var p = BattlefieldParams.Landing(1917);
+            p.TestLevel = true;
+            var round = BattlefieldParams.Deserialize(p.Serialize());
+            Assert.IsTrue(round.TestLevel, "[S3b] a written-down test level comes back a test level");
+            using var map = BattlefieldGenerator.Create(round, Allocator.Persistent);
+            Assert.IsTrue(map.TestLevel, "[S3b] and the map it builds is a test level");
+
+            var plain = BattlefieldParams.Deserialize(BattlefieldParams.ShelledForest(7).Serialize());
+            Assert.IsFalse(plain.TestLevel, "[S3b] a normal match's field round-trips as no test level");
+            using var plainMap = BattlefieldGenerator.Create(plain, Allocator.Persistent);
+            Assert.IsFalse(plainMap.TestLevel, "[S3b] ...and builds a map that is no test level");
+        }
+
         [Test]
         public void Generator_MakesAShelledWoodWithARiver()
         {

@@ -248,7 +248,8 @@ namespace TW.Tests
                 "[S3] the paratrooper costs nothing, so Brass's own slot 0 must stand");
         }
 
-        // [S3] ...and the test level may field anything: the same frog stands on the playtest map.
+        // ...and the test level may field anything: the same frog stands on the playtest map.
+        // A guard: green on the old rule too.
         [Test]
         public void TheTestLevelStillFieldsAnything()
         {
@@ -256,7 +257,27 @@ namespace TW.Tests
             cfg.LoadoutA = Ten(InfantryArchetype.Frog);
             using var m = MatchSim.CreatePlaytest(cfg);
             Assert.AreEqual(InfantryArchetype.Frog, m.World.Roster[0].Archetype,
-                "[S3] the test level may field anything, frog included");
+                "the test level may field anything, frog included");
+        }
+
+        // [S3b] The Proving Ground launches a GENERATED battlefield, so the test level's freedom has to reach that
+        // path too: with BattlefieldParams.TestLevel on, the launch's any ten stands as chosen. The switch OFF on the
+        // same path is ANormalMatchRefusesAUnitTheFactionDoesNotFieldAndOneThatCostsNothing, above.
+        [Test]
+        public void AGeneratedTestLevelFieldsAnyTen()
+        {
+            var p = BattlefieldParams.Landing(1917);
+            Assert.IsFalse(p.TestLevel, "[S3b] a normal match's field is not a test level");
+            p.TestLevel = true;
+
+            var cfg = Config();
+            cfg.LoadoutA = Ten(InfantryArchetype.Jetpack, InfantryArchetype.Frog, InfantryArchetype.Rifle);
+            using var m = MatchSim.CreateBattlefield(cfg, p);
+
+            Assert.AreEqual(InfantryArchetype.Jetpack, m.World.Roster[0].Archetype,
+                "[S3b] on a test level the launch's any ten stands, Brass's jetpack included");
+            Assert.AreEqual(InfantryArchetype.Frog, m.World.Roster[1].Archetype,
+                "[S3b] ...and a unit no faction fields");
         }
     }
 }
