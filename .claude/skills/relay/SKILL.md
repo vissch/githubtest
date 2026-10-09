@@ -33,6 +33,7 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 | `/relay add` | `$R add <id> --lane lane/show/<x> --role <role> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |
 | `/relay role` | `$R role <role> <id> [<id> ...]` (a role from `Tools/pipeline/roles.json`; between legs) | say which units now get which brief |
 | watch a leg | `$R view "<leg folder>" --follow` (status prints the folder) | |
+| "a second opinion", "ask Grok", "ask Codex" | `python <relay folder>/second.py critic --vendor grok\|codex --bundle <folder> --role <role> --out <file>`, or `review --vendor .. --checkout <repo> --commits <base>..<head> --out <file>` (desktop only: the vendors' tools are there) | say its score or verdict beside the critic's or the reader's own, and that it decides nothing (`docs/reference/relay.md`, "A second opinion from another vendor") |
 
 ## Rules
 - A unit's role decides the brief its legs get (the table in the `pipeline` skill; `Tools/pipeline/roles.json`).

@@ -37,6 +37,44 @@ round adds a row to `relay/<station>/lessons.md` on the board. A fix round that 
 undoing it is the owner's call. With no room left (the leg cap, the time, the owner's stop) the critic is skipped
 and the note says so. Queued lane work has no evidence bundle and gets no critic.
 
+## A second opinion from another vendor
+
+`Tools/relay/second.py` asks another vendor's model for a critic's score or a second reader's report, on the same
+files a Claude critic or reader gets: Grok Build (`grok`) or Codex (`codex`), under the owner's own sign-in on the
+desktop. It records and decides nothing. The owner asked for it on 2026-10-09 (`decisions.md`).
+
+**What holds a run to reading.** Nothing here goes through the relay's guard hooks; a second opinion has rails of
+its own, and `providers/<vendor>.py` says how each vendor does its part.
+
+| Rail | How |
+|---|---|
+| It works on a copy | a folder of its own under `<home>/second/` (in a run: `<home>/runs/<run>/second/`), outside every checkout; a review gets the code and docs at the head commit from git's objects, with no `.git` |
+| The vendor's read-only mode | Grok: the three reading tools and nothing else, in `dontAsk` mode, MCP calls denied (its OS sandbox does not exist on Windows). Codex: `-s read-only`, the user's config left out. A command line that does not ask for this is not started |
+| The last message is the paper | the script writes the file; text files ride in the prompt, pictures are attached (Codex) or opened with the reading tool (Grok) |
+| The run is read afterwards | the copy is hashed before and after; a changed file, a tool beyond reading, or a run that says it had more tools or another mode than it was given makes the paper untrusted and unused |
+
+`$R proof second <vendor>` asks the model to write a file in and outside its folder and passes when nothing
+changed; `--open` runs the same with the rail off, where the file must appear, or the proof shows nothing. On the
+desktop on 2026-10-09: Grok passed both. Codex wrote nothing either way: over ssh on that machine its sandbox starts
+no command at all, so the proof cannot yet tell the rail from that. Run both again after a Codex update, and before
+trusting Codex with anything it could harm.
+
+**In a run.** `limits.json` `second_critic` names the vendor ("" as shipped: nobody), and `run --second
+grok|codex|off` outranks it. After each critic round the vendor scores a fresh copy of the same bundle with the same
+card. Its paper is kept beside the critic's as `critic-r<n>-<vendor>.md`, a row goes to
+`relay/<station>/second/` on the board, and the result's note says "grok on round 1: 62/100". A later round's
+bundle holds neither critic's earlier paper. The Claude critic's score alone decides a fix round. A second opinion
+that fails, runs out of its time (`second_minutes`) or cannot be trusted is words in the note: it never stops a run
+and never changes a verdict. It is no leg: the leg cap does not count it and the day's spend does not hold it. Its
+own cap is a count, `second_per_day` over every station, because it draws on the other vendor's plan.
+
+**Cost.** The owner's plans with the two vendors cover these runs. `vendors.json` holds the model each is asked for
+and list prices, for a "what this would have cost" figure on the row (`list_usd`): Grok prints its own, Codex prints
+tokens only. Codex's row names the best model the installed `codex.exe` may use; move it when Codex is updated.
+
+Not built: plan and execute legs by another vendor. Those need the guard, the context meter and the day's budget
+for that vendor.
+
 ## The retrospective
 
 Between units, every ten legs (`retro_every_legs`), one leg looks back: Opus high, read-only, in a folder that holds
@@ -87,6 +125,14 @@ $R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <pro
 $R add --unit <file> [--role <role>]              # the same from a file in the queue file's shape; --role when it names none
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
+$R run --work <work checkout> --second grok       # another vendor scores each critic round too ("A second opinion")
+$R proof second grok|codex [--open]               # the vendor's read-only run is asked to write: nothing may change
+S="python trench-warfare-3d/Tools/relay/second.py"
+$S critic --vendor grok|codex --bundle <folder> --role <role> --stage <id> --out critic.md
+$S review --vendor grok|codex --checkout <repo> --commits <base>..<head> --about "<unit>" --out report.md
+$S bundle --checkout <repo> --commits <base>..<head> --out <folder>   # where the repo is; then, where the vendor is:
+$S review --vendor grok|codex --bundle <folder> --out report.md
+python trench-warfare-3d/Tools/relay/test_second.py  # the tests of second opinions; they use a stand-in for both vendors
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
 $R day                                            # one screen: budget, pace, run, queue in its order, what needs the owner, his answers
