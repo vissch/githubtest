@@ -118,6 +118,19 @@ def fixtures():
         case('probe: a Clip enum that no longer starts at None stops the build', False, 'no ProbeError')
     except src_code.ProbeError as e:
         case('probe: a Clip enum that no longer starts at None stops the build', 'x.cs' in str(e), e)
+    # [narrows-probe] a ground is read from its preset in the sim or, when it has none, from its inline case in the launch
+    gen = 'public static BattlefieldParams Wood(uint seed) => new BattlefieldParams { Seed = seed, River = true, Sea = false };\n'
+    launch = ('switch (ground)\n{\n    case Ground.Wood: return TW.Sim.Terrain.BattlefieldParams.Wood(seed);\n'
+              '    case Ground.Ford: return new TW.Sim.Terrain.BattlefieldParams\n    {\n        Seed = seed, Width = 90f, River = true,\n    };\n'
+              '    case Ground.Flat: return new TW.Sim.Terrain.BattlefieldParams { Seed = seed, River = false, Sea = false };\n}\n')
+    got = {g: src_code.ground_flags(g, gen, launch, 'gen.cs', 'launch.cs') for g in ('Wood', 'Ford', 'Flat')}
+    case('probe: [narrows-probe] a ground with no preset in the sim is read from its inline case in the launch',
+         got == dict(Wood=dict(river=True, sea=False), Ford=dict(river=True, sea=False), Flat=dict(river=False, sea=False)), got)
+    try:
+        src_code.ground_flags('Marsh', gen, launch, 'gen.cs', 'launch.cs')
+        case('probe: [narrows-probe] a ground with neither a preset nor an inline case stops the build', False, 'no ProbeError')
+    except src_code.ProbeError as e:
+        case('probe: [narrows-probe] a ground with neither a preset nor an inline case stops the build', 'gen.cs' in str(e) and 'launch.cs' in str(e) and 'Marsh' in str(e), e)
     case('films: a clip name is written in words', (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')) == ('Fire stand', 'Turn 90 l', 'Fire mg'),
          (films.words('FireStand'), films.words('Turn90L'), films.words('FireMG')))
 
