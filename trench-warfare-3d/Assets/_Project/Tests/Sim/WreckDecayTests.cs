@@ -523,6 +523,30 @@ namespace TW.Tests
         }
 
         [Test]
+        // [N5.6] "a living target always wins" holds only on a man's own scan tick (TargetAcquisition's stagger,
+        // one tick in three); on the other two a lost mark only clears the target. Firing at the wreck then spends
+        // his 40-tick cooldown before the scan that could give him the man back, so AtWreck waits for his scan tick.
+        public void HeOnlyTurnsOnTheWreckOnHisOwnScanTick()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            int shots = 0;
+            for (int t = 0; t < 400; t++)
+            {
+                Step(m);
+                if (t < Settle) continue;
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type != SimEventType.Shot || ev[i].A != gun || !PropTarget.IsProp(ev[i].B)) continue;
+                    shots++;
+                    Assert.AreEqual((uint)gun % 3u, ev[i].Tick % 3u, "[N5.6] he fired at the wreck on an off tick");
+                }
+            }
+            Assert.Greater(shots, 5, "and he does still fire at it on his own scan ticks");
+        }
+
+        [Test]
         public void TheNewStagesHaveTheRulesTheOwnerChose()
         {
             Assert.AreEqual(PropKind.BrokenWreck, PropRules.Next(PropKind.Wreck));
