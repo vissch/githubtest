@@ -49,7 +49,7 @@ namespace TW.Tests
             TestContext.WriteLine($"garrison men's steps reversed {reversals} times in two minutes, {sampled} man-ticks sampled");
             // [N6.9] review, 2026-10-07: with nobody ever sampled (the scenario stopped fielding a trench garrison)
             // reversals stayed 0 and this passed for the wrong reason; a floor on what was actually measured catches that.
-            Assert.Greater(sampled, 1000L, "[N6.9] setup: men were actually sampled in a trench");
+            Assert.Greater(sampled, 1200L, "[N6.9] setup: men were actually sampled in a trench");
             Assert.Less(reversals, 8, "a man on his way to his post is not shoved back and forth by the men at theirs");
         }
 
@@ -92,7 +92,7 @@ namespace TW.Tests
             TestContext.WriteLine($"men in the open: {open / 60f:F0} man-minutes, {reversals} steps reversed ({perMinute:F2} a man-minute)");
             // [N6.9] review, 2026-10-07: nobody ever in the open also passed, reversals and open both 0; a floor on
             // man-minutes actually sampled catches that.
-            Assert.Greater(open / 60f, 1f, "[N6.9] setup: men were actually sampled in the open");
+            Assert.Greater(open / 60f, 2f, "[N6.9] setup: men were actually sampled in the open");
             Assert.Less(perMinute, 0.8f, "a man closing on an enemy does not close and stop closing on alternate ticks (1.3 a man-minute when the way was sampled a metre apart)");
         }
     }
