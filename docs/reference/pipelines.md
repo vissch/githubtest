@@ -79,6 +79,7 @@ Traps, all silent:
 
 | Script | Does | Usage |
 |---|---|---|
+| `cardfilm.py` | Bakes a deploy card's tiny film: 3 s of a unit's film on the Drive (`G:/My Drive/TW3D-pipeline/assets/film`, `TW_FILM_DIR`) cut with ffmpeg at 10 fps, each 960 x 540 frame centre-cropped square and resized to 160, pasted into a 6 x 5 grid as `UI/Resources/CardFilms/<Portrait>.png` (30 frames, 960 x 800) that the HUD plays as a flipbook | `python Tools/cardfilm.py --unit Rifleman Assault MG Maw` (`--list` the portrait -> film mapping, `--start <s>` another second; needs ffmpeg on PATH or `TW_FFMPEG`) |
 | `portraitcut.py` | Cuts a machine's portrait render (`mechsplit.py TW_BATTLE=1`) into `UI/Resources/UnitArt/<Name>.png` (512 px) and `UI/Skin/Portraits/<Name>.png` (256 px): cropped, centred, an ink outline | `python Tools/portraitcut.py <render.png> <Name>` |
 
 ## Asset playground (docs/22)
