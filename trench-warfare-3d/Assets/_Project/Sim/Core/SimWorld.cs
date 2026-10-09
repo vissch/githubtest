@@ -233,7 +233,7 @@ namespace TW.Sim
             freeSlots.Add(slot);
             AliveCount--;
             Events.Add(Tick, SimEventType.Death, slot, killer, Position[slot], impulse, knock);
-            if (vehicle) Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(0f, Yaw[slot], 0f));   // dir.y = hull yaw, for the wreck
+            if (vehicle) Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(Archetype[slot] + 1, Yaw[slot], 0f));   // dir.x = archetype + 1, dir.y = hull yaw, for the wreck (the slot can be let again this step)
         }
 
         // ------------------------------------------------------------------ tick

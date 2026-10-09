@@ -97,7 +97,7 @@ namespace TW.Sim.Match
                 float3 at = e.Pos;
                 // its size class (PropDef.Scale) from the machine's hull in the match's unit table, not the slot's MaxHp: a
                 // tougher machine leaves a tougher wreck, and every stage keeps the size (MapData.SetPropKind)
-                byte kindOf = w.Archetype[e.A];
+                byte kindOf = e.Dir.x >= 1f ? (byte)(e.Dir.x - 1f) : w.Archetype[e.A];   // from the event: the slot may be let again in this same step
                 float size = PropRules.WreckSize(kindOf < Archetypes.Count ? w.Units.Roster[kindOf].Hp : PropRules.WreckSizeHp);
                 int index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
                 if (index < 0 && NearestFreeCell(e.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
