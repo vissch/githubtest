@@ -42,6 +42,20 @@ namespace TW.Tests
             Assert.IsFalse(InputFocus.Listening, "a scene load stops the key-binding listen");
         }
 
+        // Reset() runs the per-scene registry at its end (SceneStatics.cs:44), the line that keeps a destroyed
+        // scene's cached view from being handed out in the next scene. Only a PlayMode test pinned it; a Reset that
+        // stopped running the registry read as green in EditMode.
+        [Test]
+        public void A_Scene_Load_Runs_Every_Per_Scene_Registration()
+        {
+            int ran = 0;
+            // The registration lives for the rest of the editor session (there is no unregister): it touches
+            // nothing but this counter.
+            SceneStatics.RegisterPerScene("SceneStaticsTests", () => ran++);
+            SceneStatics.Reset();
+            Assert.AreEqual(1, ran, "a scene load runs every per-scene registration");
+        }
+
         [Test]
         public void The_End_Of_A_Session_Clears_Them()
         {

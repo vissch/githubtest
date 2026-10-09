@@ -31,6 +31,7 @@ namespace TW.Tests
         public IEnumerator TheFirstCampaignDeployBindsTheBattleAndLeavesNoMenuOverIt()
         {
             bool? persist = ProfileStore.PersistOverride;
+            var profile = ProfileStore.Current;   // put the real one back: this test's fake outlived it, with saving on again
             ProfileStore.PersistOverride = false;
             ProfileStore.Use(new CampaignProfile { Faction = 0, Gold = 500 });
             CampaignSession.Clear();
@@ -82,6 +83,7 @@ namespace TW.Tests
                 MatchLaunch.Current = null;
                 CampaignSession.Clear();
                 SceneStatics.ResetSession();
+                ProfileStore.Use(profile);
                 ProfileStore.PersistOverride = persist;
             }
             yield return SceneManager.LoadSceneAsync(MatchLaunch.MenuScene, LoadSceneMode.Single);

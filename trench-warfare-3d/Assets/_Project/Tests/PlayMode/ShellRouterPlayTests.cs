@@ -45,16 +45,21 @@ namespace TW.Tests
             yield return null;
         }
 
-        /// <summary>A screen that counts what the router does to it.</summary>
+        /// <summary>A screen that counts what the router does to it, and holds the HUD's click mask the way the
+        /// real screens do (StrategicMapScreen.cs:41,47,49): claim it when uncovered, release it when it is still
+        /// mine. Without that the HudBridge assert below could not fail, since nothing here ever touched the mask.</summary>
         sealed class CountingScreen : ShellScreen
         {
             readonly VisualTreeAsset tree;
+            System.Func<Vector2, bool> mine;
             public int Uncovered, Unbound;
             public CountingScreen(VisualTreeAsset tree) { this.tree = tree; }
             public override VisualTreeAsset Tree(ShellAssets a) => tree;
             protected override void OnBind() { }
-            protected override void OnUnbind() { Unbound++; }
-            public override void OnUncovered() { Uncovered++; }
+            protected override void OnUnbind() { Unbound++; Release(); }
+            public override void OnCovered() { Release(); }
+            public override void OnUncovered() { Uncovered++; mine = _ => true; HudBridge.PointerOverUi = mine; }
+            void Release() { if (mine != null && HudBridge.PointerOverUi == mine) HudBridge.PointerOverUi = null; }
         }
 
         // [L1] ClearStack popped one by one, so each Pop uncovered the screen below — in the NEW scene, since
@@ -100,6 +105,50 @@ namespace TW.Tests
                 Assert.That(HudBridge.PointerOverUi, Is.SameAs(hudMask),
                     "the HUD's click mask did not survive the teardown");
                 Assert.That(doc.rootVisualElement.childCount, Is.EqualTo(0), "nothing is left on the panel");
+            }
+            finally
+            {
+                Object.Destroy(go);
+                HudBridge.PointerOverUi = mask;
+                ShellBoot.Disabled = boot;
+            }
+            yield return null;
+        }
+
+        // Pop's own order (ShellRouter.cs:121-122) lost its test when ClearStack stopped going through Pop:
+        // APoppedScreenLeavesThePanel now only exercises ClearStack. Untagged: the order is right already.
+        [UnityTest]
+        public IEnumerator A_Pop_Takes_The_Screen_Off_The_Panel()
+        {
+            bool boot = ShellBoot.Disabled; ShellBoot.Disabled = true;
+            var assets = ShellAssets.Load();
+            Assert.That(assets != null && assets.Panel != null && assets.MainMenu != null, "ShellAssets missing: run TW/UI/Build Shell Assets");
+            if (ShellRouter.Instance != null) { Object.Destroy(ShellRouter.Instance.gameObject); yield return null; }
+            var go = new GameObject("shell router pop test");
+            var mask = HudBridge.PointerOverUi;
+            try
+            {
+                var doc = go.AddComponent<UIDocument>();
+                doc.panelSettings = assets.Panel;
+                var router = go.AddComponent<ShellRouter>();
+                router.Assets = assets;
+                yield return null;   // Start binds the test scene
+                router.ClearStack();  // drop whatever the bind pushed: this test owns the stack
+
+                var lower = new CountingScreen(assets.MainMenu);
+                var upper = new CountingScreen(assets.MainMenu);
+                router.Push(lower);
+                router.Push(upper);
+                int drawn = doc.rootVisualElement.childCount;
+                lower.Uncovered = 0;
+
+                router.Pop();
+
+                Assert.That(router.Depth, Is.EqualTo(1), "a pop takes one screen off the stack");
+                Assert.That(doc.rootVisualElement.childCount, Is.EqualTo(drawn - 1),
+                    "the popped screen is still on the panel: it would stay drawn over whatever is below it");
+                Assert.That(upper.Unbound, Is.EqualTo(1), "the popped screen is unbound");
+                Assert.That(lower.Uncovered, Is.EqualTo(1), "the screen below a pop is uncovered, so it rebuilds what it dropped when covered");
             }
             finally
             {
