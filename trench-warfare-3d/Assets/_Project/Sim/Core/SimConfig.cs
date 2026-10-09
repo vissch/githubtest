@@ -68,6 +68,7 @@ namespace TW.Sim
             public float3 SpawnB;          // player 1 deployment point
             public float GoalZA;           // Z that player 0 units advance toward in Phase 0 movement
             public float GoalZB;           // Z that player 1 units advance toward in Phase 0 movement
+            public bool TestLevel;         // MapData.TestLevel: the sim's own try-it maps may field anything (owner, 2026-10-07)
         }
     }
 }

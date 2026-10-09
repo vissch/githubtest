@@ -20,7 +20,7 @@ namespace TW.Sim.Terrain
 
         public static MapData Create(Allocator allocator, float width = 300f, float length = 800f)
         {
-            var map = new MapData(MapId, new float2(width, length), allocator);
+            var map = new MapData(MapId, new float2(width, length), allocator) { TestLevel = true };
             // Slight bowl so LoS tests have something to hit: ground rises 2 m toward the centre of Z.
             for (int z = 0; z < map.Height.Length; z++)
             {
@@ -58,7 +58,7 @@ namespace TW.Sim.Terrain
         public static MapData CreatePlaytest(Allocator allocator)
         {
             const float width = 300f, length = 480f;
-            var map = new MapData(PlaytestMapId, new float2(width, length), allocator);
+            var map = new MapData(PlaytestMapId, new float2(width, length), allocator) { TestLevel = true };
             for (int z = 0; z < map.Height.Length; z++)
             {
                 float t = z / (float)map.Height.Length;

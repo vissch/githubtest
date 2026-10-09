@@ -16,6 +16,7 @@ using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
+using TW.Sim.Terrain;
 
 namespace TW.Tests
 {
@@ -194,7 +195,7 @@ namespace TW.Tests
             cfg.LoadoutB = Ten(VehicleArchetype.Breaker, InfantryArchetype.Sniper);
             var back = ReplayPlayer.Parse(new ReplayRecorder(cfg, default, 1).Serialize());
 
-            Assert.AreEqual(38, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v38's: bump with the format (v6 on its own lane, before the overhaul landed)");
+            Assert.AreEqual(39, ReplayRecorder.FormatVersion, "a header that carries the loadout (since v9) is v39's: bump with the format (v6 on its own lane, before the overhaul landed)");
             Assert.AreEqual(RosterEntry.SlotCount, back.Config.LoadoutA.Length);
             var chosen = Odd();
             for (int s = 0; s < RosterEntry.SlotCount; s++) Assert.AreEqual(chosen[s], back.Config.LoadoutA[s], $"slot {s}");
@@ -222,6 +223,40 @@ namespace TW.Tests
             bytes[4] = 5; bytes[5] = 0;   // the version, straight after the four magic bytes
             var e = Assert.Throws<InvalidDataException>(() => ReplayPlayer.Parse(bytes));
             StringAssert.Contains("v5", e.Message);
+        }
+        // [S3] The owner's call of 2026-10-07: in a normal match a list of ten holds only the player's own faction's
+        // units and never one that costs nothing; the test level may field anything.
+        [Test]
+        public void ANormalMatchRefusesAUnitTheFactionDoesNotFieldAndOneThatCostsNothing()
+        {
+            var cfg = Config();
+            cfg.LoadoutA = Ten(InfantryArchetype.Jetpack, InfantryArchetype.Frog, InfantryArchetype.Rifle);
+            cfg.LoadoutB = Ten(InfantryArchetype.Para);
+            using var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.Landing(1917));
+
+            // Iron (player 0): the jetpack is Brass's, the frog is nobody's, so Iron's own slots 0 and 1 stand.
+            Assert.AreEqual(FactionRoster.Slot(FactionId.Iron, 0).Archetype, m.World.Roster[0].Archetype,
+                "[S3] the jetpack is not Iron's to field, so Iron's own slot 0 must stand");
+            Assert.AreEqual(FactionRoster.Slot(FactionId.Iron, 1).Archetype, m.World.Roster[1].Archetype,
+                "[S3] the frog is no faction's unit, so Iron's own slot 1 must stand");
+            Assert.AreEqual(InfantryArchetype.Rifle, m.World.Roster[2].Archetype,
+                "[S3] the rifleman is Iron's and costs silver, so the choice stands");
+
+            // Brass (player 1): the paratrooper is in Brass's pool but costs nothing.
+            int b0 = RosterEntry.SlotCount;
+            Assert.AreEqual(FactionRoster.Slot(FactionId.Brass, 0).Archetype, m.World.Roster[b0].Archetype,
+                "[S3] the paratrooper costs nothing, so Brass's own slot 0 must stand");
+        }
+
+        // [S3] ...and the test level may field anything: the same frog stands on the playtest map.
+        [Test]
+        public void TheTestLevelStillFieldsAnything()
+        {
+            var cfg = Config();
+            cfg.LoadoutA = Ten(InfantryArchetype.Frog);
+            using var m = MatchSim.CreatePlaytest(cfg);
+            Assert.AreEqual(InfantryArchetype.Frog, m.World.Roster[0].Archetype,
+                "[S3] the test level may field anything, frog included");
         }
     }
 }

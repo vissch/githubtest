@@ -109,6 +109,15 @@ namespace TW.Sim
                 {
                     int ri = i * RosterEntry.SlotCount + s;
                     byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
+                    // Owner's call of 2026-10-07: in a normal match the chosen ten hold only the player's own faction's
+                    // units and never one that costs nothing; the test level (greybox, playtest) may field anything.
+                    // A refused choice leaves the faction's own slot standing rather than an empty card.
+                    if (!Init.TestLevel)
+                    {
+                        var pick = a < Archetypes.Count ? Units.Roster[a] : default;
+                        if (!FactionRoster.Fields(faction, a) || pick.Cost <= 0)
+                            a = FactionRoster.Slot(faction, s).Archetype;
+                    }
                     var e = a < Archetypes.Count ? Units.Roster[a] : default;
                     Roster[ri] = e;
                     // A slot naming a unit nothing defines is locked rather than left deployable. Deploy rejects on the

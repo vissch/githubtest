@@ -121,7 +121,7 @@ namespace TW.Sim.Terrain
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
         {
-            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMarginOf(p) : 0f)), allocator);
+            var map = new MapData(MapId, new float2(p.Width, p.Length + (p.Sea ? SeaMarginOf(p) : 0f)), allocator) { TestLevel = false };
             map.WaterLevel = p.WaterLevel;
             if (p.Sea)
             {
