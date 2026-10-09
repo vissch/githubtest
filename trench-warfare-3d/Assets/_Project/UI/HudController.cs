@@ -49,6 +49,7 @@ namespace TW.UI
         /// <summary>What the player has selected on the field (inspecting and groups; the trenches keep the orders).</summary>
         public SelectionController Selection => selection;
         HudTooltip tooltip;
+        CardFilmPlayer film;
         HudHotkeys hotkeys;
         BattleHud legacy;
         bool built, visible = true, flagOn;
@@ -133,6 +134,8 @@ namespace TW.UI
             refs = HudView.Build(root, Resources.Load<VisualTreeAsset>("Hud/UnitCard"), roster, costs, SeatMask);
             Clock = MatchClock.For(Host);
             tooltip = new HudTooltip(refs.Tooltip, refs.TooltipTitle, refs.TooltipBody, refs.TooltipCost);
+            // the card films open with the plate and follow the same setting: one switch for "tell me about it"
+            film = new CardFilmPlayer(() => SettingsStore.Current.Interface.Tooltips);
             minimap = new HudMinimap(refs, Host, Cam);
             var garrison = new GarrisonStats();
             flags = new TrenchFlagRequests();
@@ -159,6 +162,7 @@ namespace TW.UI
                 if (card.IsSupport) card.Root.clicked += () => ToggleArm(card.Ability);
                 else card.Root.clicked += () => Deploy(card.Slot);
                 tooltip.Attach(card.Root, () => card.Title, () => card.Tip, () => CostLine(card));
+                film.Attach(card);
             }
             for (int k = 0; k < refs.SpeedButtons.Length; k++)
             {
@@ -181,6 +185,13 @@ namespace TW.UI
                 g.pickingMode = PickingMode.Position;
                 tooltip.Attach(g, heading, text);
             }
+        }
+
+        /// <summary>Hold one card's film at an exact second, for a capture or a PlayMode test (no pointer needed).</summary>
+        public void FilmPreview(int cardIndex, float second)
+        {
+            if (refs == null || cardIndex < 0 || cardIndex >= refs.Cards.Count) return;
+            film.Preview(refs.Cards[cardIndex], second);
         }
 
         string CostLine(CardRefs c)
@@ -364,7 +375,7 @@ namespace TW.UI
                 clusters.Refresh(root.panel, Camera.main, refs.Root.resolvedStyle.width, refs.Root.resolvedStyle.height, over);   // HUD space (HudScale)
             }
             using (objectivesMarker.Auto()) objectives.Refresh();
-            using (tooltipMarker.Auto()) tooltip.Update();
+            using (tooltipMarker.Auto()) { tooltip.Update(); film.Update(); }
         }
 
         /// <summary>

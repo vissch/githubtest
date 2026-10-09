@@ -488,6 +488,10 @@ short way round the circle) is under H degrees AND their value gap is under V, o
 `TW.Editor.TankCapture.Spawn(team, archetype, x, z)` then `Shot` or `Follow(slot)`, and
 `TW.Editor.HudCapture.Shoot(path)`, the only path a script has that includes the HUD. (By hand, F10 in Play writes
 the screen with the HUD and the state of the game into a folder: `tasks.md`, "Feedback capture".)
+`TW.Editor.HudCapture.Shoot(path)`, the only path that includes the HUD. `HudCapture` works in a batch editor too:
+it takes the shot from `EditorApplication.update` there, because `WaitForEndOfFrame` never fires in `-batchmode`.
+To shoot one deploy card playing its tiny film without a pointer: `HudController.FilmPreview(cardIndex, second)` in
+the same eval, then `Shoot`; the sidecar's `film` rect is the film window inside that card's `card` rect.
 
 Staging traps:
 - Move the camera with `TacticalCamera.FrameFrom(new Vector2(x, z), zoom, yaw)`. Setting `Camera.main.transform`

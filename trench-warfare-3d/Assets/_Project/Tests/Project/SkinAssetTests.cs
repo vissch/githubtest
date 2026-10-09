@@ -183,6 +183,8 @@ namespace TW.Tests
             Token("--tw-order-gap", HudLayout.OrderGapPx);
             Token("--tw-order-off", HudLayout.OrderOffPx);
             Token("--tw-minimap-bezel", HudLayout.MinimapBezelPx);
+            Token("--tw-film-inset", HudLayout.FilmInsetPx);
+            Token("--tw-film-line", HudLayout.FilmLinePx);
         }
 
         // [found-fix-tiled-grain-and-cooldown-sprites-that-ca-20261108-0]

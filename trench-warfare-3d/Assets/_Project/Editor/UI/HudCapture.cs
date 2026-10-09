@@ -30,7 +30,7 @@ namespace TW.Editor
         public static readonly string[] Probes =
         {
             "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
-            "group-infantry", "group-armour", "group-support", "card", "tooltip", "hint", "banner", "pause-plate",
+            "group-infantry", "group-armour", "group-support", "card", "film", "tooltip", "hint", "banner", "pause-plate",
             "settings-plate", "tabs", "debrief-plate", "stats-table", "title", "menu-stack", "mission-list", "info-panel",
         };
 
@@ -94,6 +94,15 @@ namespace TW.Editor
             if (cam == null) { Debug.LogWarning("HudCapture: no main camera."); return null; }
             if (Busy) { Debug.LogWarning("HudCapture: a capture is already running; wait for it."); return null; }
             string full = Arm(path);
+            if (Application.isBatchMode)
+            {
+                // A batch editor renders and ticks the player loop, but WaitForEndOfFrame never fires in it, so the
+                // coroutine below would wait for a frame end that never comes (Tools/assetboard/gamefilm.py draws from
+                // EditorApplication.update for the same reason). Same steps, counted in editor ticks instead.
+                var br = new GameObject("HudCapture") { hideFlags = HideFlags.HideAndDontSave }.AddComponent<Runner>();
+                br.Batch(doc.panelSettings, cam, full, width, height);
+                return full;
+            }
             var runner = new GameObject("HudCapture") { hideFlags = HideFlags.HideAndDontSave }.AddComponent<Runner>();
             runner.StartCoroutine(runner.Run(doc.panelSettings, cam, full, width, height));
             return full;
@@ -173,6 +182,32 @@ namespace TW.Editor
                 Begin(panel, rtUi, rtScene);
                 yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
                 yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                Finish(panel, cam, rtUi, rtScene, full, w, h);
+            }
+
+            /// <summary>The capture in a batch editor: take the panel, give it two editor ticks to lay out and draw
+            /// into the texture, then finish exactly as the coroutine does.</summary>
+            public void Batch(PanelSettings panel, Camera cam, string full, int w, int h)
+            {
+                var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
+                var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
+                Begin(panel, rtUi, rtScene);
+                int tick = 0;
+                EditorApplication.CallbackFunction step = null;
+                step = () =>
+                {
+                    if (this == null) { EditorApplication.update -= step; return; }   // the runner died; Restore already ran
+                    if (++tick < 3) return;   // one tick to lay the panel out at the new size, one to draw it
+                    EditorApplication.update -= step;
+                    Finish(panel, cam, rtUi, rtScene, full, w, h);
+                };
+                EditorApplication.update += step;
+            }
+
+            /// <summary>Probe the rectangles, render the field, composite the panel over it, write both files, then
+            /// hand the panel back and remove the runner.</summary>
+            void Finish(PanelSettings panel, Camera cam, RenderTexture rtUi, RenderTexture rtScene, string full, int w, int h)
+            {
                 string rects = Probe(panel, w, h);
                 var camTarget = cam.targetTexture;
                 cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
