@@ -44,6 +44,10 @@ namespace TW.Presentation
         [Tooltip("Play on a generated battlefield (shelled wood, river, mud) instead of the flat playtest map.")]
         public bool GeneratedBattlefield = true;
         public uint BattlefieldSeed = 1917;
+        /// <summary>[S3b] The generated battlefield is the test level: each side's ten may name any unit, another
+        /// faction's and one that costs nothing included (BattlefieldParams.TestLevel; SimWorld.FillRosters). Only
+        /// MatchLaunch.Apply writes it, from the Proving Ground's request; not serialized, so no scene can save it on.</summary>
+        [System.NonSerialized] public bool TestLevel;
         /// <summary>Shells per minute that fall on no man's land all match long. Off (owner, 2026-09-28: "remove the constant
         /// bombardment on the field, it adds too much unknown and chaos; we might add it back later with an ability"):
         /// no mission sets it (MatchLaunch.Apply), only the debug panel's presets do, through BombardmentOverride.</summary>
@@ -123,6 +127,7 @@ namespace TW.Presentation
             if (GeneratedBattlefield)
             {
                 var field = MatchLaunch.Field(Ground, BattlefieldSeed);
+                field.TestLevel = TestLevel;   // [S3b] the Proving Ground may field any ten; a normal match leaves it false
                 field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
                 return MatchSim.CreateBattlefield(cfg, field);
             }

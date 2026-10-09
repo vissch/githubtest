@@ -110,6 +110,7 @@ namespace TW.Presentation
             h.FactionA = r.FactionA; h.FactionB = r.FactionB; h.LoadoutA = r.LoadoutA; h.LoadoutB = r.LoadoutB;
             h.GeneratedBattlefield = r.GeneratedBattlefield; h.PlaytestMap = r.PlaytestMap; h.BattlefieldSeed = r.BattlefieldSeed;
             h.Ground = r.Ground;
+            h.TestLevel = r.ProvingGround;   // [S3b] the launch screen's any ten stand on its generated field
             h.BombardmentPerMinute = 0f;   // owner 2026-09-28: no constant bombardment; a mission's rate is not applied
             h.ScriptedPeer = r.ScriptedPeer; h.PeerDeployEveryTicks = Mathf.Max(1, r.PeerDeployEveryTicks);   // SimHost divides by it
             h.PeerAttacks = r.PeerAttacks; h.PeerAttackGarrison = r.PeerAttackGarrison; h.PeerDeploysTanks = r.PeerDeploysTanks;

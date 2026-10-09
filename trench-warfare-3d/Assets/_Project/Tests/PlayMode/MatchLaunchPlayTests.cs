@@ -96,6 +96,43 @@ namespace TW.Tests
         }
 
 
+        /// <summary>[S3b] the show half. The Proving Ground launches a generated battlefield, and since the review fix
+        /// [S3] a generated battlefield holds each side to its own faction's units unless it is a test level
+        /// (BattlefieldParams.TestLevel, the sim half of [S3b]). The launch must set that switch from the request, or
+        /// the launch screen's "any ten" are swapped for the faction's own without a word. Through the real path: the
+        /// request ProvingGround.Request builds, applied by SimHost.Awake. A plain request with the same ten is still
+        /// refused, so the switch is the Proving Ground's alone.</summary>
+        [UnityTest]
+        public IEnumerator TheProvingGroundsRequestFieldsItsAnyTen_AndAPlainRequestDoesNot()
+        {
+            byte[] ours = ProvingGround.DefaultTen(TW.Sim.FactionId.Iron), theirs = ProvingGround.DefaultTen(TW.Sim.FactionId.Brass);
+            ours[0] = TW.Sim.InfantryArchetype.Jetpack;   // Brass's
+            ours[1] = TW.Sim.InfantryArchetype.Frog;      // no faction's
+
+            MatchLaunch.Current = ProvingGround.Request(Ground.Landing, 1917, 0f, 300, ours, theirs, 0);
+            go = new GameObject("launch-test-proving-ground"); go.SetActive(false);
+            var host = go.AddComponent<SimHost>();
+            go.SetActive(true);
+            yield return null;
+            Assert.That(host.Local, Is.Not.Null);
+            Assert.That(host.Local.World.Init.TestLevel, Is.True, "[S3b] the Proving Ground's generated field is a test level");
+            Assert.That(host.Local.World.Roster[0].Archetype, Is.EqualTo(TW.Sim.InfantryArchetype.Jetpack),
+                "[S3b] the Proving Ground fields the ten its launch screen picked, another faction's unit included");
+            Assert.That(host.Local.World.Roster[1].Archetype, Is.EqualTo(TW.Sim.InfantryArchetype.Frog),
+                "[S3b] ...and a unit no faction fields");
+            Object.Destroy(go);
+            yield return null;
+
+            MatchLaunch.Current = new MatchLaunch.Request { GeneratedBattlefield = true, Ground = Ground.Landing, BattlefieldSeed = 1917, LoadoutA = ours, LoadoutB = theirs };
+            go = new GameObject("launch-test-plain-match"); go.SetActive(false);
+            host = go.AddComponent<SimHost>();
+            go.SetActive(true);
+            yield return null;
+            Assert.That(host.Local.World.Init.TestLevel, Is.False, "[S3b] a plain request's field is no test level");
+            Assert.That(host.Local.World.Roster[0].Archetype, Is.EqualTo(TW.Sim.FactionRoster.Slot(TW.Sim.FactionId.Iron, 0).Archetype),
+                "[S3b] a normal match still refuses the jetpack: Iron's own slot 0 stands");
+        }
+
         /// <summary>The staging screen's request (a campaign mission with the Home Front's silver and income on top) reaches
         /// the sim the same way: what the profile bought is what the match starts with (docs/21 M6; the unit tiers and the
         /// ability mask wait for the B1 seam). Built the way HomeFrontScreen and StagingScreen build it, on the cheap greybox.</summary>
