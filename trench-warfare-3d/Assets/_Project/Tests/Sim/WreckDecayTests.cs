@@ -11,6 +11,7 @@ using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
+using TW.Sim.Units;
 
 namespace TW.Tests
 {
@@ -480,6 +481,45 @@ namespace TW.Tests
             var (atWreck, atMen, _) = Watch(m, wreck, gun, men, 300);
             Assert.Greater(atMen, 20, "the man it can see");
             Assert.AreEqual(0, atWreck, "never the wreck while a living target stands");
+        }
+
+        [Test]
+        // [N5.2] a knocked-out hull has no target (TargetAcquisition clears it) and the fire job sent it to AtWreck,
+        // which tested Airborne, pinned, garrison and weapon but not KnockedOut: a dead hull kept machine-gunning.
+        public void AKnockedOutHullDoesNotFireAtAWreck()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out _);
+            var wp = m.Map.Props[wreck].Pos;
+            int hull = -1;
+            foreach (var off in new[] { new float3(0f, 0f, 30f), new float3(0f, 0f, -30f), new float3(30f, 0f, 0f), new float3(-30f, 0f, 0f) })
+            {
+                var at = wp + off;
+                if (at.x < 6f || at.z < 6f || at.x > m.Map.SizeMeters.x - 6f || at.z > m.Map.SizeMeters.y - 6f) continue;
+                if ((m.Map.LayerAt(at) & NotOpen) != 0) continue;
+                var eye = new float3(at.x, m.Map.Height.Sample(at.x, at.z) + 1.6f, at.z);
+                var top = new float3(wp.x, m.Map.Height.Sample(wp.x, wp.z) + 1.5f, wp.z);
+                if (!HeightfieldRaycast.HasLineOfSight(m.Map.Height, eye, top)) continue;
+                var e = m.World.Units.Roster[VehicleArchetype.Tusk];
+                hull = m.World.Spawn(0, VehicleArchetype.Tusk, at, e.Hp, e.Speed, true);
+                break;
+            }
+            Assert.GreaterOrEqual(hull, 0, "a spot for the hull in sight of the wreck");
+            m.World.GoalId[hull] = -1; m.World.TrenchId[hull] = -1;
+            Step(m);
+            // knocked out as VehicleModulesSystem reads it: the state sticks while its ticks run down
+            m.Modules.State[hull] = (byte)VehicleState.KnockedOut;
+            m.Modules.StateTicks[hull] = 400;
+            Step(m);   // the modules system (after the fire job) is what puts the KnockedOut flag on the slot
+            int shots = 0;
+            for (int t = 0; t < 60; t++)
+            {
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.Shot && ev[i].A == hull) shots++;
+            }
+            Assert.AreEqual((byte)VehicleState.KnockedOut, m.Modules.State[hull], "the hulk is still knocked out");
+            Assert.AreEqual(0, shots, "[N5.2] a knocked-out hull fired at a wreck");
         }
 
         [Test]
