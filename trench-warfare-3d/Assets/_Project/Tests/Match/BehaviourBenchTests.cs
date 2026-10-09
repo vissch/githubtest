@@ -164,8 +164,15 @@ namespace TW.Tests
             var ev = w.Events.Events;
             for (int e = 0; e < ev.Length; e++)
             {
-                if (ev[e].Type == SimEventType.Death && (w.Flags[ev[e].A] & (uint)UnitFlags.Vehicle) == 0)
-                    deaths.Add(new float4(w.Position[ev[e].A].x, w.Position[ev[e].A].z, w.Team[ev[e].A], w.Tick));
+                if (ev[e].Type == SimEventType.Death)
+                {
+                    // [N6.3] Despawn has already zeroed Flags (and TrenchId) by the time this reads them, so a
+                    // machine's death read as a man's: the per-slot record below (keyed by slot+generation, which
+                    // Despawn does not bump) still knows what it was.
+                    long key = ((long)ev[e].A << 16) | w.Generation[ev[e].A];
+                    bool vehicle = units.TryGetValue(key, out var du) ? du.Vehicle : (w.Flags[ev[e].A] & (uint)UnitFlags.Vehicle) != 0;
+                    if (!vehicle) deaths.Add(new float4(w.Position[ev[e].A].x, w.Position[ev[e].A].z, w.Team[ev[e].A], w.Tick));
+                }
                 else if (ev[e].Type == SimEventType.Pinned) pins[0]++;
             }
             bool second = w.Tick % 20 == 0;   // the O(n^2) looks once a second

@@ -81,6 +81,10 @@ namespace TW.Tests
             int ticks = minutes * 60 * 20, deployed = 0;
             uint last = uint.MaxValue;
             int guard = ticks * 40;
+            // [N6.3] a Death event's slot is read below after Despawn has already cleared its Flags and TrenchId (the
+            // slot may even be let again the same step): snapshot both, per slot, before the step that may kill it.
+            var preTrench = new short[w.Config.MaxSlots];
+            var preVehicle = new bool[w.Config.MaxSlots];
             while (w.Tick < ticks && guard-- > 0)
             {
                 uint t = w.Tick;
@@ -115,6 +119,7 @@ namespace TW.Tests
                         if (front >= 0 && go) { seat.Issue(new SimCommand { Tick = t, Player = 0, Type = CommandType.TrenchAdvance, A = front }); sb.AppendLine($"  player: {t / 20} s over the top, {mine} against {them}"); }
                     }
                 }
+                for (int s = 0; s < w.HighWater; s++) { preTrench[s] = w.TrenchId[s]; preVehicle[s] = (w.Flags[s] & (uint)UnitFlags.Vehicle) != 0; }
                 session.StepOnce(ai);
                 each?.Invoke(m);
                 var ev = w.Events.Events;
@@ -127,11 +132,11 @@ namespace TW.Tests
                     }
                     if (ev[k].Type == SimEventType.MatchEnded) { r.Winner = ev[k].A; }
                     if (ev[k].Type == SimEventType.UnitDeployed) r.Deployed[(int)ev[k].Dir.y & 1]++;
-                    if (ev[k].Type == SimEventType.Death && (w.Flags[ev[k].A] & (uint)UnitFlags.Vehicle) == 0)
+                    if (ev[k].Type == SimEventType.Death && !preVehicle[ev[k].A])
                     {
                         int team = w.Team[ev[k].A] & 1, why = ev[k].B;
                         string killer = why >= 0 ? (w.TrenchId[why] >= 0 ? $"garrison z{(int)w.Position[why].z} arch{w.Archetype[why]}" : $"open z{(int)w.Position[why].z} arch{w.Archetype[why]}") : ((DeathCause)why).ToString();
-                        r.Deaths += $"    {w.Tick / 20,4} s team{team} {(w.TrenchId[ev[k].A] >= 0 ? "garrison" : "open")} z{(int)w.Position[ev[k].A].z} by {killer}\n";
+                        r.Deaths += $"    {w.Tick / 20,4} s team{team} {(preTrench[ev[k].A] >= 0 ? "garrison" : "open")} z{(int)w.Position[ev[k].A].z} by {killer}\n";
                         if (why >= 0) r.ByFire[team]++;
                         else if (why == (int)DeathCause.Blast) r.ByBlast[team]++;
                         else if (why == (int)DeathCause.Gas) r.ByGas[team]++;

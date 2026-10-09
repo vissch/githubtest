@@ -213,6 +213,10 @@ namespace TW.Tests
             public readonly int[] Owned = new int[2], Start = { -1, -1 }, Breach = { -1, -1 };
             public readonly bool[] Active = new bool[2];
             public byte[] First; public int Ticks; public uint Seen = uint.MaxValue;
+            // [N6.3] a Death event's slot is read after Despawn has cleared its Flags and TrenchId: snapshot both,
+            // per slot, before the step that may kill it (set in Match() before the first tick, refreshed here after
+            // each tick's events are read).
+            public short[] PreTrench; public bool[] PreVehicle;
         }
 
         static float LineZ(MatchSim m, short t)
@@ -265,12 +269,24 @@ namespace TW.Tests
                     x.Captures[t]++;
                     if (x.Breach[t] < 0 && x.Start[t] >= 0) x.Breach[t] = (int)w.Tick - x.Start[t];
                 }
-                if (ev[k].Type == SimEventType.Death && (w.Flags[ev[k].A] & (uint)UnitFlags.Vehicle) == 0)
+                if (ev[k].Type == SimEventType.Death && !x.PreVehicle[ev[k].A])
                 {
                     int team = w.Team[ev[k].A] & 1;
-                    if (w.TrenchId[ev[k].A] >= 0) x.LostTrench[team]++; else x.LostOpen[team]++;
+                    if (x.PreTrench[ev[k].A] >= 0) x.LostTrench[team]++; else x.LostOpen[team]++;
                 }
             }
+            for (int s = 0; s < w.HighWater; s++) { x.PreTrench[s] = w.TrenchId[s]; x.PreVehicle[s] = (w.Flags[s] & (uint)UnitFlags.Vehicle) != 0; }
+        }
+
+        /// <summary>[N6.3] the slot snapshot Sample() reads a tick's deaths against, filled from the world as it
+        /// stands before its first tick (Match()'s built callback, before anyone can die).</summary>
+        static void InitSnapshot(MatchSim m, Watch x)
+        {
+            var w = m.World;
+            x.PreTrench = new short[w.Config.MaxSlots];
+            x.PreVehicle = new bool[w.Config.MaxSlots];
+            for (int s = 0; s < w.Config.MaxSlots; s++) x.PreTrench[s] = -1;
+            for (int s = 0; s < w.HighWater; s++) { x.PreTrench[s] = w.TrenchId[s]; x.PreVehicle[s] = (w.Flags[s] & (uint)UnitFlags.Vehicle) != 0; }
         }
 
         static void Put(Dictionary<string, float> d, string key, float v) => d[key] = v;
@@ -289,7 +305,7 @@ namespace TW.Tests
             SimConfig used = default; var silverEnd = new int[2]; bool played = false;
             var report = MatchLoopTests.Play(policy, spec.minutes, seed, enemy, 8, m => { Sample(m, x); silverEnd[0] = m.World.Silver[0]; silverEnd[1] = m.World.Silver[1]; played = true; }, player,
                 cfg => used = ApplyConfig(cfg, v, swapped),
-                m => { if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0; ApplyUnits(m, v); });
+                m => { if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0; ApplyUnits(m, v); InitSnapshot(m, x); });
 
             var r = new Dictionary<string, float>();
             int a = seatA, b = seatB;
@@ -455,6 +471,28 @@ namespace TW.Tests
             Assert.Throws<ArgumentException>(() => Patched(def, "Weapon.Damage", "add", "1", "t"), "an op that is not there");
             Assert.Throws<ArgumentException>(() => Patched(def, "Weapon.Damage", "set", "lots", "t"), "a value that is not a number");
             Assert.Throws<ArgumentException>(() => Archetype("Riffle"), "a unit that is not there");
+        }
+
+        [Test]
+        public void ADeathIsCounted_ByWhereItStoodBeforeItDied_NotAfterDespawnClearedIt()
+        {
+            // [N6.3] review, 2026-10-07: Sample() read a dead slot's Flags and TrenchId after Despawn had already
+            // zeroed them, so a man in a trench always read as lost in the open, and a dead machine (Vehicle flag
+            // gone too) counted as a man.
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            var w = m.World;
+            int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(50f, 0f, 50f), 100f, 0f, false);
+            w.TrenchId[man] = 0;   // in a trench when he dies
+            int machine = w.Spawn(1, VehicleArchetype.Maw, new float3(60f, 0f, 60f), 1000f, 0f, true);
+            var x = new Watch();
+            InitSnapshot(m, x);
+            w.Despawn(man, -1);
+            w.Despawn(machine, -1);
+            Sample(m, x);
+            Assert.AreEqual(1, x.LostTrench[0], "[N6.3] a man killed in a trench is counted there");
+            Assert.AreEqual(0, x.LostOpen[0], "[N6.3] not counted as lost in the open");
+            Assert.AreEqual(0, x.LostTrench[1] + x.LostOpen[1], "[N6.3] a dead machine does not count as a man lost");
         }
 
         [Test]

@@ -20,7 +20,7 @@ namespace TW.Tests
         [Test]
         public void AManWalkingToHisPostSqueezesPastHisMates()
         {
-            int reversals = 0;
+            int reversals = 0; long sampled = 0;   // [N6.9] man-ticks seen in a trench, garrisoned
             var last = new Dictionary<long, float2>(); var lastStep = new Dictionary<long, float2>();
             uint seen = uint.MaxValue;
             MatchLoopTests.Play(MatchLoopTests.Policy.Script, 2, 2u, new ScriptedEnemy(), 8, m =>
@@ -30,6 +30,7 @@ namespace TW.Tests
                 for (int i = 0; i < w.HighWater; i++)
                 {
                     if (!w.IsAlive(i) || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0 || w.TrenchId[i] < 0) continue;
+                    sampled++;
                     long key = ((long)i << 16) | w.Generation[i];
                     float2 p = w.Position[i].xz;
                     if (last.TryGetValue(key, out var q))
@@ -45,7 +46,10 @@ namespace TW.Tests
                     last[key] = p;
                 }
             });
-            TestContext.WriteLine($"garrison men's steps reversed {reversals} times in two minutes");
+            TestContext.WriteLine($"garrison men's steps reversed {reversals} times in two minutes, {sampled} man-ticks sampled");
+            // [N6.9] review, 2026-10-07: with nobody ever sampled (the scenario stopped fielding a trench garrison)
+            // reversals stayed 0 and this passed for the wrong reason; a floor on what was actually measured catches that.
+            Assert.Greater(sampled, 1000L, "[N6.9] setup: men were actually sampled in a trench");
             Assert.Less(reversals, 8, "a man on his way to his post is not shoved back and forth by the men at theirs");
         }
 
@@ -86,6 +90,9 @@ namespace TW.Tests
             });
             float perMinute = reversals / math.max(1f, open / 60f);
             TestContext.WriteLine($"men in the open: {open / 60f:F0} man-minutes, {reversals} steps reversed ({perMinute:F2} a man-minute)");
+            // [N6.9] review, 2026-10-07: nobody ever in the open also passed, reversals and open both 0; a floor on
+            // man-minutes actually sampled catches that.
+            Assert.Greater(open / 60f, 1f, "[N6.9] setup: men were actually sampled in the open");
             Assert.Less(perMinute, 0.8f, "a man closing on an enemy does not close and stop closing on alternate ticks (1.3 a man-minute when the way was sampled a metre apart)");
         }
     }
