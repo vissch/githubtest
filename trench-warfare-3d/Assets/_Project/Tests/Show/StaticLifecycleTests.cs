@@ -32,12 +32,8 @@ namespace TW.Tests
         /// <summary>Statics allowed to live across a Play session, keyed "Type.Field", and why.</summary>
         static readonly Dictionary<string, string> Explained = new Dictionary<string, string>
         {
-            ["Atmosphere.Current"] = "the mood the live Atmosphere writes every frame",
-            ["Atmosphere.Profile"] = "the biome profile the live Atmosphere writes every frame",
             ["Atmosphere.RainNow"] = "written every frame by the live Atmosphere",
             ["Atmosphere.WindNow"] = "written every frame by the live Atmosphere",
-            ["Atmosphere.StormFlash"] = "written every frame by the live Atmosphere",
-            ["Atmosphere.StormLightFrom"] = "written every frame by the live Atmosphere",
             ["Atmosphere.PinnedClock"] = "a capture switch: the caller that pins the clock restores it",
             ["AllocProbe.recorder"] = "a cached profiler Recorder, re-made when Unity has dropped it",
             ["AllocProbe.busy"] = "a re-entry guard for one measurement at a time; the measurement clears it",
@@ -106,6 +102,8 @@ namespace TW.Tests
             ["CampaignSession.MapNode"] = "part of the mission in flight, carried across the scene load by design",
             ["CampaignSession.HomeBuilding"] = "part of the mission in flight, carried across the scene load by design",
             ["KeyMap.Current"] = "the player's bindings from settings.json",
+            ["MetaServices.MakeHomeFront"] = "the factory the Meta assembly fills at load, by design: MetaServices.Reset forgets the VIEW it made (per scene, P1a) and leaves the factory",
+            ["MetaServices.MakeMap"] = "the factory the Meta assembly fills at load, by design, as MakeHomeFront above",
             ["MatchLaunch.Current"] = "the mission request carried across a scene load, by design",
             ["MatchLaunch.Running"] = "the running mission carried across a scene load, by design",
             ["ProfileStore.PersistOverride"] = "a test switch the tests set and restore (null = the live editor/play rule)",
@@ -122,8 +120,6 @@ namespace TW.Tests
             ["GreyboxTerrainView.ripples"] = "a code-made texture cached for the process",
             ["GameLogo.layout"] = "the logo layout read from Resources, re-read when Unity has destroyed a texture",
             ["GameLogo.textures"] = "the logo's textures, re-loaded when Unity has destroyed one",
-            ["TankRenderer.Machines"] = "the machine models of the field being drawn, rebuilt by the next TankRenderer",
-            ["TankRenderer.StandIns"] = "the stand-in models of the field being drawn, rebuilt by the next TankRenderer",
         };
 
         /// <summary>Readonly tables built once by their initializer: nothing writes a row, so Play cannot change
@@ -131,7 +127,7 @@ namespace TW.Tests
         /// that did, and it registers a reset instead ([TS11]).</summary>
         static readonly HashSet<string> ConstantTables = new HashSet<string>
         {
-            "AimReadout.Cache", "ArmouryScreen.RequiredNames", "ArmouryScreen.Ranks",
+            "ArmouryScreen.RequiredNames", "ArmouryScreen.Ranks",
             "CampaignDifficulty.Standard", "CampaignGraph.Nodes", "CampaignGraph.FrontLine",
             "DebriefScreen.Rows", "DebriefScreen.RequiredNames",
             "FactionBuildings.StageCosts", "FactionBuildings.TrackCosts", "FactionBuildings.GlobalCosts",
@@ -139,7 +135,7 @@ namespace TW.Tests
             "GymCatalogue.Bands", "HomeFrontScreen.RequiredNames", "HomeFrontScreen.FactionNames",
             "HomeFrontScreen.StageNames", "HomeFrontStages.StageFractions", "HudText.SupportActions",
             "HudView.RequiredNames", "HudView.IgnorePickingNames", "HudView.SupportAbilities", "HudView.SpeedOfIndex",
-            "IntText.ints", "IntText.secs", "IntText.clocks", "Knobs.Separators",
+            "Knobs.Separators",
             "MainMenuScreen.RequiredNames", "MatchClock.Speeds", "MissionSelectScreen.RequiredNames",
             "PauseMenuScreen.RequiredNames", "ProvingGround.StatusNames",
             "ProvingGroundLaunchScreen.RequiredNames", "ProvingGroundLaunchScreen.GroundNames",
@@ -151,14 +147,22 @@ namespace TW.Tests
             "SettingsScreen.RequiredNames", "SettingsScreen.Tabs", "SettingsScreen.FullscreenNames",
             "SkinSpec.All", "SkinSpec.PortraitNames", "SkinSpec.Fonts",
             "StagingScreen.RequiredNames", "StrategicMapScreen.RequiredNames", "StrategicMapScreen.StateChips",
-            "StrategicMapScreen.MissionChips", "TankRenderer.Exhausts", "TestPanel.SlotNames", "UnitArt.StateNames",
+            "StrategicMapScreen.MissionChips", "TankRenderer.Exhausts", "TankRenderer.Machines", "TankRenderer.StandIns", "TestPanel.SlotNames", "UnitArt.StateNames",
             "UnitArt.Faces", "UnitArt.Cutouts", "UnitLook.InfantryNames", "UnitLook.InfantryPortraits",
-            "UnitLook.InfantryTips", "UnitStatus.Words", "VATRenderer.FigureNames", "SceneHooks.SmokeSources",
+            "UnitLook.InfantryTips", "UnitStatus.Words", "VATRenderer.FigureNames",
             "PerfBench.HudParts", "PerfBench.SelectionParts", "DebrisRenderer.Capacity",
             "DebrisRenderer.CastsShadow", "FlipbookFx.Sheets", "TankModel.JoinedLegs",
-            "TankRenderer.WalkerSizeFactor", "ProvingGround.Ideas", "ProvingGround.AiNames",
+            "ProvingGround.Ideas", "ProvingGround.AiNames",
             "ProvingGround.AiPresets", "AssetScaleReport.Grounds", "AssetScaleTable.rules", "BattlefieldKit.EnvSets",
-            "ProceduralSoldier.Pivot", "ObjectiveTracker.pct", "DeathMarks.timesCache",
+            "ProceduralSoldier.Pivot",         };
+
+        /// <summary>Caches filled lazily, row by row, where each row is a pure function of its own index: the value a
+        /// match leaves in row n is the value the next match would compute for row n, so carrying it over changes
+        /// nothing ([TS11c] - "nothing writes a row" was not true of these; this is why they are safe).</summary>
+        static readonly HashSet<string> PureCaches = new HashSet<string>
+        {
+            "AimReadout.Cache", "IntText.ints", "IntText.secs", "IntText.clocks",
+            "ObjectiveTracker.pct", "DeathMarks.timesCache",
             "TrenchOrderCluster.countCache", "TrenchOrderCluster.menCache",
         };
 
@@ -215,7 +219,7 @@ namespace TW.Tests
                 {
                     string key = t.Name + "." + Field(f);
                     present.Add(key);
-                    if (!Explained.ContainsKey(key) && !ConstantTables.Contains(key)) anyChecked = true;
+                    if (!Explained.ContainsKey(key) && !ConstantTables.Contains(key) && !PureCaches.Contains(key)) anyChecked = true;
                 }
                 if (!anyChecked) continue;
                 RuntimeHelpers.RunClassConstructor(t.TypeHandle);   // registration happens in the static constructor
@@ -224,12 +228,12 @@ namespace TW.Tests
                 foreach (var f in fields)
                 {
                     string key = t.Name + "." + Field(f);
-                    if (Explained.ContainsKey(key) || ConstantTables.Contains(key)) continue;
+                    if (Explained.ContainsKey(key) || ConstantTables.Contains(key) || PureCaches.Contains(key)) continue;
                     if (!session) unexplained.Add(key);
                     else if (HoldsSceneObjects(f.FieldType) && !perScene) notPerScene.Add(key);
                 }
             }
-            var stale = Explained.Keys.Concat(ConstantTables).Where(k => !present.Contains(k)).ToList();
+            var stale = Explained.Keys.Concat(ConstantTables).Concat(PureCaches).Where(k => !present.Contains(k)).ToList();
             var problems = new List<string>();
             if (unexplained.Count > 0)
                 problems.Add("nothing puts these statics back when Play ends. Register a reset with " +
@@ -243,6 +247,270 @@ namespace TW.Tests
                 problems.Add("no longer a mutable static; remove them from Explained/ConstantTables: " +
                     string.Join(", ", stale));
             Assert.That(problems, Is.Empty, string.Join(" || ", problems));
+        }
+
+        /// <summary>Statics reflection cannot hand a second value to (an interface, a UnityEngine.Object, a
+        /// delegate: no value this test can make is both legal and different), and why each is safe anyway.</summary>
+        static readonly Dictionary<string, string> CannotDirty = new Dictionary<string, string>
+        {
+            ["MetaServices.HomeFront"] = "an interface: no instance this test can make is a legal home-front view. It is the P1a field, and CampaignDeployPlayTests pins that the scene load forgets it",
+            ["MetaServices.Map"] = "an interface, as HomeFront above: the same per-scene reset, pinned by the same test",
+        };
+
+        /// <summary>Found by the TS11b sweep (2026-10-09): the reset leaves these behind. Reported, not fixed in the
+        /// unit that wrote the sweep; each line says what was found at the field.</summary>
+        static readonly Dictionary<string, string> FoundByTheSweep = new Dictionary<string, string>
+        {
+            ["CameraShake.kicks"] = "reset incomplete: CameraShake.Reset zeroes kickCount but not the 24 rows, so the rows a match wrote stay. Nothing reads a row at or above kickCount, so no frame can see them. Reported, not in this unit",
+            ["RiderSeats.TankSpacing"] = "a constant table in the wrong place: no production code writes a row (only this sweep does), so it belongs in ConstantTables. Reported, not in this unit",
+            ["DeathGags.cached"] = "reset incomplete: the registration puts back pinned and cachedAt but not cached, and cachedAt = -1 makes Intensity recompute cached before anything reads it. Reported, not in this unit",
+            ["Knobs.generation"] = "not a leftover: the read counter only ever grows, and Knobs ResetSession bumps it on purpose so every cached knob reader re-reads. Reported, not in this unit",
+        };
+
+        /// <summary>
+        /// [TS11b] The hole the first test still had: it passes a whole TYPE on one registration, so one
+        /// SceneStatics.Register cleared every present and future static on that type. This one checks by VALUE.
+        /// Every mutable static that no list here explains - of every holder, registered or not - is snapshotted
+        /// after a session reset, given a second value by reflection (a container: one written row or one added
+        /// entry), and required back at the snapshot after the next session reset. A reset that puts back only some
+        /// of its type's statics fails here, and so does a static nothing puts back at all.
+        /// </summary>
+        [Test]
+        public void Every_Reset_Puts_Its_Statics_Back_By_Value()
+        {
+            var holders = Holders().ToList();
+            foreach (var t in holders) RuntimeHelpers.RunClassConstructor(t.TypeHandle);   // registration is in the static ctor
+            var left = new List<string>();
+            var unteachable = new List<string>();
+            var present = new HashSet<string>();
+            try
+            {
+                foreach (var t in holders)
+                {
+                    // EVERY holder, not only the registered ones: "this type registers a reset" is exactly the claim
+                    // TS11b says proves nothing. A type with no unexplained static drops out at the next line.
+                    foreach (var f in MutableStatics(t))
+                    {
+                        string key = t.Name + "." + Field(f);
+                        if (Explained.ContainsKey(key) || ConstantTables.Contains(key) || PureCaches.Contains(key)) continue;
+                        present.Add(key);
+                        if (CannotDirty.ContainsKey(key) || FoundByTheSweep.ContainsKey(key)) continue;
+                        SceneStatics.ResetSession();
+                        string was = Describe(f.GetValue(null));
+                        if (!TryDirty(f) || Describe(f.GetValue(null)) == was) { unteachable.Add(key); continue; }
+                        SceneStatics.ResetSession();
+                        string now = Describe(f.GetValue(null));
+                        if (now != was) left.Add(key + " (was " + Cut(was) + ", is " + Cut(now) + ")");
+                    }
+                }
+            }
+            finally { SceneStatics.ResetSession(); }   // whatever this sweep dirtied must not reach the next test
+
+            var stale = CannotDirty.Keys.Concat(FoundByTheSweep.Keys).Where(k => !present.Contains(k)).ToList();
+            var problems = new List<string>();
+            if (left.Count > 0)
+                problems.Add("the reset of their own type does not put these statics back, so one registration no " +
+                    "longer covers a whole type: reset each, or name it in Explained with the reason: " + string.Join(", ", left));
+            if (unteachable.Count > 0)
+                problems.Add("this sweep could not give these a second value: teach TryDirty, or name each in " +
+                    "CannotDirty with the reason it is safe: " + string.Join(", ", unteachable));
+            if (stale.Count > 0)
+                problems.Add("no longer a swept static; remove from CannotDirty/FoundByTheSweep: " + string.Join(", ", stale));
+            Assert.That(problems, Is.Empty, "[TS11b] " + string.Join(" || ", problems));
+        }
+
+        static string Cut(string s) => s.Length <= 60 ? s : s.Substring(0, 60) + "...";
+
+        /// <summary>A value's whole CONTENT as text - rows, struct fields and an object's own fields - never its
+        /// reference, so a reset that builds an equal object afresh reads as "put back" and a changed row shows.</summary>
+        static string Describe(object v) => Describe(v, 0);
+
+        static string Describe(object v, int depth)
+        {
+            if (v == null) return "null";
+            if (v is string s) return "\"" + s + "\"";
+            if (v is float fl) return fl.ToString("R", System.Globalization.CultureInfo.InvariantCulture);
+            var vt = v.GetType();
+            if (vt.IsPrimitive || vt.IsEnum) return Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture);
+            if (v is UnityEngine.Object uo) return vt.Name + ":" + uo.name;
+            if (v is Delegate dl) return "delegate:" + dl.Method.Name;
+            if (depth >= 4) return vt.Name;
+            if (v is System.Collections.IDictionary d)
+            {
+                var rows = new List<string>();
+                foreach (System.Collections.DictionaryEntry e in d)
+                    rows.Add(Describe(e.Key, depth + 1) + "=" + Describe(e.Value, depth + 1));
+                rows.Sort(StringComparer.Ordinal);
+                return "{" + string.Join(",", rows) + "}";
+            }
+            if (v is System.Collections.IEnumerable en)
+            {
+                var rows = new List<string>();
+                foreach (var o in en) rows.Add(Describe(o, depth + 1));
+                return "[" + string.Join(",", rows) + "]";
+            }
+            return vt.Name + "(" + string.Join(",", vt
+                .GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+                .Select(x => x.Name + "=" + Describe(x.GetValue(v), depth + 1))) + ")";
+        }
+
+        /// <summary>Give a static a second value: a row of a container, or a whole value that differs.</summary>
+        static bool TryDirty(FieldInfo f)
+        {
+            var ft = f.FieldType;
+            if (HoldsSceneObjects(ft)) return false;
+            if (typeof(Delegate).IsAssignableFrom(ft)) { Dirty(f); return true; }   // the same do-nothing lambda the hook sweep uses
+            var cur = f.GetValue(null);
+            if (cur != null && IsContainer(ft) && DirtyRows(cur)) return true;
+            if (f.IsInitOnly) return false;   // the reference cannot move and no row would take
+            object other;
+            if (!TryOther(ft, cur, out other)) return false;
+            f.SetValue(null, other);
+            return true;
+        }
+
+        static bool DirtyRows(object c)
+        {
+            var ct = c.GetType();
+            if (c is System.Collections.IDictionary d)
+            {
+                var args = ct.GetGenericArguments();
+                if (args.Length != 2) return false;
+                object k, v;
+                if (!TryOther(args[0], null, out k) || !TryOther(args[1], null, out v)) return false;
+                if (d.Contains(k)) return false;
+                d[k] = v;
+                return true;
+            }
+            if (c is System.Collections.IList l)
+            {
+                var et = ct.IsArray ? ct.GetElementType() : ct.GetGenericArguments().FirstOrDefault();
+                if (et == null) return false;
+                object row;
+                if (l.Count > 0)
+                {
+                    if (!TryOther(et, l[0], out row)) return false;
+                    l[0] = row;
+                    return true;
+                }
+                if (ct.IsArray) return false;   // an empty array has no row to write
+                if (!TryOther(et, null, out row)) return false;
+                l.Add(row);
+                return true;
+            }
+            var add = ct.GetMethod("Add", BindingFlags.Instance | BindingFlags.Public);   // a HashSet and its kind
+            if (add != null && add.GetParameters().Length == 1)
+            {
+                object one;
+                if (!TryOther(add.GetParameters()[0].ParameterType, null, out one)) return false;
+                add.Invoke(c, new[] { one });
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>A legal value of this type that is not the one given.</summary>
+        static bool TryOther(Type t, object cur, out object v)
+        {
+            v = null;
+            if (typeof(Delegate).IsAssignableFrom(t) || HoldsSceneObjects(t)) return false;   // only a whole field can take one (TryDirty)
+            if (t == typeof(string)) { v = (cur as string) == "tw-sweep" ? "tw-sweep-2" : "tw-sweep"; return true; }
+            if (t == typeof(bool)) { v = !(cur is bool b && b); return true; }
+            if (t.IsEnum)
+            {
+                foreach (var e in Enum.GetValues(t)) if (cur == null || !e.Equals(cur)) { v = e; return true; }
+                return false;
+            }
+            if (t == typeof(char)) { v = (cur is char c && c == 'x') ? 'y' : 'x'; return true; }
+            if (t.IsPrimitive)
+            {
+                double now = cur == null ? 0d : Convert.ToDouble(cur, System.Globalization.CultureInfo.InvariantCulture);
+                try { v = Convert.ChangeType(now + 1d, t, System.Globalization.CultureInfo.InvariantCulture); return true; }
+                catch (OverflowException) { }
+                try { v = Convert.ChangeType(now - 1d, t, System.Globalization.CultureInfo.InvariantCulture); return true; }
+                catch (OverflowException) { return false; }
+            }
+            if (t.IsArray)
+            {
+                var old = cur as Array;
+                var a = Array.CreateInstance(t.GetElementType(), Math.Max(1, old == null ? 1 : old.Length));
+                object row;
+                if (TryOther(t.GetElementType(), old != null && old.Length > 0 ? old.GetValue(0) : null, out row))
+                    a.SetValue(row, 0);
+                v = a;
+                return true;
+            }
+            if (t.IsValueType)   // a struct: one of its own fields given a second value
+            {
+                object box = cur ?? Activator.CreateInstance(t);
+                foreach (var inf in t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic))
+                {
+                    object o;
+                    if (!TryOther(inf.FieldType, inf.GetValue(box), out o)) continue;
+                    inf.SetValue(box, o);
+                    v = box;
+                    return true;
+                }
+                return false;
+            }
+            try { v = Activator.CreateInstance(t, true); return v != null; }
+            catch (Exception) { return false; }
+        }
+
+        // [TS11c] TankRenderer.WalkerSizeFactor was in ConstantTables on "nothing writes a row", but the rider lab's
+        // Resize writes the row of the crab it resizes and nothing put it back.
+        [Test]
+        public void A_Resized_Walker_Is_Back_At_Its_Shipped_Size()
+        {
+            SceneStatics.ResetSession();
+            TankRenderer.WalkerSizeFactor[0] = 1.6f;
+
+            SceneStatics.ResetSession();
+
+            Assert.That(TankRenderer.WalkerSizeFactor[0], Is.EqualTo(1f).Within(1e-6f),
+                "[TS11c] the rider lab's resize outlived Play: WalkerSizeFactor kept the last lab session's size " +
+                "instead of 1 (as shipped)");
+        }
+
+        // [TS11c] Atmosphere.Current and Atmosphere.Profile were explained as "written every frame by the live
+        // Atmosphere". They are written once, in Atmosphere.Start, and nothing cleared them.
+        [Test]
+        public void The_Atmosphere_Forgets_Its_Biome_When_The_Session_Ends()
+        {
+            SceneStatics.ResetSession();
+            var atmo = typeof(TW.Presentation.Terrain.Atmosphere);
+            RuntimeHelpers.RunClassConstructor(atmo.TypeHandle);
+            atmo.GetField("<Current>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, TW.Presentation.Terrain.Atmosphere.Mood.Night);
+            atmo.GetField("<Profile>k__BackingField", BindingFlags.Static | BindingFlags.NonPublic)
+                .SetValue(null, TW.Presentation.Terrain.BiomeProfile.For(TW.Presentation.Terrain.Biome.Lava));
+
+            SceneStatics.ResetSession();
+
+            Assert.That(TW.Presentation.Terrain.Atmosphere.Current,
+                Is.EqualTo(TW.Presentation.Terrain.Atmosphere.Mood.OvercastDay),
+                "[TS11c] the mood of the last match outlived Play: Current is still the night field's");
+            Assert.That(TW.Presentation.Terrain.Atmosphere.Profile.Id,
+                Is.EqualTo(TW.Presentation.Terrain.Biome.NightMud),
+                "[TS11c] the biome profile of the last match outlived Play: Profile is still the lava field's");
+        }
+
+        // [TS11c] Atmosphere.StormFlash / StormLightFrom are written by Storm, not by Atmosphere, and Storm put back
+        // only its own Hold: a session stopped mid-strike left the next one lit by a bolt that is no longer there.
+        [Test]
+        public void A_Strike_Leaves_No_Flash_Behind()
+        {
+            SceneStatics.ResetSession();
+            RuntimeHelpers.RunClassConstructor(typeof(TW.Presentation.Terrain.Storm).TypeHandle);   // Storm registers the reset
+            TW.Presentation.Terrain.Atmosphere.StormFlash = 1f;
+            TW.Presentation.Terrain.Atmosphere.StormLightFrom = Vector3.right;
+
+            SceneStatics.ResetSession();
+
+            Assert.That(TW.Presentation.Terrain.Atmosphere.StormFlash, Is.EqualTo(0f).Within(1e-6f),
+                "[TS11c] a session ended mid-strike left the flash burning");
+            Assert.That(TW.Presentation.Terrain.Atmosphere.StormLightFrom, Is.EqualTo(Vector3.down),
+                "[TS11c] a session ended mid-strike left the bolt's light direction behind");
         }
 
         [Test]

@@ -31,7 +31,14 @@ namespace TW.Presentation.Terrain
         public Color BoltLight = new Color(0.78f, 0.86f, 1f);
         /// <summary>Tooling only (the gym): while set, no strike starts (so no time freeze either) and any bolt still burning goes dark.</summary>
         public static bool Hold;
-        static Storm() => SceneStatics.Register(nameof(Storm), () => Hold = false);   // a gym stopped mid-capture leaves no calm sky behind
+        // A gym stopped mid-capture leaves no calm sky behind. Storm writes Atmosphere's flash, so Storm puts it back:
+        // a session ended mid-strike otherwise left the field lit by a bolt that is no longer there.
+        static Storm() => SceneStatics.Register(nameof(Storm), () =>
+        {
+            Hold = false;
+            Atmosphere.StormFlash = 0f;
+            Atmosphere.StormLightFrom = Vector3.down;
+        });
 
         struct Pulse { public float At, Length, Strength; }
         readonly List<Pulse> pulses = new List<Pulse>();
