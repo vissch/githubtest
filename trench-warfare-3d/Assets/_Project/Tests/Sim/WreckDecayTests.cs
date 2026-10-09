@@ -638,6 +638,46 @@ namespace TW.Tests
             Assert.AreEqual((int)SimEventType.PounceLanded + 1, (int)SimEventType.PropWorn);   // after hand to hand's five (v25)
         }
 
+        /// <summary>A system that spawns a man on the first vehicle death it sees, after the modules system and
+        /// before Deformation (950: not 900, GasSmoke holds that and AddSystem's sort is unstable).</summary>
+        sealed class SlotStealer : ISimSystem
+        {
+            public int Took = -1;
+            public int Order => 950;
+            public void Initialize(SimWorld world) { }
+            public void Step(SimWorld world)
+            {
+                if (Took >= 0) return;
+                var ev = world.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type != SimEventType.VehicleDestroyed) continue;
+                    var man = world.Units.Roster[0];   // a rifleman: 100-odd hit points, a wreck of nothing
+                    Took = world.Spawn(1, 0, world.Position[ev[i].A] + new float3(0f, 0f, 8f), man.Hp, man.Speed, false);
+                    return;
+                }
+            }
+            public ulong Hash(ulong h) => h;
+            public void Dispose() { }
+        }
+
+        [Test]
+        public void AWrecksSizeComesFromTheMachineThatDiedNotTheSlotsNewTenant()   // [N5.4]
+        {
+            using var m = NewMatch();
+            float lane = Lane(m.Map);
+            int tank = SpawnMachine(m, VehicleArchetype.Maw, lane);
+            var thief = new SlotStealer();
+            m.World.AddSystem(thief);
+
+            Shell(m, m.World.Position[tank], 100000f); Step(m);
+
+            Assert.AreEqual(tank, thief.Took, "freeSlots is LIFO: the rifleman took the dead hull's slot");
+            Assert.AreEqual(1, CountOf(m, SimEventType.PropChanged, out var made), "the wreck was made");
+            Assert.AreEqual((int)PropKind.Wreck, made.B);
+            Assert.AreEqual(1.5f, m.Map.Props[made.A].Scale, 1e-5f, "[N5.4] the wreck was sized from the man who took the slot");
+        }
+
         [Test]
         public void AWrecksSizeFollowsItsMachine()
         {

@@ -27,7 +27,7 @@ namespace TW.Sim
         SmokeSpawned,       // a = ability id, b = player, pos = one source of the screen, dir = the line's heading, scalar = concentration
         VehicleTrackHit,    // a = slot, b = side (0 left, 1 right)
         VehicleStalled,     // a = slot, b = 1 the engine died / 0 it runs again
-        VehicleDestroyed,   // a = slot, b = killer, dir.y = hull yaw (SimWorld.Despawn)
+        VehicleDestroyed,   // a = slot, b = killer, dir.x = the dead archetype + 1, dir.y = hull yaw (SimWorld.Despawn)
         WireBreached,       // pos, scalar = width
         AbilityFired,       // a = ability id, b = player, pos = the target or where a line starts, dir = heading x length (zero for a
                             //   point), scalar = an area's radius or a line's corridor half width

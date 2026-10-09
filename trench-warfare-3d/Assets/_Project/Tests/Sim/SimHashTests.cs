@@ -62,7 +62,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(43, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(44, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
 
@@ -78,7 +78,7 @@ namespace TW.Tests
         [Test]
         public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(43, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(44, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             for (int t = 0; t < 300; t++) match.Step(none);
@@ -93,7 +93,7 @@ namespace TW.Tests
         [Test]
         public void TheLandingBattlefieldHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(43, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(44, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             var cfg = SimConfig.Default; cfg.StartingSilver = 300; cfg.SilverPerSecond = 2f;
             using var match = TW.Sim.Match.MatchSim.CreateBattlefield(cfg, TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);

@@ -133,7 +133,10 @@ namespace TW.Sim
         // its body (WreckBlastReach x size), holds its cooldown when nobody is in that shadow, and returns when
         // SmokeBlindMetres of thick smoke lie on the line. A gun no longer pins a trench bay on a wreck's flank.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 43;
+        // v44 (2026-10-09, [N5.4]): a wreck's size comes from the dead machine, not from its slot. The
+        // VehicleDestroyed event carries the archetype + 1 in dir.x (dir.y stays the hull yaw) and Deformation reads
+        // it, so a slot let again in the same step no longer shrinks the wreck. Layout and chain unchanged.
+        public const ushort FormatVersion = 44;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
