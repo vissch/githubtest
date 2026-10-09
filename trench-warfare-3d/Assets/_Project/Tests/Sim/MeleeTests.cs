@@ -611,17 +611,25 @@ namespace TW.Tests
         [Test]
         public void AStalledCrab_DoesNotPounce()
         {
+            // [N6.1] stalled before the man ever exists for it to pick: the old test stalled it only after a tick that
+            // had already let it crouch (tick 0, in a log the test threw away), so it passed with the Stalled rule
+            // gone. Now nothing is there to crouch at until it is already stalled.
             using var m = Playtest();
             var w = m.World;
             int crab = Crab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f));
-            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
-            w.Spawn(1, InfantryArchetype.Rifle, new float3(30f, 0f, 30f + front + 7f), 100f, 0f, false);
+            Run(m, 1);   // VehicleModulesSystem.Init runs on its first tick, setting every module to 1
             // its engine shot out: VehicleModulesSystem rewrites Stalled from it every tick
-            Run(m, 1);
             m.Modules.Module[crab * (int)VehicleModule.Count + (int)VehicleModule.Engine] = 0.05f;
-            var log = Run(m, 60);
+            Run(m, 1);
             Assert.AreNotEqual(0u, w.Flags[crab] & (uint)UnitFlags.Stalled, "setup: it is stalled");
-            Assert.AreEqual(0, Count(log, SimEventType.PounceCrouched, crab), "a stalled machine does not leap");
+            // its guns stay live even stalled (TankGunnery does not read Stalled): zero them so only the pounce is on trial
+            for (int g = 0; g < TankGunnerySystem.Guns; g++) m.Gunnery.GunHealth[crab * TankGunnerySystem.Guns + g] = 0f;
+            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
+            int man = w.Spawn(1, InfantryArchetype.Rifle, new float3(30f, 0f, 30f + front + 7f), 100f, 0f, false);
+            var log = Run(m, 60);
+            Assert.AreEqual(0, Count(log, SimEventType.PounceCrouched, crab), "[N6.1] a stalled machine does not leap");
+            Assert.AreEqual(0, Count(log, SimEventType.PounceLanded, crab), "[N6.1] a stalled machine does not land");
+            Assert.IsTrue(w.IsAlive(man), "[N6.1] a stalled machine leaves the man under its claws alive");
         }
 
         [Test]
