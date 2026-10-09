@@ -120,6 +120,17 @@ class Rails(Base):
         self.fake(report=PAPER, calls=[{"tool": "use_tool", "what": "liteapi__post_rates_book"}])
         self.assertIn("it ran use_tool", self.critic()["untrusted"])
 
+    def test_a_plugins_mcp_tools_may_be_listed_but_a_call_to_one_that_ran_is_untrusted(self):
+        listed = ["read_file", "list_dir", "grep", "search_tool", "use_tool", "kiwi__search-flight", "liteapi__post_rates_book"]
+        self.fake(report=PAPER, tools=listed)
+        self.assertEqual(self.critic()["untrusted"], [])              # listed, refused by rule and mode, never run
+        self.fake(report=PAPER, tools=listed, calls=[{"tool": "liteapi__post_rates_book"}])
+        self.assertEqual(self.critic()["untrusted"], ["it ran liteapi__post_rates_book"])
+        self.fake(report=PAPER, tools=listed, calls=[{"tool": "liteapi__post_rates_book", "ran": False}])
+        self.assertEqual(self.critic()["untrusted"], [])
+        self.fake(report=PAPER, tools=listed + ["write"])             # a built-in tool that writes is another matter
+        self.assertTrue(any("wider: write" in u for u in self.critic()["untrusted"]))
+
     def test_a_call_the_vendor_itself_refused_is_not_held_against_the_run(self):
         self.fake(report=PAPER, calls=[{"tool": "run_terminal_command", "ran": False}])
         self.assertEqual(self.critic()["untrusted"], [])

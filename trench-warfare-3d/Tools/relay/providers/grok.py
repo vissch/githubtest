@@ -98,12 +98,20 @@ def read(out, job):
             "calls": calls, "said_mode": init.get("permissionMode"), "said_tools": init.get("tools")}
 
 
+def mcp_name(tool):
+    """`server__tool`: a tool of an MCP server. The owner's plugins bring some (flights, hotels), and a run lists
+    them in its first record when their servers are up by then (one run in four on 2026-10-09). They are no rail's
+    hole by being listed: the deny rule and the mode refuse the call, and a call that ran all the same shows in the
+    run's own output and makes it untrusted below. `second.py proof` does not try one."""
+    return "__" in (tool or "")
+
+
 def distrust(rec):
     out = []
     if rec.get("said_mode") != MODE:
         out.append("it ran in %s mode, not %s" % (rec.get("said_mode"), MODE))
     tools = rec.get("said_tools")
-    extra = [t for t in tools or [] if t not in READ_TOOLS + META_TOOLS]
+    extra = [t for t in tools or [] if t not in READ_TOOLS + META_TOOLS and not mcp_name(t)]
     if tools is None or extra:
         out.append("its tool list was %s" % ("not said" if tools is None else "wider: " + ", ".join(extra[:4])))
     did = [c["tool"] for c in rec.get("calls") or [] if c["ran"] and c["tool"] not in READ_TOOLS + ("search_tool",)]
