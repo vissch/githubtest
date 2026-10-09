@@ -1,14 +1,46 @@
 # Goals: what the game is for, and what matters now
 
-**Draft of 2026-10-07, expanded on 2026-10-08 at his word ("can you expand it? let me approve what you have
-written") and waiting for his approval. The rows of [decisions.md](decisions.md) win wherever this page and a row
-disagree.** This page gathers what is already written down; it decides nothing. The ideas agent (the skill tw-ideas)
+**His answer of 2026-10-08: pictures and films before the words, and things to click.** Expanded that day from his "can you expand it?". The rows of [decisions.md](decisions.md) win wherever this page and a row disagree. This page gathers what is already written down; it decides nothing. The ideas agent (the skill tw-ideas)
 reads it first, and an idea names the goal it serves. When a row of decisions.md changes a goal, change the line
 here in the same commit.
 
 Every line names its source: the date of a row of decisions.md, or a doc. **Not landed** beside a date means the row
 is his and is pushed, but sits on a lane that has not landed (the decision lane of 2026-10-07, or the relay's lane)
 and is not in decisions.md on this branch yet. Such a line is newer than the rest; check it when its row lands.
+
+
+## Pictures and films
+
+Each goal is a picture or a film first. Click it and the page goes to that goal's sources. The ideas agent reads the sourced lines further down. This page still decides nothing.
+
+[![The control room](goals/control-room.png)](#goal-control-room)
+
+The control room, counted. [Its sources](#goal-control-room).
+
+[![The way the work is counted](goals/the-work.png)](#goal-way-we-work)
+
+The way the work is counted. [Its sources](#goal-way-we-work).
+
+[![The Bullfrog, alive, in a battle](goals/bullfrog.png)](#goal-frogs)
+
+Frogs first: the Bullfrog in a battle. [Its sources](#goal-frogs).
+
+[![A match on the field](goals/a-match.jpg)](#goal-matches)
+
+A match on the field. The ones that end should split about evenly. [Its sources](#goal-matches).
+
+[![A weapon sheet](goals/weapons.png)](#goal-units)
+
+A weapon, drawn before it is built. [Its sources](#goal-units).
+
+[![Men by a lamp at night, today beside the new reach](goals/night-lamps.jpg)](#goal-night)
+
+The night: the lamp reaches the men. [Its sources](#goal-night).
+
+[![A wreck on fire in the snow](goals/wreck-fire.jpg)](#goal-deaths)
+
+A wreck on fire. [The film of a Bullfrog going down](goals/bullfrog-down.mp4). [Its sources](#goal-deaths).
+
 
 ## What the game is
 
@@ -44,6 +76,7 @@ and is not in decisions.md on this branch yet. Such a line is newer than the res
 Each goal has a short name; an idea says in its why now which one it serves. "Better" is in his words, or a number
 a row gives. "Open" is what the rows had left open on their date. The kinds are those of the ideas tool.
 
+<a id="goal-control-room"></a>
 1. **The control room.** "we need to start landing and merging some of the controlroom index ideas, we have idea
    agent we need to implemenet and updated data visualization". (2026-10-08.)
    - Better: "i want more things to be clickable, once i click it should bring me to the relevant asset or have me
@@ -51,12 +84,14 @@ a row gives. "Open" is what the rows had left open on their date. The kinds are 
    - Open: "track down if there is more work to implement and intergrate. fix the merge bugs after". (2026-10-08.)
      Nothing wakes the master, and nothing puts an accepted idea on the board by itself. (Rows of 2026-10-07.)
    - Serves it: something on the board he can see, click or answer. Kind: interface or tool.
+<a id="goal-way-we-work"></a>
 2. **The way we work.** The board lists what agents left unfinished, "so we dont lose track of unfinished tasks and
    can spawn an agent". (2026-10-07.)
    - Better: the process critique of 2026-10-04 gave the way of working 31 of 100. Two of its three fixes were
      taken; one re-score follows "once the two fixes are in", and had not been run. (2026-10-04, 2026-10-06.)
    - Not landed, 2026-10-07: the six top review fixes run first, then he looks at what changed.
    - Serves it: a tool or a check that saves his time, or keeps work from getting lost. Kind: tool.
+<a id="goal-frogs"></a>
 3. **Frogs first.** The frog faction's models are to be "the most important and instantly playable models in the
    game currently". (2026-10-06.) "i want to be able to play with all the new models intergrate them". (2026-09-30.)
    - Better: "instantly playable". Today no faction fields them; the sandbox and the test level do. (2026-09-28.)
@@ -66,6 +101,7 @@ a row gives. "Open" is what the rows had left open on their date. The kinds are 
      Croaker, Bullfrog, Hopper, Mercy. The Hopper "Flies over everything, never lands". The Mercy carries up to
      four badly hurt men out of view, and they come back at full health. Roster v3 waits until the frogs are playable.
    - Serves it: a job, a look or an effect for one frog unit. Kind: unit, mechanic or look.
+<a id="goal-matches"></a>
 4. **Matches that end.** "Factions first: of matches that end, each side wins 40 to 60 %". (2026-10-06.)
    - Better: each faction inside that band. Time to breach and trench keeping are reported, not judged. (2026-10-06.)
    - Where it stood: on six seeds of the scripts' own match, five stalemates and one win. (2026-10-01.) Brass beat
@@ -76,6 +112,7 @@ a row gives. "Open" is what the rows had left open on their date. The kinds are 
      after that". The report: a match with no winner is one where nobody attacks. Then: "Fix the measuring first".
      No unit's number is tuned before the matches are measured again.
    - Serves it: a rule that makes a side attack, or that shows why it does not. Kind: mechanic.
+<a id="goal-units"></a>
 5. **Units that look their part.** "each class unit has a different vfx specific to that class. Think of grenades.
    Laser weapons. Mortars." "Make sure that as much as possible each unit has a 3d model". (Rows of 2026-09-28.)
    - Better: the most common effects first; small arms are about 99 % of the events drawn. (2026-09-28.)
@@ -84,6 +121,7 @@ a row gives. "Open" is what the rows had left open on their date. The kinds are 
    - Not landed: two weapon looks are kept, toy box and brass and walnut, "it could be an upgrade". (2026-10-07.)
      "lets improve the units visuals, vfx, animation etc. you have 5 %" of the week. (2026-10-06.)
    - Serves it: a look, an effect or a move that tells one unit from the next. Kind: unit or look.
+<a id="goal-night"></a>
 6. **The night.** The night look is his two edits of a game screenshot, the palette of one and the effects of the
    other; of its first part, on the captures, he said "its good". (Rows of 2026-09-29.)
    - Better: keep the blue night, lift the distance into lighter layered fog, spend the highlights on warm fire:
@@ -93,6 +131,7 @@ a row gives. "Open" is what the rows had left open on their date. The kinds are 
    - Not landed, 2026-10-07: "it should allways be today": today's night stays, the second part does not land.
      "lets use less lights and instead try to simulate them or bake them": the 8 lamps nearest the view stay real.
    - Serves it: warm light and shapes that read, inside today's night and with no more real lights. Kind: look.
+<a id="goal-deaths"></a>
 7. **Absurd deaths.** "lots of the fun arrives as units die, we need to make this more absurd"; "we need blood".
    (Rows of 2026-09-28.) "turn it on and let me test it". (2026-09-30.)
    - Better: big arcs, flips, bounces and skids, pancakes under tracks, helmets popping off, more dismemberment and
