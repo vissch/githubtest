@@ -83,6 +83,7 @@ $R run --work <work checkout> --view              # also open a Windows Terminal
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
+$R stop --why "<words>" --by <name>               # the same, saying what for and who asks ("What a run leaves on the board")
 $R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <program> <arg> ...
 $R add --unit <file> [--role <role>]              # the same from a file in the queue file's shape; --role when it names none
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
@@ -307,7 +308,8 @@ row whose lane cannot be switched to (`stuck_lanes`), uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
 record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside
 `evidence/`, to the relay's own code, or to git's push guard. Every stop writes `relay/<station>/stops/<run>.json`
-on the board, with how each unit ended (`units`), so a failed unit is not hidden behind "nothing left to do".
+on the board, with how each unit ended (`units`), so a failed unit is not hidden behind "nothing left to do"
+("What a run leaves on the board" lists its keys).
 A unit whose lane the work checkout cannot switch to (another checkout has that branch out) is recorded FAIL with no
 leg, and the next unit is taken; until 2026-10-09 it ended the whole run.
 A run started where no window can open (Windows session 0: every Claude session on the desktop) says so at its
@@ -318,6 +320,78 @@ a second editor. Start such a run from a normal terminal. A pipeline leg's work 
 does not have the role's skill. The runner copies that skill into the leg folder and the card points at the copy.
 Leg folders and logs stay under
 `%LOCALAPPDATA%\TrenchWarfare\relay\runs\`.
+
+## What a run leaves on the board
+
+Three kinds of record, all under `relay/<station>/`, so that a page on another machine can say what a run did, what
+it is on and what waits on the owner without reading a leg's folder. Every key below is optional to a reader: a
+record an older relay wrote does not have it.
+
+**The stop record**, `stops/<run>.json`, one per run. Beside `reason`, `detail`, `legs`, `units`, `refusals`,
+`started_by`, `code`, `stopped_at`, `moved_on_origin` and the day's figures:
+
+| Key | Holds |
+|---|---|
+| `started_at`, `station` | when the run began (UTC, as `stopped_at`), and on which station |
+| `hours`, `max_legs` | the run's time cap as it was taken at the start; the leg cap, only when one was given |
+| `run_usd`, `run_usd_unpriced` | what this run's own legs cost (`day_usd` is the whole day's); how many of them named no cost and count as 0 |
+| `now_on` | the unit that was in flight when the run stopped, which is not in `units` because it has no verdict; empty when none was |
+| `problems` | per unit that ended FAIL or BLOCKED, the lines the run printed under it: 8 at most, each cut at 300 characters |
+| `reason_kind` | the family of `reason` as one fixed word, so that nothing has to match the sentence (below) |
+| `asked_why`, `asked_by` | on a stop somebody asked for: what for, and who (empty when not said) |
+
+| `reason_kind` | The run stopped because |
+|---|---|
+| `done` | nothing was left to do |
+| `hours` | the run's time was up, between legs or in one |
+| `legs` | the leg cap was reached |
+| `asked` | somebody asked: `stop`, `stop --now`, Ctrl+C |
+| `budget` | the day's budget is spent or does not cover the next unit or leg |
+| `pace` | waiting for the day's pace would outlast the run |
+| `checkout` | the work checkout is missing, dirty, open in Unity or just used; or the relay's own code has uncommitted changes |
+| `leg` | a leg cannot be trusted: it broke a rule, timed out, compacted, or did not end clean |
+| `uncommitted` | a unit left uncommitted work behind |
+| `no-result` | units in a row brought no result and no pushed code |
+| `lane` | units in a row whose lane cannot be switched to |
+| `error` | an error nobody foresaw |
+
+`$R stop --why "<words>" --by <name>` says what a stop is for and who asks: a watcher whose time is up is not the
+owner. The reason then reads `stopped by <name> (relay.py stop): <words>` (`stopped on request ...` with no name).
+With no `--why` it reads `stopped by the owner (relay.py stop)`, as it always has, whoever asked: scripts match
+those words.
+
+**The leg record**, `legs/<run>-<nn>.json`, one per leg. Beside the report, the cost and the tokens:
+
+| Key | Holds |
+|---|---|
+| `said` | the leg's verdict as the runner read it from the report's RESULT line: `done`, `blocked`, `failed`, or nothing |
+| `needs_you` | what the report's NEEDS YOU line asks of the owner, with the lines under it up to the next heading of the report's shape; empty when there is no such line or it says nothing, none, no, - or n/a |
+| `head_before`, `head_after` | the head of the unit's lane in the work checkout as the leg started and ended; empty when the unit has no lane (a retrospective) |
+| `commits`, `commits_more` | the commits between the two, oldest first, 20 at most, each with `sha` (10 characters) and `subject` (cut at 120); how many more there were |
+| `session_id` | the leg's Claude session, from its folder on the station |
+
+**The live record**, `live/<run>.json`, only while the run is going: `run`, `station`, `started_at`, `started_by`,
+`code`, `hours`, `leg_minutes`, `day_budget_pct`, `legs` (ended so far), `units` (verdicts so far), `now_on`,
+`paced_until` and `beat`. `now_on` is `unit`, `role`, `phase`, `leg`, `lane` and `since` for the leg that is
+working; between two legs of a unit it keeps the unit with an empty `phase` and `leg` 0; with no unit in flight it
+is null. `paced_until` is the time (HH:MM, the station's clock) a run that waits for the day's pace goes on, else
+empty. `beat` is when the file was last written. The stop record takes the live record's place in one commit, so
+once the stop's push is through a run never has both. A run that was killed leaves its live record behind: only a
+`beat` older than a leg may last (`leg_minutes`) says so, and not while `paced_until` is set, for a run that waits
+for the pace writes nothing until it goes on.
+
+**When the board goes out.** A run commits and pushes the board at its start, after every leg, at the verdict of
+a unit that ran a leg, when it starts to wait for the day's pace and when that wait is over, and at the stop.
+Between legs it is one try, and each call to origin in it gets 30 seconds: a push that fails prints a note, the
+commit stays on the station and goes out with the next push; it never stops a run. When origin has moved (other
+sessions queue work all day) the run's commits are put on top of it first, as at the stop. As a leg starts the
+live record is written and committed on the station, and nothing is pushed: what origin shows of `now_on` is as of
+the last push, so the first leg of a unit shows there once it has ended, unless something else pushed from that
+clone meanwhile. All of this happens between two legs' watches: the live record changing under a leg would count
+as a board file the leg changed, and for the same reason only the fetch of a push between legs is timed, never a
+pull that could go on to rebase the clone after it was given up. A commit between legs leaves the queue out,
+because a queue file counts once it is committed and a leg may have written one; the stop commits it, as it always
+has.
 
 ## What holds a leg
 
