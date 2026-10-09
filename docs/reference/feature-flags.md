@@ -27,6 +27,7 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 | `-twdev` | command-line arg | `Editor/BuildWindows.cs` | Arg to the batch Windows build: make a Development build. |
 | `-twgym` | command-line arg | `Editor/Gym.cs` | Editor arg with -executeMethod TW.Editor.Gym.CommandLine: the gym run's options ("tabs=clips,abilities filter=Fire max=20 bands=close out=<dir>"); the editor exits when the run ends (0 clean, 2 flagged, 1 could not run). |
 | `-twknob` | command-line arg | `Presentation/Core/Knobs.cs` | Player/editor arg, repeatable: -twknob name=value sets a run-time knob (`Presentation/Core/Knobs.cs`); wins over TW_KNOBS. |
+| `-twpanel` | command-line arg | `Presentation/Camera/TestPanel.cs` | Player arg: show the debug panel (TestPanel) in a non-Development build. |
 | `-twstudy` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: MachineStudy (`Editor/MachineStudy.cs`) writes its machine scores, jams and summary into this folder. |
 | `-twstudysec` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: seconds of match time MachineStudy measures (default 150). |
 | `-twstudyseed` | command-line arg | `Editor/MachineStudy.cs` | Editor batch arg: the match seed MachineStudy plays (default 12648430, 0xC0FFEE). |
