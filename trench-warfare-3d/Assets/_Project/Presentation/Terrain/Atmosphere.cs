@@ -21,12 +21,21 @@ namespace TW.Presentation.Terrain
         public enum Mood { OvercastDay, Night }
         [Tooltip("Legacy. Field chooses the battlefield now; this is kept so old scenes deserialize and is overwritten in Start.")]
         public Mood Look = Mood.Night;
+        /// <summary>The mood of the field being drawn. Set once in Start, put back when Play ends.</summary>
         public static Mood Current { get; private set; }
 
         [Tooltip("Which battlefield this is (docs/18). NightMud reproduces the old night set exactly.")]
         public Biome Field = Biome.NightMud;
-        /// <summary>What this battlefield is made of. Read by the terrain, the weather and the effects. Never null after Start.</summary>
+        /// <summary>What this battlefield is made of. Read by the terrain, the weather and the effects. Never null after
+        /// Start. Set once in Start, put back when Play ends.</summary>
         public static BiomeProfile Profile { get; private set; } = BiomeProfile.NightMud();
+        // Current and Profile are set ONCE, in Start, not every frame, and nothing clears them: a night match left the
+        // next thing the editor ran reading the lava field's profile. Both setters are private, so the reset lives here.
+        static Atmosphere() => SceneStatics.Register(nameof(Atmosphere), () =>
+        {
+            Current = default;   // Mood.OvercastDay, the declared default
+            Profile = BiomeProfile.NightMud();
+        });
         [Header("Mood")]
         public Color ShadeTint = Color.white;
         public Color SkyMirror = new Color(0.60f, 0.61f, 0.60f);
@@ -49,7 +58,8 @@ namespace TW.Presentation.Terrain
         [Tooltip("In the super zoom the far field goes softly out of focus and the vignette closes a little. Costs nothing at any other zoom; off = never.")]
         public bool CloseLens = true;
         Color shadeNow; float flashNow;
-        /// <summary>Set by Storm each frame: how bright the strike is right now, 0..1, and the way its light travels.</summary>
+        /// <summary>Set by Storm while a strike burns: how bright it is right now, 0..1, and the way its light travels.
+        /// Storm puts both back when Play ends (its registration), so a session stopped mid-strike leaves no flash.</summary>
         public static float StormFlash;
         public static Vector3 StormLightFrom = Vector3.down;
         Light key;
