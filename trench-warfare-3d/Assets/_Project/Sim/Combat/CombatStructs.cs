@@ -9,7 +9,7 @@ namespace TW.Sim.Combat
         public FireMode Mode;
         public float Damage;
         public float RangeMin, RangeMax;
-        public float RoundsPerSecond;
+        public float RoundsPerSecond;   // the figure the cooldown is derived from, not the pace fired: CombatTables.ShotsPerSecond is one tick more between shots
         public int BurstRounds;
         public int MagazineRounds;     // 0 = no reload cycle
         public float ReloadSeconds;
