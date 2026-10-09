@@ -815,17 +815,29 @@ namespace TW.Presentation.Tactical
         // ground and down landing; stopped mid-hop, it comes down. Its gatlings spin up with each round and wind down.
         const float HopStride = 2.6f * BullfrogScale, HopHeight = 0.75f * BullfrogScale, HopTiltMax = 9f * Mathf.Deg2Rad, SpinRate = 30f;
 
-        const float DeadSquash = 0.62f, DeadNose = 9f * Mathf.Deg2Rad, DeadHeel = 13f * Mathf.Deg2Rad, DeadGuns = 30f * Mathf.Deg2Rad;
+        public const float DeadSquash = 0.62f;
+        const float DeadNose = 9f * Mathf.Deg2Rad, DeadHeel = 13f * Mathf.Deg2Rad, DeadGuns = 30f * Mathf.Deg2Rad;
+
+        /// <summary>Whether a Bullfrog is down: knocked out or cooking off (the sim keeps its slot 12 to 24 s more,
+        /// VehicleModules), or already a wreck. Keyed on the wreck alone the slump never ran: a view is made a wreck as it
+        /// leaves `views`, and HopPose runs over `views` only, so the dead toad sat at full height, breathing, until it
+        /// snapped flat in one frame.</summary>
+        public static bool HopDown(int state, bool wreck) => wreck || state != (int)VehicleState.Active;
+
+        /// <summary>The hull's height (HopSquash) one step on: eased down to DeadSquash once it is down, else toward its
+        /// live shape. Pure, so a test can hold the slump.</summary>
+        public static float HopSquashStep(float squash, float shape, int state, bool wreck, float dt)
+            => HopDown(state, wreck) ? Mathf.Lerp(squash, DeadSquash, 1f - Mathf.Exp(-dt * 4f)) : Mathf.Lerp(squash, shape, 1f - Mathf.Exp(-dt * 14f));
 
         void HopPose(View v, float dt)
         {
-            if (v.Dead)
+            if (HopDown(v.State, v.Dead))
             {
                 // a dead toad is not its live pose painted dark (critics 2026-10-01, twice: this ran every frame and stood the
                 // slump Wreckify gave it back up): it goes down on its belly, nose low, heeled to one side, guns dropped
                 float ease = 1f - Mathf.Exp(-dt * 4f);
                 v.HopPhase = 0f; v.Bob = Mathf.Lerp(v.Bob, 0f, ease); v.Spin = 0f;
-                v.HopSquash = Mathf.Lerp(v.HopSquash, DeadSquash, ease);
+                v.HopSquash = HopSquashStep(v.HopSquash, 1f, v.State, v.Dead, dt);
                 v.HopTilt = Mathf.Lerp(v.HopTilt, -DeadNose, ease);
                 v.Heel = Mathf.Lerp(v.Heel, (v.Slot & 1) == 0 ? DeadHeel : -DeadHeel, ease);
                 v.GunPitch[0] = Mathf.Lerp(v.GunPitch[0], -DeadGuns, ease); v.GunPitch[1] = Mathf.Lerp(v.GunPitch[1], -DeadGuns * 0.5f, ease);   // one gun lower than the other
@@ -860,7 +872,7 @@ namespace TW.Presentation.Tactical
             // gathered low as it leaves the ground, long at the top; sitting, a slow breath
             float shape = p > 0f ? 1f + 0.09f * Mathf.Sin(Mathf.PI * p) - 0.14f * Mathf.Exp(-(p * 9f) * (p * 9f))
                                  : 1f + 0.012f * Mathf.Sin(Time.time * 1.7f + v.Slot);
-            v.HopSquash = Mathf.Lerp(v.HopSquash, shape, 1f - Mathf.Exp(-dt * 14f));
+            v.HopSquash = HopSquashStep(v.HopSquash, shape, v.State, v.Dead, dt);
             v.Spin = Mathf.MoveTowards(v.Spin, 0f, dt * 1.2f);
             if (v.Spin > 0f) v.SpinAngle = Mathf.Repeat(v.SpinAngle + v.Spin * SpinRate * dt, Mathf.PI * 2f);
             PoseHopLegs(v, v.HopPhase, landed, false, dt);   // its legs through the hop (TankRenderer.HopLegs.cs)

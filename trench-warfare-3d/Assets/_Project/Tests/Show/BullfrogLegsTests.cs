@@ -88,5 +88,30 @@ namespace TW.Tests
             Assert.IsTrue(File.Exists(playground), "the Playground's legs file is gone");
             Assert.AreEqual(File.ReadAllText(playground), File.ReadAllText(battle), "the battle's legs file is not the Playground's: copy it again after Tools/legrig.py");
         }
+
+        [Test]
+        public void KnockedOut_TheToadGoesDownWhileItsSlotLives_EasedNotInOneFrame()
+        {
+            // review B1: the sim keeps a knocked-out machine's slot for 12 to 24 s, and for that time the toad sat at full
+            // height, breathing: the slump was keyed on the wreck, and a view is only made a wreck as it leaves the renderer
+            const float dt = 1f / 60f;
+            int active = (int)TW.Sim.Units.VehicleState.Active, knockedOut = (int)TW.Sim.Units.VehicleState.KnockedOut, cookingOff = (int)TW.Sim.Units.VehicleState.CookingOff;
+            Assert.IsFalse(TankRenderer.HopDown(active, false), "a live toad is up");
+            Assert.IsTrue(TankRenderer.HopDown(knockedOut, false), "knocked out, its slot still alive: it goes down");
+            Assert.IsTrue(TankRenderer.HopDown(cookingOff, false), "cooking off: down");
+            Assert.IsTrue(TankRenderer.HopDown(active, true), "a wreck: down");
+            // alive, it holds its live shape
+            float up = 1f;
+            for (int f = 0; f < 120; f++) up = TankRenderer.HopSquashStep(up, 1f, active, false, dt);
+            Assert.AreEqual(1f, up, 1e-5f, "a live toad sitting stays at its height");
+            // knocked out, it sinks toward DeadSquash (0.62 of its height): begun on the first frame, lower every frame
+            // after, nearly down a second on, down at three; so the wreck that follows starts from the slump, not a jump
+            float s = TankRenderer.HopSquashStep(1f, 1f, knockedOut, false, dt), last = s;
+            Assert.That(s, Is.InRange(0.95f, 0.999f), "one frame after the knock-out it has begun to sink, and has not snapped flat");
+            for (int f = 1; f < 60; f++) { s = TankRenderer.HopSquashStep(s, 1f, knockedOut, false, dt); Assert.LessOrEqual(s, last, $"frame {f}: it only sinks"); last = s; }
+            Assert.That(s, Is.InRange(TankRenderer.DeadSquash, TankRenderer.DeadSquash + 0.02f), "a second on it is nearly down");
+            for (int f = 60; f < 180; f++) s = TankRenderer.HopSquashStep(s, 1f, knockedOut, false, dt);
+            Assert.AreEqual(TankRenderer.DeadSquash, s, 1e-3f, "three seconds on it lies at the wreck's height");
+        }
     }
 }
