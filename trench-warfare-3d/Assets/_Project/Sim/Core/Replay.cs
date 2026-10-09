@@ -136,7 +136,9 @@ namespace TW.Sim
         // v44 (2026-10-09, [N5.4]): a wreck's size comes from the dead machine, not from its slot. The
         // VehicleDestroyed event carries the archetype + 1 in dir.x (dir.y stays the hull yaw) and Deformation reads
         // it, so a slot let again in the same step no longer shrinks the wreck. Layout and chain unchanged.
-        public const ushort FormatVersion = 44;
+        // v45 (2026-10-09, [N5.1]): a crab's leap no longer crushes a man caught under its flight: VehicleKinematics'
+        // crush check now skips a hull with UnitFlags.Pouncing set. Behaviour only, no layout change.
+        public const ushort FormatVersion = 45;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

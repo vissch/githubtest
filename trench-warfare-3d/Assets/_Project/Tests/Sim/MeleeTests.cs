@@ -277,6 +277,39 @@ namespace TW.Tests
         }
 
         [Test]
+        public void APouncingCrab_DoesNotRunDownAManUnderItsFlight()
+        {
+            // [N5.1] review, 2026-10-07: does the leap's velocity (PounceSystem.cs writes it while Airborne) crush a
+            // man caught half way under the flight, the way a driving tank's track does (VehicleKinematics.CrushUnder)?
+            using var m = Playtest();
+            var w = m.World;
+            int crab = Crab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f), moving: true);
+            float front = VehicleProfile.ForArchetype(VehicleArchetype.Pincer).HalfLength;
+            float3 manAt = new float3(30f, 0f, 30f + front + 9f);
+            int man = w.Spawn(1, InfantryArchetype.Rifle, manAt, 100f, 0f, false);
+            int under = -1;
+            var log = Run(m, 60, t =>
+            {
+                if (under < 0 && m.Pounce.Phase[crab] == PounceSystem.Crouched)
+                {
+                    // half way along the leap, clear of the claws (TankGunnery.cs:444) and of where it lands
+                    // (LandRadius 3 m; he is 5.6 m from the landing point)
+                    float3 at = math.lerp(m.Pounce.From[crab], m.Pounce.To[crab], 0.5f);
+                    under = w.Spawn(1, InfantryArchetype.Rifle, at, 100f, 0f, false);
+                }
+            });
+            Assert.AreEqual(1, Count(log, SimEventType.PounceCrouched, crab), "setup: it crouched to leap");
+            Assert.AreEqual(1, Count(log, SimEventType.PounceLanded, crab), "setup: it landed");
+            Assert.GreaterOrEqual(under, 0, "setup: the second man was spawned under the flight");
+            uint landTick = 0;
+            foreach (var e in log) if (e.Type == SimEventType.PounceLanded && e.A == crab) landTick = e.Tick;
+            foreach (var e in log)
+                if (e.Type == SimEventType.Death && e.A == under && e.Tick <= landTick)
+                    Assert.Fail($"[N5.1] a crab ran down a man under its flight (tick {e.Tick})");
+            Assert.IsTrue(w.IsAlive(under), "[N5.1] a crab ran down a man under its flight");
+        }
+
+        [Test]
         public void ACrab_DoesNotPounceBehindItself_OrPastTenMetres()
         {
             using var m = Playtest();
