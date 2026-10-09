@@ -11,6 +11,7 @@ using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Tactical;
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Nav;
 
 namespace TW.Tests
@@ -323,6 +324,157 @@ namespace TW.Tests
             Vector3 size = bounds.size / VehicleSize.Walker;
             var was = new Vector3(2.0271f, 2.8173f, 3.3983f);     // crabs.json size_m at a0b98135
             Assert.Less((size - was).magnitude, 1e-3f, $"Banner near: it measures {size} where it measured {was}");
+        }
+
+        // ------------------------------------------------------------------ the parts move
+        // The owner, 2026-10-08: the top "should also be able to rotate", the guns "need to be cut so they can
+        // animate". These two pose the real parts with the very code that draws them (TankRenderer.PartLocal), so a
+        // test cannot pass while the battle looks wrong. The view and that method are TankRenderer's own, read by
+        // reflection as WalkerStills and WreckStills already read its views: the plan asked for them to be made
+        // public, which C# will not allow without dragging Spring, DriveStyle and Debris out with them.
+        // No shield test: there is no plate in the sculpt (leg 02 looked), and the standard forbids inventing one.
+        const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+
+        /// <summary>A TankRenderer and a view of its own kind holding this model. Awake never runs in EditMode, so its
+        /// knobs keep their defaults (weightOn and calibreRecoil both true, the battle's own setting).</summary>
+        static (TankRenderer r, object v) Rig(TankModel m, byte archetype)
+        {
+            var go = new GameObject("TankRendererUnderTest");
+            var r = go.AddComponent<TankRenderer>();
+            var view = r.GetType().GetNestedType("View", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            Assert.NotNull(view, "TankRenderer has no View");
+            object v = System.Activator.CreateInstance(view, true);
+            view.GetField("Model", Any).SetValue(v, m);
+            view.GetField("Archetype", Any).SetValue(v, archetype);
+            return (r, v);
+        }
+
+        static float[] Arr(object v, string field) => (float[])v.GetType().GetField(field, Any).GetValue(v);
+
+        /// <summary>The part's matrix in its parent's frame, as TankRenderer draws it this instant.</summary>
+        static Matrix4x4 Posed(TankRenderer r, object v, TankModel m, int part)
+        {
+            var mi = r.GetType().GetMethod("PartLocal", Any);
+            Assert.NotNull(mi, "TankRenderer has no PartLocal");
+            return (Matrix4x4)mi.Invoke(r, new object[] { v, m.Lods[0].Parts[part], part });
+        }
+
+        /// <summary>How far a posed part has been turned about the machine's up, in degrees.</summary>
+        static float Yaw(Matrix4x4 posed, TankModel.Part p)
+            => Vector3.SignedAngle(p.LocalRot * Vector3.forward, posed.MultiplyVector(Vector3.forward), Vector3.up);
+
+        /// <summary>The top turns toward what the Banner shoots at and comes back to the front when it has none
+        /// (the owner, 2026-10-08). The sim already says where to point: TankGunnery lays Gun0 at the target, inside
+        /// the gun's arc and no faster than its traverse rate, and the show only draws that. So this test lays the gun
+        /// the way the sim does and reads the Turret's rotation back out of the code that draws it.
+        /// 90 degrees off the nose is NOT reached: TankSpec.Banner's arc is 38 degrees either side and widening it
+        /// would be a sim change. The top goes to its stop and the hull brings the rest of the way.</summary>
+        [Test]
+        public void TheTopTurnsToTheTargetAndComesBack()
+        {
+            var m = Load("Banner", VehicleArchetype.Banner);
+            var lod = m.Lods[0];
+            int turret = lod.Find("Turret"), upper = lod.Find("Gun_Upper"), lower = lod.Find("Gun_Lower");
+            var (r, v) = Rig(m, VehicleArchetype.Banner);
+            var gun = TankSpec.For(VehicleArchetype.Banner).Gun(0);
+            float arc = gun.ArcHalf * Mathf.Rad2Deg, rate = gun.TraverseRate * Mathf.Rad2Deg;
+            Assert.AreEqual(38f, arc, 0.01f, "TankSpec.Banner's arc; the top cannot be let past it from the show");
+            var yaws = Arr(v, "GunYaw");
+
+            // a target 90 degrees off the nose: the sim clamps it into the arc and traverses at the gun's rate
+            float want = TankSpec.ClampToArc(gun, 90f * Mathf.Deg2Rad) * Mathf.Rad2Deg;
+            Assert.AreEqual(arc, want, 0.01f, "the sim lays a 90 degree target at the arc's edge");
+            const float dt = 1f / 60f;
+            float half = 0f;
+            for (float t = 0f; t < 3f; t += dt)
+            {
+                yaws[0] = Mathf.MoveTowardsAngle(yaws[0] * Mathf.Rad2Deg, want, rate * dt) * Mathf.Deg2Rad;
+                float drawn = Yaw(Posed(r, v, m, turret), lod.Parts[turret]);
+                if (half == 0f && Mathf.Abs(drawn) > arc * 0.5f) half = t;
+                Assert.LessOrEqual(Mathf.Abs(drawn), arc + 0.5f, $"the top turned {drawn:0.0} degrees, past its {arc:0} degree stop, at {t:0.00} s");
+            }
+            float at = Yaw(Posed(r, v, m, turret), lod.Parts[turret]);
+            Assert.AreEqual(arc, at, 0.5f, $"with a target 90 degrees off the nose the top came to {at:0.0} degrees, not its {arc:0} degree stop");
+            // it reads at play zoom: it is most of the way there inside a second, not a creep
+            Assert.Greater(half, 0.01f); Assert.Less(half, 1f, $"the top took {half:0.00} s to turn half its arc");
+            TestContext.Out.WriteLine($"Banner's top: {arc:0} degree stop at {rate:0} deg/s, half way in {half:0.00} s, and the hull brings the other {90f - arc:0} degrees");
+
+            // the guns hang off the top and do not yaw of their own: they are carried round by it
+            foreach (int g in new[] { upper, lower })
+                Assert.Less(Mathf.Abs(Yaw(Posed(r, v, m, g), lod.Parts[g])), 0.01f, $"{lod.Parts[g].Name} yawed by itself as well as with the top");
+
+            // no target: the gun goes back to its rest yaw, and the top with it
+            for (float t = 0f; t < 3f; t += dt)
+                yaws[0] = Mathf.MoveTowardsAngle(yaws[0] * Mathf.Rad2Deg, gun.RestYaw * Mathf.Rad2Deg, rate * dt) * Mathf.Deg2Rad;
+            float back = Yaw(Posed(r, v, m, turret), lod.Parts[turret]);
+            Assert.AreEqual(0f, back, 0.1f, $"with nothing to shoot at the top stayed at {back:0.0} degrees");
+            Object.DestroyImmediate(r.gameObject);
+        }
+
+        /// <summary>The guns animate (the owner, 2026-10-08): the shot the sim fires drives a recoil back along each
+        /// barrel, and the sim's aim raises both. TankRenderer sets Recoil to 1 on the sim's shot event and runs it
+        /// down; this reads the pose that comes out at the two ends of that.</summary>
+        [Test]
+        public void AShotRecoilsBothBarrelsAlongThemselves()
+        {
+            var m = Load("Banner", VehicleArchetype.Banner);
+            var lod = m.Lods[0];
+            int upper = lod.Find("Gun_Upper"), lower = lod.Find("Gun_Lower");
+            var (r, v) = Rig(m, VehicleArchetype.Banner);
+            var recoil = Arr(v, "Recoil"); var pitch = Arr(v, "GunPitch");
+
+            // at rest a barrel is drawn exactly where it was cut
+            foreach (int g in new[] { upper, lower })
+            {
+                Vector3 at = Posed(r, v, m, g).GetColumn(3);
+                Assert.Less((at - lod.Parts[g].Local).magnitude, 1e-5f, $"{lod.Parts[g].Name} is not on its pivot with no shot and no pitch");
+            }
+            // the shot, run down the way TankRenderer runs it (Recoil 1 at the shot, decaying at 1 / ReturnT): back
+            // along the barrel's own length, both of them, and far enough to read. The peak is NOT at Recoil 1 -
+            // HullRide.Kick snaps the barrel back over its first 35 ms - so the pose is read all the way through.
+            const float dt = 1f / 60f, ret = 0.65f;        // View.ReturnT's default, every gun's today
+            var peak = new float[2]; var home = new float[2];
+            recoil[0] = 1f;
+            for (float t = 0f; t < 1.5f; t += dt)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    int g = i == 0 ? upper : lower;
+                    var p = lod.Parts[g];
+                    Vector3 own = Quaternion.Inverse(p.LocalRot) * ((Vector3)Posed(r, v, m, g).GetColumn(3) - p.Local);
+                    Assert.LessOrEqual(own.z, 1e-5f, $"{p.Name} ran FORWARD out of its mount at {t:0.00} s: {own}");
+                    Assert.Less(new Vector2(own.x, own.y).magnitude, 0.01f, $"{p.Name} moved sideways on a shot at {t:0.00} s: {own}");
+                    peak[i] = Mathf.Max(peak[i], -own.z);
+                    if (home[i] == 0f && t > 0.1f && -own.z < 0.005f) home[i] = t;
+                }
+                recoil[0] = Mathf.Max(0f, recoil[0] - dt / ret);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                string name = lod.Parts[i == 0 ? upper : lower].Name;
+                Assert.Greater(peak[i], 0.03f, $"{name} came back {peak[i] * 100f:0.0} cm at most on a shot: too little to see");
+                Assert.Greater(home[i], 0f, $"{name} never came back into battery");
+                Assert.Less(home[i], 1f, $"{name} took {home[i]:0.00} s to come back into battery");
+            }
+            TestContext.Out.WriteLine($"Banner's barrels recoil {peak[0] * 100f:0.0} cm and are back in battery in {home[0]:0.00} s");
+            // and with no shot at all it is home: exactly on its pivot
+            recoil[0] = 0f;
+            foreach (int g in new[] { upper, lower })
+                Assert.Less(((Vector3)Posed(r, v, m, g).GetColumn(3) - lod.Parts[g].Local).magnitude, 1e-5f, $"{lod.Parts[g].Name} did not come back off its recoil");
+
+            // the sim's elevation raises both barrels about their mounts, nose up
+            pitch[0] = 20f * Mathf.Deg2Rad;
+            foreach (int g in new[] { upper, lower })
+            {
+                var p = lod.Parts[g];
+                Vector3 was = (p.LocalRot * Vector3.forward).normalized;
+                Vector3 nose = Posed(r, v, m, g).MultiplyVector(Vector3.forward).normalized;
+                float up = Vector3.SignedAngle(was, nose, Vector3.Cross(Vector3.up, was).normalized);
+                Assert.AreEqual(20f, Mathf.Abs(up), 1f, $"{p.Name} turned {up:0.0} degrees where the sim laid 20 of elevation");
+                Assert.Greater(nose.y, was.y, $"{p.Name} dipped where the sim laid 20 degrees of elevation");
+            }
+            TestContext.Out.WriteLine("Banner's guns: both barrels recoil along themselves on the sim's shot and elevate with its aim");
+            Object.DestroyImmediate(r.gameObject);
         }
 
         static float RosterSpeed(byte archetype) => archetype == VehicleArchetype.Banner ? RosterEntry.Banner.Speed : 2f;
