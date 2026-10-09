@@ -412,5 +412,33 @@ namespace TW.Tests
             Assert.That(KeyMap.Defaults().Primary[(int)GameAction.Feedback], Is.EqualTo(UnityEngine.InputSystem.Key.F10));
             Assert.That(KeyMap.Label(GameAction.Feedback), Is.EqualTo("FEEDBACK CAPTURE"));
         }
+
+        [Test]
+        public void TheKeyThatEndsARebind_IsTheKeyToBind_NotAlsoTheFeedbackKey()
+        {
+            // review FB.1: Settings, Controls, a key-cap clicked, F10 pressed as the key to bind. The capture lets go of
+            // the keyboard in the input callback, before the router's Update reads F10 raw: the note box came up over Settings
+            InputFocus.Reset();
+            Assert.That(ShellRouter.FeedbackKeyActs(true, true), "F10 with nothing in its way is the capture");
+            Assert.That(ShellRouter.FeedbackKeyActs(false, false), Is.False, "no press, no capture");
+            InputFocus.Listening = true;
+            Assert.That(ShellRouter.FeedbackKeyActs(true, true), Is.False, "not while a rebind waits for its key");
+            InputFocus.Listening = false;   // what KeyMap.Listen does as the key arrives, before it hands the key on:
+            var got = UnityEngine.InputSystem.Key.None; int cancelled = 0;
+            KeyMap.Captured(UnityEngine.InputSystem.Key.F10, k => got = k, () => cancelled++);
+            Assert.That(got, Is.EqualTo(UnityEngine.InputSystem.Key.F10), "the key reaches the settings row");
+            Assert.That(cancelled, Is.EqualTo(0));
+            Assert.That(InputFocus.CaptureConsumed, "the key that ended the rebind is claimed for this frame");
+            Assert.That(InputFocus.EscapeConsumed, Is.False);
+            Assert.That(ShellRouter.FeedbackKeyActs(true, true), Is.False, "so it is not also F10: no note box over Settings");
+            // Esc is as it was: it cancels the rebind and is claimed as an Escape, not as a captured key
+            InputFocus.Reset();
+            KeyMap.Captured(UnityEngine.InputSystem.Key.Escape, k => got = UnityEngine.InputSystem.Key.Escape, () => cancelled++);
+            Assert.That(cancelled, Is.EqualTo(1)); Assert.That(got, Is.EqualTo(UnityEngine.InputSystem.Key.F10), "Esc binds nothing");
+            Assert.That(InputFocus.EscapeConsumed); Assert.That(InputFocus.CaptureConsumed, Is.False);
+            // and with the box up the rule is the old one: a letter is his words', a function key closes the box
+            InputFocus.Reset(); InputFocus.Typing = true;
+            Assert.That(ShellRouter.FeedbackKeyActs(true, false), Is.False); Assert.That(ShellRouter.FeedbackKeyActs(true, true));
+        }
     }
 }

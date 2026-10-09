@@ -16,7 +16,7 @@ namespace TW.Presentation
         /// <summary>He is typing words into a box (the feedback capture's): no key is a command, the debug overlays' and
         /// the HUD toggle's included, which read the keyboard raw and so ignore Modal.</summary>
         public static bool Typing;
-        static int escapeFrame = -1;
+        static int escapeFrame = -1, captureFrame = -1;
 
         /// <summary>Gameplay may read input this frame.</summary>
         public static bool Gameplay => !Modal && !Listening;
@@ -25,7 +25,13 @@ namespace TW.Presentation
         public static void ConsumeEscape() => escapeFrame = Time.frameCount;
         public static bool EscapeConsumed => escapeFrame == Time.frameCount;
 
+        /// <summary>Claim this frame's key press for the rebind capture it ended: it is the key to bind, so no handler that
+        /// reads the keyboard raw (the feedback capture's F10) acts on it too. Listening is already false by then: the
+        /// capture lets go of the keyboard in the input callback, before any Update runs.</summary>
+        public static void ConsumeCapture() => captureFrame = Time.frameCount;
+        public static bool CaptureConsumed => captureFrame == Time.frameCount;
+
         /// <summary>Reset on scene load so a stale Modal from a destroyed screen cannot dead-lock the field.</summary>
-        public static void Reset() { Modal = false; Listening = false; Typing = false; escapeFrame = -1; }
+        public static void Reset() { Modal = false; Listening = false; Typing = false; escapeFrame = -1; captureFrame = -1; }
     }
 }

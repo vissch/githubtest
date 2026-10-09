@@ -195,10 +195,10 @@ namespace TW.UI
                 }
             }
             if (Host != null && !debriefShown && !InputFocus.Listening && !InputFocus.Modal && ProvingKeyDown()) ToggleProvingGround();
-            // F10, read raw: it works over a menu, the pause screen and the debrief too. Not while a key is being rebound.
-            // With the box up the key closes it only when it is no key he could be typing (rebound to a letter, the letter
-            // is his words').
-            if (!InputFocus.Listening && KeyMap.DownRaw(GameAction.Feedback) && (!InputFocus.Typing || FunctionKeyDown(GameAction.Feedback))) Feedback();
+            // F10, read raw: it works over a menu, the pause screen and the debrief too. Not while a key is being rebound,
+            // nor on the frame a rebind took this press as its key. With the box up the key closes it only when it is no
+            // key he could be typing (rebound to a letter, the letter is his words').
+            if (FeedbackKeyActs(KeyMap.DownRaw(GameAction.Feedback), FunctionKeyDown(GameAction.Feedback))) Feedback();
             // the debrief, a beat after the end
             if (Host != null && Host.Local != null && !debriefShown && Host.Local.World.WinnerTeam >= 0)
             {
@@ -206,6 +206,12 @@ namespace TW.UI
                 else if (Time.unscaledTime - endedAt >= EndDelaySeconds) ShowDebrief();
             }
         }
+
+        /// <summary>Whether this frame's press of the feedback key (`down`) is the command. Not while a rebind waits for its
+        /// key, and not on the frame a rebind ended with a key (InputFocus.CaptureConsumed): that press was the key to
+        /// bind. With the box up (Typing) only a key he could not be typing counts (`functionKeyDown`).</summary>
+        public static bool FeedbackKeyActs(bool down, bool functionKeyDown)
+            => !InputFocus.Listening && !InputFocus.CaptureConsumed && down && (!InputFocus.Typing || functionKeyDown);
 
         static bool FunctionKeyDown(GameAction a)
         {

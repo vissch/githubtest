@@ -254,10 +254,19 @@ namespace TW.Presentation
             {
                 if (done || !(ctrl is KeyControl kc)) return;
                 Finish();
-                if (kc.keyCode == Key.Escape) { InputFocus.ConsumeEscape(); onCancel?.Invoke(); }
-                else onKey?.Invoke(kc.keyCode);
+                Captured(kc.keyCode, onKey, onCancel);
             });
             return new Stopper(Finish);
+        }
+
+        /// <summary>The key that ended a capture. Escape cancels, and is claimed as this frame's Escape. Any other key is
+        /// the key to bind, and is claimed as the capture's (InputFocus.ConsumeCapture): the capture has let go of the
+        /// keyboard by now, and without the stamp the same press was also read as the command that key is bound to
+        /// (F10 pressed to bind it also opened the feedback box over Settings).</summary>
+        public static void Captured(Key key, Action<Key> onKey, Action onCancel)
+        {
+            if (key == Key.Escape) { InputFocus.ConsumeEscape(); onCancel?.Invoke(); }
+            else { InputFocus.ConsumeCapture(); onKey?.Invoke(key); }
         }
 
         sealed class Stopper : IDisposable
