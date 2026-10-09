@@ -42,14 +42,16 @@ RECENT = 3 * 3600        # ... this recently: it was here today, shown resting o
 LONG = 24 * 3600         # ... not for this long: it is not asked about its agents either
 SKILL_FRESH = 90 * 60    # a skill a working session took up this recently is working with it
 AGENT_FRESH = 4 * 60     # a subagent whose transcript moved this recently is still running
-AGENT_QUIET = 45 * 60    # ... and one quiet for up to this long, if it has not said its last word and its session still runs
+AGENT_QUIET = 15 * 60    # ... and one quiet for up to this long, if it has not said its last word and its session still runs
 TAIL = 4 * 1024 * 1024
 AGENT_TAIL = 512 * 1024  # of an agent's own log: enough for its last calls
+LONG_PATH = 180          # a transcript's path from this length on is opened in its long form: its agents' files lie some 70 characters deeper, and Windows takes 260
 POINTS = 40              # the last tool calls of a session that are asked: which room, and which checkout
 ENOUGH = 3               # ... and how many of them must name a checkout for a session started outside every one
 ASKS = ('AskUserQuestion', 'ExitPlanMode')     # a call that is not over until the owner answers
 PLAN_MARKS = {'plan_mode': True, 'plan_mode_reentry': True, 'plan_mode_exit': False}    # the notes a transcript keeps of going in and out of plan mode
 PROJECTS = Path(os.path.expanduser('~')) / '.claude' / 'projects'
+DETACHED = 'detached: '  # how a checkout on no branch is named as a lane: this and its folder's name
 MACHINES = [            # (process name, a pattern in its command line, what it is doing)
     ('Unity.exe', r'\b(-runTests|test)\b', 'Unity test run'),
     ('Unity.exe', r'-batchmode', 'Unity editor, no window'),
@@ -120,8 +122,11 @@ def checkouts(repo: Path):
         elif line.startswith('branch refs/heads/') and cur:
             out[cur] = dict(branch=line[18:], path=str(cur), name=cur.name)
         elif line.strip() == 'detached' and cur:        # on no branch (a pinned copy, a review's checkout): still a place work is done in
-            out[cur] = dict(branch=f'detached: {cur.name}', path=str(cur), name=cur.name)
+            out[cur] = dict(branch=DETACHED + cur.name, path=str(cur), name=cur.name)
     for p, w in out.items():
+        if w['branch'].startswith(DETACHED):        # a pinned copy, or a checkout a check moves and resets by itself: no status is run in it
+            w['dirty'] = []                         # (git status takes the index lock, and a reset there must not meet it)
+            continue
         st = src_git.git(p, 'status', '--porcelain', '--untracked-files=normal').split('\n')
         w['dirty'] = [l[3:] for l in st if l.strip()]
     return out
@@ -210,7 +215,7 @@ def reach(f: Path):
     """A path the system can open: one longer than Windows takes gets the prefix that lifts the limit (a session
     run from a deep folder has a transcript like that, and it is at work like any other)."""
     s = str(f)
-    return Path('\\\\?\\' + s) if os.name == 'nt' and len(s) >= 248 and not s.startswith('\\\\') else f
+    return Path('\\\\?\\' + s) if os.name == 'nt' and len(s) >= LONG_PATH and not s.startswith('\\\\') else f
 
 
 def closed(log: Path):
@@ -291,7 +296,9 @@ def headless(cwd):
 
 def sessions(trees, now, live=None, skip=()):
     """Every Claude session written to in the last RECENT seconds, or with an agent still running, or that Claude
-    lists as running and busy (`live`: src_floor.registry()). Each says what it is on (title, last request, the
+    lists as running and busy (`live`: src_floor.registry()). When Claude lists any session at all, one it does not
+    list is over: it is not at work however lately it wrote (2026-10-10: six run readers that had ended were counted
+    at work for ten minutes each), and one a tool started by itself is not listed at all. Each says what it is on (title, last request, the
     skills it took up, its running agents) and, from its last POINTS tool calls: the room each is work in (`calls`,
     for src_acts.pick), whether the last one still waits for the owner's answer (`wait`), and the checkout it works
     in (`tree`): its own folder's, else the one its calls point into, else None: work in no checkout of this repo is
@@ -313,11 +320,12 @@ def sessions(trees, now, live=None, skip=()):
             continue
         mine = live.get(f.stem)
         busy = bool(mine) and mine.get('status') == 'busy'
-        logs = running(f, now, bool(mine)) if age <= LONG else []
+        ended = bool(live) and not mine         # Claude lists its running sessions and this is not one: its process is over
+        logs = running(f, now, bool(mine)) if age <= LONG and not ended else []
         if age > RECENT and not logs and not busy:
             continue
         s = dict(id=f.stem, age=int(age), cwd=None, title='', prompt='', doing='', skills={}, agents=[], calls=[], wait='', plan=False,
-                 model='', since=(mine or {}).get('since') or None, auto=bool(mine) and mine.get('entrypoint') == 'sdk-cli')
+                 model='', since=(mine or {}).get('since') or None)
         last, ask = collections.deque(maxlen=POINTS), None
         for d in read_tail(f):
             s['cwd'] = d.get('cwd') or s['cwd']
@@ -351,9 +359,11 @@ def sessions(trees, now, live=None, skip=()):
                 s['plan'] = PLAN_MARKS.get((d.get('attachment') or {}).get('type'), s['plan'])
         s['calls'] = [(when, src_acts.of_tool(name, inp)) for when, name, inp in last]
         s['wait'] = 'owner' if ask else ''
+        if ended and headless(s['cwd']):
+            continue                            # a run a tool started and that is over has left: it does not rest here for hours
         s['tree'] = home_of(s['cwd'], [pointed(inp, spell) for _, _, inp in last], trees)
         s['agents'] = [agent(meta, log) for meta, log in logs]
-        s['working'] = age <= WORKING or bool(logs) or busy
+        s['working'] = not ended and (age <= WORKING or bool(logs) or busy)
         out.append(s)
     return out
 
@@ -509,18 +519,27 @@ def floor(trees, now, home=None, rel=None):
     the branch of the checkout the work is in, else src_floor.OTHER. `home` gives a skill its room (the roster's);
     `rel` is relay()."""
     home, rel, rows = home or {}, rel or dict(runs=[]), []
+
+    def tried(what, read, none=()):
+        try:
+            return read()
+        except Exception as e:      # noqa: BLE001  one reader that meets a file it does not understand must not empty the floor
+            print(f'floor: {what} could not be read ({type(e).__name__}: {e})', flush=True)
+            return list(none)
     def lane_of(folder):
         tree = owner_of(folder, trees) if folder else None
         return trees[tree]['branch'] if tree is not None else src_floor.OTHER
 
     for run in rel['runs']:
-        if run['lane']:
-            rows.append((run['lane'], dict(kind='agent', vendor='claude', id='agent:relay', name='relay', what=src_relay.leg_line(run), state='working',
-                                           legs=run['legs'], run=run['run'], minutes=run['minutes'])))
-    legs = src_floor.legs(rel['runs'])
+        going = sum(1 for l in run['legs'] if l.get('state') == 'RUNNING')
+        rows.append((run['lane'] or src_floor.OTHER, dict(kind='agent', vendor='claude', id='agent:relay', name='relay', what=src_relay.leg_line(run), state='working',
+                                                         legs=run['legs'], run=run['run'], minutes=run['minutes'], going=going)))
+    legs = tried("the relay's legs", lambda: src_floor.legs(rel['runs']))
     rows += legs
-    rows += src_floor.seconds(src_floor.second_homes(src_relay.homes() or [src_relay.home()]), now)
-    for s in sessions(list(trees), now, src_floor.registry(), skip={w['session'] for _, w in legs if w.get('session')}):
+    rows += tried('the second opinions', lambda: src_floor.seconds(src_floor.second_homes(src_relay.homes() or [src_relay.home()]), now,
+                                                                  lanes={r['run']: r['lane'] for r in rel['runs'] if r.get('lane')}))
+    live = tried("Claude's list of sessions", src_floor.registry, {})
+    for s in tried('the sessions', lambda: sessions(list(trees), now, dict(live), skip={w['session'] for _, w in legs if w.get('session')})):
         branch = trees[s['tree']]['branch'] if s['tree'] is not None else src_floor.OTHER
         me = session_worker(s)
         rows.append((branch, me))
@@ -539,10 +558,10 @@ def floor(trees, now, home=None, rel=None):
             if a['since']:
                 w['since'] = datetime.datetime.fromtimestamp(a['since']).strftime('%H:%M')
             rows.append((branch, w))
-    for m in machines(list(trees)):
+    for m in tried('the machines', lambda: machines(list(trees))):
         rows.append((trees[m['tree']]['branch'], dict(kind='machine', id=f'pid:{m["pid"]}', name=m['what'], what=f'since {(m["started"] or "")[11:16]}',
                                                     state='working', act=src_acts.of_machine(m['what']))))
-    for folder, w in src_floor.codex(now) + src_floor.grok(now):
+    for folder, w in tried('Codex', lambda: src_floor.codex(now)) + tried('Grok', lambda: src_floor.grok(now)):
         lane = lane_of(folder)
         if lane == src_floor.OTHER and folder:
             w['where'] = Path(folder).name
@@ -582,8 +601,8 @@ def collect(repo: Path, site: Path, share=False):
     busy = {}                                       # roster id -> [(lane, what)]
 
     def put(branch, worker):
-        if branch not in lanes:
-            lanes[branch] = dict(branch=branch, ahead=0, tip='', live=True, newest=True, checkout=None, dirty=0, dirty_files=[], workers=[], items=[], assets=[], last=[])
+        if branch not in lanes:         # no branch of this station's: the other station's lane, or work in no checkout (`made`: the page links to no branch for it)
+            lanes[branch] = dict(branch=branch, ahead=0, tip='', live=True, newest=True, checkout=None, dirty=0, dirty_files=[], workers=[], items=[], assets=[], last=[], made=True)
         lanes[branch]['workers'].append(worker)
 
     home = {r['id']: r['home'] for r in people}     # a skill at work is in the room the roster gives it
@@ -615,4 +634,4 @@ def collect(repo: Path, site: Path, share=False):
                     sessions=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'session' and w['state'] == 'working'),
                     machines=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'machine'),
                     ready=sum(1 for l in ordered for it in l['items'] for s in it['stages'] if s['state'] == 'READY'),
-                    lanes=len(ordered), idle=sum(1 for r in people if not r['busy'])))
+                    lanes=sum(1 for l in ordered if not l.get('made')), idle=sum(1 for r in people if not r['busy'])))

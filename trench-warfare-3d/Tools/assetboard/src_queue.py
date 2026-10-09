@@ -330,6 +330,8 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
         if str(a.get('about', '')).startswith('land: '):
             word[slug(a['about'])] = dict(words=clip(a.get('said') or a.get('text'), 80), date=str(a.get('when', ''))[:10])
     for t in trees:
+        if t['branch'].startswith('detached: '):       # a checkout on no branch (src_ops.DETACHED) has nothing to land and no gate of its own to time
+            continue
         head, green, took = gate_state(t['path'])
         behind, ahead = drift(repo, integ, 'refs/heads/' + t['branch'])
         if green and green[0] == head and not t.get('dirty') and ahead:

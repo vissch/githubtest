@@ -31,18 +31,21 @@ import socket
 import sqlite3
 import sys
 import time
+import urllib.parse
 from pathlib import Path
 
 import src_acts
 
 HOME = Path(os.path.expanduser('~'))
-CODEX_FRESH = 5 * 60        # a Codex thread that moved this recently is at work
+CODEX_FRESH = 5 * 60        # a Codex thread that moved this recently is at work, unless its rollout says its task is over ...
+CODEX_TASK = 30 * 60        # ... and one whose rollout says a task is open, for this long (a long command moves nothing)
 GROK_FRESH = 5 * 60         # a Grok session whose events moved this recently is at work ...
 GROK_TURN = 30 * 60         # ... or one in a turn that has not ended, for this long (a long tool call writes nothing)
 SECOND_FRESH = 30 * 60      # a second opinion with no record yet whose folder moved this recently is going (Grok: 6 to 13 minutes a run)
 BEAT = 60                   # a floor nobody moved on is still written this often: the file's time is the station's sign of life
-STALE = 3 * 60              # a station's floor file older than this: the station went silent, its workers rest
+STALE = 5 * 60              # a station's floor older than this: the station went silent, its workers rest (the Drive may take a minute or two, and the two clocks differ)
 GONE = 30 * 60              # ... older than this: they are not shown
+FORGET = 24 * 3600          # ... older than this: the station itself is not named any more
 OTHER = 'other work'        # the lane of work that is in no checkout of this repo
 VENDORS = ('claude', 'codex', 'grok')
 
@@ -71,7 +74,11 @@ def read(p):
 
 
 def clock(t):
-    return datetime.datetime.fromtimestamp(t).strftime('%H:%M') if t else ''
+    """A time in seconds as HH:MM, or '' for anything that is not one."""
+    try:
+        return datetime.datetime.fromtimestamp(t).strftime('%H:%M') if t else ''
+    except (TypeError, ValueError, OverflowError, OSError):
+        return ''
 
 
 def stamp(s):
@@ -87,8 +94,10 @@ def short(s, n=110):
     return s if len(s) <= n else s[:n - 1].rstrip() + '…'
 
 
-def alive(pid):
-    """Whether a process with this id runs. (os.kill(pid, 0) ends the process on Windows: never that.)"""
+def alive(pid, born=None):
+    """Whether a process with this id runs. (os.kill(pid, 0) ends the process on Windows: never that.) `born`: the
+    time it started as Claude writes it (procStart, Windows' own count); a process with this id that started at
+    another time is another process (the id was given out again), so the answer is no."""
     try:
         pid = int(pid)
     except (TypeError, ValueError):
@@ -104,15 +113,21 @@ def alive(pid):
         except OSError:
             return False
     import ctypes
-    k = ctypes.windll.kernel32
+    k = ctypes.WinDLL('kernel32')                   # a handle of our own: the shared one's settings are not ours to change
     k.OpenProcess.restype = ctypes.c_void_p
     h = k.OpenProcess(0x1000, False, pid)           # PROCESS_QUERY_LIMITED_INFORMATION
     if not h:
         return False
-    code = ctypes.c_ulong()
+    code, times = ctypes.c_ulong(), [ctypes.c_ulonglong() for _ in range(4)]
     ok = k.GetExitCodeProcess(ctypes.c_void_p(h), ctypes.byref(code))
+    timed = k.GetProcessTimes(ctypes.c_void_p(h), *[ctypes.byref(t) for t in times])
     k.CloseHandle(ctypes.c_void_p(h))
-    return bool(ok) and code.value == 259           # STILL_ACTIVE
+    if not ok or code.value != 259:                 # STILL_ACTIVE
+        return False
+    try:
+        return not born or not timed or abs(times[0].value - int(born)) < 50_000_000      # within five seconds of each other
+    except (TypeError, ValueError):
+        return True
 
 
 # ---- Claude's own list of running sessions ------------------------------------------------------------------------
@@ -123,10 +138,11 @@ def registry(is_alive=alive):
     folder = claude_home() / 'sessions'
     for f in sorted(folder.glob('*.json')) if folder.is_dir() else []:
         d = read(f)
-        if not isinstance(d, dict) or not d.get('sessionId') or not is_alive(d.get('pid')):
+        if not isinstance(d, dict) or not d.get('sessionId') or not is_alive(d.get('pid'), d.get('procStart')):
             continue
-        out[d['sessionId']] = dict(pid=d.get('pid'), status=d.get('status') or '', name=d.get('name') or '', entrypoint=d.get('entrypoint') or '',
-                                   since=(d.get('startedAt') or 0) / 1000)
+        began = d.get('startedAt')
+        out[str(d['sessionId'])] = dict(pid=d.get('pid'), status=str(d.get('status') or ''), entrypoint=str(d.get('entrypoint') or ''),
+                                        since=began / 1000 if isinstance(began, (int, float)) else None)
     return out
 
 
@@ -137,9 +153,11 @@ def codex_rows(db: Path, since):
     holds in a way that refuses that is read as it lies on disk."""
     if not db.is_file():
         return []
-    for mode in ('mode=ro', 'immutable=1'):
+    # with no write-ahead file beside it nothing is pending and Codex is shut: read as it lies, which makes no file
+    # there; with one, read through it (the threads that just moved are in it)
+    for mode in (('mode=ro', 'immutable=1') if db.with_name(db.name + '-wal').exists() else ('immutable=1',)):
         try:
-            con = sqlite3.connect(f'file:{db.as_posix()}?{mode}', uri=True, timeout=2)
+            con = sqlite3.connect(f'file:{urllib.parse.quote(db.as_posix())}?{mode}', uri=True, timeout=2)
             try:
                 con.row_factory = sqlite3.Row
                 return [dict(r) for r in con.execute('select * from threads where updated_at >= ? and coalesce(archived, 0) = 0 order by updated_at', (int(since),))]
@@ -150,15 +168,33 @@ def codex_rows(db: Path, since):
     return []
 
 
-def codex(now, fresh=CODEX_FRESH):
-    """Every Codex thread at work: (where its folder is, worker). A thread another one spawned names it (`parent`)."""
+def codex_task(rollout):
+    """What the end of a thread's rollout says of its task: 'open' (started, not ended), 'over', or '' when it says
+    nothing (a thread that only waits on the threads it spawned writes none of this for a long time)."""
+    last = ''
+    for line in last_lines(Path(rollout), 256 * 1024) if rollout else []:
+        m = re.search(r'"type"\s*:\s*"(task_started|task_complete|turn_aborted)"', line[:400])
+        if m:
+            last = 'open' if m.group(1) == 'task_started' else 'over'
+    return last
+
+
+def codex(now, fresh=CODEX_FRESH, task=CODEX_TASK):
+    """Every Codex thread at work: (where its folder is, worker). A thread another one spawned names it (`parent`).
+    The thread's own time moves after its task is over as well (2026-10-10: five threads that had ended stood on the
+    floor for five minutes each), so the rollout's last word on the task decides when it has one."""
     out = []
-    for r in codex_rows(codex_home() / 'state_5.sqlite', now - fresh):
+    for r in codex_rows(codex_home() / 'state_5.sqlite', now - task):
+        said = codex_task(r.get('rollout_path'))
+        if said == 'over' or (said != 'open' and now - (r.get('updated_at') or 0) > fresh):
+            continue
         tid = str(r.get('id') or '')
         parent = ''
         try:
             src = json.loads(r.get('source') or '')
-            parent = ((src.get('subagent') or {}).get('thread_spawn') or {}).get('parent_thread_id') or '' if isinstance(src, dict) else ''
+            sub = src.get('subagent') if isinstance(src, dict) else None
+            spawn = sub.get('thread_spawn') if isinstance(sub, dict) else None
+            parent = str(spawn.get('parent_thread_id') or '') if isinstance(spawn, dict) else ''
         except ValueError:
             pass
         nick = r.get('agent_nickname') or ''
@@ -176,6 +212,7 @@ def codex(now, fresh=CODEX_FRESH):
 # ---- Grok ---------------------------------------------------------------------------------------------------------
 
 def last_lines(f: Path, tail=64 * 1024):
+    """The lines in the last `tail` bytes of a file; none when it cannot be read."""
     try:
         with open(f, 'rb') as h:
             h.seek(max(0, f.stat().st_size - tail))
@@ -204,7 +241,8 @@ def grok(now, fresh=GROK_FRESH, turn=GROK_TURN):
             continue
         if age > fresh and not (age <= turn and grok_turn(ev)):
             continue
-        s = read(ev.parent / 'summary.json') or {}
+        s = read(ev.parent / 'summary.json')
+        s = s if isinstance(s, dict) else {}
         info = s.get('info') if isinstance(s.get('info'), dict) else {}
         what = short(s.get('last_turn_summary') or s.get('generated_title') or s.get('session_summary') or '')
         title = short(s.get('generated_title') or s.get('session_summary') or '', 60)
@@ -243,8 +281,9 @@ def legs(runs):
 SECOND = re.compile(r'(?:^|-)(codex|grok)(?:-([a-z]+))?(?:-\d+)?$')
 
 
-def seconds(homes, now, fresh=SECOND_FRESH):
-    """The second opinions that are going in these relay homes: (lane, worker). Their folders name the vendor."""
+def seconds(homes, now, fresh=SECOND_FRESH, lanes=None):
+    """The second opinions that are going in these relay homes: (lane, worker). Their folders name the vendor. One
+    asked for inside a relay run is on that run's lane (`lanes`: run -> lane), any other in OTHER."""
     out = []
     for home in homes:
         home = Path(home)
@@ -263,11 +302,11 @@ def seconds(homes, now, fresh=SECOND_FRESH):
                 continue
             vendor, kind = m.group(1), m.group(2) or 'critic'
             in_run = d.parent.parent.name if d.parent.parent.parent.name == 'runs' else ''
-            w = dict(kind='agent', vendor=vendor, id='agent:second', uid=f'second:{d.name[-24:]}', name=f'{vendor.capitalize()} second {kind}',
+            w = dict(kind='agent', vendor=vendor, id='agent:second', uid=f'second:{(in_run + "-" if in_run else "") + d.name}'[-48:], name=f'{vendor.capitalize()} second {kind}',
                      what=f'a second {kind}' + (f' for relay run {in_run}' if in_run else ''), state='working', act='lab', since=clock(began))
             if in_run:
                 w['parent'] = 'agent:relay'
-            out.append((OTHER, w))
+            out.append(((lanes or {}).get(in_run) or OTHER, w))
     return out
 
 
@@ -292,7 +331,7 @@ def folder():
     return build.DRIVE / 'floor' if build.DRIVE.is_dir() else None
 
 
-KEEP = ('kind', 'vendor', 'id', 'uid', 'name', 'title', 'what', 'doing', 'state', 'act', 'wait', 'model', 'parent', 'since', 'tokens', 'where', 'age')
+KEEP = ('kind', 'vendor', 'id', 'uid', 'name', 'title', 'what', 'doing', 'state', 'act', 'wait', 'model', 'parent', 'since', 'tokens', 'where', 'age', 'going')
 
 
 def same(a, b, loose=('age', 'tokens', 'doing')):
@@ -309,7 +348,8 @@ def publish(rows, now=None, where=None, me=None):
     if where is None:
         return None
     me, now = me or host(), now or time.time()
-    had = read(where / f'{me}.json') or {}
+    had = read(where / f'{me}.json')
+    had = had if isinstance(had, dict) and isinstance(had.get('at'), (int, float)) else {}
     data = dict(host=me, at=int(now), workers=[dict({k: w[k] for k in KEEP if w.get(k) not in (None, '')}, lane=lane) for lane, w in rows])
     if same(had.get('workers'), data['workers']) and now - (had.get('at') or 0) < BEAT:
         return where / f'{me}.json'             # nothing moved: the Drive is not made to carry the same file again
@@ -328,14 +368,21 @@ def others(now, where=None, me=None):
     worker)] with `host` on each. The workers of a station gone silent rest; after GONE seconds they are not shown."""
     where = where or folder()
     me = me or host()
-    stations, rows = [], []
+    stations, rows, newest = [], [], {}
     for f in sorted(where.glob('*.json')) if where and where.is_dir() else []:
         d = read(f)
-        if not isinstance(d, dict) or not d.get('host') or str(d['host']).lower() == me.lower():
+        if not isinstance(d, dict) or not d.get('host') or str(d['host']).lower() == me.lower() or not isinstance(d.get('at'), (int, float)):
             continue
+        if now - d['at'] > FORGET:
+            continue                                    # a station not heard of for a day is not a station of this floor (a file left behind)
+        had = newest.get(str(d['host']).lower())       # two files of one station (the Drive keeps a copy when two writes cross): the newer one is its floor
+        if had is None or (d.get('at') or 0) > (had.get('at') or 0):
+            newest[str(d['host']).lower()] = d
+    for d in newest.values():
         age = max(0, int(now - (d.get('at') or 0)))
         stale = age > STALE
-        workers = [w for w in d.get('workers') or [] if isinstance(w, dict) and w.get('id')] if age <= GONE else []
+        said = d.get('workers') if isinstance(d.get('workers'), list) else []
+        workers = [w for w in said if isinstance(w, dict) and all(isinstance(w.get(k), str) and w[k] for k in ('id', 'kind', 'state'))] if age <= GONE else []
         stations.append(dict(host=d['host'], age=age, stale=stale, workers=len(workers)))
         for w in workers:
             w = dict(w, host=d['host'])
@@ -349,12 +396,12 @@ def others(now, where=None, me=None):
 
 def count(workers):
     """The floor in numbers, for the line above the house: those at work, by what they are. Each once: a skill two
-    sessions took up is one, and so is a relay run with its legs counted beside it (the run is the relay itself)."""
-    at = list({w.get('uid') or w.get('id'): w for w in workers if w.get('state') == 'working' and w.get('id') != 'agent:relay'}.values())
+    sessions took up is one, and a relay run is counted by its running leg (`going`), or as one leg when it is between two."""
+    at = list({w.get('uid') or w.get('id'): w for w in workers if w.get('state') == 'working' and not (w.get('id') == 'agent:relay' and w.get('going'))}.values())
 
     def n(test):
         return sum(1 for w in at if test(w))
-    legs_n = n(lambda w: w.get('id') == 'agent:relay-leg')
+    legs_n = n(lambda w: w.get('id') in ('agent:relay-leg', 'agent:relay'))       # a run between two legs counts as the leg it is about to start
     return dict(working=len(at), sessions=n(lambda w: w['kind'] == 'session'),
                 subagents=n(lambda w: w['kind'] == 'agent' and w.get('vendor', 'claude') == 'claude' and w.get('id') not in ('agent:relay-leg', 'agent:relay')),
                 relay=legs_n, skills=n(lambda w: w['kind'] in ('skill', 'role')), machines=n(lambda w: w['kind'] == 'machine'), codex=n(lambda w: w.get('vendor') == 'codex'), grok=n(lambda w: w.get('vendor') == 'grok'))

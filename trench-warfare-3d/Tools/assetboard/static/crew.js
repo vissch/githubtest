@@ -140,7 +140,8 @@ window.Crew = (function () {
   // the top bar's live pill, on every page that has the floor's data
   function nowPill(o) {
     var p = document.getElementById('k-now'); if (!p || !o) return;
-    var all = everyone(o), n = all.at.filter(function (x) { return x.w.state === 'working'; }).length;
+    // the floor's own count when the reading has one (src_floor.count: each worker once), so the pill and the line over the house say one number
+    var all = everyone(o), n = o.floor ? o.floor.working : all.at.filter(function (x) { return x.w.state === 'working'; }).length;
     var t = document.getElementById('k-now-text'); t.innerHTML = '';
     t.appendChild(el('span', null, n + ' at work'));
     var Q = window.OwnerQueue, waits = Q && window.QUEUE ? Q.count(window.QUEUE) : 0;

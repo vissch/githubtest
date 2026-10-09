@@ -241,7 +241,11 @@
     if (room === 'bunk') want = ri != null ? ri % n : (this.rosterN + hash(f.key) % Math.max(1, n - this.rosterN)) % n;
     for (soft = 1; soft >= 0; soft--)
       for (k = 0; k < n; k++) { i = (want + k) % n; if (!claim[i] && (!soft || !kept[i] || kept[i] === f.key || !this.frogs[kept[i]])) return take(i); }
-    return take(want);          // a full room: two share a spot (housedraw.js sets them apart)
+    // a full room: some share a spot (housedraw.js sets them apart). The spot with the fewest on it, from its own on:
+    // nineteen in the lab's six stood five deep on one bench and nobody could tell who was who
+    var best = want;
+    for (k = 0; k < n; k++) { i = (want + k) % n; if ((claim[i] || 0) < (claim[best] || 0)) best = i; }
+    return take(best);
   };
   Sim.prototype.release = function (f) { if (f.goal) { var c = this.claim[f.goal.room]; if (c[f.goal.i]) c[f.goal.i]--; } };
   Sim.prototype.read = function (ops) {

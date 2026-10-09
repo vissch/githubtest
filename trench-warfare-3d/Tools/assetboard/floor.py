@@ -35,6 +35,10 @@ def main(argv=None):
     ap.add_argument('--watch', type=float, default=0, help='seconds between reads; 0 reads once')
     ap.add_argument('--dry', action='store_true', help='print who is at work, write nothing')
     args = ap.parse_args(argv)
+    try:
+        sys.stdout.reconfigure(errors='replace')        # a title with a sign the console cannot write is printed without it, not the end of the list
+    except (AttributeError, ValueError):
+        pass
     last = None
     while True:
         try:

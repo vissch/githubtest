@@ -6,7 +6,7 @@
 /* another vendor's agent has that vendor's colour (its frog is drawn in it too: housedraw.js BADGE), whatever its kind */
 .h-house .v-codex { --kc: #38bdf8; } .h-house .v-grok { --kc: #f59e0b; }
 /* one that works on the other station: its name has a dashed edge */
-.h-house .h-tag.h-away, .h-house .h-row.h-away { border-style: dashed; }
+.h-house .h-tag.h-away { border-style: dashed; } .h-house .h-sleeper.h-away { outline: 1px dashed var(--t-dim); }      /* a row says the station in words (housedraw.js place) */
 /* the floor in one line, over the house: everyone at work by what they are, and the other station's sign of life */
 .h-count { margin: 0 2px 10px; color: var(--t-near); font: 600 13px/1.4 Inter, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
 .h-count.stale { color: #ff9a8f; }
