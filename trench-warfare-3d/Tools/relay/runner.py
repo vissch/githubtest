@@ -10,6 +10,9 @@ the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a
 no result, or any error. Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
 held (lock and leg marker) from the first unit to the stop record, so git's push guard also covers a job a leg left
 running. A run that is ahead of the day's pace waits for it between legs, and keeps the checkout while it waits.
+So that another machine can follow a run that is going, the board is committed and pushed at the run's start, after
+every leg and at a unit's verdict (one short try: a push that fails is a note), with a live record of what the run
+is on (boardio.live_record), which the stop record replaces.
 Stdlib only. ASCII only.
 """
 import datetime, os, re, sys, time
@@ -34,8 +37,26 @@ sleep = time.sleep
 said = launch.said                      # the one rule for a report's verdict; run_leg reads it too
 
 
+# The family of a stop reason, for the stop record's reason_kind: a page reads the word, not the sentence.
+KINDS = ("done", "hours", "legs", "asked", "budget", "pace", "checkout", "leg", "uncommitted", "no-result", "lane",
+         "error")
+
+
+class Why(str):
+    """A stop reason that knows its kind (KINDS). Every reason in this file is one: Stop takes nothing else."""
+    def __new__(cls, kind, text):
+        if kind not in KINDS:
+            raise ValueError("no kind of stop named %s" % kind)
+        self = super().__new__(cls, text)
+        self.kind = kind
+        return self
+
+
 class Stop(Exception):
-    pass
+    def __init__(self, why, detail=""):
+        if not isinstance(why, Why):
+            raise TypeError("a stop reason needs its kind: Stop(Why(kind, text))")
+        super().__init__(why, detail)
 
 
 class Run:
@@ -70,16 +91,22 @@ class Run:
         self.code = ""                                          # the commit the relay's own code is at
         self.waited = False                                     # the last budget check waited for the day's pace
         self.stuck = 0                                          # units in a row whose lane could not be switched to
+        self.started_at = P.now()
+        self.problems = {}                                      # unit id -> why it ended FAIL or BLOCKED
+        self.on, self.at = "", None                             # the unit in flight; what the live record says of it
+        self.ended, self.run_usd, self.unpriced = 0, 0.0, 0     # legs that ended, their cost, how many named none
+        self.asked_of = {}                                      # the why and the who of a stop somebody asked for
 
     def preflight(self):
         """Once, before the run's first git write: nobody else is in the checkout, and git guards the pushes."""
         why = gitio.busy_reason(self.work, self.home, quiet=0 if self.a.no_quiet else self.lim["quiet_seconds"])
         if why:
-            raise Stop("the work checkout cannot be used: " + why)
+            raise Stop(Why("checkout", "the work checkout cannot be used: " + why))
         self.code, dirty = gitio.code_state(HERE)
         if dirty and not getattr(self.a, "allow_dirty", False):
-            raise Stop("the relay's own code has uncommitted changes (%s): a run uses committed code only. Run from "
-                       "the frozen copy (githubtest-relay-run), or commit them" % ", ".join(dirty[:3]))
+            raise Stop(Why("checkout", "the relay's own code has uncommitted changes (%s): a run uses committed code "
+                           "only. Run from the frozen copy (githubtest-relay-run), or commit them"
+                           % ", ".join(dirty[:3])))
         gitio.install_prepush(self.work)
         self.heads = gitio.remote_heads(self.work)
         print("run %s, started by %s, relay code %s" % (self.run, self.who, self.code[:10] or "not in git"), flush=True)
@@ -92,6 +119,8 @@ class Run:
         if self.stop_file.exists():                         # a stop asked of an earlier run
             self.stop_file.unlink()
         self.ready = True
+        self.live()
+        self.send("started")                                # so the run shows elsewhere before its first leg ends
 
     def book_agents(self):
         """Between units: count what the agents cost that this machine's sessions spawned outside the relay today,
@@ -103,9 +132,70 @@ class Run:
         except (SystemExit, Exception) as e:                # noqa: BLE001
             print("note: the agents outside the relay were not booked (%s)" % (str(e) or type(e).__name__), flush=True)
 
+    def asked(self, flag="", tail=""):
+        """The reason for a stop somebody asked for (relay.py stop). With no why it reads as it always has: scripts
+        match those words. A why is named in it, with who asked: a watcher whose time is up is not the owner."""
+        try:
+            rec = P.read_json(self.stop_file)
+        except (OSError, ValueError):
+            rec = None
+        rec = rec if isinstance(rec, dict) else {}
+        why, by = (" ".join(str(rec.get(k) or "").split())[:300] for k in ("why", "by"))
+        self.asked_of = {"asked_why": why, "asked_by": by}
+        how = "(relay.py stop%s)%s" % (flag, tail)
+        if not why:
+            return Why("asked", "stopped by the owner " + how)
+        return Why("asked", "stopped %s %s: %s" % ("by " + by if by else "on request", how, why))
+
     def owner_stop(self):
         if self.stop_file.exists():
-            raise Stop("stopped by the owner (relay.py stop)")
+            raise Stop(self.asked())
+
+    # ----- what another machine sees of the run while it is going -----
+    def live(self, paced=""):
+        """Write the run's live record on the board: how far it is and what it is on (self.at). Only ever between
+        two legs' watches, like every write of the runner's on the board: a leg is blamed for a board file that
+        changes while it works. Never a reason to stop a run."""
+        if not self.ready:
+            return
+        try:
+            boardio.live_record(self.board, self.station, self.run, started_at=self.started_at,
+                                started_by=self.who, code=self.code, hours=self.lim["run_hours"],
+                                leg_minutes=self.lim["leg_minutes"], day_budget_pct=self.lim["day_budget_pct"],
+                                legs=self.ended, units=self.units, now_on=self.at, paced_until=paced)
+        except Exception as e:                              # noqa: BLE001
+            print("note: the run's live record was not written (%s)" % (str(e) or type(e).__name__), flush=True)
+
+    def send(self, what):
+        """Commit and push the board between two legs, so the run can be followed from another machine: one short
+        try. A push that fails is a note: the commit stays here and goes out with the next push."""
+        if self.a.no_push:
+            return
+        try:
+            said = boardio.push(self.board, "relay: run %s, %s" % (self.run, what), tries=1, wait=boardio.QUICK_S,
+                                leave=("relay/queue",))
+        except Exception as e:                              # noqa: BLE001
+            said = str(e) or type(e).__name__
+        if said not in ("pushed", "nothing to push", "no board repo"):
+            print("note: the board was not sent (%s): it goes out with the next push" % said, flush=True)
+
+    def keep(self, what):
+        """Commit the board on this machine and send nothing. As a leg starts: the board clone then holds no
+        changed file of the runner's while the leg works (git refuses anybody's pull there over one), and what the
+        run is on goes out with whatever is pushed from this clone next."""
+        if self.a.no_push:
+            return
+        try:
+            boardio.keep(self.board, "relay: run %s, %s" % (self.run, what), leave=("relay/queue",))
+        except Exception as e:                              # noqa: BLE001
+            print("note: the board was not committed (%s)" % (str(e) or type(e).__name__), flush=True)
+
+    def lane_head(self, unit):
+        """The head of the unit's lane in the work checkout, '' when the unit has no lane or it cannot be read."""
+        try:
+            return gitio.git(["rev-parse", "-q", "--verify", "HEAD"], self.work, check=False) if unit.get("lane") else ""
+        except OSError:
+            return ""
 
     # ----- what a leg may not have touched, checked by script after every leg -----
     def watch(self):
@@ -162,29 +252,34 @@ class Run:
             if b is None:
                 return None
             if b["left"] <= 0:
-                return "the day's budget is spent (%s of %s)" % (ledger.amount(b, b["spent"]),
-                                                                 ledger.amount(b, b["cap"], of=True))
+                return Why("budget", "the day's budget is spent (%s of %s)"
+                           % (ledger.amount(b, b["spent"]), ledger.amount(b, b["cap"], of=True)))
             if b["left_usd"] < need:
-                return ("the day's budget has %s left of %s, and %s usually costs %s%s"
-                        % (ledger.amount(b, b["left"]), ledger.amount(b, b["cap"], of=True), what,
-                           "about " if b["unit"] == "pct" else "", ledger.amount(b, need, usd=True)))
+                return Why("budget", "the day's budget has %s left of %s, and %s usually costs %s%s"
+                           % (ledger.amount(b, b["left"]), ledger.amount(b, b["cap"], of=True), what,
+                              "about " if b["unit"] == "pct" else "", ledger.amount(b, need, usd=True)))
             at = ledger.pace_at(b, need, self.lim, clock()) if phases else None
             if at is None or b["free_usd"] >= need:             # no pace, or it covers the legs now
+                if told and self.ready:                         # the wait is over: say that elsewhere too
+                    self.live()
+                    self.send("the wait for the day's pace is over")
                 return None
             wait, when = (at - clock()).total_seconds(), at.strftime("%H:%M")
             if self.a.dry_run:
-                return "the day's pace lets %s start at %s" % (what, when)
+                return Why("pace", "the day's pace lets %s start at %s" % (what, when))
             if time.time() + wait > self.deadline:
-                return ("the day's pace lets %s start at %s, after this run's %.3g hours are up"
-                        % (what, when, self.lim["run_hours"]))
+                return Why("pace", "the day's pace lets %s start at %s, after this run's %.3g hours are up"
+                           % (what, when, self.lim["run_hours"]))
             if self.stop_file.exists():
-                return "stopped by the owner (relay.py stop)"
+                return self.asked()
             if not told:
                 told = True
                 print("paced: %s may start at %s; the day's budget is spent evenly over the day" % (what, when),
                       flush=True)
                 if self.ready:
                     self.progress("waiting for the day's pace until %s" % when)
+                    self.live(paced=when)                       # a wait can last hours: say so elsewhere too
+                    self.send("waiting for the day's pace until %s" % when)
             self.waited = True
             sleep(max(1.0, min(PACE_STEP, wait)))
 
@@ -192,11 +287,11 @@ class Run:
         """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
         With a phase, the budget must also cover the usual cost of such a leg."""
         if time.time() > self.deadline:
-            return "the run's %.3g hours are up" % self.lim["run_hours"]
+            return Why("hours", "the run's %.3g hours are up" % self.lim["run_hours"])
         if self.a.max_legs and self.legs >= self.a.max_legs:
-            return "the leg cap (%d) is reached" % self.a.max_legs
+            return Why("legs", "the leg cap (%d) is reached" % self.a.max_legs)
         if self.stop_file.exists():
-            return "stopped by the owner (relay.py stop)"
+            return self.asked()
         return self.no_budget([phase] if phase else [], unit)
 
     # ----- one leg -----
@@ -218,37 +313,58 @@ class Run:
             fill(work)
         print("leg %02d  %-7s %s" % (self.legs, phase, unit["id"]), flush=True)
         self.progress("%s, leg %02d (%s)" % (unit["id"], self.legs, phase))
+        self.on, on = unit["id"], {"unit": unit["id"], "role": unit["role"], "lane": unit["lane"]}
+        self.at = dict(on, phase=phase, leg=self.legs, since=P.now())
+        self.live()                                         # written before the watch below, never after, and
+        self.keep("leg %02d %s %s starts" % (self.legs, phase, unit["id"]))    # committed here: no push as a leg starts
         if getattr(self.a, "view", False) and not self.no_window:
             launch.open_view(d)
-        left, before = self.deadline - time.time(), self.watch()
+        left, head, before = self.deadline - time.time(), self.lane_head(unit), self.watch()
         lim, day = self.lim, self.day_left()
         if day is not None and not 0 < lim["leg_budget_usd"] <= day:     # the leg may spend what the day has left
             lim = dict(lim, leg_budget_usd=round(max(day, 0.01), 2))
         leg = launch.run_leg(d, lim, max(1, min(self.lim["leg_minutes"] * 60, left)), self.stop_file)
         broke, moved = self.audit(before, unit)
         self.refused += leg.get("guard_refusals") or 0
+        self.ended += 1
+        cost = leg.get("cost_usd")
+        if isinstance(cost, (int, float)) and not isinstance(cost, bool):
+            self.run_usd += cost
+        else:
+            self.unpriced += 1
+        after = self.lane_head(unit)
+        new, more = gitio.commits(self.work, head, after)
+        leg = dict(leg, head_before=head, head_after=after, commits=new, commits_more=more,
+                   needs_you=config.needs_you(leg.get("report") or "", self.style))
         boardio.leg_record(self.board, self.station, leg, moved_on_origin=moved,
                            style_problems=config.report_problems(leg.get("report") or "", self.style))
-        why = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
-        if why:
-            snap = gitio.snapshot_dirty(self.work, d)
-            if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
-                why = "the run's %.3g hours are up (mid-leg)" % self.lim["run_hours"]
+        bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
+        if bad:
+            saved = "uncommitted work saved in %s" % d if gitio.snapshot_dirty(self.work, d) else ""
+            if leg["state"] == "STOPPED" and self.stop_file.exists():
+                raise Stop(self.asked(" --now", ", mid-leg %02d" % self.legs), saved)
             if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
                 b = self.day()
-                why = "the day's budget is spent (%s, mid-leg)" % (ledger.amount(b, b["cap"], of=True) if b else "$0")
-            if leg["state"] == "STOPPED" and self.stop_file.exists():
-                raise Stop("stopped by the owner (relay.py stop --now), mid-leg %02d" % self.legs,
-                           "uncommitted work saved in %s" % d if snap else "")
-            raise Stop("leg %02d %s" % (self.legs, why), "uncommitted work saved in %s" % d if snap else "")
+                raise Stop(Why("budget", "leg %02d the day's budget is spent (%s, mid-leg)"
+                               % (self.legs, ledger.amount(b, b["cap"], of=True) if b else "$0")), saved)
+            if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
+                raise Stop(Why("hours", "leg %02d the run's %.3g hours are up (mid-leg)"
+                               % (self.legs, self.lim["run_hours"])), saved)
+            raise Stop(Why("leg", "leg %02d %s" % (self.legs, bad)), saved)
+        if phase == "retro":                                # a retrospective is no unit: nothing is in flight after it
+            self.on, self.at = "", None
+        else:                                               # between two legs of the unit: no phase, leg 0
+            self.at = dict(on, phase="", leg=0, since=P.now())
+        self.live()
+        self.send("leg %02d %s %s" % (self.legs, phase, unit["id"]))
         return d, leg
 
     # ----- one unit: plan, execute, check -----
     def unit(self, unit):
         src = sources.load(unit["source"])
-        why = gitio.busy_reason(self.work, self.home, quiet=0)        # the quiet check ran once, in preflight
-        if why:
-            raise Stop("the work checkout cannot be used: " + why)
+        busy = gitio.busy_reason(self.work, self.home, quiet=0)        # the quiet check ran once, in preflight
+        if busy:
+            raise Stop(Why("checkout", "the work checkout cannot be used: " + busy))
         self.owner_stop()
         self.lanes.add(unit["lane"])
         gitio.take_lock(self.work, self.home, "relay %s %s" % (self.run, unit["id"]), unit["lane"])
@@ -260,11 +376,13 @@ class Run:
             # src.finish: a pipeline job that was never claimed cannot be completed.
             self.units[unit["id"]] = "FAIL"
             self.ctx["skip"].add(unit["id"])
+            self.keep_problems(unit, ["its lane %s cannot be switched to: %s" % (unit["lane"], e)])
             self.progress()
+            self.live()
             self.stuck += 1
             print("unit %s: FAIL\n  - its lane %s cannot be switched to: %s" % (unit["id"], unit["lane"], e), flush=True)
             if self.stuck >= self.lim["stuck_lanes"]:
-                raise Stop("%d units in a row whose lane cannot be switched to" % self.stuck, str(e))
+                raise Stop(Why("lane", "%d units in a row whose lane cannot be switched to" % self.stuck), str(e))
             return
         self.stuck = 0
         print("unit %s: lane %s (%s)" % (unit["id"], unit["lane"], how))
@@ -280,7 +398,7 @@ class Run:
         why = self.no_budget(["plan", "execute"], unit)      # asked before the plan: a plan with no execute is lost
         if why:
             raise Stop(why)
-        if self.waited:                                      # the queue's order may have changed while it waited:
+        if self.waited:                                     # the queue's order may have changed while it waited:
             print("unit %s: the wait is over, the queue is read again" % unit["id"], flush=True)
             return                                           # the loop picks the unit that is first now
         src.claim(unit)
@@ -312,14 +430,15 @@ class Run:
             src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
             problems.append("uncommitted work was left behind (saved beside leg %02d)" % self.legs)
             self.finish(src, unit, problems, "failed")
-            raise Stop("unit %s left uncommitted work in the checkout" % unit["id"], "patch: %s" % (d / "red.patch"))
+            raise Stop(Why("uncommitted", "unit %s left uncommitted work in the checkout" % unit["id"]),
+                       "patch: %s" % (d / "red.patch"))
         src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
         verdict = self.finish(src, unit, problems, outcome)
         moved = gitio.code_changed(self.work, remote_before, gitio.remote_head(self.work, unit["lane"]))
         self.idle = 0 if (verdict == "PASS" or moved) else self.idle + 1      # only pushed code counts
         print("unit %s: %s%s" % (unit["id"], verdict, "".join("\n  - " + p for p in problems)), flush=True)
         if self.idle >= self.lim["no_progress_units"]:
-            raise Stop("%d units in a row brought no result and no pushed code" % self.idle)
+            raise Stop(Why("no-result", "%d units in a row brought no result and no pushed code" % self.idle))
 
     def critique(self, src, unit, body, plan):
         """Critic rounds on work the script checks passed. A blind leg scores the evidence; under the target, one
@@ -422,13 +541,22 @@ class Run:
                                   "leg %02d\n\n%s" % (self.run, self.legs, words))
             print("retrospective: proposals for the owner in %s" % p, flush=True)
 
+    def keep_problems(self, unit, problems):
+        """Why a unit ended FAIL or BLOCKED, for the stop record: the lines the run prints, kept short."""
+        self.problems[unit["id"]] = [str(p)[:300] for p in problems[:8]]
+
     def finish(self, src, unit, problems, outcome):
         verdict = src.finish(unit, self.ctx, problems, outcome)
         self.claimed = None
         self.units[unit["id"]] = verdict
+        ran, self.on, self.at = self.on == unit["id"], "", None     # it has its verdict: no longer in flight
         self.progress()
         if verdict != "PASS":
             self.ctx["skip"].add(unit["id"])
+            self.keep_problems(unit, problems)
+        self.live()
+        if ran:                                              # a unit that cost no leg goes out with the next push
+            self.send("unit %s %s" % (unit["id"], verdict))
         return verdict
 
     # ----- the loop -----
@@ -440,7 +568,7 @@ class Run:
                 gitio.release_lock(self.work, self.home)
 
     def run_units(self):
-        reason, detail, code = "nothing left to do", "", 0
+        reason, detail, code = Why("done", "nothing left to do"), "", 0
         try:
             while True:
                 unit = sources.next_unit(self.a.sources, self.ctx)
@@ -460,11 +588,11 @@ class Run:
                 if self.legs - self.retro_at >= self.lim["retro_every_legs"] and not self.no_room("retro"):
                     self.retro()
         except Stop as s:
-            reason, detail = s.args[0], (s.args[1] if len(s.args) > 1 else "")
+            reason, detail = s.args
         except KeyboardInterrupt:
-            reason, code = "stopped by the owner (Ctrl+C)", 130
+            reason, code = Why("asked", "stopped by the owner (Ctrl+C)"), 130
         except (SystemExit, Exception) as e:                # noqa: BLE001 - a run always ends with a record
-            reason, detail, code = "error: %s" % (str(e) or type(e).__name__), type(e).__name__, 1
+            reason, detail, code = Why("error", "error: %s" % (str(e) or type(e).__name__)), type(e).__name__, 1
         if self.a.dry_run:
             print("would run: nothing (%s)" % reason)
             return code
@@ -481,10 +609,16 @@ class Run:
                 pass
         b = self.day()
         in_pct = dict(day_pct=round(b["spent"], 2), day_budget_pct=b["cap"]) if b and b["unit"] == "pct" else {}
-        boardio.stop_record(self.board, self.station, self.run, reason, self.legs, detail, moved_on_origin=moved,
+        more = dict(in_pct, **(self.asked_of if reason.kind == "asked" else {}))    # who asked, and what for
+        if self.a.max_legs:
+            more["max_legs"] = self.a.max_legs
+        boardio.stop_record(self.board, self.station, self.run, str(reason), self.legs, detail, moved_on_origin=moved,
                             units=self.units, refusals=self.refused, started_by=self.who, code=self.code,
                             day_usd=round(ledger.spent(self.board, lim=self.lim)["usd"], 2),
-                            day_budget_usd=self.lim["day_budget_usd"], **in_pct)
+                            day_budget_usd=self.lim["day_budget_usd"], reason_kind=reason.kind,
+                            started_at=self.started_at, hours=self.lim["run_hours"],
+                            run_usd=round(self.run_usd, 4), run_usd_unpriced=self.unpriced, now_on=self.on,
+                            problems=self.problems, **more)
         pushed = "not sent (--no-push)" if self.a.no_push else \
             boardio.push(self.board, "relay: run %s, %d legs, %s" % (self.run, self.legs, reason))
         print("STOP: %s. %d legs ran%s. Record on the board: %s."

@@ -3,7 +3,7 @@
 (how a leg talks to the owner). Each is checked on load, so a bad edit stops the run before a leg starts.
 Stdlib only. ASCII only.
 """
-import json
+import json, re
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -142,6 +142,35 @@ def style_text(st):
         lines.append("A question for the owner: at most %d words, one decision, %s."
                      % (q["max_words"], q.get("give_options", "with options")))
     return "\n".join(lines) + "\n"
+
+
+# A NEEDS YOU line that asks nothing of the owner: nothing, none or n/a, also with words after a mark ("None - the
+# lane is pushed."); no, only alone or as "no action (needed)", for "No window can open here" does ask; a dash.
+NOTHING = re.compile(r"^(?:(?:nothing|none|n/?a)(?:\s+(?:is\s+)?(?:needed|required))?\s*(?:[.,;:(\u2013\u2014-].*)?"
+                     r"|no(?:\s+action(?:\s+(?:is\s+)?(?:needed|required))?)?[.!]?|[\u2013\u2014-]+)$", re.I | re.S)
+
+
+def needs_you(text, st):
+    """What a leg's report asks of the owner: the rest of its NEEDS YOU line and the lines under it, up to the
+    next heading of the report's shape (style.json). '' when the report has no such line or it asks nothing.
+    The next heading is one written as the shape writes it and marked as the NEEDS YOU line is (bold, a bullet, a
+    number): "- Next: pick A or B" under a plain NEEDS YOU is part of what is asked."""
+    names = "|".join(re.escape(s.split(":")[0].strip()) for s in st["report"]["shape"])
+    start = re.compile(r"^([\W\d]*?)NEEDS YOU\b[^\w:]*(?::|$)", re.I)
+    head = re.compile(r"^([\W\d]*?)(?:%s)\b[^\w:]*(?::|$)" % names)
+    mark = lambda m: re.sub(r"[\d\s]", "", m.group(1))
+    out = marked = None
+    for line in (text or "").splitlines():
+        if out is None:
+            m = start.match(line)
+            if m:
+                out, marked = [line[m.end():]], mark(m)
+        elif head.match(line) and mark(head.match(line)) == marked:
+            break
+        else:
+            out.append(line)
+    said = "\n".join(out or []).strip().strip("*_` \t").strip()
+    return "" if not said or NOTHING.match(said) else said
 
 
 def report_problems(text, st):

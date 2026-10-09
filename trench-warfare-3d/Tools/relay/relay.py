@@ -7,6 +7,7 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
                                   [--day-pct N]  (the day's cap in percent of the week, when the owner named one)
   python Tools/relay/relay.py status           is a run going, on what, and how the last one stopped
   python Tools/relay/relay.py stop [--now]     end the run before its next leg (--now: end the leg too)
+                                  [--why TEXT] [--by NAME]  (what for and who asks: kept in the stop record)
   python Tools/relay/relay.py refusals [--runs N]   what the guard refused in the last N runs (default 3)
   python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
   python Tools/relay/relay.py day              one screen: the budget, the pace, the run, the queue in its order, what
@@ -311,8 +312,11 @@ def usage_cmd(put, statusline):
     return 0 if reading else 1
 
 
-def stop(now):
-    P.write_json(runner.stop_path(legdir.home()), {"now": bool(now), "asked_at": P.now()})
+def stop(now, why=None, by=None):
+    """Ask the run to stop. --why and --by say what for and who asks (a watcher whose time is up is not the owner):
+    the stop record keeps both, and its reason names the why."""
+    said = {k: " ".join(str(v).split()) for k, v in (("why", why), ("by", by)) if v and str(v).strip()}
+    P.write_json(runner.stop_path(legdir.home()), dict(said, now=bool(now), asked_at=P.now()))
     print("stop asked: the run ends %s." % ("now, mid-leg" if now else "before its next leg"))
     return 0
 
@@ -528,7 +532,10 @@ def main(argv=None):
     runner.add_args(sub.add_parser("run"))
     legcmd.add_args(sub.add_parser("leg"))
     sub.add_parser("status")
-    sub.add_parser("stop").add_argument("--now", action="store_true")
+    p = sub.add_parser("stop")
+    p.add_argument("--now", action="store_true")
+    p.add_argument("--why", help="what the stop is for, in a few words: kept in the stop record and named in its reason")
+    p.add_argument("--by", help="who asks (a session or a script's name): kept in the stop record")
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
     sub.add_parser("budget").add_argument("--days", type=int, default=8)
     sub.add_parser("day")
@@ -572,7 +579,7 @@ def main(argv=None):
     if a.cmd == "status":
         return status()
     if a.cmd == "stop":
-        return stop(a.now)
+        return stop(a.now, a.why, a.by)
     if a.cmd == "update":
         return update(a.ref)
     if a.cmd == "hold":

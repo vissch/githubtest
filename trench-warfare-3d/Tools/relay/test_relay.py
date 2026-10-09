@@ -3,14 +3,14 @@
 Each test works in a temporary folder: no real board, checkout or Claude session is touched. Runs use fake_claude.py,
 which calls the leg's real hooks, so a passing run also proves the guards and the meter were on.
 """
-import argparse, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
+import argparse, ast, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
 import unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import cmdrules, config, gitio, launch, ledger, legcmd, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
+import boardio, cmdrules, config, gitio, launch, ledger, legcmd, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
 from sources import pipeline as SP                                                 # noqa: E402
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
@@ -888,6 +888,7 @@ class Runs(Repo):
         out, stop = self.go()
         self.assertIn("2 units in a row", stop["reason"])
         self.assertEqual(stop["legs"], 4)
+        self.assertEqual(stop["reason_kind"], "no-result")
 
     def test_work_that_fails_its_check_is_not_done_and_not_picked_again(self):
         self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
@@ -1030,6 +1031,7 @@ class Runs(Repo):
         try:
             out, stop = self.go(allow_dirty=False)
             self.assertIn("uncommitted changes (Tools/relay/roles/_common.md)", stop["reason"])
+            self.assertEqual(stop["reason_kind"], "checkout")
             self.assertEqual(stop["legs"], 0)
             gitio.code_state = lambda folder: ("abc1234567890", [])
             seen = []
@@ -1210,6 +1212,7 @@ class Runs(Repo):
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": [{"file": "half.txt", "text": "half\n"}]})
         out, stop = self.go()
         self.assertIn("left uncommitted work", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "uncommitted")
         self.assertIn(b"half.txt", (legdir.leg_path(stop["run"], 2) / "red.patch").read_bytes())
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
 
@@ -1219,6 +1222,7 @@ class Runs(Repo):
                      "execute": [{"file": "a.txt", "text": "half\n"}, {"compact": True}]})
         _, stop = self.go()
         self.assertIn("COMPACT", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "leg")
         self.assertIn(b"a.txt", (legdir.leg_path(stop["run"], 2) / "red.patch").read_bytes())
 
     def test_a_leg_over_its_time_is_killed_and_the_run_stops(self):
@@ -1230,6 +1234,7 @@ class Runs(Repo):
             r.loop()
         stop = json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
         self.assertIn("TIMEOUT", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "leg")
         leg = legdir.read(legdir.leg_path(stop["run"], 1))
         self.assertIsNone(launch.proc_start(leg["child_pid"]))
 
@@ -1242,6 +1247,7 @@ class Runs(Repo):
             r.loop()
         stop = json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
         self.assertIn("hours are up", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "hours")
         self.assertEqual(stop["legs"], 1)
 
     def test_a_leg_that_cannot_be_trusted_stops_the_run_without_a_verdict(self):
@@ -1257,6 +1263,7 @@ class Runs(Repo):
             self.script(script)
             out, stop = self.go()
             self.assertIn(why, stop["reason"])
+            self.assertEqual(stop["reason_kind"], "leg")
             self.assertNotIn("unit u1: FAIL", out)
             self.assertEqual(stop["legs"], 1)
 
@@ -1283,6 +1290,7 @@ class Runs(Repo):
         self.queue("u1", raw="{ not json")
         _, stop = self.go()
         self.assertIn("not valid JSON", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "error")
         self.assertEqual(self.code, 1)
         shutil.rmtree(self.board / "relay")
         (self.board / "relay" / "queue").mkdir(parents=True)
@@ -1298,6 +1306,7 @@ class Runs(Repo):
         finally:
             gitio.switch_lane = real
         self.assertIn("error: boom", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "error")
         self.assertIsNone(gitio.lock_holder(self.work, legdir.home()))
 
     HELD = {"lane": "lane/show/held", "role": "lane", "goal": "g", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}
@@ -1320,6 +1329,7 @@ class Runs(Repo):
             self.queue("u%d" % i, raw=json.dumps(dict(self.HELD, id="u%d" % i)))
         _, stop = self.go()
         self.assertIn("5 units in a row whose lane cannot be switched to", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "lane")
         self.assertEqual((len(stop["units"]), stop["legs"]), (5, 0))
 
     def test_a_queue_file_with_a_bad_id_or_a_string_command_is_refused(self):
@@ -1404,6 +1414,7 @@ class Runs(Repo):
         self.queue("u1"); self.queue("u2", done_when=("git", "cat-file", "-e", "HEAD:README.md"))
         _, stop = self.go(no_quiet=False)
         self.assertIn("git index moved", stop["reason"])     # somebody just worked here: the run does not start
+        self.assertEqual(stop["reason_kind"], "checkout")
         old = time.time() - 3600
         gitdir = Path(gitio.git(["rev-parse", "--absolute-git-dir"], self.work))
         for f in (gitdir / "index", gitdir / "HEAD"):
@@ -1428,6 +1439,7 @@ class Runs(Repo):
         self.script(self.GOOD)
         _, stop = self.go(max_legs=1)
         self.assertIn("leg cap", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "legs")
 
     def test_a_missing_work_checkout_is_named_as_missing(self):
         self.queue("u1")
@@ -1506,6 +1518,7 @@ class Runs(Repo):
         t.join()
         self.assertIn("stopped by the owner", stop["reason"])
         self.assertLess(time.time() - began, 60)
+        self.assertEqual((stop["reason_kind"], stop["asked_why"], stop["now_on"]), ("asked", "", "u1"))
         leg = legdir.read(legdir.leg_path(stop["run"], 1))
         self.assertIsNone(launch.proc_start(leg["child_pid"]))
 
@@ -1585,6 +1598,365 @@ class Runs(Repo):
         self.assertEqual(config.route("review-fix", "execute", bad), {})            # no route: the phase's own
 
 
+class Record(Repo):
+    """What a run leaves for a reader on another machine: the stop record, the leg records, and while it is going
+    its live record, with the board pushed after every leg."""
+    legs = Runs.legs
+    REPORT = ("RESULT: done. a.txt is in.\nNEEDS YOU: pick the colour\nof the roof.\nCHANGED:\n- a.txt\n"
+              "NEXT: nothing")
+
+    def board_repo(self):
+        """The board as a station has it: a clone with an origin. What is queued by now is committed."""
+        self.far = self.tmp / "board-origin.git"
+        self.b(["init", "-q", "--bare", str(self.far)], self.tmp)
+        self.b(["init", "-q"])
+        self.b(["add", "-A"]); self.b(["commit", "-q", "-m", "board"]); self.b(["branch", "-M", "main"])
+        self.b(["remote", "add", "origin", str(self.far)]); self.b(["push", "-q", "-u", "origin", "main"])
+
+    def b(self, args, cwd=None):
+        return subprocess.run(["git"] + args, cwd=str(cwd or self.board), check=True, capture_output=True)
+
+    def far_file(self, rel):
+        """A file as origin's board has it now, or None."""
+        r = subprocess.run(["git", "show", "main:" + rel], cwd=str(self.far), capture_output=True)
+        return json.loads(r.stdout.decode("utf-8")) if r.returncode == 0 else None
+
+    def log(self, where):
+        return subprocess.run(["git", "log", "--reverse", "--format=%s", "main"], cwd=str(where), check=True,
+                              capture_output=True).stdout.decode("utf-8").splitlines()
+
+    def during(self, look):
+        """Run with look(leg number, leg folder) called as each leg starts to work: after the runner's watch."""
+        run_leg = launch.run_leg
+
+        def watched(d, *a):
+            look(legdir.read(d)["leg"], d)
+            return run_leg(d, *a)
+        launch.run_leg = watched
+        try:
+            return self.go(no_push=False)
+        finally:
+            launch.run_leg = run_leg
+
+    def test_the_stop_record_says_when_it_started_what_it_cost_and_why_a_unit_failed(self):
+        self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
+        self.script(dict(self.GOOD, cost={"plan": 1.5, "execute": 2}))
+        out, stop = self.go()
+        self.assertRegex(stop["started_at"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        self.assertLessEqual(stop["started_at"], stop["stopped_at"])
+        self.assertEqual((stop["station"], stop["hours"], stop["reason_kind"]), ("desktop", 3, "done"))
+        self.assertEqual((stop["run_usd"], stop["run_usd_unpriced"], stop["now_on"]), (3.5, 0, ""))
+        self.assertEqual(list(stop["problems"]), ["u1"])
+        self.assertIn("  - " + stop["problems"]["u1"][0], out)          # the line the run printed
+        self.assertTrue(stop["problems"]["u1"][0].startswith("done_when exited"))
+        self.assertNotIn("max_legs", stop)
+        self.assertNotIn("asked_why", stop)
+        r = runner.Run(self.args())
+        r.keep_problems({"id": "u7"}, ["x" * 400] * 10)                # short lines, and not all of a long list
+        self.assertEqual((len(r.problems["u7"]), set(map(len, r.problems["u7"]))), (8, {300}))
+
+    def test_the_unit_in_flight_at_the_stop_is_named_and_a_leg_with_no_cost_is_counted(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        _, stop = self.go(max_legs=1, hours=2)
+        self.assertEqual((stop["now_on"], stop["units"], stop["max_legs"], stop["hours"]), ("u1", {}, 1, 2))
+        self.assertEqual((stop["reason_kind"], stop["problems"]), ("legs", {}))
+        self.script({"no_result": True, "plan": []})
+        _, stop = self.go()
+        self.assertEqual((stop["run_usd"], stop["run_usd_unpriced"], stop["now_on"]), (0, 1, "u1"))
+        self.assertEqual(stop["reason_kind"], "leg")
+
+    def test_a_unit_that_is_blocked_or_whose_lane_is_held_has_its_reason_in_the_record(self):
+        self.g(["worktree", "add", "-q", str(self.tmp / "other"), "-b", "lane/show/held"])
+        self.queue("u1", raw=json.dumps(dict(Runs.HELD, id="u1")))
+        self.queue("u2")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}, {"report": "RESULT: blocked. The owner must decide."}]})
+        _, stop = self.go()
+        self.assertEqual(stop["units"], {"u1": "FAIL", "u2": "BLOCKED"})
+        self.assertIn("its lane lane/show/held cannot be switched to", stop["problems"]["u1"][0])
+        self.assertEqual(stop["problems"]["u2"], ["the plan leg reported blocked"])
+
+    def test_every_stop_reason_in_the_runner_names_its_kind(self):
+        with self.assertRaises(TypeError):
+            runner.Stop("a reason nobody gave a kind")
+        with self.assertRaises(ValueError):
+            runner.Why("mood", "x")
+        tree = ast.parse((HERE / "runner.py").read_text(encoding="utf-8"))
+        name = lambda c: getattr(c.func, "id", None) or getattr(c.func, "attr", "")
+        calls = [n for n in ast.walk(tree) if isinstance(n, ast.Call)]
+        kinds = [c.args[0].value if c.args and isinstance(c.args[0], ast.Constant) else None
+                 for c in calls if name(c) == "Why"]
+        self.assertTrue(kinds and all(k in runner.KINDS for k in kinds), kinds)   # a kind in so many words, each time
+        self.assertEqual(sorted(set(kinds)), sorted(runner.KINDS))                 # and no kind that nothing uses
+        made = lambda v: isinstance(v, ast.Call) and name(v) in ("Why", "asked", "no_room", "no_budget")
+
+        def values(f, var):
+            """What the function assigns to a name, also as one of several (a, b = x, y)."""
+            out = []
+            for n in ast.walk(f):
+                for t in n.targets if isinstance(n, ast.Assign) else []:
+                    if isinstance(t, ast.Name) and t.id == var:
+                        out.append(n.value)
+                    for i, e in enumerate(t.elts if isinstance(t, ast.Tuple) else []):
+                        if isinstance(e, ast.Name) and e.id == var:
+                            out.append(n.value.elts[i] if isinstance(n.value, ast.Tuple) else n.value)
+            return out
+        stops = reasons = returns = 0
+        for f in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
+            for c in [n for n in ast.walk(f) if isinstance(n, ast.Call) and name(n) == "Stop"]:
+                first = c.args[0]
+                stops += 1
+                self.assertTrue(made(first) or (isinstance(first, ast.Name) and values(f, first.id)
+                                                and all(made(v) for v in values(f, first.id))),
+                                "%s, line %d: a Stop with a reason of no kind" % (f.name, c.lineno))
+            for v in values(f, "reason"):                      # what the stop record is written from
+                reasons += 1
+                self.assertTrue(made(v) or (isinstance(v, ast.Attribute) and v.attr == "args"),
+                                "%s, line %d: a reason of no kind" % (f.name, v.lineno))
+            for r in [n for n in ast.walk(f) if isinstance(n, ast.Return)] if f.name in ("asked", "no_room", "no_budget") else []:
+                returns += 1
+                self.assertTrue(r.value is None or made(r.value) or (isinstance(r.value, ast.Constant) and r.value.value is None),
+                                "%s, line %d: gives a reason of no kind" % (f.name, r.lineno))
+        self.assertTrue(stops >= 10 and reasons >= 4 and returns >= 10, (stops, reasons, returns))   # it did walk them
+
+    def test_a_stop_somebody_asked_for_keeps_the_why_and_the_who_and_reads_as_before_without_them(self):
+        r = runner.Run(self.args())
+        with contextlib.redirect_stdout(io.StringIO()):
+            relay.main(["stop"])
+            self.assertEqual((str(r.asked()), r.asked().kind), ("stopped by the owner (relay.py stop)", "asked"))
+            self.assertEqual(r.asked_of, {"asked_why": "", "asked_by": ""})
+            self.assertEqual(sorted(json.loads(r.stop_file.read_text(encoding="utf-8"))), ["asked_at", "now"])
+            relay.main(["stop", "--by", "watch_run"])               # no why: the words scripts match stay
+            self.assertEqual(str(r.asked()), "stopped by the owner (relay.py stop)")
+            self.assertEqual(r.asked_of["asked_by"], "watch_run")
+            relay.main(["stop", "--why", "a  look at\nthe queue"])
+            self.assertEqual(str(r.asked()), "stopped on request (relay.py stop): a look at the queue")
+            relay.main(["stop", "--now", "--why", "x" * 400])
+            self.assertEqual(len(r.asked(" --now", ", mid-leg 02")),
+                             len("stopped on request (relay.py stop --now), mid-leg 02: ") + 300)
+        self.queue("u1")
+        self.script(self.GOOD)
+        run_leg = launch.run_leg
+
+        def then_stop(d, lim, t, *more):
+            leg = run_leg(d, lim, t, *more)
+            with contextlib.redirect_stdout(io.StringIO()):
+                relay.main(["stop", "--why", "its time is up", "--by", "watch_run"])
+            return leg
+        launch.run_leg = then_stop
+        try:
+            out, stop = self.go()
+        finally:
+            launch.run_leg = run_leg
+        self.assertEqual(stop["reason"], "stopped by watch_run (relay.py stop): its time is up")
+        self.assertEqual((stop["reason_kind"], stop["asked_why"], stop["asked_by"], stop["legs"], stop["now_on"]),
+                         ("asked", "its time is up", "watch_run", 1, "u1"))
+        self.assertIn("STOP: stopped by watch_run (relay.py stop): its time is up.", out)
+
+    def test_a_leg_record_holds_its_verdict_what_it_asks_of_the_owner_and_the_commits_it_made(self):
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.COMMIT + [{"report": self.REPORT}]})
+        out, stop = self.go()
+        self.assertIn("unit u1: PASS", out)
+        plan, execute = self.legs()
+        head = gitio.head(self.work)
+        self.assertEqual((execute["said"], execute["needs_you"]), ("done", "pick the colour\nof the roof."))
+        self.assertEqual((execute["head_after"], execute["commits"], execute["commits_more"]),
+                         (head, [{"sha": head[:10], "subject": "a"}], 0))
+        self.assertEqual((len(execute["head_before"]), execute["head_before"] != head), (40, True))
+        self.assertEqual((plan["said"], plan["needs_you"], plan["commits"], plan["commits_more"]), ("done", "", [], 0))
+        self.assertEqual(plan["head_before"], plan["head_after"])
+        self.assertEqual((plan["session_id"], execute["session_id"]), ("fake", "fake"))
+        self.script({"plan": [{"report": "I looked and gave up."}]})         # no verdict, nothing asked
+        self.queue("u2", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
+        self.go()
+        self.assertEqual((self.legs()[-1]["said"], self.legs()[-1]["needs_you"]), (None, ""))
+
+    def test_needs_you_is_read_up_to_the_next_heading_and_nothing_asked_is_empty(self):
+        st = config.style()
+        for said in ("nothing", "Nothing.", "none", "None.", "no", "No.", "-", "n/a", "N/A.", "", "**nothing**"):
+            self.assertEqual(config.needs_you("RESULT: done.\nNEEDS YOU: %s\nCHANGED: x" % said, st), "", said)
+        self.assertEqual(config.needs_you("RESULT: done.\nCHANGED: x\nNEXT: y", st), "")
+        self.assertEqual(config.needs_you("", st), "")
+        self.assertEqual(config.needs_you("**RESULT:** blocked.\n**NEEDS YOU:** say which lane lands first\n"
+                                          "- banner\n- narrows\n**NEXT:** wait", st),
+                         "say which lane lands first\n- banner\n- narrows")
+        self.assertEqual(config.needs_you("RESULT: done\nneeds you: no window here.\nNext, run it at a desk.", st),
+                         "no window here.\nNext, run it at a desk.")       # a word in a sentence is no heading
+        for said in ("nothing needed.", "None - the lane is pushed.", "No action.", "no action needed", "\u2014",
+                     "nothing.\nAll green.", "N/A (no decision in this unit)"):
+            self.assertEqual(config.needs_you("RESULT: done.\nNEEDS YOU: %s\nCHANGED: x" % said, st), "", said)
+        for said in ("No window can open here: start it at a desk", "None of the lanes can land until you pick one",
+                     "Nothing works without the editor, open it"):                  # these do ask
+            self.assertEqual(config.needs_you("RESULT: blocked.\nNEEDS YOU: %s\nNEXT: wait" % said, st), said)
+        self.assertEqual(config.needs_you("RESULT: blocked.\nNEEDS YOU: pick one\n- NEXT: A\n- Result: B\nNEXT: wait", st),
+                         "pick one\n- NEXT: A\n- Result: B")                      # a bullet under it is not a heading
+        self.assertEqual(config.needs_you("## RESULT\nblocked\n## NEEDS YOU\npick one\n## NEXT\nwait", st), "pick one")
+        self.assertEqual(config.needs_you("1. RESULT: done\n2. NEEDS YOU: pick\n3. CHANGED: x", st), "pick")
+
+    def test_a_long_row_of_commits_is_cut_at_twenty_oldest_first_and_the_rest_is_counted(self):
+        start = gitio.head(self.work)
+        for i in range(23):
+            self.g(["commit", "-q", "--allow-empty", "-m", "c%02d %s" % (i, "y" * 200 if i == 0 else "")])
+        got, more = gitio.commits(self.work, start, gitio.head(self.work))
+        self.assertEqual((len(got), more, got[1]["subject"], got[19]["subject"]), (20, 3, "c01", "c19"))
+        self.assertEqual((len(got[0]["subject"]), len(got[0]["sha"])), (120, 10))
+        self.assertEqual(gitio.commits(self.work, "", start), ([], 0))
+        self.assertEqual(gitio.commits(self.work, start, start), ([], 0))
+        self.g(["switch", "-q", "-c", "side", start]); self.g(["commit", "-q", "--allow-empty", "-m", "side"])
+        self.assertEqual(gitio.commits(self.work, gitio.head(self.work), got[-1]["sha"]), ([], 0))   # not grown: rewritten
+
+    def test_a_going_run_shows_on_origin_after_every_leg_and_its_live_record_goes_with_the_stop(self):
+        self.queue("u1")
+        self.board_repo()
+        self.script(self.GOOD)
+        seen = {}
+
+        def look(nn, d):
+            live = "relay/desktop/live/%s.json" % legdir.read(d)["run"]
+            seen[nn] = (self.far_file(live), json.loads((self.board / live).read_text(encoding="utf-8")),
+                        self.log(self.far)[-1], self.far_file("relay/desktop/legs/%s-01.json" % legdir.read(d)["run"]),
+                        self.b(["status", "--porcelain"]).stdout)
+        out, stop = self.during(look)
+        run = stop["run"]
+        self.assertEqual((stop["reason"], stop["units"]), ("nothing left to do", {"u1": "PASS"}))   # no rule broken:
+        far, here, last, leg1, changed = seen[1]                        # the live file is written between the watches
+        self.assertEqual((changed, seen[2][4]), (b"", b""))             # and committed: nothing changed under a leg
+        self.assertEqual(sorted(far), ["beat", "code", "day_budget_pct", "hours", "leg_minutes", "legs", "now_on",
+                                       "paced_until", "run", "started_at", "started_by", "station", "units"])
+        self.assertEqual((far["run"], far["station"], far["legs"], far["units"], far["now_on"], far["hours"]),
+                         (run, "desktop", 0, {}, None, 3))
+        self.assertEqual((last, leg1), ("relay: run %s, started" % run, None))
+        self.assertEqual({k: here["now_on"][k] for k in ("unit", "role", "phase", "leg", "lane")},
+                         {"unit": "u1", "role": "lane", "phase": "plan", "leg": 1, "lane": "lane/show/x"})
+        self.assertRegex(here["now_on"]["since"], r"^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ$")
+        far, here, last, leg1, changed = seen[2]                        # leg 1 is over: origin has it
+        self.assertEqual((last, leg1["phase"], far["legs"]), ("relay: run %s, leg 01 plan u1" % run, "plan", 1))
+        self.assertEqual((far["now_on"]["unit"], far["now_on"]["phase"], far["now_on"]["leg"]), ("u1", "", 0))
+        self.assertEqual((here["now_on"]["phase"], here["now_on"]["leg"], here["legs"]), ("execute", 2, 1))
+        live = "relay/desktop/live/%s.json" % run
+        self.assertEqual((self.far_file(live), (self.board / live).exists()), (None, False))   # a run never has both
+        self.assertEqual(self.far_file("relay/desktop/stops/%s.json" % run)["reason"], "nothing left to do")
+        self.assertEqual(self.log(self.far)[1:], ["relay: run %s, %s" % (run, w) for w in (
+            "started", "leg 01 plan u1 starts", "leg 01 plan u1", "leg 02 execute u1 starts", "leg 02 execute u1",
+            "unit u1 PASS", "2 legs, nothing left to do")])
+        self.assertIn("Record on the board: pushed.", out)
+        self.assertEqual(self.b(["status", "--porcelain"]).stdout, b"")
+
+    def test_a_push_that_fails_between_legs_does_not_stop_the_run_and_goes_out_with_the_next(self):
+        self.queue("u1")
+        self.board_repo()
+        self.script(self.GOOD)
+        seen = {}
+
+        def look(nn, d):
+            seen[nn] = (self.log(self.far)[-1], self.log(self.board)[-2:])
+            self.b(["remote", "set-url", "origin", str(self.tmp / "gone.git") if nn == 1 else str(self.far)])
+        out, stop = self.during(look)
+        run = stop["run"]
+        self.assertEqual((stop["reason"], stop["units"], stop["legs"]), ("nothing left to do", {"u1": "PASS"}, 2))
+        self.assertEqual(out.count("note: the board was not sent (push failed: the commit is kept locally)"), 1)
+        self.assertEqual(seen[2], ("relay: run %s, started" % run, ["relay: run %s, leg %s" % (run, w) for w in (
+            "01 plan u1", "02 execute u1 starts")]))                  # kept here, with what the run is on now
+        self.assertIn("relay: run %s, leg 01 plan u1" % run, self.log(self.far))     # it went out with a later push
+        self.assertEqual(self.far_file("relay/desktop/legs/%s-01.json" % run)["phase"], "plan")
+
+    def test_origin_moving_during_a_leg_is_taken_in_and_a_queue_file_a_leg_wrote_is_not_committed(self):
+        self.queue("u1")
+        self.board_repo()
+        other = self.tmp / "board-elsewhere"
+        self.b(["clone", "-q", "-b", "main", str(self.far), str(other)], self.tmp)
+        q = self.board / "relay" / "queue" / "u9.json"
+        self.script(dict(self.GOOD, plan=[{"abs": str(q), "text": json.dumps(
+            {"id": "u9", "lane": "lane/show/x", "role": "lane", "goal": "g", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]})},
+            {"write": "plan.md", "text": PLAN}]))
+        seen = {}
+
+        def look(nn, d):
+            seen[nn] = (self.log(self.far)[-3:], self.b(["status", "--porcelain", "--", "relay/queue"]).stdout.decode(),
+                        (self.board / "items" / "theirs.txt").exists())
+            if nn == 1:                                         # another session pushes the board while leg 1 works
+                self.b(["pull", "-q", "--rebase"], other)
+                (other / "items").mkdir(exist_ok=True)
+                (other / "items" / "theirs.txt").write_text("x\n", encoding="utf-8")
+                self.b(["add", "-A"], other); self.b(["commit", "-q", "-m", "theirs"], other); self.b(["push", "-q"], other)
+        out, stop = self.during(look)
+        run = stop["run"]
+        self.assertEqual((stop["reason"], stop["units"]), ("nothing left to do", {"u1": "PASS"}))
+        self.assertEqual(seen[2][0], ["theirs"] + ["relay: run %s, leg 01 plan u1%s" % (run, w) for w in (" starts", "")])
+        self.assertEqual(seen[2][1:], ("?? relay/queue/u9.json\n", True))              # the leg's file: not committed
+        self.assertIn("skipping u9.json", out)                                           # so not taken as work
+
+    def test_a_call_to_origin_that_hangs_is_given_up(self):
+        self.queue("u1")
+        self.board_repo()
+        nap = ["-c", "alias.nap=!\"%s\" -c \"import time; time.sleep(5)\"" % sys.executable.replace("\\", "/"), "nap"]
+        began = time.time()
+        self.assertEqual(boardio._origin(nap, self.board, 2), 1)
+        self.assertTrue(1.9 <= time.time() - began < 30, time.time() - began)   # it did hang, and was left
+        self.assertEqual(boardio._origin(["status", "-s"], self.board, 20), 0)
+        asked, real = [], boardio.push
+        boardio.push = lambda board, message, **kw: asked.append(kw) or "pushed"
+        try:
+            r = runner.Run(self.args(no_push=False))
+            r.send("leg 01 plan u1")
+            boardio.push = lambda *a, **kw: 1 / 0               # whatever goes wrong in it is a note
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                r.send("leg 02 execute u1")
+        finally:
+            boardio.push = real
+        self.assertEqual(asked, [{"tries": 1, "wait": boardio.QUICK_S, "leave": ("relay/queue",)}])    # one short try
+        self.assertIn("note: the board was not sent (division by zero)", buf.getvalue())
+        self.assertLessEqual(boardio.QUICK_S, 60)
+        time.sleep(6)                                       # the sleeper git left behind is gone: the folder can go
+
+    def test_between_legs_only_the_fetch_and_the_push_are_timed_and_no_pull_is_left_to_rebase_under_a_leg(self):
+        asked, real = [], (boardio._origin, gitio.git_raw)
+        boardio._origin = lambda args, board, wait: asked.append(("timed" if wait else "plain", args[0])) or 0
+        gitio.git_raw = lambda args, cwd, env=None: asked.append(("plain", args[0])) or argparse.Namespace(returncode=0)
+        try:
+            self.assertEqual(boardio._onto_origin(self.board, 30), 0)
+            self.assertEqual(asked, [("timed", "fetch"), ("plain", "rebase")])      # a pull given up may live on
+            del asked[:]
+            self.assertEqual(boardio._onto_origin(self.board, None), 0)
+            self.assertEqual(asked, [("plain", "pull")])                            # at the stop: as it always was
+        finally:
+            boardio._origin, gitio.git_raw = real
+
+    def test_a_rebase_left_half_way_is_ended_before_the_board_is_committed(self):
+        self.queue("u1")
+        self.board_repo()
+        other = self.tmp / "board-elsewhere"
+        self.b(["clone", "-q", "-b", "main", str(self.far), str(other)], self.tmp)
+        for where, text in ((other, "theirs\n"), (self.board, "ours\n")):         # the same file, both sides
+            (where / "relay" / "clash.txt").write_text(text, encoding="utf-8")
+            self.b(["add", "-A"], where); self.b(["commit", "-q", "-m", "clash"], where)
+        self.b(["push", "-q"], other)
+        r = subprocess.run(["git", "pull", "--rebase", "-q"], cwd=str(self.board), capture_output=True)
+        self.assertNotEqual(r.returncode, 0)                                      # stopped half way: an interrupt
+        self.assertEqual(gitio.branch(self.board), "HEAD")
+        (self.board / "relay" / "desktop" / "stops").mkdir(parents=True)
+        (self.board / "relay" / "desktop" / "stops" / "r1.json").write_text("{}", encoding="utf-8")
+        self.assertEqual(boardio.push(self.board, "relay: run r1, the stop"), "push failed: the commit is kept locally")
+        self.assertEqual((gitio.branch(self.board), self.log(self.board)[-1]), ("main", "relay: run r1, the stop"))
+
+    def test_a_board_with_nothing_of_the_relays_is_left_alone(self):
+        bare = self.tmp / "bare-board"
+        bare.mkdir()
+        self.b(["init", "-q"], bare)
+        (bare / "items.txt").write_text("x\n", encoding="utf-8")
+        self.assertEqual(boardio.keep(bare, "relay: x", leave=("relay/queue",)), "nothing to push")
+        self.assertEqual(self.b(["status", "--porcelain"], bare).stdout, b"?? items.txt\n")     # nothing staged
+
+    def test_a_dry_run_and_a_run_that_never_started_leave_no_live_record(self):
+        self.queue("u1")
+        self.go(dry_run=True)
+        _, stop = self.go(work=str(self.tmp / "nowhere"))
+        self.assertEqual(stop["reason_kind"], "checkout")
+        self.assertFalse((self.board / "relay" / "desktop" / "live").exists())
+
+
 class Budget(Repo):
     """The day's budget: no leg starts once today's legs cost limits.json day_budget_usd (ledger.py does the sum)."""
     def legs(self):
@@ -1616,6 +1988,7 @@ class Budget(Repo):
         out, stop = self.go(day_budget=5)
         self.assertEqual((stop["reason"], stop["legs"], stop["units"]),
                          ("the day's budget is spent ($6.00 of $5.00)", 0, {}))
+        self.assertEqual(stop["reason_kind"], "budget")
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
         self.assertIsNone(gitio.lock_holder(self.work, legdir.home()))
 
@@ -1633,6 +2006,7 @@ class Budget(Repo):
         self.spent(2, "execute", 2)
         out, stop = self.go(day_budget=5)                        # 1 left, and a unit usually costs 2 + 2
         self.assertEqual(stop["reason"], "the day's budget has $1.00 left of $5.00, and a unit usually costs $4.00")
+        self.assertEqual(stop["reason_kind"], "budget")
         self.assertEqual(stop["legs"], 0)
 
     def test_the_run_stops_between_units_when_the_next_one_no_longer_fits(self):
@@ -1650,6 +2024,7 @@ class Budget(Repo):
         out, stop = self.go(day_budget=6)
         self.assertEqual((stop["legs"], stop["units"]), (2, {}))
         self.assertEqual(stop["reason"], "leg 02 the day's budget is spent ($6.00, mid-leg)")
+        self.assertEqual(stop["reason_kind"], "budget")
         self.assertEqual(self.legs()[1]["cost_usd"], 5)          # 6, less the plan's 1: Claude stopped it there
         self.assertEqual(stop["day_usd"], 6.0)
 
@@ -1660,6 +2035,7 @@ class Budget(Repo):
         self.assertEqual(self.legs()[0]["cost_usd"], 2)
         self.assertNotIn("the day's budget", stop["reason"])
         self.assertIn("leg 01", stop["reason"])
+        self.assertEqual(stop["reason_kind"], "leg")
 
     def test_a_day_budget_of_zero_switches_it_off(self):
         self.queue("u1")
@@ -1746,6 +2122,35 @@ class Pace(Repo):
         self.assertTrue(49 * 60 - 30 <= sum(self.slept) <= 49 * 60 + 30, sum(self.slept))
         self.assertTrue(all(s <= runner.PACE_STEP for s in self.slept))
 
+    board_repo, b, far_file, log = Record.board_repo, Record.b, Record.far_file, Record.log
+
+    def test_a_run_that_waits_for_the_pace_says_so_in_its_live_record_until_it_goes_on(self):
+        self.queue("u1")
+        self.board_repo()
+        self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
+        self.at(0, 30)
+        name = lambda: next((self.board / "relay" / "desktop" / "live").glob("*.json")).name
+        here = lambda: json.loads((self.board / "relay" / "desktop" / "live" / name()).read_text(encoding="utf-8"))
+        far = lambda: self.far_file("relay/desktop/live/" + name())
+        seen, run_leg = [], launch.run_leg
+
+        def waiting(seconds):
+            self.sleep(seconds)
+            seen.append(("waits", here()["paced_until"], far()["paced_until"]))
+
+        def working(d, *a):
+            seen.append(("works", here()["paced_until"], far()["paced_until"], self.log(self.far)[-1].split(", ", 1)[1]))
+            return run_leg(d, *a)
+        runner.sleep, launch.run_leg = waiting, working
+        try:
+            out, stop = self.go(no_push=False)
+        finally:
+            launch.run_leg = run_leg
+        self.assertIn("unit u1: PASS", out)
+        self.assertEqual(set(seen[:-2]), {("waits", "01:19", "01:19")})    # origin knows why nothing moves,
+        self.assertEqual(seen[-2], ("works", "", "", "the wait for the day's pace is over"))   # and when it does again
+        self.assertEqual(self.log(self.far)[2].split(", ", 1)[1], "waiting for the day's pace until 01:19")
+
     def test_after_a_wait_the_queue_is_read_again_and_the_unit_that_is_first_now_runs(self):
         self.queue("u2")
         self.script(dict(self.GOOD, cost={"plan": 1, "execute": 2}))
@@ -1782,6 +2187,7 @@ class Pace(Repo):
         out, stop = self.go(hours=0.25)
         self.assertEqual((stop["reason"], stop["legs"]),
                          ("the day's pace lets a unit start at 01:19, after this run's 0.25 hours are up", 0))
+        self.assertEqual(stop["reason_kind"], "pace")
         self.assertEqual(self.slept, [])
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
 
@@ -1801,6 +2207,7 @@ class Pace(Repo):
         out, stop = self.go()
         self.assertIn("unit u1: PASS", out)
         self.assertEqual((self.slept, stop["day_pct"]), ([], 4.5))
+        self.assertEqual(stop["reason_kind"], "done")
 
     def test_a_leg_may_spend_what_the_day_has_left_not_only_what_the_pace_allows(self):
         self.queue("u1")
@@ -1821,6 +2228,7 @@ class Pace(Repo):
         runner.sleep = asked
         out, stop = self.go()
         self.assertEqual((stop["reason"], stop["legs"], len(self.slept)), ("stopped by the owner (relay.py stop)", 0, 1))
+        self.assertEqual(stop["reason_kind"], "asked")
 
     def test_the_owner_can_name_another_figure_for_the_day(self):
         self.queue("u1")
