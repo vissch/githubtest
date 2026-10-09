@@ -292,6 +292,7 @@ namespace TW.Tests
             Pi("TargetSlot", w.TargetSlot); Pi("GoalId", w.GoalId); Pu("Flags", w.Flags);
             Pus("Generation", w.Generation); Pi("Cooldown", w.Cooldown); Pi("FireCooldown", w.FireCooldown);
             Pf3("Knock", w.Knock);
+            Pf("Alarm", w.Alarm);     // [T24b] folded at SimWorld.cs:439 since v27, never probed here
 
             Assert.IsEmpty(blind,
                 "SimWorld.Hash() does not notice a change in these, so two peers can differ in them for a whole "
