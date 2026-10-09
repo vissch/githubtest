@@ -37,6 +37,13 @@ namespace TW.Presentation.Terrain
         public IReadOnlyList<Hamlet> Hamlets => hamlets;
         /// <summary>How far a house keeps from the line of the bridge (the road over it), beyond its own half size.</summary>
         public const float RoadClear = 4.5f;
+        /// <summary>[B3] A wire cell's frame: standing, blown flat on the ground, or down but still obstructing.</summary>
+        public enum WireStand { Up, Down, Flat }
+        /// <summary>[B3] Share of wire cells blown flat (drawn low, almost flush) vs. only knocked down.</summary>
+        public const float FlatChance = .07f, DownChance = .13f;
+        /// <summary>[B3] A cell is never empty: Flat still stops a man, it is just lying almost flush.</summary>
+        public static WireStand StandOf(int key) => Rand(key, 31) < FlatChance ? WireStand.Flat
+            : Rand(key, 35) < DownChance ? WireStand.Down : WireStand.Up;
         readonly Dictionary<string, int> rejections = new Dictionary<string, int>();
         public string PlacementReport => string.Join(", ", rejections);
         public IReadOnlyList<Site> Sites => sites;
@@ -300,7 +307,8 @@ namespace TW.Presentation.Terrain
             {
                 if ((map.NavLayers[map.NavIndex(x, z)] & (byte)NavLayer.Wire) == 0) continue;
                 int key = z * map.NavWidth + x;
-                if (Rand(key, 31) < .07f) continue;   // a frame carried off or blown to bits
+                var stand = StandOf(key);
+                bool down = stand != WireStand.Up;
                 // stand each frame along the belt's own direction (where is the wire in the next column?), then
                 // shove, turn and size it a little: set out by tired men at night, not by a surveyor
                 float lean = 0f;
@@ -311,10 +319,11 @@ namespace TW.Presentation.Terrain
                 }
                 float wx = (x + 0.5f) * n + (Rand(key, 32) - .5f) * 1.1f, wz = (z + 0.5f) * n + (Rand(key, 33) - .5f) * 1.3f;
                 float yaw = -Mathf.Atan2(lean * n, n) * Mathf.Rad2Deg * .6f + (Rand(key, 34) - .5f) * 30f;
-                bool down = Rand(key, 35) < .13f;
-                var turn = Quaternion.Euler(down ? 62f + Rand(key, 36) * 25f : (Rand(key, 36) - .5f) * 14f, yaw, (Rand(key, 37) - .5f) * 10f);
+                var turn = Quaternion.Euler(
+                    stand == WireStand.Flat ? 84f + Rand(key, 36) * 6f : down ? 62f + Rand(key, 36) * 25f : (Rand(key, 36) - .5f) * 14f,
+                    yaw, (Rand(key, 37) - .5f) * 10f);
                 float size = .85f + Rand(key, 38) * .35f;
-                var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .15f : 0f), wz);
+                var at = new Vector3(wx, RenderGround.Sample(map, wx, wz) + (down ? .05f : 0f), wz);
                 // half the belt is still the old knife rests; the rest is the imported obstacles, most with the same
                 // four strands run through them (a fence section carries its own)
                 float kind = Rand(key, 44);
