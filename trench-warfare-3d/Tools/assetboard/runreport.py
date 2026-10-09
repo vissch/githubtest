@@ -64,6 +64,9 @@ TRIES = 2               # readings that may fail on a run before it is left with
 CLAIM = 30 * 60         # seconds another station's claim on a run is left alone
 READ_SAY = 'Read this run and write its report.'    # what a click on "Have it read" leaves as his note (runs.js READ)
 BY = 'the run reader'
+RUN_ID = re.compile(r'[A-Za-z0-9][\w.-]*\Z')        # a run's name is a folder's name here: nothing with a slash or dots alone
+HIS = re.compile(r'\b(landed|lands|merged)\b', re.I)      # landing is the owner's own act: a unit that passed is on its lane
+DRIVE_WAS = build.DRIVE.is_dir()                    # the Drive was there when this process began: when it goes, nothing is read into a folder no page reads
 CODE = re.compile(r'`|\b[\w/\\.-]+\.(?:cs|py|js|json|md|ps1|uss|uxml|shader|asset|prefab)\b')
 PICTURES = ('.png', '.jpg', '.jpeg', '.gif', '.webp')
 PAPERS = ('.md', '.txt', '.json')
@@ -137,6 +140,10 @@ def given(path=''):
 
 def run_of(rid, path=''):
     """(the run, the board): what a reading was given, else the run as the board has it now."""
+    if not RUN_ID.match(str(rid)) or '..' in str(rid):
+        raise ValueError(f'{rid!r} is not the name of a run')
+    if path and os.environ.get('TW_RUNREPORT_READING'):
+        raise ValueError('--given is not for a reading the board started: it reads the run it was handed')
     g = given(path)
     if g:
         if g['run']['id'] != rid:
@@ -181,8 +188,10 @@ def asked_on_lane(lane):
     return [l[1:].rstrip() for l in diff.splitlines() if l.startswith('+') and not l.startswith('+++') and l[1:].strip()][:60]
 
 
-def context(r, board='', scratch=None):
-    """Everything the records say about a run, as lines for the agent that writes its report."""
+def context(r, board='', scratch=None, every=()):
+    """Everything the records say about a run, as lines for the agent that writes its report. `every` is
+    briefs.read_all(): the open briefs about a lane of the run are listed whichever run they are tied to, because a
+    brief that names no run can sit on the wrong one (the wreck question, 2026-10-10, was asked twice for that)."""
     scratch = Path(scratch) if scratch else state() / 'context' / r['id']
     files = src_runs.tree(board)[2] if board else {}
     queue = {d['id']: d for n, d in files.items() if n.startswith('relay/queue/') and isinstance(d, dict) and d.get('id')}
@@ -229,6 +238,12 @@ def context(r, board='', scratch=None):
     for b in r['briefs']:
         a = b['answer']
         out.append(f'  {b["id"]}  ({b["how"]}; {"answered " + a["option"] + (" " + a["said"] if a["said"] else "") if a else "OPEN"}): {b["title"]}. {b["what_for"]}')
+    lanes, tied = {u['lane'] for u in r['units'] if u['lane']}, {b['id'] for b in r['briefs']}
+    near = [b for b in every if b.get('state') != 'answered' and b['id'] not in tied and b.get('lane') in lanes and src_runs.local(b.get('asked')) >= r['started']]
+    if near:
+        out += ['', 'OPEN BRIEFS ON THIS RUN\'S LANES, asked since it began (if one asks what a leg asked, answer that ask with --asked KEY=ID; never write it again):']
+    for b in near:
+        out.append(f'  {b["id"]}  (asked {b.get("asked", "")}, {b.get("lane", "")}): {b["title"]}. {b.get("what_for", "")}  Options: ' + ' / '.join(o.get('text', '') for o in b.get('options') or []))
     for p in r['proposals']:
         out += ['', f'PROPOSALS of the retrospective, leg {p["leg"]:02d} (changes to the relay itself, for the master; not the owner\'s unless one is a decision):'] + ['  ' + w for w in p['text'].splitlines()]
     return [l for l in out if l is not None]
@@ -246,11 +261,11 @@ def raised(r, every):
     for b in every:
         rb = b.get('raised_by') or {}
         if rb.get('run') == r['id']:
-            out.setdefault(f'{int(rb.get("leg") or 0):02d}' if rb.get('leg') else '', []).append(b['id'])
+            out.setdefault(str(rb.get('key') or (f'{int(rb.get("leg") or 0):02d}' if rb.get('leg') else '')), []).append(b['id'])
     return out
 
 
-def check(r, title, did, left, units, asked, not_his, pictures, every, scratch=None):
+def check(r, title, did, left, units, asked, not_his, pictures, every, scratch=None, still_open=()):
     """Why this is not a report yet: every reason, as a list (empty when it is one), and how each ask is answered
     [{key, brief | no}]. `units` is [(id, sentence)], `asked` [(key, brief id)], `not_his` [(key, why)], `pictures`
     [(path, caption)], `every` briefs.read_all()."""
@@ -276,6 +291,9 @@ def check(r, title, did, left, units, asked, not_his, pictures, every, scratch=N
         m = CODE.search(text)
         if m:
             bad.append(f'{name} names a file or quotes code ({m.group(0)!r}): say what the thing is for in his words; the legs\' own reports are a click away for the names')
+        m = HIS.search(text)
+        if m:
+            bad.append(f'{name} says "{m.group(0)}": say passed, or pushed to its lane. Landing is his own act, and a leg that writes "landed" means a commit on its lane')
     keys, ids, mine, answers = {a['key']: a for a in r['asks']}, {b['id'] for b in every}, raised(r, every), {}
     for key, bid in asked:
         if key not in keys:
@@ -293,10 +311,19 @@ def check(r, title, did, left, units, asked, not_his, pictures, every, scratch=N
             bad.append(f'the ask {key} is answered twice')
         else:
             answers[key] = dict(key=key, no=one(why))
+    for key, why in still_open:
+        if key not in keys:
+            bad.append(f'--still-open {key}: this run has no ask {key} (it has: {", ".join(keys) or "none"})')
+        elif not one(why) or words(why) > WORDS['no']:
+            bad.append(f'--still-open {key} needs its reason in at most {WORDS["no"]} words')
+        elif key in answers:
+            bad.append(f'the ask {key} is answered twice')
+        else:
+            answers[key] = dict(key=key, open=one(why))         # his to decide, and no brief: the page keeps it as what the leg asked
     for key in keys:
         if key not in answers and mine.get(key):
             answers[key] = dict(key=key, brief=mine[key][0])
-    bad += [f'the ask {k} ("{keys[k]["text"][:80]}") has no answer: write its brief (`brief {r["id"]} {k} ...`), or --asked {k}=BRIEF, or --not-his {k}=why' for k in keys if k not in answers]
+    bad += [f'the ask {k} ("{keys[k]["text"][:80]}") has no answer: write its brief (`brief {r["id"]} {k} ...`), or --asked {k}=BRIEF, or --not-his {k}=why, or --still-open {k}=why it is his and has no brief' for k in keys if k not in answers]
     if len(pictures) > MOST_PICTURES:
         bad.append(f'{len(pictures)} pictures; {MOST_PICTURES} at most')
     for path, caption in pictures[:MOST_PICTURES]:
@@ -310,10 +337,12 @@ def check(r, title, did, left, units, asked, not_his, pictures, every, scratch=N
     return bad, [answers[k] for k in keys if k in answers], said
 
 
-def add(where: Path, r, title, did, left, units=(), asked=(), not_his=(), pictures=(), every=(), scratch=None, reading='', now=None):
+def add(where: Path, r, title, did, left, units=(), asked=(), not_his=(), pictures=(), every=(), scratch=None, reading='', now=None, still_open=()):
     """Write the report of a run and return it. A ValueError says every reason it is not one."""
     units, asked, not_his, pictures = list(units), list(asked), list(not_his), list(pictures)
-    bad, answers, said = check(r, title, did, left, units, asked, not_his, pictures, list(every), scratch)
+    if not RUN_ID.match(str(r['id'])) or '..' in str(r['id']):
+        raise ValueError(f'{r["id"]!r} is not the name of a run')
+    bad, answers, said = check(r, title, did, left, units, asked, not_his, pictures, list(every), scratch, list(still_open))
     if bad:
         raise ValueError('not a report yet: ' + '; '.join(bad))
     now = now or datetime.datetime.now()
@@ -345,13 +374,13 @@ def brief(r, key, title, what_for, options, why, shows=(), no_evidence='', where
     if mine.get(key):
         raise ValueError(f'the ask {key} has its brief already: {mine[key][0]}')
     if sum(len(v) for v in mine.values()) >= MOST_BRIEFS:
-        raise ValueError(f'this run has left {MOST_BRIEFS} briefs already, the most a run leaves: answer the rest with --asked or --not-his, and say in --left that more is open')
+        raise ValueError(f'this run has left {MOST_BRIEFS} briefs already, the most a run leaves: answer the rest with --asked, --not-his or, when it is his and has no brief, --still-open, and say in --left that more is open')
     for path, _ in shows:
         if scratch and Path(scratch).resolve() not in Path(path).resolve().parents:
             raise ValueError(f'{Path(path).name} is not in this reading\'s folder: a brief shows what `context` put there, nothing from elsewhere')
     a = asks[key]
     lane = ([u['lane'] for u in r['units'] if u['id'] == a['unit']] or [''])[0]
-    return briefs.add(where, title, what_for, list(options), why, list(shows), no_evidence, lane=lane, by=f'{BY} (run {r["id"]})', now=now, raised_by=dict(run=r['id'], unit=a['unit'], leg=a['leg']))
+    return briefs.add(where, title, what_for, list(options), why, list(shows), no_evidence, lane=lane, by=f'{BY} (run {r["id"]})', now=now, raised_by=dict(run=r['id'], unit=a['unit'], leg=a['leg'], key=key))
 
 
 def dress(R, where: Path, out: Path):
@@ -398,12 +427,16 @@ def limits():
 def spent(where: Path, day):
     out = []
     try:
-        for row in (where / 'spend.jsonl').read_text(encoding='utf-8').splitlines():
+        rows = (where / 'spend.jsonl').read_text(encoding='utf-8', errors='replace').splitlines()
+    except OSError:
+        return out
+    for row in rows:                                # a line that does not read (two stations write this file through a synced folder) costs that line, not the day's count
+        try:
             r = json.loads(row)
-            if str(r.get('when', '')).startswith(day):
-                out.append(r)
-    except (OSError, ValueError):
-        pass
+        except ValueError:
+            r = dict(when=day, unread=True) if row.strip() else {}
+        if str(r.get('when', '')).startswith(day):
+            out.append(r)
     return out
 
 
@@ -428,7 +461,7 @@ def wanted(R, where: Path, host, now, every_note=()):
     began, his, out = since(where, now), asked_for(every_note), []
     ran = [r for r in R['runs'] if not r['empty']]
     for i, r in enumerate(ran):
-        if r['state'] != 'ended' or current(where, r) or given_up(where, r):
+        if r['state'] != 'ended' or current(where, r) or (given_up(where, r) and r['id'] not in his):       # his ask is one more try
             continue
         if not (i < BACK or r['ended'] >= began or r['id'] in his):
             continue
@@ -443,7 +476,7 @@ def prompt_for(rid):
     return (f'You are the run reader of Trench Warfare 3D, started by the board. First read {SKILL} and follow it. '
             f'The relay run {rid} has ended and the owner cannot tell from its records what it did or what it leaves for him. '
             f'In this order: `python {TOOL} context {rid}`, look at what it points to, write a brief for each real decision it leaves him (`python {TOOL} brief {rid} KEY ...`), '
-            f'then `python {TOOL} add {rid} ...`. Run the tool with that path, as written, one command a call. '
+            f'then `python {TOOL} add {rid} ...`. Run the tool with that path, as written (no quotes around it, no cd before it), one command a call. '
             'You are in your scratch folder: write there and nowhere else. Stop when the run has its report. '
             'Nobody answers a question in this session: where you are unsure, say less.')
 
@@ -454,7 +487,7 @@ def command(rid, lim, exe=None):
     exe = exe or shutil.which('claude')
     if not exe:
         raise ValueError('no claude on this station\'s path: the runs cannot be read here')
-    cmd = [exe, '-p', prompt_for(rid), '--output-format', 'json', '--permission-mode', 'acceptEdits', '--allowedTools', 'Read', 'Grep', 'Glob', f'Bash(python {TOOL} *)',
+    cmd = [exe, '-p', prompt_for(rid), '--output-format', 'json', '--permission-mode', 'acceptEdits', '--allowedTools', 'Read', 'Grep', 'Glob', f'Bash(python {TOOL} *)', f'Bash(python "{TOOL}" *)',
            '--disallowedTools', 'AskUserQuestion', 'Agent', 'WebSearch', 'WebFetch', '--max-budget-usd', str(lim['usd_per_run'])]
     return cmd + (['--model', lim['model']] if lim['model'] else [])
 
@@ -471,19 +504,38 @@ def start(where: Path, r, board='', now=None, launch=None, lim=None, host=None):
     put(handed, dict(run={k: v for k, v in r.items() if k != 'report'}, board=str(board or '')))
     try:
         put(where / r['id'] / 'claim.json', dict(host=host, at=int(now.timestamp()), sig=r['sig']))
+        other = (load(where / r['id'] / 'claim.json') or {}).get('host')
+        if other not in (None, host):               # both stations wrote one in the same moment: one of them reads it back as the other's, and stands down
+            raise ValueError(f'{other} claimed {r["id"]} in the same moment: left to it')
     except OSError:
         pass
+    rec = dict(reading=reading, since=f'{now:%Y-%m-%d %H:%M:%S}', run=r['id'], sig=r['sig'], pid=0)
+    put(state() / 'running.json', rec)              # before the session is: one that started and was not written down would be started again 20 s later, uncounted
     env = dict(os.environ, TW_RUNREPORTS=str(where), TW_RUNREPORT_READING=reading, TW_RUNREPORT_GIVEN=str(handed), TW_RUNREPORT_SCRATCH=str(scratch), TW_BRIEFS=str(briefs.folder()))
     out = state() / 'runs' / f'{reading}.json'
     if launch is None:
-        fh = open(out, 'wb')
-        p = subprocess.Popen(cmd, cwd=str(scratch), env=env, stdin=subprocess.DEVNULL, stdout=fh, stderr=subprocess.STDOUT, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        with open(out, 'wb') as fh, open(out.with_suffix('.err'), 'wb') as eh:         # the child keeps its own handles; what it warns of is not in its result
+            p = subprocess.Popen(cmd, cwd=str(scratch), env=env, stdin=subprocess.DEVNULL, stdout=fh, stderr=eh, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
     else:
         p = launch(cmd, str(scratch), env, out)
     RUNS.update(p=p, reading=reading)
-    rec = dict(reading=reading, since=f'{now:%Y-%m-%d %H:%M:%S}', run=r['id'], sig=r['sig'], pid=getattr(p, 'pid', 0))
+    rec['pid'] = getattr(p, 'pid', 0)
     put(state() / 'running.json', rec)
     return rec
+
+
+def stop(rec, p=None):
+    """End a reading this process started, with everything under it: on Windows the session may hang under a shell,
+    and ending the shell alone leaves it running to its money. A reading this process did not start is never killed
+    by its number: after a restart that number may be another program's."""
+    if p is None:
+        return
+    try:
+        if os.name == 'nt':
+            subprocess.run(['taskkill', '/T', '/F', '/PID', str(p.pid)], capture_output=True, timeout=30)
+        p.kill()
+    except (OSError, subprocess.SubprocessError):
+        pass
 
 
 def finish(where: Path, rec, why='', now=None, notes_where: Path = None, every_note=()):
@@ -493,7 +545,7 @@ def finish(where: Path, rec, why='', now=None, notes_where: Path = None, every_n
     usd = 0.0
     try:
         raw = (state() / 'runs' / f'{rec["reading"]}.json').read_text(encoding='utf-8', errors='replace')
-        got = json.loads(raw[raw.index('{'):])
+        got = json.loads(raw[raw.index('{"'):] if '{"' in raw else raw)
         usd = float(got.get('total_cost_usd') or 0)
         if got.get('is_error'):
             why = why or f'the session ended on an error: {one(got.get("result"))[:160]}'
@@ -514,11 +566,13 @@ def finish(where: Path, rec, why='', now=None, notes_where: Path = None, every_n
     where.mkdir(parents=True, exist_ok=True)
     with open(where / 'spend.jsonl', 'a', encoding='utf-8') as f:
         f.write(json.dumps(line, sort_keys=True) + '\n')
-    if made and notes_where:
+    if notes_where:
         import notes
+        said = (f'Read: its report is on the Runs page{", with " + str(len(left)) + (" decision" if len(left) == 1 else " decisions") + " for you on the Decide page" if left else ""}.' if made
+                else f'Not read: the reading failed ({why}). The run stays with its records; ask again to have it tried once more.')
         for nid in asked_for(every_note).get(rec['run'], []):
             try:
-                notes.answer(notes_where, nid, f'Read: its report is on the Runs page{", with " + str(len(left)) + (" decision" if len(left) == 1 else " decisions") + " for you on the Decide page" if left else ""}.', by=BY, now=now)
+                notes.answer(notes_where, nid, said, by=BY, now=now)
             except (OSError, ValueError):
                 pass
     try:
@@ -527,8 +581,10 @@ def finish(where: Path, rec, why='', now=None, notes_where: Path = None, every_n
         pass
     RUNS.clear()
     old = sorted(d for d in (state() / 'runs').iterdir() if d.is_dir())[:-20] if (state() / 'runs').is_dir() else []
-    for d in old:                                   # the last twenty readings' folders are kept to look at
+    for d in old:                                   # the last twenty readings' folders are kept to look at, with what each was handed and what it answered
         shutil.rmtree(d, ignore_errors=True)
+        for f in (state() / 'runs').glob(d.name + '.*'):
+            f.unlink(missing_ok=True)
     return line
 
 
@@ -538,23 +594,29 @@ def tick(R, where: Path = None, board='', now=None, launch=None, alive=None, lim
     runs. Returns what the page is told: {running, waiting [runs], left, last, off}."""
     import ideas
     where, now, host = where or folder(), now or datetime.datetime.now(), host or socket.gethostname()
+    nothing = dict(running=None, waiting=[], left=0, last=None)
+    if os.environ.get('TW_RUNREPORT_OFF') and launch is None:
+        # the tests of other tools, and a station that reads none: nothing is started, ended, written down or answered
+        return dict(nothing, off='the reading is switched off on this station (TW_RUNREPORT_OFF)')
+    if launch is None and not os.environ.get('TW_RUNREPORTS') and DRIVE_WAS and not build.DRIVE.is_dir():
+        return dict(nothing, off='the Drive is away: nothing is read until it is back')        # else the reports go where no page reads them, and the runs are paid for twice
     lim, day = lim or limits(), f'{now:%Y-%m-%d}'
     rec, last, off = load(state() / 'running.json'), None, ''
     if rec:
         p = RUNS.get('p') if RUNS.get('reading') == rec['reading'] else None
         age = (now - datetime.datetime.strptime(rec['since'], '%Y-%m-%d %H:%M:%S')).total_seconds() / 60
-        going = (p.poll() is None) if p is not None else (alive or ideas.pid_alive)(rec)
+        # a reading this process did not start (the watcher was restarted) is believed alive by its number only while
+        # its minutes last: past them the number may be another program's, and it is written off, never killed
+        going = (p.poll() is None) if p is not None else (age < lim['minutes'] and (alive or ideas.pid_alive)(rec))
         if going and age >= lim['minutes']:
-            ideas.stop(rec, p) if (p is not None or alive is None) else None
+            stop(rec, p)
             last, rec = finish(where, rec, why=f'stopped after {lim["minutes"]} minutes', now=now, notes_where=notes_where, every_note=every_note), None
         elif not going:
             last, rec = finish(where, rec, now=now, notes_where=notes_where, every_note=every_note), None
     want = [r for r in wanted(R, where, host, now.timestamp(), every_note) if not only or r['id'] in only]
     left = max(0, lim['runs_per_day'] - len(spent(where, day)))
     if not rec and want:
-        if os.environ.get('TW_RUNREPORT_OFF') and launch is None:
-            off = 'the reading is switched off on this station (TW_RUNREPORT_OFF)'       # the tests of other tools: no session is ever started from one
-        elif not left:
+        if not left:
             off = f'the day\'s {lim["runs_per_day"]} readings are used'
         else:
             try:
@@ -576,6 +638,7 @@ def main(argv=None):
     ap.add_argument('--unit', action='append', default=[], help=f'ID=what was done on that unit, {WORDS["unit"]} words at most; one for every unit that ran')
     ap.add_argument('--asked', action='append', default=[], help='KEY=BRIEF: a brief that asks this already')
     ap.add_argument('--not-his', action='append', default=[], help=f'KEY=why this is not a decision of the owner\'s, {WORDS["no"]} words at most')
+    ap.add_argument('--still-open', action='append', default=[], help=f'KEY=why this is his to decide and has no brief (the run left more than {MOST_BRIEFS}), {WORDS["no"]} words at most')
     ap.add_argument('--picture', action='append', default=[], help='PATH=what it shows; a picture `context` put in the reading\'s folder')
     ap.add_argument('--for', dest='what_for', default='', help=f'brief: what the decision is for, {briefs.FOR_WORDS} words at most')
     ap.add_argument('--option', action='append', default=[], help='brief: an option; the first is the one you would take')
@@ -596,14 +659,14 @@ def main(argv=None):
                 raise ValueError(f'{a.what} RUN')
             r, board = run_of(a.args[0], a.given)
             if a.what == 'context':
-                print('\n'.join(context(r, board, scratch or None)))
+                print('\n'.join(context(r, board, scratch or None, briefs.read_all(briefs.folder()))))
             elif a.what == 'brief':
                 if len(a.args) != 2:
                     raise ValueError('brief RUN KEY --title .. --for .. --option .. --option .. --why .. [--evidence PATH=caption | --no-evidence why]')
                 b = brief(r, a.args[1], a.title, a.what_for, a.option, a.why, pairs(a.evidence), a.no_evidence, scratch=scratch or None)
                 print(f'runreport: the ask {a.args[1]} is put to him as the brief {b["id"]}; `add` now counts it as answered')
             else:
-                d = add(where, r, a.title, a.did, a.left, pairs(a.unit), pairs(a.asked), pairs(a.not_his), pairs(a.picture), briefs.read_all(briefs.folder()), scratch=scratch or None, reading=reading)
+                d = add(where, r, a.title, a.did, a.left, pairs(a.unit), pairs(a.asked), pairs(a.not_his), pairs(a.picture), briefs.read_all(briefs.folder()), scratch=scratch or None, reading=reading, still_open=pairs(a.still_open))
                 print(f'runreport: {d["run"]} has its report ({len(d["units"])} units, {len(d["asks"])} asks answered, {len(d["pictures"])} pictures), in {where / d["run"]}')
         elif a.what == 'tick':
             import notes

@@ -47,6 +47,7 @@
 .r-did-text { margin: 0; color: var(--t-near); font: 400 16px/1.5 var(--sans); max-width: 62ch; }
 .r-left { margin: 0; color: var(--t-light); font: 400 14.5px/1.5 var(--sans); max-width: 62ch; }
 .r-read, .r-note, .r-how { margin: 0; color: var(--t-low); font: 500 12px/1.4 var(--sans); }
+.r-bare.r-failed { color: var(--k-fire2); }
 .r-bare { margin: 0; color: var(--t-soft); font: 400 14px/1.5 var(--sans); max-width: 56ch; }
 .r-act { justify-self: start; font: 600 12px var(--sans); padding: 7px 14px; border-radius: 999px; border: 1px solid var(--k-fire); background: rgba(255, 74, 28, .16); color: #ffc2ad; cursor: pointer; }
 .r-act:hover, .r-act:focus-visible { background: var(--k-fire); color: #fff; outline: none; }
@@ -57,7 +58,6 @@
 .r-brief { display: grid; gap: 6px; min-width: 0; }
 .r-brief .d-card { grid-template-columns: minmax(0, 1fr); background: var(--s-panel); padding: 16px; }
 .r-brief .d-card h3 { font-size: clamp(18px, 1.5vw, 22px); }
-.r-brief.r-how-lane { opacity: .88; }
 .r-brief-short, .r-ask { padding: 12px 14px; border-radius: var(--r-m); background: var(--s-panel); border: 1px solid var(--s-line); display: grid; gap: 6px; }
 .r-brief-short h4 { margin: 0; color: var(--t-bright); font: 600 15px/1.3 var(--sans); }
 .r-for, .r-said { margin: 0; color: var(--t-light); font: 400 13.5px/1.45 var(--sans); }

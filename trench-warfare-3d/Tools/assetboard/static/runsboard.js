@@ -46,11 +46,10 @@
   // one unit: its verdict, what was done on it, the agent, and its legs a click deeper
   function unitEl(run, u) {
     var v = T.verdict(u, run), who = T.agents(u), sum = el('span', 'r-unit-sum'), words = el('span', 'r-unit-what');
-    var line = run.report && run.report.units && run.report.units[u.id];
+    var ul = T.unitLine(u, run), line = ul.read;
     sum.appendChild(el('span', 'r-verdict r-v-' + v.key, v.label));
-    words.appendChild(el('span', 'r-unit-top', line || u.id));
-    if (line) words.appendChild(el('span', 'r-unit-id', u.id));
-    else if (u.goal) words.appendChild(el('span', 'r-unit-goal', u.goal));
+    words.appendChild(el('span', 'r-unit-top', ul.top));
+    if (ul.top !== u.id) words.appendChild(el('span', 'r-unit-id', u.id));
     var meta = el('span', 'r-unit-meta');
     meta.appendChild(el('span', 'r-agent', who.role + (who.phases.length ? ': ' + who.phases.join(', then ') : '')));
     meta.appendChild(el('span', 'r-fact', T.n(u.legs.length, '1 leg', 'legs') + ' · ' + T.span(u.seconds) + ' · ' + T.money(u.usd)));
@@ -59,9 +58,8 @@
     if (u.lane) { where.appendChild(el('span', null, 'Lane: ')); where.appendChild(laneLink(u.lane)); }
     if (u.head) { where.appendChild(el('span', null, ' · it stood at ')); where.appendChild(commit(u.head, 'The lane\'s head when the unit passed')); where.appendChild(el('span', null, ' when it passed')); }
     if (where.childNodes.length) body.appendChild(where);
-    if (line && u.goal) { var g = el('p', 'r-goal'); g.appendChild(el('b', null, 'What it was asked: ')); g.appendChild(document.createTextNode(u.goal)); body.appendChild(g); }
-    u.why.forEach(function (w) { var p = el('p', 'r-why'); p.appendChild(el('b', null, 'The runner said: ')); p.appendChild(document.createTextNode(w)); body.appendChild(p); });
-    if (!u.legs.length) body.appendChild(el('p', 'r-none', 'No leg ran on it.'));
+    if (u.goal) { var g = el('p', 'r-goal'); g.appendChild(el('b', null, 'What it was asked: ')); g.appendChild(document.createTextNode(u.goal)); body.appendChild(g); }
+    T.whyNot(u).forEach(function (w) { var p = el('p', 'r-why'); p.appendChild(el('b', null, v.key === 'blocked' ? 'Why it is blocked: ' : 'Why it failed: ')); p.appendChild(document.createTextNode(w)); body.appendChild(p); });
     u.legs.forEach(function (l) { body.appendChild(legEl(run, u, l)); });
     d.appendChild(body);
     return d;
@@ -93,8 +91,12 @@
       box.appendChild(el('p', 'r-note', st.key === 'read' ? 'Asked by a leg, with no brief yet:' : 'Asked by a leg, in its own words. When the run is read, each becomes a brief on the Decide page or is marked as not yours:'));
       d.asks.forEach(function (a) { box.appendChild(askEl(run, a)); });
     }
-    if (!k) box.appendChild(el('p', 'r-none', run.state === 'ended' ? 'Nothing from this run waits on you.' : 'Nothing so far.'));
-    d.likely.forEach(function (b) { box.appendChild(briefEl(b)); });
+    // a card with buttons is never under "nothing waits on you": a decision guessed onto this run is said as what it is, and counted
+    if (!k && !d.likely.length) box.appendChild(el('p', 'r-none', run.state === 'ended' ? 'Nothing from this run waits on you.' : 'Nothing so far.'));
+    if (d.likely.length) {
+      var lh = el('h4', 'r-h'); lh.appendChild(el('span', null, T.n(d.likely.length, 'An open decision that may', 'open decisions that may') + ' come from this run')); lh.appendChild(el('span', 'r-n r-n-hot', String(d.likely.length))); box.appendChild(lh);
+      d.likely.forEach(function (b) { box.appendChild(briefEl(b)); });
+    }
     var past = d.decided.concat(d.from);
     if (past.length || d.notHis.length) {
       var f = fold(run.id + '|past', 'r-past', el('span', null, [past.length ? T.n(past.length, '1 decision of yours', 'decisions of yours') + ' around this run' : '', d.notHis.length ? T.n(d.notHis.length, '1 thing a leg asked that is not yours', 'things a leg asked that are not yours') : ''].filter(Boolean).join(' · ')), false);
@@ -116,27 +118,29 @@
         rep.shots.forEach(function (s) { var f = el('figure'), a = link(null, null, s.src, 'Open it full size'), i = el('img'); i.loading = 'lazy'; i.alt = s.caption; i.src = s.src; a.appendChild(i); f.appendChild(a); f.appendChild(el('figcaption', null, s.caption)); shots.appendChild(f); });
         box.appendChild(shots);
       }
-      box.appendChild(el('p', 'r-read', 'Written up by the run reader, ' + st.label + ', from the run\'s records.'));
+      box.appendChild(el('p', 'r-read', 'Written up by the run reader on ' + st.label + ', from the run\'s records.'));
       return box;
     }
     if (run.state !== 'ended') { box.appendChild(el('p', 'r-bare', 'The run has not ended. Its units so far are below; it is written up when it ends.')); return box; }
-    box.appendChild(el('p', 'r-bare', st.label));
+    box.appendChild(el('p', 'r-bare' + (st.key === 'failed' ? ' r-failed' : ''), st.label));
     if (st.ask && Bd) {
-      var b = el('button', 'r-act', 'Have it read'); b.type = 'button'; b.title = 'Leaves the note: ' + T.READ + ' An agent then writes its report and puts its decisions on the Decide page.';
+      var b = el('button', 'r-act', st.key === 'failed' ? 'Try once more' : 'Have it read'); b.type = 'button'; b.title = 'Leaves the note: ' + T.READ + ' An agent then writes its report and puts its decisions on the Decide page.';
       b.addEventListener('click', function () { Bd.note(T.subject(run), T.READ); }); box.appendChild(b);
     }
     return box;
   }
   function runEl(run, now) {
-    var said = saidOf(run), e = T.ended(run), k = T.waits(run), card = el('article', 'r-run r-' + run.state + (k ? ' r-waits' : '') + (run.silent ? ' r-silent' : '')); card.id = 'run-' + run.id;
+    var said = saidOf(run), e = T.ended(run), k = T.waits(run), mb = T.maybe(run), card = el('article', 'r-run r-' + run.state + (k || mb ? ' r-waits' : '') + (run.silent ? ' r-silent' : '')); card.id = 'run-' + run.id;
     var top = el('header', 'r-top'), wh = el('p', 'r-when');
     if (run.state === 'going' && !run.silent) wh.appendChild(el('span', 'k-live'));
     wh.appendChild(document.createTextNode(T.when(run, now))); top.appendChild(wh);
     top.appendChild(el('h3', null, T.title(run)));
     var tw = T.tallyWords(run), cr = T.crew(run);
-    top.appendChild(chips([k ? { text: T.n(k, '1 waits on you', 'wait on you'), cls: 'r-chip-you' } : null].concat(tw.map(function (w) { return { text: w, cls: /failed|blocked/.test(w) ? 'r-chip-bad' : /passed/.test(w) ? 'r-chip-ok' : '' }; }),
-      [T.n(run.legs, '1 leg', 'legs'), T.money(run.usd) + (run.unpriced ? ' (' + T.n(run.unpriced, '1 leg', 'legs') + ' unpriced)' : '')], cr.map(function (c) { return c.role + ' ×' + c.legs; }),
-      [run.station ? 'on ' + run.station : '', run.by ? 'started by ' + run.by : '', run.refusals ? T.n(run.refusals, '1 refusal by the guard', 'refusals by the guard') : ''])));
+    // what he can use at a glance: what waits, how the units came out, the size and the cost, and who worked. Where it ran, who started it and the guard's refusals are in the card's tip
+    top.appendChild(chips([k ? { text: T.n(k, '1 waits on you', 'wait on you'), cls: 'r-chip-you' } : null, mb ? { text: T.n(mb, '1 may be yours', 'may be yours'), cls: 'r-chip-you' } : null].concat(
+      tw.map(function (w) { return { text: w, cls: /failed|blocked/.test(w) ? 'r-chip-bad' : /passed/.test(w) ? 'r-chip-ok' : '' }; }),
+      [T.n(run.legs, '1 leg', 'legs'), T.cost(run)], cr.map(function (c) { return c.role + ', ' + T.n(c.legs, '1 leg', 'legs'); }))));
+    top.title = [run.id, run.station ? 'ran on ' + run.station : '', run.by ? 'started by ' + run.by : '', run.code ? 'relay code ' + run.code : '', run.refusals ? T.n(run.refusals, '1 command refused by the guard', 'commands refused by the guard') : ''].filter(Boolean).join(' · ');
     var end = el('p', 'r-end'); end.appendChild(el('b', null, run.state === 'ended' ? 'Why it ended: ' : 'Now: ')); end.appendChild(document.createTextNode(e.line + (run.state !== 'ended' && run.now_on ? ' · on ' + run.now_on : '')));
     if (e.told) end.appendChild(el('span', 'r-told', e.told));
     top.appendChild(end);
@@ -171,12 +175,13 @@
     var mine = (window.BRIEFS || []).map(function (b) { var s = Br && Br.said ? Br.said(b) : null; return [b.id, b.state, s && s.id, s && s.state, b.waits]; });
     var live = rows.some(function (x) { return x.run && x.run.state !== 'ended'; });          // a run that is going says for how long: drawn again each minute
     var sig = JSON.stringify([R && R.runs, R && R.reading, R && R.repo, notes, mine, only, live ? Math.floor(now / 60) : 0]);
-    var typing = board.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' && document.activeElement.value;
+    // not while he has words in a box of a card, in his hands or left for a moment: a redraw would wipe them
+    var typing = [].some.call(board.querySelectorAll('input[type=text], textarea'), function (x) { return x.value; });
     var strip = document.getElementById('r-strip');
     if (strip && changed(strip, JSON.stringify(T.strip(R)))) stripEl(strip);
-    if (typing || !changed(board, sig)) return;          // not while he is typing an answer of his own
-    var shown = rows.filter(function (x) { return !only || (x.run && T.waits(x.run)); });
-    if (!shown.length) board.appendChild(el('p', 'r-none', !R ? 'The runs have not been read yet.' : only ? 'No run of the last ' + (R.most || 20) + ' has anything waiting on you.' : 'No relay run is on the pipeline board yet.'));
+    if (typing || !changed(board, sig)) return;
+    var shown = rows.filter(function (x) { return !only || (x.run && (T.waits(x.run) || T.maybe(x.run))); });
+    if (!shown.length) board.appendChild(el('p', 'r-none', T.none(R, only)));
     shown.forEach(function (x) { board.appendChild(x.run ? runEl(x.run, now) : startsEl(x.starts, now)); });
     if (location.hash && !draw.jumped) { draw.jumped = true; var at = document.getElementById(location.hash.slice(1)); if (at) at.scrollIntoView(); }
   }

@@ -346,8 +346,11 @@ def the_runs(out: Path, every, his, watching):
         s = runreport.tick(R, where, board=board, every_note=his, notes_where=notes.folder()) if watching else None
         if s and s['last']:
             print(f'runs: a reading {"wrote the report of" if s["last"]["made"] else "wrote NO report of"} {s["last"]["run"]} for ${s["last"]["usd"]}, {s["last"]["briefs"]} briefs' + (f' ({s["last"]["why"]})' if s['last']['why'] else ''), flush=True)
-            R = src_runs.read(board, briefs.read_all(briefs.folder()), runreport.read_all(where), shown)        # what it wrote is on the page this reading
+            every = briefs.read_all(briefs.folder())
+            R = src_runs.read(board, every, runreport.read_all(where), [b['id'] for b in briefs.shown(every)])        # what it wrote is on the page this reading
         R['reading'] = {k: s[k] for k in ('running', 'waiting', 'left', 'off')} if s else None
+        for r in R['runs']:                             # a run two readings failed on says so on its card, with why
+            r['gave_up'] = '' if r['empty'] or r['report'] else runreport.given_up(where, r)
         if 'url' not in REPO_PAGE:
             REPO_PAGE['url'] = taskbrief.origin()
         R['repo'] = REPO_PAGE['url']

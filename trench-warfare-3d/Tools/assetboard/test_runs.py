@@ -34,7 +34,9 @@ import src_runs   # noqa: E402
 
 results = []
 NOW = int(time.time())
-A, B, C, D = '20261009-185051-11300', '20261009-165026-23060', '20261009-070255-40656', '20261008-231452-46128'
+# a run is named by when it began (this station's clock) and the runner's pid: these began 9100, 20100, 30100 and 90100 seconds ago
+A, B, C, D = (time.strftime('%Y%m%d-%H%M%S', time.localtime(NOW - ago)) + f'-{pid}' for ago, pid in ((9100, 11300), (20100, 23060), (30100, 40656), (90100, 46128)))
+PNG = bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082')
 
 
 def case(name, ok, detail=''):
@@ -85,11 +87,15 @@ def reading():
     case('runs: a leg\'s report is read by its parts, wherever they stand, a bullet with its second line, the verdict from the first line that starts with RESULT',
          p == dict(result='the crest is wrong.', needs='pick one of three. More of it.', changed=['one and its second line', 'two'], next='wait') and src_runs.said('Done.\n\n- RESULT: Blocked - x') == 'blocked'
          and src_runs.said('all done, the result is fine') == '', p)
+    q = src_runs.parts('RESULT: done - ok\nNEEDS YOU: pick the trench.\nNote: it is 6 m back.\nCHANGED:\n- Next to the trench the wire is cut\n- Changed the wire\n\u2022 2 files moved\n  0 tests fail\n\nNotes: the gate was flaky.\n\nNEXT: part two')
+    case('runs: a part begins at its word in capitals with its colon, not at a bullet that starts "Next" or "Changed" or a line that starts "Note:"; a bullet may start with a digit or a dot; the paragraph after the bullets is not one',
+         q == dict(result='ok', needs='pick the trench. Note: it is 6 m back.', changed=['Next to the trench the wire is cut', 'Changed the wire', '2 files moved 0 tests fail'], next='part two')
+         and src_runs.leg_row(dict(leg=1, report='RESULT done, the plan passes.'))['result'] == 'the plan passes.', q)
     asks_nothing = ['nothing', 'Nothing.', 'none', 'No.', 'n/a', 'nothing needed', 'Nothing is needed.', 'nothing. One unread message for this machine', 'nothing (post office: 1 unread)']
     case('runs: a leg that asks nothing, however it says so, asks nothing; one that starts with "no shield" asks',
          all(src_runs.parts(f'RESULT: done\nNEEDS YOU: {t}\n')['needs'] == '' for t in asks_nothing) and src_runs.parts('RESULT: done\nNEEDS YOU: no shield on the model: your call')['needs'].startswith('no shield'),
          [t for t in asks_nothing if src_runs.parts(f'RESULT: done\nNEEDS YOU: {t}\n')['needs']])
-    kinds = {'nothing left to do': 'done', "the run's 8 hours are up": 'hours', "leg 22 the run's 8 hours are up (mid-leg)": 'leg', 'the leg cap (40) is reached': 'legs', 'stopped by the owner (relay.py stop)': 'asked',
+    kinds = {'nothing left to do': 'done', "the run's 8 hours are up": 'hours', "leg 22 the run's 8 hours are up (mid-leg)": 'hours', 'leg 04 broke a rule: it pushed to integration': 'leg', 'the leg cap (40) is reached': 'legs', 'stopped by the owner (relay.py stop)': 'asked',
              "the day's budget is spent (13% of 11%)": 'budget', "the day's pace lets it start at 14:00": 'pace', 'the work checkout cannot be used: dirty': 'checkout', 'error: git switch failed': 'error',
              'unit x left uncommitted work in the checkout': 'uncommitted', '3 units in a row brought no result and no pushed code': 'no-result', '2 units in a row whose lane cannot be switched to': 'lane', 'something new': 'other', '': ''}
     case('runs: why a run ended is one word, from the relay\'s own sentences', all(src_runs.kind_of(r) == k for r, k in kinds.items()), {r: src_runs.kind_of(r) for r, k in kinds.items() if src_runs.kind_of(r) != k})
@@ -97,8 +103,8 @@ def reading():
     a = runs[0]
     u = {x['id']: x for x in a['units']}
     case('runs: the newest first; a proof is no run; a start that ran no leg is listed between the runs, marked', [r['id'] for r in runs] == [A, B, C, D] and [r['empty'] for r in runs] == [False, False, True, False], [r['id'] for r in runs])
-    case('runs: a run with no start in its stop record began when its first leg did; its cost is its legs\' (a leg with none is counted as unpriced); it ended when it was stopped',
-         a['started'] == NOW - 9000 and a['ended'] == NOW - 5000 and a['usd'] == 5.0 and a['unpriced'] == 1 and a['legs'] == 4 and a['kind'] == 'asked' and a['state'] == 'ended' and a['station'] == 'desktop', {k: a[k] for k in ('started', 'ended', 'usd', 'unpriced', 'kind')})
+    case('runs: a run with no start in its stop record began at the time in its name, not at its first leg (which may have waited for the pace of the day); its cost is its legs\' (a leg with none is counted as unpriced); it ended when it was stopped',
+         a['started'] == NOW - 9100 and a['ended'] == NOW - 5000 and a['usd'] == 5.0 and a['unpriced'] == 1 and a['legs'] == 4 and a['kind'] == 'asked' and a['state'] == 'ended' and a['station'] == 'desktop', {k: a[k] for k in ('started', 'ended', 'usd', 'unpriced', 'kind')})
     case('runs: a unit has its verdict from the stop record, its legs with who ran them, its goal from the queue and its lane\'s head once it passed; a unit the run ended on has none',
          [x['id'] for x in a['units']] == ['rv-one', 'rv-two', 'rv-three'] and u['rv-one']['verdict'] == 'PASS' and u['rv-one']['head'] == '7861fe1857' and u['rv-one']['goal'].startswith('Mend') and u['rv-one']['usd'] == 3.5
          and [(l['phase'], l['model'], l['effort'], l['said']) for l in u['rv-one']['legs']] == [('plan', 'claude-opus-5', 'high', 'done'), ('execute', 'claude-opus-5', 'low', 'done')]
@@ -123,6 +129,9 @@ def reading():
          and [x['key'] for x in a2['asks']] == ['03'], (a2['kind'], a2['asks']))
     case('runs: a run that is going is listed from its live record, with the unit it is on and the verdicts so far',
          live['state'] == 'going' and live['now_on'] == 'u2' and live['started'] == NOW - 1200 and live['heard'] == NOW - 60 and [x['verdict'] for x in live['units']] == ['PASS'], live)
+    f[f'relay/desktop/legs/{B}-01.json'] = dict(f[f'relay/desktop/legs/{B}-01.json'], leg='one', seconds='long')
+    f[f'relay/desktop/stops/{D}.json'] = dict(f[f'relay/desktop/stops/{D}.json'], units=['not', 'a', 'map'])
+    case('runs: a record that is not one costs its own run and no other', [r['id'] for r in src_runs.collect(f, NOW)] == ['20261010-010101-1', A], [r['id'] for r in src_runs.collect(f, NOW)])
     return runs
 
 
@@ -149,6 +158,19 @@ def decisions():
          not any(b['id'] in ('early', 'old', 'nobody') for r in runs for b in r['briefs']), got)
     case('runs: what waits on him from a run is its own open briefs and what a leg asked that nothing holds; a guess and an answer of his are not counted; a report of another state of the run marks nothing',
          [r['waits'] for r in runs] == [3, 2, 0, 1] and runs[0]['briefs'][0]['shown'] is True and runs[0]['briefs'][0]['leg'] == 3 and not runs[0]['asks'][0]['no'], [r['waits'] for r in runs])
+    # as it was on 2026-10-10: a brief about what a leg of an earlier run asked, written while a later run worked the same lane
+    f = records()
+    late = time.strftime('%Y%m%d-%H%M%S', time.localtime(NOW - 18500)) + '-777'
+    f[f'relay/desktop/legs/{late}-01.json'] = leg(late, 1, 'rv-later', ago=18400, lane='lane/sim/review-fixes-2')
+    f[f'relay/desktop/stops/{late}.json'] = dict(run=late, stopped_at=utc(NOW - 17000), reason='nothing left to do', legs=1, units={'rv-later': 'PASS'})
+    two = src_runs.briefs_of(src_runs.collect(f, NOW), [stamped(NOW - 18000, id='guess', lane='lane/sim/review-fixes-2')], {})
+    where = {r['id']: [b['id'] for b in r['briefs']] for r in two if r['briefs']}
+    case('runs: a guess goes to the run where a unit on that lane asked something no brief holds, not to the later run that was going when the brief was written; that run counts it apart from what waits',
+         where == {B: ['guess']} and [(r['waits'], r['maybe']) for r in two if r['id'] in (late, B)] == [(0, 0), (1, 1)], where)
+    # a newer run's report names a brief an older run stamped: it stays the older run's
+    named = src_runs.collect(records(), NOW)
+    named = src_runs.briefs_of(named, every, {A: dict(sig=named[0]['sig'], asks=[dict(key='02', brief='both'), dict(key='03', brief='raised')])})
+    case('runs: a brief a run stamped stays that run\'s when a newer run\'s report names it for an ask of its own', [b['id'] for b in named[1]['briefs'] if b['how'] == 'raised'] == ['both'] and [b['id'] for b in named[0]['briefs']] == ['raised'], [[b['id'] for b in r['briefs']] for r in named])
     rep = {A: dict(sig=runs[0]['sig'], asks=[dict(key='02', no='a chore for an agent'), dict(key='03', brief='raised')])}
     again = src_runs.briefs_of(src_runs.collect(records(), NOW), every, rep)
     case('runs: once a report says what became of each ask (a brief, or not his), the run\'s asks say so and only its open brief waits', again[0]['waits'] == 1 and [(a['brief'], a['no']) for a in again[0]['asks']] == [('', 'a chore for an agent'), ('raised', '')], again[0]['asks'])
@@ -179,14 +201,28 @@ def a_board():
     return board
 
 
-PNG = bytes.fromhex('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360000002000001e221bc330000000049454e44ae426082')
-
 
 def off_the_board(board):
     R = src_runs.read(board, [], {}, now=NOW)
     case('runs: the records are read off the board\'s origin/main with git, from a checkout that is behind and holds none of them; a board that is not there says so and gives no run',
          not (board / 'relay').exists() and [r['id'] for r in R['runs']] == [A, B, C, D] and R['board'] is True and len(R['commit']) == 8 and R['as_of'] > 0
          and src_runs.read(TMP / 'no-board', [], {}, now=NOW) == dict(runs=[], read_at=NOW, as_of=0, commit='', most=20, board=False), [r['id'] for r in R['runs']])
+    keep = src_runs.tasks.git
+    try:
+        src_runs.CACHE.clear()
+        src_runs.tasks.git = lambda b, *a, **k: b'' if a[0] == 'cat-file' else keep(b, *a, **k)
+        try:
+            src_runs.read(board, [], {}, now=NOW)
+            short = 'read as no runs'
+        except RuntimeError as e:
+            short = str(e)
+        src_runs.tasks.git = keep
+        names = ['relay/desktop/stops/gone.json', f'relay/desktop/stops/{A}.json']
+        skipped = list(src_runs.blobs(board, names))
+    finally:
+        src_runs.tasks.git = keep
+    case('runs: a git call that fails mid-read is an error the page is told, not "no runs", and is not kept as that commit\'s records; a file that is gone is passed over and the rest still read',
+         'did not all read' in short and not src_runs.CACHE and skipped == names[1:] and len(src_runs.read(board, [], {}, now=NOW)['runs']) == 4, (short, skipped))
     lines = src_runs.lines(R)
     case('runs: a session reads the same runs as text', lines[0].startswith(A) and '4 legs, $5.00, 3 units: 1 PASS, 1 BLOCKED' in lines[0] and any('asks (leg 02)' in l for l in lines) and any('no leg ran' in l for l in lines), lines[:6])
     return R
@@ -207,6 +243,10 @@ def the_report(R):
     case('report: one that is long, empty, leaves a unit without its sentence, leaves an ask unanswered or shows a picture that is not there is refused, with every reason', all(any(w in b for b in bad) for w in want), [w for w in want if not any(w in b for b in bad)] + bad)
     bad, _, _ = runreport.check(r, g['title'], 'Fixed `BattlefieldComposer.cs:326`.', 'Left WireBeltTests.cs red.', g['units'], [], [('02', 'a chore'), ('03', 'a chore')], [], [])
     case('report: words that name a file or quote code are refused: it says what a thing is for', sum('names a file or quotes code' in b for b in bad) == 2 and len(bad) == 2, bad)
+    bad, _, _ = runreport.check(r, 'Two review fixes landed', 'Fixed the wire; it is merged.', g['left'], [(u, 'It landed.' if u == 'rv-one' else t) for u, t in g['units']], [], [('02', 'a chore'), ('03', 'a chore')], [], [])
+    case('report: "landed" and "merged" are refused wherever they stand: a unit that passed is on its lane, and landing is his', sum('Landing is his own act' in b for b in bad) == 3 and len(bad) == 3, bad)
+    bad, answers, _ = runreport.check(r, g['title'], g['did'], g['left'], g['units'], [], [('02', 'a chore')], [], [], still_open=[('03', 'His to decide; the run left three briefs already.'), ('09', 'x')])
+    case('report: a decision of his past the run\'s three briefs is kept open, not filed as not his', answers == [dict(key='02', no='a chore'), dict(key='03', open='His to decide; the run left three briefs already.')] and len(bad) == 1 and '--still-open 09' in bad[0], (bad, answers))
     try:
         runreport.add(where, r, g['title'], g['did'], g['left'], g['units'], every=[])
         refused = ''
@@ -226,7 +266,32 @@ def the_report(R):
     except ValueError as e:
         twice = str(e)
     case('report: a brief is written for what a leg asked and for nothing else, once, stamped with its run, unit and leg, and about the unit\'s lane',
-         'has no ask 07' in no_ask and 'has its brief already' in twice and b['raised_by'] == dict(run=A, unit='rv-two', leg=3) and b['lane'] == 'lane/sim/ridge' and b['by'] == f'the run reader (run {A})' and b['state'] == 'open', (no_ask, twice, b))
+         'has no ask 07' in no_ask and 'has its brief already' in twice and b['raised_by'] == dict(run=A, unit='rv-two', leg=3, key='03') and b['lane'] == 'lane/sim/ridge' and b['by'] == f'the run reader (run {A})' and b['state'] == 'open', (no_ask, twice, b))
+    # a blocked unit that ran no leg is asked about by its own name: its brief is its ask's too, once
+    bare = dict(r, id=r['id'], asks=[dict(key='rv-nine', leg=0, unit='rv-nine', kind='blocked', text='its lane could not be used')], units=r['units'] + [dict(id='rv-nine', lane='lane/show/x', legs=[])])
+    nb = runreport.brief(bare, 'rv-nine', 'A lane nobody can use: free it, or drop the unit', 'F', ['a', 'b'], 'w', no_evidence='n')
+    try:
+        runreport.brief(bare, 'rv-nine', 'Again', 'F', ['a', 'b'], 'w', no_evidence='n')
+        again = ''
+    except ValueError as e:
+        again = str(e)
+    _, answers, _ = runreport.check(bare, g['title'], g['did'], g['left'], g['units'], [], [], [], briefs.read_all(briefs.folder()))
+    case('report: an ask with no leg (a unit blocked before one ran) has its brief by its own key: written once, and counted as answered', 'has its brief already' in again and answers == [dict(key='rv-nine', brief=nb['id'])] and nb['raised_by']['key'] == 'rv-nine', (again, answers))
+    shutil.rmtree(briefs.folder() / nb['id'])
+    outside = TMP / 'elsewhere.png'
+    outside.write_bytes(PNG)
+    try:
+        runreport.brief(r, '02', 'T', 'F', ['a', 'b'], 'w', [(str(outside), 'c')], scratch=TMP / 'ctx')
+        far = ''
+    except ValueError as e:
+        far = str(e)
+    for name in ('..', '../x', 'a/b', ''):
+        try:
+            runreport.add(runreport.folder(), dict(r, id=name), g['title'], g['did'], g['left'], g['units'], not_his=[('02', 'x'), ('03', 'y')], every=[])
+            far += f' wrote for {name!r}'
+        except ValueError:
+            pass
+    case('report: a brief shows no picture from outside the reading\'s folder, and a run\'s name that is not one is never a folder', 'is not in this reading\'s folder' in far and 'wrote for' not in far and (TMP / 'reports').parent == TMP, far)
     keep, runreport.MOST_BRIEFS = runreport.MOST_BRIEFS, 1
     try:
         runreport.brief(r, '02', 'Second', 'F', ['a', 'b'], 'w', no_evidence='n')
@@ -246,7 +311,11 @@ def the_report(R):
 def context(board, R):
     r = [x for x in R['runs'] if x['id'] == D][0]
     scratch = TMP / 'ctx'
-    lines = runreport.context(R['runs'][0], str(board), scratch) + runreport.context(r, str(board), scratch)
+    near = [stamped(NOW - 4000, id='on-its-lane', lane='lane/show/review-fixes', title='The wire: keep the lift'), stamped(NOW - 99000, id='before-it', lane='lane/show/review-fixes'),
+            stamped(NOW - 4000, id='closed', lane='lane/show/review-fixes', state='answered'), stamped(NOW - 4000, id='other-lane', lane='lane/show/elsewhere')]
+    lines = runreport.context(R['runs'][0], str(board), scratch, near) + runreport.context(r, str(board), scratch)
+    listed = [l.split()[0] for l in lines[lines.index('OPEN BRIEFS ON THIS RUN\'S LANES, asked since it began (if one asks what a leg asked, answer that ask with --asked KEY=ID; never write it again):') + 1:][:1]]
+    case('context: the open briefs about a lane of the run, asked since it began, are listed whichever run they are tied to, so no question is written twice; an older, a closed or another lane\'s is not', listed == ['on-its-lane'] and not any('before-it' in l or 'closed' in l or 'other-lane' in l for l in lines), listed)
     text = '\n'.join(lines)
     shots = [l for l in lines if 'picture (may be shown)' in l]
     case('context: the agent is given the run whole: why it ended and that a watcher\'s stop reads the same, each unit with what it was asked, every leg\'s own report, the asks to answer, and a pipeline unit\'s evidence copied where it may be shown',
@@ -254,14 +323,16 @@ def context(board, R):
          and '| NEEDS YOU: the Banner has no shield' in text and re.search(r'^  02  \(NEEDS YOU, unit rv-one\)', text, re.M) and re.search(r'^  03  \(the unit ended BLOCKED, unit rv-two\)', text, re.M)
          and 'PROPOSALS of the retrospective, leg 04' in text and len(shots) == 1 and Path(shots[0].split(': ', 1)[1]).read_bytes() == PNG and any('paper (read it)' in l and 'critic-r1.md' in l for l in lines), text[:1500])
     # a picture is shown only from the reading's own folder
-    bad, _, _ = runreport.check(r, 'The ridge is built', 'Built the ridge.', 'Nothing: it passed.', [(r['units'][0]['id'], 'Built.')], [], [], [(str(board / 'README.md'), 'x'), (shots[0].split(': ', 1)[1], 'The ridge from the attacker\'s side')], [], scratch=scratch)
-    case('context: a report shows a picture the context put in its folder, and nothing from elsewhere', len(bad) == 1 and 'README.md is not a picture' in bad[0], bad)
+    outside = TMP / 'elsewhere.png'
+    outside.write_bytes(PNG)
+    bad, _, _ = runreport.check(r, 'The ridge is built', 'Built the ridge.', 'Nothing: it passed.', [(r['units'][0]['id'], 'Built.')], [], [], [(str(outside), 'A picture from elsewhere'), (shots[0].split(': ', 1)[1], 'The ridge from the attacker\'s side')], [], scratch=scratch)
+    case('context: a report shows a picture the context put in its folder, and no picture from elsewhere', len(bad) == 1 and 'elsewhere.png is not in this reading\'s folder' in bad[0], bad)
 
 
 def when_read(R):
     """Which runs are read, and the reading itself with a session that is not one."""
     where = TMP / 'reports2'
-    host, now = 'here', datetime.datetime.fromtimestamp(NOW)
+    host, now = 'here', datetime.datetime.combine(datetime.date.today(), datetime.time(12, 0))          # noon: four ticks a minute apart stay in one day
     ran = [r for r in R['runs'] if not r['empty']]
     keep, runreport.BACK = runreport.BACK, 1
     first = [r['id'] for r in runreport.wanted(R, where, host, NOW)]
@@ -299,8 +370,8 @@ def when_read(R):
          len(started) == 1 and s['running']['run'] == D and D not in s['waiting'] and A in s['waiting'] and handed['run']['id'] == D and handed['board'] == 'B' and Path(started[0]['cwd']).is_dir()
          and started[0]['env']['TW_RUNREPORTS'] == str(where) and started[0]['env']['TW_BRIEFS'] == str(briefs.folder()) and D in started[0]['cmd'][2] and 'tw-run-report' in started[0]['cmd'][2] and s['left'] == 1, s)
     cmd = runreport.command(D, lim, exe='claude')
-    case('reading: the session may read and run this tool, starts no agent, searches no web, is cut off at its money and runs on the model the limits name',
-         cmd[cmd.index('--allowedTools') + 1:cmd.index('--disallowedTools')] == ['Read', 'Grep', 'Glob', f'Bash(python {runreport.TOOL} *)'] and {'Agent', 'WebSearch', 'WebFetch', 'AskUserQuestion'} <= set(cmd)
+    case('reading: the session may read and run this tool (its path quoted or not: a session that quoted it was refused every call), starts no agent, searches no web, is cut off at its money and runs on the model the limits name',
+         cmd[cmd.index('--allowedTools') + 1:cmd.index('--disallowedTools')] == ['Read', 'Grep', 'Glob', f'Bash(python {runreport.TOOL} *)', f'Bash(python "{runreport.TOOL}" *)'] and {'Agent', 'WebSearch', 'WebFetch', 'AskUserQuestion'} <= set(cmd)
          and cmd[cmd.index('--max-budget-usd') + 1] == '2.0' and cmd[-2:] == ['--model', 'sonnet'], cmd)
     again = runreport.tick(R, where, board='B', now=now + datetime.timedelta(minutes=1), launch=launch, lim=lim, host=host, every_note=his, notes_where=notes_where)
     case('reading: while one is going no second is started', len(started) == 1 and again['running']['run'] == D, again)
@@ -309,8 +380,9 @@ def when_read(R):
     Path(started[-1]['out']).write_text(json.dumps(dict(total_cost_usd=0.41, is_error=False, result='done')), encoding='utf-8')
     s2 = runreport.tick(R, where, board='B', now=now + datetime.timedelta(minutes=2), launch=launch, lim=lim, host=host, every_note=his, notes_where=notes_where)
     spend = [json.loads(l) for l in (where / 'spend.jsonl').read_text(encoding='utf-8').splitlines()]
-    case('reading: one that ends with no report is a line in the spend with its dollars and that it made none, and the run is read again',
-         s2['last']['made'] is False and s2['last']['usd'] == 0.41 and spend[0]['run'] == D and spend[0]['host'] and 'no report' in spend[0]['why'] and len(started) == 2 and s2['running']['run'] == D, (s2, spend))
+    told = [x for x in notes.read_all(notes_where) if x['id'] == n['id']][0]
+    case('reading: one that ends with no report is a line in the spend with its dollars and that it made none, his note that asked is answered with why, and the run is read again',
+         told['state'] == 'done' and 'Not read: the reading failed' in json.dumps(told) and s2['last']['made'] is False and s2['last']['usd'] == 0.41 and spend[0]['run'] == D and spend[0]['host'] and 'no report' in spend[0]['why'] and len(started) == 2 and s2['running']['run'] == D, (s2, spend))
     # the second writes the report: his note is answered, and the run is not read again
     r = [x for x in R['runs'] if x['id'] == D][0]
     runreport.add(where, r, 'The ridge is built', 'Built the ridge for one side.', 'Nothing: it passed.', [(r['units'][0]['id'], 'The ridge is built and passes.')], every=[])
@@ -322,10 +394,33 @@ def when_read(R):
          s3['last']['made'] is True and s3['last']['usd'] == 0.6 and answered['state'] == 'done' and len(started) == 2 and s3['running'] is None and 'readings are used' in s3['off'] and A in s3['waiting'], (s3, answered))
     w = runreport.load(where / A / 'wait.json')
     runreport.put(where / A / 'wait.json', dict(sig=ran[0]['sig'], since=NOW, n=runreport.TRIES, why='the session left no result'))
-    case('reading: a run two readings failed on is left with its records', A not in [x['id'] for x in runreport.wanted(R, where, host, NOW)] and 'readings of it failed' in runreport.given_up(where, ran[0]), w)
-    keep_env = os.environ.get('TW_RUNREPORT_OFF')
-    off = runreport.tick(R, TMP / 'reports3', board='B', now=now, lim=runreport.LIMITS, host=host)
-    case('reading: a station where the reading is switched off starts none and says so', off['running'] is None and 'switched off' in off['off'] and keep_env == '1', off)
+    ask = [dict(id='n9', state='open', about=f'run: {A}', text=runreport.READ_SAY)]
+    case('reading: a run two readings failed on is left with its records, until he asks: his ask is one more try',
+         A not in [x['id'] for x in runreport.wanted(R, where, host, NOW)] and 'readings of it failed' in runreport.given_up(where, ran[0]) and [x['id'] for x in runreport.wanted(R, where, host, NOW, ask)][0] == A, w)
+    # a reading found from before a restart: believed by its number while its minutes last, then written off, and never killed
+    runreport.RUNS.clear()
+    killed = []
+    keep_stop, runreport.stop = runreport.stop, lambda rec, p=None: killed.append(p) or keep_stop(rec, p)
+    runreport.put(runreport.state() / 'running.json', dict(reading='20260101-000000', since=f'{now - datetime.timedelta(minutes=5):%Y-%m-%d %H:%M:%S}', run=A, sig=ran[0]['sig'], pid=4))
+    young = runreport.tick(R, where, board='B', now=now, launch=launch, lim=dict(lim, runs_per_day=0), host=host, alive=lambda rec: True)
+    old = runreport.tick(R, where, board='B', now=now + datetime.timedelta(minutes=30), launch=launch, lim=dict(lim, runs_per_day=0), host=host, alive=lambda rec: True)
+    runreport.stop = keep_stop
+    case('reading: after a restart a reading is believed alive by its number only while its minutes last; past them it is written off with a line in the spend, and no process is killed by a number',
+         young['running']['run'] == A and old['running'] is None and old['last']['made'] is False and killed == [], (young, old, killed))
+    keep_which, keep_popen = runreport.shutil.which, runreport.subprocess.Popen
+    runreport.shutil.which = runreport.subprocess.Popen = lambda *a, **k: (_ for _ in ()).throw(AssertionError('a test started a session'))
+    try:
+        runreport.put(runreport.state() / 'running.json', dict(reading='20260101-000001', since=f'{now:%Y-%m-%d %H:%M:%S}', run=A, sig=ran[0]['sig'], pid=4))
+        lines_before = (where / 'spend.jsonl').read_text(encoding='utf-8')
+        off = runreport.tick(R, where, board='B', now=now + datetime.timedelta(hours=2), lim=runreport.LIMITS, host=host)
+    finally:
+        runreport.shutil.which, runreport.subprocess.Popen = keep_which, keep_popen
+    case('reading: a station where the reading is switched off starts none, ends none and writes nothing down, and says so',
+         off == dict(running=None, waiting=[], left=0, last=None, off='the reading is switched off on this station (TW_RUNREPORT_OFF)') and (where / 'spend.jsonl').read_text(encoding='utf-8') == lines_before
+         and (runreport.state() / 'running.json').exists() and os.environ.get('TW_RUNREPORT_OFF') == '1', off)
+    (runreport.state() / 'running.json').unlink()
+    (where / 'spend.jsonl').write_text(lines_before + 'not json at all\n' + json.dumps(dict(when=f'{now:%Y-%m-%d} 13:00', run='x')) + '\n', encoding='utf-8')
+    case('reading: a line of the spend that does not read is counted as a reading of the day, and the lines after it still count', len(runreport.spent(where, f'{now:%Y-%m-%d}')) == len(lines_before.splitlines()) + 2, runreport.spent(where, f'{now:%Y-%m-%d}'))
 
 
 def in_a_reading(R):
@@ -339,7 +434,9 @@ def in_a_reading(R):
     out, real = sys.stdout, ''
     try:
         sys.stdout = io.StringIO()
-        codes = [runreport.main(['tick']), runreport.main(['context', A]), runreport.main(['context', B]),
+        other = scratch / 'mine.json'
+        other.write_text(json.dumps(dict(run=R['runs'][0], board='')), encoding='utf-8')
+        codes = [runreport.main(['tick']), runreport.main(['context', A]), runreport.main(['context', A, '--given', str(other)]), runreport.main(['context', '..']), runreport.main(['context', B]),
                  runreport.main(['brief', B, '01', '--title', 'The rule of 28 September: keep it, or drop it', '--for', 'A gun with nobody to shoot at keeps a hidden garrison down. A review fix would end that.',
                                  '--option', 'Keep the rule', '--option', 'Drop it', '--why', 'A landed test holds it.', '--no-evidence', 'A rule, nothing to see.']),
                  runreport.main(['add', B, '--title', 'One review fix passed', '--did', 'Mended the tests that could not fail.', '--left', 'Nothing: it passed.', '--unit', 'rv-b=The tests can fail now.'])]
@@ -349,8 +446,8 @@ def in_a_reading(R):
         for k, v in keep.items():
             os.environ.pop(k, None) if v is None else os.environ.update({k: v})
     d = runreport.read_all(runreport.folder()).get(B) or {}
-    case('a reading: it may read the context of the run it was given, write that run\'s briefs and its report; it starts no reading and reads no other run',
-         codes == [1, 1, 0, 0, 0] and 'tick is not for a reading' in real and 'is not the run this reading was given' in real and d.get('reading') == 'r7' and len(d.get('asks') or []) == 1 and d['asks'][0]['brief'].endswith('keep-it-or-drop-it'), (codes, real[-700:]))
+    case('a reading: it may read the context of the run it was given, write that run\'s briefs and its report; it starts no reading and reads no other run, not even one it describes in a file of its own',
+         codes == [1, 1, 1, 1, 0, 0, 0] and 'tick is not for a reading' in real and 'is not the run this reading was given' in real and '--given is not for a reading' in real and 'is not the name of a run' in real and d.get('reading') == 'r7' and len(d.get('asks') or []) == 1 and d['asks'][0]['brief'].endswith('keep-it-or-drop-it'), (codes, real[-700:]))
 
 
 def site(board):
@@ -365,7 +462,7 @@ def site(board):
         R = json.loads(text[len('window.RUNS = '):].rstrip().rstrip(';'))
         a = R['runs'][0]
         case('site: the watcher puts the runs in the site as a script, each with its report, its briefs and what still waits on him, and counts them; a session\'s single read starts no reading',
-             text.startswith('window.RUNS = ') and counts == dict(runs=3, waits=2, going=0) and a['report']['title'].startswith('Two review fixes') and set(a['report']) == {'title', 'did', 'left', 'units', 'when', 'shots'}
+             text.startswith('window.RUNS = ') and counts == dict(runs=3, waits=2, going=0) and a['report']['title'].startswith('Two review fixes') and set(a['report']) == {'title', 'did', 'left', 'units', 'when', 'shots'} and a['gave_up'] == ''
              and [b['how'] for b in a['briefs']] == ['raised'] and a['waits'] == 1 and R['reading'] is None and R['repo'] == 'https://github.com/x/y' and str(TMP) not in text.replace('\\\\', '\\'), (counts, a.get('report')))
         ops.board_root = lambda: (_ for _ in ()).throw(RuntimeError('the board hung'))
         bad = ops.the_runs(out, every, [], False)
@@ -408,6 +505,13 @@ def page_rules(R):
           ' rows: T.rows(R).map(x => x.run ? x.run.id : x.starts.length), two: T.rows({runs: [R.runs[2], R.runs[2], a]}).map(x => x.run ? 1 : x.starts.length),'
           ' title: [T.title(a), T.title(Object.assign({}, a, {report: null})), T.title(R.runs[2])],'
           ' verdicts: a.units.map(u => T.verdict(u, a).key), live: going.units.map(u => T.verdict(u, going).key), tally: T.tallyWords(Object.assign({}, a, {report: null})),'
+          ' order: T.agents({role: "env-simulator", legs: [{phase: "plan", model: "claude-opus-5"}, {phase: "execute", model: "claude-opus-5"}, {phase: "execute", model: "claude-opus-5"}, {phase: "critic", model: "claude-opus-5"}, {phase: "execute", model: "claude-opus-5"}]}).phases,'
+          ' line: [T.unitLine(a.units[0], a), T.unitLine(a.units[0], going), T.unitLine({id: "u", verdict: "PASS", legs: []}, going), T.unitLine({id: "u", verdict: "FAIL", legs: [], why: ["its lane could not be switched to"]}, going)].map(x => x.top),'
+          ' whyNot: [T.whyNot(a.units[0]).length, T.whyNot({verdict: "FAIL", why: []})[0], T.whyNot({verdict: "BLOCKED", why: ["the proof failed"]})[0]], cost: [T.cost(a), T.cost({legs: 6, unpriced: 6, usd: 0}), T.cost({legs: 2, unpriced: 0, usd: 3})],'
+          ' plain: [T.plain("error: git switch -q lane/sim/x failed in C:/w: fatal: \'lane/sim/x\' is already used by worktree at \'C:/Users/PC/GitHub/githubtest-modular\'"), T.plain("something else")],'
+          ' none: [T.none(null), T.none({board: false}), T.none({failed: {}, runs: []}), T.none({runs: []}, true), T.none({runs: []})], maybe: [T.maybe(mixed), T.maybe(a)], stamp: T.stamp("2026-10-10 00:36"),'
+          ' guessHead: T.head({runs: [Object.assign({}, d, {briefs: [{id: "g", state: "open", how: "lane"}]})]}), guessStrip: T.strip({runs: [Object.assign({}, d, {briefs: [{id: "g", state: "open", how: "lane"}]})]})[0].key,'
+          ' gaveUp: T.reading(Object.assign({}, d, {gave_up: "2 readings of it failed (the session left no result)"}), R, []),'
           ' agents: T.agents(a.units[0]), crew: T.crew(a), model: [T.model("claude-opus-5"), T.model("claude-sonnet-5-5"), T.model("opus"), T.model("")], role: [T.role("lane"), T.role("env-simulator"), T.role("retro")],'
           ' ended: [T.ended(a), T.ended(Object.assign({}, a, {asked_why: "the watcher\'s time was up"})), T.ended(b), T.ended(R.runs[2]), T.ended(going), T.ended(Object.assign({}, going, {silent: true}))],'
           ' dec: Object.fromEntries(Object.entries(T.decisions(mixed)).map(([k, v]) => [k, v.length])), waits: [T.waits(a), T.waits(b), T.waits(mixed)], decided: T.decided(mixed.briefs.filter(x => x.how === "from")[0]),'
@@ -434,10 +538,19 @@ def page_rules(R):
          and g['role'] == ['lane agent (no role brief)', 'env simulator agent', 'retrospective'], (g['agents'], g['crew'], g['model']))
     e = g['ended']
     case('page: why a run ended is said in plain words: a stop on request does not say he stopped it unless the record says why; an error shows the relay\'s own sentence; a run that is going says so, and that it went silent',
-         'the record does not say which' in e[0]['line'] and e[1]['line'] == 'Stopped on request: the watcher\'s time was up' and e[2] == dict(line='A leg did not run clean', told="leg 01 the run's 8 hours are up (mid-leg)")
+         e[0] == dict(line='Stopped on request (the record does not say by whom)', told='') and e[1]['line'] == 'Stopped on request: the watcher\'s time was up' and e[2] == dict(line='Its hours were up, in the middle of a leg', told='')
          and e[3]['told'].startswith('error: git switch') and e[4]['line'] == 'Going now' and 'cut off' in e[5]['line'], e)
     case('page: what a run leaves him is sorted: its own open briefs and the asks nothing holds wait on him; a guess, his own answers and what is not his do not',
          g['dec'] == dict(open=1, likely=1, decided=1, **{'from': 1}, asks=1, notHis=1) and g['waits'] == [1, 1, 2] and g['decided'].startswith('You decided 2026-10-07: A, Yes') and 'queued as rv-b' in g['decided'], (g['dec'], g['waits'], g['decided']))
+    case('page: phases are said in the order they ran; a unit is called by its report\'s sentence, else by what its last leg said, and one that ran no leg says why; a failure is never a bare word; a run nobody priced does not read as free',
+         g['order'] == ['plan on Opus 5', '2 execute legs on Opus 5', 'critic on Opus 5', 'execute on Opus 5'] and g['line'][0] == 'The wire stands at its height again.' and g['line'][1] == 'fixed, pushed (7861fe1857).'
+         and 'already on its lane' in g['line'][2] and g['line'][3] == 'No leg ran on it: its lane could not be switched to.' and g['whyNot'][0] == 0 and 'do not say why its check failed' in g['whyNot'][1] and g['whyNot'][2] == 'the proof failed'
+         and g['cost'] == ['$5.00 (1 leg not priced)', 'cost not recorded', '$3.00'], (g['order'], g['line'], g['whyNot'], g['cost']))
+    case('page: a git error with a machine\'s paths is said in plain words; with no runs to draw the page says which of four reasons it is; an open decision that is a run\'s only by a guess is counted and said apart, and marks its bar',
+         g['plain'] == ['The lane x was open in another checkout on that machine (githubtest-modular), so the relay could not switch to it.', 'something else'] and 'not been read' in g['none'][0] and 'no pipeline board' in g['none'][1]
+         and 'could not be read' in g['none'][2] and 'has an open decision' in g['none'][3] and 'No relay run' in g['none'][4] and g['maybe'] == [1, 0] and g['stamp'].endswith('10 Oct 00:36')
+         and 'nothing is known to wait on you' in g['guessHead'] and '1 open decision may come from them' in g['guessHead'] and g['guessStrip'] == 'you', (g['plain'], g['none'], g['guessHead'], g['guessStrip']))
+    case('page: a run two readings failed on says so with why, and offers one more try', g['gaveUp']['key'] == 'failed' and g['gaveUp']['ask'] is True and '2 readings of it failed (the session left no result)' in g['gaveUp']['label'], g['gaveUp'])
     case('page: a run says whether it is written up, being read, waiting (and why nothing reads), or can be asked for; his click shows at once; a run that is going or ran no leg is not asked about',
          g['reading'] == ['read', 'bare', 'next', 'now', 'Waits to be read, and nothing is reading: the day\'s 8 readings are used.', 'na', 'na', True, False], g['reading'])
     case('page: the line under the title counts the runs, what waits on him from them and what nobody wrote up; a reading that is old or failed is said, a fresh one is not',
@@ -448,6 +561,53 @@ def page_rules(R):
          g['leg'] == dict(n='Leg 01', facts=['plan', 'review fix agent', 'Opus 5 high', '10 min', '$2.00'], said='done', key='done') and g['subject']['id'] == 'run: ' + A and g['subject']['kind'] == 'queue'
          and g['starts']['top'].startswith('A start that ran no leg') and g['when'] == 3, (g['leg'], g['subject'], g['starts']))
     return g
+
+
+# a stand-in for the browser's document, enough for runsboard.js to draw into: elements keep their children and their
+# words, and a click is its listener called
+DOM = ('function E(tag) { this.tag = tag; this.children = []; this.dataset = {}; this.style = {}; this.on = {}; this.className = ""; this.own = ""; this.attrs = {}; this.hidden = false; this.classList = { add() {} }; }'
+       'E.prototype = { appendChild(c) { this.children.push(c); return c; }, addEventListener(k, f) { this.on[k] = f; }, setAttribute(k, v) { this.attrs[k] = v; }, querySelectorAll() { return []; }, querySelector() { return null; },'
+       ' contains() { return false; }, scrollIntoView() {}, get firstChild() { return this.children[0]; }, get childNodes() { return this.children; },'
+       ' set textContent(v) { this.own = String(v); this.children = []; }, get textContent() { return [this.own].concat(this.children.map(c => c.textContent)).join(" "); }, set innerHTML(v) { this.children = []; this.own = ""; } };'
+       'const ids = {}; ["r-board", "r-count", "r-foot", "r-warn", "r-strip", "r-only"].forEach(i => { ids[i] = new E("div"); });'
+       'global.document = { getElementById: i => ids[i] || null, createElement: t => new E(t), createTextNode: t => { const e = new E("#"); e.own = String(t); return e; }, activeElement: null, body: new E("body") };'
+       'global.location = { hash: "" }; global.setInterval = () => 0;')
+
+
+def drawn(R):
+    """What a card says, as it is drawn: the words and the count agree with the cards under them."""
+    node = shutil.which('node')
+    if not node:
+        print('      (no node on this machine: the drawn page\'s cases were not run)')
+        return
+    js = (DOM + 'const R = JSON.parse(require("fs").readFileSync(process.argv[2], "utf8")); const guess = {id: "g", title: "A gun firing blind: keep it or drop it", state: "open", how: "lane", asked: "2026-10-10 00:00", what_for: "For a rule.", options: [], shown: true};'
+          'R.runs[3] = Object.assign({}, R.runs[3], {briefs: [guess], asks: [], report: null, gave_up: "2 readings of it failed (the session left no result)"});'
+          'R.runs[1] = Object.assign({}, R.runs[1], {briefs: [], asks: [], units: R.runs[1].units.concat([{id: "rv-f", verdict: "FAIL", legs: [], why: [], lane: "", goal: "", role: "lane", usd: 0, seconds: 0, head: ""}])});'
+          'global.window = { Runs: require(process.argv[1]), RUNS: R, BRIEFS: [] }; require(process.argv[3]);'
+          'const b = ids["r-board"], cards = () => b.children.map(c => c.textContent), all = cards(), bars = ids["r-strip"].children.length;'
+          'ids["r-only"].on.click(); const only = cards();'
+          'window.RUNS = { failed: { at: R.read_at, why: "x" }, runs: [] }; ids["r-only"].on.click(); ids["r-only"].on.click(); ids["r-only"].on.click(); const none = cards();'
+          'console.log(JSON.stringify({ all, only, none, count: ids["r-count"].textContent, strip: bars }))')
+    data = TMP / 'drawn.json'
+    data.write_text(json.dumps(R), encoding='utf-8')
+    p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'runs.js'), str(data), str(HERE / 'static' / 'runsboard.js')], capture_output=True)
+    try:
+        g = json.loads(p.stdout.decode())
+    except ValueError:
+        case('drawn: runsboard.js draws the page', False, p.stderr.decode()[-900:])
+        return
+    a, b, starts, d = g['all']
+    case('drawn: a card is drawn a run, the starts that ran no leg as a line between them, and a bar a run that ran', len(g['all']) == 4 and 'A start that ran no leg' in starts and g['strip'] == 3, [x[:80] for x in g['all']])
+    case('drawn: a read run shows its title, what was done and what is left over its units, each with its sentence and the agent that worked it; its open brief is under "Needs you"',
+         'Two review fixes; one is blocked on the ridge' in a and 'Fixed the wire that stood too low' in a and 'Left:' in a and 'The wire stands at its height again.' in a and 'review fix agent: plan on Opus 5 high, then execute on Opus 5 low' in a
+         and 'Needs you 1' in a and 'this run left it for you' in a and 'Nothing from this run waits on you' not in a, a[:900])
+    case('drawn: a card never says nothing waits on him above an open decision: one that is the run\'s only by a guess has its own heading and count, and the run is marked',
+         'Nothing from this run waits on you' not in d and 'An open decision that may come from this run 1' in d and '1 may be yours' in d and 'A gun firing blind' in d, d[:900])
+    case('drawn: a run two readings failed on says so on its card, with why', 'An agent tried to write this run up and could not: 2 readings of it failed (the session left no result)' in d, d[:600])
+    case('drawn: a run with nothing open says nothing waits; a unit that failed with no reason recorded says the records do not say why, and one that ran no leg says so',
+         'Nothing from this run waits on you.' in b and 'The records do not say why its check failed' in b and 'No leg ran on it: the records do not say why.' in b, b[:900])
+    case('drawn: "Only what needs you" keeps every run with an open card, the guessed one too, and drops the rest; a first reading that failed says so instead of "no runs yet"',
+         len(g['only']) == 2 and 'Two review fixes' in g['only'][0] and 'A gun firing blind' in g['only'][1] and len(g['none']) == 1 and 'could not be read' in g['none'][0], (len(g['only']), g['none']))
 
 
 if __name__ == '__main__':
@@ -462,6 +622,7 @@ if __name__ == '__main__':
     PAGE = site(BOARD)
     if PAGE:
         G = page_rules(PAGE)
+        drawn(PAGE)
     shutil.rmtree(TMP, ignore_errors=True)
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)

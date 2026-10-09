@@ -181,7 +181,7 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
              what_for=one(what_for), options=[dict(key='ABCD'[i], text=one(o)) for i, o in enumerate(options)], pick='A', why=one(why),
              evidence=shown, no_evidence=one(no_evidence))
     if raised_by and raised_by.get('run'):
-        b['raised_by'] = dict(run=one(raised_by['run']), unit=one(raised_by.get('unit')), leg=int(raised_by.get('leg') or 0))
+        b['raised_by'] = dict(run=one(raised_by['run']), unit=one(raised_by.get('unit')), leg=int(raised_by.get('leg') or 0), **(dict(key=one(raised_by['key'])) if raised_by.get('key') else {}))
     home.mkdir(parents=True, exist_ok=True)
     (home / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     return b

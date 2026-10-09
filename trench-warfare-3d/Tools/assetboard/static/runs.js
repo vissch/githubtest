@@ -12,7 +12,15 @@
                checkout: 'The work checkout could not be used', leg: 'A leg did not run clean', uncommitted: 'A unit left uncommitted work behind', 'no-result': 'Units kept ending with no result',
                lane: 'Units\' lanes could not be switched to', error: 'It ended on an error' };
   var TOLD = { checkout: 1, leg: 1, uncommitted: 1, 'no-result': 1, lane: 1, error: 1, other: 1 };      // the kinds whose own sentence says what went wrong
-  var HOW = { raised: 'this run left it for you', step: 'a step this run worked', lane: 'same lane, asked after this run: a guess', from: 'your answer queued work this run did' };
+  var HOW = { raised: 'this run left it for you', step: 'a step this run worked', lane: 'may come from this run: it is about a lane the run worked, and was asked after it', from: 'your answer queued work this run did' };
+  // the relay's own sentence in plain words, where it is one he need not parse: a git error with this machine's paths says a lane was open elsewhere
+  function plain(reason) {
+    var s = String(reason || ''), m = /git switch -q (\S+) failed[\s\S]*already used by worktree at '([^']+)'/.exec(s);
+    if (m) return 'The lane ' + short(m[1]) + ' was open in another checkout on that machine (' + m[2].split(/[\\/]/).pop() + '), so the relay could not switch to it.';
+    return s;
+  }
+  // a time a report or a brief carries (2026-10-10 00:36, this station's) as the page says times
+  function stamp(s) { var m = /^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d)/.exec(String(s || '')); return m ? day(new Date(+m[1], +m[2] - 1, +m[3]).getTime() / 1000) + ' ' + m[4] + ':' + m[5] : String(s || ''); }
   function two(k) { return ('0' + k).slice(-2); }
   function n(k, one, many) { return k === 1 ? one : k + ' ' + many; }
   function short(b) { return String(b || '').replace(/^lane\/(show|sim)\//, ''); }
@@ -36,8 +44,8 @@
   function role(name) { return name === 'lane' ? 'lane agent (no role brief)' : name === 'retro' ? 'retrospective' : name ? String(name).replace(/-/g, ' ') + ' agent' : 'agent'; }
   // which agent worked a unit: its role, then each phase with how many legs and on which model
   function agents(u) {
-    var seen = [], by = {};
-    (u.legs || []).forEach(function (l) { var k = l.phase + '|' + model(l.model) + '|' + (l.effort || ''); if (!by[k]) { by[k] = { phase: l.phase, model: model(l.model), effort: l.effort || '', n: 0 }; seen.push(by[k]); } by[k].n++; });
+    var seen = [], last = null;
+    (u.legs || []).forEach(function (l) { var k = l.phase + '|' + model(l.model) + '|' + (l.effort || ''); if (!last || last.k !== k) { last = { k: k, phase: l.phase, model: model(l.model), effort: l.effort || '', n: 0 }; seen.push(last); } last.n++; });
     return { role: role(u.role), phases: seen.map(function (x) { return (x.n > 1 ? x.n + ' ' + x.phase + ' legs' : x.phase) + (x.model ? ' on ' + x.model : '') + (x.effort ? ' ' + x.effort : ''); }) };
   }
   // who worked in a run: every role with its legs, the one with the most first
@@ -56,6 +64,20 @@
     if (r.state !== 'ended') return r.now_on === u.id ? { key: 'going', label: 'being worked on' } : { key: 'none', label: 'no verdict yet' };
     return { key: 'cut', label: 'cut off' };
   }
+  function unitLine(u, r) {
+    var line = r.report && r.report.units && r.report.units[u.id], legs = u.legs || [], v = String(u.verdict || '').toUpperCase();
+    if (line) return { top: line, read: true };
+    if (!legs.length) return { top: v === 'PASS' ? 'Its work was already on its lane when the run came to it: the check passed and no leg was needed.' : v ? 'No leg ran on it: ' + ((u.why || [])[0] || 'the records do not say why') + '.' : 'No leg ran on it.', read: false };
+    return { top: legs[legs.length - 1].result || u.id, read: false };
+  }
+  // why a unit failed or is blocked, when the records say; said when they do not, so a failure is never a bare word
+  function whyNot(u) {
+    var v = String(u.verdict || '').toUpperCase();
+    if (v !== 'FAIL' && v !== 'BLOCKED') return [];
+    return (u.why || []).length ? u.why : [v === 'FAIL' ? 'The records do not say why its check failed: the runner only printed that on the desktop.' : 'The records do not say what blocked it beyond its last leg\'s own words.'];
+  }
+  // what a run cost, or that nothing recorded it
+  function cost(r) { return r.legs && r.unpriced >= r.legs ? 'cost not recorded' : money(r.usd) + (r.unpriced ? ' (' + n(r.unpriced, '1 leg', 'legs') + ' not priced)' : ''); }
   function tally(r) {
     var t = { pass: 0, fail: 0, blocked: 0, cut: 0, going: 0, none: 0 };
     (r.units || []).forEach(function (u) { t[verdict(u, r).key]++; });
@@ -71,8 +93,10 @@
   function ended(r) {
     if (r.state === 'going') return { line: 'Going now' + (r.silent ? ', but nothing was heard from it for hours: it may have been cut off' : ''), told: '' };
     if (r.state !== 'ended') return { line: r.silent ? 'It left no stop record: it was cut off, or its end never reached the board' : 'It has no stop record yet: most likely still going', told: '' };
-    if (r.kind === 'asked') return { line: r.asked_why ? 'Stopped on request: ' + r.asked_why : 'Stopped on request (you, or a watcher whose time was up: the record does not say which)', told: '' };
-    return { line: ENDS[r.kind] || 'It ended', told: TOLD[r.kind] || !ENDS[r.kind] ? String(r.reason || '') : '' };
+    if (r.kind === 'asked') return { line: r.asked_why ? 'Stopped on request: ' + r.asked_why : 'Stopped on request (the record does not say by whom)', told: '' };
+    if (r.kind === 'hours') return { line: ENDS.hours + (/mid-leg/.test(r.reason || '') ? ', in the middle of a leg' : ''), told: '' };
+    var own = TOLD[r.kind] || !ENDS[r.kind] ? String(r.reason || '') : '', said = plain(own);
+    return said !== own ? { line: said, told: '' } : { line: ENDS[r.kind] || 'It ended', told: own };
   }
   // the run in a line, when nobody has written its report: what its units came to
   function title(r) {
@@ -93,6 +117,8 @@
              asks: a.filter(function (x) { return !x.brief && !x.no; }), notHis: a.filter(function (x) { return !!x.no; }) };
   }
   function waits(r) { var d = decisions(r); return d.open.length + d.asks.length; }
+  // open decisions that are this run's only by a guess: drawn with their buttons, so they are counted and said, apart
+  function maybe(r) { return decisions(r).likely.length; }
   function how(b) { return HOW[b.how] || ''; }
   // what he decided on a brief, in a line
   function decided(b) {
@@ -103,10 +129,11 @@
   // whether a run's report is written, being written, waiting, or can be asked for: { key, label, ask }
   function reading(r, R, said) {
     var g = (R && R.reading) || {};
-    if (r.report) return { key: 'read', label: 'read ' + String(r.report.when || '').slice(5, 16), ask: false };
+    if (r.report) return { key: 'read', label: stamp(r.report.when), ask: false };
     if (r.empty || r.state !== 'ended') return { key: 'na', label: '', ask: false };
     if (g.running && g.running.run === r.id) return { key: 'now', label: 'An agent is reading this run now; its report shows here when it is done.', ask: false };
     if ((g.waiting || []).indexOf(r.id) >= 0 || (said || []).indexOf(READ) >= 0) return { key: 'next', label: 'Waits to be read' + (g.off ? ', and nothing is reading: ' + g.off : '') + '.', ask: false };
+    if (r.gave_up) return { key: 'failed', label: 'An agent tried to write this run up and could not: ' + r.gave_up + '. Below is what its legs wrote themselves.', ask: true };
     return { key: 'bare', label: 'Nobody has written this run up. Below is what its legs wrote themselves.', ask: true };
   }
   // the rows of the page: a run, or the starts that failed one after another as one row
@@ -121,7 +148,7 @@
   }
   // a row of starts that failed, in a line
   function starts(list) {
-    var first = list[list.length - 1], last = list[0], why = String(last.reason || 'no reason recorded');
+    var first = list[list.length - 1], last = list[0], why = plain(last.reason) || 'no reason recorded';
     return { top: n(list.length, 'A start that ran no leg', 'starts that ran no leg') + ', ' + day(first.started) + ' ' + clock(first.started) + (list.length > 1 ? ' to ' + clock(last.started) : ''), why: why };
   }
   // one leg, as the page lists it: who, how long, what for, what it said
@@ -137,10 +164,12 @@
     if (!R) return 'The runs have not been read yet.';
     if (R.board === false) return 'This station has no pipeline board: the runs cannot be read here.';
     var rs = (R.runs || []).filter(function (r) { return !r.empty; }), going = rs.filter(function (r) { return r.state === 'going' || (r.state === 'open' && !r.silent); }).length;
+    var more = rs.reduce(function (k, r) { return k + maybe(r); }, 0);
     var mine = rs.reduce(function (k, r) { return k + waits(r); }, 0), unread = rs.filter(function (r) { return r.state === 'ended' && !r.report; }).length, out = [];
     out.push(rs.length ? 'The last ' + n(rs.length, 'run', 'runs') : 'No run is on the board yet');
     if (going) out.push(n(going, '1 going now', 'going now'));
-    out.push(mine ? n(mine, '1 thing waits on you from them', 'things wait on you from them') : 'nothing from them waits on you');
+    out.push(mine ? n(mine, '1 thing waits on you from them', 'things wait on you from them') : more ? 'nothing is known to wait on you from them' : 'nothing from them waits on you');
+    if (more) out.push(n(more, '1 open decision may come from them', 'open decisions may come from them'));
     if (unread) out.push(n(unread, '1 not written up', 'not written up'));
     return out.join(' · ');
   }
@@ -158,17 +187,24 @@
     return 'Read from the pipeline board as it stood ' + (R.as_of ? day(R.as_of) + ' ' + clock(R.as_of) : 'at a time unknown') + (R.commit ? ' (' + R.commit + ')' : '')
       + '. The relay writes a run\'s records there; a run that is going shows what it has pushed so far. Times are this station\'s. A run that ended is written up by an agent, the newest first; an older one when you ask.';
   }
+  // what the page says where the runs would be, when there are none to draw
+  function none(R, only) {
+    if (!R) return 'The runs have not been read yet.';
+    if (R.board === false) return 'This station has no pipeline board: the runs cannot be read here.';
+    if (R.failed && !(R.runs || []).length) return 'The runs could not be read, and no earlier reading is kept.';
+    return only ? 'No run of the last ' + (R.most || 20) + ' has an open decision for you.' : 'No relay run is on the pipeline board yet.';
+  }
   // the strip over the page: a bar a run, as tall as its cost, coloured by what waits on him or how it went
   function strip(R) {
     var rs = ((R && R.runs) || []).filter(function (r) { return !r.empty; }), top = rs.reduce(function (m, r) { return Math.max(m, r.usd || 0); }, 0) || 1;
     return rs.map(function (r) {
-      var t = tally(r), key = r.state !== 'ended' ? 'going' : waits(r) ? 'you' : t.fail || t.blocked ? 'bad' : 'ok';
+      var t = tally(r), key = r.state !== 'ended' ? 'going' : waits(r) || maybe(r) ? 'you' : t.fail || t.blocked ? 'bad' : 'ok';
       return { id: r.id, key: key, height: Math.max(8, Math.round(100 * (r.usd || 0) / top)), tip: day(r.started) + ' ' + clock(r.started) + ' · ' + title(r) + ' · ' + money(r.usd) + (waits(r) ? ' · ' + n(waits(r), '1 waits on you', 'wait on you') : '') };
     }).reverse();
   }
   function subject(r) { return { kind: 'queue', id: 'run: ' + r.id, kindLabel: 'relay run', title: title(r) }; }
   var api = { READ: READ, n: n, short: short, money: money, span: span, clock: clock, day: day, when: when, model: model, role: role, agents: agents, crew: crew, verdict: verdict, tally: tally, tallyWords: tallyWords,
-              ended: ended, title: title, decisions: decisions, waits: waits, how: how, decided: decided, reading: reading, rows: rows, starts: starts, leg: leg, head: head, warnings: warnings, foot: foot,
+              ended: ended, title: title, decisions: decisions, waits: waits, maybe: maybe, unitLine: unitLine, whyNot: whyNot, cost: cost, plain: plain, stamp: stamp, none: none, how: how, decided: decided, reading: reading, rows: rows, starts: starts, leg: leg, head: head, warnings: warnings, foot: foot,
               strip: strip, subject: subject };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Runs = api;
 })(typeof window !== 'undefined' ? window : this);
