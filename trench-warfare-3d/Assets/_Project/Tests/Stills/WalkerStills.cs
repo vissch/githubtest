@@ -33,6 +33,8 @@
 // the game is played at. Environment: TW_STILLS_MACHINE the walker (default banner), TW_STILLS_DIR where the stills go
 // (default %TEMP%/tw-walkerfilm: never inside the checkout), TW_STILLS_FIELD the look (Winter is the day field).
 // The game clock steps 1/30 s a frame while it films, so two runs sample a step alike.
+// TheBannersTopAndGunsAreFilmed (2026-10-09, banner-parts) photographs the Banner's new parts: its top laid on a
+// target 0, 45 and 90 degrees off the nose, and a barrel back. TW_STILLS_DIR again.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -276,6 +278,136 @@ namespace TW.Tests
             if (views == null || !views.Contains(slot)) return null;
             var v = views[slot];
             return v.GetType().GetField("Legs", Any)?.GetValue(v) as WalkerGait;
+        }
+
+        // ------------------------------------------------------------------ the Banner's top and guns
+        // The owner, 2026-10-08: the top "should also be able to rotate", the guns "need to be cut so they can
+        // animate". Parts 1-3 of banner-parts cut them and proved them in EditMode. This is the look.
+        //
+        // Nothing is posed by hand: the lay comes from the sim, as it does in a battle. RiderLab.Enemies puts
+        // riflemen at a bearing off the Banner's nose, TankGunnery lays Gun0 at them, and the top follows. A target
+        // 90 degrees off the nose is photographed at the top's STOP, not at 90: TankSpec.Banner's arc is 38 degrees
+        // either side and widening it would be a sim change. The recoil frames are shot when the view's own Recoil
+        // reads high, so the shutter falls while a barrel is back; CaptureRig poses on one frame and renders on the
+        // next, so the barrel has crept a little way home by the time the PNG is written - that is mid-recoil, which
+        // is what is wanted.
+        //
+        // No shield frame: the Banner's sculpt holds no plate (leg 02 looked through all 42 loose pieces), so there
+        // is no shield part to move and the standard forbids inventing one. The owner's third wish waits on him.
+        // TW_STILLS_DIR says where the stills go (default %TEMP%/tw-bannerparts: never inside the checkout).
+        const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+
+        /// <summary>TankRenderer's own view of one slot, by reflection (View is a private nested type).</summary>
+        static object ViewOf(int slot)
+        {
+            var r = Object.FindFirstObjectByType<TankRenderer>();
+            var views = r?.GetType().GetField("views", Any)?.GetValue(r) as System.Collections.IDictionary;
+            return views != null && views.Contains(slot) ? views[slot] : null;
+        }
+
+        static float[] ViewArr(object v, string field) => (float[])v.GetType().GetField(field, Any).GetValue(v);
+
+        [UnityTest, Explicit("The Banner's top at 0, 45 and 90 of lay and a barrel mid-recoil; run by name, with a graphics device.")]
+        public IEnumerator TheBannersTopAndGunsAreFilmed()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            yield return new EnterPlayMode();
+            yield return FilmBannerParts();     // a fresh enumerator after the reload (WreckStills' lesson)
+        }
+
+        static IEnumerator FilmBannerParts()
+        {
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            string dir = System.Environment.GetEnvironmentVariable("TW_STILLS_DIR");
+            if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-bannerparts");
+            Directory.CreateDirectory(dir);
+
+            // quiet, and a still sky: nobody deploys, nobody shells the lane
+            Host.ScriptedPeer = false; Host.PeerAttacks = false;
+            Host.WriteWorlds(m => { var b = m.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
+            for (int f = 0; f < 120; f++) yield return null;
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
+            Time.captureDeltaTime = 1f / 30f;
+            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+
+            var size = Host.Local.Map.SizeMeters;
+            float x = size.x * 0.5f, z = 40f;
+
+            string warm = Path.Combine(dir, "warmup.png");
+            CaptureRig.Shot(warm, x, z, 20f, 0f, 20f);
+            yield return Drain(warm);
+            File.Delete(warm); File.Delete(Path.ChangeExtension(warm, ".json"));
+
+            string spawned = TankCapture.Spawn(0, VehicleArchetype.Banner, x, z, 0f);
+            Assert.That(spawned, Does.StartWith("slot "), "banner: " + spawned);
+            int slot = int.Parse(spawned.Substring(5));
+            RiderLab.Stop(slot);                // it stands still: this is about the top, not the walk
+            for (int f = 0; f < 120; f++) yield return null;
+            var v = ViewOf(slot);
+            Assert.That(v, Is.Not.Null, "the Banner is drawn without a view");
+            var log = new System.Text.StringBuilder();
+            int written = 0;
+
+            // ---- the top, laid by the sim on a target 0, 45 and 90 degrees off the nose
+            foreach (float bearing in new[] { 0f, 45f, 90f })
+            {
+                TestContext.Out.WriteLine(RiderLab.ClearEnemies(slot, 1000f));
+                for (int f = 0; f < 60; f++) yield return null;
+                if (bearing != 0f) TestContext.Out.WriteLine(RiderLab.Enemies(slot, 4, 45f, bearing));
+                // let the traverse finish: the top moves at 34 deg/s, so 38 degrees takes about 1.1 s
+                float t0 = Time.time;
+                while (Time.time - t0 < 3f) yield return null;
+                float lay = ViewArr(v, "GunYaw")[0] * Mathf.Rad2Deg;
+                log.AppendLine($"target {bearing:0} degrees off the nose: the top is laid {lay:0.0} degrees");
+                foreach (var shotKind in new[] { ("close", 9f, 18f), ("play", 30f, 40f) })
+                {
+                    var p = Host.Presenter.Drawn(slot);
+                    string path = Path.Combine(dir, $"banner_top{bearing:00}_{shotKind.Item1}.png");
+                    if (tc != null) tc.BaseYaw = 0f;    // from the Banner's front, so the lay reads as a turn
+                    float aimY = shotKind.Item1 == "close" ? RenderGround.Sample(Host.Local.Map, p.x, p.z) + 2.6f : float.NaN;
+                    CaptureRig.Shot(path, p.x, p.z, shotKind.Item2, 0f, shotKind.Item3, 1920, 1080, aimY);
+                    yield return Drain(path);
+                    if (File.Exists(path) && new FileInfo(path).Length > 50000) written++;
+                }
+            }
+
+            // ---- a barrel mid-recoil: the enemies are still there, so the guns are firing
+            var world = Host.Local.World;
+            int shots = 0;
+            float until = Time.time + 30f;
+            while (shots < 3 && Time.time < until && world.IsAlive(slot))
+            {
+                var rec = ViewArr(v, "Recoil");
+                if (Mathf.Max(rec[0], rec[1]) < 0.45f) { yield return null; continue; }
+                var p = Host.Presenter.Drawn(slot);
+                string path = Path.Combine(dir, $"banner_recoil_{shots:00}.png");
+                log.AppendLine($"recoil {rec[0]:0.00} / {rec[1]:0.00} when the shutter was opened");
+                if (tc != null) tc.BaseYaw = -90f;      // along the barrels, where the travel shows
+                CaptureRig.Shot(path, p.x, p.z, 8f, 0f, 14f, 1920, 1080, RenderGround.Sample(Host.Local.Map, p.x, p.z) + 2.6f);
+                yield return Drain(path);
+                if (File.Exists(path) && new FileInfo(path).Length > 50000) written++;
+                shots++;
+                float w0 = Time.time;
+                while (Time.time - w0 < 1.2f) yield return null;    // past this gun's return, into the next shot
+            }
+            log.AppendLine($"{shots} frames caught with a barrel back");
+            log.AppendLine("no shield frame: the Banner's sculpt holds no plate, so there is no shield part to move");
+            File.WriteAllText(Path.Combine(dir, "banner_parts.txt"), log.ToString());
+
+            CaptureRig.Sheet(dir, "banner", Path.Combine(dir, "banner_parts_sheet.png"), 3, 640);
+            Time.captureDeltaTime = 0f;
+            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            yield return new ExitPlayMode();
+            TestContext.Out.WriteLine(log.ToString());
+            TestContext.Out.WriteLine($"wrote {written} stills of the Banner's parts to {dir}");
+            Assert.That(shots, Is.GreaterThanOrEqualTo(1), "the guns never fired, so no barrel was photographed back");
+            Assert.That(written, Is.GreaterThanOrEqualTo(7), "too few frames landed to judge the top and the guns");
         }
 
         [UnityTest, Explicit("One walker, side on, a foot close up and at play zoom; run by name, with a graphics device.")]
