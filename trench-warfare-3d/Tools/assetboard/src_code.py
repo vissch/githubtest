@@ -67,6 +67,19 @@ def arch_refs(text):
     return re.findall(r'\b(InfantryArchetype|VehicleArchetype)\.(\w+)', text)
 
 
+def ground_flags(g, generator, launch, where, where_launch):
+    """Whether the ground g has a river and a sea: from its preset in the sim's BattlefieldGenerator.cs, or, when it has
+    none, from the inline `case Ground.<g>: return new ...BattlefieldParams { ... }` of MatchLaunch.cs (the Narrows is
+    built there on purpose, so that it needs no sim change). A flag that is not written is false, as for a preset."""
+    m = re.search(r'BattlefieldParams ' + g + r'\(uint seed\)\s*=>\s*new BattlefieldParams\s*\{([^}]*)\}', generator)
+    if not m:
+        m = re.search(r'case Ground\.' + g + r'\s*:\s*return new [\w.]*BattlefieldParams\s*\{([^}]*)\}', launch)
+    if not m:
+        raise ProbeError(f'{where}: no preset for the ground {g}, and {where_launch} builds none inline either')
+    flags = dict(re.findall(r'(River|Sea)\s*=\s*(true|false)', m.group(1)))
+    return dict(river=flags.get('River') == 'true', sea=flags.get('Sea') == 'true')
+
+
 def read_all(P: Path):
     """Every table the board needs, as plain data. P is Assets/_Project."""
     t = {}
@@ -164,17 +177,12 @@ def read_all(P: Path):
                          'the board\'s "Houses only where there is a river" rule needs a look')
 
     f = P / 'Presentation/Core/MatchLaunch.cs'
-    grounds = re.findall(r'(\w+)\s*=\s*\d+', body_after(read(f), 'public enum Ground', f.name))
+    launch, launch_name = read(f), f.name
+    grounds = re.findall(r'(\w+)\s*=\s*\d+', body_after(launch, 'public enum Ground', f.name))
     need(grounds, 1, f.name, 'grounds', ['ShelledForest'])
     f = P / 'Sim/Terrain/BattlefieldGenerator.cs'
     src = read(f)
-    t['grounds'] = {}
-    for g in grounds:
-        m = re.search(r'BattlefieldParams ' + g + r'\(uint seed\)\s*=>\s*new BattlefieldParams\s*\{([^}]*)\}', src)
-        if not m:
-            raise ProbeError(f'{f.name}: no preset for the ground {g}')
-        flags = dict(re.findall(r'(River|Sea)\s*=\s*(true|false)', m.group(1)))
-        t['grounds'][g] = dict(river=flags.get('River') == 'true', sea=flags.get('Sea') == 'true')
+    t['grounds'] = {g: ground_flags(g, src, launch, f.name, launch_name) for g in grounds}
 
     f = P / 'UI/Campaign/CampaignGraph.cs'
     missions = re.findall(r'M\("([^"]+)",\s*"([^"]+)",\s*Ground\.(\w+),\s*(\d+)', read(f))
