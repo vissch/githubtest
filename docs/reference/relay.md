@@ -51,7 +51,11 @@ its own, and `providers/<vendor>.py` says how each vendor does its part.
 | It works on a copy | a folder of its own under `<home>/second/` (in a run: `<home>/runs/<run>/second/`), outside every checkout; a review gets the code and docs at the head commit from git's objects, with no `.git` |
 | The vendor's read-only mode | Grok: the three reading tools and nothing else, in `dontAsk` mode, MCP calls denied (its OS sandbox does not exist on Windows). Codex: `-s read-only`, the user's config left out. A command line that does not ask for this is not started |
 | The last message is the paper | the script writes the file; text files ride in the prompt, pictures are attached (Codex) or opened with the reading tool (Grok) |
-| The run is read afterwards | the copy is hashed before and after; a changed file, a tool beyond reading, or a run that says it had more tools or another mode than it was given makes the paper untrusted and unused |
+| The run is read afterwards | the copy is hashed before and after; a changed file, a tool beyond reading that ran, or a run that says it had another mode or more built-in tools than it was given makes the paper untrusted and unused |
+
+One thing the proof does not try: Grok lists the tools of the owner's plugin MCP servers (flights, hotels) in a run
+whose servers are up in time. The deny rule and the mode refuse such a call, and one that ran would show in the
+run's output and make it untrusted; no run has shown one.
 
 `$R proof second <vendor>` asks the model to write a file in and outside its folder and passes when nothing
 changed; `--open` runs the same with the rail off, where the file must appear, or the proof shows nothing. On the
@@ -196,7 +200,7 @@ whose execute leg waited on another checkout's editor and ended its turn "to wai
 **One more turn for a leg that owes its report.** A leg's verdict is the first line of its report that starts with
 `RESULT` (words above it do not hide it). A working leg whose session ends cleanly with no such line, most often
 because it stopped to wait, is given one more turn in the same session (`claude -p --resume`), told that the turn's
-end was the leg's end and to finish and report; `resume.txt` in the leg's folder holds those words. One extra
+end was the leg's end and to finish and report; the file resume.txt in the leg's folder holds those words. One extra
 turn, never two; not at red, not for a leg that only reads, not with under two minutes left. Both turns are paid
 for: the leg's cost and turns are the sum of its result records, and its record says `resumed: 1`.
 `$R proof report` shows it on a real leg.
