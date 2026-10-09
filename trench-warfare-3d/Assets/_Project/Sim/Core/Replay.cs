@@ -125,7 +125,10 @@ namespace TW.Sim
         // v41 (2026-10-09, [N5.2]): a knocked-out hull does not fire at a wreck. DirectFire.AtWreck returns for a
         // KnockedOut slot, so a dead hull stops machine-gunning the wreck its enemies stand by (shots, suppression
         // and wreck wear) until it cooks off. Layout and chain unchanged.
-        public const ushort FormatVersion = 41;
+        // v42 (2026-10-09, [N5.6]): a gun turns on a wreck only on its own scan tick (slot % 3 == tick % 3, the
+        // stagger TargetAcquisition acquires on), so a man whose mark ducked on an off tick keeps his cooldown for
+        // the scan that can give the man back. Layout and chain unchanged.
+        public const ushort FormatVersion = 42;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
