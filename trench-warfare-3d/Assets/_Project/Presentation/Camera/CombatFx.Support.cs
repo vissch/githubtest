@@ -20,6 +20,12 @@ namespace TW.Presentation.Tactical
         struct Leap { public int Slot; public float Until, NextFlame, NextPuff; }
         readonly List<Leap> leaps = new List<Leap>();
         public const float LeapFlameEvery = 1f / 12f, LeapPuffEvery = 0.08f;
+        public const float LeapBackUp = 1.1f;   // his pack above his feet (m): where the jet is rooted
+
+        /// <summary>The leaping man's pack: LeapBackUp over where he is drawn standing (CombatFx's drawnAt: the render ground
+        /// sampled under him, the bank he climbs, his hop). Never over the presenter's point: its y is the sim's zero, and
+        /// a jet hung from that burned under any ground above zero.</summary>
+        public static Vector3 LeapBack(Vector3 standing) => standing + Vector3.up * LeapBackUp;
 
         /// <summary>Whether a medic's glint shows now, and if so when his next may: pure, so a test can hold it.</summary>
         public static bool HealGlint(float now, float next, float zoom, float recipes) => recipes >= 0.5f && zoom < HealNearZoom && now >= next;
@@ -66,8 +72,7 @@ namespace TW.Presentation.Tactical
             {
                 var l = leaps[i];
                 if (now > l.Until || books == null || !books.Ready || l.Slot >= w.HighWater || (w.Flags[l.Slot] & (uint)UnitFlags.Alive) == 0) { leaps.RemoveAt(i); continue; }   // killed in the air: the jet goes with him
-                Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(l.Slot) : (Vector3)w.Position[l.Slot];
-                Vector3 back = at + Vector3.up * 1.1f;
+                Vector3 back = LeapBack(drawnAt(l.Slot));   // where he is drawn, as every other effect hung on a man
                 if (now >= l.NextFlame)
                 {
                     l.NextFlame = now + LeapFlameEvery;

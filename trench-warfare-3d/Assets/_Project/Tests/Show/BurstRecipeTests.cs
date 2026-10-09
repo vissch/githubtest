@@ -218,5 +218,25 @@ namespace TW.Tests
             Assert.IsTrue(CombatFx.WreckTracerDrawn(0.12f, 0.11f), "and for the usual round's time (fx.tracerSeconds)");
             Assert.IsFalse(CombatFx.WreckTracerDrawn(0.12f, 0.13f), "then it is pruned as any round is");
         }
+        [Test]
+        public void TheJetpacksFlame_HangsFromWhereHeIsDrawn_NotFromThePresentersPoint()
+        {
+            // review E.2: the presenter's y is the sim's zero, so on ground above zero the jet burned under the ground.
+            // On ground 1.2 m up: the middle of the Jet card (half its 1.2 m below his pack) and the puff (0.6 m below it)
+            var standing = new Vector3(40f, 1.2f, 30f);
+            Vector3 back = CombatFx.LeapBack(standing);
+            Assert.AreEqual(1.2f + CombatFx.LeapBackUp, back.y, 1e-5f, "his pack, over where he is drawn standing");
+            Assert.AreEqual(40f, back.x); Assert.AreEqual(30f, back.z);
+            Assert.Greater(back.y - 0.6f, standing.y, "the flame and the puff are above the ground he stands on");
+            // and the leap takes his place from drawnAt (the render ground sampled under him), not from the presenter
+            string src = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "_Project/Presentation/Camera/CombatFx.Support.cs"));
+            int from = src.IndexOf("void TickLeaps(", System.StringComparison.Ordinal);
+            Assert.GreaterOrEqual(from, 0, "CombatFx.Support.cs has no TickLeaps (renamed? this test reads it by name)");
+            int to = src.IndexOf("\n        }", from, System.StringComparison.Ordinal);
+            Assert.Greater(to, from, "TickLeaps has no end");
+            string body = src.Substring(from, to - from);
+            StringAssert.Contains("LeapBack(drawnAt(", body, "the jet is hung from where the man is drawn (drawnAt)");
+            StringAssert.DoesNotContain("Presenter.Drawn(", body, "the presenter's y is the sim's zero: on ground above zero the jet is under the ground");
+        }
     }
 }
