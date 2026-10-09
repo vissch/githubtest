@@ -20,6 +20,14 @@ namespace TW.Tests
             return MatchSim.CreateGreybox(cfg);
         }
 
+        /// <summary>[T17b] The only greybox map with two enemy-held fire trenches in reach: the one-trench map cannot
+        /// test the own-trench skip (there is nothing else for him to land on).</summary>
+        static MatchSim NewPlaytest(uint seed = 0xC0FFEE)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
+            return MatchSim.CreatePlaytest(cfg);
+        }
+
         static void Step(MatchSim m, params SimCommand[] cmds)
         {
             using var arr = new NativeArray<SimCommand>(cmds, Allocator.Temp);
@@ -62,12 +70,12 @@ namespace TW.Tests
             return t;
         }
 
-        static int Still(MatchSim m, byte team, byte archetype, float x, float z)
+        static int Still(MatchSim m, byte team, byte archetype, float x, float z, float hp = -1f)
         {
             var at = new float3(x, 0f, z);
             Assert.AreEqual(0, (int)(m.Map.LayerAt(at) & NavLayer.Trench), $"setup: ({x},{z}) must be open ground");
             var e = RosterEntry.ForArchetype(archetype);
-            return m.World.Spawn(team, archetype, at, e.Hp, 0f, false);
+            return m.World.Spawn(team, archetype, at, hp < 0f ? e.Hp : hp, 0f, false);
         }
 
         [Test]
@@ -103,26 +111,74 @@ namespace TW.Tests
             return 0;
         }
 
+        /// <summary>[T17b] Each half of the name needs something the greybox map cannot give: the cooldown half needs
+        /// a second enemy trench in reach (the greybox map has only the one he lands in, so the landing search
+        /// returns nothing whatever the cooldown and the rule is never exercised), and the "never into the trench he
+        /// holds" half needs him alive, out of melee and unpinned when the 300-tick cooldown runs out (the old test
+        /// only ran 60 ticks past touchdown, so a corpse or a man in melee satisfied the assert for free). The
+        /// playtest map's two team-1 fire trenches, 80 m apart, give both: a widened jump range reaches the far one
+        /// without beating the own-trench skip (his own trench's nearest cell is 4 m away, well under the 80 m hop).</summary>
         [Test]
         public void HeDoesNotLeapAgainUntilThePackIsReady_AndNeverInsideTheTrenchHeHolds()
+        {
+            using var m = NewPlaytest();
+            short t = m.Fields.FrontTrench(1);
+            short rear = m.Fields.RearTrench(1);
+            Assert.GreaterOrEqual(t, (short)0, "[T17b] setup: team 1 holds a front trench");
+            Assert.GreaterOrEqual(rear, (short)0, "[T17b] setup: team 1 holds a rear trench");
+            Assert.AreNotEqual(t, rear, "[T17b] setup: two distinct enemy trenches");
+            Assert.AreEqual(1, m.Fields.Trenches[t].OwnerTeam, "[T17b] setup: team 1 owns the front trench");
+            Assert.AreEqual(1, m.Fields.Trenches[rear].OwnerTeam, "[T17b] setup: team 1 owns the rear trench");
+            Assert.AreEqual(80f, math.abs(TrenchZ(m, rear) - TrenchZ(m, t)), 2f, "[T17b] setup: the map's two team-1 lines, 80 m apart");
+
+            // widen his reach past the 80 m gap: still far more than the 4 m own-trench cell, so the nearest-cell
+            // rule would still prefer his own trench first if the own-trench skip were gone
+            var spec = m.World.Units.Infantry[InfantryArchetype.Jetpack];
+            spec.JumpRange = 100f;
+            m.World.Units.Infantry[InfantryArchetype.Jetpack] = spec;
+
+            int him = Still(m, 0, InfantryArchetype.Jetpack, 120f, TrenchZ(m, t) - 15f, hp: 100000f);
+
+            // phase A: the first leap, into the trench he will come to hold
+            var log = Run(m, (int)LeapSystem.CheckEvery + 40, () => m.World.TrenchId[him] == t);
+            Assert.AreEqual(t, m.World.TrenchId[him], "[T17b] setup: he landed in the front trench");
+            Assert.AreEqual(1, Count(log, SimEventType.LeapStarted, him), "[T17b] setup: exactly one leap so far");
+            uint lt = LeapTick(log, him);
+
+            // phase B: run out the cooldown. He must still be alive, in his trench, out of melee and unpinned when
+            // it expires, or these asserts would be vacuously true no matter what the rule does.
+            log.AddRange(Run(m, (int)(lt + (uint)spec.JumpCooldownTicks - m.World.Tick) - 1));
+            Assert.AreEqual(1, Count(log, SimEventType.LeapStarted, him), "[T17b] no second leap while the pack recharges");
+            Assert.IsTrue(m.World.IsAlive(him), "[T17b] setup: he is still alive when the cooldown ends");
+            Assert.AreEqual(t, m.World.TrenchId[him], "[T17b] setup: still in the trench he holds");
+            Assert.AreEqual(0u, m.World.Flags[him] & (uint)UnitFlags.Melee, "[T17b] setup: not in melee");
+            Assert.Less(m.World.Suppression[him], SuppressionRules.PinnedThreshold, "[T17b] setup: not pinned");
+
+            // phase C: the positive control. With the pack ready he leaps again, and only ever into the OTHER enemy
+            // trench, never the one he already holds — proving the own-trench skip is what stops him, not distance.
+            var after = Run(m, (int)LeapSystem.CheckEvery + 4);
+            Assert.AreEqual(1, Count(after, SimEventType.LeapStarted, him), "[T17b] he leaps again once the pack is ready");
+            short landedIn = -1;
+            foreach (var e in after) if (e.Type == SimEventType.LeapStarted && e.A == him) landedIn = (short)e.B;
+            Assert.AreEqual(rear, landedIn, "[T17b] he leaps into the OTHER enemy trench, never the one he holds");
+            Assert.AreNotEqual(t, landedIn, "[T17b] he leaps into the OTHER enemy trench, never the one he holds");
+        }
+
+        /// <summary>[T17] Nothing hits him during the landing grace, and he lives at least 60 ticks past touchdown:
+        /// split off from the cooldown/own-trench test above, whose mended setup (an empty garrison, so the own-
+        /// trench skip can be isolated) would make these asserts vacuous.</summary>
+        [Test]
+        public void NothingTakesHimInTheLandingGraceAndHeLivesPastTouchdown()
         {
             using var m = NewMatch();
             short t = EnemyLine(m, 2);
             int him = Still(m, 0, InfantryArchetype.Jetpack, 120f, TrenchZ(m, t) - 15f);
-            var log = Run(m, 400, () => m.World.TrenchId[him] == t);
+            Run(m, 400, () => m.World.TrenchId[him] == t);
             Assert.AreEqual(t, m.World.TrenchId[him]);
-            int leaps = Count(log, SimEventType.LeapStarted, him);
-            // [T17] the run used to stop the moment he died, so "no second leap" was satisfied by a corpse. Run on
-            // without the early-out and pin that he lives well past touchdown. (Surviving the WHOLE 300-tick cooldown
-            // is not pinned: after the landing grace two riflemen are on him at point blank.)
             var grace = Run(m, InfantrySpec.For(InfantryArchetype.Jetpack).LandingGraceTicks);
             Assert.AreEqual(0, Count(grace, SimEventType.Hit, int.MinValue, him), "[T17] nothing hits him during the landing grace");
-            log = Run(m, 20);
+            Run(m, 20);
             Assert.IsTrue(m.World.IsAlive(him), "[T17] he lives at least 60 ticks past touchdown");
-            log.AddRange(grace);
-            log.AddRange(Run(m, 290));
-            Assert.AreEqual(0, Count(log, SimEventType.LeapStarted, him), "no leap while the pack recharges, and none into the trench he already holds");
-            Assert.AreEqual(1, leaps);
         }
 
         /// <summary>[C1] His own landing burst is queued at his feet and resolves the tick after touchdown, while he is
