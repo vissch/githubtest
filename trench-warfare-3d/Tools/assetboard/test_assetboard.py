@@ -68,6 +68,9 @@ def real_tree():
          assets['Breaker']['drawn_as'] == 'Maw' and assets['Officer']['drawn_as'] == 'Soldier', (assets['Breaker']['drawn_as'], assets['Officer']['drawn_as']))
     tags = assets['House0']['level_tags']
     case('real tree: the village houses are placed only where there is a river', 'ShelledForest' in tags and 'WinterLine' not in tags, tags)
+    if 'Narrows' in code['grounds']:   # [narrows-probe] built inline in MatchLaunch.Field: no river, no sea, so no village on it
+        case('real tree: the Narrows, built inline in the launch, reads as no river and no sea, and gets no village',
+             code['grounds']['Narrows'] == dict(river=False, sea=False) and 'Narrows' not in tags, (code['grounds']['Narrows'], tags))
     case('real tree: the Salvo has its sixteen rocket tubes', sum(s.startswith('Socket_Tube') for m in assets['Salvo']['models'] for s in m['sockets']) == 16)
     case('real tree: the jetpack leap is an event nothing draws', 'LeapStarted' in extra['orphan_events']
          and any(not r['ok'] for r in assets['Jetpack']['vfx']['rows']), extra['orphan_events'])
@@ -119,13 +122,26 @@ def fixtures():
     except src_code.ProbeError as e:
         case('probe: a Clip enum that no longer starts at None stops the build', 'x.cs' in str(e), e)
     # [narrows-probe] a ground is read from its preset in the sim or, when it has none, from its inline case in the launch
-    gen = 'public static BattlefieldParams Wood(uint seed) => new BattlefieldParams { Seed = seed, River = true, Sea = false };\n'
+    gen = ('public static BattlefieldParams Wood(uint seed) => new BattlefieldParams { Seed = seed, River = true, Sea = false };\n'
+           'public static BattlefieldParams Both(uint seed) => new BattlefieldParams { Seed = seed, River = true };\n')
     launch = ('switch (ground)\n{\n    case Ground.Wood: return TW.Sim.Terrain.BattlefieldParams.Wood(seed);\n'
-              '    case Ground.Ford: return new TW.Sim.Terrain.BattlefieldParams\n    {\n        Seed = seed, Width = 90f, River = true,\n    };\n'
-              '    case Ground.Flat: return new TW.Sim.Terrain.BattlefieldParams { Seed = seed, River = false, Sea = false };\n}\n')
+              '    case Ground.Ford: return new TW.Sim.Terrain.BattlefieldParams\n    {\n        Seed = seed, Width = 90f, River = true, Sea = true,\n    };\n'
+              '    case Ground.Flat: return new TW.Sim.Terrain.BattlefieldParams { Seed = seed, River = false, Sea = false };\n'
+              '    case Ground.Both: return new TW.Sim.Terrain.BattlefieldParams { Seed = seed, River = false };\n'
+              '    // case Ground.Ghost: return new TW.Sim.Terrain.BattlefieldParams { Seed = seed, River = true };\n'
+              '    case Ground.Deep: return new TW.Sim.Terrain.BattlefieldParams\n    {\n        Seed = seed, DeepSea = true,   // River = true once it is dug\n    };\n}\n')
     got = {g: src_code.ground_flags(g, gen, launch, 'gen.cs', 'launch.cs') for g in ('Wood', 'Ford', 'Flat')}
-    case('probe: [narrows-probe] a ground with no preset in the sim is read from its inline case in the launch',
-         got == dict(Wood=dict(river=True, sea=False), Ford=dict(river=True, sea=False), Flat=dict(river=False, sea=False)), got)
+    case('probe: [narrows-probe] a ground with no preset in the sim is read from its inline case in the launch, river and sea',
+         got == dict(Wood=dict(river=True, sea=False), Ford=dict(river=True, sea=True), Flat=dict(river=False, sea=False)), got)
+    got = src_code.ground_flags('Both', gen, launch, 'gen.cs', 'launch.cs')
+    case('probe: [narrows-probe] the launch speaks before a preset of the same name: it is what the game runs', got == dict(river=False, sea=False), got)
+    got = src_code.ground_flags('Deep', gen, launch, 'gen.cs', 'launch.cs')
+    case('probe: [narrows-probe] a flag in a comment, or one whose name only ends in Sea, is not the flag', got == dict(river=False, sea=False), got)
+    try:
+        src_code.ground_flags('Ghost', gen, launch, 'gen.cs', 'launch.cs')
+        case('probe: [narrows-probe] a commented-out case is no case', False, 'no ProbeError')
+    except src_code.ProbeError as e:
+        case('probe: [narrows-probe] a commented-out case is no case', 'Ghost' in str(e), e)
     try:
         src_code.ground_flags('Marsh', gen, launch, 'gen.cs', 'launch.cs')
         case('probe: [narrows-probe] a ground with neither a preset nor an inline case stops the build', False, 'no ProbeError')
