@@ -188,6 +188,18 @@ namespace TW.Tests
 
         static Vector2 Flat(Vector3 p) => new Vector2(p.x, p.z);
 
+        /// <summary>The focus the game chooses lamps by (NightLights.FocusOf) for a still CaptureRig poses at `at` with this
+        /// yaw and pitch at an ordinary zoom, where the rig aims the lens at y = 0 over `at` (CaptureRig's Pose): worked
+        /// out from that lens, so the set this tool expects follows the game's focus and not a copy of it. A flat focus
+        /// written out here did not see the game's own focus step at a trench's edge.</summary>
+        static Vector3 GameFocus(Vector2 at, float yaw, float pitch)
+        {
+            var tc = Object.FindFirstObjectByType<TacticalCamera>();
+            float baseYaw = !float.IsNaN(CaptureRig.Rig.YawPin) ? CaptureRig.Rig.YawPin : tc != null ? tc.BaseYaw : 0f;
+            Vector3 forward = Quaternion.Euler(pitch, baseYaw + yaw, 0f) * Vector3.forward;
+            return NightLights.FocusOf(new Vector3(at.x, 0f, at.y) - forward * 100f, forward);
+        }
+
         /// <summary>The nearest point of the water sheet to `from` within `reach`, or NaN.</summary>
         static Vector2 WaterNear(MapData map, Vector2 from, float reach)
         {
@@ -408,7 +420,7 @@ namespace TW.Tests
                     {
                         Vector2 f2 = st + d * (PanStep * k);
                         if (f2.x < 6f || f2.y < 6f || f2.x > size.x - 6f || f2.y > size.y - 6f) { change = -1; break; }
-                        sim.Step(night.LampPoints, isOut, null, new Vector3(f2.x, 0f, f2.y), RealLampSet.DefaultBudget, 0, PanDt);
+                        sim.Step(night.LampPoints, isOut, null, GameFocus(f2, 21f, 25f), RealLampSet.DefaultBudget, 0, PanDt);   // the pan's own yaw and pitch (below)
                         var key = new StringBuilder(); for (int i = 0; i < lamps.Count; i++) if (sim.Chosen(i)) key.Append(i).Append(',');
                         if (first == null) first = key.ToString(); else if (change < 0 && key.ToString() != first) change = k;
                     }

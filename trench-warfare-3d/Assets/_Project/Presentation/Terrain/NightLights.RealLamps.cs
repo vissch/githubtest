@@ -119,17 +119,15 @@ namespace TW.Presentation.Terrain
         /// <summary>Where a view from `lens` along `forward` meets ground that lies at height `ground`.</summary>
         public static Vector3 FocusOn(Vector3 lens, Vector3 forward, float ground) => lens + forward * ViewGround.Along(Mathf.Max(0f, lens.y - ground), forward);
 
-        /// <summary>Where a camera's view meets the ground: the middle of its picture. ViewGround's plane is y = 0 and
-        /// the ground lies above it, so the height there is taken off once.</summary>
-        Vector3 ViewFocus(Camera cam)
-        {
-            var lens = cam.transform;
-            Vector3 p = ViewGround.Point(lens);
-            var map = Host != null && Host.Local != null ? Host.Local.Map : null;
-            if (map == null) return p;
-            float ground = RenderGround.Sample(map, Mathf.Clamp(p.x, 0f, map.SizeMeters.x - 0.01f), Mathf.Clamp(p.z, 0f, map.SizeMeters.y - 0.01f));
-            return FocusOn(lens.position, lens.forward, ground);
-        }
+        /// <summary>Where a camera's view meets the ground: the middle of its picture, on ViewGround's plane y = 0, which
+        /// is the plane the tactical camera aims at. Not on the carved ground under that point: worked out from one
+        /// sample of it, the focus leapt about 4 m as the sample crossed a trench or a crater's edge, and a ninth lamp was
+        /// lit for a still (the orange sandbags).</summary>
+        Vector3 ViewFocus(Camera cam) => FocusOf(cam.transform.position, cam.transform.forward);
+
+        /// <summary>The focus of a view from `lens` along `forward`: where it meets ViewGround's plane, y = 0 (ViewGround.Point's
+        /// own arithmetic). Pure, so a test and NightLampStills work a set of lamps out from the game's own focus.</summary>
+        public static Vector3 FocusOf(Vector3 lens, Vector3 forward) => lens + forward * ViewGround.Along(lens.y, forward);
 
         /// <summary>Chooses for this camera and sets every fixed lamp's Light: on with its faded share, or off.</summary>
         void RealLampsFor(Camera cam, Vector3 focus)

@@ -470,5 +470,101 @@ namespace TW.Tests
             Assert.Less(NightLights.PoolKey(true, false, 1600f, 400f, 13f), NightLights.PoolKey(true, false, 1600f, 400f, r));
             Assert.Greater(NightLights.OutOfPicture, 600f * 600f, "more than any distance on a field, squared");
         }
+
+        /// <summary>The lamps chosen at each still of a view walking 3 m forward over `map`, a quarter metre a still, by
+        /// the focus NightLights itself works out for the camera (ViewFocus, called by name); and the largest step the
+        /// focus took between two stills.</summary>
+        static List<string> WalkTheView(MapData map, List<Vector3> at, out float largestStep)
+        {
+            var hostGo = new GameObject("host under test") { hideFlags = HideFlags.DontSave }; hostGo.SetActive(false);
+            var go = new GameObject("night lights under test") { hideFlags = HideFlags.DontSave }; go.SetActive(false);
+            var camGo = new GameObject("lens under test") { hideFlags = HideFlags.DontSave };
+            var host = hostGo.AddComponent<SimHost>();
+            var local = typeof(SimHost).GetProperty("Local");
+            try
+            {
+                // a host whose match has this map and nothing else: a focus that reads the ground reads Host.Local.Map
+                Assert.IsNotNull(local, "SimHost.Local (renamed? this test sets it by name)");
+                var match = (TW.Sim.Match.MatchSim)System.Runtime.Serialization.FormatterServices.GetUninitializedObject(typeof(TW.Sim.Match.MatchSim));
+                match.Map = map;
+                local.GetSetMethod(true).Invoke(host, new object[] { match });
+                var lights = go.AddComponent<NightLights>();
+                lights.Host = host;
+                var cam = camGo.AddComponent<Camera>();
+                cam.enabled = false;
+                var rot = Quaternion.Euler(25f, 0f, 0f);   // the play view's pitch, looking up the field
+                var s = new RealLampSet(); var sets = new List<string>();
+                largestStep = 0f; Vector3 before = Vector3.zero;
+                for (int k = 0; k <= 12; k++)
+                {
+                    cam.transform.SetPositionAndRotation(new Vector3(40f, 30f, -6f + 0.25f * k), rot);
+                    var focus = (Vector3)Call(lights, "ViewFocus", cam);
+                    if (k > 0) largestStep = Mathf.Max(largestStep, new Vector2(focus.x - before.x, focus.z - before.z).magnitude);
+                    before = focus;
+                    s.Step(at, null, null, focus, 8, 0, 0.1f);
+                    sets.Add(string.Join(",", ChosenOf(s)));
+                }
+                return sets;
+            }
+            finally
+            {
+                if (local != null) local.GetSetMethod(true).Invoke(host, new object[] { null });   // the host never built that match: it must not dispose it
+                Object.DestroyImmediate(camGo); Object.DestroyImmediate(go); Object.DestroyImmediate(hostGo);
+            }
+        }
+
+        [Test]
+        public void TheFocus_DoesNotStepWithTheGroundUnderIt_ATrenchEdgeLightsNoNinthLamp()
+        {
+            // review NL.1 (the orange sandbags): the focus was worked out from one sample of the carved ground, so it leapt
+            // about 4 m as that sample crossed a trench 2 m deep, and a ninth lamp was chosen for the stills it sat in.
+            // Level ground 2 m above y = 0, 120 m square; in one of the two fields a trench across it, its floor at y = 0
+            // under z 59 to 60: the view's y = 0 point (64.3 m ahead of the lens at pitch 25) walks through it.
+            MapData Ground(bool trench)
+            {
+                var map = new MapData(0, new float2(120f, 120f), Allocator.Persistent);
+                float cell = map.Height.CellSize;
+                for (int z = 0; z < map.Height.Length; z++)
+                for (int x = 0; x < map.Height.Width; x++)
+                    map.Height.Cm[map.Height.Index(x, z)] = (short)(trench && z * cell >= 59f && z * cell <= 60f ? 0 : 200);
+                return map;
+            }
+            // seven lamps under the view, then two for the eighth place: lamp 7 at z 36 and lamp 8 at z 80, so lamp 8 is
+            // the nearer once the focus is past z 58 and takes the place from lamp 7 once it is past z 59 (KeepMetres);
+            // the other 34 far off
+            var at = new List<Vector3>();
+            for (int i = 0; i < 7; i++) at.Add(new Vector3(37f + i, 3.5f, 58f));
+            at.Add(new Vector3(40f, 3.5f, 36f)); at.Add(new Vector3(40f, 3.5f, 80f));
+            for (int i = 0; i < 34; i++) at.Add(new Vector3(100f + (i % 6) * 3f, 3.5f, 100f + (i / 6) * 3f));
+            MapData level = Ground(false), dug = Ground(true);
+            try
+            {
+                Assert.AreEqual(2f, RenderGround.Sample(level, 40f, 59.5f), 0.01f, "the level field");
+                Assert.Less(RenderGround.Sample(dug, 40f, 59.5f), 0.6f, "the trench is in the walk's way");
+                // this field can show the fault: a focus worked out from the ground sampled under the view (as it was)
+                // keeps lamp 7 over level ground, and is thrown 4 m on by the trench, onto lamp 8
+                List<string> Stepping(MapData map)
+                {
+                    var s = new RealLampSet(); var sets = new List<string>();
+                    Vector3 forward = Quaternion.Euler(25f, 0f, 0f) * Vector3.forward;
+                    for (int k = 0; k <= 12; k++)
+                    {
+                        var lens = new Vector3(40f, 30f, -6f + 0.25f * k);
+                        Vector3 p = NightLights.FocusOf(lens, forward);
+                        s.Step(at, null, null, NightLights.FocusOn(lens, forward, RenderGround.Sample(map, p.x, p.z)), 8, 0, 0.1f);
+                        sets.Add(string.Join(",", ChosenOf(s)));
+                    }
+                    return sets;
+                }
+                CollectionAssert.AreNotEqual(Stepping(level), Stepping(dug), "this field does not show the fault: a focus that steps with the ground should light another lamp over the trench");
+                // the game's own focus, over both fields
+                var onLevel = WalkTheView(level, at, out float levelStep);
+                var overTrench = WalkTheView(dug, at, out float trenchStep);
+                CollectionAssert.AreEqual(onLevel, overTrench, "the trench under the view changes no lamp: the same eight at every still as over level ground");
+                Assert.AreEqual(0.25f, levelStep, 0.01f, "over level ground the focus moves as the lens does");
+                Assert.AreEqual(0.25f, trenchStep, 0.01f, "and over the trench too: it does not leap as the ground under it steps");
+            }
+            finally { level.Dispose(); dug.Dispose(); }
+        }
     }
 }
