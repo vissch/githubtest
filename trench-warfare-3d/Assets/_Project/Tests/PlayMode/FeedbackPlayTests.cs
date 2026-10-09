@@ -81,7 +81,10 @@ namespace TW.Tests
             yield return null;
             Assert.That(router.Host, Is.SameAs(host), "the test's rig: the router did not find the host");
             Assert.That(router.Clock, Is.Not.Null);
-            for (int i = 0; i < 600 && host.Local.World.AliveCount == 0; i++) yield return null;
+            // seconds, not frames: SimHost no longer owes the sim the time a slow frame could not pay (review fix
+            // "a pause stops the sim's ticks"), so 600 fast batch frames can pass before the first deploy's tick
+            float until = Time.realtimeSinceStartup + 20f;
+            while (host.Local.World.AliveCount == 0 && Time.realtimeSinceStartup < until) yield return null;
             Assert.That(host.Local.World.AliveCount, Is.GreaterThan(0), "the test's rig: nobody came onto the field, so a count of them would prove nothing");
             ready(host, router, shots);
         }
