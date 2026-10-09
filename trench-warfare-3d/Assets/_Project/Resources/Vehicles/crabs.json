@@ -778,7 +778,8 @@
       "Foot_L2",
       "Foot_R1",
       "Foot_R2",
-      "Gun",
+      "Gun_Lower",
+      "Gun_Upper",
       "Hull",
       "Shin_L1",
       "Shin_L2",
@@ -787,7 +788,8 @@
       "Thigh_L1",
       "Thigh_L2",
       "Thigh_R1",
-      "Thigh_R2"
+      "Thigh_R2",
+      "Turret"
      ],
      "verts": 1021,
      "tris": 1745
@@ -800,7 +802,8 @@
       "Foot_L2",
       "Foot_R1",
       "Foot_R2",
-      "Gun",
+      "Gun_Lower",
+      "Gun_Upper",
       "Hull",
       "Shin_L1",
       "Shin_L2",
@@ -809,10 +812,11 @@
       "Thigh_L1",
       "Thigh_L2",
       "Thigh_R1",
-      "Thigh_R2"
+      "Thigh_R2",
+      "Turret"
      ],
-     "verts": 663,
-     "tris": 1045
+     "verts": 662,
+     "tris": 1044
     }
    ],
    "size_m": [
@@ -821,80 +825,90 @@
     3.3983
    ],
    "pivots": {
-    "Thigh_R1": [
-     0.152,
-     0.6632,
-     -0.4779
-    ],
-    "Shin_R1": [
-     0.6525,
-     0.745,
-     -0.8215
-    ],
-    "Foot_R1": [
-     0.9001,
-     0.29,
-     -0.9598
-    ],
-    "Thigh_R2": [
-     0.178,
-     0.607,
-     0.083
-    ],
-    "Shin_R2": [
-     0.5885,
-     0.952,
-     0.471
-    ],
-    "Foot_R2": [
-     0.8124,
-     0.44,
-     0.7435
-    ],
-    "Thigh_L1": [
-     -0.152,
-     0.6632,
-     -0.4779
-    ],
-    "Shin_L1": [
-     -0.6525,
-     0.745,
-     -0.8215
-    ],
-    "Foot_L1": [
-     -0.9001,
-     0.29,
-     -0.9598
-    ],
-    "Thigh_L2": [
-     -0.178,
-     0.607,
-     0.083
-    ],
-    "Shin_L2": [
-     -0.5885,
-     0.952,
-     0.471
-    ],
-    "Foot_L2": [
-     -0.8124,
-     0.44,
-     0.7435
-    ],
     "Hull": [
      -0.0,
      0.0,
      -0.0
     ],
-    "Gun": [
+    "Turret": [
      -0.0,
-     1.201,
+     0.6907,
      -0.0
     ],
     "Banner": [
      0.293,
      2.6961,
      -1.1364
+    ],
+    "Thigh_R1": [
+     0.152,
+     0.6632,
+     -0.4779
+    ],
+    "Thigh_R2": [
+     0.178,
+     0.607,
+     0.083
+    ],
+    "Thigh_L1": [
+     -0.152,
+     0.6632,
+     -0.4779
+    ],
+    "Thigh_L2": [
+     -0.178,
+     0.607,
+     0.083
+    ],
+    "Shin_R1": [
+     0.6525,
+     0.745,
+     -0.8215
+    ],
+    "Shin_R2": [
+     0.5885,
+     0.952,
+     0.471
+    ],
+    "Shin_L1": [
+     -0.6525,
+     0.745,
+     -0.8215
+    ],
+    "Shin_L2": [
+     -0.5885,
+     0.952,
+     0.471
+    ],
+    "Foot_R1": [
+     0.9001,
+     0.29,
+     -0.9598
+    ],
+    "Foot_R2": [
+     0.8124,
+     0.44,
+     0.7435
+    ],
+    "Foot_L1": [
+     -0.9001,
+     0.29,
+     -0.9598
+    ],
+    "Foot_L2": [
+     -0.8124,
+     0.44,
+     0.7435
+    ],
+    "Gun_Upper": [
+     -0.0002,
+     2.0454,
+     -0.8442
+    ],
+    "Gun_Lower": [
+     0.0706,
+     1.548,
+     -0.22
     ]
    },
    "sockets": {
@@ -931,7 +945,7 @@
      ]
     },
     "Socket_Muzzle": {
-     "part": "Gun",
+     "part": "Gun_Lower",
      "pos": [
       -0.0,
       1.5556,
@@ -964,20 +978,22 @@
     }
    },
    "parents": {
-    "Thigh_R1": "Hull",
-    "Shin_R1": "Thigh_R1",
-    "Foot_R1": "Shin_R1",
-    "Thigh_R2": "Hull",
-    "Shin_R2": "Thigh_R2",
-    "Foot_R2": "Shin_R2",
-    "Thigh_L1": "Hull",
-    "Shin_L1": "Thigh_L1",
+    "Gun_Upper": "Turret",
+    "Gun_Lower": "Turret",
+    "Banner": "Turret",
     "Foot_L1": "Shin_L1",
-    "Thigh_L2": "Hull",
-    "Shin_L2": "Thigh_L2",
     "Foot_L2": "Shin_L2",
-    "Banner": "Hull",
-    "Gun": "Hull"
+    "Foot_R1": "Shin_R1",
+    "Foot_R2": "Shin_R2",
+    "Turret": "Hull",
+    "Shin_L1": "Thigh_L1",
+    "Shin_L2": "Thigh_L2",
+    "Shin_R1": "Thigh_R1",
+    "Shin_R2": "Thigh_R2",
+    "Thigh_L1": "Hull",
+    "Thigh_L2": "Hull",
+    "Thigh_R1": "Hull",
+    "Thigh_R2": "Hull"
    },
    "legs": [
     "Thigh_L1",
@@ -1007,8 +1023,16 @@
       "off_parent": -0.0256,
       "off_own": -0.0668
      },
+     "Gun_Lower": {
+      "off_parent": -0.1726,
+      "off_own": -0.0819
+     },
+     "Gun_Upper": {
+      "off_parent": 0.0,
+      "off_own": 0.0
+     },
      "Shin_L1": {
-      "off_parent": -0.0939,
+      "off_parent": -0.0938,
       "off_own": 0.086
      },
      "Shin_L2": {
@@ -1038,6 +1062,10 @@
      "Thigh_R2": {
       "off_parent": -0.0286,
       "off_own": -0.0844
+     },
+     "Turret": {
+      "off_parent": -0.1885,
+      "off_own": 0.0083
      }
     }
    }
