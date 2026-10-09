@@ -150,7 +150,7 @@ whose execute leg waited on another checkout's editor and ended its turn "to wai
 **One more turn for a leg that owes its report.** A leg's verdict is the first line of its report that starts with
 `RESULT` (words above it do not hide it). A working leg whose session ends cleanly with no such line, most often
 because it stopped to wait, is given one more turn in the same session (`claude -p --resume`), told that the turn's
-end was the leg's end and to finish and report; `resume.txt` in the leg's folder holds those words. One extra
+end was the leg's end and to finish and report; the file resume.txt in the leg's folder holds those words. One extra
 turn, never two; not at red, not for a leg that only reads, not with under two minutes left. Both turns are paid
 for: the leg's cost and turns are the sum of its result records, and its record says `resumed: 1`.
 `$R proof report` shows it on a real leg.
