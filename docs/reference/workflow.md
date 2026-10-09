@@ -661,3 +661,6 @@ finished or its method has moved into the docs, mark it `done` or `replace` it w
 - **Any other agent:** name its model in the call. Search and listing: `sonnet`. Planning, judging, fixing: `opus`.
   An agent with no model named runs on the session's, whatever that is (28 of 38 planning agents ran on the
   dearest model that way).
+- **An agent of another vendor** (Codex, Grok Build) starts from `AGENTS.md` at the repo root: a pointer to
+  `CLAUDE.md`, capped at 40 lines, that says how to use the skills and these three agents without Claude Code.
+  `python Tools/test_agents_md.py` holds that page, and the two tools that know its name, to it.

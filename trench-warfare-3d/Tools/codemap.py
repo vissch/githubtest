@@ -20,11 +20,11 @@ WHAT --check FAILS ON
     that no longer exists
   * a runtime switch (command-line arg, PlayerPrefs/EditorPrefs key, environment variable) with no line in
     FLAG_EFFECT
-  * a file cited in backticks in CLAUDE.md or docs/reference/*.md (except the dated log) that does not exist,
-    or a `File.cs:NN` whose line is past the end of the file
+  * a file cited in backticks in CLAUDE.md, AGENTS.md or docs/reference/*.md (except the dated log) that does
+    not exist, or a `File.cs:NN` whose line is past the end of the file
   * a test file, or a SceneHooks member, that docs/reference/tasks.md never names outside its generated blocks
   * a Tools/*.py script or `tw` subcommand that neither pipelines.md nor workflow.md names
-  * docs/reference/agent-memory.md over 150 lines, or CLAUDE.md over 110
+  * docs/reference/agent-memory.md over 150 lines, CLAUDE.md over 110, or AGENTS.md over 40
 """
 from __future__ import annotations
 
@@ -47,9 +47,11 @@ WORKFLOW = REF / 'workflow.md'
 PIPELINES = REF / 'pipelines.md'
 MEMORY = REF / 'agent-memory.md'
 CLAUDE = REPO / 'CLAUDE.md'
+AGENTS = REPO / 'AGENTS.md'      # what an agent of another vendor reads first: a pointer to CLAUDE.md, not a copy
 
 MEMORY_MAX_LINES = 150
 CLAUDE_MAX_LINES = 110
+AGENTS_MAX_LINES = 40
 
 # ---- hand-maintained tables -------------------------------------------------------------------------------------
 
@@ -493,7 +495,7 @@ def resolve(token: str):
 
 
 def check_citations(errors):
-    docs = [CLAUDE, REPO / 'docs' / 'README.md'] + sorted(p for p in REF.glob('*.md') if p != MEMORY)
+    docs = [CLAUDE, AGENTS, REPO / 'docs' / 'README.md'] + sorted(p for p in REF.glob('*.md') if p != MEMORY)
     for doc in docs:
         if not doc.exists():
             continue
@@ -525,6 +527,20 @@ def check_citations(errors):
                     last = int(m.group(2) or m.group(1))
                     if not any(h.is_file() and last <= len(read(h).splitlines()) for h in hits):
                         errors.append(f'{rel(doc, REPO)}:{ln}: cites `{tok}`, past the end of the file')
+
+
+def check_caps(errors):
+    if MEMORY.exists():
+        n = len(read(MEMORY).rstrip('\n').split('\n'))
+        if n > MEMORY_MAX_LINES:
+            errors.append(f'agent-memory.md is {n} lines (cap {MEMORY_MAX_LINES}). Move facts to their reference page, '
+                          'fold or delete old incidents.')
+    for doc, cap, why in ((CLAUDE, CLAUDE_MAX_LINES, 'it is read by every session, keep it short'),
+                          (AGENTS, AGENTS_MAX_LINES, 'it points at CLAUDE.md and copies none of it, keep it a pointer')):
+        if doc.exists():
+            n = len(read(doc).rstrip('\n').split('\n'))
+            if n > cap:
+                errors.append(f'{doc.name} is {n} lines (cap {cap}): {why}')
 
 
 def check(errors, warnings):
@@ -591,17 +607,7 @@ def check(errors, warnings):
     for sub in re.findall(r'^  (\w+)\)', tw, re.M):
         if not re.search(r'\btw ' + re.escape(sub) + r'\b', tool_docs):
             errors.append(f'`tw {sub}` is in neither pipelines.md nor workflow.md')
-
-    if MEMORY.exists():
-        n = len(read(MEMORY).rstrip('\n').split('\n'))
-        if n > MEMORY_MAX_LINES:
-            errors.append(f'agent-memory.md is {n} lines (cap {MEMORY_MAX_LINES}). Move facts to their reference page, '
-                          'fold or delete old incidents.')
-    if CLAUDE.exists():
-        text = read(CLAUDE)
-        n = len(text.rstrip('\n').split('\n'))
-        if n > CLAUDE_MAX_LINES:
-            errors.append(f'CLAUDE.md is {n} lines (cap {CLAUDE_MAX_LINES}): it is read by every session, keep it short')
+    check_caps(errors)
 
 
 def main():

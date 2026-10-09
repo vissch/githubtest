@@ -71,7 +71,7 @@ EVERYTHING_SUFFIXES = ('.asmdef', '.asmref', '.rsp', '.dll')
 SAFE_PREFIXES = (P + 'Presentation/', P + 'UI/', P + 'Editor/', P + 'Perf/', P + 'Resources/', P + 'Art/',
                  P + 'Shaders/', P + 'Settings/', P + 'Scenes/', P + 'Playground/', P + 'Tests/',
                  'trench-warfare-3d/Tools/', 'docs/', '.claude/', '.github/', 'github-test1/')
-SAFE_FILES = ('CLAUDE.md', 'README.md', 'trench-warfare-3d/validate.py')
+SAFE_FILES = ('CLAUDE.md', 'AGENTS.md', 'README.md', 'trench-warfare-3d/validate.py')
 
 
 def modules(root=ROOT):
