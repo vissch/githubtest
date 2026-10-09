@@ -713,7 +713,7 @@ def watcher():
             raise RuntimeError("can't start new thread")
         if len(calls) == 3:
             raise KeyboardInterrupt
-        return dict(now='then', counts=dict(sessions=0, machines=0, ready=0, idle=0), queue=dict(count=0, agents=0), notes=0, tasks=dict(left=4, queued=0), roster=[]), False
+        return dict(now='then', counts=dict(sessions=0, machines=0, ready=0, idle=0), queue=dict(count=0, agents=0), notes=0, tasks=dict(left=4, queued=0), runs=dict(runs=3, waits=1, going=0), roster=[]), False
     ops.once, ops.page, ops.notes.serve, ops.time.sleep, ops.site_version, ops.traceback.print_exc = once, lambda *a: None, lambda *a, **k: (None, 'k'), slept.append, lambda: ops.SITE['v'], lambda: said.append('trace')
     try:
         ops.main(['--watch', '20', '--out', str(TMP / 'watch-site')])

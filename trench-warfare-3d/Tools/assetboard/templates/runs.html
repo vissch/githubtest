@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Runs{% endblock %}
+{% block bodyclass %}overview runs{% endblock %}
+{% block head %}<link rel="stylesheet" href="decide.css"><link rel="stylesheet" href="runs.css">{% endblock %}
+{% block main %}
+{# The relay's last runs (src_runs.py reads them off the pipeline board, runs.js and runsboard.js draw them): a card
+   each, the newest first, with what was done and what is left (written by the run reader, runreport.py, once the run
+   has ended), what the run leaves for him (its briefs as the Decide page's own cards, so he decides here), and its
+   units with the agent that worked each and every leg's own words a click deeper. The strip has a bar a run. What is
+   wrong with the reading itself (it failed, it is old) stands above the cards in #r-warn. #}
+<section class="k-office r-page" id="runs">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Runs</p>
+    <h2>What the relay did, <span class="k-soft">run by run, and what it left for you.</span></h2>
+    <p class="r-count" id="r-count" aria-live="polite">reading the runs…</p>
+  </header>
+  <div class="r-warn" id="r-warn" role="status" hidden></div>
+  <div class="r-bar-row">
+    <div class="r-strip" id="r-strip" aria-label="The runs, oldest on the left: a bar is as tall as the run's cost"></div>
+    <p class="r-key"><span><i class="r-k-you"></i>waits on you</span><span><i class="r-k-ok"></i>all passed</span><span><i class="r-k-bad"></i>a unit failed or is blocked</span><span><i class="r-k-going"></i>going</span></p>
+    <button class="r-only" id="r-only" type="button" aria-pressed="false" hidden>Only what needs you</button>
+  </div>
+  <div class="r-board" id="r-board"></div>
+  <p class="r-foot" id="r-foot"></p>
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/briefs.js"></script><script src="data/runs.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="runs.js"></script><script src="runsboard.js"></script>{% endblock %}

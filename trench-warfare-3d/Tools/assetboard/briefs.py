@@ -155,10 +155,11 @@ def keep(src: Path, dst: Path):
     return dst
 
 
-def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid=''):
+def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='', about='', lane='', by='', now=None, bid='', raised_by=None):
     """Write a brief and return it. `evidence` is [(path, caption)]; the first option is the one the writer would take.
     A brief that is not short, shows nothing without saying why, or names a file that is not there, is a ValueError
-    that says every reason."""
+    that says every reason. `raised_by` is the relay run a brief comes from, {run, unit, leg}: the Runs page lists the
+    brief under that run (src_runs.py), which a brief with no such stamp can only be guessed onto."""
     evidence = list(evidence)
     bad = check(title, what_for, options, why, evidence, no_evidence)
     if bad:
@@ -179,6 +180,8 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
     b = dict(id=bid, title=one(title), asked=f'{now:%Y-%m-%d %H:%M}', by=one(by), lane=one(lane), about=one(about), state='open',
              what_for=one(what_for), options=[dict(key='ABCD'[i], text=one(o)) for i, o in enumerate(options)], pick='A', why=one(why),
              evidence=shown, no_evidence=one(no_evidence))
+    if raised_by and raised_by.get('run'):
+        b['raised_by'] = dict(run=one(raised_by['run']), unit=one(raised_by.get('unit')), leg=int(raised_by.get('leg') or 0))
     home.mkdir(parents=True, exist_ok=True)
     (home / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     return b
@@ -651,12 +654,15 @@ def main(argv=None):
     ap.add_argument('--about', default='', help='the title of the question in decisions.md this brief is for')
     ap.add_argument('--lane', default='')
     ap.add_argument('--by', default='')
+    ap.add_argument('--run', default='', help='add: the relay run this decision comes from (its name, as the Runs page lists it), with --run-unit and --run-leg when one unit or leg raised it')
+    ap.add_argument('--run-unit', default='')
+    ap.add_argument('--run-leg', type=int, default=0)
     a = ap.parse_args(argv)
     where = folder()
     try:
         if a.what == 'add':
             ev = [(e.rsplit('=', 1) + [''])[:2] for e in a.evidence]
-            b = add(where, a.title, a.what_for, a.option, a.why, ev, a.no_evidence, a.about, a.lane, a.by)
+            b = add(where, a.title, a.what_for, a.option, a.why, ev, a.no_evidence, a.about, a.lane, a.by, raised_by=dict(run=a.run, unit=a.run_unit, leg=a.run_leg) if a.run else None)
             print(f'briefs: {b["id"]} is written, in {where}')
         elif a.what == 'answer':
             if len(a.args) < 2:

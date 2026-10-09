@@ -48,11 +48,13 @@ import briefs     # noqa: E402
 import build      # noqa: E402
 import ideas      # noqa: E402
 import notes      # noqa: E402
+import runreport  # noqa: E402
 import src_git    # noqa: E402
 import src_graphs  # noqa: E402
 import src_ops    # noqa: E402
 import src_queue  # noqa: E402
 import src_relay  # noqa: E402
+import src_runs   # noqa: E402
 import src_visuals  # noqa: E402
 import taskbrief  # noqa: E402
 import tasks      # noqa: E402
@@ -99,10 +101,10 @@ def page(out: Path, meta):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
-    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html'):
+    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
     for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
-                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'site.css', 'kinetic.css'):
+                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -330,6 +332,38 @@ def the_tasks(out: Path, q, his, watching):
         return dict(left=0, queued=0, captures=0)
 
 
+REPO_PAGE = {}          # the repo's page on GitHub, asked of git once: a lane's and a commit's link on the Runs page hang under it
+
+
+def the_runs(out: Path, every, his, watching):
+    """The relay's last runs, for this reading (src_runs.py), in the site as data/runs.js. Only the watcher starts the
+    agent that writes an ended run up (runreport.py) and answers his note that asked for one: a session that reads the
+    floor once starts nothing. Runs that do not read are no reason to have no site."""
+    try:
+        board, where = board_root(), runreport.folder()
+        shown = [b['id'] for b in briefs.shown(every)]
+        R = src_runs.read(board, every, runreport.read_all(where), shown)
+        s = runreport.tick(R, where, board=board, every_note=his, notes_where=notes.folder()) if watching else None
+        if s and s['last']:
+            print(f'runs: a reading {"wrote the report of" if s["last"]["made"] else "wrote NO report of"} {s["last"]["run"]} for ${s["last"]["usd"]}, {s["last"]["briefs"]} briefs' + (f' ({s["last"]["why"]})' if s['last']['why'] else ''), flush=True)
+            R = src_runs.read(board, briefs.read_all(briefs.folder()), runreport.read_all(where), shown)        # what it wrote is on the page this reading
+        R['reading'] = {k: s[k] for k in ('running', 'waiting', 'left', 'off')} if s else None
+        if 'url' not in REPO_PAGE:
+            REPO_PAGE['url'] = taskbrief.origin()
+        R['repo'] = REPO_PAGE['url']
+        runreport.dress(R, where, out)
+        src_runs.site(R, out)
+        ran = [r for r in R['runs'] if not r['empty']]
+        return dict(runs=len(ran), waits=sum(r['waits'] for r in ran), going=sum(1 for r in ran if r['state'] == 'going'))
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the runs were not read ({type(e).__name__}: {e})', flush=True)
+        try:
+            src_runs.failed(out, f'{type(e).__name__}: {e}')    # the page says its runs are from the reading before
+        except Exception as e2:      # noqa: BLE001
+            print(f'ops: and the page could not be told so ({type(e2).__name__}: {e2})', flush=True)
+        return dict(runs=0, waits=0, going=0)
+
+
 def once(out: Path, watching=False):
     data = src_ops.collect(build.REPO, out, share=watching)      # a watcher is this station's voice: its floor goes where the other station reads it
     ready_since(data, out / 'data' / 'ready-since.json')
@@ -339,12 +373,13 @@ def once(out: Path, watching=False):
     got = briefs.answers(every, his)
     data['queue'] = queue(data, out, answers=got, all_briefs=every, all_notes=his)
     data['tasks'] = the_tasks(out, data['queue'], his, watching)
+    data['runs'] = the_runs(out, every, his, watching)          # after the tasks: their reading has fetched the pipeline board
     graphs(data, out, all_briefs=every, answers=got)
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
-    body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes', 'tasks')}, sort_keys=True, default=str)
+    body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes', 'tasks', 'runs')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'
     if old.exists() and body in old.read_text(encoding='utf-8'):
         return data, False
@@ -385,7 +420,7 @@ def main(argv=None):
             time.sleep(args.watch)
             continue
         c = data['counts']
-        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {data["tasks"]["left"]} tasks left unfinished, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
+        print(f'{data["now"]}  {data["queue"]["count"]} wait on the owner, {data["queue"].get("agents", 0)} on an agent, {data["notes"]} notes open, {data["tasks"]["left"]} tasks left unfinished, {data["runs"]["waits"]} things from the last {data["runs"]["runs"]} relay runs wait on him, {c["sessions"]} sessions and {c["machines"]} machines at work, {c["ready"]} stages ready, '
               f'{c["idle"]} of {len(data["roster"])} skills and agents idle{"" if changed else " (no change)"}', flush=True)
         if not args.watch:
             return 0

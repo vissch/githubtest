@@ -1537,7 +1537,7 @@ def control():
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'crew.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('control: a page with several live parts reads the floor once every 20 seconds for all of them, each file once, and then every part draws',
-         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/tasks.js', 'data/ops.js']], (got, p.stderr[-300:]))
+         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/tasks.js', 'data/runs.js', 'data/ops.js']], (got, p.stderr[-300:]))
 
 
 def decisions():
