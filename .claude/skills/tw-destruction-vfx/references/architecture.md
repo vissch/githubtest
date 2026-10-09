@@ -739,7 +739,7 @@ EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_
 
 ## Owner questions: never build without asking
 
-These are the open items (`decisions.md:72-96`; ask with AskUserQuestion, then move the answer up):
+These are the open items (`decisions.md:72-96`; ask the owner in the chat, in Claude Code with AskUserQuestion, then move the answer up):
 - "**Sim protection from shelters:** map-generator shelter positions, or trench-bay protection? `NavLayer.Bunker` is never set today." (`:75`)
 - "**Do houses give sim cover?** Needs a hash change." (`:76`)
 - "**Where the ruins set goes.** It is cut, imported and tested, and nothing places it." (`:77`)

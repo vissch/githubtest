@@ -17,7 +17,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **Owner decision procedure** (:80-81): "commit it alone (only `decisions.md`), cherry-pick it onto a `lane/show/decision-<date>-<topic>` off origin's integration branch, `land.py`, then delete it here and on origin."
 - **Gate** (:84-92): `powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 [-EditOnly]` from the repo root. SIM changes also need the determinism, replay and hash tests; SHOW changes need a look in Play.
 - **Asking and remembering** (:94-102):
-  - Use AskUserQuestion with one decision per question, written into `decisions.md` in the same turn.
+  - Ask the owner in the chat (in Claude Code: AskUserQuestion) with one decision per question, written into `decisions.md` in the same turn.
   - With nobody to ask: add it to the open questions with a default, and do not land on it.
   - Inbox: `docs/inbox/<date>-<to>-<topic>.md` (`<to>` like `show-aosa`, or `all`). The receiver deletes it.
   - `agent-memory.md` is capped at 150 lines (currently 139).

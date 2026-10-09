@@ -54,7 +54,9 @@ its row when that line is on integration).
 
 Three of these jobs are also agents a session starts by name (`.claude/agents/`), each with its model and its
 skill fixed: `tw-critic` (a critic round, Opus), `tw-reviewer` (a review unit or a second reader, Opus), `tw-scout`
-(search and mapping, Sonnet). Start those, not a general agent with a prompt written fresh.
+(search and mapping, Sonnet). Start those, not a general agent with a prompt written fresh. Opus and Sonnet are
+Claude Code's models, and starting by name is its way: a tool with no named agents reads the file in
+`.claude/agents/` and takes that role in a fresh session, on its nearest model (`AGENTS.md` at the repo root).
 
 ## The learning loop (Brief 2 §B5; every role runs it)
 "Allways make loops of learning and improving" (the owner). Lessons live in **one file**, `tw3d-board/lessons.md`: one

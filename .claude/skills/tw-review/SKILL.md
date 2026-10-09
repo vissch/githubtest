@@ -70,7 +70,9 @@ A FAIL names the exact line and what is wrong there.
 
 ## 3. For whoever starts the reviewer
 
-- One reviewer per unit of about 3,000 lines, two at a time. Start it as the agent `tw-reviewer`.
+- One reviewer per unit of about 3,000 lines, two at a time. Start it as its own agent (in Claude Code: the agent
+  `tw-reviewer`; a tool with no named agents reads `.claude/agents/tw-reviewer.md` and takes that role in a fresh
+  session).
 - Brief it for **correctness**. A brief that asked a reviewer to hunt for "bypasses" of the guards was ended by the
   service's safeguards half way through its report.
 - Write each report to a file the moment it arrives, then re-read every P0 and P1 at its line yourself.

@@ -17,7 +17,7 @@ The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations
 2. Show it, then wait for the owner's remark.
 3. **Restate the remark in one sentence** and name the **earliest stage it affects**. Ask the owner to confirm the wording.
 4. `python trench-warfare-3d/Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words, verbatim>" --check "<a measurable check>"`. The stage and everything after it go STALE and re-run.
-5. A decision only the owner can make: AskUserQuestion, one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
+5. A decision only the owner can make: ask him in the chat (in Claude Code: AskUserQuestion), one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
 
 ## Landing a lane (only when the owner says so)
 When the owner says so, first write `approvals/<lane>.json` on the board (`lane`, `date`, `words`: theirs, verbatim), so

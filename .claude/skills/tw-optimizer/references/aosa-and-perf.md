@@ -148,7 +148,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Release main p95 is noise-bound: judge CPU on dev `per_tick_ms` and p50, GPU on release p95 (:46-49).
 - A player build churns three URP assets; `git checkout --` them (:77-79).
 - `occ.py` single-assembly builds compile against old dlls; use `--changed` (:88-90).
-- Critics must run in the foreground (`run_in_background: false`) (:110-114).
+- Critics must run in the foreground: wait for the critic's report before going on (in Claude Code: `run_in_background: false`) (:110-114).
 - Split whatever `pick` marks SPLIT first (:116-119).
 - Parts that pass alone fail together; test the exact set that ships (:123-127).
 - Measure figure/ground before the critic on a shared-look change (:129-135).

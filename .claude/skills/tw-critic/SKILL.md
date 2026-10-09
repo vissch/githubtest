@@ -95,8 +95,9 @@ scale to 100, show that sum in RUBRIC and name cost under COULD NOT JUDGE; it is
 ## 5. Running the loop (not for a relay leg)
 `/improve-loop <role> <item> --target 85 --rounds 3` is a request for the six steps in
 `references/critic-and-scoreboards.md`, "Running the loop by hand"; no script has that name. In short: noise floor
-first, a blind critic in the foreground, every top-3 line answered or rebutted, **keep the best round, not the
-last**, ask the owner after 2 rounds with no gain. For pipeline jobs the relay runs the rounds by script.
+first, a blind critic in the foreground (you wait for its paper before you go on), every top-3 line answered or
+rebutted, **keep the best round, not the last**, ask the owner after 2 rounds with no gain. For pipeline jobs the
+relay runs the rounds by script.
 
 ## Learning loop
 The same for every role: `../pipeline/SKILL.md`, "The learning loop". For the critic, step 0 is the role's lines in

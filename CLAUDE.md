@@ -93,7 +93,7 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
 (EditMode; most are Long, so the full gate). SHOW changes also need a look in Play at what changed. Test modules, the Long tier (a test over 3 s: `[Category("Long")]`), what `-EditOnly` skips, false reds: `workflow.md`, section 5.
 
 ## Asking and remembering
-- **A decision only the owner can make:** AskUserQuestion, one decision per question. Write the answer into
+- **A decision only the owner can make:** ask in the chat (Claude Code: AskUserQuestion), one decision per question. Write the answer into
   `decisions.md` in the same turn. **Nobody to ask** (a loop, a cron, no reply): add it to the open questions with
   the options and the default you take, go on only with work it does not decide, and do not land on it.
 - **A note for another session:** a new file `docs/inbox/<date>-<to>-<topic>.md`, one note per file and one file
@@ -104,7 +104,7 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
 
 ## Unity specifics
 - One editor per checkout; never put the project on a synced folder. Commit `.meta` files with their assets.
-- Packages change only through the `unity-package-management` skill's Client API script, never by hand.
+- Packages change only through the `unity-package-management` skill's Client API script (a skill of the Unity plugin for Claude Code, not in this repo), never by hand.
 - Fresh clone: just open it; settings and scenes are committed (`BootstrapSceneBuilder.SetupAll` only adds missing ones).
 - `unity.exe` is at `%LOCALAPPDATA%\unity\bin\unity.exe`. `Tools/tw` finds it and pins every call to this checkout.
 - `github-test1/` at the repo root is an unrelated Unity project: leave it out of searches (`--glob "!github-test1"`).
