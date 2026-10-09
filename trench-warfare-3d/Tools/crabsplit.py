@@ -350,7 +350,7 @@ def build_loose(crab, src, cfg):
     return parts, piv
 
 # ---------------------------------------------------------------------------------------------------- the skeleton
-def hierarchy(name, parts, body="Body"):
+def hierarchy(name, parts, body="Body", over=None):
     """part -> parent. Everything hangs off the Body, the way a tank's parts hang off its Hull: TankModel walks the
     tree from the root part, so anything parented to the FBX's own empty instead would never be drawn. A walker cut
     again to the standard calls its root part the Hull (`body`)."""
@@ -362,6 +362,10 @@ def hierarchy(name, parts, body="Body"):
         elif n.startswith("Shin_"): P[n] = "Thigh_" + n[5:]
         elif n.startswith("Foot_"): P[n] = "Shin_" + n[5:]
         else: P[n] = body
+    # a recut names its parts itself (Gun_Upper is no Turret_r): its own map wins over the rules above
+    if over:
+        for n, p in over.items():
+            if n in parts: P[n] = p
     return {n: p for n, p in P.items() if p in parts and p != n}
 
 def sockets(name, parts, piv):
@@ -385,7 +389,7 @@ def sockets(name, parts, piv):
 # ------------------------------------------------------------------------------------------------- objects, export
 TURN = Matrix.Rotation(math.pi, 4, 'Z')   # see the header: the export puts Blender -Y at Unity -Z
 
-def make_objects(crab, lod, parts, piv, sock, s, mat, decimate, body="Body"):
+def make_objects(crab, lod, parts, piv, sock, s, mat, decimate, body="Body", over=None):
     objs = {}
     for n, bm in parts.items():
         me = bpy.data.meshes.new(n)
@@ -402,7 +406,7 @@ def make_objects(crab, lod, parts, piv, sock, s, mat, decimate, body="Body"):
             bpy.ops.object.modifier_apply(modifier="dec")
     root = bpy.data.objects.new(crab, None); bpy.context.scene.collection.objects.link(root)
     root.empty_display_size = 0.3
-    P = hierarchy(crab, parts, body)
+    P = hierarchy(crab, parts, body, over)
     for n, o in objs.items():
         par = P.get(n)
         pobj = objs.get(par, root) if par else root
@@ -527,8 +531,30 @@ RECUT = {
     # ball, and a claw spike under the plate (the front legs have a second, smaller spike). The first split took the
     # front spikes for claws, the front arms and plates for part of the gun, the rear arms for part of the body, and
     # each rear plate with its spike for a whole leg. The jar and all that stands on it stay the part they were (Gun).
+    # 2026-10-09: the top is cut out of today's Gun so it can turn, and its two barrels so they can recoil. There
+    # is no shield to cut (see below). The barrels are Upper/Lower, not L/R: a _R part takes gun index 1, which the
+    # Banner's one-gun TankSpec never lays, so with no side letter both ride gun 0 and both answer the one shot.
     "Banner": dict(
-        keep={"Body": "Hull", "Gun": "Gun", "Banner": "Banner"},
+        # The model in the game is already cut into the fifteen (a0b98135), so its legs are no longer loose pieces
+        # to find: a leg whose parts the manifest already names is kept exactly as it is, and the recipe below
+        # stays only as the record of how it was cut the first time.
+        keep=dict({"Body": "Hull", "Hull": "Hull", "Gun": "Turret", "Banner": "Banner"},
+                  **{"%s_%s%d" % (j, side, k): "%s_%s%d" % (j, side, k)
+                     for j in ("Thigh", "Shin", "Foot") for side in ("R", "L") for k in (1, 2)}),
+        parents={"Turret": "Hull", "Gun_Upper": "Turret", "Gun_Lower": "Turret", "Banner": "Turret"},
+        top=dict(part="Gun", name="Turret",
+                 # each barrel: its pieces front to back. The pivot is the middle of its rear end section.
+                 guns=[dict(name="Gun_Upper", seeds=[(0.0000, 2.0487, 0.4549),     # the muzzle cap
+                                                     (0.0000, 2.0470, -0.2191)]),  # the tube, over the jar
+                       dict(name="Gun_Lower", seeds=[(0.1129, 1.6220, 1.2725),     # the muzzle, out in front
+                                                     (0.1079, 1.5830, 0.4931),     # its thicker rear length
+                                                     (0.0755, 1.5531, -0.0398)])], # its block inside the jar
+                 # NO SHIELD. The owner asked for one that moves, but this sculpt holds none: the jar's front is
+                 # bare, and the one piece that measured like a plate (0.95 x 0.56 x 0.13 at the back, TW_LIST
+                 # 2026-10-09) turned out to be a U-shaped strap round the rear canister, with its four lugs.
+                 # Nothing is invented: a shield wants new model, which is the owner's to say. recut() reads
+                 # shield=dict(name=..., seeds=[...]) if a machine ever has one.
+                 ),
         legs=[
             dict(thigh=[(0.430, 0.613, -0.7045)], shin=[], foot=[],
                  split=((0.836, 0.473, -0.9335), 0.29), stub=0.10,     # just over the spike's own top ring
@@ -659,7 +685,28 @@ def off_surface(bm, p):
     loc, normal, index, dist = BVHTree.FromBMesh(bm).find_nearest(p)
     return (-dist if (p - loc).dot(normal) < 0 else dist), loc
 
+def rim_middle(bm, axis, sign, band=0.012):
+    """The middle of one end of a piece: the vertices within `band` of its far face along `axis` (0 x, 1 y, 2 z of
+    this script's frame), `sign` +1 for the high end, -1 for the low one. A barrel's rear ring, a plate's top rim."""
+    far = max(sign * v.co[axis] for v in bm.verts)
+    ring = [v.co.copy() for v in bm.verts if sign * v.co[axis] > far - band]
+    return sum(ring, Vector()) / len(ring)
+
 def mirrored(v): return Vector((-v.x, v.y, v.z))
+
+def list_pieces(name, vehicles):
+    """Read-only: every loose piece of the machine the game has, the part it is in today, its box middle and size in
+    the manifest frame, and its faces. Writes nothing; this is how a new cut's seeds are found."""
+    manifest, entry, pieces, mat = game_model(name, vehicles)
+    print("== %s, as the game has it: %d loose pieces in %d parts" % (name, len(pieces), len(entry["pivots"])))
+    rows = []
+    for bm, was in pieces:
+        lo, hi = bm_bounds([bm])
+        rows.append((was, unity(centre(bm)), [round(abs(x), 4) for x in unity(hi - lo)], len(bm.faces)))
+    for was, mid, size, faces in sorted(rows, key=lambda r: (r[0], -r[3])):
+        print("  PIECE %-8s mid %8.4f %8.4f %8.4f  size %7.4f %7.4f %7.4f  %5d faces" % (was, *mid, *size, faces))
+    for was in sorted({r[0] for r in rows}):
+        print("  PART %-8s %d pieces" % (was, sum(1 for r in rows if r[0] == was)))
 
 def recut(name, vehicles):
     cfg, shape = RECUT[name], CRABS[name]
@@ -673,6 +720,7 @@ def recut(name, vehicles):
         def seeds(ss): return [take(pieces, (-s[0], s[1], s[2]) if flip else s, taken) for s in ss]
         for k, leg in enumerate(cfg["legs"]):
             tag = "%s%d" % (side, k + 1)
+            if ("Thigh_" + tag) in old["pivots"]: continue      # already cut: kept as the game has it
             thigh, shin, foot = seeds(leg["thigh"]), seeds(leg["shin"]), seeds(leg["foot"])
             mid = None
             if "split" in leg:
@@ -688,6 +736,14 @@ def recut(name, vehicles):
     # the left side mirrors the right: one set of joints, measured on the right
     for n in [n for n in piv if n[-2] == "L"]:
         piv[n] = mirrored(piv[n[:-2] + "R" + n[-1]])
+    top = cfg.get("top")
+    cut_out, cut_bms = [], {}         # the parts cut out of the top, in the order they are measured
+    if top:
+        for g in top["guns"] + ([top["shield"]] if "shield" in top else []):
+            bms = [take(pieces, sd, taken) for sd in g["seeds"]]
+            cut_bms[g["name"]] = max(bms, key=lambda b: len(b.faces))      # the plate itself, not its bolts
+            parts[g["name"]] = join(bms)
+            cut_out.append(g["name"])
     rest = {}
     for i, (bm, was) in enumerate(pieces):
         if i in taken: continue
@@ -697,8 +753,25 @@ def recut(name, vehicles):
     piv["Hull"] = Vector((0, 0, 0))
     for was, now in cfg["keep"].items():
         if now != "Hull": piv[now] = from_unity(old["pivots"][was])
+    if top:
+        # the top turns about the machine's own axis, on the ring it sits on: x = z = 0 at its lowest vertex
+        lo, _ = bm_bounds([parts[top["name"]]])
+        piv[top["name"]] = Vector((0.0, 0.0, lo.z))
+        for g in top["guns"]:
+            # the middle of the barrel's rear end (blender +y is the manifest's -z): its trunnion, and the point
+            # a recoil slides back from
+            piv[g["name"]] = rim_middle(parts[g["name"]], 1, +1)
+        if "shield" in top:
+            # the hinge: the middle of the plate's top rim (blender +z is the manifest's +y)
+            piv[top["shield"]["name"]] = rim_middle(cut_bms[top["shield"]["name"]], 2, +1)
     for s, v in old["sockets"].items():
         sock[s] = (cfg["keep"][v["part"]], from_unity(v["pos"]))
+    if top:
+        for sname, (owner, pos) in list(sock.items()):
+            if owner != top["name"] or not sname.startswith("Socket_Muzzle"): continue
+            near = min((g["name"] for g in top["guns"]), key=lambda n: abs(off_surface(parts[n], pos)[0]))
+            print("  %s sits on %s" % (sname, near))
+            sock[sname] = (near, pos)
 
     # hips onto the hull, then every joint against both pieces it joins
     for n in sorted(piv):
@@ -707,10 +780,16 @@ def recut(name, vehicles):
         if off > JOINT_TOL:
             print("  %s: its hip stood %.3f off the hull, moved onto it" % (n, off))
             piv[n] = on
-    P = hierarchy(name, parts, "Hull")
+    P = hierarchy(name, parts, "Hull", cfg.get("parents"))
+    # a trunnion or a hinge that stands off the part it hangs from is moved onto it, as a hip is onto the hull
+    for n in cut_out:
+        off, on = off_surface(parts[P[n]], piv[n])
+        if off > JOINT_TOL:
+            print("  %s: its joint stood %.3f off %s, moved onto it" % (n, off, P[n]))
+            piv[n] = on
     bad = []
     for n in sorted(P):
-        if n[:4] not in ("Thig", "Shin", "Foot"): continue
+        if n[:4] not in ("Thig", "Shin", "Foot") and n not in cut_out and n != (top or {}).get("name"): continue
         a, _ = off_surface(parts[P[n]], piv[n]); b, _ = off_surface(parts[n], piv[n])
         joints[n] = {"off_parent": round(a, 4), "off_own": round(b, 4)}
         print("  joint %-9s %7.3f off %-9s %7.3f off itself" % (n, a, P[n], b))
@@ -733,7 +812,8 @@ def recut(name, vehicles):
     for lod in (0, 1):
         for o in list(bpy.context.scene.objects):
             if o.type in ('MESH', 'EMPTY') and o.name != "cam": bpy.data.objects.remove(o, do_unlink=True)
-        root, objs = make_objects(name, lod, parts, piv, sock, 1.0, mat, 1.0 if lod == 0 else shape["decimate"], "Hull")
+        root, objs = make_objects(name, lod, parts, piv, sock, 1.0, mat, 1.0 if lod == 0 else shape["decimate"],
+                                  "Hull", cfg.get("parents"))
         render_checks(name, lod, root, objs)
         export(root, os.path.join(OUTDIR, name, "%s_LOD%d.fbx" % (name, lod)))
         tris = sum(len(p.vertices) - 2 for o in objs.values() if o.type == 'MESH' for p in o.data.polygons)
@@ -781,6 +861,7 @@ def split_sheets():
     with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
-if os.environ.get("TW_RECUT"): recut(os.environ["TW_RECUT"], SHEETS[0])
+if os.environ.get("TW_LIST"): list_pieces(os.environ["TW_LIST"], SHEETS[0])
+elif os.environ.get("TW_RECUT"): recut(os.environ["TW_RECUT"], SHEETS[0])
 else: split_sheets()
 print("DONE")
