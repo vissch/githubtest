@@ -513,6 +513,36 @@ namespace TW.Tests
                 "[TS11c] a session ended mid-strike left the bolt's light direction behind");
         }
 
+        // The reset bodies 0db0576b added for Clips.Table and SceneMood.Night had no test of their own: the sweep
+        // above would catch them going away, but nothing said in words what each puts back. Untagged on purpose —
+        // both resets landed on this lane, so these two are green at base. They are the proof of finding P7a.
+        [Test]
+        public void Clip_Lengths_An_Atlas_Lent_Are_Given_Back()
+        {
+            SceneStatics.ResetSession();
+            // The authored row, from Build() itself (the declaration), not from a run of the reset.
+            var build = typeof(Clips).GetMethod("Build", BindingFlags.Static | BindingFlags.NonPublic);
+            float authored = ((ClipInfo[])build.Invoke(null, null))[(int)Clip.Walk].Seconds;
+            Clips.Apply(Enumerable.Repeat(authored + 1.25f, Clips.Table.Length).ToArray());   // an atlas with its own lengths
+
+            SceneStatics.ResetSession();
+
+            Assert.That(Clips.Table[(int)Clip.Walk].Seconds, Is.EqualTo(authored).Within(1e-6f),
+                "a loaded atlas's clip lengths outlived Play: Clips.Table kept the lent length instead of the built one");
+        }
+
+        [Test]
+        public void A_Night_Field_Does_Not_Follow_Play_Out()
+        {
+            SceneStatics.ResetSession();
+            SceneMood.Night = true;
+
+            SceneStatics.ResetSession();
+
+            Assert.IsFalse(SceneMood.Night,
+                "a night field outlived Play: SceneMood.Night still says dark, so the next thing the editor runs draws by night");
+        }
+
         [Test]
         public void The_Camera_Forgets_The_Match_When_The_Session_Ends()
         {
