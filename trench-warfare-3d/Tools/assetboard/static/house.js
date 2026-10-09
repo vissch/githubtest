@@ -158,6 +158,40 @@
     if (w.kind === 'machine') return /blender|film/i.test(w.name || '') ? 'studio' : /test|gate/i.test(w.name || '') ? 'lab' : 'shop';
     return HOME[w.id] || HOME[w.name] || 'work';
   }
+  // how a worker is drawn apart from the others. Who made it: Claude's are the frog as drawn, a Codex frog is blue and a
+  // Grok frog amber (the sheet's colours turned by `hue` degrees), each with its letter over it; a leg of the relay
+  // has an R. An agent another worker sent is smaller than the one who sent it. `away`: it works on the other station.
+  var VENDOR = { codex: { hue: 100, badge: 'X', name: 'Codex' }, grok: { hue: -85, badge: 'G', name: 'Grok' } };
+  function look(w) {
+    var v = VENDOR[w.vendor] || null, leg = w.id === 'agent:relay-leg';
+    return { hue: v ? v.hue : 0, vendor: v ? w.vendor : '', badge: v ? v.badge : leg ? 'R' : '', scale: w.kind === 'agent' && w.parent && !leg ? 0.8 : 1, away: !!w.host };
+  }
+  // who made a worker and where it runs, as the few words the card and the panel show: 'Codex', its model, the other
+  // station's name, since when
+  function made(w) {
+    var v = VENDOR[w.vendor], out = [];
+    if (v) out.push(v.name);
+    if (w.model) out.push(String(w.model).replace(/^claude-/, ''));
+    if (w.host) out.push('on ' + w.host);
+    if (w.since) out.push('since ' + w.since);
+    return out;
+  }
+  // the floor in one line, over the house: how many are at work and what they are, and whether the other station
+  // still speaks. { text, stale }; text is '' for a reading from before the floor was counted.
+  function span(s) { return s < 90 ? s + ' s' : s < 5400 ? Math.round(s / 60) + ' min' : Math.round(s / 3600) + ' h'; }
+  function tally(ops) {
+    var f = ops && ops.floor; if (!f) return { text: '', stale: false };
+    var parts = [], stale = false;
+    function add(n, one, many) { if (n) parts.push(n + ' ' + (n === 1 ? one : many || one + 's')); }
+    add(f.sessions, 'session'); add(f.subagents, 'subagent'); add(f.relay, 'relay leg'); add(f.codex, 'Codex', 'Codex'); add(f.grok, 'Grok', 'Grok');
+    add(f.skills, 'skill'); add(f.machines, 'machine');
+    var text = f.working ? f.working + ' at work: ' + parts.join(', ') : 'nobody at work';
+    (ops.stations || []).forEach(function (s) {
+      if (s.stale) stale = true;
+      text += ' · ' + s.host + (s.stale ? ' silent for ' + span(s.age) + ' (its frogs rest)' : ' seen ' + span(s.age) + ' ago');
+    });
+    return { text: text, stale: stale };
+  }
   // everyone in a reading, a frog each: the workers on the branches (a skill is one frog wherever it is called from,
   // an agent one per run) and whoever on the roster nothing calls. An agent on the roster is its roster frog while one
   // run of it is going, so it gets up from its own mat; a second run of it at the same time is a frog of its own.
@@ -367,6 +401,6 @@
 
   var api = { COS: COS, SIN: SIN, iso: iso, plan: plan, hash: hash, U: U, V: V, ROOMS: ROOMS, ROOM: ROOM, roomAt: roomAt, WALLS: WALLS, TALL: TALL, ALONG_U: ALONG_U, ALONG_V: ALONG_V, boardFace: boardFace, frogBox: frogBox, CLEAR: CLEAR, tagPlace: tagPlace, TAG_FAR: TAG_FAR,
     GATE: GATE, GATE_NODE: GATE_NODE, SPOTS: SPOTS, THINGS: THINGS, NODES: NODES, route: route, length: length, heading: heading, roomOf: roomOf, frogs: frogs, Sim: Sim,
-    DWELL: DWELL, demo: demo };
+    DWELL: DWELL, demo: demo, look: look, made: made, tally: tally, VENDOR: VENDOR };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.House = api;
 })(typeof window !== 'undefined' ? window : this);

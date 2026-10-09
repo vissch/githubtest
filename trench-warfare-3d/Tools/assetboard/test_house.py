@@ -96,6 +96,14 @@ const floor = { roster: [{ id: 'pipeline', kind: 'skill', name: 'pipeline', busy
           lane('b', [{ kind: 'skill', id: 'tw-critic', name: 'tw-critic', state: 'working', act: 'lab' }, { kind: 'agent', id: 'agent:Explore', name: 'Explore', state: 'working' },
                      { kind: 'agent', id: 'agent:Explore', name: 'Explore', state: 'working' }])] };
 const fr = H.frogs(floor);
+// who made a worker, and the line over the house
+const A = o => Object.assign({ kind: 'agent', id: 'agent:x', state: 'working' }, o);
+out.look = [W({}), A({ parent: 'session:1' }), A({ vendor: 'codex', id: 'agent:codex' }), A({ vendor: 'grok', parent: 'grok:1' }), A({ id: 'agent:relay-leg', parent: 'agent:relay', vendor: 'claude' }), W({ host: 'DESK' })]
+  .map(w => { const l = H.look(w); return [l.vendor, l.badge, l.scale, l.hue !== 0, l.away]; });
+out.made = [H.made(W({ model: 'claude-opus-5-5', since: '21:15' })), H.made(A({ vendor: 'codex', model: 'gpt-6.1-sol', host: 'DESK' })), H.made(W({}))];
+out.tally = [H.tally({ floor: { working: 11, sessions: 4, subagents: 1, relay: 2, codex: 1, grok: 1, skills: 1, machines: 1 }, stations: [{ host: 'DESK', age: 12, stale: false }] }),
+             H.tally({ floor: { working: 1, sessions: 1, subagents: 0, relay: 0, codex: 0, grok: 0 }, stations: [{ host: 'DESK', age: 400, stale: true }] }),
+             H.tally({ floor: { working: 0 } }), H.tally({ lanes: [] })];
 out.keys = fr.map(f => f.key).sort();
 out.critic = fr.filter(f => f.key === 'tw-critic').map(f => [f.branches.length, f.room]);
 out.idle = fr.filter(f => f.w.state === 'idle').map(f => [f.key, f.room]);
@@ -195,6 +203,13 @@ def main():
          o['roomOf'][:2] == ['lab', 'hall'] and o['roomOf'][4:6] == ['bunk', 'bunk'], o['roomOf'])
     case('who: a reading from before the rooms is read by the last tool call, and a room nobody knows is the workroom',
          o['roomOf'][2:4] == ['lab', 'work'] and o['roomOf'][6:] == ['work', 'studio', 'lab'], o['roomOf'])
+    case('look: Claude\'s frog is the frog as drawn; a Codex and a Grok frog have their own colours and letter; a leg of the relay has an R; an agent another worker sent is smaller, a leg is not; the other station\'s is marked',
+         o['look'] == [['', '', 1, False, False], ['', '', 0.8, False, False], ['codex', 'X', 1, True, False], ['grok', 'G', 0.8, True, False], ['', 'R', 1, False, False], ['', '', 1, False, True]], o['look'])
+    case('look: a worker says who made it, on what, where and since when, and nothing when nothing is known',
+         o['made'] == [['opus-5-5', 'since 21:15'], ['Codex', 'gpt-6.1-sol', 'on DESK'], []], o['made'])
+    case('count: the line over the house counts those at work by what they are and says when the other station was last heard; a silent station is said so; an old reading has no line',
+         o['tally'] == [dict(text='11 at work: 4 sessions, 1 subagent, 2 relay legs, 1 Codex, 1 Grok, 1 skill, 1 machine · DESK seen 12 s ago', stale=False),
+                        dict(text='1 at work: 1 session · DESK silent for 7 min (its frogs rest)', stale=True), dict(text='nobody at work', stale=False), dict(text='', stale=False)], o['tally'])
     case('who: a skill called from two branches is one frog, two agents of one type are two, and an agent on the roster is its roster frog',
          o['keys'] == sorted(['session:1', 'tw-critic', 'agent:Explore#1', 'agent:Explore#2', 'agent:gamedesign', 'agent:Explore#1@b', 'agent:Explore#2@b', 'pipeline', 'tw-master'])
          and o['critic'] == [[2, 'lab']], (o['keys'], o['critic']))

@@ -78,26 +78,37 @@
 
   // ---- the frogs' sheets, at full and at half size; the half one is drawn while a frog is small on the screen
   var sheets = {};
-  function sheet(key, half) {
+  function sheet(key, half, hue) {
     var name = key + (half ? '@0.5' : ''), s = sheets[name];
     if (!s) { s = sheets[name] = { ok: false, el: new Image() }; s.el.onload = function () { s.ok = true; dirty = true; }; s.el.src = 'img/frog/' + name + '.png'; }
-    return s;
+    if (!hue || !s.ok) return s;
+    // another vendor's frog: the same sheet with its colours turned, made once and kept
+    var t = s.tint || (s.tint = {});
+    if (!t[hue]) {
+      var c = document.createElement('canvas'), x = c.getContext('2d'); c.width = s.el.naturalWidth; c.height = s.el.naturalHeight;
+      if ('filter' in x) { x.filter = 'hue-rotate(' + hue + 'deg) saturate(1.2)'; x.drawImage(s.el, 0, 0); }
+      else { x.drawImage(s.el, 0, 0); x.globalCompositeOperation = 'source-atop'; x.fillStyle = hue > 0 ? 'rgba(56,189,248,.5)' : 'rgba(245,158,11,.5)'; x.fillRect(0, 0, c.width, c.height); }
+      t[hue] = { ok: true, el: c };
+    }
+    return t[hue];
   }
   var hasFrog = !!(F.anims && F.foot);
   // every clip is asked for at the start, at half size (under 2 MB in all): a sheet is otherwise first asked for when a
   // frog needs it, and until it came that frog was a mark: a green dot walked out of the bunkhouse in place of a frog
   if (hasFrog) Object.keys(F.anims).concat(Object.keys(F.stills || {})).forEach(function (k) { sheet(k, true); });
-  function sprite(key, frameNo, u, v, z, flip, alpha) {
+  // lk (H.look of the worker): whose frog it is (its colours) and how big, about the point it stands on
+  function sprite(key, frameNo, u, v, z, flip, alpha, lk) {
     var a = (F.anims && F.anims[key]) || (F.stills && F.stills[key]);
     if (!a) return null;
-    var half = cam.s * dpr <= 0.56, img = sheet(key, half);
-    if (!img.ok) { half = !half; img = sheet(key, half); if (!img.ok) return null; }
+    var hue = lk ? lk.hue : 0, k = lk ? lk.scale : 1;
+    var half = cam.s * dpr <= 0.56, img = sheet(key, half, hue);
+    if (!img.ok) { half = !half; img = sheet(key, half, hue); if (!img.ok) return null; }
     var cw = half ? Math.round(a.w / 2) : a.w, ch = half ? Math.round(a.h / 2) : a.h, cols = a.cols || 1;
-    var sx = (frameNo % cols) * cw, sy = Math.floor(frameNo / cols) * ch, p = iso(u, v, z), x = a.ox - F.foot[0], y = p[1] + a.oy - F.foot[1];
-    ctx.save(); ctx.translate(p[0], 0); if (flip) ctx.scale(-1, 1); if (alpha != null) ctx.globalAlpha = alpha;
+    var sx = (frameNo % cols) * cw, sy = Math.floor(frameNo / cols) * ch, p = iso(u, v, z), x = a.ox - F.foot[0], y = a.oy - F.foot[1];
+    ctx.save(); ctx.translate(p[0], p[1]); ctx.scale(flip ? -k : k, k); if (alpha != null) ctx.globalAlpha = alpha;
     ctx.drawImage(img.el, sx, sy, cw, ch, x, y, a.w, a.h);
     ctx.restore();
-    return flip ? [p[0] - x - a.w, y, p[0] - x, y + a.h] : [p[0] + x, y, p[0] + x + a.w, y + a.h];
+    return flip ? [p[0] - (x + a.w) * k, p[1] + y * k, p[0] - x * k, p[1] + (y + a.h) * k] : [p[0] + x * k, p[1] + y * k, p[0] + (x + a.w) * k, p[1] + (y + a.h) * k];
   }
 
   // ---- drawing on the plan
@@ -336,7 +347,8 @@
     desk: function (b, room, th, t) {
       var s = H.SPOTS.work[th.spot], who = seated[th.spot], k = iso(s.u - 40, s.v - 16);
       ctx.beginPath(); ctx.ellipse(k[0], k[1] + 4, 104, 50, 0, 0, Math.PI * 2); ctx.fillStyle = 'rgba(40,30,20,.13)'; ctx.fill();
-      var drew = who ? sprite('office', who.pose.frame, s.u, s.v, 0, false) : sprite('desk', 0, s.u, s.v, 0, false, 0.92);
+      var drew = who ? sprite('office', who.pose.frame, s.u, s.v, 0, false, null, H.look(who.w)) : sprite('desk', 0, s.u, s.v, 0, false, 0.92);
+      if (who && drew) badge(s.u, s.v, H.look(who.w));
       if (who) { var c = iso(s.u, s.v); who.box = [c[0] - 92, c[1] - 186, c[0] + 22, c[1] + 6]; }
       if (!drew) { box(s.u - 90, s.v - 86, s.u + 14, s.v - 28, 0, 62, GREY, room); box(s.u - 62, s.v - 4, s.u - 14, s.v + 38, 0, 34, DARK3, room); if (who) mark(who, s.u - 38, s.v + 16, 40); }
     }
@@ -385,6 +397,9 @@
   })();
   var busyAt = {};
 
+  // the classes that colour a worker's name: its kind, another vendor's own colour over that, and `h-away` on the other station's
+  function kindClass(w) { var lk = H.look(w); return 'k-' + w.kind + (lk.vendor ? ' v-' + lk.vendor : '') + (lk.away ? ' h-away' : ''); }
+
   // ---- a frog
   function mark(f, u, v, r) {          // no sheet for it: the mark of its kind
     var p = iso(u, v, r), c = KIND[f.w.kind] || KIND.role;
@@ -396,12 +411,22 @@
   function frog(f, t) {
     var p = f.pose, u = p.u + (f.off || 0), v = p.v + (f.off || 0), z = p.lying ? 8 : 0, b;
     if (!p.lying) shadow(u, v, 36, 0.2);
-    b = p.anim ? sprite(p.anim, p.frame, u, v, z, p.flip) : null;
+    var lk = H.look(f.w);
+    b = p.anim ? sprite(p.anim, p.frame, u, v, z, p.flip, null, lk) : null;
     var c = iso(u, v);
     if (!b) f.box = mark(f, u, v, p.lying ? 26 : 34);
     else f.box = p.lying ? [c[0] - 70, c[1] - 88, c[0] + 76, c[1] + 12] : H.frogBox(u, v);
     if (f.st === 'sleep') zzz(u, v, t, f.n);
     if (f.w.wait === 'owner' && f.st !== 'walk') bubble(u, v, '?');
+    if (b && !p.lying) badge(u, v, lk);
+  }
+  // whose frog it is, as a letter over it: X Codex, G Grok, R a leg of the relay (the colours of BADGE)
+  var BADGE = { X: [56, 189, 248], G: [245, 158, 11], R: [70, 76, 92] };
+  function badge(u, v, lk) {
+    if (!lk.badge) return;
+    var p = iso(u - 30, v + 30, 150 * lk.scale);
+    ctx.beginPath(); ctx.arc(p[0], p[1], 19, 0, Math.PI * 2); ctx.fillStyle = css(BADGE[lk.badge] || BADGE.R); ctx.fill(); ctx.strokeStyle = INK; ctx.lineWidth = LINE; ctx.stroke();
+    ctx.fillStyle = '#fff'; ctx.font = '800 24px Inter, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(lk.badge, p[0], p[1] + 1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
   }
   function zzz(u, v, t, n) {
     var p = iso(u + 40, v - 10, 70);
@@ -498,7 +523,8 @@
       var e = tagOf[f.key];
       if (!e) { e = tagOf[f.key] = el('button', 'h-tag'); e.type = 'button'; e.appendChild(el('b')); e.appendChild(el('span')); tagsBox.appendChild(e); e.addEventListener('click', function () { pin(sim.frogs[f.key]); }); }
       var name = C.title(f.w), sub = f.st === 'walk' ? '→ ' + (f.leaving ? 'home' : H.ROOM[f.goal.room].name) : (C.doing(f.w) || (f.w.kind === 'session' ? '' : f.w.what) || '');
-      if (e.dataset.sig !== name + '|' + sub + '|' + f.w.kind) { e.dataset.sig = name + '|' + sub + '|' + f.w.kind; e.firstChild.textContent = name; e.lastChild.textContent = sub; e.className = 'h-tag k-' + f.w.kind + (sub ? '' : ' h-bare'); e.hidden = false; e.dataset.w = e.offsetWidth; e.dataset.h = e.offsetHeight; }
+      var cls = kindClass(f.w);
+      if (e.dataset.sig !== name + '|' + sub + '|' + cls) { e.dataset.sig = name + '|' + sub + '|' + cls; e.firstChild.textContent = name; e.lastChild.textContent = sub; e.className = 'h-tag ' + cls + (sub ? '' : ' h-bare'); e.hidden = false; e.dataset.w = e.offsetWidth; e.dataset.h = e.offsetHeight; }
       e.classList.toggle('h-walk', f.st === 'walk'); e.classList.toggle('h-on', f === hover || f === pinned); e.classList.toggle('h-shown', f === chosen);
       e.setAttribute('aria-pressed', f === pinned ? 'true' : 'false');
       // a name stays with its frog: over it, a step aside, or one row up (house.js, tagPlace). One with no place that
@@ -525,6 +551,7 @@
       tx.appendChild(el('b', null, C.title(f.w)));
       var state = f.leaving ? 'leaving' : f.st === 'walk' ? 'on the way to the ' + H.ROOM[room].name.toLowerCase() : f.w.wait === 'owner' ? 'waiting on you' : f.w.state === 'working' ? 'in the ' + H.ROOM[room].name.toLowerCase() : f.w.kind === 'session' ? 'resting, ' + C.ago(f.w.age || 0) : 'asleep, nothing calls it';
       tx.appendChild(el('span', 'h-card-state', state));
+      var who = H.made(f.w).concat(sentBy(f.w)); if (who.length) tx.appendChild(el('span', 'h-card-made', who.join(' · ')));
       var doing = C.doing(f.w); if (doing) tx.appendChild(el('span', 'h-card-doing', doing));
       if (f.w.what && f.w.what !== doing) tx.appendChild(el('span', 'h-card-what', f.w.what));
       if (f.where) tx.appendChild(el('span', 'h-card-where', f.where.replace(/^lane\/(show|sim)\//, '')));
@@ -534,6 +561,15 @@
     card.style.left = Math.max(8, Math.min(W - w - 8, p[0] - w / 2)) + 'px';
     if (p[1] + 150 < Hh) { card.style.top = (p[1] + 10) + 'px'; card.style.bottom = 'auto'; } else { card.style.top = 'auto'; card.style.bottom = (Hh - toScreen(0, f.box[1])[1] + 34) + 'px'; }
     card.hidden = false;
+  }
+  // who sent a worker and how many it has out itself, in words ('sent by Agent visualization in house', '3 agents out')
+  function sentBy(w) {
+    var out = [], me = w.uid || w.id, all = list.map(function (f) { return f.w; });
+    var p = w.parent && all.filter(function (x) { return (x.uid || x.id) === w.parent || x.id === w.parent; })[0];
+    if (p) out.push('sent by ' + C.title(p));
+    var n = all.filter(function (x) { return x.parent === me && x !== w; }).length;
+    if (n) out.push(n + (n === 1 ? ' agent out' : ' agents out'));
+    return out;
   }
   // what the panel says about a frog: its branch, the models that branch touches, the last picture or film it had in
   // its hands, and the notes on any of it. A link stays on the page when what it leads to is on this page.
@@ -545,8 +581,11 @@
     if (w.wait === 'owner') links.push({ label: 'What waits on you', href: here('queue', 'index.html#queue') });
     links.push({ label: 'The office, counted', href: here('graphs', 'graphs.html') });
     var facts = [w.kind, f.leaving ? 'leaving' : room ? 'in the ' + H.ROOM[room].name.toLowerCase() : '', w.wait === 'owner' ? 'waiting on you' : w.state === 'working' ? 'at work' : w.kind === 'session' ? 'resting, ' + C.ago(w.age || 0) : 'asleep'];
+    facts = facts.concat(H.made(w), sentBy(w));
+    var lk = H.look(w), label = w.kind === 'session' ? (w.name && w.name !== 'Claude' ? w.name : 'Claude session') : w.id === 'agent:relay-leg' ? 'relay leg'
+      : lk.vendor ? H.VENDOR[lk.vendor].name + ' agent' : w.kind === 'agent' && w.parent ? 'subagent' : w.kind;
     return { kind: 'worker', id: w.id, title: C.title(w), sub: C.doing(w) || w.what || '', lane: lane, assets: l.assets || [], links: links, facts: facts.filter(Boolean),
-      kindLabel: w.kind === 'session' ? 'Claude session' : w.kind, worker: w, visual: w.visual || null, follow: !!follow };
+      kindLabel: label, worker: w, visual: w.visual || null, follow: !!follow };
   }
   // ---- who the panel is about. A drawer (house.html) is open on the frog the owner clicked, and shut otherwise.
   // Docked (the control screen) it is never empty: with no frog picked it follows one, `auto`: a session at work,
@@ -621,12 +660,12 @@
       var here = list.filter(function (f) { return !f.leaving && f.goal && f.goal.room === r.id; }).sort(function (a, b) { return C.title(a.w).localeCompare(C.title(b.w)); });
       if (!here.length) return;
       var g = el('section', 'h-group h-' + r.id), hd = el('header'); hd.appendChild(el('b', null, r.name)); hd.appendChild(el('span', null, r.id === 'bunk' ? here.length + ' asleep' : r.does)); g.appendChild(hd);
-      if (r.id === 'bunk') { var p = el('p', 'h-sleepers'); here.forEach(function (f) { var s = el('button', 'h-sleeper k-' + f.w.kind, C.title(f.w)); s.type = 'button'; s.title = f.w.what || ''; s.addEventListener('click', function () { if (focus !== 'bunk') go('bunk'); pin(f); }); p.appendChild(s); }); g.appendChild(p); }
+      if (r.id === 'bunk') { var p = el('p', 'h-sleepers'); here.forEach(function (f) { var s = el('button', 'h-sleeper ' + kindClass(f.w), C.title(f.w)); s.type = 'button'; s.title = f.w.what || ''; s.addEventListener('click', function () { if (focus !== 'bunk') go('bunk'); pin(f); }); p.appendChild(s); }); g.appendChild(p); }
       else here.forEach(function (f) {
-        var row = el('button', 'h-row k-' + f.w.kind + (pinned === f ? ' on' : '')); row.type = 'button';
+        var row = el('button', 'h-row ' + kindClass(f.w) + (pinned === f ? ' on' : '')); row.type = 'button';
         row.appendChild(el('i')); row.appendChild(el('b', null, C.title(f.w)));
         row.appendChild(el('span', 'h-row-doing', f.w.wait === 'owner' ? 'waiting on you' : C.doing(f.w) || (f.w.kind === 'session' ? 'at work' : f.w.what) || ''));
-        if (f.where) row.appendChild(el('span', 'h-row-where', f.where.replace(/^lane\/(show|sim)\//, '')));
+        if (f.where) row.appendChild(el('span', 'h-row-where', f.where.replace(/^lane\/(show|sim)\//, '') + (f.w.host ? ' · ' + f.w.host : '')));
         row.title = f.w.what || ''; row.addEventListener('click', function () { pin(f); }); g.appendChild(row);
       });
       box.appendChild(g);
@@ -641,11 +680,17 @@
     st.textContent = f.stale ? f.text + ': the watcher has stopped (ops.py --watch 20)' : 'read ' + String(window.BEAT || window.OPS_NOW || '').replace('T', ' ') + ', every 20 s';
     st.parentNode.classList.toggle('stale', !!f.stale);
   }
+  // the line over the house: everyone at work, by what they are, and the other station's sign of life
+  function count(o) {
+    var p = document.getElementById('h-count'); if (!p) return;
+    var t = demo ? { text: '', stale: false } : H.tally(o);
+    p.textContent = t.text; p.hidden = !t.text; p.classList.toggle('stale', t.stale);
+  }
   var demoT = +q.get('t') || 0, demoRead = -1;
   function read() {
     var o = demo ? H.demo(demoT) : window.OPS;
     if (!o) return;
-    sim.read(o); if (!demo) C.nowPill(o); words(); dirty = true;
+    sim.read(o); if (!demo) C.nowPill(o); words(); count(o); dirty = true;
     if (still) { for (var i = 0; i < 1200; i++) sim.step(0.1); render(); chips(); rows(); }
     tell();          // the panel is about someone on the floor: what it says follows the reading
   }

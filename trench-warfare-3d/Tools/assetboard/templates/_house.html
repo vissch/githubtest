@@ -1,13 +1,14 @@
 {# The house itself: the rooms as buttons, the picture, the key. house.html shows it full size with everyone listed
    under it (full); the control screen (index.html) has it beside the profile. housedraw.js draws into these ids. #}
+  <p class="h-count" id="h-count" aria-live="polite" hidden></p>
   <nav class="h-rooms" id="h-rooms" aria-label="Rooms"></nav>
   <div class="h-stage" id="house">
     <canvas id="h-canvas" role="img" aria-label="The crew's house: a hall with six rooms round it. {{ 'Who is in which room is listed below.' if full else 'The rooms above say how many are in each.' }}"></canvas>
     <div class="h-tags" id="h-tags"></div>
     <div class="h-card" id="h-card" hidden></div>
   </div>
-  <p class="h-key"><span class="k-session"><i></i>session</span><span class="k-skill"><i></i>skill</span><span class="k-agent"><i></i>agent</span><span class="k-machine"><i></i>machine</span>
-    <span class="h-key-note">A frog is in the room of the work it is at, and walks when that changes. Click a room to step in, a frog to see what it is doing.</span></p>
+  <p class="h-key"><span class="k-session"><i></i>session</span><span class="k-skill"><i></i>skill</span><span class="k-agent"><i></i>agent</span><span class="k-machine"><i></i>machine</span><span class="v-codex"><i></i>Codex (X)</span><span class="v-grok"><i></i>Grok (G)</span>
+    <span class="h-key-note">A frog is in the room of the work it is at, and walks when that changes. A small frog was sent by another; R is a leg of the relay; a dashed name works on the other machine. Click a room to step in, a frog to see what it is doing.</span></p>
 {% if full %}
   <div class="h-list" id="h-list"></div>
 {% endif %}

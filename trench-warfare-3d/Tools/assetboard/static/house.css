@@ -3,6 +3,14 @@
 .h-house { --h-session: #22c55e; --h-skill: #3b82f6; --h-agent: #a855f7; --h-machine: #9aa0ad; --h-role: #14b8a6; }
 .h-house .k-session { --kc: var(--h-session); } .h-house .k-skill { --kc: var(--h-skill); } .h-house .k-agent { --kc: var(--h-agent); }
 .h-house .k-machine { --kc: var(--h-machine); } .h-house .k-role { --kc: var(--h-role); }
+/* another vendor's agent has that vendor's colour (its frog is drawn in it too: housedraw.js BADGE), whatever its kind */
+.h-house .v-codex { --kc: #38bdf8; } .h-house .v-grok { --kc: #f59e0b; }
+/* one that works on the other station: its name has a dashed edge */
+.h-house .h-tag.h-away, .h-house .h-row.h-away { border-style: dashed; }
+/* the floor in one line, over the house: everyone at work by what they are, and the other station's sign of life */
+.h-count { margin: 0 2px 10px; color: var(--t-near); font: 600 13px/1.4 Inter, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+.h-count.stale { color: #ff9a8f; }
+.h-card-made { color: var(--t-soft); font-size: 11.5px; }
 
 .h-rooms { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
 .h-chip { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 999px; border: 1px solid rgba(255, 255, 255, .14); background: transparent;

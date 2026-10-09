@@ -669,8 +669,8 @@ def house():
     write('outside1', [said(away)] + into[:2], 30)
     write('inside00', [said(one), call(1, 'Edit', dict(file_path='a.cs')), call(2, 'Edit', dict(file_path='b.cs'))], 30)
     got = read()
-    case('house: a session belongs to the checkout it was started in, or, started outside every one, to the one its calls point into; one that points nowhere is not on the floor',
-         {k: s['tree'] for k, s in got.items()} == {'outside0': pipe, 'inside00': one}, {k: s['tree'] for k, s in got.items()})
+    case('house: a session belongs to the checkout it was started in, or, started outside every one, to the one its calls point into; one that points nowhere is on the floor all the same, in no checkout',
+         {k: s['tree'] for k, s in got.items()} == {'outside0': pipe, 'inside00': one, 'outside1': None}, {k: s['tree'] for k, s in got.items()})
     rooms = {k: src_ops.session_worker(s) for k, s in got.items()}
     case('house: a session at work is in the room of its last calls', [(rooms[k]['act'], rooms[k]['state']) for k in ('outside0', 'inside00') if k in rooms] == [('lab', 'working'), ('work', 'working')],
          {k: (w['act'], w['state']) for k, w in rooms.items()})
@@ -715,6 +715,145 @@ def house():
     got = {k: src_ops.session_worker(s)['act'] for k, s in read().items() if k.startswith('plan') and k != 'planned0'}
     case('house: a session in plan mode is in the war room whatever its calls, until it leaves the mode or rests',
          got == dict(planmode='plan', planover='work', planback='plan', planrest='bunk'), got)
+
+    # ---- everyone else at work (src_floor.py), and the sessions and agents the floor used to leave out
+    import sqlite3
+    import src_floor
+    case('house: a call that hands an agent its task points into the checkout the task names',
+         src_ops.pointed(dict(prompt=f'Read {fwd}/Tools and report', description='Map the tools'), spell) == pipe and src_ops.pointed(dict(prompt='look into it'), spell) is None)
+    os.utime(log, (now - src_ops.AGENT_FRESH - 60,) * 2)
+    alive_one = dict(waiting0=dict(status='idle', name='claude-1', entrypoint='claude-vscode', since=now - 900))
+    kept = {s['id']: s for s in src_ops.sessions(trees, now, alive_one)}['waiting0']
+    case('house: an agent whose log went quiet inside a long call is still running while the session that sent it runs, and that session is at work',
+         kept['working'] and [a['uid'] for a in kept['agents']] == ['agent:Explore#abc123'], (kept['working'], kept['agents']))
+    os.utime(log, (now - src_ops.AGENT_QUIET - 60,) * 2)
+    case('house: ... but not for ever', {s['id']: s for s in src_ops.sessions(trees, now, alive_one)}['waiting0']['agents'] == [])
+    with open(log, 'a', encoding='utf-8') as fh:
+        fh.write('\n' + json.dumps(dict(type='assistant', message=dict(stop_reason='end_turn', content=[dict(type='text', text='Done: three callers.')]))))
+    os.utime(log, (now - src_ops.AGENT_FRESH - 60,) * 2)
+    done = {s['id']: s for s in src_ops.sessions(trees, now, alive_one)}['waiting0']
+    case('house: ... and an agent that has said its last word is done, however alive its session', done['agents'] == [] and not done['working'], (done['working'], done['agents']))
+    deep = sub / 'agent-abc123def456' / 'subagents'
+    deep.mkdir(parents=True)
+    (deep / 'agent-fff000111222.meta.json').write_text(json.dumps(dict(agentType='tw-reviewer', description='Second reader', parentAgentId='abc123def456')), encoding='utf-8')
+    (deep / 'agent-fff000111222.jsonl').write_text(json.dumps(dict(type='user', message=dict(content='Read the fix for unit nine'))) + '\n'
+                                                   + json.dumps(dict(type='assistant', timestamp=stamp(5), message=dict(model='claude-opus-5-5', content=[dict(type='tool_use', id='t1', name='Read', input=dict(file_path='a.cs'))]))), encoding='utf-8')
+    nested = read()['waiting0']
+    case('house: an agent an agent sent is found a folder deeper, says who sent it and what it runs on, and its session is at work',
+         nested['working'] and [(a['type'], a['sent_by'], a['model']) for a in nested['agents']] == [('tw-reviewer', 'abc123def456', 'claude-opus-5-5')], nested['agents'])
+    write('busy0000', [said(one), call(1, 'Bash', dict(command='python gate.py'))], quiet)
+    busy = {s['id']: s for s in src_ops.sessions(trees, now, dict(busy0000=dict(status='busy', name='claude-2', entrypoint='claude-vscode', since=now - 3600)))}
+    case('house: a session Claude lists as busy is at work though its transcript went quiet (one long call), and one it lists as idle rests',
+         busy['busy0000']['working'] and not {s['id']: s for s in src_ops.sessions(trees, now, dict(busy0000=dict(status='idle')))}['busy0000']['working'], busy['busy0000']['working'])
+    run_dir = tmp / 'ideas' / 'runs' / '20261008-150300'
+    write('ideasrun', [said(run_dir), call(1, 'Write', dict(file_path=str(run_dir / 'idea.json')))], 30)
+    write('briefrun', [said(tmp / 'assetboard' / 'taskbrief' / 'runs' / '20261010-000353'), call(1, 'Read', dict(file_path='x'))], 30)
+    names = {k: src_ops.session_worker(s) for k, s in read().items()}
+    case('house: a session the board started by itself has that tool\'s name, and a session in no checkout says the folder it was started in',
+         (names['ideasrun']['name'], names['briefrun']['name'], names['inside00']['name']) == ('ideas agent', 'task brief agent', 'Claude')
+         and names['outside1'].get('where') == 'claude' and 'where' not in names['inside00'], {k: (w['name'], w.get('where')) for k, w in names.items()})
+    case('house: a relay leg\'s own session is left out when asked (it is on the floor as its leg)', 'inside00' not in {s['id'] for s in src_ops.sessions(trees, now, skip={'inside00'})})
+
+    case('floor: this process runs, process nought does not', src_floor.alive(os.getpid()) and not src_floor.alive(0) and not src_floor.alive('x'))
+    env = {k: os.environ.get(k) for k in ('TW_CLAUDE_HOME', 'TW_CODEX_HOME', 'TW_GROK_HOME')}
+    try:
+        os.environ.update(TW_CLAUDE_HOME=str(tmp / 'claude-home'), TW_CODEX_HOME=str(tmp / 'codex'), TW_GROK_HOME=str(tmp / 'grok'))
+        (tmp / 'claude-home' / 'sessions').mkdir(parents=True)
+        for pid, sid in ((11, 'aaa'), (22, 'bbb')):
+            (tmp / 'claude-home' / 'sessions' / f'{pid}.json').write_text(json.dumps(dict(pid=pid, sessionId=sid, status='busy', name=f'claude-{pid}', entrypoint='sdk-cli', startedAt=1000 * (now - 60))), encoding='utf-8')
+        reg = src_floor.registry(lambda pid: pid == 11)
+        case('floor: Claude\'s list of running sessions counts only those whose process still runs', list(reg) == ['aaa'] and reg['aaa']['status'] == 'busy' and reg['aaa']['entrypoint'] == 'sdk-cli', reg)
+
+        (tmp / 'codex').mkdir()
+        con = sqlite3.connect(tmp / 'codex' / 'state_5.sqlite')
+        con.execute('create table threads (id text, created_at integer, updated_at integer, source text, cwd text, title text, model text, tokens_used integer, archived integer, agent_nickname text, agent_path text)')
+        spawn = json.dumps(dict(subagent=dict(thread_spawn=dict(parent_thread_id='0000-main0001', depth=1))))
+        con.executemany('insert into threads values (?,?,?,?,?,?,?,?,?,?,?)', [
+            ('0000-main0001', now - 900, now - 20, 'vscode', '\\\\?\\' + str(pipe), 'Review the gate failures', 'gpt-6.1-sol', 2300, 0, None, None),
+            ('0000-kid00002', now - 300, now - 10, spawn, '\\\\?\\' + str(away), '', 'gpt-6.1-sol', 800, 0, 'Pasteur', '/root/tw_reviewer_f'),
+            ('0000-old00003', now - 9000, now - 3600, 'vscode', str(away), 'Beautify the battlefield', 'gpt-6-astra', 9, 0, None, None),
+            ('0000-arch0004', now - 900, now - 5, 'vscode', str(away), 'Put away', 'gpt-6-astra', 9, 1, None, None)])
+        con.commit()
+        con.close()
+        cx = src_floor.codex(now)
+        case('floor: a Codex thread that moved lately is at work, in its own folder, and one another thread spawned names it; an old one and one put away are not on the floor',
+             [(f, w['uid'], w['name'], w.get('parent'), w['vendor'], w['model']) for f, w in cx] == [(str(pipe), 'codex:main0001', 'Codex', None, 'codex', 'gpt-6.1-sol'), (str(away), 'codex:kid00002', 'Codex Pasteur', 'codex:main0001', 'codex', 'gpt-6.1-sol')]
+             and cx[0][1]['what'] == 'Review the gate failures' and cx[1][1]['act'] == 'lab', cx)
+        case('floor: with no Codex on the station nobody is read', (os.environ.__setitem__('TW_CODEX_HOME', str(tmp / 'none')), src_floor.codex(now))[1] == [])
+
+        def grok_session(name, age, lines, summary=True):
+            d = tmp / 'grok' / 'sessions' / 'c%3A%5Cwork' / name
+            d.mkdir(parents=True)
+            if summary:
+                (d / 'summary.json').write_text(json.dumps(dict(info=dict(id=name, cwd=str(one)), generated_title='Land the older lanes', current_model_id='grok-4.7', agent_name='grok-build-plan',
+                                                                last_turn_summary='gate running', created_at='2026-10-09T21:15:56.888166300Z')), encoding='utf-8')
+            if lines is not None:
+                (d / 'events.jsonl').write_text('\n'.join(json.dumps(dict(ts='x', type=t)) for t in lines), encoding='utf-8')
+                os.utime(d / 'events.jsonl', (now - age,) * 2)
+        grok_session('0000-fresh001', 30, ['turn_started', 'tool_started', 'turn_ended'])
+        grok_session('0000-inturn02', 20 * 60, ['turn_ended', 'turn_started', 'tool_started'])
+        grok_session('0000-ended003', 20 * 60, ['turn_started', 'turn_ended', 'phase_changed'])
+        grok_session('0000-toolong4', src_floor.GROK_TURN + 60, ['turn_started'])
+        grok_session('0000-probe005', 30, None)
+        gk = src_floor.grok(now)
+        case('floor: a Grok session whose events moved lately is at work, and so is one inside a turn that has not ended, for a while; an ended one, a sign-in probe and a turn open for too long are not',
+             sorted(w['uid'] for _, w in gk) == ['grok:fresh001', 'grok:inturn02'] and all(f == str(one) and w['vendor'] == 'grok' and w['model'] == 'grok-4.7' and w['act'] == 'plan' for f, w in gk), gk)
+    finally:
+        for k, v in env.items():
+            os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
+
+    runs = [dict(run='20261009-230601-65644', unit='rv-12c--playmode-order--abc', lane='lane/show/review-fixes', legs=[
+        dict(leg='04', phase='execute', state='DONE', unit='rv-12b--x--y', role='review-fix', minutes=50, tokens=90000, level='green', model='opus', session='s4'),
+        dict(leg='05', phase='execute', state='RUNNING', unit='rv-12c--playmode-order--abc', role='review-fix', minutes=3, tokens=56048, level='green', model='opus', session='s5')])]
+    lg = src_floor.legs(runs)
+    case('floor: the leg of a relay run that runs now is a worker its run sent, in the room of its phase, and names its own session; a finished leg is not',
+         [(l, w['uid'], w['parent'], w['act'], w['session'], w['what']) for l, w in lg] == [('lane/show/review-fixes', 'leg:20261009-230601-65644-05', 'agent:relay', 'work', 's5', 'rv-12c playmode-order: execute (review-fix, 3 min, 56k tokens)')], lg)
+    rh = tmp / 'relay'
+
+    def second(path, age, record=False):
+        d = rh / path
+        d.mkdir(parents=True)
+        (d / 'out.jsonl').write_text('{}', encoding='utf-8')
+        os.utime(d / 'out.jsonl', (now - age,) * 2)
+        if record:
+            (d / 'record.json').write_text('{"state": "DONE"}', encoding='utf-8')
+    second('second/20261009-220843-grok-review-56496', 60)
+    second('second/20261009-210000-codex-critic-100', 60, record=True)
+    second('second/20261009-200000-grok-critic-200', src_floor.SECOND_FRESH + 60)
+    second('runs/20261009-230601-65644/second/05-r1-codex', 10)
+    (rh / 'runs' / '20261009-230601-65644' / 'legs').mkdir()
+    sc = src_floor.seconds([rh], now)
+    case('floor: a second opinion with no record yet whose folder still moves is going, under its vendor; one that ended, and one that stood still too long, are not',
+         sorted((w['vendor'], w['name'], w.get('parent')) for _, w in sc) == [('codex', 'Codex second critic', 'agent:relay'), ('grok', 'Grok second review', None)], sc)
+
+    share = tmp / 'floor'
+    rows = [('lane/show/x', dict(kind='session', vendor='claude', id='session:11112222', name='Claude', title='The gate', state='working', act='lab', wait='owner', age=5, visual=dict(src='x'))),
+            (src_floor.OTHER, dict(kind='agent', vendor='codex', id='agent:codex', uid='codex:main0001', name='Codex', what='review', state='working', act='lab', tokens=10))]
+    f = src_floor.publish(rows, now, share, 'DESK')
+    wrote = json.loads(f.read_text(encoding='utf-8'))
+    src_floor.publish([(l, dict(w, tokens=99, age=9)) for l, w in rows], now + 20, share, 'DESK')
+    again = json.loads(f.read_text(encoding='utf-8'))
+    src_floor.publish(rows, now + src_floor.BEAT + 1, share, 'DESK')
+    beat = json.loads(f.read_text(encoding='utf-8'))
+    src_floor.publish(rows[:1], now + src_floor.BEAT + 2, share, 'DESK')
+    fewer = json.loads(f.read_text(encoding='utf-8'))
+    case('floor: a station writes its floor where the other reads it, without what only its own page needs; a floor nobody moved on is written again only as its sign of life, a changed one at once',
+         wrote['host'] == 'DESK' and [w['lane'] for w in wrote['workers']] == ['lane/show/x', src_floor.OTHER] and 'visual' not in wrote['workers'][0]
+         and again['at'] == wrote['at'] and beat['at'] > wrote['at'] and len(fewer['workers']) == 1 and not list(share.glob('*.tmp')), (wrote, again['at'], beat['at']))
+    src_floor.publish(rows, now, share, 'DESK')
+    st, got = src_floor.others(now + 30, share, 'MSI')
+    st2, late = src_floor.others(now + src_floor.STALE + 30, share, 'MSI')
+    st3, gone = src_floor.others(now + src_floor.GONE + 30, share, 'MSI')
+    case('floor: the other station\'s workers are on this floor with its name on them, and a station does not read itself',
+         [(l, w['id'], w['host'], w['state']) for l, w in got] == [('lane/show/x', 'session:11112222', 'DESK', 'working'), (src_floor.OTHER, 'agent:codex', 'DESK', 'working')]
+         and st == [dict(host='DESK', age=30, stale=False, workers=2)] and src_floor.others(now, share, 'desk') == ([], []), (st, got))
+    case('floor: a station gone silent is said so and its workers rest, none of them waiting on the owner; after a long silence they are not shown, and the station still is',
+         st2[0]['stale'] and [(w['state'], w['act'], w.get('wait')) for _, w in late] == [('resting', 'bunk', None)] * 2 and gone == [] and st3[0]['stale'] and st3[0]['workers'] == 0, (st2, late, st3))
+    n = src_floor.count([w for _, w in rows + lg + sc] + [dict(kind='agent', vendor='claude', id='agent:Explore', state='working', parent='session:1'), dict(kind='agent', vendor='grok', id='agent:grok', state='working'),
+                                                           dict(kind='session', id='session:2', state='resting'), dict(kind='skill', id='tw-critic', state='working'), dict(kind='skill', id='tw-critic', state='working'), dict(kind='machine', id='pid:1', state='working'),
+                                                           dict(kind='agent', id='agent:relay', state='working')])
+    case('floor: the count over the house is of those at work, by what they are, each once: a resting session is not counted, a skill two sessions took up is one, a relay leg is no subagent and its run is not counted beside it',
+         n == dict(working=9, sessions=1, subagents=1, relay=1, skills=1, machines=1, codex=2, grok=2), n)
     src_ops.PROJECTS = keep
 
     # the frog's sheets, from frames drawn here: a green block that moves a pixel a frame on a 64 px canvas
@@ -2097,6 +2236,7 @@ def critiques_cases():
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
     os.environ.update(TW_TASKBRIEFS=tempfile.mkdtemp(prefix='tw-taskbrief-test-'), TW_TASKBRIEF_OFF='1')      # ... and no reading of a task is started from a test
+    os.environ['TW_FLOOR'] = tempfile.mkdtemp(prefix='tw-floor-test-')      # ... nor a floor where the other station reads this one's
     os.environ['TW_TASKS'] = tempfile.mkdtemp(prefix='tw-tasks-test-')      # ... nor into the tasks' folder, nor takes a capture of his in
     os.environ['TW_FEEDBACK'] = tempfile.mkdtemp(prefix='tw-feedback-test-')
     real_tree()

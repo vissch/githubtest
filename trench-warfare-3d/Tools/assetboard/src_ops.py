@@ -10,7 +10,11 @@ Read from this machine, nothing typed in:
   it sent;
 - the machines: the processes running against a checkout (a Unity editor or test run, the gate, Blender, a film);
 - the pipeline board (Tools/pipeline): each item's lane, its stages, the role (skill) each stage wants, a claim;
-- the relay (src_relay.py): a run that is going is a worker on the branch of its unit, with the leg it is on.
+- the relay (src_relay.py): a run that is going is a worker on the branch of its unit, with the leg it is on;
+- everyone else (src_floor.py): Claude's own list of running sessions, the relay's legs, the second opinions, Codex
+  and Grok, and what the other station wrote of its own floor.
+
+Work in no checkout of this repo is on the floor too, in the lane src_floor.OTHER: nobody at work is left out.
 
 The roster is the project's skills (.claude/skills) and agents (.claude/agents, and the user's ~/.claude/agents).
 A skill or agent with nothing to do is on the bench.
@@ -29,6 +33,7 @@ import time
 from pathlib import Path
 
 import src_acts
+import src_floor
 import src_git
 import src_relay
 
@@ -37,6 +42,7 @@ RECENT = 3 * 3600        # ... this recently: it was here today, shown resting o
 LONG = 24 * 3600         # ... not for this long: it is not asked about its agents either
 SKILL_FRESH = 90 * 60    # a skill a working session took up this recently is working with it
 AGENT_FRESH = 4 * 60     # a subagent whose transcript moved this recently is still running
+AGENT_QUIET = 45 * 60    # ... and one quiet for up to this long, if it has not said its last word and its session still runs
 TAIL = 4 * 1024 * 1024
 AGENT_TAIL = 512 * 1024  # of an agent's own log: enough for its last calls
 POINTS = 40              # the last tool calls of a session that are asked: which room, and which checkout
@@ -113,6 +119,8 @@ def checkouts(repo: Path):
             cur = Path(line[9:])
         elif line.startswith('branch refs/heads/') and cur:
             out[cur] = dict(branch=line[18:], path=str(cur), name=cur.name)
+        elif line.strip() == 'detached' and cur:        # on no branch (a pinned copy, a review's checkout): still a place work is done in
+            out[cur] = dict(branch=f'detached: {cur.name}', path=str(cur), name=cur.name)
     for p, w in out.items():
         st = src_git.git(p, 'status', '--porcelain', '--untracked-files=normal').split('\n')
         w['dirty'] = [l[3:] for l in st if l.strip()]
@@ -149,9 +157,10 @@ def spellings(trees):
 
 
 def pointed(inp, spell):
-    """The checkout a tool call points into: the one its file, its folder or its command names. Of several the
+    """The checkout a tool call points into: the one its file, its folder or its command names, or the one the task
+    it hands an agent names (a session that only sends agents names its checkout nowhere else). Of several the
     longest path, so a worktree inside a checkout is itself and not the checkout around it."""
-    text = ' '.join(str(inp.get(k) or '') for k in ('file_path', 'path', 'notebook_path', 'command'))
+    text = ' '.join(str(inp.get(k) or '') for k in ('file_path', 'path', 'notebook_path', 'command', 'prompt', 'description'))
     text = re.sub(r'[\\/]+', '/', text.lower())
     return next((root for root, rx in spell if rx.search(text)), None)
 
@@ -197,55 +206,118 @@ def ts(s):
         return None
 
 
-def running(f: Path, now):
-    """The subagents of a session that are still running: (what it was sent as, its log) for each whose log moved in
-    the last AGENT_FRESH seconds."""
+def reach(f: Path):
+    """A path the system can open: one longer than Windows takes gets the prefix that lifts the limit (a session
+    run from a deep folder has a transcript like that, and it is at work like any other)."""
+    s = str(f)
+    return Path('\\\\?\\' + s) if os.name == 'nt' and len(s) >= 248 and not s.startswith('\\\\') else f
+
+
+def closed(log: Path):
+    """Whether an agent's log ends on its last word: an answer that ends the turn and calls no tool."""
+    try:
+        with open(log, 'rb') as h:
+            h.seek(max(0, log.stat().st_size - AGENT_TAIL))
+            lines = h.read().split(b'\n')
+    except OSError:
+        return True
+    for line in reversed(lines):
+        try:
+            d = json.loads(line)
+        except ValueError:
+            continue
+        if not isinstance(d, dict) or d.get('type') not in ('assistant', 'user'):
+            continue
+        return d['type'] == 'assistant' and (d.get('message') or {}).get('stop_reason') == 'end_turn' and not uses(d)
+    return False
+
+
+def running(f: Path, now, parent_lives=False):
+    """The subagents of a session that are still running: (what it was sent as, its log). One whose log moved in the
+    last AGENT_FRESH seconds is; so is one whose log is quiet for up to AGENT_QUIET seconds but does not end on its
+    last word, when the session that sent it still runs (`parent_lives`): an agent inside one long call, or waiting
+    on agents of its own, writes nothing for a long time. Agents an agent sent lie deeper in the same folder."""
     sub = f.with_suffix('') / 'subagents'
     out = []
-    for meta in sorted(sub.glob('*.meta.json')) if sub.is_dir() else []:
+    for meta in sorted(sub.rglob('*.meta.json')) if sub.is_dir() else []:
         log = meta.with_name(meta.name[:-len('.meta.json')] + '.jsonl')
         try:
-            if now - log.stat().st_mtime <= AGENT_FRESH:
-                out.append((meta, log))
+            age = now - log.stat().st_mtime
         except OSError:
             continue
+        if age <= AGENT_FRESH or (parent_lives and age <= AGENT_QUIET and not closed(log)):
+            out.append((meta, log))
     return out
+
+
+def agent_key(stem):
+    return stem[len('agent-'):] if stem.startswith('agent-') else stem
 
 
 def agent(meta: Path, log: Path):
     """A running subagent: its type, what it was last asked, and the room it is in: where the last calls in its own
     log point, else the room of its trade. Agents of one type share an id on the floor, so each also has a `uid` of
-    its own, from the name of its log."""
+    its own, from the name of its log. `sent_by` is the agent that sent it, when an agent did; `model` what it runs on."""
     try:
         m = json.loads(meta.read_text(encoding='utf-8'))
     except (OSError, ValueError):
         m = {}
     kind = m.get('agentType') or 'agent'
     what = agent_task(last_ask(log), m.get('description', ''))
-    calls = [(ts(d.get('timestamp')), src_acts.of_tool(c.get('name'), c.get('input'))) for d in read_tail(log, AGENT_TAIL) for c in uses(d)]
-    key = log.stem[len('agent-'):] if log.stem.startswith('agent-') else log.stem
-    return dict(type=kind, what=what, uid=f'agent:{kind}#{key[:6]}', act=src_acts.pick(calls) or src_acts.of_agent(kind, what))
+    calls, model = [], m.get('model') or ''
+    for d in read_tail(log, AGENT_TAIL):
+        model = (d.get('message') or {}).get('model') or model if d.get('type') == 'assistant' else model
+        calls += [(ts(d.get('timestamp')), src_acts.of_tool(c.get('name'), c.get('input'))) for c in uses(d)]
+    try:
+        since = log.stat().st_ctime
+    except OSError:
+        since = None
+    return dict(type=kind, what=what, uid=f'agent:{kind}#{agent_key(log.stem)[:6]}', key=agent_key(log.stem), sent_by=agent_key(str(m.get('parentAgentId') or '')),
+                act=src_acts.pick(calls) or src_acts.of_agent(kind, what), model=model, since=since)
 
 
-def sessions(trees, now):
-    """Every Claude session written to in the last RECENT seconds, or with an agent still running, that works in one
-    of these checkouts. Each says what it is on (title, last request, the skills it took up, its running agents) and,
-    from its last POINTS tool calls: the room each is work in (`calls`, for src_acts.pick), whether the last one
-    still waits for the owner's answer (`wait`), and the checkout they point into when its own folder is in none.
-    `plan` is whether it is in plan mode. It is at work (`working`) when its transcript moved in the last WORKING
-    seconds or an agent of its is still running: a parent waiting on its agents writes nothing for a long time."""
-    out, spell = [], spellings(trees)
+HEADLESS = [            # a session the board or the relay started by itself, by the folder it runs in: (pattern, name, room)
+    (r'[\\/]ideas[\\/]runs[\\/]', 'ideas agent', 'plan'),
+    (r'[\\/]taskbrief[\\/]runs[\\/]', 'task brief agent', 'lab'),
+    (r'[\\/]runreport[\\/]', 'run reader', 'lab'),
+    (r'[\\/]relay\d*[\\/]runs[\\/][^\\/]+[\\/]desk[\\/]', 'relay critic', 'lab'),
+]
+
+
+def headless(cwd):
+    """(name, room) of a session one of the tools started by itself, or None."""
+    return next(((name, room) for rx, name, room in HEADLESS if re.search(rx, (cwd or '') + '/', re.I)), None)
+
+
+def sessions(trees, now, live=None, skip=()):
+    """Every Claude session written to in the last RECENT seconds, or with an agent still running, or that Claude
+    lists as running and busy (`live`: src_floor.registry()). Each says what it is on (title, last request, the
+    skills it took up, its running agents) and, from its last POINTS tool calls: the room each is work in (`calls`,
+    for src_acts.pick), whether the last one still waits for the owner's answer (`wait`), and the checkout it works
+    in (`tree`): its own folder's, else the one its calls point into, else None: work in no checkout of this repo is
+    work all the same, and so are the agents it sent (2026-10-09: four of five sessions and both running agents were
+    left off the floor for having no checkout). `plan` is whether it is in plan mode. It is at work (`working`) when
+    its transcript moved in the last WORKING seconds, or an agent of its is still running, or Claude says it is busy:
+    a parent waiting on its agents writes nothing for a long time. `skip` are session ids shown as something else (a
+    relay leg is its leg, not a session beside it)."""
+    out, spell, live = [], spellings(trees), live or {}
     for f in PROJECTS.glob('*/*.jsonl'):
+        if f.stem in skip:
+            continue
+        f = reach(f)
         try:
             age = now - f.stat().st_mtime
         except OSError:
-            # a transcript the system cannot open (2026-10-08: a session run from a deep folder had a path longer than
-            # Windows takes, and every read of the board failed on it for half an hour): passed over, not fatal
+            # a transcript the system cannot open (2026-10-08: every read of the board failed on one for half an
+            # hour): passed over, not fatal
             continue
-        logs = running(f, now) if age <= LONG else []
-        if age > RECENT and not logs:
+        mine = live.get(f.stem)
+        busy = bool(mine) and mine.get('status') == 'busy'
+        logs = running(f, now, bool(mine)) if age <= LONG else []
+        if age > RECENT and not logs and not busy:
             continue
-        s = dict(id=f.stem, age=int(age), cwd=None, title='', prompt='', doing='', skills={}, agents=[], calls=[], wait='', plan=False)
+        s = dict(id=f.stem, age=int(age), cwd=None, title='', prompt='', doing='', skills={}, agents=[], calls=[], wait='', plan=False,
+                 model='', since=(mine or {}).get('since') or None, auto=bool(mine) and mine.get('entrypoint') == 'sdk-cli')
         last, ask = collections.deque(maxlen=POINTS), None
         for d in read_tail(f):
             s['cwd'] = d.get('cwd') or s['cwd']
@@ -256,6 +328,7 @@ def sessions(trees, now):
             elif d.get('isSidechain'):
                 continue
             elif d.get('type') == 'assistant':
+                s['model'] = (d.get('message') or {}).get('model') or s['model']
                 for c in uses(d):
                     inp = c.get('input') if isinstance(c.get('input'), dict) else {}
                     if c.get('name') == 'Skill' and inp.get('skill'):
@@ -278,12 +351,9 @@ def sessions(trees, now):
                 s['plan'] = PLAN_MARKS.get((d.get('attachment') or {}).get('type'), s['plan'])
         s['calls'] = [(when, src_acts.of_tool(name, inp)) for when, name, inp in last]
         s['wait'] = 'owner' if ask else ''
-        tree = home_of(s['cwd'], [pointed(inp, spell) for _, _, inp in last], trees)
-        if tree is None:
-            continue
-        s['tree'] = tree
+        s['tree'] = home_of(s['cwd'], [pointed(inp, spell) for _, _, inp in last], trees)
         s['agents'] = [agent(meta, log) for meta, log in logs]
-        s['working'] = age <= WORKING or bool(logs)
+        s['working'] = age <= WORKING or bool(logs) or busy
         out.append(s)
     return out
 
@@ -294,11 +364,18 @@ def session_worker(s):
     point. A question nobody answered goes on waiting after the transcript went quiet: that is when the owner has to
     see it, so a session that waits says so for as long as it is listed, at work or not."""
     working = s['working']
-    act = 'plan' if s['wait'] or (working and s['plan']) else 'bunk' if not working else src_acts.pick(s['calls']) or 'work'
-    w = dict(kind='session', id='session:' + s['id'][:8], name='Claude', title=short(s['title'], 60), what=short(s['prompt'], 160),
-             doing=s['doing'] if working else '', state='working' if working else 'resting', age=s['age'], act=act)
+    auto = headless(s.get('cwd'))               # a session a tool started by itself has that tool's name and room
+    act = 'plan' if s['wait'] or (working and s['plan']) else 'bunk' if not working else src_acts.pick(s['calls']) or (auto[1] if auto else 'work')
+    w = dict(kind='session', vendor='claude', id='session:' + s['id'][:8], name=auto[0] if auto else 'Claude', title=short(s['title'], 60),
+             what=short(s['prompt'], 160), doing=s['doing'] if working else '', state='working' if working else 'resting', age=s['age'], act=act)
     if s['wait']:
         w['wait'] = s['wait']
+    if s.get('model'):
+        w['model'] = s['model']
+    if s.get('since'):
+        w['since'] = datetime.datetime.fromtimestamp(s['since']).strftime('%H:%M')
+    if s.get('tree') is None and s.get('cwd'):
+        w['where'] = Path(s['cwd']).name          # in no checkout: the folder it was started in says what it is part of
     return w
 
 
@@ -347,7 +424,7 @@ def last_ask(log: Path):
             texts = [content] if isinstance(content, str) else [c.get('text', '') for c in content or [] if isinstance(c, dict) and c.get('type') == 'text']
             for t in texts:
                 t = re.sub(r'^The coordinator sent a message while you were working:\s*', '', fix_text(t).strip())
-                if t and not t.startswith(('<', '[Image', '[Request')):
+                if t and not t.startswith(('<', '[Image', '[Request', 'Base directory for this skill')):     # ... nor a skill's own text, loaded into it
                     return t.splitlines()[0]
         if tail >= size:
             break
@@ -426,7 +503,55 @@ def relay(root: Path, now):
         return dict(runs=[], last=None, does='runs work as a chain of short sessions')
 
 
-def collect(repo: Path, site: Path):
+def floor(trees, now, home=None, rel=None):
+    """Everyone at work on this station, each (lane, worker): the Claude sessions with the skills they took up and
+    the agents they sent, the machines, the relay's runs and legs, the second opinions, Codex and Grok. The lane is
+    the branch of the checkout the work is in, else src_floor.OTHER. `home` gives a skill its room (the roster's);
+    `rel` is relay()."""
+    home, rel, rows = home or {}, rel or dict(runs=[]), []
+    def lane_of(folder):
+        tree = owner_of(folder, trees) if folder else None
+        return trees[tree]['branch'] if tree is not None else src_floor.OTHER
+
+    for run in rel['runs']:
+        if run['lane']:
+            rows.append((run['lane'], dict(kind='agent', vendor='claude', id='agent:relay', name='relay', what=src_relay.leg_line(run), state='working',
+                                           legs=run['legs'], run=run['run'], minutes=run['minutes'])))
+    legs = src_floor.legs(rel['runs'])
+    rows += legs
+    rows += src_floor.seconds(src_floor.second_homes(src_relay.homes() or [src_relay.home()]), now)
+    for s in sessions(list(trees), now, src_floor.registry(), skip={w['session'] for _, w in legs if w.get('session')}):
+        branch = trees[s['tree']]['branch'] if s['tree'] is not None else src_floor.OTHER
+        me = session_worker(s)
+        rows.append((branch, me))
+        if not s['working']:
+            continue
+        for name, (when, args) in s['skills'].items():
+            if when and now - when <= SKILL_FRESH:
+                rows.append((branch, dict(kind='skill', id=name, name=name, what=args or short(s['title'] or s['prompt'], 100), state='working',
+                                          act=home.get(name) or src_acts.of_skill(name))))
+        uids = {a['key']: a['uid'] for a in s['agents']}
+        for a in s['agents']:
+            w = dict(kind='agent', vendor='claude', id='agent:' + a['type'], uid=a['uid'], name=a['type'], what=a['what'], state='working', act=a['act'],
+                     parent=uids.get(a['sent_by']) or me['id'])
+            if a['model']:
+                w['model'] = a['model']
+            if a['since']:
+                w['since'] = datetime.datetime.fromtimestamp(a['since']).strftime('%H:%M')
+            rows.append((branch, w))
+    for m in machines(list(trees)):
+        rows.append((trees[m['tree']]['branch'], dict(kind='machine', id=f'pid:{m["pid"]}', name=m['what'], what=f'since {(m["started"] or "")[11:16]}',
+                                                    state='working', act=src_acts.of_machine(m['what']))))
+    for folder, w in src_floor.codex(now) + src_floor.grok(now):
+        lane = lane_of(folder)
+        if lane == src_floor.OTHER and folder:
+            w['where'] = Path(folder).name
+        rows.append((lane, w))
+    return rows
+
+
+def collect(repo: Path, site: Path, share=False):
+    """The floor and the branches. `share`: also write this station's floor where the other station reads it."""
     now = time.time()
     root = repo / 'trench-warfare-3d'
     people = roster(repo)
@@ -462,23 +587,15 @@ def collect(repo: Path, site: Path):
         lanes[branch]['workers'].append(worker)
 
     home = {r['id']: r['home'] for r in people}     # a skill at work is in the room the roster gives it
-    for s in sessions(list(trees), now):
-        branch = trees[s['tree']]['branch']
-        put(branch, session_worker(s))
-        if not s['working']:
-            continue
-        for name, (when, args) in s['skills'].items():
-            if when and now - when <= SKILL_FRESH:
-                put(branch, dict(kind='skill', id=name, name=name, what=args or short(s['title'] or s['prompt'], 100), state='working',
-                                 act=home.get(name) or src_acts.of_skill(name)))
-                busy.setdefault(name, []).append(branch)
-        for a in s['agents']:
-            aid = 'agent:' + a['type']
-            put(branch, dict(kind='agent', id=aid, uid=a['uid'], name=a['type'], what=a['what'], state='working', act=a['act']))
-            busy.setdefault(aid, []).append(branch)
-    for m in machines(list(trees)):
-        put(trees[m['tree']]['branch'], dict(kind='machine', id=f'pid:{m["pid"]}', name=m['what'], what=f'since {(m["started"] or "")[11:16]}', state='working',
-                                             act=src_acts.of_machine(m['what'])))
+    rel = relay(root, now)
+    mine = floor(trees, now, home, rel)
+    if share:
+        src_floor.publish(mine, now)
+    stations, theirs = src_floor.others(now)
+    for lane, w in mine + theirs:
+        put(lane, w)
+        if w['kind'] in ('skill', 'agent') and w['state'] == 'working':
+            busy.setdefault(w['id'], []).append(lane)
     for st, c in claims.items():
         it = next((i for i in items if c.get('job', '').startswith(i['id'])), None)
         stage = next((s for s in it['stages'] if s['id'] in c.get('job', '')), None) if it else None
@@ -487,19 +604,14 @@ def collect(repo: Path, site: Path):
             put(it['lane'], dict(kind='skill' if stage['skill'] else 'role', id=sk, name=sk, what=f'{it["id"]}: {stage["id"]} on the {st}', state='working',
                                  act=home.get(sk) or src_acts.of_skill(sk)))
             busy.setdefault(sk, []).append(it['lane'])
-    rel = relay(root, now)
     people.append(dict(id='agent:relay', kind='agent', name='relay', does=rel['does'], where='project'))
-    for run in rel['runs']:
-        if run['lane']:
-            put(run['lane'], dict(kind='agent', id='agent:relay', name='relay', what=src_relay.leg_line(run), state='working',
-                                  legs=run['legs'], run=run['run'], minutes=run['minutes']))
-            busy.setdefault('agent:relay', []).append(run['lane'])
     for r in people:
         r['busy'] = busy.get(r['id'], [])
     ordered = sorted(lanes.values(), key=lambda l: (-sum(w['state'] == 'working' for w in l['workers']), -len(l['workers']), -len(l['items']),
                                                      -(l['dirty'] > 0), '' if not l['tip'] else ''.join(chr(255 - ord(c)) for c in l['tip']), l['branch']))
     return dict(now=datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S'), lanes=ordered, roster=people,
-                integration=src_git.INTEGRATION[7:], relay=rel, counts=dict(
+                integration=src_git.INTEGRATION[7:], relay=rel, host=src_floor.host(), stations=stations,
+                floor=src_floor.count([w for l in ordered for w in l['workers']]), counts=dict(
                     sessions=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'session' and w['state'] == 'working'),
                     machines=sum(1 for l in ordered for w in l['workers'] if w['kind'] == 'machine'),
                     ready=sum(1 for l in ordered for it in l['items'] for s in it['stages'] if s['state'] == 'READY'),

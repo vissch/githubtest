@@ -331,7 +331,7 @@ def the_tasks(out: Path, q, his, watching):
 
 
 def once(out: Path, watching=False):
-    data = src_ops.collect(build.REPO, out)
+    data = src_ops.collect(build.REPO, out, share=watching)      # a watcher is this station's voice: its floor goes where the other station reads it
     ready_since(data, out / 'data' / 'ready-since.json')
     # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
     owed = step_briefs(data)        # before the answers are read: a step that passed since the last read is on the page now

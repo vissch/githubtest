@@ -50,7 +50,11 @@ window.Crew = (function () {
     if (/^[A-Z][A-Za-z]+$/.test(d)) return VERB[d] || d.replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase();
     return d;
   }
-  function title(w) { return w.kind === 'session' ? (w.title || 'Claude session') : w.kind === 'machine' ? (w.name || 'machine') : label(w.name || w.id); }
+  // a session a tool started by itself (the ideas agent, a run reader) goes by that tool's name: its title is its brief's first line
+  function title(w) {
+    if (w.kind === 'session') return w.name && w.name !== 'Claude' ? w.name : (w.title || 'Claude session');
+    return w.kind === 'machine' ? (w.name || 'machine') : label(w.name || w.id);
+  }
 
   // videos play only while on screen, so a page of thirty frogs costs what the visible few cost
   var seen = 'IntersectionObserver' in window ? new IntersectionObserver(function (es) {
@@ -100,7 +104,7 @@ window.Crew = (function () {
     var at = [], seenW = {};
     o.lanes.forEach(function (l) {
       l.workers.forEach(function (w) {
-        var k = w.id + '@' + l.branch; if (seenW[k]) return; seenW[k] = 1;
+        var k = (w.uid || w.id) + '@' + l.branch; if (seenW[k]) return; seenW[k] = 1;      // two agents of one kind are two (their uid), as in the house
         at.push({ w: w, where: l.branch, branches: [l.branch] });
       });
     });

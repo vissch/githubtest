@@ -151,7 +151,8 @@ def runs(root: Path, now, alive):
             meter = read(lf.parent / 'meter.json') or {}
             steps.append(dict(leg=leg.get('leg'), phase=leg.get('phase'), state=leg.get('state'), unit=leg.get('unit'), role=leg.get('role'),
                              minutes=minutes(leg.get('started_at'), now), tokens=meter.get('tokens') or leg.get('final_tokens') or 0,
-                             level=meter.get('level', 'green')))
+                             level=meter.get('level', 'green'), model=leg.get('model') or '',
+                             session=(read(lf.parent / 'session.json') or {}).get('session_id') or ''))
         out.append(dict(run=run, unit=words[2] if len(words) > 2 else '', lane=rec.get('lane') or '', checkout=Path(rec.get('worktree') or '').name,
                         minutes=minutes(rec.get('taken_at'), now), legs=steps, stopping=(root / 'stop.json').exists()))
     return out
