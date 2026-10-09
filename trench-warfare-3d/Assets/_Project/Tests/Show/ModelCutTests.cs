@@ -245,6 +245,86 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>The Banner's top, cut off its guns (the owner, 2026-10-08: the top "should also be able to
+        /// rotate", the guns "need to be cut so they can animate"). A Turret with its pivot on the turning axis, a
+        /// Gun_Upper and a Gun_Lower hanging off it with their pivots at their mounts, and the cut lost nothing: the
+        /// near model still holds the vertices, triangles and size the Banner had in the game before it (crabs.json
+        /// at a0b98135), and no vertex position sits in two parts.
+        /// No Shield: there is no plate in the sculpt (leg 02 looked - the only plate-sized piece at the back is a
+        /// strap round a canister), and the standard forbids inventing one. The shield waits on the owner.</summary>
+        [Test]
+        public void TheTopAndTheGunsAreCutAsTheirOwnParts()
+        {
+            var m = Load("Banner", VehicleArchetype.Banner);
+            var lod = m.Lods[0]; var parts = lod.Parts;
+
+            int turret = lod.Find("Turret"), upper = lod.Find("Gun_Upper"), lower = lod.Find("Gun_Lower");
+            Assert.GreaterOrEqual(turret, 0, "Banner: no Turret - its top is not cut off the hull");
+            Assert.GreaterOrEqual(upper, 0, "Banner: no Gun_Upper - its guns are not cut off the top");
+            Assert.GreaterOrEqual(lower, 0, "Banner: no Gun_Lower - its guns are not cut off the top");
+            Assert.AreEqual(TankPartRole.Turret, parts[turret].Role, "Banner: Turret's role");
+            Assert.AreEqual(TankPartRole.Gun, parts[upper].Role, "Banner: Gun_Upper's role");
+            Assert.AreEqual(TankPartRole.Gun, parts[lower].Role, "Banner: Gun_Lower's role");
+            Assert.AreEqual("Hull", parts[parts[turret].Parent].Name, "Banner: the Turret hangs off the Hull");
+            Assert.AreEqual(turret, parts[upper].Parent, "Banner: Gun_Upper hangs off the Turret");
+            Assert.AreEqual(turret, parts[lower].Parent, "Banner: Gun_Lower hangs off the Turret");
+
+            // the top turns about one axis, so its pivot is ON that axis: on the machine's centre line
+            Assert.Less(Mathf.Abs(parts[turret].Local.x), 0.002f, $"Banner: the Turret's pivot stands {parts[turret].Local.x * 1000f:0.0} mm off the turning axis in x");
+            Assert.Less(Mathf.Abs(parts[turret].Local.z), 0.002f, $"Banner: the Turret's pivot stands {parts[turret].Local.z * 1000f:0.0} mm off the turning axis in z");
+            float ringOff = Off(parts[parts[turret].Parent].Mesh, parts[turret].Local);
+            // on the Hull means on it or in it: the axis runs down through the jar, so this pivot sits 0.47 m inside
+            // the body it turns on. The guns, below, carry the 0.45 m bound the standard gives a joint between pieces.
+            Assert.Less(ringOff, JointTol, $"Banner: the Turret's pivot stands {ringOff:0.000} m off the Hull");
+
+            // a gun is animated about its mount, so its pivot is where it meets the top - not somewhere in its barrel
+            foreach (int g in new[] { upper, lower })
+            {
+                float onTop = Off(parts[turret].Mesh, parts[g].Local);
+                Assert.Less(onTop, JointTol, $"Banner: {parts[g].Name}'s pivot stands {onTop:0.000} m off the Turret");
+                float inOwn = Off(parts[g].Mesh, Vector3.zero);
+                Assert.Greater(inOwn, -0.45f, $"Banner: {parts[g].Name}'s pivot lies {-inOwn:0.000} m inside its own barrel");
+                // both barrels are the one gun the sim gives the Banner, and they elevate with the top, not alone
+                Assert.AreEqual(0, parts[g].Gun, $"Banner: {parts[g].Name} is gun {parts[g].Gun}");
+                Assert.IsFalse(parts[g].SelfAimed, $"Banner: {parts[g].Name} aims itself, though it hangs off the Turret");
+            }
+            Assert.IsTrue(m.Sockets.TryGetValue("Socket_Muzzle", out var muzzle), "Banner: no Socket_Muzzle");
+            Assert.AreEqual(TankPartRole.Gun, parts[muzzle.part].Role, $"Banner: Socket_Muzzle hangs off {parts[muzzle.part].Name}, not a gun");
+
+            // nothing lost and nothing doubled: the Banner the game had before this cut (crabs.json at a0b98135)
+            int verts = 0, tris = 0;
+            var bounds = new Bounds(Vector3.zero, Vector3.zero); bool any = false;
+            var seen = new Dictionary<long, string>();
+            var world = new Vector3[parts.Count];
+            for (int i = 0; i < parts.Count; i++) world[i] = parts[i].Parent >= 0 ? world[parts[i].Parent] + parts[i].Local : parts[i].Local;
+            for (int i = 0; i < parts.Count; i++)
+            {
+                var mesh = parts[i].Mesh;
+                Assert.NotNull(mesh, $"Banner: {parts[i].Name} has no mesh");
+                verts += mesh.vertexCount; tris += mesh.triangles.Length / 3;
+                var own = new HashSet<long>();
+                foreach (var v in mesh.vertices)
+                {
+                    Vector3 w = world[i] + v;
+                    if (any) bounds.Encapsulate(w); else { bounds = new Bounds(w, Vector3.zero); any = true; }
+                    // 0.1 mm in machine space, the grid the sculpt was built on
+                    long key = ((long)Mathf.RoundToInt(w.x * 10000f) * 1000003L + Mathf.RoundToInt(w.y * 10000f)) * 1000003L + Mathf.RoundToInt(w.z * 10000f);
+                    if (!own.Add(key)) continue;   // a seam doubles a vertex inside one part; that is the importer's
+                    Assert.IsFalse(seen.TryGetValue(key, out string had), $"Banner: the vertex at {w} lies in both {had} and {parts[i].Name}");
+                    seen[key] = parts[i].Name;
+                }
+            }
+            TestContext.Out.WriteLine($"Banner near: {parts.Count} parts, {seen.Count} vertex positions ({verts} vertices as Unity holds them), {tris} triangles, {bounds.size / VehicleSize.Walker} m in the sculpt");
+            // 1021 is what Blender counts, and what crabs.json records. Unity's importer splits a vertex wherever the
+            // normals or the UVs either side of it differ, so the same model loads here as 2170 vertices: the number
+            // that can be compared with the sculpt is how many POSITIONS there are, and the cut must not move it.
+            Assert.AreEqual(1021, seen.Count, "Banner near: vertex positions against the Banner the game had at a0b98135");
+            Assert.AreEqual(1745, tris, "Banner near: triangles against the Banner the game had at a0b98135");
+            Vector3 size = bounds.size / VehicleSize.Walker;
+            var was = new Vector3(2.0271f, 2.8173f, 3.3983f);     // crabs.json size_m at a0b98135
+            Assert.Less((size - was).magnitude, 1e-3f, $"Banner near: it measures {size} where it measured {was}");
+        }
+
         static float RosterSpeed(byte archetype) => archetype == VehicleArchetype.Banner ? RosterEntry.Banner.Speed : 2f;
 
         [Test]
