@@ -68,15 +68,17 @@ def arch_refs(text):
 
 
 def ground_flags(g, generator, launch, where, where_launch):
-    """Whether the ground g has a river and a sea: from its preset in the sim's BattlefieldGenerator.cs, or, when it has
-    none, from the inline `case Ground.<g>: return new ...BattlefieldParams { ... }` of MatchLaunch.cs (the Narrows is
-    built there on purpose, so that it needs no sim change). A flag that is not written is false, as for a preset."""
-    m = re.search(r'BattlefieldParams ' + g + r'\(uint seed\)\s*=>\s*new BattlefieldParams\s*\{([^}]*)\}', generator)
+    """Whether the ground g has a river and a sea: from the inline `case Ground.<g>: return new ...BattlefieldParams
+    { ... }` of MatchLaunch.cs when it has one (the Narrows is built there on purpose, so that it needs no sim change),
+    else from its preset in the sim's BattlefieldGenerator.cs. The launch is asked first because MatchLaunch.Field is
+    what the game runs: a preset of the same name that nothing calls must not speak for the ground. A comment is not
+    code, so a commented-out case or flag counts for nothing. A flag that is not written is false (plain bools)."""
+    m = re.search(r'case Ground\.' + g + r'\s*:\s*return new [\w.]*BattlefieldParams\s*\{([^}]*)\}', re.sub(r'//.*', '', launch))
     if not m:
-        m = re.search(r'case Ground\.' + g + r'\s*:\s*return new [\w.]*BattlefieldParams\s*\{([^}]*)\}', launch)
+        m = re.search(r'BattlefieldParams ' + g + r'\(uint seed\)\s*=>\s*new BattlefieldParams\s*\{([^}]*)\}', re.sub(r'//.*', '', generator))
     if not m:
         raise ProbeError(f'{where}: no preset for the ground {g}, and {where_launch} builds none inline either')
-    flags = dict(re.findall(r'(River|Sea)\s*=\s*(true|false)', m.group(1)))
+    flags = dict(re.findall(r'\b(River|Sea)\s*=\s*(true|false)', m.group(1)))
     return dict(river=flags.get('River') == 'true', sea=flags.get('Sea') == 'true')
 
 
