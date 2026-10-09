@@ -82,6 +82,10 @@ namespace TW.Presentation.Tactical
         {
             if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time + delay, Team = team, Width = width, Life = TracerSeconds });
         }
+
+        /// <summary>Whether a tracer's time on screen is over: the prune's rule, pure so a test can hold it. A tracer built
+        /// without its Life (0) is over on the first frame after it is born, and is never drawn.</summary>
+        public static bool TracerSpent(float now, float born, float life) => now - born > life;
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Flash> flashes = new List<Flash>(256);
@@ -1073,7 +1077,7 @@ namespace TW.Presentation.Tactical
             Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;
-            Prune(tracers, now, static (t, at) => at - t.Born > t.Life);   // each round its own time on screen (CombatFx.Weapons.cs)
+            Prune(tracers, now, static (t, at) => TracerSpent(at, t.Born, t.Life));   // each round its own time on screen (CombatFx.Weapons.cs)
             bool night = SceneMood.Night;
             float dayStreak = DayStreakAt(night, SceneHooks.CloseUp, classArms > 0f);
             if (tintEpoch != SceneTints.Epoch) ApplyTints();

@@ -207,5 +207,16 @@ namespace TW.Tests
             Assert.Greater(CombatFx.ShellFarAt(70f), 1.5f, "z70: grown, not a pinprick");
             Assert.AreEqual(2.2f, CombatFx.ShellFarAt(400f), 1e-6f, "capped");
         }
+        [Test]
+        public void ARoundAtAWreck_IsATracerForTheUsualTime_NotGoneOnItsFirstFrame()
+        {
+            // review E.1: the wreck shot built its tracer without a Life, and the prune drops a tracer once now - Born > Life
+            Assert.IsTrue(CombatFx.TracerSpent(10.2f, 10f, 0.12f), "past its time on screen");
+            Assert.IsFalse(CombatFx.TracerSpent(10.1f, 10f, 0.12f), "inside it");
+            Assert.IsTrue(CombatFx.TracerSpent(10f + 1f / 60f, 10f, 0f), "a tracer with no Life is gone a frame after it is born");
+            Assert.IsTrue(CombatFx.WreckTracerDrawn(0.12f, 1f / 60f), "one frame after it is born the round at a wreck is still drawn");
+            Assert.IsTrue(CombatFx.WreckTracerDrawn(0.12f, 0.11f), "and for the usual round's time (fx.tracerSeconds)");
+            Assert.IsFalse(CombatFx.WreckTracerDrawn(0.12f, 0.13f), "then it is pruned as any round is");
+        }
     }
 }
