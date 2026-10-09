@@ -264,8 +264,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   side holds them all), `Sim/Core/SimWorld.cs` (`Silver` income each tick, deploy cost, `CommandType.Surrender`),
   and on the SHOW side `UI/ObjectiveTracker.cs` (the objectives list and the centre banner),
   `Presentation/Core/MatchStats.cs` (what the debrief counts, from the event pump), `UI/Shell/DebriefScreen.cs`.
-- **Tests:** BattlefieldLockstepTests, CombatTests and PlaytestMapTests reach `WinnerTeam`; ShellUxmlTests loads the
-  debrief. Nothing tests `SectorControl`, `MatchStats` or `ObjectiveTracker` directly.
+- **Tests:** SectorControlTests pins the order a side may take objectives in (its own line back nearest first,
+  the enemy's from the lowest `OrderIndex`); BattlefieldLockstepTests, CombatTests and PlaytestMapTests reach
+  `WinnerTeam`; ShellUxmlTests loads the debrief. Nothing tests `MatchStats` or `ObjectiveTracker` directly.
 
 ### Stubs: placeholders for planned phases, not wired
 `Sim/Combat/IndirectFire.cs`, `Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,

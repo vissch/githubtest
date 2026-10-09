@@ -1,7 +1,8 @@
 // Phase: A3 (implemented core) — depends on: ObjectiveDef, MapData.CellTrenchId, FlowFieldManager (trench ownership)
 // An objective flips when >= RequiredUnits infantry of the other team stand in its cells for CaptureTicks with no
 // defender inside, in OrderIndex order along that side's line (Outpost -> Main -> Reserve -> HQ): a team must own
-// every lower-ordered objective on a side before it can take the next. Progress drains at the same rate when the
+// every lower-ordered objective on a side before it can take the next; a side winning back its OWN line goes the
+// other way, nearest first (Reserve before Main), which is Unlocked's ownSide branch. Progress drains at the same rate when the
 // attackers leave, and freezes while the cells are contested. When the objective lies on a trench, the trench
 // changes owner with it (TrenchCaptured), which moves both teams' front trench and hands the garrison's orders to
 // the new owner. Capturing an HQ ends the match. Traverse-by-traverse capture and the mustard-gas block are later.
@@ -44,18 +45,29 @@ namespace TW.Sim.Match
             }
         }
 
-        /// <summary>True when <paramref name="team"/> owns every objective on the same side with a lower OrderIndex.</summary>
-        bool Unlocked(int o, byte team)
+        /// <summary>
+        /// True when <paramref name="team"/> may take objective <paramref name="o"/> now. Attacking the other side's
+        /// line it must own every objective on that side with a LOWER OrderIndex (Outpost -> Main -> Reserve -> HQ).
+        /// Winning back its own ground (the owner's call of 2026-10-07) it works the other way about, nearest first:
+        /// it must own every objective on its own side with a HIGHER OrderIndex, so Reserve (2) comes back before
+        /// Main (1). Pure: it reads only the defs and the states handed to it.
+        /// </summary>
+        public static bool Unlocked(NativeList<ObjectiveDef> objectives, NativeArray<ObjectiveState> states, int o, byte team)
         {
-            var def = map.Objectives[o];
-            for (int k = 0; k < map.Objectives.Length; k++)
+            var def = objectives[o];
+            bool ownSide = team == def.SideTeam;
+            for (int k = 0; k < objectives.Length; k++)
             {
-                var other = map.Objectives[k];
-                if (k == o || other.SideTeam != def.SideTeam || other.OrderIndex >= def.OrderIndex) continue;
-                if (States[k].Owner != team) return false;
+                var other = objectives[k];
+                if (k == o || other.SideTeam != def.SideTeam) continue;
+                bool blocks = ownSide ? other.OrderIndex > def.OrderIndex : other.OrderIndex < def.OrderIndex;
+                if (!blocks) continue;
+                if (states[k].Owner != team) return false;
             }
             return true;
         }
+
+        bool Unlocked(int o, byte team) => Unlocked(map.Objectives, States, o, team);
 
         public void Step(SimWorld w)
         {
