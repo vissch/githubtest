@@ -104,11 +104,12 @@ namespace TW.Sim.Combat
         partial struct FireJob
         {
             /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight with its enemies behind
-            /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not.</summary>
+            /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not,
+            /// nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).</summary>
             void AtWreck(int i)
             {
                 uint f = Flags[i];
-                if ((f & (uint)UnitFlags.Airborne) != 0 || Suppression[i] >= SuppressionRules.PinnedThreshold || TrenchId[i] >= 0) return;
+                if ((f & ((uint)UnitFlags.Airborne | (uint)UnitFlags.KnockedOut)) != 0 || Suppression[i] >= SuppressionRules.PinnedThreshold || TrenchId[i] >= 0) return;
                 var weapon = Weapons[Archetype[i]];
                 if (weapon.Damage <= 0f || weapon.RangeMax <= 0f) return;
                 float3 p = Position[i];
