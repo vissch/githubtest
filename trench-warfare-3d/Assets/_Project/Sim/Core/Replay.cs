@@ -122,7 +122,7 @@ namespace TW.Sim
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
         // v38 (2026-10-09, [U6]): a side wins its own trenches back nearest first, Reserve then Main (SectorControl.Unlocked).
-        public const ushort FormatVersion = 38;
+        public const ushort FormatVersion = 39;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
@@ -152,7 +152,7 @@ namespace TW.Sim
             w.Write(Config.FactionA); w.Write(Config.FactionB); w.Write(Config.HeroPity0); w.Write(Config.HeroPity1);
             w.Write(Config.Endless);   // v16
             WriteLoadout(w, Config.LoadoutA); WriteLoadout(w, Config.LoadoutB);
-            WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
+            WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB); w.Write(Init.TestLevel);   // v39
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
             w.Write(MapParams.Length); w.Write(MapParams);
@@ -209,7 +209,7 @@ namespace TW.Sim
             };
             p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
             float3 size = ReadF3(r);
-            p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
+            p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle(), TestLevel = r.ReadBoolean() };   // v39
             p.MapId = r.ReadInt32();
             p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
             p.MapParams = r.ReadBytes(r.ReadInt32());

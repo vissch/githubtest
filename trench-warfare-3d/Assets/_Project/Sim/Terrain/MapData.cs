@@ -20,6 +20,11 @@ namespace TW.Sim.Terrain
         public NativeArray<byte> NavCost;    // derived from NavLayers; A4 updates locally
         public NativeArray<short> CellTrenchId; // trench id per nav cell, -1 outside trenches (derived from TrenchCells)
         public int Version;                  // bumped on every nav/height mutation; hashed instead of the arrays themselves
+        /// <summary>True on the sim's own try-it maps (greybox, playtest), false on the field a match is given.
+        /// Owner's call of 2026-10-07: a normal match's ten holds only the player's own faction's units and never one
+        /// that costs nothing; the test level may field anything. NOT hashed: it never changes during a match, and it
+        /// travels in the replay header with the rest of the world init.</summary>
+        public bool TestLevel;
 
         public NativeList<TrenchDef> Trenches;
         public NativeList<int> TrenchCells;
@@ -274,7 +279,7 @@ namespace TW.Sim.Terrain
             // team 0 advances to the far end of the LAYOUT, not of the map: past it is the enemy's beach and the sea
             float farEnd = HasSea && SeaSide == 1 ? SeaStartZ : SizeMeters.y;
             float nearEnd = HasSea && SeaSide == 0 ? SeaStartZ : 0f;
-            return new SimConfig.WorldInit { SizeMeters = SizeMeters, SpawnA = a, SpawnB = b, GoalZA = farEnd - 4f, GoalZB = nearEnd + 4f };
+            return new SimConfig.WorldInit { SizeMeters = SizeMeters, SpawnA = a, SpawnB = b, GoalZA = farEnd - 4f, GoalZB = nearEnd + 4f, TestLevel = TestLevel };
         }
 
         /// <summary>Fold the mutable parts (heightfield, layers, cost) into the tick hash. Called by the deformation system (A4).</summary>
