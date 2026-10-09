@@ -111,23 +111,47 @@ namespace TW.Tests
             host.ScriptedPeer = false; host.PeerAttacks = false;
 
             lockHud = HudBootstrap.Create(host);
-            yield return null; yield return null;
+
+            // [I3b] the old body waited a fixed 20 frames, which in batch mode need not cover the command's
+            // InputDelayTicks + 2, so the assert could only ever read the starting value. It now waits on World.Tick.
+            float until = Time.realtimeSinceStartup + 20f;
+            while ((lockHud.Host.Local == null || lockHud.Host.Local.World.Tick < 2) && Time.realtimeSinceStartup < until) yield return null;
+            Assert.That(lockHud.Host.Local, Is.Not.Null, "[I3b] the match started");
 
             short t = lockHud.Host.Local.Fields.FrontTrench(0);
-            Assert.That(t, Is.GreaterThanOrEqualTo((short)0), "no owned front trench to lock");
+            Assert.That(t, Is.GreaterThanOrEqualTo((short)0), "[I3b] no owned front trench to lock");
 
+            // the control: one click lands the absolute flag 1
+            uint issued = lockHud.Host.Local.World.Tick;
+            lockHud.ToggleFront(CommandType.TrenchLock);
+            yield return Settle(issued);
+            Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(1),
+                "[I3b] one lock click must land Locked == 1");
+
+            // the finding: two clicks inside a tactical pause must cancel out
             lockHud.Clock.Toggle(MatchClock.Hold.Tactical);
             yield return null;
-            Assert.That(lockHud.Clock.Paused, Is.True, "the tactical pause did not take hold");
+            Assert.That(lockHud.Clock.Paused, Is.True, "[I3b] the tactical pause did not take hold");
 
+            uint paused = lockHud.Host.Local.World.Tick;
             lockHud.ToggleFront(CommandType.TrenchLock);
             lockHud.ToggleFront(CommandType.TrenchLock);
 
             lockHud.Clock.Remove(MatchClock.Hold.Tactical);
-            for (int i = 0; i < 20; i++) yield return null;
+            yield return Settle(paused);
 
-            Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(0),
-                "[I3] a second lock click in tactical pause must undo the first");
+            Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(1),
+                "[I3b] a second lock click in tactical pause must undo the first");
+        }
+
+        /// <summary>Waits until a command issued at <paramref name="issued"/> can have been applied.</summary>
+        IEnumerator Settle(uint issued)
+        {
+            uint target = issued + (uint)lockHud.Host.Local.World.Config.InputDelayTicks + 2;
+            float until = Time.realtimeSinceStartup + 20f;
+            while (lockHud.Host.Local.World.Tick < target && Time.realtimeSinceStartup < until) yield return null;
+            Assert.That(lockHud.Host.Local.World.Tick, Is.GreaterThanOrEqualTo(target),
+                "[I3b] the sim never reached the tick the command was due at");
         }
 
         static int Alive(SimWorld w)
