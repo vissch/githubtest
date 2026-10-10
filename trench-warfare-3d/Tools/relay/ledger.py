@@ -41,6 +41,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 from pipeline import read_json          # noqa: E402
 import config, legdir                   # noqa: E402
+from sources import kind_of             # noqa: E402
 
 DAY = "%Y-%m-%d"
 ALSO = "TW_BOARD_ALSO"
@@ -205,7 +206,7 @@ def standing(board):
 
 def _empty(day):
     return {"day": day, "usd": 0.0, "legs": 0, "estimated": 0, "units": {}, "week": 0.0, "unmeasured": 0,
-            "usd_unmeasured": 0.0, "week_units": {}, "agents": 0, "agents_usd": 0.0}
+            "usd_unmeasured": 0.0, "week_units": {}, "agents": 0, "agents_usd": 0.0, "kinds": {}}
 
 
 def booked(board, since=None):
@@ -241,6 +242,9 @@ def _days(board, since, home, lim):
             d["estimated"] += 1
         d["usd"] += c
         d["legs"] += 1
+        if rec.get("source") != "retro":            # kinds: {kind of work: usd}, what the day's split is counted in;
+            k = kind_of(rec.get("source"), rec.get("role"), rec.get("kind"))    # a retrospective is nobody's share
+            d["kinds"][k] = d["kinds"].get(k, 0.0) + c
         unit = d["units"].setdefault(str(rec.get("unit") or "?"), {})
         unit[str(rec.get("phase") or "?")] = unit.get(str(rec.get("phase") or "?"), 0.0) + c
         w = known_week(rec)

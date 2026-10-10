@@ -28,11 +28,46 @@ def load(name):
     return importlib.import_module("sources." + name)
 
 
+KINDS = ("finish", "fix", "critique")      # the three kinds of work the day's tokens are split over
+
+
+def kind_of(source, role, named=None):
+    """Which share of the day a unit, or a leg record, counts under (the owner, 2026-10-10: "Finish first"):
+      critique   looking at old work to find tasks (the critique source)
+      fix        mending what a look found: the review's units, and a found task that says so in its file
+      finish     everything else: carrying started work to a landing"""
+    if named in KINDS:
+        return named
+    if source == "critique":
+        return "critique"
+    return "fix" if role == "review-fix" else "finish"
+
+
+def order(shares, spent):
+    """The kinds with a share, the one furthest under its share of what the day has spent first; a tie goes to the
+    larger share. A kind with no share is not in it: nothing of it runs."""
+    have = {k: float(shares.get(k) or 0) for k in KINDS}
+    total = sum(float(spent.get(k) or 0) for k in KINDS)
+    owed = {k: (float(spent.get(k) or 0) / total if total else 0.0) / (have[k] / 100.0) for k in KINDS if have[k] > 0}
+    return sorted(owed, key=lambda k: (owed[k], -have[k]))
+
+
 def next_unit(names, ctx):
-    for name in names:
-        unit = load(name).next(ctx)
-        if unit:
-            return unit
+    """The next unit. With shares in ctx (limits.json share_*): of the kind of work that is furthest under its
+    share today; a kind with nothing to do lends its room to the next, so the day's tokens are never left idle for
+    want of one kind. Without shares: the first source that has a unit, as before."""
+    shares = ctx.get("shares") or {}
+    if not any(shares.get(k) for k in KINDS):
+        for name in names:
+            unit = load(name).next(ctx)
+            if unit:
+                return unit
+        return None
+    for kind in order(shares, ctx.get("spent_kinds") or {}):
+        for name in names:
+            unit = load(name).next(ctx, kind=kind)
+            if unit:
+                return dict(unit, kind=kind)
     return None
 
 

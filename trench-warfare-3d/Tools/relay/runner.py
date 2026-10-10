@@ -15,7 +15,7 @@ every leg and at a unit's verdict (one short try: a push that fails is a note), 
 is on (boardio.live_record), which the stop record replaces.
 Stdlib only. ASCII only.
 """
-import datetime, os, re, sys, time
+import datetime, json, os, re, subprocess, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -77,6 +77,7 @@ class Run:
             if self.lim[k] != v:
                 print("note: %s %s is outside its bounds; using %s" % (k, v, self.lim[k]))
         self.tuned = {k: self.lim[k] for k in tuned if k not in over}
+        self.base_pct = self.lim["day_budget_pct"]              # the run's own day figure: allot() may put another
         self.work = Path(a.work).resolve()
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
@@ -131,6 +132,59 @@ class Run:
             agents.book(self.board, self.station, by="run " + self.run)
         except (SystemExit, Exception) as e:                # noqa: BLE001
             print("note: the agents outside the relay were not booked (%s)" % (str(e) or type(e).__name__), flush=True)
+
+    def allot(self):
+        """Between units, before the next one is picked: the day's figure and the split as they stand NOW, and what
+        each kind of work has spent today. The figure is the run's own unless <home>/day.json names today and
+        another one ({"day": "2026-10-11", "pct": 21}): a raise the owner gives for one day starts at the next unit
+        and is gone at midnight with nobody taking it back. The split is limits.json share_* unless
+        <home>/shares.json holds a whole one ({"finish": 60, "fix": 25, "critique": 15})."""
+        def read(name):
+            try:
+                rec = P.read_json(self.home / name)
+            except (OSError, ValueError):
+                rec = None
+            return rec if isinstance(rec, dict) else {}
+        rec, pct = read("day.json"), self.base_pct
+        if rec.get("day") == time.strftime("%Y-%m-%d") and isinstance(rec.get("pct"), (int, float)) \
+                and not isinstance(rec.get("pct"), bool):
+            pct = config.limits(overrides={"day_budget_pct": rec["pct"]})["day_budget_pct"]
+        if pct != self.lim["day_budget_pct"]:
+            print("note: the day's cap is %g%% from here (%s)"
+                  % (pct, "day.json names today" if pct != self.base_pct else "the run's own again"), flush=True)
+            self.lim["day_budget_pct"] = pct
+        self.ctx["shares"] = config.shares(self.lim, read("shares.json"))
+        try:
+            self.ctx["spent_kinds"] = dict(ledger.spent(self.board, lim=self.lim).get("kinds") or {})
+        except (SystemExit, Exception):                     # noqa: BLE001 - a day that cannot be read splits nothing
+            self.ctx["spent_kinds"] = {}
+
+    def card_round(self):
+        """Between units: what the owner's page needs of the board while a run is going. TW_BETWEEN_UNITS is a JSON
+        list of commands (each a list of words), run with the board as the working folder; what they change under
+        items/, results/ and feedback/ is committed and pushed. A run lasts up to twelve hours, and the board is
+        not to be written under a leg: on 2026-10-10 a whole night of passed steps became the owner's cards in one
+        round, and his answers waited for the run to end. It is never a reason to stop a run."""
+        try:
+            cmds = json.loads(os.environ.get("TW_BETWEEN_UNITS") or "[]")
+        except ValueError:
+            cmds = []
+        if not cmds or self.a.no_push:
+            return
+        try:
+            for cmd in cmds:
+                r = subprocess.run([str(w) for w in cmd], cwd=str(self.board), capture_output=True, text=True,
+                                   stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace", timeout=600)
+                last = ((r.stdout or "").strip().splitlines() or [""])[-1]
+                print("card round: %s: %s" % (Path(str(cmd[1 if len(cmd) > 1 else 0])).name + " " + " ".join(
+                    str(w) for w in cmd[2:4]), last[:160] if r.returncode == 0 else "exit %d: %s" % (
+                        r.returncode, ((r.stderr or "").strip().splitlines() or [last])[-1][:160])), flush=True)
+            gitio.git(["add", "--", "items", "results", "feedback"], self.board, check=False)
+            if gitio.git_raw(["diff", "--cached", "--quiet"], self.board).returncode:
+                gitio.git(["commit", "-q", "-m", "ideas: the card round of run %s" % self.run], self.board)
+                print("card round: board %s" % boardio.push_kept(self.board), flush=True)
+        except (SystemExit, Exception) as e:                # noqa: BLE001
+            print("note: the card round was not finished (%s)" % (str(e) or type(e).__name__), flush=True)
 
     def asked(self, flag="", tail=""):
         """The reason for a stop somebody asked for (relay.py stop). With no why it reads as it always has: scripts
@@ -571,6 +625,9 @@ class Run:
         reason, detail, code = Why("done", "nothing left to do"), "", 0
         try:
             while True:
+                if self.ready and not self.a.dry_run:
+                    self.card_round()                       # before the pick: his answer of this hour changes it
+                self.allot()
                 unit = sources.next_unit(self.a.sources, self.ctx)
                 if not unit:
                     break
