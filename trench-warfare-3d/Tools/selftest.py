@@ -51,6 +51,13 @@ def run(cmd, cwd):
     return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
 
 
+def git_out(cmd, cwd):
+    """stdout alone. git writes its warnings there too when stderr is merged ("CRLF will be replaced by LF"), and a
+    file list that carries one tries to copy a file called "warning: in the working copy of ...".
+    """
+    return subprocess.run(cmd, cwd=cwd, capture_output=True).stdout.decode('utf-8', 'replace')
+
+
 def case(name, ok, detail=''):
     results.append(ok)
     print(('ok    ' if ok else 'FAIL  ') + name + ('' if ok else '\n      ' + detail.strip().replace('\n', '\n      ')[:600]))
@@ -990,12 +997,12 @@ def main():
         sys.exit('could not create a worktree: ' + out)
     try:
         # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
-        changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
-        changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
+        changed = git_out(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO).split('\n')
+        changed += git_out(['git', 'ls-files', '--others', '--exclude-standard'], REPO).split('\n')
         for rel in filter(None, (c.strip() for c in changed)):
             (wt / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / rel, wt / rel)
-        for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
+        for rel in filter(None, git_out(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO).split('\n')):
             (wt / rel.strip()).unlink(missing_ok=True)
         run(['git', 'add', '-A'], wt)
         run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
