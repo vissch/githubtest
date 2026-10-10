@@ -51,9 +51,9 @@ Pictures and films before words. Things to click and act on.
    - Open: what replaces dead ground, which he removed: "we must think about how we can prevent this in the future
      in a better way: the man werent able to enter the trench." (Open list, 2026-10-06.)
    - "Find out first why matches do not end, above all Iron's; report with numbers. Bands
-     after that". (2026-10-07.) The report: a match with no winner is one where nobody attacks. Then: "Fix the measuring first".
+     after that". (2026-10-07.) The report: in 11 of 12 matches with no winner, nobody attacks. Then: "Fix the measuring first: the computer buys a mixed army, and find why the boat side wins".
      No unit's number is tuned before the matches are measured again.
-   - Serves it: fix the measuring script, tune no number, and do not change Iron's roster. Kind: mechanic.
+   - Serves it: fix the measuring first, no unit's number is tuned, and Iron's roster is not changed. Kind: mechanic.
 <a id="goal-units"></a>
 [![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
@@ -155,7 +155,7 @@ He keeps saying no to (the full list is in the context of the ideas tool; these 
 - **Chaos the player cannot read.** No constant bombardment: "it adds too much unknown and chaos; we might add it
   back later with an ability". (2026-09-28.) The fleet's guns stay silent unless switched on. (2026-10-06.)
 - **Fights from across the map.** "not good, reduce range" (2026-10-01); every reach cut by 20 % (2026-09-28).
-- **Crowds that move as one.** Men in rows on set paths (2026-09-28); machines kept apart, his words "Machines on each other", and trench crossing is not part of that work. (2026-10-06.)
+- **Crowds that move as one.** Men in rows on set paths (2026-09-28); his words "Machines on each other", a distance fitting their size, and trench crossing is not part of that work. (2026-10-06.)
 - **Physics for its own sake.** Launched bodies, not ragdolls (2026-09-26); no trench cave-in (2026-09-24).
 - **Rows that lead nowhere, and being asked twice.** "i have no clue what to pick or what needs me". (2026-10-06.)
 - **Reopening what he called fine.** "that's fine" (2026-10-01); "Keep 300 triangles", "Leave it" (2026-10-06).
