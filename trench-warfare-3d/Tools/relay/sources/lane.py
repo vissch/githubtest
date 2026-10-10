@@ -79,7 +79,9 @@ def files(board):
     return sorted(ok, key=place), skipped
 
 
-def next(ctx):
+def next(ctx, kind=None):
+    """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of)."""
+    from sources import kind_of
     root = Path(ctx["board"]) / "relay"
     ok, skipped = files(ctx["board"])
     for p in skipped:
@@ -87,6 +89,8 @@ def next(ctx):
     for p in ok:
         u = load(p)
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
+            continue
+        if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
             continue
         return dict(u, source=NAME)
     return None

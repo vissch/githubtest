@@ -39,22 +39,56 @@ def waits_on_someone(board, item, sid, job):
     return bool(res) and res.get("verdict") == "BLOCKED"
 
 
-def next(ctx, only=None):
-    board = P.Board(ctx["board"])
-    for item in board.items().values():
+def started(ev):
+    """An item some stage of which has been worked: it is in flight until every stage is done."""
+    return any(i["state"] in ("DONE", "RECHECK", "STALE", "IN_PROGRESS") or i["reason"].startswith("last attempt")
+               for i in ev.values())
+
+
+def in_flight(evs):
+    """How many items are started and not finished: what the owner's cap counts (limits.json ideas_in_flight)."""
+    return sum(1 for ev in evs if started(ev) and not all(i["state"] == "DONE" for i in ev.values()))
+
+
+def candidates(ctx, only=None):
+    """Every job this station may take now, the one to take first. The order (the owner, 2026-10-10: sixty legs went
+    to the first steps of fifteen ideas and none landed; the runner took items by file name):
+      1. a job whose last attempt failed goes behind every job that has not failed: a retry does not hold the queue
+      2. the job with the fewest stages left before its item is finished: what is nearest a landing goes first
+      3. the item's name, as before
+    And no NEW item is started while ideas_in_flight items are started and not finished (0: no cap)."""
+    board, cap = P.Board(ctx["board"]), int(config.limits().get("ideas_in_flight") or 0)
+    read = [(item, P.evaluate(item, board)) for item in board.items().values()]
+    full = bool(cap) and in_flight([ev for _, ev in read]) >= cap
+    out = []
+    for item, ev in read:
         stages = {s["id"]: s for s in item["stages"]}
-        for sid, info in P.evaluate(item, board).items():
+        ids = [s["id"] for s in item["stages"]]
+        for sid, info in ev.items():
             st = stages[sid]
             if only and (item["id"], sid) != only:
                 continue
-            if (info["station"] == ctx["station"] and info["state"] in ("READY", "STALE", "RECHECK")
+            if not (info["station"] == ctx["station"] and info["state"] in ("READY", "STALE", "RECHECK")
                     and st.get("role") not in SKIP_ROLES and info["job"] not in ctx["skip"]
                     and not waits_on_someone(board, item, sid, info["job"])):
-                return {"id": info["job"], "source": NAME, "role": st.get("role") or "pipeline",
-                        "lane": st.get("lane") or item["lane"], "item": item["id"], "stage": sid,
-                        "todo": "RECHECK" if info["state"] == "RECHECK" else "REGENERATE",
-                        "bands": st.get("bands", []), "stage_json": st, "title": item.get("title", "")}
-    return None
+                continue
+            if full and not only and not started(ev):
+                continue
+            left = sum(1 for s in ids[ids.index(sid):] if ev[s]["state"] != "DONE")
+            out.append(((info["reason"].startswith("last attempt FAIL"), left, item["id"], ids.index(sid)),
+                        {"id": info["job"], "source": NAME, "role": st.get("role") or "pipeline",
+                         "lane": st.get("lane") or item["lane"], "item": item["id"], "stage": sid,
+                         "todo": "RECHECK" if info["state"] == "RECHECK" else "REGENERATE",
+                         "bands": st.get("bands", []), "stage_json": st, "title": item.get("title", "")}))
+    return [u for _, u in sorted(out, key=lambda x: x[0])]
+
+
+def next(ctx, only=None, kind=None):
+    """A board job is work that is being finished: it is nobody's when another kind of work is asked for."""
+    if kind not in (None, "finish"):
+        return None
+    c = candidates(ctx, only)
+    return c[0] if c else None
 
 
 def refresh(unit, ctx):
