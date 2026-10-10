@@ -347,7 +347,8 @@ def when_read(R):
     runreport.BACK = keep
     runreport.put(where / A / 'claim.json', dict(host='desktop', at=NOW - 60, sig=ran[0]['sig']))
     claimed = [r['id'] for r in runreport.wanted(R, where, host, NOW)]
-    runreport.put(where / A / 'claim.json', dict(host='desktop', at=NOW - 3600, sig=ran[0]['sig']))
+    # old against both clocks: the ticks below run at noon, and after 12:30 a claim an hour before NOW read as fresh to them
+    runreport.put(where / A / 'claim.json', dict(host='desktop', at=min(NOW, now.timestamp()) - 3600, sig=ran[0]['sig']))
     case('reading: a run another station claimed lately is left to it, an old claim is not', A not in claimed and A in [r['id'] for r in runreport.wanted(R, where, host, NOW)], claimed)
     started = []
 
