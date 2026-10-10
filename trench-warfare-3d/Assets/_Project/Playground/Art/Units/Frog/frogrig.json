@@ -5,8 +5,8 @@
  "lods": [
   {
    "lod": 0,
-   "verts": 2467,
-   "tris": 4575,
+   "verts": 2581,
+   "tris": 4799,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",
@@ -29,15 +29,22 @@
     "mixamorig:RightUpLeg",
     "mixamorig:Spine",
     "mixamorig:Spine1",
-    "mixamorig:Spine2"
+    "mixamorig:Spine2",
+    "mixamorig:Throat"
    ],
    "max_per_vertex": 4,
-   "texture": "Frog_LOD0_Base.jpg"
+   "texture": "Frog_LOD0_Base.jpg",
+   "sac": {
+    "segments": 16,
+    "rings": 8,
+    "first_vertex": 2467,
+    "verts": 114
+   }
   },
   {
    "lod": 1,
-   "verts": 1504,
-   "tris": 2670,
+   "verts": 1566,
+   "tris": 2790,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",
@@ -60,15 +67,22 @@
     "mixamorig:RightUpLeg",
     "mixamorig:Spine",
     "mixamorig:Spine1",
-    "mixamorig:Spine2"
+    "mixamorig:Spine2",
+    "mixamorig:Throat"
    ],
    "max_per_vertex": 4,
-   "texture": "Frog_LOD1_Base.jpg"
+   "texture": "Frog_LOD1_Base.jpg",
+   "sac": {
+    "segments": 12,
+    "rings": 6,
+    "first_vertex": 1504,
+    "verts": 62
+   }
   },
   {
    "lod": 2,
-   "verts": 676,
-   "tris": 1084,
+   "verts": 702,
+   "tris": 1132,
    "bones": [
     "mixamorig:Head",
     "mixamorig:Hips",
@@ -87,10 +101,17 @@
     "mixamorig:RightShoulder",
     "mixamorig:RightUpLeg",
     "mixamorig:Spine",
-    "mixamorig:Spine2"
+    "mixamorig:Spine2",
+    "mixamorig:Throat"
    ],
    "max_per_vertex": 2,
-   "texture": "Frog_LOD2_Base.jpg"
+   "texture": "Frog_LOD2_Base.jpg",
+   "sac": {
+    "segments": 8,
+    "rings": 4,
+    "first_vertex": 676,
+    "verts": 26
+   }
   },
   {
    "lod": 3,
@@ -323,5 +344,37 @@
     0.0378
    ]
   }
- ]
+ ],
+ "sac": {
+  "source": "Tools/frogsac.py",
+  "bone": "mixamorig:Throat",
+  "parent": "mixamorig:Neck",
+  "bone_head": [
+   0.0,
+   -0.3438,
+   1.2345
+  ],
+  "centre": [
+   0.0,
+   -0.2738,
+   1.1645
+  ],
+  "rest_radius_m": 0.07,
+  "across_m_at_scale_7.6": 1.064,
+  "rest_poke_out_m": 0.0,
+  "rings": {
+   "0": [
+    16,
+    8
+   ],
+   "1": [
+    12,
+    6
+   ],
+   "2": [
+    8,
+    4
+   ]
+  }
+ }
 }

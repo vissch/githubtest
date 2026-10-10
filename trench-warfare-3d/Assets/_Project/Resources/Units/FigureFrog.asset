@@ -16,4 +16,4 @@ MonoBehaviour:
   Atlas: {fileID: 4900000, guid: 00b94368bfea05d40acefad70ed071a9, type: 3}
   Rows: 111
   TotalFrames: 3398
-  VertexCount: 987
+  VertexCount: 1099

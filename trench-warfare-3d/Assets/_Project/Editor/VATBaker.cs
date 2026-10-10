@@ -45,8 +45,10 @@ namespace TW.Editor
             ("Sniper", "Assets/_Project/Art/Characters/Sniper.fbx"),
         };
 
-        /// <summary>The Frog: its file, which of its four skinned meshes is baked (the playground's LOD2, under a thousand
-        /// vertices like the two men), that mesh's base colour, and the rig its clips are posed on.</summary>
+        /// <summary>The Frog: its file, which of its four skinned meshes is baked (the playground's LOD2), that mesh's
+        /// base colour, and the rig its clips are posed on. It baked to 987 vertices until the throat sac the deflating
+        /// death needs was added (Tools/frogsac.py, 2026-10-10); with the sac it is 1099, one vertex inside the 1100
+        /// ProvingGroundModelTests holds it to.</summary>
         public const string FrogName = "Frog";
         public const string FrogPath = "Assets/_Project/Playground/Art/Units/Frog/Frog.fbx";
         public const string FrogSkin = "Frog_LOD2";
