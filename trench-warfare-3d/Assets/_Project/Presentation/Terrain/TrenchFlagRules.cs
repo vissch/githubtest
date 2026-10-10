@@ -110,6 +110,54 @@ namespace TW.Presentation.Terrain
             return la > lb ? la / lb : lb / la;
         }
 
+        /// <summary>A field stake: what a retaken trench raises its colour on while the pole is gone. Short, so the
+        /// cloth is cut down with it (StakeFlagScale) instead of dragging in the mud.</summary>
+        public const float StakeHeight = 1.4f, StakeFlagScale = 0.45f;
+        /// <summary>How long the piece that snaps off is: everything over the stump.</summary>
+        public static float FallenLength => PoleHeight - StumpHeight;
+        /// <summary>How thick the rag on the mud lies, and how far from the butt it ends up.</summary>
+        public const float RagLift = 0.07f, RagOut = 0.8f;
+        /// <summary>What one shell throws off a pole as it goes: splinters of the shaft, and shreds of the cloth.</summary>
+        public const int SplinterPieces = 7, ClothPieces = 3;
+        /// <summary>How much of the cloth's colour one shell burns out of it, and the colour it burns toward. A rag
+        /// on the mud starts here; standing in fire takes it the rest of the way to charcoal.</summary>
+        public const float ScorchPerHit = 0.55f;
+        public static readonly Color Char = new Color(0.26f, 0.21f, 0.17f);   // charred cloth, not a hole: a rag has to read on night mud
+
+        /// <summary>How high whatever is left of the pole stands.</summary>
+        public static float Standing(FlagState state) => state == FlagState.Intact ? PoleHeight : StumpHeight;
+
+        /// <summary>Where a flag's hoist tops out on this pole: the pole's own head while it stands, the field
+        /// stake's head once it is blown away, and nothing at all on a snapped one (the flag went down with it).</summary>
+        public static float HoistTop(FlagState state)
+            => state switch { FlagState.Intact => PoleHeight - 0.08f, FlagState.Gone => StakeHeight - 0.06f, _ => 0f };
+
+        /// <summary>How big the cloth is drawn on that pole: full size on the pole, cut down on the field stake.</summary>
+        public static float ClothScale(FlagState state) => state == FlagState.Gone ? StakeFlagScale : 1f;
+
+        /// <summary>The harm a blast does a pole at that distance, falling off the way PropDestruction's does, so a
+        /// pole and the lining beside it are shaken down by the same arithmetic.</summary>
+        public static float Harm(float power, float distance, float reach)
+            => distance > reach || reach <= 0f ? 0f : power * (1f - 0.75f * distance / reach);
+
+        /// <summary>Which way the wreck is thrown: from the blast toward the pole. SimEvent.Explosion carries no
+        /// direction today (Dir is zero), so the line between the two points is the only honest one.</summary>
+        public static float ThrowYaw(Vector3 blast, Vector3 pole)
+        {
+            float dx = pole.x - blast.x, dz = pole.z - blast.z;
+            return dx * dx + dz * dz < 1e-6f ? 0f : Mathf.Atan2(dx, dz);
+        }
+
+        /// <summary>The way the wreck is thrown, flat and a unit long.</summary>
+        public static Vector3 ThrowDir(Vector3 blast, Vector3 pole)
+        {
+            float yaw = ThrowYaw(blast, pole);
+            return new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+        }
+
+        /// <summary>A cloth with the fire taken out of it: 0 the colour it flew, 1 charcoal.</summary>
+        public static Color Scorched(Color cloth, float scorch) => Color.Lerp(cloth, Char, Mathf.Clamp01(scorch));
+
         /// <summary>One hit on a pole: heavy ordnance takes it outright, anything else snaps it when its strength
         /// runs out and blows the stump away on the next one. A gone pole stays gone.</summary>
         public static FlagState Apply(ref float hp, float harm, bool heavy, FlagState was)

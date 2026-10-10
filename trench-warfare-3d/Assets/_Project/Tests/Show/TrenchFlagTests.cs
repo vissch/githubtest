@@ -168,5 +168,84 @@ namespace TW.Tests
             Assert.Greater(TrenchFlagRules.FallSwing, TrenchFlagRules.FlagWide * 0.5f,
                 "clear means further out than half the cloth, or it still overlaps the pole");
         }
+
+        [Test]
+        public void A_Blast_Harms_By_Distance_And_Stops_At_Its_Reach()
+        {
+            const float reach = 9.2f, power = 1.2f;
+            Assert.AreEqual(power, TrenchFlagRules.Harm(power, 0f, reach), 1e-4f, "right on the butt: all of it");
+            Assert.AreEqual(power * 0.25f, TrenchFlagRules.Harm(power, reach, reach), 1e-4f,
+                "at the edge a quarter is left, the falloff PropDestruction gives the lining");
+            Assert.Greater(TrenchFlagRules.Harm(power, 2f, reach), TrenchFlagRules.Harm(power, 6f, reach),
+                "nearer hurts more");
+            Assert.AreEqual(0f, TrenchFlagRules.Harm(power, reach + 0.01f, reach), "past its reach a shell does nothing");
+            Assert.AreEqual(0f, TrenchFlagRules.Harm(power, 1f, 0f), "and a reach of nothing harms nothing");
+        }
+
+        [Test]
+        public void The_Wreck_Is_Thrown_Away_From_The_Blast_Not_Along_Dir()
+        {
+            // Explosion.Dir is zero today: the only honest direction is the line from the blast to the pole
+            var pole = new Vector3(20f, 0f, 20f);
+            Assert.AreEqual(0f, TrenchFlagRules.ThrowYaw(new Vector3(20f, 0f, 10f), pole), 1e-4f, "a shell south of it throws it north (+Z)");
+            Assert.AreEqual(Mathf.PI * 0.5f, TrenchFlagRules.ThrowYaw(new Vector3(10f, 0f, 20f), pole), 1e-4f, "a shell west of it throws it east (+X)");
+            var dir = TrenchFlagRules.ThrowDir(new Vector3(10f, 0f, 20f), pole);
+            Assert.AreEqual(1f, dir.magnitude, 1e-4f, "a unit length");
+            Assert.AreEqual(0f, dir.y, "and flat: a pole falls over, it does not take off");
+            Assert.Greater(Vector3.Dot(dir, (pole - new Vector3(10f, 0f, 20f)).normalized), 0.99f, "it points away from the blast");
+            Assert.AreEqual(0f, TrenchFlagRules.ThrowYaw(pole, pole), "a shell exactly on the butt picks a side and does not divide by zero");
+        }
+
+        [Test]
+        public void A_Snapped_Pole_Is_A_Stump_With_Its_Top_On_The_Mud()
+        {
+            Assert.AreEqual(TrenchFlagRules.PoleHeight, TrenchFlagRules.Standing(FlagState.Intact), 1e-4f);
+            Assert.AreEqual(TrenchFlagRules.StumpHeight, TrenchFlagRules.Standing(FlagState.Snapped), 1e-4f, "it broke at the butt");
+            Assert.AreEqual(TrenchFlagRules.StumpHeight, TrenchFlagRules.Standing(FlagState.Gone), 1e-4f, "and a gone pole leaves the same stump");
+            Assert.AreEqual(TrenchFlagRules.PoleHeight - TrenchFlagRules.StumpHeight, TrenchFlagRules.FallenLength, 1e-4f,
+                "what lies on the mud is everything over the break");
+            Assert.Greater(TrenchFlagRules.FallenLength, TrenchFlagRules.FlagTall, "the piece on the ground is longer than its flag");
+            Assert.AreEqual(0f, TrenchFlagRules.HoistTop(FlagState.Snapped), "no flag ever goes up a broken pole");
+        }
+
+        [Test]
+        public void A_Retake_Raises_The_Colour_On_A_Short_Field_Stake()
+        {
+            float stake = TrenchFlagRules.HoistTop(FlagState.Gone);
+            Assert.AreEqual(TrenchFlagRules.StakeHeight - 0.06f, stake, 1e-4f);
+            Assert.Less(stake, TrenchFlagRules.HoistTop(FlagState.Intact), "a stake is plainly lower than the pole it replaces");
+            Assert.Greater(stake, TrenchFlagRules.StumpHeight, "and higher than the stump, or there is nothing to see");
+            float cut = TrenchFlagRules.ClothScale(FlagState.Gone);
+            Assert.AreEqual(TrenchFlagRules.StakeFlagScale, cut, 1e-4f);
+            Assert.AreEqual(1f, TrenchFlagRules.ClothScale(FlagState.Intact), 1e-4f, "the pole flies the full cloth");
+            Assert.Less(TrenchFlagRules.FlagTall * cut, stake, "the cut-down cloth hangs clear of the mud on the stake");
+        }
+
+        [Test]
+        public void Fire_Burns_The_Colour_Out_Of_The_Cloth()
+        {
+            var red = TrenchFlagRules.ClothRed;
+            Assert.AreEqual(red, TrenchFlagRules.Scorched(red, 0f), "unburnt is the colour it flew");
+            Assert.AreEqual(TrenchFlagRules.Char, TrenchFlagRules.Scorched(red, 1f), "all the way burnt is charcoal");
+            Assert.AreEqual(TrenchFlagRules.Char, TrenchFlagRules.Scorched(red, 9f), "and it stops at charcoal");
+            float lit = TrenchFlagRules.Luminance(TrenchFlagRules.Scorched(red, TrenchFlagRules.ScorchPerHit));
+            Assert.Less(lit, TrenchFlagRules.Luminance(red), "one shell darkens it");
+            Assert.Greater(lit, TrenchFlagRules.Luminance(TrenchFlagRules.Char), "but one shell is not a cinder");
+            Assert.Greater(TrenchFlagRules.Luminance(TrenchFlagRules.Scorched(TrenchFlagRules.ClothRed, TrenchFlagRules.ScorchPerHit)),
+                           TrenchFlagRules.Luminance(TrenchFlagRules.Scorched(TrenchFlagRules.ClothBlue, TrenchFlagRules.ScorchPerHit)),
+                           "two scorched rags still tell the sides apart: red stays the lighter one");
+        }
+
+        [Test]
+        public void A_Break_Throws_Splinters_And_A_Gone_Pole_Throws_Cloth_Too()
+        {
+            Assert.Greater(TrenchFlagRules.SplinterPieces, TrenchFlagRules.ClothPieces, "a pole is mostly shaft");
+            Assert.GreaterOrEqual(TrenchFlagRules.SplinterPieces / 2, 1, "even a snap throws something");
+            Assert.Less(TrenchFlagRules.SplinterPieces + TrenchFlagRules.ClothPieces, 20,
+                "one pole is not a house: it cannot eat the debris ration");
+            Assert.Greater(TrenchFlagRules.RagOut, 0f, "the rag lands off the butt, not on it");
+            Assert.Greater(TrenchFlagRules.RagLift, 0f, "and over the mud, not inside it");
+            Assert.Less(TrenchFlagRules.RagLift, 0.2f, "but lying on it, not hovering");
+        }
     }
 }

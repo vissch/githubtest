@@ -37,6 +37,9 @@ namespace TW.Presentation.Terrain
             public float Hp;
             public FlagState State;
             public bool Dust;          // a swap just began: owes one dab of dust at the butt
+            public float Throw;        // the yaw the wreck was thrown along: blast -> pole, never Explosion.Dir
+            public float Scorch;       // 0 the colour it flew, 1 charcoal
+            public bool Retaken;       // taken back while the pole was gone: its colour is up on a field stake
         }
 
         Pole[] poles = System.Array.Empty<Pole>();
@@ -44,9 +47,10 @@ namespace TW.Presentation.Terrain
 
         Mesh poleMesh, flagMesh, ropeMesh, frogMesh;
         Material poleMat, frogMat;
-        readonly Material[] clothMat = new Material[2];
+        readonly Material[] clothMat = new Material[2], ragMat = new Material[2];
         Matrix4x4[] poleDraw = System.Array.Empty<Matrix4x4>(), frogDraw = System.Array.Empty<Matrix4x4>(), ropeDraw = System.Array.Empty<Matrix4x4>();
         readonly List<Matrix4x4>[] clothDraw = { new List<Matrix4x4>(), new List<Matrix4x4>() };
+        readonly List<Matrix4x4>[] ragDraw = { new List<Matrix4x4>(), new List<Matrix4x4>() };
         bool built, subscribed;
 
         void OnDestroy()
@@ -56,12 +60,25 @@ namespace TW.Presentation.Terrain
             if (flagMesh != null) Destroy(flagMesh);
             if (poleMat != null) Destroy(poleMat);
             if (frogMat != null) Destroy(frogMat);
-            for (int k = 0; k < 2; k++) if (clothMat[k] != null) Destroy(clothMat[k]);
+            for (int k = 0; k < 2; k++)
+            {
+                if (clothMat[k] != null) Destroy(clothMat[k]);
+                if (ragMat[k] != null) Destroy(ragMat[k]);
+            }
         }
 
         void OnSimEvent(SimEvent e)
         {
-            if (e.Type == SimEventType.TrenchCaptured) Swap(e.A, e.B);
+            switch (e.Type)
+            {
+                case SimEventType.TrenchCaptured: Swap(e.A, e.B); return;
+                // a shell on the parapet, read the way PropDestruction reads one: a grenade is beneath notice
+                case SimEventType.Explosion:
+                    if (e.Scalar < 0.3f) return;
+                    Blast(new Vector3(e.Pos.x, e.Pos.y, e.Pos.z), e.Scalar * PropDestruction.BlastReach,
+                          Mathf.Clamp(e.Scalar / 6f, 0.15f, 1.6f), e.Scalar, e.Tick * 41u);
+                    return;
+            }
         }
 
         /// <summary>A trench changes hands: the old flag is cut loose and the new one starts up the pole. A pole that
@@ -76,6 +93,8 @@ namespace TW.Presentation.Terrain
             p.Owner = (byte)team;
             p.Since = 0f;
             p.Dust = true;
+            // the pole is gone: the taker has nothing to haul on, so its colour goes up on a short field stake
+            if (p.State == FlagState.Gone) p.Retaken = true;
             poles[i] = p;
         }
 
@@ -85,14 +104,83 @@ namespace TW.Presentation.Terrain
         /// <summary>Stage a capture from an eval or a test, exactly as the sim's event does.</summary>
         public void SwapForTests(int trench, int team) => Swap(trench, team);
 
-        /// <summary>Shell a pole from an eval or a test (the shape of PropDestruction.StrikeForTests).</summary>
+        /// <summary>A stripped sapling's splinters.</summary>
+        static readonly Color PoleTimber = new Color(0.42f, 0.34f, 0.24f);
+
+        /// <summary>A burst on the field: every pole inside its reach takes harm by distance, and the wreck is
+        /// thrown along the line from the blast to the pole. Explosion.Dir is zero today, so that line is the only
+        /// honest direction there is.</summary>
+        void Blast(Vector3 at, float reach, float power, float radius, uint salt)
+        {
+            for (int i = 0; i < poles.Length; i++)
+            {
+                var p = poles[i];
+                if (p.State == FlagState.Gone && p.Scorch >= 1f) continue;   // a charred stump has nothing left to lose
+                float d = Vector2.Distance(new Vector2(at.x, at.z), new Vector2(p.Anchor.x, p.Anchor.z));
+                if (d > reach) continue;
+                float harm = TrenchFlagRules.Harm(power, d, reach);
+                bool heavy = TrenchSectionRules.IsHeavy(radius, power, d, reach);
+                Hit(i, harm, heavy, TrenchFlagRules.ThrowYaw(at, p.Anchor), salt + (uint)(i * 13));
+            }
+        }
+
+        /// <summary>One hit on one pole: TrenchFlagRules says what is left of it and the show follows — a snapped
+        /// pole falls at the break with its flag, a pole blown away leaves a stump and a scorched rag, and both
+        /// throw splinters. A near miss only burns the colour out of the cloth.</summary>
+        void Hit(int i, float harm, bool heavy, float throwYaw, uint salt)
+        {
+            var p = poles[i];
+            var was = p.State;
+            p.State = TrenchFlagRules.Apply(ref p.Hp, harm, heavy, was);
+            p.Scorch = Mathf.Clamp01(p.Scorch + TrenchFlagRules.ScorchPerHit * Mathf.Clamp01(harm));
+            if (p.State != was)
+            {
+                p.Throw = throwYaw;
+                p.Scorch = Mathf.Clamp01(p.Scorch + TrenchFlagRules.ScorchPerHit);
+                if (p.State == FlagState.Gone) p.Retaken = false;   // nothing flies here until the trench is taken again
+                Wreck(p, p.State, salt);
+            }
+            poles[i] = p;
+        }
+
+        /// <summary>What a break throws off: splinters of the shaft, shreds of the cloth once the pole itself is
+        /// gone, and one dab of dust at the butt. No new sheet: the Puff book and DebrisRenderer already have
+        /// both.</summary>
+        void Wreck(in Pole p, FlagState now, uint salt)
+        {
+            var debris = DebrisRenderer.Instance;
+            var dir = new Vector3(Mathf.Sin(p.Throw), 0f, Mathf.Cos(p.Throw));   // down the throw: away from the blast
+            var at = p.Anchor + Vector3.up * TrenchFlagRules.StumpHeight;
+            if (debris != null)
+            {
+                int splinters = now == FlagState.Gone ? TrenchFlagRules.SplinterPieces : TrenchFlagRules.SplinterPieces / 2;
+                debris.Burst(DebrisRenderer.Piece.Shard, at, splinters, 4.5f, 0.26f, PoleTimber, 9f, 0f, 1.4f, dir, salt);
+                if (now == FlagState.Gone && TrenchFlagRules.Flies(p.Owner))
+                    debris.Burst(DebrisRenderer.Piece.Shard, at, TrenchFlagRules.ClothPieces, 3.2f, 0.34f,
+                                 TrenchFlagRules.Scorched(TrenchFlagRules.Cloth(p.Owner), p.Scorch), 11f, 0f, 1.8f, dir, salt + 5u);
+            }
+            if (Fx != null) Fx.DustDab(p.Anchor + Vector3.up * 0.2f, now == FlagState.Gone ? 2.1f : 1.4f);
+        }
+
+        /// <summary>Shell a pole from an eval or a test (the shape of PropDestruction.StrikeForTests). The throw is
+        /// taken down the trench's facing, the way a shell out of no man's land would come.</summary>
         public void StrikeForTests(int trench, float harm, bool heavy)
         {
             int i = Index(trench);
             if (i < 0) return;
-            var p = poles[i];
-            p.State = TrenchFlagRules.Apply(ref p.Hp, harm, heavy, p.State);
-            poles[i] = p;
+            Hit(i, harm, heavy, poles[i].Yaw, 17u + (uint)trench);
+        }
+
+        /// <summary>Shell the field from an eval, exactly as an Explosion event of that radius does.</summary>
+        public void BlastForTests(Vector3 at, float radius)
+            => Blast(at, radius * PropDestruction.BlastReach, Mathf.Clamp(radius / 6f, 0.15f, 1.6f), radius, 23u);
+
+        /// <summary>What is left of a pole, for an eval's report: its state, the strength it has left, how burnt its
+        /// cloth is, and whether its colour is up on a field stake rather than on the pole.</summary>
+        public (FlagState state, float hp, float scorch, bool stake) WreckForTests(int trench)
+        {
+            int i = Index(trench);
+            return i < 0 ? (FlagState.Gone, 0f, 1f, false) : (poles[i].State, poles[i].Hp, poles[i].Scorch, poles[i].Retaken);
         }
 
         /// <summary>What a pole is doing, for an eval's report: its state, whose colour it flies, and how far into a
@@ -131,7 +219,7 @@ namespace TW.Presentation.Terrain
                 };
                 if (t.Id >= 0) byId[t.Id] = (short)i;
             }
-            poleDraw = new Matrix4x4[count];
+            poleDraw = new Matrix4x4[count * 2];   // a snapped pole is two pieces: the stump, and the top on the mud
             frogDraw = new Matrix4x4[count];
             ropeDraw = new Matrix4x4[count];
 
@@ -148,6 +236,9 @@ namespace TW.Presentation.Terrain
             frogMat = Paint(toon, new Color(0.26f, 0.33f, 0.21f));
             clothMat[0] = Paint(toon, TrenchFlagRules.Cloth(0));
             clothMat[1] = Paint(toon, TrenchFlagRules.Cloth(1));
+            // a rag on the mud has been through the fire already: it starts one shell's worth of scorch down
+            ragMat[0] = Paint(toon, TrenchFlagRules.Scorched(TrenchFlagRules.Cloth(0), TrenchFlagRules.ScorchPerHit));
+            ragMat[1] = Paint(toon, TrenchFlagRules.Scorched(TrenchFlagRules.Cloth(1), TrenchFlagRules.ScorchPerHit));
         }
 
         static Material Paint(Shader shader, Color colour)
@@ -228,6 +319,7 @@ namespace TW.Presentation.Terrain
             bool close = SceneHooks.CloseUp > 0f;
             float dt = Time.deltaTime, now = Time.time;
             clothDraw[0].Clear(); clothDraw[1].Clear();
+            ragDraw[0].Clear(); ragDraw[1].Clear();
             int polesDrawn = 0, frogsDrawn = 0;
 
             for (int i = 0; i < poles.Length; i++)
@@ -239,7 +331,6 @@ namespace TW.Presentation.Terrain
                     if (p.Since >= TrenchFlagRules.FallSeconds) p.Losing = 255;
                     poles[i] = p;
                 }
-                if (p.State == FlagState.Gone) { poles[i].Dust = false; continue; }
                 if (p.Dust)
                 {
                     poles[i].Dust = false;
@@ -249,24 +340,48 @@ namespace TW.Presentation.Terrain
 
                 float far = Vector3.Distance(eye, p.Anchor);
                 bool tiny = far > TrenchFlagRules.PoleFadeMeters;
-                float high = p.State == FlagState.Snapped ? TrenchFlagRules.StumpHeight : TrenchFlagRules.PoleHeight;
+                float high = TrenchFlagRules.Standing(p.State);
                 var up = Quaternion.Euler(0f, p.Yaw * Mathf.Rad2Deg, 0f);
+                var thrown = Quaternion.Euler(0f, p.Throw * Mathf.Rad2Deg, 0f);
+                var flat = thrown * Quaternion.Euler(90f, 0f, 0f);   // the mesh's +Y laid down the throw
                 if (!tiny) poleDraw[polesDrawn++] = Matrix4x4.TRS(p.Anchor, up, new Vector3(0.17f, high, 0.17f));
-                if (p.State != FlagState.Intact) continue;   // a snapped pole is a stump: no cloth, no frog
 
-                // the flag flies across the parapet, its hoist edge on the pole
                 var across = up * Quaternion.Euler(0f, 90f, 0f);
                 float swell = tiny ? TrenchFlagRules.Swell : 1f;
-                var cloth = new Vector3(TrenchFlagRules.FlagWide * swell, TrenchFlagRules.FlagTall * swell, 1f);
-                float top = high - 0.08f, bottom = TrenchFlagRules.FlagTall * 0.55f;
+                float cut = TrenchFlagRules.ClothScale(p.State);
+                var cloth = new Vector3(TrenchFlagRules.FlagWide * swell * cut, TrenchFlagRules.FlagTall * swell * cut, 1f);
+                float top = TrenchFlagRules.HoistTop(p.State), bottom = TrenchFlagRules.FlagTall * 0.55f * cut;
 
-                if (TrenchFlagRules.Flies(p.Owner))
+                if (p.State == FlagState.Snapped)
+                {
+                    // it broke at the butt: the top lies on the mud down the throw, its flag still on it
+                    if (!tiny)
+                        poleDraw[polesDrawn++] = Matrix4x4.TRS(p.Anchor + Vector3.up * (TrenchFlagRules.StumpHeight + 0.09f),
+                                                               flat, new Vector3(0.17f, TrenchFlagRules.FallenLength, 0.17f));
+                    if (TrenchFlagRules.Flies(p.Owner))
+                        ragDraw[p.Owner & 1].Add(Matrix4x4.TRS(
+                            p.Anchor + Vector3.up * TrenchFlagRules.RagLift
+                                     + thrown * Vector3.forward * (TrenchFlagRules.FallenLength * 0.75f),
+                            thrown * Quaternion.Euler(90f, 0f, 0f),
+                            new Vector3(TrenchFlagRules.FlagWide * swell, TrenchFlagRules.FlagTall * swell, 1f)));
+                    continue;   // no flag goes up a broken pole, and no frog hauls on one
+                }
+                if (p.State == FlagState.Gone && TrenchFlagRules.Flies(p.Owner))
+                    // a scorched rag of whoever held it, lying off the butt where the shell put it
+                    ragDraw[p.Owner & 1].Add(Matrix4x4.TRS(
+                        p.Anchor + Vector3.up * TrenchFlagRules.RagLift + thrown * Vector3.forward * TrenchFlagRules.RagOut,
+                        thrown * Quaternion.Euler(90f, 0f, 0f),
+                        new Vector3(TrenchFlagRules.FlagWide * 0.7f, TrenchFlagRules.FlagTall * 0.7f, 1f)));
+                // a pole that is gone flies nothing until the trench is taken again, and then on a field stake
+                bool flies = p.State == FlagState.Intact || p.Retaken;
+
+                if (flies && TrenchFlagRules.Flies(p.Owner))
                 {
                     float hoist = Mathf.Lerp(bottom, top, TrenchFlagRules.Rise(p.Since));
                     float flutter = Mathf.Sin(now * 1.7f + i) * 2.5f;
                     clothDraw[p.Owner & 1].Add(Matrix4x4.TRS(p.Anchor + Vector3.up * hoist, across * Quaternion.Euler(0f, flutter, 0f), cloth));
                 }
-                if (TrenchFlagRules.Flies(p.Losing) && p.Since < TrenchFlagRules.FallSeconds)
+                if (p.State == FlagState.Intact && TrenchFlagRules.Flies(p.Losing) && p.Since < TrenchFlagRules.FallSeconds)
                 {
                     // cut loose: it swings clear of the pole and tumbles down, still airborne over the parapet when it
                     // stops being drawn (TrenchFlagRules.FallClearance) — a flag flies off, it does not sink in
@@ -279,7 +394,7 @@ namespace TW.Presentation.Terrain
                 }
 
                 // the frog and its rope are a close-up's business only
-                if (close && far < 60f && frogMesh != null)
+                if (close && far < 60f && frogMesh != null && flies)
                 {
                     bool hauling = p.Since < TrenchFlagRules.RiseSeconds;
                     float haul = hauling ? Mathf.Sin(p.Since * 11f) * 0.09f : 0f;
@@ -297,8 +412,12 @@ namespace TW.Presentation.Terrain
             if (polesDrawn > 0)
                 FrameBudget.Draw(new RenderParams(poleMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true }, poleMesh, 0, poleDraw, polesDrawn);
             for (int k = 0; k < 2; k++)
+            {
                 if (clothDraw[k].Count > 0 && clothMat[k] != null)
                     FrameBudget.Draw(new RenderParams(clothMat[k]) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true }, flagMesh, 0, clothDraw[k]);
+                if (ragDraw[k].Count > 0 && ragMat[k] != null)
+                    FrameBudget.Draw(new RenderParams(ragMat[k]) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true }, flagMesh, 0, ragDraw[k]);
+            }
             if (frogsDrawn > 0 && frogMat != null)
             {
                 var rp = new RenderParams(frogMat) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true };
