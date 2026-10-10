@@ -27,6 +27,8 @@ namespace TW.Presentation
                 Density = density, Travel = new float3(simDir.x, 0f, simDir.z),
                 Throw = new float3(s.ThrowX, s.ThrowUp, s.ThrowZ),
                 BodyYaw = s.BodyYaw, KillerYaw = killer ? w.Yaw[b] : s.BodyYaw,
+                // his own kind, from his latched state: w.Archetype[i] may already be a newcomer's (Tick, a same-tick refill)
+                Archetype = s.Archetype,
                 Seed = s.Seed, Tick = tick,
             };
             float3 fly = input.Throw; float yaw = s.ShownYaw;

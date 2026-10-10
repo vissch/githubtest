@@ -18,6 +18,9 @@ namespace TW.Presentation.Units
         public const float BounceHigh = 0.22f, BounceHighMin = 0.35f, BounceHighMax = 2.4f;
         /// <summary>The second bounce is this share of the first.</summary>
         public const float SecondBounce = 0.4f;
+        /// <summary>A balloon's hops (MakeHops): the second and third go this share of the first hop's distance and height.
+        /// The design's hops are 6 / 4 / 2.5 m far and 3 / 2.2 / 1.2 m high, and the first is what the controller throws.</summary>
+        public const float HopFar2 = 4f / 6f, HopFar3 = 2.5f / 6f, HopHigh2 = 2.2f / 3f, HopHigh3 = 1.2f / 3f;
         /// <summary>A first bounce higher than this turns him over once more.</summary>
         public const float BounceFlipHeight = 0.6f;
         /// <summary>A skid of d metres lasts SkidBase + SkidPerMetre x d seconds, easing out.</summary>
@@ -61,6 +64,9 @@ namespace TW.Presentation.Units
             public sbyte PulseQ, RestQ; public float PulseDur;
             /// <summary>Seconds (after the delay) until he lies still.</summary>
             public float Settled;
+            /// <summary>A body that shrinks as he goes (a balloon): his size on each arc and the size he lies at, as a factor
+            /// of his own. All zero for every other gag, and SizeAt then answers 1 throughout.</summary>
+            public float Size0, Size1, Size2, SizeRest;
             public float Gravity;
             /// <summary>Seconds from his death until he lies still.</summary>
             public float Arrive => Delay + Settled;
@@ -138,6 +144,58 @@ namespace TW.Presentation.Units
             }
             p.Rest = at; p.Settled = t;
             return p;
+        }
+
+        /// <summary>
+        /// A balloon's path: up to three hops, each on its own bearing (the first along fly, each one after it turned
+        /// hopTurn radians off the last, alternating the way it turns) and each shorter and lower than the last by the Hop
+        /// shares above. No bounce, no skid: every hop lands on the drawn ground and the last is where he lies. A hop that
+        /// comes down below the water ends it there. Make is left alone, so no other gag changes.
+        /// </summary>
+        public static Plan MakeHops<G>(Vector3 from, Vector3 fly, int hops, float hopTurn, float delay, float gravity, Vector2 mapSize, float water, ref G ground) where G : struct, IGroundHeight
+        {
+            var p = new Plan { Origin = from, Delay = Mathf.Max(0f, delay), Gravity = Mathf.Max(1f, gravity), Rest = from };
+            Vector3 way = new Vector3(fly.x, 0f, fly.z);
+            float far = way.magnitude;
+            if (hops < 1 || fly.y <= 0.05f || far <= 0.01f) return p;
+            Vector3 dir = way / far, at = from;
+            float t = 0f;
+            int n = Mathf.Min(hops, 3);
+            for (int k = 0; k < n; k++)
+            {
+                if (k > 0) dir = Turn(dir, (k & 1) == 1 ? hopTurn : -hopTurn);
+                float d = far * (k == 0 ? 1f : k == 1 ? HopFar2 : HopFar3);
+                float h = fly.y * (k == 0 ? 1f : k == 1 ? HopHigh2 : HopHigh3);
+                var land = OnGround(at + dir * d, mapSize, ref ground);
+                var arc = Solve(at, land, h, t, p.Gravity);
+                if (k == 0) p.A0 = arc; else if (k == 1) p.A1 = arc; else p.A2 = arc;
+                p.Arcs = (byte)(k + 1); t = arc.End; at = land;
+                if (land.y < water - 0.05f) break;   // down in the water: the air is out of him and he stays there
+            }
+            p.Rest = at; p.Settled = t;
+            return p;
+        }
+
+        /// <summary>A flat bearing turned by this many radians.</summary>
+        static Vector3 Turn(Vector3 dir, float radians)
+        {
+            float s = Mathf.Sin(radians), c = Mathf.Cos(radians);
+            return new Vector3(dir.x * c + dir.z * s, 0f, dir.z * c - dir.x * s);
+        }
+
+        /// <summary>How big he is drawn now, as a factor of his own size: himself until the launch, the hop's size while he
+        /// is on it, and the last one once he lies. 1 throughout for a path with no sizes (every gag but the balloon).</summary>
+        public static float SizeAt(in Plan p, float age)
+        {
+            if (p.Size0 <= 0f) return 1f;
+            if (age - p.Delay < 0f) return 1f;
+            switch (ArcAt(p, age))
+            {
+                case 0: return p.Size0;
+                case 1: return p.Size1 > 0f ? p.Size1 : p.Size0;
+                case 2: return p.Size2 > 0f ? p.Size2 : p.Size1;
+            }
+            return p.SizeRest > 0f ? p.SizeRest : p.Size2 > 0f ? p.Size2 : p.Size0;
         }
 
         /// <summary>Moves where he comes to rest (a heap lifts and nudges him), re-solving the last part of the path so he

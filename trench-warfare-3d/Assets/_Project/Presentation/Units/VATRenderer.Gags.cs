@@ -1,6 +1,7 @@
 // Phase: deaths (2026-09-28, implemented) — part of VATRenderer: a body with a death gag (DeathGags). AddFallen plans his
 // whole path once (FallenFlight: the hold, the throw, the bounces, the skid, where he comes to rest, all on the drawn
 // ground) and the draw reads it back every frame; his roll, squash and feet pivot ride in the instance's Tint (VatTint).
+// A balloon's hops are their own plan (MakeHops) and he is drawn smaller on each (FallenFlight.SizeAt).
 // A heap stacks the gagged by when they come DOWN, not by when they died: a man whose short flight ends first lies
 // under one still in the air, instead of the late one hovering over a gap. A body with no gag never comes here.
 using UnityEngine;
@@ -36,7 +37,13 @@ namespace TW.Presentation.Units
             // the burning man's skid goes the way he ran; every other skid carries on the way he was thrown
             Vector3 skidDir = gag.Gag == DeathGag.Skid ? new Vector3(Mathf.Sin(gag.SkidYaw), 0f, Mathf.Cos(gag.SkidYaw)) : Vector3.zero;
             var size = map.SizeMeters;
-            path = FallenFlight.Make(pos, fly, gag.Flips, gag.Rolls, gag.Bounces, gag.Skid, skidDir, gag.Delay, gag.HoldLift, gag.Jig, ThrowGravity, new Vector2(size.x, size.y), map.WaterLevel, ref ground);
+            if (gag.Hops > 0)
+            {
+                // a balloon whizzes off in hops of its own, shrinking on each (DeathGags): no bounce, no skid
+                path = FallenFlight.MakeHops(pos, fly, gag.Hops, gag.HopTurn, gag.Delay, ThrowGravity, new Vector2(size.x, size.y), map.WaterLevel, ref ground);
+                path.Size0 = DeathGags.BalloonSize1; path.Size1 = DeathGags.BalloonSize2; path.Size2 = DeathGags.BalloonSize3; path.SizeRest = DeathGags.BalloonSize3;
+            }
+            else path = FallenFlight.Make(pos, fly, gag.Flips, gag.Rolls, gag.Bounces, gag.Skid, skidDir, gag.Delay, gag.HoldLift, gag.Jig, ThrowGravity, new Vector2(size.x, size.y), map.WaterLevel, ref ground);
             path.Topple = gag.Topple; path.ToppleDur = gag.ToppleDur;
             path.PulseQ = gag.PulseQ; path.PulseDur = gag.PulseDur; path.RestQ = gag.RestQ;
             if (gag.PulseDur > 0f && path.Arcs == 0 && path.SkidDur <= 0f) path.Settled = Mathf.Max(path.Settled, gag.PulseDur);
