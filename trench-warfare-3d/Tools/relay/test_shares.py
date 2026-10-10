@@ -121,6 +121,21 @@ def main():
     plain_lane = lane_src.next(ctx)
     case("with no split named the runner picks as it did: the first source with a unit, the queue by priority then name",
          plain["source"] == "pipeline" and "kind" not in plain and plain_lane["id"] == "found-1", (plain, plain_lane))
+    import relay as relay_cmd
+    uf = board / "u.json"
+    P.write_json(uf, dict(id="found-2", lane="lane/show/found-2", role="lane", goal="g", done_when=["python", "-c", "pass"], kind="fix", priority=40))
+    kept = relay_cmd.unit_from(str(uf))
+    P.write_json(uf, dict(id="found-3", lane="lane/show/found-3", role="lane", goal="g", done_when=["python", "-c", "pass"], colour="red"))
+    P.write_json(board / "relay" / "queue" / "bad-kind.json", dict(id="bad-kind", lane="lane/show/x", role="lane", goal="g", done_when=["python"], kind="nonsense"))
+    said = []
+    for call in (lambda: relay_cmd.unit_from(str(uf)), lambda: lane_src.load(board / "relay" / "queue" / "bad-kind.json")):
+        try:
+            call()
+        except SystemExit as e:
+            said.append(str(e))
+    (board / "relay" / "queue" / "bad-kind.json").unlink()
+    case("a unit file may name its kind and its priority, and they are kept; another word in it, or a kind that is none of the three, is refused",
+         kept["kind"] == "fix" and kept["priority"] == 40 and len(said) == 2 and "colour" in said[0] and "finish, fix or critique" in said[1], (kept, said))
     case("nothing of any kind is no unit", sources.next_unit(["lane"], dict(ctx, shares=S, spent_kinds={}, skip={"x-1", "rv-1", "found-1"})) is None)
 
     # ---- what the day spent on each kind ----
