@@ -38,7 +38,21 @@
     "segments": 16,
     "rings": 8,
     "first_vertex": 2467,
-    "verts": 114
+    "verts": 114,
+    "uv_island": {
+     "centre": [
+      0.85659,
+      0.37546
+     ],
+     "half": 0.006,
+     "mean_rgb": [
+      0.7774,
+      0.9507,
+      0.6924
+     ],
+     "max_channel_sd": 0.0205,
+     "luma": 0.8952
+    }
    }
   },
   {
@@ -76,7 +90,21 @@
     "segments": 12,
     "rings": 6,
     "first_vertex": 1504,
-    "verts": 62
+    "verts": 62,
+    "uv_island": {
+     "centre": [
+      0.86054,
+      0.37614
+     ],
+     "half": 0.006,
+     "mean_rgb": [
+      0.7739,
+      0.9463,
+      0.6836
+     ],
+     "max_channel_sd": 0.0189,
+     "luma": 0.8907
+    }
    }
   },
   {
@@ -110,7 +138,21 @@
     "segments": 8,
     "rings": 4,
     "first_vertex": 676,
-    "verts": 26
+    "verts": 26,
+    "uv_island": {
+     "centre": [
+      0.84213,
+      0.3659
+     ],
+     "half": 0.006,
+     "mean_rgb": [
+      0.7632,
+      0.9424,
+      0.6845
+     ],
+     "max_channel_sd": 0.0217,
+     "luma": 0.8857
+    }
    }
   },
   {
@@ -351,17 +393,25 @@
   "parent": "mixamorig:Neck",
   "bone_head": [
    0.0,
-   -0.3438,
-   1.2345
+   -0.0567,
+   1.0732
   ],
   "centre": [
    0.0,
-   -0.2738,
-   1.1645
+   -0.1738,
+   1.0245
   ],
   "rest_radius_m": 0.07,
   "across_m_at_scale_7.6": 1.064,
-  "rest_poke_out_m": 0.0,
+  "rest_poke_out_m": -0.1,
+  "sunk_in_m": 0.2872,
+  "rest_sink_m": 0.1,
+  "centre_m_at_scale_7.6": [
+   -0.0,
+   -0.947,
+   0.7025
+  ],
+  "uv_island_half": 0.006,
   "rings": {
    "0": [
     16,
