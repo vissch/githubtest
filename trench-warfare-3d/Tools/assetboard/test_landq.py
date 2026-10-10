@@ -317,7 +317,9 @@ def main():
     # ---- one worker ----
     lock = tmp / 'lockhome'
     first = landq.take_lock(lock)
-    landq.put(lock / 'lock.json', dict(pid=4, since='x'))
+    ended = subprocess.Popen([sys.executable, '-c', 'pass'])
+    ended.wait()                                     # a process number that is nobody's now (4 is the System's own on Windows, and alive)
+    landq.put(lock / 'lock.json', dict(pid=ended.pid, since='x'))
     gone = not landq.worker_alive(lock)
     landq.put(lock / 'lock.json', dict(pid=os.getppid(), since='x'))
     landq.put(lock / 'beat.json', dict(at=0, pid=os.getppid()))
