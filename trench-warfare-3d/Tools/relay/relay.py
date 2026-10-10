@@ -415,7 +415,7 @@ def unit_from(path, role=None):
         raise SystemExit("relay: the unit file %s does not read: %s" % (path, e))
     if not isinstance(u, dict) or not isinstance(u.get("id"), str) or not lane_source.ID.match(u["id"]):
         raise SystemExit("relay: the unit file %s names no id (letters, digits, . _ - only)" % path)
-    more = sorted(k for k in u if k not in lane_source.NEED)
+    more = sorted(k for k in u if k not in lane_source.NEED + lane_source.MAY)
     if more:
         raise SystemExit("relay: the unit file %s has %s, which a unit to queue does not" % (path, ", ".join(more)))
     if not (u.get("role") or role):                  # every unit file of the first days became `lane`, unsaid
