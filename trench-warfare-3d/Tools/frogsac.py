@@ -27,7 +27,11 @@ argv = sys.argv[sys.argv.index("--") + 1:]
 IN, OUT, REPORT = argv[0], argv[1], argv[2]
 SAC_R = float(os.environ.get("TW_SAC_R", "0.07"))
 TEST_SCALE = float(os.environ.get("TW_SAC_TEST_SCALE", "7.6"))
-RINGS = {0: (16, 8), 1: (12, 6), 2: (10, 5)}     # segments x rings, per LOD
+# segments x rings, per LOD. LOD2 is the one the VAT bake reads, and ProvingGroundModelTests holds that figure under
+# 1100 vertices: 10x5 baked to 1167 and went red, 8x4 baked to 1099 (2026-10-10). Unity splits every sac vertex about
+# four ways (flat shading, the UV seam), so a ring more on LOD2 costs about 40 baked vertices, not 10 - and 8x4 leaves
+# ONE vertex of headroom, so the next LOD2 change has to shrink the sac or move the cap.
+RINGS = {0: (16, 8), 1: (12, 6), 2: (8, 4)}
 BONE = "mixamorig:Throat"
 PARENT = "mixamorig:Neck"
 os.makedirs(os.path.dirname(OUT) or ".", exist_ok=True)
@@ -165,7 +169,9 @@ old["sac"] = {"source": "Tools/frogsac.py", "bone": BONE, "parent": PARENT,
               "rest_poke_out_m": rep["rest_poke_out_m"],
               "rings": {str(k): list(RINGS[k]) for k in sorted(RINGS)}}
 old["lods"] = rep["lods"]
-json.dump(old, open(os.path.join(os.path.dirname(OUT), "frogrig.json"), "w"), indent=1)
-json.dump(rep, open(REPORT, "w"), indent=1)
+# newline="\n": the repo keeps frogrig.json with LF, and a CRLF copy makes git print a warning that Tools/selftest.py
+# reads back as a file path (the gate went red on it, 2026-10-10).
+json.dump(old, open(os.path.join(os.path.dirname(OUT), "frogrig.json"), "w", newline="\n"), indent=1)
+json.dump(rep, open(REPORT, "w", newline="\n"), indent=1)
 print("DONE", [(l["lod"], l["verts"], l["tris"]) for l in rep["lods"]],
       "sac across %.3f m at scale %g, rest poke-out %.4f m" % (rep["sac_across_m_at_test_scale"], TEST_SCALE, poke))
