@@ -95,6 +95,39 @@ namespace TW.Tests
             Assert.IsTrue(TrenchFlagRules.Flies(0) && TrenchFlagRules.Flies(1));
         }
 
+        /// <summary>Round 1 measured the lit blue cloth at blue excess 10.4 against a surround of 13.4: less blue
+        /// than the mud it hangs over. The cloth therefore carries a floor of its own light, and that light has to
+        /// be the cloth's own hue — a white glow would wash both sides to the same grey.</summary>
+        [Test]
+        public void The_Cloth_Carries_Its_Own_Light_In_Its_Own_Hue()
+        {
+            Assert.Greater(TrenchFlagRules.ClothGlow, 0.4f, "under this the night grade still buries the cloth");
+            Assert.Less(TrenchFlagRules.ClothGlow, 1f, "a flag is cloth, not a lamp");
+            Assert.Less(TrenchFlagRules.RagGlow, TrenchFlagRules.ClothGlow, "dead cloth on the mud puts out less");
+            Assert.Greater(TrenchFlagRules.RagGlow, 0f, "but a rag still has to read as cloth and not as a hole");
+
+            var blue = TrenchFlagRules.Glow(TrenchFlagRules.ClothBlue, TrenchFlagRules.ClothGlow);
+            var red = TrenchFlagRules.Glow(TrenchFlagRules.ClothRed, TrenchFlagRules.ClothGlow);
+            Assert.Greater(blue.b, blue.r, "the blue cloth's light is blue");
+            Assert.Greater(blue.b - 0.5f * (blue.r + blue.g), 0.1f, "and plainly blue, not a grey");
+            Assert.Greater(red.r, red.b, "the red cloth's light is red");
+            Assert.Greater(red.r - 0.5f * (red.g + red.b), 0.1f, "and plainly red");
+            Assert.LessOrEqual(red.r, 1f, "no channel blows out: the grade has to keep the shape");
+            Assert.Greater(TrenchFlagRules.Luminance(red), TrenchFlagRules.Luminance(blue),
+                           "the pair stays 2.66:1 apart under its own light too");
+        }
+
+        /// <summary>Round 1 measured the overview (zoom 240) with 150 m and 1.3x: the strongest red in the field was
+        /// a fuel fire, RGB(118,79,50), and no flag read at all. The cloth has to be a block of colour out there.</summary>
+        [Test]
+        public void The_Far_Band_Is_Carried_By_The_Cloth_And_Not_The_Pole()
+        {
+            Assert.Less(TrenchFlagRules.PoleFadeMeters, 150f, "round 1's 150 m left the flag pennant-sized at range");
+            Assert.Greater(TrenchFlagRules.PoleFadeMeters, 60f, "nearer than this and the pole vanishes in the battle view");
+            Assert.Greater(TrenchFlagRules.Swell, 2f, "round 1's 1.3x carried no colour at zoom 240");
+            Assert.Less(TrenchFlagRules.FlagWide * TrenchFlagRules.Swell, 12f, "but a trench's flag is not a billboard");
+        }
+
         [Test]
         public void Standing_Then_A_Stump_Then_Away()
         {

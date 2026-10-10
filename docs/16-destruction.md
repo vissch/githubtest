@@ -841,6 +841,12 @@ until the trench is taken again - a retake then raises the taker's colour, cut t
 `SimEvent.Explosion.Dir` is zero today, so nothing is read off it. Fire burns the colour out of the cloth toward
 `TrenchFlagRules.Char` (`Scorched`, `ScorchPerHit` 0.55 a hit); the rags are drawn in their own pre-scorched
 material, one per side. One break spends one `CombatFx.DustDab` off the Puff sheet at the butt - no new book, no
-new sheet. Cost at the standard view, measured by toggling the component in one Play session: +4 draw calls (119 of
+new sheet. **The colour has to survive the night grade** (round 1's measurement, 2026-10-10): lit only by the
+scene, the blue cloth read blue excess 10.4 at the standard view against a surround of 13.4 - a dark hole, less blue
+than the mud it hangs over - and at 150 m / 1.3x nothing on the overview carried a side's colour at all, the
+strongest red in the field being a fuel fire. So the cloth carries a floor of its own light in its own hue,
+`TrenchFlagRules.Glow(cloth, ClothGlow 0.62)` into `Toon_URP`'s `_Emission` (the rag keeps `RagGlow` 0.22 of it),
+and the far band starts at `PoleFadeMeters` **110 m** with the cloth drawn `Swell` **2.6x** so an overview reads as
+blocks of red and blue. Cost at the standard view, measured by toggling the component in one Play session: +4 draw calls (119 of
 300) and +56 vertices (0.012 %), 0 B allocated a frame. Tests: `TW.Tests.TrenchFlagTests` (the falloff, the throw
 away from the blast, stump and fallen length, the stake and its cut-down cloth, the scorch, the piece counts).
