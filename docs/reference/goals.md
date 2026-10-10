@@ -53,7 +53,7 @@ Pictures and films before words. Things to click and act on.
    - "Find out first why matches do not end, above all Iron's; report with numbers. Bands
      after that". (2026-10-07.) The report: in 11 of 12 matches with no winner, nobody attacks. Then: "Fix the measuring first: the computer buys a mixed army, and find why the boat side wins".
      No unit's number is tuned before the matches are measured again.
-   - Serves it: fix the measuring first, no unit's number is tuned, and Iron's roster is not changed. Kind: mechanic.
+   - Serves it: fix the measuring first, the buying script and the sweep, no unit's number is tuned, and Iron's roster is not changed. Kind: tool.
 <a id="goal-units"></a>
 [![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
