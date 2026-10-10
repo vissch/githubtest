@@ -14,7 +14,7 @@ FIXED = ("autocompact_tokens", "no_progress_units", "stuck_lanes", "max_plan_par
          "done_when_seconds", "gate_seconds", "play_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
          "retro_max_bytes", "usual_leg_usd", "price_legs", "queue_priority", "queue_priority_max",
          "day_queue_rows", "day_line_chars", "usage_max_age_seconds", "week_usd", "pace_from_hour",
-         "pace_to_hour", "share_finish", "share_fix", "share_critique", "ideas_in_flight", "found_waiting_max")
+         "pace_to_hour", "share_finish", "share_fix", "share_critique", "ideas_in_flight")
 SHARES = ("finish", "fix", "critique")      # the kinds of work the day is split over (sources.KINDS): share_<kind>
 
 
@@ -26,7 +26,8 @@ def shares(lim, named=None):
         if all(isinstance(v, (int, float)) and not isinstance(v, bool) and 0 <= v <= 100 for v in vals) \
                 and abs(sum(vals) - 100) < 0.01:
             return dict(zip(SHARES, (float(v) for v in vals)))
-    return {k: float(lim.get("share_" + k) or 0) for k in SHARES}
+    return {"finish": float(lim.get("share_finish") or 0), "fix": float(lim.get("share_fix") or 0),
+            "critique": float(lim.get("share_critique") or 0)}
 RETRO_TUNES = ("amber_tokens", "red_tokens", "leg_minutes")    # what a retrospective may move, inside the bounds
 MODES = ("read_only", "work")
 EFFORTS = ("low", "medium", "high", "xhigh", "max")
