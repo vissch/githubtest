@@ -28,7 +28,7 @@ Pictures and films before words. Things to click and act on.
 <a id="goal-frogs"></a>
 [![The Bullfrog, alive, in a battle](goals/bullfrog.png)](decisions.md#d-frogs)
 
-[Its sources](decisions.md#d-frogs).
+[Its sources](decisions.md#d-frogs). [The Hopper's flight](decisions.md#d-hopper).
 
 3. **Frogs first.** The frog faction's models are to be "the most important and instantly playable models in the
    game currently". (2026-10-06.) "i want to be able to play with all the new models intergrate them". (2026-09-30.)
@@ -40,9 +40,9 @@ Pictures and films before words. Things to click and act on.
      four badly hurt men out of view, and they come back at full health. Roster v3 waits until the frogs are playable.
    - Serves it: a job, a look or an effect for one frog unit. Kind: unit, mechanic or look.
 <a id="goal-matches"></a>
-[![A match on the field](goals/a-match.jpg)](decisions.md#d-matches)
+[![A match on the field](goals/a-match.jpg)](decisions.md#d-measuring)
 
-[Its sources](decisions.md#d-matches).
+[Its sources](decisions.md#d-matches). [Why they do not end](decisions.md#d-why-end).
 
 4. **Matches that end.** "Factions first: of matches that end, each side wins 40 to 60 %". (2026-10-06.)
    - Better: each faction inside that band. Time to breach and trench keeping are reported, not judged. (2026-10-06.)
@@ -53,7 +53,7 @@ Pictures and films before words. Things to click and act on.
    - "Find out first why matches do not end, above all Iron's; report with numbers. Bands
      after that". (2026-10-07.) The report: a match with no winner is one where nobody attacks. Then: "Fix the measuring first".
      No unit's number is tuned before the matches are measured again.
-   - Serves it: a rule that makes a side attack, or that shows why it does not. Kind: mechanic.
+   - Serves it: fix the measuring script, tune no number, and do not change Iron's roster. Kind: mechanic.
 <a id="goal-units"></a>
 [![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
@@ -155,7 +155,7 @@ He keeps saying no to (the full list is in the context of the ideas tool; these 
 - **Chaos the player cannot read.** No constant bombardment: "it adds too much unknown and chaos; we might add it
   back later with an ability". (2026-09-28.) The fleet's guns stay silent unless switched on. (2026-10-06.)
 - **Fights from across the map.** "not good, reduce range" (2026-10-01); every reach cut by 20 % (2026-09-28).
-- **Crowds that move as one.** Men in rows on set paths (2026-09-28); machines that "clump together" (2026-10-06).
+- **Crowds that move as one.** Men in rows on set paths (2026-09-28); machines kept apart, his words "Machines on each other", and trench crossing is not part of that work. (2026-10-06.)
 - **Physics for its own sake.** Launched bodies, not ragdolls (2026-09-26); no trench cave-in (2026-09-24).
 - **Rows that lead nowhere, and being asked twice.** "i have no clue what to pick or what needs me". (2026-10-06.)
 - **Reopening what he called fine.** "that's fine" (2026-10-01); "Keep 300 triangles", "Leave it" (2026-10-06).
