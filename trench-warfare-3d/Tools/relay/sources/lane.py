@@ -26,7 +26,8 @@ from sources.briefs import place_brief            # noqa: E402,F401  (the runner
 
 NAME = "lane"
 NEED = ("id", "lane", "role", "goal", "done_when")
-MAY = ("kind", "priority")          # what a unit file may also say: the kind of work it is paid as, its place in the queue
+MAY = ("kind",)                     # what a unit file may also say: the kind of work it is paid as. Never its
+#                                     priority: a unit's place in the queue is the owner's to give (relay.py prio)
 ID = re.compile(r"^[\w.-]+$")
 
 
