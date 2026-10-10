@@ -169,6 +169,50 @@ def stop_jobs(d):
                        env=dict(os.environ, TW_RUNS=str(jobs)), capture_output=True)
 
 
+def unity_rows():
+    """Every Unity process on this machine as (pid, when it began, its command line). [] where it cannot be read."""
+    if os.name != "nt":
+        return []
+    ask = ("Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" | ForEach-Object { '{0}|{1}|{2}' -f "
+           "$_.ProcessId, ([DateTimeOffset]$_.CreationDate).ToUnixTimeSeconds(), $_.CommandLine }")
+    try:
+        out = subprocess.run(["powershell", "-NoProfile", "-Command", ask], capture_output=True, text=True,
+                             stdin=subprocess.DEVNULL, encoding="utf-8", errors="replace", timeout=60).stdout
+    except (OSError, subprocess.TimeoutExpired):
+        return []
+    rows = []
+    for line in out.splitlines():
+        parts = line.split("|", 2)
+        if len(parts) == 3 and parts[0].isdigit() and parts[1].isdigit():
+            rows.append((int(parts[0]), int(parts[1]), parts[2]))
+    return rows
+
+
+def leftover_unity(rows, worktree, since):
+    """The pids among `rows` of a batch-mode Unity that has this leg's checkout open and began after the leg did.
+    The tree kill does not reach a process whose parent has exited, and a Unity is no job of run_detached: leg 35
+    of run 20261010-103442-62944 was cut at its limit at 18:24 and its film capture (started 17:58, its shell long
+    gone) held the work checkout until midnight; six starts ended with no leg. An editor WINDOW is never one of
+    these, nor a Unity on another checkout, nor one that was there before the leg."""
+    want = {os.path.normcase(os.path.normpath(str(worktree))),
+            os.path.normcase(os.path.normpath(os.path.join(str(worktree), "trench-warfare-3d")))}
+    out = []
+    for pid, began, cmd in rows:
+        m = re.search(r'-projectpath\s+"?([^"]+?)"?(?:\s+-|\s*$)', cmd, re.I)
+        if (m and "-batchmode" in cmd.lower() and began >= since - 5
+                and os.path.normcase(os.path.normpath(m.group(1).strip())) in want):
+            out.append(pid)
+    return out
+
+
+def sweep_unity(leg, since):
+    """Stop what leftover_unity finds, once the leg is over. Returns the pids."""
+    left = leftover_unity(unity_rows(), leg["worktree"], since)
+    for pid in left:
+        kill_tree(pid)
+    return left
+
+
 SEALED = ("mode", "lane", "desk", "board", "output", "amber_tokens", "red_tokens", "worktree", "phase",
           "deny_tools")
 
@@ -330,6 +374,7 @@ def run_leg(d, lim, timeout_s, stop_file=None):
                 except subprocess.TimeoutExpired:
                     pass
             stop_jobs(d)                           # a leg that is over has no job left to wait for
+            rec["swept_unity"] = sweep_unity(leg, start)       # nor a Unity of its own on its checkout
             t.join(timeout=5)
             results = records(d, "result")         # one per turn: a resumed session names each turn's own cost
             res = (results or [{}])[-1]
