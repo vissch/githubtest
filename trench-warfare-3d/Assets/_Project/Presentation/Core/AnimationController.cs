@@ -36,7 +36,7 @@ namespace TW.Presentation
         JumpDown, ClimbOut, ClimbHold, ClimbLand, ClimbLadder, StandToKneel, KneelToStand, KneelToProne, ProneToKneel, StandToStoop, StoopToStand, StoopToKneel, KneelToStoop, TakeCover, Emerge,
         Turn90L, Turn90R, Turn180, KneelTurn90L, KneelTurn90R, StoopTurn90L, StoopTurn90R, StoopTurn180,
         // deaths
-        DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast, DeathThrown,
+        DeathFront, DeathBack, DeathRight, DeathLeft, DeathHeadshot, DeathWalking, DeathRunning, DeathKneel, DeathSquat, DeathProne, DeathBlast, DeathThrown, DeathBalloon,
         Count
     }
 
@@ -99,6 +99,9 @@ namespace TW.Presentation
             t[(int)Clip.DeathFront] = O(1.8f, AnimRow.Death0); t[(int)Clip.DeathBack] = O(1.8f, AnimRow.Death1); t[(int)Clip.DeathRight] = O(1.8f, AnimRow.Death2); t[(int)Clip.DeathLeft] = O(1.8f, AnimRow.Death3);
             t[(int)Clip.DeathHeadshot] = O(1.6f, AnimRow.Death1); t[(int)Clip.DeathWalking] = O(2f, AnimRow.Death0); t[(int)Clip.DeathRunning] = O(2.2f, AnimRow.Death0); t[(int)Clip.DeathKneel] = O(1.7f, AnimRow.Death2); t[(int)Clip.DeathSquat] = O(1.5f, AnimRow.Death2);
             t[(int)Clip.DeathProne] = O(1.5f, AnimRow.Death3); t[(int)Clip.DeathBlast] = O(1.9f, AnimRow.Death1); t[(int)Clip.DeathThrown] = O(1.8f, AnimRow.Death1);
+            // the balloon's own row (DeathGag.Balloon): a standing pose the frog's throat sac blows up over - VATBaker
+            // scales mixamorig:Throat across it, in the Frog bake only. Appended at the end of the enum: a baked row never moves
+            t[(int)Clip.DeathBalloon] = O(1.8f, AnimRow.Death1);
             return t;
         }
     }
