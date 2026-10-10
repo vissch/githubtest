@@ -42,8 +42,23 @@ namespace TW.Presentation.Terrain
         public const float FallClearance = 0.45f;
         /// <summary>How far out from the pole the cut flag has swung by the time it is let go of.</summary>
         public const float FallSwing = 1.9f;
-        /// <summary>Past this the pole is too thin to see: the flag is drawn Swell times bigger and the pole dropped.</summary>
-        public const float PoleFadeMeters = 150f, Swell = 1.3f;
+        /// <summary>Past this the pole is too thin to see: the flag is drawn Swell times bigger and the pole dropped.
+        /// Measured on the overview (round 1, zoom 240): at 150 m and 1.3x no flag beat the fuel fires — the
+        /// strongest red cell in the field was RGB(118,79,50), fire orange. The cloth has to be a block of colour at
+        /// that range, not a pole's pennant, so it starts swelling nearer and swells to twice the size.</summary>
+        public const float PoleFadeMeters = 110f, Swell = 2.6f;
+
+        /// <summary>How much of its own colour the cloth puts out by itself (Toon_URP's `_Emission`, added after the
+        /// light). The night grade multiplies everything down: at T1 the lit blue cloth measured blue excess 10.4
+        /// against a surround of 13.4 — a dark hole, less blue than the mud. A flag is the one thing on this field
+        /// whose whole job is to be a colour, so it carries a floor of its own light, the way a lamp's glass and the
+        /// brass of a case do. The rag on the mud is dead cloth and keeps only a little, enough to read as cloth.</summary>
+        public const float ClothGlow = 0.62f, RagGlow = 0.22f;
+
+        /// <summary>The light a cloth of that colour puts out: its own hue, never white, so the glow tells the sides
+        /// apart instead of washing both to grey.</summary>
+        public static Color Glow(Color cloth, float amount)
+            => new Color(cloth.r * amount, cloth.g * amount, cloth.b * amount, 1f);
 
         public static Color Cloth(int team) => team == 1 ? ClothRed : ClothBlue;
         public static bool Flies(int team) => team == 0 || team == 1;

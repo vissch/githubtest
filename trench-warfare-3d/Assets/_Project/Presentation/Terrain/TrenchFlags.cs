@@ -234,17 +234,25 @@ namespace TW.Presentation.Terrain
             if (toon == null) return;
             poleMat = Paint(toon, new Color(0.30f, 0.25f, 0.19f));            // a stripped sapling, dark against the mud
             frogMat = Paint(toon, new Color(0.26f, 0.33f, 0.21f));
-            clothMat[0] = Paint(toon, TrenchFlagRules.Cloth(0));
-            clothMat[1] = Paint(toon, TrenchFlagRules.Cloth(1));
-            // a rag on the mud has been through the fire already: it starts one shell's worth of scorch down
-            ragMat[0] = Paint(toon, TrenchFlagRules.Scorched(TrenchFlagRules.Cloth(0), TrenchFlagRules.ScorchPerHit));
-            ragMat[1] = Paint(toon, TrenchFlagRules.Scorched(TrenchFlagRules.Cloth(1), TrenchFlagRules.ScorchPerHit));
+            for (int k = 0; k < 2; k++)
+            {
+                // the cloth carries a floor of its own light, or the night grade pulls it under the mud it hangs over
+                var cloth = TrenchFlagRules.Cloth(k);
+                clothMat[k] = Paint(toon, cloth, TrenchFlagRules.Glow(cloth, TrenchFlagRules.ClothGlow));
+                // a rag on the mud has been through the fire already: it starts one shell's worth of scorch down, and
+                // keeps only enough of its own light to read as cloth and not as a hole
+                var rag = TrenchFlagRules.Scorched(cloth, TrenchFlagRules.ScorchPerHit);
+                ragMat[k] = Paint(toon, rag, TrenchFlagRules.Glow(rag, TrenchFlagRules.RagGlow));
+            }
         }
 
-        static Material Paint(Shader shader, Color colour)
+        static Material Paint(Shader shader, Color colour) => Paint(shader, colour, default);
+
+        static Material Paint(Shader shader, Color colour, Color emission)
         {
             var m = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
             m.SetColor("_BaseColor", colour);
+            m.SetColor("_Emission", emission);
             m.SetFloat("_OutlineWidth", 0.8f);
             return m;
         }
