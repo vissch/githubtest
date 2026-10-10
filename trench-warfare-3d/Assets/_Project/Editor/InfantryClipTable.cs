@@ -81,6 +81,9 @@ namespace TW.Editor
             // hangs upright in the air for half a second); the root stays put: VATRenderer flies the corpse on an arc timed
             // so his back meets the ground at AnimationController.ThrownLands
             T(Clip.DeathThrown, "Rifle Hit To Back", 15);
+            // the balloon: he dies on his feet, so the row is half a second of the standing idle and the sac does all the
+            // moving (VATBaker scales mixamorig:Throat over it in the Frog bake; no Mixamo clip can, Retarget.Names has no Throat)
+            O(Clip.DeathBalloon, "Rifle Idle", 12, 0f, 0.5f);
             // aimed and firing: the forestock hand reaches 0.58 m ahead of the grip, past the baker's one-hand test, so the
             // rifle took the left hand's bind grip, 35 to 41 degrees at the ground, and the flash left it by his knees
             var aimed = new HashSet<Clip> { Clip.AimedIdle, Clip.KneelAimedIdle, Clip.FireWalk, Clip.FireRun, Clip.FireSprint, Clip.FireStoop, Clip.FireStand, Clip.FireSnap, Clip.FireKneel, Clip.FireProne, Clip.FireMG };
