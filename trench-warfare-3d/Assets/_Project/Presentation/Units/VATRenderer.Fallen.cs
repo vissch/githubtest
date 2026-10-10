@@ -365,6 +365,8 @@ namespace TW.Presentation.Units
             int chr = f.Char == 3 && age > EmberSeconds ? 2 : f.Char;
             float lies = f.Lies > 0.01f ? f.Lies : 30f;
             if (f.Char >= 2) scale *= Mathf.Lerp(1f, CharredShrink, Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds));
+            // a gag that shrinks him as he goes (a balloon): per body, as the charred shrink is - VatTint and VatPad are full
+            if (gag) scale *= FallenFlight.SizeAt(f.Path, age);
             float tint = gag ? GagTint(f, pitch, age)
                 : thrown ? VatTint.Pack(f.Team, pitch, FallenFlight.RollStep(f.Path, age), FallenFlight.Squash(f.Path, age, 1f), false, VatTint.FallenWound)
                 : VatTint.Pack(f.Team, pitch, wound: VatTint.FallenWound);

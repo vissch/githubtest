@@ -5,6 +5,7 @@
 // raised there, so the picture would never see the Death and draw no body.
 //  - Absurd(x): pin how absurd (DeathGags.Pin; a negative value hands it back to the fx.deathAbsurd knob);
 //  - Row(n, x, z, team, spacing, hp): n men in a line along x (or along z with alongZ: true), facing +z, with hp each (1 = the first hit kills);
+//  - Force(gag): pin the gag every death that can takes, so a one-in-eight gag can be filmed ("none": the dice again);
 //  - Shell(x, z, radius, damage) / Fire(x, z, radius): one burst into every world's BlastSystem, bursting next tick;
 //  - Call(ability, x, z, args): a support call for player 0 (silver topped up first): 1 HE, 3 chlorine, 11 the beam;
 //  - Disarm(slot): a machine's guns out of action, so it runs men down rather than shelling them;
@@ -14,7 +15,7 @@
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
 //  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
 //  - FrogAlone(x, z): one frog, no row and no other body, killed by a shell 10 m off: the frame holds him alone;
-//  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, and the
+//  - Scene(name, x, z): a whole staging by name (shot, frogshot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, and the
 //    machines: machine (a Tusk), maw, salvo, skimmer, walker (a Pincer)), then film it with TankCapture.Follow/Shot or
 //    CaptureRig.
 // None of this is part of the game; it exists for the capture-and-critique loop.
@@ -53,6 +54,16 @@ namespace TW.Editor
             return at.x.ToString("0.00") + " " + at.z.ToString("0.00") + " (y " + at.y.ToString("0.00") + ")"
                  + " lands in " + (landsAt - Time.time).ToString("0.00") + " s"
                  + " | drawn: " + drawn;
+        }
+
+        /// <summary>Pins the gag every death that can takes (DeathGags.Force), so a rare one can be filmed: a gag still only
+        /// happens where its own conditions hold (a balloon wants a frog shot standing in the open). "none": the dice again.</summary>
+        public static string Force(string gag = "none")
+        {
+            if (string.IsNullOrEmpty(gag) || gag == "none") { DeathGags.Force(DeathGag.None); return "the dice decide again"; }
+            if (!System.Enum.TryParse(gag, true, out DeathGag g)) return "gags: none, " + string.Join(", ", System.Enum.GetNames(typeof(DeathGag)));
+            DeathGags.Force(g);
+            return "every death that can is a " + g;
         }
 
         /// <summary>n men in a line along x (or, with alongZ, along z) from (x, z), facing +z, each with hp hit points;
@@ -102,6 +113,8 @@ namespace TW.Editor
             switch (name)
             {
                 case "shot": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
+                // the balloon: frogs shot standing in the open by two riflemen up the field (DeathLab.Force("balloon") to be sure of it)
+                case "frogshot": return Row(6, x, z, 0, 1.6f, 1f, -1f, InfantryArchetype.Frog) + "; " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 4f, z + 30f, 180f) + " " + TankCapture.Spawn(1, InfantryArchetype.Rifle, x + 6f, z + 30f, 180f);
                 case "mg": return Row(6, x, z, 0) + "; " + TankCapture.Spawn(1, InfantryArchetype.Machinegunner, x + 4f, z + 30f, 180f);
                 // hit and not killed (CombatFx.HitBlood, the blood on the uniform): men tough enough to take many hits, their
                 // hp and max hp raised together so the stain grows with what they lose, a machine gun and two rifles on them
@@ -135,7 +148,7 @@ namespace TW.Editor
                     int slot = int.Parse(tank.Substring(5));
                     return row + "; " + tank + "; " + Disarm(slot) + "; " + DriveAt(slot, x + 3f, z + 12f);   // unarmed, or it shells the row before it gets there
                 }
-                default: return "scenes: shot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, machine, maw, salvo, skimmer, walker";
+                default: return "scenes: shot, frogshot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, machine, maw, salvo, skimmer, walker";
             }
         }
 

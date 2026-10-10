@@ -1,7 +1,8 @@
 // Phase: deaths (2026-09-28, implemented) — the path a gagged body takes (FallenFlight): with one arc and nothing else it
 // is the old throw exactly; every landing is continuous; he never goes under the ground he lands on; he comes to rest
 // where the plan says, when it says, and stays there; every arc lands on a whole turn; a heap moving his rest re-solves
-// the last arc instead of popping him; water stops the bounce; a claw's hold lifts and drops him; the squash code
+// the last arc instead of popping him; water stops the bounce; a claw's hold lifts and drops him; a balloon's
+// three hops zigzag onto the ground and shrink him as he goes; the squash code
 // always fits its six bits. Pure arithmetic: no scene, no GPU.
 using NUnit.Framework;
 using UnityEngine;
@@ -165,6 +166,69 @@ namespace TW.Tests
                     Assert.GreaterOrEqual(q, VatTint.SquashMin); Assert.LessOrEqual(q, VatTint.SquashMax);
                 }
             }
+        }
+
+        [Test]
+        public void ABalloonZigzagsInThreeShrinkingHopsOntoTheGround()
+        {
+            var ground = new Flat { Y = 0f };
+            var fly = new Vector3(0f, 3f, 6f);   // the design's first hop: 6 m along +z, 3 m up
+            var p = FallenFlight.MakeHops(Here, fly, 3, Mathf.Deg2Rad * 60f, 0.4f, G, Map, NoWater, ref ground);
+            Assert.AreEqual(3, p.Arcs, "three hops");
+            var ways = new[] { p.A0.To - p.A0.From, p.A1.To - p.A1.From, p.A2.To - p.A2.From };
+            // 6 / 4 / 2.5 m far and 3 / 2.2 / 1.2 m high (the design, section 3)
+            Assert.AreEqual(6f, new Vector2(ways[0].x, ways[0].z).magnitude, 1e-3f);
+            Assert.AreEqual(4f, new Vector2(ways[1].x, ways[1].z).magnitude, 1e-3f);
+            Assert.AreEqual(2.5f, new Vector2(ways[2].x, ways[2].z).magnitude, 1e-3f);
+            Assert.AreEqual(3f, p.A0.Height, 1e-3f); Assert.AreEqual(2.2f, p.A1.Height, 1e-3f); Assert.AreEqual(1.2f, p.A2.Height, 1e-3f);
+            // the zigzag: each hop 50 to 70 degrees off the last, and the other way
+            for (int k = 1; k < 3; k++)
+            {
+                var a = new Vector2(ways[k - 1].x, ways[k - 1].z).normalized;
+                var b = new Vector2(ways[k].x, ways[k].z).normalized;
+                float deg = Vector2.Angle(a, b);
+                Assert.That(deg, Is.InRange(49.9f, 70.1f), "hop " + (k + 1) + " is " + deg.ToString("0.0") + " deg off hop " + k);
+            }
+            Assert.Greater(ways[1].x, 0f, "hop two off to one side"); Assert.Less(ways[2].x, ways[1].x, "hop three back the other way");
+            // every landing on the drawn ground and inside the map, and he is down inside 12 m in about 3.7 s
+            foreach (var to in new[] { p.A0.To, p.A1.To, p.A2.To })
+            {
+                Assert.AreEqual(-0.02f, to.y, 1e-4f, "on the ground he comes down on");
+                Assert.That(to.x, Is.InRange(0.5f, Map.x - 0.5f)); Assert.That(to.z, Is.InRange(0.5f, Map.y - 0.5f));
+            }
+            Assert.Less(Vector2.Distance(new Vector2(Here.x, Here.z), new Vector2(p.Rest.x, p.Rest.z)), 12f, "inside 12 m of where he died");
+            Assert.That(p.Arrive, Is.InRange(3.4f, 3.9f), "about 3.7 s (" + p.Arrive.ToString("0.00") + ")");
+            Assert.AreEqual(Here, FallenFlight.At(p, 0.2f), "swelling where he stood until the launch");
+            foreach (float after in new[] { 0f, 0.5f, 10f })
+                Assert.Less(Vector3.Distance(p.Rest, FallenFlight.At(p, p.Arrive + after)), 1e-4f, "and the skin stays put");
+            Assert.AreEqual(0f, p.SkidDur, "no skid, no bounce: the hops are the whole path");
+        }
+
+        [Test]
+        public void ABalloonShrinksOnEveryHopAndLiesAtHisSmallest()
+        {
+            var ground = new Flat { Y = 0f };
+            var p = FallenFlight.MakeHops(Here, new Vector3(0f, 3f, 6f), 3, Mathf.Deg2Rad * 60f, 0.4f, G, Map, NoWater, ref ground);
+            p.Size0 = 0.8f; p.Size1 = 0.6f; p.Size2 = 0.5f; p.SizeRest = 0.5f;   // the design's 1.0 / 0.8 / 0.6 / 0.5
+            Assert.AreEqual(1f, FallenFlight.SizeAt(p, 0.2f), 1e-4f, "his own size while he swells");
+            Assert.AreEqual(0.8f, FallenFlight.SizeAt(p, p.Delay + p.A0.Dur * 0.5f), 1e-4f, "hop one");
+            Assert.AreEqual(0.6f, FallenFlight.SizeAt(p, p.Delay + p.A1.Start + p.A1.Dur * 0.5f), 1e-4f, "hop two");
+            Assert.AreEqual(0.5f, FallenFlight.SizeAt(p, p.Delay + p.A2.Start + p.A2.Dur * 0.5f), 1e-4f, "hop three");
+            Assert.AreEqual(0.5f, FallenFlight.SizeAt(p, p.Arrive + 2f), 1e-4f, "and the skin lies at his smallest");
+            var plain = Make(new Vector3(4f, 2f, 0f), 1, 0, 1);
+            Assert.AreEqual(1f, FallenFlight.SizeAt(plain, plain.Arrive * 0.5f), 1e-4f, "no other gag is scaled");
+            Assert.AreEqual(1f, FallenFlight.SizeAt(plain, plain.Arrive + 1f), 1e-4f);
+        }
+
+        [Test]
+        public void TheMapsEdgeAndTheWaterHoldABalloon()
+        {
+            var ground = new Flat { Y = 0f };
+            var corner = FallenFlight.MakeHops(new Vector3(2f, 0f, 2f), new Vector3(-20f, 3f, -20f), 3, Mathf.Deg2Rad * 60f, 0.4f, G, Map, NoWater, ref ground);
+            Assert.GreaterOrEqual(corner.Rest.x, 0.5f); Assert.GreaterOrEqual(corner.Rest.z, 0.5f);
+            var wet = new Flat { Y = -1f };
+            var sunk = FallenFlight.MakeHops(Here, new Vector3(0f, 3f, 6f), 3, Mathf.Deg2Rad * 60f, 0.4f, G, Map, 0f, ref wet);
+            Assert.AreEqual(1, sunk.Arcs, "the first hop comes down in the water and that is that");
         }
 
         [Test]
