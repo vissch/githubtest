@@ -40,7 +40,31 @@ WORK = GH / 'githubtest-relay-work'
 MAIN = GH / 'githubtest'
 INTEGRATION = 'claude/trench-warfare-2d-3d-plan-idt7lf'
 LOCAL = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare'
-START = LOCAL / 'relay-test-start.ps1'
+BOARD = GH / 'tw3d-board'
+# The script a run is started through, written into the steward's folder at every start (change it here). Between two
+# units the runner does the card round it is handed in TW_BETWEEN_UNITS (runner.card_round): an accepted idea goes on
+# the board, a passed step becomes the owner's card, his answer on a step is acted on. A relay copy from before
+# 2026-10-11 does not read the variable and runs as it did.
+START_PS1 = """# Written by Tools/assetboard/steward.py at every start of a run: change it there, not here.
+param([string]$Hours = '12', [string]$Who = 'steward', [string]$DayPct = '')
+$GH = '%(gh)s'
+$env:UNITY_CLI_ALLOW_LOCKED = '1'
+if (-not $env:TW_BOARD_ALSO) { $env:TW_BOARD_ALSO = "$GH/tw3d-board;$GH/tw3d-board-2" }
+$env:TW_BETWEEN_UNITS = '%(between)s'
+$day = if ($DayPct) { "--day-pct $DayPct" } else { '' }
+$log = "$env:LOCALAPPDATA/Temp/relay-test-run-" + (Get-Date -Format 'yyyyMMdd-HHmmss') + '.log'
+"started $(Get-Date -Format o) by $Who, hours $Hours, day pct '$DayPct'" | Out-File -Encoding utf8 $log
+# input from NUL: the runner's git over ssh waits for ever on an inherited input
+cmd /c "python $GH/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py run --work $GH/githubtest-relay-work --hours $Hours --max-legs 0 --who $Who $day < NUL >> `"$log`" 2>&1"
+"ended $(Get-Date -Format o), exit $LASTEXITCODE" | Out-File -Encoding utf8 -Append $log
+"""
+
+
+def start_script():
+    """The text of the start script, with this checkout's card round in it."""
+    tool = (HERE / 'idearoute.py').as_posix()
+    between = json.dumps([['python', '-B', tool, step, '--board', BOARD.as_posix()] for step in ('route', 'gates')])
+    return START_PS1 % dict(gh=GH.as_posix(), between=between)
 WHO = 'steward'
 HOURS = 12                  # a run's own limit, and
 STOP_AFTER = 10.75          # the hours after which it is asked to stop before its next leg, so the limit cuts no leg
@@ -209,7 +233,9 @@ class World:
         return True, f'{patch} and the stash "steward: leftover of a cut leg, {stamp}"'
 
     def start(self, pct):
-        line = f'powershell -NoProfile -ExecutionPolicy Bypass -File {START} -Hours {HOURS} -Who {WHO}' + (f' -DayPct {pct}' if pct else '')
+        script = self.home / 'relay-start.ps1'
+        put(script, start_script())
+        line = f'powershell -NoProfile -ExecutionPolicy Bypass -File {script} -Hours {HOURS} -Who {WHO}' + (f' -DayPct {pct}' if pct else '')
         return self.sh(['powershell', '-NoProfile', '-Command',
                         f"(Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{ CommandLine = '{line}' }}).ReturnValue"])
 

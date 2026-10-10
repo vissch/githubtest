@@ -222,6 +222,11 @@ def main():
          and 'nothing from the loop' in S.text_of(S.state_of(None, out, {}, dict(slow, day=['Needs you: nothing.'])), 'DESKTOP', ()), text)
     f = tmp / 'STATE.md'
     case('the state file is written when it changed and left alone when it did not', S.put(f, text) is True and S.put(f, text) is False and S.put(f, text + 'x') is True and not (tmp / 'STATE.md.tmp').exists())
+    ps1 = S.start_script()
+    between = json.loads(ps1.split("$env:TW_BETWEEN_UNITS = '")[1].splitlines()[0].rstrip("'"))
+    case('the start script hands the runner the card round for between two units: route, then gates, of this checkout, on the board; and no day figure unless one is passed',
+         [c[3] for c in between] == ['route', 'gates'] and all(c[2].endswith('Tools/assetboard/idearoute.py') and c[-2:] == ['--board', S.BOARD.as_posix()] for c in between)
+         and '--max-legs 0 --who $Who $day < NUL' in ps1 and "[string]$DayPct = ''" in ps1, between)
     home = tmp / 'home'
     home.mkdir()
     first = S.take_lock(home)
