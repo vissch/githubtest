@@ -9,7 +9,8 @@
 //
 // What costs what: three instanced draws at the standard view (the poles, and one per side's cloth), the frog and
 // its rope only with the camera among the men (SceneHooks.CloseUp), and past TrenchFlagRules.PoleFadeMeters the
-// pole is dropped and the flag drawn Swell bigger so a far overview still reads as two colours. Everything goes
+// pole is dropped and the flag drawn Swell bigger so a far overview still reads as two colours. A swap also
+// spends one CombatFx.DustDab (the Puff sheet) at the butt where the rope runs. Everything goes
 // through FrameBudget.Draw (FrameBudgetCoverageTests reads the source).
 using System.Collections.Generic;
 using UnityEngine;
@@ -23,6 +24,8 @@ namespace TW.Presentation.Terrain
     public sealed class TrenchFlags : MonoBehaviour
     {
         public SimHost Host;
+        /// <summary>Who holds the flipbooks. Found on the camera rig the first frame; the flags draw fine without it.</summary>
+        public CombatFx Fx;
 
         struct Pole
         {
@@ -33,6 +36,7 @@ namespace TW.Presentation.Terrain
             public float Since;        // seconds since the swap began
             public float Hp;
             public FlagState State;
+            public bool Dust;          // a swap just began: owes one dab of dust at the butt
         }
 
         Pole[] poles = System.Array.Empty<Pole>();
@@ -71,6 +75,7 @@ namespace TW.Presentation.Terrain
             p.Losing = p.Owner;
             p.Owner = (byte)team;
             p.Since = 0f;
+            p.Dust = true;
             poles[i] = p;
         }
 
@@ -209,7 +214,13 @@ namespace TW.Presentation.Terrain
                 if (!map.Trenches.IsCreated) return;
                 Build();
             }
-            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
+            if (!subscribed)
+            {
+                Host.Events.OnEvent += OnSimEvent;
+                if (Fx == null) Fx = Host.GetComponentInParent<CombatFx>();
+                if (Fx == null) Fx = UnityEngine.Object.FindAnyObjectByType<CombatFx>();
+                subscribed = true;
+            }
             if (poleMat == null || poles.Length == 0) return;
 
             var cam = Camera.main;
@@ -228,7 +239,13 @@ namespace TW.Presentation.Terrain
                     if (p.Since >= TrenchFlagRules.FallSeconds) p.Losing = 255;
                     poles[i] = p;
                 }
-                if (p.State == FlagState.Gone) continue;
+                if (p.State == FlagState.Gone) { poles[i].Dust = false; continue; }
+                if (p.Dust)
+                {
+                    poles[i].Dust = false;
+                    // the rope runs, the butt is scuffed: one dab off an existing sheet, no new book
+                    if (Fx != null) Fx.DustDab(p.Anchor + Vector3.up * 0.18f, 1.1f);
+                }
 
                 float far = Vector3.Distance(eye, p.Anchor);
                 bool tiny = far > TrenchFlagRules.PoleFadeMeters;
@@ -251,10 +268,11 @@ namespace TW.Presentation.Terrain
                 }
                 if (TrenchFlagRules.Flies(p.Losing) && p.Since < TrenchFlagRules.FallSeconds)
                 {
-                    // cut loose: it drops away from the pole, tumbling, and is gone when it reaches the parapet
-                    float drop = TrenchFlagRules.Fall(p.Since);
-                    float sideways = (1f - drop) * 1.9f;
-                    var pos = p.Anchor + Vector3.up * Mathf.Lerp(0.25f, top, drop) + across * Vector3.right * (0.4f + sideways);
+                    // cut loose: it swings clear of the pole and tumbles down, still airborne over the parapet when it
+                    // stops being drawn (TrenchFlagRules.FallClearance) — a flag flies off, it does not sink in
+                    var pos = p.Anchor
+                              + Vector3.up * TrenchFlagRules.FallHeight(p.Since, top)
+                              + across * Vector3.right * (0.4f + TrenchFlagRules.FallOut(p.Since));
                     float spun = TrenchFlagRules.FallAngle(p.Since) * Mathf.Rad2Deg;
                     var spin = across * Quaternion.Euler(spun, 0f, spun * 0.4f);
                     clothDraw[p.Losing & 1].Add(Matrix4x4.TRS(pos, spin, cloth));

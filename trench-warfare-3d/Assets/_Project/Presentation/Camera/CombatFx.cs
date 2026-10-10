@@ -80,6 +80,15 @@ namespace TW.Presentation.Tactical
         {
             if (tracers.Count < 1500) tracers.Add(new Tracer { From = from, To = to, Born = Time.time, Team = team, Width = width });
         }
+        /// <summary>One dab of dust at a point, for a presentation view that has its own geometry but no books of
+        /// its own — TrenchFlags' flag swap kicks a puff off the pole's butt. Existing sheet, no new book. Silent
+        /// before the sheets are up.</summary>
+        public void DustDab(Vector3 at, float width)
+        {
+            if (books == null || !books.Ready) return;
+            books.Add(FlipbookFx.Book.Puff, at, width, 0.6f, FlipbookFx.Kind.None, Vector3.up * 0.5f, 0.9f);
+        }
+
         readonly List<Body> bodies = new List<Body>(600);
         readonly List<Burst> bursts = new List<Burst>(64);
         readonly List<Flash> flashes = new List<Flash>(256);
