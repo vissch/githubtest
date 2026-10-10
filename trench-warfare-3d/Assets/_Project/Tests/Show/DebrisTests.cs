@@ -124,5 +124,32 @@ namespace TW.Tests
             }
             Assert.LessOrEqual(total * DebrisRenderer.RecordBytes, 512 * 1024, "the whole field's pieces fit in half a megabyte");
         }
+
+        /// <summary>The owner's capture of 2026-10-08 ("there is huge parts that spawned from the units"): a part used to
+        /// be thrown at the figure scale of that moment, zoom grow and all, and that size was frozen in the record. A part
+        /// thrown while zoomed out stayed up to four times too big for the half minute it lay there, beside men who were
+        /// back to their life size. The zoom grow now happens at draw, so a part is always PartScale x a man.</summary>
+        [Test]
+        public void MansPartsAreDrawnAtTheZoomNow_NotTheZoomTheyWereThrownAt()
+        {
+            // what CombatFx stores at the throw: his life size x the gag's part scale, with no zoom in it, so the zoom he
+            // died at cannot be read back out of the record
+            float stored = TW.Presentation.FigureMetrics.UnitScale * GibPlan.PartScale(1f);
+            foreach (float zoom in new[] { 6f, 18f, 30f, 96f, 600f })
+            {
+                float grow = TW.Presentation.FigureMetrics.Grow(zoom);
+                float man = TW.Presentation.FigureMetrics.UnitScale * grow;   // VATRenderer draws a man at exactly this
+                Assert.AreEqual(man * GibPlan.PartScale(1f),
+                    DebrisRenderer.DrawnScale(DebrisRenderer.Piece.Leg, stored, grow), Tolerance,
+                    "at zoom " + zoom + " his leg is the gag's PartScale x the men beside it");
+            }
+            // the play zoom of the capture: 1.125 x 1.8, not the 8.1 a part thrown at zoom 96 used to keep
+            Assert.AreEqual(2.025f, DebrisRenderer.DrawnScale(DebrisRenderer.Piece.Leg, stored, TW.Presentation.FigureMetrics.Grow(18f)), Tolerance);
+            // earth is not a man: the shared pools never grow
+            Assert.AreEqual(stored, DebrisRenderer.DrawnScale(DebrisRenderer.Piece.Clod, stored, 4f), Tolerance);
+            Assert.AreEqual(stored, DebrisRenderer.DrawnScale(DebrisRenderer.Piece.Rubble, stored, 4f), Tolerance);
+            Assert.IsFalse(DebrisRenderer.GrowsWithFigure(DebrisRenderer.Piece.Clod));
+            Assert.IsTrue(DebrisRenderer.GrowsWithFigure(DebrisRenderer.Piece.Helmet));
+        }
     }
 }

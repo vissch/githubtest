@@ -1035,8 +1035,8 @@ namespace TW.Presentation.Tactical
                     if (e.B != 2 || debris == null || !debris.Ready || DebrisRenderer.Gore <= 0f || DeathGags.Intensity > 0f) break;   // with the gags on, the pancake's Death throws it (CombatFx.Gags)
                     Vector3 p = (Vector3)e.Pos;
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z) + 0.3f;
-                    debris.Burst(DebrisRenderer.Piece.Helmet, p, 1, 3.5f, 0.32f * FigureScale(), Steel, 60f, 0f, 1.0f, default, e.Tick);
-                    debris.Burst(DebrisRenderer.Piece.Limb, p, 1, 3f, 0.7f * FigureScale(), ClothOf(e.A) == ClothA ? ClothB : ClothA, 30f, 0f, 0.8f, default, e.Tick + 3u);   // e.A is the machine: the man under it is the other side's
+                    debris.Burst(DebrisRenderer.Piece.Helmet, p, 1, 3.5f, 0.32f * BodyScale(), Steel, 60f, 0f, 1.0f, default, e.Tick);
+                    debris.Burst(DebrisRenderer.Piece.Limb, p, 1, 3f, 0.7f * BodyScale(), ClothOf(e.A) == ClothA ? ClothB : ClothA, 30f, 0f, 0.8f, default, e.Tick + 3u);   // e.A is the machine: the man under it is the other side's
                     debris.Burst(DebrisRenderer.Piece.Clod, p, Mathf.RoundToInt(4f * DebrisRenderer.Gore), 4f, 0.12f, Gore, 8f, 0f, 0.6f, default, e.Tick + 5u);
                     break;
                 }
@@ -1074,6 +1074,7 @@ namespace TW.Presentation.Tactical
             var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
             float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
             DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
+            DebrisRenderer.PartGrow = units != null ? units.CurrentGrow : FigureMetrics.Grow(zoomNow);   // a man's parts are drawn at the grow the men are drawn with this frame, not the one they were thrown at
             Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;

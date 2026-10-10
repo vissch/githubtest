@@ -19,6 +19,7 @@ Shader "TW/Debris (URP)"
         _OutlineWidth ("Outline width (pixels up close)", Float) = 2.0
         _EmberColor ("Ember colour", Color) = (1.8, 0.7, 0.2, 1)
         _Lift ("Rest height of this mesh (set per pool)", Float) = 0
+        _Grow ("Figure grow (set per pool, 1 = none)", Float) = 1
     }
     SubShader
     {
@@ -37,7 +38,7 @@ Shader "TW/Debris (URP)"
         float4 _DebrisBiome;   // set by DebrisRenderer every frame: rgb multiplies every tint, a is a floor under the ember glow (lava)
         CBUFFER_START(UnityPerMaterial)
             half4 _ShadeColor, _OutlineColor, _EmberColor;
-            float _OutlineWidth, _Lift;
+            float _OutlineWidth, _Lift, _Grow;
         CBUFFER_END
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
         #define PartNightFloor 0.5   // the least share of its own colour a man's part keeps on the night field
@@ -93,8 +94,8 @@ Shader "TW/Debris (URP)"
             // on a molten field a piece that comes down into the melt does not lie: it goes under as soon as it lands
             bool molten = r.landY <= _DebrisLava + 0.05;
             float over = molten ? saturate((t - r.landT) / 1.2) : saturate((t - r.life) / SINK_SECONDS);
-            float scale = r.scale * (over < 1.0 ? 1.0 : 0.0);
-            p.y -= over * (_Lift + SINK_DEPTH) * r.scale;
+            float scale = r.scale * _Grow * (over < 1.0 ? 1.0 : 0.0);
+            p.y -= over * (_Lift + SINK_DEPTH) * r.scale * _Grow;
             Placed o;
             o.positionOS = positionOS;
             o.positionWS = p + QRotate(q, positionOS * scale);

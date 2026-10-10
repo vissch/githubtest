@@ -178,6 +178,15 @@ namespace TW.Presentation.Tactical
         /// <summary>How much of every burst is thrown at the current zoom (docs/21 phase 3): all of it up close, 0.6 at the
         /// standard view, 0.3 beyond zoom 60, where a fragment is a pixel. CombatFx sets it each frame.</summary>
         public static float ZoomShare = 1f;
+        /// <summary>The zoom grow the men are drawn at this frame (FigureMetrics.Grow, 1 to 4; CombatFx sets it each frame,
+        /// as it does ZoomShare). A man's parts are thrown at his life size and grown here, at draw, so one thrown while
+        /// zoomed out is not left four times too big when the camera comes back in (the owner's capture of 2026-10-08).</summary>
+        public static float PartGrow = 1f;
+        /// <summary>The pools a man fills, which grow with his figure at draw. Clod is shared with earth, so a gore lump
+        /// simply never grows.</summary>
+        public static bool GrowsWithFigure(Piece p) => p >= Piece.Head || p == Piece.Limb || p == Piece.Helmet || p == Piece.Rifle;
+        /// <summary>The size a piece is drawn at: what was stored at the throw, grown by the figure's grow if it is a man's.</summary>
+        public static float DrawnScale(Piece p, float stored, float grow) => stored * (GrowsWithFigure(p) ? grow : 1f);
         /// <summary>
         /// The battlefield's say over every piece: rgb multiplies each piece's own tint (white = as thrown; grey-white
         /// for rock under snow, near-black for basalt), a is a floor under the ember glow (0 = only burning pieces
@@ -207,7 +216,7 @@ namespace TW.Presentation.Tactical
         GraphicsBuffer.IndirectDrawIndexedArgs[] argsData;
         Material material;
         readonly List<Mesh> owned = new List<Mesh>();
-        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), LavaId = Shader.PropertyToID("_DebrisLava"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
+        static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), LavaId = Shader.PropertyToID("_DebrisLava"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift"), GrowId = Shader.PropertyToID("_Grow");
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
         /// <summary>How much a mesh's bounds are padded (total, both sides), so the rest height is read from the true extents.</summary>
         const float BoundsPad = 0.5f;
@@ -385,6 +394,7 @@ namespace TW.Presentation.Tactical
             {
                 var pool = pools[k];
                 if (pool.Count == 0 || now > pool.AliveUntil) continue;   // nothing in it, or all of it sunk: no draw
+                pool.Props.SetFloat(GrowId, GrowsWithFigure((Piece)k) ? Mathf.Clamp(PartGrow, 0.01f, 8f) : 1f);
                 var rp = new RenderParams(material) { worldBounds = Everywhere, shadowCastingMode = pool.Shadows ? ShadowCastingMode.On : ShadowCastingMode.Off, receiveShadows = true, matProps = pool.Props };
                 FrameBudget.DrawIndirect(rp, pool.Mesh, args, 1, k);
                 DrawCalls++;
