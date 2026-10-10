@@ -192,6 +192,32 @@ namespace TW.UI
             film.Preview(refs.Cards[cardIndex], second);
         }
 
+        /// <summary>
+        /// Rest a real pointer on a card: the panel's own PointerEnterEvent, dispatched to the card's button, so the
+        /// film starts exactly as it does under the player's hand (the delay, then frame 0) instead of being posed.
+        /// False when there is no such card. <see cref="FilmUnhover"/> takes the pointer off again.
+        /// </summary>
+        public bool FilmHover(int cardIndex)
+        {
+            if (refs == null || cardIndex < 0 || cardIndex >= refs.Cards.Count) return false;
+            var root = refs.Cards[cardIndex].Root;
+            if (root?.panel == null) return false;
+            // a pooled pointer event with no target null-refs in PreDispatch: name the card the pointer is over
+            using (var e = PointerEnterEvent.GetPooled()) { e.target = root; root.SendEvent(e); }
+            return true;
+        }
+
+        /// <summary>Take that pointer off the card it rests on (PointerLeaveEvent): the card goes back to its still.</summary>
+        public void FilmUnhover()
+        {
+            var c = film?.Hovered;
+            if (c?.Root?.panel == null) { film?.Clear(); return; }
+            using (var e = PointerLeaveEvent.GetPooled()) { e.target = c.Root; c.Root.SendEvent(e); }
+        }
+
+        /// <summary>The film player, for a capture that writes down which frame of the loop it caught.</summary>
+        public CardFilmPlayer FilmPlayer => film;
+
         string CostLine(CardRefs c)
         {
             string key = c.IsSupport ? HudText.SupportHotkey(System.Array.IndexOf(HudView.SupportAbilities, c.Ability)) : HudText.Hotkey(c.Slot);

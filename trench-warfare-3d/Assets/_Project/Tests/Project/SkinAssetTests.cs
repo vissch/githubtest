@@ -70,6 +70,19 @@ namespace TW.Tests
             Token("--tw-film-line", HudLayout.FilmLinePx);
         }
 
+        [Test]
+        public void TheCostAndKeyGetASolidPlateOverAPlayingFilm()
+        {
+            // a card playing its film puts the orange cost over moving, sometimes fire-lit pixels; the skin answers
+            // with a solid plate on the class CardFilmPlayer sets (the round-1 critic: "the cost over its brightest
+            // part"). Without the rule the translucent window sprite is all that separates them.
+            string uss = File.ReadAllText(Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root, "dustfront.components.uss")));
+            StringAssert.Contains(".tw-card." + CardFilmPlayer.PlayingClass + " > .tw-card__cost", uss,
+                "the cost needs its own rule while the film plays");
+            StringAssert.Contains(".tw-card." + CardFilmPlayer.PlayingClass + " > .tw-card__hotkey", uss,
+                "so does the key");
+        }
+
         static Texture2D Png(string rel)
         {
             var t = new Texture2D(2, 2);

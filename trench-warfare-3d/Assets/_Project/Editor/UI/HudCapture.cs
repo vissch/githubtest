@@ -27,9 +27,61 @@ namespace TW.Editor
         public static readonly string[] Probes =
         {
             "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
-            "group-infantry", "group-armour", "group-support", "card", "film", "tooltip", "banner", "pause-plate",
+            "group-infantry", "group-armour", "group-support", "card", "film", "filmline", "tooltip", "banner", "pause-plate",
             "settings-plate", "tabs", "debrief-plate", "stats-table", "title", "menu-stack", "mission-list", "info-panel",
         };
+
+        // ---- the pointer in the picture --------------------------------------------------------------------------
+        // A capture renders the panel and the camera; the operating system's cursor is in neither, so a shot of a
+        // hovered card could never show what the pointer is doing. This paints an arrow into the panel itself at a
+        // capture pixel, with Painter2D (no sprite), so "rest the pointer on a card" can be seen in the still.
+        static VisualElement cursor;
+
+        /// <summary>Draw the pointer arrow at a capture pixel (top-left origin, in a shot <paramref name="width"/>
+        /// by <paramref name="height"/>), or take it away with a negative x. Call before Shoot.</summary>
+        public static void Cursor(float x, float y, int width = 1920, int height = 1080)
+        {
+            var hud = Object.FindFirstObjectByType<HudController>(FindObjectsInactive.Include);
+            var doc = hud != null ? hud.GetComponent<UIDocument>() : null;
+            var root = doc != null ? doc.rootVisualElement : null;
+            if (root == null) { Debug.LogWarning("HudCapture.Cursor: no HUD document."); return; }
+            if (x < 0f) { cursor?.RemoveFromHierarchy(); cursor = null; return; }
+            if (cursor == null || cursor.panel == null)
+            {
+                cursor = new VisualElement { name = "capture-cursor", pickingMode = PickingMode.Ignore };
+                cursor.style.position = Position.Absolute;
+                cursor.style.width = 26; cursor.style.height = 34;
+                cursor.generateVisualContent += Arrow;
+                root.Add(cursor);
+            }
+            cursor.BringToFront();
+            // the HUD root is not at the panel's origin, and an absolute child is placed inside it: take the shot's
+            // pixel into panel space, then back into the root's own box, or the arrow lands mid-screen.
+            // the panel is not the shot's shape (1200 x 900 against 1920 x 1080), so x and y take their own scale,
+            // exactly as Probe does when it writes the rectangles.
+            var tree = root.panel.visualTree;
+            float sx = tree.layout.width / Mathf.Max(1f, width), sy = tree.layout.height / Mathf.Max(1f, height);
+            var box = root.worldBound;
+            cursor.style.left = x * sx - box.x; cursor.style.top = y * sy - box.y;
+            cursor.MarkDirtyRepaint();
+        }
+
+        /// <summary>The classic arrow: white, black-edged, its point on the element's top-left corner.</summary>
+        static void Arrow(MeshGenerationContext ctx)
+        {
+            var p = ctx.painter2D;
+            p.BeginPath();
+            p.MoveTo(new Vector2(0f, 0f));
+            p.LineTo(new Vector2(0f, 24f));
+            p.LineTo(new Vector2(6.5f, 18f));
+            p.LineTo(new Vector2(11f, 28f));
+            p.LineTo(new Vector2(16f, 25.5f));
+            p.LineTo(new Vector2(11.5f, 16f));
+            p.LineTo(new Vector2(19f, 15f));
+            p.ClosePath();
+            p.fillColor = Color.white; p.Fill();
+            p.strokeColor = new Color(0f, 0f, 0f, 0.9f); p.lineWidth = 2f; p.Stroke();
+        }
 
         [MenuItem("TW/UI/Capture HUD (Play)")]
         public static void Menu() => Shoot(DefaultPath);
@@ -113,6 +165,11 @@ namespace TW.Editor
                     px[i] = new Color32((byte)(u.r * a + s.r * (1f - a)), (byte)(u.g * a + s.g * (1f - a)), (byte)(u.b * a + s.b * (1f - a)), 255);
                 }
                 scene.SetPixels32(px); scene.Apply(false, false);
+                // what share of the shot is blown out, so a fire-lit frame can be cleared (or not) on its numbers
+                long blown = 0;
+                for (int i = 0; i < px.Length; i++) if (px[i].r > 250 && px[i].g > 250 && px[i].b > 250) blown++;
+                rects = rects.Substring(0, rects.Length - 1) + ",\"blown_frac\":" +
+                        ((double)blown / px.Length).ToString("0.00000", CultureInfo.InvariantCulture) + Film() + "}";
                 Directory.CreateDirectory(Path.GetDirectoryName(full));
                 File.WriteAllBytes(full, scene.EncodeToPNG());
                 File.WriteAllText(full + ".json", rects);
@@ -151,6 +208,25 @@ namespace TW.Editor
                       .Append(r.width.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.height.ToString("0", CultureInfo.InvariantCulture)).Append(']');
                 }
                 return sb.Append("}}").ToString();
+            }
+
+            /// <summary>The film the HUD is playing right now, for the sidecar: its length and loop by construction,
+            /// and the frame, the second and the progress this shot actually caught (nothing when no card plays).</summary>
+            static string Film()
+            {
+                var hud = Object.FindFirstObjectByType<HudController>(FindObjectsInactive.Include);
+                var player = hud != null ? hud.FilmPlayer : null;
+                if (player == null || player.Hovered == null) return ",\"film_playing\":false";
+                string Num(float v) => v.ToString("0.000", CultureInfo.InvariantCulture);
+                return ",\"film_playing\":" + (player.LastFrame >= 0 ? "true" : "false") +
+                       ",\"film_unit\":\"" + player.Hovered.FilmName + "\"" +
+                       ",\"film_seconds\":" + Num(CardFilm.Seconds) +
+                       ",\"film_fps\":" + Num(CardFilm.Fps) +
+                       ",\"film_frames\":" + CardFilm.Frames +
+                       ",\"film_loop_at\":" + Num(CardFilm.Seconds) +
+                       ",\"film_held\":" + Num(player.Held) +
+                       ",\"film_frame\":" + player.LastFrame +
+                       ",\"film_progress\":" + Num(player.LastProgress);
             }
 
             static Texture2D Read(RenderTexture rt)

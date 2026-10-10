@@ -138,7 +138,9 @@
 /* the tiny film a card plays under the pointer (CardFilm): hidden until the player gives it a frame, inside the
    portrait window so the rim, lock, nameplate, cost and cooldown shade all draw over it. */
 .tw-card__film { position: absolute; left: var(--tw-film-inset); top: var(--tw-film-inset); right: var(--tw-film-inset); bottom: var(--tw-film-inset); display: none; background-size: contain; -unity-background-scale-mode: scale-and-crop; }
-.tw-card__filmline { position: absolute; left: var(--tw-film-inset); bottom: var(--tw-film-inset); width: 0; height: var(--tw-film-line); display: none; background-color: #E8E2D2; }
+/* the loop's bone line sits just above the nameplate (17 px of the card): at the film's own inset the nameplate,
+   which draws over it, hid it completely - a round-1 critic could not see it at all. */
+.tw-card__filmline { position: absolute; left: var(--tw-film-inset); bottom: 20px; width: 0; height: var(--tw-film-line); display: none; background-color: #E8E2D2; }
 .tw-card__rim { position: absolute; left: 0; top: 0; right: 0; bottom: 0; display: none; background-image: url("Sprites/card_rim.png"); -unity-slice-left: 14; -unity-slice-top: 14; -unity-slice-right: 14; -unity-slice-bottom: 14; -unity-background-image-tint-color: var(--tw-accent); }
 .tw-card__cooldown { position: absolute; left: 6px; right: 6px; bottom: 6px; height: 0; background-color: var(--tw-cooldown); background-image: url("Sprites/cooldown_mask.png"); -unity-background-scale-mode: scale-and-crop; }
 .tw-card__nameplate { position: absolute; left: 3px; right: 3px; bottom: 3px; height: 14px; padding: 0 2px; background-color: var(--tw-plate-900); background-image: url("Sprites/card_nameplate.png"); -unity-slice-left: 6; -unity-slice-right: 6; -unity-slice-top: 0; -unity-slice-bottom: 0; font-size: 10px; color: var(--tw-text); -unity-text-align: middle-center; letter-spacing: 0; -unity-font-style: bold; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -159,6 +161,9 @@
 .tw-card.is-poor > .tw-card__cost { color: var(--tw-alarm); }
 .tw-card.is-poor > .tw-card__portrait { -unity-background-image-tint-color: #6A6A6A; }
 .tw-card.is-over > .tw-card__portrait { -unity-background-image-tint-color: var(--tw-plate-400); }
+/* while the film plays (CardFilmPlayer's is-filming) the cost and the key sit on moving, sometimes fire-lit pixels
+   instead of a dark portrait, so both drop the translucent window sprite for a solid plate with a rim. */
+.tw-card.is-filming > .tw-card__cost, .tw-card.is-filming > .tw-card__hotkey { background-image: none; background-color: var(--tw-plate-900); border-width: 1px; border-color: var(--tw-plate-500); }
 .tw-card:disabled { opacity: 1; }
 
 /* ---- badges, keycaps, rows, tabs, lists ------------------------------------------------------------------- */

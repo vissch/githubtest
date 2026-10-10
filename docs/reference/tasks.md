@@ -675,12 +675,18 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **A deploy card's tiny film:** resting the pointer on a card plays three seconds of the unit doing its job, in the
   card's own window under the key, cost and name, with a bone line counting the loop (the owner's idea, 2026-10-08,
   treatment A). `UI/CardFilm.cs` is the clock and the player; the sheets are `UI/Resources/CardFilms/<Portrait>.png`
-  (30 frames of 160 px in a 6 x 5 grid, 960 x 800), baked by `Tools/cardfilm.py` from the films the board makes. A
+  (30 frames of 160 px in a 6 x 5 grid, 960 x 800), baked by `Tools/cardfilm.py` from the films the board makes -
+  every unit there carries a start second and a frame (zoom, cx, cy), because a plain centre crop of a 960 x 540
+  wide shot leaves the unit unreadable at 160 px. A
   unit with no sheet keeps today's card. It follows the tooltips setting and plays during a tactical pause
   (unscaled time); a locked or match-over card plays nothing, a poor or cooling one plays under its shade.
 - **See it:** `TW.Editor.HudCapture.Shoot(path)`. The ordinary capture paths do not include the HUD. For one card's
   film without a pointer: `HudController.FilmPreview(cardIndex, second)` in Play, then `HudCapture.Shoot` (the
-  sidecar carries the `film` rect).
+  sidecar carries the `film` and `filmline` rects, and the film's length, fps, held second, frame and progress).
+  With a pointer: `HudController.FilmHover(cardIndex)` sends the panel's own PointerEnterEvent to the card and
+  `FilmUnhover()` the leave, so a capture shows what a hand would start. `HudCapture.Cursor(x, y)` paints the
+  pointer arrow into the panel at a capture pixel (nothing else puts a cursor in a still); a negative x takes it
+  away.
 - **Trap:** the support cards are `HudView.SupportAbilities` (seven: HE, chlorine, paratroopers, creeping barrage,
   smoke screen, strafe run, beam); `HudLayout.SupportSlots` counts them, but the legacy `BattleHud` keeps
   `SupportSlots = UnitLook.SupportCards` (the first three; the line abilities have cards only in the Toolkit HUD).
