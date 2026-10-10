@@ -23,7 +23,7 @@ Pictures and films before words. Things to click and act on.
    can spawn an agent". (2026-10-07.)
    - Better: the process critique of 2026-10-04 gave the way of working 31 of 100. Two of its three fixes were
      taken; one re-score follows "once the two fixes are in", and had not been run. (2026-10-04, 2026-10-06.)
-   - Not landed, 2026-10-07: the six top review fixes run first, then he looks at what changed.
+   - The six top review fixes run first, then he looks at what changed. (2026-10-07.)
    - Serves it: a tool or a check that saves his time, or keeps work from getting lost. Kind: tool.
 <a id="goal-frogs"></a>
 [![The Bullfrog, alive, in a battle](goals/bullfrog.png)](decisions.md#d-frogs)
@@ -34,8 +34,8 @@ Pictures and films before words. Things to click and act on.
    game currently". (2026-10-06.) "i want to be able to play with all the new models intergrate them". (2026-09-30.)
    - Better: "instantly playable". Today no faction fields them; the sandbox and the test level do. (2026-09-28.)
    - Open: what each model does in the faction, and what "instantly playable" needs first. (Open list, 2026-10-06.)
-   - Not landed, 2026-10-07: "full jobs first (the Hopper truly flies, frog gunners and medics), then make the
-     faction pickable". The faction is called Frogs. Its ten cards: rifleman, assault, gunner, medic, sniper, Brute,
+   - "full jobs first (the Hopper truly flies, frog gunners and medics), then make the
+     faction pickable". (2026-10-07.) The faction is called Frogs. Its ten cards: rifleman, assault, gunner, medic, sniper, Brute,
      Croaker, Bullfrog, Hopper, Mercy. The Hopper "Flies over everything, never lands". The Mercy carries up to
      four badly hurt men out of view, and they come back at full health. Roster v3 waits until the frogs are playable.
    - Serves it: a job, a look or an effect for one frog unit. Kind: unit, mechanic or look.
@@ -50,22 +50,22 @@ Pictures and films before words. Things to click and act on.
      Iron in 7 of the 8 matches that ended. ([tasks.md](tasks.md), The enemy.)
    - Open: what replaces dead ground, which he removed: "we must think about how we can prevent this in the future
      in a better way: the man werent able to enter the trench." (Open list, 2026-10-06.)
-   - Not landed, 2026-10-07: "Find out first why matches do not end, above all Iron's; report with numbers. Bands
-     after that". The report: a match with no winner is one where nobody attacks. Then: "Fix the measuring first".
+   - "Find out first why matches do not end, above all Iron's; report with numbers. Bands
+     after that". (2026-10-07.) The report: a match with no winner is one where nobody attacks. Then: "Fix the measuring first".
      No unit's number is tuned before the matches are measured again.
    - Serves it: a rule that makes a side attack, or that shows why it does not. Kind: mechanic.
 <a id="goal-units"></a>
 [![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
-[Its sources](decisions.md#d-units).
+[Its sources](decisions.md#d-units). [The 3d models](decisions.md#d-unit-models).
 
 5. **Units that look their part.** "each class unit has a different vfx specific to that class. Think of grenades.
    Laser weapons. Mortars." "Make sure that as much as possible each unit has a 3d model". (Rows of 2026-09-28.)
    - Better: the most common effects first; small arms are about 99 % of the events drawn. (2026-09-28.)
    - Open: every infantryman carries the same rifle: "no still needs a weapon, do some weapon concept ideas".
      Concepts first, nothing built before he has picked. (2026-10-06.)
-   - Not landed: two weapon looks are kept, toy box and brass and walnut, "it could be an upgrade". (2026-10-07.)
-     "lets improve the units visuals, vfx, animation etc. you have 5 %" of the week. (2026-10-06.)
+   - Two weapon looks are kept, toy box and brass and walnut, "it could be an upgrade". (2026-10-07.)
+   - Not landed, 2026-10-06: "lets improve the units visuals, vfx, animation etc. you have 5 %" of the week.
    - Serves it: a look, an effect or a move that tells one unit from the next. Kind: unit or look.
 <a id="goal-night"></a>
 [![The lamp on the sandbags, today beside the new reach](goals/night-lamps.jpg)](decisions.md#d-night)
@@ -78,14 +78,14 @@ Pictures and films before words. Things to click and act on.
      warm-lit 2 to 5 % where ours had 0.14 %. No stray blue or purple sparkles. (2026-09-29.)
    - Open: the second part (flames streaking on wet mud, orange glints, dark props against the haze, softer pools)
      was never shown to him. (Open list, 2026-10-06.)
-   - Not landed, 2026-10-07: "it should allways be today": today's night stays, the second part does not land.
-     "lets use less lights and instead try to simulate them or bake them": the 8 lamps nearest the view stay real.
+   - "it should allways be today": today's night stays, the second part does not land. (2026-10-07.)
+     "lets use less lights and instead try to simulate them or bake them": the 8 lamps nearest the view stay real. (2026-10-07.)
    - Serves it: warm light and shapes that read, inside today's night and with no more real lights. Kind: look.
 <a id="goal-deaths"></a>
 [The film of a Bullfrog on fire beside a tank](goals/bullfrog-down.mp4)
 [![A Bullfrog on fire beside a tank](goals/bullfrog-on-fire.png)](decisions.md#d-deaths)
 
-[Its sources](decisions.md#d-deaths).
+[Its sources](decisions.md#d-deaths). [Blood](decisions.md#d-blood).
 
 7. **Absurd deaths.** "lots of the fun arrives as units die, we need to make this more absurd"; "we need blood".
    (Rows of 2026-09-28.) "turn it on and let me test it". (2026-09-30.)
@@ -132,8 +132,8 @@ and is not in decisions.md on this branch yet. Such a line is newer than the res
 - **The factions.** The game's code holds six, each with ten slots: Iron and Brass and four historical armies.
   ([tasks.md](tasks.md), Factions, rosters and the unit table.) Brass alone drops paratroopers; the six support
   cards are shared until the roster is redesigned. (2026-09-27, 2026-10-06.)
-- **The frog faction is the main faction.** Its models are the Brute, the Croaker, the Hopper, the Mercy, the Frog
-  and the Cutter. (2026-10-06.) The first five are battle units of the test level, in no faction's pool. (2026-09-28.)
+- **The frog faction is the main faction.** Its ten cards are rifleman, assault, gunner, medic, sniper, Brute,
+  Croaker, Bullfrog, Hopper and Mercy. (2026-10-07.)
 - **It is watched, not read**: a picture or a film first, words second. (2026-10-03, and the taste below.)
 
 ## His taste, as patterns across rows
@@ -147,8 +147,7 @@ He keeps saying yes to:
 - **Every unit different.** Its own effects, its own model, its own way to fight up close. (Rows of 2026-09-28.)
 - **Warm light, lean effects.** "its good" of the warm night. (2026-09-29.) "make the smoke in game less heavy",
   "small lean smoke plumes", "the fire needs more fidelity". (2026-09-28.)
-- **Polish and motion.** "add slight animations like a motion designer would". (2026-10-06.) Not landed,
-  2026-10-07: "i need you to be even more creative and use differnt tools to impress".
+- **Polish and motion.** "add slight animations like a motion designer would". (2026-10-06.) "i need you to be even more creative and use differnt tools to impress". (2026-10-07.)
 - **Trying it in play.** "turn it on and let me test it" (2026-09-30); "judge them in play" (2026-10-06).
 
 He keeps saying no to (the full list is in the context of the ideas tool; these are the patterns in it):
@@ -176,8 +175,8 @@ He keeps saying no to (the full list is in the context of the ideas tool; these 
 - **Concepts first**: an effect, an animation or a character starts with concepts or references he picks from;
   nothing of it is built before he has picked. A fix that changes no look needs none. (Rows of 2026-10-06.)
 - **A lane lands only on his word.** Four may land without asking once their checks are green: the decision rows,
-  the test modules, the verification lanes, the asset board. (2026-10-04.) Not landed, 2026-10-07: finished work
-  lands "as soon as its full test run is green"; what changes how a battle looks or plays still goes to him first.
+  the test modules, the verification lanes, the asset board. (2026-10-04.) Finished work
+  lands "as soon as its full test run is green"; what changes how a battle looks or plays still goes to him first. (2026-10-07.)
 
 ## How he works with agents
 
