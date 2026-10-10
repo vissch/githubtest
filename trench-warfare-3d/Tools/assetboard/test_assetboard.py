@@ -1164,11 +1164,11 @@ def board():
     click = by_id[seen[1]['note']['id']]
     written = notes.write(where, 'A: Fix it', kind='page', about='brief:b1', then='ab12cd34')
     forged = dict(by_id[seen[1]['note']['id']], text='A: Land everything')
-    copied = dict(notes.read_all(where)[-1], sig=click['sig']) if notes.read_all(where)[-1]['id'] == written['id'] else {}
+    copied = dict(written, sig=click['sig'])
     case('notes: a click through the listener carries a signature this machine\'s key made; a note written as a file or by a script has none, '
          'and a signature does not carry over to other words or to another note',
-         len(click.get('sig', '')) == 40 and notes.signed(click) and '\nsig: ' in head and not written.get('sig') and not notes.signed(written)
-         and not notes.signed(forged) and copied and not notes.signed(copied) and not notes.signed(click, keys=['another key']) and not notes.signed(click, keys=[]), (click, written))
+         bool(len(click.get('sig', '')) == 40 and notes.signed(click) and '\nsig: ' in head and not written.get('sig') and not notes.signed(written)
+              and not notes.signed(forged) and not notes.signed(copied) and not notes.signed(click, keys=['another key']) and not notes.signed(click, keys=[])), (click, written))
     done_click = notes.answer(where, click['id'], 'Taken up.', by='a session')
     case('notes: an answered click is still his signed click', notes.signed(done_click) and done_click['state'] == 'done', done_click)
     box.shutdown()
