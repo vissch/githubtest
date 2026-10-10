@@ -37,6 +37,11 @@ namespace TW.Presentation.Terrain
         public const float MaxHp = 1.0f;
         /// <summary>Turns a second of a tumbling fall is worth.</summary>
         public const float FallSpin = 1.35f;
+        /// <summary>How near the parapet the cut flag's bottom edge ever comes. It is airborne the whole way: it
+        /// lets go, tumbles clear and is still in the air when it stops being drawn, never sunk into the sandbags.</summary>
+        public const float FallClearance = 0.45f;
+        /// <summary>How far out from the pole the cut flag has swung by the time it is let go of.</summary>
+        public const float FallSwing = 1.9f;
         /// <summary>Past this the pole is too thin to see: the flag is drawn Swell times bigger and the pole dropped.</summary>
         public const float PoleFadeMeters = 150f, Swell = 1.3f;
 
@@ -70,6 +75,22 @@ namespace TW.Presentation.Terrain
             float t = Mathf.Clamp01(seconds / FallSeconds);
             return 1f - t * t;
         }
+
+        /// <summary>Where the cut flag's hoist edge is, in metres above the pole's butt, having let go at
+        /// <paramref name="top"/>. It falls to a floor that keeps its bottom edge FallClearance over the parapet,
+        /// so the whole drop is airborne — the flag is read as flying off, not as melting into the ground.</summary>
+        public static float FallHeight(float seconds, float top)
+        {
+            float floor = Mathf.Min(FlagTall + FallClearance, top);
+            return floor + (top - floor) * Fall(seconds);
+        }
+
+        /// <summary>The lowest point of the cut flag at that moment: its bottom edge, FlagTall under the hoist.</summary>
+        public static float FallLowest(float seconds, float top) => FallHeight(seconds, top) - FlagTall;
+
+        /// <summary>How far out from the pole the cut flag has swung: none at the moment it lets go, FallSwing by
+        /// the end, so it is plainly clear of the pole rather than scraping down it.</summary>
+        public static float FallOut(float seconds) => (1f - Fall(seconds)) * FallSwing;
 
         /// <summary>Radians the falling flag has turned by.</summary>
         public static float FallAngle(float seconds) => Mathf.Clamp(seconds, 0f, FallSeconds) * FallSpin * Mathf.PI * 2f;

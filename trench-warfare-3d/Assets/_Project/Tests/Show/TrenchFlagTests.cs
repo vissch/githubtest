@@ -134,13 +134,39 @@ namespace TW.Tests
         public void The_Old_Flag_Falls_Away_Tumbling()
         {
             Assert.AreEqual(1f, TrenchFlagRules.Fall(0f), 1e-5f, "cut loose at the top");
-            Assert.AreEqual(0f, TrenchFlagRules.Fall(TrenchFlagRules.FallSeconds), 1e-5f, "on the parapet at the end");
+            Assert.AreEqual(0f, TrenchFlagRules.Fall(TrenchFlagRules.FallSeconds), 1e-5f, "all the way down at the end");
             Assert.AreEqual(0f, TrenchFlagRules.Fall(99f), 1e-5f);
             float early = TrenchFlagRules.Fall(0.3f) - TrenchFlagRules.Fall(0.6f), late = TrenchFlagRules.Fall(1.6f) - TrenchFlagRules.Fall(1.9f);
             Assert.Less(early, late, "it gathers speed instead of sinking");
             Assert.AreEqual(0f, TrenchFlagRules.FallAngle(0f), 1e-5f);
             Assert.Greater(TrenchFlagRules.FallAngle(TrenchFlagRules.FallSeconds), Mathf.PI * 2f, "it turns over at least once on the way down");
             Assert.AreEqual(TrenchFlagRules.FallAngle(TrenchFlagRules.FallSeconds), TrenchFlagRules.FallAngle(99f), 1e-4f, "and stops turning when it lands");
+        }
+
+        /// <summary>The critic's round-2 blocker: the cut flag must be airborne the whole way down, its lowest
+        /// point over the parapet, and plainly clear of the pole rather than scraping down it.</summary>
+        [Test]
+        public void The_Old_Flag_Stays_Airborne_And_Swings_Clear()
+        {
+            float top = TrenchFlagRules.PoleHeight - 0.08f;
+            for (float t = 0f; t <= TrenchFlagRules.FallSeconds + 0.5f; t += 0.05f)
+            {
+                float low = TrenchFlagRules.FallLowest(t, top);
+                Assert.GreaterOrEqual(low, TrenchFlagRules.FallClearance - 1e-4f,
+                    $"at {t:0.00}s the cloth's bottom edge is {low:0.00} m up: it must never reach the parapet");
+            }
+            Assert.AreEqual(top, TrenchFlagRules.FallHeight(0f, top), 1e-4f, "it lets go where it flew");
+            Assert.Less(TrenchFlagRules.FallHeight(TrenchFlagRules.FallSeconds, top), top,
+                "and it has come down, not stayed put");
+            Assert.AreEqual(TrenchFlagRules.FlagTall + TrenchFlagRules.FallClearance,
+                TrenchFlagRules.FallHeight(99f, top), 1e-4f, "the floor is the clearance under the cloth");
+
+            Assert.AreEqual(0f, TrenchFlagRules.FallOut(0f), 1e-4f, "it is on the pole at the moment it is cut");
+            Assert.AreEqual(TrenchFlagRules.FallSwing, TrenchFlagRules.FallOut(TrenchFlagRules.FallSeconds), 1e-4f,
+                "and a flag's width clear of it by the end");
+            Assert.Greater(TrenchFlagRules.FallOut(1.1f), TrenchFlagRules.FallOut(0.4f), "it only ever goes out");
+            Assert.Greater(TrenchFlagRules.FallSwing, TrenchFlagRules.FlagWide * 0.5f,
+                "clear means further out than half the cloth, or it still overlaps the pole");
         }
     }
 }
