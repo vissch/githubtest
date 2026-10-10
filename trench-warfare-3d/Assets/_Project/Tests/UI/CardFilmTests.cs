@@ -150,6 +150,45 @@ namespace TW.Tests
         }
 
         [Test]
+        public void APlayingCardSaysWhichFrameOfTheLoopItIsOn()
+        {
+            // what a capture writes into its sidecar: the frame, how far through the loop, and the length.
+            var c = Card("Maw");
+            var p = new CardFilmPlayer();
+            p.Preview(c, 1.5f);
+            Assert.That(p.LastFrame, Is.EqualTo(15), "a second and a half into a 10 fps loop is frame 15");
+            Assert.That(p.LastProgress, Is.EqualTo(0.5f).Within(0.02f));
+            Assert.That(p.Held, Is.EqualTo(HudLayout.TooltipDelaySeconds + 1.5f).Within(0.05f));
+            p.Preview(c, 0.2f);
+            Assert.That(p.LastFrame, Is.EqualTo(2));
+            p.Preview(c, 2.9f);
+            Assert.That(p.LastFrame, Is.EqualTo(29), "the last frame before the loop restarts");
+        }
+
+        [Test]
+        public void APlayingCardWearsTheFilmingClassAndDropsItWhenThePointerLeaves()
+        {
+            // the skin thickens the cost and key plates over a moving picture (.tw-card.is-filming in
+            // dustfront.components.uss): without the class they sit on fire-lit pixels.
+            var c = Card("Maw");
+            var p = new CardFilmPlayer();
+            Assert.That(c.Root.ClassListContains(CardFilmPlayer.PlayingClass), Is.False);
+            p.Preview(c, 1.5f);
+            Assert.That(c.Root.ClassListContains(CardFilmPlayer.PlayingClass), Is.True);
+            p.Leave(c);
+            Assert.That(c.Root.ClassListContains(CardFilmPlayer.PlayingClass), Is.False, "the card goes back to its still");
+            Assert.That(p.LastFrame, Is.EqualTo(-1));
+        }
+
+        [Test]
+        public void ACardWithNoFilmNeverWearsTheFilmingClass()
+        {
+            var c = Card("NoSuchUnitEver");
+            new CardFilmPlayer().Preview(c, 1.5f);
+            Assert.That(c.Root.ClassListContains(CardFilmPlayer.PlayingClass), Is.False);
+        }
+
+        [Test]
         public void EveryBuiltCardKnowsWhichFilmToLookFor()
         {
             var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/_Project/UI/Resources/Hud/BattleHud.uxml");

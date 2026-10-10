@@ -87,10 +87,14 @@ namespace TW.UI
     /// </summary>
     public sealed class CardFilmPlayer
     {
+        /// <summary>The class a card wears while its film plays, so the skin can thicken the cost plate over it.</summary>
+        public const string PlayingClass = "is-filming";
+
         readonly System.Func<bool> allowed;
         readonly float delay;
         CardRefs hovered;
         float since;
+        int lastFrame = -1;
 
         /// <summary><paramref name="allowed"/> is the tooltips setting: the film and the plate open together.</summary>
         public CardFilmPlayer(System.Func<bool> allowed = null, float delaySeconds = HudLayout.TooltipDelaySeconds)
@@ -100,6 +104,15 @@ namespace TW.UI
 
         /// <summary>The card the pointer rests on, or null.</summary>
         public CardRefs Hovered => hovered;
+
+        /// <summary>How long that card has been held, in unscaled seconds; -1 with no card.</summary>
+        public float Held => hovered == null ? -1f : Time.unscaledTime - since;
+
+        /// <summary>The frame last shown (0..Frames-1), or -1 when nothing is playing. What a capture writes down.</summary>
+        public int LastFrame => lastFrame;
+
+        /// <summary>How far through the loop the last shown frame is, 0..1.</summary>
+        public float LastProgress => lastFrame < 0 ? 0f : CardFilm.Progress(Held, delay);
 
         /// <summary>Register one card's pointer events. Entering a card replaces the hovered one, so only one plays.</summary>
         public void Attach(CardRefs c)
@@ -146,6 +159,8 @@ namespace TW.UI
             int frame = CardFilm.Frame(held, delay);
             var sprite = frame < 0 ? null : CardFilm.Of(c.FilmName, frame);
             if (sprite == null) { Hide(c); return; }
+            lastFrame = frame;
+            c.Root.AddToClassList(PlayingClass);
             c.Film.style.backgroundImage = new StyleBackground(sprite);
             c.Film.style.display = DisplayStyle.Flex;
             if (c.FilmLine != null)
@@ -155,9 +170,12 @@ namespace TW.UI
             }
         }
 
-        static void Hide(CardRefs c)
+        void Hide(CardRefs c)
         {
-            if (c == null || c.Film == null) return;
+            lastFrame = -1;
+            if (c == null) return;
+            c.Root?.RemoveFromClassList(PlayingClass);
+            if (c.Film == null) return;
             c.Film.style.display = DisplayStyle.None;
             if (c.FilmLine != null) c.FilmLine.style.display = DisplayStyle.None;
         }
