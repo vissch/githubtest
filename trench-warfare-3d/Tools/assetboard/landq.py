@@ -10,26 +10,30 @@ WHY. On 2026-10-10 a branch was tested green five times in one night and never l
 command on integration's exact tip, a docs lane landed nine times in between, and every landing made the others'
 half-hour test worthless. Nothing held the landings in a row. And "land it" from him became a new card each time,
 because no session may land. His answers that day: "Desktop lands on my click", and "Fixes land alone, look and play
-wait": bug fixes, tests, tools and docs land by themselves once the full gate is green; what changes how a battle
-looks or plays waits for his click.
+wait".
 
 So there is one queue and one worker, on the desktop, in one checkout of its own:
-- a lane is taken as it stands on origin, rebased on integration's tip, tested (the full gate when it changes code;
-  Tools/land.py runs the tool check or the docs check itself), and landed with Tools/land.py, which is not changed
-  and decides as before. If integration moved while it was tested, it is rebased and tested again, by itself.
+- a lane is taken as it stands on origin, rebased on integration's tip, tested (the full gate when Tools/land.py
+  would ask for it; land.py runs the tool check or the docs check itself), and landed with Tools/land.py, which is
+  not changed and decides as before. If integration moved while it was tested, it is rebased and tested again.
 - which lanes need no click is read from what the rebased lane changes (klass): a script's reading, never a
-  session's say-so. In doubt it waits for him.
-- a lane that needs his click gets ONE card (its id is the lane's, so it is asked once) whose option names the lane
-  and its commit. His click counts when briefs.answers() calls it `land`: signed by the page's listener, on that
-  Then line, not older than 48 hours. A lane that moved on after his click is not landed on it.
+  session's say-so. Today that is docs, tools, skills and tests. Code of the sim does NOT land alone: no test pins
+  the hash of a played battle (SimHashTests pins the list of systems and the replay version), so a green gate does
+  not show that a battle still plays out the same. In doubt a lane waits for him.
+- a lane that needs his click gets a card whose id names the lane AND the commit, and whose option lands exactly
+  that commit. His click counts when briefs.answers() calls it `land`: signed by the page's listener, the only note
+  about the card, on that Then line, not older than 48 hours. When the lane moves on, the card of the old commit is
+  closed by the queue and a new one asks.
+- a lane that was red or refused is not tried again until the lane or integration has moved.
 - every landing is a line in landed.jsonl with what it was landed on (alone, or which click).
 
 The faults of the first try (lander.py, stopped after a critique of 41 in 100) and what stands against each here:
 a note any session could write counted as his click (the signature); his yes bound a folder and a branch, never a
-commit, and never lapsed (the tip in the Then line, 48 hours); land.py's "nothing to land" was taken for a landing
-(integration's tip is read back and must be the lane's head); a timeout stopped only the parent (the tree, and any
-Unity on the worker's project); a second card could be written for one lane (briefs.then refuses it); two could run
-at once (a lock); nothing showed it was alive (a beat file).
+commit, and never lapsed (the tip in the Then line and in the card's id, 48 hours); land.py's "nothing to land" was
+taken for a landing (a lane that rebases to nothing is `in`, and integration's tip is read back and must be the
+lane's head); a timeout stopped only the parent (the gate's own process tree, then every Unity on the worker's
+project); a second card could be written for one lane (briefs.then refuses it); two could run at once (a lock);
+nothing showed it was alive (a beat file, written while the gate runs too).
 """
 import argparse
 import datetime
@@ -49,51 +53,70 @@ GH = Path(os.environ.get('TW_STEWARD_GH') or 'C:/Users/PC/Documents/GitHub')
 INTEGRATION = 'claude/trench-warfare-2d-3d-plan-idt7lf'
 P = 'trench-warfare-3d/'
 A = P + 'Assets/_Project/'
-# What never lands without him, whatever else the lane is: the gate, the landing tool, this queue and the click.
-RULES = (P + 'Tools/land.py', P + 'gate.ps1', P + 'Tools/gate', P + 'Tools/toolcheck.py', P + 'validate.py', P + 'Tools/relay/',
-         P + 'Tools/pipeline/', P + 'Tools/assetboard/landq.py', P + 'Tools/assetboard/notes.py', P + 'Tools/assetboard/briefs.py',
-         P + 'Tools/assetboard/steward.py')
-SIM = (A + 'Sim/', A + 'Net/', A + 'Data/')
-PINNED = 'SimHashTests'
+B = P + 'Tools/assetboard/'
+# What never lands without him, whatever else the lane is: the gate and what it runs, the landing tool, this queue,
+# the click and what sends or checks it, the steward, the relay and the pipeline, and the tests that hold these.
+RULES = ('gate.ps1', P + 'gate.ps1', P + 'Tools/land.py', P + 'Tools/gate', P + 'Tools/toolcheck.py', P + 'Tools/selftest.py', P + 'Tools/checks/',
+         P + 'validate.py', P + 'Tools/relay/', P + 'Tools/pipeline/', B + 'landq.py', B + 'notes.py', B + 'briefs.py', B + 'steward.py', B + 'found.py',
+         B + 'build.py', B + 'ops.py', B + 'ideas.py', B + 'idearoute.py', B + 'static/decide.js', B + 'static/board.js', B + 'test_landq.py',
+         B + 'test_steward.py', B + 'test_found.py')
+ALONE_CLAUDE = ('.claude/skills/', '.claude/agents/')      # the rest of .claude (settings, hooks) is his
 GATE_SECONDS = 3600         # the full gate takes 25 minutes; past this it is stopped and the lane is said red
 LAND_SECONDS = 1800         # land.py runs the tool check (5 minutes) and one push
 ROUNDS = 3                  # how often one lane is rebased and tested again because integration moved meanwhile
 ASK_MOST = 4                # landing cards open on his page at one time: the lanes behind them wait their turn
+SILENT = 7200               # a worker whose beat is older than this is taken for gone
+AGAIN = 6 * 3600            # a lane that was red or refused is tried again after this long though nothing moved: a
+#                             test can be red for the hour of the day (two of the board's own were, 2026-10-10)
 
 
 def klass(paths):
     """(True, '') when a lane that changes these paths may land with no click of his, else (False, why). The owner,
     2026-10-10: fixes, tests, tools and docs land alone; look and play wait. Read from the paths, most cautious first:
-      never alone   the gate, the landing tool, this queue, the click, the relay and the pipeline (RULES)
-      alone         docs; tools and skills; tests, but not the pinned sim hashes; code of the sim, the net and the data
-                    (C# only) as long as the pinned hashes are not touched: the full gate then proves they still hold
-      else his      everything that draws or is drawn (Presentation, Shaders, Art, UI, Scenes, Resources, Settings,
-                    prefabs, materials), every data file, and any path this list does not know."""
+      never alone   RULES: the gate, the landing tools, this queue, the click, the steward, the relay, the pipeline
+      alone         docs; tools; skills and agents; test code (C# under Tests/, nothing else that lies there)
+      else his      the code of the sim, the net and the data (until a test pins a played battle's hash, a green gate
+                    does not show a battle plays out the same); everything that draws or is drawn; every data file;
+                    settings and hooks; and any path this list does not know."""
     for p in paths:
         if p.startswith(RULES):
             return False, f'it changes the gate, the landing tools, the relay or the click itself ({p})'
     for p in paths:
-        if p.startswith('docs/') or (p.endswith('.md') and not p.startswith(P + 'Assets/')):
+        if p.startswith('docs/') or (p.endswith('.md') and not p.startswith((P + 'Assets/', '.claude/'))):
             continue
-        if p.startswith((P + 'Tools/', '.claude/')):
+        if p.startswith(P + 'Tools/') or p.startswith(ALONE_CLAUDE):
             continue
-        if p.startswith(A + 'Tests/'):
-            if PINNED in p:
-                return False, f'it changes the pinned sim hashes ({p.rsplit("/", 1)[-1]}): how a battle plays out changed'
+        if p.startswith(A + 'Tests/') and p.endswith(('.cs', '.cs.meta')):
+            if 'SimHashTests' in p:
+                return False, f'it changes the pinned sim chain ({p.rsplit("/", 1)[-1]}): how a battle plays out changed'
             continue
-        if p.startswith(SIM) and p.endswith(('.cs', '.cs.meta', '.asmdef', '.asmdef.meta')):
-            continue
-        return False, f'it changes what a battle looks like or how it plays ({p})'
+        if p.startswith((A + 'Sim/', A + 'Net/', A + 'Data/')):
+            return False, f'it changes the sim, the net code or the data, and no test pins how a battle plays out ({p})'
+        return False, f'it changes what a battle looks like or how it plays, or a path the queue does not know ({p})'
     return True, ''
 
 
 def code_changed(paths):
-    """True when the lane changes anything of the game itself, so the full gate is owed (land.py asks the same)."""
-    return any(p.startswith(P) and not p.startswith(P + 'Tools/') and not p.endswith('.md') for p in paths)
+    """True when the lane changes anything of the game itself, so the full gate is owed. World.owes_gate asks
+    Tools/land.py itself (is_code); this is the same rule without the files a test quotes, for where land.py is not."""
+    return any((p.startswith(P) and not p.startswith(P + 'Tools/') and not p.endswith('.md')) or p == 'gate.ps1' for p in paths)
 
 
 def slug(lane):
     return re.sub(r'[^a-z0-9]+', '-', lane.lower()).strip('-')
+
+
+def card_id(lane, tip):
+    """The id of the card that asks him to land this lane at this commit: one card a commit, never one for ever."""
+    return f'land-{slug(lane)}-{tip[:8]}'
+
+
+def same_folder(a, b):
+    """True when two paths are one folder, however each is spelt (git prints the long name, TEMP the short one)."""
+    try:
+        return os.path.samefile(str(a), str(b))
+    except OSError:
+        return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
 
 
 # ---- the queue: a file in the worker's folder ------------------------------------------------------------------------
@@ -125,7 +148,7 @@ def add(home: Path, lane, why='', by='', now=None):
     for e in q:
         if e['lane'] == lane:
             return e, False
-    e = dict(lane=lane, why=' '.join(str(why).split())[:200], by=by, added=f'{now or datetime.datetime.now():%Y-%m-%d %H:%M}', state='waiting', said='', tries=0, reds=0)
+    e = dict(lane=lane, why=' '.join(' '.join(str(why).split()).split()[:24]), by=by, added=f'{now or datetime.datetime.now():%Y-%m-%d %H:%M}', state='waiting', said='', tries=0, reds=0)
     put(home / 'queue.json', q + [e])
     return e, True
 
@@ -138,12 +161,24 @@ def drop(home: Path, lane):
     put(home / 'queue.json', [x for x in queue(home) if x['lane'] != lane])
 
 
-def same_folder(a, b):
-    """True when two paths are one folder, however each is spelt (git prints the long name, TEMP the short one)."""
-    try:
-        return os.path.samefile(str(a), str(b))
-    except OSError:
-        return os.path.normcase(os.path.normpath(str(a))) == os.path.normcase(os.path.normpath(str(b)))
+def beat(home: Path, on=''):
+    put(home / 'beat.json', dict(at=time.time(), pid=os.getpid(), on=on))
+
+
+def worker_alive(home: Path):
+    """True when a worker holds the lock, its process is there and it has given a sign of life lately."""
+    import ideas
+    rec = load(home / 'lock.json', {})
+    return bool(rec.get('pid')) and rec['pid'] != os.getpid() and ideas.pid_alive(dict(pid=rec['pid'])) and time.time() - load(home / 'beat.json', {}).get('at', 0) < SILENT
+
+
+def take_lock(home: Path):
+    """True when this is the one worker. A lock whose process is gone, or silent for two hours, is taken over."""
+    if worker_alive(home):
+        return False
+    put(home / 'lock.json', dict(pid=os.getpid(), since=time.strftime('%Y-%m-%d %H:%M:%S')))
+    beat(home)
+    return True
 
 
 # ---- the outside world, so a test can stand in for the gate and for land.py -----------------------------------------
@@ -153,7 +188,7 @@ class World:
     one, its own, with a warm Unity library."""
 
     def __init__(self, tree: Path, home: Path):
-        self.tree, self.home = Path(tree), Path(home)
+        self.tree, self.home = Path(os.path.realpath(str(tree))), Path(home)
 
     def git(self, *a, cwd=None):
         r = subprocess.run(['git', *a], cwd=str(cwd or self.tree), capture_output=True, stdin=subprocess.DEVNULL)
@@ -182,15 +217,29 @@ class World:
                 return tree
         return ''
 
+    taken = None            # (the lane the worker stands on, where its local branch stood before: '' when there was none)
+
     def release(self):
-        """Stand on no branch between two lanes: the worker's checkout must never be what holds a lane up."""
+        """Stand on no branch between two lanes, and leave no branch of the worker's own behind: the local branch it
+        rebased is put back where it stood, or removed when the worker made it. (The worker's checkout is best a
+        clone of its own, so that no session's local branch is ever one of these.)"""
+        self.git('rebase', '--abort')
         self.git('checkout', '-q', '--detach')
+        if self.taken:
+            lane, prior = self.taken
+            self.git('branch', '-f', lane, prior) if prior else self.git('branch', '-D', lane)
+            self.taken = None
 
     def take(self, lane, tip):
         """Put the worker's checkout on the lane as origin has it. (True, '') or (False, why)."""
         if self.git('status', '--porcelain')[1].strip():
             return False, 'the worker\'s checkout has uncommitted files: nothing is landed from a checkout somebody works in'
+        local = self.git('rev-parse', '-q', '--verify', f'refs/heads/{lane}^{{commit}}')
+        if local[0] == 0 and not self.is_ancestor(local[1], tip):
+            return False, f'this machine holds commits of {lane} that are not on origin ({local[1][:8]}): push them or drop them first'
         code, out = self.git('checkout', '-q', '-B', lane, tip)
+        if code == 0:
+            self.taken = (lane, local[1] if local[0] == 0 else '')
         return code == 0, out[-300:]
 
     def rebase(self, onto):
@@ -205,23 +254,46 @@ class World:
         out = self.git('diff', '-z', '--name-only', '--no-renames', base, 'HEAD')[1]
         return [p for p in out.split('\0') if p]
 
+    def owes_gate(self, paths):
+        """Whether Tools/land.py would ask for a green full gate on these paths: its own rule, read from it."""
+        try:
+            sys.path.insert(0, str(HERE.parent))
+            import land
+            names = land.names_tests_read(self.tree)
+            return any(land.is_code(p, names) for p in paths)
+        except Exception:       # noqa: BLE001  land.py that cannot be asked: the cautious answer
+            return True
+        finally:
+            sys.path.remove(str(HERE.parent))
+
     def gate(self):
         """The full gate in the worker's checkout: (green, its last words). Stopped with its whole tree past its time."""
         proj = self.tree / 'trench-warfare-3d'
         start = subprocess.run([sys.executable, 'Tools/gate_bg.py'], cwd=str(proj), capture_output=True, text=True, stdin=subprocess.DEVNULL)
         if start.returncode:
             return False, 'the gate did not start: ' + (start.stdout + start.stderr).strip()[-300:]
-        try:
-            r = subprocess.run([sys.executable, 'Tools/gate_bg.py', '--wait'], cwd=str(proj), capture_output=True, text=True, stdin=subprocess.DEVNULL, timeout=GATE_SECONDS)
-        except subprocess.TimeoutExpired:
-            self.stop_unity()
-            return False, f'the gate did not end within {GATE_SECONDS // 60} minutes: it was stopped, with every Unity on the worker\'s project'
-        said = (r.stdout + r.stderr).strip()
-        return r.returncode == 0, ' '.join(said.splitlines()[-8:])[-700:]
+        p = subprocess.Popen([sys.executable, 'Tools/gate_bg.py', '--wait'], cwd=str(proj), stdout=subprocess.PIPE, stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL)
+        until = time.time() + GATE_SECONDS
+        while p.poll() is None and time.time() < until:
+            beat(self.home, 'the gate')
+            time.sleep(30)
+        if p.poll() is None:
+            p.kill()
+            self.stop_gate()
+            return False, f'the gate did not end within {GATE_SECONDS // 60} minutes: it was stopped, with what it started and every Unity on the worker\'s project'
+        said = p.stdout.read().decode('utf-8', 'replace').strip()
+        return p.returncode == 0, ' '.join(said.splitlines()[-8:])[-700:]
 
-    def stop_unity(self):
+    def stop_gate(self):
+        """Stop the gate's own process tree (gate.ps1 writes its number beside its log), then any Unity on the project."""
+        pid_file = self.git('rev-parse', '--path-format=absolute', '--git-path', 'tw-gate.pid')[1]
+        try:
+            pid = int(Path(pid_file).read_text(encoding='utf-8').split()[0])
+            subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], capture_output=True)
+        except (OSError, ValueError, IndexError):
+            pass
         want = str(self.tree / 'trench-warfare-3d').replace('/', '\\').lower()
-        ask = "Get-CimInstance Win32_Process -Filter \"Name='Unity.exe'\" | ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.CommandLine }"
+        ask = "Get-CimInstance Win32_Process | Where-Object { $_.Name -in 'Unity.exe','unity.exe' } | ForEach-Object { '{0}|{1}' -f $_.ProcessId, $_.CommandLine }"
         out = subprocess.run(['powershell', '-NoProfile', '-Command', ask], capture_output=True, text=True, stdin=subprocess.DEVNULL).stdout
         for line in out.splitlines():
             pid, _, cmd = line.partition('|')
@@ -251,27 +323,29 @@ class World:
         return out
 
     def card(self, e, tip, why, paths):
-        """The one card that asks him to land this lane, with the commit his click lands. Its id is the lane's: asked once."""
+        """The card that asks him to land this lane at this commit. The cards of the lane's earlier commits are closed
+        first, in the queue's own name: the commit he would say yes to on them is not the lane any more."""
         import briefs
         import notes
-        where, bid = briefs.folder(), 'land-' + slug(e['lane'])
-        said = f'The desktop tests it on integration and lands it, at {tip[:8]}'
+        where, bid = briefs.folder(), card_id(e['lane'], tip)
+        for old in briefs.read_all(where):
+            lands = [((o.get('then') or {}).get('land') or {}) for o in old.get('options') or []]
+            if old.get('state') != 'answered' and old['id'] != bid and any(l.get('lane') == e['lane'] for l in lands):
+                briefs.answer(where, old['id'], 'other', said=f'(not his answer) the lane moved on to {tip[:8]}; the card {bid} asks for that commit', by='the landing queue')
+                for n in notes.read_all(notes.folder()):
+                    if n.get('about') == 'brief:' + old['id'] and n.get('state') != 'done':
+                        notes.answer(notes.folder(), n['id'], f'Not landed: the lane moved on after this, to {tip[:8]}. The card {bid} asks for that commit.', by='the landing queue')
         try:
-            b = briefs.find(where, bid)
-        except ValueError:
-            b = None
-        if b and b.get('state') == 'answered':
+            briefs.find(where, bid)
             return bid
-        if not b:
-            briefs.add(where, title=f'Land {e["lane"].split("/", 2)[-1]}?', what_for=(e.get('why') or 'A finished lane waits to land.') + f' It needs your click because {why}.',
-                       options=['Land it', 'Not now: it stays a branch'], why=f'R1 C1 DANGEROUS MAJOR. It is finished and tested; {len(paths)} files change.',
-                       evidence=[], no_evidence='the lane\'s own cards and captures show it; this card is the landing', lane=e['lane'], bid=bid)
-        try:
-            briefs.then(where, notes.read_all(notes.folder()), bid, 'A', said, land=dict(lane=e['lane'], tip=tip))
-        except ValueError as x:
-            if 'answered it already' not in str(x) and 'is closed' not in str(x):
-                raise               # a card with no Then line would be a landing nobody can click
-        return bid                  # (he answered while this ran: his answer is read on the next look)
+        except ValueError:
+            pass
+        words = ' '.join((e.get('why') or 'A finished lane waits to land.').split()[:20])
+        briefs.add(where, title=f'Land {e["lane"].split("/", 2)[-1]}?'[:90], what_for=f'{words} It needs your click: {" ".join(why.split()[:18])}.',
+                   options=['Land it', 'Not now: it stays a branch'], why=f'R1 C1 DANGEROUS MAJOR. It is finished; {len(paths)} files change. The queue tests it on integration before it lands.',
+                   evidence=[], no_evidence='the lane\'s own cards and captures show it; this card is the landing', lane=e['lane'], bid=bid, by='the landing queue')
+        briefs.then(where, notes.read_all(notes.folder()), bid, 'A', f'The desktop tests it on integration and lands it, at {tip[:8]}', land=dict(lane=e['lane'], tip=tip))
+        return bid
 
     def close(self, click, words):
         import briefs
@@ -285,28 +359,16 @@ class World:
 
 # ---- one lane ----------------------------------------------------------------------------------------------------------
 
-def offer(home: Path, board: Path):
-    """Put in the queue every lane a relay unit finished (the board's relay/done/<unit>.json names its lane). What
-    has landed since drops out at its turn; what needs his click becomes a card, ASK_MOST at a time. Returns the
-    lanes that are new in the queue."""
-    new = []
-    for f in sorted((Path(board) / 'relay' / 'done').glob('*.json')) if (Path(board) / 'relay' / 'done').is_dir() else []:
-        rec = load(f, {})
-        lane = str(rec.get('lane') or '')
-        if lane.startswith(('lane/sim/', 'lane/show/')) and add(home, lane, why=f'The relay finished {rec.get("id") or f.stem} on it.', by='the relay')[1]:
-            new.append(lane)
-    return new
-
-
 def work_one(w, e, may_ask=True):
     """Take one lane as far as it goes now. Returns (state, words):
       landed        on integration, read back; words is the commit
-      in            it was in integration already
+      in            it was in integration already (as these commits, or as others that say the same)
       asked         it needs his click and the card is on his page
       red           the gate was red; words are its last
       waiting       something outside holds it up for now (another checkout has the lane, the worker's is not clean)
-      refused       it cannot land as it is: it does not rebase by itself, the lane moved after his click, land.py refused
-      gone          the lane is no longer on origin"""
+      refused       it cannot land as it is: it does not rebase by itself, his click was changed, land.py refused
+      gone          the lane is no longer on origin
+      same          it was red or refused before, and neither the lane nor integration has moved since: not tried again"""
     w.fetch()
     tip, base = w.remote(e['lane']), w.remote(INTEGRATION)
     if not base:
@@ -317,7 +379,10 @@ def work_one(w, e, may_ask=True):
         return 'in', 'it is in integration already'
     click = w.clicks().get(e['lane'])
     if click and click['tip'] != tip:
-        return 'refused', f'the lane moved on after your click: you said yes to {click["tip"][:8]}, origin has {tip[:8]}'
+        click = None                                # his yes was to another commit: it is no yes to this one (card() closes that card)
+    if e.get('state') in ('red', 'refused') and e.get('seen') == [tip, base, bool(click)] and time.time() - e.get('seen_at', 0) < AGAIN:
+        return 'same', ''
+    e.update(seen=[tip, base, bool(click)], seen_at=time.time())
     holder = w.held_by(e['lane'])
     if holder:
         return 'waiting', f'{holder} has the lane checked out'
@@ -328,13 +393,15 @@ def work_one(w, e, may_ask=True):
         ok, said = w.rebase(base)
         if not ok:
             return 'refused', 'it does not go on integration\'s tip by itself: ' + said
+        if w.head() == base:
+            return 'in', 'everything it holds is in integration already, under other commits'
         paths = w.changed(base)
         alone, why = klass(paths)
         if not click and not alone:
             if not may_ask and e.get('state') != 'asked':
                 return 'waiting', f'it needs your click ({why}); its card comes when the {ASK_MOST} in front of it are answered'
             return 'asked', why + '|' + w.card(e, tip, why, paths)
-        if code_changed(paths):
+        if w.owes_gate(paths):
             green, said = w.gate()
             if not green:
                 return 'red', said
@@ -343,7 +410,9 @@ def work_one(w, e, may_ask=True):
             base = w.remote(INTEGRATION)
             continue
         if w.remote(e['lane']) != tip:
-            return 'refused', 'the lane moved on origin while it was tested: it is taken again as it now stands' if not click else 'the lane moved on after your click, while it was tested'
+            return 'waiting', 'the lane moved on origin while it was tested: it is taken again as it now stands'
+        if click and w.clicks().get(e['lane']) != click:        # he wrote on the card, or took his click back, while it was tested
+            return 'refused', 'your click on its card changed while it was tested: nothing was landed'
         code, said = w.land()
         head = w.head()
         w.fetch()
@@ -351,12 +420,13 @@ def work_one(w, e, may_ask=True):
             e['on'] = dict(click=click['brief'], note=click['note']) if click else dict(alone=True)
             return 'landed', head
         return 'refused', said or f'land.py ended {code} and integration is not the lane\'s head'
-    return 'refused', f'integration moved {ROUNDS} times while this lane was tested'
+    return 'waiting', f'integration moved {ROUNDS} times while this lane was tested: it is taken again'
 
 
 def work(w, home: Path, now=None, say=print):
-    """Take the queue's lanes in their order, each as far as it goes, until a round does nothing new. One landing at
-    a time by construction: there is one worker. Returns [(lane, state, words)] of this call."""
+    """Take the queue's lanes in their order, each as far as it goes, once each. One landing at a time by
+    construction: there is one worker. A lane that falls over is said and the next one is taken. Returns
+    [(lane, state, words)] of this call."""
     did, seen = [], set()
     while True:
         q = [e for e in queue(home) if e['lane'] not in seen]
@@ -364,10 +434,18 @@ def work(w, home: Path, now=None, say=print):
             return did
         e = q[0]
         seen.add(e['lane'])
-        put(home / 'beat.json', dict(at=time.time(), pid=os.getpid(), on=e['lane']))
+        beat(home, e['lane'])
         asked = sum(1 for x in queue(home) if x.get('state') == 'asked' and x['lane'] != e['lane'])
-        state, words = work_one(w, e, may_ask=asked < ASK_MOST)
-        w.release()
+        try:
+            state, words = work_one(w, e, may_ask=asked < ASK_MOST)
+        except Exception as x:      # noqa: BLE001  one lane's trouble must not end the queue for the lanes behind it
+            state, words = 'refused', f'the queue fell over on it ({type(x).__name__}: {x})'[:400]
+        finally:
+            w.release()
+        if state == 'same':
+            did.append((e['lane'], 'same', e.get('said', '')))
+            keep(home, e)
+            continue
         stamp = f'{now or datetime.datetime.now():%Y-%m-%d %H:%M}'
         e.update(state=state, said=words.split('|')[0][:700], tries=e.get('tries', 0) + 1, at=stamp)
         if state == 'asked':
@@ -388,6 +466,19 @@ def work(w, home: Path, now=None, say=print):
             keep(home, e)
 
 
+def offer(home: Path, board: Path, skip=('lane/show/found',)):
+    """Put in the queue every lane a relay unit finished (the board's relay/done/<unit>.json names its lane). What
+    has landed since drops out at its turn; what needs his click becomes a card, ASK_MOST at a time. The lane the
+    looks at old work write on (found.py) is never landed. Returns the lanes that are new in the queue."""
+    new = []
+    for f in sorted((Path(board) / 'relay' / 'done').glob('*.json')) if (Path(board) / 'relay' / 'done').is_dir() else []:
+        rec = load(f, {})
+        lane = str(rec.get('lane') or '')
+        if lane.startswith(('lane/sim/', 'lane/show/')) and lane not in skip and add(home, lane, why=f'The relay finished {rec.get("id") or f.stem} on it.', by='the relay')[1]:
+            new.append(lane)
+    return new
+
+
 def lines(home: Path):
     """The queue for a person: one line a lane."""
     out = []
@@ -396,23 +487,13 @@ def lines(home: Path):
     return out
 
 
-def take_lock(home: Path):
-    """True when this is the one worker. A lock whose process is gone, or silent for two hours, is taken over."""
-    import ideas
-    rec = load(home / 'lock.json', {})
-    if rec.get('pid') and rec['pid'] != os.getpid() and ideas.pid_alive(dict(pid=rec['pid'])) and time.time() - load(home / 'beat.json', {}).get('at', 0) < 7200:
-        return False
-    put(home / 'lock.json', dict(pid=os.getpid(), since=time.strftime('%Y-%m-%d %H:%M:%S')))
-    return True
-
-
 def main(argv=None):
     ap = argparse.ArgumentParser(description='one lane at a time is put on integration\'s tip, tested and landed')
     ap.add_argument('what', nargs='?', default='look', choices=('look', 'add', 'offer', 'work'))
-    ap.add_argument('--board', default='', help='offer: the pipeline\'s board (default: tw3d-board beside the checkouts)')
     ap.add_argument('lane', nargs='?', default='')
     ap.add_argument('--why', default='', help='add: what the lane is, in a line, for the card if it needs his click')
     ap.add_argument('--by', default='', help='add: who puts it in')
+    ap.add_argument('--board', default='', help='offer: the pipeline\'s board (default: tw3d-board beside the checkouts)')
     ap.add_argument('--tree', default='', help='the worker\'s checkout (default: TW_LANDQ_TREE, or githubtest-landq beside the others)')
     ap.add_argument('--home', default='', help='the queue\'s folder')
     a = ap.parse_args(argv)
@@ -429,11 +510,14 @@ def main(argv=None):
             if not take_lock(home):
                 print('landq: a worker is at it already')
                 return 0
-            w = World(tree, home)
-            for lane in w.clicks():                  # a lane he clicked is in the queue whether or not somebody put it there
-                add(home, lane, by='his click')
-            work(w, home)
-            os.remove(home / 'lock.json')
+            try:
+                w = World(tree, home)
+                for lane in w.clicks():              # a lane he clicked is in the queue whether or not somebody put it there
+                    add(home, lane, by='his click')
+                work(w, home)
+            finally:
+                if load(home / 'lock.json', {}).get('pid') == os.getpid():
+                    os.remove(home / 'lock.json')
         else:
             rows = lines(home)
             print('\n'.join(rows) if rows else 'landq: nothing waits to land')

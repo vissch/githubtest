@@ -205,27 +205,55 @@ def main():
     w.stop = True
     out = S.tick(w, mem)
     case('steward.stop makes it stand by: nothing is started or mended', out['standby'] and not w.did('START') and not w.did('hold'), (out, w.calls))
+    for said in ((1, 'Traceback (most recent call last):'), (0, ''), (1, UNITY)):
+        w, mem = Fake(), {}
+        w.unity, w.dirty, w.said = [old], [' M a.cs'], said
+        w.relay = lambda *a, w=w: (w.calls.append(a), w.said if a[0] == 'status' else (0, ''))[1]
+        out = S.tick(w, mem, heal=('unity', 'dirty'))
+        if w.did('KILL') or w.did('CLEAN') or w.did('START') or not out['standby']:
+            break
+    case('a status that fell over, came back empty or ended with an error is not "no run": nothing is stopped, cleaned or started on that look',
+         not w.did('KILL') and not w.did('CLEAN') and not w.did('START') and 'did not say' in out['standby'], (said, w.calls))
+    w, mem = Fake(), {}
+    w.unity, w.hold = [old], (1, 'relay: the build is held by codex-gate until 02:48')
+    S.tick(w, mem, heal=('unity',))
+    case('the hold is asked before anything is mended: a Unity in the checkout of a session that holds the build is its work, and is left alone',
+         not w.did('KILL') and not w.did('START') and 'codex-gate' in mem['needs']['hold'], (w.calls, mem))
     w = Fake()
     out = S.tick(w, {}, acting=False)
     case('a look that only looks asks the relay its status and nothing else', w.calls == [('status',)] and out['reason'].endswith('has this project open'), w.calls)
 
+    # ---- standing still is counted, by why, for the day's card ----
+    w, mem = Fake(), {}
+    w.unity = [old]
+    for _ in range(4):
+        S.tick(w, mem)
+        w.t += 60
+    w.status = GOING
+    S.tick(w, mem)
+    w.t += 600
+    S.tick(w, mem)
+    day = mem['idle']['2026-10-10']
+    case('the minutes with no run going are counted by why, and a run that goes adds none', day == {'a Unity held the checkout': 180.0} or day == {'a Unity held the checkout': 180}, mem['idle'])
+
     # ---- the state file ----
     mem = dict(needs=dict(unity='a leftover batch-mode Unity (pid 64552) holds the work checkout'), next_try=T0 + 660)
     out = dict(run='', on='', last='x', reason='the work checkout cannot be used: a Unity editor has this project open', legs=0, did=[], standby='')
-    slow = dict(day=['Today: about 12.6% of the week used by the relay', 'Needs you: rv-12 ended BLOCKED: which of two fixes'], tip='dd77f34fba67', landings=['lane/show/landing-x d6467344a: on integration\'s tip, gated green'],
+    slow = dict(day=['Today: about 12.6% of the week used by the relay', 'Needs you: rv-12 ended BLOCKED: which of two fixes'], tip='dd77f34fba67', today='2026-10-10', card=['- **Landed: nothing** through the landing queue'], landings=['lane/show/landing-x d6467344a: on integration\'s tip, gated green'],
                 answers=[dict(id='b2', go='write', when='2026-10-10 10:52:06', title='Later'), dict(id='b1', go='nothing', when='2026-10-10 00:36:23', title='Earlier')])
     s = S.state_of(None, out, mem, slow)
     text = S.text_of(s, 'DESKTOP', ('unity',))
     case('the state file says, in this order: the loop and why it stands still with its next try, the day, what needs him, his untaken answers oldest first, integration and the landing branches',
          text.index('**Loop:** NOT RUNNING') < text.index('**Today:**') < text.index('## Needs you') < text.index('pid 64552') < text.index('Earlier') < text.index('Later') < text.index('dd77f34f') < text.index('gated green')
          and 'Next try 10-10 22:11' in text and 'since 10-10 00:36' in text and '- the relay: rv-12 ended BLOCKED' in text and '**Needs you:**' not in text
+         and text.index('## Today, 2026-10-10') < text.index('**Landed: nothing**') < text.index('## Landing')
          and 'nothing from the loop' in S.text_of(S.state_of(None, out, {}, dict(slow, day=['Needs you: nothing.'])), 'DESKTOP', ()), text)
     f = tmp / 'STATE.md'
     case('the state file is written when it changed and left alone when it did not', S.put(f, text) is True and S.put(f, text) is False and S.put(f, text + 'x') is True and not (tmp / 'STATE.md.tmp').exists())
     ps1 = S.start_script()
     between = json.loads(ps1.split("$env:TW_BETWEEN_UNITS = '")[1].splitlines()[0].rstrip("'"))
-    case('the start script hands the runner the card round for between two units: route, then gates, of this checkout, on the board; and no day figure unless one is passed',
-         [c[3] for c in between] == ['route', 'gates'] and all(c[2].endswith('Tools/assetboard/idearoute.py') and c[-2:] == ['--board', S.BOARD.as_posix()] for c in between)
+    case('the start script hands the runner the round for between two units: an accepted idea goes on the board, his steps become cards, finished looks at old work are taken up, the next look is queued; and no day figure unless one is passed',
+         [(c[2].rsplit('/', 1)[-1], c[3]) for c in between] == [('idearoute.py', 'route'), ('idearoute.py', 'gates'), ('found.py', 'take'), ('found.py', 'rota')] and all('Tools/assetboard/' in c[2] and c[-2:] == ['--board', S.BOARD.as_posix()] for c in between)
          and '--max-legs 0 --who $Who $day < NUL' in ps1 and "[string]$DayPct = ''" in ps1, between)
     home = tmp / 'home'
     home.mkdir()

@@ -34,6 +34,7 @@
   // what happens when he takes an option, as the page says it under the option: the line, and the lane of the unit it queues
   function thenLine(o) {
     var t = o && o.then; if (!t || !t.says) return '';
+    if (t.land) return 'Then: ' + t.says + ' · lands ' + String(t.land.lane || '') + ' at ' + String(t.land.tip || '').slice(0, 8);
     return 'Then: ' + t.says + (t.unit ? ' · ' + String(t.unit.lane || '').replace(/^lane\/(show|sim)\//, '$1 lane ') : '');
   }
   // the stamp of the Then line an option shows. It goes with the click, so a yes is a yes to that line and no other (briefs.py)

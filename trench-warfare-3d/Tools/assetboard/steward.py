@@ -62,8 +62,8 @@ cmd /c "python $GH/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py r
 
 def start_script():
     """The text of the start script, with this checkout's card round in it."""
-    tool = (HERE / 'idearoute.py').as_posix()
-    between = json.dumps([['python', '-B', tool, step, '--board', BOARD.as_posix()] for step in ('route', 'gates')])
+    between = json.dumps([['python', '-B', (HERE / tool).as_posix(), step, '--board', BOARD.as_posix()]
+                          for tool, step in (('idearoute.py', 'route'), ('idearoute.py', 'gates'), ('found.py', 'take'), ('found.py', 'rota'))])
     return START_PS1 % dict(gh=GH.as_posix(), between=between)
 WHO = 'steward'
 HOURS = 12                  # a run's own limit, and
@@ -94,6 +94,10 @@ STOPS = (
     ('owner', 'again', r'stopped by |stopped on request', ''),
     ('again', 'again', r'ended TIMEOUT|broke a rule|hours are up|leg cap|brought no result|cannot be switched to|not auto mode|no hooks|guard changed|no result|error:', ''),
 )
+
+
+WHY_IDLE = dict(unity='a Unity held the checkout', dirty='leftover files in the checkout', pace='waiting for the pace of the day', budget='the tokens of the day were spent',
+                nowork='nothing to do', hold='another session held the build', code='the run copy had changes', missing='the work checkout was missing')
 
 
 def classify(reason):
@@ -235,7 +239,7 @@ class World:
     def start(self, pct):
         script = self.home / 'relay-start.ps1'
         put(script, start_script())
-        line = f'powershell -NoProfile -ExecutionPolicy Bypass -File {script} -Hours {HOURS} -Who {WHO}' + (f' -DayPct {pct}' if pct else '')
+        line = f'powershell -NoProfile -ExecutionPolicy Bypass -File "{script}" -Hours {HOURS} -Who {WHO}' + (f' -DayPct {pct}' if pct else '')
         return self.sh(['powershell', '-NoProfile', '-Command',
                         f"(Invoke-CimMethod -ClassName Win32_Process -MethodName Create -Arguments @{{ CommandLine = '{line}' }}).ReturnValue"])
 
@@ -253,14 +257,22 @@ class World:
         import landq
         return landq.lines(LOCAL / 'landq')
 
+    def day_card(self):
+        """The day's card (daycard.py): what landed, what the tokens went to, what was found, what was decided."""
+        import daycard
+        day = time.strftime('%Y-%m-%d')
+        try:
+            return daycard.card(day, **daycard.read(day, board=BOARD, local=LOCAL))
+        except Exception as e:      # noqa: BLE001  a card that cannot be counted is said, not the end of the state file
+            return [f'- the card of the day could not be counted ({type(e).__name__}: {e})'[:200]]
+
     def land_work(self, tree: Path):
         """Have the landing queue worked, when no worker is at it: first the lanes the relay finished are put in
         (offer), then the queue is taken lane by lane (work), as a process of its own. A full gate takes 25
         minutes, so the steward never waits for it. Returns a line when a worker was started."""
         import landq
         home = LOCAL / 'landq'
-        rec = load(home / 'lock.json')
-        if rec.get('pid') and alive(rec['pid']):
+        if landq.worker_alive(home):
             return ''
         tool = str(HERE / 'landq.py')
         self.sh([sys.executable, '-B', tool, 'offer', '--board', str(BOARD)])
@@ -269,7 +281,7 @@ class World:
         home.mkdir(parents=True, exist_ok=True)
         with open(home / 'work.log', 'a', encoding='utf-8') as out:
             p = subprocess.Popen([sys.executable, '-u', '-B', tool, 'work', '--tree', str(tree)], cwd=str(HERE.parent.parent), stdout=out, stderr=subprocess.STDOUT,
-                                 stdin=subprocess.DEVNULL, creationflags=0x00000208 if os.name == 'nt' else 0)        # detached, its own group
+                                 stdin=subprocess.DEVNULL, creationflags=0x08000200 if os.name == 'nt' else 0)        # no window, its own group (gate_bg.py: a detached one starts nothing)
         return f'the landing queue is being worked (pid {p.pid}): {len(landq.queue(home))} lanes'
 
 
@@ -329,13 +341,26 @@ def tick(w, mem, heal=(), acting=True):
     in a file, so a steward that is started again goes on where the last one was). `acting` False only reads.
     Returns what the state file is written from."""
     now, did = w.now(), []
-    st = parse_status(w.relay('status')[1])
+    code, text = w.relay('status')
+    st = parse_status(text)
     out = dict(at=now, run=st['run'], on=st['on'], last=st['last'], reason=st['reason'], legs=st['legs'], did=did, standby='')
     if not acting:
+        return out
+    if code or not (st['run'] or text.startswith('NOT RUNNING')):
+        # a status that timed out or fell over is not "no run": acting on it would mend a checkout a leg is working in
+        out['standby'] = 'the relay did not say whether a run is going: nothing is done on this look'
         return out
     if w.stopped():
         out['standby'] = 'steward.stop is in its folder: it starts nothing until the file is gone'
         return out
+    if not st['run']:                               # the day's count of standing still, by why: for the day's card
+        day, gap = time.strftime('%Y-%m-%d', time.localtime(now)), min(max(now - mem.get('looked', now), 0), 180)
+        idle = mem.setdefault('idle', {})
+        for old_day in [d for d in idle if d < day][:-3]:
+            del idle[old_day]
+        why = WHY_IDLE.get(classify(st['reason'])[0], 'between two runs')
+        idle.setdefault(day, {})[why] = idle.setdefault(day, {}).get(why, 0) + gap
+    mem['looked'] = now
     if st['run']:
         if mem.get('seen') != st['run']:
             mem.update(seen=st['run'], stop_asked='', same=['', 0], wait=QUIET, needs={})
@@ -358,15 +383,15 @@ def tick(w, mem, heal=(), acting=True):
         mem.update(pct=pct, next_try=min(mem.get('next_try', now), now))
     if now < mem.get('next_try', 0):
         return out
-    block = preflight(w, mem, heal, did)
-    if block:
-        failed(mem, now, block[0], block[1])
-        return out
-    code, text = w.relay('hold', WHO)
+    code, text = w.relay('hold', WHO)               # first: whoever holds the build may be working in the checkout
     if code:
         failed(mem, now, 'hold', text.splitlines()[0] if text else 'the hold was refused', say=classify('hold is another')[2])
         return out
     mem['held'] = now
+    block = preflight(w, mem, heal, did)
+    if block:
+        failed(mem, now, block[0], block[1])
+        return out
     first = (w.relay('run', '--work', WORK.as_posix(), '--dry-run', *(['--day-pct', pct] if pct else []))[1].splitlines() or [''])[0]
     if 'would run: nothing' in first:
         kind, answer, say = classify(first.split('(', 1)[1] if '(' in first else first)
@@ -412,7 +437,7 @@ def state_of(w, out, mem, slow):
             loop += f'. Next try {hm(mem["next_try"])}'
     answers = sorted(slow.get('answers') or [], key=lambda a: a['when'])
     asks = [l.split(':', 1)[1].strip() for l in slow.get('day') or [] if l.startswith('Needs you:') and 'nothing' not in l.lower()]
-    return dict(loop=loop, day=[l for l in slow.get('day') or [] if not l.startswith('Needs you:')],
+    return dict(loop=loop, today=slow.get('today', ''), card=slow.get('card') or [], day=[l for l in slow.get('day') or [] if not l.startswith('Needs you:')],
                 needs=sorted((mem.get('needs') or {}).values()) + ['the relay: ' + a for a in asks],
                 answers=[dict(id=a['id'], go=a['go'], when=a['when'], title=a['title']) for a in answers],
                 tip=slow.get('tip', ''), landings=slow.get('landings') or [], pct=mem.get('pct', ''))
@@ -428,6 +453,7 @@ def text_of(s, host, heal):
         lines.append(f'**The day\'s figure:** {s["pct"]}% today only (day.json names its day)')
     lines += ['', '## Needs you'] + ([f'- {n}' for n in s['needs']] or ['- nothing from the loop'])
     lines += ['', f'## Your answers nobody has taken up: {len(s["answers"])}'] + [f'- since {a["when"][5:16]}, `{a["go"]}`: {a["title"]} (`{a["id"]}`)' for a in s['answers'][:12]]
+    lines += ['', f'## Today, {s.get("today", "")}'] + (s.get('card') or ['- not counted yet'])
     lines += ['', '## Landing', f'- integration is `{s["tip"][:8] or "not read"}`'] + ([f'- {l}' for l in s['landings']] or ['- nothing waits in the landing queue'])
     lines += ['', f'Mends by itself: {", ".join(heal) or "nothing (started without --heal)"}. To make it stand by: a file `steward.stop` in `%LOCALAPPDATA%\\TrenchWarfare\\steward`.']
     return '\n'.join(lines) + '\n'
@@ -512,7 +538,7 @@ def main(argv=None):
                         say(started)
                 tip = w.integration()
                 slow = dict(day=[l for l in w.relay('day')[1].splitlines() if re.match(r'Today:|Needs you:', l)],
-                            answers=w.answers(), tip=tip, landings=w.landings(tip))
+                            answers=w.answers(), tip=tip, landings=w.landings(tip), today=time.strftime('%Y-%m-%d'), card=w.day_card())
                 slow_at = time.time()
             s = state_of(w, out, mem, slow)
             if put(where / 'STATE.md', text_of(s, host, heal)):

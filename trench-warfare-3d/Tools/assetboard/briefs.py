@@ -203,7 +203,8 @@ def read_all(where: Path):
 def stamp(says, unit=None, land=None):
     """A Then line in eight characters. The page sends it with the click, so a click is a yes to the line it showed and
     to no other: a line added or changed afterwards has another stamp. So has one that lands another commit."""
-    return hashlib.sha1(json.dumps([one(says), unit or None] + ([land] if land else []), sort_keys=True).encode('utf-8')).hexdigest()[:8]
+    digest = hashlib.sha1(json.dumps([one(says), unit or None] + ([land] if land else []), sort_keys=True).encode('utf-8')).hexdigest()
+    return digest[:16 if land else 8]       # a landing's stamp is what ties the signed click to the commit: twice as long
 
 
 LAND_HOURS = 48         # a click on a landing lapses: what he said yes to on Monday is not landed on Thursday
@@ -364,8 +365,12 @@ def answers(briefs, notes, now=None, keys=None):
             why = 'a note about it is not a click of his on the page'
         elif any(n.get('then') != t.get('stamp') for n in his):
             why = 'the Then line is not the one the page showed when he clicked'
-        elif t.get('land') and t['stamp'] != stamp(t.get('says'), t.get('unit'), t.get('land')):
+        elif t.get('land') and (check_land(t['land']) or t['stamp'] != stamp(t.get('says'), t.get('unit'), t.get('land'))):
             why = 'the Then line was changed and not stamped again'
+        elif t.get('land') and any(n.get('about') == 'brief:' + b['id'] and n.get('state') == 'done' for n in notes):
+            # a session can answer a note of his and so take it out of the open ones: for a landing every note
+            # about the card counts, and a card on which anything else was ever written is read by a session
+            why = 'another note about it was written and answered: a landing takes his one signed click and nothing else on the card'
         elif t.get('land') and not all(notes_mod().signed(n, keys) for n in his):
             why = 'the click is not signed by the page\'s listener, and a landing takes a signed one'
         elif t.get('land') and lapsed(last['when'], now):
