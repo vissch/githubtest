@@ -9,7 +9,11 @@
 // Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-deathstills: never inside the checkout, whose
 // untracked files land.py would see), TW_DEATH_ABSURD the intensity (default 1; 0 films today's deaths for a before),
 // TW_DEATH_SCENES a comma list (default every scene DeathLab knows), TW_STILLS_FIELD the look (NightMud, the scene's own,
-// by default; Winter is the day field, overcast and snowed on).
+// by default; Winter is the day field, overcast and snowed on), TW_DEATH_THROWZOOM the zoom the camera is held at while
+// the men die (unset = today's: the scene is staged and filmed at the shot's own zoom). It exists to prove the owner's
+// capture of 2026-10-08 fixed: a man's parts used to be thrown at the zoom of the frame and keep that size for the
+// 30-60 s they lay there, so a part thrown at 96 was four times the men beside it once he zoomed back in. Filmed at
+// 96 and at nothing, the two sheets must now show parts the same size; on the old code the first was 4x the second.
 // It asserts only that stills were written: it is an instrument; the pictures go to a critique.
 using System.Collections;
 using System.IO;
@@ -87,6 +91,22 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>How long after staging a scene's men are done dying, so the camera can be put back: it covers the
+        /// killing blow and the throw, not the flight (a part's size is written once, at the throw). A shell and a heap
+        /// go off at once; a shooting, a gas call or a fire takes its time about it.</summary>
+        static float DeathWindow(string scene)
+        {
+            switch (scene)
+            {
+                case "shell": case "heap": case "crush": return 2.5f;
+                case "shot": case "mg": case "wounds": return 10f;
+                case "fire": return 9f;
+                case "gas": return 18f;
+                case "beam": return 12f;
+                default: return 6f;
+            }
+        }
+
         /// <summary>When still k of a scene is taken, in seconds from its staging. A machine is shelled 1.5 s in
         /// (DeathLab.Machine), and its hop, a walker's pop and a turret's leap are over within a second: evenly 0.53 s apart
         /// they fell between stills (critic round 7), so a machine's first twelve stills are 0.16 s apart from 1.4 s and
@@ -152,6 +172,9 @@ namespace TW.Tests
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-deathstills");
             Directory.CreateDirectory(dir);
             float absurd = float.TryParse(System.Environment.GetEnvironmentVariable("TW_DEATH_ABSURD"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float a) ? a : 1f;
+            // the zoom the men are killed at (unset = whatever the stills ask for): the camera is held there over the
+            // death window, then put back, so the strip and the aftermath are shot at the usual zoom either way
+            float throwZoom = float.TryParse(System.Environment.GetEnvironmentVariable("TW_DEATH_THROWZOOM"), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float tz) ? tz : float.NaN;
             string wanted = System.Environment.GetEnvironmentVariable("TW_DEATH_SCENES");
             string[] scenes = string.IsNullOrEmpty(wanted) ? AllScenes : wanted.Split(',');
             // the crush machine drives on 15 m past its row: filmed last, it cannot park in another scene's shot
@@ -173,7 +196,8 @@ namespace TW.Tests
             var size = map.SizeMeters;
             int written = 0;
             var used = new System.Collections.Generic.List<Vector2>();
-            string tag = absurd.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture).Replace('.', '_');
+            string tag = absurd.ToString("0.#", System.Globalization.CultureInfo.InvariantCulture).Replace('.', '_')
+                       + (float.IsNaN(throwZoom) ? "" : "_tz" + throwZoom.ToString("0", System.Globalization.CultureInfo.InvariantCulture));
             foreach (string scene in scenes)
             {
                 // open ground a row of men wide
@@ -191,7 +215,18 @@ namespace TW.Tests
                     }
                 if (x < 0f) { TestContext.Out.WriteLine(scene + ": no open ground left"); continue; }
                 used.Add(new Vector2(x, z));
+                // the camera sits at the throw zoom from before the staging until the bodies have come apart: what a man's
+                // parts are thrown at is read off Camera.main's zoom in that frame (CombatFx.FigureScale)
+                float keepZoom = tc != null ? tc.Zoom : 0f;
+                if (tc != null && !float.IsNaN(throwZoom)) tc.Zoom = Mathf.Clamp(throwZoom, tc.ZoomMin, tc.ZoomMax);
                 TestContext.Out.WriteLine(scene + " at " + x + ", " + z + ": " + DeathLab.Scene(scene, x, z));
+                if (tc != null && !float.IsNaN(throwZoom))
+                {
+                    float until = Time.time + DeathWindow(scene);
+                    while (Time.time < until) yield return null;
+                    tc.Zoom = keepZoom;
+                    TestContext.Out.WriteLine($"{scene}: killed at zoom {throwZoom}, filmed at {keepZoom}");
+                }
                 var (seconds, frames) = Timing(scene);
                 float start = Time.time;
                 string stem = $"a{tag}_{scene}";
