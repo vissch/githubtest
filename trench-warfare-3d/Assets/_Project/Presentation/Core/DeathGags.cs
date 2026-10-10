@@ -2,7 +2,8 @@
 // die, we need to make this more absurd"): slapstick on top of the death the controller's ladder already chose. A shot
 // man is punted off his feet, a machine gun jigs him first, a headshot pops his helmet sky-high, a shell rockets him
 // through several flips and bounces, a heap of them fountains, a track makes a pancake of him, a claw lifts and flings
-// him, gas topples him stiff as a plank, fire sends him skidding, the beam leaves only his boots.
+// him, gas topples him stiff as a plank, fire sends him skidding, the beam leaves only his boots, and a shot frog now and
+// then blows up and whizzes off like a balloon (2026-10-10).
 //
 // How absurd is one knob, fx.deathAbsurd (Knobs): 0 is exactly today's deaths (Choose returns no gag and nothing
 // downstream changes), 1 the look the owner signs off, 2 ludicrous. Numbers scale from today's towards the table's with
@@ -13,7 +14,7 @@ using TW.Sim;
 
 namespace TW.Presentation
 {
-    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots }
+    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots, Balloon }
 
     /// <summary>GagPlan.Flags.</summary>
     public static class GagFlags
@@ -37,6 +38,9 @@ namespace TW.Presentation
     {
         public DeathGag Gag;
         public byte Flags, Flips, Rolls, Bounces, Topple;
+        /// <summary>A balloon's hops (FallenFlight.MakeHops, 0 for every other gag) and how far each one turns off
+        /// the last, in radians, signed: positive he goes left then right, negative right then left.</summary>
+        public byte Hops; public float HopTurn;
         /// <summary>A squash pulse at the start and the squash he lies at, as VatTint codes (height 1 + q x 0.0275).</summary>
         public sbyte PulseQ, RestQ;
         /// <summary>Seconds before the launch, metres a claw lifts him meanwhile, the jig's yaw (radians), metres of skid
@@ -51,6 +55,9 @@ namespace TW.Presentation
     public struct GagInput
     {
         public DeathKind Cause; public Clip Clip;
+        /// <summary>What the dead man was (InfantryArchetype), read from his latched state, never from his slot:
+        /// the sim may have given the slot a newcomer on the tick he died.</summary>
+        public int Archetype;
         public bool Flat, InTrench, Crushed, Clawed, Heavy, MachineGun;
         public int Density;
         /// <summary>The way the harm went, flat and unit (the round's line, the knock); zero when unknown.</summary>
@@ -78,11 +85,23 @@ namespace TW.Presentation
         public const float BodyGravity = 14f;
         /// <summary>Share of standing shot deaths punted off their feet at intensity 1.</summary>
         public const float PuntShare = 0.45f;
+        /// <summary>The balloon, a frog's own death (docs/design/idea-a-shot-frog-deflates-and-whizzes-off-lik.md section 3):
+        /// 1 in 8 of the frogs shot standing in the open at intensity 1, well under the plank's 0.2, and 0.4 s of swelling
+        /// before he lets go (under DelayCap).</summary>
+        public const float BalloonShare = 0.12f, BalloonSwell = 0.4f;
+        /// <summary>Three hops, 6 / 4 / 2.5 m far and 3 / 2.2 / 1.2 m high (the design's; the second and third as shares of
+        /// the first in FallenFlight.HopFar2 and friends), each turned 50 to 70 degrees off the last.</summary>
+        public const int BalloonHops = 3;
+        public const float BalloonFar = 6f, BalloonHigh = 3f, BalloonTurnMin = 50f, BalloonTurnMax = 70f;
+        /// <summary>His size as he swells and on hops one to three; the skin lies at the smallest, flattened to RestHeight
+        /// (the pancake's, the lowest VatTint holds).</summary>
+        public const float BalloonSize0 = 1f, BalloonSize1 = 0.8f, BalloonSize2 = 0.6f, BalloonSize3 = 0.5f, BalloonRestHeight = 0.12f;
         /// <summary>No-corpse gags (the beam's boots) only from this intensity: below it he burns where he fell.</summary>
         public const float BootsFrom = 0.5f;
 
         static float pinned = -1f, cached; static int cachedAt = -1;
-        static DeathGags() => SceneStatics.Register(nameof(DeathGags), () => { pinned = -1f; cachedAt = -1; });
+        static DeathGag forced;
+        static DeathGags() => SceneStatics.Register(nameof(DeathGags), () => { pinned = -1f; cachedAt = -1; forced = DeathGag.None; });
 
         /// <summary>The knob, read again only when a knob changes (Knobs.Get takes a lock and logs; not once a death).</summary>
         public static float Intensity
@@ -98,6 +117,16 @@ namespace TW.Presentation
 
         /// <summary>Pins the intensity (a test, a capture tool); a negative value hands it back to the knob.</summary>
         public static void Pin(float intensity) => pinned = intensity < 0f ? -1f : math.clamp(intensity, 0f, MaxIntensity);
+
+        /// <summary>Pins the gag every death that can takes, so a rare one can be filmed (DeathLab.Force): a gag still only
+        /// happens where its own conditions hold (a balloon wants a frog shot standing in the open). None hands the share
+        /// dice back. A tool and a test only; nothing in the game calls it.</summary>
+        public static void Force(DeathGag gag) => forced = gag;
+        public static DeathGag Forced => forced;
+
+        /// <summary>Whether a gag decided by a share happens: the pin if there is one, else the dice at this intensity.</summary>
+        static bool Picked(DeathGag gag, uint seed, uint tick, uint salt, float share, float a)
+            => forced != DeathGag.None ? forced == gag : Dice(seed, tick, salt) < math.min(1f, share * a);
 
         static float Dice(uint seed, uint tick, uint salt)
         {
@@ -130,7 +159,7 @@ namespace TW.Presentation
             if (g.Cause == DeathKind.Burning) return SkidFrom(ref plan, g, a);
             if (g.Cause == DeathKind.Gas)
             {
-                if (!g.Flat && Dice(s, t, 911u) < 0.2f * math.min(1f, a))
+                if (!g.Flat && Picked(DeathGag.Plank, s, t, 911u, 0.2f, a))
                 {
                     // stiff as a plank: the standing pose held, and he goes over forwards about his feet
                     plan.Gag = DeathGag.Plank; plan.Flags = GagFlags.Feet | GagFlags.Freeze;
@@ -197,6 +226,20 @@ namespace TW.Presentation
                 return plan;
             }
             if (g.InTrench) return default;   // a shot never throws a man out of his trench
+            if (!g.Flat && g.Archetype == InfantryArchetype.Frog && Picked(DeathGag.Balloon, s, t, 981u, BalloonShare, a))
+            {
+                // the balloon: his throat sac blows up, he lets go, and he whizzes off backwards in three shrinking zigzag
+                // hops before he drops as a flat skin. Only a frog, and only standing in the open (the design, section 1).
+                plan.Gag = DeathGag.Balloon;
+                plan.Delay = BalloonSwell * math.min(1f, a);
+                plan.Hops = (byte)BalloonHops;
+                plan.HopTurn = math.radians(Range(s, t, 982u, BalloonTurnMin, BalloonTurnMax)) * (Dice(s, t, 983u) < 0.5f ? -1f : 1f);
+                plan.RestQ = (sbyte)VatTintCode(BalloonRestHeight);   // the skin, as flat as the pancake
+                float farB = Towards(0f, BalloonFar, a), highB = Towards(0f, BalloonHigh, a);
+                fly = new float3(travel.x * farB, highB, travel.z * farB);   // hop one off the round's line, as the punt goes
+                clip = Clip.DeathThrown; yaw = Yaw(-travel);
+                return Capped(ref plan, ref fly);
+            }
             if (g.Flat)
             {
                 plan.Gag = DeathGag.Flop;
@@ -216,7 +259,7 @@ namespace TW.Presentation
                 plan.Gag = DeathGag.Punt;
                 farShot = Range(s, t, 951u, 5f, 9f); highShot = Range(s, t, 952u, 1.5f, 3f); flips = Dice(s, t, 953u) < 0.5f ? 1 : 2; bounces = 2; skid = Range(s, t, 954u, 1f, 3f);
             }
-            else if (Dice(s, t, 961u) < math.min(1f, PuntShare * a))
+            else if (Picked(DeathGag.Punt, s, t, 961u, PuntShare, a))
             {
                 plan.Gag = DeathGag.Punt;
                 farShot = Range(s, t, 962u, 1.5f, 4f); highShot = Range(s, t, 963u, 0.5f, 1.4f); flips = 0; bounces = 1; skid = Range(s, t, 964u, 0.5f, 1.5f);

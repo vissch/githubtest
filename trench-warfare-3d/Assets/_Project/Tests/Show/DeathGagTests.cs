@@ -1,6 +1,6 @@
 // Phase: deaths (2026-09-28, implemented) — the absurd deaths (DeathGags) on top of the ladder: at intensity 0 nothing
 // changes; each cause gets its gag (a punt away from the gun, a machine gun's jig, a headshot's helmet, a shell's
-// rocket and a heap's fountain, a track's pancake, a claw's fling, gas's wilt or plank, fire's skid, the beam's boots);
+// rocket and a heap's fountain, a track's pancake, a claw's fling, gas's wilt or plank, fire's skid, the beam's boots, a shot frog's balloon);
 // a man in a trench goes up, not out; the same death chooses the same gag; nothing passes the caps; choosing allocates
 // nothing. The rig is DeathVarietyTests': men placed, killed through SimWorld.Despawn, the controller ticked.
 using System;
@@ -60,7 +60,7 @@ namespace TW.Tests
             }
         }
 
-        [TearDown] public void Unpin() => DeathGags.Pin(-1f);
+        [TearDown] public void Unpin() { DeathGags.Pin(-1f); DeathGags.Force(DeathGag.None); }
 
         static GagInput Input(DeathKind cause, Clip clip = Clip.DeathBack, uint seed = 12345u) => new GagInput
         {
@@ -297,6 +297,105 @@ namespace TW.Tests
             Assert.AreEqual(DeathGag.Fountain, a.Gag.Gag, "a heap fountains");
             Assert.AreEqual(a.Gag.Gag, b.Gag.Gag); Assert.AreEqual(a.Gag.Seed, b.Gag.Seed); Assert.AreEqual(a.Gag.Delay, b.Gag.Delay);
             Assert.AreEqual(a.ThrowX, b.ThrowX); Assert.AreEqual(a.ThrowZ, b.ThrowZ); Assert.AreEqual(a.ThrowUp, b.ThrowUp);
+        }
+
+        [Test]
+        public void OnlyAFrogShotStandingInTheOpenBalloons()
+        {
+            DeathGag Of(int archetype, bool inTrench, bool flat, uint seed)
+            {
+                var g = Input(DeathKind.Shot, flat ? Clip.DeathProne : Clip.DeathBack, seed);
+                g.Archetype = archetype; g.InTrench = inTrench; g.Flat = flat;
+                float3 fly = 0; var clip = g.Clip; float yaw = 0f;
+                return DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw).Gag;
+            }
+            int balloons = 0;
+            for (uint seed = 1; seed <= 400; seed++)
+            {
+                Assert.AreNotEqual(DeathGag.Balloon, Of(InfantryArchetype.Rifle, false, false, seed), "a rifleman never balloons");
+                Assert.AreNotEqual(DeathGag.Balloon, Of(InfantryArchetype.Machinegunner, false, false, seed), "nor any other man");
+                Assert.AreNotEqual(DeathGag.Balloon, Of(InfantryArchetype.Frog, true, false, seed), "a shot never throws a frog out of his trench");
+                Assert.AreNotEqual(DeathGag.Balloon, Of(InfantryArchetype.Frog, false, true, seed), "a prone frog keeps the flop");
+                if (Of(InfantryArchetype.Frog, false, false, seed) == DeathGag.Balloon) balloons++;
+            }
+            Assert.Greater(balloons, 0, "a frog standing in the open does");
+        }
+
+        [Test]
+        public void AboutOneFrogInEightBalloons()
+        {
+            const int n = 4000;
+            int balloons = 0;
+            for (uint k = 1; k <= n; k++)
+            {
+                var g = Input(DeathKind.Shot, Clip.DeathBack, k * 2654435761u + 17u);
+                g.Archetype = InfantryArchetype.Frog;
+                float3 fly = 0; var clip = g.Clip; float yaw = 0f;
+                if (DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw).Gag == DeathGag.Balloon) balloons++;
+            }
+            float share = balloons / (float)n;
+            Assert.That(share, Is.InRange(0.09f, 0.16f), "the design's 1 in 8, " + share.ToString("0.000") + " over " + n + " seeds");
+        }
+
+        [Test]
+        public void ABalloonSwellsThenWhizzesOffInThreeShrinkingHops()
+        {
+            DeathGags.Force(DeathGag.Balloon);   // 1 in 8 cannot be filmed, or tested, by waiting for it
+            var g = Input(DeathKind.Shot, Clip.DeathBack);
+            g.Archetype = InfantryArchetype.Frog;
+            float3 fly = 0; var clip = g.Clip; float yaw = 0f;
+            var p = DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw);
+            Assert.AreEqual(DeathGag.Balloon, p.Gag);
+            Assert.AreEqual(DeathGags.BalloonHops, p.Hops, "three hops");
+            Assert.AreEqual(DeathGags.BalloonSwell, p.Delay, 1e-4f, "the design's 0.4 s swell");
+            Assert.AreEqual(DeathGags.BalloonFar, math.length(fly.xz), 1e-3f, "6 m on the first hop");
+            Assert.AreEqual(DeathGags.BalloonHigh, fly.y, 1e-3f, "3 m up");
+            Assert.That(math.degrees(math.abs(p.HopTurn)), Is.InRange(DeathGags.BalloonTurnMin, DeathGags.BalloonTurnMax), "the zigzag's turn");
+            Assert.AreEqual(Clip.DeathThrown, clip);
+            Assert.AreEqual(DeathGags.VatTintCode(DeathGags.BalloonRestHeight), p.RestQ, "he lies as a flat skin");
+            Assert.AreEqual(0, p.Bounces); Assert.AreEqual(0f, p.Skid); Assert.AreEqual(0, (int)p.Flags);
+            Assert.Greater(fly.z, 0f, "he whizzes off the way the round went, as the punt does");
+            Assert.AreEqual(math.PI, math.abs(yaw), 1e-4f, "turned right round: facing the gun that shot him");
+
+            // and the caps hold however absurd it is turned up
+            for (float a = 0.1f; a <= DeathGags.MaxIntensity + 1e-4f; a += 0.1f)
+            {
+                fly = 0; clip = g.Clip;
+                var q = DeathGags.Choose(g, a, ref fly, ref clip, ref yaw);
+                Assert.AreEqual(DeathGag.Balloon, q.Gag);
+                Assert.LessOrEqual(math.length(fly.xz), DeathGags.FarCap + 1e-3f); Assert.LessOrEqual(fly.y, DeathGags.HighCap + 1e-3f);
+                Assert.LessOrEqual(q.Delay, DeathGags.DelayCap + 1e-4f);
+            }
+        }
+
+        [Test]
+        public void ABalloonReadsTheDeadFrogsKindNotTheSlotsNewcomer()
+        {
+            DeathGags.Force(DeathGag.Balloon);
+            using var r = new Rig(1f);
+            int gunman = r.Man(Here + new float3(0f, 0f, 30f), 1);
+            int frog = r.Man(Here, 0, InfantryArchetype.Frog);
+            r.Tick(); uint at = r.W.Tick;
+            r.W.Despawn(frog, gunman, new float3(0f, 0f, 1f), 0f);   // shot: the killer's slot, and no knock
+            int newcomer = r.W.Spawn(0, InfantryArchetype.Rifle, Here, 100f, 3f, false);
+            Assert.AreEqual(frog, newcomer, "the sim gave the slot a rifleman the same tick");
+            r.Tick();
+            var rec = r.Record(frog, at);
+            Assert.AreEqual(InfantryArchetype.Frog, rec.Archetype, "the record is the frog's");
+            Assert.AreEqual(DeathGag.Balloon, rec.Gag.Gag, "and so is his death");
+        }
+
+        [Test]
+        public void ChoosingABalloonAllocatesNothing()
+        {
+            DeathGags.Force(DeathGag.Balloon);
+            var g = Input(DeathKind.Shot, Clip.DeathBack); g.Archetype = InfantryArchetype.Frog;
+            double perCall = AllocProbe.PerCall(() =>
+            {
+                float3 fly = 0; var clip = g.Clip; float yaw = 0f;
+                DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw);
+            }, 10, 200);
+            Assert.AreEqual(0.0, perCall, 1e-9, "no garbage a death");
         }
 
         [Test]
