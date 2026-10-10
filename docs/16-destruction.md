@@ -822,3 +822,25 @@ to scrap the rest topples in and the keel is pressed into a heap; cleared, the h
 over five seconds and the view is gone. Its flames and smoke come down with it (`OnWhatIsLeft`). The map's own wrecks
 are adopted as husks of the Maw or the Tusk and break the same way. A round a gun fires at a wreck is a tracer to its
 side (`CombatFx.Wrecks`). Seen in `Tests/Stills/WreckStills` (a Maw killed and shelled through every stage).
+
+## A trench's flag pole, and how it breaks (2026-10-10, the owner's idea of 2026-10-08)
+
+Every trench carries one flag pole on its parapet, and the pole is destructible like anything else on the field
+(`Presentation/Terrain/TrenchFlagRules.cs`, pure arithmetic; `Presentation/Terrain/TrenchFlags.cs` draws it, both
+SHOW: the sim says only that a trench changed hands, `SimEventType.TrenchCaptured`). Its strength is
+`TrenchFlagRules.MaxHp` **1.0** - a grenade leaves it standing, two near shells shake it down - and it goes
+intact -> snapped -> gone, with heavy ordnance (`TrenchSectionRules.IsHeavy`, the lining's own word: a burst of 6 m
+or more, or the AP round's harm, inside the inner half of its reach) taking it outright. `TrenchFlags` reads the
+same `Explosion` events `PropDestruction` does (under 0.3 of a radius it ignores them) and harms every pole in
+reach by distance with the same falloff, `power * (1 - 0.75 * d / reach)`. **Snapped**: the pole breaks at
+`StumpHeight` 0.55 m, the 2.55 m top lies on the mud and the flag goes down with it as a rag beside it; nothing
+flies on a broken pole. **Gone**: a stump, a scorched rag of whoever held it lying `RagOut` 0.8 m off the butt, a
+`DebrisRenderer.Burst` of `SplinterPieces` 7 splinters and `ClothPieces` 3 shreds of cloth, and no flag at all
+until the trench is taken again - a retake then raises the taker's colour, cut to `StakeFlagScale` 0.45, on a
+`StakeHeight` 1.4 m field stake. The wreck is always thrown along the line from the blast to the pole:
+`SimEvent.Explosion.Dir` is zero today, so nothing is read off it. Fire burns the colour out of the cloth toward
+`TrenchFlagRules.Char` (`Scorched`, `ScorchPerHit` 0.55 a hit); the rags are drawn in their own pre-scorched
+material, one per side. One break spends one `CombatFx.DustDab` off the Puff sheet at the butt - no new book, no
+new sheet. Cost at the standard view, measured by toggling the component in one Play session: +4 draw calls (119 of
+300) and +56 vertices (0.012 %), 0 B allocated a frame. Tests: `TW.Tests.TrenchFlagTests` (the falloff, the throw
+away from the blast, stump and fallen length, the stake and its cut-down cloth, the scorch, the piece counts).
