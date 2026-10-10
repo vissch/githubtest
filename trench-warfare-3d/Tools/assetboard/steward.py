@@ -67,7 +67,7 @@ STOPS = (
     ('code', 'hand', r'the relay\'s own code has uncommitted changes', 'the relay\'s run copy (githubtest-relay-run) has uncommitted changes: commit them or put them back'),
     ('missing', 'hand', r'does not exist|is not a git checkout', 'the relay\'s work checkout is missing: `git worktree add --detach` it again'),
     ('hold', 'hand', r'hold is another|is held by', 'another session holds the relay build (relay.py hold): it must release it, or its hours must pass'),
-    ('owner', 'again', r'stopped by the owner', ''),
+    ('owner', 'again', r'stopped by |stopped on request', ''),
     ('again', 'again', r'ended TIMEOUT|broke a rule|hours are up|leg cap|brought no result|cannot be switched to|not auto mode|no hooks|guard changed|no result|error:', ''),
 )
 
@@ -383,7 +383,9 @@ def state_of(w, out, mem, slow):
         if mem.get('next_try'):
             loop += f'. Next try {hm(mem["next_try"])}'
     answers = sorted(slow.get('answers') or [], key=lambda a: a['when'])
-    return dict(loop=loop, day=slow.get('day') or [], needs=sorted((mem.get('needs') or {}).values()),
+    asks = [l.split(':', 1)[1].strip() for l in slow.get('day') or [] if l.startswith('Needs you:') and 'nothing' not in l.lower()]
+    return dict(loop=loop, day=[l for l in slow.get('day') or [] if not l.startswith('Needs you:')],
+                needs=sorted((mem.get('needs') or {}).values()) + ['the relay: ' + a for a in asks],
                 answers=[dict(id=a['id'], go=a['go'], when=a['when'], title=a['title']) for a in answers],
                 tip=slow.get('tip', ''), landings=slow.get('landings') or [], pct=mem.get('pct', ''))
 

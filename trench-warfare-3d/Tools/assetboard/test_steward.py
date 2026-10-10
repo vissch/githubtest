@@ -94,6 +94,7 @@ def main():
             "the relay's own code has uncommitted changes": 'code',
             'the work checkout cannot be used: C:/x does not exist. Make it once: git worktree add': 'missing',
             'nothing left to do': 'nowork', 'stopped by the owner (relay.py stop)': 'owner',
+            'stopped by the steward (relay.py stop): the run is 10.8 hours old': 'owner', 'stopped on request (relay.py stop): a restart': 'owner',
             'leg 35 ended TIMEOUT': 'again', "leg 12 broke a rule: the board's items/x.json changed": 'again',
             "the run's 12 hours are up": 'again', '2 units in a row brought no result and no pushed code': 'again',
             '5 units in a row whose lane cannot be switched to': 'again', 'error: KeyError': 'again',
@@ -211,13 +212,14 @@ def main():
     # ---- the state file ----
     mem = dict(needs=dict(unity='a leftover batch-mode Unity (pid 64552) holds the work checkout'), next_try=T0 + 660)
     out = dict(run='', on='', last='x', reason='the work checkout cannot be used: a Unity editor has this project open', legs=0, did=[], standby='')
-    slow = dict(day=['Today: about 12.6% of the week used by the relay'], tip='dd77f34fba67', landings=['lane/show/landing-x d6467344a: on integration\'s tip, gated green'],
+    slow = dict(day=['Today: about 12.6% of the week used by the relay', 'Needs you: rv-12 ended BLOCKED: which of two fixes'], tip='dd77f34fba67', landings=['lane/show/landing-x d6467344a: on integration\'s tip, gated green'],
                 answers=[dict(id='b2', go='write', when='2026-10-10 10:52:06', title='Later'), dict(id='b1', go='nothing', when='2026-10-10 00:36:23', title='Earlier')])
     s = S.state_of(None, out, mem, slow)
     text = S.text_of(s, 'DESKTOP', ('unity',))
     case('the state file says, in this order: the loop and why it stands still with its next try, the day, what needs him, his untaken answers oldest first, integration and the landing branches',
          text.index('**Loop:** NOT RUNNING') < text.index('**Today:**') < text.index('## Needs you') < text.index('pid 64552') < text.index('Earlier') < text.index('Later') < text.index('dd77f34f') < text.index('gated green')
-         and 'Next try 10-10 22:11' in text and 'since 10-10 00:36' in text, text)
+         and 'Next try 10-10 22:11' in text and 'since 10-10 00:36' in text and '- the relay: rv-12 ended BLOCKED' in text and '**Needs you:**' not in text
+         and 'nothing from the loop' in S.text_of(S.state_of(None, out, {}, dict(slow, day=['Needs you: nothing.'])), 'DESKTOP', ()), text)
     f = tmp / 'STATE.md'
     case('the state file is written when it changed and left alone when it did not', S.put(f, text) is True and S.put(f, text) is False and S.put(f, text + 'x') is True and not (tmp / 'STATE.md.tmp').exists())
     home = tmp / 'home'
