@@ -189,6 +189,7 @@ namespace TW.Presentation.Terrain
             if ((Profile.WantsRain || Profile.WantsSnowfall) && GetComponent<Rain>() == null) { var fall = gameObject.AddComponent<Rain>(); fall.AsSnow = Profile.WantsSnowfall; fall.Snowfall = Profile.Snowfall; }
             if (Profile.WantsStorm && GetComponent<Storm>() == null) gameObject.AddComponent<Storm>();
             if (GetComponent<SmallLife>() == null) gameObject.AddComponent<SmallLife>().Host = Host;
+            if (GetComponent<TrenchFlags>() == null) gameObject.AddComponent<TrenchFlags>().Host = Host;
             if (GetComponent<QuietFog>() == null) gameObject.AddComponent<QuietFog>().Host = Host;
             if (GetComponent<FogWisps>() == null) gameObject.AddComponent<FogWisps>().Build(map);
             if (GetComponent<WaterRings>() == null)
