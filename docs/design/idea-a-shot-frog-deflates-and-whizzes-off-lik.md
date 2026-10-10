@@ -37,6 +37,12 @@ The player does nothing. In the standard view the whole thing lasts about 3.7 s 
 - Show, path: `FallenFlight` bounces carry straight on and shrink to 0.35 of the throw; the balloon needs each arc on its own bearing and height.
 - Show, body: a per-body size over time (the fallen draw already scales a charred body, `VATRenderer.Fallen.cs`), and the flat rest through `RestQ`.
 - Show, the swell: today's squash keeps the volume, so taller means thinner (`Shaders/VAT_URP.shader`); a round swell needs a frog clip or a new shader term. The concept stage shows both; the pick decides.
+  **Built (2026-10-10, the motion stage):** the owner picked concept A, so the swell is the throat sac's alone and is
+  baked, not shaded. `Clip.DeathBalloon` is a row of its own (half a second of "Rifle Idle": he dies on his feet and the
+  sac does the moving), and `VATBaker` scales the frog's `mixamorig:Throat` from 1 to 7.6 across that row - the Frog bake
+  only, since `Retarget.Names` has no Throat and no Mixamo clip can move it. The other figures bake the row plainly; the
+  gag never picks it for them. `DeathGags` hands the balloon that clip with `GagFlags.PlayAtDeath` and a `ClipRate` that
+  finishes the row inside the 0.4 s swell, so the sac fills while he is still on his feet instead of in the air.
 - Show, effects: air puffs along the path (`FlipbookFx.Book.Puff`); no blood splats, no gore trail and no blood card for this gag (`CombatFx.GagBlood` draws them for any gag with arcs today).
 - Show, the raspberry: a sound hook for deaths was not found (`Presentation/Audio/EventAudioRouter.cs` is 10 lines and names no sim event). See question 2.
 - Tests: `DeathGagTests` (only a frog, never in a trench, the share, the caps, no allocation), `FallenFlightTests` (the zigzag lands on the ground, inside the map).

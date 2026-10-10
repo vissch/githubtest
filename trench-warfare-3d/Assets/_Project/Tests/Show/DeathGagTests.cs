@@ -351,9 +351,13 @@ namespace TW.Tests
             Assert.AreEqual(DeathGags.BalloonFar, math.length(fly.xz), 1e-3f, "6 m on the first hop");
             Assert.AreEqual(DeathGags.BalloonHigh, fly.y, 1e-3f, "3 m up");
             Assert.That(math.degrees(math.abs(p.HopTurn)), Is.InRange(DeathGags.BalloonTurnMin, DeathGags.BalloonTurnMax), "the zigzag's turn");
-            Assert.AreEqual(Clip.DeathThrown, clip);
+            Assert.AreEqual(Clip.DeathBalloon, clip, "his own row, the one the sac blows up over");
             Assert.AreEqual(DeathGags.VatTintCode(DeathGags.BalloonRestHeight), p.RestQ, "he lies as a flat skin");
-            Assert.AreEqual(0, p.Bounces); Assert.AreEqual(0f, p.Skid); Assert.AreEqual(0, (int)p.Flags);
+            Assert.AreEqual(0, p.Bounces); Assert.AreEqual(0f, p.Skid);
+            Assert.AreEqual(GagFlags.PlayAtDeath, (int)p.Flags, "the row runs from the death, not from the launch");
+            Assert.Greater(p.ClipRate, 0f, "and at a rate of its own");
+            Assert.LessOrEqual(Clips.Table[(int)Clip.DeathBalloon].Seconds / p.ClipRate, DeathGags.BalloonSwell + 1e-4f,
+                "the swell is over before he lets go");
             Assert.Greater(fly.z, 0f, "he whizzes off the way the round went, as the punt does");
             Assert.AreEqual(math.PI, math.abs(yaw), 1e-4f, "turned right round: facing the gun that shot him");
 
@@ -365,6 +369,23 @@ namespace TW.Tests
                 Assert.AreEqual(DeathGag.Balloon, q.Gag);
                 Assert.LessOrEqual(math.length(fly.xz), DeathGags.FarCap + 1e-3f); Assert.LessOrEqual(fly.y, DeathGags.HighCap + 1e-3f);
                 Assert.LessOrEqual(q.Delay, DeathGags.DelayCap + 1e-4f);
+            }
+        }
+
+        [Test]
+        public void ABalloonsSacFinishesSwellingBeforeHeLetsGoAtEveryIntensity()
+        {
+            DeathGags.Force(DeathGag.Balloon);
+            var g = Input(DeathKind.Shot, Clip.DeathBack); g.Archetype = InfantryArchetype.Frog;
+            for (float a = 0.1f; a <= DeathGags.MaxIntensity + 1e-4f; a += 0.1f)
+            {
+                float3 fly = 0; var clip = g.Clip; float yaw = 0f;
+                var p = DeathGags.Choose(g, a, ref fly, ref clip, ref yaw);
+                Assert.AreEqual(DeathGag.Balloon, p.Gag);
+                Assert.AreEqual(Clip.DeathBalloon, clip);
+                Assert.AreNotEqual(0, p.Flags & GagFlags.PlayAtDeath, $"at {a:0.0} the row still plays from the death");
+                float row = Clips.Table[(int)Clip.DeathBalloon].Seconds / p.ClipRate;
+                Assert.LessOrEqual(row, p.Delay + 1e-4f, $"at {a:0.0} the sac is full before the launch");
             }
         }
 

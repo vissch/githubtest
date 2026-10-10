@@ -246,8 +246,10 @@ namespace TW.Presentation.Units
         {
             float age = now - f.Born;
             bool gag = f.Gag != 0;
-            // a gag's clip starts at its launch (a jig or a claw's hold comes first), or is held at its first frame (a plank)
-            float t = gag && (f.GagFlags & GagFlags.Freeze) != 0 ? 0.02f : Mathf.Clamp01((gag ? Mathf.Max(0f, age - f.Path.Delay) : age) * f.Rate / f.Seconds);
+            // a gag's clip starts at its launch (a jig or a claw's hold comes first), is held at its first frame (a plank),
+            // or runs from the death itself (a balloon: his sac blows up through the delay, before he lets go)
+            float gagAge = (f.GagFlags & GagFlags.PlayAtDeath) != 0 ? age : Mathf.Max(0f, age - f.Path.Delay);
+            float t = gag && (f.GagFlags & GagFlags.Freeze) != 0 ? 0.02f : Mathf.Clamp01((gag ? gagAge : age) * f.Rate / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
             float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - age / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
             // thrown: he turns as he goes through the air and comes to rest the way he landed

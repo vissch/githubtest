@@ -53,6 +53,10 @@ namespace TW.Editor
         public const string FrogPath = "Assets/_Project/Playground/Art/Units/Frog/Frog.fbx";
         public const string FrogSkin = "Frog_LOD2";
         public const string FrogAlbedo = "Assets/_Project/Playground/Art/Units/Frog/Frog_LOD2_Base.jpg";
+        /// <summary>The scale mixamorig:Throat reaches at the end of the DeathBalloon row: the frog's sac blown up to a
+        /// 1.197 m ball (Tools/frogsac.py's TW_SAC_TEST_SCALE, measured by the model stage). No Mixamo clip can move it -
+        /// Retarget.Names has no Throat - so the bake scales the bone itself, and only on this one row of the Frog.</summary>
+        public const float FrogSacScale = 7.6f;
 
         [MenuItem("TW/VAT/Bake Frog")]
         public static void BakeFrog()
@@ -79,6 +83,7 @@ namespace TW.Editor
             public GameObject Root;
             public SkinnedMeshRenderer Skin;
             public Transform Hips, Spine, Neck, Head, ArmL, ArmR, ForeL, ForeR, HandL, HandR, ThighL, ShinL, ThighR, ShinR, FootL, FootR;
+            public Transform Throat;   // the frog's throat sac bone, if this figure has one (frogsac.py); null on the soldiers
             public Transform[] All;
             public Vector3[] BindPos;
             public Quaternion[] BindRot;
@@ -168,6 +173,7 @@ namespace TW.Editor
             rig.HandL = Bone("LeftHand"); rig.HandR = Bone("RightHand");
             rig.ThighL = Bone("LeftUpLeg"); rig.ShinL = Bone("LeftLeg"); rig.ThighR = Bone("RightUpLeg"); rig.ShinR = Bone("RightLeg");
             rig.FootL = Bone("LeftFoot"); rig.FootR = Bone("RightFoot");
+            rig.Throat = rig.All.FirstOrDefault(t => t.name == "Throat" || t.name.EndsWith(":Throat"));   // the frog alone
 
             // the instantiated FBX rests in its clip's first frame; the T-pose only survives in the mesh bind poses. Which
             // space they are relative to differs between exporters (the mesh node, or the file's root): the one that
@@ -276,6 +282,7 @@ namespace TW.Editor
             // ---- frames -----------------------------------------------------------------------------------------
             var frames = new List<Vector3[]>(); var frameNormals = new List<Vector3[]>(); var frameSockets = new List<Vector3[]>();
             bool aiming = false;   // an aimed clip: the forestock hand reaches well ahead of the grip, but both hands hold the rifle
+            float sacScale = 1f;   // the frog's throat sac, blown up across the DeathBalloon row (FrogSacScale) and at rest on every other
             void Capture(Vector3 shift, float yawFix)
             {
                 if (target != null)
@@ -287,6 +294,7 @@ namespace TW.Editor
                     target.Hips.position = new Vector3(h.x * legs, (h.y - rig.MinY) * legs + target.MinY, h.z * legs);
                     shift *= legs;
                 }
+                if (draw.Throat != null) draw.Throat.localScale = Vector3.one * sacScale;   // the balloon row only; 1 everywhere else
                 Skinned(draw, verts, normals);
                 var p = new Vector3[vertexCount]; var n = new Vector3[vertexCount];
                 for (int i = 0; i < skinCount; i++) { p[i] = verts[i]; n[i] = normals[i]; }
@@ -386,10 +394,14 @@ namespace TW.Editor
                             Pose(clip, from + frac * span, lower, lower != null ? (src.LowerTime + frac * span) % Mathf.Max(0.1f, lower.length) : 0f);   // the legs breathe along the lower loop
                             if (src.Thrown) Throw(rig, frac * played, yaw0);
                             if (lift != 0f) Level(rig, lift);
+                            // the balloon: his throat sac blows up from rest to FrogSacScale across the row (the Frog bake
+                            // only - every other figure has no Throat bone and bakes the standing pose plainly)
+                            if (clipId == Clip.DeathBalloon) sacScale = Mathf.Lerp(1f, FrogSacScale, frac);
                             Capture(first + keep * frac, yaw0 + (src.StripYaw ? turn * frac : 0f));
                         }
-                        aiming = false;
+                        aiming = false; sacScale = 1f;
                         table[r] = new Vector2(start, src.Loop ? n : -n); seconds[r] = played;
+                        if (clipId == Clip.DeathBalloon && draw.Throat != null) report.AppendLine($"{clipId,-18} the throat sac blown up 1 -> {FrogSacScale:0.0} across the row");
                         report.AppendLine($"{clipId,-18} {src.File,-34} {n,4} frames {played,5:0.00} s {(src.Loop ? "loop" : "once")} kept {(travel - keep).magnitude * rig.Scale * 100f,4:0} of {travel.magnitude * rig.Scale * 100f,4:0} cm travel{(src.Lower != null ? " on " + src.Lower : "")} turn {turn * Mathf.Rad2Deg,5:0} deg{(src.Aim ? $" rifle through both hands, turned {lift:+0;-0;0} deg" : "")}");
                         continue;
                     }

@@ -31,6 +31,9 @@ namespace TW.Presentation
         public const byte Splat = 16;
         /// <summary>His clip is held on its first frame (a man going over stiff as a plank).</summary>
         public const byte Freeze = 32;
+        /// <summary>His clip plays from the death, not from the launch (a balloon: the swell IS the delay, so waiting for
+        /// the launch would blow his sac up in the air, after he let go).</summary>
+        public const byte PlayAtDeath = 64;
     }
 
     /// <summary>One death's gag: what the controller decided, carried in the DeathRecord to CombatFx and the renderer.</summary>
@@ -231,13 +234,16 @@ namespace TW.Presentation
                 // the balloon: his throat sac blows up, he lets go, and he whizzes off backwards in three shrinking zigzag
                 // hops before he drops as a flat skin. Only a frog, and only standing in the open (the design, section 1).
                 plan.Gag = DeathGag.Balloon;
+                plan.Flags = GagFlags.PlayAtDeath;   // the swell plays through the delay, not after it
                 plan.Delay = BalloonSwell * math.min(1f, a);
                 plan.Hops = (byte)BalloonHops;
                 plan.HopTurn = math.radians(Range(s, t, 982u, BalloonTurnMin, BalloonTurnMax)) * (Dice(s, t, 983u) < 0.5f ? -1f : 1f);
                 plan.RestQ = (sbyte)VatTintCode(BalloonRestHeight);   // the skin, as flat as the pancake
                 float farB = Towards(0f, BalloonFar, a), highB = Towards(0f, BalloonHigh, a);
                 fly = new float3(travel.x * farB, highB, travel.z * farB);   // hop one off the round's line, as the punt goes
-                clip = Clip.DeathThrown; yaw = Yaw(-travel);
+                clip = Clip.DeathBalloon; yaw = Yaw(-travel);
+                // the row (a standing half second the sac blows up over) is played to its end inside the swell
+                plan.ClipRate = Clips.Table[(int)Clip.DeathBalloon].Seconds / math.max(1e-3f, plan.Delay);
                 return Capped(ref plan, ref fly);
             }
             if (g.Flat)
