@@ -48,12 +48,11 @@ Pictures and films before words. Things to click and act on.
    - Better: each faction inside that band. Time to breach and trench keeping are reported, not judged. (2026-10-06.)
    - Where it stood: on six seeds of the scripts' own match, five stalemates and one win. (2026-10-01.) Brass beat
      Iron in 7 of the 8 matches that ended. ([tasks.md](tasks.md), The enemy.)
-   - Open: what replaces dead ground, which he removed: "we must think about how we can prevent this in the future
-     in a better way: the man werent able to enter the trench." (Open list, 2026-10-06.)
+   - A man behind his own front trench is half as easy to hit, and can still be shot. (2026-10-08.)
    - "Find out first why matches do not end, above all Iron's; report with numbers. Bands
      after that". (2026-10-07.) The report: in 11 of 12 matches with no winner, nobody attacks. Then: "Fix the measuring first: the computer buys a mixed army, and find why the boat side wins".
      No unit's number is tuned before the matches are measured again.
-   - Serves it: fix the measuring first, the buying script and the sweep, no unit's number is tuned, and Iron's roster is not changed. Kind: tool.
+   - Serves it: change ScriptedEnemy's buying so a faction's other men reach the field, keep the old rule as a setting, mend Tools/sweep.py so its report says where men die, look for why the boat side wins, and measure the same matches again on lane/show/script-mixed-army. Do not tune a unit's number, do not change Iron's roster, and do not judge the 40 to 60 % band yet. Kind: tool.
 <a id="goal-units"></a>
 [![A weapon sheet](goals/weapons.png)](decisions.md#d-units)
 
@@ -76,8 +75,6 @@ Pictures and films before words. Things to click and act on.
    other; of its first part, on the captures, he said "its good". (Rows of 2026-09-29.)
    - Better: keep the blue night, lift the distance into lighter layered fog, spend the highlights on warm fire:
      warm-lit 2 to 5 % where ours had 0.14 %. No stray blue or purple sparkles. (2026-09-29.)
-   - Open: the second part (flames streaking on wet mud, orange glints, dark props against the haze, softer pools)
-     was never shown to him. (Open list, 2026-10-06.)
    - "it should allways be today": today's night stays, the second part does not land. (2026-10-07.)
      "lets use less lights and instead try to simulate them or bake them": the 8 lamps nearest the view stay real. (2026-10-07.)
    - Serves it: warm light and shapes that read, inside today's night and with no more real lights. Kind: look.
@@ -199,7 +196,6 @@ He keeps saying no to (the full list is in the context of the ideas tool; these 
 
 ## What this page does not decide
 
-- Anything on the open list of decisions.md stays open and is his to answer: what replaces dead ground, what each
-  frog model does, the second part of the night look, the six rules for how men spread out, and the rest of it.
+- Anything on the open list of decisions.md stays open and is his to answer: what each frog model does, and the rest of it.
 - It sets no order of work. The goals are in the order of their newest row; what runs first is his queue.
 - Where this page and a row of decisions.md disagree, the row wins: fix the page in the same commit.
