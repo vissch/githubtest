@@ -2,7 +2,9 @@
 
   <board>/relay/queue/<id>.json   {"id" (= the file name), "lane", "role", "goal" (the owner's words),
                                    "done_when": ["program", "arg", ...]  (run in the checkout; exit 0 = done),
-                                   "priority": 0 to 99, optional (relay.py prio): the lower runs first}
+                                   "priority": 0 to 99, optional (relay.py prio): the lower runs first,
+                                   "kind": finish | fix | critique, optional: the share of the day it is paid from
+                                   (sources.kind_of; left out, its role says: the review's fixes are fix)}
   <board>/relay/done/<id>.json    written by the runner when done_when passes; a unit with one is never picked again
   <board>/relay/notes/<id>.md     the last leg's handoff note, when the unit is not done yet
 The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
@@ -24,6 +26,7 @@ from sources.briefs import place_brief            # noqa: E402,F401  (the runner
 
 NAME = "lane"
 NEED = ("id", "lane", "role", "goal", "done_when")
+MAY = ("kind", "priority")          # what a unit file may also say: the kind of work it is paid as, its place in the queue
 ID = re.compile(r"^[\w.-]+$")
 
 
@@ -41,6 +44,8 @@ def load(p):
         raise SystemExit("relay: %s: %s is not a lane/sim or lane/show lane" % (p.name, u["lane"]))
     if not isinstance(u["done_when"], list) or not all(isinstance(w, str) for w in u["done_when"]):
         raise SystemExit('relay: %s: done_when must be a list of words, e.g. ["python", "Tools/x.py", "--check"]' % p.name)
+    if u.get("kind") is not None and u["kind"] not in ("finish", "fix", "critique"):
+        raise SystemExit("relay: %s: kind is finish, fix or critique: the share of the day the unit is paid from" % p.name)
     pr, top = u.get("priority"), config.limits()["queue_priority_max"]
     if pr is not None and (not isinstance(pr, int) or isinstance(pr, bool) or not 0 <= pr <= top):
         raise SystemExit("relay: %s: priority must be a whole number from 0 to %d (the lower runs first)" % (p.name, top))
