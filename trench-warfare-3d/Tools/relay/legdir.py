@@ -38,8 +38,9 @@ def new_leg(run, nn, unit, phase, phase_cfg, lim, worktree, lane, board):
     d, desk = leg_path(run, nn), desk_path(run, nn)
     d.mkdir(parents=True, exist_ok=False)
     desk.mkdir(parents=True, exist_ok=False)
+    from sources import kind_of                    # which share of the day this leg counts under (ledger.py)
     rec = {"run": run, "leg": nn, "unit": unit["id"], "source": unit["source"], "role": unit["role"],
-           "phase": phase, "mode": phase_cfg["mode"], "model": phase_cfg["model"], "effort": phase_cfg["effort"],
+           "kind": kind_of(unit["source"], unit["role"], unit.get("kind")), "phase": phase, "mode": phase_cfg["mode"], "model": phase_cfg["model"], "effort": phase_cfg["effort"],
            "output": phase_cfg.get("output"), "deny_tools": list(phase_cfg.get("deny_tools") or []),
            "worktree": str(worktree), "lane": lane, "board": str(board or ""),
            "desk": str(desk), "amber_tokens": lim["amber_tokens"], "red_tokens": lim["red_tokens"],
