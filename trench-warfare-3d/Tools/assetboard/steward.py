@@ -249,26 +249,28 @@ class World:
         return out.split()[0] if re.match(r'[0-9a-f]{40}\s', out) else ''
 
     def landings(self, tip):
-        """The landing branches checked out on this machine that are not in integration yet, as slow_tick.ps1 read
-        them: on integration's tip or not, gated green on this tree or not."""
-        rows, tree = [], ''
-        for line in self.sh(['git', '-C', str(MAIN), 'worktree', 'list', '--porcelain'])[1].splitlines() + ['']:
-            if line.startswith('worktree '):
-                tree = line[9:].strip()
-            elif line.startswith('branch refs/heads/') and '/landing-' in line and tip:
-                g = lambda *a: self.sh(['git', '-C', tree] + list(a))        # noqa: E731
-                if g('merge-base', '--is-ancestor', 'HEAD', tip)[0] == 0:
-                    continue                                                    # landed
-                on = g('merge-base', '--is-ancestor', tip, 'HEAD')[0] == 0
-                try:
-                    marker = Path(g('rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green')[1]).read_text(encoding='utf-8').split()[0]
-                except (OSError, IndexError):
-                    marker = ''
-                green = bool(marker) and marker == g('rev-parse', 'HEAD^{tree}')[1]
-                rows.append('%s %s: %s, %s' % (line[len('branch refs/heads/'):], g('rev-parse', '--short', 'HEAD')[1],
-                                               'on integration\'s tip' if on else 'integration moved since',
-                                               'gated green' if green else 'no green gate on this tree'))
-        return rows
+        """The landing queue, a line a lane (landq.py): what waits, what was asked of him, what was refused and why."""
+        import landq
+        return landq.lines(LOCAL / 'landq')
+
+    def land_work(self, tree: Path):
+        """Have the landing queue worked, when no worker is at it: first the lanes the relay finished are put in
+        (offer), then the queue is taken lane by lane (work), as a process of its own. A full gate takes 25
+        minutes, so the steward never waits for it. Returns a line when a worker was started."""
+        import landq
+        home = LOCAL / 'landq'
+        rec = load(home / 'lock.json')
+        if rec.get('pid') and alive(rec['pid']):
+            return ''
+        tool = str(HERE / 'landq.py')
+        self.sh([sys.executable, '-B', tool, 'offer', '--board', str(BOARD)])
+        if not landq.queue(home) and not any(a['go'] == 'land' for a in self.answers()):
+            return ''
+        home.mkdir(parents=True, exist_ok=True)
+        with open(home / 'work.log', 'a', encoding='utf-8') as out:
+            p = subprocess.Popen([sys.executable, '-u', '-B', tool, 'work', '--tree', str(tree)], cwd=str(HERE.parent.parent), stdout=out, stderr=subprocess.STDOUT,
+                                 stdin=subprocess.DEVNULL, creationflags=0x00000208 if os.name == 'nt' else 0)        # detached, its own group
+        return f'the landing queue is being worked (pid {p.pid}): {len(landq.queue(home))} lanes'
 
 
 # ---- one look, and what follows from it ------------------------------------------------------------------------------
@@ -426,7 +428,7 @@ def text_of(s, host, heal):
         lines.append(f'**The day\'s figure:** {s["pct"]}% today only (day.json names its day)')
     lines += ['', '## Needs you'] + ([f'- {n}' for n in s['needs']] or ['- nothing from the loop'])
     lines += ['', f'## Your answers nobody has taken up: {len(s["answers"])}'] + [f'- since {a["when"][5:16]}, `{a["go"]}`: {a["title"]} (`{a["id"]}`)' for a in s['answers'][:12]]
-    lines += ['', '## Landing', f'- integration is `{s["tip"][:8] or "not read"}`'] + [f'- {l}' for l in s['landings']]
+    lines += ['', '## Landing', f'- integration is `{s["tip"][:8] or "not read"}`'] + ([f'- {l}' for l in s['landings']] or ['- nothing waits in the landing queue'])
     lines += ['', f'Mends by itself: {", ".join(heal) or "nothing (started without --heal)"}. To make it stand by: a file `steward.stop` in `%LOCALAPPDATA%\\TrenchWarfare\\steward`.']
     return '\n'.join(lines) + '\n'
 
@@ -471,6 +473,7 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='keeps the relay going with nobody watching, and writes the one state file')
     ap.add_argument('--watch', type=float, default=0, help='seconds between looks; 0 looks once and starts nothing')
     ap.add_argument('--heal', default='', help=f'what it may mend by itself, of: {",".join(HEALS)}')
+    ap.add_argument('--land', default='', help='the landing queue\'s own checkout (a full one): with it the queue is worked (landq.py); left out, nothing lands')
     ap.add_argument('--state', default='', help='where STATE.md and state.json go (default: the Drive\'s TW3D-pipeline folder)')
     ap.add_argument('--home', default='', help='its own folder (lock, memory, log)')
     args = ap.parse_args(argv)
@@ -503,6 +506,10 @@ def main(argv=None):
             for d in out['did']:
                 say(d)
             if time.time() - slow_at > 300 or out['did']:       # the slow reads: every five minutes, and when something happened
+                if args.land:
+                    started = w.land_work(Path(args.land))
+                    if started:
+                        say(started)
                 tip = w.integration()
                 slow = dict(day=[l for l in w.relay('day')[1].splitlines() if re.match(r'Today:|Needs you:', l)],
                             answers=w.answers(), tip=tip, landings=w.landings(tip))

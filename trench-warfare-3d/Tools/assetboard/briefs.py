@@ -200,10 +200,25 @@ def read_all(where: Path):
     return sorted(out, key=lambda b: (b.get('asked', ''), b['id']))
 
 
-def stamp(says, unit=None):
+def stamp(says, unit=None, land=None):
     """A Then line in eight characters. The page sends it with the click, so a click is a yes to the line it showed and
-    to no other: a line added or changed afterwards has another stamp."""
-    return hashlib.sha1(json.dumps([one(says), unit or None], sort_keys=True).encode('utf-8')).hexdigest()[:8]
+    to no other: a line added or changed afterwards has another stamp. So has one that lands another commit."""
+    return hashlib.sha1(json.dumps([one(says), unit or None] + ([land] if land else []), sort_keys=True).encode('utf-8')).hexdigest()[:8]
+
+
+LAND_HOURS = 48         # a click on a landing lapses: what he said yes to on Monday is not landed on Thursday
+
+
+def check_land(land):
+    """Why a landing would be refused as what an option leads to: every reason. `land` is {lane, tip}: the lane that
+    lands and the commit of it he is shown, all 40 characters. His yes is to that commit: the landing queue
+    (landq.py) rebases and gates it, and a lane that has moved on since is not landed on his click."""
+    if not isinstance(land, dict) or sorted(land) != ['lane', 'tip']:
+        return ['the landing is {"lane", "tip"}: the lane and its commit']
+    bad = [] if str(land.get('lane') or '').startswith(UNIT_LANES) else [f'{land.get("lane") or "nothing"} is not a lane/sim or lane/show lane']
+    if not re.fullmatch(r'[0-9a-f]{40}', str(land.get('tip') or '')):
+        bad.append('the tip is the lane\'s commit, all 40 characters')
+    return bad
 
 
 def check_then(says, unit=None):
@@ -242,7 +257,7 @@ def find(where: Path, bid):
     return hits[0]
 
 
-def then(where: Path, notes, bid, option, says, unit=None):
+def then(where: Path, notes, bid, option, says, unit=None, land=None):
     """Say on an option what happens when the owner takes it: `says` is the line the page shows under it, `unit` the
     unit that is queued (None: nothing is built). Returns the brief. Refused on a brief that is closed, and on one he
     has already answered: a line he did not see when he clicked is not one he said yes to. `notes` is
@@ -256,6 +271,12 @@ def then(where: Path, notes, bid, option, says, unit=None):
     if not o:
         raise ValueError(f'{b["id"]} has the options {", ".join(x["key"] for x in b["options"])}')
     bad = check_then(says, unit)
+    if land is not None:                         # the owner, 2026-10-09 and again 2026-10-10: "Desktop lands on my click"
+        bad += check_land(land) + (['an option queues a unit or lands a lane, not both'] if unit else [])
+        twice = [x['id'] for x in read_all(where) if x.get('state') != 'answered' and x['id'] != b['id']
+                 and any(((p.get('then') or {}).get('land') or {}).get('lane') == (land or {}).get('lane') for p in x['options'])] if isinstance(land, dict) else []
+        if twice:
+            bad.append(f'{twice[0]} already asks him to land {land["lane"]}: a landing is asked once')
     if unit and not bad:
         unit = dict(id=unit['id'], lane=unit['lane'], role=unit.get('role') or 'lane', goal=unit['goal'], done_when=list(unit['done_when']))
         used = [x['id'] for x in read_all(where) for p in x['options'] if ((p.get('then') or {}).get('unit') or {}).get('id') == unit['id'] and (x['id'], p['key']) != (b['id'], option)]
@@ -263,7 +284,7 @@ def then(where: Path, notes, bid, option, says, unit=None):
             bad.append(f'the unit {unit["id"]} is already what an option of {used[0]} queues: a unit\'s id is used once')
     if bad:
         raise ValueError('not a Then line yet: ' + '; '.join(bad))
-    o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit), **(dict(unit=unit) if unit else {}))
+    o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit, land), **(dict(unit=unit) if unit else {}), **(dict(land=dict(land)) if land else {}))
     (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
     return b
 
@@ -311,11 +332,15 @@ def said(b, text):
     return 'other', one(text)
 
 
-def answers(briefs, notes):
+def answers(briefs, notes, now=None, keys=None):
     """What the owner has answered on the page and no session has taken up: one record a brief, with every open note
     of his about it (not only the last: words he typed before a click are his too), and what it leads to:
       go 'queue'    his click is a yes to the unit the option names: queue it without asking
       go 'nothing'  his click is a yes to an option that says nothing is built
+      go 'land'     his click is a yes to landing the commit the option names: the landing queue lands it, nobody
+                    else. It takes more than the others: every note about it signed by the page's listener
+                    (notes.signed; `keys` are the keys to check with, default the ones on this machine), and the
+                    last one not older than LAND_HOURS at `now`
       go 'write'    anything else, and `why`: his answer is the decision all the same, but it names no unit, so the
                     session writes the unit it leads to and queues it (or says why nothing is built)
     A click is a yes only when every open note about the brief is a click on the page on that one option (from the
@@ -339,12 +364,32 @@ def answers(briefs, notes):
             why = 'a note about it is not a click of his on the page'
         elif any(n.get('then') != t.get('stamp') for n in his):
             why = 'the Then line is not the one the page showed when he clicked'
+        elif t.get('land') and t['stamp'] != stamp(t.get('says'), t.get('unit'), t.get('land')):
+            why = 'the Then line was changed and not stamped again'
+        elif t.get('land') and not all(notes_mod().signed(n, keys) for n in his):
+            why = 'the click is not signed by the page\'s listener, and a landing takes a signed one'
+        elif t.get('land') and lapsed(last['when'], now):
+            why = f'the click is older than {LAND_HOURS} hours, and a landing takes a fresh one'
         else:
             why = ''
         out.append(dict(id=b['id'], title=b['title'], about=b.get('about', ''), lane=b.get('lane', ''), option=option, text=o.get('text', ''), said=' / '.join(w for _, w in picks if w),
                         when=last['when'], note=last['id'], notes=[dict(id=n['id'], when=n['when'], text=n['text']) for n in his],
-                        go='write' if why else 'queue' if t.get('unit') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit')))
+                        go='write' if why else 'queue' if t.get('unit') else 'land' if t.get('land') else 'nothing', why=why, says=t.get('says', ''), unit=t.get('unit'), land=t.get('land')))
     return out
+
+
+def notes_mod():
+    import notes
+    return notes
+
+
+def lapsed(when, now=None):
+    """True when a note of `when` ('2026-10-10 00:36:23') is older than LAND_HOURS, or its time does not read."""
+    try:
+        t = datetime.datetime.strptime(str(when)[:19], '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return True
+    return (now or datetime.datetime.now()) - t > datetime.timedelta(hours=LAND_HOURS)
 
 
 def one_answer(where: Path, notes, bid, note):
@@ -382,6 +427,8 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     if one(queued) and one(outcome):
         raise ValueError('what became of it is a unit that was queued or words, not both')
     if not one(queued) and not one(outcome):
+        if a['go'] == 'land':
+            raise ValueError(f'{a["id"]}: his click lands {a["land"]["lane"]}, which the landing queue does and closes; say --outcome only when it has landed another way')
         if a['go'] == 'write':
             raise ValueError(f'{a["id"]}: say what became of it: --queued UNIT, or --outcome "words" when nothing was queued')
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
@@ -604,7 +651,7 @@ def lines(briefs):
         for o in b['options']:
             out.append(f'      {o["key"]}{" (the writer\'s)" if o["key"] == b["pick"] else ""}  {o["text"]}')
             if o.get('then'):
-                out.append(f'         then: {o["then"]["says"]}' + (f' (queues {o["then"]["unit"]["id"]} on {o["then"]["unit"]["lane"]})' if o['then'].get('unit') else ' (nothing is built)'))
+                out.append(f'         then: {o["then"]["says"]}' + (f' (queues {o["then"]["unit"]["id"]} on {o["then"]["unit"]["lane"]})' if o['then'].get('unit') else f' (lands {o["then"]["land"]["lane"]} at {o["then"]["land"]["tip"][:8]})' if o['then'].get('land') else ' (nothing is built)'))
         out.append(f'      evidence: {len(b["evidence"])}' + (f' ({b["no_evidence"]})' if b.get('no_evidence') else ''))
         if a:
             out.append(f'      answered {a["when"]}: {a["option"]}{" · " + a["said"] if a.get("said") else ""}')
@@ -615,7 +662,7 @@ def lines(briefs):
 
 def leads(a):
     """What an answer leads to, in a few words, for a session's lines."""
-    return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else 'nothing to build' if a['go'] == 'nothing' else f'decided: write its unit and queue it, or say why nothing is built ({a["why"]})'
+    return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else f'lands {a["land"]["lane"]} at {a["land"]["tip"][:8]}: the landing queue does it' if a['go'] == 'land' else 'nothing to build' if a['go'] == 'nothing' else f'decided: write its unit and queue it, or say why nothing is built ({a["why"]})'
 
 
 def waiting_lines(got):
@@ -640,6 +687,7 @@ def main(argv=None):
     ap.add_argument('--option', action='append', default=[], help='add: an option; the first is the one you would take. take: the option he chose, for an answer you had to ask him about')
     ap.add_argument('--says', default='', help=f'then: what happens when he takes the option, {CAPTION_WORDS} words at most')
     ap.add_argument('--unit', default='', help='then: the unit that is queued, a JSON file in the shape of the relay\'s queue (id, lane, goal, done_when)')
+    ap.add_argument('--land', default='', help='then: the commit his click lands, as LANE@TIP (the lane and all 40 characters of its commit); the landing queue lands it')
     ap.add_argument('--note', default='', help='unit, take: the note of his you read (waiting names it)')
     ap.add_argument('--queued', default='', help='take: the unit that was queued for it')
     ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
@@ -671,7 +719,7 @@ def main(argv=None):
             print(f'briefs: {b["id"]} is closed with {b["answer"]["option"]}')
         elif a.what == 'then':
             if len(a.args) != 2:
-                raise ValueError('then ID OPTION --says "what happens then" [--unit unit.json]')
+                raise ValueError('then ID OPTION --says "what happens then" [--unit unit.json | --land LANE@TIP]')
             import notes
             u = None
             if a.unit:
@@ -679,9 +727,10 @@ def main(argv=None):
                     u = json.loads(Path(a.unit).read_text(encoding='utf-8-sig'))
                 except (OSError, ValueError) as e:
                     raise ValueError(f'the unit {a.unit} does not read: {e}')
-            b = then(where, notes.read_all(notes.folder()), a.args[0], a.args[1], a.says, u)
+            ld = dict(zip(('lane', 'tip'), a.land.rsplit('@', 1))) if a.land else None
+            b = then(where, notes.read_all(notes.folder()), a.args[0], a.args[1], a.says, u, ld)
             t = [o for o in b['options'] if o['key'] == a.args[1]][0]['then']
-            print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "builds nothing"}')
+            print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "lands " + t["land"]["lane"] + " at " + t["land"]["tip"][:8] if t.get("land") else "builds nothing"}')
         elif a.what == 'waiting':
             import notes
             got = answers(read_all(where), notes.read_all(notes.folder()))

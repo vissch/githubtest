@@ -25,6 +25,8 @@ which a web page from elsewhere cannot read, so nobody else's page can put words
 """
 import argparse
 import datetime
+import hashlib
+import hmac
 import json
 import os
 import re
@@ -41,7 +43,8 @@ import build  # noqa: E402
 PORT = 8765
 KINDS = ('asset', 'lane', 'worker', 'queue', 'graph', 'page')     # what a note can be about
 LONGEST = 4000          # characters of a note
-FIELDS = ('id', 'when', 'from', 'kind', 'about', 'title', 'lane', 'asset', 'page', 'then', 'state')
+FIELDS = ('id', 'when', 'from', 'kind', 'about', 'title', 'lane', 'asset', 'page', 'then', 'sig', 'state')
+SIGNED = ('id', 'when', 'from', 'kind', 'about', 'then')        # the head fields a signature covers, with the text
 SHOWN_DAYS = 7          # an answered note stays on the page this long
 
 
@@ -65,12 +68,56 @@ def key_of(where: Path):
     return k
 
 
+def sign_key(make=False):
+    """The key this machine's listener signs a click with: a file beside the board's local folder, never on the
+    Drive (TW_CLICK_KEY names another). Made by the listener the first time; '' when there is none."""
+    f = Path(os.environ.get('TW_CLICK_KEY') or build.LOCAL.parent / 'click.key')
+    try:
+        k = f.read_text(encoding='utf-8').strip()
+    except OSError:
+        k = ''
+    if not k and make:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        k = secrets.token_urlsafe(32)
+        f.write_text(k + '\n', encoding='utf-8')
+    return k
+
+
+def sign_keys():
+    """Every key a signature may be made with, for the machine that checks one: its own listener's, and the keys
+    of the other stations' listeners that were brought here (click-keys/*.key beside it)."""
+    own = Path(os.environ.get('TW_CLICK_KEY') or build.LOCAL.parent / 'click.key')
+    out = [sign_key()]
+    for f in sorted((own.parent / 'click-keys').glob('*.key')) if (own.parent / 'click-keys').is_dir() else []:
+        try:
+            out.append(f.read_text(encoding='utf-8').strip())
+        except OSError:
+            pass
+    return [k for k in out if k]
+
+
+def signature(note, key):
+    """What the listener writes in a note's head as `sig`: a keyed digest of who, when, about what, the stamp of
+    the Then line and the words. A note written as a file, or by write() from a script, has none: only a click
+    that came through this machine's listener carries one (the critique of 2026-10-10: a note is a plain file,
+    so `from: owner, kind: page` was a click any session could make). It does not stop a program that sets out
+    to post to the listener as the page does; it stops every note that was merely written."""
+    body = '\n'.join(str(note.get(k) or '') for k in SIGNED) + '\n' + str(note.get('text') or '').strip()
+    return hmac.new(key.encode('utf-8'), body.encode('utf-8'), hashlib.sha256).hexdigest()[:40]
+
+
+def signed(note, keys=None):
+    """True when the note carries a signature one of the keys here made."""
+    sig = str(note.get('sig') or '')
+    return bool(sig) and any(hmac.compare_digest(sig, signature(note, k)) for k in (sign_keys() if keys is None else keys))
+
+
 def line(s, n=200):
     """A value for the head of a note: one line, no more than n characters."""
     return re.sub(r'\s+', ' ', str(s or '')).strip()[:n]
 
 
-def write(where: Path, text, kind='page', about='', title='', lane='', asset='', page='', who='owner', now=None, then=''):
+def write(where: Path, text, kind='page', about='', title='', lane='', asset='', page='', who='owner', now=None, then='', sign=''):
     """Write a note and return it. Its name is made here, from the time and what it is about: nothing the page sends
     is used as a path. `then` is the stamp of the "Then: ..." line the Decide page showed under the option he clicked
     (briefs.py): what he saw goes with his click."""
@@ -91,6 +138,8 @@ def write(where: Path, text, kind='page', about='', title='', lane='', asset='',
     note = dict(id=nid, when=f'{now:%Y-%m-%d %H:%M:%S}', kind=kind, about=line(about), title=line(title), lane=line(lane), asset=line(asset),
                 page=line(page), then=line(then, 16), state='open')
     note['from'] = line(who, 40) or 'owner'
+    if sign:                                    # only the listener passes its key: see signature()
+        note['sig'] = signature(dict(note, text=text), sign)
     head = ''.join(f'{k}: {note[k]}\n' for k in FIELDS if note.get(k))
     tmp = where / f'{nid}.md.tmp'
     tmp.write_text(f'---\n{head}---\n{text}\n', encoding='utf-8')
@@ -163,7 +212,7 @@ def lines(notes):
 
 # ---- the listener the page writes through ----------------------------------------------------------------------------
 
-def handler(where: Path, key: str):
+def handler(where: Path, key: str, sign: str = ''):
     class Box(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -195,7 +244,7 @@ def handler(where: Path, key: str):
                 if not isinstance(d, dict) or not secrets.compare_digest(str(d.get('key', '')), key):
                     return self.reply(403, dict(ok=False, why='the key is not the one in the notes folder'))
                 if self.path == '/note':
-                    note = write(where, d.get('text'), **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
+                    note = write(where, d.get('text'), sign=sign, **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
                 elif self.path == '/close':
                     note = answer(where, str(d.get('id', '')), d.get('text') or 'Closed by the owner.', by='owner')
                 else:
@@ -213,7 +262,7 @@ def serve(where: Path = None, port=None, background=True):
     key = key_of(where)
     port = PORT if port is None else port
     try:
-        server = ThreadingHTTPServer(('127.0.0.1', port), handler(where, key))
+        server = ThreadingHTTPServer(('127.0.0.1', port), handler(where, key, sign_key(make=True)))
     except OSError:
         return None, key
     if background:

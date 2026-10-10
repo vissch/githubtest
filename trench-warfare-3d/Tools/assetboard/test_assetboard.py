@@ -1158,6 +1158,19 @@ def board():
     case('notes: a click on the Decide page carries the stamp of the Then line the page showed: it is in the head of the note and read back, and a note without one has no such line',
          seen[0] == 200 and '\nthen: ab12cd34\n' in head and {n['id']: n for n in notes.read_all(where)}[seen[1]['note']['id']].get('then') == 'ab12cd34'
          and '\nthen:' not in (where / (ok[1]['note']['id'] + '.md')).read_text(encoding='utf-8'), head[:300])
+    # a click that came through the listener is signed; a note that was merely written is not (the critique of
+    # 2026-10-10: `from: owner, kind: page` with the stamp was a click any session could write as a file)
+    by_id = {n['id']: n for n in notes.read_all(where)}
+    click = by_id[seen[1]['note']['id']]
+    written = notes.write(where, 'A: Fix it', kind='page', about='brief:b1', then='ab12cd34')
+    forged = dict(by_id[seen[1]['note']['id']], text='A: Land everything')
+    copied = dict(notes.read_all(where)[-1], sig=click['sig']) if notes.read_all(where)[-1]['id'] == written['id'] else {}
+    case('notes: a click through the listener carries a signature this machine\'s key made; a note written as a file or by a script has none, '
+         'and a signature does not carry over to other words or to another note',
+         len(click.get('sig', '')) == 40 and notes.signed(click) and '\nsig: ' in head and not written.get('sig') and not notes.signed(written)
+         and not notes.signed(forged) and copied and not notes.signed(copied) and not notes.signed(click, keys=['another key']) and not notes.signed(click, keys=[]), (click, written))
+    done_click = notes.answer(where, click['id'], 'Taken up.', by='a session')
+    case('notes: an answered click is still his signed click', notes.signed(done_click) and done_click['state'] == 'done', done_click)
     box.shutdown()
     box.server_close()
 
@@ -2362,6 +2375,7 @@ def critiques_cases():
 
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
+    os.environ['TW_CLICK_KEY'] = str(Path(tempfile.mkdtemp(prefix='tw-click-test-')) / 'click.key')     # ... nor makes or reads this machine's key for signing a click
     os.environ.update(TW_TASKBRIEFS=tempfile.mkdtemp(prefix='tw-taskbrief-test-'), TW_TASKBRIEF_OFF='1')      # ... and no reading of a task is started from a test
     os.environ['TW_FLOOR'] = tempfile.mkdtemp(prefix='tw-floor-test-')      # ... nor a floor where the other station reads this one's
     os.environ['TW_TASKS'] = tempfile.mkdtemp(prefix='tw-tasks-test-')      # ... nor into the tasks' folder, nor takes a capture of his in
