@@ -14,7 +14,14 @@ window.
 Board folder `evidence/idea-a-quarter-second-slow-mo-punch-when-a-he/concept/` (round 2, 2026-10-10):
 `shown.jpg` (the five pages as one sheet, 1:1), `sheet.png`, the five page PNGs, `greyscale-check.jpg`,
 `gen.py` (draws them), `measure.py` + `probes.json` + `luminance.txt` (probes them back out of the sheet's own
-pixels), `frames.txt`, `notes.md`.
+pixels), `frames.txt`, `notes.md`, `critic-r1.md`.
+
+One critic round was run over that folder alone. It scored the bundle 44/100 and found three faults: the added
+wall-clock was drawn off the bottom of every page, `shown.jpg` was 406,113 bytes, and the x5.0 man was cut by
+his panel's floor. All three are fixed in `gen.py` and the pages regenerated from it: every page now prints its
+own ADDED WALL-CLOCK against the 0.250 s goal, `shown.jpg` is 389,885 bytes with all 21 probe rows still over
+the 2.50:1 bar, and the man clears the panel floor by 10 px at worst. `gen.py` run twice gives byte-identical
+files.
 
 **The letters moved this round.** He said on 2026-10-09 "do it means the recommanded. which is usually A", so the
 recommendation — which is also the option he already picked — is page A now. Round 1's letters: A was the
