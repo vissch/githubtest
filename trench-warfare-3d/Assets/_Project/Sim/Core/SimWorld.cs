@@ -110,7 +110,9 @@ namespace TW.Sim
                     int ri = i * RosterEntry.SlotCount + s;
                     byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
                     // Owner's call of 2026-10-07: in a normal match the chosen ten hold only the player's own faction's
-                    // units and never one that costs nothing; the test level (greybox, playtest) may field anything.
+                    // units and never one that costs nothing; the test level may field anything — the sim's own
+                    // try-it maps (greybox, playtest) and a generated battlefield with BattlefieldParams.TestLevel
+                    // on (the Proving Ground).
                     // A refused choice leaves the faction's own slot standing rather than an empty card.
                     if (!Init.TestLevel)
                     {
