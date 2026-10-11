@@ -23,5 +23,18 @@ namespace TW.Tests.Show
             Assert.IsTrue(WindowSamples.CanSplit(WindowSamples.MainMs.Recorder), "[F4] the Main Thread recorder is one frame late: it may be split");
             Assert.IsFalse(WindowSamples.CanSplit(WindowSamples.MainMs.FrameTiming), "[F4] FrameTimingManager is about four frames late: its value must not be split tick/idle");
         }
+
+        [Test]
+        public void AFrameMarkerIsNotDividedBySimTicks()   // [F3]
+        {
+            Assert.IsFalse(WindowSamples.PerTick("TW.Host.Update"), "[F3] the host's frame runs once a frame, not once a tick");
+            Assert.IsFalse(WindowSamples.PerTick("TW.Hud.Refresh"), "[F3] the HUD refresh runs once a frame, not once a tick");
+            Assert.IsTrue(WindowSamples.PerTick("TW.Sim.Step"), "[F3] the sim's step is the one thing that runs once a tick");
+            // devbase-1 (docs/reference/aosa/runs/1): TW.Host.Update summed 3143.4367 ms over 1773 frames and 400 ticks
+            Assert.AreEqual(1.77, WindowSamples.PerFrameMs(3143.4367, 1773), 0.01, "[F3] TW.Host.Update is 1.77 ms a frame");
+            Assert.AreEqual(7.86, WindowSamples.PerTickMs(3143.4367, 400), 0.01, "[F3] dividing the same total by ticks reads 7.86, the wrong number the report showed");
+            Assert.AreEqual(0.0, WindowSamples.PerFrameMs(3143.4367, 0), 1e-9, "[F3] no frame recorded is 0, not a divide by zero");
+            Assert.AreEqual(0.0, WindowSamples.PerTickMs(3143.4367, 0), 1e-9, "[F3] no tick stepped is 0, not a divide by zero");
+        }
     }
 }

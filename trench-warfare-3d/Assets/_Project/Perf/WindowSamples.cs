@@ -27,5 +27,19 @@ namespace TW.Perf
         /// delivers about four frames late, so splitting its value by "did the previous frame step a tick" put a tick's
         /// cost in the idle frames: tick and idle p50 came out within 1% although a tick steps 3,000 men.</summary>
         public static bool CanSplit(MainMs source) => source == MainMs.Recorder;
+
+        /// <summary>F3: true when a marker's window total may be divided by the sim's ticks. Only the sim's own
+        /// markers (its step, its hash, its systems) run once a tick; the host's frame, the HUD and presentation run
+        /// once a frame, so dividing them by ticks made a higher frame rate look worse "per tick" (devbase-1:
+        /// TW.Host.Update 7.86 "per tick" against 1.77 ms a frame).</summary>
+        public static bool PerTick(string marker) =>
+            marker != null && marker.StartsWith("TW.Sim.", System.StringComparison.Ordinal);
+
+        /// <summary>A marker's window total over the frames it covered. 0 when no frame was recorded.</summary>
+        public static double PerFrameMs(double totalMs, int framesRecorded) =>
+            framesRecorded > 0 ? totalMs / framesRecorded : 0.0;
+
+        /// <summary>A marker's window total over the sim ticks it covered. 0 when no tick was stepped.</summary>
+        public static double PerTickMs(double totalMs, int ticks) => ticks > 0 ? totalMs / ticks : 0.0;
     }
 }
