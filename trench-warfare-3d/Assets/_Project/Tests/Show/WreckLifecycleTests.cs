@@ -8,6 +8,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Sim;
+using TW.Sim.Terrain;
 using TW.Presentation.Tactical;
 
 namespace TW.Tests
@@ -116,8 +117,33 @@ namespace TW.Tests
             public void Recompose() => Recomposed++;
         }
 
+        /// <summary>A Maw hull put into the renderer's private model field: TankRenderer.Start loads it
+        /// (Presentation/Camera/TankRenderer.cs:303) and an edit-mode test never runs Start, so AdoptHusks would find no
+        /// model and adopt nothing. VehicleSize.Tank is 1.7f.</summary>
+        static bool GiveAMawModel(TankRenderer r)
+        {
+            var model = TankModel.Load("Maw", VehicleArchetype.Maw, "Hull", 1.7f);
+            if (model == null) return false;
+            Set(r, "maw", model);
+            return true;
+        }
+
+        /// <summary>A wreck prop on the greybox map: AddProp refuses a trench, a link, a bunker or a blocked cell
+        /// (Sim/Terrain/MapData.cs:176-181), so try a few spots. Returns its index, or -1.</summary>
+        static int AddAWreck(TW.Sim.Match.MatchSim match)
+        {
+            for (float x = 4f; x < 60f; x += 7f)
+                for (float z = 4f; z < 60f; z += 7f)
+                {
+                    int i = match.Map.AddProp(new PropDef { Pos = new Unity.Mathematics.float3(x, 0f, z), Kind = PropKind.Wreck, Scale = 1f });
+                    if (i >= 0) return i;
+                }
+            return -1;
+        }
+
         /// <summary>[N7.2] adopting the map's own wrecks as husks asks the composer to compose again, so its grey stand-ins
-        /// go in the same frame instead of being drawn over the husks until the prop's first change.</summary>
+        /// go when the composer next runs (the ask is a flag; BattlefieldProps.Update claims HeavyWork and composes over
+        /// several frames) instead of being drawn over the husks until the prop's first change.</summary>
         [Test]
         public void AdoptingHusksAsksForARecompose()
         {
@@ -128,10 +154,42 @@ namespace TW.Tests
             {
                 var r = go.AddComponent<TankRenderer>();
                 match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+                Assert.IsTrue(GiveAMawModel(r), "the premise: the Maw hull loaded (without it nothing can be adopted)");
+                Assert.GreaterOrEqual(AddAWreck(match), 0, "the premise: a wreck prop went onto the map");
                 var adopt = r.GetType().GetMethod("AdoptHusks", Any);
                 Assert.NotNull(adopt, "TankRenderer.AdoptHusks");
                 adopt.Invoke(r, new object[] { match, 100f });
+                var wrecks = (System.Collections.ICollection)r.GetType().GetField("wrecks", Any).GetValue(r);
+                Assert.AreEqual(1, wrecks.Count, "the premise: the map's wreck was adopted as a husk");
                 Assert.AreEqual(1, props.Recomposed, "[N7.2] the composer was not asked to compose again, so its grey stand-ins stay beside the husks");
+            }
+            finally
+            {
+                match?.Dispose();
+                UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(props.gameObject);
+            }
+        }
+
+        /// <summary>[N7.c] A match whose map holds no wreck adopts no husk, so it must not ask for a recomposition: the
+        /// ask costs a whole-map composition, and every match start went through here.</summary>
+        [Test]
+        public void AMatchWithNoHuskAsksForNoRecompose()
+        {
+            var props = new GameObject("props stand-in").AddComponent<BattlefieldProps>();
+            var go = new GameObject("husk rig");
+            TW.Sim.Match.MatchSim match = null;
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+                GiveAMawModel(r);
+                var adopt = r.GetType().GetMethod("AdoptHusks", Any);
+                Assert.NotNull(adopt, "TankRenderer.AdoptHusks");
+                adopt.Invoke(r, new object[] { match, 100f });
+                var wrecks = (System.Collections.ICollection)r.GetType().GetField("wrecks", Any).GetValue(r);
+                Assert.AreEqual(0, wrecks.Count, "the premise: the greybox map holds no wreck prop, so no husk was adopted");
+                Assert.AreEqual(0, props.Recomposed, "[N7.c] a match with no husk still paid for a whole-map composition");
             }
             finally
             {
