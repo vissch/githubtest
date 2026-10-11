@@ -489,6 +489,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Ignite(slot, fire)` | Editor/TankCapture.cs | Set something burning in both worlds (to watch a fire, a bail-out and a cook-off). |
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
+| `TW.Editor.UiAssetBuilder.Characters()` | Editor/UI/UiAssetBuilder.cs | ASCII plus the Latin-1 letters the unit and place names may need. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
 | `TW.Editor.VfxLab.Shell(x, z, radius, damage)` | Editor/VfxLab.cs | One shell, bursting next tick in every world. |
 | `TW.Editor.VfxLab.Fire(x, z, radius)` | Editor/VfxLab.cs | An incendiary burst: the men inside it catch fire. |
