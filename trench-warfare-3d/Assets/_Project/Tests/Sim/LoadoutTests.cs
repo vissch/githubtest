@@ -272,12 +272,18 @@ namespace TW.Tests
 
             var cfg = Config();
             cfg.LoadoutA = Ten(InfantryArchetype.Jetpack, InfantryArchetype.Frog, InfantryArchetype.Rifle);
+            cfg.LoadoutB = Ten(InfantryArchetype.Para);
             using var m = MatchSim.CreateBattlefield(cfg, p);
 
             Assert.AreEqual(InfantryArchetype.Jetpack, m.World.Roster[0].Archetype,
                 "[S3b] on a test level the launch's any ten stands, Brass's jetpack included");
             Assert.AreEqual(InfantryArchetype.Frog, m.World.Roster[1].Archetype,
                 "[S3b] ...and a unit no faction fields");
+
+            // [S3c] ...and the other half of the normal-match rule, the unit that costs nothing, is free too: Brass's
+            // paratrooper is in Brass's pool at Cost 0, the pair the switch-off test above asserts is refused.
+            Assert.AreEqual(InfantryArchetype.Para, m.World.Roster[RosterEntry.SlotCount].Archetype,
+                "[S3c] on a test level a unit that costs nothing stands too: Brass's paratrooper");
         }
     }
 }
