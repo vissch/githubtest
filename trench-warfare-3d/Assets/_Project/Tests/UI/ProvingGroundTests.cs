@@ -120,6 +120,24 @@ namespace TW.Tests
             Assert.AreEqual(0, r.Enemy.All.Count, "[N7.4] a refused deploy still issued Deploy commands");
         }
 
+        // [N7.b] A wave through a slot that costs nothing makes no write at all, so the mark can only come from the
+        // one line that sets it when squads were queued (Presentation/Core/ProvingGround.cs:454). Para is the free
+        // slot: RosterEntry.Para is Cost 0, Hp 90, so FillRosters unlocks it.
+        [Test]
+        public void AFreeDeployWithEveryWriteRefusedStillQueuesAndMarks()
+        {
+            var ten = new byte[] { InfantryArchetype.Para, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            using var r = new Rig(ten, writes: false);   // every write through the director fails
+            r.Ground.ThroughSlots = true;
+            Assert.AreEqual(0, r.W.Roster[RosterEntry.SlotCount + 0].Cost, "the premise: their first slot costs nothing");
+            var wave = new ProvingGround.Wave { Name = "FREE" };
+            wave.Add(InfantryArchetype.Para, 2);
+            ProvingGround.Forget();
+            Assert.AreEqual(2, r.Ground.Send(wave), "[N7.b] a free wave did not go up");
+            Assert.Greater(r.Ground.Pending, 0, "[N7.b] a free wave owes no squads");
+            Assert.IsTrue(ProvingGround.Tooled, "[N7.b] a free wave that queued squads did not mark the match as tooled");
+        }
+
         // [N7.4] Silver the panel could not write is not silver given.
         [Test]
         public void SilverWhoseWriteFailsIsNotReported()
