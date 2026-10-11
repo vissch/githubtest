@@ -193,6 +193,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **The fleet's guns stay silent in a match unless switched on** (the owner, on the Decide page: "The guns stay silent in a match unless switched on (a test, the debug panel, an ability later); the fix stays"). The review fix U1 made the fleet fire for the first time, a 300-damage shell every 23 s on every map with a sea, half of them on the sea side's own lines: ambient shelling, against the row of 2026-09-28. `SeaLandingSystem.FleetFires` is off as a match is made (`LandingTests.TheFleetIsSilentInAMatch_UnlessSwitchedOn`); a test switches it on. Nothing in the game switches it on yet: no debug button, no ability. Landed with `lane/sim/review-fixes` (replay v36, v37). |
 
 ## Open: waiting on the owner
+- **The Landing golden-hash pin has no firefight in it (2026-10-11, code review [T24c] / [T24d]):** measured, not
+  guessed, by `SimHashTests.WhatTheScriptedMatchesDo_TickProfile` over 2600 ticks of the scripted Landing match: the
+  sea side is paid for at tick 0 but stands off the beach and is not ashore before tick ~320 (`SeaLanding.StandOff`
+  96 m at `RunSpeed` 7 m/s plus `GroundTicks` 16), then crosses the 170 m of land at a mired walk - nearest enemy
+  167.8 m at t320, 55.0 m at t1799 - and the **first shot of direct fire falls at tick 2391**, at 5 m, with the land
+  side wiped at t2420. The first `Hit` at t745 is the gunboats and the ambient shelling, not a rifle. So the pin's
+  300 hashed ticks contain no shot, no hit and only three of the six scripted deploys, and no tick count short of
+  ~2450 changes that. Options: (a) leave the Landing pin at 300 ticks and let the greybox pin carry the direct-fire
+  guard alone - **the default taken here**, nothing is pinned on a run nobody measured; (b) hash ~2450 ticks of the
+  Landing as a `Category("Long")` pin (eight times the work of the present one, every gate, for a fight between the
+  last man and three); (c) move the Landing's spawns the way the greybox's were moved, which makes the pinned match
+  no longer the generated Landing deployment the pin exists to guard. (b) and (c) both re-pin the value.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow, and a screen on the line blinds the shot:
   `docs/02-contracts.md`, replay v43). The rest of it, "list and suppress only men the shooter could engage, not below
