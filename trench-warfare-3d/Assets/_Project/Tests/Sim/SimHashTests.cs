@@ -146,6 +146,26 @@ namespace TW.Tests
             return -1;
         }
 
+        /// <summary>[T24c] The greybox the golden pin runs on. MatchSim.CreateGreybox takes GreyboxMapGenerator's
+        /// default 300 x 800 m corridor, which spawns the two sides at z=10 and z=790 and digs their trenches at
+        /// z=120 and z=680: 780 m apart, while the longest gun in CombatTables reaches 184 m and a rifleman covers
+        /// at most 45 m in the 300 hashed ticks (15 s). Nobody ever fired a shot, so a change to DirectFire,
+        /// TankGunnery, Engage, Melee, Pounce or TrenchGarrison left the pin green. A 400 m corridor (trenches at
+        /// z=120 and z=280) with both sides deployed at z=180 and z=220 puts them inside gun range at tick 0. A
+        /// rally point is not an option: GoalKey.Rally is built nowhere (FlowFieldManager.DefaultGoal), so SetRally
+        /// moves nobody.</summary>
+        static TW.Sim.Match.MatchSim ScriptedGreybox()
+        {
+            var map = TW.Sim.Terrain.GreyboxMapGenerator.Create(Allocator.Persistent, 300f, 400f);
+            for (int i = 0; i < map.Spawns.Length; i++)
+            {
+                var sp = map.Spawns[i];
+                sp.Pos = new float3(150f, 0f, sp.Team == 0 ? 180f : 220f);
+                map.Spawns[i] = sp;
+            }
+            return new TW.Sim.Match.MatchSim(ScriptedConfig(), map);   // MatchSim.Dispose frees the map
+        }
+
         /// <summary>The config both pins run on: enough silver for six deploys and two abilities a side (about 725
         /// for Iron), so no deploy and no barrage is ever refused for want of it.</summary>
         static SimConfig ScriptedConfig()
@@ -164,15 +184,25 @@ namespace TW.Tests
         /// commits (replay v38 to v44). The asserts below say men exist, a machine is on the field and somebody was
         /// hit BEFORE the hash is compared, so the match cannot go idle again unnoticed.
         ///
-        /// To re-pin after a deliberate change, bump ReplayRecorder.FormatVersion, take the "But was: 0x..." the
-        /// test prints from a real editor run (never from otr.py or occ.py: no Burst there), paste it in below, and
-        /// say so in the commit message.
+        /// To re-pin after a deliberate change, bump ReplayRecorder.FormatVersion and paste the new value below.
+        /// [T24e] NUnit's Assert.AreEqual prints a ulong in DECIMAL, not hex, so the failure never says
+        /// "But was: 0x...". A real one from this change read
+        ///   Expected: 4683619924441667745
+        ///   But was:  6938716348497752424
+        /// Take the decimal after "But was:" and convert it - python -c "print(hex(6938716348497752424))" - and
+        /// paste that 0x... literal below.
+        /// [T24e] Take it from a real editor run only, never from occ.py / otr.py: those run managed C# with no
+        /// Burst codegen, and otr.py also reimplements Mathf.PerlinNoise, which the Landing map uses. Measured
+        /// 2026-10-11: `python Tools/aosa/occ.py --changed` then `python Tools/otr.py SimHashTests` gives
+        /// FAIL=2 PASS=4 - both pins fail, the greybox with "But was: 14849829938549376146" against the editor's
+        /// 6938716348497752424, the Landing with 1387093808830256496 against 3379562990869556318. A no-Burst
+        /// value is a different number, not a second opinion: paste one in and the gate goes red.
         /// </summary>
         [Test]
         public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
             Assert.AreEqual(45, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
-            using var match = TW.Sim.Match.MatchSim.CreateGreybox(ScriptedConfig());
+            using var match = ScriptedGreybox();
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
                 "[T24b] nobody deployed: the 23 per-unit arrays SimWorld.Hash() folds at SimWorld.cs:417-439 fold " +
@@ -180,7 +210,7 @@ namespace TW.Tests
             Assert.Greater(fight.Vehicles, 0, "[T24b] no machine on the field, so the vehicle state is unhashed");
             Assert.Greater(fight.Hits + fight.Deaths + fight.Wounded, 0,
                 "[T24b] the match went idle: nobody was hit, wounded or killed in the 300 ticks");
-            Assert.AreEqual(0x40ff8f81a34998a1UL, match.World.Hash(),
+            Assert.AreEqual(0x604b45c18d677168UL, match.World.Hash(),
                 "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 45 pin: a field was " +
                 "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
@@ -204,5 +234,68 @@ namespace TW.Tests
                 "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 45 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
+
+        /// <summary>[T24c] Not a claim: what the two scripted matches do, tick by tick, so the tick counts and the
+        /// mutant choice of this change come from a measurement and not from a guess. Explicit: it runs 600 ticks of
+        /// both matches and asserts nothing.</summary>
+        [Test, Explicit("a measurement, not a claim: what the scripted matches do tick by tick")]
+        public void WhatTheScriptedMatchesDo_TickProfile()
+        {
+            var sb = new System.Text.StringBuilder();
+            Profile(sb, "greybox 300x400, spawns z=180/220", ScriptedGreybox());
+            Profile(sb, "Landing " + Seed, TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed)));
+            // also on disk, because an Explicit test's console output is not in run_tests' JSON (tw-sim-hash-profile.txt)
+            System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-sim-hash-profile.txt"), sb.ToString());
+            TestContext.WriteLine(sb.ToString());
+        }
+
+        static void Profile(System.Text.StringBuilder sb, string what, TW.Sim.Match.MatchSim m)
+        {
+            using (m)
+            {
+                var w = m.World;
+                using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+                int firstShot = -1, firstHit = -1, firstBlow = -1, firstTrench = -1;
+                int deployed = 0, fired = 0, rejected = 0, blows = 0, trenches = 0;
+                sb.AppendLine("== " + what);
+                for (int t = 0; t < 600; t++)
+                {
+                    if (t == 0 || t == 20)
+                    {
+                        var cmds = t == 0 ? Deploys(w) : Barrages(w);
+                        using var arr = new NativeArray<SimCommand>(cmds, Allocator.Temp);
+                        m.Step(arr);
+                    }
+                    else m.Step(none);
+                    var ev = w.Events.Events;
+                    for (int e = 0; e < ev.Length; e++)
+                    {
+                        switch (ev[e].Type)
+                        {
+                            case SimEventType.Shot: if (firstShot < 0) firstShot = t; break;
+                            case SimEventType.Hit: if (firstHit < 0) firstHit = t; break;
+                            case SimEventType.MeleeBlow: blows++; if (firstBlow < 0) firstBlow = t; break;
+                            case SimEventType.UnitEnteredTrench: trenches++; if (firstTrench < 0) firstTrench = t; break;
+                            case SimEventType.UnitDeployed: deployed++; break;
+                            case SimEventType.AbilityFired: fired++; break;
+                            case SimEventType.CommandRejected: rejected++; break;
+                        }
+                    }
+                    if (t % 20 == 0 || t == 599)
+                    {
+                        int a0 = 0, a1 = 0;
+                        for (int i = 0; i < w.HighWater; i++)
+                        {
+                            if (!w.IsAlive(i)) continue;
+                            if ((w.Team[i] & 1) == 0) a0++; else a1++;
+                        }
+                        sb.AppendLine($"  t{t,3} highWater {w.HighWater,3} alive {a0}/{a1}");
+                    }
+                }
+                sb.AppendLine($"  first: shot {firstShot} hit {firstHit} meleeBlow {firstBlow} enteredTrench {firstTrench}");
+                sb.AppendLine($"  totals: deployed {deployed} abilityFired {fired} rejected {rejected} meleeBlows {blows} trenchEntries {trenches}");
+            }
+        }
+
     }
 }
