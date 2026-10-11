@@ -5,6 +5,7 @@
 using System.Reflection;
 using NUnit.Framework;
 using UnityEditor;
+using UnityEditor.SceneManagement;
 using UnityEngine;
 using TW.Editor;
 using TW.Presentation;
@@ -36,6 +37,42 @@ namespace TW.Tests
                 "[N8.1] a marked gym request started no run");
         }
 
+        [Test]
+        public void AnErasedGymRequestStartsNoRun()   // [N8.1b]
+        {
+            var open = EditorSceneManager.GetActiveScene();
+            Debug.Log("[N8.1b] active scene: path \"" + open.path + "\", name \"" + open.name + "\"");
+
+            host = new GameObject("n81b-erased-host");
+            host.AddComponent<SimHost>();
+
+            SessionState.EraseString(RequestKey);
+            EnterPlayMode();
+            Assert.AreEqual(0, Object.FindObjectsByType<GymRun>(FindObjectsSortMode.None).Length,
+                "[N8.1b] an erased gym request attached a GymRun");
+        }
+
+        [Test]
+        public void GymsOwnMarkerAloneStartsExactlyOneRun()   // [N8.1b]
+        {
+            host = new GameObject("n81b-marker-host");
+            host.AddComponent<SimHost>();
+
+            SessionState.SetString(RequestKey, GymConst("Marker"));   // what Gym.Run("") stores
+            EnterPlayMode();
+            var runs = Object.FindObjectsByType<GymRun>(FindObjectsSortMode.None);
+            Assert.AreEqual(1, runs.Length, "[N8.1b] Gym.Run(\"\")'s own value attached " + runs.Length + " GymRun, not one");
+            Assert.AreEqual("", runs[0].Options, "[N8.1b] the marker was not stripped from the options");
+        }
+
+        // the marker comes from Gym itself, so no test hand-writes "run:"
+        static string GymConst(string name)
+        {
+            var f = typeof(Gym).GetField(name, BindingFlags.Static | BindingFlags.NonPublic);
+            Assert.IsNotNull(f, "[N8.1b] Gym." + name + " is gone");
+            return (string)f.GetRawConstantValue();
+        }
+
         static void EnterPlayMode()
         {
             var hook = typeof(Gym).GetMethod("OnPlayMode", BindingFlags.Static | BindingFlags.NonPublic);
@@ -47,7 +84,9 @@ namespace TW.Tests
         public void Clean()
         {
             SessionState.EraseString(RequestKey);
-            foreach (var run in Object.FindObjectsByType<GymRun>(FindObjectsSortMode.None)) Object.DestroyImmediate(run.gameObject);
+            // only the component: StartRunner attaches it to FindFirstObjectByType<SimHost>(), which in the Test Runner
+            // window with GreyboxCorridor open is the scene's own host object, not the one this test made. [N8.1b]
+            foreach (var run in Object.FindObjectsByType<GymRun>(FindObjectsSortMode.None)) Object.DestroyImmediate(run);
             if (host != null) Object.DestroyImmediate(host);
             host = null;
         }
