@@ -2,7 +2,8 @@
 """The run loop: pick a unit, plan it (one leg), execute the plan (one leg per part), check the result by script,
 record it, and go on until a stop rule fires. Every decision here is a script's; the model only does the legs.
 
-Stop rules: the run's time is up or too short for a leg (limits.json min_leg_minutes), the leg cap, the day's budget (limits.json day_budget_pct percent points of the
+Stop rules: the run's time is up or too short for a leg (limits.json min_leg_minutes), the leg cap, the day's
+budget (limits.json day_budget_pct percent points of the
 week, or day_budget_usd dollars while nothing can be said in percent; counted by ledger.py over every leg started
 today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
 the owner's stop (relay.py stop), the checkout is missing or busy, a unit that left uncommitted work (it is saved

@@ -12,9 +12,12 @@
   keep_critic(unit, ctx, round_no, text)   keep a critic round where this source keeps its evidence
   finish(unit, ctx, problems, outcome)   record PASS | FAIL | BLOCKED where this source keeps its state; outcome is
                                     what the last leg reported (done | blocked | failed)
+A source may also have these two; the runner asks for them by name and goes on without (lane has both):
+  reject(unit, ctx, why, leg)       a leg of the unit could not be trusted and the run stops with no verdict
+  saved(unit, ctx, rec, patch)      the runner put the unit's uncommitted work aside (gitio.snapshot_dirty's record)
 
 ctx: board (Path), work (Path, the work checkout), station, skip (unit ids this run already failed), since (the
-time the unit started: evidence older than that is not this unit's).
+time the unit started: evidence older than that is not this unit's), run (the run's name).
 Adding a source is adding a file here and its name to ORDER.
 """
 import importlib
