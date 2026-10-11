@@ -232,8 +232,9 @@ stays allowed later the same day. The same hour for both ends switches the pace 
 - After a wait the run asks the day again (another relay may have spent it meanwhile) and reads the queue
   again, so a unit the owner moved to the front during the wait is the one that starts.
 - When the wait would end after the run's own time (`--hours`), the run stops instead, with
-  `the day's pace lets a unit start at HH:MM, after this run's N hours are up`. A dry run never waits: it says
-  the time.
+  `the day's pace lets a unit start at HH:MM, after this run's N hours are up`. The same when the wait would end
+  with less of the run left than the unit needs (`min_leg_minutes`, "What stops a run"). A dry run never waits: it
+  says the time.
 - A leg that has started may spend what the **day** has left, not only what the pace allows: a leg cut off half way
   leaves work nobody can use. So the day can run ahead of the pace by one leg.
 - `$R day` and `$R budget` print the line `Pace: 5.5% of the week allowed by 12:00, about 2.4% of it free.`, and
@@ -341,6 +342,16 @@ on the board, with how each unit ended (`units`), so a failed unit is not hidden
 A unit whose lane the work checkout cannot switch to (another checkout has that branch out) is recorded FAIL with no
 leg, and the next unit is taken; until 2026-10-09 it ended the whole run.
 
+**A leg gets a minimum of time.** `--hours` stays a wall: a leg that is working when the run's time ends is cut
+there. So no leg starts with less than `min_leg_minutes` (10, `limits.json`) of the run left, and no unit starts
+its plan with less than twice that, a plan and an execute leg. The run then stops with
+`the run's N hours are up for new work: M minutes are left, and a leg gets at least 10` (`reason_kind` `hours`),
+up to that much earlier than its hours. A wait for the day's pace that would end inside that last stretch does
+not start either (`pace`). The owner, 2026-10-11, on the review's question whether `--hours` may cut a leg:
+before, a leg was admitted with seconds left, started and killed (a plan leg of 2026-10-09 got seven minutes),
+and what it left uncommitted blocked the next run. The number is a judgement, not a proof: a leg admitted with a
+little more can still be cut. 0 switches the minimum off. A run of `--hours 0.25` cannot start a unit as shipped.
+
 **Uncommitted work is put aside.** When a unit leaves files uncommitted, or a leg that cannot be trusted does, the
 runner saves them and puts the work checkout back to its HEAD, so the next run can use it (`gitio.snapshot_dirty`;
 until 2026-10-11 the files stayed, and every later run stopped with 0 legs on a dirty checkout). The work is held
@@ -384,7 +395,7 @@ record an older relay wrote does not have it.
 | `reason_kind` | The run stopped because |
 |---|---|
 | `done` | nothing was left to do |
-| `hours` | the run's time was up, between legs or in one |
+| `hours` | the run's time was up, between legs or in one, or too little of it was left for a leg (`min_leg_minutes`) |
 | `legs` | the leg cap was reached |
 | `asked` | somebody asked: `stop`, `stop --now`, Ctrl+C |
 | `budget` | the day's budget is spent or does not cover the next unit or leg |

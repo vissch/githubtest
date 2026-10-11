@@ -4,6 +4,7 @@
   "autocompact_tokens": 400000,
   "run_hours": {"value": 3, "min": 0.25, "max": 12},
   "leg_minutes": {"value": 90, "min": 10, "max": 180},
+  "min_leg_minutes": 10,
   "leg_budget_usd": {"value": 30, "min": 0, "max": 50},
   "day_budget_usd": {"value": 50, "min": 0, "max": 500},
   "day_budget_pct": {"value": 11, "min": 0, "max": 100},

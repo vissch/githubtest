@@ -2,7 +2,7 @@
 """The run loop: pick a unit, plan it (one leg), execute the plan (one leg per part), check the result by script,
 record it, and go on until a stop rule fires. Every decision here is a script's; the model only does the legs.
 
-Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_pct percent points of the
+Stop rules: the run's time is up or too short for a leg (limits.json min_leg_minutes), the leg cap, the day's budget (limits.json day_budget_pct percent points of the
 week, or day_budget_usd dollars while nothing can be said in percent; counted by ledger.py over every leg started
 today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
 the owner's stop (relay.py stop), the checkout is missing or busy, a unit that left uncommitted work (it is saved
@@ -326,6 +326,11 @@ class Run:
             if time.time() + wait > self.deadline:
                 return Why("pace", "the day's pace lets %s start at %s, after this run's %.3g hours are up"
                            % (what, when, self.lim["run_hours"]))
+            room = self.lim["min_leg_minutes"] * len(phases)    # a wait that ends in the run's last stretch starts
+            if time.time() + wait > self.deadline - room * 60:  # a leg that cannot do anything
+                return Why("pace", "the day's pace lets %s start at %s, and this run's %.3g hours then have less than "
+                           "the %.3g minutes left that it needs (limits.json min_leg_minutes)"
+                           % (what, when, self.lim["run_hours"], room))
             if self.stop_file.exists():
                 return self.asked()
             if not told:
@@ -339,11 +344,26 @@ class Run:
             self.waited = True
             sleep(max(1.0, min(PACE_STEP, wait)))
 
+    def short_of_time(self, legs=1):
+        """Why what is left of the run's time does not hold this many more legs, or None. A leg gets at least
+        limits.json min_leg_minutes (0: no minimum, any time left is room). Asked before a leg starts, and for two
+        legs before a unit's plan: a leg that is admitted with seconds left is started, cut at the run's end and
+        leaves work nobody can use; a plan with no time for its execute is lost (the owner, 2026-10-11)."""
+        left, need = self.deadline - time.time(), self.lim["min_leg_minutes"] * legs
+        if left <= 0:
+            return Why("hours", "the run's %.3g hours are up" % self.lim["run_hours"])
+        if left >= need * 60:
+            return None
+        return Why("hours", "the run's %.3g hours are up for new work: %s left, and %s gets at least %.3g "
+                   "(limits.json min_leg_minutes)"
+                   % (self.lim["run_hours"], "%d minutes are" % (left // 60) if left >= 120 else "under two minutes are",
+                      "a leg" if legs == 1 else "a unit (a plan and an execute leg)", need))
+
     def no_room(self, phase=None, unit=None):
         """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
         With a phase, the budget must also cover the usual cost of such a leg."""
-        if time.time() > self.deadline:
-            return Why("hours", "the run's %.3g hours are up" % self.lim["run_hours"])
+        if self.short_of_time():
+            return self.short_of_time()                     # time only runs out: asked again, it still says so
         if self.a.max_legs and self.legs >= self.a.max_legs:
             return Why("legs", "the leg cap (%d) is reached" % self.a.max_legs)
         if self.stop_file.exists():
@@ -489,6 +509,9 @@ class Run:
         if self.waited:                                     # the queue's order may have changed while it waited:
             print("unit %s: the wait is over, the queue is read again" % unit["id"], flush=True)
             return                                           # the loop picks the unit that is first now
+        late = self.short_of_time(2)                         # asked before the plan, as the budget is
+        if late:
+            raise Stop(late)
         src.claim(unit)
         self.claimed = src
         remote_before, body = gitio.remote_head(self.work, unit["lane"]), src.body(unit)

@@ -1456,6 +1456,7 @@ class Runs(Repo):
         self.queue("u1")
         self.script({"plan": [{"sleep": 120}]})
         r = runner.Run(self.args())
+        r.lim["min_leg_minutes"] = 0                             # this test is about the cut, not about admission
         r.deadline = time.time() + 3
         with contextlib.redirect_stdout(io.StringIO()):
             r.loop()
@@ -1463,6 +1464,48 @@ class Runs(Repo):
         self.assertIn("hours are up", stop["reason"])
         self.assertEqual(stop["reason_kind"], "hours")
         self.assertEqual(stop["legs"], 1)
+
+    def test_no_leg_starts_with_less_time_left_than_a_leg_needs(self):
+        # [R002.4] leg 22 of run 20261009-071456-60872 was a plan leg started seven minutes before the run's end
+        # and killed there; admission only asked whether the deadline had passed
+        def last_stop():
+            return json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
+        self.queue("u1")
+        self.script({"plan": [{"sleep": 60}]})
+        r = runner.Run(self.args())
+        r.deadline = time.time() + 8                             # far less than a plan and an execute leg need
+        with contextlib.redirect_stdout(io.StringIO()):
+            r.loop()
+        stop = last_stop()
+        self.assertEqual(stop["legs"], 0, stop["reason"])
+        self.assertFalse((legdir.home() / "runs" / stop["run"] / "legs").exists())      # no leg folder: none began
+        self.assertEqual(stop["reason_kind"], "hours")
+        self.assertEqual(stop["reason"], "the run's 3 hours are up for new work: under two minutes are left, and a unit "
+                                         "(a plan and an execute leg) gets at least 20 (limits.json min_leg_minutes)")
+        self.assertEqual(self.limits()["min_leg_minutes"], 10)   # as shipped; the owner, 2026-10-11
+        # a plan leg that used the time up: the execute leg is not started either
+        self.script(self.GOOD)
+        r, run_leg = runner.Run(self.args()), launch.run_leg
+
+        def a_long_plan(d, *a):
+            leg = run_leg(d, *a)
+            r.deadline = time.time() + 300                       # as it ends, five minutes of the run are left
+            return leg
+        launch.run_leg = a_long_plan
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                r.loop()
+        finally:
+            launch.run_leg = run_leg
+        stop = last_stop()
+        self.assertEqual((stop["legs"], stop["units"], stop["now_on"], stop["reason_kind"]), (1, {}, "u1", "hours"))
+        self.assertRegex(stop["reason"], r"^the run's 3 hours are up for new work: [34] minutes are left, and a leg gets "
+                                         r"at least 10 \(limits.json min_leg_minutes\)$")
+        self.assertEqual(gitio.dirty(self.work), [])
+        r = runner.Run(self.args())                              # with the minimum off, a second is room, as before
+        r.lim["min_leg_minutes"] = 0
+        r.deadline = time.time() + 1
+        self.assertIsNone(r.no_room("plan"))
 
     def test_a_leg_that_cannot_be_trusted_stops_the_run_without_a_verdict(self):
         cases = (({"mode": "default", "plan": [{"write": "plan.md", "text": PLAN}]}, "not auto"),
@@ -1902,7 +1945,7 @@ class Record(Repo):
                  for c in calls if name(c) == "Why"]
         self.assertTrue(kinds and all(k in runner.KINDS for k in kinds), kinds)   # a kind in so many words, each time
         self.assertEqual(sorted(set(kinds)), sorted(runner.KINDS))                 # and no kind that nothing uses
-        made = lambda v: isinstance(v, ast.Call) and name(v) in ("Why", "asked", "no_room", "no_budget")
+        made = lambda v: isinstance(v, ast.Call) and name(v) in ("Why", "asked", "no_room", "no_budget", "short_of_time")
 
         def values(f, var):
             """What the function assigns to a name, also as one of several (a, b = x, y)."""
@@ -1927,7 +1970,7 @@ class Record(Repo):
                 reasons += 1
                 self.assertTrue(made(v) or (isinstance(v, ast.Attribute) and v.attr == "args"),
                                 "%s, line %d: a reason of no kind" % (f.name, v.lineno))
-            for r in [n for n in ast.walk(f) if isinstance(n, ast.Return)] if f.name in ("asked", "no_room", "no_budget") else []:
+            for r in [n for n in ast.walk(f) if isinstance(n, ast.Return)] if f.name in ("asked", "no_room", "no_budget", "short_of_time") else []:
                 returns += 1
                 self.assertTrue(r.value is None or made(r.value) or (isinstance(r.value, ast.Constant) and r.value.value is None),
                                 "%s, line %d: gives a reason of no kind" % (f.name, r.lineno))
@@ -2466,6 +2509,18 @@ class Pace(Repo):
         self.assertEqual(stop["reason_kind"], "pace")
         self.assertEqual(self.slept, [])
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+
+    def test_a_wait_that_would_end_too_near_the_runs_end_for_a_unit_does_not_start(self):
+        # [R002.4] a wait for the pace that ends a few minutes before the run does started a plan leg there
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.at(0, 30)
+        out, stop = self.go(hours=1)                             # the pace lets it start 49 minutes from now
+        self.assertEqual((stop["reason"], stop["legs"]),
+                         ("the day's pace lets a unit start at 01:19, and this run's 1 hours then have less than the "
+                          "20 minutes left that it needs (limits.json min_leg_minutes)", 0))
+        self.assertEqual(stop["reason_kind"], "pace")
+        self.assertEqual(self.slept, [])
 
     def test_a_dry_run_does_not_wait_and_says_the_time(self):
         self.queue("u1")
