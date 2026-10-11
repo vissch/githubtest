@@ -139,6 +139,22 @@ def keep(board, message, leave=()):
     return None
 
 
+def keep_only(board, message, paths):
+    """Commit these files of the board and nothing else, on this machine only: no pull, no push, and whatever else
+    is changed or staged in the clone stays as it is (git commit with paths). For a command that queues or moves
+    work while a run is going here: a pull would bring in other stations' records under the leg that is working,
+    and the leg is blamed for every board file that changes (the review, R002.5). None when a commit was made, else
+    why there is none, in push()'s words."""
+    if not (Path(board) / ".git").exists():
+        return "no board repo"
+    rel = [Path(p).resolve().relative_to(Path(board).resolve()).as_posix() for p in paths]
+    gitio.git(["add", "--"] + rel, board)
+    if not gitio.git(["diff", "--cached", "--name-only", "--"] + rel, board):
+        return "nothing to push"
+    gitio.git(["commit", "-q", "-m", message, "--"] + rel, board)
+    return None
+
+
 def push(board, message, tries=3, wait=None, leave=()):
     """Commit and push only what the relay wrote (relay/ and evidence/); a failed push keeps the local commit and
     is reported, never raised. A rebase that fails is aborted, so the board is never left half-rebased.

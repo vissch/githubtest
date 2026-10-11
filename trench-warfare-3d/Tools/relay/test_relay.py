@@ -2101,6 +2101,68 @@ class Record(Repo):
         self.assertEqual(seen[2][1:], ("?? relay/queue/u9.json\n", True))              # the leg's file: not committed
         self.assertIn("skipping u9.json", out)                                           # so not taken as work
 
+    def test_work_queued_moved_or_given_a_role_during_a_leg_pulls_nothing_and_the_leg_is_not_blamed(self):
+        # [R002.5] `add`, `prio` and `role` pulled the board under the leg that was working, and the audit took
+        # every record the pull brought in for a file the leg had changed: no verdict, the run stopped
+        self.queue("u1")
+        self.board_repo()
+        other = self.tmp / "other-board"                        # another station's clone of the board
+        self.b(["clone", "-q", "-b", "main", str(self.far), str(other)], self.tmp)
+        unit = self.tmp / "unit.json"
+        unit.write_text(json.dumps({"id": "u9", "lane": "lane/show/x", "role": "lane", "goal": "g",
+                                    "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}), encoding="utf-8")
+        self.script(self.GOOD)
+        said, seen = [], {}
+
+        def cmd(*argv):
+            buf = io.StringIO()
+            with contextlib.redirect_stdout(buf):
+                try:
+                    relay.main(list(argv))
+                except SystemExit as e:
+                    buf.write("REFUSED: %s" % e)
+            said.append(buf.getvalue())
+
+        def look(nn, d):
+            if nn == 1:                                         # while the plan leg works: the other station pushes
+                self.b(["pull", "-q", "--rebase"], other)       # its records, and here a unit is queued
+                (other / "relay" / "laptop" / "legs").mkdir(parents=True)
+                (other / "relay" / "laptop" / "legs" / "x.json").write_text("{}", encoding="utf-8")
+                self.b(["add", "-A"], other); self.b(["commit", "-q", "-m", "a laptop leg"], other)
+                self.b(["push", "-q", "origin", "main"], other)
+                cmd("add", "--unit", str(unit))
+                seen.update(far=self.far_file("relay/queue/u9.json"),
+                            imported=(self.board / "relay" / "laptop" / "legs" / "x.json").exists(),
+                            commit=self.b(["show", "--name-only", "--format=", "HEAD"]).stdout.decode().split())
+            if nn == 2:                                         # while the execute leg works: it is moved, given a
+                cmd("prio", "u9", "90")                         # role, and added a second time
+                cmd("role", "optimizer", "u9")
+                cmd("add", "--unit", str(unit))
+        out, stop = self.during(look)
+        self.assertNotIn("broke a rule", stop["reason"])
+        self.assertEqual(stop["units"], {"u1": "PASS", "u9": "PASS"}, stop)    # the leg kept its verdict; u9 was trusted
+        self.assertEqual((seen["far"], seen["imported"], seen["commit"]), (None, False, ["relay/queue/u9.json"]))
+        self.assertEqual(len(said), 4)
+        self.assertTrue(all("not pushed: a run is going" in s for s in said), said)
+        far = self.far_file("relay/queue/u9.json")              # the run's own pushes carried all of it
+        self.assertEqual((far["priority"], far["role"]), (90, "optimizer"))
+        self.assertTrue((self.board / "relay" / "laptop" / "legs" / "x.json").exists())    # taken in between legs
+        # a commit of the one file leaves alone what else is changed or staged in the clone
+        (self.board / "relay" / "desktop" / "mine.json").write_text("{}", encoding="utf-8")
+        self.b(["add", "relay/desktop/mine.json"])
+        q = self.board / "relay" / "queue" / "u2.json"
+        self.queue("u2", done_when=Runs.NEVER)
+        self.assertIsNone(boardio.keep_only(self.board, "relay: queue u2", [q]))
+        self.assertEqual(self.b(["show", "--name-only", "--format=", "HEAD"]).stdout.decode().split(), ["relay/queue/u2.json"])
+        self.assertEqual(self.b(["diff", "--cached", "--name-only"]).stdout.decode().split(), ["relay/desktop/mine.json"])
+        self.assertEqual(boardio.keep_only(self.board, "relay: queue u2", [q]), "nothing to push")
+        self.b(["rm", "-q", "--cached", "relay/desktop/mine.json"]); (self.board / "relay" / "desktop" / "mine.json").unlink()
+        # and a leg that writes the board itself still stops the run
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": [{"abs": str(self.board / "results" / "forged.json"), "text": "{}"}]})
+        _, stop = self.go(no_push=False)
+        self.assertIn("broke a rule: the board's results/forged.json changed", stop["reason"])
+
     def test_a_call_to_origin_that_hangs_is_given_up(self):
         self.queue("u1")
         self.board_repo()

@@ -143,7 +143,12 @@ One session at a time builds the relay or starts its runs. A session takes the h
 another name has it, the command exits 1 and the session stops and tells the owner. The hold ends by itself after
 its hours. `status` shows the holder, who started the run, and how each unit has ended so far.
 
-Work may be queued while a run is going (`add`): a new file under the board's queue does not stop the run. When a
+Work may be queued while a run is going (`add`): a new file under the board's queue does not stop the run. While a
+run is going on that machine, `add`, `prio` and `role` commit only the queue file they wrote and neither pull nor
+push the board; they say so, and the run's next push carries the commit (after the leg that is working, at the
+latest at the stop). The other machine sees the change then. Until 2026-10-11 these commands pulled, and the leg
+that was working was blamed for every record the pull brought in from another station: the run stopped and the
+leg lost its verdict. With no run going they commit, pull and push as before. When a
 run stops, Windows shows one notification (not where no window can open). A refused command that was normal work
 is a bug in the rules: `refusals` lists them, and each becomes a line in the ordinary-work tests and a rule fix.
 
@@ -303,8 +308,8 @@ calls nobody, so it reads that from the record without asking origin. It shows a
 
 The queue runs by priority, then by name: a queue file may hold `"priority"`, a whole number from 0 to
 `queue_priority_max` (99), and the lower runs first. A unit that names none has `queue_priority` (50).
-`$R prio <id> <n>` writes it and commits the file on the board, mid-run too. It refuses a unit that is done and a
-queue file nobody committed.
+`$R prio <id> <n>` writes it and commits the file on the board, mid-run too (then without a pull or a push: "Three
+checkouts, one job each"). It refuses a unit that is done and a queue file nobody committed.
 
 **The owner's answers.** A decision that waits on the owner is put to him on the asset board's Decide page as a
 short brief with options, and his click or his own words there is a note in a folder on the Drive. The screen says

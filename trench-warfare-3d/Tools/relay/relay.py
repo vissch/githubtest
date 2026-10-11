@@ -347,6 +347,23 @@ def refusals(runs):
     return 0
 
 
+def publish(board, message, paths):
+    """Commit and push the board after a command wrote these queue files, and say how it went. While a run is going
+    on this machine: commit those files only, and neither pull nor push (boardio.keep_only). The run's next push
+    carries the commit, and a queue file counts for the runner once it is committed."""
+    going = day.live(legdir.home())
+    if not going:
+        return boardio.push(board, message)
+    try:
+        said = boardio.keep_only(board, message, paths)
+    except gitio.GitError as e:
+        return "not committed (%s)" % e
+    if said == "no board repo":
+        return said
+    return "%s on this machine, not pushed: a run is going (%s), and its next push carries it" % (
+        "committed" if said is None else "already committed", going[0]["who"])
+
+
 HOLD = "build-hold.json"
 
 
@@ -428,6 +445,8 @@ def unit_from(path, role=None):
 
 def add(a):
     """Queue one unit of lane work: a committed file on the board, which is the only kind the runner trusts.
+    While a run is going on this machine the file is committed here and the board is neither pulled nor pushed
+    (publish): the run's next push carries it.
     The unit comes in words (an id, --lane, --goal, --done-when) or as a file (--unit): an answer of the owner's on
     the Decide page names its unit as a file, and a file crosses ssh where quoted words do not.
     The same unit from a file, queued a second time, is queued once: the call pushes the board again and ends 0, so
@@ -456,7 +475,7 @@ def add(a):
             there = None
         same = [k for k in lane_source.NEED if k != "role"]     # its role, like its priority, may have moved since
         if a.unit and isinstance(there, dict) and all(there.get(k) == unit[k] for k in same):
-            said = boardio.push(board, "relay: queue %s" % unit["id"])
+            said = publish(board, "relay: queue %s" % unit["id"], [p])
             if said == "nothing to push":            # committed the first time; that push may have failed
                 said = boardio.push_kept(board)
             print("%s is queued already, the same unit. Board: %s." % (unit["id"], said))
@@ -468,7 +487,7 @@ def add(a):
     except SystemExit:
         p.unlink()
         raise
-    print("queued %s on %s. Board: %s." % (unit["id"], unit["lane"], boardio.push(board, "relay: queue %s" % unit["id"])))
+    print("queued %s on %s. Board: %s." % (unit["id"], unit["lane"], publish(board, "relay: queue %s" % unit["id"], [p])))
     return 0
 
 
@@ -493,7 +512,7 @@ def prio(uid, n):
         p.write_bytes(before)
         raise
     print("%s now has priority %d (the lower runs first). Board: %s."
-          % (uid, n, boardio.push(board, "relay: priority %s %d" % (uid, n))))
+          % (uid, n, publish(board, "relay: priority %s %d" % (uid, n), [p])))
     return 0
 
 
@@ -540,7 +559,8 @@ def role(name, uids):
         P.write_json(p, dict(unit, role=name))
     said = ", ".join(uids)
     print("%s now %s the role %s. Board: %s." % (said, "has" if len(uids) == 1 else "have", name,
-                                                 boardio.push(board, "relay: role %s %s" % (name, said))))
+                                                 publish(board, "relay: role %s %s" % (name, said),
+                                                         [p for p, _ in units])))
     return 0
 
 
