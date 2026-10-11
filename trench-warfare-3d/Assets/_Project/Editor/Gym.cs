@@ -59,7 +59,7 @@ namespace TW.Editor
         }
 
         /// <summary>-executeMethod entry: options from -twgym "&lt;options&gt;", and the editor exits when the run ends:
-        /// 0 no flags, 2 flagged entries, 1 it could not run or a guard stopped it (1 GB, 10 GB free, the wall-clock limit).</summary>
+        /// 0 no flags, 2 flagged entries, 1 it could not run or a guard stopped it (no entries matched, 1 GB, 10 GB free, the wall-clock limit).</summary>
         public static void CommandLine()
         {
             var args = System.Environment.GetCommandLineArgs();
