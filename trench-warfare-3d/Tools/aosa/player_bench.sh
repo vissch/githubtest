@@ -5,8 +5,9 @@ SP="$(cd "$(dirname "$0")" && pwd)"
 R="${TW_PROJECT:-$(cd "$SP/../.." && pwd)}"   # this checkout's trench-warfare-3d unless TW_PROJECT says otherwise
 LABEL="$1"; EXTRA="${2:-}"; DIR="${3:-$R/Builds/WinBench}"
 EXE="$DIR/TrenchWarfare.exe"
-[ -f "$EXE" ] || { echo "no player at $EXE"; exit 1; }
 OUT="$(cygpath -m "$SP/../runs")/$LABEL.json"; LOG="$(cygpath -w "$SP/../runs")\\$LABEL.log"
+case "$LABEL$OUT$DIR" in *[" ,;"]*) echo "player_bench.sh: the label or the out path holds a space, comma or semicolon; PerfBench splits -twbench on those"; exit 1;; esac
+[ -f "$EXE" ] || { echo "no player at $EXE"; exit 1; }
 rm -f "$SP/../runs/$LABEL.json"
 start=$(date +%s)
 # windowed 1920x1080 at Ultra, vsync off, the same battle as the editor runs
