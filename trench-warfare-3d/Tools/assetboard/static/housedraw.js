@@ -596,7 +596,7 @@
     facts = facts.concat(H.made(w), sentBy(w));
     var lk = H.look(w), label = w.kind === 'session' ? (w.name && w.name !== 'Claude' ? w.name : 'Claude session') : w.id === 'agent:relay-leg' ? 'relay leg'
       : lk.vendor ? H.VENDOR[lk.vendor].name + ' agent' : w.kind === 'agent' && w.parent ? 'subagent' : w.kind;
-    return { kind: 'worker', id: w.id, title: C.title(w), sub: C.doing(w) || w.what || '', lane: lane, assets: l.assets || [], links: links, facts: facts.filter(Boolean),
+    return { kind: 'worker', id: w.id, uid: w.uid || '', title: C.title(w), sub: C.doing(w) || w.what || '', lane: lane, assets: l.assets || [], links: links, facts: facts.filter(Boolean),
       kindLabel: label, worker: w, visual: w.visual || null, follow: !!follow };
   }
   // ---- who the panel is about. A drawer (house.html) is open on the frog the owner clicked, and shut otherwise.

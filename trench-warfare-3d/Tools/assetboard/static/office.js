@@ -50,7 +50,7 @@
     var d = el('div', 'k-desk ' + (w.state || 'idle'));
     if (Bd && l) {
       d.classList.add('b-click'); d.tabIndex = 0; d.setAttribute('role', 'button');
-      var s = laneSubject(l); s.kind = 'worker'; s.id = w.id; s.kindLabel = w.kind === 'session' ? 'Claude session' : w.kind; s.title = C.title(w); s.sub = C.doing(w) || w.what || '';
+      var s = laneSubject(l); s.kind = 'worker'; s.id = w.id; s.uid = w.uid || ''; s.kindLabel = w.kind === 'session' ? 'Claude session' : w.kind; s.title = C.title(w); s.sub = C.doing(w) || w.what || '';
       s.facts = [w.state === 'working' ? 'at work' : 'resting', 'on ' + shortBranch(l.branch)]; s.links = [{ label: 'Where it is in the house', href: 'house.html?pin=' + encodeURIComponent(w.id) }].concat(s.links);
       // on the control screen the house is on the page: the click picks this worker's frog there, and the profile
       // beside the house says the rest; a frog the house does not have (or a page without it) gets the panel
