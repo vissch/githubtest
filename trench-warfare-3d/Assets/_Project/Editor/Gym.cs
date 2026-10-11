@@ -262,6 +262,7 @@ namespace TW.Editor
             var summaryFlags = new HashSet<string>();
             summary.Append("{\n  \"sha\": \"").Append(sha).Append("\", \"options\": \"").Append(Gym.Esc(Options)).Append("\", \"entries\": [\n");
             int flagged = 0, done = 0; string stopped = null;
+            if (entries.Count == 0) stopped = "no entries matched";
             float t0 = Time.realtimeSinceStartup;
             foreach (var e in entries)
             {
