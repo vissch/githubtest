@@ -299,6 +299,9 @@ namespace TW.Presentation.Tactical
                 if (stage == WreckStageRules.Scrap) v.Squash = WreckStageRules.ScrapHeight;
                 wrecks.Add(v);
             }
+            // the composer still has its grey stand-in for each of these props: ask it to compose again now the husk is
+            // drawn, as Drop does, or both are drawn until the prop's first change (review 2, N7.2)
+            foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb.GetType().Name == "BattlefieldProps") mb.SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
         }
     }
 }
