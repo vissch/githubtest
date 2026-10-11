@@ -19,6 +19,8 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py prio <id> <n>    move a queued unit: 0 to 99, the lower runs first (50 when none is set)
   python Tools/relay/relay.py role <role> <id> [<id> ..]   give queued units a role from Tools/pipeline/roles.json:
                                                their legs get that role's brief
+  python Tools/relay/relay.py retry <id>       let the runner take a unit again that it passes over (it ended BLOCKED,
+                                               or FAIL twice with nothing pushed)
   python Tools/relay/relay.py hold <who> [--hours 4] [--release]   one session at a time builds the relay or runs it
   python Tools/relay/relay.py update [<commit>]     move the frozen copy (githubtest-relay-run) to a commit
   python Tools/relay/relay.py add <id> --lane lane/show/x --role <role> --goal ".." --done-when <program> <arg> ..   queue lane work
@@ -495,6 +497,22 @@ def prio(uid, n):
     return 0
 
 
+def retry(uid):
+    """Let the runner take a unit again that it passes over: remove what the board keeps of its last tries
+    (relay/tried/<id>.json, sources/lane.py) and push the board. For a unit that ended BLOCKED and has its answer,
+    or one that failed for a passing reason. Refused while a run is going on this machine: a board file that goes
+    while a leg works is blamed on the leg."""
+    board = P.board_dir()
+    p = lane_source.tried_path(board, uid)
+    if not p.exists():
+        raise SystemExit("relay: the board keeps no failed or blocked try of %s: the runner takes it as it stands" % uid)
+    for rec in day.live(legdir.home()):
+        raise SystemExit("relay: a run is going (%s): retry %s after it stops" % (rec["who"], uid))
+    p.unlink()
+    print("%s is taken again by the next run. Board: %s." % (uid, boardio.push(board, "relay: retry %s" % uid)))
+    return 0
+
+
 def known_role(name):
     """Refuse a role the table does not have: its legs would run without a brief and nothing would say so."""
     have = P.roles()
@@ -554,6 +572,7 @@ def main(argv=None):
     p = sub.add_parser("role")
     p.add_argument("role")
     p.add_argument("ids", nargs="+")
+    sub.add_parser("retry").add_argument("id")
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
     p = sub.add_parser("hold")
     p.add_argument("who")
@@ -598,6 +617,8 @@ def main(argv=None):
         return prio(a.id, a.n)
     if a.cmd == "role":
         return role(a.role, a.ids)
+    if a.cmd == "retry":
+        return retry(a.id)
     if a.cmd == "add":
         return add(a)
     if a.cmd == "proof":

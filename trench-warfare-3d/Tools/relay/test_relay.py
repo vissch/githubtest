@@ -902,6 +902,88 @@ class Runs(Repo):
         self.assertEqual(stop["refusals"], 0)
         self.assertIn("1 unit: 1 FAIL", out)
 
+    NEVER = ("git", "cat-file", "-e", "HEAD:never.txt")
+
+    def test_units_that_failed_twice_with_nothing_pushed_no_longer_keep_later_work_from_running(self):
+        # [R002.2] look-01-gym-baseline was taken by three runs in a row; two such units at the front and no run
+        # ever reached the third
+        self.queue("a", done_when=self.NEVER)
+        self.queue("b", done_when=self.NEVER)
+        self.queue("c", raw=json.dumps({"id": "c", "lane": "lane/show/c", "role": "lane", "goal": "Add a.txt",
+                                        "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": []})     # legs that push nothing
+        for n in (1, 2):                                        # a failed unit gets a second try, in the next run
+            out, stop = self.go()
+            self.assertIn("2 units in a row", stop["reason"], n)
+            self.assertEqual((stop["units"], stop["legs"]), ({"a": "FAIL", "b": "FAIL"}, 4), n)
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "lane/show/c"]}]})
+        out, stop = self.go()
+        self.assertEqual(stop["units"], {"c": "PASS"})          # the third run reaches the work behind them
+        self.assertEqual((stop["reason"], stop["legs"]), ("nothing left to do", 2))
+        self.assertIn("passing over a:", out)
+        self.assertEqual(out.count("passing over b:"), 1)       # said once a run, not at every pick
+
+    def test_a_unit_passed_over_is_taken_again_when_its_lane_moves_its_file_changes_or_retry_is_called(self):
+        # [R002.2] what the board keeps of a unit that did not pass (relay/tried/<id>.json), and what reopens it
+        from sources import lane as SL
+        ctx = {"board": self.board, "work": self.work, "skip": set(), "run": "r1"}
+        q = self.board / "relay" / "queue" / "a.json"
+        took = lambda: (SL.next(dict(ctx, skip=set())) or {}).get("id")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.queue("a")
+            unit = dict(SL.load(q), source="lane")
+            self.assertEqual(SL.finish(unit, ctx, ["the plan leg reported blocked"], "blocked"), "BLOCKED")
+            self.assertIsNone(took())                           # blocked: it asked a person, and nothing has changed
+            rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+            self.assertEqual((rec["verdict"], rec["run"], rec["tries"], rec["problems"]),
+                             ("BLOCKED", "r1", 1, ["the plan leg reported blocked"]))
+            q.write_text(json.dumps(dict(json.loads(q.read_text(encoding="utf-8")), priority=5)), encoding="utf-8")
+            self.assertIsNone(took())                           # a move in the queue (relay.py prio) reopens nothing
+            q.write_text(json.dumps(dict(json.loads(q.read_text(encoding="utf-8")), goal="Add a.txt, as he answered")),
+                         encoding="utf-8")
+            self.assertEqual(took(), "a")                       # the owner changed the unit
+            unit = dict(SL.load(q), source="lane")
+            SL.finish(unit, ctx, ["blocked again"], "blocked")
+            self.assertIsNone(took())
+            self.g(["push", "-q", "origin", "HEAD:refs/heads/lane/show/x"])
+            self.assertEqual(took(), "a")                       # new code on its lane on origin
+            SL.finish(unit, ctx, ["blocked again"], "blocked")
+            self.assertIsNone(took())
+            self.assertEqual(relay.main(["retry", "a"]), 0)
+            self.assertEqual(took(), "a")                       # somebody said: try it again
+            self.assertFalse((self.board / "relay" / "tried" / "a.json").exists())
+            SL.finish(unit, ctx, ["done_when exited 1"], "done")
+            self.assertEqual(took(), "a")                       # failed once: one more try
+            SL.finish(unit, ctx, ["done_when exited 1"], "done")
+            self.assertIsNone(took())                           # failed twice with nothing new: passed over
+            (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+            self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "a"])
+            self.g(["push", "-q", "origin", "HEAD:refs/heads/lane/show/x"])
+            self.assertEqual(took(), "a")
+            self.assertEqual(SL.finish(unit, ctx, [], "done"), "PASS")
+        self.assertFalse((self.board / "relay" / "tried" / "a.json").exists())     # a pass leaves no such record
+        self.assertTrue((self.board / "relay" / "done" / "a.json").exists())
+
+    def test_work_pushed_by_a_leg_the_runner_did_not_trust_gets_a_leg_before_it_can_pass(self):
+        # [R002.1] the leg pushes, then breaks a rule: the next run took the pushed head as "already done"
+        forged = self.board / "results" / "thing--shots--aaaaaaaa--9.json"
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.COMMIT + [{"abs": str(forged), "text": "{}"}]})
+        out, stop = self.go()
+        self.assertIn("broke a rule", stop["reason"])
+        forged.unlink()
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": []})
+        out, stop = self.go()                                   # the lane is as the leg left it: pushed, done_when passes
+        self.assertNotIn("already done", out)
+        self.assertEqual((stop["units"], stop["legs"]), ({"u1": "PASS"}, 2))
+        self.assertTrue((self.board / "relay" / "done" / "u1.json").exists())
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("was not trusted", card)
+        self.assertIn("broke a rule", card)
+        self.assertFalse((self.board / "relay" / "tried" / "u1.json").exists())
+
     def test_a_retrospective_tunes_inside_the_bounds_and_leaves_proposals_for_the_owner(self):
         self.queue("u1")
         self.script(dict(self.GOOD, retro=[{"write": "retro.md", "text": RETRO}]))

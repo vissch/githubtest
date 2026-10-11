@@ -7,13 +7,20 @@
                                    (sources.kind_of; left out, its role says: the review's fixes are fix)}
   <board>/relay/done/<id>.json    written by the runner when done_when passes; a unit with one is never picked again
   <board>/relay/notes/<id>.md     the last leg's handoff note, when the unit is not done yet
+  <board>/relay/tried/<id>.json   written by the runner for a unit that did not pass: {"verdict" (FAIL | BLOCKED),
+                                   "run", "at", "problems", "tries" (in a row with no new code on origin's lane),
+                                   "origin_head", "unit_hash" (of lane, role, goal and done_when: never the priority)},
+                                   and for a leg the runner did not trust "rejected": {"run", "leg", "why", "head"}.
+                                   A unit recorded BLOCKED, or FAIL limits.json no_progress_units times, is passed
+                                   over while nothing has moved: taken again when origin's lane has a new head, the
+                                   queue file changes, or `relay.py retry <id>` removes the record. Gone at a PASS
 The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
 The role is a name in Tools/pipeline/roles.json (relay.py role): the unit's legs get that role's brief, as a board
 job's do. "lane" is the role with none.
 This is the only source with a handoff note: its state is not on the board or in a ledger. The note reaches the next
 run's legs on the card, with each of its predictions scored hit or miss by script.
 """
-import re, subprocess, sys
+import hashlib, json, re, subprocess, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
@@ -85,19 +92,84 @@ def files(board):
     return sorted(ok, key=place), skipped
 
 
+def unit_hash(u):
+    """What a unit asks for, as a short hash: its lane, role, goal and done_when. Not its priority or its kind: a
+    move in the queue is no new unit."""
+    return hashlib.sha256(json.dumps([u.get(k) for k in ("lane", "role", "goal", "done_when")]).encode("utf-8")
+                          ).hexdigest()[:16]
+
+
+def tried_path(board, uid):
+    return Path(board) / "relay" / "tried" / (uid + ".json")
+
+
+def tried(board, uid):
+    """What the board keeps of a unit that did not pass, or {}."""
+    p = tried_path(board, uid)
+    try:
+        rec = read_json(p) if p.exists() else None
+    except (OSError, ValueError):
+        rec = None
+    return rec if isinstance(rec, dict) else {}
+
+
+def origin_heads(work):
+    """{lane: sha} of origin's branches, asked of origin itself; None when it cannot be asked (no checkout, no
+    network): a caller then holds nothing back on a head it could not read."""
+    if not work:
+        return None
+    try:
+        r = gitio.git_raw(["ls-remote", "--heads", "origin"], work)
+    except OSError:
+        return None
+    if r.returncode:
+        return None
+    rows = [l.split("\t") for l in r.stdout.decode("utf-8", "replace").splitlines() if "\t" in l]
+    return {ref.replace("refs/heads/", "", 1): sha for sha, ref in rows}
+
+
+def waits(rec, unit, lim=None, head=None):
+    """True for a unit the runner passes over: its record says BLOCKED, or FAIL limits.json no_progress_units times
+    in a row with nothing new pushed, and nothing has moved since: the unit asks for the same thing and, when `head`
+    is given (the head of its lane on origin now, '' for none), that is the head the record was written at.
+    Every run took the same failed units at the front of the queue again, a plan leg each, and the rule that stops
+    a run after two empty units then fired before any later work (the review, R002.2)."""
+    if not rec or rec.get("verdict") not in ("FAIL", "BLOCKED") or rec.get("unit_hash") != unit_hash(unit):
+        return False
+    if head is not None and rec.get("origin_head") != head:
+        return False
+    tries = rec.get("tries") if isinstance(rec.get("tries"), int) else 0
+    return rec["verdict"] == "BLOCKED" or tries >= (lim or config.limits())["no_progress_units"]
+
+
 def next(ctx, kind=None):
-    """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of)."""
+    """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of). A unit that waits()
+    is passed over, and said once a run."""
     from sources import kind_of
     root = Path(ctx["board"]) / "relay"
     ok, skipped = files(ctx["board"])
     for p in skipped:
         print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
+    heads, lim = False, None                         # origin is asked once, and only when a record is there
     for p in ok:
         u = load(p)
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue
         if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
             continue
+        rec = tried(ctx["board"], u["id"])
+        if rec.get("verdict"):
+            if heads is False:
+                heads, lim = origin_heads(ctx.get("work")), config.limits()
+            if heads is not None and waits(rec, u, lim, heads.get(u["lane"], "")):
+                if u["id"] not in ctx.setdefault("passed_over", set()):
+                    ctx["passed_over"].add(u["id"])
+                    print("passing over %s: it ended %s in run %s%s and nothing has moved since. It is taken again "
+                          "when its lane has new code on origin, its queue file changes, or after `relay.py retry %s`"
+                          % (u["id"], rec["verdict"], rec.get("run") or "?",
+                             "" if rec["verdict"] == "BLOCKED" else ", %d tries with nothing pushed" % rec["tries"],
+                             u["id"]), flush=True)
+                continue
         return dict(u, source=NAME)
     return None
 
@@ -106,7 +178,10 @@ def refresh(unit, ctx):
     """Once the checkout is on the lane: read the last leg's note and score its predictions there."""
     note = Path(ctx["board"]) / "relay" / "notes" / (unit["id"] + ".md")
     text = note.read_text(encoding="utf-8") if note.exists() else ""
-    return dict(unit, note=text, predictions=papers.run_predictions(text, ctx["work"]) if text else [])
+    rej = tried(ctx["board"], unit["id"]).get("rejected") or {}
+    if not (rej.get("head") and rej["head"] == gitio.head(ctx["work"])):
+        rej = {}                                     # the lane has moved since: that leg's work is not what is here
+    return dict(unit, note=text, predictions=papers.run_predictions(text, ctx["work"]) if text else [], rejected=rej)
 
 
 def done_when(unit, ctx):
@@ -120,8 +195,22 @@ def done_when(unit, ctx):
 
 
 def already_done(unit, ctx):
-    """Asked before any leg: work that is already there and pushed costs no session."""
+    """Asked before any leg: work that is already there and pushed costs no session. Never for a head that a leg
+    the runner did not trust left behind: that work gets a guarded plan and execute first (the review, R002.1)."""
+    rej = tried(ctx["board"], unit["id"]).get("rejected") or {}
+    if rej.get("head") and rej["head"] == gitio.head(ctx["work"]):
+        return False
     return done_when(unit, ctx) is None and not gitio.dirty(ctx["work"]) and gitio.pushed(ctx["work"], unit["lane"])
+
+
+def reject(unit, ctx, why, leg=0):
+    """A leg of this unit could not be trusted and the run stops with no verdict: keep the head it left, so that
+    the next run does not take what it pushed for work that is done. Written by the runner, after the leg."""
+    rec = tried(ctx["board"], unit["id"])
+    rec.update(id=unit["id"], lane=unit["lane"],
+               rejected={"run": ctx.get("run", ""), "leg": leg, "why": " ".join(str(why).split())[:300],
+                         "head": gitio.head(ctx["work"]), "at": now()})
+    write_json(tried_path(ctx["board"], unit["id"]), rec)
 
 
 def body(unit):
@@ -135,6 +224,11 @@ def body(unit):
         lines.append(briefs.card_line(unit["role"]))
     elif unit["role"] not in briefs.P.roles():       # a queue file from before the table, or written by hand
         lines.append("- There is no brief for the role `%s`: it is not in Tools/pipeline/roles.json." % unit["role"])
+    rej = unit.get("rejected") or {}
+    if rej:
+        lines.append("- The last leg on this unit (run %s, leg %02d) was not trusted by the runner: %s. The lane is as "
+                     "it left it, at %s. Check what it did before you build on it or call it done."
+                     % (rej.get("run") or "?", int(rej.get("leg") or 0), rej.get("why") or "?", str(rej["head"])[:10]))
     if unit.get("note"):
         lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
         lines += ["", "Its predictions, checked just now by script:"]
@@ -177,12 +271,22 @@ def keep_critic(unit, ctx, round_no, text):
 
 
 def finish(unit, ctx, problems, outcome):
+    """PASS: the done file, and the note and the record of earlier tries go. Any other verdict: the record of the
+    try (see the top of this file), which next() and the day screen read. The only thing the board kept of a unit
+    was PASS, so a failed or blocked unit looked untouched to the next run."""
     v = verdict(problems, outcome)
+    root, rec_file = Path(ctx["board"]) / "relay", tried_path(ctx["board"], unit["id"])
     if v == "PASS":
-        root = Path(ctx["board"]) / "relay"
         write_json(root / "done" / (unit["id"] + ".json"),
                    {"id": unit["id"], "lane": unit["lane"], "head": gitio.head(ctx["work"]), "done_at": now()})
-        note = root / "notes" / (unit["id"] + ".md")
-        if note.exists():
-            note.unlink()
+        for f in (root / "notes" / (unit["id"] + ".md"), rec_file):
+            if f.exists():
+                f.unlink()
+        return v
+    old, heads, same = tried(ctx["board"], unit["id"]), origin_heads(ctx.get("work")), unit_hash(unit)
+    head = None if heads is None else heads.get(unit["lane"], "")
+    again = old.get("verdict") and old.get("unit_hash") == same and head is not None and old.get("origin_head") == head
+    write_json(rec_file, {"id": unit["id"], "lane": unit["lane"], "verdict": v, "run": ctx.get("run", ""), "at": now(),
+                          "problems": [str(p)[:300] for p in problems[:8]], "origin_head": head, "unit_hash": same,
+                          "tries": (old["tries"] if again and isinstance(old.get("tries"), int) else 0) + 1})
     return v

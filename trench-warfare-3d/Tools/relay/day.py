@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """One screen for the master and the owner (relay.py day): what the day has left, what the day's pace allows by
 now, where the plan's week stands when something read it, is a run going or how the last one stopped, what is queued in the order the runner takes it
-with the usual cost of each unit, what needs the owner, what he answered on the asset board's Decide page that no
-session has taken up, and who holds the relay build.
+with the usual cost of each unit, what needs the owner (also a unit that failed in an older run and is still
+queued), what he answered on the asset board's Decide page that no session has taken up, and who holds the relay
+build.
 
   lines(board, home, lim, ph, holder=None, answered=None)   the screen, as plain lines
   queue(board)                               (the units not done yet in the runner's order, what is wrong with the rest)
@@ -13,7 +14,7 @@ Reads only: nothing here writes, commits or starts anything. It reads this machi
 going on another machine shows up as its stop record once the board is pulled.
 Stdlib only. ASCII only.
 """
-import sys, textwrap
+import glob, sys, textwrap
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -24,6 +25,7 @@ import ledger, runner, usage            # noqa: E402
 from sources import lane                # noqa: E402
 
 FINE = ("PASS",)                         # how a unit ends when it needs nobody
+STOPS = 50                               # how many stop records back "Needs you" looks for a unit's newest outcome
 
 
 def live(home):
@@ -54,6 +56,67 @@ def last_stop(board):
     return None
 
 
+def outcomes(board):
+    """{unit: (how it ended, the run)}: each unit's newest outcome over the newest STOPS stop records on the board,
+    any station. A run is named by its local start, so the newest name is the newest run."""
+    out = {}
+    for f in sorted(Path(board).glob("relay/*/stops/*.json"), key=lambda p: p.name)[-STOPS:]:
+        try:
+            rec = P.read_json(f)
+        except (OSError, ValueError):
+            continue
+        units = rec.get("units") if isinstance(rec, dict) else None
+        for u, v in (units if isinstance(units, dict) else {}).items():
+            out[u] = (v, rec.get("run") or f.stem)
+    return out
+
+
+def unresolved(board, uid, verdict):
+    """True while a unit that did not pass in an older run still needs somebody: queued lane work while its queue
+    file is there and it has no done file; a board job while its newest result is still that verdict and nothing
+    newer was recorded for its stage. A unit nobody queues any more needs nobody."""
+    root = Path(board)
+    if (root / "relay" / "done" / (uid + ".json")).exists():
+        return False
+    if (root / "relay" / "queue" / (uid + ".json")).exists():
+        return True
+    try:
+        mine = [P.read_json(f) for f in root.glob("results/%s--*.json" % glob.escape(uid))]
+        last = max(mine, key=lambda r: r["attempt"]) if mine else None
+        if not last or last.get("verdict") != verdict:
+            return False
+        stage = [P.read_json(f) for f in root.glob("results/%s--%s--*.json" % (glob.escape(last["item"]),
+                                                                              glob.escape(last["stage"])))]
+        return not any(str(r.get("finished_at") or "") > str(last.get("finished_at") or "") for r in stage)
+    except (OSError, ValueError, KeyError, TypeError):
+        return False
+
+
+def passed_over(board, uid, lim=None):
+    """How the last try of a queued unit ended (FAIL | BLOCKED) when the runner passes the unit over for it
+    (sources/lane.py waits), else ''. Asked without origin: the screen calls nobody, so a lane that has moved on
+    origin since still reads as passed over here until a run looks."""
+    p = Path(board) / "relay" / "queue" / (uid + ".json")
+    try:
+        rec = lane.tried(board, uid)
+        return rec["verdict"] if p.exists() and lane.waits(rec, lane.load(p), lim) else ""
+    except (SystemExit, OSError, ValueError, KeyError):
+        return ""
+
+
+def older(board, shown, lim=None):
+    """What needs the owner from runs before the one on the screen: every unit not in `shown` whose newest outcome
+    is not a pass and that is still unresolved(). The newest stop record alone lost them: an empty run, or another
+    station's, and the screen said "Needs you: nothing." (the review, R001.6)."""
+    out = []
+    for u, (v, run) in sorted(outcomes(board).items()):
+        if u in shown or v in FINE or not unresolved(board, u, v):
+            continue
+        out.append("%s ended %s in run %s%s" % (u, v, run, "; not taken again (relay.py retry %s)" % u
+                                                 if passed_over(board, u, lim) else ""))
+    return out
+
+
 def queue(board):
     """(units, problems): the queued units with no done file, in the order the runner takes them, and one line per
     queue file it will not take as it is (not committed on the board, or not a valid unit)."""
@@ -80,9 +143,10 @@ def fit(text, width):
     return textwrap.wrap(text, width, subsequent_indent="    ") or [text]
 
 
-def run_lines(board, home):
-    """Is a run going here, else how the newest run on the board stopped. Second value: what needs the owner."""
-    out, needs = [], []
+def run_lines(board, home, lim=None):
+    """Is a run going here, else how the newest run on the board stopped. Second value: what needs the owner: the
+    units of that run that did not pass, then those of older runs that are still unresolved (older())."""
+    out, needs, shown = [], [], set()
     for rec in live(home):
         who = rec["who"].split()
         prog = Path(home) / "runs" / (who[1] if len(who) > 1 else "") / "progress.json"
@@ -93,8 +157,9 @@ def run_lines(board, home):
         out.append("  %d leg%s so far%s." % (pr.get("legs", 0), "" if pr.get("legs", 0) == 1 else "s",
                                            (", now on %s" % pr["now_on"]) if pr.get("now_on") else ""))
         needs += ["%s ended %s in the run going now" % (u, v) for u, v in sorted(units.items()) if v not in FINE]
+        shown |= set(units)
     if out:
-        return out, needs
+        return out, needs + older(board, shown, lim)
     last = last_stop(board)
     if not last:
         return ["No run going. No run yet."], needs
@@ -105,7 +170,7 @@ def run_lines(board, home):
                   runner.tally(units)))
     out.append("  It stopped: %s." % str(rec.get("reason", "?")).rstrip("."))
     needs += ["%s ended %s in the last run" % (u, v) for u, v in sorted(units.items()) if v not in FINE]
-    return out, needs
+    return out, needs + older(board, set(units), lim)
 
 
 def week_line(board, home, lim):
@@ -143,7 +208,7 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None):
     pace = ledger.pace_line(ledger.day_budget(board, lim, home, now), lim, now, price if units else None)
     out += fit(pace, width) if pace else []
     out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
-    run, needs = run_lines(board, home)
+    run, needs = run_lines(board, home, lim)
     for line in run:
         out += fit(line, width)
     if units:
@@ -155,7 +220,9 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None):
             out.append("Queue: %d unit%s, about %.1f%% of the week at the usual %.1f%% a unit (plan and execute)."
                        % (len(units), "" if len(units) == 1 else "s", price * len(units) * per_usd, price * per_usd))
         for n, u in enumerate(units[:rows], 1):
-            out.append(cut("  %2d. %-34s priority %-3d %s" % (n, u["id"], lane.priority_of(u, lim), u["lane"]), width))
+            held = passed_over(board, u["id"], lim)     # the runner will not take it as things stand
+            out.append(cut("  %2d. %-34s priority %-3d %s%s" % (n, u["id"], lane.priority_of(u, lim), u["lane"],
+                                                                " (passed over: %s)" % held if held else ""), width))
         if len(units) > rows:
             out.append("  ... and %d more" % (len(units) - rows))
     else:

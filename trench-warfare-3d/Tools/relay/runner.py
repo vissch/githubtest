@@ -82,7 +82,8 @@ class Run:
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
         self.deadline = time.time() + self.lim["run_hours"] * 3600
-        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0}
+        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0,
+                    "run": self.run}
         self.legs, self.idle, self.claimed, self.ready = 0, 0, None, False
         self.heads, self.lanes, self.stop_file = {}, set(), stop_path(self.home)
         self.units, self.no_window = {}, launch.no_window()     # unit id -> PASS | FAIL | BLOCKED
@@ -404,6 +405,7 @@ class Run:
             if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
                 raise Stop(Why("hours", "leg %02d the run's %.3g hours are up (mid-leg)"
                                % (self.legs, self.lim["run_hours"])), saved)
+            self.reject(unit, bad)
             raise Stop(Why("leg", "leg %02d %s" % (self.legs, bad)), saved)
         if phase == "retro":                                # a retrospective is no unit: nothing is in flight after it
             self.on, self.at = "", None
@@ -412,6 +414,19 @@ class Run:
         self.live()
         self.send("leg %02d %s %s" % (self.legs, phase, unit["id"]))
         return d, leg
+
+    def reject(self, unit, why):
+        """A leg the runner cannot trust ends the run with no verdict for its unit. The unit's source is told, where
+        it keeps such a thing (sources/lane.py reject): what that leg pushed is then not taken for finished work
+        by the next run. Written after the leg's audit, like every board write of the runner's. Never a reason of
+        its own to stop."""
+        try:
+            tell = getattr(sources.load(unit["source"]), "reject", None) if unit.get("source") in sources.ORDER else None
+            if tell:
+                tell(unit, self.ctx, why, self.legs)
+        except (SystemExit, Exception) as e:                # noqa: BLE001
+            print("note: the leg that was not trusted was not recorded for its unit (%s)" % (str(e) or type(e).__name__),
+                  flush=True)
 
     # ----- one unit: plan, execute, check -----
     def unit(self, unit):

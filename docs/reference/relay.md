@@ -61,6 +61,23 @@ cannot move them.
 
 The runner claims and completes pipeline jobs. A leg never does, and never lands.
 
+**A unit that did not pass.** The board keeps how a queued unit's last try ended, in `relay/tried/<id>.json`,
+written by the runner between legs (`sources/lane.py`): the verdict, the run, the problems it printed, the head of
+its lane on origin, and how many tries in a row ended with nothing new there. Three rules read it:
+
+- A unit that ended BLOCKED, or FAIL twice in a row with no new code pushed (`no_progress_units`), is **passed
+  over** by later runs, which say so once. It is taken again when its lane has a new head on origin, when its queue
+  file asks for something else (its lane, role, goal or `done_when`; a new priority reopens nothing), or after
+  `$R retry <id>`, which removes the record and is refused while a run is going. A unit that failed once gets one
+  more try, in the next run. Until 2026-10-11 two failed units at the front of the queue were taken again by every
+  run, and no run reached the work behind them. Origin is asked once per pick; when it does not answer nothing is
+  passed over.
+- A leg the runner could not trust (it broke a rule, timed out, did not end clean) stops the run with no verdict.
+  The record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
+  it gets a plan and an execute leg whose card says what happened, and the record goes when trusted legs end the
+  unit. The relay looks again by itself; the unit does not wait for the owner (his answer to the review, 2026-10-11).
+- A pass removes the record.
+
 **A unit's role.** A board stage and a queue file each name a `role`. `Tools/pipeline/roles.json` is the one table
 of roles: each maps to the skill that is its brief, or to nothing for a role that is known and has none. For a role
 with a brief the runner copies that skill into the leg's folder before a plan or an execute leg, and the card says
@@ -87,6 +104,7 @@ $R stop --why "<words>" --by <name>               # the same, saying what for an
 $R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <program> <arg> ...
 $R add --unit <file> [--role <role>]              # the same from a file in the queue file's shape; --role when it names none
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
+$R retry <id>                                     # let the runner take a unit again that it passes over ("A unit that did not pass")
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
@@ -275,7 +293,12 @@ dollar figure stays underneath: it is known for every leg, so a leg that is not 
 `$R day` prints one screen, and reads only: what the day has left, what the pace allows by now, is a run going on this machine or how the newest
 run on the board stopped, the queue in the order the runner takes it with the usual cost of a unit (a usual plan
 plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), what
-he answered on the Decide page that no session has taken up, and who holds the relay build. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
+he answered on the Decide page that no session has taken up, and who holds the relay build. "Needs you" lists the
+units of the run on the screen that did not pass, and then every unit whose newest outcome in the newest 50 stop
+records of any station is not a pass and that is still unresolved, with its run: queued work while its queue file
+is there and it has no done file, a board job while its newest result is still that verdict. A unit the runner
+passes over says so there (`not taken again`) and on its row of the queue (`passed over: BLOCKED`); the screen
+calls nobody, so it reads that from the record without asking origin. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
 (100). It reads this machine's copy of the board. The `/master` skill starts every turn from it.
 
 The queue runs by priority, then by name: a queue file may hold `"priority"`, a whole number from 0 to

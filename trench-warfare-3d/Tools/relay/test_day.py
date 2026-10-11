@@ -358,6 +358,32 @@ class Day(Base):
         at = out.index("Needs you:")
         self.assertEqual(out[at + 1:at + 3], ["  - u2 ended FAIL in the last run", "  - u3 ended BLOCKED in the last run"])
 
+    def test_an_older_failure_stays_under_needs_you_until_it_is_resolved(self):
+        # [R001.6] four units' newest outcome was FAIL or BLOCKED while the screen said "Needs you: nothing."
+        self.queue("x")
+        self.queue("y")
+        self.queue("z")
+        self.stop("20261004-090000-1", units={"x": "FAIL", "y": "BLOCKED", "z": "FAIL", "unqueued": "FAIL"})
+        self.stop("20261004-120000-3", "laptop", units={"y": "PASS"})          # another station got y through
+        self.stop("20261005-100000-2", units={"other": "PASS"})                # the newest run: nothing of these
+        self.done("y")
+        out = self.screen()
+        self.assertEqual(out[1], "No run going. Last run 20261005-100000-2 (desktop): 2 legs, 1 unit: 1 PASS.")
+        self.assertIn("Needs you:", out)
+        self.assertEqual(out[out.index("Needs you:") + 1:], ["  - x ended FAIL in run 20261004-090000-1",
+                                        "  - z ended FAIL in run 20261004-090000-1"])
+        lane.finish(dict(lane.load(self.board / "relay" / "queue" / "z.json")), {"board": self.board, "run": "r"},
+                    ["it needs a window"], "blocked")           # what the runner keeps of a unit it passes over
+        out = self.screen()
+        self.assertIn("  - z ended FAIL in run 20261004-090000-1; not taken again (relay.py retry z)", out)
+        self.assertTrue(any(l.startswith("   2. z ") and l.endswith("(passed over: BLOCKED)") for l in out), out)
+        self.assertFalse(any("passed over" in l for l in out if " x " in l))
+        self.done("x")                                           # resolved: it passed since
+        (self.board / "relay" / "queue" / "z.json").unlink()     # resolved: nobody means to do it any more
+        self.assertIn("Needs you: nothing.", self.screen())
+        self.stop("20261005-200000-9", units={"gone": "FAIL"})   # the newest run's own failures show as before
+        self.assertIn("  - gone ended FAIL in the last run", self.screen())
+
     def test_a_queue_file_the_runner_will_not_take_needs_the_owner(self):
         self.queue("bad", raw=json.dumps({"id": "bad", "lane": "lane/show/x"}))
         out = self.screen()
