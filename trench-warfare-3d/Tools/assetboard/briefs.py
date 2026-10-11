@@ -264,13 +264,30 @@ def check_then(says, unit=None):
 
 
 def queued_on(board, uid):
-    """Whether the unit `uid` stands on the relay's queue of the board, or in its done folder:
-    `<board>/relay/queue/<id>.json` or `<board>/relay/done/<id>.json` (the layout of Tools/relay/sources/lane.py,
-    where a queue file's name is the unit's id). Reads only: it writes nothing and makes no folder."""
-    if not board or not one(uid):
-        return False
-    root = Path(board) / 'relay'
-    return any((root / d / (one(uid) + '.json')).is_file() for d in ('queue', 'done'))
+    """Where the unit `uid` stands on the relay's queue of the board: `'queue'`, `'done'`, or `''` when nowhere.
+    Read from the board's **origin/main**, as ideas.board_units does, because that is what the relay picks units off:
+    a file in this station's working tree that nobody committed and pushed is nothing to it. The file's name is not
+    the id: the `id` inside the file decides, so a unit queued as `<id>-2` is found by `<id>-2` only. `'queue'` wins
+    over `'done'`. Reads only: it writes nothing and makes no folder."""
+    if not board or not one(uid) or not Path(board).is_dir():
+        return ''
+    import src_git
+    names = src_git.git(Path(board), 'ls-tree', '-r', '--name-only', 'origin/main', 'relay/queue', 'relay/done').split()
+    where = ''
+    for n in names:
+        if not n.endswith('.json'):
+            continue
+        try:
+            u = json.loads(src_git.git(Path(board), 'show', f'origin/main:{n}'))
+        except ValueError:
+            continue
+        if not (isinstance(u, dict) and one(u.get('id')) == one(uid)):
+            continue
+        if n.startswith('relay/queue/'):
+            return 'queue'
+        if n.startswith('relay/done/'):
+            where = 'done'
+    return where
 
 
 def find(where: Path, bid):
@@ -307,10 +324,11 @@ def then(where: Path, notes, bid, option, says, unit=None):
     return b
 
 
-def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcome='', unchecked=''):
+def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcome='', unchecked='', done_already=''):
     """The owner decided: close the brief with the option he took and his words, and with what became of it when that
     is known (`queued`: the unit on the relay's queue; `outcome`: in words, when nothing was queued; `unchecked`: why the
-    board could not be read, when nobody could see the unit standing on the queue). Returns the brief."""
+    board could not be read, when nobody could see the unit standing on the queue; `done_already`: the relay has a
+    done record of that id from an earlier unit and no unit of this yes on its queue). Returns the brief."""
     hits = [b for b in read_all(where) if b['id'] == bid or b['id'].endswith(bid)]
     if len(hits) != 1:
         raise ValueError(f'{len(hits)} briefs are called {bid}')
@@ -325,7 +343,8 @@ def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcom
         raise ValueError('an answer that is none of the options needs his words')
     now = now or datetime.datetime.now()
     b.update(state='answered', answer=dict(option=option, said=one(said), by=one(by), when=f'{now:%Y-%m-%d %H:%M}'))
-    b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome), ('unchecked', unchecked)) if one(v)})
+    b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome), ('unchecked', unchecked),
+                                                 ('done_already', done_already)) if one(v)})
     put(where / b['id'], b)
     return b
 
@@ -411,7 +430,10 @@ def unit(where: Path, notes, bid, note):
 
 def became_of(a):
     """What became of a brief, as the line his notes are answered with: the `answer` record of a closed brief."""
-    return f'Queued as {one(a.get("queued"))}.' if one(a.get('queued')) else one(a.get('outcome', '')).rstrip('.') + '.'
+    said = f'Queued as {one(a.get("queued"))}.' if one(a.get('queued')) else one(a.get('outcome', '')).rstrip('.') + '.'
+    if one(a.get('done_already')):
+        said += ' The relay has a done record of that id already, from an earlier unit.'
+    return said
 
 
 def told(a, took=''):
@@ -445,8 +467,10 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     `queued` (the unit on the relay's queue) or `outcome` (in words, when nothing was queued). An answer that is a yes
     to a Then line carries it already; any other answer needs one of the two, so no brief closes without saying.
     `option` overrules the option read from his notes, for an answer whose option his notes do not settle. A brief
-    that closes with a unit closes only when that unit stands on the relay's queue of `board`: a yes of his taken up
-    without the work being queued is his word dropped. `unchecked` says why nobody could read the board, and is said
+    that closes with a unit closes only when that unit stands on the relay's queue of `board`, committed and pushed on
+    the board's origin/main with that id inside the file: a yes of his taken up without the work being queued is his
+    word dropped. A unit only in the relay's done folder closes it and the answer says so, so a done record of that id
+    left by an earlier unit does not pass a new yes in silence. `unchecked` says why nobody could read the board, and is said
     in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
     his notes is finished instead of refused. Write the row in decisions.md first. Returns (the brief, his note)."""
     import notes
@@ -462,13 +486,18 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
     if one(option) and a['go'] != 'write':
         raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
-    if one(queued) and not one(unchecked) and not queued_on(board, queued):
+    stands = '' if not one(queued) or one(unchecked) else queued_on(board, queued)
+    if one(queued) and not one(unchecked) and not stands:
         raise ValueError(f'{a["id"]}: nothing is queued as {one(queued)}: the board {board or "(none named)"} has no '
-                         f'relay/queue/{one(queued)}.json and no relay/done/{one(queued)}.json. Queue it first: '
+                         f'relay/queue/{one(queued)}.json and no relay/done/{one(queued)}.json on its origin/main '
+                         f'with that id inside it. Queue it first: '
                          f'python Tools/assetboard/briefs.py unit {a["id"]} --note {a["note"]} --out <board>/relay/queue/{one(queued)}.json, '
-                         f'then commit the board; or say with --unchecked "why" that the board could not be read')
+                         f'then commit it on the board and push it: the relay picks units off the origin/main of the board, '
+                         f'so a file nobody pushed is nothing to it; or say with --unchecked "why" that the board could '
+                         f'not be read')
     took = one(option) or a['option']
-    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome, unchecked=unchecked)
+    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome, unchecked=unchecked,
+               done_already='an earlier unit of that id' if stands == 'done' else '')
     n = [m for m in notes.read_all(notes_where) if m['id'] == a['note']][0]
     for m in notes.read_all(notes_where):
         if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done':
@@ -735,7 +764,7 @@ def main(argv=None):
     ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
     ap.add_argument('--out', default='', help='unit: the file the unit is written to')
     ap.add_argument('--json', action='store_true', help='waiting: as JSON')
-    ap.add_argument('--board', default='', help='steps, take: the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout); take reads its relay queue only')
+    ap.add_argument('--board', default='', help='steps, take: the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout); take reads the relay queue on its origin/main only, committed and pushed')
     ap.add_argument('--unchecked', default='', help='take: why the board could not be read, when nobody could see the unit standing on the relay\'s queue. It is said in the answer')
     ap.add_argument('--dry-run', action='store_true', help='steps: write nothing, say what would be written')
     ap.add_argument('--why', default='', help='why the first option')

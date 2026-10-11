@@ -1675,6 +1675,12 @@ def decisions():
     (qboard / 'relay' / 'queue').mkdir(parents=True)
     for n in range(1, 10):
         (qboard / 'relay' / 'queue' / f'unit-{n}.json').write_text(json.dumps(unit_of(n)), encoding='utf-8')
+    # the relay reads the queue off the board's origin/main, so the fixture is committed and pushed [N10.3b]
+    for args in (('init', '-q'), ('add', '-A'),
+                 ('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'queue'),
+                 ('update-ref', 'refs/remotes/origin/main', 'HEAD')):
+        subprocess.run(['git', '-C', str(qboard), *args], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
     def took(q, **kw):                          # the answer a brief is closed with, or why it was not closed
         try:

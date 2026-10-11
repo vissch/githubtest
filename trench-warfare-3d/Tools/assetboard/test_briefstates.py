@@ -210,12 +210,32 @@ class Taking(unittest.TestCase):
         self.board = Path(tempfile.mkdtemp(prefix='board-', dir=TEMP))
         (self.board / 'relay' / 'queue').mkdir(parents=True)
         (self.board / 'relay' / 'done').mkdir(parents=True)
+        self.git('init', '-q')
         self.unit = dict(id='unit-cover', lane='lane/sim/cover', goal='Men behind a building take less damage.',
                          done_when=['python', 'Tools/otr.py', 'CoverTests'])
         self.brief = a_brief(self.where, 'Do houses give cover')
         briefs.then(self.where, notes.read_all(self.box), self.brief['id'], 'A',
                     'Queues a sim lane: men behind a building take less damage', self.unit)
         self.note = self.click('A')
+
+    def git(self, *args):
+        subprocess.run(['git', '-C', str(self.board), *args], check=True,
+                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+    def write_unit(self, unit, folder='queue', name=None):
+        """A unit file in the board's working tree, and nothing else: nobody committed or pushed it."""
+        f = self.board / 'relay' / folder / ((name or unit['id']) + '.json')
+        f.write_text(json.dumps(unit), encoding='utf-8')
+        return f
+
+    def queue(self, unit, folder='queue', name=None):
+        """The unit as the relay sees it: written, committed on the board and pushed (origin/main here is a ref of
+        this repo, so the test needs no remote)."""
+        f = self.write_unit(unit, folder, name)
+        self.git('add', '-A')
+        self.git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'queue ' + f.name)
+        self.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
+        return f
 
     def click(self, key):
         """What the page leaves on a click: the option's text, and the stamp the Then line has now."""
@@ -258,7 +278,7 @@ class Taking(unittest.TestCase):
 
     def test_the_unit_on_the_queue_closes_the_brief(self):
         # [N10.3] the fix must not refuse the real case: the unit stands on the relay's queue, so it closes
-        (self.board / 'relay' / 'queue' / 'unit-cover.json').write_text(json.dumps(self.unit), encoding='utf-8')
+        self.queue(self.unit)
         got, why = self.take(board=self.board)
         self.assertEqual(why, '', '[N10.3] a unit standing on the relay\'s queue was refused: %s' % why)
         self.assertEqual((self.state().get('answer') or {}).get('queued'), 'unit-cover',
@@ -268,9 +288,37 @@ class Taking(unittest.TestCase):
 
     def test_a_unit_in_the_done_folder_counts_too(self):
         # [N10.3] a unit the runner has finished is queued work all the same
-        (self.board / 'relay' / 'done' / 'unit-cover.json').write_text(json.dumps(dict(id='unit-cover')), encoding='utf-8')
+        self.queue(dict(id='unit-cover'), folder='done')
         got, why = self.take(board=self.board)
         self.assertEqual(why, '', '[N10.3] a unit in the relay\'s done folder was refused: %s' % why)
+        # [N10.3b] a done record of that id may be an earlier unit's, so the brief and his note must say it was there
+        a = self.state().get('answer') or {}
+        self.assertTrue((a.get('done_already') or '').strip(),
+                        '[N10.3b] the answer does not say the relay had a done record of that id already: %s' % a)
+        text = notes.read_all(self.box)[0]['answers'][-1]['text']
+        self.assertIn('done record', text,
+                      '[N10.3b] what his note is answered with does not say the done record was there already: %s' % text)
+
+    def test_a_unit_written_and_not_pushed_is_no_queued_answer(self):
+        # [N10.3b] the relay picks units off the board's origin/main: a local, uncommitted file is nothing to it
+        self.write_unit(self.unit)
+        got, why = self.take(board=self.board)
+        self.assertIsNone(got, '[N10.3b] the brief closed as queued on a unit file nobody committed or pushed')
+        self.assertIn('push', why, '[N10.3b] the refusal does not say the board must be committed and pushed: %s' % why)
+        self.assertEqual(self.state().get('state'), 'open',
+                         '[N10.3b] the brief is closed on a unit file nobody pushed')
+
+    def test_a_file_whose_name_only_looks_right_is_not_the_unit(self):
+        # [N10.3b] the id inside the file decides, not the file name
+        self.queue(dict(self.unit, id='unit-cover-2'), name='unit-cover')
+        got, why = self.take(board=self.board)
+        self.assertIsNone(got, '[N10.3b] a queue file named unit-cover.json whose id is unit-cover-2 passed as unit-cover')
+        self.assertEqual(self.state().get('state'), 'open',
+                         '[N10.3b] the brief closed on a queue file that holds another unit')
+        got, why = self.take(board=self.board, queued='unit-cover-2')
+        self.assertEqual(why, '', '[N10.3b] the unit queued as unit-cover-2 was not found by its own id: %s' % why)
+        self.assertEqual((self.state().get('answer') or {}).get('queued'), 'unit-cover-2',
+                         '[N10.3b] the brief did not close with the unit that was queued')
 
     def test_unchecked_closes_it_and_says_so(self):
         # [N10.3] the board cannot always be read; then the answer must say that nobody looked
@@ -302,7 +350,7 @@ class Taking(unittest.TestCase):
 
     def test_a_closed_brief_with_no_open_note_is_still_refused(self):
         # [N10.13] finishing a left-over take is not a second close
-        (self.board / 'relay' / 'queue' / 'unit-cover.json').write_text(json.dumps(self.unit), encoding='utf-8')
+        self.queue(self.unit)
         self.take(board=self.board)
         got, why = self.take(board=self.board)
         self.assertIsNone(got, '[N10.13] a brief that is closed with his notes answered was taken a second time')
