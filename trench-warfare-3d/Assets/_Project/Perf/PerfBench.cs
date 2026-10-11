@@ -927,15 +927,29 @@ namespace TW.Perf
             sb.Append("  \"series\": {\n");
             for (int i = 0; i < series.Count; i++) Stats(sb, series[i], i == series.Count - 1);
             sb.Append("  },\n");
-            // per sim tick, per world: the number docs/05 budgets (a marker's window total over the ticks it covered)
+            // per sim tick, per world: the number docs/05 budgets (a marker's window total over the ticks it covered).
+            // F3: only the sim's own markers belong here. This block used to hold EVERY marker, so one that runs once
+            // a frame (TW.Host.Update, TW.Hud.Refresh) was divided by ticks and looked worse the higher the frame rate;
+            // those now stand in per_frame_ms below, over the frames they were recorded for.
             int ticks = w != null ? (int)(w.Tick - t0) : 0;
             sb.Append("  \"per_tick_ms\": {");
             bool first = true;
             foreach (var r in recs)
             {
-                if (!r.Marker || ticks <= 0) continue;
+                if (!r.Marker || ticks <= 0 || !WindowSamples.PerTick(r.S.Key)) continue;
                 double total = 0; for (int i = 0; i < r.S.N; i++) total += r.S.V[i];
-                sb.Append(first ? "\n    " : ",\n    ").Append(Q(r.S.Key)).Append(": ").Append(N(total / ticks));
+                sb.Append(first ? "\n    " : ",\n    ").Append(Q(r.S.Key)).Append(": ").Append(N(WindowSamples.PerTickMs(total, ticks)));
+                first = false;
+            }
+            sb.Append(first ? "},\n" : "\n  },\n");
+            // F3: every marker that runs once a frame, over the frames it was recorded for
+            sb.Append("  \"per_frame_ms\": {");
+            first = true;
+            foreach (var r in recs)
+            {
+                if (!r.Marker || WindowSamples.PerTick(r.S.Key)) continue;
+                double total = 0; for (int i = 0; i < r.S.N; i++) total += r.S.V[i];
+                sb.Append(first ? "\n    " : ",\n    ").Append(Q(r.S.Key)).Append(": ").Append(N(WindowSamples.PerFrameMs(total, r.S.N)));
                 first = false;
             }
             sb.Append(first ? "},\n" : "\n  },\n");
