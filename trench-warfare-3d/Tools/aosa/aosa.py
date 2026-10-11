@@ -576,10 +576,13 @@ def verdict(A, B, target="main_ms.p95", higher_better=None, priors=None):
     he = [r["window"].get("hash_end") for r in A + B]
     same = len(hs) == 1
     why = "hash_start %s" % ("equal" if same else "differs: " + " vs ".join(sorted(map(str, hs))))
-    if all(h is not None for h in he):
-        same = same and len(set(he)) == 1
-        why += "; hash_end " + ("equal" if len(set(he)) == 1 else "differs: " + " vs ".join(sorted(set(he))))
-        het = {r["window"].get("hash_end_tick") for r in A + B}
+    # A6: a report without hash_end drops itself from the test, it never disables the test for the others
+    he_seen = [h for h in he if h is not None]
+    if he_seen:
+        same = same and len(set(he_seen)) == 1
+        why += "; hash_end " + ("equal" if len(set(he_seen)) == 1 else "differs: " + " vs ".join(sorted(set(he_seen))))
+        why += " (hash_end in %d of %d reports)" % (len(he_seen), len(he))
+        het = {r["window"].get("hash_end_tick") for r in A + B if r["window"].get("hash_end") is not None}
         if len(het) > 1:  # PerfBench: compare hash_end only between runs whose hash_end_tick is the same
             same = False
             why += " (taken at different ticks %s: rerun)" % sorted(map(str, het))
@@ -610,21 +613,24 @@ def verdict(A, B, target="main_ms.p95", higher_better=None, priors=None):
         rules["3"] = {"ok": False, "why": "target %s missing" % canon(target)}
     else:
         t["improved"] = sign * t["delta"] > t["band"]
-        regress = []
+        regress, unchecked = [], []
         for k in RULE3:
             m = k + ".p95"
             if m == canon(target):
                 continue
             r = measure(m)
-            if r is not None:
-                r["regressed"] = r["delta"] > r["band"]
-                if r["regressed"]:
-                    regress.append(m)
+            if r is None:  # A6: name what could not be read instead of claiming it held
+                unchecked.append(m)
+                continue
+            r["regressed"] = r["delta"] > r["band"]
+            if r["regressed"]:
+                regress.append(m)
         ok = t["improved"] and not regress
-        rules["3"] = {"ok": ok, "why": "target %s delta %+.4g vs band %.4g (%s)%s" % (
+        rules["3"] = {"ok": ok, "why": "target %s delta %+.4g vs band %.4g (%s)%s%s" % (
             canon(target), t["delta"], t["band"], "improved" if t["improved"] else "not beyond the band",
-            "; regressed: " + ", ".join(regress) if regress else "; no other metric rose beyond its band"),
-            "regressed": regress}
+            "; regressed: " + ", ".join(regress) if regress else "; no other metric rose beyond its band",
+            ", except unchecked: " + ", ".join(unchecked) if unchecked else ""),
+            "regressed": regress, "unchecked": unchecked}
     fell = []
     for m in FLOOR:
         r = measure(m)
