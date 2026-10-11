@@ -184,6 +184,14 @@ namespace TW.Presentation.Tactical
                 if (!v.Dropping) continue;
                 float t = now - v.DropAt;
                 if (t < 0f) continue;
+                // N7.1: a flyer's fall has one owner, Smoulder; the gag adds nothing, or the two drops take it below the floor
+                if (v.Lift >= FlyingFrom)
+                {
+                    if (!v.Landed) continue;
+                    if (!v.DropLanded) { v.DropLanded = true; Landing(v); }   // the dust and the bump belong where it hits
+                    v.Dropping = false;
+                    continue;
+                }
                 float h = VehicleGags.Drop(v.DropFrom, v.DropTo, v.DropUp, t) - v.DropFrom;
                 v.Heave.Value += h - v.Dropped; v.Dropped = h;
                 if (v.Flops)
