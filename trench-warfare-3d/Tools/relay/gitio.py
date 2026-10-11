@@ -2,7 +2,7 @@
 """Git facts about a checkout, and the one lock that says "a leg is working here". Every check a leg's result is
 judged by is a script here: no model is asked. Stdlib only. ASCII only.
 """
-import hashlib, os, re, subprocess, sys, tempfile, time
+import hashlib, os, re, stat, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -289,8 +289,9 @@ def _put_back(wt, folder, rec, calls, env):
         return kept("git is in the middle of %s (%s in its folder): nothing is put back, for the next commit here "
                     "would carry it on" % under_way)     # and the next leg's first commit would be a merge commit
     own = git_raw(["write-tree"], wt)                    # what is staged, as the checkout's own index holds it
-    if own.returncode:
-        return kept("the checkout's index cannot be written as a tree (unmerged paths): nothing is put back")
+    if own.returncode:                                   # unmerged paths, or a lock a killed git left: git says which
+        return kept("the checkout's index cannot be written as a tree (git: %s): nothing is put back"
+                    % " ".join(own.stderr.decode("utf-8", "replace").split())[:240])
     if _text(own) not in (tree, git(["rev-parse", "-q", "--verify", rec["head"] + "^{tree}"], wt, check=False)):
         made = git_raw(["commit-tree", _text(own), "-p", rec["head"], "-m",
                         "relay: what was staged when work was put aside (%s)" % ref.rsplit("/", 1)[-1]], wt, who)
@@ -298,8 +299,13 @@ def _put_back(wt, folder, rec, calls, env):
                 or git(["rev-parse", "-q", "--verify", ref + "-staged^{tree}"], wt, check=False) != _text(own):
             return kept("what was staged could not be kept as a commit under %s-staged" % ref)
         out["staged_ref"] = ref + "-staged"
+    hold = put_back_dir(wt) / ref.rsplit("/", 1)[-1]
+    try:
+        hold.mkdir(parents=True, exist_ok=False)
+    except OSError as e:                                 # this leg's folder was cleaned before and something is held
+        return kept("there is no folder to move the files to (%s: %s): nothing is put back" % (hold, e.strerror or e))
     out["touched"] = True                                # from here on the checkout is no longer as it was
-    stays = _restore(wt, changes, saved, ref.rsplit("/", 1)[-1])
+    stays = _restore(wt, changes, saved, hold)
     still = dirty(wt)
     if stays or still:
         return kept("the rest is at HEAD and saved; these stay as they are: %s"
@@ -309,7 +315,8 @@ def _put_back(wt, folder, rec, calls, env):
 
 
 STATES = (("MERGE_HEAD", "a merge"), ("CHERRY_PICK_HEAD", "a cherry-pick"), ("REVERT_HEAD", "a revert"),
-          ("rebase-merge", "a rebase"), ("rebase-apply", "a rebase or an am"))
+          ("rebase-merge", "a rebase"), ("rebase-apply", "a rebase or an am"),
+          ("sequencer", "a row of cherry-picks or reverts"), ("BISECT_LOG", "a bisect"))
 
 
 def in_progress(wt):
@@ -334,12 +341,13 @@ def held_files(wt):
     for f in sorted(root.rglob("*")) if root.is_dir() else []:
         if f.is_file() and f.suffix != ".path":
             note = f.with_name(f.name + ".path")
-            out.append((f, note.read_text(encoding="utf-8") if note.is_file() else "?"))
+            out.append((f, note.read_text(encoding="utf-8", errors="replace") if note.is_file() else "?"))
     return out
 
 
-def _restore(wt, changes, saved, name):
+def _restore(wt, changes, saved, hold):
     """Put the paths of `changes` back to HEAD, and no other path. Returns what stays, each as "<path> (<why>)".
+    hold: a new, empty folder under the checkout's git folder (put_back_dir), made by the caller.
     What can remove or overwrite a file here, and what bounds each:
       os.replace    moves one file of `changes` into a new, empty folder under the checkout's git folder: nothing is
                     overwritten, nothing is gone;
@@ -354,7 +362,7 @@ def _restore(wt, changes, saved, name):
                     its path is written first (<n>.path), so a clean that was killed half way can be read
                     (held_files), and busy_reason refuses the checkout while anything is held;
       os.rmdir      a folder a removed file was in, when empty; and that folder under the git folder, when empty;
-      git reset -q HEAD -- <paths>   the index entries of these paths and of the paths the index itself had changed;
+      git reset -q HEAD -- <paths>   the index entries of the paths of `changes` and of what the index had staged;
                     no file of the checkout. What was staged is kept first, as a commit under <ref>-staged
                     (_put_back), whenever it is neither HEAD's tree nor the saved one: staged bytes that differ
                     from the file on disk, a file staged and then deleted. The base of this lane never cleaned,
@@ -362,11 +370,6 @@ def _restore(wt, changes, saved, name):
       git checkout-index -u (without -f)   writes HEAD's version of a path where no file is; git skips a path that
                     has one."""
     wt, stays, gone = Path(wt), [], []
-    hold = put_back_dir(wt) / name
-    try:
-        hold.mkdir(parents=True, exist_ok=False)
-    except OSError as e:
-        return ["%s (no folder to move it to: %s)" % (p, e) for _, p in changes]
     last = lambda c: (c[1].rsplit("/", 1)[-1] in (".gitattributes", ".gitignore"), c[1])    # the rules go last
     for n, (kind, path) in enumerate(sorted(changes, key=last)):
         f = wt / path
@@ -394,8 +397,13 @@ def _restore(wt, changes, saved, name):
             try:
                 os.remove(held)
                 _unlink(note)
-            except OSError:                              # a read-only file, on Windows
-                stays.append("%s (saved; its copy is now %s)" % (path, held))
+            except OSError:                              # a read-only file, on Windows: it is proved, so it is
+                try:                                     # made writable and removed; left there, it would stop
+                    os.chmod(held, stat.S_IWRITE)        # every later run
+                    os.remove(held)
+                    _unlink(note)
+                except OSError:
+                    stays.append("%s (saved; its copy is now %s)" % (path, held))
             continue
         try:                                             # changed since it was saved: back where it was
             if os.path.lexists(f):
@@ -414,8 +422,9 @@ def _restore(wt, changes, saved, name):
                 break
             d = d.parent
     staged = _z(git_raw(["diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD"], wt))
+    staged = sorted(set(staged) | {p for _, p in changes})       # also an entry only meant to be added (add -N),
     if staged and _feed(["reset", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "HEAD"], wt, staged):
-        stays.append("the index (git reset of %d paths failed)" % len(staged))
+        stays.append("the index (git reset of %d paths failed)" % len(staged))   # which that list does not name
     write = [p for kind, p in gone if kind != "A"]       # paths HEAD has: their entries are HEAD's again by now
     if write:
         for bit in ("--no-assume-unchanged", "--no-skip-worktree"):     # one mark a call: git takes the last one
@@ -591,11 +600,14 @@ def busy_reason(wt, home, snapshot=None, quiet=600):
             open(wt / "trench-warfare-3d" / "Temp" / "UnityLockfile", "rb").close()
         except OSError:
             return "a Unity editor has this project open"
+    under_way = in_progress(wt)
+    if under_way:                                    # also with nothing changed: the next commit here would carry
+        return "git is in the middle of %s there (%s in its folder): end or abort it first" % under_way   # it on
     held = held_files(wt)
     if held:                                         # a clean that was killed, or a copy it could not remove
-        return ("the relay moved %d file%s out of it and did not finish with %s: %s (was %s). Put each back or "
-                "delete it, then remove that folder" % (len(held), "" if len(held) == 1 else "s",
-                                                        "it" if len(held) == 1 else "them", held[0][0], held[0][1]))
+        return ("the relay moved %d file%s out of it and did not finish, in %s: %s. Put each back or delete it, "
+                "then remove that folder" % (len(held), "" if len(held) == 1 else "s", put_back_dir(wt),
+                                             "; ".join("%s (was %s)" % (f, was) for f, was in held)))
     if dirty(wt) and not matches_snapshot(wt, snapshot):
         return "it has uncommitted changes that are not a saved leg snapshot"
     if quiet and age < quiet and not snapshot:   # quiet: seconds without git activity, 0 = skip

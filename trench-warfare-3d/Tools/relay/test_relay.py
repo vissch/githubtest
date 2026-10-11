@@ -991,7 +991,7 @@ class Checkout(Repo):
         quiet = lambda args: subprocess.run(["git"] + args, cwd=str(self.work), capture_output=True)
         for n, (start, mark, why) in enumerate(((["merge", "theirs"], "MERGE_HEAD", "in the middle of a merge (MERGE_HEAD"),
                                                 (["cherry-pick", "theirs"], "CHERRY_PICK_HEAD", "a cherry-pick (CHERRY_PICK_HEAD"),
-                                                (["merge", "theirs"], None, "unmerged paths")), 1):
+                                                (["merge", "theirs"], None, "unmerged")), 1):
             quiet(start)                                         # it stops on the conflict in README.md
             self.assertIn(b"UU README.md", quiet(["status", "--porcelain"]).stdout)
             if mark is None:                                     # unmerged entries with no merge under way, as a
@@ -1010,6 +1010,54 @@ class Checkout(Repo):
         rec = self.clean_at(9)
         self.assertEqual((rec["cleaned"], rec["touched"], (self.work / "new.txt").read_bytes()), (False, False, b"new\n"))
         self.assertIn("a rebase (rebase-merge", rec["kept_because"])
+
+    def test_a_checkout_git_is_in_the_middle_of_something_in_is_refused_also_when_nothing_is_changed(self):
+        # [RV4.1] [RV4.5] a merge under way whose index and files equal HEAD shows nothing in git status: no save
+        # ran, the checkout was let through, and the next leg's first commit was a merge commit
+        home, gitdir = self.tmp / "home", Path(gitio.git(["rev-parse", "--absolute-git-dir"], self.work))
+        self.g(["switch", "-q", "-c", "theirs"])
+        (self.work / "t.txt").write_bytes(b"theirs\n")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "theirs"])
+        self.g(["switch", "-q", gitio.INTEGRATION])
+        self.g(["merge", "-q", "-s", "ours", "--no-commit", "theirs"])
+        self.assertEqual((gitio.dirty(self.work), (gitdir / "MERGE_HEAD").exists()), ([], True))
+        self.assertIsNone(gitio.snapshot_dirty(self.work, self.tmp / "legx", clean=True))   # nothing to save
+        why = gitio.busy_reason(self.work, home, quiet=0)
+        self.assertIn("git is in the middle of a merge there (MERGE_HEAD", why or "let through")
+        self.g(["merge", "--abort"])
+        self.assertIsNone(gitio.busy_reason(self.work, home, quiet=0))
+        for name, what in (("BISECT_LOG", "a bisect"), ("sequencer", "a row of cherry-picks or reverts")):
+            (gitdir / name).write_text("", encoding="utf-8")
+            self.assertIn("in the middle of %s there (%s" % (what, name), gitio.busy_reason(self.work, home, quiet=0))
+            (gitdir / name).unlink()
+
+    def test_a_file_only_meant_to_be_added_does_not_keep_the_checkout_dirty(self):
+        # [RV4.2] `git add -N`: the entry is not in the list of what is staged, the reset never reached it, and
+        # git status read "D ita.txt" for every later run
+        self.dirty_tree()
+        (self.work / "ita.txt").write_bytes(b"meant to be added\n")
+        self.g(["add", "-N", "ita.txt"])
+        rec = self.clean_at(2)
+        self.assertEqual((rec["cleaned"], rec["kept_because"], gitio.dirty(self.work)), (True, "", []))
+        self.assertEqual(self.g(["cat-file", "blob", rec["ref"] + ":ita.txt"]).stdout, b"meant to be added\n")
+
+    def test_why_the_index_could_not_be_written_is_gits_own_word_and_a_taken_hold_folder_touches_nothing(self):
+        # [RV4.4] an index.lock a killed git left was reported as "(unmerged paths)"
+        # [RV4.6] the same leg folder cleaned twice: the hold folder is there, nothing was moved, "touched" said True
+        self.dirty_tree()
+        before, gitdir = self.everything(), Path(gitio.git(["rev-parse", "--absolute-git-dir"], self.work))
+        (gitdir / "index.lock").write_text("", encoding="utf-8")
+        rec = self.clean_at(2)
+        (gitdir / "index.lock").unlink()
+        self.assertEqual((rec["cleaned"], rec["touched"]), (False, False))
+        self.assertIn("index.lock", rec["kept_because"])
+        self.assertNotIn("unmerged", rec["kept_because"])
+        self.assertEqual(self.everything(), before)
+        (gitio.put_back_dir(self.work) / "r1-03").mkdir(parents=True)
+        rec = self.clean_at(3)
+        self.assertEqual((rec["cleaned"], rec["touched"]), (False, False))
+        self.assertIn("no folder to move the files to", rec["kept_because"])
+        self.assertEqual(self.everything(), before)
 
     def test_what_was_staged_and_is_not_on_disk_any_more_is_kept_as_a_commit_of_its_own(self):
         # [RV3.2] staged bytes that differ from the file, a file staged and then deleted, a file staged by force
@@ -1056,13 +1104,22 @@ class Checkout(Repo):
         self.assertIn("moved 1 file out of it and did not finish", why)
         self.assertIn("(was README.md)", why)
         self.assertIn(str(held), why)
+        self.assertIn("in %s:" % gitio.put_back_dir(self.work), why)        # [RV4.7] the folder, and every file
+        (held.parent / "000099").write_bytes(b"x")
+        (held.parent / "000099.path").write_bytes(b"caf\xe9 \xff.txt")       # a name that is not utf-8
+        self.assertEqual(gitio.held_files(self.work)[1][1], "caf\ufffd \ufffd.txt")
+        why = gitio.busy_reason(self.work, self.tmp / "home", quiet=0)
+        self.assertIn("moved 2 files out of it", why)
+        self.assertIn("000099 (was caf", why)
         os.replace(held, self.work / "README.md")                # somebody puts it back and clears the folder
         shutil.rmtree(gitio.put_back_dir(self.work))
         self.assertIn("uncommitted", gitio.busy_reason(self.work, self.tmp / "home", quiet=0))
 
-    def test_a_file_the_clean_cannot_remove_is_named_and_the_record_is_still_written(self):
+    def test_a_read_only_file_is_removed_once_it_is_proved_and_one_that_cannot_be_is_named(self):
         # [RV3.4] os.remove of a read-only file raises on Windows after the move: no record, a run that ends in
         # an error, the checkout half put back
+        # [RV4.3] and once that was caught, the proved copy that stayed stopped every later run: it is made
+        # writable and removed
         work = self.dirty_tree()
         os.chmod(self.work / "pic.bin", 0o444)
         leg = self.tmp / "home" / "runs" / "r1" / "legs" / "02"
@@ -1072,14 +1129,27 @@ class Checkout(Repo):
             for f in list(self.work.rglob("pic.bin")) + [h for h, _ in gitio.held_files(self.work)]:
                 os.chmod(f, 0o666)
         self.assertTrue((leg / "red-hashes.json").exists())
-        self.assertEqual(gitio.dirty(self.work), [])             # the checkout itself is at HEAD
-        if os.name == "nt":                                      # elsewhere a read-only file is removed like any other
-            (held, was), = gitio.held_files(self.work)
-            self.assertEqual((was, held.read_bytes()), ("pic.bin", work["pic.bin"]))
-            self.assertEqual((rec["cleaned"], rec["touched"]), (False, True))
-            self.assertIn("pic.bin (saved; its copy is now %s)" % held, rec["kept_because"])
-            self.assertIn("did not finish", gitio.busy_reason(self.work, self.tmp / "home", quiet=0))
+        self.assertEqual((rec["cleaned"], rec["kept_because"], gitio.dirty(self.work)), (True, "", []))
+        self.assertEqual(gitio.held_files(self.work), [])
+        self.assertIsNone(gitio.busy_reason(self.work, self.tmp / "home", quiet=0))
         self.assertEqual(self.g(["cat-file", "blob", rec["ref"] + ":pic.bin"]).stdout, work["pic.bin"])
+        (self.work / "pic.bin").write_bytes(work["pic.bin"])     # and a copy nothing can remove: named, no error
+        real = os.remove
+
+        def refuses(f):
+            if "relay-put-back" in str(f) and not str(f).endswith(".path"):
+                raise PermissionError(13, "Access is denied", str(f))
+            return real(f)
+        os.remove = refuses
+        try:
+            rec = self.clean_at(3)
+        finally:
+            os.remove = real
+        (held, was), = gitio.held_files(self.work)
+        self.assertEqual((was, held.read_bytes(), gitio.dirty(self.work)), ("pic.bin", work["pic.bin"], []))
+        self.assertEqual((rec["cleaned"], rec["touched"]), (False, True))
+        self.assertIn("pic.bin (saved; its copy is now %s)" % held, rec["kept_because"])
+        self.assertTrue((self.tmp / "home" / "runs" / "r1" / "legs" / "03" / "red-hashes.json").exists())
 
     def test_a_file_head_holds_with_crlf_is_put_back_where_git_would_rewrite_line_ends(self):
         # [RV3.5] `git add` keeps CRLF for a file the index already holds with CRLF; `git hash-object --path`

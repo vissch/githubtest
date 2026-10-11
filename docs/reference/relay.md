@@ -372,7 +372,9 @@ twice: `red.patch` in the leg's folder on that machine, and a commit on top of t
   HEAD plus the patch as it reads back from disk gives that same tree; the ref holds that tree; HEAD has not
   moved. And two states in which nothing is put back at all: git is in the middle of a merge, a cherry-pick, a
   revert or a rebase (setting index entries back would leave that state, and the next leg's first commit would
-  carry it on as a merge commit), or the checkout's index has unmerged paths. When one of these does not hold
+  carry it on as a merge commit), or the checkout's index cannot be written as a tree (unmerged paths, a lock a killed git left; the reason is
+  git's own words). A checkout in the middle of such an operation, a bisect included, is refused before any unit
+  starts, also when git status shows nothing: a merge whose files equal HEAD still makes the next commit a merge. When one of these does not hold
   nothing is touched, the stop record's `detail` says
   `the checkout was left as it is` and why, and the next run stops on the dirty checkout as before.
 - **What was staged** is kept too, before any index entry is set back: when the checkout's own index is neither
@@ -387,9 +389,11 @@ twice: `red.patch` in the leg's folder on that machine, and a commit on top of t
   that is not goes back to its place. That is equal as git stores it, not always byte for byte: where git rewrites
   line ends, a file in which only the line ends changed after the save counts as equal. A file that cannot be
   removed (read-only, on Windows) stays in that folder and is named. While anything is held there, after a clean
-  that was killed too, the next run refuses the checkout and names the file and the path it came from.
+  that was killed too, the next run refuses the checkout and names the folder, every file in it and the path each
+  came from. A read-only copy that is proved is made writable and removed.
   HEAD's version of a path is written only where no file is. A
-  folder is removed only when empty. The index entries of those paths, and of what was staged, are set to HEAD's.
+  folder is removed only when empty. The index entries of those paths and of what was staged (also an entry only
+  meant to be added, `git add -N`) are set to HEAD's.
   So a file written after the save (a Unity or a test a leg left running), a file git ignores, a file the leg's own
   edit of `.gitignore` had hidden: none of them is touched.
 - **What it says.** `the checkout is back at its HEAD`; or `put back to its HEAD only in part`, naming each path
