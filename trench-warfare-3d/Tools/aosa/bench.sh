@@ -7,6 +7,7 @@ export PATH="$PATH:$(cygpath -u "$LOCALAPPDATA")/unity/bin"
 export UNITY_PROJECT_PATH="$(cygpath -m "$R")"   # pin `unity command` to this checkout's editor, as Tools/tw does
 LABEL="$1"; EXTRA="${2:-}"
 OUTW="$(cygpath -m "$SP/../runs")/$LABEL.json"
+case "$LABEL$OUTW" in *[" ,;"]*) echo "bench.sh: the label or the out path holds a space, comma or semicolon; PerfBench splits -twbench on those"; exit 1;; esac
 rm -f "$SP/../runs/$LABEL.json"
 cd "$R"
 for i in $(seq 1 60); do p=$(unity command --timeout 10 eval "return UnityEditor.EditorApplication.isPlaying + \" \" + UnityEditor.EditorApplication.isCompiling;" 2>/dev/null | grep -o '"result":"[^"]*"'); [ "$p" = '"result":"False False"' ] && break; sleep 3; done
