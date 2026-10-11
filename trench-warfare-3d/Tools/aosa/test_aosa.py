@@ -33,7 +33,7 @@ Trailing text after the table.
 
 
 def report(label, build="development", hs="AAAA", he=None, main=8.0, gpu=5.0, draws=330, alive=1681, vat=1.5e6,
-           knobs=None, gpu_name="RTX 4070"):
+           knobs=None, gpu_name="RTX 4070", warn=None, sha=None, exit_code=None):
     s = lambda v: {"p50": v * 0.6, "p95": v, "p99": v * 1.2, "mean": v * 0.7, "max": v * 2, "sum": v * 100, "n": 100}
     w = {"tick_start": 1800, "tick_end": 2200, "hash_start": hs, "alive_start": 2185, "alive_end": alive,
          "fps_mean": 1000.0 / main, "gc_collections": 1, "hitches_over_33ms": []}
@@ -46,6 +46,12 @@ def report(label, build="development", hs="AAAA", he=None, main=8.0, gpu=5.0, dr
          "per_tick_ms": {"TW.Sim.Step": 1.3}}
     if knobs is not None:
         r["config"]["knobs"] = {"read": {}, "set": knobs}
+    if warn is not None:
+        r["warnings"] = list(warn)
+    if sha is not None:
+        r["build_info"] = {"git_sha": sha}
+    if exit_code is not None:
+        r["run"]["exit"] = exit_code
     return r
 
 
@@ -148,6 +154,27 @@ class AosaTest(unittest.TestCase):
         v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
         self.assertEqual(v["failed"], [1])
         self.assertIn("different ticks", v["rules"]["1"]["why"])
+
+    def test_a6_rule1_hash_end_not_disabled_by_one_missing(self):
+        # [A6] one report without hash_end drops itself from rule 1, it does not switch the test off for the others
+        self.ab(a_kw={"he": "E1"}, b_kw={"he": "E2"})
+        p = self.docs / "runs" / "3" / "base-1.json"
+        r = json.loads(p.read_text()); del r["window"]["hash_end"]; p.write_text(json.dumps(r))
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["failed"], [1], "[A6] rule 1 must still fail when hash_end differs in the reports that have it")
+        self.assertIn("hash_end differs", v["rules"]["1"]["why"], "[A6] the reason must name the hash_end mismatch")
+        self.assertIn("hash_end in 5 of 6 reports", v["rules"]["1"]["why"], "[A6] say how many reports carry hash_end")
+
+    def test_a6_rule3_names_what_it_could_not_check(self):
+        # [A6] a rule-3 metric that is absent from the reports is named as unchecked, not claimed to hold
+        self.ab()
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["verdict"], "pass", "[A6] an absent rule-3 metric must not fail the compare")
+        why = v["rules"]["3"]["why"]
+        for m in ("frame_budget_draws.p95", "frame_budget_vertices.p95"):
+            self.assertIn(m, why, "[A6] rule 3 must name %s as unchecked" % m)
+            self.assertIn(m, v["rules"]["3"]["unchecked"], "[A6] %s belongs in rule 3's unchecked list" % m)
+        self.assertIn("except unchecked:", why, "[A6] the text may not claim no other metric rose without saying what it skipped")
 
     def test_compare_rule2_and_spread(self):
         self.ab(n=2)
