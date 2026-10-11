@@ -168,6 +168,11 @@ def lines(notes):
 # ---- the listener the page writes through ----------------------------------------------------------------------------
 
 def handler(where: Path, key: str):
+    # One writer at a time: this is a ThreadingHTTPServer, and looking an id up and then writing it is two steps.
+    # Two pages on one queue, or the page sending again after its 8 s limit while the first post is still being
+    # written, would otherwise write one note of his twice.
+    writing = threading.Lock()
+
     class Box(BaseHTTPRequestHandler):
         def log_message(self, *a):
             pass
@@ -198,17 +203,18 @@ def handler(where: Path, key: str):
                 d = json.loads(self.rfile.read(size).decode('utf-8'))
                 if not isinstance(d, dict) or not secrets.compare_digest(str(d.get('key', '')), key):
                     return self.reply(403, dict(ok=False, why='the key is not the one in the notes folder'))
-                if self.path == '/note':
-                    # the page's own id of the note: a post of an id a note here already carries is that note's
-                    # answer come again (its first answer was lost), so it is answered and nothing is written.
-                    nid = line(d.get('id'), 64)
-                    again = [n for n in read_all(where) if nid and n.get('sent') == nid] if nid else []
-                    note = again[-1] if again else write(where, d.get('text'), sent=nid,
-                                                         **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
-                elif self.path == '/close':
-                    note = answer(where, str(d.get('id', '')), d.get('text') or 'Closed by the owner.', by='owner')
-                else:
-                    return self.reply(404, dict(ok=False, why='nothing here'))
+                with writing:                              # the look-up and the write are one step; the reply is not
+                    if self.path == '/note':
+                        # the page's own id of the note: a post of an id a note here already carries is that note's
+                        # answer come again (its first answer was lost), so it is answered and nothing is written.
+                        nid = line(d.get('id'), 64)
+                        again = [n for n in read_all(where) if nid and n.get('sent') == nid] if nid else []
+                        note = again[-1] if again else write(where, d.get('text'), sent=nid,
+                                                             **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
+                    elif self.path == '/close':
+                        note = answer(where, str(d.get('id', '')), d.get('text') or 'Closed by the owner.', by='owner')
+                    else:
+                        return self.reply(404, dict(ok=False, why='nothing here'))
                 self.reply(200, dict(ok=True, note=note))
             except (ValueError, TypeError) as e:
                 self.reply(400, dict(ok=False, why=str(e)))
