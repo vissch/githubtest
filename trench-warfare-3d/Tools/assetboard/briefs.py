@@ -349,15 +349,41 @@ def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcom
     return b
 
 
-def waiting(briefs, notes):
-    """The open briefs the owner has answered on the page and no session has taken up yet: [(brief, his note)], with
-    his last open note about each. `notes` is notes.read_all()."""
+def his_open(notes, b):
+    """His open notes about one brief, oldest first."""
+    return [n for n in notes if n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done']
+
+
+def after_answer(b, n):
+    """Whether a note was written after the brief was answered. An answer's `when` is to the minute and a note's to
+    the second, so a note of the same minute as the answer is one the take read (N10.13b)."""
+    return n.get('when', '')[:16] > ((b.get('answer') or {}).get('when', '') or '9999')[:16]
+
+
+def late(briefs, notes):
+    """A word of his after a brief was closed: [(brief, his last such note)] for every closed brief with open notes
+    written after its answer. He answers once and the brief is the decision, so a note he writes after the close is a
+    decision of its own: it is not answered with what became of the old one (N10.13b)."""
     out = []
     for b in briefs:
-        his = [n for n in notes if n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done']
-        if b.get('state') != 'answered' and his:
+        if b.get('state') != 'answered':
+            continue
+        his = [n for n in his_open(notes, b) if after_answer(b, n)]
+        if his:
             out.append((b, his[-1]))
     return out
+
+
+def waiting(briefs, notes):
+    """What waits on a session: the open briefs the owner has answered on the page and no session has taken up yet,
+    and the closed ones he has said something about since (late()): [(brief, his last open note)]. `notes` is
+    notes.read_all()."""
+    out = []
+    for b in briefs:
+        his = his_open(notes, b)
+        if b.get('state') != 'answered' and his:
+            out.append((b, his[-1]))
+    return out + late(briefs, notes)
 
 
 def said(b, text):
@@ -381,7 +407,9 @@ def answers(briefs, notes):
     owner, kind page, no words of his own) and carries the stamp the option's Then line has now."""
     out = []
     for b, last in waiting(briefs, notes):
-        his = [n for n in notes if n.get('about') == 'brief:' + b['id'] and n.get('state') != 'done']
+        if b.get('state') == 'answered':    # a word of his after the close is no answer to take up: `waiting` lists it (N10.13b)
+            continue
+        his = his_open(notes, b)
         picks = [said(b, n['text']) for n in his]
         option = picks[-1][0]
         o = ([x for x in b['options'] if x['key'] == option] or [{}])[0]
@@ -452,7 +480,8 @@ def left_over(where: Path, notes_where: Path, bid, by='', now=None):
     if len(hits) != 1 or hits[0].get('state') != 'answered':
         return None
     b = hits[0]
-    his = [m for m in notes.read_all(notes_where) if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done']
+    # only what he wrote before the answer: a later note of his is a decision of its own, and `late` lists it (N10.13b)
+    his = [m for m in his_open(notes.read_all(notes_where), b) if not after_answer(b, m)]
     if not his:
         return None
     for m in his:
@@ -472,12 +501,19 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     word dropped. A unit only in the relay's done folder closes it and the answer says so, so a done record of that id
     left by an earlier unit does not pass a new yes in silence. `unchecked` says why nobody could read the board, and is said
     in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
-    his notes is finished instead of refused. Write the row in decisions.md first. Returns (the brief, his note)."""
+    his notes is finished instead of refused; a note he wrote after the close is refused, saying so. Write the row in decisions.md first. Returns (the brief, his note)."""
     import notes
     done_before = left_over(where, notes_where, bid, by, now)
     if done_before:
         return done_before
-    a = one_answer(where, notes.read_all(notes_where), bid, note)
+    his = notes.read_all(notes_where)
+    for b, m in late(read_all(where), his):     # a word of his after the close: not this answer's, so not answered with it (N10.13b)
+        if b['id'] == bid or b['id'].endswith(bid):
+            raise ValueError(f'{b["id"]} is closed ({(b.get("answer") or {}).get("when", "")}) and he wrote about it '
+                             f'after that: his note {m["id"]} ({m.get("when", "")}) is no part of that answer. Read it '
+                             f'and act on it yourself (python Tools/assetboard/notes.py done {m["id"]} "what you did"), '
+                             f'or put him a new brief')
+    a = one_answer(where, his, bid, note)
     if one(queued) and one(outcome):
         raise ValueError('what became of it is a unit that was queued or words, not both')
     if not one(queued) and not one(outcome):
@@ -749,6 +785,19 @@ def waiting_lines(got):
     return out
 
 
+def late_lines(got):
+    """The words he left after a brief was closed, as text: no take answers them, so a session must (N10.13b)."""
+    out = []
+    for b, n in got:
+        a = b.get('answer') or {}
+        out.append(f'late    {b["id"]}')
+        out.append(f'        {b["title"]}')
+        out.append(f'        {n["when"][5:16]}  {" | ".join(n["text"].splitlines())}      (note {n["id"]})')
+        out.append(f'        he wrote it after the brief was closed ({a.get("when", "")} with {a.get("option", "")}): '
+                   f'read it and act on it, or put him a new brief')
+    return out
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description='decision briefs for the owner')
     ap.add_argument('what', nargs='?', default='list', choices=('list', 'add', 'then', 'waiting', 'unit', 'answer', 'take', 'missing', 'steps', 'concepts'))
@@ -804,11 +853,14 @@ def main(argv=None):
             print(f'briefs: {b["id"]} {a.args[1]} now says "Then: {t["says"]}", and {"queues " + t["unit"]["id"] if t.get("unit") else "builds nothing"}')
         elif a.what == 'waiting':
             import notes
-            got = answers(read_all(where), notes.read_all(notes.folder()))
+            every, his = read_all(where), notes.read_all(notes.folder())
+            got, said_since = answers(every, his), late(every, his)
             if a.json:
-                print(json.dumps(got, indent=1, sort_keys=True))
+                print(json.dumps(dict(answers=got, late=[dict(id=b['id'], title=b['title'], note=n['id'], when=n['when'], text=n['text']) for b, n in said_since]), indent=1, sort_keys=True))
             else:
-                print('\n'.join([f'briefs: {len(got)} answer{"" if len(got) == 1 else "s"} of the owner\'s nobody has taken up'] + waiting_lines(got)))
+                head = f"briefs: {len(got)} answer{'' if len(got) == 1 else 's'} of the owner's nobody has taken up"
+                head += f', and {len(said_since)} he said more about after it was closed' if said_since else ''
+                print('\n'.join([head] + waiting_lines(got) + late_lines(said_since)))
                 print('\n'.join(x for x in [bad_line(unreadable(where))] if x))
         elif a.what == 'unit':
             if len(a.args) != 1:

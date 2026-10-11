@@ -6,6 +6,7 @@ python Tools/assetboard/test_briefstates.py
 His answer on the Decide page is the decision, so a brief that is shown as decided when nobody was told, closed as
 queued when nothing was queued, or lost to a write cut half way, is his word dropped.
 """
+import datetime
 import inspect
 import json
 import os
@@ -204,6 +205,8 @@ class Taking(unittest.TestCase):
     """[N10.3] take closed a brief as "Queued as <unit>" on say-so, with nothing looking at the relay's queue, and
     [N10.13] it closed the brief before it answered his notes, so a failure between the two left them open for good."""
 
+    T0 = datetime.datetime(2026, 10, 11, 12, 0)     # a fixed clock: before and after the close is not real time
+
     def setUp(self):
         self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=TEMP))
         self.box = Path(tempfile.mkdtemp(prefix='notes-', dir=TEMP))
@@ -237,12 +240,12 @@ class Taking(unittest.TestCase):
         self.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
         return f
 
-    def click(self, key):
+    def click(self, key, now=None, text=None):
         """What the page leaves on a click: the option's text, and the stamp the Then line has now."""
         b = [x for x in briefs.read_all(self.where) if x['id'] == self.brief['id']][0]
         o = [x for x in b['options'] if x['key'] == key][0]
-        return notes.write(self.box, '%s: %s' % (key, o['text']), kind='page', about='brief:' + b['id'],
-                           then=(o.get('then') or {}).get('stamp', ''))
+        return notes.write(self.box, text or '%s: %s' % (key, o['text']), kind='page', about='brief:' + b['id'],
+                           then=(o.get('then') or {}).get('stamp', ''), now=now or self.T0)
 
     def state(self):
         return [x for x in briefs.read_all(self.where) if x['id'] == self.brief['id']][0]
@@ -254,6 +257,7 @@ class Taking(unittest.TestCase):
                 self.fail('[N10.3] take has no %s: it closes a brief as queued without looking at the board\'s '
                           'relay queue' % need)
         try:
+            kw.setdefault('now', self.T0)
             return briefs.take(self.where, self.box, self.brief['id'], by='master', note=self.note['id'], **kw), ''
         except ValueError as e:
             return None, str(e)
@@ -333,12 +337,12 @@ class Taking(unittest.TestCase):
 
     def test_take_finishes_what_an_earlier_take_left(self):
         # [N10.13] a crash between closing the brief and answering his notes left them open for ever
-        briefs.answer(self.where, self.brief['id'], 'A', said='', by='master', queued='unit-cover')
+        briefs.answer(self.where, self.brief['id'], 'A', said='', by='master', now=self.T0, queued='unit-cover')
         self.assertNotEqual(notes.read_all(self.box)[0].get('state'), 'done',
                             'the note read for was answered already')
         kw = dict(board=self.board) if 'board' in inspect.signature(briefs.take).parameters else {}
         try:
-            got = briefs.take(self.where, self.box, self.brief['id'], by='master', note=self.note['id'], **kw)
+            got = briefs.take(self.where, self.box, self.brief['id'], by='master', note=self.note['id'], now=self.T0, **kw)
         except Exception as e:
             self.fail('[N10.13] take cannot finish what an earlier take left: %s: %s' % (type(e).__name__, e))
         got_b, got_n = got
@@ -347,6 +351,27 @@ class Taking(unittest.TestCase):
                          '[N10.13] his note is left open for good after a take that stopped half way')
         self.assertIn('unit-cover', notes.read_all(self.box)[0]['answers'][-1]['text'],
                       '[N10.13] the note is not answered with what became of the brief')
+
+    def test_a_word_of_his_after_the_close_is_not_answered_with_the_old_outcome(self):
+        # [N10.13b] left_over answered EVERY open note about a closed brief with what became of it, --note or not:
+        # "No, leave it, I changed my mind", written after the close, was answered "Taken up: the brief is closed
+        # with A" and closed unread. A later word of his is a decision of its own.
+        self.queue(self.unit)
+        got, why = self.take(board=self.board)
+        self.assertEqual(why, '', '[N10.13b] the first take was refused: %s' % why)
+        later = self.click('A', now=self.T0 + datetime.timedelta(minutes=5),
+                           text='No, leave it, I changed my mind')
+        got, why = self.take(board=self.board, now=self.T0 + datetime.timedelta(minutes=6))
+        self.assertIsNone(got, '[N10.13b] a note he wrote after the close was taken up as part of that answer')
+        self.assertIn(later['id'], why, '[N10.13b] the refusal does not name his later note: %s' % why)
+        mine = [n for n in notes.read_all(self.box) if n['id'] == later['id']][0]
+        self.assertEqual(mine.get('state'), 'open',
+                         '[N10.13b] his note written after the close is closed: %s' % (mine.get('answers') or []))
+        self.assertEqual(mine.get('answers'), [],
+                         '[N10.13b] his note written after the close is answered with the old outcome: %s' % mine['answers'])
+        pairs = briefs.waiting(briefs.read_all(self.where), notes.read_all(self.box))
+        self.assertEqual([n['id'] for _, n in pairs], [later['id']],
+                         '[N10.13b] waiting does not list the word he left after the brief was closed')
 
     def test_a_closed_brief_with_no_open_note_is_still_refused(self):
         # [N10.13] finishing a left-over take is not a second close
