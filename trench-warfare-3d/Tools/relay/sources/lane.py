@@ -10,7 +10,9 @@
   <board>/relay/tried/<id>.json   written by the runner for a unit that did not pass: {"verdict" (FAIL | BLOCKED),
                                    "run", "at", "problems", "tries" (in a row with no new code on origin's lane),
                                    "origin_head", "unit_hash" (of lane, role, goal and done_when: never the priority)},
-                                   and for a leg the runner did not trust "rejected": {"run", "leg", "why", "head"}.
+                                   and for a leg the runner did not trust "rejected": {"run", "leg", "why", "head"},
+                                   and for uncommitted work the runner put aside "saved": {"ref", "patch", "head",
+                                   "run", "cleaned"}: a commit in the work checkout's repo, and a patch on that machine.
                                    A unit recorded BLOCKED, or FAIL limits.json no_progress_units times, is passed
                                    over while nothing has moved: taken again when origin's lane has a new head, the
                                    queue file changes, or `relay.py retry <id>` removes the record. Gone at a PASS
@@ -181,7 +183,12 @@ def refresh(unit, ctx):
     rej = tried(ctx["board"], unit["id"]).get("rejected") or {}
     if not (rej.get("head") and rej["head"] == gitio.head(ctx["work"])):
         rej = {}                                     # the lane has moved since: that leg's work is not what is here
-    return dict(unit, note=text, predictions=papers.run_predictions(text, ctx["work"]) if text else [], rejected=rej)
+    kept = tried(ctx["board"], unit["id"]).get("saved") or {}
+    if not (kept.get("ref") and gitio.git(["rev-parse", "-q", "--verify", kept["ref"] + "^{commit}"], ctx["work"],
+                                          check=False)):
+        kept = {}                                    # saved on another machine, or the ref is gone: nothing to name
+    return dict(unit, note=text, predictions=papers.run_predictions(text, ctx["work"]) if text else [], rejected=rej,
+                saved=kept)
 
 
 def done_when(unit, ctx):
@@ -201,6 +208,16 @@ def already_done(unit, ctx):
     if rej.get("head") and rej["head"] == gitio.head(ctx["work"]):
         return False
     return done_when(unit, ctx) is None and not gitio.dirty(ctx["work"]) and gitio.pushed(ctx["work"], unit["lane"])
+
+
+def saved(unit, ctx, rec, patch):
+    """The runner put a leg's uncommitted work aside (gitio.snapshot_dirty): keep where it is, for the unit's next
+    card. rec is the snapshot's record."""
+    old = tried(ctx["board"], unit["id"])
+    old.update(id=unit["id"], lane=unit["lane"],
+               saved={"ref": rec.get("ref") or "", "patch": str(patch), "head": rec.get("head") or "",
+                      "run": ctx.get("run", ""), "at": now(), "cleaned": bool(rec.get("cleaned"))})
+    write_json(tried_path(ctx["board"], unit["id"]), old)
 
 
 def reject(unit, ctx, why, leg=0):
@@ -229,6 +246,13 @@ def body(unit):
         lines.append("- The last leg on this unit (run %s, leg %02d) was not trusted by the runner: %s. The lane is as "
                      "it left it, at %s. Check what it did before you build on it or call it done."
                      % (rej.get("run") or "?", int(rej.get("leg") or 0), rej.get("why") or "?", str(rej["head"])[:10]))
+    kept = unit.get("saved") or {}
+    if kept:
+        lines.append("- An earlier leg on this unit left uncommitted work (run %s). The runner put it aside as the "
+                     "commit `%s`, made on %s, and the checkout was put back to its HEAD. Look at it with `git show "
+                     "--stat %s`; an execute leg puts it back uncommitted with `git cherry-pick -n %s`. Take it up or "
+                     "leave it, and say which in your report."
+                     % (kept.get("run") or "?", kept["ref"], str(kept.get("head"))[:10], kept["ref"], kept["ref"]))
     if unit.get("note"):
         lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
         lines += ["", "Its predictions, checked just now by script:"]
@@ -286,7 +310,10 @@ def finish(unit, ctx, problems, outcome):
     old, heads, same = tried(ctx["board"], unit["id"]), origin_heads(ctx.get("work")), unit_hash(unit)
     head = None if heads is None else heads.get(unit["lane"], "")
     again = old.get("verdict") and old.get("unit_hash") == same and head is not None and old.get("origin_head") == head
-    write_json(rec_file, {"id": unit["id"], "lane": unit["lane"], "verdict": v, "run": ctx.get("run", ""), "at": now(),
-                          "problems": [str(p)[:300] for p in problems[:8]], "origin_head": head, "unit_hash": same,
-                          "tries": (old["tries"] if again and isinstance(old.get("tries"), int) else 0) + 1})
+    rec = {"id": unit["id"], "lane": unit["lane"], "verdict": v, "run": ctx.get("run", ""), "at": now(),
+           "problems": [str(p)[:300] for p in problems[:8]], "origin_head": head, "unit_hash": same,
+           "tries": (old["tries"] if again and isinstance(old.get("tries"), int) else 0) + 1}
+    if old.get("saved"):
+        rec["saved"] = old["saved"]                  # work the runner put aside stays named until the unit passes
+    write_json(rec_file, rec)
     return v

@@ -335,6 +335,19 @@ on the board, with how each unit ended (`units`), so a failed unit is not hidden
 ("What a run leaves on the board" lists its keys).
 A unit whose lane the work checkout cannot switch to (another checkout has that branch out) is recorded FAIL with no
 leg, and the next unit is taken; until 2026-10-09 it ended the whole run.
+
+**Uncommitted work is put aside.** When a unit leaves files uncommitted, or a leg that cannot be trusted does, the
+runner saves them and puts the work checkout back to its HEAD, so the next run can use it (`gitio.snapshot_dirty`;
+until 2026-10-11 the files stayed, and every later run stopped with 0 legs on a dirty checkout). The work is held
+twice: `red.patch` in the leg's folder on that machine, and a commit on top of the lane's HEAD under
+`refs/relay/saved/<run>-<leg>` in the work checkout's repo. The clean is `git reset --hard HEAD` and
+`git clean -fd`, never `-x`: what git ignores (`Library`) is not touched. It runs only after the save is proved by
+tree id: the whole dirty tree is in a throwaway index, HEAD plus the patch as it reads back from disk gives that
+same tree, the ref holds that tree, and the checkout has not changed meanwhile. When one of these does not hold,
+nothing is removed, the stop record's `detail` says why, and the next run stops on the dirty checkout as before.
+A queued unit's record (`relay/tried/<id>.json`) names the ref, and the card of its next legs says how to look at
+the work and put it back (`git cherry-pick -n <ref>`). Line ends come back as git's settings write them; the tree
+is the same. The run still stops after a unit that left work behind (`uncommitted`).
 A run started where no window can open (Windows session 0: every Claude session on the desktop) says so at its
 start and on every leg card; work that needs a windowed Unity editor then ends BLOCKED. Batch mode still works.
 The card tells that leg to drive the editor with the Unity CLI at %LOCALAPPDATA%/unity/bin/unity.exe, the one
@@ -373,7 +386,7 @@ record an older relay wrote does not have it.
 | `pace` | waiting for the day's pace would outlast the run |
 | `checkout` | the work checkout is missing, dirty, open in Unity or just used; or the relay's own code has uncommitted changes |
 | `leg` | a leg cannot be trusted: it broke a rule, timed out, compacted, or did not end clean |
-| `uncommitted` | a unit left uncommitted work behind |
+| `uncommitted` | a unit left uncommitted work behind; `detail` says where it was saved and whether the checkout was put back |
 | `no-result` | units in a row brought no result and no pushed code |
 | `lane` | units in a row whose lane cannot be switched to |
 | `error` | an error nobody foresaw |

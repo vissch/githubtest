@@ -749,6 +749,97 @@ class Checkout(Repo):
         self.assertFalse(gitio.matches_snapshot(self.work, snap))
         self.assertIn("uncommitted", gitio.busy_reason(self.work, home, snap, quiet=0))
 
+    IGNORED = {"Library/cache.bin": b"cache" * 50, "new dir/build.log": b"ignored, in a folder nobody tracks\n"}
+
+    def dirty_tree(self):
+        """Every kind of uncommitted work in the checkout, beside files git ignores. {path: bytes} of the work."""
+        self.g(["config", "core.autocrlf", "false"])             # bytes are compared: no line-end rewriting here
+        for rel, data in ((".gitignore", b"Library/\n*.log\n"), ("keep.txt", b"kept\n"), ("gone.txt", b"goes\n")):
+            (self.work / rel).write_bytes(data)
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "base"])
+        work = {"README.md": b"edited\r\n",                      # tracked, changed
+                "keep.txt": b"kept\nand staged\n",               # tracked, changed and staged
+                "new dir/new file.cs": b"half\n",                # untracked, in a folder of its own
+                "pic.bin": bytes(range(256)) * 4,                # untracked, binary
+                "empty.txt": b""}
+        for rel, data in list(work.items()) + list(self.IGNORED.items()):
+            (self.work / rel).parent.mkdir(exist_ok=True)
+            (self.work / rel).write_bytes(data)
+        self.g(["add", "keep.txt"])
+        (self.work / "gone.txt").unlink()                        # tracked, deleted
+        return work
+
+    def everything(self):
+        """{path: bytes} of every file of the checkout outside .git, and what git says of it."""
+        files = {p.relative_to(self.work).as_posix(): p.read_bytes() for p in self.work.rglob("*")
+                 if p.is_file() and ".git" not in p.relative_to(self.work).parts}
+        return files, self.g(["status", "--porcelain", "--untracked-files=all"]).stdout
+
+    def test_uncommitted_work_is_saved_proved_by_its_tree_and_only_then_cleared_from_the_checkout(self):
+        # [R002.3] the destructive step: tracked, staged, deleted, untracked, binary and empty files
+        work, leg = self.dirty_tree(), self.tmp / "home" / "runs" / "r1" / "legs" / "02"
+        at = gitio.head(self.work)
+        rec = gitio.snapshot_dirty(self.work, leg, clean=True)
+        self.assertEqual((rec["cleaned"], rec["kept_because"], rec["ref"]), (True, "", "refs/relay/saved/r1-02"))
+        self.assertEqual((gitio.dirty(self.work), gitio.head(self.work)), ([], at))     # the checkout is at its HEAD
+        self.assertEqual(((self.work / "README.md").read_bytes(), (self.work / "gone.txt").read_bytes()),
+                         (self.g(["cat-file", "blob", "HEAD:README.md"]).stdout, b"goes\n"))
+        self.assertFalse((self.work / "pic.bin").exists() or (self.work / "new dir" / "new file.cs").exists())
+        for rel, data in self.IGNORED.items():                   # what git ignores was never touched
+            self.assertEqual((self.work / rel).read_bytes(), data, rel)
+        tree = gitio.git(["rev-parse", rec["ref"] + "^{tree}"], self.work)             # held twice, as one tree
+        self.assertEqual((rec["tree"], gitio.patch_tree(self.work, leg / "red.patch")), (tree, tree))
+        self.assertEqual(gitio.git(["rev-parse", rec["ref"] + "^"], self.work), at)
+        self.assertEqual(json.loads((leg / "red-hashes.json").read_text(encoding="utf-8"))["cleaned"], True)
+        for back in (["cherry-pick", "-n", rec["ref"]], ["apply", str(leg / "red.patch")]):
+            self.g(back)                                         # and it comes back byte for byte, either way
+            for rel, data in work.items():
+                self.assertEqual((self.work / rel).read_bytes(), data, (back[0], rel))
+            self.assertFalse((self.work / "gone.txt").exists(), back[0])
+            self.g(["reset", "-q", "--hard"]); self.g(["clean", "-q", "-fd"])
+        self.assertIsNone(gitio.snapshot_dirty(self.work, leg, clean=True))             # nothing dirty: nothing done
+        self.g(["config", "core.autocrlf", "true"])              # as the laptop has it: the tree is still the proof
+        (self.work / "README.md").write_bytes(b"one\nline\n")
+        (self.work / "crlf.txt").write_bytes(b"a\r\nb\r\n")
+        rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "03", clean=True)
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []))
+        self.assertEqual(gitio.git(["rev-parse", rec["ref"] + "^{tree}"], self.work), rec["tree"])
+
+    def test_a_save_that_cannot_be_proved_clears_nothing(self):
+        # [R002.3] the check before reset --hard and clean: a patch that does not give the tree, a checkout that moved
+        self.dirty_tree()
+        before, real = self.everything(), gitio.git_raw
+
+        def cut(args, cwd, env=None):                            # the patch lost its tail on the way to the disk
+            r = real(args, cwd, env)
+            if args[:2] == ["diff", "--cached"]:
+                r.stdout = r.stdout[:len(r.stdout) // 2]
+            return r
+
+        def part(args, cwd, env=None):                           # a whole patch, of one file of the five
+            return real(args + ["--", "README.md"] if args[:2] == ["diff", "--cached"] else args, cwd, env)
+
+        def late(args, cwd, env=None):                           # a file written while the save was under way
+            if args[:1] == ["commit-tree"]:
+                (self.work / "late.txt").write_bytes(b"late\n")
+            return real(args, cwd, env)
+
+        def no_ref(args, cwd, env=None):                         # the second copy cannot be kept
+            return real(["update-ref", "refs/relay/bad..name", args[2]] if args[:1] == ["update-ref"] else args, cwd, env)
+        cases = ((cut, "does not give the tree"), (part, "does not give the tree"), (late, "changed while"),
+                 (no_ref, "could not be kept as a commit"))
+        for n, (stub, why) in enumerate(cases, 1):
+            gitio.git_raw = stub
+            try:
+                rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / ("%02d" % n), clean=True)
+            finally:
+                gitio.git_raw = real
+            self.assertEqual(rec["cleaned"], False, why)
+            self.assertIn(why, rec["kept_because"])
+            if (self.work / "late.txt").exists():
+                (self.work / "late.txt").unlink()
+            self.assertEqual(self.everything(), before, why)     # every file and git's own view: as they were
+
     def test_only_a_change_outside_docs_is_progress(self):
         a = gitio.head(self.work)
         (self.work / "docs").mkdir(); (self.work / "docs" / "n.md").write_text("n\n", encoding="utf-8")
@@ -1297,6 +1388,47 @@ class Runs(Repo):
         self.assertEqual(stop["reason_kind"], "uncommitted")
         self.assertIn(b"half.txt", (legdir.leg_path(stop["run"], 2) / "red.patch").read_bytes())
         self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+
+    def test_uncommitted_work_is_put_aside_so_the_next_run_can_use_the_checkout_and_take_the_work_up(self):
+        # [R002.3] run 20261007-004121 left rv-04-flow-goals' files in the checkout, and the next run stopped with
+        # 0 legs: nothing ever handed a later run the snapshot, and nothing cleaned the checkout
+        self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:half.txt"))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": [{"file": "half.txt", "text": "half\n"}]})
+        _, first = self.go()
+        self.assertIn("left uncommitted work", first["reason"])
+        ref = "refs/relay/saved/%s-02" % first["run"]            # the unit's second leg left it
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": [{"git": ["cherry-pick", "-n", ref]}, {"git": ["commit", "-q", "-m", "half"]},
+                                 {"git": ["push", "-q", "origin", "lane/show/x"]}]})
+        out, stop = self.go()
+        self.assertGreaterEqual(stop["legs"], 1, stop["reason"])                # the checkout could be used again
+        self.assertEqual((stop["units"], stop["legs"]), ({"u1": "PASS"}, 2))
+        self.assertEqual(self.g(["cat-file", "blob", "HEAD:half.txt"]).stdout, b"half\n")   # byte for byte
+        self.assertIn("as %s; the checkout is back at its HEAD" % ref, first["detail"])
+        self.assertIn(b"half.txt", (legdir.leg_path(first["run"], 2) / "red.patch").read_bytes())
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("git cherry-pick -n " + ref, card)         # the unit's next legs are told where it is
+        self.leg("execute", nn=9)
+        self.assertFalse(self.denied("Bash", command="git cherry-pick -n " + ref))      # and the guard lets them
+
+    def test_work_a_leg_that_cannot_be_trusted_left_is_put_aside_too_or_left_in_place_when_it_cannot_be_proved(self):
+        # [R002.3] the other caller: a leg that ends the run. The dirty tree must not block the next run either
+        self.queue("u1")
+        script = {"plan": [{"write": "plan.md", "text": PLAN}], "execute": [{"file": "a.txt", "text": "half\n"}, {"exit": 2}]}
+        self.script(script)
+        _, stop = self.go()
+        self.assertIn("exited 2", stop["reason"])
+        self.assertIn("the checkout is back at its HEAD", stop["detail"])
+        self.assertEqual(gitio.dirty(self.work), [])
+        real = gitio.patch_tree
+        gitio.patch_tree = lambda wt, patch: ""                  # the saved patch does not apply: nothing is proved
+        try:
+            _, stop = self.go()
+        finally:
+            gitio.patch_tree = real
+        self.assertIn("the checkout was left as it is: HEAD plus the saved patch does not give the tree", stop["detail"])
+        self.assertEqual(gitio.dirty(self.work), ["a.txt"])
+        self.assertEqual((self.work / "a.txt").read_bytes(), b"half\n")
 
     def test_a_compaction_trip_stops_the_run_and_saves_the_dirty_tree(self):
         self.queue("u1")

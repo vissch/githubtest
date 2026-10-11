@@ -5,7 +5,8 @@ record it, and go on until a stop rule fires. Every decision here is a script's;
 Stop rules: the run's time is up, the leg cap, the day's budget (limits.json day_budget_pct percent points of the
 week, or day_budget_usd dollars while nothing can be said in percent; counted by ledger.py over every leg started
 today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
-the owner's stop (relay.py stop), the checkout is missing, busy or left dirty, a leg that cannot be trusted
+the owner's stop (relay.py stop), the checkout is missing or busy, a unit that left uncommitted work (it is saved
+and the checkout put back to HEAD: put_aside), a leg that cannot be trusted
 (timeout, compaction trip, not auto mode, no hooks, no result), limits.json no_progress_units units in a row with
 no result, or any error. Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
 held (lock and leg marker) from the first unit to the stop record, so git's push guard also covers a job a leg left
@@ -395,7 +396,7 @@ class Run:
                            style_problems=config.report_problems(leg.get("report") or "", self.style))
         bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
         if bad:
-            saved = "uncommitted work saved in %s" % d if gitio.snapshot_dirty(self.work, d) else ""
+            saved = self.put_aside(d, unit)
             if leg["state"] == "STOPPED" and self.stop_file.exists():
                 raise Stop(self.asked(" --now", ", mid-leg %02d" % self.legs), saved)
             if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
@@ -414,6 +415,24 @@ class Run:
         self.live()
         self.send("leg %02d %s %s" % (self.legs, phase, unit["id"]))
         return d, leg
+
+    def put_aside(self, d, unit):
+        """Save what a leg left uncommitted beside that leg and put the checkout back to its HEAD
+        (gitio.snapshot_dirty, clean=True: nothing is removed before the save is proved). The words for the stop
+        record's detail, '' when the checkout was clean. A lane unit's record names the ref, so the unit's next
+        card can say where the work is."""
+        rec = gitio.snapshot_dirty(self.work, d, clean=True)
+        if not rec:
+            return ""
+        try:
+            tell = getattr(sources.load(unit["source"]), "saved", None) if unit.get("source") in sources.ORDER else None
+            if tell:
+                tell(unit, self.ctx, rec, d / "red.patch")
+        except (SystemExit, Exception) as e:                # noqa: BLE001
+            print("note: the saved work was not recorded for its unit (%s)" % (str(e) or type(e).__name__), flush=True)
+        if rec.get("cleaned"):
+            return "uncommitted work saved in %s and as %s; the checkout is back at its HEAD" % (d, rec["ref"])
+        return "uncommitted work saved in %s; the checkout was left as it is: %s" % (d, rec.get("kept_because"))
 
     def reject(self, unit, why):
         """A leg the runner cannot trust ends the run with no verdict for its unit. The unit's source is told, where
@@ -495,12 +514,12 @@ class Run:
             if outcome == "done" and not problems:
                 problems = self.critique(src, unit, body, plan)
         if gitio.dirty(self.work):
-            gitio.snapshot_dirty(self.work, d)
             src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
             problems.append("uncommitted work was left behind (saved beside leg %02d)" % self.legs)
             self.finish(src, unit, problems, "failed")
+            saved = self.put_aside(d, unit)                  # after the verdict: the unit's record then names it
             raise Stop(Why("uncommitted", "unit %s left uncommitted work in the checkout" % unit["id"]),
-                       "patch: %s" % (d / "red.patch"))
+                       "%s. patch: %s" % (saved, d / "red.patch"))
         src.keep_note(unit, self.ctx, legdir.desk(d), self.lim)
         verdict = self.finish(src, unit, problems, outcome)
         moved = gitio.code_changed(self.work, remote_before, gitio.remote_head(self.work, unit["lane"]))
