@@ -37,6 +37,10 @@ ENDPOINT = "fal-ai/nano-banana-pro/edit"
 CLASSES = ["cull", "cap", "cache", "batch", "shader", "budget-sweep", "instrument", "juice", "art", "sim-proposal"]
 VERDICTS = ["landed", "reverted", "void", "measure-only"]
 RULE3 = ["main_ms", "gpu_ms", "draw_calls", "setpass", "gc_bytes", "frame_budget_draws", "frame_budget_vertices"]
+# A7: a PerfBench warning that says the run is not comparable. "the window lost focus during the run" is NOT
+# here and must not be: run_player_quietly pushes the player window to the bottom itself, so every player
+# report carries that warning by design.
+REFUSE_WARNINGS = ["never a perf sample", "do not compare with standard runs", "unknown bench option(s) ignored"]
 FLOOR = ["window.alive_end", "vat_vertices.p50", "vat_shadows_on.p50"]
 HIGHER_BETTER = {"window.fps_mean"}
 GLOBAL_PRIOR = {"hit_rate": 0.3, "cost": 1.0}
@@ -560,14 +564,22 @@ def verdict(A, B, target="main_ms.p95", higher_better=None, priors=None):
     for grp in (A, B):
         if not grp:
             return {"verdict": "refused", "why": "no reports"}
-    if any((r.get("still") or {}).get("window_clock") == "held" for r in A + B):
-        return {"verdict": "refused", "why": "an image run (shot_tick, held window clock) is not a perf sample"}
+    for r in A + B:
+        why = not_a_sample(r)
+        if why:
+            return {"verdict": "refused", "why": "%s: %s" % (r.get("_path", r["run"].get("label")), why)}
     builds = {r["run"].get("build") for r in A + B}
     gpus = {(r.get("machine") or {}).get("gpu") for r in A + B}
     if len(builds) > 1:
         return {"verdict": "refused", "why": "build types differ: %s" % sorted(map(str, builds))}
     if len(gpus) > 1:
         return {"verdict": "refused", "why": "machine.gpu differs: %s" % sorted(map(str, gpus))}
+    # A7: one side may not pool runs from two builds; A and B sharing a sha is fine (a knob sweep runs one build)
+    for name, grp in (("candidate", A), ("baseline", B)):
+        shas = {(r.get("build_info") or {}).get("git_sha") for r in grp}
+        if len(shas) > 1:
+            return {"verdict": "refused",
+                    "why": "%s pools two builds: %s" % (name, " vs ".join(sorted(map(str, shas))))}
     build = builds.pop()
     hb = HIGHER_BETTER if higher_better is None else set(higher_better)
     rules, failed = {}, []
@@ -718,6 +730,20 @@ def find_args(label, cyc_dir):
 def unity_exe():
     return str(Path(os.environ.get("LOCALAPPDATA", "")) / "unity" / "bin" / "unity.exe")
 
+
+
+def not_a_sample(r):
+    """A7: why this report is no perf sample (a failed run, an image run, a warning that says so), or None."""
+    run = r.get("run") or {}
+    if run.get("exit") not in (None, 0):
+        return "run exit %s: %s" % (run.get("exit"), run.get("why"))
+    if (r.get("still") or {}).get("window_clock") == "held":
+        return "an image run (shot_tick, held window clock) is not a perf sample"
+    for w in r.get("warnings") or []:
+        for marker in REFUSE_WARNINGS:
+            if marker in str(w):
+                return "never a perf sample: %s" % w
+    return None
 
 
 def report_ok(out, label):
@@ -913,8 +939,8 @@ def all_reports():
         if p.parent.name == "seed":
             continue  # historical reports from different code: never repeats of each other, never a noise band
         r = load_json(p)
-        if isinstance(r, dict) and ((r.get("still") or {}).get("window_clock") == "held"):
-            continue  # an image run (shot_tick): its window ran on a held clock, so its timings are not a measurement
+        if isinstance(r, dict) and not_a_sample(r):
+            continue  # A7: an image run, a failed run or a run warned as incomparable is no noise sample either
         if isinstance(r, dict) and r.get("schema") == "tw-perf/1":
             r["_path"], r["_group"] = str(p), (p.parent.name, re.sub(r"[-_]\d+$", "", p.stem))
             out.append(r)
@@ -947,6 +973,8 @@ def cmd_learn(a):
     for key, g in sorted(groups.items()):
         if len(g) < 2 or len({r["run"].get("build") for r in g}) > 1 or len({r["window"].get("hash_start") for r in g}) > 1:
             continue
+        if len({(r.get("build_info") or {}).get("git_sha") for r in g}) > 1:
+            continue  # A7: runs from before and after a rebuild are not repeats of each other
         build = g[0]["run"].get("build")
         for m in metrics:
             vals = [v for v in (get_metric(r, m) for r in g) if v is not None]
