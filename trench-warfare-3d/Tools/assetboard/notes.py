@@ -137,7 +137,9 @@ def answer(where: Path, nid, text, by='', now=None):
     f = where / f'{hits[0]["id"]}.md'
     raw = f.read_text(encoding='utf-8').replace('\r\n', '\n')
     raw = re.sub(r'^state: .*$', 'state: done', raw, count=1, flags=re.M)
-    f.write_text(raw.rstrip('\n') + f'\n\n## Answer ({now:%Y-%m-%d %H:%M}{", " + line(by, 80) if by else ""})\n{str(text).strip()}\n', encoding='utf-8')
+    tmp = where / f'{hits[0]["id"]}.md.tmp'          # whole or not at all: a cut answer is his word gone (N10.4)
+    tmp.write_text(raw.rstrip('\n') + f'\n\n## Answer ({now:%Y-%m-%d %H:%M}{", " + line(by, 80) if by else ""})\n{str(text).strip()}\n', encoding='utf-8')
+    tmp.replace(f)
     return parse(f.read_text(encoding='utf-8'), f.stem)
 
 

@@ -118,6 +118,9 @@ def owner_notes(branch):
         print(f'briefs   not read ({e})')
         return
     print(f'briefs   {len(every)} open for the owner, {len(got)} he has answered and nobody has taken up')
+    bad = briefs.unreadable(briefs.folder())
+    if bad:                                 # a brief of his that does not read is a decision dropped (briefs.read_all)
+        print(f'         {briefs.bad_line(bad)[len("briefs: "):]}')
     for a in got:
         # an answer that queues work is the master's to take up (/master): it is the one that queues on the relay's board
         mark = 'MASTER  ' if a['go'] == 'queue' else 'FOR YOU ' if not a['lane'] or a['lane'] == branch else '        '

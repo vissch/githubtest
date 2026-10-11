@@ -183,21 +183,50 @@ def add(where: Path, title, what_for, options, why, evidence=(), no_evidence='',
     if raised_by and raised_by.get('run'):
         b['raised_by'] = dict(run=one(raised_by['run']), unit=one(raised_by.get('unit')), leg=int(raised_by.get('leg') or 0), **(dict(key=one(raised_by['key'])) if raised_by.get('key') else {}))
     home.mkdir(parents=True, exist_ok=True)
-    (home / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    put(home, b)
     return b
 
 
-def read_all(where: Path):
-    """Every brief there is, the one asked first first. A folder without a brief that reads is passed over."""
+def put(home: Path, b):
+    """Write a brief's brief.json, whole or not at all: a temp file beside it, then a rename over it. A write cut half
+    way would leave a brief.json that does not read, and such a brief is dropped from the page, from waiting() and
+    from steps() without a word (the review's N10.4)."""
+    tmp = home / 'brief.json.tmp'
+    tmp.write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    tmp.replace(home / 'brief.json')
+    return b
+
+
+def read_all(where: Path, bad=None):
+    """Every brief there is, the one asked first first. A folder without a brief that reads is passed over; when
+    `bad` is a list, what was passed over is appended to it as dict(id, why), so the caller can say so."""
     out = []
     for f in sorted(where.glob('*/brief.json')) if where.is_dir() else []:
+        why = ''
         try:
             b = json.loads(f.read_text(encoding='utf-8'))
-        except (OSError, ValueError):
+        except (OSError, ValueError) as e:
+            b, why = None, 'its brief.json does not read (%s)' % e
+        if why:
+            pass
+        elif not isinstance(b, dict):
+            why = 'its brief.json is not a brief'
+        elif b.get('id') != f.parent.name:
+            why = "its id is %s, not its folder's name" % (b.get('id') or 'missing')
+        if why:
+            if bad is not None:
+                bad.append(dict(id=f.parent.name, why=why))
             continue
-        if isinstance(b, dict) and b.get('id') == f.parent.name:
-            out.append(b)
+        out.append(b)
     return sorted(out, key=lambda b: (b.get('asked', ''), b['id']))
+
+
+def unreadable(where: Path):
+    """What read_all passed over: [dict(id, why)]. A brief of his nobody can read is a decision dropped, so the
+    listing, waiting(), the page and health.py all say how many there are."""
+    bad = []
+    read_all(where, bad)
+    return bad
 
 
 def stamp(says, unit=None):
@@ -264,7 +293,7 @@ def then(where: Path, notes, bid, option, says, unit=None):
     if bad:
         raise ValueError('not a Then line yet: ' + '; '.join(bad))
     o[0]['then'] = dict(says=one(says), stamp=stamp(says, unit), **(dict(unit=unit) if unit else {}))
-    (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    put(where / b['id'], b)
     return b
 
 
@@ -286,7 +315,7 @@ def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcom
     now = now or datetime.datetime.now()
     b.update(state='answered', answer=dict(option=option, said=one(said), by=one(by), when=f'{now:%Y-%m-%d %H:%M}'))
     b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome)) if one(v)})
-    (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    put(where / b['id'], b)
     return b
 
 
@@ -462,7 +491,7 @@ def concepts(where: Path, title, what_for, shown, why, about='', lane='', by='',
     b['kind'] = 'concepts'
     for i, e in enumerate(b['evidence']):
         e['option'] = 'ABCD'[i]
-    (where / b['id'] / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+    put(where / b['id'], b)
     return b
 
 
@@ -556,7 +585,7 @@ def steps(where: Path, board: Path, states=None, landed=(), now=None, write=True
             b = add(where, f'{iid}: the {sid} step', what_for, STEP_OPTIONS, why, ev, lane=item.get('lane', ''), by='briefs.py steps', now=now, bid=bid)
             b['step'] = dict(item=iid, stage=sid, job=r.get('job', ''), attempt=r.get('attempt', 1))
             b['options'][0]['then'] = dict(says=STEP_THEN, stamp=stamp(STEP_THEN))
-            (where / bid / 'brief.json').write_text(json.dumps(b, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+            put(where / bid, b)
             written.append(b)
     return written, owed
 
@@ -566,7 +595,8 @@ def site(where: Path, out: Path, now=None, got=(), owed=()):
     is copied once). Folders of briefs no longer shown are removed. Returns what the page was given. `got` is
     answers(): a brief he has answered is given `waits`, what his answer leads to and the note that was read for, so
     the page tells him what his click did."""
-    listed = shown(read_all(where), now)
+    bad = []
+    listed = shown(read_all(where, bad), now)
     for a in got:
         for b in listed:
             if b['id'] == a['id']:
@@ -586,6 +616,8 @@ def site(where: Path, out: Path, now=None, got=(), owed=()):
         if d.is_dir() and d.name not in [b['id'] for b in listed]:
             shutil.rmtree(d, ignore_errors=True)
     text = f'window.BRIEFS = {json.dumps(listed, sort_keys=True)};\n'
+    if bad:                                 # the briefs that did not read (read_all): the page says so at its top
+        text += f'window.BRIEFS_BAD = {json.dumps(bad, sort_keys=True)};\n'
     if owed:                                # the steps that passed with nothing to show him (steps()): the page lists them
         text += f'window.OWED = {json.dumps([dict(item=i, stage=s, why=w) for i, s, w in owed], sort_keys=True)};\n'
     f = out / 'data' / 'briefs.js'
@@ -616,6 +648,14 @@ def lines(briefs):
 def leads(a):
     """What an answer leads to, in a few words, for a session's lines."""
     return f'queues {a["unit"]["id"]} on {a["unit"]["lane"]}' if a['go'] == 'queue' else 'nothing to build' if a['go'] == 'nothing' else f'decided: write its unit and queue it, or say why nothing is built ({a["why"]})'
+
+
+def bad_line(bad):
+    """The one line that says what read_all passed over, or '' when nothing was: a brief that does not read is a
+    decision of his nobody is told about, so every listing says it."""
+    if not bad:
+        return ''
+    return f'briefs: {len(bad)} passed over: ' + '; '.join(f'{x["id"]} ({x["why"]})' for x in bad)
 
 
 def waiting_lines(got):
@@ -689,6 +729,7 @@ def main(argv=None):
                 print(json.dumps(got, indent=1, sort_keys=True))
             else:
                 print('\n'.join([f'briefs: {len(got)} answer{"" if len(got) == 1 else "s"} of the owner\'s nobody has taken up'] + waiting_lines(got)))
+                print('\n'.join(x for x in [bad_line(unreadable(where))] if x))
         elif a.what == 'unit':
             if len(a.args) != 1:
                 raise ValueError('unit ID --note NOTE [--out unit.json]')
@@ -731,8 +772,9 @@ def main(argv=None):
         else:
             every = read_all(where)
             some = every if a.all else [b for b in every if b.get('state') != 'answered']
+            bad = unreadable(where)
             print(f'briefs: {len(some)} {"in all" if a.all else "open"} in {where}')
-            print('\n'.join(lines(some)))
+            print('\n'.join(x for x in lines(some) + [bad_line(bad)] if x))
     except ValueError as e:
         print(f'briefs: {e}')
         return 1

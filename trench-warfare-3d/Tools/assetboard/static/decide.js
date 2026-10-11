@@ -130,7 +130,7 @@
     var yours = all.open.filter(said).length, todo = all.open.length - yours;          // a brief he has answered is decided: it no longer waits on him
     var n = document.getElementById('d-count'); if (n) n.textContent = todo + ' to decide' + (yours ? ' · ' + yours + ' decided by you, in progress' : '') + (left.length ? ' · ' + left.length + (left.length === 1 ? ' question' : ' questions') + ' without a brief' : '');
     var box = document.getElementById('d-open'), inp = box.contains(document.activeElement) && document.activeElement.tagName === 'INPUT' ? document.activeElement : null;
-    var sig = JSON.stringify([all.open, all.open.map(said)]);
+    var sig = JSON.stringify([all.open, all.open.map(said), root.BRIEFS_BAD || []]);
     if (box.dataset.sig !== sig && !(inp && inp.value)) {          // not while he is typing an answer of his own
       box.dataset.sig = sig; box.innerHTML = '';
       all.open.forEach(function (b, i) {
@@ -138,6 +138,8 @@
         box.appendChild(card(b));
       });
       index(all.open);
+      var gone = root.BRIEFS_BAD || [];            // briefs whose brief.json did not read: his decision is not lost quietly
+      if (gone.length) box.insertBefore(el('p', 'd-gone', gone.length + (gone.length === 1 ? ' brief could not be read: ' : ' briefs could not be read: ') + gone.map(function (g) { return g.id; }).join(', ')), box.firstChild);
       if (!todo) box.insertBefore(el('p', 'd-empty', all.open.length ? 'Nothing is left to decide.' : 'No brief is open.' + (left.length ? ' The questions below have none yet.' : ' Nothing waits on a decision.')), box.firstChild);
     }
     var bare = document.getElementById('d-bare');
