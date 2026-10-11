@@ -65,7 +65,10 @@ namespace TW.UI
             // and the match would stay frozen for good.
             if (listening != null) Router?.Clock?.Remove(MatchClock.Hold.Modal);
             listening?.Dispose(); listening = null; listeningCap = null; InputFocus.Listening = false;
-            if (!Mathf.Approximately(appliedScale, PreviewScale)) { var s = SettingsStore.Current.Clone(); s.Interface.UiScale = appliedScale; SettingsApplier.ApplyInterface(s); }
+            // [L4b] Unconditional: ApplyInterface previews the radar bezel too, so a DEFAULTS that changed
+            // only the bezel (saved scale already 1.0) was never undone and the HUD kept a square bezel
+            // until the next scene load. After APPLY the clone IS the saved settings, so this is a no-op.
+            { var s = SettingsStore.Current.Clone(); s.Interface.UiScale = appliedScale; SettingsApplier.ApplyInterface(s); }
             // The audio preview goes back if they left without applying. After APPLY, SettingsStore.Current IS
             // the draft, so this is a no-op; without it a previewed volume would outlive the screen that
             // previewed it and there would be no way to explain why the game got loud.
