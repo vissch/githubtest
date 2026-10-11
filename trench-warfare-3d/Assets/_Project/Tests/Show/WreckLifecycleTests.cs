@@ -16,6 +16,15 @@ namespace TW.Tests
     {
         const BindingFlags Any = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
 
+        /// <summary>Unity calls OnDestroy only on a component that was running, which an edit-mode test's never is: call
+        /// the very method a destroyed renderer would get.</summary>
+        static void Gone(MonoBehaviour mb)
+        {
+            var m = mb.GetType().GetMethod("OnDestroy", Any);
+            Assert.NotNull(m, mb.GetType().Name + ".OnDestroy");
+            m.Invoke(mb, null);
+        }
+
         static void Set(object v, string field, object value)
         {
             var f = v.GetType().GetField(field, Any);
@@ -95,6 +104,91 @@ namespace TW.Tests
             finally
             {
                 UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        /// <summary>A stand-in for Presentation/Terrain's BattlefieldProps: the renderer asks for a recomposition by name
+        /// (SendMessage on the component whose type is called BattlefieldProps), so a counter of the same name is enough.</summary>
+        [ExecuteAlways]   // SendMessage refuses a component that is not running, and an edit-mode test is not Play
+        sealed class BattlefieldProps : MonoBehaviour
+        {
+            public int Recomposed;
+            public void Recompose() => Recomposed++;
+        }
+
+        /// <summary>[N7.2] adopting the map's own wrecks as husks asks the composer to compose again, so its grey stand-ins
+        /// go in the same frame instead of being drawn over the husks until the prop's first change.</summary>
+        [Test]
+        public void AdoptingHusksAsksForARecompose()
+        {
+            var props = new GameObject("props stand-in").AddComponent<BattlefieldProps>();
+            var go = new GameObject("husk rig");
+            TW.Sim.Match.MatchSim match = null;
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+                var adopt = r.GetType().GetMethod("AdoptHusks", Any);
+                Assert.NotNull(adopt, "TankRenderer.AdoptHusks");
+                adopt.Invoke(r, new object[] { match, 100f });
+                Assert.AreEqual(1, props.Recomposed, "[N7.2] the composer was not asked to compose again, so its grey stand-ins stay beside the husks");
+            }
+            finally
+            {
+                match?.Dispose();
+                UnityEngine.Object.DestroyImmediate(go);
+                UnityEngine.Object.DestroyImmediate(props.gameObject);
+            }
+        }
+
+        /// <summary>[N7.6] the cut carcass meshes are HideAndDontSave: the renderer going away destroys them.</summary>
+        [Test]
+        public void TheRendererDestroysItsCarcassMeshes()
+        {
+            var go = new GameObject("carcass rig");
+            var hull = new Mesh { name = "hull" };
+            var mesh = new Mesh { name = "hull carcass", hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                var field = r.GetType().GetField("carcasses", Any);
+                Assert.NotNull(field, "TankRenderer.carcasses");
+                var carcasses = (IDictionary)field.GetValue(r);
+                carcasses[hull] = new Carcass { Mesh = mesh };
+                Gone(r);   // outside Play Unity does not call OnDestroy itself; this is the same method it would call
+                Assert.IsTrue(mesh == null, "[N7.6] the carcass mesh outlived the renderer");
+                Assert.IsTrue(hull != null, "[N7.6] the live model's own hull was destroyed with it");
+            }
+            finally
+            {
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                if (mesh != null) UnityEngine.Object.DestroyImmediate(mesh);
+                if (hull != null) UnityEngine.Object.DestroyImmediate(hull);
+            }
+        }
+
+        /// <summary>[N7.6] the two gag mark materials are HideAndDontSave: CombatFx going away destroys them.</summary>
+        [Test]
+        public void CombatFxDestroysItsGagMarkMaterials()
+        {
+            var shader = Shader.Find("TW/GroundMark (URP)") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Sprites/Default");
+            Assert.NotNull(shader, "no shader to make a stand-in material from");
+            var go = new GameObject("gag mark rig");
+            var mats = new[] { new Material(shader) { hideFlags = HideFlags.HideAndDontSave }, new Material(shader) { hideFlags = HideFlags.HideAndDontSave } };
+            try
+            {
+                var fx = go.AddComponent<CombatFx>();
+                var field = fx.GetType().GetField("gagMarkMats", Any);
+                Assert.NotNull(field, "CombatFx.gagMarkMats");
+                var held = (Material[])field.GetValue(fx);
+                held[0] = mats[0]; held[1] = mats[1];
+                Gone(fx);
+                Assert.IsTrue(mats[0] == null && mats[1] == null, "[N7.6] a gag mark material outlived CombatFx");
+            }
+            finally
+            {
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                foreach (var m in mats) if (m != null) UnityEngine.Object.DestroyImmediate(m);
             }
         }
     }
