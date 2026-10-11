@@ -17,7 +17,8 @@ import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-BOARD = HERE / 'static' / 'board.js'
+# a check may point the harness at an older board.js, to see its own red on the code before the fix
+BOARD = Path(os.environ.get('TW_NOTEBOX_BOARD') or HERE / 'static' / 'board.js')
 
 # never the live folders: the board's own places go under one temp folder, before anything of it is imported
 TEMP = Path(tempfile.mkdtemp(prefix='tw-notebox-'))
@@ -131,6 +132,29 @@ async function main() {
     await sleep(300);                                           // a flush that never settles is reported, not waited for
     out.settled = settled;
     out.store = JSON.parse(kept[LS] || '[]').map(n => ({ text: n.text, why: n.why || '' }));
+  } else if (which === 'panelswap') {
+    // one form, two runs of one agent type: they share kind+id, so the form made for the first is kept for the second
+    load(atOnce);
+    await sleep(10);
+    window.Board.open({ kind: 'queue', id: 'u-1', title: 'run one', lane: 'lane/show/one' });
+    window.Board.open({ kind: 'queue', id: 'u-1', title: 'run two', lane: 'lane/show/two' });
+    find(body, '.b-form').children[0].value = 'x';
+    find(body, '.b-form').fire('submit');
+    await sleep(50);
+    out.posts = posts;
+  } else if (which === 'dockdrawer') {
+    // the drawer is open over the workers' place: the dock's form is still about the worker standing there
+    load(atOnce);
+    await sleep(10);
+    const dock = mk('div');
+    body.appendChild(dock);
+    window.Board.dock(dock);
+    window.Board.open({ kind: 'worker', id: 'frog-1', uid: 'u-a', title: 'Claude session', lane: 'lane/show/one', worker: { kind: 'session', state: 'working' } });
+    window.Board.open({ kind: 'queue', id: 'u-1', lane: 'lane/sim/x' });
+    find(dock, '.b-form').children[0].value = 'x';
+    find(dock, '.b-form').fire('submit');
+    await sleep(50);
+    out.posts = posts;
   } else { throw new Error('no such case: ' + which); }
   console.log(JSON.stringify(out));
 }
@@ -174,6 +198,20 @@ class Box(unittest.TestCase):
         self.assertEqual([n['text'] for n in o['store']], ['C'],
                          '[N12.2] the send never came back and the note is gone from the store: ' + repr(o))
         self.assertTrue(o['store'][0]['why'], '[N12.2] the page does not say why the note is still waiting: ' + repr(o))
+
+    def test_form_reads_its_own_panel(self):
+        # [N12.3b] the drawer is open over the dock: a note from the dock's form is about the worker there
+        o = drive('dockdrawer')
+        self.assertTrue(o['posts'], "[N12.3b] the form in the dock sent nothing: " + repr(o))
+        self.assertEqual(o['posts'][-1]['about'], 'frog-1',
+                         "[N12.3b] the note from the form in the dock carries the subject of the drawer: " + repr(o['posts'][-1]))
+
+    def test_form_reads_the_subject_shown(self):
+        # [N12.3] a form made for the first run of an agent type must send about the run the panel shows now
+        o = drive('panelswap')
+        self.assertTrue(o['posts'], '[N12.3] the form sent nothing: ' + repr(o))
+        self.assertEqual(o['posts'][-1]['lane'], 'lane/show/two',
+                         '[N12.3] the note carries the subject the form was made for, not the one shown: ' + repr(o['posts'][-1]))
 
     def test_sends_carries_the_id(self):
         """[N12.2] what the page sends carries the page's own id of the note."""
