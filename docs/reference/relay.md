@@ -73,7 +73,9 @@ its lane on origin, and how many tries in a row ended with nothing new there. Th
   "take that leg's head for done". A unit that failed once gets one
   more try, in the next run. Until 2026-10-11 two failed units at the front of the queue were taken again by every
   run, and no run reached the work behind them. Origin is asked once per pick, with 30 seconds to answer and no
-  password prompt; when it does not answer nothing is passed over.
+  password prompt; when it does not answer nothing is passed over. The runner's other questions to origin go
+  the same way (`gitio.origin`): the list of its branches gets 60 seconds, a fetch 300; one that is given up
+  counts as failed, as an origin that cannot be reached always has.
 - A leg the runner could not trust (it broke a rule, timed out, did not end clean) stops the run with no verdict.
   The record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
   it gets a plan and an execute leg whose card says what happened, and the record goes when trusted legs end the
@@ -358,18 +360,33 @@ little more can still be cut. 0 switches the minimum off. A run of `--hours 0.25
 runner saves them and puts the work checkout back to its HEAD, so the next run can use it (`gitio.snapshot_dirty`;
 until 2026-10-11 the files stayed, and every later run stopped with 0 legs on a dirty checkout). The work is held
 twice: `red.patch` in the leg's folder on that machine, and a commit on top of the lane's HEAD under
-`refs/relay/saved/<run>-<leg>` in the work checkout's repo. The clean is `git clean -fd` and then
-`git reset --hard HEAD`, never `-x`: what git ignores (`Library`) is not touched. It runs only after the save is proved by
-tree id: the whole dirty tree is in a throwaway index, HEAD plus the patch as it reads back from disk gives that
-same tree, the ref holds that tree, and the checkout has not changed meanwhile. The throwaway index starts as a
-copy of the checkout's own, so a file a leg staged with `git add -f` under an ignored pattern is saved too. When
-one of these does not hold, nothing is removed, the stop record's `detail` says
-`the checkout was left as it is` and why, and the next run stops on the dirty checkout as before.
-The clean comes before the reset so that it runs under the ignore rules the save was made with: a folder a leg
-made git ignore by editing a tracked `.gitignore` is in no patch, and is not deleted. It is found once the reset
-has brought the old rules back; the `detail` then says `put back to its HEAD only in part` and names it, the same
-when git fails half way, and the next run stops on what is left. What went from the checkout in that case is in
-the patch and the ref.
+`refs/relay/saved/<run>-<leg>` in the work checkout's repo.
+
+- **What is saved.** A tree built in a throwaway index: HEAD read fresh, then every changed, deleted and new file
+  git does not ignore, then every file the checkout's own index holds beyond that (staged with `git add -f` under
+  an ignored pattern). Read fresh, no entry carries a mark that hides an edit (`assume-unchanged`,
+  `skip-worktree`) or file times that stand in for content, and a file HEAD tracks is compared whatever the
+  checkout's index says of it. A path marked `skip-worktree` that is not on disk (a sparse checkout) keeps HEAD's
+  entry. What git ignores and no index holds (`Library`) is not saved and not touched.
+- **What is proved first.** By id, never by a list of files: nothing git does not ignore is outside that tree;
+  HEAD plus the patch as it reads back from disk gives that same tree; the ref holds that tree; HEAD has not
+  moved. When one of these does not hold nothing is touched, the stop record's `detail` says
+  `the checkout was left as it is` and why, and the next run stops on the dirty checkout as before.
+- **The clean cannot reach what is not in the saved tree.** It runs no `git reset --hard` and no `git clean`. It
+  walks the paths in which the saved tree differs from HEAD and no other. A file is moved out of the checkout into
+  a folder under `.git`, hashed there, and removed only when it is the very blob the saved tree holds for that
+  path; one that is not goes back to its place. HEAD's version of a path is written only where no file is. A
+  folder is removed only when empty. The index entries of those paths, and of what was staged, are set to HEAD's.
+  So a file written after the save (a Unity or a test a leg left running), a file git ignores, a file the leg's own
+  edit of `.gitignore` had hidden: none of them is touched.
+- **What it says.** `the checkout is back at its HEAD`; or `put back to its HEAD only in part`, naming each path
+  that stays and why (`changed after it was saved`, a file where the saved tree has none, not a plain file, or
+  simply still there): what went from the checkout is then in the patch and the ref, and the next run stops on
+  what is left; or `left as it is`. The record's `cleaned` and `touched` say the same, and so does the unit's
+  next card.
+
+What is staged and differs from the file on disk is in neither copy: the file is what is saved. A symlink and a
+checkout nested in the work are left in place and named. Needs git 2.26 or newer (paths are handed over on stdin).
 A queued unit's record (`relay/tried/<id>.json`) names the ref, and the card of its next legs says how to look at
 the work and put it back (`git cherry-pick -n <ref>`). Line ends come back as git's settings write them; the tree
 is the same. The run still stops after a unit that left work behind (`uncommitted`).

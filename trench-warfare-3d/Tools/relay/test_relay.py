@@ -802,7 +802,7 @@ class Checkout(Repo):
         (self.work / "README.md").write_bytes(b"one\nline\n")
         (self.work / "crlf.txt").write_bytes(b"a\r\nb\r\n")
         rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "03", clean=True)
-        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []))
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []), rec["kept_because"])
         self.assertEqual(gitio.git(["rev-parse", rec["ref"] + "^{tree}"], self.work), rec["tree"])
 
     def test_a_save_that_cannot_be_proved_clears_nothing(self):
@@ -819,14 +819,15 @@ class Checkout(Repo):
         def part(args, cwd, env=None):                           # a whole patch, of one file of the five
             return real(args + ["--", "README.md"] if args[:2] == ["diff", "--cached"] else args, cwd, env)
 
-        def late(args, cwd, env=None):                           # a file written while the save was under way
-            if args[:1] == ["commit-tree"]:
-                (self.work / "late.txt").write_bytes(b"late\n")
+        def moved(args, cwd, env=None):                          # HEAD moves while the save is under way (to a
+            if args[:1] == ["commit-tree"] and "moved" not in args:      # commit of the same tree)
+                new = real(["commit-tree", "HEAD^{tree}", "-p", "HEAD", "-m", "moved"], cwd, env).stdout.decode().strip()
+                real(["update-ref", "HEAD", new], cwd)
             return real(args, cwd, env)
 
         def no_ref(args, cwd, env=None):                         # the second copy cannot be kept
             return real(["update-ref", "refs/relay/bad..name", args[2]] if args[:1] == ["update-ref"] else args, cwd, env)
-        cases = ((cut, "does not give the tree"), (part, "does not give the tree"), (late, "changed while"),
+        cases = ((cut, "does not give the tree"), (part, "does not give the tree"), (moved, "HEAD moved while"),
                  (no_ref, "could not be kept as a commit"))
         for n, (stub, why) in enumerate(cases, 1):
             gitio.git_raw = stub
@@ -836,8 +837,6 @@ class Checkout(Repo):
                 gitio.git_raw = real
             self.assertEqual(rec["cleaned"], False, why)
             self.assertIn(why, rec["kept_because"])
-            if (self.work / "late.txt").exists():
-                (self.work / "late.txt").unlink()
             self.assertEqual(self.everything(), before, why)     # every file and git's own view: as they were
 
     def test_a_file_staged_by_force_under_an_ignored_pattern_is_saved_before_the_checkout_is_cleared(self):
@@ -857,12 +856,121 @@ class Checkout(Repo):
             there = (self.work / rel).read_bytes() if (self.work / rel).exists() else None
             self.assertIn(data, (kept, there), "%s is neither saved nor still in the checkout" % rel)
             self.assertEqual(kept, data, rel)                    # and with the fix it is saved, in the ref
-        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []))
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []), rec["kept_because"])
         self.assertEqual(gitio.patch_tree(self.work, leg / "red.patch"), rec["tree"])
         self.g(["cherry-pick", "-n", rec["ref"]])
         for rel, data in forced.items():
             self.assertEqual((self.work / rel).read_bytes(), data, rel)
         self.assertEqual((self.work / "Library" / "cache.bin").read_bytes(), self.IGNORED["Library/cache.bin"])
+
+    def saved_or_there(self, rec, rel, data):
+        """The bytes are in the saved commit, or the file is still in the checkout with them: one of the two."""
+        kept = subprocess.run(["git", "cat-file", "blob", "%s:%s" % (rec["ref"] or "HEAD", rel)], cwd=str(self.work),
+                              capture_output=True).stdout
+        there = (self.work / rel).read_bytes() if (self.work / rel).exists() else None
+        self.assertIn(data, (kept, there), "%s is neither saved nor still in the checkout" % rel)
+        return kept
+
+    def test_an_edit_the_index_was_told_not_to_look_at_is_saved_before_the_checkout_is_put_back(self):
+        # [RV.1b] the copied index carried its per-entry bits: an edited file marked assume-unchanged (or
+        # skip-worktree) was skipped by `add -A` and hidden from every check, and reset --hard overwrote it
+        for rel in ("au.txt", "sw.txt"):
+            (self.work / rel).write_bytes(b"as committed\n")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "two files"])
+        self.dirty_tree()                                        # other dirty paths, so the save runs at all
+        self.g(["update-index", "--assume-unchanged", "au.txt"])
+        self.g(["update-index", "--skip-worktree", "sw.txt"])
+        edits = {"au.txt": b"edited behind assume-unchanged\n", "sw.txt": b"edited behind skip-worktree\n"}
+        for rel, data in edits.items():
+            (self.work / rel).write_bytes(data)
+        rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "02", clean=True)
+        for rel, data in edits.items():
+            self.assertEqual(self.saved_or_there(rec, rel, data), data, rel)    # and with the fix: saved, in the ref
+            self.assertEqual((self.work / rel).read_bytes(), b"as committed\n", rel)
+        self.assertEqual((rec["cleaned"], rec["kept_because"], gitio.dirty(self.work)), (True, "", []))
+        tags = self.g(["ls-files", "-v", "au.txt", "sw.txt"]).stdout.decode().split()
+        self.assertEqual(tags, ["H", "au.txt", "H", "sw.txt"])   # the bits are gone: git status tells the truth again
+
+    def test_a_file_head_tracks_that_was_taken_out_of_the_index_under_an_ignored_pattern_is_saved(self):
+        # [RV.1c] tracked in HEAD under an ignored pattern, then `git rm --cached` and edited: in no index, ignored,
+        # so in no tree and no list, and reset --hard overwrote it
+        (self.work / "Library").mkdir()
+        (self.work / "Library" / "tracked.txt").write_bytes(b"as committed\n")
+        self.g(["add", "-f", "Library/tracked.txt"]); self.g(["commit", "-q", "-m", "a tracked file in Library"])
+        self.dirty_tree()
+        self.g(["rm", "-q", "--cached", "Library/tracked.txt"])
+        (self.work / "Library" / "tracked.txt").write_bytes(b"edited after rm --cached\n")
+        rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "02", clean=True)
+        self.assertEqual(self.saved_or_there(rec, "Library/tracked.txt", b"edited after rm --cached\n"),
+                         b"edited after rm --cached\n")
+        self.assertEqual((self.work / "Library" / "tracked.txt").read_bytes(), b"as committed\n")
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []), rec["kept_because"])
+        self.assertEqual((self.work / "Library" / "cache.bin").read_bytes(), self.IGNORED["Library/cache.bin"])
+
+    def test_a_staged_file_rewritten_at_the_same_size_and_file_time_is_saved_as_it_is_on_disk(self):
+        # [RV.1d] an index entry's file times stood in for its content: a file staged and then rewritten with the
+        # same size and time read as unchanged, so the tree held the staged bytes and the bytes on disk went
+        self.dirty_tree()
+        f = self.work / "twice.txt"
+        f.write_bytes(b"first bytes\n")
+        self.g(["add", "twice.txt"])
+        at = f.stat()
+        time.sleep(1.1)                                          # the index is now older than nothing it holds
+        subprocess.run(["git", "update-index", "-q", "--refresh"], cwd=str(self.work), capture_output=True)
+        f.write_bytes(b"other bytes\n")
+        os.utime(f, ns=(at.st_atime_ns, at.st_mtime_ns))
+        rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "02", clean=True)
+        self.assertEqual(self.saved_or_there(rec, "twice.txt", b"other bytes\n"), b"other bytes\n",
+                         "kept, not saved: %s" % rec["kept_because"])
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []), rec["kept_because"])
+
+    def as_the_clean_begins(self, write):
+        """Save and clean, with write() called after the last check and before the first file is touched: in the
+        old clean as `git clean` starts, in the new one as it asks which paths the saved tree changes."""
+        real = gitio.git_raw
+
+        def late(args, cwd, env=None):
+            if args[:1] == ["clean"] or "--name-status" in args:
+                write()
+            return real(args, cwd, env)
+        gitio.git_raw = late
+        try:
+            return gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "02", clean=True)
+        finally:
+            gitio.git_raw = real
+
+    def test_a_file_written_or_changed_after_the_save_is_never_removed_by_the_clean(self):
+        # [RV.2b] a process the leg left running (Unity, a test) writes between the last check and the clean:
+        # clean -fd deleted the new file unsaved, and reset --hard overwrote the changed one
+        work = self.dirty_tree()
+
+        def write():
+            (self.work / "late.txt").write_bytes(b"written after the save\n")
+            (self.work / "new dir" / "late too.cs").write_bytes(b"in a folder the work made\n")
+            (self.work / "README.md").write_bytes(b"changed after the save\n")
+            (self.work / "pic.bin").write_bytes(b"an untracked file, changed after the save\n")
+        rec = self.as_the_clean_begins(write)
+        after = {"late.txt": b"written after the save\n", "new dir/late too.cs": b"in a folder the work made\n",
+                 "README.md": b"changed after the save\n", "pic.bin": b"an untracked file, changed after the save\n"}
+        for rel, data in after.items():
+            self.assertEqual((self.work / rel).read_bytes() if (self.work / rel).exists() else None, data, rel)
+        self.assertEqual((rec["cleaned"], rec["touched"]), (False, True))
+        for rel in ("README.md (changed after it was saved)", "pic.bin (changed after it was saved)", "late.txt"):
+            self.assertIn(rel, rec["kept_because"])              # left, and named
+        self.assertEqual(gitio.dirty(self.work), ["README.md", "late.txt", "new dir/late too.cs", "pic.bin"])
+        self.assertEqual((self.work / "keep.txt").read_bytes(), b"kept\n")      # the rest is at HEAD, and saved
+        self.assertFalse((self.work / "new dir" / "new file.cs").exists())
+        self.assertEqual(self.g(["cat-file", "blob", rec["ref"] + ":pic.bin"]).stdout, work["pic.bin"])
+        self.assertFalse((Path(gitio.git(["rev-parse", "--absolute-git-dir"], self.work)) / "relay-put-back").exists())
+
+    def test_a_file_put_where_the_saved_tree_has_none_is_not_overwritten(self):
+        # [RV.2b] the work deleted a tracked file; something writes one at that path after the save. HEAD's
+        # version is written only where no file is
+        self.dirty_tree()
+        rec = self.as_the_clean_begins(lambda: (self.work / "gone.txt").write_bytes(b"written after the save\n"))
+        self.assertEqual((self.work / "gone.txt").read_bytes(), b"written after the save\n")
+        self.assertEqual((rec["cleaned"], rec["touched"], gitio.dirty(self.work)), (False, True, ["gone.txt"]))
+        self.assertIn("gone.txt (a file is there that the saved tree does not have)", rec["kept_because"])
 
     def test_a_folder_the_leg_itself_made_git_ignore_is_not_deleted_unsaved(self):
         # [RV.2] [RV.3] the leg edits the tracked .gitignore to ignore scratch/ and writes there: the save follows
@@ -912,30 +1020,6 @@ class Checkout(Repo):
             self.assertEqual((rec["cleaned"], rec["touched"]), (False, False), why)
             self.assertIn(why, rec["kept_because"])
             self.assertEqual(self.everything(), before, why)
-
-    def test_what_is_said_of_saved_work_is_true_whether_the_checkout_was_put_back_wholly_partly_or_not(self):
-        # [RV.3] "the checkout was left as it is" was said of a checkout whose tracked edits were already
-        # reverted, and the next card said "put back to its HEAD" whatever had happened
-        from sources import lane as SL
-        r, real, d = runner.Run(self.args()), gitio.snapshot_dirty, self.tmp / "legx"
-        states = (({"cleaned": True, "touched": True, "ref": "refs/relay/saved/r-02", "kept_because": ""},
-                   "the checkout is back at its HEAD", "the checkout was put back to its HEAD"),
-                  ({"cleaned": False, "touched": True, "ref": "refs/relay/saved/r-02", "kept_because": "git left x"},
-                   "the checkout was put back to its HEAD only in part: git left x", "was put back only in part"),
-                  ({"cleaned": False, "touched": False, "ref": "", "kept_because": "no proof"},
-                   "the checkout was left as it is: no proof", None))
-        try:
-            for rec, said, card in states:
-                gitio.snapshot_dirty = lambda wt, folder, clean=False, rec=rec: dict(rec, head="abc")
-                text = r.put_aside(d, {"id": "x", "source": "retro"})
-                self.assertIn(said, text)
-                self.assertEqual("left as it is" in text, not rec["touched"])
-                unit = dict(Runs.ROLED, role="lane", saved=dict(rec, run="r", head="abc"))
-                body = SL.body(unit) if rec["ref"] else ""
-                self.assertEqual(card in body if card else body == "", True, body)
-                self.assertEqual("was put back to its HEAD" in body, rec["cleaned"])
-        finally:
-            gitio.snapshot_dirty = real
 
     def test_only_a_change_outside_docs_is_progress(self):
         a = gitio.head(self.work)
@@ -1202,6 +1286,27 @@ class Runs(Repo):
         self.assertNotEqual(kw.get("stdout"), subprocess.PIPE)   # no pipe a helper git left behind could hold open
         self.assertFalse(kw.get("capture_output"))
         self.assertEqual(SL.origin_heads(self.work)[gitio.INTEGRATION], gitio.head(self.work))   # the real call reads
+
+    def test_the_runners_other_questions_to_origin_are_timed_and_cannot_prompt_either(self):
+        # [RV.6b] the fetch before a lane is read or switched to, and the list of origin's heads, had no time limit
+        calls, real = [], subprocess.run
+
+        def hangs(cmd, **kw):
+            if cmd[:2] in (["git", "fetch"], ["git", "ls-remote"]):
+                calls.append((cmd[1], kw.get("timeout"), (kw.get("env") or {}).get("GIT_TERMINAL_PROMPT"),
+                              kw.get("stdin"), kw.get("stdout") == subprocess.PIPE or bool(kw.get("capture_output"))))
+                raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+            return real(cmd, **kw)
+        subprocess.run = hangs
+        try:
+            self.assertEqual(gitio.remote_heads(self.work), {})                 # nothing known, and the run goes on
+            self.assertEqual(gitio.remote_head(self.work, gitio.INTEGRATION), gitio.head(self.work))   # as last fetched
+            self.assertEqual(gitio.switch_lane(self.work, "lane/show/x"), "created from origin/" + gitio.INTEGRATION)
+        finally:
+            subprocess.run = real
+        self.assertEqual(calls, [("ls-remote", gitio.ORIGIN_S, "0", subprocess.DEVNULL, False),
+                                 ("fetch", gitio.FETCH_S, "0", subprocess.DEVNULL, False),
+                                 ("fetch", gitio.FETCH_S, "0", subprocess.DEVNULL, False)])
 
     def test_work_pushed_by_a_leg_the_runner_did_not_trust_gets_a_leg_before_it_can_pass(self):
         # [R002.1] the leg pushes, then breaks a rule: the next run took the pushed head as "already done"
@@ -1555,8 +1660,30 @@ class Runs(Repo):
         self.assertIn(b"half.txt", (legdir.leg_path(first["run"], 2) / "red.patch").read_bytes())
         card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
         self.assertIn("git cherry-pick -n " + ref, card)         # the unit's next legs are told where it is
+        self.assertIn("and the checkout was put back to its HEAD.", card)
         self.leg("execute", nn=9)
         self.assertFalse(self.denied("Bash", command="git cherry-pick -n " + ref))      # and the guard lets them
+
+    def test_the_stop_and_the_next_card_say_truly_when_the_checkout_was_put_back_only_in_part(self):
+        # [RV.3] [RV.3b] "the checkout was left as it is" was said of a checkout that was already partly put back,
+        # and the next card said "put back to its HEAD" whatever had happened. Through a real run and a real card
+        self.queue("u1")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": [{"file": ".gitignore", "text": "scratch/\n"}, {"file": "scratch/x.txt", "text": "x\n"},
+                                 {"file": "half.txt", "text": "half\n"}]})
+        _, stop = self.go()
+        self.assertIn("left uncommitted work", stop["reason"])
+        self.assertIn("the checkout was put back to its HEAD only in part", stop["detail"])
+        self.assertIn("scratch/x.txt", stop["detail"])           # what the leg's own ignore rule had hidden: it stays
+        self.assertNotIn("left as it is", stop["detail"])
+        self.assertNotIn("back at its HEAD", stop["detail"])
+        self.assertEqual(gitio.dirty(self.work), ["scratch/x.txt"])
+        shutil.rmtree(self.work / "scratch")                     # somebody looks at it and clears it away
+        self.script(self.GOOD)
+        _, stop = self.go(max_legs=1)
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("and the checkout was put back only in part then", card)
+        self.assertNotIn("was put back to its HEAD", card)
 
     def test_work_a_leg_that_cannot_be_trusted_left_is_put_aside_too_or_left_in_place_when_it_cannot_be_proved(self):
         # [R002.3] the other caller: a leg that ends the run. The dirty tree must not block the next run either

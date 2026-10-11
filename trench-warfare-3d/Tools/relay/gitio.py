@@ -2,7 +2,7 @@
 """Git facts about a checkout, and the one lock that says "a leg is working here". Every check a leg's result is
 judged by is a script here: no model is asked. Stdlib only. ASCII only.
 """
-import hashlib, os, re, shutil, subprocess, sys, tempfile, time
+import hashlib, os, re, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -11,6 +11,7 @@ from pipeline import now, proc_start, read_json, write_json   # noqa: E402
 
 INTEGRATION = "claude/trench-warfare-2d-3d-plan-idt7lf"       # the same name Tools/health.py and Tools/land.py use
 STALE_LOCK_S = 60
+ORIGIN_S, FETCH_S = 60, 300             # how long origin gets for a question, and for a fetch; then the call is given up
 
 
 class GitError(Exception):
@@ -26,6 +27,21 @@ def git(args, cwd, check=True):
     if check and r.returncode:
         raise GitError("git %s failed in %s: %s" % (" ".join(args), cwd, r.stderr.decode("utf-8", "replace").strip()))
     return r.stdout.decode("utf-8", "replace").strip()
+
+
+def origin(args, cwd, wait=ORIGIN_S):
+    """(exit code, output) of a git call that talks to origin: timed, and it may not ask for a password. One that
+    is given up, or cannot start, counts as failed: (1, ""). The answer goes to a file, not a pipe, so a helper
+    process git left behind cannot hold the reader (as boardio._origin, which reads nothing). An origin that hangs
+    must not hold a run."""
+    try:
+        with tempfile.TemporaryFile() as out:
+            r = subprocess.run(["git"] + args, cwd=str(cwd), stdin=subprocess.DEVNULL, stdout=out,
+                               stderr=subprocess.DEVNULL, timeout=wait, env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+            out.seek(0)
+            return r.returncode, out.read().decode("utf-8", "replace").strip()
+    except (OSError, subprocess.TimeoutExpired):
+        return 1, ""
 
 
 def head(wt):
@@ -52,7 +68,7 @@ def dirty(wt):
 
 
 def remote_head(wt, lane):
-    git(["fetch", "-q", "origin"], wt, check=False)
+    origin(["fetch", "-q", "origin"], wt, FETCH_S)
     return git(["rev-parse", "-q", "--verify", "origin/" + lane], wt, check=False)
 
 
@@ -87,7 +103,7 @@ def pushed(wt, lane):
 
 def switch_lane(wt, lane):
     """Put the work checkout on the unit's lane; a new lane starts at origin's integration branch."""
-    git(["fetch", "-q", "origin"], wt, check=False)
+    origin(["fetch", "-q", "origin"], wt, FETCH_S)
     if branch(wt) == lane:
         return "on"
     if git(["rev-parse", "-q", "--verify", lane], wt, check=False):
@@ -139,26 +155,29 @@ def snapshot_dirty(wt, folder, clean=False):
 
     clean=True, the runner's (a leg it cannot trust, a unit that left work behind): the checkout is then put back to
     its HEAD, so the next run finds it usable; a saved tree that stayed in the checkout made every later run refuse
-    it (the review, R002.3). That step destroys files, so it runs only after all of this held, and each is a
-    comparison of ids, never of file lists:
-      1. the throwaway index holds the whole dirty tree: git status against it shows nothing left over. It starts
-         as a copy of the checkout's own index (_seed), so a file staged by force under an ignored pattern is in it;
-      2. HEAD plus red.patch, as the patch reads back from the leg's folder, gives the very tree of that index;
-      3. the same tree is kept a second time as a commit on HEAD under saved_ref(folder), and the ref reads back;
-      4. asked again as the last thing before the clean: HEAD has not moved and the checkout is still that tree.
-    Then `git clean -fd` and `git reset --hard HEAD`, in that order: the clean runs under the ignore rules the save
-    was made with, so a folder the leg itself made git ignore (an edited .gitignore) is not deleted unsaved; it is
-    found after the reset and named. Never -x, so an ignored folder (Library) is not touched, and a checkout nested
-    in it is left alone. The record says how it went: "cleaned" True; or False with "kept_because", and "touched"
-    False when the checkout is exactly as it was, True when the clean began and did not leave it at HEAD (what is
-    gone from it is then in the patch and the ref). Put the work back with `git cherry-pick -n <ref>` or
-    `git apply red.patch`."""
+    it (the review, R002.3).
+
+    The saved tree (_fill) holds everything either index knows: a fresh index read from HEAD, so no entry carries a
+    bit that hides an edit (assume-unchanged, skip-worktree) and a file HEAD tracks is compared by content whatever
+    the checkout's own index says of it; then every changed and new file git does not ignore; then every file the
+    checkout's own index holds beyond that (staged by force under an ignored pattern).
+
+    The clean (_put_back) cannot touch what is not in that tree. It runs no `git reset --hard` and no `git clean`.
+    It walks the paths in which the saved tree differs from HEAD, and nothing else: a file is first moved out of the
+    checkout, then proved to be byte for byte the blob the saved tree holds for that path, and only then removed;
+    one that is not goes back where it was and is named. HEAD's version of a path is written only where no file is.
+    A file written after the save, a file git ignores, a file in neither tree: never touched. Before it starts:
+    HEAD plus red.patch, as the patch reads back from the leg's folder, gives the very tree that was saved; the same
+    tree is kept a second time as a commit on HEAD under saved_ref(folder); HEAD has not moved.
+    The record says how it went: "cleaned" True; or False with "kept_because", and "touched" False when the
+    checkout is exactly as it was, True when the clean began and did not leave it at HEAD (what is gone from it is
+    then in the patch and the ref). Put the work back with `git cherry-pick -n <ref>` or `git apply red.patch`."""
     paths = dirty(wt)
     if not paths:
         return None
     with tempfile.TemporaryDirectory() as tmp:
         env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
-        took = [_seed(wt, env), git_raw(["add", "-A"], wt, env).returncode]
+        took = _fill(wt, env)
         diff = git_raw(["diff", "--cached", "--binary", "HEAD"], wt, env)
         Path(folder).mkdir(parents=True, exist_ok=True)
         (Path(folder) / "red.patch").write_bytes(diff.stdout)
@@ -169,19 +188,42 @@ def snapshot_dirty(wt, folder, clean=False):
     return rec
 
 
-def _seed(wt, env):
-    """Start the throwaway index of `env` as a copy of the checkout's own index, else from HEAD when it has none.
-    0 when that worked. From HEAD alone, a file staged with `git add -f` under an ignored pattern was in no patch
-    and no ref, passed every check, and went with the reset (the second reader, RV.1)."""
-    own = Path(git(["rev-parse", "--git-path", "index"], wt, check=False) or "")
-    own = own if own.is_absolute() else Path(wt) / own
-    if own.is_file():
-        try:
-            shutil.copyfile(own, env["GIT_INDEX_FILE"])
-            return 0
-        except OSError:
-            return 1
-    return git_raw(["read-tree", "HEAD"], wt, env).returncode
+def _z(r):
+    """The NUL-separated records of a git call's output."""
+    return [x for x in r.stdout.decode("utf-8", "surrogateescape").split("\0") if x]
+
+
+def _feed(args, wt, paths, env=None):
+    """A git call that takes its paths on stdin, NUL-separated and never as patterns. Its exit code."""
+    return subprocess.run(["git", "--literal-pathspecs"] + args, cwd=str(wt), env=env, capture_output=True,
+                          input="".join(p + "\0" for p in paths).encode("utf-8", "surrogateescape")).returncode
+
+
+def _fill(wt, env):
+    """Fill the throwaway index of `env` with the dirty tree; the exit codes of its steps (all 0 = it worked).
+      1. read HEAD: fresh entries, with none of the bits and none of the file times of the checkout's own index;
+      2. a path the checkout's index marks skip-worktree and that is not on disk is not part of this checkout (a
+         sparse one): it gets the same mark here and keeps HEAD's entry, where it would else read as deleted;
+      3. `git add -A`: every changed, deleted and new file git does not ignore, compared by content;
+      4. `git add -f` for what the checkout's own index holds and this one still lacks, where the file is on disk.
+    Seeded from a copy of the checkout's index (13f8e532) an entry marked assume-unchanged hid its edit from every
+    check, and a file HEAD tracks that was taken out of the index under an ignored pattern was in no tree: both
+    went with the reset (the second reader, RV.1b and RV.1c)."""
+    codes = [git_raw(["read-tree", "HEAD"], wt, env).returncode]
+    own = git_raw(["ls-files", "-v", "-z"], wt)
+    codes.append(own.returncode)
+    tagged = [(x[0], x[2:]) for x in _z(own) if len(x) > 2]
+    away = [p for tag, p in tagged if tag in "Ss" and not os.path.lexists(os.path.join(str(wt), p))]
+    known = set(_z(git_raw(["ls-files", "-z"], wt, env)))
+    away = [p for p in away if p in known]
+    if away:
+        codes.append(_feed(["update-index", "--skip-worktree", "-z", "--stdin"], wt, away, env))
+    codes.append(git_raw(["add", "-A"], wt, env).returncode)
+    known = set(_z(git_raw(["ls-files", "-z"], wt, env)))
+    more = [p for _, p in tagged if p not in known and os.path.isfile(os.path.join(str(wt), p))]
+    if more:
+        codes.append(_feed(["add", "-f", "--pathspec-from-file=-", "--pathspec-file-nul"], wt, more, env))
+    return codes
 
 
 def _left_over(wt, env):
@@ -230,19 +272,100 @@ def _put_back(wt, folder, rec, calls, env):
             or git(["rev-parse", "-q", "--verify", ref + "^{tree}"], wt, check=False) != tree:
         return kept("the saved tree could not be kept as a commit under %s" % ref)
     out["ref"] = ref
-    if head(wt) != rec["head"] or _left_over(wt, env) != []:
-        return kept("the checkout changed while it was being saved")
+    if head(wt) != rec["head"]:
+        return kept("the checkout's HEAD moved while it was being saved")
+    names = git_raw(["diff", "--name-status", "--no-renames", "-z", rec["head"], tree], wt)
+    blobs = git_raw(["ls-tree", "-r", "-z", tree], wt)
+    if names.returncode or blobs.returncode:
+        return kept("git could not list what the saved tree changes")
+    parts = _z(names)
+    changes = list(zip(parts[0::2], parts[1::2]))        # (A | M | D | T, path), the saved tree against HEAD
+    saved = {}
+    for row in _z(blobs):                                # "<mode> <type> <id>\t<path>"
+        meta, _, path = row.partition("\t")
+        saved[path] = meta.split()
     out["touched"] = True                                # from here on the checkout is no longer as it was
-    if git_raw(["clean", "-q", "-fd"], wt).returncode:   # first, under the ignore rules the save was made with
-        return kept("git clean failed part way; what it removed is saved, the tracked files are as they were")
-    if git_raw(["reset", "-q", "--hard", "HEAD"], wt).returncode:
-        return kept("git reset failed after the untracked files were removed; all of that is saved")
+    stays = _restore(wt, changes, saved, ref.rsplit("/", 1)[-1])
     still = dirty(wt)
-    if still:                                            # e.g. a folder the leg's own .gitignore edit had hidden
-        return kept("the rest is at HEAD and saved, but these stay and are in no patch or ref: %s"
-                    % ", ".join(still[:3]))
+    if stays or still:
+        return kept("the rest is at HEAD and saved; these stay as they are: %s"
+                    % "; ".join((stays + [p for p in still if not any(s.startswith(p + " ") for s in stays)])[:4]))
     out["cleaned"] = True
     return out
+
+
+def _restore(wt, changes, saved, name):
+    """Put the paths of `changes` back to HEAD, and no other path. Returns what stays, each as "<path> (<why>)".
+    What can remove or overwrite a file here, and what bounds each:
+      os.replace    moves one file of `changes` into a new, empty folder under the checkout's git folder: nothing is
+                    overwritten, nothing is gone;
+      os.remove     only of a file in that folder, after `git hash-object --path` of it gave the very blob id the
+                    saved tree holds for its path: those bytes are in the patch and in the ref. A file that hashes
+                    to anything else is moved back to its place (or kept in the folder when that place is taken);
+      os.rmdir      a folder a removed file was in, when empty; and that folder under the git folder, when empty;
+      git reset -q HEAD -- <paths>   the index entries of these paths and of the paths the index itself had changed;
+                    no file of the checkout. What was staged and differs from the file on disk is in neither tree;
+      git checkout-index -u (without -f)   writes HEAD's version of a path where no file is; git skips a path that
+                    has one."""
+    wt, stays, gone = Path(wt), [], []
+    hold = Path(git(["rev-parse", "--absolute-git-dir"], wt)) / "relay-put-back" / name
+    try:
+        hold.mkdir(parents=True, exist_ok=False)
+    except OSError as e:
+        return ["%s (no folder to move it to: %s)" % (p, e) for _, p in changes]
+    last = lambda c: (c[1].rsplit("/", 1)[-1] in (".gitattributes", ".gitignore"), c[1])    # the rules go last
+    for n, (kind, path) in enumerate(sorted(changes, key=last)):
+        f = wt / path
+        if kind == "D" or not os.path.lexists(f):        # nothing on disk to take away
+            if kind != "D" or not os.path.lexists(f):
+                gone.append((kind, path))
+            else:
+                stays.append("%s (a file is there that the saved tree does not have)" % path)
+            continue
+        meta = saved.get(path) or []
+        if len(meta) != 3 or meta[0] not in ("100644", "100755") or meta[1] != "blob" or not f.is_file() or f.is_symlink():
+            stays.append("%s (not a plain file)" % path)
+            continue
+        held = hold / ("%06d" % n)
+        try:
+            os.replace(f, held)
+        except OSError as e:
+            stays.append("%s (it could not be moved: %s)" % (path, e.strerror or e))
+            continue
+        if git(["hash-object", "--path=" + path, str(held)], wt, check=False) == meta[2]:
+            os.remove(held)                              # proved: these bytes are the saved blob
+            gone.append((kind, path))
+            continue
+        try:                                             # changed since it was saved: back where it was
+            if os.path.lexists(f):
+                raise OSError("its place is taken")
+            os.replace(held, f)
+            stays.append("%s (changed after it was saved)" % path)
+        except OSError:
+            stays.append("%s (changed after it was saved; it is now %s)" % (path, held))
+    for kind, path in gone:                              # folders the work made, when nothing is left in them
+        d = (wt / path).parent
+        while kind != "D" and d != wt and wt in d.parents:
+            try:
+                d.rmdir()
+            except OSError:
+                break
+            d = d.parent
+    staged = _z(git_raw(["diff", "--cached", "--name-only", "--no-renames", "-z", "HEAD"], wt))
+    if staged and _feed(["reset", "-q", "--pathspec-from-file=-", "--pathspec-file-nul", "HEAD"], wt, staged):
+        stays.append("the index (git reset of %d paths failed)" % len(staged))
+    write = [p for kind, p in gone if kind != "A"]       # paths HEAD has: their entries are HEAD's again by now
+    if write:
+        for bit in ("--no-assume-unchanged", "--no-skip-worktree"):     # one mark a call: git takes the last one
+            _feed(["update-index", "-z", bit, "--stdin"], wt, write)
+        if _feed(["checkout-index", "-u", "-z", "--stdin"], wt, write):      # -u: the entry takes the new file's times
+            stays.append("HEAD's files (git checkout-index failed for some of %d paths)" % len(write))
+    try:
+        hold.rmdir()
+        hold.parent.rmdir()
+    except OSError:
+        pass
+    return stays
 
 
 def matches_snapshot(wt, rec):
@@ -353,7 +476,7 @@ def code_state(folder):
 
 def remote_heads(wt):
     """{ref: sha} for every branch on origin, asked of origin itself."""
-    out = git(["ls-remote", "--heads", "origin"], wt, check=False)
+    out = origin(["ls-remote", "--heads", "origin"], wt)[1]
     return {l.split("\t")[1]: l.split("\t")[0] for l in out.splitlines() if "\t" in l}
 
 
