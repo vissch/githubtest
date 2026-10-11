@@ -35,6 +35,9 @@
 // The game clock steps 1/30 s a frame while it films, so two runs sample a step alike.
 // TheBannersTopAndGunsAreFilmed (2026-10-09, banner-parts) photographs the Banner's new parts: its top laid on a
 // target 0, 45 and 90 degrees off the nose, and a barrel back. TW_STILLS_DIR again.
+// TheBannerIsFilmedByDay (2026-10-12, banner-day-film) is the owner's film: eighteen seconds of the Banner in a
+// match by day, walking at play zoom, laying its top on men off its nose and firing, then the same from the front
+// quarter, close. It writes PNG frames into Captures/bannerday/day for ffmpeg, not stills.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -410,6 +413,158 @@ namespace TW.Tests
             Assert.That(written, Is.GreaterThanOrEqualTo(7), "too few frames landed to judge the top and the guns");
         }
 
+        /// <summary>The flattest open lane on this field: a lane of open ground 44 m long, the most level one there is: no trench, wire or prop in it. It lies along
+        /// the map's +x edge, because the camera looks from that side and stands 15 to 40 m off: from outside the map
+        /// nothing stands between (a lane in the middle was filmed through a wreck and a row of ruins, which are
+        /// dressing the sim's map does not list)
+        /// False when the field has none: x and z are then the spot the side-on strip uses, whatever stands on it.
+        /// (Lifted out of FilmOne unchanged on 2026-10-12: the day film needs the same lane, for the same reason.)</summary>
+        static bool OpenLane(out float x, out float z, out float flat)
+        {
+            var map = Host.Local.Map;
+            var size = map.SizeMeters;
+            x = -1f; z = -1f; flat = float.MaxValue;
+            for (float zz = 20f; zz < size.y - 60f; zz += 2f)
+                for (float xx = size.x - 30f; xx <= size.x - 12f; xx += 2f)
+                {
+                    bool open = true;
+                    for (float dz = -4f; dz <= 40f && open; dz += 2f)
+                        for (float dx = -6f; dx <= 8f && open; dx += 2f)
+                            if ((map.LayerAt(new Unity.Mathematics.float3(xx + dx, 0f, zz + dz)) & (TW.Sim.Terrain.NavLayer.Trench | TW.Sim.Terrain.NavLayer.Link | TW.Sim.Terrain.NavLayer.Blocked | TW.Sim.Terrain.NavLayer.Wire | TW.Sim.Terrain.NavLayer.Bunker)) != 0) open = false;
+                    for (int i = 0; i < map.Props.Length && open; i++)
+                    {
+                        var pp = map.Props[i].Pos;
+                        if (pp.x > xx - 7f && pp.z > zz - 6f && pp.z < zz + 42f) open = false;
+                    }
+                    if (!open) continue;
+                    // how far the ground rises and falls along it, where the feet go: a walk is judged on the level
+                    float lo = float.MaxValue, hi = float.MinValue;
+                    for (float dz = -2f; dz <= 40f; dz += 1f)
+                        for (float dx = -4f; dx <= 4f; dx += 2f)
+                        {
+                            float y = RenderGround.Sample(map, xx + dx, zz + dz);
+                            lo = Mathf.Min(lo, y); hi = Mathf.Max(hi, y);
+                        }
+                    if (hi - lo < flat) { x = xx; z = zz; flat = hi - lo; }
+                }
+            if (x < 0f) { x = size.x * 0.5f; z = 60f; return false; }
+            return true;
+        }
+
+        // ------------------------------------------------------------------ the Banner by day, on film
+        // The owner, 2026-10-11: "i still havent seen a video of it yet", and on the parts brief he chose "show me a
+        // short film in daylight first". He had been sent stills, the first of them dark and from behind.
+        //
+        // So: one match, eighteen seconds of it, in the game's own scene with the game's own shaders and lights, in
+        // four beats he can read without being told where to look - walking at play zoom, the top laid on men who
+        // stand off its nose, the top coming home when they are gone, and the same again close from the front
+        // quarter while it fires. Nothing is posed: RiderLab.Enemies puts the men there and the sim lays the top.
+        //
+        // Why Winter: it is the only daylight field (docs/18-biomes.md), and GreyboxTerrainView.Start reads the
+        // Atmosphere component's Field when no mission is running. TW_STILLS_FIELD overrides it.
+        // Why no PinnedClock: the parts stills froze the sky at noon, but a film may move.
+        // The frames land in Captures/bannerday/day (Captures/ is git-ignored); banner_day.txt beside them is the
+        // lay and the recoil every quarter second, which is what the asserts below read.
+        [UnityTest, Explicit("Eighteen seconds of the Banner walking, turning its top and firing, by day; run by name, with a graphics device.")]
+        public IEnumerator TheBannerIsFilmedByDay()
+        {
+            HudBootstrap.Disabled = true;        // no HUD and no shell: nothing of the UI over the machine
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            if (!System.Enum.TryParse(System.Environment.GetEnvironmentVariable("TW_STILLS_FIELD"), true, out TW.Presentation.Terrain.Biome field))
+                field = TW.Presentation.Terrain.Biome.Winter;
+            foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
+            foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
+            yield return new EnterPlayMode();
+            yield return FilmBannerDay();       // a fresh enumerator after the reload (WreckStills' lesson)
+        }
+
+        static IEnumerator FilmBannerDay()
+        {
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            string dir = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "bannerday", "day");
+            Directory.CreateDirectory(dir);
+
+            // quiet: nobody deploys, nobody shells the lane, and no rain across the lens
+            Host.ScriptedPeer = false; Host.PeerAttacks = false;
+            Host.WriteWorlds(m => { var b = m.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
+            for (int f = 0; f < 120; f++) yield return null;
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            Time.captureDeltaTime = 1f / 30f;
+            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+
+            if (!OpenLane(out float x, out float z, out float flat))
+                TestContext.Out.WriteLine("no open lane: filmed where the side-on strip films");
+            TestContext.Out.WriteLine($"lane from {x:0}, {z:0}; its ground rises and falls {flat:0.00} m");
+
+            string spawned = TankCapture.Spawn(0, VehicleArchetype.Banner, x, z, 0f);
+            Assert.That(spawned, Does.StartWith("slot "), "banner: " + spawned);
+            int slot = int.Parse(spawned.Substring(5));
+            TestContext.Out.WriteLine(RiderLab.ClearEnemies(slot, 1000f));      // nothing to shoot at yet: it walks
+            TestContext.Out.WriteLine(RiderLab.Drive(slot, 36f));
+            TestContext.Out.WriteLine(RiderLab.Panel(false));                   // no lab panel in the picture
+            if (tc != null) tc.BaseYaw = -90f;                                  // side on, as the game stands
+            TestContext.Out.WriteLine(RiderLab.Camera(slot, 30f, 0f, 25f));     // the zoom and tilt the game is played at
+            float into = Time.time;
+            while (Time.time - into < 3f) yield return null;                    // into its stride
+
+            var v = ViewOf(slot);
+            Assert.That(v, Is.Not.Null, "the Banner is drawn without a view");
+            var world = Host.Local.World;
+            var log = new System.Text.StringBuilder();
+            log.AppendLine($"field {(sky != null ? sky.Field.ToString() : "?")}, lane {x:0} {z:0}, flat {flat:0.00} m");
+            TestContext.Out.WriteLine(RiderLab.Film(dir, 18f, 24, 1280, 720));
+
+            float t0 = Time.time, next = 0f, peakLay = 0f, homeLay = 999f, peakRecoil = 0f;
+            bool shown = false, cleared = false, closer = false;
+            // 540 frames of game time at 1/30 s; the cap is far past it, so a film that cannot render ends the test
+            for (int f = 0; f < 8000 && !RiderLab.FilmStatus().StartsWith("done"); f++)
+            {
+                float t = Time.time - t0;
+                if (!shown && t >= 5f)                      // men off the nose: the top traverses, the guns fire
+                { shown = true; log.AppendLine($"t {t:0.00} {RiderLab.Enemies(slot, 4, 45f, 55f)}"); }
+                if (!cleared && t >= 9.5f)                  // they are gone: the top comes back to the nose
+                { cleared = true; log.AppendLine($"t {t:0.00} {RiderLab.ClearEnemies(slot, 1000f)}"); }
+                if (!closer && t >= 12f)                    // the same beats closer, from the front quarter
+                {
+                    closer = true;
+                    if (tc != null) tc.BaseYaw = -45f;
+                    log.AppendLine($"t {t:0.00} {RiderLab.Camera(slot, 11f, 0f, 18f)}");
+                    log.AppendLine($"t {t:0.00} {RiderLab.Enemies(slot, 4, 40f, 35f)}");
+                }
+                if (t >= next)
+                {
+                    next += 0.25f;
+                    float lay = ViewArr(v, "GunYaw")[0] * Mathf.Rad2Deg;
+                    var rec = ViewArr(v, "Recoil");
+                    log.AppendLine($"t {t:0.00} lay {lay:0.0} deg recoil {rec[0]:0.00} {rec[1]:0.00}");
+                    peakLay = Mathf.Max(peakLay, Mathf.Abs(lay));
+                    peakRecoil = Mathf.Max(peakRecoil, Mathf.Max(rec[0], rec[1]));
+                    if (t >= 9.5f && t <= 12f) homeLay = Mathf.Min(homeLay, Mathf.Abs(lay));
+                }
+                yield return null;
+            }
+            string status = RiderLab.FilmStatus();
+            bool alive = world.IsAlive(slot);
+            int frames = Directory.GetFiles(dir, "f_*.png").Length;
+            log.AppendLine($"{status}; {frames} frames; the top was laid {peakLay:0.0} deg at most and came home to {homeLay:0.0} deg; the deepest recoil was {peakRecoil:0.00}");
+            File.WriteAllText(Path.Combine(dir, "banner_day.txt"), log.ToString());
+            Time.captureDeltaTime = 0f;
+            yield return new ExitPlayMode();
+
+            TestContext.Out.WriteLine(log.ToString());
+            TestContext.Out.WriteLine($"filmed the Banner by day into {dir}");
+            Assert.That(alive, Is.True, "the Banner was destroyed before the film ended");
+            Assert.That(status, Does.StartWith("done"), "the film never finished: " + status);
+            Assert.That(frames, Is.GreaterThanOrEqualTo(420), "too few frames for eighteen seconds of film");
+            Assert.That(peakLay, Is.GreaterThanOrEqualTo(25f), "the top never turned far enough off the nose to be seen turning");
+            Assert.That(homeLay, Is.LessThanOrEqualTo(8f), "the top never came back to the nose after the targets were gone");
+            Assert.That(peakRecoil, Is.GreaterThanOrEqualTo(0.45f), "no barrel ever came back, so no shot can be seen");
+        }
+
         [UnityTest, Explicit("One walker, side on, a foot close up and at play zoom; run by name, with a graphics device.")]
         public IEnumerator OneWalkerIsFilmedThroughAStep()
         {
@@ -450,39 +605,10 @@ namespace TW.Tests
             Time.captureDeltaTime = 1f / 30f;
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
 
-            // a lane of open ground 44 m long, the most level one there is: no trench, wire or prop in it. It lies along
-            // the map's +x edge, because the camera looks from that side and stands 15 to 40 m off: from outside the map
-            // nothing stands between (a lane in the middle was filmed through a wreck and a row of ruins, which are
-            // dressing the sim's map does not list)
             var map = Host.Local.Map;
-            var size = map.SizeMeters;
-            float x = -1f, z = -1f, best = float.MaxValue;
-            for (float zz = 20f; zz < size.y - 60f; zz += 2f)
-                for (float xx = size.x - 30f; xx <= size.x - 12f; xx += 2f)
-                {
-                    bool open = true;
-                    for (float dz = -4f; dz <= 40f && open; dz += 2f)
-                        for (float dx = -6f; dx <= 8f && open; dx += 2f)
-                            if ((map.LayerAt(new Unity.Mathematics.float3(xx + dx, 0f, zz + dz)) & (TW.Sim.Terrain.NavLayer.Trench | TW.Sim.Terrain.NavLayer.Link | TW.Sim.Terrain.NavLayer.Blocked | TW.Sim.Terrain.NavLayer.Wire | TW.Sim.Terrain.NavLayer.Bunker)) != 0) open = false;
-                    for (int i = 0; i < map.Props.Length && open; i++)
-                    {
-                        var pp = map.Props[i].Pos;
-                        if (pp.x > xx - 7f && pp.z > zz - 6f && pp.z < zz + 42f) open = false;
-                    }
-                    if (!open) continue;
-                    // how far the ground rises and falls along it, where the feet go: a walk is judged on the level
-                    float lo = float.MaxValue, hi = float.MinValue;
-                    for (float dz = -2f; dz <= 40f; dz += 1f)
-                        for (float dx = -4f; dx <= 4f; dx += 2f)
-                        {
-                            float y = RenderGround.Sample(map, xx + dx, zz + dz);
-                            lo = Mathf.Min(lo, y); hi = Mathf.Max(hi, y);
-                        }
-                    if (hi - lo < best) { x = xx; z = zz; best = hi - lo; }
-                }
-            // no such lane on this field: the spot the side-on strip uses, whatever stands on it
-            if (x < 0f) { x = size.x * 0.5f; z = 60f; TestContext.Out.WriteLine("no open lane: filmed where the side-on strip films"); }
-            TestContext.Out.WriteLine($"lane from {x:0}, {z:0} on a {size.x:0} x {size.y:0} m map; its ground rises and falls {best:0.00} m");
+            if (!OpenLane(out float x, out float z, out float best))
+                TestContext.Out.WriteLine("no open lane: filmed where the side-on strip films");
+            TestContext.Out.WriteLine($"lane from {x:0}, {z:0} on a {map.SizeMeters.x:0} x {map.SizeMeters.y:0} m map; its ground rises and falls {best:0.00} m");
 
             string warm = Path.Combine(dir, "warmup.png");
             CaptureRig.Shot(warm, x, z, 26f, 0f, 16f);
