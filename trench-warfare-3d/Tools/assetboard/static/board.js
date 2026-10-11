@@ -129,8 +129,10 @@
   // alone, so a reading does not move the caret or undo a resize while the owner types. What he was writing about a
   // thing is kept (drafts) while the panel is about something else, and is there again when it comes back.
   var drafts = {};
-  // live() gives the subject the block shows at this moment: a form is made once, but two runs of one agent type
-  // share an id, so what he sends must be read when he sends it, not when the form was made.
+  // live() gives the subject of the panel this block is in, read at the moment he sends: a form is made once, but
+  // two runs of one agent type share an id, so what he sends must be read when he sends it, not when the form was
+  // made. It is the panel's own subject, not whatever the page shows: while the drawer is open over the dock, a note
+  // from the dock's form is about the worker there, not about the thing in the drawer.
   function notesBlock(s, into, live) {
     var key = s.kind + '|' + (s.uid || s.id), form = into.querySelector(':scope > .b-form'), old = into.querySelector(':scope > .b-notes');
     if (into.dataset.about !== key) { into.innerHTML = ''; into.dataset.about = key; form = old = null; }
@@ -246,7 +248,8 @@
       p.appendChild(wall);
     });
     var notes = part('b-notes-here', [s.kind, s.id, s.uid || ''], function () {}); notes.hidden = !!s.bare;
-    if (!s.bare) notesBlock(s, notes, function () { return subject; });
+    var host = panel; host.bSubject = s;          // this panel's own subject: the drawer's and the dock's differ
+    if (!s.bare) notesBlock(s, notes, function () { return host.bSubject; });
   }
   function show(s, opt) {
     if (dockEl && !docked && forDock(s)) { inDock(function () { show(s, opt); }); return; }          // the house moved on under the drawer
