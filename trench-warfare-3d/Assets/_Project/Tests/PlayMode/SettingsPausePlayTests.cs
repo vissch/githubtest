@@ -5,6 +5,7 @@
 using System.Collections;
 using NUnit.Framework;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using UnityEngine.TestTools;
 using UnityEngine.UIElements;
 using TW.Presentation;
@@ -19,6 +20,13 @@ namespace TW.Tests
         PanelSettings savedPanel;
         Vector2Int savedReference;   // what the panel asset held before this test, put back in TearDown
         Vector2Int liveReference;    // what the player's own UI scale asks for: what BACK must leave behind
+        // [L4b] the HUD this test builds, and everything it has to put back
+        HudController hud;
+        GameObject camGo;
+        Scene ownScene, savedActive;
+        readonly System.Collections.Generic.List<Camera> untagged = new System.Collections.Generic.List<Camera>();
+        bool savedToolkitHud, restoreHudBridge;
+        bool savedRoundRadar; float savedUiScale; bool restoreSettings;
 
         [UnitySetUp]
         public IEnumerator SetUp()
@@ -37,6 +45,20 @@ namespace TW.Tests
             if (ShellRouter.Instance != null) Object.Destroy(ShellRouter.Instance.gameObject);
             if (savedPanel != null) { savedPanel.referenceResolution = savedReference; savedPanel = null; }
             if (host != null) { Object.Destroy(host); host = null; }
+            // [L4b]
+            if (hud != null) { Object.Destroy(hud.gameObject); hud = null; }
+            if (camGo != null) { Object.Destroy(camGo); camGo = null; }
+            foreach (var c in untagged) if (c != null) c.tag = "MainCamera";
+            untagged.Clear();
+            if (restoreSettings)
+            {
+                SettingsStore.Current.Interface.RoundRadar = savedRoundRadar;
+                SettingsStore.Current.Interface.UiScale = savedUiScale;
+                restoreSettings = false;
+            }
+            if (restoreHudBridge) { HudBridge.UseToolkitHud = savedToolkitHud; restoreHudBridge = false; }
+            if (savedActive.IsValid() && savedActive.isLoaded) SceneManager.SetActiveScene(savedActive);
+            if (ownScene.IsValid() && ownScene.isLoaded) yield return SceneManager.UnloadSceneAsync(ownScene);
             MatchLaunch.Current = null;
             InputFocus.Reset();
             HudBootstrap.Disabled = false;
@@ -179,6 +201,67 @@ namespace TW.Tests
 
             Assert.That(panel.referenceResolution, Is.EqualTo(liveReference),
                 "[L4] the UI stayed at the previewed scale after DEFAULTS and BACK");
+        }
+
+        // [L4b] The same fault one step over: ApplyInterface(draft) also previews the HUD radar bezel, but OnUnbind's
+        // revert only ran when the scale differed. A player with the round radar saved and the scale already at 1.0
+        // who pressed DEFAULTS and then BACK kept a square bezel until the next scene load. Through the real screen,
+        // with a real HUD, because the bezel only exists on one.
+        [UnityTest]
+        public IEnumerator DefaultsThenBackMustPutTheRadarBezelBack()
+        {
+            savedToolkitHud = HudBridge.UseToolkitHud; restoreHudBridge = true;
+            HudBridge.UseToolkitHud = true;
+
+            savedActive = SceneManager.GetActiveScene();
+            ownScene = SceneManager.CreateScene("l4b-" + Time.frameCount);
+            SceneManager.SetActiveScene(ownScene);
+            foreach (var c in Camera.allCameras)
+                if (c.CompareTag("MainCamera")) { c.tag = "Untagged"; untagged.Add(c); }
+            camGo = new GameObject("l4b-camera"); camGo.tag = "MainCamera"; camGo.AddComponent<Camera>();
+
+            MatchLaunch.Current = new MatchLaunch.Request { GeneratedBattlefield = false, PlaytestMap = false };
+            host = new GameObject("l4b-host"); host.SetActive(false);
+            var sim = host.AddComponent<SimHost>();
+            host.SetActive(true);
+            yield return null;
+
+            hud = HudBootstrap.Create(sim);
+            for (int i = 0; i < 30 && (hud == null || hud.Refs == null); i++) yield return null;
+            Assert.That(hud, Is.Not.Null, "[L4b] no HUD was built, so this test proves nothing");
+            Assert.That(hud.Refs, Is.Not.Null, "[L4b] the HUD never bound its refs, so there is no bezel to check");
+
+            // the player's saved state: the round radar, and a scale that DEFAULTS does not change
+            savedRoundRadar = SettingsStore.Current.Interface.RoundRadar;
+            savedUiScale = SettingsStore.Current.Interface.UiScale;
+            restoreSettings = true;
+            SettingsStore.Current.Interface.RoundRadar = true;
+            SettingsStore.Current.Interface.UiScale = 1f;
+            SettingsApplier.ApplyInterface(SettingsStore.Current);
+            Assert.That(hud.Refs.MinimapBezel.ClassListContains("hud-bezel--round"), Is.True,
+                "[L4b] the saved round radar did not reach the bezel, so this test would pass on a broken revert");
+
+            var router = ShellBoot.EnsureRoot();
+            Assert.That(router, Is.Not.Null, "ShellAssets missing: run TW/UI/Build Shell Assets");
+            yield return null;
+            router.Push(new PauseMenuScreen());
+            yield return null;
+            Click(router.Top.Root, "btn-settings");
+            yield return null;
+            Assert.That(router.Top, Is.InstanceOf<SettingsScreen>(), "SETTINGS opens the settings screen");
+
+            Click(router.Top.Root, "btn-defaults");
+            yield return null;
+            Assert.That(hud.Refs.MinimapBezel.ClassListContains("hud-bezel--round"), Is.False,
+                "[L4b] DEFAULTS did not preview the square bezel, so this test would pass on a broken revert");
+
+            Click(router.Top.Root, "btn-back");
+            yield return null;
+
+            Assert.That(hud.Refs.MinimapBezel.ClassListContains("hud-bezel--round"), Is.True,
+                "[L4b] the HUD kept the square radar bezel after DEFAULTS and BACK");
+            Assert.That(hud.Refs.MinimapBezel.ClassListContains("hud-bezel--square"), Is.False,
+                "[L4b] the bezel still carries hud-bezel--square after DEFAULTS and BACK");
         }
     }
 }
