@@ -497,6 +497,55 @@ class AosaTest(unittest.TestCase):
             self.assertEqual(r.returncode, 1, "[A9] %s must refuse a label with a space: %s" % (name, r.stdout))
             self.assertIn("space", r.stdout, "[A9] %s must say why it refused" % name)
 
+    # [A7] a run that exited non-zero is no sample: compare must refuse it, not average it in
+    def test_a7_failed_run_is_not_a_sample(self):
+        self.ab()
+        f = self.docs / "runs" / "3" / "cand-2.json"
+        r = json.loads(f.read_text()); r["run"]["exit"] = 2; r["run"]["why"] = "unknown ground"
+        f.write_text(json.dumps(r), encoding="utf-8")
+        code, out = self.run_cli("compare", "cand", "base")
+        self.assertEqual(code, 2, "[A7] a failed run must refuse the compare: %s" % out)
+        self.assertIn("REFUSED", out, "[A7] the compare must be refused")
+        self.assertIn("cand-2", out, "[A7] the refusal must name the failed report")
+        self.assertIn("exit 2", out, "[A7] the refusal must name the run's exit code")
+
+    # [A7] a PerfBench warning that says the run is not comparable refuses it; the focus warning never does
+    def test_a7_refuses_a_warning_that_says_so(self):
+        self.ab(a_kw={"warn": ["custom focus (fx/fz): not the standard view, do not compare with standard runs"]})
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["verdict"], "refused", "[A7] an fx/fz run must not be compared with standard runs")
+        shutil.rmtree(self.docs / "runs" / "3")
+        self.ab(a_kw={"warn": ["the window lost focus during the run"]})
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["verdict"], "pass", "[A7] the focus warning is by design and must still compare")
+
+    # [A7] one side may not pool two builds: runs from before and after a rebuild are not one baseline
+    def test_a7_refuses_two_shas_on_one_side(self):
+        self.ab(b_kw={"sha": "aaa"})
+        f = self.docs / "runs" / "3" / "base-2.json"
+        r = json.loads(f.read_text()); r["build_info"]["git_sha"] = "bbb"
+        f.write_text(json.dumps(r), encoding="utf-8")
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["verdict"], "refused", "[A7] a baseline of two builds must be refused")
+        self.assertIn("pools two builds", v["why"], "[A7] the refusal must say the side pools two builds")
+        shutil.rmtree(self.docs / "runs" / "3")
+        self.ab(a_kw={"sha": "aaa"}, b_kw={"sha": "aaa"})
+        v = json.loads(self.run_cli("compare", "cand", "base", "--json")[1])
+        self.assertEqual(v["verdict"], "pass", "[A7] one sha on both sides is a knob sweep and still compares")
+
+    # [A7] a failed run is no noise sample either: its group must leave no band behind
+    def test_a7_failed_run_leaves_no_noise_band(self):
+        self.ab()
+        for i, main in enumerate([9.0, 9.1]):
+            self.put("runs/5/dud-%d.json" % (i + 1), report("dud-%d" % (i + 1), main=main))
+        f = self.docs / "runs" / "5" / "dud-2.json"
+        r = json.loads(f.read_text()); r["run"]["exit"] = 2; r["run"]["why"] = "timeout"
+        f.write_text(json.dumps(r), encoding="utf-8")
+        self.assertEqual(self.run_cli("learn")[0], 0)
+        b = json.loads((self.docs / "priors.json").read_text())["bands"]["main_ms.p95"]["development"]
+        self.assertIn("3/cand", b["groups"], "[A7] a clean group still feeds the band")
+        self.assertNotIn("5/dud", b["groups"], "[A7] a group holding a failed run must leave no noise band")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

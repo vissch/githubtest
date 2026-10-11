@@ -94,6 +94,12 @@ A change lands only if every rule holds. The rule number goes into the revert re
    `setpass`, `gc_bytes`, `frame_budget_draws`, `frame_budget_vertices` at p95 rises by more than its band.
 4. **Fidelity floor.** `alive_end`, `vat_vertices` and `vat_shadows_on` do not fall. A perf change may not win by
    drawing less.
+
+**What is not a sample.** `compare` refuses a report whose run exited non-zero, an image run (`shot_tick`, held window
+clock), and one warned "never a perf sample", "do not compare with standard runs" or "unknown bench option(s)
+ignored" (not the "lost focus" warning: the loop pushes the player window down itself, so every player run has it).
+It also refuses a side that pools two `build_info.git_sha` values, and `learn` drops such runs and groups from its
+noise bands. A report without `hash_end` only drops itself from rule 1; it never switches the check off.
 5. **Image class.** A "same image" change needs `CaptureRig.Diff` `changed_frac` < 0.001 on the held T1, T2 and T3
    stills. An "indistinguishable" change needs the critic to score the after sheet no lower on any line it can see. A
    "juice" change needs the critic's moment score to rise and the moment's readability check to pass.
