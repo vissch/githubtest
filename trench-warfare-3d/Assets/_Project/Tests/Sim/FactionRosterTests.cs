@@ -84,15 +84,20 @@ namespace TW.Tests
         }
 
         /// <summary>
-        /// Six factions now: the two fictional ones and the four historical armies that stand beside them. Every one
-        /// of them must field ten real units out of its own pool, or a player picks that faction and gets a bar with a
-        /// hole in it. `Factions.Of` used to be `id == 0 ? Iron : Brass`, which turned every unknown byte off the wire
-        /// into a legal-looking faction.
+        /// Seven factions now: the two fictional ones, the four historical armies that stand beside them, and the
+        /// frogs (2026-10-07). Every one of them must field ten units out of its OWN pool, or a player picks that
+        /// faction and gets a bar with a hole in it. `Factions.Of` used to be `id == 0 ? Iron : Brass`, which turned
+        /// every unknown byte off the wire into a legal-looking faction.
+        ///
+        /// The Hp, cost and ARMOUR-group checks are the six SHIPPED factions': the frogs' five machine slots carry
+        /// only an id out of FactionRoster.Slot (their numbers are the match's table, not the compiled switch), and
+        /// they field five machines rather than four. TheFrogsFieldTheirOwnTenAndTheirOwnPool and
+        /// TheFrogsTenComeUpInAMatchWithTheirPlanNumbers hold their side of it.
         /// </summary>
         [Test]
         public void EverySixFactionsFieldsTenUnitsOutOfItsOwnPool()
         {
-            Assert.AreEqual(6, Factions.Count);
+            Assert.AreEqual(7, Factions.Count);
             using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
             for (int f = 0; f < Factions.Count; f++)
             {
@@ -100,20 +105,94 @@ namespace TW.Tests
                 Assert.AreEqual(f, (int)faction, "a faction byte decodes to its own faction");
                 Assert.IsNotEmpty(Factions.Name(faction));
                 FactionRoster.Fill(roster, 0, faction);
+                bool shipped = faction != FactionId.Frogs;
                 int armour = 0;
                 for (int s = 0; s < RosterEntry.SlotCount; s++)
                 {
                     var e = roster[s];
-                    Assert.Greater(e.Hp, 0f, $"{faction} slot {s} is empty");
-                    Assert.Greater(e.Cost, 0, $"{faction} slot {s} costs nothing");
+                    if (shipped)
+                    {
+                        Assert.Greater(e.Hp, 0f, $"{faction} slot {s} is empty");
+                        Assert.Greater(e.Cost, 0, $"{faction} slot {s} costs nothing");
+                    }
                     Assert.IsTrue(FactionRoster.Fields(faction, e.Archetype),
                         $"{faction} fields archetype {e.Archetype} in slot {s} but it is not in the faction pool");
                     if (e.IsVehicle) armour++;
                 }
-                Assert.GreaterOrEqual(armour, 3, $"{faction} fields too few machines");
-                Assert.LessOrEqual(armour, 4, $"{faction} fields more machines than the ARMOUR group holds");
+                if (shipped)
+                {
+                    Assert.GreaterOrEqual(armour, 3, $"{faction} fields too few machines");
+                    Assert.LessOrEqual(armour, 4, $"{faction} fields more machines than the ARMOUR group holds");
+                }
             }
             Assert.AreEqual(FactionId.Iron, Factions.Of(200), "a byte past the end of the enum is Iron, not the last faction");
+        }
+
+        /// <summary>
+        /// The frogs (owner, 2026-10-07): the three shared slots, a medic, a sniper, then their five machines, and a
+        /// pool holding exactly those ten. The pool row is the point: PoolOf falls back to Pools[0], IRON'S pool, for
+        /// a faction with no row of its own, and silently — so a missing row would have the frogs "fielding" the Maw.
+        /// </summary>
+        [Test]
+        public void TheFrogsFieldTheirOwnTenAndTheirOwnPool()
+        {
+            using var frogs = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            using var iron = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            using var brass = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
+            FactionRoster.Fill(frogs, 0, FactionId.Frogs);
+            FactionRoster.Fill(iron, 0, FactionId.Iron);
+            FactionRoster.Fill(brass, 0, FactionId.Brass);
+            for (int s = 0; s < FactionRoster.SharedSlots; s++)
+            {
+                Assert.AreEqual(iron[s].Archetype, frogs[s].Archetype, $"slot {s} is the parapet's, shared with Iron");
+                Assert.AreEqual(brass[s].Archetype, frogs[s].Archetype, $"slot {s} is the parapet's, shared with Brass");
+            }
+            byte[] rest = { InfantryArchetype.Medic, InfantryArchetype.Sniper, VehicleArchetype.Brute, VehicleArchetype.Croaker,
+                            VehicleArchetype.Bullfrog, VehicleArchetype.Hopper, VehicleArchetype.Mercy };
+            for (int k = 0; k < rest.Length; k++)
+                Assert.AreEqual(rest[k], frogs[FactionRoster.SharedSlots + k].Archetype, $"frog slot {FactionRoster.SharedSlots + k}");
+            Assert.AreEqual(10, FactionRoster.PoolCount(FactionId.Frogs), "the frogs' pool is their own ten, not Iron's twelve");
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+                Assert.IsTrue(FactionRoster.Fields(FactionId.Frogs, frogs[s].Archetype), $"frog slot {s} is outside the frogs' pool");
+            Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, VehicleArchetype.Maw), "the frogs are not Iron: a missing pool row would say they field the Maw");
+            Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, VehicleArchetype.Pincer));
+            Assert.IsFalse(FactionRoster.Fields(FactionId.Frogs, InfantryArchetype.Jetpack));
+            foreach (int bit in new[] { FactionRoster.HeBarrageBit, FactionRoster.CreepingBarrageBit, FactionRoster.ChlorineGasBit,
+                                        FactionRoster.SmokeScreenBit, FactionRoster.StrafeRunBit, FactionRoster.BeamBit })
+                Assert.IsTrue(FactionRoster.MayCall(FactionId.Frogs, bit), $"the frogs call the shared card {bit}");
+            Assert.IsFalse(FactionRoster.MayCall(FactionId.Frogs, FactionRoster.ParaDropBit), "the drop is Brass's alone");
+            Assert.IsFalse(Factions.IsEntente(FactionId.Frogs), "a third party, on nobody's side");
+            Assert.AreEqual("Frogs", Factions.Name(FactionId.Frogs));
+        }
+
+        /// <summary>
+        /// The ten in a real match. FactionRoster.Slot can only carry the ID of a frog machine (RosterEntry's compiled
+        /// switch knows no id past the Breaker), so the numbers have to come from the match's table — SimWorld.FillRosters
+        /// reading UnitCatalogue.Roster after UnitDefinitions.Apply. The figures are the frog plan's, read off the
+        /// definitions as they shipped; a slot whose definition did not reach the table would be locked instead.
+        /// </summary>
+        [Test]
+        public void TheFrogsTenComeUpInAMatchWithTheirPlanNumbers()
+        {
+            var cfg = SimConfig.Default; cfg.FactionA = (byte)FactionId.Frogs;
+            using var m = MatchSim.CreatePlaytest(cfg);
+            var w = m.World;
+            byte[] ids = { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner,
+                           InfantryArchetype.Medic, InfantryArchetype.Sniper, VehicleArchetype.Brute, VehicleArchetype.Croaker,
+                           VehicleArchetype.Bullfrog, VehicleArchetype.Hopper, VehicleArchetype.Mercy };
+            int[] cost = { 25, 40, 80, 80, 140, 420, 300, 280, 260, 150 };
+            float[] hp = { 100f, 90f, 110f, 90f, 80f, 4200f, 1800f, 1600f, 900f, 1000f };
+            int machines = 0;
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+            {
+                var e = w.Roster[s];
+                Assert.AreEqual(ids[s], e.Archetype, $"slot {s} archetype");
+                Assert.AreEqual(cost[s], e.Cost, $"slot {s} cost");
+                Assert.AreEqual(hp[s], e.Hp, $"slot {s} hit points");
+                Assert.AreEqual(1, w.SlotUnlocked[s], $"slot {s} is locked: the definition did not reach the roster");
+                if (e.IsVehicle) machines++;
+            }
+            Assert.AreEqual(5, machines, "the frogs field five machines");
         }
 
         /// <summary>The crab machines and the jetpack are the fiction. A historical army that fielded them would read

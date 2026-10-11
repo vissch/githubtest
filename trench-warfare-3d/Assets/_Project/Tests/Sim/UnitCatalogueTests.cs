@@ -40,6 +40,12 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>
+        /// Split in two since the frogs (2026-10-07). The six shipped factions field only ids the compiled switches
+        /// know, so Default() must hold every one of them. The frogs' five machines are defined in
+        /// UnitDefinitions, not in the switches, so theirs are asked of a MATCH'S table — the stronger question
+        /// anyway, since that is the table the battle reads.
+        /// </summary>
         [Test]
         public void EveryUnitEitherFactionFieldsHasAnEntryInTheTable()
         {
@@ -47,13 +53,28 @@ namespace TW.Tests
             using var roster = new NativeArray<RosterEntry>(RosterEntry.SlotCount, Allocator.Temp);
             for (int f = 0; f < Factions.Count; f++)
             {
-                FactionRoster.Fill(roster, 0, Factions.Of((byte)f));
+                var faction = Factions.Of((byte)f);
+                FactionRoster.Fill(roster, 0, faction);
                 for (int s = 0; s < RosterEntry.SlotCount; s++)
                 {
                     byte a = roster[s].Archetype;
                     Assert.Less(a, Archetypes.Count, $"archetype {a} is past the end of the table");
+                    if (faction == FactionId.Frogs) continue;
                     Assert.Greater(c.Roster[a].Hp, 0f, $"archetype {a} is fielded but its table entry is empty");
                 }
+            }
+        }
+
+        [Test]
+        public void TheFrogsTenHaveAnEntryInAMatchesTable()
+        {
+            var cfg = SimConfig.Default; cfg.FactionA = (byte)FactionId.Frogs;
+            using var m = TW.Sim.Match.MatchSim.CreatePlaytest(cfg);
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+            {
+                byte a = FactionRoster.Slot(FactionId.Frogs, s).Archetype;
+                Assert.Less(a, Archetypes.Count, $"archetype {a} is past the end of the table");
+                Assert.Greater(m.World.Units.Roster[a].Hp, 0f, $"the frogs field archetype {a} but the match's table entry is empty");
             }
         }
 
