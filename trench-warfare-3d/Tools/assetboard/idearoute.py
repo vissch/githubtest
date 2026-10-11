@@ -172,7 +172,7 @@ def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evalu
                             GATE_OPTIONS, 'It passed its own check; the pictures are what it made.', ev[:briefs.MOST_EVIDENCE], lane=it.get('lane', ''), by=by, now=now, bid=bid)
             br['step'] = dict(item=iid, stage=s['id'], job=info['job'], gate=True)
             br['options'][0]['then'] = dict(says=GATE_THEN, stamp=briefs.stamp(GATE_THEN))
-            (briefs_where / bid / 'brief.json').write_text(json.dumps(br, indent=1, sort_keys=True) + '\n', encoding='utf-8')
+            briefs.put(briefs_where / bid, br)      # whole or not at all, like every other write of a brief (N10.4b)
         if not write:
             continue
         for a in briefs.answers([x for x in briefs.read_all(briefs_where) if x['id'].startswith(f'gate-{iid}-')], notes.read_all(notes_where)):

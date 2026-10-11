@@ -382,5 +382,67 @@ class Taking(unittest.TestCase):
         self.assertTrue(why, '[N10.13] a second take says nothing')
 
 
+class GateBriefWrite(unittest.TestCase):
+    """[N10.4b] A gate brief's brief.json was written in place by idearoute.gates: a write cut half way left a brief
+    the page, waiting() and steps() drop without a word. It must go through briefs.put, like every other write."""
+
+    def setUp(self):
+        sys.path.insert(0, str(HERE.parent / 'pipeline'))
+        global idearoute, ideas, pipeline
+        import idearoute, ideas, pipeline       # noqa: E401,E402
+        self.tmp = Path(tempfile.mkdtemp(prefix='tw-gatewrite-'))
+        self.where, self.bwhere = self.tmp / 'ideas', self.tmp / 'briefs'
+        self.nwhere, self.board = self.tmp / 'notes', self.tmp / 'board'
+        (self.board / 'items').mkdir(parents=True)
+        self.day = datetime.datetime(2026, 10, 7, 12, 0, 0)
+        pic = self.tmp / 'p.png'
+        pic.write_bytes(b'\x89PNG\r\n\x1a\n' + b'0' * 64)
+        self.pic = pic
+        P = [dict(path=str(pic), caption='What it is', kind='capture')]
+        i = ideas.add(self.where, 'A whistle before the assault', 'A thing on the field that does a thing.',
+                      'It serves a goal.', 'mechanic', P, 'M', 'R1 C1', entries=[], now=self.day)
+        ideas.answer(self.where, i['id'], 'accepted', now=self.day)
+        idearoute.route(self.where, self.board)
+        self.iid = 'idea-a-whistle-before-the-assault'
+        self.B = pipeline.Board(self.board)
+        for stage in ('game-design', 'concept'):
+            self.passes(stage)
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def passes(self, stage):
+        info = pipeline.evaluate(self.B.items()[self.iid], self.B)[stage]
+        f = self.board / 'evidence' / self.iid / stage / 'shown.png'
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_bytes(self.pic.read_bytes())
+        pipeline.write_json(self.board / 'results' / f'{info["job"]}--1.json',
+                            dict(job=info['job'], item=self.iid, stage=stage, attempt=1, verdict='PASS', station='desktop',
+                                 token='t', consumed=info['consumed'], upstream_rev=info['upstream_rev'],
+                                 evidence=dict(shown=f.relative_to(self.board).as_posix()), note='made', feedback=[],
+                                 finished_at=pipeline.now()))
+
+    def test_a_gate_brief_is_written_whole_or_not_at_all(self):
+        # [N10.4b] a write straight onto brief.json is the half-written brief N10.4 took out of briefs.put
+        real = pathlib.Path.write_text
+
+        def held(self_, *a, **k):
+            if self_.name == 'brief.json':
+                raise OSError(5, 'another program holds brief.json')
+            return real(self_, *a, **k)
+
+        pathlib.Path.write_text = held
+        try:
+            got = idearoute.gates(self.where, self.bwhere, self.nwhere, self.board, now=self.day)
+        finally:
+            pathlib.Path.write_text = real
+        bid = f'gate-{self.iid}-you-pick'
+        self.assertIn(bid, got['asked'], '[N10.4b] the gate brief was not asked at all: %s' % (got,))
+        b = briefs.find(self.bwhere, bid)
+        self.assertEqual(b['options'][0].get('then', {}).get('says'), idearoute.GATE_THEN,
+                         '[N10.4b] the gate brief on disk has no Then line: it was not written through briefs.put')
+        self.assertEqual(b.get('step', {}).get('stage'), 'you-pick',
+                         '[N10.4b] the gate brief on disk does not say which step it is: %s' % b.get('step'))
+
 if __name__ == '__main__':
     unittest.main()

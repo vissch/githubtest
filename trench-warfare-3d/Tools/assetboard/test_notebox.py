@@ -326,5 +326,64 @@ class Listener(unittest.TestCase):
                          '[N12.2b] one note of his was written twice: ' + repr([a['note']['id'] for a in answers]))
 
 
+class HeldFile(unittest.TestCase):
+    """[N10.4b] On Windows os.replace raises PermissionError while any reader holds the file, and the page reads the
+    notes while it writes them. An answer of his must then be refused in words (a ValueError main already catches),
+    the note left as it was and no temp file left behind; and two writers must not use one temp name."""
+
+    def setUp(self):
+        self.where = TEMP / ('held-%s' % self.id().split('.')[-1])
+        self.where.mkdir(exist_ok=True)
+        self.note = notes.write(self.where, 'the Maw reads badly at far zoom', kind='asset', asset='Maw', title='The Maw')
+        self.real = Path.replace
+
+    def tearDown(self):
+        Path.replace = self.real
+
+    def test_a_held_note_is_refused_in_words_and_nothing_is_written(self):
+        # [N10.4b] before the fix PermissionError came out raw and the temp file stayed
+        def held(self_, target):
+            raise PermissionError(5, 'another program holds the file')
+
+        Path.replace = held
+        before = (self.where / f'{self.note["id"]}.md').read_text(encoding='utf-8')
+        with self.assertRaises(ValueError, msg='[N10.4b] a held note file does not refuse with a ValueError'):
+            notes.answer(self.where, self.note['id'], 'done, it is lower-poly now', by='test')
+        self.assertEqual((self.where / f'{self.note["id"]}.md').read_text(encoding='utf-8'), before,
+                         '[N10.4b] the note was changed although the write was refused')
+        self.assertEqual([f.name for f in self.where.glob('*.tmp')], [],
+                         '[N10.4b] a temp file was left behind: %s' % [f.name for f in self.where.glob('*.tmp')])
+
+    def test_a_file_held_for_a_moment_is_written_after_all(self):
+        # [N10.4b] the page holds a note for a moment while it reads: a retry, not a refusal
+        left = [2]
+
+        def flaky(self_, target):
+            if left[0]:
+                left[0] -= 1
+                raise PermissionError(5, 'another program holds the file')
+            return self.real(self_, target)
+
+        Path.replace = flaky
+        got = notes.answer(self.where, self.note['id'], 'done, it is lower-poly now', by='test')
+        self.assertEqual(left[0], 0, '[N10.4b] the write was not tried again while the file was held')
+        self.assertEqual(got.get('state'), 'done', '[N10.4b] a note held for a moment was not answered: %s' % got)
+        self.assertEqual([a['text'] for a in got['answers']], ['done, it is lower-poly now'],
+                         '[N10.4b] his answer is not in the note: %s' % got['answers'])
+
+    def test_two_writers_of_one_note_use_two_temp_names(self):
+        # [N10.4b] one fixed temp name ('<id>.md.tmp') is two writers writing over each other
+        seen = []
+
+        def watch(self_, target):
+            seen.append(self_.name)
+            return self.real(self_, target)
+
+        Path.replace = watch
+        notes.answer(self.where, self.note['id'], 'first', by='test')
+        notes.answer(self.where, self.note['id'], 'second', by='test')
+        self.assertEqual(len(seen), 2, '[N10.4b] the answers did not go through a temp file: %s' % seen)
+        self.assertNotEqual(seen[0], seen[1], '[N10.4b] two writes of one note use one temp name: %s' % seen)
+
 if __name__ == '__main__':
     unittest.main()
