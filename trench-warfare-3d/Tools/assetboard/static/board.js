@@ -66,7 +66,9 @@
     // sent as plain text so the browser asks no question first; the listener reads it as JSON all the same
     var went = fetch(b.url + path, opt)
       .then(function (r) { return r.json(); }).then(function (d) { if (!d.ok) throw new Error(d.why || 'refused'); alive = true; return d.note; });
-    var late = new Promise(function (_, no) { timer = setTimeout(function () { if (stop) stop.abort(); no(new Error('the note box did not answer')); }, WAIT); });
+    // the box taking the note and saying nothing is not a refusal: the note waits here and goes again (`late`)
+    var late = new Promise(function (_, no) { timer = setTimeout(function () { if (stop) stop.abort();
+      var e = new Error('the note box did not answer; it is kept here and sent again later'); e.late = true; no(e); }, WAIT); });
     var done = function (v) { if (timer != null) clearTimeout(timer); return v; };
     return Promise.race([went, late]).then(done, function (e) { done(); throw e; });
   }
@@ -78,15 +80,15 @@
   // One send at a time, and the note that was answered leaves the queue by its identity, never by position: two
   // flushes at once used to post the same first note twice, and the second answer shifted out the note that was
   // still in flight, so a failure after that lost it from both the page and the store. A note is a decision of the
-  // owner's: none may be written twice, none may be lost. One flush at a time also keeps two posts of one id out of
-  // the same second on the listener's side, so there is no lock there.
+  // owner's: none may be written twice, none may be lost. The listener holds a lock of its own around looking an id
+  // up and writing it (notes.py, N12.2b), so two posts of one id cannot become two notes there either.
   var flushing = null, stalled = false;
   function step() {
     if (!unsent.length) return Promise.resolve();
     var n = unsent[0];
     return post('/note', sends(n)).then(function (note) {
       unsent = unsent.filter(function (x) { return x !== n; }); keep(); sent.push(note); changed(); return step();
-    }, function (e) { stalled = true; if (alive) { n.why = e.message; keep(); } changed(); });
+    }, function (e) { stalled = true; if (alive) { n.why = e.message; n.late = !!e.late; keep(); } changed(); });
   }
   // never rejects: its callers (write, show, the 20 s tick, the page's start) do not catch
   function flush() {
@@ -99,7 +101,9 @@
   // s.then: the stamp of the "Then: ..." line the Decide page showed under the option he clicked (decide.js). It is kept
   // with a note that waits in this browser too, so a click sent hours later still says what he saw when he clicked.
   function write(s, text) {
-    var n = { id: 'unsent-' + Date.now(), when: new Date().toISOString().slice(0, 16).replace('T', ' '), from: 'owner', state: 'unsent', text: text,
+    // the listener matches on this id alone, over every note ever written, so the millisecond is not enough: two
+    // notes of one millisecond would make the second count as the first's answer and leave the queue unwritten
+    var n = { id: 'unsent-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8), when: new Date().toISOString().slice(0, 16).replace('T', ' '), from: 'owner', state: 'unsent', text: text,
       kind: s.kind || 'page', about: s.id || '', title: s.title || '', lane: s.lane || '', asset: s.asset || '', page: location.pathname.split('/').slice(-1)[0] + location.search, then: s.then || '', answers: [] };
     unsent.push(n); keep(); changed();
     return flush();
@@ -117,7 +121,7 @@
     d.appendChild(h); d.appendChild(el('p', 'b-text', n.text));
     (n.answers || []).forEach(function (a) { var r = el('p', 'b-answer'); r.appendChild(el('b', null, (a.by || 'an agent') + ' · ' + a.when)); r.appendChild(document.createTextNode(' ' + a.text)); d.appendChild(r); });
     if (n.state === 'unsent') {
-      d.appendChild(el('p', 'b-why', n.why ? 'Refused: ' + n.why : 'Kept in this browser. It is sent when the note box answers.'));
+      d.appendChild(el('p', 'b-why', n.why ? (n.late ? 'Not sent: ' : 'Refused: ') + n.why : 'Kept in this browser. It is sent when the note box answers.'));
       var rm = el('button', 'b-link', 'Discard'); rm.type = 'button'; rm.addEventListener('click', function () { unsent = unsent.filter(function (x) { return x !== n; }); keep(); changed(); }); d.appendChild(rm);
     } else if (n.state !== 'done' && alive) {
       var c = el('button', 'b-link', 'Close it'); c.type = 'button'; c.title = 'Mark this note as dealt with';

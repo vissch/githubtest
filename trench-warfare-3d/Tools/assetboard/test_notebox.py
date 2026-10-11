@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -103,10 +105,16 @@ const window = { NOTEBOX: { url: 'http://x', key: 'k' }, NOTES: [] };
 const location = { pathname: '/index.html', search: '' };
 let tick = null;
 
-function load(timer) {
+function load(timer, clock) {
   // module is undefined, so the source walks past its `module.exports = pure` and builds the page half
-  const f = new Function('module', 'window', 'document', 'localStorage', 'fetch', 'location', 'setInterval', 'setTimeout', src);
-  f(undefined, window, document, localStorage, fetchFake, location, function (cb) { tick = cb; return 1; }, timer || setTimeout);
+  const f = new Function('module', 'window', 'document', 'localStorage', 'fetch', 'location', 'setInterval', 'setTimeout', 'Date', src);
+  f(undefined, window, document, localStorage, fetchFake, location, function (cb) { tick = cb; return 1; }, timer || setTimeout, clock || Date);
+}
+// a clock stopped on one millisecond: two notes written in it must still not share an id
+const FIXED = 1760000000000;
+class Clock extends Date {
+  constructor() { super(FIXED); }
+  static now() { return FIXED; }
 }
 // the send's own time limit, fired at once: what the page does when the note box takes the note and says nothing
 const atOnce = cb => { cb(); return 0; };
@@ -132,6 +140,7 @@ async function main() {
     await sleep(300);                                           // a flush that never settles is reported, not waited for
     out.settled = settled;
     out.store = JSON.parse(kept[LS] || '[]').map(n => ({ text: n.text, why: n.why || '' }));
+    out.why = (find(inline, '.b-why') || {}).textContent || '';   // what the block about Maw tells him about it
   } else if (which === 'panelswap') {
     // one form, two runs of one agent type: they share kind+id, so the form made for the first is kept for the second
     load(atOnce);
@@ -155,6 +164,14 @@ async function main() {
     find(dock, '.b-form').fire('submit');
     await sleep(50);
     out.posts = posts;
+  } else if (which === 'sameclock') {
+    // two notes written inside one millisecond: the listener matches on the page's id alone, over every note ever written
+    load(null, Clock);                                          // the real time limit: both sends must get through
+    await sleep(10);
+    window.Board.note({ kind: 'asset', id: 'Maw', title: 'The Maw', asset: 'Maw' }, 'one');
+    window.Board.note({ kind: 'asset', id: 'Maw', title: 'The Maw', asset: 'Maw' }, 'two');
+    await sleep(200);
+    out.ids = posts.map(p => p.id);
   } else { throw new Error('no such case: ' + which); }
   console.log(JSON.stringify(out));
 }
@@ -199,6 +216,15 @@ class Box(unittest.TestCase):
                          '[N12.2] the send never came back and the note is gone from the store: ' + repr(o))
         self.assertTrue(o['store'][0]['why'], '[N12.2] the page does not say why the note is still waiting: ' + repr(o))
 
+    def test_a_timeout_is_not_a_refusal(self):
+        # [N12.2c] the box taking the note and saying nothing is not a refusal: the note waits and is sent again
+        o = drive('slow')
+        self.assertTrue(o['why'], '[N12.2c] the page says nothing about the note it is still holding: ' + repr(o))
+        self.assertFalse(o['why'].startswith('Refused'),
+                         '[N12.2c] a note the box did not answer is shown as refused: ' + repr(o['why']))
+        self.assertIn('did not answer', o['why'],
+                      '[N12.2c] the page does not say the box did not answer: ' + repr(o['why']))
+
     def test_form_reads_its_own_panel(self):
         # [N12.3b] the drawer is open over the dock: a note from the dock's form is about the worker there
         o = drive('dockdrawer')
@@ -212,6 +238,13 @@ class Box(unittest.TestCase):
         self.assertTrue(o['posts'], '[N12.3] the form sent nothing: ' + repr(o))
         self.assertEqual(o['posts'][-1]['lane'], 'lane/show/two',
                          '[N12.3] the note carries the subject the form was made for, not the one shown: ' + repr(o['posts'][-1]))
+
+    def test_two_notes_in_one_millisecond(self):
+        # [N12.2c] the listener matches on the page's id alone, so a millisecond is not enough to tell two notes apart
+        o = drive('sameclock')
+        self.assertEqual(len(o['ids']), 2, '[N12.2c] both notes were not sent: ' + repr(o))
+        self.assertNotEqual(o['ids'][0], o['ids'][1],
+                            '[N12.2c] two notes of one millisecond were sent under one id: ' + repr(o['ids']))
 
     def test_sends_carries_the_id(self):
         """[N12.2] what the page sends carries the page's own id of the note."""
@@ -247,6 +280,50 @@ class Listener(unittest.TestCase):
         self.assertTrue(all(a.get('ok') for a in answers), '[N12.2] a note of his was refused: ' + repr(answers))
         self.assertEqual(answers[0]['note']['id'], answers[1]['note']['id'],
                          '[N12.2] one note of his was written twice: ' + repr([a['note']['id'] for a in answers]))
+
+    def test_two_posts_of_one_id_at_once(self):
+        """[N12.2b] two posts of one id at the same moment are one note: the look-up and the write are one step."""
+        where = TEMP / 'atonce'
+        where.mkdir(exist_ok=True)
+        server, key = notes.serve(where, port=0)
+        self.assertIsNotNone(server, 'the listener did not start')
+        real = notes.read_all
+
+        def slow_read_all(*a, **k):
+            # holds the window between the look-up and the write open on purpose, so the red is certain
+            out = real(*a, **k)
+            time.sleep(0.3)
+            return out
+
+        notes.read_all = slow_read_all
+        url = 'http://127.0.0.1:%d/note' % server.server_address[1]
+        body = json.dumps(dict(key=key, id='unsent-42', text='one note of his', kind='asset', about='Maw', title='The Maw', asset='Maw')).encode('utf-8')
+        answers, errors, gate = [], [], threading.Barrier(2)
+
+        def post():
+            gate.wait(timeout=10)
+            try:
+                req = urllib.request.Request(url, data=body, headers={'Content-Type': 'text/plain'})
+                with urllib.request.urlopen(req, timeout=20) as r:
+                    answers.append(json.loads(r.read().decode('utf-8')))
+            except Exception as e:                                  # noqa: BLE001 - reported as the case's failure
+                errors.append(repr(e))
+
+        try:
+            threads = [threading.Thread(target=post) for _ in range(2)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=30)
+        finally:
+            notes.read_all = real
+            server.shutdown()
+            server.server_close()
+        files = sorted(f.name for f in where.glob('*.md'))
+        self.assertFalse(errors, '[N12.2b] two posts of one id at once broke the write, and a note of his was lost: ' + repr(errors))
+        self.assertEqual(len(files), 1, '[N12.2b] one note of his was written twice: ' + repr(files))
+        self.assertEqual(len({a['note']['id'] for a in answers}), 1,
+                         '[N12.2b] one note of his was written twice: ' + repr([a['note']['id'] for a in answers]))
 
 
 if __name__ == '__main__':
