@@ -216,5 +216,26 @@ namespace TW.Tests
             Assert.AreEqual(BenchScenario.None, o.Scenario);
             Assert.AreEqual("", o.Knobs);
         }
+
+        // [F5] a quoted out= path with spaces used to be cut at the first space: the bench wrote to "G:\My".
+        [Test]
+        public void AQuotedOutPathKeepsItsSpaces()
+        {
+            var o = BenchOptions.Parse("stress=1500 out=\"G:\\My Drive\\run.json\" ticks=400");
+            Assert.AreEqual(@"G:\My Drive\run.json", o.Out, "[F5] the quoted out= path was cut at a space");
+            Assert.AreEqual(400, o.Ticks, "[F5] the token after the quoted path was lost");
+        }
+
+        // F5, the other half: without quotes the path still splits, but nothing is silent any more - the stray
+        // piece lands in Unknown and a number that does not parse lands in Bad. (Untagged: Bad is new, so this
+        // test cannot compile against the code before the fix.)
+        [Test]
+        public void ABadNumberAndAStrayTokenAreReported()
+        {
+            var o = BenchOptions.Parse(@"out=G:\My Drive\run.json ticks=4e2");
+            Assert.AreEqual(400, o.Ticks, "4e2 is not an integer: the default stands");
+            Assert.Contains("ticks=4e2", o.Bad, "a value that is not a number must be reported");
+            Assert.Contains(@"Drive\run.json", o.Unknown, "a token with no '=' must be reported");
+        }
     }
 }
