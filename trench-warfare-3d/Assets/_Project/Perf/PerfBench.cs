@@ -939,6 +939,7 @@ namespace TW.Perf
             else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
             if (!float.IsNaN(zoomUsed) && Mathf.Abs(zoomUsed - Options.Zoom) > 1e-3f) warnings.Add("zoom " + Options.Zoom + " was clamped to " + zoomUsed + " by the camera");
             if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
+            if (Options.Bad.Count > 0) warnings.Add("bench option(s) with an unreadable number, the default ran instead: " + string.Join(", ", Options.Bad));   // F5
             if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
                 warnings.Add("unknown scenario '" + Options.ScenarioRaw + "': ran none");
             warnings.AddRange(scenarioLog.Warnings);

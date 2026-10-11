@@ -3,6 +3,7 @@
 // the editor (CaptureRig.Bench("stress=1500 ...")), so a number from each is a measurement of the same battle.
 using System;
 using System.Globalization;
+using System.Text;
 using TW.Presentation;
 
 namespace TW.Perf
@@ -77,41 +78,65 @@ namespace TW.Perf
         public string Raw = "";
         /// <summary>Keys the parser did not know ("tick=800" for ticks): PerfBench warns, so a typo cannot run 400 silently.</summary>
         public System.Collections.Generic.List<string> Unknown = new System.Collections.Generic.List<string>();
+        /// <summary>F5: values that are not a number ("ticks=4e2"), which fell back to the default. PerfBench warns, so a
+        /// bad number cannot run the default silently.</summary>
+        public System.Collections.Generic.List<string> Bad = new System.Collections.Generic.List<string>();
+
+        /// <summary>F5: the bench string cut into key=value tokens. Space, comma and semicolon separate, but only OUTSIDE
+        /// double quotes, and the quotes themselves are dropped: `out="G:/My Drive/run.json"` stays one token.</summary>
+        public static System.Collections.Generic.List<string> Tokens(string raw)
+        {
+            var list = new System.Collections.Generic.List<string>();
+            var sb = new StringBuilder();
+            bool q = false;
+            foreach (char c in raw ?? "")
+            {
+                if (c == '\u0022') { q = !q; continue; }   // a double quote, written escaped so the brace check's string regex is not fooled
+                if (!q && (c == ' ' || c == ',' || c == ';'))
+                {
+                    if (sb.Length > 0) { list.Add(sb.ToString()); sb.Length = 0; }
+                    continue;
+                }
+                sb.Append(c);
+            }
+            if (sb.Length > 0) list.Add(sb.ToString());
+            return list;
+        }
 
         public static BenchOptions Parse(string raw)
         {
             var o = new BenchOptions { Raw = raw ?? "" };
             if (string.IsNullOrWhiteSpace(raw)) return o;
-            foreach (var token in raw.Split(new[] { ' ', ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+            foreach (var token in Tokens(raw))
             {
                 int eq = token.IndexOf('=');
-                if (eq <= 0) continue;
+                if (eq <= 0) { o.Unknown.Add(token); continue; }
                 string k = token.Substring(0, eq).Trim().ToLowerInvariant(), v = token.Substring(eq + 1).Trim();
                 switch (k)
                 {
-                    case "stress": o.Stress = I(v, o.Stress); break;
-                    case "settle_ticks": case "settle": o.SettleTicks = I(v, o.SettleTicks); break;
-                    case "ticks": o.Ticks = I(v, o.Ticks); break;
-                    case "warm": o.Warm = I(v, o.Warm); break;
-                    case "ff": o.FastForward = F(v, o.FastForward); break;
-                    case "quality": o.Quality = I(v, o.Quality); break;
+                    case "stress": o.Stress = I(v, o.Stress, k, o); break;
+                    case "settle_ticks": case "settle": o.SettleTicks = I(v, o.SettleTicks, k, o); break;
+                    case "ticks": o.Ticks = I(v, o.Ticks, k, o); break;
+                    case "warm": o.Warm = I(v, o.Warm, k, o); break;
+                    case "ff": o.FastForward = F(v, o.FastForward, k, o); break;
+                    case "quality": o.Quality = I(v, o.Quality, k, o); break;
                     case "vsync": o.VSync = v == "1" || v.ToLowerInvariant() == "true"; break;
-                    case "w": case "width": o.Width = I(v, o.Width); break;
-                    case "h": case "height": o.Height = I(v, o.Height); break;
-                    case "weather": o.Weather = F(v, o.Weather); break;
-                    case "zoom": o.Zoom = F(v, o.Zoom); break;
-                    case "yaw": o.Yaw = F(v, o.Yaw); break;
-                    case "pitch": o.Pitch = F(v, o.Pitch); break;
-                    case "fx": o.FocusX = F(v, o.FocusX); break;
-                    case "fz": o.FocusZ = F(v, o.FocusZ); break;
+                    case "w": case "width": o.Width = I(v, o.Width, k, o); break;
+                    case "h": case "height": o.Height = I(v, o.Height, k, o); break;
+                    case "weather": o.Weather = F(v, o.Weather, k, o); break;
+                    case "zoom": o.Zoom = F(v, o.Zoom, k, o); break;
+                    case "yaw": o.Yaw = F(v, o.Yaw, k, o); break;
+                    case "pitch": o.Pitch = F(v, o.Pitch, k, o); break;
+                    case "fx": o.FocusX = F(v, o.FocusX, k, o); break;
+                    case "fz": o.FocusZ = F(v, o.FocusZ, k, o); break;
                     case "subs": o.Subscribers = v == "1" || v.ToLowerInvariant() == "true"; break;
-                    case "canary": o.Canary = I(v, o.Canary); break;
+                    case "canary": o.Canary = I(v, o.Canary, k, o); break;
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
-                    case "shot_tick": o.ShotTick = I(v, o.ShotTick); break;
+                    case "shot_tick": o.ShotTick = I(v, o.ShotTick, k, o); break;
                     case "shot_hud": o.ShotHud = !(v == "0" || v.ToLowerInvariant() == "false"); break;
-                    case "shot_frames": o.ShotFrames = Math.Max(1, I(v, o.ShotFrames)); break;
+                    case "shot_frames": o.ShotFrames = Math.Max(1, I(v, o.ShotFrames, k, o)); break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                     case "scenario": o.ScenarioRaw = v; o.Scenario = ParseScenario(v); break;
                     // several knobs= tokens add up rather than the last one winning
@@ -164,8 +189,19 @@ namespace TW.Perf
         /// <summary>The valid `ground=` values, for the error line: every Ground's name, then the short names.</summary>
         public static string GroundNames() => string.Join(", ", Enum.GetNames(typeof(Ground))) + " (or forest, winter)";
 
-        static int I(string v, int d) => int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x) ? x : d;
-        static float F(string v, float d) => float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float x) ? x : d;
+        static int I(string v, int d, string k, BenchOptions o)
+        {
+            if (int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out int x)) return x;
+            o.Bad.Add(k + "=" + v);
+            return d;
+        }
+
+        static float F(string v, float d, string k, BenchOptions o)
+        {
+            if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float x)) return x;
+            o.Bad.Add(k + "=" + v);
+            return d;
+        }
     }
 
     /// <summary>What the measured window stages on top of the stress battle (PerfBench, BenchScenarios).</summary>
