@@ -282,6 +282,67 @@ namespace TW.Tests
             finally { m.Dispose(); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
         }
 
+        // [N8.2a] The panel's own AI tabs write into the running match (ProvingGround.SetAi -> the host's Peer knobs),
+        // so a win after one must pay no gold and record nothing (the second reader of N8.2, 2026-10-11).
+        [Test]
+        public void ACampaignWinAfterTheProvingGroundPanelTurnedTheEnemyOffPaysNoGold()
+        {
+            SceneStatics.Reset();
+            var profile = new CampaignProfile { Gold = 10 };
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
+            var go = new UnityEngine.GameObject("pg-ai-tab-test"); go.SetActive(false);   // SimHost.Awake must not run
+            try
+            {
+                var host = go.AddComponent<SimHost>();
+                var panel = new ProvingGroundPanel(ProvingGround.For(host));
+                var panelRoot = Instantiate("ProvingGroundPanel", "Assets/_Project/UI/Resources/Shell/");
+                panel.Bind(panelRoot, null);                       // no router: only the director the panel was given
+                Assert.That(panelRoot.Q<Button>("tab-ai-0"), Is.Not.Null, "[N8.2a] the panel has no AI OFF tab");
+                panel.SetAi(0);                                    // what that tab is wired to
+                Assert.That(host.ScriptedPeer, Is.False, "[N8.2a] the OFF tab did not turn the enemy off");
+                panel.Unbind();
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                Assert.That(profile.Gold, Is.EqualTo(10), "[N8.2a] a win against an enemy the panel turned off paid gold");
+                Assert.That(profile.IsComplete("lowlands", 0), Is.False, "[N8.2a] a win against an enemy the panel turned off recorded the mission");
+                Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("NO GOLD"), "[N8.2a] the gold line does not say why a tooled win pays nothing");
+                screen.Unbind();
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
+        }
+
+        // [N8.2d] The owner, 2026-10-11: a win in a tooled match is "Not recorded: no progress and no gold; a clean
+        // win later earns both". The line must say both, not only the gold.
+        [Test]
+        public void ATooledCampaignWinSaysTheMissionIsNotRecorded()
+        {
+            SceneStatics.Reset();
+            var profile = new CampaignProfile { Gold = 10 };
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
+            var cfg = SimConfig.Default; cfg.Endless = true;
+            var m = MatchSim.CreatePlaytest(cfg);
+            try
+            {
+                var ground = new ProvingGround(a => { a(m); return true; }, () => m, () => null);
+                ground.GiveSilver(0, 1000);
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                var text = root.Q<Label>("gold-earned").text;
+                Assert.That(text, Does.Contain("NOT RECORDED"), "[N8.2d] the line does not say the mission is not recorded");
+                Assert.That(text, Does.Contain("NO GOLD"), "[N8.2d] the line no longer says there is no gold");
+                screen.Unbind();
+            }
+            finally { m.Dispose(); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
+        }
+
         // The control for the test above: a panel only opened and closed writes nothing, so the win pays as before.
         // Deliberately NOT tagged [N8.2]: it is green on the old code by design.
         [Test]

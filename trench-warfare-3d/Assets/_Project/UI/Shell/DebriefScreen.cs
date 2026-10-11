@@ -4,7 +4,8 @@
 // pays its gold on a win, once: the session's Awarded latch guards RESTART and a re-bind, and a mission already won
 // pays nothing (docs/21 phase 6); CONTINUE then goes back to the map.
 // A match the Proving Ground's panel wrote into (ProvingGround.Tooled) pays nothing and records nothing on a win:
-// the row says so (owner, 2026-10-07: F8 stays in every match, and a match in which the panel was used pays no gold).
+// the row says so (owner, 2026-10-07: F8 stays in every match, and a match in which the panel was used pays no gold;
+// owner, 2026-10-11: such a win is "Not recorded: no progress and no gold; a clean win later earns both").
 using UnityEngine.UIElements;
 using TW.Presentation;
 
@@ -14,7 +15,7 @@ namespace TW.UI
     {
         public static readonly string[] Rows = { "men-lost", "vehicles-lost", "men-fielded", "kills", "shots", "accuracy", "silver-earned", "silver-left", "trenches-taken", "trenches-held", "objectives-held", "abilities-fired" };
         public static readonly string[] RequiredNames = { "debrief-plate", "result", "result-sub", "stats-table", "duration", "seed-line", "gold-row", "gold-earned", "gold-total", "btn-replay", "btn-restart", "btn-view-field", "btn-continue", "view-hint" };
-        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN", NoGoldAfterTools = "TEST PANEL USED: NO GOLD";
+        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN", NoGoldAfterTools = "TEST PANEL USED: NOT RECORDED, NO GOLD";
         public override bool HidesHud => !viewing;
 
         readonly MatchReport report;
