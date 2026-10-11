@@ -22,7 +22,7 @@ job's do. "lane" is the role with none.
 This is the only source with a handoff note: its state is not on the board or in a ledger. The note reaches the next
 run's legs on the card, with each of its predictions scored hit or miss by script.
 """
-import hashlib, json, re, subprocess, sys
+import hashlib, json, os, re, subprocess, sys, tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
@@ -38,6 +38,7 @@ NEED = ("id", "lane", "role", "goal", "done_when")
 MAY = ("kind",)                     # what a unit file may also say: the kind of work it is paid as. Never its
 #                                     priority: a unit's place in the queue is the owner's to give (relay.py prio)
 ID = re.compile(r"^[\w.-]+$")
+ORIGIN_S = 30                       # how long origin gets to say where the lanes stand; then nothing is passed over
 
 
 def load(p):
@@ -117,16 +118,24 @@ def tried(board, uid):
 
 def origin_heads(work):
     """{lane: sha} of origin's branches, asked of origin itself; None when it cannot be asked (no checkout, no
-    network): a caller then holds nothing back on a head it could not read."""
+    network, no answer within ORIGIN_S seconds): a caller then holds nothing back on a head it could not read.
+    The call is timed and may not ask for a password, as the runner's own calls to origin between legs are
+    (boardio._origin): an origin that hangs must not hold a run. Its answer goes to a file, not a pipe, so a helper
+    process that git left behind cannot hold the reader either."""
     if not work:
         return None
     try:
-        r = gitio.git_raw(["ls-remote", "--heads", "origin"], work)
-    except OSError:
+        with tempfile.TemporaryFile() as out:
+            r = subprocess.run(["git", "ls-remote", "--heads", "origin"], cwd=str(work), stdin=subprocess.DEVNULL,
+                               stdout=out, stderr=subprocess.DEVNULL, timeout=ORIGIN_S,
+                               env=dict(os.environ, GIT_TERMINAL_PROMPT="0"))
+            out.seek(0)
+            text = out.read().decode("utf-8", "replace")
+    except (OSError, subprocess.TimeoutExpired):
         return None
     if r.returncode:
         return None
-    rows = [l.split("\t") for l in r.stdout.decode("utf-8", "replace").splitlines() if "\t" in l]
+    rows = [l.split("\t") for l in text.splitlines() if "\t" in l]
     return {ref.replace("refs/heads/", "", 1): sha for sha, ref in rows}
 
 
@@ -216,7 +225,8 @@ def saved(unit, ctx, rec, patch):
     old = tried(ctx["board"], unit["id"])
     old.update(id=unit["id"], lane=unit["lane"],
                saved={"ref": rec.get("ref") or "", "patch": str(patch), "head": rec.get("head") or "",
-                      "run": ctx.get("run", ""), "at": now(), "cleaned": bool(rec.get("cleaned"))})
+                      "run": ctx.get("run", ""), "at": now(), "cleaned": bool(rec.get("cleaned")),
+                      "touched": bool(rec.get("touched"))})
     write_json(tried_path(ctx["board"], unit["id"]), old)
 
 
@@ -248,11 +258,14 @@ def body(unit):
                      % (rej.get("run") or "?", int(rej.get("leg") or 0), rej.get("why") or "?", str(rej["head"])[:10]))
     kept = unit.get("saved") or {}
     if kept:
+        how = ("the checkout was put back to its HEAD" if kept.get("cleaned") else
+               "the checkout was put back only in part then: read `git status` before anything else"
+               if kept.get("touched") else "the checkout was left as it was then")
         lines.append("- An earlier leg on this unit left uncommitted work (run %s). The runner put it aside as the "
-                     "commit `%s`, made on %s, and the checkout was put back to its HEAD. Look at it with `git show "
+                     "commit `%s`, made on %s, and %s. Look at it with `git show "
                      "--stat %s`; an execute leg puts it back uncommitted with `git cherry-pick -n %s`. Take it up or "
                      "leave it, and say which in your report."
-                     % (kept.get("run") or "?", kept["ref"], str(kept.get("head"))[:10], kept["ref"], kept["ref"]))
+                     % (kept.get("run") or "?", kept["ref"], str(kept.get("head"))[:10], how, kept["ref"], kept["ref"]))
     if unit.get("note"):
         lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
         lines += ["", "Its predictions, checked just now by script:"]

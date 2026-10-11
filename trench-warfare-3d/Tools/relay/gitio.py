@@ -2,7 +2,7 @@
 """Git facts about a checkout, and the one lock that says "a leg is working here". Every check a leg's result is
 judged by is a script here: no model is asked. Stdlib only. ASCII only.
 """
-import hashlib, os, re, subprocess, sys, tempfile, time
+import hashlib, os, re, shutil, subprocess, sys, tempfile, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
@@ -141,27 +141,47 @@ def snapshot_dirty(wt, folder, clean=False):
     its HEAD, so the next run finds it usable; a saved tree that stayed in the checkout made every later run refuse
     it (the review, R002.3). That step destroys files, so it runs only after all of this held, and each is a
     comparison of ids, never of file lists:
-      1. the throwaway index holds the whole dirty tree: git status against it shows nothing left over;
+      1. the throwaway index holds the whole dirty tree: git status against it shows nothing left over. It starts
+         as a copy of the checkout's own index (_seed), so a file staged by force under an ignored pattern is in it;
       2. HEAD plus red.patch, as the patch reads back from the leg's folder, gives the very tree of that index;
       3. the same tree is kept a second time as a commit on HEAD under saved_ref(folder), and the ref reads back;
       4. asked again as the last thing before the clean: HEAD has not moved and the checkout is still that tree.
-    Then `git reset --hard HEAD` and `git clean -fd`: never -x, so an ignored folder (Library) is not touched, and a
-    checkout nested in it is left alone. The record says how it went: "cleaned" True, or False with "kept_because"
-    and the checkout exactly as it was. Put the work back with `git cherry-pick -n <ref>` or `git apply red.patch`."""
+    Then `git clean -fd` and `git reset --hard HEAD`, in that order: the clean runs under the ignore rules the save
+    was made with, so a folder the leg itself made git ignore (an edited .gitignore) is not deleted unsaved; it is
+    found after the reset and named. Never -x, so an ignored folder (Library) is not touched, and a checkout nested
+    in it is left alone. The record says how it went: "cleaned" True; or False with "kept_because", and "touched"
+    False when the checkout is exactly as it was, True when the clean began and did not leave it at HEAD (what is
+    gone from it is then in the patch and the ref). Put the work back with `git cherry-pick -n <ref>` or
+    `git apply red.patch`."""
     paths = dirty(wt)
     if not paths:
         return None
     with tempfile.TemporaryDirectory() as tmp:
         env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
-        took = [git_raw(["read-tree", "HEAD"], wt, env), git_raw(["add", "-A"], wt, env)]
+        took = [_seed(wt, env), git_raw(["add", "-A"], wt, env).returncode]
         diff = git_raw(["diff", "--cached", "--binary", "HEAD"], wt, env)
         Path(folder).mkdir(parents=True, exist_ok=True)
         (Path(folder) / "red.patch").write_bytes(diff.stdout)
         rec = {"head": head(wt), "branch": branch(wt), "files": file_hashes(wt, paths), "saved_at": now()}
         if clean:
-            rec.update(_put_back(wt, folder, rec, took + [diff], env))
+            rec.update(_put_back(wt, folder, rec, took + [diff.returncode], env))
     write_json(Path(folder) / "red-hashes.json", rec)
     return rec
+
+
+def _seed(wt, env):
+    """Start the throwaway index of `env` as a copy of the checkout's own index, else from HEAD when it has none.
+    0 when that worked. From HEAD alone, a file staged with `git add -f` under an ignored pattern was in no patch
+    and no ref, passed every check, and went with the reset (the second reader, RV.1)."""
+    own = Path(git(["rev-parse", "--git-path", "index"], wt, check=False) or "")
+    own = own if own.is_absolute() else Path(wt) / own
+    if own.is_file():
+        try:
+            shutil.copyfile(own, env["GIT_INDEX_FILE"])
+            return 0
+        except OSError:
+            return 1
+    return git_raw(["read-tree", "HEAD"], wt, env).returncode
 
 
 def _left_over(wt, env):
@@ -183,16 +203,16 @@ def _left_over(wt, env):
 
 
 def _put_back(wt, folder, rec, calls, env):
-    """The checks of snapshot_dirty(clean=True), then the clean. {"tree", "ref", "cleaned", "kept_because"}.
-    env names the throwaway index that holds the dirty tree."""
-    out = {"tree": "", "ref": "", "cleaned": False, "kept_because": ""}
+    """The checks of snapshot_dirty(clean=True), then the clean. {"tree", "ref", "cleaned", "touched",
+    "kept_because"}. calls: the exit codes of the steps that filled the throwaway index of `env`."""
+    out = {"tree": "", "ref": "", "cleaned": False, "touched": False, "kept_because": ""}
 
     def kept(why):
         out["kept_because"] = why
         return out
     made = git_raw(["write-tree"], wt, env)
     tree = out["tree"] = _text(made) if made.returncode == 0 else ""
-    if any(c.returncode for c in calls) or not tree:
+    if any(calls) or not tree:
         return kept("git could not take the whole dirty tree into an index")
     left = _left_over(wt, env)
     if left is None or left:
@@ -212,11 +232,15 @@ def _put_back(wt, folder, rec, calls, env):
     out["ref"] = ref
     if head(wt) != rec["head"] or _left_over(wt, env) != []:
         return kept("the checkout changed while it was being saved")
-    if git_raw(["reset", "-q", "--hard", "HEAD"], wt).returncode or git_raw(["clean", "-q", "-fd"], wt).returncode:
-        return kept("git could not put the checkout back to HEAD; what is saved is complete")
+    out["touched"] = True                                # from here on the checkout is no longer as it was
+    if git_raw(["clean", "-q", "-fd"], wt).returncode:   # first, under the ignore rules the save was made with
+        return kept("git clean failed part way; what it removed is saved, the tracked files are as they were")
+    if git_raw(["reset", "-q", "--hard", "HEAD"], wt).returncode:
+        return kept("git reset failed after the untracked files were removed; all of that is saved")
     still = dirty(wt)
-    if still:
-        return kept("git left these in the checkout: %s; what is saved is complete" % ", ".join(still[:3]))
+    if still:                                            # e.g. a folder the leg's own .gitignore edit had hidden
+        return kept("the rest is at HEAD and saved, but these stay and are in no patch or ref: %s"
+                    % ", ".join(still[:3]))
     out["cleaned"] = True
     return out
 

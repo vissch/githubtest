@@ -518,16 +518,23 @@ def prio(uid, n):
 
 def retry(uid):
     """Let the runner take a unit again that it passes over: remove what the board keeps of its last tries
-    (relay/tried/<id>.json, sources/lane.py) and push the board. For a unit that ended BLOCKED and has its answer,
-    or one that failed for a passing reason. Refused while a run is going on this machine: a board file that goes
-    while a leg works is blamed on the leg."""
+    (the verdict and the count in relay/tried/<id>.json, sources/lane.py) and push the board. For a unit that ended
+    BLOCKED and has its answer, or one that failed for a passing reason. What the record says of a leg the runner
+    did not trust and of work it put aside stays: retry is "try again", never "take that leg's head for done".
+    Refused while a run is going on this machine: a board file that changes while a leg works is blamed on the
+    leg."""
     board = P.board_dir()
     p = lane_source.tried_path(board, uid)
-    if not p.exists():
+    old = lane_source.tried(board, uid)
+    if not old.get("verdict"):
         raise SystemExit("relay: the board keeps no failed or blocked try of %s: the runner takes it as it stands" % uid)
     for rec in day.live(legdir.home()):
         raise SystemExit("relay: a run is going (%s): retry %s after it stops" % (rec["who"], uid))
-    p.unlink()
+    left = {k: v for k, v in old.items() if k in ("rejected", "saved") and v}
+    if left:
+        P.write_json(p, dict(left, id=uid, lane=old.get("lane", "")))
+    else:
+        p.unlink()
     print("%s is taken again by the next run. Board: %s." % (uid, boardio.push(board, "relay: retry %s" % uid)))
     return 0
 

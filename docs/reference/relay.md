@@ -68,10 +68,12 @@ its lane on origin, and how many tries in a row ended with nothing new there. Th
 - A unit that ended BLOCKED, or FAIL twice in a row with no new code pushed (`no_progress_units`), is **passed
   over** by later runs, which say so once. It is taken again when its lane has a new head on origin, when its queue
   file asks for something else (its lane, role, goal or `done_when`; a new priority reopens nothing), or after
-  `$R retry <id>`, which removes the record and is refused while a run is going. A unit that failed once gets one
+  `$R retry <id>`, which removes the verdict and the count of tries and is refused while a run is going. It keeps
+  what the record says of a leg that was not trusted and of work put aside (below): retry means "try again", never
+  "take that leg's head for done". A unit that failed once gets one
   more try, in the next run. Until 2026-10-11 two failed units at the front of the queue were taken again by every
-  run, and no run reached the work behind them. Origin is asked once per pick; when it does not answer nothing is
-  passed over.
+  run, and no run reached the work behind them. Origin is asked once per pick, with 30 seconds to answer and no
+  password prompt; when it does not answer nothing is passed over.
 - A leg the runner could not trust (it broke a rule, timed out, did not end clean) stops the run with no verdict.
   The record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
   it gets a plan and an execute leg whose card says what happened, and the record goes when trusted legs end the
@@ -356,11 +358,18 @@ little more can still be cut. 0 switches the minimum off. A run of `--hours 0.25
 runner saves them and puts the work checkout back to its HEAD, so the next run can use it (`gitio.snapshot_dirty`;
 until 2026-10-11 the files stayed, and every later run stopped with 0 legs on a dirty checkout). The work is held
 twice: `red.patch` in the leg's folder on that machine, and a commit on top of the lane's HEAD under
-`refs/relay/saved/<run>-<leg>` in the work checkout's repo. The clean is `git reset --hard HEAD` and
-`git clean -fd`, never `-x`: what git ignores (`Library`) is not touched. It runs only after the save is proved by
+`refs/relay/saved/<run>-<leg>` in the work checkout's repo. The clean is `git clean -fd` and then
+`git reset --hard HEAD`, never `-x`: what git ignores (`Library`) is not touched. It runs only after the save is proved by
 tree id: the whole dirty tree is in a throwaway index, HEAD plus the patch as it reads back from disk gives that
-same tree, the ref holds that tree, and the checkout has not changed meanwhile. When one of these does not hold,
-nothing is removed, the stop record's `detail` says why, and the next run stops on the dirty checkout as before.
+same tree, the ref holds that tree, and the checkout has not changed meanwhile. The throwaway index starts as a
+copy of the checkout's own, so a file a leg staged with `git add -f` under an ignored pattern is saved too. When
+one of these does not hold, nothing is removed, the stop record's `detail` says
+`the checkout was left as it is` and why, and the next run stops on the dirty checkout as before.
+The clean comes before the reset so that it runs under the ignore rules the save was made with: a folder a leg
+made git ignore by editing a tracked `.gitignore` is in no patch, and is not deleted. It is found once the reset
+has brought the old rules back; the `detail` then says `put back to its HEAD only in part` and names it, the same
+when git fails half way, and the next run stops on what is left. What went from the checkout in that case is in
+the patch and the ref.
 A queued unit's record (`relay/tried/<id>.json`) names the ref, and the card of its next legs says how to look at
 the work and put it back (`git cherry-pick -n <ref>`). Line ends come back as git's settings write them; the tree
 is the same. The run still stops after a unit that left work behind (`uncommitted`).

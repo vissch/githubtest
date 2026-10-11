@@ -840,6 +840,103 @@ class Checkout(Repo):
                 (self.work / "late.txt").unlink()
             self.assertEqual(self.everything(), before, why)     # every file and git's own view: as they were
 
+    def test_a_file_staged_by_force_under_an_ignored_pattern_is_saved_before_the_checkout_is_cleared(self):
+        # [RV.1] the proof was made against an index built from HEAD: a file the leg had staged with `git add -f`
+        # was in the checkout's own index only, so it was in no patch and no ref, and reset --hard deleted it
+        self.dirty_tree()
+        forced = {"Library/forced.bin": bytes(range(200)), "Library/forced-then-edited.txt": b"second\n"}
+        (self.work / "Library" / "forced.bin").write_bytes(forced["Library/forced.bin"])
+        (self.work / "Library" / "forced-then-edited.txt").write_bytes(b"first\n")
+        self.g(["add", "-f", "Library/forced.bin", "Library/forced-then-edited.txt"])
+        (self.work / "Library" / "forced-then-edited.txt").write_bytes(b"second\n")
+        leg = self.tmp / "home" / "runs" / "r1" / "legs" / "02"
+        rec = gitio.snapshot_dirty(self.work, leg, clean=True)
+        for rel, data in forced.items():
+            kept = subprocess.run(["git", "cat-file", "blob", "%s:%s" % (rec["ref"] or "HEAD", rel)], cwd=str(self.work),
+                                  capture_output=True).stdout
+            there = (self.work / rel).read_bytes() if (self.work / rel).exists() else None
+            self.assertIn(data, (kept, there), "%s is neither saved nor still in the checkout" % rel)
+            self.assertEqual(kept, data, rel)                    # and with the fix it is saved, in the ref
+        self.assertEqual((rec["cleaned"], gitio.dirty(self.work)), (True, []))
+        self.assertEqual(gitio.patch_tree(self.work, leg / "red.patch"), rec["tree"])
+        self.g(["cherry-pick", "-n", rec["ref"]])
+        for rel, data in forced.items():
+            self.assertEqual((self.work / rel).read_bytes(), data, rel)
+        self.assertEqual((self.work / "Library" / "cache.bin").read_bytes(), self.IGNORED["Library/cache.bin"])
+
+    def test_a_folder_the_leg_itself_made_git_ignore_is_not_deleted_unsaved(self):
+        # [RV.2] [RV.3] the leg edits the tracked .gitignore to ignore scratch/ and writes there: the save follows
+        # the new rules (scratch/ is not saved), reset --hard brought the old rules back and clean -fd then
+        # deleted scratch/. Cleaning first, under the rules the save was made with, leaves it; and the record
+        # says what was put back and what was not
+        self.g(["config", "core.autocrlf", "false"])
+        (self.work / ".gitignore").write_bytes(b"Library/\n")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "base"])
+        (self.work / ".gitignore").write_bytes(b"Library/\nscratch/\n")
+        (self.work / "scratch").mkdir()
+        (self.work / "scratch" / "x.txt").write_bytes(b"not saved by anything\n")
+        (self.work / "README.md").write_bytes(b"edited\n")
+        (self.work / "new.txt").write_bytes(b"new\n")
+        rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / "02", clean=True)
+        self.assertEqual((self.work / "scratch" / "x.txt").read_bytes() if (self.work / "scratch" / "x.txt").exists()
+                         else None, b"not saved by anything\n")
+        self.assertEqual((rec["cleaned"], rec["touched"]), (False, True))       # put back, but not wholly
+        self.assertIn("scratch/x.txt", rec["kept_because"])
+        self.assertEqual(gitio.dirty(self.work), ["scratch/x.txt"])              # the rest is at HEAD, and saved
+        self.assertEqual(self.g(["cat-file", "blob", rec["ref"] + ":.gitignore"]).stdout, b"Library/\nscratch/\n")
+        self.assertEqual(self.g(["cat-file", "blob", rec["ref"] + ":new.txt"]).stdout, b"new\n")
+
+    def test_a_tree_git_did_not_take_whole_clears_nothing(self):
+        # [RV.7] the two first guards of the destructive step: `git add -A` that reports a failure, and a checkout
+        # that the throwaway index does not hold as it is on disk
+        self.dirty_tree()
+        before, real, real_left = self.everything(), gitio.git_raw, gitio._left_over
+
+        def add_fails(args, cwd, env=None):                      # git took what it could and said it failed
+            r = real(args, cwd, env)
+            if args[:2] == ["add", "-A"]:
+                r.returncode = 1
+            return r
+        asked = []
+
+        def one_left(wt, env):                                   # the first look finds a file the index lacks
+            asked.append(1)
+            return ["ghost.txt"] if len(asked) == 1 else real_left(wt, env)
+        for n, (name, stub, why) in enumerate((("git_raw", add_fails, "could not take the whole dirty tree"),
+                                               ("_left_over", one_left, "not all of it can be saved as a tree: ghost.txt")), 1):
+            setattr(gitio, name, stub)
+            try:
+                rec = gitio.snapshot_dirty(self.work, self.tmp / "home" / "runs" / "r1" / "legs" / ("%02d" % n), clean=True)
+            finally:
+                gitio.git_raw, gitio._left_over = real, real_left
+            self.assertEqual((rec["cleaned"], rec["touched"]), (False, False), why)
+            self.assertIn(why, rec["kept_because"])
+            self.assertEqual(self.everything(), before, why)
+
+    def test_what_is_said_of_saved_work_is_true_whether_the_checkout_was_put_back_wholly_partly_or_not(self):
+        # [RV.3] "the checkout was left as it is" was said of a checkout whose tracked edits were already
+        # reverted, and the next card said "put back to its HEAD" whatever had happened
+        from sources import lane as SL
+        r, real, d = runner.Run(self.args()), gitio.snapshot_dirty, self.tmp / "legx"
+        states = (({"cleaned": True, "touched": True, "ref": "refs/relay/saved/r-02", "kept_because": ""},
+                   "the checkout is back at its HEAD", "the checkout was put back to its HEAD"),
+                  ({"cleaned": False, "touched": True, "ref": "refs/relay/saved/r-02", "kept_because": "git left x"},
+                   "the checkout was put back to its HEAD only in part: git left x", "was put back only in part"),
+                  ({"cleaned": False, "touched": False, "ref": "", "kept_because": "no proof"},
+                   "the checkout was left as it is: no proof", None))
+        try:
+            for rec, said, card in states:
+                gitio.snapshot_dirty = lambda wt, folder, clean=False, rec=rec: dict(rec, head="abc")
+                text = r.put_aside(d, {"id": "x", "source": "retro"})
+                self.assertIn(said, text)
+                self.assertEqual("left as it is" in text, not rec["touched"])
+                unit = dict(Runs.ROLED, role="lane", saved=dict(rec, run="r", head="abc"))
+                body = SL.body(unit) if rec["ref"] else ""
+                self.assertEqual(card in body if card else body == "", True, body)
+                self.assertEqual("was put back to its HEAD" in body, rec["cleaned"])
+        finally:
+            gitio.snapshot_dirty = real
+
     def test_only_a_change_outside_docs_is_progress(self):
         a = gitio.head(self.work)
         (self.work / "docs").mkdir(); (self.work / "docs" / "n.md").write_text("n\n", encoding="utf-8")
@@ -1055,6 +1152,56 @@ class Runs(Repo):
             self.assertEqual(SL.finish(unit, ctx, [], "done"), "PASS")
         self.assertFalse((self.board / "relay" / "tried" / "a.json").exists())     # a pass leaves no such record
         self.assertTrue((self.board / "relay" / "done" / "a.json").exists())
+
+    def test_retry_reopens_a_unit_and_keeps_what_an_untrusted_leg_and_a_save_left_on_its_record(self):
+        # [RV.4] retry removed the whole record, so a unit whose last leg was not trusted became "already done" on
+        # that leg's head: the shortcut the record was there to close
+        from sources import lane as SL
+        ctx = {"board": self.board, "work": self.work, "skip": set(), "run": "r1"}
+        q, rec_file = self.board / "relay" / "queue" / "a.json", self.board / "relay" / "tried" / "a.json"
+        self.queue("a", done_when=("git", "cat-file", "-e", "HEAD:README.md"))
+        self.g(["switch", "-q", "-c", "lane/show/x"]); self.g(["push", "-q", "origin", "lane/show/x"])
+        unit = dict(SL.load(q), source="lane")
+        with contextlib.redirect_stdout(io.StringIO()):
+            SL.finish(unit, ctx, ["blocked"], "blocked")
+            SL.saved(unit, ctx, {"ref": "refs/relay/saved/r1-02", "head": gitio.head(self.work), "cleaned": True}, "p")
+            SL.reject(unit, ctx, "broke a rule: x", 2)
+            self.assertIsNone(SL.next(dict(ctx, skip=set())))
+            self.assertFalse(SL.already_done(unit, ctx))
+            self.assertEqual(relay.main(["retry", "a"]), 0)
+            self.assertEqual((SL.next(dict(ctx, skip=set())) or {}).get("id"), "a")     # it is taken again
+            self.assertFalse(SL.already_done(unit, ctx))                                # and still gets a leg
+            rec = json.loads(rec_file.read_text(encoding="utf-8"))
+            self.assertEqual(sorted(rec), ["id", "lane", "rejected", "saved"])
+            with self.assertRaises(SystemExit):                  # nothing left to retry
+                relay.main(["retry", "a"])
+            self.assertTrue(rec_file.exists())
+            rec_file.unlink()
+            SL.finish(unit, ctx, ["blocked"], "blocked")
+            self.assertEqual(relay.main(["retry", "a"]), 0)      # a record that holds only the tries goes whole
+        self.assertFalse(rec_file.exists())
+
+    def test_an_origin_that_does_not_answer_holds_no_run_and_passes_nothing_over(self):
+        # [RV.6] the question to origin before a pick had no time limit and could ask for a password
+        from sources import lane as SL
+        calls, real = [], SL.subprocess.run
+
+        def hangs(cmd, **kw):
+            calls.append((cmd, kw))
+            if cmd[:2] == ["git", "ls-remote"]:
+                raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
+            return real(cmd, **kw)
+        SL.subprocess.run = hangs
+        try:
+            self.assertIsNone(SL.origin_heads(self.work))
+        finally:
+            SL.subprocess.run = real
+        (cmd, kw), = calls
+        self.assertEqual((cmd[:2], kw["timeout"], kw["env"]["GIT_TERMINAL_PROMPT"], kw["stdin"]),
+                         (["git", "ls-remote"], SL.ORIGIN_S, "0", subprocess.DEVNULL))
+        self.assertNotEqual(kw.get("stdout"), subprocess.PIPE)   # no pipe a helper git left behind could hold open
+        self.assertFalse(kw.get("capture_output"))
+        self.assertEqual(SL.origin_heads(self.work)[gitio.INTEGRATION], gitio.head(self.work))   # the real call reads
 
     def test_work_pushed_by_a_leg_the_runner_did_not_trust_gets_a_leg_before_it_can_pass(self):
         # [R002.1] the leg pushes, then breaks a rule: the next run took the pushed head as "already done"

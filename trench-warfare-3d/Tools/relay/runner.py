@@ -453,6 +453,9 @@ class Run:
             print("note: the saved work was not recorded for its unit (%s)" % (str(e) or type(e).__name__), flush=True)
         if rec.get("cleaned"):
             return "uncommitted work saved in %s and as %s; the checkout is back at its HEAD" % (d, rec["ref"])
+        if rec.get("touched"):                              # the clean began and did not leave it at HEAD
+            return "uncommitted work saved in %s%s; the checkout was put back to its HEAD only in part: %s" % (
+                d, " and as %s" % rec["ref"] if rec.get("ref") else "", rec.get("kept_because"))
         return "uncommitted work saved in %s; the checkout was left as it is: %s" % (d, rec.get("kept_because"))
 
     def reject(self, unit, why):
