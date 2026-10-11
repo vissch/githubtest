@@ -70,7 +70,10 @@ namespace TW.Tests
         const int Seed = 1917;
 
         /// <summary>What the scripted match actually did, so a pin cannot pass on an empty world.</summary>
-        struct Fight { public int Vehicles, Hits, Deaths, Wounded; }
+        /// <summary>[T24d] Shots counts DIRECT fire only (every SimEventType.Shot comes from DirectFire; B is the
+        /// target unit, so B >= 0 drops the shots at a wreck, DirectFire.Wrecks.cs:147). VehicleTeams is a bitmask of
+        /// the teams that had a machine alive on ANY tick, not just the last one, because a machine can die first.</summary>
+        struct Fight { public int Vehicles, Hits, Deaths, Wounded, Shots, Deployed, Abilities, Rejected, VehicleTeams; }
 
         /// <summary>Both golden pins run this: six deploys at tick 0 (rifleman, machinegunner and the faction's
         /// machine for each side), two barrages a side at tick 20 aimed where a man will be when the shells land,
@@ -94,7 +97,14 @@ namespace TW.Tests
                 {
                     if (ev[e].Type == SimEventType.Hit) fight.Hits++;
                     else if (ev[e].Type == SimEventType.Death) fight.Deaths++;
+                    else if (ev[e].Type == SimEventType.Shot && ev[e].B >= 0) fight.Shots++;
+                    else if (ev[e].Type == SimEventType.UnitDeployed) fight.Deployed++;
+                    else if (ev[e].Type == SimEventType.AbilityFired) fight.Abilities++;
+                    else if (ev[e].Type == SimEventType.CommandRejected) fight.Rejected++;
                 }
+                for (int i = 0; i < w.HighWater; i++)         // a machine may be dead by the last tick
+                    if (w.IsAlive(i) && (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0)
+                        fight.VehicleTeams |= 1 << (w.Team[i] & 1);
             }
             for (int i = 0; i < w.HighWater; i++)
             {
@@ -210,6 +220,21 @@ namespace TW.Tests
             Assert.Greater(fight.Vehicles, 0, "[T24b] no machine on the field, so the vehicle state is unhashed");
             Assert.Greater(fight.Hits + fight.Deaths + fight.Wounded, 0,
                 "[T24b] the match went idle: nobody was hit, wounded or killed in the 300 ticks");
+            Assert.AreEqual(6, fight.Deployed,
+                "[T24d] not every scripted deploy arrived: Deploys() asks for 2 sides x slots {0,2,6}, so six " +
+                "UnitDeployed events, and a deploy that never happened leaves its unit's arrays out of the hash");
+            Assert.AreEqual(4, fight.Abilities,
+                "[T24d] not every scripted barrage fired: Barrages() asks for HE and gas from both sides, so four " +
+                "AbilityFired events");
+            Assert.AreEqual(0, fight.Rejected,
+                "[T24d] a scripted command was rejected (silver, cooldown or placement), so the match below is not " +
+                "the one this value was pinned on");
+            Assert.AreEqual(3, fight.VehicleTeams,
+                "[T24d] a side had no machine alive on any tick, so one faction's vehicle state is unhashed");
+            Assert.Greater(fight.Hits, 0, "[T24d] nobody was hit in the hashed ticks");
+            Assert.Greater(fight.Shots, 0,
+                "[T24d] not one shot of direct fire in the hashed ticks, so DirectFire, TargetAcquisition, Engage " +
+                "and the guns' tables are all unhashed and this pin cannot see a change in any of them");
             Assert.AreEqual(0x604b45c18d677168UL, match.World.Hash(),
                 "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 45 pin: a field was " +
                 "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
@@ -230,6 +255,34 @@ namespace TW.Tests
             Assert.Greater(fight.Vehicles, 0, "[T24b] no machine on the field, so the vehicle state is unhashed");
             Assert.Greater(fight.Hits + fight.Deaths + fight.Wounded, 0,
                 "[T24b] the match went idle: nobody was hit, wounded or killed in the 300 ticks");
+            // [T24d] Three deploys, not six, and one team's machine, not both: the sea side's three (team 1) are
+            // PAID FOR at tick 0 and then stand off the beach aboard a craft, so they are not in the world and not
+            // in the hash before tick ~320 (SeaLanding.StandOff / RunSpeed / GroundTicks). Derived from the script
+            // and SeaLanding, not from a run: the profile's "alive 3/0" up to t300 agrees.
+            Assert.AreEqual(3, fight.Deployed,
+                "[T24d] the land side's three scripted deploys did not arrive: Deploys() asks for 2 sides x slots " +
+                "{0,2,6}, and the sea side's three are still aboard at tick 300, so three UnitDeployed events");
+            Assert.AreEqual(4, fight.Abilities,
+                "[T24d] not every scripted barrage fired: Barrages() asks for HE and gas from both sides, so four " +
+                "AbilityFired events");
+            Assert.AreEqual(0, fight.Rejected,
+                "[T24d] a scripted command was rejected (silver, cooldown or placement), so the match below is not " +
+                "the one this value was pinned on. All six deploys and all four barrages are ACCEPTED here; the sea " +
+                "side's men are held aboard afterwards, which is not a rejection");
+            Assert.AreEqual(1, fight.VehicleTeams,
+                "[T24d] the land side had no machine alive on any tick, so its vehicle state is unhashed (the sea " +
+                "side's machine is still aboard at tick 300, hence 1 and not 3)");
+            // [T24d] No Hits assert either: the first Hit of this match falls at tick 745 (the gunboats and the
+            // ambient shelling, not a man's rifle), so inside 300 ticks only the gas wounds above are true. The
+            // greybox pin carries the Hits > 0 and Shots > 0 guard for both.
+            // [T24d] No Shots assert here, and no shot to assert: measured 2026-10-11 by
+            // WhatTheScriptedMatchesDo_TickProfile over 2600 ticks of this very match, the first SimEventType.Shot
+            // falls at tick 2391, when the two sides are 5 m apart, and the land side is wiped at tick 2420. The sea
+            // side is not ashore before tick ~320 (SeaLanding.StandOff 96 m at RunSpeed 7 m/s plus GroundTicks 16),
+            // then crosses the 170 m of land at a mired walk: nearest enemy 167.8 m at t320, 55.0 m at t1799.
+            // So no number of ticks short of ~2450 buys this match a firefight, and 15 s of it buys none at all.
+            // Open for the owner (decisions.md): a 2450-tick Long pin, nearer spawns, or the greybox pin keeping
+            // the direct-fire guard alone. Until then this pin stays at 300 ticks and its value is unmoved.
             Assert.AreEqual(0x2ee69ea26ed62c5eUL, match.World.Hash(),
                 "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 45 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
@@ -243,13 +296,13 @@ namespace TW.Tests
         {
             var sb = new System.Text.StringBuilder();
             Profile(sb, "greybox 300x400, spawns z=180/220", ScriptedGreybox());
-            Profile(sb, "Landing " + Seed, TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed)));
+            Profile(sb, "Landing " + Seed, TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed)), 2600);
             // also on disk, because an Explicit test's console output is not in run_tests' JSON (tw-sim-hash-profile.txt)
             System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-sim-hash-profile.txt"), sb.ToString());
             TestContext.WriteLine(sb.ToString());
         }
 
-        static void Profile(System.Text.StringBuilder sb, string what, TW.Sim.Match.MatchSim m)
+        static void Profile(System.Text.StringBuilder sb, string what, TW.Sim.Match.MatchSim m, int ticks = 600)
         {
             using (m)
             {
@@ -258,7 +311,7 @@ namespace TW.Tests
                 int firstShot = -1, firstHit = -1, firstBlow = -1, firstTrench = -1;
                 int deployed = 0, fired = 0, rejected = 0, blows = 0, trenches = 0;
                 sb.AppendLine("== " + what);
-                for (int t = 0; t < 600; t++)
+                for (int t = 0; t < ticks; t++)
                 {
                     if (t == 0 || t == 20)
                     {
@@ -281,15 +334,19 @@ namespace TW.Tests
                             case SimEventType.CommandRejected: rejected++; break;
                         }
                     }
-                    if (t % 20 == 0 || t == 599)
+                    if (t % 20 == 0 || t == ticks - 1)
                     {
                         int a0 = 0, a1 = 0;
+                        float near = float.MaxValue;
                         for (int i = 0; i < w.HighWater; i++)
                         {
                             if (!w.IsAlive(i)) continue;
                             if ((w.Team[i] & 1) == 0) a0++; else a1++;
+                            for (int j = 0; j < w.HighWater; j++)
+                                if (w.IsAlive(j) && (w.Team[j] & 1) != (w.Team[i] & 1))
+                                    near = math.min(near, math.distance(w.Position[i], w.Position[j]));
                         }
-                        sb.AppendLine($"  t{t,3} highWater {w.HighWater,3} alive {a0}/{a1}");
+                        sb.AppendLine($"  t{t,4} highWater {w.HighWater,3} alive {a0}/{a1} nearestEnemy {(near == float.MaxValue ? -1f : near),7:0.0}");
                     }
                 }
                 sb.AppendLine($"  first: shot {firstShot} hit {firstHit} meleeBlow {firstBlow} enteredTrench {firstTrench}");
