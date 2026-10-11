@@ -158,18 +158,30 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>
+        /// Since 2026-10-07 four of the sixteen are a faction's: the frogs field the Brute, the Croaker, the Hopper and
+        /// the Mercy (and the Bullfrog, which is not on this list — FactionRosterTests holds that one). The other six
+        /// factions field none of the sixteen, the old compiled switches stay empty for all of them (their numbers are
+        /// the match's table), and a default match is still Iron against Brass, so it holds none.
+        /// </summary>
         [Test]
-        public void NoFactionFieldsThemAndTheOldSwitchesStayEmpty()
+        public void OnlyTheFrogsFieldTheirMachines()
         {
+            byte[] theFrogs = { VehicleArchetype.Brute, VehicleArchetype.Croaker, VehicleArchetype.Hopper, VehicleArchetype.Mercy };
             foreach (byte a in New)
             {
                 Assert.AreEqual(0f, RosterEntry.ForArchetype(a).Hp, $"archetype {a} is a shipped unit");
+                bool frogs = System.Array.IndexOf(theFrogs, a) >= 0;
                 for (int f = 0; f < Factions.Count; f++)
                 {
                     var faction = Factions.Of((byte)f);
-                    Assert.IsFalse(FactionRoster.Fields(faction, a), $"{faction} fields archetype {a}");
+                    bool fields = frogs && faction == FactionId.Frogs;
+                    Assert.AreEqual(fields, FactionRoster.Fields(faction, a),
+                        fields ? $"the frogs field archetype {a}" : $"{faction} fields archetype {a}");
+                    int slots = 0;
                     for (int s = 0; s < RosterEntry.SlotCount; s++)
-                        Assert.AreNotEqual(a, FactionRoster.Slot(faction, s).Archetype, $"{faction} slot {s} is archetype {a}");
+                        if (FactionRoster.Slot(faction, s).Archetype == a) slots++;
+                    Assert.AreEqual(fields ? 1 : 0, slots, $"{faction} slots holding archetype {a}");
                 }
             }
             using var m = NewMatch();

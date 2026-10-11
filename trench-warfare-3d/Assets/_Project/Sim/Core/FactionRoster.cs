@@ -48,6 +48,12 @@ namespace TW.Sim
             InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner,
             InfantryArchetype.Sniper, InfantryArchetype.Officer, InfantryArchetype.Repair, InfantryArchetype.Medic,
             VehicleArchetype.Tusk, VehicleArchetype.Maw, VehicleArchetype.Breaker,
+            // Frogs (owner, 2026-10-07): the three shared slots, then a medic and a sniper, then the five frog
+            // machines of the Proving Ground. The men are today's men under a frog's look, so their ids are today's.
+            InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner,
+            InfantryArchetype.Medic, InfantryArchetype.Sniper,
+            VehicleArchetype.Brute, VehicleArchetype.Croaker, VehicleArchetype.Bullfrog, VehicleArchetype.Hopper,
+            VehicleArchetype.Mercy,
         };
 
         /// <summary>The roster a player of this faction deploys from: RosterEntry.SlotCount entries from
@@ -63,7 +69,16 @@ namespace TW.Sim
             if (slot < 0 || slot >= RosterEntry.SlotCount) return default;
             int f = (int)faction;
             if (f < 0 || f >= Factions.Count) return default;
-            return RosterEntry.ForArchetype(Slots[f * RosterEntry.SlotCount + slot]);
+            byte b = Slots[f * RosterEntry.SlotCount + slot];
+            var e = RosterEntry.ForArchetype(b);
+            // ForArchetype is the compiled switch and knows no id past the Breaker (18), so for the frogs' machines
+            // (Brute 21, Croaker 22, Hopper 23, Mercy 24, Bullfrog 37) it hands back a zeroed line whose Archetype is
+            // 0 — a RIFLEMAN. SimWorld.FillRosters reads this Archetype and then looks the numbers up in the match's
+            // table, so without keeping the id here the frogs' five machine slots would field riflemen. An empty line
+            // therefore keeps its id: such a slot's numbers come from the match's table (UnitDefinitions.Apply writes
+            // UnitCatalogue.Roster), and the slot stays locked until one does.
+            if (e.Hp <= 0f) e.Archetype = b;
+            return e;
         }
 
         // ---- the pool: everything a faction may ever put on the field, roster or drop -------------------------
@@ -87,6 +102,12 @@ namespace TW.Sim
             new byte[] { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner, InfantryArchetype.Sniper,
                          InfantryArchetype.Officer, InfantryArchetype.Medic, InfantryArchetype.Repair, InfantryArchetype.Shield,
                          VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Breaker },
+            // The frogs' own pool: exactly their ten. A faction with no row here silently gets Pools[0], Iron's, so
+            // this row is what keeps the frogs from "fielding" the Maw and the Pincer (PoolOf, below; a test holds it).
+            new byte[] { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner,
+                         InfantryArchetype.Medic, InfantryArchetype.Sniper,
+                         VehicleArchetype.Brute, VehicleArchetype.Croaker, VehicleArchetype.Bullfrog,
+                         VehicleArchetype.Hopper, VehicleArchetype.Mercy },
         };
 
         static byte[] PoolOf(FactionId faction)

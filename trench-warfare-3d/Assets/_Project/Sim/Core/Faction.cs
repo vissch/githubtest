@@ -14,11 +14,14 @@ namespace TW.Sim
     {
         Iron = 0, Brass = 1,
         British = 2, German = 3, French = 4, AustroHungarian = 5,
+        // The frogs (owner, 2026-10-07): a third party beside both sides, fielding today's soldiers under a frog's
+        // look and the playground's frog machines. Ten slots and a pool of their own in FactionRoster.
+        Frogs = 6,
     }
 
     public static class Factions
     {
-        public const int Count = 6;
+        public const int Count = 7;
 
         /// <summary>
         /// A byte off the wire or out of a replay header. Anything out of range is Iron rather than silently becoming
@@ -38,11 +41,14 @@ namespace TW.Sim
                 case FactionId.German: return "German Empire";
                 case FactionId.French: return "French Republic";
                 case FactionId.AustroHungarian: return "Austria-Hungary";
+                case FactionId.Frogs: return "Frogs";
                 default: return "Unknown";
             }
         }
 
-        /// <summary>Whose side a faction is on, for mission authoring: Iron, Britain and France against the rest.</summary>
+        /// <summary>Whose side a faction is on, for mission authoring: Iron, Britain and France against the rest.
+        /// The frogs are deliberately not listed: they are a third party, so `false` (not of the Entente) is right for
+        /// them, and nothing here needs changing when they are fielded.</summary>
         public static bool IsEntente(FactionId f) => f == FactionId.Iron || f == FactionId.British || f == FactionId.French;
     }
 }
