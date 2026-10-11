@@ -58,12 +58,13 @@ namespace TW.Editor
         };
 
         /// <summary>ASCII plus the Latin-1 letters the unit and place names may need.</summary>
-        static string Characters()
+        public static string Characters()
         {
             var sb = new System.Text.StringBuilder();
             for (int c = 32; c < 127; c++) sb.Append((char)c);
             for (int c = 0xA0; c <= 0xFF; c++) sb.Append((char)c);
             sb.Append("–—‘’“”•…×");   // dashes, quotes, bullet, ellipsis, multiply
+            sb.Append('\u200B');   // the zero-width space a UI Toolkit text field draws when it is empty (F14c)
             return sb.ToString();
         }
 
