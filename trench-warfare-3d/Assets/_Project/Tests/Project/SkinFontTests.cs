@@ -69,10 +69,83 @@ namespace TW.Tests
             };
             foreach (var (file, guid) in expected)
                 Assert.That(AssetDatabase.AssetPathToGUID(SkinSpec.Root + file), Is.EqualTo(guid), $"[F13] {file}'s GUID changed: a bake must keep it, not delete+recreate the asset");
+        }
 
-            string src = File.ReadAllText(Path.Combine(ProjectDataPath, "_Project", "Editor", "UI", "UiAssetBuilder.cs"));
-            Assert.That(src, Does.Not.Contain("AssetDatabase.DeleteAsset(assetPath)"),
-                "[F13] UiAssetBuilder.BakeFonts still deletes the asset before recreating it, which hands it a new GUID on every bake");
+        // [F13b] the test above only pinned the committed GUIDs and grepped UiAssetBuilder's source for one literal
+        // delete call, so a delete written any other way stayed green. This one runs the real bake twice and checks
+        // after each pass that the three font assets keep their GUID, their main object id and their .meta file.
+        // Its reach, measured 2026-10-11: injecting AssetDatabase.DeleteAsset(assetPath) at the top of
+        // WriteFontAsset (with and without a Refresh + SaveAssets after it) leaves this test green, because the
+        // editor hands a path deleted and recreated inside one session its old GUID and main object id back. What
+        // this pins is the whole bake twice over, not only the one delete call the grep it replaced looked for.
+        [Test]
+        [Category("Long")]
+        public void A_Second_Bake_Keeps_The_Font_Asset_Identity()
+        {
+            var before = new List<(string File, string Guid, long Id)>();
+            foreach (var f in SkinSpec.Fonts)
+            {
+                string path = SkinSpec.Root + f;
+                var fa = AssetDatabase.LoadAssetAtPath<FontAsset>(path);
+                Assert.That(fa, Is.Not.Null, $"[F13b] {path} did not load as a FontAsset");
+                Assert.That(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(fa, out string guid, out long id), Is.True,
+                    $"[F13b] {path} has no GUID + local file id, so the test cannot tell whether a bake keeps them");
+                before.Add((f, guid, id));
+            }
+            var metaBefore = MetaLinesOfSkinFonts();
+
+            // a bake rewrites ~13 MB of .asset: keep the bytes so the leg never commits a re-baked asset.
+            var saved = new Dictionary<string, byte[]>();
+            foreach (var f in SkinSpec.Fonts)
+                foreach (string rel in new[] { SkinSpec.Root + f, SkinSpec.Root + f + ".meta" })
+                    saved[rel] = File.ReadAllBytes(Path.GetFullPath(Path.Combine(ProjectDataPath, "..", rel)));
+
+            try
+            {
+                for (int pass = 1; pass <= 2; pass++)
+                {
+                    UiAssetBuilder.BakeFonts();
+                    AssetDatabase.Refresh();
+
+                    foreach (var (file, guid, id) in before)
+                    {
+                        string path = SkinSpec.Root + file;
+                        Assert.That(AssetDatabase.AssetPathToGUID(path), Is.EqualTo(guid),
+                            $"[F13b] bake pass {pass} changed {file}'s GUID: every skin label naming it now points at nothing");
+                        var fa = AssetDatabase.LoadAssetAtPath<FontAsset>(path);
+                        Assert.That(fa, Is.Not.Null, $"[F13b] bake pass {pass} left {path} unloadable as a FontAsset");
+                        Assert.That(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(fa, out string _, out long nowId), Is.True,
+                            $"[F13b] bake pass {pass} left {path} without a GUID + local file id");
+                        Assert.That(nowId, Is.EqualTo(id),
+                            $"[F13b] bake pass {pass} changed {file}'s main object id ({id} -> {nowId}): a reference to the asset's object breaks even though the GUID held");
+                    }
+                    Assert.That(MetaLinesOfSkinFonts(), Is.EqualTo(metaBefore),
+                        $"[F13b] bake pass {pass} changed a .meta file under UI/Skin/Fonts, so the bake does not keep the assets' identity");
+                }
+            }
+            finally
+            {
+                foreach (var kv in saved)
+                {
+                    File.WriteAllBytes(Path.GetFullPath(Path.Combine(ProjectDataPath, "..", kv.Key)), kv.Value);
+                    if (!kv.Key.EndsWith(".meta")) AssetDatabase.ImportAsset(kv.Key, ImportAssetOptions.ForceUpdate);
+                }
+                AssetDatabase.Refresh();
+            }
+        }
+
+        /// <summary>The .meta lines of `git status` under UI/Skin/Fonts: a bake that keeps the assets' identity
+        /// touches none of them, whether or not the tree already carries an uncommitted bake.</summary>
+        static List<string> MetaLinesOfSkinFonts()
+        {
+            var lines = new List<string>();
+            foreach (string line in GitStatusOfSkinFonts().Split('\n'))
+            {
+                string t = line.Trim();
+                if (t.EndsWith(".meta")) lines.Add(t);
+            }
+            lines.Sort();
+            return lines;
         }
         // [F14c] the skin's font assets are Dynamic (AtlasPopulationMode.Dynamic), so in the editor a face that is
         // asked for a character it does not hold writes that glyph into the tracked .asset and dirties the tree. A UI
