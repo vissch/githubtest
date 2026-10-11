@@ -169,7 +169,11 @@ namespace TW.Presentation
             var p = AiPresets[math.clamp(ai, 0, AiPresets.Length - 1)];
             h.ScriptedPeer = p.On; h.PeerDeployEveryTicks = p.DeployEveryTicks; h.PeerAttacks = p.Attacks; h.PeerAttackGarrison = p.AttackGarrison;
             h.PeerDeploysTanks = p.Tanks; h.PeerUsesSupport = p.Support; h.PeerSupportReserve = p.SupportReserve;
+            Tooled = true;                       // the knobs are the running match's: the panel wrote into it
         }
+
+        /// <summary>The AI preset on the match this ground is for (the panel's AI tabs). Nothing without a host.</summary>
+        public void SetAi(int ai) => ApplyAi(ai, host);
 
         // ---- placing ---------------------------------------------------------------------------------------------------
         public const float ManStep = 1.5f, MachineStep = 9f;
@@ -274,6 +278,7 @@ namespace TW.Presentation
         readonly Func<MatchSim> view;
         readonly Func<ICommandSink> enemy;
         readonly Func<ICommandSink> player;
+        readonly SimHost host;
 
         /// <summary>Waves go through the enemy's roster slots by command instead of being placed.</summary>
         public bool ThroughSlots;
@@ -300,12 +305,12 @@ namespace TW.Presentation
         /// <param name="view">The world the enemy reads (SimHost.EnemyView).</param>
         /// <param name="enemy">The enemy's seat (SimHost.EnemySeat).</param>
         /// <param name="player">The player's seat (SimHost.LocalDriver); null when nothing orders the player's men.</param>
-        public ProvingGround(Func<Action<MatchSim>, bool> write, Func<MatchSim> view, Func<ICommandSink> enemy, Func<ICommandSink> player = null)
+        public ProvingGround(Func<Action<MatchSim>, bool> write, Func<MatchSim> view, Func<ICommandSink> enemy, Func<ICommandSink> player = null, SimHost host = null)
         {
-            this.write = write; this.view = view; this.enemy = enemy; this.player = player;
+            this.write = write; this.view = view; this.enemy = enemy; this.player = player; this.host = host;
         }
 
-        public static ProvingGround For(SimHost h) => new ProvingGround(h.WriteWorlds, () => h.EnemyView, () => h.EnemySeat, () => h.LocalDriver);
+        public static ProvingGround For(SimHost h) => new ProvingGround(h.WriteWorlds, () => h.EnemyView, () => h.EnemySeat, () => h.LocalDriver, h);
 
         /// <summary>True once the panel has written into this match's worlds (or deployed, or called their support):
         /// the debrief pays no gold for a win of a tooled match. Dies with the match (SceneStatics).</summary>
@@ -367,6 +372,7 @@ namespace TW.Presentation
                 });
                 n++;
             }
+            if (n > 0) Tooled = true;   // an order for either side is the panel writing into the match (team 1's through the enemy's seat)
             string what = wire ? "A TRIPWIRE" : "A MINE", whose = team == 0 ? "OURS" : "THEIRS";
             string kept = (noGround > 0 ? $"; {noGround} NOT: NO OPEN GROUND {ahead:0} M AHEAD OF {(noGround == 1 ? "HIM" : "THEM")}" : "")
                 + (pinned > 0 ? $"; {pinned} PINNED" : "");
@@ -439,7 +445,7 @@ namespace TW.Presentation
                 queued += s.Count; cost += s.Count * w.Roster[RosterEntry.SlotCount + slot].Cost;
             }
             if (cost > 0) Write(m => m.World.Silver[1] += cost);   // the wave is the tester's, not the enemy's purse's
-            else if (queued > 0) Tooled = true;                    // a free deploy is still the panel writing into the match
+            if (queued > 0) Tooled = true;                         // the squads are owed and Tick issues their Deploy commands, whatever the write did
             Last = missing.Count == 0 ? $"{wave.Name}: {queued} GO UP THROUGH THEIR SLOTS"
                 : $"{wave.Name}: {queued} THROUGH THEIR SLOTS; NOT IN THEIR TEN: {string.Join(", ", missing)}";
             return queued;

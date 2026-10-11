@@ -257,7 +257,7 @@ namespace TW.UI
         public void SetAi(int i)
         {
             Ai = Mathf.Clamp(i, 0, ProvingGround.AiNames.Length - 1);
-            ProvingGround.ApplyAi(Ai, Router != null ? Router.Host : null);
+            ground?.SetAi(Ai);
             Refresh();
         }
 

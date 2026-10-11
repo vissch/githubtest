@@ -77,6 +77,44 @@ namespace TW.Tests
             public void Dispose() => M.Dispose();
         }
 
+        // [N8.2b] An order to the sappers is the panel writing into the match (team 1's goes through the enemy's
+        // seat), so it must mark the match as tooled (the second reader of N8.2, 2026-10-11). Placing is done with the
+        // static Place, which does not write through the director, so the mark can only come from OrderSappers.
+        [Test]
+        public void OrderingTheSappersMarksTheMatchAsTooled()
+        {
+            using var r = new Rig();
+            Assert.AreEqual(2, ProvingGround.Place(r.M, 0, InfantryArchetype.Sapper, 2));
+            ProvingGround.Forget();
+            Assert.IsFalse(ProvingGround.Tooled, "[N8.2b] the control: placing through the static Place marks nothing");
+            Assert.AreEqual(2, r.Ground.OrderSappers(0, TW.Sim.Units.UnitAbilityId.LayMine), "both our sappers are ordered");
+            Assert.IsTrue(ProvingGround.Tooled, "[N8.2b] an order to our sappers did not mark the match as tooled");
+
+            Assert.AreEqual(1, ProvingGround.Place(r.M, 1, InfantryArchetype.Sapper, 1));
+            ProvingGround.Forget();
+            Assert.AreEqual(1, r.Ground.OrderSappers(1, TW.Sim.Units.UnitAbilityId.LayTripwire), "their sapper is ordered");
+            Assert.IsTrue(ProvingGround.Tooled, "[N8.2b] an order to their sappers did not mark the match as tooled");
+        }
+
+        // [N8.2c] A deploy through their slots whose silver write fails (the worlds a tick apart) still queues the
+        // squads, and Tick issues their Deploy commands: the match is tooled whatever the write did (2026-10-11).
+        [Test]
+        public void ADeployWhoseSilverWriteFailsStillMarksTheMatch()
+        {
+            var ten = new byte[] { InfantryArchetype.Rifle, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+            using var r = new Rig(ten);
+            var ground = new ProvingGround(a => false, () => r.M, () => r.Enemy) { ThroughSlots = true };   // every write fails
+            int silver = r.W.Silver[1];
+            Assert.Greater(r.W.Roster[RosterEntry.SlotCount + 0].Cost, 0, "the premise: the slot costs silver");
+            var wave = new ProvingGround.Wave { Name = "TEST" };
+            wave.Add(InfantryArchetype.Rifle, 2);
+            ProvingGround.Forget();
+            Assert.AreEqual(2, ground.Send(wave), "the riflemen are queued through their slot");
+            Assert.AreEqual(silver, r.W.Silver[1], "the premise: the write failed, so no silver moved");
+            Assert.AreEqual(2, ground.Pending, "the squads are owed");
+            Assert.IsTrue(ProvingGround.Tooled, "[N8.2c] squads queued by the panel did not mark the match as tooled");
+        }
+
         [Test]
         public void TheCatalogueListsEveryDefinedUnitOnceWithWordsOfItsOwn()
         {
