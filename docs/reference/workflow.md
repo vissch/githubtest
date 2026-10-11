@@ -581,6 +581,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.HudCapture.RectsJson(w, h, IReadOnlyDictionary<string, rects)` | Editor/UI/HudCapture.cs | JSON {"w","h","rects":{name:[x,y,w,h]}}, keys in Probes order first, then any other key ordinal-ascending. |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
+| `TW.Editor.UiAssetBuilder.Characters()` | Editor/UI/UiAssetBuilder.cs | ASCII plus the Latin-1 letters the unit and place names may need. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
 | `TW.Editor.UiSkinVerifier.ResolveUrl(sheetPath, url)` | Editor/UI/UiSkinVerifier.cs | Resolves a url() found in sheetPath to a project-relative path, or null for one that names no file this check can look up (a theme/package reference ... |
 | `TW.Editor.VfxLab.Shell(x, z, radius, damage)` | Editor/VfxLab.cs | One shell, bursting next tick in every world. |
