@@ -35,6 +35,9 @@ namespace TW.Editor
     {
         public const string EnvVar = "TW_GYM";
         const string Request = "TW.Gym.Request";
+        // SessionState hands back "" for a key nobody set whatever default is passed (MachineStudy, seen 2026-10-05),
+        // so a request only counts when it carries this marker: an empty or stale value must not start a run.
+        const string Marker = "run:";
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static string LastRun = "";
@@ -50,7 +53,7 @@ namespace TW.Editor
                 if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "the open scene has unsaved changes: save or discard them first";
                 EditorSceneManager.OpenScene(Scene);
             }
-            SessionState.SetString(Request, options ?? "");
+            SessionState.SetString(Request, Marker + (options ?? ""));
             EditorApplication.EnterPlaymode();
             return "entering Play for the gym: " + options;
         }
@@ -75,10 +78,11 @@ namespace TW.Editor
         static void OnPlayMode(PlayModeStateChange change)
         {
             if (change != PlayModeStateChange.EnteredPlayMode) return;
-            string req = SessionState.GetString(Request, null);
-            if (req == null) return;
+            string req = SessionState.GetString(Request, "");
+            if (string.IsNullOrEmpty(req)) return;
             SessionState.EraseString(Request);   // a crash must not leave the editor looping
-            StartRunner(req);
+            if (!req.StartsWith(Marker)) return;   // not ours: an ordinary Play must not start a gym run
+            StartRunner(req.Substring(Marker.Length));
         }
 
         static void StartRunner(string options)
@@ -102,9 +106,18 @@ namespace TW.Editor
                 { WorkingDirectory = frames, UseShellExecute = false, CreateNoWindow = true, RedirectStandardError = true };
                 using (var p = System.Diagnostics.Process.Start(psi))
                 {
-                    string err = p.StandardError.ReadToEnd();
+                    // never ReadToEnd before the wait: a child that keeps its stderr open blocks the main thread with no
+                    // limit, so neither the 180 s here nor GymRun's watchdog ever runs
+                    var err = new StringBuilder();
+                    p.ErrorDataReceived += (s, e) => { if (e.Data != null) lock (err) err.AppendLine(e.Data); };
+                    p.BeginErrorReadLine();
                     if (!p.WaitForExit(180000)) { p.Kill(); return "ffmpeg timed out; frames kept in " + frames; }
-                    if (p.ExitCode != 0 || !File.Exists(mp4)) return "ffmpeg failed (" + p.ExitCode + ": " + err.Trim() + "); frames kept in " + frames;
+                    p.WaitForExit();   // flushes the handler, so err holds everything ffmpeg said
+                    if (p.ExitCode != 0 || !File.Exists(mp4))
+                    {
+                        string said; lock (err) said = err.ToString().Trim();
+                        return "ffmpeg failed (" + p.ExitCode + ": " + said + "); frames kept in " + frames;
+                    }
                 }
                 Directory.Delete(frames, true);
                 return "wrote " + mp4 + " (" + new FileInfo(mp4).Length / 1024 + " KB)";
