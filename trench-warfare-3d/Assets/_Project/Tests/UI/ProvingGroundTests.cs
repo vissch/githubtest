@@ -37,7 +37,8 @@ namespace TW.Tests
             public int Delay;
             readonly List<(uint due, SimCommand c)> late = new List<(uint, SimCommand)>();
 
-            public Rig(byte[] theirs = null, uint seed = 0xC0FFEE)
+            /// <summary>writes false: every write through the director is refused (the worlds a tick apart).</summary>
+            public Rig(byte[] theirs = null, uint seed = 0xC0FFEE, bool writes = true)
             {
                 var cfg = SimConfig.Default; cfg.Seed = seed; cfg.Endless = true;
                 if (theirs != null) { var l = new FixedList32Bytes<byte>(); foreach (var a in theirs) l.Add(a); cfg.LoadoutB = l; }
@@ -45,7 +46,7 @@ namespace TW.Tests
                 var stray = M.World.GetSystem<AmbientBombardmentSystem>();
                 if (stray != null) stray.ShellsPerMinute = 0f;
                 M.World.HashInterval = 1;
-                Ground = new ProvingGround(a => { a(M); return true; }, () => M, () => Enemy, () => Player);
+                Ground = new ProvingGround(a => { if (!writes) return false; a(M); return true; }, () => M, () => Enemy, () => Player);
             }
 
             /// <summary>One tick: the director thinks, then the world steps with what the enemy's seat was told.</summary>
@@ -96,23 +97,62 @@ namespace TW.Tests
             Assert.IsTrue(ProvingGround.Tooled, "[N8.2b] an order to their sappers did not mark the match as tooled");
         }
 
-        // [N8.2c] A deploy through their slots whose silver write fails (the worlds a tick apart) still queues the
-        // squads, and Tick issues their Deploy commands: the match is tooled whatever the write did (2026-10-11).
+        // [N7.4] A deploy through their slots whose silver write fails buys nothing, so it queues nothing and says the
+        // worlds are a tick apart. This supersedes [N8.2c]'s expectation (the squads were queued unpaid and the match
+        // marked anyway): N7.4 is the later reading of the same lines.
         [Test]
-        public void ADeployWhoseSilverWriteFailsStillMarksTheMatch()
+        public void ADeployWhoseSilverWriteFailsQueuesNothing()
         {
             var ten = new byte[] { InfantryArchetype.Rifle, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
-            using var r = new Rig(ten);
-            var ground = new ProvingGround(a => false, () => r.M, () => r.Enemy) { ThroughSlots = true };   // every write fails
+            using var r = new Rig(ten, writes: false);   // every write through the director fails
+            r.Ground.ThroughSlots = true;
             int silver = r.W.Silver[1];
             Assert.Greater(r.W.Roster[RosterEntry.SlotCount + 0].Cost, 0, "the premise: the slot costs silver");
             var wave = new ProvingGround.Wave { Name = "TEST" };
             wave.Add(InfantryArchetype.Rifle, 2);
             ProvingGround.Forget();
-            Assert.AreEqual(2, ground.Send(wave), "the riflemen are queued through their slot");
+            Assert.AreEqual(0, r.Ground.Send(wave), "[N7.4] a deploy whose silver write failed still said the wave goes up");
             Assert.AreEqual(silver, r.W.Silver[1], "the premise: the write failed, so no silver moved");
-            Assert.AreEqual(2, ground.Pending, "the squads are owed");
-            Assert.IsTrue(ProvingGround.Tooled, "[N8.2c] squads queued by the panel did not mark the match as tooled");
+            Assert.AreEqual(0, r.Ground.Pending, "[N7.4] a deploy whose silver write failed still owed the squads");
+            Assert.IsFalse(ProvingGround.Tooled, "[N7.4] a deploy that queued nothing still marked the match");
+            StringAssert.Contains("TICK APART", r.Ground.Last, "[N7.4] a refused deploy did not say the worlds are a tick apart");
+            r.Step();
+            Assert.AreEqual(0, r.Enemy.All.Count, "[N7.4] a refused deploy still issued Deploy commands");
+        }
+
+        // [N7.4] Silver the panel could not write is not silver given.
+        [Test]
+        public void SilverWhoseWriteFailsIsNotReported()
+        {
+            using var r = new Rig(writes: false);
+            int silver = r.W.Silver[0];
+            r.Ground.GiveSilver(0, 500);
+            Assert.AreEqual(silver, r.W.Silver[0], "the premise: the write failed");
+            StringAssert.Contains("TICK APART", r.Ground.Last, "[N7.4] a refused GiveSilver reported the silver as given");
+        }
+
+        // [N7.4] Their support that could not be paid for is not issued: the sim would refuse it.
+        [Test]
+        public void TheirSupportWhoseWriteFailsIsNotIssued()
+        {
+            using var r = new Rig(writes: false);
+            ProvingGround.Forget();
+            Assert.IsFalse(r.Ground.EnemySupport(OffMapAbilityId.HeBarrage), "[N7.4] a refused write still reported their support as fired");
+            Assert.AreEqual(0, r.Enemy.All.Count, "[N7.4] their support was issued unpaid");
+            Assert.IsFalse(ProvingGround.Tooled, "[N7.4] a support that never went out still marked the match");
+            StringAssert.Contains("TICK APART", r.Ground.Last, "[N7.4] a refused support did not say the worlds are a tick apart");
+        }
+
+        // [N7.4] A clear whose write failed removed nobody: it must not report "0 OF OURS REMOVED" as if the side were
+        // already empty.
+        [Test]
+        public void AClearWhoseWriteFailsSaysSoAndLeavesTheMenAlive()
+        {
+            using var r = new Rig(writes: false);
+            Assert.AreEqual(3, ProvingGround.Place(r.M, 0, InfantryArchetype.Rifle, 3), "the premise: three of ours on the field");
+            Assert.AreEqual(0, r.Ground.Clear(0));
+            Assert.AreEqual(3, r.Alive(0), "the premise: the write failed, so nobody was removed");
+            StringAssert.Contains("TICK APART", r.Ground.Last, "[N7.4] a refused clear reported 0 removed instead of the worlds being apart");
         }
 
         [Test]
