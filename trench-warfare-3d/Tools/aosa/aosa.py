@@ -688,6 +688,11 @@ def bench_string(spec, label, out, shot):
         pairs = [p for p in pairs if p[0] != k] if "=" in tok else pairs
         pairs.append((k, tok.split("=", 1)[1]) if "=" in tok else (tok, None))
     pairs += [("label", label), ("out", out), ("shot", shot)]
+    for k, v in pairs:
+        # A9: BenchOptions splits -twbench on space, comma and semicolon (F5), so such a value would run elsewhere
+        if v is not None and re.search(r"[ ,;]", str(v)):
+            die("bench option %s=%s holds a space, comma or semicolon; BenchOptions splits -twbench on those (F5), "
+                "so the run would write elsewhere" % (k, v), 2)
     return " ".join(k if v is None else "%s=%s" % (k, v) for k, v in pairs)
 
 
@@ -707,6 +712,24 @@ def find_args(label, cyc_dir):
 def unity_exe():
     return str(Path(os.environ.get("LOCALAPPDATA", "")) / "unity" / "bin" / "unity.exe")
 
+
+
+def report_ok(out, label):
+    """A5: a report that does not parse (truncated, half-written) is not a sample, and its exit must not read as 0."""
+    rep = load_json(out)
+    if not isinstance(rep, dict) or rep.get("schema") != "tw-perf/1":
+        print("%s: REPORT UNREADABLE at %s (not tw-perf/1 JSON)" % (label, out))
+        return False
+    cfg = rep.get("config") or {}
+    print("%s: report written, main_ms.p95 %s, hash_start %s, ground %s (%s)" % (
+        label, get_metric(rep, "main_ms.p95"), (rep.get("window") or {}).get("hash_start"),
+        cfg.get("ground", "ShelledForest"), "night" if cfg.get("night", True) else "day"))
+    run = rep.get("run") or {}
+    if run.get("exit") not in (None, 0):
+        # C51: a refused option (exit 2, e.g. an unknown ground=), a timeout or a desync is not a sample
+        print("%s: BENCH FAILED, exit %s: %s" % (label, run.get("exit"), run.get("why")))
+        return False
+    return True
 
 def run_one(spec, label, cyc_dir, dry):
     out = (cyc_dir / (label + ".json")).resolve()
@@ -745,17 +768,7 @@ def run_one(spec, label, cyc_dir, dry):
                 break
             time.sleep(5)
     if out.exists():
-        rep = load_json(out, {})
-        cfg = rep.get("config") or {}
-        print("%s: report written, main_ms.p95 %s, hash_start %s, ground %s (%s)" % (
-            label, get_metric(rep, "main_ms.p95"), (rep.get("window") or {}).get("hash_start"),
-            cfg.get("ground", "ShelledForest"), "night" if cfg.get("night", True) else "day"))
-        run = rep.get("run") or {}
-        if run.get("exit") not in (None, 0):
-            # C51: a refused option (exit 2, e.g. an unknown ground=), a timeout or a desync is not a sample
-            print("%s: BENCH FAILED, exit %s: %s" % (label, run.get("exit"), run.get("why")))
-            return False
-        return True
+        return report_ok(out, label)
     tail = log.read_text(errors="replace").splitlines()[-20:] if log.exists() else []
     print("%s: NO REPORT%s" % (label, "; log tail:\n  " + "\n  ".join(tail) if tail else ""))
     return False

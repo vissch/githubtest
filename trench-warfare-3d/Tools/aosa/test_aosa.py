@@ -433,5 +433,43 @@ class AosaTest(unittest.TestCase):
         self.assertIn("WIP 1/3, ready 5", out)
 
 
+    # [A5] a report that does not parse is not a sample: run_one's tail must refuse it, not read exit as 0
+    def test_a5_unreadable_report_refused(self):
+        bad = self.docs / "runs" / "bad.json"
+        bad.write_text("{not json", encoding="utf-8")
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            ok = aosa.report_ok(bad, "bad")
+        self.assertFalse(ok, "[A5] an unreadable report must not count as a sample")
+        self.assertIn("REPORT UNREADABLE", buf.getvalue(), "[A5] the unreadable report must be named")
+        good = self.docs / "runs" / "good.json"
+        good.write_text(json.dumps(report("good", he="BBBB")), encoding="utf-8")
+        with contextlib.redirect_stdout(io.StringIO()):
+            self.assertTrue(aosa.report_ok(good, "good"), "[A5] a readable tw-perf/1 report is still a sample")
+
+    # [A9] a bench value holding a space would make PerfBench write the report elsewhere: refuse it
+    def test_a9_bench_string_refuses_space(self):
+        spec = {"mode": "editor"}
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            with self.assertRaises(SystemExit) as cm:
+                aosa.bench_string(spec, "lab", "C:/My Runs/x.json", "C:/My Runs/x.png")
+        self.assertEqual(cm.exception.code, 2, "[A9] a space in out= must refuse the run")
+        with contextlib.redirect_stdout(io.StringIO()):
+            s = aosa.bench_string(spec, "lab", "C:/runs/x.json", "C:/runs/x.png")
+        self.assertIn("out=C:/runs/x.json", s, "[A9] a clean path still builds the -twbench string")
+
+    # [A9] the shells guard the same split: a label with a space must exit 1 before anything runs
+    def test_a9_shells_refuse_space(self):
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("no bash on PATH")
+        for name in ("bench.sh", "player_bench.sh"):
+            env = dict(os.environ, TW_PROJECT=str(self.tmp / "proj"))
+            r = subprocess.run([bash, str(HERE / name), "lab el", ""], capture_output=True, text=True,
+                               timeout=60, env=env)
+            self.assertEqual(r.returncode, 1, "[A9] %s must refuse a label with a space: %s" % (name, r.stdout))
+            self.assertIn("space", r.stdout, "[A9] %s must say why it refused" % name)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
