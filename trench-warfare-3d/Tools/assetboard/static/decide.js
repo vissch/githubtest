@@ -60,8 +60,14 @@
   if (!C) return;
   var el = C.el, ROOT = document.body.dataset.root || '', still = root.matchMedia && root.matchMedia('(prefers-reduced-motion: reduce)').matches;
   function subject(b) { return { kind: 'page', id: 'brief:' + b.id, kindLabel: 'decision', title: b.title, lane: b.lane || '' }; }
-  // what the owner already said about a brief on this page: his last note about it
-  function said(b) { var n = B && B.notes ? B.notes(subject(b)).filter(function (x) { return x.about === 'brief:' + b.id; }) : []; return n.sort(function (x, y) { return String(y.when).localeCompare(String(x.when)); })[0] || null; }
+  // his notes about a brief on this page, newest first
+  function his(b) { var n = B && B.notes ? B.notes(subject(b)).filter(function (x) { return x.about === 'brief:' + b.id; }) : []; return n.sort(function (x, y) { return String(y.when).localeCompare(String(x.when)); }); }
+  // what the owner already said about a brief on this page: his last note about it. On a brief that is still open a
+  // note in state done is no answer: it was answered some other way than by `briefs.py take`, so no session was told
+  // of it and nothing waits to take it up. The brief is still to decide, and the card says so (closedNote)
+  function said(b) { return his(b).filter(function (x) { return b.state === 'answered' || x.state !== 'done'; })[0] || null; }
+  // his newest answer on a still-open brief whose note was closed without the brief: his word, dropped
+  function closedNote(b) { return b.state === 'answered' ? null : his(b).filter(function (x) { return x.state === 'done'; })[0] || null; }
 
   function evidence(b) {
     var box = el('div', 'd-evidence d-n' + Math.min(3, b.evidence.length));
@@ -76,7 +82,7 @@
     return box;
   }
   function card(b) {
-    var mine = said(b), c = el('article', 'd-card' + (b.state === 'answered' ? ' d-done' : mine && mine.state !== 'unsent' ? ' d-yours' : '')), tx = el('div', 'd-text'); c.id = b.id;      // d-yours: his answer is the decision, though no session has closed the brief
+    var mine = said(b), gone = closedNote(b), c = el('article', 'd-card' + (b.state === 'answered' ? ' d-done' : mine && mine.state !== 'unsent' ? ' d-yours' : '')), tx = el('div', 'd-text'); c.id = b.id;      // d-yours: his answer is the decision, though no session has closed the brief
     tx.appendChild(el('p', 'd-meta', 'asked ' + String(b.asked).slice(0, 10) + (b.lane ? ' · ' + b.lane.replace(/^lane\/(show|sim)\//, '') : '') + (b.about && b.about !== b.title ? ' · in the queue as "' + b.about + '"' : '')));
     tx.appendChild(el('h3', null, b.title)); tx.appendChild(el('p', 'd-for', b.what_for));
     var ops = el('div', 'd-options'); ops.setAttribute('role', 'group'); ops.setAttribute('aria-label', 'The options');
@@ -104,12 +110,13 @@
       tx.appendChild(dn);
     }
     else if (mine) tx.appendChild(el('p', 'd-said' + (mine.state === 'unsent' ? ' d-unsent' : ''), (mine.state === 'unsent' ? 'Not sent yet (the note box is not running): ' : 'You decided, ' + String(mine.when).slice(5, 16) + ': ') + mine.text.split('\n').join(' · ') +
-      (mine.state === 'done' ? ' · taken up' : mine.state === 'unsent' ? '' : ' · ' + pure.waits(b, mine))));
+      (mine.state === 'unsent' ? '' : ' · ' + pure.waits(b, mine))));
+    else if (gone) tx.appendChild(el('p', 'd-said d-gone', 'Answered without closing, ' + String(gone.when).slice(5, 16) + ': ' + gone.text.split('\n').join(' · ') + ' — no session was told, so it is still to decide.'));
     c.appendChild(tx); c.appendChild(evidence(b));
     return c;
   }
   // the overview draws his open briefs under the house with the same card (office.js), so a decision reads the same in both places
-  pure.card = card; pure.said = said;
+  pure.card = card; pure.said = said; pure.closedNote = closedNote;
   if (!page) return;
   // thirty briefs are a long page: every open one by its title at the top, a click away, marked once he has said something
   function index(open) {

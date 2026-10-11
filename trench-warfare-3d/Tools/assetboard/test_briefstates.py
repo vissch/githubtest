@@ -9,11 +9,14 @@ queued when nothing was queued, or lost to a write cut half way, is his word dro
 import json
 import os
 import pathlib
+import shutil
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
+DECIDE = HERE / 'static' / 'decide.js'
 
 # never the live folders: the board's own places go under one temp folder, before anything of it is imported
 TEMP = Path(tempfile.mkdtemp(prefix='tw-briefstates-'))
@@ -111,6 +114,88 @@ class Writes(unittest.TestCase):
         self.assertIn('window.BRIEFS_BAD', text, '[N10.4] the page is not told that a brief could not be read')
         self.assertIn(cut['id'], text.split('window.BRIEFS_BAD', 1)[1],
                       '[N10.4] BRIEFS_BAD does not name the brief that did not read')
+
+
+# the page half of decide.js under node: `module` is undefined, so it runs on past its module.exports, and there is
+# no #decide element, so draw() is never wired. Only what a card is made of is looked at.
+HARNESS = r"""
+const fs = require('fs');
+const src = fs.readFileSync(process.argv[2], 'utf8');
+const note = JSON.parse(process.argv[3]);
+const brief = JSON.parse(process.argv[4]);
+
+function node(tag, cls, text) {
+  return { tag: tag, className: cls || '', textContent: text == null ? '' : String(text), children: [], dataset: {},
+    appendChild: function (n) { this.children.push(n); return n; },
+    addEventListener: function () {}, setAttribute: function () {}, contains: function () { return false; } };
+}
+function text(n) { return String(n.textContent || '') + (n.children || []).map(text).join(''); }
+
+var root = { Crew: { el: node, live: function () {}, nowPill: function () {} },
+  Board: { notes: function () { return [note]; }, note: function () {}, button: node, onchange: function () {} } };
+var document = { getElementById: function () { return null; }, body: { dataset: {} },
+  createTextNode: function (t) { return node('#text', '', t); } };
+
+var f = new Function('root', 'module', 'window', 'document', src);
+f(root, undefined, root, document);
+
+var out = { has: typeof root.Briefs.closedNote === 'function' };
+if (out.has) {
+  out.said = root.Briefs.said(brief);
+  out.closed = !!root.Briefs.closedNote(brief);
+}
+out.card = text(root.Briefs.card(brief));
+console.log(JSON.stringify(out));
+"""
+
+
+class ThePage(unittest.TestCase):
+    """[N10.1] the Decide page takes his newest note about a brief as his answer whatever the note's state, so a note
+    closed any other way than by `briefs.py take` leaves an open brief that reads "You decided ... taken up" and that
+    no session is told about."""
+
+    def run_page(self, note, brief):
+        out = Path(tempfile.mkdtemp(prefix='page-', dir=TEMP)) / 'run.js'
+        out.write_text(HARNESS, encoding='utf-8')
+        r = subprocess.run([self.node, str(out), str(DECIDE), json.dumps(note), json.dumps(brief)],
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            self.fail('[N10.1] the page half of decide.js did not run: %s' % (r.stderr or r.stdout)[:600])
+        return json.loads(r.stdout.strip().splitlines()[-1])
+
+    def setUp(self):
+        self.node = shutil.which('node')
+        if not self.node:
+            self.skipTest('node is not installed here')
+        self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=TEMP))
+        b = a_brief(self.where)
+        self.brief = json.loads((self.where / b['id'] / 'brief.json').read_text(encoding='utf-8'))
+        self.brief.setdefault('evidence', [])
+        self.note = {'id': 'n-1', 'about': 'brief:' + b['id'], 'when': '2026-10-09 11:20',
+                     'from': 'owner', 'text': 'A: Build it', 'state': 'done'}
+
+    def test_a_done_note_is_no_answer_on_an_open_brief(self):
+        # [N10.1] his note was answered without the brief being closed: the brief is still to decide
+        self.assertEqual(self.brief['state'], 'open', 'the brief read for was not the open one')
+        got = self.run_page(self.note, self.brief)
+        if not got['has']:
+            self.fail('[N10.1] the page cannot tell a closed note from an answer: Briefs.closedNote is missing')
+        self.assertIsNone(got['said'], '[N10.1] a done note on an open brief is taken as his answer: %s' % (got['said'],))
+        self.assertTrue(got['closed'], '[N10.1] the note answered without closing the brief is not found')
+        self.assertIn('without closing', got['card'],
+                      '[N10.1] the card does not say his answer was closed without a session being told: %s' % got['card'][:300])
+        self.assertNotIn('You decided', got['card'],
+                         '[N10.1] the card says "You decided" for a brief nobody was told about: %s' % got['card'][:300])
+        self.assertNotIn('taken up', got['card'],
+                         '[N10.1] the card says the brief was taken up, and no session was told: %s' % got['card'][:300])
+
+    def test_an_open_note_is_still_his_answer(self):
+        # [N10.1] the fix must not drop a live note: an open note is his answer as before
+        live = dict(self.note, state='', id='n-2')
+        got = self.run_page(live, self.brief)
+        self.assertEqual((got.get('said') or {}).get('id'), 'n-2',
+                         '[N10.1] an open note about the brief is no longer taken as his answer')
+        self.assertIn('You decided', got['card'], '[N10.1] the card no longer says what he decided')
 
 
 if __name__ == '__main__':
