@@ -1,4 +1,4 @@
-﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
+// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
 // leaves a body (banners: the Toolkit HUD's ObjectiveTracker, or OnGUI here under the old HUD). Instanced draws, no GameObjects.
