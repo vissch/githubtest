@@ -58,6 +58,9 @@ All are `UnitDefinition` fields and will be tuned; 3D columns are new behaviours
 | Japan | Type 38 | Assault | Type 3 | Officer (sword aura) | (data only) |
 | Bulgaria, Romania, Belgium, Serbia | data-only rosters reusing the above archetypes | | | | |
 
+**Seven factions are in the rules** (`Sim/Core/Faction.cs`): Iron 0, Brass 1, British 2, German 3, French 4,
+AustroHungarian 5 and Frogs 6 (added 2026-10-11, ten slots and a pool of its own in `FactionRoster`).
+
 **Slice scope:** British and German fully implemented (all their specials and vehicles); French vehicles for
 M3 enemy variety; every other faction exists as data with shared archetypes and placeholder art.
 
@@ -65,10 +68,11 @@ M3 enemy variety; every other faction exists as data with shared archetypes and 
 Every row is an idea until it is in code. What is in code today, by archetype id (`Sim/Core/RosterEntry.cs`):
 - **Built, in a faction's ten:** Rifleman 0, Assault 1, Machinegunner 2, Sniper 3, Officer 12, Shield (grenadier) 13,
   Medic 14, Repair 15, Para 16, Jetpack 17; the fiction's machines Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9,
-  Banner 10, Redoubt 11, Breaker 18.
+  Banner 10, Redoubt 11, Breaker 18; and the Frogs' five machines Brute 21, Croaker 22, Hopper 23 (no flight in the
+  sim: a legless walker profile drawn hovering), Mercy 24, Bullfrog 37 (2026-10-11).
 - **Built, fielded by no faction (the Unit Sandbox and the Proving Ground):** Skimmer 19, Salvo 20.
-- **Prototype stand-ins (the asset playground's art, placeholder stats, `UnitDefinitions.All`):** Brute 21, Croaker 22,
-  Hopper 23 (no flight in the sim: a legless walker profile drawn hovering), Mercy 24, Frog 25.
+- **Prototype stand-ins (the asset playground's art, placeholder stats, `UnitDefinitions.All`):** Frog 25 (the frog
+  soldiers' look is not in a faction's ten; the Frogs field today's soldier archetypes).
 - **Idea stand-ins on existing specs (no faction):** Sentry 26, AT rifle 27, Death Battalion 28, Mark IV Male 29,
   Mark V 30, A7V 31, Renault FT 32, Whippet 33, Austin 34, Sapper 35 (lays on a UnitAbility once SapperSystem lands),
   Flamethrower 36 (hits ignite once DirectFire reads `SetsBurning`).
