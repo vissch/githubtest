@@ -334,6 +334,10 @@ namespace TW.Presentation
             return ok;
         }
 
+        /// <summary>What every call says when the write was refused (the canary waiting on the network): it wrote
+        /// nothing, so nothing is queued or issued either.</summary>
+        const string Apart = "THE WORLDS ARE A TICK APART: TRY AGAIN";
+
         public const float LayAheadMetres = 18f;
         public const int TripwireMetres = 8;
 
@@ -392,7 +396,7 @@ namespace TW.Presentation
             int placed = 0;
             bool ok = Write(m => placed = Place(m, team, archetype, count));
             string name = UnitLook.Name(archetype).ToUpperInvariant();
-            Last = !ok ? "THE WORLDS ARE A TICK APART: TRY AGAIN"
+            Last = !ok ? Apart
                 : placed == count ? $"{placed} {name} FOR {(team == 0 ? "US" : "THEM")}"
                 : $"{placed} OF {count} {name}: THE FIELD IS FULL";
             return placed;
@@ -400,8 +404,8 @@ namespace TW.Presentation
 
         public void GiveSilver(int team, int amount)
         {
-            Write(m => { if (team >= 0 && team < m.World.Silver.Length) m.World.Silver[team] += amount; });
-            Last = $"{amount} SILVER FOR {(team == 0 ? "US" : "THEM")}";
+            bool ok = Write(m => { if (team >= 0 && team < m.World.Silver.Length) m.World.Silver[team] += amount; });
+            Last = !ok ? Apart : $"{amount} SILVER FOR {(team == 0 ? "US" : "THEM")}";
         }
 
         /// <summary>Send a wave at the player now. Returns how many units are on their way (placed, or owed to a slot).</summary>
@@ -417,7 +421,7 @@ namespace TW.Presentation
         {
             int placed = 0, asked = wave.Units;
             bool ok = Write(m => { foreach (var s in wave.Squads) placed += Place(m, 1, s.Archetype, s.Count); });
-            Last = !ok ? "THE WORLDS ARE A TICK APART: TRY AGAIN"
+            Last = !ok ? Apart
                 : placed == asked ? $"{wave.Name}: {placed} PLACED" : $"{wave.Name}: {placed} OF {asked} PLACED, THE FIELD IS FULL";
             return placed;
         }
@@ -437,16 +441,18 @@ namespace TW.Presentation
         {
             var v = view(); if (v == null) { Last = "NO MATCH"; return 0; }
             var w = v.World;
-            int queued = 0, cost = 0; var missing = new List<string>();
+            int queued = 0, cost = 0; var missing = new List<string>(); var take = new List<Owed>();
             foreach (var s in wave.Squads)
             {
                 int slot = SlotOf(w, 1, s.Archetype);
                 if (slot < 0) { missing.Add(UnitLook.Name(s.Archetype).ToUpperInvariant()); continue; }
-                owed.Add(new Owed { Slot = slot, Count = s.Count });
+                take.Add(new Owed { Slot = slot, Count = s.Count });
                 queued += s.Count; cost += s.Count * w.Roster[RosterEntry.SlotCount + slot].Cost;
             }
-            if (cost > 0) Write(m => m.World.Silver[1] += cost);   // the wave is the tester's, not the enemy's purse's
-            if (queued > 0) Tooled = true;                         // the squads are owed and Tick issues their Deploy commands, whatever the write did
+            // the wave is the tester's, not the enemy's purse's; a refused write bought nothing, so nothing is owed
+            if (cost > 0 && !Write(m => m.World.Silver[1] += cost)) { Last = Apart; return 0; }
+            owed.AddRange(take);
+            if (queued > 0) Tooled = true;                         // the squads are owed and Tick issues their Deploy commands
             Last = missing.Count == 0 ? $"{wave.Name}: {queued} GO UP THROUGH THEIR SLOTS"
                 : $"{wave.Name}: {queued} THROUGH THEIR SLOTS; NOT IN THEIR TEN: {string.Join(", ", missing)}";
             return queued;
@@ -529,8 +535,8 @@ namespace TW.Presentation
             if (n > 0) at = sum / n;
             if (ability == OffMapAbilityId.ChlorineGas || ability == OffMapAbilityId.MustardGas) at.z += 12f;   // upwind, as the scripted enemy does
             int cost = stats.Cost;
-            Write(m => m.World.Silver[1] += cost);
-            Tooled = true;   // their support is the panel's, whether or not the silver moved
+            if (!Write(m => m.World.Silver[1] += cost)) { Last = Apart; return false; }   // unpaid: the sim would refuse it
+            Tooled = true;   // their support is the panel's
             seat.Issue(new SimCommand { Tick = w.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)ability, Pos = new float3(at.x, 0f, at.z) });
             Last = $"THEIR {ability.ToString().ToUpperInvariant()} ON {(n > 0 ? "YOUR FRONT TRENCH" : "YOUR RALLY POINT")}";
             return true;
@@ -540,12 +546,13 @@ namespace TW.Presentation
         public int Clear(int team)
         {
             int n = 0;
-            Write(m =>
+            bool ok = Write(m =>
             {
                 var w = m.World; int c = 0;
                 for (int i = 0; i < w.HighWater; i++) if (w.IsAlive(i) && w.Team[i] == team) { w.Despawn(i); c++; }
                 n = c;
             });
+            if (!ok) { Last = Apart; return 0; }
             Last = $"{n} OF {(team == 0 ? "OURS" : "THEIRS")} REMOVED";
             return n;
         }
