@@ -282,7 +282,7 @@ namespace TW.Tests
             finally { m.Dispose(); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
         }
 
-        // [N8.2a] The panel's own AI tabs write into the running match (ProvingGround.SetAi -> the host's Peer knobs),
+        // [N8.2a][N8.2e] The panel's own AI tabs write into the running match (ProvingGround.SetAi -> the host's Peer knobs),
         // so a win after one must pay no gold and record nothing (the second reader of N8.2, 2026-10-11).
         [Test]
         public void ACampaignWinAfterTheProvingGroundPanelTurnedTheEnemyOffPaysNoGold()
@@ -300,7 +300,6 @@ namespace TW.Tests
                 panel.Bind(panelRoot, null);                       // no router: only the director the panel was given
                 Assert.That(panelRoot.Q<Button>("tab-ai-0"), Is.Not.Null, "[N8.2a] the panel has no AI OFF tab");
                 panel.SetAi(0);                                    // what that tab is wired to
-                Assert.That(host.ScriptedPeer, Is.False, "[N8.2a] the OFF tab did not turn the enemy off");
                 panel.Unbind();
 
                 CampaignSession.Begin("lowlands", 0, 0);
@@ -310,6 +309,36 @@ namespace TW.Tests
                 Assert.That(profile.Gold, Is.EqualTo(10), "[N8.2a] a win against an enemy the panel turned off paid gold");
                 Assert.That(profile.IsComplete("lowlands", 0), Is.False, "[N8.2a] a win against an enemy the panel turned off recorded the mission");
                 Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("NO GOLD"), "[N8.2a] the gold line does not say why a tooled win pays nothing");
+                Assert.That(host.ScriptedPeer, Is.False, "[N8.2e] the OFF tab did not turn the enemy off");
+                screen.Unbind();
+            }
+            finally { UnityEngine.Object.DestroyImmediate(go); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
+        }
+
+        // [N8.2e] The panel's AI tabs end in the static ApplyAi(ai, host): the knobs of the *running* match
+        // (ProvingGround.cs:166 old / :172 new). A win after one pays nothing and records nothing (the second
+        // reader, 2026-10-11).
+        [Test]
+        public void ApplyingAnAiPresetOnARunningMatchPaysNoGoldOnAWin()
+        {
+            SceneStatics.Reset();
+            var profile = new CampaignProfile { Gold = 10 };
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
+            var go = new UnityEngine.GameObject("pg-applyai-test"); go.SetActive(false);   // SimHost.Awake must not run
+            try
+            {
+                var host = go.AddComponent<SimHost>();
+                ProvingGround.ApplyAi(0, host);                     // the OFF preset, the way the panel's tab applies it
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                Assert.That(profile.Gold, Is.EqualTo(10), "[N8.2e] a win of a match whose AI knobs the panel changed paid gold");
+                Assert.That(profile.IsComplete("lowlands", 0), Is.False, "[N8.2e] a win of a match whose AI knobs the panel changed recorded the mission");
+                Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("NO GOLD"), "[N8.2e] the gold line does not say why a tooled win pays nothing");
+                Assert.That(host.ScriptedPeer, Is.False, "[N8.2e] the OFF preset did not turn the enemy off");
                 screen.Unbind();
             }
             finally { UnityEngine.Object.DestroyImmediate(go); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
