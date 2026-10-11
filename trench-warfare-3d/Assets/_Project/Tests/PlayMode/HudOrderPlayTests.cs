@@ -116,7 +116,10 @@ namespace TW.Tests
             // InputDelayTicks + 2, so the assert could only ever read the starting value. It now waits on World.Tick.
             float until = Time.realtimeSinceStartup + 20f;
             while ((lockHud.Host.Local == null || lockHud.Host.Local.World.Tick < 2) && Time.realtimeSinceStartup < until) yield return null;
-            Assert.That(lockHud.Host.Local, Is.Not.Null, "[I3b] the match started");
+            Assert.That(lockHud.Host.Local, Is.Not.Null, "[I3d] the match never started");
+            // [I3d] not-null is true straight after Awake: only a ticking world says the match really runs.
+            Assert.That(lockHud.Host.Local.World.Tick, Is.GreaterThanOrEqualTo(2u),
+                "[I3d] the match never ticked: the world is still at tick " + lockHud.Host.Local.World.Tick);
 
             short t = lockHud.Host.Local.Fields.FrontTrench(0);
             Assert.That(t, Is.GreaterThanOrEqualTo((short)0), "[I3b] no owned front trench to lock");
@@ -142,6 +145,18 @@ namespace TW.Tests
 
             Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(1),
                 "[I3b] a second lock click in tactical pause must undo the first");
+
+            // [I3c] the pair above lands on the value it started from, so dropped paused clicks read the same.
+            // One more paused click must reach the sim: it is the only phase whose value the test has not held yet.
+            lockHud.Clock.Toggle(MatchClock.Hold.Tactical);
+            yield return null;
+            uint single = lockHud.Host.Local.World.Tick;
+            lockHud.ToggleFront(CommandType.TrenchLock);
+            lockHud.Clock.Remove(MatchClock.Hold.Tactical);
+            yield return Settle(single);
+
+            Assert.That(lockHud.Host.Local.Fields.Trenches[t].Locked, Is.EqualTo(0),
+                "[I3c] a single lock click in a tactical pause must read Locked == 0 after the game resumes");
         }
 
         /// <summary>Waits until a command issued at <paramref name="issued"/> can have been applied.</summary>
