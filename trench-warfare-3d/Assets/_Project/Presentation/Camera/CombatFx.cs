@@ -499,7 +499,14 @@ namespace TW.Presentation.Tactical
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
+            // the gag marks' two materials are made lazily with HideAndDontSave (CombatFx.Gags) and were left behind
+            // (review 2, N7.6)
+            for (int k = 0; k < gagMarkMats.Length; k++) { Discard(gagMarkMats[k]); gagMarkMats[k] = null; }
         }
+
+        /// <summary>Destroy a run-time object the right way for where we are: an edit-mode test runs OnDestroy outside Play,
+        /// where Destroy does nothing (the pattern of BattlefieldKit.Discard).</summary>
+        static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
         /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between
         /// the Flamethrower's shots (4 a second), so a man who keeps firing keeps one unbroken stream.</summary>

@@ -391,7 +391,15 @@ namespace TW.Presentation.Tactical
             if (flameMesh != null) Destroy(flameMesh);
             foreach (var v in views.Values) FreeHopRig(v);
             foreach (var v in wrecks) FreeHopRig(v);
+            // the cut carcasses are HideAndDontSave meshes nothing else owns: without this they outlive every match
+            // (review 2, N7.6). The dictionary's key is the live model's hull, never ours.
+            foreach (var pair in carcasses) if (pair.Value != null && pair.Value.Mesh != null && pair.Value.Mesh != pair.Key) Discard(pair.Value.Mesh);
+            carcasses.Clear();
         }
+
+        /// <summary>Destroy a run-time object the right way for where we are: an edit-mode test runs OnDestroy outside Play,
+        /// where Destroy does nothing (the pattern of BattlefieldKit.Discard).</summary>
+        static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
         /// <summary>The hull and the drive profile of THIS match, not the compiled defaults: a definition or a bake
         /// may have changed either, and a renderer drawing the wrong gun count is how that goes unnoticed.</summary>
