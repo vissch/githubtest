@@ -39,7 +39,9 @@
   // whether the panel shows a way to close it: a drawer always; docked, only what the owner opened himself
   function closable(s, docked, resting) { return !docked || !(s.follow || resting); }
   // what a note sends to the listener (notes.py, /note): its text, what it is about, and the stamp of the Then line he saw
-  function sends(n) { return { text: n.text, kind: n.kind, about: n.about, title: n.title, lane: n.lane, asset: n.asset, page: n.page, then: n.then || '' }; }
+  // `id` is the page's own id of the note (`unsent-...`): the listener keeps it with the note it writes, so a note
+  // whose answer was lost on the way back (a reload, a closed tab) is answered with that same note, not written again.
+  function sends(n) { return { id: n.id, text: n.text, kind: n.kind, about: n.about, title: n.title, lane: n.lane, asset: n.asset, page: n.page, then: n.then || '' }; }
   // what a note button is called: its pencil is a sign for the eye, and a title is only a description
   function called(s, n) { return 'Notes about ' + (s.title || s.id) + (n ? ', ' + n + ' open' : ''); }
   var pure = { slug: slug, short: short, about: about, pick: pick, open: open, merged: merged, when: when, caption: caption, closable: closable, sends: sends, called: called };
@@ -52,12 +54,21 @@
   function el(tag, cls, text) { var e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
   function all() { return merged(window.NOTES, sent, unsent); }
   function box() { return window.NOTEBOX && window.NOTEBOX.url ? window.NOTEBOX : null; }
+  // A send that never comes back must not hold the queue for good: it gives up after WAIT and the note stays in this
+  // browser, to be sent again later (the listener answers the note it already wrote, so that is not a second note).
+  var WAIT = 8000;
   function post(path, body) {
     var b = box(); if (!b) return Promise.reject(new Error('no box'));
     body.key = b.key;
+    var stop = typeof AbortController === 'function' ? new AbortController() : null, timer = null;
+    var opt = { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) };
+    if (stop) opt.signal = stop.signal;
     // sent as plain text so the browser asks no question first; the listener reads it as JSON all the same
-    return fetch(b.url + path, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) })
+    var went = fetch(b.url + path, opt)
       .then(function (r) { return r.json(); }).then(function (d) { if (!d.ok) throw new Error(d.why || 'refused'); alive = true; return d.note; });
+    var late = new Promise(function (_, no) { timer = setTimeout(function () { if (stop) stop.abort(); no(new Error('the note box did not answer')); }, WAIT); });
+    var done = function (v) { if (timer != null) clearTimeout(timer); return v; };
+    return Promise.race([went, late]).then(done, function (e) { done(); throw e; });
   }
   function ping() {
     var b = box(); if (!b) { alive = false; return Promise.resolve(false); }

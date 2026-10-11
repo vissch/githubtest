@@ -1862,7 +1862,7 @@ def decisions():
     case('decide: an option that says what happens then shows it under its text with the lane of the unit it queues, and one that says nothing shows nothing',
          got and got[11] == ['Then: Queues a sim lane · sim lane house-cover', 'Then: Nothing to build', ''], got and got[11])
     case('decide: a click carries the stamp of the Then line its own option shows, and none when the option has none',
-         got and got[12] == ['ab12cd34', 'ee00ee00', '', ''] and got[15] == dict(text='A: Near-black', kind='page', about='brief:b1', title='T', lane='', asset='', page='decide.html', then='ab12cd34') and got[16] == '',
+         got and got[12] == ['ab12cd34', 'ee00ee00', '', ''] and got[15] == dict(id='unsent-1', text='A: Near-black', kind='page', about='brief:b1', title='T', lane='', asset='', page='decide.html', then='ab12cd34') and got[16] == '',
          got and (got[12], got[15:]))
     case('decide: a closed brief says who took it up and what was queued, or why nothing was; one closed without either says no more than before',
          got and got[13] == ['Taken up by x: queued as unit-1', 'Taken up: Nothing to build', ''], got and got[13])
