@@ -63,13 +63,27 @@
     var b = box(); if (!b) { alive = false; return Promise.resolve(false); }
     return fetch(b.url + '/ping').then(function (r) { return r.json(); }).then(function (d) { alive = !!d.ok; return alive; }, function () { alive = false; return false; });
   }
-  // send what waits in this browser, oldest first; what the listener refuses outright is kept, with its reason
-  function flush() {
+  // send what waits in this browser, oldest first; what the listener refuses outright is kept, with its reason.
+  // One send at a time, and the note that was answered leaves the queue by its identity, never by position: two
+  // flushes at once used to post the same first note twice, and the second answer shifted out the note that was
+  // still in flight, so a failure after that lost it from both the page and the store. A note is a decision of the
+  // owner's: none may be written twice, none may be lost. One flush at a time also keeps two posts of one id out of
+  // the same second on the listener's side, so there is no lock there.
+  var flushing = null, stalled = false;
+  function step() {
     if (!unsent.length) return Promise.resolve();
     var n = unsent[0];
     return post('/note', sends(n)).then(function (note) {
-      unsent.shift(); keep(); sent.push(note); changed(); return flush();
-    }, function (e) { if (alive) { n.why = e.message; keep(); } changed(); });
+      unsent = unsent.filter(function (x) { return x !== n; }); keep(); sent.push(note); changed(); return step();
+    }, function (e) { stalled = true; if (alive) { n.why = e.message; keep(); } changed(); });
+  }
+  // never rejects: its callers (write, show, the 20 s tick, the page's start) do not catch
+  function flush() {
+    if (flushing) return flushing;
+    stalled = false;
+    var fin = function () { flushing = null; return !stalled && unsent.length ? flush() : undefined; };
+    flushing = step().then(fin, fin);
+    return flushing;
   }
   // s.then: the stamp of the "Then: ..." line the Decide page showed under the option he clicked (decide.js). It is kept
   // with a note that waits in this browser too, so a click sent hours later still says what he saw when he clicked.
