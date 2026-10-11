@@ -118,8 +118,10 @@
   // alone, so a reading does not move the caret or undo a resize while the owner types. What he was writing about a
   // thing is kept (drafts) while the panel is about something else, and is there again when it comes back.
   var drafts = {};
-  function notesBlock(s, into) {
-    var key = s.kind + '|' + s.id, form = into.querySelector(':scope > .b-form'), old = into.querySelector(':scope > .b-notes');
+  // live() gives the subject the block shows at this moment: a form is made once, but two runs of one agent type
+  // share an id, so what he sends must be read when he sends it, not when the form was made.
+  function notesBlock(s, into, live) {
+    var key = s.kind + '|' + (s.uid || s.id), form = into.querySelector(':scope > .b-form'), old = into.querySelector(':scope > .b-notes');
     if (into.dataset.about !== key) { into.innerHTML = ''; into.dataset.about = key; form = old = null; }
     var list = pick(all(), s), wrap = el('div', 'b-notes');
     wrap.appendChild(el('h4', null, list.length ? 'Notes · ' + list.filter(function (n) { return n.state !== 'done'; }).length + ' open' : 'Notes'));
@@ -132,7 +134,7 @@
       ta.placeholder = s.asset ? 'A note about the ' + (s.title || s.asset) + ' for the agents…' : 'A note for the agents on this…'; ta.setAttribute('aria-label', 'A new note');
       var row = el('div', 'b-form-row'), go = el('button', 'b-send', 'Leave note'); go.type = 'submit';
       row.appendChild(go); row.appendChild(el('span', 'b-say')); form.appendChild(ta); form.appendChild(row);
-      form.addEventListener('submit', function (e) { e.preventDefault(); var t = ta.value.trim(); if (!t) { ta.focus(); return; } ta.value = ''; delete drafts[key]; write(s, t); });
+      form.addEventListener('submit', function (e) { e.preventDefault(); var t = ta.value.trim(); if (!t) { ta.focus(); return; } ta.value = ''; delete drafts[key]; write((live && live()) || s, t); });
       ta.addEventListener('input', function () { drafts[key] = ta.value; });
       ta.addEventListener('keydown', function (e) { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) form.requestSubmit(); });
       into.appendChild(form);
@@ -232,8 +234,8 @@
         if (a.pic) { var i = el('img'); i.loading = 'lazy'; i.alt = ''; i.src = ROOT + a.pic; c.appendChild(i); } c.appendChild(el('span', null, a.name || a.id)); wall.appendChild(c); });
       p.appendChild(wall);
     });
-    var notes = part('b-notes-here', [s.kind, s.id], function () {}); notes.hidden = !!s.bare;
-    if (!s.bare) notesBlock(s, notes);
+    var notes = part('b-notes-here', [s.kind, s.id, s.uid || ''], function () {}); notes.hidden = !!s.bare;
+    if (!s.bare) notesBlock(s, notes, function () { return subject; });
   }
   function show(s, opt) {
     if (dockEl && !docked && forDock(s)) { inDock(function () { show(s, opt); }); return; }          // the house moved on under the drawer
@@ -270,7 +272,7 @@
   function mark(x) { var n = open(all(), x.s); x.b.textContent = (x.label ? x.label + ' ' : '') + (n ? '✎ ' + n : '✎'); x.b.classList.toggle('b-has', n > 0); x.b.setAttribute('aria-label', (x.label ? x.label + ': ' : '') + called(x.s, n)); }
   function changed() {
     buttons = buttons.filter(function (x) { return x.b.isConnected || !x.seen; }); buttons.forEach(function (x) { x.seen = x.seen || x.b.isConnected; mark(x); });
-    inline.forEach(function (x) { notesBlock(x.s, x.into); });
+    inline.forEach(function (x) { notesBlock(x.s, x.into, function () { return inlineSubject(x.into); }); });
     if (subject && panel && !panel.hidden) draw();
     if (dockEl && !docked && kept && kept.s) inDock(draw);
     cards(); top();
@@ -294,9 +296,12 @@
     var n = open(all(), { kind: 'page', id: 'all' });
     topBtn.textContent = n ? 'Notes ' + n : 'Notes'; topBtn.classList.toggle('b-has', n > 0);
   }
+  function inlineSubject(into) {
+    var d = into.dataset;
+    return { kind: d.board, id: d.id, uid: d.uid || '', title: d.title || d.id, lane: d.lane || '', asset: d.board === 'asset' ? d.id : '' };
+  }
   document.querySelectorAll('[data-board]').forEach(function (into) {
-    var d = into.dataset, s = { kind: d.board, id: d.id, title: d.title || d.id, lane: d.lane || '', asset: d.board === 'asset' ? d.id : '' };
-    inline.push({ s: s, into: into });
+    inline.push({ s: inlineSubject(into), into: into });
   });
   // read the notes again every 20 seconds: an answer shows without a reload
   setInterval(function () {
