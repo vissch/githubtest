@@ -18,11 +18,21 @@ row('gc collections', lambda r: r['window']['gc_collections'])
 row('hitches >33ms (cap 64)', lambda r: len(r['window']['hitches_over_33ms']))
 for k in ['cpu_frame_ms', 'main_ms', 'main_ms_tick_frames', 'main_ms_idle_frames', 'render_ms', 'gpu_ms', 'draw_calls', 'setpass', 'gc_bytes', 'gc_count', 'vat_vertices', 'vat_shadows_on']:
     row(k + ' p50/p95/p99', lambda r, k=k: '%s/%s/%s' % tuple(('%.4g' % r['series'][k][q]) for q in ('p50', 'p95', 'p99')))
+for r in runs:
+    r.setdefault('per_tick_ms', {})
+    r.setdefault('per_frame_ms', {})  # F3: an old report (before the per-frame/per-tick split) has no such block
 keys = sorted({k for r in runs for k in r['per_tick_ms']}, key=lambda k: -max(r['per_tick_ms'].get(k, 0) for r in runs))
 print('per tick ms (all worlds):')
 for k in keys:
     if max(r['per_tick_ms'].get(k, 0) for r in runs) < 0.05: continue
     row('  ' + k.replace('TW.Sim.Sys.', 'Sys.'), lambda r, k=k: '%.3f' % r['per_tick_ms'].get(k, float('nan')))
+# F3: markers that run once a frame, which the report now keeps apart from per_tick_ms
+fkeys = sorted({k for r in runs for k in r['per_frame_ms']}, key=lambda k: -max(r['per_frame_ms'].get(k, 0) for r in runs))
+if fkeys:
+    print('per frame ms (all worlds):')
+for k in fkeys:
+    if max(r['per_frame_ms'].get(k, 0) for r in runs) < 0.05: continue
+    row('  ' + k, lambda r, k=k: '%.3f' % r['per_frame_ms'].get(k, float('nan')))
 scripts = sorted({k for r in runs for k in r['series'] if k.startswith('script:')},
                  key=lambda k: -max((r['series'].get(k) or {}).get('mean', 0) for r in runs))
 if scripts:

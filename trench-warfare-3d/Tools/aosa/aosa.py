@@ -44,7 +44,7 @@ SIZE_COST = {"XS": 1, "S": 1, "M": 2, "L": 3, "XL": 5}
 # What one unit of each metric is worth, so deltas in ms, draw calls, bytes and critic points can be ranked against
 # each other: a delta is divided by its scale (roughly the budget it is spent against, docs/05). A critic score is
 # out of 10. Unknown metrics count at face value. The retrospective may retune these; they are priors, not truths.
-METRIC_SCALE = [("main_ms", 3.0), ("gpu_ms", 13.0), ("cpu_frame_ms", 16.6), ("worst_frame", 16.6), ("per_tick", 3.6),
+METRIC_SCALE = [("main_ms", 3.0), ("gpu_ms", 13.0), ("cpu_frame_ms", 16.6), ("worst_frame", 16.6), ("per_tick", 3.6), ("per_frame", 3.0),
                 ("draw_calls", 300.0), ("frame_budget_draws", 300.0), ("setpass", 300.0),
                 ("frame_budget_vertices", 1.5e6), ("vat_vertices", 1.5e6), ("vat_shadows_on", 1.0),
                 ("gc_bytes", 65536.0), ("texture_mb", 256.0), ("memory", 256.0),
@@ -423,6 +423,8 @@ def get_metric(report, metric):
         node = report
     elif parts[0] == "per_tick":
         return (report.get("per_tick_ms") or {}).get(".".join(parts[1:]))
+    elif parts[0] == "per_frame":   # F3: markers that run once a frame, no longer divided by sim ticks
+        return (report.get("per_frame_ms") or {}).get(".".join(parts[1:]))
     else:
         node, parts = report.get("series") or {}, [".".join(parts[:-1]), parts[-1]]
     for p in parts:
@@ -504,6 +506,14 @@ def cmp_table(runs):
     for k in keys:
         if max(t.get(k, 0) for t in ticks) >= 0.05:
             row("  " + k.replace("TW.Sim.Sys.", "Sys."), lambda r, k=k: "%.3f" % r["per_tick_ms"].get(k, float("nan")))
+    # F3: the markers that run once a frame, over frames; an old report has no per_frame_ms and shows nothing here
+    per_frame = [r.get("per_frame_ms") or {} for r in runs]
+    fkeys = sorted({k for f in per_frame for k in f}, key=lambda k: -max(f.get(k, 0) for f in per_frame))
+    if fkeys:
+        lines.append("per frame ms (all worlds):")
+    for k in fkeys:
+        if max(f.get(k, 0) for f in per_frame) >= 0.05:
+            row("  " + k, lambda r, k=k: "%.3f" % (r.get("per_frame_ms") or {}).get(k, float("nan")))
     series = [r.get("series") or {} for r in runs]
 
     def by_mean(prefix):
