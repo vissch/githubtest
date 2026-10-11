@@ -41,7 +41,7 @@ import build  # noqa: E402
 PORT = 8765
 KINDS = ('asset', 'lane', 'worker', 'queue', 'graph', 'page')     # what a note can be about
 LONGEST = 4000          # characters of a note
-FIELDS = ('id', 'when', 'from', 'kind', 'about', 'title', 'lane', 'asset', 'page', 'then', 'state')
+FIELDS = ('id', 'when', 'from', 'kind', 'about', 'title', 'lane', 'asset', 'page', 'then', 'sent', 'state')
 SHOWN_DAYS = 7          # an answered note stays on the page this long
 
 
@@ -70,10 +70,12 @@ def line(s, n=200):
     return re.sub(r'\s+', ' ', str(s or '')).strip()[:n]
 
 
-def write(where: Path, text, kind='page', about='', title='', lane='', asset='', page='', who='owner', now=None, then=''):
+def write(where: Path, text, kind='page', about='', title='', lane='', asset='', page='', who='owner', now=None, then='', sent=''):
     """Write a note and return it. Its name is made here, from the time and what it is about: nothing the page sends
     is used as a path. `then` is the stamp of the "Then: ..." line the Decide page showed under the option he clicked
-    (briefs.py): what he saw goes with his click."""
+    (briefs.py): what he saw goes with his click. `sent` is the page's own id of the note (board.js, `unsent-...`): it
+    is kept in the head so a post whose answer was lost on the way back is answered with this note, not written
+    again."""
     text = str(text or '').strip()
     if not text:
         raise ValueError('a note with nothing in it')
@@ -89,7 +91,7 @@ def write(where: Path, text, kind='page', about='', title='', lane='', asset='',
         nid = f'{now:%Y-%m-%d-%H%M%S}-{slug}' + (f'-{n}' if n else '')
         n += 1
     note = dict(id=nid, when=f'{now:%Y-%m-%d %H:%M:%S}', kind=kind, about=line(about), title=line(title), lane=line(lane), asset=line(asset),
-                page=line(page), then=line(then, 16), state='open')
+                page=line(page), then=line(then, 16), sent=line(sent, 64), state='open')
     note['from'] = line(who, 40) or 'owner'
     head = ''.join(f'{k}: {note[k]}\n' for k in FIELDS if note.get(k))
     tmp = where / f'{nid}.md.tmp'
@@ -195,7 +197,12 @@ def handler(where: Path, key: str):
                 if not isinstance(d, dict) or not secrets.compare_digest(str(d.get('key', '')), key):
                     return self.reply(403, dict(ok=False, why='the key is not the one in the notes folder'))
                 if self.path == '/note':
-                    note = write(where, d.get('text'), **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
+                    # the page's own id of the note: a post of an id a note here already carries is that note's
+                    # answer come again (its first answer was lost), so it is answered and nothing is written.
+                    nid = line(d.get('id'), 64)
+                    again = [n for n in read_all(where) if nid and n.get('sent') == nid] if nid else []
+                    note = again[-1] if again else write(where, d.get('text'), sent=nid,
+                                                         **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
                 elif self.path == '/close':
                     note = answer(where, str(d.get('id', '')), d.get('text') or 'Closed by the owner.', by='owner')
                 else:
