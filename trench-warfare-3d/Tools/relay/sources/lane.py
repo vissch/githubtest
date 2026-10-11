@@ -218,7 +218,7 @@ def saved(unit, ctx, rec, patch):
     old.update(id=unit["id"], lane=unit["lane"],
                saved={"ref": rec.get("ref") or "", "patch": str(patch), "head": rec.get("head") or "",
                       "run": ctx.get("run", ""), "at": now(), "cleaned": bool(rec.get("cleaned")),
-                      "touched": bool(rec.get("touched"))})
+                      "touched": bool(rec.get("touched")), "staged_ref": rec.get("staged_ref") or ""})
     write_json(tried_path(ctx["board"], unit["id"]), old)
 
 
@@ -257,7 +257,9 @@ def body(unit):
                      "commit `%s`, made on %s, and %s. Look at it with `git show "
                      "--stat %s`; an execute leg puts it back uncommitted with `git cherry-pick -n %s`. Take it up or "
                      "leave it, and say which in your report."
-                     % (kept.get("run") or "?", kept["ref"], str(kept.get("head"))[:10], how, kept["ref"], kept["ref"]))
+                     % (kept.get("run") or "?", kept["ref"], str(kept.get("head"))[:10], how, kept["ref"], kept["ref"])
+                     + (" What was staged then differed from the files, and is the commit `%s`." % kept["staged_ref"]
+                        if kept.get("staged_ref") else ""))
     if unit.get("note"):
         lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
         lines += ["", "Its predictions, checked just now by script:"]

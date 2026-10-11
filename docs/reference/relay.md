@@ -370,12 +370,25 @@ twice: `red.patch` in the leg's folder on that machine, and a commit on top of t
   entry. What git ignores and no index holds (`Library`) is not saved and not touched.
 - **What is proved first.** By id, never by a list of files: nothing git does not ignore is outside that tree;
   HEAD plus the patch as it reads back from disk gives that same tree; the ref holds that tree; HEAD has not
-  moved. When one of these does not hold nothing is touched, the stop record's `detail` says
+  moved. And two states in which nothing is put back at all: git is in the middle of a merge, a cherry-pick, a
+  revert or a rebase (setting index entries back would leave that state, and the next leg's first commit would
+  carry it on as a merge commit), or the checkout's index has unmerged paths. When one of these does not hold
+  nothing is touched, the stop record's `detail` says
   `the checkout was left as it is` and why, and the next run stops on the dirty checkout as before.
+- **What was staged** is kept too, before any index entry is set back: when the checkout's own index is neither
+  HEAD's tree nor the saved one, it is written as a commit on HEAD under `refs/relay/saved/<run>-<leg>-staged`,
+  and the record, the `detail` and the next card name it. That holds staged bytes that differ from the file on
+  disk, and a file that was staged and then deleted. (The relay never cleaned before 2026-10-11, so the index
+  itself kept them.)
 - **The clean cannot reach what is not in the saved tree.** It runs no `git reset --hard` and no `git clean`. It
   walks the paths in which the saved tree differs from HEAD and no other. A file is moved out of the checkout into
-  a folder under `.git`, hashed there, and removed only when it is the very blob the saved tree holds for that
-  path; one that is not goes back to its place. HEAD's version of a path is written only where no file is. A
+  a folder under `.git` (`relay-put-back`, with its path written beside it first), hashed there, and removed only
+  when it is the very blob the saved tree holds for that path, under the path's filters or as its bytes stand; one
+  that is not goes back to its place. That is equal as git stores it, not always byte for byte: where git rewrites
+  line ends, a file in which only the line ends changed after the save counts as equal. A file that cannot be
+  removed (read-only, on Windows) stays in that folder and is named. While anything is held there, after a clean
+  that was killed too, the next run refuses the checkout and names the file and the path it came from.
+  HEAD's version of a path is written only where no file is. A
   folder is removed only when empty. The index entries of those paths, and of what was staged, are set to HEAD's.
   So a file written after the save (a Unity or a test a leg left running), a file git ignores, a file the leg's own
   edit of `.gitignore` had hidden: none of them is touched.
@@ -385,8 +398,9 @@ twice: `red.patch` in the leg's folder on that machine, and a commit on top of t
   what is left; or `left as it is`. The record's `cleaned` and `touched` say the same, and so does the unit's
   next card.
 
-What is staged and differs from the file on disk is in neither copy: the file is what is saved. A symlink and a
-checkout nested in the work are left in place and named. Needs git 2.26 or newer (paths are handed over on stdin).
+A symlink and a checkout nested in the work are left in place and named. One thing is in no copy and no content
+is involved: a tracked file a leg marked `skip-worktree` and then deleted reads as not part of the checkout, so its
+deletion is not saved and the record still says clean. Needs git 2.26 or newer (paths are handed over on stdin).
 A queued unit's record (`relay/tried/<id>.json`) names the ref, and the card of its next legs says how to look at
 the work and put it back (`git cherry-pick -n <ref>`). Line ends come back as git's settings write them; the tree
 is the same. The run still stops after a unit that left work behind (`uncommitted`).

@@ -247,7 +247,7 @@ def _left_over(wt, env):
 def _put_back(wt, folder, rec, calls, env):
     """The checks of snapshot_dirty(clean=True), then the clean. {"tree", "ref", "cleaned", "touched",
     "kept_because"}. calls: the exit codes of the steps that filled the throwaway index of `env`."""
-    out = {"tree": "", "ref": "", "cleaned": False, "touched": False, "kept_because": ""}
+    out = {"tree": "", "ref": "", "staged_ref": "", "cleaned": False, "touched": False, "kept_because": ""}
 
     def kept(why):
         out["kept_because"] = why
@@ -284,6 +284,20 @@ def _put_back(wt, folder, rec, calls, env):
     for row in _z(blobs):                                # "<mode> <type> <id>\t<path>"
         meta, _, path = row.partition("\t")
         saved[path] = meta.split()
+    under_way = in_progress(wt)
+    if under_way:                                        # setting index entries back would leave that state behind,
+        return kept("git is in the middle of %s (%s in its folder): nothing is put back, for the next commit here "
+                    "would carry it on" % under_way)     # and the next leg's first commit would be a merge commit
+    own = git_raw(["write-tree"], wt)                    # what is staged, as the checkout's own index holds it
+    if own.returncode:
+        return kept("the checkout's index cannot be written as a tree (unmerged paths): nothing is put back")
+    if _text(own) not in (tree, git(["rev-parse", "-q", "--verify", rec["head"] + "^{tree}"], wt, check=False)):
+        made = git_raw(["commit-tree", _text(own), "-p", rec["head"], "-m",
+                        "relay: what was staged when work was put aside (%s)" % ref.rsplit("/", 1)[-1]], wt, who)
+        if made.returncode or git_raw(["update-ref", ref + "-staged", _text(made)], wt).returncode \
+                or git(["rev-parse", "-q", "--verify", ref + "-staged^{tree}"], wt, check=False) != _text(own):
+            return kept("what was staged could not be kept as a commit under %s-staged" % ref)
+        out["staged_ref"] = ref + "-staged"
     out["touched"] = True                                # from here on the checkout is no longer as it was
     stays = _restore(wt, changes, saved, ref.rsplit("/", 1)[-1])
     still = dirty(wt)
@@ -294,21 +308,61 @@ def _put_back(wt, folder, rec, calls, env):
     return out
 
 
+STATES = (("MERGE_HEAD", "a merge"), ("CHERRY_PICK_HEAD", "a cherry-pick"), ("REVERT_HEAD", "a revert"),
+          ("rebase-merge", "a rebase"), ("rebase-apply", "a rebase or an am"))
+
+
+def in_progress(wt):
+    """(what, the name in the git folder) of an operation git is in the middle of in this checkout, or None. Asked
+    of git for each name, so a worktree's own folder is the one looked in."""
+    for name, what in STATES:
+        p = Path(git(["rev-parse", "--git-path", name], wt, check=False) or name)
+        if (p if p.is_absolute() else Path(wt) / p).exists():
+            return what, name
+    return None
+
+
+def put_back_dir(wt):
+    """Where the clean holds a file between taking it out of the checkout and proving what it is."""
+    return Path(git(["rev-parse", "--absolute-git-dir"], wt)) / "relay-put-back"
+
+
+def held_files(wt):
+    """What a clean that did not finish left in put_back_dir: [(the held file, the path it was moved from)]. Each
+    held file has its path beside it as <name>.path, written before the move."""
+    root, out = put_back_dir(wt), []
+    for f in sorted(root.rglob("*")) if root.is_dir() else []:
+        if f.is_file() and f.suffix != ".path":
+            note = f.with_name(f.name + ".path")
+            out.append((f, note.read_text(encoding="utf-8") if note.is_file() else "?"))
+    return out
+
+
 def _restore(wt, changes, saved, name):
     """Put the paths of `changes` back to HEAD, and no other path. Returns what stays, each as "<path> (<why>)".
     What can remove or overwrite a file here, and what bounds each:
       os.replace    moves one file of `changes` into a new, empty folder under the checkout's git folder: nothing is
                     overwritten, nothing is gone;
-      os.remove     only of a file in that folder, after `git hash-object --path` of it gave the very blob id the
-                    saved tree holds for its path: those bytes are in the patch and in the ref. A file that hashes
-                    to anything else is moved back to its place (or kept in the folder when that place is taken);
+      os.remove     only of a file in that folder, after `git hash-object` of it gave the very blob id the saved
+                    tree holds for its path, with the path's filters or, failing that, of its bytes as they are (a
+                    file HEAD holds with CRLF is saved with CRLF, and the filters alone would never match it). So
+                    what is removed is in the patch and in the ref as git stores it, which is not always byte for
+                    byte: where git rewrites line ends, the LF and the CRLF form of one text are one blob, and a
+                    file in which only the line ends changed after the save is removed as equal. A file that
+                    hashes to anything else is moved back to its place (or kept in the folder when that place is
+                    taken). A file that cannot be removed stays in the folder and is named. Beside every held file
+                    its path is written first (<n>.path), so a clean that was killed half way can be read
+                    (held_files), and busy_reason refuses the checkout while anything is held;
       os.rmdir      a folder a removed file was in, when empty; and that folder under the git folder, when empty;
       git reset -q HEAD -- <paths>   the index entries of these paths and of the paths the index itself had changed;
-                    no file of the checkout. What was staged and differs from the file on disk is in neither tree;
+                    no file of the checkout. What was staged is kept first, as a commit under <ref>-staged
+                    (_put_back), whenever it is neither HEAD's tree nor the saved one: staged bytes that differ
+                    from the file on disk, a file staged and then deleted. The base of this lane never cleaned,
+                    so its index kept them;
       git checkout-index -u (without -f)   writes HEAD's version of a path where no file is; git skips a path that
                     has one."""
     wt, stays, gone = Path(wt), [], []
-    hold = Path(git(["rev-parse", "--absolute-git-dir"], wt)) / "relay-put-back" / name
+    hold = put_back_dir(wt) / name
     try:
         hold.mkdir(parents=True, exist_ok=False)
     except OSError as e:
@@ -327,19 +381,27 @@ def _restore(wt, changes, saved, name):
             stays.append("%s (not a plain file)" % path)
             continue
         held = hold / ("%06d" % n)
+        note = hold / ("%06d.path" % n)
         try:
+            note.write_text(path, encoding="utf-8", errors="surrogateescape")    # first: a kill must leave a name
             os.replace(f, held)
         except OSError as e:
             stays.append("%s (it could not be moved: %s)" % (path, e.strerror or e))
+            _unlink(note)
             continue
-        if git(["hash-object", "--path=" + path, str(held)], wt, check=False) == meta[2]:
-            os.remove(held)                              # proved: these bytes are the saved blob
-            gone.append((kind, path))
+        if _same_blob(wt, path, held, meta[2]):
+            gone.append((kind, path))                    # proved: this is the saved blob. Its place is free
+            try:
+                os.remove(held)
+                _unlink(note)
+            except OSError:                              # a read-only file, on Windows
+                stays.append("%s (saved; its copy is now %s)" % (path, held))
             continue
         try:                                             # changed since it was saved: back where it was
             if os.path.lexists(f):
                 raise OSError("its place is taken")
             os.replace(held, f)
+            _unlink(note)
             stays.append("%s (changed after it was saved)" % path)
         except OSError:
             stays.append("%s (changed after it was saved; it is now %s)" % (path, held))
@@ -366,6 +428,23 @@ def _restore(wt, changes, saved, name):
     except OSError:
         pass
     return stays
+
+
+def _same_blob(wt, path, held, blob):
+    """True when the held file is the blob the saved tree has for its path: as git would add it under the path's
+    filters, or else as its bytes stand. `git hash-object --path` reads no index, and `git add` does: a file HEAD
+    holds with CRLF stays CRLF in the saved tree, while the filters alone would hash it as LF, so it never matched,
+    was moved back as "changed" and kept the checkout dirty for every run (the second reader, RV3.5)."""
+    if git(["hash-object", "--path=" + path, str(held)], wt, check=False) == blob:
+        return True
+    return git(["hash-object", "--no-filters", str(held)], wt, check=False) == blob
+
+
+def _unlink(f):
+    try:
+        os.remove(f)
+    except OSError:
+        pass
 
 
 def matches_snapshot(wt, rec):
@@ -512,6 +591,11 @@ def busy_reason(wt, home, snapshot=None, quiet=600):
             open(wt / "trench-warfare-3d" / "Temp" / "UnityLockfile", "rb").close()
         except OSError:
             return "a Unity editor has this project open"
+    held = held_files(wt)
+    if held:                                         # a clean that was killed, or a copy it could not remove
+        return ("the relay moved %d file%s out of it and did not finish with %s: %s (was %s). Put each back or "
+                "delete it, then remove that folder" % (len(held), "" if len(held) == 1 else "s",
+                                                        "it" if len(held) == 1 else "them", held[0][0], held[0][1]))
     if dirty(wt) and not matches_snapshot(wt, snapshot):
         return "it has uncommitted changes that are not a saved leg snapshot"
     if quiet and age < quiet and not snapshot:   # quiet: seconds without git activity, 0 = skip

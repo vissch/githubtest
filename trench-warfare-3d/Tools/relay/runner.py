@@ -451,11 +451,12 @@ class Run:
                 tell(unit, self.ctx, rec, d / "red.patch")
         except (SystemExit, Exception) as e:                # noqa: BLE001
             print("note: the saved work was not recorded for its unit (%s)" % (str(e) or type(e).__name__), flush=True)
+        also = " (what was staged: %s)" % rec["staged_ref"] if rec.get("staged_ref") else ""
         if rec.get("cleaned"):
-            return "uncommitted work saved in %s and as %s; the checkout is back at its HEAD" % (d, rec["ref"])
+            return "uncommitted work saved in %s and as %s%s; the checkout is back at its HEAD" % (d, rec["ref"], also)
         if rec.get("touched"):                              # the clean began and did not leave it at HEAD
-            return "uncommitted work saved in %s%s; the checkout was put back to its HEAD only in part: %s" % (
-                d, " and as %s" % rec["ref"] if rec.get("ref") else "", rec.get("kept_because"))
+            return "uncommitted work saved in %s%s%s; the checkout was put back to its HEAD only in part: %s" % (
+                d, " and as %s" % rec["ref"] if rec.get("ref") else "", also, rec.get("kept_because"))
         return "uncommitted work saved in %s; the checkout was left as it is: %s" % (d, rec.get("kept_because"))
 
     def reject(self, unit, why):
