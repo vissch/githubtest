@@ -440,7 +440,7 @@ namespace TW.Perf
         double[] recNow = new double[0]; bool[] recIsMarker = new bool[0];   // sized once in OpenRecorders: no allocation in the window
         Rec gcRec;
         readonly List<string> scriptRecorded = new List<string>(), scriptUnregistered = new List<string>();
-        int hitches, frames;
+        int hitches, frames, windowFrames, splitSkipped;
         ProfilerRecorder mainRec, gpuRec;
 
         /// <summary>C66: HudController.Refresh's parts, each wrapped in its own marker inside TW.Hud.Refresh (the names
@@ -570,6 +570,28 @@ namespace TW.Perf
             uint tick = w.Tick;
             int stepped = (int)(tick - lastTick);
             lastTick = tick;
+            // F2: the window's set-up frame is no sample, and its baselines are re-taken on it
+            if (WindowSamples.Counts(++windowFrames)) Measure(w, tick, stepped); else Rebaseline();
+            prevTicked = stepped > 0;
+
+            if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
+            if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
+            if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
+            if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
+        }
+
+        /// <summary>F2: the window's baselines, re-taken on a frame that is not a sample.</summary>
+        void Rebaseline()
+        {
+            startRealtime = Time.realtimeSinceStartupAsDouble;
+            gcCollectionsStart = GC.CollectionCount(0);
+            monoStart = monoMax = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
+        }
+
+        /// <summary>One sample of the window. The shots, the desync check and the window's end are Sample's: an image
+        /// run still shoots on a frame that is not a sample.</summary>
+        void Measure(TW.Sim.SimWorld w, uint tick, int stepped)
+        {
             frames++;
             allFocused &= Application.isFocused;
 
@@ -587,15 +609,15 @@ namespace TW.Perf
                 if (timing[0].cpuRenderThreadFrameTime > 0) render.Add(timing[0].cpuRenderThreadFrameTime);
                 if (timing[0].gpuFrameTime > 0) gpuMs = timing[0].gpuFrameTime;
             }
-            if (mainMs < 0 && mainRec.Valid && mainRec.LastValue > 0) mainMs = mainRec.LastValue * 1e-6;
+            double recMainMs = mainRec.Valid && mainRec.LastValue > 0 ? mainRec.LastValue * 1e-6 : -1;
+            if (mainMs < 0) mainMs = recMainMs;
             if (gpuMs < 0 && gpuRec.Valid && gpuRec.LastValue > 0) gpuMs = gpuRec.LastValue * 1e-6;
-            if (mainMs >= 0)
-            {
-                main.Add(mainMs);
-                (prevTicked ? mainTick : mainIdle).Add(mainMs);   // the recorders report the frame before this one
-            }
+            if (mainMs >= 0) main.Add(mainMs);
+            // F4: prevTicked is the recorder's one-frame lag, so only the recorder's own number may be split
+            var src = recMainMs >= 0 ? WindowSamples.MainMs.Recorder : WindowSamples.MainMs.FrameTiming;
+            if (WindowSamples.CanSplit(src)) (prevTicked ? mainTick : mainIdle).Add(recMainMs);
+            else splitSkipped++;
             if (gpuMs >= 0) gpu.Add(gpuMs);
-            prevTicked = stepped > 0;
 
             for (int k = 0; k < recs.Count; k++)
             {
@@ -624,11 +646,6 @@ namespace TW.Perf
             budgetDraws.Add(FrameBudget.DrawCalls); budgetVerts.Add(FrameBudget.Vertices); budgetIndirect.Add(FrameBudget.IndirectDraws);
             long mono = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
             if (mono > monoMax) monoMax = mono;
-
-            if (Options.ShotTick >= 0 && tick >= t0 + (uint)Options.ShotTick) Shoot("window");
-            if (ShotLog.On && heldFrameTimes != null && framesShot >= heldFrameTimes.Length) ShotLog.Stop();   // C72: the last held frame is shot
-            if (host.Desync) { Finish(4, "DESYNC during the window at tick " + tick); return; }
-            if (tick >= t0 + (uint)Options.Ticks) Finish(0, "ok");
         }
 
         // ------------------------------------------------------------------------------------------------ report
@@ -883,7 +900,7 @@ namespace TW.Perf
               .Append(", \"hash_end_tick\": ").Append(hashEndTaken ? hashEndTick.ToString(Inv) : "null")
               .Append(", \"alive_peak_before\": ").Append(alivePeak)
               .Append(", \"alive_start\": ").Append(aliveStart).Append(", \"alive_end\": ").Append(w != null ? w.AliveCount : 0)
-              .Append(", \"frames\": ").Append(frames).Append(", \"seconds\": ").Append(N(seconds))
+              .Append(", \"frames\": ").Append(frames).Append(", \"frames_dropped\": ").Append(WindowSamples.SetupFrames).Append(", \"seconds\": ").Append(N(seconds))
               .Append(", \"fps_mean\": ").Append(N(seconds > 0 ? frames / seconds : 0))
               .Append(", \"desync\": ").Append(host != null && host.Desync ? "true" : "false").Append(", \"focused\": ").Append(allFocused ? "true" : "false")
               .Append(", \"gc_collections\": ").Append(GC.CollectionCount(0) - gcCollectionsStart)
@@ -935,6 +952,7 @@ namespace TW.Perf
             if (fx && fz) warnings.Add("custom focus (fx/fz): not the standard view, do not compare with standard runs");
             else if (fx || fz) warnings.Add("only one of fx/fz was given: the view fell back to the armies' centre");
             if (!float.IsNaN(zoomUsed) && Mathf.Abs(zoomUsed - Options.Zoom) > 1e-3f) warnings.Add("zoom " + Options.Zoom + " was clamped to " + zoomUsed + " by the camera");
+            if (splitSkipped > 0) warnings.Add(splitSkipped + " of " + frames + " frames had no Main Thread recorder value: they are in main_ms but not in the tick/idle series");   // F4
             if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
             if (Options.Bad.Count > 0) warnings.Add("bench option(s) with an unreadable number, the default ran instead: " + string.Join(", ", Options.Bad));   // F5
             if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
