@@ -5,6 +5,8 @@ using NUnit.Framework;
 using UnityEditor;
 using UnityEngine.UIElements;
 using TW.Presentation;
+using TW.Sim;
+using TW.Sim.Match;
 using TW.UI;
 
 namespace TW.Tests
@@ -200,6 +202,7 @@ namespace TW.Tests
         [Test]
         public void ADebriefPaysCampaignGoldOnce()
         {
+            SceneStatics.Reset();   // ProvingGroundTests runs in the same domain and its writes now mark the match as tooled
             var profile = new CampaignProfile { Gold = 10 };
             bool? persist = ProfileStore.PersistOverride;
             ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
@@ -248,6 +251,62 @@ namespace TW.Tests
                 skirmish.Unbind();
             }
             finally { CampaignSession.Clear(); CampaignSession.ResumeMap = false; ProfileStore.Use(null); ProfileStore.PersistOverride = persist; }
+        }
+
+        // [N8.2] F8's test panel stays in every match, so a match it wrote into must pay no gold (owner, 2026-10-07).
+        // Uses no member this unit adds, so it compiles on the old tree too: the literal "NO GOLD" and SceneStatics.Reset().
+        [Test]
+        public void ACampaignWinAfterTheProvingGroundPanelGaveSilverPaysNoGold()
+        {
+            SceneStatics.Reset();
+            var profile = new CampaignProfile { Gold = 10 };
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
+            var cfg = SimConfig.Default; cfg.Endless = true;
+            var m = MatchSim.CreatePlaytest(cfg);
+            try
+            {
+                var ground = new ProvingGround(a => { a(m); return true; }, () => m, () => null);
+                ground.GiveSilver(0, 1000);
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                Assert.That(profile.Gold, Is.EqualTo(10), "[N8.2] a win of a match the test panel wrote into paid gold");
+                Assert.That(profile.IsComplete("lowlands", 0), Is.False, "[N8.2] a win of a match the test panel wrote into marked the mission complete");
+                Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("NO GOLD"), "[N8.2] the gold line does not say why a tooled win pays nothing");
+                Assert.That(root.Q("gold-row").ClassListContains("tw-hidden"), Is.False, "[N8.2] the gold row is hidden instead of saying why");
+                screen.Unbind();
+            }
+            finally { m.Dispose(); CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
+        }
+
+        // The control for the test above: a panel only opened and closed writes nothing, so the win pays as before.
+        // Deliberately NOT tagged [N8.2]: it is green on the old code by design.
+        [Test]
+        public void ACampaignWinWithTheProvingGroundPanelOpenedAndUnusedPaysAsBefore()
+        {
+            SceneStatics.Reset();
+            var profile = new CampaignProfile { Gold = 10 };
+            bool? persist = ProfileStore.PersistOverride;
+            ProfileStore.PersistOverride = false; ProfileStore.Use(profile);
+            try
+            {
+                var panel = new ProvingGroundPanel();
+                var panelRoot = Instantiate("ProvingGroundPanel", "Assets/_Project/UI/Resources/Shell/");
+                panel.Bind(panelRoot, null); panel.Unbind();   // no router: its director stays null and nothing is written
+
+                CampaignSession.Begin("lowlands", 0, 0);
+                var root = Instantiate("Debrief");
+                var screen = new DebriefScreen(new MatchReport { Winner = 0 });
+                screen.Bind(root, null);
+                Assert.That(profile.Gold, Is.EqualTo(10 + CampaignGraph.RewardFirst), "an unused panel must not cost the win its gold");
+                Assert.That(profile.IsComplete("lowlands", 0), Is.True, "an unused panel must not cost the win its mission");
+                Assert.That(root.Q<Label>("gold-earned").text, Does.Contain("+" + CampaignGraph.RewardFirst));
+                screen.Unbind();
+            }
+            finally { CampaignSession.Clear(); ProfileStore.Use(null); ProfileStore.PersistOverride = persist; SceneStatics.Reset(); }
         }
 
         [Test]

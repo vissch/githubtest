@@ -3,6 +3,8 @@
 // back. Save Replay waits for the recorder to be wired into SimHost (step B7). A campaign mission (CampaignSession)
 // pays its gold on a win, once: the session's Awarded latch guards RESTART and a re-bind, and a mission already won
 // pays nothing (docs/21 phase 6); CONTINUE then goes back to the map.
+// A match the Proving Ground's panel wrote into (ProvingGround.Tooled) pays nothing and records nothing on a win:
+// the row says so (owner, 2026-10-07: F8 stays in every match, and a match in which the panel was used pays no gold).
 using UnityEngine.UIElements;
 using TW.Presentation;
 
@@ -12,7 +14,7 @@ namespace TW.UI
     {
         public static readonly string[] Rows = { "men-lost", "vehicles-lost", "men-fielded", "kills", "shots", "accuracy", "silver-earned", "silver-left", "trenches-taken", "trenches-held", "objectives-held", "abilities-fired" };
         public static readonly string[] RequiredNames = { "debrief-plate", "result", "result-sub", "stats-table", "duration", "seed-line", "gold-row", "gold-earned", "gold-total", "btn-replay", "btn-restart", "btn-view-field", "btn-continue" };
-        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN";
+        public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN", NoGoldAfterTools = "TEST PANEL USED: NO GOLD";
         public override bool HidesHud => !viewing;
 
         readonly MatchReport report;
@@ -53,8 +55,9 @@ namespace TW.UI
             if (!CampaignSession.Active) { row?.EnableInClassList("tw-hidden", true); return; }
             var profile = ProfileStore.Current;
             bool won = report.Winner == 0;
+            bool tooled = ProvingGround.Tooled;   // the Proving Ground's panel wrote into this match: it pays nothing
             int earned = 0; bool paid = false;
-            if (won && !CampaignSession.Awarded)
+            if (won && !tooled && !CampaignSession.Awarded)
             {
                 var node = CampaignGraph.Find(CampaignSession.NodeId);
                 if (node != null && profile.Complete(node.Id, CampaignSession.MissionIndex)) { earned = CampaignGraph.Reward(node, CampaignSession.MissionIndex); profile.Gold += earned; paid = true; }
@@ -62,9 +65,9 @@ namespace TW.UI
                 CampaignSession.Awarded = true; CampaignSession.LastAward = earned; CampaignSession.AwardedFor = report;
                 ProfileStore.Save(profile);
             }
-            else if (won) { earned = CampaignSession.LastAward; paid = earned > 0 && ReferenceEquals(CampaignSession.AwardedFor, report); }   // only this match's debrief shows what it paid
+            else if (won && !tooled) { earned = CampaignSession.LastAward; paid = earned > 0 && ReferenceEquals(CampaignSession.AwardedFor, report); }   // only this match's debrief shows what it paid
             row?.EnableInClassList("tw-hidden", false);
-            SetText("gold-earned", !won ? (report.Winner < 0 ? NoGoldForADraw : NoGoldForADefeat) : paid ? "GOLD " + earned.ToString("+#;-#;0") : NoGoldAgain);
+            SetText("gold-earned", !won ? (report.Winner < 0 ? NoGoldForADraw : NoGoldForADefeat) : tooled ? NoGoldAfterTools : paid ? "GOLD " + earned.ToString("+#;-#;0") : NoGoldAgain);
             SetText("gold-total", "WAR CHEST " + profile.Gold + " GOLD");
             var cont = Root.Q<Button>("btn-continue");
             if (cont != null) cont.text = ToTheMap;

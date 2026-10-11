@@ -16,6 +16,9 @@
 // Placing writes the world directly (SimHost.WriteWorlds: every world the match has, aligned to one tick), as the Unit
 // Sandbox and TankCapture do; a replay of such a match does not verify, which a test level does not need. Deploying
 // and support fire are commands and replay like any others.
+// The first write into the worlds (and every deploy and enemy support) marks the match as tooled (Tooled): the
+// debrief pays no gold for a win of such a match. The mark lives with the running match and is gone with it
+// (SceneStatics, per scene load).
 using System;
 using System.Collections.Generic;
 using Unity.Mathematics;
@@ -304,6 +307,27 @@ namespace TW.Presentation
 
         public static ProvingGround For(SimHost h) => new ProvingGround(h.WriteWorlds, () => h.EnemyView, () => h.EnemySeat, () => h.LocalDriver);
 
+        /// <summary>True once the panel has written into this match's worlds (or deployed, or called their support):
+        /// the debrief pays no gold for a win of a tooled match. Dies with the match (SceneStatics).</summary>
+        public static bool Tooled { get; private set; }
+
+        /// <summary>The match is over (a scene load, or a Play session ending): no match is tooled.</summary>
+        public static void Forget() => Tooled = false;
+
+        static ProvingGround()
+        {
+            SceneStatics.Register(nameof(ProvingGround), Forget);        // a Play session ending (and the tests read this list by name)
+            SceneStatics.RegisterPerScene(nameof(ProvingGround), Forget);// every scene load: quit to menu, restart, a new match
+        }
+
+        /// <summary>Write the worlds and mark the match as tooled. A write that failed wrote nothing: no mark.</summary>
+        bool Write(Action<MatchSim> apply)
+        {
+            bool ok = write(apply);
+            if (ok) Tooled = true;
+            return ok;
+        }
+
         public const float LayAheadMetres = 18f;
         public const int TripwireMetres = 8;
 
@@ -359,7 +383,7 @@ namespace TW.Presentation
         public int Spawn(int team, byte archetype, int count)
         {
             int placed = 0;
-            bool ok = write(m => placed = Place(m, team, archetype, count));
+            bool ok = Write(m => placed = Place(m, team, archetype, count));
             string name = UnitLook.Name(archetype).ToUpperInvariant();
             Last = !ok ? "THE WORLDS ARE A TICK APART: TRY AGAIN"
                 : placed == count ? $"{placed} {name} FOR {(team == 0 ? "US" : "THEM")}"
@@ -369,7 +393,7 @@ namespace TW.Presentation
 
         public void GiveSilver(int team, int amount)
         {
-            write(m => { if (team >= 0 && team < m.World.Silver.Length) m.World.Silver[team] += amount; });
+            Write(m => { if (team >= 0 && team < m.World.Silver.Length) m.World.Silver[team] += amount; });
             Last = $"{amount} SILVER FOR {(team == 0 ? "US" : "THEM")}";
         }
 
@@ -385,7 +409,7 @@ namespace TW.Presentation
         int PlaceWave(Wave wave)
         {
             int placed = 0, asked = wave.Units;
-            bool ok = write(m => { foreach (var s in wave.Squads) placed += Place(m, 1, s.Archetype, s.Count); });
+            bool ok = Write(m => { foreach (var s in wave.Squads) placed += Place(m, 1, s.Archetype, s.Count); });
             Last = !ok ? "THE WORLDS ARE A TICK APART: TRY AGAIN"
                 : placed == asked ? $"{wave.Name}: {placed} PLACED" : $"{wave.Name}: {placed} OF {asked} PLACED, THE FIELD IS FULL";
             return placed;
@@ -414,7 +438,8 @@ namespace TW.Presentation
                 owed.Add(new Owed { Slot = slot, Count = s.Count });
                 queued += s.Count; cost += s.Count * w.Roster[RosterEntry.SlotCount + slot].Cost;
             }
-            if (cost > 0) write(m => m.World.Silver[1] += cost);   // the wave is the tester's, not the enemy's purse's
+            if (cost > 0) Write(m => m.World.Silver[1] += cost);   // the wave is the tester's, not the enemy's purse's
+            else if (queued > 0) Tooled = true;                    // a free deploy is still the panel writing into the match
             Last = missing.Count == 0 ? $"{wave.Name}: {queued} GO UP THROUGH THEIR SLOTS"
                 : $"{wave.Name}: {queued} THROUGH THEIR SLOTS; NOT IN THEIR TEN: {string.Join(", ", missing)}";
             return queued;
@@ -497,7 +522,8 @@ namespace TW.Presentation
             if (n > 0) at = sum / n;
             if (ability == OffMapAbilityId.ChlorineGas || ability == OffMapAbilityId.MustardGas) at.z += 12f;   // upwind, as the scripted enemy does
             int cost = stats.Cost;
-            write(m => m.World.Silver[1] += cost);
+            Write(m => m.World.Silver[1] += cost);
+            Tooled = true;   // their support is the panel's, whether or not the silver moved
             seat.Issue(new SimCommand { Tick = w.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)ability, Pos = new float3(at.x, 0f, at.z) });
             Last = $"THEIR {ability.ToString().ToUpperInvariant()} ON {(n > 0 ? "YOUR FRONT TRENCH" : "YOUR RALLY POINT")}";
             return true;
@@ -507,7 +533,7 @@ namespace TW.Presentation
         public int Clear(int team)
         {
             int n = 0;
-            write(m =>
+            Write(m =>
             {
                 var w = m.World; int c = 0;
                 for (int i = 0; i < w.HighWater; i++) if (w.IsAlive(i) && w.Team[i] == team) { w.Despawn(i); c++; }
