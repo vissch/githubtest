@@ -263,6 +263,7 @@ namespace TW.Presentation.Tactical
             for (int k = wrecks.Count - 1; k >= 0; k--) if (wrecks[k].Husk) { foreach (var p in wrecks[k].Pieces) debris.Remove(p); wrecks.RemoveAt(k); }
             shards.Clear();
             var props = match.Map.Props;
+            int adopted = 0;
             for (int i = 0; i < props.Length; i++)
             {
                 var prop = props[i];
@@ -297,10 +298,15 @@ namespace TW.Presentation.Tactical
                 if (stage >= WreckStageRules.Broken) { v.Hidden = WreckStageRules.Hidden(CarcassOf(model, 0), stage, 1f); for (int p = 1; p < v.Off.Length; p++) v.Off[p] = true; }
                 if (stage == WreckStageRules.Scrap) v.Squash = WreckStageRules.ScrapHeight;
                 wrecks.Add(v);
+                adopted++;
             }
-            // the composer still has its grey stand-in for each of these props: ask it to compose again now the husk is
-            // drawn, as Drop does, or both are drawn until the prop's first change (review 2, N7.2)
-            foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb.GetType().Name == "BattlefieldProps") mb.SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
+            // the composer still has its grey stand-in for each of these props: ask it to compose again now the husks are
+            // drawn, or both are drawn until the prop's first change (review 2, N7.2). The ask is only a flag
+            // (BattlefieldProps.Recompose sets dirty, Presentation/Terrain/BattlefieldProps.cs:188): the next Update
+            // claims HeavyWork and composes the map over several frames (:404-427), so the stand-ins go then, not in
+            // this frame. Only ask when a husk was adopted: a whole-map composition is not free (review 2b, N7.c).
+            if (adopted > 0)
+                foreach (var mb in FindObjectsByType<MonoBehaviour>(FindObjectsSortMode.None)) if (mb.GetType().Name == "BattlefieldProps") mb.SendMessage("Recompose", SendMessageOptions.DontRequireReceiver);
         }
     }
 }

@@ -16,7 +16,8 @@
 // Placing writes the world directly (SimHost.WriteWorlds: every world the match has, aligned to one tick), as the Unit
 // Sandbox and TankCapture do; a replay of such a match does not verify, which a test level does not need. Deploying
 // and support fire are commands and replay like any others.
-// The first write into the worlds (and every deploy and enemy support) marks the match as tooled (Tooled): the
+// The first write into the worlds marks the match as tooled (Tooled), and so does a deploy that queued squads or
+// enemy support that was ordered (a deploy whose silver write was refused queues nothing and marks nothing): the
 // debrief pays no gold for a win of such a match. The mark lives with the running match and is gone with it
 // (SceneStatics, per scene load).
 using System;
