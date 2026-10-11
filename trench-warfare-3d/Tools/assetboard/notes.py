@@ -31,6 +31,8 @@ import re
 import secrets
 import sys
 import threading
+import time
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
@@ -94,10 +96,30 @@ def write(where: Path, text, kind='page', about='', title='', lane='', asset='',
                 page=line(page), then=line(then, 16), sent=line(sent, 64), state='open')
     note['from'] = line(who, 40) or 'owner'
     head = ''.join(f'{k}: {note[k]}\n' for k in FIELDS if note.get(k))
-    tmp = where / f'{nid}.md.tmp'
-    tmp.write_text(f'---\n{head}---\n{text}\n', encoding='utf-8')
-    tmp.replace(where / f'{nid}.md')
+    write_whole(where / f'{nid}.md', f'---\n{head}---\n{text}\n')
     return dict(note, text=text, answers=[])
+
+
+
+def write_whole(path: Path, text):
+    """Write `path` whole or not at all: a temp file of this writer's own beside it, then a rename over it. On Windows
+    the rename raises PermissionError while any reader holds the file (the page reads notes while it writes them), so
+    try again for about a second; still held, remove the temp and raise ValueError, nothing written (N10.4b)."""
+    tmp = path.with_name(f'{path.name}.{os.getpid()}.{uuid.uuid4().hex[:6]}.tmp')
+    tmp.write_text(text, encoding='utf-8')
+    for left in range(9, -1, -1):
+        try:
+            tmp.replace(path)
+            return path
+        except PermissionError:
+            if not left:
+                break
+            time.sleep(0.1)
+    try:
+        tmp.unlink()
+    except OSError:
+        pass
+    raise ValueError(f'{path.name}: another program holds the file; nothing was written')
 
 
 def parse(raw, name=''):
@@ -137,9 +159,8 @@ def answer(where: Path, nid, text, by='', now=None):
     f = where / f'{hits[0]["id"]}.md'
     raw = f.read_text(encoding='utf-8').replace('\r\n', '\n')
     raw = re.sub(r'^state: .*$', 'state: done', raw, count=1, flags=re.M)
-    tmp = where / f'{hits[0]["id"]}.md.tmp'          # whole or not at all: a cut answer is his word gone (N10.4)
-    tmp.write_text(raw.rstrip('\n') + f'\n\n## Answer ({now:%Y-%m-%d %H:%M}{", " + line(by, 80) if by else ""})\n{str(text).strip()}\n', encoding='utf-8')
-    tmp.replace(f)
+    # whole or not at all: a cut answer is his word gone (N10.4)
+    write_whole(f, raw.rstrip('\n') + f'\n\n## Answer ({now:%Y-%m-%d %H:%M}{", " + line(by, 80) if by else ""})\n{str(text).strip()}\n')
     return parse(f.read_text(encoding='utf-8'), f.stem)
 
 
