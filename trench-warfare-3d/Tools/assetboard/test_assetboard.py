@@ -1671,9 +1671,14 @@ def decisions():
         return notes.write(box, f'{key}: {o["text"]}' + (f'\n{more}' if more else ''), about='brief:' + q['id'], now=day + datetime.timedelta(seconds=sec),
                            **dict(dict(kind='page', then=(then_of(q)[key] or {}).get('stamp', '')), **kw))
 
+    qboard = tmp / 'take-board'                 # a brief closes as queued only with the unit on the relay's queue
+    (qboard / 'relay' / 'queue').mkdir(parents=True)
+    for n in range(1, 10):
+        (qboard / 'relay' / 'queue' / f'unit-{n}.json').write_text(json.dumps(unit_of(n)), encoding='utf-8')
+
     def took(q, **kw):                          # the answer a brief is closed with, or why it was not closed
         try:
-            return briefs.take(where, box, q['id'], by='master', now=day, **kw)[0]['answer']
+            return briefs.take(where, box, q['id'], by='master', now=day, **dict(dict(board=qboard), **kw))[0]['answer']
         except ValueError as e:
             return dict(refused=str(e))
 

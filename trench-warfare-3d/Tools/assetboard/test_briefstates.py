@@ -6,6 +6,7 @@ python Tools/assetboard/test_briefstates.py
 His answer on the Decide page is the decision, so a brief that is shown as decided when nobody was told, closed as
 queued when nothing was queued, or lost to a write cut half way, is his word dropped.
 """
+import inspect
 import json
 import os
 import pathlib
@@ -28,6 +29,7 @@ for _k in ('TW_NOTES', 'TW_BRIEFS', 'TW_ASSETBOARD_OUT'):
 import sys
 sys.path.insert(0, str(HERE))
 import briefs      # noqa: E402  (after TW_BRIEFS: it must never see the live folder)
+import notes       # noqa: E402  (after TW_NOTES, for the same reason)
 
 
 def a_brief(where, title='The gas ability', bid=''):
@@ -196,6 +198,115 @@ class ThePage(unittest.TestCase):
         self.assertEqual((got.get('said') or {}).get('id'), 'n-2',
                          '[N10.1] an open note about the brief is no longer taken as his answer')
         self.assertIn('You decided', got['card'], '[N10.1] the card no longer says what he decided')
+
+
+class Taking(unittest.TestCase):
+    """[N10.3] take closed a brief as "Queued as <unit>" on say-so, with nothing looking at the relay's queue, and
+    [N10.13] it closed the brief before it answered his notes, so a failure between the two left them open for good."""
+
+    def setUp(self):
+        self.where = Path(tempfile.mkdtemp(prefix='briefs-', dir=TEMP))
+        self.box = Path(tempfile.mkdtemp(prefix='notes-', dir=TEMP))
+        self.board = Path(tempfile.mkdtemp(prefix='board-', dir=TEMP))
+        (self.board / 'relay' / 'queue').mkdir(parents=True)
+        (self.board / 'relay' / 'done').mkdir(parents=True)
+        self.unit = dict(id='unit-cover', lane='lane/sim/cover', goal='Men behind a building take less damage.',
+                         done_when=['python', 'Tools/otr.py', 'CoverTests'])
+        self.brief = a_brief(self.where, 'Do houses give cover')
+        briefs.then(self.where, notes.read_all(self.box), self.brief['id'], 'A',
+                    'Queues a sim lane: men behind a building take less damage', self.unit)
+        self.note = self.click('A')
+
+    def click(self, key):
+        """What the page leaves on a click: the option's text, and the stamp the Then line has now."""
+        b = [x for x in briefs.read_all(self.where) if x['id'] == self.brief['id']][0]
+        o = [x for x in b['options'] if x['key'] == key][0]
+        return notes.write(self.box, '%s: %s' % (key, o['text']), kind='page', about='brief:' + b['id'],
+                           then=(o.get('then') or {}).get('stamp', ''))
+
+    def state(self):
+        return [x for x in briefs.read_all(self.where) if x['id'] == self.brief['id']][0]
+
+    def take(self, **kw):
+        """take, with its refusal as a string. Named so a run on the old code says the id, not a TypeError."""
+        for need in ('board', 'unchecked'):
+            if need not in inspect.signature(briefs.take).parameters:
+                self.fail('[N10.3] take has no %s: it closes a brief as queued without looking at the board\'s '
+                          'relay queue' % need)
+        try:
+            return briefs.take(self.where, self.box, self.brief['id'], by='master', note=self.note['id'], **kw), ''
+        except ValueError as e:
+            return None, str(e)
+
+    def test_a_unit_that_is_not_on_the_queue_is_no_queued_answer(self):
+        # [N10.3] his yes is not taken up as "Queued as unit-cover" while the relay's queue is empty
+        got, why = self.take(board=self.board)
+        self.assertIsNone(got, '[N10.3] the brief closed as queued with nothing on the relay\'s queue')
+        self.assertIn('unit-cover', why, '[N10.3] the refusal does not name the unit nobody queued: %s' % why)
+        self.assertIn('--out', why, '[N10.3] the refusal does not name the command that queues it: %s' % why)
+        self.assertIn('--unchecked', why, '[N10.3] the refusal does not name --unchecked: %s' % why)
+        self.assertEqual(self.state().get('state'), 'open',
+                         '[N10.3] the brief is closed although nothing was queued')
+        self.assertNotEqual(notes.read_all(self.box)[0].get('state'), 'done',
+                            '[N10.3] his note is answered although nothing was queued')
+
+    def test_no_board_at_all_is_the_same_refusal(self):
+        # [N10.3] a board folder that is not there is no proof either
+        got, why = self.take(board=self.board / 'not-there')
+        self.assertIsNone(got, '[N10.3] the brief closed as queued with no board to read')
+        self.assertEqual(self.state().get('state'), 'open', '[N10.3] the brief is closed with no board to read')
+
+    def test_the_unit_on_the_queue_closes_the_brief(self):
+        # [N10.3] the fix must not refuse the real case: the unit stands on the relay's queue, so it closes
+        (self.board / 'relay' / 'queue' / 'unit-cover.json').write_text(json.dumps(self.unit), encoding='utf-8')
+        got, why = self.take(board=self.board)
+        self.assertEqual(why, '', '[N10.3] a unit standing on the relay\'s queue was refused: %s' % why)
+        self.assertEqual((self.state().get('answer') or {}).get('queued'), 'unit-cover',
+                         '[N10.3] the brief did not close with the unit that was queued')
+        self.assertEqual([n.get('state') for n in notes.read_all(self.box)], ['done'],
+                         '[N10.3] his note about the closed brief is left open')
+
+    def test_a_unit_in_the_done_folder_counts_too(self):
+        # [N10.3] a unit the runner has finished is queued work all the same
+        (self.board / 'relay' / 'done' / 'unit-cover.json').write_text(json.dumps(dict(id='unit-cover')), encoding='utf-8')
+        got, why = self.take(board=self.board)
+        self.assertEqual(why, '', '[N10.3] a unit in the relay\'s done folder was refused: %s' % why)
+
+    def test_unchecked_closes_it_and_says_so(self):
+        # [N10.3] the board cannot always be read; then the answer must say that nobody looked
+        got, why = self.take(board=None, unchecked='G: is not mounted on this station')
+        self.assertEqual(why, '', '[N10.3] --unchecked did not close the brief: %s' % why)
+        a = (self.state().get('answer') or {})
+        self.assertEqual(a.get('unchecked'), 'G: is not mounted on this station',
+                         '[N10.3] the answer does not say the board was not read: %s' % a)
+        text = notes.read_all(self.box)[0]['answers'][-1]['text']
+        self.assertIn('not mounted', text,
+                      '[N10.3] what his note is answered with does not say the board was not read: %s' % text)
+
+    def test_take_finishes_what_an_earlier_take_left(self):
+        # [N10.13] a crash between closing the brief and answering his notes left them open for ever
+        briefs.answer(self.where, self.brief['id'], 'A', said='', by='master', queued='unit-cover')
+        self.assertNotEqual(notes.read_all(self.box)[0].get('state'), 'done',
+                            'the note read for was answered already')
+        kw = dict(board=self.board) if 'board' in inspect.signature(briefs.take).parameters else {}
+        try:
+            got = briefs.take(self.where, self.box, self.brief['id'], by='master', note=self.note['id'], **kw)
+        except Exception as e:
+            self.fail('[N10.13] take cannot finish what an earlier take left: %s: %s' % (type(e).__name__, e))
+        got_b, got_n = got
+        self.assertEqual(got_b['id'], self.brief['id'], '[N10.13] take gave back another brief')
+        self.assertEqual([n.get('state') for n in notes.read_all(self.box)], ['done'],
+                         '[N10.13] his note is left open for good after a take that stopped half way')
+        self.assertIn('unit-cover', notes.read_all(self.box)[0]['answers'][-1]['text'],
+                      '[N10.13] the note is not answered with what became of the brief')
+
+    def test_a_closed_brief_with_no_open_note_is_still_refused(self):
+        # [N10.13] finishing a left-over take is not a second close
+        (self.board / 'relay' / 'queue' / 'unit-cover.json').write_text(json.dumps(self.unit), encoding='utf-8')
+        self.take(board=self.board)
+        got, why = self.take(board=self.board)
+        self.assertIsNone(got, '[N10.13] a brief that is closed with his notes answered was taken a second time')
+        self.assertTrue(why, '[N10.13] a second take says nothing')
 
 
 if __name__ == '__main__':

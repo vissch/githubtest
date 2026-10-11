@@ -263,6 +263,16 @@ def check_then(says, unit=None):
     return bad
 
 
+def queued_on(board, uid):
+    """Whether the unit `uid` stands on the relay's queue of the board, or in its done folder:
+    `<board>/relay/queue/<id>.json` or `<board>/relay/done/<id>.json` (the layout of Tools/relay/sources/lane.py,
+    where a queue file's name is the unit's id). Reads only: it writes nothing and makes no folder."""
+    if not board or not one(uid):
+        return False
+    root = Path(board) / 'relay'
+    return any((root / d / (one(uid) + '.json')).is_file() for d in ('queue', 'done'))
+
+
 def find(where: Path, bid):
     """The one brief called `bid`: its id, or the end of it."""
     hits = [b for b in read_all(where) if b['id'] == bid or b['id'].endswith(bid)]
@@ -297,9 +307,10 @@ def then(where: Path, notes, bid, option, says, unit=None):
     return b
 
 
-def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcome=''):
+def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcome='', unchecked=''):
     """The owner decided: close the brief with the option he took and his words, and with what became of it when that
-    is known (`queued`: the unit on the relay's queue; `outcome`: in words, when nothing was queued). Returns the brief."""
+    is known (`queued`: the unit on the relay's queue; `outcome`: in words, when nothing was queued; `unchecked`: why the
+    board could not be read, when nobody could see the unit standing on the queue). Returns the brief."""
     hits = [b for b in read_all(where) if b['id'] == bid or b['id'].endswith(bid)]
     if len(hits) != 1:
         raise ValueError(f'{len(hits)} briefs are called {bid}')
@@ -314,7 +325,7 @@ def answer(where: Path, bid, option, said='', by='', now=None, queued='', outcom
         raise ValueError('an answer that is none of the options needs his words')
     now = now or datetime.datetime.now()
     b.update(state='answered', answer=dict(option=option, said=one(said), by=one(by), when=f'{now:%Y-%m-%d %H:%M}'))
-    b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome)) if one(v)})
+    b['answer'].update({k: one(v) for k, v in (('queued', queued), ('outcome', outcome), ('unchecked', unchecked)) if one(v)})
     put(where / b['id'], b)
     return b
 
@@ -398,15 +409,50 @@ def unit(where: Path, notes, bid, note):
     return a['unit']
 
 
-def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='', outcome='', option=''):
+def became_of(a):
+    """What became of a brief, as the line his notes are answered with: the `answer` record of a closed brief."""
+    return f'Queued as {one(a.get("queued"))}.' if one(a.get('queued')) else one(a.get('outcome', '')).rstrip('.') + '.'
+
+
+def told(a, took=''):
+    """The words an open note of his about a closed brief is answered with."""
+    took = took or a.get('option', '')
+    said = f'Taken up: the brief is closed with {took}{" (your own words)" if took == "other" else ""}. {became_of(a)}'
+    return said + (f' Nobody could read the board: {one(a["unchecked"])}' if one(a.get('unchecked')) else '')
+
+
+def left_over(where: Path, notes_where: Path, bid, by='', now=None):
+    """An earlier take that closed a brief and did not get to his notes, finished: (the brief, his last note) when
+    the brief is closed and open notes of his about it are left, else None. A second take is refused, so without this
+    those notes stay open for good (N10.13)."""
+    import notes
+    hits = [x for x in read_all(where) if x['id'] == bid or x['id'].endswith(bid)]
+    if len(hits) != 1 or hits[0].get('state') != 'answered':
+        return None
+    b = hits[0]
+    his = [m for m in notes.read_all(notes_where) if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done']
+    if not his:
+        return None
+    for m in his:
+        notes.answer(notes_where, m['id'], told(b.get('answer') or {}), by=by or (b.get('answer') or {}).get('by', ''), now=now)
+    return b, his[-1]
+
+
+def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='', outcome='', option='', board=None, unchecked=''):
     """Take the owner's answer up in one step: close the brief with what his notes say and with what became of it, and
     answer every open note of his about it. A brief somebody has already taken is refused, so two sessions do not both
     act on one answer; so is one he has answered again since `note`, the note the session read. What became of it:
     `queued` (the unit on the relay's queue) or `outcome` (in words, when nothing was queued). An answer that is a yes
     to a Then line carries it already; any other answer needs one of the two, so no brief closes without saying.
-    `option` overrules the option read from his notes, for an answer whose option his notes do not settle.
-    Write the row in decisions.md first. Returns (the brief, his note)."""
+    `option` overrules the option read from his notes, for an answer whose option his notes do not settle. A brief
+    that closes with a unit closes only when that unit stands on the relay's queue of `board`: a yes of his taken up
+    without the work being queued is his word dropped. `unchecked` says why nobody could read the board, and is said
+    in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
+    his notes is finished instead of refused. Write the row in decisions.md first. Returns (the brief, his note)."""
     import notes
+    done_before = left_over(where, notes_where, bid, by, now)
+    if done_before:
+        return done_before
     a = one_answer(where, notes.read_all(notes_where), bid, note)
     if one(queued) and one(outcome):
         raise ValueError('what became of it is a unit that was queued or words, not both')
@@ -416,13 +462,17 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
     if one(option) and a['go'] != 'write':
         raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
+    if one(queued) and not one(unchecked) and not queued_on(board, queued):
+        raise ValueError(f'{a["id"]}: nothing is queued as {one(queued)}: the board {board or "(none named)"} has no '
+                         f'relay/queue/{one(queued)}.json and no relay/done/{one(queued)}.json. Queue it first: '
+                         f'python Tools/assetboard/briefs.py unit {a["id"]} --note {a["note"]} --out <board>/relay/queue/{one(queued)}.json, '
+                         f'then commit the board; or say with --unchecked "why" that the board could not be read')
     took = one(option) or a['option']
-    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome)
-    became = f'Queued as {one(queued)}.' if one(queued) else one(outcome).rstrip('.') + '.'
+    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome, unchecked=unchecked)
     n = [m for m in notes.read_all(notes_where) if m['id'] == a['note']][0]
     for m in notes.read_all(notes_where):
         if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done':
-            notes.answer(notes_where, m['id'], f'Taken up: the brief is closed with {took}{" (your own words)" if took == "other" else ""}. {became}', by=by, now=now)
+            notes.answer(notes_where, m['id'], told(b['answer'], took), by=by, now=now)
     return b, n
 
 
@@ -685,7 +735,8 @@ def main(argv=None):
     ap.add_argument('--outcome', default='', help='take: what became of it in words, when nothing was queued')
     ap.add_argument('--out', default='', help='unit: the file the unit is written to')
     ap.add_argument('--json', action='store_true', help='waiting: as JSON')
-    ap.add_argument('--board', default='', help='steps: the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout)')
+    ap.add_argument('--board', default='', help='steps, take: the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout); take reads its relay queue only')
+    ap.add_argument('--unchecked', default='', help='take: why the board could not be read, when nobody could see the unit standing on the relay\'s queue. It is said in the answer')
     ap.add_argument('--dry-run', action='store_true', help='steps: write nothing, say what would be written')
     ap.add_argument('--why', default='', help='why the first option')
     ap.add_argument('--evidence', action='append', default=[], help='PATH=what it shows; a picture or a short film')
@@ -743,11 +794,15 @@ def main(argv=None):
                 print(text, end='')
         elif a.what == 'take':
             if len(a.args) != 1:
-                raise ValueError('take ID --note NOTE [--by your-branch] [--queued UNIT | --outcome "words"]')
+                raise ValueError('take ID --note NOTE [--by your-branch] [--queued UNIT | --outcome "words"] [--board DIR] [--unchecked "why the board could not be read"]')
             import notes
-            b, n = take(where, notes.folder(), a.args[0], a.by, note=a.note, queued=a.queued, outcome=a.outcome, option=a.option[0] if len(a.option) == 1 else '')
+            import ops
+            board = Path(a.board) if a.board else ops.board_root()
+            b, n = take(where, notes.folder(), a.args[0], a.by, note=a.note, queued=a.queued, outcome=a.outcome, option=a.option[0] if len(a.option) == 1 else '',
+                        board=board, unchecked=a.unchecked)
             w = b['answer']
-            print(f'briefs: {b["id"]} is closed with {w["option"]} ({"queued as " + w["queued"] if w.get("queued") else w.get("outcome", "")}), and his notes about it are answered')
+            print(f'briefs: {b["id"]} is closed with {w["option"]} ({"queued as " + w["queued"] if w.get("queued") else w.get("outcome", "")}), and his notes about it are answered'
+                  + (f'. Nobody read the board: {w["unchecked"]}' if w.get('unchecked') else ''))
         elif a.what == 'concepts':
             b = concepts(where, a.title, a.what_for, [(e.rsplit('=', 1) + [''])[:2] for e in a.concept], a.why, a.about, a.lane, a.by)
             print(f'briefs: {b["id"]} is written with {len(b["evidence"])} concepts to pick from, in {where}')
