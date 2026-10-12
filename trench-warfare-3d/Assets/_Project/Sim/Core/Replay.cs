@@ -138,7 +138,10 @@ namespace TW.Sim
         // it, so a slot let again in the same step no longer shrinks the wreck. Layout and chain unchanged.
         // v45 (2026-10-09, [N5.1]): a crab's leap no longer crushes a man caught under its flight: VehicleKinematics'
         // crush check now skips a hull with UnitFlags.Pouncing set. Behaviour only, no layout change.
-        public const ushort FormatVersion = 45;
+        // v46 (2026-10-12, [N5.3b]): smoke no longer stops fire at a wreck (the owner's answer): DirectFireSystem's
+        // AtWreck dropped its SmokeBlindMetres test, so a gun fires at a wreck through a screen again and the men in
+        // its shadow are kept down. Behaviour only, no layout change, hash chain unchanged.
+        public const ushort FormatVersion = 46;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

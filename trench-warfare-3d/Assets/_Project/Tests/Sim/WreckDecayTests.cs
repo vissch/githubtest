@@ -576,9 +576,9 @@ namespace TW.Tests
         }
 
         [Test]
-        // [N5.3] the only sight test was the heightfield to the wreck's top: smoke on the line was not read, so a gun
-        // kept blind-firing at a wreck through a screen that hides it (TargetAcquisition.Sees does read it).
-        public void ABlindingScreenOnTheLineStopsTheFireAtTheWreck()
+        // [N5.3b] the owner's rule (2026-10-12): fire at a wreck is fire at a place, not at a man who must be seen,
+        // so a thick screen on the gun -> wreck line neither stops the shot nor spares the men in its shadow.
+        public void ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck()
         {
             using var m = NewMatch(silver: 100000);
             var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
@@ -590,14 +590,17 @@ namespace TW.Tests
             int warm = 0;
             while (m.Gas.SmokeAt(mid) <= SmokeLos.Thick && warm < 300) { Step(m); warm++; }
             Assert.Less(warm, 300, "a thick screen stands on the gun -> wreck line");
-            int shots = 0;
+            int shots = 0; float suppressed = 0f;
             for (int t = 0; t < 60; t++)
             {
                 Step(m);
                 var ev = m.World.Events.Events;
                 for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.Shot && ev[i].A == gun && PropTarget.IsProp(ev[i].B)) shots++;
+                foreach (int u in men) suppressed = math.max(suppressed, m.World.Suppression[u]);
             }
-            Assert.AreEqual(0, shots, "[N5.3] he fired at the wreck through a blinding screen");
+            Assert.Greater(shots, 0, "[N5.3b] a blinding screen stopped his fire at the wreck");
+            // one round's keep-down through the screen: SuppressionPerShot 9 x 0.6 x SmokeSuppression 0.5 = 2.7
+            Assert.Greater(suppressed, 2f, "[N5.3b] the men in the wreck's shadow were not kept down through the screen");
         }
 
         [Test]
