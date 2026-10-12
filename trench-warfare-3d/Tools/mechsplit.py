@@ -552,7 +552,8 @@ for k in (1, 2):
         scale = t0 / heavy
     P = {}
     for n in PARTS:
-        have = tris_of(P0[n]); want = max(int(have * ratio), min(have, floor))
+        have = tris_of(P0[n]); r = ratio * (wt.get(n, 1.0) * scale if wt else 1.0)
+        want = max(int(have * r), min(have, floor))
         # TW_PIECE_TRIS: a part of many small loose pieces keeps this many triangles a piece (the Salvo's sixteen rocket
         # tubes, 22 each, went to spikes at 4); 0 (the default) derives as before
         want = max(want, min(have, len(islands(P0[n])) * int(os.environ.get("TW_PIECE_TRIS", "0"))))
@@ -561,8 +562,7 @@ for k in (1, 2):
         for item in filter(None, os.environ.get("TW_KEEP", "").split(",")):
             part, share = item.split(":")
             if part == n: want = max(want, int(have * float(share)))
-        have = tris_of(P0[n]); r = ratio * (wt.get(n, 1.0) * scale if wt else 1.0)
-        want = min(have, max(int(have * r), min(have, floor)))
+        want = min(have, want)      # a floor may put the part, and the total, over budget: docs/22
         P[n] = decimated(P0[n], want / max(1, have))
     lods.append(P); mats.append(mat0); bases.append(base0)
     print("LOD%d: derived from LOD0, %d tris (budget %d)" % (k, sum(tris_of(b) for b in P.values()), budget[k]))
