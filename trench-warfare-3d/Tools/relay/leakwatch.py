@@ -119,6 +119,18 @@ def read_runs(home, names=None, since=None):
     return {run: [m for m in (measure(d) for d in sorted((root / run / "legs").iterdir())) if m] for run in runs}
 
 
+def write_flags(home, got, r):
+    """Keep flags.json beside each run read (runs/<run>/flags.json): its flags and every leg's figures. Returns the
+    flags."""
+    found = []
+    for run, ms in got.items():
+        mine = [f for m in ms for f in flags(m, r)]
+        (Path(home) / "runs" / run / "flags.json").write_text(json.dumps({"run": run, "flags": mine, "legs": ms}, indent=1),
+                                                              encoding="utf-8")
+        found += mine
+    return found
+
+
 def med(xs):
     xs = sorted(x for x in xs if x is not None)
     return xs[len(xs) // 2] if xs else None
@@ -151,9 +163,7 @@ def main(argv=None):
     legs = [m for ms in got.values() for m in ms]
     found = [f for m in legs for f in flags(m, r)]
     if a.write:
-        for run, ms in got.items():
-            (home / "runs" / run / "flags.json").write_text(json.dumps(
-                {"run": run, "flags": [f for m in ms for f in flags(m, r)], "legs": ms}, indent=1), encoding="utf-8")
+        write_flags(home, got, r)
     if a.json:
         print(json.dumps({"summary": summary(legs), "flags": found}, indent=1))
         return 0
