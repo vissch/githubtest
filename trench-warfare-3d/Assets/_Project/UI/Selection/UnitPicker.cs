@@ -1,14 +1,24 @@
-// Phase: B6 (implemented) — where every living unit is on the screen this frame, for the click, the drag box, the
+// Phase: B6 (implemented) - where every living unit is on the screen this frame, for the click, the drag box, the
 // double-click and the hover label. Each unit is projected from where it is DRAWN (the presenter's interpolated
 // position, laid on the drawn ground, at the height of its body), with a pick radius from its drawn size: men grow
 // with the zoom exactly as VATRenderer draws them, vehicles by their footprint. The hit tests are static functions
 // over plain structs, so the rules are tested without a camera.
-// AOSA C67 (2026-09-26): with knob hud.selectionFast on (the default), Build reads the near plane once and projects with
-// the camera's world-to-clip matrix taken once per frame (Project, the engine's own CameraProject arithmetic) instead
-// of one Camera.WorldToScreenPoint call per man, which rebuilt that matrix and the viewport rect 3,000 times a frame.
-// Screen positions only feed the hit tests (nothing is drawn from them); they agree with the engine's to float
-// rounding (SelectionTests.ProjectMatchesTheEngine). hud.selectionFast=0 is the exact old loop.
+// AOSA C67 (2026-09-26): Build reads the near plane once and projects with the camera's world-to-clip matrix taken
+// once per frame (Project, the engine's own CameraProject arithmetic) instead of one Camera.WorldToScreenPoint call
+// per man, which rebuilt that matrix and the viewport rect 3,000 times a frame. Screen positions only feed the hit
+// tests (nothing is drawn from them); they agree with the engine's to float rounding
+// (SelectionTests.ProjectMatchesTheEngine).
+// Z016.1 (2026-10-12): Build is a Burst job over SimPresenter.Poses - already alive-only and interpolated this frame,
+// so the managed loop over every slot, its second interpolation and its second height sample are gone - writing a
+// NativeList<ScreenUnit> every reader takes. The drawn height is RenderGround.DrawnY, the renderer's own formula, so
+// a climbing or lifted man is picked where his body is drawn, not on the trench floor. Knob hud.selectionFast no
+// longer touches the projection (there is one path now); it still skips filling the handle index while nothing is
+// selected (SelectionController).
 using System.Collections.Generic;
+using Unity.Burst;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 using TW.Presentation;
 using TW.Sim;
@@ -28,71 +38,127 @@ namespace TW.UI
         public UnitHandle Handle => new UnitHandle(Slot, Gen);
     }
 
-    public sealed class UnitPicker
+    public sealed class UnitPicker : System.IDisposable
     {
         // as VATRenderer draws a man (FigureMetrics is the one definition both read)
         public const float FigureScale = FigureMetrics.UnitScale, GrowFromZoom = FigureMetrics.GrowFromZoom, MaxGrow = FigureMetrics.MaxGrow;
         public const float ManRadiusM = 0.45f, ManBodyM = 0.9f, VehicleBodyM = 1.3f, MinPickPx = 10f, ClumpPx = 18f;
 
-        public readonly List<ScreenUnit> Units = new List<ScreenUnit>(1024);
+        /// <summary>Every living unit on the screen this frame, written by BuildJob (Persistent: Dispose with the owner).</summary>
+        public NativeList<ScreenUnit> Units = new NativeList<ScreenUnit>(1024, Allocator.Persistent);
         public int BuiltFrame { get; private set; } = -1;
-        /// <summary>C67: knob hud.selectionFast (read once by SelectionController): project with one matrix per frame.
-        /// False is the old loop, one WorldToScreenPoint and one nearClipPlane read per unit.</summary>
-        public bool FastProject;
+        /// <summary>Vehicle footprints where the sim has no kinematics system (a test world): VehicleProfile.ForArchetype
+        /// is a switch Burst cannot call, so it is baked once into a native table.</summary>
+        NativeArray<VehicleProfile> fallbackProfiles;
+        /// <summary>Stand-in for Lift and Hop when the controller is off: a job cannot be scheduled with an
+        /// unassigned container (VATRenderer.FillJob keeps the same kind of spare).</summary>
+        NativeArray<float> spare;
 
         public static float Grow(float zoom) => Mathf.Clamp(zoom / GrowFromZoom, 1f, MaxGrow);
 
         /// <summary>Project every living unit once per frame (a second call in the same frame is free).</summary>
-        public void Build(SimWorld w, SimPresenter p, MapData map, Camera cam, float zoom)
+        /// <param name="lift">AnimationController.Lift and Hop, per slot, with controlled saying the controller drives
+        /// the figures: without them a climbing or lifted man would be picked off his drawn body.</param>
+        public void Build(SimWorld w, SimPresenter p, MapData map, Camera cam, float zoom,
+                          NativeArray<float> lift = default, NativeArray<float> hop = default, bool controlled = false)
         {
             if (BuiltFrame == Time.frameCount) return;
             BuiltFrame = Time.frameCount;
             Units.Clear();
-            if (w == null || p == null || map == null || cam == null) return;
+            if (w == null || p == null || map == null || cam == null || p.PoseCount == 0) return;
+            if (Units.Capacity < p.PoseCount) Units.Capacity = p.PoseCount;
             float grow = Grow(zoom), man = FigureScale * grow;
             var kin = w.GetSystem<TW.Sim.Nav.VehicleKinematicsSystem>();
+            var profiles = kin != null && kin.Profiles.IsCreated ? kin.Profiles : FallbackProfiles();
             float pxPerRad = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
-            Vector3 camPos = cam.transform.position, fwd = cam.transform.forward;
-            bool fast = FastProject;
-            float near = fast ? cam.nearClipPlane : 0f;
-            Matrix4x4 toClip = fast ? cam.projectionMatrix * cam.worldToCameraMatrix : default;   // the engine's GetWorldToClipMatrix
-            Rect view = fast ? cam.pixelRect : default;
-            for (int i = 0; i < w.HighWater; i++)
+            bool useLift = controlled && lift.IsCreated && hop.IsCreated;
+            new BuildJob
             {
-                uint f = w.Flags[i];
-                if ((f & (uint)UnitFlags.Alive) == 0) continue;
-                bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
-                var d = p.Drawn(i);
-                float ground = RenderGround.Sample(map, d.x, d.z);
-                float radiusM, size;
-                Vector3 body;
-                if (vehicle)
+                Poses = p.Poses, PoseSlot = p.PoseSlot, PoseCount = p.PoseCount, Generation = w.Generation,
+                Height = map.Height, Ground = ReferenceEquals(RenderGround.Map, map) && RenderGround.Grid.Heights.IsCreated
+                                              ? RenderGround.Grid
+                                              : new RenderGroundGrid { Heights = Spare(), Width = 0, Length = 0, Step = 1f },
+                Lift = useLift ? lift : Spare(), Hop = useLift ? hop : Spare(), Controlled = useLift,
+                Profiles = profiles, Man = man, PxPerRad = pxPerRad,
+                CamPos = cam.transform.position, Fwd = cam.transform.forward, Near = cam.nearClipPlane,
+                ToClip = cam.projectionMatrix * cam.worldToCameraMatrix,   // the engine's GetWorldToClipMatrix
+                View = cam.pixelRect, Out = Units,
+            }.Run();
+        }
+
+        NativeArray<float> Spare()
+        {
+            if (!spare.IsCreated) spare = new NativeArray<float>(1, Allocator.Persistent);
+            return spare;
+        }
+
+        NativeArray<VehicleProfile> FallbackProfiles()
+        {
+            if (!fallbackProfiles.IsCreated)
+            {
+                fallbackProfiles = new NativeArray<VehicleProfile>(256, Allocator.Persistent);
+                for (int a = 0; a < 256; a++) fallbackProfiles[a] = VehicleProfile.ForArchetype((byte)a);
+            }
+            return fallbackProfiles;
+        }
+
+        public void Dispose()
+        {
+            if (Units.IsCreated) Units.Dispose();
+            if (fallbackProfiles.IsCreated) fallbackProfiles.Dispose();
+            if (spare.IsCreated) spare.Dispose();
+        }
+
+        /// <summary>Z016.1: one man a pose, over the poses the renderer draws from.</summary>
+        [BurstCompile]
+        struct BuildJob : IJob
+        {
+            [ReadOnly] public NativeArray<UnitPose> Poses;
+            [ReadOnly] public NativeArray<int> PoseSlot;
+            public int PoseCount;
+            [ReadOnly] public NativeArray<ushort> Generation;
+            [ReadOnly] public NativeArray<float> Lift, Hop;
+            [ReadOnly] public NativeArray<VehicleProfile> Profiles;
+            public Heightfield Height;
+            public RenderGroundGrid Ground;
+            public bool Controlled;
+            public float Man, PxPerRad, Near;
+            public float3 CamPos, Fwd;
+            public Matrix4x4 ToClip;
+            public Rect View;
+            [WriteOnly] public NativeList<ScreenUnit> Out;
+
+            public void Execute()
+            {
+                for (int i = 0; i < PoseCount; i++)
                 {
-                    var prof = kin != null && kin.Profiles.IsCreated ? kin.Profiles[w.Archetype[i]] : VehicleProfile.ForArchetype(w.Archetype[i]);
-                    radiusM = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 0.8f;
-                    size = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 2.3f;
-                    body = new Vector3(d.x, ground + VehicleBodyM, d.z);
+                    var pose = Poses[i];
+                    int slot = PoseSlot[i];
+                    float ground = RenderGround.DrawnY(in Height, in Ground, pose.Pos.x, pose.Pos.z,
+                                                       Controlled ? Lift[slot] : 0f, Controlled ? Hop[slot] : 0f, Man);
+                    bool vehicle = (pose.Flags & (byte)UnitFlags.Vehicle) != 0;
+                    float radiusM, size, bodyM;
+                    if (vehicle)
+                    {
+                        var prof = Profiles[pose.Archetype];
+                        float half = math.max(prof.HalfLength, prof.HalfWidth);
+                        radiusM = half * 0.8f; size = half * 2.3f; bodyM = VehicleBodyM;
+                    }
+                    else
+                    {
+                        radiusM = ManRadiusM * Man; size = 1.1f * Man; bodyM = ManBodyM * Man;
+                    }
+                    var body = new Vector3(pose.Pos.x, ground + bodyM, pose.Pos.z);
+                    float depth = math.dot((float3)body - CamPos, Fwd);
+                    if (depth <= Near) continue;
+                    if (!Project(ToClip, View, body, out Vector2 screen)) continue;
+                    Out.AddNoResize(new ScreenUnit
+                    {
+                        Slot = slot, Gen = Generation[slot], Screen = screen, Depth = depth,
+                        RadiusPx = math.max(MinPickPx, radiusM * PxPerRad / depth),
+                        World = body, Size = size, Archetype = pose.Archetype, Ours = (pose.Team & 1) == 0, Vehicle = vehicle,
+                    });
                 }
-                else
-                {
-                    radiusM = ManRadiusM * man;
-                    size = 1.1f * man;
-                    body = new Vector3(d.x, ground + ManBodyM * man, d.z);
-                }
-                float depth = Vector3.Dot(body - camPos, fwd);
-                if (depth <= (fast ? near : cam.nearClipPlane)) continue;
-                Vector2 screen;
-                if (!fast || !Project(toClip, view, body, out screen))
-                {
-                    Vector3 s = cam.WorldToScreenPoint(body);
-                    screen = new Vector2(s.x, s.y);
-                }
-                Units.Add(new ScreenUnit
-                {
-                    Slot = i, Gen = w.Generation[i], Screen = screen, Depth = depth,
-                    RadiusPx = Mathf.Max(MinPickPx, radiusM * pxPerRad / depth),
-                    World = body, Size = size, Archetype = w.Archetype[i], Ours = (w.Team[i] & 1) == 0, Vehicle = vehicle,
-                });
             }
         }
 
@@ -117,10 +183,10 @@ namespace TW.UI
         /// The unit under the cursor, or -1: of those whose pick circle holds the point, the one the cursor is most
         /// centrally on (distance over radius), the nearer to the camera on a tie, so a man standing in front wins.
         /// </summary>
-        public static int Nearest(List<ScreenUnit> units, Vector2 at)
+        public static int Nearest(NativeArray<ScreenUnit> units, Vector2 at)
         {
             int best = -1; float bestK = float.MaxValue, bestDepth = float.MaxValue;
-            for (int i = 0; i < units.Count; i++)
+            for (int i = 0; i < units.Length; i++)
             {
                 var u = units[i];
                 float k = (u.Screen - at).magnitude / u.RadiusPx;
@@ -136,14 +202,14 @@ namespace TW.UI
         /// screen join; zoomed out, where a squad is a smudge of dots, the smudge is one clump. The nearest comes first.
         /// Returns the nearest's index, or -1 (and an empty list) over empty ground.
         /// </summary>
-        public static int Clump(List<ScreenUnit> units, Vector2 at, List<int> into)
+        public static int Clump(NativeArray<ScreenUnit> units, Vector2 at, List<int> into)
         {
             into.Clear();
             int best = Nearest(units, at);
             if (best < 0) return -1;
             into.Add(best);
             bool ours = units[best].Ours;
-            for (int i = 0; i < units.Count; i++)
+            for (int i = 0; i < units.Length; i++)
             {
                 if (i == best) continue;
                 var u = units[i];
@@ -155,11 +221,11 @@ namespace TW.UI
         }
 
         /// <summary>Indices of the units whose screen centre is inside the rectangle (any two corners, screen px).</summary>
-        public static void InRect(List<ScreenUnit> units, Vector2 a, Vector2 b, bool oursOnly, List<int> into)
+        public static void InRect(NativeArray<ScreenUnit> units, Vector2 a, Vector2 b, bool oursOnly, List<int> into)
         {
             into.Clear();
             float x0 = Mathf.Min(a.x, b.x), x1 = Mathf.Max(a.x, b.x), y0 = Mathf.Min(a.y, b.y), y1 = Mathf.Max(a.y, b.y);
-            for (int i = 0; i < units.Count; i++)
+            for (int i = 0; i < units.Length; i++)
             {
                 var u = units[i];
                 if (oursOnly && !u.Ours) continue;
@@ -168,10 +234,10 @@ namespace TW.UI
         }
 
         /// <summary>Double-click: every unit of that archetype and side whose centre is on the screen.</summary>
-        public static void SameTypeOnScreen(List<ScreenUnit> units, byte archetype, bool ours, float screenW, float screenH, List<int> into)
+        public static void SameTypeOnScreen(NativeArray<ScreenUnit> units, byte archetype, bool ours, float screenW, float screenH, List<int> into)
         {
             into.Clear();
-            for (int i = 0; i < units.Count; i++)
+            for (int i = 0; i < units.Length; i++)
             {
                 var u = units[i];
                 if (u.Archetype != archetype || u.Ours != ours) continue;

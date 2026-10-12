@@ -8,6 +8,7 @@
 // ability (docs/21 phase 5) is counted as a capsule: the enemy within the corridor's half width of the line, ours within
 // the half width plus a burst's reach of it (ShowLine, from AbilityAim's Shape).
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Sim.Match;
@@ -52,7 +53,7 @@ namespace TW.UI
         }
 
         /// <summary>Sort the units into the enemy within the corridor (halfWidth of the segment) and ours within reach of it.</summary>
-        public static void TallyLine(List<ScreenUnit> units, Vector2 startXZ, Vector2 dirXZ, float length, float halfWidth, float reach, List<ScreenUnit> enemyIn, List<ScreenUnit> oursIn)
+        public static void TallyLine(NativeArray<ScreenUnit> units, Vector2 startXZ, Vector2 dirXZ, float length, float halfWidth, float reach, List<ScreenUnit> enemyIn, List<ScreenUnit> oursIn)
         {
             enemyIn.Clear(); oursIn.Clear();
             float len2 = length * length;
@@ -68,7 +69,7 @@ namespace TW.UI
         }
 
         /// <summary>Count and show for a corridor (a line ability being aimed); cursor in HUD px.</summary>
-        public void ShowLine(List<ScreenUnit> units, OffMapAbilityId id, in AimShape shape, Vector2 cursor)
+        public void ShowLine(NativeArray<ScreenUnit> units, OffMapAbilityId id, in AimShape shape, Vector2 cursor)
         {
             if (box == null || !Radii(id, out _, out float reach)) { Hide(); return; }
             TallyLine(units, new Vector2(shape.Start.x, shape.Start.z), new Vector2(shape.Dir.x, shape.Dir.z), shape.Length, shape.HalfWidth, reach, EnemyIn, OursIn);
@@ -76,7 +77,7 @@ namespace TW.UI
         }
 
         /// <summary>Sort the units into the enemy inside hit and ours inside reach of the aim point (x, z).</summary>
-        public static void Tally(List<ScreenUnit> units, Vector2 aimXZ, float hit, float reach, List<ScreenUnit> enemyIn, List<ScreenUnit> oursIn)
+        public static void Tally(NativeArray<ScreenUnit> units, Vector2 aimXZ, float hit, float reach, List<ScreenUnit> enemyIn, List<ScreenUnit> oursIn)
         {
             enemyIn.Clear(); oursIn.Clear();
             float h2 = hit * hit, r2 = reach * reach;
@@ -89,7 +90,7 @@ namespace TW.UI
         }
 
         /// <summary>Count and show for this aim point; cursor in HUD px.</summary>
-        public void Show(List<ScreenUnit> units, OffMapAbilityId id, Vector3 aim, Vector2 cursor)
+        public void Show(NativeArray<ScreenUnit> units, OffMapAbilityId id, Vector3 aim, Vector2 cursor)
         {
             if (box == null || !Radii(id, out float hit, out float reach)) { Hide(); return; }
             Tally(units, new Vector2(aim.x, aim.z), hit, reach, EnemyIn, OursIn);
