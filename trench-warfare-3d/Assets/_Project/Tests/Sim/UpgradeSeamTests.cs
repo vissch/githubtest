@@ -5,7 +5,10 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Sim.Nav;
+using TW.Sim.Units;
 
 namespace TW.Tests
 {
@@ -54,6 +57,92 @@ namespace TW.Tests
             Assert.AreEqual(150, Upgrades.Ints(150, 0), "[Z009.1-sim] tier 0 changes nothing");
             Assert.AreEqual(6, Upgrades.ClampTrack(9), "a track runs to tier 6");
             Assert.AreEqual(3, Upgrades.ClampGlobal(9), "a global row runs to tier 3");
+        }
+
+
+        // ---------------------------------------------------------------- what a tier does in the match
+        static MatchSim Playtest(SideUpgrades a)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = 0xC0FFEE; cfg.UpgradesA = a;
+            return MatchSim.CreatePlaytest(cfg);
+        }
+
+        /// <summary>A Maw of team 0, stopped, facing up the map (+Z) as TankTests spawns one: a round from +X meets its
+        /// side plate square.</summary>
+        static int SpawnMaw(MatchSim m, float3 at)
+        {
+            int tank = m.World.Spawn(0, VehicleArchetype.Maw, at, RosterEntry.Maw.Hp, 0f, true);
+            var c = m.Map.NavCellOf(at);
+            m.World.GoalId[tank] = m.Fields.GetGoal(GoalKey.Cell(m.Map.NavIndex(c.x, m.Map.NavLength - 6), NavMode.Tracked));
+            return tank;
+        }
+
+        static void Step(MatchSim m, params SimCommand[] cmds)
+        {
+            using var arr = new NativeArray<SimCommand>(cmds, Allocator.Temp);
+            m.Step(arr);
+        }
+
+        static void FlankShot(MatchSim m, int tank)
+            => m.Gunnery.PendingHits.Add(new VehicleHit
+            {
+                Target = tank, Shooter = -1, Kind = VehicleHitKind.ArmourPiercing, PenMm = 10f, Damage = 650f,
+                Pos = m.World.Position[tank], Dir = new float3(1f, 0f, 0f),
+            });
+
+        /// <summary>ARMOUR PLATE: a Maw's side is 8 mm (TankTests pins the profile at 12 / 8 / 6 / 6), so a 10 mm
+        /// round holes it square on. Two tiers bolt on 4 mm more; the same round now rings off 12 mm. The shop sold
+        /// this and nothing happened before the seam. [Z009.1-sim]</summary>
+        [Test]
+        public void ArmourPlate_StopsTheFlankShotThatHoledAtTierZero()
+        {
+            float3 at = new float3(150f, 0f, 100f);
+            using (var bare = Playtest(default))
+            {
+                int tank = SpawnMaw(bare, at);
+                Step(bare);
+                FlankShot(bare, tank);
+                Step(bare);
+                Assert.AreEqual(1, bare.Modules.Penetrations, "[Z009.1-sim] 10 mm goes through a Maw's bare 8 mm side");
+                Assert.AreEqual(0, bare.Modules.Ricochets, "[Z009.1-sim] 10 mm goes through a Maw's bare 8 mm side");
+            }
+            using (var plated = Playtest(SideUpgrades.Global(armour: 2, abilityCooldown: 0, abilityCost: 0)))
+            {
+                int tank = SpawnMaw(plated, at);
+                Step(plated);
+                FlankShot(plated, tank);
+                Step(plated);
+                Assert.AreEqual(1, plated.Modules.Ricochets, "[Z009.1-sim] two tiers of armour plate (+4 mm) must stop a 10 mm round on a 12 mm side");
+                Assert.AreEqual(0, plated.Modules.Penetrations, "[Z009.1-sim] two tiers of armour plate (+4 mm) must stop a 10 mm round on a 12 mm side");
+            }
+        }
+
+        static SimCommand Barrage(MatchSim m, byte player)
+            => new SimCommand { Tick = m.World.Tick, Player = player, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.HeBarrage, Pos = new float3(150f, 0f, 150f) };
+
+        /// <summary>REQUISITION: an HE barrage costs 150 silver, so two tiers (-8 % a tier) spend 150 * 84 / 100 = 126.
+        /// The other side bought nothing and pays the full price out of the same table. [Z009.1-sim]</summary>
+        [Test]
+        public void Requisition_MakesTheCallCostEightPercentLessATier()
+        {
+            using var m = Playtest(SideUpgrades.Global(armour: 0, abilityCooldown: 0, abilityCost: 2));
+            Step(m);
+            int before0 = m.World.Silver[0], before1 = m.World.Silver[1];
+            Step(m, Barrage(m, 0), Barrage(m, 1));
+            Assert.AreEqual(126, before0 - m.World.Silver[0], "[Z009.1-sim] two tiers of requisition must spend 126 of the 150 an HE barrage lists");
+            Assert.AreEqual(150, before1 - m.World.Silver[1], "[Z009.1-sim] a side that bought no requisition pays the listed 150");
+        }
+
+        /// <summary>SIGNAL DISCIPLINE: an HE barrage waits 1200 ticks, so two tiers (-8 % a tier) wait
+        /// 1200 * 84 / 100 = 1008. [Z009.1-sim]</summary>
+        [Test]
+        public void SignalDiscipline_MakesTheWaitEightPercentShorterATier()
+        {
+            using var m = Playtest(SideUpgrades.Global(armour: 0, abilityCooldown: 2, abilityCost: 0));
+            Step(m);
+            Step(m, Barrage(m, 0), Barrage(m, 1));
+            Assert.AreEqual(1008, m.Abilities.CooldownOf(0, OffMapAbilityId.HeBarrage), "[Z009.1-sim] two tiers of signal discipline must cut the 1200 tick wait to 1008");
+            Assert.AreEqual(1200, m.Abilities.CooldownOf(1, OffMapAbilityId.HeBarrage), "[Z009.1-sim] a side that bought no signal discipline waits the listed 1200");
         }
 
         /// <summary>A match nobody upgraded plays exactly as it did before the seam existed. Pinned from a run on the

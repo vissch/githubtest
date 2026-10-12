@@ -44,6 +44,22 @@ namespace TW.Sim.Combat
             return c >= GlanceCos && penMm * c >= plateMm;
         }
 
+        /// <summary>The same plate with <paramref name="mm"/> more bolted to every face: what ARMOUR PLATE buys a side
+        /// (Upgrades.ArmourMm, the sim's upgrade seam, [Z009.1]). It belongs here rather than beside SideUpgrades
+        /// because TW.Sim.Core cannot see an ArmorProfile (the asmdef graph is one-way, and widening it is a seam
+        /// change). One helper, so hull and turret are thickened by the same rule wherever a round meets them.</summary>
+        public static ArmorProfile Thickened(in ArmorProfile armor, float mm)
+        {
+            if (mm <= 0f) return armor;
+            return new ArmorProfile
+            {
+                FrontMm = armor.FrontMm + mm,
+                SideMm = armor.SideMm + mm,
+                RearMm = armor.RearMm + mm,
+                TopMm = armor.TopMm + mm,
+            };
+        }
+
         /// <summary>A round or charge that comes down on the deck: the top plate, met square.</summary>
         public static bool PenetratesTop(in ArmorProfile armor, float penMm, out float plateMm)
         {

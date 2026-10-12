@@ -193,15 +193,22 @@ namespace TW.Sim.Match
                 if (w.WinnerTeam >= 0 || cmd.A <= 0 || cmd.A >= AbilitySlots || !TryGetStats(cmd.A, out var stats)) { w.Reject(cmd); continue; }
                 AbilityArgs.Unpack(cmd.B, out int headingDeg, out int pattern, out int lengthM);
                 int slot = cmd.Player * AbilitySlots + cmd.A;
+                // REQUISITION and SIGNAL DISCIPLINE, the sim's upgrade seam ([Z009.1]): what this side bought makes
+                // the call 8 % cheaper and the wait 8 % shorter a tier, in integers (Upgrades.Ints truncates, so two
+                // machines agree). The stats table is untouched: these are this call's cost and wait, read once here
+                // so the check, the spend and the cooldown cannot drift apart.
+                var up = w.Config.UpgradesOf(cmd.Player);
+                int cost = Upgrades.Ints(stats.Cost, up.AbilityCost);
+                int cooldownTicks = Upgrades.Ints(stats.CooldownTicks, up.AbilityCooldown);
                 var size = w.Init.SizeMeters;
                 bool inside = cmd.Pos.x >= 0f && cmd.Pos.z >= 0f && cmd.Pos.x <= size.x && cmd.Pos.z <= size.y;
-                if (!inside || !stats.Offers(pattern) || Cooldown[slot] > 0 || w.Silver[cmd.Player] < stats.Cost) { w.Reject(cmd); continue; }
+                if (!inside || !stats.Offers(pattern) || Cooldown[slot] > 0 || w.Silver[cmd.Player] < cost) { w.Reject(cmd); continue; }
                 if (stats.Id == OffMapAbilityId.Beam && (beam == null || beam.ActiveFor(cmd.Player) >= BeamSystem.MaxPerPlayer)) { w.Reject(cmd); continue; }   // the safety cap (BeamSystem.MaxPerPlayer): the cooldown rejects a second sweep first
                 if (!FactionRoster.MayCall(w.Config.FactionOf(cmd.Player), cmd.A)) { w.Reject(cmd); continue; }
                 if (stats.Men > 0 && !CanLand(cmd.Player, cmd.Pos)) { w.Reject(cmd); continue; }
 
-                w.Silver[cmd.Player] -= stats.Cost;
-                Cooldown[slot] = stats.CooldownTicks;
+                w.Silver[cmd.Player] -= cost;
+                Cooldown[slot] = cooldownTicks;
                 float3 start = new float3(cmd.Pos.x, 0f, cmd.Pos.z);
                 bool line = IsLine(stats, pattern);
                 float3 dir = line ? AbilityArgs.Heading(headingDeg) : float3.zero;

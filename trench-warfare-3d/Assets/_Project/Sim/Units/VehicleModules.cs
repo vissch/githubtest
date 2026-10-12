@@ -193,6 +193,12 @@ namespace TW.Sim.Units
             ArmourFacing facing; bool right; bool holed; float plate;
             var hull = spec.Hull;
             if (spec.ChargingTopMm > 0f && (w.Flags[t] & (uint)UnitFlags.Charging) != 0) hull.TopMm = spec.ChargingTopMm;   // hatches down: the deck a bundle lands on
+            // ARMOUR PLATE, the sim's upgrade seam ([Z009.1]): the tiers this machine's side brought bolt
+            // Upgrades.ArmourMm millimetres onto every face, hull and turret alike. Only these local copies change,
+            // so the catalogue's base numbers stay as they are and tier 0 is the game as it was.
+            float addedMm = w.Config.UpgradesOf(w.Team[t]).ArmourMm;
+            hull = Armor.Thickened(hull, addedMm);
+            var turretArmor = Armor.Thickened(spec.Turret, addedMm);
             if (hit.Kind == VehicleHitKind.CloseAssault)
             {
                 facing = ArmourFacing.Top; right = rng.NextFloat() < 0.5f;
@@ -202,7 +208,7 @@ namespace TW.Sim.Units
             {
                 float yaw = w.Yaw[t] + (turret && gunnery != null ? gunnery.GunYaw[t * Guns] : 0f);
                 facing = Armor.FacingOf(hit.Dir, yaw, out float c, out right);
-                plate = Armor.PlateFor(turret ? spec.Turret : hull, facing);
+                plate = Armor.PlateFor(turret ? turretArmor : hull, facing);
                 holed = c >= Armor.GlanceCos && hit.PenMm * c >= plate;
             }
             checksum = SimHash.Value(new int4(t, (int)facing, holed ? 1 : 0, turret ? 1 : 0), checksum);
@@ -377,7 +383,8 @@ namespace TW.Sim.Units
                 }
                 if (direct)
                 {
-                    bool holed = Armor.PenetratesTop(spec.Hull, im.Damage * 0.1f, out float plate);
+                    // the same plate the tiers bought (above): a shell on the deck meets the thickened top too
+                    bool holed = Armor.PenetratesTop(Armor.Thickened(spec.Hull, w.Config.UpgradesOf(w.Team[i]).ArmourMm), im.Damage * 0.1f, out float plate);
                     float dmg = holed ? im.Damage * 1.2f : im.Damage * 0.15f;
                     w.Hp[i] = w.Hp[i] - dmg;
                     w.Events.Add(w.Tick, SimEventType.Hit, -1, i, w.Position[i], down, holed ? dmg : -plate);
