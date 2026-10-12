@@ -141,8 +141,21 @@ namespace TW.Tests
             var bytes = recorder.Serialize();
             var player = ReplayPlayer.Parse(bytes);
             Assert.AreEqual(200, player.TickCount);
+            // [T4] every recorded hash is real: an all-zero recording (a world that does not hash every tick)
+            // verifies against any run at all, so the -1 below would prove nothing.
+            for (int t = 0; t < player.TickCount; t++)
+                Assert.AreNotEqual(0UL, player.Hashes[t], $"[T4] the recorded hash of tick {t} is 0: a verify that cannot fail");
             using var match = MatchSim.CreateGreybox(player.Config);
             Assert.AreEqual(-1, player.Verify(match.World), "replay must re-simulate to the recorded hashes");
+            // [T4] the flipped-hash control: one bit off at tick 100 must be found, and found exactly there.
+            var flipped = ReplayPlayer.Parse(bytes);
+            flipped.Hashes[100] ^= 1;
+            using var control = MatchSim.CreateGreybox(flipped.Config);
+            Assert.AreEqual(100, flipped.Verify(control.World), "[T4] a replay with one hash bit flipped at tick 100 must report a desync at tick 100");
+            // [T4] the world the verify above consumed is spent: verifying again must throw, not quietly re-run
+            // from the middle (the S5 guard).
+            Assert.Throws<System.ArgumentException>(() => player.Verify(match.World),
+                "[T4] a verify on an already-simulated world must be refused");
         }
 
         [Test]
