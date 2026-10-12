@@ -2137,27 +2137,39 @@ def ideas_cases():
         ideas.save(where2, x)
         return x
 
-    def result(rid, stage, verdict, n, when):
-        return {f'results/{rid}--{stage}--abc123--{n}.json': dict(item=rid, stage=stage, attempt=n, verdict=verdict, finished_at=when)}
+    import idearoute
+    PIPE = idearoute.pipeline()
+
+    def result(rid, stage, verdict, n, when, job='abc123', up=''):
+        """What pipeline.py records: the file is named for the job and the attempt, and the body carries both, with the
+        hash of the upstream results' file names the job was made for (pipeline.sha)."""
+        jid = f'{rid}--{stage}--{job}'
+        return {f'results/{jid}--{n}.json': dict(job=jid, item=rid, stage=stage, attempt=n, verdict=verdict, upstream_rev=up, finished_at=when)}
+    C1 = 'idea-tracer-glow--concept--c1aaaaaa--1.json'
+    PICK = 'idea-tracer-glow--you-pick--p1aaaaaa--1.json'
     board.mkdir()
     subprocess.run(['git', 'init', '-q', str(board)], capture_output=True)
     pushed({'readme.json': {}})
     look = accepted('Tracer glow on wet mud', 'look', 'idea-tracer-glow')                 # concept > you pick > build > critic > land
     tool = accepted('A weekly digest page', 'tool', 'unit:idea-weekly-digest')
     odd = accepted('Rain fills the shell holes', 'level', 'idea-rain')
+    mix = accepted('Mud sprays from the tracks', 'look', 'idea-mud-spray')
     stages = [dict(id='concept', role='concept-artist'), dict(id='you-pick', role='master', after=['concept']), dict(id='build', role='destruction-vfx-simulator', after=['concept', 'you-pick']),
               dict(id='critic', role='hard-critic', after=['build']), dict(id='land', role='master', after=['critic'])]
     listed = ideas.read_all(where2)
     s0 = ideas.stands(listed, board)
-    pushed({'items/idea-tracer-glow.json': dict(id='idea-tracer-glow', stages=stages), 'items/idea-rain.json': dict(id='idea-rain', stages=stages[:2]), 'relay/queue/idea-weekly-digest.json': dict(id='idea-weekly-digest')})
+    swapped = [{**s, 'role': 'hard-critic'} if s['id'] == 'build' else {**s, 'role': 'destruction-vfx-simulator'} if s['id'] == 'critic' else s for s in stages]
+    pushed({'items/idea-tracer-glow.json': dict(id='idea-tracer-glow', stages=stages), 'items/idea-rain.json': dict(id='idea-rain', stages=stages[:2]), 'relay/queue/idea-weekly-digest.json': dict(id='idea-weekly-digest'),
+            'items/idea-mud-spray.json': dict(id='idea-mud-spray', stages=swapped)})
     s1 = ideas.stands(listed, board)
     (board / 'results').mkdir()
     (board / 'results' / 'idea-tracer-glow--concept--abc123--1.json').write_text(json.dumps(dict(item='idea-tracer-glow', stage='concept', attempt=1, verdict='PASS', finished_at='2026-10-07 13:00')), encoding='utf-8')
     s_tree = ideas.stands(listed, board)                   # written on this station and not committed: another session's work, or a leg's
-    pushed(result('idea-tracer-glow', 'concept', 'PASS', 1, '2026-10-07 13:00'))
+    pushed(result('idea-tracer-glow', 'concept', 'PASS', 1, '2026-10-07 13:00', job='c1aaaaaa', up=PIPE.sha()))
     s_pick = ideas.stands(listed, board)
-    pushed({**result('idea-tracer-glow', 'you-pick', 'PASS', 1, '2026-10-07 13:30'),
-            **result('idea-tracer-glow', 'build', 'PASS', 1, '2026-10-07 14:00'), **result('idea-tracer-glow', 'build', 'FAIL', 2, '2026-10-07 15:00'), **result('idea-tracer-glow-2', 'critic', 'PASS', 1, '2026-10-07 15:30')})
+    pushed({**result('idea-tracer-glow', 'you-pick', 'PASS', 1, '2026-10-07 13:30', job='p1aaaaaa', up=PIPE.sha(C1)),
+            **result('idea-tracer-glow', 'build', 'PASS', 1, '2026-10-07 14:00', job='b1aaaaaa', up=PIPE.sha(C1, PICK)),
+            **result('idea-tracer-glow', 'build', 'FAIL', 2, '2026-10-07 15:00', job='b1aaaaaa', up=PIPE.sha(C1, PICK)), **result('idea-tracer-glow-2', 'critic', 'PASS', 1, '2026-10-07 15:30')})
     s2 = ideas.stands(listed, board)
     pushed({'relay/done/idea-weekly-digest.json': {}})
     s3 = ideas.stands(listed, board)
@@ -2172,6 +2184,14 @@ def ideas_cases():
     d2 = ideas.site(where2, out2, [], None, now=day, board=board)
     case('site: the page is given where each routed idea stands, and the idea\'s own file is not written for it',
          {x['id']: x.get('stands') for x in d2['ideas']} == s3 and '"stands"' in (out2 / 'data' / 'ideas.js').read_text(encoding='utf-8') and 'stands' not in ideas.find(where2, look['id']), d2['ideas'][0].get('stands'))
+    # [U056.5] a pass the pipeline has taken back (a newer upstream result under it) is checked again, not done
+    pushed(result('idea-tracer-glow', 'concept', 'PASS', 1, '2026-10-07 16:00', job='c2bbbbbb', up=PIPE.sha()))
+    s4 = ideas.stands(listed, board)
+    case('[U056.5] stands: a step whose pass the pipeline took back (its upstream result changed under it) is checked again, not done, and what comes after it waits',
+         s4[look['id']]['steps'] == ['done', 'again', '', '', ''], s4[look['id']])
+    # [U056.5] the stages' roles, not only their count, must be the route's
+    case('[U056.5] stands: an item whose stages carry other roles than the idea\'s route gets no words, though it has as many',
+         s4[mix['id']] == dict(on=True, steps=[]), s4[mix['id']])
     keep_tick, calls = ideas.tick, []
     ideas.tick = lambda *a, **k: calls.append(1) or dict(running=None, left=1, last=None, off='', took=[])
     keep_env = {k: os.environ.get(k) for k in ('TW_IDEAS',)}

@@ -43,15 +43,15 @@
   function score(sc) { var m = /^R(\d) C(\d)(.*)$/.exec(String(sc || '')); return m ? 'risk ' + m[1] + ' · change ' + m[2] + (/MAJOR/.test(m[3]) ? ' · major' : '') : String(sc || ''); }
   function meta(i) { return [i.kind, SIZE[i.size] || i.size, score(i.score)].filter(Boolean).join(' · '); }
   // where an accepted idea is on its route, in words: i.stands is what the board's records say of each step
-  // ('done', 'you', 'next' or ''); what waits on him is said first
+  // ('done', 'you', 'next', 'again' or ''); what waits on him is said first
   function stands(i) {
     var s = i.stands, r = i.route || [];
     if (!i.routed) return 'queued for the pipeline';
     if (!s) return 'on the board as ' + i.routed;
     if (!s.on) return 'not on the board yet: the master puts it there at its next turn';
-    var at = function (w) { return r.filter(function (x, n) { return s.steps[n] === w; }).map(function (x) { return x.says; }); }, you = at('you'), next = at('next');
-    if (!you.length && !next.length) return s.steps.length && s.steps.every(function (w) { return w === 'done'; }) ? 'every step is done' : 'on the board as ' + i.routed;
-    return [you.length ? 'waits on you: ' + you.join(', ') : '', next.length ? 'next: ' + next.join(', ') : ''].filter(Boolean).join(' · ');
+    var at = function (w) { return r.filter(function (x, n) { return s.steps[n] === w; }).map(function (x) { return x.says; }); }, you = at('you'), next = at('next'), again = at('again');
+    if (!you.length && !next.length && !again.length) return s.steps.length && s.steps.every(function (w) { return w === 'done'; }) ? 'every step is done' : 'on the board as ' + i.routed;
+    return [you.length ? 'waits on you: ' + you.join(', ') : '', next.length ? 'next: ' + next.join(', ') : '', again.length ? 'is checked again: ' + again.join(', ') : ''].filter(Boolean).join(' · ');
   }
   var pure = { order: order, featured: featured, word: word, asked: asked, status: status, site: site, meta: meta, score: score, stands: stands };
   if (typeof module !== 'undefined' && module.exports) { module.exports = pure; return; }
@@ -82,7 +82,7 @@
   }
   function route(i) {
     var r = el('ol', 'i-route'); r.setAttribute('aria-label', 'Who works on it, in order');
-    var at = (i.stands && i.stands.steps) || [], SAID = { done: 'Done', you: 'Waits on you', next: 'Next' };
+    var at = (i.stands && i.stands.steps) || [], SAID = { done: 'Done', you: 'Waits on you', next: 'Next', again: 'Checked again' };
     i.route.forEach(function (s, n) {
       var li = el('li', [s.own ? 'i-own' : '', at[n] ? 'i-s-' + at[n] : ''].filter(Boolean).join(' ') || null, s.says); li.title = s.own ? 'A decision of yours, put to you with pictures' : 'The ' + s.role + ' agent';
       if (at[n]) { li.title = SAID[at[n]] + '. ' + li.title; li.setAttribute('aria-label', s.says + ': ' + SAID[at[n]].toLowerCase()); }
