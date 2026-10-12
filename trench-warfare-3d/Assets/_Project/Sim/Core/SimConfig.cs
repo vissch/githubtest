@@ -42,10 +42,19 @@ namespace TW.Sim
         /// a test match keeps taking support calls and shelling after a tester's wave took the HQ. In the config because
         /// both machines must agree on it before the first tick, and in the replay header for the same reason.</summary>
         public bool Endless;
+        // ---- 2026-10-12 (replay v38): the upgrades a side bought on the Home Front (the sim's upgrade seam) ----
+        /// <summary>
+        /// The upgrade tiers each side brings to this match: armour plate, the ability cooldown and cost rows, and
+        /// per unit kind the health, damage and accuracy tracks (SideUpgrades, Sim/Core/Upgrades.cs). Every tier zero
+        /// is the match as it was before the seam. Here for the same reason as the loadouts: both machines must agree
+        /// on what a side's shells pierce and what its abilities cost before the first tick.
+        /// </summary>
+        public SideUpgrades UpgradesA, UpgradesB;
 
         public float TickSeconds => 1f / TickRate;
         public FactionId FactionOf(int player) => Factions.Of(player == 0 ? FactionA : FactionB);
         public Unity.Collections.FixedList32Bytes<byte> LoadoutOf(int player) => player == 0 ? LoadoutA : LoadoutB;
+        public SideUpgrades UpgradesOf(int player) => player == 0 ? UpgradesA : UpgradesB;
 
         public static SimConfig Default => new SimConfig
         {
