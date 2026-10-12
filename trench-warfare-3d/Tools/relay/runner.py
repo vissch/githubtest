@@ -703,6 +703,15 @@ class Run:
         if detail:
             print("  " + detail, flush=True)
         print("  " + ledger.one_line(self.board, self.lim["day_budget_usd"], lim=self.lim), flush=True)
+        try:                                                # the watch for wasted tokens: it never fails a run
+            import leakwatch
+            got = leakwatch.read_runs(self.home, [self.run])
+            found = leakwatch.write_flags(self.home, got, leakwatch.rules())
+            if found:
+                print("  the watch flagged %d legs of this run: python Tools/relay/relay.py leaks %s"
+                      % (len({(f["run"], f["leg"]) for f in found}), self.run), flush=True)
+        except BaseException as e:                          # noqa: BLE001
+            print("  the watch did not run (%s)" % type(e).__name__, flush=True)
         if not self.no_window:
             launch.notify("Relay stopped: %s. %d legs%s." % (" ".join(reason.split()[:12]), self.legs,
                                                             tally(self.units)))
