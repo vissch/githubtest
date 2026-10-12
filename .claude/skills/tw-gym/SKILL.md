@@ -39,7 +39,7 @@ The Playground's men are `UnitRig`/`Retarget` skinned figures. The battle draws 
 ## What it covers (read from the enums and the unit table, never a hand list)
 | Tab | One entry per | How it's triggered | Bands captured |
 |---|---|---|---|
-| Clips | `Clip` value × VAT figure (Soldier; Sniper = archetype 3) | a presentation-only **pin**: `AnimationController.Pin(slot, clip, rate)` | T3, T2, T1 |
+| Clips | `Clip` value × VAT figure (Soldier, Sniper, Frog; the archetype is derived from `VATRenderer.FigureOfArchetype`) | a presentation-only **pin**: `AnimationController.Pin(slot, clip, rate)` | T3, T2, T1 |
 | Units | archetype with Hp > 0 in the match's unit table | spawned through `SimHost.WriteWorlds` | all six |
 | Abilities | `OffMapAbilityId` | `SimHost.Issue` / `IssuePeer`; ParaDrop from the Brass seat. Expected: Fires, Rejected or FactionSeat | all six |
 | Deaths | `DeathKind` (Shot, Blast, Gas, Crushed, Burning, Beam) | the cause is staged, and the sim kills inside a tick | all six |

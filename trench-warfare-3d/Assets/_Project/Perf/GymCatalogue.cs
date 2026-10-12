@@ -67,8 +67,14 @@ namespace TW.Perf
             new GymBand { Name = "O120", Zoom = 120f }, new GymBand { Name = "O240", Zoom = 240f }, new GymBand { Name = "Far", Zoom = 600f },
         };
 
-        /// <summary>An archetype drawn with each figure, for pinning a clip on it (the sniper is the hooded figure).</summary>
-        public static int ArchetypeForFigure(int figure) => figure == 1 ? 3 : 0;
+        /// <summary>The first archetype the renderer draws with `figure`, for pinning a clip on it; -1 when no
+        /// archetype is drawn as that figure. Read from VATRenderer, never typed out, so a new figure needs no edit here.</summary>
+        public static int ArchetypeForFigure(int figure)
+        {
+            for (int a = 0; a < Archetypes.Count; a++)
+                if (VATRenderer.FigureOfArchetype(a) == figure) return a;
+            return -1;
+        }
 
         public static List<GymEntry> Clips()
         {

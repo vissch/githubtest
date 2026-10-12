@@ -67,11 +67,13 @@ namespace TW.Tests
             Assert.AreEqual(30f, b[2].Zoom, "T1 is the standard view");
         }
 
+        // [U006.1] the gym's figure->archetype mapping is read from the renderer, not typed out
         [Test]
-        public void TheSniperClipsArePinnedOnTheSniperFigure()
+        public void EveryFigureHasAnArchetypeDrawnAsIt()
         {
-            Assert.AreEqual(1, VATRenderer.FigureOfArchetype(GymCatalogue.ArchetypeForFigure(1)));
-            Assert.AreEqual(0, VATRenderer.FigureOfArchetype(GymCatalogue.ArchetypeForFigure(0)));
+            for (int f = 0; f < VATRenderer.FigureNames.Length; f++)
+                Assert.AreEqual(f, VATRenderer.FigureOfArchetype(GymCatalogue.ArchetypeForFigure(f)),
+                    "[U006.1] the " + VATRenderer.FigureNames[f] + " clip entries stage another figure");
         }
     }
 }
