@@ -62,6 +62,72 @@ namespace TW.Tests
         }
 
         [Test]
+        public void DirtyEveryTick_AllGoalsEventuallyRebuilt_NotJustTheFirstTwo()
+        {
+            // [N1] the finding's own words: before the fix "only goals 0 and 1 are ever rebuilt" once every goal is
+            // dirty every tick, because the single pass always restarted the scan at goal 0.
+            using var m = NewMatch();
+            var f = m.Fields;
+            for (int k = 0; k < 5; k++) f.GetGoal(GoalKey.Cell(m.Map.NavIndex(10 + k, 50)));
+            Step(m); Step(m); Step(m);
+            for (int g = 0; g < 5; g++) Assert.IsTrue(f.IsReady(g));
+
+            var rebuiltEver = new bool[5];
+            for (int tick = 0; tick < 6; tick++)
+            {
+                f.MarkCostDirty(0);
+                var wasDirty = new bool[5];
+                for (int g = 0; g < 5; g++) wasDirty[g] = f.Dirty[g] != 0;
+                Step(m);
+                for (int g = 0; g < 5; g++) if (wasDirty[g] && f.Dirty[g] == 0) rebuiltEver[g] = true;
+            }
+            for (int g = 0; g < 5; g++) Assert.IsTrue(rebuiltEver[g], $"[N1] goal {g} was never rebuilt while every goal stayed dirty");
+        }
+
+        [Test]
+        public void DirtyEveryTick_ANewGoalIsNotStarvedByOlderStaleOnes()
+        {
+            // [N1] pass A serves a never-ready goal before the round-robin pass, so a goal created mid-barrage is
+            // not left waiting behind goals that are merely stale.
+            using var m = NewMatch();
+            var f = m.Fields;
+            for (int k = 0; k < 5; k++) f.GetGoal(GoalKey.Cell(m.Map.NavIndex(10 + k, 50)));
+            Step(m); Step(m); Step(m);
+            for (int g = 0; g < 5; g++) Assert.IsTrue(f.IsReady(g));
+
+            f.MarkCostDirty(0);
+            int fresh = f.GetGoal(GoalKey.Cell(m.Map.NavIndex(20, 50)));
+            Step(m);
+            Assert.IsTrue(f.IsReady(fresh), "[N1] a brand-new goal must be built the same tick it is dirtied, even while 5 older goals are also dirty");
+        }
+
+        [Test]
+        public void GetGoal_ReturnsMinusOne_WhenTheTableIsFull_NeverThrows()
+        {
+            // [N3] a full table used to throw InvalidOperationException from inside Step/command handling, which is
+            // a crash on one machine and a desync on the other in a lockstep tick.
+            using var m = NewMatch();
+            var f = m.Fields;
+            for (int k = 0; k < FlowFieldManager.MaxCellGoals; k++) Assert.AreNotEqual(-1, f.GetGoal(GoalKey.Cell(m.Map.NavIndex(1 + k, 1))));
+            Assert.AreEqual(-1, f.GetGoal(GoalKey.Cell(m.Map.NavIndex(99, 99))), "[N3] the cell reserve is exhausted");
+
+            int remaining = FlowFieldManager.MaxGoals - FlowFieldManager.MaxCellGoals;
+            int made = 0;
+            for (int refId = 0; made < remaining; refId++)
+            {
+                made += f.GetGoal(GoalKey.Trench((short)refId)) >= 0 ? 1 : 0;
+                if (made >= remaining) break;
+                made += f.GetGoal(GoalKey.Trench((short)refId, NavMode.Tracked)) >= 0 ? 1 : 0;
+                if (made >= remaining) break;
+                made += f.GetGoal(GoalKey.Objective((short)refId)) >= 0 ? 1 : 0;
+                if (made >= remaining) break;
+                made += f.GetGoal(GoalKey.Objective((short)refId, NavMode.Tracked)) >= 0 ? 1 : 0;
+            }
+            Assert.AreEqual(FlowFieldManager.MaxGoals, f.GoalCount);
+            Assert.AreEqual(-1, f.GetGoal(GoalKey.Trench(9999)), "[N3] the whole table is full: no throw, just -1");
+        }
+
+        [Test]
         public void RallyGoal_FollowsSetRally()
         {
             using var m = NewMatch();

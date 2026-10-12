@@ -2,8 +2,9 @@
 // Owns one flow field per goal. A goal is (kind, ref, nav mode): the cells of a trench, of an objective, a player's
 // rally point, or a single cell. Goals are created lazily by the systems that hand them to units (TrenchOrders,
 // Movement) and live for the match. Fields are rebuilt only when their goal cells or the map cost change, at most
-// MaxRebuildsPerTick per tick in goal-id order, so a burst of dirty fields never stalls a tick; a unit whose field
-// is not ready yet simply waits one tick. The manager also owns the per-trench match state (owner, locked,
+// MaxRebuildsPerTick per tick: a goal nobody can follow yet (never ready) goes first, then the rest round-robin from
+// RebuildCursor, so a burst of dirty fields never stalls a tick and never starves either a new goal or an old one.
+// A unit whose field is not ready yet simply waits one tick. The manager also owns the per-trench match state (owner, locked,
 // hold-fire, garrison count) that goal selection needs. The goal table and trench state are authoritative and
 // hashed; the field arrays are a deterministic cache of (map version, goal cells, rebuild schedule) and are not.
 using System;
@@ -45,9 +46,15 @@ namespace TW.Sim.Nav
         /// beside the trenches' and objectives' (the hash covers goals only up to GoalCount, so the size is not in it).</summary>
         public const int MaxGoals = 32;
         public const int MaxRebuildsPerTick = 2;
+        /// <summary>Cell goals (sapper errands, scripted moves) may never take the last slots: a trench or objective
+        /// goal is a command path that must always find room (N3).</summary>
+        public const int MaxCellGoals = 12;
         public const float TrackedCrossWidth = 3.5f;   // Mark IV / A7V class; wheeled vehicles never cross (A5b)
 
         public int Order => SimSystemOrder.FlowField;
+
+        /// <summary>Where the round-robin pass of <see cref="Step"/> resumes next tick (authoritative, hashed).</summary>
+        public int RebuildCursor { get; private set; }
 
         readonly MapData map;
         public int CellCount { get; private set; }
@@ -91,23 +98,29 @@ namespace TW.Sim.Nav
         }
 
         // ------------------------------------------------------------------ goals
-        /// <summary>Id of the goal for <paramref name="key"/>, creating (dirty, not ready) it on first request. Main thread only.</summary>
+        /// <summary>Id of the goal for <paramref name="key"/>, creating (dirty, not ready) it on first request, or -1 when
+        /// the table is full (a trench/objective goal against MaxGoals, a cell goal against MaxCellGoals as well) — never
+        /// a throw (a throw inside a lockstep tick is a crash on one machine and a desync on the other). Main thread only.</summary>
         public int GetGoal(GoalKey key)
         {
             for (int g = 0; g < GoalCount; g++) if (Goals[g].Equals(key)) return g;
-            if (GoalCount >= MaxGoals) throw new InvalidOperationException($"FlowFieldManager: more than {MaxGoals} goals requested ({key})");
+            if (key.Kind == GoalKind.Cell && CellGoalCount() >= MaxCellGoals) return -1;
+            if (GoalCount >= MaxGoals) return -1;
             int id = GoalCount++;
             Goals[id] = key; Dirty[id] = 1; Ready[id] = 0; RallyCell[id] = -1;
             return id;
         }
 
+        int CellGoalCount()
+        {
+            int n = 0;
+            for (int g = 0; g < GoalCount; g++) if (Goals[g].Kind == GoalKind.Cell) n++;
+            return n;
+        }
+
         /// <summary>GetGoal for a caller that acts on a command: -1 when the table is full, never a throw (a throw inside a
         /// lockstep tick is a crash on one machine and a desync on the other).</summary>
-        public int TryGetGoal(GoalKey key)
-        {
-            for (int g = 0; g < GoalCount; g++) if (Goals[g].Equals(key)) return g;
-            return GoalCount < MaxGoals ? GetGoal(key) : -1;
-        }
+        public int TryGetGoal(GoalKey key) => GetGoal(key);
 
         /// <summary>Make an existing goal over for another key (a cell goal nobody walks to any more, SapperSystem): its
         /// field is rebuilt before anyone follows it. The caller answers for nobody still holding the id.</summary>
@@ -222,12 +235,27 @@ namespace TW.Sim.Nav
                 if (cell != RallyCell[g]) { RallyCell[g] = cell; Dirty[g] = 1; }
             }
             int rebuilt = 0;
+            // Pass A: a goal nobody can follow yet is served before an older goal that is only stale, so a new
+            // goal's units never stand still through a barrage that dirties everything.
             for (int g = 0; g < GoalCount && rebuilt < MaxRebuildsPerTick; g++)
             {
-                if (Dirty[g] == 0) continue;
+                if (Dirty[g] == 0 || Ready[g] != 0) continue;
                 Rebuild(g);
                 Dirty[g] = 0; Ready[g] = 1;
                 rebuilt++;
+            }
+            // Pass B: the remaining dirty (already-ready) goals round-robin from RebuildCursor.
+            if (GoalCount > 0)
+            {
+                for (int k = 0; k < GoalCount && rebuilt < MaxRebuildsPerTick; k++)
+                {
+                    int g = (RebuildCursor + k) % GoalCount;
+                    if (Dirty[g] == 0) continue;
+                    Rebuild(g);
+                    Dirty[g] = 0; Ready[g] = 1;
+                    rebuilt++;
+                    RebuildCursor = (g + 1) % GoalCount;
+                }
             }
         }
 
@@ -279,6 +307,7 @@ namespace TW.Sim.Nav
             h = SimHash.Array(RallyCell, GoalCount, h);
             h = SimHash.Array(Trenches, h);
             h = SimHash.Value(map.Version, h);   // the fields derive from the map; hashing its version covers them
+            h = SimHash.Value(RebuildCursor, h);
             return h;
         }
 
