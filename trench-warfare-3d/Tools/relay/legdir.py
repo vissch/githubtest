@@ -43,6 +43,7 @@ def new_leg(run, nn, unit, phase, phase_cfg, lim, worktree, lane, board):
            "kind": kind_of(unit["source"], unit["role"], unit.get("kind")), "turn": unit.get("turn") or "",
            "phase": phase, "mode": phase_cfg["mode"], "model": phase_cfg["model"], "effort": phase_cfg["effort"],
            "output": phase_cfg.get("output"), "deny_tools": list(phase_cfg.get("deny_tools") or []),
+           "tools": list(phase_cfg.get("tools") or []), "skills": phase_cfg.get("skills", True) is not False,
            "worktree": str(worktree), "lane": lane, "board": str(board or ""),
            "desk": str(desk), "amber_tokens": lim["amber_tokens"], "red_tokens": lim["red_tokens"],
            "state": "NEW", "created_at": now()}

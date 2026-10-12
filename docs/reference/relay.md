@@ -9,15 +9,38 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 | Phase | Model, effort | May do | Leaves |
 |---|---|---|---|
 | plan | Opus, high | read anything; write only `plan.md` in its leg folder | a plan the runner checks by script |
-| execute | Opus, low | the work, following the plan | commits on the lane, pushed |
+| execute | Opus, low; Sonnet when the plan says easy or medium | the work, following the plan | commits on the lane, pushed |
 | critic | Opus, high | read its evidence bundle; write only `critic.md`; no subagent | a score out of 100 and three mandated fixes |
-| retro | Opus, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
+| retro | Haiku, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
 
 A role's legs of one phase run on another model or effort when `routes.json` says so (`config.route`; Opus or
 Sonnet only), for every unit of the role or only for the units the route lists. The budget prices such a leg by
-its route (`config.routed`). One route is in it, a trial: the execute legs of ten listed `review-fix` units on
-Sonnet, nothing else changed, with ten more named in its `why` as the control on Opus. It is measured per unit by
-the fix check of the review lane (fixcheck, not on this line yet). A route stays only on the owner's word.
+its route (`config.routed`). One route is in it: the execute leg of every `review-fix` unit runs on Sonnet, its
+plan leg on Opus (the owner, 2026-10-12, after a trial of six units a side: two thirds of the cost, the same
+passes, more turns). Its guard is in its `why`. A route stays only on the owner's word.
+
+**Three models, by how hard the work is** (the owner, 2026-10-12: Haiku for the easy work, Sonnet for the medium,
+Opus for the hard).
+- The plan leg grades its unit: `## Difficulty` in `plan.md`, one word, `easy`, `medium` or `hard`
+  (`papers.plan_grade`; the rule is in `roles/_phase_plan.md`). `phases.json` `execute.by_grade` names the model
+  per grade: easy and medium run on Sonnet, hard and a plan that does not say on the phase's own model, Opus.
+- A route in `routes.json` for the role wins over the grade (`config.graded`), except for a plan that says hard:
+  that runs on the phase's own model whatever the route says.
+- An execute leg that reported failed on a cheaper model gets one more try on the phase's own model
+  (`runner.moves_up`; its record holds `moved_up`). Not after blocked, not over uncommitted work, not without room.
+- Haiku may run a phase that only reads, never one that works (`config.phases`, `config.routes`). The
+  retrospective runs on it. It runs guarded like any leg: proven on the desktop on 2026-10-12 (Claude Code
+  2.1.267, auto mode, the guard saw every call).
+- Not up for a cheaper model: plan legs, critic legs, the second reader of a fix.
+
+A leg is started with the built-in tools its phase names in `phases.json` (`tools`) and, with `skills` false,
+without the listing of skills (`launch.argv`: `--tools`, `--disable-slash-commands`). What a leg is shown it reads
+again on every turn, and 332 legs made 13,339 tool calls of which one was a skill and one a subagent
+(2026-10-12). A phase with no `tools` gets every tool, as before.
+
+A plan may hold `plan_max_bytes` (12,288). The role text names the size in words, since a model cannot count
+bytes, and `leg done` answers a plan that is too long with the bytes to cut and the size of each section. Before
+2026-10-12 the limit was 8,192 and three first drafts in four were over it: a plan leg was refused 4.5 times.
 
 A plan may cut the work at `--- leg break ---`: one execute leg per part, four at most. The phases, limits, the way a
 leg talks and the role texts are files (`phases.json`, `limits.json`, `style.json`, `roles/`), not code.
@@ -292,10 +315,18 @@ dollar figure stays underneath: it is known for every leg, so a leg that is not 
   `price_legs` measured legs used of the week over what they cost. Such a figure is marked `about`, and the lines
   say how many legs are estimated.
 - **Until one leg is measured** the rate is a guess: a full week is taken as `week_usd` dollars of leg cost
-  (`limits.json`, 1830), so one dollar is about 0.055 points and the day's 11% about $200 of cost. Every line then
+  (`limits.json`, 2840), so one dollar is about 0.035 points and the day's 11% about $310 of cost. Every line then
   says `about` and ends on "A guess: ...". The first measured leg replaces the guess. `week_usd` 0 switches the
   guess off, and the lines stay in dollars until a leg is measured.
-- **Where 1830 comes from.** Anthropic publishes no figure. People who ran into the weekly limit and priced their
+- **Where 2840 comes from.** Measured on 2026-10-12: every session log on both machines, priced at list, against
+  the weekly readings in the legs' streams gave $28.40 for 1% of the week, give or take a tenth
+  (`G:\My Drive\TW3D-pipeline\token-research\token-usage-report.html`). With 1830 the relay's percent read 1.55
+  times too high and an 11% day was 7.1% of the real week.
+- **The week in a leg's stream.** Each leg's `out.jsonl` holds `rate_limit_event` lines with the plan's weekly use.
+  When nothing handed a reading in, the leg's record keeps the last of them as `week_end` (`usage.from_stream`),
+  and `$R usage` and `$R day` show it as "at a leg's last reading". It moves in whole percents and every session
+  on the plan moves it, so it never sets a leg's `week_used`: the rate stays the one above.
+- **Where 1830 came from** (the figure before that). Anthropic publishes no figure. People who ran into the weekly limit and priced their
   own usage at API list prices report, for Max 20x, about $1,830 (one user, late September 2026) and $1,740 to
   $2,200 (another, August 2026), and for Max 5x about $1,170 (October 2026). The owner's plan is Max 20x
   (`decisions.md` 2026-10-06), so 1830 it is; on Max 5x the figures would be about 1.6 times higher (1170).

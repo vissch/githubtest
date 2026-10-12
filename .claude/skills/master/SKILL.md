@@ -67,6 +67,12 @@ day's budget" and "The day's pace"); you read them.
   before every unit. Book by hand when no run is going and you or another session here spawned agents; this needs
   no word from the owner, it only counts what was spent. A machine without the board writes a file
   (`$R agents book --out FILE`) and the board's machine books it (`$R agents book --file FILE`).
+- **Which model an agent you spawn runs on** (the owner, 2026-10-12: Haiku for the easy work, Sonnet for the
+  medium, Opus for the hard). Finding and listing things: the agent `tw-scout` (Haiku), never a general or search
+  agent on Opus. A first read of code: `tw-reviewer-first` (Sonnet). Judging, a second read of a fix, the seam,
+  the sim's rules, the replay format: `tw-reviewer` and `tw-critic` (Opus). Every brief you write names a ceiling
+  on answers and says "read each file once": two critics without one used 30% of a week in an afternoon
+  (2026-10-01). `$R leaks` names the legs that wasted tokens, at no cost: read it before you tune anything.
 - **Older scripts.** If `$R day` prints no `Pace:` line, the relay on this machine is older than 2026-10-07: it
   holds a $50 day at most (about 2.7%) and no pace. Say so plainly, start short runs (`--hours 1` or `--max-legs`),
   and read `$R budget` between them. Delete this bullet when every station prints the line.

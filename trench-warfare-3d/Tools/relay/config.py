@@ -78,6 +78,20 @@ def phases(folder=None):
                              % (name, "|".join(EFFORTS), "|".join(MODES)))
         if not isinstance(p.get("deny_tools", []), list):
             raise SystemExit("relay: phases.json %s: deny_tools must be a list of tool names" % name)
+        tools = p.get("tools", [])
+        if not isinstance(tools, list) or not all(isinstance(t, str) and t.isalnum() for t in tools):
+            raise SystemExit("relay: phases.json %s: tools must be a list of tool names" % name)
+        if tools and not {"Bash", "Read", "Write"} <= set(tools):
+            raise SystemExit("relay: phases.json %s: tools must hold Bash, Read and Write, or a leg cannot work" % name)
+        if not isinstance(p.get("skills", True), bool):
+            raise SystemExit("relay: phases.json %s: skills is true or false" % name)
+        if p["model"] not in LEG_MODELS or (p["model"] == EASY_MODEL and p["mode"] != "read_only"):
+            raise SystemExit("relay: phases.json %s: model is %s, and %s only for a phase that only reads"
+                             % (name, "|".join(LEG_MODELS), EASY_MODEL))
+        by = p.get("by_grade", {})
+        if not isinstance(by, dict) or not all(g in GRADES and m in ROUTE_MODELS for g, m in by.items()):
+            raise SystemExit("relay: phases.json %s: by_grade names a model (%s) for easy, medium or hard"
+                             % (name, "|".join(ROUTE_MODELS)))
         if p["mode"] == "read_only" and not p.get("output"):
             raise SystemExit("relay: phases.json %s is read_only, so it needs an output file" % name)
     for need in ("plan", "execute"):
@@ -86,7 +100,20 @@ def phases(folder=None):
     return raw
 
 
-ROUTE_MODELS = ("opus", "sonnet")     # a leg runs in auto mode, which the smallest model does not get
+ROUTE_MODELS = ("opus", "sonnet")     # the models a leg that does work may run on
+EASY_MODEL = "haiku"                  # reading and sorting only: a phase that only reads may run on it
+LEG_MODELS = ROUTE_MODELS + (EASY_MODEL,)
+GRADES = ("easy", "medium", "hard")   # papers.plan_grade: what a plan leg says of its unit
+
+
+def graded(ph, role, unit, grade, folder=None):
+    """The model an execute leg runs on for a plan of this grade, or None for the phase's own. phases.json
+    execute.by_grade is the table; a route in routes.json for this role and unit wins over it (the owner's word),
+    except for hard work: that runs on the phase's own model whatever the route says (the owner, 2026-10-12:
+    "opus for the difficult items"; rv-04-flow-goals was graded hard and ran on the review-fix route's Sonnet)."""
+    if "model" in route(role, "execute", folder, unit):
+        return ph["execute"]["model"] if grade == "hard" else None
+    return (ph.get("execute", {}).get("by_grade") or {}).get(grade)
 
 
 def routes(folder=None):
@@ -112,7 +139,8 @@ def routes(folder=None):
         seen.add((r["role"], r["phase"]))
         if "model" not in r and "effort" not in r:
             raise SystemExit("relay: routes.json: the route %s/%s changes nothing" % (r["role"], r["phase"]))
-        if r.get("model", ROUTE_MODELS[0]) not in ROUTE_MODELS or r.get("effort", EFFORTS[0]) not in EFFORTS:
+        easy_ok = (EASY_MODEL,) if known[r["phase"]]["mode"] == "read_only" else ()
+        if r.get("model", ROUTE_MODELS[0]) not in ROUTE_MODELS + easy_ok or r.get("effort", EFFORTS[0]) not in EFFORTS:
             raise SystemExit("relay: routes.json %s/%s: model is %s, effort is %s"
                              % (r["role"], r["phase"], "|".join(ROUTE_MODELS), "|".join(EFFORTS)))
     return rows

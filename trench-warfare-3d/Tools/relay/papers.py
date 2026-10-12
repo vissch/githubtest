@@ -54,6 +54,28 @@ def _shape(text, need, max_bytes, what):
     return out, sec
 
 
+def plan_cut(text, max_bytes):
+    """For a plan that is too long: how many bytes must go and where they sit, so one edit makes it fit. '' for a
+    plan that fits. Plan legs trimmed blind, a few hundred bytes a try: 4.5 refusals a leg (2026-10-12)."""
+    over = len(text.encode("utf-8")) - max_bytes
+    if over <= 0:
+        return ""
+    sizes = sorted(((len(b.encode("utf-8")), k) for k, b in sections(text).items()), reverse=True)
+    return ("cut %d bytes or more in ONE edit, then check again. Bytes per section: %s"
+            % (over + max_bytes // 20, ", ".join("%s %d" % (k, n) for n, k in sizes)))
+
+
+GRADES = ("easy", "medium", "hard")
+
+
+def plan_grade(text):
+    """How hard the plan leg says the work is: easy, medium or hard, the first word under '## Difficulty'. None
+    when the plan does not say, or says something else: the execute leg then runs on its phase's own model."""
+    said = sections(text).get("Difficulty", "").strip().strip("*_`").split()
+    word = said[0].strip("*_`.,:;").lower() if said else ""
+    return word if word in GRADES else None
+
+
 def plan_steps(text):
     """The Steps section cut at the leg breaks: one execute leg per part."""
     steps = sections(text).get("Steps", "")

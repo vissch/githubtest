@@ -55,6 +55,20 @@ def shape(raw, at_s):
             "five_hour": windows.get(SHORT), "resets": resets.get(WEEK), "windows": windows}
 
 
+def from_stream(event, at_s):
+    """A reading from a `rate_limit_event` line of a leg's own stream, or None. That line counts 0 to 1 and names
+    its resets `resetsAt`. It moves in whole percents and every session on the plan moves it, so it says where the
+    week stands and never what one leg used: the caller keeps it as week_end and leaves week_used alone."""
+    info = event.get("rate_limit_info") if isinstance(event, dict) else None
+    wins = info.get("unifiedWindows") if isinstance(info, dict) else None
+    raw = {}
+    for name, w in wins.items() if isinstance(wins, dict) else ():
+        u = _number(w.get("utilization")) if isinstance(w, dict) else None
+        if u is not None and 0 <= u <= 1.5:
+            raw[name] = {"utilization": round(u * 100.0, 2), "resets_at": w.get("resetsAt")}
+    return shape(raw, at_s)
+
+
 def state(home=None):
     p = Path(home or legdir.home()) / FILE
     try:

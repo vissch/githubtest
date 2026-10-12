@@ -605,6 +605,7 @@ def main(argv=None):
     p.add_argument("ids", nargs="+")
     sub.add_parser("retry").add_argument("id")
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
+    sub.add_parser("leaks", add_help=False)        # the watch for wasted tokens: leakwatch.py takes the rest
     p = sub.add_parser("hold")
     p.add_argument("who")
     p.add_argument("--hours", type=float, default=4)
@@ -621,7 +622,9 @@ def main(argv=None):
     p = sub.add_parser("view")
     p.add_argument("leg")
     p.add_argument("--follow", action="store_true")
-    a = ap.parse_args(argv)
+    argv = list(sys.argv[1:] if argv is None else argv)
+    rest = argv[1:] if argv[:1] == ["leaks"] else []           # leakwatch.py reads its own arguments
+    a = ap.parse_args(argv[:1] if rest or argv[:1] == ["leaks"] else argv)
     if a.cmd == "run":
         return runner.Run(a).loop()
     if a.cmd == "leg":
@@ -654,6 +657,9 @@ def main(argv=None):
         return add(a)
     if a.cmd == "proof":
         return proof(a.name)
+    if a.cmd == "leaks":
+        import leakwatch
+        return leakwatch.main(rest)
     if a.cmd == "view":
         return view(a.leg, a.follow)
 
