@@ -213,6 +213,13 @@ def read_all(where: Path, bad=None):
             why = 'its brief.json is not a brief'
         elif b.get('id') != f.parent.name:
             why = "its id is %s, not its folder's name" % (b.get('id') or 'missing')
+        elif not (isinstance(b.get('title'), str) and b['title'].strip()):
+            why = 'it has no title'                     # said(), answers(), site() and missing() index these keys
+        elif not (isinstance(b.get('options'), list) and b['options']
+                  and all(isinstance(o, dict) and o.get('key') for o in b['options'])):
+            why = 'its options are not a list of options with a key'
+        elif not isinstance(b.get('evidence'), list):
+            why = 'its evidence is not a list'
         if why:
             if bad is not None:
                 bad.append(dict(id=f.parent.name, why=why))
