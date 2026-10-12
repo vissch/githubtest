@@ -154,6 +154,9 @@ native memory and jobs, JsonUtility, meshes and FBX import, maths, text assets a
 modules). Nearly all of the sim and presentation suite runs; UI Toolkit
 layout, GameObjects, physics and audio still report ENGINE. A strong first filter, never the gate's verdict (no Burst,
 no job threads, no pixels). A FAIL caused only by the stand-in goes in `Tools/otr/known.txt` with its reason.
+`python Tools/test_otr.py` checks otr's own verdict rules on hand-written runner output (no Unity, no dlls):
+a run with no `#DONE` and no class, a `#CRASH` line, a `LOADER` / `ENGINE-INSTALL-FAILED` line, and a non-zero
+exit after `#DONE` all have to come out bad, so a dropped module can never read as a pass.
 
 ## 5. Tests
 
