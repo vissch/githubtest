@@ -500,6 +500,14 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   fell to the last-ditch point. The brief "The Banner's upper barrel now fires from its own mouth: land the whole
   Banner?" is open on the Decide page beside the owner's own close frame, with the measured distance and angle under
   each new close frame.
+- **The Banner by day, on film: what next? (2026-10-12):** he asked twice for a video and had only stills. There is now
+  one: eighteen seconds in a daylight match (Winter, GreyboxCorridor, the game's own shaders), the Banner walking at
+  play zoom, its top laid 38 degrees on men off its nose and coming home to 0, both guns firing, then the same close
+  from the front quarter. Evidence: the brief's own folder, G:/My Drive/TW3D-pipeline/decisions/
+  2026-10-12-the-banner-by-day-on-film-what-next/ (the film and two frames). The copy to decisions-evidence/
+  2026-10-12/banner-day-film/ was refused in this run, so that folder is empty.
+  Options: land the Banner's top and guns as they are; make a shield plate as new art first, then it moves; not yet,
+  and he writes what must change. Nobody to ask in this run, so the brief is on the Decide page and nothing is landed.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (built
