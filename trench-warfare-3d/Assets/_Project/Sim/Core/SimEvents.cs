@@ -1,5 +1,6 @@
 // Phase: P0 (implemented) — Event stream contract, see docs/02-contracts.md
-// Presentation reads events exactly once per frame; they are never read back by the sim.
+// Presentation reads events exactly once per frame; the sim never reads them back — a sim system that reacts to
+// a death or a deploy reads SimWorld.VehicleDeaths / SimWorld.Deploys instead (both can overflow Events silently).
 using Unity.Collections;
 using Unity.Mathematics;
 
@@ -132,6 +133,27 @@ namespace TW.Sim
         public float3 Pos;
         public float3 Dir;
         public float Scalar;
+    }
+
+    /// <summary>A vehicle's death this tick, as SimWorld.Despawn sees it. Sim-owned: unlike the VehicleDestroyed
+    /// event (which can be dropped on overflow, SimEventBuffer.Add), this never drops.</summary>
+    public struct VehicleDeath
+    {
+        public int Slot;
+        public int Killer;
+        public int Archetype;
+        public float Yaw;
+        public float3 Pos;
+    }
+
+    /// <summary>A unit deploy this tick (SimWorld.Deploy or the sea lift). Sim-owned: unlike the UnitDeployed
+    /// event, this never drops.</summary>
+    public struct UnitDeploy
+    {
+        public int Slot;
+        public int RosterSlot;
+        public int Rank;
+        public int Player;
     }
 
     /// <summary>Per-tick append-only buffer. Cleared by SimWorld at the start of every Step().</summary>
