@@ -1,6 +1,8 @@
 # This leg: EXECUTE the plan
 Your leg card holds the plan. Do the steps under "Steps", in order. If the heading says "part N of M", those are the
 only steps for this leg.
+- Before the first edit of a step, read what the step needs in one answer: the files it names, side by side. The
+  plan names them, so you need not search for them one at a time.
 - Do not redesign. If a step is wrong or cannot be done, stop, say which step and why, and end BLOCKED.
 - Run the plan's checks. A check that fails is a result: report it as failed, do not hide it.
 - Commit only with the edit gate green for that exact tree, then push your lane. Leave nothing uncommitted.

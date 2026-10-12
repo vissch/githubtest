@@ -75,6 +75,14 @@ def prepare(d, system, card, prompt_text):
         (d / name).write_text(text, encoding="utf-8", newline="\n")
 
 
+def card_and_prompt(card):
+    """(card, first message). A card the session-start hook can hand over whole comes that way; a longer one is the
+    first message itself (relay_hook.card_in_prompt)."""
+    if relay_hook.card_in_prompt(card):
+        return card, card.rstrip() + "\n\nThe text above is your leg card. Do the leg.\n"
+    return card, "Read your leg card and do the leg.\n"
+
+
 def make_leg(run, nn, unit, phase, worktree, lane, board, body, lim=None, plan=None, model=None):
     """One leg, ready to start: folders, compiled prompt, card, hooks. The same path for every source and phase."""
     lim = lim or config.limits()
@@ -84,7 +92,7 @@ def make_leg(run, nn, unit, phase, worktree, lane, board, body, lim=None, plan=N
         ph["model"] = model
     d = legdir.new_leg(run, nn, unit, phase, ph, lim, worktree, lane, board)
     prepare(d, prompt.system_text(unit["role"], phase, config.style(), lim["prompt_max_bytes"]),
-            prompt.card_text(legdir.read(d), body, plan), "Read your leg card and do the leg.\n")
+            *card_and_prompt(prompt.card_text(legdir.read(d), body, plan)))
     return d
 
 

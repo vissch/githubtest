@@ -136,6 +136,31 @@ class Sonnet(unittest.TestCase):
         self.assertEqual(config.route("lane", "execute", unit="rv-12-hud-f9"), {})
 
 
+class Card(unittest.TestCase):
+    """A card too long for the session-start hook reached the leg as a preview and a file path: 105 of 337 legs
+    spent a call reading their own card (2026-10-12)."""
+
+    def test_a_long_card_is_the_first_message_and_a_short_one_comes_by_the_hook(self):
+        import relay_hook
+        short, long_ = "# Leg card\n" + "x" * 5000, "# Leg card\n" + "y" * 11000 + "\n## Risks\nthe last line\n"
+        card, first = launch.card_and_prompt(short)
+        self.assertEqual((card, first, relay_hook.card_in_prompt(short)),
+                         (short, "Read your leg card and do the leg.\n", False))
+        card, first = launch.card_and_prompt(long_)
+        self.assertEqual(card, long_)                              # card.md still holds it, for the record
+        self.assertTrue(first.startswith(long_.rstrip()) and "the last line" in first and first.endswith("Do the leg.\n"))
+        self.assertTrue(relay_hook.card_in_prompt(long_))          # so the hook hands nothing over twice
+        self.assertLess(relay_hook.CARD_HOOK_MAX, 10000)
+
+    def test_ten_small_review_fixes_are_planned_on_sonnet_and_ten_on_opus(self):
+        row = [r for r in config.routes() if (r["role"], r["phase"]) == ("review-fix", "plan")][0]
+        self.assertEqual((row["model"], len(row["units"]), len(set(row["units"]))), ("sonnet", 10, 10))
+        control = re.findall(r"rv-\d+", row["why"])
+        self.assertEqual(len(control), 10)
+        self.assertFalse([u for u in row["units"] if u.split("-p2")[0] in control])     # no unit in both arms
+        self.assertEqual(config.route("review-fix", "plan", unit=row["units"][0]), {"model": "sonnet"})
+
+
 class Tiers(unittest.TestCase):
     """Haiku for the easy work, Sonnet for the medium, Opus for the hard (the owner, 2026-10-12)."""
 
