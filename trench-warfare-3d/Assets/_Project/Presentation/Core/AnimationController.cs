@@ -220,6 +220,11 @@ namespace TW.Presentation
         NativeArray<uint> pinnedAt;     // the tick the Pinned event named him, so the pinned block can start one go-to-ground per event (not cleared every tick like hitKind)
         float3[] prevPos;
         float2[] heading;   // the way he has been moving, smoothed over a few ticks: what his body faces (Decide)
+        // the slots Tick decided a clip for this tick: Advance walks only these (the dead, the vehicles and the empty are skipped)
+        NativeArray<int> active;
+        int activeCount;
+        /// <summary>How many slots the last Advance walked. Tests read it; nothing in production does.</summary>
+        public int AdvancedCount => activeCount;
 
         // ---- trace: one man followed through his fight
         public int FollowSlot = -1;
@@ -261,13 +266,14 @@ namespace TW.Presentation
             act = new NativeArray<byte>(maxSlots, Allocator.Persistent); pinnedAt = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             actOn = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots]; heading = new float2[maxSlots];
+            active = new NativeArray<int>(maxSlots, Allocator.Persistent);
             AllocateDeaths(maxSlots);
         }
 
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); layUntil.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose(); pinnedAt.Dispose();
+            shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); layUntil.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose(); pinnedAt.Dispose(); active.Dispose();
             DisposeDeaths(); DisposePins(); DisposeRally();
         }
 
@@ -279,6 +285,7 @@ namespace TW.Presentation
             Latch(w);
             Incoming(w);
             RallyTick(w);
+            activeCount = 0;
             for (int i = 0; i < count; i++)
             {
                 uint f = w.Flags[i];
@@ -297,7 +304,7 @@ namespace TW.Presentation
                     // Advance overwrites Yaw[i] with s.ShownYaw every frame, and a vehicle's ShownYaw is only ever set once
                     // at Fresh (spawn): keep it tracking the sim's yaw so the ease in Advance finds nothing to ease (critic P4a)
                     s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
-                    State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue;
+                    State[i] = s; Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; Yaw[i] = w.Yaw[i]; continue;
                 }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {
@@ -306,6 +313,7 @@ namespace TW.Presentation
                 }
                 if (PinnedCount == 0 || !Pinned(i, ref s)) Decide(i, ref s, w);   // the gym's pin (AnimationController.Pin.cs)
                 State[i] = s;
+                active[activeCount++] = i;
                 prevPos[i] = w.Position[i];
             }
         }
@@ -1231,8 +1239,9 @@ namespace TW.Presentation
         /// <summary>Move every frame on, close the cross-fades, end the one-shots; then the stand-in row and phase per slot.</summary>
         public void Advance(float dt)
         {
-            for (int i = 0; i < count; i++)
+            for (int k = 0; k < activeCount; k++)
             {
+                int i = active[k];
                 var s = State[i];
                 var info = Clips.Table[(int)s.Clip];
                 if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
