@@ -57,6 +57,11 @@ namespace TW.Sim
         public int HighWater;           // highest slot index ever used + 1
         public int AliveCount;
         public SimEventBuffer Events;   // transient (not hashed)
+        /// <summary>This tick's vehicle deaths and deploys, sim-owned and never dropped (unlike Events, which can
+        /// overflow). Functions of hashed state, so not themselves hashed; cleared at the top of every Step, so
+        /// nothing survives a tick boundary (unlike BlastSystem.Pending, which a later tick still reads).</summary>
+        public NativeList<VehicleDeath> VehicleDeaths;
+        public NativeList<UnitDeploy> Deploys;
         public NativeList<SimCommand> TickCommands; // sorted commands for the current tick (transient)
         public ulong LastHash;
         /// <summary>Which ticks compute the full-state hash into LastHash: 1 every tick (the default, and what replays,
@@ -182,6 +187,8 @@ namespace TW.Sim
 
             freeSlots = new NativeList<int>(n, Allocator.Persistent);
             Events = new SimEventBuffer(config.EventCapacity, Allocator.Persistent);
+            VehicleDeaths = new NativeList<VehicleDeath>(16, Allocator.Persistent);
+            Deploys = new NativeList<UnitDeploy>(16, Allocator.Persistent);
             TickCommands = new NativeList<SimCommand>(256, Allocator.Persistent);
             sortScratch = new NativeList<SimCommand>(256, Allocator.Persistent);
         }
@@ -235,7 +242,11 @@ namespace TW.Sim
             freeSlots.Add(slot);
             AliveCount--;
             Events.Add(Tick, SimEventType.Death, slot, killer, Position[slot], impulse, knock);
-            if (vehicle) Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(Archetype[slot] + 1, Yaw[slot], 0f));   // dir.x = archetype + 1, dir.y = hull yaw, for the wreck (the slot can be let again this step)
+            if (vehicle)
+            {
+                Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(Archetype[slot] + 1, Yaw[slot], 0f));   // dir.x = archetype + 1, dir.y = hull yaw, for the wreck (the slot can be let again this step)
+                VehicleDeaths.Add(new VehicleDeath { Slot = slot, Killer = killer, Archetype = Archetype[slot], Yaw = Yaw[slot], Pos = Position[slot] });
+            }
         }
 
         // ------------------------------------------------------------------ tick
@@ -244,6 +255,8 @@ namespace TW.Sim
         {
             using var step = PerfMarkers.SimStep.Auto();
             Events.Clear();
+            VehicleDeaths.Clear();
+            Deploys.Clear();
             SortCommands(commands);
             ApplyCoreCommands();
             StepEconomy();
@@ -321,6 +334,7 @@ namespace TW.Sim
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
             if (slot < 0) { Reject(c); return; }
             Events.Add(Tick, SimEventType.UnitDeployed, slot, c.A, Position[slot], new float3(rank, c.Player, 0f));
+            Deploys.Add(new UnitDeploy { Slot = slot, RosterSlot = c.A, Rank = rank, Player = c.Player });
             Silver[c.Player] -= entry.Cost;
             SlotCooldown[ri] = entry.CooldownTicks;
         }
@@ -453,7 +467,7 @@ namespace TW.Sim
             PostCell.Dispose(); PostKind.Dispose();
             TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose(); Knock.Dispose();
             Silver.Dispose(); SilverFraction.Dispose(); Rally.Dispose(); Roster.Dispose(); SlotCooldown.Dispose(); SlotUnlocked.Dispose();
-            freeSlots.Dispose(); Events.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();
+            freeSlots.Dispose(); Events.Dispose(); VehicleDeaths.Dispose(); Deploys.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();
         }
     }
 }

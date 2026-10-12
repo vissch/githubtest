@@ -314,6 +314,7 @@ namespace TW.Sim.Match
             int slot = w.Spawn(team[craft], cargoArch[berth], w.ClampToMap(at), cargoHp[berth], cargoSpeed[berth], vehicle);
             if (slot < 0) return false;                                        // the field is full: the rest stay aboard and go back out
             w.Events.Add(w.Tick, SimEventType.UnitDeployed, slot, cargoSlot[berth], w.Position[slot], new float3(cargoRank[berth], team[craft], 0f));
+            w.Deploys.Add(new UnitDeploy { Slot = slot, RosterSlot = cargoSlot[berth], Rank = cargoRank[berth], Player = team[craft] });
             cargoHp[berth] = 0f;
             aboard[craft] = (byte)(left - 1);
             return left > 1;

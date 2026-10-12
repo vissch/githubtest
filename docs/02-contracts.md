@@ -82,6 +82,8 @@ Dropping is deterministic because validation reads only sim state, never present
   wreck (2026-09-28: idle guns fire at a wreck that shelters enemies). Consumers test `b >= 0` for a man or a machine
   and `PropTarget.IsProp(b)` for a wreck; `-1` stays "no target".
 - Presentation must tolerate dropped events (ring buffer overrun is reported via `SimEvents.Overrun`) and rebuild from state, never rely on events for correctness.
+- The sim obeys this too: a sim system that reacts to a death or a deploy reads `SimWorld.VehicleDeaths` /
+  `SimWorld.Deploys` (this tick's only, sim-owned, never dropped), not the `Events` buffer.
 
 ## Change log
 
