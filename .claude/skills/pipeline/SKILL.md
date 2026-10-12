@@ -49,7 +49,9 @@ Driving the editor and capturing evidence at every zoom band, for all of them: `
 ## The work loop (one job)
 
 1. `$P next` on this station. Nothing: say so and stop.
-2. `$P claim <job>`. Refused as busy: another worker on this station has it; stop.
+2. `$P claim <job>`. It needs `TW_WORKER_PID`, set once per session to a pid that outlives a single command (the
+   wrapper pid `$R start` prints, or a long-lived shell's pid); without it the claim is refused. Refused as busy:
+   another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
    The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.

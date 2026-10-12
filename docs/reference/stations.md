@@ -24,7 +24,9 @@ bring evidence for. A stage may not read its own outputs.
 | BLOCKED | a stage it comes after is not DONE | `pipeline.py why <item>` |
 
 One worker per station: a claim names the worker's process and its start time, and is taken over only when that
-process is gone. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS. Closing a feedback
+process is gone. `claim` refuses without `TW_WORKER_PID`: set it once per session to a pid that outlives a single
+command (the wrapper pid `run_detached.py start` prints, or a long-lived shell), because an agent's per-command shell
+exits at once and its claim would read as dead. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS. Closing a feedback
 request does not make its stage stale again.
 
 ## Commands
@@ -33,6 +35,7 @@ request does not make its stage stale again.
 python Tools/pipeline/pipeline.py status [item]
 python Tools/pipeline/pipeline.py why <item>
 python Tools/pipeline/pipeline.py next
+export TW_WORKER_PID=<a pid that outlives one command>   # needed by claim
 python Tools/pipeline/pipeline.py claim <job>
 python Tools/pipeline/pipeline.py complete <job> --verdict PASS --evidence t1=evidence/<item>/t1.jpg
 python Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words>" --check "<a measurable check>"
