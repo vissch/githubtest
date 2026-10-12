@@ -159,6 +159,11 @@ namespace TW.Sim
 
         public void Record(NativeArray<SimCommand> tickCommands, ulong hashAfterStep)
         {
+            // S5: a world with HashInterval != 1 reports LastHash 0 on the ticks it skipped. A recording of those
+            // zeros verifies against any run at all, so refuse the zero hash here rather than ship a verify that
+            // cannot fail.
+            if (hashAfterStep == 0)
+                throw new System.ArgumentException("ReplayRecorder.Record was given hash 0: the world must hash every tick (HashInterval == 1)", nameof(hashAfterStep));
             Commands.Add(tickCommands.ToArray());
             Hashes.Add(hashAfterStep);
         }
@@ -253,6 +258,12 @@ namespace TW.Sim
         /// <summary>Re-simulate and return the first tick whose hash differs, or -1 if the replay verifies.</summary>
         public int Verify(SimWorld world)
         {
+            // S5: a world that does not hash every tick leaves LastHash 0, so a good replay would read "desync at
+            // tick 0"; a world that has already stepped cannot re-simulate the recording from its start.
+            if (world.HashInterval != 1)
+                throw new System.ArgumentException($"Verify needs a world that hashes every tick (HashInterval == 1), got {world.HashInterval}", nameof(world));
+            if (world.Tick != 0)
+                throw new System.ArgumentException($"Verify needs a fresh world at tick 0, got tick {world.Tick}", nameof(world));
             for (int t = 0; t < TickCount; t++)
             {
                 using var cmds = new NativeArray<SimCommand>(Commands[t], Allocator.Temp);
