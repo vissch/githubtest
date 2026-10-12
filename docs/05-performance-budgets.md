@@ -523,6 +523,18 @@ editor), the props' Compose (25.6 ms) and the terrain's hollow rescan (11.0 ms).
   those points are its neighbours' too, so each is sampled once: half the ground samples. Every position involved is a
   multiple of 0.25 m, exact in float, so the values are the same floats; checked in Play over all 27 chunks, 102,663
   vertices: 0 positions and 0 normals differ from the old per-vertex formula. Worst chunk frame **27.4 → 2.2 ms**.
+- **One shared slice for both terrain jobs** (2026-10-12, review 3 [Z004.2]). The repaint and the chunk re-read each had
+  a 2 ms budget of its own, on its own stopwatch, and nothing added them up: one shell queues 2 m tiles and dirties 32 m
+  chunks at once, so under a barrage both loops found work in the same frame and the frame paid both caps
+  (`TW.Terrain.Update` p95 4.12-4.15 ms, `TW.Terrain.Repaint` and `TW.Terrain.Chunks` p95 2.06 each, runs/9/e0p,
+  development player, barrage) against the 3 ms this page allows the whole main thread. Now `GreyboxTerrainView.Update`
+  runs both under one stopwatch and one budget (`max(paintBudgetMs, chunkBudgetMs)`, 2.0 ms by default, so a sweep must
+  set **both** knobs), alternating which goes first so neither starves — each still gets at least one row — and both
+  stand down in a frame `HeavyWork` was already claimed in, instead of adding a slice on top of an 11-26 ms job.
+  Prediction, not yet measured: `TW.Terrain.Update` p95 4.12-4.15 → 2.1-2.5 ms, Repaint and Chunks p95 2.06 → about 1.0
+  each, no other p95 over its band, `hash_end` equal, the paint queue still draining after the last shell. The A/B is
+  owed (that leg could not open a window). A crater keeps its old colour and shape about twice as long under a barrage,
+  which wants held stills in the burst window and a critic before the default budget moves.
 - **One heavy job a frame** (`HeavyWork.TryClaim`): the hollow rescan and the props' Compose no longer stack; a refused
   job stays pending for the next frame. Chunks wait while the hollows are pending (they read the pools), and so does
   Compose, which read them too and could before run on the old ones in the same frame.

@@ -21,5 +21,9 @@ namespace TW.Presentation
             claimedFrame = f;
             return true;
         }
+
+        /// <summary>A heavy job already ran this frame. Asking does not claim, so an amortised job can stand down
+        /// in such a frame instead of adding its slice on top (review 3, Z004.2).</summary>
+        public static bool Claimed => claimedFrame == Time.frameCount;
     }
 }

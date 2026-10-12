@@ -63,10 +63,10 @@ namespace TW.Presentation.Terrain
         /// Superseded by ChunkBudgetMs (2026-09-23): kept for callers, no longer the limit.</summary>
         public const int MaxChunkRebuilds = 2;
         /// <summary>Milliseconds a frame spent re-reading crater-dirtied chunks, a row at a time (at least one row a frame).
-        /// Two whole chunks a frame was the 27 ms worst frame measured on 2026-09-23; the finished mesh is the same.</summary>
+        /// Two whole chunks a frame was the 27 ms worst frame measured on 2026-09-23; the finished mesh is the same.
+        /// Read together with PaintBudgetMs as one shared slice (Z004.2), so a sweep must set BOTH knobs.</summary>
         public const double ChunkBudgetMs = 2.0;
         double chunkBudgetMs = ChunkBudgetMs;   // or the knob terrain.chunkBudgetMs (Start)
-        readonly System.Diagnostics.Stopwatch chunkWatch = new System.Diagnostics.Stopwatch();
         /// <summary>Tooling (PerfBench's held clock, C33): the paint and chunk budgets below are milliseconds of real time,
         /// so how much of a crater is painted by a given frame depends on the machine. While this is set every queued tile
         /// and row is done in the frame it is queued, so a still does not. Never set during a measured window.</summary>
@@ -76,12 +76,20 @@ namespace TW.Presentation.Terrain
         /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
         /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
         public bool HollowsPending => hollowsDirty;
-        readonly System.Diagnostics.Stopwatch paintWatch = new System.Diagnostics.Stopwatch();
         /// <summary>Milliseconds a frame spent repainting crater tiles, checked after every row of a tile (at least one
         /// row a frame). It was checked only between whole tiles, and a 16 x 16 tile is 256 GroundColor calls: against
-        /// this 2 ms the development player measured a 3.0 ms median under a barrage (AOSA C35).</summary>
+        /// this 2 ms the development player measured a 3.0 ms median under a barrage (AOSA C35).
+        /// Read together with ChunkBudgetMs as one shared slice (Z004.2), so a sweep must set BOTH knobs.</summary>
         public const double PaintBudgetMs = 2.0;
         double paintBudgetMs = PaintBudgetMs;   // or the knob terrain.paintBudgetMs (Start)
+        /// <summary>The repaint and the chunk re-read share one stopwatch and one budget, and take turns going first
+        /// (review 3, Z004.2). Each had a 2 ms budget of its own and nothing added them up: under a barrage both found
+        /// work in the same frame, so TW.Terrain.Update sat at 4.1 ms p95 against docs/05's 3 ms whole main thread.</summary>
+        readonly System.Diagnostics.Stopwatch sliceWatch = new System.Diagnostics.Stopwatch();
+        double sliceBudgetMs = PaintBudgetMs;
+        bool chunksFirst;
+        /// <summary>Which of the two jobs goes first in the next frame's shared slice (tests).</summary>
+        public bool ChunksFirstNextFrame => chunksFirst;
         readonly ScorchTilePainter painter = new ScorchTilePainter();
         System.Func<float, float, Color> groundAt;
         public int PendingPaintTiles => paintTiles.Count + (painter.Busy ? 1 : 0);
@@ -114,6 +122,7 @@ namespace TW.Presentation.Terrain
         {
             chunkBudgetMs = Knobs.Get("terrain.chunkBudgetMs", (float)ChunkBudgetMs);   // 2.0 is exact as a float
             paintBudgetMs = Knobs.Get("terrain.paintBudgetMs", (float)PaintBudgetMs);
+            sliceBudgetMs = Mathf.Max((float)paintBudgetMs, (float)chunkBudgetMs);   // one slice for both (Z004.2)
             applyIntervalMs = Knobs.Get("terrain.applyIntervalMs", (float)ApplyIntervalMs);
             applyOnDrain = Knobs.Get("terrain.applyOnDrain", ApplyOnDrain);
             mipIntervalMs = Knobs.Get("terrain.mipIntervalMs", (float)MipIntervalMs);
@@ -578,16 +587,39 @@ namespace TW.Presentation.Terrain
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork), and chunks mid-rebuild start over on
             // the new hollows, so no chunk is ever finished half on the old ones
-            bool rescanned = false;
             if (hollowsDirty && HeavyWork.TryClaim())
             {
                 TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
                 foreach (var chunk in chunks) chunk.NextRow = 0;
-                rescanned = true;
+                // the claim this frame also stands both slices below down, so no chunk is read on the new hollows here
             }
-            // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
+            // One shared slice for both amortised jobs (review 3, Z004.2): one stopwatch, one budget, and they take
+            // turns going first so neither starves. A frame some other heavy job claimed gets neither: the terrain
+            // catches up next frame rather than stacking its slice on top of an 11-26 ms job.
+            if (HeavyWork.Claimed)
+            {
+                LastPaintMilliseconds = 0f;
+            }
+            else
+            {
+                sliceWatch.Restart();
+                if (chunksFirst) { ChunkSlice(); PaintSlice(); }
+                else { PaintSlice(); ChunkSlice(); }
+                chunksFirst = !chunksFirst;
+            }
+            if (colorDirty || mipsStale) ApplyColor();
+            if (depthDirty) { depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false); depthDirty = false; }
+        }
+
+        /// <summary>At least one row of work, then only while the shared slice has time left: the job that goes
+        /// second in a frame still gets a row, so nothing starves (Z004.2).</summary>
+        bool SliceLeft(int rowsDone) => Unmetered || rowsDone == 0 || sliceWatch.Elapsed.TotalMilliseconds < sliceBudgetMs;
+
+        /// <summary>Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.</summary>
+        void PaintSlice()
+        {
             TW.Sim.PerfMarkers.TerrainRepaint.Begin();
-            paintWatch.Restart();
+            double before = sliceWatch.Elapsed.TotalMilliseconds;
             // The fade has to reach the texture, and the texture is only repainted when something queues a tile.
             // So one crater's tiles are re-queued every RepaintEvery seconds, oldest first: sixty-four marks come
             // round in about the time one takes to fill, and it all goes through the budget below rather than a
@@ -602,7 +634,7 @@ namespace TW.Presentation.Terrain
             // A row at a time, so the budget binds at a row rather than at a whole tile. A tile is written to the
             // texture only when its last row is done, so the texture never shows half of one.
             int paintRows = 0;
-            while (paintRows == 0 || Unmetered || paintWatch.Elapsed.TotalMilliseconds < paintBudgetMs)
+            while (SliceLeft(paintRows))
             {
                 if (!painter.Busy)
                 {
@@ -613,16 +645,19 @@ namespace TW.Presentation.Terrain
                 paintRows++;
                 if (painter.PaintRow(groundAt)) { painter.Write(colorTex); colorDirty = true; }
             }
-            LastPaintMilliseconds = (float)paintWatch.Elapsed.TotalMilliseconds;
+            LastPaintMilliseconds = (float)(sliceWatch.Elapsed.TotalMilliseconds - before);
             TW.Sim.PerfMarkers.TerrainRepaint.End();
-            if (colorDirty || mipsStale) ApplyColor();
-            // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
-            // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
-            // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
+        }
+
+        /// <summary>The shared slice's share a frame, a row at a time, taken round the field from where the last frame
+        /// stopped: a barrage dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a
+        /// mesh is never drawn half old and half new; not while the hollows wait to be rescanned (the rows would read
+        /// old pools).</summary>
+        void ChunkSlice()
+        {
             TW.Sim.PerfMarkers.TerrainChunks.Begin();
-            if (!hollowsDirty && !rescanned)
+            if (!hollowsDirty)
             {
-                chunkWatch.Restart();
                 int rows = 0;
                 for (int n = 0; n < chunks.Count; n++)
                 {
@@ -630,18 +665,17 @@ namespace TW.Presentation.Terrain
                     var c = chunks[i];
                     if (!c.Dirty) continue;
                     chunkCursor = i;   // stay on it until it is done
-                    while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
+                    while (c.NextRow < c.L && SliceLeft(rows)) { FillRow(c, c.NextRow++); rows++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
                     c.Dirty = false; c.NextRow = 0;
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
                     chunkCursor = (i + 1) % chunks.Count;
-                    if (!Unmetered && chunkWatch.Elapsed.TotalMilliseconds >= chunkBudgetMs) break;
+                    if (!SliceLeft(rows)) break;
                 }
             }
             TW.Sim.PerfMarkers.TerrainChunks.End();
-            if (depthDirty) { depthTex.SetPixelData(depthPx, 0); depthTex.Apply(false, false); depthDirty = false; }
         }
 
         void OnDestroy()
