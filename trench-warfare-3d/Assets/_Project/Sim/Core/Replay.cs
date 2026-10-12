@@ -141,7 +141,7 @@ namespace TW.Sim
         // v46 (2026-10-12, [N5.3b]): smoke no longer stops fire at a wreck (the owner's answer): DirectFireSystem's
         // AtWreck dropped its SmokeBlindMetres test, so a gun fires at a wreck through a screen again and the men in
         // its shadow are kept down. Behaviour only, no layout change, hash chain unchanged.
-        public const ushort FormatVersion = 46;
+        public const ushort FormatVersion = 47;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
