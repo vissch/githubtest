@@ -12,7 +12,7 @@
 // Ignores the mouse over HUD chrome, while a support ability is being aimed, and when the field does not own the input.
 // AOSA C67 (2026-09-26): Tick's parts carry TW.Hud.Sel.<Part> markers inside TW.Hud.Selection (PerfBench.SelectionParts
 // records the same names). Knob hud.selectionFast (read once, here in the constructor; 1 is the default, 0 the exact old
-// path) turns on the cheaper projection in UnitPicker.Build and skips filling the handle-to-unit index while nothing is
+// path) skips filling the handle-to-unit index while nothing is
 // selected: the index is read only for the selected handles, so with none it is never read.
 using System.Collections.Generic;
 using Unity.Profiling;
@@ -86,7 +86,6 @@ namespace TW.UI
             this.host = host; this.cam = cam; this.panel = panel; Garrison = garrison ?? new GarrisonStats();
             alive = Alive;
             fast = TW.Presentation.Knobs.Get(FastKnob, FastDefault);
-            Picker.FastProject = fast;
             aimReadout = new AimReadout(root);
             markers = new SelectionMarkers(root, ToHud);
             deathMarks = new DeathMarks(root, host, ToHud);
@@ -100,6 +99,7 @@ namespace TW.UI
         {
             if (HudBridge.WheelClaimed == (System.Func<bool>)WantsWheel) HudBridge.WheelClaimed = null;
             markers.Dispose(); cursor.Dispose(); deathMarks?.Dispose(); comicWords?.Dispose();
+            Picker.Dispose();
         }
 
         /// <summary>The camera asks before it zooms: Alt over a knot steps through it instead (read a frame late, harmless).</summary>
@@ -119,7 +119,12 @@ namespace TW.UI
             var w = World; var unity = Camera.main;
             if (w == null || unity == null || host.Presenter == null) return;
             using (pruneMarker.Auto()) Model.Prune(alive);
-            using (buildMarker.Auto()) Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f);
+            // Z016.1: the drawn height needs the controller's lift and hop, or a climbing man is picked on the trench floor
+            var anim = host.Animation;
+            bool controlled = host.UseAnimationController && anim != null;
+            using (buildMarker.Auto())
+                Picker.Build(w, host.Presenter, host.Local.Map, unity, cam != null ? cam.CurrentZoom : 60f,
+                             controlled ? anim.Lift : default, controlled ? anim.Hop : default, controlled);
             using (indexMarker.Auto())
             {
                 index.Clear();
@@ -140,8 +145,8 @@ namespace TW.UI
             if (interactive && armed != OffMapAbilityId.None && mouse != null && p.TryGroundPoint(out var aim))
             {
                 // a line ability is counted along its corridor (AbilityAim.Shape), a point ability round the reticle
-                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units, armed, shape, ToHud(mouse.position.ReadValue()));
-                else aimReadout.Show(Picker.Units, armed, aim, ToHud(mouse.position.ReadValue()));
+                if (p.Aim.Shape(aim, 0, out var shape) && shape.Line) aimReadout.ShowLine(Picker.Units.AsArray(), armed, shape, ToHud(mouse.position.ReadValue()));
+                else aimReadout.Show(Picker.Units.AsArray(), armed, aim, ToHud(mouse.position.ReadValue()));
             }
             else aimReadout.Hide();
             if (kb != null && fieldOwnsInput) HandleKeys(kb);
@@ -171,7 +176,7 @@ namespace TW.UI
             comicWords?.Tick(unity, interactive);
         }
 
-        void FillIndex() { for (int i = 0; i < Picker.Units.Count; i++) index[Picker.Units[i].Handle] = i; }
+        void FillIndex() { for (int i = 0; i < Picker.Units.Length; i++) index[Picker.Units[i].Handle] = i; }
 
         /// <summary>
         /// Hovering a trench's over the top: amber brackets under the men it would send and red under the pinned who
@@ -238,7 +243,7 @@ namespace TW.UI
                 return;
             }
             if (dragging || overUi) { ClearHover(); return; }
-            int hit = UnitPicker.Clump(Picker.Units, at, fullClump);
+            int hit = UnitPicker.Clump(Picker.Units.AsArray(), at, fullClump);
             hoverClump.Clear();
             if (hit >= 0 && alt && fullClump.Count > 1)
             {
@@ -260,7 +265,7 @@ namespace TW.UI
             Hovered = hoverClump.Count > 0 ? Picker.Units[hoverClump[0]] : (ScreenUnit?)null;
             cursor.Set(Hovered.HasValue ? (Hovered.Value.Ours ? SelectCursor.Kind.Ours : SelectCursor.Kind.Theirs) : SelectCursor.Kind.None);
             if (Hovered.HasValue && hoverCard != null)
-                hoverCard.Show(World, Picker.Units, hoverClump, ToHud(at), HudSize(), altIndex, alt ? fullClump.Count : 0);
+                hoverCard.Show(World, Picker.Units.AsArray(), hoverClump, ToHud(at), HudSize(), altIndex, alt ? fullClump.Count : 0);
             else hoverCard?.Hide();
         }
 
@@ -271,7 +276,7 @@ namespace TW.UI
 
         void ClickSelect(Vector2 at, bool shift, bool ctrl, bool alt)
         {
-            int hit = UnitPicker.Clump(Picker.Units, at, hits);
+            int hit = UnitPicker.Clump(Picker.Units.AsArray(), at, hits);
             if (hit < 0) { if (!shift && !ctrl) Model.Clear(); return; }
             if (alt && hits.Count > 1)   // Alt: the man the wheel has stepped to (the nearest if it has not moved)
                 for (int i = 0; i < hits.Count; i++) if (Picker.Units[hits[i]].Handle.Equals(altPick)) { hit = hits[i]; break; }
@@ -280,7 +285,7 @@ namespace TW.UI
             lastClickTime = Time.unscaledTime; lastClicked = u.Handle;
             if (doubled)
             {
-                UnitPicker.SameTypeOnScreen(Picker.Units, u.Archetype, u.Ours, Screen.width, Screen.height, hits);
+                UnitPicker.SameTypeOnScreen(Picker.Units.AsArray(), u.Archetype, u.Ours, Screen.width, Screen.height, hits);
                 if (!u.Ours) Apply(hits, false, false); else Apply(hits, shift, ctrl);   // enemies are inspected, never mixed with ours
                 return;
             }
@@ -302,7 +307,7 @@ namespace TW.UI
 
         void BoxSelect(Vector2 a, Vector2 b, bool shift, bool ctrl)
         {
-            UnitPicker.InRect(Picker.Units, a, b, true, hits);
+            UnitPicker.InRect(Picker.Units.AsArray(), a, b, true, hits);
             Apply(hits, shift, ctrl);
         }
 

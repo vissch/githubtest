@@ -4,7 +4,14 @@
 // the markers are cut from is a hexagon.
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections;
+using Unity.Mathematics;
 using UnityEngine;
+using TW.Perf;
+using TW.Presentation;
+using TW.Sim;
+using TW.Sim.Match;
+using TW.Sim.Terrain;
 using TW.UI;
 
 namespace TW.Tests
@@ -12,6 +19,9 @@ namespace TW.Tests
     public class SelectionTests
     {
         static UnitHandle H(int slot, ushort gen = 1) => new UnitHandle(slot, gen);
+
+        /// <summary>Z016.1: the hit tests read the picker's native list, so a fixture is a native array.</summary>
+        static NativeArray<ScreenUnit> Fixture(params ScreenUnit[] us) => new NativeArray<ScreenUnit>(us, Allocator.Persistent);
 
         [Test]
         public void AReusedSlotIsNotTheSameUnit()
@@ -56,7 +66,7 @@ namespace TW.Tests
         [Test]
         public void TheClickTakesTheUnitItIsMostCentrallyOnThenTheNearer()
         {
-            var us = new List<ScreenUnit> { U(0, 100, 100, 20, 50), U(1, 110, 100, 20, 30), U(2, 400, 400, 20, 10) };
+            using var us = Fixture(U(0, 100, 100, 20, 50), U(1, 110, 100, 20, 30), U(2, 400, 400, 20, 10));
             Assert.That(UnitPicker.Nearest(us, new Vector2(101, 100)), Is.EqualTo(0), "the cursor is on 0's centre");
             Assert.That(UnitPicker.Nearest(us, new Vector2(105, 100)), Is.EqualTo(1), "equally central: the nearer to the camera");
             Assert.That(UnitPicker.Nearest(us, new Vector2(250, 250)), Is.EqualTo(-1), "empty ground");
@@ -65,7 +75,7 @@ namespace TW.Tests
         [Test]
         public void TheBoxTakesOnlyOurUnitsInsideItFromAnyCorner()
         {
-            var us = new List<ScreenUnit> { U(0, 10, 10, 10, 5), U(1, 50, 50, 10, 5, ours: false), U(2, 90, 90, 10, 5), U(3, 200, 200, 10, 5) };
+            using var us = Fixture(U(0, 10, 10, 10, 5), U(1, 50, 50, 10, 5, ours: false), U(2, 90, 90, 10, 5), U(3, 200, 200, 10, 5));
             var into = new List<int>();
             UnitPicker.InRect(us, new Vector2(100, 0), new Vector2(0, 100), true, into);
             Assert.That(into, Is.EquivalentTo(new[] { 0, 2 }));
@@ -74,7 +84,7 @@ namespace TW.Tests
         [Test]
         public void TheDoubleClickTakesThatTypeAndSideOnTheScreenOnly()
         {
-            var us = new List<ScreenUnit> { U(0, 10, 10, 10, 5, true, 2), U(1, 50, 50, 10, 5, true, 2), U(2, 60, 60, 10, 5, false, 2), U(3, 70, 70, 10, 5, true, 1), U(4, 5000, 50, 10, 5, true, 2) };
+            using var us = Fixture(U(0, 10, 10, 10, 5, true, 2), U(1, 50, 50, 10, 5, true, 2), U(2, 60, 60, 10, 5, false, 2), U(3, 70, 70, 10, 5, true, 1), U(4, 5000, 50, 10, 5, true, 2));
             var into = new List<int>();
             UnitPicker.SameTypeOnScreen(us, 2, true, 1920, 1080, into);
             Assert.That(into, Is.EquivalentTo(new[] { 0, 1 }));
@@ -83,18 +93,16 @@ namespace TW.Tests
         [Test]
         public void AKnotUnderTheCursorIsOneClumpOfOneSideNearestFirst()
         {
-            var us = new List<ScreenUnit>
-            {
+            using var us = Fixture(
                 U(0, 100, 100, 10, 50), U(1, 110, 104, 10, 40), U(2, 92, 96, 10, 60),   // a knot of ours
                 U(3, 104, 98, 10, 30, ours: false),                                     // an enemy in it
-                U(4, 160, 100, 10, 20),                                                 // one of ours further off
-            };
+                U(4, 160, 100, 10, 20));                                                // one of ours further off
             var into = new List<int>();
             Assert.That(UnitPicker.Clump(us, new Vector2(101, 100), into), Is.EqualTo(0));
             Assert.That(into[0], Is.EqualTo(0), "the nearest leads");
             Assert.That(into, Is.EquivalentTo(new[] { 0, 1, 2 }), "ours in reach, not the enemy, not the man 60 px off");
             Assert.That(UnitPicker.Clump(us, new Vector2(400, 400), into), Is.EqualTo(-1)); Assert.That(into, Is.Empty);
-            var big = new List<ScreenUnit> { U(0, 100, 100, 60, 10), U(1, 170, 100, 60, 10) };   // zoomed in: two big men side by side
+            using var big = Fixture(U(0, 100, 100, 60, 10), U(1, 170, 100, 60, 10));   // zoomed in: two big men side by side
             UnitPicker.Clump(big, new Vector2(100, 100), into);
             Assert.That(into, Is.EquivalentTo(new[] { 0 }), "a man is not clumped with a neighbour the cursor is not on");
         }
@@ -136,11 +144,9 @@ namespace TW.Tests
         [Test]
         public void AStrikeCountsTheEnemyInItsCircleAndOursInItsReach()
         {
-            var us = new List<ScreenUnit>
-            {
+            using var us = Fixture(
                 At(10, 0, false), At(0, 24, false), At(0, 30, false),   // enemy: in, in, outside the 25 m circle
-                At(-20, 0, true), At(0, -32, true), At(40, 0, true),    // ours: in, in the reach (25 + 8), beyond it
-            };
+                At(-20, 0, true), At(0, -32, true), At(40, 0, true));   // ours: in, in the reach (25 + 8), beyond it
             var enemy = new List<ScreenUnit>(); var ours = new List<ScreenUnit>();
             AimReadout.Tally(us, Vector2.zero, 25f, 33f, enemy, ours);
             Assert.That(enemy.Count, Is.EqualTo(2));
@@ -353,10 +359,121 @@ namespace TW.Tests
             Assert.That(SelectionMarkers.HexSdf(0f, r, r), Is.GreaterThan(0f), "above the flat top is outside");
         }
 
+        // ---- Z016.1: Build is a Burst job over the presenter's poses ----
+        // The picker projected the whole army in a managed loop every frame (1.2 ms, 2.3x the whole UI budget of
+        // docs/05): a List<ScreenUnit> refilled per frame, each man interpolated a second time and sampled against
+        // the ground twice. It is now one Burst job over SimPresenter.Poses into a NativeList, at the drawn height
+        // RenderGround.DrawnY gives the renderer.
+
+        /// <summary>A world with men out, a presenter that has interpolated them, and a camera over the field.</summary>
+        sealed class PickRig : System.IDisposable
+        {
+            public MatchSim Match;
+            public SimPresenter Presenter;
+            public Camera Cam;
+            public NativeArray<float> Lift, Hop;
+            GameObject camGo;
+            NativeArray<float> gridHeights;
+            readonly MapData savedMap;
+            readonly RenderGroundGrid savedGrid;
+
+            /// <param name="flatHeightM">The sim heightfield, flattened to this (NaN: the greybox map's own).</param>
+            /// <param name="flatGridM">The DRAWN ground (RenderGround.Grid), flat at this (NaN: no drawn grid).</param>
+            public PickRig(int men, float flatHeightM = float.NaN, float flatGridM = float.NaN)
+            {
+                savedMap = RenderGround.Map; savedGrid = RenderGround.Grid;
+                Match = MatchSim.CreateGreybox(SimConfig.Default);
+                var w = Match.World;
+                var size = Match.Map.SizeMeters;
+                if (!float.IsNaN(flatHeightM))
+                {
+                    var cm = Match.Map.Height.Cm;
+                    for (int i = 0; i < cm.Length; i++) cm[i] = (short)Mathf.RoundToInt(flatHeightM * 100f);
+                }
+                for (int i = 0; i < men; i++)
+                {
+                    float x = size.x * 0.5f + ((i % 40) - 19.5f) * 0.8f, z = 40f + (i / 40) * 0.8f;
+                    w.Spawn((byte)(i & 1), (byte)0, new float3(x, 0f, z), 100f, 1.4f, false);
+                }
+                Presenter = new SimPresenter(w.Config.MaxSlots);
+                Presenter.Capture(w);
+                Presenter.Interpolate(1f, 0f);
+                Lift = new NativeArray<float>(w.Config.MaxSlots, Allocator.Persistent);
+                Hop = new NativeArray<float>(w.Config.MaxSlots, Allocator.Persistent);
+                if (float.IsNaN(flatGridM)) { RenderGround.Map = null; RenderGround.Grid = default; }
+                else
+                {
+                    gridHeights = new NativeArray<float>(64, Allocator.Persistent);
+                    for (int i = 0; i < gridHeights.Length; i++) gridHeights[i] = flatGridM;
+                    RenderGround.Map = Match.Map;
+                    RenderGround.Grid = new RenderGroundGrid { Heights = gridHeights, Width = 8, Length = 8, Step = 64f };
+                }
+                camGo = new GameObject("z016-cam");
+                Cam = camGo.AddComponent<Camera>();
+                Cam.fieldOfView = 25f; Cam.nearClipPlane = 0.3f; Cam.farClipPlane = 2000f;
+                camGo.transform.SetPositionAndRotation(new Vector3(size.x * 0.5f, 60f, -40f), Quaternion.Euler(35f, 0f, 0f));
+            }
+
+            public void Dispose()
+            {
+                RenderGround.Map = savedMap; RenderGround.Grid = savedGrid;
+                if (Lift.IsCreated) Lift.Dispose();
+                if (Hop.IsCreated) Hop.Dispose();
+                if (gridHeights.IsCreated) gridHeights.Dispose();
+                Presenter?.Dispose();
+                Match?.Dispose();
+                if (camGo != null) Object.DestroyImmediate(camGo);
+            }
+        }
+
+        [Test]
+        public void ThePickerBuildMakesNoManagedGarbageForTheArmy()   // [Z016.1]
+        {
+            if (!AllocProbe.Available) Assert.Ignore("no profiler to count allocations with");
+            // the frame guard gives each picker one Build a frame, so every measurement is its own picker, and a
+            // throwaway one first grows every buffer and compiles the job
+            using var empty = new PickRig(0);
+            using var army = new PickRig(3000);
+            using (var warmPicker = new UnitPicker()) warmPicker.Build(army.Match.World, army.Presenter, army.Match.Map, army.Cam, 60f);
+            using var emptyPicker = new UnitPicker();
+            using var armyPicker = new UnitPicker();
+            double emptyAlloc = AllocProbe.PerCall(() => emptyPicker.Build(empty.Match.World, empty.Presenter, empty.Match.Map, empty.Cam, 60f), 0, 1);
+            double armyAlloc = AllocProbe.PerCall(() => armyPicker.Build(army.Match.World, army.Presenter, army.Match.Map, army.Cam, 60f), 0, 1);
+            Assert.That(army.Presenter.PoseCount, Is.GreaterThan(2900), "the rig really put an army on the field");
+            Assert.That(armyPicker.Units.Length, Is.GreaterThan(0), "and the picker found them on the screen");
+            Assert.That(armyAlloc, Is.LessThanOrEqualTo(emptyAlloc),
+                        "[Z016.1] the picker made managed garbage projecting 3000 men (" + armyAlloc + " allocations against " + emptyAlloc + " on an empty field)");
+        }
+
+        [Test]
+        public void ThePickerTakesTheHeightTheRendererDraws()   // [Z016.1]
+        {
+            // Hand-worked from VATRenderer's formula (RenderGround.DrawnY) and FigureMetrics, not from a run: the sim
+            // heightfield is flat at 5 m, the DRAWN ground flat at 2 m, zoom 10 (grow 1, so a man is UnitScale 1.125).
+            // Feet on the drawn ground, body ManBodyM (0.9) x 1.125 above them: 2 + 1.0125 = 3.0125. A climbing man
+            // (lift 1) is drawn on the sim's ground instead: 5 + 1.0125 = 6.0125. Blown off his feet (hop 0.5 m of
+            // figure scale): 2 + 0.5625 + 1.0125 = 3.575.
+            Assert.That(UnitPicker.FigureScale, Is.EqualTo(1.125f).Within(1e-6f), "the worked numbers below assume UnitScale 1.125");
+            Assert.That(UnitPicker.Grow(10f), Is.EqualTo(1f), "and zoom 10 is grow 1");
+
+            using var rig = new PickRig(1, flatHeightM: 5f, flatGridM: 2f);
+            float Y(float lift, float hop)
+            {
+                rig.Lift[0] = lift; rig.Hop[0] = hop;
+                using var picker = new UnitPicker();
+                picker.Build(rig.Match.World, rig.Presenter, rig.Match.Map, rig.Cam, 10f, rig.Lift, rig.Hop, true);
+                Assert.That(picker.Units.Length, Is.EqualTo(1), "the one man is on the screen");
+                return picker.Units[0].World.y;
+            }
+            Assert.That(Y(0f, 0f), Is.EqualTo(3.0125f).Within(1e-4f), "[Z016.1] the picker put the climbing man on the trench floor");
+            Assert.That(Y(1f, 0f), Is.EqualTo(6.0125f).Within(1e-4f), "[Z016.1] the picker put the climbing man on the trench floor");
+            Assert.That(Y(0f, 0.5f), Is.EqualTo(3.575f).Within(1e-4f), "[Z016.1] the picker put the climbing man on the trench floor");
+        }
+
         [Test]
         public void ProjectMatchesTheEngine()
         {
-            // AOSA C67: the picker's one-matrix projection (knob hud.selectionFast) against Camera.WorldToScreenPoint, the
+            // AOSA C67: the picker's one-matrix projection against Camera.WorldToScreenPoint, the
             // call it replaces, on a T1-like camera (fov 25, pitched down) over a 1920x1080 target, for points on and off
             // the screen. Screen positions feed only the hit tests, whose smallest circle is MinPickPx (10 px) across.
             var go = new GameObject("c67-cam");

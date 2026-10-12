@@ -390,9 +390,9 @@ namespace TW.Presentation.Units
                     var p = Poses[i];
                     int hs = PoseSlot[i];
                     if (hs >= 0 && hs < Hidden.Length && Hidden[hs] != 0) continue;   // drawn elsewhere (VATRenderer.Extras: a rider)
-                    float original = Height.Sample(p.Pos.x, p.Pos.z);
-                    float y = Ground.Sample(p.Pos.x, p.Pos.z, original);
-                    if (Controlled) { float lift = Lift[PoseSlot[i]]; if (lift > 0f) y = math.lerp(y, original, lift); y += Hop[PoseSlot[i]] * Scale; }   // climbing: drawn up the trench wall; blown off his feet: in the air
+                    // climbing: drawn up the trench wall; blown off his feet: in the air (the picker uses the same formula)
+                    float y = RenderGround.DrawnY(in Height, in Ground, p.Pos.x, p.Pos.z,
+                                                  Controlled ? Lift[hs] : 0f, Controlled ? Hop[hs] : 0f, Scale);
                     if (!Visible(new float3(p.Pos.x, y + 1f, p.Pos.z))) continue;
                     if ((p.Flags & (byte)UnitFlags.Vehicle) != 0)
                     {

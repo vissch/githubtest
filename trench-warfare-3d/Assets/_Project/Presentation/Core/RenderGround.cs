@@ -12,7 +12,8 @@ namespace TW.Presentation
         public float Step;
         public float Sample(float x, float z, float fallback)
         {
-            if (!Heights.IsCreated) return fallback;
+            // Width 0 is "no drawn grid" with a container a job can still be scheduled with (UnitPicker.BuildJob)
+            if (!Heights.IsCreated || Width <= 0 || Length <= 0) return fallback;
             float fx = math.clamp(x / Step, 0f, Width - 1f), fz = math.clamp(z / Step, 0f, Length - 1f);
             int x0 = (int)math.floor(fx), z0 = (int)math.floor(fz), x1 = math.min(x0 + 1, Width - 1), z1 = math.min(z0 + 1, Length - 1);
             float tx = fx - x0, tz = fz - z0;
@@ -258,6 +259,19 @@ namespace TW.Presentation
         {
             float original = map.Height.Sample(x, z);
             return ReferenceEquals(Map, map) ? Grid.Sample(x, z, original) : original;
+        }
+
+        /// <summary>
+        /// Where a man's feet are DRAWN, the one definition the renderer and the picker share (Z016.1): the drawn
+        /// ground, lerped back to the sim's height by lift (a climbing man is drawn up the trench wall while the sim
+        /// holds him on the floor) and raised by hop, in figure scale (blown off his feet: in the air).
+        /// </summary>
+        public static float DrawnY(in Heightfield h, in RenderGroundGrid g, float x, float z, float lift, float hop, float scale)
+        {
+            float original = h.Sample(x, z);
+            float y = g.Sample(x, z, original);
+            if (lift > 0f) y = math.lerp(y, original, lift);
+            return y + hop * scale;
         }
     }
 }

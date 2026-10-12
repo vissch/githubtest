@@ -5,6 +5,7 @@
 // HUD has a card, a key and stats for every support ability. No input, no scene.
 using System.Collections.Generic;
 using NUnit.Framework;
+using Unity.Collections;
 using UnityEngine;
 using Unity.Mathematics;
 using TW.Sim;
@@ -122,11 +123,11 @@ namespace TW.Tests
         [Test]
         public void TheReadoutCountsACorridorAsACapsule()
         {
-            var units = new List<ScreenUnit>
+            using var units = new NativeArray<ScreenUnit>(new[]
             {
                 Unit(20f, 2f, false), Unit(20f, 5f, false), Unit(50f, 0f, false), Unit(-5f, 0f, false), Unit(41f, 0f, false),
                 Unit(20f, 7f, true), Unit(20f, 9f, true), Unit(30f, -6f, true),
-            };
+            }, Allocator.Persistent);
             var enemy = new List<ScreenUnit>(); var ours = new List<ScreenUnit>();
             AimReadout.TallyLine(units, new Vector2(0f, 0f), new Vector2(1f, 0f), 40f, 3f, 8f, enemy, ours);
             Assert.AreEqual(2, enemy.Count, "inside the corridor: 2 m off the line, and 1 m past its end (the burst reaches)");

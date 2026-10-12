@@ -8,6 +8,7 @@
 // Never takes the mouse (picking Ignore
 // everywhere, or the HUD's click mask would see it under the cursor and hide it). Texts are set only when they change.
 using System.Collections.Generic;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Sim;
@@ -74,7 +75,7 @@ namespace TW.UI
 
         /// <summary>Show the card for this clump (indices into units, the nearest first) beside the cursor (HUD px).</summary>
         /// <param name="pick">Under Alt, which man of the knot this is (0-based) and knotSize how many it has: the badge reads 2/7.</param>
-        public void Show(SimWorld w, List<ScreenUnit> units, List<int> clump, Vector2 cursor, Vector2 hudSize, int pick = -1, int knotSize = 0)
+        public void Show(SimWorld w, NativeArray<ScreenUnit> units, List<int> clump, Vector2 cursor, Vector2 hudSize, int pick = -1, int knotSize = 0)
         {
             if (card == null || w == null || clump.Count == 0) { Hide(); return; }
             var lead = units[clump[0]];
@@ -165,7 +166,7 @@ namespace TW.UI
             if (hintKey != shownHint) { shownHint = hintKey; SetHint(hintKey == -3 ? "WHEEL: NEXT   ALT+CLICK: SELECT" : null); }
         }
 
-        void ShowMany(SimWorld w, List<ScreenUnit> units, List<int> clump)
+        void ShowMany(SimWorld w, NativeArray<ScreenUnit> units, List<int> clump)
         {
             System.Array.Clear(stateCounts, 0, stateCounts.Length);
             typeCounts.Clear();
