@@ -53,7 +53,7 @@ namespace TW.Sim
         public NativeArray<byte> SlotUnlocked;      // MaxPlayers * RosterEntry.SlotCount (missions lock slots)
 
         // ---- bookkeeping ----
-        NativeList<int> freeSlots;      // LIFO; deterministic
+        NativeList<int> freeSlots;      // LIFO; deterministic, and hashed (see Hash())
         public int HighWater;           // highest slot index ever used + 1
         public int AliveCount;
         public SimEventBuffer Events;   // transient (not hashed)
@@ -454,6 +454,12 @@ namespace TW.Sim
             h = SimHash.Array(Knock, n, h);
             h = SimHash.Array(Alarm, n, h);   // v27
             foreach (var s in systems) h = s.Hash(h);
+            // v48: the free list is state, not bookkeeping. Its LIFO order decides which slot the next Spawn
+            // takes (lines 219 and 331 read the tail), so two machines that despawned the same men in a
+            // different order must disagree here at once instead of ticks later, when the next deploy lands on
+            // a different slot. Appended at the very end of the chain.
+            h = SimHash.Value(freeSlots.Length, h);
+            h = SimHash.Array(freeSlots.AsArray(), h);
             return h;
         }
 
