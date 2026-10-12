@@ -60,6 +60,7 @@ import src_ops    # noqa: E402
 import src_queue  # noqa: E402
 import src_relay  # noqa: E402
 import src_runs   # noqa: E402
+import src_touch  # noqa: E402
 import src_visuals  # noqa: E402
 import taskbrief  # noqa: E402
 import tasks      # noqa: E402
@@ -108,7 +109,7 @@ def page(out: Path, meta):
     env.globals.update(meta=meta)
     for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html', 'priorities.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
-    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
+    for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'touch.js', 'touchdraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
                  'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'priorities.js', 'priorities.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
@@ -444,6 +445,7 @@ def once(out: Path, watching=False, put_briefs=None):
     data['tasks'] = the_tasks(out, data['queue'], his, watching)
     data['runs'] = the_runs(out, every, his, watching)          # after the tasks: their reading has fetched the pipeline board
     graphs(data, out, all_briefs=every, answers=got)
+    src_touch.site(data, out)       # what each worker touches, for the graph a click on a frog opens (data/touch.js); after the runs, which it reads
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)

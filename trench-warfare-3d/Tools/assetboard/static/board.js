@@ -211,6 +211,11 @@
       if (docked && s.worker) head.appendChild(el('p', 'b-hint', s.follow ? 'The house follows whoever is at work. Click a frog to keep one here.' : 'Kept here until you let go.'));
       p.appendChild(head);
     });
+    // what it is doing and what it touches (touchdraw.js): a small graph that keeps itself current, the counters and its last calls.
+    // The part is made once for a worker; what is in it then follows the readings by itself. A click opens it full size.
+    var TD = root.TouchDraw, tk = s.worker && TD ? TD.key(s.worker) : '';
+    var tp = part('b-touch', tk ? [s.kind, s.id, tk] : null, function (p) { if (tk) TD.dock(p, s.worker); });
+    if (tk) TD.fresh(tp, s.worker);
     part('b-facts', s.facts || [], function (p) { (s.facts || []).forEach(function (f) { p.appendChild(el('span', null, f)); }); });
     // what it is, in a few lines (a row of the queue: src_queue.py details)
     part('b-detail', s.detail || [], function (p) { (s.detail || []).forEach(function (t) { p.appendChild(el('p', t.indexOf('· ') === 0 ? 'b-point' : null, t)); }); });
