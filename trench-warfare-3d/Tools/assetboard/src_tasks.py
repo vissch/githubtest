@@ -55,6 +55,7 @@ ENOUGH = 3              # tool calls of a session that must name the project whe
 ASK = 2500              # characters of what a task was asked that are kept
 TURNS = 6               # the last lines of talk of a log that go into its unit
 DONE_SLACK = 300        # seconds after the relay finished a unit in which a touch is still the leg's own
+LIVES = 20              # lives of one task: at most this many units may be named for it
 RUNNING = 6 * 3600      # a relay leg with no end, started this recently, is still running
 NAMES = ('trench-warfare-3d', 'trench warfare', 'githubtest', 'tw3d')
 ASKS = ('AskUserQuestion', 'ExitPlanMode')
@@ -524,10 +525,25 @@ def capture_rows(captures, broken=()):
 
 
 def unit_id(r):
-    """The id of the relay unit a task is, or becomes: a unit file's and a relay unit's own, else task-<the task's id>."""
+    """The id of the relay unit a task is, or becomes: the live one said() worked out (`uid`), else a unit file's and a
+    relay unit's own, else task-<the task's id>."""
+    if r.get('uid'):
+        return r['uid']
     if r['kind'] in ('unit', 'relay'):
         return r['id'].split('-', 1)[1]
     return ('task-' + UNIT_ID.sub('-', r['id']))[:80].strip('-.')
+
+
+def unit_life(base, done, done_at, mine):
+    """The id of the life the task is in now. An id in the relay's done record can never be queued again, so a task
+    the relay finished and which changed after that needs a unit of its own: task-<id>-r2, -r3, up to LIVES."""
+    uid = base
+    for n in range(2, LIVES + 1):
+        if uid not in done or mine <= (stamp(done_at.get(uid)) or float('inf')) + DONE_SLACK:
+            return uid                              # never finished, or not changed since it was: this life is live
+        suffix = f'-r{n}'
+        uid = base[:80 - len(suffix)].strip('-.') + suffix
+    return uid
 
 
 def said(rows, notes, relay=None, have=None):
@@ -548,10 +564,10 @@ def said(rows, notes, relay=None, have=None):
         if str(n.get('about', '')).startswith('task: '):
             by.setdefault(n['about'][len('task: '):], []).append(n)
     for r in rows:
-        r['state'], r['words'], r['note'], r['unit'], r['stale'] = 'left', [], '', '', []
-        uid = unit_id(r)
-        alive = uid in queue or (have is not None and uid in have)
+        r['state'], r['words'], r['note'], r['unit'], r['stale'], r['uid'] = 'left', [], '', '', [], ''
         mine = r.get('changed', r.get('touched', 0))
+        uid = r['uid'] = unit_life(unit_id(r), done, done_at, mine)
+        alive = uid in queue or (have is not None and uid in have)
         finished = uid in done and mine <= (stamp(done_at.get(uid)) or float('inf')) + DONE_SLACK       # done, and not changed since
         for n in by.get(r['id'], []):
             text, old = str(n.get('text', '')).strip(), said_at(n) < mine
@@ -583,7 +599,7 @@ def said(rows, notes, relay=None, have=None):
         if finished:
             r['state'], r['closed'] = 'done', f'the relay finished unit {uid}'
         elif uid in done:
-            r['state'], r['unit'], r['note'] = 'left', '', ''       # finished once, and changed since: a new task
+            r['state'], r['unit'], r['note'] = 'left', '', ''       # finished once, changed since, and no further life could be named (LIVES)
         elif uid in queue:
             r['state'], r['unit'] = 'relay', uid
             mine = legs.get(uid)
@@ -714,7 +730,7 @@ def collect(mine, others=(), shared=(), notes=(), now=None, relay=None, have=Non
     rows.sort(key=lambda r: (order.get(r['kind'], 99), r['idle']))
     shown = [r for r in rows if r['state'] in SHOWN]
     left = [r for r in shown if r['state'] == 'left']
-    return dict(rows=shown, left=sum(1 for r in left if r['kind'] not in ('capture', 'paused')), queued=sum(1 for r in shown if r['state'] == 'queued'),
+    return dict(uids={r['id']: unit_id(r) for r in rows}, rows=shown, left=sum(1 for r in left if r['kind'] not in ('capture', 'paused')), queued=sum(1 for r in shown if r['state'] == 'queued'),
                 with_relay=sum(1 for r in shown if r['state'] == 'relay'), paused=sum(1 for r in left if r['kind'] == 'paused'),
                 dropped=sum(1 for r in rows if r['state'] == 'dropped'), done=sum(1 for r in rows if r['state'] == 'done'),
                 captures=sum(1 for r in left if r['kind'] == 'capture'), stale_minutes=STALE // 60, blind=BLIND)
