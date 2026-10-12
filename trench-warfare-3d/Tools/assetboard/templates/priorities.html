@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Priorities{% endblock %}
+{% block bodyclass %}overview priorities{% endblock %}
+{% block head %}<link rel="stylesheet" href="priorities.css">{% endblock %}
+{% block main %}
+{# Everything to do, in one list, in the order it comes (src_priorities.py reads it from what the board already has,
+   priorities.js draws it): what only he can do, what is worked now, the relay's queue by its own numbers, branches
+   that wait for a landing, what agents left unfinished, and what is known and is nobody's work yet. Each row says
+   why it stands where it does and leads to where the thing is. Read-only (the owner, 2026-10-12): he changes the
+   order by telling the master. What is wrong with the reading itself stands above the rows in #pr-warn. #}
+<section class="k-office pr-page" id="prioritylist">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Priorities</p>
+    <h2>What comes first, <span class="k-soft">and why.</span></h2>
+    <p class="pr-count" id="pr-count" aria-live="polite">reading the list…</p>
+  </header>
+  <div class="pr-warn" id="pr-warn" role="status" hidden></div>
+  <div class="pr-tools">
+    <div class="pr-tabs" id="pr-bands" role="group" aria-label="Show one part of the list"></div>
+    <input class="pr-find" id="pr-find" type="search" placeholder="Find a word" aria-label="Find a word in the list">
+  </div>
+  <div id="pr-board"></div>
+  <p class="pr-foot" id="pr-foot"></p>
+</section>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/priorities.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="priorities.js"></script>{% endblock %}

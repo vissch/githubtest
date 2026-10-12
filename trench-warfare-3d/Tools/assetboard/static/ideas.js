@@ -160,14 +160,6 @@
     [].forEach.call(home.querySelectorAll('input[type=text]'), function (x) { var v = typed[x.getAttribute('aria-label')]; if (v) x.value = v; });          // words typed and left are still there
     var stuck = !d.running && (d.off || d.left === 0) && ((d.asked || []).length || mine.length);
     var st = el('p', 'i-status' + (d.running ? ' i-running' : stuck ? ' i-off' : ''), line); st.setAttribute('aria-live', 'polite'); st.hidden = !line; home.appendChild(st);
-    if (all.done.length) {
-      var dn = el('div', 'i-done'); dn.appendChild(el('h3', 'd-h', 'Accepted, on their way'));
-      all.done.forEach(function (i) {
-        var r = el('div', 'd-row'), t = el('div'); t.appendChild(el('b', null, i.title)); t.appendChild(el('span', 'd-age', 'you said yes ' + String((i.answer || {}).when).slice(5, 16) + ' · ' + pure.stands(i)));
-        t.appendChild(route(i)); r.appendChild(t); dn.appendChild(r);
-      });
-      home.appendChild(dn);
-    }
     var n = document.getElementById('ideas-n'); if (n) n.textContent = all.open.length ? '· ' + all.open.length + ' to pick from' : '';
   }
   if (B && B.onchange) B.onchange(draw);
