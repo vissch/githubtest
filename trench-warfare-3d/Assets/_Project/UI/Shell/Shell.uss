@@ -83,6 +83,7 @@
 .shell-debrief .tw-table { margin: 6px 0 14px 0; }
 .shell-debrief .tw-table__cell--head { flex-basis: 0; }
 .shell-debrief-meta { flex-direction: row; justify-content: space-between; margin-bottom: 12px; }
+.shell-debrief-hint { position: absolute; bottom: 28px; -unity-text-align: middle-center; }   /* only while VIEW THE FIELD holds the match */
 
 /* the armoury (ArmouryScreen): tiles of cutouts left; the chosen unit on the right, art beside its role, numbers,
    ranks and condition reports. Round 5: the stats are a label/value grid (not danger red), the ranks sit under the
