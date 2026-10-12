@@ -301,7 +301,17 @@ namespace TW.Sim.Combat
             }
         }
 
-        public ulong Hash(ulong h) => h;   // Pending (a mine's burst waits here for the next Step), Resolved and Craters are functions of hashed state: not hashed themselves
+        // v48: Pending is authoritative state. A burst queued after this system's order 720 (a mine at 1130, a
+        // beam at 723, a cook-off at 730) waits here for the next Step, so it crosses a tick boundary and must be in
+        // the hash; "transient" was wrong. Resolved and Craters stay out: both are drained or cleared inside the same
+        // tick and are functions of hashed state. The raw-byte fold is safe for Impact: 16 fields of 4 bytes (two
+        // float3, seven float, three int) = 64 bytes with no padding, so S7/C6's padding worry does not apply.
+        public ulong Hash(ulong h)
+        {
+            h = SimHash.Value(Pending.Length, h);
+            h = SimHash.Array(Pending.AsArray(), h);
+            return h;
+        }
 
         public void Dispose()
         {

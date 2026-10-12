@@ -63,7 +63,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(47, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(48, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
 
@@ -211,7 +211,7 @@ namespace TW.Tests
         [Test]
         public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(47, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(48, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = ScriptedGreybox();
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
@@ -235,8 +235,8 @@ namespace TW.Tests
             Assert.Greater(fight.Shots, 0,
                 "[T24d] not one shot of direct fire in the hashed ticks, so DirectFire, TargetAcquisition, Engage " +
                 "and the guns' tables are all unhashed and this pin cannot see a change in any of them");
-            Assert.AreEqual(0x17179a8feb5ef846UL, match.World.Hash(),
-                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 47 pin: a field was " +
+            Assert.AreEqual(0x7dda9e767187bbacUL, match.World.Hash(),
+                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 48 pin: a field was " +
                 "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 
@@ -246,7 +246,7 @@ namespace TW.Tests
         [Test]
         public void TheLandingBattlefieldHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(47, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(48, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
@@ -283,8 +283,8 @@ namespace TW.Tests
             // So no number of ticks short of ~2450 buys this match a firefight, and 15 s of it buys none at all.
             // Open for the owner (decisions.md): a 2450-tick Long pin, nearer spawns, or the greybox pin keeping
             // the direct-fire guard alone. Until then this pin stays at 300 ticks and its value is unmoved.
-            Assert.AreEqual(0x52f99ea0bb24d0b3UL, match.World.Hash(),
-                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 47 pin: a " +
+            Assert.AreEqual(0x257b601334921300UL, match.World.Hash(),
+                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 48 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 
@@ -352,6 +352,57 @@ namespace TW.Tests
                 sb.AppendLine($"  first: shot {firstShot} hit {firstHit} meleeBlow {firstBlow} enteredTrench {firstTrench}");
                 sb.AppendLine($"  totals: deployed {deployed} abilityFired {fired} rejected {rejected} meleeBlows {blows} trenchEntries {trenches}");
             }
+        }
+
+
+        static SimConfig.WorldInit BareInit() => new SimConfig.WorldInit
+        {
+            SpawnA = new float3(60f, 0f, 10f),
+            SpawnB = new float3(60f, 0f, 200f),
+        };
+
+        /// <summary>[S4] The free list's LIFO order is state: it decides which slot the next Spawn takes. Two worlds
+        /// that despawned the same two men in a different order are identical in every per-slot array (Despawn
+        /// writes the same values either way) and differ only in the free list, so before v48 they hashed alike and
+        /// the divergence only surfaced ticks later, at the next deploy.</summary>
+        [Test]
+        public void TwoWorldsThatDespawnedTheSameMenInADifferentOrderDoNotHashAlike()
+        {
+            using var a = new SimWorld(SimConfig.Default, BareInit());
+            using var b = new SimWorld(SimConfig.Default, BareInit());
+            foreach (var w in new[] { a, b })
+            {
+                w.Spawn(0, 0, new float3(60f, 0f, 10f), 100f, 0f, false);
+                w.Spawn(0, 0, new float3(60f, 0f, 200f), 100f, 0f, false);
+            }
+            a.Despawn(0); a.Despawn(1);
+            b.Despawn(1); b.Despawn(0);
+            Assert.AreNotEqual(a.Hash(), b.Hash(),
+                "[S4] two worlds whose free lists hand out different slots next hash alike: the free list is not in " +
+                "the chain, so a divergence in despawn order is reported ticks late");
+            Assert.AreNotEqual(a.Spawn(0, 0, new float3(60f, 0f, 10f), 100f, 0f, false),
+                               b.Spawn(0, 0, new float3(60f, 0f, 10f), 100f, 0f, false),
+                "[S4] the free lists do hand out a different slot (LIFO), so the hashes above must differ too");
+        }
+
+        /// <summary>[C5] A burst queued after BlastSystem's order 720 (a mine at 1130, a beam at 723, a cook-off at
+        /// 730) waits in Pending for the next Step: it crosses a tick boundary, so it is state and must be in the
+        /// hash. Before v48 BlastSystem hashed nothing and a world with a queued burst hashed like one without.</summary>
+        [Test]
+        public void AQueuedBurstThatWaitsForTheNextTickIsInTheHash()
+        {
+            using var match = TW.Sim.Match.MatchSim.CreatePlaytest(SimConfig.Default);
+            var stray = match.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>();
+            if (stray != null) stray.ShellsPerMinute = 0f;
+            using (var none = new NativeArray<SimCommand>(0, Allocator.Temp)) match.Step(none);
+            ulong before = match.World.Hash();
+            match.World.GetSystem<TW.Sim.Combat.BlastSystem>().Queue(new TW.Sim.Combat.Impact
+            {
+                Pos = new float3(150f, 0f, 240f), Damage = 50f, Radius = 6f, Suppression = 20f,
+            });
+            Assert.AreNotEqual(before, match.World.Hash(),
+                "[C5] a burst that waits for the next Step is not in the hash: Pending crosses a tick boundary, so " +
+                "a machine that restores state between ticks loses it silently");
         }
 
     }
