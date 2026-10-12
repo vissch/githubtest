@@ -24,7 +24,8 @@ Opus for the hard).
 - The plan leg grades its unit: `## Difficulty` in `plan.md`, one word, `easy`, `medium` or `hard`
   (`papers.plan_grade`; the rule is in `roles/_phase_plan.md`). `phases.json` `execute.by_grade` names the model
   per grade: easy and medium run on Sonnet, hard and a plan that does not say on the phase's own model, Opus.
-- A route in `routes.json` for the role wins over the grade (`config.graded`).
+- A route in `routes.json` for the role wins over the grade (`config.graded`), except for a plan that says hard:
+  that runs on the phase's own model whatever the route says.
 - An execute leg that reported failed on a cheaper model gets one more try on the phase's own model
   (`runner.moves_up`; its record holds `moved_up`). Not after blocked, not over uncommitted work, not without room.
 - Haiku may run a phase that only reads, never one that works (`config.phases`, `config.routes`). The
