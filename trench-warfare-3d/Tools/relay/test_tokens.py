@@ -136,5 +136,51 @@ class Sonnet(unittest.TestCase):
         self.assertEqual(config.route("lane", "execute", unit="rv-12-hud-f9"), {})
 
 
+class Watch(unittest.TestCase):
+    """leakwatch.py: a leg that fought the plan's size is named, and a leg that did not is not."""
+
+    def leg(self, root, n, refusals, batch):
+        d = root / "runs" / "r1" / "legs" / ("%02d" % n)
+        d.mkdir(parents=True)
+        (d / "leg.json").write_text(json.dumps({"run": "r1", "leg": n, "unit": "u%d" % n, "phase": "plan",
+                                                "cost_usd": 2.0}), encoding="utf-8")
+        lines, k = [], 0
+
+        def answer(*uses):
+            nonlocal k
+            k += 1
+            lines.append(json.dumps({"type": "assistant", "message": {
+                "id": "m%d" % k, "usage": {"input_tokens": 10, "cache_read_input_tokens": 30000},
+                "content": [{"type": "tool_use", "id": "t%d-%d" % (k, i), "name": name, "input": inp}
+                            for i, (name, inp) in enumerate(uses)]}}))
+            return "t%d-0" % k
+
+        for _ in range(4):
+            answer(*[("Bash", {"command": "grep -n x Assets/A%d.cs" % i}) for i in range(batch)])
+        answer(("Write", {"file_path": "C:/home/desk/01/plan.md", "content": "x"}))
+        for i in range(refusals + 1):
+            tid = answer(("Bash", {"command": "python \"C:/r/Tools/relay/relay.py\" leg done"}))
+            said = "NOT DONE: plan.md is 9000 bytes, the limit is 8192" if i < refusals else "done: plan.md passes"
+            lines.append(json.dumps({"type": "user", "message": {"content": [
+                {"type": "tool_result", "tool_use_id": tid, "content": said}]}}))
+            if i < refusals:
+                answer(("Edit", {"file_path": "C:/home/desk/01/plan.md", "old_string": "a", "new_string": "b"}))
+        (d / "out.jsonl").write_text("\n".join(lines) + "\n", encoding="utf-8")
+        return d
+
+    def test_a_leg_that_fought_the_size_is_flagged_and_a_clean_leg_is_not(self):
+        import tempfile, leakwatch
+        with tempfile.TemporaryDirectory() as tmp:
+            bad = leakwatch.measure(self.leg(Path(tmp), 1, refusals=7, batch=1))
+            good = leakwatch.measure(self.leg(Path(tmp), 2, refusals=0, batch=3))
+            r = leakwatch.rules()
+            self.assertEqual((bad["done_refused"], bad["done_calls"], bad["late_calls"], bad["first_ctx"]), (7, 8, 15, 30010))
+            self.assertEqual({f["flag"] for f in leakwatch.flags(bad, r)}, {"size-fight", "late-calls", "same-file"})
+            self.assertEqual((good["done_refused"], good["late_calls"], good["calls_per_answer"]), (0, 1, 2.33))
+            self.assertEqual(leakwatch.flags(good, r), [])
+            got = leakwatch.read_runs(tmp)
+            self.assertEqual(leakwatch.summary(got["r1"])["plan"]["done_refused_mean"], 3.5)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

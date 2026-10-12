@@ -1,0 +1,11 @@
+{
+  "about": "Read by leakwatch.py. A leg that crosses a line is flagged; nothing is stopped. The figures are from the week of 2026-10-07: a plan leg cost $5.16 on average and was refused 4.5 times, legs made one tool call an answer and started at 39,700 tokens.",
+  "dear_plan_usd": 6,
+  "dear_plan_answers": 60,
+  "size_fight_refusals": 3,
+  "late_calls": 12,
+  "no_batching_calls_per_answer": 1.2,
+  "no_batching_min_answers": 30,
+  "same_file_touches": 8,
+  "heavy_start_tokens": 45000
+}
