@@ -65,6 +65,17 @@ def plan_cut(text, max_bytes):
             % (over + max_bytes // 20, ", ".join("%s %d" % (k, n) for n, k in sizes)))
 
 
+GRADES = ("easy", "medium", "hard")
+
+
+def plan_grade(text):
+    """How hard the plan leg says the work is: easy, medium or hard, the first word under '## Difficulty'. None
+    when the plan does not say, or says something else: the execute leg then runs on its phase's own model."""
+    said = sections(text).get("Difficulty", "").strip().strip("*_`").split()
+    word = said[0].strip("*_`.,:;").lower() if said else ""
+    return word if word in GRADES else None
+
+
 def plan_steps(text):
     """The Steps section cut at the leg breaks: one execute leg per part."""
     steps = sections(text).get("Steps", "")
