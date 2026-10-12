@@ -349,7 +349,7 @@ class Run:
         return self.no_budget([phase] if phase else [], unit)
 
     # ----- one leg -----
-    def leg(self, unit, phase, body, plan=None, fill=None):
+    def leg(self, unit, phase, body, plan=None, fill=None, model=None):
         """One leg. fill (a function): the leg works in a folder of its own under its desk, which fill fills, and
         is not pointed at the board: a blind critic."""
         why = self.no_room(phase, unit)
@@ -358,7 +358,7 @@ class Run:
         self.legs += 1
         work, board = (legdir.desk_path(self.run, self.legs) / "bundle", "") if fill else (self.work, self.board)
         d = launch.make_leg(self.run, self.legs, unit, phase, work, unit["lane"], board,
-                            body + (NO_WINDOW if self.no_window and not fill else ""), self.lim, plan)
+                            body + (NO_WINDOW if self.no_window and not fill else ""), self.lim, plan, model)
         if phase in ("plan", "execute"):
             place = getattr(sources.load(unit["source"]), "place_brief", None)
             if place:
@@ -469,9 +469,21 @@ class Run:
             problems = ["the plan leg reported %s" % outcome]
         if not problems:
             parts = papers.plan_steps(plan)
+            grade = papers.plan_grade(plan)
+            model = config.graded(self.ph, unit["role"], unit.get("id"), grade)
+            if grade:
+                print("unit %s: the plan says %s%s" % (unit["id"], grade, ", so execute runs on %s" % model if model else ""),
+                      flush=True)
             for i, part in enumerate(parts, 1):
-                d, leg = self.leg(unit, "execute", body, papers.plan_for_part(plan, parts, i))
+                d, leg = self.leg(unit, "execute", body, papers.plan_for_part(plan, parts, i), model=model)
                 outcome = said(leg.get("report")) or "failed"
+                if self.moves_up(leg, outcome):             # a cheaper leg failed: once more on the phase's own model
+                    print("unit %s: the %s leg reported %s, one more try on %s"
+                          % (unit["id"], leg.get("model"), outcome, self.ph["execute"]["model"]), flush=True)
+                    d, leg = self.leg(unit, "execute", body, papers.plan_for_part(plan, parts, i),
+                                      model=self.ph["execute"]["model"])
+                    legdir.update(d, moved_up=1)
+                    outcome = said(leg.get("report")) or "failed"
                 if outcome != "done":
                     problems = ["execute leg %d of %d reported %s" % (i, len(parts), outcome)]
                     break
@@ -493,6 +505,14 @@ class Run:
         print("unit %s: %s%s" % (unit["id"], verdict, "".join("\n  - " + p for p in problems)), flush=True)
         if self.idle >= self.lim["no_progress_units"]:
             raise Stop(Why("no-result", "%d units in a row brought no result and no pushed code" % self.idle))
+
+    def moves_up(self, leg, outcome):
+        """True when an execute leg that failed on a cheaper model gets one more try on the phase's own. Not a leg
+        that said blocked (the plan or the owner must speak, a dearer model changes nothing), not over work left
+        uncommitted (the next leg would start in it), not without room for one more leg."""
+        own = self.ph["execute"]["model"]
+        return (outcome == "failed" and leg.get("model") != own and not gitio.dirty(self.work)
+                and not self.no_room("execute"))
 
     def critique(self, src, unit, body, plan):
         """Critic rounds on work the script checks passed. A blind leg scores the evidence; under the target, one

@@ -1172,6 +1172,38 @@ class Runs(Repo):
             self.g(["switch", "-q", gitio.INTEGRATION]); self.g(["branch", "-q", "-D", "lane/show/x"])
             self.g(["push", "-q", "origin", "--delete", "lane/show/x"])
 
+    def test_the_plans_grade_picks_the_model_that_does_the_work(self):
+        """The owner, 2026-10-12: the cheaper model for the easy and medium work, Opus for the hard. The plan leg
+        says which it is; a plan that does not say runs as before."""
+        own = config.phases()["execute"]["model"]
+        for grade, model in (("easy", "sonnet"), ("medium", "sonnet"), ("hard", own), (None, own)):
+            self.queue("u-%s" % grade)
+            plan = PLAN + ("## Difficulty\n%s: one file.\n" % grade if grade else "")
+            self.script({"plan": [{"write": "plan.md", "text": plan}], "execute": [{"report": "RESULT: blocked. x"}]})
+            out, stop = self.go()
+            mine = [l for l in self.legs() if l["unit"] == "u-%s" % grade]
+            self.assertEqual([(l["phase"], l["model"]) for l in mine],
+                             [("plan", config.phases()["plan"]["model"]), ("execute", model)], (grade, out))
+            (self.board / "relay" / "queue" / ("u-%s.json" % grade)).unlink(missing_ok=True)
+
+    def test_a_cheaper_leg_that_failed_gets_one_more_try_on_the_phases_own_model(self):
+        self.queue("u1")
+        plan = PLAN + "## Difficulty\neasy: one file.\n"
+        self.script({"plan": [{"write": "plan.md", "text": plan}], "execute#2": [{"report": "RESULT: failed. Step 1 broke."}],
+                     "execute#3": self.COMMIT})
+        out, stop = self.go()
+        self.assertEqual([(l["phase"], l["model"]) for l in self.legs()][1:],
+                         [("execute", "sonnet"), ("execute", config.phases()["execute"]["model"])], out)
+        self.assertEqual(stop["units"], {"u1": "PASS"})
+        self.assertIn("one more try on", out)
+
+    def test_a_second_failure_is_the_units_and_no_third_leg_runs(self):
+        self.queue("u1")
+        plan = PLAN + "## Difficulty\neasy: one file.\n"
+        self.script({"plan": [{"write": "plan.md", "text": plan}], "execute": [{"report": "RESULT: failed. Step 1 broke."}]})
+        out, stop = self.go()
+        self.assertEqual((stop["legs"], stop["units"]), (3, {"u1": "FAIL"}), out)
+
     def test_a_failed_part_stops_the_later_parts(self):
         self.queue("u1")
         plan = PLAN.replace("1. Create `a.txt` with one line.", "1. `one`\n--- leg break ---\n2. `two`\n--- leg break ---\n3. `three`")

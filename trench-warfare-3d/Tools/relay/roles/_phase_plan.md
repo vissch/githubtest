@@ -16,6 +16,9 @@ do not polish it. Exactly these sections:
   expected value comes from: a worked example, a number in the goal, or a run of a build known to be right (name
   the commit). A value worked out the way the code works it out proves nothing.
 - `## Done when` one line a script can check.
+- `## Difficulty` one word, `easy`, `medium` or `hard`, then one sentence why. It picks the model that does the
+  work. hard: it touches the seam, the sim's rules or the replay format, or more than five files, or no test can
+  prove it. easy: one file, and the check is one command. Everything else is medium. In doubt take the harder.
 - `## Risks` what could go wrong and what to do then. Leave out what cannot happen. When a reader could take
   something for part of this unit that is not, end with one line `Out of scope:` naming it.
 
