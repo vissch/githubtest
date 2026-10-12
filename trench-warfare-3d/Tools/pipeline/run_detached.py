@@ -56,8 +56,12 @@ def kill_tree(pid):
 def cmd_start(a):
     d = runs_root() / a.name
     rj = d / "run.json"
-    if rj.exists() and state(read_json(rj))[0] in ("RUNNING", "STALLED"):
-        raise SystemExit("run %s is still going" % a.name)
+    if rj.exists():
+        rec0 = read_json(rj)
+        st0 = state(rec0)[0]
+        child_alive = rec0.get("child_pid") and proc_start(rec0["child_pid"]) == rec0.get("child_start")
+        if st0 in ("RUNNING", "STALLED") or child_alive:   # a crashed wrapper still leaves an untimed child
+            raise SystemExit("run %s is %s and a recorded process still lives; stop it first" % (a.name, st0))
     if a.min_headroom_gb:
         h = headroom_gb()
         if h is not None and h < a.min_headroom_gb:
@@ -143,7 +147,13 @@ def cmd_status(a):
 
 def cmd_stop(a):
     rj = runs_root() / a.name / "run.json"
+    if not rj.exists():
+        raise SystemExit("no run %s" % a.name)
     rec = read_json(rj)
+    st, detail = state(rec)
+    if st in ("DONE", "TIMEOUT", "STOPPED"):   # keep the verdict: stopping must not erase an exit code
+        print(st, detail, "(already finished; not changed)")
+        return
     for p, s in (("wrapper_pid", "wrapper_start"), ("child_pid", "child_start")):
         if rec.get(p) and proc_start(rec[p]) == rec.get(s):   # only the process we started, never a reused pid
             kill_tree(rec[p])
