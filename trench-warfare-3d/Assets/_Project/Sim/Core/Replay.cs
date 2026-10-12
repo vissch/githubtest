@@ -163,6 +163,11 @@ namespace TW.Sim
         // put every man down pays back the silver and the wait of the men it lost and raises DropLandedShort. No
         // field added, moved or dropped; a battle with a full field keeps silver and an ability it used to lose, so
         // hashes and balance move.
+        // v38 (2026-10-12, the sim's upgrade seam, [Z009.1]): SimConfig carries what each side bought on the Home
+        // Front (UpgradesA/UpgradesB: armour plate, the ability cooldown and cost rows, and the per-unit-kind health,
+        // damage and accuracy tracks), written after the loadouts as three tier bytes and a count plus that many
+        // track bytes per side, so the header layout changed. With every tier at zero the sim behaves exactly as v37
+        // did and SimWorld.Hash()'s chain is untouched, so a zero-upgrade match hashes as before.
         public const ushort FormatVersion = 54;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
@@ -199,6 +204,8 @@ namespace TW.Sim
             w.Write(Config.Endless);   // v16
             WriteLoadout(w, Config.LoadoutA); WriteLoadout(w, Config.LoadoutB);
             WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB); w.Write(Init.TestLevel);   // v39
+            WriteUpgrades(w, Config.UpgradesA); WriteUpgrades(w, Config.UpgradesB);   // v38
+            WriteF3(w, new float3(Init.SizeMeters, 0f)); WriteF3(w, Init.SpawnA); WriteF3(w, Init.SpawnB); w.Write(Init.GoalZA); w.Write(Init.GoalZB);
             w.Write(MapId);
             w.Write(MapHash); w.Write(DataHash);
             w.Write(MapParams.Length); w.Write(MapParams);
@@ -222,6 +229,13 @@ namespace TW.Sim
         {
             w.Write((byte)l.Length);
             for (int i = 0; i < l.Length; i++) w.Write(l[i]);
+        }
+
+        static void WriteUpgrades(BinaryWriter w, in SideUpgrades u)
+        {
+            w.Write(u.Armour); w.Write(u.AbilityCooldown); w.Write(u.AbilityCost);
+            w.Write((byte)u.Tracks.Length);
+            for (int i = 0; i < u.Tracks.Length; i++) w.Write(u.Tracks[i]);
         }
     }
 
@@ -298,6 +312,22 @@ namespace TW.Sim
             }
             catch (InvalidDataException) { throw; }
             catch (System.Exception ex) when (ex is EndOfStreamException || ex is System.ArgumentException || ex is System.OverflowException)
+                TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
+                SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
+                FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
+                Endless = r.ReadBoolean(),   // v16
+            };
+            p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
+            p.Config.UpgradesA = ReadUpgrades(r); p.Config.UpgradesB = ReadUpgrades(r);   // v38
+            float3 size = ReadF3(r);
+            p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle() };
+            p.MapId = r.ReadInt32();
+            p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
+            p.MapParams = r.ReadBytes(r.ReadInt32());
+            int ticks = r.ReadInt32();
+            p.Commands = new SimCommand[ticks][];
+            p.Hashes = new ulong[ticks];
+            for (int t = 0; t < ticks; t++)
             {
                 throw new InvalidDataException("Replay file is truncated or corrupt", ex);
             }
@@ -382,6 +412,14 @@ namespace TW.Sim
                 throw new InvalidDataException($"Replay loadout count {n} overruns FixedList32Bytes<byte>.Capacity {l.Capacity}");
             for (int i = 0; i < n; i++) l.Add(r.ReadByte());
             return l;
+        }
+
+        static SideUpgrades ReadUpgrades(BinaryReader r)
+        {
+            var u = new SideUpgrades { Armour = r.ReadByte(), AbilityCooldown = r.ReadByte(), AbilityCost = r.ReadByte() };
+            int n = r.ReadByte();
+            for (int i = 0; i < n; i++) u.Tracks.Add(r.ReadByte());
+            return u;
         }
 
         static float3 ReadF3(BinaryReader r) => new float3(r.ReadSingle(), r.ReadSingle(), r.ReadSingle());

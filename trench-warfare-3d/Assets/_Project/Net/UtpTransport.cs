@@ -20,5 +20,8 @@ namespace TW.Net
         /// <summary>The ten archetypes each side chose (SimConfig.Loadout*), empty for the faction's default ten. Both
         /// machines must build the same rosters from this before the first tick or slot 3 means two different units.</summary>
         public Unity.Collections.FixedList32Bytes<byte> LoadoutA, LoadoutB;
+        /// <summary>What each side bought on the Home Front (SimConfig.Upgrades*): both machines must agree on it
+        /// before the first tick, or one side's shells pierce plate the other side's do not.</summary>
+        public TW.Sim.SideUpgrades UpgradesA, UpgradesB;
     }
 }
