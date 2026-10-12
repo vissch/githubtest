@@ -163,6 +163,35 @@ namespace TW.Tests
             Assert.AreNotEqual(0u, m.World.Flags[crab] & (uint)UnitFlags.Immobilised, "and then it stands still");
         }
 
+        // [U2] A repair mends the leg module, but a leg that is gone is gone: a walker that lost every leg on one
+        // side must stay standing still after the crew's repair (code review 2026-10-04, U2).
+        [Test]
+        public void AWalkerThatLostASidesLegsStaysStuckAfterARepair()
+        {
+            using var m = NewMatch();
+            int crab = SpawnCrab(m, 0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f), 0f);
+            Step(m);
+            int perSide = math.max(1, VehicleProfile.Pincer.Legs / 2);
+            // every leg on the left side off, and the leg module with them; a crew to do the repair
+            m.Modules.LegsLost[crab] = (byte)((1 << perSide) - 1);
+            m.Modules.Module[crab * (int)VehicleModule.Count + (int)VehicleModule.TrackLeft] = 0f;
+            m.Modules.Crew[crab] = 2;
+            m.Modules.LastHitTick[crab] = 0;
+            m.Modules.Repair[crab] = VehicleModulesSystem.RepairTicks - 1;
+            bool repaired = false;
+            for (int t = 0; t < 400 && !repaired; t++)
+            {
+                m.Modules.LastHitTick[crab] = 0;
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int k = 0; k < ev.Length; k++)
+                    if (ev[k].Type == SimEventType.VehicleRepaired && ev[k].A == crab) repaired = true;
+            }
+            Assert.IsTrue(repaired, "[U2] setup: the crew's repair never ran");
+            Assert.AreNotEqual(0u, m.World.Flags[crab] & (uint)UnitFlags.Immobilised,
+                "[U2] a walker whose side lost every leg does not walk again because a repair mended the leg module");
+        }
+
         // ------------------------------------------------------------------ claws
         [Test]
         public void TheClawsKillWhatComesWithinReach()

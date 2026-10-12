@@ -245,9 +245,10 @@ namespace TW.Sim.Units
             float r = u * 100f;
             var track = right ? VehicleModule.TrackRight : VehicleModule.TrackLeft;
             // a sponson tank's side guns are on the struck side; a turret tank's one gun is in the turret
-            var gun = spec.GunCount > 1 ? (right ? VehicleModule.GunB : VehicleModule.GunA) : VehicleModule.GunA;
+            // a machine with no gun has none to break (critic U8)
+            var gun = spec.GunCount == 0 ? VehicleModule.None : spec.GunCount > 1 ? (right ? VehicleModule.GunB : VehicleModule.GunA) : VehicleModule.GunA;
             if (turret)
-                return r < 40f ? VehicleModule.Crew : r < 70f ? VehicleModule.GunA : r < 78f ? VehicleModule.Ammo : VehicleModule.None;
+                return r < 40f ? VehicleModule.Crew : r < 70f ? (spec.GunCount > 0 ? VehicleModule.GunA : VehicleModule.None) : r < 78f ? VehicleModule.Ammo : VehicleModule.None;
             switch (facing)
             {
                 case ArmourFacing.Front:
@@ -450,9 +451,14 @@ namespace TW.Sim.Units
             uint f = w.Flags[i] & ~((uint)UnitFlags.Immobilised | (uint)UnitFlags.Stalled | (uint)UnitFlags.Burning);
             // a walker's "track" is the share of its legs still under it, and a side fails at its last one; a tank's
             // track is only OFF once it is torn past TrackThrownBelow, and it drags all the way down to there
-            bool stuck = profile.Walker
-                ? trackL <= 0f || trackR <= 0f
-                : trackL < TrackThrownBelow || trackR < TrackThrownBelow;
+            // LegsLost is the authority for a walker with legs: a repair raises the leg module back up (MendWorst),
+            // but a leg that is gone stays gone, so a side that failed must stay failed (critic U2)
+            int perSide = math.max(1, profile.Legs / 2);
+            bool stuck = profile.Walker && profile.Legs > 0
+                ? LegsGone(i, false, perSide) >= perSide || LegsGone(i, true, perSide) >= perSide
+                : profile.Walker
+                    ? trackL <= 0f || trackR <= 0f
+                    : trackL < TrackThrownBelow || trackR < TrackThrownBelow;
             if (stuck || State[i] != (byte)VehicleState.Active) f |= (uint)UnitFlags.Immobilised;
             if (engine < StalledBelow) f |= (uint)UnitFlags.Stalled;
             if (Fire[i] > 0f) f |= (uint)UnitFlags.Burning;

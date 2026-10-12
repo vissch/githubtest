@@ -150,6 +150,25 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.BreakerPhase, it, (int)BreakerPhase.Windup));
         }
 
+        // [U10] A wind-up cut short (the target trench turned friendly) must release the halt Windup set, or the
+        // machine stands still for the rest of the old phase (code review 2026-10-04, U10).
+        [Test]
+        public void ATargetThatTurnsFriendlyMidWindupReleasesTheHalt()
+        {
+            using var m = NewMatch();
+            short t = m.Fields.FrontTrench(1);
+            int it = SpawnBreaker(m, 0, 120f, TrenchZ(m, t) - 25f);
+            for (int k = 0; k < 400 && (BreakerPhase)m.Breaker.Phase[it] != BreakerPhase.Windup; k++) Step(m);
+            Assert.AreEqual((int)BreakerPhase.Windup, m.Breaker.Phase[it], "[U10] setup: it never wound up");
+            m.Vehicles.HaltTicks[it] = 30;   // the halt the wind-up asks for (Breaker.cs:99), still standing
+            short target = m.Breaker.TargetTrench[it];
+            Assert.GreaterOrEqual(target, 0, "[U10] setup: it has a target trench");
+            var state = m.Fields.Trenches[target]; state.OwnerTeam = m.World.Team[it]; m.Fields.Trenches[target] = state;
+            Step(m);
+            Assert.AreEqual((int)BreakerPhase.Approach, m.Breaker.Phase[it], "[U10] it gives up a trench of its own");
+            Assert.AreEqual(0, m.Vehicles.HaltTicks[it], "[U10] and is free to drive again, not halted out the old wind-up");
+        }
+
         [Test, Category("Long")]
         public void TheBreakerIsTheSameOnEveryMachine()
         {
