@@ -3,6 +3,7 @@
 // in a trench, too near the enemy's rear line or by a faction without the ability is refused; and it is the same
 // on every machine.
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -163,6 +164,30 @@ namespace TW.Tests
                     new SimCommand { Tick = m.World.Tick, Player = 1, Type = CommandType.SupportFire, A = (int)OffMapAbilityId.ChlorineGas, Pos = at });
             Assert.AreEqual(0, CountType(m, SimEventType.CommandRejected));
             Assert.AreEqual(2, CountType(m, SimEventType.AbilityFired));
+        }
+
+        /// <summary>[Z011.2] One landing question, askable from outside the sim: the rule lived only inside the command
+        /// handler, so the HUD spent the aim on a drop the sim then refused. Reflection on purpose: the test must compile
+        /// against the tree before the fix (CanLand private, no MatchSim read) so it can be seen red there.</summary>
+        [Test]
+        public void TheLandingQuestionIsReadableFromOutsideTheSim()
+        {
+            using var m = NewMatch();
+            var inner = typeof(OffMapAbilitySystem).GetMethod("CanLand", BindingFlags.Public | BindingFlags.Instance);
+            var exposed = typeof(MatchSim).GetMethod("CanDropLand", BindingFlags.Public | BindingFlags.Instance);
+            Assert.IsNotNull(inner, "[Z011.2] the landing rule must be a public read on the ability system");
+            Assert.IsNotNull(exposed, "[Z011.2] MatchSim must expose the landing question");
+            short rear = m.Fields.RearTrench(1);
+            var def = m.Map.Trenches[rear];
+            float3 inTrench = m.Map.NavCellCenter(m.Map.TrenchCells[def.CellStart + def.CellCount / 2]);
+            var open = OpenPoint(m, 0);
+            Assert.IsFalse((bool)exposed.Invoke(m, new object[] { 0, inTrench }), "[Z011.2] a trench cell answers no, as the sim's Reject does");
+            Assert.IsTrue((bool)exposed.Invoke(m, new object[] { 0, open }), "[Z011.2] open ground clear of the rear line answers yes");
+            Assert.IsFalse((bool)inner.Invoke(m.Abilities, new object[] { 0, inTrench }), "[Z011.2] the system's own read agrees");
+            Step(m, Drop(m, 0, inTrench));
+            Assert.AreEqual(1, CountType(m, SimEventType.CommandRejected), "[Z011.2] the sim still refuses the trench");
+            Step(m, Drop(m, 0, open));
+            Assert.AreEqual(0, CountType(m, SimEventType.CommandRejected), "[Z011.2] and still accepts the open point");
         }
 
         [Test]

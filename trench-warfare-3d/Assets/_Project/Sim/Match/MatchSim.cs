@@ -168,6 +168,10 @@ namespace TW.Sim.Match
         /// recorded against another map, data set or init is refused instead of just desyncing.</summary>
         public int VerifyReplay(ReplayPlayer p) => p.Verify(World, Map.Hash(0), DataHash, Map.MapId);
 
+        /// <summary>The sim's one landing question for a paratroop drop, readable from outside: a pure read, no state
+        /// touched. A world without abilities answers yes, as a world without a map does (review Z011.2).</summary>
+        public bool CanDropLand(int player, Unity.Mathematics.float3 at) => Abilities == null || Abilities.CanLand(player, at);
+
         public void Dispose()
         {
             World?.Dispose();
