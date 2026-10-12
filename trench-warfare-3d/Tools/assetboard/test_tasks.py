@@ -707,7 +707,7 @@ def watcher():
     calls, slept, said = [], [], []
     keep = (ops.once, ops.page, ops.notes.serve, ops.time.sleep, ops.site_version, ops.traceback.print_exc)
 
-    def once(out, watching=False):
+    def once(out, watching=False, put_briefs=None):
         calls.append(watching)
         if len(calls) == 1:
             raise RuntimeError("can't start new thread")
@@ -723,7 +723,7 @@ def watcher():
         ops.once, ops.page, ops.notes.serve, ops.time.sleep, ops.site_version, ops.traceback.print_exc = keep
     case('watcher: a read that fails is said, with why, and the next one runs; every read of the watcher is told it is the watcher\'s', calls == [True, True, True] and slept == [20.0, 20.0] and said == ['trace'], (calls, slept, said))
     try:
-        ops.once = lambda out, watching=False: (_ for _ in ()).throw(RuntimeError('broken'))
+        ops.once = lambda out, watching=False, put_briefs=None: (_ for _ in ()).throw(RuntimeError('broken'))
         ops.page = lambda *a: None
         try:
             ops.main(['--out', str(TMP / 'watch-site')])
