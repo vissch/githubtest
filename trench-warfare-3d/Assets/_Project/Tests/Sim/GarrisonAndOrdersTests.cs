@@ -139,6 +139,34 @@ namespace TW.Tests
             Assert.AreEqual(10, Count(w, i => w.TrenchId[i] == 0), "everyone is back in trench 0");
         }
 
+        [Test]
+        public void Fallback_WhenTheGoalTableIsFull_LeavesTheManWhereHeIs()
+        {
+            // [U5] Fallback used to call the throwing/-1-returning GetGoal and hand everyone goal -1 unconditionally:
+            // a full table used to send the man nowhere instead of leaving him be.
+            using var m = NewMatch();
+            var w = m.World;
+            // spawned directly, never stepped: nothing has claimed a goal yet, so the table is still empty
+            var roster = w.Units.Roster[Rifleman];
+            int man = w.Spawn(0, Rifleman, m.Map.Spawns[0].Pos, roster.Hp, roster.Speed, false);
+            Assert.GreaterOrEqual(man, 0);
+
+            // put him in the open, having left trench 0 (his own, team 0's), but not yet re-flagged Exposed
+            w.TrenchId[man] = -1;
+            w.SourceTrench[man] = 0;
+            w.Flags[man] = (uint)UnitFlags.Alive;
+            w.GoalId[man] = 7;
+
+            var f = m.Fields;
+            for (int k = 0; k < FlowFieldManager.MaxGoals; k++) f.GetGoal(GoalKey.Objective((short)(1000 + k)));
+            Assert.AreEqual(FlowFieldManager.MaxGoals, f.GoalCount);
+            Assert.AreEqual(-1, f.GetGoal(GoalKey.Trench(0)), "[U5] the table is full: Fallback's own goal lookup is -1");
+
+            Assert.DoesNotThrow(() => Step(m, Order(0, CommandType.TrenchFallback, 0)));
+            Assert.AreEqual(0, w.Flags[man] & (uint)UnitFlags.Exposed, "[U5] a full table must not mark him Exposed");
+            Assert.AreEqual(7, w.GoalId[man], "[U5] his goal is unchanged");
+        }
+
         [Test, Category("Long")]
         public void LockedTrench_PassesArrivalsThrough()
         {

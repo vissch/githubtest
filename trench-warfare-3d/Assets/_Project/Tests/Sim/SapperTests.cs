@@ -259,7 +259,7 @@ namespace TW.Tests
         {
             using var r = new Rig();
             var w = r.W;
-            // more errands, one after another, than the table has goals: finished cell goals are made over
+            // [T29] more errands, one after another, than the table has goals: finished cell goals are made over
             for (int k = 0; k < FlowFieldManager.MaxGoals + 8; k++)
             {
                 int s = r.Man(InfantryArchetype.Sapper, Open + new float3(-60f + k * 3f, 0f, -6f));
@@ -271,6 +271,31 @@ namespace TW.Tests
             }
             Assert.AreEqual(0, r.Count(SimEventType.CommandRejected));
             Assert.LessOrEqual(r.M.Fields.GoalCount, FlowFieldManager.MaxGoals);
+
+            // [T29] the finding: this ran one errand at a time, so it never actually exercises the cell reserve
+            // (MaxCellGoals) that GoalFor caps concurrent errands against. Order more than that reserve's worth in
+            // a single tick: the overflow must be rejected, never thrown, and the reserve must free up again once
+            // those errands finish.
+            const int extra = 4;
+            int total = FlowFieldManager.MaxCellGoals + extra;
+            var slots = new int[total];
+            for (int k = 0; k < total; k++) slots[k] = r.Man(InfantryArchetype.Sapper, Open + new float3(-60f + k * 3f, 0f, -6f));
+            r.Step();
+
+            var cmds = new SimCommand[total];
+            for (int k = 0; k < total; k++) cmds[k] = Lay(w, 0, slots[k], UnitAbilityId.LayMine, Open + new float3(-60f + k * 3f, 0f, 0f));
+            Assert.DoesNotThrow(() => r.Step(cmds));
+            Assert.AreEqual(FlowFieldManager.MaxCellGoals, r.Count(SimEventType.SapperOrdered), "[T29] exactly the cell reserve's worth of errands are accepted");
+            Assert.AreEqual(extra, r.Count(SimEventType.CommandRejected), "[T29] the four over the reserve are rejected");
+            Assert.LessOrEqual(r.M.Fields.GoalCount, FlowFieldManager.MaxGoals);
+
+            Assert.IsTrue(r.RunUntil(600, () => r.Count(SimEventType.MinePlaced) >= FlowFieldManager.MaxGoals + 8 + FlowFieldManager.MaxCellGoals), "[T29] every accepted errand finishes");
+            for (int k = 0; k < total; k++) if (w.IsAlive(slots[k])) w.Despawn(slots[k]);
+
+            int fresh = r.Man(InfantryArchetype.Sapper, Open + new float3(0f, 0f, -40f));
+            r.Step();
+            r.Step(Lay(w, 0, fresh, UnitAbilityId.LayMine, Open + new float3(0f, 0f, -34f)));
+            Assert.AreEqual(1, r.Count(SimEventType.SapperOrdered, fresh), "[T29] a fresh order is accepted again once the errands finish");
         }
 
         [Test]
