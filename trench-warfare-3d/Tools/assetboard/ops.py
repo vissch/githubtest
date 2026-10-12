@@ -101,10 +101,10 @@ def page(out: Path, meta):
     from jinja2 import Environment, FileSystemLoader, select_autoescape
     env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
     env.globals.update(meta=meta)
-    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html'):
+    for name in ('floor.html', 'house.html', 'graphs.html', 'decide.html', 'tasks.html', 'runs.html', 'priorities.html'):
         write_if_changed(out / name, env.get_template(name).render(root=''))
     for name in ('floor.js', 'crew.js', 'queue.js', 'office.js', 'house.js', 'housedraw.js', 'house.css', 'board.js', 'board.css', 'counted.js', 'countedscene.js', 'three.min.js', 'three.LICENSE.txt',
-                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'site.css', 'kinetic.css'):
+                 'control.js', 'control.css', 'decide.js', 'decide.css', 'ideas.js', 'ideas.css', 'tasks.js', 'taskboard.js', 'tasks.css', 'runs.js', 'runsboard.js', 'runs.css', 'priorities.js', 'priorities.css', 'site.css', 'kinetic.css'):
         write_if_changed(out / name, (HERE / 'static' / name).read_text(encoding='utf-8'))
     crew(out)
     frog(out)
@@ -367,6 +367,41 @@ def the_runs(out: Path, every, his, watching):
         return dict(runs=0, waits=0, going=0)
 
 
+REVIEW = {}        # the code review's P1 findings, read again only when its file changed (it is 6 MB)
+
+
+def the_priorities(out: Path, data, board=None, review=None, cache_path: Path = None):
+    """Everything to do in one list, in the order it comes (src_priorities.py), in the site as data/priorities.js. It
+    is made of what this read has just written (the queue, the tasks, the ideas, the runs) and of the relay's queue on
+    the pipeline board. A list that does not read is no reason to have no site."""
+    import src_priorities
+    try:
+        review = Path(review) if review else build.DRIVE / src_priorities.REVIEW[0] / src_priorities.REVIEW[1]
+        slim = None
+        if review.exists():
+            at = review.stat().st_mtime
+            if REVIEW.get('at') != (str(review), at):
+                found = json.loads(review.read_text(encoding='utf-8')).get('findings') or []
+                REVIEW.update(at=(str(review), at), findings=[{k: f.get(k) for k in ('id', 'severity', 'title', 'path', 'size', 'lane', 'kind')} for f in found if f.get('severity') == 'P1'])
+            slim = dict(findings=REVIEW['findings'])
+        cache_path = cache_path or build.LOCAL / 'priorities-cache.json'
+        try:
+            cache = json.loads(cache_path.read_text(encoding='utf-8'))
+        except (OSError, ValueError):
+            cache = {}
+        p = src_priorities.collect(out / 'data', board if board is not None else board_root(), data.get('lanes') or [], cache, review=slim)
+        write_if_changed(cache_path, json.dumps(cache, sort_keys=True))
+        stamp = p.pop('at')          # the stamp changes every minute; an unchanged list is not written again
+        body = json.dumps(p, sort_keys=True, ensure_ascii=False)
+        old = out / 'data' / 'priorities.js'
+        if not (old.exists() and body in old.read_text(encoding='utf-8')):
+            write_if_changed(old, f'window.PRIORITIES = {body};\nwindow.PRIORITIES.at = {json.dumps(stamp)};\n')
+        return len(p['rows'])
+    except Exception as e:      # noqa: BLE001
+        print(f'ops: the priority list was not put in the site ({type(e).__name__}: {e})', flush=True)
+        return 0
+
+
 def once(out: Path, watching=False):
     data = src_ops.collect(build.REPO, out, share=watching)      # a watcher is this station's voice: its floor goes where the other station reads it
     ready_since(data, out / 'data' / 'ready-since.json')
@@ -381,6 +416,7 @@ def once(out: Path, watching=False):
     data['notes'] = sum(1 for n in owner_notes(out) if n['state'] != 'done')
     briefs.site(briefs.folder(), out, got=got, owed=owed)          # the decisions that wait on the owner, each as a brief with what it shows (decide.html)
     the_ideas(out, watching)
+    the_priorities(out, data)          # last: it is made of what the lines above wrote
     # the stamp changes every time; compare without it so an unchanged floor is not uploaded again
     body = json.dumps({k: v for k, v in data.items() if k not in ('now', 'queue', 'notes', 'tasks', 'runs')}, sort_keys=True, default=str)
     old = out / 'data' / 'ops.js'

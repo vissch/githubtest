@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Overview{% endblock %}
 {% block bodyclass %}overview c-screen{% endblock %}
-{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css"><link rel="stylesheet" href="decide.css"><link rel="stylesheet" href="ideas.css"><link rel="stylesheet" href="tasks.css">{% endblock %}
+{% block head %}<link rel="stylesheet" href="house.css"><link rel="stylesheet" href="control.css"><link rel="stylesheet" href="decide.css"><link rel="stylesheet" href="ideas.css"><link rel="stylesheet" href="tasks.css"><link rel="stylesheet" href="priorities.css">{% endblock %}
 {% block main %}
 {% set counts = {} %}{% for status, group in sections %}{% set _ = counts.update({status: group|length}) %}{% endfor %}
 {# The control screen: one page that says who is at work on what, what waits on the owner and how the day went.
@@ -23,12 +23,7 @@
   <div class="k-stat k-fire k-needs" id="p-needs"><span class="k-l">Needs you</span><span class="k-n" id="p-ready">–</span>
     <span class="k-l" id="p-ready-l">waiting on you</span><span class="k-list" id="p-ready-list"></span></div>
   <a class="k-stat k-black" href="#deck"><span class="k-n"><span class="k-live" aria-hidden="true"></span><span id="p-at">–</span></span><span class="k-l">at work now</span><span class="k-dots" id="p-at-dots"></span><span class="k-sub" id="p-at-sub"></span></a>
-  <a class="k-stat k-black c-calls" href="#graphs" title="The week's work as things on a floor, below"><span class="k-n" id="t-calls">–</span><span class="k-l">tool calls today</span><svg class="c-spark" id="t-calls-s" aria-hidden="true"></svg><span class="k-sub" id="t-calls-d"></span></a>
   <a class="k-stat k-grey" href="floor.html"><span class="k-n" id="p-rooms">–</span><span class="k-l">branches open</span><span class="k-bar k-bar-rooms" id="p-rooms-bar"></span><span class="k-sub" id="p-rooms-sub"></span></a>
-  <a class="k-stat k-white k-models" href="#assets"><span class="k-n">{{ counts.get('FINAL', 0) }}<small>/{{ total }}</small></span><span class="k-l">models final, in the battle</span>
-    <span class="k-bar" aria-hidden="true">{% for status, group in sections %}<i class="s-{{ status }}" style="flex:{{ group|length }}"></i>{% endfor %}</span>
-    <span class="k-legend">{% for status, group in sections %}<span class="s-{{ status }}"><i></i>{{ group|length }} {{ STATUS_LABEL[status]|lower }}</span>{% endfor %}</span></a>
-  <button class="k-stat k-black c-notes" type="button" id="t-notes-b" title="Every note you left, and the answers"><span class="k-n" id="t-notes">–</span><span class="k-l">your notes</span><span class="k-sub" id="t-notes-d"></span></button>
 </section>
 
 <section class="c-deck" id="deck" aria-label="The house, and the worker it has selected">
@@ -41,6 +36,12 @@
     <details class="c-everyone"><summary>Everyone in the house, as a list</summary><div class="h-list" id="h-list"></div></details>
   </div>
   <aside class="c-profile" id="profile" aria-label="The worker the house has selected"></aside>
+</section>
+
+<section class="k-queue pr-top" id="priorities" hidden>
+  <header class="k-head"><h2 class="k-h-one">Priorities <span class="k-soft k-wide-only">&middot; what comes first, and why</span> <span class="k-soft" id="pr-n"></span></h2>
+    <p class="k-stamp"><a href="priorities.html" id="pr-all">the whole list &rarr;</a></p></header>
+  <div class="pr-list" id="pr-rows"></div>
 </section>
 
 <section class="i-ideas" id="ideas" aria-label="Ideas to pick from" hidden>
@@ -66,18 +67,6 @@
   </header>
 {% set compact = true %}
 {% include "_counted.html" %}
-</section>
-
-<section class="k-office" id="office" hidden>
-  <header class="k-head">
-    <h2 class="k-h-one">The office <span class="k-soft k-wide-only">· a room per branch</span></h2>
-    <p class="k-stamp"><a href="floor.html">every branch &rarr;</a></p>
-  </header>
-  <div class="k-floorgrid"><div class="k-rooms" id="rooms"></div><div class="k-lines" id="rooms-quiet"></div></div>
-  <div class="k-lounge" id="lounge">
-    <header><h3>The lounge</h3><span class="k-tag" id="n-lounge"></span></header>
-    <div class="k-naps" id="naps"></div>
-  </div>
 </section>
 
 <section class="k-assets" id="assets">
@@ -144,4 +133,4 @@
   {% endfor %}
 </section>
 {% endblock %}
-{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/frogtex.js"></script><script src="data/briefs.js"></script><script src="data/ideas.js"></script><script src="data/tasks.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="ideas.js"></script><script src="office.js"></script><script src="tasks.js"></script><script src="taskboard.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="three.min.js"></script><script src="countedscene.js"></script><script src="counted.js"></script><script src="control.js"></script>{% endblock %}
+{% block script %}<script src="site.js"></script><script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/frog.js"></script><script src="data/graphs.js"></script><script src="data/frogtex.js"></script><script src="data/briefs.js"></script><script src="data/ideas.js"></script><script src="data/tasks.js"></script><script src="data/priorities.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="decide.js"></script><script src="ideas.js"></script><script src="office.js"></script><script src="tasks.js"></script><script src="taskboard.js"></script><script src="priorities.js"></script><script src="house.js"></script><script src="housedraw.js"></script><script src="three.min.js"></script><script src="countedscene.js"></script><script src="counted.js"></script><script src="control.js"></script>{% endblock %}

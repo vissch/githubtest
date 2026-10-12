@@ -309,8 +309,6 @@
     var atCard = $('p-at'); if (atCard) atCard.closest('.k-stat').classList.toggle('quiet', !working.length);
     var nm = working.filter(function (x) { return x.w.kind === 'machine'; }).length;
     set('p-at-sub', (working.length - nm) + ' crew · ' + nm + ' machine' + (nm === 1 ? '' : 's') + ' · ' + all.idle.length + ' asleep');
-    set('p-idle', all.idle.length);
-    set('p-idle-sub', 'of ' + o.roster.length + ' skills and agents');
     set('p-rooms', open.length);
     var nLive = o.lanes.filter(function (l) { return l.live; }).length;
     set('p-rooms-sub', open.length + ' open · ' + Math.max(0, nLive - open.length) + ' live · ' + (o.lanes.length - nLive) + ' parked');
