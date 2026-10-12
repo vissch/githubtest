@@ -436,7 +436,8 @@ class GateBriefWrite(unittest.TestCase):
             got = idearoute.gates(self.where, self.bwhere, self.nwhere, self.board, now=self.day)
         finally:
             pathlib.Path.write_text = real
-        bid = f'gate-{self.iid}-you-pick'
+        # [U055.2] the id carries the revision of the steps before it: ask idearoute for it, as gates() does
+        bid = idearoute.gate_id(self.iid, 'you-pick', pipeline.evaluate(self.B.items()[self.iid], self.B)['you-pick'])
         self.assertIn(bid, got['asked'], '[N10.4b] the gate brief was not asked at all: %s' % (got,))
         b = briefs.find(self.bwhere, bid)
         self.assertEqual(b['options'][0].get('then', {}).get('says'), idearoute.GATE_THEN,
