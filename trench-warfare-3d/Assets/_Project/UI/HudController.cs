@@ -218,8 +218,33 @@ namespace TW.UI
         }
 
         /// <summary>
+        /// [Z011.1] The trench an unscoped G / F / L means: ours nearest the enemy that HAS men in it, because every
+        /// deploy garrisons the rear trench (FlowFieldManager.DefaultGoal) and the front one holds nobody until a
+        /// player orders an advance. The front trench when none is manned; Fallback always means the front trench,
+        /// since it calls men in the open back to the line ahead of them.
+        /// </summary>
+        short DefaultTrench(CommandType type)
+        {
+            var fields = Host.Local.Fields;
+            short front = fields.FrontTrench(0);
+            if (type == CommandType.TrenchFallback) return front;
+            var map = Host.Local.Map;
+            short best = -1; float bestZ = float.MinValue;
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                if (fields.Trenches[t].OwnerTeam != 0 || fields.Trenches[t].GarrisonCount <= 0) continue;
+                var def = map.Trenches[t];
+                if (def.Kind != 0 || def.CellCount == 0) continue;
+                float z = map.NavCellCenter(map.TrenchCells[def.CellStart]).z;
+                if (z > bestZ) { bestZ = z; best = (short)t; }   // seat 0 attacks toward +Z
+            }
+            return best >= 0 ? best : front;
+        }
+
+        /// <summary>
         /// G / Backspace: the trench the selection is scoped to (a trench's categories picked from its chips), else the
-        /// front trench. Over the top sends only the selected categories when they are not all of the trench's.
+        /// trench of ours nearest the enemy that has men in it, the front trench when none has. Over the top sends only
+        /// the selected categories when they are not all of the trench's.
         /// </summary>
         public void OrderFront(CommandType type)
         {
@@ -231,14 +256,14 @@ namespace TW.UI
                 if (mask != 0) Order(CommandType.TrenchSelectAdvance, scoped, TrenchScope.Groups(mask, a => TrenchScope.GroupOf(w, a))); else Order(type, scoped, 0);
                 return;
             }
-            short t = Host.Local.Fields.FrontTrench(0);
+            short t = DefaultTrench(type);
             if (t >= 0) Order(type, t, 0);
         }
 
         public void ToggleFront(CommandType type)
         {
             if (Host?.Local == null) return;
-            int t = selection != null && selection.ScopedTrench(out int scoped, out _) ? scoped : Host.Local.Fields.FrontTrench(0);   // F / L: the selected men's trench first
+            int t = selection != null && selection.ScopedTrench(out int scoped, out _) ? scoped : DefaultTrench(type);   // F / L: the selected men's trench first, else the manned one [Z011.1]
             if (t < 0) return;
             var ts = Host.Local.Fields.Trenches[t];
             int b = type == CommandType.TrenchLock ? (ts.Locked != 0 ? 0 : 1) : type == CommandType.TrenchHoldFire ? (ts.HoldFire != 0 ? 0 : 1) : 0;
