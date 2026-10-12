@@ -375,8 +375,9 @@ def finish(unit, ctx, problems, outcome):
         return v
     old = tried(ctx["board"], unit["id"])
     rec = dict(try_record(unit, ctx, old, v, problems), id=unit["id"], lane=unit["lane"])
-    if old.get("saved"):
-        rec["saved"] = old["saved"]                  # work the runner put aside stays named until the unit passes
+    for k in ("saved", "rejected"):                  # work the runner put aside stays named until the unit passes,
+        if old.get(k):                               # and so does the head a leg it did not trust left: the unit
+            rec[k] = old[k]                          # comes back by itself now, and must not pass on that head
     write_json(rec_file, rec)
     return v
 

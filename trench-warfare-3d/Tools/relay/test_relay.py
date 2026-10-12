@@ -1434,6 +1434,48 @@ class Runs(Repo):
         out, stop = self.go(max_legs=2)
         self.assertEqual(stop["units"], {"b": "PASS"})          # the next run begins with the work behind it
 
+    def test_a_unit_that_stood_aside_comes_back_in_the_same_run_after_three_turns_of_other_work(self):
+        # [turns] the second read: no run-level test had a unit return in its own run; with the runner skipping
+        # every unit that did not pass, as it used to, the others stayed green
+        units = [("a", 1)] + [("w%d" % n, 50) for n in (1, 2, 3, 4)]
+        for uid, pr in units:
+            done = self.NEVER if uid == "a" else ("git", "cat-file", "-e", "HEAD:a.txt")
+            self.queue(uid, raw=json.dumps({"id": uid, "lane": "lane/show/" + uid, "role": "lane", "priority": pr,
+                                            "goal": "Add a.txt", "done_when": list(done)}))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute#2": [], "execute#10": [],
+                     "execute": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "HEAD"]}]})
+        out, stop = self.go()
+        plans = [l["unit"] for l in self.legs() if l["phase"] == "plan"]
+        self.assertEqual((plans[0], plans[4], sorted(plans[1:4] + plans[5:])), ("a", "a", ["w1", "w2", "w3", "w4"]))
+        self.assertEqual((stop["units"]["a"], stop["reason"]), ("FAIL", "nothing left to do"))
+        rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+        self.assertEqual(rec["tries"], 2)
+
+    def test_a_leg_the_station_failed_is_no_try_of_its_unit(self):
+        # [turns] the second read: a leg that did not run in auto mode, or under no hooks, says nothing of the unit;
+        # counted, four bad nights would park units no leg had worked on
+        self.queue("a")
+        self.script({"mode": "default", "plan": [{"write": "plan.md", "text": PLAN}]})
+        out, stop = self.go()
+        self.assertEqual(stop["reason_kind"], "leg")
+        rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+        self.assertEqual((sorted(rec), rec["rejected"]["leg"]), (["id", "lane", "rejected"], 1))
+
+    def test_the_head_an_untrusted_leg_left_stays_on_record_through_a_later_try_that_does_not_pass(self):
+        # [turns] the second read: a try that did not pass kept what was put aside and dropped the rejected head,
+        # so a unit that came back by itself could pass on that head with no execute leg
+        from sources import lane as SL
+        ctx = {"board": self.board, "work": self.work, "skip": set(), "run": "r1"}
+        self.queue("a", done_when=("git", "cat-file", "-e", "HEAD:README.md"))
+        self.g(["switch", "-q", "-c", "lane/show/x"]); self.g(["push", "-q", "origin", "lane/show/x"])
+        unit = dict(SL.load(self.board / "relay" / "queue" / "a.json"), source="lane")
+        SL.reject(unit, ctx, "ended TIMEOUT", 2, counts=True)
+        self.assertFalse(SL.already_done(unit, ctx))
+        SL.finish(unit, dict(ctx, run="r2"), ["the plan leg reported blocked"], "blocked")
+        rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+        self.assertEqual((rec["tries"], rec["verdict"], rec["rejected"]["head"]), (2, "BLOCKED", gitio.head(self.work)))
+        self.assertFalse(SL.already_done(unit, ctx))
+
     def test_what_ends_the_record_of_a_try_and_what_does_not(self):
         # [R002.2] what the board keeps of a unit that did not pass (relay/tried/<id>.json). [turns] The unit steps
         # aside for turns of other work and comes back by itself; a push to its lane no longer reopens it (43 units
@@ -2061,6 +2103,7 @@ class Runs(Repo):
         self.assertTrue(kept.exists(), "the head the cut leg left is on no record")
         rec = json.loads(kept.read_text(encoding="utf-8"))
         self.assertEqual((rec["rejected"]["leg"], rec["rejected"]["head"]), (2, gitio.head(self.work)))
+        self.assertNotIn("verdict", rec)                        # [turns] cut by the hours: no try of the unit
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": []})     # a leg that looks, and finds it done
         out, stop = self.go()
         self.assertNotIn("already done", out)

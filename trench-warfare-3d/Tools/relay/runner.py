@@ -459,8 +459,12 @@ class Run:
             spent = leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim
             late = leg["state"] == "TIMEOUT" and time.time() >= self.deadline
             # before every stop below: a leg that was cut leaves a head nobody checked too. Cut by the owner, the
-            # budget or the hours it is no try of its unit; a leg that went wrong by itself is one
-            self.reject(unit, bad, counts=not (asked or spent or late))
+            # budget or the hours it is no try of its unit, and neither is a leg the station failed (no hooks, not
+            # auto mode, a record that could not be written, a board somebody else wrote): only a leg that went
+            # wrong by itself is one, or four bad nights would park units no leg had worked on
+            own = not broke and (leg["state"] == "TIMEOUT" or leg.get("exit_code") not in (0, None)
+                                 or leg.get("subtype") not in ("success", None) or bool(leg.get("is_error")))
+            self.reject(unit, bad, counts=own and not (asked or spent or late))
             if asked:
                 raise Stop(self.asked(" --now", ", mid-leg %02d" % self.legs), saved)
             if spent:

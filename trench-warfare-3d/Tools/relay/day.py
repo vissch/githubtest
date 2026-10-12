@@ -289,7 +289,8 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None, names=None
                 left = lane.turns_left(rec, u["id"], lim, state["turns"])
                 aside.append("  - %s: %s, try %d, back after %d more turn%s of other work"
                              % (u["id"], rec["verdict"], lane.tries_of(rec), left, "" if left == 1 else "s"))
-        waiting = len(units) - len([u for u in coming if u["source"] == "lane"]) - len(aside) - parked
+        shown = len([u for u in coming if u["source"] == "lane" and u.get("why") != "stood aside"])
+        waiting = len(units) - shown - len(aside) - parked   # a unit that stood aside is in both lists: once
         if waiting > 0:
             out.append("  ... and %d more behind them" % waiting)
         if aside:
