@@ -81,8 +81,10 @@ tries in a row did not pass. Three rules read it:
   (`gitio.origin`): the list of its branches gets 60 seconds, a fetch 300; one that is given up
   counts as failed, as an origin that cannot be reached always has.
 - A leg the runner could not trust (it broke a rule, timed out, did not end clean) stops the run with no verdict.
-  It counts as a try of its unit, which steps aside for it; a leg that the owner's `stop --now`, the day's budget
-  or the run's hours cut does not count.
+  It counts as a try of its unit, which steps aside for it, when the leg went wrong by itself (it timed out,
+  exited with an error, its session did not end in success). A leg that the owner's `stop --now`, the day's
+  budget or the run's hours cut does not count, and neither does one the station failed (no hooks, not auto
+  mode, a board somebody else wrote).
   In both cases the record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
   it gets a plan and an execute leg whose card says what happened, and the record goes when trusted legs end the
   unit. The relay looks again by itself; the unit does not wait for the owner (his answer to the review, 2026-10-11).
@@ -498,7 +500,7 @@ record an older relay wrote does not have it.
 | `checkout` | the work checkout is missing, dirty, open in Unity or just used; or the relay's own code has uncommitted changes |
 | `leg` | a leg cannot be trusted: it broke a rule, timed out, compacted, or did not end clean |
 | `uncommitted` | a unit left uncommitted work behind; `detail` says where it was saved and whether the checkout was put back |
-| `no-result` | units in a row brought no result and no pushed code |
+| `no-result` | turns in a row brought no result and no pushed code (`idle_turns_stop`) |
 | `lane` | units in a row whose lane cannot be switched to |
 | `error` | an error nobody foresaw |
 
