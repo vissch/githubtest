@@ -2,7 +2,7 @@
     <Style src="../Skin/dustfront.uss" />
     <Style src="Shell.uss" />
     <ui:VisualElement name="debrief-screen" class="tw-screen tw-dim shell-screen">
-        <ui:VisualElement class="tw-logo shell-plate-logo shell-plate-logo--small" picking-mode="Ignore" />
+        <ui:VisualElement name="debrief-logo" class="tw-logo shell-plate-logo shell-plate-logo--small" picking-mode="Ignore" />
         <ui:VisualElement name="debrief-plate" class="tw-panel shell-plate shell-debrief">
             <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
             <ui:VisualElement class="shell-result">
@@ -45,5 +45,6 @@
             </ui:VisualElement>
             <ui:VisualElement class="tw-hazard" picking-mode="Ignore" />
         </ui:VisualElement>
+        <ui:Label name="view-hint" text="ESC: BACK TO THE REPORT" class="tw-caps tw-mono tw-muted shell-debrief-hint tw-hidden" picking-mode="Ignore" />
     </ui:VisualElement>
 </ui:UXML>

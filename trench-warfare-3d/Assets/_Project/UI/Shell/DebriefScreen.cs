@@ -11,12 +11,12 @@ namespace TW.UI
     public sealed class DebriefScreen : ShellScreen
     {
         public static readonly string[] Rows = { "men-lost", "vehicles-lost", "men-fielded", "kills", "shots", "accuracy", "silver-earned", "silver-left", "trenches-taken", "trenches-held", "objectives-held", "abilities-fired" };
-        public static readonly string[] RequiredNames = { "debrief-plate", "result", "result-sub", "stats-table", "duration", "seed-line", "gold-row", "gold-earned", "gold-total", "btn-replay", "btn-restart", "btn-view-field", "btn-continue" };
+        public static readonly string[] RequiredNames = { "debrief-plate", "result", "result-sub", "stats-table", "duration", "seed-line", "gold-row", "gold-earned", "gold-total", "btn-replay", "btn-restart", "btn-view-field", "btn-continue", "view-hint" };
         public const string ToTheMap = "TO THE MAP", NoGoldForADefeat = "NO GOLD FOR A DEFEAT", NoGoldForADraw = "NO GOLD FOR A DRAW", NoGoldAgain = "ALREADY WON: NO GOLD AGAIN";
         public override bool HidesHud => !viewing;
 
         readonly MatchReport report;
-        VisualElement plate; bool viewing;
+        VisualElement plate, screen, logo, hint; bool viewing;
 
         public DebriefScreen(MatchReport report) { this.report = report ?? new MatchReport(); }
 
@@ -25,6 +25,7 @@ namespace TW.UI
         protected override void OnBind()
         {
             plate = Root.Q("debrief-plate");
+            screen = Root.Q("debrief-screen"); logo = Root.Q("debrief-logo"); hint = Root.Q("view-hint");   // the screen classes sit on the named child, not on Root (the TemplateContainer)
             bool won = report.Winner == 0;
             var result = Root.Q<Label>("result");
             if (result != null) { result.text = report.Winner < 0 ? "DRAWN" : won ? "VICTORY" : "DEFEAT"; result.EnableInClassList("tw-accent", won); result.EnableInClassList("tw-alarm", !won); }
@@ -41,7 +42,7 @@ namespace TW.UI
             Fill("objectives-held", report.ObjectivesHeld); Fill("abilities-fired", report.AbilitiesFired);
             var replay = Btn("btn-replay", null); replay?.SetEnabled(false);
             Btn("btn-restart", () => Router?.RestartMatch());
-            Btn("btn-view-field", () => SetViewing(true));
+            Btn("btn-view-field", ViewField);
             Btn("btn-continue", () => { if (CampaignSession.Active) CampaignSession.ResumeMap = true; Router?.QuitToMenu(); });
             Award();
         }
@@ -74,11 +75,19 @@ namespace TW.UI
         void Fill(string row, int[] v) { Cell(row, 0, v[0].ToString()); Cell(row, 1, v[1].ToString()); }
         void Cell(string row, int team, string text) => SetText($"{row}-{(team == 0 ? "you" : "enemy")}", text);
 
+        /// <summary>VIEW THE FIELD: one named entry point for the button and for the PlayMode test.</summary>
+        public void ViewField() => SetViewing(true);
+
         void SetViewing(bool on)
         {
             viewing = on;
             plate?.EnableInClassList("tw-hidden", on);
-            Root.EnableInClassList("tw-dim", !on);
+            // The fill and the vignette are classes of debrief-screen; Root is the TemplateContainer around it, so a
+            // class toggled there reached nothing and the opaque tw-screen fill stayed over the match.
+            screen?.EnableInClassList("shell-screen--clear", on);
+            screen?.EnableInClassList("tw-dim", !on);
+            logo?.EnableInClassList("tw-hidden", on);
+            hint?.EnableInClassList("tw-hidden", !on);
             Router?.Hud?.SetVisible(on);
         }
 
