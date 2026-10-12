@@ -230,7 +230,7 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
             # the unit he queued it as goes with it, while it is only a file for the master: left there, the master
             # still queues what he said is not needed. A unit file somebody else wrote (a unit- row) is not the board's to remove.
             tid = n['about'][len('task: '):]
-            uid = src_tasks.unit_id(dict(id=tid, kind=tid.split('-', 1)[0]))
+            uid = (T.get('uids') or {}).get(tid) or src_tasks.unit_id(dict(id=tid, kind=tid.split('-', 1)[0]))
             text = 'Taken off the task board.'
             if uid.startswith('task-') and uid in taken:
                 text += f' The relay already has it as unit {uid} and will still run it: tell the master to take it out of the queue.'
@@ -279,7 +279,7 @@ def site(T, out: Path):
             r.pop(k, None)
         rows.append(r)
     taskbrief.sweep(out, {r['id'] for r in rows})
-    return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict(T, rows=rows, relay={k: v for k, v in T["relay"].items() if k != "taken"}), sort_keys=True)};\n')
+    return put(out / 'data' / 'tasks.js', f'window.TASKS = {json.dumps(dict({k: v for k, v in T.items() if k != 'uids'}, rows=rows, relay={k: v for k, v in T["relay"].items() if k != "taken"}), sort_keys=True)};\n')
 
 
 def idle(minutes):

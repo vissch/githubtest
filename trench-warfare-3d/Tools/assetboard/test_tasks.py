@@ -620,6 +620,27 @@ def one_life():
          and kept['state'] == 'queued' and kept['words'] == ['Mind the wire.'], ([[x['state'] for x in r] for r in states], kept['state']))
 
 
+def queued_again():
+    """[U057.5] A task the relay finished, changed since and queued again gets a new unit id, not the finished one."""
+    ts = lambda ago: time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(NOW - ago))
+    where, units = TMP / 'notes-again', src_tasks.root() / 'units-again'
+    day = datetime.datetime.fromtimestamp(NOW)
+    task = dict(id='agent-again', kind='agent', title='Review', ask='Review the sim', what='Review the sim', lane='', where='HERE', by='', agent='Explore', why='in the middle of a tool call',
+                stopped='then', touched=int(NOW - 95 * MIN), changed=int(NOW - 95 * MIN))
+    rel = dict(queue={}, done=['task-agent-again'], done_at={'task-agent-again': at(120 * MIN)}, legs=[], stops=[])
+    old = notes.write(where, src_tasks.QUEUE_SAY, kind='queue', about='task: agent-again', title='again', now=day - datetime.timedelta(minutes=300))
+    notes.answer(where, old['id'], 'Unit task-agent-again: written to units-for-master for the relay.', by=tasks.BY, now=day - datetime.timedelta(minutes=300))
+    fresh = notes.write(where, src_tasks.QUEUE_SAY, kind='queue', about='task: agent-again', title='again', now=day - datetime.timedelta(minutes=60))
+    T = src_tasks.collect([task], notes=notes.read_all(where), now=NOW, relay=rel, have=set())
+    did = tasks.act(T, where, units, now=day)
+    row = next((r for r in T['rows'] if r['id'] == 'agent-again'), None)
+    ans = {n['id']: n for n in notes.read_all(where)}[fresh['id']]
+    answered = ans['answers'][-1]['text'] if ans['answers'] else ''
+    case('[U057.5] tasks: a task the relay finished once and which changed after that is queued again as a new unit, task-<id>-r2: the relay\'s done record can never queue the old id again',
+         row is not None and row['state'] == 'queued' and row['unit'] == 'task-agent-again-r2' and 'task-agent-again-r2' not in rel['done'] and (units / 'task-agent-again-r2.json').exists()
+         and answered.startswith('Unit task-agent-again-r2'), ([(r['id'], r['state'], r.get('unit')) for r in T['rows']], answered, did))
+
+
 def taken_back(P, board):
     """A5, B4, B1: a drop after a queue takes the unit back; a unit that cannot be written is said; the Drive away."""
     where, units = notes.folder(), src_tasks.root() / 'units-for-master'
@@ -761,6 +782,7 @@ if __name__ == '__main__':
     long_lines()
     in_hand()
     one_life()
+    queued_again()
     taken_back(P, board)
     page_rules()
     watcher()
