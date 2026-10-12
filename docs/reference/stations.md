@@ -37,6 +37,7 @@ command (the wrapper pid `run_detached.py start` prints, or a long-lived shell),
 exits at once and its claim would read as dead. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS and the stage reads FAILED: `next`
 skips it, so the same job is never handed back forever, while `claim` still takes it for a retry by hand. `release`
 needs `--token` to drop another live worker's claim. Closing a feedback
+exits at once and its claim would read as dead. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS. Closing a feedback
 request does not make its stage stale again.
 
 ## Commands
