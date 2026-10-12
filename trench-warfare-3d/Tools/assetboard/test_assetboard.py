@@ -1072,7 +1072,7 @@ def house():
     ops.CREW = keep
     html = (out / 'house.html').read_text(encoding='utf-8') if (out / 'house.html').exists() else ''
     loads = re.findall(r'(?:src|href)="([^"#:]+\.(?:js|css))"', html)
-    readings = {'data/ops.js', 'data/queue.js', 'data/beat.js', 'data/notes.js', 'data/graphs.js'}
+    readings = {'data/ops.js', 'data/queue.js', 'data/beat.js', 'data/notes.js', 'data/graphs.js', 'data/touch.js'}
     case('house: the page is written with every script and style it loads, with everyone listed under the picture, and it leads back to the control screen',
          {'house.js', 'housedraw.js', 'house.css', 'data/frog.js', 'data/crew.js', 'crew.js'} <= set(loads) and not [u for u in loads if u not in readings and not (out / u).exists()]
          and 'id="h-list"' in html and 'id="h-canvas"' in html and 'href="index.html#deck"' in html, [u for u in loads if u not in readings and not (out / u).exists()])
@@ -1566,7 +1566,7 @@ def control():
     p = subprocess.run([node, '-e', js, str(HERE / 'static' / 'crew.js')], capture_output=True)
     got = json.loads(p.stdout.decode() or 'null')
     case('control: a page with several live parts reads the floor once every 20 seconds for all of them, each file once, and then every part draws',
-         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/tasks.js', 'data/runs.js', 'data/priorities.js', 'data/ops.js']], (got, p.stderr[-300:]))
+         got == [[1, 1, 1], [2, 2, 1, 20000], ['data/beat.js', 'data/queue.js', 'data/graphs.js', 'data/briefs.js', 'data/ideas.js', 'data/tasks.js', 'data/runs.js', 'data/priorities.js', 'data/touch.js', 'data/ops.js']], (got, p.stderr[-300:]))
 
 
 def decisions():

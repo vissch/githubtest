@@ -733,7 +733,7 @@
   render(); chips(); rows(); ready = true;
   var prof = document.getElementById('profile');
   if (prof && window.Board && window.Board.dock) { docked = true; window.Board.dock(prof, function () { pinned = null; tell(); }); render(); }
-  if (pinKey) { Object.keys(sim.frogs).some(function (k) { if (k.indexOf(pinKey) >= 0 || C.title(sim.frogs[k].w).indexOf(pinKey) >= 0) { pinned = sim.frogs[k]; return true; } }); render(); showCard(pinned); rows(); }
+  if (pinKey) { Object.keys(sim.frogs).some(function (k) { if (k.indexOf(pinKey) >= 0 || C.title(sim.frogs[k].w).indexOf(pinKey) >= 0) { pinned = sim.frogs[k]; return true; } }); render(); showCard(pinned); rows(); if (pinned) tell(); }
   // &bench: how long one picture takes here, in the page's title (sixty pictures, a thirtieth of a second apart)
   if (q.has('bench')) window.addEventListener('load', function () { render(); var t0 = performance.now(); for (var i = 0; i < 60; i++) { advance(1 / 30); render(); }
     document.getElementById('stamp').textContent = 'bench: ' + ((performance.now() - t0) / 60).toFixed(2) + ' ms a picture, ' + list.length + ' frogs, ' + cv.width + ' x ' + cv.height + ', sheets ' + Object.keys(sheets).filter(function (k) { return sheets[k].ok; }).length; });
