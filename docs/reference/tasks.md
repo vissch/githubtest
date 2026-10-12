@@ -42,7 +42,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+- **Tests:** SimHashTests, BurstOptionsTests, DeterminismReplayTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
   (what `Death.b`, `dir` and `scalar` mean).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
   `FormatVersion`. Contracts in `docs/02-contracts.md`, rules in `docs/03-determinism-rules.md`.

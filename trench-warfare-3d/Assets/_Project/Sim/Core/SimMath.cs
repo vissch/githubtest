@@ -16,14 +16,14 @@ namespace TW.Sim
         public const float HalfPi = 1.57079632679490f;
 
         /// <summary>Wrap an angle to [-pi, pi].</summary>
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float WrapAngle(float a)
         {
             a -= TwoPi * Floor((a + Pi) / TwoPi);
             return a;
         }
 
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float Floor(float x)
         {
             int i = (int)x;
@@ -31,7 +31,7 @@ namespace TW.Sim
         }
 
         /// <summary>Sine via range reduction + odd minimax polynomial (max abs error ~1e-6).</summary>
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float Sin(float x)
         {
             x = WrapAngle(x);
@@ -49,14 +49,14 @@ namespace TW.Sim
             return x * p;
         }
 
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float Cos(float x) => Sin(x + HalfPi);
 
         /// <summary>Sine and cosine of one angle.</summary>
         public static float2 SinCos(float x) => new float2(Sin(x), Cos(x));
 
         /// <summary>atan on [-1,1] via polynomial (max abs error ~1e-5 rad).</summary>
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         static float AtanUnit(float z)
         {
             float z2 = z * z;
@@ -68,7 +68,7 @@ namespace TW.Sim
             return z * p;
         }
 
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float Atan2(float y, float x)
         {
             if (x == 0f && y == 0f) return 0f;

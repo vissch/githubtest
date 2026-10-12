@@ -13,7 +13,7 @@ namespace TW.Sim
         public const ulong Offset = 14695981039346656037ul;
         public const ulong Prime = 1099511628211ul;
 
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static ulong Bytes(byte* data, int length, ulong h)
         {
             for (int i = 0; i < length; i++)

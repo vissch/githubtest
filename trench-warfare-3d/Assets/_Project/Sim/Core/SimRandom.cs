@@ -21,7 +21,7 @@ namespace TW.Sim
             Test = 1000,
         }
 
-        [BurstCompile]
+        [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static uint Mix(uint seed, uint tick, uint systemId, uint slot)
         {
             // xxHash32-style avalanche on four words; cheap and platform independent.
