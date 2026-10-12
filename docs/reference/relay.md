@@ -62,22 +62,28 @@ cannot move them.
 The runner claims and completes pipeline jobs. A leg never does, and never lands.
 
 **A unit that did not pass.** The board keeps how a queued unit's last try ended, in `relay/tried/<id>.json`,
-written by the runner between legs (`sources/lane.py`): the verdict, the run, the problems it printed, the head of
-its lane on origin, and how many tries in a row ended with nothing new there. Three rules read it:
+written by the runner between legs (`sources/lane.py`): the verdict, the run, the problems it printed, and how many
+tries in a row did not pass. Three rules read it:
 
-- A unit that ended BLOCKED, or FAIL twice in a row with no new code pushed (`no_progress_units`), is **passed
-  over** by later runs, which say so once. It is taken again when its lane has a new head on origin, when its queue
-  file asks for something else (its lane, role, goal or `done_when`; a new priority reopens nothing), or after
-  `$R retry <id>`, which removes the verdict and the count of tries and is refused while a run is going. It keeps
+- A unit that did not pass **steps aside**: it is not first again and it is not hidden. It stands aside for 3 turns
+  of other work (`aside_turns`), 6 after a second try in a row, 12 after a third, and then comes back by itself,
+  in the same run or a later one. After 4 tries in a row (`park_after`), or 2 when its leg said BLOCKED
+  (`park_after_blocked`), it is **parked**: out of the queue until a person looks, and named under "Needs you"
+  (rewrite, split or drop). The count is of tries, whatever a leg pushed in between. A record ends when the queue
+  file asks for something else (its lane, role, goal or `done_when`; a new priority changes nothing), after
+  `$R retry <id>`, which removes the verdict and the count of tries and is refused while a run is going, or at a
+  PASS. Not at a push to the unit's lane: many units share one lane. Retry keeps
   what the record says of a leg that was not trusted and of work put aside (below): retry means "try again", never
-  "take that leg's head for done". A unit that failed once gets one
-  more try, in the next run. Until 2026-10-11 two failed units at the front of the queue were taken again by every
-  run, and no run reached the work behind them. Origin is asked once per pick, with 30 seconds to answer and no
-  password prompt; when it does not answer nothing is passed over. The runner's other questions to origin go
-  the same way (`gitio.origin`): the list of its branches gets 60 seconds, a fetch 300; one that is given up
+  "take that leg's head for done". When only units that stand aside are left, each gets one try in a run and
+  never two. Until 2026-10-11 two failed units at the front of the queue were taken again by every
+  run, and no run reached the work behind them; from then until 2026-10-12 such a unit was hidden until its lane
+  moved. The pick asks origin nothing. The runner's other questions to origin are timed and cannot prompt
+  (`gitio.origin`): the list of its branches gets 60 seconds, a fetch 300; one that is given up
   counts as failed, as an origin that cannot be reached always has.
 - A leg the runner could not trust (it broke a rule, timed out, did not end clean) stops the run with no verdict.
-  The record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
+  It counts as a try of its unit, which steps aside for it; a leg that the owner's `stop --now`, the day's budget
+  or the run's hours cut does not count.
+  In both cases the record keeps the head that leg left. While the lane is still at that head the unit is never "already done":
   it gets a plan and an execute leg whose card says what happened, and the record goes when trusted legs end the
   unit. The relay looks again by itself; the unit does not wait for the owner (his answer to the review, 2026-10-11).
 - A pass removes the record.
@@ -108,7 +114,8 @@ $R stop --why "<words>" --by <name>               # the same, saying what for an
 $R add <id> --lane lane/show/<x> --role <role> --goal "<words>" --done-when <program> <arg> ...
 $R add --unit <file> [--role <role>]              # the same from a file in the queue file's shape; --role when it names none
 $R role <role> <id> [<id> ...]                    # give queued units a role from roles.json ("A unit's role")
-$R retry <id>                                     # let the runner take a unit again that it passes over ("A unit that did not pass")
+$R retry <id>                                     # take a unit again now that is parked or stepping aside ("A unit that did not pass")
+$R day [--sources lane] [--turns 30]              # the master's screen; the next turns as that run takes them
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
@@ -301,20 +308,62 @@ dollar figure stays underneath: it is known for every leg, so a leg that is not 
 ## The master's screen and the queue's order
 
 `$R day` prints one screen, and reads only: what the day has left, what the pace allows by now, is a run going on this machine or how the newest
-run on the board stopped, the queue in the order the runner takes it with the usual cost of a unit (a usual plan
-plus a usual execute), what needs the owner (a unit that did not pass, a queue file the runner will not take), what
+run on the board stopped, how much is queued at the usual cost of a unit (a usual plan
+plus a usual execute), the next turns as the runner takes them, what needs the owner (a unit that is parked or
+whose leg said BLOCKED, a queue file the runner will not take), what
 he answered on the Decide page that no session has taken up, and who holds the relay build. "Needs you" lists the
 units of the run on the screen that did not pass, and then every unit whose newest outcome in the newest 50 stop
 records of any station is not a pass and that is still unresolved, with its run: queued work while its queue file
-is there and it has no done file, a board job while its newest result is still that verdict. A unit the runner
-passes over says so there (`not taken again`) and on its row of the queue (`passed over: BLOCKED`); the screen
-calls nobody, so it reads that from the record without asking origin. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
+is there and it has no done file, a board job while its newest result is still that verdict. A queued unit that
+only failed is not there: it steps aside and comes back by itself ("A unit that did not pass"), and the screen
+lists it under `Stepping aside` with the turns of other work until it returns. A parked unit is there, with
+`parked after N tries: rewrite, split or drop`. It shows at most `day_queue_rows` (12) rows per list and no line over `day_line_chars`
 (100). It reads this machine's copy of the board. The `/master` skill starts every turn from it.
 
-The queue runs by priority, then by name: a queue file may hold `"priority"`, a whole number from 0 to
-`queue_priority_max` (99), and the lower runs first. A unit that names none has `queue_priority` (50).
-`$R prio <id> <n>` writes it and commits the file on the board, mid-run too (then without a pull or a push: "Three
-checkouts, one job each"). It refuses a unit that is done and a queue file nobody committed.
+**The order of the turns.** A turn is one try of one unit (its plan leg and the execute legs after it). Two rules
+give the order (`sources.next_unit`; the owner, 2026-10-12: "a system that covers the overall state of the game",
+"even the lower priority items should come into light at some point"):
+
+- **By priority**, for most turns: first the kind of work that is furthest under its share of the day (finish,
+  fix, critique), and in it the lowest priority number, then the name. A queue file may hold `"priority"`, a
+  whole number from 0 to `queue_priority_max` (99); a unit that names none has `queue_priority` (50).
+  `$R prio <id> <n>` writes it and commits the file on the board, mid-run too (then without a pull or a push:
+  "Three checkouts, one job each"). It refuses a unit that is done and a queue file nobody committed.
+- **A wide turn**, every third turn (`wide_every`; 0 switches it off). It ignores priority. Every eligible unit
+  of every source the run was started with, and of every kind that has a share, belongs to an area of the game,
+  read from its role:
+
+  | Area | Roles |
+  |---|---|
+  | units | `character-simulator`, `character` |
+  | vehicles | `vehicle-simulator` |
+  | effects | `destruction-vfx-simulator` |
+  | fields | `env-simulator` |
+  | rules | `balance-simulator`, `game-designer`, `sim`, and work with no such role on a `lane/sim/` lane |
+  | HUD | `ux`, `ui-artist` |
+  | speed | `optimizer` |
+  | ideas | every board job |
+  | review fixes | `review-fix` |
+  | tools and other | everything else |
+
+  The area whose last wide turn is longest ago gets the turn (among areas that never had one: the one whose unit
+  has waited longest). The first eight are the game's own and go first; review fixes and tools get a wide turn
+  only when no game area has an eligible unit, since the turns by priority are theirs already. Inside the area
+  the unit that has waited longest is taken, counted from when it was queued or from its last turn, whichever is
+  later: a unit queued today never passes one that has waited. So with one runner a unit of a game area waits at
+  most `wide_every` x the game areas that have work x its place in its area (the units of its area that are not
+  done and have waited longer, and itself), in turns. A wide turn is no kind's share: the split of the day (finish, fix, critique) is of the turns by priority, and the
+ledger books a wide turn's legs as `wide`. Booked to its unit's kind, a third of the day going wide used up the
+whole share of finishing and no landing unit got a turn (seen on a copy of the board, 2026-10-12).
+
+Nothing is stored for this but the leg records: a turn is a plan leg's record (a turn that cost no leg is none,
+and the wide turn stays owed), a wide turn's records say `"turn": "wide"`, and a wide turn is due when the two
+turns before hold none. `$R day` shows the next turns from the same function the runner picks with, each with why
+(`priority 5`, `wide: effects`, `stood aside`): the first is exact, and the ones after it hold if each turn
+before passes at the usual cost, because which kind is owed then hangs on what the legs cost. `--sources` names
+the sources the run is started with (as on `run`), `--turns N` how many turns to show; `$R run --dry-run` prints
+the same list. Under them: the units stepping aside, and one line `Areas:` with how many units wait in each area
+and how long ago its last wide turn was.
 
 **The owner's answers.** A decision that waits on the owner is put to him on the asset board's Decide page as a
 short brief with options, and his click or his own words there is a note in a folder on the Drive. The screen says
@@ -336,7 +385,9 @@ their order, are in the `/master` skill, "Decisions".
 ## What stops a run
 
 The time is up (`--hours`, 0.25 to 12), the leg cap, the day's budget (above), the day's pace when waiting for it would outlast the run, nothing left to do, the owner's `stop`, a work checkout that is
-missing, dirty, open in Unity or just used, two units in a row with no result and no pushed code, five units in a
+missing, dirty, open in Unity or just used, three turns in a row with no result and no pushed code
+(`idle_turns_stop`: a unit that does not pass steps aside, so these are three different units and something other
+than the work is wrong), five units in a
 row whose lane cannot be switched to (`stuck_lanes`), uncommitted work
 left behind, and any leg that cannot be trusted: a timeout, a compaction trip, not auto mode, no hooks, no result
 record, a leg over its spend cap (`leg_budget_usd`, 30 notional dollars), or a change to the board outside

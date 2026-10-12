@@ -20,14 +20,14 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
 
 | The owner says | Run | Then |
 |---|---|---|
-| `/relay dry` | `$R run --work $WORK --dry-run` | say the one unit it would take |
+| `/relay dry` | `$R run --work $WORK --dry-run [--turns N]` | say the unit it would take, and the turns after it with why (`priority N`, `wide: <area>`) |
 | `/relay start` | `$R run --work $WORK --who <your session name> --hours <H> [--max-legs N] [--sources pipeline,lane]` in the background | say it started and what it took; report the `STOP:` line when it ends |
 | `/relay status` | `$R status` | one or two lines: who started it, the units so far |
 | `/relay refusals` | `$R refusals` | name any refusal that was normal work: it needs a rule fix and a test |
 | `/relay budget` | `$R budget` | one line: what today's legs cost, of how much, what is left, and what the pace allows by now |
 | `/relay agents` | `$R agents`, `$R agents book` | what the agents cost that sessions here spawned outside the relay; `book` adds it to the day |
 | `/relay day` | `$R day` | the whole picture in one screen; the `/master` skill starts every turn from it |
-| `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set) | say the new order |
+| `/relay prio` | `$R prio <id> <n>` (0 to 99, the lower runs first, 50 when none is set; every third turn is a wide one and ignores it) | say the new order |
 | `/relay update` | `$R update [<commit>]`, only when no run is going | say the commit it now runs |
 | `/relay stop` | `$R stop` (ends before the next leg) or `$R stop --now` (ends the leg too); a script or a session that stops a run for a reason of its own adds `--why "<words>" --by <its name>`, so the record does not blame the owner | confirm with `$R status` |
 | `/relay add` | `$R add <id> --lane lane/show/<x> --role <role> --goal "<the owner's words>" --done-when <program> <arg> ...` | say it is queued |

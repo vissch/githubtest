@@ -32,8 +32,11 @@ Run `$R day` before you answer anything. It prints, from the board and this mach
 | `Pace: ...` | what the day allows by now (the cap spread evenly over the 24 hours) and how much of that is still free; when nothing is free, the time the next unit may start. No such line: see "Older scripts" in "The day's budget" |
 | `Week: ...` | where the plan's week stands and when it starts over; left out when nothing has read it |
 | `Run going: ...` or `No run going. Last run ...` | is a run going here, else how the newest run on the board stopped (`It stopped: ...`) |
-| `Queue: ...` and its rows | what is queued, in the order the runner takes it, with the usual cost |
-| `Needs you: ...` | units that did not pass, and queue files the runner will not take |
+| `Queue: ...` | how much is queued, with the usual cost |
+| `Next turns ...` and its rows | the next turns as the runner takes them, each with why: `priority N`, `wide: <area>` (every third turn goes to the area of the game that has waited longest, whatever its priority), `stood aside`. The first is exact; the rest hold if each turn before passes. Pass `--sources lane` when the run is started with it |
+| `Stepping aside ...` | units that did not pass and come back by themselves after that many turns of other work. Nothing to do |
+| `Areas: ...` | how many units wait in each area of the game and how long ago its last wide turn was |
+| `Needs you: ...` | units that are parked or whose leg said BLOCKED, and queue files the runner will not take. A parked unit (`parked after N tries: rewrite, split or drop`) is one decision for the owner: put it to him as a brief with what its tries said (`relay/tried/<id>.json`, `problems`) and what they cost (`$R budget`), your pick first. His answer is a changed unit file, a new unit, or the file removed; `$R retry <id>` only when the cause is gone |
 | `Your answers: ...` | what the owner answered on the asset board's Decide page that no session has taken up, each with what he picked. Take them up first: "Decisions". `not read (...)` means the Drive's folders were not there: say so, it is not "nothing waits" |
 | `The relay build is held by ...` | who holds the relay now |
 
@@ -89,7 +92,7 @@ decisions").
 |---|---|
 | "what is going on", "what needs me" | `$R day`, then the answer in the shape above |
 | "start", or nothing is running and the queue has work the day still covers | `$R hold <your session name>` (exit 1: another session holds it, stop and say who). Then `$R run --work $WORK --dry-run`; if it names a unit, `$R run --work $WORK --who <your session name> --hours <H>` in the background. Say that it started, on what, and what the day has left |
-| "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day` |
+| "do X first", "X can wait" | `$R prio <id> <n>` (0 to 99, lower runs first, 50 when none is set). Say the new order from `$R day`. A priority orders the turns by priority only: every third turn is a wide one and goes round the areas of the game whatever the numbers say |
 | "queue this" | `$R add <id> --lane lane/show/<x> --role <role> --goal "<the owner's words>" --done-when <program> <arg> ...`: only on the owner's yes for that piece of work (the `relay` skill's rules for `done_when` and the goal hold). The role is the kind of work, from "Which role a unit gets" below; `add` refuses without one |
 | a queued unit has the wrong role, or `lane` where a role fits | `$R role <role> <id> [<id> ..]`, between legs |
 | nothing: `$R day` lists `Your answers` | take each up as "Decisions" says. The unit of an answer that is his yes is queued without asking him again |
