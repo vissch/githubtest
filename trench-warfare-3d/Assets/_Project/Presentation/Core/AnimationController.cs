@@ -180,6 +180,11 @@ namespace TW.Presentation
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
+        // the slots Tick decided a clip for this tick: Advance walks only these (the dead, the vehicles and the empty are skipped)
+        NativeArray<int> active;
+        int activeCount;
+        /// <summary>How many slots the last Advance walked. Tests read it; nothing in production does.</summary>
+        public int AdvancedCount => activeCount;
 
         // ---- trace: one man followed through his fight
         public int FollowSlot = -1;
@@ -213,13 +218,14 @@ namespace TW.Presentation
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
+            active = new NativeArray<int>(maxSlots, Allocator.Persistent);
             AllocateDeaths(maxSlots);
         }
 
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose(); active.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -230,6 +236,7 @@ namespace TW.Presentation
             tick = w.Tick; tickSeconds = w.Config.TickSeconds; count = w.HighWater;
             Latch(w);
             Incoming(w);
+            activeCount = 0;
             for (int i = 0; i < count; i++)
             {
                 uint f = w.Flags[i];
@@ -244,7 +251,7 @@ namespace TW.Presentation
                 }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
                 if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]))))
-                { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
+                { State[i] = s; Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; Yaw[i] = w.Yaw[i]; continue; }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {
                     if (!s.Dead) { s = Die(i, s, w); }
@@ -252,6 +259,7 @@ namespace TW.Presentation
                 }
                 if (PinnedCount == 0 || !Pinned(i, ref s)) Decide(i, ref s, w);   // the gym's pin (AnimationController.Pin.cs)
                 State[i] = s;
+                active[activeCount++] = i;
                 prevPos[i] = w.Position[i];
             }
         }
@@ -883,8 +891,9 @@ namespace TW.Presentation
         /// <summary>Move every frame on, close the cross-fades, end the one-shots; then the stand-in row and phase per slot.</summary>
         public void Advance(float dt)
         {
-            for (int i = 0; i < count; i++)
+            for (int k = 0; k < activeCount; k++)
             {
+                int i = active[k];
                 var s = State[i];
                 var info = Clips.Table[(int)s.Clip];
                 if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
