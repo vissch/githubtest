@@ -341,8 +341,10 @@ namespace TW.Sim.Match
         }
 
         /// <summary>Open ground for a stick: the cell under the point and at least four of its eight neighbours open
-        /// surface, and nowhere near the enemy's rear trench.</summary>
-        bool CanLand(int player, float3 at)
+        /// surface, and nowhere near the enemy's rear trench.
+        /// A pure read: no sim state is touched, so the HUD can ask the same question before it spends the aim on a
+        /// drop this would refuse (review Z011.2).</summary>
+        public bool CanLand(int player, float3 at)
         {
             if (map == null) return true;
             var c = map.NavCellOf(at);

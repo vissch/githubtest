@@ -58,6 +58,7 @@ off it. Mission scripting runs **inside** sim (deterministic) and emits `Mission
 | `DeployUnit` requires silver ≥ cost and slot unlocked for this mission | dropped |
 | `SupportFire` / `UnitAbility` require cooldown expired and ability unlocked | dropped |
 | `pos` must lie inside the map bounds | clamped to bounds |
+| a `SupportFire` drop (`Men > 0`) must land on open surface, five of its nine cells open, clear of the enemy rear trench by `ParaDropKeepOut` | dropped; the same rule is readable from outside as `MatchSim.CanDropLand` / `OffMapAbilitySystem.CanLand` (a pure read) |
 | Commands for a tick are sorted by `(player, arrivalIndex)` before execution | guarantees identical order on every peer |
 
 Dropping is deterministic because validation reads only sim state, never presentation state.

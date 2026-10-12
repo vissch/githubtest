@@ -150,6 +150,10 @@ namespace TW.Sim.Match
 
         public void Step(NativeArray<SimCommand> commands) => World.Step(commands);
 
+        /// <summary>The sim's one landing question for a paratroop drop, readable from outside: a pure read, no state
+        /// touched. A world without abilities answers yes, as a world without a map does (review Z011.2).</summary>
+        public bool CanDropLand(int player, Unity.Mathematics.float3 at) => Abilities == null || Abilities.CanLand(player, at);
+
         public void Dispose()
         {
             World?.Dispose();
