@@ -22,7 +22,10 @@ It fetches origin, then refuses, saying why, when:
   Tools/selftest.py and every tool's own tests. It runs whether or not the lane also changes code: a green gate says
   nothing about the tools, and until 2026-10-04 a lane that changed both landed with no tool check at all;
 - a SHOW lane's commits change Sim/, Net/ or Data/ (the SIM part lands first, on its own lane), unless --carry-sim
-  names the owner decision that allows it.
+  names the owner decision that allows it;
+- HEAD moved, or the tree went dirty, while the checks ran. It reads HEAD once, at the start, and every check and
+  the push speak of that one commit id. Looking the name HEAD up again at the push is how a second writer in this
+  checkout got an untested commit landed.
 Then it pushes the integration branch and the lane in one atomic push: both move or neither does. The integration
 branch only fast-forwards; the lane is pushed with a lease, because the rebase rewrote it. Refused (someone landed
 first): fetch, rebase, gate, land again. The local integration ref is moved only after the push succeeded.
@@ -88,6 +91,10 @@ def main():
     if dirty:
         refuse('uncommitted changes (commit them, or they are not what the gate tested):\n' + dirty)
 
+    # HEAD is a name, and a name can move while the checks run. Read the commit once here and speak of
+    # that one id from now on, so the commit that is checked is the commit that is pushed.
+    sha = git('rev-parse', 'HEAD', check=True)[1]
+
     git('fetch', '-q', 'origin', check=True)
     code, lease = git('rev-parse', '--verify', '-q', f'origin/{branch}')
     lease = lease if code == 0 else ''        # empty: the lease then means "must not exist"
@@ -97,20 +104,20 @@ def main():
     # the push rewrites origin's copy of the lane, so every commit on it must already be in HEAD: reachable,
     # or carried by the rebase (git cherry compares patches). Comparing origin/<lane> before and after this
     # fetch did not do it: any earlier fetch made the two equal and the push overwrote someone else's commit.
-    if lease and git('merge-base', '--is-ancestor', lease, 'HEAD')[0] != 0:
-        extra = [l for l in git('cherry', 'HEAD', lease, base)[1].split('\n') if l.startswith('+')]
+    if lease and git('merge-base', '--is-ancestor', lease, sha)[0] != 0:
+        extra = [l for l in git('cherry', sha, lease, base)[1].split('\n') if l.startswith('+')]
         if extra:
             refuse(f'origin/{branch} holds {len(extra)} commit(s) your HEAD does not: someone pushed to your '
                    f'lane. See git log HEAD..origin/{branch}, bring it into your work, gate, land.\n'
                    + '\n'.join('  ' + e for e in extra[:10]))
-    if git('merge-base', '--is-ancestor', base, 'HEAD')[0] != 0:
+    if git('merge-base', '--is-ancestor', base, sha)[0] != 0:
         refuse(f'HEAD does not contain {base}: someone landed. git rebase {base}, gate again, land again')
-    ahead = git('rev-list', '--count', f'{base}..HEAD', check=True)[1]
+    ahead = git('rev-list', '--count', f'{base}..{sha}', check=True)[1]
     if ahead == '0':
         print(f'nothing to land: {branch} is already in {base}')
         return
     # --no-renames: a move lists its old path too, so a file moved out of Sim/ or out of Assets/ is still seen
-    changed = [l for l in git('diff', '-z', '--name-only', '--no-renames', base, 'HEAD',
+    changed = [l for l in git('diff', '-z', '--name-only', '--no-renames', base, sha,
                               check=True)[1].split('\0') if l]
     print(f'{branch}: {ahead} commits, {len(changed)} files on top of {base}')
 
@@ -118,7 +125,7 @@ def main():
     if lane == 'show' and sim:
         # ':(top)' makes the pathspecs repo-root relative: land.py runs from trench-warfare-3d/, so plain
         # repo-root paths matched nothing and this list was always empty
-        commits = git('log', '--no-renames', '--format=  %h %s', f'{base}..HEAD', '--',
+        commits = git('log', '--no-renames', '--format=  %h %s', f'{base}..{sha}', '--',
                       *(f':(top){p}' for p in SIM_PATHS))[1]
         if not a.carry_sim:
             refuse(f'a SHOW lane carrying {len(sim)} SIM files; the SIM part lands first, on its own lane. If the '
@@ -129,7 +136,7 @@ def main():
     proj = top / 'trench-warfare-3d'
     code_changed = any(is_code(f, tested_names) for f in changed)
     if code_changed:
-        tree = git('rev-parse', 'HEAD^{tree}', check=True)[1]
+        tree = git('rev-parse', sha + '^{tree}', check=True)[1]
         marker = Path(git('rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green', check=True)[1])
         green = marker.read_text(encoding='utf-8').split() if marker.exists() else []
         if green and green[0].startswith('stand-in:'):
@@ -155,18 +162,28 @@ def main():
             refuse('docs only, and validate.py failed:\n' + (p.stdout + p.stderr).decode('utf-8', 'replace')[-1500:])
         print('validate.py OK')
 
-    push = ['push', '--atomic', 'origin', f'HEAD:refs/heads/{INTEGRATION}',
-            f'--force-with-lease=refs/heads/{branch}:{lease}', f'HEAD:refs/heads/{branch}']
+    push = ['push', '--atomic', 'origin', f'{sha}:refs/heads/{INTEGRATION}',
+            f'--force-with-lease=refs/heads/{branch}:{lease}', f'{sha}:refs/heads/{branch}']
     if a.dry_run:
         print('would run: git ' + ' '.join(push))
         return
+    # toolcheck.py and the gate read the working tree, not sha, so this re-read is what ties the checks to the
+    # commit about to be pushed: a second writer in this checkout moves HEAD or dirties the tree, and we refuse.
+    now = git('rev-parse', 'HEAD', check=True)[1]
+    if now != sha:
+        refuse(f'HEAD moved while the checks ran: they checked {sha[:10]}, HEAD is now {now[:10]}. Nothing was '
+               f'pushed. Someone else is working in this checkout; gate the commit you mean, then land.')
+    dirty = git('status', '--porcelain')[1]
+    if dirty:
+        refuse('the tree went dirty while the checks ran, so they did not check it. Nothing was pushed. Commit or '
+               'clean these, gate again, land again:\n' + dirty)
     code, out = git(*push)
     if code != 0:
         print(out)
         print(f'PUSH FAILED, nothing moved on origin. Someone probably landed: git fetch, git rebase {base}, gate, land.')
         sys.exit(2)
-    local = git('fetch', '.', f'HEAD:{INTEGRATION}')
-    print(f'landed {branch} on {INTEGRATION} at {git("rev-parse", "--short", "HEAD")[1]}' +
+    local = git('fetch', '.', f'{sha}:{INTEGRATION}')
+    print(f'landed {branch} on {INTEGRATION} at {git("rev-parse", "--short", sha)[1]}' +
           ('' if local[0] == 0 else f' (local {INTEGRATION} not moved: {local[1]})'))
 
 

@@ -572,6 +572,25 @@ def land_cases(tmp: pathlib.Path):
     case('[G8] land.py sees a non-ASCII path as code and asks for the gate (no quoted path slips through)',
          code == 1 and 'gate' in out and head(f'origin/{integ}') != head('HEAD'), out)
 
+    # [U068.3] a second writer commits on the lane while toolcheck.py runs: land.py checked one commit and used
+    # to push the name HEAD, which by then was that newer, untested commit.
+    g('fetch', '-q'); g('reset', '-q', '--hard', f'origin/{integ}')
+    g('push', '-q', '-f', 'origin', 'HEAD:refs/heads/lane/show/t'); g('fetch', '-q')
+    (proj / 'Tools/x/test_x.py').write_text(
+        'import pathlib, subprocess\n'
+        'root = pathlib.Path(__file__).resolve().parents[3]\n'
+        '(root / "docs" / "sneak.md").write_text("a second writer\\n")\n'
+        'id = ["-c", "user.name=t", "-c", "user.email=t@t"]\n'
+        'subprocess.run(["git", *id, "add", "docs/sneak.md"], cwd=root)\n'
+        'subprocess.run(["git", *id, "commit", "-qm", "second writer"], cwd=root)\n'
+        'print("1 of 1 cases behaved")\n')
+    g('add', '-A'); g('commit', '-qm', 'a tool test that commits while it runs')
+    start, before = head('HEAD'), head(f'origin/{integ}')
+    code, out = land()
+    sneak, landed = head('HEAD'), head(f'origin/{integ}')
+    case('[U068.3] land.py pushes the commit it checked, not a newer HEAD a second writer made during toolcheck',
+         sneak != start and landed in (start, before), f'start {start} sneak {sneak} landed {landed}\n{out}')
+
 
 def gate_scope_cases(tmp: pathlib.Path):
     sys.path.insert(0, str(HERE))
