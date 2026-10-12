@@ -151,6 +151,7 @@ namespace TW.Sim.Units
         {
             Phase[i] = (byte)BreakerPhase.Approach; PhaseTicks[i] = restTicks; TargetCell[i] = -1; TargetTrench[i] = -1; Still[i] = 0;
             kinematics.Drive[i] = VehicleKinematicsSystem.DriveFlow; kinematics.DriveSpeedMul[i] = 1f;
+            kinematics.HaltTicks[i] = 0;   // a wind-up cut short must not leave the machine halted (critic U10)
             w.Flags[i] &= ~(uint)UnitFlags.Charging;
             Emit(w, i, BreakerPhase.Approach);
         }

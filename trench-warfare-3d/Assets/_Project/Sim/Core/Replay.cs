@@ -144,7 +144,7 @@ namespace TW.Sim
         // v48 (2026-10-12, [S4] [C5]): the hash chain gains two pieces of state. SimWorld.Hash() appends the free
         // list at the very end (its LIFO order decides the next Spawn's slot), and BlastSystem.Hash() folds Pending
         // (a burst queued after order 720 waits there for the next Step). Hashes move, behaviour and balance do not.
-        public const ushort FormatVersion = 48;
+        public const ushort FormatVersion = 49;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

@@ -14,6 +14,7 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Sim.Units;
 
 namespace TW.Tests
 {
@@ -61,6 +62,38 @@ namespace TW.Tests
             for (int t = 0; t < 100; t++) m.Step(none);
 
             Assert.AreEqual(before, w.Hp[man], 0.001f, "the Redoubt has no gun, so the man it faces takes nothing from it");
+        }
+
+        // [U8] A machine with GunCount 0 has no gun to break: a top hit must never knock out (nor later repair) the
+        // gun of a Redoubt (code review 2026-10-04, U8).
+        [Test]
+        public void ATopHitNeverBreaksTheGunOfAGunLessMachine()
+        {
+            using var m = NewMatch();
+            var w = m.World;
+            var redoubt = RosterEntry.Redoubt;
+            Assert.AreEqual(0, TankSpec.For(VehicleArchetype.Redoubt).GunCount, "[U8] setup: the Redoubt carries no gun");
+            int it = w.Spawn(0, VehicleArchetype.Redoubt, new float3(60f, 0f, 70f), redoubt.Hp, 0f, true);
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            m.Step(none);
+            bool hurt = false;
+            for (int t = 0; t < 100; t++)
+            {
+                w.Hp[it] = w.MaxHp[it];                                  // the shells keep coming; what is tested is the rolls
+                m.Modules.Crew[it] = m.Modules.CrewMax[it];
+                m.Gunnery.PendingHits.Add(new VehicleHit
+                {
+                    Target = it, Shooter = -1, Kind = VehicleHitKind.ArmourPiercing,
+                    PenMm = 90f, Damage = 25f, Pos = w.Position[it], Dir = new float3(0f, -1f, 0f),
+                });
+                m.Step(none);
+                for (int k = 0; k < (int)VehicleModule.Count; k++)
+                    if (k != (int)VehicleModule.GunA && k != (int)VehicleModule.GunB
+                        && m.Modules.Module[it * (int)VehicleModule.Count + k] < 1f) hurt = true;
+            }
+            Assert.IsTrue(hurt, "[U8] setup: a hundred top hits broke nothing at all, so the test proves nothing");
+            Assert.AreEqual(1f, m.Modules.ModuleOf(it, VehicleModule.GunA), 1e-4f,
+                "[U8] a machine with no gun must not have a gun broken by a top hit");
         }
 
         /// <summary>An id no unit occupies must not read as armed, or a unit added with a roster line and no weapon
