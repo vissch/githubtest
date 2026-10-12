@@ -471,6 +471,92 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ThePickerBuildMatchesTheOldLoop()
+        {
+            // Z016.1's oracle: the Burst job against a copy of the managed loop it replaced (OldLoop below, taken
+            // from UnitPicker.cs at e564eaa6a^), 3,000 men, once over the sim heightfield alone and once with a
+            // drawn ground over it. Every field must be equal and the screen position within 0.01 px (a thousandth
+            // of the smallest pick circle): Burst and Mono differ in the last bits of a float.
+            foreach (float grid in new[] { float.NaN, 2f })
+            {
+                using var rig = new PickRig(3000, flatGridM: grid);
+                using var picker = new UnitPicker();
+                picker.Build(rig.Match.World, rig.Presenter, rig.Match.Map, rig.Cam, 60f);
+                var old = OldLoop(rig.Match.World, rig.Presenter, rig.Match.Map, rig.Cam, 60f);
+                string where = grid.Equals(float.NaN) ? "no drawn ground" : "a drawn ground";
+                Assert.That(old.Count, Is.GreaterThan(2000), "the oracle itself saw the army (" + where + ")");
+                Assert.That(picker.Units.Length, Is.EqualTo(old.Count), "the same men are on the screen (" + where + ")");
+                for (int i = 0; i < old.Count; i++)
+                {
+                    var a = picker.Units[i]; var b = old[i];
+                    Assert.That(a.Slot, Is.EqualTo(b.Slot), "slot " + i + " (" + where + ")");
+                    Assert.That(a.Gen, Is.EqualTo(b.Gen), "generation of slot " + b.Slot);
+                    Assert.That(a.Archetype, Is.EqualTo(b.Archetype), "archetype of slot " + b.Slot);
+                    Assert.That(a.Ours, Is.EqualTo(b.Ours), "side of slot " + b.Slot);
+                    Assert.That(a.Vehicle, Is.EqualTo(b.Vehicle), "vehicle of slot " + b.Slot);
+                    Assert.That(a.RadiusPx, Is.EqualTo(b.RadiusPx).Within(1e-3f), "pick radius of slot " + b.Slot);
+                    Assert.That(a.Size, Is.EqualTo(b.Size).Within(1e-4f), "marker size of slot " + b.Slot);
+                    Assert.That(a.Depth, Is.EqualTo(b.Depth).Within(1e-3f), "depth of slot " + b.Slot);
+                    Assert.That(a.World.x, Is.EqualTo(b.World.x).Within(1e-4f), "drawn x of slot " + b.Slot);
+                    Assert.That(a.World.y, Is.EqualTo(b.World.y).Within(1e-4f), "drawn y of slot " + b.Slot);
+                    Assert.That(a.World.z, Is.EqualTo(b.World.z).Within(1e-4f), "drawn z of slot " + b.Slot);
+                    Assert.That(a.Screen.x, Is.EqualTo(b.Screen.x).Within(0.01f), "screen x of slot " + b.Slot);
+                    Assert.That(a.Screen.y, Is.EqualTo(b.Screen.y).Within(0.01f), "screen y of slot " + b.Slot);
+                }
+            }
+        }
+
+        /// <summary>The managed loop Z016.1 replaced, kept here as the oracle (UnitPicker.Build at e564eaa6a^).</summary>
+        static List<ScreenUnit> OldLoop(SimWorld w, SimPresenter p, MapData map, Camera cam, float zoom)
+        {
+            var units = new List<ScreenUnit>(1024);
+            float grow = UnitPicker.Grow(zoom), man = UnitPicker.FigureScale * grow;
+            var kin = w.GetSystem<TW.Sim.Nav.VehicleKinematicsSystem>();
+            float pxPerRad = Screen.height / (2f * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad));
+            Vector3 camPos = cam.transform.position, fwd = cam.transform.forward;
+            float near = cam.nearClipPlane;
+            Matrix4x4 toClip = cam.projectionMatrix * cam.worldToCameraMatrix;
+            Rect view = cam.pixelRect;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                uint f = w.Flags[i];
+                if ((f & (uint)UnitFlags.Alive) == 0) continue;
+                bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
+                var d = p.Drawn(i);
+                float ground = RenderGround.Sample(map, d.x, d.z);
+                float radiusM, size;
+                Vector3 body;
+                if (vehicle)
+                {
+                    var prof = kin != null && kin.Profiles.IsCreated ? kin.Profiles[w.Archetype[i]] : TW.Sim.Nav.VehicleProfile.ForArchetype(w.Archetype[i]);
+                    radiusM = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 0.8f;
+                    size = Mathf.Max(prof.HalfLength, prof.HalfWidth) * 2.3f;
+                    body = new Vector3(d.x, ground + UnitPicker.VehicleBodyM, d.z);
+                }
+                else
+                {
+                    radiusM = UnitPicker.ManRadiusM * man;
+                    size = 1.1f * man;
+                    body = new Vector3(d.x, ground + UnitPicker.ManBodyM * man, d.z);
+                }
+                float depth = Vector3.Dot(body - camPos, fwd);
+                if (depth <= near) continue;
+                if (!UnitPicker.Project(toClip, view, body, out Vector2 screen))
+                {
+                    Vector3 s = cam.WorldToScreenPoint(body);
+                    screen = new Vector2(s.x, s.y);
+                }
+                units.Add(new ScreenUnit
+                {
+                    Slot = i, Gen = w.Generation[i], Screen = screen, Depth = depth,
+                    RadiusPx = Mathf.Max(UnitPicker.MinPickPx, radiusM * pxPerRad / depth),
+                    World = body, Size = size, Archetype = w.Archetype[i], Ours = (w.Team[i] & 1) == 0, Vehicle = vehicle,
+                });
+            }
+            return units;
+        }
+
+        [Test]
         public void ProjectMatchesTheEngine()
         {
             // AOSA C67: the picker's one-matrix projection against Camera.WorldToScreenPoint, the
