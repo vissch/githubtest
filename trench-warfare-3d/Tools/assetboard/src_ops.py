@@ -357,8 +357,9 @@ def sessions(trees, now, live=None, skip=()):
                     if not isinstance(c, dict):
                         continue
                     if c.get('type') == 'text' and c.get('text', '').startswith('<command-name>/'):
-                        name = re.search(r'<command-name>/([\w:-]+)', c['text']).group(1)
-                        s['skills'][name.split(':')[-1]] = (ts(d.get('timestamp')), '')
+                        m = re.search(r'<command-name>/([\w:-]+)', c['text'])
+                        if m:          # a `<command-name>/` with no name behind it is no skill: passed over, not an AttributeError
+                            s['skills'][m.group(1).split(':')[-1]] = (ts(d.get('timestamp')), '')
                     elif c.get('type') == 'tool_result' and ask and c.get('tool_use_id') == ask:
                         ask = None                     # the owner answered
             elif d.get('type') == 'attachment':        # a plan approved, or the mode switched, with nothing typed since
@@ -575,6 +576,30 @@ def floor(trees, now, home=None, rel=None):
     return rows
 
 
+def lane_assets(site: Path, lanes):
+    """The assets each lane touches, from the last build of the board (pictures included), onto the lanes.
+
+    build.py rewrites data/assets.json in place, so a read of the board can meet it half written, or an asset row
+    without `models` or `status`: that row is skipped and said, and the other lanes keep their assets (N11.5).
+    """
+    data = site / 'data' / 'assets.json'
+    if not data.exists():
+        return
+    try:
+        rows = json.loads(data.read_text(encoding='utf-8'))['assets']
+    except (OSError, ValueError, TypeError, KeyError) as e:
+        print(f'assets.json did not read ({e}): no lane shows its assets this read')
+        return
+    for a in rows if isinstance(rows, list) else []:
+        try:
+            pic = next((f.get('poster') for m in a['models'] for f in m.get('films', [])), None) or next((m.get('thumb') for m in a['models'] if m.get('thumb')), None)
+            for l in a.get('lanes', []):
+                if l.get('touches_art') and l['branch'] in lanes:
+                    lanes[l['branch']]['assets'].append(dict(id=a['id'], name=a['name'], pic=pic, status=a['status']))
+        except (TypeError, KeyError, AttributeError) as e:
+            print(f'asset row {(a or {}).get("id", "?") if isinstance(a, dict) else "?"} skipped ({e})')
+
+
 def collect(repo: Path, site: Path, share=False):
     """The floor and the branches. `share`: also write this station's floor where the other station reads it."""
     now = time.time()
@@ -592,14 +617,7 @@ def collect(repo: Path, site: Path, share=False):
                  dirty=len(tree['dirty']) if tree else 0, dirty_files=(tree['dirty'][:6] if tree else []),
                  workers=[], items=[], assets=[], last=[dict(sha=c[0], date=c[1], subject=short(c[2], 100)) for c in l.get('commits', [])[:3]])
         l.pop('commits', None)
-    # the assets each lane touches, from the last build of the board (pictures included)
-    data = site / 'data' / 'assets.json'
-    if data.exists():
-        for a in json.loads(data.read_text(encoding='utf-8'))['assets']:
-            pic = next((f.get('poster') for m in a['models'] for f in m.get('films', [])), None) or next((m.get('thumb') for m in a['models'] if m.get('thumb')), None)
-            for l in a.get('lanes', []):
-                if l.get('touches_art') and l['branch'] in lanes:
-                    lanes[l['branch']]['assets'].append(dict(id=a['id'], name=a['name'], pic=pic, status=a['status']))
+    lane_assets(site, lanes)
     items, claims = board(root, skills)
     for it in items:
         if it['lane'] in lanes:

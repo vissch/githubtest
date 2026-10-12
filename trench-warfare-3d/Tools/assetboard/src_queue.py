@@ -218,7 +218,9 @@ def approvals(repo, integ, board, trees):
         try:
             a = json.loads(f.read_text(encoding='utf-8'))
             lane, ref = a['lane'], refs.get(a['lane'], (None,))[0]
-        except (OSError, ValueError, KeyError):
+        except (OSError, ValueError, TypeError, KeyError):
+            # valid JSON that is not an object indexes into a TypeError: that approval is skipped, not the whole read
+            print(f'approval {f.name} skipped: it does not read as an approval')
             continue
         if not ref or not int(src_git.git(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{integ}...{ref}').strip() or 0):
             continue                # landed (or gone): the approval has done its work
@@ -236,7 +238,7 @@ def approvals(repo, integ, board, trees):
         if under:
             why.append('sits on ' + ', '.join(sorted(under)[:2]))
         out.append(dict(lane=lane, date=a.get('date', ''), words=a.get('words', ''), ahead=ahead, why=why))
-    return sorted(out, key=lambda a: a['date'])
+    return sorted(out, key=lambda a: str(a.get('date') or ''))      # a null date beside strings is not an order error
 
 
 def checks_run(repo, integ, cache, now):
@@ -280,11 +282,12 @@ def short(lane):
 def brief_row(b):
     """An open brief as a row of the queue: what the page needs to list it and to lead to it on the Decide page."""
     ev = [e for e in b.get('evidence') or [] if isinstance(e, dict)]
+    bid = b.get('id') or ''
     stills = [e for e in ev if e.get('kind') != 'film' and e.get('file')]
     pick = next((o.get('text', '') for o in b.get('options') or [] if o.get('key') == b.get('pick')), '')
-    return dict(brief=b['id'], title=b.get('title', ''), date=str(b.get('asked', ''))[:10], lane=b.get('lane', ''), about=b.get('about', ''), kind=b.get('kind', ''),
+    return dict(brief=bid, title=b.get('title', ''), date=str(b.get('asked', ''))[:10], lane=b.get('lane', ''), about=b.get('about', ''), kind=b.get('kind', ''),
                 what_for=b.get('what_for', ''), options=len(b.get('options') or []), pick=pick, stills=len(stills), films=len(ev) - len(stills),
-                shot=f'img/brief/{b["id"]}/{stills[0]["file"]}' if stills else '')        # where briefs.py site() puts its first picture
+                shot=f'img/brief/{bid}/{stills[0]["file"]}' if stills and bid else '')        # where briefs.py site() puts its first picture
 
 
 def collect(repo, ops, board=None, cache=None, now=None, integration=None, answers=None, briefs=None, notes=None):
@@ -309,7 +312,8 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     # a question he has answered on its brief is decided (his answer is the decision): it waits on a session, not on him
     his = {slug(t): a for a in answers or [] for t in (a.get('about'), a.get('title')) if t}
     taken = {a.get('id') for a in answers or []}
-    waiting = [b for b in briefs or [] if b.get('state') != 'answered' and b['id'] not in taken]
+    # a brief with no id is dropped, not an index error: nothing can lead to it on the Decide page anyway (N11.5)
+    waiting = [b for b in briefs or [] if b.get('state') != 'answered' and b.get('id') and b['id'] not in taken]
     # ... and one whose brief a session has closed is decided for good: its bullet stays under Open until that lane lands
     closed = {slug(t) for b in briefs or [] if b.get('state') == 'answered' for t in (b.get('about'), b.get('title')) if t}
     written = {slug(t) for b in waiting for t in (b.get('about'), b.get('title')) if t}       # it is listed as its brief
