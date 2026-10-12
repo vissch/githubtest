@@ -279,7 +279,9 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
 - **The Banner by day, on film: what next? (2026-10-12):** he asked twice for a video and had only stills. There is now
   one: eighteen seconds in a daylight match (Winter, GreyboxCorridor, the game's own shaders), the Banner walking at
   play zoom, its top laid 38 degrees on men off its nose and coming home to 0, both guns firing, then the same close
-  from the front quarter. Evidence: G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12/banner-day-film/.
+  from the front quarter. Evidence: the brief's own folder, G:/My Drive/TW3D-pipeline/decisions/
+  2026-10-12-the-banner-by-day-on-film-what-next/ (the film and two frames). The copy to decisions-evidence/
+  2026-10-12/banner-day-film/ was refused in this run, so that folder is empty.
   Options: land the Banner's top and guns as they are; make a shield plate as new art first, then it moves; not yet,
   and he writes what must change. Nobody to ask in this run, so the brief is on the Decide page and nothing is landed.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
