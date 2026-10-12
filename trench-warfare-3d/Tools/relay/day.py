@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                    # noqa: E402
-import ledger, runner, usage            # noqa: E402
+import config, ledger, runner, sources, usage    # noqa: E402
 from sources import lane                # noqa: E402
 
 FINE = ("PASS",)                         # how a unit ends when it needs nobody
@@ -92,28 +92,45 @@ def unresolved(board, uid, verdict):
         return False
 
 
-def passed_over(board, uid, lim=None):
-    """How the last try of a queued unit ended (FAIL | BLOCKED) when the runner passes the unit over for it
-    (sources/lane.py waits), else ''. Asked without origin: the screen calls nobody, so a lane that has moved on
-    origin since still reads as passed over here until a run looks."""
+def stands(board, uid, lim=None, turns=()):
+    """(how, record) of a queued unit that did not pass: how the runner stands with it as sources/lane.py standing
+    says ('' it is taken as any other, 'aside', 'parked'), and what the board keeps of its tries. ('', {}) for a
+    unit that is not queued lane work or has no such record."""
     p = Path(board) / "relay" / "queue" / (uid + ".json")
     try:
         rec = lane.tried(board, uid)
-        return rec["verdict"] if p.exists() and lane.waits(rec, lane.load(p), lim) else ""
+        return (lane.standing(rec, lane.load(p), lim, turns) if p.exists() else ""), (rec if p.exists() else {})
     except (SystemExit, OSError, ValueError, KeyError):
-        return ""
+        return "", {}
 
 
-def older(board, shown, lim=None):
+def asks(board, uid, lim=None, turns=()):
+    """What a unit that did not pass asks of the owner, as the end of its line under "Needs you"; None when it
+    asks nothing: a queued unit that only failed steps aside and comes back by itself, and the screen lists it
+    under "Stepping aside". A unit that is parked asks (rewrite, split or drop), and so does one whose leg said
+    BLOCKED, which is tried once more first."""
+    how, rec = stands(board, uid, lim, turns)
+    if how == "parked":
+        return "; parked after %d %s: rewrite, split or drop" % (
+            lane.tries_of(rec), "try" if lane.tries_of(rec) == 1 else "tries")
+    if rec.get("verdict") == "FAIL":
+        return None
+    if rec.get("verdict") == "BLOCKED":
+        left = lane.turns_left(rec, uid, lim or config.limits(), turns)
+        return "; one more try %s" % ("after %d more turn%s of other work" % (left, "" if left == 1 else "s")
+                                      if left else "at its next turn")
+    return ""
+
+
+def older(board, shown, lim=None, turns=()):
     """What needs the owner from runs before the one on the screen: every unit not in `shown` whose newest outcome
-    is not a pass and that is still unresolved(). The newest stop record alone lost them: an empty run, or another
-    station's, and the screen said "Needs you: nothing." (the review, R001.6)."""
+    is not a pass, that is still unresolved() and that asks() something. The newest stop record alone lost them:
+    an empty run, or another station's, and the screen said "Needs you: nothing." (the review, R001.6)."""
     out = []
     for u, (v, run) in sorted(outcomes(board).items()):
-        if u in shown or v in FINE or not unresolved(board, u, v):
+        if u in shown or v in FINE or not unresolved(board, u, v) or asks(board, u, lim, turns) is None:
             continue
-        out.append("%s ended %s in run %s%s" % (u, v, run, "; not taken again (relay.py retry %s)" % u
-                                                 if passed_over(board, u, lim) else ""))
+        out.append("%s ended %s in run %s%s" % (u, v, run, asks(board, u, lim, turns)))
     return out
 
 
@@ -143,10 +160,15 @@ def fit(text, width):
     return textwrap.wrap(text, width, subsequent_indent="    ") or [text]
 
 
-def run_lines(board, home, lim=None):
+def run_lines(board, home, lim=None, turns=()):
     """Is a run going here, else how the newest run on the board stopped. Second value: what needs the owner: the
-    units of that run that did not pass, then those of older runs that are still unresolved (older())."""
+    units of that run that did not pass and ask something (asks()), then those of older runs that are still
+    unresolved (older())."""
     out, needs, shown = [], [], set()
+
+    def ended(units, where):
+        return ["%s ended %s %s%s" % (u, v, where, asks(board, u, lim, turns)) for u, v in sorted(units.items())
+                if v not in FINE and asks(board, u, lim, turns) is not None]
     for rec in live(home):
         who = rec["who"].split()
         prog = Path(home) / "runs" / (who[1] if len(who) > 1 else "") / "progress.json"
@@ -156,10 +178,10 @@ def run_lines(board, home, lim=None):
                    % (who[1] if len(who) > 1 else rec["who"], rec.get("lane"), pr.get("started_by") or "?"))
         out.append("  %d leg%s so far%s." % (pr.get("legs", 0), "" if pr.get("legs", 0) == 1 else "s",
                                            (", now on %s" % pr["now_on"]) if pr.get("now_on") else ""))
-        needs += ["%s ended %s in the run going now" % (u, v) for u, v in sorted(units.items()) if v not in FINE]
+        needs += ended(units, "in the run going now")
         shown |= set(units)
     if out:
-        return out, needs + older(board, shown, lim)
+        return out, needs + older(board, shown, lim, turns)
     last = last_stop(board)
     if not last:
         return ["No run going. No run yet."], needs
@@ -169,8 +191,8 @@ def run_lines(board, home, lim=None):
                % (rec.get("run"), station, rec.get("legs", 0), "" if rec.get("legs", 0) == 1 else "s",
                   runner.tally(units)))
     out.append("  It stopped: %s." % str(rec.get("reason", "?")).rstrip("."))
-    needs += ["%s ended %s in the last run" % (u, v) for u, v in sorted(units.items()) if v not in FINE]
-    return out, needs + older(board, set(units), lim)
+    needs += ended(units, "in the last run")
+    return out, needs + older(board, set(units), lim, turns)
 
 
 def week_line(board, home, lim):
@@ -196,11 +218,45 @@ def answer_lines(answered, width, rows):
     return out
 
 
-def lines(board, home, lim, ph, holder=None, answered=None, now=None):
+def next_turns(board, home, lim, names, n, usual, state=None):
+    """(the next n turns as the runner would take them now, a note or ''): sources.forecast over what the runner's
+    own pick reads (runner.pick_state). With no sources named: the runner's default; when the board's jobs cannot
+    be read here (a machine that is no station, a board that is only a folder) the lane queue alone, and the note
+    says so."""
+    ctx = dict(state or runner.pick_state(board, home, lim), board=Path(board), skip=set(), work=None)
+    if not names:                                           # a board with no items has no jobs to read
+        names = [s for s in sources.ORDER if s != "pipeline" or any((Path(board) / "items").glob("*.json"))]
+    try:
+        ctx["station"] = P.station()
+        return sources.forecast(list(names), ctx, n, usual), ""
+    except (SystemExit, Exception) as e:                    # noqa: BLE001 - the screen never stops on a source
+        if list(names) == ["lane"]:
+            raise
+        return sources.forecast(["lane"], ctx, n, usual), "the board's jobs were not read (%s): lane work only" % (
+            str(e) or type(e).__name__)
+
+
+def area_line(units, turns):
+    """Where the queued lane work is, by the area of the game a wide turn goes round: how many units wait in each
+    and how many turns ago it had its last wide one."""
+    count, last = {}, {}
+    for u in units:
+        a = sources.area_of("lane", u["role"], u["lane"])
+        count[a] = count.get(a, 0) + 1
+    for i, t in enumerate(turns):
+        if t.get("turn") == "wide":
+            last[sources.area_of(t.get("source"), t.get("role"), t.get("lane"))] = len(turns) - i
+    return "Areas: " + "; ".join("%s %d waiting (%s)" % (a, count[a], "last wide turn %d ago" % last[a] if a in last
+                                                         else "no wide turn yet")
+                                 for a in sources.GAME + sources.OTHER if a in count) + "."
+
+
+def lines(board, home, lim, ph, holder=None, answered=None, now=None, names=None, turns=None):
     """What `relay.py day` prints. At most limits.json day_queue_rows rows in each list, no line over
     day_line_chars: a row is cut there, a sentence goes on over the next line. `answered` is answers.read(): with
     None the block "Your answers" is left out (a caller that did not look says nothing about it). now: the time
-    the pace is read at (a test's own clock)."""
+    the pace is read at (a test's own clock). names: the sources the run is started with (--sources), turns: how
+    many of the next turns to show."""
     width, rows = int(lim["day_line_chars"]), int(lim["day_queue_rows"])
     units, problems = queue(board)
     price = ledger.need(ledger.usuals(board, home, lim), ph, ("plan", "execute"))
@@ -208,7 +264,8 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None):
     pace = ledger.pace_line(ledger.day_budget(board, lim, home, now), lim, now, price if units else None)
     out += fit(pace, width) if pace else []
     out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
-    run, needs = run_lines(board, home, lim)
+    state = runner.pick_state(board, home, lim)
+    run, needs = run_lines(board, home, lim, state["turns"])
     for line in run:
         out += fit(line, width)
     if units:
@@ -219,12 +276,29 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None):
         else:
             out.append("Queue: %d unit%s, about %.1f%% of the week at the usual %.1f%% a unit (plan and execute)."
                        % (len(units), "" if len(units) == 1 else "s", price * len(units) * per_usd, price * per_usd))
-        for n, u in enumerate(units[:rows], 1):
-            held = passed_over(board, u["id"], lim)     # the runner will not take it as things stand
-            out.append(cut("  %2d. %-34s priority %-3d %s%s" % (n, u["id"], lane.priority_of(u, lim), u["lane"],
-                                                                " (passed over: %s)" % held if held else ""), width))
-        if len(units) > rows:
-            out.append("  ... and %d more" % (len(units) - rows))
+        coming, note = next_turns(board, home, lim, names, int(turns or rows), price, state)
+        out += runner.turn_lines(coming, width)
+        out += fit("  Note: %s." % note, width) if note else []
+        aside, parked = [], 0
+        for u in units:
+            how, rec = stands(board, u["id"], lim, state["turns"])
+            parked += how == "parked"
+            if how == "parked" and not any(n.startswith(u["id"] + " ") for n in needs):
+                needs.append("%s did not pass%s" % (u["id"], asks(board, u["id"], lim, state["turns"])))
+            if how == "aside":
+                left = lane.turns_left(rec, u["id"], lim, state["turns"])
+                aside.append("  - %s: %s, try %d, back after %d more turn%s of other work"
+                             % (u["id"], rec["verdict"], lane.tries_of(rec), left, "" if left == 1 else "s"))
+        waiting = len(units) - len([u for u in coming if u["source"] == "lane"]) - len(aside) - parked
+        if waiting > 0:
+            out.append("  ... and %d more behind them" % waiting)
+        if aside:
+            out.append("Stepping aside (each comes back by itself): %d." % len(aside))
+            out += [cut(a, width) for a in aside[:rows]]
+            if len(aside) > rows:
+                out.append("  ... and %d more" % (len(aside) - rows))
+        if int(lim.get("wide_every") or 0):
+            out += fit(area_line(units, state["turns"]), width)
     else:
         out.append("Queue: nothing is queued.")
     needs += problems

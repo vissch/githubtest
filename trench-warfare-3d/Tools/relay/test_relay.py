@@ -1334,24 +1334,27 @@ class Runs(Repo):
         self.assertEqual(stop["legs"], 0)
         self.assertTrue((self.board / "relay" / "done" / "u1.json").exists())
 
-    def test_no_plan_means_no_execute_leg_and_two_empty_units_stop_the_run(self):
-        for u in ("u1", "u2", "u3"):
+    def test_no_plan_means_no_execute_leg_and_three_empty_turns_in_a_row_stop_the_run(self):
+        # [turns] it was two units in a row; a unit that does not pass steps aside now, so three turns are three
+        # different units, and that many with nothing to show means something other than the work is wrong
+        for u in ("u1", "u2", "u3", "u4"):
             self.queue(u)
         self.script({"plan": []})
         out, stop = self.go()
         self.assertIn("wrote no plan.md", out)
-        self.assertEqual(stop["legs"], 2)
-        self.assertIn("2 units in a row", stop["reason"])
+        self.assertEqual((stop["legs"], stop["units"]), (3, {"u1": "FAIL", "u2": "FAIL", "u3": "FAIL"}))
+        self.assertIn("3 turns in a row", stop["reason"])
+        self.assertEqual(self.limits()["idle_turns_stop"], 3)
 
     def test_a_commit_that_is_not_pushed_is_not_progress(self):
-        for u in ("u1", "u2", "u3"):
+        for u in ("u1", "u2", "u3", "u4"):
             self.queue(u, done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
         self.script({"plan": [{"write": "plan.md", "text": PLAN}],
                      "execute": [{"file": "junk.py", "text": "1\n"}, {"git": ["add", "-A"]},
                                  {"git": ["commit", "-q", "--allow-empty", "-m", "junk"]}]})
         out, stop = self.go()
-        self.assertIn("2 units in a row", stop["reason"])
-        self.assertEqual(stop["legs"], 4)
+        self.assertIn("3 turns in a row", stop["reason"])
+        self.assertEqual(stop["legs"], 6)
         self.assertEqual(stop["reason_kind"], "no-result")
 
     def test_work_that_fails_its_check_is_not_done_and_not_picked_again(self):
@@ -1368,63 +1371,127 @@ class Runs(Repo):
 
     NEVER = ("git", "cat-file", "-e", "HEAD:never.txt")
 
-    def test_units_that_failed_twice_with_nothing_pushed_no_longer_keep_later_work_from_running(self):
+    def test_a_unit_that_does_not_pass_steps_aside_and_the_work_behind_it_runs_in_the_same_run(self):
         # [R002.2] look-01-gym-baseline was taken by three runs in a row; two such units at the front and no run
-        # ever reached the third
+        # ever reached the third. [turns] It took three runs to reach it even then, and a blocked unit at the front
+        # cost a stop and a restart each time (landing-small-lanes, 2026-10-12)
         self.queue("a", done_when=self.NEVER)
         self.queue("b", done_when=self.NEVER)
         self.queue("c", raw=json.dumps({"id": "c", "lane": "lane/show/c", "role": "lane", "goal": "Add a.txt",
                                         "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
-        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": []})     # legs that push nothing
-        for n in (1, 2):                                        # a failed unit gets a second try, in the next run
-            out, stop = self.go()
-            self.assertIn("2 units in a row", stop["reason"], n)
-            self.assertEqual((stop["units"], stop["legs"]), ({"a": "FAIL", "b": "FAIL"}, 4), n)
-        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
-                     "execute": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "lane/show/c"]}]})
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": [],      # legs that push nothing,
+                     "execute#6": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "lane/show/c"]}]})   # but c's
         out, stop = self.go()
-        self.assertEqual(stop["units"], {"c": "PASS"})          # the third run reaches the work behind them
-        self.assertEqual((stop["reason"], stop["legs"]), ("nothing left to do", 2))
-        self.assertIn("passing over a:", out)
-        self.assertEqual(out.count("passing over b:"), 1)       # said once a run, not at every pick
+        self.assertEqual(stop["units"], {"a": "FAIL", "b": "FAIL", "c": "PASS"})       # the same run reaches c
+        self.assertEqual((stop["reason"], stop["legs"]), ("nothing left to do", 6))
+        for n in (2, 3, 4):                                     # nothing else is left: one try each in a run,
+            out, stop = self.go()                               # never two, and the run ends by itself
+            self.assertEqual((stop["units"], stop["legs"], stop["reason"]),
+                             ({"a": "FAIL", "b": "FAIL"}, 4, "nothing left to do"), n)
+        rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+        self.assertEqual((rec["tries"], rec["verdict"]), (4, "FAIL"))
+        out, stop = self.go()                                   # four tries: both are parked, no leg is spent
+        self.assertEqual((stop["units"], stop["legs"]), ({}, 0))
 
-    def test_a_unit_passed_over_is_taken_again_when_its_lane_moves_its_file_changes_or_retry_is_called(self):
-        # [R002.2] what the board keeps of a unit that did not pass (relay/tried/<id>.json), and what reopens it
+    def test_every_third_turn_of_a_run_is_a_wide_one_and_its_legs_say_so(self):
+        # [turns] the owner, 2026-10-12: a unit at priority 60 had waited four days behind review and landing work
+        for uid, pr, role in (("fix1", 5, "lane"), ("fix2", 5, "lane"), ("fix3", 5, "lane"), ("fix4", 5, "lane"),
+                              ("tracers", 60, "sim")):
+            self.queue(uid, raw=json.dumps({"id": uid, "lane": "lane/show/" + uid, "role": role, "priority": pr,
+                                            "goal": "Add a.txt", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "HEAD"]}]})
+        out, stop = self.go()
+        plans = [(l["unit"], l["turn"]) for l in self.legs() if l["phase"] == "plan"]
+        self.assertEqual(plans, [("fix1", ""), ("fix2", ""), ("tracers", "wide"), ("fix3", ""), ("fix4", "")])
+        self.assertEqual([l["turn"] for l in self.legs() if l["unit"] == "tracers"], ["wide", "wide"])
+        self.assertIn("unit tracers: a wide turn for rules (no wide turn yet)", out)
+        self.assertEqual(set(stop["units"].values()), {"PASS"})
+
+    def test_a_dry_run_lists_the_next_turns_as_the_run_would_take_them(self):
+        for uid, pr, role in (("fix1", 5, "lane"), ("fix2", 5, "lane"), ("fix3", 5, "lane"), ("tracers", 60, "sim")):
+            self.queue(uid, raw=json.dumps({"id": uid, "lane": "lane/show/" + uid, "role": role, "priority": pr,
+                                            "goal": "Add a.txt", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        out, stop = self.go(dry_run=True)
+        rows = [l.split()[1:3] for l in out.splitlines() if l[:5].strip().rstrip(".").isdigit()]
+        self.assertEqual(rows, [["fix1", "priority"], ["fix2", "priority"], ["tracers", "wide:"], ["fix3", "priority"]])
+        self.assertIn("would run: lane fix1", out)
+        self.assertIsNone(stop)
+
+    def test_a_leg_that_went_wrong_by_itself_is_a_try_of_its_unit_and_the_unit_steps_aside_for_it(self):
+        # [turns] one turn in five ended with no verdict (a leg timed out or broke a rule), and its unit was first
+        # again in the next run, to stop that one too
+        self.queue("a")
+        self.queue("b", raw=json.dumps({"id": "b", "lane": "lane/show/b", "role": "lane", "goal": "Add a.txt",
+                                        "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": [{"exit": 2}]})
+        out, stop = self.go()
+        self.assertEqual((stop["reason_kind"], stop["units"]), ("leg", {}))
+        rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
+        self.assertEqual((rec["verdict"], rec["tries"], rec["rejected"]["leg"]), ("FAIL", 1, 2))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.COMMIT[:3] + [{"git": ["push", "-q", "origin", "HEAD"]}]})
+        out, stop = self.go(max_legs=2)
+        self.assertEqual(stop["units"], {"b": "PASS"})          # the next run begins with the work behind it
+
+    def test_what_ends_the_record_of_a_try_and_what_does_not(self):
+        # [R002.2] what the board keeps of a unit that did not pass (relay/tried/<id>.json). [turns] The unit steps
+        # aside for turns of other work and comes back by itself; a push to its lane no longer reopens it (43 units
+        # shared one lane on 2026-10-12, and every push of one reopened them all)
         from sources import lane as SL
         ctx = {"board": self.board, "work": self.work, "skip": set(), "run": "r1"}
-        q = self.board / "relay" / "queue" / "a.json"
+        q, legs = self.board / "relay" / "queue" / "a.json", self.board / "relay" / "desktop" / "legs"
+        legs.mkdir(parents=True)
         took = lambda: (SL.next(dict(ctx, skip=set())) or {}).get("id")
+
+        def turns(n, of=None):                                  # plan legs: a's own, or of other work
+            for _ in range(n):
+                k = len(list(legs.glob("*.json"))) + 1
+                (legs / ("r1-%03d.json" % k)).write_text(json.dumps(
+                    {"run": "r1", "leg": k, "unit": of or "other%d" % k, "source": "lane", "role": "lane",
+                     "phase": "plan", "started_at": "2026-01-01T%02d:%02d:00Z" % divmod(k, 60)}), encoding="utf-8")
+
+        def ends(unit, problems, outcome):
+            turns(1, "a")
+            return SL.finish(unit, ctx, problems, outcome)
         with contextlib.redirect_stdout(io.StringIO()):
             self.queue("a")
             unit = dict(SL.load(q), source="lane")
-            self.assertEqual(SL.finish(unit, ctx, ["the plan leg reported blocked"], "blocked"), "BLOCKED")
-            self.assertIsNone(took())                           # blocked: it asked a person, and nothing has changed
+            self.assertEqual(ends(unit, ["the plan leg reported blocked"], "blocked"), "BLOCKED")
+            self.assertIsNone(took())                           # it stands aside
             rec = json.loads((self.board / "relay" / "tried" / "a.json").read_text(encoding="utf-8"))
             self.assertEqual((rec["verdict"], rec["run"], rec["tries"], rec["problems"]),
                              ("BLOCKED", "r1", 1, ["the plan leg reported blocked"]))
             q.write_text(json.dumps(dict(json.loads(q.read_text(encoding="utf-8")), priority=5)), encoding="utf-8")
-            self.assertIsNone(took())                           # a move in the queue (relay.py prio) reopens nothing
+            self.assertIsNone(took())                           # a move in the queue (relay.py prio) changes nothing
             q.write_text(json.dumps(dict(json.loads(q.read_text(encoding="utf-8")), goal="Add a.txt, as he answered")),
                          encoding="utf-8")
             self.assertEqual(took(), "a")                       # the owner changed the unit
             unit = dict(SL.load(q), source="lane")
-            SL.finish(unit, ctx, ["blocked again"], "blocked")
-            self.assertIsNone(took())
+            ends(unit, ["blocked again"], "blocked")
             self.g(["push", "-q", "origin", "HEAD:refs/heads/lane/show/x"])
-            self.assertEqual(took(), "a")                       # new code on its lane on origin
-            SL.finish(unit, ctx, ["blocked again"], "blocked")
+            self.assertIsNone(took())                           # new code on its lane on origin: no longer a reason
+            turns(2)
             self.assertIsNone(took())
+            turns(1)
+            self.assertEqual(took(), "a")                       # three turns of other work: it is back by itself
+            ends(unit, ["blocked again"], "blocked")
+            turns(30)
+            self.assertIsNone(took())                           # blocked twice: parked, however long it waits
             self.assertEqual(relay.main(["retry", "a"]), 0)
             self.assertEqual(took(), "a")                       # somebody said: try it again
             self.assertFalse((self.board / "relay" / "tried" / "a.json").exists())
-            SL.finish(unit, ctx, ["done_when exited 1"], "done")
-            self.assertEqual(took(), "a")                       # failed once: one more try
-            SL.finish(unit, ctx, ["done_when exited 1"], "done")
-            self.assertIsNone(took())                           # failed twice with nothing new: passed over
+            ends(unit, ["done_when exited 1"], "done")
+            turns(3)
+            self.assertEqual(took(), "a")                       # failed once: back after three turns
+            ends(unit, ["done_when exited 1"], "done")
+            turns(5)
+            self.assertIsNone(took())                           # failed twice: six turns this time
+            turns(1)
+            self.assertEqual(took(), "a")
             (self.work / "a.txt").write_text("one\n", encoding="utf-8")
             self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "a"])
             self.g(["push", "-q", "origin", "HEAD:refs/heads/lane/show/x"])
-            self.assertEqual(took(), "a")
             self.assertEqual(SL.finish(unit, ctx, [], "done"), "PASS")
         self.assertFalse((self.board / "relay" / "tried" / "a.json").exists())     # a pass leaves no such record
         self.assertTrue((self.board / "relay" / "done" / "a.json").exists())
@@ -1457,27 +1524,23 @@ class Runs(Repo):
             self.assertEqual(relay.main(["retry", "a"]), 0)      # a record that holds only the tries goes whole
         self.assertFalse(rec_file.exists())
 
-    def test_an_origin_that_does_not_answer_holds_no_run_and_passes_nothing_over(self):
-        # [RV.6] the question to origin before a pick had no time limit and could ask for a password
+    def test_the_pick_and_the_record_of_a_try_ask_origin_nothing(self):
+        # [RV.6] the question to origin before a pick had no time limit and could ask for a password. [turns] How a
+        # unit stands is read from the board alone now, so the pick is the same for a run and for the day screen
         from sources import lane as SL
-        calls, real = [], SL.subprocess.run
-
-        def hangs(cmd, **kw):
-            calls.append((cmd, kw))
-            if cmd[:2] == ["git", "ls-remote"]:
-                raise subprocess.TimeoutExpired(cmd, kw.get("timeout"))
-            return real(cmd, **kw)
-        SL.subprocess.run = hangs
+        asked, real = [], gitio.origin
+        gitio.origin = lambda *a, **k: asked.append(a) or (1, "")
         try:
-            self.assertIsNone(SL.origin_heads(self.work))
+            ctx = {"board": self.board, "work": self.work, "skip": set(), "run": "r1"}
+            self.queue("a")
+            unit = dict(SL.load(self.board / "relay" / "queue" / "a.json"), source="lane")
+            with contextlib.redirect_stdout(io.StringIO()):
+                SL.finish(unit, ctx, ["done_when exited 1"], "done")
+                self.assertIsNone(SL.next(dict(ctx, skip=set())))
+                self.assertEqual(SL.waiting(dict(ctx, skip=set(), run="r2"), aside=True)[0]["id"], "a")
         finally:
-            SL.subprocess.run = real
-        (cmd, kw), = calls
-        self.assertEqual((cmd[:2], kw["timeout"], kw["env"]["GIT_TERMINAL_PROMPT"], kw["stdin"]),
-                         (["git", "ls-remote"], SL.ORIGIN_S, "0", subprocess.DEVNULL))
-        self.assertNotEqual(kw.get("stdout"), subprocess.PIPE)   # no pipe a helper git left behind could hold open
-        self.assertFalse(kw.get("capture_output"))
-        self.assertEqual(SL.origin_heads(self.work)[gitio.INTEGRATION], gitio.head(self.work))   # the real call reads
+            gitio.origin = real
+        self.assertEqual(asked, [])
 
     def test_the_runners_other_questions_to_origin_are_timed_and_cannot_prompt_either(self):
         # [RV.6b] the fetch before a lane is read or switched to, and the list of origin's heads, had no time limit
@@ -3311,6 +3374,22 @@ class PipelineSource(Repo):
 
     def leg_file(self, nn, name, desk=False):
         return next((self.tmp / "home" / "runs").glob("*/%s/%02d" % ("desk" if desk else "legs", nn))) / name
+
+    def test_a_board_job_keeps_what_the_pick_said_of_it_when_its_id_is_read_again(self):
+        # [turns] the source reads a job anew once the checkout is on its lane (its id hangs on that), and what the
+        # pick had said went with the old dict: no leg of a job named its kind, and a wide turn would not have been
+        # one on the record, so every turn after it would have gone wide again
+        legs = self.board / "relay" / "desktop" / "legs"
+        legs.mkdir(parents=True)
+        for k in (1, 2):                                        # two turns by priority came before: a wide one is due
+            (legs / ("20260101-000000-1-%02d.json" % k)).write_text(json.dumps(
+                {"run": "20260101-000000-1", "leg": k, "unit": "earlier%d" % k, "source": "lane", "role": "lane",
+                 "phase": "plan", "started_at": "2026-01-01T00:0%d:00Z" % k}), encoding="utf-8")
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH})
+        out, stop = self.go_with_evidence(max_legs=1)
+        rec, = [json.loads(f.read_text(encoding="utf-8")) for f in legs.glob("*.json") if not f.name.startswith("20260101")]
+        self.assertEqual((rec["phase"], rec["turn"], rec["kind"]), ("plan", "wide", "finish"))
+        self.assertIn("a wide turn for ideas (no wide turn yet)", out)
 
     FIX = [{"file": "out2.txt", "text": "fixed\n"}, {"git": ["add", "-A"]}, {"git": ["commit", "-q", "-m", "fixes"]},
            {"git": ["push", "-q", "origin", "lane/show/pipe-thing"]}]

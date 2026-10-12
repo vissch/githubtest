@@ -9,7 +9,8 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 TUNABLE = ("amber_tokens", "red_tokens", "run_hours", "leg_minutes", "leg_budget_usd", "day_budget_usd",
            "day_budget_pct")
-FIXED = ("autocompact_tokens", "no_progress_units", "stuck_lanes", "max_plan_parts", "retro_every_legs", "note_max_bytes",
+FIXED = ("autocompact_tokens", "wide_every", "aside_turns", "park_after", "park_after_blocked", "idle_turns_stop",
+         "stuck_lanes", "max_plan_parts", "retro_every_legs", "note_max_bytes",
          "plan_max_bytes", "prompt_max_bytes", "evidence_max_kb", "evidence_min_px", "quiet_seconds",
          "done_when_seconds", "gate_seconds", "play_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
          "retro_max_bytes", "usual_leg_usd", "price_legs", "queue_priority", "queue_priority_max",
@@ -59,6 +60,11 @@ def limits(folder=None, overrides=None):
         raise SystemExit("relay: limits.json needs amber_tokens < red_tokens < autocompact_tokens")
     if out["min_leg_minutes"] < 0:
         raise SystemExit("relay: limits.json min_leg_minutes is minutes, 0 or more (0: no minimum)")
+    if out["wide_every"] != 0 and out["wide_every"] < 2:
+        raise SystemExit("relay: limits.json wide_every is every which turn goes wide: 2 or more, or 0 for never")
+    if min(out["aside_turns"], out["park_after"], out["park_after_blocked"], out["idle_turns_stop"]) < 1:
+        raise SystemExit("relay: limits.json aside_turns, park_after, park_after_blocked and idle_turns_stop are "
+                         "counts, 1 or more")
     if not 0 <= out["pace_from_hour"] <= 24 or not 0 <= out["pace_to_hour"] <= 24:
         raise SystemExit("relay: limits.json pace_from_hour and pace_to_hour are hours of the day, 0 to 24")
     return out

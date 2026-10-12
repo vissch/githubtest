@@ -237,10 +237,11 @@ def budget(days):
     return 0
 
 
-def day_screen():
-    """One screen for the master and the owner (day.py): reads only."""
+def day_screen(names=None, turns=None):
+    """One screen for the master and the owner (day.py): reads only. names: the sources the run is started with
+    (as `run --sources`), so the next turns shown are that run's; turns: how many of them to show."""
     for line in day.lines(P.board_dir(), legdir.home(), config.limits(), config.phases(), holder(),
-                          answers.read(*answers.folders())):
+                          answers.read(*answers.folders()), names=names, turns=turns):
         print(line)
     return 0
 
@@ -583,7 +584,10 @@ def main(argv=None):
     p.add_argument("--by", help="who asks (a session or a script's name): kept in the stop record")
     sub.add_parser("refusals").add_argument("--runs", type=int, default=3)
     sub.add_parser("budget").add_argument("--days", type=int, default=8)
-    sub.add_parser("day")
+    p = sub.add_parser("day")
+    p.add_argument("--sources", type=lambda s: [x for x in s.split(",") if x],
+                   help="the sources the run is started with, as `run --sources` (default: the run's default)")
+    p.add_argument("--turns", type=int, help="how many of the next turns to show (default: limits.json day_queue_rows)")
     p = sub.add_parser("agents")
     p.add_argument("what", nargs="?", choices=("book",))
     p.add_argument("--day", help="a local day, 2026-10-07 (default: today)")
@@ -635,7 +639,7 @@ def main(argv=None):
     if a.cmd == "budget":
         return budget(a.days)
     if a.cmd == "day":
-        return day_screen()
+        return day_screen(a.sources, a.turns)
     if a.cmd == "agents":
         return agents_cmd(a)
     if a.cmd == "usage":

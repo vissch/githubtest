@@ -100,6 +100,26 @@ def _read(f):
         return None
 
 
+TURN_FILES = 600                        # how many leg records back a turn is looked for; older ones count as never
+
+
+def turns(board):
+    """The turns the board knows of, oldest first: one for each plan leg, since a unit's try begins with exactly
+    one (a retrospective and a critic round are no turn, and a unit that cost no leg took none). Each is the leg
+    record's {unit, source, role, lane, kind, turn ("wide" on a wide turn), started_at, run, leg}. What the pick
+    counts on: when a wide turn is due, which area had one last, how long a unit has stood aside. Nothing else is
+    stored for those: two runs side by side and a record that arrives late change the count the same way for
+    every reader."""
+    out = []
+    for f in _files(board)[-TURN_FILES:]:
+        rec = _read(f)
+        if rec and rec.get("phase") == "plan":
+            out.append({k: rec.get(k) for k in ("unit", "source", "role", "lane", "kind", "turn", "started_at",
+                                                 "run", "leg")})
+    return sorted(out, key=lambda t: (str(t["started_at"] or ""), str(t["run"] or ""),
+                                      t["leg"] if isinstance(t["leg"], int) else 0))
+
+
 def known_cost(rec, home=None):
     """The cost of one leg from its record, else from its leg folder here, else None."""
     c = rec.get("cost_usd")
@@ -244,6 +264,9 @@ def _days(board, since, home, lim):
         d["legs"] += 1
         if rec.get("source") != "retro":            # kinds: {kind of work: usd}, what the day's split is counted in;
             k = kind_of(rec.get("source"), rec.get("role"), rec.get("kind"))    # a retrospective is nobody's share
+            if rec.get("turn") == "wide":           # nor is a wide turn: the split is of the turns by priority. Booked
+                k = "wide"                          # to its unit's kind, a third of the day going wide used up the
+            #                                         whole share of finishing, and no landing unit got a turn
             d["kinds"][k] = d["kinds"].get(k, 0.0) + c
         unit = d["units"].setdefault(str(rec.get("unit") or "?"), {})
         unit[str(rec.get("phase") or "?")] = unit.get(str(rec.get("phase") or "?"), 0.0) + c

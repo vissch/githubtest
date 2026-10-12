@@ -91,6 +91,15 @@ def next(ctx, only=None, kind=None):
     return c[0] if c else None
 
 
+def waiting(ctx, kind=None, aside=False):
+    """Every job this station may take now, in this source's order: what a wide turn looks at. A board job is
+    work that is being finished, and none of them steps aside: a job that did not pass is behind the others
+    already, and one that ended BLOCKED is not in the list."""
+    if aside or kind not in (None, "finish"):
+        return []
+    return [dict(u, why="board job") for u in candidates(ctx)]
+
+
 def refresh(unit, ctx):
     """A job's id is a hash of its inputs at the lane ref, so it changes when the runner first creates the lane:
     read the id again once the checkout is on the lane, and claim that one."""

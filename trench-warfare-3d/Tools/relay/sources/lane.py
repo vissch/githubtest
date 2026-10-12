@@ -7,15 +7,15 @@
                                    (sources.kind_of; left out, its role says: the review's fixes are fix)}
   <board>/relay/done/<id>.json    written by the runner when done_when passes; a unit with one is never picked again
   <board>/relay/notes/<id>.md     the last leg's handoff note, when the unit is not done yet
-  <board>/relay/tried/<id>.json   written by the runner for a unit that did not pass: {"verdict" (FAIL | BLOCKED),
-                                   "run", "at", "problems", "tries" (in a row with no new code on origin's lane),
-                                   "origin_head", "unit_hash" (of lane, role, goal and done_when: never the priority)},
+  <board>/relay/tried/<id>.json    written by the runner for a unit that did not pass: {"verdict" (FAIL | BLOCKED),
+                                   "run", "at", "problems", "tries" (in a row, for the same unit),
+                                   "unit_hash" (of lane, role, goal and done_when: never the priority)},
                                    and for a leg the runner did not trust "rejected": {"run", "leg", "why", "head"},
                                    and for uncommitted work the runner put aside "saved": {"ref", "patch", "head",
                                    "run", "cleaned"}: a commit in the work checkout's repo, and a patch on that machine.
-                                   A unit recorded BLOCKED, or FAIL limits.json no_progress_units times, is passed
-                                   over while nothing has moved: taken again when origin's lane has a new head, the
-                                   queue file changes, or `relay.py retry <id>` removes the record. Gone at a PASS
+                                   A unit with such a record steps aside for turns of other work and then comes
+                                   back by itself, until it is parked (standing): it is taken as new again when
+                                   its queue file changes or `relay.py retry <id>` removes the record. Gone at a PASS
 The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
 The role is a name in Tools/pipeline/roles.json (relay.py role): the unit's legs get that role's brief, as a board
 job's do. "lane" is the role with none.
@@ -38,7 +38,7 @@ NEED = ("id", "lane", "role", "goal", "done_when")
 MAY = ("kind",)                     # what a unit file may also say: the kind of work it is paid as. Never its
 #                                     priority: a unit's place in the queue is the owner's to give (relay.py prio)
 ID = re.compile(r"^[\w.-]+$")
-ORIGIN_S = 30                       # how long origin gets to say where the lanes stand; then nothing is passed over
+STEPS_ASIDE = True                  # this source keeps a record of a try, so the runner need not skip the unit
 
 
 def load(p):
@@ -116,64 +116,118 @@ def tried(board, uid):
     return rec if isinstance(rec, dict) else {}
 
 
-def origin_heads(work):
-    """{lane: sha} of origin's branches, asked of origin itself; None when it cannot be asked (no checkout, no
-    network, no answer within ORIGIN_S seconds): a caller then holds nothing back on a head it could not read.
-    The call is timed and may not ask for a password, as the runner's own calls to origin between legs are
-    (boardio._origin): an origin that hangs must not hold a run. Its answer goes to a file, not a pipe, so a helper
-    process that git left behind cannot hold the reader either."""
-    if not work:
-        return None
-    code, text = gitio.origin(["ls-remote", "--heads", "origin"], work, ORIGIN_S)
-    if code:
-        return None
-    rows = [l.split("\t") for l in text.splitlines() if "\t" in l]
-    return {ref.replace("refs/heads/", "", 1): sha for sha, ref in rows}
+def queued_at(board):
+    """{unit id: when its queue file came onto the board, in seconds}: from the board's history, one call (the
+    newest commit that added the file), and from the file's own time on a plain folder or for a file the history
+    does not name. A wide turn takes the unit that has waited longest by it."""
+    root, out = Path(board) / "relay" / "queue", {}
+    if (Path(board) / ".git").exists():
+        stamp = 0
+        for line in gitio.git(["log", "--diff-filter=A", "--name-only", "--format=@%ct", "--", "relay/queue"],
+                              board, check=False).splitlines():
+            if line.startswith("@"):
+                stamp = int(line[1:]) if line[1:].isdigit() else 0
+            elif line.endswith(".json"):
+                out.setdefault(Path(line).stem, stamp)       # newest first: the first seen is the last time added
+    for p in root.glob("*.json") if root.is_dir() else []:
+        if p.stem not in out:
+            out[p.stem] = p.stat().st_mtime
+    return out
 
 
-def waits(rec, unit, lim=None, head=None):
-    """True for a unit the runner passes over: its record says BLOCKED, or FAIL limits.json no_progress_units times
-    in a row with nothing new pushed, and nothing has moved since: the unit asks for the same thing and, when `head`
-    is given (the head of its lane on origin now, '' for none), that is the head the record was written at.
-    Every run took the same failed units at the front of the queue again, a plan leg each, and the rule that stops
-    a run after two empty units then fired before any later work (the review, R002.2)."""
+def tries_of(rec):
+    return rec["tries"] if isinstance(rec.get("tries"), int) and not isinstance(rec.get("tries"), bool) else 1
+
+
+def turns_left(rec, uid, lim, turns):
+    """How many turns of other work a unit that did not pass still stands aside for: limits.json aside_turns after
+    its first try, twice that after each further one in a row (3, 6, 12), less the turns taken since its own last
+    one. Counted on the turns (ledger.turns); a record with no turn of its own behind it counts those begun after
+    it was written."""
+    need = int(lim["aside_turns"]) * 2 ** (tries_of(rec) - 1)
+    mine = [i for i, t in enumerate(turns) if t.get("unit") == uid]
+    since = len(turns) - 1 - mine[-1] if mine else \
+        sum(1 for t in turns if str(t.get("started_at") or "") > str(rec.get("at") or ""))
+    return max(0, need - since)
+
+
+def standing(rec, unit, lim=None, turns=()):
+    """How a unit that did not pass stands with the runner: '' it is taken as any other; 'aside' it is stepping
+    aside for turns of other work (turns_left) and then comes back by itself; 'parked' it is out of the queue until
+    a person looks: limits.json park_after tries in a row, or park_after_blocked of them when the last one ended
+    BLOCKED (a leg that says it cannot go on is believed sooner than one that only failed). A record counts while
+    the unit asks for the same thing (unit_hash); a changed unit file, `relay.py retry` or a PASS ends it. Not a
+    push to its lane: forty units share one lane, and each push of one reopened them all.
+    Before this a unit that did not pass was first again in every run, or was hidden for good."""
     if not rec or rec.get("verdict") not in ("FAIL", "BLOCKED") or rec.get("unit_hash") != unit_hash(unit):
-        return False
-    if head is not None and rec.get("origin_head") != head:
-        return False
-    tries = rec.get("tries") if isinstance(rec.get("tries"), int) else 0
-    return rec["verdict"] == "BLOCKED" or tries >= (lim or config.limits())["no_progress_units"]
+        return ""
+    lim = lim or config.limits()
+    tries = tries_of(rec)
+    if tries >= lim["park_after"] or (rec["verdict"] == "BLOCKED" and tries >= lim["park_after_blocked"]):
+        return "parked"
+    return "aside" if turns_left(rec, unit["id"], lim, turns) else ""
 
 
-def next(ctx, kind=None):
-    """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of). A unit that waits()
-    is passed over, and said once a run."""
-    from sources import kind_of
+def read_queue(ctx):
+    """files() of the board, read once for a pick and kept in ctx["queue"] with the units as they are loaded: a
+    pick walks the queue once for every kind of work and again for a wide turn, and asking git about each of a
+    hundred files every time took a minute a pick. The runner empties it before each pick (runner.pick_state); a
+    list of the next turns (sources.forecast) reads the queue once for all of them."""
+    kept = ctx.get("queue")
+    if not isinstance(kept, dict):
+        kept = ctx["queue"] = {}
+    if "files" not in kept:
+        kept["files"], kept["units"] = files(ctx["board"]), {}
+    return kept["files"]
+
+
+def walk(ctx, kind=None, aside=False, whole=False):
+    """The queued units the runner may take now, in the queue's order, one at a time (a file that cannot be read
+    stops it only when its turn comes; with `whole` it is left out, for a caller that looks at the whole queue).
+    With `kind`, of that kind of work (sources.kind_of). With aside: only the units that are stepping aside and
+    that this run did not try itself, as (when the record was written, unit)."""
+    from sources import kind_of, limits_of, turns_of
     root = Path(ctx["board"]) / "relay"
-    ok, skipped = files(ctx["board"])
-    for p in skipped:
-        print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
-    heads, lim = False, None                         # origin is asked once, and only when a record is there
-    for p in ok:
-        u = load(p)
+    lim, turns, queued = limits_of(ctx), turns_of(ctx), ctx.get("queued") or {}
+    for p in read_queue(ctx)[0]:
+        u = ctx["queue"]["units"].get(p)
+        if u is None:
+            try:
+                u = load(p)
+            except SystemExit as e:
+                u = e
+            ctx["queue"]["units"][p] = u
+        if isinstance(u, SystemExit):
+            if whole:
+                continue
+            raise u
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue
         if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
             continue
         rec = tried(ctx["board"], u["id"])
-        if rec.get("verdict"):
-            if heads is False:
-                heads, lim = origin_heads(ctx.get("work")), config.limits()
-            if heads is not None and waits(rec, u, lim, heads.get(u["lane"], "")):
-                if u["id"] not in ctx.setdefault("passed_over", set()):
-                    ctx["passed_over"].add(u["id"])
-                    print("passing over %s: it ended %s in run %s%s and nothing has moved since. It is taken again "
-                          "when its lane has new code on origin, its queue file changes, or after `relay.py retry %s`"
-                          % (u["id"], rec["verdict"], rec.get("run") or "?",
-                             "" if rec["verdict"] == "BLOCKED" else ", %d tries with nothing pushed" % rec["tries"],
-                             u["id"]), flush=True)
-                continue
-        return dict(u, source=NAME)
+        how = standing(rec, u, lim, turns)
+        if aside != (how == "aside") or how == "parked" or (aside and rec.get("run") == ctx.get("run")):
+            continue
+        unit = dict(u, source=NAME, why="stood aside" if aside else "priority %d" % priority_of(u, lim),
+                    queued=queued.get(u["id"]) or 0)
+        yield (str(rec.get("at") or ""), unit) if aside else unit
+
+
+def waiting(ctx, kind=None, aside=False):
+    """Every unit walk() gives, as a list: for a wide turn, which looks at the whole queue. A file that cannot be
+    read is left out here: it stops the queue when its own turn comes, not somebody else's. With aside: the units
+    stepping aside, the one that has stood longest first."""
+    out = list(walk(ctx, kind, aside, whole=True))
+    return [u for _, u in sorted(out, key=lambda x: x[0])] if aside else out
+
+
+def next(ctx, kind=None):
+    """The first queued unit the runner may take, or with `kind` the first of that kind of work."""
+    for p in read_queue(ctx)[1]:
+        print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
+    for unit in walk(ctx, kind):
+        return unit
     return None
 
 
@@ -222,10 +276,15 @@ def saved(unit, ctx, rec, patch):
     write_json(tried_path(ctx["board"], unit["id"]), old)
 
 
-def reject(unit, ctx, why, leg=0):
+def reject(unit, ctx, why, leg=0, counts=False):
     """A leg of this unit could not be trusted and the run stops with no verdict: keep the head it left, so that
-    the next run does not take what it pushed for work that is done. Written by the runner, after the leg."""
+    the next run does not take what it pushed for work that is done. Written by the runner, after the leg.
+    counts: the leg itself went wrong (it timed out, broke a rule, ran unguarded), so this is a try of the unit
+    that did not pass and the unit steps aside for it; not so when the owner, the budget or the run's hours cut
+    the leg. One in five turns ended this way with no verdict, and its unit was first again in the next run."""
     rec = tried(ctx["board"], unit["id"])
+    if counts:
+        rec.update(try_record(unit, ctx, rec, "FAIL", ["its leg %02d was not trusted: %s" % (leg, why)]))
     rec.update(id=unit["id"], lane=unit["lane"],
                rejected={"run": ctx.get("run", ""), "leg": leg, "why": " ".join(str(why).split())[:300],
                          "head": gitio.head(ctx["work"]), "at": now()})
@@ -314,13 +373,18 @@ def finish(unit, ctx, problems, outcome):
             if f.exists():
                 f.unlink()
         return v
-    old, heads, same = tried(ctx["board"], unit["id"]), origin_heads(ctx.get("work")), unit_hash(unit)
-    head = None if heads is None else heads.get(unit["lane"], "")
-    again = old.get("verdict") and old.get("unit_hash") == same and head is not None and old.get("origin_head") == head
-    rec = {"id": unit["id"], "lane": unit["lane"], "verdict": v, "run": ctx.get("run", ""), "at": now(),
-           "problems": [str(p)[:300] for p in problems[:8]], "origin_head": head, "unit_hash": same,
-           "tries": (old["tries"] if again and isinstance(old.get("tries"), int) else 0) + 1}
+    old = tried(ctx["board"], unit["id"])
+    rec = dict(try_record(unit, ctx, old, v, problems), id=unit["id"], lane=unit["lane"])
     if old.get("saved"):
         rec["saved"] = old["saved"]                  # work the runner put aside stays named until the unit passes
     write_json(rec_file, rec)
     return v
+
+
+def try_record(unit, ctx, old, v, problems):
+    """What a try that did not pass leaves on the unit's record. tries counts the tries in a row for the same unit
+    (unit_hash), whatever was pushed in between: a leg cannot buy its unit turns by pushing something."""
+    same = unit_hash(unit)
+    again = old.get("verdict") and old.get("unit_hash") == same
+    return {"verdict": v, "run": ctx.get("run", ""), "at": now(), "problems": [str(p)[:300] for p in problems[:8]],
+            "unit_hash": same, "tries": (tries_of(old) if again else 0) + 1}

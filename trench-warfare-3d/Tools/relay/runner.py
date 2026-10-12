@@ -8,8 +8,11 @@ week, or day_budget_usd dollars while nothing can be said in percent; counted by
 today and every agent booked for it), the day's pace when waiting for it would outlast the run, nothing left to do,
 the owner's stop (relay.py stop), the checkout is missing or busy, a unit that left uncommitted work (it is saved
 and the checkout put back to HEAD: put_aside), a leg that cannot be trusted
-(timeout, compaction trip, not auto mode, no hooks, no result), limits.json no_progress_units units in a row with
-no result, or any error. Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
+(timeout, compaction trip, not auto mode, no hooks, no result), limits.json idle_turns_stop turns in a row with
+no result and no pushed code, or any error.
+The pick (sources.next_unit): every limits.json wide_every-th turn is a wide one, for the area of the game that has
+waited longest; the others go by priority. A lane unit that does not pass steps aside for turns of other work and
+comes back by itself, in this run or a later one, until it is parked (sources/lane.py standing). Whatever stops it, the stop is recorded and a pipeline claim is released. The checkout is
 held (lock and leg marker) from the first unit to the stop record, so git's push guard also covers a job a leg left
 running. A run that is ahead of the day's pace waits for it between legs, and keeps the checkout while it waits.
 So that another machine can follow a run that is going, the board is committed and pushed at the run's start, after
@@ -59,6 +62,44 @@ class Stop(Exception):
         if not isinstance(why, Why):
             raise TypeError("a stop reason needs its kind: Stop(Why(kind, text))")
         super().__init__(why, detail)
+
+
+def pick_state(board, home, lim):
+    """What a pick reads besides the queue, as it stands now: the split of the day (limits.json share_* unless
+    <home>/shares.json holds a whole one), what each kind of work has spent today, the turns the board knows of
+    (ledger.turns) and when each queued unit came onto the board. The runner reads it before every pick; the day
+    screen reads the same, so what it shows as next is what the runner takes."""
+    try:
+        named = P.read_json(Path(home) / "shares.json")
+    except (OSError, ValueError):
+        named = None
+    out = {"shares": config.shares(lim, named), "lim": lim, "queue": {}}     # queue: read anew for this pick
+    try:
+        out["spent_kinds"] = dict(ledger.spent(board, lim=lim).get("kinds") or {})
+    except (SystemExit, Exception):                         # noqa: BLE001 - a day that cannot be read splits nothing
+        out["spent_kinds"] = {}
+    try:
+        out["turns"] = ledger.turns(board)
+    except (SystemExit, Exception):                         # noqa: BLE001 - turns that cannot be read: none is known
+        out["turns"] = []
+    try:
+        out["queued"] = sources.load("lane").queued_at(board)
+    except (SystemExit, Exception):                         # noqa: BLE001
+        out["queued"] = {}
+    return out
+
+
+def turn_lines(units, width=0):
+    """The next turns as rows (sources.forecast): the unit, why it is taken (its priority, or a wide turn and the
+    area it is for) and its lane. The first is the real pick; the others hold if each turn before passes at the
+    usual cost, and the heading says so."""
+    if not units:
+        return []
+    out = ["Next turns (the first is exact; the rest if each turn before it passes at the usual cost):"]
+    for n, u in enumerate(units, 1):
+        row = "  %2d. %-34s %-12s %s" % (n, u["id"], u.get("why") or "", u.get("lane") or "")
+        out.append(row if not width or len(row) <= width else row[:width - 3] + "...")
+    return out
 
 
 class Run:
@@ -156,11 +197,7 @@ class Run:
             print("note: the day's cap is %g%% from here (%s)"
                   % (pct, "day.json names today" if pct != self.base_pct else "the run's own again"), flush=True)
             self.lim["day_budget_pct"] = pct
-        self.ctx["shares"] = config.shares(self.lim, read("shares.json"))
-        try:
-            self.ctx["spent_kinds"] = dict(ledger.spent(self.board, lim=self.lim).get("kinds") or {})
-        except (SystemExit, Exception):                     # noqa: BLE001 - a day that cannot be read splits nothing
-            self.ctx["spent_kinds"] = {}
+        self.ctx.update(pick_state(self.board, self.home, self.lim))
 
     def card_round(self):
         """Between units: what the owner's page needs of the board while a run is going. TW_BETWEEN_UNITS is a JSON
@@ -418,15 +455,19 @@ class Run:
         bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
         if bad:
             saved = self.put_aside(d, unit)
-            self.reject(unit, bad)                          # before every stop below: a leg cut by the owner, the
-            #                                                 budget or the hours leaves a head nobody checked too
-            if leg["state"] == "STOPPED" and self.stop_file.exists():
+            asked = leg["state"] == "STOPPED" and self.stop_file.exists()
+            spent = leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim
+            late = leg["state"] == "TIMEOUT" and time.time() >= self.deadline
+            # before every stop below: a leg that was cut leaves a head nobody checked too. Cut by the owner, the
+            # budget or the hours it is no try of its unit; a leg that went wrong by itself is one
+            self.reject(unit, bad, counts=not (asked or spent or late))
+            if asked:
                 raise Stop(self.asked(" --now", ", mid-leg %02d" % self.legs), saved)
-            if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
+            if spent:
                 b = self.day()
                 raise Stop(Why("budget", "leg %02d the day's budget is spent (%s, mid-leg)"
                                % (self.legs, ledger.amount(b, b["cap"], of=True) if b else "$0")), saved)
-            if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
+            if late:
                 raise Stop(Why("hours", "leg %02d the run's %.3g hours are up (mid-leg)"
                                % (self.legs, self.lim["run_hours"])), saved)
             raise Stop(Why("leg", "leg %02d %s" % (self.legs, bad)), saved)
@@ -460,15 +501,16 @@ class Run:
                 d, " and as %s" % rec["ref"] if rec.get("ref") else "", also, rec.get("kept_because"))
         return "uncommitted work saved in %s; the checkout was left as it is: %s" % (d, rec.get("kept_because"))
 
-    def reject(self, unit, why):
+    def reject(self, unit, why, counts=False):
         """A leg the runner cannot trust ends the run with no verdict for its unit. The unit's source is told, where
         it keeps such a thing (sources/lane.py reject): what that leg pushed is then not taken for finished work
-        by the next run. Written after the leg's audit, like every board write of the runner's. Never a reason of
+        by the next run, and with counts (the leg itself went wrong, nobody cut it) it is a try of the unit that
+        did not pass. Written after the leg's audit, like every board write of the runner's. Never a reason of
         its own to stop."""
         try:
             tell = getattr(sources.load(unit["source"]), "reject", None) if unit.get("source") in sources.ORDER else None
             if tell:
-                tell(unit, self.ctx, why, self.legs)
+                tell(unit, self.ctx, why, self.legs, counts)
         except (SystemExit, Exception) as e:                # noqa: BLE001
             print("note: the leg that was not trusted was not recorded for its unit (%s)" % (str(e) or type(e).__name__),
                   flush=True)
@@ -500,10 +542,14 @@ class Run:
             return
         self.stuck = 0
         print("unit %s: lane %s (%s)" % (unit["id"], unit["lane"], how))
+        if unit.get("turn") == "wide":
+            print("unit %s: %s" % (unit["id"], unit.get("why_long") or "a wide turn"), flush=True)
         self.ctx["since"] = time.time()
-        unit = src.refresh(unit, self.ctx)
+        picked, unit = unit, src.refresh(unit, self.ctx)
         if not unit:
             return
+        unit = dict(unit, **{k: picked[k] for k in ("kind", "turn") if picked.get(k) and not unit.get(k)})
+        #                      a source that reads the unit again (a board job) must not lose what the pick said
         if src.already_done(unit, self.ctx):
             print("unit %s: already done, no leg needed" % unit["id"])
             self.finish(src, unit, [], "done")
@@ -554,8 +600,9 @@ class Run:
         moved = gitio.code_changed(self.work, remote_before, gitio.remote_head(self.work, unit["lane"]))
         self.idle = 0 if (verdict == "PASS" or moved) else self.idle + 1      # only pushed code counts
         print("unit %s: %s%s" % (unit["id"], verdict, "".join("\n  - " + p for p in problems)), flush=True)
-        if self.idle >= self.lim["no_progress_units"]:
-            raise Stop(Why("no-result", "%d units in a row brought no result and no pushed code" % self.idle))
+        if self.idle >= self.lim["idle_turns_stop"]:         # a unit that does not pass steps aside, so these are
+            raise Stop(Why("no-result", "%d turns in a row brought no result and no pushed code: something other "
+                           "than the work is wrong" % self.idle))      # that many different units
 
     def critique(self, src, unit, body, plan):
         """Critic rounds on work the script checks passed. A blind leg scores the evidence; under the target, one
@@ -669,7 +716,8 @@ class Run:
         ran, self.on, self.at = self.on == unit["id"], "", None     # it has its verdict: no longer in flight
         self.progress()
         if verdict != "PASS":
-            self.ctx["skip"].add(unit["id"])
+            if not getattr(src, "STEPS_ASIDE", False):      # a source that keeps no record of a try: once a run
+                self.ctx["skip"].add(unit["id"])
             self.keep_problems(unit, problems)
         self.live()
         if ran:                                              # a unit that cost no leg goes out with the next push
@@ -700,6 +748,8 @@ class Run:
                         raise Stop(why)
                     print("would run: %s %s (%s) in %s on %s" % (unit["source"], unit["id"], unit.get("todo", unit["role"]),
                                                                 self.work.name, unit["lane"]))
+                    for line in turn_lines(sources.forecast(self.a.sources, self.ctx, getattr(self.a, "turns", 0) or 6)):
+                        print(line)
                     return 0
                 if not self.ready:
                     self.preflight()
@@ -784,6 +834,7 @@ def add_args(p):
                         "day_budget_pct): only when the owner named another figure for the day")
     p.add_argument("--max-legs", type=int, dest="max_legs", default=0)
     p.add_argument("--dry-run", action="store_true", dest="dry_run", help="say what would run; claim and start nothing")
+    p.add_argument("--turns", type=int, default=0, help="with --dry-run: how many of the next turns to list (default 6)")
     p.add_argument("--no-push", action="store_true", dest="no_push", help="do not commit and push the board")
     p.add_argument("--who", help="who starts this run (a session name): shown by `relay.py status`")
     p.add_argument("--allow-dirty", action="store_true", dest="allow_dirty",

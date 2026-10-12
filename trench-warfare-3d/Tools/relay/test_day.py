@@ -333,8 +333,9 @@ class Day(Base):
         self.stop("20261005-100000-1", units={("u%02d" % n): "FAIL" for n in range(40)})
         out = self.screen({"who": "pc-10", "until": "2026-10-05 12:00"})
         rows = self.lim["day_queue_rows"]
-        self.assertEqual(len(out), 2 * rows + 8)                 # six single lines, two capped lists with a tail
-        self.assertEqual(sum(1 for l in out if l == "  ... and %d more" % (40 - rows)), 2)
+        self.assertEqual(len(out), 2 * rows + 10)                # eight single lines, two capped lists with a tail
+        self.assertIn("  ... and %d more behind them" % (40 - rows), out)       # the turns shown, then the rest
+        self.assertIn("  ... and %d more" % (40 - rows), out)
         self.assertTrue(all(len(l) <= self.lim["day_line_chars"] for l in out), out)
         self.assertEqual(out[-1], "The relay build is held by pc-10 until 2026-10-05 12:00.")
 
@@ -372,12 +373,17 @@ class Day(Base):
         self.assertIn("Needs you:", out)
         self.assertEqual(out[out.index("Needs you:") + 1:], ["  - x ended FAIL in run 20261004-090000-1",
                                         "  - z ended FAIL in run 20261004-090000-1"])
-        lane.finish(dict(lane.load(self.board / "relay" / "queue" / "z.json")), {"board": self.board, "run": "r"},
-                    ["it needs a window"], "blocked")           # what the runner keeps of a unit it passes over
+        z = dict(lane.load(self.board / "relay" / "queue" / "z.json"))
+        lane.finish(z, {"board": self.board, "run": "r"}, ["it needs a window"], "blocked")   # the record of a try
         out = self.screen()
-        self.assertIn("  - z ended FAIL in run 20261004-090000-1; not taken again (relay.py retry z)", out)
-        self.assertTrue(any(l.startswith("   2. z ") and l.endswith("(passed over: BLOCKED)") for l in out), out)
-        self.assertFalse(any("passed over" in l for l in out if " x " in l))
+        self.assertIn("  - z ended FAIL in run 20261004-090000-1; one more try after 3 more turns of other work", out)
+        self.assertIn("  - z: BLOCKED, try 1, back after 3 more turns of other work", out)
+        self.assertFalse(any(l.startswith("  - x: ") for l in out))             # x has no such record: it is queued
+        lane.finish(z, {"board": self.board, "run": "r2"}, ["it needs a window"], "blocked")
+        out = self.screen()                                      # blocked twice: parked, and that is his to settle
+        self.assertIn("  - z ended FAIL in run 20261004-090000-1; parked after 2 tries: rewrite, split or drop", out)
+        self.assertFalse(any(l.startswith("  - z: ") for l in out))
+        self.assertFalse(any(l.split()[1:2] == ["z"] for l in out if l[:5].strip().rstrip(".").isdigit()), out)
         self.done("x")                                           # resolved: it passed since
         (self.board / "relay" / "queue" / "z.json").unlink()     # resolved: nobody means to do it any more
         self.assertIn("Needs you: nothing.", self.screen())
