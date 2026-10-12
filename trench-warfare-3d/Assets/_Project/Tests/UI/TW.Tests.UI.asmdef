@@ -21,6 +21,7 @@
     "TW.Presentation.Meta",
     "TW.UI",
     "TW.Data",
+    "TW.Perf",
     "Unity.InputSystem"
   ],
   "includePlatforms": [
