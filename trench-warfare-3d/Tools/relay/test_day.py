@@ -317,7 +317,7 @@ class Day(Base):
     def test_as_shipped_the_screen_is_in_percent_from_the_first_leg_on_and_says_it_is_a_guess(self):
         config.limits = self.limits                             # the file as shipped: it holds a guessed week
         self.queue("a")
-        self.leg(18.3, "plan")
+        self.leg(28.4, "plan")
         code, out = self.main("day")
         out = out.splitlines()
         self.assertEqual(code, 0)

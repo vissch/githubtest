@@ -96,6 +96,12 @@ def argv(d, leg, lim):
                         "--disallowedTools", "AskUserQuestion", "--strict-mcp-config",
                         "--append-system-prompt-file", str(d / legdir.SYSTEM), "--settings", str(d / legdir.HOOKS),
                         "--autocompact", "%dk" % (lim["autocompact_tokens"] // 1000), "--add-dir", leg["desk"]]
+    # What a leg never uses it still reads again on every turn: 332 legs made 13,339 tool calls, one of them a skill
+    # (2026-10-12). phases.json names the built-in tools a phase gets and whether it is shown the skills.
+    if leg.get("tools"):
+        a += ["--tools", ",".join(leg["tools"])]
+    if leg.get("skills") is False:
+        a += ["--disable-slash-commands"]
     if leg.get("board"):
         a += ["--add-dir", leg["board"]]
     if lim.get("leg_budget_usd"):
@@ -268,7 +274,11 @@ def unguarded(d):
         pass
     if None in used or None in seen:
         return None
-    return [name for i, name in used.items() if i not in seen and i not in harness]
+    try:                                           # a tool the leg was not given (--tools) cannot have run
+        given = set(legdir.read(d).get("tools") or ())
+    except Exception:                              # noqa: BLE001
+        given = set()
+    return [name for i, name in used.items() if i not in seen and i not in harness and (not given or name in given)]
 
 
 def _pump(stream, path):
@@ -366,6 +376,12 @@ def run_leg(d, lim, timeout_s, stop_file=None):
         rec = {"state": state, "finished_at": now(), "seconds": round(time.time() - start)}
         after = week_now(lim)
         rec.update(week_start=usage.brief(week), week_end=usage.brief(after), week_used=usage.delta(week, after))
+        if not after:                              # nothing handed a reading in: the leg's own stream holds one
+            try:
+                seen = [usage.from_stream(e, time.time()) for e in records(d, "rate_limit_event")[-1:]]
+                rec["week_end"] = usage.brief(seen[0]) if seen and seen[0] else None
+            except Exception:                      # noqa: BLE001  a reading never fails a leg
+                pass
         try:                                       # an error in here must not replace the one that brought us here
             if child.poll() is None:
                 kill_tree(child.pid)
