@@ -53,7 +53,7 @@ namespace TW.Net
             var cmds = pending.Count == 0 ? System.Array.Empty<SimCommand>() : pending.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pending.Clear();
-            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, HashOfPreviousTick = 0 });
+            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = 0, HashTick = 0 });
         }
     }
 }
