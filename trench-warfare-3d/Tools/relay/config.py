@@ -70,6 +70,13 @@ def phases(folder=None):
                              % (name, "|".join(EFFORTS), "|".join(MODES)))
         if not isinstance(p.get("deny_tools", []), list):
             raise SystemExit("relay: phases.json %s: deny_tools must be a list of tool names" % name)
+        tools = p.get("tools", [])
+        if not isinstance(tools, list) or not all(isinstance(t, str) and t.isalnum() for t in tools):
+            raise SystemExit("relay: phases.json %s: tools must be a list of tool names" % name)
+        if tools and not {"Bash", "Read", "Write"} <= set(tools):
+            raise SystemExit("relay: phases.json %s: tools must hold Bash, Read and Write, or a leg cannot work" % name)
+        if not isinstance(p.get("skills", True), bool):
+            raise SystemExit("relay: phases.json %s: skills is true or false" % name)
         if p["mode"] == "read_only" and not p.get("output"):
             raise SystemExit("relay: phases.json %s is read_only, so it needs an output file" % name)
     for need in ("plan", "execute"):

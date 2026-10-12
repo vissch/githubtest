@@ -234,6 +234,9 @@ def done(desk, leg):
         text, bad = f.read_text(encoding="utf-8"), []
         if leg.get("phase") == "plan":
             bad = papers.check_plan(text, lim["plan_max_bytes"], wt, lim["max_plan_parts"])
+            cut = papers.plan_cut(text, lim["plan_max_bytes"])
+            if cut:
+                bad.append(cut)
         elif leg.get("phase") == "critic":
             bad = papers.check_critic(text, lim["critic_max_bytes"])
         elif leg.get("phase") == "retro":
@@ -241,7 +244,8 @@ def done(desk, leg):
         for b in bad:
             print("NOT DONE: " + b)
         if not bad:
-            print("done: %s passes the runner's check" % f.name)
+            print("done: %s passes the runner's check (%d bytes). Do not edit it again: write your report."
+                  % (f.name, len(text.encode("utf-8"))))
         return 1 if bad else 0
     left = gitio.dirty(wt)
     if left:
