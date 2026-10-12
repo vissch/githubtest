@@ -6,6 +6,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import pipeline as P
+import run_detached as R
 
 
 def sh(cwd, *args):
@@ -210,6 +211,20 @@ class PipelineTest(unittest.TestCase):
         kept["stages"][1]["lane"] = "lane/show/pipe-crate-other"
         (self.board / "items" / "crate.json").write_text(json.dumps(kept))
         self.assertEqual(self.states()["sim"], "STALE")
+    def test_claim_needs_a_worker_pid_that_outlives_one_command(self):
+        # [O2] an agent's per-command shell exits at once, so a claim owned by it reads as dead and the job never
+        # shows IN_PROGRESS: a claim without TW_WORKER_PID is refused, with a live one the stage is IN_PROGRESS.
+        os.environ["TW_STATION"] = "laptop"
+        j = self.job("balance")
+        os.environ.pop("TW_WORKER_PID")
+        with self.assertRaises(SystemExit, msg="[O2] claim without TW_WORKER_PID was accepted"):
+            P.main(["claim", j])
+        self.assertFalse((self.board / "claims" / "laptop.json").exists(),
+                         "[O2] a refused claim still wrote a claim file")
+        os.environ["TW_WORKER_PID"] = str(os.getpid())
+        P.main(["claim", j])
+        self.assertEqual(self.states()["balance"], "IN_PROGRESS", "[O2] the job never shows IN_PROGRESS")
+
 
     def test_feedback_regenerates_and_closing_does_not(self):
         self.all_done()
@@ -324,6 +339,47 @@ class PipelineTest(unittest.TestCase):
             if child.poll() is None:
                 child.kill()
                 child.wait(timeout=10)
+
+
+class RunDetachedTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        os.environ["TW_RUNS"] = self.tmp.name
+
+    def tearDown(self):
+        os.environ.pop("TW_RUNS", None)
+        self.tmp.cleanup()
+
+    def write(self, name, rec):
+        d = Path(self.tmp.name) / name
+        d.mkdir(parents=True, exist_ok=True)
+        rj = d / "run.json"
+        P.write_json(rj, dict(rec, name=name, log=str(d / "out.log")))
+        (d / "out.log").write_text("x")
+        return rj
+
+    def test_stop_keeps_a_finished_verdict_and_refuses_an_unknown_name(self):
+        # [O3] stop on a finished run rewrote DONE exit=0 as STOPPED exit=None (the verdict is lost) and an
+        # unknown name was a traceback. No pids in the record: the pre-fix stop kills every matching recorded pid.
+        rj = self.write("fin", dict(state="DONE", exit_code=0, timeout_s=60, cwd=os.getcwd(), cmd=["x"]))
+        R.main(["stop", "fin"])
+        rec = P.read_json(rj)
+        self.assertEqual((rec["state"], rec["exit_code"]), ("DONE", 0),
+                         "[O3] stop erased the verdict of a finished run")
+        with self.assertRaises(SystemExit, msg="[O3] stop on an unknown name is not a clean refusal"):
+            R.main(["stop", "nosuch"])
+
+    def test_start_refuses_while_a_recorded_child_still_lives(self):
+        # [O4] "wrapper gone, child still running" reads CRASHED; a second start overwrote the record, so the old
+        # child had no timeout and could not be stopped by name. cmd_start never kills, so our own pid is safe here.
+        me = os.getpid()
+        rj = self.write("crash", dict(state="RUNNING", wrapper_pid=1, wrapper_start="x", child_pid=me,
+                                      child_start=P.proc_start(me), heartbeat=R.now(), log_size=1,
+                                      timeout_s=60, cwd=os.getcwd(), cmd=["python", "-c", "pass"]))
+        self.assertEqual(R.state(P.read_json(rj))[0], "CRASHED", "[O4] the record is not the CRASHED case")
+        with self.assertRaises(SystemExit, msg="[O4] start overwrote a record whose child still runs"):
+            R.main(["start", "crash", "--timeout", "60", "--", "python", "-c", "pass"])
+        self.assertEqual(P.read_json(rj).get("child_pid"), me, "[O4] the running child was forgotten")
 
 
 if __name__ == "__main__":

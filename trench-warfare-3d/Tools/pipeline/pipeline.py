@@ -291,12 +291,23 @@ def refuse_if_busy(board, st):
     return cur
 
 
+def worker_pid():
+    """The claim's pid must outlive one command: an agent's per-command shell exits at once, so a claim it
+    owns reads as dead and another session takes the job over. No getppid() fallback for that reason."""
+    v = os.environ.get("TW_WORKER_PID") or ""
+    if not v.isdigit() or proc_start(int(v)) is None:
+        raise SystemExit("set TW_WORKER_PID to a live process that outlives one command (the wrapper pid "
+                         "run_detached start prints, or a long-lived shell): %s" %
+                         ("it is not set" if not v else "it is not a number" if not v.isdigit() else "pid %s is not running" % v))
+    return int(v)
+
+
 def take_lock(board, st, jid):
     p = board.claim_path(st)
     cur = refuse_if_busy(board, st)
     if cur:
         print("taking over from a dead worker: %s (%s)" % (cur["worker"], cur["job"]))
-    pid = int(os.environ.get("TW_WORKER_PID") or os.getppid())   # the long-lived shell, not this short python
+    pid = worker_pid()
     rec = dict(job=jid, worker="%s-%s" % (st, pid), pid=pid, pid_start=proc_start(pid), token="%016x" % random.getrandbits(64),
                claimed_at=now(), heartbeat=now())
     p.parent.mkdir(parents=True, exist_ok=True)

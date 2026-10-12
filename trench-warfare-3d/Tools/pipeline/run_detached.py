@@ -153,6 +153,8 @@ def cmd_status(a):
 
 def cmd_stop(a):
     rj = runs_root() / a.name / "run.json"
+    if not rj.exists():
+        raise SystemExit("no run %s" % a.name)
     rec = read_json(rj)
     if rec.get("state") in ("DONE", "TIMEOUT", "STOPPED"):   # over already: never overwrite its verdict
         print("already", rec["state"], a.name)
