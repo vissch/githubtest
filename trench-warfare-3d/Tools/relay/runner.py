@@ -418,6 +418,8 @@ class Run:
         bad = ("broke a rule: " + "; ".join(broke[:4])) if broke else launch.ran_clean(leg)
         if bad:
             saved = self.put_aside(d, unit)
+            self.reject(unit, bad)                          # before every stop below: a leg cut by the owner, the
+            #                                                 budget or the hours leaves a head nobody checked too
             if leg["state"] == "STOPPED" and self.stop_file.exists():
                 raise Stop(self.asked(" --now", ", mid-leg %02d" % self.legs), saved)
             if leg.get("subtype") == "error_max_budget_usd" and lim is not self.lim:
@@ -427,7 +429,6 @@ class Run:
             if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
                 raise Stop(Why("hours", "leg %02d the run's %.3g hours are up (mid-leg)"
                                % (self.legs, self.lim["run_hours"])), saved)
-            self.reject(unit, bad)
             raise Stop(Why("leg", "leg %02d %s" % (self.legs, bad)), saved)
         if phase == "retro":                                # a retrospective is no unit: nothing is in flight after it
             self.on, self.at = "", None

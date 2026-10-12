@@ -1973,6 +1973,36 @@ class Runs(Repo):
         r.deadline = time.time() + 1
         self.assertIsNone(r.no_room("plan"))
 
+    def test_a_leg_cut_by_the_runs_hours_leaves_its_head_on_record_and_the_next_run_gives_the_unit_a_leg(self):
+        # [RR.1] the three stops for a cut leg (the owner's --now, the day's budget, the run's hours) were raised
+        # before the head was recorded: what the cut leg had pushed passed as finished work in the next run, no leg
+        self.queue("u1")
+        self.script(self.GOOD)
+        r, run_leg = runner.Run(self.args()), launch.run_leg
+
+        def cut_at_the_deadline(d, *a):
+            leg = run_leg(d, *a)
+            if legdir.read(d)["phase"] != "execute":
+                return leg
+            r.deadline = time.time() - 1                         # it pushed, and then the run's time was up
+            return dict(leg, state="TIMEOUT")
+        launch.run_leg = cut_at_the_deadline
+        try:
+            with contextlib.redirect_stdout(io.StringIO()):
+                r.loop()
+        finally:
+            launch.run_leg = run_leg
+        stop = json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
+        self.assertEqual((stop["reason_kind"], stop["units"]), ("hours", {}))
+        kept = self.board / "relay" / "tried" / "u1.json"
+        self.assertTrue(kept.exists(), "the head the cut leg left is on no record")
+        rec = json.loads(kept.read_text(encoding="utf-8"))
+        self.assertEqual((rec["rejected"]["leg"], rec["rejected"]["head"]), (2, gitio.head(self.work)))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": []})     # a leg that looks, and finds it done
+        out, stop = self.go()
+        self.assertNotIn("already done", out)
+        self.assertEqual((stop["units"], stop["legs"]), ({"u1": "PASS"}, 2))
+
     def test_a_leg_that_cannot_be_trusted_stops_the_run_without_a_verdict(self):
         cases = (({"mode": "default", "plan": [{"write": "plan.md", "text": PLAN}]}, "not auto"),
                  ({"no_hooks": True, "plan": [{"write": "plan.md", "text": PLAN}]}, "hooks did not run"),
