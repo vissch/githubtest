@@ -23,6 +23,16 @@ RED_TEXT = ("RELAY: context is at %d tokens (red). Close the leg now. Only these
             "writing note.md in your leg folder, and python \"%s\" leg gate wait | leg finish | leg done. "
             "leg finish commits and pushes for you when the gate is green for these exact files.")
 WRITE_TOOLS = ("Write", "Edit", "NotebookEdit", "MultiEdit")
+CARD_HOOK_MAX = 9000    # characters. Claude Code hands a hook's context over whole only up to about 10,000: a
+                        # longer one reaches the session as a preview and a file path, and the leg spends a call
+                        # reading its own card (105 of 337 legs, 2026-10-12). Such a card rides in the prompt.
+
+
+def card_in_prompt(card):
+    """True when the card is too long for the session-start hook and is the leg's first message instead."""
+    return len(card) > CARD_HOOK_MAX
+
+
 READ_ONLY_TOOLS = ("Read", "Grep", "Glob", "Bash", "PowerShell", "Skill", "TodoWrite", "ToolSearch", "WebFetch",
                    "WebSearch", "Agent", "Task", "TaskCreate", "TaskUpdate", "TaskList", "TaskGet") + WRITE_TOOLS
 RED_TOOLS = ("Read", "Grep", "Glob", "Bash", "PowerShell") + WRITE_TOOLS
@@ -271,7 +281,7 @@ def main(argv):
             write_json(d / "session.json", {"session_id": inp.get("session_id"),
                                             "transcript_path": inp.get("transcript_path")})
             card = (d / "card.md")
-            if card.exists():
+            if card.exists() and not card_in_prompt(card.read_text(encoding="utf-8")):
                 out("SessionStart", additionalContext=card.read_text(encoding="utf-8"))
         elif ev == "meter":
             text = meter(d, leg, inp)
