@@ -6,7 +6,12 @@ doing (static/house.js; which room is src_acts.py's to say).
 
     python Tools/assetboard/ops.py                 write the page and its data once
     python Tools/assetboard/ops.py --watch 20      and again every 20 seconds until stopped (keeps the page live)
-    python Tools/assetboard/ops.py --queue         read once and print what waits on the owner (the page's "Needs you")
+    python Tools/assetboard/ops.py --queue         read once and print what waits on the owner (the page's "Needs you"); it writes nothing
+    python Tools/assetboard/ops.py --put-briefs    a read that does not watch, with the step briefs put to the owner
+
+Only a watcher (and --put-briefs) puts the step briefs of passed steps in front of the owner; a read that only reads
+writes nothing into his decisions folder (N10.2). --out sends the site elsewhere and nothing else, so a run that
+names it must set TW_BRIEFS and TW_NOTES too or it is refused.
 
 The data is data/ops.js beside the page (a script, not JSON: a page opened from the Drive as a file may not fetch
 JSON, it may load a script), and data/queue.js, the owner queue (src_queue.py). Each is written only when it changed.
@@ -276,15 +281,17 @@ def landed_items(board: Path, repo: Path = None):
     return {i for i, item in briefs.board_items(board).items() if 'origin/' + str(item.get('lane', '')) in merged}
 
 
-def step_briefs(data):
+def step_briefs(data, write=False):
     """A brief for every step an asset has passed (briefs.py steps), and the steps that owe a capture. A board that is
-    not there, or does not read, is no reason to have no site: then nothing is written and nothing is owed."""
+    not there, or does not read, is no reason to have no site: then nothing is written and nothing is owed.
+    `write` False works out what is owed and puts nothing in front of the owner: a command that only reads must not
+    write into his live decisions folder (N10.2); the watcher, and --put-briefs, ask for the writing."""
     try:
         board = board_root()
         if not board or not (Path(board) / 'items').is_dir():
             return []
         states = {(it['id'], s['id']): s.get('state') for l in data['lanes'] for it in l.get('items', []) for s in it['stages']}
-        return briefs.steps(briefs.folder(), Path(board), states=states, landed=landed_items(Path(board)))[1]
+        return briefs.steps(briefs.folder(), Path(board), states=states, landed=landed_items(Path(board)), write=write)[1]
     except Exception as e:      # noqa: BLE001
         print(f'ops: the steps were not put to the owner ({type(e).__name__}: {e})')
         return []
@@ -367,11 +374,35 @@ def the_runs(out: Path, every, his, watching):
         return dict(runs=0, waits=0, going=0)
 
 
-def once(out: Path, watching=False):
+def live_check(out_arg):
+    """Why a run that names --out may not go on, in one line, or '' when it may. `--out` sends the site elsewhere and
+    nothing else: the briefs still go to the owner's live decisions folder and the notes to his live notes folder
+    (briefs.folder(), notes.folder()), so a session that reads with --out to leave the live board alone was writing
+    into it all the same (N10.2)."""
+    if not out_arg:
+        return ''
+    gone = [k for k in ('TW_BRIEFS', 'TW_NOTES') if not os.environ.get(k)]
+    if not gone:
+        return ''
+    return (f'ops: --out sends only the site elsewhere, so set TW_BRIEFS and TW_NOTES with it ({" and ".join(gone)} '
+            f'{"is" if len(gone) == 1 else "are"} unset: the briefs and the notes would go to his live folders)')
+
+
+def the_queue(out: Path):
+    """The owner queue, read and nothing more: what `--queue` prints (src_queue.lines). It writes no file at all - no
+    cache, no queue.js, no beat, no step brief, no picture of a row - so a session can read what waits on him without
+    touching the live board (N10.2). The site is only read from, for what a row already has."""
+    data = src_ops.collect(build.REPO, out, share=False)
+    every, his = briefs.read_all(briefs.folder()), notes.read_all(notes.folder())
+    return src_queue.collect(build.REPO, data, board=board_root(), cache={}, answers=briefs.answers(every, his),
+                             briefs=every, notes=his)
+
+
+def once(out: Path, watching=False, put_briefs=None):
     data = src_ops.collect(build.REPO, out, share=watching)      # a watcher is this station's voice: its floor goes where the other station reads it
     ready_since(data, out / 'data' / 'ready-since.json')
     # what he answered on the Decide page that nobody has taken up: read before the queue, which lists it as broken once it has waited too long
-    owed = step_briefs(data)        # before the answers are read: a step that passed since the last read is on the page now
+    owed = step_briefs(data, write=watching if put_briefs is None else put_briefs)        # before the answers are read: a step that passed since the last read is on the page now
     every, his = briefs.read_all(briefs.folder()), notes.read_all(notes.folder())
     got = briefs.answers(every, his)
     data['queue'] = queue(data, out, answers=got, all_briefs=every, all_notes=his)
@@ -393,11 +424,16 @@ def main(argv=None):
     ap = argparse.ArgumentParser(description='the floor page of the asset board')
     ap.add_argument('--watch', type=float, default=0, help='seconds between reads; 0 reads once')
     ap.add_argument('--out', default='')
-    ap.add_argument('--queue', action='store_true', help='read once and print what waits on the owner')
+    ap.add_argument('--queue', action='store_true', help='read once and print what waits on the owner; writes nothing')
+    ap.add_argument('--put-briefs', action='store_true', help='on a read that does not watch, put the step briefs to the owner too')
     args = ap.parse_args(argv)
+    said = live_check(args.out)
+    if said:                    # before any read: --out alone leaves the briefs and the notes in his live folders
+        print(said)
+        return 2
     out = build.out_dir(args.out)
     if args.queue:
-        print('\n'.join(src_queue.lines(once(out)[0]['queue'])))
+        print('\n'.join(src_queue.lines(the_queue(out))))
         return 0
     import src_git
     commit, branch, as_of = src_git.head(build.REPO)
@@ -411,7 +447,7 @@ def main(argv=None):
             page(out, dict(meta, built=time.strftime('%Y-%m-%d %H:%M')))
             print(f'ops: the scripts changed, the site has them now ({SITE["v"]})', flush=True)
         try:
-            data, changed = once(out, watching=bool(args.watch))
+            data, changed = once(out, watching=bool(args.watch), put_briefs=True if args.put_briefs else None)
         except Exception:       # noqa: BLE001
             # one read that fails must not end the watcher (2026-10-07: a git call could start no thread at 15:38, and
             # the board stood still until someone looked): say so, and read again

@@ -83,6 +83,11 @@ def main(argv=None):
     ap.add_argument('--no-git', action='store_true')
     ap.add_argument('--out', default='')
     args = ap.parse_args(argv)
+    import ops as _ops                  # --out sends the site elsewhere, not the briefs and the notes (N10.2)
+    said = _ops.live_check(args.out)
+    if said:
+        print(said)
+        return 2
     warnings = []
     try:
         code, assets, extra, lanes = collect(args, warnings)
