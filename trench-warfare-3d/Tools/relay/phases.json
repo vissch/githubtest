@@ -1,6 +1,6 @@
 {
   "plan": {"model": "opus", "effort": "high", "mode": "read_only", "output": "plan.md", "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false},
-  "execute": {"model": "opus", "effort": "low", "mode": "work", "input": "plan.md", "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false},
+  "execute": {"model": "opus", "effort": "low", "mode": "work", "input": "plan.md", "by_grade": {"easy": "sonnet", "medium": "sonnet"}, "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false},
   "critic": {"model": "opus", "effort": "high", "mode": "read_only", "output": "critic.md", "deny_tools": ["Agent"], "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false},
-  "retro": {"model": "opus", "effort": "high", "mode": "read_only", "output": "retro.md", "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false}
+  "retro": {"model": "haiku", "effort": "high", "mode": "read_only", "output": "retro.md", "tools": ["Bash", "PowerShell", "Read", "Grep", "Glob", "Edit", "Write"], "skills": false}
 }

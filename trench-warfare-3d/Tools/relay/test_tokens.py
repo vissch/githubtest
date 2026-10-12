@@ -136,6 +136,40 @@ class Sonnet(unittest.TestCase):
         self.assertEqual(config.route("lane", "execute", unit="rv-12-hud-f9"), {})
 
 
+class Tiers(unittest.TestCase):
+    """Haiku for the easy work, Sonnet for the medium, Opus for the hard (the owner, 2026-10-12)."""
+
+    def test_the_grade_is_the_first_word_under_difficulty(self):
+        for body, grade in (("easy: one file.", "easy"), ("**Hard** - the seam.", "hard"), ("`medium`", "medium"),
+                            ("Medium. Two files.", "medium"), ("quite easy", None), ("", None)):
+            self.assertEqual(papers.plan_grade(PLAN % ("", "") + "## Difficulty\n%s\n" % body), grade, body)
+        self.assertIsNone(papers.plan_grade(PLAN % ("", "")))
+        self.assertEqual(papers.check_plan(PLAN % ("", "") + "## Difficulty\neasy: one file.\n", 12288), [])
+
+    def test_the_table_is_a_setting_and_a_route_wins_over_it(self):
+        ph = config.phases()
+        self.assertEqual([config.graded(ph, "lane", "u1", g) for g in ("easy", "medium", "hard", None)],
+                         ["sonnet", "sonnet", None, None])
+        self.assertIn("model", config.route("review-fix", "execute", unit="u1"))       # the owner's route is there
+        self.assertIsNone(config.graded(ph, "review-fix", "u1", "easy"))
+        self.assertIn("`easy`, `medium` or `hard`", (HERE / "roles" / "_phase_plan.md").read_text(encoding="utf-8"))
+
+    def test_haiku_reads_and_never_works(self):
+        import tempfile
+        ph = config.phases()
+        self.assertEqual((ph["retro"]["model"], ph["retro"]["mode"]), ("haiku", "read_only"))
+        for change, word in ((("execute", {"model": "haiku"}), "only for a phase that only reads"),
+                             (("execute", {"by_grade": {"easy": "haiku"}}), "by_grade"),
+                             (("execute", {"by_grade": {"simple": "sonnet"}}), "by_grade")):
+            with tempfile.TemporaryDirectory() as tmp:
+                raw = json.loads((HERE / "phases.json").read_text(encoding="utf-8"))
+                raw[change[0]].update(change[1])
+                (Path(tmp) / "phases.json").write_text(json.dumps(raw), encoding="utf-8")
+                with self.assertRaises(SystemExit) as e:
+                    config.phases(tmp)
+                self.assertIn(word, str(e.exception))
+
+
 class Watch(unittest.TestCase):
     """leakwatch.py: a leg that fought the plan's size is named, and a leg that did not is not."""
 
