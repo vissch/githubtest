@@ -6,6 +6,24 @@
       "phase": "execute",
       "model": "sonnet",
       "why": "the owner, 2026-10-12: every review-fix execute leg runs on Sonnet; the plan leg stays on Opus. It follows the trial of 2026-10-08, six units a side: execute cost $3.93 on Sonnet against $5.93 on Opus, five of six passed in both, in more turns. Guard: read after every ten review-fix units; under eight passes of ten, or a worse fix check, this route goes."
+    },
+    {
+      "role": "review-fix",
+      "phase": "plan",
+      "model": "sonnet",
+      "units": [
+        "rv-16-p2-u01",
+        "rv-18-p2-u02b",
+        "rv-22-p2-u30b",
+        "rv-24-p2-u31a",
+        "rv-26-p2-u32a",
+        "rv-28-p2-u08",
+        "rv-30-p2-u09b",
+        "rv-32-p2-u11",
+        "rv-34-p2-u13",
+        "rv-36-p2-u15"
+      ],
+      "why": "trial, the owner 2026-10-12 (Sonnet for the medium work): can a review fix be PLANNED on Sonnet. Only the model changes, the effort stays the phase's. The ten units are every second one of the next twenty review-fix units in the queue on 2026-10-12; the other ten (rv-17, rv-20, rv-23, rv-25, rv-27, rv-29, rv-31, rv-33, rv-35, rv-37) are planned on Opus beside them as the control. Measured per unit: the plan passes its check, the unit's verdict, the fix check, and the cost of all its legs. Read out after the twenty; under eight passes of ten on Sonnet the route goes."
     }
   ]
 }
