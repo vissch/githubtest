@@ -152,6 +152,8 @@ class Tiers(unittest.TestCase):
                          ["sonnet", "sonnet", None, None])
         self.assertIn("model", config.route("review-fix", "execute", unit="u1"))       # the owner's route is there
         self.assertIsNone(config.graded(ph, "review-fix", "u1", "easy"))
+        self.assertIsNone(config.graded(ph, "review-fix", "u1", None))
+        self.assertEqual(config.graded(ph, "review-fix", "u1", "hard"), ph["execute"]["model"])   # hard work beats a route
         self.assertIn("`easy`, `medium` or `hard`", (HERE / "roles" / "_phase_plan.md").read_text(encoding="utf-8"))
 
     def test_haiku_reads_and_never_works(self):

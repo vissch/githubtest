@@ -100,9 +100,11 @@ GRADES = ("easy", "medium", "hard")   # papers.plan_grade: what a plan leg says 
 
 def graded(ph, role, unit, grade, folder=None):
     """The model an execute leg runs on for a plan of this grade, or None for the phase's own. phases.json
-    execute.by_grade is the table; a route in routes.json for this role and unit wins over it (the owner's word)."""
+    execute.by_grade is the table; a route in routes.json for this role and unit wins over it (the owner's word),
+    except for hard work: that runs on the phase's own model whatever the route says (the owner, 2026-10-12:
+    "opus for the difficult items"; rv-04-flow-goals was graded hard and ran on the review-fix route's Sonnet)."""
     if "model" in route(role, "execute", folder, unit):
-        return None
+        return ph["execute"]["model"] if grade == "hard" else None
     return (ph.get("execute", {}).get("by_grade") or {}).get(grade)
 
 
