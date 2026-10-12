@@ -265,10 +265,11 @@ namespace TW.Tests
                     x.Captures[t]++;
                     if (x.Breach[t] < 0 && x.Start[t] >= 0) x.Breach[t] = (int)w.Tick - x.Start[t];
                 }
-                if (ev[k].Type == SimEventType.Death && (w.Flags[ev[k].A] & (uint)UnitFlags.Vehicle) == 0)
+                // The dead slot is already cleared by Despawn: classify him from the pre-step snapshot [U039.1].
+                if (ev[k].Type == SimEventType.Death && MatchLoopTests.Before.WasMan(ev[k].A))
                 {
-                    int team = w.Team[ev[k].A] & 1;
-                    if (w.TrenchId[ev[k].A] >= 0) x.LostTrench[team]++; else x.LostOpen[team]++;
+                    int team = MatchLoopTests.Before.TeamOf(ev[k].A);
+                    if (MatchLoopTests.Before.WasInTrench(ev[k].A)) x.LostTrench[team]++; else x.LostOpen[team]++;
                 }
             }
         }
@@ -468,6 +469,28 @@ namespace TW.Tests
             // the garrison and three attackers in four are riflemen: without a rifle's damage nobody is shot
             string blunt = Run(spec, One("blunt", new Patch { on = "unit", unit = "Rifle", field = "Weapon.Damage", op = "set", value = "0" }), seeds, new StringBuilder());
             Assert.AreNotEqual(now, blunt, "a rifle that does no damage changes the rung");
+        }
+
+        // [U039.1] SimWorld.Despawn clears Flags and TrenchId before the Death event is read, so Sample used to
+        // classify a corpse by the slot's after-state: a garrisoned man counted as lost in the open, and a dead
+        // machine counted as a man. Sample now reads MatchLoopTests.Before, the snapshot taken before the step.
+        [Test]
+        public void ADeathIsCounted_FromTheSlotAsItStoodAtTheStartOfTheTick()
+        {
+            using var m = MatchSim.CreateGreybox(SimConfig.Default);
+            var w = m.World;
+            int man = w.Spawn(1, InfantryArchetype.Rifle, new float3(50f, 0f, 50f), 100f, 0f, false);
+            w.TrenchId[man] = 0;                                           // as if he garrisons the first trench
+            int machine = w.Spawn(1, VehicleArchetype.Maw, new float3(60f, 0f, 60f), 1000f, 0f, true);
+            MatchLoopTests.Before.Refresh(w);                              // what Play does just before the step
+            w.Despawn(man); w.Despawn(machine);                            // both die inside the one step
+
+            var x = new Watch();
+            Sample(m, x);
+            Assert.AreEqual(1, x.LostTrench[1], "[U039.1] the garrisoned man is lost in a trench, not in the open");
+            Assert.AreEqual(0, x.LostOpen[1], "[U039.1] nobody of team 1 is lost in the open");
+            Assert.AreEqual(0, x.LostTrench[0] + x.LostOpen[0], "[U039.1] team 0 lost nobody");
+            Assert.AreEqual(1, x.LostTrench[1] + x.LostOpen[1], "[U039.1] the dead machine is no man lost");
         }
     }
 }

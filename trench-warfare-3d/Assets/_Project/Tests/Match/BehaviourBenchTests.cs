@@ -164,8 +164,8 @@ namespace TW.Tests
             var ev = w.Events.Events;
             for (int e = 0; e < ev.Length; e++)
             {
-                if (ev[e].Type == SimEventType.Death && (w.Flags[ev[e].A] & (uint)UnitFlags.Vehicle) == 0)
-                    deaths.Add(new float4(w.Position[ev[e].A].x, w.Position[ev[e].A].z, w.Team[ev[e].A], w.Tick));
+                if (ev[e].Type == SimEventType.Death && MatchLoopTests.Before.WasMan(ev[e].A))
+                    deaths.Add(new float4(w.Position[ev[e].A].x, w.Position[ev[e].A].z, MatchLoopTests.Before.TeamOf(ev[e].A), w.Tick));
                 else if (ev[e].Type == SimEventType.Pinned) pins[0]++;
             }
             bool second = w.Tick % 20 == 0;   // the O(n^2) looks once a second
