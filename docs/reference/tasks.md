@@ -857,8 +857,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   StrategicMapMeshTests.
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
-  plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
-  (docs/21 B1); today only the depot's silver and income go into the launch request, and the HUD fields only the
+  plate and the ability mask are stored in the profile; the sim's upgrade seam now obeys the tiers a match carries
+  (`SimConfig.UpgradesA/B`, `Sim/Core/Upgrades.cs`), but the Home Front does not fill them yet, so today only the
+  depot's silver and income go into the launch request, and the HUD fields only the
   cards the request's `AbilityMaskA` allows (`HudView.Offered`: cards and keys; the sim itself does not refuse a
   masked ability yet). The debrief pays a
   campaign win through `ProfileStore.Current`: a test that binds it sets `ProfileStore.Persist = false` and

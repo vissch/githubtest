@@ -145,6 +145,149 @@ namespace TW.Tests
             Assert.AreEqual(1200, m.Abilities.CooldownOf(1, OffMapAbilityId.HeBarrage), "[Z009.1-sim] a side that bought no signal discipline waits the listed 1200");
         }
 
+        /// <summary>HEALTH: the rifleman's line is 100 hp (RosterEntry.Rifleman), so two tiers of the track the shop
+        /// sells (+5 % a tier) put him in the field with 110. The slot's roster line carries it, so he brings it
+        /// wherever he arrives (Deploy, SeaLift). [Z009.1-sim]</summary>
+        [Test]
+        public void HealthTrack_PutsTheRiflemanInTheFieldWithMoreHitPoints()
+        {
+            var ups = default(SideUpgrades);
+            Assert.IsTrue(ups.SetTrack(InfantryArchetype.Rifle, health: 2, damage: 0, accuracy: 0));
+            Assert.AreEqual(100f, RosterEntry.Rifleman.Hp, "the rifleman's line is 100 hp: the step below is read off that, not off a run");
+            using var m = Playtest(ups);
+            Step(m);
+            Assert.AreEqual(InfantryArchetype.Rifle, m.World.Roster[0].Archetype, "setup: player 0's first slot is the rifleman");
+            Assert.AreEqual(110f, m.World.Roster[0].Hp, 1e-3f, "[Z009.1-sim] two tiers of the health track must make the rifleman's slot 110 hp");
+            Assert.AreEqual(100f, m.World.Roster[RosterEntry.SlotCount].Hp, 1e-3f, "[Z009.1-sim] the other side bought nothing and keeps the listed 100");
+
+            int man = -1;
+            Step(m, SimCommand.Deploy(m.World.Tick, 0, 0));
+            for (int t = 0; t < 10 && man < 0; t++)
+            {
+                for (int i = 0; i < m.World.Config.MaxSlots; i++)
+                    if ((m.World.Flags[i] & (uint)UnitFlags.Alive) != 0 && m.World.Team[i] == 0 && m.World.Archetype[i] == InfantryArchetype.Rifle) { man = i; break; }
+                if (man < 0) Step(m);
+            }
+            Assert.Greater(man, -1, "setup: the deploy of slot 0 put a rifleman in the field");
+            Assert.AreEqual(110f, m.World.MaxHp[man], 1e-3f, "[Z009.1-sim] the man the player paid for must stand up with 110 hit points, not 100");
+            Assert.AreEqual(110f, m.World.Hp[man], 1e-3f, "[Z009.1-sim] and he arrives at full");
+        }
+
+        // ---------------------------------------------------------------- the damage and accuracy tracks, in a duel
+        /// <summary>A rifleman of team 0 against an unarmed medic of team 1, nine metres off (past the eight at which
+        /// somebody charges) and both too tough to die: every tick is a shot at the same mark, and the only thing that
+        /// moves between two runs is the tier. The stray bombardment is switched off, as the flamethrower's rig does.</summary>
+        sealed class Duel : System.IDisposable
+        {
+            public readonly MatchSim M;
+            public readonly System.Collections.Generic.List<SimEvent> Log = new System.Collections.Generic.List<SimEvent>();
+            public int Shooter, Target;
+            public Duel(SideUpgrades a, uint seed)
+            {
+                var cfg = SimConfig.Default; cfg.Seed = seed; cfg.UpgradesA = a;
+                M = MatchSim.CreatePlaytest(cfg);
+                var stray = M.World.GetSystem<AmbientBombardmentSystem>();
+                if (stray != null) stray.ShellsPerMinute = 0f;
+                M.World.HashInterval = 1;
+                float3 open = new float3(150f, 0f, 240f);
+                Shooter = M.World.Spawn(0, InfantryArchetype.Rifle, open, 1e6f, 0f, false);
+                Target = M.World.Spawn(1, InfantryArchetype.Medic, open + new float3(0f, 0f, 9f), 1e6f, 0f, false);
+            }
+            public void Run(int ticks)
+            {
+                for (int t = 0; t < ticks; t++)
+                {
+                    UpgradeSeamTests.Step(M);
+                    var ev = M.World.Events.Events;
+                    for (int k = 0; k < ev.Length; k++) Log.Add(ev[k]);
+                }
+            }
+            /// <summary>The damage of the first round that landed on the mark, -1 when none did.</summary>
+            public float FirstHit()
+            {
+                foreach (var e in Log) if (e.Type == SimEventType.Hit && e.A == Shooter && e.B == Target) return e.Scalar;
+                return -1f;
+            }
+            public int Hits()
+            {
+                int n = 0;
+                foreach (var e in Log) if (e.Type == SimEventType.Hit && e.A == Shooter && e.B == Target) n++;
+                return n;
+            }
+            public void Dispose() => M.Dispose();
+        }
+
+        /// <summary>DAMAGE: the same duel, the same seed, so the same roll and the same 0.8-1.2 draw land the same
+        /// round at both tiers; two tiers of the damage track (+5 % a tier) take exactly 1.10 times as much off him.
+        /// The shop sold this and the round landed for the same hit points before the seam. [Z009.1-sim]</summary>
+        [Test]
+        public void DamageTrack_TakesTenPercentMoreOffHimAtTwoTiers()
+        {
+            var ups = default(SideUpgrades);
+            Assert.IsTrue(ups.SetTrack(InfantryArchetype.Rifle, health: 0, damage: 2, accuracy: 0));
+            using var bare = new Duel(default, 0xC0FFEE);
+            using var paid = new Duel(ups, 0xC0FFEE);
+            bare.Run(300); paid.Run(300);
+            float d0 = bare.FirstHit(), d2 = paid.FirstHit();
+            Assert.Greater(d0, 0f, "setup: the rifleman hit the medic inside 300 ticks");
+            Assert.AreEqual(1.10f * d0, d2, 1e-3f * d0,
+                "[Z009.1-sim] two tiers of the damage track must take 1.10 times as much off him (" + d0 + " -> " + d2 + ")");
+        }
+
+        /// <summary>ACCURACY: the step is the shop's (+5 % a tier, so 1.10 at two), and a better chance over the same
+        /// 300 ticks of the same duel lands strictly more rounds. The seed is the first in 1..20 that shows it
+        /// strictly; the exact step above is the rule, the count is the proof it reaches the shot. [Z009.1-sim]</summary>
+        [Test]
+        public void AccuracyTrack_LandsStrictlyMoreRoundsAtTwoTiers()
+        {
+            Assert.AreEqual(1.10f, Upgrades.Scale(UpgradeTrack.Accuracy, 2), "[Z009.1-sim] two tiers of accuracy is +10 %, the shop's step");
+            var ups = default(SideUpgrades);
+            Assert.IsTrue(ups.SetTrack(InfantryArchetype.Rifle, health: 0, damage: 0, accuracy: 2));
+            for (uint seed = 1; seed <= 20; seed++)
+            {
+                int bareHits, paidHits;
+                using (var bare = new Duel(default, seed))
+                using (var paid = new Duel(ups, seed))
+                {
+                    bare.Run(300); paid.Run(300);
+                    bareHits = bare.Hits(); paidHits = paid.Hits();
+                }
+                if (bareHits == 0) continue;                       // the duel must be a duel at tier 0 as well
+                if (paidHits > bareHits) return;                   // [Z009.1-sim] strictly more rounds landed
+            }
+            Assert.Fail("[Z009.1-sim] no seed in 1..20 landed more rounds with two tiers of accuracy: the tier does not reach the shot");
+        }
+
+        /// <summary>A match recorded with tiers set re-simulates to the hashes it recorded: the tiers ride in the
+        /// header, so the replay fights the upgraded battle and not the bare one. [Z009.1-sim]</summary>
+        [Test]
+        public void AReplayOfAnUpgradedMatchVerifies()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            cfg.UpgradesA = SideUpgrades.Global(armour: 3, abilityCooldown: 2, abilityCost: 1);
+            Assert.IsTrue(cfg.UpgradesA.SetTrack(InfantryArchetype.Rifle, health: 2, damage: 3, accuracy: 4));
+            cfg.UpgradesB = SideUpgrades.Global(armour: 1, abilityCooldown: 0, abilityCost: 2);
+            Assert.IsTrue(cfg.UpgradesB.SetTrack(InfantryArchetype.Assault, health: 1, damage: 0, accuracy: 2));
+
+            var recorder = new ReplayRecorder(cfg, default, TW.Sim.Terrain.GreyboxMapGenerator.MapId);
+            using (var match = MatchSim.CreateGreybox(cfg))
+            {
+                match.World.HashInterval = 1;
+                for (uint t = 0; t < 120; t++)
+                {
+                    using var cmds = new NativeArray<SimCommand>(Script(t), Allocator.Temp);
+                    match.Step(cmds);
+                    recorder.Record(cmds, match.World.LastHash);
+                }
+            }
+            var player = ReplayPlayer.Parse(recorder.Serialize());
+            Assert.AreEqual(120, player.TickCount);
+            using var again = MatchSim.CreateGreybox(player.Config);
+            again.World.HashInterval = 1;
+            Assert.AreEqual(-1, player.Verify(again.World),
+                "[Z009.1-sim] a replay of an upgraded match must re-simulate to the hashes it recorded");
+        }
+
         /// <summary>A match nobody upgraded plays exactly as it did before the seam existed. Pinned from a run on the
         /// tree before this change (commit f19b38ba1); deliberately NOT tagged with the finding's id, because it is
         /// green on that tree too: it is the guard that zero tiers changed nothing, not a proof of the fix.</summary>

@@ -144,6 +144,7 @@ namespace TW.Sim.Combat
                 Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
+                UpA = w.Config.UpgradesA, UpB = w.Config.UpgradesB,
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
                 Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
                 CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
@@ -237,6 +238,12 @@ namespace TW.Sim.Combat
                 return Smoke[cz * SmokeW + cx] > SmokeLos.Thick;
             }
             [ReadOnly] public NativeArray<float> DamageMul, SuppressionMul;   // the officer's aura (AuraSystem), 1 without
+            // DAMAGE and ACCURACY: what each side bought on the Home Front, per unit kind (SideUpgrades, the seam of
+            // [Z009.1]). Copies of the config's two structs, so the job reads them without touching the world. Every
+            // tier zero makes both scales exactly 1f and the fight is the one that was fought before the seam.
+            public SideUpgrades UpA, UpB;
+            float UpScale(int i, UpgradeTrack track)
+                => (Team[i] & 1) == 0 ? UpA.Scale(Archetype[i], track) : UpB.Scale(Archetype[i], track);
             [ReadOnly] public NativeArray<ushort> Generation;
             public NativeArray<byte> Grenades;
             public NativeArray<ushort> GrenadeGen;
@@ -393,7 +400,7 @@ namespace TW.Sim.Combat
 
                     var myStance = (Stance)StanceOf[i];
                     var theirStance = (Stance)StanceOf[t];
-                    float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax)
+                    float chance = weapon.Accuracy * UpScale(i, UpgradeTrack.Accuracy) * CombatTables.RangeFalloff(dist, weapon.RangeMax)
                                  * StanceRules.AccuracyMultiplier(myStance, Specs[Archetype[i]].Braced || ChassisKind.IsTank(Roster[Archetype[i]].Chassis))
                                  * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
                     if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (Flags[i] & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
@@ -430,12 +437,12 @@ namespace TW.Sim.Combat
                     // missed, and would not have with no cover: the cover took it. A machine gun's round wears a wreck by
                     // the prop's share of the cover (the same roll, nothing more drawn: a field with no wreck is as it was)
                     if (!hit && roll < bare && propCover > 0f && CombatTables.WearsWrecks(weapon))
-                        CoverStops.Add(new WreckRound { Cell = CellOf(q), Damage = weapon.Damage * DamageMul[i] * (propCover / cover), Way = dir });
+                        CoverStops.Add(new WreckRound { Cell = CellOf(q), Damage = weapon.Damage * DamageMul[i] * UpScale(i, UpgradeTrack.Damage) * (propCover / cover), Way = dir });
                     Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = t, Pos = p, Dir = dir, Scalar = 0f });
                     if (hit && Stopped(i, t, weapon, p, q, dir, ref rng)) { }
                     else if (hit)
                     {
-                        float dmg = weapon.Damage * DamageMul[i] * rng.NextFloat(0.8f, 1.2f);
+                        float dmg = weapon.Damage * DamageMul[i] * UpScale(i, UpgradeTrack.Damage) * rng.NextFloat(0.8f, 1.2f);
                         if ((Flags[i] & (uint)UnitFlags.Charging) != 0)
                         {
                             // a charging Breaker's round finds the mark (the roll is drawn only for it)

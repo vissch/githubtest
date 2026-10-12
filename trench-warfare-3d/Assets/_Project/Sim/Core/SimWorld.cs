@@ -105,11 +105,17 @@ namespace TW.Sim
             {
                 var chosen = Config.LoadoutOf(i);
                 var faction = Config.FactionOf(i);
+                var ups = Config.UpgradesOf(i);
                 for (int s = 0; s < RosterEntry.SlotCount; s++)
                 {
                     int ri = i * RosterEntry.SlotCount + s;
                     byte a = s < chosen.Length ? chosen[s] : FactionRoster.Slot(faction, s).Archetype;
                     var e = a < Archetypes.Count ? Units.Roster[a] : default;
+                    // HEALTH: the track this player bought for this kind on the Home Front (+5 % a tier, every tier
+                    // zero leaves the line untouched). The slot's line is the one place to scale it: Deploy,
+                    // SeaLift.Embark and every check read Roster, so a man arrives with his bought hit points
+                    // wherever he arrives. A scale never makes 0 hp, so SlotUnlocked below is unaffected.
+                    e.Hp *= ups.Scale(a, UpgradeTrack.Health);
                     Roster[ri] = e;
                     // A slot naming a unit nothing defines is locked rather than left deployable. Deploy rejects on the
                     // lock, the cooldown and the silver, and a cost of nothing always passes the silver check, so the
