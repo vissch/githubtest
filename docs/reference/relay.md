@@ -9,15 +9,28 @@ the result and decides to go on. The code is `trench-warfare-3d/Tools/relay/`; t
 | Phase | Model, effort | May do | Leaves |
 |---|---|---|---|
 | plan | Opus, high | read anything; write only `plan.md` in its leg folder | a plan the runner checks by script |
-| execute | Opus, low | the work, following the plan | commits on the lane, pushed |
+| execute | Opus, low; Sonnet when the plan says easy or medium | the work, following the plan | commits on the lane, pushed |
 | critic | Opus, high | read its evidence bundle; write only `critic.md`; no subagent | a score out of 100 and three mandated fixes |
-| retro | Opus, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
+| retro | Haiku, high | read the run's records; write only its retrospective paper | tuning inside the bounds, proposals for the owner |
 
 A role's legs of one phase run on another model or effort when `routes.json` says so (`config.route`; Opus or
 Sonnet only), for every unit of the role or only for the units the route lists. The budget prices such a leg by
 its route (`config.routed`). One route is in it: the execute leg of every `review-fix` unit runs on Sonnet, its
 plan leg on Opus (the owner, 2026-10-12, after a trial of six units a side: two thirds of the cost, the same
 passes, more turns). Its guard is in its `why`. A route stays only on the owner's word.
+
+**Three models, by how hard the work is** (the owner, 2026-10-12: Haiku for the easy work, Sonnet for the medium,
+Opus for the hard).
+- The plan leg grades its unit: `## Difficulty` in `plan.md`, one word, `easy`, `medium` or `hard`
+  (`papers.plan_grade`; the rule is in `roles/_phase_plan.md`). `phases.json` `execute.by_grade` names the model
+  per grade: easy and medium run on Sonnet, hard and a plan that does not say on the phase's own model, Opus.
+- A route in `routes.json` for the role wins over the grade (`config.graded`).
+- An execute leg that reported failed on a cheaper model gets one more try on the phase's own model
+  (`runner.moves_up`; its record holds `moved_up`). Not after blocked, not over uncommitted work, not without room.
+- Haiku may run a phase that only reads, never one that works (`config.phases`, `config.routes`). The
+  retrospective runs on it. It runs guarded like any leg: proven on the desktop on 2026-10-12 (Claude Code
+  2.1.267, auto mode, the guard saw every call).
+- Not up for a cheaper model: plan legs, critic legs, the second reader of a fix.
 
 A leg is started with the built-in tools its phase names in `phases.json` (`tools`) and, with `skills` false,
 without the listing of skills (`launch.argv`: `--tools`, `--disable-slash-commands`). What a leg is shown it reads
