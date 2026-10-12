@@ -91,6 +91,7 @@ namespace TW.Sim.Units
         void Fallback(SimWorld w, short trenchId, byte team)
         {
             int goal = fields.GetGoal(GoalKey.Trench(trenchId));
+            if (goal < 0) return;   // [U5] a full goal table must leave the men where they are, not Exposed with no goal
             for (int i = 0; i < w.HighWater; i++)
             {
                 uint f = w.Flags[i];
