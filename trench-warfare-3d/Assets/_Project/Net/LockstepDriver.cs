@@ -27,6 +27,7 @@ namespace TW.Net
         uint nextSendTick;
         public int StallTicks;         // ticks we could not step because a peer frame was missing (UI shows a stall after N)
         public uint LastSteppedTick => World.Tick;
+        public int BufferedTicks => frames.Count;   // S6: ticks held but not yet stepped; a leak is visible here
         public int Player => Transport.LocalPlayer;
 
         public LockstepDriver(SimWorld world, ILockstepTransport transport, ReplayRecorder recorder = null)
@@ -60,11 +61,15 @@ namespace TW.Net
             for (int i = 0; i < scratch.Count; i++)
             {
                 var f = scratch[i];
+                // S6: a frame is only buffered when it can still be stepped and could only come from a real peer.
+                if (f.Player >= Transport.PeerCount) continue;   // a bogus player would complete a tick on its own
+                if (f.Tick < World.Tick) continue;               // stale: that tick is stepped, the entry would be kept forever
                 if (!frames.TryGetValue(f.Tick, out var byPlayer))
                 {
                     byPlayer = spare.Count > 0 ? spare.Pop() : new Dictionary<byte, CommandFrame>();
                     frames[f.Tick] = byPlayer;
                 }
+                if (byPlayer.ContainsKey(f.Player)) continue;    // duplicate: keep the first, a resend never replaces it
                 byPlayer[f.Player] = f;
             }
             // 3. step if complete
@@ -96,7 +101,7 @@ namespace TW.Net
             var cmds = pendingLocal.Count == 0 ? Array.Empty<SimCommand>() : pendingLocal.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pendingLocal.Clear();
-            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, HashOfPreviousTick = World.LastHash });
+            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick == 0 ? 0u : World.Tick - 1u });
         }
     }
 }

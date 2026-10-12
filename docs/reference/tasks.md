@@ -54,6 +54,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   Interfaces `Net/ILockstepTransport.cs`, `Net/ICommandSink.cs`; `Net/UtpTransport.cs` is a stub (multiplayer is
   deferred).
 - **Tests:** LockstepLoopbackTests, BattlefieldLockstepTests, CommandSeatTests, SinglePlayerEquivalenceTests,
+  LockstepFrameValidationTests (frames the driver must drop: bogus player, stale tick, duplicate),
+  LockstepHashLabelTests (which tick a frame's hash belongs to),
   CanaryFixture (makes every PlayMode SimHost run the canary).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
   `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.

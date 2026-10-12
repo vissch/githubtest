@@ -11,7 +11,9 @@ namespace TW.Net
         public uint Tick;
         public byte Player;
         public SimCommand[] Commands;   // may be empty; an empty frame still counts as "peer reported for tick"
-        public ulong HashOfPreviousTick; // for desync detection (N3); 0 when unknown
+        public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3); 0 when unknown
+        public uint HashTick;           // S9: the tick Hash is the hash of. It is NOT frame.Tick - 1: a frame is sent
+                                        // InputDelay ticks ahead, so HashTick is the last tick the sender had stepped.
     }
 
     public interface ILockstepTransport
