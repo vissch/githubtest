@@ -35,7 +35,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   - Code means anything under `trench-warfare-3d/` outside `Tools/`, or `gate.ps1`, or any file whose name a test quotes, such as `envatlas.py` or `17-ui-art-spec.md` (`is_code` :51-53, `names_tests_read` :56-63).
   - A code lane needs `tw-gate-green` to equal `HEAD^{tree}` (:112-120).
   - A docs or Tools-only lane runs `validate.py`, plus `Tools/selftest.py` when `Tools/` changed (:121-128).
-- **Push:** `git push --atomic origin HEAD:refs/heads/<integration> --force-with-lease=refs/heads/<lane>:<lease> HEAD:refs/heads/<lane>` (:130-131). The local integration ref moves only after success (:140).
+- **Push:** `git push --atomic origin <sha>:refs/heads/<integration> --force-with-lease=refs/heads/<lane>:<lease> <sha>:refs/heads/<lane>` (:130-131), where `<sha>` is the commit id `rev-parse HEAD` gave once, before the checks, so the commit that was checked is the commit that is pushed. Just before the push it reads HEAD and the tree again and refuses, pushing nothing, when HEAD moved or the tree went dirty while the checks ran. The local integration ref moves only after success (:140).
 - **The marker:** `gate.ps1` writes `<tree> <timestamp>` to `git rev-parse --path-format=absolute --git-path tw-gate-green`, which is per worktree. It writes only on a full green run and only if the tree before equals the tree after (`gate.ps1:111`, :127-135).
 
 ### `health.py` (`T\health.py`)
