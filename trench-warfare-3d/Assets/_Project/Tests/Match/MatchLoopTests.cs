@@ -57,6 +57,41 @@ namespace TW.Tests
             return slots.Count == 0 ? -1 : slots[n % slots.Count];
         }
 
+        /// <summary>The running match's state as it stood at the start of the step just taken, for a callback that must
+        /// classify a unit the step has already despawned: Despawn clears Flags and TrenchId before the Death event is
+        /// read, so a corpse would otherwise be classified by the slot's after-state - and a slot freed and refilled
+        /// inside one tick by the next unit's (review 2026-10-10, [U039.1]). One match at a time: EditMode runs
+        /// sequentially, and <see cref="Play"/> refreshes it once a tick, just before the step. A unit that spawned and
+        /// died inside the same step does not stand in the snapshot and is skipped.</summary>
+        public sealed class PreStep
+        {
+            uint[] flags = new uint[0];
+            byte[] team = new byte[0];
+            short[] trench = new short[0];
+            public int Count;
+
+            public void Refresh(SimWorld w)
+            {
+                Count = w.HighWater;
+                if (flags.Length < Count)
+                {
+                    int n = w.Config.MaxSlots;
+                    flags = new uint[n]; team = new byte[n]; trench = new short[n];
+                }
+                for (int i = 0; i < Count; i++) { flags[i] = w.Flags[i]; team[i] = w.Team[i]; trench[i] = w.TrenchId[i]; }
+            }
+
+            public bool Stood(int slot) => slot >= 0 && slot < Count && (flags[slot] & (uint)UnitFlags.Alive) != 0;
+            public bool WasMan(int slot) => Stood(slot) && (flags[slot] & (uint)UnitFlags.Vehicle) == 0;
+            public bool WasVehicle(int slot) => Stood(slot) && (flags[slot] & (uint)UnitFlags.Vehicle) != 0;
+            public bool WasInTrench(int slot) => Stood(slot) && trench[slot] >= 0;
+            /// <summary>His team (0 or 1), or -1 when he did not stand in the snapshot.</summary>
+            public int TeamOf(int slot) => Stood(slot) ? team[slot] & 1 : -1;
+        }
+
+        /// <summary>The one snapshot every match harness classifies its Death events from.</summary>
+        public static readonly PreStep Before = new PreStep();
+
         /// <summary><paramref name="config"/> and <paramref name="built"/> (2026-10-04, the balance sweep) let a caller
         /// play the same match on other numbers: the first turns the config before any world is built, the second is
         /// handed every world the session builds, before its first tick (UnitDefinitions.Apply, a system's switch).
@@ -115,6 +150,7 @@ namespace TW.Tests
                         if (front >= 0 && go) { seat.Issue(new SimCommand { Tick = t, Player = 0, Type = CommandType.TrenchAdvance, A = front }); sb.AppendLine($"  player: {t / 20} s over the top, {mine} against {them}"); }
                     }
                 }
+                Before.Refresh(w);
                 session.StepOnce(ai);
                 each?.Invoke(m);
                 var ev = w.Events.Events;
@@ -127,11 +163,11 @@ namespace TW.Tests
                     }
                     if (ev[k].Type == SimEventType.MatchEnded) { r.Winner = ev[k].A; }
                     if (ev[k].Type == SimEventType.UnitDeployed) r.Deployed[(int)ev[k].Dir.y & 1]++;
-                    if (ev[k].Type == SimEventType.Death && (w.Flags[ev[k].A] & (uint)UnitFlags.Vehicle) == 0)
+                    if (ev[k].Type == SimEventType.Death && Before.WasMan(ev[k].A))
                     {
-                        int team = w.Team[ev[k].A] & 1, why = ev[k].B;
+                        int team = Before.TeamOf(ev[k].A), why = ev[k].B;
                         string killer = why >= 0 ? (w.TrenchId[why] >= 0 ? $"garrison z{(int)w.Position[why].z} arch{w.Archetype[why]}" : $"open z{(int)w.Position[why].z} arch{w.Archetype[why]}") : ((DeathCause)why).ToString();
-                        r.Deaths += $"    {w.Tick / 20,4} s team{team} {(w.TrenchId[ev[k].A] >= 0 ? "garrison" : "open")} z{(int)w.Position[ev[k].A].z} by {killer}\n";
+                        r.Deaths += $"    {w.Tick / 20,4} s team{team} {(Before.WasInTrench(ev[k].A) ? "garrison" : "open")} z{(int)w.Position[ev[k].A].z} by {killer}\n";
                         if (why >= 0) r.ByFire[team]++;
                         else if (why == (int)DeathCause.Blast) r.ByBlast[team]++;
                         else if (why == (int)DeathCause.Gas) r.ByGas[team]++;
