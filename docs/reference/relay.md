@@ -339,7 +339,7 @@ give the order (`sources.next_unit`; the owner, 2026-10-12: "a system that cover
   | vehicles | `vehicle-simulator` |
   | effects | `destruction-vfx-simulator` |
   | fields | `env-simulator` |
-  | rules | `balance-simulator`, `game-designer`, `sim`, and work with no such role on a `lane/sim/` lane |
+  | rules | `balance-simulator`, `game-designer`, `sim`, and work with no such role on a sim lane (its lane begins lane/sim) |
   | HUD | `ux`, `ui-artist` |
   | speed | `optimizer` |
   | ideas | every board job |
