@@ -48,11 +48,14 @@ namespace TW.Presentation
     public static class Clips
     {
         public static readonly ClipInfo[] Table = Build();
+        /// <summary>Bumped whenever Table changes, so Advance's native copy of it knows to be re-made.</summary>
+        public static int Version;
 
         /// <summary>The bake's own lengths replace the table's estimates (VATRenderer, once the atlas is loaded).</summary>
         public static void Apply(float[] rowSeconds)
         {
             for (int c = 0; c < Table.Length && c < rowSeconds.Length; c++) if (rowSeconds[c] > 0.01f) Table[c].Seconds = rowSeconds[c];
+            Version++;
         }
         static ClipInfo L(float s, AnimRow row, float speed = 0f, Stance stance = Stance.Standing) => new ClipInfo { Seconds = s, Loop = true, Fallback = row, Speed = speed, Stance = (byte)stance };
         static ClipInfo O(float s, AnimRow row, Stance stance = Stance.Standing) => new ClipInfo { Seconds = s, Loop = false, Fallback = row, Stance = (byte)stance };
@@ -132,7 +135,8 @@ namespace TW.Presentation
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
     }
 
-    /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
+    /// <summary>One class in several files: this one is the ladder and the latch; AnimationController.Advance.cs the
+    /// render-frame advance (a Burst job);
     /// AnimationController.Death.cs how a man dies and the records of it (docs/21 phase 4).</summary>
     public sealed partial class AnimationController : System.IDisposable
     {
@@ -224,6 +228,7 @@ namespace TW.Presentation
 
         public void Dispose()
         {
+            DisposeAdvance();
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
             shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose(); active.Dispose();
             DisposeDeaths(); DisposePins();
@@ -888,52 +893,6 @@ namespace TW.Presentation
         static float Hash(uint seed, uint tick) { uint h = seed ^ (tick * 2246822519u); h ^= h >> 13; h *= 3266489917u; h ^= h >> 16; return (h & 0xFFFFFF) / 16777216f; }
 
         // ---------------------------------------------------------------------------------------------- render frame
-        /// <summary>Move every frame on, close the cross-fades, end the one-shots; then the stand-in row and phase per slot.</summary>
-        public void Advance(float dt)
-        {
-            for (int k = 0; k < activeCount; k++)
-            {
-                int i = active[k];
-                var s = State[i];
-                var info = Clips.Table[(int)s.Clip];
-                if (s.Clip == Clip.None) { Row[i] = (ushort)Clip.Idle; Phase[i] = 0f; Blend[i] = 0f; continue; }
-                s.Frame += dt * s.Rate;
-                if (info.Loop) { if (s.Frame >= info.Seconds) s.Frame -= info.Seconds * math.floor(s.Frame / info.Seconds); }
-                else if (s.Frame > info.Seconds) s.Frame = info.Seconds;
-                if (s.Blend > 0f) s.Blend -= dt;
-                // the feet come round to the body yaw at a turn's pace; a turn clip holds the old facing until it ends
-                if (s.Rung != Rung.Turn || Clips.Table[(int)s.Clip].Loop)
-                {
-                    float d = s.BodyYaw - s.ShownYaw; while (d > math.PI) d -= 2f * math.PI; while (d < -math.PI) d += 2f * math.PI;
-                    float step = math.min(math.abs(d), dt * (s.Clip == Clip.DiveAway ? 14f : s.Rung == Rung.Locomotion ? 7f : s.Rung == Rung.Fire ? 6f : 3f));
-                    s.ShownYaw += math.sign(d) * step;
-                    while (s.ShownYaw > math.PI) s.ShownYaw -= 2f * math.PI; while (s.ShownYaw < -math.PI) s.ShownYaw += 2f * math.PI;
-                }
-                if (i == FollowSlot) { timeIn.TryGetValue(s.Clip, out float t); timeIn[s.Clip] = t + dt; }
-                State[i] = s;
-                Row[i] = (ushort)s.Clip;
-                float ph = info.Seconds > 0f ? s.Frame / info.Seconds : 0f;
-                Phase[i] = info.Loop ? math.frac(ph) : math.min(ph, 1f);
-                Yaw[i] = s.ShownYaw;
-                bool climb = s.Rung == Rung.Trench && (s.Clip == Clip.ClimbOut || s.Clip == Clip.ClimbLadder || s.Clip == Clip.ClimbHold);
-                Lift[i] = climb ? math.saturate(s.Frame / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
-                // blown off his feet: a parabola over the first HopSeconds of his fall (Frame runs at Rate, so measure in clip seconds)
-                float hop = 0f;
-                if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway) && s.ClipStart <= s.HopTick)
-                {
-                    float u = math.saturate((s.Frame - s.HopFrame) / (HopSeconds * math.max(0.1f, s.Rate)));
-                    hop = s.HopHeight * 4f * u * (1f - u);
-                    if (u >= 1f) { s.HopHeight = 0f; State[i] = s; }
-                }
-                Hop[i] = hop;
-                var prev = Clips.Table[(int)s.PrevClip];
-                PrevRow[i] = (ushort)s.PrevClip;
-                float pp = prev.Seconds > 0f ? s.PrevFrame / prev.Seconds : 0f;
-                PrevPhase[i] = prev.Loop ? math.frac(pp) : math.min(pp, 1f);
-                Blend[i] = s.Blend > 0f && s.Fade > 0f ? math.saturate(s.Blend / s.Fade) : 0f;
-            }
-        }
-
         // ----------------------------------------------------------------------------------------------------- trace
         public void Follow(int slot) { FollowSlot = slot; Trace.Clear(); timeIn.Clear(); }
 

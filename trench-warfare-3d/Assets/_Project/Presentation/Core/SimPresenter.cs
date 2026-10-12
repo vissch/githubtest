@@ -78,17 +78,18 @@ namespace TW.Presentation
         }
 
         /// <summary>Interpolate for rendering. alpha in [0,1] between the previous and current tick.</summary>
-        public void Interpolate(float alpha, float animTime)
+        /// <param name="deps">A job the interpolate waits for (the controller's advance writes RowIn, PhaseIn, YawIn).</param>
+        public void Interpolate(float alpha, float animTime, JobHandle deps = default)
         {
             Alpha = alpha;
-            if (count == 0) { PoseCount = 0; return; }
+            if (count == 0) { PoseCount = 0; deps.Complete(); return; }
             var job = new InterpolateJob
             {
                 PrevPos = prevPos, CurPos = curPos, PrevYaw = prevYaw, CurYaw = curYaw, Stance = stance, Archetype = archetype,
                 Team = team, Flags = flags, Target = target, Poses = Poses, Alpha = alpha, AnimTime = animTime,
                 RowIn = RowIn, PhaseIn = PhaseIn, YawIn = YawIn, UseController = UseController,
             };
-            job.Schedule(count, 128).Complete();
+            job.Schedule(count, 128, deps).Complete();
             // compaction (single-threaded, cheap)
             int n = 0;
             for (int i = 0; i < count; i++)

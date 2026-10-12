@@ -166,9 +166,11 @@ namespace TW.Presentation
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
-            PerfMarkers.AnimAdvance.Begin(); Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
+            // the render frame's two Burst jobs run as one chain: the advance writes the rows the interpolate reads
+            PerfMarkers.AnimAdvance.Begin(); var advance = Animation.ScheduleAdvance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
             Presenter.UseController = UseAnimationController;
-            PerfMarkers.PresentInterpolate.Begin(); Presenter.Interpolate(Alpha, animTime); PerfMarkers.PresentInterpolate.End();
+            PerfMarkers.PresentInterpolate.Begin(); Presenter.Interpolate(Alpha, animTime, advance); PerfMarkers.PresentInterpolate.End();
+            Animation.CompleteAdvance();
             Events.Dispatch();
         }
 

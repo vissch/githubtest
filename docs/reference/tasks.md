@@ -396,7 +396,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Animation (which clip a man plays)
 - **Files:** `Presentation/Core/AnimationController.cs` (the per-man priority ladder, run every tick by SimHost),
   `Presentation/Core/AnimationController.Death.cs` (how a man dies: the Death event's cause and knock, density in the
-  heap, the death ring `TryDeath` the effects read, `Char`), clip names in `Editor/InfantryClipTable.cs`.
+  heap, the death ring `TryDeath` the effects read, `Char`),
+  `Presentation/Core/AnimationController.Advance.cs` (the render frame: one Burst job over the men Tick decided a clip
+  for, `ScheduleAdvance` / `CompleteAdvance`), clip names in `Editor/InfantryClipTable.cs`.
   Design: `docs/15-character-controller.md` (section 9 is the death ladder).
   The absurd deaths (owner, 2026-09-28): `Presentation/Core/DeathGags.cs` chooses a gag on top of the ladder's death
   (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;

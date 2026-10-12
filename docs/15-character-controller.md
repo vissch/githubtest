@@ -63,7 +63,7 @@ that must be stripped, which the baker already does.
 sim tick (20 Hz)  ──►  SimPresenter.Capture  ──►  AnimationController.Tick (Burst, per slot)
                        events (latched)      ──►      reads: stance, velocity, target, flags, cell, water, events
                                                        writes: AnimState[slot] (row, frame, rate, prev row, blend, aim yaw, memory)
-render frame      ──►  SimPresenter.Interpolate ──►  AnimationController.Advance (Burst, per pose)
+render frame      ──►  AnimationController.Advance (Burst, per pose) ──►  SimPresenter.Interpolate
                                                        frame += rate * dt, blend -= dt/fade, one-shot ends -> next
                                                 ──►  VATRenderer.FillJob  ──►  VatInstance (48 B)  ──►  VAT_URP.shader
 ```

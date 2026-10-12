@@ -78,5 +78,31 @@ namespace TW.Tests
             Assert.AreNotEqual(livingPhase, r.A.Phase[living], "[Z004.1] the living man's clip stopped running");
             // no assert on AdvancedCount: this test must compile against the code before the fix, which has no such counter
         }
+
+        /// <summary>The job's arithmetic, held against the clip table's authored lengths and not against a run of the
+        /// code: a loop's phase is the seconds advanced over the clip's length, a one-shot's clamps at its end.</summary>
+        [Test]
+        public void PhaseIsTheSecondsAdvancedOverTheClipLength()
+        {
+            using var r = new Rig();
+            int a = r.Man(Here);
+            int b = r.Man(Here + new float3(4f, 0f, 0f));
+            r.Tick();
+
+            var sa = r.A.State[a]; sa.Clip = Clip.Idle; sa.Frame = 0f; sa.Rate = 1f; sa.Blend = 0f; r.A.State[a] = sa;
+            var sb = r.A.State[b]; sb.Clip = Clip.FireSnap; sb.Frame = 0f; sb.Rate = 1f; sb.Blend = 0f; r.A.State[b] = sb;
+
+            float idle = Clips.Table[(int)Clip.Idle].Seconds;         // 2.4 s as authored, and the loop flag is set
+            float snap = Clips.Table[(int)Clip.FireSnap].Seconds;     // 0.27 s, a one-shot
+            Assert.IsTrue(Clips.Table[(int)Clip.Idle].Loop, "Idle is a loop");
+            Assert.IsFalse(Clips.Table[(int)Clip.FireSnap].Loop, "FireSnap is a one-shot");
+
+            r.A.Advance(0.6f);
+
+            Assert.AreEqual(0.6f / idle, r.A.Phase[a], 1e-5f, "a loop's phase is the seconds advanced over its length");
+            Assert.AreEqual((ushort)Clip.Idle, r.A.Row[a], "the row is the clip");
+            Assert.Greater(0.6f, snap, "the one-shot is shorter than the step, so it is over");
+            Assert.AreEqual(1f, r.A.Phase[b], 1e-5f, "a one-shot past its end clamps at phase 1");
+        }
     }
 }
