@@ -271,6 +271,22 @@ namespace TW.Tests
                 Assert.That(d.PeerDeployEveryTicks, Is.GreaterThan(0), $"{c.Title} / {d.Name}: SimHost divides by PeerDeployEveryTicks");
         }
 
+        const string NormalBlurb = "Today's opponent: deploys every two seconds, attacks at eight men, shells you when it can and when you attack.";
+        const string HardBlurb = "Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.";
+
+        // [U095.1] the blurbs on screen were saved before the barrage answered your attack
+        [Test]
+        public void MissionCardBlurbsSayTheBarrageAnswersYourAttack()
+        {
+            var assets = AssetDatabase.LoadAssetAtPath<ShellAssets>("Assets/_Project/UI/Resources/ShellAssets.asset");
+            Assert.That(assets, Is.Not.Null, "[U095.1] ShellAssets.asset missing (TW/UI/Build Shell Assets)");
+            foreach (var c in assets.Catalog.Cards)
+            {
+                Assert.That(c.Difficulties[1].Blurb, Is.EqualTo(NormalBlurb), "[U095.1] " + c.Title + " NORMAL: the blurb is the pre-barrage one");
+                Assert.That(c.Difficulties[2].Blurb, Is.EqualTo(HardBlurb), "[U095.1] " + c.Title + " HARD: the blurb is the pre-barrage one");
+            }
+        }
+
         [Test]
         public void ARequestAppliesToAHostsFields()
         {

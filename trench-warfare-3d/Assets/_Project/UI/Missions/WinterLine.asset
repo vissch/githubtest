@@ -38,21 +38,23 @@ MonoBehaviour:
     PeerDeploysTanks: 0
     PeerUsesSupport: 0
     PeerSupportReserve: 400
+    PeerDefends: 0
   - Name: NORMAL
-    Blurb: 'Today''s opponent: deploys every two seconds, attacks at eight men, shells
-      you when it can.'
+    Blurb: 'Today''s opponent: deploys every two seconds, attacks at eight men, shells you when it can and when you attack.'
     PeerDeployEveryTicks: 40
     PeerAttacks: 1
     PeerAttackGarrison: 8
     PeerDeploysTanks: 0
     PeerUsesSupport: 1
     PeerSupportReserve: 180
+    PeerDefends: 1
   - Name: HARD
-    Blurb: Fast deploys, early attacks, tanks whenever it can afford them.
+    Blurb: Fast deploys, early attacks, tanks whenever it can afford them, and a barrage on any attack you make.
     PeerDeployEveryTicks: 28
     PeerAttacks: 1
     PeerAttackGarrison: 6
     PeerDeploysTanks: 1
     PeerUsesSupport: 1
     PeerSupportReserve: 120
+    PeerDefends: 1
   DefaultDifficulty: 1
