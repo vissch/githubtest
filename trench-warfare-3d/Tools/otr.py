@@ -71,6 +71,52 @@ def build_runner():
     return exe
 
 
+VERDICTS = ("PASS", "FAIL", "ERROR", "TIMEOUT", "IGNORE", "ENGINE", "RUNNER", "LOGERR", "SKIP-UNITYTEST", "SKIP-EXPLICIT")
+
+
+def scan_run(text, returncode, known=None, verbose=False):
+    """Judge one runner process on its own output: (tally, bad, current, done).
+
+    current is the last class the runner announced (""  when it died before its first), done whether it printed
+    #DONE. bad is True for FAIL/ERROR/TIMEOUT/LOGERR, for a #CRASH line, for a LOADER / ENGINE-INSTALL-FAILED line
+    (Runner.cs writes those: the module's types or the stand-in engine never loaded), and for a non-zero exit code
+    after #DONE. A run that printed neither #DONE nor a class is the caller's to record.
+    """
+    known = known or {}
+    tally, bad, current, done = {}, False, "", False
+    for line in text.splitlines():
+        if not line.strip() or line.startswith(NOISE):
+            continue
+        if line.startswith("#CLASS "):
+            current = line[7:].strip(); continue
+        if line.startswith("#DONE"):
+            done = True; continue
+        if line.startswith("#CRASH"):
+            print(line); bad = True; continue
+        if line.startswith("---- "):
+            continue   # counted line by line below, so a crashed process loses nothing
+        if line.startswith(("Unhandled Exception", "[ERROR] FATAL", "  at ", "   --- End", "System.")):
+            continue
+        verdict = line.split("  ", 1)[0]
+        if verdict not in VERDICTS:
+            if line.startswith(("LOADER ", "ENGINE-INSTALL-FAILED ")):
+                print(line); bad = True; continue
+            if verbose: print(line)
+            continue
+        name = line.split("  ")[1] if "  " in line else ""
+        if verdict == "FAIL" and name in known:
+            verdict = "KNOWN"; line = f"KNOWN  {name}  ({known[name]})"
+        tally[verdict] = tally.get(verdict, 0) + 1
+        if verdict in ("FAIL", "ERROR", "TIMEOUT", "LOGERR"):
+            bad = True
+        if verbose or verdict not in ("PASS", "ENGINE"):
+            print(line)
+    if done and returncode != 0:
+        print(f"otr: the runner exited {returncode} after #DONE")
+        bad = True
+    return tally, bad, current, done
+
+
 def main(argv):
     verbose = "-v" in argv
     argv = [a for a in argv if a != "-v"]
@@ -150,33 +196,17 @@ def main(argv):
         while True:
             r = subprocess.run([str(MONO), str(exe), str(dll), f, after], cwd=str(occ.PROJ), env=env, capture_output=True,
                                text=True, encoding="utf-8", errors="replace")
-            current, done = "", False
-            for line in (r.stdout + r.stderr).splitlines():
-                if not line.strip() or line.startswith(NOISE):
-                    continue
-                if line.startswith("#CLASS "):
-                    current = line[7:].strip(); continue
-                if line.startswith("#DONE"):
-                    done = True; continue
-                if line.startswith("#CRASH"):
-                    print(line); continue
-                if line.startswith("---- "):
-                    continue   # counted line by line below, so a crashed process loses nothing
-                if line.startswith(("Unhandled Exception", "[ERROR] FATAL", "  at ", "   --- End", "System.")):
-                    continue
-                verdict = line.split("  ", 1)[0]
-                if verdict not in ("PASS", "FAIL", "ERROR", "TIMEOUT", "IGNORE", "ENGINE", "RUNNER", "LOGERR", "SKIP-UNITYTEST", "SKIP-EXPLICIT"):
-                    if verbose: print(line)
-                    continue
-                name = line.split("  ")[1] if "  " in line else ""
-                if verdict == "FAIL" and name in known:
-                    verdict = "KNOWN"; line = f"KNOWN  {name}  ({known[name]})"
-                tally[verdict] = tally.get(verdict, 0) + 1
-                if verdict in ("FAIL", "ERROR", "TIMEOUT", "LOGERR"):
-                    bad = True
-                if verbose or verdict not in ("PASS", "ENGINE"):
-                    print(line)
-            if done or not current:
+            run_tally, run_bad, current, done = scan_run(r.stdout + r.stderr, r.returncode, known, verbose)
+            for k, v in run_tally.items():
+                tally[k] = tally.get(k, 0) + v
+            bad |= run_bad
+            if done:
+                break
+            if not current:
+                # the runner died before its first class: nothing of this module ran, and nobody else records it
+                print(f"CRASH  {dll.stem} {f}  (the runner died before its first class: nothing from this module ran)")
+                tally["CRASH"] = tally.get("CRASH", 0) + 1
+                bad = True
                 break
             # the process died inside a class: record it and carry on after it
             print(f"CRASH  {current}  (the process died in this class; the classes after it run in a new process)")
