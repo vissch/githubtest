@@ -39,7 +39,8 @@ of that route, as a click on a brief carries the stamp of its Then line): the id
 desktop to put it on the pipeline's board. "Not now" parks it; it may come back after PARKED_DAYS. "Never" closes it
 for good, with his reason when he gave one. Words of his own about an idea are a request for a better version of it.
 An accepted idea's row then says where it stands on its route: not on the board yet, which step is next, which
-waits on him, what is done (stands(), read from what is committed on the board's origin and nothing else).
+waits on him, what is done, and what is checked again because the pipeline took its pass back (stands(), read from
+what is committed on the board's origin and nothing else, by the pipeline's own rule).
 
 THE BOARD STARTS THE AGENT (the owner, 2026-10-07: "Board starts it"). The button "3 more ideas" and the box leave a
 note (about ideas:more, ideas:request); `tick`, run by ops.py --watch on every read, starts one headless session with
@@ -254,12 +255,15 @@ def board_units(board):
 def stands(ideas, board):
     """Where each idea that went to the board stands, for the page: {idea id: dict(on, steps)}, one word for each step
     of its route. 'done': the step's newest result is a PASS. 'you': it is a step of the owner's own and all it comes
-    after is done. 'next': the same for an agent's step (ready, or being worked on). '': it still waits. An idea for a
+    after is done. 'next': the same for an agent's step (ready, or being worked on). 'again': it passed, but the pipeline has taken that
+    pass back (its upstream result changed under it), so it is checked again. '': it still waits. An idea for a
     tool is one unit of the queue: 'next' while it is queued, 'done' once the relay has done it, and then the landing
     is his. `on` False: no session has put it on the board yet, so nothing can have started.
     Read from the board's origin/main as last fetched, as board_units reads it: this station's checkout may be behind
-    or hold another session's work. An item whose stages are not the idea's route gets no words, not wrong ones."""
+    or hold another session's work. An item whose stages are not the idea's route (its roles, in order) gets no words, not wrong ones."""
     import src_git
+    sys.path.insert(0, str(build.ROOT / 'Tools' / 'pipeline'))
+    import pipeline
     routed = [i for i in ideas if i.get('routed')]
     if not routed or not board or not Path(board).is_dir():
         return {}
@@ -284,16 +288,34 @@ def stands(ideas, board):
         if not isinstance(stages, list):
             out[i['id']] = dict(on=False, steps=[])
             continue
-        newest = {}
+        per = {}
         for n in names:
             if n.startswith(f'results/{rid}--'):
                 r = read(n)
                 if isinstance(r, dict) and r.get('item') == rid:
-                    newest[r.get('stage')] = max(newest.get(r.get('stage'), r), r, key=lambda x: (str(x.get('finished_at', '')), x.get('attempt', 0)))
-        done = {s for s, r in newest.items() if r.get('verdict') == 'PASS'}
-        steps = []
-        if len(stages) == len(i.get('route', [])):
-            steps = ['done' if s.get('id') in done else '' if not set(s.get('after', [])) <= done else 'you' if s.get('role') == 'master' else 'next' for s in stages]
+                    r['_file'] = Path(n).name
+                    per.setdefault(r.get('stage'), []).append(r)
+        done, chosen, steps = set(), {}, []
+        if [s.get('role') for s in stages] == [r.get('role') for r in i.get('route', [])]:
+            for s in stages:
+                rs = per.get(s.get('id')) or []
+                res = None
+                if rs:                                     # the pipeline's valid_result: the newest record's job, highest attempt of it
+                    job = max(rs, key=lambda x: (str(x.get('finished_at', '')), x.get('attempt', 0), x['_file'])).get('job')
+                    res = max([r for r in rs if r.get('job') == job], key=lambda x: x.get('attempt', 0))
+                after = s.get('after', [])
+                if not set(after) <= done:
+                    steps.append('')
+                    continue
+                up = pipeline.sha(*[chosen[a]['_file'] for a in after])
+                if res and res.get('verdict') == 'PASS' and res.get('upstream_rev', up) in (up, '', None):
+                    done.add(s.get('id'))                  # a record written by hand carries no upstream_rev: it counts as matching
+                    chosen[s.get('id')] = res
+                    steps.append('done')
+                elif res and res.get('verdict') == 'PASS':
+                    steps.append('again')                  # the pipeline's RECHECK: its upstream result changed under it
+                else:
+                    steps.append('you' if s.get('role') == 'master' else 'next')
         out[i['id']] = dict(on=True, steps=steps)
     return out
 
