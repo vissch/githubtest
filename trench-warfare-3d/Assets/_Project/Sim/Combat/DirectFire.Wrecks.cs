@@ -11,7 +11,8 @@
 // his range and sight that shelters his enemies: a Shot whose b names the prop (PropTarget), a hit (a hull-sized mark)
 // from a machine gun wears it by WreckFireShare of the round, and every round keeps the heads behind it down (the near
 // miss's suppression on each enemy in its shadow: within its reach, past it on the shooter's line and no wider than its
-// body; a man on its flank is neither sheltered nor suppressed, and a blinding screen on the line stops the shot, [N5.3]). Nothing is drawn for a man with a target, so a field with no one
+// body; a man on its flank is neither sheltered nor suppressed, [N5.3]). A screen on the line does not stop it: fire at
+// a wreck is fire at a place, not at a man who must be seen ([N5.3b], owner 2026-10-12). Nothing is drawn for a man with a target, so a field with no one
 // behind a wreck fights as before. Tank guns are TankGunnerySystem's and do not do this.
 // The props' hit points are in MapData's hash, so this system still hashes nothing of its own.
 using Unity.Collections;
@@ -108,8 +109,8 @@ namespace TW.Sim.Combat
             /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight with its enemies behind
             /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not,
             /// nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).
-            /// Only the enemies in the wreck's shadow count and are kept down, and a blinding screen on the line stops
-            /// the shot ([N5.3]).
+            /// Only the enemies in the wreck's shadow count and are kept down ([N5.3]). A blinding screen on the line
+            /// does not stop the shot: fire at a wreck is fire at a place, not at a man who must be seen ([N5.3b]).
             /// Only on his own scan tick (TargetAcquisition's stagger, one tick in three): a man whose mark ducked on an
             /// off tick has no target yet, and must keep his cooldown for the scan that can give the man back ([N5.6]).</summary>
             void AtWreck(int i)
@@ -135,8 +136,6 @@ namespace TW.Sim.Combat
                 float3 eye = new float3(p.x, Height.Sample(p.x, p.z) + HeightfieldRaycast.EyeHeight((Stance)StanceOf[i]), p.z);
                 float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
                 if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) return;
-                // a screen on the line blinds the shot, as TargetAcquisition.Sees reads it ([N5.3])
-                if (SmokeOn && SmokeLos.MetresThrough(Smoke, SmokeW, SmokeL, eye, top) >= CombatTables.SmokeBlindMetres) return;
 
                 float3 d3 = s.Pos - p; d3.y = 0f;
                 float dist = SimMath.Length(d3);
