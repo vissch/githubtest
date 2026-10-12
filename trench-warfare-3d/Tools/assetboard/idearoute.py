@@ -23,6 +23,7 @@ The roles a route names (ideas.py ROUTES) must be in Tools/pipeline/roles.json w
 import argparse
 import datetime
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -50,6 +51,7 @@ DOES = {
 }
 GATE_OPTIONS = ('Go on: the next steps start', 'Send it back: I say below what is wrong', 'Stop here: drop this idea')
 GATE_THEN = 'The steps that waited on you start'
+GATE_ASK = ('READY', 'STALE', 'RECHECK')   # a gate waits on him in all three: ready, to be redone, to be rechecked
 slug = briefs.slug
 
 
@@ -133,13 +135,29 @@ def route(where: Path, board: Path, write=True):
     return out
 
 
+def gate_id(iid, sid, info):
+    """A gate's brief, by the revision of the steps before it: built again, built again asked."""
+    return f'gate-{iid}-{sid}-{info["upstream_rev"][:8]}'
+
+
+def gate_stage(iid, bid, own):
+    """The step a gate brief is about: its id with the revision stripped. One asked before the revision was in the
+    id has none, and is acted on all the same."""
+    rest = bid[len(f'gate-{iid}-'):] if bid.startswith(f'gate-{iid}-') else ''
+    for s in own:
+        if rest == s['id'] or re.fullmatch(re.escape(s['id']) + r'-[0-9a-f]{8}', rest):
+            return s
+    return None
+
+
 def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evaluate=None, now=None, by='idearoute.py gates', write=True):
-    """The steps of the owner's own, of the ideas on the board. One that is ready (the step before it passed) is put
-    to him as a brief with the pictures of that step; one with nothing to show is owed a capture and gets no brief. A
+    """The steps of the owner's own, of the ideas on the board. One that waits on him (the step before it passed, or
+    was built again) is put to him as a brief with the pictures of that step; one with nothing to show is owed a capture and gets no brief. A
     brief he has answered is acted on: Go on completes the step (a PASS result, as pipeline.py complete writes it), so
     what waited on it is ready; Send it back is feedback on the step before; Stop here drops the idea.
     `evaluate(item, board)` is pipeline.evaluate (the tests give their own). The last step, the landing, is not put to
-    him here: that is his word to tw-master. `write` False writes nothing and says what would be asked.
+    him here: that is his word to tw-master. A step of his is put to him once per revision of the steps before it, so one
+    built again, or in STALE or RECHECK, is asked again. `write` False writes nothing and says what would be asked.
     Returns dict(asked=[brief ids], done=[(brief id, what happened)], owed=[(item, stage, why)])."""
     import notes
     p = pipeline()
@@ -153,8 +171,9 @@ def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evalu
         states = evaluate(it, b)
         own = [s for s in it['stages'][:-1] if s.get('role') == 'master']
         for s in own:
-            bid, info = f'gate-{iid}-{s["id"]}', states[s['id']]
-            if info['state'] != 'READY' or (briefs_where / bid).exists():
+            info = states[s['id']]
+            bid = gate_id(iid, s['id'], info)
+            if info['state'] not in GATE_ASK or (briefs_where / bid).exists():
                 continue
             ev = []
             for a in s.get('after', []):
@@ -176,11 +195,11 @@ def gates(where: Path, briefs_where: Path, notes_where: Path, board: Path, evalu
         if not write:
             continue
         for a in briefs.answers([x for x in briefs.read_all(briefs_where) if x['id'].startswith(f'gate-{iid}-')], notes.read_all(notes_where)):
-            s = next((x for x in own if f'gate-{iid}-{x["id"]}' == a['id']), None)
+            s = gate_stage(iid, a['id'], own)
             if not s:
                 continue
             info, stamp_ = states[s['id']], f'{(now or datetime.datetime.now()):%Y%m%d%H%M%S}'
-            if a['option'] == 'A' and info['state'] == 'READY':
+            if a['option'] == 'A' and info['state'] in GATE_ASK:
                 attempt = 1 + max([r['attempt'] for r in b.results(iid, s['id']) if r['job'] == info['job']] or [0])
                 p.write_json(b.root / 'results' / f'{info["job"]}--{attempt}.json',
                              dict(job=info['job'], item=iid, stage=s['id'], attempt=attempt, verdict='PASS', station=s['station'], token='owner', consumed=info['consumed'], upstream_rev=info['upstream_rev'],

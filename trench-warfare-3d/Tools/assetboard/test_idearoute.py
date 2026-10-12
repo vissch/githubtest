@@ -116,7 +116,7 @@ def main():
     look = idearoute.gates(where, bwhere, nwhere, board, now=day, write=False)
     g1 = idearoute.gates(where, bwhere, nwhere, board, now=day)
     g1b = idearoute.gates(where, bwhere, nwhere, board, now=day)
-    bid = f'gate-{iid}-you-pick'
+    bid = next((x for x in g1['asked'] if x.startswith(f'gate-{iid}-you-pick')), f'gate-{iid}-you-pick')
     br = briefs.find(bwhere, bid) if (bwhere / bid).exists() else {}
     case('gates: his step is put to him once, as a brief with the pictures of the step before, three options, and Go on says what happens then; a look writes nothing',
          look['asked'] == [bid] and g1['asked'] == [bid] and g1b['asked'] == [] and len(br.get('evidence', [])) == 1 and br['evidence'][0]['caption'].startswith('concept') and [o['text'] for o in br['options']] == list(idearoute.GATE_OPTIONS)
@@ -133,7 +133,7 @@ def main():
          and not [n for n in notes.read_all(nwhere) if n['state'] != 'done'], (g2, s2, s3))
     passes('ui-art')
     g3 = idearoute.gates(where, bwhere, nwhere, board, now=day)
-    bid2 = f'gate-{iid}-you-build-it'
+    bid2 = next((x for x in g3['asked'] if x.startswith(f'gate-{iid}-you-build-it')), f'gate-{iid}-you-build-it')
     notes.write(nwhere, 'B: ' + idearoute.GATE_OPTIONS[1] + '\nthe whistle is too small on the HUD', kind='page', about='brief:' + bid2, now=day)
     g4 = idearoute.gates(where, bwhere, nwhere, board, now=day)
     s4 = states()
@@ -141,6 +141,34 @@ def main():
     case('gates: Send it back is feedback on the step before with his words, which makes that step to be done again; nothing after it starts',
          g3['asked'] == [bid2] and g4['done'] and g4['done'][0][1].startswith('sent back: ui-art') and len(fb) == 1 and fb[0]['stage'] == 'ui-art' and 'too small' in fb[0]['words'] and s4['ui-art'] in ('STALE', 'READY')
          and s4['you-build-it'] == 'BLOCKED' and s4['sim-build'] == 'BLOCKED', (g4, s4, fb))
+    # [U055.2] the gate asks again once the step before it was built again, and his Go on passes it then
+    passes('ui-art')                                  # he was listened to: the art is made again
+    g9 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    bid4 = next((x for x in g9['asked'] if x.startswith(f'gate-{iid}-you-build-it')), '')
+    if bid4:
+        notes.write(nwhere, 'A: ' + idearoute.GATE_OPTIONS[0], kind='page', about='brief:' + bid4,
+                    then=briefs.find(bwhere, bid4)['options'][0]['then']['stamp'], now=day)
+    g10 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    s5 = states()
+    case('[U055.2] gates: a step of his whose step before was sent back and built again is put to him again, and his Go on passes it',
+         bool(bid4) and bid4 != bid2 and g10['done'] and g10['done'][0][0] == bid4 and s5['you-build-it'] == 'DONE' and s5['sim-build'] == 'READY',
+         ('[U055.2] the gate was not asked again after the step before it was redone', g9, g10, s5))
+    # [U055.2] a gate whose upstream results changed (RECHECK) is asked again and does not stay RECHECK
+    fid = 'FR-owner-test-concept'
+    pipeline.write_json(board / 'feedback' / f'{fid}.json', dict(id=fid, item=iid, stage='concept', words='the concept is too dark',
+                                                                check='the owner looks at it again', status='open', created_at=pipeline.now()))
+    passes('concept')                                 # made again after his words; you-pick's own inputs did not change
+    s6 = states()
+    g11 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    bid5 = next((x for x in g11['asked'] if x.startswith(f'gate-{iid}-you-pick')), '')
+    if bid5:
+        notes.write(nwhere, 'A: ' + idearoute.GATE_OPTIONS[0], kind='page', about='brief:' + bid5,
+                    then=briefs.find(bwhere, bid5)['options'][0]['then']['stamp'], now=day)
+    g12 = idearoute.gates(where, bwhere, nwhere, board, now=day)
+    s7 = states()
+    case('[U055.2] gates: a step of his in RECHECK, the step before it redone, is put to him again and does not stay RECHECK',
+         s6['you-pick'] == 'RECHECK' and bool(bid5) and bid5 != bid and g12['done'] and s7['you-pick'] == 'DONE',
+         ('[U055.2] a RECHECK gate was never put to him again', s6, g11, g12, s7))
     iid2 = 'idea-a-victory-slate-slams-down'
     iid, keep = iid2, iid
     passes('ux', shown=False)
@@ -152,7 +180,7 @@ def main():
     f.parent.mkdir(parents=True, exist_ok=True)
     f.write_bytes(pic.read_bytes())
     g6 = idearoute.gates(where, bwhere, nwhere, board, now=day)
-    bid3 = f'gate-{iid2}-you-pick'
+    bid3 = next((x for x in g6['asked'] if x.startswith(f'gate-{iid2}-you-pick')), f'gate-{iid2}-you-pick')
     notes.write(nwhere, 'C: ' + idearoute.GATE_OPTIONS[2], kind='page', about='brief:' + bid3, now=day)
     g7 = idearoute.gates(where, bwhere, nwhere, board, now=day)
     g8 = idearoute.gates(where, bwhere, nwhere, board, now=day)
