@@ -2,6 +2,7 @@
 # Drive the asset playground (docs/22) in THIS checkout's editor, which must be in Play in Playground.unity.
 #   pg.sh do "cmd; cmd; ..."      queue playground commands (PlaygroundHost.Do strings)
 #   pg.sh shot NAME [W H]         capture the playground camera to Captures/playground/NAME.png (+ .json), wait for it
+#   pg.sh do "bang F KIND ..."    a shot on the event, five frames round it (bang.sh drives it and makes the loop)
 #   pg.sh report                  the host's JSON report (no image)
 #   pg.sh wait SECONDS            real-time wait
 set -u
