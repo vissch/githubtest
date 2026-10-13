@@ -162,6 +162,8 @@ namespace TW.Tests
             int before = r.W.Silver[0];
             r.Step(Rig.Beam(0, Start), Rig.Beam(0, Start + new float3(0f, 0f, 30f)));
             Assert.LessOrEqual(r.W.Silver[0], before - 300 + 1, "paid once");
+            // [T13] the line above also passed if the second beam had been charged for as well
+            Assert.Greater(r.W.Silver[0], before - 600, "[T13] paid once, not twice: the beam costs 300");
             Assert.AreEqual(1, r.Count(SimEventType.CommandRejected), "the second is on cooldown");
             Assert.AreEqual(1, r.M.Abilities.Scheduled.Length);
             var p = r.M.Abilities.Scheduled[0];

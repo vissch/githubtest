@@ -11,11 +11,11 @@
 //   - a second battlefield seed runs, where every other lockstep test uses 1917 alone;
 //   - a failure names the array or the SYSTEM that diverged instead of only the tick.
 //
-// The compared value does not include the ground. MapData.Hash is never folded into SimWorld.Hash(), and
-// DeformationSystem.Hash folds a checksum of crater INPUTS plus three counters, not the heightfield it wrote.
-// So crater deformation - the headline reason for testing this map rather than the greybox - was outside the
-// hash. These tests compare Map.Hash directly, which is the cheap way to cover it without changing what the
-// shipped tick hash costs.
+// [T11] CORRECTION, 2026-10-14. The lines here used to say the compared value does not include the ground. It
+// does: TerrainHashSystem (Sim/Match/TerrainHashSystem.cs, registered at MatchSim.cs:76, replay v4 per
+// Sim/Core/Replay.cs:17) folds the map into the tick hash, so crater deformation - the headline reason for
+// testing this map rather than the greybox - is inside it. SameGround below still earns its place: it compares
+// Map.Hash directly, so a failure names the TERRAIN instead of "some array in the tick hash".
 //
 // SimHost runs TWO complete sims side by side and latches on the first hash divergence (compared at
 // SimHost.cs:112, latched at :114, logged at :115) - but only on ticks where the two worlds are level, so a
@@ -109,12 +109,15 @@ namespace TW.Tests
             return h;
         }
 
-        /// <summary>The ground, which SimWorld.Hash() does not cover. Cheap, so it is checked often but not per tick.</summary>
+        /// <summary>
+        /// [T11] The ground on its own. TerrainHashSystem already folds it into the tick hash, so this is not the
+        /// only cover it has; what it adds is a name on the failure. Cheap, so it is checked often but not per tick.
+        /// </summary>
         static void SameGround(MatchSim a, MatchSim b, string what)
             => Assert.AreEqual(a.Map.Hash(SimHash.Offset), b.Map.Hash(SimHash.Offset),
                 $"{what}: the two worlds' TERRAIN diverged by tick {a.World.Tick} (heights or nav layers). " +
-                "SimWorld.Hash() does not fold MapData.Hash in, and DeformationSystem hashes its crater inputs " +
-                "rather than the heightfield it wrote, so a unit has to walk on it before the tick hash notices.");
+                "TerrainHashSystem folds the map into the tick hash as well, so that hash should have gone with " +
+                "it; this assert is the one that says the ground is what moved.");
 
         /// <summary>
         /// [T9] The actual guard for "do the two worlds start equal": LastHash is 0UL until the first Step (SimWorld.cs

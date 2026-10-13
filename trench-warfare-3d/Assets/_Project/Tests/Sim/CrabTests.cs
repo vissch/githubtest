@@ -91,8 +91,7 @@ namespace TW.Tests
                 Assert.Greater(p.SlopeLimit, VehicleProfile.Maw.SlopeLimit, $"{a} climbs what the heavy tank cannot");
                 Assert.Less(p.BogChance, VehicleProfile.Tusk.BogChance, $"{a} finds footing where a track sinks");
                 Assert.IsTrue(TankSpec.For(a).Unmanned, $"{a} has nobody inside to bail out");
-                Assert.Greater(TankSpec.For(a).ClawReach, 0f, $"{a} has claws");
-                Assert.AreEqual(0f, p.DitchChance);
+                Assert.Greater(TankSpec.For(a).ClawReach, 0f, $"{a} has claws");   // [T12] a duplicate DitchChance assert stood here
             }
         }
 
@@ -253,6 +252,9 @@ namespace TW.Tests
             using var m = NewMatch();
             int crab = SpawnCrab(m, 0, VehicleArchetype.Censer, new float3(30f, 0f, 30f));
             Run(m, 80);
+            // [T12] without this the test passed on a Censer that never laid any gas in the first place
+            Assert.Greater(m.Gas.Sources.Length, 0,
+                "[T12] the Censer was laying gas before the drum was holed");
             m.Modules.Module[crab * (int)VehicleModule.Count + (int)VehicleModule.Ammo] = 0f;
             Run(m, 200);   // longer than any source it had already laid can last
             Assert.AreEqual(0, m.Gas.Sources.Length, "with the drum holed nothing more comes out of it");
@@ -308,7 +310,7 @@ namespace TW.Tests
 
         // ------------------------------------------------------------------ the roster
         [Test]
-        public void EachSideHasATankAndThreeWalkers()
+        public void EachSideHasATankAndThreeMoreMachines()
         {
             using var m = NewMatch();
             var w = m.World;
@@ -324,6 +326,12 @@ namespace TW.Tests
             Assert.AreEqual(VehicleArchetype.Kettle, w.Roster[b + 7].Archetype);
             Assert.AreEqual(VehicleArchetype.Censer, w.Roster[b + 8].Archetype);
             Assert.AreEqual(VehicleArchetype.Redoubt, w.Roster[b + 9].Archetype);
+            // [T12] the old name said "three walkers" a side, which Iron does not have: the Breaker is a squat
+            // assault tank (VehicleKinematics.cs:114-116 sets no Walker), so Iron fields two tanks and two walkers.
+            foreach (byte tank in new[] { VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Breaker })
+                Assert.IsFalse(VehicleProfile.ForArchetype(tank).Walker, $"[T12] {tank} is a tank, not a walker");
+            foreach (byte walker in new[] { VehicleArchetype.Pincer, VehicleArchetype.Banner, VehicleArchetype.Kettle, VehicleArchetype.Censer, VehicleArchetype.Redoubt })
+                Assert.IsTrue(VehicleProfile.ForArchetype(walker).Walker, $"[T12] {walker} is a walker");
             for (int s = 0; s < RosterEntry.SlotCount; s++) Assert.AreEqual(1, w.SlotUnlocked[s], $"slot {s} can be deployed");
         }
     }
