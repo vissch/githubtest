@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests for pipeline.py on throwaway git repos: python Tools/pipeline/test_pipeline.py. Stdlib only."""
-import json, os, subprocess, sys, tempfile, unittest
+import json, os, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -427,6 +427,52 @@ class RunDetachedTest(unittest.TestCase):
         rec = P.read_json(rj)
         self.assertEqual(rec["state"], "DONE", "[O6] a failed status write left the wrapper without a verdict")
         self.assertIn("exit_code", rec)
+
+    def test_a_bad_run_name_is_refused(self):
+        # [O16] the name was joined into a path unchecked, so "../escape" read and wrote outside TW_RUNS.
+        with self.assertRaises(SystemExit, msg="[O16] a run name that escapes TW_RUNS was accepted") as cm:
+            R.main(["status", "../escape"])
+        self.assertIn("bad run name", str(cm.exception), "[O16] the refusal does not name the name rule")
+
+    def test_wrap_starts_a_fresh_log(self):
+        # [O16] the log was opened "ab", so a second run of the same name left the old run's output in front of the
+        # new one and a reader took stale text for fresh output.
+        rj = self.write("relog", dict(state="STARTING", timeout_s=60, cwd=os.getcwd(),
+                                      cmd=[sys.executable, "-c", "print('new')"]))
+        Path(P.read_json(rj)["log"]).write_text("old\n")
+        R.cmd_wrap(type("A", (), {"name": "relog"})())
+        text = Path(P.read_json(rj)["log"]).read_text()
+        self.assertNotIn("old", text, "[O16] the log still holds the previous run's output")
+        self.assertIn("new", text, "[O16] the new run's output is missing")
+
+    def test_the_timeout_is_not_wall_clock(self):
+        # [O16] the timeout was measured with time.time(): an NTP step or a DST change could postpone a kill for
+        # hours or fire one at once. Here the wall clock is frozen; a monotonic clock still times out.
+        rj = self.write("mono", dict(state="STARTING", timeout_s=0.3, cwd=os.getcwd(),
+                                     cmd=[sys.executable, "-c", "import time; time.sleep(3)"]))
+        frozen = time.time()
+        shim = type("T", (), {"time": staticmethod(lambda: frozen), "monotonic": staticmethod(time.monotonic),
+                              "sleep": staticmethod(time.sleep)})
+        real_time, real_beat = R.time, R.BEAT_S
+        R.time, R.BEAT_S = shim, 0.05
+        try:
+            R.cmd_wrap(type("A", (), {"name": "mono"})())
+        finally:
+            R.time, R.BEAT_S = real_time, real_beat
+        self.assertEqual(P.read_json(rj)["state"], "TIMEOUT",
+                         "[O16] a frozen wall clock stopped the timeout from firing")
+
+    def test_a_run_records_its_job_name(self):
+        # [O16] grandchildren survived stop and timeout: nothing held the child's descendants. The wrapper now puts
+        # the child in a named Windows Job, and the record names it so another process can kill the whole tree.
+        rj = self.write("jobbed", dict(state="STARTING", timeout_s=60, cwd=os.getcwd(),
+                                       cmd=[sys.executable, "-c", "pass"]))
+        R.cmd_wrap(type("A", (), {"name": "jobbed"})())
+        rec = P.read_json(rj)
+        if os.name == "nt":
+            self.assertEqual(rec.get("job"), "tw-run-jobbed", "[O16] the run does not record its Job object")
+        else:
+            self.assertIn("job", rec, "[O16] the record has no job field")
 
 
 if __name__ == "__main__":
