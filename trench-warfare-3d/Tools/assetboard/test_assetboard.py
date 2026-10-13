@@ -2419,10 +2419,24 @@ def gamefilm_cases():
          len(behind) == 1 and behind[0].startswith('FROM BEHIND'), behind)
     mostly = gamefilm.check_trace('Maw.battle.game-moves', rows(n=40, step=0.5) + rows(n=4, step=0.5, guns=False), machine=True)
     case('gamefilm: a tenth of the frames may hide the guns (the machine turns away for a moment)', mostly == [], mostly)
+    # [A2] a `turn` film orbits the machine on purpose: a third of its frames hides the guns by design
+    orbit_ok = gamefilm.check_trace('Maw.battle.game-turn', rows(n=30, guns=False) + rows(n=60, guns=True), machine=True)
+    case('gamefilm: a turn film may hide the guns for a third of its frames (an orbit)', orbit_ok == [], orbit_ok)
+    orbit_bad = gamefilm.check_trace('Maw.battle.game-turn', rows(n=60, guns=False) + rows(n=40, guns=True), machine=True)
+    case('gamefilm: a turn film still fails FROM BEHIND past the third of an orbit',
+         len(orbit_bad) == 1 and orbit_bad[0].startswith('FROM BEHIND'), orbit_bad)
     man = gamefilm.check_trace('Sniper.battle.game-battle', rows(guns=False))
     case('gamefilm: the guns rule is a machine rule: a man filmed the same way passes', man == [], man)
     empty = gamefilm.check_trace('Maw.battle.game-moves', [], machine=True)
     case('gamefilm: a film with an empty trace is not green', len(empty) == 1 and empty[0].startswith('NO FRAMES'), empty)
+    # [A4] the `on` column was read and never judged
+    never_on = gamefilm.check_trace('Sniper.battle.game-battle', rows(on=False))
+    case('gamefilm: a camera that never held its subject fails as NO SUBJECT',
+         len(never_on) == 1 and never_on[0].startswith('NO SUBJECT'), never_on)
+    died_early = gamefilm.check_trace('Sniper.battle.game-battle', rows(n=10, on=True) + rows(n=40, on=False))
+    case('gamefilm: a subject that dies early fails as SUBJECT LOST EARLY, held on an empty spot the rest of the take',
+         len(died_early) == 1 and died_early[0].startswith('SUBJECT LOST EARLY') and '10 of 50' in died_early[0], died_early)
+    case('gamefilm: a film held on-subject throughout still passes', good == [], good)
 
     # the same verdicts, written and read back the way TankCapture writes them
     tmp = Path(tempfile.mkdtemp(prefix='tw-gamefilm-test-'))
@@ -2434,6 +2448,13 @@ def gamefilm_cases():
          len(back) == 48 and back[7]['x'] == 3.5 and back[7]['on'] and back[7]['guns'], back[:2])
     case('gamefilm: and judged green', gamefilm.check_trace('Maw.battle.game-moves', back, machine=True) == [], 'not green')
     shutil.rmtree(tmp, ignore_errors=True)
+
+    # [A8] a same-named film from outside OUT has no trace of its own: it must not be read off another film's
+    gamefilm.OUT.mkdir(parents=True, exist_ok=True)
+    in_out = gamefilm.trace_for(gamefilm.OUT / 'Maw.battle.game-moves.mp4')
+    case('gamefilm: a film in OUT is given its own trace path', in_out == gamefilm.trace_path('Maw.battle.game-moves'), in_out)
+    elsewhere = gamefilm.trace_for(tmp / 'Maw.battle.game-moves.mp4')
+    case('gamefilm: a same-named film outside OUT has no trace of its own', elsewhere is None, elsewhere)
 
 
 if __name__ == '__main__':

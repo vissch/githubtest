@@ -241,6 +241,7 @@ def film(only):
     OUT.mkdir(parents=True, exist_ok=True)
     want = lambda n: not only or n in only
     vehicles, units = library()
+    fails = 0
     for k, name in enumerate(vehicles):
         if not want(name):
             continue
@@ -254,11 +255,14 @@ def film(only):
         pace = 'walk 2 1' if (man.get('walker') or man.get('hopper') or man.get('flyer')) else 'walk 2'
         do(f'{STAGE}; cookdelay 5; model v {k}; vehicle'); settle(2.5)
         do(f'vehicle; repair; walk 0; fly 0{follow}'); settle()
-        record(f'{name}.trial.game-turn', 8, spin=360)
+        if not record(f'{name}.trial.game-turn', 8, spin=360):
+            fails += 1
         do(f'vehicle; {pace}; fly 8{follow}'); settle()
-        record(f'{name}.trial.game-moves', 12, cues=[(0.2, 'traverse'), (3.0, 'fire'), (4.5, 'fire'), (6.0, 'fire'), (7.5, 'fire'), (9.0, 'traverse'), (10.0, 'fire')])
+        if not record(f'{name}.trial.game-moves', 12, cues=[(0.2, 'traverse'), (3.0, 'fire'), (4.5, 'fire'), (6.0, 'fire'), (7.5, 'fire'), (9.0, 'traverse'), (10.0, 'fire')]):
+            fails += 1
         do(f'vehicle; walk 0; fly 3{follow}'); settle()
-        record(f'{name}.trial.game-destroyed', 16, cues=[(0.5, 'seq')])
+        if not record(f'{name}.trial.game-destroyed', 16, cues=[(0.5, 'seq')]):
+            fails += 1
         do('repair')
     for k, name in enumerate(units):
         if not want(name):
@@ -266,22 +270,29 @@ def film(only):
         print(name)
         do(f'{STAGE}; model u {k}; unit; clip Rifle Idle'); settle(2.5)
         do('unit; clip Rifle Idle'); settle()
-        record(f'{name}.trial.game-turn', 8, spin=360)
+        if not record(f'{name}.trial.game-turn', 8, spin=360):
+            fails += 1
         do('unit; clip Rifle Walk; face 40'); settle()
-        record(f'{name}.trial.game-moves', 20, cues=[(3, 'clip Rifle Run (1)'), (5.5, 'clip Rifle Crouch Walk'), (8, 'clip Firing Rifle'), (10.5, 'clip Fire Rifle'),
-                                                     (12.5, 'clip Reloading'), (15, 'clip Toss Grenade'), (17.5, 'kill')])
+        if not record(f'{name}.trial.game-moves', 20, cues=[(3, 'clip Rifle Run (1)'), (5.5, 'clip Rifle Crouch Walk'), (8, 'clip Firing Rifle'), (10.5, 'clip Fire Rifle'),
+                                                     (12.5, 'clip Reloading'), (15, 'clip Toss Grenade'), (17.5, 'kill')]):
+            fails += 1
         do('unit; clip Rifle Run (1); face 40'); settle()
-        record(f'{name}.trial.game-burning', 10, cues=[(1.0, 'ignite')])
+        if not record(f'{name}.trial.game-burning', 10, cues=[(1.0, 'ignite')]):
+            fails += 1
     for set_name, house in buildings():
         if not want(house):
             continue
         print(house)
         do(f'{STAGE}; set {set_name}; house {house}'); settle(2.5)
-        record(f'{house}.game-turn', 8, spin=360)
+        if not record(f'{house}.game-turn', 8, spin=360):
+            fails += 1
         do('rebuild'); settle(0.5)
-        record(f'{house}.game-shelled', 14, cues=[(0.5 + 0.7 * i, 'shell') for i in range(14)])
+        if not record(f'{house}.game-shelled', 14, cues=[(0.5 + 0.7 * i, 'shell') for i in range(14)]):
+            fails += 1
         do('rebuild')
-    return 0
+    if fails:
+        print(f'gamefilm: {fails} takes failed their check')
+    return 1 if fails else 0
 
 
 def scene(path, check):
@@ -343,6 +354,7 @@ def battle(only):
     size = str(run(f'var s = {host}.Local.Map.SizeMeters; return s.x + " " + s.y;')).split()
     width, depth = float(size[0]), float(size[1])
     todo = [(n, k) for n, k in machines() if not only or n in only]
+    fails = 0
     for i, (name, arch) in enumerate(todo):
         print(name)
         # each on ground of its own, two rows deep, so the last one's wreck is not in the next one's film
@@ -366,15 +378,18 @@ def battle(only):
         time.sleep(1.5)
         cam = dict(slot=slot, zoom=near, yaw=bear)
         # a turn film orbits: the spin ADDS to that bearing frame by frame, it does not replace it
-        record(f'{name}.battle.game-turn', 8, spin=360, battle=cam)
+        if not record(f'{name}.battle.game-turn', 8, spin=360, battle=cam):
+            fails += 1
         # the machine drives and turns from here on, so the bearing follows its facing every frame (onFacing)
         run(f'TW.Editor.RiderLab.Camera({slot}, {far:.1f}f, {bear:.1f}f, 24f); return TW.Editor.TankCapture.Follow({slot}, {far:.1f}f, {bear:.1f}f, true);')
-        record(f'{name}.battle.game-moves', 16, battle=dict(cam, zoom=far),
-               cues=[(0.2, f'TW.Editor.RiderLab.Enemies({slot}, 8, 55f, 0f); TW.Editor.RiderLab.Drive({slot}, 45f);')])
+        if not record(f'{name}.battle.game-moves', 16, battle=dict(cam, zoom=far),
+               cues=[(0.2, f'TW.Editor.RiderLab.Enemies({slot}, 8, 55f, 0f); TW.Editor.RiderLab.Drive({slot}, 45f);')]):
+            fails += 1
         run(f'TW.Editor.RiderLab.Stop({slot}); return TW.Editor.RiderLab.ClearEnemies({slot}, 120f);')
         run(f'return TW.Editor.TankCapture.Follow({slot}, {far:.1f}f, {bear:.1f}f, true);')
-        record(f'{name}.battle.game-destroyed', 10, battle=dict(cam, zoom=far),
-               cues=[(1.0, f'TW.Editor.TankCapture.Ignite({slot}, 1f);'), (4.0, f'TW.Editor.RiderLab.Kill({slot});')])
+        if not record(f'{name}.battle.game-destroyed', 10, battle=dict(cam, zoom=far),
+               cues=[(1.0, f'TW.Editor.TankCapture.Ignite({slot}, 1f);'), (4.0, f'TW.Editor.RiderLab.Kill({slot});')]):
+            fails += 1
     # the men: a section of each kind, enemy riflemen ahead of it, filmed as the sim fights them
     men = [(n, k) for n, k in figures() if not only or n in only]
     for i, (name, arch) in enumerate(men):
@@ -393,9 +408,12 @@ def battle(only):
         time.sleep(2.0)
         run(f'TW.Editor.RiderLab.Panel(false); TW.Editor.RiderLab.Camera({lead}, 7f, 150f, 42f); return TW.Editor.TankCapture.Follow({lead}, 7f, 150f, false);')
         time.sleep(1.0)
-        record(f'{name}.battle.game-battle', 18, battle=dict(slot=lead, zoom=7, yaw=150), cues=[(0.5, f'TW.Editor.RiderLab.Enemies({lead}, 8, 38f, 0f);')])
+        if not record(f'{name}.battle.game-battle', 18, battle=dict(slot=lead, zoom=7, yaw=150), cues=[(0.5, f'TW.Editor.RiderLab.Enemies({lead}, 8, 38f, 0f);')]):
+            fails += 1
         run(f'return TW.Editor.RiderLab.ClearEnemies({lead}, 120f);')
-    return 0
+    if fails:
+        print(f'gamefilm: {fails} takes failed their check')
+    return 1 if fails else 0
 
 
 # --- the check: did the film keep its subject, and did the subject move? -----------------------------------------
@@ -406,6 +424,8 @@ def battle(only):
 IN_FRAME = (0.08, 0.92)      # a subject outside this part of the viewport is not really in the picture
 MOVED_M = 3.0                # a film named `moves` whose subject travels less than this stood still
 GUNS_SHARE = 0.1             # a machine may be seen from behind in a tenth of its frames, no more
+ORBIT_GUNS = 0.5             # [A2] a `turn` film orbits the machine on purpose, so a third of it is behind by design
+ON_SHARE = 0.33              # [A4] a subject that leaves fewer than this share of frames on-subject is a dead or lost one
 STILL_MEAN = 0.15            # mean frame difference, 0-255: the still Mercy sat at 0.024, the next quietest film (Brute, moving) at 0.627
 CUT_JUMP = 40.0              # a change that STAYS (6 frames after against 6 before): the four men's battle films that cut away
                              # measured 42..66, every other film of 2026-10-06 at most 38 (Banner.turn, a camera orbit)
@@ -443,9 +463,17 @@ def check_trace(name, rows, machine=False):
         if span < MOVED_M:
             bad.append(f'STILL: the subject moved {span:.1f} m, under {MOVED_M:.0f} m, in a film named moves')
     if machine:
+        # [A2] a `turn` film orbits the machine on purpose: it is behind for a third of its frames by design
+        share = ORBIT_GUNS if 'turn' in name else GUNS_SHARE
         hidden = [r for r in rows if not r['guns']]
-        if len(hidden) > GUNS_SHARE * len(rows):
+        if len(hidden) > share * len(rows):
             bad.append(f'FROM BEHIND: {len(hidden)} of {len(rows)} frames do not show its guns')
+    # [A4] the `on` column was read and never judged: a subject that died early left the camera on an empty spot
+    on = [r for r in rows if r['on']]
+    if not rows[0]['on']:
+        bad.append('NO SUBJECT: the camera never held it')
+    elif len(on) < ON_SHARE * len(rows):
+        bad.append(f'SUBJECT LOST EARLY: {len(on)} of {len(rows)} frames hold the real unit')
     return bad
 
 
@@ -506,13 +534,22 @@ def machine_names():
         return set()
 
 
+def trace_for(film):
+    """[A8] The trace path for `film`, or None when `film` does not sit in OUT: a same-named film copied in from
+    elsewhere (the Drive, a temp folder) has no trace of its own, and ffmpeg's only is a sounder judge of it."""
+    film = Path(film)
+    if film.resolve().parent != OUT.resolve():
+        return None
+    return trace_path(film.stem)
+
+
 def check_one(film, machines_known=None):
     """[] or the failures of one .mp4. Prints the verdict."""
     film = Path(film)
     name = film.stem
     subject = name.split('.')[0]
-    tp = trace_path(name)
-    if tp.exists() and tp.stat().st_size > 60:
+    tp = trace_for(film)
+    if tp is not None and tp.exists() and tp.stat().st_size > 60:
         rows = read_trace(tp)
         known = machine_names() if machines_known is None else machines_known
         bad = check_trace(name, rows, machine=subject in known)
