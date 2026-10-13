@@ -477,7 +477,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.RiderLab.Fire(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Freeze(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Panel(on)` | Editor/RiderLab.cs | (no summary: read the method) |
-| `TW.Editor.RiderLab.Camera(slot, zoom, yaw, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks). |
+| `TW.Editor.RiderLab.Camera(slot, zoom, bearing, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, bearing, pitch (the follow keeps it framed while it walks). |
 | `TW.Editor.RiderLab.Film(dir, seconds, fps, w, h)` | Editor/RiderLab.cs | Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower). |
 | `TW.Editor.RiderLab.VolleyShot(path, shots)` | Editor/RiderLab.cs | Save a still to `path` the frame `shots` more rider shots have been fired (a volley caught as it lands). |
 | `TW.Editor.RiderLab.FilmStatus()` | Editor/RiderLab.cs | (no summary: read the method) |
@@ -487,7 +487,9 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.SimProbe.Match()` | Editor/SimProbe.cs | The match being played: seed, battlefield seed and ground, bombardment, stress, tick and mission, the values a test needs to rebuild it. |
 | `TW.Editor.SimProbe.Arrays(peer)` | Editor/SimProbe.cs | A hash per world array, so the canary's two worlds can be compared array by array at the desync tick: pause, then diff Arrays() with Arrays(true). |
 | `TW.Editor.TankCapture.Shot(path, w, h)` | Editor/TankCapture.cs | (no summary: read the method) |
-| `TW.Editor.TankCapture.Follow(slot, zoom, yaw)` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.TankCapture.Follow(slot, zoom, bearing, onFacing)` | Editor/TankCapture.cs | Frame one unit every frame. |
+| `TW.Editor.TankCapture.Trace(path)` | Editor/TankCapture.cs | One line per rendered frame into `path`: frame, viewport x/y of the subject, its world x/z, whether it is still the unit we started on, and whether ... |
+| `TW.Editor.TankCapture.TraceStop()` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.TankCapture.Silver(amount)` | Editor/TankCapture.cs | (no summary: read the method) |
 | `TW.Editor.TankCapture.Spawn(team, archetype, x, z, yawDeg)` | Editor/TankCapture.cs | A unit at an exact place in both worlds, with the stats the match table gives its archetype. |
 | `TW.Editor.TankCapture.Ignite(slot, fire)` | Editor/TankCapture.cs | Set something burning in both worlds (to watch a fire, a bail-out and a cook-off). |
