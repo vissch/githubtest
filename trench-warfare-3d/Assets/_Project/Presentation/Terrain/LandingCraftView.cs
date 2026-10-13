@@ -20,6 +20,8 @@ namespace TW.Presentation.Terrain
     {
         public SimHost Host;
         public const float Length = 11.4f, Beam = 3.7f, Freeboard = 1.25f, RampLength = 3.4f;
+        public const float WakeInterval = .18f;
+        public const int WakeRingsPerStep = 1;
 
         Mesh hull, ramp, band, steamer;
         Material steel, rust, paint;
@@ -30,7 +32,12 @@ namespace TW.Presentation.Terrain
         Matrix4x4[] cutterPose;   // each part of the Cutter in the model's frame, this frame
         MapData map;
         float nextWake;
+        int wakeStep;
         bool subscribed;
+        uint lastTick = uint.MaxValue;
+        Vector3[] craftPrev, craftNow;
+        float[] yawPrev, yawNow;
+        bool[] craftWas;
         /// <summary>When each gunboat last fired (LandingCraftView flashes its gun and lets the smoke drift off).</summary>
         readonly float[] shipFired = new float[TW.Sim.Match.SeaLandingSystem.Ships];
         /// <summary>The fleet that is always there: ships standing off in the haze and the hulks of earlier waves on
@@ -247,6 +254,14 @@ namespace TW.Presentation.Terrain
         }
 
         // ---- drawing ------------------------------------------------------------------------------------------
+        public static Vector3 Ride(Vector3 prev, Vector3 now, float alpha) => Vector3.Lerp(prev, now, Mathf.Clamp01(alpha));
+        public static float RideYaw(float prev, float now, float alpha)
+        {
+            float prevDeg = prev * Mathf.Rad2Deg;
+            float deg = Mathf.Repeat(prevDeg + Mathf.DeltaAngle(prevDeg, now * Mathf.Rad2Deg) * Mathf.Clamp01(alpha), 360f);
+            return deg * Mathf.Deg2Rad;
+        }
+
         void Update()
         {
             using var perf = TW.Sim.PerfMarkers.LandingUpdate.Auto();
@@ -259,14 +274,36 @@ namespace TW.Presentation.Terrain
             var view = GetComponent<GreyboxTerrainView>();
             float now = Time.timeSinceLevelLoad;
             bool wake = Time.time >= nextWake;
-            if (wake) nextWake = Time.time + .18f;
+            if (wake) { nextWake = Time.time + WakeInterval; wakeStep++; }
+
+            if (craftNow == null)
+            {
+                craftPrev = new Vector3[SeaLandingSystem.MaxCraft]; craftNow = new Vector3[SeaLandingSystem.MaxCraft];
+                yawPrev = new float[SeaLandingSystem.MaxCraft]; yawNow = new float[SeaLandingSystem.MaxCraft];
+                craftWas = new bool[SeaLandingSystem.MaxCraft];
+            }
+            if (Host.Local.World.Tick != lastTick)
+            {
+                lastTick = Host.Local.World.Tick;
+                for (int i = 0; i < SeaLandingSystem.MaxCraft && i < landing.Count; i++)
+                {
+                    var p = (Vector3)landing.PositionOf(i);
+                    var yw = landing.YawOf(i);
+                    bool alive = landing.StateOf(i) != LandingState.Idle;
+                    craftPrev[i] = craftWas[i] ? craftNow[i] : p;
+                    yawPrev[i] = craftWas[i] ? yawNow[i] : yw;
+                    craftNow[i] = p;
+                    yawNow[i] = yw;
+                    craftWas[i] = alive;
+                }
+            }
 
             DrawFleet();
             for (int i = 0; i < landing.Count; i++)
             {
                 var state = landing.StateOf(i);
                 if (state == LandingState.Idle) continue;
-                var at = landing.PositionOf(i);
+                var at = i < craftNow.Length ? Ride(craftPrev[i], craftNow[i], Host.Alpha) : (Vector3)landing.PositionOf(i);
                 float ground = view != null && view.Surface != null ? Ground(view, at.x, at.z) : map.SeaLevel - 3f;
                 float depth = Mathf.Max(0f, map.SeaLevel - ground);
                 bool afloat = state == LandingState.RunIn || state == LandingState.Retracting;
@@ -279,7 +316,8 @@ namespace TW.Presentation.Terrain
                 // afloat it floats at its own draught; aground its flat bottom is IN the sand, not hovering over it
                 float y = afloat ? map.SeaLevel + heave - .1f : ground + .45f;
 
-                var rotation = Quaternion.Euler(pitch, landing.YawOf(i) * Mathf.Rad2Deg, roll);
+                float yaw = i < craftNow.Length ? RideYaw(yawPrev[i], yawNow[i], Host.Alpha) : landing.YawOf(i);
+                var rotation = Quaternion.Euler(pitch, yaw * Mathf.Rad2Deg, roll);
                 var body = Matrix4x4.TRS(new Vector3(at.x, y, at.z), rotation, Vector3.one);
                 var rp = new RenderParams(steel) { shadowCastingMode = ShadowCastingMode.On, receiveShadows = true };
                 FrameBudget.Draw(rp, hull, 0, body);
@@ -298,9 +336,14 @@ namespace TW.Presentation.Terrain
                 if (afloat)
                 {
                     float sternZ = at.z + map.SeaAway * Length * .5f;          // the stern is the seaward end
-                    SceneHooks.AddRing(at.x, sternZ, 4.5f);
-                    SceneHooks.AddRing(at.x + Beam * .5f, sternZ - map.SeaAway * 2f, 2.6f);
-                    SceneHooks.AddRing(at.x - Beam * .5f, sternZ - map.SeaAway * 2f, 2.6f);
+                    // one ring a step, rotating over the stern and the two quarters so a lone craft does not wrap
+                    // all 16 ring slots in under a second (W1)
+                    switch ((wakeStep + i) % 3)
+                    {
+                        case 0: SceneHooks.AddRing(at.x, sternZ, 4.5f); break;
+                        case 1: SceneHooks.AddRing(at.x + Beam * .5f, sternZ - map.SeaAway * 2f, 2.6f); break;
+                        default: SceneHooks.AddRing(at.x - Beam * .5f, sternZ - map.SeaAway * 2f, 2.6f); break;
+                    }
                 }
                 else if (Random.value < .5f) SceneHooks.AddRing(at.x + Random.Range(-Beam, Beam), at.z - map.SeaAway * Random.Range(1f, 5f), 3.2f);
             }
