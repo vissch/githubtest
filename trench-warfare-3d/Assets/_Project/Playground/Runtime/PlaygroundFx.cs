@@ -26,9 +26,36 @@ namespace TW.Playground
         public string LastBangKind { get; private set; } = "";
         public float LastBangTime { get; private set; } = -1f;
 
+        // one counter per kind beside the total: a reader that wants "cook" must not lose a cook because a flame
+        // came after it in the same frame (second read P3.1). Five ints, written only when something bangs.
+        readonly int[] bangCounts = new int[5];
+
         void Bang(string kind)
         {
             BangCount++; LastBangKind = kind; LastBangTime = Time.time;
+            switch (kind)
+            {
+                case "burst": bangCounts[0]++; break;
+                case "cook": bangCounts[1]++; break;
+                case "muzzle": bangCounts[2]++; break;
+                case "flame": bangCounts[3]++; break;
+                case "dust": bangCounts[4]++; break;
+            }
+        }
+
+        /// <summary>How many bangs of this kind have been spent: "any" (or a name nobody raises) is the total. A capture
+        /// marks this at arming and fires when it has risen, so the kind it wants is never masked by a later one.</summary>
+        public int BangsOf(string kind)
+        {
+            switch (kind)
+            {
+                case "burst": return bangCounts[0];
+                case "cook": return bangCounts[1];
+                case "muzzle": return bangCounts[2];
+                case "flame": return bangCounts[3];
+                case "dust": return bangCounts[4];
+                default: return BangCount;
+            }
         }
 
         sealed class LampState { public Light L; public float Born, Life, Peak; public Transform Follow; public Vector3 Offset; public bool Flicker; public float Seed; }

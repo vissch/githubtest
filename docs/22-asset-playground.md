@@ -335,6 +335,11 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
   two-second loop of the dust itself. Nothing bangs inside the host's 20-second wait and the manifest says
   `"bang": false`, so the script says `NO BANG NAME` and exits 1 rather than hanging. Both House5 critics saw no dust
   because every clock still was shot 20 seconds late; `round.sh` now takes `x1_hit` and `x2_cook` this way.
+  The five frames are not centred, by design: one from up to 0.2 s before the bang, the bang's own, then the rest
+  0.2 s apart. When the kept frame would be the bang's own instant it is dropped, and a fourth frame comes after
+  instead, so no two frames are of one instant. The manifest lists every frame's offset from the bang, so the recipe
+  never has to guess which one it is. The host counts bangs per kind (`PlaygroundFx.BangsOf`), so a `cook` followed
+  by a `flame` in the same frame still fires the shot the `cook` was armed for.
 - **Weight** (round g14, from the first critic to see motion, g13: hop 7, firing 6/6, destruction 5): on the ground the
   body sinks over planted feet (`HopDrive.Fold`: two-bone IK in the body's side plane moves each ankle and wrist up by
   the sink, the foot or hand keeping its angle, and the clamp lowers the body by as much): -0.15 m in the crouch before

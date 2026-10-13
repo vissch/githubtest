@@ -886,7 +886,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   TW/Playground/Build) and `Playground/Editor/PlaygroundImport.cs` (import rules for `Playground/Art`). Design:
   `docs/22-asset-playground.md`; driving it and its stills: `pipelines.md`, "Asset playground".
 - **Tests:** PlaygroundAssetTests (parts and rigs per LOD, the LOD-identical breakup), PlaygroundBangTests (the
-  worked example of the shot on the bang), PlaygroundFxTests.
+  worked example of the shot on the bang: the five frames and never two of one instant), PlaygroundBangHostTests
+  (the host's own BangStep by reflection, with its clock turned by hand: a wanted bang masked by a later kind, and
+  the finished manifest), PlaygroundFxTests.
 - **Trap:** nothing here is in the build settings, and no battle code references it: an asset proven here still has
   to be moved into `Resources/` and the battle's renderers.
 

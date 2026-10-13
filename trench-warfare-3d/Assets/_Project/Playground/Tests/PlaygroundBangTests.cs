@@ -44,6 +44,28 @@ namespace TW.Tests.Playground
         }
 
         [Test]
+        public void ABangOnThePreRollTickKeepsOneFrameOfThatInstant()
+        {
+            // the bang lands on the pre-roll tick itself: the kept frame and the bang frame would be the same instant,
+            // so the pre frame is dropped and a fourth frame comes after instead (second read P3.3).
+            var s = Shot();
+            Assert.IsTrue(s.PreRollDue(0.0f));
+            s.Fire(0.0f);
+            Assert.AreEqual(1, s.Taken, "the bang's own frame only, no pre-roll frame of that same instant");
+            string offsets = s.Manifest();
+            offsets = offsets.Substring(offsets.IndexOf("\"offsets\"", System.StringComparison.Ordinal));
+            Assert.AreEqual(1, System.Text.RegularExpressions.Regex.Matches(offsets, @"0\.000").Count,
+                "exactly one frame at offset 0.000");
+
+            Assert.IsTrue(s.Due(0.2f));
+            Assert.IsTrue(s.Due(0.4f));
+            Assert.IsTrue(s.Due(0.6f));
+            Assert.IsFalse(s.Done);
+            Assert.IsTrue(s.Due(0.8f));
+            Assert.IsTrue(s.Done, "five frames, four of them after the bang");
+        }
+
+        [Test]
         public void ManifestNamesFiveFramesInOrder()
         {
             var s = Shot();

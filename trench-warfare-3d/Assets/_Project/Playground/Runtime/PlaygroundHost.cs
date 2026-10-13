@@ -408,7 +408,7 @@ namespace TW.Playground
                         W = (int)F(a, 3, 800), H = (int)F(a, 4, 450),
                         Step = F(a, 5, 0.2f), Pre = (int)F(a, 6, 1), Wait = F(a, 7, 20f),
                     };
-                    bangMark = Fx != null ? Fx.BangCount : 0; preRing.Clear();
+                    bangMark = Fx != null ? Fx.BangsOf(pending.Kind) : 0; preRing.Clear();
                     break;
                 default: return "unknown command " + c;
             }
@@ -739,23 +739,28 @@ namespace TW.Playground
 
         // ------------------------------------------------------------------------------------- the shot on the bang
         BangShot pending;
-        int bangMark;                                        // Fx.BangCount when the shot was armed
+        int bangMark;                                        // Fx.BangsOf(the kind) when the shot was armed
         readonly List<byte[]> preRing = new List<byte[]>();   // the last Pre frames, encoded, waiting for a bang
+        /// <summary>The clock BangStep reads, so a test can turn it by hand. Only the armed path reads it.</summary>
+        internal static System.Func<float> Now = () => Time.time;
 
         void BangStep()
         {
-            var s = pending; float now = Time.time;
+            var s = pending; float now = Now();
             if (s.PreRollDue(now))
             {
                 var (png, _) = Shoot(s.W, s.H);
                 if (png != null) { preRing.Add(png); while (preRing.Count > s.Pre) preRing.RemoveAt(0); }
             }
-            if (!s.Fired && Fx != null && Fx.BangCount > bangMark && (s.Kind == "any" || Fx.LastBangKind == s.Kind))
+            if (!s.Fired && Fx != null && Fx.BangsOf(s.Kind) > bangMark)
             {
-                // the first rise only: a gatling raises the count sixteen times a second, and the five frames are already owed
+                // the count of THIS kind, not the last bang's name: a cook followed by a flame in the same frame still
+                // fires (second read P3.1). The mark then advances, so a later shot starts from here.
                 int kept = s.Taken;
                 s.Fire(now);
-                for (int k = 0; k < s.Taken - 1 && k < preRing.Count; k++) WriteShot(s.FramePath(k), preRing[k], null);
+                bangMark = Fx.BangsOf(s.Kind);
+                for (int k = 0; k < s.KeptPre && k < preRing.Count; k++)
+                    WriteShot(s.FramePath(k), preRing[preRing.Count - s.KeptPre + k], null);
                 preRing.Clear();
                 if (s.Taken > kept) { var (png, json) = Shoot(s.W, s.H); WriteShot(s.FramePath(s.Taken - 1), png, json); }
             }
