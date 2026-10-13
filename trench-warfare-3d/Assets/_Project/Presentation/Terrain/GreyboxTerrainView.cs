@@ -38,6 +38,8 @@ namespace TW.Presentation.Terrain
             public int NextRow;
             /// <summary>The surface 0.25 m on from the last row read, which is the next row's sample 0.25 m back.</summary>
             public float[] RowAhead;
+            /// <summary>The ground moved under a rebuild already part read: read it over once this pass finishes.</summary>
+            public bool Again;
         }
 
         readonly List<Chunk> chunks = new List<Chunk>();
@@ -58,6 +60,7 @@ namespace TW.Presentation.Terrain
         /// <summary>How long a shell hole takes to fill back in. Guessed, wants a look.</summary>
         public const float SnowFillSeconds = 150f, ScorchHoldSeconds = 14f, RepaintEvery = 2.2f;
         int scorchSweep; float nextScorchRepaint;
+        readonly List<Vector2Int> scratchTiles = new List<Vector2Int>();
         bool hollowsDirty;
         /// <summary>Terrain chunks re-read from the height field per frame after craters; the rest wait their turn.
         /// Superseded by ChunkBudgetMs (2026-09-23): kept for callers, no longer the limit.</summary>
@@ -109,6 +112,21 @@ namespace TW.Presentation.Terrain
         /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
         public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
             unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
+
+        /// <summary>The ground under a chunk changed. A chunk not yet started simply starts; one already part read keeps
+        /// its rows and finishes, then is read over (Again), so a chunk never restarts for ever under a barrage.</summary>
+        public static void Restale(ref int nextRow, ref bool dirty, ref bool again)
+        {
+            dirty = true;
+            if (nextRow > 0) again = true;
+        }
+
+        /// <summary>Its last row is read and the mesh is uploaded: back to row 0, dirty again only if the ground moved
+        /// while it was being read.</summary>
+        public static void Uploaded(ref int nextRow, ref bool dirty, ref bool again)
+        {
+            nextRow = 0; dirty = again; again = false;
+        }
 
         void Start()
         {
@@ -576,13 +594,13 @@ namespace TW.Presentation.Terrain
             using var perf = TW.Sim.PerfMarkers.TerrainUpdate.Auto();
             if (Host == null || Host.Local == null || colorTex == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
-            // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork), and chunks mid-rebuild start over on
-            // the new hollows, so no chunk is ever finished half on the old ones
+            // the hollow rescan is whole-map work: one heavy job a frame (HeavyWork). A chunk mid-rebuild finishes the rows
+            // it has started and is then read over on the new hollows (Restale/Again), so a barrage never starves it
             bool rescanned = false;
             if (hollowsDirty && HeavyWork.TryClaim())
             {
                 TW.Sim.PerfMarkers.TerrainHollows.Begin(); Surface.RefreshHollows(); hollowsDirty = false; TW.Sim.PerfMarkers.TerrainHollows.End();
-                foreach (var chunk in chunks) chunk.NextRow = 0;
+                foreach (var chunk in chunks) Restale(ref chunk.NextRow, ref chunk.Dirty, ref chunk.Again);
                 rescanned = true;
             }
             // Small tiles bound each work item. Terrain pigment catches up over frames after a barrage.
@@ -618,7 +636,8 @@ namespace TW.Presentation.Terrain
             if (colorDirty || mipsStale) ApplyColor();
             // ChunkBudgetMs a frame, a row at a time, taken round the field from where the last frame stopped: a barrage
             // dirties most of the field in one tick. A chunk is uploaded when its last row is read, so a mesh is never
-            // drawn half old and half new; not while the hollows wait to be rescanned (the rows would read old pools)
+            // drawn half old and half new (one pass may mix old and new hollows; Again reads it over right after); not
+            // while the hollows wait to be rescanned (the rows would read old pools)
             TW.Sim.PerfMarkers.TerrainChunks.Begin();
             if (!hollowsDirty && !rescanned)
             {
@@ -632,7 +651,7 @@ namespace TW.Presentation.Terrain
                     chunkCursor = i;   // stay on it until it is done
                     while (c.NextRow < c.L && (rows == 0 || Unmetered || chunkWatch.Elapsed.TotalMilliseconds < chunkBudgetMs)) { FillRow(c, c.NextRow++); rows++; }
                     if (c.NextRow < c.L) break;   // out of time: the rest of this chunk next frame
-                    c.Dirty = false; c.NextRow = 0;
+                    Uploaded(ref c.NextRow, ref c.Dirty, ref c.Again);
                     c.Mesh.vertices = c.Verts; c.Mesh.normals = c.Normals;
                     c.Mesh.RecalculateBounds();
                     if (depthTex != null) { PaintDepth(Mathf.RoundToInt(c.X0 / GridStep), Mathf.RoundToInt(c.Z0 / GridStep), c.W, c.L); depthDirty = true; }
@@ -665,7 +684,7 @@ namespace TW.Presentation.Terrain
                 hollowsDirty = true;
                 if (ScorchTilePainter.Burns(e))
                 {
-                    if (scorchMarks.Count == 64) { scorchMarks.RemoveAt(0); scorchBorn.RemoveAt(0); }
+                    if (MakeRoomForScorch(scorchMarks, scorchBorn, ref scorchSweep, map.Height.Width, map.Height.Length, scratchTiles)) Queue(scratchTiles);
                     scorchMarks.Add(e); scorchBorn.Add(Time.time);
                 }
             }
@@ -678,19 +697,49 @@ namespace TW.Presentation.Terrain
             for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); cx <= x1 / ChunkMeters; cx++)
             {
                 int i = cz * chunksX + cx;
-                if (i >= 0 && i < chunks.Count) { chunks[i].Dirty = true; chunks[i].NextRow = 0; }   // heights changed: start it over
+                if (i >= 0 && i < chunks.Count) { var c = chunks[i]; Restale(ref c.NextRow, ref c.Dirty, ref c.Again); }   // heights changed: read it over
             }
+        }
+
+        /// <summary>The tiles a crater's burn covers, clamped to the map. Pure, so the eviction below can name them
+        /// without touching the queue.</summary>
+        public static void ScorchTiles(in TW.Sim.SimEvent mark, int mapW, int mapL, List<Vector2Int> into)
+        {
+            into.Clear();
+            float r = mark.Scalar * 1.25f + 1f;
+            int x0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.x - r)), x1 = Mathf.Min(mapW - 1, Mathf.CeilToInt(mark.Pos.x + r));
+            int z0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.z - r)), z1 = Mathf.Min(mapL - 1, Mathf.CeilToInt(mark.Pos.z + r));
+            for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++) into.Add(new Vector2Int(x, z));
         }
 
         /// <summary>Queue the tiles a crater covers, so its burn is repainted at whatever it has faded to.</summary>
         void QueueScorchTiles(TW.Sim.SimEvent mark)
         {
             var map = Host.Local.Map;
-            float r = mark.Scalar * 1.25f + 1f;
-            int x0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(mark.Pos.x + r));
-            int z0 = Mathf.Max(0, Mathf.FloorToInt(mark.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(mark.Pos.z + r));
-            for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++)
-            { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+            ScorchTiles(mark, map.Height.Width, map.Height.Length, scratchTiles);
+            Queue(scratchTiles);
+        }
+
+        void Queue(List<Vector2Int> tiles)
+        {
+            for (int n = 0; n < tiles.Count; n++) if (queuedTiles.Add(tiles[n])) paintTiles.Enqueue(tiles[n]);
+        }
+
+        /// <summary>The marks a tile is painted with. Beyond this the oldest is pushed out.</summary>
+        public const int MaxScorchMarks = 64;
+
+        /// <summary>Make room for one more scorch mark: the oldest goes, and <paramref name="repaint"/> is filled with
+        /// the tiles it burned so that ground is painted again without it. The sweep cursor indexes the same list, so
+        /// it moves down with it. False when there was room already.</summary>
+        public static bool MakeRoomForScorch(List<TW.Sim.SimEvent> marks, List<float> born, ref int sweep, int mapW, int mapL, List<Vector2Int> repaint)
+        {
+            repaint.Clear();
+            if (marks.Count < MaxScorchMarks) return false;
+            ScorchTiles(marks[0], mapW, mapL, repaint);
+            marks.RemoveAt(0);
+            if (born.Count > 0) born.RemoveAt(0);
+            if (sweep > 0) sweep--;
+            return true;
         }
 
         /// <summary>Upload the colour texture if it is due (ApplyIntervalMs). At the knobs' defaults this is exactly the old
