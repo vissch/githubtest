@@ -100,6 +100,11 @@ namespace TW.Presentation.Tactical
         public readonly float[] ArtRestYaw = new float[2];       // radians from the nose, positive to the right
         public readonly Vector3[] MuzzleLocal = new Vector3[2];  // in the gun's (or sponson's) own frame
         public readonly int[] GunPart = { -1, -1 };               // LOD0 part that fires gun k
+        /// <summary>The LOD0 part Socket_Muzzle k hangs on, which is the barrel whose mouth it was put on. Not always
+        /// GunPart[k]: a walker with two barrels under one top has both of them as gun 0, so the gun part can be the
+        /// other barrel and MuzzleLocal[k] then lands nowhere near a mouth (the Banner's fire, 2026-10-13: 2.00 m off
+        /// the mouth of Gun_Lower, BannerFireFitTests).</summary>
+        public readonly int[] MuzzlePart = { -1, -1 };
         public float LinkLength = 0.34f;                          // tanksplit: a tread link every ~34 cm
         /// <summary>The tracks' texture runs with the tread (the tanks of Tools/tanksplit.py, whose tracks are unwrapped as
         /// one strip of links). False on a machine whose tracks are painted on its own atlas (the Brute): run there, the
@@ -150,7 +155,7 @@ namespace TW.Presentation.Tactical
             {
                 string socket = k == 0 ? (model.Sockets.ContainsKey("Socket_Muzzle") ? "Socket_Muzzle" : "Socket_Muzzle_L") : "Socket_Muzzle_R";
                 if (!model.Sockets.TryGetValue(socket, out var s)) continue;
-                model.MuzzleLocal[k] = s.local;
+                model.MuzzleLocal[k] = s.local; model.MuzzlePart[k] = s.part;
                 model.ArtRestYaw[k] = Mathf.Atan2(s.local.x, s.local.z);
             }
             var tubes = new List<(int, Vector3)>();
