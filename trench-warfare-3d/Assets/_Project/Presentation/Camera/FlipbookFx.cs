@@ -80,6 +80,11 @@ namespace TW.Presentation.Tactical
             public Vector3 Pos, Vel;
             public float Born, Life, Width, Height, Grow, Roll, Alpha, Glow, Pop, Start;
             public float Cut;         // AOSA C109 (fx.columnPlay): the part of its life (and so of its book) it plays before it is gone (0 = all)
+            public Vector3 Axis;      // a world direction this card is LAID ALONG (zero: drawn as stored). A camera-facing
+                                      // card rolled by ScreenRoll still has its own half-width on screen while the world
+                                      // push that placed it foreshortens, so a long card slides off its root at a quarter
+                                      // view (the Banner's muzzle fire, 2026-10-14). A laid card keeps Pos as the ART
+                                      // ROOT and is placed, rolled and shortened per frame from the eye instead.
             public float Soil, Cap;   // AOSA C103 (fx.columnSoil): how far this column plays the soil heave (SoilShape; 0 = the book's own timing), and its height cap over men (SoilCap)
             public Book Book; public Kind Kind;
         }
@@ -683,13 +688,13 @@ namespace TW.Presentation.Tactical
         /// fraction of its size it is born at, growing to full in the first fifth (0 = born full size). Every card fades
         /// out over its last third.
         /// </summary>
-        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f)
+        public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f, Vector3 axis = default)
         {
             if (!Ready) return;
             if (cards.Count >= maxCards) cards.RemoveAt(0);
             if (IsSmoke(book)) ShapeSmoke(book == Book.Burst ? BurstWeight(smokeWeight) : smokeWeight, smokeLean, aspect[(int)book], ref width, ref height, ref life, ref alpha);   // FlipbookFx.Smoke.cs
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
+            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind, Axis = axis });
         }
 
         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
@@ -704,6 +709,9 @@ namespace TW.Presentation.Tactical
                 if (now < c.Born) continue;   // not born yet
                 if (c.Vel.sqrMagnitude > 0f) { c.Pos += c.Vel * dt; c.Vel = Vector3.Lerp(c.Vel, Vector3.zero, dt * 0.6f); cards[i] = c; }   // the throw slows; the drift on a long card stays
             }
+            var layCam = Camera.main;   // a laid card is placed from the eye; headless, it is drawn as stored
+            Vector3 layRight = layCam != null ? layCam.transform.right : Vector3.zero, layUp = layCam != null ? layCam.transform.up : Vector3.zero;
+            bool canLay = layCam != null;
             float far = FarBlendNow(), keep = FarKeepShare(far), keepGrow = 1f / Mathf.Sqrt(keep);   // the far fire (FlipbookFx.FarFire.cs)
             int bookCount = (int)Book.Count;
             System.Array.Clear(bookStart, 0, bookCount + 1);
@@ -746,6 +754,12 @@ namespace TW.Presentation.Tactical
                         SoilShape(now - c.Born, c.Life, out float soilFrame, out float wide, out float tall);
                         batch[n++] = Pack(c.Pos, c.Width * Mathf.Lerp(swell, wide, c.Soil), c.Height * Mathf.Lerp(swell, tall * c.Cap, c.Soil), Mathf.Lerp(frame, soilFrame, c.Soil), fade, bright, c.Roll, c.Kind, c.Alpha);
                     }
+                    else if (canLay && c.Axis.sqrMagnitude > 0f)
+                    {
+                        // laid along a world axis (a muzzle flame along its bore): the root stays on the mouth at any angle
+                        LayAlong(layRight, layUp, c.Pos, c.Axis, c.Width * swell, c.Height * swell, out var laidAt, out float laidRoll, out float laidWidth);
+                        batch[n++] = Pack(laidAt, laidWidth, c.Height * swell, frame, fade, bright, laidRoll, c.Kind, c.Alpha);
+                    }
                     else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
                     if (n == batch.Length) { FrameBudget.Draw(rp, quad, 0, batch, n); n = 0; }
                 }
@@ -773,6 +787,31 @@ namespace TW.Presentation.Tactical
                 for (int i = 0; i < packed.Count; i++) { var m = packed[i]; Glow(new Vector3(m.m03, m.m13, m.m23), m.m00, m.m11, m.m20 > 0.5f, m.m21); }
                 FlushGlow(bounds);
             }
+        }
+
+        /// <summary>How far a laid card is shortened at most when its axis points at the eye: a bore seen end-on still
+        /// shows a bloom at the mouth, not a line.</summary>
+        public const float LaidMinShare = 0.35f;
+
+        /// <summary>Lays a card of this size along a WORLD direction, rooted at `root`: gives the centre to draw it at,
+        /// the roll to draw it with and the width to draw it at, so that on screen its art root (the midpoint of its
+        /// left edge, where the fire books start their drawing) sits on `root` and its long side runs along the axis'
+        /// projection. The card's cross-section (its height) is left alone.
+        /// The quad TW/Flipbook builds is `at + right * cx + up * cy` with `(cx, cy) = rot(roll) * (uv - centre)` scaled
+        /// by `(width, height)` AFTER the rotation (Flipbook_URP.shader, vert). Two things follow, and both are undone
+        /// here: the scale skews the drawn long axis away from `roll` whenever width and height differ, so the roll is
+        /// pre-skewed; and the left edge sits at `-0.5 * (cos * width, sin * height)`, so the centre is placed by that
+        /// exact offset rather than by half a width.</summary>
+        public static void LayAlong(Vector3 camRight, Vector3 camUp, Vector3 root, Vector3 axis, float width, float height,
+                                    out Vector3 at, out float roll, out float drawnWidth)
+        {
+            float cx = Vector3.Dot(axis, camRight), cy = Vector3.Dot(axis, camUp);
+            float s = Mathf.Sqrt(cx * cx + cy * cy) / Mathf.Max(1e-6f, axis.magnitude);
+            drawnWidth = width * Mathf.Max(s, LaidMinShare);
+            if (cx * cx + cy * cy < 1e-6f) { at = root; roll = 0f; return; }   // the bore points at the eye: a bloom on the mouth
+            // the bore's angle on screen, pre-skewed so that the DRAWN long axis comes out along it
+            roll = Mathf.Atan2(cy * drawnWidth, cx * height);
+            at = root + (camRight * (Mathf.Cos(roll) * drawnWidth) + camUp * (Mathf.Sin(roll) * height)) * 0.5f;
         }
 
         /// <summary>The record TW/Flipbook reads out of the instance matrix (see the shader's header).</summary>

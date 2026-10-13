@@ -155,5 +155,155 @@ namespace TW.Tests
                     Assert.IsTrue(c.Carried, $"the {c.Book} card lives {c.Life:0.00} s and stands still, so the Banner walks {slip:0.00} m through it");
             }
         }
+
+        /// <summary>The fire may start this far off the mouth ON SCREEN, measured in metres at the muzzle's depth, and
+        /// its long side may lie this far off the barrel's own axis on screen (the owner's words, 2026-10-14: the fire
+        /// "starts exactly at the mouth of the barrel that fired, lies along that barrel's own axis, and stays there
+        /// from every camera angle").</summary>
+        const float LineTol = 0.15f, AngleTol = 5f;
+
+        /// <summary>A camera the owner looks from: where it stands round the machine (bearing from the way it faces,
+        /// degrees), how high it is lifted (pitch, degrees) and how far off it is (m).</summary>
+        struct Eye { public string Name; public float Bearing, Pitch, Dist; }
+
+        static readonly Eye[] Eyes =
+        {
+            new Eye { Name = "front quarter", Bearing = 35f, Pitch = 12f, Dist = 22f },
+            new Eye { Name = "side",          Bearing = 90f, Pitch = 0f,  Dist = 22f },
+            new Eye { Name = "rear quarter",  Bearing = 145f, Pitch = 12f, Dist = 22f },
+            new Eye { Name = "tactical",      Bearing = 0f,  Pitch = 25f, Dist = 30f },   // TacticalCamera's own Pitch 25 at Zoom 30
+        };
+
+        /// <summary>A real Camera standing where that eye is, looking at the muzzle.</summary>
+        static Camera Look(Eye e, Vector3 at)
+        {
+            var go = new GameObject("BannerFireEye");
+            var cam = go.AddComponent<Camera>();
+            cam.fieldOfView = 42f; cam.aspect = 16f / 9f; cam.enabled = false;
+            float b = e.Bearing * Mathf.Deg2Rad, p = e.Pitch * Mathf.Deg2Rad;
+            Vector3 away = new Vector3(Mathf.Sin(b) * Mathf.Cos(p), Mathf.Sin(p), Mathf.Cos(b) * Mathf.Cos(p));
+            go.transform.position = at + away * e.Dist;
+            go.transform.LookAt(at);
+            return cam;
+        }
+
+        /// <summary>A point's place on the screen in METRES at the muzzle's depth: its offset from the muzzle measured
+        /// on the camera's own plane, which is the plane TW/Flipbook builds every card in (UNITY_MATRIX_V rows 0 and 1
+        /// are the camera's right and up), so this is the same screen the card is drawn on.</summary>
+        static Vector2 OnScreen(Camera cam, Vector3 from, Vector3 to)
+        {
+            Vector3 d = to - from;
+            return new Vector2(Vector3.Dot(d, cam.transform.right), Vector3.Dot(d, cam.transform.up));
+        }
+
+        static Vector3 Corner(Vector3 at, Vector3 right, Vector3 up, float x, float y, float sr, float cr, float w, float h)
+        {
+            // the shader rotates the unit card, THEN scales it by (width, height)
+            float cx = (x * cr - y * sr) * w, cy = (x * sr + y * cr) * h;
+            return at + right * cx + up * cy;
+        }
+
+        /// <summary>The drawn quad of a live card, rebuilt exactly as Flipbook_URP.shader's vert does: the art root (the
+        /// midpoint of its left edge, where the fire books start their drawing) and the far end of its long side.
+        /// A laid card is placed, rolled and shortened from the eye the way FlipbookFx.Draw does it.</summary>
+        static void DrawnQuad(Camera cam, Vector3 pos, Vector3 axis, float width, float height, float storedRoll, bool mirrored,
+                              out Vector3 root, out Vector3 tipEnd)
+        {
+            Vector3 right = cam.transform.right, up = cam.transform.up;
+            Vector3 at = pos; float roll = storedRoll, w = width;
+            if (axis.sqrMagnitude > 0f) FlipbookFx.LayAlong(right, up, pos, axis, width, height, out at, out roll, out w);
+            float mirror = mirrored ? -1f : 1f, sr = Mathf.Sin(roll), cr = Mathf.Cos(roll);
+            root = Corner(at, right, up, -0.5f * mirror, 0f, sr, cr, w, height);
+            tipEnd = Corner(at, right, up, 0.5f * mirror, 0f, sr, cr, w, height);
+        }
+
+        static System.Collections.IList Cards(FlipbookFx fx) =>
+            (System.Collections.IList)typeof(FlipbookFx).GetField("cards", Any).GetValue(fx);
+
+        static object Field(object card, string name) => card.GetType().GetField(name, Any).GetValue(card);
+
+        /// <summary>The Banner's muzzle fire, measured on what is DRAWN: for every barrel that can fire, two yaws of the
+        /// top and four eyes (front quarter, side, rear quarter and the game's own tactical view), the flame's art root
+        /// sits on the mouth of that barrel's mesh and its long side lies along that barrel's own axis, both measured on
+        /// screen. (Owner, 2026-10-14, on the close frame 5-5-new-close-0332.png: "its visually still off, line it up
+        /// properly". 5a4b834b moved the muzzle POINT and pushed each card out along the bore IN THE WORLD; the cards are
+        /// camera-facing, so that push foreshortens on screen while the card's own half-width does not, and the 6 m blast
+        /// slid up to 3 m off the mouth at a quarter view. The plain Flash was rolled at random on top of that.)</summary>
+        [Test]
+        public void TheBannersFireLiesAlongTheBarrelFromEveryEye()
+        {
+            var m = Load();
+            var (r, v) = Rig(m);
+            var fx = new FlipbookFx();
+            try
+            {
+                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
+                r.GetType().GetField("books", Any).SetValue(r, fx);
+                var draw = r.GetType().GetMethod("DrawFireCards", Any);
+                Assert.NotNull(draw, "TankRenderer has no DrawFireCards");
+                var cards = Cards(fx);
+                var yaw = Arr(v, "GunYaw");
+                var recoil = Arr(v, "Recoil");
+                int measured = 0;
+                for (int k = 0; k < m.MuzzlePart.Length; k++)
+                {
+                    if (m.MuzzlePart[k] < 0) continue;
+                    int part = m.MuzzlePart[k];
+                    string barrel = m.Lods[0].Parts[part].Name;
+                    foreach (float top in new[] { 0f, 55f * Mathf.Deg2Rad })
+                    {
+                        yaw[0] = top; yaw[1] = top;
+                        recoil[k] = 1f;                  // the first frame of the shot, which is the frame the flash is on
+                        PoseWorld(r, v, m);
+                        Vector3 muzzle = DrawnMuzzle(r, v, k, out Vector3 dir);
+                        var b = m.Lods[0].Parts[part].Mesh.bounds;
+                        var world = World(v)[part];
+                        Vector3 tip = world.MultiplyPoint3x4(new Vector3(b.center.x, b.center.y, b.max.z));
+                        Vector3 baseAt = world.MultiplyPoint3x4(new Vector3(b.center.x, b.center.y, b.min.z));
+                        Vector3 bore = tip - baseAt;
+                        float boreOff = Vector3.Angle(dir, bore);
+                        TestContext.Out.WriteLine($"barrel {barrel}, top yaw {top * Mathf.Rad2Deg:0}: the renderer's direction is {boreOff:0.0} deg off the barrel's drawn axis");
+                        Assert.Less(boreOff, AngleTol, $"the fire of {barrel} is sent {boreOff:0.0} deg off the barrel's own drawn axis: it follows the aim or the hull, not the bore");
+                        foreach (var e in Eyes)
+                        {
+                            var cam = Look(e, tip);
+                            try
+                            {
+                                cards.Clear();
+                                draw.Invoke(r, new object[] { v, muzzle, dir, FlipbookFx.ScreenRoll(cam, dir), Vector3.forward });
+                                Vector2 boreScreen = OnScreen(cam, baseAt, tip);
+                                int fire = 0;
+                                for (int i = 0; i < cards.Count; i++)
+                                {
+                                    var c = cards[i];
+                                    var book = (FlipbookFx.Book)Field(c, "Book");
+                                    if (book != FlipbookFx.Book.GunBlast && book != FlipbookFx.Book.Flash) continue;
+                                    fire++;
+                                    DrawnQuad(cam, (Vector3)Field(c, "Pos"), (Vector3)Field(c, "Axis"), (float)Field(c, "Width"), (float)Field(c, "Height"),
+                                        (float)Field(c, "Roll"), ((FlipbookFx.Kind)Field(c, "Kind") & FlipbookFx.Kind.Mirror) != 0, out Vector3 root, out Vector3 end);
+                                    float off = OnScreen(cam, tip, root).magnitude;
+                                    float ang = Vector2.Angle(OnScreen(cam, root, end), boreScreen);
+                                    TestContext.Out.WriteLine($"  {e.Name}: the {book} card starts {off * 100f:0.0} cm off the mouth of {barrel} and lies {ang:0.0} deg off its axis");
+                                    Assert.Less(off, LineTol, $"from the {e.Name} the Banner's {book} starts {off * 100f:0.0} cm off the mouth of {barrel}: the fire is not on the gun");
+                                    Assert.Less(ang, AngleTol, $"from the {e.Name} the Banner's {book} lies {ang:0.0} deg off the axis of {barrel}: the flame is not along the bore");
+                                    measured++;
+                                }
+                                Assert.AreEqual(2, fire, $"the Banner's shot drew {fire} fire cards from the {e.Name}, not the blast and the flash");
+                            }
+                            finally { Object.DestroyImmediate(cam.gameObject); }
+                        }
+                        recoil[k] = 0f;
+                    }
+                }
+                Assert.Greater(measured, 0, "no barrel of the Banner has a muzzle to measure");
+            }
+            finally
+            {
+                // not fx.Dispose(): it Destroys its materials, which EditMode forbids (they are HideAndDontSave)
+                Cards(fx).Clear();
+                r.GetType().GetField("books", Any).SetValue(r, null);
+                Object.DestroyImmediate(r.gameObject);
+            }
+        }
     }
 }
