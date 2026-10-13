@@ -1,5 +1,8 @@
 """Source: jobs on the two-station board (docs/reference/stations.md). The runner claims and completes; the leg only
-does the stage. A master stage (review, gate, land) is the owner's and is never taken."""
+does the stage. A master stage (review, gate, land) is the owner's and is never taken.
+A job that ends FAIL or BLOCKED is taken again by a later run (candidates, waits_on_someone), and its id is a hash
+of its inputs, so it may be another by then: the handoff note its last leg left (sources/notes.py) is kept under
+the item and the stage, which stay."""
 import json, os, re, shutil, sys
 from pathlib import Path
 
@@ -8,7 +11,7 @@ import pipeline as P   # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import config, gitio   # noqa: E402
-from sources import briefs, verdict   # noqa: E402
+from sources import briefs, notes, verdict   # noqa: E402
 from sources.briefs import ROLE_SKILLS, brief_name, place_brief   # noqa: E402,F401  (the runner asks a source)
 
 NAME = "pipeline"
@@ -94,7 +97,13 @@ def next(ctx, only=None, kind=None):
 def refresh(unit, ctx):
     """A job's id is a hash of its inputs at the lane ref, so it changes when the runner first creates the lane:
     read the id again once the checkout is on the lane, and claim that one."""
-    return next(ctx, only=(unit["item"], unit["stage"]))
+    unit = next(ctx, only=(unit["item"], unit["stage"]))
+    return dict(unit, **notes.read(ctx, note_key(unit))) if unit else unit
+
+
+def note_key(unit):
+    """What a job's handoff note is kept under: its item and stage. Not its id, which moves with its inputs."""
+    return "%s--%s" % (unit["item"], unit["stage"])
 
 
 def already_done(unit, ctx):
@@ -123,7 +132,8 @@ def body(unit):
         "in frame). A still the rig did not shoot as it stands (a contact sheet, a diff, a concept sheet, a mock-up) "
         "has no sidecar: its frames.txt line says `no sidecar`. The runner fails a job without these, and the critic "
         "sees only that folder.",
-        "- Commit your outputs on the lane with the edit gate green, and push the lane."])
+        "- Commit your outputs on the lane with the edit gate green, and push the lane.", notes.ASK]
+        + notes.card(unit))
 
 
 def sidecar_problem(folder, band, since):
@@ -186,7 +196,7 @@ def release():
 
 
 def keep_note(unit, ctx, desk, lim):
-    pass
+    notes.keep(ctx, note_key(unit), desk, lim)
 
 
 CRITIC_ROUND = re.compile(r"^critic-r\d+\.md$")
@@ -241,4 +251,6 @@ def finish(unit, ctx, problems, outcome):
     if v == "PASS" and unit["bands"]:
         args += ["--evidence"] + ["%s=%s/%s.jpg" % (b, evidence_dir(unit), b) for b in unit["bands"]]
     P.main(args)
+    if v == "PASS":
+        notes.drop(ctx, note_key(unit))
     return v
