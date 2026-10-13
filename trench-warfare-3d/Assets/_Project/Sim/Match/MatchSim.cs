@@ -2,6 +2,7 @@
 // Composes MapData + SimWorld + systems for one match. Presentation, Net and tests never build a SimWorld
 // directly for a real match; they go through MatchSim so system order is identical everywhere.
 using Unity.Collections;
+using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
@@ -148,6 +149,24 @@ namespace TW.Sim.Match
         }
 
         public void Step(NativeArray<SimCommand> commands) => World.Step(commands);
+
+        /// <summary>One number standing for the baked unit/weapon/ability tables of this match, folded into every tick's hash.</summary>
+        public ulong DataHash => SimHash.Value(Catalogue.Fingerprint, World.Units.Fingerprint);
+
+        /// <summary>A recorder primed with this match's map id, map hash and data hash, so a replay of a different map,
+        /// data set or world init is refused by ReplayPlayer.Verify instead of just desyncing. Map.Hash(0) folds the
+        /// map "as built" (heightfield, holes) before the first Step, which is all Verify can compare a fresh world
+        /// against, so this must be called before any command has been stepped.</summary>
+        public ReplayRecorder NewReplayRecorder()
+        {
+            if (World.Tick != 0)
+                throw new System.InvalidOperationException($"NewReplayRecorder needs a fresh match at tick 0, got tick {World.Tick}");
+            return new ReplayRecorder(World.Config, World.Init, Map.MapId, Map.Hash(0), DataHash);
+        }
+
+        /// <summary>Verify a replay against this match's world, passing the map hash, data hash and map id so a replay
+        /// recorded against another map, data set or init is refused instead of just desyncing.</summary>
+        public int VerifyReplay(ReplayPlayer p) => p.Verify(World, Map.Hash(0), DataHash, Map.MapId);
 
         public void Dispose()
         {
