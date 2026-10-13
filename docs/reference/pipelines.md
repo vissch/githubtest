@@ -132,6 +132,12 @@ Source clips: the owner's `Downloads\mixamo animations\`. Classification: `docs/
 |---|---|---|
 | `firebooks.py` | Cuts every 8x4 greyscale flipbook (the flamethrower's, and since 2026-09-28 the VFX pass's `BOOKS`: pack sheets and the desktop's `tw_*` sheets) into `Resources/VFX/` from the owner's generated pack | `python Tools/firebooks.py [packdir] [outdir]`, pack default `G:/My Drive/vfx/sheets` |
 
+`python Tools/test_firebooks.py` checks the cut itself (no Blender, no pack): a cell drawn solid white with a hard
+alpha step must still read ink = 1.0 across the soft edge LANCZOS invents. The books are stored PREMULTIPLIED
+(`TW/Flipbook` reads `ink = luma/alpha`), so the resize runs as Pillow mode `"RGBa"`.
+`python Tools/test_tanksplit.py` is a source check only (`tanksplit.py` needs `bpy`): the atlas save must set
+`view_settings.view_transform = 'Standard'`, as `crabsplit.py` does, or the atlas comes out tone-mapped.
+
 The 4x4/3x3 books (Burst, Column, Puff and the rest before FireBall) come from Asset Store packs (SrRubfish, Hun0FX). They may ship in the game but
 must not be redistributed on their own.
 
