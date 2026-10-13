@@ -190,6 +190,24 @@ def strip_comments(src: str) -> str:
 
 GEN = re.compile(r'(<!-- gen:(?P<name>[\w-]+) -->\n)(?P<body>.*?)(<!-- /gen:(?P=name) -->)', re.S)
 
+OPEN_RE = re.compile(r'<!-- gen:([\w-]+) -->')
+CLOSE_RE = re.compile(r'<!-- /gen:([\w-]+) -->')
+
+
+def marker_errors(doc, text: str, names) -> list:
+    # [H19] GEN matches opener-body-closer, so a doc carrying one opener twice (a hand-resolved merge conflict)
+    # hides everything between the two openers: --check read it as prose and a regenerate deleted it. Demand
+    # exactly one of each marker, for the names the generator writes only (prose elsewhere may quote a marker).
+    out = []
+    for name in sorted(names):
+        opens = sum(1 for m in OPEN_RE.finditer(text) if m.group(1) == name)
+        closes = sum(1 for m in CLOSE_RE.finditer(text) if m.group(1) == name)
+        if opens != 1 or closes != 1:
+            out.append(f'{rel(doc, REPO)}: {opens} <!-- gen:{name} --> and {closes} <!-- /gen:{name} --> markers, '
+                       f'wanted exactly 1 of each (usually a hand-resolved merge conflict): a regenerate would '
+                       f'delete the text between two openers')
+    return out
+
 
 def blocks(text: str) -> dict:
     return {m.group('name'): m.group('body') for m in GEN.finditer(text)}
@@ -431,6 +449,9 @@ def write_all():
         missing = set(new) - set(blocks(text))
         if missing:
             sys.exit(f'{doc.name}: no <!-- gen:{", ".join(sorted(missing))} --> marker to write into')
+        bad = marker_errors(doc, text, new)
+        if bad:
+            sys.exit('\n'.join('codemap: ' + e for e in bad))
         doc.write_text(replace_blocks(text, new), encoding='utf-8', newline='\n')
         print(f'wrote {rel(doc, REPO)}')
 
@@ -522,12 +543,14 @@ def check_citations(errors):
                         errors.append(f'{rel(doc, REPO)}:{ln}: cites `{tok}`, past the end of the file')
 
 
-def check(errors, warnings):
+def check(errors):
     for doc, new in generated().items():
         if not doc.exists():
             errors.append(f'{rel(doc, REPO)} is missing')
             continue
-        have = blocks(read(doc))
+        text = read(doc)
+        errors.extend(marker_errors(doc, text, new))
+        have = blocks(text)
         for name, body in new.items():
             if name not in have:
                 errors.append(f'{rel(doc, REPO)}: no <!-- gen:{name} --> block')
@@ -601,10 +624,8 @@ def check(errors, warnings):
 
 def main():
     if '--check' in sys.argv:
-        errors, warnings = [], []
-        check(errors, warnings)
-        for w in warnings:
-            print('warning: ' + w)
+        errors = []
+        check(errors)
         if errors:
             print('\n'.join('codemap: ' + e for e in errors))
             sys.exit(1)
