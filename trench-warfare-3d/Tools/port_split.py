@@ -145,8 +145,13 @@ def main():
         def partials(rev):
             return {n for n in git('ls-tree', '--name-only', rev, './', cwd=here).split()
                     if n.startswith(old.stem + '.') and n.endswith(old.suffix) and n != old.name}
-        base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
-        mine, theirs = partials('HEAD') - partials(base), partials('MERGE_HEAD') - partials(base)
+        try:
+            base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
+            mine, theirs = partials('HEAD') - partials(base), partials('MERGE_HEAD') - partials(base)
+        except subprocess.CalledProcessError:
+            # [H20] no MERGE_HEAD: git used to raise here with its own traceback, before any helpful message.
+            sys.exit('not in a merge: --merge is for a stopped `git merge` (MERGE_HEAD is missing). '
+                     'Use --from/--to instead.')
         if mine and not theirs:
             split_here = True
         elif theirs and not mine:

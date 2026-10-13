@@ -46,9 +46,9 @@ SIM_PATHS = ('trench-warfare-3d/Assets/_Project/Sim/', 'trench-warfare-3d/Assets
              'trench-warfare-3d/Assets/_Project/Data/')
 
 
-def run(cmd, cwd=ROOT, timeout=120):
+def run(cmd, cwd=ROOT, timeout=120, env=None):
     try:
-        p = subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout)
+        p = subprocess.run(cmd, cwd=cwd, capture_output=True, timeout=timeout, env=env)
         return p.returncode, p.stdout.decode('utf-8', 'replace') + p.stderr.decode('utf-8', 'replace')
     except FileNotFoundError as e:
         return 127, str(e)
@@ -234,6 +234,20 @@ def lanes():
             print('  could not trial-merge: ' + out.strip()[:100])
 
 
+def compile_failed(cli, timeout=60):
+    """(did the editor's last compile fail, a note for the editor line). [H20] This used to be a raw
+    subprocess.run(timeout=60): a hung CLI raised TimeoutExpired and health.py died with a traceback. run() turns a
+    timeout into 124 and a missing exe into 127, and either way the note says the answer is unknown."""
+    exe = [cli] if isinstance(cli, str) else list(cli)   # a test passes a stand-in command
+    code, out = run(exe + ['--no-banner', 'cmd', 'console_status', '--result-only'], cwd=ROOT, timeout=timeout,
+                    env=dict(os.environ, UNITY_PROJECT_PATH=str(ROOT)))
+    if code == 124:
+        return False, '  (console_status timed out)'
+    if code == 127:
+        return False, '  (console_status could not be run)'
+    return '"compilationFailed": true' in out, ''
+
+
 def main():
     if '--lanes' in sys.argv:
         lanes()
@@ -276,17 +290,14 @@ def main():
             e = inst[0]
             line = f"editor   pid {e.get('pid')} state {e.get('state')} port {e.get('port')}"
             if e.get('state') == 'ready':
-                env = dict(os.environ, UNITY_PROJECT_PATH=str(ROOT))
-                p = subprocess.run([cli, '--no-banner', 'cmd', 'console_status', '--result-only'], cwd=ROOT,
-                                   capture_output=True, env=env, timeout=60)
-                s = p.stdout.decode('utf-8', 'replace')
-                if '"compilationFailed": true' in s:
+                failed, note = compile_failed(cli)
+                if failed:
                     line += '  COMPILE FAILED: Tools/tw build shows the errors'
                     bad = True
+                line += note
             print(line)
 
     code, out = run([sys.executable, 'validate.py'])
-    last = [l for l in out.strip().split('\n') if l][-1:] or ['']
     print(f'validate {"OK" if code == 0 else "FAILED"}' + ('' if code == 0 else '\n' + out.strip()))
     bad |= code != 0
 
