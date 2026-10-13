@@ -154,12 +154,16 @@ def cap(bm, planes, uv):
     # walk each loop and close it with a fan round its centre (holes_fill gives up on non-planar loops)
     uvl = bm.loops.layers.uv.active
     new = []
-    while fill:
-        e0 = fill.pop(); loop = [e0.verts[0], e0.verts[1]]; used = {e0}
+    # walk in edge-index order: a set of BMesh edges pops in address order, so the FBX differed between runs
+    # on the same input (review R10)
+    bm.edges.ensure_lookup_table()
+    for e0 in sorted(fill, key=lambda e: e.index):
+        if e0 not in fill: continue
+        fill.discard(e0); loop = [e0.verts[0], e0.verts[1]]; used = {e0}
         while True:
             nxt = [e for e in byv.get(loop[-1], []) if e in fill and e not in used]
             if not nxt: break
-            e = nxt[0]; used.add(e); fill.discard(e)
+            e = min(nxt, key=lambda e: e.index); used.add(e); fill.discard(e)
             v = e.other_vert(loop[-1])
             if v is loop[0]: break
             loop.append(v)
@@ -460,13 +464,16 @@ def close_big_holes(bm, min_perimeter, uv):
     byv = {}
     for e in bnd:
         for v in e.verts: byv.setdefault(v, []).append(e)
+    # walk in edge-index order, as the hole filler above does (review R10)
+    bm.edges.ensure_lookup_table()
     left = set(bnd)
-    while left:
-        e0 = left.pop(); loop = [e0.verts[0], e0.verts[1]]; used = {e0}
+    for e0 in sorted(bnd, key=lambda e: e.index):
+        if e0 not in left: continue
+        left.discard(e0); loop = [e0.verts[0], e0.verts[1]]; used = {e0}
         while True:
             nxt = [e for e in byv.get(loop[-1], []) if e in left and e not in used]
             if not nxt: break
-            e = nxt[0]; used.add(e); left.discard(e)
+            e = min(nxt, key=lambda e: e.index); used.add(e); left.discard(e)
             v = e.other_vert(loop[-1])
             if v is loop[0]: break
             loop.append(v)

@@ -146,13 +146,18 @@ def cap(bm, planes, uv, eps=1e-4):
     byv = {}
     for e in bnd:
         for v in e.verts: byv.setdefault(v, []).append(e)
+    # walk in edge-index order: a set of BMesh edges pops in address order, so the FBX differed between runs
+    # on the same input (review R10)
+    bm.edges.ensure_lookup_table()
+    order = sorted(bnd, key=lambda e: e.index)
     left = set(bnd); uvl = bm.loops.layers.uv.active; new = []
-    while left:
-        e0 = left.pop(); loop = [e0.verts[0], e0.verts[1]]; used = {e0}; has_cut = e0 in cut
+    for e0 in order:
+        if e0 not in left: continue
+        left.discard(e0); loop = [e0.verts[0], e0.verts[1]]; used = {e0}; has_cut = e0 in cut
         while True:
             nxt = [e for e in byv.get(loop[-1], []) if e in left and e not in used]
             if not nxt: break
-            e = nxt[0]; used.add(e); left.discard(e); has_cut |= e in cut
+            e = min(nxt, key=lambda e: e.index); used.add(e); left.discard(e); has_cut |= e in cut
             v = e.other_vert(loop[-1])
             if v is loop[0]: break
             loop.append(v)
