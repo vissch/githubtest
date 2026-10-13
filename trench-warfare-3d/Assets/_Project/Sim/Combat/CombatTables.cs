@@ -20,6 +20,7 @@ namespace TW.Sim.Combat
         public const float BelowRimRevealRange = 8f;     // a garrison below the rim can only be engaged from this close
         public const float ChargeRevealRange = 20f;      // a charging Breaker (UnitFlags.Charging) looks down into the trench from this far
         public const float CraterCover = 0.35f;          // added to the stance cover of a man standing in a shell hole
+        public const float HouseCover = 0.35f;           // a man on foot with a house between him and the shooter; the owner, 2026-10-07: "A little: 35 % less, like a man in a shell hole"
         public const float CloseAssaultRange = 8f;       // infantry this close to a vehicle attack it with bundled grenades
         public const float HullTargetBonus = 1.3f;       // a hull is a big target: the odds of a round hitting one (tank guns, armour-hunting small arms)
         public const float CloseAssaultDamage = 600f;         // structure, when the charge gets through the plate

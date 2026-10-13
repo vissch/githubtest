@@ -147,6 +147,7 @@ namespace TW.Sim.Combat
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
                 Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
                 CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
+                Houses = map.Houses.AsArray(),
             }.Run();
             for (int k = 0; k < thrown.Length; k++)
             {
@@ -223,6 +224,7 @@ namespace TW.Sim.Combat
             public NativeList<float4> Scorched;   // and where each round landed (xyz), the shooter's side in w
             public NativeList<WreckRound> CoverStops;   // machine-gun rounds a prop's cover stopped, by target cell (DirectFire.Wrecks)
             [ReadOnly] public NativeArray<Shelter> Shelters;   // wrecks men are behind this tick, and whose (DirectFire.Wrecks)
+            [ReadOnly] public NativeArray<HouseDef> Houses;     // building footprints: cover for a man on foot behind one
             [ReadOnly] public Heightfield Height;
             [ReadOnly] public NativeArray<short> TrenchId;
             [ReadOnly] public NativeArray<float> Smoke;
@@ -414,6 +416,8 @@ namespace TW.Sim.Combat
                         float open = cover;
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
                         propCover = cover - open;
+                        for (int u = 0; u < Houses.Length; u++)   // a house between them: the owner, 2026-10-07, "35 % less"
+                            if (HouseRules.Blocks(Houses[u], p, q)) { cover = math.min(0.8f, cover + CombatTables.HouseCover); break; }
                     }
                     if (SmokeOn)
                     {
