@@ -45,6 +45,7 @@ namespace TW.Sim.Units
         public NativeArray<short> Back;
         public NativeArray<float3> Target;
         NativeArray<ushort> gen;
+        SimWorld world;                        // for Hash(): how far the per-slot arrays are live
         /// <summary>Stats, not hashed.</summary>
         public int Ordered { get; private set; }
         public int Laid { get; private set; }
@@ -55,6 +56,7 @@ namespace TW.Sim.Units
         {
             mines = world.GetSystem<MineSystem>() ?? throw new System.InvalidOperationException("SapperSystem needs MineSystem registered before it");
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("SapperSystem needs FlowFieldManager registered before it");
+            this.world = world;
             int n = world.Config.MaxSlots;
             Charges = new NativeArray<byte>(n, Allocator.Persistent);
             Phase = new NativeArray<byte>(n, Allocator.Persistent);
@@ -199,10 +201,13 @@ namespace TW.Sim.Units
 
         public ulong Hash(ulong h)
         {
-            h = SimHash.Array(Charges, h); h = SimHash.Array(Phase, h); h = SimHash.Array(Kind, h);
-            h = SimHash.Array(Goal, h); h = SimHash.Array(Args, h); h = SimHash.Array(LayTicks, h);
-            h = SimHash.Array(Back, h); h = SimHash.Array(Target, h);
-            return SimHash.Array(gen, h);
+            // hashed to HighWater, not MaxSlots: HighWater never falls, so every slot ever used lies below it
+            // and the rest are untouched zeros; HighWater is itself hashed, so both machines cut at the same index
+            int n = world != null ? world.HighWater : Charges.Length;
+            h = SimHash.Array(Charges, n, h); h = SimHash.Array(Phase, n, h); h = SimHash.Array(Kind, n, h);
+            h = SimHash.Array(Goal, n, h); h = SimHash.Array(Args, n, h); h = SimHash.Array(LayTicks, n, h);
+            h = SimHash.Array(Back, n, h); h = SimHash.Array(Target, n, h);
+            return SimHash.Array(gen, n, h);
         }
 
         public void Dispose()

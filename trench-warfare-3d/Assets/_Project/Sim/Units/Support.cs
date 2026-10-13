@@ -27,6 +27,7 @@ namespace TW.Sim.Units
         NativeArray<ushort> gen;
         VehicleModulesSystem modules;
         TW.Sim.Nav.VehicleKinematicsSystem kinematics;   // for the drive profiles: an engineer reaches round the hull of THIS match
+        SimWorld world;                                  // for Hash(): how far the per-slot arrays are live
 
         public void Initialize(SimWorld world)
         {
@@ -35,6 +36,7 @@ namespace TW.Sim.Units
             gen = new NativeArray<ushort>(n, Allocator.Persistent);
             modules = world.GetSystem<VehicleModulesSystem>();
             kinematics = world.GetSystem<TW.Sim.Nav.VehicleKinematicsSystem>();
+            this.world = world;
         }
 
         public void Step(SimWorld w)
@@ -104,8 +106,11 @@ namespace TW.Sim.Units
 
         public ulong Hash(ulong h)
         {
-            h = SimHash.Array(MendTimer, h);
-            return SimHash.Array(gen, h);
+            // hashed to HighWater, not MaxSlots: HighWater never falls, so every slot ever used lies below it
+            // and the rest are untouched zeros; HighWater is itself hashed, so both machines cut at the same index
+            int n = world != null ? world.HighWater : MendTimer.Length;
+            h = SimHash.Array(MendTimer, n, h);
+            return SimHash.Array(gen, n, h);
         }
 
         public void Dispose()

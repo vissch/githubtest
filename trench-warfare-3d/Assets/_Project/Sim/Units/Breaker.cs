@@ -46,6 +46,7 @@ namespace TW.Sim.Units
         public BreakerSystem(MapData map) { this.map = map; }
 
         TW.Sim.Combat.CombatCatalogueSystem catalogue;
+        SimWorld world;                          // for Hash(): how far the per-slot arrays are live
 
 
         public void Initialize(SimWorld world)
@@ -54,6 +55,7 @@ namespace TW.Sim.Units
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("BreakerSystem needs FlowFieldManager");
             movement = world.GetSystem<MovementSystem>() ?? throw new System.InvalidOperationException("BreakerSystem needs MovementSystem registered before it");
             kinematics = world.GetSystem<VehicleKinematicsSystem>() ?? throw new System.InvalidOperationException("BreakerSystem needs VehicleKinematicsSystem registered before it");
+            this.world = world;
             int n = world.Config.MaxSlots;
             Phase = new NativeArray<byte>(n, Allocator.Persistent);
             PhaseTicks = new NativeArray<int>(n, Allocator.Persistent);
@@ -208,13 +210,16 @@ namespace TW.Sim.Units
 
         public ulong Hash(ulong h)
         {
-            h = SimHash.Array(Phase, h);
-            h = SimHash.Array(PhaseTicks, h);
-            h = SimHash.Array(TargetCell, h);
-            h = SimHash.Array(Still, h);
-            h = SimHash.Array(TargetTrench, h);
-            h = SimHash.Array(HomePos, h);
-            h = SimHash.Array(gen, h);
+            // hashed to HighWater, not MaxSlots: HighWater never falls, so every slot ever used lies below it
+            // and the rest are untouched zeros; HighWater is itself hashed, so both machines cut at the same index
+            int n = world != null ? world.HighWater : Phase.Length;
+            h = SimHash.Array(Phase, n, h);
+            h = SimHash.Array(PhaseTicks, n, h);
+            h = SimHash.Array(TargetCell, n, h);
+            h = SimHash.Array(Still, n, h);
+            h = SimHash.Array(TargetTrench, n, h);
+            h = SimHash.Array(HomePos, n, h);
+            h = SimHash.Array(gen, n, h);
             return SimHash.Value(Cycles, h);
         }
 
