@@ -121,7 +121,11 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-13, after dead ground): dead ground is out of TargetAcquisition -- a man on foot in the open
+        // behind his own front trench is seen and shot at by the far side again -- and in its place DirectFireSystem
+        // halves the chance of a hit on him (CombatTables.ApproachShare, the owner 2026-10-08), from the trench line
+        // back, not from 10 m behind it. Layout and hash chain unchanged; a v37 replay does not replay.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

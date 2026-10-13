@@ -37,7 +37,15 @@ namespace TW.Sim.Combat
         public const float RunningTargetFar = 60f * RangeScale;       // metres: from here on the whole penalty
         public const float RunningTargetFloor = 0.28f;   // the share of the chance left at RunningTargetFar and beyond (0.35 before the bomb's throw was cut, 2026-09-29)
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
-        public const float DeadGroundMetres = 10f;       // a man this far behind his own front trench is out of the far side's sight (TargetAcquisition)
+        // a shot at a man on foot in the open behind his own front trench hits half as often (the owner, 2026-10-08:
+        // "a man behind his own front trench is half as easy to hit, but can still be shot"). It ends the moment he is
+        // in his trench or in front of it, so the threshold is the trench line itself, not the 10 m of the old dead
+        // ground. Applied by DirectFireSystem with the other hit rules.
+        public const float ApproachHitShare = 0.5f;
+
+        /// <summary>What a shot at a man on foot in the open is worth: half behind his own front trench, whole from the
+        /// line forward. <paramref name="metresBehindOwnFront"/> is 0 or less when he is in front of it.</summary>
+        public static float ApproachShare(float metresBehindOwnFront) => metresBehindOwnFront > 0f ? ApproachHitShare : 1f;
         // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
         // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
         // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle

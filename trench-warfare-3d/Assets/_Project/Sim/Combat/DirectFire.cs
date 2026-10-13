@@ -3,6 +3,8 @@
 // One sequential Burst job resolves every shot in slot order, so damage is applied in a fixed order and a target
 // that dies mid-tick is not shot again. hit = accuracy × range falloff × shooter stance × moving × own suppression
 // × running target (a man in the open running past RunningTargetSpeed, CombatTables.RunningTarget, 2026-09-28)
+// × approach share (CombatTables.ApproachShare: half for a man on foot in the open behind his own front trench, the
+//   owner's word of 2026-10-08, in place of the dead ground that hid him altogether)
 // × (1 − target cover). A hit adds the weapon's suppression to the target; a miss adds 60 % of it to every enemy
 // of the shooter within 1.5 m of the target (NearMiss). Deaths are applied on the main thread after the job.
 // A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
@@ -47,10 +49,12 @@ namespace TW.Sim.Combat
         GasSmokeSystem gas;               // registered after this system: resolved on the first step
         bool lookedForGas;
         NativeArray<float> noSmoke;       // a one-cell stand-in for the job while there is no smoke
+        NativeArray<float> noFront;       // the same, for a match with no TargetAcquisitionSystem (no approach rule)
         AuraSystem aura;                  // the officer's multipliers; without one, every man's are 1
         NativeArray<float> ones;
         // ---- the bomb (2026-09-28) ----
         BlastSystem blast; bool lookedForBlast;   // registered after this system: resolved on the first step
+        TargetAcquisitionSystem fronts; bool lookedForFronts;   // order 600, before this system: its FrontZ is this tick's
         NativeArray<byte> grenades;              // bombs each slot's man has left
         NativeArray<ushort> grenadeGen;          // the Generation they were counted for: another means a new man
         NativeList<Impact> noImpacts;            // the job's list in a match without a BlastSystem (it throws nothing then)
@@ -84,6 +88,7 @@ namespace TW.Sim.Combat
             stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
             shelters = new NativeList<Shelter>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
+            noFront = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
             grenades = new NativeArray<byte>(world.Config.MaxSlots, Allocator.Persistent);
@@ -114,6 +119,9 @@ namespace TW.Sim.Combat
             bool smokeOn = gas != null && gas.SmokeActive;
             if (aura == null) aura = w.GetSystem<AuraSystem>();
             if (!lookedForBlast) { blast = w.GetSystem<BlastSystem>(); lookedForBlast = true; }
+            // the front lines TargetAcquisitionSystem (order 600) worked out this tick: the approach rule reads them
+            if (!lookedForFronts) { fronts = w.GetSystem<TargetAcquisitionSystem>(); lookedForFronts = true; }
+            bool hasFronts = fronts != null;
             events.Clear();
             killed.Clear();
             ownHits.Clear();
@@ -147,6 +155,7 @@ namespace TW.Sim.Combat
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
                 Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
                 CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
+                FrontZ = hasFronts ? fronts.FrontZ : noFront, HomeSign = hasFronts ? fronts.HomeSign : default, Fronts = hasFronts,
             }.Run();
             for (int k = 0; k < thrown.Length; k++)
             {
@@ -199,6 +208,22 @@ namespace TW.Sim.Combat
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         partial struct FireJob : IJob
         {
+            [ReadOnly] public NativeArray<float> FrontZ;   // team * NavWidth + column (TargetAcquisitionSystem)
+            public float2 HomeSign;
+            public bool Fronts;
+
+            /// <summary>How far <paramref name="t"/> stands behind his own front trench, measured along the field at
+            /// his own column; 0 when there is no front trench to measure from or he is in front of it.</summary>
+            float BehindOwnFront(int t, float3 q)
+            {
+                if (!Fronts) return 0f;
+                int team = Team[t] & 1;
+                int col = math.clamp((int)(q.x / MapData.NavCellSize), 0, NavWidth - 1);
+                float fz = FrontZ[team * NavWidth + col];
+                if (math.isnan(fz)) return 0f;
+                return (q.z - fz) * (team == 0 ? HomeSign.x : HomeSign.y);
+            }
+
             public int Count, NavWidth, NavLength;
             public uint Tick, Seed;
             public float TickSeconds;
@@ -414,6 +439,9 @@ namespace TW.Sim.Combat
                         float open = cover;
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
                         propCover = cover - open;
+                        // coming up behind his own lines he is half as easy to hit, and no longer hidden altogether
+                        if ((Flags[t] & (uint)UnitFlags.Vehicle) == 0 && TrenchId[t] < 0)
+                            chance *= CombatTables.ApproachShare(BehindOwnFront(t, q));
                     }
                     if (SmokeOn)
                     {
@@ -505,6 +533,7 @@ namespace TW.Sim.Combat
             if (stopped.IsCreated) stopped.Dispose();
             if (shelters.IsCreated) shelters.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
+            if (noFront.IsCreated) noFront.Dispose();
             if (ones.IsCreated) ones.Dispose();
             if (grenades.IsCreated) grenades.Dispose();
             if (grenadeGen.IsCreated) grenadeGen.Dispose();
