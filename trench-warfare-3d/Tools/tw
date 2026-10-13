@@ -12,8 +12,9 @@
 #   tw build                 recompile, wait, and report compile failures and console errors
 #   tw shot <name> [w] [h]   capture the game view to Tools/flame-shots/<name>.png
 #
-# NOTE on captures: capture_game_view's save_path resolves relative to the project's Assets folder, so a bare name
-# lands a PNG (and a .meta) inside Assets. `tw shot` always passes an absolute path outside Assets to avoid that.
+# NOTE on captures: capture_game_view's save_path resolves under the project's Assets folder whatever you pass it, so
+# a capture always lands a PNG (and a .meta) inside Assets. `tw shot` captures to the scratch path `_shots/<name>.png`,
+# then moves the PNG out to Tools/flame-shots and deletes the .meta, so nothing is left in Assets.
 set -u
 PROJ="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 # Every call goes to THIS checkout's editor. The CLI otherwise auto-detects, and with the main clone and a worktree
@@ -110,8 +111,7 @@ case "${1:-}" in
       U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = true; for(int k=0;k<6;k++) UnityEditor.EditorApplication.Step(); return 0;" >/dev/null
       t=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
       done=$(awk -v a="$t" -v b="$UNITY_STEP_T0" -v w="$want" 'BEGIN{print (a-b>=w)?1:0}')
-      [ "$done" = "1" ] && { awk -v a="$t" -v b="$UNITY_STEP_T0" 'BEGIN{printf "advanced %.2fs
-", a-b}'; exit 0; }
+      [ "$done" = "1" ] && { awk -v a="$t" -v b="$UNITY_STEP_T0" 'BEGIN{printf "advanced %.2fs\n", a-b}'; exit 0; }
     done
     echo "stepto: never reached +${want}s" >&2; exit 1
     ;;
