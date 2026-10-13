@@ -7,7 +7,8 @@ the short form every role skill relies on. Run commands from `trench-warfare-3d/
 - `python Tools/health.py`: lock, memory, your editor, validate, your lane, your inbox. `lock held` means do not gate and do not write into `Assets/`.
 - Memory is **commit headroom**, not free RAM. Under 6 GB, run nothing. Under 10 GB, a batch gate is fine but open no new editor.
 - One editor per checkout. Never drive another checkout's editor: `Tools/tw` pins every call to this one.
-- The gate needs this checkout's editor **closed**. CaptureRig needs it **open and in Play**. A stage says which it needs.
+- The gate needs this checkout's editor **closed**. CaptureRig needs it **open and in Play** — except `Bench` and
+  `Stress`, which need the editor open in **edit mode** and enter play themselves. A stage says which it needs.
 
 ## The editor from the command line
 | Do | Command |
@@ -28,7 +29,9 @@ Git Bash rewrites `/E`-style flags into paths, so prefix Windows tools with `MSY
 - `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch=25, w=1600, h=900, aimY=NaN)`, then poll `Pending()` until it returns "0".
 - `Series(dir, stem, x, z, zoom, yaw, pitch, count=8, everyFrames=6, ...)`, `Sheet(dir, stem, outPath, cols=4, cellW=400)`.
 - `Diff(a, b, outPath)` returns `changed_frac` (a pixel counts as changed above 0.02 luma), a box, and before/after stats.
-- `Hold(weatherClock)` / `Release()` hold the clock; never pause. `Crowd(cell)`, `ShotCrowd`, `LastReport()`, `Bench(args)`.
+- `Hold(weatherClock)` / `Release()` hold the clock; never pause. `Crowd(cell)`, `ShotCrowd`, `LastReport()`.
+- `Bench(args)` and `Stress(...)` are **edit mode only**, scene GreyboxCorridor open: they enter play themselves,
+  run, write their report and leave play (same section's exception above).
 - Every still writes a JSON sidecar: `luma_mean`, `luma_p95`, `blown_frac`, `black_frac`, `men_in_frame`, `contrast_median`, `contrast_p10`, `pose_error_m`.
 - **Read the numbers, then look.** Capture the unchanged build twice to know the noise.
 - `shotstats.py` uses 0-255 Rec.601 and CaptureRig uses 0-1 Rec.709: never compare a number from one with a number from the other.
