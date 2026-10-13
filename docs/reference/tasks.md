@@ -205,18 +205,21 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
   So: an equal attack with nothing behind it takes nothing; two to one is beaten off but costs the garrison a third,
   so the next wave finds a thinner line; three to one, or two to one behind smoke or a barrage, takes the trench.
-  `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass. Since dead ground (below) a bare two
+  `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass. Measured with dead ground on (below, out since 2026-10-13) a bare two
   to one over eight seeds takes 1 and costs the garrison 22 % (38 % without it); the test asks eight seeds for 15 %.
   **The guns (v22):** twenty attackers with four machine gunners against ten with two, eight seeds: bare, sending the
   guns over takes 0 and loses 18.3 a seed, leaving them on the parapet takes 1 and loses 14.1 (the garrison 3.5
   instead of 0); behind smoke and a barrage both take 8 of 8, and the attack loses 2.9 with the guns covering against
   5.6 with them going over (`GunsThatStayToCover_CostTheAttackFewerMen` asks under 0.8 of it).
-- **Dead ground (2026-09-29):** `TargetAcquisition` does not let a shooter on the far side of a team's front trench see
-  a man of that team on foot in the open more than `CombatTables.DeadGroundMetres` (10 m) behind it, measured at his
-  column (`FrontZ`, rebuilt when a front moves). He is on the approaches. Before it a machine gun (170 m) in the enemy's
-  front trench killed the player's reinforcements between their spawn and their lines: in ten minutes of a match the
-  player lost 17 of 23 men without an attack being made, and no army ever grew past ten (`MatchLoopTests` on the show
-  lane). Artillery, gas and aircraft still reach him.
+- **The approaches, after dead ground (2026-10-13, replay v38):** dead ground is gone. A shooter on the far side of a
+  team's front trench sees a man of that team on foot in the open behind it (at his column: `TargetAcquisition.FrontZ`
+  and `HomeSign`, rebuilt when a front moves) and shoots at him, but `DirectFire` multiplies the chance of hitting him
+  by `CombatTables.ApproachShare` (`ApproachHitShare` 0.5): half as easy to hit while he is on the approaches, full the
+  moment he is in his trench or in front of it (the owner, 2026-10-08). It replaced the 2026-09-29 rule, which hid such
+  a man more than `DeadGroundMetres` (10 m) back altogether. Measured over ten minutes on 8 seeds, 1,680 men sent up:
+  1,389 arrived alive under the old rule, 1,371 with no rule at all, 1,482 under the half rule, and 94 % of those alive
+  got into their trench (`DeadGroundTests.Report_ReinforcementsThatArriveAlive`, Explicit). Artillery, gas, blasts and
+  aircraft are unchanged.
 - **Hand to hand and the pounce (2026-09-28, lane/sim/melee):** `Sim/Combat/MeleeSystem.cs` (order 1109, over Engage's
   orders): within 8 m a man charges the nearest enemy man (over open ground, into or along the foe's trench) and at
   2.5 m both fight (`Stance.Melee`, `MovementSystem.EngageMelee`), blows every 1.2 s (`MeleeBlow`); `KeepsRifle` says
