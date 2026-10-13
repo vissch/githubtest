@@ -844,6 +844,16 @@ namespace TW.Presentation.Tactical
         /// foot leans toward the hip by as little as brings it back in, which is the heel coming up as a leg runs
         /// out and the toe rolling off. False when even a foot laid along the leg cannot reach (the body has outrun
         /// it): the caller then draws the leg the way every other jointed leg is drawn, long.</summary>
+        /// <summary>The least a held leg may close the distance from its hip to its ankle, as a share of its thigh
+        /// plus its shin. Nothing stopped a held leg folding right up: the Banner's front legs run 1.655 + 1.554 m,
+        /// so the solver's own bound let the ankle come within 0.101 m of the hip, and because a held foot stays
+        /// upright in the world its block then sits inside its own thigh. Measured 2026-10-13: the right front leg
+        /// closed to 0.002 m between Foot_R2 and Thigh_R2 on a turning walk over rolling ground, where its mirrored
+        /// left twin — same geometry, a different phase — kept 0.24 m. That is the "legs clipping" the owner saw.
+        /// 0.42 of the leg (1.35 m on that front leg) is the first value that clears the margin: 0.35 left 0.055 m. The ankle is pushed back out along its own direction when it comes in tighter than this; the toe then
+        /// misses its target by the difference, which only happens in a pose that was folded shut anyway.</summary>
+        public const float HeldFold = 0.42f;
+
         bool SolveHeld(TankModel.LegRig rig, Matrix4x4 bodyToWorld, Vector3 want, Vector3 dn)
         {
             float upper = rig.Bone[0], lower = rig.Bone[1];
@@ -866,6 +876,26 @@ namespace TW.Presentation.Tactical
                 foot = Quaternion.Slerp(hold, along, hi);
                 ankle = want - foot * rig.Toe;
             }
+            // A held leg may not fold its foot into its own thigh. Moving the ankle itself would drag the planted
+            // toe across the ground (measured: 33 cm on a turning Banner), so the TOE stays exactly where the gait
+            // put it and the FOOT is turned instead: its toe offset is leaned back toward the hip, which carries the
+            // ankle out of the fold. The same trick as the out-of-reach branch above, the other way round.
+            float foldMin = (upper + lower) * HeldFold;
+            if ((ankle - rig.Hip).magnitude < foldMin)
+            {
+                Quaternion back = Quaternion.FromToRotation(rig.RestDir[2], -dn) * rig.RestRot[2];
+                float lo = 0f, hi = 1f;                   // the least lean that clears the fold
+                if ((want - back * rig.Toe - rig.Hip).magnitude < foldMin) lo = hi = 1f;   // as far as it goes
+                else for (int k = 0; k < 12; k++)
+                {
+                    float mid = (lo + hi) * 0.5f;
+                    if ((want - Quaternion.Slerp(foot, back, mid) * rig.Toe - rig.Hip).magnitude < foldMin) lo = mid;
+                    else hi = mid;
+                }
+                foot = Quaternion.Slerp(foot, back, hi);
+                ankle = want - foot * rig.Toe;
+            }
+
             Vector3 d = ankle - rig.Hip;
             float dist = d.magnitude;
             if (dist < 1e-4f) return false;

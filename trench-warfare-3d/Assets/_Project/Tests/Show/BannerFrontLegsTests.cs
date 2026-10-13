@@ -31,6 +31,12 @@ namespace TW.Tests
         /// turn on the spot and a stop. The owner's own figure from the day film's brief.</summary>
         public const float Margin = 0.10f;
 
+        /// <summary>The daylight a front leg must keep between its OWN parts that are not parent and child — its
+        /// foot against its own thigh. Measured on commit fda931814: the left front leg keeps 0.453 m while the
+        /// right closes to 0.015 m, the same geometry solved two ways. 0.06 m is red on that right leg today, far
+        /// below the good side's own number, and is not a figure any code computes.</summary>
+        public const float SelfMargin = 0.06f;
+
         /// <summary>Every third vertex of each part is tested against all of the other part's triangles. The
         /// Banner's leg parts carry 66 to 124 vertices, so this leaves 22 to 42 probes a part — enough to find a leg
         /// inside another leg, and cheap enough to run 1500 ticks of three cases in one test.</summary>
@@ -213,6 +219,92 @@ namespace TW.Tests
             return (gap, worst, trail.ToString());
         }
 
+        /// <summary>One run of the gait, each front leg measured against ITSELF every other tick: every pair of
+        /// that leg's own parts that is not a parent and its own child (on the Banner, Foot against Thigh).</summary>
+        static (float gap, string worst, string trail) RunSelf(string what, float speed, float yawRate,
+                                                               float seconds, bool stop,
+                                                               System.Func<float, float, float> ground = null,
+                                                               int lodIndex = 0)
+        {
+            var m = Load();
+            var lod = m.Lods[lodIndex] ?? m.Lods[0];
+            int[] pair = FrontPair(lod);
+            Assert.GreaterOrEqual(pair[1], 0, "the Banner needs two front legs to measure");
+
+            var shapes = new System.Collections.Generic.Dictionary<int, Shape>();
+            var probe = new System.Collections.Generic.List<(int a, int b)>();
+            foreach (int leg in pair)
+            {
+                var r = lod.Legs[leg];
+                for (int i = 0; i < r.Chain.Length; i++)
+                    for (int j = i + 1; j < r.Chain.Length; j++)
+                    {
+                        int ia = r.Chain[i], ib = r.Chain[j];
+                        if (lod.Parts[ia].Parent == ib || lod.Parts[ib].Parent == ia) continue;
+                        if (Body(lod.Parts[ia].Name) || Body(lod.Parts[ib].Name)) continue;
+                        if (!shapes.ContainsKey(ia)) shapes[ia] = Read(lod.Parts[ia]);
+                        if (!shapes.ContainsKey(ib)) shapes[ib] = Read(lod.Parts[ib]);
+                        probe.Add((ia, ib));
+                    }
+            }
+            Assert.Greater(probe.Count, 0, "a front leg with no two parts that are not parent and child");
+
+            var gait = new WalkerGait();
+            var local = new Matrix4x4[lod.Parts.Count];
+            var solved = new bool[lod.Parts.Count];
+            var world = new Matrix4x4[lod.Parts.Count];
+            const float dt = 1f / 60f;
+            ground = ground ?? ((x, z) => 0f);
+            Vector3 pos = new Vector3(20f, 0f, 20f);
+            float yaw = 0f;
+            gait.Plant(m, pos, yaw, ground);
+
+            float gap = float.MaxValue;
+            string worst = "";
+            var trail = new System.Text.StringBuilder();
+            int ticks = (int)(seconds * 60f);
+            for (int k = 0; k < ticks; k++)
+            {
+                float v = stop && k > ticks / 2 ? 0f : speed;
+                float w = stop && k > ticks / 2 ? 0f : yawRate;
+                yaw += w * dt;
+                Vector3 vel = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)) * v;
+                pos += vel * dt;
+                gait.Step(m, pos, yaw, vel, w, 0, false, dt, ground);
+                if ((k & 1) != 0) continue;
+                var root = Matrix4x4.TRS(new Vector3(pos.x, gait.Height, pos.z), gait.Carriage(yaw), Vector3.one);
+                gait.Solve(lod, root, local, solved);
+                for (int i = 0; i < lod.Parts.Count; i++)
+                {
+                    var p = lod.Parts[i];
+                    var l = solved[i] ? local[i] : Matrix4x4.TRS(p.Local, p.LocalRot, Vector3.one);
+                    world[i] = (p.Parent >= 0 ? world[p.Parent] : root) * l;
+                }
+
+                float tick = float.MaxValue; string which = "";
+                foreach (var (ia, ib) in probe)
+                {
+                    Shape sa = shapes[ia], sb = shapes[ib];
+                    Matrix4x4 ma = world[ia], mb = world[ib];
+                    float ka = ((Vector3)ma.GetColumn(0)).magnitude, kb = ((Vector3)mb.GetColumn(0)).magnitude;
+                    float rough = Vector3.Distance(ma.MultiplyPoint3x4(sa.Center), mb.MultiplyPoint3x4(sb.Center))
+                                - sa.Radius * ka - sb.Radius * kb;
+                    if (rough > Mathf.Min(tick, Interest)) continue;
+                    float d = Gap(sa, ma, sb, mb, Mathf.Min(tick, Interest));
+                    if (d < tick) { tick = d; which = $"{sa.Name}/{sb.Name}"; }
+                }
+                if (tick == float.MaxValue) { tick = Interest; which = "nothing within reject"; }
+                if (tick < gap)
+                {
+                    gap = tick;
+                    worst = $"{which} at t {k / 60f:F2}s of the {what}";
+                }
+                if (k % 30 == 0) trail.Append($"\n  {what} t {k / 60f:F1}s self {tick:F3} ({which})");
+            }
+            trail.Append($"\n  {what} WORST self {gap:F3} ({worst})");
+            return (gap, worst, trail.ToString());
+        }
+
         /// <summary>The front pair is the pair the owner named, but if something on this machine passes through
         /// something else it should be found whatever it is. Every pair of parts that is not a parent and its own
         /// child is measured, over a turning walk on rolling ground, and the closest are reported.
@@ -346,6 +438,39 @@ namespace TW.Tests
             Assert.Greater(legs, Margin,
                 $"the Banner's two front legs come within {legs:F3} m of each other, where {Margin:F2} m of daylight "
               + $"was asked for. Worst: {worst}.{trail}");
+        }
+        /// <summary>The owner's "still clipping" with the leg-on-leg measure green: a front leg folding its own foot
+        /// into its own thigh looks exactly the same on film. Same machinery, same seven cases, but the pairs are
+        /// one leg's own parts.</summary>
+        [Test, Category("Long")]
+        public void TheBannersFrontLegsDoNotFoldIntoThemselves()
+        {
+            System.Func<float, float, float> slope = (x, z) => z * 0.18f;
+            System.Func<float, float, float> rolling = (x, z) => Mathf.Sin(x * 0.7f) * 0.35f + Mathf.Sin(z * 0.9f) * 0.35f;
+            var cases = new[]
+            {
+                RunSelf("straight", 2.2f, 0f, 6f, false),
+                RunSelf("turn", 0f, 0.5f, 6f, false),
+                RunSelf("stop", 2.2f, 0f, 5f, true),
+                RunSelf("slope", 2.0f, 0f, 6f, false, slope),
+                RunSelf("rolling", 2.2f, 0f, 8f, false, rolling),
+                RunSelf("rolling-turn", 1.6f, 0.8f, 8f, false, rolling),
+                RunSelf("lod1-rolling-turn", 1.6f, 0.8f, 8f, false, rolling, 1),
+            };
+
+            float self = float.MaxValue; string worst = "";
+            var all = new System.Text.StringBuilder();
+            foreach (var c in cases)
+            {
+                all.Append(c.trail);
+                if (c.gap < self) { self = c.gap; worst = c.worst; }
+            }
+            string trail = all + $"\n  ALL self {self:F3}, worst {worst} (self margin {SelfMargin:F2})";
+            Debug.Log("BANNER FRONT LEG FOLD" + trail);
+
+            Assert.Greater(self, SelfMargin,
+                $"a Banner front leg folds to {self:F3} m between its own parts, where {SelfMargin:F2} m was asked "
+              + $"for. Worst: {worst}.{trail}");
         }
     }
 }
