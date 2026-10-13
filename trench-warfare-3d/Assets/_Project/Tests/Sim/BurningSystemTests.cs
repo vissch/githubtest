@@ -196,9 +196,15 @@ namespace TW.Tests
             b.M.Burning.Ignite(b.W, mb, 5f);
             Assert.AreNotEqual(a.W.Hash(), b.W.Hash(), "a man alight is compared state");
 
-            using var c = new Rig();
-            c.M.Burning.IgniteCell(c.W, new float3(150f, 0f, 240f), 5f, 0);
-            Assert.AreNotEqual(a.W.Hash(), c.W.Hash(), "and so is burning ground");
+            // [T2] a true twin pair for the burning-ground check: same setup, same step, differing only by IgniteCell
+            using var d = new Rig();
+            using var e = new Rig();
+            int md = d.Man(new float3(150f, 0f, 240f));
+            int me = e.Man(new float3(150f, 0f, 240f));
+            d.Step(); e.Step();
+            Assert.AreEqual(d.W.Hash(), e.W.Hash(), "[T2] sanity: two identical quiet worlds agree");
+            d.M.Burning.IgniteCell(d.W, new float3(150f, 0f, 240f), 5f, 0);
+            Assert.AreNotEqual(d.W.Hash(), e.W.Hash(), "[T2] and so is burning ground");
         }
 
         [Test]

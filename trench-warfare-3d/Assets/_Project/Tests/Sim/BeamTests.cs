@@ -182,7 +182,8 @@ namespace TW.Tests
             using var r = new Rig(seed: seed);
             for (int k = 0; k < 6; k++) r.Man(Start + new float3(10f + k * 8f, 0f, 0f), 100f);
             var hashes = new ulong[Warm + Sweep + 5];
-            if (beam) r.Step(Rig.Beam(0, Start)); else r.Step();
+            r.Step();   // [T1] the same first step for both branches: no Silver/cooldown difference between worlds
+            if (beam) r.M.Beam.Start(r.W, Start, new float3(1f, 0f, 0f), 60f, 2f, Sweep, 1, (int)OffMapAbilityId.Beam);
             for (int t = 0; t < hashes.Length; t++) { r.Step(); hashes[t] = r.W.LastHash; }
             return hashes;
         }
@@ -192,7 +193,7 @@ namespace TW.Tests
         {
             var a = Run(5, true); var b = Run(5, true); var none = Run(5, false);
             for (int i = 0; i < a.Length; i++) Assert.AreEqual(a[i], b[i], $"hash diverged at tick {i}");
-            Assert.AreNotEqual(a[Warm + 5], none[Warm + 5], "a running sweep is in the hash");
+            Assert.AreNotEqual(a[Warm + 5], none[Warm + 5], "[T1] a running sweep is in the hash");
         }
     }
 }
