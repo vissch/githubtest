@@ -170,6 +170,11 @@ def validate_cases(wt: pathlib.Path):
            lambda: (P / 'Presentation/VFX/TW.Presentation.VFX.asmdef').write_text('{ not json'))
     expect('asmdef_refs', 'a reference to an assembly that does not exist', 'TW.Net: unknown reference TW.Nope',
            lambda: add_ref('Net/TW.Net.asmdef', 'TW.Sim.Core', 'TW.Nope'))
+    add_ref('Net/TW.Net.asmdef', 'TW.Sim.Core', 'GUID:0123456789abcdef0123456789abcdef')
+    code, out = validate('--only', 'asmdef_refs')
+    case('[G6] a GUID reference in a TW asmdef is caught by asmdef_refs', code == 1 and 'GUID reference' in out, out)
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
     expect('sim_isolation', 'a sim assembly referencing presentation', 'TW.Sim.Core: sim assembly must not reference TW.Presentation.Core',
            lambda: add_ref('Sim/Core/TW.Sim.Core.asmdef', 'Unity.Mathematics', 'TW.Presentation.Core'))
 
@@ -185,6 +190,12 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nusing UnityEngine;\nnamespace TW.Sim { class Bad { } }\n'))
     expect('sim_purity', 'a non-deterministic call under Sim/', 'non-deterministic API in Sim assembly',
            lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { float f = Mathf.PI; } }\n'))
+    expect('sim_purity', '[G5] a non-deterministic call under Net/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Net/Bad.cs', '// Phase: x\nnamespace TW.Net { class Bad { float f = System.Math.PI; } }\n'))
+    expect('sim_purity', '[G5] a non-deterministic call under Data/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Data/Bad.cs', '// Phase: x\nnamespace TW.Data { class Bad { double d = System.Math.PI; } }\n'))
+    expect('sim_purity', '[G5] a raw math.* call under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { float f = math.sin(1f); } }\n'))
     expect('phase_header', 'a file with no Phase line', 'NoHeader.cs: missing "// Phase:" header',
            lambda: new_cs('Presentation/Core/NoHeader.cs', 'namespace TW.Presentation { class NoHeader { } }\n'))
     expect('brace_balance', 'a brace left open', 'Unbalanced.cs: unbalanced braces',
