@@ -99,6 +99,7 @@ tick = () =>
     UnityEngine.RenderTexture.active = was; UnityEngine.RenderTexture.ReleaseTemporary(rt);
     System.IO.File.WriteAllBytes(dir + "/" + i.ToString("00000") + ".jpg", UnityEngine.ImageConversion.EncodeToJPG(tex, 93));
     UnityEngine.Object.Destroy(tex);
+    { var sh = UnityEngine.Object.FindFirstObjectByType<TW.Editor.TankCapture.Shooter>(); if (sh != null) sh.Mark(); }   // one trace row per filmed frame
     i++;
 %(cues)s
     if (spin != 0f) { var sh = UnityEngine.Object.FindFirstObjectByType<TW.Editor.TankCapture.Shooter>(); if (sh != null) sh.FollowBearing = yaw0 + spin * i / frames; }
@@ -425,6 +426,9 @@ IN_FRAME = (0.08, 0.92)      # a subject outside this part of the viewport is no
 MOVED_M = 3.0                # a film named `moves` whose subject travels less than this stood still
 GUNS_SHARE = 0.1             # a machine may be seen from behind in a tenth of its frames, no more
 ORBIT_GUNS = 0.5             # [A2] a `turn` film orbits the machine on purpose, so a third of it is behind by design
+GLIMPSE = 6                  # the camera eases between bearings, so the subject can swing out of the frame for a
+OUT_SHARE = 0.02             # moment: up to GLIMPSE filmed frames in a row (a quarter second) and OUT_SHARE of the
+                             # film is a glimpse, not a lost subject. A film that really cuts away stays away.
 ON_SHARE = 0.33              # [A4] a subject that leaves fewer than this share of frames on-subject is a dead or lost one
 STILL_MEAN = 0.15            # mean frame difference, 0-255: the still Mercy sat at 0.024, the next quietest film (Brute, moving) at 0.627
 CUT_JUMP = 40.0              # a change that STAYS (6 frames after against 6 before): the four men's battle films that cut away
@@ -453,10 +457,17 @@ def check_trace(name, rows, machine=False):
     bad = []
     lo, hi = IN_FRAME
     out = [r for r in rows if not (lo <= r['vx'] <= hi and lo <= r['vy'] <= hi)]
-    if out:
+    runs, longest = [], 0
+    for r in out:
+        if runs and r['frame'] == runs[-1][-1]['frame'] + 1:
+            runs[-1].append(r)
+        else:
+            runs.append([r])
+        longest = max(longest, len(runs[-1]))
+    if out and (longest > GLIMPSE or len(out) > OUT_SHARE * len(rows)):
         r = out[0]
-        bad.append(f'LOST SUBJECT: {len(out)} of {len(rows)} frames have it outside the frame '
-                   f'(first at frame {r["frame"]}, viewport {r["vx"]:.2f} {r["vy"]:.2f})')
+        bad.append(f'LOST SUBJECT: {len(out)} of {len(rows)} frames have it outside the frame, '
+                   f'{longest} in a row (first at frame {r["frame"]}, viewport {r["vx"]:.2f} {r["vy"]:.2f})')
     if 'moves' in name:
         x0, z0 = rows[0]['x'], rows[0]['z']
         span = max(((r['x'] - x0) ** 2 + (r['z'] - z0) ** 2) ** 0.5 for r in rows)

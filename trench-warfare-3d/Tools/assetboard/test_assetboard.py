@@ -2406,6 +2406,17 @@ def gamefilm_cases():
     gone = gamefilm.check_trace('Maw.battle.game-moves', rows(step=0.5)[:20] + rows(vx=0.97, step=0.5)[20:], machine=True)
     case('gamefilm: a subject that leaves the frame fails as LOST SUBJECT, with the frame it first left on',
          len(gone) == 1 and gone[0].startswith('LOST SUBJECT') and 'frame 0' not in gone[0], gone)
+    # a glimpse (the camera easing between bearings) is not a lost subject: a few frames out, well under OUT_SHARE
+    glimpse = gamefilm.check_trace('Maw.battle.game-moves',
+                                    rows(n=200, step=0.5)[:100] + rows(n=2, vx=0.97, step=0.5) + rows(n=200, step=0.5)[102:],
+                                    machine=True)
+    case('gamefilm: a glimpse of a few frames out of the band is not LOST SUBJECT', glimpse == [], glimpse)
+    many_glimpses = gamefilm.check_trace(
+        'Maw.battle.game-moves',
+        sum(([*rows(n=200, step=0.5)[i:i + 4], *rows(n=2, vx=0.97, step=0.5)] for i in range(0, 200, 6)), []),
+        machine=True)
+    case('gamefilm: many short glimpses that add up past OUT_SHARE still fail as LOST SUBJECT',
+         len(many_glimpses) == 1 and many_glimpses[0].startswith('LOST SUBJECT'), many_glimpses)
     edge = gamefilm.check_trace('Maw.battle.game-turn', rows(vx=0.08, vy=0.92), machine=True)
     case('gamefilm: the edge of the allowed band (0.08 and 0.92) is still in the frame', edge == [], edge)
     still = gamefilm.check_trace('Mercy.trial.game-moves', rows(step=0.02))
