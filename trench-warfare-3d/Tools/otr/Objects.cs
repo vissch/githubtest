@@ -7,7 +7,8 @@
 //   meshes     vertex channels (position, normal, tangent, colour, eight UV sets) in any float/unorm8 layout,
 //              sub-meshes, index format, bounds (recalculated on vertices and on SetTriangles as Unity does),
 //              RecalculateNormals (area-weighted by shared index), Clear, CombineMeshes (matrices, winding flip on a
-//              mirror, merged or one sub-mesh an instance)
+//              mirror and normals by the inverse transpose, so a mirrored instance is lit the right way out; merged or
+//              one sub-mesh an instance)
 //   built-ins  Resources.GetBuiltinResource<Mesh>: Cube, Quad, Plane exactly as Unity builds them; Cylinder, Sphere
 //              and Capsule with Unity's sizes and bounds but not its vertex counts (never assert those here)
 // Not here: GPU buffers, blend shapes, bone weights, textures, materials, renderers, GameObjects.
@@ -352,6 +353,22 @@ static unsafe class FakeObjects
     }
 
     static int offMesh = -1, offSub, offMatrix, ciSize;
+    /// <summary>A CombineInstance transform's normal matrix: the inverse transpose of its 3x3, scale normalised away,
+    /// as nine values row major. That is the cofactor matrix divided by the *sign* of the determinant, so a mirrored
+    /// instance (a negative determinant, whose triangles Combine also reverses) gets its normals flipped with them;
+    /// the bare cofactor matrix left them pointing inwards. useMatrices false means the identity.</summary>
+    internal static float[] NormalMatrix(float[] mat, bool useMatrices)
+    {
+        float M(int r, int c) => useMatrices ? mat[c * 4 + r] : (r == c ? 1f : 0f);
+        float[] cof = {
+            M(1,1)*M(2,2)-M(1,2)*M(2,1), -(M(1,0)*M(2,2)-M(1,2)*M(2,0)), M(1,0)*M(2,1)-M(1,1)*M(2,0),
+            -(M(0,1)*M(2,2)-M(0,2)*M(2,1)), M(0,0)*M(2,2)-M(0,2)*M(2,0), -(M(0,0)*M(2,1)-M(0,1)*M(2,0)),
+            M(0,1)*M(1,2)-M(0,2)*M(1,1), -(M(0,0)*M(1,2)-M(0,2)*M(1,0)), M(0,0)*M(1,1)-M(0,1)*M(1,0) };
+        float det = M(0,0)*cof[0] + M(0,1)*cof[1] + M(0,2)*cof[2];
+        if (det < 0) for (int k = 0; k < 9; k++) cof[k] = -cof[k];
+        return cof;
+    }
+
     static void Combine(MeshData dst, IntPtr combine, bool merge, bool useMatrices)
     {
         if (offMesh < 0)
@@ -385,11 +402,7 @@ static unsafe class FakeObjects
             int baseV = pos.Count / 3;
             float M(int r, int c) => useMatrices ? mat[c * 4 + r] : (r == c ? 1f : 0f);
             float det = M(0, 0) * (M(1, 1) * M(2, 2) - M(1, 2) * M(2, 1)) - M(0, 1) * (M(1, 0) * M(2, 2) - M(1, 2) * M(2, 0)) + M(0, 2) * (M(1, 0) * M(2, 1) - M(1, 1) * M(2, 0));
-            // normals by the inverse transpose of the 3x3 (cofactor matrix; scale is normalised away)
-            float[,] cof = {
-                { M(1,1)*M(2,2)-M(1,2)*M(2,1), -(M(1,0)*M(2,2)-M(1,2)*M(2,0)), M(1,0)*M(2,1)-M(1,1)*M(2,0) },
-                { -(M(0,1)*M(2,2)-M(0,2)*M(2,1)), M(0,0)*M(2,2)-M(0,2)*M(2,0), -(M(0,0)*M(2,1)-M(0,1)*M(2,0)) },
-                { M(0,1)*M(1,2)-M(0,2)*M(1,1), -(M(0,0)*M(1,2)-M(0,2)*M(1,0)), M(0,0)*M(1,1)-M(0,1)*M(1,0) } };
+            float[] cof = NormalMatrix(mat, useMatrices);   // row major, 9 values
             src.Channels.TryGetValue(0, out var p); src.Channels.TryGetValue(1, out var nc); src.Channels.TryGetValue(3, out var cc);
             for (int v = 0; v < src.VertexCount; v++)
             {
@@ -400,7 +413,7 @@ static unsafe class FakeObjects
                     if (nc != null)
                     {
                         float a = Read(nc, v, 0), b = Read(nc, v, 1), c = Read(nc, v, 2);
-                        float nx = cof[0, 0] * a + cof[0, 1] * b + cof[0, 2] * c, ny = cof[1, 0] * a + cof[1, 1] * b + cof[1, 2] * c, nz = cof[2, 0] * a + cof[2, 1] * b + cof[2, 2] * c;
+                        float nx = cof[0] * a + cof[1] * b + cof[2] * c, ny = cof[3] * a + cof[4] * b + cof[5] * c, nz = cof[6] * a + cof[7] * b + cof[8] * c;
                         float l = (float)Math.Sqrt(nx * nx + ny * ny + nz * nz); if (l > 1e-12f) { nx /= l; ny /= l; nz /= l; }
                         nrm.Add(nx); nrm.Add(ny); nrm.Add(nz);
                     }

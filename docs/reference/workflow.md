@@ -160,6 +160,11 @@ The stand-in never answers with a made-up value where the engine would know one:
 `Graphics` read-back, `Time.frameCount`, and `Shader.Find` of a name that is no `.shader` file in the project or
 packages (and no real built-in) all come out ENGINE, not zero or null. `python Tools/otr/test_render.py` checks
 those decisions on a standalone compile of `Tools/otr/Render.cs` (needs `dotnet`, no Unity, no dlls).
+`CombineMeshes` transforms normals by the inverse transpose, so a mirrored instance is lit the right way out, and the
+JsonUtility stand-in reads whole numbers as `long` (a 64-bit field keeps every digit), calls
+`ISerializationCallbackReceiver`'s two hooks, and refuses nesting over 256 deep instead of overflowing the stack.
+`python Tools/otr/test_objects.py` checks those four on a standalone compile of `Tools/otr/Objects.cs` and
+`Tools/otr/Json.cs` (`Tools/otr/test_objects/`; needs `dotnet`, no Unity, no dlls).
 `python Tools/test_otr.py` checks otr's own verdict rules on hand-written runner output (no Unity, no dlls):
 a run with no `#DONE` and no class, a `#CRASH` line, a `LOADER` / `ENGINE-INSTALL-FAILED` line, and a non-zero
 exit after `#DONE` all have to come out bad, so a dropped module can never read as a pass.
