@@ -280,6 +280,10 @@ the same way (a jam, spin, hunting, stuck, idle, piled or clumps number that ros
 gym flags that are new, and per entry and band the pixels that changed (information only: a scenes-only gym run repeats,
 a whole run does not yet, measured 2026-10-01 at up to 35 % of a close band between two runs of one commit). The report (report.md, report.json) goes to `%LOCALAPPDATA%\TrenchWarfare\nightly\<stamp>-<sha>\`
 (the newest seven kept); exit 0 nothing new, 2 something to look at, 1 could not run. Scheduling it daily is the owner's call.
+It also reads the newest sweep run under `%LOCALAPPDATA%\TrenchWarfare\sweeps\` that reported [a faction
+band](decisions.md#d-matches) and adds a "Balance band" section with that baseline's shares; it never runs a sweep
+itself. A faction out of band is a line there and a look item (so it moves the exit to 2 too); no sweep report yet
+is one line, nothing to look at. `python Tools/test_nightly.py` tests this part with no editor and no sweep run.
 
 **A balance number, swept (2026-10-04).** The bench says how units behave; `python Tools/sweep.py run <spec.json>` says
 what a number does to the fight. A spec names variants, and a variant is data, so nothing is recompiled or committed:
