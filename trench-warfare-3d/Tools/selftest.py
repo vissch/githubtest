@@ -33,12 +33,14 @@ report cannot pass on try 1's file while the env-only-twice rule still holds, a 
 file survives the run while the build's churn is really gone from the tree, an Assets/Resources that was already there is kept,
 a failed snapshot stops the land before any build, and a green run claims no landing.
 """
+import os
 import pathlib
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 
 HERE = pathlib.Path(__file__).resolve().parent
 PROJ = HERE.parent
@@ -47,8 +49,34 @@ results = []
 
 
 def run(cmd, cwd):
-    p = subprocess.run(cmd, cwd=cwd, capture_output=True)
+    # [H5] scrub any inherited GIT_DIR/GIT_WORK_TREE so a destructive call (reset --hard, clean -qfd, push -f)
+    # cannot be aimed at the real repo by a stray env var, and cap discovery at the temp root so a fixture whose
+    # init/clone failed cannot fall through to a repo above it.
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    env['GIT_CEILING_DIRECTORIES'] = tempfile.gettempdir()
+    p = subprocess.run(cmd, cwd=cwd, capture_output=True, env=env)
     return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
+
+
+def must(cmd, cwd):
+    code, out = run(cmd, cwd)
+    if code:
+        sys.exit(f'{cmd} in {cwd} failed ({code}):\n{out}')
+    return out
+
+
+def changed_paths(repo):
+    # [H7] --no-renames on both sides: without it a rename reports only the new path, so the old file is never
+    # removed from the copy of the tree under test.
+    copy = [l.strip() for l in
+            run(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=AMR', 'HEAD'], repo)[1].split('\n')
+            if l.strip()]
+    copy += [l.strip() for l in run(['git', 'ls-files', '--others', '--exclude-standard'], repo)[1].split('\n')
+             if l.strip()]
+    delete = [l.strip() for l in
+              run(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=D', 'HEAD'], repo)[1].split('\n')
+              if l.strip()]
+    return copy, delete
 
 
 def case(name, ok, detail=''):
@@ -118,11 +146,14 @@ def codemap_cases(wt: pathlib.Path):
            lambda: tasks.write_bytes(tasks.read_bytes() + f'\nA pending fix (until "{head_subject}" lands).\n'.encode()))
     tag = 'Selftest quoted subject that never landed'
     tasks.write_bytes(tasks.read_bytes() + f'\nA pending fix (until "{tag}" lands).\n'.encode())
-    run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam',
-         f'quote it\n\nThe body says (until "{tag}" lands).'], wt)
+    # [H6] capture the snapshot's own sha before this extra commit: if the commit is refused (hook, gpgsign) the
+    # cases must still test the tree that was on disk, not silently fall back to testing HEAD.
+    before = run(['git', 'rev-parse', 'HEAD'], wt)[1].strip()
+    must(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam',
+          f'quote it\n\nThe body says (until "{tag}" lands).'], wt)
     code, out = run(check, proj)
     case('codemap does not call a tag landed when a commit message only quotes it', tag not in out, out)
-    run(['git', 'reset', '-q', '--hard', 'HEAD~1'], wt)
+    run(['git', 'reset', '-q', '--hard', before], wt)
     sim_lines = len((proj / 'Assets/_Project/Presentation/Core/SimHost.cs').read_text(encoding='utf-8-sig').splitlines())
     expect('a cited line one past the end of the file', 'past the end',
            lambda: wf.write_bytes(wf.read_bytes() + f'\nSee `Presentation/Core/SimHost.cs:{sim_lines + 1}`.\n'.encode()))
@@ -337,7 +368,7 @@ def split_repo(tmp: pathlib.Path, name, lane_edit):
     r = tmp / name
     (r / 'A').mkdir(parents=True)
     g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
-    g('init', '-q', '-b', 'main')
+    must(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'init', '-q', '-b', 'main'], r)
     big = r / 'A/Big.cs'
     lines = ['class Big', '{'] + [f'    int keep{i} = {i};' for i in range(12)] + \
             [f'    int move{i} = {i};' for i in range(12)] + ['}', '']
@@ -441,8 +472,8 @@ def land_cases(tmp: pathlib.Path):
     # A bare origin with the integration branch, and a clone with a lane on it. land.py runs from the clone.
     integ = 'claude/trench-warfare-2d-3d-plan-idt7lf'
     origin, work = tmp / 'origin.git', tmp / 'land-work'
-    run(['git', 'init', '-q', '--bare', str(origin)], tmp)
-    run(['git', 'clone', '-q', str(origin), str(work)], tmp)
+    must(['git', 'init', '-q', '--bare', str(origin)], tmp)
+    must(['git', 'clone', '-q', str(origin), str(work)], tmp)
     g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], work)
     proj = work / 'trench-warfare-3d'
     (proj / 'Tools').mkdir(parents=True)
@@ -862,9 +893,9 @@ def aosa_land_cases(tmp: pathlib.Path):
     (proj / 'Assets/UniversalRenderPipelineGlobalSettings.asset').write_text('urp: 1\n')
     (proj / 'Assets/_Project/Settings/TW-URP.asset').write_text('twurp: 1\n')
     (proj / 'ProjectSettings/GraphicsSettings.asset').write_text('gfx: 1\n')
-    run(['git', 'init', '-q', str(root)], tmp)
+    must(['git', 'init', '-q', str(root)], tmp)
     run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'add', '.'], root)
-    run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base'], root)
+    must(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base'], root)
     (proj / 'Assets/_AosaLocal/PipelineServerOff.asset').write_text('off\n')      # untracked by design (A08)
     fake = tmp / 'fake-aosa-unity'
     fake.mkdir()
@@ -994,9 +1025,10 @@ def scrub(path):
 STALE_HOURS = 6   # no run takes an hour: a folder this old is a killed run's, or one from before scrub()
 
 
-def sweep_stale():
+def sweep_stale(repo):
     """The folders older runs left in the temp folder, and the worktrees a killed run left registered (one with a
-    broken index made git's own upkeep fail on every fetch)."""
+    broken index made git's own upkeep fail on every fetch). [H4] prune only forgets a worktree record whose folder
+    is already gone, so the stale folders go first."""
     import time
     root = pathlib.Path(tempfile.gettempdir())
     for d in root.glob('tw-selftest-*'):
@@ -1006,13 +1038,13 @@ def sweep_stale():
         except OSError:
             continue
         if (d / 'wt').exists():
-            run(['git', 'worktree', 'remove', '--force', str(d / 'wt')], REPO)
+            run(['git', 'worktree', 'remove', '--force', str(d / 'wt')], repo)
         scrub(d)
+    run(['git', 'worktree', 'prune'], repo)
 
 
 def main():
-    sweep_stale()
-    run(['git', 'worktree', 'prune'], REPO)   # a run killed half way leaves its worktree registered
+    sweep_stale(REPO)   # a run killed half way leaves its temp folder and worktree registered
     tmp = pathlib.Path(tempfile.mkdtemp(prefix='tw-selftest-'))
     wt = tmp / 'wt'
     code, out = run(['git', 'worktree', 'add', '-q', '--detach', str(wt), 'HEAD'], REPO)
@@ -1020,15 +1052,14 @@ def main():
         sys.exit('could not create a worktree: ' + out)
     try:
         # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
-        changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
-        changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
-        for rel in filter(None, (c.strip() for c in changed)):
+        copy, delete = changed_paths(REPO)
+        for rel in copy:
             (wt / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / rel, wt / rel)
-        for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
-            (wt / rel.strip()).unlink(missing_ok=True)
+        for rel in delete:
+            (wt / rel).unlink(missing_ok=True)
         run(['git', 'add', '-A'], wt)
-        run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
+        must(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
              '--allow-empty', '--no-verify'], wt)
         codemap_cases(wt)
         validate_cases(wt)
@@ -1045,7 +1076,9 @@ def main():
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:
-        run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
+        code, out = run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
+        if code:
+            print('could not remove worktree ' + str(wt) + ': ' + out)
         scrub(tmp)
         run(['git', 'worktree', 'prune'], REPO)
         case('the run leaves no folder behind', not tmp.exists(), str(tmp))
