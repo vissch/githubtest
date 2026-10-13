@@ -248,17 +248,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-10 | **The goals lede is his two sentences, and each click opens the row it names.** Line 3 of the goals page is "Pictures and films before words." and "Things to click and act on." The wall-of-text sentence stays in His taste, with its date, and it is not in the lede. Each picture and its sources open the decision row that goal's first dated line quotes, except the frogs picture and its sources link, which both open the ten-card row and not the six-model row, and the matches picture, which opens the measuring row. The deaths goal opens on the film, and its picture is a frame of that film: a Bullfrog on fire beside a tank. (corrected after the page scored 71 of 100) |
 | 2026-10-10 | **Not landed means the row is not in this file, and a line that quotes two rows has a click for each.** Eight lines had been marked Not landed after their rows were already here. The flag stays on the day's 11 percent budget and on the unit-look quote on the goals page. Neither of those is a row of its own. The frog faction on this page is the ten cards of 2026-10-07: rifleman, assault, gunner, medic, sniper, Brute, Croaker, Bullfrog, Hopper and Mercy. The units line also opens the 3d-model row, and the deaths line also opens the blood row. (corrected after the page scored 78 of 100) |
 | 2026-10-10 | **The goals page quotes him as Machines on each other, and the frog click opens the ten cards.** They keep a distance fitting their size, and trench crossing is not part of that work. The frogs picture and Its sources both open the ten-card row (#d-frogs), and the Hopper's flight link opens #d-hopper; none of the three opens the six-model row. The matches picture opens the row that fixes the measuring first: no unit's number is tuned, and Iron's roster is not changed. The script's buying does change. (corrected after the page scored 49 of 100) |
+| 2026-10-12 | **The Banner's front legs, firing vfx and rifle animation come first.** To the brief "The Banner by day, on film: what next?" the owner wrote in his own words: "the legs are still clipping through eachother, the front legs i mean, the firing vfx and the rifle animation can be improved". So the Banner's top and guns do not land as they are: those three change first, and only then is landing asked again. (owner, 2026-10-12 10:47, on the Decide page; taken up on `lane/show/banner-day-film` 2026-10-13) |
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
-- **The Banner by day, on film: what next? (2026-10-12):** he asked twice for a video and had only stills. There is now
-  one: eighteen seconds in a daylight match (Winter, GreyboxCorridor, the game's own shaders), the Banner walking at
-  play zoom, its top laid 38 degrees on men off its nose and coming home to 0, both guns firing, then the same close
-  from the front quarter. Evidence: the brief's own folder, G:/My Drive/TW3D-pipeline/decisions/
-  2026-10-12-the-banner-by-day-on-film-what-next/ (the film and two frames). The copy to decisions-evidence/
-  2026-10-12/banner-day-film/ was refused in this run, so that folder is empty.
-  Options: land the Banner's top and guns as they are; make a shield plate as new art first, then it moves; not yet,
-  and he writes what must change. Nobody to ask in this run, so the brief is on the Decide page and nothing is landed.
+- **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
+  `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
+  folded its own foot into its own thigh (0.015 m, where its mirrored twin kept 0.453 m), and the gait now holds that
+  open (0.083 m against a 0.06 m margin, BannerFrontLegsTests). The muzzle flash is shorter and brighter and its smoke
+  thins and drifts off the machine; the top takes 0.30 degrees of the barrel's kick. Filmed again in the same match and
+  the same four shots, twice on one build: G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12/banner-legs-and-fire/
+  (the film, six frames, the close front-leg frame before and after). The riflemen's own firing animation is untouched.
+  Options: land the Banner with these; one of the three is still wrong, and he writes which; not yet. Nobody to ask in
+  this run, so the brief is on the Decide page and nothing is landed.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
