@@ -108,6 +108,7 @@ Shader "TW/Toon (URP)"
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS
             #pragma multi_compile _ _FORWARD_PLUS
+            #define TW_PIGMENT_RANGE 1.25   // BattlefieldPigment.Range: the R8 sheet holds value/Range
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
             #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"
             #include "Assets/_Project/Shaders/TWWater.hlsl"
@@ -138,7 +139,8 @@ Shader "TW/Toon (URP)"
                 half4 base;
                 if (_Pigment >= 0.0)
                 {
-                    half paint = SAMPLE_TEXTURE2D_ARRAY(_PigmentSheet, sampler_PigmentSheet, i.uv, _Pigment).r;
+                    // The sheet stores value/Range (R8 clamps at 1, the paint peaks above it), so scale it back.
+                    half paint = SAMPLE_TEXTURE2D_ARRAY(_PigmentSheet, sampler_PigmentSheet, i.uv, _Pigment).r * TW_PIGMENT_RANGE;
                     base = half4(paint, paint, paint, 1.0);
                 }
                 else base = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, i.uv);
