@@ -134,9 +134,16 @@ namespace TW.Tests
         public void Replay_SerializesAndVerifies()
         {
             var cfg = Config();
-            var recorder = new ReplayRecorder(cfg, default, TW.Sim.Terrain.GreyboxMapGenerator.MapId);
+            using var recording = MatchSim.CreateGreybox(cfg);
+            var recorder = recording.NewReplayRecorder();
             sapperLaid = false;
-            Run(200, recorder);
+            for (uint t = 0; t < 200; t++)
+            {
+                using var cmds = new NativeArray<SimCommand>(WithSapperOrder(recording, t, ScriptedCommands(t)), Allocator.Temp);
+                recording.Step(cmds);
+                sapperLaid |= Laid(recording, 0);
+                recorder.Record(cmds, recording.World.LastHash);
+            }
             Assert.IsTrue(sapperLaid, "the recorded match has the sapper's mine in it, laid through commands alone");
             var bytes = recorder.Serialize();
             var player = ReplayPlayer.Parse(bytes);
@@ -146,15 +153,15 @@ namespace TW.Tests
             for (int t = 0; t < player.TickCount; t++)
                 Assert.AreNotEqual(0UL, player.Hashes[t], $"[T4] the recorded hash of tick {t} is 0: a verify that cannot fail");
             using var match = MatchSim.CreateGreybox(player.Config);
-            Assert.AreEqual(-1, player.Verify(match.World), "replay must re-simulate to the recorded hashes");
+            Assert.AreEqual(-1, match.VerifyReplay(player), "replay must re-simulate to the recorded hashes");
             // [T4] the flipped-hash control: one bit off at tick 100 must be found, and found exactly there.
             var flipped = ReplayPlayer.Parse(bytes);
             flipped.Hashes[100] ^= 1;
             using var control = MatchSim.CreateGreybox(flipped.Config);
-            Assert.AreEqual(100, flipped.Verify(control.World), "[T4] a replay with one hash bit flipped at tick 100 must report a desync at tick 100");
+            Assert.AreEqual(100, control.VerifyReplay(flipped), "[T4] a replay with one hash bit flipped at tick 100 must report a desync at tick 100");
             // [T4] the world the verify above consumed is spent: verifying again must throw, not quietly re-run
             // from the middle (the S5 guard).
-            Assert.Throws<System.ArgumentException>(() => player.Verify(match.World),
+            Assert.Throws<System.ArgumentException>(() => match.VerifyReplay(player),
                 "[T4] a verify on an already-simulated world must be refused");
         }
 

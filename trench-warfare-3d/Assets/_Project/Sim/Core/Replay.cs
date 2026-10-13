@@ -158,9 +158,9 @@ namespace TW.Sim
         public const ushort FormatVersion = 52;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
-        public int MapId;
+        public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
         public ulong MapHash;   // MapData.Hash() of the map the replay was recorded on (0 = unknown)
-        public ulong DataHash;  // hash of the baked unit/weapon/ability tables (0 until C2 wires it)
+        public ulong DataHash;  // hash of the baked unit/weapon/ability tables (0 = unknown; MatchSim.NewReplayRecorder wires it)
         public byte[] MapParams = System.Array.Empty<byte>();   // what a generated map is rebuilt from (BattlefieldParams.Serialize); empty for fixed maps
         public readonly List<SimCommand[]> Commands = new List<SimCommand[]>();
         public readonly List<ulong> Hashes = new List<ulong>();
@@ -282,6 +282,10 @@ namespace TW.Sim
                     p.Commands[t] = cs;
                     p.Hashes[t] = r.ReadUInt64();
                 }
+                // S8/S3.7: anything after the last tick's hash is not part of the format and hides a truncated or
+                // appended file (a shorter tick count than the bytes on hand would otherwise just stop early).
+                if (ms.Position != ms.Length)
+                    throw new InvalidDataException($"Replay has {ms.Length - ms.Position} trailing byte(s) after the last tick");
                 return p;
             }
             catch (InvalidDataException) { throw; }
@@ -294,11 +298,12 @@ namespace TW.Sim
         /// <summary>Re-simulate and return the first tick whose hash differs, or -1 if the replay verifies.
         /// Throws InvalidDataException naming the first field by which the recorded header and the given world's
         /// Config disagree (a replay recorded against a different config always desyncs, usually at tick 0, which
-        /// hid the real cause). mapHash/dataHash are compared against the recorded MapHash/DataHash only when both
-        /// the recorded and the given value are non-zero (0 means "unknown" on either side). MapParams has nothing
-        /// in SimWorld to compare against (it only feeds the map generator that built the world before Verify ever
-        /// sees it), so it is not checked here.</summary>
-        public int Verify(SimWorld world, ulong mapHash = 0, ulong dataHash = 0)
+        /// hid the real cause). mapHash/dataHash/mapId are compared against the recorded MapHash/DataHash/MapId
+        /// only when both the recorded and the given value are non-zero (0 means "unknown" on either side; a mapId
+        /// mismatch is checked and reported before Config, so a wrong map is named as a wrong map, not as a
+        /// differing SizeMeters). MapParams has nothing in SimWorld to compare against (it only feeds the map
+        /// generator that built the world before Verify ever sees it), so it is not checked here.</summary>
+        public int Verify(SimWorld world, ulong mapHash = 0, ulong dataHash = 0, int mapId = 0)
         {
             // S5: a world that does not hash every tick leaves LastHash 0, so a good replay would read "desync at
             // tick 0"; a world that has already stepped cannot re-simulate the recording from its start.
@@ -306,11 +311,13 @@ namespace TW.Sim
                 throw new System.ArgumentException($"Verify needs a world that hashes every tick (HashInterval == 1), got {world.HashInterval}", nameof(world));
             if (world.Tick != 0)
                 throw new System.ArgumentException($"Verify needs a fresh world at tick 0, got tick {world.Tick}", nameof(world));
-            CheckConfig(world);
+            if (MapId != 0 && mapId != 0 && MapId != mapId)
+                throw new InvalidDataException($"Replay recorded MapId {MapId}, given world built from MapId {mapId}");
             if (MapHash != 0 && mapHash != 0 && MapHash != mapHash)
                 throw new InvalidDataException($"Replay recorded MapHash {MapHash}, given world built from MapHash {mapHash}");
             if (DataHash != 0 && dataHash != 0 && DataHash != dataHash)
                 throw new InvalidDataException($"Replay recorded DataHash {DataHash}, given world built from DataHash {dataHash}");
+            CheckConfig(world);
             for (int t = 0; t < TickCount; t++)
             {
                 using var cmds = new NativeArray<SimCommand>(Commands[t], Allocator.Temp);
