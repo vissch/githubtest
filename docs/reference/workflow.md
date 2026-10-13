@@ -347,7 +347,10 @@ Tools/tw shot name
 Tools/tw pause false
 ```
 Each CLI call is a second or two of wall clock and the editor only stays paused while inside one, so an effect
-created before pausing runs out between calls. `Tools/flameshots <prefix>` is the worked example.
+created before pausing runs out between calls. `Tools/flameshots <prefix>` is the worked example: it pins each
+shot's birth to an absolute game time with `stepabs` before creating the effect, and
+`python Tools/test_flameshots.py` checks that it does, by running the script against a stand-in `tw` that
+only records its calls (no editor).
 
 **Repeatable captures.** Anything animated on noise or `Time.time` looks different at a different absolute time,
 so two captures of "the same moment" can differ more than the change you are judging (a ninefold spread was
