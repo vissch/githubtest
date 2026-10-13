@@ -27,13 +27,18 @@
 #
 # usage: blender -b --factory-startup -P crabsplit.py -- <pincer> <kettle> <censer> <pavise> <outdir> <renderdir>
 #   (each .fbx beside its Tripo .fbm folder; keep paths short, Blender cannot read textures past MAX_PATH)
-import bpy, bmesh, sys, os, math, json, glob
-import numpy as np
-from mathutils import Vector, Matrix, Euler
+import sys, os, math, json, glob
+try:                                        # outside Blender only the pure helpers below can be used (test_crabsplit.py)
+    import bpy, bmesh
+    import numpy as np
+    from mathutils import Vector, Matrix, Euler
+except ImportError:
+    bpy = bmesh = np = None
 
-argv = sys.argv[sys.argv.index("--") + 1:]
-SHEETS, OUTDIR, RENDERDIR = argv[0:-2], argv[-2], argv[-1]
-os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
+if bpy is not None:                         # the run below is Blender only; outside, only the helpers import
+    argv = sys.argv[sys.argv.index("--") + 1:]
+    SHEETS, OUTDIR, RENDERDIR = argv[0:-2], argv[-2], argv[-1]
+    os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 
 # One entry per machine. "cut" crabs have their limbs welded to the carapace and are taken apart with the elliptical
 # wall; the others arrive as loose parts and only need sorting. "arm" is what the machine carries over its back, and
@@ -41,16 +46,79 @@ os.makedirs(OUTDIR, exist_ok=True); os.makedirs(RENDERDIR, exist_ok=True)
 # gun, which Tripo left as a heap of small pieces).
 CRABS = {
     "Pincer": dict(scale=3.8, cut=dict(wall=(0.30, 0.26), zcut=0.42), decimate=0.34),
-    "Kettle": dict(scale=3.2, arm=("Mortar", "tall"), decimate=0.70),
+    "Kettle": dict(scale=3.2, arm=("Mortar", "tall"), legs=4, decimate=0.70),
     "Censer": dict(scale=3.3, arm=("Drum", "tall"), decimate=0.55),
     "Pavise": dict(scale=3.6, arm=("Gun", "above"), shield=True, decimate=0.36),
     # the two the owner added after the first four: a command walker carrying a standard, and a blockhouse on legs
     "Banner": dict(scale=3.4, arm=("Gun", "above"), banner=True, decimate=0.60),
-    "Redoubt": dict(scale=3.6, arm=("Cupola", "tall"), decimate=0.45),
+    # the Redoubt has no claws at all and six two-piece legs: taking a claw pair stole two of them (review R1)
+    "Redoubt": dict(scale=3.6, arm=("Cupola", "tall"), claws=False, legs=6, decimate=0.45),
     # not a walker at all: the gunboat that stands off the beach. It has no limbs, so the limb pass finds nothing
     # and everything but the gun becomes its hull.
     "Cutter": dict(scale=16.0, arm=("Gun", "above"), still=True, decimate=0.45),
 }
+
+# ------------------------------------------------------------------------------------------- legs (pure, testable)
+def group_legs(pieces, expected=None, machine=""):
+    """Sort limb pieces into one group per leg. `pieces` are plain tuples (key, x, y, quad, ztop) — no Blender types —
+    so this can be tested on its own. A leg's pieces (thigh, shin, foot) stand in one stack, so their centres sit
+    almost on top of each other, while two different legs' hips are far apart: cluster on that gap instead of
+    binning by quadrant (review R1 — with six legs over four quadrants two legs were merged into one fake chain).
+    Returns (legs, leftover): `legs` is a list of dicts with a label ("LF", or "LF1"/"LF2" when a quadrant holds
+    more than one leg) and the keys top down; `leftover` are the pieces past the third in a leg."""
+    pieces = list(pieces)
+    if not pieces: return [], []
+    n = len(pieces)
+    def dist(i, j):
+        return math.hypot(pieces[i][1] - pieces[j][1], pieces[i][2] - pieces[j][2])
+    # single-link clustering: build the minimum spanning tree, then cut the edges past the biggest jump in length
+    # (within a leg a few millimetres, between legs tens of centimetres)
+    edges, near = [], {j: (dist(0, j), 0) for j in range(1, n)}
+    while near:
+        j, (d, i) = min(near.items(), key=lambda kv: (kv[1][0], kv[0]))
+        edges.append((d, i, j)); del near[j]
+        for k in list(near):
+            dk = dist(j, k)
+            if dk < near[k][0]: near[k] = (dk, j)
+    order = sorted(edges)
+    cut = len(order)
+    best = 1.0
+    for a in range(len(order) - 1):
+        lo, hi = order[a][0], order[a + 1][0]
+        r = hi / lo if lo > 1e-9 else (float("inf") if hi > 1e-9 else 1.0)
+        if r > best: best, cut = r, a + 1
+    if best < 3.0: cut = len(order)            # no clear gap: one leg, or pieces spread evenly
+    keep = order[:cut]
+    root = list(range(n))
+    def find(i):
+        while root[i] != i: root[i] = root[root[i]]; i = root[i]
+        return i
+    for d, i, j in keep: root[find(i)] = find(j)
+    groups = {}
+    for i in range(n): groups.setdefault(find(i), []).append(i)
+    clusters = list(groups.values())
+    if expected is not None and len(clusters) != expected:
+        raise ValueError("crabsplit: %s has %d leg groups, expected %d (pieces: %s)"
+                         % (machine or "machine", len(clusters), expected,
+                            ", ".join(pieces[i][0] for i in range(n))))
+    # name them: the quadrant of the group, numbered when a quadrant holds more than one leg
+    out = []
+    for cl in clusters:
+        cl.sort(key=lambda i: -pieces[i][4])           # top down: thigh, shin, foot
+        quad = pieces[cl[0]][3]
+        out.append(dict(quad=quad, keys=[pieces[i][0] for i in cl],
+                        x=pieces[cl[0]][1], y=pieces[cl[0]][2]))
+    byq = {}
+    for g in out: byq.setdefault(g["quad"], []).append(g)
+    legs, leftover = [], []
+    for quad, gs in byq.items():
+        gs.sort(key=lambda g: (round(g["y"], 4), round(g["x"], 4)))
+        for i, g in enumerate(gs):
+            g["label"] = quad if len(gs) == 1 else "%s%d" % (quad, i + 1)
+    for g in sorted(out, key=lambda g: g["label"]):
+        legs.append(dict(label=g["label"], keys=g["keys"][:3]))
+        leftover += g["keys"][3:]
+    return legs, leftover
 
 # ------------------------------------------------------------------------------------------------------------ load
 def load(fbx, tag):
@@ -291,13 +359,15 @@ def build_loose(crab, src, cfg):
         parts["Shield"] = slab; piv["Shield"] = centre(slab)
     strays = odd
 
-    # the claws are the pair furthest forward, one either side of the centre line
-    front = sorted(limbs, key=lambda b: centre(b).y)
+    # the claws are the pair furthest forward, one either side of the centre line. A machine without claws
+    # (the Redoubt) would have two of its legs taken instead, so claws are opt-out per machine (review R1).
     claws = []
-    for b in front:
-        if len(claws) == 2: break
-        if claws and (centre(b).x - mid.x) * (centre(claws[0]).x - mid.x) > 0: continue   # same side as the first: not its pair
-        claws.append(b)
+    if cfg.get("claws", True):
+        front = sorted(limbs, key=lambda b: centre(b).y)
+        for b in front:
+            if len(claws) == 2: break
+            if claws and (centre(b).x - mid.x) * (centre(claws[0]).x - mid.x) > 0: continue   # same side as the first: not its pair
+            claws.append(b)
     claws.sort(key=lambda b: -centre(b).x)                                                # the machine's left is Blender +X
     for side, claw in zip(("L", "R"), claws):
         parts["Claw_" + side] = claw
@@ -330,21 +400,25 @@ def build_loose(crab, src, cfg):
         c = centre(b)
         print("    limb %4d faces at %6.3f %6.3f %6.3f -> %s%s" % (len(b.faces), c.x, c.y, c.z,
               "L" if c.x >= mid.x else "R", "F" if c.y < mid.y else "B"))
-    quads = {}
-    for b in legs:
+    byKey = {}
+    tuples = []
+    for i, b in enumerate(legs):
         c = centre(b)
-        quads.setdefault(("L" if c.x >= mid.x else "R") + ("F" if c.y < mid.y else "B"), []).append(b)
-    for q, group in quads.items():
-        group.sort(key=lambda b: -centre(b).z)
-        names = ["Thigh", "Shin", "Foot"]
-        for i, b in enumerate(group[:3]):
-            name = "%s_%s" % (names[i], q)
-            parts[name] = b
-            blo, bhi = bm_bounds([b])
-            piv[name] = Vector((centre(b).x, centre(b).y, bhi.z))       # the joint at the top of the piece
-        for b in group[3:]: core.append(b)
+        key = "limb%d" % i
+        byKey[key] = b
+        quad = ("L" if c.x >= mid.x else "R") + ("F" if c.y < mid.y else "B")
+        tuples.append((key, c.x, c.y, quad, bm_bounds([b])[1].z))
+    legGroups, leftover = group_legs(tuples, cfg.get("legs"), crab)
+    names = ["Thigh", "Shin", "Foot"]
+    for g in legGroups:
+        for i, key in enumerate(g["keys"]):
+            b = byKey[key]
+            pname = "%s_%s" % (names[i], g["label"])
+            parts[pname] = b
+            piv[pname] = Vector((centre(b).x, centre(b).y, bm_bounds([b])[1].z))   # the joint at the top of the piece
+    for key in leftover: core.append(byKey[key])
     parts["Body"] = join([shell] + core); piv["Body"] = Vector((mid.x, mid.y, 0))
-    print("  %s %d faces, %d legs in %d quadrants, %d claws" % (armName, len(arm.faces), len(legs), len(quads), len(claws)))
+    print("  %s %d faces, %d legs in %d groups, %d claws" % (armName, len(arm.faces), len(legs), len(legGroups), len(claws)))
     return parts, piv
 
 # ---------------------------------------------------------------------------------------------------- the skeleton
@@ -380,7 +454,7 @@ def sockets(name, parts, piv):
     return s
 
 # ------------------------------------------------------------------------------------------------- objects, export
-TURN = Matrix.Rotation(math.pi, 4, 'Z')   # see the header: the export puts Blender -Y at Unity -Z
+TURN = Matrix.Rotation(math.pi, 4, 'Z') if bpy is not None else None   # see the header: the export puts Blender -Y at Unity -Z
 
 def make_objects(crab, lod, parts, piv, sock, s, mat, decimate):
     objs = {}
@@ -493,38 +567,39 @@ def render_checks(crab, lod, root, objs):
     bpy.context.view_layer.update()
 
 # ------------------------------------------------------------------------------------------------------------ main
-bpy.ops.wm.read_factory_settings(use_empty=True)
-manifest = {"source": "Tools/crabsplit.py", "crabs": {}}
-for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter"), SHEETS):
-    cfg = CRABS[crab]
-    print("== %s" % crab)
-    src, img, mat = load(fbx, crab)
-    parts, piv = build_pincer(src, cfg) if "cut" in cfg else build_loose(crab, src, cfg)
-    sock = sockets(crab, parts, piv)
-    s = cfg["scale"]
-    lo, hi = bm_bounds(list(parts.values()))
-    piv = {n: p - Vector((0, 0, lo.z)) for n, p in piv.items()}      # the model's feet become z = 0
-    sock = {n: (o, v - Vector((0, 0, lo.z))) for n, (o, v) in sock.items()}
-    for bm in parts.values(): bmesh.ops.transform(bm, matrix=Matrix.Translation((0, 0, -lo.z)), verts=bm.verts)
-    entry = manifest["crabs"].setdefault(crab, {"scale": s, "lods": []})
-    entry["size_m"] = [abs(x) for x in unity((hi - lo) * s)]
-    entry["pivots"] = {n: unity(p * s) for n, p in piv.items()}
-    entry["sockets"] = {n: {"part": o, "pos": unity(p * s)} for n, (o, p) in sock.items()}
-    entry["parents"] = hierarchy(crab, parts)
-    entry["legs"] = sorted([n for n in parts if n.startswith("Leg_") or n.startswith("Thigh_")])
-    for lod in (0, 1):
-        for o in list(bpy.context.scene.objects):
-            if o.type in ('MESH', 'EMPTY') and o.name != "cam": bpy.data.objects.remove(o, do_unlink=True)
-        root, objs = make_objects(crab, lod, parts, piv, sock, s, mat, 1.0 if lod == 0 else cfg["decimate"])
-        render_checks(crab, lod, root, objs)
-        export(root, os.path.join(OUTDIR, crab, "%s_LOD%d.fbx" % (crab, lod)))
-        tris = sum(len(p.vertices) - 2 for o in objs.values() if o.type == 'MESH' for p in o.data.polygons)
-        verts = sum(len(o.data.vertices) for o in objs.values() if o.type == 'MESH')
-        entry["lods"].append({"lod": lod, "parts": sorted(n for n in objs if not n.startswith("Socket")), "verts": verts, "tris": tris})
-        print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (crab, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
-    im = img.copy(); im.scale(1024, 1024)
-    scene = bpy.context.scene
-    scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
-    im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
-with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
-print("DONE")
+if bpy is not None:
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    manifest = {"source": "Tools/crabsplit.py", "crabs": {}}
+    for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter"), SHEETS):
+        cfg = CRABS[crab]
+        print("== %s" % crab)
+        src, img, mat = load(fbx, crab)
+        parts, piv = build_pincer(src, cfg) if "cut" in cfg else build_loose(crab, src, cfg)
+        sock = sockets(crab, parts, piv)
+        s = cfg["scale"]
+        lo, hi = bm_bounds(list(parts.values()))
+        piv = {n: p - Vector((0, 0, lo.z)) for n, p in piv.items()}      # the model's feet become z = 0
+        sock = {n: (o, v - Vector((0, 0, lo.z))) for n, (o, v) in sock.items()}
+        for bm in parts.values(): bmesh.ops.transform(bm, matrix=Matrix.Translation((0, 0, -lo.z)), verts=bm.verts)
+        entry = manifest["crabs"].setdefault(crab, {"scale": s, "lods": []})
+        entry["size_m"] = [abs(x) for x in unity((hi - lo) * s)]
+        entry["pivots"] = {n: unity(p * s) for n, p in piv.items()}
+        entry["sockets"] = {n: {"part": o, "pos": unity(p * s)} for n, (o, p) in sock.items()}
+        entry["parents"] = hierarchy(crab, parts)
+        entry["legs"] = sorted([n for n in parts if n.startswith("Leg_") or n.startswith("Thigh_")])
+        for lod in (0, 1):
+            for o in list(bpy.context.scene.objects):
+                if o.type in ('MESH', 'EMPTY') and o.name != "cam": bpy.data.objects.remove(o, do_unlink=True)
+            root, objs = make_objects(crab, lod, parts, piv, sock, s, mat, 1.0 if lod == 0 else cfg["decimate"])
+            render_checks(crab, lod, root, objs)
+            export(root, os.path.join(OUTDIR, crab, "%s_LOD%d.fbx" % (crab, lod)))
+            tris = sum(len(p.vertices) - 2 for o in objs.values() if o.type == 'MESH' for p in o.data.polygons)
+            verts = sum(len(o.data.vertices) for o in objs.values() if o.type == 'MESH')
+            entry["lods"].append({"lod": lod, "parts": sorted(n for n in objs if not n.startswith("Socket")), "verts": verts, "tris": tris})
+            print("EXPORT %s LOD%d: %d parts, %d verts, %d tris" % (crab, lod, len([o for o in objs.values() if o.type == 'MESH']), verts, tris))
+        im = img.copy(); im.scale(1024, 1024)
+        scene = bpy.context.scene
+        scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
+        im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
+    with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
+    print("DONE")
