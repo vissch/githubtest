@@ -215,6 +215,71 @@ namespace TW.Tests
             public byte[] First; public int Ticks; public uint Seen = uint.MaxValue;
         }
 
+        /// <summary>The open track of one match: where every man stood each five seconds, one JSON line a sample, for
+        /// Tools/sweepfilm.py's page. Off unless TW_SWEEP_TRACK names a folder. Hand-written strings like the report's
+        /// JSON, invariant culture, plain newlines; no serializer.</summary>
+        sealed class Track
+        {
+            StreamWriter _w;
+            public int Every, Samples;
+
+            public static Track Open(string dir, Spec spec, Variant v, uint seed, bool swapped, MatchSim m)
+            {
+                Directory.CreateDirectory(dir);
+                float dt = m.World.Config.TickSeconds;
+                var t = new Track { Every = math.max(1, (int)math.round(5f / dt)) };
+                t._w = new StreamWriter(Path.Combine(dir, $"{v.name}-s{seed}{(swapped ? "-swapped" : "")}.jsonl"), false)
+                { NewLine = "\n" };
+                var head = new StringBuilder("{\"variant\": \"").Append(v.name).Append("\", \"seed\": ").Append(seed.ToString(Inv));
+                head.Append(", \"swapped\": ").Append(swapped ? "true" : "false");
+                head.Append(", \"scenario\": \"").Append(spec.scenario).Append("\", \"minutes\": ").Append(spec.minutes.ToString(Inv));
+                head.Append(", \"tick_seconds\": ").Append(Num(dt)).Append(", \"every\": ").Append(t.Every.ToString(Inv));
+                head.Append(", \"trenches\": [");
+                var state = m.Fields.Trenches;
+                for (int k = 0; k < state.Length; k++)
+                {
+                    var def = m.Map.Trenches[k];
+                    head.Append(k == 0 ? "{" : ", {").Append("\"owner\": ").Append(((int)state[k].OwnerTeam).ToString(Inv)).Append(", \"cells\": [");
+                    for (int j = 0; j < def.CellCount; j++)
+                    {
+                        var c = m.Map.NavCellCenter(m.Map.TrenchCells[def.CellStart + j]);
+                        head.Append(j == 0 ? "[" : ", [").Append(One(c.x)).Append(", ").Append(One(c.z)).Append(']');
+                    }
+                    head.Append("]}");
+                }
+                head.Append("]}");
+                t._w.Write(head.ToString()); t._w.Write('\n');
+                return t;
+            }
+
+            /// <summary>x or z to one decimal, invariant.</summary>
+            static string One(float v) => v.ToString("F1", Inv);
+
+            public void Write(MatchSim m)
+            {
+                var w = m.World;
+                var b = new StringBuilder("{\"t\": ").Append(Num(w.Tick * w.Config.TickSeconds)).Append(", \"men\": [");
+                int n = 0, alive0 = 0, alive1 = 0;
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if (!w.IsAlive(i) || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
+                    int team = w.Team[i] & 1;
+                    if (team == 0) alive0++; else alive1++;
+                    var p = w.Position[i];
+                    b.Append(n++ == 0 ? "[" : ", [").Append(One(p.x)).Append(", ").Append(One(p.z)).Append(", ")
+                     .Append(team.ToString(Inv)).Append(", ").Append(w.TrenchId[i] >= 0 ? '1' : '0').Append(']');
+                }
+                b.Append("], \"alive\": [").Append(alive0.ToString(Inv)).Append(", ").Append(alive1.ToString(Inv)).Append("], \"owners\": [");
+                var state = m.Fields.Trenches;
+                for (int k = 0; k < state.Length; k++) b.Append(k == 0 ? "" : ", ").Append(((int)state[k].OwnerTeam).ToString(Inv));
+                b.Append("]}");
+                _w.Write(b.ToString()); _w.Write('\n');
+                Samples++;
+            }
+
+            public void Close() { _w?.Dispose(); _w = null; }
+        }
+
         static float LineZ(MatchSim m, short t)
         {
             var def = m.Map.Trenches[t];
@@ -288,9 +353,22 @@ namespace TW.Tests
             var player = scripted ? Script(v, seatA == 0 ? "script_a" : "script_b", 0) : null;
             var x = new Watch();
             SimConfig used = default; var silverEnd = new int[2]; bool played = false;
-            var report = MatchLoopTests.Play(policy, spec.minutes, seed, enemy, 8, m => { Sample(m, x); silverEnd[0] = m.World.Silver[0]; silverEnd[1] = m.World.Silver[1]; played = true; }, player,
-                cfg => used = ApplyConfig(cfg, v, swapped),
-                m => { if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0; ApplyUnits(m, v); });
+            string trackDir = Environment.GetEnvironmentVariable("TW_SWEEP_TRACK");
+            Track track = null;
+            MatchLoopTests.Report report;
+            try
+            {
+                report = MatchLoopTests.Play(policy, spec.minutes, seed, enemy, 8, m =>
+                {
+                    Sample(m, x); silverEnd[0] = m.World.Silver[0]; silverEnd[1] = m.World.Silver[1]; played = true;
+                    if (string.IsNullOrEmpty(trackDir)) return;
+                    if (track == null) track = Track.Open(trackDir, spec, v, seed, swapped, m);
+                    if (m.World.Tick % (uint)track.Every == 0) track.Write(m);
+                }, player,
+                    cfg => used = ApplyConfig(cfg, v, swapped),
+                    m => { if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0; ApplyUnits(m, v); });
+            }
+            finally { track?.Close(); }
 
             var r = new Dictionary<string, float>();
             int a = seatA, b = seatB;
@@ -469,6 +547,76 @@ namespace TW.Tests
             // the garrison and three attackers in four are riflemen: without a rifle's damage nobody is shot
             string blunt = Run(spec, One("blunt", new Patch { on = "unit", unit = "Rifle", field = "Weapon.Damage", op = "set", value = "0" }), seeds, new StringBuilder());
             Assert.AreNotEqual(now, blunt, "a rifle that does no damage changes the rung");
+        }
+
+        // The track the sweep writes with TW_SWEEP_TRACK: a header the page draws the trenches from, then one line
+        // each five seconds with every man's place. Plain (not Explicit), so the edit gate runs it.
+        [Test, Timeout(300000)]
+        public void TheTrack_HoldsWhereEveryManStood_EachFiveSeconds()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-sweep-track-" + System.Guid.NewGuid().ToString("N"));
+            string was = Environment.GetEnvironmentVariable("TW_SWEEP_TRACK");
+            var spec = new Spec { minutes = 1, swapSeats = false };
+            Dictionary<string, float> r;
+            try
+            {
+                Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", dir);
+                r = Match(spec, One("now"), 1u, false, new StringBuilder());
+            }
+            finally { Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", was); }
+
+            string file = Path.Combine(dir, "now-s1.jsonl");
+            Assert.IsTrue(File.Exists(file), "the track is written where TW_SWEEP_TRACK says: " + file);
+            var lines = File.ReadAllLines(file);
+            // one minute at 20 ticks a second is 1200 ticks (Play returns EndTick; end_s is it times TickSeconds)
+            Assert.AreEqual(60f, r["end_s"], 1e-3f, "the match ran the whole minute, so every sample is there");
+            Assert.AreEqual(13, lines.Length, "a header and one sample each five seconds of the minute");
+
+            var head = lines[0];
+            Assert.IsTrue(head.StartsWith("{\"variant\": \"now\""), "the header names the variant: " + head);
+            Assert.GreaterOrEqual(Count(head, "\"owner\":"), 1, "the header lists the trenches and their cells: " + head);
+            Assert.IsTrue(head.Contains("\"cells\": [["), "a trench has cell centres the page draws a line through");
+            Assert.IsTrue(head.Contains("\"every\": 100"), "a sample each 100 ticks is each five seconds at 20 a second");
+
+            float want = 5f;
+            for (int i = 1; i < lines.Length; i++, want += 5f)
+            {
+                float t = float.Parse(Between(lines[i], "\"t\": ", ","), NumberStyles.Float, Inv);
+                Assert.AreEqual(want, t, 1e-3f, $"sample {i} stands at {want} s");
+                Assert.LessOrEqual(t, 60f, "no sample is past the minute");
+                foreach (var man in Men(lines[i]))
+                    Assert.IsTrue(man[2] == "0" || man[2] == "1", "a man is of team 0 or 1, not " + man[2]);
+            }
+            Assert.GreaterOrEqual(Men(lines[lines.Length - 1]).Count, 1, "the last sample still lists men");
+        }
+
+        static int Count(string s, string what)
+        {
+            int n = 0;
+            for (int i = s.IndexOf(what, StringComparison.Ordinal); i >= 0; i = s.IndexOf(what, i + 1, StringComparison.Ordinal)) n++;
+            return n;
+        }
+
+        static string Between(string s, string from, string to)
+        {
+            int a = s.IndexOf(from, StringComparison.Ordinal) + from.Length;
+            return s.Substring(a, s.IndexOf(to, a, StringComparison.Ordinal) - a);
+        }
+
+        /// <summary>The men of one sample line, each as its four fields.</summary>
+        static List<string[]> Men(string line)
+        {
+            var men = new List<string[]>();
+            string all = Between(line, "\"men\": [", "], \"alive\"");
+            foreach (var part in all.Split('['))
+            {
+                string body = part.Trim().TrimEnd(',', ' ').TrimEnd(']');
+                if (body.Length == 0) continue;
+                var f = body.Split(',');
+                Assert.AreEqual(4, f.Length, "a man is x, z, team, trench: " + body);
+                men.Add(System.Array.ConvertAll(f, t => t.Trim()));
+            }
+            return men;
         }
 
         // [U039.1] SimWorld.Despawn clears Flags and TrenchId before the Death event is read, so Sample used to
