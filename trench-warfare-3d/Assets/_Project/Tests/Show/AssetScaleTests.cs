@@ -20,7 +20,7 @@ namespace TW.Tests
         {
             Assert.AreEqual(1.78f * FigureMetrics.UnitScale, AssetScaleTable.SoldierM, 1e-4f, "1 SU = the 1.78 m bake at UnitScale");
             Assert.AreEqual(2.0f, AssetScaleTable.SoldierM, 0.01f, "which is the two-metre man of the owner's 2026-09-23 decision");
-            Assert.AreEqual(AssetScaleTable.SoldierM * 1.25f, FigureMetrics.DrawnHeightM(30f), 1e-3f, "at the standard view he is grown a quarter: a men-only exception");
+            Assert.AreEqual(AssetScaleTable.SoldierM, FigureMetrics.DrawnHeightM(30f), 1e-3f, "one size at every zoom (owner 2026-10-13)");
         }
 
         [Test]
