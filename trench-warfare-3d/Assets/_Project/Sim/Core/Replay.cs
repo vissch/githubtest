@@ -121,7 +121,10 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-06, a lying man at range): a man lying in the open is hit less often the farther off the
+        // shooter is (CombatTables.LyingTarget, half as likely by 60 m). Same inputs, a different battle: men who
+        // went to ground far off now live, so a v37 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

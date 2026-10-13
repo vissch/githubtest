@@ -3,6 +3,7 @@
 // One sequential Burst job resolves every shot in slot order, so damage is applied in a fixed order and a target
 // that dies mid-tick is not shot again. hit = accuracy × range falloff × shooter stance × moving × own suppression
 // × running target (a man in the open running past RunningTargetSpeed, CombatTables.RunningTarget, 2026-09-28)
+// × lying target (a man lying in the open, CombatTables.LyingTarget: half as likely to be hit by 60 m, 2026-10-06)
 // × (1 − target cover). A hit adds the weapon's suppression to the target; a miss adds 60 % of it to every enemy
 // of the shooter within 1.5 m of the target (NearMiss). Deaths are applied on the main thread after the job.
 // A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
@@ -410,6 +411,7 @@ namespace TW.Sim.Combat
                     {
                         cover = StanceRules.CoverBonusInOpen(theirStance);
                         chance *= CombatTables.RunningTarget(dist, SimMath.Length(Velocity[t]));   // he has to be led
+                        if (theirStance == Stance.Prone || theirStance == Stance.Pinned) chance *= CombatTables.LyingTarget(dist);   // flat on the ground, and far off he is hardly a mark at all
                         if ((Layers[CellOf(q)] & (byte)NavLayer.Crater) != 0) cover = math.min(0.8f, cover + CombatTables.CraterCover);
                         float open = cover;
                         cover = math.min(0.8f, cover + CellCover[CellOf(q)] * 0.01f);   // a tree, a stump, a wreck next to him
