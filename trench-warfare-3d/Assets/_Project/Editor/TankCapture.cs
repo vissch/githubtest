@@ -25,17 +25,34 @@ namespace TW.Editor
         public sealed class Shooter : MonoBehaviour
         {
             public string Pending; public int W = 1600, H = 900;
-            public int FollowSlot = -1; public float FollowZoom = 22f, FollowYaw = 30f;
+            public int FollowSlot = -1; public float FollowZoom = 22f, FollowBearing = 30f;
+            public bool FollowFacing;              // the bearing is worked out from the subject's own facing, every frame
+            public int FollowGeneration = -1;      // the spawn this slot held when Follow was called
+            public Vector2 Held;                   // the last place the subject was really seen (a wreck stays framed)
+            public bool HasHeld;
             public string Last;
+            public string TracePath; public int TraceFrame; System.Text.StringBuilder trace;
 
             void LateUpdate()
             {
                 var host = FindFirstObjectByType<SimHost>();
                 var cam = FindFirstObjectByType<TacticalCamera>();
-                if (FollowSlot >= 0 && host != null && cam != null && host.Local != null && host.Local.World.IsAlive(FollowSlot))
+                float facing = 0f, bearing = FollowBearing; bool onSubject = false;
+                if (FollowSlot >= 0 && host != null && cam != null && host.Local != null)
                 {
+                    var w = host.Local.World;
+                    // Follow the UNIT, not the slot number: a dead man's slot is handed out again (SimWorld.Spawn bumps
+                    // Generation), and Drawn returns zero (the map corner) for a slot past the presenter's count. Either
+                    // one used to cut the film to a stranger or to an empty beach. When the subject is gone we hold the
+                    // last place we really saw it, so its wreck stays in the frame.
+                    bool sameUnit = FollowSlot < w.HighWater && w.IsAlive(FollowSlot) && (FollowGeneration < 0 || w.Generation[FollowSlot] == FollowGeneration);
                     var p = host.Presenter.Drawn(FollowSlot);
-                    cam.FrameFrom(new Vector2(p.x, p.z), FollowZoom, FollowYaw);
+                    bool drawn = new Vector2(p.x, p.z).sqrMagnitude > 1f;   // not within 1 m of (0,0)
+                    onSubject = sameUnit && drawn;
+                    if (onSubject) { Held = new Vector2(p.x, p.z); HasHeld = true; }
+                    if (FollowSlot < w.HighWater) facing = w.Yaw[FollowSlot] * Mathf.Rad2Deg;
+                    if (FollowFacing && onSubject) bearing = FilmAim.QuarterFront(facing);
+                    if (HasHeld) cam.FrameFrom(Held, FollowZoom, FilmAim.YawFor(bearing, cam.BaseYaw, cam.AutoYaw));
                 }
                 if (string.IsNullOrEmpty(Pending) || Camera.main == null) return;
                 var c = Camera.main;
@@ -50,6 +67,23 @@ namespace TW.Editor
                 File.WriteAllBytes(Pending, tex.EncodeToPNG());
                 Object.Destroy(tex);
                 Last = Pending; Pending = null;
+                if (trace != null)
+                {
+                    var v = c.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
+                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(bearing, facing) ? 1 : 0)}\n");
+                    TraceFrame++;
+                    if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
+                }
+            }
+
+            public void BeginTrace() { trace = new System.Text.StringBuilder(); }
+
+            public string EndTrace()
+            {
+                if (trace == null) return "not tracing";
+                if (trace.Length > 0) File.AppendAllText(TracePath, trace.ToString());
+                trace = null; var p = TracePath; TracePath = null;
+                return "traced " + TraceFrame + " frames " + p;
             }
         }
 
@@ -64,7 +98,30 @@ namespace TW.Editor
 
         public static string Shot(string path, int w = 1600, int h = 900) { var s = Get(); s.W = w; s.H = h; s.Pending = path; return "queued " + path; }
 
-        public static string Follow(int slot, float zoom = 22f, float yaw = 30f) { var s = Get(); s.FollowSlot = slot; s.FollowZoom = zoom; s.FollowYaw = yaw; return "following " + slot; }
+        /// <summary>Frame one unit every frame. `bearing` is a WORLD bearing the camera looks along (FilmAim takes the
+        /// camera's own two angles back out); with `onFacing` it is worked out from the subject's facing instead, so a
+        /// machine is always seen from its front quarter and its guns are in the picture.</summary>
+        public static string Follow(int slot, float zoom = 22f, float bearing = 30f, bool onFacing = false)
+        {
+            var s = Get(); s.FollowSlot = slot; s.FollowZoom = zoom; s.FollowBearing = bearing; s.FollowFacing = onFacing;
+            s.HasHeld = false; s.FollowGeneration = -1;
+            var h = Host;
+            if (h != null && h.Local != null && slot >= 0 && slot < h.Local.World.HighWater) s.FollowGeneration = h.Local.World.Generation[slot];
+            return "following " + slot + " gen " + s.FollowGeneration;
+        }
+
+        /// <summary>One line per rendered frame into `path`: frame, viewport x/y of the subject, its world x/z, whether it
+        /// is still the unit we started on, and whether the view shows its guns. The proof a film kept its subject.</summary>
+        public static string Trace(string path)
+        {
+            var s = Get(); s.TracePath = path; s.TraceFrame = 0;
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllText(path, "frame vx vy x z onsubject showsguns\n");
+            s.BeginTrace();
+            return "tracing " + path;
+        }
+
+        public static string TraceStop() { var s = Object.FindFirstObjectByType<Shooter>(); if (s == null) return "no shooter"; return s.EndTrace(); }
 
         public static string Silver(int amount = 100000)
         {

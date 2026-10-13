@@ -219,13 +219,14 @@ namespace TW.Editor
 
         public static string Panel(bool on) { Get().Show = on; return "panel " + on; }
 
-        /// <summary>Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks).</summary>
-        public static string Camera(int slot, float zoom, float yaw, float pitch)
+        /// <summary>Frame the camera on a slot: zoom, bearing, pitch (the follow keeps it framed while it walks).
+        /// `bearing` is a world bearing and goes through unchanged: TankCapture takes the camera's own angles out of it.</summary>
+        public static string Camera(int slot, float zoom, float bearing, float pitch)
         {
             var c = Object.FindFirstObjectByType<TacticalCamera>(); if (c == null) return "no camera";
             c.ZoomMin = Mathf.Min(c.ZoomMin, 4f);
             c.Pitch = pitch; c.ClosePitch = pitch;
-            return TankCapture.Follow(slot, zoom, yaw);
+            return TankCapture.Follow(slot, zoom, bearing);
         }
 
         /// <summary>Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower).</summary>
