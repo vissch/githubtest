@@ -1185,7 +1185,7 @@ def sweep_stale(repo):
 
 GROUPS = ('codemap', 'validate', 'gate', 'aosa_land', 'port_split', 'scorecard', 'gate_scope', 'land', 'relay',
           'editor_lock', 'perfcmp', 'health')
-NEEDS_WORKTREE = ('codemap', 'validate', 'gate')   # these groups test a copy of this checkout
+NEEDS_WORKTREE = ('codemap', 'validate', 'gate', 'health')   # these groups test a copy of this checkout
 
 
 def main():
@@ -1248,6 +1248,19 @@ def main():
         if 'health' in only:
             code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
             case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
+
+            wt_proj = wt / 'trench-warfare-3d'
+            _, index_path = run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'index'], wt)
+            lock_path = pathlib.Path(index_path.strip() + '.lock')
+            lock_path.write_text('')
+            try:
+                code, out = run([sys.executable, str(wt_proj / 'Tools/health.py'), '--lanes'], wt_proj)
+            finally:
+                lock_path.unlink(missing_ok=True)
+            case('[H9] health.py --lanes does not choke on another checkout\'s index.lock',
+                 'fatal' not in out.lower() and 'Unable to create' not in out, out)
+            case('[H10] health.py --lanes marks the detached checkout running it as (you), no git error',
+                 code == 0 and '(you)' in out and 'fatal' not in out.lower(), out)
     finally:
         if wt.exists():
             code, out = run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
