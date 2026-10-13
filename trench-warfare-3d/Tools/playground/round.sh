@@ -13,19 +13,24 @@ $P do "unit; clip Rifle Idle"; sleep 2; $P do "lodfit $OUT/${T}_fit_unit.json"; 
 # ---- the vehicle, three LODs side by side, one scripted destruction
 $P do "vehicle.compare"; sleep 3
 $P shot ${T}_v1_intact
-$P do "seq"
 # shots on the EVENT, not the clock: five frames round the bang, as a two-second loop (the clock stills below are
 # 20 s late and show no dust at all, both House5 critics).  Named x* so sheet.py's v/u/m/b groups are untouched.
-bash $HERE/bang.sh ${T}_x1_hit burst
+# The bangs are only ARMED here and joined after v5: the clock stills keep the round before this lane's timing
+# (2.9 / 5.5 / 11.5 / 23.5 s after "seq"), so a missed bang can never push v2..v5 late.  One shot pends at a time:
+# x1 is five frames (about 1 s) long and is long finished when x2 is armed.
+$P do "seq"
+bash $HERE/bang.sh --arm ${T}_x1_hit burst
 sleep 2.9
 $P shot ${T}_v2_hits
 sleep 2.6
 $P shot ${T}_v3_burning
 sleep 6.0
-bash $HERE/bang.sh ${T}_x2_cook cook
+bash $HERE/bang.sh --arm ${T}_x2_cook cook
 $P shot ${T}_v4_cookoff
 sleep 12
 $P shot ${T}_v5_aftermath
+bash $HERE/bang.sh --join ${T}_x1_hit || true
+bash $HERE/bang.sh --join ${T}_x2_cook || true
 # ---- one vehicle: close, standard view, far
 $P do "vehicle; cam close"; $P do "cam 0 3.4 0 0 12 15 42"; sleep 2
 $P shot ${T}_v6_close
