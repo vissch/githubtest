@@ -58,7 +58,7 @@ static class Runner
             object inst = null;
             string fixtureError = null;
             try { if (!(t.IsAbstract && t.IsSealed)) inst = Activator.CreateInstance(t, true); } catch (Exception e) { fixtureError = Describe(e); }
-            if (fixtureError == null) fixtureError = RunAll(methods, "OneTimeSetUpAttribute", inst);
+            if (fixtureError == null) fixtureError = Watched(() => RunAll(methods, "OneTimeSetUpAttribute", inst));
             foreach (var m in tests.OrderBy(m => m.Name))
             {
                 if (Has(m, "UnityTestAttribute")) { Tally(counts, "SKIP-UNITYTEST"); continue; }
@@ -88,7 +88,7 @@ static class Runner
                     var argset = kase.Args;
                     string label = t.Name + "." + m.Name + (argset.Length > 0 ? "(" + string.Join(",", argset.Select(a => a == null ? "null" : a.ToString())) + ")" : "");
                     string verdict, detail = "";
-                    if (fixtureError != null) { verdict = Classify(fixtureError); detail = "fixture: " + fixtureError; }
+                    if (fixtureError != null) { verdict = fixtureError == TimedOut ? "TIMEOUT" : Classify(fixtureError); detail = "fixture: " + fixtureError; }
                     else
                     {
                         string err = null;
@@ -121,7 +121,14 @@ static class Runner
                     Console.WriteLine(verdict + "  " + label + (detail != "" ? "  " + Trim(detail) : ""));
                 }
             }
-            RunAll(methods, "OneTimeTearDownAttribute", inst);
+            // a hanging [OneTimeTearDown] used to hang the whole run with no verdict at all: watch it like a test
+            string teardownError = Watched(() => RunAll(methods, "OneTimeTearDownAttribute", inst));
+            if (teardownError != null)
+            {
+                string verdict = teardownError == TimedOut ? "TIMEOUT" : Classify(teardownError);
+                Tally(counts, verdict);
+                Console.WriteLine(verdict + "  " + t.Name + ".[OneTimeTearDown]  " + Trim(teardownError));
+            }
         }
         Console.WriteLine("---- " + string.Join("  ", counts.OrderBy(k => k.Key).Select(k => k.Key + "=" + k.Value)));
         Console.WriteLine("#DONE");
@@ -283,6 +290,19 @@ static class Runner
         string ours = st.FirstOrDefault(l => l.Contains(" TW.")) ?? "";
         string full = Environment.GetEnvironmentVariable("TW_OTR_STACK") == "1" ? " || " + string.Join(" <- ", st.Take(12)) : "";
         return e.GetType().Name + ": " + e.Message.Replace("\n", " ").Replace("\r", "") + " @ " + frame + (ours != "" && ours != frame ? " | ours " + ours : "") + full;
+    }
+
+    /// <summary>The fixture hooks ([OneTimeSetUp]/[OneTimeTearDown]) run on the same kind of watched 300 s thread as a
+    /// test, so one that hangs ends as TIMEOUT for its class instead of hanging the whole run with no verdict.</summary>
+    const string TimedOut = "TimeoutException: the fixture hook did not finish in 300 s";
+
+    static string Watched(Func<string> body)
+    {
+        string err = null;
+        var th = new Thread(() => { try { err = body(); } catch (Exception e) { err = Describe(e); } }, 16 * 1024 * 1024);
+        th.Start();
+        if (!th.Join(300000)) { try { th.Abort(); } catch { } return TimedOut; }
+        return err;
     }
 
     static string Classify(string err)

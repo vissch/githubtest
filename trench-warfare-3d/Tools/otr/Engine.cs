@@ -388,6 +388,16 @@ static unsafe class FakeEngine
         FakeMath.Install(Reg);
         TempRoot = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-otr-" + Process.GetCurrentProcess().Id);
         System.IO.Directory.CreateDirectory(TempRoot);
+        // the folder is this process's own scratch space (persistentDataPath, temporaryCachePath): delete it when the
+        // process ends, so a long otr run does not leave one tw-otr-<pid> tree per class it restarted on
+        // (otr.py's sweep_temp clears what a crash leaves behind, which never reaches this handler).
+        string tempRootToDelete = TempRoot;
+        AppDomain.CurrentDomain.ProcessExit += (s, e) =>
+        {
+            try { if (System.IO.Directory.Exists(tempRootToDelete)) System.IO.Directory.Delete(tempRootToDelete, true); }
+            catch (System.IO.IOException) { }
+            catch (UnauthorizedAccessException) { }
+        };
         string assets = System.IO.Path.Combine(projectDir, "Assets").Replace('\\', '/');
         string temp = TempRoot.Replace('\\', '/');
         Reg("UnityEngine.Application::get_dataPath_Injected", new VP(r => OutString(r, assets)));
