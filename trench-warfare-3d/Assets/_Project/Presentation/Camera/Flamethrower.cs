@@ -128,7 +128,11 @@ namespace TW.Presentation.Tactical
             /// <summary>Fuel a sim jet spilled: it is drawn and lights nobody, as the jet that laid it lights nobody
             /// (the sim says who burns, UnitAlight). Fed by a stream that is not the sim's, it catches again.</summary>
             public bool Sim; }
-        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; public float BornSim, LifeSim; }   // BornSim, LifeSim: sim seconds, what the torch expires by
+        struct Torch { public int Slot; public float Born, Life, Next, NextLight, Fire, Seed; public float BornSim, LifeSim;   // BornSim, LifeSim: sim seconds, what the torch expires by
+            /// <summary>The sim lit him (UnitAlight): his trailing fuel sets nobody else alight, the way a sim jet's own
+            /// pools do not (torch -> pool -> Catch -> torch is a loop the sim never asked for). False for the debug
+            /// panel's Alight tool, whose trail still catches bystanders on purpose.</summary>
+            public bool Sim; }
         struct Pyre { public Vector3 At; public float Born, Life, Size, Next, NextLight, Seed; public bool Stood; public float BornSim, LifeSim; }
 
         readonly List<Jet> jets = new List<Jet>(MaxJets);
@@ -262,12 +266,12 @@ namespace TW.Presentation.Tactical
         /// <summary>A man is alight and will run until he drops (the controller has him on Clip.Burning). Seconds are the
         /// sim's (UnitAlight's scalar): the torch goes out when the sim says so, or by this timer on the sim's clock
         /// for a torch the debug panel lit without a sim behind it.</summary>
-        public void Ignite(int slot, float seconds)
+        public void Ignite(int slot, float seconds, bool sim = false)
         {
             for (int i = 0; i < torches.Count; i++)
-                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); torches[i] = t; return; }
+                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); t.Sim = sim; torches[i] = t; return; }
             if (torches.Count >= MaxTorches) torches.RemoveAt(0);
-            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f });
+            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f, Sim = sim });
             Alighted?.Invoke(slot, seconds);
         }
 
@@ -1058,7 +1062,7 @@ namespace TW.Presentation.Tactical
             if (now >= t.Next)
             {
                 t.Next = (t.Next <= 0f ? now : t.Next) + Relight * (0.55f + Random.value * 0.4f);
-                if (Random.value < 0.55f) Spill(at, 0.7f + Random.value * 0.5f, 2.6f + Random.value * 2f);
+                if (Random.value < 0.55f) Spill(at, 0.7f + Random.value * 0.5f, 2.6f + Random.value * 2f, sim: t.Sim);
             }
             if (now >= t.NextLight)
             {
