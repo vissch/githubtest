@@ -107,7 +107,10 @@ namespace TW.Presentation.Units
             // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
             bool blend = near && fromClip != Clip.None && fade > 0.01f;
             float lies = chr >= 2 ? CharredLies * (0.85f + 0.3f * Hash01(pos)) : FallenSeconds * (0.7f + 0.6f * Hash01(pos));
-            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = near ? (ushort)clip : farRow, FarRow = farRow,
+            // a missed clip lookup (clip == Clip.None) still draws the near tier: with a clip atlas it is Clip-ordered, so
+            // the procedural farRow must go through the same AnimRow -> near-row map the living use (V2), not straight in
+            ushort nearRow = near ? (ushort)clip : (clipAtlas ? animRowNearOf[math.min(farRow, animRowNearOf.Length - 1)] : farRow);
+            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = nearRow, FarRow = farRow,
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1 };
             // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
             // and his death clip is played so his back meets it as he lands.
