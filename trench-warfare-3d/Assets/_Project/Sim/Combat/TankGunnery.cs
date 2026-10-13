@@ -207,7 +207,7 @@ namespace TW.Sim.Combat
             public uint Tick, Seed;
             public float Dt;
             [ReadOnly] public NativeArray<float3> Position, Velocity;
-            [ReadOnly] public NativeArray<float> Yaw;
+            public NativeArray<float> Yaw;              // written only by the hull turn below (TankSpec.TurnsToAim)
             [ReadOnly] public NativeArray<uint> Flags;
             [ReadOnly] public NativeArray<byte> Team, Archetype, StanceOf;
             [ReadOnly] public NativeArray<ushort> Generation;
@@ -248,14 +248,14 @@ namespace TW.Sim.Combat
             }
 
             /// <summary>Distance-like score, lower is better; float.MaxValue = not a target for this gun.</summary>
-            float Score(int i, int j, float3 p, float hullYaw, in TankGun g)
+            float Score(int i, int j, float3 p, float hullYaw, in TankGun g, bool anyArc = false)
             {
                 if (!Enemy(i, j)) return float.MaxValue;
                 float3 d = Position[j] - p; d.y = 0f;
                 float dsq = math.lengthsq(d);
                 if (dsq > g.RangeMax * g.RangeMax) return float.MaxValue;
                 if (g.RangeMin > 0f && dsq < g.RangeMin * g.RangeMin) return float.MaxValue;   // a mortar cannot drop one on its own feet
-                if (!TankSpec.InArc(g, SimMath.WrapAngle(SimMath.YawOf(d) - hullYaw))) return float.MaxValue;
+                if (!anyArc && !TankSpec.InArc(g, SimMath.WrapAngle(SimMath.YawOf(d) - hullYaw))) return float.MaxValue;
                 float dist = SimMath.Sqrt(dsq);
                 // a machine is a mark for a gun that can hole it, or for a rack of rockets, whose bursts come down on its deck
                 // (VehicleModules: a direct burst tests the top plate) - the Salvo could not answer a Tusk at all (2026-09-28)
@@ -293,13 +293,13 @@ namespace TW.Sim.Combat
             bool Sees(int i, int j, in TankGun g)
                 => g.Indirect || HeightfieldRaycast.HasLineOfSight(Height, MountWorld(g, Position[i], Yaw[i], Height), AimPoint(j));
 
-            int Pick(int i, float3 p, float hullYaw, in TankGun g)
+            int Pick(int i, float3 p, float hullYaw, in TankGun g, bool anyArc = false)
             {
                 int b0 = -1, b1 = -1, b2 = -1;
                 float s0 = float.MaxValue, s1 = float.MaxValue, s2 = float.MaxValue;
                 for (int j = 0; j < Count; j++)
                 {
-                    float s = Score(i, j, p, hullYaw, g);
+                    float s = Score(i, j, p, hullYaw, g, anyArc);
                     if (s == float.MaxValue) continue;
                     if (s < s0) { s2 = s1; b2 = b1; s1 = s0; b1 = b0; s0 = s; b0 = j; }
                     else if (s < s1) { s2 = s1; b2 = b1; s1 = s; b1 = j; }
@@ -334,6 +334,32 @@ namespace TW.Sim.Combat
                     float hullYaw = Yaw[i];
                     bool moving = SimMath.Length(Velocity[i]) > 0.3f;
                     if (spec.StandOffMetres > 0f) StandOff(i, p, spec);
+                    // A stopped machine that turns to aim (the Kettle, the owner 2026-10-06): its mortar swings only
+                    // 24 degrees either side of the nose, so standing with its back to the enemy it never fired. While
+                    // it stands still and gun 0 has nothing in its arc, look for a target in range in any direction and
+                    // turn the hull on the spot toward it, holding the halt so kinematics neither drives nor steers it.
+                    // A driving machine never enters here (|Velocity| is well over the standstill mark), so it is unchanged.
+                    if (spec.TurnsToAim && spec.GunCount > 0 && GunTarget[i * Guns] < 0
+                        && (f & ((uint)UnitFlags.Pouncing | (uint)UnitFlags.Charging)) == 0
+                        && SimMath.Length(Velocity[i]) < 0.02f)
+                    {
+                        var g0 = spec.Gun(0);
+                        int face = GunHealth[i * Guns] > 0f && CrewFactor[i] > 0f ? Pick(i, p, hullYaw, g0, true) : -1;
+                        if (face >= 0)
+                        {
+                            float3 to = Position[face] - p; to.y = 0f;
+                            // bring the target onto the gun's rest bearing, not onto the edge of the arc: the mortar
+                            // traverses at the same rate the hull turns, so an edge aim would lag out of tolerance
+                            float off = SimMath.WrapAngle(SimMath.YawOf(to) - g0.RestYaw - hullYaw);
+                            if (math.abs(off) > AimTolerance)
+                            {
+                                float step = Drive[Archetype[i]].TurnRateRad * Dt;
+                                hullYaw = SimMath.WrapAngle(hullYaw + math.clamp(off, -step, step));
+                                Yaw[i] = hullYaw;
+                            }
+                            HaltTicks[i] = math.max(HaltTicks[i], 2);   // it stands while it turns
+                        }
+                    }
                     for (int k = 0; k < spec.GunCount; k++)
                     {
                         int gi = i * Guns + k;
