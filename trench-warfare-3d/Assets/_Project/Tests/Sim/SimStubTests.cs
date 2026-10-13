@@ -1,6 +1,7 @@
 // Phase: A5 — review C8 and U13: the IndirectFireSystem stub threw from Step and was never registered; it and its ScheduledImpact
 // (which had no other user) are gone, and review U13 did the same for the six other never-registered stubs. This
 // holds them gone, and holds the live types beside them alive.
+using System.Reflection;
 using NUnit.Framework;
 using TW.Sim.Combat;
 
@@ -8,6 +9,22 @@ namespace TW.Tests
 {
     public class SimStubTests
     {
+        // [N8]
+        [Test]
+        public void TheUnusedPushXParameterIsGone()
+        {
+            var job = typeof(TW.Sim.Nav.MovementSystem).GetNestedType("MoveJob", BindingFlags.NonPublic);
+            Assert.IsNotNull(job, "[N8] MoveJob is gone or renamed: cannot check CanEnter");
+            var m = job.GetMethod("CanEnter", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(m, "[N8] MoveJob.CanEnter is gone or renamed: cannot check its parameters");
+
+            var parameters = m.GetParameters();
+            Assert.IsFalse(System.Array.Exists(parameters, p => p.Name == "pushX"),
+                "[N8] MoveJob.CanEnter still takes pushX: it is never read");
+            Assert.AreEqual(6, parameters.Length,
+                "[N8] MoveJob.CanEnter still takes pushX: it is never read");
+        }
+
         // [C8]
         [Test]
         public void TheIndirectFireStubIsGone()

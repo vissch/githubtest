@@ -233,7 +233,7 @@ namespace TW.Sim.Nav
                 return (int)math.sign(o.y) * NavWidth + (int)math.sign(o.x);
             }
 
-            bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, bool toPost, float pushX, byte from, int ncell)
+            bool CanEnter(bool isGarrisoned, short garrison, bool onLadder, bool toPost, byte from, int ncell)
             {
                 byte to = Layers[ncell];
                 // a garrison keeps the ladders clear for arrivals, but a man walking to his post may cross one: without
@@ -418,7 +418,6 @@ namespace TW.Sim.Nav
                 // block moves into cells that are not steppable from the current one; a garrison never leaves its trench.
                 // A blocked step slides along the obstacle (X only, then Z only) instead of stopping dead: a diagonal
                 // path that clips a trench wall next to a ladder would otherwise pin the unit there for good.
-                float pushX = Push[i].x;
                 if (leaping)
                 {
                     // the last tick of the leap puts him exactly on the target cell; LeapSystem owns the Airborne
@@ -428,7 +427,7 @@ namespace TW.Sim.Nav
                     if (leap == 1) np = LeapTarget[i];
                 }
                 int ncell = CellOf(np);
-                if (!leaping && !CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, ncell))
+                if (!leaping && !CanEnter(isGarrisoned, garrison, onLadder, toPost, from, ncell))
                 {
                     // the blended flow at the corner of a trench cell beside a ladder points through the wall: the cell's
                     // own direction never does, so a blocked step takes that first (it used to oscillate against the wall
@@ -438,9 +437,9 @@ namespace TW.Sim.Nav
                     float3 v2 = new float3(o.x, 0f, o.y) * speed; float3 np2 = p + v2 * Dt; int cell2 = CellOf(np2);
                     float3 slideX = new float3(np.x, np.y, p.z), slideZ = new float3(p.x, np.y, np.z);
                     int cellX = CellOf(slideX), cellZ = CellOf(slideZ);
-                    if (d != FlowField.NoDirection && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cell2)) { np = np2; v = v2; ncell = cell2; }
-                    else if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
-                    else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, pushX, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
+                    if (d != FlowField.NoDirection && CanEnter(isGarrisoned, garrison, onLadder, toPost, from, cell2)) { np = np2; v = v2; ncell = cell2; }
+                    else if (math.abs(v.x) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, from, cellX)) { np = slideX; v.z = 0f; ncell = cellX; }
+                    else if (math.abs(v.z) > 1e-4f && CanEnter(isGarrisoned, garrison, onLadder, toPost, from, cellZ)) { np = slideZ; v.x = 0f; ncell = cellZ; }
                     else { np = p; v = float3.zero; ncell = cell; }
                 }
                 byte to = Layers[ncell];

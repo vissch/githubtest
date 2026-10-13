@@ -19,7 +19,7 @@ namespace TW.Sim.Terrain
         public NativeArray<byte> NavLayers;  // NavLayer bits per nav cell
         public NativeArray<byte> NavCost;    // derived from NavLayers; A4 updates locally
         public NativeArray<short> CellTrenchId; // trench id per nav cell, -1 outside trenches (derived from TrenchCells)
-        public int Version;                  // bumped on every nav/height mutation; hashed instead of the arrays themselves
+        public int Version;                  // bumped on every nav/height mutation; hashed by FlowFieldManager as a proxy for the derived flow fields. The arrays themselves are hashed separately, by MapData.Hash
         /// <summary>True on the sim's own try-it maps (greybox, playtest), false on the field a match is given.
         /// Owner's call of 2026-10-07: a normal match's ten holds only the player's own faction's units and never one
         /// that costs nothing; the test level may field anything. NOT hashed: it never changes during a match, and it
@@ -282,7 +282,8 @@ namespace TW.Sim.Terrain
             return new SimConfig.WorldInit { SizeMeters = SizeMeters, SpawnA = a, SpawnB = b, GoalZA = farEnd - 4f, GoalZB = nearEnd + 4f, TestLevel = TestLevel };
         }
 
-        /// <summary>Fold the mutable parts (heightfield, layers, cost) into the tick hash. Called by the deformation system (A4).</summary>
+        /// <summary>Fold the mutable parts (heightfield, layers, cost) into the tick hash. Called by TerrainHashSystem
+        /// (registered first in the tick) and by MatchSim for the replay header (Map.Hash(0), MatchSim.cs:164,169).</summary>
         public ulong Hash(ulong h)
         {
             h = SimHash.Array(Height.Cm, h);
