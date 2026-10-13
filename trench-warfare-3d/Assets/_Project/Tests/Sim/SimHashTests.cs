@@ -63,7 +63,7 @@ namespace TW.Tests
             using var match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
             var chain = new System.Text.StringBuilder();
             foreach (var s in match.World.Systems) chain.Append(s.Order).Append(' ').Append(s.GetType().Name).Append(';');
-            Assert.AreEqual(49, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
+            Assert.AreEqual(50, ReplayRecorder.FormatVersion, "a new FormatVersion pins its own chain here");
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
 
@@ -211,7 +211,7 @@ namespace TW.Tests
         [Test]
         public void TheGreyboxHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(49, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(50, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = ScriptedGreybox();
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
@@ -235,8 +235,8 @@ namespace TW.Tests
             Assert.Greater(fight.Shots, 0,
                 "[T24d] not one shot of direct fire in the hashed ticks, so DirectFire, TargetAcquisition, Engage " +
                 "and the guns' tables are all unhashed and this pin cannot see a change in any of them");
-            Assert.AreEqual(0x7dda9e767187bbacUL, match.World.Hash(),
-                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 49 pin: a field was " +
+            Assert.AreEqual(0x173b91715f9b1fe8UL, match.World.Hash(),
+                "[T24b] the greybox hash after 300 scripted ticks moved from its FormatVersion 50 pin: a field was " +
                 "added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 
@@ -246,7 +246,7 @@ namespace TW.Tests
         [Test]
         public void TheLandingBattlefieldHashAfter300TicksIsTheGoldenOneForThisFormatVersion()
         {
-            Assert.AreEqual(49, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
+            Assert.AreEqual(50, ReplayRecorder.FormatVersion, "a new FormatVersion re-pins the golden hash below");
             using var match = TW.Sim.Match.MatchSim.CreateBattlefield(ScriptedConfig(), TW.Sim.Terrain.BattlefieldParams.Landing(Seed));
             var fight = Script(match);
             Assert.Greater(match.World.HighWater, 0,
@@ -283,8 +283,8 @@ namespace TW.Tests
             // So no number of ticks short of ~2450 buys this match a firefight, and 15 s of it buys none at all.
             // Open for the owner (decisions.md): a 2450-tick Long pin, nearer spawns, or the greybox pin keeping
             // the direct-fire guard alone. Until then this pin stays at 300 ticks and its value is unmoved.
-            Assert.AreEqual(0x257b601334921300UL, match.World.Hash(),
-                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 49 pin: a " +
+            Assert.AreEqual(0x1024e8ccc5630dd5UL, match.World.Hash(),
+                "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 50 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
         }
 

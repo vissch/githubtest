@@ -354,7 +354,9 @@ namespace TW.Sim.Nav
             var hash = movement.Spatial;
             float yaw = w.Yaw[i];
             float2 fwd = new float2(SimMath.Sin(yaw), SimMath.Cos(yaw)), right = new float2(fwd.y, -fwd.x);
-            float reach = prof.HalfLength + 1f;
+            // the axis-aligned search box must hold the rotated hull rectangle's corners, else a diagonal hull
+            // misses men at its front corners
+            float reach = prof.HalfLength + 0.4f + prof.HalfWidth;
             int x0 = math.max(0, (int)((p.x - reach) / hash.CellSize)), x1 = math.min(hash.Width - 1, (int)((p.x + reach) / hash.CellSize));
             int z0 = math.max(0, (int)((p.z - reach) / hash.CellSize)), z1 = math.min(hash.Length - 1, (int)((p.z + reach) / hash.CellSize));
             byte team = w.Team[i];
@@ -368,7 +370,9 @@ namespace TW.Sim.Nav
                     if ((fj & (uint)UnitFlags.Alive) == 0 || (fj & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.InTrench)) != 0 || w.Team[j] == team) continue;
                     float2 d = w.Position[j].xz - p.xz;
                     float ahead = math.dot(d, fwd), side = math.dot(d, right);
-                    if (ahead > 0f && ahead < prof.HalfLength + 0.4f && math.abs(side) < prof.HalfWidth) crushed.Add(new int2(j, i));
+                    // the whole footprint, not the front half: a hull reversing runs down the men under it, not
+                    // the men past its nose (the same symmetric test FellUnder uses for trees)
+                    if (math.abs(ahead) < prof.HalfLength + 0.4f && math.abs(side) < prof.HalfWidth) crushed.Add(new int2(j, i));
                 } while (hash.Map.TryGetNextValue(out j, ref it));
             }
         }

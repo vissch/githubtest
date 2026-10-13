@@ -156,6 +156,57 @@ namespace TW.Tests
             Assert.Greater(m.Vehicles.WireCrushed, 0);
         }
 
+        /// <summary>A Maw rolling at crush speed, placed by hand so the test owns its frame. Returns the position used.</summary>
+        static float3 PlaceRollingMaw(MatchSim m, int tank, float yaw)
+        {
+            var w = m.World;
+            Run(m, 900, () => SimMath.Length(w.Velocity[tank]) > VehicleKinematicsSystem.CrushSpeed);
+            Assert.Greater(SimMath.Length(w.Velocity[tank]), VehicleKinematicsSystem.CrushSpeed, "setup: the tank is rolling");
+            float3 p = new float3(150.5f, w.Position[tank].y, w.Position[tank].z);
+            w.Position[tank] = p;
+            w.Yaw[tank] = yaw;
+            w.Velocity[tank] = 1.5f * new float3(SimMath.Sin(yaw), 0f, SimMath.Cos(yaw));
+            return p;
+        }
+
+        // [N6] the crush search box was HalfLength + 1 m, narrower than the rotated hull rectangle's corners, so a
+        // diagonal hull never even looked at the cell a man at its own front corner stands in.
+        [Test]
+        public void AManAtTheHullsFrontCornerIsRunDown()
+        {
+            using var m = NewMatch();
+            var w = m.World;
+            int tank = SpawnTank(m, 0, VehicleArchetype.Maw, new float3(150.5f, 0f, 100f));
+            float yaw = 0.892f;                      // 51.1 degrees
+            float3 p = PlaceRollingMaw(m, tank, yaw);
+            float3 fwd = new float3(SimMath.Sin(yaw), 0f, SimMath.Cos(yaw));
+            float3 right = new float3(fwd.z, 0f, -fwd.x);
+            // inside the hull footprint (HalfLength + 0.4 = 4.735, HalfWidth = 3.825) but 5.76 m out in x, past the
+            // old box's 5.335 m, and in a hash column (1 m cells) the old box never reached
+            float3 at = p + 4.5f * fwd + 3.6f * right;
+            Assert.Greater(math.abs(at.x - p.x), 5.4f, "[N6] setup: the man stands outside the old search box");
+            Assert.Greater((int)at.x, (int)(p.x + 4.335f + 1f), "[N6] setup: and in a column the old box never looked at");
+            int man = w.Spawn(1, Rifleman, at, 100f, 0f, false);
+            Step(m);
+            Assert.Greater(m.Vehicles.MenCrushed, 0, "[N6] a man at the hull's front corner is run down");
+            Assert.IsFalse(w.IsAlive(man), "[N6] and he does not walk away from it");
+        }
+
+        // [N6] "ahead" was tested as the nose only, so a hull travelling the other way to its facing crushed men in
+        // front of its nose and left the men under its own tracks standing.
+        [Test]
+        public void AManUnderTheHullsRearIsRunDown()
+        {
+            using var m = NewMatch();
+            var w = m.World;
+            int tank = SpawnTank(m, 0, VehicleArchetype.Maw, new float3(150.5f, 0f, 100f));
+            float3 p = PlaceRollingMaw(m, tank, 0f);
+            int man = w.Spawn(1, Rifleman, p + new float3(0f, 0f, -2f), 100f, 0f, false);   // under the hull, behind the middle
+            Step(m);
+            Assert.Greater(m.Vehicles.MenCrushed, 0, "[N6] a man under the hull's rear is run down");
+            Assert.IsFalse(w.IsAlive(man), "[N6] the tracks do not spare what is behind the middle");
+        }
+
         [Test]
         public void Maw_FlattensTreesUnderItsHull_TheTuskOnlyBrokenOnes()
         {
