@@ -203,6 +203,46 @@ namespace TW.Tests
             Assert.Greater(Count(log, SimEventType.Explosion), 0, "high explosive against a man");
         }
 
+        // The owner, 2026-10-06: "a stopped Kettle turns on the spot to face its target, then fires". Its mortar swings
+        // only 24 degrees either side of the nose, so before TankSpec.TurnsToAim a halted one with a man square off its
+        // flank fired nothing, ever.
+        [Test]
+        public void AHaltedKettle_TurnsOnTheSpotToFace_ThenFires()
+        {
+            using var m = NewMatch();
+            int k = m.World.Spawn(0, VehicleArchetype.Kettle, new float3(150f, 0f, 100f), RosterEntry.Kettle.Hp, 0f, true);
+            m.World.Spawn(1, Rifleman, new float3(70f, 0f, 100f), 100000f, 0f, false);   // 80 m off the flank: in range, 90 degrees out of arc
+            var log = Run(m, 200);
+            Assert.Greater(Count(log, SimEventType.VehicleFired, k), 0, "it turned and fired");
+            float bearing = SimMath.YawOf(new float3(70f, 0f, 100f) - m.World.Position[k]);
+            float off = math.abs(SimMath.WrapAngle(m.World.Yaw[k] - bearing));
+            // it turns until the man is inside the mortar's arc and no further: from 90 degrees out to within 24-odd
+            Assert.Less(off, TankSpec.Kettle.Gun0.ArcHalf + 0.1f, "it turned the hull until the man was inside the arc");
+            Assert.Greater(off, 0.1f, "and no further than that: it does not pivot nose-on");
+        }
+
+        [Test]
+        public void ADrivingKettle_KeepsItsCourse_AndDoesNotTurnToATargetAside()
+        {
+            using var m = NewMatch();
+            int k = SpawnKettle(m, new float3(150f, 0f, 60f), RosterEntry.Kettle.Speed);
+            m.World.Spawn(1, Rifleman, new float3(70f, 0f, 60f), 100000f, 0f, false);
+            float z0 = m.World.Position[k].z;
+            var log = Run(m, 200);
+            Assert.Greater(m.World.Position[k].z, z0 + 5f, "it drove on up the map");
+            Assert.Less(math.abs(m.World.Yaw[k]), 0.4f, "it did not pivot at the man beside it");
+            Assert.AreEqual(0, Count(log, SimEventType.VehicleFired, k), "a driving Kettle is unchanged: the man stays out of its arc");
+        }
+
+        /// <summary>A Kettle of team 0, sent straight up the map the way SpawnTank sends a tank.</summary>
+        static int SpawnKettle(MatchSim m, float3 at, float speed)
+        {
+            int k = m.World.Spawn(0, VehicleArchetype.Kettle, at, RosterEntry.Kettle.Hp, speed, true);
+            var c = m.Map.NavCellOf(at);
+            m.World.GoalId[k] = m.Fields.GetGoal(GoalKey.Cell(m.Map.NavIndex(c.x, m.Map.NavLength - 6), NavMode.Tracked));
+            return k;
+        }
+
         // ------------------------------------------------------------------ what a hit does
         [Test]
         public void AFrontalRoundBounces_AFlankShotHoles_AndBreaksSomething()

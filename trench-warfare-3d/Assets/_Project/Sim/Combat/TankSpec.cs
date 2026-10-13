@@ -73,6 +73,10 @@ namespace TW.Sim.Combat
         /// hurting). It holds only on the first goal it was given. 2026-09-28.</summary>
         public float StandOffMetres, StandOffPatience;
         public const float StandOffRelease = 10f;
+        /// <summary>Standing still with a target in range but outside gun 0's arc, it turns its hull on the spot until
+        /// the target comes into the arc, then fires (the owner, 2026-10-06: the Kettle's mortar swings 24 degrees
+        /// either side of its nose, so a halted one pointing away never fired). A driving machine is untouched.</summary>
+        public bool TurnsToAim;
 
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;
 
@@ -131,7 +135,7 @@ namespace TW.Sim.Combat
             Hull = new ArmorProfile { FrontMm = 14f, SideMm = 11f, RearMm = 9f, TopMm = 10f },
             Turret = new ArmorProfile { FrontMm = 12f, SideMm = 10f, RearMm = 9f, TopMm = 8f },
             TurretChance = 0.30f, Crew = 2, GunCount = 1, ShortHalt = true, FuelRisk = 0.15f, AmmoRisk = 0.55f,
-            Unmanned = true, ClawReach = 2.6f, ClawDamage = 420f, ClawSeconds = 3.2f,
+            Unmanned = true, ClawReach = 2.6f, ClawDamage = 420f, ClawSeconds = 3.2f, TurnsToAim = true,
             Gun0 = new TankGun
             {
                 Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = 24f * Deg, TraverseRate = 24f * Deg,
