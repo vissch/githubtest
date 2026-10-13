@@ -8,8 +8,8 @@
 //   cell within two that can hold it, or none); a wreck is sized to its machine and blasts wear it down a stage at a
 //   time (wreck -> broken wreck -> scrap -> cleared, owner 2026-09-28), PropWorn for a hit it stands;
 // - wire: a cratering blast clears the wire inside its crater (WireBreached).
-// Flow fields are marked stale whenever a nav cell changed. The map's mutable arrays are covered by MapData.Version,
-// which FlowFieldManager hashes; this system hashes its queue and a running checksum of what it has applied.
+// Flow fields are marked stale whenever a nav cell changed. The map's mutable arrays are hashed by TerrainHashSystem
+// through MapData.Hash; this system hashes its queue and a running checksum of what it has applied.
 // Wreck provenance (2026-09-25, for the salvage report and, later, the auctions): every wreck it leaves is also a
 // WreckRecord — whose machine it was, which side's, how it died, what is left of it (VehicleModulesSystem.QualityOf,
 // read here in the same tick it died, from SimWorld.VehicleDeaths, which holds who it was before the slot is let
