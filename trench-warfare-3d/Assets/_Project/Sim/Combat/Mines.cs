@@ -256,8 +256,10 @@ namespace TW.Sim.Combat
                 int n = Mines.Length;
                 if (n == 0) return;
                 var first = new NativeArray<int>(n, Allocator.Temp);
-                var cells = new NativeParallelMultiHashMap<int, int>(n * 4, Allocator.Temp);
-                int armed = 0;
+                // The boxes first, so the map is built at the pair count it ends up holding: n * 4 is under it as soon
+                // as the mines are long or the field is dense, and the map then rehashes mid-fill every tick (review C8).
+                var box = new NativeArray<int4>(n, Allocator.Temp);
+                int armed = 0, pairs = 0;
                 for (int m = 0; m < n; m++)
                 {
                     first[m] = -1;
@@ -267,7 +269,15 @@ namespace TW.Sim.Combat
                     float3 end = mine.Pos + mine.Dir * mine.Length;
                     int x0 = (int)math.floor((math.min(mine.Pos.x, end.x) - WidestHull) / Cell), x1 = (int)math.floor((math.max(mine.Pos.x, end.x) + WidestHull) / Cell);
                     int z0 = (int)math.floor((math.min(mine.Pos.z, end.z) - WidestHull) / Cell), z1 = (int)math.floor((math.max(mine.Pos.z, end.z) + WidestHull) / Cell);
-                    for (int cz = z0; cz <= z1; cz++) for (int cx = x0; cx <= x1; cx++) cells.Add(Key(cx, cz), m);
+                    box[m] = new int4(x0, x1, z0, z1);
+                    pairs += (x1 - x0 + 1) * (z1 - z0 + 1);
+                }
+                var cells = new NativeParallelMultiHashMap<int, int>(math.max(1, pairs), Allocator.Temp);
+                for (int m = 0; m < n; m++)
+                {
+                    if (Mines[m].State != (int)MineState.Armed) continue;
+                    var b = box[m];
+                    for (int cz = b.z; cz <= b.w; cz++) for (int cx = b.x; cx <= b.y; cx++) cells.Add(Key(cx, cz), m);
                 }
                 if (armed > 0)
                     for (int i = 0; i < Count; i++)
@@ -290,7 +300,7 @@ namespace TW.Sim.Combat
                     var mine = Mines[m]; mine.State = (int)MineState.Spent; Mines[m] = mine;
                     Triggered.Add(m); Triggered.Add(first[m]);
                 }
-                cells.Dispose(); first.Dispose();
+                cells.Dispose(); first.Dispose(); box.Dispose();
             }
 
             /// <summary>Does the man in slot i set this mine off (the rule the brute force applied to every pair).</summary>

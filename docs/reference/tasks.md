@@ -272,11 +272,14 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `WinnerTeam`; ShellUxmlTests loads the debrief. Nothing tests `MatchStats` or `ObjectiveTracker` directly.
 
 ### Stubs: placeholders for planned phases, not wired
-`Sim/Combat/IndirectFire.cs`, `Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
+`Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
 `Sim/Units/Grenades.cs` (unregistered systems that throw, `code-map.md`; `Sim/Units/SpecialAbilities.cs` is only the
 `UnitAbilityId` enum now, its stub system deleted 2026-09-28),
 `Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
 (each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
+Indirect fire solves the launch angle for range at fixed v0, schedules the impact tick and hands the terminal
+position to BlastSystem; trench cells take full blast, bunker cells none; its stub deleted 2026-10-13 (review C8).
+- **Tests:** SimStubTests holds the deleted indirect-fire stub and its `ScheduledImpact` gone.
 
 ### Fire in the sim
 - **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the

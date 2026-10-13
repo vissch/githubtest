@@ -91,7 +91,6 @@ namespace TW.Sim.Match
                 World.AddSystem(Fire);                      // A2: shots, damage, near-miss suppression, deaths
             }
             // A5: World.AddSystem(new TW.Sim.Units.GrenadeSystem());
-            // A5: World.AddSystem(new TW.Sim.Combat.IndirectFireSystem());
             Blast = new BlastSystem(map);
             World.AddSystem(Blast);                         // A5 core: radius damage, suppression, craters out
             Bombardment = new AmbientBombardmentSystem(map);

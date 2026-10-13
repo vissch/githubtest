@@ -155,7 +155,6 @@ determinism test: `docs/03-determinism-rules.md`).
 | 700 | `DirectFireSystem` | `DirectFire` | `Sim/Combat/DirectFire.cs` | registered (only if `combat`) |
 | 705 | `TankGunnerySystem` | `DirectFire + 5` | `Sim/Combat/TankGunnery.cs` | registered (only if `combat`) |
 | 709 | `GrenadeSystem` | `IndirectFire - 1` | `Sim/Units/Grenades.cs` | stub: commented out in MatchSim |
-| 710 | `IndirectFireSystem` | `IndirectFire` | `Sim/Combat/IndirectFire.cs` | stub: commented out in MatchSim |
 | 715 | `AmbientBombardmentSystem` | `AmbientBombardment` | `Sim/Match/AmbientBombardment.cs` | registered |
 | 720 | `BlastSystem` | `Blast` | `Sim/Combat/Blast.cs` | registered |
 | 723 | `BeamSystem` | `Beam` | `Sim/Combat/BeamSystem.cs` | registered |
