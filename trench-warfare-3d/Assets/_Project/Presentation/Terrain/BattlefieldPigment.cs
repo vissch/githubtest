@@ -22,6 +22,13 @@ namespace TW.Presentation.Terrain
         public const int Size = 256;
         public const int Count = 9;
 
+        /// <summary>The sheet is R8, so it clamps at 1, but a painted highlight reaches 1.22 (Earth's seam lip):
+        /// the bake stores value/Range and the shader multiplies it back (TW_PIGMENT_RANGE in Toon_URP).</summary>
+        public const float Range = 1.25f;
+
+        /// <summary>What the sheet actually holds at one point: the painted value scaled into 0..1.</summary>
+        public static float Stored(Surface surface, float u, float v) => Mathf.Clamp01(Value(surface, u, v) / Range);
+
         /// <summary>Every surface as one mipmapped array, baked once. R8: these are grey and the kit tints them.</summary>
         public static Texture2DArray Sheet()
         {
@@ -34,7 +41,7 @@ namespace TW.Presentation.Terrain
                 for (int y = 0; y < Size; y++)
                 for (int x = 0; x < Size; x++)
                 {
-                    float value = Value(surface, (x + .5f) / Size, (y + .5f) / Size);
+                    float value = Stored(surface, (x + .5f) / Size, (y + .5f) / Size);
                     pixels[y * Size + x] = new Color(value, value, value, 1f);
                 }
                 sheet.SetPixels(pixels, layer);
