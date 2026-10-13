@@ -57,6 +57,55 @@ namespace TW.Presentation.Tactical
 
         public static int RocketsOf(FxTier tier) => tier >= FxTier.High ? 4 : tier == FxTier.Medium ? 2 : 1;
 
+        /// <summary>A shot's near smoke as drawn: the small flash over the blast, the Puff ring the muzzle leaves, and the
+        /// three Smoke cards that follow it out along the barrel. All widths in metres, lives in seconds, pushes in metres
+        /// along the barrel from the muzzle; the three cards are card k = 0..2 of SmokeSizeOf/LifeOf/AlongOf/AlphaOf.
+        /// (Owner, 2026-10-12, on the Banner's day film: "the firing vfx ... can be improved". The Banner's Blast 6.0 gave
+        /// a 4.8 m Puff at alpha 0.7 sitting 0.6 m off the muzzle - the beige puff over its own front leg - and three smoke
+        /// cards drifting ALONG the barrel with only +0.5 up, which kept them on the machine. The Banner now gets a short
+        /// bright flash, a thinner Puff pushed clear, and smoke that goes up, thins per card and leaves the machine.)</summary>
+        public struct MuzzleFx
+        {
+            public float FlashWidth, FlashWidthPlain, FlashLife;     // the flash under its own blast drawing, and without one
+            public float PuffWidth, PuffLife, PuffAlpha, PuffPush;
+            public float SmokeSize0, SmokeSizeStep, SmokeLife0, SmokeLifeStep;
+            public float SmokeAlpha, SmokeAlphaStep, SmokeGrow, SmokeUp, SmokeAlong0, SmokeAlongStep;
+            public float SmokePush0, SmokePushStep, SmokeDelayStep;
+
+            public float SmokeSizeOf(int k) => SmokeSize0 + k * SmokeSizeStep;
+            public float SmokeLifeOf(int k) => SmokeLife0 + k * SmokeLifeStep;
+            public float SmokeAlongOf(int k) => SmokeAlong0 + k * SmokeAlongStep;
+            public float SmokePushOf(int k) => SmokePush0 + k * SmokePushStep;
+            /// <summary>Card k's alpha: the chain thins as it goes (the old look held one alpha for all three).</summary>
+            public float SmokeAlphaOf(int k) => Mathf.Max(0.05f, SmokeAlpha + k * SmokeAlphaStep);
+        }
+
+        /// <summary>How a machine's shot smokes near the muzzle. Pure: the only input is the archetype, through GunFor.</summary>
+        public static MuzzleFx MuzzleLook(byte archetype)
+        {
+            var gun = GunFor(archetype);
+            var fx = new MuzzleFx
+            {
+                FlashWidth = 1.6f, FlashWidthPlain = 3.2f, FlashLife = 0.1f,
+                PuffWidth = gun.Blast * 0.8f, PuffLife = 1.2f, PuffAlpha = 0.7f, PuffPush = 0.6f,
+                SmokeSize0 = 1.2f * gun.Smoke, SmokeSizeStep = 0.4f * gun.Smoke,
+                SmokeLife0 = 2.5f, SmokeLifeStep = 0.5f,
+                SmokeAlpha = 0.55f, SmokeAlphaStep = 0f, SmokeGrow = 1.6f,
+                SmokeUp = 0.5f, SmokeAlong0 = 2.5f, SmokeAlongStep = -0.6f,
+                SmokePush0 = 0.6f, SmokePushStep = 0.7f, SmokeDelayStep = 0.03f,
+            };
+            if (archetype == VehicleArchetype.Banner)
+            {
+                fx.FlashLife = 0.08f;                                   // a crack, not a flame standing in the air
+                fx.PuffWidth = 2.6f; fx.PuffLife = 0.8f; fx.PuffAlpha = 0.45f; fx.PuffPush = 2.2f;   // thinner, shorter, out past the leg
+                fx.SmokeSize0 = 1.3f; fx.SmokeSizeStep = 0.45f;         // no card wide enough to cover a front leg (they stand 2.9 m apart)
+                fx.SmokeLife0 = 2f; fx.SmokeLifeStep = 0.4f;
+                fx.SmokeAlpha = 0.4f; fx.SmokeAlphaStep = -0.08f; fx.SmokeGrow = 2f;   // it thins as the chain goes out
+                fx.SmokeUp = 2.4f; fx.SmokeAlong0 = 0.8f; fx.SmokeAlongStep = -0.2f;   // mostly up: it rises off the machine
+            }
+            return fx;
+        }
+
         public static GunLook GunFor(byte archetype)
         {
             switch (archetype)
