@@ -56,6 +56,32 @@ namespace TW.Tests
                 "[S8] one past capacity must still be rejected, not just the extreme 255 case");
         }
 
+        [Test]   // [S8]
+        public void ParseThrowsInvalidDataExceptionOnATruncatedFile()
+        {
+            var cfg = SimConfig.Default;
+            var recorder = new ReplayRecorder(cfg, default, TW.Sim.Terrain.GreyboxMapGenerator.MapId);
+            using var cmds = new NativeArray<SimCommand>(0, Allocator.Temp);
+            recorder.Record(cmds, 1UL);
+            var bytes = recorder.Serialize();
+            var truncated = new byte[bytes.Length / 2];
+            System.Array.Copy(bytes, truncated, truncated.Length);
+            Assert.Throws<InvalidDataException>(() => ReplayPlayer.Parse(truncated),
+                "[S8] a file cut off partway through must raise InvalidDataException, not EndOfStreamException");
+        }
+
+        [Test]   // [S8]
+        public void VerifyThrowsInvalidDataExceptionWhenTheWorldsSeedDiffers()
+        {
+            var cfg = SimConfig.Default;
+            var player = OneTickReplay(cfg);
+            var mismatched = cfg; mismatched.Seed = cfg.Seed + 1;
+            using var match = MatchSim.CreateGreybox(mismatched);
+            var ex = Assert.Throws<InvalidDataException>(() => player.Verify(match.World),
+                "[S8] a replay recorded against a different Seed must be reported as such, not as a desync at tick 0");
+            StringAssert.Contains("Seed", ex.Message);
+        }
+
         [Test]
         public void ParseStillReadsAGoodLoadoutWithinCapacity()
         {
