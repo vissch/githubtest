@@ -183,6 +183,20 @@ class PipelineTest(unittest.TestCase):
         P.main(["claim", self.job("sim")])
         self.assertNotEqual(json.loads((self.board / "claims" / "desktop.json").read_text())["token"], c["token"])
 
+    def test_claim_with_no_pid_start_is_not_immortal(self):
+        # [O7] a claim stored with pid_start=None (the worker died between worker_pid()'s check and take_lock's
+        # own proc_start call) used to read as alive forever, since a dead pid's proc_start is also None.
+        self.run_stage("balance", "laptop")
+        os.environ["TW_STATION"] = "desktop"
+        P.main(["claim", self.job("sim")])
+        c = json.loads((self.board / "claims" / "desktop.json").read_text())
+        c["pid"] = 999999
+        c["pid_start"] = None
+        (self.board / "claims" / "desktop.json").write_text(json.dumps(c))
+        self.assertFalse(P.claim_alive(c), "[O7] a claim with pid_start=None read as alive forever")
+        P.main(["claim", self.job("sim")])
+        self.assertNotEqual(json.loads((self.board / "claims" / "desktop.json").read_text())["token"], c["token"])
+
     def test_later_fail_outranks_earlier_pass(self):
         self.run_stage("balance", "laptop")
         os.environ["TW_STATION"] = "laptop"
@@ -380,6 +394,39 @@ class RunDetachedTest(unittest.TestCase):
         with self.assertRaises(SystemExit, msg="[O4] start overwrote a record whose child still runs"):
             R.main(["start", "crash", "--timeout", "60", "--", "python", "-c", "pass"])
         self.assertEqual(P.read_json(rj).get("child_pid"), me, "[O4] the running child was forgotten")
+
+    def test_start_raises_when_wrapper_never_records_a_child(self):
+        # [O5] a wrapper that never writes child_pid (e.g. the spawned exe does not exist) fell through the poll
+        # loop straight to "started" and exit 0, hiding the failure.
+        with self.assertRaises(SystemExit, msg="[O5] start did not raise when the wrapper never started"):
+            R.main(["start", "nospawn", "--timeout", "5", "--", "tw-no-such-executable-xyz"])
+
+    def test_wrap_survives_a_failed_status_write(self):
+        # [O6] one failed mid-tick write_json (e.g. a Windows sharing violation) used to raise out of cmd_wrap and
+        # kill the wrapper, so the job ran on with no timeout enforcement and no exit code ever written.
+        rj = self.write("flaky", dict(state="STARTING", timeout_s=60, cwd=os.getcwd(),
+                                      cmd=[sys.executable, "-c", "import time; time.sleep(0.5)"]))
+        real_write_json = R.write_json
+        calls = {"n": 0}
+
+        def flaky_write_json(path, rec):
+            calls["n"] += 1
+            if calls["n"] == 2:
+                raise OSError("simulated sharing violation")
+            return real_write_json(path, rec)
+
+        real_beat = R.BEAT_S
+        R.write_json = flaky_write_json
+        R.BEAT_S = 0.05
+        try:
+            a = type("A", (), {"name": "flaky"})()
+            R.cmd_wrap(a)   # must not raise despite the simulated OSError
+        finally:
+            R.write_json = real_write_json
+            R.BEAT_S = real_beat
+        rec = P.read_json(rj)
+        self.assertEqual(rec["state"], "DONE", "[O6] a failed status write left the wrapper without a verdict")
+        self.assertIn("exit_code", rec)
 
 
 if __name__ == "__main__":

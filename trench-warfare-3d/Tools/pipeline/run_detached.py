@@ -90,6 +90,9 @@ def cmd_start(a):
         if read_json(rj).get("child_pid"):
             break
         time.sleep(0.1)
+    else:
+        wp = w.poll()
+        raise SystemExit("run %s did not start: wrapper %s" % (a.name, "exited %s" % wp if wp is not None else "still starting"))
     print("started", a.name, "wrapper", w.pid, "log", rec["log"])
 
 
@@ -122,7 +125,10 @@ def cmd_wrap(a):
                 rec.update(state="TIMEOUT", exit_code=None, finished_at=now())
                 write_json(rj, rec)
                 return
-            write_json(rj, rec)
+            try:
+                write_json(rj, rec)
+            except OSError:
+                pass
     rec.update(state="DONE", exit_code=code, finished_at=now())
     write_json(rj, rec)
 
