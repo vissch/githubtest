@@ -2,9 +2,12 @@
 // from a record written once; DebrisMath is the same arithmetic in C#, used at the throw to solve the landing and here
 // to pin the contract down: a piece lands where and when the solve says, on sloped ground too, never passes below its
 // rest height, comes to rest after one bounce, and the record is the 96 bytes the shader declares.
+using System.Reflection;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
+using Unity.Collections;
 using UnityEngine;
+using TW.Perf;
 using TW.Presentation.Tactical;
 
 namespace TW.Tests
@@ -12,6 +15,43 @@ namespace TW.Tests
     public class DebrisTests
     {
         const float Tolerance = 1e-3f;
+
+        /// <summary>[X4] Throw's call to Ground converted a method group to a Func every call (CombatFx already caches
+        /// the equivalent, groundAt). Fails on old code (one allocation for the delegate), passes once DebrisRenderer
+        /// caches it in groundFn (set once in Awake).</summary>
+        [Test]
+        public void Throw_DoesNotAllocateTheGroundDelegate()
+        {
+            var go = new GameObject("DebrisRenderer");
+            NativeArray<DebrisRenderer.Record> records = default;
+            try
+            {
+                var dr = go.AddComponent<DebrisRenderer>();   // runs Awake (Instance)
+                var t = typeof(DebrisRenderer);
+                // groundFn is cached in Awake from the instance method Ground, which needs no Host here: set the same
+                // shape by hand so the test does not depend on Awake's timing in an edit-mode test
+                t.GetField("groundFn", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, (System.Func<float, float, float>)((x, z) => 0f));
+                records = new NativeArray<DebrisRenderer.Record>(8, Allocator.Persistent);
+                t.GetField("records", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, records);
+                var poolType = t.GetNestedType("Pool", BindingFlags.NonPublic);
+                var pool = System.Activator.CreateInstance(poolType, nonPublic: true);
+                poolType.GetField("Start").SetValue(pool, 0);
+                poolType.GetField("Capacity").SetValue(pool, 8);
+                var pools = (System.Array)t.GetField("pools", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(dr);
+                pools.SetValue(pool, (int)DebrisRenderer.Piece.Clod);
+                t.GetField("<Ready>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, true);
+
+                var rng = new DebrisRng(Vector3.one, 3u);
+                Assume.That(AllocProbe.Available, "no profiler Recorder in the editor: the probe cannot run");
+                double perCall = AllocProbe.PerCall(() => dr.Throw(DebrisRenderer.Piece.Clod, Vector3.zero, Vector3.up, 1f, Color.white, ref rng), 2, 20);
+                Assert.That(perCall, Is.EqualTo(0), "[X4] Throw allocated a Func<float,float,float> from the Ground method group every call");
+            }
+            finally
+            {
+                if (records.IsCreated) records.Dispose();
+                Object.DestroyImmediate(go);
+            }
+        }
 
         [Test]
         public void TimeToHeight_IsTheFallOfAThrow()

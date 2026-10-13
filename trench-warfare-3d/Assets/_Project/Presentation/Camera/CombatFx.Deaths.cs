@@ -24,7 +24,7 @@ namespace TW.Presentation.Tactical
         void OnAlight(SimEvent e)
         {
             if (e.A < 0) return;
-            if (e.B == 1) flames.Ignite(e.A, Mathf.Max(0.5f, e.Scalar));
+            if (e.B == 1) flames.Ignite(e.A, Mathf.Max(0.5f, e.Scalar), sim: true);
             else flames.Douse(e.A);
         }
 

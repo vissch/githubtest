@@ -206,6 +206,7 @@ namespace TW.Presentation.Tactical
         GraphicsBuffer buffer, args;
         GraphicsBuffer.IndirectDrawIndexedArgs[] argsData;
         Material material;
+        System.Func<float, float, float> groundFn;   // cached: Throw must not allocate a new delegate for Ground every call
         readonly List<Mesh> owned = new List<Mesh>();
         static readonly int NowId = Shader.PropertyToID("_DebrisNow"), BiomeId = Shader.PropertyToID("_DebrisBiome"), LavaId = Shader.PropertyToID("_DebrisLava"), RecordsId = Shader.PropertyToID("_Records"), LiftId = Shader.PropertyToID("_Lift");
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
@@ -215,6 +216,7 @@ namespace TW.Presentation.Tactical
         void Awake()
         {
             Instance = this;
+            groundFn = Ground;
             shareNear = Knobs.Get("debris.shareNear", DebrisMath.ShareNear);
             shareFar = Knobs.Get("debris.shareFar", DebrisMath.ShareFar);
         }
@@ -267,7 +269,7 @@ namespace TW.Presentation.Tactical
         {
             if (!Ready) return;
             var pool = pools[(int)piece];
-            DebrisMath.Landing(at, velocity, pool.Lift * scale, Ground, out float landT, out float landY);
+            DebrisMath.Landing(at, velocity, pool.Lift * scale, groundFn, out float landT, out float landY);
             float speed = velocity.magnitude;
             var r = new Record
             {

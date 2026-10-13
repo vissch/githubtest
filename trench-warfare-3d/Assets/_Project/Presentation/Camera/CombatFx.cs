@@ -194,11 +194,11 @@ namespace TW.Presentation.Tactical
         void Awake()
         {
             // knobs (Knobs): the pools and the close reach; the public fields only where a knob is set
-            MaxMarks = Knobs.Get("fx.maxMarks", MaxMarks);
+            MaxMarks = Mathf.Clamp(Knobs.Get("fx.maxMarks", MaxMarks), 1, 1023);
             MaxChunks = Knobs.Get("fx.maxChunks", MaxChunks);
             MaxAmbientChunks = Knobs.Get("fx.maxAmbientChunks", MaxAmbientChunks);
             CloseReach = Knobs.Get("fx.closeReach", CloseReach);
-            MaxBodies = Knobs.Get("fx.maxBodies", MaxBodies);
+            MaxBodies = Mathf.Clamp(Knobs.Get("fx.maxBodies", MaxBodies), 1, 1023);
             TracerSeconds = Mathf.Max(0.01f, Knobs.Get("fx.tracerSeconds", TracerSeconds));
             shotStagger = ShotStagger.ReadSpread();
             smokeAlpha = FlipbookFx.ReadAlpha();
