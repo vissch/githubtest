@@ -117,6 +117,64 @@ def scan_run(text, returncode, known=None, verbose=False):
     return tally, bad, current, done
 
 
+def rsp_sources(rsp):
+    """The .cs files occ.py wrote into OUT/<name>.rsp (quoted, one per line): resolved lowercase key -> the path."""
+    out = {}
+    for line in rsp.read_text(encoding="utf-8").splitlines():
+        line = line.strip()
+        if line.startswith('"') and line.endswith('.cs"'):
+            f = pathlib.Path(line[1:-1])
+            out[str(f.resolve()).lower()] = f
+    return out
+
+
+def stale(table, dirs, out, tested):
+    """Why no dll of `table` may be trusted, or None when every one is in step with this tree.
+
+    Each TW dll is checked against its OWN sources (a newest-source-vs-newest-dll check over the whole tree passed a
+    fresh test dll over stale Sim dlls when occ.py was run with only some assemblies: critic r6, 2026-09-27), against
+    the dlls it references (C# copies consts and enum values into the caller, so a dll built before its dependency
+    changed carries the old values: critic r7), against the file list occ.py compiled it from (OUT/<name>.rsp: a
+    deleted .cs is gone from disk but still in the dll, and a mtime check can never see it), and against its own
+    asmdef (references and defines change the dll without touching a .cs).
+    """
+    for name, (path, d) in table.items():
+        built = out / (name + ".dll")
+        if not name.startswith("TW.") or not built.exists():
+            continue
+        srcs = occ.sources(path, dirs)
+        if not srcs:
+            continue
+        newest_src = max(srcs, key=lambda p: p.stat().st_mtime)
+        if newest_src.stat().st_mtime > built.stat().st_mtime + 1:
+            return f"otr: {name}.dll is older than {rel(newest_src, tested)}: run occ.py with every assembly and fix its errors first; not a verdict"
+        if path.stat().st_mtime > built.stat().st_mtime + 1:
+            return f"otr: {name}.dll is older than {rel(path, tested)}: its references or defines may have changed; run occ.py with every assembly; not a verdict"
+        rsp = out / (name + ".rsp")
+        if not rsp.exists():
+            return f"otr: cannot tell what {name}.dll was built from (no {rsp.name} beside it): run occ.py with every assembly; not a verdict"
+        was = rsp_sources(rsp)
+        now = {str(s.resolve()).lower(): s for s in srcs}
+        gone = sorted(set(was) - set(now))
+        if gone:
+            return f"otr: {name}.dll was built with {rel(was[gone[0]], tested)}, which is gone: run occ.py with every assembly; not a verdict"
+        added = sorted(set(now) - set(was))
+        if added:
+            return f"otr: {rel(now[added[0]], tested)} is not in what {name}.dll was built from: run occ.py with every assembly; not a verdict"
+        for ref in d.get("references", []):
+            dep = out / (ref + ".dll")
+            if ref.startswith("TW.") and dep.exists() and dep.stat().st_mtime > built.stat().st_mtime + 1:
+                return f"otr: {name}.dll was built before {ref}.dll: run occ.py with every assembly; not a verdict"
+    return None
+
+
+def rel(path, root):
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
 def main(argv):
     verbose = "-v" in argv
     argv = [a for a in argv if a != "-v"]
@@ -142,31 +200,12 @@ def main(argv):
     print(f"otr: testing {tested} (dlls in {occ.OUT})")
     if tested != pathlib.Path.cwd().resolve():
         print(f"otr: WARNING: run from {pathlib.Path.cwd()}, which is not the checkout under test ({tested}); cd into it")
-    # a failed occ.py leaves the last good dlls in place, and a run on them reports on code that is not the tree's
-    # (twice in loop tick 8, 2026-09-27): the newest compiled dll must be at least as new as the newest source, since a
-    # successful occ rebuilds the assembly that holds it
-    # per assembly: each TW dll against its own sources (a newest-source-vs-newest-dll check passed a fresh test dll over
-    # stale Sim dlls when occ.py was run with only some assemblies: critic r6, 2026-09-27)
     table = occ.asmdefs()
     dirs = [path.parent for path, _ in table.values()]
-    for name, (path, _) in table.items():
-        built = occ.OUT / (name + ".dll")
-        if not name.startswith("TW.") or not built.exists():
-            continue
-        srcs = occ.sources(path, dirs)
-        if not srcs:
-            continue
-        newest_src = max(srcs, key=lambda p: p.stat().st_mtime)
-        if newest_src.stat().st_mtime > built.stat().st_mtime + 1:
-            print(f"otr: {name}.dll is older than {newest_src.relative_to(tested)}: run occ.py with every assembly and fix its errors first; not a verdict")
-            return 2
-        # and no older than what it was built against: C# copies consts and enum values into the caller at compile time, so
-        # a dll built before its dependency changed carries the old values (critic r7)
-        for ref in table[name][1].get("references", []):
-            dep = occ.OUT / (ref + ".dll")
-            if ref.startswith("TW.") and dep.exists() and dep.stat().st_mtime > built.stat().st_mtime + 1:
-                print(f"otr: {name}.dll was built before {ref}.dll: run occ.py with every assembly; not a verdict")
-                return 2
+    why = stale(table, dirs, occ.OUT, tested)
+    if why:
+        print(why)
+        return 2
     for dll in dlls:
         if not dll.exists():
             print(f"otr: {dll} not built: run occ.py with {dll.stem} first"); return 2
