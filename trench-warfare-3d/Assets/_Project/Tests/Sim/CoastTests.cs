@@ -11,7 +11,9 @@
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
+using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 
 namespace TW.Tests
@@ -380,6 +382,37 @@ namespace TW.Tests
             for (int i = 0; i < map.Props.Length; i++)
                 Assert.LessOrEqual(map.Props[i].Pos.z, map.SeaStartZ, "and nothing stands on its sand");
             Assert.AreEqual(4, map.Trenches.Length, "four trenches, as the playtest layout has always had");
+        }
+
+        /// <summary>
+        /// [C2] Characterisation, not a fix: on the defended coast a freshly deployed team-1 foot soldier's
+        /// DefaultGoal IS the shore trench, because RearTrench(1) takes his largest z. That is intended - docs/19
+        /// asks for a shore line with "the defender in it", and MoveJob garrisons a man only when his goal IS that
+        /// trench, so any other default would walk him off the line - and the boat-landed men come down with
+        /// GoalId -1 and so take the same default. Pinned here so no later change flips it in silence. Where the
+        /// shore is bare (ShelledForest) the default is his reserve line, which is also his rearmost line objective.
+        /// </summary>
+        [Test]
+        public void TeamOnesFootSoldiersRallyInTheShoreTrenchOnlyWhereTheShoreIsDefended()
+        {
+            var cfg = SimConfig.Default; cfg.Seed = 0xC0FFEEu;
+            using (var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.Landing(1917)))
+            {
+                short shore = (short)ShoreTrench(m.Map);
+                Assert.GreaterOrEqual(shore, 0, "the coast preset has a shore trench");
+                Assert.AreEqual(shore, m.Fields.RearTrench(1), "it is team 1's rearmost trench");
+                Assert.AreEqual(m.Fields.GetGoal(GoalKey.Trench(shore)), m.Fields.DefaultGoal(1, false),
+                    "a fresh team-1 foot soldier, and every man a boat puts ashore, rallies in the shore trench");
+                Assert.AreNotEqual(shore, m.Fields.RearLineTrench(1),
+                    "but the rearmost line he HOLDS is his reserve line: the shore trench is no objective");
+            }
+            using (var m = MatchSim.CreateBattlefield(cfg, BattlefieldParams.ShelledForest(1917)))
+            {
+                short line = m.Fields.RearLineTrench(1);
+                Assert.AreEqual(m.Fields.RearTrench(1), line, "with a bare shore the two readings are the same trench");
+                Assert.AreEqual(m.Fields.GetGoal(GoalKey.Trench(line)), m.Fields.DefaultGoal(1, false),
+                    "and his men rally on his reserve line, as they always did");
+            }
         }
 
         /// <summary>The dial survives being written down and read back, and absent means bare.</summary>
