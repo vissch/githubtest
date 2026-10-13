@@ -37,6 +37,12 @@ namespace TW.Sim.Combat
         public const float RunningTargetNear = 20f * RangeScale;      // metres: closer than this he is no harder to hit
         public const float RunningTargetFar = 60f * RangeScale;       // metres: from here on the whole penalty
         public const float RunningTargetFloor = 0.28f;   // the share of the chance left at RunningTargetFar and beyond (0.35 before the bomb's throw was cut, 2026-09-29)
+        // ---- a lying man is harder to hit the farther off he is (the owner, 2026-10-06: "A lying man gets harder to
+        // hit with distance, about half as likely by 60 m"). Before this, going to ground far off bought nothing over
+        // being hit at 0.60 close by, so it cost lives. Real metres, not RangeScale: 60 m is how far off a man is
+        // seen, not a weapon's reach.
+        public const float LyingTargetFar = 60f;        // metres: from here on the whole gain
+        public const float LyingTargetFloor = 0.5f;     // the share of the chance left at LyingTargetFar and beyond
         public const float GarrisonFireSuppressionLimit = 40f;   // above this a garrison stays below the rim
         // a shot at a man on foot in the open behind his own front trench hits half as often (the owner, 2026-10-08:
         // "a man behind his own front trench is half as easy to hit, but can still be shot"). It ends the moment he is
@@ -165,5 +171,9 @@ namespace TW.Sim.Combat
             float t = math.saturate((dist - RunningTargetNear) / (RunningTargetFar - RunningTargetNear));
             return 1f - (1f - RunningTargetFloor) * t;
         }
+
+        /// <summary>The share of a shooter's chance left against a man lying in the open <paramref name="dist"/>
+        /// metres off: 1 at knife range, falling in one straight line to LyingTargetFloor by LyingTargetFar.</summary>
+        public static float LyingTarget(float dist) => 1f - (1f - LyingTargetFloor) * math.saturate(dist / LyingTargetFar);
     }
 }

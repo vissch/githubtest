@@ -2,6 +2,7 @@
 // hold-fire keeps a garrison silent and out of sight, fire suppresses and suppression decays, a garrison spreads
 // along its trench, an undefended trench is captured and the HQ behind it ends the match, and all of it is
 // deterministic.
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -9,6 +10,7 @@ using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
+using TW.Sim.Terrain;
 
 namespace TW.Tests
 {
@@ -57,6 +59,81 @@ namespace TW.Tests
             for (int k = 0; k < count; k++) Step(m, SimCommand.Deploy(m.World.Tick, team, rosterSlot));
             for (int t = 0; t < 2000 && m.Fields.Trenches[trench].GarrisonCount < want; t++) Step(m);
             Assert.AreEqual(want, m.Fields.Trenches[trench].GarrisonCount, "setup: garrison did not form");
+        }
+
+
+        static List<SimEvent> Run(MatchSim m, int ticks, System.Action<SimWorld> each = null)
+        {
+            var log = new List<SimEvent>();
+            for (int t = 0; t < ticks; t++)
+            {
+                each?.Invoke(m.World);
+                Step(m);
+                var ev = m.World.Events.Events;
+                for (int k = 0; k < ev.Length; k++) log.Add(ev[k]);
+            }
+            return log;
+        }
+
+        /// <summary>One man of <paramref name="team"/> standing where he is put, on plain open ground.</summary>
+        static int Still(MatchSim m, byte team, byte archetype, float x, float z, float hp = -1f)
+        {
+            var at = new float3(x, 0f, z);
+            Assert.AreEqual(0, (int)(m.Map.LayerAt(at) & NavLayer.Trench), $"setup: ({x},{z}) must be open ground");
+            Assert.AreEqual(0, (int)(m.Map.LayerAt(at) & NavLayer.Crater), $"setup: ({x},{z}) must not be a crater (CraterCover would swamp the effect)");
+            var e = RosterEntry.ForArchetype(archetype);
+            return m.World.Spawn(team, archetype, at, hp < 0f ? e.Hp : hp, 0f, false);
+        }
+
+        static int Hits(List<SimEvent> log, int target, bool positive)
+        {
+            int n = 0;
+            foreach (var e in log) if (e.Type == SimEventType.Hit && e.B == target && (e.Scalar > 0f) == positive) n++;
+            return n;
+        }
+
+        // ---- a lying man at range (the owner, 2026-10-06): "A lying man gets harder to hit with distance, about
+        // half as likely by 60 m". Close by he is hit at 0.60 of a shooter's chance as before.
+        [Test]
+        public void ALyingManInTheOpenIsHalfAsLikelyToBeHitBySixtyMetres()
+        {
+            Assert.That(CombatTables.LyingTarget(0f), Is.EqualTo(1f).Within(1e-6f), "at knife range lying down is what it always was");
+            Assert.That(CombatTables.LyingTarget(30f), Is.EqualTo(0.75f).Within(1e-6f), "half way there, half the gain");
+            Assert.That(CombatTables.LyingTarget(60f), Is.EqualTo(0.5f).Within(1e-6f), "half as likely by 60 m");
+            Assert.That(CombatTables.LyingTarget(100f), Is.EqualTo(0.5f).Within(1e-6f), "no further gain past 60 m");
+
+            float Share(float d) => (1f - StanceRules.CoverBonusInOpen(Stance.Prone)) * CombatTables.LyingTarget(d);
+            Assert.That(Share(0f), Is.EqualTo(0.60f).Within(1e-6f), "today's chance close by");
+            Assert.That(Share(30f), Is.EqualTo(0.45f).Within(1e-6f));
+            Assert.That(Share(60f), Is.EqualTo(0.30f).Within(1e-6f), "about half of 0.60");
+        }
+
+        [Test, Category("Long")]
+        public void AProneManIsHitFarLessOftenAtSixtyMetresThanClose()
+        {
+            // One MG against one rifleman who cannot die, on open ground: once with him standing, once with his
+            // suppression held over StanceRules.ProneSuppression (60) and under PinnedSuppression (85), so
+            // StanceSystem itself lays him down. Held in the callback, never written as a stance: the system would
+            // overwrite that.
+            float Ratio(float gap)
+            {
+                float Shots(float suppression)
+                {
+                    using var m = NewMatch();
+                    int target = Still(m, 0, InfantryArchetype.Rifle, 60f, 30f, 1e6f);
+                    Still(m, 1, InfantryArchetype.Machinegunner, 60f, 30f + gap, 1e6f);   // the target shoots back: without this the gunner is dead inside 300 ticks
+                    var log = Run(m, 2000, w => w.Suppression[target] = suppression);   // 2000 ticks: at 60 m a lying man is hit so seldom that 400 is not enough to count
+                    int hits = Hits(log, target, true);
+                    Assert.Greater(hits, 15, $"setup: the MG must be shooting at {gap} m (suppression {suppression})");
+                    return hits;
+                }
+                return Shots(70f) / Shots(0f);
+            }
+
+            float near = Ratio(10f), far = Ratio(60f);
+            Assert.That(near, Is.EqualTo(0.60f).Within(0.15f), "close by, lying down is the old 0.60");
+            Assert.That(far, Is.EqualTo(0.30f).Within(0.12f), "about half of that by 60 m");
+            Assert.Less(far, 0.8f * near, "the gain really grows with the distance");
         }
 
         [Test, Category("Long")]

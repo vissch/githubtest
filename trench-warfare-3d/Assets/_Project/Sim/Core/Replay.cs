@@ -199,6 +199,9 @@ namespace TW.Sim
         // behind his own front trench is seen and shot at by the far side again -- and in its place DirectFireSystem
         // halves the chance of a hit on him (CombatTables.ApproachShare, the owner 2026-10-08), from the trench line
         // back, not from 10 m behind it. Layout and hash chain unchanged; a v37 replay does not replay.
+        // v38 (2026-10-06, a lying man at range): a man lying in the open is hit less often the farther off the
+        // shooter is (CombatTables.LyingTarget, half as likely by 60 m). Same inputs, a different battle: men who
+        // went to ground far off now live, so a v37 replay does not replay. Layout and chain unchanged.
         public const ushort FormatVersion = 62;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
