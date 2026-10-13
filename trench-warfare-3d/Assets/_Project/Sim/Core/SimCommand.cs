@@ -47,8 +47,5 @@ namespace TW.Sim
 
         public static SimCommand Rally(uint tick, byte player, float3 pos)
             => new SimCommand { Tick = tick, Player = player, Type = CommandType.SetRally, Pos = pos };
-
-        /// <summary>Deterministic ordering key: commands for one tick are sorted by (Player, sequence) before execution.</summary>
-        public long OrderKey(int sequence) => ((long)Player << 32) | (uint)sequence;
     }
 }

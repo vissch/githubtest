@@ -174,7 +174,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   anti-tank rifle at a plate they beat), `NeverPinned` in `Sim/Combat/Suppression.cs` (the Death Battalion).
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
-  before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests.
+  before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests,
+  DataBakerTests (`Data/DataBaker.cs`'s campaign Faction -> FactionId mapping and ApplyUpgrades' dmg/acc tiers).
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
   shooting at, or else the nearest enemy in the open within `HuntRadius` (70 m x `CombatTables.RangeScale` 0.8: the

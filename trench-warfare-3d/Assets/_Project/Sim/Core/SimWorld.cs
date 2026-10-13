@@ -47,8 +47,8 @@ namespace TW.Sim
         public NativeArray<int> Silver;
         public NativeArray<float> SilverFraction;
         public NativeArray<float3> Rally;
-        public NativeArray<RosterEntry> Roster;     // MaxPlayers * RosterEntry.SlotCount. TRANSIENT: written once at
-                                                    // construction from the same table on every machine, never mutated.
+        public NativeArray<RosterEntry> Roster;     // MaxPlayers * RosterEntry.SlotCount. Written once at construction
+                                                    // from the same table on every machine, never mutated — and hashed (Hash()).
         public NativeArray<int> SlotCooldown;       // MaxPlayers * RosterEntry.SlotCount
         public NativeArray<byte> SlotUnlocked;      // MaxPlayers * RosterEntry.SlotCount (missions lock slots)
 
@@ -79,7 +79,6 @@ namespace TW.Sim
         /// than that one of them did. Sorted identically on every machine, so two worlds can be compared pairwise.
         /// </summary>
         public IReadOnlyList<ISimSystem> Systems => systems;
-        NativeList<SimCommand> sortScratch;
 
         /// <summary>
         /// The units of this match: every per-archetype spec, as a table. Two worlds in a lockstep pair must be given
@@ -190,7 +189,6 @@ namespace TW.Sim
             VehicleDeaths = new NativeList<VehicleDeath>(16, Allocator.Persistent);
             Deploys = new NativeList<UnitDeploy>(16, Allocator.Persistent);
             TickCommands = new NativeList<SimCommand>(256, Allocator.Persistent);
-            sortScratch = new NativeList<SimCommand>(256, Allocator.Persistent);
         }
 
         // ------------------------------------------------------------------ systems
@@ -284,6 +282,10 @@ namespace TW.Sim
             for (int p = 0; p < SimConfig.MaxPlayers; p++)
                 for (int i = 0; i < commands.Length; i++)
                     if (commands[i].Player == p) TickCommands.Add(commands[i]);
+            // A player index past SimConfig.MaxPlayers matches no p above, so it never joins TickCommands and never
+            // reaches ApplyCoreCommands' own reject. Reject it here instead, in array order, so every machine agrees.
+            for (int i = 0; i < commands.Length; i++)
+                if (commands[i].Player >= SimConfig.MaxPlayers) Reject(commands[i]);
         }
 
         void ApplyCoreCommands()
@@ -291,7 +293,6 @@ namespace TW.Sim
             for (int i = 0; i < TickCommands.Length; i++)
             {
                 var c = TickCommands[i];
-                if (c.Player >= SimConfig.MaxPlayers) { Reject(c); continue; }
                 switch (c.Type)
                 {
                     case CommandType.DeployUnit: Deploy(c); break;
@@ -473,7 +474,7 @@ namespace TW.Sim
             PostCell.Dispose(); PostKind.Dispose();
             TargetSlot.Dispose(); GoalId.Dispose(); Flags.Dispose(); Generation.Dispose(); Cooldown.Dispose(); FireCooldown.Dispose(); Knock.Dispose();
             Silver.Dispose(); SilverFraction.Dispose(); Rally.Dispose(); Roster.Dispose(); SlotCooldown.Dispose(); SlotUnlocked.Dispose();
-            freeSlots.Dispose(); Events.Dispose(); VehicleDeaths.Dispose(); Deploys.Dispose(); TickCommands.Dispose(); sortScratch.Dispose();
+            freeSlots.Dispose(); Events.Dispose(); VehicleDeaths.Dispose(); Deploys.Dispose(); TickCommands.Dispose();
         }
     }
 }

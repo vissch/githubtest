@@ -67,6 +67,23 @@ namespace TW.Tests
             Assert.AreEqual(0, CountEvents(m.World, SimEventType.SapperOrdered));
         }
 
+        [Test]   // [S11]
+        public void ACommandFromAPlayerPastMaxPlayers_IsRejectedWithAnEvent()
+        {
+            using var m = MatchSim.CreateGreybox(SimConfig.Default);
+            using var cmds = new NativeArray<SimCommand>(new[] { new SimCommand { Player = 7, Type = CommandType.SetRally } }, Allocator.Temp);
+            m.Step(cmds);
+            Assert.AreEqual(1, CountEvents(m.World, SimEventType.CommandRejected),
+                "[S11] a command from a player >= MaxPlayers must be rejected with a CommandRejected event, not silently dropped");
+            bool found = false;
+            for (int i = 0; i < m.World.Events.Events.Length; i++)
+            {
+                var e = m.World.Events.Events[i];
+                if (e.Type == SimEventType.CommandRejected && e.B == 7) found = true;
+            }
+            Assert.IsTrue(found, "[S11] the rejection must carry the offending player");
+        }
+
         [Test]
         public void Rally_IsClampedToMap()
         {
