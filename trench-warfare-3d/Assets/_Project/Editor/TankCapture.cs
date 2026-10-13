@@ -54,6 +54,15 @@ namespace TW.Editor
                     if (FollowFacing && onSubject) bearing = FilmAim.QuarterFront(facing);
                     if (HasHeld) cam.FrameFrom(Held, FollowZoom, FilmAim.YawFor(bearing, cam.BaseYaw, cam.AutoYaw));
                 }
+                // the trace is kept whatever is being filmed: gamefilm.py renders its own frames and never asks for
+                // a Shot, so a trace written only beside a screenshot stayed empty.
+                if (trace != null && Camera.main != null)
+                {
+                    var v = Camera.main.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
+                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(bearing, facing) ? 1 : 0)}\n");
+                    TraceFrame++;
+                    if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
+                }
                 if (string.IsNullOrEmpty(Pending) || Camera.main == null) return;
                 var c = Camera.main;
                 var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
@@ -67,13 +76,6 @@ namespace TW.Editor
                 File.WriteAllBytes(Pending, tex.EncodeToPNG());
                 Object.Destroy(tex);
                 Last = Pending; Pending = null;
-                if (trace != null)
-                {
-                    var v = c.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
-                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(bearing, facing) ? 1 : 0)}\n");
-                    TraceFrame++;
-                    if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
-                }
             }
 
             public void BeginTrace() { trace = new System.Text.StringBuilder(); }
