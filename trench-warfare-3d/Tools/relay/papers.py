@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """Script checks for the two things a leg writes for the next one: the plan (plan leg -> execute leg) and the handoff
-note (lane work only). A paper that fails is not handed on. Stdlib only. ASCII only.
+note (sources/notes.py). A paper that fails is not handed on. Stdlib only. ASCII only.
 
   plan.md   ## Goal  ## Steps  ## Files  ## Checks  ## Done when  ## Risks      (roles/_phase_plan.md)
-  note.md   ## Goal  ## Done  ## In flight  ## Next  ## Predictions  ## Dead ends
+  note.md   ## Goal  ## Done  ## In flight  ## Next  ## Predictions  ## Dead ends   and, when anything is decided,
+            ## Decisions: a line per choice already made that the next leg must not reopen, with where it was
+            decided (a brief id, a decisions.md row, the owner's note id, or "this leg, because ..."). The owner's
+            answered decisions kept being asked again (2026-10-09). A note without the section is as good as it was.
   retro.md  ## What happened  ## Tuning  ## Proposals                             (roles/_phase_retro.md)
   critic.md   first line "VERDICT: <stage> ROUND <n>: <score>/100 ..", and three numbered fixes under
               "TOP-3 MANDATED FIXES" (roles/_phase_critic.md; the shape is the tw-critic skill's)
@@ -18,6 +21,7 @@ import cmdrules
 
 PLAN_SECTIONS = ("Goal", "Steps", "Files", "Checks", "Done when", "Risks")
 NOTE_SECTIONS = ("Goal", "Done", "In flight", "Next", "Predictions", "Dead ends")
+NOTE_MAY_HAVE = ("Decisions",)          # read when it is there, never asked for: the notes on the board have none
 RETRO_SECTIONS = ("What happened", "Tuning", "Proposals")
 MAY_BE_EMPTY = ("Risks", "Dead ends", "In flight", "Tuning", "Proposals")
 TUNE = re.compile(r"^\s*[-*]\s*`?([a-z_]+)`?\s*[:=]\s*([0-9][0-9_.]*)")
@@ -223,7 +227,14 @@ def predictions(text):
     return out
 
 
+def decisions(text):
+    """The lines under a note's '## Decisions' that say something: what the next leg must not reopen. [] for a note
+    without the section, which every note written before 2026-10-14 is."""
+    return [l.strip() for l in sections(text).get(NOTE_MAY_HAVE[0], "").splitlines() if l.strip().strip("-*")]
+
+
 def check_note(text, max_bytes):
+    """Problems with a handoff note, as short strings (empty = hand it on). '## Decisions' is not asked for."""
     out, sec = _shape(text, NOTE_SECTIONS, max_bytes, "note.md")
     pred = predictions(text)
     lines = [l for l in sec.get("Predictions", "").splitlines() if l.strip()]

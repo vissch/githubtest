@@ -5,7 +5,8 @@ for every source that hands one on, so a note is read, scored, shown and kept th
                                   one try to the next: a queued unit's id, a board job's item and stage
   ASK                             the card line that tells a leg to write one
   read(ctx, key)                  {"note": the text or "", "predictions": [(command, held)]}, scored in the checkout
-  card(unit)                      the card lines that show the note and its scored predictions; [] with no note
+  card(unit)                      the card lines that show the note and its scored predictions, and say that its
+                                  Decisions (when it has any) are closed; [] with no note
   keep(ctx, key, desk, lim)       a good note goes to the board; a bad or a missing one takes the old one away
   drop(ctx, key)                  the unit is done: its note is gone
 The shape of a note and its checks are papers.py's (NOTE_SECTIONS, check_note, run_predictions).
@@ -18,7 +19,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import papers   # noqa: E402
 
 ASK = ("- If you cannot finish, write note.md in your leg folder for the next leg (sections: Goal, Done, "
-       "In flight, Next, Predictions, Dead ends). A prediction is `command` -> exit N, with a look-only command.")
+       "In flight, Next, Predictions, Dead ends, and Decisions when anything is decided). A prediction is `command` "
+       "-> exit N, with a look-only command. Decisions: one line per choice already made that the next leg must not "
+       "reopen, with where it was decided (a brief id, a decisions.md row, the owner's note id, or `this leg, "
+       "because ...`).")
+CLOSED = ("The note's Decisions are closed: work by them, do not reopen them, and never put one before the owner "
+          "again. One you find wrong: say so in your report, and still go by it.")
 
 
 def path(ctx, key):
@@ -38,6 +44,8 @@ def card(unit):
     lines = ["", "# Note from the last leg on this unit", unit["note"].strip()]
     lines += ["", "Its predictions, checked just now by script:"]
     lines += ["- %s: %s" % ("held" if hit else "DID NOT HOLD", cmd) for cmd, hit in unit.get("predictions", [])]
+    if papers.decisions(unit["note"]):
+        lines += ["", CLOSED]
     return lines
 
 
