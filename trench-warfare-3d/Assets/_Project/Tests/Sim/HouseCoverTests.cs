@@ -108,6 +108,7 @@ namespace TW.Tests
             int inFront = Fight(Block(60f, 15f));    // the house is behind him, he stands in front of it
             int beside = Fight(Block(85f, 45f));     // off to one side of the line of fire
 
+            TestContext.WriteLine($"hits: open {open}, behind {behind}, in front {inFront}, beside {beside}");
             Assert.GreaterOrEqual(open, 150, $"setup: the open run must land plenty of rounds (got {open})");
             Assert.That(behind / (float)open, Is.InRange(0.55f, 0.80f), $"behind the house {behind} hits, in the open {open}");
             Assert.AreEqual(open, inFront, "a man in front of the house is no better off");
