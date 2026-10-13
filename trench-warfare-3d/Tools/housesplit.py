@@ -29,6 +29,7 @@ SMALL = float(os.environ.get("TW_SMALL", "0.7"))      # parts under this get mer
 NAMES = json.loads(os.environ.get("TW_NAMES", "{}"))  # cluster index -> house name
 TURNS = json.loads(os.environ.get("TW_TURNS", "{}"))  # house name -> extra yaw degrees
 PIVOT = os.environ.get("TW_PIVOT", "house")           # house | chunk
+MAX_CHUNKS = 96   # HouseKit.ChunkMask: BitsPerWord 24 * Words 4 (HouseKit.cs:47)
 
 bpy.ops.wm.read_factory_settings(use_empty=True)
 bpy.ops.import_scene.fbx(filepath=fbx)
@@ -422,4 +423,12 @@ for ci, c in enumerate(clusters):
     print("HOUSE %-10s parts %2d -> chunks %3d  %.1f x %.1f x %.1f m (x, height, z)  tris %d" % (
         hname, len(mem), len(hobjs), size_m.x, size_m.z, size_m.y, sum(m["tris"] for m in manifest if m["house"] == hname)))
 with open(os.path.join(outdir, "houses.json"), "w") as f: json.dump({"chunks": manifest}, f, indent=1)
+# HouseKit.Build refuses a house with more chunks than its mask holds, and such a house is simply not drawn
+# (HouseKit.cs:205). Fail here instead, with houses.json already written so the split can be looked at (review R5).
+over = {}
+for m in manifest: over[m["house"]] = over.get(m["house"], 0) + 1
+over = {h: n for h, n in over.items() if n > MAX_CHUNKS}
+if over:
+    for h in sorted(over): print("OVER LIMIT %s %d chunks, HouseKit holds %d" % (h, over[h], MAX_CHUNKS))
+    sys.exit(1)
 print("DONE", len(manifest), "chunks")

@@ -120,6 +120,37 @@ def group_legs(pieces, expected=None, machine=""):
         leftover += g["keys"][3:]
     return legs, leftover
 
+# --------------------------------------------------------------------------------- loose fittings (pure, testable)
+def pick_fittings(pieces, mid_x, mid_y):
+    """Sort the loose fittings into named parts. `pieces` are plain tuples (key, x, y, z, yspan, faces) - no Blender
+    types - so this can be tested on its own. Returns (picks, spare): `picks` maps Gun_L/R, Jaw_L/R and Reactor to
+    one key, and Turret_L/R to a list of keys; `spare` is every key no part claimed (it joins the Body). Nothing is
+    lost: each key comes back exactly once (review R8 - a third barrel or jaw was marked used and then dropped,
+    because every match was marked used but only the first two of each were placed)."""
+    pieces = list(pieces)
+    at = {p[0]: p for p in pieces}
+    barrels = sorted([p[0] for p in pieces if p[3] > .55 and p[4] > .25], key=lambda k: -at[k][1])
+    jaws = sorted([p[0] for p in pieces if p[3] < .30 and p[2] < mid_y], key=lambda k: -at[k][1])
+    reactors = [p[0] for p in pieces if abs(p[1] - mid_x) < .08 and p[2] > mid_y + .2]
+    picks, taken = {}, set()
+    for side, k in zip(("L", "R"), barrels):
+        picks["Gun_" + side] = k; taken.add(k)
+    for side, k in zip(("L", "R"), jaws):
+        picks["Jaw_" + side] = k; taken.add(k)
+    if reactors:
+        k = max(reactors, key=lambda k: at[k][5])
+        if k not in taken:
+            picks["Reactor"] = k; taken.add(k)
+    # turret housings: what is left up top, by side. Everything else is spare and goes onto the Body.
+    housings, spare = {"L": [], "R": []}, []
+    for p in pieces:
+        if p[0] in taken: continue
+        if p[3] > .55 and abs(p[1] - mid_x) > .08: housings["L" if p[1] >= mid_x else "R"].append(p[0])
+        else: spare.append(p[0])
+    for side in ("L", "R"):
+        if housings[side]: picks["Turret_" + side] = housings[side]
+    return picks, spare
+
 # ------------------------------------------------------------------------------------------------------------ load
 def load(fbx, tag):
     before = set(bpy.data.objects)
@@ -274,37 +305,39 @@ def build_pincer(src, cfg):
         piv["Leg_%s%d" % (far, i + 1)] = Vector((2 * mid.x - shoulder.x, shoulder.y, shoulder.z))
 
     # the loose fittings: two gun barrels high up, the turret housings behind them, the reactor at the back,
-    # the jaws of the claws low at the front, and small plates that belong to whatever they sit nearest
-    barrels = sorted([b for b in rest if centre(b).z > .55 and (bm_bounds([b])[1].y - bm_bounds([b])[0].y) > .25],
-                     key=lambda b: -centre(b).x)
-    jaws = sorted([b for b in rest if centre(b).z < .30 and centre(b).y < mid.y], key=lambda b: -centre(b).x)
-    reactor = max([b for b in rest if abs(centre(b).x - mid.x) < .08 and centre(b).y > mid.y + .2] or [None],
-                  key=lambda b: len(b.faces) if b else 0, default=None)
-    used = set(id(b) for b in barrels + jaws + ([reactor] if reactor else []))
-    for side, barrel in zip(("L", "R"), barrels):
+    # the jaws of the claws low at the front, and small plates that belong to whatever they sit nearest.
+    # The sorting is pick_fittings (pure, tested): it hands back every piece exactly once (review R8).
+    tuples = []
+    for i, b in enumerate(rest):
+        c = centre(b)
+        lo, hi = bm_bounds([b])
+        tuples.append((i, c.x, c.y, c.z, hi.y - lo.y, len(b.faces)))
+    picks, spare_keys = pick_fittings(tuples, mid.x, mid.y)
+    for side in ("L", "R"):
+        if "Gun_" + side not in picks: continue
+        barrel = rest[picks["Gun_" + side]]
         parts["Gun_" + side] = barrel
         lo, hi = bm_bounds([barrel])
         piv["Gun_" + side] = Vector((centre(barrel).x, hi.y, centre(barrel).z))       # the trunnion: the barrel's back end
-    for side, jaw in zip(("L", "R"), jaws):
+    for side in ("L", "R"):
+        if "Jaw_" + side not in picks: continue
+        jaw = rest[picks["Jaw_" + side]]
         parts["Jaw_" + side] = jaw
         lo, hi = bm_bounds([jaw])
         piv["Jaw_" + side] = Vector((centre(jaw).x, hi.y, hi.z))                       # the hinge: its top back corner
-    if reactor is not None:
+    if "Reactor" in picks:
+        reactor = rest[picks["Reactor"]]
         parts["Reactor"] = reactor; piv["Reactor"] = centre(reactor)
-    # turret housings: what is left up top, by side
-    housings = {"L": [], "R": []}
-    spare = []
-    for b in rest:
-        if id(b) in used: continue
-        c = centre(b)
-        if c.z > .55 and abs(c.x - mid.x) > .08: housings["L" if c.x >= mid.x else "R"].append(b)
-        else: spare.append(b)
     for side in ("L", "R"):
-        if not housings[side]: continue
-        bm = join(housings[side])
+        if "Turret_" + side not in picks: continue
+        bm = join([rest[k] for k in picks["Turret_" + side]])
         parts["Turret_" + side] = bm
         lo, hi = bm_bounds([bm])
         piv["Turret_" + side] = Vector((centre(bm).x, centre(bm).y, lo.z))             # the ring it turns on
+    spare = [rest[k] for k in spare_keys]
+    print("  fittings: %d guns, %d jaws, reactor %s, %d spare into the body" % (
+        sum(1 for s_ in ("L", "R") if "Gun_" + s_ in picks), sum(1 for s_ in ("L", "R") if "Jaw_" + s_ in picks),
+        "yes" if "Reactor" in picks else "no", len(spare)))
     if spare:
         body = join([body] + spare)                                                     # mouth, vents, small plates
     parts["Body"] = body; piv["Body"] = Vector((mid.x, mid.y, 0))

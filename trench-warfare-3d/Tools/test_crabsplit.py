@@ -3,7 +3,7 @@
 import os, sys, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from crabsplit import group_legs
+from crabsplit import group_legs, pick_fittings
 
 
 def leg(name, x, y, heights):
@@ -49,6 +49,33 @@ class CrabsplitTest(unittest.TestCase):
             group_legs(pieces, expected=5, machine="Redoubt")
         self.assertIn("Redoubt", str(e.exception), "[R1] the error does not name the machine")
         self.assertIn("6", str(e.exception), "[R1] the error does not say how many groups were found")
+
+    def test_r8_a_third_jaw_or_barrel_still_reaches_the_model(self):
+        # [R8] three barrel-shaped and three jaw-shaped pieces. Every piece must come back exactly once: the
+        # old code marked all six used and then placed only two of each, so the third of each vanished.
+        pieces = [("barrel%d" % i, 0.5 - 0.3 * i, 0.4, 0.7, 0.4, 100) for i in range(3)]
+        pieces += [("jaw%d" % i, 0.5 - 0.3 * i, -0.5, 0.2, 0.1, 50) for i in range(3)]
+        picks, spare = pick_fittings(pieces, 0.0, 0.0)
+        got = list(spare)
+        for v in picks.values(): got += v if isinstance(v, list) else [v]
+        self.assertEqual(sorted(p[0] for p in pieces), sorted(got),
+                         "[R8] a fitting was dropped or placed twice: picks %s spare %s" % (picks, spare))
+
+    def test_r8_two_of_each_sort_as_before(self):
+        # [R8] the ordinary crab: two barrels, two jaws, a reactor and two housings keep today's names.
+        pieces = [("barrelL", 0.5, 0.4, 0.7, 0.4, 100), ("barrelR", -0.5, 0.4, 0.7, 0.4, 100),
+                  ("jawL", 0.4, -0.5, 0.2, 0.1, 50), ("jawR", -0.4, -0.5, 0.2, 0.1, 50),
+                  ("reactor", 0.0, 0.5, 0.4, 0.1, 80),
+                  ("housL", 0.6, 0.3, 0.8, 0.1, 20), ("housR", -0.6, 0.3, 0.8, 0.1, 20)]
+        picks, spare = pick_fittings(pieces, 0.0, 0.0)
+        self.assertEqual("barrelL", picks["Gun_L"], "[R8] Gun_L changed side")
+        self.assertEqual("barrelR", picks["Gun_R"], "[R8] Gun_R changed side")
+        self.assertEqual("jawL", picks["Jaw_L"], "[R8] Jaw_L changed side")
+        self.assertEqual("jawR", picks["Jaw_R"], "[R8] Jaw_R changed side")
+        self.assertEqual("reactor", picks["Reactor"], "[R8] the reactor was not found")
+        self.assertEqual(["housL"], picks["Turret_L"], "[R8] the left housing changed")
+        self.assertEqual(["housR"], picks["Turret_R"], "[R8] the right housing changed")
+        self.assertEqual([], spare, "[R8] a named fitting fell into the body")
 
 
 if __name__ == "__main__":

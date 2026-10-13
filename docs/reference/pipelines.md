@@ -19,7 +19,8 @@ All four run headless in Blender 5.0: `"C:\Program Files\Blender Foundation\Blen
 | Script | Input (owner's, not in repo) | Output | Usage and flags |
 |---|---|---|---|
 | `envsplit.py` | `Downloads\env sets\` Tripo sheets | `Resources/Env/<Set>/<Prop>.fbx` + `<Set>.jpg` | `-- <set key> <fbx> <outdir> <renderdir>`. `TW_TURNS` = JSON extra yaw per prop. |
-| `housesplit.py` | village houses, watchtower, ruins sheets | `Resources/Env/<Set>/Chunks/*.fbx` + `houses.json` | `-- <fbx> <outdir> <renderdir>`. Flags: `TW_SCALE` (sheet units to metres), `TW_CUT` (chunk edge, m), `TW_SMALL`, `TW_TEX` (basecolour, reads stone vs timber), `TW_PIVOT` (house or chunk), `TW_NAMES`, `TW_TURNS`, `TW_LOOSE=1` (welded sheet), `TW_ONE=1` + `TW_KEEP=1` (slice one kit prop, keeps pivot and facing), `TW_FLOORS=1` (cut along storeys), `TW_STOREY`, `TW_BAND`, `TW_MINTRIS`, `TW_OLDCAPS=1` (caps take the first wall loop's UVs, the way before 2026-09-27), `TW_CAPLOG=1`. Values used per set: UNRECORDED except Houses (`TW_PIVOT=chunk TW_CUT=2.4 TW_SMALL=1.4`) and the kit props (Biplane `TW_CUT=1.9`). |
+| `housesplit.py` | village houses, watchtower, ruins sheets | `Resources/Env/<Set>/Chunks/*.fbx` + `houses.json` | `-- <fbx> <outdir> <renderdir>`. Flags: `TW_SCALE` (sheet units to metres), `TW_CUT` (chunk edge, m), `TW_SMALL`, `TW_TEX` (basecolour, reads stone vs timber), `TW_PIVOT` (house or chunk), `TW_NAMES`, `TW_TURNS`, `TW_LOOSE=1` (welded sheet), `TW_ONE=1` + `TW_KEEP=1` (slice one kit prop, keeps pivot and facing), `TW_FLOORS=1` (cut along storeys), `TW_STOREY`, `TW_BAND`, `TW_MINTRIS`, `TW_OLDCAPS=1` (caps take the first wall loop's UVs, the way before 2026-09-27), `TW_CAPLOG=1`. A house over 96 chunks (`MAX_CHUNKS`, the size of `HouseKit.ChunkMask`) fails the run with `OVER LIMIT`
+after `houses.json` is written, because `HouseKit.Build` would refuse such a house and simply not draw it. Values used per set: UNRECORDED except Houses (`TW_PIVOT=chunk TW_CUT=2.4 TW_SMALL=1.4`) and the kit props (Biplane `TW_CUT=1.9`). |
 | `tanksplit.py` | `Downloads\cartoon+tank+3d+model.zip` (full), `Downloads\tank+3d+model.zip` (far) | `Resources/Vehicles/<Maw,Tusk>/<Tank>_LOD0,1.fbx` + `TankAtlas_LOD0,1.jpg` | `-- <full.fbx> <far.fbx> <outdir> <renderdir>` |
 | `crabsplit.py` | the walker sheets (`Downloads\robotic crab 3d model.zip` and five more) | `Resources/Vehicles/<Walker>/` and `crabs.json` (each part's pivot and socket's place) | `-- <sheet...> <outdir> <renderdir>`. Blender's export moves every node two levels under the body, which sits off the root's origin (0.07 m on the Pavise to 4.4 m on the Cutter), so `Editor/TankImport.cs` puts each node back at its `crabs.json` place (`Editor/CrabManifest.cs`, 2026-09-29); a re-run needs no other step. |
 | `tank3split.py` | a three-LOD Tripo tank (`Downloads\tank+3d+model.zip` = LOD0, `(1)` = LOD1, `(2)` = LOD2, 2026-09-26) | `Playground/Art/Tanks/<Name>/<Name>_LOD0..2.fbx`, a base-colour jpg per LOD, `tank3.json` | `-- <Name> <lod0.fbx> <lod1.fbx> <lod2.fbx> <outdir> <renderdir>`; `TW_SCALE` metres per model unit (6.6). The SAME named parts at every LOD: loose islands go whole to the region holding most of their area, the hull body is cut by fixed planes (turret ring, casemate plates) and the cuts capped with soot. Fails if a part is empty at any LOD. |
@@ -109,7 +110,13 @@ alpha step must still read ink = 1.0 across the soft edge LANCZOS invents. The b
 `python Tools/test_crabsplit.py` tests `crabsplit.py`'s `group_legs` on its own (the module's Blender imports and
 its whole run are guarded, so the helper imports without `bpy`): a walker's limb pieces are grouped into legs by how
 close their footprints are, not by quadrant, so six legs stay six; `CRABS` gives the expected count (`legs=`) and
-whether the machine has claws at all (`claws=False` for the Redoubt), and a wrong count raises.
+whether the machine has claws at all (`claws=False` for the Redoubt), and a wrong count raises. It also tests
+`pick_fittings`, which sorts the loose fittings (barrels, jaws, reactor, turret housings) and hands every piece back
+exactly once, so a third barrel or jaw joins a turret or the body instead of being dropped.
+`python Tools/test_mechsplit.py` is a source check only (`mechsplit.py` needs `bpy`): the battle export may not read
+`objs["Gun"]`, because the flyer has no `Gun` part; it measures whatever part `Socket_Muzzle` sits on.
+`python Tools/test_housesplit.py` is a source check (`housesplit.py` needs `bpy`) plus a look at the committed
+`houses.json` files: no house may pass `MAX_CHUNKS` (96).
 
 The other books in `Resources/VFX/` come from Asset Store packs (SrRubfish, Hun0FX). They may ship in the game but
 must not be redistributed on their own.
