@@ -477,6 +477,66 @@ namespace TW.Tests
             Object.DestroyImmediate(r.gameObject);
         }
 
+        /// <summary>Sets one float inside a Spring (Value, Velocity) on the view. Spring is TankRenderer's own private
+        /// struct, so it is boxed, written and put back.</summary>
+        static void Spring(object v, string field, string part, float value)
+        {
+            var f = v.GetType().GetField(field, Any);
+            Assert.NotNull(f, $"View has no {field}");
+            object s = f.GetValue(v);
+            s.GetType().GetField(part, Any).SetValue(s, value);
+            f.SetValue(v, s);
+        }
+
+        /// <summary>The owner, 2026-10-12: the recoil should read. The barrel's travel already did; what was missing is
+        /// the top taking a little of it. This drives HullRide's top-kick layer the way TankRenderer drives it (an
+        /// impulse at the shot, stepped every frame) and reads the Turret's drawn rotation back out of PartLocal: a
+        /// quick swing that peaks inside 60 ms, is gone by 0.6 s and never passes TopKickMaxDeg - while the barrels
+        /// recoil exactly as far as they did before.</summary>
+        [Test]
+        public void AShotPassesALittleKickIntoTheTop()
+        {
+            var m = Load("Banner", VehicleArchetype.Banner);
+            var lod = m.Lods[0];
+            int turret = lod.Find("Turret"), upper = lod.Find("Gun_Upper"), lower = lod.Find("Gun_Lower");
+            var (r, v) = Rig(m, VehicleArchetype.Banner);
+            var recoil = Arr(v, "Recoil");
+
+            // at rest the top is on the sim's mark: the layer adds nothing until a shot
+            Assert.Less(Mathf.Abs(Yaw(Posed(r, v, m, turret), lod.Parts[turret])), 1e-4f, "the top is off its mark with no shot");
+
+            // the shot: the barrel's recoil and the top's kick, both run down the way TankRenderer runs them
+            const float dt = 1f / 120f, ret = 0.65f;
+            float x = 0f, xv = HullRide.TopKickFor(1f);   // a six-pounder's weight
+            recoil[0] = 1f;
+            float peakDeg = 0f, peakAt = -1f, lateDeg = 0f, barrel = 0f;
+            for (float t = 0f; t < 1.2f; t += dt)
+            {
+                HullRide.StepTopKick(ref x, ref xv, dt);
+                Spring(v, "TopKick", "Value", x);
+                float drawn = Yaw(Posed(r, v, m, turret), lod.Parts[turret]);
+                Assert.LessOrEqual(Mathf.Abs(drawn), HullRide.TopKickMaxDeg + 0.01f,
+                    $"the top swung {drawn:0.00} degrees on a shot at {t:0.000} s, past its {HullRide.TopKickMaxDeg} degree cap");
+                if (Mathf.Abs(drawn) > peakDeg) { peakDeg = Mathf.Abs(drawn); peakAt = t; }
+                if (t >= 0.6f) lateDeg = Mathf.Max(lateDeg, Mathf.Abs(drawn));
+                var p = lod.Parts[upper];
+                Vector3 own = Quaternion.Inverse(p.LocalRot) * ((Vector3)Posed(r, v, m, upper).GetColumn(3) - p.Local);
+                barrel = Mathf.Max(barrel, -own.z);
+                recoil[0] = Mathf.Max(0f, recoil[0] - dt / ret);
+            }
+            Assert.Greater(peakDeg, 0.1f, $"the top only swung {peakDeg:0.00} degrees: too little to read");
+            Assert.Less(peakAt, 0.06f, $"the top's swing peaked at {peakAt:0.000} s: a shot's kick has to land at once");
+            Assert.Less(lateDeg, 0.2f, $"the top was still {lateDeg:0.00} degrees off its mark 0.6 s after the shot");
+            // and the barrel's own travel is exactly what AShotRecoilsBothBarrelsAlongThemselves measured
+            Assert.AreEqual(0.445f, barrel, 0.02f, $"the barrel came back {barrel * 100f:0.0} cm, not the 44.5 it did before the top took its share");
+            // the guns are carried round by the top and do not take the kick twice
+            Spring(v, "TopKick", "Value", HullRide.TopKickMaxDeg * Mathf.Deg2Rad);
+            foreach (int g in new[] { upper, lower })
+                Assert.Less(Mathf.Abs(Yaw(Posed(r, v, m, g), lod.Parts[g])), 0.01f, $"{lod.Parts[g].Name} took the top's kick of its own as well");
+            TestContext.Out.WriteLine($"Banner's top takes {peakDeg:0.00} degrees of the shot, peaking at {peakAt * 1000f:0} ms and gone by 0.6 s; the barrels still recoil {barrel * 100f:0.0} cm");
+            Object.DestroyImmediate(r.gameObject);
+        }
+
         static float RosterSpeed(byte archetype) => archetype == VehicleArchetype.Banner ? RosterEntry.Banner.Speed : 2f;
 
         [Test]

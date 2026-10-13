@@ -109,6 +109,28 @@ namespace TW.Presentation.Tactical
             else if (value < -cap) { value = -cap; if (velocity < 0f) velocity = 0f; }
         }
 
+        // ---- the top takes a little of the shot ----
+
+        /// <summary>The share of a barrel's kick the top passes on (the owner, 2026-10-12: the recoil should read),
+        /// its spring, and the most it may ever swing. Quick and tight: at omega 22 and zeta 0.45 the swing peaks in
+        /// 56 ms, inside the 60 ms a shot reads in, and is under a fifth of a degree by 0.6 s, so the top is back on
+        /// the mark the sim laid long before the next round.</summary>
+        public const float TopKickShare = 0.25f, TopKickOmega = 22f, TopKickZeta = 0.45f, TopKickMaxDeg = 1.2f;
+
+        /// <summary>The impulse (rad/s) a shot of this weight gives the top's layer: pure, so a test can hold it. The
+        /// heaviest shot (weight 2) peaks at TopKickShare times TopKickMaxDeg times 2, half the cap.</summary>
+        public static float TopKickFor(float shotWeight)
+            => KickFor(TopKickShare * TopKickMaxDeg * Mathf.Clamp(shotWeight, 0.3f, 2f), TopKickOmega, TopKickZeta);
+
+        /// <summary>One frame of the top's layer: it springs back to the sim's mark, clamped to TopKickMaxDeg.</summary>
+        public static void StepTopKick(ref float value, ref float velocity, float dt)
+        {
+            Solve(ref value, ref velocity, 0f, dt, TopKickOmega, TopKickZeta);
+            float cap = TopKickMaxDeg * Mathf.Deg2Rad;
+            if (value > cap) { value = cap; if (velocity > 0f) velocity = 0f; }
+            else if (value < -cap) { value = -cap; if (velocity < 0f) velocity = 0f; }
+        }
+
         // ---- a turret coming to rest ----
 
         public const float SettleOmega = 14f, SettleZeta = 0.35f, SettleAboveDegPerSec = 40f;

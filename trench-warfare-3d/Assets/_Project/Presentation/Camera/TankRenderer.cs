@@ -84,6 +84,9 @@ namespace TW.Presentation.Tactical
             /// time, and a slow turret's settle past its mark.</summary>
             public uint SimTick = uint.MaxValue; public float SimSpeed;
             public Spring Felt, KickP, KickR, Foot;
+            /// <summary>The top's own answer to a shot (yaw, radians): a quick swing on the barrel's kick that
+            /// springs back to the mark the sim laid. Not Settle, which SettleTurrets wipes whenever a shot is due.</summary>
+            public Spring TopKick;
             public readonly float[] ShotW = { 1f, 1f }, ReturnT = { 0.65f, 0.65f }, LastGunYaw = new float[2], LastGunRate = new float[2];
             public readonly Spring[] Settle = new Spring[2];
             public Spring Pitch, Roll, Heave;
@@ -653,6 +656,7 @@ namespace TW.Presentation.Tactical
             }
 
             SettleTurrets(match, v, spec, dt);
+            StepTopKick(v, dt);
 
             // A machine whose only weapon is small arms (the Skimmer's machine gun) has no TankGun to lay its turret, so
             // TankGunnery never turns it: point it at what the small-arms systems are shooting at (SimWorld.TargetSlot),
@@ -760,7 +764,7 @@ namespace TW.Presentation.Tactical
                 case TankPartRole.Turret:
                 {
                     int k = p.Side > 0 ? 1 : 0;   // a crab has one turret a side; a tank has one on the centre line
-                    rot *= Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value) * Mathf.Rad2Deg, Vector3.up);
+                    rot *= Quaternion.AngleAxis((v.GunYaw[k] + v.Settle[k].Value + v.TopKick.Value) * Mathf.Rad2Deg, Vector3.up);   // the shot's kick passed into the top (TankRenderer.Weight.cs)
                     break;
                 }
                 case TankPartRole.Gun:
@@ -1358,6 +1362,7 @@ namespace TW.Presentation.Tactical
                     float kick = ShotKick(v, e.B);
                     v.Pitch.Velocity += Vector3.Dot(dir, fwd) * kick;
                     v.Roll.Velocity -= Vector3.Dot(dir, right) * kick;
+                    TakeTopKick(v, e.B);   // and the top takes a little of it (TankRenderer.Weight.cs)
                     if (gunHullFlash > 0f) v.Flash = Mathf.Max(v.Flash, gunHullFlash);   // the gun lights its own hull
                     CameraShake.Add(muzzle, 4f);
                     // the gun lights the ground in front of it; a gun with its own blast drawing by day through FireLight, whose glow
