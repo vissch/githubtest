@@ -307,6 +307,45 @@ namespace TW.Tests
             Assert.AreNotEqual(-1, waitOnRefund, "[U4c] the full field turned the man back and paid his silver");
             Assert.Greater(waitBefore, 1, "[U4c] the wait had not run out by itself");
             Assert.AreEqual(0, waitOnRefund, "[U4c] the wait goes back with the silver: the button is ready at once");
+        // ---- the defended shore (the owner, 2026-10-08: "The coast's sand") --------------------------------------
+        /// <summary>
+        /// The one landing test on the COAST preset rather than on ShelledForest, because that is the only map
+        /// whose shore is defended. The boats must still put men down on dry sand with the obstacles and the belt
+        /// in front of them, and at least one of them must get past the belt: if the wire sealed the beach they
+        /// would all pile up on the sand and this would say so.
+        /// </summary>
+        // Not Long: 900 ticks, the same order as TheLandedMenWalkInlandToTheirLine right above, which runs 1000.
+        [Test]
+        public void MenLandOnTheDefendedShoreAndGetPastTheBelt()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = 0xC0FFEEu;
+            var field = BattlefieldParams.Landing(1917);
+            field.Bombardment = 0f;                     // a quiet sector: a stray shell is not the subject
+            using var m = MatchSim.CreateBattlefield(cfg, field);
+            Assert.IsTrue(field.ShoreDefences, "the coast preset is the defended one");
+
+            Deploy(m, 1, 0, 6);
+            var landedAt = new System.Collections.Generic.Dictionary<int, float3>();
+            float belt = m.Map.SeaStartZ + BattlefieldGenerator.BeltAt;
+            bool pastTheBelt = false;
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int tick = 0; tick < 900; tick++)
+            {
+                m.Step(none);
+                for (int i = 0; i < m.World.HighWater; i++)
+                {
+                    if (!m.World.IsAlive(i)) continue;
+                    if (!landedAt.ContainsKey(i)) landedAt[i] = m.World.Position[i];
+                    if (m.World.Position[i].z < belt) pastTheBelt = true;
+                }
+            }
+            Assert.AreEqual(6, landedAt.Count, "every man aboard came ashore on the defended beach too");
+            foreach (var p in landedAt.Values)
+            {
+                Assert.Greater(p.z, m.Map.SeaStartZ, "he was put down on the beach, not inland of it");
+                Assert.Less(m.Map.Offshore(p.z), 1f, "and at the waterline, not out at sea");
+            }
+            Assert.IsTrue(pastTheBelt, "nobody got inland of the wire belt in 900 ticks: the belt has sealed the beach");
         }
     }
 }
