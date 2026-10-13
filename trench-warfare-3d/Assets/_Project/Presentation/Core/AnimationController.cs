@@ -142,6 +142,7 @@ namespace TW.Presentation
         public uint KnockedUntil, DazedUntil;           // on his face where the blast put him until then; then on one knee, dazed, until then
         public bool Rubbed;                             // the dazed man has rubbed his eyes once (he does not do it again after every shot)
         public uint AlightUntil;                        // he is on fire until this tick (A5c show side: Flamethrower.Ignite, via SetAlight)
+        public float ClimbTime;                         // seconds since this climb started (ClimbHold/ClimbLadder loop and start at a hashed phase, so Lift cannot use Frame)
     }
 
     /// <summary>One class in two files: this one is the ladder, the latch and the render-frame advance;
@@ -256,7 +257,12 @@ namespace TW.Presentation
                 }
                 // a vehicle (and a slot a tank died in: Despawn clears the flags, the archetype stays) has no figure to animate
                 if ((f & (uint)UnitFlags.Vehicle) != 0 || ((f & (uint)UnitFlags.Alive) == 0 && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]))))
-                { State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue; }
+                {
+                    // Advance overwrites Yaw[i] with s.ShownYaw every frame, and a vehicle's ShownYaw is only ever set once
+                    // at Fresh (spawn): keep it tracking the sim's yaw so the ease in Advance finds nothing to ease (critic P4a)
+                    s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
+                    State[i] = s; Row[i] = (ushort)Clip.Idle; Yaw[i] = w.Yaw[i]; continue;
+                }
                 if ((f & (uint)UnitFlags.Alive) == 0)
                 {
                     if (!s.Dead) { s = Die(i, s, w); }
@@ -388,11 +394,14 @@ namespace TW.Presentation
         void Start(int i, ref AnimState s, Clip clip, Rung rung, string why, float rate = 1f, float fade = 0.15f)
         {
             if (s.Clip == clip && Clips.Table[(int)clip].Loop) { s.Rung = rung; s.Rate = rate; return; }   // same loop: keep the phase
-            if (s.Rung == Rung.Turn && s.Clip != clip && Playing(s))
+            if (s.Rung == Rung.Turn && s.Clip != clip)
             {
-                // a turn cut short: the clip had turned him this far, so the drawn yaw keeps it instead of snapping back
-                float part = Clips.Table[(int)s.Clip].Turn * math.saturate(s.Frame / Clips.Table[(int)s.Clip].Seconds);
-                s.ShownYaw += part; s.BodyYaw = s.ShownYaw;
+                // a turn cut short: the clip had turned him this far, so the drawn yaw keeps it instead of snapping back.
+                // a turn that finished this same tick (Decide's rung 6 ran but a later rung started a new clip before
+                // line 758's own apply) carries its full Turn instead (critic P3a)
+                var t = Clips.Table[(int)s.Clip];
+                float part = t.Turn * (Playing(s) ? math.saturate(s.Frame / t.Seconds) : 1f);
+                s.ShownYaw += part; s.BodyYaw = Playing(s) ? s.ShownYaw : s.TurnTo;
             }
             s.PrevClip = s.Clip; s.PrevFrame = s.Frame; s.Blend = s.Fade = fade;
             var next = Clips.Table[(int)clip];
@@ -490,7 +499,7 @@ namespace TW.Presentation
             bool climbing = cur == Clip.ClimbOut || cur == Clip.ClimbHold || cur == Clip.ClimbLadder;
             if (simStance == Stance.Vault)   // the sim holds him at the parapet half a second (UnitLeftTrench fires at the order, while he is still walking to the ladder)
             {
-                if (!climbing && tick - s.LastClimb > 40) { s.LastClimb = tick; Start(i, ref s, (layer & (byte)NavLayer.Link) != 0 ? Clip.ClimbLadder : Clip.ClimbOut, Rung.Trench, "climbing out of the trench"); }
+                if (!climbing && tick - s.LastClimb > 40) { s.LastClimb = tick; s.ClimbTime = 0f; Start(i, ref s, (layer & (byte)NavLayer.Link) != 0 ? Clip.ClimbLadder : Clip.ClimbOut, Rung.Trench, "climbing out of the trench"); }
                 else if (cur == Clip.ClimbOut && !Playing(s)) Start(i, ref s, Clip.ClimbHold, Rung.Trench, "over the parapet");
                 s.Stance = (byte)Stance.Standing; s.PrevLayer = (byte)NavLayer.Surface; s.Routine = 0; return;
             }
@@ -755,7 +764,7 @@ namespace TW.Presentation
 
             // ---- rung 6: turn in place (the clip carries the rotation; the drawn yaw snaps to the new facing as it ends)
             if (s.Rung == Rung.Turn && Playing(s)) return;
-            if (s.Rung == Rung.Turn) { s.ShownYaw += info.Turn; s.BodyYaw = s.TurnTo; }   // the clip turned him this far; Advance eases the rest
+            if (s.Rung == Rung.Turn) { s.ShownYaw += info.Turn; s.BodyYaw = s.TurnTo; s.Rung = Rung.None; }   // the clip turned him this far; Advance eases the rest. Cleared so a clip Start()ed below (another turn, locomotion, fire, idle) does not see a pending turn and re-apply it (critic P3a)
             if (speed < 0.15f && !prone && (target >= 0 || inTrench))
             {
                 float faceTo = target >= 0 ? s.AimYaw : inTrench ? (w.Team[i] == 0 ? 0f : math.PI) : w.Yaw[i];   // no target: the parapet (the enemy's side), or the way the sim faces him
@@ -913,13 +922,14 @@ namespace TW.Presentation
                     while (s.ShownYaw > math.PI) s.ShownYaw -= 2f * math.PI; while (s.ShownYaw < -math.PI) s.ShownYaw += 2f * math.PI;
                 }
                 if (i == FollowSlot) { timeIn.TryGetValue(s.Clip, out float t); timeIn[s.Clip] = t + dt; }
+                bool climb = s.Rung == Rung.Trench && (s.Clip == Clip.ClimbOut || s.Clip == Clip.ClimbLadder || s.Clip == Clip.ClimbHold);
+                if (climb) s.ClimbTime += dt; else s.ClimbTime = 0f;
+                Lift[i] = climb ? math.saturate(s.ClimbTime / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
                 State[i] = s;
                 Row[i] = (ushort)s.Clip;
                 float ph = info.Seconds > 0f ? s.Frame / info.Seconds : 0f;
                 Phase[i] = info.Loop ? math.frac(ph) : math.min(ph, 1f);
                 Yaw[i] = s.ShownYaw;
-                bool climb = s.Rung == Rung.Trench && (s.Clip == Clip.ClimbOut || s.Clip == Clip.ClimbLadder || s.Clip == Clip.ClimbHold);
-                Lift[i] = climb ? math.saturate(s.Frame / 0.8f) : 0f;   // the sim holds him on the trench floor for the vault: he is drawn rising up the wall
                 // blown off his feet: a parabola over the first HopSeconds of his fall (Frame runs at Rate, so measure in clip seconds)
                 float hop = 0f;
                 if (s.HopHeight > 0f && (s.Clip == Clip.Trip || s.Clip == Clip.DiveAway) && s.ClipStart <= s.HopTick)
