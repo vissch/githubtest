@@ -34,7 +34,7 @@ unused at the scale a level would need.
 | Where | What |
 |---|---|
 | `Sim/Terrain/MapData.cs` | `SeaSide` / `SeaTeam` / `SeaAway` / `SeaStartZ` / `ShoreZ` / `SeaLevel` / `HasSea` / `Offshore(z)`. Already **side-agnostic**: only the generator hardcodes side 1 |
-| `Sim/Terrain/BattlefieldGenerator.cs` | `BattlefieldParams.Sea`, `SeaMargin` (36 m), `ShoreAt` (19 m), `BeachHeight()` — dry sand and dunes, then the waterline, then shallows; noise ribs running with the shore; starts at exactly the rear ground's height so the beach joins the field without a step |
+| `Sim/Terrain/BattlefieldGenerator.cs` | `BattlefieldParams.Sea`, `SeaMargin` (36 m), `ShoreAt` (19 m), `BeachHeight()` — dry sand and dunes, then the waterline, then shallows; noise ribs running with the shore; starts at exactly the rear ground's height so the beach joins the field without a step; with `ShoreDefences` set, timber obstacles and one wire belt on the dry sand and a fire trench above it |
 | `Sim/Match/SeaLanding.cs` (305) | `SeaLandingSystem` + `ISeaLift`. 6 craft × 8 berths; a paid deploy goes aboard instead of spawning; run in at 7 m/s from 96 m, ground at 2.2 m of draught, ramp down over 16 ticks, men out every 3 ticks, retract at 4.5 m/s. Stores runs at 800 ticks then every 1100. Three sim-owned gunboats shell inland every 460 ticks (300 damage, 7.5 m, 80 suppression) |
 | `Sim/Core/ISeaLift.cs` | the seam `SimWorld.Deploy` offers each paid unit to |
 
@@ -77,15 +77,16 @@ change rather than a widening and is left for the owner.
 ### 1.3 What is missing
 
 - **No preset and no mission card.** (`BattlefieldParams.Landing` and a widened `SeaMargin` are staged.)
-- **Nothing is composed on the sand.** `BattlefieldComposer`, `BattlefieldKit` and `PropLayout` never read
-  `SeaStartZ`, `ShoreZ` or `Offshore`. The beach is bare heightfield with noise ribs — no obstacles, no wire, no
-  wreckage, no cover. A man landing walks up an empty slope.
-- **Beach obstacles are promised in a comment and do not exist.** `BattlefieldGenerator.cs:60` says the dry part
-  "has to be wide enough to land a company on and to hold the beach obstacles". There are none. The *art* is
-  there — `BattlefieldKit.cs:376` builds a `TimberHedgehog` — it is simply never placed on a beach.
+- **The sand has defences in the sim, not yet in the look.** `BattlefieldParams.ShoreDefences` puts timber
+  obstacles on the dry sand, one wire belt above them and a fire trench above that, so a man landing has cover to
+  shelter behind and a line to take. What is *drawn* still lags: `BattlefieldComposer`, `BattlefieldKit` and
+  `PropLayout` never read `SeaStartZ`, `ShoreZ` or `Offshore`, so the obstacles read as the generic timber prop
+  until a show lane swaps in `BattlefieldKit.cs`'s `TimberHedgehog` module; there is still no wreckage and no
+  composed litter on the beach.
 - **No coastal biome.** `Biome { NightMud, Lava, Winter }`. A coast currently borrows whichever look is set.
-- **The defender has no shore line.** Trenches are placed by the layout at both ends; nothing digs in *above the
-  beach*, which is the one piece of geometry a coastal defence needs.
+- **The defender's shore line is dug, the rest of the line is not.** `ShoreDefences` adds the one fire trench
+  above the beach that a coastal defence needs and starts the defender in it; the layout's trenches at both ends
+  are otherwise unchanged, so the shore line stands on its own without supports behind it.
 
 ---
 
@@ -127,9 +128,11 @@ soldier's (109, 107, 86). That warm is therefore the **intended** look. Do not t
 1. **Coast, geometry first.** `SeaMargin` as a parameter (zero keeps every existing map identical), a `Landing`
    preset with enough water for the boats, and a test that asserts a map contains the water its own landing
    system uses. *Staged.*
-2. **Coast, the beach as a place.** Compose on the sand: obstacles from the existing hedgehog module, wire,
-   wreckage and cover, keyed off `Offshore`. This is what turns a slope into a level.
-3. **Coast, the defender's line.** A trench above the beach rather than the layout's ends.
+2. **Coast, the beach as a place.** *Built in the sim (`ShoreDefences`): obstacles, one wire belt and gaps on the
+   dry sand, keyed off `Offshore`.* What is drawn — the hedgehog module, wreckage, composed litter — is still open
+   and belongs to a show lane.
+3. **Coast, the defender's line.** *Built:* a fire trench above the beach that the defender starts in, rather than
+   the layout's ends.
 4. **Snow, the map.** A winter preset: no river, no water table, thinner wood.
 5. **Snow, W2 ice.** Ripple and flow to zero with cracks in their place — the same liquid surface a third time,
    and the item that gives the image its only high-contrast element.
