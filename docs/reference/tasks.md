@@ -888,7 +888,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Playground/Runtime/PlaygroundCamera.cs`, `Playground/Runtime/PlaygroundFx.cs` (the game's FlipbookFx and
   DebrisRenderer), `Playground/Runtime/VehicleRig.cs` (a destructible vehicle, the same parts at every LOD) with
   `Playground/Runtime/VehicleManifest.cs` (`tank3.json`), `Playground/Runtime/FlyerDrive.cs`,
-  `Playground/Runtime/WalkerDrive.cs` (on the game's gait), `Playground/Runtime/UnitRig.cs` and
+  `Playground/Runtime/WalkerDrive.cs` (on the game's gait),
+  `Playground/Runtime/GroundDrive.cs` (a hull on wheels or tracks: `walk` drives the Mercy and the Brute), `Playground/Runtime/UnitRig.cs` and
   `Playground/Runtime/Retarget.cs` (figures on the game's clips at other proportions), `Playground/Runtime/BuildingRig.cs`
   (a kit house brought down chunk by chunk), `Playground/Runtime/Tumble.cs` (loose pieces), `Playground/Runtime/LodPicker.cs`
   and `Playground/Runtime/LodTint.cs` (LOD choice and colour match), `Playground/Editor/PlaygroundSetup.cs` (menu

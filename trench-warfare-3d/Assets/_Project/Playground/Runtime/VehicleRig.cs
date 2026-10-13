@@ -46,6 +46,7 @@ namespace TW.Playground
         public WalkerDrive Walker;                      // a machine on legs (tank3.json "walker"): walks it after the pose
         public FlyerDrive Flyer;                        // a flying machine (tank3.json "flyer"): flies its hull after the pose
         public HopDrive Hopper;                         // a machine that hops (tank3.json "hopper"): hops its hull after the pose
+        public GroundDrive Ground;                      // a machine on wheels or tracks (no walker/flyer/hopper, but Wheel_*/Track_* parts): drives its hull after the pose
         /// <summary>A gatling's barrels (parts Barrels_L/R): how fast they turn now (degrees a second), and the rounds each
         /// gun has fired since it was built (left, right).</summary>
         public float BarrelSpeed { get; private set; }
@@ -198,6 +199,10 @@ namespace TW.Playground
             if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
             if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
             if (rig.Manifest.hopper) rig.Hopper = root.AddComponent<HopDrive>().Init(rig, e.Legs != null ? e.Legs.text : null);
+            // nothing in the manifest moves it, but it has running gear: a hull on wheels or tracks drives (the Mercy, the Brute)
+            if (!rig.Manifest.walker && !rig.Manifest.flyer && !rig.Manifest.hopper
+                && rig.Parts.Exists(p => p.Name.StartsWith("Wheel_") || p.Name.StartsWith("Track_")))
+                rig.Ground = root.AddComponent<GroundDrive>().Init(rig);
             return rig;
         }
 
@@ -265,7 +270,7 @@ namespace TW.Playground
         {
             get
             {
-                if (Walker != null || Flyer != null || Hopper != null)
+                if (Walker != null || Flyer != null || Hopper != null || Ground != null)
                 {
                     var h = Find("Hull");
                     if (h != null && !h.Loose) return h.T.TransformPoint(h.Box.center);
@@ -619,6 +624,7 @@ namespace TW.Playground
             if (Walker != null) Walker.Drive(dt);
             if (Flyer != null) Flyer.Drive(dt);
             if (Hopper != null) Hopper.Drive(dt);
+            if (Ground != null) Ground.Drive(dt);
         }
 
         /// <summary>Where a round from muzzle along forward goes: at the aim point (scattered by Spread of the range) when
