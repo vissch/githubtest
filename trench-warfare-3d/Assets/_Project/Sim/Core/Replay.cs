@@ -195,6 +195,10 @@ namespace TW.Sim
         // The system chain is unchanged.
         // v38 (2026-10-06): what keeps two hulls apart is the footprints' extents along the line between them
         // (VehicleProfile.KeepApart), not the sum of two Radii, so every machine drives a little differently.
+        // v38 (2026-10-13, after dead ground): dead ground is out of TargetAcquisition -- a man on foot in the open
+        // behind his own front trench is seen and shot at by the far side again -- and in its place DirectFireSystem
+        // halves the chance of a hit on him (CombatTables.ApproachShare, the owner 2026-10-08), from the trench line
+        // back, not from 10 m behind it. Layout and hash chain unchanged; a v37 replay does not replay.
         public const ushort FormatVersion = 61;
         public SimConfig Config;
         public SimConfig.WorldInit Init;

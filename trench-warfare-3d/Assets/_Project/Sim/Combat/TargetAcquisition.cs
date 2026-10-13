@@ -18,11 +18,9 @@
 //    DirectFire then rolls the round against his plate.
 //  - the same scan finds, for a man on foot in the open, the nearest enemy in the open within EngageSystem.HuntRadius,
 //    seen or not: the man he goes after (EngageSystem.Hunt, 2026-09-28). One walk through the grid serves both.
-//  - dead ground (2026-09-29): a man on foot in the open more than CombatTables.DeadGroundMetres behind his own side's
-//    front trench (measured along the field, at his own column: FrontZ) cannot be seen by a shooter on the far side of
-//    that trench. He is on the approaches, which the parapet, the traverses and the communication trenches hide. Before
-//    it a machine gun in a front trench reached 170 m, past the whole of no man's land, and shot the other side's
-//    reinforcements dead between their spawn and their lines (MatchLoopTests): no army ever grew.
+//  - dead ground is gone (2026-10-13, the owner's word of 2026-10-06): a man coming up behind his own front trench is
+//    seen and shot at like anyone else. What is left of that rule is the front line this system still works out
+//    (FrontZ, HomeSign), which DirectFire reads to halve the chance of a hit on him (CombatTables.ApproachShare).
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -48,11 +46,17 @@ namespace TW.Sim.Combat
         bool lookedForEngage;
         NativeArray<int> noHunt;     // one-cell stand-ins for the job in a match without an EngageSystem
         NativeArray<ushort> noHuntGen;
-        // ---- dead ground (2026-09-29) ----
+        // ---- where each team's front trench runs (DirectFire's approach rule reads it) ----
         NativeArray<float> trenchColumnZ;   // trench * NavWidth + nav column: the mean z of its cells there (its own mean where it has none)
         NativeArray<float> frontZ;          // team * NavWidth + column: that team's front trench there, NaN with no front trench
         readonly short[] frontOf = { -2, -2 };
         float2 homeSign;                     // per team: +1 when its home end of the field is at the high z, -1 at the low
+
+        /// <summary>Each team's front trench, column by column (team * NavWidth + column, NaN with no front trench),
+        /// and per team +1 when its home end of the field is at the high z. DirectFireSystem (order 700, after this
+        /// system's 600) reads both the tick they are built, for CombatTables.ApproachShare.</summary>
+        public NativeArray<float> FrontZ => frontZ;
+        public float2 HomeSign => homeSign;
 
         public TargetAcquisitionSystem(MapData map) { this.map = map; }
 
@@ -97,8 +101,8 @@ namespace TW.Sim.Combat
             homeSign = new float2(home0, -home0);
         }
 
-        /// <summary>Where each team's front trench runs, column by column, for the dead-ground rule. Rewritten only
-        /// when a front moves (a capture).</summary>
+        /// <summary>Where each team's front trench runs, column by column, for DirectFire's approach rule. Rewritten
+        /// only when a front moves (a capture).</summary>
         void UpdateFronts()
         {
             int wdt = map.NavWidth;
@@ -130,7 +134,6 @@ namespace TW.Sim.Combat
                 Height = map.Height,
                 Hunts = engage != null, Hunt = engage != null ? engage.Hunt : noHunt, HuntGen = engage != null ? engage.HuntGen : noHuntGen,
                 Generation = w.Generation,
-                FrontZ = frontZ, HomeSign = homeSign,
             }.Schedule(n, 32).Complete();
         }
 
@@ -158,22 +161,6 @@ namespace TW.Sim.Combat
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         struct AcquireJob : IJobParallelFor
         {
-            [ReadOnly] public NativeArray<float> FrontZ;   // team * NavWidth + column (dead ground)
-            public float2 HomeSign;
-
-            /// <summary>True when <paramref name="j"/>, on foot in the open, stands more than DeadGroundMetres behind
-            /// his own front trench and a shooter at <paramref name="p"/> is on the far side of it: the approaches hide him.</summary>
-            bool InDeadGround(int j, float3 p)
-            {
-                int team = Team[j] & 1;
-                float3 q = Position[j];
-                int col = math.clamp((int)(q.x / MapData.NavCellSize), 0, NavWidth - 1);
-                float fz = FrontZ[team * NavWidth + col];
-                if (math.isnan(fz)) return false;
-                float s = team == 0 ? HomeSign.x : HomeSign.y;
-                return (q.z - fz) * s > CombatTables.DeadGroundMetres && (p.z - fz) * s < 0f;
-            }
-
             [ReadOnly] public NativeParallelMultiHashMap<int, int> Grid;
             public int GridW, GridL, NavWidth, NavLength;
             public uint Tick;
@@ -267,7 +254,6 @@ namespace TW.Sim.Combat
                     if ((Flags[i] & (uint)UnitFlags.Vehicle) != 0) return false;
                     return distSq <= CombatTables.CloseAssaultRange * CombatTables.CloseAssaultRange;
                 }
-                if ((fj & (uint)UnitFlags.InTrench) == 0 && TrenchId[j] < 0 && InDeadGround(j, p)) return false;
                 if ((fj & (uint)UnitFlags.InTrench) != 0 && StanceOf[j] != (byte)Stance.FireStep)
                 {
                     short theirs = TrenchAt(Position[j]);
