@@ -105,5 +105,21 @@ namespace TW.Tests
             }
             finally { Object.DestroyImmediate(go); }
         }
+
+        [Test]
+        public void AFiresPoolIsRenewedInPlace()
+        {
+            var go = new GameObject("NightLookTests pools");
+            try
+            {
+                var lights = go.AddComponent<NightLights>();
+                // a standing fire renewed, then a jet hit twice in the same frame: all five at the same spot
+                for (int k = 0; k < 5; k++) lights.AddFirePool(new Vector3(12f, 1f, 7f), Color.white, 1f, 8f, 1f);
+                Assert.AreEqual(1, lights.FirePools, "[W3] a fire's pool is doubled on every renewal");
+                lights.AddFirePool(new Vector3(16f, 1f, 7f), Color.white, 1f, 8f, 1f);
+                Assert.AreEqual(2, lights.FirePools, "[W3] a different fire still gets its own pool");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }
