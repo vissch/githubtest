@@ -157,7 +157,7 @@ on the next cooldown).
 | Fire, standing still | Shot event, Standing/FireStep | same | `Firing Rifle` (rifle, sniper), `Firing Rifle (1)` at the 0.5 rps rifle rate |
 | Fire, kneeling / prone | Shot event | same | `Fire Rifle`, `Prone Firing Rifle`; MG: `Prone Firing Rifle (1)` looped at 7 rps |
 | Reload | presentation counter: rifle 5 shots, assault 20, MG 50, sniper every shot (bolt: `Reloading` at 2x, 1.2 s) | sim magazine (`WeaponDefinition.MagazineRounds/ReloadSeconds` exist, unused): fire pauses, one `Reload` event | by stance: `Reloading`, `Reload` (stoop), `Prone Reloading` |
-| Throw | none (`GrenadeSystem` is a stub) | grenade at ≤ 20 m onto Trench / Crater cells, 6 s cooldown, Shot event with Scalar 1 | `Toss Grenade`, the release frame at 1.4 s spawns the presentation grenade |
+| Throw | none (thrown grenades are unbuilt in the sim) | grenade at ≤ 20 m onto Trench / Crater cells, 6 s cooldown, Shot event with Scalar 1 | `Toss Grenade`, the release frame at 1.4 s spawns the presentation grenade |
 | Melee | none (close assault is vehicles only) | **built (2026-09-28, lane/sim/melee, replay v25; the owner's yes: decisions.md):** `MeleeSystem`: a man charges an enemy man within 8 m and they fight at 2.5 m (`Stance.Melee`), a blow every 1.2 s (`MeleeBlow`: style, damage, 0 blocked, -1 missed), rifle or fists by unit type (`WeaponDropped` / `WeaponPickedUp`); crabs pounce (`PounceSystem`) | `Bayonet Stab` / `Rifle Punch` / `Smash` by seed; `Block With Rifle`; `Upward Rifle Butt Strike` from a crouch |
 | Sling | entering the rear trench with no enemy within 120 m; alarm = target or near miss | same | `Rifle Put Away` then the plain `Idle` / `Walking`; `Rifle Pull Out` on alarm |
 

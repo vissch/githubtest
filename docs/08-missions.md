@@ -6,7 +6,7 @@
 - `MissionDefinition` SO → blob: map id, player faction + roster overrides, unlocked abilities, starting silver,
   income rate, enemy faction, difficulty tier, `MissionScript` triggers, dialogue table, win/lose rules,
   rewards (gold 25/40/75), optional objectives.
-- `MissionRunner` (sim system) evaluates triggers each tick in fixed order; emits `MissionTriggerFired(id)`;
+- A6 review U13: no runner exists yet (the stub threw and was never registered). When built, a sim system evaluates triggers each tick in fixed order; emits `MissionTriggerFired(id)`;
   `WaveStarted(n)`.
 - Presentation `MissionDirector` reacts: dialogue strip, camera nudges, objective tracker, banners.
 - Campaign shell (A7): mission select → briefing → battle → debrief/rewards → army upgrades.

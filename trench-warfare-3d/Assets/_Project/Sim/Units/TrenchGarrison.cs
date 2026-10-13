@@ -1,5 +1,5 @@
 // Phase: A3 (implemented) — depends on: MapData trench cells (P0), SimWorld.PostCell/PostKind (A3, claude-10),
-// MovementSystem to walk a man to his post, StanceSystem to decide what he does when he gets there.
+// MovementSystem to walk a man to his post and to decide what he does when he gets there.
 // (This file kept the stub's name. Entering and leaving a trench is done by MovementSystem; what is added here is
 // where a man stands once he is in one.)
 // Gives every man garrisoned in a trench a POST of his own: a firing post hard against the parapet, or a reserve post

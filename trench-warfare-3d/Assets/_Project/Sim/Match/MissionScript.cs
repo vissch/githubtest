@@ -1,6 +1,7 @@
-// Phase: A6 (schema implemented as data; runner is a stub) — see docs/08-missions.md "Trigger table format"
-// MissionRunner evaluates triggers in id order every tick, inside the sim, so mission flow is deterministic
-// and replayable. Presentation reacts to MissionTriggerFired / WaveStarted events.
+// Phase: A6 (schema implemented as data; no runner yet) — see docs/08-missions.md "Trigger table format"
+// This file is the mission table only: DataBaker.BakeMission fills it. A6 review U13: the MissionRunner stub that
+// would step the triggers threw from Step and was never registered, so it is gone; when A6 is built, the runner
+// evaluates triggers in id order every tick, inside the sim, so mission flow is deterministic and replayable.
 using Unity.Collections;
 using Unity.Mathematics;
 
@@ -64,26 +65,5 @@ namespace TW.Sim.Match
         }
 
         public void Dispose() { Triggers.Dispose(); Actions.Dispose(); Waves.Dispose(); WaveEntries.Dispose(); }
-    }
-
-    public sealed class MissionRunner : ISimSystem
-    {
-        public int Order => SimSystemOrder.Mission;
-        readonly MissionScript script;
-        public NativeArray<int> TriggerFiredTick;   // -1 until fired
-        public NativeArray<int> TimerEndTick;
-        public int CurrentWave;
-
-        public MissionRunner(MissionScript script) { this.script = script; }
-        public void Initialize(SimWorld world) { }
-        public void Step(SimWorld world) => throw new System.NotImplementedException("Phase A6: MissionRunner.Step");
-        public ulong Hash(ulong h)
-        {
-            h = SimHash.Value(CurrentWave, h);
-            if (TriggerFiredTick.IsCreated) h = SimHash.Array(TriggerFiredTick, h);
-            if (TimerEndTick.IsCreated) h = SimHash.Array(TimerEndTick, h);
-            return h;
-        }
-        public void Dispose() { if (TriggerFiredTick.IsCreated) TriggerFiredTick.Dispose(); if (TimerEndTick.IsCreated) TimerEndTick.Dispose(); }
     }
 }

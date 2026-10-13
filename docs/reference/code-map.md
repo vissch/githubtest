@@ -145,16 +145,12 @@ determinism test: `docs/03-determinism-rules.md`).
 | 110 | `TrenchOrdersSystem` | `Command + 10` | `Sim/Units/TrenchOrders.cs` | registered |
 | 120 | `SapperSystem` | `Sapper` | `Sim/Units/Sapper.cs` | registered |
 | 130 | `OffMapAbilitySystem` | `Command + 30` | `Sim/Match/OffMapAbilities.cs` | registered |
-| 200 | `MissionRunner` | `Mission` | `Sim/Match/MissionScript.cs` | stub: commented out in MatchSim |
-| 210 | `WaveAiSystem` | `Mission + 10` | `Sim/Match/WaveAi.cs` | stub: commented out in MatchSim |
-| 310 | `LogisticsSystem` | `Economy + 10` | `Sim/Match/Logistics.cs` | stub: commented out in MatchSim |
 | 320 | `SeaLandingSystem` | `Economy + 20` | `Sim/Match/SeaLanding.cs` | registered (only if `map.HasSea`) |
 | 400 | `FlowFieldManager` | `FlowField` | `Sim/Nav/FlowFieldManager.cs` | registered |
 | 600 | `TargetAcquisitionSystem` | `TargetAcquisition` | `Sim/Combat/TargetAcquisition.cs` | registered (only if `combat`) |
 | 650 | `AuraSystem` | `Aura` | `Sim/Combat/Aura.cs` | registered (only if `combat`) |
 | 700 | `DirectFireSystem` | `DirectFire` | `Sim/Combat/DirectFire.cs` | registered (only if `combat`) |
 | 705 | `TankGunnerySystem` | `DirectFire + 5` | `Sim/Combat/TankGunnery.cs` | registered (only if `combat`) |
-| 709 | `GrenadeSystem` | `IndirectFire - 1` | `Sim/Units/Grenades.cs` | stub: commented out in MatchSim |
 | 715 | `AmbientBombardmentSystem` | `AmbientBombardment` | `Sim/Match/AmbientBombardment.cs` | registered |
 | 720 | `BlastSystem` | `Blast` | `Sim/Combat/Blast.cs` | registered |
 | 723 | `BeamSystem` | `Beam` | `Sim/Combat/BeamSystem.cs` | registered |
@@ -163,7 +159,6 @@ determinism test: `docs/03-determinism-rules.md`).
 | 735 | `SupportSystem` | `Support` | `Sim/Units/Support.cs` | registered |
 | 800 | `SuppressionSystem` | `Suppression` | `Sim/Combat/Suppression.cs` | registered |
 | 805 | `HeroSystem` | `Hero` | `Sim/Combat/HeroSystem.cs` | registered |
-| 810 | `StanceSystem` | `Stance` | `Sim/Units/StanceSystem.cs` | stub: commented out in MatchSim |
 | 820 | `TrenchGarrisonSystem` | `TrenchGarrison` | `Sim/Units/TrenchGarrison.cs` | registered |
 | 900 | `GasSmokeSystem` | `GasSmoke` | `Sim/Combat/GasSmokeField.cs` | registered |
 | 1000 | `DeformationSystem` | `Deformation` | `Sim/Match/Deformation.cs` | registered |
@@ -177,5 +172,5 @@ determinism test: `docs/03-determinism-rules.md`).
 | 1130 | `MineSystem` | `VehicleKinematics + 10` | `Sim/Combat/Mines.cs` | registered |
 | 1200 | `SectorControlSystem` | `SectorControl` | `Sim/Match/SectorControl.cs` | registered |
 
-Step order follows `Order`; `Initialize` order follows the `AddSystem` calls in `Sim/Match/MatchSim.cs`. Order constants no system uses: `SpatialHash` (500), `Building` (728), `Separation` (1100), `Death` (1300).
+Step order follows `Order`; `Initialize` order follows the `AddSystem` calls in `Sim/Match/MatchSim.cs`. Order constants no system uses: `Mission` (200), `SpatialHash` (500), `IndirectFire` (710), `Building` (728), `Stance` (810), `Separation` (1100), `Death` (1300).
 <!-- /gen:sim-order -->
