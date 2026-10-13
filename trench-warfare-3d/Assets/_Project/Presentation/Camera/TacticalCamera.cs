@@ -60,6 +60,10 @@ namespace TW.Presentation.Tactical
         /// <summary>The yaw the camera adds on its own to follow the battle (tooling that aims the view subtracts it).</summary>
         public float AutoYaw => autoYaw;
         bool autoPrimed;
+        /// <summary>While a capture follows one unit, the camera stops turning and tilting with the battle: the auto yaw
+        /// swings every 2.5 s as the focus crosses the armies' lines, and a film aimed at a bearing was re-aimed a frame
+        /// late each time, which threw its subject out of a close frame for a quarter second. Tooling only.</summary>
+        public bool HoldAuto;
         /// <summary>Where the view sits between the sides: 0 behind your men, 0.5 between, 1 beyond the enemy (for the HUD and tests).</summary>
         public float Along { get; private set; }
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
@@ -81,6 +85,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The angle the battle asks for at this focus and zoom, eased in.</summary>
         void FollowBattle(float close)
         {
+            if (HoldAuto) { autoPrimed = true; return; }
             if (Host != null && Host.Local != null && Time.unscaledTime >= nextArmies)
             {
                 nextArmies = Time.unscaledTime + 0.25f;

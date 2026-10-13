@@ -54,18 +54,7 @@ namespace TW.Editor
                     if (FollowFacing && onSubject) bearing = FilmAim.QuarterFront(facing);
                     if (HasHeld) cam.FrameFrom(Held, FollowZoom, FilmAim.YawFor(bearing, cam.BaseYaw, cam.AutoYaw));
                 }
-                // the trace is kept whatever is being filmed: gamefilm.py renders its own frames and never asks for
-                // a Shot, so a trace written only beside a screenshot stayed empty.
-                if (trace != null && Camera.main != null)
-                {
-                    var v = Camera.main.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
-                    // [A3] judge the guns from where the camera is REALLY looking, not the requested bearing: an
-                    // orbit's spin and FrameFrom's ease put the lens somewhere else by the time a frame is taken.
-                    float look = FilmAim.BearingOf(Camera.main.transform.forward);
-                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(look, facing) ? 1 : 0)}\n");
-                    TraceFrame++;
-                    if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
-                }
+                lastFacing = facing; lastOnSubject = onSubject;
                 if (string.IsNullOrEmpty(Pending) || Camera.main == null) return;
                 var c = Camera.main;
                 var rt = RenderTexture.GetTemporary(W, H, 24, RenderTextureFormat.ARGB32);
@@ -81,12 +70,32 @@ namespace TW.Editor
                 Last = Pending; Pending = null;
             }
 
+            float lastFacing; bool lastOnSubject;
+
+            // A trace row is written when the FILM takes a frame (gamefilm.py's recorder calls Mark right after it
+            // renders the camera into its picture), not on every editor update: an update pass with no picture behind it
+            // reads a camera matrix mid-ease that no frame of the film was ever taken with. Those stale samples said the
+            // subject was far outside a frame that in truth held it steadily.
+            public string Mark()
+            {
+                if (string.IsNullOrEmpty(TracePath) || Camera.main == null) return "not tracing";
+                trace ??= new System.Text.StringBuilder();   // a domain reload empties it; the path is serialized
+                var v = Camera.main.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
+                // [A3] judge the guns from where the camera is REALLY looking, not the requested bearing: an
+                // orbit's spin and FrameFrom's ease put the lens somewhere else by the time a frame is taken.
+                float look = FilmAim.BearingOf(Camera.main.transform.forward);
+                trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(lastOnSubject ? 1 : 0)} {(FilmAim.ShowsGuns(look, lastFacing) ? 1 : 0)}\n");
+                TraceFrame++;
+                if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
+                return "marked";
+            }
+
             public void BeginTrace() { trace = new System.Text.StringBuilder(); }
 
             public string EndTrace()
             {
-                if (trace == null) return "not tracing";
-                if (trace.Length > 0) File.AppendAllText(TracePath, trace.ToString());
+                if (string.IsNullOrEmpty(TracePath)) return "not tracing";
+                if (trace != null && trace.Length > 0) File.AppendAllText(TracePath, trace.ToString());
                 trace = null; var p = TracePath; TracePath = null;
                 return "traced " + TraceFrame + " frames " + p;
             }
@@ -95,7 +104,10 @@ namespace TW.Editor
         static Shooter Get()
         {
             var s = Object.FindFirstObjectByType<Shooter>();
-            if (s == null) s = new GameObject("TankCapture") { hideFlags = HideFlags.DontSave }.AddComponent<Shooter>();
+            // NOT HideFlags.DontSave: every `cmd eval` compiles and reloads the domain, and a DontSave object is
+            // not carried through it. The Shooter died between the call that set Follow and the next one, so the
+            // camera never followed anything and every trace read slot -1 at the map corner.
+            if (s == null) s = new GameObject("TankCapture").AddComponent<Shooter>();
             return s;
         }
 
@@ -108,6 +120,8 @@ namespace TW.Editor
         /// machine is always seen from its front quarter and its guns are in the picture.</summary>
         public static string Follow(int slot, float zoom = 22f, float bearing = 30f, bool onFacing = false)
         {
+            var cam = Object.FindFirstObjectByType<TacticalCamera>();
+            if (cam != null) cam.HoldAuto = slot >= 0;
             var s = Get(); s.FollowSlot = slot; s.FollowZoom = zoom; s.FollowBearing = bearing; s.FollowFacing = onFacing;
             s.HasHeld = false; s.FollowGeneration = -1;
             var h = Host;
