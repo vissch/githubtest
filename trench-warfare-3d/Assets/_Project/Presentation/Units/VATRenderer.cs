@@ -113,6 +113,7 @@ namespace TW.Presentation.Units
         NativeArray<int> counts;
         NativeArray<float4> planes;
         NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
+        NativeArray<ushort> animRowNearOf;   // AnimRow (procedural) -> row in the near atlas, for the no-controller / missed-clip path
         NativeArray<float> spare;                   // stands in for the controller's arrays when there is no controller
         NativeArray<byte> spareBytes;
         readonly Plane[] frustum = new Plane[6];
@@ -193,11 +194,40 @@ namespace TW.Presentation.Units
                 farRowOf[c] = (ushort)Clips.Table[c].Fallback;
                 nearRowOf[c] = clipAtlas ? (ushort)c : farRowOf[c];
             }
+            animRowNearOf = BuildAnimRowNearOf();
 
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             tankMatA = new Material(lit) { enableInstancing = true, color = new Color(0.36f, 0.33f, 0.22f) };
             tankMatB = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.33f, 0.36f) };
             tankMesh = BuildTank();
+        }
+
+        /// <summary>[V3] The frustum-cull margin at the camera's current zoom: men grow up to MaxGrow when zoomed out,
+        /// and the margin has to grow with them or a grown man pops into view at the screen edge instead of the
+        /// frustum plane his (still life-size) position is tested against.</summary>
+        public static float EffectiveCullRadius(float cullRadius, float unitScale, float grow) => cullRadius * unitScale * grow;
+
+        /// <summary>AnimRow -> near-atlas row: with a clip atlas, the first Clip whose Fallback is that AnimRow (a
+        /// stand-in; see risk note), else the identity (the near tier is procedural-ordered without one).</summary>
+        public static ushort[] AnimRowNearOf(bool clipAtlas, ClipInfo[] clips)
+        {
+            var map = new ushort[(int)AnimRow.Count];
+            for (int r = 0; r < map.Length; r++)
+            {
+                if (!clipAtlas) { map[r] = (ushort)r; continue; }
+                ushort found = 0;
+                for (int c = 0; c < clips.Length; c++) if ((int)clips[c].Fallback == r) { found = (ushort)c; break; }
+                map[r] = found;
+            }
+            return map;
+        }
+
+        NativeArray<ushort> BuildAnimRowNearOf()
+        {
+            var map = AnimRowNearOf(clipAtlas, Clips.Table);
+            var a = new NativeArray<ushort>(map.Length, Allocator.Persistent);
+            for (int r = 0; r < map.Length; r++) a[r] = map[r];
+            return a;
         }
 
         void EnsureCapacity(int maxSlots)
@@ -241,9 +271,9 @@ namespace TW.Presentation.Units
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, PoseSlot = presenter.PoseSlot, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
-                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = cullRadius * UnitScale,
+                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = EffectiveCullRadius(cullRadius, UnitScale, grow),
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
-                Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf,
+                Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf, AnimRowNearOf = animRowNearOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
                 Hop = anim != null ? anim.Hop : spare, Grime = anim != null ? anim.Grime : spare, Char = anim != null ? anim.Char : spareBytes, Wound = anim != null ? anim.Wound : spareBytes,
                 Hidden = HiddenMask(Host.Local.World.Config.MaxSlots),
@@ -360,7 +390,7 @@ namespace TW.Presentation.Units
             public int PoseCount, Figures;
             public float Scale;
             public bool Controlled;
-            [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow;
+            [ReadOnly] public NativeArray<ushort> NearRowOf, FarRowOf, PrevRow, AnimRowNearOf;
             [ReadOnly] public NativeArray<float> PrevPhase, Blend, Lift, Hop, Grime;
             [ReadOnly] public NativeArray<byte> Hidden;
             [ReadOnly] public NativeArray<byte> Char;
@@ -410,6 +440,7 @@ namespace TW.Presentation.Units
                         row = map[math.min(row, map.Length - 1)];
                         prevRow = map[math.min(PrevRow[slot], map.Length - 1)]; prevT = PrevPhase[slot]; blend = Blend[slot];
                     }
+                    else if (!distant) row = prevRow = AnimRowNearOf[math.min(row, AnimRowNearOf.Length - 1)];   // the near atlas is Clip-ordered; the far tier is already procedural-ordered
                     var inst = new VatInstance
                     {
                         Pos = new float3(p.Pos.x, y, p.Pos.z), Yaw = p.Yaw, AnimRow = row, AnimT = p.AnimT, Tint = wound > 0 ? VatTint.Pack(p.Team, 0, wound: wound) : p.Team, Scale = Scale,
@@ -478,6 +509,7 @@ namespace TW.Presentation.Units
             ReleaseExtras();
             if (hidden.IsCreated) hidden.Dispose();
             if (nearRowOf.IsCreated) nearRowOf.Dispose(); if (farRowOf.IsCreated) farRowOf.Dispose();
+            if (animRowNearOf.IsCreated) animRowNearOf.Dispose();
             VatAsset.Kill(tankMatA); tankMatA = null;
             VatAsset.Kill(tankMatB); tankMatB = null;
             VatAsset.Kill(tankMesh); tankMesh = null;
