@@ -180,7 +180,8 @@ namespace TW.Tests
             Assert.AreEqual(man, next, "the slot is reused (last in, first out)");
             r.Step();
             Assert.IsFalse(r.Burning(next), "the new man is not alight");
-            Assert.AreEqual(1000f - BurningSystem.BurnDps * r.W.Config.TickSeconds * 0f, r.W.Hp[next], 1e-3f);
+            // [T13] the old expression was 1000f - (something) * 0f, i.e. the constant written the long way round
+            Assert.AreEqual(1000f, r.W.Hp[next], 1e-3f, "[T13] the recruit in the reused slot is at full health");
         }
 
         [Test]

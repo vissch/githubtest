@@ -213,7 +213,13 @@ namespace TW.Tests
             using var a = MatchSim.CreateBattlefield(cfg, loud);
             using var b = MatchSim.CreateBattlefield(cfg, quiet);
             for (int t = 0; t < 1200; t++) { Step(a); Step(b); }   // one minute
-            Assert.That(a.Bombardment.Fired, Is.InRange(35, 90), "about sixty shells in a minute");
+            // [T13] the band comes from the rule, not from a run (the old 35..90 was far too loose to fail):
+            // AmbientBombardment.cs:40 fires the first shell at TickRate * 8 = tick 160, and :59 draws each gap as
+            // TickRate * 60 / ShellsPerMinute * rand(0.35, 1.65), truncated to a uint. At TickRate 20 and 60/min
+            // that is a mean gap of 19.5 ticks over the remaining 1040 ticks, so about 53 shells with sd ~2.8
+            // (the factor is uniform, sd 0.375). 45..63 is that mean +/- 3 sd.
+            Assert.That(a.Bombardment.Fired, Is.InRange(45, 63),
+                "[T13] about 53 shells: tick 160 onwards, mean gap 19.5 ticks over 1040 ticks");
             Assert.AreEqual(a.Bombardment.Fired, a.Deformation.Applied + a.Deformation.Queue.Length, "every shell leaves a crater");
             Assert.AreEqual(0, b.Bombardment.Fired);
             Assert.AreEqual(0, b.Deformation.Applied);

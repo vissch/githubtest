@@ -95,7 +95,9 @@ namespace TW.Tests
                 if (m.World.IsAlive(i) && m.World.Team[i] == 1 && (m.World.Flags[i] & (uint)UnitFlags.Vehicle) == 0) { m.World.Hp[i] = 250f; m.World.MaxHp[i] = 250f; }
             int it = SpawnBreaker(m, 0, 120f, z - 42f);
             var spec = TankSpec.For(VehicleArchetype.Breaker);
-            float top = 0f, yawAtWithdraw = 0f, zAtWithdraw = 0f; bool sawWindupHalt = false; var lastPhase = BreakerPhase.Approach;
+            // [T13] zAtWithdraw was assigned and never read; the yaw used to be stored with +10f as a "never
+            // withdrew" sentinel, which an explicit sawWithdraw says plainly instead.
+            float top = 0f, yawAtWithdraw = 0f; bool sawWindupHalt = false, sawWithdraw = false; var lastPhase = BreakerPhase.Approach;
             var log = Run(m, 1400, () => m.Breaker.Cycles >= 2 || !m.World.IsAlive(it), w =>
             {
                 float speed = math.length(w.Velocity[it]);
@@ -104,7 +106,7 @@ namespace TW.Tests
                 if (phase == BreakerPhase.Windup && speed < 0.01f) sawWindupHalt = true;
                 // the yaw it had as its latest withdrawal began (2026-09-28: each charge is aimed at the men, so two
                 // cycles need not face the same way; what must hold is that backing out does not turn it)
-                if (phase == BreakerPhase.Withdraw && lastPhase != BreakerPhase.Withdraw) { yawAtWithdraw = w.Yaw[it] + 10f; zAtWithdraw = w.Position[it].z; }
+                if (phase == BreakerPhase.Withdraw && lastPhase != BreakerPhase.Withdraw) { yawAtWithdraw = w.Yaw[it]; sawWithdraw = true; }
                 lastPhase = phase;
             });
             Assert.IsTrue(m.World.IsAlive(it), "it lives through two cycles against ten men");
@@ -115,7 +117,8 @@ namespace TW.Tests
             Assert.Greater(Count(log, SimEventType.CriticalHit, it), 0, "its guns found the mark");
             Assert.Greater(Count(log, SimEventType.VehicleClawed, it), 0, "its claws took men out of the trench");
             Assert.Greater(Count(log, SimEventType.BreakerPhase, it, (int)BreakerPhase.Withdraw), 0);
-            Assert.That(m.World.Yaw[it], Is.EqualTo(yawAtWithdraw - 10f).Within(0.3f), "it backs out without turning");
+            Assert.IsTrue(sawWithdraw, "[T13] it entered Withdraw at all");
+            Assert.That(m.World.Yaw[it], Is.EqualTo(yawAtWithdraw).Within(0.3f), "[T13] it backs out without turning");
             Assert.AreEqual(0u, m.World.Flags[it] & (uint)UnitFlags.Charging, "and is no longer charging between cycles");
         }
 

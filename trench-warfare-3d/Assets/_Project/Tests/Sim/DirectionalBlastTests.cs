@@ -86,7 +86,14 @@ namespace TW.Tests
             float3 otherTrench = new float3(150f, 0f, 142f);   // the z = 140 trench
             int bay = r.Man(inBay), along = r.Man(alongTrench), other = r.Man(otherTrench);
             foreach (int s in new[] { bay, along, other }) r.M.World.Flags[s] |= (uint)UnitFlags.InTrench;
-            Assert.AreEqual(map.CellTrenchId[map.NavIndex(75, 31)], map.CellTrenchId[map.NavIndex(75, 31)]);
+            // [T8] the premise of the test: both men must stand in the SAME trench. A negative CellTrenchId means
+            // "no trench here" (Blast.cs:242 branches on hitTrench >= 0), and the old line compared one cell with
+            // itself, so it held even if neither man was in a trench at all.
+            var cb = map.NavCellOf(inBay); var ca = map.NavCellOf(alongTrench);
+            int idBay = map.CellTrenchId[map.NavIndex(cb.x, cb.y)];
+            Assert.GreaterOrEqual(idBay, 0, "[T8] the bay man stands in a trench at all");
+            Assert.AreEqual(idBay, map.CellTrenchId[map.NavIndex(ca.x, ca.y)],
+                "[T8] the bay man and the man along the traverse are in the SAME trench, or this test proves nothing");
 
             // a big shell in the bay, wide enough to reach along the trench as well
             r.Fire(Shell(inBay, 24f, 200f));
@@ -95,8 +102,10 @@ namespace TW.Tests
             Assert.Greater(took, 0f, "a shell in your own bay still hurts");
             Assert.Less(took, 200f * BlastRules.TrenchBayFactor + 1f,
                 "but a trench ALWAYS gives limited protection, even for a direct hit in the bay");
-            Assert.Greater(r.Took(bay) / math.max(1e-3f, r.Took(along)), 1f,
-                "further along the same trench a traverse takes more of it again");
+            // [T8] the old ratio passed when `along` took nothing at all, which is the opposite of the claim
+            Assert.Greater(r.Took(along), 0f, "[T8] the shell reached along the trench at all");
+            Assert.Greater(r.Took(bay), r.Took(along),
+                "[T8] further along the same trench a traverse takes more of it again");
             Assert.AreEqual(0f, r.Took(other), 0.01f, "and the next trench along is 80 m away: out of reach");
         }
 
@@ -128,8 +137,11 @@ namespace TW.Tests
 
             r.Fire(Shell(at, 90f, 50f));
 
-            Assert.LessOrEqual(r.M.Blast.LastRaycasts, BlastRules.MaxRaycasts,
-                "at most MaxRaycasts terrain rays per impact, taken in slot order so the cap is the same everywhere");
+            // [T8] LessOrEqual alone passed at zero rays, i.e. if the cap were dodged by casting none. 140 men stand
+            // inside a 90 m burst and the cap is MaxRaycasts (Blast.cs:97,256), so the cap must be REACHED.
+            Assert.AreEqual(BlastRules.MaxRaycasts, r.M.Blast.LastRaycasts,
+                "[T8] at most MaxRaycasts terrain rays per impact, taken in slot order so the cap is the same " +
+                "everywhere - and with 140 men in radius the cap is hit, not dodged by casting none");
         }
 
         [Test]
