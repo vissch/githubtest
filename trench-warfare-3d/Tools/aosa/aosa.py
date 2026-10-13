@@ -283,7 +283,7 @@ def editor_state():
     try:
         el = load_module("editor_lock", TOOLS / "editor_lock.py")
         pr = el.probe(project_dir())
-        slot = el.read_slot()
+        slot = el.read_slot(project_dir())
     except BaseException as e:
         return False, "unknown (editor_lock failed: %s)" % e, None
     text = "%s - %s (%s)" % (pr["state"].upper(), pr["detail"], project_dir())
