@@ -143,6 +143,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 40 | `CombatCatalogueSystem` | `TerrainHash - 10` | `Sim/Combat/CombatCatalogue.cs` | registered |
 | 50 | `TerrainHashSystem` | `TerrainHash` | `Sim/Match/TerrainHashSystem.cs` | registered |
 | 110 | `TrenchOrdersSystem` | `Command + 10` | `Sim/Units/TrenchOrders.cs` | registered |
+| 112 | `FlightSystem` | `Flight` | `Sim/Nav/Flight.cs` | registered |
 | 120 | `SapperSystem` | `Sapper` | `Sim/Units/Sapper.cs` | registered |
 | 130 | `OffMapAbilitySystem` | `Command + 30` | `Sim/Match/OffMapAbilities.cs` | registered |
 | 200 | `MissionRunner` | `Mission` | `Sim/Match/MissionScript.cs` | stub: commented out in MatchSim |
