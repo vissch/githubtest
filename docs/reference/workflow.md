@@ -632,6 +632,7 @@ on 2026-10-07 the relay's queue was 86, 89 and 96 units in three files.
 | What the owner decided, and what waits on him | `decisions.md`; the Decide page shows the open ones as briefs (`Tools/assetboard/briefs.py`) | the session he answered |
 | A method: commands, landing, briefs, a pipeline, a code review and the check of its fixes | this file, `pipelines.md`, `review.md`, or the doc of the tool | whoever changes the tool |
 | An incident that cost time | `agent-memory.md` (capped) | the session it happened to |
+| A trap an agent must see at the moment it touches a file | `.claude/rules/<area>.md`: `shaders.md`, `sim.md`, `presentation.md`, `art-tools.md`, `gate.md`. Each names the paths it loads for (`paths:` at its top) and the date it was last checked; a few lines a file, the story stays in `agent-memory.md` | whoever hit the trap |
 | A note from one lane to another | `docs/inbox/` | the sender; the receiver deletes it |
 | Work in flight that the next session must pick up | a handoff on the Drive, listed by `Tools/handoffs.py` | the session that stops |
 | A machine's traps and how-to (paths, ssh, what is installed) | that machine's agent memory | any session there |
