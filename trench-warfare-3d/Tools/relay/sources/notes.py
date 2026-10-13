@@ -21,8 +21,8 @@ import papers   # noqa: E402
 ASK = ("- If you cannot finish, write note.md in your leg folder for the next leg (sections: Goal, Done, "
        "In flight, Next, Predictions, Dead ends, and Decisions when anything is decided). A prediction is `command` "
        "-> exit N, with a look-only command. Decisions: one line per choice already made that the next leg must not "
-       "reopen, with where it was decided (a brief id, a decisions.md row, the owner's note id, or `this leg, "
-       "because ...`).")
+       "reopen, with where it was decided (the id of an answered decision, a decisions.md row, the owner's note "
+       "id, or `this leg, because ...`).")
 CLOSED = ("The note's Decisions are closed: work by them, do not reopen them, and never put one before the owner "
           "again. One you find wrong: say so in your report, and still go by it.")
 
