@@ -160,16 +160,22 @@ counter-example was 26 lines below the test that was cited as proof, in the same
 | `LockstepLoopbackTests.Stress_ThreeThousand…` | greybox corridor | yes | no — runs `combat: false` |
 | `BattlefieldTests.TwoSims_…_ThroughABarrage` | generated battlefield | yes, 900 ticks + two HE barrages | not asserted |
 | `BattlefieldTests.Generator_SameParamsSameMap` | generated battlefield | no — one world, built twice | n/a |
-| `BattlefieldLockstepTests` | generated battlefield | yes, idle and deploying | no |
+| `BattlefieldLockstepTests` | generated battlefield | yes, idle and deploying | yes — deaths and slot reuse |
 
-The real gap is the last column. **No two-world test anywhere kills a unit.** Death drives `Despawn`, which
-returns the slot to a LIFO free list and bumps `Generation` — and slot-index reuse under a divergent kill order is
-the textbook lockstep divergence. `TrenchAdvance` is the only command that produces deaths at scale, and it is
-also the only path that puts men on the river, the fords, the bridge and the wire belt. The one test that does
-`TrenchAdvance` at scale runs `combat: false`.
+The last column was the real gap, and it is closed.
+`BattlefieldLockstepTests.TwoWorldsStayInSync_ThroughDeathsAndTheReuseOfTheirSlots` runs two worlds through
+deaths **and** slot reuse, and asserts the scenario as well
+as the agreement: men must have died, and a slot must have come back out, the latter read off `Generation`
+reaching 2. The hazard it covers is unchanged: death drives `Despawn`, which returns the slot to a LIFO free list
+and bumps `Generation`, and slot-index reuse under a divergent kill order is the textbook lockstep divergence.
+
+What is still untested is scale. `TrenchAdvance` is the only command that produces deaths by the hundred, and it
+is also the only path that puts men on the river, the fords, the bridge and the wire belt. The one test that does
+`TrenchAdvance` at scale still runs `combat: false`.
 
 The second gap is quieter: **the compared value does not include the ground.** (Closed 2026-09-24 by
-`TerrainHashSystem`; the paragraph is kept because the first gap above it is still open.) `MapData.Hash` was never
+`TerrainHashSystem`; the paragraph is kept because it records why the ground is hashed at all.) `MapData.Hash`
+was never
 folded into `SimWorld.Hash()`, and `DeformationSystem.Hash` folds a checksum of crater *inputs* plus three counters,
 not the heightfield it wrote. Nav-layer divergence is caught indirectly through `FlowField.Hash`; height divergence is
 caught by nothing until a unit walks on it. So the crater deformation that the generated map adds — the headline
