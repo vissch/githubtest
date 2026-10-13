@@ -970,7 +970,9 @@ namespace TW.Presentation.Tactical
 
         Vector3 MuzzleWorld(View v, int k, out Vector3 dir)
         {
-            int part = v.Model.GunPart[k];
+            // the barrel the muzzle socket was cut on, not whichever part holds gun k: the Banner's two barrels are
+            // both gun 0, and its socket is on the lower one (BannerFireFitTests)
+            int part = v.Model.MuzzlePart[k] >= 0 ? v.Model.MuzzlePart[k] : v.Model.GunPart[k];
             dir = Vector3.forward;
             if (part < 0) return v.Pos + Vector3.up * 2.5f;
             var mtx = v.World[part];
@@ -1377,11 +1379,9 @@ namespace TW.Presentation.Tactical
                     var muz = MuzzleLook(classGuns ? v.Archetype : VehicleArchetype.Maw);   // its near smoke (TankRenderer.Guns.cs); the old look when fx.classArms is off
                     var world = Host.Local.World;
                     byte team = e.A < world.HighWater ? world.Team[e.A] : (byte)0;
-                    if (recipes >= 0.5f)
+                    bool byCards = recipes >= 0.5f;   // L20 (fx.recipes): every card of the shot comes from FireCards, below (TankRenderer.Guns.cs)
+                    if (byCards)
                     {
-                        // L20 (fx.recipes): a big gun's blast, its drawing rooted at the card's left edge (firebooks root_left),
-                        // so the card is centred half its width out along the barrel; 12 frames at 12 fps
-                        books.Add(FlipbookFx.Book.GunBlast, muzzle + dir * (gun.Blast * 0.5f), gun.Blast, 1f, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);
                         // L20: the round itself, a heavy tracer from the muzzle to where it went: who shot whom
                         if (e.A < world.HighWater && !gun.Arc) Fx()?.AddTracer(muzzle, (Vector3)e.Pos, team, gun.Tracer);
                     }
@@ -1400,11 +1400,15 @@ namespace TW.Presentation.Tactical
                     else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f * gun.Blast / GunLook.Old.Blast, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
                     if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer, v.Archetype == VehicleArchetype.Salvo, e.Tick * 7u + (uint)e.A);   // an indirect round goes up and over; a Salvo's ripple
                     if (classGuns) GunExtras(v.Archetype, muzzle, dir, gun.Blast);   // near the eye, the gun's own piece (TankRenderer.Guns.cs)
-                    bool drawnBlast = classGuns && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast && recipes < 0.5f;   // its own drawing carries the day: a small flash, not a bloom over it (r17)
-                    books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast ? muz.FlashWidth : muz.FlashWidthPlain, muz.FlashLife, roll: UnityEngine.Random.value * 6.28f, glow: drawnBlast ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f);   // a small flash under its own drawing, night too (r20: a white ball under the Salvo's crack)
-                    for (int k = 0; k < 3; k++)
-                        books.Add(FlipbookFx.Book.Smoke, muzzle + dir * muz.SmokePushOf(k), muz.SmokeSizeOf(k), muz.SmokeLifeOf(k), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: dir * muz.SmokeAlongOf(k) + Vector3.up * muz.SmokeUp, grow: muz.SmokeGrow, alpha: muz.SmokeAlphaOf(k), delay: k * muz.SmokeDelayStep);
+                    if (byCards) DrawFireCards(v, muzzle, dir, roll, fwd);   // the blast, the flash and the three smokes, every number from FireCards
+                    else
+                    {
+                        bool drawnBlast = classGuns && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast;   // its own drawing carries the day: a small flash, not a bloom over it (r17)
+                        books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast ? muz.FlashWidth : muz.FlashWidthPlain, muz.FlashLife, roll: UnityEngine.Random.value * 6.28f, glow: drawnBlast ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f);   // a small flash under its own drawing, night too (r20: a white ball under the Salvo's crack)
+                        for (int k = 0; k < 3; k++)
+                            books.Add(FlipbookFx.Book.Smoke, muzzle + dir * muz.SmokePushOf(k), muz.SmokeSizeOf(k), muz.SmokeLifeOf(k), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                velocity: dir * muz.SmokeAlongOf(k) + Vector3.up * muz.SmokeUp, grow: muz.SmokeGrow, alpha: muz.SmokeAlphaOf(k), delay: k * muz.SmokeDelayStep);
+                    }
                     float g = Ground(muzzle.x, muzzle.z);
                     if (muzzle.y - g < 3.5f)   // the blast lifts the dust under the muzzle
                         books.Add(FlipbookFx.Book.Wings, new Vector3(muzzle.x, g, muzzle.z) + dir * 1.5f, 3.5f, 0.8f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.4f, alpha: 0.5f);

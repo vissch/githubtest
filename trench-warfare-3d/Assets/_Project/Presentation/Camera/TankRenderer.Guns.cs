@@ -97,6 +97,7 @@ namespace TW.Presentation.Tactical
             if (archetype == VehicleArchetype.Banner)
             {
                 fx.FlashLife = 0.08f;                                   // a crack, not a flame standing in the air
+                fx.FlashWidthPlain = 2.0f;                              // a 3.2 m card could only start at the mouth by standing 1.6 m out in front of it; under the 3.0 m front-leg gap
                 fx.PuffWidth = 2.6f; fx.PuffLife = 0.8f; fx.PuffAlpha = 0.45f; fx.PuffPush = 2.2f;   // thinner, shorter, out past the leg
                 fx.SmokeSize0 = 1.3f; fx.SmokeSizeStep = 0.45f;         // no card wide enough to cover a front leg (they stand 2.9 m apart)
                 fx.SmokeLife0 = 2f; fx.SmokeLifeStep = 0.4f;
@@ -104,6 +105,66 @@ namespace TW.Presentation.Tactical
                 fx.SmokeUp = 2.4f; fx.SmokeAlong0 = 0.8f; fx.SmokeAlongStep = -0.2f;   // mostly up: it rises off the machine
             }
             return fx;
+        }
+
+        /// <summary>One drawn card of a machine's shot, as the recipe branch of the VehicleFired handler draws it:
+        /// which book, how far along the barrel from the muzzle its centre is pushed, how wide and how long it lives.
+        /// RootLeft: the drawing starts at the card's left edge (the fire books' root_left), so the flame leaves the
+        /// card's near edge. Carried: the card travels with the machine while it lives, instead of standing in the
+        /// world where the shot went off. (Owner, 2026-10-13, on the Banner's film: "the vfx is still off. look at
+        /// the fire it clips over the weapon." Measured on this tree: the plain Flash is 3.2 m wide pushed 0.4 m, so
+        /// its near edge sat 1.2 m BEHIND the muzzle plane - inside the barrel and the top - and the 1 s GunBlast card
+        /// stood in the world while the walker drove 2.4 m through it. BannerFireFitTests holds both numbers.)</summary>
+        public struct FireCard
+        {
+            public FlipbookFx.Book Book;
+            public float Push, Width, Life;
+            public bool RootLeft, Carried;
+            public int Smoke;   // -1, or which of the three near-smoke cards this is
+
+            /// <summary>Where the card's near edge sits along the barrel, from the muzzle plane: below zero is inside
+            /// the gun.</summary>
+            public float NearEdge => Push - Width * 0.5f;
+        }
+
+        /// <summary>No shot draws more cards than this (the recipe branch: one blast, one flash, three smokes).</summary>
+        public const int MaxFireCards = 8;
+        /// <summary>A card that lives longer than this is carried with the machine: shorter ones are gone before it moves.</summary>
+        public const float CarriedOver = 0.2f;
+        /// <summary>The near edge of a shot's card may not sit behind the muzzle plane by more than this, nor ahead of
+        /// it by more than FireGapMax: the fire starts at the mouth of the barrel and goes forward.</summary>
+        public const float FireBehindMax = 0.05f, FireGapMax = 1.2f;
+
+        /// <summary>Every card a machine's shot draws, in the order the handler adds them. Pure: the archetype is the
+        /// only input, so a test reads exactly what the battle draws.</summary>
+        public static int FireCards(byte archetype, FireCard[] into)
+        {
+            var gun = GunFor(archetype);
+            var muz = MuzzleLook(archetype);
+            int n = 0;
+            // a big gun's blast, rooted at the card's left edge, so its centre is half its width out along the barrel
+            into[n++] = new FireCard { Book = FlipbookFx.Book.GunBlast, Push = gun.Blast * 0.5f, Width = gun.Blast, Life = 1f, RootLeft = true, Smoke = -1 };
+            // the small flash at the mouth under it
+            into[n++] = new FireCard { Book = FlipbookFx.Book.Flash, Push = 0.4f, Width = muz.FlashWidthPlain, Life = muz.FlashLife, Smoke = -1 };
+            // and the three smoke cards that follow the shot out along the barrel
+            for (int k = 0; k < 3; k++)
+                into[n++] = new FireCard { Book = FlipbookFx.Book.Smoke, Push = muz.SmokePushOf(k), Width = muz.SmokeSizeOf(k), Life = muz.SmokeLifeOf(k), Smoke = k };
+            // Only the Banner's shot is refitted: the owner complained of its fire and of no other machine's, and the
+            // rest keep exactly the picture they had (GunMuzzleLookTests).
+            if (archetype != VehicleArchetype.Banner) return n;
+            for (int i = 0; i < n; i++)
+            {
+                var c = into[i];
+                // the fire starts at the mouth of the barrel and goes forward: a centred card is pushed out at least
+                // half its own width, so none of it is drawn back inside the gun (the Banner's 3.2 m Flash sat 1.2 m
+                // inside the barrel and under the top, 2026-10-13)
+                if (!c.RootLeft) c.Push = Mathf.Max(c.Push, c.Width * 0.5f);
+                // and a card that outlives the machine's next step travels with it, instead of standing in the world
+                // while the walker drives through it (the 1 s blast card slid 2.40 m back over the barrel)
+                c.Carried = c.Life > CarriedOver;
+                into[i] = c;
+            }
+            return n;
         }
 
         public static GunLook GunFor(byte archetype)
@@ -115,6 +176,35 @@ namespace TW.Presentation.Tactical
                 case VehicleArchetype.Kettle: return new GunLook { Blast = 2.6f, Tracer = 1.4f, Smoke = 1.2f, Arc = true };   // the mortar over its back
                 case VehicleArchetype.Salvo: return new GunLook { Blast = 3.2f, Tracer = 1.2f, Smoke = 1.6f, Arc = true };    // a box of rockets
                 default: return GunLook.Old;   // the Maw's and the Pincer's 6-pdrs, and anything not named
+            }
+        }
+
+        readonly FireCard[] fireCards = new FireCard[MaxFireCards];
+
+        /// <summary>Draws every card of a shot from FireCards, so no width, push or life of the shot lives in two
+        /// places. The look of each card (its glow, its roll, the smoke's drift and delay) stays here; where and how
+        /// big it is comes from the recipe. A carried card is given the machine's own travel, so the fire goes with
+        /// the gun while it lives instead of the walker driving through it.</summary>
+        void DrawFireCards(View v, Vector3 muzzle, Vector3 dir, float roll, Vector3 fwd)
+        {
+            var muz = MuzzleLook(v.Archetype);
+            Vector3 carry = fwd * v.Felt.Value;
+            int n = FireCards(v.Archetype, fireCards);
+            for (int i = 0; i < n; i++)
+            {
+                var c = fireCards[i];
+                Vector3 at = muzzle + dir * c.Push;
+                Vector3 vel = c.Carried ? carry : Vector3.zero;
+                if (c.Book == FlipbookFx.Book.GunBlast)
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);   // 12 frames at 12 fps
+                else if (c.Book == FlipbookFx.Book.Flash)
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
+                else
+                {
+                    int k = Mathf.Max(0, c.Smoke);
+                    books.Add(c.Book, at, c.Width, c.Life, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                        velocity: vel + dir * muz.SmokeAlongOf(k) + Vector3.up * muz.SmokeUp, grow: muz.SmokeGrow, alpha: muz.SmokeAlphaOf(k), delay: k * muz.SmokeDelayStep);
+                }
             }
         }
 
