@@ -18,6 +18,10 @@ namespace TW.Presentation.Terrain
             public Quaternion Rotation => Quaternion.LookRotation(Outward);
         }
         public struct Hollow { public Vector2 Center; public float Radius, Depth, Level; }   // Level: water surface, or very low when dry
+        /// <summary>A hollow's own floor cell, as a key to hash on. RefreshHollows refills Hollows in scan order after
+        /// every crater, so a list index renumbers when a new hole lands earlier in the scan; the cell does not, which is
+        /// why the water Level is hashed on it too (review call B1).</summary>
+        public static int CellKey(in Hollow h) => (int)h.Center.y * 4096 + (int)h.Center.x;
         public struct Sample
         {
             public float Height, Slope, Concavity, BankDistance, Wetness;

@@ -158,11 +158,13 @@ namespace TW.Presentation.Terrain
             }
             for (int i = 0; i < surface.Hollows.Count; i++)
             {
-                if (Rand(i, 99) > .55f) continue;   // fresh holes are bare; old ones have grown a fringe
-                var h = surface.Hollows[i];
-                float angle = Rand(i, 100) * Mathf.PI * 2f;   // on one side of the rim, not a wreath
+                // hashed on the hollow's own cell, not its list index: a new crater renumbers the list, and a fringe
+                // must not move because a shell landed elsewhere (review call B1)
+                var h = surface.Hollows[i]; int key = BattlefieldSurface.CellKey(h);
+                if (Rand(key, 99) > .55f) continue;   // fresh holes are bare; old ones have grown a fringe
+                float angle = Rand(key, 100) * Mathf.PI * 2f;   // on one side of the rim, not a wreath
                 var heart = new Vector3(h.Center.x + Mathf.Cos(angle) * (h.Radius + 1.2f), 0f, h.Center.y + Mathf.Sin(angle) * (h.Radius + 1.2f));
-                Gather(map, surface, heart, 5000 + i, 2.6f, Rand(i, 101) < .4f ? 1 : 0, 3 + (int)(Rand(i, 102) * 5f));
+                Gather(map, surface, heart, 5000 + key, 2.6f, Rand(key, 101) < .4f ? 1 : 0, 3 + (int)(Rand(key, 102) * 5f));
             }
             // free patches on the dry rises: dart-throwing with a 9 m minimum spacing
             var patches = new List<Vector2>();

@@ -112,13 +112,15 @@ namespace TW.Presentation.Terrain
             // a flooded one (the night look floods most of them), its fins out of the water
             for (int i = 0; i < surface.Hollows.Count; i++)
             {
-                var h = surface.Hollows[i];
+                // keyed on the hole's own cell, not its list index: the list is rebuilt in scan order after every
+                // crater, so an index would move every dud on the map whenever one new hole lands (review call B1)
+                var h = surface.Hollows[i]; int key = BattlefieldSurface.CellKey(h);
                 bool flooded = h.Level > -100f;
-                if (Rand(i, 880) > (flooded ? .14f : .30f) || h.Radius < 1.2f) continue;
-                float angle = Rand(i, 881) * Mathf.PI * 2f, off = h.Radius * (flooded ? .72f + .14f * Rand(i, 882) : .3f * Rand(i, 882));
+                if (Rand(key, 880) > (flooded ? .14f : .30f) || h.Radius < 1.2f) continue;
+                float angle = Rand(key, 881) * Mathf.PI * 2f, off = h.Radius * (flooded ? .72f + .14f * Rand(key, 882) : .3f * Rand(key, 882));
                 float x = h.Center.x + Mathf.Cos(angle) * off, z = h.Center.y + Mathf.Sin(angle) * off;
                 if (!Clear(map, x, z) || surface.At(x, z).Hollow < 0) continue;
-                emit(kit.dudShell, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .22f, z), Quaternion.Euler((Rand(i, 883) - .5f) * 30f, Rand(i, 884) * 360f, (Rand(i, 885) - .5f) * 30f), Vector3.one * (.6f + Rand(i, 886) * .2f)));
+                emit(kit.dudShell, Matrix4x4.TRS(new Vector3(x, surface.Bed(x, z) - .22f, z), Quaternion.Euler((Rand(key, 883) - .5f) * 30f, Rand(key, 884) * 360f, (Rand(key, 885) - .5f) * 30f), Vector3.one * (.6f + Rand(key, 886) * .2f)));
             }
         }
 
