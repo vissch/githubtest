@@ -59,7 +59,7 @@ namespace TW.Presentation.Tactical
         const float ApexShare = 0.22f;      // an arc's height as a share of the ground it covers (at least MinApex)
         const float MinApex = 8f;
         const float TubeLead = 0.35f;       // the path's first control point: along the tube, this share of the ground
-        Mesh rocketMesh; Material rocketMat;
+        Mesh rocketMesh; Material rocketMat; Texture2D rocketTex;   // the texture is HideAndDontSave and ours to free (K3)
 
         /// <summary>The sim clock the rockets are timed on, in ticks: a burst queued for tick L is shown from the first
         /// frame at which this reaches L + 1 (World.Tick counts the ticks already run).</summary>
@@ -113,7 +113,7 @@ namespace TW.Presentation.Tactical
             rocketMesh.SetVertices(vs); rocketMesh.SetTriangles(tris, 0); rocketMesh.RecalculateNormals(); rocketMesh.RecalculateBounds();
             var shader = Shader.Find("TW/Tank (URP)");
             if (shader == null) return;
-            var tex = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            var tex = rocketTex = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
             tex.SetPixel(0, 0, new Color(0.30f, 0.29f, 0.24f)); tex.Apply();
             rocketMat = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave, name = "Salvo rocket" };
             rocketMat.SetTexture("_BaseMap", tex);

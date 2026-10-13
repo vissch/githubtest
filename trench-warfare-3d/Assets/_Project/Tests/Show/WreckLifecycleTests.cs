@@ -108,6 +108,135 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>[K2] a walker killed outright (no knocked-out walk first) collapses as a wreck: Smoulder steps its
+        /// legs down, where before only the live path did and the hull stood frozen at full height mid-stride.</summary>
+        [Test]
+        public void AWalkerWreckedOutrightStillGoesDown()
+        {
+            var go = new GameObject("walker wreck rig");
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();   // no Host: Ground is 0 everywhere
+                var type = r.GetType();
+                var viewType = type.GetNestedType("View", BindingFlags.NonPublic);
+                Assert.NotNull(viewType, "TankRenderer.View");
+                var model = TankModel.Load("Pincer", VehicleArchetype.Pincer, "Body", TW.Sim.Nav.VehicleSize.Walker);
+                Assert.NotNull(model, "the Pincer hull did not load from Resources/Vehicles/Pincer");
+                Assert.IsTrue(model.Lods[0].Legs != null && model.Lods[0].Legs.Length > 0, "the premise: the Pincer has leg rigs");
+                int parts = model.Lods[0].Parts.Count;
+
+                object v = Activator.CreateInstance(viewType, true);
+                Set(v, "Model", model);
+                Set(v, "World", new Matrix4x4[parts]);
+                Set(v, "Off", new bool[parts]);
+                Set(v, "Dead", true);
+                Set(v, "Linked", true);      // a wreck prop in the sim: nothing sinks it out of sight
+                var legs = new WalkerGait();
+                System.Func<float, float, float> flat = (x, z) => 0f;
+                legs.Plant(model, Vector3.zero, 0f, flat);
+                legs.Step(model, Vector3.zero, 0f, Vector3.zero, 0f, 0, false, 1f / 60f, flat);   // a live step: Ready set, Down still 0
+                Assert.IsTrue(legs.Ready, "the premise: the gait is planted and ready");
+                Assert.AreEqual(0f, legs.Down, 1e-4f, "the premise: this walker was killed outright, so its collapse has not started");
+                Set(v, "Legs", legs);
+                Heave(v, legs.Height);
+
+                float now = 100f;
+                Set(v, "DiedAt", now);
+                float before = HeaveOf(v);
+
+                var smoulder = type.GetMethod("Smoulder", Any);
+                Assert.NotNull(smoulder, "TankRenderer.Smoulder");
+                const float dt = 1f / 60f;
+                for (int i = 0; i < 90; i++) { now += dt; smoulder.Invoke(r, new object[] { v, dt, now }); }   // 1.5 s > CollapseSeconds 1.25
+
+                Assert.AreEqual(1f, legs.Down, 1e-3f, "[K2] the wrecked walker's collapse never advanced: it stands frozen mid-stride");
+                Assert.Less(HeaveOf(v), before, "[K2] the wrecked walker's hull never settled onto the ground");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        /// <summary>[K3] every HideAndDontSave object the renderer makes goes with it: before, OnDestroy freed only
+        /// mats, the flame and the disc, and the rest leaked on every scene reload (every new match).</summary>
+        [Test]
+        public void TheRendererDestroysEveryObjectItMade()
+        {
+            var shader = Shader.Find("TW/Tank (URP)") ?? Shader.Find("Unlit/Color") ?? Shader.Find("Sprites/Default");
+            Assert.NotNull(shader, "no shader to make a stand-in material from");
+            var go = new GameObject("leak rig");
+            Func<Material> mat = () => new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
+            Func<Mesh> mesh = () => new Mesh { hideFlags = HideFlags.HideAndDontSave };
+            var modelMat = mat(); var noise = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            var rMesh = mesh(); var rMat = mat(); var rTex = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            var bMesh = mesh(); var bMat = mat(); var pMat = mat();
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                var type = r.GetType();
+                var mm = (Material[,])type.GetField("modelMats", Any).GetValue(r);
+                mm[0, 0] = modelMat;
+                Set(r, "flameNoise", noise);
+                Set(r, "rocketMesh", rMesh); Set(r, "rocketMat", rMat); Set(r, "rocketTex", rTex);
+                Set(r, "ribbonMesh", bMesh); Set(r, "ribbonMat", bMat);
+                Set(r, "pipMat", pMat);
+                Set(r, "books", new FlipbookFx());
+
+                Gone(r);   // outside Play Unity does not call OnDestroy itself; this is the same method it would call
+
+                Assert.IsTrue(modelMat == null, "[K3] a per-machine material outlived the renderer");
+                Assert.IsTrue(noise == null, "[K3] the flame noise texture outlived the renderer");
+                Assert.IsTrue(rMesh == null && rMat == null && rTex == null, "[K3] the rocket mesh, material or texture outlived the renderer");
+                Assert.IsTrue(bMesh == null && bMat == null, "[K3] the trail ribbon mesh or material outlived the renderer");
+                Assert.IsTrue(pMat == null, "[K3] the rider pip material outlived the renderer");
+                Assert.IsNull(type.GetField("books", Any).GetValue(r), "[K3] the flipbook set was never disposed");
+            }
+            finally
+            {
+                if (go != null) UnityEngine.Object.DestroyImmediate(go);
+                foreach (UnityEngine.Object o in new UnityEngine.Object[] { modelMat, noise, rMesh, rMat, rTex, bMesh, bMat, pMat })
+                    if (o != null) UnityEngine.Object.DestroyImmediate(o);
+            }
+        }
+
+        /// <summary>[K5] a slot whose machine was replaced (the Generation moved on, its death event missed) leaves a
+        /// wreck instead of dropping the old view on the floor, where its thrown pieces stayed in debris all match.</summary>
+        [Test]
+        public void AViewReplacedOnAGenerationChangeIsWreckified()
+        {
+            var go = new GameObject("generation rig");
+            TW.Sim.Match.MatchSim match = null;
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                var type = r.GetType();
+                Assert.IsTrue(GiveAMawModel(r), "the premise: the Maw hull loaded");
+                match = TW.Sim.Match.MatchSim.CreateGreybox(SimConfig.Default);
+                var w = match.World;
+                w.Archetype[0] = VehicleArchetype.Maw;
+                w.Generation[0] = 1;
+
+                var viewFor = type.GetMethod("ViewFor", Any);
+                Assert.NotNull(viewFor, "TankRenderer.ViewFor");
+                object a = viewFor.Invoke(r, new object[] { w, 0, 100f });
+                Assert.NotNull(a, "the premise: the first view was made");
+                Assert.AreSame(a, viewFor.Invoke(r, new object[] { w, 0, 101f }), "the premise: the same machine keeps its view");
+
+                w.Generation[0] = 2;   // the slot holds another machine now
+                object b = viewFor.Invoke(r, new object[] { w, 0, 102f });
+                Assert.AreNotSame(a, b, "[K5] the replaced machine kept the old view");
+                Assert.IsTrue((bool)a.GetType().GetField("Dead", Any).GetValue(a), "[K5] the replaced machine's view was never killed");
+                var wrecks = (IList)type.GetField("wrecks", Any).GetValue(r);
+                Assert.IsTrue(wrecks.Contains(a), "[K5] the replaced machine left no wreck hull, so its thrown pieces stay in debris all match");
+            }
+            finally
+            {
+                match?.Dispose();
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
         /// <summary>A stand-in for Presentation/Terrain's BattlefieldProps: the renderer asks for a recomposition by name
         /// (SendMessage on the component whose type is called BattlefieldProps), so a counter of the same name is enough.</summary>
         [ExecuteAlways]   // SendMessage refuses a component that is not running, and an edit-mode test is not Play
