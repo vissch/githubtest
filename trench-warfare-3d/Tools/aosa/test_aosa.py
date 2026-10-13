@@ -341,6 +341,50 @@ class AosaTest(unittest.TestCase):
         self.assertEqual(code, 4, out)      # 1.00 - 0.50 left < 2 x 0.35
         self.assertEqual(self.run_cli("refimg", str(cap), "--for", "tier", "--prompt-file", str(pf), "--n", "1", "--dry-run")[0], 0)
 
+    # [A11] a corrupt budget.json must not be silently overwritten with defaults by a read-only command
+    def test_a11_unreadable_budget_is_not_reset(self):
+        p = self.put("budget.json", "{\"daily_cap_usd\": 3.0,")
+        before = p.read_bytes()
+        code, out = self.run_cli("budget")
+        self.assertEqual(code, 1, "[A11] status must refuse, not reset the cap and every entry")
+        self.assertIn("not readable JSON", out)
+        self.assertEqual(p.read_bytes(), before, "[A11] the unreadable file must be left untouched")
+
+    # [A12] the fal charge must be written at submit time, not only after everything succeeds
+    def test_a12_charge_is_written_at_submit(self):
+        falkit = self.tmp / "falkit.py"
+        falkit.write_text(
+            "def pricing(endpoints):\n"
+            "    return {'prices': []}\n"
+            "def upload(path):\n"
+            "    return 'https://example/u.png'\n"
+            "def submit(endpoint, payload):\n"
+            "    return {'request_id': 'req-1'}\n"
+            "def status(endpoint, rid):\n"
+            "    raise AssertionError('status must not be reached with --timeout 0')\n"
+            "def result(endpoint, rid):\n"
+            "    raise AssertionError('result must not be reached with --timeout 0')\n"
+            "def download(url, dest):\n"
+            "    raise AssertionError('download must not be reached with --timeout 0')\n",
+            encoding="utf-8")
+        cap = self.tmp / "shot.png"
+        cap.write_bytes(b"\x89PNG fake")
+        pf = self.tmp / "prompt.txt"
+        pf.write_text("make the burst land harder")
+        os.environ["AOSA_FALKIT"] = str(falkit)
+        os.environ.pop("AOSA_OFFLINE", None)
+        try:
+            code, out = self.run_cli("refimg", str(cap), "--for", "juice", "--prompt-file", str(pf),
+                                      "--n", "2", "--timeout", "0")
+        finally:
+            os.environ["AOSA_OFFLINE"] = "1"
+        self.assertEqual(code, 1, "[A12] a request that never completes must still fail the command")
+        b = json.loads((self.docs / "budget.json").read_text())
+        self.assertEqual(len(b["entries"]), 1, "[A12] exactly one entry, written at submit")
+        e = b["entries"][0]
+        self.assertAlmostEqual(e["usd"], 0.70, places=6)   # 0.35 fallback x n=2
+        self.assertEqual(e["request_id"], "req-1")
+
     # ---- bench ---------------------------------------------------------------------------------------------------
     def test_bench_dry_run_player(self):
         self.put("LEDGER.md", "# l\n\n| cycle | utc | mode | cards | attempts | result | gate | commit | usd | note |\n|---|---|---|---|---|---|---|---|---|---|\n| 4 | x | P | - | - | - | - | - | 0 | n |\n")
