@@ -7,6 +7,7 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 
 namespace TW.Tests
@@ -113,6 +114,70 @@ namespace TW.Tests
             Assert.That(behind / (float)open, Is.InRange(0.55f, 0.80f), $"behind the house {behind} hits, in the open {open}");
             Assert.AreEqual(open, inFront, "a man in front of the house is no better off");
             Assert.AreEqual(open, beside, "a man beside the house is no better off");
+        }
+
+        /// <summary>Report (no new rule): deaths per man-minute for men crossing a field toward the enemy trench, on the
+        /// same eight seeds, with eight houses along the crossing and with none (the old behaviour is exactly "no house
+        /// on the map"). Asserts only the direction, after <= before.</summary>
+        [Test, Category("Long")]
+        public void Report_DeathsPerManMinute()
+        {
+            // one arm: 24 attackers walk from 90 m short of the enemy trench onto it, twelve defenders stand on it.
+            float Arm(uint seed, bool houses)
+            {
+                using var m = NewMatch(seed);
+                var w = m.World;
+                float trenchZ = m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[1].CellStart]).z;
+                var attackers = new List<int>();
+                for (int k = 0; k < 24; k++)
+                {
+                    var at = new float3(100f + (k % 8) * 7f, 0f, trenchZ - 90f - (k / 8) * 6f);
+                    int man = w.Spawn(0, InfantryArchetype.Rifle, at, RosterEntry.ForArchetype(InfantryArchetype.Rifle).Hp, 3f, false);
+                    w.GoalId[man] = m.Fields.GetGoal(GoalKey.Trench(1));
+                    attackers.Add(man);
+                }
+                for (int k = 0; k < 12; k++)
+                    w.Spawn(1, InfantryArchetype.Rifle, new float3(100f + k * 5f, 0f, trenchZ), 1e6f, 0f, false);
+                if (houses)
+                    for (int k = 0; k < 8; k++)
+                        m.Map.AddHouse(Block(104f + (k % 4) * 16f, trenchZ - 30f - (k / 4) * 25f));
+
+                long deaths = 0, manTicks = 0;
+                for (int t = 0; t < 1800; t++)
+                {
+                    foreach (int man in attackers) if (w.IsAlive(man)) manTicks++;
+                    Step(m);
+                    var ev = w.Events.Events;
+                    for (int e = 0; e < ev.Length; e++)
+                        if (ev[e].Type == SimEventType.Death && ev[e].A >= 0 && w.Team[ev[e].A] == 0) deaths++;
+                }
+                float manMinutes = manTicks * w.Config.TickSeconds / 60f;
+                return manMinutes <= 0f ? 0f : deaths / manMinutes;
+            }
+
+            var seeds = new uint[] { 1u, 2u, 3u, 5u, 8u, 13u, 21u, 34u };
+            var before = new List<float>(); var after = new List<float>();
+            int down = 0;
+            foreach (uint s in seeds)
+            {
+                float b = Arm(s, false), a = Arm(s, true);
+                before.Add(b); after.Add(a);
+                if (a <= b) down++;
+                TestContext.WriteLine($"seed {s}: before {b:F3}, after {a:F3} deaths per man-minute ({(a <= b ? "down" : "up")})");
+            }
+            void Stats(string name, List<float> v)
+            {
+                var o = new List<float>(v); o.Sort();
+                float mean = 0f; foreach (float x in o) mean += x; mean /= o.Count;
+                TestContext.WriteLine($"{name}: mean {mean:F3}, p10 {o[0]:F3}, p90 {o[o.Count - 1]:F3} deaths per man-minute");
+            }
+            Stats("before (no houses)", before);
+            Stats("after  (8 houses) ", after);
+            float mb = 0f, ma = 0f;
+            foreach (float x in before) mb += x; mb /= before.Count;
+            foreach (float x in after) ma += x; ma /= after.Count;
+            TestContext.WriteLine($"seeds down: {down} of {seeds.Length}");
+            Assert.LessOrEqual(ma, mb, $"houses must not get more men killed (before {mb:F3}, after {ma:F3})");
         }
 
         [Test]
