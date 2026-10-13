@@ -150,12 +150,17 @@ namespace TW.Sim.Terrain
             var rng = new Random(math.max(1u, p.Seed * 747796405u + 2891336453u));
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
+            float hqLineZ = L - 20f * sz;   // team 1's HQ objective line, read again by AddLineObjective below
             // The shore is defended (the coast preset only): a fifth line above the sand, which the defender holds.
             bool shore = p.Sea && p.ShoreDefences;
             int nT = shore ? 5 : 4;
             var trenchZ = new float[nT];
             trenchZ[0] = ReserveZ; trenchZ[1] = FrontZ; trenchZ[2] = L - FrontZ; trenchZ[3] = L - ReserveZ;
-            if (shore) trenchZ[4] = L - ShoreTrenchInset;   // on the dug-in rear ground at the top of the sand
+            // On the dug-in rear ground at the top of the sand, but never over the HQ line: AddLineObjective lays the
+            // HQ on two nav rows and AddFireTrench carves its bay plus the traverse row behind it, so a shore line
+            // within three rows of hqLineZ would make HQ cells trench cells - 1.8 m of covered trench inside the
+            // capture area, where taking the shore trench begins taking the HQ. Three rows is the carve's two plus one.
+            if (shore) trenchZ[4] = math.min(L - ShoreTrenchInset, hqLineZ - 3f * MapData.NavCellSize);
             // Nothing on a battlefield is ruled (owner, 2026-09-21). A trench follows the ground: its line wanders on two
             // octaves of noise (about 36 m and 13 m) and jogs a cell forward or back at traverses spaced 12 to 24 m
             // apart. Ladders stand at uneven intervals, each in a short straight piece so it opens onto clear ground.
@@ -172,10 +177,12 @@ namespace TW.Sim.Terrain
                     if (x == nextJog) { jog = math.clamp(jog + (lineRng.NextBool() ? 1 : -1), -1, 1); nextJog = x + lineRng.NextInt(6, 13); }
                     float wx = (x + 0.5f) * MapData.NavCellSize;
                     float wander = 2.3f * (Noise(salt, wx, 0f, 36f) - 0.5f) * 2f + 0.9f * (Noise(salt + 1u, wx, 0f, 13f) - 0.5f) * 2f;
-                    // The shore line has 21 m of room between team 1's reserve line and the sand, and both of them
-                    // wander. At the full +-3 cells the two carves can meet in a column, and a cell cut twice is a
-                    // 3.6 m pit rather than a trench, so this one bays +-1 and keeps clear of the line behind it.
-                    int swing = shore && t == 4 ? 1 : 3;
+                    // The shore line is clamped clear of the HQ (above), which leaves about 8 m between it and team 1's
+                    // reserve line - four nav rows. Both lines wander, and at the full +-3 cells their carves meet in
+                    // a column: a cell cut twice is a 3.6 m pit rather than a trench, and only one trench owns it
+                    // afterwards. So on a defended shore team 1's two rearmost lines both bay +-1, which keeps every
+                    // carve apart (NoCellBelongsToTwoTrenches). The other three lines have the room for the full swing.
+                    int swing = shore && t >= 3 ? 1 : 3;
                     bends[t][x] = math.clamp((int)math.round(wander + jog), -swing, swing);
                 }
                 for (int x = lineRng.NextInt(2, 6); x < n - 1; x += lineRng.NextInt(7, 13))
@@ -237,14 +244,18 @@ namespace TW.Sim.Terrain
             // capture, and the six objectives below keep their order and their ids. FrontTrench takes the SMALLEST
             // z of team 1's trenches, so a line at larger z than the reserve can never become his front line.
             if (shore)
-                GreyboxMapGenerator.AddFireTrench(map, team: 1, id: 4, z: trenchZ[4], facingYaw: 0f, next0: -1, next1: -1,
+                // next1: 3 - a ">>" out of the shore trench walks team 1's men back to his own reserve line, up the
+                // chain 4 -> 3 -> 2 -> 1 -> 0 -> team 0's HQ. next1: -1 would read as "the chain ends" and send them
+                // straight at the enemy HQ, past both of his lines. next0 stays -1: team 0 standing here is as deep
+                // as the map goes, so his next goal is rightly the enemy HQ.
+                GreyboxMapGenerator.AddFireTrench(map, team: 1, id: 4, z: trenchZ[4], facingYaw: 0f, next0: -1, next1: 3,
                                                   offsets: bends[4], ladders: ladders[4]);
             GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1, bends[1]);
             GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2, bends[0]);
             GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f * sz, 3);
             GreyboxMapGenerator.AddLineObjective(map, 3, ObjectiveKind.MainLine, 1, 1, L - FrontZ, 1, bends[2]);
             GreyboxMapGenerator.AddLineObjective(map, 4, ObjectiveKind.ReserveLine, 1, 1, L - ReserveZ, 2, bends[3]);
-            GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, L - 20f * sz, 3);
+            GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, hqLineZ, 3);
             map.Spawns.Add(new SpawnPoint { Team = 0, Pos = new float3(W * 0.5f, 0f, 6f), Kind = 0 });
             // Team 1's LAND arrival point. The boats bring most of his men (SeaLandingSystem), but every man who
             // walks on - the overflow when every berth is full - arrives here, and on a defended shore that has to
