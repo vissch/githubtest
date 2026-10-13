@@ -1113,6 +1113,45 @@ def editor_lock_cases(tmp: pathlib.Path):
     tool_b('release', 'session-b')
 
 
+def tw_cases(tmp: pathlib.Path, tw_path: pathlib.Path):
+    # [H13] a fake `unity` on PATH ahead of the real one, so `tw build` never touches a real editor.
+    def make_fake(compilation_failed, console_message):
+        fakebin = tmp / ('fakebin-fail' if compilation_failed else 'fakebin-ok')
+        fakebin.mkdir(exist_ok=True)
+        script = fakebin / 'unity'
+        body = '''#!/usr/bin/env bash
+# unity --no-banner cmd <subcommand> ...: the subcommand we care about is the 3rd positional argument.
+case "$2 $3" in
+  "cmd recompile") echo '{"status": "ok"}' ;;
+  "cmd recompile_status") echo '{"status": "completed"}' ;;
+  "cmd console_status") echo '{"compilationFailed": %s}' ;;
+  "cmd console") %s ;;
+  *) echo '{}' ;;
+esac
+''' % ('true' if compilation_failed else 'false',
+       'echo \'{"message": "boom"}\'' if console_message else 'true')
+        script.write_text(body)
+        posix = str(fakebin / 'unity').replace('\\', '/')
+        # NTFS carries no real exec bit; bash itself has to be asked to set the one it checks.
+        subprocess.run(['bash', '-c', 'chmod +x "%s"' % posix], cwd=tmp)
+        return fakebin
+
+    def run_tw_build(fakebin):
+        # a real unity.exe at %LOCALAPPDATA%/unity/bin would otherwise be put ahead of the fake one on PATH.
+        env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ.get('PATH', ''),
+                   LOCALAPPDATA=str(tmp / 'no-such-localappdata'))
+        p = subprocess.run(['bash', str(tw_path), 'build'], cwd=tmp, capture_output=True, env=env)
+        return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
+
+    fail_bin = make_fake(compilation_failed=True, console_message=True)
+    code, out = run_tw_build(fail_bin)
+    case('[H13] tw build exits non-zero when compilation failed', code != 0, out)
+
+    ok_bin = make_fake(compilation_failed=False, console_message=False)
+    code, out = run_tw_build(ok_bin)
+    case('[H13] tw build still exits 0 on a healthy build', code == 0, out)
+
+
 def perfcmp_cases(tmp: pathlib.Path):
     # [H8] two hand-written reports, shaped like perfcmp.py's own reader expects.
     def report(hash_start, label):
@@ -1280,6 +1319,8 @@ def main():
                 cs_text = (HERE.parent / 'AgentScripts' / cs_name).read_text(encoding='utf-8')
                 case(f'[H12] {cs_name} EditorPrefs keys are namespaced per checkout, not shared literals',
                      not re.search(r'EditorPrefs\.(Get|Set)\w+\("aosa\.(dir|stem|hold|budget)"', cs_text), cs_text)
+
+            tw_cases(tmp, wt_proj / 'Tools/tw')
     finally:
         if wt.exists():
             code, out = run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
