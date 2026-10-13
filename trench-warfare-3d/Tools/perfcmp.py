@@ -11,7 +11,18 @@ release player); never compare across run.build.
 import json, sys
 
 force = '--force' in sys.argv
-runs = [json.load(open(p)) for p in sys.argv[1:] if p != '--force']
+
+
+def load(path):
+    """[H20] a file that is not a PerfBench report used to reach r['window'] / r['run'] / r['series'] and traceback."""
+    r = json.load(open(path))
+    for key in ('window', 'run', 'series'):
+        if not isinstance(r, dict) or key not in r:
+            sys.exit(f'{path} has no "{key}" section: not a PerfBench report (tw-perf/1)')
+    return r
+
+
+runs = [load(p) for p in sys.argv[1:] if p != '--force']
 for key, get in (('hash_start', lambda r: r['window'].get('hash_start')), ('run.build', lambda r: r['run'].get('build'))):
     seen = sorted({str(get(r)) for r in runs})
     if len(seen) > 1:
@@ -42,7 +53,7 @@ print('per tick ms (all worlds):')
 for k in keys:
     if max(r['per_tick_ms'].get(k, 0) for r in runs) < 0.05: continue
     row('  ' + k.replace('TW.Sim.Sys.', 'Sys.'), lambda r, k=k: '%.3f' % r['per_tick_ms'].get(k, float('nan')))
-scripts = sorted({k for r in runs for k in r['series'] if k.startswith('script:')},
+scripts = sorted({k for r in runs for k in r.get('series', {}) if k.startswith('script:')},
                  key=lambda k: -max((r['series'].get(k) or {}).get('mean', 0) for r in runs))
 if scripts:
     print('per-frame script cost, mean ms (p95):')

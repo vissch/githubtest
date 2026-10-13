@@ -509,6 +509,20 @@ def port_split_merge_case(tmp: pathlib.Path):
          and 'int move9 = 99;' in (r / 'A/Big.Moved.cs').read_text()
          and 'move' not in big.read_text(), mrg + out)
 
+def port_split_no_merge_case(tmp: pathlib.Path):
+    # [H20] --merge in a repo with no MERGE_HEAD used to raise CalledProcessError (a git traceback) before the
+    # helpful "cannot tell which side split" message could ever be printed.
+    r = tmp / 'no-merge-repo'
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    (r / 'A/Big.cs').write_text('class Big\n{\n    int keep0 = 0;\n}\n')
+    g('add', '.'); g('commit', '-qm', 'base')
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--merge'], r)
+    case('[H20] port_split --merge outside a merge says so instead of a traceback',
+         code == 1 and 'not in a merge' in out and 'Traceback' not in out, f'[H20] exit {code}: {out}')
+
+
 def land_cases(tmp: pathlib.Path):
     # A bare origin with the integration branch, and a clone with a lane on it. land.py runs from the clone.
     integ = 'claude/trench-warfare-2d-3d-plan-idt7lf'
@@ -1178,6 +1192,16 @@ def perfcmp_cases(tmp: pathlib.Path):
     case('perfcmp.py --force still prints the table despite the hash_start mismatch',
          r.returncode == 0 and b'before' in r.stdout and b'after' in r.stdout, (r.stdout + r.stderr).decode())
 
+    # [H20] perfcmp used to read r['window'] straight off the json, so any other json died with a traceback.
+    bad = tmp / 'perf-not-a-report.json'
+    nope = report('h1', 'nope'); del nope['window']
+    bad.write_text(json.dumps(nope))
+    r = subprocess.run([sys.executable, str(HERE / 'perfcmp.py'), str(a), str(bad)], capture_output=True)
+    out = (r.stdout + r.stderr).decode()
+    case('[H20] perfcmp names a report that is not a PerfBench report instead of a traceback',
+         r.returncode == 1 and 'not a PerfBench report' in out and 'Traceback' not in out,
+         f'[H20] exit {r.returncode}: {out}')
+
 
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
@@ -1270,6 +1294,7 @@ def main():
         port_split_no_conflict_case(tmp)
         port_split_rerun_case(tmp)
         port_split_merge_case(tmp)
+        port_split_no_merge_case(tmp)
         scorecard_cases()
         gate_scope_cases(tmp)
         land_cases(tmp)
@@ -1290,6 +1315,28 @@ def main():
              'fatal' not in out.lower() and 'Unable to create' not in out, out)
         case('[H10] health.py --lanes marks the detached checkout running it as (you), no git error',
              code == 0 and '(you)' in out and 'fatal' not in out.lower(), out)
+
+        # [H18] the real fault (a domain reload drops the sampler) only happens inside Unity, so this reads the
+        # script's text: the placeholder it writes must carry a UtcNow stamp, so a stale "running" is visible.
+        budget_text = (HERE.parent / 'AgentScripts/aosa_budget.cs').read_text(encoding='utf-8')
+        placeholder = re.search(r'SetString\(ns \+ "budget", "running(.*?)\);', budget_text, re.S)
+        case('[H18] aosa_budget marks its running value with a time, so a lost sampler is visible',
+             placeholder is not None and 'DateTime.UtcNow' in budget_text
+             and 'deadline' in (placeholder.group(1) if placeholder else ''),
+             '[H18] placeholder: ' + (placeholder.group(0) if placeholder else 'no SetString(ns + "budget", "running'))
+
+        # [H20] health.py probed console_status with a raw subprocess.run(timeout=60): a hung CLI raised
+        # TimeoutExpired and health.py died with a traceback instead of printing the editor line.
+        sys.path.insert(0, str(HERE))
+        import health
+        hang = tmp / 'hang.py'
+        hang.write_text('import time\ntime.sleep(5)\n')
+        try:
+            failed, note = health.compile_failed([sys.executable, str(hang)], timeout=1)
+            ok, detail = (failed is False and 'timed out' in note), f'[H20] ({failed!r}, {note!r})'
+        except Exception as e:
+            ok, detail = False, f'[H20] compile_failed raised {type(e).__name__}: {e}'
+        case('[H20] health.compile_failed survives a CLI that hangs', ok, detail)
 
         for cs_name in ('aosa_tiers.cs', 'aosa_budget.cs'):
             cs_text = (HERE.parent / 'AgentScripts' / cs_name).read_text(encoding='utf-8')
