@@ -370,7 +370,8 @@ namespace TW.Sim.Match
 
         void Land(SimWorld w, ScheduledPayload p, in AbilityStats stats)
         {
-            var entry = RosterEntry.Para;
+            // the drop fields the unit this match defines, so a definition's Para arrives with its own hit points
+            var entry = InfantryArchetype.Para < Archetypes.Count ? w.Units.Roster[InfantryArchetype.Para] : RosterEntry.Para;
             byte team = (byte)p.Player;
             int goal = -1;
             if (fields != null && map != null)
