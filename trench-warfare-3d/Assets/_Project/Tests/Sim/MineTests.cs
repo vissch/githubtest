@@ -336,6 +336,7 @@ namespace TW.Tests
         {
             var rng = new Unity.Mathematics.Random(20260927u);
             int triggeredSomewhere = 0;
+            int tripwireTriggers = 0, teamOneTriggers = 0;   // [T14] the holes the swallowed initialisers left uncovered
             for (int trial = 0; trial < 200; trial++)
             {
                 int slots = rng.NextInt(1, 300), mineCount = rng.NextInt(1, 80);
@@ -355,8 +356,11 @@ namespace TW.Tests
                 {
                     bool trip = rng.NextFloat() < 0.3f;
                     float a = rng.NextFloat(0f, 6.2831853f);
+                    // [T14] this comment used to run on and swallow the Player/Kind initialisers below, so every
+                    // mine was Player 0, Kind Mine: the tripwire branch and team-1 mines were never exercised.
                     mines[m] = new Mine { Pos = new float3(rng.NextFloat(-60f, 120f), 0f, rng.NextFloat(-60f, 120f)), Dir = trip ? new float3(math.sin(a), 0f, math.cos(a)) : float3.zero,
-                        Length = trip ? rng.NextFloat(1f, 40f) : 0f,   // past the placing limit: a line across many cells Player = rng.NextInt(0, 2), Kind = trip ? (int)MineKind.Tripwire : (int)MineKind.Mine,
+                        Length = trip ? rng.NextFloat(1f, 40f) : 0f,   // past the placing limit: a line across many cells
+                        Player = rng.NextInt(0, 2), Kind = trip ? (int)MineKind.Tripwire : (int)MineKind.Mine,
                         State = rng.NextFloat() < 0.85f ? (int)MineState.Armed : (int)MineState.Spent };
                 }
                 var expected = Reference(mines, pos, flags, hp, yaw, team, arch);
@@ -369,9 +373,18 @@ namespace TW.Tests
                 Assert.AreEqual(expected.Count, triggered.Length, "trial " + trial + ": as many (mine, victim) pairs");
                 for (int k = 0; k < expected.Count; k++) Assert.AreEqual(expected[k], triggered[k], "trial " + trial + ", pair entry " + k);
                 if (expected.Count > 0) triggeredSomewhere++;
+                // [T14] triggered is (mine, victim) pairs flattened two to a slot (MineSystem.TriggerJob/Mines.cs:291)
+                for (int k = 0; k < expected.Count / 2; k++)
+                {
+                    var mine = mines[expected[2 * k]];
+                    if (mine.Kind == (int)MineKind.Tripwire) tripwireTriggers++;
+                    if (mine.Player == 1) teamOneTriggers++;
+                }
                 pos.Dispose(); flags.Dispose(); hp.Dispose(); yaw.Dispose(); team.Dispose(); arch.Dispose();
             }
             Assert.Greater(triggeredSomewhere, 20, "the random fields set mines off often enough to test anything");
+            Assert.Greater(tripwireTriggers, 0, "[T14] the tripwire branch of the grid was compared against the brute force");
+            Assert.Greater(teamOneTriggers, 0, "[T14] team-1 mines were compared against the brute force");
         }
 
         static System.Collections.Generic.List<int> Reference(Mine[] mines, NativeArray<float3> pos, NativeArray<uint> flags, NativeArray<float> hp, NativeArray<float> yaw, NativeArray<byte> team, NativeArray<byte> arch)
