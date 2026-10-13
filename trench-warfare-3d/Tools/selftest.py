@@ -84,6 +84,22 @@ def changed_paths(repo):
     return copy, delete
 
 
+def snapshot_copies(repo, copy, cap=1_000_000):
+    # [H20] main() used to copy every untracked file into the throwaway worktree and commit it, so untracked art
+    # went into the shared object store on every run. A tracked path (it came from the diff) is always kept; an
+    # untracked path over `cap` bytes is skipped.
+    others = set(l.strip() for l in run(['git', 'ls-files', '--others', '--exclude-standard'], repo)[1].split('\n')
+                 if l.strip())
+    keep, skipped = [], []
+    for rel in copy:
+        try:
+            big = rel in others and (pathlib.Path(repo) / rel).stat().st_size > cap
+        except OSError:
+            big = False
+        (skipped if big else keep).append(rel)
+    return keep, skipped
+
+
 def case(name, ok, detail=''):
     results.append(ok)
     print(('ok    ' if ok else 'FAIL  ') + name + ('' if ok else '\n      ' + detail.strip().replace('\n', '\n      ')[:600]))
@@ -157,7 +173,8 @@ def codemap_cases(wt: pathlib.Path):
     must(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qam',
           f'quote it\n\nThe body says (until "{tag}" lands).'], wt)
     code, out = run(check, proj)
-    case('codemap does not call a tag landed when a commit message only quotes it', tag not in out, out)
+    case('[H16] codemap does not call a tag landed when a commit message only quotes it (and exits 0)',
+         code == 0 and tag not in out, f'exit {code}: {out}')
     run(['git', 'reset', '-q', '--hard', before], wt)
     sim_lines = len((proj / 'Assets/_Project/Presentation/Core/SimHost.cs').read_text(encoding='utf-8-sig').splitlines())
     expect('a cited line one past the end of the file', 'past the end',
@@ -498,12 +515,14 @@ def land_cases(tmp: pathlib.Path):
 
     (proj / 'Code.cs').write_text('class C {}\n'); g('add', '.'); g('commit', '-qm', 'code')
     code, out = land()
-    case('land.py refuses code that no green full gate tested', code == 1 and head(f'origin/{integ}') != head('HEAD'), out)
+    case('[H16] land.py refuses code that no green full gate tested, saying so',
+         code == 1 and 'no full gate has gone green' in out and head(f'origin/{integ}') != head('HEAD'), out)
     marker = pathlib.Path(run(['git', 'rev-parse', '--path-format=absolute', '--git-path', 'tw-gate-green'], work)[1].strip())
     marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
     (proj / 'Code.cs').write_text('class C { int x; }\n'); g('commit', '-qam', 'one more')
     code, out = land()
-    case('land.py refuses when HEAD is not the tree the gate tested (one more commit after the gate)', code == 1, out)
+    case('[H16] land.py refuses when HEAD is not the tree the gate tested (one more commit after the gate)',
+         code == 1 and 'tested tree' in out and 'Run the full gate on this commit' in out, out)
     marker.write_text(head('HEAD^{tree}') + ' 2026-09-27T00:00:00\n')
     code, out = land()
     case('land.py lands code whose exact tree went green', code == 0 and head(f'origin/{integ}') == head('HEAD'), out)
@@ -1070,6 +1089,9 @@ case "$2 $3" in
   "cmd recompile") echo '{"status": "ok"}' ;;
   "cmd recompile_status") echo '{"status": "completed"}' ;;
   "cmd console_status") echo '{"compilationFailed": %s}' ;;
+  # [H15] a clock that answers 0 first and 9.9 after: `tw stepto` is done on its first round.
+  "cmd eval") n=$(cat "$0.calls" 2>/dev/null || echo 0); echo $((n+1)) > "$0.calls"
+              if [ "$n" = "0" ]; then echo '{"result": 0.0}'; else echo '{"result": 9.9}'; fi ;;
   "cmd console") %s ;;
   *) echo '{}' ;;
 esac
@@ -1088,6 +1110,12 @@ esac
         p = subprocess.run(['bash', str(tw_path), 'build'], cwd=tmp, capture_output=True, env=env)
         return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
 
+    def run_tw(fakebin, *args):
+        env = dict(os.environ, PATH=str(fakebin) + os.pathsep + os.environ.get('PATH', ''),
+                   LOCALAPPDATA=str(tmp / 'no-such-localappdata'))
+        p = subprocess.run(['bash', str(tw_path), *args], cwd=tmp, capture_output=True, env=env)
+        return p.returncode, (p.stdout + p.stderr).decode('utf-8', 'replace')
+
     fail_bin = make_fake(compilation_failed=True, console_message=True)
     code, out = run_tw_build(fail_bin)
     case('[H13] tw build exits non-zero when compilation failed', code != 0, out)
@@ -1095,6 +1123,18 @@ esac
     ok_bin = make_fake(compilation_failed=False, console_message=False)
     code, out = run_tw_build(ok_bin)
     case('[H13] tw build still exits 0 on a healthy build', code == 0, out)
+
+    # [H15] a raw newline inside the awk string made awk die with "unterminated string" on every success.
+    code, out = run_tw(ok_bin, 'stepto', '1.0')
+    case('[H15] tw stepto prints how far game time advanced without an awk error',
+         code == 0 and 'advanced' in out and 'awk' not in out and 'unterminated' not in out, f'exit {code}: {out}')
+
+    # [H20] the header NOTE used to claim `tw shot` passes an absolute path outside Assets; the shot case
+    # passes the relative _shots/<name>.png and moves the PNG out afterwards.
+    header = tw_path.read_text(encoding='utf-8').splitlines()[:20]
+    header = '\n'.join(header)
+    case("[H20] tw's header does not claim shot passes an absolute path",
+         'absolute path' not in header and '_shots' in header, header)
 
 
 def perfcmp_cases(tmp: pathlib.Path):
@@ -1191,6 +1231,9 @@ def main():
     try:
         # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
         copy, delete = changed_paths(REPO)
+        copy, skipped = snapshot_copies(REPO, copy)
+        if skipped:
+            print('snapshot skipped %d large untracked file(s): %s' % (len(skipped), ', '.join(skipped[:5])))
         for rel in copy:
             (wt / rel).parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(REPO / rel, wt / rel)
