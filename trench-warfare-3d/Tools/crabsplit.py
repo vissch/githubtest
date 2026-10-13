@@ -60,6 +60,29 @@ CRABS = {
     "Cutter": dict(scale=16.0, arm=("Gun", "above"), still=True, decimate=0.45),
 }
 
+# The order the sheets are given in on the command line. A run may pass fewer sheets (rebuilding one machine), so
+# pairing is by position from the front and the rest of crabs.json is kept (review R9).
+CRAB_ORDER = ("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter")
+
+
+def pair_sheets(sheets, order=CRAB_ORDER):
+    """Pair each sheet with its machine, in order. More sheets than names is a mistake, not something to drop."""
+    sheets = list(sheets)
+    if len(sheets) > len(order):
+        raise ValueError("%d sheets for %d machines (%s): the extra sheets have no machine"
+                         % (len(sheets), len(order), ", ".join(order)))
+    return list(zip(order, sheets))
+
+
+def merge_crabs(old, new):
+    """The manifest to write: this run's entries, plus the entries of every machine it did not rebuild."""
+    out = dict(new)
+    kept = {k: v for k, v in (old or {}).get("crabs", {}).items() if k not in new.get("crabs", {})}
+    out["crabs"] = dict(kept)
+    out["crabs"].update(new.get("crabs", {}))
+    return out, sorted(kept)
+
+
 # ------------------------------------------------------------------------------------------- legs (pure, testable)
 def group_legs(pieces, expected=None, machine=""):
     """Sort limb pieces into one group per leg. `pieces` are plain tuples (key, x, y, quad, ztop) — no Blender types —
@@ -934,7 +957,7 @@ def recut(name, vehicles):
 def split_sheets():
     """The sheets as Tripo made them, every machine of the run, and the manifest of all of them."""
     manifest = {"source": "Tools/crabsplit.py", "crabs": {}}
-    for crab, fbx in zip(("Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt", "Cutter"), SHEETS):
+    for crab, fbx in pair_sheets(SHEETS):
         cfg = CRABS[crab]
         print("== %s" % crab)
         src, img, mat = load(fbx, crab)
@@ -965,7 +988,15 @@ def split_sheets():
         scene = bpy.context.scene
         scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
         im.save_render(os.path.join(OUTDIR, "%sAtlas.jpg" % crab), scene=scene)
-    with open(os.path.join(OUTDIR, "crabs.json"), "w") as f: json.dump(manifest, f, indent=1)
+    out = os.path.join(OUTDIR, "crabs.json")
+    prev = None
+    if os.path.exists(out):
+        with open(out) as f:
+            try: prev = json.load(f)
+            except ValueError: prev = None
+    manifest, kept = merge_crabs(prev, manifest)
+    if kept: print("KEPT (not rebuilt this run): %s" % ", ".join(kept))
+    with open(out, "w") as f: json.dump(manifest, f, indent=1)
 
 if bpy is not None:                         # imported for its pure helpers (test_crabsplit.py): cut nothing
     bpy.ops.wm.read_factory_settings(use_empty=True)
