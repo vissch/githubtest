@@ -665,5 +665,98 @@ class AosaTest(unittest.TestCase):
         self.assertEqual(list(self.docs.glob("*.tmp")), [],
                          "[A14] a failed write must leave no .tmp file behind")
 
+    # ---- prune (A17) ---------------------------------------------------------------------------------------------
+    def prune_tree(self):
+        """A ledger at cycle 3, three WinBench snapshots (oldest deletable) and one old sequence frame."""
+        hdr = "| " + " | ".join(aosa.LEDGER_COLS) + " |"
+        self.put("LEDGER.md", "# AOSA ledger" + NL * 2 + hdr + NL + "|" + "---|" * len(aosa.LEDGER_COLS) + NL
+                 + "| 2 | 2026-10-01T00:00Z | P | - | - | - | - | - | 0.00 | seeded |" + NL)
+        self.assertEqual(aosa.current_cycle(), 3)
+        snaps = []
+        for i, label in enumerate(("old", "mid", "new")):
+            d = Path(os.environ["TW_BUILDS"]) / ("WinBench@" + label)
+            d.mkdir(parents=True)
+            (d / "TrenchWarfare.exe").write_bytes(b"x" * 64)
+            os.utime(d, (1700000000 + i * 100, 1700000000 + i * 100))
+            snaps.append(d)
+        frame = self.docs / "runs" / "0" / "l.f1.png"
+        frame.parent.mkdir(parents=True, exist_ok=True)
+        frame.write_bytes(b"p" * 16)
+        return snaps, frame
+
+    # A17 gap: prune --apply had no test at all; this one covers the good path, which was already right, so it has
+    # no [A17] tag (it is green before the fix too)
+    def test_prune_apply_deletes_the_plan(self):
+        (old, mid, new), frame = self.prune_tree()
+        code, out = self.run_cli("prune", "--apply")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(old.exists(), "the snapshot past the newest two must be deleted")
+        self.assertFalse(frame.exists(), "the old cycle's sequence frame must be deleted")
+        self.assertTrue(mid.exists() and new.exists(), "the newest two snapshots must stay")
+        self.assertIn("deleted 2 items", out, "prune reports what it deleted")
+
+    # [A17] the planned count used to be printed as deleted and the exit stayed 0 even when a delete raised
+    def test_a17_prune_counts_only_what_it_deleted(self):
+        (old, mid, new), frame = self.prune_tree()
+        real = shutil.rmtree
+
+        def refuse(path, *a, **kw):
+            if Path(path) == old:
+                raise OSError("in use by another process")
+            return real(path, *a, **kw)
+
+        shutil.rmtree = refuse
+        try:
+            code, out = self.run_cli("prune", "--apply")
+        finally:
+            shutil.rmtree = real
+        self.assertEqual(code, 1, "[A17] a prune that could not delete everything must not exit 0:" + NL + out)
+        self.assertIn("could not delete", out, "[A17] the item that stayed must be named")
+        self.assertIn(old.name, out, "[A17] the item that stayed must be named")
+        self.assertIn("deleted 1 items", out, "[A17] only what really went may be counted as deleted")
+        self.assertTrue(old.exists())
+        self.assertFalse(frame.exists())
+
+    # A17 gap: run_one was only ever tested with --dry-run; these two cover the real player path (already correct)
+    def test_run_one_without_a_report_fails(self):
+        d = self.live_player()
+        spec = {"label": "l", "cycle": 3, "mode": "player", "dev": False, "scenario": None, "knobs": None,
+                "shot_tick": None, "no_hud": False, "shot_frames": 1, "extra": "", "build_dir": str(d)}
+        cyc = self.docs / "runs" / "3"
+        cyc.mkdir(parents=True, exist_ok=True)
+        real = aosa.run_player_quietly
+        aosa.run_player_quietly = lambda cmd, timeout: 0
+        try:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                ok = aosa.run_one(spec, "l-1", cyc, False)
+        finally:
+            aosa.run_player_quietly = real
+        self.assertFalse(ok)
+        self.assertIn("NO REPORT", out.getvalue())
+
+    def test_run_one_with_a_report_passes(self):
+        d = self.live_player()
+        spec = {"label": "l", "cycle": 3, "mode": "player", "dev": False, "scenario": None, "knobs": None,
+                "shot_tick": None, "no_hud": False, "shot_frames": 1, "extra": "", "build_dir": str(d)}
+        cyc = self.docs / "runs" / "3"
+        cyc.mkdir(parents=True, exist_ok=True)
+        real = aosa.run_player_quietly
+
+        def write(cmd, timeout):
+            (cyc / "l-1.json").write_text(json.dumps(report("l-1")), encoding="utf-8")
+            return 0
+
+        aosa.run_player_quietly = write
+        try:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                ok = aosa.run_one(spec, "l-1", cyc, False)
+        finally:
+            aosa.run_player_quietly = real
+        self.assertTrue(ok, out.getvalue())
+        self.assertIn("report written", out.getvalue())
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
