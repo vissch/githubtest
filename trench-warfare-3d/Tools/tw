@@ -46,13 +46,27 @@ case "${1:-}" in
   eval) shift; U cmd eval --result-only --timeout "${2:-30}" -- --code "$1" ;;   # optional 2nd arg: timeout in seconds
   build)
     U cmd recompile --result-only >/dev/null
+    done=0
     for i in $(seq 1 40); do
       sleep 5
       s=$(U cmd recompile_status --result-only 2>&1)
-      echo "$s" | grep -qE '"status": *"(completed|up_to_date|idle)"' && break
+      echo "$s" | grep -qE '"status": *"(completed|up_to_date|idle)"' && { done=1; break; }
     done
-    U cmd console_status --result-only | grep -E 'compilationFailed|consoleErrors|consoleWarnings'
-    U cmd console --result-only -- --level Error --tail 20 | grep -E '"message"' | head -20
+    if [ "$done" = 0 ]; then
+      echo "build: recompile never finished" >&2; exit 1
+    fi
+    failed=0
+    status_out=$(U cmd console_status --result-only)
+    echo "$status_out" | grep -E 'compilationFailed|consoleErrors|consoleWarnings'
+    echo "$status_out" | grep -qE '"compilationFailed": *true' && failed=1
+    errors_out=$(U cmd console --result-only -- --level Error --tail 20)
+    messages=$(echo "$errors_out" | grep -E '"message"')
+    if [ -n "$messages" ]; then
+      echo "$messages" | head -20
+      failed=1
+    fi
+    [ "$failed" = 1 ] && exit 1
+    exit 0
     ;;
   pause)  U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = ${2:-true}; return UnityEditor.EditorApplication.isPaused;" ;;
   stepabs)
