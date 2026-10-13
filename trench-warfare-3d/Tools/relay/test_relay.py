@@ -575,6 +575,10 @@ Create the file, commit, push.
 - `git rev-parse --abbrev-ref HEAD` -> contains "lane/show/x"
 ## Dead ends
 """
+DECIDED = """## Decisions
+- The file is a.txt, not b.txt: brief b-12.
+- One line only: this leg, because the goal says one.
+"""
 
 
 class Papers(Base):
@@ -640,6 +644,19 @@ class Papers(Base):
             self.assertTrue(any("look-only" in b for b in papers.check_note(note, 4096)), bad)
         self.assertTrue(papers.check_note(NOTE.replace('- `git status --porcelain` -> exit 0\n', "- it will be fine\n"), 4096))
         self.assertTrue(any("bytes" in b for b in papers.check_note(NOTE + "y" * 5000, 4096)))
+
+    def test_a_note_may_name_what_is_decided_and_one_without_is_as_good_as_it_was(self):
+        """The owner, 2026-10-09: answered decisions kept being asked again. The notes on a live board have no
+        such section: they must not be dropped for it."""
+        self.assertNotIn("Decisions", papers.NOTE_SECTIONS)
+        self.assertEqual((papers.check_note(NOTE, 4096), papers.decisions(NOTE)), ([], []))
+        self.assertEqual(papers.check_note(NOTE + DECIDED, 4096), [])
+        self.assertEqual(papers.decisions(NOTE + DECIDED),
+                         ["- The file is a.txt, not b.txt: brief b-12.", "- One line only: this leg, because the goal says one."])
+        self.assertEqual(papers.decisions(NOTE + "## Decisions\n-\n\n"), [])        # a heading with nothing under it
+        self.assertEqual(papers.check_note(NOTE + "## Decisions\n", 4096), [])
+        long = NOTE + "## Decisions\n" + "- decided: this leg, because it is so.\n" * 120
+        self.assertTrue(any("bytes" in b for b in papers.check_note(long, 4096)))   # it counts toward the note's size
 
     def test_a_prediction_that_writes_is_never_run(self):
         note = NOTE.replace("git status --porcelain", "git diff HEAD --output=pwned.txt")
@@ -1231,6 +1248,36 @@ class Runs(Repo):
         card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
         self.assertIn("Note from the last leg", card)
         self.assertEqual(card.count("- held:"), 2)
+
+    def test_what_a_note_says_is_decided_reaches_the_next_leg_as_closed(self):
+        from sources import notes
+        self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.COMMIT + [{"write": "note.md", "text": NOTE + DECIDED}]})
+        _, first = self.go()
+        asked = (legdir.leg_path(first["run"], 2) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("and Decisions when anything is decided", asked)          # the card asks for the section
+        self.assertNotIn(notes.CLOSED, asked)                                   # and closes nothing with no note
+        self.assertEqual((self.board / "relay" / "notes" / "u1.md").read_text(encoding="utf-8"), NOTE + DECIDED)
+        _, stop = self.go(max_legs=1)
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("- The file is a.txt, not b.txt: brief b-12.", card)
+        self.assertIn("- One line only: this leg, because the goal says one.", card)
+        self.assertIn(notes.CLOSED, card)
+        self.assertLess(card.index("# Note from the last leg"), card.index(notes.CLOSED))
+
+    def test_a_note_a_board_holds_from_before_the_decisions_section_is_handed_on_and_kept(self):
+        from sources import notes
+        note = self.board / "relay" / "notes" / "u1.md"
+        note.parent.mkdir(parents=True)
+        note.write_text(NOTE, encoding="utf-8", newline="\n")                   # as a relay before 2026-10-14 left it
+        self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.COMMIT + [{"write": "note.md", "text": NOTE}]})
+        _, stop = self.go()
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("# Note from the last leg on this unit\n" + NOTE.strip(), card)
+        self.assertNotIn(notes.CLOSED, card)
+        self.assertEqual(note.read_text(encoding="utf-8"), NOTE)                # written again by this run's leg: kept
 
     def test_a_bad_note_is_not_handed_on(self):
         self.queue("u1", done_when=("git", "cat-file", "-e", "HEAD:never.txt"))
@@ -2565,6 +2612,33 @@ class PipelineSource(Repo):
         self.assertEqual((res[0]["verdict"], stop["legs"]), ("PASS", 3))
         self.assertIn("critic round 1 gave no score", res[0]["note"])
         self.assertFalse((self.board / "evidence" / "thing" / "shots" / "critic-r1.md").exists())
+
+    def test_a_job_that_is_taken_again_gets_its_last_legs_note_whatever_its_id_is_by_then(self):
+        """A board job started cold on every try: sources/pipeline.py kept no note. Its id is a hash of its inputs,
+        so the note is kept under the item and the stage."""
+        note = self.board / "relay" / "notes" / "thing--shots.md"
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}],
+                     "execute": self.PUSH + [{"write": "note.md", "text": NOTE + DECIDED}]})
+        out, first = self.go(sources=["pipeline"])                      # no pictures: the job fails its checks
+        self.assertEqual([r["verdict"] for r in self.results()], ["FAIL"])
+        self.assertIn("write note.md in your leg folder", self.leg_file(1, "card.md").read_text(encoding="utf-8"))
+        self.assertEqual(note.read_text(encoding="utf-8"), NOTE + DECIDED)
+        (self.work / "in.txt").write_text("input, moved\n", encoding="utf-8")   # an input moves before the next try
+        self.g(["commit", "-q", "-am", "in"]); self.g(["push", "-q", "origin", "lane/show/pipe-thing"])
+        _, stop = self.go(sources=["pipeline"], max_legs=1)
+        legs = [json.loads(p.read_text(encoding="utf-8")) for p in sorted((self.board / "relay" / "desktop" / "legs").glob("*.json"))]
+        self.assertNotEqual(legs[0]["unit"], legs[-1]["unit"])          # the input moved, so the job is another
+        self.assertEqual(legs[-1]["run"], stop["run"])
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("# Note from the last leg on this unit\n" + (NOTE + DECIDED).strip(), card)
+        self.assertIn("- held: git status --porcelain", card)
+        self.assertIn("- DID NOT HOLD: git rev-parse --abbrev-ref HEAD", card)   # the note named another lane
+        self.assertIn("The note's Decisions are closed", card)
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.FIX,
+                     "critic": [{"write": "critic.md", "text": CRITIC % 88}]})
+        self.go_with_evidence()
+        self.assertEqual(sorted(r["verdict"] for r in self.results()), ["FAIL", "PASS"])
+        self.assertFalse(note.exists())                                 # the job is done: its note is gone
 
     def test_the_leg_cap_skips_the_critic_and_keeps_the_verdict(self):
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH})
