@@ -258,8 +258,9 @@ namespace TW.Editor
 
         public static string Panel(bool on) { Get().Show = on; return "panel " + on; }
 
-        /// <summary>Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks).</summary>
-        public static string Camera(int slot, float zoom, float yaw, float pitch)
+        /// <summary>Frame the camera on a slot: zoom, bearing, pitch (the follow keeps it framed while it walks).
+        /// `bearing` is a world bearing and goes through unchanged: TankCapture takes the camera's own angles out of it.</summary>
+        public static string Camera(int slot, float zoom, float bearing, float pitch)
         {
             var c = Object.FindFirstObjectByType<TacticalCamera>(); if (c == null) return "no camera";
             // [E12] the first framing keeps what the scene camera shipped with, so CameraRestore can put it back:
@@ -267,7 +268,7 @@ namespace TW.Editor
             if (float.IsNaN(heldZoomMin)) { heldZoomMin = c.ZoomMin; heldPitch = c.Pitch; heldClosePitch = c.ClosePitch; }
             c.ZoomMin = Mathf.Min(c.ZoomMin, 4f);
             c.Pitch = pitch; c.ClosePitch = pitch;
-            return TankCapture.Follow(slot, zoom, yaw);
+            return TankCapture.Follow(slot, zoom, bearing);
         }
 
         static float heldZoomMin = float.NaN, heldPitch = float.NaN, heldClosePitch = float.NaN;
