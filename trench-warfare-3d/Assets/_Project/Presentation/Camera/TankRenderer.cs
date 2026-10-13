@@ -570,7 +570,11 @@ namespace TW.Presentation.Tactical
                 v.Stride += pace * dt / StrideMetres;
                 if (v.Stride >= 1f) v.Stride -= Mathf.Floor(v.Stride);
                 v.Bob = 0f;                                     // the body's ride comes off the feet now, not a sine
-                byte lost = modules != null ? modules.LegsLost[s] : (byte)0;
+                // the sim numbers legs by its own Legs config (VehicleModules.cs), which can run more legs per side
+                // than the model actually has (a Redoubt is simmed on 6, drawn on 4: Q2) — a sim bit read straight as
+                // a model leg index threw the wrong leg, or none at all when the sim's bit had no model leg to match.
+                int simLegs = Drive(w.Archetype[s]).Legs;
+                byte lost = modules != null ? ModelLegMask(modules.LegsLost[s], simLegs, v.Model.LegsPerSide) : (byte)0;
                 if (lost != v.LegsLost)
                 {
                     for (int k = 0; k < 8; k++) if ((lost & (1 << k)) != 0 && (v.LegsLost & (1 << k)) == 0) ThrowLeg(v, k);
@@ -829,6 +833,26 @@ namespace TW.Presentation.Tactical
             int leg = Mathf.Max(0, p.Leg);
             int group = ((leg % perSide) + (leg >= perSide ? 1 : 0)) & 1;
             return (v.Stride + group * 0.5f) * Mathf.PI * 2f;
+        }
+
+        /// <summary>The sim's leg-lost bitmask, numbered over its own `simLegs` (VehicleModules.cs, which can run
+        /// more legs per side than the model has geometry for), remapped onto the model's own numbering
+        /// (`modelPerSide` per side, TankModel.LegsPerSide). Each side is carried over by the FRACTION of that
+        /// side's sim legs lost, rounded to the nearest whole model leg on that side: losing a sim side outright
+        /// (every sim leg on it) always throws every model leg on that side, and a model with the same leg count on
+        /// both sides as the sim (simLegs == modelPerSide*2) maps to itself.</summary>
+        public static byte ModelLegMask(byte simMask, int simLegs, int modelPerSide)
+        {
+            int simPerSide = Mathf.Max(1, simLegs / 2);
+            int leftLost = 0, rightLost = 0;
+            for (int k = 0; k < simPerSide; k++) if ((simMask & (1 << k)) != 0) leftLost++;
+            for (int k = 0; k < simPerSide; k++) if ((simMask & (1 << (simPerSide + k))) != 0) rightLost++;
+            int leftModel = Mathf.Clamp(Mathf.RoundToInt((float)leftLost / simPerSide * modelPerSide), 0, modelPerSide);
+            int rightModel = Mathf.Clamp(Mathf.RoundToInt((float)rightLost / simPerSide * modelPerSide), 0, modelPerSide);
+            byte result = 0;
+            for (int k = 0; k < leftModel; k++) result |= (byte)(1 << k);
+            for (int k = 0; k < rightModel; k++) result |= (byte)(1 << (modelPerSide + k));
+            return result;
         }
 
         /// <summary>A leg the damage system has taken off: it goes the way a track does, thrown clear.</summary>

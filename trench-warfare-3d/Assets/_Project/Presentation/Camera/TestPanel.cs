@@ -40,7 +40,12 @@ namespace TW.Presentation.Tactical
             Offered = OfferedIn(Application.isEditor, Debug.isDebugBuild, Array.IndexOf(Environment.GetCommandLineArgs(), PanelArg) >= 0);
         }
 
-        static readonly string[] SlotNames = { "Rifleman", "Assault", "MG team", "Sniper", "Tank (Maw)" };
+        /// <summary>The deploy button's label, same words as BattleHud's NameOf but with the cost and cooldown
+        /// this debug panel also shows. Reads the roster slot, not a fixed name table: the roster has grown past
+        /// the five archetypes this file used to hard-code (Q1).</summary>
+        public static string DeployLabel(int slot, in RosterEntry e, int cooldownTicks, float tickSeconds)
+            => $"{slot + 1}. {UnitLook.Name(e.Archetype)}   {e.Cost}s" + (cooldownTicks > 0 ? $"   ({cooldownTicks * tickSeconds:0}s)" : "");
+
         const float Width = 300f;
         GUIStyle box, header, small;
         Vector2 scroll;
@@ -69,6 +74,24 @@ namespace TW.Presentation.Tactical
             aim.Arm(id);
         }
 
+        /// <summary>Where the "Debug panel" button sits when the panel itself is hidden (OnGUI :244): a ground
+        /// click there used to fall through to the map underneath it (Q5).</summary>
+        public static Rect PanelButtonRect(int screenW) => new Rect(screenW - 104, 8, 90, 24);
+
+        /// <summary>The IMGUI chrome mask TryGroundPoint used to have inline, plus the two misses the review found:
+        /// the silver/men boxes and the trench buttons (BattleHud.Chrome), and the "Debug panel" button itself when
+        /// the panel is hidden. `m` is in pixels, y from the bottom, same convention as Mouse.position.</summary>
+        public static bool OverImguiChrome(Vector2 m, bool panelVisible, bool offered, int screenW, int screenH)
+        {
+            if (panelVisible && m.x < Width + 20f) return true;   // this panel itself
+            if (m.y < BattleHud.BarHeight + 4f) return true;   // the deploy bar
+            var gui = new Vector2(m.x, screenH - m.y);
+            if (BattleHud.MinimapRect.Contains(gui)) return true;   // a click on the minimap moves the view
+            if (BattleHud.OverChrome(gui)) return true;   // silver/men boxes, trench buttons
+            if (offered && !panelVisible && PanelButtonRect(screenW).Contains(gui)) return true;   // "Debug panel"
+            return false;
+        }
+
         /// <summary>Where the mouse points on the ground plane, if it is over the map and not over this panel.</summary>
         public bool TryGroundPoint(out Vector3 point)
         {
@@ -78,15 +101,13 @@ namespace TW.Presentation.Tactical
             if (mouse == null || cam == null) return false;
             Vector2 m = mouse.position.ReadValue();
             if (m.x < 0f || m.y < 0f || m.x > Screen.width || m.y > Screen.height) return false;
-            if (Visible && m.x < Width + 20f) return false;
             if (HudBridge.UseToolkitHud)
             {
                 if (HudBridge.IsPointerOverUi(m)) return false;   // the Toolkit HUD answers for its own chrome (panel.Pick)
             }
             else
             {
-                if (m.y < BattleHud.BarHeight + 4f) return false;   // the deploy bar (mouse Y counts from the bottom)
-                if (BattleHud.MinimapRect.Contains(new Vector2(m.x, Screen.height - m.y))) return false;   // a click on the minimap moves the view
+                if (OverImguiChrome(m, Visible, Offered, Screen.width, Screen.height)) return false;
             }
             var ray = cam.ScreenPointToRay(m);
             if (Mathf.Abs(ray.direction.y) < 1e-4f) return false;
@@ -241,7 +262,7 @@ namespace TW.Presentation.Tactical
             if (!Visible)
             {
                 if (!Offered) return;   // the shipped game offers no way back in (Q3)
-                if (GUI.Button(new Rect(Screen.width - 104, 8, 90, 24), "Debug panel")) Visible = true;
+                if (GUI.Button(PanelButtonRect(Screen.width), "Debug panel")) Visible = true;
                 return;
             }
             var w = Host.Local.World;
@@ -283,7 +304,7 @@ namespace TW.Presentation.Tactical
                 int cd = w.SlotCooldown[s];
                 bool can = w.SlotUnlocked[s] != 0 && cd == 0 && w.Silver[0] >= e.Cost && w.WinnerTeam < 0;
                 GUI.enabled = can;
-                string label = $"{s + 1}. {SlotNames[s]}   {e.Cost}s" + (cd > 0 ? $"   ({cd * w.Config.TickSeconds:0}s)" : "");
+                string label = DeployLabel(s, e, cd, w.Config.TickSeconds);
                 if (GUILayout.Button(label)) Host.Issue(SimCommand.Deploy(w.Tick, 0, s));
                 GUI.enabled = true;
             }
