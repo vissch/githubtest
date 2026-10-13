@@ -59,7 +59,10 @@ namespace TW.Editor
                 if (trace != null && Camera.main != null)
                 {
                     var v = Camera.main.WorldToViewportPoint(new Vector3(Held.x, 1f, Held.y));
-                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(bearing, facing) ? 1 : 0)}\n");
+                    // [A3] judge the guns from where the camera is REALLY looking, not the requested bearing: an
+                    // orbit's spin and FrameFrom's ease put the lens somewhere else by the time a frame is taken.
+                    float look = FilmAim.BearingOf(Camera.main.transform.forward);
+                    trace.Append($"{TraceFrame} {v.x:0.000} {v.y:0.000} {Held.x:0.0} {Held.y:0.0} {(onSubject ? 1 : 0)} {(FilmAim.ShowsGuns(look, facing) ? 1 : 0)}\n");
                     TraceFrame++;
                     if (trace.Length > 4096) { File.AppendAllText(TracePath, trace.ToString()); trace.Clear(); }
                 }
