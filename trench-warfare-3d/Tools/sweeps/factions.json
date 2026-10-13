@@ -5,6 +5,7 @@
   "minutes": 8,
   "swap_seats": true,
   "heroes": false,
+  "sides": {"a": "Iron", "b": "Brass"},
   "seeds": [1, 2, 3, 4, 5, 6, 7, 8],
   "variants": [
     {"name": "iron-mirror", "patches": [{"config": "FactionB", "set": "Iron"}]},

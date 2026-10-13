@@ -108,6 +108,42 @@ class NumbersTest(unittest.TestCase):
         self.assertIsNone(rows["t"]["band"])
 
 
+class FactionBandTest(unittest.TestCase):
+    def test_inside_the_band(self):
+        # 4 seeds, win_a 0.5 every seed: a = b = 2.0 of 4 ended -> 0.500 / 0.500, both inside 0.40-0.60.
+        report = {f"seed{i}": {"win_a": 0.5, "win_b": 0.5} for i in range(4)}
+        band = S.faction_band(report)
+        self.assertEqual(band, {"played": 4, "ended": 4, "unended": 0, "share_a": 0.5, "share_b": 0.5, "out": [], "judged": True})
+
+    def test_on_the_edge_is_inside(self):
+        # 5 seeds, a wins 3 b wins 2: 3/5 = 0.600, 2/5 = 0.400, the edge is inclusive.
+        wins_a, wins_b = [1, 1, 1, 0, 0], [0, 0, 0, 1, 1]
+        report = {f"seed{i}": {"win_a": wins_a[i], "win_b": wins_b[i]} for i in range(5)}
+        band = S.faction_band(report)
+        self.assertEqual((band["share_a"], band["share_b"], band["out"]), (0.6, 0.4, []))
+        self.assertEqual((band["ended"], band["unended"]), (5, 0))
+
+    def test_outside_the_band(self):
+        # 10 seeds, a wins 7, b wins 3: 0.700 OUT (over 0.60), 0.300 OUT (under 0.40).
+        report = {f"seed{i}": {"win_a": 1 if i < 7 else 0, "win_b": 0 if i < 7 else 1} for i in range(10)}
+        band = S.faction_band(report)
+        self.assertEqual((round(band["share_a"], 3), round(band["share_b"], 3)), (0.7, 0.3))
+        self.assertEqual(sorted(band["out"]), ["a", "b"])
+
+    def test_no_match_ended_is_unjudged(self):
+        # 8 seeds, every one a stalemate: nothing to share, not "0 % in band".
+        report = {f"seed{i}": {"win_a": 0, "win_b": 0} for i in range(8)}
+        band = S.faction_band(report)
+        self.assertEqual(band, {"played": 8, "ended": 0, "unended": 8, "share_a": None, "share_b": None, "out": [], "judged": False})
+
+    def test_unended_matches_are_counted_but_do_not_move_the_share(self):
+        # 8 seeds, a wins 3, b wins 2, 3 unended: 3/5 = 0.600, 2/5 = 0.400, both IN; unended is shown, not judged.
+        report = {f"seed{i}": {"win_a": 1 if i < 3 else 0, "win_b": 1 if 3 <= i < 5 else 0} for i in range(8)}
+        band = S.faction_band(report)
+        self.assertEqual((band["share_a"], band["share_b"], band["out"]), (0.6, 0.4, []))
+        self.assertEqual((band["played"], band["ended"], band["unended"]), (8, 5, 3))
+
+
 def stand_in(win_by_variant, refuse=()):
     """Plays a chunk as Unity would: one report per variant, none for a variant the test refuses."""
     calls = []
@@ -119,8 +155,8 @@ def stand_in(win_by_variant, refuse=()):
             if v["name"] in refuse:
                 return (0, 1)
             win = win_by_variant.get(v["name"], 0.5)
-            report = {f"seed{s}": {"win_a": win, "end_s": 400.0 + int(s)} for s in seeds.split(",")}
-            report["mean"] = {"win_a": win, "end_s": 402.0}
+            report = {f"seed{s}": {"win_a": win, "win_b": 1 - win, "stalemate": 0.0, "end_s": 400.0 + int(s)} for s in seeds.split(",")}
+            report["mean"] = {"win_a": win, "win_b": 1 - win, "stalemate": 0.0, "end_s": 402.0}
             json.dump(report, open(os.path.join(out, v["name"] + ".json"), "w"))
         return (1, 0)
     runner.calls = calls
@@ -160,6 +196,14 @@ class RunTest(unittest.TestCase):
 
     def test_a_baseline_outside_a_band_exits_2(self):
         self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 2)
+
+    def test_a_faction_out_of_band_is_reported_but_never_fails_the_exit_code(self):
+        # 0.9 win_a is also out of the owner's faction band, but only `targets` (win_a's own) can move the exit code.
+        self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 2, "targets, not the faction band, failed this")
+        json.dump(dict(SPEC, targets={}), open(self.spec, "w"))
+        self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 0, "no targets: the faction band does not fail it either")
+        out = self.run_folder()
+        self.assertIn("OUT OF BAND", open(os.path.join(out, "report.md"), encoding="utf-8").read())
 
     def test_a_target_no_run_reported_exits_2(self):
         json.dump(dict(SPEC, targets={"win_z": [0, 1]}), open(self.spec, "w"))
