@@ -1414,13 +1414,19 @@ def cmd_prune(a):
               "any snapshot a run of the last %d cycles uses, every main still, and the last %d cycles' frames)"
               % (len(plan), gb(total), KEEP_SNAPSHOTS, KEEP_FRAME_CYCLES, KEEP_FRAME_CYCLES))
         return 0
-    for p, _, _ in plan:
+    # A17: count what really went, not what was planned, and fail when anything stayed behind
+    done_n, done_bytes, failed = 0, 0, []
+    for p, n, _ in plan:
         try:
             shutil.rmtree(p) if p.is_dir() else p.unlink()
+            done_n += 1
+            done_bytes += n
         except OSError as e:
-            print("could not delete %s: %s" % (p, e))
-    print("prune: deleted %d items, %s" % (len(plan), gb(total)))
-    return 0
+            failed.append("could not delete %s: %s" % (p, e))
+    for line in failed:
+        print(line)
+    print("prune: deleted %d items, %s" % (done_n, gb(done_bytes)))
+    return 1 if failed else 0
 
 
 def _seen(s, w, h):
