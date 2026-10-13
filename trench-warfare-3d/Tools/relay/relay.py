@@ -12,6 +12,9 @@ Contract: docs/reference/relay.md. Settings: limits.json, phases.json, style.jso
   python Tools/relay/relay.py budget [--days N]     what today's legs cost against the day's budget, and the days before
   python Tools/relay/relay.py day              one screen: the budget, the pace, the run, the queue in its order, what
                                                needs the owner
+  python Tools/relay/relay.py outcomes [--repo <checkout>] [--json]   what became of each unit after it passed (landed,
+                                               reworked, still waiting) and the cost per landed unit per model
+                                               tier (outcomes.py)
   python Tools/relay/relay.py agents [--day D]      what the agents cost that sessions here spawned outside the relay
   python Tools/relay/relay.py agents book [--out F | --file F] [--who NAME]   add that to the day's budget (agents.py)
   python Tools/relay/relay.py usage            where the plan's week stands, from the newest reading on this machine
@@ -556,6 +559,7 @@ def main(argv=None):
     p.add_argument("ids", nargs="+")
     sub.add_parser("update").add_argument("ref", nargs="?", default="origin/lane/show/relay")
     sub.add_parser("leaks", add_help=False)        # the watch for wasted tokens: leakwatch.py takes the rest
+    sub.add_parser("outcomes", add_help=False)     # what became of the units that passed: outcomes.py takes the rest
     p = sub.add_parser("hold")
     p.add_argument("who")
     p.add_argument("--hours", type=float, default=4)
@@ -573,8 +577,9 @@ def main(argv=None):
     p.add_argument("leg")
     p.add_argument("--follow", action="store_true")
     argv = list(sys.argv[1:] if argv is None else argv)
-    rest = argv[1:] if argv[:1] == ["leaks"] else []           # leakwatch.py reads its own arguments
-    a = ap.parse_args(argv[:1] if rest or argv[:1] == ["leaks"] else argv)
+    own = argv[:1] in (["leaks"], ["outcomes"])                # leakwatch.py and outcomes.py read their own arguments
+    rest = argv[1:] if own else []
+    a = ap.parse_args(argv[:1] if own else argv)
     if a.cmd == "run":
         return runner.Run(a).loop()
     if a.cmd == "leg":
@@ -608,6 +613,9 @@ def main(argv=None):
     if a.cmd == "leaks":
         import leakwatch
         return leakwatch.main(rest)
+    if a.cmd == "outcomes":
+        import outcomes
+        return outcomes.main(rest)
     if a.cmd == "view":
         return view(a.leg, a.follow)
 
