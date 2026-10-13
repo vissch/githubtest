@@ -301,6 +301,13 @@ matches are chaotic, so most numbers come out "mixed": believe "all up" and "all
 (`{"win_a": [0.4, 0.6]}`) are bands a mean should sit in: each variant is IN or OUT, and the exit is 0 the baseline
 is inside every band (or there are none), 2 it is outside one, 1 could not run.
 
+A match scenario also gets a Factions table: a side's share of the matches that *ended* ([the owner's
+band](decisions.md#d-matches), 40-60 %, a ratio of sums over the seeds, not a mean of per-seed ratios), named by the
+spec's `sides` (`{"a": "Iron", "b": "Brass"}`; a mirror variant that patches `config.FactionB` to the same name reads
+"Iron vs Iron" there). A match that does not end is counted and shown, never judged — time to breach and trench
+retention stay reported and unjudged too, until the owner sets a band for them. This table never moves the exit
+code: only `targets` does, so a faction out of band is named in the report, not failed by the gate.
+
 Runs go to `%LOCALAPPDATA%\TrenchWarfare\sweeps\<stamp>-<sha>\` (`TW_SWEEPS` overrides; the newest 8 kept, a folder
 holding KEEP.txt always): a report per variant, report.md, report.json. `--chunk` variants go to one editor launch
 (4); a variant whose report is there is not played again, so `--resume <run folder>` carries on a run that died. A
