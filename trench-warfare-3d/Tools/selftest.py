@@ -1043,6 +1043,20 @@ def editor_lock_cases(tmp: pathlib.Path):
     r = tool('status')
     case('editor_lock.py status no longer shows a released claim', 'selftest-who' not in r.stdout.decode(), r.stdout.decode())
 
+    # [H11] two different checkouts on the same machine (same LOCALAPPDATA) must not share one slot file.
+    proj_b = tmp / 'editor-lock-proj-b'
+    (proj_b / 'Assets/_Project').mkdir(parents=True)
+    (proj_b / 'Temp').mkdir()
+    tool_b = lambda *a: subprocess.run([sys.executable, str(HERE / 'editor_lock.py'), *a], cwd=proj_b,
+                                        capture_output=True, env=env)
+    r = tool('claim', 'session-a', '--minutes', '5', '--why', 'proj a')
+    case('editor_lock.py claim on proj_a as session-a exits 0', r.returncode == 0, r.stdout.decode() + r.stderr.decode())
+    r = tool_b('claim', 'session-b', '--minutes', '5', '--why', 'proj b')
+    case('[H11] editor_lock claims on two different checkouts do not collide',
+         r.returncode == 0 and 'session-b' in r.stdout.decode(), r.stdout.decode() + r.stderr.decode())
+    tool('release', 'session-a')
+    tool_b('release', 'session-b')
+
 
 def perfcmp_cases(tmp: pathlib.Path):
     # [H8] two hand-written reports, shaped like perfcmp.py's own reader expects.
