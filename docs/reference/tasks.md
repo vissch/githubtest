@@ -98,7 +98,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   is data, a unit's field, the match's config or a script's knob, written before the first tick; it reports attrition,
   time to breach, trench retention and who wins, per seed. `python Tools/sweep.py run Tools/sweeps/factions.json`:
   `workflow.md`, section 5. Its two plain tests hold that a patch writes the field it names and fails on any it
-  cannot, and that a variant changing nothing is the same ladder).
+  cannot, and that a variant changing nothing is the same ladder). `sweep.py report`'s Factions table judges a match
+  scenario against [the owner's band](decisions.md#d-matches) (40-60 % of the matches that end), named by a spec's
+  `sides`; `Tools/test_sweep.py`'s `FactionBandTest`.
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
