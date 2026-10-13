@@ -216,7 +216,7 @@ def lanes():
         _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', rev], cwd=REPO)
         _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{rev}...{integration_ref()}'], cwd=REPO)
         ahead, behind = (counts.split() + ['?', '?'])[:2]
-        _, dirty = run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
+        _, dirty = run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
         n = len([l for l in dirty.split('\n') if l.strip()])
         print(f'\n{Path(path).name}  [{branch}]  +{ahead} -{behind} vs integration'
               + (f'  {n} uncommitted' if n else '') + ('  (you)' if you else ''))
