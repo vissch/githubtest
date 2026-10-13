@@ -258,7 +258,7 @@ def evaluate(item, board):
 
 def claim_alive(c):
     """A claim only counts while its worker runs: a crashed session must not hold a job forever."""
-    return proc_start(c["pid"]) == c["pid_start"]
+    return c["pid_start"] is not None and proc_start(c["pid"]) == c["pid_start"]
 
 
 def refuse_if_busy(board, st):
