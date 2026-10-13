@@ -13,7 +13,7 @@ an untracked file in the gate tree changes the tree land.py checks.
 Commit headroom, not free RAM, decides whether a heavy job may start (workflow.md: under 10 GB, batch gate only).
 Stdlib only. ASCII only.
 """
-import argparse, ctypes, datetime, json, os, subprocess, sys, time
+import argparse, ctypes, datetime, json, os, re, subprocess, sys, time
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -22,6 +22,18 @@ from pipeline import proc_start, write_json, read_json   # noqa: E402
 
 STALL_S = 600          # no log growth for this long while running = STALLED (reported, not killed)
 BEAT_S = 10
+CLOCK = time.monotonic   # the timeout is measured on a clock no NTP step or DST change can move
+NAME_RE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+JOB_PREFIX = "tw-run-"
+JOB_LIMIT_KILL_ON_JOB_CLOSE = 0x2000
+JOB_ALL_ACCESS = 0x1F001F
+
+
+def run_dir(name):
+    """The folder of one run. A name is a file name, never a path: ".." or a slash would escape TW_RUNS."""
+    if not NAME_RE.match(name or ""):
+        raise SystemExit("bad run name %r: 1-64 characters of letters, digits, dot, dash or underscore" % (name,))
+    return runs_root() / name
 
 
 def runs_root():
@@ -43,8 +55,79 @@ def headroom_gb():
     return m.apf / 2 ** 30          # available page file = commit limit minus commit charge
 
 
-def kill_tree(pid):
+def job_name(name):
+    return JOB_PREFIX + name
+
+
+def make_job(name):
+    """A Windows Job object holding the child and everything it starts, so no grandchild can outlive a stop.
+    Returns the handle, or None when Jobs are unavailable: that must never stop a run from starting."""
+    if os.name != "nt":
+        return None
+    try:
+        k = ctypes.windll.kernel32
+        h = k.CreateJobObjectW(None, job_name(name))
+        if not h:
+            return None
+        class LIMIT(ctypes.Structure):
+            _fields_ = [("PerProcessUserTimeLimit", ctypes.c_longlong), ("PerJobUserTimeLimit", ctypes.c_longlong),
+                        ("LimitFlags", ctypes.c_ulong), ("MinimumWorkingSetSize", ctypes.c_size_t),
+                        ("MaximumWorkingSetSize", ctypes.c_size_t), ("ActiveProcessLimit", ctypes.c_ulong),
+                        ("Affinity", ctypes.c_size_t), ("PriorityClass", ctypes.c_ulong),
+                        ("SchedulingClass", ctypes.c_ulong)]
+        class IO(ctypes.Structure):
+            _fields_ = [("ReadOperationCount", ctypes.c_ulonglong), ("WriteOperationCount", ctypes.c_ulonglong),
+                        ("OtherOperationCount", ctypes.c_ulonglong), ("ReadTransferCount", ctypes.c_ulonglong),
+                        ("WriteTransferCount", ctypes.c_ulonglong), ("OtherTransferCount", ctypes.c_ulonglong)]
+        class EXT(ctypes.Structure):
+            _fields_ = [("BasicLimitInformation", LIMIT), ("IoInfo", IO), ("ProcessMemoryLimit", ctypes.c_size_t),
+                        ("JobMemoryLimit", ctypes.c_size_t), ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                        ("PeakJobMemoryUsed", ctypes.c_size_t)]
+        info = EXT()
+        info.BasicLimitInformation.LimitFlags = JOB_LIMIT_KILL_ON_JOB_CLOSE
+        k.SetInformationJobObject(h, 9, ctypes.byref(info), ctypes.sizeof(info))   # 9 = ExtendedLimitInformation
+        return h
+    except Exception:
+        return None
+
+
+def assign_job(h, pid):
+    if not h or os.name != "nt":
+        return False
+    try:
+        k = ctypes.windll.kernel32
+        ph = k.OpenProcess(0x1F0FFF, False, int(pid))
+        if not ph:
+            return False
+        try:
+            return bool(k.AssignProcessToJobObject(h, ph))
+        finally:
+            k.CloseHandle(ph)
+    except Exception:
+        return False
+
+
+def kill_job(name):
+    """Kill a run's whole Job by name, from any process. True when a Job was found and terminated."""
+    if os.name != "nt" or not name:
+        return False
+    try:
+        k = ctypes.windll.kernel32
+        h = k.OpenJobObjectW(JOB_ALL_ACCESS, False, job_name(name))
+        if not h:
+            return False
+        try:
+            return bool(k.TerminateJobObject(h, 1))
+        finally:
+            k.CloseHandle(h)
+    except Exception:
+        return False
+
+
+def kill_tree(pid, name=None):
+    """Stop the tree we started. The Job first (it holds grandchildren too), then taskkill /T as the fallback."""
     if os.name == "nt":
+        kill_job(name)
         subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)], capture_output=True)
     else:
         try:
@@ -54,7 +137,7 @@ def kill_tree(pid):
 
 
 def cmd_start(a):
-    d = runs_root() / a.name
+    d = run_dir(a.name)
     rj = d / "run.json"
     if rj.exists():
         rec0 = read_json(rj)
@@ -92,18 +175,21 @@ def cmd_start(a):
 
 
 def cmd_wrap(a):
-    d = runs_root() / a.name
+    d = run_dir(a.name)
     rj = d / "run.json"
     rec = read_json(rj)
     me = os.getpid()
-    with open(rec["log"], "ab") as log:
+    job = make_job(a.name)
+    with open(rec["log"], "wb") as log:   # one run, one log: appending let a retry read the old run's output as new
         kw = dict(creationflags=0x00000200) if os.name == "nt" else dict(start_new_session=True)
         child = subprocess.Popen(rec["cmd"], cwd=rec["cwd"], stdout=log, stderr=subprocess.STDOUT,
                                  stdin=subprocess.DEVNULL, **kw)
+        in_job = assign_job(job, child.pid)
         rec.update(state="RUNNING", wrapper_pid=me, wrapper_start=proc_start(me), child_pid=child.pid,
-                   child_start=proc_start(child.pid), heartbeat=now(), log_size=0)
+                   child_start=proc_start(child.pid), heartbeat=now(), log_size=0,
+                   job=job_name(a.name) if in_job else None)
         write_json(rj, rec)
-        t0, last_size = time.time(), -1
+        t0, last_size = CLOCK(), -1
         while True:
             try:
                 code = child.wait(timeout=BEAT_S)
@@ -114,8 +200,8 @@ def cmd_wrap(a):
             if size != last_size:
                 rec.update(heartbeat=now(), log_size=size)
                 last_size = size
-            if time.time() - t0 > rec["timeout_s"]:
-                kill_tree(child.pid)
+            if CLOCK() - t0 > rec["timeout_s"]:
+                kill_tree(child.pid, a.name)
                 child.wait()
                 rec.update(state="TIMEOUT", exit_code=None, finished_at=now())
                 write_json(rj, rec)
@@ -144,7 +230,7 @@ def state(rec):
 
 
 def cmd_status(a):
-    rj = runs_root() / a.name / "run.json"
+    rj = run_dir(a.name) / "run.json"
     if not rj.exists():
         raise SystemExit("no run %s" % a.name)
     st, detail = state(read_json(rj))
@@ -152,7 +238,7 @@ def cmd_status(a):
 
 
 def cmd_stop(a):
-    rj = runs_root() / a.name / "run.json"
+    rj = run_dir(a.name) / "run.json"
     if not rj.exists():
         raise SystemExit("no run %s" % a.name)
     rec = read_json(rj)
@@ -162,7 +248,7 @@ def cmd_stop(a):
         return
     for p, s in (("wrapper_pid", "wrapper_start"), ("child_pid", "child_start")):
         if rec.get(p) and proc_start(rec[p]) == rec.get(s):   # only the process we started, never a reused pid
-            kill_tree(rec[p])
+            kill_tree(rec[p], a.name)
     rec.update(state="STOPPED", exit_code=None, finished_at=now())
     write_json(rj, rec)
     print("stopped", a.name)
