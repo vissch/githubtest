@@ -74,5 +74,38 @@ namespace TW.Tests
                 Assert.IsTrue(kept, $"[B1] the dud at {d.x:0.00},{d.z:0.00} moved or vanished because a shell landed {Vector2.Distance(new Vector2(d.x, d.z), shell):0.0} m away");
             }
         }
+
+        static List<Vector3> Landmarks(BattlefieldKit kit, BattlefieldComposer composer, MapData map, BattlefieldSurface surface)
+        {
+            var at = new List<Vector3>();
+            composer.Build(map, surface, (m, tr) =>
+            { if (m == kit.fieldGun || m == kit.armouredStand || m == kit.well) at.Add(tr.GetColumn(3)); });
+            return at;
+        }
+
+        /// <summary>[B2] A landmark stands where it was first put: shelling one never gives it an intact twin elsewhere.</summary>
+        [Test]
+        public void ALandmarkNeverMovesWhenTheNextShellLands()
+        {
+            using var map = ShelledMap();
+            var surface = new BattlefieldSurface(map);
+            var composer = new BattlefieldComposer(kit, 1917);
+
+            var before = Landmarks(kit, composer, map, surface);
+            Assert.Greater(before.Count, 2, "[B2] the map should hold several landmarks to begin with");
+
+            // shell the ground out from under one of them, the way a barrage does
+            var hit = before[0];
+            for (int k = 0; k < 4; k++) Stamp(map, hit.x + (k - 1.5f) * 1.2f, hit.z, 3.2f, 1.3f);
+            surface.RefreshHollows();
+
+            var after = Landmarks(kit, composer, map, surface);
+            foreach (var a in after)
+            {
+                bool known = false;
+                foreach (var b in before) if (Mathf.Abs(a.x - b.x) < .01f && Mathf.Abs(a.z - b.z) < .01f) { known = true; break; }
+                Assert.IsTrue(known, $"[B2] a landmark appeared at {a.x:0.00},{a.z:0.00}, where none stood before the shelling");
+            }
+        }
     }
 }

@@ -73,7 +73,7 @@ namespace TW.Presentation.Terrain
             Clumps(map, surface); yield return true;
             Margins(map, surface); yield return true;
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
-            { sites.Clear(); rejections.Clear(); PlaceHamlets(map, surface); PlaceRear(map, surface); PlaceSites(map, surface); layoutMap = map; }
+            { sites.Clear(); marks.Clear(); landmarksPlaced = false; rejections.Clear(); PlaceHamlets(map, surface); PlaceRear(map, surface); PlaceSites(map, surface); layoutMap = map; }
             else
             {
                 // Combat updates never run the global candidate search or relocate a site, and never take one away: a shelter
