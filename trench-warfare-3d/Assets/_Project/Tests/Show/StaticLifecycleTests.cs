@@ -147,7 +147,7 @@ namespace TW.Tests
             "SettingsScreen.RequiredNames", "SettingsScreen.Tabs", "SettingsScreen.FullscreenNames",
             "SkinSpec.All", "SkinSpec.PortraitNames", "SkinSpec.Fonts",
             "StagingScreen.RequiredNames", "StrategicMapScreen.RequiredNames", "StrategicMapScreen.StateChips",
-            "StrategicMapScreen.MissionChips", "TankRenderer.Exhausts", "TankRenderer.Machines", "TankRenderer.StandIns", "TestPanel.SlotNames", "UnitArt.StateNames",
+            "StrategicMapScreen.MissionChips", "TankRenderer.Exhausts", "TankRenderer.FireSockets", "TankRenderer.Machines", "TankRenderer.StandIns", "TestPanel.SlotNames", "UnitArt.StateNames",
             "UnitArt.Faces", "UnitArt.Cutouts", "UnitLook.InfantryNames", "UnitLook.InfantryPortraits",
             "UnitLook.InfantryTips", "UnitStatus.Words", "VATRenderer.FigureNames",
             "PerfBench.HudParts", "PerfBench.SelectionParts", "DebrisRenderer.Capacity",
