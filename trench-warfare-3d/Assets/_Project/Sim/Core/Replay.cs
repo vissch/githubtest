@@ -1,6 +1,7 @@
 // Phase: P0 (implemented)
-// Replay file v2: header (magic, format version, config, world init, map id, map hash, data hash) + per tick
-// (command count, commands, state hash). Bump FormatVersion whenever a contract in docs/02 or this layout changes;
+// Replay file layout (version in ReplayRecorder.FormatVersion): header (magic, format version, config, world init,
+// map id, map hash, data hash) + per tick (command count, commands, state hash). Bump FormatVersion whenever a
+// contract in docs/02 or this layout changes;
 // MapHash/DataHash let a player reject a replay recorded against different map or unit data instead of desyncing.
 // Used by DeterminismReplayTests, the platform gate report, desync dumps (N3) and the spectator/replay UI.
 using System.Collections.Generic;
@@ -284,6 +285,8 @@ namespace TW.Sim
         {
             var l = new Unity.Collections.FixedList32Bytes<byte>();
             int n = r.ReadByte();
+            if (n > l.Capacity)
+                throw new InvalidDataException($"Replay loadout count {n} overruns FixedList32Bytes<byte>.Capacity {l.Capacity}");
             for (int i = 0; i < n; i++) l.Add(r.ReadByte());
             return l;
         }

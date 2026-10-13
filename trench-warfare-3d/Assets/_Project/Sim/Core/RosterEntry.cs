@@ -21,7 +21,7 @@ namespace TW.Sim
 
         /// <summary>The roster a player deploys from. Since 2026-09-25 this is the FACTION's table (FactionRoster):
         /// player offset 0 is Iron, today's player-0 side, anything else Brass. Kept as a forwarder so every
-        /// caller that built a roster before factions existed still gets the same eight entries.</summary>
+        /// caller that built a roster before factions existed still gets the same ten entries.</summary>
         public static void FillDefault(Unity.Collections.NativeArray<RosterEntry> roster, int playerOffset)
             => FactionRoster.Fill(roster, playerOffset, playerOffset == 0 ? FactionId.Iron : FactionId.Brass);
 
