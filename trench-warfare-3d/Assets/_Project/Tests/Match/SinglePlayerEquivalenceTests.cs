@@ -23,12 +23,24 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void OneWorldPlaysTheSameMatchAsTheTwoWorldCanary()
         {
-            var one = Play(canary: false, 0, 0, 0f, out int oneEnemy, out bool oneDesync);
-            var even = Play(canary: true, 0, 0, 0f, out int evenEnemy, out bool evenDesync);
-            var lossy = Play(canary: true, 2, 1, 0.05f, out int lossyEnemy, out bool lossyDesync);
+            // [T38] Defends = true, same across all three runs, so the SOS/defensive-barrage path (ScriptedEnemy.Sos,
+            // gated on Defends) actually runs in this hash-equivalence check: before, Defends was left at its
+            // default false, and the only content assert was oneEnemy > 5. A fresh ScriptedEnemy per run (not one
+            // shared instance) because its mutable fields (PlannedAttack, lastTick, the stress counters) are tick-
+            // absolute and would carry stale state from one run's tick numbering into the next run's; only the
+            // config and the Said collector are shared.
+            var said = new System.Collections.Generic.List<string>();
+            ScriptedEnemy NewAi() => new ScriptedEnemy { Enabled = true, DeployEveryTicks = 20, Attacks = true, AttackGarrison = 6, UsesSupport = true, SupportReserve = 100,
+                                                          StressUnits = 60, StressAdvanceDelayTicks = 120, Defends = true, Said = x => said.Add(x) };
+            var one = Play(NewAi(), canary: false, 0, 0, 0f, out int oneEnemy, out bool oneDesync);
+            var even = Play(NewAi(), canary: true, 0, 0, 0f, out int evenEnemy, out bool evenDesync);
+            var lossy = Play(NewAi(), canary: true, 2, 1, 0.05f, out int lossyEnemy, out bool lossyDesync);
 
             Assert.That(oneEnemy, Is.GreaterThan(5), "the scripted enemy deployed nothing, so this compared two empty matches");
             Assert.That(evenDesync || lossyDesync || oneDesync, Is.False, "a canary run desynced against itself");
+            // [T38] the SOS path must actually have fired at least once across the three runs, or Defends = true
+            // was enabled but never exercised
+            Assert.That(said, Has.Some.Contains("SOS"), "[T38] the SOS barrage never fired across all three runs");
             for (int t = 0; t < Ticks; t++)
             {
                 Assert.That(one[t], Is.EqualTo(even[t]), $"one world diverged from the zero-lag canary at tick {t}");
@@ -37,15 +49,12 @@ namespace TW.Tests
             TestContext.WriteLine($"{Ticks} ticks hash-identical three ways; enemy men at the end: {oneEnemy} / {evenEnemy} / {lossyEnemy}");
         }
 
-        static ulong[] Play(bool canary, int latency, int jitter, float loss, out int enemyAlive, out bool desync)
+        static ulong[] Play(ScriptedEnemy ai, bool canary, int latency, int jitter, float loss, out int enemyAlive, out bool desync)
         {
             var cfg = SimConfig.Default;
             cfg.StartingSilver = 4000;
             using var session = new LockstepSession(() => MatchSim.CreatePlaytest(cfg), canary, latency, jitter, loss, cfg.Seed);
             session.Local.World.HashInterval = 1;   // this test compares every tick; single player would skip it
-            // the stress preset too: it orders BOTH sides, and it once timed the player's orders by the enemy's tick
-            var ai = new ScriptedEnemy { Enabled = true, DeployEveryTicks = 20, Attacks = true, AttackGarrison = 6, UsesSupport = true, SupportReserve = 100,
-                                         StressUnits = 60, StressAdvanceDelayTicks = 120 };
             var hashes = new ulong[Ticks];
             uint lastOrder = uint.MaxValue;
             int guard = Ticks * 40;

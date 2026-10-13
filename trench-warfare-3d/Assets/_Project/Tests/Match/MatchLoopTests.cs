@@ -198,6 +198,8 @@ namespace TW.Tests
         {
             public readonly List<Report> Reports = new List<Report>();
             public readonly List<string> Decisions = new List<string>();
+            // [T35] the enemy's own (mine, held) at the tick it decided, read independently of the string it logged
+            public readonly List<(uint Tick, int Mine, int Held)> Odds = new List<(uint Tick, int Mine, int Held)>();
             public int Hoarded, Short;   // samples short of men for the odds, and those sitting on the reserve
         }
         static Defence defended;
@@ -212,12 +214,19 @@ namespace TW.Tests
                 d.Reports.Add(Play(Policy.Defend, 10, s, ai, 8, m =>
                 {
                     var w = m.World;
+                    if (w.Tick % 100 == 50)   // [T35] the cadence ScriptedEnemy decides on
+                    {
+                        short front = m.Fields.FrontTrench(1), theirs = m.Fields.FrontTrench(0);
+                        int mine = front >= 0 ? m.Fields.Trenches[front].GarrisonCount : 0;
+                        int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0;
+                        d.Odds.Add((w.Tick, mine, held));
+                    }
                     if (w.Tick < 600 || w.Tick % 100 != 0) return;
-                    short theirs = m.Fields.FrontTrench(0);
-                    int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0, men = 0;
+                    short theirs2 = m.Fields.FrontTrench(0);
+                    int held2 = theirs2 >= 0 ? m.Fields.Trenches[theirs2].GarrisonCount : 0, men = 0;
                     for (int i = 0; i < w.HighWater; i++)
                         if (w.IsAlive(i) && w.Team[i] == 1 && (w.Flags[i] & (uint)UnitFlags.Vehicle) == 0) men++;
-                    if (men >= math.max(8, 2 * held)) return;
+                    if (men >= math.max(8, 2 * held2)) return;
                     d.Short++;
                     if (w.Silver[1] >= 180) d.Hoarded++;   // the reserve, and more than any man it deploys costs
                 }));
@@ -236,17 +245,31 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void TheEnemy_AttacksOnlyWithTheOdds()
         {
+            // [T35] the old version parsed mine/held out of ScriptedEnemy's own log line, which it only emits after
+            // its own mine/held check already passed: re-asserting those same numbers cannot fail short of a typo.
+            // This independently reads the trenches' garrison counts at the decision tick (d.Odds, from Defence's
+            // per-tick inspector) and asserts on THOSE, not on what the enemy said about itself.
             var said = Defended().Decisions;
+            var odds = Defended().Odds;
             Assert.IsNotEmpty(said, "it attacked at all");
+            int checked_ = 0;
             foreach (var d in said)
             {
                 if (!d.Contains("barrage called") && !d.Contains("bare")) continue;
+                // the log line starts "{t/20} s ...": the decision tick is t % 100 == 50, so t/20 round-trips as
+                // tick = 20*s + 10 (checked: t=50,150,250,... -> t/20=2,7,12,... -> 20*s+10 gives back 50,150,250,...)
                 var parts = d.Split(' ');
-                int mine = int.Parse(parts[parts.Length - 3]), held = int.Parse(parts[parts.Length - 1]);
+                int s = int.Parse(parts[0]);
+                uint tick = (uint)(20 * s + 10);
+                int found = odds.FindIndex(o => o.Tick == tick);
+                Assert.GreaterOrEqual(found, 0, $"no recorded odds at tick {tick} for decision {d}");
+                var (_, mine, held) = odds[found];
                 float want = d.Contains("bare") ? 3f : 2f;
                 Assert.GreaterOrEqual(mine, want * held, d);
                 Assert.GreaterOrEqual(mine, 8, d);
+                checked_++;
             }
+            Assert.Greater(checked_, 0, "at least one attack decision was checked against the recorded odds");
         }
 
         [Test]
