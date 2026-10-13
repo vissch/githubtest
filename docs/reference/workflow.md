@@ -152,6 +152,10 @@ no job threads, no pixels). A FAIL caused only by the stand-in goes in `Tools/ot
 otr refuses a verdict (exit 2) when a dll is older than its sources or its asmdef, or when the assembly's
 `.cs` files differ from the `OUT/<name>.rsp` occ.py built it from (a deleted file still in the dll, a new one
 not in it); a tree built by an older occ.py has no `.rsp`, so the first run after this says so once: rerun occ.py.
+otr's offline runner cannot do what only NUnit's own runner can: a test with `[Ignore]` comes out IGNORE, and one
+with `[TestCaseSource]`, with `LogAssert`, or in a `[SetUpFixture]` namespace comes out RUNNER (not run, not a
+failure); `ExpectedResult` is checked. `python Tools/otr/test_classify.py` checks those verdicts and the
+classifier on a standalone compile of `Tools/otr/Runner.cs` (needs `dotnet`, no Unity, no dlls).
 `python Tools/test_otr.py` checks otr's own verdict rules on hand-written runner output (no Unity, no dlls):
 a run with no `#DONE` and no class, a `#CRASH` line, a `LOADER` / `ENGINE-INSTALL-FAILED` line, and a non-zero
 exit after `#DONE` all have to come out bad, so a dropped module can never read as a pass.
