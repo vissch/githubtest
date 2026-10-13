@@ -68,6 +68,9 @@ namespace TW.Sim.Terrain
         /// <summary>Props by grid cell, so a blast asks for the props near it instead of walking them all
         /// (PropIndex). Grown by AddProp; derived from Props, so it is not hashed.</summary>
         public PropIndex PropsByCell;
+        /// <summary>Building footprints (A4, owner 2026-10-07). Read by DirectFire only: a man on foot with a house
+        /// between him and the shooter is harder to hit. No nav blocking, no CellCover stamping, no hit points.</summary>
+        public NativeList<HouseDef> Houses;
 
         // ---- the ground as it is dug (A4, owner 2026-09-24) -------------------------------------------------
         /// <summary>Every shell hole in the field, so a second shell on one WIDENS it instead of only deepening it
@@ -101,6 +104,7 @@ namespace TW.Sim.Terrain
             CellCover = new NativeArray<byte>(NavWidth * NavLength, allocator);
             Props = new NativeList<PropDef>(256, allocator);
             PropsByCell = new PropIndex(sizeMeters, allocator);
+            Houses = new NativeList<HouseDef>(16, allocator);
             Holes = new NativeList<HoleRecord>(64, allocator);
             // 255 = "further from a trench than anything cares about". It MUST start there rather than at zero: the
             // generator carves its own pre-shelled field before BuildTrenchDistance has run, and an all-zero array
@@ -196,6 +200,16 @@ namespace TW.Sim.Terrain
             StampCover(cell, PropRules.CoverPercent(prop.Kind));
             Version++;
             return Props.Length - 1;
+        }
+
+        // ---- houses -----------------------------------------------------------------------------------------
+        /// <summary>Place a building footprint; returns its index. It changes no nav cell and no cell cover: it is
+        /// cover from small arms for whoever has it between him and the shooter, nothing else.</summary>
+        public int AddHouse(HouseDef h)
+        {
+            Houses.Add(h);
+            Version++;
+            return Houses.Length - 1;
         }
 
         /// <summary>Change what a prop is (a tree breaks). Returns true when its nav cell opened or closed.</summary>
@@ -311,12 +325,17 @@ namespace TW.Sim.Terrain
                 var p = Props[i];
                 h = SimHash.Value(p.Pos, h); h = SimHash.Value(p.Hp, h); h = SimHash.Value(p.Scale, h); h = SimHash.Value(p.Cell, h); h = SimHash.Value((int)p.Kind, h);
             }
+            for (int i = 0; i < Houses.Length; i++)   // appended at the end (seam): empty on every map that exists,
+            {                                         // so a houseless match hashes exactly as it did before
+                var u = Houses[i];
+                h = SimHash.Value(u.Pos, h); h = SimHash.Value(u.Yaw, h); h = SimHash.Value(u.Half, h);
+            }
             return h;
         }
 
         public void Dispose()
         {
-            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose(); PropsByCell.Dispose();
+            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose(); PropsByCell.Dispose(); Houses.Dispose();
             Holes.Dispose(); if (CellTrenchDist.IsCreated) CellTrenchDist.Dispose();
             Trenches.Dispose(); TrenchCells.Dispose(); FireStepCells.Dispose(); LinkCells.Dispose();
             Objectives.Dispose(); ObjectiveCells.Dispose(); StaticCover.Dispose(); Spawns.Dispose();
