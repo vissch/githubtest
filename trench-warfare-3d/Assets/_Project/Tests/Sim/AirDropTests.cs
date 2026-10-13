@@ -106,6 +106,27 @@ namespace TW.Tests
             return n;
         }
 
+        // [U12] the drop read the compiled RosterEntry.Para default instead of the match's own table
+        [Test]
+        public void TheDroppedMenComeDownWithTheMatchTablesHitPoints()
+        {
+            using var m = NewMatch();
+            var at = OpenPoint(m, 0);
+            // what this match defines a Para to be, in place of the compiled default
+            m.World.Units.Roster[InfantryArchetype.Para] = new RosterEntry { Archetype = InfantryArchetype.Para, Cost = 0, Hp = 222f, Speed = 3.4f };
+            OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.ParaDrop, out var stats);
+            Step(m, Drop(m, 0, at));
+            var log = Run(m, stats.WarmupTicks + 1);
+            int men = 0;
+            foreach (var e in log)
+            {
+                if (e.Type != SimEventType.DropLanded) continue;
+                men++;
+                Assert.AreEqual(222f, m.World.MaxHp[e.A], 0.01f, "[U12] the dropped man came down with the compiled default, not the match table");
+            }
+            Assert.AreEqual(stats.Men, men, "[U12] the stick landed");
+        }
+
         [Test]
         public void ADropIsRefusedWhereItCannotLandOrByAFactionWithoutIt()
         {
