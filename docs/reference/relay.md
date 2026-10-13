@@ -84,6 +84,17 @@ cannot move them.
 
 The runner claims and completes pipeline jobs. A leg never does, and never lands.
 
+**The handoff note.** A leg that cannot finish writes a note (note.md) in its leg folder: `## Goal`, `## Done`,
+`## In flight`, `## Next`, `## Predictions` (one to three look-only commands with the exit code or the text they
+will give) and `## Dead ends`. A note that passes its check (`papers.check_note`, `note_max_bytes`) is kept on the
+board as `relay/notes/<key>.md` and rides on the card of the next leg on that unit, each prediction run by script
+and marked held or not; a note that fails is dropped, and a unit that passes takes its note away. Both sources
+hand one on (`sources/notes.py`): a queued unit under its id, a board job under `<item>--<stage>`, because a job's
+id is a hash of its inputs and may be another by the next try. A note may also hold `## Decisions`: one line per
+choice already made that the next leg must not reopen, with where it was decided (a brief id, a `decisions.md`
+row, the owner's note id, or "this leg, because ..."). The next card then says those are closed. The section is
+not asked for: a note without it is kept as before.
+
 **A unit's role.** A board stage and a queue file each name a `role`. `Tools/pipeline/roles.json` is the one table
 of roles: each maps to the skill that is its brief, or to nothing for a role that is known and has none. For a role
 with a brief the runner copies that skill into the leg's folder before a plan or an execute leg, and the card says
@@ -113,6 +124,7 @@ $R role <role> <id> [<id> ...]                    # give queued units a role fro
 $R view <leg folder> [--follow]                   # a leg's output as readable lines
 $R refusals [--runs 3]                            # what the guard refused in the newest runs, with the reason
 $R budget [--days 8]                              # what today's legs cost against the day's budget, and the days before
+$R outcomes [--repo <checkout>] [--json]          # what became of each unit after it passed, and the cost per landed unit ("After the pass")
 $R day                                            # one screen: budget, pace, run, queue in its order, what needs the owner, his answers
 $R agents [--day <day>]                           # what the agents cost that sessions here spawned outside the relay
 $R agents book [--out <file> | --file <file>]     # add that to the day's budget ("Agents outside the relay")
@@ -123,6 +135,7 @@ $R hold <who> [--hours 4] [--release]             # one session at a time builds
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
+python trench-warfare-3d/Tools/relay/test_outcomes.py  # the tests of what became of a passed unit
 python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen, the queue's order, his answers, add --unit
 python trench-warfare-3d/Tools/relay/test_usage.py   # the tests of the weekly-limit readings
 python trench-warfare-3d/Tools/relay/test_agents.py  # the tests of the agents outside the relay
@@ -330,6 +343,33 @@ file; `$R add --unit <file>` queues it. A file crosses ssh where quoted words do
 queues on the desktop's board. The same unit added again is queued once: the call ends 0 and pushes the board
 again, so a take-up that stopped halfway can be repeated; another unit under a taken id is refused. The steps, in
 their order, are in the `/master` skill, "Decisions".
+
+## After the pass
+
+A PASS is not a landing. `$R outcomes` (`outcomes.py`) reads every unit that has leg records on the board and says
+what it cost (its legs added up; a leg that named no cost counts as nothing and is marked), which model planned and
+which executed it (its tier, from the leg records), and what became of it:
+
+| Outcome | Means |
+|---|---|
+| `open` | it has not passed: no `relay/done/<id>.json`, and for a board job no PASS as its newest result |
+| `passed` | it passed, and its lane holds a commit whose patch is not on integration |
+| `landed` | it passed, and every commit of its lane has a commit with the same patch on integration |
+| `reworked` | landed or passed, and a later unit of kind `fix` changed one of the same files within 14 days (`--days`); the line names it |
+| `empty` | it passed and its legs added no commit: there is nothing to land |
+| `unknown` | it passed and this checkout cannot say: the lane or its head is not here, or the records hold neither |
+
+Landed is read from git in one checkout (`--repo`, default the one the relay's code is in) against origin's
+integration branch (`--into`), with `git cherry`: landing rebases a lane and a combined landing branch cherry-picks,
+so the hashes on integration are other ones and an ancestor test alone would call every landing `passed`. The lane
+is judged at the head the unit passed at. Nothing is fetched and nothing is written: fetch the checkout first, and
+the first line says which integration commit it judged against. A commit that was changed on its way in reads as
+not landed. Files under `docs/` do not make a rework, since any leg may write `decisions.md`. Review fixes that
+follow each other through one file do read as rework of each other.
+
+The last lines are the sums per tier: units, passed, landed, what the tier's units cost in all, that cost per
+passed unit and per landed unit (everything the tier spent, also on units that never passed, over the units that
+got there; "none landed" when none did), and the rework rate. `--json` gives the rows and the sums for a page.
 
 ## What stops a run
 
