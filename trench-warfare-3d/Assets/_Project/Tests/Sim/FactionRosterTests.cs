@@ -1,6 +1,7 @@
 // Phase: A3 (implemented 2026-09-25) — the faction seam: that the two faction tables reproduce the rosters every
 // player had before factions existed, that the new archetype ids sit where the sim's masks and weapon ids allow,
 // that the ability table knows the new ids, and that the v5 replay header carries the factions and the pity.
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using TW.Sim;
@@ -180,11 +181,11 @@ namespace TW.Tests
         [Test]
         public void EveryArchetypeHasAnEntryAWeaponAndASpecAndStaysUnderTheOrderMask()
         {
-            byte[] all = { InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner, InfantryArchetype.Sniper,
-                           InfantryArchetype.Officer, InfantryArchetype.Shield, InfantryArchetype.Medic, InfantryArchetype.Repair,
-                           InfantryArchetype.Para, InfantryArchetype.Jetpack,
-                           VehicleArchetype.Maw, VehicleArchetype.Tusk, VehicleArchetype.Pincer, VehicleArchetype.Kettle,
-                           VehicleArchetype.Censer, VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt, VehicleArchetype.Breaker };
+            // [T22] derived from RosterEntry.ForArchetype's switch, not a hand list: an id forgotten there is now caught too
+            var all = new List<byte>();
+            for (byte a = 0; a <= Archetypes.Max; a++)
+                if (RosterEntry.ForArchetype(a).Hp > 0f) all.Add(a);
+            Assert.AreEqual(19, all.Count, "[T22] an archetype gained or lost an entry; add it to this test's checks");
             foreach (var a in all)
             {
                 Assert.LessOrEqual(a, InfantryArchetype.Max, $"archetype {a} is past the end of every table an archetype indexes");
@@ -213,7 +214,7 @@ namespace TW.Tests
             Assert.Greater(SourceId.Unit(0), SourceId.AbilityMax, "a unit's weapon can never read as an ability");
             Assert.AreEqual(VehicleArchetype.Breaker, SourceId.ArchetypeOf(SourceId.Unit(VehicleArchetype.Breaker)));
             Assert.IsTrue(SourceId.IsUnit(LeapSystem.LandingSource));
-            Assert.AreEqual(0, RosterEntry.SlotCount % 1);
+            Assert.AreEqual(10, RosterEntry.SlotCount, "[T22] ten roster slots, one per hotkey 1..0");
         }
 
         /// <summary>A campaign nation that has a roster of its own fields it; the rest fight as the nearest ally.</summary>

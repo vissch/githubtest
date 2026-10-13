@@ -59,17 +59,19 @@ namespace TW.Tests
             var men = Garrison(m);
             var rows = new HashSet<int>();
             var cols = new HashSet<int>();
-            int gaps = 0, last = -99;
             foreach (int i in men)
             {
                 var c = m.Map.NavCellOf(m.World.Position[i]);
                 rows.Add(c.y); cols.Add(c.x);
-                if (last >= 0 && c.x - last > 1) gaps++;
-                last = c.x;
             }
             Assert.Greater(rows.Count, 1, "they are not all on one row of cells: some man the parapet, some stand back");
             Assert.Greater(cols.Count, 3, "they are spread along the trench");
-            Assert.Greater(gaps, 0, "the posts are thinned, so the line has gaps in it rather than being evenly filled");
+            // [T22] gaps must be counted over the sorted columns, not in the order men happened to be listed in
+            var xs = new List<int>(cols);
+            xs.Sort();
+            int gaps = 0;
+            for (int k = 1; k < xs.Count; k++) if (xs[k] - xs[k - 1] > 1) gaps++;
+            Assert.Greater(gaps, 0, "[T22] the posts are thinned, so the line has gaps in it rather than being evenly filled");
         }
 
         [Test]

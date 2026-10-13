@@ -27,9 +27,9 @@ namespace TW.Tests
             m.Step(arr);
         }
 
-        static List<SimEvent> Run(MatchSim m, int ticks, System.Func<bool> done = null, System.Action<SimWorld> each = null)
+        static List<SimEvent> Run(MatchSim m, int ticks, System.Func<bool> done = null, System.Action<SimWorld> each = null, List<SimEvent> into = null)
         {
-            var log = new List<SimEvent>();
+            var log = into ?? new List<SimEvent>();
             for (int t = 0; t < ticks; t++)
             {
                 each?.Invoke(m.World);
@@ -99,7 +99,10 @@ namespace TW.Tests
             m.Hero.BaseChance = 0f;
             Garrison(m, 6);
             var log = Run(m, 40, () => m.Hero.HeroCount > 0, w => PinTeam(w, 0));
-            int hero = log.Find(e => e.Type == SimEventType.HeroMoment).A;
+            // [T22] default(SimEvent).A is 0, a real slot index, so a missing moment must not silently run as slot 0
+            int at = log.FindIndex(e => e.Type == SimEventType.HeroMoment);
+            Assert.GreaterOrEqual(at, 0, "[T22] no hero moment in 40 ticks, so every line below read slot 0");
+            int hero = log[at].A;
             float baseSpeed = m.Hero.BaseSpeed[hero];
             Assert.AreEqual(baseSpeed * HeroRules.SpeedBonus, m.World.Speed[hero]);
             Assert.AreEqual(HeroRules.DamageBonus, m.Hero.HeroScale[hero]);
@@ -108,7 +111,11 @@ namespace TW.Tests
             Assert.AreNotEqual((byte)Stance.Pinned, m.World.StanceOf[hero]);
             Step(m);
             Assert.AreEqual(HeroRules.DamageBonus, m.Aura.DamageMul[hero], "his scale reaches the one multiplier DirectFire reads");
-            log = Run(m, HeroRules.WindowTicks + 5, () => Count(log, SimEventType.HeroSurvived) > 0 || m.Hero.HeroTicks[hero] == 0);
+            // [T22] Run only assigns its returned list on return, so a lambda reading the old `log` by closure never
+            // sees what this run just added; `after` is the list the lambda actually reads.
+            var after = new List<SimEvent>();
+            Run(m, HeroRules.WindowTicks + 5, () => Count(after, SimEventType.HeroSurvived) > 0 || m.Hero.HeroTicks[hero] == 0, null, after);
+            log = after;
             Assert.AreEqual(1, Count(log, SimEventType.HeroSurvived, hero));
             Assert.AreEqual(baseSpeed, m.World.Speed[hero]);
             Assert.AreEqual(1f, m.Hero.HeroScale[hero]);
