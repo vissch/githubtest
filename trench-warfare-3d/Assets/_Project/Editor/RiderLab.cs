@@ -68,7 +68,7 @@ namespace TW.Editor
             }
             Get().Pending = new Boarding { Slot = slot, Riders = climb ? 0 : riders, Men = men.ToArray(), Frames = 3 };
             Watch();
-            TankCapture.Follow(slot, 26f, 35f);
+            TankCapture.Follow(slot, 26f, 35f, onFacing: true);   // [A7] 35 is a raw yaw, not a world bearing: let Follow read it from the machine's own facing
             return $"slot {slot} {NameOf((byte)archetype)} at ({p.x:0.0},{p.z:0.0}) size x{TankRenderer.SizeOf(archetype):0.00}, {(climb ? men.Count + " men climbing aboard" : riders + " riders placed")}";
         }
 

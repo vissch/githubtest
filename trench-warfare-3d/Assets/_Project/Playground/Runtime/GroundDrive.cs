@@ -44,9 +44,12 @@ namespace TW.Playground
             float want = dead ? 0f : Speed;
             float was = carried;
             carried = Mathf.MoveTowards(carried, want, (want > carried ? 3f : 2.5f) * dt);
-            // where it has driven to: round a circle about the rig's middle, its nose along the circle
-            float r = !InPlace && carried > 0.01f ? Radius / size : 0f;
-            if (r > 0f) angle += carried / Radius * dt;
+            // where it has driven to: round a circle about the rig's middle, its nose along the circle. [A5] r must
+            // not go to 0 just because it has coasted to a stop (carried <= 0.01): that snapped the hull back to its
+            // start every time it stopped, instead of leaving it where it coasted to. Only InPlace (no travel at all)
+            // keeps r at 0; the angle itself only advances while it is actually carried.
+            float r = InPlace ? 0f : Radius / size;
+            if (carried > 0.01f) angle += carried / Radius * dt;
             Vector3 at = r > 0f ? new Vector3(Mathf.Cos(angle) * r - r, 0f, Mathf.Sin(angle) * r) : Vector3.zero;
             float heading = r > 0f ? -angle * Mathf.Rad2Deg : 0f;
             // the nose lifts as it pulls away and dips as it stops, and the hull rocks 2 cm on its springs
@@ -57,6 +60,9 @@ namespace TW.Playground
             for (int i = 0; i < gear.Length; i++)
             {
                 var p = gear[i];
+                // [A6] a standing rig (carried 0, never spun) must not have its wheel pose overwritten every frame:
+                // that replaced VehicleRig.Pose's Sag-left lean with RestRot even when nothing was driving at all.
+                if (carried <= 0.01f && spin[i] == 0f) continue;
                 float wheel = Mathf.Max(0.15f, p.Box.extents.y) * size;
                 spin[i] = Mathf.Repeat(spin[i] + carried / wheel * Mathf.Rad2Deg * dt, 360f);
                 if (!p.Loose) p.T.localRotation = p.RestRot * Quaternion.Euler(spin[i], 0f, 0f);

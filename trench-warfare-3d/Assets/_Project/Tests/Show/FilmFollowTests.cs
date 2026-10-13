@@ -3,6 +3,7 @@
 // FilmAim to the arithmetic that undoes that, so the next batch of films cannot quietly go back to the wrong side.
 using NUnit.Framework;
 using TW.Presentation.Tactical;
+using UnityEngine;
 
 namespace TW.Tests
 {
@@ -28,6 +29,25 @@ namespace TW.Tests
         {
             for (float facing = -180f; facing < 180f; facing += 15f)
                 Assert.IsTrue(FilmAim.ShowsGuns(FilmAim.QuarterFront(facing), facing), "facing " + facing);
+        }
+
+        [Test]
+        public void BearingOfReadsTheCamerasOwnForward()
+        {
+            // [A3]
+            Assert.AreEqual(0f, FilmAim.BearingOf(new Vector3(0f, 0f, 1f)), 0.01f);
+            Assert.AreEqual(90f, FilmAim.BearingOf(new Vector3(1f, 0f, 0f)), 0.01f);
+            Assert.AreEqual(-135f, FilmAim.BearingOf(new Vector3(-1f, 0f, -1f)), 0.01f);
+        }
+
+        [Test]
+        public void GunsAreJudgedFromWhereTheCameraReallyLooksNotTheRequestedBearing()
+        {
+            // [A3] a camera that ends up looking straight along the requested bearing (not eased or spun onto the
+            // front quarter) hides the guns, though the requested bearing itself (via QuarterFront) would pass
+            float look = FilmAim.BearingOf(new Vector3(0f, 0f, 1f));
+            Assert.IsFalse(FilmAim.ShowsGuns(look, 0f), "the camera's real look direction hides the guns");
+            Assert.IsTrue(FilmAim.ShowsGuns(FilmAim.QuarterFront(0f), 0f), "the requested bearing alone would have passed");
         }
     }
 }

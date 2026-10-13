@@ -39,5 +39,13 @@ namespace TW.Presentation.Tactical
             float between = Mathf.Abs(Wrap(lookBearing - facingDeg));
             return between >= 40f && between <= 160f;
         }
+
+        /// <summary>
+        /// [A3] The world bearing a camera is REALLY looking along, from its own forward vector (+Z is 0, clockwise
+        /// from above): the requested bearing a Follow call asks for is not what an orbiting spin or an easing
+        /// AutoYaw actually points the lens at by the time a frame is taken.
+        /// Worked: BearingOf((0,0,1)) = 0, BearingOf((1,0,0)) = 90, BearingOf((-1,0,-1)) = -135.
+        /// </summary>
+        public static float BearingOf(Vector3 forward) => Wrap(Mathf.Atan2(forward.x, forward.z) * Mathf.Rad2Deg);
     }
 }

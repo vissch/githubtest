@@ -639,7 +639,7 @@ namespace TW.Tests
                     continue;
                 }
                 int slot = int.Parse(spawned.Substring(5));
-                TankCapture.Follow(slot, 24f, 32f);
+                TankCapture.Follow(slot, 24f, 32f, onFacing: true);   // [A7] 32 is a raw yaw, not a world bearing: let Follow read it from the machine's own facing
                 RiderLab.Drive(slot, 15f);   // up the corridor, but not far enough to enter the next lane
                 // Two seconds of gait before the first frame — and WAIT FOR THE MODEL. pincer_00 of set c2 came
                 // back with no machine in it at all: the first subject of a run is photographed while the renderer
