@@ -2391,6 +2391,51 @@ def critiques_cases():
          (listed, unknown, shown) == (0, 1, 0) and '3 loops kept' in said_.getvalue() and 'no critique no-such-loop' in said_.getvalue() and 'round 2): 88/100' in said_.getvalue(), said_.getvalue()[:600])
 
 
+def gamefilm_cases():
+    """The film check (gamefilm.py check): a film is only good when its subject is in the frame from the first frame
+    to the last, a film named `moves` really moves, and a machine is seen from a side that shows its guns. Judged
+    here over traces written by hand, so the rule is tested and not the editor."""
+    import gamefilm
+
+    def rows(n=48, vx=0.5, vy=0.5, step=0.0, on=True, guns=True):
+        return [dict(frame=i, vx=vx, vy=vy, x=i * step, z=0.0, on=on, guns=guns) for i in range(n)]
+
+    good = gamefilm.check_trace('Maw.battle.game-moves', rows(step=0.5), machine=True)
+    case('gamefilm: a film whose subject stays in the middle of the frame, drives 23 m and shows its guns passes',
+         good == [], good)
+    gone = gamefilm.check_trace('Maw.battle.game-moves', rows(step=0.5)[:20] + rows(vx=0.97, step=0.5)[20:], machine=True)
+    case('gamefilm: a subject that leaves the frame fails as LOST SUBJECT, with the frame it first left on',
+         len(gone) == 1 and gone[0].startswith('LOST SUBJECT') and 'frame 0' not in gone[0], gone)
+    edge = gamefilm.check_trace('Maw.battle.game-turn', rows(vx=0.08, vy=0.92), machine=True)
+    case('gamefilm: the edge of the allowed band (0.08 and 0.92) is still in the frame', edge == [], edge)
+    still = gamefilm.check_trace('Mercy.trial.game-moves', rows(step=0.02))
+    case('gamefilm: a film named moves whose subject travels under 3 m fails as STILL',
+         len(still) == 1 and still[0].startswith('STILL') and '0.9 m' in still[0], still)
+    parked = gamefilm.check_trace('Mercy.trial.game-turn', rows(step=0.0))
+    case('gamefilm: a film NOT named moves may stand still (a turn film is the camera moving, not the machine)',
+         parked == [], parked)
+    behind = gamefilm.check_trace('Maw.battle.game-moves', rows(step=0.5, guns=False), machine=True)
+    case('gamefilm: a machine filmed from a side that hides its guns fails as FROM BEHIND',
+         len(behind) == 1 and behind[0].startswith('FROM BEHIND'), behind)
+    mostly = gamefilm.check_trace('Maw.battle.game-moves', rows(n=40, step=0.5) + rows(n=4, step=0.5, guns=False), machine=True)
+    case('gamefilm: a tenth of the frames may hide the guns (the machine turns away for a moment)', mostly == [], mostly)
+    man = gamefilm.check_trace('Sniper.battle.game-battle', rows(guns=False))
+    case('gamefilm: the guns rule is a machine rule: a man filmed the same way passes', man == [], man)
+    empty = gamefilm.check_trace('Maw.battle.game-moves', [], machine=True)
+    case('gamefilm: a film with an empty trace is not green', len(empty) == 1 and empty[0].startswith('NO FRAMES'), empty)
+
+    # the same verdicts, written and read back the way TankCapture writes them
+    tmp = Path(tempfile.mkdtemp(prefix='tw-gamefilm-test-'))
+    f = tmp / 'Maw.battle.game-moves.json'
+    f.write_text('frame vx vy x z onsubject showsguns\n' + ''.join(
+        f'{i} 0.500 0.500 {i * 0.5:.1f} 0.0 1 1\n' for i in range(48)), encoding='utf-8')
+    back = gamefilm.read_trace(f)
+    case('gamefilm: a trace file is read back as its frames (one line a frame, the header skipped)',
+         len(back) == 48 and back[7]['x'] == 3.5 and back[7]['on'] and back[7]['guns'], back[:2])
+    case('gamefilm: and judged green', gamefilm.check_trace('Maw.battle.game-moves', back, machine=True) == [], 'not green')
+    shutil.rmtree(tmp, ignore_errors=True)
+
+
 if __name__ == '__main__':
     os.environ['TW_NOTES'] = tempfile.mkdtemp(prefix='tw-notes-test-')      # no case writes into the owner's own notes
     os.environ.update(TW_TASKBRIEFS=tempfile.mkdtemp(prefix='tw-taskbrief-test-'), TW_TASKBRIEF_OFF='1')      # ... and no reading of a task is started from a test
@@ -2406,5 +2451,6 @@ if __name__ == '__main__':
     decisions()
     ideas_cases()
     critiques_cases()
+    gamefilm_cases()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)

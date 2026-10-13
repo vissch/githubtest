@@ -6,6 +6,11 @@ shaders, walking, turning its guns, firing, being shot to pieces; each building 
     python Tools/assetboard/gamefilm.py film [NAME ..]  film every playground model and building (or the named ones)
     python Tools/assetboard/gamefilm.py battle [NAME ..] film every battle machine in a match (GreyboxCorridor): it
                                                         turns on the spot, drives at enemy riflemen and fires, is destroyed
+    python Tools/assetboard/gamefilm.py check [F ..]    judge films already made (a .mp4, a folder of them, or none
+                                                        for all of Captures/assetfilm): is the subject in the frame
+                                                        from the first frame to the last, does a `moves` film move,
+                                                        is a machine seen from a side that shows its guns. Exit 1 on
+                                                        a failure. `film` and `battle` run it after every take
     python Tools/assetboard/gamefilm.py down            leave Play and close that editor
 
 The board's build picks the films up from Captures/assetfilm (films.py). They are harvested, not derived: a station
@@ -21,6 +26,7 @@ on PATH starts a full editor instead, which then waits on a dialog nobody sees (
 """
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -95,7 +101,7 @@ tick = () =>
     UnityEngine.Object.Destroy(tex);
     i++;
 %(cues)s
-    if (spin != 0f) TW.Editor.TankCapture.Follow(slot, zoom, yaw0 + spin * i / frames);
+    if (spin != 0f) { var sh = UnityEngine.Object.FindFirstObjectByType<TW.Editor.TankCapture.Shooter>(); if (sh != null) sh.FollowBearing = yaw0 + spin * i / frames; }
     if (i >= frames)
     {
         UnityEditor.EditorApplication.update -= tick; UnityEngine.Time.captureFramerate = 0;
@@ -167,6 +173,9 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
     shutil.rmtree(frames_dir, ignore_errors=True)
     frames = int(round(seconds * FPS))
     if battle:
+        # the proof the camera kept its subject: one line a frame, read back by check() when the take is in
+        trace_path(name).unlink(missing_ok=True)
+        run(f'return TW.Editor.TankCapture.Trace(@"{trace_path(name).as_posix()}");')
         lines = ''.join(f'    if (i == {max(1, int(round(t * FPS)))}) {{ {stmt} }}\n' for t, stmt in cues)
         got = run(BATTLE_RECORDER % dict(dir=frames_dir.as_posix(), frames=frames, w=W, h=H, fps=FPS, spin=repr(float(spin)), cues=lines,
                                          slot=battle['slot'], zoom=repr(float(battle['zoom'])), yaw=repr(float(battle['yaw']))))
@@ -176,6 +185,8 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
         got = run(RECORDER % dict(dir=frames_dir.as_posix(), frames=frames, w=W, h=H, fps=FPS, spin=repr(float(spin)), cues=lines))
     if not str(got).startswith('filming'):
         print(f'  {name}: the recorder did not start: {got}')
+        if battle:
+            run('return TW.Editor.TankCapture.TraceStop();')
         return False
     for _ in range(int(seconds * 20) + 240):
         if (frames_dir / 'done.txt').exists():
@@ -183,7 +194,11 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
         time.sleep(0.5)
     else:
         print(f'  {name}: timed out with {len(list(frames_dir.glob("*.jpg")))} of {frames} frames')
+        if battle:
+            run('return TW.Editor.TankCapture.TraceStop();')
         return False
+    if battle:
+        run('return TW.Editor.TankCapture.TraceStop();')
     mp4 = OUT / f'{name}.mp4'
     r = subprocess.run([FFMPEG, '-y', '-loglevel', 'error', '-r', str(FPS), '-i', str(frames_dir / '%05d.jpg'), '-an', '-c:v', 'libx264', '-preset', 'slow',
                         '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(mp4)], capture_output=True, text=True)
@@ -193,7 +208,7 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
     shutil.copyfile(frames_dir / f'{frames // 3:05d}.jpg', OUT / f'{name}.jpg')
     shutil.rmtree(frames_dir, ignore_errors=True)
     print(f'  {name}.mp4  {seconds:.0f} s  {mp4.stat().st_size // 1024} KB')
-    return True
+    return not check_one(mp4)
 
 
 def settle(seconds=1.5):
@@ -204,7 +219,6 @@ def library():
     """The playground library's vehicles and figures, in its order (the index `model v N` / `model u N` takes)."""
     text = (P / 'Playground' / 'PlaygroundLibrary.asset').read_text(encoding='utf-8')
     block = lambda a, b: text[text.index(a):text.index(b)] if a in text and b in text else ''
-    import re
     return (re.findall(r'- Name: (\w+)', block('Vehicles:', 'Units:')), re.findall(r'- Name: (\w+)', block('Units:', 'Clips:')))
 
 
@@ -234,10 +248,14 @@ def film(only):
         # a flying machine circles 14 m up, out of the stage's frame: the camera has to go with it
         man = json.loads((P / 'Playground' / 'Art' / 'Tanks' / name / 'tank3.json').read_text(encoding='utf-8'))
         follow = '; cam follow 0 16 30 35' if man.get('flyer') else ''
+        # `walk 2 1` is a pace on the spot, and only a walker, hopper or flyer rig answers it. A wheeled or tracked
+        # machine (Mercy, Brute) has none of those, so it used to stand still for the whole of its `moves` film:
+        # it is sent round a circle instead, which its ground drive does answer.
+        pace = 'walk 2 1' if (man.get('walker') or man.get('hopper') or man.get('flyer')) else 'walk 2'
         do(f'{STAGE}; cookdelay 5; model v {k}; vehicle'); settle(2.5)
         do(f'vehicle; repair; walk 0; fly 0{follow}'); settle()
         record(f'{name}.trial.game-turn', 8, spin=360)
-        do(f'vehicle; walk 2 1; fly 8{follow}'); settle()
+        do(f'vehicle; {pace}; fly 8{follow}'); settle()
         record(f'{name}.trial.game-moves', 12, cues=[(0.2, 'traverse'), (3.0, 'fire'), (4.5, 'fire'), (6.0, 'fire'), (7.5, 'fire'), (9.0, 'traverse'), (10.0, 'fire')])
         do(f'vehicle; walk 0; fly 3{follow}'); settle()
         record(f'{name}.trial.game-destroyed', 16, cues=[(0.5, 'seq')])
@@ -340,15 +358,22 @@ def battle(only):
         # by eye: 13 cut the Maw's roof off, 32 made it a toy)
         near = min(22.0, max(16.0, 2.6 * reach(name)))
         far = near * 1.3
-        run(f'TW.Editor.RiderLab.Panel(false); return TW.Editor.RiderLab.Camera({slot}, {near:.1f}f, 35f, 22f);')
+        # the front quarter of THIS machine, from its own facing: a raw yaw is not a bearing (FilmAim), and 150
+        # degrees filmed the Maw from behind with its guns hidden (the critique of 2026-10-06)
+        bear = run(f'var w = {host}.Local.World; return TW.Presentation.Tactical.FilmAim.QuarterFront(w.Yaw[{slot}] * UnityEngine.Mathf.Rad2Deg);')
+        bear = float(bear) if isinstance(bear, (int, float)) else 125.0
+        run(f'TW.Editor.RiderLab.Panel(false); TW.Editor.RiderLab.Camera({slot}, {near:.1f}f, {bear:.1f}f, 22f); return TW.Editor.TankCapture.Follow({slot}, {near:.1f}f, {bear:.1f}f, false);')
         time.sleep(1.5)
-        cam = dict(slot=slot, zoom=near, yaw=35)
+        cam = dict(slot=slot, zoom=near, yaw=bear)
+        # a turn film orbits: the spin ADDS to that bearing frame by frame, it does not replace it
         record(f'{name}.battle.game-turn', 8, spin=360, battle=cam)
-        run(f'return TW.Editor.RiderLab.Camera({slot}, {far:.1f}f, 150f, 24f);')
-        record(f'{name}.battle.game-moves', 16, battle=dict(cam, zoom=far, yaw=150),
+        # the machine drives and turns from here on, so the bearing follows its facing every frame (onFacing)
+        run(f'TW.Editor.RiderLab.Camera({slot}, {far:.1f}f, {bear:.1f}f, 24f); return TW.Editor.TankCapture.Follow({slot}, {far:.1f}f, {bear:.1f}f, true);')
+        record(f'{name}.battle.game-moves', 16, battle=dict(cam, zoom=far),
                cues=[(0.2, f'TW.Editor.RiderLab.Enemies({slot}, 8, 55f, 0f); TW.Editor.RiderLab.Drive({slot}, 45f);')])
         run(f'TW.Editor.RiderLab.Stop({slot}); return TW.Editor.RiderLab.ClearEnemies({slot}, 120f);')
-        record(f'{name}.battle.game-destroyed', 10, battle=dict(cam, zoom=far, yaw=150),
+        run(f'return TW.Editor.TankCapture.Follow({slot}, {far:.1f}f, {bear:.1f}f, true);')
+        record(f'{name}.battle.game-destroyed', 10, battle=dict(cam, zoom=far),
                cues=[(1.0, f'TW.Editor.TankCapture.Ignite({slot}, 1f);'), (4.0, f'TW.Editor.RiderLab.Kill({slot});')])
     # the men: a section of each kind, enemy riflemen ahead of it, filmed as the sim fights them
     men = [(n, k) for n, k in figures() if not only or n in only]
@@ -366,17 +391,159 @@ def battle(only):
             continue
         lead = slots[len(slots) // 2]
         time.sleep(2.0)
-        run(f'TW.Editor.RiderLab.Panel(false); return TW.Editor.RiderLab.Camera({lead}, 7f, 150f, 42f);')
+        run(f'TW.Editor.RiderLab.Panel(false); TW.Editor.RiderLab.Camera({lead}, 7f, 150f, 42f); return TW.Editor.TankCapture.Follow({lead}, 7f, 150f, false);')
         time.sleep(1.0)
         record(f'{name}.battle.game-battle', 18, battle=dict(slot=lead, zoom=7, yaw=150), cues=[(0.5, f'TW.Editor.RiderLab.Enemies({lead}, 8, 38f, 0f);')])
         run(f'return TW.Editor.RiderLab.ClearEnemies({lead}, 120f);')
     return 0
 
 
+# --- the check: did the film keep its subject, and did the subject move? -----------------------------------------
+# Two ways of judging, because a film from the Drive has no trace beside it.
+#  - With a trace (TankCapture.Trace, written frame by frame while we film): the truth, in world and viewport terms.
+#  - Without one: ffmpeg only. The numbers below were measured over all 46 game films of the critique of 2026-10-06
+#    (Tools/assetboard/gamefilm.py check on that folder prints them again).
+IN_FRAME = (0.08, 0.92)      # a subject outside this part of the viewport is not really in the picture
+MOVED_M = 3.0                # a film named `moves` whose subject travels less than this stood still
+GUNS_SHARE = 0.1             # a machine may be seen from behind in a tenth of its frames, no more
+STILL_MEAN = 0.15            # mean frame difference, 0-255: the still Mercy sat at 0.024, the next quietest film (Brute, moving) at 0.627
+CUT_JUMP = 40.0              # a change that STAYS (6 frames after against 6 before): the four men's battle films that cut away
+                             # measured 42..66, every other film of 2026-10-06 at most 38 (Banner.turn, a camera orbit)
+FREEZE_SHARE = 0.5           # ... or ffmpeg freezedetect calls more than half the film frozen
+
+
+def trace_path(name):
+    return OUT / '_trace' / f'{name}.json'
+
+
+def read_trace(path):
+    rows = []
+    for line in Path(path).read_text(encoding='utf-8').splitlines()[1:]:
+        f = line.split()
+        if len(f) == 7:
+            rows.append(dict(frame=int(f[0]), vx=float(f[1]), vy=float(f[2]), x=float(f[3]), z=float(f[4]),
+                             on=f[5] == '1', guns=f[6] == '1'))
+    return rows
+
+
+def check_trace(name, rows, machine=False):
+    """The failures of one film, read off its trace: [] when it is a good film."""
+    if not rows:
+        return ['NO FRAMES: the trace is empty']
+    bad = []
+    lo, hi = IN_FRAME
+    out = [r for r in rows if not (lo <= r['vx'] <= hi and lo <= r['vy'] <= hi)]
+    if out:
+        r = out[0]
+        bad.append(f'LOST SUBJECT: {len(out)} of {len(rows)} frames have it outside the frame '
+                   f'(first at frame {r["frame"]}, viewport {r["vx"]:.2f} {r["vy"]:.2f})')
+    if 'moves' in name:
+        x0, z0 = rows[0]['x'], rows[0]['z']
+        span = max(((r['x'] - x0) ** 2 + (r['z'] - z0) ** 2) ** 0.5 for r in rows)
+        if span < MOVED_M:
+            bad.append(f'STILL: the subject moved {span:.1f} m, under {MOVED_M:.0f} m, in a film named moves')
+    if machine:
+        hidden = [r for r in rows if not r['guns']]
+        if len(hidden) > GUNS_SHARE * len(rows):
+            bad.append(f'FROM BEHIND: {len(hidden)} of {len(rows)} frames do not show its guns')
+    return bad
+
+
+def grey(path):
+    """Every frame of a film as a 64x36 grey picture (0-255), the way the critique's filmsheet.py reads motion."""
+    import numpy as np
+    raw = subprocess.run([FFMPEG, '-v', 'error', '-i', str(path), '-f', 'rawvideo', '-pix_fmt', 'gray',
+                          '-vf', 'scale=64:36', '-'], capture_output=True).stdout
+    return np.frombuffer(raw, np.uint8).reshape(-1, 36, 64).astype(np.float32)
+
+
+def frozen_seconds(path):
+    """How many seconds ffmpeg's freezedetect calls frozen."""
+    r = subprocess.run([FFMPEG, '-v', 'info', '-i', str(path), '-vf', 'freezedetect=n=-60dB:d=2', '-f', 'null', '-'],
+                       capture_output=True, text=True)
+    return sum(float(m) for m in re.findall(r'freeze_duration: ([\d.]+)', r.stderr))
+
+
+def sustained(g):
+    """Per frame, how much the picture CHANGES AND STAYS changed: the mean of the 6 frames after against the 6 before.
+    A shell flash comes back; a cut to another place does not, which is how one is told from the other."""
+    import numpy as np
+    k = 6
+    if len(g) < 2 * k + 2:
+        return np.zeros(1), 0
+    pre = np.stack([g[i - k:i].mean(axis=0) for i in range(k, len(g) - k)])
+    post = np.stack([g[i + 1:i + 1 + k].mean(axis=0) for i in range(k, len(g) - k)])
+    s = np.abs(post - pre).mean(axis=(1, 2))
+    return s, k
+
+
+def check_pixels(name, path):
+    """The failures of one film with no trace: ffmpeg and arithmetic only."""
+    import numpy as np
+    g = grey(path)
+    if len(g) < 4:
+        return [f'NO FRAMES: ffmpeg read {len(g)} frames']
+    bad = []
+    d = np.abs(g[1:] - g[:-1]).mean(axis=(1, 2))
+    if 'moves' in name:
+        froze = frozen_seconds(path)
+        if float(d.mean()) < STILL_MEAN or froze > FREEZE_SHARE * len(g) / FPS:
+            bad.append(f'STILL: the picture changes by {d.mean():.3f} of 255 a frame '
+                       f'(under {STILL_MEAN}){f", frozen {froze:.0f} s" if froze else ""}, in a film named moves')
+    s, k = sustained(g)
+    if float(s.max()) >= CUT_JUMP:
+        bad.append(f'LOST SUBJECT: the picture jumps by {s.max():.0f} of 255 and stays changed '
+                   f'at {(int(s.argmax()) + k) / FPS:.2f} s (a cut away from the subject)')
+    return bad
+
+
+def machine_names():
+    """The names of the battle machines, for the guns rule. Empty when the code cannot be read (then no guns rule)."""
+    try:
+        return {n for n, _ in machines()}
+    except Exception as e:
+        print(f'gamefilm: the machine names could not be read ({e}): no guns rule')
+        return set()
+
+
+def check_one(film, machines_known=None):
+    """[] or the failures of one .mp4. Prints the verdict."""
+    film = Path(film)
+    name = film.stem
+    subject = name.split('.')[0]
+    tp = trace_path(name)
+    if tp.exists() and tp.stat().st_size > 60:
+        rows = read_trace(tp)
+        known = machine_names() if machines_known is None else machines_known
+        bad = check_trace(name, rows, machine=subject in known)
+        how = f'traced, {len(rows)} frames'
+    else:
+        bad = check_pixels(name, film)
+        how = 'no trace: ffmpeg'
+    print(f'  {name}: {"FAIL" if bad else "OK"} ({how})')
+    for b in bad:
+        print(f'    {b}')
+    return bad
+
+
+def check(args):
+    films = []
+    for a in (args or [OUT]):
+        p = Path(a)
+        films += sorted(p.glob('*.mp4')) if p.is_dir() else [p]
+    if not FFMPEG:
+        print('gamefilm: no ffmpeg (TW_FFMPEG)')
+        return 1
+    known = machine_names()
+    fails = [f for f in films if check_one(f, known)]
+    print(f'gamefilm: {len(films) - len(fails)} of {len(films)} films kept their subject and moved')
+    return 1 if fails else 0
+
 if __name__ == '__main__':
     cmd = sys.argv[1] if len(sys.argv) > 1 else ''
-    if not CLI.exists():
+    if not CLI.exists() and cmd != 'check':      # check reads films, so it needs no editor
         print(f'gamefilm: no unity CLI at {CLI}')
         sys.exit(1)
     sys.exit(up() if cmd == 'up' else down() if cmd == 'down' else film(set(sys.argv[2:])) if cmd == 'film'
-             else battle(set(sys.argv[2:])) if cmd == 'battle' else (print(__doc__) or 2))
+             else battle(set(sys.argv[2:])) if cmd == 'battle' else check(sys.argv[2:]) if cmd == 'check'
+             else (print(__doc__) or 2))
