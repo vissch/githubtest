@@ -46,7 +46,8 @@ A playable match needs no final art: box/capsule meshes at gameplay dimensions o
 ## Owner questions — never build around them
 - **Open items:** balance not scaled with the giant machines (trench cross width, slope limit, turn rates, speeds, `MaxGrow`); the M1.5 fun-gate playtest; house HP scale (battle 1.4/1.0 vs Playground 60/30, ground floor ×3).
 - **Roster v3 decisions:** Great Works built by labour with a bar both sides see; commander names; the Brass and Iron commanders; one Great Work or a choice of two.
-- **Not in code yet:** Sapper, Great Works, balloon, commanders, wheeled units, the upgrade seam.
+- **Not in code yet:** Great Works, balloon, commanders, wheeled units, the upgrade seam.
+- Sapper exists (`InfantryArchetype.Sapper = 35`, `references/balance.md`) — only the roster v3 extras above are missing.
 
 ## Learning loop
 Brief 2 §B5, the same for every role: see `../pipeline/SKILL.md`, "The learning loop". Step 0 is reading this role's
