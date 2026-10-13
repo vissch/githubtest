@@ -257,7 +257,7 @@ namespace TW.Presentation.Tactical
         struct Fireball { public Vector3 At; public float Born, Life, Width, Height, Phase; }
         readonly List<Fireball> fireballs = new List<Fireball>(16);
         readonly List<int> gone = new List<int>();
-        Material flameMat; Mesh flameMesh;
+        Material flameMat; Mesh flameMesh; Texture2D flameNoise;   // the noise is HideAndDontSave and ours to free (K3)
         readonly List<Vector3> fPos = new List<Vector3>(); readonly List<Vector2> fCorner = new List<Vector2>(); readonly List<Vector4> fShape = new List<Vector4>(); readonly List<int> fTris = new List<int>();
         float[] prevYaw, curYaw, prevGun, curGun;
         uint lastTick = uint.MaxValue;
@@ -362,11 +362,22 @@ namespace TW.Presentation.Tactical
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.TanksDrawn = false; SceneHooks.VehicleTracks = null; SceneHooks.DrawnWreck = null; SceneHooks.VehicleGunPort = null; SceneHooks.IsTankSlot = null;
-            foreach (var m in mats) if (m != null) Destroy(m);
-            if (flameMat != null) Destroy(flameMat);
-            if (discMat != null) Destroy(discMat);
-            if (discMesh != null) Destroy(discMesh);
-            if (flameMesh != null) Destroy(flameMesh);
+            // K3: everything here is HideAndDontSave and nothing else owns it, so a scene reload (every new match)
+            // leaked the lot. Discard works in an edit-mode test too, where Destroy is a no-op.
+            foreach (var m in mats) Discard(m);
+            for (int c = 0; c < Machines.Length; c++) for (int lod = 0; lod < 2; lod++) { Discard(modelMats[c, lod]); modelMats[c, lod] = null; }
+            Discard(flameMat); flameMat = null;
+            Discard(discMat); discMat = null;
+            Discard(discMesh); discMesh = null;
+            Discard(flameMesh); flameMesh = null;
+            Discard(flameNoise); flameNoise = null;
+            Discard(rocketMesh); rocketMesh = null;
+            Discard(rocketMat); rocketMat = null;
+            Discard(rocketTex); rocketTex = null;
+            Discard(ribbonMesh); ribbonMesh = null;
+            Discard(ribbonMat); ribbonMat = null;
+            Discard(pipMat); pipMat = null;
+            books?.Dispose(); books = null;
             // the cut carcasses are HideAndDontSave meshes nothing else owns: without this they outlive every match
             // (review 2, N7.6). The dictionary's key is the live model's hull, never ours.
             foreach (var pair in carcasses) if (pair.Value != null && pair.Value.Mesh != null && pair.Value.Mesh != pair.Key) Discard(pair.Value.Mesh);
@@ -426,7 +437,7 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < w.HighWater; i++)
             {
                 if (!IsTank(w, i)) continue;
-                if (!views.TryGetValue(i, out var v) || v.Gen != w.Generation[i]) { v = NewView(w, i, now); views[i] = v; }
+                var v = ViewFor(w, i, now);
                 v.Seen = true;
                 Animate(match, v, dt, now);
             }
@@ -482,6 +493,21 @@ namespace TW.Presentation.Tactical
                     prevGun[i * 2 + k] = fresh ? g : curGun[i * 2 + k]; curGun[i * 2 + k] = g;
                 }
             }
+        }
+
+        /// <summary>The view of this slot's machine, made afresh when the slot holds a different machine than the one
+        /// we were drawing (K5: the old one's death event was missed, so wreck it here, as the `gone` path does; without
+        /// this there is no wreck hull and its thrown tracks and legs stay in `debris` for the whole match).</summary>
+        View ViewFor(SimWorld w, int slot, float now)
+        {
+            if (views.TryGetValue(slot, out var v))
+            {
+                if (v.Gen == w.Generation[slot]) return v;
+                Wreckify(v, now);   // idempotent: Wreckify returns at once on an already dead view
+            }
+            v = NewView(w, slot, now);
+            views[slot] = v;
+            return v;
         }
 
         View NewView(SimWorld w, int slot, float now)
@@ -1143,6 +1169,17 @@ namespace TW.Presentation.Tactical
             // the fire dies down, but embers glow dimly in the seams for three minutes: burnt metal, not a grey prop
             v.Burn = Mathf.MoveTowards(v.Burn, age < 180f ? 0.15f : 0f, dt / (v.CookOff ? 70f : 45f));
             v.Flash = Mathf.Max(0f, v.Flash - dt * 5f);
+            // K2: a walker killed outright (no 1.25 s knocked-out walk first) never stepped its legs again, so it stood
+            // frozen at full height mid-stride. Step the collapse on here and carry the result onto the hull's ride, as
+            // the live legged path does (Animate).
+            if (v.Legs != null && v.Legs.Ready && v.Legs.Down < 1f)
+            {
+                if (groundFn == null) groundFn = Ground;
+                v.Legs.Step(v.Model, v.Pos, v.Yaw, Vector3.zero, 0f, v.LegsLost, true, dt, groundFn);
+                v.Pitch.Value = v.Legs.Pitch; v.Pitch.Velocity = 0f;
+                v.Roll.Value = v.Legs.Roll; v.Roll.Velocity = 0f;
+                v.Heave.Value = v.Legs.Height; v.Heave.Velocity = 0f;
+            }
             Pose(v, v.Model.Lods[0], v.World);
             float fire = v.CookOff ? Mathf.Clamp01(1f - age / 40f) : Mathf.Clamp01(v.Fire - age / 30f);
             float smoke = Mathf.Clamp01(1f - age / 120f);
@@ -1560,7 +1597,7 @@ namespace TW.Presentation.Tactical
             // Perlin is not tileable; mirror the edges in so the scrolling read does not show a seam
             for (int z = 0; z < n; z++) for (int x = n / 2; x < n; x++) px[z * n + x] = px[z * n + (n - 1 - x)];
             for (int z = n / 2; z < n; z++) for (int x = 0; x < n; x++) px[z * n + x] = px[(n - 1 - z) * n + x];
-            var noise = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Tank flame noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
+            var noise = flameNoise = new Texture2D(n, n, TextureFormat.RGBA32, true) { name = "Tank flame noise", wrapMode = TextureWrapMode.Repeat, filterMode = FilterMode.Bilinear, hideFlags = HideFlags.HideAndDontSave };
             noise.SetPixels32(px); noise.Apply(true, true);
             flameMat = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             flameMat.SetTexture("_Noise", noise);

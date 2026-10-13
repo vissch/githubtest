@@ -575,10 +575,16 @@ namespace TW.Presentation.Tactical
             quad.bounds = new Bounds(Vector3.zero, Vector3.one * 100f);
         }
 
+        static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Object.Destroy(o); else Object.DestroyImmediate(o); }
+
         public void Dispose()
         {
-            foreach (var m in mats) if (m != null) Object.Destroy(m);
-            if (quad != null) Object.Destroy(quad);
+            // K3: TankRenderer.OnDestroy calls this, and an edit-mode test runs OnDestroy outside Play, where
+            // Destroy is an error (the pattern of BattlefieldKit.Discard)
+            foreach (var m in mats) Discard(m);
+            Discard(quad);
+            for (int i = 0; i < mats.Length; i++) mats[i] = null;
+            quad = null;
             cards.Clear(); Ready = false;
         }
 
