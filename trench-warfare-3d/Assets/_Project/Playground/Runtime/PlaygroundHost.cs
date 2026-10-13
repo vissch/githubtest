@@ -405,9 +405,7 @@ namespace TW.Playground
                 case "dumphull":   // "dumphull <dir>": each hull LOD's vertices and triangles as JSON, the input of Tools/legrig.py
                     foreach (var v in Vehicles) { DumpHull(v, a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures")); break; }
                     break;   // "hopphase 0.43": every hop at that moment (with "timescale 0", a still of it)
-                // "walk 2 [1]": a walker's or a driven machine's pace, m/s [on the spot]. A tracked or wheeled machine
-                // could not be driven at all before (Y3); it now takes the same command.
-                case "walk":
+                case "walk":   // "walk 2 [1]": a walker's, hopper's or wheeled machine's pace, m/s [on the spot]
                     foreach (var v in Vehicles)
                     {
                         if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; }

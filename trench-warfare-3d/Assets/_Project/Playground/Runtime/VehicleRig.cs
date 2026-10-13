@@ -203,8 +203,10 @@ namespace TW.Playground
             if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
             if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
             if (rig.Manifest.hopper) rig.Hopper = root.AddComponent<HopDrive>().Init(rig, e.Legs != null ? e.Legs.text : null);
-            // a tracked or wheeled machine could not be driven at all (Y3): it gets the ground drive
-            if (!rig.Manifest.walker && !rig.Manifest.flyer) rig.Ground = root.AddComponent<GroundDrive>().Init(rig);
+            // a tracked or wheeled machine could not be driven at all (Y3): it gets the ground drive, when it has running gear
+            if (!rig.Manifest.walker && !rig.Manifest.flyer && !rig.Manifest.hopper
+                && rig.Parts.Exists(p => p.Name.StartsWith("Wheel_") || p.Name.StartsWith("Track_")))
+                rig.Ground = root.AddComponent<GroundDrive>().Init(rig);
             return rig;
         }
 
@@ -272,7 +274,7 @@ namespace TW.Playground
         {
             get
             {
-                if (Walker != null || Flyer != null || Hopper != null)
+                if (Walker != null || Flyer != null || Hopper != null || Ground != null)
                 {
                     var h = Find("Hull");
                     if (h != null && !h.Loose) return h.T.TransformPoint(h.Box.center);
