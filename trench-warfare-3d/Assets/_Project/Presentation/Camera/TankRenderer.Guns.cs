@@ -120,6 +120,12 @@ namespace TW.Presentation.Tactical
             public FlipbookFx.Book Book;
             public float Push, Width, Life;
             public bool RootLeft, Carried;
+            /// <summary>The card is LAID ALONG the barrel's axis instead of pushed out along it in the world: its art
+            /// root is put on the mouth ON SCREEN and its long side runs down the bore's screen projection, from every
+            /// angle (FlipbookFx.LayAlong). A world push foreshortens at a quarter view while the card's own half-width
+            /// on screen does not, which slid the Banner's 6 m blast up to 3 m off its mouth (owner, 2026-10-14: "its
+            /// visually still off, line it up properly"). The Banner's cards alone: no other machine's picture moves.</summary>
+            public bool AlongAxis;
             public int Smoke;   // -1, or which of the three near-smoke cards this is
 
             /// <summary>Where the card's near edge sits along the barrel, from the muzzle plane: below zero is inside
@@ -162,6 +168,9 @@ namespace TW.Presentation.Tactical
                 // and a card that outlives the machine's next step travels with it, instead of standing in the world
                 // while the walker drives through it (the 1 s blast card slid 2.40 m back over the barrel)
                 c.Carried = c.Life > CarriedOver;
+                // the fire of the shot - the blast and the flash under it - is laid along the bore from the mouth, so it
+                // stays on the barrel from any eye; the smoke is a cloud and keeps its world push
+                c.AlongAxis = c.Book == FlipbookFx.Book.GunBlast || c.Book == FlipbookFx.Book.Flash;
                 into[i] = c;
             }
             return n;
@@ -193,12 +202,15 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < n; i++)
             {
                 var c = fireCards[i];
-                Vector3 at = muzzle + dir * c.Push;
+                // a laid card is rooted ON the mouth (its near edge): FlipbookFx places and shortens it from the eye
+                Vector3 at = muzzle + dir * (c.AlongAxis ? c.NearEdge : c.Push);
+                Vector3 axis = c.AlongAxis ? dir : Vector3.zero;
                 Vector3 vel = c.Carried ? carry : Vector3.zero;
                 if (c.Book == FlipbookFx.Book.GunBlast)
-                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f);   // 12 frames at 12 fps
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: roll, glow: SceneMood.Night ? 2.2f : 1.4f, axis: axis);   // 12 frames at 12 fps
                 else if (c.Book == FlipbookFx.Book.Flash)
-                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f);
+                    // a laid flash takes its roll from the bore, not from a die: a 2 m card rolled at random points anywhere
+                    books.Add(c.Book, at, c.Width, c.Life, velocity: vel, roll: c.AlongAxis ? 0f : UnityEngine.Random.value * 6.28f, glow: SceneMood.Night ? 4f : 2f, pop: 0.5f, axis: axis);
                 else
                 {
                     int k = Mathf.Max(0, c.Smoke);
