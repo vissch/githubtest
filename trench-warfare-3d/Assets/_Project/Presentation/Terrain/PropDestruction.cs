@@ -174,6 +174,13 @@ namespace TW.Presentation.Terrain
         public void StrikeForTests(Vector3 at, float reach, float power) => Strike(at, reach, power, 1u, false);
         /// <summary>Tests only: lining pieces the last strike threw (its ration, MaxSectionPiecesPerStrike).</summary>
         public int SectionPiecesForTests => sectionPieces;
+        /// <summary>Tests only: one frame of the prop work, in the real order (FrameWork). No sim world: without a map
+        /// there is no fire grid, so the wear pass itself does nothing and only the recomposition guard and the settling
+        /// of knocked props run.</summary>
+        public void StepForTests(float now) => FrameWork(null, now);
+        /// <summary>Tests only: a prop knocked about by a round, as Knock records one.</summary>
+        public void KnockForTests(BattlefieldKit.Module module, int page, int slot, Matrix4x4 home) =>
+            jolts.Add(new Jolted { Module = module, Page = page, Slot = slot, Home = home, Push = Vector3.forward * JoltReach, Born = Time.time });
 
         void OnDestroy()
         {
@@ -199,8 +206,16 @@ namespace TW.Presentation.Terrain
             // the tracks: once per sim tick, from the tick state
             var w = Host.Local.World;
             if (w.Tick != lastCrushTick) { lastCrushTick = w.Tick; Crush(w); Ram(w); }   // Ram: heavy machines through walls (props.ram)
-            Wear(w);        // and what a stream of bullets has done, every WearTicks of them
-            Twitch(now);    // the things a round knocked about, settling back
+            FrameWork(w, now);
+        }
+
+        /// <summary>The per-frame prop work, in order: a recomposition is noticed FIRST (G2), then what a stream of
+        /// bullets has done (every WearTicks of them), then the things a round knocked about, settling back.</summary>
+        void FrameWork(SimWorld w, float now)
+        {
+            ForgetIfRecomposed();
+            if (w != null) Wear(w);
+            Twitch(now);
         }
 
         void BuildRules(BattlefieldKit kit)

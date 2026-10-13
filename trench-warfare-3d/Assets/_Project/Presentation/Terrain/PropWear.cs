@@ -150,6 +150,17 @@ namespace TW.Presentation.Terrain
             return new Vector3(x, GroundAt(x, z), z);
         }
 
+        /// <summary>A new composition renumbers every page and slot: what was found before means nothing now, so it is
+        /// thrown away. Checked every frame, before any of the frame's work (G2): it used to sit behind the every-fourth-
+        /// tick gate of the wear pass, so for up to WearTicks (200 ms) after a recomposition Twitch and Home moved, or
+        /// recorded, whichever prop now held the old slot - a different helmet left out of place, or the wrong prop
+        /// marked destroyed.</summary>
+        void ForgetIfRecomposed()
+        {
+            if (props == null) return;
+            if (props.Generation != generation) { swept.Clear(); jolts.Clear(); generation = props.Generation; }
+        }
+
         /// <summary>The pass: the squares taking the most fire give up what has gathered in them. Squares over the budget
         /// keep their rounds and are worn next time, so nothing fired is ever lost, only put off.</summary>
         void Wear(SimWorld w)
@@ -157,8 +168,6 @@ namespace TW.Presentation.Terrain
             if (cells == null || rules == null || props == null) return;
             if (lastWearTick != uint.MaxValue && w.Tick - lastWearTick < WearTicks) return;
             lastWearTick = w.Tick;
-            // a new composition renumbers every page and slot: what was found before means nothing now
-            if (props.Generation != generation) { swept.Clear(); jolts.Clear(); generation = props.Generation; }
 
             hot.Clear();
             for (int i = 0; i < cells.Length; i++)
