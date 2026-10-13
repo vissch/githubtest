@@ -120,13 +120,17 @@ namespace TW.Tests
         /// where it is rather than by its id, so a renumbering cannot quietly make these pass on trench 3.</summary>
         static int ShoreTrench(MapData map)
         {
+            int found = -1; float furthest = float.MinValue;
             for (int t = 0; t < map.Trenches.Length; t++)
             {
                 if (map.Trenches[t].OwnerTeam != 1) continue;
-                float z = map.NavCellCenter(map.TrenchCells[map.Trenches[t].CellStart]).z;
-                if (z > map.SeaStartZ - BattlefieldGenerator.ShoreTrenchInset - 4f && z < map.SeaStartZ) return t;
+                var def = map.Trenches[t];
+                float z = float.MinValue;
+                for (int i = 0; i < def.CellCount; i++) z = math.max(z, map.NavCellCenter(map.TrenchCells[def.CellStart + i]).z);
+                if (z <= furthest || z >= map.SeaStartZ || z <= map.SeaStartZ - 25f) continue;
+                furthest = z; found = t;
             }
-            return -1;
+            return found;
         }
 
         static bool IsWire(MapData map, int cell) => ((NavLayer)map.NavLayers[cell] & NavLayer.Wire) != 0;
@@ -253,6 +257,111 @@ namespace TW.Tests
                         + "shore trench without crossing wire. The belt must have gaps, or that landing is walled in.");
                 }
             }
+        }
+
+        /// <summary>
+        /// [C1] An advance order out of the shore trench walks team 1's men back up HIS chain, not past both of his
+        /// lines at team 0's HQ. FlowFieldManager.NextGoalFrom reads a next of -1 as "the chain ends here, go for the
+        /// enemy HQ", so the shore trench must name the reserve line behind it.
+        /// </summary>
+        [Test]
+        public void AnAdvanceOutOfTheShoreTrenchWalksBackUpTeamOnesOwnChain()
+        {
+            using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(1917), Allocator.Persistent);
+            int t = ShoreTrench(map);
+            Assert.GreaterOrEqual(t, 0);
+            var walked = new System.Collections.Generic.List<int>();
+            short at = (short)t;
+            for (int step = 0; step < 8 && at >= 0; step++)
+            {
+                walked.Add(at);
+                at = map.Trenches[at].NextTrenchForTeam1;
+            }
+            Assert.AreEqual(map.Trenches.Length, walked.Count,
+                "team 1's chain out of the shore trench is " + string.Join(" -> ", walked) + ": it must pass through every "
+                + "one of his and team 0's lines before the chain ends at the enemy HQ, and skip none.");
+            for (int i = 1; i < walked.Count; i++)
+            {
+                float a = map.NavCellCenter(map.TrenchCells[map.Trenches[walked[i - 1]].CellStart]).z;
+                float b = map.NavCellCenter(map.TrenchCells[map.Trenches[walked[i]].CellStart]).z;
+                Assert.Less(b, a, "each step of the chain moves toward team 0's end of the map");
+            }
+        }
+
+        /// <summary>
+        /// [C4] The shore trench keeps clear of team 1's HQ. A trench cell inside the HQ's capture area would put
+        /// 1.8 m of covered trench there, so taking the shore line would begin taking the HQ.
+        /// </summary>
+        [Test]
+        public void TheShoreTrenchDoesNotCarveTeamOnesHqCells()
+        {
+            foreach (uint seed in Seeds)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(seed), Allocator.Persistent);
+                int hq = -1;
+                for (int i = 0; i < map.Objectives.Length; i++)
+                    if (map.Objectives[i].Kind == ObjectiveKind.HQ && map.Objectives[i].SideTeam == 1) hq = i;
+                Assert.GreaterOrEqual(hq, 0);
+                var def = map.Objectives[hq];
+                for (int i = 0; i < def.CellCount; i++)
+                {
+                    int cell = map.ObjectiveCells[def.CellStart + i];
+                    Assert.AreEqual(-1, (int)map.CellTrenchId[cell],
+                        "seed " + seed + ": a cell of team 1's HQ at z = " + map.NavCellCenter(cell).z + " belongs to trench "
+                        + map.CellTrenchId[cell] + ". The HQ is captured ground, not a line to hold.");
+                    Assert.IsFalse(((NavLayer)map.NavLayers[cell] & NavLayer.Trench) != 0, "seed " + seed + ": and it is not dug");
+                }
+            }
+        }
+
+        /// <summary>
+        /// [C4] No cell is dug twice. AddFireTrench drops the heightfield 1.8 m per carve, so a cell two lines both
+        /// claim is a 3.6 m pit rather than a trench - and only one of them owns it afterwards.
+        /// </summary>
+        [Test]
+        public void NoCellBelongsToTwoTrenches()
+        {
+            foreach (uint seed in Seeds)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(seed), Allocator.Persistent);
+                var owner = new System.Collections.Generic.Dictionary<int, int>();
+                for (int t = 0; t < map.Trenches.Length; t++)
+                {
+                    var def = map.Trenches[t];
+                    for (int i = 0; i < def.CellCount; i++)
+                    {
+                        int cell = map.TrenchCells[def.CellStart + i];
+                        Assert.IsFalse(owner.ContainsKey(cell) && owner[cell] != t,
+                            "seed " + seed + ": cell at z = " + map.NavCellCenter(cell).z + " is cut by trench "
+                            + (owner.ContainsKey(cell) ? owner[cell] : -1) + " and by trench " + t);
+                        owner[cell] = t;
+                    }
+                }
+            }
+        }
+
+        /// <summary>
+        /// [C6] The maps that must not move. Landing's own hash is deliberately NOT pinned: that map is the one this
+        /// lane changes. These three are the shipped grounds, and the pin is what says the coast work never reached
+        /// them. The literals hold at 2bddfb56c, this lane's commit before the shore defences: every branch the lane
+        /// added is gated on `shore = p.Sea && p.ShoreDefences`, false for both presets, and the one ungated edit
+        /// swapped the literal 4 for line.Length, which IS 4 without a shore line. So the generator runs the same
+        /// code on these params as it did then, and the numbers below were read off this tree.
+        /// A literal that differs on another machine is not a stale pin - it means the generator is not determinate
+        /// across machines, which docs/03-determinism-rules.md says it is. Report that; do not widen the pin.
+        /// </summary>
+        [Test]
+        public void TheShippedGroundsHashesAreUnchanged()
+        {
+            void Pin(BattlefieldParams p, ulong expected, string what)
+            {
+                using var map = BattlefieldGenerator.Create(p, Allocator.Persistent);
+                Assert.AreEqual(expected, map.Hash(0ul), what + "'s map hash moved. If that was meant, measure the new "
+                    + "one and bump ReplayRecorder.FormatVersion; if not, the coast work has reached a shipped ground.");
+            }
+            Pin(BattlefieldParams.ShelledForest(1917), 9116955536417207225UL, "ShelledForest(1917)");
+            Pin(BattlefieldParams.ShelledForest(7), 16494116869922522600UL, "ShelledForest(7)");
+            Pin(BattlefieldParams.WinterLine(1917), 8287118709825962054UL, "WinterLine(1917)");
         }
 
         /// <summary>The shipped map did not move: its coast is still bare scenery.</summary>
