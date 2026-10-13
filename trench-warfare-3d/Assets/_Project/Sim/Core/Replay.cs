@@ -226,45 +226,76 @@ namespace TW.Sim
         public ulong[] Hashes;
         public int TickCount => Commands.Length;
 
+        // S8: a command is 26 bytes on the wire (Tick 4 + Player 1 + Type 1 + A 4 + B 4 + Pos 12) and each tick
+        // also carries an 8-byte hash tail, so a tick count t needs at least 12 * t bytes left (the smallest
+        // per-tick record, zero commands) and a command count n needs 26 * n + 8.
+        const int CommandBytes = 26;
+        const int TickTailBytes = 8;
+        const int TickMinBytes = 12;
+
         public static ReplayPlayer Parse(byte[] bytes)
         {
-            using var ms = new MemoryStream(bytes);
-            using var r = new BinaryReader(ms);
-            if (r.ReadUInt32() != ReplayRecorder.Magic) throw new InvalidDataException("Not a TWR1 replay");
-            var p = new ReplayPlayer();
-            p.FormatVersion = r.ReadUInt16();
-            if (p.FormatVersion != ReplayRecorder.FormatVersion)
-                throw new InvalidDataException($"Replay format v{p.FormatVersion}, this build reads v{ReplayRecorder.FormatVersion}");
-            p.Config = new SimConfig
+            try
             {
-                TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
-                SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
-                FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
-                Endless = r.ReadBoolean(),   // v16
-            };
-            p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
-            float3 size = ReadF3(r);
-            p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle(), TestLevel = r.ReadBoolean() };   // v39
-            p.MapId = r.ReadInt32();
-            p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
-            p.MapParams = r.ReadBytes(r.ReadInt32());
-            int ticks = r.ReadInt32();
-            p.Commands = new SimCommand[ticks][];
-            p.Hashes = new ulong[ticks];
-            for (int t = 0; t < ticks; t++)
-            {
-                int n = r.ReadInt32();
-                var cs = new SimCommand[n];
-                for (int i = 0; i < n; i++)
-                    cs[i] = new SimCommand { Tick = r.ReadUInt32(), Player = r.ReadByte(), Type = (CommandType)r.ReadByte(), A = r.ReadInt32(), B = r.ReadInt32(), Pos = ReadF3(r) };
-                p.Commands[t] = cs;
-                p.Hashes[t] = r.ReadUInt64();
+                using var ms = new MemoryStream(bytes);
+                using var r = new BinaryReader(ms);
+                if (r.ReadUInt32() != ReplayRecorder.Magic) throw new InvalidDataException("Not a TWR1 replay");
+                var p = new ReplayPlayer();
+                p.FormatVersion = r.ReadUInt16();
+                if (p.FormatVersion != ReplayRecorder.FormatVersion)
+                    throw new InvalidDataException($"Replay format v{p.FormatVersion}, this build reads v{ReplayRecorder.FormatVersion}");
+                p.Config = new SimConfig
+                {
+                    TickRate = r.ReadInt32(), InputDelayTicks = r.ReadInt32(), MaxSlots = r.ReadInt32(), Seed = r.ReadUInt32(),
+                    SilverPerSecond = r.ReadSingle(), StartingSilver = r.ReadInt32(), EventCapacity = r.ReadInt32(),
+                    FactionA = r.ReadByte(), FactionB = r.ReadByte(), HeroPity0 = r.ReadSingle(), HeroPity1 = r.ReadSingle(),
+                    Endless = r.ReadBoolean(),   // v16
+                };
+                p.Config.LoadoutA = ReadLoadout(r); p.Config.LoadoutB = ReadLoadout(r);
+                float3 size = ReadF3(r);
+                p.Init = new SimConfig.WorldInit { SizeMeters = size.xy, SpawnA = ReadF3(r), SpawnB = ReadF3(r), GoalZA = r.ReadSingle(), GoalZB = r.ReadSingle(), TestLevel = r.ReadBoolean() };   // v39
+                p.MapId = r.ReadInt32();
+                p.MapHash = r.ReadUInt64(); p.DataHash = r.ReadUInt64();
+                int mapParamsLength = r.ReadInt32();
+                long left = ms.Length - ms.Position;
+                if (mapParamsLength < 0 || mapParamsLength > left)
+                    throw new InvalidDataException($"Replay MapParams length {mapParamsLength}, only {left} bytes left");
+                p.MapParams = r.ReadBytes(mapParamsLength);
+                int ticks = r.ReadInt32();
+                left = ms.Length - ms.Position;
+                if (ticks < 0 || (long)TickMinBytes * ticks > left)
+                    throw new InvalidDataException($"Replay tick count {ticks}, only {left} bytes left");
+                p.Commands = new SimCommand[ticks][];
+                p.Hashes = new ulong[ticks];
+                for (int t = 0; t < ticks; t++)
+                {
+                    int n = r.ReadInt32();
+                    left = ms.Length - ms.Position;
+                    if (n < 0 || (long)CommandBytes * n + TickTailBytes > left)
+                        throw new InvalidDataException($"Replay tick {t} command count {n}, only {left} bytes left");
+                    var cs = new SimCommand[n];
+                    for (int i = 0; i < n; i++)
+                        cs[i] = new SimCommand { Tick = r.ReadUInt32(), Player = r.ReadByte(), Type = (CommandType)r.ReadByte(), A = r.ReadInt32(), B = r.ReadInt32(), Pos = ReadF3(r) };
+                    p.Commands[t] = cs;
+                    p.Hashes[t] = r.ReadUInt64();
+                }
+                return p;
             }
-            return p;
+            catch (InvalidDataException) { throw; }
+            catch (System.Exception ex) when (ex is EndOfStreamException || ex is System.ArgumentException || ex is System.OverflowException)
+            {
+                throw new InvalidDataException("Replay file is truncated or corrupt", ex);
+            }
         }
 
-        /// <summary>Re-simulate and return the first tick whose hash differs, or -1 if the replay verifies.</summary>
-        public int Verify(SimWorld world)
+        /// <summary>Re-simulate and return the first tick whose hash differs, or -1 if the replay verifies.
+        /// Throws InvalidDataException naming the first field by which the recorded header and the given world's
+        /// Config disagree (a replay recorded against a different config always desyncs, usually at tick 0, which
+        /// hid the real cause). mapHash/dataHash are compared against the recorded MapHash/DataHash only when both
+        /// the recorded and the given value are non-zero (0 means "unknown" on either side). MapParams has nothing
+        /// in SimWorld to compare against (it only feeds the map generator that built the world before Verify ever
+        /// sees it), so it is not checked here.</summary>
+        public int Verify(SimWorld world, ulong mapHash = 0, ulong dataHash = 0)
         {
             // S5: a world that does not hash every tick leaves LastHash 0, so a good replay would read "desync at
             // tick 0"; a world that has already stepped cannot re-simulate the recording from its start.
@@ -272,6 +303,11 @@ namespace TW.Sim
                 throw new System.ArgumentException($"Verify needs a world that hashes every tick (HashInterval == 1), got {world.HashInterval}", nameof(world));
             if (world.Tick != 0)
                 throw new System.ArgumentException($"Verify needs a fresh world at tick 0, got tick {world.Tick}", nameof(world));
+            CheckConfig(world);
+            if (MapHash != 0 && mapHash != 0 && MapHash != mapHash)
+                throw new InvalidDataException($"Replay recorded MapHash {MapHash}, given world built from MapHash {mapHash}");
+            if (DataHash != 0 && dataHash != 0 && DataHash != dataHash)
+                throw new InvalidDataException($"Replay recorded DataHash {DataHash}, given world built from DataHash {dataHash}");
             for (int t = 0; t < TickCount; t++)
             {
                 using var cmds = new NativeArray<SimCommand>(Commands[t], Allocator.Temp);
@@ -279,6 +315,45 @@ namespace TW.Sim
                 if (world.LastHash != Hashes[t]) return t;
             }
             return -1;
+        }
+
+        void CheckConfig(SimWorld world)
+        {
+            var c = world.Config;
+            void Mismatch(string field) => throw new InvalidDataException($"Replay recorded with a different {field}");
+            if (Config.TickRate != c.TickRate) Mismatch(nameof(SimConfig.TickRate));
+            if (Config.InputDelayTicks != c.InputDelayTicks) Mismatch(nameof(SimConfig.InputDelayTicks));
+            if (Config.MaxSlots != c.MaxSlots) Mismatch(nameof(SimConfig.MaxSlots));
+            if (Config.Seed != c.Seed) Mismatch(nameof(SimConfig.Seed));
+            if (Config.SilverPerSecond != c.SilverPerSecond) Mismatch(nameof(SimConfig.SilverPerSecond));
+            if (Config.StartingSilver != c.StartingSilver) Mismatch(nameof(SimConfig.StartingSilver));
+            if (Config.EventCapacity != c.EventCapacity) Mismatch(nameof(SimConfig.EventCapacity));
+            if (Config.FactionA != c.FactionA) Mismatch(nameof(SimConfig.FactionA));
+            if (Config.FactionB != c.FactionB) Mismatch(nameof(SimConfig.FactionB));
+            if (Config.HeroPity0 != c.HeroPity0) Mismatch(nameof(SimConfig.HeroPity0));
+            if (Config.HeroPity1 != c.HeroPity1) Mismatch(nameof(SimConfig.HeroPity1));
+            if (Config.Endless != c.Endless) Mismatch(nameof(SimConfig.Endless));
+            if (!LoadoutEquals(Config.LoadoutA, c.LoadoutA)) Mismatch(nameof(SimConfig.LoadoutA));
+            if (!LoadoutEquals(Config.LoadoutB, c.LoadoutB)) Mismatch(nameof(SimConfig.LoadoutB));
+            // Init is compared only when this replay actually recorded a world (SizeMeters non-zero): several
+            // existing tests (DeterminismReplayTests, Tests/Match/DefinedUnitTests) record `default` Init and
+            // verify against real worlds, and Tests/Match is outside this lane.
+            if (!Init.SizeMeters.Equals(default(float2)))
+            {
+                if (!Init.SizeMeters.Equals(world.Init.SizeMeters)) Mismatch(nameof(SimConfig.WorldInit.SizeMeters));
+                if (!Init.SpawnA.Equals(world.Init.SpawnA)) Mismatch(nameof(SimConfig.WorldInit.SpawnA));
+                if (!Init.SpawnB.Equals(world.Init.SpawnB)) Mismatch(nameof(SimConfig.WorldInit.SpawnB));
+                if (Init.GoalZA != world.Init.GoalZA) Mismatch(nameof(SimConfig.WorldInit.GoalZA));
+                if (Init.GoalZB != world.Init.GoalZB) Mismatch(nameof(SimConfig.WorldInit.GoalZB));
+                if (Init.TestLevel != world.Init.TestLevel) Mismatch(nameof(SimConfig.WorldInit.TestLevel));
+            }
+        }
+
+        static bool LoadoutEquals(in Unity.Collections.FixedList32Bytes<byte> a, in Unity.Collections.FixedList32Bytes<byte> b)
+        {
+            if (a.Length != b.Length) return false;
+            for (int i = 0; i < a.Length; i++) if (a[i] != b[i]) return false;
+            return true;
         }
 
         static Unity.Collections.FixedList32Bytes<byte> ReadLoadout(BinaryReader r)
