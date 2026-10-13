@@ -9,9 +9,12 @@ namespace TW.Presentation.Terrain
 {
     public sealed partial class BattlefieldComposer
     {
+        /// <summary>Which trench cells already have a floor; a cleared field, not a fresh set per recomposition (review call B4).</summary>
+        readonly HashSet<int> floors = new HashSet<int>();
+
         void TrenchKit(MapData map, BattlefieldSurface surface)
         {
-            var floors = new HashSet<int>();
+            floors.Clear();
             foreach (var edge in surface.Edges)
             {
                 var center = edge.Center; var outward = edge.Outward; var rotation = edge.Rotation;

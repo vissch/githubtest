@@ -141,6 +141,10 @@ namespace TW.Presentation.Terrain
             }
         }
 
+        /// <summary>Dart-thrown centres already taken, in Clumps and Margins; cleared fields, not fresh lists per
+        /// recomposition (review call B4).</summary>
+        readonly List<Vector2> patches = new List<Vector2>(), stands = new List<Vector2>();
+
         /// <summary>Big, medium, small (owner, 2026-09-21): every big shape on the field gathers smaller ones round it,
         /// and the dry rises grow their own patches. Nothing here is on a grid: patch centres are dart-thrown with a
         /// minimum spacing, members fall off from the middle.</summary>
@@ -167,7 +171,7 @@ namespace TW.Presentation.Terrain
                 Gather(map, surface, heart, 5000 + key, 2.6f, Rand(key, 101) < .4f ? 1 : 0, 3 + (int)(Rand(key, 102) * 5f));
             }
             // free patches on the dry rises: dart-throwing with a 9 m minimum spacing
-            var patches = new List<Vector2>();
+            patches.Clear();
             int darts = (int)(map.SizeMeters.x * map.SizeMeters.y / 40f);
             for (int d = 0; d < darts; d++)
             {
@@ -188,7 +192,7 @@ namespace TW.Presentation.Terrain
         /// </summary>
         void Margins(MapData map, BattlefieldSurface surface)
         {
-            var stands = new List<Vector2>();
+            stands.Clear();
             int darts = (int)(map.SizeMeters.x * map.SizeMeters.y / 9f), planted = 0;
             bool river = map.WaterLevel > MapData.NoWater;
             for (int d = 0; d < darts && planted < 320; d++)

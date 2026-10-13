@@ -65,6 +65,18 @@ namespace TW.Presentation.Terrain
         public static string GeneratedKey(string module, Vector3 position)
             => module + "@" + Mathf.RoundToInt(position.x * 100f) + "," + Mathf.RoundToInt(position.z * 100f);
 
+        /// <summary>The same key, built once per (kind, rounded spot) and kept: a prop stands at the same spot after every
+        /// recomposition, so from the second one on its key costs nothing instead of a fresh string per prop (review call B4).</summary>
+        public static string GeneratedKey(string module, Vector3 position, Dictionary<(string, int, int), string> cache)
+        {
+            int x = Mathf.RoundToInt(position.x * 100f), z = Mathf.RoundToInt(position.z * 100f);
+            var cell = (module, x, z);
+            if (cache.TryGetValue(cell, out var key)) return key;
+            key = module + "@" + x + "," + z;
+            cache[cell] = key;
+            return key;
+        }
+
         Dictionary<string, Edit> index;
         void OnValidate() => index = null;
 

@@ -85,6 +85,8 @@ namespace TW.Presentation.Terrain
         readonly Dictionary<string, BattlefieldKit.Module> modulesByName = new Dictionary<string, BattlefieldKit.Module>();
         readonly List<Placed> placed = new List<Placed>();
         readonly Dictionary<string, int> placedByKey = new Dictionary<string, int>(), spots = new Dictionary<string, int>();
+        /// <summary>Every generated prop's key, kept across recompositions and dropped only on Restyle (review call B4).</summary>
+        readonly Dictionary<(string, int, int), string> keyCache = new Dictionary<(string, int, int), string>();
         readonly HashSet<string> held = new HashSet<string>();
         readonly Plane[] planes = new Plane[6], editorPlanes = new Plane[6];
         /// <summary>
@@ -150,6 +152,7 @@ namespace TW.Presentation.Terrain
                 module.Size = module.Mesh != null ? AssetScaleTable.Clamp(module.Rule, module.Mesh.bounds.size, baseline) : baseline;
             }
             composer = new BattlefieldComposer(kit, DecorationSeed, templates, PreferredFront);
+            keyCache.Clear();   // a new look moves props, so the old spots' keys are dead weight (review call B4)
             composing = null; composed = false;   // a new composer: the next composition is whole, from its first layout
             dirty = true;
         }
@@ -388,7 +391,7 @@ namespace TW.Presentation.Terrain
             if (Replace != null) { var other = Replace(module, matrix); if (other != null) module = other; }
             if (module.Name == null) { BatchOf(module).Add(Enforce(module, matrix), out _); return; }
             // an imported prop: found by kind and spot, so a hand edit (PropLayout) finds it again after every crater
-            string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition());
+            string key = PropLayout.GeneratedKey(module.Name, matrix.GetPosition(), keyCache);
             spots.TryGetValue(key, out int n); spots[key] = n + 1;
             if (n > 0) key += "#" + n;
             var edit = Layout != null ? Layout.Find(key) : null;
