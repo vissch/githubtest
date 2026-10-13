@@ -42,7 +42,8 @@ enum SimEventType { Shot, Hit, NearMiss, Explosion, CraterStamp, Death, StanceCh
   VehicleLegLost, VehicleClawed, CraftInbound, CraftBeached, ShipFired, OrderFoundNoOne, UnitAlight,
   MinePlaced, MineTriggered, MineCleared, UnitDeployed, UnitHealed, VehicleHullMended, ShieldBlocked, DropInbound,
   DropLanded, LeapStarted, BreakerPhase, CriticalHit, HeroMoment, HeroFeat, HeroSurvived, HeroFallen, VeteranDeployed,
-  WreckRecorded, RocketFired, PropWorn }
+  WreckRecorded, RocketFired, SapperOrdered, SapperLaying, GrenadeThrown, MeleeBlow, WeaponDropped, WeaponPickedUp,
+  PounceCrouched, PounceLanded, PropWorn }
 enum DeathCause { Blast = -1, Gas = -2, Crush = -3 (reserved), Burning = -4, Beam = -5 }   // Death.b when no slot did it
 enum PropKind { Tree, BrokenTree, Stump, Log, Wreck, Bridge, BrokenWreck, Scrap, Cleared }   // PropChanged.b; hashed as numbers
 struct SimEvent { uint tick; SimEventType type; int a; int b; float3 pos; float3 dir; float scalar; }
