@@ -269,6 +269,8 @@ repo. The board, the states and the commands are in `docs/reference/stations.md`
 | `pipeline/pipeline.py` | Job board and stage states (DONE, RECHECK, STALE, IN_PROGRESS, READY, BLOCKED) from `tw3d-board` | `python Tools/pipeline/pipeline.py status` |
 | `pipeline/roles.json` | The one table of roles: role -> the skill that is its brief, or null for a known role with none. Read by `pipeline.py` (a stage with an unknown role is refused) and by the relay (`relay/sources/briefs.py`) | edit it together with the table in the `pipeline` skill; a test holds the two to each other |
 | `pipeline/test_pipeline.py` | Its tests, on throwaway git repos | `python Tools/pipeline/test_pipeline.py` |
+| `sweepfilm.py` | Turns a sweep run's tracks (`sweep.py run --track`) into one self-contained page a match: the match from above as moving dots, play/pause, a slider over the five-second samples, and a strip of men alive over the whole match. No network, opened from the run folder | `python Tools/sweepfilm.py <run folder>` (or `python Tools/sweep.py film <run folder>`) |
+| `test_sweepfilm.py` | Its tests, on a track written by hand | `python Tools/test_sweepfilm.py` |
 | `pipeline/run_detached.py` | Runs a gate, bench, sweep or batch detached from the session: pids with start times, a heartbeat from log growth, a timeout that stops only its own tree, a commit-headroom floor. Runs live in `%LOCALAPPDATA%/TrenchWarfare/runs`, never in a checkout | `python Tools/pipeline/run_detached.py start <name> --timeout 3600 --min-headroom-gb 10 -- <cmd>` then `status <name>` |
 | `test_skill_docs.py` | Checks `.claude/skills` docs against the code they describe (costs, ids, flags) so they do not go stale | `python Tools/test_skill_docs.py` |
 
