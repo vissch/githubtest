@@ -13,7 +13,8 @@ namespace TW.Presentation.Terrain
         public SimHost Host;
         /// <summary>Is there standing water at this point? GreyboxTerrainView answers (water table or a painted puddle).</summary>
         public System.Func<float, float, bool> IsWater;
-        const int Count = 16, SlotsPerStep = 3;
+        public const int Count = 16;
+        const int SlotsPerStep = 3;
         readonly Vector4[] rings = new Vector4[Count];
         int next, cursor;
         float nextStep;
