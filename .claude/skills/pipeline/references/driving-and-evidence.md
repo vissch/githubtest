@@ -15,7 +15,7 @@ the short form every role skill relies on. Run commands from `trench-warfare-3d/
 | open this checkout's editor | `Tools/tw up` |
 | open the battle scene | `Tools/tw run open_scene -- --path "Assets/_Project/Scenes/GreyboxCorridor.unity"` |
 | play / stop | `Tools/tw run editor_play` / `Tools/tw run editor_stop` |
-| run C# | `Tools/tw eval '<fully-qualified C#; return ...;>'` (one-liners); longer bodies: `Tools/tw run eval_file -- --path <abs .cs>` |
+| run C# | `Tools/tw eval '<fully-qualified C#; return ...;>'` (one-liners); longer bodies: `Tools/tw run eval_file -- --file <abs .cs>` |
 | compile | `Tools/tw build`; check `compilationFailed` before believing anything you see |
 | one test class | `editor_stop`, `RequestScriptReload`, then `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.<Class> --timeout 300` |
 | gate | from the repo root, editor closed: `powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly` (before every commit) or without `-EditOnly` (before landing, after any sim change) |

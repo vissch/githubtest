@@ -5,6 +5,11 @@ description: Drive a running Unity Editor or development Player from the command
 
 # Unity Pipeline (agent control)
 
+**In this repo drive only this checkout's editor: `Tools/tw run <cmd>`. Never run a bare `unity
+command ...` — with several editors on this machine it can land in another session's editor, and
+only `Tools/tw` pins `UNITY_PROJECT_PATH`. Never run `unity pipeline install` or `package_add`
+here; packages change only through the `unity-package-management` skill's Client API script.**
+
 Invoke commands with `unity command <name> [args]`. Run `unity command` with no name to
 list what an instance exposes. Two servers exist: **Editor** (`7800-7849`, auto-starts with
 the editor) and **Runtime** (`7900-7949`, only in a dev Player build). See the package
