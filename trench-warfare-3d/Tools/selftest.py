@@ -1275,6 +1275,11 @@ def main():
                  'fatal' not in out.lower() and 'Unable to create' not in out, out)
             case('[H10] health.py --lanes marks the detached checkout running it as (you), no git error',
                  code == 0 and '(you)' in out and 'fatal' not in out.lower(), out)
+
+            for cs_name in ('aosa_tiers.cs', 'aosa_budget.cs'):
+                cs_text = (HERE.parent / 'AgentScripts' / cs_name).read_text(encoding='utf-8')
+                case(f'[H12] {cs_name} EditorPrefs keys are namespaced per checkout, not shared literals',
+                     not re.search(r'EditorPrefs\.(Get|Set)\w+\("aosa\.(dir|stem|hold|budget)"', cs_text), cs_text)
     finally:
         if wt.exists():
             code, out = run(['git', 'worktree', 'remove', '--force', str(wt)], REPO)
