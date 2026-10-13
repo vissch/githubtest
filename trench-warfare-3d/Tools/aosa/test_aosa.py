@@ -543,6 +543,35 @@ class AosaTest(unittest.TestCase):
             self.assertEqual(r.returncode, 1, "[A9] %s must refuse a label with a space: %s" % (name, r.stdout))
             self.assertIn("space", r.stdout, "[A9] %s must say why it refused" % name)
 
+    # [A16] a player run that writes no report must exit non-zero and name the path it looked at
+    def test_a16_player_bench_fails_without_a_report(self):
+        bash = shutil.which("bash")
+        if not bash:
+            self.skipTest("no bash on PATH")
+        bdir = self.tmp / "Builds" / "WinBench"
+        bdir.mkdir(parents=True)
+        exe = bdir / "TrenchWarfare.exe"
+        exe.write_text("#!/bin/sh" + NL + "exit 3" + NL, encoding="utf-8")
+        exe.chmod(0o755)
+        env = dict(os.environ, TW_PROJECT=str(self.tmp / "proj"), AOSA_DOCS=str(self.docs))
+        r = subprocess.run([bash, str(HERE / "player_bench.sh"), "lab", "", str(bdir)],
+                           capture_output=True, text=True, timeout=300, env=env)
+        out = r.stdout + r.stderr
+        self.assertEqual(r.returncode, 1, "[A16] a run without a report must exit 1: %s" % out)
+        self.assertIn("NO REPORT", out, "[A16] the run must say NO REPORT: %s" % out)
+        self.assertIn(str(self.docs).replace(ESC, "/"), out.replace(ESC, "/"),
+                      "[A16] NO REPORT must name the path it looked at, under AOSA_DOCS: %s" % out)
+
+    # [A16] the stale perf-pass copies are gone and the new hand-run folder is git-ignored
+    def test_a16_stale_copies_are_gone(self):
+        self.assertFalse((HERE / "cmp.py").exists(),
+                         "[A16] cmp.py is a third copy of the compare table: Tools/perfcmp.py is the maintained one")
+        self.assertFalse((HERE / "gpu_probe.cs").exists(),
+                         "[A16] gpu_probe.cs is referenced by nothing; the perf-pass copy stays")
+        ign = (HERE / ".." / ".." / ".." / "docs" / "reference" / "aosa" / "runs" / ".gitignore").resolve()
+        self.assertIn("manual/", ign.read_text(encoding="utf-8"),
+                      "[A16] runs/manual, where the shells now write, must be git-ignored")
+
     # [A7] a run that exited non-zero is no sample: compare must refuse it, not average it in
     def test_a7_failed_run_is_not_a_sample(self):
         self.ab()
