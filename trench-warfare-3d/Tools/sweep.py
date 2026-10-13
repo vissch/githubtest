@@ -31,8 +31,13 @@ it waits on Tools/editor_lock.py like the gate. A long sweep goes under Tools/pi
 
 report: per metric, the baseline's mean and its p10-p90 over the seeds, each variant's mean, and whether every seed
 moved the same way (the bench's rule: deterministic but chaotic, so believe what every seed agrees on). Against the
-targets, each variant is in or out of each band. report.md and report.json go beside the runs.
-Exit 0 the baseline is inside every band (or there are none), 2 it is outside one, 1 could not run.
+targets, each variant is in or out of each band. A match scenario also gets a Factions table: each side's share of
+the matches that *ended* (the owner, 2026-10-06, docs/reference/decisions.md: "of matches that end, each side wins
+40 to 60 %"), out-of-band factions named below it; matches that do not end are counted and shown, never judged
+(time to breach and trench retention stay reported and unjudged too, until he sets a band). This table never
+changes the exit code: the owner's band is reported, not gated, so a sweep or the gate does not go red on it.
+report.md and report.json go beside the runs.
+Exit 0 the baseline is inside every `targets` band (or there are none), 2 it is outside one, 1 could not run.
 
 compile: the flat spec the test reads, for a SOURCE variant (a constant, not a table entry) through abtest.py:
     TW_SWEEP=<out.json> python Tools/abtest.py bench --filter TW.Tests.BalanceSweepTests.Report_TheSweep --file ... --variant ...
@@ -51,7 +56,10 @@ FILTER = 'TW.Tests.BalanceSweepTests.Report_TheSweep'
 KEEP = 8
 SIDES = ('unit', 'config', 'script_a', 'script_b')
 NAME = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._=@+-]*$')
-SPEC_KEYS = {'about', 'scenario', 'policy', 'minutes', 'swap_seats', 'heroes', 'seeds', 'base', 'ladder', 'variants', 'targets'}
+SPEC_KEYS = {'about', 'scenario', 'policy', 'minutes', 'swap_seats', 'heroes', 'seeds', 'base', 'ladder', 'variants', 'targets', 'sides'}
+# "of matches that end, each side wins 40-60 %" (owner, 2026-10-06, docs/reference/decisions.md, d-matches); unjudged
+# by the exit code, which stays the `targets` verdict only.
+WIN_BAND = (0.40, 0.60)
 RUNG_KEYS = {'attackers', 'defenders', 'support', 'gunners', 'attack_guns', 'guns_cover'}
 
 
@@ -155,9 +163,27 @@ def compile_spec(spec):
     for m, band in spec.get('targets', {}).items():
         if not (isinstance(band, list) and len(band) == 2 and band[0] <= band[1]):
             raise SpecError(f'target {m} is [low, high]: {band}')
+    sides = spec.get('sides', {'a': 'a', 'b': 'b'})
+    if not (isinstance(sides, dict) and set(sides) == {'a', 'b'} and all(isinstance(v, str) for v in sides.values())):
+        raise SpecError(f'sides is {{"a": name, "b": name}}, two strings: {sides}')
     header = {'scenario': scenario, 'policy': policy, 'minutes': int(spec.get('minutes', 8)), 'heroes': bool(spec.get('heroes', False)),
-              'swapSeats': swap, 'ladder': ladder}
+              'swapSeats': swap, 'ladder': ladder, 'sides': sides}
     return header, variants
+
+
+def variant_sides(variants, sides):
+    """Each variant's side labels: the spec's own `sides`, overridden by a config.FactionA/FactionB patch it carries
+    (a mirror that sets FactionB to Iron then reads "Iron vs Iron", not "Iron vs Brass")."""
+    out = {}
+    for v in variants:
+        labels = dict(sides)
+        for p in v['patches']:
+            if p.get('on') == 'config' and p.get('op') == 'set' and p.get('field') == 'FactionA':
+                labels['a'] = p['value']
+            elif p.get('on') == 'config' and p.get('op') == 'set' and p.get('field') == 'FactionB':
+                labels['b'] = p['value']
+        out[v['name']] = labels
+    return out
 
 
 def fingerprint(header, variants, seeds):
@@ -194,6 +220,45 @@ def in_band(value, band):
     return value is not None and band[0] <= value <= band[1]
 
 
+def faction_band(report, seatings=1, band=WIN_BAND):
+    """One variant's report (its seed keys, `mean` skipped) as the owner's band: a ratio of SUMS of win_a/win_b over
+    the seeds, not a mean of per-seed ratios (that would count an unended match in its denominator). `seatings` is
+    how many matches each seed's win_a/win_b already average (2 with swapSeats, else 1), to turn the fraction back
+    into a match count. No match ended: unjudged, not "0 % in band"."""
+    seeds = [k for k in report if k != 'mean']
+    a = sum(report[s].get('win_a', 0) for s in seeds)
+    b = sum(report[s].get('win_b', 0) for s in seeds)
+    played = len(seeds) * seatings
+    ended_frac = a + b
+    if ended_frac == 0:
+        return {'played': played, 'ended': 0, 'unended': played, 'share_a': None, 'share_b': None, 'out': [], 'judged': False}
+    share_a, share_b = a / ended_frac, b / ended_frac
+    ended = round(ended_frac * seatings)
+    out = [side for side, share in (('a', share_a), ('b', share_b)) if not in_band(share, band)]
+    return {'played': played, 'ended': ended, 'unended': played - ended, 'share_a': share_a, 'share_b': share_b,
+            'out': out, 'judged': True}
+
+
+def faction_rows(data, names, meta):
+    """One row per variant with a report, match scenario only (the ladder has no winner): each side's share of the
+    matches that ended, and its label (the spec's `sides`, or a mirror variant's own)."""
+    if meta.get('scenario') != 'match':
+        return []
+    seatings = 2 if meta.get('swapSeats') else 1
+    sides = meta.get('sides') or {}
+    default = {'a': sides.get('a', 'a'), 'b': sides.get('b', 'b')}
+    per_variant = sides.get('variants', {})
+    rows = []
+    for n in names:
+        if n not in data:
+            continue
+        labels = per_variant.get(n, default)
+        row = faction_band(data[n], seatings)
+        row.update(name=n, label_a=labels.get('a', default['a']), label_b=labels.get('b', default['b']))
+        rows.append(row)
+    return rows
+
+
 def compare(data, names, targets):
     """Rows for the report: per metric the baseline's spread, and each variant against it."""
     now = data['now']
@@ -225,7 +290,7 @@ def fmt(v):
     return '-' if v is None or v != v else f'{v:.3f}'
 
 
-def render(rows, names, targets, meta):
+def render(rows, names, targets, meta, frows=()):
     others = [n for n in names if n != 'now']
     lines = [f'# Sweep {meta.get("spec", "")}', '',
              f'{meta.get("commit", "?")}{" (dirty)" if meta.get("dirty") else ""}, seeds {meta.get("seeds", "?")}, {meta.get("scenario", "")}', '',
@@ -245,6 +310,28 @@ def render(rows, names, targets, meta):
         for n in names:
             got = [(r['now_in'] if n == 'now' else r['variants'].get(n, {}).get('in')) for r in rows if r['band'] is not None]
             lines.append(f'| {n} | {sum(1 for g in got if g)} of {len(targets)} |')
+    if frows:
+        sides = meta.get('sides') or {}
+        a_name, b_name = sides.get('a', 'a'), sides.get('b', 'b')
+        lines += ['', '## Factions', '', f'Of matches that end, each side should win {WIN_BAND[0] * 100:.0f}-{WIN_BAND[1] * 100:.0f} %'
+                  ' (owner, 2026-10-06); a match that does not end is counted and shown here, never judged.', '',
+                  f'| variant | {a_name} | {b_name} | ended | did not end |', '|---|---|---|---|---|']
+        outs = []
+        for r in frows:
+            if not r['judged']:
+                lines.append(f'| {r["name"]} | - | - | no match ended | {r["unended"]} |')
+                continue
+
+            def cell(side):
+                share = r['share_a'] if side == 'a' else r['share_b']
+                return f'{share * 100:.0f} % {"OUT" if side in r["out"] else "IN"}'
+            lines.append(f'| {r["name"]} | {cell("a")} | {cell("b")} | {r["ended"]} | {r["unended"]} |')
+            for side in r['out']:
+                label = r['label_a'] if side == 'a' else r['label_b']
+                share = r['share_a'] if side == 'a' else r['share_b']
+                outs.append(f'OUT OF BAND: {label} won {share * 100:.0f} % of the {r["ended"]} ended matches '
+                            f'({WIN_BAND[0] * 100:.0f}-{WIN_BAND[1] * 100:.0f} %)')
+        lines += outs
     return '\n'.join(lines) + '\n'
 
 
@@ -262,12 +349,14 @@ def report(out):
         return 1
     targets = meta.get('targets', {})
     rows = compare(data, names, targets)
-    md = render(rows, names, targets, meta)
+    frows = faction_rows(data, names, meta)
+    md = render(rows, names, targets, meta, frows)
     not_run = [n for n in names if n not in data]
     if not_run:
         md += '\nNot played: ' + ', '.join(not_run) + ' (sweep.py run <spec> --resume <this folder>)\n'
     open(os.path.join(out, 'report.md'), 'w', encoding='utf-8', newline='\n').write(md)
-    json.dump({'meta': meta, 'rows': rows, 'not_run': not_run}, open(os.path.join(out, 'report.json'), 'w', newline='\n'), indent=1)
+    json.dump({'meta': meta, 'rows': rows, 'not_run': not_run, 'factions': {'band': list(WIN_BAND), 'rows': frows}},
+              open(os.path.join(out, 'report.json'), 'w', newline='\n'), indent=1)
     print(md)
     print(f'sweep: {os.path.join(out, "report.md")}')
     if not_run:
@@ -363,6 +452,8 @@ def run(args, runner=unity_runner):
         meta = {'spec': os.path.basename(args.spec), 'commit': sha, 'dirty': bool(git('status', '--porcelain')), 'seeds': seeds,
                 'scenario': header['scenario'], 'minutes': header['minutes'], 'fingerprint': mark,
                 'variants': [v['name'] for v in variants], 'targets': spec.get('targets', {}),
+                'swapSeats': header['swapSeats'],
+                'sides': dict(header['sides'], variants=variant_sides(variants, header['sides'])),
                 'started': datetime.datetime.now().isoformat(timespec='seconds')}
         json.dump(meta, open(os.path.join(out, 'run.json'), 'w', newline='\n'), indent=1)
         shutil.copyfile(args.spec, os.path.join(out, 'spec.json'))
