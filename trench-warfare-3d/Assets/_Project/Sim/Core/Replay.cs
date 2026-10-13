@@ -121,7 +121,9 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-06): what keeps two hulls apart is the footprints' extents along the line between them
+        // (VehicleProfile.KeepApart), not the sum of two Radii, so every machine drives a little differently.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

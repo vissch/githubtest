@@ -147,10 +147,32 @@ namespace TW.Sim.Nav
         public static VehicleProfile Redoubt => new VehicleProfile
         { TurnRateRad = 0.80f, Accel = 0.6f, Brake = 1.8f, PivotSpeed = 0.3f, TrenchCrossWidth = 3.3f, DitchChance = 0f, SlopeLimit = 0.86f, BogChance = 0.018f, HalfLength = 1.80f * VehicleSize.Walker, HalfWidth = 1.50f * VehicleSize.Walker, PushesTrees = true, Walker = true, Legs = 6 };
 
-        /// <summary>A round radius for keeping two hulls apart: the longer half plus a hand, so the corners of two
-        /// hulls side by side or nose to flank do not pass through each other (the mean of length and width let the
-        /// Maw's sponson into a Tusk's side).</summary>
+        /// <summary>A round radius for a machine: the longer half plus a hand. It no longer keeps hulls apart
+        /// (2026-10-06) — a rectangle's corner reaches sqrt(HL^2 + HW^2), 5.78 m on a Maw against a Radius of 4.585 m,
+        /// so two hulls meeting at an angle drove through each other. KeepApart does that now; this is what the rest
+        /// of the code reads for a machine's rough size.</summary>
         public float Radius => math.max(HalfLength, HalfWidth) + 0.25f + Clearance;
+
+        /// <summary>How far this footprint reaches from its centre along <paramref name="dir"/> (a unit vector in xz):
+        /// the rectangle's support in that direction, so the sum of two hulls' extents along the line between their
+        /// centres is a separating axis — at or past it they cannot overlap, and it is the tightest such distance
+        /// (abreast it is the two widths, in file the two lengths).</summary>
+        public float Extent(float yaw, float2 dir)
+        {
+            float2 fwd = new float2(SimMath.Sin(yaw), SimMath.Cos(yaw));
+            float2 right = new float2(fwd.y, -fwd.x);
+            return math.abs(math.dot(dir, fwd)) * HalfLength + math.abs(math.dot(dir, right)) * HalfWidth;
+        }
+
+        /// <summary>Metres of room either side of two hulls that are kept apart, beyond their footprints and their
+        /// Clearance.</summary>
+        public const float HullGap = 0.25f;
+
+        /// <summary>The least distance between two hulls' centres along <paramref name="dir"/> that keeps their
+        /// footprints out of each other: the two extents along that line, each hull's Clearance, and a hand each.
+        /// The one distance holding machines apart (the push apart at the end of Execute, and Avoid's touch).</summary>
+        public static float KeepApart(in VehicleProfile a, float yawA, in VehicleProfile b, float yawB, float2 dir)
+            => a.Extent(yawA, dir) + a.Clearance + b.Extent(yawB, dir) + b.Clearance + 2f * HullGap;
     }
 
     public sealed partial class VehicleKinematicsSystem : ISimSystem
@@ -160,6 +182,12 @@ namespace TW.Sim.Nav
         public const float StepOverSpeed = 0.72f, WadeSpeed = 0.78f, PickSpeed = 0.88f;
         public const int DitchMin = 240, DitchMax = 600, BogMin = 80, BogMax = 260;
         public const float CrushDamage = 200f, CrushSpeed = 0.4f;
+        /// <summary>Metres a hull is moved per tick by the push apart, while only the room round the footprints is
+        /// wanted back. An overlap of the footprints themselves is undone at once.</summary>
+        public const float PushPerTick = 0.15f;
+        /// <summary>How many times the push apart runs over the pairs in a tick: one pass can push a hull into a third
+        /// it had already been settled against, so the later passes undo whatever footprints still overlap.</summary>
+        public const int PushPasses = 3;
         public int Order => SimSystemOrder.VehicleKinematics;
 
         readonly MapData map;
@@ -520,6 +548,10 @@ namespace TW.Sim.Nav
                     int j = Vehicles[k];
                     if (j == i || (Flags[j] & (uint)UnitFlags.Alive) == 0) continue;
                     float2 d = Position[j].xz - p.xz;
+                    // the distance at which it begins to steer round is left as it was (2026-10-06): the two round
+                    // radii. Read off the footprints it steers from farther out, and a Tusk pressed against the hull
+                    // burning in the gap at (53.1, 31.8) swung its nose either way 162 times (18 with the footprints
+                    // and their room, 162 with the corners alone); what keeps the hulls apart is the push apart below
                     float touch = prof.Radius + Profiles[Archetype[j]].Radius;
                     float dist = SimMath.Length(new float3(d.x, 0f, d.y));
                     if (dist >= touch + AvoidLook || dist < 1e-3f) continue;
@@ -698,19 +730,37 @@ namespace TW.Sim.Nav
                     Velocity[i] = v;
                     Yaw[i] = yaw;
                 }
-                // two hulls never overlap: push the pair apart along the line between them (slot order, so deterministic)
-                for (int a = 0; a < Vehicles.Length; a++)
-                for (int b = a + 1; b < Vehicles.Length; b++)
+                // two hulls never overlap: push the pair apart along the line between them (slot order, so deterministic).
+                // The distance is the two footprints' extents along that line, not two round radii (2026-10-06): a
+                // rectangle's corner reaches sqrt(HL^2 + HW^2), 5.78 m on a Maw against a Radius of 4.585 m, so once
+                // the machines were made 1.7-2.5 times bigger two hulls meeting at an angle drove through each other
+                // by over 2 m. A second and third pass settle the pairs a push moved into one another.
+                for (int pass = 0; pass < PushPasses; pass++)
                 {
-                    int i = Vehicles[a], j = Vehicles[b];
-                    float2 d = Position[j].xz - Position[i].xz;
-                    float dist = SimMath.Length(d);
-                    float min = Profiles[Archetype[i]].Radius + Profiles[Archetype[j]].Radius;
-                    if (dist >= min) continue;
-                    float2 dir = dist > 1e-3f ? d / dist : new float2(1f, 0f);
-                    float push = math.min(0.15f, (min - dist) * 0.5f);
-                    TryShift(i, -dir * push);
-                    TryShift(j, dir * push);
+                    bool moved = false;
+                    for (int a = 0; a < Vehicles.Length; a++)
+                    for (int b = a + 1; b < Vehicles.Length; b++)
+                    {
+                        int i = Vehicles[a], j = Vehicles[b];
+                        float2 d = Position[j].xz - Position[i].xz;
+                        float dist = SimMath.Length(d);
+                        float2 dir = dist > 1e-3f ? d / dist : new float2(1f, 0f);
+                        float hulls = Profiles[Archetype[i]].Extent(Yaw[i], dir) + Profiles[Archetype[j]].Extent(Yaw[j], dir);
+                        // the first pass also takes back the room round the footprints, gently; the later ones only
+                        // undo an overlap of the footprints themselves
+                        float min = pass == 0
+                            ? VehicleProfile.KeepApart(Profiles[Archetype[i]], Yaw[i], Profiles[Archetype[j]], Yaw[j], dir)
+                            : hulls + 0.01f;
+                        if (dist >= min) continue;
+                        // an overlap of the footprints is undone in the tick it happens, however fast the two closed or
+                        // however far a turn swung a corner out; the room beyond them is taken back at PushPerTick
+                        float cap = dist < hulls ? math.max(PushPerTick, (hulls - dist) * 0.5f + 0.01f) : PushPerTick;
+                        float push = math.min(cap, (min - dist) * 0.5f);
+                        TryShift(i, -dir * push);
+                        TryShift(j, dir * push);
+                        moved = true;
+                    }
+                    if (!moved) break;
                 }
             }
 

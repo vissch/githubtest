@@ -251,6 +251,85 @@ namespace TW.Tests
             Assert.Less(total, 60, "the column spun in place under 3 s between fifteen machines (ticks; 116 when it swerved round every hull ahead)");
         }
 
+        /// <summary>Do two hulls' footprints overlap: the rectangles VehicleProfile.Covers reads (HalfLength along the
+        /// hull's forward, HalfWidth across), by a separating-axis test over their four axes. The same helper the
+        /// behaviour bench measures with (BehaviourBenchTests.HullsOverlap, another assembly). Hulls that just touch
+        /// do not count as overlapping.</summary>
+        static bool HullsOverlap(VehicleProfile a, float yawA, float3 posA, VehicleProfile b, float yawB, float3 posB)
+        {
+            float2 d = (posB - posA).xz;
+            float2 fa = new float2(SimMath.Sin(yawA), SimMath.Cos(yawA)), ra = new float2(fa.y, -fa.x);
+            float2 fb = new float2(SimMath.Sin(yawB), SimMath.Cos(yawB)), rb = new float2(fb.y, -fb.x);
+            for (int axis = 0; axis < 4; axis++)
+            {
+                float2 ax = axis == 0 ? fa : axis == 1 ? ra : axis == 2 ? fb : rb;
+                float reach = a.HalfLength * math.abs(math.dot(ax, fa)) + a.HalfWidth * math.abs(math.dot(ax, ra))
+                            + b.HalfLength * math.abs(math.dot(ax, fb)) + b.HalfWidth * math.abs(math.dot(ax, rb));
+                if (math.abs(math.dot(ax, d)) >= reach) return false;
+            }
+            return true;
+        }
+
+        /// <summary>The biggest machines keep their footprints apart (2026-10-06, the owner on "the giant machines
+        /// still move like small ones": "we find a solution for this so they dont clump together anymore", and, asked
+        /// which clumping, "Machines on each other"). The machines were made 1.7-2.5 times bigger (VehicleSize) but
+        /// the only distance holding two hulls apart stayed a circle, VehicleProfile.Radius = the longer half plus a
+        /// hand: a Maw's rectangle reaches 5.78 m into its corner against a Radius of 4.585 m, so two hulls meeting at
+        /// an angle drove through each other by over 2 m (the behaviour bench on seeds 1,2,3: 29047 overlapping hull
+        /// tick-pairs). Two files of the biggest machines (the Maw, and the Pincer, the walker whose footprint reaches
+        /// farthest) at right angles on one goal: nothing overlaps, and none of them is jammed by the rule that keeps
+        /// them apart. Right angles rather than one column because a file never puts two hulls corner to corner.</summary>
+        [Test, Category("Long")]
+        public void NoTwoOfTheBiggestHullsOverlap()
+        {
+            using var m = NewMatch();
+            var goal = new float3(150f, 0f, 400f);
+            var gc = m.Map.NavCellOf(goal);
+            int goalId = m.Fields.GetGoal(GoalKey.Cell(m.Map.NavIndex(gc.x, gc.y), NavMode.Tracked));
+            byte[] cast = { VehicleArchetype.Maw, VehicleArchetype.Pincer, VehicleArchetype.Maw, VehicleArchetype.Pincer };
+            var slots = new System.Collections.Generic.List<int>();
+            for (int n = 0; n < cast.Length; n++)
+            {
+                // 16 m apart along each file: past any KeepApart of two of these (a Maw's corner pair is 12.1 m), so
+                // they are not set down overlapping (the push apart moves a hull only 0.15 m a tick)
+                float back = 30f + n * 16f;
+                var places = new[] { new float3(goal.x - back, 0f, goal.z), new float3(goal.x, 0f, goal.z - back) };
+                foreach (var at in places)
+                {
+                    var e = m.World.Units.Roster[cast[n]];
+                    int s = m.World.Spawn(0, cast[n], at, e.Hp, e.Speed, true);
+                    m.World.GoalId[s] = goalId;
+                    slots.Add(s);
+                }
+            }
+            var metres = new float[slots.Count]; var at0 = new float3[slots.Count];
+            for (int n = 0; n < slots.Count; n++) at0[n] = m.World.Position[slots[n]];
+            int overlaps = 0, worstTick = -1;
+            for (int t = 0; t < 1500; t++)
+            {
+                Step(m);
+                for (int n = 0; n < slots.Count; n++)
+                {
+                    metres[n] += math.length((m.World.Position[slots[n]] - at0[n]).xz);
+                    at0[n] = m.World.Position[slots[n]];
+                }
+                for (int a = 0; a < slots.Count; a++)
+                for (int b = a + 1; b < slots.Count; b++)
+                {
+                    int i = slots[a], j = slots[b];
+                    var pa = m.Vehicles.Profiles[m.World.Archetype[i]];
+                    var pb = m.Vehicles.Profiles[m.World.Archetype[j]];
+                    if (!HullsOverlap(pa, m.World.Yaw[i], m.World.Position[i], pb, m.World.Yaw[j], m.World.Position[j])) continue;
+                    overlaps++;
+                    if (worstTick < 0) worstTick = t;
+                }
+            }
+            float least = float.MaxValue; for (int n = 0; n < slots.Count; n++) least = math.min(least, metres[n]);
+            TestContext.WriteLine($"{overlaps} overlapping hull tick-pairs (first at tick {worstTick}); least driven {least:F0} m");
+            Assert.AreEqual(0, overlaps, "no two of the biggest hulls' footprints overlapped");
+            Assert.Greater(least, 30f, "and every one of them drove on (a jam is worse than a clump)");
+        }
+
         /// <summary>Alone on broken ground, a machine drives its course without snaking about it. On the Shelled Forest
         /// (seed 1917, the study's map) each drove a near-straight 230 m, yet its turn reversed 18-27 times per 100 m:
         /// every step of the field's line (a cell's width) snapped its heading 15-20 degrees at the full turn rate, and
