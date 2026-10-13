@@ -16,8 +16,8 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   |---|---|---|---|---|
   | Rifleman | 25 | 100 | 3.0 | – |
   | Assault | 40 | 90 | 4.2 | – |
-  | Machinegunner | 60 | 110 | 2.2 | – |
-  | Sniper | 90 | 80 | 3.0 | 200 |
+  | Machinegunner | 80 | 110 | 2.2 | – |
+  | Sniper | 140 | 80 | 3.0 | 200 |
   | Officer | 120 | 100 | 3.0 | 400 |
   | Shield | 70 | 140 | 3.2 | – |
   | Medic | 80 | 90 | 3.2 | 200 |
@@ -39,14 +39,18 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   | Banner | 400 | 1900 | 2.4 | 700 | Legged |
   | Redoubt | 330 | 3200 | 1.7 | 600 | Legged |
 
-- **Ids** (:102-103, 116-127): Rifle 0, Assault 1, MG 2, Sniper 3, Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9, Banner 10, Redoubt 11, Officer 12, Shield 13, Medic 14, Repair 15, Para 16, Jetpack 17, Breaker 18. Ids 19-63 are free (`UnitDefinitionTests` uses spare id 20, `P\Tests\EditMode\UnitDefinitionTests.cs:22`).
+- **Ids** (:102-103, 116-127): Rifle 0, Assault 1, MG 2, Sniper 3, Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9, Banner 10, Redoubt 11, Officer 12, Shield 13, Medic 14, Repair 15, Para 16, Jetpack 17, Breaker 18. **Ids 19-36 are already used** — check `InfantryArchetype`/`VehicleArchetype` before picking a "free" id: 19 Skimmer, 20 Salvo, 21-24 the Proving Ground machines (Brute/Croaker/Hopper/Mercy), 25-28 the Proving Ground infantry (Frog/Sentry/AtRifle/DeathBattalion), 29-34 historical armour (MarkIV/MarkV/A7V/RenaultFT/Whippet/Austin), 35 Sapper, 36 Flamethrower.
 - `Archetypes.Count = 64` and `Max = 63` (`P\Sim\Core\OrderGroup.cs:53-54`).
 - Orders address groups, not ids (`OrderGroup.cs:16-20`, `Of()` at :26-42): Line, Marksman, Support, Raider.
-- There is **no Sapper** in the code (grep finds 0 hits).
+- **Sapper exists**: `InfantryArchetype.Sapper = 35`, a full `UnitDef` (`UnitDefinitions.cs:426-431`) and `SapperSystem`
+  (`Sim/Units/Sapper.cs`) lay mines/tripwires on a `UnitAbility` order; it has no faction slot yet.
 
 **`UnitDefinitions`** (`P\Sim\Match\UnitDefinitions.cs`)
 - `struct UnitDef { byte Archetype; RosterEntry Roster; InfantrySpec Infantry; WeaponStats Weapon; TankSpec Machine; VehicleProfile Drive; }` (:23-31).
-- `public static readonly UnitDef[] All = new UnitDef[0];` (:39). It is empty; the shipped units still come from the old switches.
+- `public static readonly UnitDef[] All` (:39-44) is no longer empty: it holds Skimmer, Salvo, and the Proving
+  Ground set (Brute, Croaker, Hopper, Mercy, Frog, Sentry, AtRifle, DeathBattalion, MarkIV, MarkV, A7V, RenaultFT,
+  Whippet, Austin, Sapper, Flamethrower) — none fielded by a faction roster, defined here for the Unit Sandbox.
+  The shipped units still come from the old switches.
 - `Apply(SimWorld world)` (:45) and `Apply(SimWorld world, UnitDef[] defs)` (:48-70). The second:
   - writes `world.Units.Roster/Infantry`, `CombatCatalogueSystem.Weapon/Tank` and `VehicleKinematicsSystem.Profiles`;
   - skips an id `>= Archetypes.Count` (:55);

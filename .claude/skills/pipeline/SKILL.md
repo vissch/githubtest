@@ -23,7 +23,7 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 
 | The owner says | Do |
 |---|---|
-| `status [item]` | `$P status [item]`; add one line per station saying what it can take next (`$P next` with `TW_STATION` set) and, from `$R status`, what is running |
+| `status [item]` | `$P status [item]`; add one line per station saying what it can take next (`$P next` with `TW_STATION` set) and, from `$R status <job>`, whether that job is still running. `run_detached.py` has no list command: name the job from your own `$R start <job> ...` calls, or list `%LOCALAPPDATA%/TrenchWarfare/runs/` (`TW_RUNS` override) to see what is on disk |
 | `why <item>` | `$P why <item>`; for BLOCKED name the stage to run first, for STALE name the input that changed (`git log -1 -- <input>` on the stage's lane) |
 | `work` | the loop below, once |
 | `add <type> <name>` | write `items/<name>.json` on the board from `trench-warfare-3d/Tools/pipeline/stage_templates/<type>.json` if it exists (otherwise ask the owner for the stages), show it, commit it to the board after the owner agrees |
@@ -54,7 +54,8 @@ Driving the editor and capturing evidence at every zoom band, for all of them: `
    another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
    The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
-   Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.
+   Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll
+   `$R status <job>` using the same name given to `$R start`.
 4. Commit outputs on the stage's lane (`lane/sim/pipe-<item>` or `lane/show/pipe-<item>`) with
    `gate.ps1 -EditOnly` green first. A path on the seam list (`CLAUDE.md`) stops the job: BLOCKED, and ask.
 5. Put evidence on the board under `evidence/<item>/<stage>/`, JPG, at most 400 KB each, one per required band.
