@@ -2,3 +2,7 @@
 # args and patches are the record; a still that matters to a card is named in the ledger by run label.
 *.png
 *.log
+
+# bench.sh and player_bench.sh write hand runs here (TW_BENCH_OUT overrides); only a cycle's
+# numbered folder is the record.
+manual/

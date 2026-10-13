@@ -221,7 +221,7 @@ any other card, with rule 6 (readability) as a hard condition on every moment.
 | `aosa.py budget` / `aosa.py refimg ...` | image spend |
 | `aosa.py retro` | the 10-cycle summary the retrospective starts from |
 | `python Tools/aosa/occ.py <assemblies...>` / `--changed` | offline compile of whole assemblies from this tree |
-| `Tools/aosa/bench.sh`, `player_bench.sh`, `cmp.py` | the perf pass's drivers, kept here so the branch carries them |
+| `Tools/aosa/bench.sh`, `player_bench.sh` | hand drivers for one bench run; they write to `runs/manual/`. The compare table is `Tools/perfcmp.py` and `aosa.py compare` |
 | `AgentScripts/aosa_*.cs` | eval snippets for the editor (`unity command eval_file <abs path>`) |
 
 ## Storage
