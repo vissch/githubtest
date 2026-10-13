@@ -3,6 +3,7 @@ name: tw-reviewer
 description: Read-only code reviewer of Trench Warfare 3D. Two jobs - review one unit of code for correctness (findings in the report's format, worst first), or be the sceptical second reader of one finished fix unit after fixcheck. Use for "review unit N", "review these commits", "second reader", in place of a general agent with a prompt written fresh. Give it the checkout to read, the commits or files, the rules that code is held to, and where to look hardest. It never fixes.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: high
 skills: tw-review
 ---
 
