@@ -585,6 +585,7 @@ for img, name, size in ((full["Maw"]["img"], "TankAtlas_LOD0.jpg", 2048), (far["
     im = img.copy(); im.scale(size, size)
     path = os.path.join(OUTDIR, name)
     scene = bpy.context.scene
+    scene.view_settings.view_transform = 'Standard'   # as crabsplit does: else the atlas is saved tone-mapped (Filmic/AgX, by Blender version)
     scene.render.image_settings.file_format = 'JPEG'; scene.render.image_settings.quality = 90
     im.save_render(path, scene=scene)
 with open(os.path.join(OUTDIR, "tanks.json"), "w") as f: json.dump(manifest, f, indent=1)
