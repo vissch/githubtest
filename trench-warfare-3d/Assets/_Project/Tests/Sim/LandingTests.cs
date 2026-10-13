@@ -232,6 +232,22 @@ namespace TW.Tests
             Assert.AreEqual(100000 - 4 * cost, m.World.Silver[1], "four landed, the two the full field refused are paid back");
         }
 
+        /// <summary>The inland (smallest Z) edge of the wire on the sand: the line a man must be past to be clear
+        /// of the belt. Measured off the built map, because the belt's columns wander in Z.</summary>
+        static float BeltInlandEdge(MapData map)
+        {
+            float edge = float.MaxValue;
+            for (int z = 0; z < map.NavLength; z++)
+            {
+                float cz = (z + 0.5f) * MapData.NavCellSize;
+                if (cz <= map.SeaStartZ) continue;                  // inland of the beach: the field's ordinary belts
+                for (int x = 0; x < map.NavWidth; x++)
+                    if (((NavLayer)map.NavLayers[map.NavIndex(x, z)] & NavLayer.Wire) != 0) { edge = math.min(edge, cz); break; }
+            }
+            Assert.Less(edge, float.MaxValue, "setup: no wire on the defended shore at all");
+            return edge;
+        }
+
         // ---- the defended shore (the owner, 2026-10-08: "The coast's sand") --------------------------------------
         /// <summary>
         /// The one landing test on the COAST preset rather than on ShelledForest, because that is the only map
@@ -251,7 +267,13 @@ namespace TW.Tests
 
             Deploy(m, 1, 0, 6);
             var landedAt = new System.Collections.Generic.Dictionary<int, float3>();
-            float belt = m.Map.SeaStartZ + BattlefieldGenerator.BeltAt;
+            // [C5] Read the belt's inland edge off the map, not from its nominal line: the generator wanders each
+            // column's z0 by +-1.6 m round SeaStartZ + BeltAt, so the wire itself reaches inland of that line and a
+            // man standing IN the wire used to count as past it.
+            float belt = BeltInlandEdge(m.Map);
+            Assert.Less(belt, m.Map.SeaStartZ + BattlefieldGenerator.BeltAt,
+                "the wire reaches inland of its nominal line (" + belt.ToString("F1") + " m against "
+                + (m.Map.SeaStartZ + BattlefieldGenerator.BeltAt).ToString("F1") + " m), which is why the nominal line was the wrong bound");
             bool pastTheBelt = false;
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             for (int tick = 0; tick < 900; tick++)

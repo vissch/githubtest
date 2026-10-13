@@ -360,7 +360,10 @@ namespace TW.Sim.Match
             if (open < 5) return false;
             if (fields == null) return true;
             byte enemy = (byte)(1 - player);
-            short rear = fields.RearTrench(enemy);
+            // [C3] the rearmost line he HOLDS, not his rearmost trench: on the defended coast the shore trench lies
+            // 21 m seaward of his reserve line and is no objective, and measuring from it let a stick come down behind
+            // the line the keep-out exists to protect.
+            short rear = fields.RearLineTrench(enemy);
             if (rear < 0) return true;
             var def = map.Trenches[rear];
             float rearZ = map.NavCellCenter(map.TrenchCells[def.CellStart + def.CellCount / 2]).z;

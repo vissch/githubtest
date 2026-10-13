@@ -67,6 +67,31 @@ namespace TW.Tests
             Assert.Fail("setup: no open ground for a drop"); return default;
         }
 
+        /// <summary>Mid-cell Z of a trench.</summary>
+        static float MidZ(MatchSim m, short trench)
+        {
+            var def = m.Map.Trenches[trench];
+            return m.Map.NavCellCenter(m.Map.TrenchCells[def.CellStart + def.CellCount / 2]).z;
+        }
+
+        /// <summary>Open ground for a stick inside a band of Z, walking inland from <paramref name="zFar"/>: the
+        /// first point with 4 m clear of trench, link and blocked ground round it. A band, not one line of Z,
+        /// because the trenches bend and the band this test needs is only a few metres deep.</summary>
+        static float3 OpenInBand(MatchSim m, float zFar, float zNear)
+        {
+            for (float z = zFar; z > zNear; z -= 1f)
+            for (float x = 20f; x < m.Map.SizeMeters.x - 20f; x += 2f)
+            {
+                var at = new float3(x, 0f, z);
+                bool open = true;
+                for (int dz = -4; dz <= 4 && open; dz += 2) for (int dx = -4; dx <= 4; dx += 2)
+                    if ((m.Map.LayerAt(at + new float3(dx, 0f, dz)) & (NavLayer.Trench | NavLayer.Blocked | NavLayer.Link)) != 0) { open = false; break; }
+                if (open) return at;
+            }
+            Assert.Fail("setup: no open ground for a drop between z " + zNear.ToString("F0") + " and " + zFar.ToString("F0"));
+            return default;
+        }
+
         [Test]
         public void EightMenComeDownAFlightLaterOnOpenGroundAndGoForTheEnemyTrench()
         {
@@ -131,6 +156,41 @@ namespace TW.Tests
             Assert.AreEqual(1, CountType(iron, SimEventType.CommandRejected), "Iron cannot call a drop");
             Step(iron, Drop(iron, 1, OpenPoint(iron, 1)));
             Assert.AreEqual(0, CountType(iron, SimEventType.CommandRejected), "Brass can");
+        }
+
+        /// <summary>
+        /// [C3] On the defended coast the keep-out is measured from the rearmost line team 1 HOLDS, not from his
+        /// rearmost trench. The shore trench sits at the top of the beach, well seaward of his reserve line and is
+        /// no objective, so measuring from it let team 0 drop a stick down behind the reserve line - the very thing
+        /// the keep-out exists to stop.
+        /// </summary>
+        [Test]
+        public void ADropIsRefusedBehindTheDefendedCoastsRearLine()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = 0xC0FFEEu;
+            cfg.FactionA = (byte)FactionId.Brass; cfg.FactionB = (byte)FactionId.Iron;
+            var field = BattlefieldParams.Landing(1917);
+            field.Bombardment = 0f;                     // a quiet sector: a stray shell is not the subject
+            using var m = MatchSim.CreateBattlefield(cfg, field);
+            short shore = m.Fields.RearTrench(1), line = m.Fields.RearLineTrench(1);
+            Assert.AreNotEqual(shore, line, "setup: on the defended coast his rearmost trench is the shore line");
+            float shoreZ = MidZ(m, shore), lineZ = MidZ(m, line);
+            Assert.Greater(shoreZ, lineZ + 1f, "setup: the shore trench lies seaward of the reserve line");
+
+            // Just inside the old bound (measured off the shore trench) and well past the new one: refused now.
+            var behind = OpenInBand(m, shoreZ - OffMapAbilitySystem.ParaDropKeepOut - 0.5f,
+                                       lineZ - OffMapAbilitySystem.ParaDropKeepOut + 1f);
+            Assert.Greater(behind.z, lineZ - OffMapAbilitySystem.ParaDropKeepOut, "setup: and behind the reserve line's keep-out");
+            Step(m, Drop(m, 0, behind));
+            Assert.AreEqual(1, CountType(m, SimEventType.CommandRejected),
+                "a stick came down " + (shoreZ - behind.z).ToString("F0") + " m short of the shore trench but inside the "
+                + "keep-out of team 1's reserve line, which is the line the rule protects");
+
+            // Short of the reserve line's keep-out it is still allowed, so the rule did not simply close the map.
+            var ahead = OpenInBand(m, lineZ - OffMapAbilitySystem.ParaDropKeepOut - 20f,
+                                      lineZ - OffMapAbilitySystem.ParaDropKeepOut - 40f);
+            Step(m, Drop(m, 0, ahead));
+            Assert.AreEqual(0, CountType(m, SimEventType.CommandRejected), "short of that keep-out a drop still goes in");
         }
 
         [Test]

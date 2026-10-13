@@ -163,6 +163,32 @@ namespace TW.Sim.Nav
             return best;
         }
 
+        /// <summary>As <see cref="RearTrench"/>, but only over trenches a LINE objective of this team sits on: the
+        /// rearmost line he is actually asked to hold. On the defended coast the shore trench is deliberately not an
+        /// objective (BattlefieldGenerator, the shore line), so this is team 1's reserve line, 21 m shallower.
+        /// Falls back to <see cref="RearTrench"/> when no line objective of his sits on a trench, so a map whose
+        /// objectives lie off the trenches reads exactly as before.</summary>
+        public short RearLineTrench(byte team)
+        {
+            short best = -1;
+            float bestZ = team == 0 ? float.MaxValue : float.MinValue;
+            for (int o = 0; o < map.Objectives.Length; o++)
+            {
+                var obj = map.Objectives[o];
+                if (obj.SideTeam != team || obj.Kind == ObjectiveKind.HQ) continue;
+                for (int k = 0; k < obj.CellCount; k++)
+                {
+                    short t = map.CellTrenchId[map.ObjectiveCells[obj.CellStart + k]];
+                    if (t < 0 || Trenches[t].OwnerTeam != team) continue;
+                    var def = map.Trenches[t];
+                    if (def.Kind != 0 || def.CellCount == 0) continue;
+                    float z = map.NavCellCenter(map.TrenchCells[def.CellStart]).z;
+                    if (team == 0 ? z < bestZ : z > bestZ) { bestZ = z; best = t; }
+                }
+            }
+            return best >= 0 ? best : RearTrench(team);
+        }
+
         /// <summary>Objective id of the enemy HQ for <paramref name="team"/>, or -1.</summary>
         public short EnemyHq(byte team)
         {

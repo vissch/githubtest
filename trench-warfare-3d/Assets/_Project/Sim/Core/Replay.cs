@@ -121,6 +121,14 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
+        // v38 (2026-10-13, the coast's shore gets defences): on the Landing preset the shore is defended - timber
+        // obstacles on the dry sand, one wire belt above them and a fifth fire trench at the top of the beach, which
+        // team 1 holds and his foot soldiers rally in. MapData's hashed content moves for that preset (Height,
+        // NavLayers, NavCost, CellTrenchId, Props, Trenches) and BattlefieldParams carries one byte more
+        // (ShoreDefences; absent reads as a bare shore). The shipped grounds, ShelledForest and WinterLine, do not
+        // move (CoastTests.TheShippedGroundsHashesAreUnchanged pins them). A replay recorded on the old Landing map
+        // does not replay: its MapHash no longer matches. Layout and chain unchanged.
+        // This number is renumbered to the next free version when the lane lands.
         public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
