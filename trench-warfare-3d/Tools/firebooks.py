@@ -123,7 +123,12 @@ def convert(name, src, mode, rootleft, keep):
         v = np.clip(value(cell[..., :3], mode), 0.0, 1.0)
         grey = np.clip(v * al * 255.0 + 0.5, 0, 255).astype(np.uint8)
         px = np.dstack([grey, grey, grey, np.clip(al * 255.0 + 0.5, 0, 255).astype(np.uint8)])
-        im = Image.fromarray(px, "RGBA").resize((CELL, CELL), Image.LANCZOS)
+        # "RGBa": px is ALREADY premultiplied (grey = v*al), and Pillow premultiplies an "RGBA" image itself
+        # before resampling - which multiplied the colour by alpha twice and only divided once back out, so soft
+        # edges read hotter than drawn. Declared premultiplied, it resamples once and the bytes are kept as they are
+        # (the books ARE premultiplied - the shader reads ink = luma/alpha; un-premultiplying here would double it).
+        im = Image.fromarray(px, "RGBa").resize((CELL, CELL), Image.LANCZOS)
+        im = Image.frombytes("RGBA", im.size, im.tobytes())   # the same bytes, still premultiplied: that IS the book format
         out.paste(im, ((i % COLS) * CELL, (i // COLS) * CELL))
         m = al > 0.1
         if m.any():
