@@ -9,8 +9,9 @@ a check that no longer works. This breaks things on purpose and asserts each bre
     python Tools/selftest.py        from trench-warfare-3d/; exit 0 = every case behaved
 
 Cases: codemap --check passes on a clean tree, then fails on each of: a command that runs a missing Tools/ script, a
-cited file that does not exist, a folder with no purpose line, an undocumented command-line flag, a test class
-tasks.md never names, an agent-memory.md over its cap. validate.py prints the two lines its callers read on a clean
+cited file that does not exist, a cited file that is in neither the repo nor the allow-list, a folder with no purpose
+line, an undocumented command-line flag, a test class tasks.md never names, an agent-memory.md over its cap; it
+passes a doc naming a relay-home file (shares.json) that is on the allow-list. validate.py prints the two lines its callers read on a clean
 tree, and each check in Tools/checks catches the break it is for, alone (--only), without hiding another check or
 stopping it when it crashes; an asmdef with no references key does not take it down, a test in an
 [Explicit]-only assembly that is not [Explicit] is caught, and an [Explicit] one there is left alone.
@@ -94,6 +95,14 @@ def codemap_cases(wt: pathlib.Path):
            lambda: edit(wf, 'python Tools/shotstats.py', 'python Tools/shotstatz.py'))
     expect('a cited file that does not exist', 'NoSuchFile.cs',
            lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))
+
+    wf.write_bytes(wf.read_bytes() + b'\nSee `shares.json`.\n')
+    code, out = run(check, proj)
+    case('codemap allows a relay-home file named in a doc', code == 0, out)
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
+    expect('a cited file that is in neither the repo nor the allow-list', 'nosuch.json',
+           lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `nosuch.json`.\n'))
 
     def new_folder():
         d = proj / 'Assets/_Project/Presentation/NewThing'

@@ -170,6 +170,7 @@ ALLOW_MISSING = {
     'test-results-EditMode.xml', 'test-results-PlayMode.xml', 'test-results-EditMode-scoped.xml',
     'Library/', 'Temp/', 'Temp/UnityLockfile', 'Library/BurstCache', 'Library/ScriptAssemblies', 'Assets/_shots/',
     'Editor.log', 'Tools/aosa', 'Builds/WinBench/', 'Builds/WinBenchDev/', 'build-info.json', 'Captures/playground/',
+    'shares.json',  # lives in the relay's home on the relay machine, not this repo; named in docs/reference/decisions.md
 }
 
 # ---- helpers ----------------------------------------------------------------------------------------------------
