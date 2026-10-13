@@ -84,12 +84,23 @@ namespace TW.Tests
             // where each man FIRST stood: after that he walks off inland, so his position later says nothing about
             // where he was put down
             var landedAt = new System.Collections.Generic.Dictionary<int, float3>();
+            // [T15] "an empty craft pulls off again" was satisfied by the 5 craft idle the whole run (MaxCraft = 6,
+            // one deploy fills one craft). Track per craft instead, so the assert is about the craft that carried men.
+            var used = new bool[m.Landing.Count];
+            var unloaded = new bool[m.Landing.Count];
+            var carried = new bool[m.Landing.Count];
             using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
             for (int tick = 0; tick < 500; tick++)                       // 96 m at 7 m/s, plus the ramp
             {
                 m.Step(none);
                 for (int i = 0; i < m.World.HighWater; i++)
                     if (m.World.IsAlive(i) && !landedAt.ContainsKey(i)) landedAt[i] = m.World.Position[i];
+                for (int c = 0; c < m.Landing.Count; c++)
+                {
+                    if (m.Landing.StateOf(c) != LandingState.Idle) used[c] = true;
+                    if (m.Landing.StateOf(c) == LandingState.Unloading) unloaded[c] = true;
+                    if (m.Landing.AboardOf(c) > 0) carried[c] = true;
+                }
             }
             Assert.AreEqual(6, m.World.AliveCount, "every man aboard came ashore");
             Assert.AreEqual(6, landedAt.Count);
@@ -99,9 +110,14 @@ namespace TW.Tests
                 Assert.Less(m.Map.Offshore(p.z), 1f, "he was put down at the waterline, not out at sea");
                 Assert.Greater(p.z, m.Map.SeaStartZ, "and on the beach, not inland of it");
             }
-            bool retracting = false;
-            for (int i = 0; i < m.Landing.Count; i++) if (m.Landing.StateOf(i) == LandingState.Retracting || m.Landing.StateOf(i) == LandingState.Idle) retracting = true;
-            Assert.IsTrue(retracting, "an empty craft pulls off the beach again");
+            int usedCount = 0, theCraft = -1;
+            for (int c = 0; c < used.Length; c++) if (used[c]) { usedCount++; theCraft = c; }
+            Assert.AreEqual(1, usedCount, "[T15] 6 men fit in one craft's 8 berths, well before the first stores run at tick 800");
+            Assert.IsTrue(carried[theCraft], "[T15] the craft that ran was the one that carried the men");
+            Assert.IsTrue(unloaded[theCraft], "[T15] it unloaded them");
+            Assert.AreEqual(0, m.Landing.AboardOf(theCraft), "[T15] and ended with nobody still aboard");
+            var end = m.Landing.StateOf(theCraft);
+            Assert.IsTrue(end == LandingState.Retracting || end == LandingState.Idle, "[T15] the craft that brought men in pulls off empty again");
         }
 
         [Test]

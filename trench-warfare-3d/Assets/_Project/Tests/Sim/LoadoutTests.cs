@@ -48,6 +48,19 @@ namespace TW.Tests
             for (int t = 0; t < ticks; t++) m.Step(none);
         }
 
+        /// <summary>[T16] deploys every slot of both sides on one tick, so the battle actually fields the chosen ten
+        /// instead of running 400 empty ticks (the pattern of LandingTests.Deploy).</summary>
+        static void DeployAll(MatchSim m)
+        {
+            var list = new SimCommand[2 * RosterEntry.SlotCount];
+            int n = 0;
+            for (byte p = 0; p < 2; p++)
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                    list[n++] = SimCommand.Deploy(m.World.Tick, p, s);
+            using var cmds = new NativeArray<SimCommand>(list, Allocator.Temp);
+            m.Step(cmds);
+        }
+
         [Test]
         public void TheChosenTenFillTheSlots()
         {
@@ -101,12 +114,20 @@ namespace TW.Tests
             using var a = MatchSim.CreateGreybox(cfg);
             using var b = MatchSim.CreateGreybox(cfg);
             Assert.AreEqual(a.World.Hash(), b.World.Hash(), "they disagree before the first tick");
+            // [T16] with no deploys and no AI both worlds stayed empty for all 400 ticks: the equal end hash proved
+            // nothing about the loadout. Deploy the chosen ten on both worlds, same tick, same order, then run.
+            DeployAll(a);
+            DeployAll(b);
+            ulong afterDeploy = a.World.Hash();
+            Assert.AreEqual(2 * RosterEntry.SlotCount, a.World.AliveCount, "[T16] both sides' chosen ten are fielded");
+            Assert.AreEqual(afterDeploy, b.World.Hash(), "[T16] the same deploys keep the worlds in step");
             for (int t = 0; t < 400; t++)
             {
                 using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
                 a.Step(none); b.Step(none);
             }
-            Assert.AreEqual(a.World.Hash(), b.World.Hash(), "they drifted apart over 400 ticks");
+            Assert.AreNotEqual(afterDeploy, a.World.Hash(), "[T16] the battle did something over 400 ticks");
+            Assert.AreEqual(a.World.Hash(), b.World.Hash(), "[T16] they drifted apart over 400 ticks");
         }
 
         /// <summary>A different ten is a different battle, and the tick hash says so before anything has happened.</summary>
