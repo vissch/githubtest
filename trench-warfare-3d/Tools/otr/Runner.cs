@@ -42,6 +42,9 @@ static class Runner
             foreach (var le in e.LoaderExceptions.Take(5)) Console.WriteLine("LOADER " + le.Message);
         }
         var counts = new Dictionary<string, int>();
+        // [SetUpFixture] runs namespace-wide setup under NUnit's own runner; we cannot, so every test in such a
+        // namespace is RUNNER instead of silently running without its setup.
+        var fixtureNs = new HashSet<string>(types.Where(t => Has(t, "SetUpFixtureAttribute")).Select(t => t.Namespace ?? ""));
         bool started = startAfter == "";
         foreach (var t in types.OrderBy(t => t.FullName))
         {
@@ -49,7 +52,7 @@ static class Runner
             if (!started) { if (t.FullName == startAfter) started = true; continue; }
             if (filter != "" && !(t.Name.Contains(filter) || (filter.Contains(".") && (t.Name + ".").StartsWith(filter.Split('.')[0] + ".")))) continue;
             var methods = t.GetMethods(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static);
-            var tests = methods.Where(m => Has(m, "TestAttribute") || Has(m, "TestCaseAttribute") || Has(m, "UnityTestAttribute")).ToList();
+            var tests = methods.Where(m => Has(m, "TestAttribute") || Has(m, "TestCaseAttribute") || Has(m, "TestCaseSourceAttribute") || Has(m, "UnityTestAttribute")).ToList();
             if (tests.Count == 0) continue;
             Console.WriteLine("#CLASS " + t.FullName); Console.Out.Flush();
             object inst = null;
@@ -60,8 +63,29 @@ static class Runner
             {
                 if (Has(m, "UnityTestAttribute")) { Tally(counts, "SKIP-UNITYTEST"); continue; }
                 if (Has(m, "ExplicitAttribute")) { Tally(counts, "SKIP-EXPLICIT"); continue; }
-                foreach (var argset in Cases(m))
+                string plainLabel = t.Name + "." + m.Name;
+                if (Has(m, "IgnoreAttribute") || Has(t, "IgnoreAttribute"))
                 {
+                    Tally(counts, "IGNORE"); Console.WriteLine("IGNORE  " + plainLabel + "  ([Ignore])"); continue;
+                }
+                // NUnit builds [TestCaseSource] cases itself; running the method with no arguments would be a
+                // different test, so say so instead.
+                if (Has(m, "TestCaseSourceAttribute"))
+                {
+                    Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  [TestCaseSource] cases need NUnit's own runner"); continue;
+                }
+                // LogAssert.Expect tells Unity's runner a logged error is wanted; here it would come out LOGERR.
+                if (UsesLogAssert(m) || methods.Where(x => Has(x, "SetUpAttribute")).Any(UsesLogAssert))
+                {
+                    Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  LogAssert needs Unity's own test runner"); continue;
+                }
+                if (fixtureNs.Contains(t.Namespace ?? ""))
+                {
+                    Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  [SetUpFixture] namespace setup needs NUnit's own runner"); continue;
+                }
+                foreach (var kase in Cases(m))
+                {
+                    var argset = kase.Args;
                     string label = t.Name + "." + m.Name + (argset.Length > 0 ? "(" + string.Join(",", argset.Select(a => a == null ? "null" : a.ToString())) + ")" : "");
                     string verdict, detail = "";
                     if (fixtureError != null) { verdict = Classify(fixtureError); detail = "fixture: " + fixtureError; }
@@ -73,7 +97,16 @@ static class Runner
                             FakeEngine.Logged.Clear();
                             NUnitContext(t, m);
                             err = RunAll(methods, "SetUpAttribute", inst);
-                            if (err == null) { try { m.Invoke(m.IsStatic ? null : inst, argset); } catch (Exception e) { err = Describe(e); } }
+                            if (err == null)
+                            {
+                                try
+                                {
+                                    object ret = m.Invoke(m.IsStatic ? null : inst, argset);
+                                    if (kase.HasExpected && !Equals(Coerce(kase.Expected, ret?.GetType() ?? typeof(object)), ret))
+                                        err = "AssertionException: ExpectedResult " + kase.Expected + ", got " + ret;
+                                }
+                                catch (Exception e) { err = Describe(e); }
+                            }
                             string td = RunAll(methods, "TearDownAttribute", inst);
                             if (err == null && td != null) err = "teardown: " + td;
                             // Unity's runner fails a test that logs an error, an assert or an exception it did not expect
@@ -117,11 +150,63 @@ static class Runner
 
     static bool Has(MemberInfo m, string attr) => m.GetCustomAttributes(true).Any(a => a.GetType().Name == attr);
 
-    static IEnumerable<object[]> Cases(MethodInfo m)
+    /// <summary>One invocation of a test method: its arguments and, when the attribute carries one, the value the
+    /// method has to return ([Test(ExpectedResult=...)], [TestCase(..., ExpectedResult=...)]).</summary>
+    class Case
+    {
+        public object[] Args = new object[0];
+        public object Expected;
+        public bool HasExpected;
+    }
+
+    /// <summary>True when the method's IL calls anything on UnityEngine.TestTools.LogAssert: such a test wants a
+    /// logged error, which only Unity's own runner can honour. Unreadable body: read as absent.</summary>
+    static bool UsesLogAssert(MethodInfo m)
+    {
+        try
+        {
+            var il = m.GetMethodBody()?.GetILAsByteArray();
+            if (il == null) return false;
+            for (int i = 0; i + 4 < il.Length; i++)
+            {
+                if (il[i] != 0x28 && il[i] != 0x6F) continue;
+                int token = BitConverter.ToInt32(il, i + 1);
+                try
+                {
+                    var mem = m.Module.ResolveMember(token, m.DeclaringType?.GetGenericArguments(), m.GetGenericArguments());
+                    if (mem?.DeclaringType?.Name == "LogAssert") return true;
+                }
+                catch { }
+            }
+        }
+        catch { }
+        return false;
+    }
+
+    static object Expected(object attr, out bool has)
+    {
+        has = false;
+        try
+        {
+            var at = attr.GetType();
+            var hp = at.GetProperty("HasExpectedResult");
+            var ep = at.GetProperty("ExpectedResult");
+            if (ep == null) return null;
+            object v = ep.GetValue(attr, null);
+            has = hp != null ? (bool)hp.GetValue(attr, null) : v != null;
+            return v;
+        }
+        catch { has = false; return null; }
+    }
+
+    static IEnumerable<Case> Cases(MethodInfo m)
     {
         var tc = m.GetCustomAttributes(true).Where(a => a.GetType().Name == "TestCaseAttribute").ToList();
         if (tc.Count == 0)
         {
+            var ta = m.GetCustomAttributes(true).FirstOrDefault(a => a.GetType().Name == "TestAttribute");
+            bool texpHas = false;
+            object texp = ta == null ? null : Expected(ta, out texpHas);
             // [Values] / [ValueSource] on the parameters: every combination
             var sets = new List<object[]>();
             foreach (var pi in m.GetParameters())
@@ -149,10 +234,10 @@ static class Runner
                 if (vals == null) { sets = null; break; }
                 sets.Add(vals.Select(v => Coerce(v, pi.ParameterType)).ToArray());
             }
-            if (sets == null || sets.Count == 0) { yield return new object[0]; yield break; }
+            if (sets == null || sets.Count == 0) { yield return new Case { Expected = texp, HasExpected = texpHas }; yield break; }
             IEnumerable<object[]> combos = new[] { new object[0] };
             foreach (var s in sets) { var cur = s; combos = combos.SelectMany(c => cur.Select(v => c.Concat(new[] { v }).ToArray())).ToList(); }
-            foreach (var c in combos) yield return c;
+            foreach (var c in combos) yield return new Case { Args = c, Expected = texp, HasExpected = texpHas };
             yield break;
         }
         foreach (var a in tc)
@@ -170,7 +255,8 @@ static class Runner
                 }
                 catch { conv[i] = v; }
             }
-            yield return conv;
+            object exp = Expected(a, out bool hasExp);
+            yield return new Case { Args = conv, Expected = exp, HasExpected = hasExp };
         }
     }
 
