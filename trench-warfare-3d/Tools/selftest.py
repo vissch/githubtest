@@ -733,9 +733,15 @@ mode = a[a.index('--mode') + 1]
 asked = a[a.index('-assemblyNames') + 1].split(';') if '-assemblyNames' in a else []
 every = ['TW.Tests.Sim', 'TW.Tests.Match', 'TW.Tests.Show', 'TW.Tests.UI', 'TW.Tests.Project', 'TW.Tests.Playground']
 how = os.environ.get('TW_FAKE', 'honour')
+if how == 'dirty':
+    # [H8] simulates a tracked project file changing mid-run; the caller restores it with `git checkout -- .`
+    with open('Tools/health.py', 'a') as f:
+        f.write('# dirty (TW_FAKE=dirty, for Tools/selftest.py only)\n')
 suites = ['TW.Tests.PlayMode'] if mode == 'PlayMode' else (asked if asked and how != 'ignore' else every)
 if how == 'fewer':
     suites = suites[:1]
+elif how == 'empty':
+    suites = []
 # the real wrapper Unity puts round an unexpected log: it holds the word Assert but no assertion of the test's own
 NOISE = (r"Unhandled log message: '[Error] WriteToProjectRoot failed: Sharing violation on path "
          r"C:\x\Temp\.unity-pipeline-port'. Use UnityEngine.TestTools.LogAssert.Expect")
@@ -746,6 +752,8 @@ elif how in ('noise', 'mixedfail') and '--rerun-failed' not in a:
     fails.append(('X.B', NOISE))
     if how == 'mixedfail':
         fails.append(('X.C', 'Expected: 3 But was: 4'))
+elif how == 'playfail' and mode == 'PlayMode':
+    fails.append(('X.B', 'Expected: 1 But was: 2'))
 odd = []
 if how == 'incon':
     odd.append(('X.I', 'Inconclusive', None, 'Assume.That failed: no bake'))
@@ -847,6 +855,31 @@ def gate_cases(wt: pathlib.Path, tmp: pathlib.Path):
     code, out = gate('fewer')
     case('[G4] a full run whose results miss an assembly the module list holds is no verdict and records no tree',
          code == 6 and 'TW.Tests.Sim' in out and not marker.exists(), out)
+
+    code, out = gate('empty', '-EditOnly', '-All')
+    case('[H8] a run that found no tests is no verdict (exit 6), not a pass',
+         code == 6 and 'ran no tests' in out, out)
+    code, out = gate('playfail')
+    case('[H8] EditMode green but PlayMode failing is exit 8, printed, and records no tree',
+         code == 8 and 'FAILED X.B' in out and not marker.exists(), out)
+    code, out = gate('honour', TW_GATE_UNITY=str(fake / 'missing.cmd'))
+    case('[H8] TW_GATE_UNITY pointing at a missing file is exit 1, "unity.exe not found"',
+         code == 1 and 'unity.exe not found' in out, out)
+    (proj / 'Tools/editor_lock.py').write_text('import sys\nsys.exit(1)\n')
+    code, out = gate('honour', '-EditOnly', '-All')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    case('[H8] editor_lock.py refusing the guard makes the gate exit 3, "the project is held"',
+         code == 3 and 'project is held' in out.lower(), out)
+    (proj / 'validate.py').write_text('raise SystemExit(1)\n')
+    code, out = gate('honour', '-EditOnly', '-All')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    case('[H8] validate.py failing makes the gate exit 5',
+         code == 5 and 'validate.py failed (exit 5)' in out, out)
+    code, out = gate('dirty')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    case('[H8] a tracked file changing during the run leaves the gate green but records no tree',
+         code == 0 and not marker.exists() and 'changed during the run' in out, out)
+
     for f in (marker, scoped, full, seconds, proj / 'test-results-PlayMode.xml', proj / 'test-results.xml'):
         f.unlink(missing_ok=True)
 
