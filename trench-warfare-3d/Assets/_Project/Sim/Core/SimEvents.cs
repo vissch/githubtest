@@ -142,6 +142,8 @@ namespace TW.Sim
         public int Slot;
         public int Killer;
         public int Archetype;
+        public int Team;
+        public int Generation;
         public float Yaw;
         public float3 Pos;
     }

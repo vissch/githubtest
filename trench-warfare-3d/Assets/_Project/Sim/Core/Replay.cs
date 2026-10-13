@@ -147,7 +147,11 @@ namespace TW.Sim
         // v50 (2026-10-13, [N4] [N6]): a merged crater now CARVES the ground its widening claims (a hole at
         // MaxDepth still digs), and the crush box holds the whole hull rectangle, tested symmetrically. Behaviour
         // only, no layout change; crater heights and crush outcomes move, so hashes and balance move.
-        public const ushort FormatVersion = 50;
+        // v51 (2026-10-13, [U3]): the wreck record's provenance comes from SimWorld.VehicleDeaths, captured at the
+        // death, not off the slot (a bail-out crew can hold it by then, the free list is LIFO), and DeformationSystem
+        // reads that list instead of the droppable event buffer. Record contents move where the bug triggered, and
+        // where the event buffer had overflowed, which deaths leave a wreck moves too.
+        public const ushort FormatVersion = 51;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

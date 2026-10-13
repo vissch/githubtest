@@ -112,6 +112,25 @@ namespace TW.Tests
             Assert.AreNotEqual(rec.Generation, m.World.Generation[again]);
         }
 
+        // [U3] the dead machine's own provenance, not the slot's new occupant: a bail-out crew takes the freed slot
+        // (LIFO) in the same tick, before DeformationSystem writes the record.
+        [Test]
+        public void TheRecordNamesTheDeadMachineEvenWhenItsSlotIsLetAgainInTheSameTick()
+        {
+            using var m = NewMatch();
+            int tank = Tank(m, 1, VehicleArchetype.Tusk, 150f, 100f);
+            Step(m);
+            int gen = m.World.Generation[tank];
+            m.World.Despawn(tank);
+            int again = m.World.Spawn(0, InfantryArchetype.Rifle, new float3(60f, 0f, 30f), 100f, 3f, false);
+            Assert.AreEqual(tank, again, "setup: the slot was let again at once");
+            m.Deformation.Step(m.World);   // not m.Step: that clears the events and the death list first
+            Assert.AreEqual(1, m.Deformation.Wrecks.Length, "[U3] one death, one record");
+            Assert.AreEqual(VehicleArchetype.Tusk, m.Deformation.Wrecks[0].Archetype, "[U3] the record names the rifleman's archetype, not the tank's");
+            Assert.AreEqual(1, m.Deformation.Wrecks[0].Team, "[U3] the record names the wrong side: the slot's new occupant's");
+            Assert.AreEqual(gen, m.Deformation.Wrecks[0].Generation, "[U3] the record names the new life of the slot, not the dead machine's");
+        }
+
         [Test]
         public void TheRecordIsInTheHashAndTheSectorSystemNamesTheGround()
         {

@@ -245,7 +245,7 @@ namespace TW.Sim
             if (vehicle)
             {
                 Events.Add(Tick, SimEventType.VehicleDestroyed, slot, killer, Position[slot], new float3(Archetype[slot] + 1, Yaw[slot], 0f));   // dir.x = archetype + 1, dir.y = hull yaw, for the wreck (the slot can be let again this step)
-                VehicleDeaths.Add(new VehicleDeath { Slot = slot, Killer = killer, Archetype = Archetype[slot], Yaw = Yaw[slot], Pos = Position[slot] });
+                VehicleDeaths.Add(new VehicleDeath { Slot = slot, Killer = killer, Archetype = Archetype[slot], Team = Team[slot], Generation = Generation[slot], Yaw = Yaw[slot], Pos = Position[slot] });
             }
         }
 
