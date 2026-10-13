@@ -181,6 +181,25 @@ def codemap_cases(wt: pathlib.Path):
            lambda: wf.write_bytes(wf.read_bytes() + f'\nSee `Presentation/Core/SimHost.cs:{sim_lines + 1}`.\n'.encode()))
     expect('a tool whose name only appears inside a longer tool name', 'Tools/map.py is in neither',
            lambda: (proj / 'Tools/map.py').write_text('print(1)\n'))
+    cm = wt / 'docs/reference/code-map.md'
+    opener = '<!-- gen:folders -->'
+    kept = 'A hand-written sentence a regenerate must never eat.'
+
+    def double_opener():
+        b = cm.read_bytes().decode('utf-8')
+        cm.write_bytes(b.replace(opener + '\n', f'{opener}\n\n{kept}\n\n{opener}\n', 1).encode('utf-8'))
+
+    # [H19] one opener twice (a hand-resolved merge conflict) used to pass --check, and a regenerate then
+    # deleted everything between the two openers.
+    expect('[H19] a duplicated gen opener', '2 <!-- gen:folders -->', double_opener)
+    double_opener()
+    code, out = run([sys.executable, 'Tools/codemap.py'], proj)
+    case('[H19] a regenerate refuses a duplicated gen opener and keeps the text between the two openers',
+         code != 0 and kept in cm.read_bytes().decode('utf-8'),
+         f'exit {code}: {out}\nkept sentence present: {kept in cm.read_bytes().decode("utf-8")}')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
+
     mem = wt / 'docs/reference/agent-memory.md'
     expect('agent-memory.md over its cap', 'agent-memory.md is',
            lambda: mem.write_bytes(mem.read_bytes() + b''.join(b'- filler %d\n' % i for i in range(200))))
