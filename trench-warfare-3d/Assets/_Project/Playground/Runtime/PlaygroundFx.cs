@@ -20,6 +20,17 @@ namespace TW.Playground
         /// <summary>Cards spawned per second may not pass this, whatever asks: the battle has a budget too.</summary>
         public int CardsAlive => Books != null ? Books.Alive : 0;
 
+        /// <summary>The bangs this playground has spent: a shot, a burst, a cook-off, a flame, a kick of dust. A capture
+        /// that wants the moment itself (BangShot) watches this count rise instead of waiting out a clock.</summary>
+        public int BangCount { get; private set; }
+        public string LastBangKind { get; private set; } = "";
+        public float LastBangTime { get; private set; } = -1f;
+
+        void Bang(string kind)
+        {
+            BangCount++; LastBangKind = kind; LastBangTime = Time.time;
+        }
+
         sealed class LampState { public Light L; public float Born, Life, Peak; public Transform Follow; public Vector3 Offset; public bool Flicker; public float Seed; }
         readonly List<LampState> lamps = new List<LampState>();
         static readonly Bounds Everywhere = new Bounds(Vector3.zero, Vector3.one * 5000f);
@@ -322,6 +333,7 @@ namespace TW.Playground
 
         public void Burst(Vector3 at, float r)
         {
+            Bang("burst");
             if (Books == null) return;
             Books.Add(Book.Flash, at + Vector3.up * (r * 0.3f), r * 3.2f, 0.18f, roll: Random.value * 6.28f, glow: 7f * Glow, pop: 0.5f);
             // lit and rising as the battle draws it (CombatFx: glow 3.4 at night): unlit, the moon made it a solid blue ball
@@ -344,6 +356,7 @@ namespace TW.Playground
         /// <summary>One beat of a standing fire, sized so the DRAWING stands from foot to top (Flamethrower.Standing).</summary>
         public void Flame(Vector3 foot, float width, float tall, float life, float alpha = 1f)
         {
+            Bang("flame");
             if (Books == null) return;
             FlipbookFx.Geometry(Book.Stand, out float inkLow, out float inkHigh, out _);
             float h = tall / Mathf.Max(0.1f, inkHigh - inkLow);
@@ -367,6 +380,7 @@ namespace TW.Playground
         /// <summary>Dust kicked off the ground (a hopper landing): a low brown haze thrown out and hanging, not a smoke card.</summary>
         public void Dust(Vector3 at, Vector3 outward, float width)
         {
+            Bang("dust");
             if (Books == null) return;
             Books.Add(Book.Puff, at, width, Random.Range(1.4f, 2f), Kind.Anchored | (Random.value < 0.5f ? Kind.Mirror : Kind.None),
                       velocity: outward * Random.Range(1f, 1.8f) + Vector3.up * 0.2f, grow: 1.8f, alpha: 0.55f, glow: 1f + 1.6f * Glow);
@@ -384,6 +398,7 @@ namespace TW.Playground
         /// <summary>The ammunition going up: one Blast drawing, the flash, and the black smoke that boils up after it.</summary>
         public void CookOff(Vector3 at, float size)
         {
+            Bang("cook");
             if (Books == null) return;
             Books.Add(Book.Flash, at + Vector3.up * (2f * size), 16f * size, 0.2f, roll: Random.value * 6.28f, glow: 6f * Glow, pop: 0.4f);
             Books.Add(Book.Blast, at + Vector3.up * (1.2f * size), 7.2f * size, 2.33f, velocity: Vector3.up * 0.9f, grow: 0.35f, glow: 1.6f * Glow, pop: 0.15f);
@@ -397,6 +412,7 @@ namespace TW.Playground
         /// 2,000 cards and 200 lights).</summary>
         public void RifleShot(Vector3 at, Vector3 dir)
         {
+            Bang("muzzle");
             if (Books == null) return;
             Books.Add(Book.Muzzle, at + dir * 0.25f, 0.6f, 0.05f, roll: FlipbookFx.ScreenRoll(Camera.main, dir), glow: 2.5f * Glow);
             Books.Add(Book.Smoke, at + dir * 0.3f, 0.35f, 1f, Random.value < 0.5f ? Kind.Mirror : Kind.None, velocity: dir * 0.6f + Vector3.up * 0.3f, grow: 1.4f, alpha: 0.45f);
@@ -406,6 +422,7 @@ namespace TW.Playground
         /// less than the gap to the next round (16 a second would otherwise pile up lamps).</summary>
         public void GatlingShot(Vector3 at, Vector3 dir, float size)
         {
+            Bang("muzzle");
             if (Books == null) return;
             // each gun fires every 1/8 s: a flame that lasts 0.08 s is up two thirds of the time, a stream rather than
             // a flicker (0.05 s and a metre across hardly showed in a still). A star and a flash, each turned at random:
@@ -418,6 +435,7 @@ namespace TW.Playground
 
         public void Muzzle(Vector3 at, Vector3 dir, float size)
         {
+            Bang("muzzle");
             if (Books == null) return;
             Books.Add(Book.Flash, at + dir * 0.4f * size, 3.2f * size, 0.1f, roll: Random.value * 6.28f, glow: 4f * Glow, pop: 0.5f);
             Books.Add(Book.Muzzle, at + dir * 1.2f * size, 2.6f * size, 0.08f, roll: FlipbookFx.ScreenRoll(Camera.main, dir), glow: 3f * Glow);

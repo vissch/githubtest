@@ -400,6 +400,16 @@ namespace TW.Playground
                         break;
                     }
                 case "shot": shotPath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/playground.png"); shotW = (int)F(a, 2, 1600); shotH = (int)F(a, 3, 900); break;
+                case "bang":
+                    pending = new BangShot
+                    {
+                        Path = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/playground/bang.png"),
+                        Kind = a.Length > 2 ? a[2] : "any",
+                        W = (int)F(a, 3, 800), H = (int)F(a, 4, 450),
+                        Step = F(a, 5, 0.2f), Pre = (int)F(a, 6, 1), Wait = F(a, 7, 20f),
+                    };
+                    bangMark = Fx != null ? Fx.BangCount : 0; preRing.Clear();
+                    break;
                 default: return "unknown command " + c;
             }
             return "ok " + line;
@@ -454,6 +464,7 @@ namespace TW.Playground
                 string path = shotPath; shotPath = null;
                 Capture(path, shotW, shotH);
             }
+            if (pending != null) BangStep();
             if (popPath != null)
             {
                 string path = popPath; popPath = null;
@@ -692,9 +703,11 @@ namespace TW.Playground
             var px = tex.GetPixels32(); Destroy(tex); return px;
         }
 
-        void Capture(string path, int w, int h)
+        /// <summary>One frame, rendered and encoded, with its report: the shot without a file name. A shot taken on the
+        /// bang holds a few of these in a ring before it knows which of them it keeps (BangShot).</summary>
+        (byte[] png, string json) Shoot(int w, int h)
         {
-            var c = Camera.main; if (c == null) return;
+            var c = Camera.main; if (c == null) return (null, null);
             var rt = RenderTexture.GetTemporary(w, h, 24, RenderTextureFormat.ARGB32);
             var before = c.targetTexture;
             c.targetTexture = rt; c.Render(); c.targetTexture = before;
@@ -702,12 +715,57 @@ namespace TW.Playground
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply();
             RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
-            File.WriteAllBytes(path, tex.EncodeToPNG());
-            LastJson = Report(tex, Units.Count > 0 ? FigureGap(c, w, h, tex) : null);
-            File.WriteAllText(Path.ChangeExtension(path, ".json"), LastJson);
+            var png = tex.EncodeToPNG();
+            string json = Report(tex, Units.Count > 0 ? FigureGap(c, w, h, tex) : null);
             Destroy(tex);
+            return (png, json);
+        }
+
+        /// <summary>A shot on disc: the PNG, and its report beside it when one is wanted.</summary>
+        void WriteShot(string path, byte[] png, string json)
+        {
+            if (png == null) return;
+            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            File.WriteAllBytes(path, png);
+            if (json != null) { LastJson = json; File.WriteAllText(Path.ChangeExtension(path, ".json"), json); }
             LastShot = path;
+        }
+
+        void Capture(string path, int w, int h)
+        {
+            var (png, json) = Shoot(w, h);
+            WriteShot(path, png, json);
+        }
+
+        // ------------------------------------------------------------------------------------- the shot on the bang
+        BangShot pending;
+        int bangMark;                                        // Fx.BangCount when the shot was armed
+        readonly List<byte[]> preRing = new List<byte[]>();   // the last Pre frames, encoded, waiting for a bang
+
+        void BangStep()
+        {
+            var s = pending; float now = Time.time;
+            if (s.PreRollDue(now))
+            {
+                var (png, _) = Shoot(s.W, s.H);
+                if (png != null) { preRing.Add(png); while (preRing.Count > s.Pre) preRing.RemoveAt(0); }
+            }
+            if (!s.Fired && Fx != null && Fx.BangCount > bangMark && (s.Kind == "any" || Fx.LastBangKind == s.Kind))
+            {
+                // the first rise only: a gatling raises the count sixteen times a second, and the five frames are already owed
+                int kept = s.Taken;
+                s.Fire(now);
+                for (int k = 0; k < s.Taken - 1 && k < preRing.Count; k++) WriteShot(s.FramePath(k), preRing[k], null);
+                preRing.Clear();
+                if (s.Taken > kept) { var (png, json) = Shoot(s.W, s.H); WriteShot(s.FramePath(s.Taken - 1), png, json); }
+            }
+            else if (!s.Fired)
+            {
+                if (s.Expired(now)) { File.WriteAllText(s.Stem + ".json", s.Manifest()); Status = "bang timed out: " + s.Kind; pending = null; preRing.Clear(); }
+                return;
+            }
+            if (s.Due(now)) { var (png, _) = Shoot(s.W, s.H); WriteShot(s.FramePath(s.Taken - 1), png, null); }
+            if (s.Done) { File.WriteAllText(s.Stem + ".json", s.Manifest()); Status = "bang " + s.Kind + ": " + s.Taken + " frames"; pending = null; }
         }
 
         /// <summary>Mean brightness of the figures as drawn, of a ring of what is right round them, and the gap: whether a man
