@@ -95,7 +95,7 @@ Traps, all silent:
 |---|---|---|
 | `playground/pg.sh` | Drives the playground in this checkout's editor (in Play in `Playground.unity`): queue commands, take stills with a JSON report | `bash Tools/playground/pg.sh do "vehicle.compare; seq"`, `... shot NAME [W H]`, `... report` |
 | `playground/round.sh` | The critic loop's fixed shot list: vehicle LODs through a destruction, figures at four LODs, a squad to 300 m, the mixed scene on grid and mud, a shelled building, the LOD-pop measurements | `bash Tools/playground/round.sh r1` (stills in `Captures/playground/`) |
-| `playground/bang.sh` | A shot taken on the event, not the clock: arms the host on a kind of bang, keeps five frames round it and joins them into a two-second loop | `bash Tools/playground/bang.sh demo_hit burst` (`NAME.gif` in `Captures/playground/`) |
+| `playground/bang.sh` | A shot taken on the event, not the clock: arms the host on a kind of bang, keeps five frames round it and joins them into a two-second loop. `--arm NAME KIND` queues the bang and returns at once; `--join NAME` waits for it, builds the loop and exits 1 on a miss, so a round's clock never waits on a bang (`round.sh` arms both and joins after v5) | `bash Tools/playground/bang.sh demo_hit burst` (`NAME.gif` in `Captures/playground/`), or `... --arm demo_hit burst` then `... --join demo_hit` |
 | `playground/loop.py` | Joins a bang shot's `STEM_f*.png` into `STEM.gif`, 400 ms a frame, looping forever | `python Tools/playground/loop.py Captures/playground/demo_hit [MS]` |
 | `playground/sheet.py` | Contact sheets of a round, each still labelled from its JSON (LOD, cost, stage), and a stats table | `python Tools/playground/sheet.py r1` |
 
