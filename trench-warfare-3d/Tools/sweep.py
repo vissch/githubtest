@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """The balance sweep: play variants of a number over the same seeds, and say what each did to the fight.
 
-    python Tools/sweep.py run <spec.json> [--seeds 1,2,3,4,5,6,7,8] [--minutes N] [--chunk 4] [--resume <run folder>]
+    python Tools/sweep.py run <spec.json> [--seeds 1,2,3,4,5,6,7,8] [--minutes N] [--chunk 4] [--resume <run folder>] [--track]
     python Tools/sweep.py report <run folder>
+    python Tools/sweep.py film <run folder>
     python Tools/sweep.py compile <spec.json> <out.json>
 
 The behaviour bench says how units behave; this says what a number does to the match. A spec names a scenario and
@@ -29,6 +30,12 @@ holding KEEP.txt always). A variant whose report is there is not played again, s
 on where it stopped (it refuses a spec that changed). Run from trench-warfare-3d/ with this checkout's editor closed:
 it waits on Tools/editor_lock.py like the gate. A long sweep goes under Tools/pipeline/run_detached.py.
 
+--track also saves where every man stood each five seconds, one file a match into <run>/tracks/. It is off by
+default: a track is written per variant per seed per seating, so prove a spec on --seeds 1 --minutes 2 first.
+
+film: turn those tracks into pages that play the match back from above as moving dots (Tools/sweepfilm.py), into
+<run>/film/; open <run>/film/index.html from the run folder. report prints its path when it is there.
+
 report: per metric, the baseline's mean and its p10-p90 over the seeds, each variant's mean, and whether every seed
 moved the same way (the bench's rule: deterministic but chaotic, so believe what every seed agrees on). Against the
 targets, each variant is in or out of each band. report.md and report.json go beside the runs.
@@ -45,6 +52,7 @@ sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import abtest  # noqa: E402  (the batch test runner, the editor lock and the results XML as the verdict)
+import sweepfilm  # noqa: E402  (the pages that play a track back)
 
 PROJECT, REPO = abtest.PROJECT, abtest.REPO
 FILTER = 'TW.Tests.BalanceSweepTests.Report_TheSweep'
@@ -270,6 +278,9 @@ def report(out):
     json.dump({'meta': meta, 'rows': rows, 'not_run': not_run}, open(os.path.join(out, 'report.json'), 'w', newline='\n'), indent=1)
     print(md)
     print(f'sweep: {os.path.join(out, "report.md")}')
+    film = os.path.join(out, 'film', 'index.html')
+    if os.path.exists(film):
+        print(f'sweep: {film} (the matches played back as dots)')
     if not_run:
         return 1
     outside = [r['metric'] for r in rows if r['band'] is not None and not r['now_in']]
@@ -297,9 +308,12 @@ def git(*args):
     return subprocess.run(['git', '-C', REPO] + list(args), capture_output=True, text=True).stdout.strip()
 
 
-def unity_runner(compiled_path, out, seeds, index):
+def unity_runner(compiled_path, out, seeds, index, track=None):
     stem = os.path.join(out, f'chunk-{index}')
-    return abtest.run_tests(FILTER, stem + '.xml', stem + '.log', {'TW_SWEEP': compiled_path, 'TW_SWEEP_OUT': out, 'TW_BENCH_SEEDS': seeds})
+    env = {'TW_SWEEP': compiled_path, 'TW_SWEEP_OUT': out, 'TW_BENCH_SEEDS': seeds}
+    if track:
+        env['TW_SWEEP_TRACK'] = track
+    return abtest.run_tests(FILTER, stem + '.xml', stem + '.log', env)
 
 
 def refusals(out, index):
@@ -311,7 +325,7 @@ def refusals(out, index):
     return sorted(set(m.strip() for m in re.findall(r'(sweep: [^\r\n\]<]+)', xml)))
 
 
-def play(out, header, variants, seeds, chunk, runner=unity_runner):
+def play(out, header, variants, seeds, chunk, runner=unity_runner, track=None):
     """Every variant with no report yet, `chunk` to a launch. Returns the names still without one."""
     pending = [v for v in variants if not os.path.exists(os.path.join(out, v['name'] + '.json'))]
     done = len(variants) - len(pending)
@@ -322,7 +336,7 @@ def play(out, header, variants, seeds, chunk, runner=unity_runner):
         compiled = os.path.join(out, f'chunk-{index}.json')
         json.dump(dict(header, variants=part), open(compiled, 'w', newline='\n'), indent=1)
         began = time.time()
-        got = runner(compiled, out, seeds, index)
+        got = runner(compiled, out, seeds, index, track) if track else runner(compiled, out, seeds, index)
         made = [v['name'] for v in part if os.path.exists(os.path.join(out, v['name'] + '.json'))]
         done += len(made)
         verdict = 'no verdict (compile error, or the editor never ran: see the log)' if got is None else f'{got[0]} passed, {got[1]} failed'
@@ -366,8 +380,13 @@ def run(args, runner=unity_runner):
                 'started': datetime.datetime.now().isoformat(timespec='seconds')}
         json.dump(meta, open(os.path.join(out, 'run.json'), 'w', newline='\n'), indent=1)
         shutil.copyfile(args.spec, os.path.join(out, 'spec.json'))
+    track = os.path.join(out, 'tracks') if getattr(args, 'track', False) else None
+    if track:
+        os.makedirs(track, exist_ok=True)
     print(f'sweep: {len(variants)} variants x seeds {seeds} into {out}', flush=True)
-    play(out, header, variants, seeds, args.chunk, runner)
+    play(out, header, variants, seeds, args.chunk, runner, track)
+    if track and any(f.endswith('.jsonl') for f in os.listdir(track)):
+        sweepfilm.main([out])
     return report(out)
 
 
@@ -380,14 +399,19 @@ def main(argv=None):
     r.add_argument('--minutes', type=int, help='a match\'s length; the spec\'s own, or 8')
     r.add_argument('--chunk', type=int, default=4, help='variants to one editor launch')
     r.add_argument('--resume', help='a run folder to carry on in')
+    r.add_argument('--track', action='store_true', help='also save where every man stood each five seconds, and build the pages')
     p = sub.add_parser('report')
     p.add_argument('run')
+    f = sub.add_parser('film')
+    f.add_argument('run')
     c = sub.add_parser('compile')
     c.add_argument('spec')
     c.add_argument('out')
     args = ap.parse_args(argv)
     if args.cmd == 'report':
         return report(os.path.abspath(args.run))
+    if args.cmd == 'film':
+        return sweepfilm.main([os.path.abspath(args.run)])
     if args.cmd == 'compile':
         try:
             header, variants = compile_spec(json.load(open(args.spec, encoding='utf-8')))
