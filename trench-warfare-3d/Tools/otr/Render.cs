@@ -36,6 +36,7 @@ static unsafe class FakeRender
     static readonly Dictionary<IntPtr, byte[]> texts = new Dictionary<IntPtr, byte[]>();
     static readonly List<GCHandle> pinned = new List<GCHandle>();
     static Dictionary<string, string> shaderFiles;
+    static Dictionary<string, string> scriptFiles;
 
     public static void Install(Action<string, Delegate> reg, HashSet<string> registered, Func<IntPtr, object> obj, Func<IntPtr, string> span,
                                Func<object, IntPtr> register, Func<object, IntPtr> ptrOf, Func<object, IntPtr> ptr, string projectDir)
@@ -71,6 +72,7 @@ static unsafe class FakeRender
                 if (file != null)
                 {
                     var ta = Activator.CreateInstance(Type.GetType("UnityEngine.TextAsset, UnityEngine.CoreModule", true), new object[] { File.ReadAllText(file) });
+                    texts[register(ta)] = File.ReadAllBytes(file);   // .bytes (and any other binary) answers the real file, not a text decode
                     return GCHandle.ToIntPtr(GCHandle.Alloc(ta));
                 }
                 if (type.FullName == "UnityEngine.TextAsset") return IntPtr.Zero;   // truly absent: Unity returns null too
@@ -99,10 +101,10 @@ static unsafe class FakeRender
                 var fields = FakeYaml.AssetFields(File.ReadAllText(asset));
                 // a link to another asset ({fileID: n, guid: ...}) cannot be resolved here: say so, never leave it null
                 // (a test would read the asset as absent and ignore itself, as the VAT bake test did)
-                foreach (var kv in fields)
-                    if (!kv.Key.StartsWith("m_") && kv.Value is Dictionary<string, object> link && link.ContainsKey("guid") && link.TryGetValue("fileID", out var fid) && fid as string != "0")
-                        throw new MissingMethodException("otr engine: " + path + ".asset links another asset (" + kv.Key + ") by guid, which only the editor resolves");
-                var so = Activator.CreateInstance(type, true);   // its constructor registers it
+                string link = UnresolvedLink(fields);
+                if (link != null)
+                    throw new MissingMethodException("otr engine: " + path + ".asset links another asset (" + link + ") by guid, which only the editor resolves");
+                var so = Activator.CreateInstance(ScriptType(projectDir, fields, type, path), true);   // its constructor registers it
                 register(so);
                 FakeJson.FillFrom(so, fields);
                 return GCHandle.ToIntPtr(GCHandle.Alloc(so));
@@ -113,7 +115,7 @@ static unsafe class FakeRender
         {
             string name = span(nameSpan);
             if (shaderFiles == null) shaderFiles = ScanShaders(projectDir);
-            if (!shaderFiles.ContainsKey(name) && !name.StartsWith("Hidden/") && !name.StartsWith("Universal Render Pipeline/") && !name.StartsWith("Sprites/") && !name.StartsWith("UI/") && name != "Standard" && !name.StartsWith("Unlit/")) return IntPtr.Zero;
+            if (!ShaderExists(shaderFiles, name)) return IntPtr.Zero;
             var st = Type.GetType("UnityEngine.Shader, UnityEngine.CoreModule", true);
             var sh = Activator.CreateInstance(st, true);
             register(sh);
@@ -162,6 +164,13 @@ static unsafe class FakeRender
                     registered.Add(name); reg(name, new V0(() => throw new MissingMethodException("otr engine: " + what + " reads texture contents, which the stand-in does not keep")));
                     continue;
                 }
+                if (rt != typeof(void) && (m.Name.StartsWith("Get") || m.Name.StartsWith("Has") || m.Name.StartsWith("get_") || m.Name.Contains("Readback")))
+                {
+                    // a material, shader or Graphics value read back: the stand-in keeps no rendering state, so say so, never zero
+                    string got = name;
+                    registered.Add(name); reg(name, new V0(() => throw new MissingMethodException("otr engine: " + got + " reads back rendering state the stand-in does not keep")));
+                    continue;
+                }
                 Delegate d = rt == typeof(void) ? new V0(() => { }) : rt == typeof(float) ? new F0(() => 0f) : rt == typeof(double) ? new D0(() => 0.0) : (Delegate)new L0(() => 0L);
                 if (!rt.IsValueType && rt != typeof(void)) d = new L0(() => 0L);   // an object return: null
                 registered.Add(name); reg(name, d);
@@ -187,10 +196,83 @@ static unsafe class FakeRender
     static Dictionary<string, string> ScanShaders(string projectDir)
     {
         var d = new Dictionary<string, string>();
-        foreach (var f in Directory.GetFiles(Path.Combine(projectDir, "Assets"), "*.shader", SearchOption.AllDirectories))
+        foreach (var root in new[] { Path.Combine(projectDir, "Assets"), Path.Combine(projectDir, "Library", "PackageCache") })
         {
-            var m = Regex.Match(File.ReadAllText(f), "Shader\\s+\"([^\"]+)\"");
-            if (m.Success) d[m.Groups[1].Value] = f;
+            if (!Directory.Exists(root)) continue;
+            foreach (var f in Directory.GetFiles(root, "*.shader", SearchOption.AllDirectories))
+            {
+                var m = Regex.Match(File.ReadAllText(f), "Shader\\s+\"([^\"]+)\"");
+                if (m.Success) d[m.Groups[1].Value] = f;
+            }
+        }
+        return d;
+    }
+
+    // the built-ins a URP player really has; every other unscanned name is absent, as in a build that left it out
+    static readonly string[] BuiltInShaders = { "Hidden/InternalErrorShader", "Sprites/Default", "UI/Default", "Standard", "Unlit/Color", "Unlit/Texture" };
+
+    /// <summary>Does Shader.Find answer for this name? Only a scanned .shader file or a real built-in, never a prefix.</summary>
+    internal static bool ShaderExists(Dictionary<string, string> files, string name)
+        => (files != null && files.ContainsKey(name)) || Array.IndexOf(BuiltInShaders, name) >= 0;
+
+    /// <summary>The path of the first unresolved asset link ({fileID, guid}) anywhere in a YAML asset's fields, or null.
+    /// Nested dictionaries and lists are searched too: a list of links must not pass silently.</summary>
+    internal static string UnresolvedLink(Dictionary<string, object> fields) => Unresolved(fields, "", true);
+
+    static string Unresolved(object node, string at, bool top)
+    {
+        if (node is Dictionary<string, object> d)
+        {
+            if (!top && d.ContainsKey("guid") && d.TryGetValue("fileID", out var fid) && Scalar(fid) != "0") return at;
+            foreach (var kv in d)
+            {
+                if (top && kv.Key.StartsWith("m_")) continue;
+                var hit = Unresolved(kv.Value, at.Length == 0 ? kv.Key : at + "." + kv.Key, false);
+                if (hit != null) return hit;
+            }
+            return null;
+        }
+        if (node is System.Collections.IList list && !(node is byte[]))
+            for (int i = 0; i < list.Count; i++)
+            {
+                var hit = Unresolved(list[i], at + "[" + i + "]", false);
+                if (hit != null) return hit;
+            }
+        return null;
+    }
+
+    static string Scalar(object v) => v == null ? null : v as string ?? Convert.ToString(v, System.Globalization.CultureInfo.InvariantCulture);
+
+    /// <summary>The class a .asset really holds, read from its m_Script guid, so Resources.Load&lt;Base&gt; of a
+    /// subclass asset gets the subclass. Unresolvable: throw rather than build the wrong class.</summary>
+    static Type ScriptType(string projectDir, Dictionary<string, object> fields, Type asked, string path)
+    {
+        if (!(fields.TryGetValue("m_Script", out var ms) && ms is Dictionary<string, object> script
+              && script.TryGetValue("guid", out var g) && Scalar(g) is string guid && guid.Length > 0)) return asked;
+        if (scriptFiles == null) scriptFiles = ScanScripts(projectDir);
+        string stem;
+        if (!scriptFiles.TryGetValue(guid, out stem))
+            throw new MissingMethodException("otr engine: " + path + ".asset m_Script guid " + guid + " is not a class in this tree");
+        if (stem == asked.Name) return asked;
+        foreach (var a in AppDomain.CurrentDomain.GetAssemblies())
+        {
+            Type[] ts;
+            try { ts = a.GetTypes(); } catch { continue; }
+            foreach (var t in ts)
+                if (t.Name == stem && asked.IsAssignableFrom(t) && !t.IsAbstract) return t;
+        }
+        throw new MissingMethodException("otr engine: " + path + ".asset m_Script guid " + guid + " is not a class in this tree");
+    }
+
+    static Dictionary<string, string> ScanScripts(string projectDir)
+    {
+        var d = new Dictionary<string, string>();
+        var root = Path.Combine(projectDir, "Assets");
+        if (!Directory.Exists(root)) return d;
+        foreach (var f in Directory.GetFiles(root, "*.cs.meta", SearchOption.AllDirectories))
+        {
+            var m = Regex.Match(File.ReadAllText(f), "guid:\\s*([0-9a-fA-F]+)");
+            if (m.Success) d[m.Groups[1].Value] = Path.GetFileNameWithoutExtension(Path.GetFileNameWithoutExtension(f));
         }
         return d;
     }
