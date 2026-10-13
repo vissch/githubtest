@@ -1,7 +1,9 @@
 // Phase: P0 (implemented) — the core determinism guarantee: same seed + same commands → identical hash sequence.
 // The script also fires every line ability (docs/21 phase 5: a strafe, a smoke screen, a line barrage, creeping
-// gas, and the beam, which lights what it crosses) early enough for their payloads, the smoke field, the sweep and
-// the burning to be in the hash the replay verifies.
+// gas, the beam, which lights what it crosses, and a creeping barrage) early enough for their payloads, the smoke
+// field, the sweep and the burning to be in the hash the replay verifies. [T10] every one of the six is asserted
+// to have been accepted (not silently rejected), and the line barrage is aimed at player 1's deployment point, so
+// the recorded run wounds somebody: the damage is in the verified hash too.
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -15,11 +17,23 @@ namespace TW.Tests
         static SimCommand Support(uint t, byte player, OffMapAbilityId id, int heading, int pattern, int length, float x, float z)
             => new SimCommand { Tick = t, Player = player, Type = CommandType.SupportFire, A = (int)id, B = AbilityArgs.Pack(heading, pattern, length), Pos = new float3(x, 0f, z) };
 
-        static SimCommand[] ScriptedCommands(uint t)
+        /// <summary>[T10] The middle of a player's living men, or his deployment point while he has none.</summary>
+        static float3 MiddleOfTheirMen(MatchSim match, byte player)
+        {
+            var w = match.World;
+            float3 sum = float3.zero; int n = 0;
+            for (int i = 0; i < w.HighWater; i++) if (w.IsAlive(i) && w.Team[i] == player) { sum += w.Position[i]; n++; }
+            return n > 0 ? sum / n : (player == 0 ? w.Init.SpawnA : w.Init.SpawnB);
+        }
+
+        static SimCommand[] ScriptedCommands(MatchSim match, uint t)
         {
             if (t == 41) return new[] { Support(t, 0, OffMapAbilityId.StrafeRun, 90, 0, 60, 60f, 300f) };
             if (t == 46) return new[] { Support(t, 1, OffMapAbilityId.SmokeScreen, 0, 0, 40, 150f, 400f) };
-            if (t == 51) return new[] { Support(t, 0, OffMapAbilityId.HeBarrage, 0, AbilityPattern.Line, 60, 150f, 500f) };
+            // [T10] on player 1's men, not an empty corner of the map, so the barrage wounds somebody. Their middle
+            // is read from the world, so both runs of the same script aim at the same metre, and a replay re-simulates
+            // the command's recorded position.
+            if (t == 51) { var c = MiddleOfTheirMen(match, 1); return new[] { Support(t, 0, OffMapAbilityId.HeBarrage, 0, AbilityPattern.Line, 60, c.x, c.z) }; }
             if (t == 56) return new[] { Support(t, 1, OffMapAbilityId.ChlorineGas, 180, AbilityPattern.Creeping, 64, 150f, 300f) };
             if (t == 61) return new[] { Support(t, 0, OffMapAbilityId.Beam, 45, 0, 60, 120f, 350f) };
             if (t == 66) return new[] { Support(t, 1, OffMapAbilityId.CreepingBarrage, 180, 0, 60, 150f, 450f) };
@@ -29,12 +43,50 @@ namespace TW.Tests
             return System.Array.Empty<SimCommand>();
         }
 
-        static bool beamFired;
+        // [T10] every scripted ability, not the beam alone: one flag each, so a silently rejected command fails
+        static readonly OffMapAbilityId[] ScriptedAbilities =
+        {
+            OffMapAbilityId.StrafeRun, OffMapAbilityId.SmokeScreen, OffMapAbilityId.HeBarrage,
+            OffMapAbilityId.ChlorineGas, OffMapAbilityId.Beam, OffMapAbilityId.CreepingBarrage,
+        };
+        static readonly bool[] abilityFired = new bool[ScriptedAbilities.Length];
+        static bool somebodyWasHurt;
+        static readonly float[] lastHp = new float[4096];   // [T10] every man's hit points last tick, 0 when he was not there
+
         static bool Fired(MatchSim m, int ability)
         {
             var ev = m.World.Events.Events;
             for (int i = 0; i < ev.Length; i++) if (ev[i].Type == SimEventType.AbilityFired && ev[i].A == ability) return true;
             return false;
+        }
+
+        /// <summary>[T10] OR the per-ability flags of this tick's events into the statics, and watch every man for
+        /// damage: fewer hit points than he had last tick, or alive last tick and gone now. Hit points, not a Hit or
+        /// Death event: the event buffer of this busy script can overflow and drop them (SimEvents.cs:1-3).</summary>
+        static void Watch(MatchSim m)
+        {
+            for (int k = 0; k < ScriptedAbilities.Length; k++) abilityFired[k] |= Fired(m, (int)ScriptedAbilities[k]);
+            var w = m.World;
+            for (int i = 0; i < w.HighWater && i < lastHp.Length; i++)
+            {
+                bool alive = w.IsAlive(i);
+                if (alive && lastHp[i] > 0f && w.Hp[i] < lastHp[i]) somebodyWasHurt = true;
+                if (!alive && lastHp[i] > 0f) somebodyWasHurt = true;
+                lastHp[i] = alive ? w.Hp[i] : 0f;
+            }
+        }
+
+        static void ResetWatch()
+        {
+            for (int k = 0; k < abilityFired.Length; k++) abilityFired[k] = false;
+            for (int i = 0; i < lastHp.Length; i++) lastHp[i] = 0f;
+            somebodyWasHurt = false;
+        }
+
+        static void AssertEveryAbilityFired()
+        {
+            for (int k = 0; k < ScriptedAbilities.Length; k++)
+                Assert.IsTrue(abilityFired[k], $"[T10] the scripted {ScriptedAbilities[k]} was never accepted: its payload is in the verified hash");
         }
 
         static bool minesLaid;
@@ -103,14 +155,15 @@ namespace TW.Tests
         {
             var cfg = Config();
             using var match = MatchSim.CreateGreybox(cfg);
+            for (int i = 0; i < lastHp.Length; i++) lastHp[i] = 0f;   // [T10] a fresh world: nobody was there last tick
             var hashes = new ulong[ticks];
             for (uint t = 0; t < ticks; t++)
             {
                 if (recorder == null) Seams(match, t);
-                using var cmds = new NativeArray<SimCommand>(WithSapperOrder(match, t, ScriptedCommands(t)), Allocator.Temp);
+                using var cmds = new NativeArray<SimCommand>(WithSapperOrder(match, t, ScriptedCommands(match, t)), Allocator.Temp);
                 match.Step(cmds);
                 sapperLaid |= Laid(match, 0);   // the seams' mines are player 1's: a mine of player 0 is the sapper's
-                if (t == 61) beamFired |= Fired(match, (int)OffMapAbilityId.Beam);   // the script's beam was accepted, not silently rejected
+                Watch(match);
                 hashes[t] = match.World.LastHash;
                 recorder?.Record(cmds, match.World.LastHash);
             }
@@ -120,11 +173,12 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void SameSeedAndCommands_ProduceIdenticalHashes()
         {
-            beamFired = false; minesLaid = false; sapperLaid = false;
+            ResetWatch(); minesLaid = false; sapperLaid = false;
             var a = Run(300);
             Assert.IsTrue(sapperLaid, "the sapper deployed at t = 26 and ordered at t = 33 laid his mine: SapperSystem is in the verified hash");
             var b = Run(300);
-            Assert.IsTrue(beamFired, "the beam at t = 61 fired: the sweep and the burning are in the verified hash");
+            AssertEveryAbilityFired();
+            Assert.IsTrue(somebodyWasHurt, "[T10] the scripted run hits somebody: the damage is in the verified hash");
             Assert.IsTrue(minesLaid, "the mine and the tripwire were laid: the mine field is in the verified hash");
             for (int i = 0; i < a.Length; i++) Assert.AreEqual(a[i], b[i], $"hash diverged at tick {i}");
             Assert.AreNotEqual(a[0], a[299], "state should change over time");
@@ -136,15 +190,18 @@ namespace TW.Tests
             var cfg = Config();
             using var recording = MatchSim.CreateGreybox(cfg);
             var recorder = recording.NewReplayRecorder();
-            sapperLaid = false;
+            sapperLaid = false; ResetWatch();
             for (uint t = 0; t < 200; t++)
             {
-                using var cmds = new NativeArray<SimCommand>(WithSapperOrder(recording, t, ScriptedCommands(t)), Allocator.Temp);
+                using var cmds = new NativeArray<SimCommand>(WithSapperOrder(recording, t, ScriptedCommands(recording, t)), Allocator.Temp);
                 recording.Step(cmds);
                 sapperLaid |= Laid(recording, 0);
+                Watch(recording);
                 recorder.Record(cmds, recording.World.LastHash);
             }
             Assert.IsTrue(sapperLaid, "the recorded match has the sapper's mine in it, laid through commands alone");
+            AssertEveryAbilityFired();
+            Assert.IsTrue(somebodyWasHurt, "[T10] the recorded run hits somebody: the damage is in the hashes the replay verifies");
             var bytes = recorder.Serialize();
             var player = ReplayPlayer.Parse(bytes);
             Assert.AreEqual(200, player.TickCount);
