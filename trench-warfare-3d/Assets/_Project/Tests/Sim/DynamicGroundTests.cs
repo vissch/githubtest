@@ -163,6 +163,41 @@ namespace TW.Tests
             Assert.Greater(last, 9f, "sixty shells make a crater far wider than the shell that made them");
         }
 
+        // [N4] a merged hole at MaxDepth kept growing its radius, rim and Crater nav marks while depth clamped to 0,
+        // so it claimed ground that never moved. Widening is now carved: the newly claimed ring drops to the old
+        // bowl's profile, and the middle still does not deepen.
+        [Test]
+        public void AHoleAtMaxDepthStillDigsTheGroundItClaims()
+        {
+            using var m = NewMatch();
+            var map = m.Map;
+            // 1.2 + 1.44 + 1.44 + 0.42 = 4.5 = MaxDepth, so the fifth shell adds no depth at all
+            for (int i = 0; i < 4; i++) Shell(MidX, OpenZ, 3f, 1.2f).ApplyDynamic(map);
+            Assert.AreEqual(CraterStamp.MaxDepth, map.Holes[0].Depth, 1e-3f, "[N4] four shells reach max depth");
+            float r0 = map.Holes[0].Radius;                     // sqrt(25.2) = 5.020 m
+            Assert.AreEqual(5.020f, r0, 1e-3f, "[N4] and the hole is 5.020 m wide");
+
+            var before = Snapshot(map);
+            Shell(MidX, OpenZ, 3f, 1.2f).ApplyDynamic(map);     // adds 0 depth, widens to sqrt(30.6) = 5.532 m
+            float r1 = map.Holes[0].Radius;
+            Assert.AreEqual(5.532f, r1, 1e-3f, "[N4] the fifth shell still widens the hole");
+
+            // a cell 5.025 m out: outside r0, inside r1, so the hole claims this ground for the first time.
+            // bowl(5.025/5.532) * 4.5 = 0.093 m; the old code carved nothing.
+            Assert.Greater(Drop(map, before, 155, (int)OpenZ), 0.02f,
+                "[N4] the hole claimed this ground and left it standing");
+            // 4.5 m out, inside r0: the wider bowl of the same depth is lower here.
+            // 4.5 * (bowl(4.5/5.532) - bowl(4.5/5.020)) = 0.257 m
+            Assert.Greater(Drop(map, before, (int)MidX, (int)OpenZ + 4), 0.05f,
+                "[N4] ground already in the hole follows the wider bowl down");
+            // the middle: both bowls are 1 there, so widening adds all but nothing (worked value 0.019 m)
+            Assert.AreEqual(0f, Drop(map, before, (int)MidX, (int)OpenZ), 0.03f, "[N4] widening is not deepening");
+            Assert.AreEqual(CraterStamp.MaxDepth, map.Holes[0].Depth, 1e-3f, "[N4] and the record stays at max depth");
+
+            Assert.AreNotEqual(NavLayer.None, map.LayerAt(new float3(155.5f, 0f, OpenZ + 0.5f)) & NavLayer.Crater,
+                "[N4] the cover it gives stands over ground that moved");
+        }
+
         [Test]
         public void SpoilIsThrownUpOutsideTheHoleAndABarrageNeverBuildsAMountain()
         {

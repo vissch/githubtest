@@ -144,7 +144,10 @@ namespace TW.Sim
         // v48 (2026-10-12, [S4] [C5]): the hash chain gains two pieces of state. SimWorld.Hash() appends the free
         // list at the very end (its LIFO order decides the next Spawn's slot), and BlastSystem.Hash() folds Pending
         // (a burst queued after order 720 waits there for the next Step). Hashes move, behaviour and balance do not.
-        public const ushort FormatVersion = 49;
+        // v50 (2026-10-13, [N4] [N6]): a merged crater now CARVES the ground its widening claims (a hole at
+        // MaxDepth still digs), and the crush box holds the whole hull rectangle, tested symmetrically. Behaviour
+        // only, no layout change; crater heights and crush outcomes move, so hashes and balance move.
+        public const ushort FormatVersion = 50;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;

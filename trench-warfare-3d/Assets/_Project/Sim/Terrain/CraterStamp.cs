@@ -9,7 +9,10 @@
 //   GROWTH. A runtime stamp (ApplyDynamic) landing on an existing hole WIDENS it instead of only deepening it:
 //   R' = min(MaxRadius, sqrt(R^2 + GrowShare r^2)), and it carries DepthShare of its own depth into the deeper
 //   middle. Twenty shells on one spot make one big hole, not twenty pits inside each other. MapData.Holes
-//   is the record; the heightfield already holds the old bowl, so a merge keeps the first centre.
+//   is the record; the heightfield already holds the old bowl, so a merge keeps the first centre. The widening
+//   itself is CARVED: the ring of ground the hole newly claims is dropped to the old bowl's profile, so a hole
+//   at MaxDepth still digs what it takes, and the rim and the Crater nav marks always stand over ground that
+//   moved. At the middle the two bowls agree, so widening never deepens.
 //
 //   RIMS. Spoil is thrown up in a ring outside the hole, as high as RimShare of its depth and never above MaxRim.
 //   The bound is on WHERE, not on how much in total: HoleRecord.RimAt remembers the radius the last ring was laid
@@ -105,8 +108,9 @@ namespace TW.Sim.Terrain
             bool mound = Kind == (int)CraterKind.Mound;
             float3 c = Center;
             float r = Radius, depth = Depth, rim = 0f;
+            float widenFrom = 0f, widenDepth = 0f;
 
-            if (record && !mound && map.Holes.IsCreated) Merge(map, ref c, ref r, ref depth, ref rim);
+            if (record && !mound && map.Holes.IsCreated) Merge(map, ref c, ref r, ref depth, ref rim, out widenFrom, out widenDepth);
 
             var hf = map.Height;
             float cell = hf.CellSize;
@@ -137,8 +141,18 @@ namespace TW.Sim.Terrain
                 }
                 else if (d < r)
                 {
-                    float bowl = 0.5f * (1f + SimMath.Cos(SimMath.Pi * d / r));
-                    hf.Set(x, z, math.max(floorY, h0 - depth * bowl * hard));
+                    float bNew = 0.5f * (1f + SimMath.Cos(SimMath.Pi * d / r));
+                    float drop = depth * bNew;
+                    if (widenFrom > 0f && r > widenFrom + RimEpsilon)
+                    {
+                        // the hole got wider: carve the difference between the old bowl and the wider one of the
+                        // same depth, so the ground the hole newly claims goes down even at max depth. At d == 0
+                        // both bowls are 1, so widening never deepens the middle, and over a barrage the deltas
+                        // telescope (bowl_rn - bowl_r1): repeat shelling cannot run away.
+                        float bOld = d < widenFrom ? 0.5f * (1f + SimMath.Cos(SimMath.Pi * d / widenFrom)) : 0f;
+                        drop += widenDepth * math.max(0f, bNew - bOld);
+                    }
+                    hf.Set(x, z, math.max(floorY, h0 - drop * hard));
                 }
                 else if (rim > RimEpsilon && (layer & (byte)NavLayer.Bunker) == 0)
                 {
@@ -180,8 +194,11 @@ namespace TW.Sim.Terrain
         }
 
         /// <summary>Find the hole this shell lands in and widen it; otherwise record a new one.</summary>
-        void Merge(MapData map, ref float3 c, ref float r, ref float depth, ref float rim)
+        /// <summary>widenFrom/widenDepth report the hole's radius and depth BEFORE this stamp, so Stamp can carve
+        /// the ground the widening newly claims. Both 0 on the fresh-hole path (nothing to widen).</summary>
+        void Merge(MapData map, ref float3 c, ref float r, ref float depth, ref float rim, out float widenFrom, out float widenDepth)
         {
+            widenFrom = 0f; widenDepth = 0f;
             int hit = -1;
             for (int i = 0; i < map.Holes.Length; i++)
             {
@@ -197,6 +214,7 @@ namespace TW.Sim.Terrain
                 depth = Depth * DepthShare;
                 c = q.Center;                       // the ground already holds the old bowl: keep its middle
                 depth = math.min(depth, math.max(0f, MaxDepth - q.Depth));
+                widenFrom = q.Radius; widenDepth = q.Depth;
                 q.Radius = r; q.Depth += depth; q.Hits++;
                 // throw spoil up only when the lip has moved clear of the last ring: otherwise the same ground would
                 // be raised over and over by a hole that has stopped growing
