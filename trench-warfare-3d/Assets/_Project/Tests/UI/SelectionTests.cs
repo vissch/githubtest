@@ -320,10 +320,11 @@ namespace TW.Tests
         }
 
         [Test]
-        public void MenGrowWithTheZoomAsTheyAreDrawn()
+        public void MenAreOneSizeAtEveryZoom()
         {
+            // the owner, 2026-10-13: units are one size at every zoom (overturns the 2026-09-26 readability grow)
             Assert.That(UnitPicker.Grow(10f), Is.EqualTo(1f));
-            Assert.That(UnitPicker.Grow(48f), Is.EqualTo(2f).Within(1e-4f));
+            Assert.That(UnitPicker.Grow(48f), Is.EqualTo(1f));
             Assert.That(UnitPicker.Grow(1000f), Is.EqualTo(UnitPicker.MaxGrow));
         }
 

@@ -15,14 +15,16 @@ namespace TW.Presentation
         public const float BakeHeightM = 1.78f;
         /// <summary>The man's true drawn height at close zoom: one soldier unit for the scale audit (docs/21 phase 1).</summary>
         public const float HeightM = BakeHeightM * UnitScale;
-        /// <summary>Men are drawn at x1 up to this zoom, then grow in proportion so they stay readable far out.</summary>
+        /// <summary>Historical: men used to be drawn at x1 up to this zoom, then grown in proportion. Kept only
+        /// because CombatFx and SelectionTests still read it; it no longer feeds a grow.</summary>
         public const float GrowFromZoom = 24f;
-        /// <summary>The most a man grows with the zoom.</summary>
-        public const float MaxGrow = 4f;
+        /// <summary>The owner, 2026-10-13: "the units... should allways be one size". A man no longer grows with
+        /// the zoom (overturns the 2026-09-26 decisions.md row "the readability grow is a men-only exception").</summary>
+        public const float MaxGrow = 1f;
 
-        /// <summary>How much a man is grown at this camera zoom, with the renderer's default settings.</summary>
-        public static float Grow(float zoom) => Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
-        /// <summary>How tall he is drawn at this zoom: 2.5 m at the standard view (30). Props do not grow with him.</summary>
-        public static float DrawnHeightM(float zoom) => HeightM * Grow(zoom);
+        /// <summary>A man is one size at every zoom now (owner, 2026-10-13).</summary>
+        public static float Grow(float zoom) => 1f;
+        /// <summary>How tall he is drawn: always HeightM, at every zoom (owner, 2026-10-13: units are one size).</summary>
+        public static float DrawnHeightM(float zoom) => HeightM;
     }
 }

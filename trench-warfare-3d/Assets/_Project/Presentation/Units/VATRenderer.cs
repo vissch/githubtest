@@ -73,9 +73,14 @@ namespace TW.Presentation.Units
         /// trench - a full garrison stood inside itself. A quarter off brings him to 2.0 m, so the spacing the
         /// simulation keeps is now the spacing you see, and the machines read against him as machines.</summary>
         public float UnitScale = FigureMetrics.UnitScale;   // the picker reads FigureMetrics too: change it there
-        [Tooltip("Men grow with the zoom so they stay readable from far out: x1 up to this zoom, then in proportion, capped at MaxGrow.")]
+        [Tooltip("Historical: men used to grow with the zoom so they stayed readable from far out. The owner, 2026-10-13, overturned that (decisions.md, 2026-09-26 row): units are one size at every zoom, so this no longer feeds a grow.")]
         public float GrowFromZoom = FigureMetrics.GrowFromZoom;
         public float MaxGrow = FigureMetrics.MaxGrow;
+
+        /// <summary>A man's scale at this camera zoom. The owner, 2026-10-13: "the units... should allways be one
+        /// size" — overturns the 2026-09-26 decisions.md row that grew men for readability far out, so
+        /// `FigureMetrics.Grow` is 1 at every zoom now and this is always UnitScale.</summary>
+        public float ScaleAt(float zoom) => UnitScale * FigureMetrics.Grow(zoom);
         public bool CastShadows = true;
         [Tooltip("Metres from the camera beyond which the far model is used (a man is under about 40 pixels tall there).")]
         public float LodDistance = 170f;
@@ -155,7 +160,6 @@ namespace TW.Presentation.Units
             // knobs (Knobs): the tiers, and the public fields only where a knob is set, so inspector values still hold
             blendZoom = LodTiers.ReadBlendZoom(); vertexBudget = LodTiers.ReadVertexBudget(); cullRadius = LodTiers.ReadCullRadius();
             LodDistance = Knobs.Get("vat.lodDistance", LodDistance);
-            MaxGrow = Knobs.Get("vat.maxGrow", MaxGrow);
             CastShadows = Knobs.Get("vat.castShadows", CastShadows);
             MaxFallen = Mathf.Max(1, Knobs.Get("vat.maxFallen", MaxFallen));
         }
@@ -233,7 +237,7 @@ namespace TW.Presentation.Units
                 for (int i = 0; i < 6; i++) planes[i] = new float4(frustum[i].normal, frustum[i].distance);
             }
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
-            float grow = Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            float grow = ScaleAt(zoom) / UnitScale;   // units are one size at every zoom (owner, 2026-10-13)
             CurrentGrow = grow;
             var anim = Host.Animation;
             bool controlled = Host.UseAnimationController && anim != null;
@@ -316,7 +320,7 @@ namespace TW.Presentation.Units
             var cam = Camera.main;
             if (cam != null && far != null && (at - cam.transform.position).sqrMagnitude > LodDistance * LodDistance) return false;
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
-            float scale = UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, GrowFromZoom), 1f, MaxGrow);
+            float scale = ScaleAt(zoom);
             at.y += anim.Hop[slot] * scale;   // a shell has him in the air (life-size metres, drawn at his scale)
             int row = nearRowOf[math.min((int)anim.Row[slot], nearRowOf.Length - 1)], prev = nearRowOf[math.min((int)anim.PrevRow[slot], nearRowOf.Length - 1)];
             float t = anim.Phase[slot], pt = anim.PrevPhase[slot], blend = anim.Blend[slot];
