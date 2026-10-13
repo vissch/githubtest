@@ -10,15 +10,15 @@ namespace TW.Sim.Combat
         public float Damage;
         public float RangeMin, RangeMax;
         public float RoundsPerSecond;   // the figure the cooldown is derived from, not the pace fired: CombatTables.ShotsPerSecond is one tick more between shots
-        public int BurstRounds;
-        public int MagazineRounds;     // 0 = no reload cycle
+        public int BurstRounds;        // baked and hashed, no sim reader yet; BalanceSweepTests patches it by name
+        public int MagazineRounds;     // 0 = no reload cycle. Baked and hashed, no sim reader yet
         public float ReloadSeconds;
         public float Accuracy;         // base hit chance at optimal range
         public float PenetrationMm;    // 0 for small arms vs armour = auto-fail
-        public float BlastRadius;      // 0 = point damage
+        public float BlastRadius;      // 0 = point damage. Baked and hashed, no sim reader yet
         public float SuppressionPerShot;
-        public float MuzzleVelocity;   // indirect: fixed v0 for arc solve
-        public byte CraterRadiusDm;    // decimetres, 0 = no crater
+        public float MuzzleVelocity;   // indirect: fixed v0 for arc solve. Baked and hashed, no sim reader yet
+        public byte CraterRadiusDm;    // decimetres, 0 = no crater. Baked and hashed, no sim reader yet
         public bool SetsBurning;
     }
 

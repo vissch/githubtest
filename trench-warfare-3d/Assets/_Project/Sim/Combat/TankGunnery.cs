@@ -50,10 +50,10 @@ namespace TW.Sim.Combat
     {
         public const int Guns = TankSpec.MaxGuns;
         public const int ScanEveryTicks = 4;
-        public const int HaltForShot = 24;
+        public const int HaltForShot = 24;            // ticks: the Tusk stands 1.2 s to lay and fire
         public const float ClawArc = 1.0f;            // rad either side of the nose a claw can reach
         public const float ClawPenMm = 26f;           // what a claw is worth against armour: it tears plates apart
-        public const float SelfSafeScatter = 2f;   // metres: how far short a miss at close range can fall            // the Tusk stands 1.2 s to lay and fire
+        public const float SelfSafeScatter = 2f;      // metres: how far short a miss at close range can fall
         public const float AimTolerance = 0.05f;      // rad (about 3 degrees)
         public const float MovingAccuracy = 0.5f;
         public const float ArmourPreference = 2.5f;   // a gun that can hole armour looks at tanks this much farther out than at men
