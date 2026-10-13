@@ -163,5 +163,44 @@ namespace TW.Tests
             Assert.AreEqual(0f, p.Squat); Assert.AreEqual(0f, p.Lean); Assert.AreEqual(0f, p.Clatter); Assert.AreEqual(0f, p.Chug);
             Assert.AreEqual(0f, p.Rev); Assert.AreEqual(0f, p.Stomp); Assert.AreEqual(1f, p.Puff); Assert.AreEqual(1f, p.Swing); Assert.AreEqual(1f, p.Arc);
         }
+
+        /// <summary>The top's share of a shot (the owner, 2026-10-12: the recoil should read). A shot is a thing you see
+        /// land, so the swing has to peak inside the 60 ms the muzzle flash lasts, and be gone before the next round:
+        /// under a fifth of a degree by 0.6 s. And nothing - not the heaviest shot, not two guns in the same frame -
+        /// may take the top past TopKickMaxDeg, where it would be drawn off the mark the sim laid.</summary>
+        [Test]
+        public void TheTopTakesALittleOfTheShotAndIsBackOnTheMarkBeforeTheNextRound()
+        {
+            const float dt = 1f / 240f;
+            foreach (float weight in new[] { 0.3f, 1f, 2f })
+            {
+                float x = 0f, v = HullRide.TopKickFor(weight);
+                float peak = 0f, peakAt = -1f, late = 0f;
+                for (float t = 0f; t < 1.2f; t += dt)
+                {
+                    HullRide.StepTopKick(ref x, ref v, dt);
+                    float deg = Mathf.Abs(x) * Mathf.Rad2Deg;
+                    Assert.LessOrEqual(deg, HullRide.TopKickMaxDeg + 1e-3f, $"weight {weight}: {deg:0.00} degrees at {t:0.000} s");
+                    if (deg > peak) { peak = deg; peakAt = t; }
+                    if (t >= 0.6f) late = Mathf.Max(late, deg);
+                }
+                Assert.Greater(peak, 0.05f, $"weight {weight}: the top only swung {peak:0.000} degrees");
+                Assert.Less(peakAt, 0.06f, $"weight {weight}: the swing peaked at {peakAt:0.000} s, after the flash was out");
+                Assert.Less(late, 0.2f, $"weight {weight}: still {late:0.00} degrees off the mark at 0.6 s");
+                Assert.AreEqual(HullRide.TopKickShare * HullRide.TopKickMaxDeg * weight, peak, 0.02f,
+                    $"weight {weight}: a shot's share of the top is TopKickShare of TopKickMaxDeg, by its weight");
+            }
+            // both guns in one frame, and a shot on top of a swing already running: still inside the cap
+            float y = 0f, yv = 0f;
+            for (int k = 0; k < 6; k++)
+            {
+                yv += HullRide.TopKickFor(2f); yv += HullRide.TopKickFor(2f);
+                for (float t = 0f; t < 0.05f; t += dt)
+                {
+                    HullRide.StepTopKick(ref y, ref yv, dt);
+                    Assert.LessOrEqual(Mathf.Abs(y) * Mathf.Rad2Deg, HullRide.TopKickMaxDeg + 1e-3f, "stacked shots took the top past its cap");
+                }
+            }
+        }
     }
 }

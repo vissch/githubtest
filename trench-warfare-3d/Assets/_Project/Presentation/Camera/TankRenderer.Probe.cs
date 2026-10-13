@@ -12,7 +12,7 @@ namespace TW.Presentation.Tactical
         /// the flair and the footfall on top).</summary>
         public float Pitch, Roll, Heave, HullPitch, HullRoll, HullHeave;
         public float KickPitch, KickRoll, Foot;
-        public float Recoil0, Recoil1, GunYaw0, Settle0, Settle1;
+        public float Recoil0, Recoil1, GunYaw0, Settle0, Settle1, TopKick;
         public int FeetLanded;
         public bool Legged, Stalled, Weighted;
     }
@@ -31,7 +31,7 @@ namespace TW.Presentation.Tactical
             p.HullHeave = v.Heave.Value + v.Bob + v.Foot.Value;
             p.KickPitch = v.KickP.Value * D; p.KickRoll = v.KickR.Value * D; p.Foot = v.Foot.Value;
             p.Recoil0 = v.Recoil[0]; p.Recoil1 = v.Recoil[1];
-            p.GunYaw0 = (v.GunYaw[0] + v.Settle[0].Value) * D; p.Settle0 = v.Settle[0].Value * D; p.Settle1 = v.Settle[1].Value * D;
+            p.GunYaw0 = (v.GunYaw[0] + v.Settle[0].Value) * D; p.Settle0 = v.Settle[0].Value * D; p.Settle1 = v.Settle[1].Value * D; p.TopKick = v.TopKick.Value * D;
             p.Legged = v.Legs != null && v.Legs.Ready;
             p.FeetLanded = p.Legged ? v.Legs.Landed : 0;
             p.Stalled = v.Stalled; p.Weighted = weightOn;

@@ -108,6 +108,18 @@ namespace TW.Presentation.Tactical
                 : HullRide.KickFor(shotRockDeg * w, v.Style.Omega, v.Style.Zeta);
         }
 
+        /// <summary>The top's share of a shot: the barrel kicks back, the top swings a little with it and springs back
+        /// to the sim's mark. Fed here and nowhere else, and never into Settle, which SettleTurrets wipes whenever a
+        /// shot is due. Which way it swings is the gun's side, so the Banner's two guns do not swing it the same way.</summary>
+        void TakeTopKick(View v, int gun)
+        {
+            if (!weightOn || shotRockDeg <= 0f) return;
+            v.TopKick.Velocity += (gun == 1 ? -1f : 1f) * HullRide.TopKickFor(v.ShotW[gun]);
+        }
+
+        /// <summary>One frame of the top's kick layer.</summary>
+        static void StepTopKick(View v, float dt) => HullRide.StepTopKick(ref v.TopKick.Value, ref v.TopKick.Velocity, dt);
+
         /// <summary>A barrel's recoil now, as a share of its part's travel, and how fast Recoil runs out (today 2.6/s for
         /// every gun).</summary>
         float RecoilShape(View v, int k) => calibreRecoil ? HullRide.Kick(v.Recoil[k], v.ReturnT[k]) * HullRide.RecoilScale(v.ShotW[k]) : Kick(v.Recoil[k]);
@@ -157,7 +169,7 @@ namespace TW.Presentation.Tactical
         static void StillWeight(View v)
         {
             v.KickP = default; v.KickR = default; v.Foot = default;
-            v.Settle[0] = default; v.Settle[1] = default;
+            v.Settle[0] = default; v.Settle[1] = default; v.TopKick = default;
         }
     }
 }
