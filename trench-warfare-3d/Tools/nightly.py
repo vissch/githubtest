@@ -29,6 +29,7 @@ import argparse, datetime, json, os, shutil, subprocess, sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import abtest  # noqa: E402  (the bench and gym runners and the picture measure live there)
+import sweep  # noqa: E402  (sweeps_root and the faction band it already judges)
 
 PROJECT, REPO = abtest.PROJECT, abtest.REPO
 # metrics where a higher number is a worse match (BehaviourBenchTests' names); the rest are reported, never judged
@@ -96,6 +97,48 @@ def gym_flags(run):
                 j = json.load(open(os.path.join(d, f)))
                 got[j.get('entry', tab + '/' + f[:-5])] = j.get('flags', [])
     return got
+
+
+def band_part(root=None):
+    """The owner's faction band (docs/reference/decisions.md, d-matches) from the newest sweep run under
+    `sweep.sweeps_root()` that reports one (a `report.json` with a `factions` key and a `now` row): this never runs
+    a sweep itself (a sweep needs the editor and the owner schedules it), only reads the last one. Returns
+    (md_lines, look_items); an out-of-band faction is a look item, matches that did not end are shown, never judged."""
+    root = root or sweep.sweeps_root()
+    found = None
+    for d in sorted((d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))), reverse=True):
+        path = os.path.join(root, d, 'report.json')
+        if not os.path.exists(path):
+            continue
+        data = json.load(open(path))
+        if data.get('factions', {}).get('rows'):
+            found = (d, data)
+            break
+    md = ['## Balance band', '']
+    if found is None:
+        return md + ['No sweep has reported a faction band yet.', ''], []
+    name, data = found
+    row = next((r for r in data['factions']['rows'] if r['name'] == 'now'), None)
+    if row is None:
+        return md + ['The newest sweep report has no baseline row.', ''], []
+    meta = data['meta']
+    sides = meta.get('sides') or {}
+    a_name, b_name = sides.get('a', 'a'), sides.get('b', 'b')
+    md += [f'{name}, commit {meta.get("commit", "?")}.', '']
+    look = []
+    if not row['judged']:
+        md += [f'No match ended ({row["unended"]} played).', '']
+        return md, look
+    md += [f'{a_name} won {row["share_a"] * 100:.0f} %, {b_name} won {row["share_b"] * 100:.0f} % of '
+           f'{row["ended"]} ended matches ({row["unended"]} did not end).', '']
+    for side in row['out']:
+        label = row['label_a'] if side == 'a' else row['label_b']
+        share = row['share_a'] if side == 'a' else row['share_b']
+        line = f'balance: {label} won {share * 100:.0f} % of ended matches (band {sweep.WIN_BAND[0] * 100:.0f}-{sweep.WIN_BAND[1] * 100:.0f})'
+        md.append(f'- {line}')
+        look.append(line)
+    md.append('')
+    return md, look
 
 
 def main():
@@ -172,6 +215,10 @@ def main():
                 md += [f'Pictures against {os.path.basename(then_dir)} ({label}): '
                        + (f'{len(moved)} of {len(other)} entries changed.' if moved else 'none changed.'), '']
                 md += [f'- {e}: ' + ', '.join(f'{c:.3f}' for c in ch) for e, ch in moved[:60]] + ([''] if moved else [])
+
+    band_md, band_look = band_part()
+    md += band_md
+    report['look'] += band_look
 
     report['ran'] = ran
     md += ['## To look at', ''] + ([f'- {x}' for x in report['look']] or ['Nothing new.']) + ['']
