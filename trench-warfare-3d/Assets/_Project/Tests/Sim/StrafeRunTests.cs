@@ -87,15 +87,27 @@ namespace TW.Tests
                 off[k] = r.Man(new float3(70f + k * 10f, 0f, Start.z + 12f), 100f);
             }
             r.Step(Rig.Support(0, OffMapAbilityId.StrafeRun, Start, heading: 90, length: 80));
-            for (int t = 0; t < 160; t++) r.Step();
+            // [T30] Suppression decays every tick, so reading it only after the 160-tick loop (same pattern as
+            // T6) would pass even if the burst suppressed him briefly: track the peak, and the min Hp, as we go.
+            var maxSupp = new float[7]; var minHp = new float[7];
+            for (int k = 0; k < 7; k++) minHp[k] = r.W.Hp[off[k]];
+            for (int t = 0; t < 160; t++)
+            {
+                r.Step();
+                for (int k = 0; k < 7; k++)
+                {
+                    maxSupp[k] = math.max(maxSupp[k], r.W.Suppression[off[k]]);
+                    minHp[k] = math.min(minHp[k], r.W.Hp[off[k]]);
+                }
+            }
             int alive = 0;
             foreach (int s in onLine) if (r.W.IsAlive(s)) alive++;
             Assert.LessOrEqual(alive, 1, "a man standing in the open on the line does not live through the pass");
-            foreach (int s in off)
+            for (int k = 0; k < 7; k++)
             {
-                Assert.IsTrue(r.W.IsAlive(s));
-                Assert.AreEqual(100f, r.W.Hp[s], "twelve metres off the line nothing reaches him");
-                Assert.AreEqual(0f, r.W.Suppression[s], "not even the noise");
+                Assert.IsTrue(r.W.IsAlive(off[k]));
+                Assert.AreEqual(100f, minHp[k], "twelve metres off the line nothing reaches him, not even briefly");
+                Assert.AreEqual(0f, maxSupp[k], "[T30] never suppressed, not just decayed by the time we looked");
             }
         }
 

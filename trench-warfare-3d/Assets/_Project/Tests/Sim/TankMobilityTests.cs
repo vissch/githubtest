@@ -3,6 +3,11 @@
 // armour, which used to be a switch: whole, or thrown and the tank stuck where it stood.
 // These are the curves as a table, so a tuning pass shows up here rather than in a playtest.
 using NUnit.Framework;
+using Unity.Collections;
+using Unity.Mathematics;
+using TW.Sim;
+using TW.Sim.Match;
+using TW.Sim.Nav;
 using TW.Sim.Units;
 
 namespace TW.Tests
@@ -10,6 +15,18 @@ namespace TW.Tests
     public class TankMobilityTests
     {
         const float Tol = 0.005f;
+
+        static MatchSim NewMatch(uint seed = 0xC0FFEE)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
+            return MatchSim.CreatePlaytest(cfg);
+        }
+
+        static void Step(MatchSim m)
+        {
+            using var arr = new NativeArray<SimCommand>(0, Allocator.Temp);
+            m.Step(arr);
+        }
 
         [Test]
         public void ASoundTrackCostsNothing()
@@ -78,16 +95,38 @@ namespace TW.Tests
             Assert.AreEqual(VehicleModulesSystem.TrackWorstFactor, justOn, Tol);
         }
 
+        // [T26] the old test only did arithmetic on two constants and never ran the sim's own SpeedFactor
+        // calculation (code review 2026-10-04, T26). This drives a real Pincer (six legs, the most any walker
+        // has — no archetype has eight) through VehicleModulesSystem and reads Vehicles.SpeedFactor back.
+        static int SpawnPincer(MatchSim m)
+        {
+            var entry = RosterEntry.Pincer;
+            return m.World.Spawn(0, VehicleArchetype.Pincer, new float3(30f, 0f, 30f), entry.Hp, 0f, true);
+        }
+
         [Test]
         public void AWalkerStillLimpsAtSixteenPerCentALegAndStopsAtItsFloor()
         {
             // the rule the owner already liked, now named rather than inline
             Assert.AreEqual(0.16f, VehicleModulesSystem.LegLoss, 1e-4f);
-            Assert.AreEqual(0.84f, 1f - VehicleModulesSystem.LegLoss * 1, 1e-4f, "one leg gone");
-            Assert.AreEqual(0.68f, 1f - VehicleModulesSystem.LegLoss * 2, 1e-4f, "two");
             Assert.AreEqual(0.25f, VehicleModulesSystem.LegFloor, 1e-4f, "and it never crawls slower than this");
-            float sixLegsGone = 1f - VehicleModulesSystem.LegLoss * 6;
-            Assert.Less(sixLegsGone, VehicleModulesSystem.LegFloor, "six legs gone would go under the floor, so the floor holds");
+
+            using var m = NewMatch();
+            int crab = SpawnPincer(m);
+            Step(m);
+            Assert.AreEqual(6, VehicleProfile.Pincer.Legs, "a Pincer has six legs");
+
+            m.Modules.LegsLost[crab] = 0b000001; // one leg, left side
+            Step(m);
+            Assert.AreEqual(0.84f, m.Vehicles.SpeedFactor[crab], 1e-3f, "[T26] one leg gone, full crew, sound engine");
+
+            m.Modules.LegsLost[crab] = 0b000011; // two legs, left side
+            Step(m);
+            Assert.AreEqual(0.68f, m.Vehicles.SpeedFactor[crab], 1e-3f, "[T26] two legs gone");
+
+            m.Modules.LegsLost[crab] = 0b111111; // all six legs, three a side
+            Step(m);
+            Assert.AreEqual(0.25f, m.Vehicles.SpeedFactor[crab], 1e-3f, "[T26] every leg gone stops at the floor, not at zero");
         }
     }
 }

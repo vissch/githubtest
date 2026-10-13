@@ -71,6 +71,36 @@ namespace TW.Tests
             Assert.Greater(log.FindAll(e => e.Type == SimEventType.ShieldBlocked && e.A == shield).Count, 5);
         }
 
+        // [T25] every test above puts the bearer himself in front, so he is already the nearest enemy and the
+        // pick is him regardless of Shielded(): the guard rule in TargetAcquisition never actually decides
+        // anything there (code review 2026-10-04, T25). These two read TargetSlot directly: the guarded man is
+        // put nearest the shooter, with the bearer standing off to one side, inside or outside the guard radius.
+        [Test]
+        public void AShooterPicksTheBearerStandingInFrontOfHisGuardedMan()
+        {
+            using var m = NewMatch();
+            const float z = 30f;
+            int shooter = Still(m, 1, InfantryArchetype.Rifle, 60f, z + 20f);
+            int guarded = Still(m, 0, InfantryArchetype.Rifle, 60f, z);
+            // 2 m in front of the guarded man on the shooter's bearing, inside the 4 m guard radius
+            int bearer = Still(m, 0, InfantryArchetype.Shield, 60f, z + 2f);
+            Run(m, 20, w => { w.Yaw[shooter] = 0f; });
+            Assert.AreEqual(bearer, m.World.TargetSlot[shooter], "[T25] the bearer stands between shooter and pick, inside the guard radius: he takes the shot");
+        }
+
+        [Test]
+        public void AShooterIgnoresABearerOffToTheSide()
+        {
+            using var m = NewMatch();
+            const float z = 30f;
+            int shooter = Still(m, 1, InfantryArchetype.Rifle, 60f, z + 20f);
+            int guarded = Still(m, 0, InfantryArchetype.Rifle, 60f, z);
+            // 6 m off to the side of the guarded man: outside ShieldGuardRadius (4 m), so Shielded() must not pick him
+            int bearer = Still(m, 0, InfantryArchetype.Shield, 66f, z);
+            Run(m, 20, w => { w.Yaw[shooter] = 0f; });
+            Assert.AreEqual(guarded, m.World.TargetSlot[shooter], "[T25] a bearer outside the guard radius does not take the shot meant for the guarded man");
+        }
+
         [Test]
         public void FromBehindHeIsAManLikeAnyOther()
         {
