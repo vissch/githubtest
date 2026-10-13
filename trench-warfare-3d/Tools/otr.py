@@ -25,13 +25,14 @@ Usage (after occ.py built every assembly, the test modules included):
   python Tools/otr.py --module Sim,Match     # only these modules (the names Tools/gate_scope.py lists)
   python Tools/otr.py -v                     # also list PASS and ENGINE lines
 Env: TW_OTR_ENGINE=0 (no stand-ins), TW_OTR_LOG=1 (echo logs), TW_OTR_TRACE=1 (jobs), TW_OTR_STACK=1 (full stacks),
-TW_OTR_BUILD=<dir> (build the runner elsewhere, for a second run beside one in flight).
+TW_OTR_BUILD=<dir> (build the runner elsewhere, for a second run beside one in flight),
+TW_OTR_PROC_TIMEOUT=<s> (how long one runner process may take, 1800 by default; over it the class is CRASH).
 Verdicts: PASS, FAIL (an assertion), ERROR (any other exception: look), LOGERR (logged an error it did not expect),
 TIMEOUT (300 s), IGNORE, ENGINE (reached a native call with no stand-in), RUNNER (needs NUnit's own runner), CRASH (the
 process died in that class; the rest ran in a new one), KNOWN (a FAIL listed in Tools/otr/known.txt with its reason:
 read the assertion before adding one), SKIP-UNITYTEST / SKIP-EXPLICIT. Exit 1 on FAIL, ERROR, LOGERR, TIMEOUT or CRASH.
 """
-import os, pathlib, subprocess, sys, glob
+import os, pathlib, shutil, subprocess, sys, glob, tempfile, time
 
 HERE = pathlib.Path(__file__).resolve()
 # the checkout under test is the one otr is run in (Unity's cwd rule: the project folder), not the one otr.py lives in:
@@ -175,8 +176,69 @@ def rel(path, root):
         return str(path)
 
 
+PROC_TIMEOUT_S = int(os.environ.get("TW_OTR_PROC_TIMEOUT", "1800"))   # a wedged runner process: no run may hang forever
+
+
+def sweep_temp(tmp_root, max_age_s=86400):
+    """Delete the tw-otr-* scratch folders older than a day under `tmp_root`; return how many went.
+
+    The runner deletes its own folder when the process ends (Engine.cs), but a crashed or killed runner never gets
+    there, so otr used to leave one tw-otr-<pid> tree per crashed class behind for good.
+    """
+    gone = 0
+    now = time.time()
+    for d in sorted(pathlib.Path(tmp_root).glob("tw-otr-*")):
+        try:
+            if not d.is_dir() or now - d.stat().st_mtime <= max_age_s:
+                continue
+            shutil.rmtree(d, ignore_errors=True)
+            gone += 0 if d.exists() else 1
+        except OSError:
+            continue
+    return gone
+
+
+def run_module(exe, dll, f, env, known, verbose, runner=subprocess.run):
+    """Run one test dll (restarting after a class that took the process down): (tally, bad).
+
+    A runner process that hangs (a native call waiting forever, a thread Abort that did not take) is given
+    PROC_TIMEOUT_S; its partial output is still judged, the class it was in is CRASH, and the run carries on after
+    that class instead of hanging the whole of otr.
+    """
+    tally, bad, after = {}, False, ""
+    while True:
+        timed_out = False
+        try:
+            r = runner([str(MONO), str(exe), str(dll), f, after], cwd=str(occ.PROJ), env=env, capture_output=True,
+                       text=True, encoding="utf-8", errors="replace", timeout=PROC_TIMEOUT_S)
+            text, code = (r.stdout or "") + (r.stderr or ""), r.returncode
+        except subprocess.TimeoutExpired as e:
+            timed_out = True
+            def _text(x):
+                return x if isinstance(x, str) else (x or b"").decode("utf-8", "replace")
+            text, code = _text(e.stdout) + _text(e.stderr), 0
+        run_tally, run_bad, current, done = scan_run(text, code, known, verbose)
+        for k, v in run_tally.items():
+            tally[k] = tally.get(k, 0) + v
+        bad |= run_bad
+        if done and not timed_out:
+            break
+        why = f"the runner process hung (over {PROC_TIMEOUT_S} s)" if timed_out else "the process died in this class"
+        if not current:
+            # nothing of this module ran, and nobody else records it
+            print(f"CRASH  {dll.stem} {f}  ({why}: nothing from this module ran)")
+            tally["CRASH"] = tally.get("CRASH", 0) + 1
+            return tally, True
+        print(f"CRASH  {current}  ({why}; the classes after it run in a new process)")
+        tally["CRASH"] = tally.get("CRASH", 0) + 1
+        bad = True
+        after = current
+    return tally, bad
+
+
 def main(argv):
     verbose = "-v" in argv
+    sweep_temp(pathlib.Path(tempfile.gettempdir()))
     argv = [a for a in argv if a != "-v"]
     wanted = None
     if "--module" in argv:
@@ -231,27 +293,10 @@ def main(argv):
     bad = False
     tally = {}
     for dll, f in runs:
-        after = ""
-        while True:
-            r = subprocess.run([str(MONO), str(exe), str(dll), f, after], cwd=str(occ.PROJ), env=env, capture_output=True,
-                               text=True, encoding="utf-8", errors="replace")
-            run_tally, run_bad, current, done = scan_run(r.stdout + r.stderr, r.returncode, known, verbose)
-            for k, v in run_tally.items():
-                tally[k] = tally.get(k, 0) + v
-            bad |= run_bad
-            if done:
-                break
-            if not current:
-                # the runner died before its first class: nothing of this module ran, and nobody else records it
-                print(f"CRASH  {dll.stem} {f}  (the runner died before its first class: nothing from this module ran)")
-                tally["CRASH"] = tally.get("CRASH", 0) + 1
-                bad = True
-                break
-            # the process died inside a class: record it and carry on after it
-            print(f"CRASH  {current}  (the process died in this class; the classes after it run in a new process)")
-            tally["CRASH"] = tally.get("CRASH", 0) + 1
-            bad = True
-            after = current
+        run_tally, run_bad = run_module(exe, dll, f, env, known, verbose)
+        for k, v in run_tally.items():
+            tally[k] = tally.get(k, 0) + v
+        bad |= run_bad
     print("otr: " + "  ".join(f"{k}={v}" for k, v in sorted(tally.items())))
     if sum(tally.values()) == 0:
         print("otr: no test ran (the filter matched nothing, or the runner died before its first class): not a pass")
