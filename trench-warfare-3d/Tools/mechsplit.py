@@ -591,11 +591,12 @@ if BATTLE:
         if lod == 0: portrait(objs, os.path.join(RENDERDIR, NAME + "_portrait.png"))
         export(root, os.path.join(OUTDIR, tag + ".fbx"))
         # facing: from its breech the barrel runs to Blender +Y, which the export puts at Unity +Z (the axis trap)
-        ys = [v.co.y for v in objs["Gun"].data.vertices] if "Gun" in objs else [0.0]   # a flyer has no Gun part: its guns are in its engine pods
+        nose = sock.get("Socket_Muzzle", ("Hull",))[0]      # the flyer has no Gun (review R7)
+        ys = [v.co.y for v in objs[nose].data.vertices]
         for n, o in objs.items(): o.name = "%d|%s" % (lod, n)
         t = sum(tris_of(b) for b in P.values())
         manifest["lods"].append({"lod": lod, "tris": t, "parts": {n: tris_of(P[n]) for n in PARTS}})
-        print("EXPORT BATTLE LOD%d: %d tris; the barrel reaches %.2f m ahead of its breech, %.2f m behind" % (lod, t, max(ys), -min(ys)))
+        print("EXPORT BATTLE LOD%d: %d tris; %s reaches %.2f m ahead of its pivot, %.2f m behind" % (lod, t, nose, max(ys), -min(ys)))
     shutil.copyfile(bases[0], os.path.join(os.path.dirname(os.path.normpath(OUTDIR)), NAME + "Atlas.jpg"))
     manifest["lodList"] = manifest["lods"]
     json.dump(manifest, open(os.path.join(RENDERDIR, NAME + "_battle.json"), "w"), indent=1)
