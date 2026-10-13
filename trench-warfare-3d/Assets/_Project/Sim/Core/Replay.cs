@@ -152,7 +152,10 @@ namespace TW.Sim
         // death, not off the slot (a bail-out crew can hold it by then, the free list is LIFO), and DeformationSystem
         // reads that list instead of the droppable event buffer. Record contents move where the bug triggered, and
         // where the event buffer had overflowed, which deaths leave a wreck moves too.
-        public const ushort FormatVersion = 51;
+        // v52 (2026-10-13, [U11]): BreakerSystem, SapperSystem and SupportSystem hash their per-slot arrays to
+        // SimWorld.HighWater instead of MaxSlots, as SimWorld.Hash() already did. No field added, moved or dropped
+        // and no balance change; the hash of any match with an unfilled world moves, so older replays do not verify.
+        public const ushort FormatVersion = 52;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
