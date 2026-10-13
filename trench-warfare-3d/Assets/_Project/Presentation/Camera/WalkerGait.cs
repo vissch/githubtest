@@ -89,6 +89,10 @@ namespace TW.Presentation.Tactical
         /// <summary>This machine's own step (TankRenderer.DriveStyle): its swing time and its ordinary step height
         /// as shares of SwingSlow..SwingFast and ArcShare. 1 is the gait every walker had.</summary>
         public float SwingScale = 1f, ArcScale = 1f;
+        /// <summary>The turn lean's scale (K1): yawRate and pace are both per REAL second, so their product grows
+        /// with TimeScale squared and at 4x every walker sat on its 0.38 rad clamp. A caller at TimeScale t passes
+        /// 1/t^2.</summary>
+        public float LeanScale = 1f;
         /// <summary>How far the body may tilt this frame (radians), pitch and roll: what the legs can take. A kick drawn
         /// on top of the gait (TankRenderer.Weight.cs) is held to half of it.</summary>
         public float TiltCapPitch = 0.42f, TiltCapRoll = 0.38f;
@@ -630,7 +634,7 @@ namespace TW.Presentation.Tactical
             // (yawRate > 0) lifts the left side, which is banking INTO the turn. It rides through the same clamp
             // and the same filter as everything else here, and it moves only what is drawn - no foot is placed
             // from Roll.
-            leanR += yawRate * pace * TurnLean;
+            leanR += yawRate * pace * TurnLean * LeanScale;
 
             // The tilt is settled FIRST, because how far each hip is from its foot depends on it. A hip a metre and
             // a quarter above the body's middle swings a good part of a foot when the machine leans, and reaches

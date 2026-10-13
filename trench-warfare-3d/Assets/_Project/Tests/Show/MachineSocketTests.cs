@@ -47,5 +47,22 @@ namespace TW.Tests
             Assert.IsFalse(MachineSockets.TryResolve(maw, "Socket_Nowhere", out _));
             Assert.IsFalse(MachineSockets.TryResolve(null, "Socket_Exhaust0", out _));
         }
+
+        // [K4] Burning() asked for "Socket_Fire" + k, so a burning hull built two strings every frame and a wreck
+        // burns up to 40 s: that breaks the 0 B/frame rule. TankRenderer.FireSocket names them once instead.
+        [Test]
+        public void TheFireSocketNamesAreNamedOnceAndNotBuilt()
+        {
+            for (int k = 0; k < 2; k++)
+                Assert.AreEqual("Socket_Fire" + k, TankRenderer.FireSocket(k), $"[K4] fire socket {k}");
+            Assert.AreSame(TankRenderer.FireSocket(0), TankRenderer.FireSocket(0), "[K4] the same string, not a new one");
+            TankRenderer.FireSocket(0); TankRenderer.FireSocket(1);        // warm
+            long before = System.GC.GetAllocatedBytesForCurrentThread();
+            string last = null;
+            for (int i = 0; i < 1000; i++) last = TankRenderer.FireSocket(i & 1);
+            long grew = System.GC.GetAllocatedBytesForCurrentThread() - before;
+            Assert.IsNotNull(last);
+            Assert.Less(grew, 64L, "[K4] 1000 fire-socket lookups must allocate nothing (1000 built names are ~30 KB)");
+        }
     }
 }

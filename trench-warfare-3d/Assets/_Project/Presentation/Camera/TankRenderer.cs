@@ -76,6 +76,10 @@ namespace TW.Presentation.Tactical
             public int Slot; public ushort Gen; public byte Team; public TankModel Model;
             public Vector3 Pos, LastPos; public float Yaw, LastYaw; public bool Seen;
             public float Speed, YawRate;
+            /// <summary>The same two rates per SIM second (K1): Speed and YawRate are per REAL second, so at
+            /// TimeScale 4 both are 4x and any product of them (a turn's lean) is 16x. Tracks, pace, throttle and
+            /// the footfall want the real-second rates; the leans want these.</summary>
+            public float LeanSpeed, LeanYawRate;
             /// <summary>Its ride (TankRenderer.DriveStyle.cs): the way it is gathering (m/s^2, smoothed), metres
             /// travelled (the running gear's rhythm), and the nod drawn on top of the sprung pitch.</summary>
             public DriveStyle Style; public float Accel, Travel, PitchFx;
@@ -546,6 +550,8 @@ namespace TW.Presentation.Tactical
             v.Accel = Mathf.Lerp(v.Accel, dt > 1e-4f ? (v.Speed - wasSpeed) / dt : 0f, 1f - Mathf.Exp(-dt * 6f));
             v.Travel = Mathf.Repeat(v.Travel + Mathf.Abs(v.Speed) * dt, 1000f);
             v.YawRate = Mathf.Lerp(v.YawRate, yawRate, 1f - Mathf.Exp(-dt * 10f));
+            float real = Mathf.Max(1f, Host != null ? Host.TimeScale : 1f);
+            v.LeanSpeed = v.Speed / real; v.LeanYawRate = v.YawRate / real;
             if (weightOn) FeelTheWay(w, v, dt);   // the acceleration off the sim's own speed, not off the drawn position
 
             // what the sim says about it
@@ -574,6 +580,7 @@ namespace TW.Presentation.Tactical
                 }
                 // the feet: planted on the ground and left there while the body walks over them
                 if (v.Legs == null) v.Legs = new WalkerGait { SwingScale = v.Style.Swing, ArcScale = v.Style.Arc };
+                v.Legs.LeanScale = 1f / (real * real);   // K1: the gait's turn lean is yawRate * pace, both per real second
                 if (groundFn == null) groundFn = Ground;
                 Vector3 vel = Host.TimeScale <= 0f ? Vector3.zero : (v.Pos - v.LastPos) / Mathf.Max(1e-4f, dt);
                 v.Legs.Step(v.Model, v.Pos, v.Yaw, vel, v.YawRate, lost, dead, dt, groundFn);
@@ -738,7 +745,7 @@ namespace TW.Presentation.Tactical
             if (v.Lift >= FlyingFrom)
             {
                 pitch = Mathf.Clamp(-Mathf.Abs(v.Speed) * 0.02f, -0.12f, 0f);
-                roll = Mathf.Clamp(v.YawRate * 0.25f, -0.2f, 0.2f);
+                roll = Mathf.Clamp(v.LeanYawRate * 0.25f, -0.2f, 0.2f);
             }
             // round 6: riding the mean alone, it sank 2.1 m into a trench's walls for 4.5 s. The skirt bridges a trench as
             // tracks do (Settle): never below its highest ground, round the whole skirt, less a little it can dip
@@ -750,7 +757,7 @@ namespace TW.Presentation.Tactical
             }
             float mean = (fl + fr + rl + rr + mid) * 0.2f;
             heave = Mathf.Max(mean, top - HoverDip) + v.Lift + HoverBob * Mathf.Sin((now * HoverBobHz + v.Slot * 0.37f) * Mathf.PI * 2f);
-            float want = Mathf.Clamp(-v.YawRate * Mathf.Abs(v.Speed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
+            float want = Mathf.Clamp(-v.LeanYawRate * Mathf.Abs(v.LeanSpeed) * HoverDrift, -HoverDriftMax, HoverDriftMax);
             v.Drift = Mathf.Lerp(v.Drift, want, 1f - Mathf.Exp(-dt * 2f));
         }
 
@@ -1050,6 +1057,10 @@ namespace TW.Presentation.Tactical
             if (v.Fire > 0f || v.State != 0) Burning(v, now, v.Fire, 1f);
         }
 
+        static readonly string[] FireSockets = { "Socket_Fire0", "Socket_Fire1" };   // named once (K4): "Socket_Fire" + k built a string per burning hull per frame
+        /// <summary>The k-th fire socket's name, without building one (K4). Follows Exhausts in TankRenderer.Lights.cs.</summary>
+        public static string FireSocket(int k) => k >= 0 && k < FireSockets.Length ? FireSockets[k] : "Socket_Fire" + k;
+
         static readonly Color FirePoolColour = new Color(1f, 0.5f, 0.2f);   // deeper than a lamp: firelight on the mud reads orange, not cream
 
         void Burning(View v, float now, float fire, float smoke)
@@ -1060,7 +1071,7 @@ namespace TW.Presentation.Tactical
                 SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * (v.Model.Height + 0.5f), FirePoolColour, 0.35f + 0.75f * fire, (6f + v.Model.HalfLength * (0.8f + 0.6f * fire)) * 0.75f, 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
                 for (int k = 0; k < 2; k++)
                 {
-                    var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
+                    var at = SocketWorld(v, FireSocket(k), out bool ok);
                     if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, at), Width = 0.7f + 1.3f * fire, Height = 1.2f + 2.6f * fire, Phase = v.Slot * 0.37f + k * 0.5f });
                 }
                 if (fire > 0.55f)
@@ -1087,7 +1098,7 @@ namespace TW.Presentation.Tactical
             if (books != null && books.Ready && now >= v.NextSmoke && smoke > 0.02f)
             {
                 v.NextSmoke = now + Mathf.Lerp(0.6f, 0.18f, Mathf.Max(fire, smoke * 0.5f));   // at the old rate either way: the draws below
-                var at = OnWhatIsLeft(v, SocketWorld(v, "Socket_Fire0", out _));
+                var at = OnWhatIsLeft(v, SocketWorld(v, FireSockets[0], out _));
                 // the puff's draws are taken whether or not it is drawn: fx.recipes must not shift the shared stream
                 float life = UnityEngine.Random.Range(4f, 7f);
                 bool mirror = UnityEngine.Random.value < 0.5f;
@@ -1455,7 +1466,7 @@ namespace TW.Presentation.Tactical
                 case SimEventType.VehicleOnFire:
                     if (v != null && e.B == 1 && books != null && books.Ready && v.BeatTick != e.Tick)   // L21 drew this tick's fuel flare already
                     {
-                        var at = SocketWorld(v, "Socket_Fire0", out _);
+                        var at = SocketWorld(v, FireSockets[0], out _);
                         books.Add(FlipbookFx.Book.Flash, at, 2.6f, 0.15f, glow: 2.4f, pop: 0.4f);
                         books.Add(FlipbookFx.Book.Smoke, at + Vector3.up, 2.4f, 4f, velocity: Vector3.up * 2f, grow: 1.8f, alpha: 0.8f);
                     }

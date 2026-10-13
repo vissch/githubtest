@@ -36,10 +36,10 @@ namespace TW.Tests
 
         /// <summary>Walk one straight line and hand every frame to the caller.</summary>
         static WalkerGait Walk(TankModel m, System.Func<float, float, float> ground, float speed, float seconds,
-                               byte lost = 0, float yaw = 0f, float yawRate = 0f,
+                               byte lost = 0, float yaw = 0f, float yawRate = 0f, float leanScale = 1f,
                                System.Action<WalkerGait, Vector3, float> each = null)
         {
-            var gait = new WalkerGait();
+            var gait = new WalkerGait { LeanScale = leanScale };
             const float dt = 1f / 60f;
             Vector3 dir = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
             Vector3 pos = new Vector3(20f, 0f, 20f);
@@ -483,6 +483,21 @@ namespace TW.Tests
                 for (int i = 0; i < g.Feet.Length; i++) if ((g.Landed & (1 << i)) != 0) falls++;
             });
             Assert.Greater(falls, 10, "a machine walking five seconds should have put its feet down many times");
+        }
+
+        // [K1] The turn lean is yawRate * pace, and the renderer hands the gait both per REAL second, so at
+        // TimeScale 4 the lean is 16x and every walker sat on its 0.38 rad (22 degree) clamp. LeanScale = 1/t^2
+        // puts it back. The expected 2.06 degrees is the worked example in WalkerGait's TurnLean doc comment.
+        [Test]
+        public void TheTurnLeanIsTheSameAtFourTimesSpeed()
+        {
+            var m = Load("Banner", VehicleArchetype.Banner);
+            float oneX = Walk(m, Flat, 1.2f, 6f, yawRate: 0.5f).Roll * Mathf.Rad2Deg;
+            Assert.AreEqual(2.06f, oneX, 0.3f, "[K1] the worked example: 0.5 rad/s at 1.2 m/s banks 2.06 degrees");
+            float fourX = Walk(m, Flat, 4.8f, 6f, yawRate: 2.0f, leanScale: 1f / 16f).Roll * Mathf.Rad2Deg;
+            Assert.AreEqual(2.06f, fourX, 0.4f, "[K1] at TimeScale 4 the same turn must bank the same, not 16x");
+            float unscaled = Walk(m, Flat, 4.8f, 6f, yawRate: 2.0f).Roll * Mathf.Rad2Deg;
+            Assert.GreaterOrEqual(unscaled, 10f, "[K1] unscaled, a 4x walk sits on the lean clamp (banked 22 degrees)");
         }
 
         [Test]

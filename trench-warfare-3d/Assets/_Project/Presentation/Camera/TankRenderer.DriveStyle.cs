@@ -96,7 +96,7 @@ namespace TW.Presentation.Tactical
             var st = v.Style;
             float speed = Mathf.Abs(v.Speed);
             pitch += Mathf.Clamp(st.Squat * v.Accel, -0.12f, 0.12f);
-            roll += Mathf.Clamp(-st.Lean * v.YawRate * speed, -0.12f, 0.12f);
+            roll += Mathf.Clamp(-st.Lean * v.LeanYawRate * Mathf.Abs(v.LeanSpeed), -0.12f, 0.12f);   // K1: per SIM second, or the lean goes as TimeScale squared
             float moving = Mathf.Clamp01(speed / 0.6f);
             float beat = v.Stalled ? 0f : st.Chug * v.Throttle * Mathf.Sin((now * st.ChugHz + v.Slot * 0.29f) * Mathf.PI * 2f);
             v.PitchFx = st.Clatter * moving * Mathf.Sin(v.Travel / Mathf.Max(0.05f, st.ClatterEvery) * Mathf.PI * 2f) + beat * 0.4f;
