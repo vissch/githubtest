@@ -96,7 +96,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   is data, a unit's field, the match's config or a script's knob, written before the first tick; it reports attrition,
   time to breach, trench retention and who wins, per seed. `python Tools/sweep.py run Tools/sweeps/factions.json`:
   `workflow.md`, section 5. `TW_SWEEP_TRACK` names a folder and it also saves where every man stood each five
-  seconds, one `<variant>-s<seed>.jsonl` a match, for watching the match back as moving dots. Its plain tests hold that a patch writes the field it names and fails on any it
+  seconds, one `<variant>-s<seed>.jsonl` a match; `Tools/sweepfilm.py` turns those tracks into a page a match that
+  plays it back from above as moving dots (`python Tools/sweep.py run <spec> --track`, then `film <run folder>`;
+  `Tools/test_sweepfilm.py` tests it on a track written by hand). Its plain tests hold that a patch writes the field it names and fails on any it
   cannot, and that a variant changing nothing is the same ladder).
 
 ### The stress preset (thousands of men for perf work)
