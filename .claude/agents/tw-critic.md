@@ -3,6 +3,7 @@ name: tw-critic
 description: The harsh critic of Trench Warfare 3D. Scores captures, an evidence bundle, a plan, a skill or a code change out of 100 and hands back three fixes a fixer can act on cold. Use for every "harsh critique", "critic round", "blind critic" or "score this" on TW3D work, in place of a general agent with a prompt written fresh. Give it the files to judge, the role or kind of work, the round number, and last round's three fixes if there was one. It changes nothing.
 tools: Read, Grep, Glob, Bash
 model: opus
+effort: high
 skills: tw-critic
 ---
 
