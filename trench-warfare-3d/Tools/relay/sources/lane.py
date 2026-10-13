@@ -10,8 +10,8 @@
 The queue runs by priority, then by name. A unit that names no priority has limits.json queue_priority.
 The role is a name in Tools/pipeline/roles.json (relay.py role): the unit's legs get that role's brief, as a board
 job's do. "lane" is the role with none.
-This is the only source with a handoff note: its state is not on the board or in a ledger. The note reaches the next
-run's legs on the card, with each of its predictions scored hit or miss by script.
+A unit that is not done leaves a handoff note (sources/notes.py): its state is not on the board or in a ledger. The
+note reaches the next run's legs on the card, with each of its predictions scored hit or miss by script.
 """
 import re, subprocess, sys
 from pathlib import Path
@@ -20,8 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
 from pipeline import now, read_json, write_json   # noqa: E402
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-import config, gitio, papers                      # noqa: E402
-from sources import briefs, verdict               # noqa: E402
+import config, gitio                              # noqa: E402
+from sources import briefs, notes, verdict        # noqa: E402
 from sources.briefs import place_brief            # noqa: E402,F401  (the runner asks a source for it)
 
 NAME = "lane"
@@ -104,9 +104,7 @@ def next(ctx, kind=None):
 
 def refresh(unit, ctx):
     """Once the checkout is on the lane: read the last leg's note and score its predictions there."""
-    note = Path(ctx["board"]) / "relay" / "notes" / (unit["id"] + ".md")
-    text = note.read_text(encoding="utf-8") if note.exists() else ""
-    return dict(unit, note=text, predictions=papers.run_predictions(text, ctx["work"]) if text else [])
+    return dict(unit, **notes.read(ctx, unit["id"]))
 
 
 def done_when(unit, ctx):
@@ -128,18 +126,12 @@ def body(unit):
     lines = ["# Lane work: %s" % unit["id"],
              "Goal, in the owner's words: %s" % unit["goal"],
              "Done when this exits 0 in the checkout: `%s`" % " ".join(unit["done_when"]),
-             "- Commit with the edit gate green for that exact tree, and push the lane.",
-             "- If you cannot finish, write note.md in your leg folder for the next leg (sections: Goal, Done, "
-             "In flight, Next, Predictions, Dead ends). A prediction is `command` -> exit N, with a look-only command."]
+             "- Commit with the edit gate green for that exact tree, and push the lane.", notes.ASK]
     if briefs.card_line(unit["role"]):
         lines.append(briefs.card_line(unit["role"]))
     elif unit["role"] not in briefs.P.roles():       # a queue file from before the table, or written by hand
         lines.append("- There is no brief for the role `%s`: it is not in Tools/pipeline/roles.json." % unit["role"])
-    if unit.get("note"):
-        lines += ["", "# Note from the last leg on this unit", unit["note"].strip()]
-        lines += ["", "Its predictions, checked just now by script:"]
-        lines += ["- %s: %s" % ("held" if hit else "DID NOT HOLD", cmd) for cmd, hit in unit.get("predictions", [])]
-    return "\n".join(lines)
+    return "\n".join(lines + notes.card(unit))
 
 
 def verify(unit, ctx):
@@ -158,14 +150,7 @@ def release():
 
 
 def keep_note(unit, ctx, desk, lim):
-    """A good note goes to the board for the next run; a bad one is dropped, so a false note is never handed on."""
-    f = Path(desk) / "note.md"
-    dst = Path(ctx["board"]) / "relay" / "notes" / (unit["id"] + ".md")
-    if f.exists() and not papers.check_note(f.read_text(encoding="utf-8"), lim["note_max_bytes"]):
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        dst.write_text(f.read_text(encoding="utf-8"), encoding="utf-8", newline="\n")
-    elif dst.exists():
-        dst.unlink()                                 # the old note describes a state that is gone
+    notes.keep(ctx, unit["id"], desk, lim)
 
 
 def critic(unit, ctx, round_no):
@@ -182,7 +167,5 @@ def finish(unit, ctx, problems, outcome):
         root = Path(ctx["board"]) / "relay"
         write_json(root / "done" / (unit["id"] + ".json"),
                    {"id": unit["id"], "lane": unit["lane"], "head": gitio.head(ctx["work"]), "done_at": now()})
-        note = root / "notes" / (unit["id"] + ".md")
-        if note.exists():
-            note.unlink()
+        notes.drop(ctx, unit["id"])
     return v
