@@ -157,12 +157,18 @@ namespace TW.Tests
                 var men = new int[5];
                 for (int k = 0; k < 5; k++) men[k] = own.Man(new float3(Centre.x - 10f + k * 5f, 0f, Centre.z - 5f), 100f, team: 0);
                 own.Step(Rig.Support(0, OffMapAbilityId.CreepingBarrage, Centre, heading: 0, length: 60));
-                for (int t = 0; t < 900; t++) own.Step();
-                foreach (int s in men)
+                var maxSupp = new float[5];
+                for (int t = 0; t < 900; t++)
                 {
+                    own.Step();
+                    for (int k = 0; k < 5; k++) maxSupp[k] = math.max(maxSupp[k], own.W.Suppression[men[k]]);
+                }
+                for (int k = 0; k < 5; k++)
+                {
+                    int s = men[k];
                     Assert.IsTrue(own.W.IsAlive(s));
                     Assert.AreEqual(100f, own.W.Hp[s], "the battery knows where its own men are");
-                    Assert.AreEqual(0f, own.W.Suppression[s]);
+                    Assert.AreEqual(0f, maxSupp[k], "[T6] never suppressed, not just decayed by the time we looked");
                 }
             }
             // the enemy's men in the same place: the first lift finds them

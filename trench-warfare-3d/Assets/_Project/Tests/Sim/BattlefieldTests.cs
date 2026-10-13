@@ -175,6 +175,14 @@ namespace TW.Tests
             }
         }
 
+        static bool Fired(SimWorld w, int player)
+        {
+            var ev = w.Events.Events;
+            for (int i = 0; i < ev.Length; i++)
+                if (ev[i].Type == SimEventType.AbilityFired && ev[i].A == (int)OffMapAbilityId.HeBarrage && ev[i].B == player) return true;
+            return false;
+        }
+
         [Test]
         public void TwoSims_OnAGeneratedBattlefield_StayInSync_ThroughABarrage()
         {
@@ -190,6 +198,8 @@ namespace TW.Tests
                 using var arr = new NativeArray<SimCommand>(cmds.ToArray(), Allocator.Temp);
                 a.Step(arr); b.Step(arr);
                 Assert.AreEqual(a.World.LastHash, b.World.LastHash, $"tick {t}");
+                if (t == 300) Assert.IsTrue(Fired(a.World, 0), "[T3] the first HeBarrage command was accepted, not rejected");
+                if (t == 320) Assert.IsTrue(Fired(a.World, 1), "[T3] the second HeBarrage command was accepted, not rejected");
             }
             Assert.Greater(a.Deformation.Applied, 0, "the barrage landed");
         }
