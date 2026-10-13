@@ -423,8 +423,9 @@ static unsafe class FakeEngine
         Reg(TM + "set_fixedDeltaTime", new VF(v => { }));
         Reg(TM + "get_timeScale", new F(() => timeScale));
         Reg(TM + "set_timeScale", new VF(v => timeScale = v));
-        Reg(TM + "get_frameCount", new I(() => 0));
-        Reg(TM + "get_renderedFrameCount", new I(() => 0));
+        // no frames run offline: a test that counts them would read 0 forever, so say so instead of lying
+        Reg(TM + "get_frameCount", new I(() => throw new MissingMethodException("otr engine: Time.frameCount has no meaning offline (no frames run)")));
+        Reg(TM + "get_renderedFrameCount", new I(() => throw new MissingMethodException("otr engine: Time.frameCount has no meaning offline (no frames run)")));
         // last: its inert stubs fill only what nothing above registered
         FakeRender.Install(Reg, registered, Obj, Span, FakeObjects.RegisterObject, FakeObjects.RegisterObject, Ptr, projectDir);
     }

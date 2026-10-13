@@ -159,6 +159,10 @@ otr's offline runner cannot do what only NUnit's own runner can: a test with `[I
 with `[TestCaseSource]`, with `LogAssert`, or in a `[SetUpFixture]` namespace comes out RUNNER (not run, not a
 failure); `ExpectedResult` is checked. `python Tools/otr/test_classify.py` checks those verdicts and the
 classifier on a standalone compile of `Tools/otr/Runner.cs` (needs `dotnet`, no Unity, no dlls).
+The stand-in never answers with a made-up value where the engine would know one: a `Material`, `Shader` or
+`Graphics` read-back, `Time.frameCount`, and `Shader.Find` of a name that is no `.shader` file in the project or
+packages (and no real built-in) all come out ENGINE, not zero or null. `python Tools/otr/test_render.py` checks
+those decisions on a standalone compile of `Tools/otr/Render.cs` (needs `dotnet`, no Unity, no dlls).
 `python Tools/test_otr.py` checks otr's own verdict rules on hand-written runner output (no Unity, no dlls):
 a run with no `#DONE` and no class, a `#CRASH` line, a `LOADER` / `ENGINE-INSTALL-FAILED` line, and a non-zero
 exit after `#DONE` all have to come out bad, so a dropped module can never read as a pass.
