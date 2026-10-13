@@ -8,6 +8,8 @@ import contextlib, datetime, importlib.util, io, json, os, shutil, subprocess, s
 sys.dont_write_bytecode = True
 from pathlib import Path
 
+NL = chr(10)
+ESC = chr(92)
 HERE = Path(__file__).resolve().parent
 spec = importlib.util.spec_from_file_location("aosa", str(HERE / "aosa.py"))
 aosa = importlib.util.module_from_spec(spec)
@@ -590,6 +592,49 @@ class AosaTest(unittest.TestCase):
         self.assertIn("3/cand", b["groups"], "[A7] a clean group still feeds the band")
         self.assertNotIn("5/dud", b["groups"], "[A7] a group holding a failed run must leave no noise band")
 
+    # [A14] current_cycle() must be the max of the rows + 1: an out-of-order row must not reuse a cycle number
+    def test_a14_cycle_is_the_max_not_the_last(self):
+        hdr = "| " + " | ".join(aosa.LEDGER_COLS) + " |"
+        rows = ["| %d | 2026-10-01T00:00Z | P | - | - | - | - | - | 0.00 | s |" % c for c in (0, 1, 5, 2)]
+        self.put("LEDGER.md", "# AOSA ledger" + NL * 2 + hdr + NL + "|" + "---|" * len(aosa.LEDGER_COLS) + NL
+                 + NL.join(rows) + NL)
+        self.assertEqual(aosa.current_cycle(), 6, "[A14] the next cycle is max + 1, never last + 1")
+        code, out = self.run_cli("ledger", "add", "--mode", "P", "--cards", "C1", "--summary", "s")
+        self.assertEqual(code, 0, out)
+        self.assertIn("cycle 6", out, "[A14] ledger add must write the max + 1 cycle")
+
+    # [A14] every cell escapes a pipe, not only the summary: one stray | shifts every column the readers index
+    def test_a14_every_cell_escapes_a_pipe(self):
+        self.assertEqual(self.run_cli("ledger", "add", "--mode", "P", "--cards", "C1|C2",
+                                      "--summary", "s", "--gate", "a|b")[0], 0)
+        _, header, rows = aosa.read_table(self.docs / "LEDGER.md", "cycle")
+        self.assertEqual(len(rows), 1, "[A14] exactly one row was added")
+        cells = rows[-1][1]
+        self.assertEqual(len(cells), len(header), "[A14] a cell holding a pipe must not add a column")
+        self.assertEqual(cells[aosa.col(header, "cards")], "C1" + ESC + "|C2",
+                         "[A14] the cards cell must read back with its pipe escaped")
+        self.assertEqual(cells[aosa.col(header, "gate")], "a" + ESC + "|b",
+                         "[A14] the gate cell must read back with its pipe escaped")
+
+    # [A14] a failed ledger write leaves the old LEDGER.md whole and no .tmp behind
+    def test_a14_a_failed_ledger_write_keeps_the_old_file(self):
+        hdr = "| " + " | ".join(aosa.LEDGER_COLS) + " |"
+        seed = ("# AOSA ledger" + NL * 2 + hdr + NL + "|" + "---|" * len(aosa.LEDGER_COLS) + NL
+                + "| 0 | 2026-10-01T00:00Z | P | - | - | - | - | - | 0.00 | seeded |" + NL)
+        self.put("LEDGER.md", seed)
+        real = aosa.os.replace
+        aosa.os.replace = lambda *a, **k: (_ for _ in ()).throw(OSError("disk full"))
+        try:
+            with self.assertRaises(OSError, msg="[A14] a failed write must not be swallowed"):
+                aosa.cmd_ledger(aosa.argparse.Namespace(
+                    cmd="ledger", sub="add", cycle=None, mode="P", cards="C1", result=None,
+                    gate=None, commit=None, usd=0.0, summary="second"))
+        finally:
+            aosa.os.replace = real
+        self.assertEqual((self.docs / "LEDGER.md").read_text(encoding="utf-8"), seed,
+                         "[A14] the old ledger must survive a failed write whole")
+        self.assertEqual(list(self.docs.glob("*.tmp")), [],
+                         "[A14] a failed write must leave no .tmp file behind")
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
