@@ -4,6 +4,15 @@
 // serializable types (a null nested class writes as its defaults); no dictionaries, properties or statics. Reading:
 // unknown keys are ignored, a missing key leaves the field as it was, malformed text throws ArgumentException as
 // Unity's does. Floats are written round-trip ("R"). Pretty printing indents by four spaces.
+// Three things the real JsonUtility does that this used not to, and now does:
+//   * an integer token with no "." or exponent is read as a long, so a 64-bit field keeps every digit (through
+//     double, 9007199254740993 came back as ...992);
+//   * a type implementing ISerializationCallbackReceiver (matched by interface name, as [SerializeField] is matched
+//     by attribute name) gets OnBeforeSerialize before its fields are written and OnAfterDeserialize after they are
+//     filled, nested objects included;
+//   * nesting is capped at MaxDepth = 256 both ways: deeper reading throws ArgumentException and deeper writing
+//     writes "{}", instead of overflowing the stack. 256 is otr's own number, not a measured JsonUtility limit --
+//     raise it if a real asset ever hits it.
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -16,6 +25,19 @@ static class FakeJson
 {
     const BindingFlags Inst = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
+    const int MaxDepth = 256;
+
+    /// <summary>OnBeforeSerialize / OnAfterDeserialize, when the type implements an interface of that name.</summary>
+    static void Callback(object o, string name)
+    {
+        if (o == null) return;
+        foreach (var it in o.GetType().GetInterfaces())
+            if (it.Name == "ISerializationCallbackReceiver")
+            {
+                var m = it.GetMethod(name);
+                if (m != null) { m.Invoke(o, null); return; }
+            }
+    }
 
     static IEnumerable<FieldInfo> Fields(Type t)
     {
@@ -65,6 +87,8 @@ static class FakeJson
     static void WriteObject(StringBuilder sb, object o, Type t, bool pretty, int depth)
     {
         if (o == null) { try { o = Activator.CreateInstance(t, true); } catch { sb.Append("{}"); return; } }
+        if (depth > MaxDepth) { sb.Append("{}"); return; }   // a self-nesting document is "{}", not a stack overflow
+        Callback(o, "OnBeforeSerialize");
         sb.Append('{');
         bool first = true;
         foreach (var f in Fields(t))
@@ -136,7 +160,7 @@ static class FakeJson
         if (type == null && target != null) type = target.GetType();
         if (string.IsNullOrWhiteSpace(json)) return target;
         int i = 0;
-        object tree = Parse(json, ref i);
+        object tree = Parse(json, ref i, 0);
         Skip(json, ref i);
         if (i != json.Length) throw new ArgumentException("JSON parse error: The document root must not follow by other values.");
         var obj = tree as Dictionary<string, object>;
@@ -151,6 +175,7 @@ static class FakeJson
         foreach (var f in Fields(t))
             if (obj.TryGetValue(f.Name, out var v))
                 f.SetValue(o, To(v, f.FieldType, f.GetValue(o)));
+        Callback(o, "OnAfterDeserialize");
     }
 
     /// <summary>Fill an existing object from a parsed tree (JSON or Unity YAML).</summary>
@@ -164,10 +189,19 @@ static class FakeJson
             // a YAML scalar: numbers, 0/1 booleans, enum numbers or names
             if (t.IsEnum) { if (long.TryParse(sv, NumberStyles.Integer, Inv, out long el)) return Enum.ToObject(t, el); try { return Enum.Parse(t, sv); } catch { return current ?? Activator.CreateInstance(t); } }
             if (t == typeof(bool)) return sv == "1" || sv.Equals("true", StringComparison.OrdinalIgnoreCase);
-            if (double.TryParse(sv, NumberStyles.Float, Inv, out double parsed)) v = parsed;
+            if (sv.IndexOfAny(IntStop) < 0 && long.TryParse(sv, NumberStyles.Integer, Inv, out long swhole)) v = swhole;
+            else if (double.TryParse(sv, NumberStyles.Float, Inv, out double parsed)) v = parsed;
             else if (t.IsPrimitive) return current ?? Activator.CreateInstance(t);
         }
-        if (t == typeof(bool)) return v is bool b ? b : (v is double d0 && d0 != 0);
+        if (t == typeof(bool)) return v is bool b ? b : (v is long l0 ? l0 != 0 : v is double d0 && d0 != 0);
+        if (v is long lv)   // a whole number keeps all 64 bits: never via double
+        {
+            if (t.IsEnum) return Enum.ToObject(t, lv);
+            if (t == typeof(float)) return (float)lv;
+            if (t == typeof(double)) return (double)lv;
+            if (t == typeof(char)) return (char)(int)lv;
+            if (t.IsPrimitive) return Convert.ChangeType(lv, t, Inv);
+        }
         double num = v is double dd ? dd : (v is bool bb ? (bb ? 1 : 0) : 0);
         if (t.IsEnum) return Enum.ToObject(t, (long)num);
         if (t.IsPrimitive)
@@ -201,12 +235,15 @@ static class FakeJson
     }
 
     static void Skip(string s, ref int i) { while (i < s.Length && char.IsWhiteSpace(s[i])) i++; }
+    static readonly char[] IntStop = { '.', 'e', 'E' };
+
     static Exception Bad(int i) => new ArgumentException("JSON parse error: Invalid value (at " + i + ").");
 
-    static object Parse(string s, ref int i)
+    static object Parse(string s, ref int i, int depth)
     {
         Skip(s, ref i);
         if (i >= s.Length) throw Bad(i);
+        if (depth > MaxDepth) throw new ArgumentException("JSON parse error: too deeply nested (over " + MaxDepth + ") (at " + i + ").");
         char c = s[i];
         if (c == '{')
         {
@@ -221,7 +258,7 @@ static class FakeJson
                 Skip(s, ref i);
                 if (i >= s.Length || s[i] != ':') throw Bad(i);
                 i++;
-                d[key] = Parse(s, ref i);
+                d[key] = Parse(s, ref i, depth + 1);
                 Skip(s, ref i);
                 if (i < s.Length && s[i] == ',') { i++; continue; }
                 if (i < s.Length && s[i] == '}') { i++; return d; }
@@ -235,7 +272,7 @@ static class FakeJson
             if (i < s.Length && s[i] == ']') { i++; return l; }
             while (true)
             {
-                l.Add(Parse(s, ref i));
+                l.Add(Parse(s, ref i, depth + 1));
                 Skip(s, ref i);
                 if (i < s.Length && s[i] == ',') { i++; continue; }
                 if (i < s.Length && s[i] == ']') { i++; return l; }
@@ -249,7 +286,9 @@ static class FakeJson
         int start = i;
         while (i < s.Length && "+-0123456789.eE".IndexOf(s[i]) >= 0) i++;
         if (i == start) throw Bad(i);
-        if (!double.TryParse(s.Substring(start, i - start), NumberStyles.Float, Inv, out double n)) throw Bad(start);
+        string tok = s.Substring(start, i - start);
+        if (tok.IndexOfAny(IntStop) < 0 && long.TryParse(tok, NumberStyles.Integer, Inv, out long whole)) return whole;
+        if (!double.TryParse(tok, NumberStyles.Float, Inv, out double n)) throw Bad(start);
         return n;
     }
 
