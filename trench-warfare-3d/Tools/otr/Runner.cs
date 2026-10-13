@@ -206,8 +206,9 @@ static class Runner
         if (err.StartsWith("LoggedError")) return "LOGERR";
         if (err.StartsWith("IgnoreException") || err.StartsWith("InconclusiveException")) return "IGNORE";
         if (err.StartsWith("SuccessException")) return "PASS";
-        if (err.Contains("ECall") || err.Contains("SecurityException") || err.StartsWith("MissingMethodException")) return "ENGINE";
-        if (err.Contains("wrapper managed-to-native")) return "ENGINE";
+        string head = err.Split(new[] { " || " }, 2, StringSplitOptions.None)[0];
+        if (err.Contains("ECall") || err.Contains("SecurityException") || (head.StartsWith("MissingMethodException") && head.Contains("otr engine:"))) return "ENGINE";
+        if (head.Contains("wrapper managed-to-native")) return "ENGINE";
         return "ERROR";
     }
 
