@@ -126,6 +126,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   each catch and log `[rig] shot <path> failed...` by name so one bad shot does not stop the rest of the queue).
 - **Tests:** CaptureRigPlayTests (a shot whose directory cannot be written is logged by name and skipped; the
   queue still drains and the TacticalCamera is enabled again afterwards).
+  `workflow.md`, section 5. `TW_SWEEP_TRACK` names a folder and it also saves where every man stood each five
+  seconds, one `<variant>-s<seed>.jsonl` a match, for watching the match back as moving dots. Its plain tests hold that a patch writes the field it names and fails on any it
   cannot, and that a variant changing nothing is the same ladder).
   EnemySupportTickTests (M3: one support order a tick — on tick 150 the SOS, attack-barrage and harassing gates
   are all open at once, and each reads silver and cooldowns from before the others land).
