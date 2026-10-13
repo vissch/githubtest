@@ -16,8 +16,13 @@ The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations
    - open findings and the diff stats.
 2. Show it, then wait for the owner's remark.
 3. **Restate the remark in one sentence** and name the **earliest stage it affects**. Ask the owner to confirm the wording.
+<<<<<<< HEAD
 4. `python trench-warfare-3d/Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words, verbatim>" --check "<a measurable check>"`. The stage and everything after it go STALE and re-run.
 5. A decision only the owner can make: ask him in the chat (in Claude Code: AskUserQuestion), one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
+=======
+4. `python trench-warfare-3d/Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words, verbatim>" --check "<a measurable check>"` (on the laptop, `TW_STATION=laptop` first: `stations.json` lists no host for it). The stage and everything after it go STALE and re-run.
+5. A decision only the owner can make: AskUserQuestion, one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
+>>>>>>> c5d8e1eb7 ([K5s] test: SkillDocsTest.test_k5s_docs_say_to_set_tw_station_on_a_hostless_station - pipeline/SKILL.md and tw-master/SKILL.md called pipeline.py/feedback without ever setting TW_STATION, and stations.json lists no host for laptop, so station() exits "unknown host" there; added a setup line to each.)
 
 ## Landing a lane (only when the owner says so)
 When the owner says so, first write `approvals/<lane>.json` on the board (`lane`, `date`, `words`: theirs, verbatim), so

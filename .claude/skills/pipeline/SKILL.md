@@ -18,6 +18,8 @@ R="python trench-warfare-3d/Tools/pipeline/run_detached.py"
 The pipeline runs git only in its own worktrees: `githubtest-desk-show`, `githubtest-desk-sim`, `githubtest-desk-gate`
 on the desktop, `githubtest-pipe` on the laptop, and `githubtest-relay-work` for the relay's legs (the `relay` skill). In any other checkout (the owner's lanes, the main clone), refuse
 git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` so the board is current.
+On the laptop, `stations.json` lists no host for it: set `TW_STATION=laptop` once per session, or every `$P`
+command that needs a station exits "unknown host".
 
 ## Commands
 
@@ -92,10 +94,15 @@ question.
    another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
 <<<<<<< HEAD
+<<<<<<< HEAD
    The stage's role skill (the table above) says how. A job over a few minutes (gate, bench, sweep,
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.
 =======
    The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
+=======
+   The stage's role skill (`.claude/skills/<skill>/SKILL.md`, from the "Role skills" table above) says how. A job
+   over a few minutes (gate, bench, sweep,
+>>>>>>> c5d8e1eb7 ([K5s] test: SkillDocsTest.test_k5s_docs_say_to_set_tw_station_on_a_hostless_station - pipeline/SKILL.md and tw-master/SKILL.md called pipeline.py/feedback without ever setting TW_STATION, and stations.json lists no host for laptop, so station() exits "unknown host" there; added a setup line to each.)
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll
    `$R status <job>` using the same name given to `$R start`.
 >>>>>>> e7afff6d8 ([K1s] test: SkillDocsTest.test_k1s_unity_pipeline_warns_against_bare_unity_commands - unity-pipeline/SKILL.md had no warning against bare unity calls/package_add; added a header pointing at Tools/tw and the package-management skill.)
