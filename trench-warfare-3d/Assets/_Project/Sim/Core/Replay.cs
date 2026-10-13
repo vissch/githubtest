@@ -193,6 +193,8 @@ namespace TW.Sim
         // nowhere to go and nothing holding it down (K.1) - and the target it turns to is latched (K.2), which
         // appends TankGunnerySystem.TurnTarget to the end of that system's part of the hash, after HoldGoal.
         // The system chain is unchanged.
+        // v38 (2026-10-06): what keeps two hulls apart is the footprints' extents along the line between them
+        // (VehicleProfile.KeepApart), not the sum of two Radii, so every machine drives a little differently.
         public const ushort FormatVersion = 60;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
