@@ -329,6 +329,12 @@ on it, and `A_Gatling_...` checks their mesh's middle does not move while they s
   and glow along the whole part, so it builds from the muzzle end. `Tools/playground/seq.sh NAME FRAMES TIMESCALE
   ["setup"]` records a run of stills at a slowed clock and a GIF, to judge motion rather than poses (stills can hide a
   pop or a jitter): the hop, a burst and a hit-to-death run were reviewed this way.
+  A shot can also wait for the EVENT instead of the clock: `bash Tools/playground/bang.sh NAME KIND [W H] [STEP]`
+  arms the host on a kind of bang (`burst`, `cook`, `muzzle`, `flame`, `dust`, or `any`), keeps one frame from before it
+  and takes five in all 0.2 s apart, then `Tools/playground/loop.py` joins them into `NAME.gif` at 400 ms a frame: a
+  two-second loop of the dust itself. Nothing bangs inside the host's 20-second wait and the manifest says
+  `"bang": false`, so the script says `NO BANG NAME` and exits 1 rather than hanging. Both House5 critics saw no dust
+  because every clock still was shot 20 seconds late; `round.sh` now takes `x1_hit` and `x2_cook` this way.
 - **Weight** (round g14, from the first critic to see motion, g13: hop 7, firing 6/6, destruction 5): on the ground the
   body sinks over planted feet (`HopDrive.Fold`: two-bone IK in the body's side plane moves each ankle and wrist up by
   the sink, the foot or hand keeping its angle, and the clamp lowers the body by as much): -0.15 m in the crouch before
