@@ -13,6 +13,7 @@ Env:
   TW_LIB   folder of built dlls (default: the main clone's trench-warfare-3d/Library/ScriptAssemblies)
   TW_UNITY Unity editor folder (default: C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor)
 Exit 0 = every assembly compiled. It cannot check shaders, USS, scenes, or anything Unity does at import.
+`--changed` with nothing changed is 0 too.
 """
 import json, os, pathlib, subprocess, sys, tempfile, glob
 
@@ -153,7 +154,13 @@ def changed(table):
     root = PROJ.parent
     r = subprocess.run(["git", "-C", str(root), "diff", "--name-only", "origin/claude/trench-warfare-2d-3d-plan-idt7lf"],
                        capture_output=True, text=True)
+    if r.returncode != 0:
+        print("occ: git diff failed (%d): %s" % (r.returncode, r.stderr[:300]))
+        return None
     u = subprocess.run(["git", "-C", str(root), "ls-files", "--others", "--exclude-standard"], capture_output=True, text=True)
+    if u.returncode != 0:
+        print("occ: git ls-files failed (%d): %s" % (u.returncode, u.stderr[:300]))
+        return None
     files = [root / l for l in (r.stdout + u.stdout).splitlines() if l.endswith(".cs")]
     hit = set()
     for n, (p, _) in table.items():
@@ -172,9 +179,17 @@ def changed(table):
 def main(argv):
     table = asmdefs()
     dirs = [p.parent for p, _ in table.values()]
-    names = changed(table) if argv == ["--changed"] else argv
-    if not names:
-        print(__doc__); return 2
+    if argv == ["--changed"]:
+        names = changed(table)
+        if names is None:
+            return 2
+        if not names:
+            print("occ: no changed .cs under any assembly, nothing to compile")
+            return 0
+    else:
+        names = argv
+        if not names:
+            print(__doc__); return 2
     bad = [n for n in names if n not in table]
     if bad:
         print("occ: unknown assemblies: " + ", ".join(bad)); return 2

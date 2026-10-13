@@ -221,11 +221,15 @@ def load_json(path, default=None):
 
 def load_budget():
     p = docs() / "budget.json"
-    b = load_json(p)
-    if b is None:
+    if not p.exists():
         b = json.loads(json.dumps(BUDGET_DEFAULT))
         p.parent.mkdir(parents=True, exist_ok=True)
         p.write_text(dumps(b), encoding="utf-8")
+        return b
+    b = load_json(p)
+    if not isinstance(b, dict):
+        die("%s is not readable JSON: refusing to overwrite it (the daily cap and every entry live there); "
+            "fix or move it" % p, 1)
     for k, v in BUDGET_DEFAULT.items():
         b.setdefault(k, v)
     return b
@@ -1167,6 +1171,11 @@ def cmd_refimg(a):
         return 0
     payload["image_urls"] = [fk.upload(str(cap))]
     rid = fk.submit(ENDPOINT, payload)["request_id"]
+    entry = {"utc": utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "share": share, "usd": rnd(est),
+              "what": "%s submitted x%d %s" % (ENDPOINT, a.n, cap.name), "attempt": None, "cycle": cyc,
+              "request_id": rid, "pending": True}
+    b["entries"].append(entry)
+    (docs() / "budget.json").write_text(dumps(b), encoding="utf-8")
     t0, st = time.time(), {}
     while time.time() - t0 < a.timeout:
         st = fk.status(ENDPOINT, rid)
@@ -1185,8 +1194,8 @@ def cmd_refimg(a):
                        "predicted": {"metric": "critic.reference", "delta": None}, "verdict": "measure-only",
                        "measured": {"metric": "refimg", "delta": None, "runs": [str(side)]},
                        "cost": {"cycles": 0, "editor_min": 0, "usd": rnd(cost)}, "lesson": None})
-    b["entries"].append({"utc": utcnow().strftime("%Y-%m-%dT%H:%M:%SZ"), "share": share, "usd": rnd(cost),
-                         "what": "%s x%d %s" % (ENDPOINT, len(urls), cap.name), "attempt": aid, "cycle": cyc})
+    entry.update({"usd": rnd(cost), "what": "%s x%d %s" % (ENDPOINT, len(urls), cap.name), "attempt": aid})
+    entry.pop("pending", None)
     (docs() / "budget.json").write_text(dumps(b), encoding="utf-8")
     print("charged $%.2f to %s (attempt %s)" % (cost, share, aid))
     for p in paths + [str(side)]:

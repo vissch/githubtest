@@ -192,8 +192,9 @@ did.
 ## Image references and the budget
 
 `budget.json` holds `daily_cap_usd` (default 3.00), split `juice` 2/3 and `tier` 1/3. `aosa.py refimg <capture>
---for juice|tier --prompt-file <txt>` refuses when that share is spent for the day. On success it charges the actual
-price, falling back to 0.35 per image if pricing cannot be read. It calls `fal-ai/nano-banana-pro/edit` with the
+--for juice|tier --prompt-file <txt>` refuses when that share is spent for the day. It charges the estimate the
+moment the request is submitted to fal, then corrects the entry to the actual price once the images arrive, falling
+back to 0.35 per image if pricing cannot be read. It calls `fal-ai/nano-banana-pro/edit` with the
 capture as `image_urls` and `num_images` 2, writes `runs/<cycle>/refs/`, and logs a `class: juice` or `class:
 art` attempt.
 
