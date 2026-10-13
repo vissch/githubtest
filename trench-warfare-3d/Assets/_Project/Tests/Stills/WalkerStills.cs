@@ -35,6 +35,9 @@
 // The game clock steps 1/30 s a frame while it films, so two runs sample a step alike.
 // TheBannersTopAndGunsAreFilmed (2026-10-09, banner-parts) photographs the Banner's new parts: its top laid on a
 // target 0, 45 and 90 degrees off the nose, and a barrel back. TW_STILLS_DIR again.
+// TheBannersFireIsFilmedFromTheBarrelsHeight (2026-10-13, banner-fire-clips) stands side on and level with the
+// guns, where a muzzle card drawn into the barrel is plain to see; eight seconds into Captures/bannerfire/side.
+//
 // TheBannerIsFilmedByDay (2026-10-12, banner-day-film) is the owner's film: eighteen seconds of the Banner in a
 // match by day, walking at play zoom, laying its top on men off its nose and firing, then the same from the front
 // quarter, close. It writes PNG frames into Captures/bannerday/day for ffmpeg, not stills.
@@ -562,6 +565,90 @@ namespace TW.Tests
             Assert.That(frames, Is.GreaterThanOrEqualTo(420), "too few frames for eighteen seconds of film");
             Assert.That(peakLay, Is.GreaterThanOrEqualTo(25f), "the top never turned far enough off the nose to be seen turning");
             Assert.That(homeLay, Is.LessThanOrEqualTo(8f), "the top never came back to the nose after the targets were gone");
+            Assert.That(peakRecoil, Is.GreaterThanOrEqualTo(0.45f), "no barrel ever came back, so no shot can be seen");
+        }
+
+        // The owner, 2026-10-13, on the Banner's day film: "the vfx is still off. look at the fire it clips over the
+        // weapon." The day film watches the machine from a high quarter, where a card drawn into the barrel still
+        // reads as fire. So this one stands level with the guns and side on: pitch 0 is the height of the barrel, so
+        // the muzzle plane is edge on and anything drawn behind it is plain to see. Eight seconds, firing from the
+        // first (RiderLab.Enemies puts men off its flank at once), into Captures/bannerfire/side.
+        [UnityTest, Explicit("Eight seconds of the Banner firing, side on at the height of the barrel; run by name, with a graphics device.")]
+        public IEnumerator TheBannersFireIsFilmedFromTheBarrelsHeight()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            if (!System.Enum.TryParse(System.Environment.GetEnvironmentVariable("TW_STILLS_FIELD"), true, out TW.Presentation.Terrain.Biome field))
+                field = TW.Presentation.Terrain.Biome.Winter;
+            foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
+            foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
+            yield return new EnterPlayMode();
+            yield return FilmBannerFireSide();
+        }
+
+        static IEnumerator FilmBannerFireSide()
+        {
+            for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
+            Assert.That(Host?.Local, Is.Not.Null, "no match");
+            string dir = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "bannerfire", "side");
+            Directory.CreateDirectory(dir);
+
+            Host.ScriptedPeer = false; Host.PeerAttacks = false;
+            Host.WriteWorlds(m => { var b = m.World.GetSystem<TW.Sim.Match.AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
+            for (int f = 0; f < 120; f++) yield return null;
+            var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
+            if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
+            Time.captureDeltaTime = 1f / 30f;
+            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+
+            if (!OpenLane(out float x, out float z, out float flat))
+                TestContext.Out.WriteLine("no open lane: filmed where the side-on strip films");
+            string spawned = TankCapture.Spawn(0, VehicleArchetype.Banner, x, z, 0f);
+            Assert.That(spawned, Does.StartWith("slot "), "banner: " + spawned);
+            int slot = int.Parse(spawned.Substring(5));
+            TestContext.Out.WriteLine(RiderLab.Drive(slot, 36f));
+            TestContext.Out.WriteLine(RiderLab.Panel(false));
+            if (tc != null) tc.BaseYaw = -90f;                              // side on
+            TestContext.Out.WriteLine(RiderLab.Camera(slot, 8f, 0f, 0f));   // close, and level with the machine
+            TestContext.Out.WriteLine(RiderLab.Enemies(slot, 4, 40f, 35f)); // something to shoot at from the first
+            float into = Time.time;
+            while (Time.time - into < 1f) yield return null;
+
+            var v = ViewOf(slot);
+            Assert.That(v, Is.Not.Null, "the Banner is drawn without a view");
+            var world = Host.Local.World;
+            var log = new System.Text.StringBuilder();
+            log.AppendLine($"field {(sky != null ? sky.Field.ToString() : "?")}, lane {x:0} {z:0}, flat {flat:0.00} m, side on at barrel height");
+            TestContext.Out.WriteLine(RiderLab.Film(dir, 8f, 24, 1280, 720));
+
+            float t0 = Time.time, next = 0f, peakRecoil = 0f;
+            for (int f = 0; f < 6000 && !RiderLab.FilmStatus().StartsWith("done"); f++)
+            {
+                float t = Time.time - t0;
+                if (t >= next)
+                {
+                    next += 0.25f;
+                    var rec = ViewArr(v, "Recoil");
+                    log.AppendLine($"t {t:0.00} recoil {rec[0]:0.00} {rec[1]:0.00}");
+                    peakRecoil = Mathf.Max(peakRecoil, Mathf.Max(rec[0], rec[1]));
+                }
+                yield return null;
+            }
+            string status = RiderLab.FilmStatus();
+            bool alive = world.IsAlive(slot);
+            int frames = Directory.GetFiles(dir, "f_*.png").Length;
+            log.AppendLine($"{status}; {frames} frames; the deepest recoil was {peakRecoil:0.00}");
+            File.WriteAllText(Path.Combine(dir, "banner_fire_side.txt"), log.ToString());
+            Time.captureDeltaTime = 0f;
+            yield return new ExitPlayMode();
+
+            TestContext.Out.WriteLine(log.ToString());
+            TestContext.Out.WriteLine($"filmed the Banner's fire side on into {dir}");
+            Assert.That(alive, Is.True, "the Banner was destroyed before the film ended");
+            Assert.That(status, Does.StartWith("done"), "the film never finished: " + status);
+            Assert.That(frames, Is.GreaterThanOrEqualTo(150), "too few frames for eight seconds of film");
             Assert.That(peakRecoil, Is.GreaterThanOrEqualTo(0.45f), "no barrel ever came back, so no shot can be seen");
         }
 
