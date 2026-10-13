@@ -2,7 +2,7 @@
 
 Run: python Tools/test_otr.py
 """
-import io, contextlib, os, pathlib, shutil, sys, tempfile, time, unittest
+import io, contextlib, os, pathlib, shutil, subprocess, sys, tempfile, time, unittest
 
 sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
 import otr  # noqa: E402
@@ -135,6 +135,58 @@ class StaleDlls(unittest.TestCase):
         why = otr.stale(self.table, self.dirs, self.out, self.root)
         self.assertIsNotNone(why, "[O10] without the rsp otr cannot tell what the dll holds: not a verdict")
         self.assertIn("TW.Thing.dll", why, "[O10] the message names the dll it cannot vouch for")
+
+
+
+class HungRunnerProcess(unittest.TestCase):
+    # [O17] otr had no timeout on the runner process: one wedged process (a native call waiting forever) hung the
+    # whole run with no verdict. A process over PROC_TIMEOUT_S is CRASH for the class it was in, and the classes
+    # after it run in a new process.
+
+    def test_o17_a_hung_runner_process_is_a_crash_not_a_hang(self):
+        calls = []
+
+        def runner(cmd, **kw):
+            calls.append(cmd)
+            self.assertIn("timeout", kw, "[O17] the runner process must be given a timeout")
+            if len(calls) == 1:
+                raise subprocess.TimeoutExpired(cmd, kw["timeout"], output="#CLASS A\nPASS  A.one\n", stderr="")
+            return subprocess.CompletedProcess(cmd, 0, "#CLASS B\nPASS  B.one\n#DONE\n", "")
+
+        out = io.StringIO()
+        with contextlib.redirect_stdout(out):
+            tally, bad = otr.run_module(pathlib.Path("Runner.exe"), pathlib.Path("TW.Tests.Thing.dll"), "",
+                                        {}, {}, False, runner=runner)
+        self.assertTrue(bad, "[O17] a hung runner process is not a pass")
+        self.assertEqual(tally.get("CRASH"), 1, "[O17] the class the process hung in is tallied CRASH")
+        self.assertEqual(tally.get("PASS"), 2, "[O17] the partial output of the hung process is still counted")
+        self.assertIn("CRASH  A", out.getvalue(), "[O17] otr names the class the runner hung in")
+        self.assertEqual(len(calls), 2, "[O17] the run carries on in a new process after the hung class")
+        self.assertEqual(calls[1][-1], "A", "[O17] the new process resumes after the class that hung")
+
+
+class SweepTemp(unittest.TestCase):
+    # [O17] the runner's tw-otr-<pid> scratch folder was never removed when the process crashed, so otr left one
+    # tree per crashed class behind for good. sweep_temp clears the old ones and leaves a live run's alone.
+
+    def test_o17_old_temp_folders_go_and_fresh_ones_stay(self):
+        root = pathlib.Path(tempfile.mkdtemp(prefix="otr-sweep-"))
+        self.addCleanup(shutil.rmtree, root, True)
+        old = root / "tw-otr-1"
+        (old / "persistent").mkdir(parents=True)
+        (old / "persistent" / "save.json").write_text("{}", encoding="utf-8")
+        fresh = root / "tw-otr-2"
+        fresh.mkdir()
+        keep = root / "something-else"
+        keep.mkdir()
+        then = time.time() - 3 * 86400
+        os.utime(old, (then, then))
+
+        gone = otr.sweep_temp(root)
+        self.assertEqual(gone, 1, "[O17] sweep_temp reports the one folder it deleted")
+        self.assertFalse(old.exists(), "[O17] a tw-otr folder older than a day is deleted, with what is in it")
+        self.assertTrue(fresh.exists(), "[O17] a fresh tw-otr folder may be a live run: it stays")
+        self.assertTrue(keep.exists(), "[O17] sweep_temp touches nothing but tw-otr-* folders")
 
 
 if __name__ == "__main__":
