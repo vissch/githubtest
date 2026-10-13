@@ -18,6 +18,8 @@ R="python trench-warfare-3d/Tools/pipeline/run_detached.py"
 The pipeline runs git only in its own worktrees: `githubtest-desk-show`, `githubtest-desk-sim`, `githubtest-desk-gate`
 on the desktop, `githubtest-pipe` on the laptop. In any other checkout (the owner's lanes, the main clone), refuse
 git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` so the board is current.
+On the laptop, `stations.json` lists no host for it: set `TW_STATION=laptop` once per session, or every `$P`
+command that needs a station exits "unknown host".
 
 ## Commands
 
@@ -53,7 +55,8 @@ Driving the editor and capturing evidence at every zoom band, for all of them: `
    wrapper pid `$R start` prints, or a long-lived shell's pid); without it the claim is refused. Refused as busy:
    another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
-   The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
+   The stage's role skill (`.claude/skills/<skill>/SKILL.md`, from the "Role skills" table above) says how. A job
+   over a few minutes (gate, bench, sweep,
    Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll
    `$R status <job>` using the same name given to `$R start`.
 4. Commit outputs on the stage's lane (`lane/sim/pipe-<item>` or `lane/show/pipe-<item>`) with

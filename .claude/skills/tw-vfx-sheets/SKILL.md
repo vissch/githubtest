@@ -88,7 +88,7 @@ Anything else is silently cut wrong. Check the grid before publishing.
 
 ## Owner questions — ask, never decide
 
-- Explosion batches B and C are an open question in `docs/reference/decisions.md`: do not generate them unasked.
+- Explosion batches B and C: the go was given 2026-09-28 (`docs/reference/decisions.md`); it lands only on the owner's word.
 - Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets`.
 - Known open finding: `FlipbookFx` Core/Head/Bloom rows are out of order with the enum (board `findings/`); do not
   "fix" it inside an unrelated change.

@@ -34,7 +34,7 @@ Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheet
 6. **Prove it** (below). Keep a destructible inventory with a coverage percentage (props, house kits, trench sections, wrecks) on the board item.
 
 ## Proving it
-- **Benches, same battle:** `CaptureRig.Bench("scenario=vfx|barrage|armour stress=1500 settle_ticks=1800 ticks=400 shot=<png> shot_tick=N shot_hud=0 out=<abs json>")` in the editor. In the player: `-twbench "..."`. JUICE J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
+- **Benches, same battle:** `CaptureRig.Bench("scenario=vfx|barrage|armour stress=1500 settle_ticks=1800 ticks=400 shot=<png> shot_tick=N shot_hud=0 out=<abs json>")` from edit mode (not in Play; it enters play itself). In the player: `-twbench "..."`. JUICE J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
 - **Fire:** `bash Tools/flameshots <prefix>` gives jet, cook, stand and wall. Then `python Tools/flamecheck.py Tools/flame-shots/<prefix>_jet.png`; exit 1 means no fire.
 - **Buildings and vehicles, isolated:** in the Playground, `pg.sh do "building"`, `set Houses`, `house House5`, `shell` and `shot NAME`, or `vehicle` with `ap` / `he` / `ko` / `cook`. `BuildingRig` exposes `Standing`, `Floating`, `OnEnd` and `CutFacesFound`.
 - **Before and after:** `CaptureRig.Diff`. Capture the unchanged build twice first to know the noise.
