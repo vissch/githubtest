@@ -54,6 +54,9 @@ var r=cam.transform.right; r.y=0f; r=r.normalized;'
 # Mathf.Repeat phases inside the effect are actually keyed on.
 one() {
   "$T" pause true >/dev/null 2>&1
+  # Pin the clock to $4 BEFORE creating the effect, not just the delay after it: the effect's Perlin and
+  # Mathf.Repeat phases are keyed on absolute Time.time, so a birth at a different clock is a different picture.
+  "$T" stepabs "$4" >/dev/null 2>&1
   "$T" eval "$PRE_CS $2" >/dev/null 2>&1
   "$T" stepto "$3" >/dev/null 2>&1
   "$T" shot "${PRE}_$1" >/dev/null 2>&1
