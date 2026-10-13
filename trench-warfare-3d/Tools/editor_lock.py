@@ -51,6 +51,7 @@ Windows only, which matches the project (owner decision 2026-09-20: Windows x64)
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
 import subprocess
@@ -130,14 +131,15 @@ def holders() -> list[dict]:
 # A note on a shared pinboard, not a lock. It stops two sessions that are both waiting from pouncing together; it
 # does not and must not stop anybody from working.
 
-def slot_path() -> Path:
+def slot_path(root: Path) -> Path:
     base = os.environ.get("LOCALAPPDATA") or os.environ.get("TEMP") or "."
-    return Path(base) / "TrenchWarfare" / "editor-slot.json"
+    digest = hashlib.sha1(str(root.resolve()).encode("utf-8")).hexdigest()[:12]
+    return Path(base) / "TrenchWarfare" / ("editor-slot-%s.json" % digest)
 
 
-def read_slot() -> dict | None:
+def read_slot(root: Path) -> dict | None:
     try:
-        s = json.loads(slot_path().read_text(encoding="utf-8"))
+        s = json.loads(slot_path(root).read_text(encoding="utf-8"))
     except Exception:
         return None
     if not isinstance(s, dict) or time.time() > s.get("until", 0):
@@ -145,20 +147,29 @@ def read_slot() -> dict | None:
     return s
 
 
-def claim(who: str, minutes: int, why: str) -> dict:
-    p = slot_path()
+def claim(who: str, minutes: int, why: str, root: Path) -> dict | None:
+    """Atomic: returns the claim, or None if someone else holds a live claim."""
+    p = slot_path(root)
     p.parent.mkdir(parents=True, exist_ok=True)
     s = {"who": who, "why": why, "since": time.time(), "until": time.time() + minutes * 60}
-    p.write_text(json.dumps(s), encoding="utf-8")
-    return s
+    try:
+        with open(p, "x", encoding="utf-8") as f:
+            f.write(json.dumps(s))
+        return s
+    except FileExistsError:
+        existing = read_slot(root)
+        if existing and existing.get("who") != who:
+            return None        # still held, not expired, somebody else's - refuse
+        p.write_text(json.dumps(s), encoding="utf-8")   # expired, or ours to renew
+        return s
 
 
-def release(who: str) -> bool:
-    s = read_slot()
+def release(who: str, root: Path) -> bool:
+    s = read_slot(root)
     if s and s.get("who") != who:
         return False           # never drop someone else's claim
     try:
-        slot_path().unlink()
+        slot_path(root).unlink()
     except FileNotFoundError:
         pass
     return True
@@ -207,7 +218,7 @@ def describe(root: Path) -> str:
         h = likely_holder(procs)
         if r["state"] == HELD and h is not None and not h.get("batch"):
             lines.append("  -> an interactive editor, not a test run: waiting may not end. Ask whose it is.")
-    s = read_slot()
+    s = read_slot(root)
     if s:
         mins = max(0, int((s["until"] - time.time()) / 60))
         lines.append("  slot claimed by %s for ~%d more min: %s" % (s.get("who"), mins, s.get("why") or "-"))
@@ -253,21 +264,21 @@ def main(argv: list[str]) -> int:
         return 1
 
     if a.cmd == "claim":
-        s = read_slot()
-        if s and s.get("who") != a.who:
-            mins = max(0, int((s["until"] - time.time()) / 60))
+        got = claim(a.who, a.minutes, a.why, root)
+        if got is None:
+            s = read_slot(root) or {}
+            mins = max(0, int((s.get("until", 0) - time.time()) / 60))
             print("editor_lock: %s already claims the slot for ~%d more min (%s)" % (s.get("who"), mins, s.get("why") or "-"),
                   file=sys.stderr)
             return 1
-        claim(a.who, a.minutes, a.why)
         print("claimed by %s for %d min" % (a.who, a.minutes))
         return 0
 
     if a.cmd == "release":
-        if release(a.who):
+        if release(a.who, root):
             print("released")
             return 0
-        s = read_slot() or {}
+        s = read_slot(root) or {}
         print("editor_lock: the slot is %s's, not yours - not releasing it" % s.get("who"), file=sys.stderr)
         return 1
 
