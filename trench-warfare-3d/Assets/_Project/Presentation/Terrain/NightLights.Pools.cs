@@ -62,21 +62,36 @@ namespace TW.Presentation.Terrain
         /// pool renewed every frame, else a time).</summary>
         struct FirePoolEntry { public Vector3 At; public Vector3 Tint; public float Reach, Until; public int Frame; }
         public const int MaxFirePools = 64;
+        /// <summary>Two flames this close are one pool (W3): a standing fire renewed every frame or a jet hit more than
+        /// once a frame must overwrite its own entry, not add another.</summary>
+        public const float PoolKeyRange = 0.5f;
         readonly List<FirePoolEntry> firePools = new List<FirePoolEntry>(MaxFirePools);
         /// <summary>Fire pools alive now (for tests and captures).</summary>
         public int FirePools => firePools.Count;
 
+        /// <summary>The pool already standing at this spot, or -1.</summary>
+        int FindFirePool(Vector3 at)
+        {
+            float r2 = PoolKeyRange * PoolKeyRange;
+            for (int i = 0; i < firePools.Count; i++) if ((firePools[i].At - at).sqrMagnitude <= r2) return i;
+            return -1;
+        }
+
         /// <summary>SceneHooks.FirePool: a fire's pool, held for this frame (life 0) or for life seconds.</summary>
         public void AddFirePool(Vector3 at, Color color, float strength, float reach, float life)
         {
-            if (strength <= 0f || reach <= 0f || firePools.Count >= MaxFirePools) return;
+            if (strength <= 0f || reach <= 0f) return;
             float k = Mathf.Min(strength, 4f);
-            firePools.Add(new FirePoolEntry
+            var entry = new FirePoolEntry
             {
                 At = at, Reach = Mathf.Min(reach, 20f),
                 Tint = new Vector3(color.r * PoolWarmth.x * k, color.g * PoolWarmth.y * k, color.b * PoolWarmth.z * k),
                 Frame = life <= 0f ? Time.frameCount : -1, Until = Time.time + life,
-            });
+            };
+            int idx = FindFirePool(at);
+            if (idx >= 0) { firePools[idx] = entry; return; }
+            if (firePools.Count >= MaxFirePools) return;
+            firePools.Add(entry);
         }
 
         /// <summary>Fire pools that have gone out: last frame's, and the timed ones past their time.</summary>
