@@ -103,21 +103,23 @@ def lanes():
     for block in porcelain.strip().split('\n\n'):
         f = dict((l.split(' ', 1) + [''])[:2] for l in block.split('\n') if l)
         branch = f.get('branch', '').replace('refs/heads/', '') or '(detached)'
-        trees.append((f.get('worktree', '?'), branch))
+        ref = branch if branch != '(detached)' else f.get('HEAD', '')
+        trees.append((f.get('worktree', '?'), branch, ref))
     print(f'{len(trees)} checkouts; conflicts are against your branch {me or "(detached)"}')
-    for path, branch in trees:
+    for path, branch, ref in trees:
         if not Path(path).exists():
             print(f'\n{Path(path).name}  [{branch}]  folder is gone: `git worktree prune` forgets it')
             continue
-        _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', branch], cwd=REPO)
-        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{branch}...{integration_ref()}'], cwd=REPO)
+        is_me = Path(path).resolve() == REPO.resolve()
+        _, last = run(['git', 'log', '-1', '--format=%cd  %s', '--date=format:%m-%d %H:%M', ref], cwd=REPO)
+        _, counts = run(['git', 'rev-list', '--left-right', '--count', f'{ref}...{integration_ref()}'], cwd=REPO)
         ahead, behind = (counts.split() + ['?', '?'])[:2]
-        _, dirty = run(['git', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
+        _, dirty = run(['git', '--no-optional-locks', 'status', '--porcelain', '--untracked-files=no'], cwd=path)
         n = len([l for l in dirty.split('\n') if l.strip()])
         print(f'\n{Path(path).name}  [{branch}]  +{ahead} -{behind} vs integration'
-              + (f'  {n} uncommitted' if n else '') + ('  (you)' if branch == me else ''))
+              + (f'  {n} uncommitted' if n else '') + ('  (you)' if is_me else ''))
         print(f'  {last.strip()[:110]}')
-        if branch in (me, '(detached)') or not me:
+        if is_me or branch == '(detached)' or not me:
             continue
         code, out = run(['git', 'merge-tree', '--write-tree', '--name-only', '--no-messages', me, branch], cwd=REPO)
         files = [l for l in out.strip().split('\n')[1:] if l.strip()]
