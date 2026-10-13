@@ -1,4 +1,4 @@
-// Phase: A3 (implemented) — the sea half of LogisticsSystem: reinforcements arrive instead of appearing.
+// Phase: A3 (implemented) — the sea half of supply (the land half is unbuilt): reinforcements arrive instead of appearing.
 // SimWorld.Deploy offers every paid-for unit to the lift first; the lift takes it aboard a craft standing off the
 // beach and puts it ashore itself a few seconds later. A lift that refuses (no berth, no sea on that team's side)
 // leaves the old instant spawn in place, so a player is never blocked by the boats.

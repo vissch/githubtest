@@ -33,7 +33,7 @@ namespace TW.Sim
         public NativeArray<byte> Layer;        // NavLayer bits of the cell the unit occupies (Surface/Trench)
         public NativeArray<short> TrenchId;    // -1 when not garrisoned
         public NativeArray<short> SourceTrench; // trench a unit last left under orders (fallback target); -1 none
-        public NativeArray<int> PostCell;      // A3: nav cell of his post in the trench he garrisons (-1 none). TrenchGarrisonSystem hands them out, MovementSystem walks him to his, StanceSystem reads the kind
+        public NativeArray<int> PostCell;      // A3: nav cell of his post in the trench he garrisons (-1 none). TrenchGarrisonSystem hands them out, MovementSystem walks him to his and reads the kind
         public NativeArray<byte> PostKind;     // 0 none, 1 firing (at the parapet, on the fire step), 2 reserve (rear wall, junction, dugout mouth)
         public NativeArray<int> TargetSlot;    // -1 when none
         public NativeArray<int> GoalId;        // flow-field goal group (A1); Phase 0: unused

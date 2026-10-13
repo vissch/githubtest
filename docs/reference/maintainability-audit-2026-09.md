@@ -67,7 +67,8 @@ by this pass (see `CLAUDE.md`); the code half is a backlog, in order, at the bot
 - **`Presentation/VFX/EventVfxRouter.cs` and `Presentation/Audio/EventAudioRouter.cs`** are dead stubs, but each is
   its assembly's only file. Removing them means removing assemblies and editing asmdef reference lists: a seam
   commit of its own. `Net/HashExchange.cs` is dead too and belongs to the SIM lane.
-- **Seven unregistered sim systems** (MissionRunner, WaveAi, Logistics, Grenades, Burning, Stance,
+- **Seven unregistered sim systems** (fixed 2026-10-13, review U13: all the throwing stubs are deleted; Burning and
+  IndirectFire went earlier) (MissionRunner, WaveAi, Logistics, Grenades, Burning, Stance,
   SpecialAbilities) and four unused order constants are placeholders for planned phases; the generated table in
   `code-map.md` marks each one.
 

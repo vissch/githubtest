@@ -152,7 +152,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   Look at the picture before believing the numbers. Measured on ShelledForest 1917 / 1918, 48 men, before and after: men in
   file 0.44 / 0.47 and 0.21 / 0.16; 3 m strips of the width in use 20 / 19 and 26 / 27 of 30; traffic on the five
   busiest strips 0.57 / 0.56 and 0.37 / 0.28.
-- **Trap:** `StanceSystem` is a stub. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
+- **Trap:** there is no stance system. Stance is written in `MovementSystem.cs` as `StanceOf[i]`.
 - **Trap:** `CommandType.TrenchSelectAdvance` carries a mask of `OrderGroup`s in `B` (since A5c, 2026-09-25), NOT of
   archetype ids: `TrenchOrders.Advance` tests `groupMask & w.Units.Infantry[archetype].Group`. Groups: Line (rifle,
   assault), Marksman, Support, Raider, and since replay v22 (2026-09-29) Gun (machine gunner, Sentry), so "send the
@@ -271,9 +271,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `WinnerTeam`; ShellUxmlTests loads the debrief. Nothing tests `MatchStats` or `ObjectiveTracker` directly.
 
 ### Stubs: placeholders for planned phases, not wired
-`Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
-`Sim/Units/Grenades.cs` (unregistered systems that throw, `code-map.md`; `Sim/Units/SpecialAbilities.cs` is only the
-`UnitAbilityId` enum now, its stub system deleted 2026-09-28),
+`Sim/Match/MissionScript.cs` (the baked mission table; nothing steps it yet. `Sim/Units/SpecialAbilities.cs` is only
+the `UnitAbilityId` enum now, its stub system deleted 2026-09-28; the six unregistered systems that threw —
+Logistics, WaveAi, Grenades, Stance, the mission runner — deleted 2026-10-13, review U13),
 `Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
 (each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
 Indirect fire solves the launch angle for range at fixed v0, schedules the impact tick and hands the terminal
