@@ -63,10 +63,11 @@ namespace TW.Tests
             var units = new Dictionary<long, Unit>();
             var deaths = new List<float4>();   // x, z, team, tick
             var pins = new int[1];               // Pinned events: a man going down under fire, however briefly
+            var hull = new int[2];               // machines: overlapping hull tick-pairs, and the worst huddle seen in one tick
             var enemy = new ScriptedEnemy { DeploysTanks = true };
             var player = new ScriptedEnemy { Side = 0, DeploysTanks = true };
             uint seen = uint.MaxValue;
-            var report = MatchLoopTests.Play(MatchLoopTests.Policy.Script, minutes, seed, enemy, 8, m => { if (m.World.Tick == seen) return; seen = m.World.Tick; if (seen == 1) SetDown(m); Sample(m, units, deaths, pins); }, player);
+            var report = MatchLoopTests.Play(MatchLoopTests.Policy.Script, minutes, seed, enemy, 8, m => { if (m.World.Tick == seen) return; seen = m.World.Tick; if (seen == 1) SetDown(m); Sample(m, units, deaths, pins, hull); }, player);
 
             var r = new Result();
             var sb = new StringBuilder($"seed {seed}: {minutes} min, winner {(report.Winner < 0 ? "none" : report.Winner.ToString())} at {report.EndTick / 20} s, captures {report.CapturedByPlayer}/{report.CapturedByEnemy}\n");
@@ -123,11 +124,13 @@ namespace TW.Tests
             mx["men_open_share"] = manSeconds > 0f ? inOpen / manSeconds : 0f; mx["men_moving_open_share"] = manSeconds > 0f ? moving / manSeconds : 0f;
             mx["men_pinned_share"] = manSeconds > 0f ? pinnedS / manSeconds : 0f; mx["men_prone_share"] = manSeconds > 0f ? proneS / manSeconds : 0f;
             mx["pins"] = pins[0];
+            mx["machine_hull_overlaps"] = hull[0]; mx["machine_worst_huddle"] = hull[1];
             foreach (var kv in kinds) mx[$"flips_per100_{Name(kv.Key)}"] = kv.Value.y > 1f ? 100f * kv.Value.z / kv.Value.y : 0f;
             mx["deaths"] = deaths.Count; mx["deaths_in_clumps_share"] = deaths.Count > 0 ? (float)clumped / deaths.Count : 0f; mx["biggest_clump"] = biggest;
             mx["winner"] = report.Winner; mx["end_s"] = report.EndTick / 20f;
             sb.AppendLine($"  machines {machines}: {metres:F0} m, jammed {jam:F0} s (worst {worstJamOf} {worstJam:F0} s), spinning {spin:F0} s (worst {worstSpinOf} {worstSpin:F0} s), "
                 + $"{mx["machine_flips_per100"]:F1} flips/100 m (worst {worstFlipOf} {worstFlip:F0})");
+            sb.AppendLine($"  machines on each other: {hull[0]} overlapping hull tick-pairs, the worst huddle {hull[1]} machines within one hull length");
             sb.AppendLine($"  men {men}: stuck {mx["men_stuck_s_per_man_min"]:F2} s per man-minute (worst {worstStuck:F0} s), idle in the open under fire {100f * mx["men_idle_open_share"]:F1} %, "
                 + $"piled {100f * mx["men_piled_share"]:F1} %, holding {100f * mx["men_holding_share"]:F1} %; of their time {100f * mx["men_open_share"]:F0} % in the open "
                 + $"({100f * mx["men_moving_open_share"]:F0} % moving), {100f * mx["men_prone_share"]:F1} % forced prone, {100f * mx["men_pinned_share"]:F2} % pinned ({pins[0]} pins)");
@@ -158,7 +161,7 @@ namespace TW.Tests
             }
         }
 
-        static void Sample(MatchSim m, Dictionary<long, Unit> units, List<float4> deaths, int[] pins)
+        static void Sample(MatchSim m, Dictionary<long, Unit> units, List<float4> deaths, int[] pins, int[] hull)
         {
             var w = m.World; var k = m.Vehicles; var f = m.Fields; var map = m.Map;
             var ev = w.Events.Events;
@@ -213,6 +216,64 @@ namespace TW.Tests
                 if (speed < 0.1f && !holding && !pinned && foe < 120f) u.Idle += 1f;
                 if (friend < 0.8f) u.Piled += 1f;
             }
+            MachinesOnEachOther(m, hull);
+        }
+
+        /// <summary>This tick's machines on each other (the owner, 2026-10-06, "Machines on each other"): how many pairs
+        /// of hulls have overlapping footprints, added up over the ticks, and the largest huddle ever seen in one tick —
+        /// machines linked pairwise within one hull length of the pair (2 * the larger HalfLength), single-link, the way
+        /// Run already groups deaths. Both sides and every machine, wrecks and emplacements aside.</summary>
+        static void MachinesOnEachOther(MatchSim m, int[] hull)
+        {
+            var w = m.World; var k = m.Vehicles;
+            var ids = new List<int>();
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if (!w.IsAlive(i)) continue;
+                uint fl = w.Flags[i];
+                if ((fl & (uint)UnitFlags.Vehicle) == 0 || (fl & (uint)UnitFlags.Emplacement) != 0) continue;
+                ids.Add(i);
+            }
+            int n = ids.Count;
+            if (n < 2) return;
+            var near = new bool[n * n];
+            for (int a = 0; a < n; a++)
+                for (int b = a + 1; b < n; b++)
+                {
+                    int i = ids[a], j = ids[b];
+                    var pa = k.Profiles[w.Archetype[i]]; var pb = k.Profiles[w.Archetype[j]];
+                    if (HullsOverlap(pa, w.Yaw[i], w.Position[i], pb, w.Yaw[j], w.Position[j])) hull[0]++;
+                    float reach = 2f * math.max(pa.HalfLength, pb.HalfLength);
+                    if (math.distance(w.Position[i].xz, w.Position[j].xz) <= reach) { near[a * n + b] = true; near[b * n + a] = true; }
+                }
+            var used = new bool[n];
+            for (int a = 0; a < n; a++)
+            {
+                if (used[a]) continue;
+                var group = new List<int> { a }; used[a] = true;
+                for (int g = 0; g < group.Count; g++)
+                    for (int b = 0; b < n; b++)
+                        if (!used[b] && near[group[g] * n + b]) { used[b] = true; group.Add(b); }
+                hull[1] = math.max(hull[1], group.Count);
+            }
+        }
+
+        /// <summary>Do two hulls' footprints overlap: the rectangles VehicleProfile.Covers reads (HalfLength along the
+        /// hull's forward, HalfWidth across), by a separating-axis test over their four axes. Hulls that just touch do
+        /// not count as overlapping.</summary>
+        public static bool HullsOverlap(VehicleProfile a, float yawA, float3 posA, VehicleProfile b, float yawB, float3 posB)
+        {
+            float2 d = (posB - posA).xz;
+            float2 fa = new float2(SimMath.Sin(yawA), SimMath.Cos(yawA)), ra = new float2(fa.y, -fa.x);
+            float2 fb = new float2(SimMath.Sin(yawB), SimMath.Cos(yawB)), rb = new float2(fb.y, -fb.x);
+            for (int axis = 0; axis < 4; axis++)
+            {
+                float2 ax = axis == 0 ? fa : axis == 1 ? ra : axis == 2 ? fb : rb;
+                float reach = a.HalfLength * math.abs(math.dot(ax, fa)) + a.HalfWidth * math.abs(math.dot(ax, ra))
+                            + b.HalfLength * math.abs(math.dot(ax, fb)) + b.HalfWidth * math.abs(math.dot(ax, rb));
+                if (math.abs(math.dot(ax, d)) >= reach) return false;
+            }
+            return true;
         }
 
         static string Name(byte archetype)
@@ -220,6 +281,27 @@ namespace TW.Tests
             foreach (var fi in typeof(VehicleArchetype).GetFields())
                 if (fi.IsLiteral && fi.FieldType == typeof(byte) && (byte)fi.GetRawConstantValue() == archetype) return fi.Name;
             return archetype.ToString();
+        }
+
+        /// <summary>The two numbers the owner asked to be measured before and after (2026-10-06, "Machines on each
+        /// other"): how often two machines' footprints overlap, and the largest huddle of machines within one hull
+        /// length. A report, not a claim, so it asserts nothing; Long, so the edit gate never runs it.</summary>
+        [Test, Category("Long")]
+        public void Report_HowOftenHullsOverlap()
+        {
+            int overlaps = 0, worst = 0;
+            var text = new StringBuilder();
+            for (int n = 0; n < Seeds.Length; n++)
+            {
+                var r = Run(Seeds[n]);
+                int o = (int)r.Metrics["machine_hull_overlaps"], h = (int)r.Metrics["machine_worst_huddle"];
+                overlaps += o; worst = math.max(worst, h);
+                text.AppendLine($"seed {Seeds[n]}: machine_hull_overlaps {o}, machine_worst_huddle {h}");
+            }
+            text.AppendLine($"seeds {string.Join(",", Seeds)} ({Minutes} min each): machine_hull_overlaps {overlaps}, machine_worst_huddle {worst}");
+            // also to a file: the test runner's JSON drops what a test writes to the console (2026-10-13)
+            File.WriteAllText(Path.Combine(Path.GetTempPath(), "tw-hull-overlaps.txt"), text.ToString());
+            TestContext.WriteLine(text.ToString());
         }
 
         [Test, Explicit("a report, not a claim: three eight-minute matches, both seats scripted and fielding machines")]
