@@ -1369,6 +1369,7 @@ namespace TW.Presentation.Tactical
                     var cam = Camera.main;
                     float roll = cam != null ? FlipbookFx.ScreenRoll(cam, dir) : 0f;
                     var gun = classGuns ? GunFor(v.Archetype) : GunLook.Old;   // TankRenderer.Guns.cs: the machine's own gun
+                    var muz = MuzzleLook(classGuns ? v.Archetype : VehicleArchetype.Maw);   // its near smoke (TankRenderer.Guns.cs); the old look when fx.classArms is off
                     var world = Host.Local.World;
                     byte team = e.A < world.HighWater ? world.Team[e.A] : (byte)0;
                     if (recipes >= 0.5f)
@@ -1389,16 +1390,16 @@ namespace TW.Presentation.Tactical
                         books.Add(blastBook, muzzle + dir * (own ? blastWide * 0.45f + gun.Blast * 0.5f : gun.Blast * 0.7f), blastWide, own ? 0.75f : 0.45f, roll: roll,
                             glow: SceneMood.Night ? (own ? 1.1f : 2.2f) : own ? OwnBlastDayGlow : 1.4f);   // its own drawing at night at half: 2.2 blew the fireball to a smear (r20)
                         if (!own) books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.5f, gun.Blast * 0.8f, 0.08f, roll: roll, glow: 2f, pop: 0.5f);
-                        books.Add(FlipbookFx.Book.Puff, muzzle + dir * 0.6f, gun.Blast * 0.8f, 1.2f, velocity: dir * 1.5f + Vector3.up * 0.4f, grow: 1.2f, alpha: 0.7f, pop: 0.3f);   // the ring of smoke the shot leaves: it still reads in a busy frame
+                        books.Add(FlipbookFx.Book.Puff, muzzle + dir * muz.PuffPush, muz.PuffWidth, muz.PuffLife, velocity: dir * 1.5f + Vector3.up * 0.4f, grow: 1.2f, alpha: muz.PuffAlpha, pop: 0.3f);   // the ring of smoke the shot leaves: it still reads in a busy frame
                     }
                     else books.Add(FlipbookFx.Book.Muzzle, muzzle + dir * 0.7f, 1.8f * gun.Blast / GunLook.Old.Blast, 0.12f, roll: roll, glow: SceneMood.Night ? 3f : 1.8f);
                     if (gun.Arc && e.A < world.HighWater) ThrowArc(muzzle, (Vector3)e.Pos, team, gun.Tracer, v.Archetype == VehicleArchetype.Salvo, e.Tick * 7u + (uint)e.A);   // an indirect round goes up and over; a Salvo's ripple
                     if (classGuns) GunExtras(v.Archetype, muzzle, dir, gun.Blast);   // near the eye, the gun's own piece (TankRenderer.Guns.cs)
                     bool drawnBlast = classGuns && BlastBookOf(v.Archetype) != FlipbookFx.Book.GunBlast && recipes < 0.5f;   // its own drawing carries the day: a small flash, not a bloom over it (r17)
-                    books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast ? 1.6f : 3.2f, 0.1f, roll: UnityEngine.Random.value * 6.28f, glow: drawnBlast ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f);   // a small flash under its own drawing, night too (r20: a white ball under the Salvo's crack)
+                    books.Add(FlipbookFx.Book.Flash, muzzle + dir * 0.4f, drawnBlast ? muz.FlashWidth : muz.FlashWidthPlain, muz.FlashLife, roll: UnityEngine.Random.value * 6.28f, glow: drawnBlast ? (SceneMood.Night ? 1.5f : 0.8f) : SceneMood.Night ? 4f : 2f, pop: 0.5f);   // a small flash under its own drawing, night too (r20: a white ball under the Salvo's crack)
                     for (int k = 0; k < 3; k++)
-                        books.Add(FlipbookFx.Book.Smoke, muzzle + dir * (0.6f + k * 0.7f), (1.2f + k * 0.4f) * gun.Smoke, 2.5f + k * 0.5f, (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                            velocity: dir * (2.5f - k * 0.6f) + Vector3.up * 0.5f, grow: 1.6f, alpha: 0.55f, delay: k * 0.03f);
+                        books.Add(FlipbookFx.Book.Smoke, muzzle + dir * muz.SmokePushOf(k), muz.SmokeSizeOf(k), muz.SmokeLifeOf(k), (k & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                            velocity: dir * muz.SmokeAlongOf(k) + Vector3.up * muz.SmokeUp, grow: muz.SmokeGrow, alpha: muz.SmokeAlphaOf(k), delay: k * muz.SmokeDelayStep);
                     float g = Ground(muzzle.x, muzzle.z);
                     if (muzzle.y - g < 3.5f)   // the blast lifts the dust under the muzzle
                         books.Add(FlipbookFx.Book.Wings, new Vector3(muzzle.x, g, muzzle.z) + dir * 1.5f, 3.5f, 0.8f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, grow: 0.4f, alpha: 0.5f);
