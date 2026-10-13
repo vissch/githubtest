@@ -9,7 +9,9 @@
 // sets any man who stands on it alight. Ignition comes from an Incendiary Impact resolved by BlastSystem this tick
 // (every man inside its radius, every nav cell inside it), from the beam (docs/21 phase 5) and from Ignite() /
 // IgniteCell() called by another sim system (DirectFireSystem, for a weapon whose WeaponStats.SetsBurning is set: the
-// Flamethrower, 2026-09-28); presentation never calls into here.
+// Flamethrower, 2026-09-28); presentation never calls into here. No sim system queues an Incendiary Impact today, so in
+// a match the fire comes from Ignite / IgniteCell only; the burst branch below is kept for the A5 incendiary shell and
+// is exercised by BurningSystemTests and the editor labs (DeathLab.Fire, VfxLab.Fire).
 //
 // The flag and the timer are set together and only together (Ignite, the catch in the job). A dead man's timer goes
 // out the tick the job sees him dead, with one UnitAlight (b = 0) whatever killed him. A man who dies AFTER this
@@ -141,6 +143,7 @@ namespace TW.Sim.Combat
             for (int k = 0; k < resolved.Length; k++)
             {
                 var im = resolved[k];
+                // no producer in the sim today (A5 incendiary shells, BurningSystemTests, the editor labs)
                 if (im.Shape != (int)BlastShape.Incendiary) continue;
                 for (int i = 0; i < w.HighWater; i++)
                 {

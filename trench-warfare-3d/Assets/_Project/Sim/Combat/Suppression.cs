@@ -1,11 +1,15 @@
-// Phase: A2 (implemented: decay; gain is applied by DirectFireSystem, the stance consequences by MovementSystem)
-// — depends on: SimWorld.Suppression. The officer's aura (AuraSystem, 2026-09-25) halves the gain in DirectFire and,
-// here after the decay, keeps a covered man below Pinned; a man whose spec is NeverPinned (2026-09-28) is kept there by
-// the decay itself. Smoke halving is A5.
-// Meter 0..100, decays 8/s. > 60 forces Prone; > 85 Pinned (refuses Advance, auto-Fallback if a friendly trench
-// is within 20 m). MG hits ×3 gain; officer aura and smoke ×0.5. Emits Suppressed / Pinned events on threshold crossings.
-// SimWorld.Alarm (2026-10-01): after the decay it is raised to the man's suppression (held to StanceRules.AlarmCap)
-// and otherwise comes down StanceRules.AlarmDecay a second, so a man stays careful after the fire stops.
+// Phase: A2 — this file only takes suppression away again. SuppressionSystem decays the meter
+// SuppressionRules.DecayPerSecond (8/s) towards 0, holds a man whose InfantrySpec.NeverPinned is set one point below
+// Pinned (AuraSystem.UnpinTo), raises SimWorld.Alarm (2026-10-01) to the man's suppression capped at
+// StanceRules.AlarmCap and otherwise brings it down StanceRules.AlarmDecay a second, then calls AuraSystem.Unpin so an
+// officer keeps the men round him off the floor. A dead slot's suppression and alarm are zeroed.
+// Everything else lives elsewhere: the gain per shot and the Suppressed / Pinned events are DirectFire.cs:320-335
+// (AddSuppression, scaled by AuraSystem.SuppressionMul); the thresholds are StanceRules.ProneSuppression /
+// PinnedSuppression, mirrored here as ProneThreshold / PinnedThreshold; what being Prone or Pinned costs a man is read
+// in Engage.cs:174,199 (pinned stops engaging, prone holds where he stands) and MovementSystem.cs:310-322 (the stance
+// itself). FallbackSearchRadius (auto-Fallback) has no reader today, and the smoke halving is not written yet (A5);
+// NearMissRadius is read by DirectFire.cs:473.
+// — depends on: SimWorld.Suppression, SimWorld.Alarm.
 using Unity.Jobs;
 
 namespace TW.Sim.Combat
