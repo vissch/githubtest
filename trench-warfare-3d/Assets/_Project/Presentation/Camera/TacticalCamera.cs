@@ -21,6 +21,12 @@ namespace TW.Presentation.Tactical
     public sealed class TacticalCamera : MonoBehaviour, IZoomSource
     {
         public float CurrentZoom => Zoom;
+
+        /// <summary>A middle-drag's own pixels this frame, turned into meters of pan: the same distance for the
+        /// same mouse movement whatever the frame rate (Q4 — unlike the keys/edge-scroll pan, which IS a
+        /// per-second rate and is meant to cover more ground per frame when frames come slower).</summary>
+        public static Vector2 DragPanMeters(Vector2 dragPixels, float zoom) => dragPixels * 0.12f * (zoom / 90f);
+
         public SimHost Host;
         public float PanSpeed = 60f;
         public float PanAccel = 3.5f, PanAccelSeconds = 2f;
@@ -120,6 +126,7 @@ namespace TW.Presentation.Tactical
             var kb = focused ? Keyboard.current : null;
             var mouse = focused ? Mouse.current : null;
             Vector2 pan = Vector2.zero;
+            Vector2 dragPan = Vector2.zero;   // a middle-drag's own pixels this frame: never scaled by dt (Q4)
             bool keysPan = false;
             if (kb != null)
             {
@@ -155,7 +162,7 @@ namespace TW.Presentation.Tactical
                     yaw += drag.x * LookSpeed; pitchOffset -= drag.y * LookSpeed;
                     freeLook = true;
                 }
-                if (mouse.middleButton.isPressed && !panFromUi) { pan.x -= drag.x * 0.12f; pan.y -= drag.y * 0.12f; }
+                if (mouse.middleButton.isPressed && !panFromUi) { dragPan.x -= drag.x; dragPan.y -= drag.y; }
                 float wheel = mouse.scroll.ReadValue().y;
                 if (Mathf.Abs(wheel) > 0.01f && !overUi && !HudBridge.IsWheelClaimed()) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
             }
@@ -170,7 +177,12 @@ namespace TW.Presentation.Tactical
             float accel = steadyPan ? Mathf.Lerp(1f, PanAccel, Mathf.SmoothStep(0f, 1f, panHeld / Mathf.Max(0.01f, PanAccelSeconds))) : 1f;
             var rot = Quaternion.Euler(0f, BaseYaw + autoYaw + yaw, 0f);
             Vector3 fwd = rot * Vector3.forward, right = rot * Vector3.right;
-            Vector3 delta = (fwd * pan.y + right * pan.x) * PanSpeed * accel * Time.unscaledDeltaTime * (Zoom / 90f);
+            // the drag's own pixels are the frame's actual mouse movement already, not a per-second rate like keys
+            // and edge scroll: scaling it by dt again made a 10 px drag pan less at a high frame rate and more at a
+            // low one (Q4), instead of the same distance for the same mouse movement whatever the frame rate.
+            Vector2 dragMeters = DragPanMeters(dragPan, Zoom);
+            Vector3 delta = (fwd * pan.y + right * pan.x) * PanSpeed * accel * Time.unscaledDeltaTime * (Zoom / 90f)
+                           + (fwd * dragMeters.y + right * dragMeters.x);
             Focus += new Vector2(delta.x, delta.z);
             if (Host != null && Host.Local != null)
             {

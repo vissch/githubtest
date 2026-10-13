@@ -77,6 +77,21 @@ namespace TW.Presentation.Tactical
 #endif
         /// <summary>Where the minimap is on screen (GUI coordinates), so map clicks under it are not taken for targets.</summary>
         public static Rect MinimapRect;
+
+        /// <summary>Every other bit of IMGUI chrome OnGUI drew this frame (GUI coordinates, y from the top), so a
+        /// ground click under the silver box, the men count or a trench button is not also taken for a map target
+        /// (Q5: TestPanel.TryGroundPoint only ever masked the panel, the deploy bar and the minimap). Rebuilt every
+        /// frame OnGUI draws, so a rect from a frame that drew nothing (an early return above) never lingers.</summary>
+        public const int ChromeMax = 32;
+        public static Rect[] Chrome = new Rect[ChromeMax];
+        static int chromeNext;
+        public static void BeginChrome() { for (int i = 0; i < ChromeMax; i++) Chrome[i] = default; chromeNext = 0; }
+        public static void AddChrome(Rect r) { if (chromeNext < ChromeMax) Chrome[chromeNext++] = r; }
+        public static bool OverChrome(Vector2 gui)
+        {
+            for (int i = 0; i < ChromeMax; i++) if (Chrome[i].Contains(gui)) return true;
+            return false;
+        }
         const float MapScale = 3.2f;   // minimap pixels per nav cell
         Texture2D mapGround, mapDots, whiteTex;
         Color32[] dotPixels;
@@ -309,6 +324,7 @@ namespace TW.Presentation.Tactical
 
         void OnGUI()
         {
+            BeginChrome();   // Q5: a frame that draws nothing below leaves no stale rect for a ground click to find
             if (Host == null || Host.Local == null || stripTex == null) return;
             if (InputFocus.Modal) return;   // a shell screen is up
             EnsureStyles();
@@ -319,12 +335,15 @@ namespace TW.Presentation.Tactical
             bool panelOpen = Panel != null && Panel.Visible;
             float left = panelOpen ? 330f : 12f;
             var sr = new Rect(left, 12f, 132f, 44f);
+            AddChrome(sr);
             GUI.Box(sr, GUIContent.none, green);
             GUI.Label(new Rect(sr.x, sr.y, sr.width - 42f, sr.height), $"{w.Silver[0]}", silver);
             GUI.DrawTexture(new Rect(sr.xMax - 36f, sr.y + 10f, 24f, 24f), coin);
 
-            GUI.Box(new Rect(sr.xMax + 8f, 12f, 176f, 44f), GUIContent.none, stone);
-            GUI.Label(new Rect(sr.xMax + 8f, 12f, 176f, 44f), $"Men {myMen}   Enemy {theirMen}", hint);
+            var menBox = new Rect(sr.xMax + 8f, 12f, 176f, 44f);
+            AddChrome(menBox);
+            GUI.Box(menBox, GUIContent.none, stone);
+            GUI.Label(menBox, $"Men {myMen}   Enemy {theirMen}", hint);
             Minimap(w, over);
 
             // ---- bottom bar: income | wooden frame with roster and support | pause and speed -----------------
@@ -443,22 +462,26 @@ namespace TW.Presentation.Tactical
                     bool locked = ts.Locked != 0, held = ts.HoldFire != 0, manned = ts.GarrisonCount > 0;
 
                     var rLock = new Rect(sp.x - off - b, by, b, b);
+                    AddChrome(rLock);
                     if (GUI.Button(rLock, new GUIContent("", locked ? "Locked: reinforcements pass through to the next trench. Click to open" : "Open: reinforcements stop here. Click to lock"), slate))
                         Order(CommandType.TrenchLock, t, locked ? 0 : 1);
                     DrawIcon(rLock, locked ? lockClosed : lockOpen, 13f);
 
                     var rBack = new Rect(rLock.x - gap - b, by, b, b);
+                    AddChrome(rBack);
                     GUI.enabled = manned;
                     if (GUI.Button(rBack, new GUIContent("", "Fall back to the trench behind"), slate)) Order(CommandType.TrenchFallback, t, 0);
                     GUI.enabled = true;
                     DrawIcon(rBack, fallback, 13f, manned);
 
                     var rFire = new Rect(sp.x + off, by, b, b);
+                    AddChrome(rFire);
                     if (GUI.Button(rFire, new GUIContent("", held ? "Holding fire. Click to fire at will" : "Firing at will. Click to hold fire"), slate))
                         Order(CommandType.TrenchHoldFire, t, held ? 0 : 1);
                     DrawIcon(rFire, held ? fireHeld : fire, 13f);
 
                     var rGo = new Rect(rFire.xMax + gap, by, b, b);
+                    AddChrome(rGo);
                     GUI.enabled = manned;
                     if (GUI.Button(rGo, new GUIContent("", "Over the top: the garrison advances on the next trench"), slate)) Order(CommandType.TrenchAdvance, t, 0);
                     GUI.enabled = true;
