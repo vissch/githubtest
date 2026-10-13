@@ -65,6 +65,11 @@ namespace TW.Sim.Nav
         public bool Wheeled;           // road-only effective speed (A5b data, no wheeled vehicle yet)
         public bool Walker;            // legs, not tracks: steps over trenches and wire, climbs, cannot ditch
         public byte Legs;              // how many it has to lose (VehicleModulesSystem)
+        /// <summary>Metres it flies above the ground, 0 for a machine on the ground (2026-10-13). The one number the
+        /// show reads to lift it, and the one thing that makes it a flyer in the sim: FlightSystem drives it straight,
+        /// nothing on the ground touches it, and only fire that can reach up hurts it.</summary>
+        public float FlyHeight;
+        public bool Flies => FlyHeight > 0f;
         /// <summary>Metres added to Radius (2026-09-28): room a machine keeps round it beyond its footprint, for one
         /// whose neighbours are drawn wider than theirs (the Maw's sponsons reach 5.8 m out on a 3.8 m half width).</summary>
         public float Clearance;
@@ -271,6 +276,7 @@ namespace TW.Sim.Nav
                 uint f = w.Flags[i];
                 if ((f & (uint)UnitFlags.Alive) == 0 || (f & (uint)UnitFlags.KnockedOut) != 0) continue;
                 var prof = Profiles[w.Archetype[i]];
+                if (prof.Flies) continue;   // 9 m up: no wire breached, no man run down, no tree felled, no wreck ground (FlightSystem)
                 float3 p = w.Position[i], v = w.Velocity[i];
                 float speed = SimMath.Length(v);
                 if (speed > 0.2f && !prof.Walker)   // a walker steps over wire: it neither slows nor breaks it
@@ -519,6 +525,7 @@ namespace TW.Sim.Nav
                 {
                     int j = Vehicles[k];
                     if (j == i || (Flags[j] & (uint)UnitFlags.Alive) == 0) continue;
+                    if (prof.Flies != Profiles[Archetype[j]].Flies) continue;   // a flyer passes over what is on the ground, and nothing on it steers round a flyer
                     float2 d = Position[j].xz - p.xz;
                     float touch = prof.Radius + Profiles[Archetype[j]].Radius;
                     float dist = SimMath.Length(new float3(d.x, 0f, d.y));
@@ -553,7 +560,9 @@ namespace TW.Sim.Nav
                     if (Gen[i] != Generation[i])
                     {
                         Gen[i] = Generation[i]; SpeedFactor[i] = 1f; HaltTicks[i] = 0; CrossTrench[i] = -1; DitchTicks[i] = 0; BogTicks[i] = 0;
-                        Drive[i] = DriveFlow; DriveSpeedMul[i] = 1f;
+                        // a flyer keeps the line FlightSystem gave it this tick: the fresh slot's reset would put it
+                        // back on its flow field for one tick, and it would start by driving the ground's way
+                        Drive[i] = Profiles[Archetype[i]].Flies ? DriveStraight : DriveFlow; DriveSpeedMul[i] = 1f;
                     }
                     bool halted = HaltTicks[i] > 0;              // a gun is being laid: the time runs out whether or not it could drive
                     if (halted) HaltTicks[i]--;
@@ -631,11 +640,14 @@ namespace TW.Sim.Nav
                     byte from = Layers[cell];
                     // A walker picks its way over what a tank has to drive through: it strides a trench instead of
                     // bellying across it, finds footing in mud and shell holes, and lifts its legs over wire.
-                    float terrain = prof.Walker
+                    // a flyer is over all of it: the ground neither slows it nor tilts it
+                    float terrain = prof.Flies ? 1f
+                        : prof.Walker
                         ? ((from & (byte)NavLayer.Trench) != 0 ? StepOverSpeed : (from & (byte)NavLayer.Mud) != 0 ? WadeSpeed : (from & (byte)NavLayer.Crater) != 0 ? PickSpeed : 1f)
                         : ((from & (byte)NavLayer.Trench) != 0 ? CrossSpeed : (from & (byte)NavLayer.Mud) != 0 ? MudSpeed : (from & (byte)NavLayer.Crater) != 0 ? CraterSpeed : 1f);
-                    if ((from & (byte)NavLayer.Wire) != 0 && !prof.Walker) terrain *= WireSpeed;
-                    float top = stopping ? 0f : math.min(ramp, Speed[i] * align * terrain * SlopeFactor(p, heading * sense, prof) * SpeedFactor[i] * DriveSpeedMul[i]);
+                    if ((from & (byte)NavLayer.Wire) != 0 && !prof.Walker && !prof.Flies) terrain *= WireSpeed;
+                    float slope = prof.Flies ? 1f : SlopeFactor(p, heading * sense, prof);
+                    float top = stopping ? 0f : math.min(ramp, Speed[i] * align * terrain * slope * SpeedFactor[i] * DriveSpeedMul[i]);
                     // gather way at Accel (less with a hurt engine, less in what slows it), shed it at Brake
                     float target = sense * top;
                     bool gaining = math.abs(target) > math.abs(cur) && target * cur >= 0f;
@@ -646,6 +658,15 @@ namespace TW.Sim.Nav
                     float3 np = Clamp(p + v * Dt);
                     int ncell = CellOf(np);
                     byte to = Layers[ncell];
+                    if (prof.Flies)
+                    {
+                        // over everything, in the line it was given: no cell can stop it, no trench can take it and no
+                        // mud can hold it (CrossTrench stays -1, so it never rolls for a ditch either)
+                        Position[i] = np;
+                        Velocity[i] = v;
+                        Yaw[i] = yaw;
+                        continue;
+                    }
                     if (!FlowField.CanStep(NavMode.Tracked, from, to, CellTrenchId[ncell], TrenchCrossable))
                     {
                         Blocked.Add(new int2(i, ncell));
@@ -703,6 +724,7 @@ namespace TW.Sim.Nav
                 for (int b = a + 1; b < Vehicles.Length; b++)
                 {
                     int i = Vehicles[a], j = Vehicles[b];
+                    if (Profiles[Archetype[i]].Flies != Profiles[Archetype[j]].Flies) continue;   // one of the two is 9 m above the other: they do not touch
                     float2 d = Position[j].xz - Position[i].xz;
                     float dist = SimMath.Length(d);
                     float min = Profiles[Archetype[i]].Radius + Profiles[Archetype[j]].Radius;

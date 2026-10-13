@@ -28,6 +28,7 @@ namespace TW.Sim.Match
         public TW.Sim.Units.SupportSystem Support;
         public LeapSystem Leap;
         public TW.Sim.Units.BreakerSystem Breaker;
+        public FlightSystem Flight;
         public HeroSystem Hero;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
@@ -121,6 +122,8 @@ namespace TW.Sim.Match
             World.AddSystem(Leap);                          // A3: jetpack men leap into enemy trenches (steps before Movement flies them)
             Vehicles = new VehicleKinematicsSystem(map);
             World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
+            Flight = new FlightSystem(map);
+            World.AddSystem(Flight);                        // A5b: the machines that fly (order 112: with the commands, before any reader of UnitFlags.Flying)
             Breaker = new TW.Sim.Units.BreakerSystem(map);
             World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
             if (combat)

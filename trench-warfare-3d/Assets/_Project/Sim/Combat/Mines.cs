@@ -305,6 +305,7 @@ namespace TW.Sim.Combat
                 bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
                 if (vehicle && (f & (uint)UnitFlags.KnockedOut) != 0) return false;
                 if (vehicle && (f & (uint)UnitFlags.Pouncing) != 0) return false;   // crouched where it stood, then in the air (PounceSystem)
+                if (vehicle && Profiles[Archetype[i]].Flies) return false;          // a flying machine passes over the field: no mine and no tripwire reaches it (2026-10-13)
                 if (vehicle && !trip)
                     // the hull's footprint in its own yaw, not a disc round its centre (VehicleProfile.Covers, the same test
                     // VehicleModules asks when the burst reaches the hull)

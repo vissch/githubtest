@@ -21,6 +21,10 @@ namespace TW.Sim
         /// reference TW.Sim.Terrain. First, so a diverging map is named before anything reads it.</summary>
         public const int TerrainHash = 50;
         public const int Command = 100;
+        /// <summary>Flying machines (FlightSystem, 2026-10-13): the Flying flag and the straight line are set with the
+        /// tick's commands, before any system reads either. Not 110: TrenchOrders holds that (Command + 10), and two
+        /// systems at one order step in an order nobody chose (AddSystem's List.Sort is unstable).</summary>
+        public const int Flight = 112;
         /// <summary>The sapper: reads the tick's UnitAbility orders after TrenchOrders (110), before the flow fields (400)
         /// build the cell goal it sets. 2026-09-28.</summary>
         public const int Sapper = 120;   // Command + 20, written out: Tools/codemap.py reads literals

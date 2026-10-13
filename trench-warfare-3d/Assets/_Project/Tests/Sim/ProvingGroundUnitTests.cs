@@ -136,7 +136,8 @@ namespace TW.Tests
             Assert.AreEqual(25f, w.Units.Infantry[VehicleArchetype.Mercy].HealPerSecond, "an ambulance heals");
             Assert.AreEqual(0f, m.Catalogue.Weapon[VehicleArchetype.Mercy].RangeMax, "and shoots nothing");
             Assert.AreEqual(2, m.Vehicles.Profiles[VehicleArchetype.Croaker].Legs, "two legs");
-            Assert.IsTrue(m.Vehicles.Profiles[VehicleArchetype.Hopper].Walker, "the gunship strides everything");
+            Assert.IsTrue(m.Vehicles.Profiles[VehicleArchetype.Hopper].Flies, "the gunship flies (2026-10-13): not a walker any more");
+            Assert.AreEqual(9f, m.Vehicles.Profiles[VehicleArchetype.Hopper].FlyHeight, "nine metres up");
             Assert.AreEqual(0, m.Vehicles.Profiles[VehicleArchetype.Hopper].Legs, "and has no legs to lose");
             Assert.AreEqual(0f, m.Vehicles.Profiles[VehicleArchetype.Hopper].BogChance);
             Assert.AreEqual(30f, m.Catalogue.Tank[VehicleArchetype.A7V].Hull.FrontMm, "the A7V's nose");
