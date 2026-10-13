@@ -32,7 +32,12 @@ report holding no test both fail the land instead of passing on validate.py's ex
 report cannot pass on try 1's file while the env-only-twice rule still holds, a card's own change to a settings
 file survives the run while the build's churn is really gone from the tree, an Assets/Resources that was already there is kept,
 a failed snapshot stops the land before any build, and a green run claims no landing.
+[H8] editor_lock.py, against a throwaway project folder: a free project's status and guard both exit 0, claim then
+shows in status and guard still exits 0 (advisory only), and release clears it so a later probe no longer reports
+it. perfcmp.py, on two hand-written reports: differing hash_start refuses (exit 1, prints WARNING) and --force
+still prints the comparison table.
 """
+import json
 import os
 import pathlib
 import re
@@ -1015,6 +1020,53 @@ def aosa_land_cases(tmp: pathlib.Path):
     run(['git', 'checkout', '-q', '--', *churn], proj)
 
 
+def editor_lock_cases(tmp: pathlib.Path):
+    # [H8] a throwaway project folder, never the real checkout: editor_lock.py finds it by Assets/_Project.
+    proj = tmp / 'editor-lock-proj'
+    (proj / 'Assets/_Project').mkdir(parents=True)
+    (proj / 'Temp').mkdir()
+    env = dict(os.environ, LOCALAPPDATA=str(tmp / 'localappdata'))
+    tool = lambda *a: subprocess.run([sys.executable, str(HERE / 'editor_lock.py'), *a], cwd=proj,
+                                      capture_output=True, env=env)
+    r = tool('status')
+    case('editor_lock.py status exits 0 on a free project (no lockfile)',
+         r.returncode == 0 and 'FREE' in r.stdout.decode(), r.stdout.decode() + r.stderr.decode())
+    r = tool('guard')
+    case('editor_lock.py guard is silent and exits 0 on a free project', r.returncode == 0 and not r.stdout, r.stderr.decode())
+    r = tool('claim', 'selftest-who', '--minutes', '5', '--why', 'selftest case')
+    case('editor_lock.py claim exits 0 and reports who claimed it', r.returncode == 0 and 'selftest-who' in r.stdout.decode(), r.stdout.decode())
+    r = tool('status')
+    case('editor_lock.py status shows the claim, though the project is still free (advisory only)',
+         r.returncode == 0 and 'selftest-who' in r.stdout.decode() and 'FREE' in r.stdout.decode(), r.stdout.decode())
+    r = tool('release', 'selftest-who')
+    case('editor_lock.py release of your own claim exits 0', r.returncode == 0, r.stdout.decode() + r.stderr.decode())
+    r = tool('status')
+    case('editor_lock.py status no longer shows a released claim', 'selftest-who' not in r.stdout.decode(), r.stdout.decode())
+
+
+def perfcmp_cases(tmp: pathlib.Path):
+    # [H8] two hand-written reports, shaped like perfcmp.py's own reader expects.
+    def report(hash_start, label):
+        return {
+            'run': {'label': label, 'build': 'editor'},
+            'window': {'hash_start': hash_start, 'tick_start': 0, 'tick_end': 100, 'alive_start': 10, 'alive_end': 10,
+                       'fps_mean': 60.0, 'gc_collections': 0, 'hitches_over_33ms': []},
+            'series': {k: {'p50': 1.0, 'p95': 2.0, 'p99': 3.0} for k in
+                       ['cpu_frame_ms', 'main_ms', 'main_ms_tick_frames', 'main_ms_idle_frames', 'render_ms',
+                        'gpu_ms', 'draw_calls', 'setpass', 'gc_bytes', 'gc_count', 'vat_vertices', 'vat_shadows_on']},
+            'per_tick_ms': {},
+        }
+    a = tmp / 'perf-a.json'; b = tmp / 'perf-b.json'
+    a.write_text(json.dumps(report('h1', 'before')))
+    b.write_text(json.dumps(report('h2', 'after')))
+    r = subprocess.run([sys.executable, str(HERE / 'perfcmp.py'), str(a), str(b)], capture_output=True)
+    case('perfcmp.py refuses two reports with a different hash_start', r.returncode == 1 and b'WARNING' in r.stdout + r.stderr,
+         (r.stdout + r.stderr).decode())
+    r = subprocess.run([sys.executable, str(HERE / 'perfcmp.py'), str(a), str(b), '--force'], capture_output=True)
+    case('perfcmp.py --force still prints the table despite the hash_start mismatch',
+         r.returncode == 0 and b'before' in r.stdout and b'after' in r.stdout, (r.stdout + r.stderr).decode())
+
+
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
     import scorecard
@@ -1106,6 +1158,8 @@ def main():
         scorecard_cases()
         gate_scope_cases(tmp)
         land_cases(tmp)
+        editor_lock_cases(tmp)
+        perfcmp_cases(tmp)
         code, out = run([sys.executable, str(HERE / 'health.py'), '--lanes'], PROJ)
         case('health.py --lanes lists this checkout', code == 0 and '(you)' in out, out)
     finally:
