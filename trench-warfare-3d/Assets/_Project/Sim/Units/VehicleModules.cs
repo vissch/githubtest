@@ -127,9 +127,10 @@ namespace TW.Sim.Units
 
         /// <summary>What is left of a machine as salvage, 0..1: the mean of its running gear, engine and guns, cut
         /// by how it died (a burnt-out hull is half a hull, a cooked-off one is scrap).</summary>
-        public float QualityOf(SimWorld w, int slot)
+        /// <param name="archetype">The machine it was; -1 reads the slot, which a re-let slot no longer answers for.</param>
+        public float QualityOf(SimWorld w, int slot, int archetype = -1)
         {
-            var spec = catalogue.Tank[w.Archetype[slot]];
+            var spec = catalogue.Tank[archetype < 0 ? w.Archetype[slot] : archetype];
             float sum = Module[slot * M + (int)VehicleModule.TrackLeft] + Module[slot * M + (int)VehicleModule.TrackRight] + Module[slot * M + (int)VehicleModule.Engine];
             int n = 3;
             if (spec.GunCount > 0) { sum += Module[slot * M + (int)VehicleModule.GunA]; n++; }

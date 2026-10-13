@@ -12,7 +12,8 @@
 // which FlowFieldManager hashes; this system hashes its queue and a running checksum of what it has applied.
 // Wreck provenance (2026-09-25, for the salvage report and, later, the auctions): every wreck it leaves is also a
 // WreckRecord — whose machine it was, which side's, how it died, what is left of it (VehicleModulesSystem.QualityOf,
-// read here in the same tick as VehicleDestroyed while the slot's modules are still true) and which prop it became.
+// read here in the same tick it died, from SimWorld.VehicleDeaths, which holds who it was before the slot is let
+// again) and which prop it became.
 // The list is hashed; the debrief reads it at the end and asks SectorControlSystem.ObjectiveAt who holds the ground.
 using Unity.Collections;
 using Unity.Mathematics;
@@ -87,33 +88,34 @@ namespace TW.Sim.Match
                 blast.Craters.Clear();
                 for (int i = 0; i < blast.Resolved.Length; i++) navChanged |= Shake(w, blast.Resolved[i]);   // read, not drained: BlastSystem clears its own list at its next Step
             }
-            // wrecks: this tick's vehicle deaths (events are appended in sim order, so this is deterministic). The
+            // wrecks: this tick's vehicle deaths, read from the sim-owned list SimWorld.Despawn fills (never dropped,
+            // unlike the event buffer) and in sim order, so this is deterministic. The record's provenance comes from
+            // that list, captured at the death: the slot itself may already be let again to a bail-out crew. The
             // PropChanged carries the dead slot + 1 in dir.x, so the view can tie the hull it draws to this prop.
-            var events = w.Events.Events;
-            for (int i = 0, n0 = events.Length; i < n0; i++)
+            var deaths = w.VehicleDeaths;
+            for (int i = 0, n0 = deaths.Length; i < n0; i++)
             {
-                var e = events[i];
-                if (e.Type != SimEventType.VehicleDestroyed) continue;
-                float3 at = e.Pos;
+                var d = deaths[i];
+                float3 at = d.Pos;
                 // its size class (PropDef.Scale) from the machine's hull in the match's unit table, not the slot's MaxHp: a
                 // tougher machine leaves a tougher wreck, and every stage keeps the size (MapData.SetPropKind)
-                byte kindOf = e.Dir.x >= 1f ? (byte)(e.Dir.x - 1f) : w.Archetype[e.A];   // from the event: the slot may be let again in this same step
+                byte kindOf = (byte)d.Archetype;
                 float size = PropRules.WreckSize(kindOf < Archetypes.Count ? w.Units.Roster[kindOf].Hp : PropRules.WreckSizeHp);
-                int index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
-                if (index < 0 && NearestFreeCell(e.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = e.Dir.y, Kind = PropKind.Wreck, Scale = size });
+                int index = map.AddProp(new PropDef { Pos = at, Yaw = d.Yaw, Kind = PropKind.Wreck, Scale = size });
+                if (index < 0 && NearestFreeCell(d.Pos, out at)) index = map.AddProp(new PropDef { Pos = at, Yaw = d.Yaw, Kind = PropKind.Wreck, Scale = size });
                 if (index < 0) continue;
                 checksum = SimHash.Value(at, checksum);
                 PropsChanged++; navChanged = true;
-                w.Events.Add(w.Tick, SimEventType.PropChanged, index, (int)PropKind.Wreck, at, new float3(e.A + 1, 0f, 0f));
+                w.Events.Add(w.Tick, SimEventType.PropChanged, index, (int)PropKind.Wreck, at, new float3(d.Slot + 1, 0f, 0f));
                 if (Wrecks.IsCreated)
                 {
-                    int slot = e.A;
+                    int slot = d.Slot;
                     byte cause = modules != null && modules.KillCause.IsCreated && slot < modules.KillCause.Length ? modules.KillCause[slot] : (byte)VehicleKillCause.Structure;
-                    float quality = modules != null ? modules.QualityOf(w, slot) : 0.5f;
+                    float quality = modules != null ? modules.QualityOf(w, slot, d.Archetype) : 0.5f;
                     var rec = new WreckRecord
                     {
-                        Slot = slot, Generation = w.Generation[slot], Archetype = w.Archetype[slot], Team = w.Team[slot],
-                        Cause = cause == VehicleModulesSystem.Alive ? (int)VehicleKillCause.Structure : cause, Killer = e.B, PropIndex = index,
+                        Slot = slot, Generation = d.Generation, Archetype = d.Archetype, Team = d.Team,
+                        Cause = cause == VehicleModulesSystem.Alive ? (int)VehicleKillCause.Structure : cause, Killer = d.Killer, PropIndex = index,
                         Quality = quality, Pos = at, Tick = w.Tick,
                     };
                     Wrecks.Add(rec);
