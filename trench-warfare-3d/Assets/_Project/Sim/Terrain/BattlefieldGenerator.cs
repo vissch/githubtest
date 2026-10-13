@@ -38,6 +38,16 @@ namespace TW.Sim.Terrain
         /// </summary>
         public float SeaMargin;
 
+        /// <summary>
+        /// The shore is DEFENDED: timber obstacles on the dry sand, one wire belt above them and a fire trench
+        /// above that, which the defender starts in (the owner, 2026-10-08, "The coast's sand").
+        ///
+        /// A dial rather than a constant, and FALSE BY DEFAULT, because it is hashed map data: the shipped
+        /// ShelledForest map's coast is scenery behind team 1's rear trench, and a belt and a fifth trench on it
+        /// would move its geometry and its MapData.Hash. Only the Landing preset asks for defences.
+        /// </summary>
+        public bool ShoreDefences;
+
         public static BattlefieldParams ShelledForest(uint seed) => new BattlefieldParams
         { Seed = seed, Width = 90f, Length = 240f, Forest = 0.55f, Shelling = 0.7f, Mud = 0.5f, WaterLevel = 0.15f, River = true, Wrecks = 3, Bombardment = 8f, Sea = true };
 
@@ -57,7 +67,7 @@ namespace TW.Sim.Terrain
         /// attacker's side, with the defender resupplied in plain sight under his own guns.
         /// </summary>
         public static BattlefieldParams Landing(uint seed) => new BattlefieldParams
-        { Seed = seed, Width = 120f, Length = 170f, Forest = 0.2f, Shelling = 0.55f, Mud = 0.35f, WaterLevel = 0.15f, River = false, Wrecks = 4, Bombardment = 6f, Sea = true, SeaMargin = 300f };
+        { Seed = seed, Width = 120f, Length = 170f, Forest = 0.2f, Shelling = 0.55f, Mud = 0.35f, WaterLevel = 0.15f, River = false, Wrecks = 4, Bombardment = 6f, Sea = true, SeaMargin = 300f, ShoreDefences = true };
 
         /// <summary>
         /// THE WINTER LINE: ground that has frozen, rather than ShelledForest wearing a blizzard.
@@ -85,6 +95,7 @@ namespace TW.Sim.Terrain
             using var w = new BinaryWriter(ms);
             w.Write(Seed); w.Write(Width); w.Write(Length); w.Write(Forest); w.Write(Shelling); w.Write(Mud); w.Write(WaterLevel); w.Write(River); w.Write(Wrecks); w.Write(Bombardment); w.Write(Sea);
             w.Write(SeaMargin);   // appended, like Sea before it: an older replay simply has no such field
+            w.Write(ShoreDefences);   // appended too: absent means no shore defences, so an older map keeps its geometry
             return ms.ToArray();
         }
 
@@ -97,6 +108,7 @@ namespace TW.Sim.Terrain
                 Mud = r.ReadSingle(), WaterLevel = r.ReadSingle(), River = r.ReadBoolean(), Wrecks = r.ReadInt32(), Bombardment = r.ReadSingle(),
                 Sea = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),
                 SeaMargin = r.BaseStream.Position < r.BaseStream.Length ? r.ReadSingle() : 0f,   // 0 = the default
+                ShoreDefences = r.BaseStream.Position < r.BaseStream.Length && r.ReadBoolean(),   // absent = a bare shore
             };
         }
     }
@@ -117,6 +129,13 @@ namespace TW.Sim.Terrain
         public static float SeaMarginOf(in BattlefieldParams p) => p.SeaMargin > 0f ? p.SeaMargin : SeaMargin;
         public const float ShoreAt = 19f;       // where the water meets the sand, measured from the top of the beach
         const float ShallowSlope = 0.085f;      // how fast the bed falls away under the water
+        // The shore defences (BattlefieldParams.ShoreDefences). Distances on the sand are measured from SeaStartZ,
+        // the top of the beach, outward toward the water; ShoreAt (19) is the waterline and SeaLandingSystem's ramp
+        // puts a man down at ShoreZ - RampReach = 14.4 m out. So the obstacles stand around where he lands and the
+        // belt lies above them, between him and the trench.
+        public const float ShoreTrenchInset = 10f;   // metres INLAND of SeaStartZ the shore trench's line runs
+        public const float BeltAt = 7f, BeltDeep = 2.2f;             // the wire belt: where it starts, how deep in Z
+        public const float ObstaclesFrom = 10.5f, ObstaclesTo = 16.5f;   // the band the timber stands in
         const float SeaFallback = 0.15f;        // the water table a dry field is given when it is made a coast
 
         public static MapData Create(BattlefieldParams p, Allocator allocator)
@@ -131,12 +150,17 @@ namespace TW.Sim.Terrain
             var rng = new Random(math.max(1u, p.Seed * 747796405u + 2891336453u));
             float L = p.Length, W = p.Width, sz = L / 480f, sx = W / 180f;
             float ReserveZ = ReserveAt * sz, FrontZ = FrontAt * sz, HqDepth = HqDepthAt * sz, RiverHalfWidth = RiverHalf(p);
-            float[] trenchZ = { ReserveZ, FrontZ, L - FrontZ, L - ReserveZ };
+            // The shore is defended (the coast preset only): a fifth line above the sand, which the defender holds.
+            bool shore = p.Sea && p.ShoreDefences;
+            int nT = shore ? 5 : 4;
+            var trenchZ = new float[nT];
+            trenchZ[0] = ReserveZ; trenchZ[1] = FrontZ; trenchZ[2] = L - FrontZ; trenchZ[3] = L - ReserveZ;
+            if (shore) trenchZ[4] = L - ShoreTrenchInset;   // on the dug-in rear ground at the top of the sand
             // Nothing on a battlefield is ruled (owner, 2026-09-21). A trench follows the ground: its line wanders on two
             // octaves of noise (about 36 m and 13 m) and jogs a cell forward or back at traverses spaced 12 to 24 m
             // apart. Ladders stand at uneven intervals, each in a short straight piece so it opens onto clear ground.
-            var bends = new int[4][]; var ladders = new bool[4][]; var line = new float[4][];
-            for (int t = 0; t < 4; t++)
+            var bends = new int[nT][]; var ladders = new bool[nT][]; var line = new float[nT][];
+            for (int t = 0; t < nT; t++)
             {
                 var lineRng = new Random(math.max(1u, p.Seed * 2246822519u + (uint)t * 3266489917u));
                 int n = map.NavWidth;
@@ -148,7 +172,11 @@ namespace TW.Sim.Terrain
                     if (x == nextJog) { jog = math.clamp(jog + (lineRng.NextBool() ? 1 : -1), -1, 1); nextJog = x + lineRng.NextInt(6, 13); }
                     float wx = (x + 0.5f) * MapData.NavCellSize;
                     float wander = 2.3f * (Noise(salt, wx, 0f, 36f) - 0.5f) * 2f + 0.9f * (Noise(salt + 1u, wx, 0f, 13f) - 0.5f) * 2f;
-                    bends[t][x] = math.clamp((int)math.round(wander + jog), -3, 3);
+                    // The shore line has 21 m of room between team 1's reserve line and the sand, and both of them
+                    // wander. At the full +-3 cells the two carves can meet in a column, and a cell cut twice is a
+                    // 3.6 m pit rather than a trench, so this one bays +-1 and keeps clear of the line behind it.
+                    int swing = shore && t == 4 ? 1 : 3;
+                    bends[t][x] = math.clamp((int)math.round(wander + jog), -swing, swing);
                 }
                 for (int x = lineRng.NextInt(2, 6); x < n - 1; x += lineRng.NextInt(7, 13))
                 {
@@ -205,6 +233,12 @@ namespace TW.Sim.Terrain
             GreyboxMapGenerator.AddFireTrench(map, 0, 1, FrontZ, 0f, next0: 2, next1: 0, offsets: bends[1], ladders: ladders[1]);
             GreyboxMapGenerator.AddFireTrench(map, 1, 2, L - FrontZ, SimMath.Pi, next0: 3, next1: 1, offsets: bends[2], ladders: ladders[2]);
             GreyboxMapGenerator.AddFireTrench(map, 1, 3, L - ReserveZ, SimMath.Pi, next0: -1, next1: 2, offsets: bends[3], ladders: ladders[3]);
+            // The shore trench faces +Z, out to sea, and is NOT an objective: it is a line to hold, not one to
+            // capture, and the six objectives below keep their order and their ids. FrontTrench takes the SMALLEST
+            // z of team 1's trenches, so a line at larger z than the reserve can never become his front line.
+            if (shore)
+                GreyboxMapGenerator.AddFireTrench(map, team: 1, id: 4, z: trenchZ[4], facingYaw: 0f, next0: -1, next1: -1,
+                                                  offsets: bends[4], ladders: ladders[4]);
             GreyboxMapGenerator.AddLineObjective(map, 0, ObjectiveKind.MainLine, 0, 0, FrontZ, 1, bends[1]);
             GreyboxMapGenerator.AddLineObjective(map, 1, ObjectiveKind.ReserveLine, 0, 0, ReserveZ, 2, bends[0]);
             GreyboxMapGenerator.AddLineObjective(map, 2, ObjectiveKind.HQ, 0, 0, 20f * sz, 3);
@@ -212,7 +246,22 @@ namespace TW.Sim.Terrain
             GreyboxMapGenerator.AddLineObjective(map, 4, ObjectiveKind.ReserveLine, 1, 1, L - ReserveZ, 2, bends[3]);
             GreyboxMapGenerator.AddLineObjective(map, 5, ObjectiveKind.HQ, 1, 1, L - 20f * sz, 3);
             map.Spawns.Add(new SpawnPoint { Team = 0, Pos = new float3(W * 0.5f, 0f, 6f), Kind = 0 });
-            map.Spawns.Add(new SpawnPoint { Team = 1, Pos = new float3(W * 0.5f, 0f, L - 6f), Kind = 0 });
+            // Team 1's LAND arrival point. The boats bring most of his men (SeaLandingSystem), but every man who
+            // walks on - the overflow when every berth is full - arrives here, and on a defended shore that has to
+            // be the shore trench itself: a spawn on a trench cell is garrisoned there by the ordinary arrival rule.
+            float3 landSpawn = new float3(W * 0.5f, 0f, L - 6f);
+            if (shore)
+            {
+                var sdef = map.Trenches[4];
+                float best = float.MaxValue;
+                for (int i = 0; i < sdef.LinkCount; i++)
+                {
+                    var c = map.NavCellCenter(map.LinkCells[sdef.LinkStart + i]);
+                    float d = math.abs(c.x - W * 0.5f);
+                    if (d < best) { best = d; landSpawn = c; }
+                }
+            }
+            map.Spawns.Add(new SpawnPoint { Team = 1, Pos = landSpawn, Kind = 0 });
             map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 0f)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, 40f * sz));
             map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L)); map.SupplyRoad.Add(new float3(W * 0.5f, 0f, L - 40f * sz));
             map.Wind = new float2(0f, -1f);
@@ -238,7 +287,7 @@ namespace TW.Sim.Terrain
                     if (x < 3f || x > W - 3f || z < HqDepth || z > L - HqDepth) continue;
                     bool onTrench = false;
                     int nx = math.clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1);
-                    for (int t = 0; t < 4; t++) if (math.abs(z - line[t][nx]) < radius + 4f) onTrench = true;   // the generator leaves the garrison's trench whole
+                    for (int t = 0; t < line.Length; t++) if (math.abs(z - line[t][nx]) < radius + 4f) onTrench = true;   // the generator leaves the garrison's trench whole
                     if (onTrench) continue;
                     new CraterStamp { Center = new float3(x, 0f, z), Radius = radius, Depth = radius * 0.38f }.Apply(map);
                 }
@@ -275,6 +324,45 @@ namespace TW.Sim.Terrain
                         new WireBelt { Min = new float3(x * MapData.NavCellSize, 0f, math.min(z0, z1)), Max = new float3(x * MapData.NavCellSize + 1.9f, 0f, math.max(z0, z1)) }.Place(map);
                     }
                     col += run + rng.NextInt(3, 7);   // the gap
+                }
+            }
+
+            // ---- 7b. the shore defences: timber on the sand and one belt of wire above it ------------------------
+            // Built the way the wire above is built, so the gaps come out the same way: runs of 14-30 m with 3-7
+            // cells of gap between them. ONE belt, with gaps, because the boats bring team 1's own men ashore and a
+            // continuous belt would wall its own landings in. Wire is cost 40 and not Blocked, so it stops a man the
+            // way every belt on this field stops him, without sealing the beach.
+            if (shore)
+            {
+                float sand = map.SeaStartZ;
+                uint salt = p.Seed + 61u;
+                int col = 0;
+                while (col < map.NavWidth)
+                {
+                    int run = (int)(rng.NextFloat(14f, 30f) * sx) + 3;
+                    for (int x = col; x < math.min(map.NavWidth, col + run); x++)
+                    {
+                        float wx = (x + 0.5f) * MapData.NavCellSize;
+                        float z0 = sand + BeltAt + 1.6f * (Noise(salt, wx, 0f, 15f) - 0.5f) * 2f;
+                        new WireBelt { Min = new float3(x * MapData.NavCellSize, 0f, z0), Max = new float3(x * MapData.NavCellSize + 1.9f, 0f, z0 + BeltDeep) }.Place(map);
+                    }
+                    col += run + rng.NextInt(3, 7);   // the gap
+                }
+                // Timber obstacles, SEAWARD of the belt, on two ragged rows about a post every 5-7 m. PropKind.Log
+                // gives 35 % cover and does NOT block its cell: a man who lands behind one shelters there and
+                // nothing is sealed. The honest look is BattlefieldKit's TimberHedgehog module, which is placed
+                // nowhere yet - that is a show lane of its own (docs/19 item 2).
+                for (int row = 0; row < 2; row++)
+                {
+                    float rowZ = sand + math.lerp(ObstaclesFrom, ObstaclesTo, row == 0 ? 0.25f : 0.75f);
+                    for (float x = rng.NextFloat(2f, 6f); x < W - 2f; x += rng.NextFloat(5f, 7f))
+                    {
+                        float z = rowZ + 2.1f * (Noise(p.Seed + 62u + (uint)row, x, 0f, 11f) - 0.5f) * 2f;
+                        if (z < sand + ObstaclesFrom || z > sand + ObstaclesTo) continue;
+                        var at = new float3(x, 0f, z);
+                        if ((map.LayerAt(at) & (NavLayer.Wire | NavLayer.Blocked | NavLayer.Trench | NavLayer.Link)) != 0) continue;
+                        map.AddProp(new PropDef { Pos = at, Yaw = rng.NextFloat(0f, 6.2831853f), Kind = PropKind.Log, Scale = rng.NextFloat(0.9f, 1.3f) });
+                    }
                 }
             }
 

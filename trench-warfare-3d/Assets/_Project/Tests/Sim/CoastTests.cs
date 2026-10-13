@@ -109,5 +109,182 @@ namespace TW.Tests
             Assert.Less(slope, 0.5f, $"the beach climbs at {slope:F2} - that is a bank, not sand a man walks up");
             Assert.Greater(slope, 0.01f, $"the beach is flat ({slope:F3}), so the waterline has no edge to read");
         }
+
+        // ---- the shore defences (the owner, 2026-10-08: "The coast's sand") ---------------------------------------
+        // What is asserted here is the owner's own words - one wire belt, timber obstacles seaward of it, a trench
+        // above the beach the defender starts in, and a path through from every landing - not the generator's
+        // arithmetic. Change the noise and these still hold; drop the belt or wall the beach in and they fail.
+        static readonly uint[] Seeds = { 1917u, 1918u, 7u, 42u };
+
+        /// <summary>The shore trench: the sea team's line that lies above the beach, behind none of its own. Found by
+        /// where it is rather than by its id, so a renumbering cannot quietly make these pass on trench 3.</summary>
+        static int ShoreTrench(MapData map)
+        {
+            for (int t = 0; t < map.Trenches.Length; t++)
+            {
+                if (map.Trenches[t].OwnerTeam != 1) continue;
+                float z = map.NavCellCenter(map.TrenchCells[map.Trenches[t].CellStart]).z;
+                if (z > map.SeaStartZ - BattlefieldGenerator.ShoreTrenchInset - 4f && z < map.SeaStartZ) return t;
+            }
+            return -1;
+        }
+
+        static bool IsWire(MapData map, int cell) => ((NavLayer)map.NavLayers[cell] & NavLayer.Wire) != 0;
+
+        /// <summary>BattlefieldGenerator.Connected's traversal rule from one cell, REFUSING every wire cell: where a
+        /// man who will not cut can walk. Returns the cells he reaches.</summary>
+        static bool[] WalkWithoutCuttingWire(MapData map, int start)
+        {
+            var seen = new bool[map.NavWidth * map.NavLength];
+            var open = new System.Collections.Generic.Stack<int>();
+            if (IsWire(map, start) || ((NavLayer)map.NavLayers[start] & NavLayer.Blocked) != 0) return seen;
+            seen[start] = true; open.Push(start);
+            while (open.Count > 0)
+            {
+                int cell = open.Pop();
+                int cx = cell % map.NavWidth, cz = cell / map.NavWidth;
+                for (int d = 0; d < 4; d++)
+                {
+                    int nx = cx + (d == 0 ? 1 : d == 1 ? -1 : 0), nz = cz + (d == 2 ? 1 : d == 3 ? -1 : 0);
+                    if (nx < 0 || nz < 0 || nx >= map.NavWidth || nz >= map.NavLength) continue;
+                    int ni = map.NavIndex(nx, nz);
+                    if (seen[ni]) continue;
+                    byte from = map.NavLayers[cell], to = map.NavLayers[ni];
+                    if ((to & (byte)NavLayer.Blocked) != 0) continue;
+                    if (IsWire(map, ni)) continue;                       // he does not cut: the gaps are the path
+                    const byte traversal = (byte)(NavLayer.Surface | NavLayer.Trench);
+                    bool link = ((from | to) & (byte)NavLayer.Link) != 0;
+                    if (!link && (from & to & traversal) == 0) continue;
+                    seen[ni] = true; open.Push(ni);
+                }
+            }
+            return seen;
+        }
+
+        /// <summary>One wire belt on the dry sand, with gaps, and timber standing seaward of it.</summary>
+        [Test]
+        public void TheSandCarriesOneWireBeltWithGaps_AndTimberSeawardOfIt()
+        {
+            foreach (uint seed in Seeds)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(seed), Allocator.Persistent);
+                float band0 = map.SeaStartZ + 5f, band1 = map.SeaStartZ + 11f;
+                int wired = 0, bare = 0;
+                for (int x = 0; x < map.NavWidth; x++)
+                {
+                    bool any = false;
+                    for (int z = 0; z < map.NavLength; z++)
+                    {
+                        float wz = (z + 0.5f) * MapData.NavCellSize;
+                        if (wz < band0 || wz > band1) continue;
+                        if (IsWire(map, map.NavIndex(x, z))) { any = true; wired++; }
+                    }
+                    if (any) continue;
+                    bare++;
+                }
+                Assert.Greater(wired, 0, "seed " + seed + ": no wire on the sand between the obstacles and the trench");
+                Assert.Greater(bare, 0, "seed " + seed + ": the belt runs the whole width with no gap, so a landing is walled in");
+
+                int timber = 0;
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var prop = map.Props[i];
+                    if (prop.Kind != PropKind.Log || prop.Pos.z <= map.SeaStartZ) continue;
+                    Assert.Greater(prop.Pos.z, map.SeaStartZ + BattlefieldGenerator.BeltAt + BattlefieldGenerator.BeltDeep,
+                        "seed " + seed + ": timber at " + prop.Pos.z + " stands inland of the belt, not seaward of it");
+                    Assert.Greater(map.CellCover[prop.Cell], 0, "a man at the obstacle has something to shelter behind");
+                    timber++;
+                }
+                Assert.Greater(timber, 8, "seed " + seed + ": " + timber + " timber obstacles is not an obstacle belt");
+            }
+        }
+
+        /// <summary>The defender is dug in above the beach, and starts there.</summary>
+        [Test]
+        public void TheDefenderHasATrenchAboveTheBeachAndStartsInIt()
+        {
+            foreach (uint seed in Seeds)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(seed), Allocator.Persistent);
+                int t = ShoreTrench(map);
+                Assert.GreaterOrEqual(t, 0, "seed " + seed + ": the sea team has no line above the beach");
+                var def = map.Trenches[t];
+                Assert.AreEqual((byte)1, def.OwnerTeam);
+                Assert.Greater(def.LinkCount, 0, "it has ladders, so his men can get out of it");
+                for (int i = 0; i < def.CellCount; i++)
+                {
+                    float z = map.NavCellCenter(map.TrenchCells[def.CellStart + i]).z;
+                    Assert.Less(z, map.SeaStartZ, "seed " + seed + ": the shore trench is cut into the sand, not above it");
+                    Assert.Greater(z, map.SeaStartZ - 25f, "seed " + seed + ": the shore trench has fallen back off the shore");
+                }
+
+                int spawn = -1;
+                for (int i = 0; i < map.Spawns.Length; i++)
+                    if (map.Spawns[i].Team == 1) { var c = map.NavCellOf(map.Spawns[i].Pos); spawn = map.NavIndex(c.x, c.y); }
+                Assert.GreaterOrEqual(spawn, 0);
+                bool inIt = false;
+                for (int i = 0; i < def.CellCount; i++) if (map.TrenchCells[def.CellStart + i] == spawn) inIt = true;
+                Assert.IsTrue(inIt, "seed " + seed + ": the defender's land arrival is not a cell of his shore trench, so he does not start in it");
+            }
+        }
+
+        /// <summary>
+        /// The path through. A man put down by a ramp must be able to walk to the shore trench WITHOUT crossing
+        /// wire: that is what "no landing is walled in" means, and it is the one thing the belt could break.
+        /// </summary>
+        [Test]
+        public void AManLandedByARampCanReachTheShoreTrenchWithoutCuttingWire()
+        {
+            foreach (uint seed in Seeds)
+            {
+                using var map = BattlefieldGenerator.Create(BattlefieldParams.Landing(seed), Allocator.Persistent);
+                int t = ShoreTrench(map);
+                Assert.GreaterOrEqual(t, 0);
+                var def = map.Trenches[t];
+                float z = map.ShoreZ - map.SeaAway * SeaLandingSystem.RampReach;   // SeaLandingSystem.RampZ()
+                for (int k = 0; k < 5; k++)
+                {
+                    float x = map.SizeMeters.x * (0.1f + 0.2f * k);
+                    var c = map.NavCellOf(new float3(x, 0f, z));
+                    var reached = WalkWithoutCuttingWire(map, map.NavIndex(c.x, c.y));
+                    bool arrived = false;
+                    for (int i = 0; i < def.CellCount && !arrived; i++) arrived = reached[map.TrenchCells[def.CellStart + i]];
+                    Assert.IsTrue(arrived, "seed " + seed + ": a man landed at x = " + x + " cannot walk off the beach to the "
+                        + "shore trench without crossing wire. The belt must have gaps, or that landing is walled in.");
+                }
+            }
+        }
+
+        /// <summary>The shipped map did not move: its coast is still bare scenery.</summary>
+        [Test]
+        public void ShelledForestsCoastIsStillBare()
+        {
+            var p = BattlefieldParams.ShelledForest(1917);
+            Assert.IsFalse(p.ShoreDefences, "only the coast preset asks for defences");
+            using var map = BattlefieldGenerator.Create(p, Allocator.Persistent);
+            for (int z = 0; z < map.NavLength; z++)
+            {
+                if ((z + 0.5f) * MapData.NavCellSize <= map.SeaStartZ) continue;
+                for (int x = 0; x < map.NavWidth; x++)
+                    Assert.IsFalse(IsWire(map, map.NavIndex(x, z)), "no wire past the top of ShelledForest's beach");
+            }
+            for (int i = 0; i < map.Props.Length; i++)
+                Assert.LessOrEqual(map.Props[i].Pos.z, map.SeaStartZ, "and nothing stands on its sand");
+            Assert.AreEqual(4, map.Trenches.Length, "four trenches, as the playtest layout has always had");
+        }
+
+        /// <summary>The dial survives being written down and read back, and absent means bare.</summary>
+        [Test]
+        public void TheShoreDefencesDialSurvivesARoundTrip()
+        {
+            var p = BattlefieldParams.Landing(1917);
+            Assert.IsTrue(BattlefieldParams.Deserialize(p.Serialize()).ShoreDefences, "a replay of a defended shore lands on one");
+            Assert.IsFalse(BattlefieldParams.Deserialize(BattlefieldParams.ShelledForest(1917).Serialize()).ShoreDefences);
+            // an older blob, written before the field existed, reads back as a bare shore
+            var bytes = p.Serialize();
+            var older = new byte[bytes.Length - 1];
+            System.Array.Copy(bytes, older, older.Length);
+            Assert.IsFalse(BattlefieldParams.Deserialize(older).ShoreDefences, "absent means no defences, so an older map keeps its geometry");
+        }
     }
 }
