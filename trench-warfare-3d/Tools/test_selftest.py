@@ -108,11 +108,33 @@ def h7_changed_paths_rename():
              'Old.cs' in delete and 'New.cs' in copy, f'copy={copy} delete={delete}')
 
 
+def h20_snapshot_copies_skips_big_untracked():
+    # [H20] selftest's snapshot copied and committed every untracked file, so large untracked art went into the
+    # shared object store on every run. A tracked change is kept; an untracked file over the cap is skipped.
+    with tempfile.TemporaryDirectory() as tmp:
+        repo = pathlib.Path(tmp) / 'snapshot-repo'
+        repo.mkdir()
+        git(['init', '-q', '-b', 'main'], repo)
+        code = repo / 'Code.cs'
+        code.write_text('class C {}\n')
+        git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'add', '.'], repo)
+        git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base'], repo)
+        code.write_text('class C { int a; }\n')
+        art = repo / 'big.png'
+        art.write_bytes(b'x' * 2_000_000)
+        copy, delete = selftest.changed_paths(str(repo))
+        keep, skipped = selftest.snapshot_copies(str(repo), copy)
+        case('[H20] snapshot_copies skips a big untracked file and keeps a tracked one',
+             'Code.cs' in keep and 'big.png' in skipped and 'big.png' not in keep,
+             f'[H20] keep={keep} skipped={skipped}')
+
+
 def main():
     h4_rmtree_hard_and_sweep_stale()
     h5_run_scrubs_git_env()
     h6_must_exits()
     h7_changed_paths_rename()
+    h20_snapshot_copies_skips_big_untracked()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)
 
