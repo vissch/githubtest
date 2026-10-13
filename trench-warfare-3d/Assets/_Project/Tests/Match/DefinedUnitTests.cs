@@ -290,10 +290,10 @@ namespace TW.Tests
             var map = m.Map; int found = -1; float3 cell = default;
             for (int c = 0; c < map.CellTrenchId.Length && found < 0; c++)
                 if (map.CellTrenchId[c] >= 0) { found = c; cell = new float3((c % map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize, 0f, (c / map.NavWidth + 0.5f) * TW.Sim.Terrain.MapData.NavCellSize); }
-            Assume.That(found >= 0, "the playtest map has a trench");
+            Assert.That(found >= 0, "[T36] the playtest map has a trench");
             int man = m.World.Spawn(0, 0, cell, 1e6f, 0f, false);
             Run(m, 10);
-            Assume.That((m.World.Flags[man] & (uint)UnitFlags.InTrench) != 0 && m.World.StanceOf[man] != (byte)Stance.FireStep, "he is below the rim");
+            Assert.That((m.World.Flags[man] & (uint)UnitFlags.InTrench) != 0 && m.World.StanceOf[man] != (byte)Stance.FireStep, "[T36] he is below the rim");
             float3 at = cell + new float3(0f, 0f, 15f);
             int sk = Spawn(m, 1, VehicleArchetype.Skimmer, at, 0f);
             int tusk = m.World.Spawn(1, VehicleArchetype.Tusk, cell + new float3(0f, 0f, -15f), 2000f, 0f, true);
@@ -334,11 +334,11 @@ namespace TW.Tests
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
             var g = m.Gunnery;
-            Assume.That(g.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
+            Assert.That(g.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "[T36] it is holding");
             m.World.Despawn(truck, -1, default);
             var tusk = m.World.Units.Roster[VehicleArchetype.Tusk];
             int next = m.World.Spawn(1, VehicleArchetype.Tusk, new float3(30f, 0f, 160f), tusk.Hp, 0f, true);
-            Assume.That(next, Is.EqualTo(truck), "the Tusk took the Salvo's slot");
+            Assert.That(next, Is.EqualTo(truck), "[T36] the Tusk took the Salvo's slot");
             Run(m, 1);
             Assert.AreEqual(-1, g.HoldTarget[next], "no mark"); Assert.AreEqual(0, g.HoldTicks[next], "no count");
             Assert.AreEqual(0, g.Release[next], "no release"); Assert.AreEqual(0f, g.HoldHp[next], "no hit points");
@@ -355,14 +355,14 @@ namespace TW.Tests
             int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 160f));   // 140 m: inside its reach
             m.World.Spawn(0, 0, new float3(30f, 0f, 20f), 1e6f, 0f, false);
             Run(m, 20 * 3);
-            Assume.That(m.Gunnery.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "it is holding");
+            Assert.That(m.Gunnery.HoldTarget[truck], Is.GreaterThanOrEqualTo(0), "[T36] it is holding");
             float3 held = m.World.Position[truck];
             // back to its own side's rear: the goal the other team's machines drive to, as an order to retreat would be
             int back = -1;
             for (int i = 0; i < m.World.HighWater && back < 0; i++)
                 if (m.World.IsAlive(i) && m.World.Team[i] == 0 && (m.World.Flags[i] & (uint)UnitFlags.Vehicle) != 0) back = m.World.GoalId[i];
             if (back < 0) { int probe = m.World.Spawn(0, VehicleArchetype.Tusk, new float3(30f, 0f, 30f), 2000f, 0f, true); Run(m, 1); back = m.World.GoalId[probe]; m.World.Despawn(probe, -1, default); }
-            Assume.That(back, Is.GreaterThanOrEqualTo(0).And.Not.EqualTo(m.World.GoalId[truck]));
+            Assert.That(back, Is.GreaterThanOrEqualTo(0).And.Not.EqualTo(m.World.GoalId[truck]), "[T36]");
             m.World.GoalId[truck] = back;
             Run(m, 20 * 10);
             Assert.Greater(math.distance(held, m.World.Position[truck]), 5f, "sent back, it goes, whatever it has in reach");
@@ -390,7 +390,7 @@ namespace TW.Tests
                     if (!killed && m.Gunnery.Rockets.Length > 0 && deadAt == 0) deadAt = m.World.Tick + 10;
                     if (!killed && deadAt != 0 && m.World.Tick == deadAt) { m.World.Despawn(truck, -1, default); killed = true; }
                 }
-                Assume.That(killed, "the rack fired");
+                Assert.That(killed, "[T36] the rack fired");
                 var promised = Promised(log, truck, out _);
                 int away = 0; foreach (var e in log) if (e.Type == SimEventType.RocketFired && e.A == truck && e.Tick + (uint)e.Dir.x < deadAt) away++;
                 if (run == 0) awayA = away;
@@ -398,7 +398,7 @@ namespace TW.Tests
                 foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts++;
                 if (run == 0) { a = promised; burstsA = bursts; } else { b = promised; burstsB = bursts; }
             }
-            Assume.That(awayA, Is.GreaterThan(0), "some were away when it died");
+            Assert.That(awayA, Is.GreaterThan(0), "[T36] some were away when it died");
             Assert.AreEqual(awayA, burstsA, "every rocket in the air burst after the Salvo died");
             Assert.AreEqual(a.Count, b.Count); Assert.AreEqual(burstsA, burstsB);
             for (int k = 0; k < a.Count; k++) { Assert.AreEqual(a[k].Tick, b[k].Tick); Assert.AreEqual(a[k].Pos, b[k].Pos); }
@@ -465,13 +465,13 @@ namespace TW.Tests
                 if (killedAt == 0 && m.Gunnery.Rockets.Length > 0) killedAt = m.World.Tick + 6;   // six ticks into the rack
                 if (killedAt != 0 && m.World.Tick == killedAt) m.World.Despawn(truck, -1, default);
             }
-            Assume.That(killedAt, Is.Not.EqualTo(0u), "the rack fired");
+            Assert.That(killedAt, Is.Not.EqualTo(0u), "[T36] the rack fired");
             int away = 0, fired = 0;
             foreach (var e in log)
                 if (e.Type == SimEventType.RocketFired && e.A == truck) { fired++; if (e.Tick + (uint)e.Dir.x < killedAt) away++; }
             int bursts = 0, source = SourceId.Unit(VehicleArchetype.Salvo);
             foreach (var e in log) if (e.Type == SimEventType.Explosion && e.A == source) bursts++;
-            Assume.That(away, Is.GreaterThan(0).And.LessThan(fired), "some were away and some still in their tubes");
+            Assert.That(away, Is.GreaterThan(0).And.LessThan(fired), "[T36] some were away and some still in their tubes");
             Assert.AreEqual(away, bursts, "only the rockets that had left before it died come down");
         }
 
@@ -492,7 +492,7 @@ namespace TW.Tests
                     seen++;
                     Assert.That(e.Pos.x, Is.InRange(0f, width), $"rocket {e.B} lands at x {e.Pos.x:F1}, off a map {width} m wide");
                 }
-            Assume.That(seen, Is.GreaterThan(0), "the rack fired");
+            Assert.That(seen, Is.GreaterThan(0), "[T36] the rack fired");
         }
 
         /// <summary>The rockets come down where they were aimed when the rack fired: a man who moves 30 m away in the
@@ -511,7 +511,7 @@ namespace TW.Tests
                 m.Step(none);
                 if (!moved && m.Gunnery.Rockets.Length > 0) { m.World.Position[man] = m.World.Position[man] + new float3(30f, 0f, 0f); moved = true; }
             }
-            Assume.That(moved, "the rack fired");
+            Assert.That(moved, "[T36] the rack fired");
             Assert.IsTrue(m.World.IsAlive(man), "he was not where the rockets came down");
             Assert.AreEqual(100f, m.World.Hp[man], 1e-3f, "and not a splinter reached him");
         }

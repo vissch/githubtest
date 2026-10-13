@@ -223,9 +223,13 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void TheSosBarrage_BreaksABareAttackAtThreeToOne()
         {
-            int taken = 0, calls = 0;
+            // [T39] calls was a three-seed total, so one seed calling it three times and two never calling it at all
+            // still passed GreaterOrEqual(calls, 3, ...) though the message claims "every attack". Track per seed.
+            int taken = 0;
+            var perSeed = new List<int>();
             for (uint seed = 1; seed <= 3; seed++)
             {
+                int calls = 0;
                 var cfg = SimConfig.Default; cfg.StartingSilver = 1000; cfg.Seed = seed;
                 var field = BattlefieldParams.ShelledForest(Field); field.Bombardment = 0f;
                 using var m = MatchSim.CreateBattlefield(cfg, field);
@@ -266,8 +270,9 @@ namespace TW.Tests
                     for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.TrenchCaptured && ev[k].B == 0) got = true;
                 }
                 if (got) taken++;
+                perSeed.Add(calls);
             }
-            Assert.GreaterOrEqual(calls, 3, "it called the barrage on every attack");
+            foreach (int c in perSeed) Assert.GreaterOrEqual(c, 1, "[T39] it called the barrage on every attack");
             Assert.LessOrEqual(taken, 1, "and the attack broke on it");
         }
 
