@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Tests for pipeline.py on throwaway git repos: python Tools/pipeline/test_pipeline.py. Stdlib only."""
-import json, os, subprocess, sys, tempfile, time, unittest
+import io, json, os, subprocess, sys, tempfile, time, unittest
 from pathlib import Path
 
 sys.dont_write_bytecode = True
@@ -198,14 +198,94 @@ class PipelineTest(unittest.TestCase):
         self.assertNotEqual(json.loads((self.board / "claims" / "desktop.json").read_text())["token"], c["token"])
 
     def test_later_fail_outranks_earlier_pass(self):
+        # [O15] the latest attempt decides; a FAIL used to map back to READY, so `next` handed the same job out
+        # forever with nothing changed. It is FAILED now: `next` skips it, `claim` still takes it by hand.
         self.run_stage("balance", "laptop")
         os.environ["TW_STATION"] = "laptop"
-        b = P.Board()
-        # re-run the same job and fail it: the latest attempt decides
-        (self.board / "results" / (self.job("balance") + "--2.json")).write_text(json.dumps(dict(
-            json.loads((self.board / "results" / (self.job("balance") + "--1.json")).read_text()),
-            attempt=2, verdict="FAIL")))
-        self.assertEqual(self.states()["balance"], "READY")
+        self.fail_last("balance")
+        self.assertEqual(self.states()["balance"], "FAILED", "[O15] a failed last attempt did not read as FAILED")
+        out = io.StringIO()
+        real = sys.stdout
+        sys.stdout = out
+        try:
+            P.main(["next"])
+        finally:
+            sys.stdout = real
+        self.assertIn("nothing for laptop", out.getvalue(),
+                      "[O15] next handed the failed job back: " + out.getvalue().strip())
+        P.main(["claim", self.job("balance")])   # a retry by hand is still possible
+
+    def fail_last(self, stage):
+        """Add a later FAIL attempt for this stage's current job."""
+        j = self.job(stage)
+        (self.board / "results" / (j + "--2.json")).write_text(json.dumps(dict(
+            json.loads((self.board / "results" / (j + "--1.json")).read_text()), attempt=2, verdict="FAIL")))
+
+    def test_o15_an_item_whose_id_is_not_its_file_name_is_refused(self):
+        # [O15] results are globbed by item["id"], so an id that differs from the file stem reads another item's
+        # results (and an id with a slash or ".." would be joined into a path).
+        bad = json.loads(json.dumps(ITEM))
+        bad["id"] = "other"
+        (self.board / "items" / "crate.json").write_text(json.dumps(bad))
+        with self.assertRaises(SystemExit, msg="[O15] an id/file-name mismatch was accepted") as e:
+            self.states()
+        self.assertIn("file name", str(e.exception))
+        bad["id"] = "../escape"
+        (self.board / "items" / "crate.json").write_text(json.dumps(bad))
+        with self.assertRaises(SystemExit, msg="[O15] an item id that escapes the board was accepted") as e:
+            self.states()
+        self.assertIn("A-Za-z0-9", str(e.exception))
+
+    def test_o15_two_stages_with_one_id_are_refused(self):
+        # [O15] both stages would glob the same results/<item>--<stage>--*.json, so one stage's verdict decided
+        # the other's state.
+        bad = json.loads(json.dumps(ITEM))
+        bad["stages"][2]["id"] = "sim"
+        (self.board / "items" / "crate.json").write_text(json.dumps(bad))
+        with self.assertRaises(SystemExit, msg="[O15] a duplicate stage id was accepted") as e:
+            self.states()
+        self.assertIn("two stages", str(e.exception))
+
+    def test_o15_evidence_outside_the_board_is_refused(self):
+        # [O15] the evidence path was only checked for existence, so "../outside.jpg" recorded a file off the board.
+        outside = self.board.parent / "outside.jpg"
+        outside.write_text("x")
+        self.run_stage("balance", "laptop")
+        os.environ["TW_STATION"] = "desktop"
+        j = self.job("sim")
+        P.main(["claim", j])
+        with self.assertRaises(SystemExit, msg="[O15] evidence outside the board was accepted") as e:
+            P.main(["complete", j, "--verdict", "FAIL", "--evidence", "t1=../outside.jpg"])
+        self.assertIn("inside the board", str(e.exception))
+
+    def test_o15_a_stale_claim_lock_does_not_block_forever(self):
+        # [O15] the .lock was taken after the busy check and never aged out: a session killed while holding it
+        # blocked every later claim on that station for good.
+        os.environ["TW_STATION"] = "laptop"
+        lock = self.board / "claims" / "laptop.json.lock"
+        lock.parent.mkdir(parents=True, exist_ok=True)
+        lock.write_text("")
+        with self.assertRaises(SystemExit, msg="[O15] a fresh lock did not hold off a second claimer") as e:
+            P.main(["claim", self.job("balance")])
+        self.assertIn("claiming", str(e.exception))
+        os.utime(lock, (time.time() - 600, time.time() - 600))
+        P.main(["claim", self.job("balance")])
+        self.assertTrue((self.board / "claims" / "laptop.json").exists(),
+                        "[O15] a 600 s old lock still blocked the claim")
+        self.assertFalse(lock.exists(), "[O15] the stale lock was left behind")
+
+    def test_o15_release_of_a_live_claim_needs_the_token(self):
+        # [O15] release deleted whatever claim file it found, so any session could drop a live worker's claim.
+        os.environ["TW_STATION"] = "laptop"
+        P.main(["claim", self.job("balance")])
+        c = json.loads((self.board / "claims" / "laptop.json").read_text())
+        c["pid"], c["pid_start"] = os.getppid(), P.proc_start(os.getppid())
+        (self.board / "claims" / "laptop.json").write_text(json.dumps(c))
+        with self.assertRaises(SystemExit, msg="[O15] release dropped another live worker's claim") as e:
+            P.main(["release"])
+        self.assertIn("--token", str(e.exception))
+        P.main(["release", "--token", c["token"]])
+        self.assertFalse((self.board / "claims" / "laptop.json").exists(), "[O15] --token did not release")
 
     def test_claim_needs_a_worker_pid_that_outlives_one_command(self):
         # [O2] an agent's per-command shell exits at once, so a claim owned by it reads as dead and the job never

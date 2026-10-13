@@ -16,20 +16,22 @@ Usage (from anywhere in the checkout):
   python Tools/pipeline/pipeline.py next                 the first job this station may take (READY or STALE)
   python Tools/pipeline/pipeline.py claim <job>          take a job (one worker per station)
   python Tools/pipeline/pipeline.py complete <job> --verdict PASS|FAIL|BLOCKED [--evidence band=path ...] [--note ..]
-  python Tools/pipeline/pipeline.py release              drop this station's claim without a result
+  python Tools/pipeline/pipeline.py release [--token T]  drop this station's claim without a result
   python Tools/pipeline/pipeline.py feedback <item> <stage> "<the user's words>" --check "<measurable check>"
   python Tools/pipeline/pipeline.py close-feedback <FR-id>
 Environment: TW_BOARD (board repo path), TW_STATION (desktop|laptop; default from stations.json by host name).
 Stdlib only. ASCII only. Git output is read as bytes and decoded as UTF-8 (workflow.md: never text=True).
 """
-import argparse, ctypes, datetime, hashlib, json, os, random, socket, subprocess, sys, time
+import argparse, ctypes, datetime, hashlib, json, os, random, re, socket, subprocess, sys, time
 from pathlib import Path
 
 HERE = Path(__file__).resolve()
 PROJ = HERE.parents[2]                      # trench-warfare-3d/
 REPO = HERE.parents[3]
 GENERATOR = "pipeline/1"
-STATES = ("DONE", "RECHECK", "STALE", "IN_PROGRESS", "READY", "BLOCKED")
+STATES = ("DONE", "RECHECK", "STALE", "IN_PROGRESS", "READY", "FAILED", "BLOCKED")
+ID_RE = re.compile(r"^[A-Za-z0-9._-]+$")   # ids are joined into file names (results/<item>--<stage>--*.json)
+LOCK_STALE_S = 60                          # a .lock this old is a killed session's leftover, not a live claim
 
 
 # ---------- small helpers ----------
@@ -132,8 +134,19 @@ def roles():
 
 def lint_item(item, name):
     """Refuse definitions that would make the state machine lie."""
+    if not ID_RE.match(item.get("id") or ""):
+        raise SystemExit("%s: item id %r is not [A-Za-z0-9._-]+ and would not be safe in a file name"
+                         % (name, item.get("id")))
+    if item["id"] != Path(name).stem:
+        raise SystemExit("%s: item id %s does not match the file name (results are globbed by the id)"
+                         % (name, item["id"]))
     seen, known = set(), roles()
     for s in item["stages"]:
+        if not ID_RE.match(s.get("id") or ""):
+            raise SystemExit("%s: stage id %r is not [A-Za-z0-9._-]+ and would not be safe in a file name"
+                             % (name, s.get("id")))
+        if s["id"] in seen:
+            raise SystemExit("%s: two stages have the id %s, so their results would mix" % (name, s["id"]))
         if s.get("role") is not None and s["role"] not in known:     # its worker would run without a brief, unsaid
             raise SystemExit("%s: stage %s has the role %s, which is not in Tools/pipeline/roles.json (have: %s)"
                              % (name, s["id"], s["role"], ", ".join(sorted(known))))
@@ -265,7 +278,8 @@ def evaluate(item, board):
         elif res and res["verdict"] == "PASS":
             info.update(state="RECHECK", reason="upstream results changed; this stage's own inputs did not")
         elif res:
-            info.update(state="READY", reason="last attempt %s: %s" % (res["verdict"], res.get("note", "")))
+            info.update(state="FAILED", reason="last attempt %s: %s (change an input or file feedback)"
+                        % (res["verdict"], res.get("note", "")))
         elif results:
             info.update(state="STALE", reason="inputs changed since %s" % results[-1]["_file"])
         else:
@@ -300,23 +314,39 @@ def worker_pid():
 
 
 def take_lock(board, st, jid):
+    """Lock first, then check busy inside the lock: two sessions that both read "free" must not both write."""
     p = board.claim_path(st)
-    cur = refuse_if_busy(board, st)
-    if cur:
-        print("taking over from a dead worker: %s (%s)" % (cur["worker"], cur["job"]))
-    pid = worker_pid()
-    rec = dict(job=jid, worker="%s-%s" % (st, pid), pid=pid, pid_start=proc_start(pid), token="%016x" % random.getrandbits(64),
-               claimed_at=now(), heartbeat=now())
     p.parent.mkdir(parents=True, exist_ok=True)
+    lock = Path(str(p) + ".lock")
+    fd = None
+    for attempt in (1, 2):
+        try:
+            fd = os.open(str(lock), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            break
+        except FileExistsError:
+            age = time.time() - lock.stat().st_mtime if lock.exists() else 0
+            if attempt == 1 and age > LOCK_STALE_S:
+                print("removing a stale claim lock (%d s old)" % age)
+                try:
+                    lock.unlink()
+                except OSError:
+                    pass
+                continue
+            raise SystemExit("another session is claiming on %s right now; retry" % st)
     try:
-        fd = os.open(str(p) + ".lock", os.O_CREAT | os.O_EXCL | os.O_WRONLY)
-    except FileExistsError:
-        raise SystemExit("another session is claiming on %s right now; retry" % st)
-    try:
+        cur = refuse_if_busy(board, st)
+        if cur:
+            print("taking over from a dead worker: %s (%s)" % (cur["worker"], cur["job"]))
+        pid = worker_pid()
+        rec = dict(job=jid, worker="%s-%s" % (st, pid), pid=pid, pid_start=proc_start(pid),
+                   token="%016x" % random.getrandbits(64), claimed_at=now(), heartbeat=now())
         write_json(p, rec)
     finally:
         os.close(fd)
-        os.remove(str(p) + ".lock")
+        try:
+            lock.unlink()
+        except OSError:
+            pass
     return rec
 
 
@@ -377,7 +407,7 @@ def cmd_claim(board, a):
     item, stage, info = find_job(board, a.job)
     if stage["station"] != st:
         raise SystemExit("%s runs on %s, this is %s" % (a.job, stage["station"], st))
-    if info["state"] not in ("READY", "STALE", "RECHECK"):
+    if info["state"] not in ("READY", "STALE", "RECHECK", "FAILED"):   # FAILED: a retry by hand stays possible
         raise SystemExit("%s is %s: %s" % (a.job, info["state"], info["reason"]))
     rec = take_lock(board, st, a.job)
     print("claimed", a.job, "token", rec["token"])
@@ -395,6 +425,9 @@ def cmd_complete(board, a):
     if a.verdict == "PASS" and missing:
         raise SystemExit("refused: PASS needs evidence for bands %s" % ", ".join(missing))
     for band, path in ev.items():
+        pp = Path(path)
+        if pp.is_absolute() or ".." in pp.parts:
+            raise SystemExit("refused: evidence %s=%s must be a path inside the board" % (band, path))
         if not (board.root / path).exists():
             raise SystemExit("refused: evidence %s=%s is not on the board" % (band, path))
     attempt = 1 + max([r["attempt"] for r in board.results(item["id"], stage["id"]) if r["job"] == a.job] or [0])
@@ -409,10 +442,18 @@ def cmd_complete(board, a):
 
 def cmd_release(board, a):
     refuse_in_leg()
-    p = board.claim_path(station())
-    if p.exists():
-        p.unlink()
-        print("released")
+    st = station()
+    p = board.claim_path(st)
+    if not p.exists():
+        return
+    cur = read_json(p)
+    if claim_alive(cur) and cur.get("token") != getattr(a, "token", None):
+        mine = (os.environ.get("TW_WORKER_PID") or "").isdigit() and int(os.environ["TW_WORKER_PID"]) == cur["pid"]
+        if not mine:
+            raise SystemExit("%s is held by a live worker %s (pid %d): pass --token to release it"
+                             % (st, cur["worker"], cur["pid"]))
+    p.unlink()
+    print("released")
 
 
 def cmd_feedback(board, a):
@@ -445,7 +486,8 @@ def main(argv=None):
     c.add_argument("--verdict", required=True, choices=("PASS", "FAIL", "BLOCKED"))
     c.add_argument("--evidence", nargs="*", default=[], help="band=path relative to the board")
     c.add_argument("--note")
-    sub.add_parser("release")
+    r = sub.add_parser("release")
+    r.add_argument("--token", help="the token claim printed; needed to release another live worker's claim")
     f = sub.add_parser("feedback")
     f.add_argument("item"); f.add_argument("stage"); f.add_argument("words")
     f.add_argument("--check", required=True)

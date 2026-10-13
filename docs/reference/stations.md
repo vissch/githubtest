@@ -25,14 +25,17 @@ stage would run again.
 | DONE | a PASS for the current inputs and the current upstream results | nothing |
 | RECHECK | its own inputs are unchanged, an upstream result is new | rerun its checks on the outputs it has |
 | STALE | an input changed since its last result (a feedback request counts as an input) | regenerate |
-| READY | never run, or the latest attempt failed | run it |
+| READY | never run | run it |
+| FAILED | the latest attempt was FAIL or BLOCKED | change an input or file feedback, then `claim` it by hand |
 | IN_PROGRESS | a live worker holds it | wait |
 | BLOCKED | a stage it comes after is not DONE | `pipeline.py why <item>` |
 
 One worker per station: a claim names the worker's process and its start time, and is taken over only when that
 process is gone. `claim` refuses without `TW_WORKER_PID`: set it once per session to a pid that outlives a single
 command (the wrapper pid `run_detached.py start` prints, or a long-lived shell), because an agent's per-command shell
-exits at once and its claim would read as dead. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS. Closing a feedback
+exits at once and its claim would read as dead. The latest attempt of a job decides, so a failed rerun outranks an earlier PASS and the stage reads FAILED: `next`
+skips it, so the same job is never handed back forever, while `claim` still takes it for a retry by hand. `release`
+needs `--token` to drop another live worker's claim. Closing a feedback
 request does not make its stage stale again.
 
 ## Commands
