@@ -100,6 +100,20 @@ def dumps(obj):
     return json.dumps(obj, sort_keys=True, indent=1) + "\n"
 
 
+def write_atomic(path, text):
+    """Write text so a failure mid-write leaves the old file whole (tmp file, then one os.replace)."""
+    tmp = path.with_name(path.name + ".tmp")
+    tmp.write_text(text, encoding="utf-8")
+    try:
+        os.replace(str(tmp), str(path))
+    except BaseException:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
+        raise
+
+
 def rnd(x):
     return None if x is None else round(float(x), 6)
 
@@ -193,7 +207,8 @@ def ledger_rows():
 
 def current_cycle():
     rows = ledger_rows()
-    return rows[-1]["cycle"] + 1 if rows else 0
+    # the max, not the last row: an out-of-order row must not hand out a cycle number that already exists
+    return max(r["cycle"] for r in rows) + 1 if rows else 0
 
 
 def load_attempts():
@@ -1246,7 +1261,8 @@ def cmd_ledger(a):
     if usd is None:
         usd = sum(float(e.get("usd") or 0) for e in (load_json(docs() / "budget.json", {}) or {}).get("entries", []) if e.get("cycle") == cyc)
     cells = [str(cyc), utcnow().strftime("%Y-%m-%dT%H:%MZ"), a.mode, a.cards or "-", ",".join(x.get("id", "?") for x in att) or "-",
-             res, a.gate or "-", a.commit or "-", "%.2f" % usd, a.summary.replace("|", "\\|")]
+             res, a.gate or "-", a.commit or "-", "%.2f" % usd, a.summary]
+    cells = [c.replace("|", "\\|") for c in cells]   # every cell: one stray | shifts every column the readers index
     row = "| " + " | ".join(cells) + " |\n"
     lines, header, rows = read_table(path, "cycle")
     if header is None:
@@ -1263,7 +1279,7 @@ def cmd_ledger(a):
         lines.insert(at, row)
         text = "".join(lines)
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(text, encoding="utf-8")
+    write_atomic(path, text)
     print("ledger: cycle %d added" % cyc)
     return 0
 
