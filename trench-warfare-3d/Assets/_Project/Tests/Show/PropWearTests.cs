@@ -110,5 +110,32 @@ namespace TW.Tests
             Assert.That(PropDestruction.JoltSeconds, Is.LessThan(0.5f), "and it is back down almost at once");
             Assert.That(PropDestruction.MaxJolts, Is.LessThanOrEqualTo(64), "with a bound on how many are moving at once");
         }
+
+        /// <summary>[Gt2] The guard that throws away remembered (page, slot) numbers used to sit behind the every-fourth-
+        /// tick gate of the wear pass, so for up to WearTicks (200 ms) after a recomposition the knocked props were still
+        /// held against the old numbering and Twitch moved, or Home reported, whichever prop now has the old slot. It is
+        /// now checked every frame, before any of the frame's work.</summary>
+        [Test]
+        public void A_Knock_Is_Dropped_The_Frame_After_A_Recomposition()
+        {
+            var kit = new BattlefieldKit();
+            var go = new GameObject("prop wear generation test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                var helmet = kit.TrenchWalls[0];
+                var home = Matrix4x4.TRS(new Vector3(10f, 0f, 10f), Quaternion.identity, Vector3.one);
+                destruction.StepForTests(Time.time);   // the first frame: the generation as it stands is taken in
+                destruction.KnockForTests(helmet, 0, 3, home);
+                Assert.AreEqual(1, destruction.Knocked, "[Gt2] a round knocked a thing about");
+                props.RecomposeNowForTests();          // a crater: every page and slot renumbered
+                destruction.StepForTests(Time.time);   // the very next frame, well inside the 200 ms of the wear gate
+                Assert.AreEqual(0, destruction.Knocked, "[Gt2] the knock against the old slot numbering is forgotten at once");
+            }
+            finally { Object.DestroyImmediate(go); kit.Dispose(); }
+        }
     }
 }

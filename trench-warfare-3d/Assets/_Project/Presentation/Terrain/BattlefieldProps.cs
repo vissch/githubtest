@@ -113,6 +113,8 @@ namespace TW.Presentation.Terrain
         /// <summary>Tests only (TrenchSectionTests): props that draw from a kit built by the test, with no scene, no map and
         /// no composition; instances come in through AddInstance.</summary>
         public void AttachKitForTests(BattlefieldKit testKit) { kit = testKit; }
+        /// <summary>Tests only: a composition applied now, so Generation moves on as a crater's recomposition moves it.</summary>
+        public void RecomposeNowForTests() => ApplyComposition();
         /// <summary>Every imported prop placed this composition, hand edits applied.</summary>
         public IReadOnlyList<Placed> Editable => placed;
 
