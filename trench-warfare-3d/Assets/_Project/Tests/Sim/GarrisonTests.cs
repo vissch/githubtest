@@ -96,6 +96,7 @@ namespace TW.Tests
             Assert.AreEqual(onStep, facing, "a man on the step faces over the parapet, not at his target's bearing");
         }
 
+        // [T18]
         [Test]
         public void ReservePostsKeepTheirHeadsDown()
         {
@@ -104,21 +105,32 @@ namespace TW.Tests
             float3 front = m.World.Position[men[0]] + new float3(0f, 0f, 12f);
             for (int k = 0; k < 6; k++) m.World.Spawn(1, 0, front + new float3(k * 2f, 0f, 0f), 100000f, 0f, false);
             Run(m, 120);
+            int reserve = 0;
             foreach (int i in men)
                 if (m.World.PostKind[i] == 2)
+                {
+                    reserve++;
                     Assert.AreNotEqual((byte)Stance.FireStep, m.World.StanceOf[i], $"slot {i} is in support, not at the parapet");
+                }
+            Assert.Greater(reserve, 0, "[T18] nobody held a reserve post, so the assert above never ran");
         }
 
         [Test]
         public void ThePostsAreTheSameOnEveryMachine()
         {
+            int posted = 0;
             ulong Play()
             {
                 using var m = NewMatch();
-                Garrison(m, 12, 700);
+                var men = Garrison(m, 12, 700);
+                int n = 0;
+                foreach (int i in men) if (m.World.PostCell[i] >= 0) n++;
+                posted = n;
                 return m.World.Hash();
             }
-            Assert.AreEqual(Play(), Play(), "same seed, same posts, same hash");
+            ulong a = Play();
+            Assert.Greater(posted, 0, "[T20] nobody was posted, so the hash match below proves nothing");
+            Assert.AreEqual(a, Play(), "same seed, same posts, same hash");
         }
     }
 }

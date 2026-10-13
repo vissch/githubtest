@@ -162,26 +162,52 @@ namespace TW.Tests
         [Test]
         public void TheLandingsAreTheSameOnEveryMachine()
         {
+            int landed = 0;
             ulong Play()
             {
                 using var m = Coast();
                 Deploy(m, 1, 0, 5);
                 Run(m, 320);
+                landed = m.World.AliveCount;
                 return m.World.Hash();
             }
-            Assert.AreEqual(Play(), Play(), "same seed, same tide, same boats");
+            ulong a = Play();
+            Assert.Greater(landed, 0, "[T20] nobody landed, so the hash match below proves nothing");
+            Assert.AreEqual(a, Play(), "same seed, same tide, same boats");
         }
 
+        // [T21]
         [Test]
         public void ACraftCarriesEitherMenOrOneTank()
         {
             using var m = Coast();
             Deploy(m, 1, 6);                                // the Tusk: FactionRoster.Slot puts Brass's tank in slot 6
-            Run(m, 500);
-            int tanks = 0;
+            Deploy(m, 1, 0, 3);                              // riflemen in the same wave, to catch a craft that mixes them
+            var maxAboard = new int[m.Landing.Count];
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int t = 0; t < 500; t++)
+            {
+                m.Step(none);
+                for (int c = 0; c < m.Landing.Count; c++) maxAboard[c] = math.max(maxAboard[c], m.Landing.AboardOf(c));
+            }
+            int tanks = 0, riflemen = 0;
             for (int i = 0; i < m.World.HighWater; i++)
-                if (m.World.IsAlive(i) && ChassisKind.IsTank(m.World.ChassisOf(m.World.Archetype[i]))) tanks++;
-            Assert.AreEqual(1, tanks, "a tank comes ashore off its own boat");
+                if (m.World.IsAlive(i))
+                {
+                    if (ChassisKind.IsTank(m.World.ChassisOf(m.World.Archetype[i]))) tanks++;
+                    else riflemen++;
+                }
+            Assert.AreEqual(1, tanks, "[T21] a tank comes ashore off its own boat");
+            Assert.AreEqual(3, riflemen, "[T21] and the men come ashore too");
+            int usedCraft = 0, soloCraft = 0;
+            for (int c = 0; c < maxAboard.Length; c++)
+                if (maxAboard[c] > 0)
+                {
+                    usedCraft++;
+                    if (maxAboard[c] == 1) soloCraft++;
+                }
+            Assert.AreEqual(2, usedCraft, "[T21] the tank and the riflemen each filled their own craft");
+            Assert.AreEqual(1, soloCraft, "[T21] one craft never carried more than the tank alone");
         }
 
         // [U1] AddSystem calls Initialize at once and MatchSim registers Blast after Landing, so the old code's

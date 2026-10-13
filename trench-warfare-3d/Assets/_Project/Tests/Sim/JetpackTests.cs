@@ -341,15 +341,19 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void TheLeapIsTheSameOnEveryMachine()
         {
+            int leaps = 0;
             ulong Play()
             {
                 using var m = NewMatch();
                 short t = EnemyLine(m, 4);
                 for (int k = 0; k < 3; k++) Still(m, 0, InfantryArchetype.Jetpack, 112f + k * 4f, TrenchZ(m, t) - 18f);
-                Run(m, 400);
+                var log = Run(m, 400);
+                leaps = Count(log, SimEventType.LeapStarted);
                 return m.World.Hash();
             }
-            Assert.AreEqual(Play(), Play());
+            ulong a = Play();
+            Assert.Greater(leaps, 0, "[T20] nobody leapt, so the hash match below proves nothing");
+            Assert.AreEqual(a, Play());
         }
     }
 }
