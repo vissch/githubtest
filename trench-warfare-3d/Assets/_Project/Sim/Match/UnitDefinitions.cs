@@ -202,10 +202,12 @@ namespace TW.Sim.Match
             },
         };
 
-        /// <summary>Hopper (23): a frog gunship on two ducted engines. The sim has no flight, so it is the machine the sim
-        /// can carry closest to one: a walker profile with no legs to lose, so it strides every trench and wire belt, never
-        /// bogs or ditches, and pushes nothing over. Thin, quick, a machine gun and a light HE gun that reaches all round.
-        /// Drawn hovering high (SHOW); the sim shoots and is shot at ground level, which is the stand-in's limit.</summary>
+        /// <summary>Hopper (23): a frog gunship on two ducted engines, and the one machine that really flies (2026-10-13,
+        /// the owner: "flies over everything, never lands; rifles and machine guns can shoot it down, tank guns and mines
+        /// cannot"). FlyHeight 9 m makes it one: FlightSystem drives it in a straight line at the enemy HQ, nothing on the
+        /// ground slows, stops, pushes or trips it, and it runs nobody down. It holds off over the front rather than
+        /// parking on the HQ (StandOffMetres 90, StandOffPatience 8: TankGunnerySystem.StandOff). Thin plate, quick, a
+        /// machine gun and a light HE gun that reaches all round. Drawn hovering at the same 9 m (SHOW).</summary>
         public static UnitDef Hopper => new UnitDef
         {
             Archetype = VehicleArchetype.Hopper,
@@ -216,6 +218,7 @@ namespace TW.Sim.Match
             {
                 Hull = Plate(6f, 5f, 4f, 4f), Turret = Plate(6f, 5f, 4f, 4f),
                 TurretChance = 0f, Crew = 2, GunCount = 1, ShortHalt = false, FuelRisk = 0.50f, AmmoRisk = 0.30f,
+                StandOffMetres = 90f, StandOffPatience = 8f,
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 90f * Deg,
@@ -226,7 +229,7 @@ namespace TW.Sim.Match
             Drive = new VehicleProfile
             {
                 TurnRateRad = 1.3f, Accel = 2.0f, Brake = 1.4f, PivotSpeed = 0.7f, TrenchCrossWidth = FlowFieldManager.TrackedCrossWidth, DitchChance = 0f, SlopeLimit = 1f,
-                BogChance = 0f, HalfLength = 4.0f, HalfWidth = 3.5f, PushesTrees = false, Walker = true, Legs = 0,
+                BogChance = 0f, HalfLength = 4.0f, HalfWidth = 3.5f, PushesTrees = false, Walker = false, Legs = 0, FlyHeight = 9f,
             },
         };
 

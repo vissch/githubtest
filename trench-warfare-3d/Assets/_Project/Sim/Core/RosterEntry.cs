@@ -144,7 +144,7 @@ namespace TW.Sim
         // stand-ins that borrow a shipped model until they have their own.
         public const byte Brute = 21;  // the playground's heavy tank: sponson guns, the Maw's kind
         public const byte Croaker = 22;// a two-legged frog mech: claws and one turret gun
-        public const byte Hopper = 23; // a frog gunship: the sim has no flight, so it strides everything and never bogs
+        public const byte Hopper = 23; // a frog gunship: it really flies (VehicleProfile.FlyHeight 9 m, FlightSystem)
         public const byte Mercy = 24;  // a field ambulance: unarmed, heals the men beside it
         public const byte MarkIV = 29; // Mark IV Male: the Maw's numbers and model
         public const byte MarkV = 30;  // Mark V: a Mark IV that handles mud

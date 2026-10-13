@@ -35,6 +35,11 @@ namespace TW.Sim
         Melee = 1 << 16,        // charging a foe within 8 m or fighting him hand to hand (MeleeSystem): he does not shoot
         Disarmed = 1 << 17,     // his weapon lies on the ground (a fists man in a fight, MeleeSystem): he does not shoot
         Pouncing = 1 << 18,     // a crab crouched to leap or in the leap (PounceSystem)
+        // ---- 2026-10-13 (lane/sim/frog-hopper-flight) ----
+        /// <summary>A machine that flies (VehicleProfile.FlyHeight, FlightSystem): it goes in a straight line over
+        /// everything, nothing on the ground reaches it, and only what can shoot upward can hurt it. NOT Airborne:
+        /// that one makes a unit untouchable, and a flyer is shot at.</summary>
+        Flying = 1 << 19,
     }
 
     public struct UnitPose

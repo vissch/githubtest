@@ -176,6 +176,13 @@ namespace TW.Sim
         // move (CoastTests.TheShippedGroundsHashesAreUnchanged pins them). A replay recorded on the old Landing map
         // does not replay: its MapHash no longer matches. Layout and chain unchanged.
         // This number is renumbered to the next free version when the lane lands.
+        // v38 (2026-10-13, the Hopper flies): VehicleProfile gains FlyHeight (the hashed profile table changes) and
+        // UnitFlags gains Flying (bit 19). A machine with FlyHeight above 0 - the Hopper, 9 m - is driven in a straight
+        // line at the enemy HQ by FlightSystem (order 112) instead of along its flow field, and nothing on the ground
+        // touches it: no terrain slowing, no slope, no ditching, no bogging, no blocked cell, no wire breached, no man
+        // run down, no tree felled, no wreck ground, no mine or tripwire, and it neither steers round nor pushes a
+        // machine on the ground. Its TankSpec gains StandOffMetres 90 / StandOffPatience 8, so it holds off over the
+        // front. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
         public const ushort FormatVersion = 56;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
