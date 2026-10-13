@@ -265,7 +265,10 @@ namespace TW.Tests
                 garrison++;
                 if (m.World.PostCell[i] >= 0) posted++;
             }
-            Assert.Greater(garrison, 8, "men reached a trench");
+            // [T28] "men reached a trench" was only > 8 of the 40 spawned (the sibling ShelledForest test below
+            // guards >= 24 of 30 = 0.8): raised to the same ratio, falling back to the front trench's own
+            // capacity if it genuinely cannot hold that many.
+            Assert.GreaterOrEqual(garrison, math.min(32, front.CellCount), "[T28] nearly the whole 40-man garrison reached a trench");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"{garrison - posted} of {garrison} men have nowhere to be and fall back to separation alone");
             Assert.Greater(front.CellCount, 0);
@@ -349,7 +352,9 @@ namespace TW.Tests
                 garrison++;
                 if (m.World.PostCell[i] >= 0) posted++;
             }
-            Assert.Greater(garrison, 8, "men are garrisoned in a trench on ShelledForest");
+            // [T28] same weak guard as AFullGarrisonFindsPostsForNearlyEveryone above (> 8 of 40); raised to the
+            // sibling's 0.8 ratio, bounded by the front trench's own cell count on this map.
+            Assert.GreaterOrEqual(garrison, math.min(32, def.CellCount), "[T28] nearly the whole 40-man garrison reached a trench on ShelledForest");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"ShelledForest: {garrison - posted} of {garrison} garrisoned men have nowhere to be and fall back "
                 + $"to separation alone (front trench has {def.CellCount} cells, {def.FireStepCount} fire steps)");

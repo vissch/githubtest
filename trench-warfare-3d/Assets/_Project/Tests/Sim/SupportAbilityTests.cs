@@ -123,22 +123,30 @@ namespace TW.Tests
             // the map wind blows toward -Z: release upwind of the trench so the cloud rolls over it
             Step(m, Support(0, OffMapAbilityId.ChlorineGas, 150f, z + 14f));
             bool spawned = false;
+            float maxDownwind = 0f;
             for (int t = 0; t < 700; t++)
             {
                 Step(m);
                 var ev = w.Events.Events;
                 for (int e = 0; e < ev.Length; e++) if (ev[e].Type == SimEventType.GasCloudSpawned) spawned = true;
+                maxDownwind = math.max(maxDownwind, m.Gas.ConcentrationAt(new float3(150f, 0f, z - 10f)) + m.Gas.ConcentrationAt(new float3(150f, 0f, z - 20f)));
             }
             Assert.IsTrue(spawned);
             Assert.Less(m.Fields.Trenches[1].GarrisonCount, 10, "gas drives the garrison out or kills it");
             Assert.AreEqual(0, Craters(m.Map), "and leaves the ground intact");
-            Assert.Greater(m.Gas.ConcentrationAt(new float3(150f, 0f, z - 10f)) + m.Gas.ConcentrationAt(new float3(150f, 0f, z - 20f)) + (m.Gas.Active ? 0f : 1f), 0f,
-                "the cloud has moved downwind (or already blown out)");
+            // [T27] the old assert added "+ (m.Gas.Active ? 0f : 1f)", so it passed once the cloud was simply gone,
+            // whether or not it had ever actually rolled over the trench. maxDownwind tracks the real peak while
+            // the cloud was still live, taken inside the loop above.
+            Assert.Greater(maxDownwind, 0f, "[T27] the cloud rolled downwind over the trench while it was live");
 
             int survivors = Alive(w, 1);
             for (int t = 0; t < 1500 && m.Gas.Active; t++) Step(m);
             Assert.IsFalse(m.Gas.Active, "the field switches itself off when the cloud is gone");
             survivors = Alive(w, 1);
+            // [T27] the fall-back assert below is 0 == 0 (vacuous) unless the garrison actually left the trench
+            // first: prove the re-man is a real change before trusting the AreEqual that follows it.
+            Assert.Greater(survivors, 0, "[T27] setup: someone must survive the gas for the fall-back to mean anything");
+            Assert.Less(m.Fields.Trenches[1].GarrisonCount, survivors, "[T27] setup: the garrison must have left the trench before fall-back can re-man it");
             Step(m, new SimCommand { Player = 1, Type = CommandType.TrenchFallback, A = 1 });
             for (int t = 0; t < 1500 && m.Fields.Trenches[1].GarrisonCount < survivors; t++) Step(m);
             Assert.AreEqual(survivors, m.Fields.Trenches[1].GarrisonCount, "fall back re-mans the trench with whoever lived");
