@@ -2,7 +2,10 @@
 // A playground still used to be one frame after a wait in real seconds, so every House5 picture was shot twenty seconds
 // after the dust had settled (both critics saw none). This is the schedule that waits for the EVENT instead: it keeps a
 // ring of pre-roll frames while nothing has happened, and once the bang comes it owes five frames around it, one every
-// Step. Pure: no camera, no files, no Unity rendering, so the worked example is a plain EditMode test. PlaygroundHost
+// Step. The five are NOT centred, by design: one frame from up to a Step before the bang (dropped when the pre-roll tick
+// IS the bang's own instant, and then a fourth frame comes after instead), the bang's own, then the rest a Step apart.
+// The manifest lists every frame's offset from the bang, so the GIF recipe never has to guess.
+// Pure: no camera, no files, no Unity rendering, so the worked example is a plain EditMode test. PlaygroundHost
 // does the grabbing; this says when, and writes the manifest the GIF recipe reads.
 using System.Collections.Generic;
 using System.Globalization;
@@ -32,6 +35,9 @@ namespace TW.Playground
         public float BangTime { get; private set; } = -1f;
         /// <summary>Frames recorded so far, kept pre-roll frames included.</summary>
         public int Taken => frames.Count;
+        /// <summary>How many pre-roll frames Fire kept: what the host flushes from its own ring of PNGs. Zero when the
+        /// bang landed on the pre-roll tick itself (second read P3.3: two frames of one instant are one frame).</summary>
+        public int KeptPre { get; private set; }
         public bool Done => frames.Count >= Count;
 
         readonly List<float> ring = new List<float>();     // pre-roll times still waiting for a bang
@@ -59,7 +65,8 @@ namespace TW.Playground
             if (Fired) return;
             Fired = true; BangTime = now;
             if (Armed < 0f) Armed = now;
-            foreach (float t in ring) if (frames.Count < Count - 1) frames.Add(t);
+            foreach (float t in ring)
+                if (frames.Count < Count - 1 && t < now - 1e-4f) { frames.Add(t); KeptPre++; }
             ring.Clear();
             if (frames.Count < Count) frames.Add(now);
         }
