@@ -137,6 +137,10 @@ alpha step must still read ink = 1.0 across the soft edge LANCZOS invents. The b
 (`TW/Flipbook` reads `ink = luma/alpha`), so the resize runs as Pillow mode `"RGBa"`.
 `python Tools/test_tanksplit.py` is a source check only (`tanksplit.py` needs `bpy`): the atlas save must set
 `view_settings.view_transform = 'Standard'`, as `crabsplit.py` does, or the atlas comes out tone-mapped.
+`python Tools/test_crabsplit.py` tests `crabsplit.py`'s `group_legs` on its own (the module's Blender imports and
+its whole run are guarded, so the helper imports without `bpy`): a walker's limb pieces are grouped into legs by how
+close their footprints are, not by quadrant, so six legs stay six; `CRABS` gives the expected count (`legs=`) and
+whether the machine has claws at all (`claws=False` for the Redoubt), and a wrong count raises.
 
 The 4x4/3x3 books (Burst, Column, Puff and the rest before FireBall) come from Asset Store packs (SrRubfish, Hun0FX). They may ship in the game but
 must not be redistributed on their own.
