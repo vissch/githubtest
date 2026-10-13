@@ -3,7 +3,7 @@
 import os, sys, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from crabsplit import group_legs, pick_fittings
+from crabsplit import group_legs, pick_fittings, pair_sheets, merge_crabs, CRAB_ORDER
 
 
 def leg(name, x, y, heights):
@@ -76,6 +76,32 @@ class CrabsplitTest(unittest.TestCase):
         self.assertEqual(["housL"], picks["Turret_L"], "[R8] the left housing changed")
         self.assertEqual(["housR"], picks["Turret_R"], "[R8] the right housing changed")
         self.assertEqual([], spare, "[R8] a named fitting fell into the body")
+
+    def test_r9_a_short_run_keeps_the_machines_it_did_not_rebuild(self):
+        # [R9] two sheets rebuild Pincer and Kettle; the five other machines' entries must survive in crabs.json.
+        old = {"source": "Tools/crabsplit.py",
+               "crabs": {"Pincer": {"scale": 1}, "Censer": {"scale": 3}, "Cutter": {"scale": 16}}}
+        new = {"source": "Tools/crabsplit.py", "crabs": {"Pincer": {"scale": 3.8}, "Kettle": {"scale": 3.2}}}
+        merged, kept = merge_crabs(old, new)
+        self.assertEqual(["Censer", "Cutter", "Kettle", "Pincer"], sorted(merged["crabs"]),
+                         "[R9] a machine this run did not rebuild was dropped from crabs.json: %s" % merged)
+        self.assertEqual(["Censer", "Cutter"], kept, "[R9] the kept entries were not reported: %s" % kept)
+
+    def test_r9_a_rebuilt_machine_gets_this_run_s_entry(self):
+        # [R9] keeping old entries must not shadow a machine the run just rebuilt.
+        old = {"crabs": {"Pincer": {"scale": 1, "stale": True}}}
+        new = {"crabs": {"Pincer": {"scale": 3.8}}}
+        merged, kept = merge_crabs(old, new)
+        self.assertEqual({"scale": 3.8}, merged["crabs"]["Pincer"], "[R9] the stale entry won: %s" % merged)
+        self.assertEqual([], kept, "[R9] a rebuilt machine was reported as kept: %s" % kept)
+
+    def test_r9_more_sheets_than_machines_raises(self):
+        # [R9] the old zip() truncated silently; an extra sheet must fail loudly and name the machines.
+        with self.assertRaises(ValueError) as e:
+            pair_sheets(["s%d" % i for i in range(len(CRAB_ORDER) + 1)])
+        self.assertIn("Pincer", str(e.exception), "[R9] the error does not name a machine")
+        self.assertEqual([("Pincer", "a"), ("Kettle", "b")], pair_sheets(["a", "b"]),
+                         "[R9] a short run no longer pairs from the front")
 
 
 if __name__ == "__main__":

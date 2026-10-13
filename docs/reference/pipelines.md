@@ -143,6 +143,12 @@ close their footprints are, not by quadrant, so six legs stay six; `CRABS` gives
 whether the machine has claws at all (`claws=False` for the Redoubt), and a wrong count raises. It also tests
 `pick_fittings`, which sorts the loose fittings (barrels, jaws, reactor, turret housings) and hands every piece back
 exactly once, so a third barrel or jaw joins a turret or the body instead of being dropped.
+`python Tools/test_crabsplit.py` also covers `pair_sheets`/`merge_crabs`: a run given fewer sheets than machines
+rebuilds the machines it was given and keeps every other machine's entry in `crabs.json`, and more sheets than
+machines raises instead of dropping the extras.
+`python Tools/test_jeepsplit.py` and `python Tools/test_tank3split.py` are source checks only (both need `bpy`):
+every boundary-loop walk must order its edges by `e.index` and may not pop a BMesh edge out of a set, whose order is
+the address order, or the exported FBX differs between two runs on the same input.
 `python Tools/test_mechsplit.py` is a source check only (`mechsplit.py` needs `bpy`): the battle export may not read
 `objs["Gun"]`, because the flyer has no `Gun` part; it measures whatever part `Socket_Muzzle` sits on.
 `python Tools/test_housesplit.py` is a source check (`housesplit.py` needs `bpy`) plus a look at the committed
