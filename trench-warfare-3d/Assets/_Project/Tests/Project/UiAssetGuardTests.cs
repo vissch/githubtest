@@ -1,6 +1,8 @@
-// Phase: tooling (code review 2026-10-04, F11). ShellAssetsBuilder.Build and UiAssetBuilder.CreatePanelSettings
+// Phase: tooling (code review 2026-10-04, F11, F12). ShellAssetsBuilder.Build and UiAssetBuilder.CreatePanelSettings
 // overwrote a committed field with whatever AssetDatabase.LoadAssetAtPath answered, including null when an asset
 // failed to load or was deleted, so a bad import silently wiped a good reference the next time the builder ran.
+// UiSkinGenerator.LoadSidecar caught any parse failure and answered a fresh empty record, so a sidecar left with
+// unresolved rebase conflict markers was read as "nothing recorded" and every placeholder got silently re-promoted.
 using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
@@ -36,6 +38,38 @@ namespace TW.Tests
                 Object.DestroyImmediate(old);
                 Object.DestroyImmediate(fresh);
             }
+        }
+
+        static bool TryParseSidecar(string text, out object side, out string error)
+        {
+            var m = typeof(UiSkinGenerator).GetMethod("TryParseSidecar", BindingFlags.Static | BindingFlags.Public);
+            Assert.IsNotNull(m, "[F12] UiSkinGenerator.TryParseSidecar is missing: an unreadable sidecar is read as empty");
+            var args = new object[] { text, null, null };
+            bool ok = (bool)m.Invoke(null, args);
+            side = args[1];
+            error = (string)args[2];
+            return ok;
+        }
+
+        [Test]
+        public void AConflictedPlaceholderRecordIsNotReadAsEmpty()   // [F12]
+        {
+            string text = "<<<<<<< HEAD\n{\"generator\":3,\"files\":[]}\n=======\n{}\n>>>>>>> theirs\n";
+            bool ok = TryParseSidecar(text, out var side, out var error);
+            Assert.IsFalse(ok, "[F12] a sidecar with unresolved conflict markers must not parse as a valid record");
+            Assert.IsFalse(string.IsNullOrEmpty(error), "[F12] a refusal must carry a reason");
+        }
+
+        [Test]
+        public void AGoodPlaceholderRecordStillParses()   // [F12]
+        {
+            string text = "{\"generator\":3,\"files\":[{\"file\":\"a.png\",\"sha1\":\"ff\"}]}";
+            bool ok = TryParseSidecar(text, out var sideObj, out var error);
+            Assert.IsTrue(ok, "[F12] a good sidecar record must still parse: " + error);
+            var side = (UiSkinGenerator.Sidecar)sideObj;
+            Assert.AreEqual(3, side.generator, "[F12] generator version must round-trip");
+            Assert.AreEqual(1, side.files.Count, "[F12] the one recorded file must round-trip");
+            Assert.AreEqual("a.png", side.files[0].file, "[F12] the file name must round-trip");
         }
     }
 }
