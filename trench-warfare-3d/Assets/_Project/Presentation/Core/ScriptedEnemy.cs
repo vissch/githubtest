@@ -83,6 +83,8 @@ namespace TW.Presentation
         int supportCount;
         Stress playerStress = new Stress { LastTick = uint.MaxValue }, enemyStress = new Stress { LastTick = uint.MaxValue };
         uint lastTick = uint.MaxValue;
+        /// <summary>The last tick this enemy decided orders for; uint.MaxValue before the first. Read by tests.</summary>
+        public uint DecidedAt => lastTick;
 
         /// <summary>Decide this tick's orders. `view` is the world the enemy reads (the player's own in single player, the
         /// peer's in the canary: the same state at the same tick); `local` is the player's match, for the stress preset's

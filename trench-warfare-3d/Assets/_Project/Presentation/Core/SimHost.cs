@@ -180,7 +180,7 @@ namespace TW.Presentation
         /// <summary>Tooling (TankCapture): between frames the two lockstep worlds can be a tick apart, so a change made
         /// to both at once would land on different ticks and desync them. This steps the one behind until they match;
         /// false when it is waiting on the network.</summary>
-        public bool AlignWorlds() => session.AlignWorlds(LocalStepped);
+        public bool AlignWorlds() { SyncEnemy(); return session.AlignWorlds(enemy, LocalStepped); }
 
         /// <summary>Tooling: write the same change into every world the match has (one in single player, two in the
         /// canary), aligned to the same tick first. False, with nothing written, while the canary waits on the network.
@@ -190,6 +190,10 @@ namespace TW.Presentation
             if (!AlignWorlds()) return false;
             write(Local);
             if (Peer != null) write(Peer);
+            // [M4] and show what was written: without this the presenter's slot count is the one from the last tick, so a
+            // unit a tool spawned while the host is paused is never drawn and Drawn(slot) is (0,0,0). Paused, prev == cur
+            // for every slot, so the extra capture cannot make interpolation jump.
+            Presenter.Capture(Local.World);
             return true;
         }
 
