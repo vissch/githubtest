@@ -5,7 +5,7 @@
 set -u
 T="${1:-r0}"; HERE="$(dirname "${BASH_SOURCE[0]}")"; P="bash $HERE/pg.sh"
 OUT="${PG_OUT:-$(cd "$HERE/../.." && (pwd -W 2>/dev/null || pwd))/Captures/playground}"
-$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1; size 1.7"
+$P do "panel 0; labels 0; biome NightMud; timescale 1; lod -1; cookdelay 7; ground grid; team -1; size 0"
 for spec in "Bullfrog:bullfrog" "Croaker:croaker" "Hopper:hopper" "Mercy:mercy" "Skimmer:skimmer"; do
   k=${spec%%:*}; n=${spec#*:}
   $P do "model v $k"; sleep 2
