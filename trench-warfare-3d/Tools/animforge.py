@@ -102,8 +102,12 @@ def write_fbx(path, version, roots, footer_id, magic):
     for r in roots: write_node(r)
     out.extend(b'\0' * (25 if big else 13))
     out.extend(footer_id)
-    while len(out) % 16: out.append(0)
-    out.extend(b'\0' * 4); out.extend(struct.pack('<I', version)); out.extend(b'\0' * 120); out.extend(magic)
+    # Blender's own writer (io_scene_fbx/encode_bin.py): the footer id, four zeros, then 1..16 bytes of padding
+    # to the next multiple of 16 (a full 16 when already aligned), then the version word, 120 zeros, the magic.
+    out.extend(b'\0' * 4)
+    pad = ((len(out) + 15) & ~15) - len(out)
+    out.extend(b'\0' * (pad or 16))
+    out.extend(struct.pack('<I', version)); out.extend(b'\0' * 120); out.extend(magic)
     open(path, 'wb').write(out)
 
 def _s(b): return b.decode('latin1').split('\x00')[0]
@@ -149,7 +153,8 @@ class Rig:
         return out
 
 def _curves(roots):
-    """bone -> {'R': {'X': (times, values), ...}, 'T': {...}} plus the curve node objects for writing."""
+    """(table, defaults): table is bone -> kind -> axis -> AnimationCurve node, defaults is (bone, kind) -> axis ->
+    the AnimationCurveNode's own d|X/Y/Z value, which is the constant an axis holds when it carries no curve."""
     objects = [n for n in roots if n.name == 'Objects'][0]
     conns = [n for n in roots if n.name == 'Connections'][0]
     models = {}; curvenodes = {}; curves = {}
@@ -169,7 +174,14 @@ def _curves(roots):
         bone, mprop = node_of[cn]
         kind = 'T' if 'Translation' in mprop else 'R' if 'Rotation' in mprop else 'S'
         table.setdefault(bone, {}).setdefault(kind, {})[prop.split('|')[-1]] = curves[cid]
-    return table
+    defaults = {}
+    for cn, (bone, mprop) in node_of.items():
+        kind = 'T' if 'Translation' in mprop else 'R' if 'Rotation' in mprop else 'S'
+        p70 = curvenodes[cn].child('Properties70')
+        for pr in (p70.children if p70 else []):
+            key = _s(pr.props[0][1])
+            if key in ('d|X', 'd|Y', 'd|Z'): defaults.setdefault((bone, kind), {})[key[-1]] = pr.props[4][1]
+    return table, defaults
 
 class Clip:
     def __init__(self, n, data, name='clip'):
@@ -177,7 +189,7 @@ class Clip:
     @staticmethod
     def load(path):
         version, roots, fid, magic = read_fbx(path)
-        table = _curves(roots)
+        table, defaults = _curves(roots)
         # a constant channel is stored as one key: sample every curve at the stack's frame times
         stop = 0
         for n_ in [n for n in roots if n.name == 'Objects'][0].children:
@@ -199,8 +211,16 @@ class Clip:
         data = {}
         for bone, kinds in table.items():
             for kind, chans in kinds.items():
-                if kind == 'S' or len(chans) < 3: continue
+                if kind == 'S': continue
                 vals = {ch: sample(node) for ch, node in chans.items()}
+                # A bone animated on one or two axes used to be dropped from the clip, and save() then wrote its rest
+                # value on every frame, so it came out flat. Each missing axis takes the constant its curve node
+                # holds (Properties70 d|X/Y/Z), which is the value the file gives that axis.
+                missing = [a for a in 'XYZ' if a not in vals]
+                if missing:
+                    d = defaults.get((bone, kind), {})
+                    for a in missing: vals[a] = [float(d.get(a, 0.0))] * n
+                    print('animforge: %s %s has no %s curve; each held at its node value' % (bone, kind, '/'.join(missing)))
                 data.setdefault(bone, {})[kind] = [[vals['X'][i], vals['Y'][i], vals['Z'][i]] for i in range(n)]
         c = Clip(n, data, os.path.basename(path)[:-4]); c.template = path; return c
     def copy(self, name=None):
@@ -337,7 +357,7 @@ class Clip:
     def save(self, path, template=None):
         template = template or self.template
         version, roots, fid, magic = read_fbx(template)
-        table = _curves(roots)
+        table, _ = _curves(roots)
         n = self.n
         times = [int(round(i * KTIME / FPS)) for i in range(n)]
         for bone, kinds in table.items():
