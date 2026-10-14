@@ -162,11 +162,21 @@ namespace TW.Sim.Terrain
         /// field and returns 0. A positive Rise raises team 1's end (high Z), a negative one team 0's; the crest
         /// line is that team's front trench, and everything behind it is the flat rear.
         /// </summary>
-        public static float RiseAt(in BattlefieldParams p, float z)
+        public static float RiseAt(in BattlefieldParams p, float z) => RiseAt(p, z, CrestLineZ(p));
+        /// <summary>
+        /// The straight crest line, for a caller that has no per-column trench line to hand. Inside Create the
+        /// profile is measured from the crest trench's own line instead (owner, 2026-10-13).
+        /// </summary>
+        public static float CrestLineZ(in BattlefieldParams p)
+            => p.Rise > 0f ? p.Length - FrontAt * p.Length / 480f : FrontAt * p.Length / 480f;
+        /// <summary>
+        /// The same profile measured from a given crest line: `crestZ` is where the plateau ends and the fall
+        /// begins. Create passes the crest trench's own middle for each nav column, so the bank starts on the
+        /// trench wherever it wanders to.
+        /// </summary>
+        public static float RiseAt(in BattlefieldParams p, float z, float crestZ)
         {
             if (p.Rise == 0f) return 0f;
-            float frontZ = FrontAt * p.Length / 480f;
-            float crestZ = p.Rise > 0f ? p.Length - frontZ : frontZ;
             float d = p.Rise > 0f ? crestZ - z : z - crestZ;   // metres downhill of the crest; negative is uphill
             float r = math.abs(p.Rise), bank = BankRise / (BankRise + SlopeRise);
             if (d <= 0f) return r;                                             // the flat rear behind the crest
@@ -231,12 +241,12 @@ namespace TW.Sim.Terrain
                 {
                     // Dug-in ground follows the trench: 5 m level either side of its line. The crest trench is the
                     // exception - levelling it downhill as well would put a flat lip in front of it and blind it, so
-                    // it gets its shelf uphill only and the bank starts 2 m in front of the line.
+                    // it gets its shelf uphill only and the bank starts on the line itself.
                     float flat = 5f;
                     if (p.Rise != 0f && t == crestT)
                     {
                         float dc = wz - line[t][nx];
-                        flat = (p.Rise > 0f ? dc > 0f : dc < 0f) ? 5f : 2f;   // uphill is behind the crest line
+                        flat = (p.Rise > 0f ? dc > 0f : dc < 0f) ? 5f : 0f;   // uphill is behind the crest line
                     }
                     keep = math.min(keep, Ramp(math.abs(wz - line[t][nx]) - flat, 0f, 14f * sz));
                 }
@@ -244,7 +254,7 @@ namespace TW.Sim.Terrain
                 // end of the blend ramp, where keep is already 1, or the noise would eat the bank's first fall.
                 float dugInZ = p.Rise != 0f && math.abs(wz - line[crestT][nx]) <= 5f + 14f * sz ? line[crestT][nx] : wz;
                 float dugIn = DugInHeight + 0.4f * Noise(p.Seed + 2u, wx, dugInZ, 9f);   // never lower: the trench floor must clear the water table
-                hf.Set(x, z, math.lerp(dugIn, h, keep) + RiseAt(p, wz));   // the ridge carries the open ground and the platforms alike
+                hf.Set(x, z, math.lerp(dugIn, h, keep) + (p.Rise != 0f ? RiseAt(p, wz, line[crestT][nx]) : 0f));   // the ridge carries the open ground and the platforms alike
             }
 
             // ---- 2. the river: a channel across the width, two fords and a plank bridge -------------------------
