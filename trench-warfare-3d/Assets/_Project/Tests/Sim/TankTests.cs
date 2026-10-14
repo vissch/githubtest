@@ -324,6 +324,11 @@ namespace TW.Tests
             int tank = SpawnTank(m, 1, VehicleArchetype.Tusk, new float3(150f, 0f, 104f), 0f);
             for (int k = 0; k < 6; k++) m.World.Spawn(0, Rifleman, new float3(146f + k * 1.5f, 0f, 99f), 100000f, 0f, false);   // at the hull
             Step(m);
+            // [T32] setup: show the men were throwing grenades at the tank while it lived, or an engine that never
+            // targets a vehicle at all would pass the asserts below.
+            var before = Run(m, 20);
+            Assert.Greater(Count(before, SimEventType.Shot, int.MinValue, tank), 0,
+                "[T32] setup: nobody was throwing grenades at the tank while it lived");
             m.Modules.Crew[tank] = 1;
             // keep hitting until the last man is dead
             var log = new List<SimEvent>();
