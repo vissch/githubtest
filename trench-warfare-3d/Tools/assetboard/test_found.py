@@ -184,11 +184,12 @@ def main():
             return 0, ''
     idx = tmp / 'review_state.json'
     idx.write_text(json.dumps(dict(commit='PIN', units=[dict(id='U001', files=['c.cs', 'z.cs']), dict(id='U002', files=['a.cs', 'b.cs', 'y.cs']), dict(id='U003', files=['x.cs'])])), encoding='utf-8')
-    found.INDEX = idx
+    old_index, found.INDEX = found.INDEX, idx
     g = Git(Path('.'), Path('.'), tmp / 'home6')
     rv = g.reviews('origin/x', state={})
     pick = found.pick(rv + S[2:3], {})
     after = g.reviews('origin/x', state={'review:U002': dict(base='HEAD1', at='HEAD1')})
+    found.INDEX = old_index
     case('code reviews start by themselves: the index unit whose files changed most since its last review is picked first; unchanged units are not due; reviewed at the tip it is not due again',
          [(r['id'], r['drift']) for r in rv] == [('review:U001', 1), ('review:U002', 2)] and pick['id'] == 'review:U002'
          and [r['id'] for r in after] == ['review:U001'], (rv, pick, after))
@@ -197,6 +198,21 @@ def main():
     case('a review look follows the tw-reviewer brief on what changed since its base, and a finding of it that holds is a review-fix unit (the 25% fix share)',
          ru['id'] == 'look-review-u002-20261015' and ru['kind'] == 'critique' and '.claude/agents/tw-reviewer.md' in ru['goal'] and 'git diff PIN..' in ru['goal']
          and fixed['role'] == 'review-fix' and fixed['kind'] == 'fix', (ru['goal'][:300], fixed['role']))
+    class Flaky(Fake):
+        def add(self, unit):
+            if unit.get('kind') == 'fix' and not getattr(self, 'up', False):
+                return False, 'relay: the board push was refused'
+            return Fake.add(self, unit)
+    w7 = Flaky(tmp / 'home7')
+    w7.subs, w7.have = S, have
+    found.rota(w7, now)
+    w7.done.add(w7.added[0]['id'])
+    w7.files[w7.added[0]['id']] = dict(subject='x', looked_at=[], tasks=[small])
+    first = found.take(w7, now)
+    w7.up = True
+    second = found.take(w7, now)
+    case('a finding the relay cannot take now (a refused push) is not lost: the look is read again next round and the finding queued then',
+         'read again next round' in first[0] and '1 queued' in second[0] and [u['kind'] for u in w7.added] == ['critique', 'fix'], (first, second))
     print(f'{sum(results)} of {len(results)} cases behaved')
     return 0 if all(results) else 1
 

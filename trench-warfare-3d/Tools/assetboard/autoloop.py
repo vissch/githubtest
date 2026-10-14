@@ -15,19 +15,21 @@ their own boards. One round does, in this order:
             built (`nothing`): queue the unit, then close the brief. Answers in his own words (`write`) wait for a
             session, which must read them: they are counted, not guessed at
   feed      an extra relay that is not running and has nothing open on its board gets the open units of ONE free
-            lane of the main board (no other relay holds it; parked at 99 on the main board), and is started.
-            One that has open units and is not running is started too, whatever its last stop said
+            lane of the main board (no running relay works it; parked at 99 on the main board first), and is
+            started. One that has open units and is not running is started too, with a growing wait when it
+            stops again for the same reason (STARTS): a relay that stops at once is not started every round
   found     found.py take, then found.py rota: a finished look's findings become fix units (small) or cards for
             him (major); and when the main queue has run dry and fewer than FIX_MOST fix units wait, the next look
             is queued: first the review-index unit whose files changed most since its last review
 
-Every unit goes through the relay's own `add`, and runs under the relay's day (11% of the week, spent evenly) and
-its shares (the 25% fix share for review fixes, 15% for looks): this file starts no model and spends nothing itself.
-A file autoloop.stop in its folder makes it stand by.
+Every unit goes through the relay's own `add`, and runs under the relay's day (11% of the week for all relays
+together, spent evenly) and its shares (the 25% fix share for review fixes, 15% for looks): this file starts no
+model and spends nothing itself. A file autoloop.stop in its folder makes it stand by.
 """
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -49,6 +51,8 @@ HOME = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / '
 BY = 'autoloop'
 DAY_PCT = os.environ.get('TW_DAY_PCT') or '11'   # the day's cap for every relay together (the owner, 2026-10-07); the start script counts all boards
 PARKED = found.PARKED
+STARTS = (1800, 14400)      # after a start, wait at least this long; when it stopped again for the same reason, double it, up to the second
+STALE = 900                 # a lock whose loop has not beaten for this long is taken over
 
 
 def load(f: Path, default):
@@ -56,6 +60,13 @@ def load(f: Path, default):
         return json.loads(Path(f).read_text(encoding='utf-8'))
     except (OSError, ValueError):
         return default
+
+
+def save(f: Path, data):
+    f.parent.mkdir(parents=True, exist_ok=True)
+    tmp = f.with_name(f.name + '.tmp')
+    tmp.write_text(json.dumps(data, indent=1), encoding='utf-8', newline='\n')
+    os.replace(tmp, f)
 
 
 def queue_of(board: Path):
@@ -71,6 +82,18 @@ def open_units(board: Path):
     return {u: v for u, v in q.items() if u not in done}
 
 
+def parse_status(text):
+    """(running lanes, the last stop's words) from `relay.py status`; None for the lanes when the text is neither
+    a run nor "NOT RUNNING" (a status that fell over is not "nothing runs")."""
+    lanes = set(re.findall(r'^RUNNING: .*, lane (\S+)', text or '', re.M))
+    if lanes:
+        return lanes, ''
+    m = re.search(r'^NOT RUNNING\.(.*)$', text or '', re.M)
+    if not m:
+        return None, ''
+    return set(), re.sub(r'\d{8}-\d{6}-\d+', '', m.group(1)).strip()[:200]
+
+
 # ---- the outside world ---------------------------------------------------------------------------------------------------
 
 class World:
@@ -81,7 +104,7 @@ class World:
         self.extras = {n: GH / f'tw3d-board-{n}' for n in extras if (GH / f'tw3d-board-{n}').is_dir()}
 
     def git(self, board, *a):
-        r = subprocess.run(['git', '-C', str(board), *a], capture_output=True, stdin=subprocess.DEVNULL)
+        r = subprocess.run(['git', '-C', str(board), *a], capture_output=True, stdin=subprocess.DEVNULL, timeout=300)
         return r.returncode, (r.stdout + r.stderr).decode('utf-8', 'replace').strip()
 
     def relay(self, board, *a):
@@ -91,39 +114,45 @@ class World:
             env['TW_RELAY_HOME'] = str(Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / f'relay{n}')
         else:
             env.pop('TW_RELAY_HOME', None)
-        r = subprocess.run([sys.executable, str(RELAY), *a], capture_output=True, text=True, encoding='utf-8', errors='replace',
-                           stdin=subprocess.DEVNULL, env=env, timeout=600)
+        try:
+            r = subprocess.run([sys.executable, str(RELAY), *a], capture_output=True, text=True, encoding='utf-8', errors='replace',
+                               stdin=subprocess.DEVNULL, env=env, timeout=600)
+        except subprocess.TimeoutExpired:
+            return 124, 'the relay did not answer in ten minutes'
         return r.returncode, (r.stdout + r.stderr).strip()
 
-    def running(self, n):
-        code, text = self.relay(self.extras[n], 'status')
-        return text.startswith('RUNNING')
-
-    def main_on(self):
-        """The unit the main relay works now, or ''."""
-        code, text = self.relay(self.main, 'status')
-        for line in text.splitlines():
-            if ' now on ' in line:
-                return line.split(' now on ', 1)[1].split()[0].strip(',.')
-        return ''
+    def status(self, board):
+        code, text = self.relay(board, 'status')
+        return parse_status(text) if code == 0 else (None, '')
 
     def pull(self, board):
         return self.git(board, 'pull', '--rebase', '-q')
 
+    def tracked(self, board, folder):
+        """The file names git has under `folder` of a board, committed."""
+        code, out = self.git(board, 'ls-files', '--', folder)
+        return None if code else {Path(p).name for p in out.splitlines()}
+
     def commit_push(self, board, paths, message, push=True):
+        """'' when nothing was to commit, else what happened; raises when git refuses, so the step says so."""
         if not self.acting:
             return 'would commit: ' + message
-        self.git(board, 'add', '--', *paths)
+        for git_args in (('add', '--', *paths),):
+            code, out = self.git(board, *git_args)
+            if code:
+                raise RuntimeError(f'git add refused: {out[:200]}')
         if self.git(board, 'diff', '--cached', '--quiet')[0] == 0:
             return ''
-        self.git(board, 'commit', '-q', '-m', message)
+        code, out = self.git(board, 'commit', '-q', '-m', message)
+        if code:
+            raise RuntimeError(f'git commit refused: {out[:200]}')
         if not push:
             return 'committed (kept local)'
         for _ in range(3):
             if self.git(board, 'push', '-q')[0] == 0:
                 return 'pushed'
             self.pull(board)
-        return 'the push was refused three times: it is tried again next round'
+        return 'committed; the push was refused three times: it is pushed with the next one'
 
     def start(self, n):
         if not self.acting:
@@ -160,6 +189,9 @@ class World:
             with open(f, 'a', encoding='utf-8', newline='\n') as h:
                 h.write(line + '\n')
 
+    def now(self):
+        return time.time()
+
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
 
@@ -167,88 +199,137 @@ class World:
 # ---- the four steps -------------------------------------------------------------------------------------------------------
 
 def copy_back(w):
-    """Done records of the extra boards that the main board lacks are copied to it and pushed."""
+    """Done records of the extra boards that the main board has not committed are copied to it and pushed."""
     if w.acting:
-        w.pull(w.main)
+        code, out = w.pull(w.main)
+        if code:
+            return [f'back: the main board did not pull ({out[:120]}): tried next round']
+    have = w.tracked(w.main, 'relay/done')
+    if have is None:
+        return ['back: git did not list the main board\'s done records: tried next round']
     mine = w.main / 'relay' / 'done'
     new = []
     for n, board in sorted(w.extras.items()):
         for f in sorted((Path(board) / 'relay' / 'done').glob('*.json')):
-            if not (mine / f.name).exists():
+            if f.name not in have and f.name not in {g.name for _, g in new}:
                 new.append((n, f))
     if not new:
         return []
     if w.acting:
         mine.mkdir(parents=True, exist_ok=True)
         for _, f in new:
-            shutil.copyfile(f, mine / f.name)
+            if not (mine / f.name).exists():
+                shutil.copyfile(f, mine / f.name)
     said = w.commit_push(w.main, ['relay/done/' + f.name for _, f in new],
                          f'relay: {len(new)} done records of the extra relays copied back ({", ".join(f.stem for _, f in new[:6])})')
     return [f'back: {len(new)} done records copied from the extra boards: {said}']
 
 
 def take_answers(w):
-    """His plain yes on the Decide page is carried out; his own words wait for a session."""
+    """His plain yes on the Decide page is carried out; his own words wait for a session. Each answer on its own:
+    one that fails is tried again next round and does not hold up the others; its row is written once, after the
+    brief is closed."""
     out, write = [], 0
     for a in w.answers():
         if a['go'] == 'write':
             write += 1
             continue
-        if a['go'] == 'queue':
-            unit = dict(a['unit'] or {})
-            unit.setdefault('role', 'lane')
-            unit.pop('priority', None)
-            ok, said = w.add(unit) if w.acting else (True, 'would queue')
-            if not ok:
-                out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
-                continue
-            w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Queued as `{unit["id"]}`. (owner, Decide page, note {a["note"]}) |')
-            if w.acting:
+        if a['go'] not in ('queue', 'nothing'):
+            continue
+        try:
+            if a['go'] == 'queue':
+                unit = dict(a['unit'] or {})
+                unit.setdefault('role', 'lane')
+                unit.pop('priority', None)
+                if not w.acting:
+                    out.append(f'answers: {a["id"]}: would queue {unit.get("id")} and close the brief')
+                    continue
+                ok, said = w.add(unit)
+                if not ok:
+                    out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
+                    continue
                 w.take(a, queued=unit['id'])
-            out.append(f'answers: {a["id"]}: his yes queued {unit["id"]} and the brief is closed')
-        elif a['go'] == 'nothing':
-            w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Nothing is built. (owner, Decide page, note {a["note"]}) |')
-            if w.acting:
+                w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Queued as `{unit["id"]}`. (owner, Decide page, note {a["note"]}) |')
+                out.append(f'answers: {a["id"]}: his yes queued {unit["id"]} and the brief is closed')
+            else:
+                if not w.acting:
+                    out.append(f'answers: {a["id"]}: would close it, nothing is built')
+                    continue
                 w.take(a, outcome=a.get('says') or 'his option builds nothing')
-            out.append(f'answers: {a["id"]}: his answer builds nothing; the brief is closed')
+                w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Nothing is built. (owner, Decide page, note {a["note"]}) |')
+                out.append(f'answers: {a["id"]}: his answer builds nothing; the brief is closed')
+        except Exception as e:      # noqa: BLE001  e.g. take refuses while the unit's push has not reached the board's origin
+            out.append(f'answers: {a["id"]}: not closed this round ({str(e)[:200]})')
     if write:
         out.append(f'answers: {write} in his own words wait for a session (briefs.py waiting)')
     return out
 
 
+def may_start(w, n, reason):
+    """True when relay n may be started now: STARTS[0] after its last start, doubled each time it stopped again for
+    the same reason, at most STARTS[1]. Remembered in the loop's folder."""
+    starts = load(w.home / 'starts.json', {})
+    s = starts.get(str(n))
+    if s and w.now() - s.get('at', 0) < s.get('wait', STARTS[0]):
+        return False
+    same = bool(s and reason and reason == s.get('reason'))
+    starts[str(n)] = dict(at=w.now(), reason=reason, wait=min(s.get('wait', STARTS[0]) * 2, STARTS[1]) if same else STARTS[0])
+    save(w.home / 'starts.json', starts)
+    return True
+
+
 def feed(w):
     """Every extra relay that is not running gets work and is started."""
     out = []
-    held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()}
-    on = w.main_on()
+    lanes = set()
+    for board in [w.main, *w.extras.values()]:
+        got, _ = w.status(board)
+        if got is None:
+            return ['feed: a relay did not say whether it runs: nothing is fed this round']
+        lanes |= got
+    held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()} | lanes
     q, done = queue_of(w.main)
-    on_lane = (q.get(on) or {}).get('lane', '')
     for n, board in sorted(w.extras.items()):
-        if w.running(n):
+        running, reason = w.status(board)
+        if running:
             continue
         mine = open_units(board)
         if not mine:
             free = {}
             for uid, u in q.items():
-                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or u['lane'] == on_lane:
+                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held:
                     continue
                 free.setdefault(u['lane'], []).append((found.prio(u), uid, u))
             if not free:
                 continue
             lane = min(free, key=lambda k: (min(p for p, _, _ in free[k]), k))
-            units = sorted(free[lane])
-            if w.acting:
-                qd = Path(board) / 'relay' / 'queue'
-                qd.mkdir(parents=True, exist_ok=True)
-                for _, uid, u in units:
-                    u = dict(u)
-                    u.pop('priority', None)
-                    (qd / f'{uid}.json').write_text(json.dumps(u, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
-                w.commit_push(board, ['relay/queue/' + f'{uid}.json' for _, uid, _ in units], f'relay: {len(units)} units of {lane} for extra relay {n}, kept local', push=False)
-                for _, uid, _ in units:
-                    w.prio(uid, PARKED)
+            units = sorted(free[lane], key=lambda x: (x[0], x[1]))
             held.add(lane)
+            if not w.acting:
+                out.append(f'feed: relay {n} is empty: it would get {lane} ({", ".join(uid for _, uid, _ in units)})')
+                continue
+            parked = []
+            for p, uid, _ in units:                 # park on the main board first: the main relay must not take them
+                code, said = w.prio(uid, PARKED)
+                if code:
+                    break
+                parked.append((p, uid))
+            if len(parked) < len(units):
+                for p, uid in parked:
+                    w.prio(uid, p)
+                out.append(f'feed: relay {n}: {lane} could not be parked on the main board, put back: tried next round')
+                continue
+            qd = Path(board) / 'relay' / 'queue'
+            qd.mkdir(parents=True, exist_ok=True)
+            for _, uid, u in units:
+                u = dict(u)
+                u.pop('priority', None)
+                (qd / f'{uid}.json').write_text(json.dumps(u, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
+            w.commit_push(board, ['relay/queue/' + f'{uid}.json' for _, uid, _ in units], f'relay: {len(units)} units of {lane} for extra relay {n}, kept local', push=False)
             out.append(f'feed: relay {n} was empty: it gets {lane} ({", ".join(uid for _, uid, _ in units)}), parked at {PARKED} on the main board')
+            reason = ''
+        if not may_start(w, n, reason):
+            continue
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
     return out
 
@@ -274,18 +355,26 @@ def round_(w):
     return lines
 
 
-def take_lock(home: Path):
+def take_lock(home: Path, now=None):
+    """One loop a machine: the lock file is made exclusively; one whose loop has not beaten for STALE is taken over.
+    Returns '' when taken, else why not."""
+    now = now or time.time()
     f = home / 'lock.json'
-    pid = load(f, {}).get('pid')
-    if pid and pid != os.getpid():
+    for _ in range(2):
         try:
-            out = subprocess.run(['tasklist', '/FI', f'PID eq {pid}', '/NH'], capture_output=True, text=True).stdout
-            if str(pid) in out:
-                return False
-        except OSError:
-            pass
-    f.write_text(json.dumps(dict(pid=os.getpid(), at=time.time())), encoding='utf-8')
-    return True
+            fd = os.open(str(f), os.O_CREAT | os.O_EXCL | os.O_WRONLY)
+            with os.fdopen(fd, 'w', encoding='utf-8') as h:
+                h.write(json.dumps(dict(pid=os.getpid(), at=now)))
+            return ''
+        except FileExistsError:
+            beat = max(load(home / 'beat.json', {}).get('at', 0), load(f, {}).get('at', 0))
+            if now - beat < STALE:
+                return f'another loop holds {f} (pid {load(f, {}).get("pid")}, last beat {int(now - beat)} s ago)'
+            try:
+                os.remove(f)
+            except OSError:
+                return f'{f} is stale and could not be removed'
+    return f'{f} could not be taken'
 
 
 def main(argv=None):
@@ -293,7 +382,7 @@ def main(argv=None):
     ap.add_argument('--once', action='store_true', help='one round, for real')
     ap.add_argument('--watch', type=float, default=0, help='seconds between rounds, for ever')
     ap.add_argument('--main', default=str(MAIN), help='the main board')
-    ap.add_argument('--extras', default=','.join(map(str, EXTRAS)), help='the extra relays\' numbers (their boards tw3d-board-N)')
+    ap.add_argument('--extras', default=','.join(map(str, EXTRAS)), help='the extra relays\' numbers (their boards tw3d-board-N); empty for none')
     ap.add_argument('--home', default=str(HOME))
     a = ap.parse_args(argv)
     home = Path(a.home)
@@ -302,26 +391,39 @@ def main(argv=None):
     if not (a.once or a.watch):
         print('\n'.join(round_(World(a.main, extras, home, acting=False))))
         return 0
-    if a.watch and not take_lock(home):
-        return 0
     log = home / 'autoloop.log'
 
     def say(text):
         with open(log, 'a', encoding='utf-8') as f:
             f.write(f'{time.strftime("%m-%d %H:%M:%S")} {text}\n')
-    say(f'autoloop starts (pid {os.getpid()}), every {a.watch or 0:.0f} s')
-    while True:
-        if (home / 'autoloop.stop').exists():
-            say('autoloop.stop is in its folder: standing by')
-        else:
-            for line in round_(World(a.main, extras, home)):
-                say(line)
-                if a.once:
-                    print(line)
-        (home / 'beat.json').write_text(json.dumps(dict(at=time.time(), pid=os.getpid())), encoding='utf-8')
-        if not a.watch:
-            return 0
-        time.sleep(max(30, a.watch))
+    why = take_lock(home)
+    if why:
+        say(f'not started (pid {os.getpid()}): {why}')
+        print(why)
+        return 0
+    try:
+        say(f'autoloop starts (pid {os.getpid()}), every {a.watch or 0:.0f} s, extras {",".join(map(str, extras)) or "none"}')
+        while True:
+            if (home / 'autoloop.stop').exists():
+                say('autoloop.stop is in its folder: standing by')
+            else:
+                for line in round_(World(a.main, extras, home)):
+                    say(line)
+                    if a.once:
+                        print(line)
+            save(home / 'beat.json', dict(at=time.time(), pid=os.getpid()))
+            if load(home / 'lock.json', {}).get('pid') != os.getpid():
+                say('another loop has the lock: this one leaves')
+                return 0
+            if not a.watch:
+                return 0
+            time.sleep(max(30, a.watch))
+    finally:
+        if load(home / 'lock.json', {}).get('pid') == os.getpid():
+            try:
+                os.remove(home / 'lock.json')
+            except OSError:
+                pass
 
 
 if __name__ == '__main__':

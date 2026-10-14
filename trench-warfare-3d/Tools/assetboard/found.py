@@ -58,6 +58,7 @@ P = 'trench-warfare-3d/'
 A = P + 'Assets/_Project/'
 FOUND_MOST = 20                     # found tasks waiting unstarted: at this many no new look is queued
 FIX_MOST = FOUND_MOST               # the same ceiling over every unstarted fix unit on the queue, not only found ones
+TRANSIENT = r'push|timed? ?out|did not answer|index\.lock|network|connection'   # a refusal that is not the unit's fault
 PARKED = 99                         # a unit at this priority is not taken by the main relay (parked, or moved to an extra)
 INDEX = Path(os.environ.get('TW_REVIEW_INDEX') or 'G:/My Drive/TW3D-pipeline/review-control-room/review_state.json')
 TASKS_MOST = 5                      # tasks one look may hand in
@@ -302,8 +303,11 @@ class World:
         """Put a unit on the relay's queue the relay's own way: (ok, what it said)."""
         f = Path(tempfile.mkdtemp(prefix='tw-found-')) / (unit['id'] + '.json')
         f.write_text(json.dumps(unit, indent=1), encoding='utf-8')
-        r = subprocess.run([sys.executable, str(RELAY), 'add', '--unit', str(f)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
-                           encoding='utf-8', errors='replace', env=dict(os.environ, TW_BOARD=str(self.board)))
+        try:
+            r = subprocess.run([sys.executable, str(RELAY), 'add', '--unit', str(f)], capture_output=True, text=True, stdin=subprocess.DEVNULL,
+                               encoding='utf-8', errors='replace', env=dict(os.environ, TW_BOARD=str(self.board)), timeout=600)
+        except subprocess.TimeoutExpired:
+            return False, 'the relay did not answer in ten minutes (timed out)'
         said = (r.stdout + r.stderr).strip()
         return r.returncode == 0, said.splitlines()[-1][:300] if said else ''
 
@@ -386,12 +390,15 @@ def take(w, now=None):
             out.append(f'found: {uid} is done and left no file that reads: nothing taken')
             continue
         known = [(t.get('key', ''), t.get('title', '')) for t in taken] + [('', one(v.get('goal'))[:120]) for v in q.values() if v.get('kind') != 'critique']
-        counts = dict(queue=0, card=0, dropped=0)
+        counts, again = dict(queue=0, card=0, dropped=0), False
         for n, (t, went, words, sc) in enumerate(route(found, uid, w.exists, known)):
             rec = dict(when=stamp, look=uid, title=one(t.get('title') if isinstance(t, dict) else '')[:160], key=key_of(t) if isinstance(t, dict) and sc is not None else '', went=went, words=words)
             if went == 'queue':
                 unit = fix_unit(t, uid, n)
                 ok, said = w.add(unit)
+                if not ok and re.search(TRANSIENT, said or '', re.I):
+                    again = True            # not the unit's fault: the look is read again next round, the finding is not lost
+                    continue
                 rec.update(unit=unit['id'], score=f'R{sc[0]} C{sc[1]}') if ok else rec.update(went='dropped', words='the relay refused it: ' + said)
             elif went == 'card':
                 try:
@@ -400,6 +407,9 @@ def take(w, now=None):
                     rec.update(went='dropped', words=f'its card was refused: {e}'[:300])
             counts[rec['went']] += 1
             taken.append(rec)
+        if again:
+            out.append(f'found: {uid}: the relay could not take a finding now (a push or a timeout): the look is read again next round')
+            continue
         st.update(looked=stamp, found=len(found.get('tasks') or []), **counts)
         out.append(f'found: {uid}: {len(found.get("tasks") or [])} tasks handed in, {counts["queue"]} queued, {counts["card"]} are cards for him, {counts["dropped"]} dropped')
     put(w.home / 'state.json', state)
