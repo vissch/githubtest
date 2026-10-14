@@ -6,7 +6,7 @@ description: Balancing simulator for Trench Warfare 3D — pitch game ideas, set
 # Balance simulator
 
 Deep reference: `references/balance.md` (every stat table, id, ability, config field, checklist; snapshot at 558c667).
-The owner's roster redesign: `G:\My Drive\TW3D-pipeline\unit-roster-v2.md` (titled v3).
+The owner's roster redesign: `G:\My Drive\TW3D-pipeline\unit-roster-v2.md` (titled v3; desktop only).
 
 ## The facts that decide how you work
 - **The sim is deterministic and pure C#** (Burst Strict floats, "same build, same architecture"). The desktop and the laptop produced byte-identical hashes at 2ad4973 (deploy-only match), so sweeps may run on either station.
@@ -29,7 +29,7 @@ The owner's roster redesign: `G:\My Drive\TW3D-pipeline\unit-roster-v2.md` (titl
 - `otr.py` runs EditMode tests on the laptop without Unity, but its hashes (Mono) are not comparable with Burst ones. Use it as a filter, never as the verdict.
 
 ## The balance loop
-1. **Ideas first:** `/pipeline ideas` writes pitched mechanics, each with a hypothesis testable on placeholder boxes. The owner picks before any tuning. Method: cite sources, make the smallest change, show the calculation (the library at `C:\Users\PC\Documents\godot\gamedesign-library`, which covers other genres; in Claude Code the global `gamedesign` agent reads it for you, a tool without that agent reads the library itself).
+1. **Ideas first:** pitch mechanics (no tool writes these; just propose them), each with a hypothesis testable on placeholder boxes. The owner picks before any tuning. Method: cite sources, make the smallest change, show the calculation (the global `gamedesign` agent and the library at `C:\Users\PC\Documents\godot\gamedesign-library` — desktop only, which covers other genres).
 2. **Analytical first** (minutes, laptop): cost per HP, time-to-kill tables per weapon vs target, counter matrix, silver curve at 2.0/s.
 3. **Sweep** (desktop): variants × **8 seeds**. Report distributions (mean, p10, p90), never a single run. Compare two variants only on the same seeds.
    - **The tool:** `python Tools/sweep.py run <spec.json>` from `trench-warfare-3d/`, this checkout's editor closed (`docs/reference/workflow.md`, section 5). A variant is data, so a sweep makes no commit: a unit's field (`{"unit": "Machinegunner", "field": "Weapon.Damage", "mul": [0.8, 0.9]}`, a list is a grid), the match's config (`{"config": "FactionA", "set": "Brass"}`), or a script's knob (`{"script_b": "Odds", "set": 2.5}`). The standing specs are in `trench-warfare-3d/Tools/sweeps/`: `factions.json`, `assault.json`, `difficulty.json`.

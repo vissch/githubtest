@@ -248,6 +248,102 @@ class SkillDocsTest(unittest.TestCase):
             "[K13s] found example(s) writing a bare filename into the checkout: %s" % offenders,
         )
 
+    def test_k11s_tests_paths_resolve_and_no_stale_line_citations(self):
+        """[K11s] every P\\Tests\\...cs path named in a skill doc must resolve to a real file (not the retired
+        Tests/EditMode layout), no skill doc may cite workflow.md:<digits> or gate.ps1:<digits> (both drift), and
+        the Long tier must be documented with a count matching the real [Category("Long")] tests."""
+        skills_dir = REPO / ".claude/skills"
+        docs = list(skills_dir.rglob("*.md"))
+
+        for path in docs:
+            text = text_of(path)
+            self.assertNotRegex(
+                text, r"workflow\.md:\d", "[K11s] %s cites a drifted workflow.md:<line>" % path
+            )
+            self.assertNotRegex(
+                text, r"gate\.ps1:\d", "[K11s] %s cites a drifted gate.ps1:<line>" % path
+            )
+            for m in re.finditer(r"P\\Tests\\(\w+)\\([\w.]+\.cs)", text):
+                rel = "Assets/_Project/Tests/%s/%s" % (m.group(1), m.group(2))
+                self.assertTrue(
+                    (PROJ / rel).exists(),
+                    "[K11s] %s cites %s, which does not exist" % (path, m.group(0)),
+                )
+
+        real_long_count = 0
+        for cs_file in (PROJ / "Assets/_Project/Tests").rglob("*.cs"):
+            real_long_count += text_of(cs_file).count('Category("Long")')
+        self.assertGreater(real_long_count, 0, "[K11s] expected at least one Long-tagged test to check against")
+
+        det = (skills_dir / "tw-bug-catcher/references/determinism-and-verdicts.md").read_text(encoding="utf-8")
+        m = re.search(r'\[Category\("Long"\)\].*?\((\d+)', det)
+        self.assertIsNotNone(m, "[K11s] expected determinism-and-verdicts.md to name the Long tier with a count")
+        self.assertEqual(
+            int(m.group(1)), real_long_count,
+            "[K11s] determinism-and-verdicts.md's Long-test count is stale",
+        )
+        self.assertIn("!Long", det, "[K11s] expected determinism-and-verdicts.md to name -testCategory !Long")
+
+    def test_k14s_vfx_sheets_working_dirs_and_no_fake_slash_commands(self):
+        """[K14s] the headroom line must name --min-headroom-gb with run_detached.py's real default of 0, every
+        Tools/ call in tw-vfx-sheets docs must carry its own `cd`, every machine-only path is marked desktop-only,
+        no skill doc names a slash command that has no .claude/commands/<name>.md, and no skill doc says
+        `--mode editor` (gate.ps1/workflow.md use EditMode/PlayMode)."""
+        run_detached_src = (PROJ / "Tools/pipeline/run_detached.py").read_text(encoding="utf-8")
+        m = re.search(r'"--min-headroom-gb".*?default=([\d.]+)', run_detached_src)
+        self.assertIsNotNone(m, "[K14s] expected run_detached.py to still define --min-headroom-gb")
+        self.assertEqual(float(m.group(1)), 0.0, "[K14s] run_detached.py's --min-headroom-gb default is no longer 0")
+
+        vfx_skill = (REPO / ".claude/skills/tw-vfx-sheets/SKILL.md").read_text(encoding="utf-8")
+        self.assertIn("--min-headroom-gb", vfx_skill, "[K14s] expected the headroom line to name --min-headroom-gb")
+        self.assertIn("default is 0", vfx_skill, "[K14s] expected the headroom line to say the default is 0")
+
+        skills_dir = REPO / ".claude/skills"
+        for line in vfx_skill.splitlines():
+            if "python Tools/" in line or "python trench-warfare-3d/Tools/" in line:
+                self.assertTrue(
+                    "cd trench-warfare-3d" in line or "python trench-warfare-3d/Tools/" in line,
+                    "[K14s] tw-vfx-sheets line calls Tools/ without a cd: %r" % line,
+                )
+
+        marked_files = (
+            "tw-vfx-sheets/SKILL.md",
+            "tw-vfx-sheets/references/generator.md",
+            "tw-vfx-sheets/references/firebooks-contract.md",
+            "tw-balance-sim/SKILL.md",
+            "tw-optimizer/SKILL.md",
+        )
+        for rel in marked_files:
+            path = skills_dir / rel
+            lines = text_of(path).splitlines()
+            for i, line in enumerate(lines):
+                if re.search(r"C:[/\\]Users[/\\]PC[/\\]|G:[/\\]My Drive[/\\]", line):
+                    window = "\n".join(lines[max(0, i - 10):i + 1]).lower()
+                    self.assertIn(
+                        "desktop", window,
+                        "[K14s] %s: machine-only path not marked desktop-only nearby: %r" % (path, line),
+                    )
+
+        commands_dir = REPO / ".claude/commands"
+        pipeline_related = (
+            skills_dir / "tw-master/SKILL.md",
+            skills_dir / "tw-balance-sim/SKILL.md",
+            skills_dir / "pipeline/SKILL.md",
+        )
+        for path in pipeline_related:
+            text = text_of(path)
+            for m in re.finditer(r"[`\"](/pipeline[a-z-]*)\s", text):
+                name = m.group(1)[1:]
+                self.assertTrue(
+                    commands_dir.exists() and (commands_dir / (name + ".md")).exists(),
+                    "[K14s] %s names /%s, but .claude/commands/%s.md does not exist" % (path, name, name),
+                )
+
+        for path in skills_dir.rglob("*.md"):
+            self.assertNotIn(
+                "--mode editor", text_of(path), "[K14s] %s says --mode editor, not --mode EditMode" % path
+            )
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)

@@ -48,7 +48,7 @@ Write it to the board: `evidence/<item>/optimizer/sheet.md` plus JPGs.
 ## Polygon reduction and model swaps
 - **Budgets** (decisions.md): units 1,200-1,500 vertices (max 2,000), far model 250-400 beyond 170 m; vehicles 3,000-5,000. The VAT vertex budget knob is `vat.vertexBudget` (1.5 M).
 - **Find candidates:** meshes over budget, LODs that pop (`lodpop` IoU in the Playground), props drawn at far zoom with near detail.
-- **Reduce** (details and the tearing trap: `../tw-lowpoly/SKILL.md`): LODs derive from LOD0 (`TW_DERIVE` 12 in `tank3split.py` / `frogrig.py`, owner decision). The static-mesh decimator pattern is in `C:\Users\PC\Documents\unity\EMTD-marketing\Video_1_Project\EnvBuilder\tools\decimate_buildings.py` (static meshes only).
+- **Reduce** (details and the tearing trap: `../tw-lowpoly/SKILL.md`): LODs derive from LOD0 (`TW_DERIVE` 12 in `tank3split.py` / `frogrig.py`, owner decision). The static-mesh decimator pattern is in `C:\Users\PC\Documents\unity\EMTD-marketing\Video_1_Project\EnvBuilder\tools\decimate_buildings.py` (desktop only; static meshes only).
 - **Never overwrite the original.** A swap is a proposal with its comparison sheet, applied only after the owner approves.
 - **Making the lower models** is `tw-lowpoly`'s job (Blender, inventory, per-model loop). This role measures them and
   makes the sheet.
