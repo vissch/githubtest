@@ -10,19 +10,15 @@ scorecard, codemap/validate/selftest requirements, the maintainability audit; sn
 The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations.md`.
 
 ## Review with the owner (`/pipeline review <item>`)
-1. Build `dossier.html` with, per stage:
+1. Build the dossier (written to the run folder on the board, not the checkout: a bare `dossier.html` is not
+   git-ignored and leaves the tree dirty for `land.py`) with, per stage:
    - the verdict and critic score;
    - the evidence per band (images plus numbers);
    - open findings and the diff stats.
 2. Show it, then wait for the owner's remark.
 3. **Restate the remark in one sentence** and name the **earliest stage it affects**. Ask the owner to confirm the wording.
-<<<<<<< HEAD
-4. `python trench-warfare-3d/Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words, verbatim>" --check "<a measurable check>"`. The stage and everything after it go STALE and re-run.
-5. A decision only the owner can make: ask him in the chat (in Claude Code: AskUserQuestion), one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
-=======
 4. `python trench-warfare-3d/Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words, verbatim>" --check "<a measurable check>"` (on the laptop, `TW_STATION=laptop` first: `stations.json` lists no host for it). The stage and everything after it go STALE and re-run.
-5. A decision only the owner can make: AskUserQuestion, one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
->>>>>>> c5d8e1eb7 ([K5s] test: SkillDocsTest.test_k5s_docs_say_to_set_tw_station_on_a_hostless_station - pipeline/SKILL.md and tw-master/SKILL.md called pipeline.py/feedback without ever setting TW_STATION, and stations.json lists no host for laptop, so station() exits "unknown host" there; added a setup line to each.)
+5. A decision only the owner can make: ask him in the chat (in Claude Code: AskUserQuestion), one decision per question. Write the answer into `docs/reference/decisions.md` in the same turn, as a commit of its own. It lands ahead of the lane on a `lane/show/decision-<date>-<topic>` branch.
 
 ## Landing a lane (only when the owner says so)
 When the owner says so, first write `approvals/<lane>.json` on the board (`lane`, `date`, `words`: theirs, verbatim), so
@@ -38,10 +34,13 @@ the status site shows the lane as approved until it has landed. `python Tools/as
 4. **Code lanes, before the gate:** `/code-review` on the lane's diff against origin's integration branch. A finding
    you confirm at its line is fixed on the lane, or becomes a feedback request for the stage that owns it; one you
    do not confirm is dropped, and said so. The gate then runs on the tree the review left.
-   **Code lanes:** the full gate in the gate worktree (`githubtest-desk-gate`) with that lane checked out, editor closed. The green marker is per worktree, and an untracked file changes the recorded tree.
-   **Lanes that touch only `.claude/`, `Tools/` or `docs/`:** `validate.py` plus `selftest.py` are enough.
-5. `python Tools/land.py --dry-run`, then `python Tools/land.py`. A SHOW lane carrying SIM files needs `--carry-sim "<the owner's decision>"`.
-6. Before saying "land", the owner runs `python Tools/health.py --lanes` on the laptop: this machine cannot see the laptop's checkouts.
+5. **Code lanes:** the full gate in the gate worktree (`githubtest-desk-gate`) with that lane checked out, editor closed. The green marker is per worktree, and an untracked file changes the recorded tree.
+   **Lanes that touch only `.claude/`, `Tools/` or `docs/`:** `validate.py` plus `selftest.py` are enough —
+   unless a file a test quotes by name changed (`Tools/land.py`'s `is_code`/`tested_names`, e.g.
+   `docs/17-ui-art-spec.md` or `Tools/envatlas.py`), which still needs the full gate. Check with
+   `python Tools/land.py --dry-run`: it says why when it refuses.
+6. `python Tools/land.py --dry-run`, then `python Tools/land.py`. A SHOW lane carrying SIM files needs `--carry-sim "<the owner's decision>"`.
+7. Before saying "land", the owner runs `python Tools/health.py --lanes` on the laptop: this machine cannot see the laptop's checkouts.
 
 The desktop pushes as `vissch` over HTTPS (the desktop's SSH key is read-only on this repo).
 

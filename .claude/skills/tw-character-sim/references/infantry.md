@@ -28,7 +28,8 @@
   - `handMin` has no threshold. The docstring says "per step", but the code sums per plant run.
 - **`animforge.py`** is pure Python at 30 fps, writing by cloning a Mixamo template. `read_fbx`, `write_fbx`, `Rig`, `Clip.load / copy / reverse / slice / resample / retime / loopify(fade=6) / layer / offset / scale_motion / strip_root / wave / set_pose / hold / pose / repeat / concat / save`, `fk`, `solve_arm`, `Canvas`, `contact_sheet`.
 - **`make_missing_clips.py "<Mixamo folder>" [out]`**: Wade Forward, Ladder Climb, Crawl Forward, Prone Crawl Forward Alt, Prone Death, Prone Flinch, Kneel Flinch, Get Up From Prone, Stumble Running, Mask Donning, Burning Run, Officer Point, Officer Whistle, MG Carry Walk, Wire Crossing.
-- **`fbxscan.py "<folder>" out.csv`** measures seconds, frames, loop, root motion, hip height and yaw.
+- **`fbxscan.py "<folder>" %TEMP%\fbxscan.csv`** measures seconds, frames, loop, root motion, hip height and yaw.
+  Write the csv outside the checkout: a bare `out.csv` is not git-ignored and leaves the tree dirty for `land.py`.
 - **`frogrig.py -- <lod0> <lod1> <lod2> <out.fbx> <renderdir>`**: Mixamo bone names, with LOD1-3 weights transferred from LOD0. Flags: `TW_HEIGHT` 1.78, `TW_LOD3_TRIS`, `TW_DERIVE` 12, `TW_REBAKE`, `TW_LOD2_FROM_LOD1`, `TW_LOD3_KEEP`, `TW_LOD3_RIGID`, `TW_LOD3_TEXTURED`.
 - **Playground:** `UnitRig` (one armature, all LODs, `LodPicker(0.20, 0.08, 0.03)`), `Retarget` (the game's clips carried to another skeleton, hips scaled by hip height). `pg.sh do "unit"`, `unit.compare`, `unit.squad`; `clip <name>`, `speed`, `face deg`, `kill`, `ignite`, `revive`. Figure LOD switch points: ~22 m, ~63 m, 78-167 m.
 
