@@ -38,6 +38,22 @@ namespace TW.Tests
                 Assert.AreEqual(expectedSpec.JumpRange, c.Infantry[a].JumpRange, $"archetype {a} leap");
                 Assert.AreEqual(expectedSpec.Braced, c.Infantry[a].Braced, $"archetype {a} braced");
             }
+
+            // [T32] The loop above calls the very functions Default() fills the table with (UnitCatalogue.cs:45-48),
+            // so it guards the lengths and the wiring but cannot fail on a number. These are hand-written pins, read
+            // today from RosterEntry.cs:58 (Rifleman), :85-86 (Maw, Tusk) and InfantrySpec.cs (the officer's aura):
+            // a tuning pass that moves them has to come past this test.
+            Assert.AreEqual(25, c.Roster[InfantryArchetype.Rifle].Cost, "[T32] the rifleman costs 25 (RosterEntry.cs:58)");
+            Assert.AreEqual(100f, c.Roster[InfantryArchetype.Rifle].Hp, 1e-4f, "[T32] the rifleman has 100 hit points (RosterEntry.cs:58)");
+            Assert.AreEqual(350, c.Roster[VehicleArchetype.Maw].Cost, "[T32] the Maw costs 350 (RosterEntry.cs:85)");
+            Assert.AreEqual(3600f, c.Roster[VehicleArchetype.Maw].Hp, 1e-4f, "[T32] the Maw has 3600 structure (RosterEntry.cs:85)");
+            Assert.AreEqual(1.6f, c.Roster[VehicleArchetype.Maw].Speed, 1e-4f, "[T32] the Maw walks at 1.6 m/s (RosterEntry.cs:85)");
+            Assert.AreEqual(600, c.Roster[VehicleArchetype.Maw].CooldownTicks, "[T32] the Maw reloads in 600 ticks (RosterEntry.cs:85)");
+            Assert.IsTrue(c.Roster[VehicleArchetype.Maw].IsVehicle, "[T32] the Maw is a machine (RosterEntry.cs:85)");
+            Assert.AreEqual(260, c.Roster[VehicleArchetype.Tusk].Cost, "[T32] the Tusk costs 260 (RosterEntry.cs:86)");
+            Assert.AreEqual(2000f, c.Roster[VehicleArchetype.Tusk].Hp, 1e-4f, "[T32] the Tusk has 2000 structure (RosterEntry.cs:86)");
+            Assert.AreEqual(15f, c.Infantry[InfantryArchetype.Officer].AuraRadius, 1e-4f,
+                "[T32] the officer's aura reaches 15 m (InfantrySpec.cs, Base(Officer))");
         }
 
         [Test]

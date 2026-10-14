@@ -201,7 +201,13 @@ namespace TW.Tests
             }
             Assert.Greater(widest, TrenchPost.Jitter * 0.8f, "the field uses the room it is given");
             Assert.Greater(seen.Count, 1000, "the line wanders across the map rather than repeating");
-            Assert.AreEqual(TrenchPost.Offset(1234, W), TrenchPost.Offset(1234, W), "the same cell always gives the same spot");
+            // [T32] Comparing the function to itself cannot fail. Literal pin, read on commit 46ef6bad9 with
+            // `Tools/tw eval 'return TW.Sim.TrenchPost.Offset(1234, 150).ToString("F6");'` (W is 150 here):
+            // (-0.257843, 0, 0.184405). The field is derived from the cell alone, so this value is fixed for every
+            // machine and every run.
+            var pinned = TrenchPost.Offset(1234, W);
+            Assert.AreEqual(-0.257843f, pinned.x, 1e-4f, "[T32] cell 1234's offset moved in x; the post layout is not what it was");
+            Assert.AreEqual(0.184405f, pinned.z, 1e-4f, "[T32] cell 1234's offset moved in z; the post layout is not what it was");
 
             // the property the old per-cell noise got exactly backwards. Neighbours must SHARE their
             // displacement - that is what keeps the distance between two men - while the line as a whole
