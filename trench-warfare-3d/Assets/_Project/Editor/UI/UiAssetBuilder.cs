@@ -22,6 +22,16 @@ namespace TW.Editor
         public const string ThemePath = ResourcesFolder + "/DustFront.tss";
         public const string FontsFolder = SkinSpec.Root + "Fonts";
 
+        /// <summary>Answers <paramref name="loaded"/> when it is there, otherwise warns and keeps the reference
+        /// already in the asset, so a load that failed does not save a null over a good reference.</summary>
+        public static T Keep<T>(T loaded, T existing, string what) where T : UnityEngine.Object
+        {
+            UnityEngine.Object l = loaded;
+            if (l != null) return loaded;
+            Debug.LogWarning($"UiAssetBuilder: {what} did not load; keeping the reference already in the asset");
+            return existing;
+        }
+
         [MenuItem("TW/UI/Create Panel Settings")]
         public static PanelSettings CreatePanelSettings()
         {
@@ -31,7 +41,7 @@ namespace TW.Editor
             var ps = AssetDatabase.LoadAssetAtPath<PanelSettings>(PanelPath);
             bool fresh = ps == null;
             if (fresh) ps = ScriptableObject.CreateInstance<PanelSettings>();
-            ps.themeStyleSheet = theme;
+            ps.themeStyleSheet = Keep(theme, ps.themeStyleSheet, ThemePath);
             ps.scaleMode = PanelScaleMode.ScaleWithScreenSize;
             ps.referenceResolution = new Vector2Int((int)HudLayout.ReferenceWidthPx, (int)HudLayout.ReferenceHeight);
             ps.screenMatchMode = PanelScreenMatchMode.MatchWidthOrHeight;

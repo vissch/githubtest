@@ -36,10 +36,14 @@ namespace TW.Editor
             var assets = AssetDatabase.LoadAssetAtPath<ShellAssets>(ShellAssetPath);
             bool fresh = assets == null;
             if (fresh) assets = ScriptableObject.CreateInstance<ShellAssets>();
-            assets.Panel = AssetDatabase.LoadAssetAtPath<PanelSettings>(UiAssetBuilder.PanelPath);
-            assets.MainMenu = Tree("MainMenu"); assets.MissionSelect = Tree("MissionSelect"); assets.PauseMenu = Tree("PauseMenu");
-            assets.Settings = Tree("Settings"); assets.Debrief = Tree("Debrief");
-            assets.Backdrop = backdrop; assets.Catalog = catalog;
+            assets.Panel = UiAssetBuilder.Keep(AssetDatabase.LoadAssetAtPath<PanelSettings>(UiAssetBuilder.PanelPath), assets.Panel, UiAssetBuilder.PanelPath);
+            assets.MainMenu = UiAssetBuilder.Keep(Tree("MainMenu"), assets.MainMenu, "MainMenu");
+            assets.MissionSelect = UiAssetBuilder.Keep(Tree("MissionSelect"), assets.MissionSelect, "MissionSelect");
+            assets.PauseMenu = UiAssetBuilder.Keep(Tree("PauseMenu"), assets.PauseMenu, "PauseMenu");
+            assets.Settings = UiAssetBuilder.Keep(Tree("Settings"), assets.Settings, "Settings");
+            assets.Debrief = UiAssetBuilder.Keep(Tree("Debrief"), assets.Debrief, "Debrief");
+            assets.Backdrop = UiAssetBuilder.Keep(backdrop, assets.Backdrop, BackdropPath);
+            assets.Catalog = UiAssetBuilder.Keep(catalog, assets.Catalog, CatalogPath);
             if (assets.Panel == null) Debug.LogWarning("ShellAssetsBuilder: no PanelSettings yet (TW/UI/Create Panel Settings).");
             if (fresh) AssetDatabase.CreateAsset(assets, ShellAssetPath); else EditorUtility.SetDirty(assets);
             AssetDatabase.SaveAssets();
