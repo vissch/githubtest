@@ -226,7 +226,7 @@ namespace TW.Presentation.Terrain
             if (rules == null) BuildRules(kit);
             if (cells == null || cells.Length != 1) { cellsX = 1; cellsZ = 1; cells = new Cell[1]; }
             cells[0].Rounds = rounds; cells[0].DirX = 0f; cells[0].DirZ = 1f;
-            WearTick(tick);
+            Wear(tick);
             return Worn;
         }
 

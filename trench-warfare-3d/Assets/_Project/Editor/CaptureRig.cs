@@ -240,6 +240,15 @@ namespace TW.Editor
 
         // ---- measurement -------------------------------------------------------------------------------------
 
+        /// <summary>The directory of `path`, made if it is missing. A bare file name ("stress.json") gives "" from
+        /// Path.GetDirectoryName, and Directory.CreateDirectory("") throws, so the write never happened and whatever
+        /// was waiting on the file waited forever. Public because the tests and the other editor tools are elsewhere.</summary>
+        public static void EnsureDir(string path)
+        {
+            var d = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(d)) Directory.CreateDirectory(d);
+        }
+
         static float Luma(Color32 p) => (0.2126f * p.r + 0.7152f * p.g + 0.0722f * p.b) / 255f;
 
         /// <summary>
@@ -782,8 +791,13 @@ namespace TW.Editor
         /// stress preset), then puts the scene back as it was. Call it with the editor in edit mode; it drives play
         /// mode itself and stops it when the numbers are written.
         /// </summary>
-        public static string Stress(int unitsPerSide = 1000, string path = "stress.json", int frames = 300, float settleSeconds = 120f)
+        public static string Stress(int unitsPerSide = 1000, string path = null, int frames = 300, float settleSeconds = 120f)
         {
+            // Not a default argument: a default must be a compile-time constant, and the old bare "stress.json" was
+            // written relative to whatever the editor's working directory happened to be (and broke EnsureDir's
+            // predecessor outright). Same place RiderLab.SeatSheetBatch defaults to.
+            if (string.IsNullOrEmpty(path))
+                path = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "stress.json");
             if (EditorApplication.isPlaying) return "stop play first: SimHost reads the stress preset in Awake";
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host == null) return "no SimHost in the open scene: open Scenes/GreyboxCorridor.unity first";

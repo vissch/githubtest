@@ -46,7 +46,7 @@ namespace TW.Editor
                 var tex = new Texture2D(W, H, TextureFormat.RGB24, false);
                 tex.ReadPixels(new Rect(0, 0, W, H), 0, 0); tex.Apply();
                 RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
-                Directory.CreateDirectory(Path.GetDirectoryName(Pending));
+                CaptureRig.EnsureDir(Pending);
                 File.WriteAllBytes(Pending, tex.EncodeToPNG());
                 Object.Destroy(tex);
                 Last = Pending; Pending = null;
