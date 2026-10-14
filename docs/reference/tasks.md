@@ -102,6 +102,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   tallies every fresh unit of either side into a deploys.csv under the project's git-ignored captures folder (the
   unitsday set). Nobody plays in it, so it reads the
   garrisons plus what the script sends, not a human's build.
+- **Filming one unit of the review and measuring it:** UnitFilmStills (`Tests/Stills`, `AUnitIsFilmedByDay`,
+  explicit, run by name with a graphics device; `TW_UNIT`, `TW_TAKE`, `TW_STILLS_FIELD`) stages the unit on open
+  ground in Winter, runs five beats over 13 game seconds (walk, turn, fire, a real shell, close from the front
+  quarter), films 312 frames through `RiderLab.Film` and writes a txt beside them: foot slide against the rate
+  clamp, shots fired with no fire pose, the largest drawn-yaw step in a tick, the clip histogram, and for a hull
+  the sim's own speed, yaw and gun cooldown (a hull is not on the infantry ladder).
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
