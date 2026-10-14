@@ -274,10 +274,13 @@ namespace TW.Tests
             // [T28] "men reached a trench" was only > 8 of the 40 spawned (the sibling ShelledForest test below
             // guards >= 24 of 30 = 0.8): raised to the same ratio, falling back to the front trench's own
             // capacity if it genuinely cannot hold that many.
-            Assert.GreaterOrEqual(garrison, math.min(32, front.CellCount), "[T28] nearly the whole 40-man garrison reached a trench");
+            // [S2.2] the cell count is a premise, so it is asserted before the floor it feeds, and the floor never
+            // drops below the pre-T28 assert's own strength (> 8).
+            Assert.Greater(front.CellCount, 0, "[S2.2] setup: the front trench has cells to stand in");
+            int need = math.max(9, math.min(32, front.CellCount));
+            Assert.GreaterOrEqual(garrison, need, "[T28] nearly the whole 40-man garrison reached a trench");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"{garrison - posted} of {garrison} men have nowhere to be and fall back to separation alone");
-            Assert.Greater(front.CellCount, 0);
         }
 
         /// <summary>
@@ -360,7 +363,9 @@ namespace TW.Tests
             }
             // [T28] same weak guard as AFullGarrisonFindsPostsForNearlyEveryone above (> 8 of 40); raised to the
             // sibling's 0.8 ratio, bounded by the front trench's own cell count on this map.
-            Assert.GreaterOrEqual(garrison, math.min(32, def.CellCount), "[T28] nearly the whole 40-man garrison reached a trench on ShelledForest");
+            // [S2.2] same floor as the sibling: never weaker than the pre-T28 assert (> 8).
+            int need = math.max(9, math.min(32, def.CellCount));
+            Assert.GreaterOrEqual(garrison, need, "[T28] nearly the whole 40-man garrison reached a trench on ShelledForest");
             Assert.GreaterOrEqual(posted, (int)(garrison * 0.9f),
                 $"ShelledForest: {garrison - posted} of {garrison} garrisoned men have nowhere to be and fall back "
                 + $"to separation alone (front trench has {def.CellCount} cells, {def.FireStepCount} fire steps)");
