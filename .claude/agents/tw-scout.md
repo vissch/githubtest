@@ -19,8 +19,6 @@ Rules that have cost wrong answers here:
   with another name. An array may be named differently from the idea (`StanceOf`, not `Stance`).
 - **"Not found" is a finding only with the searches you ran.** Give the patterns and the folders.
 - **A fact is "read in code" or "listed"**, never "works": you ran nothing.
-- **Leave `github-test1/` out of every search** (`--glob "!github-test1"`): it is an unrelated Unity project at the
-  repo root, and a hit there is not an answer.
 - **Branches differ.** Say which checkout and commit you read (`git rev-parse --short HEAD`), or that git was not
   open to you.
 
