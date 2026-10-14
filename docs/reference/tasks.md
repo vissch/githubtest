@@ -691,11 +691,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   ordered, how many charges are left and the command itself are `UI/Selection/SapperOrders.cs` (pure over `SimWorld`
   and `SapperSystem`, no UI Toolkit); `HudView.BindSapperOrders` shows the row, `HudController.ToggleLay` arms it and
   its `LayClick` sends one `CommandType.UnitAbility` per selected sapper on the ground click, spending that press
-  through `TestPanel.SpendAim` so the selection is not cleared by it. Keys: `GameAction.LayMine` / `LayTripwire`
-  (X and T by default, rebindable).
+  through `TestPanel.SpendAim` so the selection is not cleared by it; the half of that click with no mouse in it is
+  the public `HudController.LayAt(point)`, which is what the PlayMode proof calls. Keys: `GameAction.LayMine` /
+  `LayTripwire` (X and T by default, rebindable).
 - **Tests:** HudBindTests, HudStructureTests, SapperOrderTests (the row's commands, stepped through a real `MatchSim`),
   HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
-  HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
+  HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one; and the shipped bar
+  on a real panel lays a mine for the selected sapper and keeps him selected), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **Centre banner** (a trench taken, an ability, the match end): `ObjectiveTracker.BannerFor` (`UI/ObjectiveTracker.cs`,
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
