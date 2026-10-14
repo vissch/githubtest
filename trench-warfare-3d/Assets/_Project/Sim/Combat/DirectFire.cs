@@ -212,16 +212,21 @@ namespace TW.Sim.Combat
             public float2 HomeSign;
             public bool Fronts;
 
-            /// <summary>How far <paramref name="t"/> stands behind his own front trench, measured along the field at
-            /// his own column; 0 when there is no front trench to measure from or he is in front of it.</summary>
-            float BehindOwnFront(int t, float3 q)
+            /// <summary>The target's own front trench at his column, as two signed distances along the field with his
+            /// own sign: <paramref name="back"/> how far he stands behind it (0 or less in front of it), and
+            /// <paramref name="from"/> where the shooter at <paramref name="p"/> stands against the same line
+            /// (negative: on the far side of it). Both 0 when there is no front trench to measure from.</summary>
+            void OwnFront(int t, float3 q, float3 p, out float back, out float from)
             {
-                if (!Fronts) return 0f;
+                back = 0f; from = 0f;
+                if (!Fronts) return;
                 int team = Team[t] & 1;
                 int col = math.clamp((int)(q.x / MapData.NavCellSize), 0, NavWidth - 1);
                 float fz = FrontZ[team * NavWidth + col];
-                if (math.isnan(fz)) return 0f;
-                return (q.z - fz) * (team == 0 ? HomeSign.x : HomeSign.y);
+                if (math.isnan(fz)) return;
+                float s = team == 0 ? HomeSign.x : HomeSign.y;
+                back = (q.z - fz) * s;
+                from = (p.z - fz) * s;
             }
 
             public int Count, NavWidth, NavLength;
@@ -441,7 +446,10 @@ namespace TW.Sim.Combat
                         propCover = cover - open;
                         // coming up behind his own lines he is half as easy to hit, and no longer hidden altogether
                         if ((Flags[t] & (uint)UnitFlags.Vehicle) == 0 && TrenchId[t] < 0)
-                            chance *= CombatTables.ApproachShare(BehindOwnFront(t, q));
+                        {
+                            OwnFront(t, q, p, out float back, out float from);
+                            chance *= CombatTables.ApproachShare(back, from);
+                        }
                     }
                     if (SmokeOn)
                     {

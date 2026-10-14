@@ -43,9 +43,14 @@ namespace TW.Sim.Combat
         // ground. Applied by DirectFireSystem with the other hit rules.
         public const float ApproachHitShare = 0.5f;
 
-        /// <summary>What a shot at a man on foot in the open is worth: half behind his own front trench, whole from the
-        /// line forward. <paramref name="metresBehindOwnFront"/> is 0 or less when he is in front of it.</summary>
-        public static float ApproachShare(float metresBehindOwnFront) => metresBehindOwnFront > 0f ? ApproachHitShare : 1f;
+        /// <summary>What a shot at a man on foot in the open is worth: half when he is behind his own front trench and
+        /// the shooter is on the far side of that same line, whole otherwise. Both metres are measured from the
+        /// target's own front trench with the target's sign, so <paramref name="metresBehindOwnFront"/> is 0 or less
+        /// when he is in front of it and <paramref name="metresShooterBehindThatLine"/> is less than 0 when the
+        /// shooter is on the far side of it. An enemy who has broken through that line (a flamethrower at 9 m behind
+        /// it) is past the cover of his own parapet and hits at the full chance, as the old dead-ground rule had it.</summary>
+        public static float ApproachShare(float metresBehindOwnFront, float metresShooterBehindThatLine)
+            => metresBehindOwnFront > 0f && metresShooterBehindThatLine < 0f ? ApproachHitShare : 1f;
         // ---- the bomb (2026-09-28): how a trench was cleared. A man in the open who has come within GrenadeRange of the
         // trench man he is fighting throws one instead of firing: it goes off where it lands (BlastSystem, so the bay
         // still saves a man some of it), and he holds it when a friend stands within GrenadeFriend of the mark. A rifle
