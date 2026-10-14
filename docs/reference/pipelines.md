@@ -18,7 +18,7 @@ All four run headless in Blender 5.0: `"C:\Program Files\Blender Foundation\Blen
 
 | Script | Input (owner's, not in repo) | Output | Usage and flags |
 |---|---|---|---|
-| `envsplit.py` | `Downloads\env sets\` Tripo sheets | `Resources/Env/<Set>/<Prop>.fbx` + `<Set>.jpg` | `-- <set key> <fbx> <outdir> <renderdir>`. `TW_TURNS` = JSON extra yaw per prop. |
+| `envsplit.py` | `Downloads\env sets\` Tripo sheets | `Resources/Env/<Set>/<Prop>.fbx` (no texture: `envgrade.py` writes `<Set>.jpg`) | `-- <set key> <fbx> <outdir> <renderdir>`. `TW_TURNS` = JSON extra yaw per prop. |
 | `housesplit.py` | village houses, watchtower, ruins sheets | `Resources/Env/<Set>/Chunks/*.fbx` + `houses.json` | `-- <fbx> <outdir> <renderdir>`. Flags: `TW_SCALE` (sheet units to metres), `TW_CUT` (chunk edge, m), `TW_SMALL`, `TW_TEX` (basecolour, reads stone vs timber), `TW_PIVOT` (house or chunk), `TW_NAMES`, `TW_TURNS`, `TW_LOOSE=1` (welded sheet), `TW_ONE=1` + `TW_KEEP=1` (slice one kit prop, keeps pivot and facing), `TW_FLOORS=1` (cut along storeys), `TW_STOREY`, `TW_BAND`, `TW_MINTRIS`, `TW_OLDCAPS=1` (caps take the first wall loop's UVs, the way before 2026-09-27), `TW_CAPLOG=1`. A house over 96 chunks (`MAX_CHUNKS`, the size of `HouseKit.ChunkMask`) fails the run with `OVER LIMIT`
 after `houses.json` is written, because `HouseKit.Build` would refuse such a house and simply not draw it. Values used per set: UNRECORDED except Houses (`TW_PIVOT=chunk TW_CUT=2.4 TW_SMALL=1.4`) and the kit props (Biplane `TW_CUT=1.9`). |
 | `tanksplit.py` | `Downloads\cartoon+tank+3d+model.zip` (full), `Downloads\tank+3d+model.zip` (far) | `Resources/Vehicles/<Maw,Tusk>/<Tank>_LOD0,1.fbx` + `TankAtlas_LOD0,1.jpg` | `-- <full.fbx> <far.fbx> <outdir> <renderdir>` |
@@ -152,6 +152,10 @@ every boundary-loop walk must order its edges by `e.index` and may not pop a BMe
 the address order, or the exported FBX differs between two runs on the same input.
 `tank3split.py`'s snap pass is also checked there: it reads `TW_DERIVE` first and snaps only the LODs it keeps, so
 the manifest's `snapped` never names a mesh the derive pass threw away.
+`python Tools/test_make_missing_clips.py` is a source check only (the script needs `animforge` and the owner's
+FBX library): each number a `made-clips.csv` recipe quotes must be an argument of the call that makes the clip -
+the `high_step` lift and swing scales for Wade Forward and Wire Crossing, `Clip.concat`'s fade for Get Up From
+Prone, and Officer Whistle's frame count.
 `python Tools/test_animforge.py` runs `animforge.py` for real on two synthetic FBX files: the footer it writes has
 the layout Blender's own writer uses (footer id, four zeros, 1..16 pad bytes, version, 120 zeros, magic), and a bone
 animated on only one or two axes keeps its curves, each missing axis held at its `AnimationCurveNode`'s value.
