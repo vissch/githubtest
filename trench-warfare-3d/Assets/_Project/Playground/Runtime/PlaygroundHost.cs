@@ -699,12 +699,18 @@ namespace TW.Playground
                 }
             }
             foreach (var v in Vehicles)
+            {
+                int prev = v.Lod;
                 Measure(v.name, v.gameObject, v.Centre, v.Radius, v.Picker.Cuts, v.LodCount, k => { foreach (var p in v.Parts) p.R.enabled = k >= -1; if (k >= 0) v.SetLod(k); });
+                v.SetLod(prev);
+            }
             foreach (var u in Units)
                 Measure(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Picker.Cuts, u.Lods.Length, k => { for (int j = 0; j < u.Lods.Length; j++) u.Lods[j].enabled = j == k; if (k >= 0) u.SetLodSilently(k); });
             cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
             Cam.enabled = true;
             foreach (var v in Vehicles) foreach (var p in v.Parts) p.R.enabled = true;
+            // the pass forced LODs on the figures too: put every one back on the LOD its picker names (Y7)
+            foreach (var u in Units) u.ShowLod();
             return sb.Append("]}").ToString();
         }
 

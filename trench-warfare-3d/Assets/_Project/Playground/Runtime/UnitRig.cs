@@ -428,6 +428,10 @@ namespace TW.Playground
         /// <summary>Draw this LOD for one render (LOD-pop measurement): the renderers only, not the picker's state.</summary>
         public void SetLodSilently(int lod) { for (int k = 0; k < Lods.Length; k++) Lods[k].enabled = k == lod; Lods[lod].SetPropertyBlock(mpb); }
 
+        /// <summary>Draw the LOD the picker says this figure is at: what a measuring pass must leave behind, or the figure
+        /// stays drawn at the last LOD that was forced on it while the picker still names the old one (Y7).</summary>
+        public void ShowLod() { SetLodSilently(Mathf.Clamp(Mathf.Max(0, Lod), 0, Lods.Length - 1)); }
+
         public void SetLod(int lod)
         {
             lod = Mathf.Clamp(lod, 0, Lods.Length - 1);

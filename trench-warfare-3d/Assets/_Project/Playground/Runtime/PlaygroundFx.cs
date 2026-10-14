@@ -169,6 +169,20 @@ namespace TW.Playground
         public bool UnitRings;   // off: measured, they add a third to the side's colour but cost the figure a quarter of its contrast (r15)
         Material discMat; Mesh discMesh; MaterialPropertyBlock discProps;
         readonly List<Matrix4x4> discM = new List<Matrix4x4>(); readonly List<Vector4> discC = new List<Vector4>();
+        /// <summary>Rings drawn in one frame. A MaterialPropertyBlock keeps the length of the first array it was given, so
+        /// the colours go through a buffer of this one length every frame (Y10).</summary>
+        public const int MaxRings = 512;
+        readonly Vector4[] ringColours = new Vector4[MaxRings];
+
+        /// <summary>This frame's ring colours into the fixed buffer: the first min(count, length) of them, the rest black.
+        /// Returns how many rings can be drawn.</summary>
+        public static int FillRingColours(IReadOnlyList<Vector4> queued, Vector4[] buffer)
+        {
+            int n = queued == null ? 0 : Mathf.Min(queued.Count, buffer.Length);
+            for (int i = 0; i < n; i++) buffer[i] = queued[i];
+            for (int i = n; i < buffer.Length; i++) buffer[i] = Vector4.zero;
+            return n;
+        }
 
         /// <summary>Queue a contact blob and a ring in the side's colour: footprint centre, yaw, half width and length.</summary>
         public void Ring(Vector3 at, float yaw, float halfW, float halfL, float padW, float padL, int team, bool dead)
@@ -228,7 +242,9 @@ namespace TW.Playground
             }
             // a single instanced draw ignores per-instance properties (project memory): pad to two with an empty one
             if (discM.Count == 1) { discM.Add(Matrix4x4.Scale(Vector3.zero)); discC.Add(Vector4.zero); }
-            discProps.SetVectorArray("_Color", discC);
+            int rings = FillRingColours(discC, ringColours);
+            if (discM.Count > rings) discM.RemoveRange(rings, discM.Count - rings);
+            discProps.SetVectorArray("_Color", ringColours);
             var rp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
             Graphics.RenderMeshInstanced(rp, discMesh, 0, discM);
             discM.Clear(); discC.Clear();

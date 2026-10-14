@@ -309,5 +309,81 @@ namespace TW.Tests.Playground
             Assert.That(PlaygroundHost.Join(two, 0, 3), Is.EqualTo("PENDING"), "[Y6] a command that has not run yet is PENDING");
             Assert.That(PlaygroundHost.Join(new[] { "ok vehicle" }, 0, 1), Is.EqualTo("ok vehicle"), "[Y6] a good line comes back as it is");
         }
+
+        [Test]
+        public void AMeasuringPassLeavesTheFigureOnItsOwnLod()
+        {
+            // [Y7] lodpop put the vehicles' renderers back but not the figures': a measured figure stayed drawn at the last
+            // LOD forced on it while the report still named the LOD its picker holds. ShowLod draws the LOD it names.
+            var l = Lib();
+            if (l.Units.Length == 0) Assert.Ignore("no unit in the library");
+            var parent = new GameObject("test stage").transform;
+            ClipDeck deck = null;
+            try
+            {
+                deck = ClipDeck.Make(l, parent);
+                if (deck == null) Assert.Ignore("the library has no ClipSource");
+                var u = UnitRig.Build(l.Units[0], deck, null, parent, Vector3.zero, 0f, 1f);
+                if (u.Lods.Length < 3) Assert.Ignore("the figure has fewer than three LODs");
+                int own = Mathf.Max(0, u.Lod);
+                u.SetLodSilently(2);   // what a measuring pass leaves behind
+                Assert.That(u.Lods[2].enabled, Is.True, "[Y7] the forced LOD is the one drawn");
+                u.ShowLod();
+                Assert.That(u.Lods[own].enabled, Is.True, "[Y7] after the pass the figure is drawn at the LOD the report names (" + own + ")");
+                for (int k = 0; k < u.Lods.Length; k++)
+                    Assert.That(u.Lods[k].enabled, Is.EqualTo(k == own), "[Y7] LOD " + k + " is drawn when it should not be");
+            }
+            finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void ARepairedFlyerFallsAgainWhenItIsKnockedOut()
+        {
+            // [Y9] the fall state (down, dig, the spin and the roll) was never reset while it flew, so a flyer repaired and
+            // knocked out a second time skipped the fall and hung at altitude in its crash pose. The expected height is the
+            // first knock-out's own resting height: that is where a crash ends.
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).flyer && !VehicleManifest.Parse(v.Manifest).hover);
+            if (e == null) Assert.Ignore("no flyer in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, new Vector3(600f, 0f, 0f), 0f, PlaygroundHost.DrawScale(e.Name, 0f), 3);
+                r.CookDelay = -1f;
+                var hull = r.Find("Hull");
+                if (hull == null || r.Flyer == null) Assert.Ignore("the flyer has no Hull or no flyer drive");
+                for (int f = 0; f < 120; f++) r.Advance(1f / 60f);
+                float flying = hull.T.localPosition.y;
+                r.KnockOut();
+                for (int f = 0; f < 360; f++) r.Advance(1f / 60f);
+                float rest = hull.T.localPosition.y;
+                Assert.That(rest, Is.LessThan(flying - 2f), "[Y9] the first knock-out never brought it down");
+
+                r.Repair();
+                for (int f = 0; f < 60; f++) r.Advance(1f / 60f);
+                r.KnockOut();
+                for (int f = 0; f < 360; f++) r.Advance(1f / 60f);
+                float again = hull.T.localPosition.y;
+                Assert.That(again, Is.EqualTo(rest).Within(0.05f), $"[Y9] knocked out again it rested at {again:0.00}, not at the crash's {rest:0.00}");
+                Assert.That(again, Is.LessThan(flying - 2f), $"[Y9] a repaired flyer hangs in the air: {again:0.00} against its flying {flying:0.00}");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void EveryRingOfAFrameGetsItsColour()
+        {
+            // [Y10] one MaterialPropertyBlock was refilled with a growing list: it keeps the length of the first array it
+            // was given, so rings past the first frame's count were drawn with no colour. The buffer is one fixed length and
+            // every queued colour lands in it, the fifth of a five-ring frame included.
+            var buffer = new Vector4[PlaygroundFx.MaxRings];
+            Assert.That(PlaygroundFx.FillRingColours(new[] { new Vector4(1f, 0f, 0f, 1f) }, buffer), Is.EqualTo(1), "[Y10] one ring, one colour");
+            var five = new[] { new Vector4(1f, 0f, 0f, 1f), new Vector4(0f, 1f, 0f, 1f), new Vector4(0f, 0f, 1f, 1f),
+                               new Vector4(1f, 1f, 0f, 1f), new Vector4(0f, 1f, 1f, 0f) };
+            Assert.That(PlaygroundFx.FillRingColours(five, buffer), Is.EqualTo(5), "[Y10] five rings, five colours");
+            for (int i = 0; i < five.Length; i++)
+                Assert.That(buffer[i], Is.EqualTo(five[i]), "[Y10] ring " + i + " of the frame was drawn with no colour");
+            Assert.That(buffer[5], Is.EqualTo(Vector4.zero), "[Y10] a ring nobody queued keeps no old colour");
+            Assert.That(buffer.Length, Is.EqualTo(PlaygroundFx.MaxRings), "[Y10] the buffer the block was given never changes length");
+        }
     }
 }
