@@ -91,6 +91,9 @@ namespace TW.Sim.Combat
         public NativeArray<float> HoldHp;
         /// <summary>The goal it held on (format v14): -1 until it is given one.</summary>
         public NativeArray<int> HoldGoal;
+        /// <summary>TankSpec.TurnsToAim: the target the hull is turning to (format v38), -1 none. Latched, so a nearer
+        /// man on the other side does not reverse the turn (K.2); -1 again the moment it is not turning.</summary>
+        public NativeArray<int> TurnTarget;
         /// <summary>This tick's rounds and charges on vehicles (close assaults from DirectFire, then these guns);
         /// VehicleModulesSystem drains it later in the same tick.</summary>
         public NativeList<VehicleHit> PendingHits;
@@ -102,6 +105,11 @@ namespace TW.Sim.Combat
         NativeList<int2> clawed;                // (victim, walker) this tick: men taken in a claw, resolved below
         NativeArray<int> halt;                  // stand-in when no kinematics system is registered
         NativeArray<VehicleProfile> drive;      // ditto for the drive profiles: the compiled defaults, by archetype
+        NativeArray<int> stuck;                 // ditto for DitchTicks/BogTicks: all zero
+        NativeArray<byte> driveMode;            // ditto for VehicleKinematicsSystem.Drive: all DriveFlow
+        NativeArray<float3> driveTarget;        // ditto
+        NativeArray<byte> dirStub, readyStub;   // ditto for the flow fields, when none is registered
+        FlowFieldManager fields;
 
         public TankGunnerySystem(MapData map) { this.map = map; }
 
@@ -122,7 +130,8 @@ namespace TW.Sim.Combat
             HoldTarget = new NativeArray<int>(n, Allocator.Persistent); HoldTicks = new NativeArray<int>(n, Allocator.Persistent);
             Release = new NativeArray<int>(n, Allocator.Persistent); HoldHp = new NativeArray<float>(n, Allocator.Persistent);
             HoldGoal = new NativeArray<int>(n, Allocator.Persistent);
-            for (int i = 0; i < n; i++) { HoldTarget[i] = -1; HoldGoal[i] = -1; }
+            TurnTarget = new NativeArray<int>(n, Allocator.Persistent);
+            for (int i = 0; i < n; i++) { HoldTarget[i] = -1; HoldGoal[i] = -1; TurnTarget[i] = -1; }
             clawed = new NativeList<int2>(8, Allocator.Persistent);
             for (int i = 0; i < n * Guns; i++) GunTarget[i] = -1;
             PendingHits = new NativeList<VehicleHit>(32, Allocator.Persistent);
@@ -132,6 +141,11 @@ namespace TW.Sim.Combat
             halt = new NativeArray<int>(n, Allocator.Persistent);
             drive = new NativeArray<VehicleProfile>(Archetypes.Count, Allocator.Persistent);
             for (int a = 0; a < Archetypes.Count; a++) drive[a] = VehicleProfile.ForArchetype((byte)a);
+            stuck = new NativeArray<int>(n, Allocator.Persistent);
+            driveMode = new NativeArray<byte>(n, Allocator.Persistent);      // VehicleKinematicsSystem.DriveFlow is 0
+            driveTarget = new NativeArray<float3>(n, Allocator.Persistent);
+            dirStub = new NativeArray<byte>(1, Allocator.Persistent);
+            readyStub = new NativeArray<byte>(1, Allocator.Persistent);
         }
 
         public void Step(SimWorld w)
@@ -140,6 +154,7 @@ namespace TW.Sim.Combat
             if (n == 0) return;
             if (blast == null) blast = w.GetSystem<BlastSystem>();
             if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
+            if (fields == null) fields = w.GetSystem<FlowFieldManager>();
             events.Clear(); impacts.Clear(); clawed.Clear();
             // the rockets that come down this tick burst now (BlastSystem steps after this system, the same tick). A world
             // with no BlastSystem (a bare test rig) has nothing to burst them: they are dropped, not kept for ever
@@ -172,7 +187,12 @@ namespace TW.Sim.Combat
                 HaltTicks = kinematics != null ? kinematics.HaltTicks : halt,
                 Height = map.Height, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
                 Hits = PendingHits, Events = events, Impacts = impacts, Rockets = Rockets,
-                TargetSlot = w.TargetSlot, GoalId = w.GoalId, Hp = w.Hp, HoldTarget = HoldTarget, HoldTicks = HoldTicks, Release = Release, HoldHp = HoldHp, HoldGoal = HoldGoal, Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
+                TargetSlot = w.TargetSlot, GoalId = w.GoalId, Hp = w.Hp, Speed = w.Speed, HoldTarget = HoldTarget, HoldTicks = HoldTicks, Release = Release, HoldHp = HoldHp, HoldGoal = HoldGoal, TurnTarget = TurnTarget,
+                DitchTicks = kinematics != null ? kinematics.DitchTicks : stuck, BogTicks = kinematics != null ? kinematics.BogTicks : stuck,
+                VehDrive = kinematics != null ? kinematics.Drive : driveMode, DriveTarget = kinematics != null ? kinematics.DriveTarget : driveTarget,
+                Directions = fields != null ? fields.Direction : dirStub, Ready = fields != null ? fields.Ready : readyStub,
+                CellCount = fields != null ? fields.CellCount : 1, HasFields = kinematics != null && fields != null,
+                Tanks = catalogue.Tank, Roster = w.Units.Roster, Drive = kinematics != null ? kinematics.Profiles : drive,
             }.Run();
             for (int e = 0; e < events.Length; e++) w.Events.Add(events[e]);
             if (blast != null) for (int k = 0; k < impacts.Length; k++) blast.Queue(impacts[k]);
@@ -223,8 +243,17 @@ namespace TW.Sim.Combat
             public NativeList<PendingRocket> Rockets;
             [ReadOnly] public NativeArray<int> TargetSlot, GoalId;
             [ReadOnly] public NativeArray<float> Hp;
+            [ReadOnly] public NativeArray<float> Speed;      // K.1: a top speed of zero means it is going nowhere
             public NativeArray<int> HoldTarget, HoldTicks, Release, HoldGoal;
             public NativeArray<float> HoldHp;
+            public NativeArray<int> TurnTarget;                          // K.2: the hull turn's latched target, -1 none
+            // K.1: what VehicleKinematicsSystem would drive on, read only, to tell "parked" from "about to pull away"
+            [ReadOnly] public NativeArray<int> DitchTicks, BogTicks;
+            [ReadOnly] public NativeArray<byte> VehDrive;
+            [ReadOnly] public NativeArray<float3> DriveTarget;
+            [ReadOnly] public NativeArray<byte> Directions, Ready;
+            public int CellCount;
+            public bool HasFields;
 
             int CellOf(float3 p)
             {
@@ -311,6 +340,27 @@ namespace TW.Sim.Combat
                 return -1;
             }
 
+            /// <summary>K.1: standing still with nowhere to go. Two reasons it would not drive anyway: no flow field
+            /// out of this cell (or a point drive already arrived), decided the way VehicleKinematicsSystem decides it,
+            /// or it is held down - Immobilised, Stalled, Bogged, ditched or bogged - and could not turn if it tried.
+            /// A machine with a top speed of zero (an emplaced one, a test rig) is parked wherever it stands.</summary>
+            bool Parked(int i, float3 p, uint f)
+            {
+                if (SimMath.Length(Velocity[i]) >= 0.02f) return false;
+                if ((f & ((uint)UnitFlags.Immobilised | (uint)UnitFlags.Stalled | (uint)UnitFlags.Bogged)) != 0) return false;
+                if (DitchTicks[i] != 0 || BogTicks[i] != 0) return false;
+                if (Speed[i] <= 0f) return true;                   // it has no way of its own to go anywhere
+                if (!HasFields) return true;                       // a bare rig with no nav: it has nowhere to go
+                if (VehDrive[i] == VehicleKinematicsSystem.DriveFlow)
+                {
+                    int goal = GoalId[i];
+                    byte d = goal < 0 || Ready[goal] == 0 ? FlowField.NoDirection : Directions[goal * CellCount + CellOf(p)];
+                    return d == FlowField.NoDirection;
+                }
+                float3 toward = DriveTarget[i] - p; toward.y = 0f;
+                return SimMath.Length(toward) < VehicleKinematicsSystem.DriveArrive;
+            }
+
             public void Execute()
             {
                 for (int i = 0; i < Count; i++)
@@ -322,7 +372,7 @@ namespace TW.Sim.Combat
                     {
                         Gen[i] = Generation[i]; CrewFactor[i] = 1f;
                         // the stand-off hold is the machine's own: a new one in a dead one's slot starts with none (critic r3)
-                        HoldTarget[i] = -1; HoldTicks[i] = 0; Release[i] = 0; HoldHp[i] = 0f; HoldGoal[i] = -1;
+                        HoldTarget[i] = -1; HoldTicks[i] = 0; Release[i] = 0; HoldHp[i] = 0f; HoldGoal[i] = -1; TurnTarget[i] = -1;
                         for (int k = 0; k < Guns; k++)
                         {
                             int g0 = i * Guns + k;
@@ -335,21 +385,34 @@ namespace TW.Sim.Combat
                     bool moving = SimMath.Length(Velocity[i]) > 0.3f;
                     if (spec.StandOffMetres > 0f) StandOff(i, p, spec);
                     // A stopped machine that turns to aim (the Kettle, the owner 2026-10-06): its mortar swings only
-                    // 24 degrees either side of the nose, so standing with its back to the enemy it never fired. While
-                    // it stands still and gun 0 has nothing in its arc, look for a target in range in any direction and
-                    // turn the hull on the spot toward it, holding the halt so kinematics neither drives nor steers it.
-                    // A driving machine never enters here (|Velocity| is well over the standstill mark), so it is unchanged.
+                    // 24 degrees either side of the nose, so standing with its back to the enemy it never fired. It
+                    // enters here only when it is parked - standing still with nowhere to go, and not held down (see
+                    // Parked) - and gun 0 has nothing in its arc: a machine about to pull away, or bogged, ditched or
+                    // Immobilised, never pivots (K.1). It keeps the target it turned to while that target is still one
+                    // (K.2), so two men at near-equal range on opposite sides cannot make the hull dither.
                     if (spec.TurnsToAim && spec.GunCount > 0 && GunTarget[i * Guns] < 0
                         && (f & ((uint)UnitFlags.Pouncing | (uint)UnitFlags.Charging)) == 0
-                        && SimMath.Length(Velocity[i]) < 0.02f)
+                        && Parked(i, p, f))
                     {
                         var g0 = spec.Gun(0);
-                        int face = GunHealth[i * Guns] > 0f && CrewFactor[i] > 0f ? Pick(i, p, hullYaw, g0, true) : -1;
+                        bool canAim = GunHealth[i * Guns] > 0f && CrewFactor[i] > 0f;
+                        // K.2: hold the latched target while it is still in range, still an enemy and still seen;
+                        // only when it is gone does it look for another
+                        int face = -1;
+                        if (canAim)
+                        {
+                            int held = TurnTarget[i];
+                            face = held >= 0 && Score(i, held, p, hullYaw, g0, true) != float.MaxValue && Sees(i, held, g0)
+                                ? held : Pick(i, p, hullYaw, g0, true);
+                        }
+                        TurnTarget[i] = face;
                         if (face >= 0)
                         {
                             float3 to = Position[face] - p; to.y = 0f;
-                            // bring the target onto the gun's rest bearing, not onto the edge of the arc: the mortar
-                            // traverses at the same rate the hull turns, so an edge aim would lag out of tolerance
+                            // K.3: it turns the hull one step a tick toward the bearing that would put the target on
+                            // the gun's rest bearing, and stops the moment the gun has the target inside its arc (this
+                            // branch's own GunTarget < 0 gate), so the hull ends about an arc's width off the target,
+                            // not nose-on. Pinned by TankTests.AHaltedKettle_TurnsOnTheSpotToFace_ThenFires.
                             float off = SimMath.WrapAngle(SimMath.YawOf(to) - g0.RestYaw - hullYaw);
                             if (math.abs(off) > AimTolerance)
                             {
@@ -360,6 +423,10 @@ namespace TW.Sim.Combat
                             HaltTicks[i] = math.max(HaltTicks[i], 2);   // it stands while it turns
                         }
                     }
+                    // the latch outlives a few ticks of the gun holding the target: the hull drifts, the gun loses it
+                    // and the branch opens again, and re-picking there is exactly the dither K.2 is about. It goes only
+                    // when the machine is not one that stands and turns, or is no longer parked.
+                    else if (!spec.TurnsToAim || !Parked(i, p, f)) TurnTarget[i] = -1;
                     for (int k = 0; k < spec.GunCount; k++)
                     {
                         int gi = i * Guns + k;
@@ -516,6 +583,7 @@ namespace TW.Sim.Combat
             // v13 (2026-09-28): the stand-off hold, appended
             h = SimHash.Array(HoldTarget, n, h); h = SimHash.Array(HoldTicks, n, h); h = SimHash.Array(Release, n, h); h = SimHash.Array(HoldHp, n, h);
             h = SimHash.Array(HoldGoal, n, h);   // v14
+            h = SimHash.Array(TurnTarget, n, h);   // v38: the hull turn's latched target
             return h;
         }
 
@@ -536,10 +604,16 @@ namespace TW.Sim.Combat
             if (Release.IsCreated) Release.Dispose();
             if (HoldHp.IsCreated) HoldHp.Dispose();
             if (HoldGoal.IsCreated) HoldGoal.Dispose();
+            if (TurnTarget.IsCreated) TurnTarget.Dispose();
             if (events.IsCreated) events.Dispose();
             if (impacts.IsCreated) impacts.Dispose();
             if (halt.IsCreated) halt.Dispose();
             if (drive.IsCreated) drive.Dispose();
+            if (stuck.IsCreated) stuck.Dispose();
+            if (driveMode.IsCreated) driveMode.Dispose();
+            if (driveTarget.IsCreated) driveTarget.Dispose();
+            if (dirStub.IsCreated) dirStub.Dispose();
+            if (readyStub.IsCreated) readyStub.Dispose();
         }
     }
 }

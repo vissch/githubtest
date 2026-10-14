@@ -234,6 +234,81 @@ namespace TW.Tests
             Assert.AreEqual(0, Count(log, SimEventType.VehicleFired, k), "a driving Kettle is unchanged: the man stays out of its arc");
         }
 
+        // The second read, 2026-10-13 (K.1): the hull turn's gate was |Velocity| < 0.02 alone, so a Kettle that had a
+        // goal and was about to pull away was re-halted every tick to turn to a man, and a bogged, ditched or
+        // Immobilised one pivoted on the spot. The gate is now "parked": standing still, nowhere to go, nothing
+        // holding it down.
+        [Test]
+        public void AKettleGivenAGoalAstern_DrivesOff_WithAManAbeam()
+        {
+            using var m = NewMatch();
+            int k = m.World.Spawn(0, VehicleArchetype.Kettle, new float3(150f, 0f, 100f), RosterEntry.Kettle.Hp, RosterEntry.Kettle.Speed, true);
+            var c = m.Map.NavCellOf(new float3(150f, 0f, 40f));
+            m.World.GoalId[k] = m.Fields.GetGoal(GoalKey.Cell(m.Map.NavIndex(c.x, c.y), NavMode.Tracked));
+            int man = m.World.Spawn(1, Rifleman, new float3(70f, 0f, 100f), 100000f, 0f, false);   // 80 m abeam, in range, out of arc
+            m.World.Flags[man] = m.World.Flags[man] | (uint)UnitFlags.HoldFire;
+            Run(m, 300);
+            Assert.Less(m.World.Position[k].z, 100f - 5f, "[K.1] a Kettle with a goal drove off instead of being held turning to the man abeam");
+        }
+
+        [Test]
+        public void ABoggedDitchedOrImmobilisedKettle_DoesNotPivot()
+        {
+            using var m = NewMatch();
+            var ks = new int[4];
+            float[] y0 = new float[4];
+            // clear of the fire trenches at z 60 and 140, which a Kettle would be crossing (q 0 is the control)
+            float[] zs = { 100f, 80f, 120f, 160f };
+            for (int q = 0; q < 4; q++)
+            {
+                float z = zs[q];
+                ks[q] = m.World.Spawn(0, VehicleArchetype.Kettle, new float3(150f, 0f, z), RosterEntry.Kettle.Hp, 0f, true);   // no goal: nowhere to go
+                int man = m.World.Spawn(1, Rifleman, new float3(70f, 0f, z), 100000f, 0f, false);
+                m.World.Flags[man] = m.World.Flags[man] | (uint)UnitFlags.HoldFire;
+            }
+            // q 0 is the control; the other three are held down, each in its own way
+            // one tick first: both systems wipe a new slot's state (its generation changed), so nothing set before it
+            // survives. Then afflict them, and one more tick for VehicleModulesSystem to read the thrown track.
+            Step(m);
+            // Immobilised is VehicleModulesSystem's to set, from the tracks, and it rewrites the flag every tick: a
+            // walker's side fails on its last leg (a repair needs RepairQuietTicks + RepairTicks, well past this run)
+            m.Modules.Module[ks[1] * (int)VehicleModule.Count + (int)VehicleModule.TrackLeft] = 0f;
+            m.World.Flags[ks[2]] = m.World.Flags[ks[2]] | (uint)UnitFlags.Bogged;
+            m.Vehicles.BogTicks[ks[2]] = 200;
+            m.Vehicles.DitchTicks[ks[3]] = 300;
+            Step(m);
+            for (int q = 0; q < 4; q++) y0[q] = m.World.Yaw[ks[q]];
+            Run(m, 58);
+            Assert.AreNotEqual(0u, m.World.Flags[ks[1]] & (uint)UnitFlags.Immobilised, "the thrown track did immobilise it");
+            Assert.Greater(math.abs(SimMath.WrapAngle(m.World.Yaw[ks[0]] - y0[0])), 0.05f, "[K.1] the control Kettle, parked with nowhere to go, turned to the man");
+            Assert.AreEqual(y0[1], m.World.Yaw[ks[1]], 1e-4f, "[K.1] an Immobilised Kettle does not pivot");
+            Assert.AreEqual(y0[2], m.World.Yaw[ks[2]], 1e-4f, "[K.1] a bogged Kettle does not pivot");
+            Assert.AreEqual(y0[3], m.World.Yaw[ks[3]], 1e-4f, "[K.1] a ditched Kettle does not pivot");
+        }
+
+        // K.2: the pick was redone every tick, so two men at near-equal range on opposite sides flipped the turn and
+        // the hull dithered. The target is latched while it is still a target.
+        [Test]
+        public void AKettleKeepsTheManItTurnedTo_WhenANearerOneAppears()
+        {
+            using var m = NewMatch();
+            int k = m.World.Spawn(0, VehicleArchetype.Kettle, new float3(150f, 0f, 100f), RosterEntry.Kettle.Hp, 0f, true);
+            int left = m.World.Spawn(1, Rifleman, new float3(70f, 0f, 100f), 100000f, 0f, false);    // 80 m, bearing -90 degrees
+            int right = m.World.Spawn(1, Rifleman, new float3(240f, 0f, 100f), 100000f, 0f, false);  // 90 m, bearing +90 degrees
+            m.World.Flags[left] = m.World.Flags[left] | (uint)UnitFlags.HoldFire;
+            m.World.Flags[right] = m.World.Flags[right] | (uint)UnitFlags.HoldFire;
+            Run(m, 5);
+            float y5 = m.World.Yaw[k];
+            Assert.Less(y5, -0.05f, "[K.2] it began turning to the nearer man, the one on its left");
+
+            m.World.Position[right] = new float3(220f, 0f, 100f);   // 70 m: now the nearest
+            float worst = y5;
+            // one whole hull revolution is 2*pi / 1.35 rad/s = 4.65 s = 93 ticks at 20 ticks a second
+            var log = Run(m, 93, () => { worst = math.max(worst, m.World.Yaw[k]); return false; });
+            Assert.LessOrEqual(worst, y5 + 0.02f, "[K.2] the hull never reversed toward the nearer man on the other side");
+            Assert.Greater(Count(log, SimEventType.VehicleFired, k), 0, "[K.2] it fired within the 93 ticks one whole hull revolution takes");
+        }
+
         /// <summary>A Kettle of team 0, sent straight up the map the way SpawnTank sends a tank.</summary>
         static int SpawnKettle(MatchSim m, float3 at, float speed)
         {
