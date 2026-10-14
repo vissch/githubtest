@@ -26,7 +26,7 @@ namespace TW.Editor
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
         /// <summary>A knob set in the game on the lab's next frame (Knobs.Set from compiled code).</summary>
-        public static string Knob(string name, string value) { Get().Knobs.Add((name, value)); return $"{name}={value} (next frame)"; }
+        public static string Knob(string name, string value) { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; Get().Knobs.Add((name, value)); return $"{name}={value} (next frame)"; }
 
         /// <summary>The machine's drive taken away (its Speed to 0): with momentum it sheds its way at its Brake and runs on
         /// to a stop, as at a halt. RiderLab.Stop is not this: its heading pin zeroes the velocity, a dead stop.</summary>
@@ -41,6 +41,7 @@ namespace TW.Editor
         /// <summary>Traces the machine in `slot` for `seconds` of game time into `csv`.</summary>
         public static string Trace(int slot, string csv, float seconds = 6f)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             var b = Get();
             if (b.Tracing) return "already tracing slot " + b.Slot;
             b.Slot = slot; b.Csv = csv; b.Seconds = seconds; b.Rows.Clear(); b.Began = -1f; b.Tracing = true; b.Result = null;

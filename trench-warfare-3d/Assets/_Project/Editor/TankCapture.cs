@@ -53,18 +53,23 @@ namespace TW.Editor
             }
         }
 
+        // Held here, not looked up: FindFirstObjectByType does not return a DontSave object (CaptureRig.cs:334-337),
+        // so every Shot/Follow used to make ANOTHER Shooter — a Follow could never be stopped and kept writing zoom and
+        // focus over CaptureRig's posed shots. The Unity null check also covers a Shooter a play-mode change destroyed.
+        static Shooter shooter;
+
         static Shooter Get()
         {
-            var s = Object.FindFirstObjectByType<Shooter>();
-            if (s == null) s = new GameObject("TankCapture") { hideFlags = HideFlags.DontSave }.AddComponent<Shooter>();
-            return s;
+            if (shooter == null)
+                shooter = new GameObject("TankCapture") { hideFlags = HideFlags.DontSave }.AddComponent<Shooter>();
+            return shooter;
         }
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
-        public static string Shot(string path, int w = 1600, int h = 900) { var s = Get(); s.W = w; s.H = h; s.Pending = path; return "queued " + path; }
+        public static string Shot(string path, int w = 1600, int h = 900) { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; var s = Get(); s.W = w; s.H = h; s.Pending = path; return "queued " + path; }
 
-        public static string Follow(int slot, float zoom = 22f, float yaw = 30f) { var s = Get(); s.FollowSlot = slot; s.FollowZoom = zoom; s.FollowYaw = yaw; return "following " + slot; }
+        public static string Follow(int slot, float zoom = 22f, float yaw = 30f) { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; var s = Get(); s.FollowSlot = slot; s.FollowZoom = zoom; s.FollowYaw = yaw; return "following " + slot; }
 
         public static string Silver(int amount = 100000)
         {
