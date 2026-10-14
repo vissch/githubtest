@@ -28,6 +28,7 @@ The RTX 5090 is not the target: frame time here is a proxy. The target is a GTX 
 1. Same battle (`hash_start`, plus `hash_end` for presentation-only changes).
 2. At least 3 interleaved repeats past the noise band.
 3. The target improves and no other p95 rises past its band.
+   **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
 4. Fidelity floor (`alive_end`, VAT vertices, shadows).
 5. The image class is honest: same / indistinguishable (critic) / juice.
 6. Readability never drops.

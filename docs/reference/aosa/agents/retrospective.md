@@ -26,6 +26,9 @@ You judge the loop, not the game. Read only what the loop wrote:
 6. **Cadence and WIP.** Should the 20-minute cadence or the WIP cap of 3 change? Answer from how long cycles
    actually took.
 
+**Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame. It is the owner's order: a
+retune of `METRIC_SCALE` may not retune it away.
+
 **Output:** a patch to `README.md` (rules), `BACKLOG.md` (ordering, splits, parks) and `budget.json` (the split),
 each change citing its evidence, plus a 10-line summary for the owner. The orchestrator commits it as "AOSA
 retrospective, cycles N-M".

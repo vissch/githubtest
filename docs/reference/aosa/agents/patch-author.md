@@ -30,6 +30,8 @@ the main clone.
    - **juice:** it is meant to change the look.
 6. Name the test that would catch a regression in this change. If none exists, write it in the same patch.
 
+**Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
+
 **Output: exactly this.**
 ```
 CARD: <id>   RESULT: PATCH | SWEEP | PREMISE FALSE

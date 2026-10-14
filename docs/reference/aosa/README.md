@@ -92,6 +92,10 @@ A change lands only if every rule holds. The rule number goes into the revert re
    dev-barrage gpu and vertices at C40, where 14 priors gave a 0.067 ms band against a 1.2 ms spread.
 3. **Perf.** The target metric improves by more than the band. No other of `main_ms`, `gpu_ms`, `draw_calls`,
    `setpass`, `gc_bytes`, `frame_budget_draws`, `frame_budget_vertices` at p95 rises by more than its band.
+
+   **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
+   `compare`'s default target metric is `main_ms.p95`, so the processor's number decides a verdict unless the card
+   names another metric.
 4. **Fidelity floor.** `alive_end`, `vat_vertices` and `vat_shadows_on` do not fall. A perf change may not win by
    drawing less.
 5. **Image class.** A "same image" change needs `CaptureRig.Diff` `changed_frac` < 0.001 on the held T1, T2 and T3
@@ -152,9 +156,11 @@ Rules that stop cards standing still:
     measured over predicted)
   - per metric and build type: `band`, the median absolute deviation across interleaved repeats times 3
   - per knob: `sensitivity`, the slope of metric against value from sweeps, which is written to `knobs.json`
-- **`aosa.py pick`** ranks cards by `hit_rate x |predicted| / cost`. Unknown classes get the global prior. A class
-  whose calibration falls outside [0.5, 2] gets its change cards demoted below an `instrument` card for that class,
-  because a model that mispredicts needs measuring, not more changes.
+- **`aosa.py pick`** ranks cards **first by which number they move (the order above: `main_ms`, then `gpu_ms`, then
+  the critic score), then by score inside that family**, the score being `hit_rate x |predicted| / cost`. Unknown
+  classes get the global prior. A class whose calibration falls outside [0.5, 2] gets its change cards demoted below
+  an `instrument` card for that class, because a model that mispredicts needs measuring, not more changes; a card
+  demoted that way keeps the demotion whatever number it moves.
 - **Lessons.** When a measurement disproves an assumption, or a revert happens for a reason no rule predicted, add
   one line to `LESSONS.md` that names the attempt id. Also append it, dated, to the main clone's
   `docs/reference/agent-memory.md`, which is untracked and exists only there.

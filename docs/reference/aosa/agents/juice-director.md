@@ -38,6 +38,7 @@ language:
    +1 or +2, and the files it will touch. The files must come from CombatFx, FlipbookFx, NightLights, Atmosphere,
    SceneMood, TankRenderer, DebrisRenderer, Storm, or the shaders.
 6. Every card carries the moment's readability check as a hard condition.
+   **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
 7. Anything that needs the sim becomes an `ASK.md` item. That includes new events, timings, or who gets hurt.
 
 **Budget discipline.** Your requests are attempts of class `juice`. `aosa.py learn` tracks their hit rate: how often a

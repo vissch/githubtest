@@ -34,6 +34,7 @@ import. Never open the main clone's project.
    - Take the T1, T2 and T3 stills with `CaptureRig.Shot`. The eval snippet is `AgentScripts/aosa_tiers.cs`.
    - Diff against the held "before" stills with `CaptureRig.Diff`.
 6. Commit or revert:
+   **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
    - **Commit:** one change per commit, with the A/B table and the run labels in the message.
    - **Revert:** `git checkout -- <files>` and remove any new files. Report the rule number.
 

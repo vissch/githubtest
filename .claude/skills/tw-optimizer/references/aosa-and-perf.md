@@ -55,6 +55,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - attempts JSON schema (:141-147).
 - `learn` derives per class and per file: n, hit_rate, median_gain, median_cost_cycles, calibration. Bands are 3·MAD. Knob sensitivities are slopes.
 - `pick` ranks by `hit_rate × |predicted| / cost`. A class whose calibration is outside [0.5, 2] is demoted below the instrument cards.
+- **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame. Cards are ranked first by which number they move, then by score inside that family; a demoted card keeps the demotion whatever it moves.
 - The "indistinguishable" class is trusted only while the critic agreed with the owner on the last 5 verdicts.
 
 **Knobs** (:167-176)
@@ -123,7 +124,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 ### ASK / LESSONS / JUICE
 **`ASK.md` open items**
 - A01 merge policy
-- A02 metric ranking; default main p95, then gpu p95, then T1 critic
+- A02 metric ranking: ANSWERED (2026-10-08, the listed default) main p95, then gpu p95, then T1 critic
 - A03 explosions batches B and C
 - A04 coast obstacles
 - A05 ruins

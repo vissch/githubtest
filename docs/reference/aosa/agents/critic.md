@@ -24,6 +24,8 @@ you have no image evidence for is scored `-`, never guessed.
    capture file name and the pixel region you read it from.
 3. For an A/B, say for each criterion whether B is better, the same or worse. Say whether you could tell A and B
    apart at all. That answer is what decides the "indistinguishable" class.
+**Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
+   The look score is third of the three numbers, and never tradeable: a readability drop still reverts.
 4. **Readability, always:** can the men, the trench lines, the orders and the team colours be read at a glance? Any
    drop is a veto.
 5. A reference image is a direction, not a target. Name the concrete differences between the capture and the
