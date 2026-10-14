@@ -380,8 +380,13 @@ lods = [split(k, f) for k, f in enumerate(FBX)]
 # drawn, further back at LOD1/2 than at LOD0), so the LOD switch would make it jump. A tier-1 part (a fitting, not a
 # cut of the hull) whose centre strays from LOD0's by more than SNAP is moved onto LOD0's centre; each move is logged.
 SNAP = 0.02
+# Only a LOD kept from Tripo can be snapped: a derived one (TW_DERIVE below) is rebuilt from LOD0 further down and
+# throws this mesh away, so snapping it would put stale entries in the manifest's "snapped".
+DERIVE = os.environ.get("TW_DERIVE", "12")
+DERIVED = (1, 2) if DERIVE == "12" else (1,) if DERIVE == "1" else ()
+SNAP_LODS = [k for k in (1, 2) if k not in DERIVED]
 snapped = []
-for k in (1, 2):
+for k in SNAP_LODS:
     for n in ALL_PARTS:
         if BREAK[n]["tier"] != 1: continue
         lo0, hi0 = bounds(lods[0][0][n]); lo, hi = bounds(lods[k][0][n])
@@ -534,9 +539,8 @@ def decimated(bm, ratio):
     out = bmesh.new(); out.from_mesh(o.data)
     bpy.data.objects.remove(o); bpy.data.meshes.remove(me)
     return out
-DERIVE = os.environ.get("TW_DERIVE", "12")
 derived = []
-for k in ((1, 2) if DERIVE == "12" else (1,) if DERIVE == "1" else ()):
+for k in DERIVED:
     P = {}; tripo = sum(tris_of(b) for b in lods[k][0].values())
     for n in ALL_PARTS:
         want, have = tris_of(lods[k][0][n]), tris_of(lods[0][0][n])

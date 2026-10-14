@@ -119,6 +119,11 @@ machines raises instead of dropping the extras.
 `python Tools/test_jeepsplit.py` and `python Tools/test_tank3split.py` are source checks only (both need `bpy`):
 every boundary-loop walk must order its edges by `e.index` and may not pop a BMesh edge out of a set, whose order is
 the address order, or the exported FBX differs between two runs on the same input.
+`tank3split.py`'s snap pass is also checked there: it reads `TW_DERIVE` first and snaps only the LODs it keeps, so
+the manifest's `snapped` never names a mesh the derive pass threw away.
+`python Tools/test_animforge.py` runs `animforge.py` for real on two synthetic FBX files: the footer it writes has
+the layout Blender's own writer uses (footer id, four zeros, 1..16 pad bytes, version, 120 zeros, magic), and a bone
+animated on only one or two axes keeps its curves, each missing axis held at its `AnimationCurveNode`'s value.
 `python Tools/test_mechsplit.py` is a source check only (`mechsplit.py` needs `bpy`): the battle export may not read
 `objs["Gun"]`, because the flyer has no `Gun` part; it measures whatever part `Socket_Muzzle` sits on.
 `python Tools/test_housesplit.py` is a source check (`housesplit.py` needs `bpy`) plus a look at the committed
