@@ -53,6 +53,18 @@ namespace TW.Editor
         /// <summary>True while a capture holds the HUD panel: a second one would leave the panel on a dead target.</summary>
         public static bool Busy => Runner.Live != null;
 
+        /// <summary>Composites one already-premultiplied UI pixel over a scene pixel. The panel target holds
+        /// premultiplied alpha, so the UI channel must not be multiplied by alpha a second time here.</summary>
+        internal static Color32 Over(Color32 ui, Color32 scene)
+        {
+            float a = ui.a / 255f;
+            return new Color32(
+                (byte)Mathf.Min(255f, ui.r + scene.r * (1f - a)),
+                (byte)Mathf.Min(255f, ui.g + scene.g * (1f - a)),
+                (byte)Mathf.Min(255f, ui.b + scene.b * (1f - a)),
+                255);
+        }
+
         /// <summary>The absolute path of the PNG, with any old PNG and sidecar at it deleted, so the path Shoot
         /// answers can never be read as this capture before it is written.</summary>
         internal static string Arm(string path)
@@ -121,8 +133,7 @@ namespace TW.Editor
                 for (int i = 0; i < px.Length; i++)
                 {
                     var u = upx[i]; if (u.a == 0) continue;
-                    float a = u.a / 255f; var s = px[i];
-                    px[i] = new Color32((byte)(u.r * a + s.r * (1f - a)), (byte)(u.g * a + s.g * (1f - a)), (byte)(u.b * a + s.b * (1f - a)), 255);
+                    px[i] = Over(u, px[i]);
                 }
                 scene.SetPixels32(px); scene.Apply(false, false);
                 Directory.CreateDirectory(Path.GetDirectoryName(full));
