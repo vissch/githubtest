@@ -145,6 +145,41 @@ namespace TW.Tests
             Assert.AreEqual(-1, player.Verify(match.World), "replay must re-simulate to the recorded hashes");
         }
 
+        /// <summary>2026-10-07: a whole carry cycle of the Mercy — it fetches four badly hurt men, drives out past its own
+        /// side's line and puts them back at full health — is the same on two worlds, tick by tick. Its state (phase,
+        /// seats, cargo, timers) is in the hash, and so is every slot the men come back into.</summary>
+        [Test, Category("Long")]
+        public void AMercyCarryingTheWounded_IsTheSameOnTwoWorlds()
+        {
+            ulong[] Play()
+            {
+                var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+                using var m = MatchSim.CreatePlaytest(cfg);
+                var w = m.World;
+                w.HashInterval = 1;
+                for (int i = 0; i < w.HighWater; i++) if (w.IsAlive(i)) w.Despawn(i, -1, default);
+                var mercy = w.Units.Roster[VehicleArchetype.Mercy];
+                w.Spawn(0, VehicleArchetype.Mercy, new float3(150f, 0f, 40f), mercy.Hp, mercy.Speed, true);
+                var medic = w.Units.Roster[InfantryArchetype.Rifle];
+                for (int k = 0; k < 4; k++)
+                {
+                    int man = w.Spawn(0, InfantryArchetype.Rifle, new float3(146f + k * 3f, 0f, 42f), medic.Hp, 0f, false);
+                    w.Hp[man] = medic.Hp * 0.2f;
+                }
+                var hashes = new ulong[900];
+                for (int t = 0; t < hashes.Length; t++)
+                {
+                    using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+                    m.Step(none);
+                    hashes[t] = w.LastHash;
+                }
+                return hashes;
+            }
+            var one = Play(); var two = Play();
+            for (int t = 0; t < one.Length; t++) Assert.AreEqual(one[t], two[t], $"the worlds part at tick {t}");
+            Assert.AreNotEqual(one[0], one[one.Length - 1], "and the carry changed the world");
+        }
+
         [Test]
         public void DifferentSeeds_DivergeOnDeployment()
         {

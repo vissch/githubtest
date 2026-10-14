@@ -88,15 +88,17 @@ namespace TW.Tests
             int foe = Still(m, 1, InfantryArchetype.Medic, 60f - reach + 1f, 30f);
             int tank = Still(m, 0, VehicleArchetype.Mercy, 60f, 70f);   // a second ambulance, 40 m off: unarmed, so nobody is shot
             float full = w.MaxHp[near];
-            w.Hp[near] = 20f; w.Hp[far] = 20f; w.Hp[foe] = 20f; w.Hp[tank] = 500f; w.Hp[mercy] = 500f;
+            // the patients are held above MercyCarrySystem.BadlyHurt (35 % of 90), so this Mercy fetches nobody and
+            // stands where it is put: what is proved here is SupportSystem's healer rule, not the carrying
+            w.Hp[near] = 35f; w.Hp[far] = 35f; w.Hp[foe] = 35f; w.Hp[tank] = 500f; w.Hp[mercy] = 500f;
 
             var log = Run(m, 40);   // 2 s at 25 a second
-            Assert.That(w.Hp[near], Is.EqualTo(70f).Within(1.5f), "25 a second, one patient");
+            Assert.That(w.Hp[near], Is.EqualTo(85f).Within(1.5f), "25 a second, one patient");
             Assert.Greater(Count(log, SimEventType.UnitHealed, mercy, near), 5, "the ambulance is the healer the event names");
             log.AddRange(Run(m, 60));
             Assert.AreEqual(full, w.Hp[near], "never past full");
-            Assert.AreEqual(20f, w.Hp[far], "out of its reach");
-            Assert.AreEqual(20f, w.Hp[foe], "not the other side");
+            Assert.AreEqual(35f, w.Hp[far], "out of its reach");
+            Assert.AreEqual(35f, w.Hp[foe], "not the other side");
             Assert.AreEqual(500f, w.Hp[tank], "and nothing for a machine");
             Assert.AreEqual(500f, w.Hp[mercy], "itself included");
             Assert.IsTrue(w.IsAlive(mercy));
@@ -209,7 +211,8 @@ namespace TW.Tests
                 var w = m.World;
                 w.HashInterval = 1;
                 int mercy = Still(m, 0, VehicleArchetype.Mercy, 60f, 120f);
-                int hurt = Still(m, 0, InfantryArchetype.Medic, 64f, 120f); w.Hp[hurt] = 20f;
+                // above BadlyHurt: the Mercy fetches nobody here and stands still, as this case wants it
+                int hurt = Still(m, 0, InfantryArchetype.Medic, 64f, 120f); w.Hp[hurt] = 45f;
                 Still(m, 1, InfantryArchetype.AtRifle, 40f, 150f, 5000f);
                 int tusk = Still(m, 0, VehicleArchetype.Tusk, 40f, 125f); w.Yaw[tusk] = SimMath.HalfPi;
                 Still(m, 0, InfantryArchetype.DeathBattalion, 200f, 200f, 5000f);
