@@ -232,6 +232,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-12 | **R0 C0.** **The Branches page shows the road to landing.** Answer A. Nothing built here. (owner, Decide page; taken up 2026-10-15 by master-answers-15) |
 | 2026-10-14 | **R0 C1.** **Effects improved first: what a gun does (muzzle flash, muzzle smoke, bullet impact puff).** Answer A. Queued: `gun-fire-effects` (destruction-vfx-simulator) on lane/show/gun-fire-effects. (owner, Decide page; taken up 2026-10-15 by master-answers-15) |
 | 2026-10-14 | **R0 C1.** **Units improved first: the infantry's firing (Rifle, Assault, Machinegunner, Sniper): phase-offset each man, cut the tracer to the gun, pose the advancing shot.** Answer A. Queued: `infantry-firing` (character-simulator) on lane/show/infantry-firing. (owner, Decide page; taken up 2026-10-15 by master-answers-15) |
+| 2026-10-15 | **R0 C1.** **The Ridge's own-line slope is approved, with the proof's two bars measured against the parapet and kept at 0.5 m and 4.0 m.** The owner, in chat at 00:10: "fine its approved", to the recommendation to measure the two proof bars against the parapet and keep 0.5 m and 4.0 m. The unit `ridge-own-line` carries it in its goal and runs on relay 2. (owner, chat; written 2026-10-15 by the master) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
