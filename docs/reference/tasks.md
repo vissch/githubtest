@@ -669,7 +669,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   by name with a graphics device; one held night frame photographed with the rule off and on from nine poses, a row
   of stills along a pan for the fade, and a rough timing; its info file says which lamps were real in each), BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
   repaints only its own tile of the ground colour, `Presentation/Terrain/ScorchTilePainter.cs`), HollowRescanTests and
-  DrainageTests (crater hollows and rill drainage, presentation only).
+  DrainageTests (crater hollows and rill drainage, presentation only), TerrainChunkPaceTests (a chunk mid-rebuild
+  under a barrage finishes its rows and is read over after; the 65th scorch mark's eviction repaints the ground the
+  oldest one burned).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
