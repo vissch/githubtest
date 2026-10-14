@@ -63,6 +63,13 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   LockstepFrameValidationTests (frames the driver must drop: bogus player, stale tick, duplicate),
   LockstepHashLabelTests (which tick a frame's hash belongs to),
   LockstepSteppedTickTests (LastSteppedTick names the tick the world last finished stepping),
+- **Recording a played match (2026-10-14):** `Presentation/Core/MatchRecording.cs` holds the debug option (the
+  run-time knob `replay.record`, off by default) and writes the file; with it on `SimHost` hands
+  `LockstepSession` a `ReplayRecorder` (the existing format, no new one), the session leaves the single-player
+  world's `HashInterval` at 1 for that match alone, and the path is logged at the end of the match and when the
+  editor leaves Play (`SimHost.FinishRecording`). Loading or viewing a recording is not built.
+- **Tests:** LockstepLoopbackTests, BattlefieldLockstepTests, CommandSeatTests, SinglePlayerEquivalenceTests,
+  MatchRecordingTests (the recording replays to the same hash; with the option off nothing is recorded),
   CanaryFixture (makes every PlayMode SimHost run the canary).
   CanaryFixture (makes every PlayMode SimHost run the canary),
   SimHostCatchUpTests (the frame copies the enemy's knobs once, whatever the backlog).
@@ -71,7 +78,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   AlignWorldsTests (M5: the enemy's script thinks for the tick AlignWorlds steps outside StepOnce),
   ToolWritePlayTests (M4: a unit a tool spawns through WriteWorlds while the host is paused is drawn at once).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
-  `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.
+  `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs. A `ReplayRecorder` and a
+  world that does not hash every tick is an exception out of `LockstepDriver`'s constructor.
 
 ### The enemy (`ScriptedEnemy`, SHOW)
 - **What it does (2026-09-29):** deploys an armed man every `DeployEveryTicks` while it can pay, and keeps
@@ -1780,6 +1788,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, RushDropStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, MatchRecordingTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FilmFollowTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
