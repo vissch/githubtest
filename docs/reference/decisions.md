@@ -198,23 +198,32 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-06 | **Balanced means: of the matches that end, each faction wins 40 to 60 %.** The owner, to "What counts as balanced?": "Factions first: of matches that end, each side wins 40 to 60 %". Time to breach and how long a side keeps its trenches are reported and not judged until he sets them. The balance sweep does not judge the band yet. (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **The frog faction is the main faction, and the six unsettled models are its units.** The owner, in his own words, to "Names and jobs for six finished models" (Brute, Croaker, Hopper, Mercy, Frog, Cutter): "therse are for the frog faction, i want this to be the most important and instantly playable models in the game currently. frog faction is the main faction". Not built. What each model does in that faction, and what "instantly playable" needs first, is put to him before it is built (below). (owner, 2026-10-06, on the Decide page) |
 | 2026-10-06 | **The fleet's guns stay silent in a match unless switched on** (the owner, on the Decide page: "The guns stay silent in a match unless switched on (a test, the debug panel, an ability later); the fix stays"). The review fix U1 made the fleet fire for the first time, a 300-damage shell every 23 s on every map with a sea, half of them on the sea side's own lines: ambient shelling, against the row of 2026-09-28. `SeaLandingSystem.FleetFires` is off as a match is made (`LandingTests.TheFleetIsSilentInAMatch_UnlessSwitchedOn`); a test switches it on. Nothing in the game switches it on yet: no debug button, no ability. Landed with `lane/sim/review-fixes` (replay v36, v37). |
+| 2026-10-13 | **The ridge's slope starts at each stretch of the crest trench's own line.** The owner, to the brief "The Ridge's crest trench sits behind its crest: which fix?": "A: The slope starts at each stretch of trench's own line: the trench keeps its bends and sees down the slope". The profile's plateau ends at the crest trench's own line per nav column, so the ground in front of each stretch falls from that stretch's line and not from one z across the field; the trench keeps its wander. Declined: (b) ruling the crest trench straight to fit one z, and (c) keeping the lipped crest and dropping the sight checks. Built on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground` as a second seam commit. (owner, 2026-10-13, on the Decide page) |
 
 ## Open: waiting on the owner
-- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
-  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
-  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
-  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
-  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
-  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
-  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
-  trench line cannot be made to agree column by column.
-  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
-  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
-  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
-  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
-  sight checks, accepting a lipped crest.
-  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
-  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
+- **The ridge's proof measures the trench's carved floor, so two of its six bars cannot pass (2026-10-14, the sim
+  lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).** The owner's fix A is built: the profile's
+  plateau now ends at the crest trench's own line per nav column. It does what he asked - on all eight seeds the
+  crest now sees the foot of its own slope and the hollow does not see 30 m behind the crest
+  (`TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` passes, where it failed before), and
+  `TheCrestStandsNineMetresOverTheHollow`, `TheSlopeIsGentle` and `BothSidesStillReachEachOther` pass too.
+  Two bars in the parked proof still fail, and no change to the ground can make them pass:
+  `NoFlatLipBeforeTheCrest` asks that the ground 2 m in front of the crest line stand 0.5 m below "the platform",
+  but what it samples at the line is the trench's **carved floor** (`AddFireTrench` cuts 1.8 m down across the
+  trench's cells and gives the fire step 0.7 m back), and 2 m in front of the line is still inside the trench, on
+  that fire step. Measured on all eight seeds: every one of the 55 columns is under the bar, worst -0.38 to -0.56 m;
+  measured from the trench's own front edge against open ground it is still -0.56 to +0.22 m. The design's bank
+  falls 0.303 m per metre, so 2 m of ground can never be 0.5 m below a floor 1.8 m down. `TheBankIsSteep` has the
+  same cause: the crest's mean height is the carved floor, so the fall to z 153..157 is 3.41 to 4.98 m over the
+  eight seeds (4.0 m is the bar; 1917 gives 3.95). The ground is right; the two bars measure the wrong datum.
+  Options: (a) measure both against the parapet (the trench's raw platform: the floor + 1.8 m, or the open ground
+  just outside the levelled shelf) and keep the 0.5 m and 4.0 m numbers, which is what the design's prose means;
+  (b) keep the datum and lower the bars to what the carve leaves (about -0.6 m and 3.4 m), which tests nothing;
+  (c) carve the crest trench shallower so its floor rides higher, which changes every trench on every map.
+  The agent's default, taken as nothing may weaken a bar: NOTHING. The ground change is committed (the seam) and the
+  proof is NOT: it is parked at
+  `C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261008-231452-46128/desk/05/RidgeTests.cs`. (a) is the one
+  that keeps the idea. No `[ridge-own-line]` tag was put on the lane: the proof is not green.
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
   garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
