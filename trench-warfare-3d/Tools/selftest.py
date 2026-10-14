@@ -37,6 +37,8 @@ shows in status and guard still exits 0 (advisory only), and release clears it s
 it. perfcmp.py, on two hand-written reports: differing hash_start refuses (exit 1, prints WARNING) and --force
 still prints the comparison table.
 """
+import contextlib
+import io
 import json
 import os
 import pathlib
@@ -263,6 +265,14 @@ def validate_cases(wt: pathlib.Path):
            lambda: new_cs('Data/Bad.cs', '// Phase: x\nnamespace TW.Data { class Bad { double d = System.Math.PI; } }\n'))
     expect('sim_purity', '[G5] a raw math.* call under Sim/', 'non-deterministic API in Sim assembly',
            lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { float f = math.sin(1f); } }\n'))
+    expect('sim_purity', '[G5] a DateTime. read under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { object t = System.DateTime.UtcNow; } }\n'))
+    expect('sim_purity', '[G5] a Stopwatch under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { object s = new System.Diagnostics.Stopwatch(); } }\n'))
+    expect('sim_purity', '[G5] a System.Linq using under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nusing System.Linq;\nnamespace TW.Sim { class Bad { } }\n'))
+    expect('sim_purity', '[G5] an unseeded new Random() under Sim/', 'non-deterministic API in Sim assembly',
+           lambda: new_cs('Sim/Core/Bad.cs', '// Phase: x\nnamespace TW.Sim { class Bad { object r = new Random(); } }\n'))
     expect('phase_header', 'a file with no Phase line', 'NoHeader.cs: missing "// Phase:" header',
            lambda: new_cs('Presentation/Core/NoHeader.cs', 'namespace TW.Presentation { class NoHeader { } }\n'))
     expect('brace_balance', 'a brace left open', 'Unbalanced.cs: unbalanced braces',
@@ -1311,7 +1321,9 @@ def main():
             code, out = run([sys.executable, str(wt_proj / 'Tools/health.py'), '--lanes'], wt_proj)
         finally:
             lock_path.unlink(missing_ok=True)
-        case('[H9] health.py --lanes does not choke on another checkout\'s index.lock',
+        # Not [H9]: git's cmd_status takes the index lock with LOCK_NONE, so an existing index.lock changes
+        # neither its output nor its exit code. This is a smoke test; the [H9] case below reads the argv.
+        case('health.py --lanes does not choke on another checkout\'s index.lock',
              'fatal' not in out.lower() and 'Unable to create' not in out, out)
         case('[H10] health.py --lanes marks the detached checkout running it as (you), no git error',
              code == 0 and '(you)' in out and 'fatal' not in out.lower(), out)
@@ -1337,6 +1349,37 @@ def main():
         except Exception as e:
             ok, detail = False, f'[H20] compile_failed raised {type(e).__name__}: {e}'
         case('[H20] health.compile_failed survives a CLI that hangs', ok, detail)
+
+        # [H9] --lanes shells into every other checkout. Without --no-optional-locks git status takes that
+        # checkout's index.lock, so a commit running there at that moment fails. No output-level case can show
+        # this: cmd_status locks with LOCK_NONE, so output and exit code are the same either way (and health.py
+        # only counts the lines), and the harm is a race between two processes. So the case reads the argv.
+        seen = []
+
+        def recorder(cmd, cwd=None, timeout=120, env=None):
+            seen.append(list(cmd))
+            sub = ' '.join(cmd[1:])
+            if 'branch --show-current' in sub:
+                return 0, 'lane/x'
+            if 'worktree list' in sub:
+                return 0, 'worktree %s\nHEAD abc\nbranch refs/heads/lane/x' % PROJ.parent
+            if 'rev-list' in sub:
+                return 0, '0 0'
+            if 'log' in cmd[:2]:
+                return 0, '01-01 00:00  x'
+            return 0, ''
+
+        real_run = health.run
+        try:
+            health.run = recorder
+            with contextlib.redirect_stdout(io.StringIO()):
+                health.lanes()
+        finally:
+            health.run = real_run
+        status_calls = [c for c in seen if 'status' in c]
+        case('[H9] health.py --lanes reads another checkout status without taking its index.lock',
+             bool(status_calls) and all('--no-optional-locks' in c for c in status_calls),
+             '[H9] status calls: %r' % (status_calls,))
 
         for cs_name in ('aosa_tiers.cs', 'aosa_budget.cs'):
             cs_text = (HERE.parent / 'AgentScripts' / cs_name).read_text(encoding='utf-8')

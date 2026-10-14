@@ -4,6 +4,9 @@ WHY = ('No UnityEngine and no non-deterministic API under Sim/, Net/ or Data/: t
        'same hash on every machine.')
 
 # Caught everywhere in scope (Sim/, Net/, Data/): no legitimate deterministic use exists today.
+# Not caught today: a bare `Math.X` after `using System;` (only the qualified `System.Math.` is in the list).
+# It is the same hazard, and no file under Sim/, Net/ or Data/ uses it, so widening is safe -- but it changes
+# what this check catches, so it belongs to a finding of its own.
 DENYLIST = (
     'MathF.', 'System.Math.', 'Time.deltaTime', 'System.Random', 'DateTime.', 'Stopwatch',
     'FloatMode.Fast', 'System.Linq', 'using System.Linq',
