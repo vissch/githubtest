@@ -203,16 +203,18 @@ def percentile(values, q):
     return s[lo] + (s[hi] - s[lo]) * (at - lo)
 
 
-def agreement(deltas):
-    """How the seeds moved, a variant against the baseline: the bench's rule."""
+def agreement(deltas, total=None):
+    """How the seeds moved, a variant against the baseline: the bench's rule. 'all up'/'all down' only when
+    every seed of `total` has the number on both sides [N13.3]."""
     if not deltas:
         return 'no seed has both'
+    full = total is None or len(deltas) == total
     if all(d == 0 for d in deltas):
         return 'same'
     if all(d > 0 for d in deltas):
-        return 'all up'
+        return 'all up' if full else 'up'
     if all(d < 0 for d in deltas):
-        return 'all down'
+        return 'all down' if full else 'down'
     return 'mixed'
 
 
@@ -293,8 +295,9 @@ def compare(data, names, targets):
             if n == 'now' or n not in data:
                 continue
             v = data[n]
-            deltas = [v[s][m] - now[s][m] for s in seeds if s in v and m in v[s] and m in now[s]]
-            cell = {'mean': v['mean'].get(m), 'seeds': agreement(deltas)}
+            pairs = [s for s in seeds if s in v and m in v[s] and m in now[s]]
+            deltas = [v[s][m] - now[s][m] for s in pairs]
+            cell = {'mean': v['mean'].get(m), 'seeds': agreement(deltas, len(seeds)), 'n': len(pairs), 'of': len(seeds)}
             if m in targets:
                 cell['in'] = in_band(cell['mean'], targets[m])
             row['variants'][n] = cell
@@ -310,12 +313,15 @@ def render(rows, names, targets, meta, frows=()):
     others = [n for n in names if n != 'now']
     lines = [f'# Sweep {meta.get("spec", "")}', '',
              f'{meta.get("commit", "?")}{" (dirty)" if meta.get("dirty") else ""}, seeds {meta.get("seeds", "?")}, {meta.get("scenario", "")}', '',
+             'n of N is the seeds where both the baseline and the variant reported the metric; '
+             '`all up`/`all down` is said only when that is every seed.', '',
              '| metric | now | p10-p90 | ' + ' | '.join(others) + ' | band |', '|---|---|---|' + '---|' * (len(others) + 1)]
     for r in rows:
         cells = []
         for n in others:
             c = r['variants'].get(n)
-            cells.append('-' if c is None else f'{fmt(c["mean"])} ({c["seeds"]}){"" if "in" not in c else " IN" if c["in"] else " OUT"}')
+            cells.append('-' if c is None else
+                          f'{fmt(c["mean"])} ({c["seeds"]}, {c["n"]} of {c["of"]}){"" if "in" not in c else " IN" if c["in"] else " OUT"}')
         band = '' if r['band'] is None else f'{r["band"][0]}-{r["band"][1]} now {"IN" if r["now_in"] else "OUT"}'
         lines.append(f'| {r["metric"]} | {fmt(r["now"])} | {fmt(r["p10"])}-{fmt(r["p90"])} | ' + ' | '.join(cells) + f' | {band} |')
     missing = [m for m in targets if m not in {r['metric'] for r in rows}]
@@ -462,15 +468,26 @@ def run(args, runner=unity_runner):
         if not os.path.exists(os.path.join(out, 'run.json')):
             print(f'sweep: {out} is not a sweep run')
             return 1
-        if json.load(open(os.path.join(out, 'run.json'))).get('fingerprint') != mark:
+        meta = json.load(open(os.path.join(out, 'run.json')))
+        if meta.get('fingerprint') != mark:
             print('sweep: the spec, the seeds or the minutes changed since that run: start a new one')
+            return 1
+        sha = git('rev-parse', '--short', 'HEAD') or 'nogit'
+        dirty = bool(git('status', '--porcelain'))
+        if meta.get('commit') != sha or bool(meta.get('dirty')) != dirty:
+            print(f'sweep: that run was played on {meta.get("commit")}{" (dirty)" if meta.get("dirty") else ""}; '
+                  f'this checkout is {sha}{" (dirty)" if dirty else ""}: start a new run')
             return 1
     else:
         root = sweeps_root()
         prune(root, KEEP - 1)
         sha = git('rev-parse', '--short', 'HEAD') or 'nogit'
-        out = os.path.join(root, datetime.datetime.now().strftime('%Y%m%d-%H%M') + '-' + sha)
-        os.makedirs(out, exist_ok=True)
+        out = os.path.join(root, datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '-' + sha)
+        try:
+            os.makedirs(out)
+        except FileExistsError:
+            print(f'sweep: {out} is already there: a run is using it')
+            return 1
         meta = {'spec': os.path.basename(args.spec), 'commit': sha, 'dirty': bool(git('status', '--porcelain')), 'seeds': seeds,
                 'scenario': header['scenario'], 'minutes': header['minutes'], 'fingerprint': mark,
                 'variants': [v['name'] for v in variants], 'targets': spec.get('targets', {}),
