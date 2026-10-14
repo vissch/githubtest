@@ -120,7 +120,7 @@ namespace TW.Tests
             Assert.AreEqual(ChassisKind.Tracked, w.ChassisOf(VehicleArchetype.Skimmer), "it drives as a tracked machine");
             var mg = m.Catalogue.Weapon[VehicleArchetype.Skimmer];
             Assert.AreEqual(130f * CombatTables.RangeScale, mg.RangeMax, "a machine gun"); Assert.AreEqual(6f, mg.RoundsPerSecond); Assert.AreEqual(24f, mg.Damage);
-            Assert.AreEqual(12f, mg.PenetrationMm, "that holes a light machine's side and rear");
+            Assert.AreEqual(14f, mg.PenetrationMm, "that holes a light machine anywhere, a Maw's front and a Tusk's side");
             Assert.IsTrue(w.Units.Infantry[VehicleArchetype.Skimmer].HuntsArmour);
             Assert.AreEqual(CombatTables.ChargeRevealRange, w.Units.Infantry[VehicleArchetype.Skimmer].LooksDownMetres, "it looks down into a trench");
             Assert.AreEqual(90f * CombatTables.RangeScale, m.Catalogue.Tank[VehicleArchetype.Skimmer].StandOffMetres, "it shoots from out of grenade range");
@@ -247,10 +247,11 @@ namespace TW.Tests
         }
 
         // ------------------------------------------------------------------ the balance critic's round (format v13)
-        /// <summary>The Skimmer's 12 mm machine gun takes a light machine (a Salvo's 8 mm side) as its mark, and never a
-        /// heavy one's front (a Maw's 12 mm); the Tusk's 9 mm gun, whose machine does not hunt armour, takes neither.</summary>
+        /// <summary>The Skimmer's 14 mm machine gun takes a light machine (a Salvo's 8 mm side) as its mark, and never a
+        /// heavy one's front (a Tusk's 16 mm; a Maw's 12 mm front it does beat since 2026-10-14); the Tusk's 9 mm gun,
+        /// whose machine does not hunt armour, takes neither.</summary>
         [Test]
-        public void TheSkimmerHuntsLightMachinesButNotAMawsFront()
+        public void TheSkimmerHuntsLightMachinesButNotAHeavysFront()
         {
             using var m = NewMatch();
             int sk = Spawn(m, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
@@ -267,12 +268,45 @@ namespace TW.Tests
 
             using var m2 = NewMatch();
             int sk2 = Spawn(m2, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
-            var maw = m2.World.Units.Roster[VehicleArchetype.Maw];
-            int mw = m2.World.Spawn(0, VehicleArchetype.Maw, new float3(40f, 0f, 125f), maw.Hp, 0f, true);
-            m2.World.Yaw[mw] = 0f;   // its front to the Skimmer
-            Clear(m2, mw);
+            var tusk = m2.World.Units.Roster[VehicleArchetype.Tusk];
+            int tk = m2.World.Spawn(0, VehicleArchetype.Tusk, new float3(40f, 0f, 125f), tusk.Hp, 0f, true);
+            m2.World.Yaw[tk] = 0f;   // its front to the Skimmer
+            Clear(m2, tk);
             Run(m2, 6);
-            Assert.AreNotEqual(mw, m2.World.TargetSlot[sk2], "a Maw's 12 mm front is not a mark for 12 mm");
+            Assert.AreNotEqual(tk, m2.World.TargetSlot[sk2], "a Tusk's 16 mm front is not a mark for 14 mm");
+        }
+
+        /// <summary>The owner, 2026-10-07 ("a heavier gun (14 mm): it then goes through a Tusk's side, so flanking
+        /// pays"): the Skimmer's round holes a Tusk's 12 mm side plate and bounces off its 16 mm front. Targeting is a
+        /// strict pen > the hull plate of the struck facing (TargetAcquisition), so 12 mm took neither and this test
+        /// fails on the old number.</summary>
+        [Test]
+        public void TheSkimmers14mmHolesATusksSideAndNotItsFront()
+        {
+            using var m = NewMatch();
+            int sk = Spawn(m, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
+            m.World.Yaw[sk] = SimMath.Pi;
+            var tuskEntry = m.World.Units.Roster[VehicleArchetype.Tusk];
+            int tusk = m.World.Spawn(0, VehicleArchetype.Tusk, new float3(40f, 0f, 125f), tuskEntry.Hp, 0f, true);
+            m.World.Yaw[tusk] = SimMath.HalfPi;   // its side square on to the Skimmer
+            Clear(m, tusk);
+            Run(m, 6);
+            Assert.AreEqual(tusk, m.World.TargetSlot[sk], "a Tusk's 12 mm side is a mark for 14 mm");
+            float before = m.World.Hp[tusk];
+            Run(m, 20 * 20);
+            Assert.Less(m.World.Hp[tusk], before, "and the machine gun holes it (14 x cos of incidence >= 12)");
+
+            using var m2 = NewMatch();
+            int sk2 = Spawn(m2, 1, VehicleArchetype.Skimmer, new float3(40f, 0f, 150f), 0f);
+            m2.World.Yaw[sk2] = SimMath.Pi;
+            int front = m2.World.Spawn(0, VehicleArchetype.Tusk, new float3(40f, 0f, 125f), tuskEntry.Hp, 0f, true);
+            m2.World.Yaw[front] = 0f;   // its front to the Skimmer
+            Clear(m2, front);
+            Run(m2, 6);
+            Assert.AreNotEqual(front, m2.World.TargetSlot[sk2], "a Tusk's 16 mm front is not a mark");
+            float frontBefore = m2.World.Hp[front];
+            Run(m2, 20 * 20);
+            Assert.AreEqual(frontBefore, m2.World.Hp[front], "and it loses no Hp to a 14 mm gun");
         }
 
         /// <summary>Take every other team-0 unit off the field (the playtest map has men on it), so the mark is the machine.</summary>

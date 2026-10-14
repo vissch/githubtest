@@ -121,7 +121,12 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-14, the Skimmer's heavier gun): the Skimmer's machine gun pierces 14 mm, not 12 (the owner,
+        // 2026-10-07: it goes through a Tusk's side and a Maw's front), so the match's unit table and the combat
+        // catalogue, whose fingerprints fold into every tick's hash, are not the ones v37 recorded against: a v37
+        // replay does not replay. Layout and hash chain unchanged. Renumbered at landing if another sim lane lands
+        // 38 first.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
