@@ -46,6 +46,11 @@ namespace TW.Playground
         int buildingIndex, shellCount;
         public string Mode { get; private set; } = "";
         public string LastShot = "", LastJson = "", Status = "";
+        /// <summary>Every result Do has given, in order. Y6: the result of a queued command used to go into Status
+        /// alone, which nobody read, so a script could not tell "ok vehicle" from "no biome Foo".</summary>
+        readonly List<string> results = new List<string>();
+        /// <summary>How many commands have run. A script reads it, queues, then asks Since(from, count).</summary>
+        public int Ran { get { lock (queue) return results.Count; } }
 
         readonly Queue<string> queue = new Queue<string>();
         readonly List<(float at, string cmd)> script = new List<(float, string)>();
@@ -259,6 +264,52 @@ namespace TW.Playground
         // ------------------------------------------------------------------------------------------------ commands
         public void Queue(string cmd) { lock (queue) queue.Enqueue(cmd); }
 
+        /// <summary>"" when the line can run, else why it cannot. Y6: an unknown name used to answer "ok", so a typo
+        /// in a capture round silently scored a picture of something else. Checked before the line runs, so no state
+        /// moves. <paramref name="set"/> is the building set a "house" name is looked up in.</summary>
+        public static string Reject(string line, string set)
+        {
+            var a = line.Trim().Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
+            if (a.Length == 0) return "";
+            switch (a[0].ToLowerInvariant())
+            {
+                case "biome":
+                    if (a.Length > 1 && !System.Enum.TryParse<Biome>(a[1], true, out _)) return "no biome " + a[1];
+                    break;
+                case "set":
+                    if (a.Length > 1 && BuildingRig.Kit(a[1]).Length == 0) return "no set " + a[1];
+                    break;
+                case "house":
+                    if (a.Length > 1 && System.Array.FindIndex(BuildingRig.Kit(set), x => x.Name == a[1]) < 0) return "no house " + a[1];
+                    break;
+                case "cam":
+                    if (a.Length < 2 || a[1] == "follow" || a.Length >= 8) break;
+                    if (System.Array.IndexOf(PlaygroundCamera.Presets, a[1].ToLowerInvariant()) >= 0) break;
+                    return float.TryParse(a[1], NumberStyles.Float, CultureInfo.InvariantCulture, out _)
+                        ? "cam needs a preset or 7 numbers" : "no cam preset " + a[1];
+            }
+            return "";
+        }
+
+        /// <summary>The n results from <paramref name="from"/>, joined with " | ": "PENDING" while they have not all
+        /// run, and prefixed "ERR " when one of them is not an "ok". Y6: what pg.sh polls for.</summary>
+        public static string Join(IReadOnlyList<string> results, int from, int n)
+        {
+            if (from < 0 || n <= 0 || results.Count < from + n) return "PENDING";
+            var sb = new StringBuilder();
+            bool bad = false;
+            for (int i = from; i < from + n; i++)
+            {
+                if (sb.Length > 0) sb.Append(" | ");
+                sb.Append(results[i]);
+                if (!results[i].StartsWith("ok")) bad = true;
+            }
+            return (bad ? "ERR " : "") + sb;
+        }
+
+        /// <summary>Join over the results this host has run.</summary>
+        public string Since(int from, int n) { lock (queue) return Join(results, from, n); }
+
         static float F(string[] a, int i, float d) => a.Length > i && float.TryParse(a[i], NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : d;
 
         /// <summary>The deterministic destruction run, on every vehicle on the stage at once (see Vehicle LODs).</summary>
@@ -275,6 +326,8 @@ namespace TW.Playground
 
         public string Do(string line)
         {
+            var bad = Reject(line, BuildingSet);
+            if (bad.Length > 0) return bad;
             var a = line.Trim().Split(new[] { ' ' }, System.StringSplitOptions.RemoveEmptyEntries);
             if (a.Length == 0) return "";
             string c = a[0].ToLowerInvariant();
@@ -309,6 +362,8 @@ namespace TW.Playground
                     {
                         // "ap <part> <damage> [tier]": a machine without that part takes it on its first part of the tier
                         var part = v.Find(a.Length > 1 ? a[1] : "Hull") ?? (a.Length > 3 ? v.FirstOfTier((int)F(a, 3, 0f)) : null);
+                        // Y6: a misspelt part used to hit the Hull and answer "ok". Only a given tier may fall back.
+                        if (part == null && a.Length > 1 && a.Length <= 3) return "no part " + a[1];
                         v.HitPart(part ?? v.Find("Hull"), F(a, 2, 30f));
                     }
                     break;
@@ -431,7 +486,7 @@ namespace TW.Playground
         void Update()
         {
             if (follow != null) Cam.Focus = follow.position;
-            lock (queue) while (queue.Count > 0) Status = Do(queue.Dequeue());
+            lock (queue) while (queue.Count > 0) { Status = Do(queue.Dequeue()); results.Add(Status); }
             if (scriptStart >= 0f)
             {
                 float t = Time.time - scriptStart;
