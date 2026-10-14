@@ -193,7 +193,8 @@ namespace TW.Tests
         }
 
         /// <summary>Ten minutes against a player who only holds his trench, on three seeds: played once and shared by the
-        /// tests below (each playing its own three cost the gate twelve matches; EditMode runs near its 600 s limit).</summary>
+        /// tests below (each playing its own three cost the gate twelve matches; EditMode runs near its 600 s limit).
+        /// [T40] every test that touches Defended() is Category("Long"): whichever runs first pays for the matches.</summary>
         sealed class Defence
         {
             public readonly List<Report> Reports = new List<Report>();
@@ -234,7 +235,7 @@ namespace TW.Tests
             return defended = d;
         }
 
-        [Test]
+        [Test, Category("Long")]   // [T40]
         public void TheEnemy_KeepsItsArmyComing()
         {
             // a rate, not a count: a match it wins in four minutes deploys fewer (the old script: 8 in ten minutes)
@@ -272,7 +273,7 @@ namespace TW.Tests
             Assert.Greater(checked_, 0, "at least one attack decision was checked against the recorded odds");
         }
 
-        [Test]
+        [Test, Category("Long")]   // [T40]
         public void TheEnemy_BreaksAPlayerWhoOnlySitsInHisTrench()
         {
             int broke = 0;
@@ -280,7 +281,7 @@ namespace TW.Tests
             Assert.GreaterOrEqual(broke, 2, "in ten minutes, on two seeds of three");
         }
 
-        [Test]
+        [Test, Category("Long")]   // [T40]
         public void TheEnemy_BuysMenUntilItHasTheOdds_BeforeItSavesForTheBarrage()
         {
             // Saving at parity (2026-09-29, seen in Play) held it at the player's count: 18 men to 6 with only ten in its
