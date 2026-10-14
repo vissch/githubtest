@@ -262,6 +262,15 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (the film, six frames, the close front-leg frame before and after). The riflemen's own firing animation is untouched.
   Options: land the Banner with these; one of the three is still wrong, and he writes which; not yet. Nobody to ask in
   this run, so the brief is on the Decide page and nothing is landed.
+  Update, 2026-10-14: the flame's lay was fixed ((c) above, `banner-fire-on-the-mouth`) and then proven lined up on
+  the bore from every eye (`banner-fire-lined-up`): BannerFireInkTests measures the real pixels from 4 eyes and 2 top
+  yaws, root under 0.15 m and axis under 5 degrees off the bore, green. The upper barrel (Gun_Upper) had no muzzle
+  socket and drew its fire 290.5 cm off, beside the machine (`banner-fire-upper-barrel`, fix in 009cbb18e: a missing
+  muzzle is now read off the firing part's own mesh bounds); both of the Banner's barrels now measure 0.0 cm / 0.0 deg
+  off their own mouth and axis in MachineMuzzleTests and BannerFireFitTests, and no other machine in the roster ever
+  fell to the last-ditch point. The brief "The Banner's upper barrel now fires from its own mouth: land the whole
+  Banner?" is open on the Decide page beside the owner's own close frame, with the measured distance and angle under
+  each new close frame.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
   sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
