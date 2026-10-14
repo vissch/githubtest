@@ -12,6 +12,7 @@ namespace TW.Tests
     public class ShaderLookTests
     {
         const string ToonPath = "Assets/_Project/Shaders/Toon_URP.shader";
+        const string VatPath = "Assets/_Project/Shaders/VAT_URP.shader";
         const string PigmentPath = "Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs";
 
         // [Hs1] the painted sheet is R8, so it clamps at 1, but the paint peaks at 1.22 (Earth's seam lip): the
@@ -44,6 +45,37 @@ namespace TW.Tests
                 "[Hs1] the shader's range and BattlefieldPigment.Range must be the same number");
             Assert.That(Regex.IsMatch(toon, @"SAMPLE_TEXTURE2D_ARRAY\(_PigmentSheet[^;]*\.r \* TW_PIGMENT_RANGE"), Is.True,
                 "[Hs1] the painted sample is used raw, so every highlight above 1.0 is lost");
+        }
+
+        // [Hs2] the snow on a man is painted in his own space so it does not swim as he walks; the per-instance
+        // offset must then be his own seed (grime.y), not anything from the world he is standing in.
+        [Test]
+        public void AMansSnowIsKeyedToHisOwnSeed()
+        {
+            string vat = File.ReadAllText(VatPath);
+            var calls = Regex.Matches(vat, @"TWSnowAmount\([^;]*\);");
+            Assert.That(calls.Count, Is.EqualTo(1), "[Hs2] VAT_URP must ask for snow in exactly one place");
+            string call = calls[0].Value;
+            Assert.That(call, Does.Contain("grime.y"), "[Hs2] the snow offset must be the man's own seed, or every soldier wears identical snow");
+            Assert.That(call, Does.Not.Contain("positionWS"), "[Hs2] a world-space term seams a man's snow and makes it jump as he walks");
+        }
+
+        // [Hs3] an outline is drawn over the body it rims, so it has to wear the same air: without the mist and
+        // field-fog calls the body makes, men in fog show as dark ink rims floating in white.
+        [Test]
+        public void EveryOutlinePassWearsTheFogTheBodyWears()
+        {
+            foreach (string path in new[] { ToonPath, VatPath, "Assets/_Project/Shaders/Tank_URP.shader", "Assets/_Project/Shaders/Debris_URP.shader" })
+            {
+                string src = File.ReadAllText(path);
+                int start = src.IndexOf("Name \"Outline\"");
+                Assert.That(start, Is.GreaterThan(-1), "[Hs3] no Outline pass found in " + path);
+                int end = src.IndexOf("ENDHLSL", start);
+                Assert.That(end, Is.GreaterThan(start), "[Hs3] the Outline pass of " + path + " has no HLSL block");
+                string pass = src.Substring(start, end - start);
+                Assert.That(pass, Does.Contain("ApplyMist("), "[Hs3] the outline pass of " + path + " skips the ground mist the body applies");
+                Assert.That(pass, Does.Contain("ApplyFieldFog("), "[Hs3] the outline pass of " + path + " skips the field fog the body applies");
+            }
         }
     }
 }
