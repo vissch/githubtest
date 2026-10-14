@@ -140,13 +140,18 @@ def report(out, names):
         row = f'{m:30}' + ''.join(f'{data[n]["mean"].get(m, float("nan")):14.3f}' for n in cols)
         agree = []
         for n in cols[1:]:
-            d = [data[n][s].get(m, 0) - data['now'][s].get(m, 0) for s in seeds]
-            if all(x == 0 for x in d):
+            pairs = [s for s in seeds if m in data[n].get(s, {}) and m in data['now'].get(s, {})]
+            d = [data[n][s][m] - data['now'][s][m] for s in pairs]
+            if not pairs:
+                agree.append(f'{n}: no seed has both')
+            elif all(x == 0 for x in d):
                 agree.append(f'{n}: same')
             elif all(x > 0 for x in d) or all(x < 0 for x in d):
-                agree.append(f'{n}: all {"up" if d[0] > 0 else "down"}')
+                full = len(pairs) == len(seeds)
+                word = 'up' if d[0] > 0 else 'down'
+                agree.append(f'{n}: {"all " + word if full else word}, {len(pairs)} of {len(seeds)}')
             else:
-                agree.append(f'{n}: mixed')
+                agree.append(f'{n}: mixed, {len(pairs)} of {len(seeds)}')
         print(row + '   ' + '; '.join(agree))
     json.dump(data, open(os.path.join(out, 'abtest.json'), 'w'), indent=1)
 

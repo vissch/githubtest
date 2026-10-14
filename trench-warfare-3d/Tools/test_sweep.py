@@ -101,11 +101,26 @@ class NumbersTest(unittest.TestCase):
                 "v": {"seed1": {"t": 14.0, "w": 1.0}, "seed2": {"t": 30.0, "w": 1.0}, "mean": {"t": 22.0, "w": 1.0}}}
         rows = {r["metric"]: r for r in S.compare(data, ["now", "v"], {"w": [0.4, 0.6]})}
         self.assertEqual(rows["t"]["n"], 1)
-        self.assertEqual(rows["t"]["variants"]["v"]["seeds"], "all up", "only seed1 has both")
+        self.assertEqual(rows["t"]["variants"]["v"]["seeds"], "up", "[N13.3] only seed1 has both, of 2: not 'all up'")
+        self.assertEqual(rows["t"]["variants"]["v"]["n"], 1)
+        self.assertEqual(rows["t"]["variants"]["v"]["of"], 2)
         self.assertEqual(rows["w"]["variants"]["v"]["seeds"], "mixed")
         self.assertTrue(rows["w"]["now_in"])
         self.assertFalse(rows["w"]["variants"]["v"]["in"])
         self.assertIsNone(rows["t"]["band"])
+
+    def test_a_cell_says_how_many_seeds_it_is_over(self):
+        data = {"now": {"seed1": {"t": 10.0}, "seed2": {}, "seed3": {}, "mean": {"t": 10.0}},
+                "v": {"seed1": {"t": 14.0}, "seed2": {"t": 30.0}, "seed3": {"t": 20.0}, "mean": {"t": 21.3}}}
+        rows = {r["metric"]: r for r in S.compare(data, ["now", "v"], {})}
+        cell = rows["t"]["variants"]["v"]
+        self.assertEqual(cell, {"mean": 21.3, "seeds": "up", "n": 1, "of": 3}, "[N13.3] only seed1 has the number on both sides")
+        self.assertIn("(up, 1 of 3)", S.render(list(rows.values()), ["now", "v"], {}, {}), "[N13.3] the table prints the count")
+        data2 = {"now": {"seed1": {"t": 10.0}, "seed2": {"t": 10.0}, "seed3": {"t": 10.0}, "mean": {"t": 10.0}},
+                 "v": {"seed1": {"t": 14.0}, "seed2": {"t": 30.0}, "seed3": {"t": 20.0}, "mean": {"t": 21.3}}}
+        rows2 = {r["metric"]: r for r in S.compare(data2, ["now", "v"], {})}
+        self.assertEqual(rows2["t"]["variants"]["v"]["seeds"], "all up", "[N13.3] every seed has both: 'all up' is earned")
+        self.assertIn("(all up, 3 of 3)", S.render(list(rows2.values()), ["now", "v"], {}, {}))
 
 
 def stand_in(win_by_variant, refuse=()):
@@ -154,7 +169,7 @@ class RunTest(unittest.TestCase):
         out = self.run_folder()
         report = json.load(open(os.path.join(out, "report.json")))
         win = [r for r in report["rows"] if r["metric"] == "win_a"][0]
-        self.assertEqual(win["variants"]["mg@0.8"], {"mean": 0.7, "seeds": "all up", "in": False})
+        self.assertEqual(win["variants"]["mg@0.8"], {"mean": 0.7, "seeds": "all up", "n": 3, "of": 3, "in": False})
         self.assertIn("| mg@0.8 | 0 of 1 |", open(os.path.join(out, "report.md"), encoding="utf-8").read())
         self.assertEqual(json.load(open(os.path.join(out, "run.json")))["seeds"], "1,2,3")
 
@@ -174,6 +189,72 @@ class RunTest(unittest.TestCase):
         self.assertEqual(S.run(Args(self.spec, resume=out), second), 0)
         self.assertEqual(second.calls, [["mg@0.9", "bold"]], "what was reported is not played again")
         self.assertEqual(S.run(Args(self.spec, resume=out, seeds="1,2"), stand_in({})), 1, "other seeds are another run")
+
+    def test_a_resume_after_a_commit_is_refused(self):
+        real_git = S.git
+        S.git = lambda *a: "aaaaaaa" if a == ("rev-parse", "--short", "HEAD") else real_git(*a)
+        try:
+            self.assertEqual(S.run(Args(self.spec), stand_in({}, refuse=("mg@0.9",))), 1)
+        finally:
+            S.git = real_git
+        out = self.run_folder()
+        S.git = lambda *a: "bbbbbbb" if a == ("rev-parse", "--short", "HEAD") else real_git(*a)
+        try:
+            second = stand_in({})
+            self.assertEqual(S.run(Args(self.spec, resume=out), second), 1,
+                              "[N13.2] the checkout moved to another commit since that run")
+            self.assertEqual(second.calls, [], "[N13.2] nothing is played on a refused resume")
+        finally:
+            S.git = real_git
+
+    def test_two_runs_in_the_same_minute_do_not_share_a_folder(self):
+        import datetime as real_datetime
+
+        class FixedDatetime(real_datetime.datetime):
+            now_value = real_datetime.datetime(2026, 10, 14, 10, 0, 0)
+
+            @classmethod
+            def now(cls):
+                return cls.now_value
+
+        class FakeModule:
+            datetime = FixedDatetime
+
+        real = S.datetime
+        S.datetime = FakeModule
+        try:
+            self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.5, "mg@0.8": 0.7})), 0)
+            first = self.run_folder()
+            FixedDatetime.now_value = real_datetime.datetime(2026, 10, 14, 10, 0, 2)
+            second_runner = stand_in({"now": 0.5, "mg@0.8": 0.7})
+            self.assertEqual(S.run(Args(self.spec), second_runner), 0)
+            second = self.run_folder()
+            self.assertNotEqual(first, second, "[N13.10] two runs in the same minute get different folders")
+            self.assertEqual(sorted(n for names in second_runner.calls for n in names), ["bold", "mg@0.8", "mg@0.9", "now"],
+                              "[N13.10] the second run plays every variant, none of it mistaken for already-played")
+        finally:
+            S.datetime = real
+
+    def test_a_run_folder_that_exists_is_refused(self):
+        import datetime as real_datetime
+
+        class FixedDatetime(real_datetime.datetime):
+            @classmethod
+            def now(cls):
+                return real_datetime.datetime(2026, 10, 14, 10, 0, 0)
+
+        class FakeModule:
+            datetime = FixedDatetime
+
+        real = S.datetime
+        S.datetime = FakeModule
+        try:
+            self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.5, "mg@0.8": 0.7})), 0)
+            runner = stand_in({"now": 0.5, "mg@0.8": 0.7})
+            self.assertEqual(S.run(Args(self.spec), runner), 1, "[N13.10] the same second's folder is already there")
+            self.assertEqual(runner.calls, [], "[N13.10] a refused run plays nothing")
+        finally:
+            S.datetime = real
 
     def test_a_spec_that_does_not_compile_plays_nothing(self):
         json.dump({"scenario": "siege"}, open(self.spec, "w"))

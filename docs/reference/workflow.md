@@ -296,7 +296,10 @@ It reports `attrition_ratio` (match: men lost in the open over men lost in a tre
 defenders lost), `time_to_breach_s` (from four of a side's men standing in the open between the front lines to the
 trench they take; only seeds where one fell), `trench_retention` (the share of the match a side kept each trench it
 started with), who won from which seat, losses, captures and the other side's men killed per 100 silver. Per metric:
-the baseline's mean and p10-p90 over the seeds, each variant's mean, and whether every seed moved the same way. The
+the baseline's mean and p10-p90 over the seeds, each variant's mean, and whether every seed moved the same way, as
+`mean (word, n of N)`: n is the seeds where both the baseline and the variant reported the metric
+(`time_to_breach_s` exists only where a trench fell, so one seed of eight is not eight of eight), and `all up` /
+`all down` is said only when n is N — otherwise the bare `up` / `down` / `mixed`. The
 matches are chaotic, so most numbers come out "mixed": believe "all up" and "all down". A spec's `targets`
 (`{"win_a": [0.4, 0.6]}`) are bands a mean should sit in: each variant is IN or OUT, and the exit is 0 the baseline
 is inside every band (or there are none), 2 it is outside one, 1 could not run.
@@ -304,13 +307,16 @@ is inside every band (or there are none), 2 it is outside one, 1 could not run.
 Runs go to `%LOCALAPPDATA%\TrenchWarfare\sweeps\<stamp>-<sha>\` (`TW_SWEEPS` overrides; the newest 8 kept, a folder
 holding KEEP.txt always): a report per variant, report.md, report.json. `--chunk` variants go to one editor launch
 (4); a variant whose report is there is not played again, so `--resume <run folder>` carries on a run that died. A
+resume is refused when the checkout's commit or dirty state differs from the run's, and a run folder that already
+exists (two runs in the same second) is refused rather than taken over. A
 field, unit or value the test cannot write stops the run and is printed with its name. Measured 2026-10-04 on the
 desktop: 48 eight-minute matches (3 variants, 8 seeds, both seats) in 1.5 min; a ladder of six rungs on 8 seeds 3.1
 min a variant; the same spec twice gives byte-identical reports, and a variant that multiplies by one equals the
 baseline. Over ten minutes or so, start it under `Tools/pipeline/run_detached.py`.
 - The standing specs are in `Tools/sweeps/`: `factions.json` (Iron against Brass and each against itself),
   `assault.json` (the assault ladder, the rifle turned), `difficulty.json` (Easy, Normal, Hard against a player who
-  only defends). `python Tools/test_sweep.py` tests the tool with no editor.
+  only defends). `python Tools/test_sweep.py` tests the tool with no editor; `python Tools/test_abtest.py` tests
+  abtest.py's report and nightly.py's compare_bench the same way.
 - A constant is not data. `python Tools/sweep.py compile <spec.json> <out.json>`, then `TW_SWEEP=<out.json> python
   Tools/abtest.py bench --filter TW.Tests.BalanceSweepTests.Report_TheSweep --file <the .cs> --variant try=<copy>`
   plays the spec's baseline on each copy of the code.
