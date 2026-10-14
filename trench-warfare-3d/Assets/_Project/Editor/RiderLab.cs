@@ -339,7 +339,7 @@ namespace TW.Editor
             }
             var was = RenderTexture.active; RenderTexture.active = rt;
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply(); RenderTexture.active = was;
-            System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(path));
+            CaptureRig.EnsureDir(path);
             System.IO.File.WriteAllBytes(path, tex.EncodeToPNG());
             RenderTexture.ReleaseTemporary(rt);
             Object.DestroyImmediate(tex); Object.DestroyImmediate(root); Object.DestroyImmediate(hullMat); Object.DestroyImmediate(manMat); Object.DestroyImmediate(wayMat);

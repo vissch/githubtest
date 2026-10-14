@@ -108,39 +108,49 @@ namespace TW.Editor
                 Vector3 keepPos = cam.transform.position; Quaternion keepRot = cam.transform.rotation;
                 tc.enabled = false;
 
-                while (Queue.Count > 0)
+                // Any throw out of Pose or Render used to skip the restore lines below: `running` stayed true, so every
+                // later Shot answered "queued" forever, and TacticalCamera stayed disabled, so the camera never came
+                // back. The queue is NOT cleared here — the throwing shot was already dequeued, so a later frame picks
+                // the rest up.
+                try
                 {
-                    var shot = Queue.Dequeue();
-                    Pose(tc, cam, shot);
-                    yield return null;                        // a whole frame, so everything that culls or scales
-                                                              // against the camera has seen this pose
-                    if (!Application.isBatchMode)
+                    while (Queue.Count > 0)
                     {
-                        yield return new WaitForEndOfFrame();
-                        Render(shot);
+                        var shot = Queue.Dequeue();
+                        Pose(tc, cam, shot);
+                        yield return null;                        // a whole frame, so everything that culls or scales
+                                                                  // against the camera has seen this pose
+                        if (!Application.isBatchMode)
+                        {
+                            yield return new WaitForEndOfFrame();
+                            Render(shot);
+                        }
+                        else
+                        {
+                            // Batch mode has no end of frame to wait for — no swap chain — so WaitForEndOfFrame never
+                            // resumes and a batch capture used to hang here forever, drain no queue and write no PNG, in
+                            // silence. Rendering straight from the coroutine instead does NOT work either, and the way it
+                            // fails is worth writing down because it cost three capture runs: a coroutine resumes during
+                            // Update, BEFORE every LateUpdate in that frame. The tanks, the men and the effects are all
+                            // submitted with Graphics.DrawMesh* from their own LateUpdate and last only the frame they
+                            // are submitted in, so a Camera.Render() called from Update draws the scene's real
+                            // MeshRenderers — terrain, props, bunkers — and NOTHING that is drawn procedurally. The
+                            // stills come back looking correct and complete, with every machine and every man missing.
+                            // So the render is handed to this component's own LateUpdate, which is ordered last.
+                            toRender = shot;
+                            while (toRender != null) yield return null;
+                        }
+                        for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
                     }
-                    else
-                    {
-                        // Batch mode has no end of frame to wait for — no swap chain — so WaitForEndOfFrame never
-                        // resumes and a batch capture used to hang here forever, drain no queue and write no PNG, in
-                        // silence. Rendering straight from the coroutine instead does NOT work either, and the way it
-                        // fails is worth writing down because it cost three capture runs: a coroutine resumes during
-                        // Update, BEFORE every LateUpdate in that frame. The tanks, the men and the effects are all
-                        // submitted with Graphics.DrawMesh* from their own LateUpdate and last only the frame they
-                        // are submitted in, so a Camera.Render() called from Update draws the scene's real
-                        // MeshRenderers — terrain, props, bunkers — and NOTHING that is drawn procedurally. The
-                        // stills come back looking correct and complete, with every machine and every man missing.
-                        // So the render is handed to this component's own LateUpdate, which is ordered last.
-                        toRender = shot;
-                        while (toRender != null) yield return null;
-                    }
-                    for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
-                }
 
-                tc.Zoom = keepZoom; tc.Focus = keepFocus; cam.fieldOfView = keepFov;
-                cam.transform.SetPositionAndRotation(keepPos, keepRot);
-                tc.enabled = keepEnabled;
-                running = false;
+                }
+                finally
+                {
+                    tc.Zoom = keepZoom; tc.Focus = keepFocus; cam.fieldOfView = keepFov;
+                    cam.transform.SetPositionAndRotation(keepPos, keepRot);
+                    tc.enabled = keepEnabled;
+                    running = false;
+                }
             }
 
             void Pose(TacticalCamera tc, Camera cam, Shot shot)
@@ -183,7 +193,7 @@ namespace TW.Editor
                 tex.ReadPixels(new Rect(0, 0, shot.W, shot.H), 0, 0); tex.Apply();
                 RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
 
-                Directory.CreateDirectory(Path.GetDirectoryName(shot.Path));
+                EnsureDir(shot.Path);
                 File.WriteAllBytes(shot.Path, tex.EncodeToPNG());
                 LastJson = Measure(tex, shot, c);
                 File.WriteAllText(Path.ChangeExtension(shot.Path, ".json"), LastJson);
@@ -193,6 +203,15 @@ namespace TW.Editor
         }
 
         // ---- measurement -------------------------------------------------------------------------------------
+
+        /// <summary>The directory of `path`, made if it is missing. A bare file name ("stress.json") gives "" from
+        /// Path.GetDirectoryName, and Directory.CreateDirectory("") throws, so the write never happened and whatever
+        /// was waiting on the file waited forever. Public because the tests and the other editor tools are elsewhere.</summary>
+        public static void EnsureDir(string path)
+        {
+            var d = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(d)) Directory.CreateDirectory(d);
+        }
 
         static float Luma(Color32 p) => (0.2126f * p.r + 0.7152f * p.g + 0.0722f * p.b) / 255f;
 
@@ -436,7 +455,7 @@ namespace TW.Editor
                 Object.DestroyImmediate(t);
             }
             sheet.Apply();
-            Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+            EnsureDir(outPath);
             File.WriteAllBytes(outPath, sheet.EncodeToPNG());
             Object.DestroyImmediate(sheet);
             return "sheet of " + files.Count + " -> " + outPath;
@@ -555,7 +574,7 @@ namespace TW.Editor
                     px[i] = new Color32((byte)Mathf.Min(255, grey + down), (byte)Mathf.Min(255, grey + up), grey, 255);
                 }
                 map.SetPixels32(px); map.Apply();
-                Directory.CreateDirectory(Path.GetDirectoryName(outPath));
+                EnsureDir(outPath);
                 File.WriteAllBytes(outPath, map.EncodeToPNG());
                 File.WriteAllText(Path.ChangeExtension(outPath, ".json"), sb.ToString());
                 Object.DestroyImmediate(map);
@@ -635,7 +654,7 @@ namespace TW.Editor
                 }
             }
             tex.SetPixels32(px); tex.Apply();
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            EnsureDir(path);
             File.WriteAllBytes(path, tex.EncodeToPNG());
             Object.DestroyImmediate(tex);
             var names = new StringBuilder();
@@ -697,7 +716,7 @@ namespace TW.Editor
                   .Append(i < rows.Count - 1 && i < top - 1 ? ",\n" : "\n");
             }
             sb.Append("  ]\n}\n");
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            EnsureDir(path);
             File.WriteAllText(path, sb.ToString());
             return sb.ToString();
         }
@@ -718,8 +737,13 @@ namespace TW.Editor
         /// stress preset), then puts the scene back as it was. Call it with the editor in edit mode; it drives play
         /// mode itself and stops it when the numbers are written.
         /// </summary>
-        public static string Stress(int unitsPerSide = 1000, string path = "stress.json", int frames = 300, float settleSeconds = 120f)
+        public static string Stress(int unitsPerSide = 1000, string path = null, int frames = 300, float settleSeconds = 120f)
         {
+            // Not a default argument: a default must be a compile-time constant, and the old bare "stress.json" was
+            // written relative to whatever the editor's working directory happened to be (and broke EnsureDir's
+            // predecessor outright). Same place RiderLab.SeatSheetBatch defaults to.
+            if (string.IsNullOrEmpty(path))
+                path = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "stress.json");
             if (EditorApplication.isPlaying) return "stop play first: SimHost reads the stress preset in Awake";
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host == null) return "no SimHost in the open scene: open Scenes/GreyboxCorridor.unity first";
@@ -840,7 +864,7 @@ namespace TW.Editor
                 Stat(sb, "setpass", passes, 300); Stat(sb, "draw_calls", draws, 300);
                 Stat(sb, "gc_bytes_per_frame", alloc, 0);
                 sb.Append("  \"frames\": ").Append(mainMs.Count).Append("\n}\n");
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
+                EnsureDir(path);
                 File.WriteAllText(path, sb.ToString());
                 Debug.Log("Capture rig: frame cost written to " + path + "\n" + sb);
                 main.Dispose(); gpu.Dispose(); setPass.Dispose(); batches.Dispose(); gc.Dispose();
