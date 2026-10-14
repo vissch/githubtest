@@ -141,11 +141,22 @@ namespace TW.Presentation
 
         public string ToJson() => JsonUtility.ToJson(this, true);
 
-        public static GameSettings FromJson(string json)
+        public static GameSettings FromJson(string json) => FromJson(json, out _);
+
+        /// <summary><paramref name="ok"/> false when the text is empty/whitespace or the parse threw or returned null
+        /// (a malformed or half-written file), so the caller can keep the broken file aside rather than overwrite it
+        /// with defaults on the next save.</summary>
+        public static GameSettings FromJson(string json, out bool ok)
         {
             GameSettings s = null;
-            try { if (!string.IsNullOrWhiteSpace(json)) s = JsonUtility.FromJson<GameSettings>(json); }
-            catch (Exception) { s = null; }
+            ok = true;
+            if (string.IsNullOrWhiteSpace(json)) ok = false;
+            else
+            {
+                try { s = JsonUtility.FromJson<GameSettings>(json); }
+                catch (Exception) { s = null; }
+                if (s == null) ok = false;
+            }
             s ??= Defaults();
             s.Migrate();
             return s;
