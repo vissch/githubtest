@@ -8,7 +8,7 @@ you changed, in dependency order, and the downstream ones see your new symbols r
 
 Usage:
   python Tools/aosa/occ.py TW.Presentation.Core TW.Perf TW.Tests.Show
-  python Tools/aosa/occ.py --changed          # every assembly with a .cs changed vs origin, plus its dependents
+  python Tools/aosa/occ.py --changed          # every assembly with a changed .cs or .asmdef vs origin, plus its dependents
 Env:
   TW_LIB   folder of built dlls (default: the main clone's trench-warfare-3d/Library/ScriptAssemblies)
   TW_UNITY Unity editor folder (default: C:/Program Files/Unity/Hub/Editor/6000.0.50f1/Editor)
@@ -122,15 +122,21 @@ def compile_one(name, table, built, dirs):
         if k in seen or not pathlib.Path(r).exists():
             continue
         seen.add(k); rargs.append(f'-r:"{r}"')
+    # the .rsp must describe what the dll was really built from, so otr.stale() can trust it: it lands beside the dll
+    # only after a good compile. A failed compile used to leave a fresh rsp over yesterday's dll, so a deleted .cs
+    # read as fresh and otr gave a verdict on code that is not the tree's.
     rsp = OUT / f"{name}.rsp"
-    rsp.write_text("\n".join(args + rargs + [f'"{f}"' for f in files]), encoding="utf-8")
-    cmd = [str(UNITY / "Data/NetCoreRuntime/dotnet.exe"), str(UNITY / "Data/DotNetSdkRoslyn/csc.dll"), "-noconfig", f"@{rsp}"]
+    tmp = OUT / f"{name}.rsp.tmp"
+    tmp.write_text("\n".join(args + rargs + [f'"{f}"' for f in files]), encoding="utf-8")
+    cmd = [str(UNITY / "Data/NetCoreRuntime/dotnet.exe"), str(UNITY / "Data/DotNetSdkRoslyn/csc.dll"), "-noconfig", f"@{tmp}"]
     r = subprocess.run(cmd, capture_output=True, text=True)
     errs = [l for l in (r.stdout + r.stderr).splitlines() if "error " in l]
     if r.returncode == 0:
+        os.replace(tmp, rsp)
         built[name] = out
         print(f"occ OK  {name} ({len(files)} files)")
         return True
+    tmp.unlink(missing_ok=True)     # leave any older rsp alone: it still says what the dll that is there holds
     print(f"occ FAIL {name} ({len(errs)} errors)")
     for l in errs[:40]:
         print("   " + l.replace(str(PROJ) + os.sep, ""))
@@ -161,7 +167,8 @@ def changed(table):
     if u.returncode != 0:
         print("occ: git ls-files failed (%d): %s" % (u.returncode, u.stderr[:300]))
         return None
-    files = [root / l for l in (r.stdout + u.stdout).splitlines() if l.endswith(".cs")]
+    # an asmdef counts too: its references and defines change the dll without any .cs changing
+    files = [root / l for l in (r.stdout + u.stdout).splitlines() if l.endswith((".cs", ".asmdef"))]
     hit = set()
     for n, (p, _) in table.items():
         if any(p.parent in f.parents for f in files):
@@ -184,7 +191,7 @@ def main(argv):
         if names is None:
             return 2
         if not names:
-            print("occ: no changed .cs under any assembly, nothing to compile")
+            print("occ: no changed .cs or .asmdef under any assembly, nothing to compile")
             return 0
     else:
         names = argv

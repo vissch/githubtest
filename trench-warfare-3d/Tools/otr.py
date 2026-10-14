@@ -72,6 +72,11 @@ def build_runner():
     return exe
 
 
+# the wording Render.cs throws with when a test reads back rendering state the stand-in keeps none of: such an
+# ENGINE line is printed without -v, or a test that used to pass and now reads an unregistered Get*/Has*/get_* call
+# goes silent in the tally
+READBACK = "the stand-in does not keep"
+
 VERDICTS = ("PASS", "FAIL", "ERROR", "TIMEOUT", "IGNORE", "ENGINE", "RUNNER", "LOGERR", "SKIP-UNITYTEST", "SKIP-EXPLICIT")
 
 
@@ -110,7 +115,7 @@ def scan_run(text, returncode, known=None, verbose=False):
         tally[verdict] = tally.get(verdict, 0) + 1
         if verdict in ("FAIL", "ERROR", "TIMEOUT", "LOGERR"):
             bad = True
-        if verbose or verdict not in ("PASS", "ENGINE"):
+        if verbose or verdict not in ("PASS", "ENGINE") or READBACK in line:
             print(line)
     if done and returncode != 0:
         print(f"otr: the runner exited {returncode} after #DONE")

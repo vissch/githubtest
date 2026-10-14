@@ -165,7 +165,9 @@ out LOGERR, because the stand-in cannot tell a declared error from a real one.
 classifier on a standalone compile of `Tools/otr/Runner.cs` (needs `dotnet`, no Unity, no dlls).
 The stand-in never answers with a made-up value where the engine would know one: a `Material`, `Shader` or
 `Graphics` read-back, `Time.frameCount`, and `Shader.Find` of a name that is no `.shader` file in the project or
-packages (and no real built-in) all come out ENGINE, not zero or null. `python Tools/otr/test_render.py` checks
+packages (and no real built-in) all come out ENGINE, not zero or null. Such a read-back ENGINE line is printed
+without `-v` (every other ENGINE line needs it), so a test that used to pass and now reads a value the stand-in
+has none of is named. `python Tools/otr/test_render.py` checks
 those decisions on a standalone compile of `Tools/otr/Render.cs` (needs `dotnet`, no Unity, no dlls).
 `CombineMeshes` transforms normals by the inverse transpose, so a mirrored instance is lit the right way out, and the
 JsonUtility stand-in reads whole numbers as `long` (a 64-bit field keeps every digit), calls
