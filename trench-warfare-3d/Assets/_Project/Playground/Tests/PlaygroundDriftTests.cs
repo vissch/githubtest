@@ -461,5 +461,27 @@ namespace TW.Tests.Playground
             }
             finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
         }
+
+        [Test]
+        public void BuildingTheLibraryLeavesOtherDirtyAssetsAlone()
+        {
+            // [Y14] AssetDatabase.SaveAssets() flushes every dirty asset in the editor, not just the library it just
+            // wrote: a save mid-edit on an unrelated asset was silently committed to disk. Build() now saves only
+            // the library asset (SaveAssetIfDirty), so another dirty asset stays dirty.
+            string dir = "Assets/_Project/Playground/Tests";
+            string path = dir + "/tw-y14-scratch.asset";
+            var scratch = ScriptableObject.CreateInstance<PlaygroundLibrary>();
+            try
+            {
+                AssetDatabase.CreateAsset(scratch, path);
+                EditorUtility.SetDirty(scratch);
+                Assert.That(EditorUtility.IsDirty(scratch), "[Y14] the scratch asset must start dirty");
+
+                PlaygroundSetup.Build();
+
+                Assert.That(EditorUtility.IsDirty(scratch), "[Y14] Build() must not save other dirty assets");
+            }
+            finally { AssetDatabase.DeleteAsset(path); }
+        }
     }
 }
