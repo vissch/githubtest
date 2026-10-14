@@ -163,11 +163,13 @@ namespace TW.Presentation.Terrain
 
         /// <summary>The pass: the squares taking the most fire give up what has gathered in them. Squares over the budget
         /// keep their rounds and are worn next time, so nothing fired is ever lost, only put off.</summary>
-        void Wear(SimWorld w)
+        void Wear(SimWorld w) => WearTick(w.Tick);
+
+        void WearTick(uint tick)
         {
             if (cells == null || rules == null || props == null) return;
-            if (lastWearTick != uint.MaxValue && w.Tick - lastWearTick < WearTicks) return;
-            lastWearTick = w.Tick;
+            if (lastWearTick != uint.MaxValue && tick - lastWearTick < WearTicks) return;
+            lastWearTick = tick;
 
             hot.Clear();
             for (int i = 0; i < cells.Length; i++)
@@ -188,8 +190,21 @@ namespace TW.Presentation.Terrain
                 done++;
                 var dir = new Vector3(dx, 0f, dz);
                 dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector3.forward;
-                WearCell(here, rounds, dir, CellCentre(index), debris, w.Tick * 17u + (uint)index * 101u);
+                WearCell(here, rounds, dir, CellCentre(index), debris, tick * 17u + (uint)index * 101u);
             }
+        }
+
+
+        /// <summary>Tests only (PropWearTests): one square of the fire grid takes this many rounds and is worn, on this
+        /// sim tick, through the real pass. A one-cell grid stands in for a map, so no SimWorld and no host are needed.
+        /// Returns the props worn away so far.</summary>
+        public int WearOneCellForTests(BattlefieldKit kit, int rounds, uint tick)
+        {
+            if (rules == null) BuildRules(kit);
+            if (cells == null || cells.Length != 1) { cellsX = 1; cellsZ = 1; cells = new Cell[1]; }
+            cells[0].Rounds = rounds; cells[0].DirX = 0f; cells[0].DirZ = 1f;
+            WearTick(tick);
+            return Worn;
         }
 
         /// <summary>What stands in a square, found once and kept. The expensive call in the file: a spatial query a rule,

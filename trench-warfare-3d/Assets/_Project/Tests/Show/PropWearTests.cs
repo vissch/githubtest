@@ -16,13 +16,57 @@ namespace TW.Tests
         static float Seconds(float hp, float erode, byte archetype = 2) =>
             PropDestruction.RoundsToWear(hp, erode) / CombatTables.WeaponFor(archetype).RoundsPerSecond;
 
+        /// <summary>[TS17] The same, for a thing in the kit, with its strength and material read out of the real rule
+        /// table (PropDestruction.BuildRules) rather than retyped here: that is what makes retuning either end show up.</summary>
+        static float SecondsFor(PropDestruction d, BattlefieldKit kit, BattlefieldKit.Module m, byte archetype = 2)
+        {
+            Assert.IsTrue(d.RuleForTests(kit, m, out float hp, out float erode), "[TS17] this thing has a destruction rule at all");
+            return Seconds(hp, erode, archetype);
+        }
+
         [Test]
         public void One_Machine_Gun_Chews_Through_Sacking_And_Timber_In_The_Seconds_The_Owner_Asked_For()
         {
-            // the rules these strengths come from: kit.sandbag / kit.sandbags Hp 0.9, kit.TrenchWalls Hp 1.2, both Erode 1
-            float sandbags = Seconds(0.9f, 1f), revetment = Seconds(1.2f, 1f);
-            Assert.That(sandbags, Is.InRange(4f, 6f), "a sandbag stack goes in 4-6 s of one machine gun (was " + sandbags + " s)");
-            Assert.That(revetment, Is.InRange(4f, 6f), "a timber wall section the same (was " + revetment + " s)");
+            // [TS17] the strengths come from the rule table itself (kit.sandbag, kit.TrenchWalls[0]), not from numbers
+            // retyped here: a retuned Hp or Erode moves these seconds and the owner's 4-6 s band catches it
+            var kit = new BattlefieldKit();
+            var go = new GameObject("prop wear calibration test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var d = go.AddComponent<PropDestruction>();
+                d.AttachForTests(props);
+                float sandbags = SecondsFor(d, kit, kit.sandbag), revetment = SecondsFor(d, kit, kit.TrenchWalls[0]);
+                Assert.That(sandbags, Is.InRange(4f, 6f), "[TS17] a sandbag stack goes in 4-6 s of one machine gun (was " + sandbags + " s)");
+                Assert.That(revetment, Is.InRange(4f, 6f), "[TS17] a timber wall section the same (was " + revetment + " s)");
+            }
+            finally { Object.DestroyImmediate(go); kit.Dispose(); }
+        }
+
+        /// <summary>[TS17] The calibration run through the real pass, not just its arithmetic: a square under sustained
+        /// fire is worn by PropWear itself, and a sandbag stack goes exactly when the rule table says it should.</summary>
+        [Test]
+        public void A_Stream_Of_Bullets_Really_Takes_A_Sandbag_Stack_Away()
+        {
+            var kit = new BattlefieldKit();
+            var go = new GameObject("prop wear pass test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                props.AddInstance(kit.sandbag, Matrix4x4.TRS(new Vector3(2f, 0f, 2f), Quaternion.identity, Vector3.one));
+                var d = go.AddComponent<PropDestruction>();
+                d.AttachForTests(props);
+                Assert.IsTrue(d.RuleForTests(kit, kit.sandbag, out float hp, out float erode), "[TS17] the sandbag stack has a rule");
+                int needed = PropDestruction.RoundsToWear(hp, erode);
+
+                Assert.AreEqual(0, d.WearOneCellForTests(kit, needed - 1, 1u),
+                    "[TS17] one round short of what the rule table asks for leaves the sacks standing (needed " + needed + ")");
+                Assert.AreEqual(1, d.WearOneCellForTests(kit, 1, 1u + PropDestruction.WearTicks + 4u),
+                    "[TS17] the round that finishes the rule's Hp is the one that takes the stack away");
+            }
+            finally { Object.DestroyImmediate(go); kit.Dispose(); }
         }
 
         [Test]
