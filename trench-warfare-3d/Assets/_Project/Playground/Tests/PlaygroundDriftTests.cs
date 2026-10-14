@@ -17,7 +17,8 @@ namespace TW.Tests.Playground
         static PlaygroundLibrary lib;
         static PlaygroundLibrary Lib()
         {
-            if (lib == null) { PlaygroundSetup.Build(); lib = AssetDatabase.LoadAssetAtPath<PlaygroundLibrary>(PlaygroundSetup.LibraryPath); }
+            if (lib == null) lib = AssetDatabase.LoadAssetAtPath<PlaygroundLibrary>(PlaygroundSetup.LibraryPath);
+            Assert.IsNotNull(lib, "[TU1] the committed library is missing; run TW/Playground/Build");
             return lib;
         }
 

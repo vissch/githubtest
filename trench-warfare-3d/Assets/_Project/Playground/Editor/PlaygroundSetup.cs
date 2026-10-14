@@ -26,6 +26,25 @@ namespace TW.Playground.Editor
         {
             var lib = AssetDatabase.LoadAssetAtPath<PlaygroundLibrary>(LibraryPath);
             if (lib == null) { lib = ScriptableObject.CreateInstance<PlaygroundLibrary>(); AssetDatabase.CreateAsset(lib, LibraryPath); }
+            string summary = Fill(lib);
+            EditorUtility.SetDirty(lib);
+            AssetDatabase.SaveAssetIfDirty(AssetDatabase.GUIDFromAssetPath(LibraryPath));
+            // the scene: one object, the host, holding the library
+            if (!File.Exists(ScenePath))
+            {
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "cancelled";
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
+                var go = new GameObject("Playground");
+                go.AddComponent<PlaygroundHost>().Library = lib;
+                EditorSceneManager.SaveScene(scene, ScenePath);
+            }
+            return summary;
+        }
+
+        /// <summary>Reads the playground's art and the game's clip table into <paramref name="lib"/> and returns the
+        /// summary line. Writes nothing to disk, so a test may run it on a throwaway instance.</summary>
+        public static string Fill(PlaygroundLibrary lib)
+        {
             // vehicles
             var vehicles = new List<PlaygroundLibrary.VehicleEntry>();
             foreach (var dir in Dirs(PlaygroundImport.Art + "Tanks"))
@@ -86,17 +105,6 @@ namespace TW.Playground.Editor
             clips.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             lib.Vehicles = vehicles.ToArray(); lib.Units = units.ToArray(); lib.Clips = clips.ToArray();
             lib.ClipSource = AssetDatabase.LoadAssetAtPath<GameObject>(Source);
-            EditorUtility.SetDirty(lib);
-            AssetDatabase.SaveAssetIfDirty(AssetDatabase.GUIDFromAssetPath(LibraryPath));
-            // the scene: one object, the host, holding the library
-            if (!File.Exists(ScenePath))
-            {
-                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "cancelled";
-                var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
-                var go = new GameObject("Playground");
-                go.AddComponent<PlaygroundHost>().Library = lib;
-                EditorSceneManager.SaveScene(scene, ScenePath);
-            }
             untabled.Sort(string.CompareOrdinal);
             return $"playground library: {vehicles.Count} vehicles ({string.Join(",", vehicles.Select(v => v.Name + "x" + v.Lods.Length))}), {units.Count} units, {clips.Count} clips, source {(lib.ClipSource != null ? "ok" : "MISSING")}"
                  + (untabled.Count > 0 ? $"; {untabled.Count} clips the game's table has no row for, played whole and guessed from the name: {string.Join(", ", untabled)}" : "");
