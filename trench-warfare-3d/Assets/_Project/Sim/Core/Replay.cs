@@ -202,6 +202,10 @@ namespace TW.Sim
         // v38 (2026-10-06, a lying man at range): a man lying in the open is hit less often the farther off the
         // shooter is (CombatTables.LyingTarget, half as likely by 60 m). Same inputs, a different battle: men who
         // went to ground far off now live, so a v37 replay does not replay. Layout and chain unchanged.
+        // v38 (2026-10-14, the rocket truck reloads sooner): the Salvo's rocket rack loads again in 11 s, not 16
+        // (the owner, 2026-10-06: "the rocket truck is very slow in reloading"). The wait a player counts from the
+        // last rocket of one rack to the first of the next falls from 15.10 s to 10.10 s; the rack's own 1 s is
+        // unchanged. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
         public const ushort FormatVersion = 63;
         public SimConfig Config;
         public SimConfig.WorldInit Init;

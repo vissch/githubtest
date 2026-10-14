@@ -95,7 +95,7 @@ namespace TW.Sim.Match
         /// The Salvo (2026-09-28, the owner's half-track rocket truck: Resources/Vehicles/Salvo, Tools/mechsplit.py
         /// TW_KIND=halftrack). Wheels in front, tracks behind, two clawed legs braced at the tail and a box of rockets on
         /// a turntable. The box is its one gun: indirect, so it needs no line of sight, blind inside 48 m (60 as designed, x RangeScale), and it throws
-        /// the heaviest burst on the field and then takes sixteen seconds to load again. Thin, slow, and full of rockets
+        /// the heaviest burst on the field and then takes eleven seconds to load again. Thin, slow, and full of rockets
         /// that go up when it is holed.
         /// </summary>
         public static UnitDef Salvo => new UnitDef
@@ -112,11 +112,11 @@ namespace TW.Sim.Match
                 TurretChance = 0.35f, Crew = 3, GunCount = 1, ShortHalt = true, FuelRisk = 0.30f, AmmoRisk = 0.70f,
                 // the shell below is the whole rack: a rocket from each of its sixteen tubes, each landing on its own
                 // tick (TankGunnerySystem); it holds where it is while it has a target, so it fires from its reach
-                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 155f, StandOffPatience = 32f,   // two reloads without a hit: move on
+                Rockets = 16, RocketSpeed = 140f, StandOffMetres = 155f, StandOffPatience = 32f,   // about three reloads without a hit: move on (the reload is 11 s since 2026-10-14; the hold rule is unchanged)
                 Gun0 = new TankGun
                 {
                     Mount = TankMount.Turret, RestYaw = 0f, ArcHalf = SimMath.Pi, TraverseRate = 20f * Deg,
-                    Indirect = true, RangeMin = 60f * CombatTables.RangeScale, RangeMax = 155f, Accuracy = 0.22f, ReloadSeconds = 16f,
+                    Indirect = true, RangeMin = 60f * CombatTables.RangeScale, RangeMax = 155f, Accuracy = 0.22f, ReloadSeconds = 11f,
                     PenMm = 0f, ApDamage = 0f,
                     HeDamage = 360f, HeRadius = 7.0f, HeSuppression = 90f, HeCrater = 1.6f, Mount3 = new float3(0f, 4.8f, 0.3f),
                 },
