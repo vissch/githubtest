@@ -345,5 +345,31 @@ class SkillDocsTest(unittest.TestCase):
             )
 
 
+    def test_h12_driving_and_evidence_names_the_namespaced_aosa_keys(self):
+        """[H12] the tier-script line must not send an agent to the bare aosa.dir/stem/hold keys (the script reads
+        aosa.<ns>.*, so a bare key can never satisfy it) and must give the eval that resolves <ns>."""
+        path = REPO / ".claude/skills/pipeline/references/driving-and-evidence.md"
+        text = text_of(path)
+        line = [l for l in text.splitlines() if "aosa_tiers.cs" in l]
+        self.assertTrue(line, "[H12] expected driving-and-evidence.md to still name AgentScripts/aosa_tiers.cs")
+        lines = text.splitlines()
+        block = chr(10).join(lines[lines.index(line[0]):][:10])
+        for bare in ("`aosa.dir`", "`aosa.stem`", "`aosa.hold`"):
+            self.assertNotIn(bare, block, "[H12] %s names the dead key %s" % (path, bare))
+        self.assertIn("dataPath", block, "[H12] expected the eval that resolves <ns> from Application.dataPath")
+        self.assertIn('"x8"', block, "[H12] expected the x8 hash format of the namespace prefix")
+        self.assertNotIn("Math.Abs", block, "[H12] Math.Abs(int.MinValue) throws; the eval must cast to uint")
+
+    def test_h11_aosa_readme_names_the_per_checkout_slot(self):
+        """[H11] the editor slot is per checkout since editor_lock.slot_path digests the project path, so the README
+        must not call it a shared `editor-slot.json`."""
+        pattern = re.search(r'"editor-slot-%s\.json"', text_of(PROJ / "Tools/editor_lock.py"))
+        self.assertIsNotNone(pattern, "[H11] expected editor_lock.py to still name editor-slot-<digest>.json")
+        readme = text_of(REPO / "docs/reference/aosa/README.md")
+        self.assertNotRegex(readme, r"editor-slot\.json",
+                            "[H11] the AOSA README still names a shared editor-slot.json")
+        self.assertIn("editor-slot-", readme, "[H11] expected the README to name the per-checkout slot file")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

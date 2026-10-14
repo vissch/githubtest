@@ -34,8 +34,9 @@ This file is the contract. A fresh session with no memory runs a cycle from this
      writes patches in a scratch worktree, compiles them with `Tools/aosa/occ.py`, and grooms the backlog. The critic
      scores the bench's `shot=` still, and image references can be requested.
    - **E, editor.** The loop has its own editor on THIS worktree's project (`githubtest-aosa/trench-warfare-3d`, with
-     its own `Library/`). Enter this mode when `status` says that project is FREE. Do NOT claim the shared slot in
-     `%LOCALAPPDATA%\TrenchWarfare\editor-slot.json`: that slot is the main clone's queue, and claiming it would make
+     its own `Library/`). Enter this mode when `status` says that project is FREE. The advisory slot is per checkout
+     (`%LOCALAPPDATA%\TrenchWarfare\editor-slot-<digest of the project path>.json`, see `Tools/editor_lock.py`
+     `slot_path`), so `status` shows this tree's own slot. Never claim another checkout's slot: that would make
      other sessions wait for nothing. Mode E lands staged patches, runs the gate, takes three-tier captures with
      `CaptureRig`, runs `Diff`, and reads `FrameBudget`. Close the editor after the commit, so a player bench is not
      measured next to a busy editor.
