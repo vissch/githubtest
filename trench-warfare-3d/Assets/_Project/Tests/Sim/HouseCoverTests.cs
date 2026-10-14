@@ -65,6 +65,12 @@ namespace TW.Tests
         static HouseDef Block(float x, float z) =>
             new HouseDef { Pos = new float3(x, 0f, z), Yaw = 0f, Half = new float2(8f, 5f) };
 
+        /// <summary>[H.3] One house of the report's hamlet: half extents 5 x 4 m. Four of them in a row at x 104,
+        /// 122, 140, 158 span x 99..109, 117..127, 135..145 and 153..163, so between them stand 8 m wide lanes at
+        /// x 109..117, 127..135 and 145..153 that a man can be shot straight through.</summary>
+        static HouseDef Hamlet(float x, float z) =>
+            new HouseDef { Pos = new float3(x, 0f, z), Yaw = 0f, Half = new float2(5f, 4f) };
+
         [Test]
         public void TheFootprintTellsBehindFromInFrontAndBeside()
         {
@@ -159,7 +165,7 @@ namespace TW.Tests
                     w.Spawn(1, InfantryArchetype.Rifle, new float3(100f + k * 5f, 0f, trenchZ), 1e6f, 0f, false);
                 if (houses)
                     for (int k = 0; k < 8; k++)
-                        m.Map.AddHouse(Block(104f + (k % 4) * 16f, trenchZ - 30f - (k / 4) * 25f));
+                        m.Map.AddHouse(Hamlet(104f + (k % 4) * 18f, trenchZ - 30f - (k / 4) * 25f));
 
                 long deaths = 0, manTicks = 0;
                 for (int t = 0; t < 1800; t++)
@@ -188,7 +194,7 @@ namespace TW.Tests
             {
                 var o = new List<float>(v); o.Sort();
                 float mean = 0f; foreach (float x in o) mean += x; mean /= o.Count;
-                TestContext.WriteLine($"{name}: mean {mean:F3}, p10 {o[0]:F3}, p90 {o[o.Count - 1]:F3} deaths per man-minute");
+                TestContext.WriteLine($"{name}: mean {mean:F3}, min {o[0]:F3}, max {o[o.Count - 1]:F3} deaths per man-minute");
             }
             Stats("before (no houses)", before);
             Stats("after  (8 houses) ", after);
@@ -196,7 +202,9 @@ namespace TW.Tests
             foreach (float x in before) mb += x; mb /= before.Count;
             foreach (float x in after) ma += x; ma /= after.Count;
             TestContext.WriteLine($"seeds down: {down} of {seeds.Length}");
-            Assert.LessOrEqual(ma, mb, $"houses must not get more men killed (before {mb:F3}, after {ma:F3})");
+            // [H.3] strictly less: without a house cover rule the two arms are bit-identical (the houses only add
+            // to MapData.Hash, and DirectFire leaves cover untouched), so ma == mb and this assert goes red.
+            Assert.Less(ma, mb, $"[H.3] houses must get fewer men killed (before {mb:F3}, after {ma:F3})");
         }
 
         [Test]
