@@ -32,6 +32,7 @@ namespace TW.Presentation.Tactical
             Fan,        // the cone a stream throws where it lands on something
             Stand,      // a standing flame with a skirt and tongues, looping: a big thing burning, a man alight
             Pool,       // a puddle with a blob rising off it: burning fuel lying on the ground
+            Core,       // a second, denser stream drawing: the opaque inside of the jet, and a different glyph to Jet
             Head,       // a CLOSED bolus: the jet's leading mass, where a curl's hole would be fatal
             Bloom,      // the jet's TERMINUS: a ground-rooted bloom, where the stream stops being a jet and goes up
             // VFX pass wave 1 (2026-09-28): pack sheets and new desktop sheets, rows below in this order (FlipbookOrdinalTests)
