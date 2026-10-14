@@ -22,9 +22,10 @@ Pictures and films before words. Things to click and act on.
 2. **The way we work.** The board lists what agents left unfinished, "so we dont lose track of unfinished tasks and
    can spawn an agent". (2026-10-07.)
    - Better: the process critique of 2026-10-04 gave the way of working 31 of 100. Two of its three fixes were
-     taken; one re-score follows "once the two fixes are in"; both fixes are checked in
-     `docs/reference/process-rescore-2026-10-14.md`, which has the rubric and the measurements but no score, because no
-     fresh agent could be started to make one. (2026-10-04, 2026-10-06.)
+     taken; the one re-score was made on 2026-10-14 by a fresh agent and came out 48 of 100, on a file copy of
+     the integration tree with no `.git`, so two of its three findings are artifacts of that copy:
+     `docs/reference/process-rescore-2026-10-14.md` has the score, the rubric and the measurements.
+     (2026-10-04, 2026-10-06, 2026-10-14.)
    - The six top review fixes run first, then he looks at what changed. (2026-10-07.)
    - Serves it: a tool or a check that saves his time, or keeps work from getting lost. Kind: tool.
 <a id="goal-frogs"></a>
