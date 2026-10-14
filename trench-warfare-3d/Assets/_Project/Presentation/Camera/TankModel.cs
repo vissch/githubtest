@@ -103,7 +103,9 @@ namespace TW.Presentation.Tactical
         /// <summary>The LOD0 part Socket_Muzzle k hangs on, which is the barrel whose mouth it was put on. Not always
         /// GunPart[k]: a walker with two barrels under one top has both of them as gun 0, so the gun part can be the
         /// other barrel and MuzzleLocal[k] then lands nowhere near a mouth (the Banner's fire, 2026-10-13: 2.00 m off
-        /// the mouth of Gun_Lower, BannerFireFitTests).</summary>
+        /// the mouth of Gun_Lower, BannerFireFitTests). Where the art gives gun k no socket, Load derives both this
+        /// part and MuzzleLocal[k] from the mesh of the k-th Role==Gun part instead, so every barrel that can fire has
+        /// a mouth of its own; it is -1 only on a machine with no k-th gun part at all.</summary>
         public readonly int[] MuzzlePart = { -1, -1 };
         public float LinkLength = 0.34f;                          // tanksplit: a tread link every ~34 cm
         /// <summary>The tracks' texture runs with the tread (the tanks of Tools/tanksplit.py, whose tracks are unwrapped as
@@ -117,6 +119,10 @@ namespace TW.Presentation.Tactical
         /// comes out lopsided (Tripo builds these things with three legs one side and two the other), so the side a
         /// leg belongs to is leg/LegsPerSide and nothing else.</summary>
         public int LegsPerSide;
+        /// <summary>Set once when a gun of this model was drawn with no part to hang its fire on, so the warning for it
+        /// is logged once and not every frame. An instance field, not a static: a new mutable static would have to
+        /// register with SceneStatics (StaticLifecycleTests).</summary>
+        public bool WarnedNoMuzzle;
 
         /// <summary>The tanks' root part is the Hull; a walker's is its Body (Tools/crabsplit.py).</summary>
         /// <param name="scale">how much bigger than the sculpt to build it (VehicleSize). Baked into the
@@ -157,6 +163,25 @@ namespace TW.Presentation.Tactical
                 if (!model.Sockets.TryGetValue(socket, out var s)) continue;
                 model.MuzzleLocal[k] = s.local; model.MuzzlePart[k] = s.part;
                 model.ArtRestYaw[k] = Mathf.Atan2(s.local.x, s.local.z);
+            }
+            // A gun with no muzzle socket of its own reads its mouth off the mesh of the barrel that fires it: the
+            // k-th Role==Gun part in part order, at (centre.x, centre.y, max.z) of its bounds, which is the very point
+            // TankImport cuts Socket_Muzzle on. The Banner's two stacked barrels are both gun 0 and only Gun_Lower
+            // carries the socket, so gun 1 had no part at all and its whole shot was drawn in open air 2.9 m beside
+            // the machine (owner, 2026-10-14: "its visually still off, line it up properly"). Worked out once here and
+            // not per frame: MuzzleWorld carries the point through v.World[part], so the top's yaw and the recoil pull
+            // come for free and nothing allocates. ArtRestYaw is left to real sockets alone (DefinedMachineModelTests,
+            // ProvingGroundModelTests assert it is ~0 on these machines).
+            for (int k = 0; k < 2; k++)
+            {
+                if (model.MuzzlePart[k] >= 0) continue;
+                int seen = 0, pick = -1;
+                for (int i = 0; i < parts.Count; i++)
+                    if (parts[i].Role == TankPartRole.Gun && seen++ == k) { pick = i; break; }
+                if (pick < 0 || parts[pick].Mesh == null) continue;
+                var b = parts[pick].Mesh.bounds;
+                model.MuzzlePart[k] = pick;
+                model.MuzzleLocal[k] = new Vector3(b.center.x, b.center.y, b.max.z);
             }
             var tubes = new List<(int, Vector3)>();
             while (model.Sockets.TryGetValue("Socket_Tube" + tubes.Count.ToString("00"), out var tube)) tubes.Add(tube);
