@@ -166,14 +166,26 @@ namespace TW.UI
             }
         }
 
+        /// <summary>[I4] The width the bar really drew, from the cards in it: a faction with seven infantry cards draws a
+        /// wider bar than the default roster, and shrinking it by the default's factor ran it off both screen edges.</summary>
+        public static float BarWidth(HudRefs r) => HudLayout.BarWidth(
+            r.RosterInfantry != null ? r.RosterInfantry.childCount : 0,
+            r.RosterArmour != null ? r.RosterArmour.childCount : 0,
+            r.Support != null ? r.Support.childCount : 0);
+
         /// <summary>The bar's shrink factor for a HUD this wide (HUD space): 1 when it fits with a margin either side.</summary>
-        public static float BarFit(float hudWidth) => Mathf.Clamp01((hudWidth - 2f * HudLayout.InsetPx) / HudLayout.BarWidth());
+        public static float BarFit(float hudWidth, float barWidth) =>
+            barWidth <= 0f ? 1f : Mathf.Clamp01((hudWidth - 2f * HudLayout.InsetPx) / barWidth);
+
+        /// <summary>The shrink factor for the DEFAULT roster's bar only. FitBar never uses it: it measures the real bar
+        /// (BarWidth(HudRefs)). Kept for the layout tests and for callers with no HUD built yet.</summary>
+        public static float BarFit(float hudWidth) => BarFit(hudWidth, HudLayout.BarWidth());
 
         static void FitBar(HudRefs r)
         {
             float w = r.Root.resolvedStyle.width;
             if (float.IsNaN(w) || w <= 0f) return;
-            float f = BarFit(w);
+            float f = BarFit(w, BarWidth(r));
             if (Mathf.Abs(r.Bar.resolvedStyle.scale.value.x - f) > 0.001f) r.Bar.style.scale = new Scale(new Vector3(f, f, 1f));
         }
 

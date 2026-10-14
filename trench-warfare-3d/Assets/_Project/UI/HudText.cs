@@ -119,7 +119,9 @@ namespace TW.UI
         public const string SpeedTip = "Game speed";
 
         /// <summary>Centre banners. The HUD's is the only one (CombatFx drew an IMGUI copy of each over it until 2026-09-27).</summary>
-        public static string CapturedBanner(int trench, bool mine) => mine ? $"Trench {trench} captured!" : $"Trench {trench} lost";
+        /// <summary>[I7] <paramref name="trench"/> is the sim's 0-based trench id (SimEvent.A); every word the player
+        /// reads is 1-based, as the hover card ("TRENCH 1") and the selection panel print it.</summary>
+        public static string CapturedBanner(int trench, bool mine) => mine ? $"Trench {trench + 1} captured!" : $"Trench {trench + 1} lost";
         /// <summary>A support ability fired: yours on its way, or the enemy's coming in, named as its card names it.</summary>
         public static string AbilityBanner(TW.Sim.Match.OffMapAbilityId id, bool mine)
             => mine ? Support(id).Name + " on its way" : "INCOMING " + Support(id).Name.ToUpperInvariant();
