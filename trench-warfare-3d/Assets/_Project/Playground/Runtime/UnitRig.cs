@@ -101,6 +101,11 @@ namespace TW.Playground
         public void UseLodTints(bool on) { if (LodTints != null) for (int k = 0; k < mats.Length && k < LodTints.Length; k++) mats[k].SetColor("_BaseColor", on ? LodTints[k] : Color.white); }
         public PlaygroundFx Fx;
         public ClipDeck Deck;
+        /// <summary>[Y13] The physics stream a dropped rifle falls on: unset, it drew from the unseeded global
+        /// UnityEngine.Random, so the same model's LOD copies (built with the same seed to compare poses) dropped
+        /// their rifles differently.</summary>
+        public int Seed = 1;
+        System.Random rng;
         public int VertsDrawn { get; private set; }
         public int[] BonesPerLod { get; private set; }
 
@@ -115,7 +120,7 @@ namespace TW.Playground
         float nextFlame, nextSmoke, nextShot;
         int afterBurn = -1;
 
-        public static UnitRig Build(PlaygroundLibrary.UnitEntry e, ClipDeck deck, PlaygroundFx fx, Transform parent, Vector3 at, float yaw, float scale)
+        public static UnitRig Build(PlaygroundLibrary.UnitEntry e, ClipDeck deck, PlaygroundFx fx, Transform parent, Vector3 at, float yaw, float scale, int seed = 1)
         {
             var root = new GameObject(e.Name);
             root.transform.SetParent(parent, false);
@@ -128,7 +133,7 @@ namespace TW.Playground
             // renderers' enabled flags, then decides what draws: it hid LOD1-3 whatever we asked. Our picker decides.
             foreach (var g in model.GetComponentsInChildren<LODGroup>(true)) VehicleRig.Kill(g);
             var u = root.AddComponent<UnitRig>();
-            u.Deck = deck; u.Fx = fx;
+            u.Deck = deck; u.Fx = fx; u.Seed = seed; u.rng = new System.Random(seed);
             // face the rig's +Z whatever way the FBX came in: measure the skeleton's own forward and turn the model to it
             var probe = Retarget.Skeleton.Of(model.transform);
             var f = probe.Forward; f.y = 0f;
@@ -375,13 +380,19 @@ namespace TW.Playground
 
         // a dead man lets go of it: it falls on the Tumble a vehicle's parts use, in the figure's frame
         Tumble dropped; bool dropping;
-        void DropRifle()
+        float R(float a, float b) => a + (b - a) * (float)rng.NextDouble();
+        Vector3 RSphere() { float z = R(-1f, 1f), a = R(0f, 6.2832f), r = Mathf.Sqrt(1f - z * z); return new Vector3(r * Mathf.Cos(a), z, r * Mathf.Sin(a)); }
+        /// <summary>[Y13] The rifle's fall, as drawn: a test's only way to see the draw.</summary>
+        public Vector3 DropVel => dropped.Vel;
+        /// <summary>[Y13] Drawn from this figure's own seeded stream, not the unseeded UnityEngine.Random, so two
+        /// copies built with the same seed (the LOD and squad compare rows) drop the rifle the same way.</summary>
+        public void DropRifle()
         {
             if (rifle == null || dropping) return;
             dropping = true;
             var local = transform.InverseTransformPoint(rifle.position);
             var rot = Quaternion.Inverse(transform.rotation) * rifle.rotation;
-            dropped = new Tumble { Pos = local, Rot = rot, Vel = new Vector3(Random.Range(-0.6f, 0.6f), 0.5f, Random.Range(-0.6f, 0.6f)), Spin = Random.onUnitSphere * 3f, Nudge = new Vector3(1f, 0f, 0.3f) };
+            dropped = new Tumble { Pos = local, Rot = rot, Vel = new Vector3(R(-0.6f, 0.6f), 0.5f, R(-0.6f, 0.6f)), Spin = RSphere() * 3f, Nudge = new Vector3(1f, 0f, 0.3f) };
         }
 
         void FallRifle(float dt)

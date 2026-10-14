@@ -703,7 +703,9 @@ namespace TW.Playground
             else if (State == Stage.CookedOff) FireLevel = 0.3f + 0.7f * Mathf.Exp(-(Time.time - cookedAt) / 8f);   // flares, then burns down to a smoulder
             if (AimAt == null && Traverse && State < Stage.KnockedOut)
             {
-                if (Mathf.Abs(Mathf.DeltaAngle(turretYaw, turretTarget)) < 1f) turretTarget = R(-70f, 70f);
+                // [Y13] drawn from the looks stream (V), not R: a traversing turret used to pull from the damage
+                // stream too, so whether a hit knocked a part off depended on whether the turret was traversing.
+                if (Mathf.Abs(Mathf.DeltaAngle(turretYaw, turretTarget)) < 1f) turretTarget = V(-70f, 70f);
                 turretYaw = Mathf.MoveTowardsAngle(turretYaw, turretTarget, 25f * dt);
             }
         }

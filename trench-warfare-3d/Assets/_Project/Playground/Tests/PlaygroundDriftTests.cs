@@ -404,5 +404,62 @@ namespace TW.Tests.Playground
             }
             finally { if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true); }
         }
+
+        [Test]
+        public void TraverseDoesNotChangeWhatAHitDestroys()
+        {
+            // [Y13] a traversing turret drew its next target from the same seeded System.Random the damage uses
+            // (R, not the looks-only V), so a machine took its hits differently depending on whether its turret was
+            // traversing: the hit outcome must be the one invariant the review names.
+            var e = Lib().Vehicles.FirstOrDefault(v => !VehicleManifest.Parse(v.Manifest).walker && !VehicleManifest.Parse(v.Manifest).flyer);
+            if (e == null) Assert.Ignore("no tracked/wheeled vehicle in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var still = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, PlaygroundHost.DrawScale(e.Name, 0f), 5);
+                var turning = VehicleRig.Build(e, null, parent, new Vector3(50f, 0f, 0f), 0f, PlaygroundHost.DrawScale(e.Name, 0f), 5);
+                still.CookDelay = -1f; turning.CookDelay = -1f;
+                turning.Traverse = true;
+                for (int f = 0; f < 30; f++) { still.Advance(1f / 60f); turning.Advance(1f / 60f); }
+
+                void Hit(VehicleRig r) => r.Hit(r.transform.TransformPoint(new Vector3(0.3f, 0f, 0.2f)), Vector3.forward, 22f, VehicleRig.HitKind.AP);
+                for (int i = 0; i < 3; i++) { Hit(still); Hit(turning); }
+
+                Assert.That(turning.Hp, Is.EqualTo(still.Hp).Within(1e-3f), "[Y13] a traversing turret changed what a hit destroyed (Hp differs)");
+                var stillLoose = still.Parts.Where(p => p.Loose).Select(p => p.Name).ToList();
+                var turningLoose = turning.Parts.Where(p => p.Loose).Select(p => p.Name).ToList();
+                Assert.That(turningLoose, Is.EqualTo(stillLoose), "[Y13] a traversing turret knocked off different parts");
+                for (int i = 0; i < stillLoose.Count; i++)
+                {
+                    var sp = still.Parts.First(p => p.Name == stillLoose[i]);
+                    var tp = turning.Parts.First(p => p.Name == turningLoose[i]);
+                    Assert.That(tp.Fly.Vel, Is.EqualTo(sp.Fly.Vel).Within(1e-4f), $"[Y13] {stillLoose[i]}'s throw differed with the turret traversing");
+                }
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void EveryCopyDropsTheRifleTheSameWay()
+        {
+            // [Y13] DropRifle drew from the unseeded global UnityEngine.Random, so the four LOD copies built with the
+            // same seed to compare poses (PlaygroundHost.SpawnUnit) dropped the rifle differently from one another.
+            var l = Lib();
+            if (l.Units.Length == 0) Assert.Ignore("no unit in the library");
+            var parent = new GameObject("test stage").transform;
+            ClipDeck deck = null;
+            try
+            {
+                deck = ClipDeck.Make(l, parent);
+                if (deck == null) Assert.Ignore("the library has no ClipSource");
+                var a = UnitRig.Build(l.Units[0], deck, null, parent, Vector3.zero, 0f, 1f, 3);
+                var b = UnitRig.Build(l.Units[0], deck, null, parent, new Vector3(5f, 0f, 0f), 0f, 1f, 3);
+                var c = UnitRig.Build(l.Units[0], deck, null, parent, new Vector3(10f, 0f, 0f), 0f, 1f, 9);
+                a.DropRifle(); b.DropRifle(); c.DropRifle();
+                Assert.That(b.DropVel, Is.EqualTo(a.DropVel).Within(1e-5f), "[Y13] the same seed must drop the rifle the same way");
+                Assert.That(c.DropVel, Is.Not.EqualTo(a.DropVel), "[Y13] a different seed must drop the rifle differently");
+            }
+            finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }
