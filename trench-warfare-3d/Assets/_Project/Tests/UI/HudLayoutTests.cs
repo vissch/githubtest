@@ -104,11 +104,16 @@ namespace TW.Tests
             // HudView.BarFit must count them. The bar is 1,732 wide, so at the 16:9 reference it draws at 0.91 (the
             // owner's choice, decisions.md 2026-09-27, over narrower infantry cards); it must not shrink further
             // unnoticed, and a narrower window shrinks it instead of overflowing
-            Assert.AreEqual(HudView.SupportAbilities.Length, HudLayout.SupportSlots, "the model counts the cards the bar draws");
-            float supportRow = HudLayout.Row(HudLayout.SupportSlots, HudLayout.CardPx);
-            Assert.That(HudLayout.BarWidth(), Is.GreaterThanOrEqualTo(supportRow + HudLayout.InsetPx * 2f), "the bar is at least as wide as its support row");
+            // [TU4] Three of the four asserts here could not fail: SupportSlots IS SupportAbilities.Length,
+            // BarWidth() is a sum that contains its own support row, and BarFit goes through Mathf.Clamp01 so it is
+            // never above 1. The numbers are the owner's (decisions.md 2026-09-27): ten slots, seven support cards,
+            // 1,732 px, 0.91. The 4:3 figure worked by hand: a 4:3 reference window is 900 * 4/3 = 1,200 px wide,
+            // less the 2 * 12 px inset leaves 1,176 px of room, and 1,176 / 1,732 = 0.679.
+            Assert.AreEqual(7, HudLayout.SupportSlots, "[TU4] seven support cards (decisions.md 2026-09-27)");
+            Assert.AreEqual(10, RosterEntry.SlotCount, "[TU4] ten roster slots (decisions.md 2026-09-27)");
+            Assert.That(HudLayout.BarWidth(), Is.EqualTo(1732f).Within(0.5f), "[TU4] the default bar is 1,732 px wide (decisions.md 2026-09-27)");
             Assert.GreaterOrEqual(HudView.BarFit(HudLayout.ReferenceWidthPx), 0.9f, "at the reference width the bar keeps nine tenths of its size");
-            Assert.Less(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), 1f, "a 4:3 window shrinks it rather than losing the support row");
+            Assert.That(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), Is.EqualTo(0.679f).Within(0.002f), "[TU4] a 4:3 window shrinks the bar to 0.679, not to Clamp01's 1");
         }
 
         // no UXML: HudView.Build queries what it can and falls back to code-built cards (the HudBindTests idiom)
