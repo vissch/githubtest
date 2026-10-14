@@ -17,6 +17,7 @@ time. The subagents do the reading.
 ## 2. Choose the work
 
 - Take the top of `pick`: at most 3 cards, and at most one of them juice.
+- **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
 - A card marked "measure next" gets a measurement attempt, not a change.
 - A card flagged SPLIT is split now, as the README says, before anything else. Record the split as an attempt with
   verdict `measure-only`.

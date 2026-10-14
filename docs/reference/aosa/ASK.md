@@ -8,11 +8,6 @@ When one is answered, write the answer and the date under it. The next cycle tur
 **A01. Merge policy for `lane/show/aosa`.** The loop commits each gated change here, one change per commit, with its
 A/B table. Do you want to review these commit by commit, or as a batch every N cycles?
 
-**A02. Ranking of the three measures.** Main thread, GPU and a critic score can pull against each other, and the loop
-needs to know which one wins. The default is: main-thread p95 first, then GPU p95, then the T1 critic score. The
-reason is docs/05, which shows main thread p95 as the budget still exceeded, at 9.0 ms in the development player
-against a 3 ms budget.
-
 **A03. Explosions batch B and C.** Batch B is the sky flash, the shock ring and foliage bend, and per-weapon recipes.
 Batch C is the scar layer, smouldering craters, haze and wire pieces. Both are designed in
 `~/.claude/plans/for-the-trench-warfare-lovely-cerf.md` and wait on your go after the batch A report. The juice
@@ -97,6 +92,12 @@ Each proposal is sent to the SIM lane as a seam request and is never edited here
   column stands straight (C57, 8f1349f).
 
 ## Answered
+
+- **A02 (2026-10-08): the loop's listed default.** The owner, to the brief "The optimiser's four open asks": "Take
+  the listed default for all four". So, in the words that now stand in `README.md` (rule 3) and in every agent brief:
+  **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
+  The reason is docs/05: main thread p95 was the budget still exceeded, at 9.0 ms in the development player against a
+  3 ms budget. Built as the relay unit optimiser-order (tools and docs only).
 
 - **A05 (2026-10-06): in the rear with the other buildings.** The owner, on the Decide page, to "Where the four big
   ruins stand": "lets put them also in the rear with the other buildings". Queued for the relay as the unit

@@ -11,7 +11,8 @@ You read benchmark reports and say where the frame goes. You do not change code.
    - If `warnings` is not empty, say what it contains.
    - Say whether `hash_start` matches the baseline.
 2. Against budget, rank these by how far over budget they are: `main_ms`, `gpu_ms`, `draw_calls`, `setpass`,
-   `gc_bytes` at p95, and `per_tick_ms` for the sim.
+   `gc_bytes` at p95, and `per_tick_ms` for the sim. The ranking sits inside the owner's order:
+   **Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are vetoes, never traded for a faster frame.
 3. Find the marker that carries each over-budget item:
    - `per_tick_ms` for the sim and host.
    - The `TW.*` presentation markers for Update and LateUpdate.
