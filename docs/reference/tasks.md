@@ -396,7 +396,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn; the heap stacked by who lands first),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch),
-  VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path).
+  VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path),
+  UnitOneSizeTests (every unit's drawn world height is the same at the closest, a middle and the farthest camera
+  zoom: infantry, a hero, a rider, one tank and one walker — the owner, 2026-10-13, overturning the readability
+  grow of the 2026-09-26 decisions.md row). ZoomScaleStills (`Tests/Stills`) photographs that same battle moment —
+  infantry, a rider, a tank and a walker in view — at three zooms, before and after, with the drawn height of each
+  under every picture (`TW_STILLS_DIR`).
 - **Trap:** any clip/discard in `VAT_URP.shader` goes behind `_TW_LIMBCUT` (VatEarlyZTests). Index instance data
   with `GetIndirectInstanceID_Base`, not `GetIndirectInstanceID`. `VatInstance.Tint` is packed by `VatTint`: the team
   in bit 0, a fallen man's tumble pitch in bits 1-5, his roll in 6-10, a squash in 11-16 and a feet pivot in 17 (all
@@ -498,6 +503,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.HitBlood.cs` (a man hit and still standing bleeds: red droplets out of his far side
   along the round's way, more for a heavier hit, a `BloodSpurt` card when the build has it, and a few drops on the
   ground in the gag marks' pool with a shorter life; GORE-scaled, 0 is none; not behind `fx.deathAbsurd`),
+  `Presentation/Camera/GoreScale.cs` (the ONE place every red piece's size lives: its share of the drawn man
+  (`FigureMetrics.HeightM`, 2.0 m) and the one curve that takes it with the zoom -- true to the man up to
+  `TrueUntilZoom`, a smooth grow over `GrowOver` past it, `MostGrow` at most, and `Cap` no caller can exceed; the
+  owner, 2026-10-13: the gore "is sometimes a bit big, we want this to scale based off the zoom". `HitZoomBoost`
+  is a thin forward to it. The ground marks are not gore out of a man: `HitMarkBoostCap` still holds them),
   `Presentation/Camera/CombatFx.Abilities.cs` (the aim's disc or corridor, the strafe's aircraft and tracers, the
   beam's charge and sweep, the scorch, the smoke screen's cards), `Presentation/Core/SimClock.cs` (the sim's clock in seconds for everything the picture times against the sim: the
   aircraft, the beam, the fires), `Presentation/Core/AimShape.cs` (the shape the aim describes and `SceneHooks.AimPreview`, the delegate the aim's owner sets
@@ -527,7 +537,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
-  FarGrowTests, GunMuzzleLookTests (`TankRenderer.MuzzleLook`: the Banner's flash is a short crack, no card near its
+  FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
+  GoreZoomStills (`Tests/Stills`, explicit, run by name with a graphics device: men who can take many
+  hits are shot by several weapons in GreyboxCorridor at zoom 6, 30 and 120, and `DebrisRenderer.Watch` (a test probe)
+  records every red piece thrown with its size, so the drawn gore can be measured against the drawn man -- it writes
+  a line a zoom and a PNG a zoom into `TW_STILLS_DIR`; the owner, 2026-10-13: the gore "is sometimes a bit big"),
+  GunMuzzleLookTests (`TankRenderer.MuzzleLook`: the Banner's flash is a short crack, no card near its
   muzzle is wide enough to cover a front leg, its smoke goes up and thins; every other machine keeps the old numbers),
   BannerFireFitTests (`TankRenderer.FireCards`: measured on the posed Banner, the fire starts at the mouth of the barrel
   that fired, no card of the shot sits behind the muzzle plane or leaves a gap in front of it, and a card that outlives
