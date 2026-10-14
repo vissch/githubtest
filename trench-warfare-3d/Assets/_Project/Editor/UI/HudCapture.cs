@@ -43,14 +43,65 @@ namespace TW.Editor
             if (doc == null || doc.panelSettings == null) { Debug.LogWarning("HudCapture: no HudController with a UIDocument in the scene."); return null; }
             var cam = Camera.main;
             if (cam == null) { Debug.LogWarning("HudCapture: no main camera."); return null; }
-            string full = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(Application.dataPath, "..", path));
+            if (Busy) { Debug.LogWarning("HudCapture: a capture is already running; wait for it."); return null; }
+            string full = Arm(path);
             var runner = new GameObject("HudCapture") { hideFlags = HideFlags.HideAndDontSave }.AddComponent<Runner>();
             runner.StartCoroutine(runner.Run(doc.panelSettings, cam, full, width, height));
             return full;
         }
 
-        sealed class Runner : MonoBehaviour
+        /// <summary>True while a capture holds the HUD panel: a second one would leave the panel on a dead target.</summary>
+        public static bool Busy => Runner.Live != null;
+
+        /// <summary>The absolute path of the PNG, with any old PNG and sidecar at it deleted, so the path Shoot
+        /// answers can never be read as this capture before it is written.</summary>
+        internal static string Arm(string path)
         {
+            string full = Path.IsPathRooted(path) ? path : Path.GetFullPath(Path.Combine(Application.dataPath, "..", path));
+            try
+            {
+                if (File.Exists(full)) File.Delete(full);
+                if (File.Exists(full + ".json")) File.Delete(full + ".json");
+            }
+            catch (IOException e) { Debug.LogWarning($"HudCapture: could not clear the old capture at {full}: {e.Message}"); }
+            return full;
+        }
+
+        // ExecuteAlways: the restore has to happen even when the runner dies outside Play (a domain reload, a test)
+        [ExecuteAlways]
+        internal sealed class Runner : MonoBehaviour
+        {
+            /// <summary>The one capture that holds the panel, or null. Set in Begin, cleared in Restore.</summary>
+            internal static Runner Live;
+
+            PanelSettings held; RenderTexture heldUi, heldScene; RenderTexture oldTarget; bool oldClear; Color oldColor; bool restored;
+
+            /// <summary>Takes the panel over and remembers what to put back; Restore undoes exactly this.</summary>
+            public void Begin(PanelSettings p, RenderTexture rtUi, RenderTexture rtScene)
+            {
+                held = p; heldUi = rtUi; heldScene = rtScene; restored = false;
+                oldTarget = p.targetTexture; oldClear = p.clearColor; oldColor = p.colorClearValue;
+                p.targetTexture = rtUi; p.clearColor = true; p.colorClearValue = new Color(0f, 0f, 0f, 0f);
+                Live = this;
+            }
+
+            /// <summary>Puts the shared panel asset back and releases the textures, once, however the run ended.</summary>
+            public void Restore()
+            {
+                if (restored) return;
+                restored = true;
+                if (held != null) { held.targetTexture = oldTarget; held.clearColor = oldClear; held.colorClearValue = oldColor; }
+                if (heldUi != null) { heldUi.Release(); Kill(heldUi); heldUi = null; }
+                if (heldScene != null) { heldScene.Release(); Kill(heldScene); heldScene = null; }
+                if (Live == this) Live = null;
+            }
+
+            /// <summary>Restore also runs out of Play (a test, a domain reload), where Destroy is not allowed.</summary>
+            static void Kill(Object o) { if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+
+            void OnDisable() => Restore();   // Play ending, a domain reload or any early exit comes through here
+            void OnDestroy() => Restore();
+
             public IEnumerator Run(PanelSettings panel, Camera cam, string full, int w, int h)
             {
                 // 24-bit depth brings an 8-bit stencil: UI Toolkit clips the children of a rounded, overflow-hidden element
@@ -58,16 +109,15 @@ namespace TW.Editor
                 // mask is drawn as a solid white shape over the control
                 var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
                 var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
-                var oldTarget = panel.targetTexture; bool oldClear = panel.clearColor; var oldColor = panel.colorClearValue;
-                panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
+                Begin(panel, rtUi, rtScene);
                 yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
                 yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
                 string rects = Probe(panel, w, h);
                 var camTarget = cam.targetTexture;
                 cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
-                var scene = Read(rtScene); var ui = Read(rtUi);
-                panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
-                var px = scene.GetPixels32(); var upx = ui.GetPixels32();
+                var scene = Read(rtScene); var uiTex = Read(rtUi);
+                Restore();
+                var px = scene.GetPixels32(); var upx = uiTex.GetPixels32();
                 for (int i = 0; i < px.Length; i++)
                 {
                     var u = upx[i]; if (u.a == 0) continue;
@@ -79,7 +129,7 @@ namespace TW.Editor
                 File.WriteAllBytes(full, scene.EncodeToPNG());
                 File.WriteAllText(full + ".json", rects);
                 Debug.Log($"HudCapture: wrote {full} ({w}x{h})");
-                Destroy(scene); Destroy(ui); rtUi.Release(); rtScene.Release(); Destroy(rtUi); Destroy(rtScene);
+                Destroy(scene); Destroy(uiTex);
                 Destroy(gameObject);
             }
 
