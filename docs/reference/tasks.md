@@ -338,6 +338,8 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   `Sim/Nav/Flight.cs` (`FlightSystem`, order 112: a machine whose `VehicleProfile.FlyHeight` is above 0 - the Hopper,
   9 m - is marked `UnitFlags.Flying` and driven in a straight line at the enemy HQ, and nothing on the ground slows,
   stops, trips or is crushed by it; knocked out it falls back onto its field). The wreck itself is a map prop made in
+  `Sim/Units/MercyCarry.cs` (the Mercy fetches badly hurt men of its own side, carries up to `Seats` of them out past its
+  own spawn line and puts them back there at full health; `TankSpec.Seats`, `SimWorld.Lift`). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
   (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index; a blast finds it through

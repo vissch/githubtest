@@ -72,6 +72,9 @@ namespace TW.Sim.Combat
         /// was), it gives up the hold for StandOffRelease seconds and drives on (it cannot camp a target nobody is
         /// hurting). It holds only on the first goal it was given. 2026-09-28.</summary>
         public float StandOffMetres, StandOffPatience;
+
+        /// <summary>Wounded men this machine carries off the field (MercyCarrySystem); 0: none.</summary>
+        public byte Seats;
         public const float StandOffRelease = 10f;
 
         public TankGun Gun(int k) => k == 0 ? Gun0 : Gun1;

@@ -270,6 +270,16 @@ namespace TW.Sim
             }
         }
 
+        /// <summary>A man taken aboard an ambulance: he leaves the field exactly as Despawn clears him, but WITHOUT a
+        /// Death event — he did not die, and the debrief counts its deaths from Death. The caller emits UnitBoarded.</summary>
+        public void Lift(int slot)
+        {
+            if (!IsAlive(slot)) return;
+            Flags[slot] = 0u; StanceOf[slot] = (byte)Stance.Dead; Hp[slot] = 0f; TrenchId[slot] = -1; TargetSlot[slot] = -1; PostCell[slot] = -1; PostKind[slot] = 0;
+            freeSlots.Add(slot);
+            AliveCount--;
+        }
+
         // ------------------------------------------------------------------ tick
         /// <summary>Advance one tick. <paramref name="commands"/> holds every peer's commands scheduled for this tick.</summary>
         public void Step(NativeArray<SimCommand> commands)

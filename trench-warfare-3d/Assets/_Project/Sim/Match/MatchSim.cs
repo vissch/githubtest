@@ -30,6 +30,7 @@ namespace TW.Sim.Match
         public LeapSystem Leap;
         public TW.Sim.Units.BreakerSystem Breaker;
         public FlightSystem Flight;
+        public TW.Sim.Units.MercyCarrySystem Mercy;
         public HeroSystem Hero;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
@@ -126,6 +127,8 @@ namespace TW.Sim.Match
             World.AddSystem(Flight);                        // A5b: the machines that fly (order 112: with the commands, before any reader of UnitFlags.Flying)
             Breaker = new TW.Sim.Units.BreakerSystem(map);
             World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
+            Mercy = new TW.Sim.Units.MercyCarrySystem(map);
+            World.AddSystem(Mercy);                         // 2026-10-07: the Mercy fetches badly hurt men, carries them out and puts them back
             if (combat)
             {
                 Engage = new EngageSystem(map);
