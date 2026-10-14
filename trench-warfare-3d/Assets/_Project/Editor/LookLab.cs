@@ -12,10 +12,10 @@ namespace TW.Editor
     public static class LookLab
     {
         /// <summary>A knob set in the game on the lab's next frame.</summary>
-        public static string Knob(string name, string value) { Get().Pending.Add((name, value)); return $"{name}={value} (next frame)"; }
+        public static string Knob(string name, string value) { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; Get().Pending.Add((name, value)); return $"{name}={value} (next frame)"; }
 
         /// <summary>Every knob back to its default on the lab's next frame.</summary>
-        public static string Clear() { Get().ClearAll = true; return "knobs cleared (next frame)"; }
+        public static string Clear() { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; Get().ClearAll = true; return "knobs cleared (next frame)"; }
 
         static Lab Get()
         {
