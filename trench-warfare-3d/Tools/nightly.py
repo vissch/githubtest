@@ -73,7 +73,8 @@ def bench_part(night, seeds):
 
 
 def compare_bench(now, then):
-    """Lines for the report, and the metrics that got worse on every seed."""
+    """Lines for the report, and the metrics that got worse on every seed. 'all up'/'all down' and `worse` only
+    when every seed has the metric on both nights [N13.11]."""
     lines, worse = [], []
     seeds = [k for k in now if k != 'mean']
     same = then is not None and sorted(seeds) == sorted(k for k in then if k != 'mean')
@@ -82,11 +83,17 @@ def compare_bench(now, then):
         b = then['mean'].get(m) if then else None
         verdict = ''
         if same and b is not None:
-            ups = sum(1 for s in seeds if now[s].get(m, 0) > then[s].get(m, 0))
-            downs = sum(1 for s in seeds if now[s].get(m, 0) < then[s].get(m, 0))
-            verdict = 'all up' if ups == len(seeds) else 'all down' if downs == len(seeds) else 'same' if ups == downs == 0 else 'mixed'
-            if verdict == 'all up' and m in WORSE_UP:
-                worse.append(m)
+            pairs = [s for s in seeds if m in now[s] and m in then[s]]
+            if not pairs:
+                verdict = 'no seed has both'
+            else:
+                ups = sum(1 for s in pairs if now[s][m] > then[s][m])
+                downs = sum(1 for s in pairs if now[s][m] < then[s][m])
+                full = len(pairs) == len(seeds)
+                word = 'up' if ups == len(pairs) else 'down' if downs == len(pairs) else 'same' if ups == downs == 0 else 'mixed'
+                verdict = ('all ' + word if full and word in ('up', 'down') else word) + f', {len(pairs)} of {len(seeds)}'
+                if full and word == 'up' and m in WORSE_UP:
+                    worse.append(m)
         lines.append(f'| {m} | {a:.3f} | {"" if b is None else f"{b:.3f}"} | {verdict} |')
     return lines, worse
 
@@ -216,10 +223,13 @@ def main():
     root = night_root()
     sha = git('rev-parse', '--short=8', 'HEAD') or 'nogit'
     dirty = bool(git('status', '--porcelain', '--untracked-files=no'))
-    stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M')
+    stamp = datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
     name = f'{stamp}-{sha}'
     night = os.path.join(root, name)
-    os.makedirs(night, exist_ok=True)
+    try:
+        os.makedirs(night)
+    except FileExistsError:
+        sys.exit(f'nightly: {night} is already there: a run is using it')
     report = {'night': name, 'sha': sha, 'dirty': dirty, 'branch': git('rev-parse', '--abbrev-ref', 'HEAD'), 'look': []}
     md = [f'# Night {name}', '', f'Commit {sha} on {report["branch"]}{" (tree dirty)" if dirty else ""}.', '']
     ran = False
@@ -236,7 +246,7 @@ def main():
             then = json.load(open(os.path.join(then_dir, 'bench.json'))) if then_dir else None
             lines, worse = compare_bench(now, then)
             md += [f'Against {os.path.basename(then_dir) if then_dir else "nothing (the first night)"}.', '',
-                   '| metric | tonight | last time | seeds |', '|---|---|---|---|'] + lines + ['']
+                   '| metric | tonight | last time | seeds (n of N) |', '|---|---|---|---|'] + lines + ['']
             for m in worse:
                 report['look'].append(f'bench: {m} rose on every seed')
             if os.path.exists(os.path.join(night, 'bench.txt')):
