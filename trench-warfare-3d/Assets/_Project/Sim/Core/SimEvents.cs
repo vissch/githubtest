@@ -114,6 +114,13 @@ namespace TW.Sim
         // PropChanged instead): a = prop index, b = 0 a blast / 1 wear (absorbed rounds, a machine grinding it), pos = the
         // prop, dir = the way the harm went (zero when unknown), scalar = the share of this stage's hit points left, 0..1.
         PropWorn,
+        // 2026-10-07 (format v38, the Mercy carries): the ambulance takes a badly hurt man aboard and drives him off
+        // the field (MercyCarrySystem). Boarded: a = the man's slot (he leaves the field this tick, with no Death),
+        // b = the Mercy's slot, pos = where he was taken. Returned: a = the new slot he comes back in, b = the Mercy
+        // that carried him, dir.y = team, pos = where he came back (his side's rear edge). The slot in A is reused, so
+        // the team rides in dir.y.
+        UnitBoarded,
+        UnitReturned,
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing

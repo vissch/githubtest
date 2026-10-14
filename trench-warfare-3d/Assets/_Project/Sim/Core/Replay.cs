@@ -121,7 +121,12 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-07, the Mercy carries): the ambulance (vehicle archetype 24) no longer heals men where they
+        // stand. It drives to badly hurt men of its own side at the front, takes up to four aboard (they leave the
+        // field while carried), drives out past its own rear edge and puts them back at full health, then returns for
+        // more (MercyCarrySystem, new at the end of the system chain; SimEventType.UnitBoarded / UnitReturned). The
+        // chain and the hashed layout grow: a v37 replay does not replay.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
