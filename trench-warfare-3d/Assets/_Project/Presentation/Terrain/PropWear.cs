@@ -217,6 +217,19 @@ namespace TW.Presentation.Terrain
             }
         }
 
+
+        /// <summary>Tests only (PropWearTests): one square of the fire grid takes this many rounds and is worn, on this
+        /// sim tick, through the real pass. A one-cell grid stands in for a map, so no SimWorld and no host are needed.
+        /// Returns the props worn away so far.</summary>
+        public int WearOneCellForTests(BattlefieldKit kit, int rounds, uint tick)
+        {
+            if (rules == null) BuildRules(kit);
+            if (cells == null || cells.Length != 1) { cellsX = 1; cellsZ = 1; cells = new Cell[1]; }
+            cells[0].Rounds = rounds; cells[0].DirX = 0f; cells[0].DirZ = 1f;
+            WearTick(tick);
+            return Worn;
+        }
+
         /// <summary>What stands in a square, found once and kept. The expensive call in the file: a spatial query a rule,
         /// as a blast pays. Fire stays on the same ground, so it is paid once and then reused for as long as it lasts.</summary>
         Swept SweepCell(int index)
