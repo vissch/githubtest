@@ -230,6 +230,7 @@ namespace TW.Editor
         /// <summary>Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower).</summary>
         public static string Film(string dir, float seconds = 6f, int fps = 15, int w = 960, int h = 540)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             Directory.CreateDirectory(dir);
             foreach (var f in Directory.GetFiles(dir, "f_*.png")) File.Delete(f);
             var b = Get(); b.FilmDir = dir; b.FilmLeft = Mathf.RoundToInt(seconds * fps); b.FilmIndex = 0; b.FilmW = w; b.FilmH = h;
@@ -238,7 +239,7 @@ namespace TW.Editor
         }
 
         /// <summary>Save a still to `path` the frame `shots` more rider shots have been fired (a volley caught as it lands).</summary>
-        public static string VolleyShot(string path, int shots = 6) { var b = Get(); b.VolleyPath = path; b.VolleyFrom = -1; b.VolleyAt = shots; return "waiting for a volley of " + shots; }
+        public static string VolleyShot(string path, int shots = 6) { if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first"; var b = Get(); b.VolleyPath = path; b.VolleyFrom = -1; b.VolleyAt = shots; return "waiting for a volley of " + shots; }
 
         public static string FilmStatus() { var b = Get(); return b.FilmLeft > 0 ? $"filming, {b.FilmLeft} left" : $"done, {b.FilmIndex} frames from t {b.FilmFrom:0.00} to {b.FilmTo:0.00}"; }
 

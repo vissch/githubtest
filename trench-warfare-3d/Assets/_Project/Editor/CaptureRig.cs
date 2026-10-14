@@ -367,6 +367,7 @@ namespace TW.Editor
         public static string Shot(string path, float x, float z, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900,
                                   float aimY = float.NaN)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             Get().Queue.Enqueue(new Rig.Shot { Path = path, Focus = new Vector2(x, z), Zoom = zoom, Yaw = yaw, Pitch = pitch, W = w, H = h, AimY = aimY });
             return "queued " + path;
         }
@@ -404,6 +405,7 @@ namespace TW.Editor
         /// coordinates. Returns the focus it chose and how many men were standing in that square.</summary>
         public static string ShotCrowd(string path, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900, float cell = 20f)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             var at = Crowd(cell);
             Shot(path, at.x, at.y, zoom, yaw, pitch, w, h);
             return "queued " + Path.GetFileName(path) + " on the crowd at " + at.x.ToString("0.0", CultureInfo.InvariantCulture) + ", " + at.y.ToString("0.0", CultureInfo.InvariantCulture);
@@ -418,6 +420,7 @@ namespace TW.Editor
                                     float pitch = 25f, int count = 8, int everyFrames = 6, int w = 1600, int h = 900,
                                     float aimY = float.NaN)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             for (int i = 0; i < count; i++)
                 Get().Queue.Enqueue(new Rig.Shot
                 {
@@ -626,6 +629,7 @@ namespace TW.Editor
         /// </summary>
         public static string Profile(string path, int frames = 300)
         {
+            if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             var host = Get().gameObject.GetComponent<Profiler>() ?? Get().gameObject.AddComponent<Profiler>();
             host.Begin(path, frames);
             return "profiling " + frames + " frames into " + path;
