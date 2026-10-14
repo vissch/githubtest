@@ -186,13 +186,17 @@ def caption(img, text, counter):
 
 
 def encode(frames: Path, result, mp4: Path, poster: Path):
-    """Frames to an mp4 that plays in a browser, with the clip names written on; the poster is its first frame."""
+    """Frames to an mp4 that plays in a browser, with the clip names written on; the poster is its first frame.
+    Written to a temp name beside the target first: a dead ffmpeg or a missing frame must never leave a partial
+    file at the published path (N12.4)."""
     from PIL import Image
     mp4.parent.mkdir(parents=True, exist_ok=True)
+    tmp = mp4.with_name(mp4.name + '.part')
+    tmp_poster = poster.with_name(poster.name + '.part')
     segs = result.get('segments') or []
     named = len(segs) > 1 or (segs and segs[0].get('caption'))
     proc = subprocess.Popen([FFMPEG, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{SIZE}x{SIZE}', '-r', str(FPS), '-i', '-',
-                             '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(mp4)],
+                             '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(tmp)],
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         for f in range(result['frames']):
@@ -202,15 +206,19 @@ def encode(frames: Path, result, mp4: Path, poster: Path):
                 if k is not None:
                     caption(img, segs[k]['caption'], f'{k + 1} / {len(segs)}' if len(segs) > 1 else '')
             if f == 0:
-                img.save(poster, quality=84)
+                img.save(tmp_poster, 'JPEG', quality=84)
             proc.stdin.write(img.tobytes())
         proc.stdin.close()
         err = proc.stderr.read().decode(errors='replace')
         if proc.wait() != 0:
             raise RuntimeError('ffmpeg: ' + err[-300:])
+        os.replace(tmp, mp4)
+        os.replace(tmp_poster, poster)
     finally:
         if proc.poll() is None:
             proc.kill()
+        tmp.unlink(missing_ok=True)
+        tmp_poster.unlink(missing_ok=True)
 
 
 def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, only_harvest=False):
