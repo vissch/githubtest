@@ -729,7 +729,7 @@ namespace TW.Presentation.Tactical
                             // blood in place of the dust: the drawing sprays from its left edge, so the card sits half its width on
                             // along the round, rolled to it on screen; GORE scales it
                             float gore = Mathf.Min(1f, DebrisRenderer.Gore);
-                            float wide = (blood.Value == FlipbookFx.Book.BloodSnipe ? 1.6f : 1.1f) * scale * Mathf.Lerp(0.6f, 1f, gore);
+                            float wide = GoreScale.Sized(blood.Value == FlipbookFx.Book.BloodSnipe ? GoreScale.BigCardShare : GoreScale.CardShare, viewZoom) * Mathf.Lerp(0.6f, 1f, gore);
                             Vector3 along = toward.normalized;
                             books.Add(blood.Value, p + along * (wide * 0.45f), wide, blood.Value == FlipbookFx.Book.BloodSnipe ? 25f / 12f : 28f / 12f,
                                 velocity: Vector3.down * 0.4f, roll: cam != null ? FlipbookFx.ScreenRoll(cam, along) : 0f, alpha: 0.95f * gore);
