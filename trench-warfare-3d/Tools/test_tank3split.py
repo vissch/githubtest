@@ -20,6 +20,16 @@ class Tank3splitTest(unittest.TestCase):
         self.assertNotIn(".pop()", SRC,
                          "[R10] tank3split.py still pops an edge out of a set")
 
+    def test_r11_the_snap_pass_skips_the_lods_it_will_rebuild(self):
+        """[R11] TW_DERIVE must be read before the snap loop, and the loop must iterate the kept LODs only."""
+        self.assertLess(SRC.index("DERIVE = os.environ.get"), SRC.index("snapped = []"),
+                        "[R11] the snap pass still runs before it knows which LODs are derived, so the "
+                        "manifest's \"snapped\" lists meshes that were thrown away")
+        self.assertIn("for k in SNAP_LODS:", SRC,
+                      "[R11] the snap loop still walks every LOD instead of SNAP_LODS")
+        self.assertIn("SNAP_LODS = [k for k in (1, 2) if k not in DERIVED]", SRC,
+                      "[R11] SNAP_LODS must be the LODs kept from Tripo")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
