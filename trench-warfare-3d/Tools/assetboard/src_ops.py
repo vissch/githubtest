@@ -127,8 +127,12 @@ def checkouts(repo: Path):
         if w['branch'].startswith(DETACHED):        # a pinned copy, or a checkout a check moves and resets by itself: no status is run in it
             w['dirty'] = []                         # (git status takes the index lock, and a reset there must not meet it)
             continue
-        st = src_git.git(p, 'status', '--porcelain', '--untracked-files=normal').split('\n')
-        w['dirty'] = [l[3:] for l in st if l.strip()]
+        out_s, ok = src_git.run(p, '--no-optional-locks', 'status', '--porcelain', '--untracked-files=normal')
+        if not ok:          # the index lock was held, or git timed out: unknown is not the same as clean
+            w['dirty'] = []
+            w['dirty_unknown'] = True
+            continue
+        w['dirty'] = [l[3:] for l in out_s.split('\n') if l.strip()]
     return out
 
 
@@ -481,23 +485,28 @@ def machines(trees):
 
 
 def board(root: Path, skills):
+    """Every item on the pipeline board, with its stages' states. Read one file at a time (N11.3): one item file
+    that will not parse, lint or evaluate is passed over with the reason put on a `Broken` row of its own (N11.2
+    gives a row of its own to any lane this station does not know), not the whole board emptied on the floor."""
     import sys
     sys.path.insert(0, str(root / 'Tools' / 'pipeline'))
     try:
         import pipeline
         b = pipeline.Board()
-        items = b.items()
     except (SystemExit, Exception):
         return [], {}
     out = []
-    for iid, item in items.items():
+    for p in sorted((b.root / 'items').glob('*.json')):
         try:
+            item = pipeline.read_json(p)
+            pipeline.lint_item(item, p.name)
             states = pipeline.evaluate(item, b)
-        except (SystemExit, Exception):
-            states = {}
-        stages = [dict(id=s['id'], station=s.get('station', ''), role=s.get('role', ''), skill=skill_for(s.get('role'), skills),
-                       state=states.get(s['id'], {}).get('state', 'UNKNOWN')) for s in item['stages']]
-        out.append(dict(id=iid, title=item.get('title', ''), lane=item.get('lane', ''), stages=stages))
+            stages = [dict(id=s['id'], station=s.get('station', ''), role=s.get('role', ''), skill=skill_for(s.get('role'), skills),
+                           state=states.get(s['id'], {}).get('state', 'UNKNOWN')) for s in item['stages']]
+        except (SystemExit, Exception) as e:
+            out.append(dict(id=p.stem, title=f'{p.stem}: {e}', lane='Broken', stages=[]))
+            continue
+        out.append(dict(id=p.stem, title=item.get('title', ''), lane=item.get('lane', ''), stages=stages))
     claims = {}
     for st in ('laptop', 'desktop'):
         try:
@@ -615,13 +624,16 @@ def collect(repo: Path, site: Path, share=False):
         tree = next((w for w in trees.values() if w['branch'] == l['branch']), None)
         l.update(checkout=tree['name'] if tree else None, path=tree['path'] if tree else None,
                  dirty=len(tree['dirty']) if tree else 0, dirty_files=(tree['dirty'][:6] if tree else []),
+                 dirty_unknown=bool(tree and tree.get('dirty_unknown')),
                  workers=[], items=[], assets=[], last=[dict(sha=c[0], date=c[1], subject=short(c[2], 100)) for c in l.get('commits', [])[:3]])
         l.pop('commits', None)
     lane_assets(site, lanes)
     items, claims = board(root, skills)
     for it in items:
-        if it['lane'] in lanes:
-            lanes[it['lane']]['items'].append(it)
+        if it['lane'] not in lanes:        # a lane this station has never heard of (N11.2): its own row, not dropped
+            lanes[it['lane']] = dict(branch=it['lane'], ahead=0, tip='', live=True, newest=True, checkout=None,
+                                     dirty=0, dirty_files=[], dirty_unknown=False, workers=[], items=[], assets=[], last=[], made=True)
+        lanes[it['lane']]['items'].append(it)
     busy = {}                                       # roster id -> [(lane, what)]
 
     def put(branch, worker):
