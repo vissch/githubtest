@@ -34,9 +34,9 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **Code lane vs code-free lane:**
   - Code means anything under `trench-warfare-3d/` outside `Tools/`, or `gate.ps1`, or any file whose name a test quotes, such as `envatlas.py` or `17-ui-art-spec.md` (`is_code` :51-53, `names_tests_read` :56-63).
   - A code lane needs `tw-gate-green` to equal `HEAD^{tree}` (:112-120).
-  - A docs or Tools-only lane runs `validate.py`, plus `Tools/selftest.py` when `Tools/` changed (:121-128).
+  - A docs or Tools-only lane runs `validate.py`, plus `Tools/selftest.py` when `Tools/` changed.
 - **Push:** `git push --atomic origin <sha>:refs/heads/<integration> --force-with-lease=refs/heads/<lane>:<lease> <sha>:refs/heads/<lane>` (:130-131), where `<sha>` is the commit id `rev-parse HEAD` gave once, before the checks, so the commit that was checked is the commit that is pushed. Just before the push it reads HEAD and the tree again and refuses, pushing nothing, when HEAD moved or the tree went dirty while the checks ran. The local integration ref moves only after success (:140).
-- **The marker:** `gate.ps1` writes `<tree> <timestamp>` to `git rev-parse --path-format=absolute --git-path tw-gate-green`, which is per worktree. It writes only on a full green run and only if the tree before equals the tree after (`gate.ps1:111`, :127-135).
+- **The marker:** `gate.ps1` writes `<tree> <timestamp>` to `git rev-parse --path-format=absolute --git-path tw-gate-green`, which is per worktree. It writes only on a full green run and only if the tree before equals the tree after (gate.ps1's marker-write block, :127-135).
 
 ### `health.py` (`T\health.py`)
 - `python Tools/health.py [--compile] [--lanes]`, about 15 s. Exit 0 all good, 1 something to fix (:5-7, :27-28).
@@ -74,7 +74,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   - a `Tools/*.py` or `tw` subcommand in neither pipelines.md nor workflow.md (:572-579);
   - `agent-memory.md` over 150 lines or `CLAUDE.md` over 110 (:51-52, :581-590).
   - Regenerate with `python Tools/codemap.py`.
-- **`selftest.py`** (`T\selftest.py:1-16`): run it after changing any tool. It breaks a throwaway worktree on purpose (codemap cases, port_split cases, health `--lanes`, scorecard, land cases); about a minute. `validate.py` alone does not run it.
+- **`selftest.py`** (`T\selftest.py`): run it after changing any tool. It breaks a throwaway worktree on purpose (codemap cases, port_split cases, health `--lanes`, scorecard, land cases); about a minute. `validate.py` alone does not run it.
 - **`port_split.py`** (`T\port_split.py:1-33`): `python Tools/port_split.py FILE --rebase|--merge|--from BASE --to REV [--dry-run] [--into F]`. Hunks it cannot place go to `FILE.port.rej`. Exit 1 when anything went to `.rej`; then compile, `git add`, `git rebase --continue`.
 
 ### Inbox (`D\inbox\README.md:1-11`)

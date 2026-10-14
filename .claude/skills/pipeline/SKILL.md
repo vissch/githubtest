@@ -1,6 +1,6 @@
 ---
 name: pipeline
-description: Run the two-station agent pipeline for Trench Warfare 3D — see what waits on which station, take and finish stage jobs, explain why a stage is stale or blocked, record the owner's feedback as a request, and start long jobs detached. Use for "/pipeline status", "/pipeline work", "why is X stale", "give feedback on X", "what is the desktop doing". NOT for ordinary lane work outside the pipeline (follow CLAUDE.md) and NOT for driving the editor directly (unity-pipeline skill).
+description: Run the two-station agent pipeline for Trench Warfare 3D — see what waits on which station, take and finish stage jobs, explain why a stage is stale or blocked, record the owner's feedback as a request, and start long jobs detached. Use for "what's the pipeline status", "take the next job", "why is X stale", "give feedback on X", "what is the desktop doing". NOT for ordinary lane work outside the pipeline (follow CLAUDE.md) and NOT for driving the editor directly (unity-pipeline skill).
 ---
 
 # Pipeline (two stations)

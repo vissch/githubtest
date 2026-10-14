@@ -141,7 +141,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - Presets: `BattlefieldParams.ShelledForest(1917u)` (used at `StressPresetTests.cs:38`), `WinterLine`, `Landing` (`D\reference\tasks.md:70`).
 - Registration order: :69-136.
 
-**Two-sided match loop** (the worked example is `P\Tests\EditMode\SinglePlayerEquivalenceTests.cs`)
+**Two-sided match loop** (the worked example is `P\Tests\Match\SinglePlayerEquivalenceTests.cs`)
 - `new LockstepSession(Func<MatchSim> newMatch, bool canary, int latencyTicks, int jitterTicks, float lossChance, uint seed)` (`P\Presentation\Core\LockstepSession.cs:43`). It is a SHOW assembly (`TW.Presentation`). In single player it sets `HashInterval = 0` (:59); a test sets it back to 1 (SinglePlayerEquivalenceTests.cs:45).
 - `bool StepOnce(ScriptedEnemy ai)` (:65-77): at most one tick. Returns true when `Local` stepped.
 - Player orders: `session.LocalDriver.Issue(SimCommand.Deploy(tick, 0, slot))` (SinglePlayerEquivalenceTests.cs:55). An order lands `InputDelayTicks` (3) later.

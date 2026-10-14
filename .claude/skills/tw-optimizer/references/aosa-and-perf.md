@@ -249,14 +249,14 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   - `window{tick_start,tick_end,hash_start,hash_end,hash_end_tick,alive_peak_before,alive_start,alive_end,frames,seconds,fps_mean,desync,focused,gc_collections,mono_used_mb,hitches_over_33ms,hitch_records,hitch_carriers}` (:880-904)
   - `series{dt_ms,cpu_frame_ms,main_ms,render_ms,gpu_ms,setpass,draw_calls,gc_bytes,vat_*,frame_draw_calls,frame_vertices,frame_indirect_draws,frame_budget_draws/vertices/indirect,script:*,TW.Hud.*}` with p50/p95/p99/mean/max/sum/n (:529-560, :696-697)
   - `per_tick_ms`, `script_markers`, `unavailable`, `warnings` (:912-930); `shot_log*` (:769-799)
-- **Commands** (`D\reference\workflow.md:345-351`):
+- **Commands** (workflow.md, the player/editor bench commands in §6):
   - Player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`
   - Editor: `TW.Editor.CaptureRig.Bench("... out=<abs>.json")`
   - The env var `TW_BENCH` does the same as `-twbench` (`D\reference\feature-flags.md:34`).
 
 **`perfcmp.py`** (`T\perfcmp.py`): `python Tools/perfcmp.py before.json after.json [...] [--force]`
-- Refuses (exit 1) when `hash_start` or `run.build` differ, unless `--force` (:13-21). It **does not check the commit** (`build_info.git_sha`); check that by hand (workflow.md:359).
-- Noise (:5-9; workflow.md:352-354): p50 about 1%, p95 up to about 12%, p99 and per-system up to about 25%, hitches 2 vs 5. Trust p50; believe a per-system change only past about 30% and in both runs.
+- Refuses (exit 1) when `hash_start` or `run.build` differ, unless `--force` (:13-21). It **does not check the commit** (`build_info.git_sha`); check that by hand (workflow.md's perfcmp paragraph in §6).
+- Noise (:5-9; workflow.md's noise paragraph in §6): p50 about 1%, p95 up to about 12%, p99 and per-system up to about 25%, hitches 2 vs 5. Trust p50; believe a per-system change only past about 30% and in both runs.
 
 **Instruments**
 - **`FrameBudget`** (`P\Presentation\Core\RenderGround.cs:174-202`): `DrawCalls`, `Vertices` and `IndirectDraws` of the last complete frame. **`Vertices` excludes indirect draws, which means it excludes the men** (:193-197).
@@ -274,10 +274,10 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 
 **Builds** (`P\Editor\BuildWindows.cs`)
 - `ReleaseDir="Builds/WinBench"`, `DevelopmentDir="Builds/WinBenchDev"`, `Exe="TrenchWarfare.exe"` (:25).
-- `Build(bool)` :41. `Queue` (:32-38) relies on `delayCall`, which never fires in a background editor (workflow.md:339).
+- `Build(bool)` :41. `Queue` (:32-38) relies on `delayCall`, which never fires in a background editor (workflow.md's build-queue note in §6).
 - `CommandLine()` (:73-78) reads `-twdev` and exits 0 or 1.
 - `build-info.json` (:80-100): `git_sha, dirty_files, unity, backend, development, frame_timing_stats, result, size_mb, build_seconds, built_utc, scenes`. `build-status.txt` sits beside it.
-- Batch: `Unity.exe -batchmode -quit -projectPath <p> -executeMethod TW.Editor.BuildWindows.CommandLine [-twdev] -logFile <f>` (workflow.md:358).
+- Batch: `Unity.exe -batchmode -quit -projectPath <p> -executeMethod TW.Editor.BuildWindows.CommandLine [-twdev] -logFile <f>` (workflow.md's batch build command in §6).
 - Release builds have no markers; never compare release with dev (:342-344).
 
 **Fidelity bar** (`D\reference\decisions.md:64`): "a change that keeps the image lands freely; one that should be 'indistinguishable' needs before/after captures and a critic. Measure in the editor **and** a Windows player build."
@@ -286,4 +286,4 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - `TW_DERIVE` (default `"12"`; `1` derives LOD1 only, `0` keeps Tripo's own) in `T\frogrig.py:242-251` and `T\tank3split.py:513-530`. Decided in `decisions.md:29` and `D\22-asset-playground.md:94`. Frog `TW_DERIVE_SYM` at :263.
 - Unit art budget (decisions.md:26): 1,200-1,500 verts (max 2,000), far model 250-400 beyond 170 m, vehicles 3,000-5,000.
 - `LodTiers.VertexBudget = 1500000`, knob `vat.vertexBudget` (`P\Presentation\Units\VATRenderer.cs:56`, :62). Shadows are on only while `nearVerts*2 + farVerts <= vertexBudget` (:272).
-- `occ.py`: `python Tools/aosa/occ.py <assemblies in dependency order>` or `--changed`. `TW_LIB` overrides the Library (workflow.md:120-126).
+- `occ.py`: `python Tools/aosa/occ.py <assemblies in dependency order>` or `--changed`. `TW_LIB` overrides the Library (workflow.md, the occ.py paragraph in §6).
