@@ -41,25 +41,36 @@ namespace TW.Playground
         (Vector3 start, Vector3 end) Travel(int clip)
         {
             if (travel.TryGetValue(clip, out var t)) return t;
-            var c = Library.Clips[clip].Clip;
-            c.SampleAnimation(sourceGo, 0f); var a = Source.HipsNow;
-            c.SampleAnimation(sourceGo, c.length); var b = Source.HipsNow;
+            var e = Library.Clips[clip]; var c = e.Clip;
+            // the ends of the window the game cuts out of the file, not of the file
+            c.SampleAnimation(sourceGo, e.CutStart); var a = Source.HipsNow;
+            c.SampleAnimation(sourceGo, e.CutEnd > 0f ? e.CutEnd : c.length); var b = Source.HipsNow;
             t = (new Vector3(a.x, 0f, a.z), new Vector3(b.x, 0f, b.z));
             travel[clip] = t;
             return t;
         }
 
-        /// <summary>Pose the source at a clip's time and put that pose on a unit. Loops wrap, one-shots hold their last frame.</summary>
+        /// <summary>Seconds a clip plays for in the playground: the game's window out of the file, at the game's rate.</summary>
+        public float ClipLength(int clip)
+        {
+            var e = Library.Clips[clip];
+            return e.PlayLength(e.Clip.length);
+        }
+
+        /// <summary>Pose the source at a clip's time and put that pose on a unit. Loops wrap, one-shots hold their last frame.
+        /// The window, the rate and the root come from the game's clip table (InfantryClipTable), as the VAT baker takes them.</summary>
         public void Pose(UnitRig u, int clip, float time, float fadeWeight, Quaternion[] from)
         {
             var e = Library.Clips[clip]; var c = e.Clip;
-            float len = Mathf.Max(0.01f, c.length);
-            float t = e.Loop ? Mathf.Repeat(time, len) : Mathf.Min(time, len);
-            c.SampleAnimation(sourceGo, t);
+            float rate = e.Rate > 0f ? e.Rate : 1f;
+            float len = ClipLength(clip);
+            float u01 = e.Loop ? Mathf.Repeat(time, len) : Mathf.Min(time, len);
+            // the window's ends first: measuring them poses the source rig, so it has to happen before the pose we keep
             var (a, b) = Travel(clip);
-            // a loop walks on the spot: its travel comes off as a straight line, the sway stays. A one-shot keeps its travel
-            // from where it started (a death falls where it falls).
-            var off = e.Loop ? Vector3.Lerp(a, b, t / len) : a;
+            c.SampleAnimation(sourceGo, e.CutStart + u01 * rate);
+            // the game strips the root travel as a linear trend on every clip, so a clip walks on the spot and the sway
+            // stays - except the deaths that keep their root, which fall where the clip falls.
+            var off = e.KeepRoot ? a : Vector3.Lerp(a, b, u01 / len);
             float hip = u.Skel.HipsRest.y / ClipHipHeight;
             Retarget.Apply(Source, u.Skel, hip, off, fadeWeight, from);
         }
@@ -268,7 +279,7 @@ namespace TW.Playground
             Matrix4x4 grip;
             // the right hand is off it (a bolt, a reload, a throw) - but never while aiming: VATBaker's rule is
             // "span > 0.48 && !aiming", and a firing frog's hands are 0.70 apart (the rifle hung from the left hand, 18 deg down)
-            bool aimingClip = Clip >= 0 && Deck != null && (Deck.Library.Clips[Clip].Name.StartsWith("Fir") || Deck.Library.Clips[Clip].Name.Contains("Aim"));
+            bool aimingClip = Clip >= 0 && Deck != null && Deck.Library.Clips[Clip].Aim;
             if (span.magnitude > 0.48f * s && !aimingClip) grip = hl.localToWorldMatrix * gripL;
             else if (span.magnitude > 0.08f * s) grip = Matrix4x4.TRS(hr.position, Quaternion.LookRotation(AimFromSource(span), Vector3.up), Vector3.one);
             else grip = hr.localToWorldMatrix * gripR;
@@ -285,7 +296,7 @@ namespace TW.Playground
                 var f = Skel.Forward; f.y = 0f; f.Normalize();
                 // aiming, straight ahead (the barrel through the belly was pushed forward-DOWN, 18 degrees into the ground,
                 // for every firing pose); otherwise forward and down, carried
-                bool aiming = Clip >= 0 && Deck != null && (Deck.Library.Clips[Clip].Name.StartsWith("Fir") || Deck.Library.Clips[Clip].Name.Contains("Aim"));
+                bool aiming = Clip >= 0 && Deck != null && Deck.Library.Clips[Clip].Aim;
                 rifle.rotation = Quaternion.LookRotation((f - Vector3.up * (aiming ? 0.03f : 0.35f)).normalized, Vector3.up);
                 if (InsideBody() > 0.25f || LowestRifleCorner() < ground)
                 {
@@ -335,8 +346,7 @@ namespace TW.Playground
             // left hand points ~18 degrees down, and every shot's puff sat at knee height, critic r5). Keep a quarter of it.
             if (Clip >= 0 && Deck != null)
             {
-                string n = Deck.Library.Clips[Clip].Name;
-                if (n.StartsWith("Fir") || n.Contains("Aim")) { local.y *= 0.25f; local.Normalize(); }
+                if (Deck.Library.Clips[Clip].Aim) { local.y *= 0.25f; local.Normalize(); }
             }
             return (transform.rotation * Skel.Frame) * local;
         }
