@@ -72,6 +72,7 @@ namespace TW.Presentation.Tactical
         static readonly int WetId = Shader.PropertyToID("_TWWet");
         static readonly int WindGlobalId = Shader.PropertyToID("_TWWind");
         float lastFlock = -10f, nextKick, nextSmoke; int impactsThisFrame, kickCursor;
+        int muzzleSmokeThisFrame;   // the gun-fire pass: the muzzle's own cloud, capped a frame beside the impacts
         Material waterMat, birdMat;
         int tintEpoch = -1;   // which SceneTints.Epoch these materials were last painted for
 
@@ -610,18 +611,23 @@ namespace TW.Presentation.Tactical
                             // the class's own drawing (CombatFx.Weapons.cs MuzzleBookOf), else the rifle's flare as it was
                             var own = classArms > 0f && e.A >= 0 && e.A < w.Archetype.Length ? MuzzleBookOf(KindOf(w.Archetype[e.A])) : null;
                             bool dayFlare = DayFlare(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f);
-                            var book = own ?? (dayFlare ? FlipbookFx.Book.MuzzleRifle : FlipbookFx.Book.Muzzle);   // the rifle by day up close: its own plain cone (critique r8)
-                            float wide = flare * (own.HasValue ? MuzzleScale(own.Value, SceneHooks.CloseUp) : dayFlare ? Mathf.Lerp(1f, 1.4f, SceneHooks.CloseUp) : 1f);
+                            var book = own ?? (dayFlare ? FlipbookFx.Book.MuzzleRifle : FlipbookFx.Book.Muzzle);   // the rifle by day: its own plain cone (critique r8; at every zoom since the gun-fire pass)
+                            // this shot's own cel, roll and size (CombatFx.GunFx.cs), hashed from the tick and the man: twenty
+                            // riflemen in one frame drew cel 0 of one sheet at one roll, which read as a copied quad (the review)
+                            var vr = MuzzleVariant(e.Tick, e.A);
+                            float wide = flare * vr.Scale * (own.HasValue ? MuzzleScale(own.Value, SceneHooks.CloseUp) : dayFlare ? MuzzleScale(FlipbookFx.Book.MuzzleRifle, SceneHooks.CloseUp) : 1f);
                             if (own.HasValue) wide = Mathf.Min(wide, ClassBookMost * scale);   // never wider than 2.4 men (r11: a book 2x a man covered him)
                             Vector3 clear = cam != null ? FlareClear(aim, camFlat, scale, flare, SceneHooks.CloseUp, classArms > 0f) : Vector3.zero;
                             float graze = cam != null && classArms > 0f ? GrazeGlow(aim, camFlat) : 1f;
                             bool quarter = cam != null && ThreeQuarter(aim, camFlat, classArms > 0f);
                             if (quarter) wide *= 0.75f;   // foreshortened, with a small star on it below
+                            flip = vr.Mirror;   // half the cards mirrored across the barrel, by the hash and not the shared Random
                             if (own == FlipbookFx.Book.MuzzleCarbine) flip = ((e.Tick + (uint)e.A) & 1u) == 0u;   // the carbine's three petals alternate shot to shot
                             float glowNow = FlareGlow(SceneMood.Night, SceneHooks.CloseUp, classArms > 0f) * SceneTints.Now.Glow * graze * (own.HasValue && SceneMood.Night ? 0.62f : 1f);   // a book at night: 2.0, not 3.2 (r13)
-                            if (own.HasValue && !SceneMood.Night) glowNow = Mathf.Min(glowNow, ClassBookDayGlow);   // by day a fire book over 1.6 clips to white on snow (iso4: the sniper's cross was a white bloom)
+                            if ((own.HasValue || dayFlare) && !SceneMood.Night) glowNow = Mathf.Min(glowNow, ClassBookDayGlow);   // by day a fire book over 1.6 clips to white on snow (iso4: the sniper's cross was a white bloom)
                             books.Add(book, from + along * (wide * 0.44f) + clear, wide, FlareLifeAt(arms.FlareLife, SceneHooks.CloseUp, classArms > 0f), flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                velocity: carried, roll: roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? Mathf.Min(wide * 0.5f, (own == FlipbookFx.Book.MuzzleBrake && !SceneMood.Night ? BrakeDayTallest : ClassBookTallest) * scale) : 0f, delay: delay);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed)
+                                velocity: carried, roll: roll + vr.Roll + (flip ? Mathf.PI : 0f), glow: glowNow, height: own.HasValue ? Mathf.Min(wide * 0.5f, (own == FlipbookFx.Book.MuzzleBrake && !SceneMood.Night ? BrakeDayTallest : ClassBookTallest) * scale) : 0f, delay: delay,
+                                startFrame: vr.Start);   // a class book at its cell's 2:1, whatever the import did (r10: drawn squashed); its cel from the variant
                             // a small pop under the class's drawing: the readiest cue that a shot went off (r12)
                             if (own.HasValue || quarter) books.Add(FlipbookFx.Book.Star, from + along * (flare * 0.1f) + clear, Mathf.Min(flare * 0.3f, 0.6f * scale), 0.1f, roll: roll, glow: glowNow, delay: delay);
                         }
@@ -662,6 +668,18 @@ namespace TW.Presentation.Tactical
                     {
                         var puff = new Chunk { Pos = from + barrel * (0.2f * scale), Vel = barrel * 1.4f + Vector3.up * 0.35f + carried, Born = Time.time, Life = UnityEngine.Random.Range(1.1f, 1.9f), Size = 0.16f * scale * arms.Smoke * UnityEngine.Random.Range(0.8f, 1.3f), Kind = 2 };
                         if (arms.Smoked) chunks.Add(puff);   // a machine gun's every third round, bigger; the draws taken either way
+                    }
+                    // and one short low cloud at the muzzle (the review: the flash left nothing behind it). The Puff row is
+                    // retinted per biome by ApplyTints, so it comes out grey-white on snow and grey at night with the row
+                    // untouched; MuzzleSmoke keeps it thin at night (the owner's rule on smoke after dark).
+                    if (e.Scalar < 0.5f && drawn && arms.Smoked && muzzleSmokeThisFrame < (nearHit < 45f ? q.ImpactsNear : q.ImpactsFar))
+                    {
+                        muzzleSmokeThisFrame++;
+                        var smoke = MuzzleSmoke(SceneMood.Night, SceneHooks.CloseUp);
+                        var sv = MuzzleVariant(e.Tick, e.A);
+                        books.Add(FlipbookFx.Book.Puff, from + barrel * (0.35f * scale), smoke.Wide * scale * arms.Smoke * sv.Scale, smoke.Life,
+                            FlipbookFx.Kind.Upright | (sv.Mirror ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None), velocity: barrel * 1.1f + Vector3.up * 0.3f + carried,
+                            grow: 0.8f, roll: sv.Roll, alpha: smoke.Alpha, pop: 0.25f, delay: delay);
                     }
                     if (e.Scalar < 0.5f && q.Reach > 0f && chunks.Count < q.Cap(600) && Near(from, 34f * q.Reach))
                     {
@@ -737,6 +755,17 @@ namespace TW.Presentation.Tactical
                         else
                             books.Add(FlipbookFx.Book.Puff, p, (vehicle ? 1.9f : 1.9f) * scale, 0.7f, mirror,
                                 velocity: toward.normalized * 1.3f + Vector3.up * 1.1f, grow: 1.0f, roll: puffRoll, alpha: 0.85f, pop: 0.4f);
+                        // and dust at his feet whichever of the two was drawn: with blood the cloud above was skipped
+                        // altogether, so a rifle hit left no mark on the ground at all (the review, 2026-10-12). Spurt is
+                        // biome-tinted by ApplyTints as the Puff is, so it is snow dust on snow.
+                        if (!vehicle)
+                        {
+                            var dust = ImpactPuff(e.Tick, e.B);
+                            Vector3 feet = new Vector3(p.x, RenderGround.Sample(Host.Local.Map, p.x, p.z), p.z);
+                            books.Add(FlipbookFx.Book.Spurt, feet, dust.Wide * scale, dust.Life,
+                                FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (dust.Mirror ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None),
+                                grow: 0.3f, roll: dust.Roll, alpha: 0.8f, pop: 0.3f);
+                        }
                     }
                     if (vehicle && SceneMood.Night) Throw(p, 10, 3, 10f, 0.035f);   // sparks off armour
                     else if (e.Scalar > 0f) Throw(p, 3, 0, 3.5f, 0.05f);           // and something physical comes off a man struck

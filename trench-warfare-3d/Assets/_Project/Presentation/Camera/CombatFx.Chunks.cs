@@ -193,6 +193,7 @@ namespace TW.Presentation.Tactical
             Ambient(now);
             var lens = Camera.main; if (lens != null) CloseLife(now, lens);
             impactsThisFrame = 0;
+            muzzleSmokeThisFrame = 0;
             // sparks: a bright streak along its own flight, shrinking as it burns out
             batch.Clear();
             var rpS = new RenderParams(sparkMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
