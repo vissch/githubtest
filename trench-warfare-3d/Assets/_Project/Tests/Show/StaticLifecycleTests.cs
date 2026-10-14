@@ -73,6 +73,7 @@ namespace TW.Tests
             ["SceneStatics.session"] = "the reset registry itself: entries are added once, from static constructors",
             ["SceneStatics.perScene"] = "the per-scene reset registry itself: entries are added once, from static constructors",
             ["SettingsStore.Current"] = "the loaded settings.json",
+            ["SettingsStore.Writable"] = "whether a malformed settings.json could be kept aside (ProfileStore.Writable's rule)",
             ["ShellBoot.Disabled"] = "a test switch the tests set and restore",
             ["ShellBoot.settingsApplied"] = "settings are applied once per process, not once per scene",
             ["ShellRouter.Instance"] = "the one shell router, which outlives scene loads by design",
