@@ -86,6 +86,62 @@ class PageTest(unittest.TestCase):
         self.assertTrue((out / "mg@0.8-s7.html").exists())
 
 
+def write_lines(root, stem, lines):
+    """A track of exactly these lines, for the pages a half-written or header-only file must still give."""
+    tracks = root / "tracks"
+    tracks.mkdir(parents=True, exist_ok=True)
+    path = tracks / (stem + ".jsonl")
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
+    return path
+
+
+class ThinTrackTest(unittest.TestCase):
+    """A track with no samples, or one cut short: a page that says so, never a throw. [SW.1, SW.2]"""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "run"
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_a_header_only_track_gets_a_page_that_says_there_are_no_samples(self):
+        write_lines(self.root, "mg@0.8-s7", [json.dumps(HEAD)])
+        with quiet() as o:
+            code = F.main([str(self.root)])
+        self.assertEqual(code, 0, o.getvalue())
+        html = (self.root / "film" / "mg@0.8-s7.html").read_text(encoding="utf-8")
+        self.assertIn("no samples", html, "the match was over before the first five-second sample")
+        self.assertNotIn('id="slide"', html, "no slider, no canvas and no script with nothing to play")
+        self.assertIn("0:00", (self.root / "film" / "index.html").read_text(encoding="utf-8"),
+                      "the index still lists it, at no length")
+
+    def test_a_last_line_cut_short_is_dropped_and_the_rest_plays(self):
+        lines = [json.dumps(HEAD)] + [json.dumps(s) for s in SAMPLES[:2]] + ['{"t": 15.0, "men": [[0.0']
+        write_lines(self.root, "mg@0.8-s7", lines)
+        with quiet() as o:
+            code = F.main([str(self.root)])
+        printed = o.getvalue()
+        self.assertEqual(code, 0, printed)
+        self.assertIn("cut short", printed, "the dropped line is said out loud")
+        html = (self.root / "film" / "mg@0.8-s7.html").read_text(encoding="utf-8")
+        self.assertEqual(html.count('"t":'), 2, "the two whole samples are kept")
+        self.assertIn('id="slide" min="0" max="1"', html)
+
+    def test_one_bad_track_still_leaves_the_others_their_pages_and_the_index(self):
+        bad = [json.dumps(HEAD), '{"t": 5.0, "men"', json.dumps(SAMPLES[1])]   # a bad line in the middle, not the last
+        write_lines(self.root, "a-s1", bad)
+        write_lines(self.root, "b-s2", [json.dumps(HEAD)] + [json.dumps(s) for s in SAMPLES])
+        with quiet() as o:
+            code = F.main([str(self.root)])
+        printed = o.getvalue()
+        self.assertEqual(code, 1, "a track that would not read at all is a failure")
+        self.assertIn("a-s1.jsonl", printed, "the bad one is named")
+        self.assertFalse((self.root / "film" / "a-s1.html").exists())
+        self.assertTrue((self.root / "film" / "b-s2.html").exists(), "the good track still gets its page")
+        self.assertIn('href="b-s2.html"', (self.root / "film" / "index.html").read_text(encoding="utf-8"))
+
+
 class RefusalTest(unittest.TestCase):
     def test_a_folder_with_no_track_exits_1(self):
         with tempfile.TemporaryDirectory() as d:
