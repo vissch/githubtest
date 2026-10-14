@@ -29,7 +29,9 @@ lines are shed one at a time, but only lines that still exist somewhere in the t
 context line that exists nowhere was changed by the other side: that is a conflict, and the edit goes to
 FILE.port.rej for you, as it does when its lines match nowhere or in more than one place. So does an edit whose
 lines the other side changed a copy of: two methods with the same body, one of them edited upstream, would
-otherwise pull the edit into the twin it still matches (git's 3-way merge calls that a conflict).
+otherwise pull the edit into the twin it still matches (git's 3-way merge calls that a conflict). An addition a
+twin method already has is still applied at its own place: "already in place" means its own place holds it, not
+that the result exists somewhere.
 
 Exit 0 when every hunk applied, 1 when some are in the .rej file. Then compile (Tools/tw build or the gate): this
 moves text, it does not know C#. A new member lands next to its old neighbours, which is the partial that owns them.
@@ -96,14 +98,15 @@ def place(body, targets, text, everywhere, edited):
     """
     if any(k != '+' and s in edited for k, s in body):
         return None
-    if not any(k == '-' for k, _ in body):
-        # A pure addition whose result is already in a target was put there by an earlier run: leave it alone.
-        af = [s for k, s in body if k != '-']
-        if any(find(af, text[t]) for t in targets):
-            return 'ALREADY'
+    pure = not any(k == '-' for k, _ in body)
+    # A pure addition whose result is already in a target may be an earlier run's work -- or a twin method that
+    # always had the line under the same context. Only the plain context decides: if it still matches the hunk's
+    # own place, the edit belongs there (N13.4).
+    already = pure and any(find([s for k, s in body if k != '-'], text[t]) for t in targets)
     changed = [i for i, (k, _) in enumerate(body) if k != ' ']
     lead, trail = changed[0], len(body) - 1 - changed[-1]
     keep = 0 if any(k == '-' for k, _ in body) else 1
+    seen = False
     for cut in range(0, max(lead, trail) + 1):
         lo = min(cut, max(lead - keep, 0))
         hi = len(body) - min(cut, max(trail - keep, 0))
@@ -114,9 +117,11 @@ def place(body, targets, text, everywhere, edited):
         before = [s for k, s in part if k != '+']
         after = [s for k, s in part if k != '-']
         hits = [(t, i) for t in targets for i in find(before, text[t])]
-        if len(hits) == 1:
+        if hits:
+            seen = True
+        if len(hits) == 1 and (not already or cut == 0):
             return hits[0], before, after
-    return None
+    return 'ALREADY' if already and not seen else None
 
 
 def main():

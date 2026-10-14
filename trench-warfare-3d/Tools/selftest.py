@@ -18,7 +18,8 @@ tree, and each check in Tools/checks catches the break it is for, alone (--only)
 stopping it when it crashes; an asmdef with no references key does not take it down, a test in an
 [Explicit]-only assembly that is not [Explicit] is caught, and an [Explicit] one there is left alone.
 port_split.py, on a small repo built here: an edit to moved code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
-changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
+changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file; an addition a
+twin method already has still lands in the one actually edited. health.py
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
 counts an unmeasured metric as one. gate_scope.py skips a slow test module only when no changed path can reach it:
 a sim file, a build input, an unknown folder, a file moved out of Sim/ and a missing integration ref all run everything.
@@ -324,6 +325,35 @@ def port_split_twin_case(tmp: pathlib.Path):
     case('port_split rejects an edit whose lines the other side changed in one of two identical copies',
          code == 1 and 'Log();' not in big.read_text() and 'Log();' not in (r / 'A/Big.Moved.cs').read_text(), out)
 
+
+def port_split_twin_addition_case(tmp: pathlib.Path):
+    # Two methods with the same body. The lane adds a line to B that A already has under the same context: the
+    # plain context (without the addition) still matches only B, so the edit must land there, not be dropped as
+    # already in place because the result happens to exist in A too.
+    r = tmp / 'twin-addition-repo'
+    (r / 'A').mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    g('init', '-q', '-b', 'main')
+    big = r / 'A/Big.cs'
+    method = lambda name, log: [f'    void {name}()', '    {', '        Init();', '        Step1();', '        Step2();'] + \
+        (['        Log();'] if log else []) + ['        Step3();', '        Step4();', '        Reset();', '    }']
+    big.write_text('\n'.join(['class Big', '{'] + method('A', True) + method('B', False) +
+                             ['    int keep0 = 0;', '}', '']))
+    g('add', '.'); g('commit', '-qm', 'base')
+    g('checkout', '-qb', 'edits')
+    b = big.read_text().split('\n')
+    b.insert(b.index('    void B()') + 5, '        Log();')
+    big.write_text('\n'.join(b))
+    g('commit', '-qam', 'edits')
+    g('checkout', '-q', 'main')
+    big.write_text('\n'.join(['class Big', '{'] + method('A', True) + ['    int keep0 = 0;', '}', '']))
+    (r / 'A/Big.Moved.cs').write_text('\n'.join(['partial class Big', '{'] + method('B', False) + ['}', '']))
+    g('add', '.'); g('commit', '-qm', 'split')
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--from', 'main~1', '--to', 'edits'], r)
+    moved = (r / 'A/Big.Moved.cs').read_text()
+    case('[N13.4] an addition a twin method already has still lands in the edited one',
+         code == 0 and moved.count('Log();') == 1 and big.read_text().count('Log();') == 1
+         and not (r / 'A/Big.cs.port.rej').exists(), out)
 
 
 def split_repo(tmp: pathlib.Path, name, lane_edit):
@@ -1102,6 +1132,7 @@ def main():
         if 'port_split' in only:
             port_split_cases(tmp)
             port_split_twin_case(tmp)
+            port_split_twin_addition_case(tmp)
             port_split_no_conflict_case(tmp)
             port_split_rerun_case(tmp)
             port_split_merge_case(tmp)
