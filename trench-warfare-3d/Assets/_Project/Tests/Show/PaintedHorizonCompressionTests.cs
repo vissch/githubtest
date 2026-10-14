@@ -14,10 +14,16 @@
 // looked identical on screen — only the measurement told them apart. DXT works in 4x4 blocks and will not take a
 // texture whose sides are not a multiple of four, which 846 is not. So these tests assert that the compression
 // happens, that the dimension rule is what forces it, and that the water threshold survives the round trip.
+//
+// Every test here runs the production code (review TS15, 2026-10-04): the size comes from
+// GreyboxTerrainView.SkirtTexels and the compression from GreyboxTerrainView.CompressHorizon, both extracted out of
+// BuildSkirt for exactly this reason. Before that these tests did arithmetic on literals and called Unity's own
+// Compress, so dropping Round4 or Compress in BuildSkirt left them green.
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.TestTools;
+using TW.Presentation.Terrain;
 
 namespace TW.Tests
 {
@@ -28,7 +34,8 @@ namespace TW.Tests
 
         static Texture2D Rgba(int w, int h, System.Func<int, int, Color32> paint)
         {
-            var t = new Texture2D(w, h, TextureFormat.RGBA32, false) { hideFlags = HideFlags.HideAndDontSave };
+            // mipChain: true because CompressHorizon starts by building the mips, as BuildSkirt's horizon does
+            var t = new Texture2D(w, h, TextureFormat.RGBA32, true) { hideFlags = HideFlags.HideAndDontSave };
             var px = new Color32[w * h];
             for (int y = 0; y < h; y++)
                 for (int x = 0; x < w; x++)
@@ -38,37 +45,45 @@ namespace TW.Tests
             return t;
         }
 
+        // [TS15]
         [Test]
         public void CompressingAnAlphaTextureGivesDxt5AndNotDxt1()
         {
             var t = Rgba(64, 64, (x, y) => new Color32(120, 110, 90, (byte)(x * 4)));
             try
             {
-                t.Compress(true);
+                GreyboxTerrainView.CompressHorizon(t);
                 Assert.AreEqual(TextureFormat.DXT5, t.format,
-                    "the horizon's alpha carries wetness and the water threshold, so it must land on DXT5. DXT1 has " +
+                    "[TS15] the horizon's alpha carries wetness and the water threshold, so it must land on DXT5. DXT1 has " +
                     "one bit of alpha and would turn the beach into a hard water/not-water edge.");
             }
             finally { Object.DestroyImmediate(t); }
         }
 
+        // [TS15]
         [Test]
         public void TheRoundedGridCompressesAndTheHorizonsRealWidthIsWhyItHasTo()
         {
-            Assert.AreEqual(848, (846 + 3) & ~3, "Round4 takes the horizon's real 846 up to 848");
-            Assert.AreEqual(0, 848 % 4);
-            Assert.AreNotEqual(0, 846 % 4, "846 is not a block multiple, which is the whole reason Round4 is called");
+            // The real sizing call, not arithmetic retyped here: a 282 m span at three texels a metre is 846 texels,
+            // which is not a block multiple, so the production rounding must take it to 848.
+            Assert.AreEqual(3f, GreyboxTerrainView.SkirtTexelsPerMetre, "[TS15] the horizon's grid is three texels a metre");
+            GreyboxTerrainView.SkirtTexels(282f, 282f, out int tw, out int th);
+            Assert.AreEqual(848, tw, "[TS15] SkirtTexels must round the horizon's real 846 up to 848; without that " +
+                                     "rounding the compression below is declined and the horizon stays RGBA32");
+            Assert.AreEqual(848, th, "[TS15] the same rounding applies along Z");
+            Assert.AreEqual(0, tw % 4, "[TS15] a DXT block is 4x4, so the size must be a multiple of four");
+            Assert.AreNotEqual(0, 846 % 4, "846 is not a block multiple, which is the whole reason the rounding exists");
 
             // What this actually guarantees: a grid sized the way BuildSkirt sizes it does compress. Whether Unity
             // refuses a non-multiple-of-four outright or pads it is Unity's business and is only reported here — the
             // point is that the rounded size is not left to luck, because a refusal is silent and docs/05 already
             // records an afternoon lost to one.
-            var rounded = Rgba(848, 8, (x, y) => new Color32(150, 140, 120, (byte)(x * 2)));
+            var rounded = Rgba(tw, 8, (x, y) => new Color32(150, 140, 120, (byte)(x * 2)));
             try
             {
-                rounded.Compress(true);
+                GreyboxTerrainView.CompressHorizon(rounded);
                 Assert.AreEqual(TextureFormat.DXT5, rounded.format,
-                    "a grid rounded to a multiple of four did not compress, so the horizon is silently still RGBA32");
+                    "[TS15] a grid rounded to a multiple of four did not compress, so the horizon is silently still RGBA32");
             }
             finally { Object.DestroyImmediate(rounded); }
 
@@ -79,9 +94,9 @@ namespace TW.Tests
             var odd = Rgba(6, 8, (x, y) => new Color32(150, 140, 120, (byte)(x * 2)));
             try
             {
-                odd.Compress(true);
+                GreyboxTerrainView.CompressHorizon(odd, dropCpuCopy: false);
                 Assert.AreEqual(TextureFormat.RGBA32, odd.format,
-                    "Unity now compresses a texture whose width is not a multiple of four. If that is really true the " +
+                    "[TS15] Unity now compresses a texture whose width is not a multiple of four. If that is really true the " +
                     "Round4 call in GreyboxTerrainView.BuildSkirt is no longer load-bearing, but check before removing " +
                     "it: when this refusal happens it costs you the whole saving and says so only in the log.");
             }
@@ -94,6 +109,7 @@ namespace TW.Tests
         /// every texel must land on the same side of the threshold as it started — except within one 4x4 block of the
         /// crossing, where a block boundary can legitimately straddle it.
         /// </summary>
+        // [TS15]
         [Test]
         public void TheWaterThresholdSurvivesDxt5()
         {
@@ -106,8 +122,10 @@ namespace TW.Tests
                 int crossing = 0;
                 while (crossing < W && Alpha(crossing) >= WaterThreshold) crossing++;
 
-                t.Compress(true);
-                Assert.AreEqual(TextureFormat.DXT5, t.format, "precondition: the strip really did compress");
+                // dropCpuCopy false: production drops the CPU copy at the end, which would make the texels this
+                // test must read back unreadable. Everything before that is the production path.
+                GreyboxTerrainView.CompressHorizon(t, dropCpuCopy: false);
+                Assert.AreEqual(TextureFormat.DXT5, t.format, "[TS15] precondition: the strip really did compress");
                 var got = t.GetPixels32();
 
                 int flipped = 0, worst = 0;
@@ -128,11 +146,11 @@ namespace TW.Tests
                                       $"{flipped} texel(s) changed side away from the crossing");
 
                 Assert.AreEqual(0, flipped,
-                    $"DXT5 moved {flipped} texel(s) across the water threshold, the worst at x={worst}, more than a " +
+                    $"[TS15] DXT5 moved {flipped} texel(s) across the water threshold, the worst at x={worst}, more than a " +
                     "block away from where the beach actually crosses it. That would put patches of standing water " +
                     "up the dry sand of the horizon. Do not compress this texture.");
                 Assert.That(biggest, Is.LessThan(0.06f),
-                    $"DXT5 shifted alpha by up to {biggest:0.###}, which is wetness drifting visibly across the " +
+                    $"[TS15] DXT5 shifted alpha by up to {biggest:0.###}, which is wetness drifting visibly across the " +
                     "beach rather than block noise. TW/Toon turns alpha straight into gloss.");
             }
             finally { Object.DestroyImmediate(t); }
