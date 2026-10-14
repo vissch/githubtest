@@ -22,6 +22,10 @@ namespace TW.Playground
             if (cam == null) cam = gameObject.AddComponent<Camera>();
         }
 
+        /// <summary>Every name Preset knows. Y6: PlaygroundHost.Reject reads this list, so a refused typo and the
+        /// switch below cannot drift apart.</summary>
+        public static readonly string[] Presets = { "default", "close", "standard", "far", "top" };
+
         public void Preset(string name, Vector3 at)
         {
             Focus = at;

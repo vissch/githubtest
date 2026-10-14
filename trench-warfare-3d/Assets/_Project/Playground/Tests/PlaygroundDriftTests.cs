@@ -7,6 +7,7 @@ using NUnit.Framework;
 using TW.Playground;
 using TW.Playground.Editor;
 using UnityEditor;
+using UnityEngine.TestTools;
 using UnityEngine;
 
 namespace TW.Tests.Playground
@@ -282,6 +283,31 @@ namespace TW.Tests.Playground
                 Assert.That(b.Standing, Is.LessThan(b.Pieces.Count / 2), "[Y5] 24 heavy shells bring over half the house down");
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void ATypoInACommandIsRefused()
+        {
+            // [Y6] an unknown name used to answer "ok", so a typo in a capture round scored a picture of something else.
+            // The refused lines are the finding's own list of typos; the accepted ones are the spellings the rounds use.
+            LogAssert.ignoreFailingMessages = true;   // "set Foo": HouseKit logs that no such set exists, which is the point
+            foreach (var line in new[] { "biome Foo", "set Foo", "house Nope", "cam 0 2 0" })
+                Assert.That(PlaygroundHost.Reject(line, "Ruins"), Is.Not.Empty, "[Y6] \"" + line + "\" must be refused, not answered ok");
+            foreach (var line in new[] { "biome NightMud", "vehicle", "cam standard", "cam 0 2 0 0 20 24 35", "set Ruins" })
+                Assert.That(PlaygroundHost.Reject(line, "Ruins"), Is.Empty, "[Y6] \"" + line + "\" is a good line and must run");
+            LogAssert.ignoreFailingMessages = false;
+        }
+
+        [Test]
+        public void TheResultOfAQueuedCommandComesBack()
+        {
+            // [Y6] q() always said "queued" and the real result went to a Status field nobody read.
+            var two = new[] { "ok vehicle", "no biome Foo" };
+            var both = PlaygroundHost.Join(two, 0, 2);
+            Assert.That(both, Does.StartWith("ERR"), "[Y6] a bad line among the results must come back as an error");
+            Assert.That(both, Does.Contain("ok vehicle").And.Contain("no biome Foo"), "[Y6] every result comes back");
+            Assert.That(PlaygroundHost.Join(two, 0, 3), Is.EqualTo("PENDING"), "[Y6] a command that has not run yet is PENDING");
+            Assert.That(PlaygroundHost.Join(new[] { "ok vehicle" }, 0, 1), Is.EqualTo("ok vehicle"), "[Y6] a good line comes back as it is");
         }
     }
 }
