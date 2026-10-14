@@ -14,6 +14,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text;
+using TW.Presentation.Tactical;
 using TW.Presentation.Terrain;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -27,7 +28,10 @@ namespace TW.Playground
         public PlaygroundLibrary Library;
         public Biome Field = Biome.NightMud;
         public string StartMode = "vehicle";
-        public float VehicleSize = 1.7f;     // VehicleSize.Tank in the sim: the machines are drawn this much over the sculpt
+        /// <summary>An override of the draw scale, for every machine (0: each is drawn at the game's own scale, which is
+        /// TankRenderer's Machines table — the mech-split models are written in metres and drawn at 1, not 1.7). Y1: the
+        /// playground judged the Skimmer about 12 m long where the game draws it 7 m.</summary>
+        public float VehicleSize;
         public float UnitScale = 1.125f;     // VATRenderer.UnitScale: a 1.78 m bake drawn as a 2.0 m man
         public bool ShowPanel = true;
 
@@ -183,10 +187,15 @@ namespace TW.Playground
             Fx.ClearLamps(); Fx.ClearDebris(); Fx.ClearCards();
         }
 
+        /// <summary>The scale a machine of this model name is drawn at: the override when one is set, else the game's own
+        /// (TankRenderer.ScaleOfModel).</summary>
+        public static float DrawScale(string name, float over) => over > 0f ? over : TankRenderer.ScaleOfModel(name);
+
         VehicleRig SpawnVehicle(Vector3 at, float yaw, int lod, int seed)
         {
             if (Library.Vehicles.Length == 0) return null;
-            var v = VehicleRig.Build(Library.Vehicles[vehicleIndex % Library.Vehicles.Length], Fx, stage, at, yaw, VehicleSize, seed);
+            var e = Library.Vehicles[vehicleIndex % Library.Vehicles.Length];
+            var v = VehicleRig.Build(e, Fx, stage, at, yaw, DrawScale(e.Name, VehicleSize), seed);
             v.ForcedLod = lod; v.CookDelay = cookDelay;
             Vehicles.Add(v);
             return v;
@@ -320,7 +329,7 @@ namespace TW.Playground
                 case "repair": foreach (var v in Vehicles) v.Repair(); script.Clear(); break;
                 case "traverse": foreach (var v in Vehicles) v.Traverse = !v.Traverse; break;
                 case "cookdelay": cookDelay = F(a, 1, 7f); foreach (var v in Vehicles) v.CookDelay = cookDelay; break;
-                case "size": VehicleSize = F(a, 1, 1.7f); Scene(Mode); break;
+                case "size": VehicleSize = F(a, 1, 0f); Scene(Mode); break;   // "size 0": the game's own table
                 case "fly": foreach (var v in Vehicles) if (v.Flyer != null) { v.Flyer.Speed = F(a, 1, 8f); if (a.Length > 2) v.Flyer.Altitude = F(a, 2, 14f); } break;   // "fly 8 [14]": m/s round a circle [altitude, m]
                 case "target":   // "target x y z": every machine aims there; "target near": 35 m ahead and 20 m to the left of each; "target off"
                     foreach (var v in Vehicles)
@@ -1032,8 +1041,8 @@ namespace TW.Playground
             float cd = GUILayout.HorizontalSlider(cookDelay, -1f, 20f); if (Mathf.Abs(cd - cookDelay) > 0.5f) Queue("cookdelay " + Mathf.Round(cd));
             GUILayout.EndHorizontal();
             GUILayout.BeginHorizontal();
-            GUILayout.Label($"Size x{VehicleSize:0.00}", GUILayout.Width(130));
-            float sz = GUILayout.HorizontalSlider(VehicleSize, 1f, 2.5f); if (Mathf.Abs(sz - VehicleSize) > 0.05f) Queue("size " + sz.ToString("0.0", CultureInfo.InvariantCulture));
+            GUILayout.Label(VehicleSize > 0f ? $"Size x{VehicleSize:0.00}" : "Size game", GUILayout.Width(130));
+            float sz = GUILayout.HorizontalSlider(VehicleSize, 0f, 2.5f); if (Mathf.Abs(sz - VehicleSize) > 0.05f) Queue("size " + sz.ToString("0.0", CultureInfo.InvariantCulture));
             GUILayout.EndHorizontal();
         }
 
