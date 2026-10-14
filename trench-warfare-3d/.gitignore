@@ -10,6 +10,8 @@
 /[Rr]ecordings/
 !/[Aa]ssets/**/*.meta
 *.csproj
+# the three standalone otr harness projects are tracked
+!/Tools/otr/*/*.csproj
 *.unityproj
 *.sln
 *.suo
