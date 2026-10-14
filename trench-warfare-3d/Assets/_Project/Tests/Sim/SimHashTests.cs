@@ -41,7 +41,7 @@ namespace TW.Tests
             Assert.AreEqual(System.Math.Atan2(-3, -0.5), SimMath.Atan2(-3f, -0.5f), 1e-4);
         }
 
-        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 37 has
+        /// <summary>The systems whose state SimWorld.Hash() folds, in the order it folds them, as FormatVersion 52 has
         /// them in the greybox match. Two SIM lanes that each add a system merge without a conflict into a chain
         /// neither of them ran, and a determinism rerun then compares the merged build with itself and passes (the
         /// overhaul and units-meta, 2026-09-27). This fails instead: a change to the chain is a format change, so it
@@ -281,8 +281,8 @@ namespace TW.Tests
             // side is not ashore before tick ~320 (SeaLanding.StandOff 96 m at RunSpeed 7 m/s plus GroundTicks 16),
             // then crosses the 170 m of land at a mired walk: nearest enemy 167.8 m at t320, 55.0 m at t1799.
             // So no number of ticks short of ~2450 buys this match a firefight, and 15 s of it buys none at all.
-            // Open for the owner (decisions.md): a 2450-tick Long pin, nearer spawns, or the greybox pin keeping
-            // the direct-fire guard alone. Until then this pin stays at 300 ticks and its value is unmoved.
+            // Settled by the owner on 2026-10-12 (decisions.md): the Landing pin stays at 300 ticks, with the
+            // greybox pin keeping the direct-fire guard alone. No 2450-tick Long pin, no moved spawns.
             Assert.AreEqual(0x736bcf34c8636894UL, match.World.Hash(),
                 "[T24b] the Landing battlefield hash after 300 scripted ticks moved from its FormatVersion 52 pin: a " +
                 "field was added, moved or dropped inside SimWorld.Hash(), or a system in the chain changed what it hashes");
