@@ -1,4 +1,5 @@
 // Phase: B6 (implemented) — settings.json round-trips, tolerates an old or damaged file, and lands on disk atomically.
+using System;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -316,6 +317,31 @@ namespace TW.Tests
         {
             var s = SettingsStore.LoadFrom(Path.Combine(Application.temporaryCachePath, "tw-settings-none", "settings.json"));
             Assert.That(s.ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()));
+        }
+
+        /// <summary>[P10a] A malformed settings.json used to be swallowed silently (GameSettings.FromJson ate the
+        /// parse exception itself) and then overwritten on the next save; it must instead be kept aside, like
+        /// ProfileStore keeps a broken profile.json, and defaults take over for this session.</summary>
+        [Test]
+        public void AMalformedSettingsFileIsKeptAsideAndDefaultsTakeOver()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-settings-test-" + Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            try
+            {
+                string path = Path.Combine(dir, "settings.json");
+                File.WriteAllText(path, "{ not json");
+                var s = SettingsStore.LoadFrom(path);
+                Assert.That(s.ToJson(), Is.EqualTo(GameSettings.Defaults().ToJson()), "[P10a] defaults take over for a malformed file");
+                var bad = Directory.GetFiles(dir, "settings.json.bad-*");
+                Assert.That(bad.Length, Is.EqualTo(1), "[P10a] the broken file is kept aside, not overwritten silently");
+                Assert.That(File.ReadAllText(bad[0]), Is.EqualTo("{ not json"));
+
+                SettingsStore.SaveTo(GameSettings.Defaults(), path);
+                SettingsStore.LoadFrom(path);
+                Assert.That(Directory.GetFiles(dir, "settings.json.bad-*").Length, Is.EqualTo(1), "[P10a] a good file is never copied aside");
+            }
+            finally { try { Directory.Delete(dir, true); } catch (Exception) { } }
         }
     }
 }
