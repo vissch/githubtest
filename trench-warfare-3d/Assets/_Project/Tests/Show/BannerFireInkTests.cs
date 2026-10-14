@@ -39,8 +39,13 @@ namespace TW.Tests
         const System.Reflection.BindingFlags Stat = System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
 
         /// <summary>The drawing's root may sit this share of the barrel mouth's own on-screen width off the mouth, and
-        /// its axis this many degrees off the projected bore (the owner's two figures, 2026-10-14).</summary>
-        const float RootShare = 0.25f, AxisTol = 10f;
+        /// its axis this many degrees off the projected bore (the owner's figures, 2026-10-14: 0.15 m and 5 deg,
+        /// RootShare kept as a second, relative cap for a mouth that reads smaller than 0.6 m on screen).</summary>
+        const float RootShare = 0.25f, AxisTol = 5f;
+
+        /// <summary>The root may also sit this many metres off the mouth (the owner's absolute figure, 2026-10-14):
+        /// at long range RootShare alone would pass a root that drifted by more than this.</summary>
+        const float RootMetres = 0.15f;
 
         /// <summary>A sheet frame's ink, read off its pixels: the ink-weighted centre, the principal axis turned so
         /// that the THICK end is the near one, the point that end sits on, how thick each end is, and how elongated
@@ -189,10 +194,10 @@ namespace TW.Tests
                 TestContext.Out.WriteLine($"  declared root ({root.x:0.000}, {root.y:0.000}), point ({point.x:0.000}, {point.y:0.000})");
                 bool directed = point.sqrMagnitude > 1e-12f;
                 Vector2 want = directed ? ink.ThickEnd : ink.Centre;
-                Assert.Less((root - want).magnitude, 0.03f,
+                Assert.Less((root - want).magnitude, 0.01f,
                     $"{book} declares its root at ({root.x:0.000}, {root.y:0.000}) in its cell and draws it at ({want.x:0.000}, {want.y:0.000}): the lay puts the flame where the sheet says, so the sheet must say where the flame is. {report}");
                 if (directed)
-                    Assert.Less(Vector2.Angle(point.normalized, ink.Axis), 6f,
+                    Assert.Less(Vector2.Angle(point.normalized, ink.Axis), 1.5f,
                         $"{book} declares it points {Mathf.Atan2(point.y, point.x) * Mathf.Rad2Deg:0.0} deg in its cell and draws {Mathf.Atan2(ink.Axis.y, ink.Axis.x) * Mathf.Rad2Deg:0.0} deg. {report}");
                 else
                     Assert.Less(ink.Aspect, StreakAspect,
@@ -272,7 +277,7 @@ namespace TW.Tests
                                              inkRoot, inkPoint, drawnRoot, drawnPoint, out Vector3 root, out Vector3 tip);
                                     float off = OnScreen(cam, mouth, root).magnitude;
                                     TestContext.Out.WriteLine($"{machine} {barrel} top {top * Mathf.Rad2Deg:0} deg, {e.Name}: the {book}'s root is {off * 100f:0.0} cm off the mouth, {off / wide:0.00} of the mouth's own {wide * 100f:0.0} cm on screen");
-                                    Assert.Less(off, RootShare * wide,
+                                    Assert.Less(off, Mathf.Min(RootShare * wide, RootMetres),
                                         $"from the {e.Name} the {machine}'s {book} has the root of its DRAWING {off * 100f:0.0} cm off the mouth of {barrel}, which is {off / wide:0.00} of the mouth's own on-screen width: the flame does not touch the gun. {report}");
                                     if (inkPoint.sqrMagnitude > 1e-12f)
                                     {
