@@ -59,6 +59,8 @@ READS = {
     # only its Explicit report reads a file, the sweep's spec, named when Tools/sweep.py runs it; the two plain tests
     # read nothing. It plays whole matches through MatchLoopTests and AssaultLadderTests, so it is a Match test.
     'BalanceSweepTests': P + 'Tests/Match/',
+    # reads only the replay file it just wrote, in a temp folder of its own; no project file at all
+    'MatchRecordingTests': P + 'Tests/Match/',
 }
 
 # A change here can reach any assembly: the build's inputs, and the gate itself.
