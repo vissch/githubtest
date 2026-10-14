@@ -372,7 +372,7 @@ Shader "TW/Toon (URP)"
                 o.fog = ComputeFogFactor(cs.z);
                 return o;
             }
-            half4 frag(Varyings i) : SV_Target { return half4(MixFog(ApplyFieldFog(_OutlineColor.rgb, i.positionWS), i.fog), 1.0); }
+            half4 frag(Varyings i) : SV_Target { return half4(MixFog(ApplyFieldFog(ApplyMist(_OutlineColor.rgb, i.positionWS), i.positionWS), i.fog), 1.0); }
             ENDHLSL
         }
 
