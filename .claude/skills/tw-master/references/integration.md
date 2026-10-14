@@ -93,6 +93,6 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   5. determinism checked only against itself (R5 golden hash)
   6. per-frame full-slot loops
   7. machine paths in tooling
-  8. repo weight (LFS, github-test1, Linux CI)
+  8. repo weight (LFS, Linux CI)
 - **Backlog** (:74-98): R4 retire BattleHud, R2 SceneHooks → services, R1 split Presentation/Camera, R3 split TankRenderer, R5 golden hash, R6 static resets, R7 hot paths, R8 owner hygiene, R9 record live matches, R10 CI for validate/selftest, R11 CombatFx for real.
 - **Re-audit triggers** (:100-104): a file past 1,000 lines, a new `Explained` static, a new SceneHooks member, or `validate.py` edited to skip a rule.

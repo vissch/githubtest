@@ -107,4 +107,3 @@ Exit 0 green, 8 a test failed (printed), 6 no verdict (compile error, or no test
 - Packages change only through the `unity-package-management` skill's Client API script (a skill of the Unity plugin for Claude Code, not in this repo), never by hand.
 - Fresh clone: just open it; settings and scenes are committed (`BootstrapSceneBuilder.SetupAll` only adds missing ones).
 - `unity.exe` is at `%LOCALAPPDATA%\unity\bin\unity.exe`. `Tools/tw` finds it and pins every call to this checkout.
-- `github-test1/` at the repo root is an unrelated Unity project: leave it out of searches (`--glob "!github-test1"`).
