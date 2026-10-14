@@ -67,9 +67,17 @@ one() {
 # nothing. A whole critique round went on a wall shot whose rig had framed a slope the stream never reached: 6,638
 # warm pixels where the same beat now makes 98,401, and the review that came back described the lighting of an
 # empty field as a defect in the effect.
+# The checker's own failures are NOT a verdict on the capture: exit 2 means flamecheck could not run at all
+# (a missing numpy/pillow/scipy), and calling that "no fire" sends the next session after an effect that is fine.
+# A bad or unchecked shot sets BAD, and the script exits non-zero, so a caller cannot take silence for success.
+BAD=0
 check() {
-  if python "$P/Tools/flamecheck.py" "$P/Tools/flame-shots/$1.png" 2>/dev/null; then :; else
-    echo "  !! $1 CONTAINS NO FIRE - do not critique this capture" >&2; fi
+  python "$P/Tools/flamecheck.py" "$P/Tools/flame-shots/$1.png"; rc=$?
+  case "$rc" in
+    0) ;;
+    2) echo "  !! $1 NOT CHECKED - flamecheck cannot run (see its message above)" >&2; BAD=1 ;;
+    *) echo "  !! $1 CONTAINS NO FIRE - do not critique this capture" >&2; BAD=1 ;;
+  esac
 }
 
 one jet 'tc.FrameFrom(new UnityEngine.Vector2(100f,104f), 17f, 0f);
@@ -141,3 +149,4 @@ fx.Burst(-1,n,d,n,3.0f); return 0;" >/dev/null 2>&1
 check "${PRE}_wall"
 
 "$T" pause false >/dev/null 2>&1
+exit $BAD

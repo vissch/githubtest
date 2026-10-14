@@ -229,21 +229,21 @@ def wire():
     return base.loopify(6)
 
 MAKE = [
-    ('Wade Forward', wade, 'loop', 'water 0.5 to 1.0 m: Walk With Rifle (1) slowed 1.7x, thighs lifted with the forward swing scaled 1.5x and the trailing 0.6x, knees bent to the lower hips, bobbing, arms from Rifle Crouch Walk'),
+    ('Wade Forward', wade, 'loop', 'water 0.5 to 1.0 m: Walk With Rifle (1) slowed 1.7x, thighs lifted 14 deg with the forward swing scaled 1.1x and the trailing 0.4x, knee bend 1.1x, hips lowered, bobbing, arms from Rifle Crouch Walk'),
     ('Ladder Climb', ladder, 'loop', 'procedural: alternate knees dwelling on each rung, soles level, hands to the rung above with bent elbows (IK), leaning back; in place, the sim lifts the man'),
     ('Crawl Forward', crawl, 'loop', 'Moving Backward In Crawl Position reversed'),
     ('Prone Crawl Forward Alt', prone_crawl_alt, 'loop', 'Moving Backward In Prone Position reversed, helmet kept down: a second belly crawl'),
-    ('Prone Death', prone_death, 'once', 'Prone Idle: a jolt, the head goes over in 0.3 s and overshoots, the arms slide out (IK to the floor), the bent knee goes flat, 1.5 s'),
+    ('Prone Death', prone_death, 'once', 'Prone Idle: a jolt, the head goes over in 0.5 s and overshoots, the arms slide out (IK to the floor), the bent knee goes flat, 1.5 s'),
     ('Prone Flinch', prone_flinch, 'once', 'Prone Idle: head pressed down, chest flattened, shoulders bunched; fast in, slow out, 0.6 s'),
     ('Kneel Flinch', kneel_flinch, 'once', 'Rifle Kneel Idle curling forward with the hands, fast in, slow out, 0.6 s'),
-    ('Get Up From Prone', get_up, 'once', 'Rifle Prone To Kneel at 1.15x into Rifle Kneel To Stand at 1.3x, cross-faded over 8 frames, root travel stripped'),
+    ('Get Up From Prone', get_up, 'once', 'Rifle Prone To Kneel at 1.15x into Rifle Kneel To Stand at 1.3x, cross-faded over 12 frames, root travel stripped'),
     ('Stumble Running', stumble, 'once', 'three cycles of Rifle Run; a 3-frame trip: torso pitches, knees buckle, arms reach down to catch, 13 frames to recover'),
     ('Mask Donning', mask, 'once', 'Rifle Idle: right hand to the chest bag, both hands bring the mask up as the face goes down into it, then behind the head for the straps as the chin lifts'),
     ('Burning Run', burning, 'loop', 'Sprint Forward shortened to a stagger, folded over, hips rolling and lurching, head thrashing, arms thrown between over the head and the face (two IK poses each, out of step)'),
     ('Officer Point', point, 'once', 'Idle, the right arm raised high then chopped forward to the point (IK), the left hand on the hip, the body turned into it, chin up'),
-    ('Officer Whistle', whistle, 'once', 'Idle, the right hand to the mouth, the left arm straight up (follow me), head back to blow, 0.6 s'),
+    ('Officer Whistle', whistle, 'once', 'Idle resampled to 48 frames (1.6 s), the right hand to the mouth, the left arm straight up (follow me), head back to blow'),
     ('MG Carry Walk', mg_carry, 'loop', 'Rifle Walk at 0.77x, short steps, right hand at the hip and left on the barrel (IK), leaning back off the weight, the gun heaving with the stride'),
-    ('Wire Crossing', wire, 'loop', 'Walk Crouching Forward at 0.5x, thighs lifted with the forward swing 1.5x and the trailing 0.5x, stooped, watching the ground, arms from Rifle Crouch Walk'),
+    ('Wire Crossing', wire, 'loop', 'Walk Crouching Forward at 0.5x, thighs lifted 18 deg with the forward swing 0.85x and the trailing 0.35x, knee bend 1.8x, stooped, watching the ground, arms from Rifle Crouch Walk'),
 ]
 
 made = []
