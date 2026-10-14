@@ -102,12 +102,17 @@ namespace TW.Tests
         public void AnIdNoUnitOccupiesIsUnarmed()
         {
             using var m = NewMatch();
+            int occupied = 0;
             for (int a = 0; a < Archetypes.Count; a++)
             {
-                if (m.World.Units.Roster[a].Hp > 0f) continue;   // the match's table: a UnitDefinitions unit occupies its id too
+                if (m.World.Units.Roster[a].Hp > 0f) { occupied++; continue; }   // the match's table: a UnitDefinitions unit occupies its id too
                 Assert.AreEqual(0f, m.Catalogue.Weapon[a].RangeMax, $"archetype {a} is nobody, and nobody is unarmed");
                 Assert.AreEqual(0f, m.Catalogue.Weapon[a].Damage, $"archetype {a} is nobody");
             }
+            // [T32] The loop takes the set it checks from the code under test, so an id that silently stopped being
+            // occupied would be skipped rather than caught. 38 occupied ids, read off a run of this test on commit
+            // 46ef6bad9 (Archetypes.Count was 64).
+            Assert.AreEqual(38, occupied, "[T32] an archetype gained or lost an entry; add it to this test");
         }
 
         /// <summary>A man is not a tank, so he must not be carrying a tank's hull. TankSpec.For ends in
@@ -117,13 +122,17 @@ namespace TW.Tests
         public void NothingOnFootCarriesAHull()
         {
             using var m = NewMatch();
+            int armoured = 0;
             for (int a = 0; a < Archetypes.Count; a++)
             {
-                if (ChassisKind.IsArmoured(m.World.ChassisOf((byte)a))) continue;
+                if (ChassisKind.IsArmoured(m.World.ChassisOf((byte)a))) { armoured++; continue; }
                 Assert.AreEqual(0f, m.Catalogue.Tank[a].Hull.FrontMm, $"archetype {a} is not a machine and has no glacis");
                 Assert.AreEqual(0, m.Catalogue.Tank[a].Crew, $"archetype {a} is not a machine and has no crew");
                 Assert.AreEqual(0, m.Catalogue.Tank[a].GunCount, $"archetype {a} is not a machine and has no guns");
             }
+            // [T32] Same guard as above: the skipped set comes from the code under test, so pin its size. 22 armoured
+            // ids, read off a run of this test on commit 46ef6bad9.
+            Assert.AreEqual(22, armoured, "[T32] an archetype changed chassis side; add it to this test");
         }
 
         /// <summary>Every machine keeps the hull it had.</summary>
