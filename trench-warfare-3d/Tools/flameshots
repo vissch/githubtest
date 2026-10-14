@@ -56,9 +56,15 @@ one() {
   "$T" pause true >/dev/null 2>&1
   # Pin the clock to $4 BEFORE creating the effect, not just the delay after it: the effect's Perlin and
   # Mathf.Repeat phases are keyed on absolute Time.time, so a birth at a different clock is a different picture.
-  "$T" stepabs "$4" >/dev/null 2>&1
+  # An unpinned clock is not a shot. stepabs fails when the editor was late and game time is already past $4, and a
+  # capture taken then is of some other absolute time - which is exactly the noise the birth anchor exists to remove.
+  if ! "$T" stepabs "$4"; then
+    echo "  !! $1 CLOCK NOT PINNED - game time is already past ${4}s, not capturing" >&2; BAD=1; return
+  fi
   "$T" eval "$PRE_CS $2" >/dev/null 2>&1
-  "$T" stepto "$3" >/dev/null 2>&1
+  if ! "$T" stepto "$3"; then
+    echo "  !! $1 CLOCK NOT PINNED - the ${3}s delay after the birth was never stepped out" >&2; BAD=1; return
+  fi
   "$T" shot "${PRE}_$1" >/dev/null 2>&1
   check "${PRE}_$1"
 }

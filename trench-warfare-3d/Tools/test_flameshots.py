@@ -17,6 +17,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # Prints the shapes flameshots' grep/sed lines read back, so its early checks pass and the run reaches one().
 FAKE_TW = r'''#!/usr/bin/env bash
 printf '%s\n' "$*" | tr '\n' ' ' >> "$TW_LOG"; printf '\n' >> "$TW_LOG"
+for f in ${TW_FAIL:-}; do [ "$1" = "$f" ] && exit 1; done   # TW_FAIL: subcommands this stand-in fails on
 case "$1" in
   run)
     [ "$2" = console_status ] && echo '{ "compilationFailed": false, "consoleErrors": 0 }'
@@ -35,8 +36,11 @@ exit 0
 '''
 
 
-def run_script(tmp):
-    """Copy flameshots onto a stand-in tree, run it, return the list of logged `tw` argument lines."""
+def run_script(tmp, fail=()):
+    """Copy flameshots onto a stand-in tree, run it, return (logged `tw` argument lines, exit code).
+
+    `fail`: `tw` subcommands the stand-in exits 1 on, so the script meets a failing step.
+    """
     tools = os.path.join(tmp, "Tools")
     os.makedirs(os.path.join(tools, "flame-shots"))
     os.makedirs(os.path.join(tmp, "bin"))
@@ -50,18 +54,19 @@ def run_script(tmp):
     for p in (os.path.join(tools, "tw"), os.path.join(tmp, "bin", "sleep")):
         os.chmod(p, 0o755)
     log = os.path.join(tmp, "tw.log")
-    env = dict(os.environ, TW_LOG=log, PATH=os.path.join(tmp, "bin") + os.pathsep + os.environ["PATH"])
-    subprocess.run(["bash", os.path.join(tools, "flameshots"), "test"],
-                   cwd=tmp, env=env, capture_output=True, text=True)
+    env = dict(os.environ, TW_LOG=log, TW_FAIL=" ".join(fail),
+               PATH=os.path.join(tmp, "bin") + os.pathsep + os.environ["PATH"])
+    r = subprocess.run(["bash", os.path.join(tools, "flameshots"), "test"],
+                       cwd=tmp, env=env, capture_output=True, text=True)
     with open(log, encoding="utf-8", errors="replace") as f:
-        return [ln.strip() for ln in f if ln.strip()]
+        return [ln.strip() for ln in f if ln.strip()], r.returncode
 
 
 class FlameshotsTest(unittest.TestCase):
     def test_r2_each_shot_pins_the_clock_before_creating_the_effect(self):
         """[R2] one() must call `tw stepabs $4` before the eval that creates the effect."""
         with tempfile.TemporaryDirectory() as tmp:
-            calls = run_script(tmp)
+            calls, _ = run_script(tmp)
         # (absolute birth time from the call sites at the bottom of the script, marker in the created effect)
         for want_abs, marker in (("34", "fx.Burst"), ("44", "fx.TankCookOff"), ("54", "fx.Alight")):
             birth = next((i for i, c in enumerate(calls) if re.match(r"^stepabs %s(\b|$)" % want_abs, c)), None)
@@ -72,6 +77,15 @@ class FlameshotsTest(unittest.TestCase):
             self.assertIsNotNone(made, "[R2] the shot creating %s never ran" % marker)
             self.assertLess(birth, made,
                             "[R2] the clock is not pinned to %s before %s is created" % (want_abs, marker))
+
+    def test_t32_a_failed_stepabs_cancels_the_shot(self):
+        """[T3.2] one() discarded stepabs' exit code and shot an unpinned clock anyway."""
+        with tempfile.TemporaryDirectory() as tmp:
+            calls, rc = run_script(tmp, fail=["stepabs"])
+        self.assertFalse([c for c in calls if c.startswith("shot test_jet")],
+                         "[T3.2] the jet shot was taken although the clock was never pinned (calls: %r)" % calls)
+        self.assertNotEqual(rc, 0, "[T3.2] flameshots exited 0 with a clock that could not be pinned")
+
 
 class FlamecheckTest(unittest.TestCase):
     """[R13] flamecheck must say it cannot run instead of letting flameshots report "no fire"."""

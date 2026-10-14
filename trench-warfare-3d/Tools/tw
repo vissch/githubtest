@@ -83,6 +83,13 @@ case "${1:-}" in
     # short of the mark and stepping the last stretch costs one sleep and a handful of calls, and lands inside 0.1 s.
     want="${2:-34}"
     t=$(U cmd eval --result-only -- --code "return UnityEngine.Time.time;" | grep -o '"result": [0-9.]*' | grep -o '[0-9.]*$')
+    # A clock already at or past the mark cannot be pinned to it: the editor was late, the effect would be born at
+    # some other absolute time, and the phases the shot is anchored on would differ. Fail instead of pretending.
+    if [ -n "$t" ] && awk -v a="$t" -v w="$want" 'BEGIN{exit !(a>=w)}'; then
+      awk -v a="$t" -v w="$want"         'BEGIN{printf "stepabs: clock already at %.2fs, past %ss - the birth cannot be pinned
+", a, w}' >&2
+      exit 1
+    fi
     gap=$(awk -v a="$t" -v w="$want" 'BEGIN{printf "%.2f", w-a-0.4}')
     if awk -v g="$gap" 'BEGIN{exit !(g>0)}'; then
       U cmd eval --result-only -- --code "UnityEditor.EditorApplication.isPaused = false; return 0;" >/dev/null
