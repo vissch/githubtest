@@ -118,6 +118,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectCensus (Explicit, a graphics device: it only checks that the match stepped and some event was counted),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).
+- **What that review found (2026-10-14):** every one of the six is warm additive card work made for the night field,
+  so on snow it loses its colour: warm pixels fall from 3-12 % by night to 0.0-0.3 % by day at play zoom. The films,
+  the frames, the fault table and a per-effect summary are on the Drive under
+  the Drive's decisions-evidence folder, 2026-10-12/ingame-effects-review (Captures/ is not pushed); the choice of what to improve
+  first is the owner's open brief "Effects in the game: which do we improve first?". Nothing was fixed: his pick decides.
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
