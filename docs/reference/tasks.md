@@ -98,6 +98,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   time to breach, trench retention and who wins, per seed. `python Tools/sweep.py run Tools/sweeps/factions.json`:
   `workflow.md`, section 5. Its two plain tests hold that a patch writes the field it names and fails on any it
   cannot, and that a variant changing nothing is the same ladder).
+  EnemySupportTickTests (M3: one support order a tick — on tick 150 the SOS, attack-barrage and harassing gates
+  are all open at once, and each reads silver and cooldowns from before the others land).
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
@@ -968,7 +970,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, EnemySupportTickTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
 - **PlayMode:** CampaignDeployPlayTests, CanaryPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, HudTogglePlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, MissionSelectPlayTests, SettingsPausePlayTests, ShellRouterPlayTests
 - **Project:** CaptureRigMetricsTests, CaptureRigPathTests, EditorToolGuardTests, FreshCloneSetupTests, GymHookTests, HudCaptureGuardTests, ShaderInclusionTests, ShellSceneBuildTests, SkinAssetTests, SkinFontTests, UiAssetGuardTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationLadderTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CameraPanelTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, CompositionGarbageTests, CompositionStabilityTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FigurePartsTests, FlamethrowerCatchTests, FlipbookFxTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, LandingCraftRideTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PerfBenchGuardTests, PerfWindowTests, PropWearTests, ProvingGroundModelTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShaderLookTests, ShotLogTests, ShotStaggerTests, ShowAllocationTests, StaticLifecycleTests, TerrainChunkPaceTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatCullRadiusTests, VatEarlyZTests, VatRowMappingTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WalkerLegMapTests, WireBeltTests, WreckLifecycleTests, WreckModelTests
