@@ -5,6 +5,8 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.UIElements;
+using UnityEditor;
 using TW.Presentation;
 
 namespace TW.Tests
@@ -137,15 +139,32 @@ namespace TW.Tests
                     typeof(RuntimeInitializeOnLoadMethodAttribute), false)[0]).loadType == RuntimeInitializeLoadType.BeforeSceneLoad),
                 "the launch hook must run BeforeSceneLoad: after it, a scene's first sounds have already played");
 
+            // [TU7] The hook reads SettingsStore.Load(), which used to mean the developer's own settings.json and
+            // left its contents in SettingsStore.Current for every later test in the session. The test now gives the
+            // store a settings file of its own (SettingsStore.PathOverride) and puts Current back afterwards, and the
+            // expected volume is the one IN THAT FILE, not a read of whatever the store happens to hold.
             float restore = AudioListener.volume;
+            var before = SettingsStore.Current;
+            string file = Path.Combine(Path.GetTempPath(), "tw-tu7-settings.json");
             try
             {
-                AudioListener.volume = 0.7734f;   // a value nothing in the project would ever choose
+                var mine = GameSettings.Defaults();
+                mine.Audio.Master = 0.4242f;      // a value nothing in the project would ever choose
+                SettingsStore.SaveTo(mine, file);
+                SettingsStore.PathOverride = file;
+                AudioListener.volume = 0.7734f;
                 foreach (var m in hooks) m.Invoke(null, null);
-                Assert.That(AudioListener.volume, Is.EqualTo(SettingsStore.Current.Audio.Master).Within(1e-5f),
-                    "the launch hooks ran and none of them put the player's master on the listener");
+                Assert.That(AudioListener.volume, Is.EqualTo(0.4242f).Within(1e-5f),
+                    "[TU7] the launch hook read the developer's own settings.json, not the path the test gave it");
             }
-            finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
+            finally
+            {
+                if (File.Exists(file)) File.Delete(file);
+                SettingsStore.PathOverride = null;
+                SettingsStore.SetCurrentForTests(before);
+                AudioListener.volume = restore;
+                TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current);
+            }
         }
 
         /// <summary>
@@ -154,25 +173,61 @@ namespace TW.Tests
         /// told SOUND IS OFF, and a player who dragged it down to zero was told nothing at all. That text is the
         /// only thing distinguishing a deliberately silent game from a broken one.
         ///
-        /// Asserted on the source rather than by driving UIElements, because building a panel needs the shell's
-        /// VisualTreeAsset and a live panel; what is actually being checked is structural - that the note is
-        /// computed in a method the slider callbacks reach, not inline in the builder.
+        /// [TU5] Driven through the real panel, not the source text: the old test only read SettingsScreen.cs for
+        /// the words "SoundChanged()" on the master slider's builder line, so it passed on a SoundChanged that did
+        /// nothing - the bug it was written for. This binds the real Settings.uxml and drives SoundChanged.
         /// </summary>
         [Test]
         public void TheSoundIsOffWarningIsRecomputedWhenTheMasterMoves()
         {
-            var src = File.ReadAllText(Path.Combine(
-                Path.GetFullPath(Path.Combine(Application.dataPath, "_Project")), "UI", "Shell", "SettingsScreen.cs"));
-            StringAssert.Contains("void RefreshAudioNote()", src, "the note is computed in one named place");
-            // The line that BUILDS the master slider. Matching on "slider-master" alone is not enough,
-            // and this test caught itself doing it: SettingsScreen:22 is a list of element NAMES that
-            // mentions every slider id, so FirstOrDefault picked that and reported a failure that was
-            // entirely the test's own. The builder line is the one that also touches the value.
-            var master = src.Split('\n').FirstOrDefault(l => l.Contains("slider-master") && l.Contains("draft.Audio.Master"));
-            Assert.IsNotNull(master, "the master slider is still built in SettingsScreen");
-            StringAssert.Contains("SoundChanged()", master,
-                "the master slider must report its change, or the panel's own instruction - drag master up to hear "
-                + "the game - does nothing until APPLY, and the warning it prints goes stale the moment it is obeyed");
+            var tree = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>("Assets/_Project/UI/Shell/Settings.uxml");
+            Assert.That(tree, Is.Not.Null, "Settings.uxml did not load");
+            var root = tree.Instantiate();
+            string plain = root.Q<Label>("audio-note").text;
+            float restore = AudioListener.volume;
+            var before = SettingsStore.Current;
+            var screen = new TW.UI.SettingsScreen();
+            try
+            {
+                // The panel opens on a master the player can hear, so the note starts plain whatever the machine's
+                // own settings.json holds.
+                var loud = GameSettings.Defaults(); loud.Audio.Master = 0.5f;
+                SettingsStore.SetCurrentForTests(loud);
+                screen.Bind(root, null);
+                Assert.AreEqual(plain, root.Q<Label>("audio-note").text, "[TU5] the panel opens with the plain note");
+
+                // The master slider's own callback cannot be fired here: a tree with no panel has no event
+                // dispatcher, so slider.value = 0 changes the field and sends nothing. What the slider's callback
+                // does IS SoundChanged (asserted on the builder line below), so the behaviour is driven through it.
+                var draft = typeof(TW.UI.SettingsScreen).GetField("draft", BindingFlags.Instance | BindingFlags.NonPublic);
+                var sound = typeof(TW.UI.SettingsScreen).GetMethod("SoundChanged", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(draft, "SettingsScreen still edits a draft"); Assert.IsNotNull(sound, "[TU5] SettingsScreen.SoundChanged is gone");
+
+                var d = (GameSettings)draft.GetValue(screen);
+                d.Audio.Master = 0f; draft.SetValue(screen, d);
+                sound.Invoke(screen, null);
+                Assert.AreEqual("SOUND IS OFF. DRAG MASTER UP TO HEAR THE GAME.", root.Q<Label>("audio-note").text,
+                    "[TU5] SoundChanged does not refresh the note");
+                Assert.That(AudioListener.volume, Is.EqualTo(0f).Within(1e-5f), "[TU5] SoundChanged does not apply the draft");
+
+                d.Audio.Master = 0.5f; draft.SetValue(screen, d);
+                sound.Invoke(screen, null);
+                Assert.AreEqual(plain, root.Q<Label>("audio-note").text,
+                    "[TU5] SoundChanged does not refresh the note: the warning stays after the master is turned up");
+
+                // and the master slider really reports its change, or nothing above is ever reached in the game
+                var src = File.ReadAllText(Path.Combine(Application.dataPath, "_Project/UI/Shell/SettingsScreen.cs"));
+                var master = src.Split('\n').FirstOrDefault(l => l.Contains("slider-master") && l.Contains("draft.Audio.Master"));
+                Assert.IsNotNull(master, "the master slider is still built in SettingsScreen");
+                StringAssert.Contains("SoundChanged()", master, "[TU5] the master slider does not report its change");
+            }
+            finally
+            {
+                screen.Unbind();
+                SettingsStore.SetCurrentForTests(before);
+                AudioListener.volume = restore;
+                TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current);
+            }
         }
 
         [Test]

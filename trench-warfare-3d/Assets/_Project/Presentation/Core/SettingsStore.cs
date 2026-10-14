@@ -11,12 +11,19 @@ namespace TW.Presentation
     public static class SettingsStore
     {
         public const string FileName = "settings.json";
-        public static string DefaultPath => Path.Combine(Application.persistentDataPath, FileName);
+        /// <summary>Tests: the file Load() and Save() use; null (the default) means persistentDataPath, so a fixture
+        /// that forgets it cannot read or write the developer's own settings.json (ProfileStore.PersistOverride's idiom).</summary>
+        public static string PathOverride;
+        public static string DefaultPath => PathOverride ?? Path.Combine(Application.persistentDataPath, FileName);
 
         /// <summary>The settings in force. Load() fills it; SettingsApplier reads it.</summary>
         public static GameSettings Current { get; private set; } = GameSettings.Defaults();
 
         public static GameSettings Load() => Current = LoadFrom(DefaultPath);
+
+        /// <summary>Tests: put back the Current a test found, so a launch hook it invoked does not leave its settings
+        /// in force for the rest of the session.</summary>
+        public static void SetCurrentForTests(GameSettings s) => Current = s;
 
         public static GameSettings LoadFrom(string path)
         {
