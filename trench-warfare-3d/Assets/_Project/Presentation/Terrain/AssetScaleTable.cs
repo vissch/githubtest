@@ -181,6 +181,8 @@ namespace TW.Presentation.Terrain
             foreach (var h in new[] { "House0", "House1", "House2", "House3", "House4", "House5" }) B("house/" + h, ScaleAxis.Height, 2.00f, 4.00f, "a village house: one to two storeys", enforce: false);
             foreach (var h in new[] { "CommandPost", "Blockhouse", "GuardPost" }) B("house/" + h, ScaleAxis.Height, 2.00f, 3.50f, "a rear building", enforce: false);
             B("house/Watchtower", ScaleAxis.Height, 3.00f, 4.00f, "a watchtower over the wire", enforce: false);
+            // houses.json: 9.30-10.30 m tall, which at the two-metre man is 4.65-5.15 SU
+            foreach (var h in new[] { "Boilerhouse", "Townhouse", "Guildhall", "Gasholder" }) B("house/" + h, ScaleAxis.Height, 4.60f, 5.20f, "a big ruin", enforce: false);
             // ---- organic: free ----------------------------------------------------------------------------------------
             foreach (var p in new[] { "Plants/FallenLog", "Plants/SplitStumpTall", "Plants/SplitStump", "Plants/MossStump", "Plants/Poppies", "Plants/Cattails", "Plants/GrassClump",
                                       "Stones/Boulder", "Stones/RebarSlab" }) O(p);
