@@ -108,6 +108,11 @@ namespace TW.Presentation.Terrain
         /// <summary>The scattered lanterns' feet (docs/21 phase 2): NightLights lights those first.</summary>
         public IReadOnlyList<Vector3> LanternPoints => composer != null ? composer.LanternPoints : (IReadOnlyList<Vector3>)System.Array.Empty<Vector3>();
         public BattlefieldKit Kit => kit;
+        /// <summary>Every hamlet (house or ruin) the running composer placed this composition: the stills test aims the
+        /// lens at where the composer actually put a ruin, not at a guess.</summary>
+        public IReadOnlyList<BattlefieldComposer.Hamlet> Hamlets => composer?.Hamlets ?? System.Array.Empty<BattlefieldComposer.Hamlet>();
+        /// <summary>The house or ruin a Hamlet.House index names (BattlefieldKit.Houses[index].Name).</summary>
+        public string HouseName(int index) => kit.Houses[index].Name;
         /// <summary>Tests only (TrenchSectionTests): props that draw from a kit built by the test, with no scene, no map and
         /// no composition; instances come in through AddInstance.</summary>
         public void AttachKitForTests(BattlefieldKit testKit) { kit = testKit; }
