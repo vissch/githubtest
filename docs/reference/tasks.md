@@ -111,6 +111,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   says so instead of answering "queued", and the asset scale audit refuses to run in Play).
   CaptureRigMetricsTests (a still's readability metrics project the men with the still's own aspect, not the
   Game view's).
+  HudCaptureGuardTests (an armed HUD capture clears the old PNG, and the shared HUD panel goes back to its own
+  target when the capture's runner dies).
 
 ### The VFX pass (every effect filmed for a critique, 2026-10-01)
 - **Files (SHOW):** `Editor/VfxLab.cs` (stages one effect at a time by name: a shell, the HE barrage, a machine's
@@ -749,6 +751,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and its chosen ten go from `MatchLaunch.Request` (`FactionA`/`FactionB`, `LoadoutA`/`LoadoutB`) through `SimHost`
   into the sim's `SimConfig`. Unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
 - **Tests:** ShellUxmlTests, ShellRouterPlayTests, GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests,
+  ShellSceneBuildTests (an existing MainMenu.unity is opened, not rebuilt, and the build scene list keeps scenes
+  the builder did not make),
   LaunchLoadoutTests, SettingsPausePlayTests (PlayMode, through a real panel: a second
   key-cap clicked puts the one that was listening back), SettingsVideoTests (the resolution row is picked by refresh
   rate, not by size alone), MissionSelectPlayTests (PlayMode: the mission thumbnail is the card's own ground).
@@ -965,7 +969,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- gen:tests -->
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests
 - **PlayMode:** CampaignDeployPlayTests, CanaryPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, HudTogglePlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, MissionSelectPlayTests, SettingsPausePlayTests, ShellRouterPlayTests
-- **Project:** CaptureRigMetricsTests, CaptureRigPathTests, EditorToolGuardTests, FreshCloneSetupTests, GymHookTests, ShaderInclusionTests, SkinAssetTests, SkinFontTests, WalkerPivotTests
+- **Project:** CaptureRigMetricsTests, CaptureRigPathTests, EditorToolGuardTests, FreshCloneSetupTests, GymHookTests, HudCaptureGuardTests, ShaderInclusionTests, ShellSceneBuildTests, SkinAssetTests, SkinFontTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationLadderTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, CameraPanelTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, CompositionGarbageTests, CompositionStabilityTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FigurePartsTests, FlamethrowerCatchTests, FlipbookFxTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, LandingCraftRideTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, NightLookTests, PaintedHorizonCompressionTests, PerfBenchGuardTests, PerfWindowTests, PropWearTests, ProvingGroundModelTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShaderLookTests, ShotLogTests, ShotStaggerTests, ShowAllocationTests, StaticLifecycleTests, TerrainChunkPaceTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatCullRadiusTests, VatEarlyZTests, VatRowMappingTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WalkerLegMapTests, WireBeltTests, WreckLifecycleTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, MeleeTests, MineTests, OfficerTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, SapperTests, ShieldTests, SimHashTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, VfxStills, WalkerStills, WreckStills
