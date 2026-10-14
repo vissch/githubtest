@@ -844,6 +844,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `GreyboxTerrainView.ChunkPass`, is planned before any chunk moves `chunkCursor`). TerrainChunkScheduleTests (`GreyboxTerrainView.Overlaps`
   / `ChunkWaits`: a crater's rescan restarts and blocks chunk work only within `HollowReachMeters` of itself, not the
   whole field, so a chunk far from the shelling keeps its part-built rows and finishes).
+  DrainageTests (crater hollows and rill drainage, presentation only), TerrainChunkPaceTests (a chunk mid-rebuild
+  under a barrage finishes its rows and is read over after; the 65th scorch mark's eviction repaints the ground the
+  oldest one burned).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
