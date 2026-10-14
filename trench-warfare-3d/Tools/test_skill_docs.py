@@ -14,14 +14,32 @@ def text_of(path):
 
 class SkillDocsTest(unittest.TestCase):
     def test_k1s_unity_pipeline_warns_against_bare_unity_commands(self):
-        """[K1s] unity-pipeline/SKILL.md must warn to drive via Tools/tw, not a bare `unity` call."""
+        """[K1s] unity-pipeline/SKILL.md must send every command through Tools/tw and tell nobody to install.
+
+        Word-counting is not enough: the package's own description line already holds "install" and "only", so a
+        check for those words passes on a file whose body still says "Invoke commands with `unity command`" and
+        still opens with an "Install & verify" recipe. These assertions name what must and must not be run.
+        """
         text = (REPO / ".claude/skills/unity-pipeline/SKILL.md").read_text(encoding="utf-8")
         head = "\n".join(text.splitlines()[:15]).lower()
-        self.assertIn("tools/tw", head)
-        self.assertTrue(
-            ("never" in head or "only" in head) and ("install" in head or "package" in head),
-            "[K1s] expected a header warning against bare `unity install`/`package_add` in the first 15 lines",
-        )
+        self.assertIn("tools/tw", head, "[K1s] the first 15 lines never name Tools/tw")
+        self.assertRegex(head, r"never run a bare `unity\s+command",
+                         "[K1s] the head does not forbid a bare `unity command` by name")
+
+        # Lines inside ``` fences are what an agent copies and runs. None of them may install a package.
+        fenced, inside = [], False
+        for ln in text.splitlines():
+            if ln.startswith("```"):
+                inside = not inside
+            elif inside:
+                fenced.append(ln)
+        bad = [ln for ln in fenced if "pipeline install" in ln or "package_add" in ln]
+        self.assertFalse(bad, "[K1s] SKILL.md still gives a runnable install line: %r" % bad)
+
+        # And nothing in it may tell the agent that a command is invoked with a bare `unity command`.
+        tells = [ln for ln in text.splitlines()
+                 if re.match(r"\s*(invoke|run) commands? with `unity command", ln, re.I)]
+        self.assertFalse(tells, "[K1s] SKILL.md still tells the agent to invoke commands bare: %r" % tells)
 
     def test_k2s_balance_doc_matches_roster_costs_and_sapper(self):
         """[K2s] tw-balance-sim docs must match RosterEntry.cs costs and know about Sapper."""
