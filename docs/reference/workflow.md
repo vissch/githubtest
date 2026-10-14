@@ -310,7 +310,7 @@ min a variant; the same spec twice gives byte-identical reports, and a variant t
 baseline. Over ten minutes or so, start it under `Tools/pipeline/run_detached.py`.
 - **Watching one match back (2026-10-13).** `--track` also saves where every man stood each five seconds, one
   `<variant>-s<seed>[-swapped].jsonl` a match into `<run>/tracks/`: a header line with the trenches and their cell
-  centres, then a line a sample with every man as `[x, z, team, in a trench]`, the men alive per side and who holds
+  centres, then a line a sample with every man as `[x, z, team, in a trench, died]` (the first sample stands at t=0; `died` 1 marks, for one sample, a man who fell since the last), the men alive per side and who holds
   each trench. It is off by default (a track per variant per seed per seating), so prove a spec on
   `--seeds 1 --minutes 2` first. `python Tools/sweep.py film <run folder>` (`Tools/sweepfilm.py`) turns the tracks
   into one self-contained page each in `<run>/film/`: the match from above as moving dots, play/pause, a slider over

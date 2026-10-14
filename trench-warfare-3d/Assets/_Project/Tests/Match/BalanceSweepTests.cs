@@ -222,6 +222,11 @@ namespace TW.Tests
         {
             StreamWriter _w;
             public int Every, Samples;
+            // The slots of the last sample, so a man who has died since is marked once, where he last stood [SW.4].
+            int[] _slot = System.Array.Empty<int>(); ushort[] _gen = System.Array.Empty<ushort>();
+            float[] _x = System.Array.Empty<float>(), _z = System.Array.Empty<float>();
+            byte[] _team = System.Array.Empty<byte>();
+            int _was;
 
             public static Track Open(string dir, Spec spec, Variant v, uint seed, bool swapped, MatchSim m)
             {
@@ -255,20 +260,36 @@ namespace TW.Tests
             /// <summary>x or z to one decimal, invariant.</summary>
             static string One(float v) => v.ToString("F1", Inv);
 
+            /// <summary>One sample: every living man as [x, z, team, inTrench, died], then one entry per slot of the
+            /// last sample whose man is gone, with his last known place and died 1. The dead are not counted in
+            /// "alive". The team is written as the world holds it, unmasked, so a bad team shows on the page [SW.3].</summary>
             public void Write(MatchSim m)
             {
                 var w = m.World;
                 var b = new StringBuilder("{\"t\": ").Append(Num(w.Tick * w.Config.TickSeconds)).Append(", \"men\": [");
-                int n = 0, alive0 = 0, alive1 = 0;
+                int n = 0, alive0 = 0, alive1 = 0, live = 0;
+                int cap = math.max(64, w.HighWater + 1);
+                var slot = new int[cap]; var gen = new ushort[cap];
+                var xs = new float[cap]; var zs = new float[cap]; var teams = new byte[cap];
+                var seen = new bool[_was];
                 for (int i = 0; i < w.HighWater; i++)
                 {
                     if (!w.IsAlive(i) || (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
-                    int team = w.Team[i] & 1;
-                    if (team == 0) alive0++; else alive1++;
+                    byte team = w.Team[i];
+                    if ((team & 1) == 0) alive0++; else alive1++;
                     var p = w.Position[i];
                     b.Append(n++ == 0 ? "[" : ", [").Append(One(p.x)).Append(", ").Append(One(p.z)).Append(", ")
-                     .Append(team.ToString(Inv)).Append(", ").Append(w.TrenchId[i] >= 0 ? '1' : '0').Append(']');
+                     .Append(team.ToString(Inv)).Append(", ").Append(w.TrenchId[i] >= 0 ? '1' : '0').Append(", 0]");
+                    for (int k = 0; k < _was; k++) if (_slot[k] == i && _gen[k] == w.Generation[i]) { seen[k] = true; break; }
+                    slot[live] = i; gen[live] = w.Generation[i]; xs[live] = p.x; zs[live] = p.z; teams[live] = team; live++;
                 }
+                for (int k = 0; k < _was; k++)
+                {
+                    if (seen[k]) continue;
+                    b.Append(n++ == 0 ? "[" : ", [").Append(One(_x[k])).Append(", ").Append(One(_z[k])).Append(", ")
+                     .Append(_team[k].ToString(Inv)).Append(", 0, 1]");
+                }
+                _slot = slot; _gen = gen; _x = xs; _z = zs; _team = teams; _was = live;
                 b.Append("], \"alive\": [").Append(alive0.ToString(Inv)).Append(", ").Append(alive1.ToString(Inv)).Append("], \"owners\": [");
                 var state = m.Fields.Trenches;
                 for (int k = 0; k < state.Length; k++) b.Append(k == 0 ? "" : ", ").Append(((int)state[k].OwnerTeam).ToString(Inv));
@@ -341,6 +362,11 @@ namespace TW.Tests
 
         static void Put(Dictionary<string, float> d, string key, float v) => d[key] = v;
 
+        /// <summary>A test may ask for the world's hash each 100 ticks, to show the track changes nothing [SW.3].
+        /// Off by default, so a real sweep pays nothing for it.</summary>
+        internal static bool WatchHash;
+        internal static ulong LastHash;
+
         /// <summary>One match of the variant on one seed. Swapped: side "a" sits on seat 1 (the enemy's), "b" on seat 0.</summary>
         public static Dictionary<string, float> Match(Spec spec, Variant v, uint seed, bool swapped, StringBuilder text)
         {
@@ -361,12 +387,21 @@ namespace TW.Tests
                 report = MatchLoopTests.Play(policy, spec.minutes, seed, enemy, 8, m =>
                 {
                     Sample(m, x); silverEnd[0] = m.World.Silver[0]; silverEnd[1] = m.World.Silver[1]; played = true;
-                    if (string.IsNullOrEmpty(trackDir)) return;
-                    if (track == null) track = Track.Open(trackDir, spec, v, seed, swapped, m);
-                    if (m.World.Tick % (uint)track.Every == 0) track.Write(m);
+                    if (WatchHash && m.World.Tick % 100 == 0) LastHash = m.World.Hash();   // [SW.3], off in a real sweep
+                    if (track != null && m.World.Tick % (uint)track.Every == 0) track.Write(m);
                 }, player,
                     cfg => used = ApplyConfig(cfg, v, swapped),
-                    m => { if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0; ApplyUnits(m, v); });
+                    m =>
+                    {
+                        if (!spec.heroes && m.Hero != null) m.Hero.TeamMask = 0;
+                        ApplyUnits(m, v);
+                        // built runs on the fresh world before its first tick, so the first sample stands at t=0 [SW.4]
+                        if (!string.IsNullOrEmpty(trackDir) && track == null)
+                        {
+                            track = Track.Open(trackDir, spec, v, seed, swapped, m);
+                            track.Write(m);
+                        }
+                    });
             }
             finally { track?.Close(); }
 
@@ -570,7 +605,7 @@ namespace TW.Tests
             var lines = File.ReadAllLines(file);
             // one minute at 20 ticks a second is 1200 ticks (Play returns EndTick; end_s is it times TickSeconds)
             Assert.AreEqual(60f, r["end_s"], 1e-3f, "the match ran the whole minute, so every sample is there");
-            Assert.AreEqual(13, lines.Length, "a header and one sample each five seconds of the minute");
+            Assert.AreEqual(14, lines.Length, "[SW.4] a header, a sample at t=0 and one each five seconds of the minute");
 
             var head = lines[0];
             Assert.IsTrue(head.StartsWith("{\"variant\": \"now\""), "the header names the variant: " + head);
@@ -578,7 +613,7 @@ namespace TW.Tests
             Assert.IsTrue(head.Contains("\"cells\": [["), "a trench has cell centres the page draws a line through");
             Assert.IsTrue(head.Contains("\"every\": 100"), "a sample each 100 ticks is each five seconds at 20 a second");
 
-            float want = 5f;
+            float want = 0f;   // [SW.4] the first sample stands at t=0, before any step
             for (int i = 1; i < lines.Length; i++, want += 5f)
             {
                 float t = float.Parse(Between(lines[i], "\"t\": ", ","), NumberStyles.Float, Inv);
@@ -588,6 +623,102 @@ namespace TW.Tests
                     Assert.IsTrue(man[2] == "0" || man[2] == "1", "a man is of team 0 or 1, not " + man[2]);
             }
             Assert.GreaterOrEqual(Men(lines[lines.Length - 1]).Count, 1, "the last sample still lists men");
+        }
+
+        // [SW.3] The writer's own numbers: two men put down by hand, so a swapped or zeroed axis and a masked team
+        // turn this red. [SW.4] A man who dies is marked once, where he fell, and then gone.
+        [Test]
+        public void TheTrack_WritesEachMansOwnPlaceAndTeam_AndMarksHimDeadOnce()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-sweep-track-" + System.Guid.NewGuid().ToString("N"));
+            using var m = MatchSim.CreateGreybox(SimConfig.Default);
+            var w = m.World;
+            int a = w.Spawn(0, InfantryArchetype.Rifle, new float3(-20f, 0f, 5f), 100f, 0f, false);
+            int b = w.Spawn(1, InfantryArchetype.Rifle, new float3(50f, 0f, 37f), 100f, 0f, false);
+
+            var track = Track.Open(dir, new Spec { minutes = 1 }, One("hand"), 3u, false, m);
+            track.Write(m);
+            track.Write(m);                                   // both still alive: nobody is marked dead
+            w.Despawn(b);
+            track.Write(m);                                   // he is marked once, where he last stood
+            track.Write(m);                                   // and is gone from the next
+            track.Close();
+
+            var lines = File.ReadAllLines(Path.Combine(dir, "hand-s3.jsonl"));
+            Assert.AreEqual(5, lines.Length, "a header and the four samples");
+            var men = Men(lines[1]);
+            Assert.AreEqual(2, men.Count, "both men stand in the first sample");
+            var one = men.Find(x => x[2] == "0");
+            var two = men.Find(x => x[2] == "1");
+            Assert.IsNotNull(one, "[SW.3] the man of team 0 is written with team 0: " + lines[1]);
+            Assert.IsNotNull(two, "[SW.3] the man of team 1 is written with team 1: " + lines[1]);
+            Assert.AreEqual("-20.0", one[0], "[SW.3] his x is his own x, not his z"); // the spawn above
+            Assert.AreEqual("5.0", one[1], "[SW.3] his z is his own z");
+            Assert.AreEqual("50.0", two[0], "[SW.3] the other man's x");
+            Assert.AreEqual("37.0", two[1], "[SW.3] the other man's z");
+            Assert.AreEqual(w.Position[a].x.ToString("F1", Inv), one[0], "[SW.3] x comes from World.Position at the sampled tick");
+            Assert.AreEqual(w.Position[a].z.ToString("F1", Inv), one[1], "[SW.3] z comes from World.Position at the sampled tick");
+            Assert.AreEqual(w.Team[a].ToString(Inv), one[2], "[SW.3] the team is the world's, unmasked");
+            Assert.AreEqual(w.Team[b].ToString(Inv), two[2], "[SW.3] the other man's team is the world's");
+            Assert.AreEqual("0", one[4], "a living man has died 0");
+            Assert.AreEqual("0", two[4], "a living man has died 0");
+            Assert.AreEqual(2, Men(lines[2]).Count, "nobody died between the first two samples");
+
+            var third = Men(lines[3]);
+            Assert.AreEqual(2, third.Count, "[SW.4] the living man and the one who fell");
+            var dead = third.Find(x => x[4] == "1");
+            Assert.IsNotNull(dead, "[SW.4] the man who died since the last sample is marked: " + lines[3]);
+            Assert.AreEqual("50.0", dead[0], "[SW.4] he is marked where he last stood");
+            Assert.AreEqual("37.0", dead[1], "[SW.4] he is marked where he last stood");
+            Assert.AreEqual("1", dead[2], "[SW.4] with his own team");
+            Assert.IsTrue(lines[3].Contains("\"alive\": [1, 0]"), "[SW.4] the dead are not counted alive: " + lines[3]);
+            var fourth = Men(lines[4]);
+            Assert.AreEqual(1, fourth.Count, "[SW.4] he is marked for one sample only");
+            Assert.AreEqual("0", fourth[0][4], "[SW.4] only the living man is left");
+        }
+
+        // [SW.3] The track is off unless TW_SWEEP_TRACK names a folder.
+        [Test, Timeout(300000)]
+        public void AnUnsetTrackFolder_WritesNothing()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-sweep-track-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            string was = Environment.GetEnvironmentVariable("TW_SWEEP_TRACK");
+            try
+            {
+                Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", null);
+                Match(new Spec { minutes = 1, swapSeats = false }, One("now"), 1u, false, new StringBuilder());
+            }
+            finally { Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", was); }
+            Assert.AreEqual(0, Directory.GetFileSystemEntries(dir).Length, "[SW.3] with no folder named, no track is written");
+        }
+
+        // [SW.3] Writing a track reads the world and never touches it: the same match, with and without.
+        [Test, Timeout(600000), Category("Long")]
+        public void TheTrack_ChangesNeitherTheResultNorTheHash()
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-sweep-track-" + System.Guid.NewGuid().ToString("N"));
+            string was = Environment.GetEnvironmentVariable("TW_SWEEP_TRACK");
+            var spec = new Spec { minutes = 1, swapSeats = false };
+            Dictionary<string, float> with, without;
+            ulong hashWith, hashWithout;
+            bool watched = WatchHash;
+            try
+            {
+                WatchHash = true;
+                Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", dir);
+                with = Match(spec, One("now"), 1u, false, new StringBuilder());
+                hashWith = LastHash;
+                Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", null);
+                without = Match(spec, One("now"), 1u, false, new StringBuilder());
+                hashWithout = LastHash;
+            }
+            finally { WatchHash = watched; Environment.SetEnvironmentVariable("TW_SWEEP_TRACK", was); }
+
+            Assert.AreEqual(hashWithout, hashWith, "[SW.3] the world hashes the same with the track on and off");
+            Assert.AreEqual(without.Count, with.Count, "[SW.3] the same numbers are reported");
+            foreach (var kv in without)
+                Assert.AreEqual(kv.Value, with[kv.Key], 1e-4f, "[SW.3] " + kv.Key + " is the same with the track on");
         }
 
         static int Count(string s, string what)
@@ -603,7 +734,7 @@ namespace TW.Tests
             return s.Substring(a, s.IndexOf(to, a, StringComparison.Ordinal) - a);
         }
 
-        /// <summary>The men of one sample line, each as its four fields.</summary>
+        /// <summary>The men of one sample line, each as its five fields: x, z, team, in a trench, died.</summary>
         static List<string[]> Men(string line)
         {
             var men = new List<string[]>();
@@ -613,7 +744,7 @@ namespace TW.Tests
                 string body = part.Trim().TrimEnd(',', ' ').TrimEnd(']');
                 if (body.Length == 0) continue;
                 var f = body.Split(',');
-                Assert.AreEqual(4, f.Length, "a man is x, z, team, trench: " + body);
+                Assert.AreEqual(5, f.Length, "a man is x, z, team, trench, died: " + body);
                 men.Add(System.Array.ConvertAll(f, t => t.Trim()));
             }
             return men;
