@@ -41,13 +41,13 @@ unity command recompile_status    # repeat until "completed" or "up_to_date"
 #   If recompile_status reports failed=true, read its "errors" array and fix before testing.
 
 # 4. (Optional) List available tests without running them.
-unity command list_tests --mode editor            # mode: all | editor | playmode
+unity command list_tests --mode EditMode            # mode: all | EditMode | PlayMode
 
 # 5. Run tests (filter to keep it fast).
-unity command run_tests --mode editor --filter MyFixture.MyTest
+unity command run_tests --mode EditMode --filter MyFixture.MyTest
 ```
 
-`run_tests` modes: `all` | `editor` | `playmode`. `filter_type`: `testName` | `assembly` |
+`run_tests` modes: `all` | `EditMode` | `PlayMode`. `filter_type`: `testName` | `assembly` |
 `category`. For long runs use `--async_tests true` and poll `unity command test_status`
 (abort with `unity command cancel_tests`).
 
