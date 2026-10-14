@@ -87,10 +87,11 @@ namespace TW.Playground.Editor
             lib.Vehicles = vehicles.ToArray(); lib.Units = units.ToArray(); lib.Clips = clips.ToArray();
             lib.ClipSource = AssetDatabase.LoadAssetAtPath<GameObject>(Source);
             EditorUtility.SetDirty(lib);
-            AssetDatabase.SaveAssets();
+            AssetDatabase.SaveAssetIfDirty(AssetDatabase.GUIDFromAssetPath(LibraryPath));
             // the scene: one object, the host, holding the library
             if (!File.Exists(ScenePath))
             {
+                if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "cancelled";
                 var scene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 var go = new GameObject("Playground");
                 go.AddComponent<PlaygroundHost>().Library = lib;
@@ -105,6 +106,7 @@ namespace TW.Playground.Editor
         public static string OpenAndPlay()
         {
             if (!File.Exists(ScenePath)) Build();
+            if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "cancelled";
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             EditorApplication.isPlaying = true;
             return "playing " + ScenePath;
