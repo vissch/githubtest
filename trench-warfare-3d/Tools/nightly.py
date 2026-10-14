@@ -19,9 +19,14 @@ The report, against the newest earlier night that has the same part:
 - gym: every flag raised tonight that was not raised last time, and per entry and band the share of pixels that changed
   (abtest.py's measure), as information: a scenes-only run draws the same pictures twice (0.00-0.03 %), but a whole run
   does not yet (2026-10-01: two whole runs of one commit differed by up to 35 % of a close band, from the second entry
-  on, with the same flags), so a picture change is not a finding by itself until the whole run repeats.
+  on, with the same flags), so a picture change is not a finding by itself until the whole run repeats;
+- Balance band: the newest sweep report under sweep.sweeps_root() that reports a faction band. A sweep that is stale
+  (over BAND_STALE_DAYS old), dirty, off-spec (not BAND_SPEC), partial (a not_run variant) or off tonight's commit is
+  named with its age and the reason, never judged. A judged sweep's out-of-band side is a look item only when it is
+  new since last night's report (a different sweep read, or a side newly out of band); an unchanged old finding is a
+  plain line in the report, not a daily look item.
 
-Exit 0 nothing new, 2 something to look at (a new flag, a bench regression), 1 could not run. Scheduling it is the owner's call, not this tool's; a daily task would be, for example:
+Exit 0 nothing new, 2 something to look at (a new flag, a bench regression, a new balance-band finding), 1 could not run. Scheduling it is the owner's call, not this tool's; a daily task would be, for example:
     schtasks /Create /SC DAILY /ST 03:00 /TN TW3D-nightly /TR "python <checkout>\\trench-warfare-3d\\Tools\\nightly.py"
 """
 import argparse, datetime, json, os, shutil, subprocess, sys
@@ -99,46 +104,100 @@ def gym_flags(run):
     return got
 
 
-def band_part(root=None):
+BAND_SPEC = 'factions.json'
+BAND_STALE_DAYS = 7
+
+
+def _sweep_age_days(name):
+    stamp = name.split('-')[0] if len(name.split('-')[0]) == 8 else None
+    try:
+        when = datetime.datetime.strptime(stamp, '%Y%m%d')
+        return (datetime.datetime.now() - when).days
+    except (TypeError, ValueError):
+        return None
+
+
+def band_part(root=None, sha=None, then=None):
     """The owner's faction band (docs/reference/decisions.md, d-matches) from the newest sweep run under
     `sweep.sweeps_root()` that reports one (a `report.json` with a `factions` key and a `now` row): this never runs
-    a sweep itself (a sweep needs the editor and the owner schedules it), only reads the last one. Returns
-    (md_lines, look_items); an out-of-band faction is a look item, matches that did not end are shown, never judged."""
+    a sweep itself (a sweep needs the editor and the owner schedules it), only reads the last one. A report.json
+    caught mid-write (or otherwise unreadable) is named in the md as not read, and an older sweep is tried instead
+    [B1]. The sweep found is judged against tonight's balance only when it is fresh, clean and on-spec: its spec is
+    BAND_SPEC, the tree was not dirty, every variant ran, it is at most BAND_STALE_DAYS old, and its commit shares a
+    prefix with `sha`; otherwise the md names it, its age and the reason, and nothing becomes a look item [B2].
+    Returns (md_lines, look_items, info) where info is {'sweep', 'age_days', 'commit', 'judged', 'reason', 'out'}
+    for report.json. A look item is added only for an out-of-band side that was not already reported for the same
+    sweep last night [B3]."""
     root = root or sweep.sweeps_root()
-    found = None
+    found, unreadable = None, []
     for d in sorted((d for d in os.listdir(root) if os.path.isdir(os.path.join(root, d))), reverse=True):
         path = os.path.join(root, d, 'report.json')
         if not os.path.exists(path):
             continue
-        data = json.load(open(path))
+        try:
+            data = json.load(open(path))
+        except (OSError, ValueError):
+            unreadable.append(d)
+            continue
         if data.get('factions', {}).get('rows'):
             found = (d, data)
             break
     md = ['## Balance band', '']
+    for d in unreadable:
+        md.append(f'- {d}: report.json could not be read (caught mid-write?)')
+    if unreadable:
+        md.append('')
+    info = {'sweep': None, 'age_days': None, 'commit': None, 'judged': False, 'reason': 'no sweep', 'out': []}
     if found is None:
-        return md + ['No sweep has reported a faction band yet.', ''], []
+        return md + ['No sweep has reported a faction band yet.', ''], [], info
     name, data = found
     row = next((r for r in data['factions']['rows'] if r['name'] == 'now'), None)
+    info['sweep'], info['age_days'] = name, _sweep_age_days(name)
     if row is None:
-        return md + ['The newest sweep report has no baseline row.', ''], []
+        info['reason'] = 'no baseline row'
+        return md + ['The newest sweep report has no baseline row.', ''], [], info
     meta = data['meta']
+    info['commit'] = meta.get('commit')
     sides = meta.get('sides') or {}
     a_name, b_name = sides.get('a', 'a'), sides.get('b', 'b')
-    md += [f'{name}, commit {meta.get("commit", "?")}.', '']
-    look = []
+    age = info['age_days']
+    age_text = f'{age} day{"s" if age != 1 else ""} old' if age is not None else 'age unknown'
+    reasons = []
+    if meta.get('spec') != BAND_SPEC:
+        reasons.append(f'spec is {meta.get("spec", "?")}, not {BAND_SPEC}')
+    if meta.get('dirty'):
+        reasons.append('tree was dirty')
+    if data.get('not_run'):
+        reasons.append(f'{len(data["not_run"])} variant(s) not run')
+    if age is not None and age > BAND_STALE_DAYS:
+        reasons.append(f'{age_text}, over {BAND_STALE_DAYS} days')
+    if sha and meta.get('commit') and not (meta['commit'].startswith(sha) or sha.startswith(meta['commit'])):
+        reasons.append(f'commit {meta.get("commit")}, not tonight\'s {sha}')
+    if reasons:
+        info['reason'] = '; '.join(reasons)
+        md += [f'{name} ({age_text}) not judged: {info["reason"]}.', '']
+        return md, [], info
+    md += [f'{name} ({age_text}), commit {meta.get("commit", "?")}.', '']
     if not row['judged']:
+        info['reason'] = 'no match ended'
         md += [f'No match ended ({row["unended"]} played).', '']
-        return md, look
+        return md, [], info
+    info['judged'] = True
     md += [f'{a_name} won {row["share_a"] * 100:.0f} %, {b_name} won {row["share_b"] * 100:.0f} % of '
            f'{row["ended"]} ended matches ({row["unended"]} did not end).', '']
+    look = []
+    then_sweep = (then or {}).get('sweep')
+    then_out = set((then or {}).get('out') or [])
     for side in row['out']:
         label = row['label_a'] if side == 'a' else row['label_b']
         share = row['share_a'] if side == 'a' else row['share_b']
         line = f'balance: {label} won {share * 100:.0f} % of ended matches (band {sweep.WIN_BAND[0] * 100:.0f}-{sweep.WIN_BAND[1] * 100:.0f})'
         md.append(f'- {line}')
-        look.append(line)
+        info['out'].append(side)
+        if name != then_sweep or side not in then_out:
+            look.append(line)
     md.append('')
-    return md, look
+    return md, look, info
 
 
 def main():
@@ -216,9 +275,12 @@ def main():
                        + (f'{len(moved)} of {len(other)} entries changed.' if moved else 'none changed.'), '']
                 md += [f'- {e}: ' + ', '.join(f'{c:.3f}' for c in ch) for e, ch in moved[:60]] + ([''] if moved else [])
 
-    band_md, band_look = band_part()
+    last_night = previous(root, name, 'report.json')
+    then_band = json.load(open(os.path.join(last_night, 'report.json'))).get('band') if last_night else None
+    band_md, band_look, band_info = band_part(sha=sha, then=then_band)
     md += band_md
     report['look'] += band_look
+    report['band'] = band_info
 
     report['ran'] = ran
     md += ['## To look at', ''] + ([f'- {x}' for x in report['look']] or ['Nothing new.']) + ['']
