@@ -66,6 +66,8 @@ namespace TW.Tests
             ["InputFocus.Modal"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.Listening"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.escapeFrame"] = "a frame stamp, cleared by SceneStatics.Reset on every scene load",
+            ["InputFocus.Typing"] = "cleared by SceneStatics.Reset on every scene load",
+            ["InputFocus.captureFrame"] = "a frame stamp, cleared by SceneStatics.Reset on every scene load",
             ["ProfileStore.current"] = "the backing field of Current, above",
             ["ProfileStore.Writable"] = "whether this process may write profile.json (the live editor/play rule)",
             ["PropHandle.All"] = "the prop handles in the scene, kept by their own OnEnable/OnDisable (editor stand-ins)",
@@ -162,6 +164,8 @@ namespace TW.Tests
             "ProvingGround.AiPresets", "AssetScaleReport.Grounds", "AssetScaleTable.rules", "BattlefieldKit.EnvSets",
             "ProceduralSoldier.Pivot", "ObjectiveTracker.pct", "DeathMarks.timesCache",
             "TrenchOrderCluster.countCache", "TrenchOrderCluster.menCache", "FxQuality.Names",
+            "BenchLineup.Men", "BenchLineup.Machines", "BenchLineup.Bursts", "TankModel.HeldFeet",
+            "TankRenderer.HopLegsLod", "TankRenderer.HopLegsWithin", "FeedbackScreen.RequiredNames",
         };
 
         /// <summary>Types SceneStatics.ResetSession resets directly rather than through a registration.</summary>
