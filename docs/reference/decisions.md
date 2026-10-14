@@ -249,25 +249,10 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-10 | **Not landed means the row is not in this file, and a line that quotes two rows has a click for each.** Eight lines had been marked Not landed after their rows were already here. The flag stays on the day's 11 percent budget and on the unit-look quote on the goals page. Neither of those is a row of its own. The frog faction on this page is the ten cards of 2026-10-07: rifleman, assault, gunner, medic, sniper, Brute, Croaker, Bullfrog, Hopper and Mercy. The units line also opens the 3d-model row, and the deaths line also opens the blood row. (corrected after the page scored 78 of 100) |
 | 2026-10-10 | **The goals page quotes him as Machines on each other, and the frog click opens the ten cards.** They keep a distance fitting their size, and trench crossing is not part of that work. The frogs picture and Its sources both open the ten-card row (#d-frogs), and the Hopper's flight link opens #d-hopper; none of the three opens the six-model row. The matches picture opens the row that fixes the measuring first: no unit's number is tuned, and Iron's roster is not changed. The script's buying does change. (corrected after the page scored 49 of 100) |
 | 2026-10-12 | **The Banner's front legs, firing vfx and rifle animation come first.** To the brief "The Banner by day, on film: what next?" the owner wrote in his own words: "the legs are still clipping through eachother, the front legs i mean, the firing vfx and the rifle animation can be improved". So the Banner's top and guns do not land as they are: those three change first, and only then is landing asked again. (owner, 2026-10-12 10:47, on the Decide page; taken up on `lane/show/banner-day-film` 2026-10-13) |
+| 2026-10-14 | **It is the flame's lay: (c). The Banner fires one gun and the point is right; the card is laid wrong.** The question of 2026-10-14 (which barrel is the gun, and does the upper one ever fire) is answered by the owner's own close frame the side-on close frame of 2026-10-14 (the evidence folder _evidence-banner-fire-2026-10-14 on the Drive, side close): the tracer leaves the mouth of the barrel correctly, so the point is right, and `TankSpec.Banner` keeps `GunCount = 1` firing from Gun_Lower's `Socket_Muzzle`. What is off is the flame's picture: its bright wide root hangs below and ahead of the mouth and only its thin tip touches the tracer about one and a half barrel-mouths out - a quarter turn plus an offset of about the card's own half size. So neither (a) `GunCount = 2` plus new art nor (b) moving the socket to Gun_Upper is built; (c) is: the flame's root must touch the mouth and its tip point away along the bore, from every eye. The mesh-derived mouth of 009cbb18e and MachineMuzzleTests stay, being right in themselves. Taken up on `lane/show/banner-day-film` as `banner-fire-on-the-mouth`. (read off the owner's evidence frame, 2026-10-14) |
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
-- **Which barrel is the Banner's gun, and does the upper one ever fire? (2026-10-14):** the owner, on the close frame
-  5-5-new-close-0332.png: "its visually still off, line it up properly". Measured on the drawn model: the Banner's two
-  stacked barrels (Gun_Lower part 15, Gun_Upper part 16) are BOTH gun 0, and only Gun_Lower carried Socket_Muzzle, so
-  gun 1 had no part at all and MuzzleWorld drew its whole shot from its last-ditch point, 290.5 cm off the mouth of
-  Gun_Upper, in open air beside the machine. That is fixed on `lane/show/banner-day-film`: a gun with no muzzle socket
-  now reads its mouth off the mesh of the barrel that fires it, and MachineMuzzleTests holds it for every machine in
-  the roster (the Banner's gun 1 was the only one that drew from the last-ditch point). BUT `TankSpec.Banner` has
-  `GunCount = 1`, so nothing in a match ever fires gun 1: the refilmed side film logs `recoil 0.59 0.00` and is frame
-  for frame the film of 2026-10-14 that he rejected. So the daylight he is looking at is drawn by gun 0, which has
-  always sat exactly on its own socket (0.0 cm, BannerFireFitTests), and one more thing must change for the picture to
-  change. Options: (a) the Banner fires both barrels - `GunCount = 2` plus its own Socket_Muzzle on Gun_Upper at
-  import, which is a SIM change and new art and lands first on a SIM lane; (b) the socket on Gun_Lower is on the wrong
-  barrel of the pair and should be cut on Gun_Upper, an art/import change alone; (c) the flame's own size or sheet is
-  what reads as off the gun, not where it starts. Nobody to ask in this run: the default taken is to land nothing and
-  post no brief, because the first option of the Banner brief is to land a picture he has already rejected. The fix and
-  its tests are committed untagged on the lane.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
   folded its own foot into its own thigh (0.015 m, where its mirrored twin kept 0.453 m), and the gait now holds that
