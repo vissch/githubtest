@@ -70,11 +70,14 @@ namespace TW.Sim.Match
         {
             Archetype = VehicleArchetype.Skimmer,
             Roster = new RosterEntry { Archetype = VehicleArchetype.Skimmer, Cost = 180, Hp = 1300f, Speed = 3.4f, CooldownTicks = 420, IsVehicle = true, Chassis = ChassisKind.Tracked },
-            // it hunts light machines with its machine gun (12 mm beats a Salvo's or a Skimmer's side and rear, never a Maw's
-            // front) and looks down into a trench it drives up to, as a charging Breaker does (the balance critic, 2026-09-28)
+            // it hunts light machines with its machine gun. 14 mm (the owner, 2026-10-07: "a heavier gun (14 mm): it then
+            // goes through a Tusk's side, so flanking pays; also through a Maw's front") beats a Salvo's or a Skimmer's
+            // plate anywhere, a Maw's front (12), and a Tusk's, a Breaker's or a Pavise's side (12/12/13); a Tusk's front
+            // (16) and its turret side (16) stay shut, so the Skimmer must flank. It also looks down into a trench it
+            // drives up to, as a charging Breaker does (the balance critic, 2026-09-28)
             Infantry = new InfantrySpec { Group = OrderGroup.Line, HuntsArmour = true, LooksDownMetres = CombatTables.ChargeRevealRange },
             // the machine gun in its turret: fired by the small-arms systems (TargetAcquisition reads its range here)
-            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f * CombatTables.RangeScale, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 12f },
+            Weapon = new WeaponStats { Id = VehicleArchetype.Skimmer, Damage = 24f, RangeMax = 130f * CombatTables.RangeScale, RoundsPerSecond = 6f, Accuracy = 0.30f, SuppressionPerShot = 10f, PenetrationMm = 14f },
             Machine = new TankSpec
             {
                 Hull = new ArmorProfile { FrontMm = 8f, SideMm = 6f, RearMm = 5f, TopMm = 5f },

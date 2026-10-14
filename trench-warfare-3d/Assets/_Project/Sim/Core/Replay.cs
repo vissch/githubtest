@@ -206,6 +206,11 @@ namespace TW.Sim
         // (the owner, 2026-10-06: "the rocket truck is very slow in reloading"). The wait a player counts from the
         // last rocket of one rack to the first of the next falls from 15.10 s to 10.10 s; the rack's own 1 s is
         // unchanged. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
+        // v38 (2026-10-14, the Skimmer's heavier gun): the Skimmer's machine gun pierces 14 mm, not 12 (the owner,
+        // 2026-10-07: it goes through a Tusk's side and a Maw's front), so the match's unit table and the combat
+        // catalogue, whose fingerprints fold into every tick's hash, are not the ones v37 recorded against: a v37
+        // replay does not replay. Layout and hash chain unchanged. Renumbered at landing if another sim lane lands
+        // 38 first.
         public const ushort FormatVersion = 64;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
