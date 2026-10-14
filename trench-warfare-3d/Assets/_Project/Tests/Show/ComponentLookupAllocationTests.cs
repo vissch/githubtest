@@ -42,6 +42,10 @@ namespace TW.Tests
         // "all three are free" finding was void until re-measured with a counter that sees allocations (2026-09-23).
         static double PerCall(Action call, int warm, int reps) => AllocProbe.PerCall(call, warm, reps);
 
+        /// <summary>[TS4] The Camera.main measurement here used to run with no MainCamera-tagged camera in the scene,
+        /// so it timed the NOT-FOUND path: a miss, which is the one path CombatFx.OnSimEvent never takes in a battle.
+        /// The found path — the one that walks the tagged objects and hands back a Camera — had never been measured at
+        /// all. Both are measured now, and both must be free.</summary>
         [Test]
         public void PerEventComponentLookupsAreFree()
         {
@@ -53,10 +57,22 @@ namespace TW.Tests
 
                 double byInterface = PerCall(() => { cam.TryGetComponent<IZoomSource>(out _); }, 100, 2000);
                 double byConcrete = PerCall(() => { cam.TryGetComponent<StubZoom>(out _); }, 100, 2000);
-                double cameraMain = PerCall(() => { var c = Camera.main; }, 100, 2000);
+
+                // untagged still: this is Camera.main when it finds nothing, which is what this file used to measure
+                double cameraMainMissing = PerCall(() => { var c = Camera.main; }, 100, 2000);
+
+                // and now the path a running battle takes: a tagged, enabled camera that Camera.main hands back
+                // (which camera it hands back is the scene's business — a battle scene loaded by another test in the
+                //  same run has its own Main Camera — so what matters here is only that it finds one)
+                go.tag = "MainCamera";
+                Assert.IsNotNull(Camera.main, "[TS4] Camera.main still finds nothing with a tagged, enabled camera in " +
+                                              "the scene, so the measurement below would be the not-found path again");
+                double cameraMainFound = PerCall(() => { var c = Camera.main; }, 100, 2000);
 
                 string line = $"allocations per call — TryGetComponent<IZoomSource> {byInterface:0.###}, " +
-                              $"TryGetComponent<StubZoom> {byConcrete:0.###}, Camera.main {cameraMain:0.###}";
+                              $"TryGetComponent<StubZoom> {byConcrete:0.###}, " +
+                              $"Camera.main (not found) {cameraMainMissing:0.###}, " +
+                              $"Camera.main (found) {cameraMainFound:0.###}";
                 TestContext.WriteLine(line);
 
                 // One allocation a call, at hundreds of Shot events a tick, is the scale that started this hunt.
@@ -65,8 +81,11 @@ namespace TW.Tests
                     "an interface-typed TryGetComponent now allocates where it used to be free. CombatFx.OnSimEvent " +
                     "calls one on every Shot and every Death event, so this is suddenly a real per-event cost and " +
                     $"the callers need the lookup hoisted out of the event handler. {line}");
-                Assert.That(cameraMain, Is.EqualTo(0),
-                    $"Camera.main now allocates; CombatFx.OnSimEvent reads it per event. {line}");
+                Assert.That(cameraMainMissing, Is.EqualTo(0),
+                    $"[TS4] Camera.main now allocates when it finds nothing; CombatFx.OnSimEvent reads it per event. {line}");
+                Assert.That(cameraMainFound, Is.EqualTo(0),
+                    $"[TS4] Camera.main now allocates when it DOES find the camera, which is the path every battle " +
+                    $"takes; CombatFx.OnSimEvent reads it per event. {line}");
             }
             finally
             {

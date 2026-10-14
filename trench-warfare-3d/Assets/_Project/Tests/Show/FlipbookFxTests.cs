@@ -62,5 +62,27 @@ namespace TW.Tests
                 Object.DestroyImmediate(go);
             }
         }
+
+        /// <summary>[TS2] ColumnLightTests and ColumnPlayTests open on Assume.That(fx.Ready): a missing flipbook sheet
+        /// or shader turns both Inconclusive, which the gate does not fail on, and no test anywhere asserted
+        /// FlipbookFx.Ready. This is that assertion, so a sheet that goes missing is one red test rather than a silent
+        /// pair of skips.</summary>
+        [Test]
+        public void TheFlipbookShaderAndSheetsLoadInTheEditor()
+        {
+            var fx = new FlipbookFx();
+            try
+            {
+                Assert.IsTrue(fx.Ready, "[TS2] the flipbook shader and sheets load in the editor");
+            }
+            finally
+            {
+                // DestroyImmediate: Dispose's Object.Destroy is not allowed in edit mode
+                var mats = (Material[])typeof(FlipbookFx).GetField("mats", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
+                foreach (var m in mats) if (m != null) Object.DestroyImmediate(m);
+                var quad = (Mesh)typeof(FlipbookFx).GetField("quad", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
+                if (quad != null) Object.DestroyImmediate(quad);
+            }
+        }
     }
 }

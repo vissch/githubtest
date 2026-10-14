@@ -75,7 +75,7 @@ namespace TW.Tests
             var fx = new FlipbookFx();
             try
             {
-                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
+                Assert.IsTrue(fx.Ready, "[TS2] the flipbook shader and sheets load in the editor");
                 var mats = (Material[])typeof(FlipbookFx).GetField("mats", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
                 var before = new float[mats.Length];
                 for (int b = 0; b < mats.Length; b++) before[b] = mats[b].GetFloat("_BurstLit");

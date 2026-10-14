@@ -97,7 +97,7 @@ namespace TW.Tests
             var fx = new FlipbookFx();
             try
             {
-                Assume.That(fx.Ready, "the flipbook shader and sheets load in the editor");
+                Assert.IsTrue(fx.Ready, "[TS2] the flipbook shader and sheets load in the editor");
                 fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife);
                 fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife, cut: 0f);
                 fx.Add(FlipbookFx.Book.Column, Vector3.zero, 4f, OldLife, cut: 1f);

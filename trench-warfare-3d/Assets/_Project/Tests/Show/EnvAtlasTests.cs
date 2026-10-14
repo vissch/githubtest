@@ -72,5 +72,51 @@ namespace TW.Tests
             Assert.AreEqual(BattlefieldKit.EnvCols, int.Parse(grid.Groups[1].Value), "EnvCols vs the packer's COLS");
             Assert.AreEqual(BattlefieldKit.EnvRows, int.Parse(grid.Groups[2].Value), "EnvRows vs the packer's ROWS");
         }
+
+        [System.Serializable]
+        sealed class BakeRecord
+        {
+            public string[] sets;
+            public int cols;
+            public int rows;
+            public int cell;
+            public string atlas;
+            public string atlas_sha256;
+        }
+
+        /// <summary>
+        /// [TS3] The two tests above read the lists; neither reads the ATLAS. Both lists can be reordered together,
+        /// agreeing with each other and disagreeing with the sheet that was baked from the old order: every set then
+        /// samples its neighbour's cell, and nothing goes red. So the packer records what it laid down
+        /// (Tools/envatlas.bake.json: the sets in order, the grid, and the sha256 of the file it saved) and this
+        /// compares that record with the lists now in the code and with the bytes now on disk. Reorder either source
+        /// without rerunning `python Tools/envatlas.py` and this is the test that says so.
+        /// </summary>
+        [Test]
+        public void The_Baked_Atlas_Is_The_One_The_Current_Lists_Would_Bake()
+        {
+            string root = Path.Combine(Application.dataPath, "..");
+            string sidecar = Path.Combine(root, "Tools", "envatlas.bake.json");
+            Assert.IsTrue(File.Exists(sidecar),
+                "[TS3] Tools/envatlas.bake.json is missing — run: python Tools/envatlas.py --sidecar");
+            var baked = JsonUtility.FromJson<BakeRecord>(File.ReadAllText(sidecar));
+            Assert.IsNotNull(baked, "[TS3] Tools/envatlas.bake.json did not parse");
+
+            Assert.That(baked.sets, Is.EqualTo(BattlefieldKit.EnvSets),
+                "[TS3] the atlas on disk was baked from a different order of sets than BattlefieldKit.EnvSets reads — " +
+                "rerun: python Tools/envatlas.py");
+            Assert.AreEqual(BattlefieldKit.EnvCols, baked.cols, "[TS3] the atlas was baked on a different COLS");
+            Assert.AreEqual(BattlefieldKit.EnvRows, baked.rows, "[TS3] the atlas was baked on a different ROWS");
+
+            string atlas = Path.Combine(root, "Assets", "_Project", "Resources", "Env", "EnvAtlas.jpg");
+            Assert.IsTrue(File.Exists(atlas), "[TS3] Assets/_Project/Resources/Env/EnvAtlas.jpg is missing");
+            string sha;
+            using (var hash = System.Security.Cryptography.SHA256.Create())
+            using (var stream = File.OpenRead(atlas))
+                sha = System.BitConverter.ToString(hash.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+            Assert.AreEqual(baked.atlas_sha256, sha,
+                "[TS3] EnvAtlas.jpg is not the file the record was written for: either the atlas was rebaked without " +
+                "the sidecar, or the sidecar was written for another atlas — rerun: python Tools/envatlas.py --sidecar");
+        }
     }
 }
