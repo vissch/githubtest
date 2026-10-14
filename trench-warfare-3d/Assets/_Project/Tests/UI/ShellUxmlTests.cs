@@ -494,7 +494,7 @@ namespace TW.Tests
                 MatchLaunch.Apply(host);
                 Assert.That(host.PeerDeployEveryTicks, Is.EqualTo(1), "a zero interval would divide by zero in SimHost");
             }
-            finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
+            finally { MatchLaunch.Current = null; MatchLaunch.Apply(null); UnityEngine.Object.DestroyImmediate(go); }   // [T42]
         }
 
         // [found-guard-gamelogo-fill-against-an-element-carry-20261108-3] a modifier beside its base class: the flat
