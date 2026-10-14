@@ -6,6 +6,7 @@ docs, the editor slot, the builds and the network are never touched.
 """
 import contextlib, datetime, importlib.util, io, json, os, shutil, subprocess, sys, tempfile, time, unittest
 sys.dont_write_bytecode = True
+import pathlib
 from pathlib import Path
 
 NL = chr(10)
@@ -412,11 +413,26 @@ class AosaTest(unittest.TestCase):
         self.assertIn("compare cand base", out)
         self.assertEqual(self.run_cli("bench", "cand", "--editor", "--against", "base", "--dry-run")[0], 2)
 
-    def test_bench_dry_run_editor_ignores_shared_slot(self):
-        slot = self.tmp / "lad" / "TrenchWarfare" / "editor-slot.json"
-        slot.parent.mkdir(parents=True)
-        slot.write_text(json.dumps({"who": "claude-7", "why": "", "since": time.time(), "until": time.time() + 600}))
-        # the shared slot queues the MAIN clone's editor: someone else holding it never blocks the loop's own editor
+    # [H11] the slot is per checkout (editor_lock.slot_path digests the project path), so a claim on THIS tree's
+    # project is this tree's own slot: status must report its holder, not call it the main clone's and dismiss it.
+    def test_h11_a_claim_on_this_trees_slot_is_reported_not_called_the_main_clones(self):
+        el = aosa.load_module("editor_lock", aosa.TOOLS / "editor_lock.py")
+        project = pathlib.Path(os.environ["TW_PROJECT"])
+        slot = el.slot_path(project)
+        slot.parent.mkdir(parents=True, exist_ok=True)
+        slot.write_text(json.dumps({"who": "claude-7", "why": "captures", "since": time.time(),
+                                    "until": time.time() + 600}), encoding="utf-8")
+        self.assertIsNotNone(el.read_slot(project), "[H11] the fixture claim must be where editor_lock looks")
+
+        free, text, read = aosa.editor_state()
+        self.assertEqual((read or {}).get("who"), "claude-7", "[H11] status did not read this tree's own slot")
+        self.assertIn("claude-7", text, "[H11] status does not name the holder of this tree's slot")
+        self.assertNotIn("main clone", text,
+                         "[H11] status still calls this tree's own slot the main clone's")
+        self.assertNotIn("does not concern this tree", text,
+                         "[H11] status still dismisses a claim on this tree's own slot")
+
+        # the old half: the slot is advisory, so it never blocks the loop's own editor
         code, out = self.run_cli("bench", "e", "--editor", "--dry-run")
         self.assertEqual(code, 0, out)
         self.assertIn('TW.Editor.CaptureRig.Bench(', out)
