@@ -18,12 +18,15 @@ namespace TW.Tests
         [UnityTest]
         public IEnumerator APoppedScreenLeavesThePanel()
         {
-            bool boot = ShellBoot.Disabled; ShellBoot.Disabled = true;
+            // [T42] the assert on the loaded assets runs before anything that needs restoring on failure
             var assets = ShellAssets.Load();
             Assert.That(assets != null && assets.Panel != null && assets.MainMenu != null, "ShellAssets missing: run TW/UI/Build Shell Assets");
-            var go = new GameObject("shell router test");
+            bool boot = ShellBoot.Disabled;
+            GameObject go = null;
             try
             {
+                ShellBoot.Disabled = true;
+                go = new GameObject("shell router test");
                 var doc = go.AddComponent<UIDocument>();
                 doc.panelSettings = assets.Panel;
                 var router = go.AddComponent<ShellRouter>();
@@ -68,16 +71,19 @@ namespace TW.Tests
         [UnityTest]
         public IEnumerator ClearingTheStackUnbindsWithoutUncovering()
         {
-            bool boot = ShellBoot.Disabled; ShellBoot.Disabled = true;
+            // [T42] the assert on the loaded assets runs before anything that needs restoring on failure
             var assets = ShellAssets.Load();
             Assert.That(assets != null && assets.Panel != null && assets.MainMenu != null, "ShellAssets missing: run TW/UI/Build Shell Assets");
             // a router left by an earlier test keeps this one's Awake from binding (Instance wins and destroys it):
             // Destroy is deferred to the end of the frame, so take the frame
             if (ShellRouter.Instance != null) { Object.Destroy(ShellRouter.Instance.gameObject); yield return null; }
-            var go = new GameObject("shell router cleardown test");
+            bool boot = ShellBoot.Disabled;
             var mask = HudBridge.PointerOverUi;
+            GameObject go = null;
             try
             {
+                ShellBoot.Disabled = true;
+                go = new GameObject("shell router cleardown test");
                 var doc = go.AddComponent<UIDocument>();
                 doc.panelSettings = assets.Panel;
                 var router = go.AddComponent<ShellRouter>();
@@ -120,14 +126,17 @@ namespace TW.Tests
         [UnityTest]
         public IEnumerator A_Pop_Takes_The_Screen_Off_The_Panel()
         {
-            bool boot = ShellBoot.Disabled; ShellBoot.Disabled = true;
+            // [T42] the assert on the loaded assets runs before anything that needs restoring on failure
             var assets = ShellAssets.Load();
             Assert.That(assets != null && assets.Panel != null && assets.MainMenu != null, "ShellAssets missing: run TW/UI/Build Shell Assets");
             if (ShellRouter.Instance != null) { Object.Destroy(ShellRouter.Instance.gameObject); yield return null; }
-            var go = new GameObject("shell router pop test");
+            bool boot = ShellBoot.Disabled;
             var mask = HudBridge.PointerOverUi;
+            GameObject go = null;
             try
             {
+                ShellBoot.Disabled = true;
+                go = new GameObject("shell router pop test");
                 var doc = go.AddComponent<UIDocument>();
                 doc.panelSettings = assets.Panel;
                 var router = go.AddComponent<ShellRouter>();

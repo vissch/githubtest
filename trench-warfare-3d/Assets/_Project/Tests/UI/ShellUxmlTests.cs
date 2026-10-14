@@ -470,7 +470,7 @@ namespace TW.Tests
                 MatchLaunch.Apply(host);
                 Assert.That(host.PeerDeployEveryTicks, Is.EqualTo(1), "a zero interval would divide by zero in SimHost");
             }
-            finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
+            finally { MatchLaunch.Current = null; MatchLaunch.Apply(null); UnityEngine.Object.DestroyImmediate(go); }   // [T42]
         }
 
         [Test]
