@@ -312,6 +312,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **A wreck's shadow is narrowed to the firing line: (a), the half-width.** The owner, to "A wreck's shadow: narrow it to match its reach, or keep it wide and fix the words": "Narrow the shadow to match the firing line, and let the guns-holding-position test be re-tuned to the new number". So (a) is built — `Shelter.Body` and the shelter's reach both come from one `body = WreckBlastReach * 0.5f * size` (`6bd7e8d89`, replay v53, `WreckDecayTests.AManOffTheLineButInsideTheOldBodyIsNotKeptDown`) — and `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` is re-tuned to the narrower shadow's measured ratio, not the body widened back. Built on this lane as `[narrow-wreck-shadow-firing-line]`. (owner, 2026-10-16, on the Decide page) |
 | 2026-10-19 | **R2 C2.** **For 13 hours the relay works on the character sim: the special units' own looks and animation, their VFX, the ability and water effects, and deaths and fun animation; what was already accepted gets a harsh critique first and its fixes are queued.** The owner, 2026-10-19 about 09:00, in chat: "for the next 13 hours, focus more on the character sim, make sure all the different speciality units have their proper sims and animation, also make sure they all have the proper vfx and that it looks proper, also work on environment like the special ability vfx go over those, the water, the death and fun animation related stuff, if things are already accepted for the sim throw a harsh critique agent over them and use the feedback to improve." Three tw-critic rounds scored the accepted work 27 (deaths and fun animation), 31 (special-unit looks and weapon VFX) and 29 (ability and water VFX). Thirteen units were queued on the main board, each on its own lane: critic fixes at priority 20-27 (balloon-frog-reads, ability-fx-captures, water-entry-splash, rocketed-man-planted, flame-jet-core, paradrop-inbound-marker, muzzle-flash-scale) and gaps at 30-38 (flamer-look, sentry-look, atrifle-look, sapper-look, frog-death-flop, trench-taken-cheer). Not queued: the ParaDrop canopy (owner question Q8), Hopper flight (a sim change), and the critic's board rule that no idea passes under 70 (a pipeline change, so it is proposed, not queued). Score: R3 the board, R4 thirteen units likely pass 2% of the week; C1 many units, C3 what the player sees. |
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
+| 2026-10-13 | **The ridge's slope starts at each stretch of the crest trench's own line.** The owner, to the brief "The Ridge's crest trench sits behind its crest: which fix?": "A: The slope starts at each stretch of trench's own line: the trench keeps its bends and sees down the slope". The profile's plateau ends at the crest trench's own line per nav column, so the ground in front of each stretch falls from that stretch's line and not from one z across the field; the trench keeps its wander. Declined: (b) ruling the crest trench straight to fit one z, and (c) keeping the lipped crest and dropping the sight checks. Built on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground` as a second seam commit. (owner, 2026-10-13, on the Decide page) |
 
 ## Open: waiting on the owner
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
@@ -344,21 +345,29 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
-- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
-  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
-  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
-  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
-  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
-  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
-  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
-  trench line cannot be made to agree column by column.
-  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
-  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
-  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
-  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
-  sight checks, accepting a lipped crest.
-  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
-  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
+- **The ridge's proof measures the trench's carved floor, so two of its six bars cannot pass (2026-10-14, the sim
+  lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).** The owner's fix A is built: the profile's
+  plateau now ends at the crest trench's own line per nav column. It does what he asked - on all eight seeds the
+  crest now sees the foot of its own slope and the hollow does not see 30 m behind the crest
+  (`TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` passes, where it failed before), and
+  `TheCrestStandsNineMetresOverTheHollow`, `TheSlopeIsGentle` and `BothSidesStillReachEachOther` pass too.
+  Two bars in the parked proof still fail, and no change to the ground can make them pass:
+  `NoFlatLipBeforeTheCrest` asks that the ground 2 m in front of the crest line stand 0.5 m below "the platform",
+  but what it samples at the line is the trench's **carved floor** (`AddFireTrench` cuts 1.8 m down across the
+  trench's cells and gives the fire step 0.7 m back), and 2 m in front of the line is still inside the trench, on
+  that fire step. Measured on all eight seeds: every one of the 55 columns is under the bar, worst -0.38 to -0.56 m;
+  measured from the trench's own front edge against open ground it is still -0.56 to +0.22 m. The design's bank
+  falls 0.303 m per metre, so 2 m of ground can never be 0.5 m below a floor 1.8 m down. `TheBankIsSteep` has the
+  same cause: the crest's mean height is the carved floor, so the fall to z 153..157 is 3.41 to 4.98 m over the
+  eight seeds (4.0 m is the bar; 1917 gives 3.95). The ground is right; the two bars measure the wrong datum.
+  Options: (a) measure both against the parapet (the trench's raw platform: the floor + 1.8 m, or the open ground
+  just outside the levelled shelf) and keep the 0.5 m and 4.0 m numbers, which is what the design's prose means;
+  (b) keep the datum and lower the bars to what the carve leaves (about -0.6 m and 3.4 m), which tests nothing;
+  (c) carve the crest trench shallower so its floor rides higher, which changes every trench on every map.
+  The agent's default, taken as nothing may weaken a bar: NOTHING. The ground change is committed (the seam) and the
+  proof is NOT: it is parked at
+  `C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261008-231452-46128/desk/05/RidgeTests.cs`. (a) is the one
+  that keeps the idea. No `[ridge-own-line]` tag was put on the lane: the proof is not green.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
