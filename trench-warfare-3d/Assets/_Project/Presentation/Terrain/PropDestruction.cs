@@ -176,6 +176,18 @@ namespace TW.Presentation.Terrain
             BuildRules(props.Kit);
         }
 
+        /// <summary>Tests only (PropWearTests): the rule this module is really given, so a test of the calibration reads
+        /// the table instead of retyping its numbers. The table is private and built from the kit, so this is the only way
+        /// a retuned Hp or Erode can show up in a test of how long a thing takes to shoot away.</summary>
+        public bool RuleForTests(BattlefieldKit kit, BattlefieldKit.Module m, out float hp, out float erode)
+        {
+            if (rules == null) BuildRules(kit);
+            hp = 0f; erode = 0f;
+            if (m == null || !rules.TryGetValue(m, out var rule)) return false;
+            hp = rule.Hp; erode = rule.Erode;
+            return true;
+        }
+
         /// <summary>Tests only: a strike at a point, as an Explosion of this reach and power would make.</summary>
         public void StrikeForTests(Vector3 at, float reach, float power) => Strike(at, reach, power, 1u, false);
         /// <summary>Tests only: lining pieces the last strike threw (its ration, MaxSectionPiecesPerStrike).</summary>
