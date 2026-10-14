@@ -31,6 +31,29 @@ Some preamble that must survive `age`.
 Trailing text after the table.
 """
 
+# Three cards of the same class, size and age, one per family of the owner's order: the look card scores highest and
+# the main_ms card lowest, so only the order decides who comes first.
+ORDER_BACKLOG = """# AOSA backlog
+
+| id | class | tier | metric: now -> target | predicted delta | evidence | size | owner | age | idle | status |
+|---|---|---|---|---|---|---|---|---|---|---|
+| D01 | cull | T1 | main_ms: ? -> -0.05 | -0.05 | trace | S | loop | 0 | 0 | ready |
+| D02 | cull | T1 | gpu_ms: ? -> -2.0 | -2.0 | frame debugger | S | loop | 0 | 0 | ready |
+| D03 | cull | T1 | critic | +4 | critic run | S | loop | 0 | 0 | ready |
+"""
+
+# The owner's order, written once and read everywhere (docs/reference/decisions.md, row 2026-10-08; ASK A02).
+ORDER_SENTENCE = ("**Which number wins** (owner, 2026-10-08, ASK A02): `main_ms` p95 first, `gpu_ms` p95 second, "
+                  "the T1 critic score third; and the picture never gets worse unseen -- rules 5, 6 and 7 are "
+                  "vetoes, never traded for a faster frame.")
+ORDER_DOCS = ["docs/reference/aosa/README.md", "docs/reference/aosa/ASK.md",
+              "docs/reference/aosa/agents/cycle.md", "docs/reference/aosa/agents/diagnoser.md",
+              "docs/reference/aosa/agents/patch-author.md", "docs/reference/aosa/agents/critic.md",
+              "docs/reference/aosa/agents/juice-director.md", "docs/reference/aosa/agents/lander.md",
+              "docs/reference/aosa/agents/retrospective.md",
+              ".claude/skills/tw-optimizer/SKILL.md",
+              ".claude/skills/tw-optimizer/references/aosa-and-perf.md"]
+
 
 def report(label, build="development", hs="AAAA", he=None, main=8.0, gpu=5.0, draws=330, alive=1681, vat=1.5e6,
            knobs=None, gpu_name="RTX 4070"):
@@ -264,6 +287,24 @@ class AosaTest(unittest.TestCase):
         self.assertEqual(sum(1 for c in ("C04", "C05") if c in picked), 1)  # one juice card at most
         self.assertIn("SPLIT", [l for l in out.splitlines() if "C03" in l][0])
         self.assertIn("measure next", [l for l in out.splitlines() if "C02" in l][0])
+
+    def test_pick_order_cpu_then_gpu_then_look(self):
+        self.put("BACKLOG.md", ORDER_BACKLOG)
+        code, out = self.run_cli("pick", "--n", "1")
+        self.assertEqual(code, 0, out)
+        rows = [l.split() for l in out.splitlines() if l.startswith(("*", " "))]
+        ids = [r[1] if r[0] == "*" else r[0] for r in rows]
+        self.assertEqual(ids, ["D01", "D02", "D03"])   # main_ms first, gpu_ms second, the critic score third
+        self.assertEqual([r[2] if r[0] == "*" else r[1] for r in rows], ["0", "1", "2"])
+        self.assertIn("picked: D01", out)              # although D02 and D03 score higher
+        scores = {(r[1] if r[0] == "*" else r[0]): float(r[-1]) for r in rows}  # no note, so the score is last
+        self.assertLess(scores["D01"], scores["D02"])
+        self.assertLess(scores["D01"], scores["D03"])
+
+    def test_the_order_is_written_in_the_same_words_everywhere(self):
+        for rel in ORDER_DOCS:
+            text = (aosa.REPO / rel).read_text(encoding="utf-8")
+            self.assertEqual(text.count(ORDER_SENTENCE), 1, rel)
 
     def test_age(self):
         self.put("BACKLOG.md", BACKLOG)

@@ -59,6 +59,25 @@ def metric_scale(metric):
     return 1.0
 
 
+# Which number wins (owner, 2026-10-08, ASK A02): main_ms p95 first, gpu_ms p95 second, the T1 critic score third.
+# The order as data: a lower number is picked first. 3 is a metric none of these names, so it cannot be placed and
+# sorts last. The picture never gets worse unseen: rules 5, 6 and 7 are vetoes, never traded for a faster frame, and
+# they live in verdict(), not here.
+METRIC_PRIORITY = [("main_ms", 0), ("cpu_frame_ms", 0), ("per_tick", 0), ("worst_frame", 0), ("gc_bytes", 0),
+                   ("gpu_ms", 1), ("draw_calls", 1), ("setpass", 1), ("frame_budget_draws", 1),
+                   ("frame_budget_vertices", 1), ("vat_vertices", 1), ("texture_mb", 1),
+                   ("score", 2), ("critic", 2), ("moment", 2), ("env", 2), ("rig", 2)]
+UNPLACED_PRIORITY = 3
+
+
+def metric_priority(metric):
+    m = (metric or "").strip().lower()
+    for key, prio in METRIC_PRIORITY:
+        if key in m:
+            return prio
+    return UNPLACED_PRIORITY
+
+
 def card_metric(c):
     return (c.get("metric") or "").split(":")[0]
 LEDGER_COLS = ["cycle", "utc", "mode", "cards", "attempts", "result", "gate", "commit", "usd", "note"]
@@ -1009,6 +1028,7 @@ def cmd_pick(a):
         c["_est"] = p is None
         c["_pred"] = abs(p) / metric_scale(card_metric(c)) if p is not None else typical
         c["_hit"], c["_cost"] = hit, cost
+        c["_prio"] = metric_priority(card_metric(c))
         c["_score"] = hit * c["_pred"] / max(cost, 1)
         cal = pr.get("calibration")
         c["_bad_cal"] = cal is not None and not (0.5 <= cal <= 2) and c["class"] != "instrument"
@@ -1017,10 +1037,13 @@ def cmd_pick(a):
                      (" demoted: calibration %.2f" % cal if c["_bad_cal"] else "") + (" est. delta" if c["_est"] else "")
     inst = [c["_score"] for c in cand if c["class"] == "instrument"]
     floor = min(inst) if inst else None
+    inst_prio = max([c["_prio"] for c in cand if c["class"] == "instrument"], default=None)
     for c in cand:
         if c["_bad_cal"] and floor is not None and c["_score"] >= floor:
             c["_score"] = floor * 0.999  # below every instrument card: a model that mispredicts needs measuring
-    cand.sort(key=lambda c: (-c["_score"], c["id"]))
+        if c["_bad_cal"] and inst_prio is not None:
+            c["_prio"] = max(c["_prio"], inst_prio)  # so "demoted below every instrument card" holds across families
+    cand.sort(key=lambda c: (c["_prio"], -c["_score"], c["id"]))
     picked, juice = [], 0
     for c in cand:
         if len(picked) >= a.n:
@@ -1030,13 +1053,14 @@ def cmd_pick(a):
                 continue
             juice += 1
         picked.append(c["id"])
-    print("pick: %d candidates, WIP %d/3%s; score = hit_rate x |predicted|/scale(metric) / max(cost,1)" % (
-        len(cand), wip, " (WIP cap reached)" if wip >= 3 else ""))
-    print("%-4s %-5s %-12s %-6s %8s %5s %5s %8s  %s" % ("pick", "id", "class", "tier", "|pred|", "hit", "cost", "score", "note"))
+    print("pick: %d candidates, WIP %d/3%s; score = hit_rate x |predicted|/scale(metric) / max(cost,1), ranked by num"
+          " first (0 main_ms, 1 gpu_ms, 2 critic score, 3 unplaced: owner, 2026-10-08, ASK A02)" % (
+              len(cand), wip, " (WIP cap reached)" if wip >= 3 else ""))
+    print("%-4s %-5s %-3s %-12s %-6s %8s %5s %5s %8s  %s" % ("pick", "id", "num", "class", "tier", "|pred|", "hit", "cost", "score", "note"))
     for c in cand:
-        print("%-4s %-5s %-12s %-6s %8.4g %5.2f %5.3g %8.4g  %s" % (
-            "*" if c["id"] in picked else "", c["id"], c["class"], c["tier"][:6], c["_pred"], c["_hit"], c["_cost"],
-            c["_score"], c["_note"].strip()))
+        print("%-4s %-5s %-3d %-12s %-6s %8.4g %5.2f %5.3g %8.4g  %s" % (
+            "*" if c["id"] in picked else "", c["id"], c["_prio"], c["class"], c["tier"][:6], c["_pred"], c["_hit"],
+            c["_cost"], c["_score"], c["_note"].strip()))
     print("picked: " + (", ".join(picked) or "-"))
     return 0
 
