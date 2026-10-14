@@ -79,6 +79,12 @@ namespace TW.Presentation
         /// = riflemen only. Read once, in Awake, and only when the stress preset is on.</summary>
         public const string StressMixKnob = "stress.mix";
         bool stressMix = false;
+        /// <summary>Knob (record-match): 1 = record this match with the existing replay format and log the file's
+        /// path at the end of it (and when the editor leaves Play); 0 (default) = nothing is recorded and the
+        /// session is built exactly as before. Read once, in Awake. See MatchRecording.</summary>
+        bool record = false;
+        byte[] mapParams;          // what the generated field was built from, so a recording can rebuild it
+        bool recordingWritten;
 
         public MatchSim Local { get; private set; }
         /// <summary>The canary's second world. NULL in single player: tooling that wrote "both worlds" uses WriteWorlds.</summary>
@@ -124,6 +130,7 @@ namespace TW.Presentation
             {
                 var field = MatchLaunch.Field(Ground, BattlefieldSeed);
                 field.Bombardment = BombardmentOverride >= 0f ? BombardmentOverride : BombardmentPerMinute;
+                if (record) mapParams = field.Serialize();
                 return MatchSim.CreateBattlefield(cfg, field);
             }
             return PlaytestMap ? MatchSim.CreatePlaytest(cfg) : MatchSim.CreateGreybox(cfg);
@@ -135,6 +142,7 @@ namespace TW.Presentation
             if (StressOverride >= 0) StressUnits = StressOverride;
             if (StressUnits > 0) stressSpread = Knobs.Get(StressSpreadKnob, false);
             if (StressUnits > 0) stressMix = Knobs.Get(StressMixKnob, false);
+            record = MatchRecording.Wanted;
             Application.runInBackground = true;   // lockstep must keep ticking when the window loses focus (editor included)
             var cfg = SimConfig.Default;
             cfg.Seed = Seed;
@@ -144,7 +152,10 @@ namespace TW.Presentation
             cfg.FactionA = FactionA; cfg.FactionB = FactionB;
             cfg.LoadoutA = Loadout(LoadoutA); cfg.LoadoutB = Loadout(LoadoutB);
             bool canary = CanaryOverride ?? (DeterminismCanary || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twCanary") >= 0);
-            session = new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed);
+            session = record
+                ? new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed,
+                                      m => MatchRecording.For(m, cfg, mapParams))
+                : new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed);
             Local = session.Local; Peer = session.Peer; LocalDriver = session.LocalDriver; PeerDriver = session.PeerDriver;
             Presenter = new SimPresenter(cfg.MaxSlots);
             Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn, Presenter.YawIn);
@@ -164,6 +175,7 @@ namespace TW.Presentation
                 if (a) LocalStepped();
                 if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
             }
+            if (Local.World.WinnerTeam >= 0) FinishRecording();   // the match is over: write the recording once
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
             PerfMarkers.AnimAdvance.Begin(); Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
@@ -222,8 +234,21 @@ namespace TW.Presentation
         /// <summary>Reload the active scene: fresh sims, same seed.</summary>
         public void Restart() => UnityEngine.SceneManagement.SceneManager.LoadScene(gameObject.scene.buildIndex >= 0 ? gameObject.scene.buildIndex : 0);
 
+        /// <summary>Write this match's recording, once: at the end of the match, or when the host goes away (the
+        /// editor leaving Play, a restart) with no winner. Does nothing unless the option is on.</summary>
+        void FinishRecording()
+        {
+            if (recordingWritten || session?.Recorder == null) return;
+            recordingWritten = true;
+            var r = session.Recorder;
+            string path = MatchRecording.Write(r);
+            if (path != null)
+                Debug.Log($"[record-match] replay written: {path} ({r.Hashes.Count} ticks, winner {Local.World.WinnerTeam})");
+        }
+
         void OnDestroy()
         {
+            FinishRecording();
             Presenter?.Dispose();
             Animation?.Dispose();
             session?.Dispose();

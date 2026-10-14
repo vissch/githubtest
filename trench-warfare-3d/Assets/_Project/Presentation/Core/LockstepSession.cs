@@ -1,7 +1,9 @@
 // Phase: tooling (perf pass, 2026-09-23) — the match's worlds, seats and tick loop, as a plain class a test can drive.
 // Two shapes (owner decision, 2026-09-23: "one world in single player, the two-world check kept as a dev canary"):
 //   single player (default)  one MatchSim; the player's LockstepDriver and the enemy's CommandSeat on a zero-lag
-//                            loopback; the world hashes nothing, because nobody reads a hash (SimWorld.HashInterval 0).
+//                            loopback; the world hashes nothing, because nobody reads a hash (SimWorld.HashInterval 0)
+//                            -- unless the match is being recorded (MatchRecording), when it hashes every tick,
+//                            which is the per-step check that recorded match pays and no other one does.
 //   determinism canary       two MatchSims over a loopback with simulated latency, jitter and loss, every tick hashed
 //                            and compared: what every single-player session paid for until now, at twice the sim cost.
 // Both play the same match: the enemy's orders reach the player's world on the same ticks either way
@@ -31,6 +33,9 @@ namespace TW.Presentation
         /// <summary>The world the enemy reads: its own in the canary, the player's (same state, same tick) otherwise.</summary>
         public MatchSim EnemyView => Peer ?? Local;
         public ICommandSink Enemy => PeerDriver != null ? PeerDriver : (ICommandSink)EnemySeat;
+        /// <summary>The recording of this match, or null: the debug option off (MatchRecording.Knob). Non-null
+        /// means the player's world hashes every tick, which is what a replay records.</summary>
+        public ReplayRecorder Recorder { get; }
         public bool Desync { get; private set; }
         public uint DesyncTick { get; private set; }
 
@@ -40,23 +45,26 @@ namespace TW.Presentation
         readonly ulong[] localHash = new ulong[Ring], peerHash = new ulong[Ring];
         readonly uint[] localAt = new uint[Ring], peerAt = new uint[Ring];
 
-        public LockstepSession(Func<MatchSim> newMatch, bool canary, int latencyTicks, int jitterTicks, float lossChance, uint seed)
+        public LockstepSession(Func<MatchSim> newMatch, bool canary, int latencyTicks, int jitterTicks, float lossChance, uint seed,
+                               Func<MatchSim, ReplayRecorder> recorder = null)
         {
             Local = newMatch();
+            Recorder = recorder?.Invoke(Local);
             for (int k = 0; k < Ring; k++) localAt[k] = peerAt[k] = uint.MaxValue;
             if (canary)
             {
                 Peer = newMatch();
                 Net = new LoopbackNetwork(latencyTicks, jitterTicks, lossChance, seed);
-                LocalDriver = new LockstepDriver(Local.World, Net.A);
+                LocalDriver = new LockstepDriver(Local.World, Net.A, Recorder);
                 PeerDriver = new LockstepDriver(Peer.World, Net.B);
             }
             else
             {
                 Net = new LoopbackNetwork(0, 0, 0f, seed);
-                LocalDriver = new LockstepDriver(Local.World, Net.A);
+                // the recorded match keeps HashInterval 1 (and the driver demands it); every other one pays nothing
+                if (Recorder == null) Local.World.HashInterval = 0;
+                LocalDriver = new LockstepDriver(Local.World, Net.A, Recorder);
                 EnemySeat = new CommandSeat(Net.B, Local.World.Config.InputDelayTicks);
-                Local.World.HashInterval = 0;
             }
         }
 
