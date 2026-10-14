@@ -53,10 +53,17 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Presentation/Core/ScriptedEnemy.cs` (the AI). The folder decides the lane: those three are SHOW files.
   Interfaces `Net/ILockstepTransport.cs`, `Net/ICommandSink.cs`; `Net/UtpTransport.cs` is a stub (multiplayer is
   deferred).
+- **Recording a played match (2026-10-14):** `Presentation/Core/MatchRecording.cs` holds the debug option (the
+  run-time knob `replay.record`, off by default) and writes the file; with it on `SimHost` hands
+  `LockstepSession` a `ReplayRecorder` (the existing format, no new one), the session leaves the single-player
+  world's `HashInterval` at 1 for that match alone, and the path is logged at the end of the match and when the
+  editor leaves Play (`SimHost.FinishRecording`). Loading or viewing a recording is not built.
 - **Tests:** LockstepLoopbackTests, BattlefieldLockstepTests, CommandSeatTests, SinglePlayerEquivalenceTests,
+  MatchRecordingTests (the recording replays to the same hash; with the option off nothing is recorded),
   CanaryFixture (makes every PlayMode SimHost run the canary).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
-  `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.
+  `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs. A `ReplayRecorder` and a
+  world that does not hash every tick is an exception out of `LockstepDriver`'s constructor.
 
 ### The enemy (`ScriptedEnemy`, SHOW)
 - **What it does (2026-09-29):** deploys an armed man every `DeployEveryTicks` while it can pay, and keeps
@@ -986,7 +993,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, MatchRecordingTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GrenadeLookTests, GymCatalogueTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TrackDustTests, TrenchSectionTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests

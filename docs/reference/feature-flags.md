@@ -12,6 +12,10 @@ give it a reset (`SceneStatics.Register`) or a reason in `StaticLifecycleTests`,
 uses it, plus a `BenchOptions` key if the bench should set it. Something a scene or level chooses: a `SimHost`
 inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 
+**Recording a match:** the run-time knob `replay.record` (`-twknob replay.record=1`, `TW_KNOBS`, or a bench's
+`knobs=`), off by default. On, the match is recorded with the existing replay format and the file's path is logged
+at the end of it; off, nothing is recorded and nothing is slower (`Presentation/Core/MatchRecording.cs`).
+
 **Two that surprise people:**
 - `tw.hud.toolkit` is stored in the Windows registry per machine. If someone pressed F9, that machine shows the old
   IMGUI HUD while every other machine shows the UI Toolkit one.
