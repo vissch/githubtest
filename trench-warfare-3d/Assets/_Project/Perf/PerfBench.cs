@@ -74,8 +74,8 @@ namespace TW.Perf
         public BenchOptions Options = new BenchOptions();
         /// <summary>The run in progress, or null.</summary>
         public static PerfBench Running { get; private set; }
-        /// <summary>Where the last report went and how it ended (0 ok, 2 bad bench option, 3 settle timed out, 4 desync,
-        /// 5 write failed).</summary>
+        /// <summary>Where the last report went and how it ended (0 ok, 2 bad bench option, 3 a stage timed out, 4 desync,
+        /// 5 write failed, 6 a stage threw).</summary>
         public static string LastResultPath = "";
         public static int LastExitCode = -1;
 
@@ -92,6 +92,7 @@ namespace TW.Perf
             }
             if (string.IsNullOrEmpty(raw)) return;
             var o = BenchOptions.Parse(raw);
+            ClearStaleReport(o);   // F7: a hung run must not leave the previous report where a reader takes it for this one's
             // presentation knobs before the scene loads, so every Awake/Start that reads one sees the bench's value
             if (!string.IsNullOrEmpty(o.Knobs)) Knobs.Parse(o.Knobs);
             SimHost.StressOverride = o.Stress;
@@ -107,6 +108,19 @@ namespace TW.Perf
             if (o.GroundUnknown) Debug.LogError("[PerfBench] " + UnknownGroundWhy(o));   // the run stops on its first frame (WaitHost)
         }
 
+        /// <summary>F7: the report of the run before is removed as this one is armed, so a run that never reports
+        /// (a hang, a kill) leaves no file at all instead of a stale one that reads as its own.</summary>
+        static void ClearStaleReport(BenchOptions o)
+        {
+            LastResultPath = ""; LastExitCode = -1;
+            try
+            {
+                string path = Path.GetFullPath(o.Out);
+                if (File.Exists(path)) File.Delete(path);
+            }
+            catch (Exception e) { Debug.LogWarning("[PerfBench] could not remove the old report: " + e.Message); }
+        }
+
         enum Stage { WaitHost, Settle, Approach, Warm, Window, Done }
         Stage stage;
         SimHost host;
@@ -115,9 +129,10 @@ namespace TW.Perf
         Vector2 focus;
         float zoomUsed = float.NaN;   // the camera's zoom after its own clamp (Options.Zoom is what was asked)
         int waitFrames, warmLeft, alivePeak;
-        float settleDeadline, keepShake = 1f;
+        float stageDeadline, keepShake = 1f;
         uint lastTick, t0;
         ulong hashStart, hashEnd;
+        bool hashStartTaken;
         uint hashEndTick;
         bool hashEndTaken;
         readonly BenchScenarios.Log scenarioLog = new BenchScenarios.Log();
@@ -126,6 +141,18 @@ namespace TW.Perf
         bool prevTicked, allFocused = true;
         int gcCollectionsStart;
         long monoStart, monoMax;
+
+        /// <summary>F6: every stage carries a deadline, so a sim that stops ticking or a frame that never comes ends
+        /// the run with a report instead of holding the editor or the player for ever.</summary>
+        static float Budget(Stage s) => s == Stage.Settle || s == Stage.Approach ? 900f : 300f;
+
+        void Enter(Stage s)
+        {
+            stage = s;
+            stageDeadline = Time.realtimeSinceStartup + Budget(s);
+        }
+
+        void Awake() { Enter(Stage.WaitHost); }   // F6: the wait for the host has a deadline like every other stage
 
         void OnDestroy() { ReleaseClock(); if (heldFrameTimes != null) ShotLog.Clear(); if (Running == this) Running = null; }
 
@@ -138,13 +165,27 @@ namespace TW.Perf
 
         void LateUpdate()
         {
-            switch (stage)
+            // F6: no stage may run for ever, and a throw ends the run instead of wedging the stage machine
+            if (stage != Stage.Done && Time.realtimeSinceStartup > stageDeadline)
             {
-                case Stage.WaitHost: WaitHost(); break;
-                case Stage.Settle: Follow(); Settle(); break;
-                case Stage.Approach: Follow(); Approach(); break;
-                case Stage.Warm: Pose(); HideHud(); Warm(); break;
-                case Stage.Window: Pose(); HideHud(); Sample(); break;
+                Finish(3, "timed out in " + stage + " at tick " + (host != null && host.Local != null ? host.Local.World.Tick.ToString(Inv) : "?"));
+                return;
+            }
+            try
+            {
+                switch (stage)
+                {
+                    case Stage.WaitHost: WaitHost(); break;
+                    case Stage.Settle: Follow(); Settle(); break;
+                    case Stage.Approach: Follow(); Approach(); break;
+                    case Stage.Warm: Pose(); HideHud(); Warm(); break;
+                    case Stage.Window: Pose(); HideHud(); Sample(); break;
+                }
+            }
+            catch (Exception e)
+            {
+                Debug.LogException(e);
+                Finish(6, "threw in " + stage + ": " + e.Message);
             }
         }
 
@@ -184,9 +225,8 @@ namespace TW.Perf
             if (!Application.isEditor) Screen.SetResolution(Options.Width, Options.Height, FullScreenMode.Windowed);
             EventPump.ProfileSubscribers = Options.Subscribers;
             host.TimeScale = Options.FastForward;
-            settleDeadline = Time.realtimeSinceStartup + 900f;
             TakeCamera();
-            stage = Stage.Settle;
+            Enter(Stage.Settle);
             Debug.Log($"[PerfBench] settling to tick {Options.SettleTicks} at {Options.FastForward}x with {Options.Stress} a side");
         }
 
@@ -194,12 +234,11 @@ namespace TW.Perf
         {
             var w = host.Local.World;
             alivePeak = Mathf.Max(alivePeak, w.AliveCount);
-            if (Time.realtimeSinceStartup > settleDeadline) { Finish(3, "settle timed out at tick " + w.Tick); return; }
             // stop fast-forwarding a little short, so the last ticks arrive one at a time and the pause lands on the tick
             if (w.Tick + 40 < (uint)Options.SettleTicks) return;
             host.TimeScale = 1f;
             host.DropBacklog();
-            stage = Stage.Approach;
+            Enter(Stage.Approach);
         }
 
         void Approach()
@@ -218,7 +257,7 @@ namespace TW.Perf
             CameraShake.Strength = 0f;
             if (Options.Weather >= 0f) Atmosphere.PinnedClock = Options.Weather;
             warmLeft = Mathf.Max(1, Options.Warm);
-            stage = Stage.Warm;
+            Enter(Stage.Warm);
         }
 
         void Warm()
@@ -228,7 +267,7 @@ namespace TW.Perf
             var w = host.Local.World;
             OpenRecorders();
             t0 = w.Tick; lastTick = t0;
-            hashStart = w.Hash();
+            hashStart = w.Hash(); hashStartTaken = true;
             aliveStart = w.AliveCount;
             // the scenario, after hash_start and before the match resumes: nothing it does can reach the battle the
             // window opened on, and its orders land on the same tick in every run (its few allocations happen before
@@ -248,7 +287,7 @@ namespace TW.Perf
             // the window runs on real time, as it always has; only an image run (shot_tick) keeps the clock held
             if (Options.ShotTick < 0) ReleaseClock();
             host.TimeScale = 1f;
-            stage = Stage.Window;
+            Enter(Stage.Window);
         }
 
         static Vector2 ArmyCentre(TW.Sim.SimWorld w)
@@ -895,7 +934,7 @@ namespace TW.Perf
               .Append(", \"window_clock\": ").Append(Q(Options.ShotTick >= 0 ? "held" : "real")).Append(", \"frames\": ").Append(framesShot.ToString(Inv)).Append(", \"hud\": ").Append(Options.ShotHud || Options.ShotTick < 0 ? "true" : "false").Append(" },\n");
             double seconds = startRealtime > 0 ? Time.realtimeSinceStartupAsDouble - startRealtime : 0;
             sb.Append("  \"window\": { \"tick_start\": ").Append(t0).Append(", \"tick_end\": ").Append(w != null ? w.Tick : 0)
-              .Append(", \"hash_start\": ").Append(Q(hashStart.ToString("X16")))
+              .Append(", \"hash_start\": ").Append(hashStartTaken ? Q(hashStart.ToString("X16")) : "null")
               .Append(", \"hash_end\": ").Append(hashEndTaken ? Q(hashEnd.ToString("X16")) : "null")
               .Append(", \"hash_end_tick\": ").Append(hashEndTaken ? hashEndTick.ToString(Inv) : "null")
               .Append(", \"alive_peak_before\": ").Append(alivePeak)
