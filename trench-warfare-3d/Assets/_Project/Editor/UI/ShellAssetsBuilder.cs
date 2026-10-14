@@ -2,9 +2,11 @@
 // the main-menu backdrop plate, and the MainMenu scene registered with Bootstrap pointing at it.
 // TW/UI/Build Shell Assets is idempotent: existing assets are updated in place, existing mission cards are left as
 // the designer edited them. TW/UI/Build Main Menu Scene writes Scenes/MainMenu.unity (camera and light only; the
-// menu is a UI panel), re-targets Bootstrap.unity at it, and registers [Bootstrap, MainMenu, GreyboxCorridor] in the
-// build settings without regenerating GreyboxCorridor (which would reset SimHost's serialized fields), each only
-// when its scene file exists.
+// menu is a UI panel) only when it is not there yet, re-targets Bootstrap.unity at it, and puts
+// [Bootstrap, MainMenu, GreyboxCorridor] first in the build settings, each only when its scene file exists, keeping
+// every scene already registered and without regenerating GreyboxCorridor (which would reset SimHost's serialized
+// fields). It asks before it leaves a modified scene; TW/UI/Rebuild Main Menu Scene (from scratch) is the old
+// behaviour, which overwrites MainMenu.unity.
 using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
@@ -147,11 +149,33 @@ namespace TW.Editor
         }
 
         // ---- scenes ---------------------------------------------------------------------------------------------------
+        // ---- scenes ---------------------------------------------------------------------------------------------------
+        /// <summary>"open" when MainMenu.unity is already there and we were not told to start over, else "create".</summary>
+        internal static string MenuSceneMode(bool exists, bool force) => exists && !force ? "open" : "create";
+
+        /// <summary>The build scene list: the required paths first, in order, then every other current path once.
+        /// A scene someone else registered is kept, never dropped.</summary>
+        internal static string[] MergeBuildScenes(string[] current, string[] required)
+        {
+            var list = new List<string>();
+            var seen = new HashSet<string>();
+            foreach (var r in required ?? new string[0]) if (r != null && seen.Add(r)) list.Add(r);
+            foreach (var c in current ?? new string[0]) if (c != null && seen.Add(c)) list.Add(c);
+            return list.ToArray();
+        }
+
         [MenuItem("TW/UI/Build Main Menu Scene")]
-        public static void BuildMainMenuScene() => BuildMainMenuScene(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo);
+        public static void BuildMainMenuScene() => BuildMainMenuScene(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo, false);
+
+        /// <summary>Rebuilds MainMenu.unity from scratch even when it exists (the designer's edits are lost).</summary>
+        [MenuItem("TW/UI/Rebuild Main Menu Scene (from scratch)")]
+        public static void RebuildMainMenuScene() => BuildMainMenuScene(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo, true);
 
         /// <summary>Returns false and changes nothing when the user declines to save the open scenes.</summary>
-        public static bool BuildMainMenuScene(System.Func<bool> saveOpenScenes)
+        public static bool BuildMainMenuScene(System.Func<bool> saveOpenScenes) => BuildMainMenuScene(saveOpenScenes, false);
+
+        /// <summary>As above; `force` rebuilds MainMenu.unity from scratch even when it is there.</summary>
+        public static bool BuildMainMenuScene(System.Func<bool> saveOpenScenes, bool force)
         {
             if (!saveOpenScenes())
             {
@@ -161,10 +185,25 @@ namespace TW.Editor
 
             var setup = EditorSceneManager.GetSceneManagerSetup();
             string menu = $"{ScenesDir}/MainMenu.unity";
-            var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
-            var cam = Camera.main;
-            if (cam != null) { cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.055f, 0.059f, 0.063f); cam.cullingMask = 0; }
-            EditorSceneManager.SaveScene(scene, menu);
+            bool exists = File.Exists(UiSkinGenerator.FullPath(menu));
+            if (MenuSceneMode(exists, force) == "open")
+            {
+                var open = EditorSceneManager.OpenScene(menu, OpenSceneMode.Single);
+                var c = Camera.main;
+                if (c != null && (c.clearFlags != CameraClearFlags.SolidColor || c.cullingMask != 0))
+                {
+                    c.clearFlags = CameraClearFlags.SolidColor; c.backgroundColor = new Color(0.055f, 0.059f, 0.063f); c.cullingMask = 0;
+                    EditorSceneManager.MarkSceneDirty(open);
+                }
+                if (open.isDirty) EditorSceneManager.SaveScene(open, menu);
+            }
+            else
+            {
+                var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
+                var cam = Camera.main;
+                if (cam != null) { cam.clearFlags = CameraClearFlags.SolidColor; cam.backgroundColor = new Color(0.055f, 0.059f, 0.063f); cam.cullingMask = 0; }
+                EditorSceneManager.SaveScene(scene, menu);
+            }
 
             string bootstrap = $"{ScenesDir}/Bootstrap.unity";
             if (File.Exists(UiSkinGenerator.FullPath(bootstrap)))
@@ -173,9 +212,21 @@ namespace TW.Editor
                 var loader = Object.FindFirstObjectByType<BootstrapLoader>();
                 if (loader != null && loader.SceneName != MatchLaunch.MenuScene) { loader.SceneName = MatchLaunch.MenuScene; EditorSceneManager.MarkSceneDirty(bs); EditorSceneManager.SaveScene(bs); }
             }
-            EditorBuildSettings.scenes = ShellBuildScenes(p => File.Exists(UiSkinGenerator.FullPath(p)));
+            // the shell's own scenes first (only those on disk), then every scene that was already registered, kept
+            var shell = ShellBuildScenes(p => File.Exists(UiSkinGenerator.FullPath(p)));
+            var required = new string[shell.Length];
+            for (int i = 0; i < shell.Length; i++) required[i] = shell[i].path;
+            var was = EditorBuildSettings.scenes;
+            var enabled = new Dictionary<string, bool>();
+            var paths = new string[was.Length];
+            for (int i = 0; i < was.Length; i++) { paths[i] = was[i].path; enabled[was[i].path] = was[i].enabled; }
+            var merged = MergeBuildScenes(paths, required);
+            var next = new EditorBuildSettingsScene[merged.Length];
+            for (int i = 0; i < merged.Length; i++)
+                next[i] = new EditorBuildSettingsScene(merged[i], i < required.Length || !enabled.TryGetValue(merged[i], out bool e) || e);
+            EditorBuildSettings.scenes = next;
             if (setup != null && setup.Length > 0) EditorSceneManager.RestoreSceneManagerSetup(setup);
-            Debug.Log("ShellAssetsBuilder: MainMenu.unity built, Bootstrap targets MainMenu, build settings [Bootstrap, MainMenu, GreyboxCorridor].");
+            Debug.Log($"ShellAssetsBuilder: MainMenu.unity {(MenuSceneMode(exists, force) == "open" ? "kept" : "built")}, Bootstrap targets MainMenu, build settings hold the shell's {required.Length} scene(s) and {merged.Length - required.Length} that were already there.");
             return true;
         }
 
