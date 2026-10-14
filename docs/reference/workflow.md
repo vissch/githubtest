@@ -593,6 +593,7 @@ python Tools/port_split.py Assets/_Project/Presentation/Camera/CombatFx.cs --reb
 ```
 Edits it cannot place for certain go to `CombatFx.cs.port.rej`, and a `CHECK` line marks a hunk applied in part:
 apply those by hand, compile, `git add`, delete the `.rej`, `git rebase --continue`.
+`Tools/test_port_split.py` tests the tool itself, with no editor.
 
 ## 9. Debugging
 
