@@ -178,6 +178,10 @@ namespace TW.Presentation.Tactical
         /// <summary>How much of every burst is thrown at the current zoom (docs/21 phase 3): all of it up close, 0.6 at the
         /// standard view, 0.3 beyond zoom 60, where a fragment is a pixel. CombatFx sets it each frame.</summary>
         public static float ZoomShare = 1f;
+        /// <summary>A test probe: every piece thrown, with the size (m) and the tint it was thrown at. Null in a build and
+        /// in a match, so it costs one null check; the tests set it and clear it (gore-by-zoom, 2026-10-14: the drawn size
+        /// of a piece is nowhere else readable once it is in the pool).</summary>
+        public static System.Action<Piece, float, Color> Watch;
         /// <summary>
         /// The battlefield's say over every piece: rgb multiplies each piece's own tint (white = as thrown; grey-white
         /// for rock under snow, near-black for basalt), a is a floor under the ember glow (0 = only burning pieces
@@ -265,6 +269,7 @@ namespace TW.Presentation.Tactical
         /// </summary>
         public void Throw(Piece piece, Vector3 at, Vector3 velocity, float scale, Color tint, ref DebrisRng rng, float life = 20f, float burn = 0f, Quaternion? pose = null)
         {
+            Watch?.Invoke(piece, scale, tint);   // a test probe; null otherwise (see Watch)
             if (!Ready) return;
             var pool = pools[(int)piece];
             DebrisMath.Landing(at, velocity, pool.Lift * scale, Ground, out float landT, out float landY);
