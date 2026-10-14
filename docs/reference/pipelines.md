@@ -108,8 +108,11 @@ alpha step must still read ink = 1.0 across the soft edge LANCZOS invents. The b
 `python Tools/test_tanksplit.py` is a source check only (`tanksplit.py` needs `bpy`): the atlas save must set
 `view_settings.view_transform = 'Standard'`, as `crabsplit.py` does, or the atlas comes out tone-mapped.
 `python Tools/test_crabsplit.py` tests `crabsplit.py`'s `group_legs` on its own (the module's Blender imports and
-its whole run are guarded, so the helper imports without `bpy`): a walker's limb pieces are grouped into legs by how
-close their footprints are, not by quadrant, so six legs stay six; `CRABS` gives the expected count (`legs=`) and
+its whole run are guarded, so the helper imports without `bpy`): a walker's limb pieces are binned into legs by the
+quadrant of the shell they stand under, ordered top down by each piece's centre height, and a quadrant holding more
+than three pieces holds more than one leg: its top `ceil(m/3)` pieces are the hips, every other piece joins the
+nearest hip by footprint and the legs of that quadrant are numbered (`LF1`, `LF2`), so six legs stay six while the
+machines already split keep their committed names. `CRABS` gives the expected count (`legs=`) and
 whether the machine has claws at all (`claws=False` for the Redoubt), and a wrong count raises. It also tests
 `pick_fittings`, which sorts the loose fittings (barrels, jaws, reactor, turret housings) and hands every piece back
 exactly once, so a third barrel or jaw joins a turret or the body instead of being dropped.

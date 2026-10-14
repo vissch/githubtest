@@ -1,9 +1,9 @@
 # Tests for crabsplit.py's leg grouping. Run: python Tools/test_crabsplit.py
 # crabsplit.py imports bpy/bmesh/mathutils behind a try/except, so group_legs can be imported outside Blender.
-import os, sys, unittest
+import json, os, sys, unittest
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from crabsplit import group_legs, pick_fittings, pair_sheets, merge_crabs, CRAB_ORDER
+from crabsplit import group_legs, pick_fittings, pair_sheets, merge_crabs, CRAB_ORDER, CRABS
 
 
 def leg(name, x, y, heights):
@@ -102,6 +102,73 @@ class CrabsplitTest(unittest.TestCase):
         self.assertIn("Pincer", str(e.exception), "[R9] the error does not name a machine")
         self.assertEqual([("Pincer", "a"), ("Kettle", "b")], pair_sheets(["a", "b"]),
                          "[R9] a short run no longer pairs from the front")
+
+
+CRABS_JSON = os.environ.get("TW_CRABS_JSON") or os.path.join(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+    "Assets", "_Project", "Resources", "Vehicles", "crabs.json")
+
+
+def real_limbs(entry, cfg):
+    """The limb tuples of a committed machine, read back from its manifest. Pivots are Unity and scaled, so
+    unity(v) = [-x, z, -y] * scale is undone; the pivot's height is the piece's TOP, which is why the cases below
+    assert membership and labels, not the order inside one leg."""
+    piv, s = entry["pivots"], entry["scale"]
+    def bl(u): return (-u[0] / s, -u[2] / s, u[1] / s)
+    mid = bl(piv["Body"])
+    keys = [k for k in piv if k.split("_")[0] in ("Thigh", "Shin", "Foot")
+            or (k.startswith("Claw") and not cfg.get("claws", True))]
+    out = []
+    for k in keys:
+        x, y, z = bl(piv[k])
+        out.append((k, x, y, ("L" if x >= mid[0] else "R") + ("F" if y < mid[1] else "B"), z))
+    return out
+
+
+class RealGeometryTest(unittest.TestCase):
+    """[T3.1] the leg grouping run over every machine in crabs.json as it stands in the repo."""
+
+    def setUp(self):
+        with open(CRABS_JSON, encoding="utf-8") as f:
+            self.crabs = json.load(f)["crabs"]
+
+    def test_t3_1_every_machine_in_crabs_json_groups_as_it_is_committed(self):
+        # [T3.1] the expected names are the committed ones (the pre-R1 output), taken from each machine's own
+        # part list, not from a run of the code under test.
+        for name in ("Kettle", "Censer", "Pavise", "Banner"):
+            entry = self.crabs[name]
+            cfg = CRABS[name]
+            want = {}
+            for part in entry["lods"][0]["parts"]:
+                head, _, label = part.partition("_")
+                if head in ("Thigh", "Shin", "Foot"):
+                    want.setdefault(label, set()).add(part)
+            legs, leftover = group_legs(real_limbs(entry, cfg), cfg.get("legs"), name)
+            got = {g["label"]: set(g["keys"]) for g in legs}
+            self.assertEqual(want, got,
+                             "[T3.1] %s no longer groups as it is committed: %s" % (name, legs))
+            self.assertEqual([], leftover, "[T3.1] %s lost a leg piece into the Body" % name)
+
+        # the Redoubt's committed split is the wrong one R1 found, so only the shape of the answer is checked:
+        # six legs, six names, two pieces each, nothing dropped.
+        entry, cfg = self.crabs["Redoubt"], CRABS["Redoubt"]
+        legs, leftover = group_legs(real_limbs(entry, cfg), cfg.get("legs"), "Redoubt")
+        self.assertEqual(6, len(legs), "[T3.1] the Redoubt is not six legs: %s" % legs)
+        self.assertEqual(6, len(set(g["label"] for g in legs)), "[T3.1] two Redoubt legs share a name: %s" % legs)
+        for g in legs:
+            self.assertEqual(2, len(g["keys"]), "[T3.1] a Redoubt leg has the wrong pieces: %s" % g)
+        self.assertEqual([], leftover, "[T3.1] a Redoubt leg piece fell into the Body")
+
+    def test_t3_1_the_limb_tuple_orders_by_the_piece_centre_not_its_top(self):
+        # [T3.1] Kettle's committed Shin_LF top (0.408 Blender) is above Thigh_LF's (0.403), so a top-z sort key
+        # renames shin to thigh. build_loose must hand group_legs the piece's centre height.
+        with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "crabsplit.py"), encoding="utf-8") as f:
+            src = f.read()
+        line = [l for l in src.splitlines() if "tuples.append((key," in l]
+        self.assertEqual(1, len(line), "[T3.1] build_loose's limb tuple line was not found")
+        self.assertIn("c.z", line[0], "[T3.1] the limb tuple does not use the piece centre height: %s" % line[0])
+        self.assertNotIn("bm_bounds", line[0],
+                         "[T3.1] the limb tuple still sorts legs by the piece top: %s" % line[0])
 
 
 if __name__ == "__main__":

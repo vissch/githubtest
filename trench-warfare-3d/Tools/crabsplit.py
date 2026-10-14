@@ -83,58 +83,43 @@ def merge_crabs(old, new):
 
 # ------------------------------------------------------------------------------------------- legs (pure, testable)
 def group_legs(pieces, expected=None, machine=""):
-    """Sort limb pieces into one group per leg. `pieces` are plain tuples (key, x, y, quad, ztop) — no Blender types —
-    so this can be tested on its own. A leg's pieces (thigh, shin, foot) stand in one stack, so their centres sit
-    almost on top of each other, while two different legs' hips are far apart: cluster on that gap instead of
-    binning by quadrant (review R1 — with six legs over four quadrants two legs were merged into one fake chain).
+    """Sort limb pieces into one group per leg. `pieces` are plain tuples (key, x, y, quad, zcentre) - no Blender
+    types - so this can be tested on its own. Field 5 is the piece's CENTRE height, which is what orders a leg top
+    down: on Kettle the shin's top edge sits above the thigh's, so a top-z sort renames shin to thigh (review T3.1).
+    A leg stands under one quarter of the shell, so pieces are binned by quadrant, exactly as before review R1: that
+    is what every machine already split was named by. A quadrant holding more than three pieces holds more than one
+    leg (six legs over four quadrants, review R1): its top ceil(m/3) pieces are the hips, every other piece joins
+    the nearest hip by (x, y) footprint, and the legs of that quadrant are numbered.
     Returns (legs, leftover): `legs` is a list of dicts with a label ("LF", or "LF1"/"LF2" when a quadrant holds
     more than one leg) and the keys top down; `leftover` are the pieces past the third in a leg."""
     pieces = list(pieces)
     if not pieces: return [], []
-    n = len(pieces)
-    def dist(i, j):
-        return math.hypot(pieces[i][1] - pieces[j][1], pieces[i][2] - pieces[j][2])
-    # single-link clustering: build the minimum spanning tree, then cut the edges past the biggest jump in length
-    # (within a leg a few millimetres, between legs tens of centimetres)
-    edges, near = [], {j: (dist(0, j), 0) for j in range(1, n)}
-    while near:
-        j, (d, i) = min(near.items(), key=lambda kv: (kv[1][0], kv[0]))
-        edges.append((d, i, j)); del near[j]
-        for k in list(near):
-            dk = dist(j, k)
-            if dk < near[k][0]: near[k] = (dk, j)
-    order = sorted(edges)
-    cut = len(order)
-    best = 1.0
-    for a in range(len(order) - 1):
-        lo, hi = order[a][0], order[a + 1][0]
-        r = hi / lo if lo > 1e-9 else (float("inf") if hi > 1e-9 else 1.0)
-        if r > best: best, cut = r, a + 1
-    if best < 3.0: cut = len(order)            # no clear gap: one leg, or pieces spread evenly
-    keep = order[:cut]
-    root = list(range(n))
-    def find(i):
-        while root[i] != i: root[i] = root[root[i]]; i = root[i]
-        return i
-    for d, i, j in keep: root[find(i)] = find(j)
-    groups = {}
-    for i in range(n): groups.setdefault(find(i), []).append(i)
-    clusters = list(groups.values())
-    if expected is not None and len(clusters) != expected:
-        raise ValueError("crabsplit: %s has %d leg groups, expected %d (pieces: %s)"
-                         % (machine or "machine", len(clusters), expected,
-                            ", ".join(pieces[i][0] for i in range(n))))
-    # name them: the quadrant of the group, numbered when a quadrant holds more than one leg
-    out = []
-    for cl in clusters:
-        cl.sort(key=lambda i: -pieces[i][4])           # top down: thigh, shin, foot
-        quad = pieces[cl[0]][3]
-        out.append(dict(quad=quad, keys=[pieces[i][0] for i in cl],
-                        x=pieces[cl[0]][1], y=pieces[cl[0]][2]))
     byq = {}
-    for g in out: byq.setdefault(g["quad"], []).append(g)
+    for p in pieces: byq.setdefault(p[3], []).append(p)
+    out = []
+    for quad, ps in byq.items():
+        ps = sorted(ps, key=lambda p: -p[4])                    # top down: thigh, shin, foot
+        if len(ps) <= 3:
+            clusters = [list(ps)]
+        else:
+            k = -(-len(ps) // 3)                                # that many legs stand in this quadrant
+            hips = ps[:k]
+            clusters = [[h] for h in hips]
+            for p in ps[k:]:
+                i = min(range(k), key=lambda i: math.hypot(p[1] - hips[i][1], p[2] - hips[i][2]))
+                clusters[i].append(p)
+        for cl in clusters:
+            cl.sort(key=lambda p: -p[4])
+            out.append(dict(quad=quad, keys=[p[0] for p in cl], x=cl[0][1], y=cl[0][2]))
+    if expected is not None and len(out) != expected:
+        raise ValueError("crabsplit: %s has %d leg groups, expected %d (pieces: %s)"
+                         % (machine or "machine", len(out), expected,
+                            ", ".join(p[0] for p in pieces)))
+    # name them: the quadrant of the group, numbered when a quadrant holds more than one leg
+    named = {}
+    for g in out: named.setdefault(g["quad"], []).append(g)
     legs, leftover = [], []
-    for quad, gs in byq.items():
+    for quad, gs in named.items():
         gs.sort(key=lambda g: (round(g["y"], 4), round(g["x"], 4)))
         for i, g in enumerate(gs):
             g["label"] = quad if len(gs) == 1 else "%s%d" % (quad, i + 1)
@@ -463,7 +448,7 @@ def build_loose(crab, src, cfg):
         key = "limb%d" % i
         byKey[key] = b
         quad = ("L" if c.x >= mid.x else "R") + ("F" if c.y < mid.y else "B")
-        tuples.append((key, c.x, c.y, quad, bm_bounds([b])[1].z))
+        tuples.append((key, c.x, c.y, quad, c.z))      # field 5 is the centre height (review T3.1)
     legGroups, leftover = group_legs(tuples, cfg.get("legs"), crab)
     names = ["Thigh", "Shin", "Foot"]
     for g in legGroups:
