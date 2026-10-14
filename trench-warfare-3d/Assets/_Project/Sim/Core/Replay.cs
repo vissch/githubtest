@@ -183,6 +183,11 @@ namespace TW.Sim
         // run down, no tree felled, no wreck ground, no mine or tripwire, and it neither steers round nor pushes a
         // machine on the ground. Its TankSpec gains StandOffMetres 90 / StandOffPatience 8, so it holds off over the
         // front. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
+        // v38 (2026-10-07, the Mercy carries): the ambulance (vehicle archetype 24) no longer heals men where they
+        // stand. It drives to badly hurt men of its own side at the front, takes up to four aboard (they leave the
+        // field while carried), drives out past its own rear edge and puts them back at full health, then returns for
+        // more (MercyCarrySystem, new at the end of the system chain; SimEventType.UnitBoarded / UnitReturned). The
+        // chain and the hashed layout grow: a v37 replay does not replay.
         public const ushort FormatVersion = 57;
         public SimConfig Config;
         public SimConfig.WorldInit Init;

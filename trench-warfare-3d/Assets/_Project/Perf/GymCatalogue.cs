@@ -192,6 +192,8 @@ namespace TW.Perf
                 // in front of it; a worn wreck (v26) a dead machine and fire on it. Not staged yet: replayed
                 case SimEventType.MeleeBlow: case SimEventType.WeaponDropped: case SimEventType.WeaponPickedUp:
                 case SimEventType.PounceCrouched: case SimEventType.PounceLanded: case SimEventType.PropWorn:
+                // the Mercy carrying (v38) needs an ambulance, a badly hurt man and the drive off the field
+                case SimEventType.UnitBoarded: case SimEventType.UnitReturned:
                     return (GymExpect.Preview, "preview (effects only): replayed into the presentation's frame at a staged unit; the men never see it");
                 // no picture of their own
                 case SimEventType.ObjectiveCaptured: return (GymExpect.Excluded, "HUD only");
