@@ -131,6 +131,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   StressPresetTests (the player's army spread over its trenches), ScriptedEnemySlotTests (the slot picks, and that the
   roster is scanned once per (world, side), not every tick), CaptureRigReportPaths (a bare report path and a
   nested one both write without throwing).
+  StressPresetTests (the player's army spread over its trenches).
+  CaptureRigPathTests (`Stress`'s default path is absolute, a bare file name still gets its directory, and an
+  abandoned capture set puts the tactical camera and the rig's `running` flag back).
 
 ### The VFX pass (every effect filmed for a critique, 2026-10-01)
 - **Files (SHOW):** `Editor/VfxLab.cs` (stages one effect at a time by name: a shell, the HE barrage, a machine's
@@ -1151,8 +1154,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   run). Budgets and past runs: `docs/05-performance-budgets.md`; the AOSA loop's runs: `docs/reference/aosa/`.
 - **Tests:** AllocProbeSanityTests, TickAllocationTests, ComponentLookupAllocationTests, VatAtlasMemoryTests,
   BenchOptionsTests, FrameBudgetCoverageTests (every gameplay draw goes through `FrameBudget`), HitchAttributionTests,
-  KnobsTests, PerfWindowTests, ShotLogTests. An unknown option is listed in the report's `warnings` (`BenchOptions.Unknown`), not
-  refused, so read the warnings before trusting a run.
+  KnobsTests, PerfWindowTests, ShotLogTests, ShowAllocationTests (Burst, a burning hull's per-frame socket work, a
+  BattlefieldComposer recomposition and PropWear's sweep, through `AllocProbe`; the gap TS5 found). An unknown option is
+  listed in the report's `warnings` (`BenchOptions.Unknown`), not refused, so read the warnings before trusting a run.
 - **Trap:** the report carries the frame budget twice, as `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws`
   (the overhaul's names) and `frame_budget_*` (the AOSA loop's); both read `FrameBudget` on the same frame.
 - `terrain_chunk_rebuilds` / `terrain_chunk_rows` (`tw-perf/1`, `PerfBench.Sample`): this frame's delta of
