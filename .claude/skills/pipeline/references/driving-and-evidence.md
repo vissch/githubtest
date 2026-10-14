@@ -46,8 +46,14 @@ Git Bash rewrites `/E`-style flags into paths, so prefix Windows tools with `MSY
 | Overview / far | zoom 120-240 / 600 | the battlefield (`OverviewFullZoom` 240, `ZoomMax` 600) |
 | Walkers | docs/20's ladder: 14× / 7× / 3.5× / 1.8× machine height | tw-vehicle-sim |
 
-The ready-made tier script is `AgentScripts/aosa_tiers.cs` (EditorPrefs `aosa.dir`, `aosa.stem`, `aosa.hold`, then
-`eval_file`). It shoots T1 (30, 21, 25), T2 (16, 21, 22) and T3 (7.5, 21, 13) at 1920×1080.
+The ready-made tier script is `AgentScripts/aosa_tiers.cs`. Its EditorPrefs keys are namespaced per checkout:
+`aosa.<ns>.dir` (required), `aosa.<ns>.stem`, `aosa.<ns>.hold`. Get the prefix, or set the folder, with one eval
+that computes `<ns>` itself (an un-namespaced key is read by nothing):
+```
+unity command eval 'return "aosa." + ((uint)UnityEngine.Application.dataPath.GetHashCode()).ToString("x8") + ".";'
+unity command eval 'UnityEditor.EditorPrefs.SetString("aosa." + ((uint)UnityEngine.Application.dataPath.GetHashCode()).ToString("x8") + ".dir", @"<abs output folder>"); return "set";'
+```
+Then `eval_file` the script. It shoots T1 (30, 21, 25), T2 (16, 21, 22) and T3 (7.5, 21, 13) at 1920×1080.
 
 ## Staging traps (workflow.md)
 - Move the camera with `TacticalCamera.FrameFrom(focus, zoom, yawDeg)`. Writing `Camera.main.transform` is overwritten every frame.

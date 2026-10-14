@@ -1347,6 +1347,16 @@ def main():
             cs_text = (HERE.parent / 'AgentScripts' / cs_name).read_text(encoding='utf-8')
             case(f'[H12] {cs_name} EditorPrefs keys are namespaced per checkout, not shared literals',
                  not re.search(r'EditorPrefs\.(Get|Set)\w+\("aosa\.(dir|stem|hold|budget)"', cs_text), cs_text)
+            # [H12] Math.Abs(int.MinValue) throws OverflowException, and a dataPath hash can be int.MinValue,
+            # so the namespace prefix must come from an unsigned cast instead.
+            case(f'[H12] {cs_name} builds its namespace with (uint), never Math.Abs(GetHashCode())',
+                 'Math.Abs' not in cs_text and '(uint)' in cs_text, cs_text)
+
+        # [H12] the refusal has to name the key the script really reads, or no agent can ever satisfy it
+        tiers_text = (HERE.parent / 'AgentScripts' / 'aosa_tiers.cs').read_text(encoding='utf-8')
+        case('[H12] aosa_tiers.cs names the namespaced key it reads when it refuses',
+             'set EditorPrefs aosa.dir first' not in tiers_text
+             and 'return "set EditorPrefs " + ns + "dir first"' in tiers_text, tiers_text)
 
         tw_cases(tmp, wt_proj / 'Tools/tw')
     finally:
