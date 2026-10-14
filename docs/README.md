@@ -48,7 +48,7 @@ Owner is the lane that edits a document. Older documents carry a banner where a 
 - `reference/animation-clips.md`: classification of the owner's Mixamo clips.
 - `reference/env-scoreboard.md`, `reference/visual-score.md`: critique scoreboards.
 - `reference/nav-eval.md`: how to test these docs on fresh agents (for maintainers, not an agent page) and past scores.
-- `reference/process-rescore-2026-10-14.md`: the 2026-10-06 one-off re-score of the way of working: the two fixes checked, the rubric, the measurements, and why no score was made.
+- `reference/process-rescore-2026-10-14.md`: the 2026-10-06 one-off re-score of the way of working, 48 of 100 on 2026-10-14: the two fixes checked, the rubric, the score with its three findings, and what the copy the critic read makes of two of them.
 - `reference/perf-pass-2026-09/`: benchmark runs, stills and the one-off scripts of the performance pass.
 - reference/aosa/ exists only on `lane/show/aosa`: the AOSA loop's contract and ledger.
 
