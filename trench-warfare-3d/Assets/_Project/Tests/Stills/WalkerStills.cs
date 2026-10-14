@@ -37,6 +37,9 @@
 // target 0, 45 and 90 degrees off the nose, and a barrel back. TW_STILLS_DIR again.
 // TheBannersFireIsFilmedFromTheBarrelsHeight (2026-10-13, banner-fire-clips) stands side on and level with the
 // guns, where a muzzle card drawn into the barrel is plain to see; eight seconds into Captures/bannerfire/side.
+// TheBannersFireIsFilmedFromTheTacticalView (2026-10-14, banner-fire-lined-up) is the same eight seconds from the
+// view the game is played at (zoom 30, pitch 25), where the bore runs away from the eye and a card laid along it
+// is hardest to keep on the mouth; into Captures/bannerfire/tactical.
 //
 // TheBannerIsFilmedByDay (2026-10-12, banner-day-film) is the owner's film: eighteen seconds of the Banner in a
 // match by day, walking at play zoom, laying its top on men off its nose and firing, then the same from the front
@@ -585,14 +588,36 @@ namespace TW.Tests
             foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
             foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
             yield return new EnterPlayMode();
-            yield return FilmBannerFireSide();
+            yield return FilmBannerFire("side", -90f, 8f, 0f, "banner_fire_side.txt", "side on at barrel height");
         }
 
-        static IEnumerator FilmBannerFireSide()
+        // The owner, 2026-10-14, on the close frame of the side-on film: "its visually still off, line it up
+        // properly". Side on is the kindest angle there is for a card laid along the bore: the bore is across the
+        // eye, so the lay barely shortens it. This one films the same eight seconds from the view the game is
+        // actually played at (TacticalCamera's own zoom 30 and pitch 25), where the bore runs away from the eye and
+        // the card must shorten and roll hard to stay on the mouth. Into Captures/bannerfire/tactical.
+        [UnityTest, Explicit("Eight seconds of the Banner firing, from the game's own tactical view; run by name, with a graphics device.")]
+        public IEnumerator TheBannersFireIsFilmedFromTheTacticalView()
+        {
+            HudBootstrap.Disabled = true;
+            ShellBoot.Disabled = true;
+            CaptureRig.Rig.Verbose = false;
+            EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
+            if (!System.Enum.TryParse(System.Environment.GetEnvironmentVariable("TW_STILLS_FIELD"), true, out TW.Presentation.Terrain.Biome field))
+                field = TW.Presentation.Terrain.Biome.Winter;
+            foreach (var g in Object.FindObjectsByType<TW.Presentation.Terrain.GreyboxTerrainView>(FindObjectsSortMode.None)) g.Field = field;
+            foreach (var at in Object.FindObjectsByType<TW.Presentation.Terrain.Atmosphere>(FindObjectsSortMode.None)) at.Field = field;
+            yield return new EnterPlayMode();
+            yield return FilmBannerFire("tactical", -45f, 30f, 25f, "banner_fire_tactical.txt", "the game's own tactical view");
+        }
+
+        // One film of the Banner firing, from wherever the caller stands: sub names the folder under
+        // Captures/bannerfire, baseYaw turns the tactical rig around the machine, zoom and pitch are RiderLab's.
+        static IEnumerator FilmBannerFire(string sub, float baseYaw, float zoom, float pitch, string logFile, string label)
         {
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
-            string dir = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "bannerfire", "side");
+            string dir = Path.Combine(Directory.GetParent(Application.dataPath).FullName, "Captures", "bannerfire", sub);
             Directory.CreateDirectory(dir);
 
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
@@ -610,8 +635,8 @@ namespace TW.Tests
             int slot = int.Parse(spawned.Substring(5));
             TestContext.Out.WriteLine(RiderLab.Drive(slot, 36f));
             TestContext.Out.WriteLine(RiderLab.Panel(false));
-            if (tc != null) tc.BaseYaw = -90f;                              // side on
-            TestContext.Out.WriteLine(RiderLab.Camera(slot, 8f, 0f, 0f));   // close, and level with the machine
+            if (tc != null) tc.BaseYaw = baseYaw;
+            TestContext.Out.WriteLine(RiderLab.Camera(slot, zoom, 0f, pitch));
             TestContext.Out.WriteLine(RiderLab.Enemies(slot, 4, 40f, 35f)); // something to shoot at from the first
             float into = Time.time;
             while (Time.time - into < 1f) yield return null;
@@ -620,7 +645,7 @@ namespace TW.Tests
             Assert.That(v, Is.Not.Null, "the Banner is drawn without a view");
             var world = Host.Local.World;
             var log = new System.Text.StringBuilder();
-            log.AppendLine($"field {(sky != null ? sky.Field.ToString() : "?")}, lane {x:0} {z:0}, flat {flat:0.00} m, side on at barrel height");
+            log.AppendLine($"field {(sky != null ? sky.Field.ToString() : "?")}, lane {x:0} {z:0}, flat {flat:0.00} m, {label}");
             TestContext.Out.WriteLine(RiderLab.Film(dir, 8f, 24, 1280, 720));
 
             float t0 = Time.time, next = 0f, peakRecoil = 0f;
@@ -640,12 +665,12 @@ namespace TW.Tests
             bool alive = world.IsAlive(slot);
             int frames = Directory.GetFiles(dir, "f_*.png").Length;
             log.AppendLine($"{status}; {frames} frames; the deepest recoil was {peakRecoil:0.00}");
-            File.WriteAllText(Path.Combine(dir, "banner_fire_side.txt"), log.ToString());
+            File.WriteAllText(Path.Combine(dir, logFile), log.ToString());
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
 
             TestContext.Out.WriteLine(log.ToString());
-            TestContext.Out.WriteLine($"filmed the Banner's fire side on into {dir}");
+            TestContext.Out.WriteLine($"filmed the Banner's fire, {label}, into {dir}");
             Assert.That(alive, Is.True, "the Banner was destroyed before the film ended");
             Assert.That(status, Does.StartWith("done"), "the film never finished: " + status);
             Assert.That(frames, Is.GreaterThanOrEqualTo(150), "too few frames for eight seconds of film");
