@@ -38,13 +38,30 @@ namespace TW.Playground
             public AnimationClip Clip;
             public bool Loop;
             public bool Death;
+            // how the game's baker plays this file (Editor/InfantryClipTable.cs): the window cut out of it, the rate it
+            // runs at, whether the root travel stays, and whether the rifle is at the shoulder.
+            public float CutStart;
+            public float CutEnd;                // 0: to the end of the file
+            public float Rate = 1f;
+            public bool KeepRoot;
+            public bool Aim;
+
+            /// <summary>Seconds this clip plays for: its window, at its rate.</summary>
+            public float PlayLength(float fileLength)
+            {
+                float end = CutEnd > 0f ? CutEnd : fileLength;
+                float rate = Rate > 0f ? Rate : 1f;
+                return Mathf.Max(0.01f, (end - CutStart) / rate);
+            }
         }
 
         public VehicleEntry[] Vehicles = new VehicleEntry[0];
         public UnitEntry[] Units = new UnitEntry[0];
         public ClipEntry[] Clips = new ClipEntry[0];
         /// <summary>The Mixamo-rigged figure the clips are sampled on before they are carried over (Art/Characters/Soldier.fbx):
-        /// the same rig the game's VAT baker samples them on, so the clips are read exactly as the game reads them.</summary>
+        /// the same rig the game's VAT baker samples them on. Each clip's Loop, cut, Rate, KeepRoot and Aim are read off
+        /// the game's own table (Editor/InfantryClipTable.cs); the baker's compose, StripYaw and Thrown steps are not
+        /// played here, so a composed or thrown clip still differs from the baked figure.</summary>
         public GameObject ClipSource;
         /// <summary>Clip whose first frame is the source character standing (hip height reference), as VATBaker does.</summary>
         public string ReferenceClip = "Rifle Idle";

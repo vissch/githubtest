@@ -163,5 +163,97 @@ namespace TW.Tests.Playground
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }
+
+        static int ClipOf(string file)
+        {
+            var l = Lib();
+            for (int i = 0; i < l.Clips.Length; i++) if (l.Clips[i].Name == file) return i;
+            return -1;
+        }
+
+        [Test]
+        public void TheLoopFlagAndRootComeFromTheGamesTable()
+        {
+            // [Y4] the playground guessed loop/once and the root travel from the file's name: every "Firing*" and every
+            // "*Idle*" looped, every one-shot kept its travel. The game reads its own table (Editor/InfantryClipTable.cs):
+            // "Firing Rifle (1)" and "Rifle Idle (3)" are one-shots (O(Clip.FireStand, ...), O(Clip.FidgetLookAround, ...)),
+            // and the root travel is stripped on every clip but the deaths marked keepRoot (D(..., keepRoot: true)).
+            var l = Lib();
+            int fire = ClipOf("Firing Rifle (1)"), fidget = ClipOf("Rifle Idle (3)");
+            if (fire < 0 || fidget < 0) Assert.Ignore("the clip folder has no Firing Rifle (1) / Rifle Idle (3)");
+            Assert.That(l.Clips[fire].Loop, Is.False, "[Y4] Firing Rifle (1) is a one-shot in the game's table");
+            Assert.That(l.Clips[fidget].Loop, Is.False, "[Y4] Rifle Idle (3) is a one-shot in the game's table");
+
+            int walking = ClipOf("Walking To Dying"), front = ClipOf("Death From The Front");
+            if (walking < 0 || front < 0) Assert.Ignore("the clip folder has no Walking To Dying / Death From The Front");
+            if (l.Units.Length == 0) Assert.Ignore("no unit in the library");
+            var parent = new GameObject("test stage").transform;
+            ClipDeck deck = null;
+            try
+            {
+                deck = ClipDeck.Make(l, parent);
+                if (deck == null) Assert.Ignore("the library has no ClipSource");
+                var u = UnitRig.Build(l.Units[0], deck, null, parent, Vector3.zero, 0f, 1f);
+                // the figure is a different size from the rig the clip was authored on: its travel comes over scaled by
+                // the hip ratio Retarget uses (ClipDeck.Pose), so the clip's own travel is measured and scaled the same way
+                float hip = u.Skel.HipsRest.y / deck.ClipHipHeight;
+                float ownWalking = Own(l, parent, walking) * hip, ownFront = Own(l, parent, front) * hip;
+                float drawnWalking = Carry(deck, u, walking), drawnFront = Carry(deck, u, front);
+                Assert.That(drawnFront, Is.GreaterThan(0.8f * ownFront),
+                    $"[Y4] Death From The Front keeps its root: it should fall {ownFront:0.00} m from where he stood, drawn {drawnFront:0.00} m");
+                Assert.That(drawnWalking, Is.LessThan(0.5f * ownWalking),
+                    $"[Y4] Walking To Dying has its travel stripped: of the clip's {ownWalking:0.00} m the playground still carried {drawnWalking:0.00} m");
+            }
+            finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        /// <summary>The clip file's own hip travel over the window the playground plays, on the rig it was authored on.</summary>
+        static float Own(PlaygroundLibrary l, Transform parent, int clip)
+        {
+            var go = Object.Instantiate(l.ClipSource, parent);
+            try
+            {
+                foreach (var a in go.GetComponentsInChildren<Animator>(true)) a.enabled = false;
+                var skel = Retarget.Skeleton.Of(go.transform);
+                var c = l.Clips[clip].Clip;
+                c.SampleAnimation(go, 0f); var p0 = skel.HipsNow; p0.y = 0f;
+                c.SampleAnimation(go, c.length); var p1 = skel.HipsNow; p1.y = 0f;
+                return Vector3.Distance(p0, p1);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        /// <summary>How far the hips move along the ground from a clip's start to its last frame, as drawn.</summary>
+        static float Carry(ClipDeck deck, UnitRig u, int clip)
+        {
+            deck.Pose(u, clip, 0f, 1f, null);
+            var a = u.Skel.Bones[0].position; a.y = 0f;
+            deck.Pose(u, clip, 100f, 1f, null);   // past the end: a one-shot holds its last frame
+            var b = u.Skel.Bones[0].position; b.y = 0f;
+            return Vector3.Distance(a, b);
+        }
+
+        [Test]
+        public void TheCutAndRateComeFromTheGamesTable()
+        {
+            // [Y4] clips played whole and at rate 1. The game cuts a window out of the file and plays it at its own rate:
+            // "Rifle Idle (3)" is cut at 5.3 s and "Reloading" runs at 1.5x (Editor/InfantryClipTable.cs, the fidget and
+            // ReloadStand rows), so a reload takes the file's length over 1.5.
+            var l = Lib();
+            int fidget = ClipOf("Rifle Idle (3)"), reload = ClipOf("Reloading");
+            if (fidget < 0 || reload < 0) Assert.Ignore("the clip folder has no Rifle Idle (3) / Reloading");
+            Assert.That(l.Clips[fidget].CutEnd, Is.EqualTo(5.3f).Within(1e-3f), "[Y4] Rifle Idle (3) is cut at the game's 5.3 s");
+            Assert.That(l.Clips[reload].Rate, Is.EqualTo(1.5f).Within(1e-3f), "[Y4] a reload runs at the game's 1.5x");
+            var parent = new GameObject("test stage").transform;
+            ClipDeck deck = null;
+            try
+            {
+                deck = ClipDeck.Make(l, parent);
+                if (deck == null) Assert.Ignore("the library has no ClipSource");
+                float want = l.Clips[reload].Clip.length / 1.5f;
+                Assert.That(deck.ClipLength(reload), Is.EqualTo(want).Within(1e-3f), $"[Y4] the reload should play for {want:0.00} s");
+            }
+            finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }
