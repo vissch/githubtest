@@ -86,6 +86,11 @@ function drawField(i) {
     g.stroke();
   });
   for (const m of s.men) {
+    if (m[4]) {   // died since the last sample: a dim ring where he fell, for this one sample
+      g.strokeStyle = DIM[m[2]]; g.lineWidth = 1.5;
+      g.beginPath(); g.arc(px(m[0]), pz(m[1]), 4.5, 0, 6.2832); g.stroke();
+      continue;
+    }
     g.fillStyle = COL[m[2]];
     g.beginPath(); g.arc(px(m[0]), pz(m[1]), m[3] ? 1.8 : 3.2, 0, 6.2832); g.fill();
   }
