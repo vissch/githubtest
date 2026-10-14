@@ -23,6 +23,13 @@
 // Over the whole roster (2026-10-14): the Banner is the ONLY machine that lays a card along its bore, so it was the
 // only one drawn wrong and the only one this fix moves. EveryLaidFlameRootsOnTheMouthAndPointsDownTheBore runs over
 // every row of TankRenderer.Machines, so a machine that starts laying a flame is measured here without a new test.
+//
+// Closed (2026-10-14, [banner-fire-lined-up]): FlipbookFx's declared InkRoot/InkPoint now equal the pixels TheLaidBooksDeclareTheInkTheyActuallyDraw
+// measures, so LayAlong's per-axis scale amplifies nothing - both tests green at the owner's own figures (0.15 m,
+// 5 deg) from all four eyes and both top yaws. Filmed again through the real battle path (front quarter, side at
+// barrel height, rear quarter, the tactical view), the flash's first frame each: the root sits on the mouth and the
+// flame runs along the bore in every one. Brief on the Decide page: 2026-10-14-the-banner-s-muzzle-fire-lined-up-on-the-barrel-,
+// before (the owner's own close frame) beside after for all four eyes, first option to land the Banner whole.
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
