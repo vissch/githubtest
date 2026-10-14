@@ -255,5 +255,33 @@ namespace TW.Tests.Playground
             }
             finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
         }
+        [Test]
+        public void AShelledBuildingKeepsNoMorePiecesLooseThanTheGame()
+        {
+            // [Y5] the playground threw every broken chunk, however many; the game caps the chunks in the air or lying at
+            // 48 (PropDestruction.MaxLoose) and past it a chunk goes to rubble on the spot. The Gasholder has 65 chunks in
+            // Resources/Env/Ruins/houses.json, so a heavy shelling can pass the cap. The 48 is the game's number, written
+            // out here so this test compiles on the old code.
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var b = BuildingRig.Build("Ruins", "Gasholder", null, parent, Vector3.zero, 0f, 11);
+                Assert.That(b, Is.Not.Null, "the Ruins set has the Gasholder");
+                Assert.That(b.Pieces.Count, Is.GreaterThan(48), "the Gasholder has more chunks than the cap");
+                for (int k = 0; k < 24; k++)
+                {
+                    float ang = k * 2.39996f, r = b.Radius * 0.55f;
+                    b.ShellLocal(new Vector3(Mathf.Cos(ang) * r, 1f + (k % 5) * 1.2f, Mathf.Sin(ang) * r), 200f);
+                    for (int f = 0; f < 45; f++) b.Advance(1f / 60f);
+                    Assert.That(b.Pieces.Count(p => p.Loose), Is.LessThanOrEqualTo(48),
+                                "[Y5] shell " + (k + 1) + ": more chunks loose at once than the game's 48");
+                }
+                for (int f = 0; f < 1200; f++) b.Advance(1f / 60f);
+                Assert.That(b.Pieces.Count(p => p.Loose), Is.LessThanOrEqualTo(48),
+                            "[Y5] settled: more chunks loose at once than the game's 48");
+                Assert.That(b.Standing, Is.LessThan(b.Pieces.Count / 2), "[Y5] 24 heavy shells bring over half the house down");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }

@@ -22,11 +22,21 @@ namespace TW.Playground
             public HouseKit.Chunk Chunk; public Transform T; public MeshRenderer R; public Bounds Box;
             public float Hp, MaxHp; public bool Loose, Falling; public float FallAt; public Tumble Fly;
             public float Dust;
+            /// <summary>Gone to rubble on the spot: the loose-piece cap was full when this chunk broke, so it does not fly
+            /// (PropDestruction.cs:72-75, the game's rule). It is no longer there, and carries nothing.</summary>
+            public bool Crumbled;
+            /// <summary>No longer standing, whether it flew or crumbled.</summary>
+            public bool Gone => Loose || Crumbled;
             public bool Grounded => Chunk.Grounded;   // for callers without a reference to the terrain assembly (the tests)
         }
 
         public const float Step = 1f / 120f;
         public const float StoreyDelay = 0.45f;   // PropDestruction's pace: a storey comes down this long after the one under it
+        /// <summary>The game's cap on chunks in the air or lying at once (PropDestruction.MaxLoose 48, knob props.maxLoose),
+        /// resolved as the game resolves it. Past it a breaking chunk goes to rubble on the spot instead of flying.</summary>
+        public static int MaxLoose => PropDestruction.ReadMaxLoose();
+        /// <summary>Chunks flying or lying now: what the cap counts.</summary>
+        public int LooseCount { get { int n = 0; foreach (var p in Pieces) if (p.Loose) n++; return n; } }
         public string Set, House;
         public PlaygroundFx Fx;
         public readonly List<Piece> Pieces = new List<Piece>();
@@ -270,9 +280,9 @@ namespace TW.Playground
                 int n = 0;
                 foreach (var p in Pieces)
                 {
-                    if (p.Loose || p.Falling || p.Chunk.Grounded || p.Anchored) continue;
+                    if (p.Gone || p.Falling || p.Chunk.Grounded || p.Anchored) continue;
                     bool held = false;
-                    foreach (int j in p.Holds) if (!Pieces[j].Loose && !Pieces[j].Falling) { held = true; break; }
+                    foreach (int j in p.Holds) if (!Pieces[j].Gone && !Pieces[j].Falling) { held = true; break; }
                     if (!held) n++;
                 }
                 return n;
@@ -334,7 +344,7 @@ namespace TW.Playground
         }
 
         public Vector3 Centre => transform.TransformPoint(new Vector3(0f, Radius * 0.35f, 0f));
-        public int Standing { get { int n = 0; foreach (var p in Pieces) if (!p.Loose && !p.Falling) n++; return n; } }
+        public int Standing { get { int n = 0; foreach (var p in Pieces) if (!p.Gone && !p.Falling) n++; return n; } }
 
         /// <summary>A shell bursting at a point in the building's frame: every chunk within reach is hurt, those past their
         /// strength are thrown out from the burst, and whatever stood on them comes down after.</summary>
@@ -345,7 +355,7 @@ namespace TW.Playground
             int broke = 0;
             foreach (var p in Pieces)
             {
-                if (p.Loose || p.Falling) continue;
+                if (p.Gone || p.Falling) continue;
                 var c = p.Chunk.Local.ClosestPoint(at);
                 float d = Vector3.Distance(c, at);
                 if (d > reach || (p.Chunk.Grounded && d > 1.5f)) continue;
@@ -371,12 +381,12 @@ namespace TW.Playground
                 changed = false; storey++;
                 foreach (var p in Pieces)
                 {
-                    if (p.Loose || p.Falling || p.Anchored || falling.Contains(p)) continue;
+                    if (p.Gone || p.Falling || p.Anchored || falling.Contains(p)) continue;
                     if (p.Chunk.Grounded)
                     {
                         if (p.Leans.Length == 0) continue;
                         bool fixedTo = false;
-                        foreach (int j in p.Leans) { var s = Pieces[j]; if (!s.Loose && !(s.Falling || falling.Contains(s))) { fixedTo = true; break; } }
+                        foreach (int j in p.Leans) { var s = Pieces[j]; if (!s.Gone && !(s.Falling || falling.Contains(s))) { fixedTo = true; break; } }
                         if (fixedTo) continue;
                         p.Falling = true; p.FallAt = clock + storey * StoreyDelay + R(0f, 0.12f); falling.Add(p); changed = true;
                         continue;
@@ -386,9 +396,9 @@ namespace TW.Playground
                     if (detail)
                     {
                         held = p.Chunk.RestsOn.Length > 0;
-                        foreach (int j in p.Chunk.RestsOn) { var s = Pieces[j]; if (s.Loose || s.Falling || falling.Contains(s)) { held = false; break; } }
+                        foreach (int j in p.Chunk.RestsOn) { var s = Pieces[j]; if (s.Gone || s.Falling || falling.Contains(s)) { held = false; break; } }
                     }
-                    else foreach (int j in p.Holds) { var s = Pieces[j]; if (!s.Loose && !(s.Falling || falling.Contains(s))) { held = true; break; } }
+                    else foreach (int j in p.Holds) { var s = Pieces[j]; if (!s.Gone && !(s.Falling || falling.Contains(s))) { held = true; break; } }
                     if (held) continue;
                     p.Falling = true; p.FallAt = clock + storey * StoreyDelay + R(0f, 0.12f);
                     falling.Add(p); changed = true;
@@ -398,10 +408,22 @@ namespace TW.Playground
 
         void Detach(Piece p, Vector3 velocity, Vector3 spin)
         {
-            if (p.Loose) return;
-            p.Loose = true; p.Falling = false;
-            p.Fly = new Tumble { Pos = p.T.localPosition, Rot = p.T.localRotation, Vel = velocity, Spin = spin, Nudge = new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) };
-            p.Dust = 1f;
+            if (p.Gone) return;
+            // the game's cap: at most MaxLoose chunks fly or lie at once, past it a chunk goes to rubble on the spot, as
+            // other props do (PropDestruction.cs:72-75, Throw/Collapse)
+            bool crumble = LooseCount >= MaxLoose;
+            p.Falling = false;
+            if (crumble)
+            {
+                p.Crumbled = true;
+                if (p.R != null) p.R.enabled = false;
+            }
+            else
+            {
+                p.Loose = true;
+                p.Fly = new Tumble { Pos = p.T.localPosition, Rot = p.T.localRotation, Vel = velocity, Spin = spin, Nudge = new Vector3(R(-1f, 1f), 0f, R(-1f, 1f)) };
+                p.Dust = 1f;
+            }
             if (Fx != null && Fx.Debris != null)
                 Fx.Debris.Burst(p.Chunk.Timber ? DebrisRenderer.Piece.Plank : DebrisRenderer.Piece.Rubble, p.T.TransformPoint(p.Box.center), 3, 5f, 0.3f,
                                 p.Chunk.Timber ? new Color(0.24f, 0.19f, 0.14f) : new Color(0.28f, 0.26f, 0.24f), 20f, 0f, 1.4f, default, (uint)(Seed * 97 + p.Chunk.Index));
@@ -427,7 +449,8 @@ namespace TW.Playground
         {
             foreach (var p in Pieces)
             {
-                p.Loose = p.Falling = false; p.Hp = p.MaxHp; p.Fly = default;
+                p.Loose = p.Falling = p.Crumbled = false; p.Hp = p.MaxHp; p.Fly = default;
+                if (p.R != null) p.R.enabled = true;
                 p.T.localPosition = p.Chunk.Offset; p.T.localRotation = Quaternion.identity;
             }
             rng = new System.Random(Seed); LastEvent = "rebuilt";

@@ -441,7 +441,14 @@ game's.
 (`HouseKit.Load`, `Resources/Env/<Set>`), one GameObject a chunk, the battle's look (TW/Toon on the env atlas cell, the
 kit's paint, outline 1.3). A shell knocks out every chunk it hurts past its strength (stone 60, timber 30) and throws
 it; whatever loses all its supports (`HouseKit.Solve`'s RestsOn) comes down a storey at a time, 0.45 s apart
-(PropDestruction's pace), on the same `Tumble` as a vehicle's parts.
+(PropDestruction's pace), on the same `Tumble` as a vehicle's parts. At most 48 chunks fly or lie at once
+(`PropDestruction.MaxLoose`, the knob `props.maxLoose`, read as the game reads it); past it a breaking chunk goes to
+rubble on the spot, as other props do, and carries nothing.
+
+Shared with the battle: `HouseKit.Solve`, the 0.45 s pace and the loose cap. The playground's own, measured here and
+not in the game: the support filter (details, leaning pipes), the corner stacks, the ground floor's three-fold
+strength and the heaping of rubble under a falling chunk. One shared destruction rule module is a backlog item
+(code review 2026-10-04, Y5), not done.
 
 ## Not done yet
  the vehicle and figure are not yet in `Resources/` nor known to the sim (archetype,
