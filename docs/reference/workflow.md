@@ -423,6 +423,7 @@ today is listed today. Read the method's own comment for its arguments.
 | Call | File | What it does |
 |---|---|---|
 | `TW.Editor.AssetScaleAudit.Write(path)` | Editor/AssetScaleAudit.cs | (no summary: read the method) |
+| `TW.Editor.AssetScaleAudit.Write(path, playing)` | Editor/AssetScaleAudit.cs | Writes the audit, or refuses and answers null when the game is playing. |
 | `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
 | `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
 | `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |

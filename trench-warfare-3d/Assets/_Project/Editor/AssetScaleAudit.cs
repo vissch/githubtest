@@ -18,7 +18,8 @@ namespace TW.Editor
         public static void Menu()
         {
             string path = Write(DefaultPath);
-            Debug.Log("Asset scale audit written to " + path);
+            if (path == null) Debug.Log("Asset scale audit: refused (the game is in Play).");
+            else Debug.Log("Asset scale audit written to " + path);
         }
 
         /// <summary>The batch entry point: -executeMethod TW.Editor.AssetScaleAudit.Run.</summary>
@@ -28,8 +29,20 @@ namespace TW.Editor
             Write(string.IsNullOrEmpty(path) ? DefaultPath : path);
         }
 
-        public static string Write(string path)
+        public static string Write(string path) => Write(path, Application.isPlaying);
+
+        /// <summary>Writes the audit, or refuses and answers null when the game is playing. It builds and disposes a
+        /// second BattlefieldKit, and the kit sets the global shader texture _PigmentSheet: disposing the second one
+        /// leaves the live kit's _PigmentSheet pointing at a destroyed texture, so the running battle loses its
+        /// pigment. `playing` is a parameter so a test can reach the refusal without entering Play.</summary>
+        public static string Write(string path, bool playing)
         {
+            if (playing)
+            {
+                Debug.LogWarning("Asset scale audit: not in Play — it builds and disposes a second BattlefieldKit, which "
+                    + "leaves the live kit's global _PigmentSheet on a destroyed texture. Stop Play and run it again.");
+                return null;
+            }
             var kit = new BattlefieldKit();
             try
             {
