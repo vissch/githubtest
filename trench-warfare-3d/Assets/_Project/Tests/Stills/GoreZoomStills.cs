@@ -1,5 +1,6 @@
-// Phase: gore-by-zoom — the BEFORE of the owner's "the red gore mesh coming out of the shot units is sometimes a bit
-// big, we want this to scale based off the zoom" (2026-10-13). Men who can take many hits are shot by several weapons
+// Phase: gore-by-zoom — the measurement behind the owner's "the red gore mesh coming out of the shot units is
+// sometimes a bit big, we want this to scale based off the zoom" (2026-10-13). Part 1 ran it for the before, part 2
+// for the after, same scene and same staging, so the two sets of numbers and pictures stand side by side. Men who can take many hits are shot by several weapons
 // (a machine gun, rifles, a sniper and an SMG) in the real battle scene, at the closest zoom, the play zoom and the
 // farthest zoom that still shows blood. DebrisRenderer.Watch records every red piece thrown with the size it was
 // thrown at; the numbers go to gore.txt as a share of the drawn man, and a PNG is shot at each zoom.
@@ -123,12 +124,14 @@ namespace TW.Tests
                 if (File.Exists(path) && new FileInfo(path).Length > 20000) written++;
 
                 float manH = vat.ScaleAt(zoom) * FigureMetrics.BakeHeightM;   // the drawn man, in metres
-                float figure = vat.ScaleAt(zoom);                              // the `scale` CombatFx hands the blood
                 float boost = CombatFx.HitZoomBoost(zoom);
                 float mean = 0f, most = 0f;
                 foreach (float s in sizes) { mean += s; if (s > most) most = s; }
                 if (sizes.Count > 0) mean /= sizes.Count;
-                float cardLight = 0.7f * figure * boost, cardHeavy = (0.7f + 0.5f) * figure * boost;
+                // the card's size from the one place it now lives (GoreScale, gore-by-zoom part 2); before part 2 this
+                // read 0.7f * figure * boost and (0.7f + 0.5f) * figure * boost, the numbers that were in CombatFx
+                float cardLight = GoreScale.Sized(GoreScale.CardShare, zoom);
+                float cardHeavy = GoreScale.Sized(GoreScale.CardShare + GoreScale.CardHeavyShare, zoom);
                 log.AppendLine($"zoom {zoom:0}: man {manH:0.00} m; {sizes.Count} red pieces, mean {mean:0.000} m " +
                                $"({mean / manH:0.0%} of the man), largest {most:0.000} m ({most / manH:0.0%}); " +
                                $"zoom boost x{boost:0.00}; blood card {cardLight:0.00}-{cardHeavy:0.00} m " +

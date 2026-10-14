@@ -189,5 +189,9 @@ namespace TW.Presentation.Tactical
             }
             cam = viewCam; zoom = viewZoom; scale = viewScale;
         }
+
+        /// <summary>The zoom alone, off the same once-a-frame read: what GoreScale needs, where the camera and the
+        /// men's scale are not wanted (gore-by-zoom). Nothing is read when no gore is thrown.</summary>
+        float ViewZoom() { ViewNow(out _, out float zoom, out _); return zoom; }
     }
 }

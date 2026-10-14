@@ -24,7 +24,11 @@ namespace TW.Presentation.Tactical
         /// <summary>Blobs in the splash where the round met him, and how long they last; the zoom past which a hit's blood
         /// is drawn larger, over how many zoom units it doubles, the most, and the most for a mark on the ground.</summary>
         public const int HitSplash = 3;
-        public const float HitSplashLife = 0.5f, HitZoomFrom = 12f, HitZoomOver = 15f, HitZoomMost = 1.6f, HitMarkBoostCap = 1.6f;   // frog critic round 15: at 2.2 the droplets read as red balls at the play zoom
+        public const float HitSplashLife = 0.5f, HitMarkBoostCap = 1.6f;
+        /// <summary>Kept as names only: every red size now comes from GoreScale, the one place the curve lives
+        /// (gore-by-zoom, 2026-10-13). A ground mark is not gore coming out of a man, so HitMarkBoostCap still holds
+        /// the marks where they were.</summary>
+        public const float HitZoomFrom = GoreScale.TrueUntilZoom, HitZoomOver = GoreScale.GrowOver, HitZoomMost = GoreScale.MostGrow;
         int hitMarksFrame = -1, hitMarksThisFrame;
         static readonly int TWGoreId = Shader.PropertyToID("_TWGore");
 
@@ -45,7 +49,7 @@ namespace TW.Presentation.Tactical
             if (near && debris != null && debris.Ready)
             {
                 // the splash where the round met him: a few large blobs, gone in half a second, the read at a distance
-                float blob = 0.22f * scale * boost * Mathf.Sqrt(gore);
+                float blob = GoreScale.Sized(GoreScale.BlobShare, zoom) * Mathf.Sqrt(gore);
                 for (int k = 0; k < HitSplash; k++)
                     debris.Throw(DebrisRenderer.Piece.Clod, p, toward * rng.Range(0.6f, 1.4f) + Vector3.up * rng.Range(0.4f, 1.2f) + rng.OnSphere() * 0.6f, blob * rng.Range(0.8f, 1.2f), HitRed, ref rng, HitSplashLife);
                 // the spray: out of the far side, fanned, up a little, droplets that land and lie a few seconds
@@ -54,17 +58,17 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < drops; k++)
                 {
                     Vector3 v = toward * rng.Range(2.5f, 4.5f) + Vector3.up * rng.Range(0.8f, 2.2f) + rng.OnSphere() * 1.1f;
-                    debris.Throw(DebrisRenderer.Piece.Clod, exit, v, rng.Range(0.09f, 0.15f) * scale * boost, HitRed, ref rng, 4f);   // smaller did not show at the shot scenes' zoom (first film)
+                    debris.Throw(DebrisRenderer.Piece.Clod, exit, v, GoreScale.Sized(GoreScale.DropShare, zoom) * rng.Range(0.75f, 1.25f), HitRed, ref rng, 4f);   // smaller did not show at the shot scenes' zoom (first film)
                 }
                 // and a little back out of the way it went in, so the shooter's side sees blood too (from behind the row the
                 // spray and its marks were hidden by the men themselves)
                 for (int k = 0; k < 2; k++)
-                    debris.Throw(DebrisRenderer.Piece.Clod, p - toward * (0.1f * scale), -toward * rng.Range(1.2f, 2.2f) + Vector3.up * rng.Range(0.6f, 1.4f) + rng.OnSphere() * 0.6f, rng.Range(0.08f, 0.12f) * scale * boost, HitRed, ref rng, 4f);
+                    debris.Throw(DebrisRenderer.Piece.Clod, p - toward * (0.1f * scale), -toward * rng.Range(1.2f, 2.2f) + Vector3.up * rng.Range(0.6f, 1.4f) + rng.OnSphere() * 0.6f, GoreScale.Sized(GoreScale.DropShare, zoom) * rng.Range(0.67f, 1f), HitRed, ref rng, 4f);
             }
             // the card of blood where the round struck, when the build has the book (CombatFx.Gags looks it up by name)
             if (bloodBook == -2) bloodBook = System.Enum.TryParse("BloodSpurt", out FlipbookFx.Book found) ? (int)found : -1;
             if (bloodBook >= 0 && books != null && books.Ready && near)
-                books.Add((FlipbookFx.Book)bloodBook, p, (0.7f + 0.5f * heavy) * scale * boost * Mathf.Sqrt(gore), 0.35f, FlipbookFx.Kind.None, velocity: toward * 1.2f, alpha: Mathf.Clamp01(gore));
+                books.Add((FlipbookFx.Book)bloodBook, p, GoreScale.Sized(GoreScale.CardShare + GoreScale.CardHeavyShare * heavy, zoom) * Mathf.Sqrt(gore), 0.35f, FlipbookFx.Kind.None, velocity: toward * 1.2f, alpha: Mathf.Clamp01(gore));
             // on the ground: behind him where the spray comes down, and at his feet (seen from either side); a few a frame, so
             // a machine gun on a line does not push the deaths' splats out of their pool (these lie shorter: pushed out first)
             if (hitMarksFrame != Time.frameCount) { hitMarksFrame = Time.frameCount; hitMarksThisFrame = 0; }
@@ -79,7 +83,8 @@ namespace TW.Presentation.Tactical
             AddGagMark(feet, rng.Range(0f, 360f), new Vector2(size, size) * 0.7f, life, 3, 0.15f);
         }
 
-        /// <summary>How much larger a hit's blood is drawn at a zoom: 1 close in, growing past HitZoomFrom, HitZoomMost at most.</summary>
-        public static float HitZoomBoost(float zoom) => Mathf.Clamp(1f + (zoom - HitZoomFrom) / HitZoomOver, 1f, HitZoomMost);
+        /// <summary>How much larger a hit's blood is drawn at a zoom. One thin forward to GoreScale.Size, the one
+        /// place the curve lives; the ground marks and GoreZoomStills still read it by this name.</summary>
+        public static float HitZoomBoost(float zoom) => GoreScale.Size(zoom);
     }
 }

@@ -71,7 +71,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < lumps; k++)
             {
                 Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
-                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, rng.Range(0.07f, 0.14f) * scale, Gore, ref rng, 8f);
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, vel, GoreScale.Sized(GoreScale.LumpShare, ViewZoom()) * rng.Range(0.75f, 1.35f), Gore, ref rng, 8f);
             }
             return mask;
         }
@@ -160,7 +160,7 @@ namespace TW.Presentation.Tactical
             for (int k = 0; k < plan.Lumps; k++)
             {
                 Vector3 vel = carry * 0.8f + rng.OnSphere() * 4.5f; vel.y = Mathf.Abs(vel.y) + 1.5f;
-                debris.Throw(DebrisRenderer.Piece.Clod, chest, Topped(vel), rng.Range(0.07f, 0.14f) * figure, GoreRed, ref rng, 8f);
+                debris.Throw(DebrisRenderer.Piece.Clod, chest, Topped(vel), GoreScale.Sized(GoreScale.LumpShare, ViewZoom()) * rng.Range(0.75f, 1.35f), GoreRed, ref rng, 8f);
             }
             // round 9: at 2.6 m, and none for a man who only lost a limb, the heap's aftermath showed two small splats for eight men
             float splat = plan.Torn || plan.Apart ? 3.4f : (plan.Mask & GibPlan.AllLimbs) != 0 ? 1.8f : 0f;

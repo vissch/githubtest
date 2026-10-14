@@ -46,7 +46,7 @@ namespace TW.Presentation.Tactical
                         Vector3 hv = -facing * 2.2f + Vector3.up * 3.2f + rng.OnSphere() * 0.8f;
                         debris.Throw(DebrisRenderer.Piece.Head, head, hv, scale, Skin, ref rng, 30f);
                         int lumps = Mathf.RoundToInt(4f * DebrisRenderer.Gore);
-                        for (int k = 0; k < lumps; k++) debris.Throw(DebrisRenderer.Piece.Clod, head, hv * 0.8f + rng.OnSphere() * 2.5f, rng.Range(0.06f, 0.11f) * scale, Gore, ref rng, 8f);
+                        for (int k = 0; k < lumps; k++) debris.Throw(DebrisRenderer.Piece.Clod, head, hv * 0.8f + rng.OnSphere() * 2.5f, GoreScale.Sized(GoreScale.LumpShare, ViewZoom()) * rng.Range(0.65f, 1.05f), Gore, ref rng, 8f);
                     }
                     break;
                 }
@@ -66,7 +66,7 @@ namespace TW.Presentation.Tactical
                     // out from under the track, both sides, low and fast; the helmet rolls clear
                     if (gore)
                         for (int side = -1; side <= 1; side += 2)
-                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.1f, Mathf.Max(1, Mathf.RoundToInt(3f * DebrisRenderer.Gore)), 4.5f, 0.11f * scale, Gore, 10f, 0f, 0.35f, right * (1.4f * side), e.Tick + (uint)(side + 2));
+                            debris.Burst(DebrisRenderer.Piece.Clod, p + Vector3.up * 0.1f, Mathf.Max(1, Mathf.RoundToInt(3f * DebrisRenderer.Gore)), 4.5f, GoreScale.Sized(GoreScale.LumpShare, ViewZoom()) * 1.05f, Gore, 10f, 0f, 0.35f, right * (1.4f * side), e.Tick + (uint)(side + 2));
                     debris.Throw(DebrisRenderer.Piece.Helmet, p + Vector3.up * (0.3f * scale), right * 2.2f + Vector3.up * 1.6f, 0.32f * scale, Steel, ref rng, 60f);
                     break;
                 }
@@ -135,7 +135,7 @@ namespace TW.Presentation.Tactical
                 var a = path.A0;
                 Vector3 v = new Vector3((a.To.x - a.From.x) / a.Dur, path.Gravity * a.Up, (a.To.z - a.From.z) / a.Dur) * Mathf.Sqrt(DebrisMath.Gravity / path.Gravity);
                 for (int k = 0; k < lumps; k++)
-                    debris.Throw(DebrisRenderer.Piece.Clod, a.From + Vector3.up * (1.0f * scale), v * rng.Range(0.85f, 1f) + rng.OnSphere() * 0.6f, rng.Range(0.07f, 0.12f) * scale, GoreRed, ref rng, 8f);
+                    debris.Throw(DebrisRenderer.Piece.Clod, a.From + Vector3.up * (1.0f * scale), v * rng.Range(0.85f, 1f) + rng.OnSphere() * 0.6f, GoreScale.Sized(GoreScale.LumpShare, ViewZoom()) * rng.Range(0.7f, 1.15f), GoreRed, ref rng, 8f);
             }
             // a card of blood where the round or the claw struck, when the build has the book
             if (bloodBook == -2) bloodBook = System.Enum.TryParse("BloodSpurt", out FlipbookFx.Book found) ? (int)found : -1;
