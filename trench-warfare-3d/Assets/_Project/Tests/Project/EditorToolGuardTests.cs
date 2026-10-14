@@ -86,5 +86,21 @@ namespace TW.Tests
                 instanceHolder.GetField("Instance", BindingFlags.Static | BindingFlags.Public)
                               ?.SetValue(null, null);
         }
+        [Test]   // [M6] TankCapture.Spawn took any team and any archetype and clamped them into the roster
+        public void ASpawnOffTheMatchTableIsRefused()
+        {
+            Assert.IsNotNull(TankCapture.SpawnError(2, 0), "[M6] team 2 is not a team, so a spawn must be refused");
+            Assert.IsNotNull(TankCapture.SpawnError(0, -1), "[M6] archetype -1 is not in the match table");
+            Assert.IsNull(TankCapture.SpawnError(0, 0), "[M6] team 0, archetype 0 is a rifleman and must be allowed");
+        }
+
+        [Test]   // [M6] RiderLab parsed every spawn answer, "slot -1" included, and then indexed the world with it
+        public void OnlyARealSlotIsReadOutOfASpawnAnswer()
+        {
+            Assert.IsFalse(RiderLab.Slot("slot -1", out _), "[M6] slot -1 is not a slot");
+            Assert.IsFalse(RiderLab.Slot("no SimHost", out _), "[M6] an error message holds no slot");
+            Assert.IsTrue(RiderLab.Slot("slot 7", out int s), "[M6] slot 7 is a slot");
+            Assert.AreEqual(7, s, "[M6] the slot read back must be the one the spawn said");
+        }
     }
 }

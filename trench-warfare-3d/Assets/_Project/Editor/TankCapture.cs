@@ -74,16 +74,30 @@ namespace TW.Editor
         public static string Silver(int amount = 100000)
         {
             var h = Host; if (h == null) return "no SimHost";
-            if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            h.WriteWorlds(m => { for (int p = 0; p < SimConfig.MaxPlayers; p++) m.World.Silver[p] = amount; });   // one world, or both in the canary
+            // [M6] WriteWorlds aligns the worlds itself and writes nothing when it cannot; docs/03 says abort on false.
+            if (!h.WriteWorlds(m => { for (int p = 0; p < SimConfig.MaxPlayers; p++) m.World.Silver[p] = amount; }))   // one world, or both in the canary
+                return Apart;
             return "silver " + amount;
         }
+
+        /// <summary>Why a Spawn would be wrong, or null when team and archetype are both on this match's table. Pure, so
+        /// a test can ask it without a SimHost: Spawn casts both to a byte, so an out-of-range value used to index the
+        /// roster with a clamp and quietly become something else.</summary>
+        public static string SpawnError(int team, int archetype)
+        {
+            if (team < 0 || team > 1) return "team must be 0 or 1";
+            if (archetype < 0 || archetype >= Archetypes.Count) return "archetype " + archetype + " is not in the match table";
+            return null;
+        }
+
+        const string Apart = "worlds a tick apart (waiting on the network): try again";
 
         /// <summary>A unit at an exact place in both worlds, with the stats the match table gives its archetype.</summary>
         public static string Spawn(int team, int archetype, float x, float z, float yawDeg = -999f)
         {
             var h = Host; if (h == null) return "no SimHost";
-            if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
+            string bad = SpawnError(team, archetype); if (bad != null) return bad;   // [M6] a team or archetype off the table spawned a rifleman and said nothing
+            if (!h.AlignWorlds()) return Apart;
             // The table of THIS match, not a chain of ternaries: the chain listed six machines and stopped, so a Banner,
             // a Redoubt or a Breaker spawned here got a rifleman's hit points and nothing said so.
             var world = h.Local.World;
@@ -100,8 +114,8 @@ namespace TW.Editor
         public static string Ignite(int slot, float fire = 0.62f)
         {
             var h = Host; if (h == null || h.Local.Modules == null) return "no modules";
-            if (!h.AlignWorlds()) return "worlds a tick apart (waiting on the network): try again";
-            h.WriteWorlds(m => m.Modules.Fire[slot] = fire);
+            if (!h.Local.World.IsAlive(slot)) return "slot " + slot + " is not alive";
+            if (!h.WriteWorlds(m => m.Modules.Fire[slot] = fire)) return Apart;   // [M6] nothing written when the worlds are apart
             return "fire " + fire;
         }
 

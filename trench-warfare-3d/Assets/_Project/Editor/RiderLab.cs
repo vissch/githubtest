@@ -50,10 +50,9 @@ namespace TW.Editor
             if (x < 0f) x = size.x * 0.5f;
             if (z < 0f) z = size.y * 0.45f;
             string spawned = TankCapture.Spawn(team, archetype, x, z, yawDeg);
-            if (!spawned.StartsWith("slot ")) return spawned;
-            int slot = int.Parse(spawned.Substring(5));
+            if (!Slot(spawned, out int slot)) return spawned;
             LastSlot = slot; SetupAt = Time.time;
-            Hold(slot, true);
+            string bad = Hold(slot, true); if (bad != null) return bad;
             var p = h.Local.World.Position[slot];   // the sim may have moved it: read it back
             var men = new List<int>();
             if (climb)
@@ -63,7 +62,7 @@ namespace TW.Editor
                 {
                     float a = back + (k - (riders - 1) * 0.5f) * 0.16f, r = 13f + (k % 3) * 1.6f;
                     string m = TankCapture.Spawn(team, 0, p.x + Mathf.Sin(a) * r, p.z + Mathf.Cos(a) * r, yawDeg);
-                    if (m.StartsWith("slot ")) { int s = int.Parse(m.Substring(5)); men.Add(s); Hold(s, true); }
+                    if (Slot(m, out int s)) { men.Add(s); Hold(s, true); }
                 }
             }
             Get().Pending = new Boarding { Slot = slot, Riders = climb ? 0 : riders, Men = men.ToArray(), Frames = 3 };
@@ -85,21 +84,47 @@ namespace TW.Editor
             {
                 float a = back + (k - (n - 1) * 0.5f) * 0.16f, r = 12f + (k % 3) * 1.6f;
                 string m = TankCapture.Spawn(w.Team[slot], 0, p.x + Mathf.Sin(a) * r, p.z + Mathf.Cos(a) * r, yaw * Mathf.Rad2Deg);
-                if (m.StartsWith("slot ")) { int s = int.Parse(m.Substring(5)); men.Add(s); Hold(s, true); }
+                if (Slot(m, out int s)) { men.Add(s); Hold(s, true); }
             }
             Get().Pending = new Boarding { Slot = slot, Riders = 0, Men = men.ToArray(), Frames = 2 };
             Watch();
             return men.Count + " men running in to slot " + slot;
         }
 
-        /// <summary>Hold a unit still in the sim (speed 0), or let it go at its old speed.</summary>
-        static void Hold(int slot, bool on)
+        /// <summary>[M6] The slot in a TankCapture.Spawn answer, or false for anything else ("no SimHost", a MISMATCH,
+        /// or the "slot -1" a failed spawn can say): a bad slot used to be parsed and then used to index the world.</summary>
+        public static bool Slot(string spawned, out int slot)
         {
-            var h = Host; if (h == null || h.Local == null) return;
+            slot = -1;
+            if (spawned == null || !spawned.StartsWith("slot ")) return false;
+            return int.TryParse(spawned.Substring(5), out slot) && slot >= 0;
+        }
+
+        /// <summary>Hold a unit still in the sim (speed 0), or let it go at its old speed. Null when it was done;
+        /// a message when the slot is not a living unit or the worlds are a tick apart (nothing is remembered then).</summary>
+        static string Hold(int slot, bool on)
+        {
+            var h = Host; if (h == null || h.Local == null) return "no SimHost";
             var w = h.Local.World;
+            if (slot < 0 || !w.IsAlive(slot)) return "slot " + slot + " is not alive";
             bool vehicle = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
-            if (on) { if (!held.ContainsKey(slot)) held[slot] = w.Speed[slot]; h.WriteWorlds(m => m.World.Speed[slot] = 0f); if (vehicle) pinnedYaw[slot] = w.Yaw[slot]; }
-            else { pinnedYaw.Remove(slot); if (held.TryGetValue(slot, out float sp)) { held.Remove(slot); h.WriteWorlds(m => m.World.Speed[slot] = sp); } }
+            if (on)
+            {
+                float sp0 = w.Speed[slot];
+                if (!h.WriteWorlds(m => m.World.Speed[slot] = 0f)) return "worlds a tick apart: try again";   // [M6] docs/03: abort on false
+                if (!held.ContainsKey(slot)) held[slot] = sp0;
+                if (vehicle) pinnedYaw[slot] = w.Yaw[slot];
+            }
+            else
+            {
+                if (held.TryGetValue(slot, out float sp))
+                {
+                    if (!h.WriteWorlds(m => m.World.Speed[slot] = sp)) return "worlds a tick apart: try again";
+                    held.Remove(slot);
+                }
+                pinnedYaw.Remove(slot);
+            }
+            return null;
         }
 
         /// <summary>Real men take these riders' places: board from where they stand.</summary>
@@ -107,6 +132,8 @@ namespace TW.Editor
         {
             var t = Tanks; var h = Host; if (t == null || h == null) return "no TankRenderer";
             var w = h.Local.World;
+            if (slot < 0 || !w.IsAlive(slot)) return "slot " + slot + " is not alive";   // [M6] an unchecked slot indexed the world
+            for (int i = 0; i < men.Length; i++) if (men[i] < 0 || !w.IsAlive(men[i])) return "man slot " + men[i] + " is not alive";
             var from = new Vector3[men.Length]; var yaw = new float[men.Length];
             for (int i = 0; i < men.Length; i++)
             {
@@ -152,7 +179,7 @@ namespace TW.Editor
             return $"slot {slot} walking to z {gz:0.0}";
         }
 
-        public static string Stop(int slot) { Hold(slot, true); return "slot " + slot + " held"; }
+        public static string Stop(int slot) { string bad = Hold(slot, true); return bad ?? "slot " + slot + " held"; }
 
         /// <summary>Destroy the machine (its riders are thrown off).</summary>
         public static string Kill(int slot)
@@ -173,7 +200,7 @@ namespace TW.Editor
             {
                 float a = yaw + (k - (count - 1) * 0.5f) * 0.09f;
                 string m = TankCapture.Spawn(team, 0, p.x + Mathf.Sin(a) * ahead, p.z + Mathf.Cos(a) * ahead, yaw * Mathf.Rad2Deg + 180f);
-                if (m.StartsWith("slot ")) { Hold(int.Parse(m.Substring(5)), true); made++; }
+                if (Slot(m, out int s)) { Hold(s, true); made++; }
             }
             return $"{made} enemies {ahead:0} m ahead of slot {slot}";
         }
