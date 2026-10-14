@@ -18,6 +18,7 @@ using TW.Presentation;
 using TW.Presentation.Tactical;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 
 namespace TW.UI
 {
@@ -49,6 +50,9 @@ namespace TW.UI
         HudHotkeys hotkeys;
         BattleHud legacy;
         bool built, visible = true, flagOn;
+        /// <summary>The lay order waiting for its ground click (the sapper's), or None.</summary>
+        UnitAbilityId layArmed = UnitAbilityId.None;
+        readonly System.Collections.Generic.List<SimCommand> layCommands = new System.Collections.Generic.List<SimCommand>();
         int pickFrame = -1; bool pickHit; Vector2 pickAt;   // one pick per frame and point (callers ask about the mouse, captures about their own cursor)
         float nextLegacyCheck;
         static readonly ProfilerMarkerScope refreshMarker = new ProfilerMarkerScope("TW.Hud.Refresh");
@@ -170,6 +174,16 @@ namespace TW.UI
                 };
                 tooltip.Attach(b, idx == 0 ? "PAUSE" : "SPEED " + HudView.SpeedText(idx), idx == 0 ? HudText.PauseTip : HudText.SpeedTip);
             }
+            if (refs.LayMine != null)
+            {
+                refs.LayMine.clicked += () => ToggleLay(UnitAbilityId.LayMine);
+                tooltip.Attach(refs.LayMine, HudText.LayMineName, HudText.LayMineTip);
+            }
+            if (refs.LayTripwire != null)
+            {
+                refs.LayTripwire.clicked += () => ToggleLay(UnitAbilityId.LayTripwire);
+                tooltip.Attach(refs.LayTripwire, HudText.LayTripwireName, HudText.LayTripwireTip);
+            }
             // the gauges explain their side figures (income, the enemy's count, PAUSED)
             var root = doc.rootVisualElement;
             foreach (var (name, heading, text) in new[] { ("gauge-silver", "SILVER", HudText.SilverGaugeTip), ("gauge-men", "MEN", HudText.MenGaugeTip), ("gauge-time", "TIME", HudText.TimeGaugeTip) })
@@ -209,6 +223,50 @@ namespace TW.UI
             if (w.WinnerTeam >= 0 || !OffMapAbilitySystem.TryGetStats((int)id, out var st)) return;
             if (Host.Local.Abilities == null || Host.Local.Abilities.CooldownOf(0, id) > 0 || w.Silver[0] < st.Cost) return;
             Panel.Arm(id);
+        }
+
+        /// <summary>
+        /// Arm the sapper's lay order, or cancel it if it is the one already armed. Refused while a shell screen has the
+        /// input, with no TestPanel to give us a ground point, once the match is over, or when the selection offers no
+        /// sapper with a charge left (the row is not even there then).
+        /// </summary>
+        public void ToggleLay(UnitAbilityId id)
+        {
+            if (id != UnitAbilityId.LayMine && id != UnitAbilityId.LayTripwire) return;
+            if (layArmed == id) { layArmed = UnitAbilityId.None; return; }
+            if (!Interactive || Panel == null || Host?.Local == null || selection == null) return;
+            var w = Host.Local.World;
+            if (w.WinnerTeam >= 0 || Host.Local.Sapper == null) return;
+            if (!SapperOrders.Any(w, Host.Local.Sapper, selection.Model.Items)) return;
+            if (SapperOrders.Charges(w, Host.Local.Sapper, selection.Model.Items) <= 0) return;
+            layArmed = id;
+        }
+
+        /// <summary>
+        /// The armed lay order's click: Esc or right click cancels, a left press on the ground sends one UnitAbility
+        /// command per selected sapper. The press is then spent (TestPanel.SpendAim) so the selection does not also read
+        /// it as a click on empty field and drop the men who were just ordered.
+        /// </summary>
+        void LayClick()
+        {
+            if (layArmed == UnitAbilityId.None) return;
+            if (!Interactive || Host?.Local == null || Panel == null) { layArmed = UnitAbilityId.None; return; }
+            var kb = Keyboard.current; var mouse = Mouse.current;
+            if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame))
+            {
+                if (kb != null && kb.escapeKey.wasPressedThisFrame) InputFocus.ConsumeEscape();   // this Esc cancelled the order; it does not also open the menu
+                layArmed = UnitAbilityId.None;
+                return;
+            }
+            if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
+            if (!Panel.TryGroundPoint(out var point)) return;   // over HUD chrome or off the map: not a lay
+            var w = Host.Local.World;
+            layCommands.Clear();
+            if (selection != null) SapperOrders.Commands(w, Host.Local.Sapper, selection.Model.Items, layArmed, point, layCommands);
+            for (int i = 0; i < layCommands.Count; i++) Host.Issue(layCommands[i]);
+            layCommands.Clear();
+            layArmed = UnitAbilityId.None;
+            Panel.SpendAim();
         }
 
         void Order(CommandType type, int trench, int b)
@@ -317,6 +375,7 @@ namespace TW.UI
             using (dialogueMarker.Auto()) dialogue?.Tick(Time.unscaledDeltaTime);
             using (selectionMarker.Auto())
             {
+                LayClick();   // before the selection reads the mouse: that press is the lay order's, not a click on the field
                 selection?.Tick(Interactive);
                 using (selPanelMarker.Auto()) selectionPanel?.Refresh();
             }
@@ -349,7 +408,12 @@ namespace TW.UI
                         HudView.BindSupportCard(c, silver, cd, total, armed == c.Ability, over, tickSeconds);
                     }
                 }
-                HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHintFor(Panel != null && Panel.Aim.IsLine, OffMapAbilitySystem.TryGetStats((int)armed, out var armedStats) && (armedStats.Patterns & ~1) != 0) : null);
+                var sapper = Host.Local.Sapper;
+                bool anySapper = selection != null && SapperOrders.Any(w, sapper, selection.Model.Items);
+                if (!anySapper && layArmed != UnitAbilityId.None) layArmed = UnitAbilityId.None;   // the last sapper died or was dropped
+                HudView.BindSapperOrders(refs, anySapper, anySapper ? SapperOrders.Charges(w, sapper, selection.Model.Items) : 0, over, layArmed);
+                if (layArmed != UnitAbilityId.None) { HudView.ShowHint(refs, HudText.LayHint); }
+                else HudView.ShowHint(refs, armed != OffMapAbilityId.None ? HudText.AimHintFor(Panel != null && Panel.Aim.IsLine, OffMapAbilitySystem.TryGetStats((int)armed, out var armedStats) && (armedStats.Patterns & ~1) != 0) : null);
             }
 
             // the rest

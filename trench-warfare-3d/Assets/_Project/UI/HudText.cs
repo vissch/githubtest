@@ -8,6 +8,7 @@
 // table for the Toolkit HUD and for tests; everything below the unit words is the Toolkit HUD's own.
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 using TW.Presentation;
 
 namespace TW.UI
@@ -109,6 +110,16 @@ namespace TW.UI
             string hint = line ? AimLineHint : AimHint;
             return patterns ? hint : hint.Replace("  Tab changes the pattern.", "");
         }
+        // ---- the selected unit's own orders (SapperOrders): a sapper lays mines and tripwires ------------------
+        public const string LayMineName = "LAY MINE", LayTripwireName = "LAY TRIPWIRE";
+        public const string LayMineTip = "Send the selected sappers to bury a mine where you click";
+        public const string LayTripwireTip = "Send the selected sappers to string a 6 m tripwire across the front";
+        public const string NoCharges = "NO CHARGES";
+        public const string LayHint = "Click the ground to lay.  Esc or right click cancels.";
+        /// <summary>The key on a lay button: whatever KeyMap binds it to now, as SupportHotkey does.</summary>
+        public static string LayHotkey(UnitAbilityId id) => Badge(KeyMap.Display(KeyMap.Primary(
+            id == UnitAbilityId.LayTripwire ? GameAction.LayTripwire : GameAction.LayMine)));
+
         public const string LockedTip = "Locked: reinforcements pass through to the next trench. Click to open";
         public const string OpenTip = "Open: reinforcements stop here. Click to lock";
         public const string FallbackTip = "Fall back to the trench behind";

@@ -8,6 +8,7 @@ using UnityEngine;
 using UnityEngine.UIElements;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 using TW.Presentation;
 
 namespace TW.UI
@@ -41,12 +42,15 @@ namespace TW.UI
         public VisualElement Bar, RosterInfantry, RosterArmour, Support;
         public VisualElement Tooltip; public Label TooltipTitle, TooltipBody, TooltipCost, Hint;
         public VisualElement OrdersLayer, Banner, PausePlate; public Label BannerText;
+        /// <summary>The selected unit's own orders, over the bar: a sapper's mine and tripwire (SapperOrders).</summary>
+        public VisualElement UnitOrders; public Button LayMine, LayTripwire; public Label LayMineKey, LayTripwireKey, OrderNote;
         public readonly List<CardRefs> Cards = new List<CardRefs>(RosterEntry.SlotCount + 2);
         public readonly List<CardRefs> SupportCards = new List<CardRefs>(HudText.SupportCards);
         // cached values
         public int LastSilver = int.MinValue, LastMen = -1, LastEnemy = -1, LastSeconds = -1, LastSpeedIdx = -1;
         public float LastIncome = float.NaN;
         public bool LastPaused;
+        public bool LastOrdersShown, LastOrdersSpent, LastMineArmed, LastWireArmed;
     }
 
     public static class HudView
@@ -59,6 +63,7 @@ namespace TW.UI
             "minimap-dots", "minimap-view", "speed-bar", "speed-pause", "speed-1", "speed-2", "speed-4", "speed-8", "bar",
             "roster-infantry", "roster-armour", "support", "tooltip", "tooltip-title", "tooltip-body", "tooltip-cost", "hint",
             "orders-layer", "banner", "banner-text", "pause-plate",
+            "unit-orders", "order-laymine", "order-laytripwire",
         };
         public static readonly string[] IgnorePickingNames = { "hud-root", "region-topleft", "region-topright", "region-bottom", "orders-layer", "banner", "hint", "tooltip", "pause-plate" };
 
@@ -106,6 +111,12 @@ namespace TW.UI
             r.Bar = root.Q("bar"); r.RosterInfantry = root.Q("roster-infantry"); r.RosterArmour = root.Q("roster-armour"); r.Support = root.Q("support");
             r.Tooltip = root.Q("tooltip"); r.TooltipTitle = root.Q<Label>("tooltip-title"); r.TooltipBody = root.Q<Label>("tooltip-body");
             r.TooltipCost = root.Q<Label>("tooltip-cost"); r.Hint = root.Q<Label>("hint");
+            r.UnitOrders = root.Q("unit-orders");
+            r.LayMine = root.Q<Button>("order-laymine"); r.LayTripwire = root.Q<Button>("order-laytripwire");
+            r.LayMineKey = root.Q<Label>("order-laymine-key"); r.LayTripwireKey = root.Q<Label>("order-laytripwire-key");
+            r.OrderNote = root.Q<Label>("order-note");
+            if (r.LayMineKey != null) r.LayMineKey.text = HudText.LayHotkey(UnitAbilityId.LayMine);
+            if (r.LayTripwireKey != null) r.LayTripwireKey.text = HudText.LayHotkey(UnitAbilityId.LayTripwire);
             r.OrdersLayer = root.Q("orders-layer"); r.Banner = root.Q("banner"); r.BannerText = root.Q<Label>("banner-text"); r.PausePlate = root.Q("pause-plate");
 
             for (int s = 0; s < roster.Length; s++)
@@ -302,6 +313,28 @@ namespace TW.UI
             last = on;
             return true;
         }
+
+        /// <summary>
+        /// The lay-mine / lay-tripwire row: there only while a sapper of ours is selected and the match runs; with no
+        /// charge left it stays, with both buttons dead and NO CHARGES beside them, so the player can see why.
+        /// </summary>
+        public static void BindSapperOrders(HudRefs r, bool any, int charges, bool over, UnitAbilityId armed)
+        {
+            if (r?.UnitOrders == null) return;
+            bool show = any && !over;
+            bool spent = charges <= 0;
+            Toggle(r.UnitOrders, "is-visible", show, ref r.LastOrdersShown);
+            if (spent != r.LastOrdersSpent)
+            {
+                r.LayMine?.SetEnabled(!spent); r.LayTripwire?.SetEnabled(!spent);
+                if (r.OrderNote != null) { r.OrderNote.text = spent ? HudText.NoCharges : ""; r.OrderNote.EnableInClassList("is-visible", spent); }
+                r.LastOrdersSpent = spent;
+            }
+            if (r.LayMine != null) Toggle(r.LayMine, ArmedClass, show && armed == UnitAbilityId.LayMine, ref r.LastMineArmed);
+            if (r.LayTripwire != null) Toggle(r.LayTripwire, ArmedClass, show && armed == UnitAbilityId.LayTripwire, ref r.LastWireArmed);
+        }
+
+        public const string ArmedClass = "hud-unit-orders__btn--armed";
 
         public static void ShowHint(HudRefs r, string text)
         {

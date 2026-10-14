@@ -7,6 +7,7 @@ using UnityEngine.InputSystem;
 using TW.Presentation;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.Sim.Units;
 
 namespace TW.UI
 {
@@ -37,6 +38,9 @@ namespace TW.UI
             if (KeyMap.Down(GameAction.ArmSmoke)) hud.ToggleArm(OffMapAbilityId.SmokeScreen);
             if (KeyMap.Down(GameAction.ArmStrafe)) hud.ToggleArm(OffMapAbilityId.StrafeRun);
             if (KeyMap.Down(GameAction.ArmBeam)) hud.ToggleArm(OffMapAbilityId.Beam);
+            // the selected sappers' own orders: X arms a mine, T a tripwire (the click on the ground lays it)
+            if (KeyMap.Down(GameAction.LayMine)) hud.ToggleLay(UnitAbilityId.LayMine);
+            if (KeyMap.Down(GameAction.LayTripwire)) hud.ToggleLay(UnitAbilityId.LayTripwire);
             if (KeyMap.Down(GameAction.Advance)) hud.OrderFront(CommandType.TrenchAdvance);
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);
             if (KeyMap.Down(GameAction.SpeedDown)) hud.Clock?.StepSpeed(-1);

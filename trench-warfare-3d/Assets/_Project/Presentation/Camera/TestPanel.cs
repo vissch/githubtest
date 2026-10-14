@@ -36,6 +36,9 @@ namespace TW.Presentation.Tactical
         /// on release: critic r5, 2026-09-27).</summary>
         public int AimSpentFrame { get; private set; } = -1;
         public AbilityAim Aim => aim;
+        /// <summary>Claim this frame's left press for an order of the HUD's own (the sapper's lay click), so
+        /// SelectionController swallows it instead of taking it for a click on the field and clearing the selection.</summary>
+        public void SpendAim() => AimSpentFrame = Time.frameCount;
         /// <summary>Arm an ability, or None to cancel. What the match did not field (the launch request's mask for our seat,
         /// 0 = everything) cannot be armed here either: the debug panel is no back door round the Home Front's unlocks.</summary>
         public void Arm(OffMapAbilityId id)

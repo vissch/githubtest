@@ -59,6 +59,18 @@
 .hud-hint { position: absolute; bottom: 230px; left: 0; right: 0; -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }
 .hud-hint.is-visible { display: flex; }
 
+/* the selected unit's own orders, a row over the bar (HudController / SapperOrders): shown only while a sapper of
+   ours is selected, dimmed with a note when he has nothing left to lay. Clear of .hud-hint's 230 px band. */
+.hud-unit-orders { position: absolute; bottom: 262px; left: 50%; translate: -50% 0; flex-direction: row; align-items: center; padding: 6px 10px; display: none; }
+.hud-unit-orders.is-visible { display: flex; }
+.hud-unit-orders__btn { flex-direction: row; align-items: center; height: 34px; padding: 0 12px; margin-right: 8px; }
+.hud-unit-orders__name { color: var(--tw-text-bright); margin-right: 8px; }
+.hud-unit-orders__key { min-width: 20px; padding: 0 5px; font-size: 12px; color: var(--tw-accent); background-color: var(--tw-plate-900); border-radius: var(--tw-radius-sm); -unity-text-align: middle-center; }
+.hud-unit-orders__btn.hud-unit-orders__btn--armed { border-color: var(--tw-accent); }
+.hud-unit-orders__btn:disabled { opacity: 0.45; }
+.hud-unit-orders__note { color: var(--tw-accent); margin-left: 2px; display: none; }
+.hud-unit-orders__note.is-visible { display: flex; }
+
 /* trench order clusters */
 .hud-orders-layer { position: absolute; left: 0; top: 0; right: 0; bottom: 0; }
 .hud-orders { position: absolute; left: 0; top: 0; flex-direction: column; align-items: center; width: 340px; }
