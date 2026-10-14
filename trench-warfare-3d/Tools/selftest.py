@@ -206,6 +206,21 @@ def codemap_cases(wt: pathlib.Path):
     expect('agent-memory.md over its cap', 'agent-memory.md is',
            lambda: mem.write_bytes(mem.read_bytes() + b''.join(b'- filler %d\n' % i for i in range(200))))
 
+    # [H19.1] write_all used to check and write each doc in the same loop iteration: a bad marker in a later doc
+    # left the earlier, already-rewritten docs on disk even though the regenerate as a whole failed.
+    cm_text = cm.read_bytes().decode('utf-8')
+    cm.write_bytes(cm_text.replace(opener + '\n', f'{opener}\n{kept}\n', 1).encode('utf-8'))
+    wf2 = wt / 'docs/reference/workflow.md'
+    wf2_opener = '<!-- gen:eval-api -->'
+    wf2_text = wf2.read_text(encoding='utf-8')
+    wf2.write_bytes(wf2_text.replace(wf2_opener + '\n', wf2_opener + '\n\n' + wf2_opener + '\n', 1).encode('utf-8'))
+    code, out = run([sys.executable, 'Tools/codemap.py'], proj)
+    case('[H19.1] a regenerate writes every doc or none: a bad marker in the last doc leaves the first one alone',
+         code != 0 and 'wrote' not in out and kept in cm.read_bytes().decode('utf-8') and 'workflow.md' in out,
+         f'exit {code}: {out}')
+    run(['git', 'checkout', '-q', '--', '.'], wt)
+    run(['git', 'clean', '-qfd'], wt)
+
 
 def validate_cases(wt: pathlib.Path):
     proj = wt / 'trench-warfare-3d'
@@ -531,6 +546,75 @@ def port_split_no_merge_case(tmp: pathlib.Path):
     code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--merge'], r)
     case('[H20] port_split --merge outside a merge says so instead of a traceback',
          code == 1 and 'not in a merge' in out and 'Traceback' not in out, f'[H20] exit {code}: {out}')
+
+
+def port_split_unrelated_merge_case(tmp: pathlib.Path):
+    # [H20.3] MERGE_HEAD exists (we are really in a merge) but the two histories share no common ancestor, so
+    # merge-base itself fails. That used to fall into the same except as "no MERGE_HEAD" and print "not in a
+    # merge", which is simply wrong: we are in a merge.
+    r = tmp / 'unrelated-merge-repo'
+    r.mkdir(parents=True)
+    g = lambda *a: run(['git', '-c', 'user.name=t', '-c', 'user.email=t@t', *a], r)
+    (r / 'A').mkdir()
+    g('init', '-q', '-b', 'main')
+    (r / 'A/Big.cs').write_text('class Big\n{\n    int keep0 = 0;\n}\n')
+    g('add', '.'); g('commit', '-qm', 'main root')
+    g('checkout', '--orphan', 'other')
+    (r / 'A/Big.cs').write_text('class Big\n{\n    int keep0 = 1;\n}\n')
+    g('add', '.'); g('commit', '-qm', 'other root')
+    g('checkout', '-q', 'main')
+    code, mrg = g('merge', '--allow-unrelated-histories', '--no-commit', 'other')
+    code, out = run([sys.executable, str(HERE / 'port_split.py'), 'A/Big.cs', '--merge'], r)
+    case('[H20.3] port_split --merge in a merge of unrelated histories does not claim "not in a merge"',
+         code != 0 and 'not in a merge' not in out and 'common ancestor' in out and 'Traceback' not in out,
+         f'exit {code}: {mrg}\n{out}')
+
+
+def skill_docs_cases(tmp: pathlib.Path):
+    # [K6s.1] / [K5s.1] exercise test_skill_docs.py's K6s and K5s checks against a small fake repo, rather than
+    # against the lane's real .claude/skills, so the case stays stable no matter what the real docs say.
+    root = tmp / 'skilldocs-repo'
+    skills = root / '.claude/skills'
+    (skills / 'pipeline').mkdir(parents=True)
+    (skills / 'tw-master').mkdir(parents=True)
+    tools = root / 'trench-warfare-3d/Tools'
+    (tools / 'pipeline').mkdir(parents=True)
+    (tools / 'pipeline/stations.json').write_text(json.dumps({'laptop': {'hosts': [], 'caps': []}}))
+    shutil.copy2(HERE / 'test_skill_docs.py', tools / 'test_skill_docs.py')
+
+    def run_case(name, method):
+        return run([sys.executable, '-m', 'unittest', f'test_skill_docs.SkillDocsTest.{method}'], tools)
+
+    pipeline_doc = skills / 'pipeline/SKILL.md'
+    master_doc = skills / 'tw-master/SKILL.md'
+
+    pipeline_doc.write_text(
+        'See the role skill under .claude/skills/ and .claude/agents/tw-critic.md.\n'
+        'TW_STATION=laptop\n'
+    )
+    master_doc.write_text('TW_STATION=laptop\n')
+    (root / '.claude/agents').mkdir(parents=True)
+    (root / '.claude/agents/tw-critic.md').write_text('x\n')
+    code, out = run_case(
+        'ok', 'test_k6s_pipeline_skill_cites_no_missing_claude_path')
+    case('[K6s.1] a skill doc may cite .claude/agents when that folder exists',
+         code == 0, f'exit {code}: {out}')
+
+    pipeline_doc.write_text(
+        'See the role skill under .claude/skills/ and .claude/ghosts/x.md.\n'
+        'TW_STATION=laptop\n'
+    )
+    code, out = run_case(
+        'ghost', 'test_k6s_pipeline_skill_cites_no_missing_claude_path')
+    case('[K6s.1] a cited .claude/<dir> that is not there is still caught',
+         code != 0 and 'does not exist' in out, f'exit {code}: {out}')
+
+    pipeline_doc.write_text('See the role skill under .claude/skills/.\nTW_STATION and laptop are both used here.\n')
+    master_doc.write_text('TW_STATION and laptop are both used here, on different lines.\n')
+    code, out = run_case(
+        'words', 'test_k5s_docs_say_to_set_tw_station_on_a_hostless_station')
+    case('[K5s.1] the TW_STATION check refuses a doc that only mentions the words',
+         code != 0, f'exit {code}: {out}')
 
 
 def land_cases(tmp: pathlib.Path):
@@ -1212,6 +1296,26 @@ def perfcmp_cases(tmp: pathlib.Path):
          r.returncode == 1 and 'not a PerfBench report' in out and 'Traceback' not in out,
          f'[H20] exit {r.returncode}: {out}')
 
+    # [H20.2] json.load's own error (not valid JSON at all) and a report whose per_tick_ms is missing or not a
+    # dict both used to reach the same lines and traceback; both are now named instead.
+    not_json = tmp / 'perf-not-json.json'
+    not_json.write_text('not json at all')
+    r = subprocess.run([sys.executable, str(HERE / 'perfcmp.py'), str(a), str(not_json)], capture_output=True)
+    out = (r.stdout + r.stderr).decode()
+    case('[H20.2] perfcmp names a file that is not JSON instead of a traceback',
+         r.returncode == 1 and 'perf-not-json.json' in out and 'JSON' in out and 'Traceback' not in out,
+         f'[H20.2] exit {r.returncode}: {out}')
+
+    no_ticks = tmp / 'perf-no-per-tick.json'
+    no_ticks_report = report('h1', 'no-ticks')
+    no_ticks_report['per_tick_ms'] = None
+    no_ticks.write_text(json.dumps(no_ticks_report))
+    r = subprocess.run([sys.executable, str(HERE / 'perfcmp.py'), str(no_ticks), str(no_ticks)], capture_output=True)
+    out = (r.stdout + r.stderr).decode()
+    case('[H20.2] perfcmp names a report whose per_tick_ms is missing instead of a traceback',
+         r.returncode == 0 and 'no per_tick_ms' in out and 'Traceback' not in out,
+         f'[H20.2] exit {r.returncode}: {out}')
+
 
 def scorecard_cases():
     sys.path.insert(0, str(HERE))
@@ -1305,6 +1409,8 @@ def main():
         port_split_rerun_case(tmp)
         port_split_merge_case(tmp)
         port_split_no_merge_case(tmp)
+        port_split_unrelated_merge_case(tmp)
+        skill_docs_cases(tmp)
         scorecard_cases()
         gate_scope_cases(tmp)
         land_cases(tmp)
