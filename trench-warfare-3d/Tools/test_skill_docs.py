@@ -8,6 +8,10 @@ REPO = pathlib.Path(__file__).resolve().parents[2]
 PROJ = REPO / "trench-warfare-3d"
 
 
+def text_of(path):
+    return path.read_text(encoding="utf-8")
+
+
 class SkillDocsTest(unittest.TestCase):
     def test_k1s_unity_pipeline_warns_against_bare_unity_commands(self):
         """[K1s] unity-pipeline/SKILL.md must warn to drive via Tools/tw, not a bare `unity` call."""
@@ -159,6 +163,89 @@ class SkillDocsTest(unittest.TestCase):
         self.assertTrue(
             "2026-09-28" in bc_line or "go given" in bc_line.lower(),
             "[K8s] tw-vfx-sheets/SKILL.md should name the 2026-09-28 go",
+        )
+
+    def test_k10s_stale_symbols_are_gone_from_skill_docs(self):
+        """[K10s] no skill doc should cite CrabNames/CrabArchetypes, ChainV9, or call Mercy Playground-only,
+        and the FormatVersion / hash-chain names they do cite must match the real code."""
+        skills_dir = REPO / ".claude/skills"
+        for path in skills_dir.rglob("*.md"):
+            text = path.read_text(encoding="utf-8")
+            for stale in ("CrabNames", "CrabArchetypes", "ChainV9"):
+                self.assertNotIn(stale, text, "[K10s] %s still cites %s" % (path, stale))
+            self.assertNotRegex(
+                text, r"Mercy[^\n]*only in the Playground",
+                "[K10s] %s still calls Mercy Playground-only" % path,
+            )
+
+        replay_src = (PROJ / "Assets/_Project/Sim/Core/Replay.cs").read_text(encoding="utf-8")
+        real_format_version = int(re.search(r"FormatVersion\s*=\s*(\d+)", replay_src).group(1))
+
+        hash_tests_src = (PROJ / "Assets/_Project/Tests/Sim/SimHashTests.cs").read_text(encoding="utf-8")
+        self.assertIn(
+            "const string SystemChain", hash_tests_src,
+            "[K10s] expected SimHashTests.cs to still name its chain const SystemChain",
+        )
+
+        balance = (REPO / ".claude/skills/tw-balance-sim/references/balance.md").read_text(encoding="utf-8")
+        balance_fv = int(re.search(r"FormatVersion\s*(\d+)", balance).group(1))
+        self.assertEqual(
+            balance_fv, real_format_version, "[K10s] balance.md's FormatVersion is stale"
+        )
+
+        det = (REPO / ".claude/skills/tw-bug-catcher/references/determinism-and-verdicts.md").read_text(encoding="utf-8")
+        det_fv = int(re.search(r"FormatVersion\s*==?\s*(\d+)", det).group(1))
+        self.assertEqual(det_fv, real_format_version, "[K10s] determinism-and-verdicts.md's FormatVersion is stale")
+
+        det_lines = det.splitlines()
+        routing_line = next(l for l in det_lines if l.strip().startswith("7.") and "Routing" in l)
+        self.assertNotIn(
+            "the fix,", routing_line,
+            "[K10s] the bug-catcher routing bullet must only name an inbox note, never the fix, to match "
+            "SKILL.md's 'Never fix'",
+        )
+
+    def test_k12s_master_skill_names_the_quoted_file_exception(self):
+        """[K12s] tw-master/SKILL.md must say a docs/Tools-only lane still needs the full gate when it touches
+        a file a test quotes by name, matching land.py's is_code/tested_names check."""
+        land_src = (PROJ / "Tools/land.py").read_text(encoding="utf-8")
+        self.assertIn("def is_code(", land_src, "[K12s] expected land.py to still define is_code")
+        self.assertIn("tested_names", land_src, "[K12s] expected land.py's is_code to still use tested_names")
+
+        text = (REPO / ".claude/skills/tw-master/SKILL.md").read_text(encoding="utf-8")
+        lines = text.splitlines()
+        start = next((i for i, l in enumerate(lines) if "Lanes that touch only" in l), None)
+        self.assertIsNotNone(start, "[K12s] expected the docs/Tools-only lane line in tw-master/SKILL.md")
+        exception_block = "\n".join(lines[start:start + 4])
+        self.assertTrue(
+            "--dry-run" in exception_block or "quotes" in exception_block.lower(),
+            "[K12s] the docs/Tools-only lane line should name the --dry-run check or the quoted-file exception",
+        )
+
+    def test_k13s_examples_write_outside_the_checkout(self):
+        """[K13s] no skill doc example should write out.csv, dossier.html or perf.json as a bare checkout-relative
+        path: land.py then refuses a dirty tree, and none of the three is git-ignored."""
+        gitignore = (REPO / ".gitignore").read_text(encoding="utf-8")
+        for bare_name in ("out.csv", "dossier.html", "perf.json"):
+            self.assertNotIn(
+                bare_name, gitignore,
+                "[K13s] %s is not git-ignored, so an example writing it bare would land as a dirty file" % bare_name,
+            )
+
+        skills_dir = REPO / ".claude/skills"
+        offenders = []
+        for path in list(skills_dir.rglob("*.md")) + [REPO / "docs/reference/pipelines.md"]:
+            for line in text_of(path).splitlines():
+                if ("absolute path" in line.lower() or "run folder" in line.lower()
+                        or "not git-ignored" in line.lower()):
+                    continue
+                for m in re.finditer(r"[`\"]([\w./\\%-]*\b(?:out\.csv|dossier\.html|perf\.json))[`\"]", line):
+                    arg = m.group(1)
+                    if "/" not in arg and "\\" not in arg and "%" not in arg:
+                        offenders.append("%s: %s" % (path, arg))
+        self.assertEqual(
+            offenders, [],
+            "[K13s] found example(s) writing a bare filename into the checkout: %s" % offenders,
         )
 
 

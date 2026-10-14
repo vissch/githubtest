@@ -10,7 +10,8 @@ scorecard, codemap/validate/selftest requirements, the maintainability audit; sn
 The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations.md`.
 
 ## Review with the owner (`/pipeline review <item>`)
-1. Build `dossier.html` with, per stage:
+1. Build the dossier (written to the run folder on the board, not the checkout: a bare `dossier.html` is not
+   git-ignored and leaves the tree dirty for `land.py`) with, per stage:
    - the verdict and critic score;
    - the evidence per band (images plus numbers);
    - open findings and the diff stats.
@@ -31,7 +32,10 @@ the status site shows the lane as approved until it has landed. `python Tools/as
    - Split files: `port_split.py`.
    - Unity YAML is never hand-merged: BLOCKED, and ask.
 4. **Code lanes:** the full gate in the gate worktree (`githubtest-desk-gate`) with that lane checked out, editor closed. The green marker is per worktree, and an untracked file changes the recorded tree.
-   **Lanes that touch only `.claude/`, `Tools/` or `docs/`:** `validate.py` plus `selftest.py` are enough.
+   **Lanes that touch only `.claude/`, `Tools/` or `docs/`:** `validate.py` plus `selftest.py` are enough —
+   unless a file a test quotes by name changed (`Tools/land.py`'s `is_code`/`tested_names`, e.g.
+   `docs/17-ui-art-spec.md` or `Tools/envatlas.py`), which still needs the full gate. Check with
+   `python Tools/land.py --dry-run`: it says why when it refuses.
 5. `python Tools/land.py --dry-run`, then `python Tools/land.py`. A SHOW lane carrying SIM files needs `--carry-sim "<the owner's decision>"`.
 6. Before saying "land", the owner runs `python Tools/health.py --lanes` on the laptop: this machine cannot see the laptop's checkouts.
 

@@ -2,7 +2,9 @@
 
 ## Roster, chassis, size
 - Archetype ids (`Sim/Core/RosterEntry.cs`): Maw 4 (heavy tank), Tusk 5 (light tank), Pincer 6, Kettle 7, Censer 8, Pavise 9, Banner 10, Redoubt 11 (walkers), Breaker 18 (assault tank, `Sim/Units/Breaker.cs`).
-- `ChassisKind`: Foot 0, Tracked 1, Legged 2, Wheeled 3. Wheeled is declared, but no sim unit uses it; Mercy exists only in the Playground.
+- `ChassisKind`: Foot 0, Tracked 1, Legged 2, Wheeled 3. Wheeled is declared, but no sim unit uses it. Mercy is a real
+  shipped unit (sim id 24, `RosterEntry.cs:148`): a tracked field ambulance, unarmed, heals the men beside it — the
+  wheeled bog it was once pitched for never landed.
 - `VehicleSize.Walker = 2.5`, `VehicleSize.Tank = 1.7` (`Sim/Nav/VehicleKinematics.cs`). This is a seam item, baked into mesh vertices at load. A rebake must not fold it into crabsplit's own scale as well.
 - Walkers need about 10 m gaps between placed structures (tasks.md trap).
 
