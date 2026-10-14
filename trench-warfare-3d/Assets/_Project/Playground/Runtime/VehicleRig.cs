@@ -46,6 +46,7 @@ namespace TW.Playground
         public WalkerDrive Walker;                      // a machine on legs (tank3.json "walker"): walks it after the pose
         public FlyerDrive Flyer;                        // a flying machine (tank3.json "flyer"): flies its hull after the pose
         public HopDrive Hopper;                         // a machine that hops (tank3.json "hopper"): hops its hull after the pose
+        public GroundDrive Ground;                      // a tracked or wheeled machine (neither walker nor flyer): drives it after the pose
         /// <summary>A gatling's barrels (parts Barrels_L/R): how fast they turn now (degrees a second), and the rounds each
         /// gun has fired since it was built (left, right).</summary>
         public float BarrelSpeed { get; private set; }
@@ -80,6 +81,8 @@ namespace TW.Playground
         public int LodCount { get; private set; }
         // screen-height shares of the bounding sphere (8 m for this tank at 1.7x): LOD0 (7.8k tris, over the 3-5k vehicle
         // budget) for close-ups only (under ~45 m), LOD1 at the standard view's 78 m, LOD2 beyond ~145 m
+        /// <summary>The screen-share cuts `lodfit` and `lodpop` measure and report by: three levels, as the art is built.
+        /// What is DRAWN is picked by distance, the game's own rule (AutoLod, TankRenderer.DefaultLodDistance; Y3).</summary>
         public LodPicker Picker = new LodPicker(0.70f, 0.22f);
         public float Size = 1f;
         public string Model = "";                       // the library entry's name ("Croaker"), which is the game's model name:
@@ -200,6 +203,8 @@ namespace TW.Playground
             if (rig.Manifest.walker) rig.Walker = root.AddComponent<WalkerDrive>().Init(rig);
             if (rig.Manifest.flyer) rig.Flyer = root.AddComponent<FlyerDrive>().Init(rig);
             if (rig.Manifest.hopper) rig.Hopper = root.AddComponent<HopDrive>().Init(rig, e.Legs != null ? e.Legs.text : null);
+            // a tracked or wheeled machine could not be driven at all (Y3): it gets the ground drive
+            if (!rig.Manifest.walker && !rig.Manifest.flyer) rig.Ground = root.AddComponent<GroundDrive>().Init(rig);
             return rig;
         }
 
@@ -321,7 +326,17 @@ namespace TW.Playground
         void PickLod()
         {
             if (ForcedLod >= 0) { SetLod(ForcedLod); return; }
-            SetLod(Picker.Pick(LodPicker.ScreenShare(Camera.main, Centre, Radius)));
+            SetLod(AutoLod(Camera.main != null ? Camera.main.transform.position : Centre));
+        }
+
+        /// <summary>Which LOD the game would draw this machine at from `eye`: the near model, and beyond
+        /// TankRenderer.DefaultLodDistance the far one. Two levels by distance, where the playground picked three by
+        /// screen share (Y3); LOD2 is shown only when ForcedLod asks for it, so `vehicle.compare` and `lodpop` still
+        /// show all three.</summary>
+        public int AutoLod(Vector3 eye)
+        {
+            float d = Vector3.Distance(eye, Centre);
+            return Mathf.Clamp(d > TankRenderer.DefaultLodDistance ? 1 : 0, 0, Mathf.Max(0, LodCount - 1));
         }
 
         // ------------------------------------------------------------------------------------------------ damage
@@ -621,6 +636,7 @@ namespace TW.Playground
             if (Walker != null) Walker.Drive(dt);
             if (Flyer != null) Flyer.Drive(dt);
             if (Hopper != null) Hopper.Drive(dt);
+            if (Ground != null) Ground.Drive(dt);
         }
 
         /// <summary>Where a round from muzzle along forward goes: at the aim point (scattered by Spread of the range) when
@@ -773,7 +789,8 @@ namespace TW.Playground
                 if (IsGun(p))
                 {
                     p.Recoil = Mathf.Max(0f, p.Recoil - dt * 2.5f);
-                    float kick = p.Recoil * p.Recoil * 0.35f;
+                    // the game's own kick at full recoil (TankRenderer.GunRecoil, 0.45 m; the playground used 0.35, Y3)
+                    float kick = p.Recoil * p.Recoil * TankRenderer.GunRecoil;
                     p.T.localPosition = p.RestLocal - Vector3.forward * kick;
                     float droop = State >= Stage.KnockedOut ? Mathf.SmoothStep(0f, p.Droop, (Time.time - knockedAt) / 1.2f) : 0f;
                     // elevated to the aim point (from the gun's trunnion, in the turret's frame, which has just turned)
@@ -923,6 +940,8 @@ namespace TW.Playground
                 bool wears = Team >= 0 && (p.Name.StartsWith("Lamp") || p.Name == "Antenna");
                 var c = Team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
                 mpb.SetVector("_Team", wears ? new Vector4(c.r, c.g, c.b, State >= Stage.KnockedOut ? 0.5f : 1f) : Vector4.zero);
+                // a driven machine's belts run as the game runs them (Tank_URP "_Tread")
+                mpb.SetFloat("_Tread", Ground != null ? Ground.TreadOf(p) : 0f);
                 p.R.SetPropertyBlock(mpb);
             }
         }

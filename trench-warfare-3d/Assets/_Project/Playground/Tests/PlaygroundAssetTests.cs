@@ -695,7 +695,8 @@ namespace TW.Tests.Playground
             {
                 var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.4f, 3); r.CookDelay = -1f;
                 for (int f = 0; f < 60; f++) r.Advance(1f / 60f);
-                Assert.That(r.Find("Hull").T.position.y, Is.GreaterThan(10f), "it is not flying");
+                // a flyer now rides the game's own lift (TankRenderer.FlyerLift, 9 m), not the playground's 14 (Y3)
+                Assert.That(r.Find("Hull").T.position.y, Is.GreaterThan(8f), "it is not flying");
                 r.KnockOut();
                 for (int f = 0; f < 360; f++) r.Advance(1f / 60f);
                 var hull = r.Find("Hull");

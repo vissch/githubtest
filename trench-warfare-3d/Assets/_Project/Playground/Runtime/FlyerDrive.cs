@@ -8,17 +8,21 @@
 // Hovering it bobs and sways; `fly <speed>` circles it, banked into the turn. Knocked out, it falls nose down and
 // turning, and comes to rest on its skids where it hits. A hovercraft (tank3.json "hover") is the same drive held just
 // off the ground: a small bob and roll, its fan spinning, and knocked out it settles flat onto its pods.
+using TW.Presentation.Tactical;
 using UnityEngine;
 
 namespace TW.Playground
 {
     public sealed class FlyerDrive : MonoBehaviour
     {
-        public float Altitude = 14f;               // metres over the ground
+        public float Altitude = TankRenderer.FlyerLift;   // metres over the ground (the game's own lift, 9 m; Y3)
         public float Speed;                        // m/s along a circle of Radius (0: hovers in place)
         public float Radius = 20f;
         public float T { get; private set; }        // its own clock: only dt enters, so copies agree
-        public bool Hover;                         // a hovercraft: rides Altitude (0.45 m) over the ground, settles when dead
+        public bool Hover;                         // a hovercraft: rides Altitude (the game's 0.35 m) over the ground, settles when dead
+        public float TopSpeed = 12f;               // m/s the fan reads as full throttle (the game feeds it a throttle of 0..1)
+        /// <summary>The fan's turn in rad/s, as the game counts it (FanIdle + FanThrottle x throttle, shown at FanMaxShown).</summary>
+        public float FanRate => fanSpeed;
         VehicleRig.Part fan; float fanAngle, fanSpeed, nextSpray;
         VehicleRig.Part[] pods;
 
@@ -33,7 +37,8 @@ namespace TW.Playground
             rig = r; hull = r.Find("Hull"); rest = hull.RestLocal;
             Hover = r.Manifest.hover; fan = r.Find("Fan");
             pods = System.Array.FindAll(r.Parts.ToArray(), p => p.Name.StartsWith("Pod_"));
-            if (Hover) { Altitude = 0.45f; Radius = 16f; }
+            // the game's hover pose, not the playground's own (Y3): 0.35 m off the ground
+            if (Hover) { Altitude = TankRenderer.HoverLift; Radius = 16f; }
             return this;
         }
 
@@ -57,12 +62,16 @@ namespace TW.Playground
             // banked as an aircraft turns (the angle of v^2 / r g), and more, so it reads: 7 degrees read as level (loop 2 r34)
             float bank = r > 0f && !Hover ? Mathf.Clamp(Mathf.Atan(Speed * Speed / (Radius * 9.81f)) * Mathf.Rad2Deg * 1.5f, 15f, 30f)
                        : r > 0f ? Mathf.Clamp(Speed * Speed / Radius * 3f, 0f, 8f) : 0f;
-            float amp = Hover ? 0.15f : 1f;
-            float bob = (Mathf.Sin(T * 1.3f) * 0.35f + Mathf.Sin(T * 0.47f) * 0.2f) * amp;
+            // a hovercraft bobs as the game bobs it: HoverBob metres at HoverBobHz (Y3); a flyer keeps its two swells
+            float bob = Hover ? TankRenderer.HoverBob * Mathf.Sin(T * TankRenderer.HoverBobHz * Mathf.PI * 2f)
+                              : Mathf.Sin(T * 1.3f) * 0.35f + Mathf.Sin(T * 0.47f) * 0.2f;
             float sway = Mathf.Sin(T * 0.8f) * 3f * (Hover ? 0.5f : 1f);
             // the fan runs while it lives and winds down when it dies (spins about the machine's length)
-            fanSpeed = Mathf.MoveTowards(fanSpeed, dead ? 0f : 900f + 60f * Speed, (dead ? 250f : 600f) * dt);
-            fanAngle = Mathf.Repeat(fanAngle + fanSpeed * dt, 360f);
+            // rad/s on the game's own numbers, shown no faster than FanMaxShown (a six-bladed fan strobes past it);
+            // the playground spun it at 15.7-22 rad/s (Y3)
+            float want = dead ? 0f : Mathf.Min(TankRenderer.FanIdle + TankRenderer.FanThrottle * Mathf.Clamp01(Speed / Mathf.Max(0.01f, TopSpeed)), TankRenderer.FanMaxShown);
+            fanSpeed = Mathf.MoveTowards(fanSpeed, want, (dead ? 4f : 10f) * dt);
+            fanAngle = Mathf.Repeat(fanAngle + fanSpeed * Mathf.Rad2Deg * dt, 360f);
             if (fan != null && !fan.Loose) fan.T.localRotation = Quaternion.Euler(0f, 0f, fanAngle);
             // a hovercraft blows the ground out from under its pods (loop 2 r32: "at 78 m it reads as a parked truck")
             if (Hover && !dead && rig.Fx != null && T >= nextSpray)
