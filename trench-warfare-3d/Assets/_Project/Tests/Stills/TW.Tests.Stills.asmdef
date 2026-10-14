@@ -17,6 +17,7 @@
     "TW.Presentation.Core",
     "TW.Presentation.Camera",
     "TW.Presentation.Terrain",
+    "TW.Presentation.Units",
     "TW.Editor"
   ],
   "includePlatforms": [
