@@ -103,7 +103,10 @@ def attach(repo: Path, P: Path, assets, stage: Path, out: Path, local: Path, met
             spec, res = cache / 'jobs.json', cache / 'results.json'
             res.unlink(missing_ok=True)
             spec.write_text(json.dumps(jobs), encoding='utf-8')
-            subprocess.run([str(thumbs.BLENDER), '-b', '--factory-startup', '-P', str(HERE / script), '--', str(spec), str(res)], capture_output=True, timeout=3600)
+            try:
+                subprocess.run([str(thumbs.BLENDER), '-b', '--factory-startup', '-P', str(HERE / script), '--', str(spec), str(res)], capture_output=True, timeout=3600)
+            except subprocess.TimeoutExpired:
+                meta['warnings'].append('looks: Blender passed its 1 hour time limit and was ended [N12.11]')
             done = json.loads(res.read_text(encoding='utf-8')) if res.exists() else {}
             for j in jobs:
                 png = Path(j['out']) / '00000.png' if j.get('kind') == 'figure' else Path(j['out'])
