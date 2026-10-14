@@ -1198,6 +1198,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   rear; the caps). Design: `docs/13-environment-system-rebuild.md`, "Rule-based scatter".
 - **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests, WireBeltTests, CompositionStabilityTests.
 - **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests, WireBeltTests, CompositionStabilityTests, CompositionGarbageTests, BattlefieldReviewTests, ShaderLookTests (the painted sheet's range and what Toon_URP does with it).
+- **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests, RearRuinsTests (the four big ruins in the rear),
+  RuinStills (Explicit: run by name with a graphics device; the look at the four placed ruins, night and day).
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
   gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
   `Styled` (which returns early without a look, and hand edits never pass through it); a building is reported,
