@@ -447,7 +447,6 @@ PATH_TOKEN = re.compile(r'^[\w.\-/]+\.(cs|py|md|shader|hlsl|uss|uxml|tss|asmdef|
                         r'jpeg|bytes|fbx|xml|yml)(:\d+(?:-\d+)?)?$|^[\w.\-]+(/[\w.\-]+)+/$')
 TOOL_WORD = re.compile(r'^Tools/[\w.\-]+$')
 SEARCH_BASES = [REPO, ROOT, PROJ, REPO / 'docs', REF]
-SKIP_DIRS = {'github-test1'}
 _index = None
 _known = None
 
@@ -461,7 +460,7 @@ def known():
     if _known is None:
         out = subprocess.run(['git', 'ls-files', '--cached', '--others', '--exclude-standard', '-z'], cwd=REPO,
                              capture_output=True).stdout.decode('utf-8', 'replace')
-        files = {f for f in out.split('\0') if f and f.split('/')[0] not in SKIP_DIRS and (REPO / f).exists()}
+        files = {f for f in out.split('\0') if f and (REPO / f).exists()}
         dirs = {str(PurePosixPath(f).parents[i]) for f in files
                 for i in range(len(PurePosixPath(f).parents) - 1)}
         _known = files | dirs
