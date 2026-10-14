@@ -274,6 +274,15 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
   The Salvo's reload and the halted Kettle are decided (Process and How units move and fight, 2026-10-06). The Skimmer
   against the Tusk is decided too (How units move and fight, 2026-10-08): a 14 mm gun.
+  **Measured again 2026-10-14, with the shorter reload built** (`lane/sim/salvo-reload`; the owner, 2026-10-06: "the
+  rocket truck is very slow in reloading", "we change its reloading time"). The rack loads again in 11 s instead of 16:
+  the wait a player counts, from the last rocket of one rack to the first of the next, is 202 ticks (10.10 s) where it
+  was 302 (15.10 s). One Salvo against one Tusk, ten seeds, up to 180 s each, the same seeds played twice in one run
+  (`DefinedUnitTests.DuelReportTheSalvoAndTheSkimmerAgainstATusk`, Explicit): the Salvo won **10 of 10 at 16 s and 10 of
+  10 at 11 s**, the Skimmer **0 of 10 at both** (it cannot pierce a Tusk at all, which is what the 14 mm gun is for).
+  So the finding stands and the shorter reload does not change this duel's outcome, only how fast it is reached; one
+  machine against one on open ground is harsher than the brief's 6 in 10. It is **not rebalanced here**: the Salvo's
+  cost, range and sixteen rockets are unchanged.
 - **Names and jobs for the six models without a settled one (2026-09-28):** proposed and not answered: Brute as the
   Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
   Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
