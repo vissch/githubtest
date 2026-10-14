@@ -175,5 +175,42 @@ namespace TW.Tests
             }
             finally { try { System.IO.Directory.Delete(dir, true); } catch (System.Exception) { } }
         }
+
+        /// <summary>[P8a] The old code slept up to 50+100+150 ms on the main thread while a lock held, one read per
+        /// attempt; a single read costs the player nothing because RetryIfLocked re-reads as the campaign opens.</summary>
+        [Test]
+        public void ALockedProfileIsReadWithoutWaitingOnTheMainThread()
+        {
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-profile-test-" + System.Guid.NewGuid().ToString("N"));
+            System.IO.Directory.CreateDirectory(dir);
+            try
+            {
+                string path = System.IO.Path.Combine(dir, "profile.json");
+                var p = new CampaignProfile(); p.Gold = 9;
+                System.IO.File.WriteAllText(path, p.ToJson());
+                using (new System.IO.FileStream(path, System.IO.FileMode.Open, System.IO.FileAccess.ReadWrite, System.IO.FileShare.None))
+                {
+                    var sw = System.Diagnostics.Stopwatch.StartNew();
+                    var locked = ProfileStore.LoadFrom(path, out bool writable);
+                    sw.Stop();
+                    Assert.IsFalse(writable, "[P8a] a locked profile is still not to be written over");
+                    Assert.AreEqual(0, System.IO.Directory.GetFiles(dir, "*.bad*").Length, "[P8a] a lock is not taken for a broken file");
+                    Assert.Less(sw.ElapsedMilliseconds, 150, "[P8a] the main thread must not wait out a retry loop for a lock");
+                }
+            }
+            finally { try { System.IO.Directory.Delete(dir, true); } catch (System.Exception) { } }
+        }
+
+        /// <summary>[P8a] A file gone between File.Exists and the read (FileNotFound/DirectoryNotFound) protects
+        /// nothing it was never there to lose, so it must not mark the profile unwritable; a lock or permission still does.</summary>
+        [Test]
+        public void AProfileThatIsNotThereDoesNotStopSaving()
+        {
+            var m = typeof(ProfileStore).GetMethod("ReadFailureStopsSaving", new[] { typeof(System.Exception) });
+            Assert.IsNotNull(m, "[P8a] ProfileStore.ReadFailureStopsSaving is missing");
+            Assert.IsFalse((bool)m.Invoke(null, new object[] { new System.IO.FileNotFoundException() }), "[P8a] a missing file must not stop saving");
+            Assert.IsFalse((bool)m.Invoke(null, new object[] { new System.IO.DirectoryNotFoundException() }), "[P8a] a missing folder must not stop saving");
+            Assert.IsTrue((bool)m.Invoke(null, new object[] { new System.IO.IOException("locked") }), "[P8a] a lock still stops saving");
+        }
     }
 }

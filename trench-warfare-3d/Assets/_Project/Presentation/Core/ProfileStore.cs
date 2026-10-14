@@ -54,29 +54,29 @@ namespace TW.Presentation
 
         public static CampaignProfile LoadFrom(string path) => LoadFrom(path, out _);
 
-        /// <summary>The profile in a file, and whether that file may be written over. A file that cannot be opened (locked)
-        /// is tried a few times, then left alone for the session (writable false); a file that opens but is not a profile
-        /// is kept beside it under a timestamped .bad name and a fresh campaign starts; a file from a newer build loads but
-        /// is not written back (its fields this build does not know would be lost).</summary>
+        /// <summary>A file deleted, or its folder gone, between the <see cref="File.Exists"/> check and the read protects
+        /// nothing it was never there to lose; a lock or a permission still stops Save.</summary>
+        public static bool ReadFailureStopsSaving(Exception e) => !(e is FileNotFoundException) && !(e is DirectoryNotFoundException);
+
+        /// <summary>The profile in a file, and whether that file may be written over. A file that cannot be opened (locked
+        /// or denied) is read once, then left alone for the session (writable false); the campaign screens read it again
+        /// as they open (<see cref="RetryIfLocked"/>), so a passing lock costs the player nothing past that moment. A file
+        /// that opens but is not a profile is kept beside it under a timestamped .bad name and a fresh campaign starts; a
+        /// file from a newer build loads but is not written back (its fields this build does not know would be lost).</summary>
         public static CampaignProfile LoadFrom(string path, out bool writable)
         {
             writable = true;
             if (!File.Exists(path)) return new CampaignProfile();
-            string text = null;
-            for (int attempt = 0; attempt < 4 && text == null; attempt++)
+            string text;
+            try { text = File.ReadAllText(path); }
+            catch (Exception e)
             {
-                try { text = File.ReadAllText(path); }
-                catch (IOException e) when (!(e is FileNotFoundException) && !(e is DirectoryNotFoundException))
+                if (ReadFailureStopsSaving(e))
                 {
-                    if (attempt == 3)
-                    {
-                        writable = false;
-                        Debug.LogWarning($"ProfileStore: {path} is locked ({e.Message}); this session plays a fresh campaign and saves nothing over it");
-                        return new CampaignProfile();
-                    }
-                    System.Threading.Thread.Sleep(50 * (attempt + 1));
+                    writable = false;
+                    Debug.LogWarning($"ProfileStore: cannot read {path}: {e.Message}; this session plays a fresh campaign and saves nothing over it");
                 }
-                catch (Exception e) { writable = false; Debug.LogWarning($"ProfileStore: cannot read {path}: {e.Message}; nothing will be saved over it"); return new CampaignProfile(); }
+                return new CampaignProfile();
             }
             try
             {
