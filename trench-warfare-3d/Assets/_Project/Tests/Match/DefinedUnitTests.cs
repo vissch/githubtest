@@ -140,7 +140,7 @@ namespace TW.Tests
             var rockets = m.Catalogue.Tank[VehicleArchetype.Salvo];
             Assert.AreEqual(1, rockets.GunCount);
             Assert.IsTrue(rockets.Gun0.Indirect, "the rockets need no line of sight");
-            Assert.AreEqual(16f, rockets.Gun0.ReloadSeconds, "and are long to reload");
+            Assert.AreEqual(11f, rockets.Gun0.ReloadSeconds, "and take a while to reload (16 s until the owner, 2026-10-06, asked for a third off)");
             Assert.AreEqual(60f * CombatTables.RangeScale, rockets.Gun0.RangeMin); Assert.AreEqual(155f, rockets.Gun0.RangeMax);
             Assert.AreEqual(7f, rockets.Gun0.HeRadius, "a wide burst"); Assert.AreEqual(360f, rockets.Gun0.HeDamage);
             Assert.IsTrue(rockets.Gun0.FullCircle, "the box turns all the way round on its turntable");
@@ -205,7 +205,40 @@ namespace TW.Tests
             var log2 = Run(m2, 20 * 20);
             int fired = Count(log2, SimEventType.VehicleFired, truck2);
             Assert.Greater(fired, 0, "at rocket range it fires");
-            Assert.LessOrEqual(fired, 2, "and a 16 s reload allows at most two in 20 s");
+            Assert.LessOrEqual(fired, 2, "and an 11 s reload allows at most two in 20 s (0 s and 11 s; 22 s is past the end)");
+        }
+
+        /// <summary>The reload the owner asked for (2026-10-06: "the rocket truck is very slow in reloading", "we change
+        /// its reloading time", about a third shorter). What a player counts is the gap from the last rocket of one rack to
+        /// the first of the next: the rack empties over 1 s (TankGunnerySystem.SalvoRackSeconds), its sixteenth rocket
+        /// leaving at tick 18, and the reload is set on the tick the rack fires, so the gap is ReloadSeconds / Dt - 18
+        /// ticks: 320 - 18 = 302 (15.10 s) at 16 s, 220 - 18 = 202 (10.10 s) at 11 s. The window allows the 4-tick scan
+        /// delay (TargetAcquisition.ScanEveryTicks) on top.</summary>
+        [Test]
+        public void TheSalvosRackLoadsAgainInElevenSecondsNotSixteen()
+        {
+            using var m = NewMatch();
+            int truck = Spawn(m, 1, VehicleArchetype.Salvo, new float3(30f, 0f, 260f), 0f);
+            for (int k = 0; k < 6; k++) m.World.Spawn(0, 0, new float3(26f + k * 2f, 0f, 110f), 1e6f, 0f, false);   // 150 m, too tough to die
+            var log = Run(m, 20 * 30);
+
+            var launches = new List<uint>();
+            foreach (var e in log) if (e.Type == SimEventType.RocketFired && e.A == truck) launches.Add(e.Tick + (uint)e.Dir.x);
+            launches.Sort();
+            Assert.Greater(launches.Count, 16, "two racks of rockets in 30 s: " + launches.Count);
+
+            // a rack is one burst of launches; a gap of more than 40 ticks (2 s) starts the next
+            var racks = new List<List<uint>> { new List<uint> { launches[0] } };
+            for (int k = 1; k < launches.Count; k++)
+            {
+                if (launches[k] - racks[racks.Count - 1][racks[racks.Count - 1].Count - 1] > 40) racks.Add(new List<uint>());
+                racks[racks.Count - 1].Add(launches[k]);
+            }
+            Assert.GreaterOrEqual(racks.Count, 2, "a second rack fires inside 30 s");
+            uint last = racks[0][racks[0].Count - 1], next = racks[1][0];
+            long gap = (long)next - last;
+            Assert.GreaterOrEqual(gap, 200, $"the reload is no shorter than 10.0 s (gap {gap} ticks)");
+            Assert.LessOrEqual(gap, 208, $"the reload is about 10.1 s, not 15.1 s: gap {gap} ticks ({gap * 0.05f:F2} s)");
         }
             /// <summary>The Salvo is artillery: once it has something in reach it holds there and fires, instead of driving on
         /// into the enemy's lines as every other machine does (the critic found one parked on the enemy's deploy zone).</summary>

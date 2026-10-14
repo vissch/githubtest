@@ -121,7 +121,11 @@ namespace TW.Sim
         // is Airborne; he is not garrisoned, not put InTrench and not shoving men about until he is down.
         // Same inputs, a different battle (he keeps his hp and joins the line later): a v36 replay does not replay.
         // Layout and chain unchanged.
-        public const ushort FormatVersion = 37;
+        // v38 (2026-10-14, the rocket truck reloads sooner): the Salvo's rocket rack loads again in 11 s, not 16
+        // (the owner, 2026-10-06: "the rocket truck is very slow in reloading"). The wait a player counts from the
+        // last rocket of one rack to the first of the next falls from 15.10 s to 10.10 s; the rack's own 1 s is
+        // unchanged. Same inputs, a different battle: a v37 replay does not replay. Layout and chain unchanged.
+        public const ushort FormatVersion = 38;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;
