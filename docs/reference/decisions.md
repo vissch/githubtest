@@ -252,6 +252,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **Which barrel is the Banner's gun, and does the upper one ever fire? (2026-10-14):** the owner, on the close frame
+  5-5-new-close-0332.png: "its visually still off, line it up properly". Measured on the drawn model: the Banner's two
+  stacked barrels (Gun_Lower part 15, Gun_Upper part 16) are BOTH gun 0, and only Gun_Lower carried Socket_Muzzle, so
+  gun 1 had no part at all and MuzzleWorld drew its whole shot from its last-ditch point, 290.5 cm off the mouth of
+  Gun_Upper, in open air beside the machine. That is fixed on `lane/show/banner-day-film`: a gun with no muzzle socket
+  now reads its mouth off the mesh of the barrel that fires it, and MachineMuzzleTests holds it for every machine in
+  the roster (the Banner's gun 1 was the only one that drew from the last-ditch point). BUT `TankSpec.Banner` has
+  `GunCount = 1`, so nothing in a match ever fires gun 1: the refilmed side film logs `recoil 0.59 0.00` and is frame
+  for frame the film of 2026-10-14 that he rejected. So the daylight he is looking at is drawn by gun 0, which has
+  always sat exactly on its own socket (0.0 cm, BannerFireFitTests), and one more thing must change for the picture to
+  change. Options: (a) the Banner fires both barrels - `GunCount = 2` plus its own Socket_Muzzle on Gun_Upper at
+  import, which is a SIM change and new art and lands first on a SIM lane; (b) the socket on Gun_Lower is on the wrong
+  barrel of the pair and should be cut on Gun_Upper, an art/import change alone; (c) the flame's own size or sheet is
+  what reads as off the gun, not where it starts. Nobody to ask in this run: the default taken is to land nothing and
+  post no brief, because the first option of the Banner brief is to land a picture he has already rejected. The fix and
+  its tests are committed untagged on the lane.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
   folded its own foot into its own thigh (0.015 m, where its mirrored twin kept 0.453 m), and the gait now holds that
