@@ -291,6 +291,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-12 | **Smoke does not stop fire at a wreck.** The owner, to "Covering guns save fewer attackers since a review fix": "smoke does not stop fire at a wreck". The [N5.3] fix made `DirectFireSystem.AtWreck` return when `SmokeBlindMetres` of thick smoke lay on the gun -> wreck line, which turned `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` red: guns covering an attack fire through the attack's own smoke, and their fire at the wrecks the garrison shelters behind was most of what they did. `AtWreck` no longer tests smoke at all: fire at a wreck is fire at a place, not at a man who must be seen. The other half of [N5.3] stands. A hashed value moves, so it costs a replay bump (v45 -> v46, `docs/02-contracts.md`). Built on `lane/sim/review-fixes-2` as [N5.3b]. (owner, 2026-10-12, on the Decide page) |
 | 2026-10-12 | **The Banner's front legs, firing vfx and rifle animation come first.** To the brief "The Banner by day, on film: what next?" the owner wrote in his own words: "the legs are still clipping through eachother, the front legs i mean, the firing vfx and the rifle animation can be improved". So the Banner's top and guns do not land as they are: those three change first, and only then is landing asked again. (owner, 2026-10-12 10:47, on the Decide page; taken up on `lane/show/banner-day-film` 2026-10-13) |
 | 2026-10-14 | **It is the flame's lay: (c). The Banner fires one gun and the point is right; the card is laid wrong.** The question of 2026-10-14 (which barrel is the gun, and does the upper one ever fire) is answered by the owner's own close frame the side-on close frame of 2026-10-14 (the evidence folder _evidence-banner-fire-2026-10-14 on the Drive, side close): the tracer leaves the mouth of the barrel correctly, so the point is right, and `TankSpec.Banner` keeps `GunCount = 1` firing from Gun_Lower's `Socket_Muzzle`. What is off is the flame's picture: its bright wide root hangs below and ahead of the mouth and only its thin tip touches the tracer about one and a half barrel-mouths out - a quarter turn plus an offset of about the card's own half size. So neither (a) `GunCount = 2` plus new art nor (b) moving the socket to Gun_Upper is built; (c) is: the flame's root must touch the mouth and its tip point away along the bore, from every eye. The mesh-derived mouth of 009cbb18e and MachineMuzzleTests stay, being right in themselves. Taken up on `lane/show/banner-day-film` as `banner-fire-on-the-mouth`. (read off the owner's evidence frame, 2026-10-14) |
+| 2026-10-13 | **The ridge's slope starts at each stretch of the crest trench's own line.** The owner, to the brief "The Ridge's crest trench sits behind its crest: which fix?": "A: The slope starts at each stretch of trench's own line: the trench keeps its bends and sees down the slope". The profile's plateau ends at the crest trench's own line per nav column, so the ground in front of each stretch falls from that stretch's line and not from one z across the field; the trench keeps its wander. Declined: (b) ruling the crest trench straight to fit one z, and (c) keeping the lipped crest and dropping the sight checks. Built on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground` as a second seam commit. (owner, 2026-10-13, on the Decide page) |
 
 ## Open: waiting on the owner
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
@@ -300,21 +301,29 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
-- **The Ridge's crest trench sits 6 m behind its crest (2026-10-09, the sim lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).**
-  `BattlefieldGenerator.RiseAt` puts the crest at one z for the whole width (`Length - FrontAt*Length/480` = 170 m at
-  Length 240), but a trench line is never ruled: it is `trenchZ + bend*2 + 2`, so it wanders between z 166 and z 176.
-  Measured on Ridge(1917), middle column: the crest trench's cells are z 174..178 (platform 10.52 m) while the ground
-  at z 170 stands at 11.16 m - a 0.64 m lip IN FRONT of the trench. The proof's `NoFlatLipBeforeTheCrest` and
-  `TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` therefore fail, and `TheBankIsSteep` falls 3.80 m where 4.0 m is
-  the bar: the crest trench cannot see down its own slope, which is the whole idea. A z-only profile and a wandering
-  trench line cannot be made to agree column by column.
-  Options: (a) the profile's plateau starts at the crest trench's own line per column - the ground in front of each
-  column falls from that column's line, not from one z (a change to `RiseAt`'s shape or to step 1 of `Create`, which
-  is a redesign of the lane's A2/A3 and a second seam commit); (b) rule the crest trench straight (no bends on the
-  crest line) so one z fits it, and lose the wander on that line only; (c) keep the ground as built and drop the
-  sight checks, accepting a lipped crest.
-  The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
-  made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
+- **The ridge's proof measures the trench's carved floor, so two of its six bars cannot pass (2026-10-14, the sim
+  lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).** The owner's fix A is built: the profile's
+  plateau now ends at the crest trench's own line per nav column. It does what he asked - on all eight seeds the
+  crest now sees the foot of its own slope and the hollow does not see 30 m behind the crest
+  (`TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` passes, where it failed before), and
+  `TheCrestStandsNineMetresOverTheHollow`, `TheSlopeIsGentle` and `BothSidesStillReachEachOther` pass too.
+  Two bars in the parked proof still fail, and no change to the ground can make them pass:
+  `NoFlatLipBeforeTheCrest` asks that the ground 2 m in front of the crest line stand 0.5 m below "the platform",
+  but what it samples at the line is the trench's **carved floor** (`AddFireTrench` cuts 1.8 m down across the
+  trench's cells and gives the fire step 0.7 m back), and 2 m in front of the line is still inside the trench, on
+  that fire step. Measured on all eight seeds: every one of the 55 columns is under the bar, worst -0.38 to -0.56 m;
+  measured from the trench's own front edge against open ground it is still -0.56 to +0.22 m. The design's bank
+  falls 0.303 m per metre, so 2 m of ground can never be 0.5 m below a floor 1.8 m down. `TheBankIsSteep` has the
+  same cause: the crest's mean height is the carved floor, so the fall to z 153..157 is 3.41 to 4.98 m over the
+  eight seeds (4.0 m is the bar; 1917 gives 3.95). The ground is right; the two bars measure the wrong datum.
+  Options: (a) measure both against the parapet (the trench's raw platform: the floor + 1.8 m, or the open ground
+  just outside the levelled shelf) and keep the 0.5 m and 4.0 m numbers, which is what the design's prose means;
+  (b) keep the datum and lower the bars to what the carve leaves (about -0.6 m and 3.4 m), which tests nothing;
+  (c) carve the crest trench shallower so its floor rides higher, which changes every trench on every map.
+  The agent's default, taken as nothing may weaken a bar: NOTHING. The ground change is committed (the seam) and the
+  proof is NOT: it is parked at
+  `C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261008-231452-46128/desk/05/RidgeTests.cs`. (a) is the one
+  that keeps the idea. No `[ridge-own-line]` tag was put on the lane: the proof is not green.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
