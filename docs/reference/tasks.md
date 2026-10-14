@@ -573,6 +573,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   a step back does not turn him about, a real turn-about shows within four ticks), TroopActionTests (each troop's actions: close-assault throw, MG belt,
   SMG and pistol fire, crater bowl, medic and repair, no stoop turn on a knee, jetpack arc, para landing).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions.
+  (`Winter` for daylight), `TW_DEATH_WINDOW=seconds,frames` overriding every scene's timing (unset: today's
+  per-scene numbers), for a moment that falls between a scene's own default frames) films each scene as a strip
+  and a contact sheet.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 
