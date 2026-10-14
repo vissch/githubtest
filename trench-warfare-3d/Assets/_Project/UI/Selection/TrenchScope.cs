@@ -82,5 +82,22 @@ namespace TW.UI
             for (int a = 0; a <= MaxMaskArchetype; a++) if ((present & (1 << a)) != 0 && (groupOf(a) & groups) != 0) m |= 1 << a;
             return m;
         }
+
+        /// <summary>[I5] The same as the Func form, reading the world straight: the per-frame callers (the trench cluster's
+        /// brackets, the panel's orders line) would otherwise allocate a closure and a delegate on every call.</summary>
+        public static int Groups(int categories, SimWorld w)
+        {
+            int g = 0;
+            for (int a = 0; a <= MaxMaskArchetype; a++) if ((categories & (1 << a)) != 0) g |= GroupOf(w, a);
+            return g;
+        }
+
+        /// <summary>[I5] The allocation-free Widen: see <see cref="Groups(int, SimWorld)"/>.</summary>
+        public static int Widen(int categories, int present, SimWorld w)
+        {
+            int groups = Groups(categories, w), m = 0;
+            for (int a = 0; a <= MaxMaskArchetype; a++) if ((present & (1 << a)) != 0 && (GroupOf(w, a) & groups) != 0) m |= 1 << a;
+            return m;
+        }
     }
 }

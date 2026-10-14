@@ -114,6 +114,19 @@ namespace TW.Tests
             Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
         }
 
+        /// <summary>[I5] HudController asks for the aim hint every frame while an ability is armed: the four hints are
+        /// built once, not a fresh ~150-char Replace per frame.</summary>
+        [Test]
+        public void TheAimHintIsTheSameStringEveryFrame()
+        {
+            Assert.That(TW.UI.HudText.AimHintFor(false, false), Is.SameAs(TW.UI.HudText.AimHintFor(false, false)), "[I5] the point hint was rebuilt per frame");
+            Assert.That(TW.UI.HudText.AimHintFor(true, false), Is.SameAs(TW.UI.HudText.AimHintFor(true, false)), "[I5] the line hint was rebuilt per frame");
+            Assert.That(TW.UI.HudText.AimHintFor(false, false), Is.EqualTo(TW.UI.HudText.AimHint.Replace("  Tab changes the pattern.", "")), "[I5] and it still says the same thing");
+            Assert.That(TW.UI.HudText.AimHintFor(true, false), Is.EqualTo(TW.UI.HudText.AimLineHint.Replace("  Tab changes the pattern.", "")), "[I5] and it still says the same thing");
+            Assert.That(TW.UI.HudText.AimHintFor(false, true), Is.EqualTo(TW.UI.HudText.AimHint), "[I5] with patterns it is the plain hint");
+            Assert.That(TW.UI.HudText.AimHintFor(true, true), Is.EqualTo(TW.UI.HudText.AimLineHint), "[I5] with patterns it is the plain hint");
+        }
+
         /// <summary>Both HUDs say the same thing while aiming (the old HUD's hint was a hand copy).</summary>
         [Test]
         public void BothHudsGiveTheSameAimHint()
