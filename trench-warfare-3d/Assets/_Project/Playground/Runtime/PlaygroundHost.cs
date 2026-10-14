@@ -524,10 +524,11 @@ namespace TW.Playground
             if (popPath != null)
             {
                 string path = popPath; popPath = null;
+                EnsureDir(path);
                 File.WriteAllText(path, LodPop(Path.ChangeExtension(path, null)));
             }
             if (huePath != null) SideSignalStep();
-            if (fitPath != null) { string path = fitPath; fitPath = null; File.WriteAllText(path, LodFit()); }
+            if (fitPath != null) { string path = fitPath; fitPath = null; EnsureDir(path); File.WriteAllText(path, LodFit()); }
         }
 
         /// <summary>The hull's LOD meshes in its frame, as <dir>/hull<k>.json ({"v": [x,y,z...], "t": [...]}). Dump it
@@ -566,6 +567,8 @@ namespace TW.Playground
             var cam = Camera.main; var sb = new StringBuilder("{\"fits\":[");
             var was = (cam.transform.position, cam.transform.rotation, cam.fieldOfView);
             Cam.enabled = false;
+            try
+            {
             bool first = true;
             const int W = 320, H = 320;
             // the reference is the LOD the battle's standard view shows (78 m, 25 degree lens), not LOD0: matched to LOD0 the
@@ -636,9 +639,13 @@ namespace TW.Playground
             // every other rig of the same entry takes the fit too
             foreach (var v in Vehicles) if (LodTint.Fitted.TryGetValue(v.name.Split('#')[0], out var fv)) v.ApplyLodTints(fv);
             foreach (var u in Units) if (LodTint.Fitted.TryGetValue(u.name, out var fu)) u.ApplyLodTints(fu);
-            cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
-            Cam.enabled = true;
             return sb.Append("]}").ToString();
+            }
+            finally
+            {
+                cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
+                Cam.enabled = true;
+            }
         }
 
         /// <summary>At every LOD boundary of every vehicle and figure on the stage: the camera put exactly where the switch
@@ -651,6 +658,8 @@ namespace TW.Playground
             var cam = Camera.main; var sb = new StringBuilder("{\"pops\":[");
             var was = (cam.transform.position, cam.transform.rotation, cam.fieldOfView);
             Cam.enabled = false;
+            try
+            {
             bool first = true;
             void Measure(string what, GameObject root, Vector3 centre, float radius, float[] cuts, int lods, System.Action<int> force)
             {
@@ -689,7 +698,9 @@ namespace TW.Playground
                         if (ma || mb) { uni++; dc += (Mathf.Abs(a[i].r - b[i].r) + Mathf.Abs(a[i].g - b[i].g) + Mathf.Abs(a[i].b - b[i].b)) / 3.0; nd++; }
                     }
                     strip.SetPixels32(0, 0, W, H, a); strip.SetPixels32(W, 0, W, H, b); strip.Apply();
-                    File.WriteAllBytes($"{stem}_{what}_{k}to{k + 1}_{side:0}.png", strip.EncodeToPNG()); Destroy(strip);
+                    string stripPath = $"{stem}_{what}_{k}to{k + 1}_{side:0}.png";
+                    EnsureDir(stripPath);
+                    File.WriteAllBytes(stripPath, strip.EncodeToPNG()); Destroy(strip);
                     if (!first) sb.Append(','); first = false;
                     double dcol = nd > 0 ? dc / nd : 0.0, dcolIn = inter > 0 ? di / inter : 0.0;
                     double dblock = BlockShift(a, b, sa, sbm, W, H);
@@ -706,12 +717,16 @@ namespace TW.Playground
             }
             foreach (var u in Units)
                 Measure(u.name, u.gameObject, u.Centre, 0.5f * u.Height * u.transform.lossyScale.y, u.Picker.Cuts, u.Lods.Length, k => { for (int j = 0; j < u.Lods.Length; j++) u.Lods[j].enabled = j == k; if (k >= 0) u.SetLodSilently(k); });
-            cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
-            Cam.enabled = true;
-            foreach (var v in Vehicles) foreach (var p in v.Parts) p.R.enabled = true;
-            // the pass forced LODs on the figures too: put every one back on the LOD its picker names (Y7)
-            foreach (var u in Units) u.ShowLod();
             return sb.Append("]}").ToString();
+            }
+            finally
+            {
+                cam.transform.SetPositionAndRotation(was.Item1, was.Item2); cam.fieldOfView = was.Item3;
+                Cam.enabled = true;
+                foreach (var v in Vehicles) foreach (var p in v.Parts) p.R.enabled = true;
+                // the pass forced LODs on the figures too: put every one back on the LOD its picker names (Y7)
+                foreach (var u in Units) u.ShowLod();
+            }
         }
 
         /// <summary>The colour change a player sees as a colour change, not as a line moving: both frames averaged over
@@ -765,6 +780,14 @@ namespace TW.Playground
             var px = tex.GetPixels32(); Destroy(tex); return px;
         }
 
+        /// <summary>[Y12] Makes the folder a report path writes into, without throwing on a bare file name (no
+        /// directory part): E1 — `Directory.CreateDirectory(null)` throws.</summary>
+        public static void EnsureDir(string path)
+        {
+            var dir = Path.GetDirectoryName(path);
+            if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+        }
+
         void Capture(string path, int w, int h)
         {
             var c = Camera.main; if (c == null) return;
@@ -775,7 +798,7 @@ namespace TW.Playground
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0); tex.Apply();
             RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
-            Directory.CreateDirectory(Path.GetDirectoryName(path));
+            EnsureDir(path);
             File.WriteAllBytes(path, tex.EncodeToPNG());
             LastJson = Report(tex, Units.Count > 0 ? FigureGap(c, w, h, tex) : null);
             File.WriteAllText(Path.ChangeExtension(path, ".json"), LastJson);
@@ -952,6 +975,7 @@ namespace TW.Playground
                 }
                 cross[side] = m > 0 ? (float)(sum / m / 255.0) : 0f;
             }
+            EnsureDir(huePath);
             File.WriteAllText(huePath, string.Format(CultureInfo.InvariantCulture,
                 "{{\"side_hue\":[{0:0},{1:0}],\"side_strength\":[{2:0.0000},{3:0.0000}],\"side_pixels\":[{4},{5}],\"side_hue_gap\":{6:0},\"side_split\":{7:0.0000},\"side_cross\":[{8:0.0000},{9:0.0000}],\"men_hue\":[{10:0},{11:0}],\"men_strength\":[{12:0.0000},{13:0.0000}],\"men_gap\":{14:0}}}",
                 hue[0], hue[1], strength[0], strength[1], n[0], n[1], gap, (mean[0] - mean[1]).magnitude, cross[0], cross[1],
