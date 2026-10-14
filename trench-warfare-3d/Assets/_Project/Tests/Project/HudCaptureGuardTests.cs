@@ -63,5 +63,28 @@ namespace TW.Tests
                 Object.DestroyImmediate(panel);
             }
         }
+
+        [Test]
+        public void ATranslucentHudPixelKeepsItsBrightness()   // [F10]
+        {
+            var over = typeof(HudCapture).GetMethod("Over", BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            Assert.IsNotNull(over, "[F10] HudCapture.Over is missing: translucent HUD pixels are still darkened on capture");
+
+            // a 50% white plate over black must read half white, not half of half (the old double-multiply)
+            var half = (Color32)over.Invoke(null, new object[] { new Color32(128, 128, 128, 128), new Color32(0, 0, 0, 255) });
+            Assert.AreEqual(128, half.r, 1, "[F10] a translucent HUD pixel came out darker than it is: premultiplied alpha was multiplied twice");
+            Assert.AreEqual(128, half.g, 1, "[F10] a translucent HUD pixel came out darker than it is: premultiplied alpha was multiplied twice");
+            Assert.AreEqual(128, half.b, 1, "[F10] a translucent HUD pixel came out darker than it is: premultiplied alpha was multiplied twice");
+
+            var opaque = (Color32)over.Invoke(null, new object[] { new Color32(200, 10, 10, 255), new Color32(255, 255, 255, 255) });
+            Assert.AreEqual(200, opaque.r, 1, "[F10] an opaque HUD pixel should not blend with the scene behind it");
+            Assert.AreEqual(10, opaque.g, 1, "[F10] an opaque HUD pixel should not blend with the scene behind it");
+            Assert.AreEqual(10, opaque.b, 1, "[F10] an opaque HUD pixel should not blend with the scene behind it");
+
+            var clamped = (Color32)over.Invoke(null, new object[] { new Color32(255, 255, 255, 128), new Color32(255, 255, 255, 255) });
+            Assert.AreEqual(255, clamped.r, 0, "[F10] Over must clamp instead of overflowing a byte");
+            Assert.AreEqual(255, clamped.g, 0, "[F10] Over must clamp instead of overflowing a byte");
+            Assert.AreEqual(255, clamped.b, 0, "[F10] Over must clamp instead of overflowing a byte");
+        }
     }
 }
