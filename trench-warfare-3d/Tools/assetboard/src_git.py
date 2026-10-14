@@ -24,9 +24,21 @@ NEW_ASSET = [(re.compile(PREFIX + r'Resources/Vehicles/([A-Z]\w+)/'), 'vehicle')
              (re.compile(PREFIX + r'Playground/Art/Units/([A-Z]\w+)/'), 'character')]
 
 
+GIT_TIMEOUT = 20    # seconds a git call may run before it is given up on
+
+
+def run(repo, *args, timeout=GIT_TIMEOUT):
+    """(stdout, ok): ok is False on a non-zero exit, a timeout or an OSError (git() cannot tell those from an
+    honest empty answer, like `rev-parse --verify --quiet` on a ref that is not there)."""
+    try:
+        p = subprocess.run(['git', '-C', str(repo), *args], capture_output=True, timeout=timeout)
+    except (subprocess.TimeoutExpired, OSError):
+        return '', False
+    return p.stdout.decode('utf-8', 'replace'), p.returncode == 0
+
+
 def git(repo, *args):
-    p = subprocess.run(['git', '-C', str(repo), *args], capture_output=True)
-    return p.stdout.decode('utf-8', 'replace')
+    return run(repo, *args)[0]
 
 
 def head(repo):
@@ -98,10 +110,14 @@ def lanes(repo, today=None):
     refs = branch_refs(repo)
     out = []
     for name, (ref, date) in sorted(refs.items()):
-        ahead = git(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{INTEGRATION}...{ref}').strip()
-        if not ahead or int(ahead) == 0:
+        ahead_s, ok = run(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{INTEGRATION}...{ref}')
+        ahead_s = ahead_s.strip()
+        if not ok:          # a failed count must not drop a lane that may well have commits
+            out.append(dict(branch=name, ref=ref, tip=date, ahead=0, ahead_unknown=True, worktree=worktrees.get(name), family=family(name)))
             continue
-        out.append(dict(branch=name, ref=ref, tip=date, ahead=int(ahead), worktree=worktrees.get(name), family=family(name)))
+        if not ahead_s or int(ahead_s) == 0:
+            continue
+        out.append(dict(branch=name, ref=ref, tip=date, ahead=int(ahead_s), worktree=worktrees.get(name), family=family(name)))
     newest = {}
     for l in out:
         best = newest.get(l['family'])

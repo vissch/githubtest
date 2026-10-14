@@ -124,7 +124,11 @@ def stranded(repo, integration=None, path=DECISIONS):
     def entries(ref):
         blob = src_git.git(repo, 'rev-parse', '--verify', '--quiet', f'{ref}:{path}').strip()
         if blob and blob not in parsed:
-            parsed[blob] = parse(src_git.git(repo, 'show', blob))
+            text, ok = src_git.run(repo, 'show', blob)
+            if not ok:          # the blob is there but reading it failed: skipped, not read as empty (N11.6)
+                print(f'stranded: {ref} skipped, git show failed')
+                return blob, []
+            parsed[blob] = parse(text)
         return blob, parsed.get(blob, [])
 
     on_integ, landed = entries(integ)
@@ -200,9 +204,11 @@ def gate_state(tree):
 
 
 def drift(repo, integ, ref):
-    """(commits integration has and the ref lacks, commits the ref has and integration lacks)."""
-    n = src_git.git(repo, 'rev-list', '--left-right', '--count', f'{integ}...{ref}').split()
-    return (int(n[0]), int(n[1])) if len(n) == 2 else (0, 0)
+    """(commits integration has and the ref lacks, commits the ref has and integration lacks), or (None, None)
+    when git failed or did not answer with two numbers: unknown, not zero."""
+    out, ok = src_git.run(repo, 'rev-list', '--left-right', '--count', f'{integ}...{ref}')
+    n = out.split()
+    return (int(n[0]), int(n[1])) if ok and len(n) == 2 else (None, None)
 
 
 def merged_into(repo, ref):
@@ -222,10 +228,18 @@ def approvals(repo, integ, board, trees):
             # valid JSON that is not an object indexes into a TypeError: that approval is skipped, not the whole read
             print(f'approval {f.name} skipped: it does not read as an approval')
             continue
-        if not ref or not int(src_git.git(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{integ}...{ref}').strip() or 0):
-            continue                # landed (or gone): the approval has done its work
+        if not ref:
+            continue                # gone: the approval has done its work
+        count_s, ok = src_git.run(repo, 'rev-list', '--count', '--cherry-pick', '--right-only', f'{integ}...{ref}')
+        if ok and not int(count_s.strip() or 0):
+            continue                # landed: the approval has done its work
         behind, ahead = drift(repo, integ, ref)
         why = [f'{behind} behind'] if behind else []
+        if not ok:                   # whether it has landed could not be told: kept, not dropped as landed
+            why.append('whether it has landed is unknown: git failed')
+        if behind is None:          # a failed count must not drop the row, nor say it is not behind
+            why.append('how far it drifted is unknown: git failed')
+            ahead = 0
         tree = next((t for t in trees if t['branch'] == lane), None)
         head, green, _ = gate_state(tree['path']) if tree else ('', [], None)
         if not tree:
@@ -325,25 +339,32 @@ def collect(repo, ops, board=None, cache=None, now=None, integration=None, answe
     q['answered'] = [dict(d, lane=here) for d in asked if d['answered']]
     q['decided'] = [dict(d, brief=his[slug(d['title'])].get('id', '')) for d in asked if not d['answered'] and slug(d['title']) in his]
 
-    # his word on a lane to land: a note he left on its row ("land: <lane>", board.js), or his answer on its brief
+    # his word on a lane to land: a note he left on its row ("land: <lane>", board.js), or his answer on its brief.
+    # Keyed on the note's own `lane` field, which holds the full branch name (board.js, office.js): lane/show/x and
+    # lane/sim/x must never share a key. A note with no `lane` field falls back to the full branch name after
+    # "land: " (N11.1).
     word = {}
     for n in notes or []:
         if n.get('from') == 'owner' and n.get('state') != 'done' and str(n.get('about', '')).startswith('land: '):
-            word[slug(n['about'])] = dict(words=clip(n.get('text'), 80), date=str(n.get('when', ''))[:10])
+            full = n.get('lane') or n['about'][len('land: '):]
+            word[full] = dict(words=clip(n.get('text'), 80), date=str(n.get('when', ''))[:10])
     for a in answers or []:
         if str(a.get('about', '')).startswith('land: '):
-            word[slug(a['about'])] = dict(words=clip(a.get('said') or a.get('text'), 80), date=str(a.get('when', ''))[:10])
+            full = a.get('lane') or a['about'][len('land: '):]
+            word[full] = dict(words=clip(a.get('said') or a.get('text'), 80), date=str(a.get('when', ''))[:10])
     for t in trees:
         if t['branch'].startswith('detached: '):       # a checkout on no branch (src_ops.DETACHED) has nothing to land and no gate of its own to time
             continue
         head, green, took = gate_state(t['path'])
         behind, ahead = drift(repo, integ, 'refs/heads/' + t['branch'])
-        if green and green[0] == head and not t.get('dirty') and ahead:
+        if behind is None:                  # git failed: nothing he can judge, and not landable (N11.6)
+            q['broken'].append(dict(kind='git', title=f'How far {t["branch"]} has drifted could not be read', lane=t['branch'], date=''))
+        elif green and green[0] == head and not t.get('dirty') and ahead:
             lane = dict(lane=t['branch'], checkout=t.get('checkout'), date=(green[1] if len(green) > 1 else '')[:10], ahead=ahead, behind=behind)
-            key = slug('land: ' + short(t['branch']))
-            if key in word:                     # he has said it: the rebase, the gate and the landing are an agent's
-                q['said'].append(dict(lane, **word[key]))
-            elif key in written:                # it is put to him as its brief, which is in `briefs`
+            slug_key = slug('land: ' + short(t['branch']))
+            if t['branch'] in word:             # he has said it: the rebase, the gate and the landing are an agent's
+                q['said'].append(dict(lane, **word[t['branch']]))
+            elif slug_key in written:           # it is put to him as its brief, which is in `briefs`
                 q['land'].append(lane)
             else:                               # a green gate told in commits is nothing he can judge: it owes him a brief
                 q['owed'].append(lane)

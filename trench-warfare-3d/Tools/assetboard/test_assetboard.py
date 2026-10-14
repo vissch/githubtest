@@ -460,7 +460,7 @@ def queue_fixtures():
         case('queue: a lane he has said land on (a note of his on its row) is an agent\'s to rebase, gate and land: listed with his words, and neither owed a brief nor put to him again',
              [(l['lane'], l['words'], l['date'], l['days']) for l in qn['said']] == [('lane/show/a', 'land it', '2026-09-09', 0)] and qn['owed'] == [] and qn['land'] == []
              and qn['count'] == base_q['count'] and qn['agents'] == base_q['agents'], (qn['said'], qn['owed'], qn['count']))
-        qo = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, notes=[note('land: a', 'land it', state='done'), note('land: other', 'land it'), dict(note('land: a', 'x'), **{'from': 'agent'})])
+        qo = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, notes=[note('land: a', 'land it', state='done'), note('land: other', 'land it', lane='lane/show/other'), dict(note('land: a', 'x'), **{'from': 'agent'})])
         case('queue: a note that is answered, about another lane, or not his, is not his word on this one', qo['said'] == [] and len(qo['owed']) == 1, (qo['said'], qo['owed']))
         ql = src_queue.collect(repo, floor, board=board, cache=calm2(), now=when, briefs=[brief('b-land', 'The lane a adds a house', about='land: a', lane='lane/show/a')])
         case('queue: a lane to land is put to him as a brief somebody wrote for it (about "land: <lane>"), and counted once, as that brief',
