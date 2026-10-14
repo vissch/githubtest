@@ -644,6 +644,48 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>A report, not a check (Explicit, so the gate never plays it): the brief's finding of 2026-09-28,
+        /// the Salvo beating a Tusk 6 in 10, measured again on the same ten seeds with the reload the owner changed
+        /// (2026-10-06) put back at 16 s and as it ships at 11 s, and the Skimmer against the same Tusk beside it. It
+        /// does not rebalance anything: it only says where the finding stands after the shorter reload.</summary>
+        [Test, Explicit, Category("Long")]
+        public void DuelReportTheSalvoAndTheSkimmerAgainstATusk()
+        {
+            foreach (byte unit in new byte[] { VehicleArchetype.Salvo, VehicleArchetype.Skimmer })
+                foreach (float reload in new[] { 16f, 11f })
+                {
+                    int won = 0, lost = 0, neither = 0;
+                    for (int s = 1; s <= 10; s++)
+                    {
+                        int r = Duel(unit, reload, (uint)s);
+                        if (r > 0) won++; else if (r < 0) lost++; else neither++;
+                    }
+                    string name = unit == VehicleArchetype.Salvo ? "Salvo" : "Skimmer";
+                    TestContext.WriteLine($"{name} vs Tusk, the Salvo's reload {reload:F0} s: {won} won, {lost} lost, {neither} neither, in 10 seeds");
+                }
+        }
+
+        /// <summary>One duel of up to 180 s: 1 if the attacker is the one left alive, -1 the Tusk, 0 neither or both.</summary>
+        static int Duel(byte attacker, float salvoReload, uint seed)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = seed;
+            using var m = MatchSim.CreatePlaytest(cfg);
+            var def = UnitDefinitions.Salvo;                      // UnitDef and TankSpec are structs: a copy, not the shipped line
+            var spec = def.Machine; var gun = spec.Gun0;
+            gun.ReloadSeconds = salvoReload; spec.Gun0 = gun; def.Machine = spec;
+            UnitDefinitions.Apply(m.World, new[] { def });
+            int a = Spawn(m, 1, attacker, new float3(30f, 0f, 270f));
+            int t = Spawn(m, 0, VehicleArchetype.Tusk, new float3(30f, 0f, 120f));
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            for (int k = 0; k < 20 * 180; k++)
+            {
+                m.Step(none);
+                if (!m.World.IsAlive(a) || !m.World.IsAlive(t)) break;
+            }
+            bool av = m.World.IsAlive(a), tv = m.World.IsAlive(t);
+            return av == tv ? 0 : (av ? 1 : -1);
+        }
+
         static ulong[] Canary(bool canary, int latency, int jitter, float loss)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
