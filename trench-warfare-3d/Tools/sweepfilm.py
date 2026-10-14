@@ -10,7 +10,10 @@ canvas from above, play/pause, a slider over the samples, the men alive per side
 thin two-colour strip of men alive over the whole match, so the minute it turned shows before any scrubbing. The arrow
 keys step one sample. <run>/film/index.html links them all. Open it from the run folder; nothing is served.
 
-Exit 0 and every path printed, 1 on a folder with no tracks or a track whose header will not parse, naming the file.
+A track with a header and no samples gets a page that says so. A track cut short in its last line loses that line
+and keeps the rest; a track that will not read otherwise is named and skipped, and the others still get their pages.
+
+Exit 0 and every path printed, 1 on a folder with no tracks, or when a track would not read at all.
 Stdlib only, as sweep.py is.
 """
 import argparse, json, sys
@@ -144,6 +147,23 @@ __ROWS__
 """
 
 
+EMPTY = """<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8"><title>__TITLE__</title>
+<style>
+ body { background: #15181c; color: #d7dbe0; font: 13px/1.5 system-ui, sans-serif; margin: 0; padding: 14px 16px; }
+ h1 { font-size: 15px; font-weight: 600; margin: 0 0 2px; }
+ .sub { color: #8d949c; margin-bottom: 10px; }
+ .sub a { color: #8d949c; }
+ p { color: #d7dbe0; }
+</style></head>
+<body>
+<h1>__TITLE__</h1>
+<div class="sub">__SUB__ &mdash; <a href="index.html">every track of this run</a></div>
+<p>no samples: the match was over before the first five-second sample</p>
+</body></html>
+"""
+
+
 class TrackError(Exception):
     """A track file whose header will not parse."""
 
@@ -167,6 +187,10 @@ def read_track(path):
         try:
             samples.append(json.loads(ln))
         except ValueError as e:
+            # The last line is the one a killed editor can leave half-written: drop it and keep the rest.
+            if n == len(lines):
+                print(f'sweepfilm: {path}: line {n} is cut short, dropped')
+                return head, samples
             raise TrackError(f'{path}: line {n} is not JSON: {e}')
     return head, samples
 
@@ -188,6 +212,8 @@ def page(head, samples, stem):
     sub = (f'variant {head.get("variant", "?")}, seed {head.get("seed", "?")}, {seating(head)}, '
            f'{head.get("scenario", "?")} of {head.get("minutes", "?")} min, '
            f'{len(samples)} samples every {head.get("every", "?")} ticks')
+    if not samples:
+        return EMPTY.replace('__TITLE__', title).replace('__SUB__', sub)
     data = json.dumps({'head': head, 'samples': samples}, separators=(',', ':'))
     return (PAGE.replace('__TITLE__', title).replace('__SUB__', sub)
                 .replace('__LAST__', str(max(0, len(samples) - 1))).replace('__DATA__', data))
@@ -225,17 +251,18 @@ def main(argv=None):
     out = Path(args.out).resolve() if args.out else root / 'film'
     out.mkdir(parents=True, exist_ok=True)
 
-    entries = []
+    entries, bad = [], 0
     for t in tracks:
         try:
             head, samples = read_track(t)
         except TrackError as e:
             print(f'sweepfilm: {e}')
-            return 1
+            bad += 1
+            continue   # one unreadable track must not cost the pages of the others, nor the index
         write(out / (t.stem + '.html'), page(head, samples, t.stem))
         entries.append((t.stem, head, samples))
     write(out / 'index.html', index(entries, root.name))
-    return 0
+    return 1 if bad or not entries else 0
 
 
 if __name__ == '__main__':

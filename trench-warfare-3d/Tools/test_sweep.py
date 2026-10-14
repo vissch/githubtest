@@ -11,6 +11,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import sweep as S
 
+NL = "\n"   # the tracks the stand-in writes end their lines as the editor's writer does
+
 SPEC = {
     "scenario": "match", "seeds": [1, 2, 3],
     "base": [{"config": "StartingSilver", "set": 300}],
@@ -108,11 +110,20 @@ class NumbersTest(unittest.TestCase):
         self.assertIsNone(rows["t"]["band"])
 
 
+TRACK_HEAD = {"variant": "now", "seed": 1, "swapped": False, "scenario": "match", "minutes": 1,
+              "tick_seconds": 0.05, "every": 100,
+              "trenches": [{"owner": 0, "cells": [[-10.0, 4.0], [10.0, 4.0]]}]}
+TRACK_SAMPLE = {"t": 5.0, "men": [[-2.0, 1.0, 0, 0], [3.0, 9.0, 1, 0]], "alive": [1, 1], "owners": [0]}
+
+
 def stand_in(win_by_variant, refuse=()):
-    """Plays a chunk as Unity would: one report per variant, none for a variant the test refuses."""
+    """Plays a chunk as Unity would: one report per variant, none for a variant the test refuses.
+
+    When sweep asks for tracks it is handed the folder, as the editor is, and writes a small fixture track there.
+    """
     calls = []
 
-    def runner(compiled, out, seeds, index):
+    def runner(compiled, out, seeds, index, track=None):
         part = json.load(open(compiled))
         calls.append([v["name"] for v in part["variants"]])
         for v in part["variants"]:
@@ -122,6 +133,11 @@ def stand_in(win_by_variant, refuse=()):
             report = {f"seed{s}": {"win_a": win, "end_s": 400.0 + int(s)} for s in seeds.split(",")}
             report["mean"] = {"win_a": win, "end_s": 402.0}
             json.dump(report, open(os.path.join(out, v["name"] + ".json"), "w"))
+            if track:
+                for s in seeds.split(","):
+                    lines = [json.dumps(dict(TRACK_HEAD, variant=v["name"], seed=int(s))), json.dumps(TRACK_SAMPLE)]
+                    path = os.path.join(track, f'{v["name"]}-s{s}.jsonl')
+                    Path(path).write_text(NL.join(lines) + NL, encoding="utf-8", newline=NL)
         return (1, 0)
     runner.calls = calls
     return runner
@@ -157,6 +173,19 @@ class RunTest(unittest.TestCase):
         self.assertEqual(win["variants"]["mg@0.8"], {"mean": 0.7, "seeds": "all up", "in": False})
         self.assertIn("| mg@0.8 | 0 of 1 |", open(os.path.join(out, "report.md"), encoding="utf-8").read())
         self.assertEqual(json.load(open(os.path.join(out, "run.json")))["seeds"], "1,2,3")
+
+    def test_a_run_with_tracks_says_what_the_film_step_returned(self):
+        """The film's code is printed, so a bad track is not swallowed by the run. [SW.2]"""
+        self.quiet.__exit__(None, None, None)
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            code = S.run(Args(self.spec, track=True), stand_in({}))
+        self.quiet = contextlib.redirect_stdout(io.StringIO())
+        self.quiet.__enter__()
+        out = printed.getvalue()
+        self.assertEqual(code, 0, out)
+        self.assertRegex(out, r"sweep: film exit 0")
+        self.assertTrue(os.path.exists(os.path.join(self.run_folder(), "film", "index.html")), out)
 
     def test_a_baseline_outside_a_band_exits_2(self):
         self.assertEqual(S.run(Args(self.spec), stand_in({"now": 0.9})), 2)

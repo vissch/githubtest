@@ -386,7 +386,8 @@ def run(args, runner=unity_runner):
     print(f'sweep: {len(variants)} variants x seeds {seeds} into {out}', flush=True)
     play(out, header, variants, seeds, args.chunk, runner, track)
     if track and any(f.endswith('.jsonl') for f in os.listdir(track)):
-        sweepfilm.main([out])
+        code = sweepfilm.main([out])
+        print(f'sweep: film exit {code}')   # the run's own verdict stays the report's, but a bad track is said out loud
     return report(out)
 
 
