@@ -137,13 +137,17 @@ namespace TW.Tests
             foreach (var figure in VATRenderer.FigureNames)
             {
                 var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
-                if (data == null) continue;
+                // [TS19] every figure's bake is committed: a missing or empty one must not read as fitting the budget
+                Assert.IsNotNull(data, "[TS19] Units/Figure" + figure + " is committed; a missing bake is a broken repo, not a skip");
+                Assert.Greater(data.VertexCount, 0, "[TS19] a bake with no vertices costs nothing and proves nothing");
+                Assert.Greater(data.TotalFrames, 0, "[TS19] a bake with no frames costs nothing and proves nothing");
                 long bytes = (long)data.VertexCount * data.TotalFrames * 12L;
                 total += bytes;
                 lines.Add($"{figure}: {data.VertexCount} verts x {data.TotalFrames} frames, {data.Rows} rows = " +
                           $"{bytes / 1048576.0:0.0} MB");
             }
-            if (lines.Count == 0) Assert.Ignore("no bake in Resources/Units: run TW/VAT/Bake Infantry");
+            Assert.AreEqual(VATRenderer.FigureNames.Length, lines.Count, "[TS19] every committed bake was measured");
+            Assert.Greater(total, 0L, "[TS19] the measured bakes cost something: a zero total fits any budget");
 
             TestContext.WriteLine(string.Join("\n", lines));
             TestContext.WriteLine($"one resident set: {total / 1048576.0:0.0} MB by format arithmetic, against a " +
