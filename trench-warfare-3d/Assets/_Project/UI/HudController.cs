@@ -260,13 +260,27 @@ namespace TW.UI
             }
             if (mouse == null || !mouse.leftButton.wasPressedThisFrame) return;
             if (!Panel.TryGroundPoint(out var point)) return;   // over HUD chrome or off the map: not a lay
+            LayAt(point);
+        }
+
+        /// <summary>
+        /// The armed lay order sent at a ground point, which is the half of the click that has no mouse in it: one
+        /// UnitAbility command per selected sapper, the order disarmed, and the press spent so the selection keeps the
+        /// men who were just ordered. Returns how many commands went out. The PlayMode proof calls this
+        /// (HudOrderPlayTests): no mouse device can be driven from the test assemblies.
+        /// </summary>
+        public int LayAt(Vector3 point)
+        {
+            if (layArmed == UnitAbilityId.None || !Interactive || Host?.Local == null || Panel == null) return 0;
             var w = Host.Local.World;
             layCommands.Clear();
             if (selection != null) SapperOrders.Commands(w, Host.Local.Sapper, selection.Model.Items, layArmed, point, layCommands);
-            for (int i = 0; i < layCommands.Count; i++) Host.Issue(layCommands[i]);
+            int n = layCommands.Count;
+            for (int i = 0; i < n; i++) Host.Issue(layCommands[i]);
             layCommands.Clear();
             layArmed = UnitAbilityId.None;
             Panel.SpendAim();
+            return n;
         }
 
         void Order(CommandType type, int trench, int b)
