@@ -40,7 +40,7 @@ before believing any displacement.
 
 ## Where motion lives
 - `Presentation/Camera/WalkerGait.cs`: legs are solved, not animated. `Step(model, pos, yaw, vel, yawRate, lost, dead, dt, ground)`. Its constants are the repair knobs: `TriggerShare`, `SwingSlow/Fast`, `Clearance`, `StretchMin/Max`, `StepSafety`, `Lean`, `TurnLean`, `MaxSink`. `Carry` and `Step` already exist: check before adding.
-- `Presentation/Camera/TankRenderer.cs`: `CrabNames` / `CrabArchetypes` (a new walker needs both), tank tilt spring (omega 7), `LodDistance` 170, footfalls to `SceneHooks.FootFall`.
+- `Presentation/Camera/TankRenderer.cs`: `Machines` (a new walker needs its own row: name, archetype, root, scale, hover), the per-archetype `DriveStyle` spring (`Omega` defaults to 7, overridden 3-9 per archetype in `TankRenderer.DriveStyle.cs`), `LodDistance` 170, footfalls to `SceneHooks.FootFall`.
 - Sim side (SIM lane, not yours): `Sim/Nav/VehicleKinematics.cs` profiles (turn, `TrenchCrossWidth`, `SlopeLimit`, legs) and `Sim/Units/VehicleModules.cs` (tracks degrade by degrees, walkers limp per lost leg). A motion fix that needs a sim change is split: the SIM part lands first.
 
 ## Repair loop (at most 3 rounds per failing cell)

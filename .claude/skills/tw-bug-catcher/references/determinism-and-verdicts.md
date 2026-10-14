@@ -5,8 +5,8 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 ## C. BUG CATCHER
 
 ### Determinism tests
-- **`SimHashTests`** (`P\Tests\EditMode\SimHashTests.cs`): `const string ChainV9` (:48-55), the order-numbered system list from `40 CombatCatalogueSystem` to `1200 SectorControlSystem`.
-  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 9` and the chain (:57-65).
+- **`SimHashTests`** (`P\Tests\Sim\SimHashTests.cs`): `const string SystemChain` (re-grep for its line), the order-numbered system list from `40 CombatCatalogueSystem` to `1200 SectorControlSystem`.
+  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 25` and the chain.
   - A system joining or moving fails here: bump FormatVersion and pin the new chain in the same commit (`D\inbox\2026-09-27-all-lanes-landed.md:29-31`).
 - **`DeterminismReplayTests`** (`P\Tests\EditMode\DeterminismReplayTests.cs`):
   - `SameSeedAndCommands_ProduceIdenticalHashes` (:75): 300 greybox ticks with a scripted ability script, plus the `Seams()` system calls for mines, tripwire and burning (:44-55).
@@ -81,4 +81,5 @@ where the two lists differ, that one holds.
 4. **Repro:** the `SimProbe.Match()` line (seed, battlefield seed, ground, bombardment, stress, tick, mission), the command script with ticks, a tick sweep of ±N, and whether the canary or latency is on.
 5. **For a desync:** `DesyncTick`, `FirstDifference` (array or system), the `SimProbe.Arrays` diff, and the FormatVersion or chain impact.
 6. **A discriminating test** that fails on the old code (LESSONS.md:166-171).
-7. **Routing:** the fix, or an inbox note `docs/inbox/<date>-<lane>-<topic>.md` for the other lane.
+7. **Routing:** an inbox note `docs/inbox/<date>-<lane>-<topic>.md` for the other lane — never the fix (SKILL.md:
+   "Never fix").

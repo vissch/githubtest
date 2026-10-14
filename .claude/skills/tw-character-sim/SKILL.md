@@ -43,7 +43,7 @@ In battle: the `AnimationController` trace (rung, clip, stance, speed, reason pe
 | Want | Use |
 |---|---|
 | Check clips offline | `python Tools/clipcheck.py "<download>/Made"` |
-| List and measure clips | `python Tools/fbxscan.py "<folder of .fbx>" out.csv`; manifest `docs/reference/animation-clips.md` / `.csv` (205 clips, use/spare/ditch) |
+| List and measure clips | `python Tools/fbxscan.py "<folder of .fbx>" %TEMP%\fbxscan.csv`; manifest `docs/reference/animation-clips.md` / `.csv` (205 clips, use/spare/ditch) |
 | Make missing clips (15 recipes) | `python Tools/make_missing_clips.py "<Mixamo folder>"` writes `<folder>/Made/*.fbx`, a sheet and a csv |
 | Edit a clip in code | `Tools/animforge.py`: `Clip.load`, `reverse`, `slice`, `retime`, `loopify`, `layer`, `offset`, `strip_root`, `Clip.concat`, `save(path, template)`, `solve_arm`, `contact_sheet` |
 | Bake the figures | menu **TW/VAT/Bake Infantry** (`VATBaker.BakeInfantry`). The report is in `Library/vat-bake-report.txt`. About a minute. Delete `Library/BurstCache` after a job-struct change |

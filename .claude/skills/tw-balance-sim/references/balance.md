@@ -179,7 +179,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 > 1. **Where it goes:** each faction fields ten slots (`RosterEntry.SlotCount`, the digit keys 1-0) from a larger pool (`Sim/Core/FactionRoster.cs`). A new unit joins a pool, or takes a slot from another unit.
 > 2. Sim: a new archetype id (ids are a seam item; `Archetypes.Count` is 64) and one `UnitDef` in `Sim/Match/UnitDefinitions.cs`: its roster line with its `ChassisKind`, its `InfantrySpec`, its weapon, and for a machine its `TankSpec` and `VehicleProfile`. … code that asks whether a unit is a tank reads `ChassisKind` through `SimWorld.ChassisOf`, or `RosterEntry.ForArchetype(a).Chassis` where no world is at hand.
 > 3. HUD: name, tooltip and portrait in `Presentation/Core/UnitLook.cs` …, the portrait stem in `UI/Skin/SkinSpec.cs` (`PortraitNames`), the pictures in `UI/Skin/Portraits/` and `UI/Resources/UnitArt/`. HudTextTests, HudBindTests and UnitArtTests fail until every archetype has them.
-> 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/` folder … a walker also needs its id and model name in `TankRenderer`'s `CrabArchetypes` and `CrabNames` … (GaitTests).
+> 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/` folder … a walker also needs its own row in `TankRenderer`'s `Machines` (name, archetype, root, scale, hover) … (GaitTests).
 > 5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` reads the same `UnitLook` names; its icon array is `UnitLook.PortraitCount` long. No test runs OnGUI, so check it in Play with F9.
 > 6. Tests to run: FactionRosterTests, UnitDefinitionTests, CrabTests or TankTests, GaitTests, HudTextTests, HudBindTests, UnitArtTests, then the full gate."
 
@@ -196,7 +196,8 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
   4. The house chunk mask, the env atlas grid, `VehicleSize`.
 - "its own commit, alone, first" (:66-67).
 - **SourceId bands** (`P\Sim\Core\SourceId.cs:18-33`): an ability is its own id 0..999 (`AbilityMax`), a unit's weapon is `UnitBase` 1000 + archetype, an emplacement is 1300 + kind, `CookOff` 2000, `Ship` 2001. See also tasks.md:120-123.
-- **Current format:** FormatVersion 9 (`D\02-contracts.md:101`). The hash chain is pinned in `SimHashTests` (see C).
+- **Current format:** FormatVersion 25 (`P\Sim\Core\Replay.cs`; re-grep before trusting this number). The hash chain
+  (`SystemChain`) is pinned in `P\Tests\Sim\SimHashTests.cs` (see C).
 
 ### Relevant decisions (`D\reference\decisions.md`)
 - :13 Windows x64; determinism is same-build (Burst `FloatMode.Strict`).

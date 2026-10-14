@@ -119,7 +119,7 @@ both lists.
 
 | Script | Does | Usage |
 |---|---|---|
-| `fbxscan.py` | Reads Mixamo FBX without libraries; writes a CSV of length, loop, root motion | `python Tools/fbxscan.py "<folder of .fbx>" out.csv` |
+| `fbxscan.py` | Reads Mixamo FBX without libraries; writes a CSV of length, loop, root motion | `python Tools/fbxscan.py "<folder of .fbx>" %TEMP%\fbxscan.csv` |
 | `animforge.py` | Library: edit Mixamo clips as bone curves (reverse, retime, layer, IK) and write FBX | imported by `make_missing_clips.py` |
 | `make_missing_clips.py` | Makes the 15 clips the Mixamo download lacks | `python Tools/make_missing_clips.py "<Mixamo folder>"` writes `<folder>/Made/` |
 | `clipcheck.py` | Foot skate, root drift, floor and helmet clipping of the made clips | `python Tools/clipcheck.py "<folder>/Made"` |
