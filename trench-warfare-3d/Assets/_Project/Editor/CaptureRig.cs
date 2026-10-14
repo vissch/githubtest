@@ -220,6 +220,21 @@ namespace TW.Editor
             if (!string.IsNullOrEmpty(d)) Directory.CreateDirectory(d);
         }
 
+        /// <summary>Where `world` lands in a still of w x h pixels, worked out from the still's aspect and never from
+        /// the camera's current viewport. Render() restores `targetTexture` before Measure() runs, so
+        /// cam.WorldToScreenPoint and cam.pixelWidth/Height answer for the Game view: every metric was wrong whenever
+        /// the Game view was not the shape of the shot. x and y are image pixels; z is the clip w (the distance in
+        /// front of the camera), which is what WorldToScreenPoint puts there, so an "is he in front of me" test on z
+        /// still reads. Assumes a plain vertical field of view: no physical camera, no lens shift, no horizontal-fov
+        /// mode is used anywhere in this project, and ShotPoint would be wrong for one that did.</summary>
+        public static Vector3 ShotPoint(Camera cam, Vector3 world, int w, int h)
+        {
+            var proj = Matrix4x4.Perspective(cam.fieldOfView, (float)w / h, cam.nearClipPlane, cam.farClipPlane);
+            Vector4 clip = proj * cam.worldToCameraMatrix * new Vector4(world.x, world.y, world.z, 1f);
+            if (clip.w <= 0f) return new Vector3(0f, 0f, clip.w);             // behind the lens: the caller's z test skips it
+            return new Vector3(((clip.x / clip.w) * 0.5f + 0.5f) * w, ((clip.y / clip.w) * 0.5f + 0.5f) * h, clip.w);
+        }
+
         static float Luma(Color32 p) => (0.2126f * p.r + 0.7152f * p.g + 0.0722f * p.b) / 255f;
 
         /// <summary>
@@ -258,14 +273,14 @@ namespace TW.Editor
                     if ((world.Flags[s] & 1u) == 0) continue;
                     Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
-                    Vector3 sp = cam.WorldToScreenPoint(chest);
-                    int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
+                    Vector3 sp = ShotPoint(cam, chest, w, h);
+                    int cx = Mathf.RoundToInt(sp.x), cy = Mathf.RoundToInt(sp.y);
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
                     // him, and he is 80 px tall at the tactical camera and several hundred up close — a fixed radius
                     // measured the man against himself and called every frame unreadable.
-                    Vector3 footS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s));
-                    Vector3 headS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s) + Vector3.up * 2.6f);
-                    float tall = Mathf.Abs(headS.y - footS.y) * h / cam.pixelHeight;
+                    Vector3 footS = ShotPoint(cam, (Vector3)host.Presenter.Drawn(s), w, h);
+                    Vector3 headS = ShotPoint(cam, (Vector3)host.Presenter.Drawn(s) + Vector3.up * 2.6f, w, h);
+                    float tall = Mathf.Abs(headS.y - footS.y);
                     if (tall < 6f) continue;                                  // too small to say anything honest about
                     int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f));
                     int rIn = Mathf.RoundToInt(tall * 0.62f), rOut = Mathf.RoundToInt(tall * 1.00f);
