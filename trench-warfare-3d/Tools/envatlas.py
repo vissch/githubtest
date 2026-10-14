@@ -22,7 +22,10 @@
 # the two must not drift apart.
 #
 # Run from trench-warfare-3d:  python Tools/envatlas.py
+import hashlib
+import json
 import os
+import sys
 from PIL import Image
 
 SETS = ["Fence", "Plants", "Siege", "Stones", "Weapons", "Wood", "Houses", "Military", "Ruins"]
@@ -31,6 +34,24 @@ COLS, ROWS = 4, 4
 ROOT = os.path.join("Assets", "_Project", "Resources", "Env")
 OUT = os.path.join(ROOT, "EnvAtlas.jpg")   # JPEG like the sheets it replaces: Unity recompresses to DXT anyway,
                                            # and a lossless copy would put 7 MB in the repo to buy nothing on the GPU
+SIDECAR = os.path.join("Tools", "envatlas.bake.json")   # what the last bake actually laid down, so EnvAtlasTests can
+                                                        # tell a reordered list from the atlas on disk
+
+
+def write_sidecar():
+    """Record the lists and the atlas this script would bake, next to the atlas that IS on disk.
+
+    SETS and COLS/ROWS living in two places (here and BattlefieldKit) is checked by a test; what no test could see is
+    a reorder done in BOTH places without rerunning the packer, which leaves every set sampling its neighbour's cell.
+    The sha256 ties the lists to the bytes."""
+    with open(OUT, "rb") as f:
+        digest = hashlib.sha256(f.read()).hexdigest()
+    data = {"sets": list(SETS), "cols": COLS, "rows": ROWS, "cell": CELL,
+            "atlas": OUT.replace(os.sep, "/"), "atlas_sha256": digest}
+    with open(SIDECAR, "w", encoding="utf-8", newline="\n") as f:
+        json.dump(data, f, indent=2, sort_keys=True)
+        f.write("\n")
+    print("%s  %s" % (SIDECAR, digest[:16]))
 
 
 def main():
@@ -47,6 +68,7 @@ def main():
         atlas.paste(sheet.resize((CELL, CELL), Image.LANCZOS), (col * CELL, row * CELL))
         print("%-8s -> cell (%d,%d)  uv offset (%.4f, %.4f)" % (name, col, row, col / COLS, 1.0 - (row + 1) / ROWS))
     atlas.save(OUT, quality=94, subsampling=0, optimize=True)
+    write_sidecar()
     before = sum(os.path.getsize(os.path.join(ROOT, s, s + ".jpg")) for s in SETS)
     print("\n%s  %dx%d" % (OUT, atlas.width, atlas.height))
     print("on disk: %.1f KB for %d sheets -> %.1f KB for one" % (before / 1024, len(SETS), os.path.getsize(OUT) / 1024))
@@ -57,4 +79,9 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    # --sidecar: rewrite the record from the lists here and the atlas already on disk, without re-encoding a
+    # 4096x4096 JPEG (which would put a new 2 MB binary in the commit for nothing).
+    if "--sidecar" in sys.argv[1:]:
+        write_sidecar()
+    else:
+        main()
