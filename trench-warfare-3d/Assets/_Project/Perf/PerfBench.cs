@@ -432,8 +432,8 @@ namespace TW.Perf
         readonly List<string> unavailable = new List<string>(), warnings = new List<string>();
         readonly FrameTiming[] timing = new FrameTiming[1];
         Series dt, cpu, main, render, gpu, mainTick, mainIdle, ticksPerFrame;
-        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive, frameDraws, frameVerts, frameIndirect;
-        Series budgetDraws, budgetVerts, budgetIndirect;   // the same FrameBudget counts under aosa's keys (frame_budget_*), kept for its tools
+        Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive;
+        Series budgetDraws, budgetVerts, budgetIndirect;   // the frame's FrameBudget counts, under the names aosa and its stored runs read
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
         // C64: per hitch, the largest TW marker's name and ms (null and NaN without one) and the frame's gc_bytes (NaN
@@ -556,9 +556,9 @@ namespace TW.Perf
             terrain = FindFirstObjectByType<GreyboxTerrainView>();
             vatDrawn = New("vat_drawn"); vatNear = New("vat_near"); vatVerts = New("vat_vertices"); vatShadows = New("vat_shadows_on");
             propDraws = New("props_draw_calls"); propVerts = New("props_vertices"); debrisAlive = New("debris_alive"); debrisDraws = New("debris_draw_calls");
-            frameDraws = New("frame_draw_calls"); frameVerts = New("frame_vertices"); frameIndirect = New("frame_indirect_draws");   // FrameBudget: every submission in Presentation, the lining included
             paintMs = New("terrain_paint_ms"); alive = New("alive");
-            // RenderGround's own count of what our code submitted, the last complete frame (acceptance rules 3 and 7)
+            // RenderGround's own count of what our code submitted, the last complete frame (acceptance rules 3 and 7):
+            // FrameBudget sees every submission in Presentation, the lining included
             budgetDraws = New("frame_budget_draws"); budgetVerts = New("frame_budget_vertices"); budgetIndirect = New("frame_budget_indirect");
 #if UNITY_EDITOR
             if (UnityEditor.SceneView.sceneViews.Count > 0)
@@ -619,7 +619,6 @@ namespace TW.Perf
 
             if (vat != null) { vatDrawn.Add(vat.DrawnInfantry); vatNear.Add(vat.DrawnNear); vatVerts.Add(vat.VerticesThisFrame); vatShadows.Add(vat.ShadowsThisFrame ? 1 : 0); }
             if (props != null) { propDraws.Add(props.DrawCalls); propVerts.Add(props.SubmittedVertices); }
-            frameDraws.Add(FrameBudget.DrawCalls); frameVerts.Add(FrameBudget.Vertices); frameIndirect.Add(FrameBudget.IndirectDraws);
             if (debris != null) { debrisAlive.Add(debris.Alive); debrisDraws.Add(debris.DrawCalls); }
             if (terrain != null) paintMs.Add(terrain.LastPaintMilliseconds);
             alive.Add(w.AliveCount);
