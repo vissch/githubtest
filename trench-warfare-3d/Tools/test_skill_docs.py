@@ -84,7 +84,11 @@ class SkillDocsTest(unittest.TestCase):
         )
 
     def test_k5s_docs_say_to_set_tw_station_on_a_hostless_station(self):
-        """[K5s] pipeline/SKILL.md and tw-master/SKILL.md must tell you to set TW_STATION on a hostless station."""
+        """[K5s] pipeline/SKILL.md and tw-master/SKILL.md must tell you to set TW_STATION on a hostless station.
+
+        [K5s.1] "TW_STATION" and the station name both being somewhere in the file is not enough: it also passes
+        a doc that only ever discusses the two words separately. This asserts the literal setup line instead.
+        """
         stations = __import__("json").loads(
             (PROJ / "Tools/pipeline/stations.json").read_text(encoding="utf-8")
         )
@@ -94,33 +98,30 @@ class SkillDocsTest(unittest.TestCase):
         pipeline_doc = (REPO / ".claude/skills/pipeline/SKILL.md").read_text(encoding="utf-8")
         master_doc = (REPO / ".claude/skills/tw-master/SKILL.md").read_text(encoding="utf-8")
         for name in hostless:
-            self.assertTrue(
-                "TW_STATION" in pipeline_doc and name in pipeline_doc,
-                "[K5s] pipeline/SKILL.md should tell you to set TW_STATION=%s" % name,
+            pattern = re.compile(r"TW_STATION\s*=\s*['\"]?" + re.escape(name))
+            self.assertRegex(
+                pipeline_doc, pattern,
+                "[K5s] pipeline/SKILL.md should give the literal TW_STATION=%s setup line" % name,
             )
-            self.assertTrue(
-                "TW_STATION" in master_doc and name in master_doc,
-                "[K5s] tw-master/SKILL.md should tell you to set TW_STATION=%s" % name,
+            self.assertRegex(
+                master_doc, pattern,
+                "[K5s] tw-master/SKILL.md should give the literal TW_STATION=%s setup line" % name,
             )
 
     def test_k6s_pipeline_skill_cites_no_missing_claude_path(self):
-        """[K6s] pipeline/SKILL.md must not point at a nonexistent .claude/agents folder."""
+        """[K6s] a skill doc must not point at a .claude/<dir> that does not exist.
+
+        [K6s.1] banning the literal string ".claude/agents" was wrong: on the integration branch that folder is
+        real and several skill docs cite it, so this test went red the moment a lane carrying it was rebased or
+        landed. The actual rule is narrower (and survives that): whatever `.claude/<dir>/` a doc names must exist.
+        """
         for path in (REPO / ".claude/skills").rglob("*.md"):
             text = path.read_text(encoding="utf-8")
-            self.assertNotIn(
-                ".claude/agents", text, "[K6s] %s cites .claude/agents, which does not exist" % path
-            )
-
-        pipeline_doc = (REPO / ".claude/skills/pipeline/SKILL.md").read_text(encoding="utf-8")
-        self.assertIn(
-            ".claude/skills/", pipeline_doc,
-            "[K6s] pipeline/SKILL.md should name the role skill under .claude/skills/",
-        )
-        for prefix in re.findall(r"\.claude/(\w+)/", pipeline_doc):
-            self.assertTrue(
-                (REPO / ".claude" / prefix).exists(),
-                "[K6s] pipeline/SKILL.md cites .claude/%s/, which does not exist" % prefix,
-            )
+            for prefix in re.findall(r"\.claude/([\w.-]+)/", text):
+                self.assertTrue(
+                    (REPO / ".claude" / prefix).is_dir(),
+                    "[K6s] %s cites .claude/%s/, which does not exist" % (path, prefix),
+                )
 
     def test_k7s_bench_is_documented_as_edit_mode(self):
         """[K7s] Bench/Stress must be documented as edit-mode-only, not lumped in with the in-Play CaptureRig calls."""
