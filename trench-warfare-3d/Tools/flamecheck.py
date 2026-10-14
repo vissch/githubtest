@@ -4,9 +4,17 @@ A whole critique round was spent on a wall shot that contained no flame at all: 
 slope the stream never reached, the capture succeeded, and the numbers that came back described an
 empty field. A shot that cost forty seconds to set up is worth one second of checking.
 """
-import sys, numpy as np
-from PIL import Image
-from scipy import ndimage
+import sys
+# scipy and numpy are not in every environment. Exit 2 (not 1) when they are missing, so a caller can tell
+# "the check could not run" from "this capture contains no fire" - reporting the first as the second sent a
+# whole critique round after an effect that was fine.
+try:
+    import numpy as np
+    from PIL import Image
+    from scipy import ndimage
+except ImportError as e:
+    sys.stderr.write("flamecheck: cannot run, missing %s (needs numpy, pillow, scipy)\n" % e.name)
+    sys.exit(2)
 
 p = sys.argv[1]
 floor = int(sys.argv[2]) if len(sys.argv) > 2 else 15000
