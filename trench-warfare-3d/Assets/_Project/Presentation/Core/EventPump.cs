@@ -14,6 +14,9 @@ namespace TW.Presentation
     {
         public readonly List<SimEvent> Frame = new List<SimEvent>(1024);
         public int OverrunTotal;
+        /// <summary>[M7] How many events the last Dispatch delivered. The overlay used to print Frame.Count, which
+        /// Dispatch clears before OnGUI runs, so "events/frame" was always 0.</summary>
+        public int LastDispatched;
         /// <summary>Time every subscriber under its own marker. Off by default: two marker calls per event per subscriber.</summary>
         public static bool ProfileSubscribers;
         readonly List<SimEvent> dispatching = new List<SimEvent>(1024);   // the frame being delivered, so Frame is free to take new events
@@ -71,6 +74,7 @@ namespace TW.Presentation
             using var dispatch = PerfMarkers.EventsDispatch.Auto();
             for (int i = 0; i < Frame.Count; i++) dispatching.Add(Frame[i]);   // not AddRange: that allocates an enumerator
             Frame.Clear();
+            LastDispatched = dispatching.Count;
             for (int i = 0; i < dispatching.Count; i++)
             {
                 var e = dispatching[i];
