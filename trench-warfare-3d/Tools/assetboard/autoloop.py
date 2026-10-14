@@ -91,7 +91,8 @@ def parse_status(text):
     m = re.search(r'^NOT RUNNING\.(.*)$', text or '', re.M)
     if not m:
         return None, ''
-    return set(), re.sub(r'\d{8}-\d{6}-\d+', '', m.group(1)).strip()[:200]
+    why = re.match(r'\s*Last run [^:]*: (.*?)(?: \(\d+ legs.*)?\.?$', m.group(1))
+    return set(), (why.group(1) if why else m.group(1)).strip()[:200]
 
 
 # ---- the outside world ---------------------------------------------------------------------------------------------------
@@ -328,6 +329,9 @@ def feed(w):
             w.commit_push(board, ['relay/queue/' + f'{uid}.json' for _, uid, _ in units], f'relay: {len(units)} units of {lane} for extra relay {n}, kept local', push=False)
             out.append(f'feed: relay {n} was empty: it gets {lane} ({", ".join(uid for _, uid, _ in units)}), parked at {PARKED} on the main board')
             reason = ''
+        if not w.acting:
+            out.append(f'feed: relay {n} is not running and has work: it would be started')
+            continue
         if not may_start(w, n, reason):
             continue
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')

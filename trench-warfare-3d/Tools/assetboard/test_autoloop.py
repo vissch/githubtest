@@ -99,7 +99,7 @@ def main():
     tmp = Path(tempfile.mkdtemp(prefix='tw-autoloop-test-'))
 
     case('the relay\'s own status text is read: the lane of a run, none when idle, and "unknown" when it is neither',
-         autoloop.parse_status(RUN) == ({'lane/show/relay-four-checks'}, '') and autoloop.parse_status(IDLE) == (set(), 'Last run : nothing left to do (3 legs).')
+         autoloop.parse_status(RUN) == ({'lane/show/relay-four-checks'}, '') and autoloop.parse_status(IDLE) == (set(), 'nothing left to do')
          and autoloop.parse_status('Traceback (most recent call last)')[0] is None, (autoloop.parse_status(RUN), autoloop.parse_status(IDLE)))
 
     # ---- back ----
