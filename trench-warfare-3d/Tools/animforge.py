@@ -437,7 +437,6 @@ def solve_arm(rig, clip, frame, side, target, rounds=4, step=10, span=100):
     Returns (armEuler, foreEuler, error cm). The clip is not changed."""
     arm, fore, hand = side + 'Arm', side + 'ForeArm', side + 'Hand'
     c = clip.copy()
-    best = None
     def err():
         p, _ = fk(rig, c, frame, [hand]); return _len(_sub(p[hand], target))
     cur = err()

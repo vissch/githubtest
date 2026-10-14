@@ -4,7 +4,8 @@
 # turned half round for the export), scaled to metres,
 # pivot at the middle of its base, Y up baked into the mesh. Also renders front/top/3-4 checks of every export.
 # Loose parts are grouped into props where their footprints overlap ("3d": where their boxes overlap, for the plant
-# sheet, which stands its props in two rows). The set textures go in beside them as <Set>.jpg (base colour, 2048).
+# sheet, which stands its props in two rows). This script writes no image: the set texture beside them,
+# <Set>/<Set>.jpg (base colour, 2048), is written by Tools/envgrade.py.
 # usage: blender -b --factory-startup -P envsplit.py -- <set key> <fbx> <outdir> <renderdir>
 #   set keys and folders: siege Siege, weapon Weapons, stones Stones, wooden Wood, fence Fence, plant Plants
 import bpy, bmesh, sys, os, math, json

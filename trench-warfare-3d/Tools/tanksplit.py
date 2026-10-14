@@ -542,14 +542,12 @@ bpy.ops.wm.read_factory_settings(use_empty=True)
 full = build_sheet(FULL_FBX, "full")
 far = build_sheet(FAR_FBX, "far")
 manifest = {"source": "Tools/tanksplit.py", "tanks": {}}
-roots = []
 for tank in ("Maw", "Tusk"):
     s = SCALE[tank]
     F, G = full[tank], far[tank]
     piv, sock, rest = frames_for(tank, F["parts"], F["info"])
     k = fit_far(G["parts"], F["parts"])
     # far model: its own guns levelled and trunnions moved onto the full model's
-    gpiv = dict(piv)
     for n in ("Gun", "Sponson_L", "Sponson_R"):
         if n in G["parts"]:
             tr, mz, d = gun_frame(G["parts"][n], level_yaw=(n == "Gun"))
