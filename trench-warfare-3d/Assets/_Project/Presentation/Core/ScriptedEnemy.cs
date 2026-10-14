@@ -87,6 +87,8 @@ namespace TW.Presentation
         int supportCount;
         Stress playerStress = new Stress { LastTick = uint.MaxValue }, enemyStress = new Stress { LastTick = uint.MaxValue };
         uint lastTick = uint.MaxValue;
+        /// <summary>The last tick this enemy decided orders for; uint.MaxValue before the first. Read by tests.</summary>
+        public uint DecidedAt => lastTick;
 
         /// <summary>The three slot picks for one (world, side): constant for the whole match, because nothing writes
         /// `SimWorld.Roster`/`SlotUnlocked` after `FillRosters` runs (the `SimWorld` constructor, once more from
