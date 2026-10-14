@@ -80,13 +80,19 @@ namespace TW.Presentation
         /// would land on different ticks and desync them. Steps the one behind until they match; false while it waits
         /// on the network. `onLocalStep` runs after each step of the player's world (the host's presentation). Single
         /// player has one world and is always aligned.</summary>
-        public bool AlignWorlds(Action onLocalStep)
+        public bool AlignWorlds(Action onLocalStep) => AlignWorlds(null, onLocalStep);
+
+        /// <summary>[M5] The same, with the enemy's script: a tick the player's world steps here is a tick the enemy
+        /// has to think for, in the order <see cref="StepOnce"/> uses, or the enemy silently skips it.</summary>
+        public bool AlignWorlds(ScriptedEnemy ai, Action onLocalStep)
         {
             if (Peer == null) return true;
             for (int k = 0; k < 8 && Local.World.Tick != Peer.World.Tick; k++)
             {
                 if (Local.World.Tick < Peer.World.Tick)
                 {
+                    ai?.Think(EnemyView, Local, Enemy, LocalDriver);
+                    EnemySeat?.Pump(Local.World.Tick);
                     if (!LocalDriver.TryStep()) return false;
                     Compare(true);
                     onLocalStep?.Invoke();
