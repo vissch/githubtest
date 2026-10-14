@@ -26,6 +26,8 @@ namespace TW.Presentation
         Feedback, HudToggle,
         // docs/21 phase 5: the four line abilities (appended, so saved bindings keep their places)
         ArmCreeping, ArmSmoke, ArmStrafe, ArmBeam,
+        // the sapper's orders on the battle bar (2026-10-14, appended so saved bindings keep their places)
+        LayMine, LayTripwire,
     }
 
     public static class KeyMap
@@ -102,6 +104,8 @@ namespace TW.Presentation
             D(GameAction.ArmSmoke, Key.M);
             D(GameAction.ArmStrafe, Key.V);
             D(GameAction.ArmBeam, Key.B);
+            D(GameAction.LayMine, Key.X);
+            D(GameAction.LayTripwire, Key.T);
             return b;
         }
 
@@ -233,6 +237,8 @@ namespace TW.Presentation
                 case GameAction.DebugCapsules: return "DEBUG: CAPSULES";
                 case GameAction.Feedback: return "FEEDBACK CAPTURE";
                 case GameAction.HudToggle: return "OLD / NEW HUD";
+                case GameAction.LayMine: return "LAY MINE";
+                case GameAction.LayTripwire: return "LAY TRIPWIRE";
             }
             string n = a.ToString();
             return n.StartsWith("Deploy") ? "DEPLOY SLOT " + n.Substring(6) : n.ToUpperInvariant();

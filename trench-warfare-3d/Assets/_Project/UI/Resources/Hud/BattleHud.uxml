@@ -81,6 +81,19 @@
                 <ui:Label name="tooltip-body" text="" class="tw-tooltip__body" />
                 <ui:Label name="tooltip-cost" text="" class="tw-tooltip__cost" />
             </ui:VisualElement>
+            <!-- the selected unit's own orders (HudController): a sapper's mine and tripwire. A sibling of the bar,
+                 never a group inside it: HudLayout.BarWidth is the bar's width model and the layout tests hold it -->
+            <ui:VisualElement name="unit-orders" class="tw-plate hud-unit-orders">
+                <ui:Button name="order-laymine" class="tw-btn hud-unit-orders__btn" text="">
+                    <ui:Label name="order-laymine-name" text="LAY MINE" class="tw-caption hud-unit-orders__name" picking-mode="Ignore" />
+                    <ui:Label name="order-laymine-key" text="" class="tw-mono hud-unit-orders__key" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Button name="order-laytripwire" class="tw-btn hud-unit-orders__btn" text="">
+                    <ui:Label name="order-laytripwire-name" text="LAY TRIPWIRE" class="tw-caption hud-unit-orders__name" picking-mode="Ignore" />
+                    <ui:Label name="order-laytripwire-key" text="" class="tw-mono hud-unit-orders__key" picking-mode="Ignore" />
+                </ui:Button>
+                <ui:Label name="order-note" text="" class="tw-caption hud-unit-orders__note" picking-mode="Ignore" />
+            </ui:VisualElement>
             <ui:VisualElement name="bar" class="tw-plate tw-plate--riveted hud-bar">
                 <ui:VisualElement name="group-infantry" class="hud-group hud-group--infantry">
                     <ui:Label name="caption-infantry" text="INFANTRY" class="tw-caption hud-group__caption" />

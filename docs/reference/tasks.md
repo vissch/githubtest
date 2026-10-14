@@ -456,8 +456,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (tests and tools may still call it). DeterminismReplayTests deploys a sapper and orders him by command, so the
   serialized replay verifies `SapperSystem`. The Proving Ground's panel issues it for every sapper of a side at once
   (`ProvingGround.OrderSappers`: each lays 18 m ahead of himself; a sapper the sim would refuse, because that point is
-  in a trench or off the map or he is pinned, is not ordered and the panel says how many were not); no HUD button aims
-  one sapper at a point yet.
+  in a trench or off the map or he is pinned, is not ordered and the panel says how many were not). The battle bar
+  sends the same command for the selected sappers (`UI/Selection/SapperOrders.cs`, the Battle HUD row).
 - **Trap:** a sapper walks on a flow-field CELL goal, and the goal table is small (`FlowFieldManager.MaxGoals`). Ask for
   one with `TryGetGoal` (it answers -1, `GetGoal` throws) and make a finished one over with `Retarget`; SapperTests
   runs more errands than the table has goals.
@@ -1347,6 +1347,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   the same.
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
   UnitArtTests, CardFilmTests (the card films' clock and rules). `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
+- **The selected sapper's orders** (2026-10-14): the LAY MINE / LAY TRIPWIRE row over the bar. Which men may be
+  ordered, how many charges are left and the command itself are `UI/Selection/SapperOrders.cs` (pure over `SimWorld`
+  and `SapperSystem`, no UI Toolkit); `HudView.BindSapperOrders` shows the row, `HudController.ToggleLay` arms it and
+  its `LayClick` sends one `CommandType.UnitAbility` per selected sapper on the ground click, spending that press
+  through `TestPanel.SpendAim` so the selection is not cleared by it. Keys: `GameAction.LayMine` / `LayTripwire`
+  (X and T by default, rebindable).
+- **Tests:** HudBindTests, HudStructureTests, SapperOrderTests (the row's commands, stepped through a real `MatchSim`),
+  HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
+  HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
   HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`. HudCaptureProbeTests
@@ -1804,4 +1813,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 - **Stills:** BenchRuns, DeathStills, VfxStills, WalkerStills, WreckStills
 - **UI:** AbilityAimTests, CampaignGraphTests, CardFilmTests, ComicWordsTests, FactionBuildingsTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
+- **Stills:** BenchRuns, DeathStills, NightLampStills, VfxStills, WalkerStills, WreckStills
+- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SapperOrderTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->
