@@ -14,9 +14,13 @@ static class Program
         allOk &= Case(m, "MissingMethodException: Foo.Bar not found @ frame", "ERROR",
             "an unrelated MissingMethodException (e.g. a stale/mismatched test dll)");
         allOk &= Case(m,
-            "AssertionException: nope @ frame || Foo.Bar <- wrapper managed-to-native <- Baz.Qux",
-            "FAIL",
+            "NullReferenceException: boom @ at TW.Foo.Bar() || TW.Foo.Bar <- wrapper managed-to-native <- X.Y",
+            "ERROR",
             "wrapper managed-to-native only in the appended TW_OTR_STACK dump, not the head");
+        allOk &= Case(m,
+            "NullReferenceException: boom @ at wrapper managed-to-native X.Y() || X.Y <- Z",
+            "ENGINE",
+            "wrapper managed-to-native in the head frame itself");
 
         Console.WriteLine(allOk ? "[O9] PASS all cases" : "[O9] FAIL one or more cases");
 
@@ -27,7 +31,7 @@ static class Program
         allOk &= Verdict(lines, "FAIL", "O11ExpectedCases.Wrong", "[Test(ExpectedResult)] with a wrong return fails");
         allOk &= Verdict(lines, "PASS", "O11ExpectedCases.Right", "[Test(ExpectedResult)] with the right return passes");
         allOk &= Verdict(lines, "FAIL", "O11ExpectedCases.CaseWrong(2)", "[TestCase(ExpectedResult)] with a wrong return fails");
-        allOk &= Verdict(lines, "RUNNER", "O11LogAssertCases.Logs", "a LogAssert.Expect test is not a false LOGERR");
+        allOk &= Verdict(lines, "LOGERR", "O11LogAssertCases.Logs", "a LogAssert test runs; the error it logs still fails");
         allOk &= Verdict(lines, "RUNNER", "O11NsCases.Works", "a [SetUpFixture] namespace is left to NUnit");
 
         return allOk ? 0 : 1;

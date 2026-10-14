@@ -74,11 +74,6 @@ static class Runner
                 {
                     Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  [TestCaseSource] cases need NUnit's own runner"); continue;
                 }
-                // LogAssert.Expect tells Unity's runner a logged error is wanted; here it would come out LOGERR.
-                if (UsesLogAssert(m) || methods.Where(x => Has(x, "SetUpAttribute")).Any(UsesLogAssert))
-                {
-                    Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  LogAssert needs Unity's own test runner"); continue;
-                }
                 if (fixtureNs.Contains(t.Namespace ?? ""))
                 {
                     Tally(counts, "RUNNER"); Console.WriteLine("RUNNER  " + plainLabel + "  [SetUpFixture] namespace setup needs NUnit's own runner"); continue;
@@ -164,30 +159,6 @@ static class Runner
         public object[] Args = new object[0];
         public object Expected;
         public bool HasExpected;
-    }
-
-    /// <summary>True when the method's IL calls anything on UnityEngine.TestTools.LogAssert: such a test wants a
-    /// logged error, which only Unity's own runner can honour. Unreadable body: read as absent.</summary>
-    static bool UsesLogAssert(MethodInfo m)
-    {
-        try
-        {
-            var il = m.GetMethodBody()?.GetILAsByteArray();
-            if (il == null) return false;
-            for (int i = 0; i + 4 < il.Length; i++)
-            {
-                if (il[i] != 0x28 && il[i] != 0x6F) continue;
-                int token = BitConverter.ToInt32(il, i + 1);
-                try
-                {
-                    var mem = m.Module.ResolveMember(token, m.DeclaringType?.GetGenericArguments(), m.GetGenericArguments());
-                    if (mem?.DeclaringType?.Name == "LogAssert") return true;
-                }
-                catch { }
-            }
-        }
-        catch { }
-        return false;
     }
 
     static object Expected(object attr, out bool has)
