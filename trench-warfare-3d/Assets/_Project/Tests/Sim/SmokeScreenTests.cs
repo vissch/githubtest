@@ -149,7 +149,9 @@ namespace TW.Tests
             Assert.IsTrue(OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.SmokeScreen, out var stats));
             int silver = r.W.Silver[0];
             r.Step(Rig.Support(0, OffMapAbilityId.SmokeScreen, new float3(120f, 0f, 180f), heading: 0, length: 40));
-            Assert.LessOrEqual(r.W.Silver[0], silver - stats.Cost + 1);
+            // [T32] two-sided, and the table's own number pinned: the one-sided check also passed on an emptied purse.
+            Assert.AreEqual(60, stats.Cost, "[T32] the smoke screen costs 60 (OffMapAbilities.cs)");
+            Assert.That(r.W.Silver[0], Is.EqualTo(silver - stats.Cost).Within(1), "[T32] paid up front: exactly the cost");
             Assert.AreEqual(OffMapAbilitySystem.SmokeSources, r.M.Abilities.Scheduled.Length);
             Assert.IsFalse(r.M.Gas.SmokeActive, "not before the warm-up");
             int spawned = 0;

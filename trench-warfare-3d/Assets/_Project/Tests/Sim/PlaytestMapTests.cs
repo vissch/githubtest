@@ -7,12 +7,15 @@ using Unity.Mathematics;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Nav;
+using TW.Sim.Units;
 
 namespace TW.Tests
 {
     public class PlaytestMapTests
     {
-        const int Rifleman = 0, Tank = 6;   // FactionRoster.Slot: slots 6-9 are the machines on both sides
+        // [T31] archetype ids, not FactionRoster slots: SimWorld.Spawn takes an archetype. Slot 6 is the Maw for
+        // Iron and the Tusk for Brass, but archetype 6 is the Pincer walker, so the old `Tank = 6` spawned a walker.
+        const byte Rifleman = InfantryArchetype.Rifle, Tank = VehicleArchetype.Maw;
 
         static MatchSim NewMatch()
         {
@@ -97,10 +100,10 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             var w = m.World;
-            int tank = w.Spawn(1, Tank, new float3(150f, 0f, 240f), 3000f, 0f, true);
+            int tank = w.Spawn(1, Tank, new float3(150f, 0f, 240f), RosterEntry.Maw.Hp, 0f, true);
             for (int k = 0; k < 6; k++) w.Spawn(0, Rifleman, new float3(140f + k * 4f, 0f, 190f), 100f, 0f, false);   // 50 m away, standing still
             for (int t = 0; t < 200; t++) Step(m);
-            Assert.AreEqual(3000f, w.Hp[tank], "rifles at 50 m do nothing to armour");
+            Assert.AreEqual(RosterEntry.Maw.Hp, w.Hp[tank], "[T31] rifles at 50 m do nothing to armour");
 
             for (int k = 0; k < 8; k++) w.Spawn(0, Rifleman, new float3(146f + k, 0f, 235f), 100f, 0f, false);        // at the hull
             RunUntil(m, 1200, () => !w.IsAlive(tank));

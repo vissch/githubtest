@@ -141,7 +141,9 @@ namespace TW.Tests
             using var r = new Rig(silver: 1000);
             int before = r.W.Silver[0];
             r.Step(Rig.Support(0, OffMapAbilityId.StrafeRun, Start, heading: 90, length: 80));
-            Assert.LessOrEqual(r.W.Silver[0], before - 180 + 1, "paid up front");
+            // [T32] two-sided: the one-sided check also passed if the ability had emptied the purse. +/-1 is the one
+            // tick of income (SimWorld.cs:354); 180 is the StrafeRun cost in OffMapAbilities.cs.
+            Assert.That(r.W.Silver[0], Is.EqualTo(before - 180).Within(1), "[T32] paid up front: exactly 180, no more");
             Assert.AreEqual(1800, r.M.Abilities.CooldownOf(0, OffMapAbilityId.StrafeRun));
             Assert.AreEqual(1, r.Count(SimEventType.AbilityFired));
             var fired = r.First(SimEventType.AbilityFired);

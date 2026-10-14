@@ -138,7 +138,15 @@ namespace TW.Tests
             Step(a); Step(b);
             Assert.AreEqual(a.World.Hash(), b.World.Hash());
             a.Deformation.Wrecks.Add(new WreckRecord { Archetype = VehicleArchetype.Maw, Quality = 0.5f });
-            Assert.AreNotEqual(a.World.Hash(), b.World.Hash());
+            ulong one = a.World.Hash();
+            Assert.AreNotEqual(one, b.World.Hash());
+            // [T32] the length alone moving the hash would pass the assert above; mutate the record without changing
+            // the length, so a fold of Wrecks.Length only is caught.
+            a.Deformation.Wrecks[0] = new WreckRecord { Archetype = VehicleArchetype.Maw, Quality = 0.75f };
+            ulong floatMoved = a.World.Hash();
+            Assert.AreNotEqual(one, floatMoved, "[T32] the record's float fields are hashed, not just how many there are");
+            a.Deformation.Wrecks[0] = new WreckRecord { Archetype = VehicleArchetype.Maw, Quality = 0.75f, Team = 1 };
+            Assert.AreNotEqual(floatMoved, a.World.Hash(), "[T32] the record's int fields are hashed too");
             var def = a.Map.Objectives[0];
             int inside = a.Map.ObjectiveCells[def.CellStart];
             Assert.AreEqual(0, a.Sectors.ObjectiveAt(inside));

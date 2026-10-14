@@ -62,7 +62,8 @@ namespace TW.Tests
             for (int k = 0; k < 30; k++) w.Spawn(1, Rifleman, new float3(130f + (k % 6) * 7f, 0f, 380f + (k / 6) * 8f), 100f, 0f, false);
             int silver = w.Silver[0];
             Step(m, Support(0, OffMapAbilityId.HeBarrage, 150f, 400f));
-            Assert.LessOrEqual(w.Silver[0], silver - 150 + 1, "the barrage is paid for up front");
+            // [T32] two-sided: the one-sided check also passed if the purse had been emptied. +/-1 is one tick of income.
+            Assert.That(w.Silver[0], Is.EqualTo(silver - 150).Within(1), "[T32] the barrage is paid for up front: exactly 150");
             Assert.Greater(m.Abilities.CooldownOf(0, OffMapAbilityId.HeBarrage), 0);
 
             int explosions = 0;
