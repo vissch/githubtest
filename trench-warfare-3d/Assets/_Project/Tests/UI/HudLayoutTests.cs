@@ -14,6 +14,7 @@ using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Tactical;
 using TW.UI;
+using UnityEngine.UIElements;
 using TW.Sim;   // RosterEntry: the ASSEMBLY is TW.Sim.Core, the namespace is TW.Sim. They do not match.
 
 namespace TW.Tests
@@ -108,6 +109,30 @@ namespace TW.Tests
             Assert.That(HudLayout.BarWidth(), Is.GreaterThanOrEqualTo(supportRow + HudLayout.InsetPx * 2f), "the bar is at least as wide as its support row");
             Assert.GreaterOrEqual(HudView.BarFit(HudLayout.ReferenceWidthPx), 0.9f, "at the reference width the bar keeps nine tenths of its size");
             Assert.Less(HudView.BarFit(HudLayout.ReferenceHeight * 4f / 3f), 1f, "a 4:3 window shrinks it rather than losing the support row");
+        }
+
+        // no UXML: HudView.Build queries what it can and falls back to code-built cards (the HudBindTests idiom)
+        static HudRefs BuildBare(RosterEntry[] roster, uint abilityMask = 0)
+        {
+            var root = new VisualElement { name = HudView.RootName };
+            foreach (var n in HudView.RequiredNames) if (n != HudView.RootName) root.Add(n.EndsWith("-value") || n.StartsWith("tooltip") || n == "hint" || n == "banner-text" || n.StartsWith("caption") ? new Label { name = n } : n.StartsWith("speed-") && n != "speed-value" && n != "speed-bar" ? (VisualElement)new Button { name = n } : new VisualElement { name = n });
+            return HudView.Build(root, null, roster, new[] { 150, 120 }, abilityMask);
+        }
+
+        /// <summary>[I4] The shrink factor is measured on the bar that was really drawn. The British Empire fields seven
+        /// infantry cards and three armour: 24 inset + 7*180 + 6*8 infantry + 8 + 20 divider + 8 + max(3 armour 232,
+        /// 7 support 552) = 1,920 px, where the default Iron roster is 1,732. Shrunk by Iron's factor the bar drew
+        /// 1,747 px into the 1,576 px the reference width leaves, running off both screen edges.</summary>
+        [Test]
+        public void TheShrinkFactorIsMeasuredOnTheRosterTheBarReallyDrew()
+        {
+            var roster = new RosterEntry[RosterEntry.SlotCount];
+            for (int s = 0; s < roster.Length; s++) roster[s] = FactionRoster.Slot(FactionId.British, s);
+            var refs = BuildBare(roster);
+            Assert.That(HudView.BarWidth(refs), Is.EqualTo(1920f).Within(0.5f), "[I4] the measured bar is not the roster the HUD drew");
+            float room = HudLayout.ReferenceWidthPx - 2f * HudLayout.InsetPx;   // 1,576
+            Assert.That(HudView.BarFit(HudLayout.ReferenceWidthPx, HudView.BarWidth(refs)) * 1920f, Is.LessThanOrEqualTo(room + 0.5f),
+                "[I4] a seven-infantry faction's bar overflows both screen edges at 16:9");
         }
 
         /// <summary>[Q3] The debug panel is hidden in the shipped game; the editor, a Development build, or the
