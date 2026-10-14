@@ -292,8 +292,9 @@ Shader "TW/VAT Infantry (URP)"
                 // slides across a man walking at 1.5 m/s about once a second, and three thousand of them shimmering
                 // independently is far worse than no snow at all. In his own space it is painted on and stays put.
                 // Offset per instance, or every soldier wears identical snow on the identical shoulder. The offset is
-                // CONSTANT per man, so it keeps the reason positionOS was used at all: it does not swim as he walks.
-                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.tint * 13.7 + floor(i.positionWS.xzy * 0.37) * 3.1);
+                // his own seed (grime.y, the per-man byte from VatPad) and nothing else: a world-space term put a seam
+                // in his snow that jumped as he walked, which is the one thing positionOS was chosen to avoid.
+                half snow = TWSnowAmount(i.normalWS, i.positionOS * 7.0 + i.grime.y * float3(0.271, 0.618, 0.382));
             #if defined(_TW_LIMBCUT)
                 // the fallen lie face up to the sky, all of them snow's side: at 0.7 a corpse went pale grey all over and
                 // read as nobody in particular (frog critic round 3: the dead frogs lost their green); a dusting only
@@ -386,12 +387,13 @@ Shader "TW/VAT Infantry (URP)"
             #pragma fragment fragOutline
             #pragma multi_compile_fog
             #pragma multi_compile_local_fragment _ _TW_LIMBCUT
-            struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float gone : TEXCOORD1; };
+            struct OutlineVaryings { float4 positionCS : SV_POSITION; float fog : TEXCOORD0; float gone : TEXCOORD1; float3 positionWS : TEXCOORD2; };
             OutlineVaryings vertOutline(uint vertexID : SV_VertexID, float2 limb : TEXCOORD1, uint instanceID : SV_InstanceID)
             {
                 Animated a = Animate(vertexID, instanceID, limb.x);
                 OutlineVaryings o;
                 o.gone = a.gone;
+                o.positionWS = a.positionWS;   // un-extruded, so the rim wears the same fog as the body beside it
                 float w = TransformWorldToHClip(a.positionWS).w;
                 // the line is extruded in world space, so it follows how big the man is drawn as well as how far off he is
                 // (the back rank of a standard frame is 149 m out and used to lose its outline entirely)
@@ -400,7 +402,7 @@ Shader "TW/VAT Infantry (URP)"
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
-            half4 fragOutline(OutlineVaryings i) : SV_Target { VAT_CLIP_LOST(i.gone); return half4(MixFog(_OutlineColor.rgb, i.fog), 1.0); }
+            half4 fragOutline(OutlineVaryings i) : SV_Target { VAT_CLIP_LOST(i.gone); return half4(MixFog(ApplyFieldFog(ApplyMist(_OutlineColor.rgb, i.positionWS), i.positionWS), i.fog), 1.0); }
             ENDHLSL
         }
 
