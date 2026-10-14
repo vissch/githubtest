@@ -146,7 +146,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/perfcmp.py`.
 
 ### Map generation and ground (sim side)
-- **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
+- **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`, `Ridge`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
   `Sim/Terrain/MudField.cs`, `Sim/Terrain/PropDef.cs`, `Sim/Match/Deformation.cs` (the only thing that edits the map).
   `DeformationSystem.Shake` reads the props near a blast through `MapData.PropsByCell` (`Sim/Terrain/PropIndex.cs`),
@@ -157,6 +157,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds);
   PropIndexTests (a barrage in a forest: the cell index cuts the distance tests and harms exactly the same props in
   the same order).
+- **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests, RidgeTests (the Ridge preset's
+  slope and sight lines); NarrowsTests (the Narrows, the half-depth field: the gap between the front trenches,
+  trench and wire clearances, both HQs, over 8 seeds).
 - **Trap:** a feature tested only on the playtest map is untested. BattlefieldTests runs the generated map.
 
 ### Movement, flow fields, garrison, trench orders
