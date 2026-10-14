@@ -89,5 +89,79 @@ namespace TW.Tests.Playground
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
         }
+
+        /// <summary>The rad/s a part is turning at, read off the part over one frame (1/60 s).</summary>
+        static float Rate(VehicleRig r, VehicleRig.Part p)
+        {
+            var was = p.T.localRotation;
+            r.Advance(1f / 60f);
+            return Quaternion.Angle(was, p.T.localRotation) * Mathf.Deg2Rad * 60f;
+        }
+
+        [Test]
+        public void TheFanTurnsAtTheGamesSpeed()
+        {
+            // [Y3] the playground spun a hovercraft's fan at 900-1200 deg/s (15.7-22 rad/s); the game turns it at
+            // FanIdle 9 rad/s and never shows it faster than FanMaxShown 14 (TankRenderer.cs:242,257).
+            var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).hover);
+            if (e == null) Assert.Ignore("no hovercraft in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, PlaygroundHost.DrawScale(e.Name, 0f), 3);
+                r.CookDelay = -1f;
+                var fan = r.Find("Fan");
+                if (fan == null) Assert.Ignore("the hovercraft has no fan part");
+                for (int f = 0; f < 240; f++) r.Advance(1f / 60f);
+                // measured off the fan itself, so the number is what is drawn, not what the drive says
+                float idle = Rate(r, fan);
+                Assert.That(idle, Is.EqualTo(9f).Within(0.2f), $"[Y3] at rest the fan turns at the game's 9 rad/s, not {idle:0.0}");
+                r.Flyer.Speed = 40f;
+                float fastest = 0f;
+                for (int f = 0; f < 600; f++) { r.Advance(1f / 60f); fastest = Mathf.Max(fastest, Rate(r, fan)); }
+                Assert.That(fastest, Is.LessThanOrEqualTo(14.001f), $"[Y3] the fan was shown at {fastest:0.0} rad/s, past the game's cap of 14");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void AMachineIsDrawnFarAtTheGamesDistance()
+        {
+            // [Y3] the playground picked one of three LODs by screen share; the game draws the near model and, past
+            // TankRenderer.DefaultLodDistance (170 m), the far one — two levels by distance.
+            var e = Lib().Vehicles.FirstOrDefault();
+            if (e == null) Assert.Ignore("no vehicle in the library");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, PlaygroundHost.DrawScale(e.Name, 0f), 3);
+                r.CookDelay = -1f;
+                var mid = r.Centre;
+                Assert.That(r.AutoLod(mid + new Vector3(0f, 0f, 169f)), Is.EqualTo(0), "[Y3] at 169 m the near model is drawn");
+                Assert.That(r.AutoLod(mid + new Vector3(0f, 0f, 171f)), Is.EqualTo(1), "[Y3] at 171 m the far model is drawn");
+                Assert.That(r.AutoLod(mid + new Vector3(0f, 0f, 600f)), Is.EqualTo(1), "[Y3] there is no third level by distance");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]
+        public void AWheeledMachineCanBeDriven()
+        {
+            // [Y3] a machine that is neither walker nor flyer had no drive at all: it stood still whatever `walk` said.
+            var e = Lib().Vehicles.FirstOrDefault(v => { var m = VehicleManifest.Parse(v.Manifest); return !m.walker && !m.flyer; });
+            if (e == null) Assert.Ignore("every machine in the library walks or flies");
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                var r = VehicleRig.Build(e, null, parent, new Vector3(400f, 0f, 0f), 0f, PlaygroundHost.DrawScale(e.Name, 0f), 3);
+                r.CookDelay = -1f;
+                Assert.That(r.Ground, Is.Not.Null, $"[Y3] {e.Name} is tracked or wheeled and has no drive");
+                r.Ground.Speed = 2.5f;
+                for (int f = 0; f < 300; f++) r.Advance(1f / 60f);
+                Assert.That(r.Ground.WalkPos.magnitude, Is.GreaterThan(8f), $"[Y3] {e.Name} drove {r.Ground.WalkPos.magnitude:0.0} m in 5 s at 2.5 m/s");
+                Assert.That(r.Ground.WheelTurn, Is.Not.EqualTo(0f), "[Y3] its wheels never turned");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); }
+        }
     }
 }
