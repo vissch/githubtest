@@ -90,7 +90,10 @@ namespace TW.Playground
                 float y = Altitude / size + bob / size;
                 hull.T.localPosition = rest + at + new Vector3(0f, y, 0f);
                 hull.T.localRotation = Quaternion.Euler(Mathf.Sin(T * 0.9f) * 2f, heading, -bank + sway);
+                // every bit of the crash state goes, not only the height: a flyer repaired and knocked out again used to
+                // skip the fall and hang at altitude in its crash pose (Y9)
                 crashY = y; fallV = 0f;
+                down = dig = false; fallSpin = fallYaw = fallPitch = crashRoll = 0f;
                 return;
             }
             // knocked out: a hovercraft sinks onto its pods, a flyer drops nose down and turning and stops on the ground
