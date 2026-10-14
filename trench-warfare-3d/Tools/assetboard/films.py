@@ -254,13 +254,25 @@ def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, onl
             spec.write_text(json.dumps([{a: b for a, b in j.items() if a not in ('models', 'result', 'sources')} for j in share], default=str), encoding='utf-8')
             procs.append((res, subprocess.Popen([str(thumbs.BLENDER), '-b', '--factory-startup', '-P', str(HERE / 'film_blender.py'), '--', str(spec), str(res)],
                                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)))
-        done = {}
-        for res, proc in procs:
-            proc.wait(timeout=4 * 3600)
+        done, ended = {}, False
+        try:
+            for res, proc in procs:
+                proc.wait(timeout=4 * 3600)
+        except subprocess.TimeoutExpired:
+            ended = True
+            for res, proc in procs:
+                if proc.poll() is None:
+                    proc.kill()
+                    try:
+                        proc.wait(timeout=60)
+                    except subprocess.TimeoutExpired:
+                        pass
+            meta['warnings'].append('films: a Blender renderer passed its 4 hour time limit; it and the other renderers were ended [N12.11]')
+        for res, _ in procs:
             if res.exists():
                 done.update(json.loads(res.read_text(encoding='utf-8')))
         for j in todo:
-            r = done.get(j['id'], dict(ok=False, error='Blender wrote no result for it'))
+            r = done.get(j['id'], dict(ok=False, error='Blender was ended at its time limit [N12.11]' if ended else 'Blender wrote no result for it'))
             if r.get('ok'):
                 try:
                     encode(Path(j['out']), r, stage / j['file'], stage / j['poster'])
