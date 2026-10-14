@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Tests that a film encode never leaves a partial file at its published path: the finding N12.4 of the second
-code review (N12.11 is a separate leg). Run from trench-warfare-3d/:
+"""Tests that a film encode never leaves a partial file at its published path (N12.4), and that a Blender time
+limit ends the other workers and is reported as a failure rather than killing the whole build (N12.11): findings
+of the second code review. Run from trench-warfare-3d/:
 python Tools/assetboard/test_filmsafe.py
 """
 import io
@@ -23,6 +24,7 @@ for _k in ('TW_NOTES', 'TW_BRIEFS', 'TW_ASSETBOARD_OUT'):
 
 sys.path.insert(0, str(HERE))
 import films  # noqa: E402
+import thumbs  # noqa: E402
 
 
 def frame_folder(n):
@@ -90,6 +92,88 @@ class EncodeFfmpegSucceeds(unittest.TestCase):
         self.assertTrue(poster.exists(), 'the poster must be written on a clean encode')
         left = [p for p in (stage / 'film').iterdir() if p.suffix == '.part']
         self.assertEqual([], left, f'a .part file was left behind after a clean encode: {left}')
+
+
+class StuckBlender:
+    """A Blender worker that never answers within its time limit, as a hung headless render would."""
+    killed = []
+
+    def __init__(self, *a, **kw):
+        pass
+
+    def wait(self, timeout=None):
+        raise subprocess.TimeoutExpired('blender', 1)
+
+    def poll(self):
+        return None
+
+    def kill(self):
+        StuckBlender.killed.append(self)
+
+
+class FilmTimeout(unittest.TestCase):
+    """[N12.11] a Blender time limit in films.attach must not raise out of the build: it ends the other renderers
+    and reports every job as failed."""
+
+    def test_a_blender_time_limit_fails_the_jobs(self):
+        src = Path(tempfile.mkdtemp(dir=TEMP, prefix='src-')) / 'model.fbx'
+        src.write_bytes(b'\x00')
+        jobs = [dict(id=f'Fake{k}', kind='turn', sources=[str(src)], models=[(dict(), dict())], title='Turntable', order=0) for k in range(4)]
+        P = TEMP / 'proj' / 'Assets' / '_Project'
+        P.mkdir(parents=True, exist_ok=True)
+        stage = Path(tempfile.mkdtemp(dir=TEMP, prefix='stage-'))
+        out = Path(tempfile.mkdtemp(dir=TEMP, prefix='out-'))
+        local = Path(tempfile.mkdtemp(dir=TEMP, prefix='local-'))
+        meta = dict(built='x', warnings=[], sources={})
+        StuckBlender.killed = []
+        with mock.patch.object(films, 'jobs_for', lambda *a, **k: jobs), \
+             mock.patch.object(thumbs, 'BLENDER', Path(__file__)), \
+             mock.patch.object(films, 'FFMPEG', 'ffmpeg'), \
+             mock.patch.object(films, 'subprocess', SimpleNamespace(Popen=StuckBlender, DEVNULL=subprocess.DEVNULL, TimeoutExpired=subprocess.TimeoutExpired)):
+            try:
+                films.attach(P=P, assets={}, code={}, stage=stage, out=out, local=local, meta=meta)
+            except subprocess.TimeoutExpired as e:
+                self.fail(f'[N12.11] a Blender time limit ended the whole build: {e}')
+        self.assertEqual(4, len(StuckBlender.killed), '[N12.11] not every stuck renderer was ended')
+        failed = meta['sources']['board films']['failed']
+        self.assertEqual(4, len(failed), '[N12.11] every job past the time limit must be reported as failed')
+        for f in failed:
+            self.assertIn('[N12.11]', f, '[N12.11] the failed job did not say why in its message')
+        self.assertTrue(any('[N12.11]' in w for w in meta['warnings']), '[N12.11] no warning named the time limit')
+
+
+class StuckBlenderRun:
+    """A stand-in for subprocess.run that raises TimeoutExpired, as thumbs.attach's Blender call would at its limit."""
+
+    @staticmethod
+    def run(*a, **kw):
+        raise subprocess.TimeoutExpired('blender', 1)
+
+
+class ThumbTimeout(unittest.TestCase):
+    """[N12.11] a Blender time limit in thumbs.attach must not raise out of the build: the job is reported failed."""
+
+    def test_a_blender_time_limit_fails_the_job(self):
+        src = Path(tempfile.mkdtemp(dir=TEMP, prefix='src-')) / 'model.fbx'
+        src.write_bytes(b'\x00')
+        job = dict(files=[dict(fbx=str(src), at=None)], texture=None, fix=False, hide=[], expect=None, view=None,
+                   id='FakeThumb', asset=dict(category='vehicle', measurements={}), model=dict())
+        P = TEMP / 'proj2' / 'Assets' / '_Project'
+        P.mkdir(parents=True, exist_ok=True)
+        stage = Path(tempfile.mkdtemp(dir=TEMP, prefix='stage-'))
+        out = Path(tempfile.mkdtemp(dir=TEMP, prefix='out-'))
+        local = Path(tempfile.mkdtemp(dir=TEMP, prefix='local-'))
+        meta = dict(built='x', warnings=[], sources={})
+        with mock.patch.object(thumbs, 'jobs_for', lambda *a, **k: [job]), \
+             mock.patch.object(thumbs, 'BLENDER', Path(__file__)), \
+             mock.patch.object(thumbs, 'subprocess', SimpleNamespace(run=StuckBlenderRun.run, TimeoutExpired=subprocess.TimeoutExpired)):
+            try:
+                thumbs.attach(P=P, assets={}, stage=stage, out=out, local=local, meta=meta)
+            except subprocess.TimeoutExpired as e:
+                self.fail(f'[N12.11] a Blender time limit ended the whole thumbnail build: {e}')
+        failed = meta['sources']['blender']['failed']
+        self.assertEqual(1, len(failed), '[N12.11] the job past the time limit must be reported as failed')
+        self.assertTrue(any('[N12.11]' in w for w in meta['warnings']), '[N12.11] no warning named the time limit')
 
 
 if __name__ == '__main__':

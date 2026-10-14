@@ -84,11 +84,16 @@ def attach(P: Path, assets, stage: Path, out: Path, local: Path, meta):
         res.unlink(missing_ok=True)
         spec.write_text(json.dumps([dict(id=j['id'], out=j['png'], files=j['files'], texture=j['texture'], fix=j['fix'], hide=j['hide'],
                                          expect=j['expect'], view=j.get('view')) for j in todo]), encoding='utf-8')
-        subprocess.run([str(BLENDER), '-b', '--factory-startup', '-P', str(HERE / 'thumb_blender.py'), '--', str(spec), str(res)],
-                       capture_output=True, timeout=3600)
+        timed_out = False
+        try:
+            subprocess.run([str(BLENDER), '-b', '--factory-startup', '-P', str(HERE / 'thumb_blender.py'), '--', str(spec), str(res)],
+                           capture_output=True, timeout=3600)
+        except subprocess.TimeoutExpired:
+            timed_out = True
+            meta['warnings'].append('thumbnails: Blender passed its 1 hour time limit and was ended [N12.11]')
         done = json.loads(res.read_text(encoding='utf-8')) if res.exists() else {}
         for j in todo:
-            r = done.get(j['id'], dict(ok=False, error='Blender wrote no result for it'))
+            r = done.get(j['id'], dict(ok=False, error='Blender was ended at its time limit [N12.11]' if timed_out else 'Blender wrote no result for it'))
             if r.get('ok') and Path(j['png']).exists():
                 img = Image.open(j['png']).convert('RGBA')
                 plate = Image.new('RGBA', img.size, PLATE + (255,))

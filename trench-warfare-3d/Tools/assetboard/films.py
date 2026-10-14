@@ -254,13 +254,14 @@ def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, onl
             spec.write_text(json.dumps([{a: b for a, b in j.items() if a not in ('models', 'result', 'sources')} for j in share], default=str), encoding='utf-8')
             procs.append((res, subprocess.Popen([str(thumbs.BLENDER), '-b', '--factory-startup', '-P', str(HERE / 'film_blender.py'), '--', str(spec), str(res)],
                                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)))
-        done = {}
+        done, ended = {}, False
         for res, proc in procs:
             try:
                 proc.wait(timeout=4 * 3600)
             except subprocess.TimeoutExpired:
                 proc.kill()
                 proc.wait()
+                ended = True
                 meta['warnings'].append(f'films: a Blender worker hung and was killed ({res.name})')
                 continue
             if res.exists():
@@ -269,7 +270,7 @@ def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, onl
                 except (ValueError, OSError) as e:
                     meta['warnings'].append(f'films: could not read {res.name}: {e}')
         for j in todo:
-            r = done.get(j['id'], dict(ok=False, error='Blender wrote no result for it'))
+            r = done.get(j['id'], dict(ok=False, error='Blender was ended at its time limit [N12.11]' if ended else 'Blender wrote no result for it'))
             if r.get('ok'):
                 try:
                     encode(Path(j['out']), r, stage / j['file'], stage / j['poster'])
