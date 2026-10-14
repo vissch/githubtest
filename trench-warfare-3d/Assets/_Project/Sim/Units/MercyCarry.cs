@@ -6,7 +6,8 @@
 // until it is full, finds nobody, or is itself under fire. Then LEAVE: it drives to its own side's spawn point and
 // OutOfViewMetres past it, and there it puts every man it carries back at full health (SimWorld.Spawn), on his own lane
 // the way a reinforcement comes up — GoalId -1, so MovementSystem gives him DefaultGoal and he walks up. It never drives
-// past the foremost trench its side holds to fetch a man. Knocked out, stalled or bogged it keeps its cargo; destroyed,
+// past the foremost trench its side holds to fetch a man, and with nobody to fetch it holds there instead of joining
+// the advance. Knocked out, stalled or bogged it keeps its cargo; destroyed,
 // the men aboard are lost with it (the slot's generation moves and the seats are cleared, nothing returns).
 // State per slot, all hashed: Phase, Aboard, CargoArch (Seats per slot), BoardTimer, HurtTicks, LastHp, gen.
 // Order 1117: after Breaker (1115), before VehicleKinematics (1120), so the drive it picks runs the same tick.
@@ -30,6 +31,10 @@ namespace TW.Sim.Units
         /// <summary>"Out of view": this many metres past its own side's spawn line (Init.SpawnA/SpawnB, where its men
         /// enter the field). The men it carried come back at that line.</summary>
         public const float OutOfViewMetres = 6f;
+
+        /// <summary>Slack on the rear point, over the metre a hull stops within: it is out of view when it has braked
+        /// to a stop there.</summary>
+        public const float OutOfViewSlack = 2f;
 
         /// <summary>Metres past its hull's half length within which a man is taken aboard.</summary>
         public const float BoardReach = 4f;
@@ -124,16 +129,30 @@ namespace TW.Sim.Units
                     // full, or carrying somebody with nobody left to fetch, or carrying somebody while it is shot at
                     bool leave = Aboard[i] >= seats || (Aboard[i] > 0 && (man < 0 || HurtTicks[i] > 0));
                     if (leave) Phase[i] = (byte)MercyPhase.Leave;
-                    else if (man < 0) { kinematics.Drive[i] = VehicleKinematicsSystem.DriveFlow; kinematics.DriveSpeedMul[i] = 1f; }
+                    else if (man < 0)
+                    {
+                        // nobody to fetch and nobody aboard: it holds behind the foremost trench its side holds. It does
+                        // not join the advance on the enemy HQ the flow field would drive it into (2026-10-07: a hurt man
+                        // beyond that trench must not pull it over the line either, see MercyTests).
+                        float3 hold = w.Position[i];
+                        hold.z = ClampToFront(hold.z, team, frontZ);
+                        kinematics.Drive[i] = VehicleKinematicsSystem.DriveStraight;
+                        kinematics.DriveTarget[i] = hold;
+                        kinematics.DriveSpeedMul[i] = 1f;
+                    }
                 }
                 if ((MercyPhase)Phase[i] != MercyPhase.Leave) continue;
 
                 float3 rear = spawn;
                 rear.z += team == 0 ? -OutOfViewMetres : OutOfViewMetres;
+                rear = w.ClampToMap(rear);                   // a spawn line nearer the edge than OutOfViewMetres
                 kinematics.Drive[i] = VehicleKinematicsSystem.DriveStraight;
                 kinematics.DriveTarget[i] = rear;
                 kinematics.DriveSpeedMul[i] = 1f;
-                bool past = team == 0 ? w.Position[i].z <= rear.z : w.Position[i].z >= rear.z;
+                // a hull driven at a point brakes to a stop within DriveArrive of it and never crosses it, so being
+                // this near the rear point is being out of view
+                float gone = VehicleKinematicsSystem.DriveArrive + OutOfViewSlack;
+                bool past = team == 0 ? w.Position[i].z <= rear.z + gone : w.Position[i].z >= rear.z - gone;
                 if (!past) continue;
                 Unload(w, i, team, spawn);
             }
