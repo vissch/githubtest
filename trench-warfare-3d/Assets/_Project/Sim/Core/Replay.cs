@@ -188,6 +188,11 @@ namespace TW.Sim
         // field while carried), drives out past its own rear edge and puts them back at full health, then returns for
         // more (MercyCarrySystem, new at the end of the system chain; SimEventType.UnitBoarded / UnitReturned). The
         // chain and the hashed layout grow: a v37 replay does not replay.
+        // v38 (2026-10-13, a stopped Kettle turns to face its target): TankSpec.TurnsToAim. The second read's fixes
+        // (2026-10-14) stay in v38, as the lane has it (the owner): the turn's gate is now "parked" - standing still,
+        // nowhere to go and nothing holding it down (K.1) - and the target it turns to is latched (K.2), which
+        // appends TankGunnerySystem.TurnTarget to the end of that system's part of the hash, after HoldGoal.
+        // The system chain is unchanged.
         public const ushort FormatVersion = 59;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
