@@ -11,7 +11,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
@@ -24,27 +23,81 @@ namespace TW.Tests
         static string ProjectRoot => Path.GetFullPath(Path.Combine(Application.dataPath, "_Project"));
         static string ProfilePath => Path.Combine(ProjectRoot, "Presentation", "Terrain", "BiomeProfile.cs");
 
+        // [TS1] A field is read only where some non-test .cs reads it THROUGH a BiomeProfile-typed holder.
+        // The old check was a word match over the raw text of every .cs: comments, other classes' members, a
+        // test's own use and writes all counted, so a dead field with a common name (Id, Dark, Flooding, Radius)
+        // stayed green. The old declaration regex also listed only Color/float/bool/int/Biome and no comma
+        // lists, so most of the profile - Name, Haze, Bank, KeyEuler, GradeHighs - was never even looked for.
         [Test]
         public void EveryFieldOnTheProfileIsReadBySomething()
         {
             Assert.IsTrue(File.Exists(ProfilePath), ProfilePath);
-            var declared = Regex.Matches(File.ReadAllText(ProfilePath),
-                    @"^\s*public\s+(?:Color|float|bool|int|Biome)\s+(\w+)\s*[=;]", RegexOptions.Multiline)
-                .Cast<Match>().Select(m => m.Groups[1].Value).Distinct().ToList();
-            Assert.Greater(declared.Count, 15, "the profile's fields were found");
+            var declared = DeclaredFields(File.ReadAllText(ProfilePath));
+            // 58 public instance fields, counted by hand from BiomeProfile.cs on 2026-10-14.
+            Assert.GreaterOrEqual(declared.Count, 55,
+                "[TS1] the profile's fields were found, comma lists and all: " + declared.Count);
+            foreach (var n in new[] { "Name", "Haze", "Bank", "KeyEuler", "GradeHighs" })
+                Assert.Contains(n, declared, "[TS1] a field form the old regex dropped is now parsed: " + n);
 
-            var body = new StringBuilder();
-            foreach (var file in Directory.EnumerateFiles(ProjectRoot, "*.cs", SearchOption.AllDirectories))
+            // The holders are worked out PER FILE, and a read only counts in the file its holder is declared in.
+            // Pooled across the project the short names would let anything through: TankRenderer reads p.Radius
+            // off a projectile, which is how a planted "public float Radius;" on the profile first came back green.
+            var sources = Directory.EnumerateFiles(ProjectRoot, "*.cs", SearchOption.AllDirectories)
+                // Read only by a test is dead for the game, which is half of why the old check could not fail.
+                .Where(f => !f.Replace('\\', '/').Contains("/Tests/"))
+                .Select(File.ReadAllText).Where(s => s.Contains("BiomeProfile")).ToList();
+
+            // A BiomeProfile-typed MEMBER (Atmosphere.Profile, GreyboxTerrainView.Profile) is read from other
+            // files too - PerfBench reads Atmosphere.Profile.Name - so those names hold anywhere.
+            var members = sources.SelectMany(s =>
+                    Regex.Matches(s, @"public\s+(?:static\s+)?BiomeProfile\s+(\w+)\s*(?:\{|=>|=)").Cast<Match>())
+                .Select(m => m.Groups[1].Value).Distinct().ToList();
+            Assert.Contains("Profile", members, "[TS1] the BiomeProfile-typed members were found");
+
+            var scanned = 0;
+            var read = new HashSet<string>();
+            foreach (var src in sources)
             {
-                var name = Path.GetFileName(file);
-                if (name == "BiomeProfile.cs" || name == "BiomeProfileTests.cs") continue;
-                body.Append(File.ReadAllText(file)).Append('\n');
+                scanned++;
+                // Everything a BiomeProfile can be held in here: the parameter of Atmosphere.Apply/PushBiome,
+                // the Atmosphere/GreyboxTerrainView Profile properties, any local assigned from BiomeProfile.*.
+                var holders = Regex.Matches(src, @"BiomeProfile\s+(\w+)").Cast<Match>()
+                    .Select(m => m.Groups[1].Value)
+                    .Concat(Regex.Matches(src, @"var\s+(\w+)\s*=\s*[^;\n]*BiomeProfile\.").Cast<Match>()
+                        .Select(m => m.Groups[1].Value))
+                    .Concat(members).Distinct().ToList();
+                if (holders.Count == 0) continue;
+                var through = "(?:" + string.Join("|", holders.Select(Regex.Escape))
+                    + @"|BiomeProfile\.For\([^)]*\))\.";
+                // (?!\s*=[^=]) drops a write: "p.Haze = c" sets the field, it does not read it.
+                foreach (var n in declared)
+                    if (Regex.IsMatch(src, through + Regex.Escape(n) + @"\b(?!\s*=[^=])")) read.Add(n);
             }
-            var all = body.ToString();
-            var dead = declared.Where(n => !Regex.IsMatch(all, @"\b" + Regex.Escape(n) + @"\b")).ToList();
+            Assert.Greater(scanned, 5, "[TS1] the non-test sources that mention a BiomeProfile were found");
+            var dead = declared.Where(n => !read.Contains(n)).ToList();
             Assert.IsEmpty(dead,
-                "declared on BiomeProfile and read by nothing, so a biome cannot change what they name: "
-                + string.Join(", ", dead));
+                "[TS1] declared on BiomeProfile and read by no non-test code, so a biome cannot change what they "
+                + "name: " + string.Join(", ", dead));
+        }
+
+        /// <summary>
+        /// The public instance field names on the profile, comma lists split out. Any type is accepted (string,
+        /// Vector3 and Vector4 are all declared there); the non-field public members - the enum, the class, the
+        /// static factories - have no "name[,name] =" or ";" tail and so never match.
+        /// </summary>
+        static List<string> DeclaredFields(string src)
+        {
+            var names = new List<string>();
+            foreach (Match m in Regex.Matches(src, @"^\s*public\s+(\w+)\s+([\w\s,]+?)\s*[=;]",
+                         RegexOptions.Multiline))
+            {
+                var type = m.Groups[1].Value;
+                if (type == "enum" || type == "sealed" || type == "static" || type == "class"
+                    || type == "const" || type == "readonly") continue;
+                foreach (var n in m.Groups[2].Value.Split(','))
+                    if (n.Trim().Length > 0 && !names.Contains(n.Trim())) names.Add(n.Trim());
+            }
+            return names;
         }
 
         /// <summary>
