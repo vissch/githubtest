@@ -19,6 +19,7 @@ namespace TW.Tests
         public IEnumerator TearDown()
         {
             MatchLaunch.Current = null;
+            MatchLaunch.Apply(null);   // [T42] clears Running too, or it leaks into the next fixture's run
             if (go != null) Object.Destroy(go);
             HudBootstrap.Disabled = false; ShellBoot.Disabled = false;
             yield return null;

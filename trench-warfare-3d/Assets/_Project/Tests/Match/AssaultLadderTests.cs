@@ -288,8 +288,15 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void AnEqualAttack_WithNothingBehindIt_TakesNothing()
         {
-            var (taken, _, said) = Rung4(1, Support.None);
-            Assert.AreEqual(0, taken, said);
+            // [T42] taken == 0 alone passes on a setup that sends nobody over; check the attack actually happened
+            for (uint s = 0; s < 4; s++)
+            {
+                var r = Run(10, 10, Support.None, 0xA55A0000u + s);
+                Assert.AreEqual(0, r.Taken ? 1 : 0, $"[T42] seed {s}: {r}");
+                Assert.AreEqual(10, r.Attackers, $"[T42] seed {s}: the setup asked for ten attackers: {r}");
+                Assert.Greater(r.ShotsD, 0, $"[T42] seed {s}: the garrison never fired: {r}");
+                Assert.Greater(r.AttackersLost, 0, $"[T42] seed {s}: the attack cost the attackers nobody: {r}");
+            }
         }
 
         [Test, Explicit("the whole ladder, for tuning: nine rungs of four seeds")]
