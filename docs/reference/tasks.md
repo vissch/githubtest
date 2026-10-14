@@ -597,7 +597,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   footprints, ladders, roads, season, coast, rear bands; `ScatterField`: Traffic, Vertical, Patch, Wet, Open) and
   `Presentation/Terrain/ScatterLayers.cs` (grass, accents, flowers, frost, the camp's kit in trenches, dugouts and the
   rear; the caps). Design: `docs/13-environment-system-rebuild.md`, "Rule-based scatter".
-- **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests, RearRuinsTests (the four big ruins in the rear).
+- **Tests:** EnvAtlasTests, AssetScaleTests, ScatterRulesTests, RearRuinsTests (the four big ruins in the rear),
+  RuinStills (Explicit: run by name with a graphics device; the look at the four placed ruins, night and day).
 - **Trap:** `BattlefieldKit.EnvSets` / `EnvCols` / `EnvRows` must match `Tools/envatlas.py`. Walkers need ~10 m
   gaps between placed structures. The scale clamp lives in `BattlefieldProps.Emit` and `Placement`, not in
   `Styled` (which returns early without a look, and hand edits never pass through it); a building is reported,
