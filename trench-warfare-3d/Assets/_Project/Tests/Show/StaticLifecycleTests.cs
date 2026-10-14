@@ -37,6 +37,7 @@ namespace TW.Tests
             ["Atmosphere.PinnedClock"] = "a capture switch: the caller that pins the clock restores it",
             ["AllocProbe.recorder"] = "a cached profiler Recorder, re-made when Unity has dropped it",
             ["AllocProbe.busy"] = "a re-entry guard for one measurement at a time; the measurement clears it",
+            ["SettingsStore.PathOverride"] = "a test seam: the settings file a fixture substitutes; the fixture that sets it puts it back in a finally (ProfileStore.PersistOverride's rule)",
             ["AudioLevels.Ambience"] = "a player setting, applied from settings.json by SettingsApplier",
             ["AudioLevels.Sfx"] = "a player setting, applied from settings.json by SettingsApplier",
             ["AudioLevels.Music"] = "a player setting, applied from settings.json by SettingsApplier",
