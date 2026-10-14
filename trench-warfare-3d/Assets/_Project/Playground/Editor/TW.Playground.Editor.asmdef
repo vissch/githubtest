@@ -3,7 +3,8 @@
     "rootNamespace": "TW.Playground.Editor",
     "references": [
         "TW.Playground",
-        "TW.Presentation.Terrain"
+        "TW.Presentation.Terrain",
+        "TW.Editor"
     ],
     "includePlatforms": [
         "Editor"
