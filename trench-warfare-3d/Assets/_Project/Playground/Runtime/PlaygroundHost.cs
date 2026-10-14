@@ -331,7 +331,15 @@ namespace TW.Playground
                 case "cookdelay": cookDelay = F(a, 1, 7f); foreach (var v in Vehicles) v.CookDelay = cookDelay; break;
                 case "size": VehicleSize = F(a, 1, 0f); Scene(Mode); break;   // "size 0": the game's own table
                 case "fly": foreach (var v in Vehicles) if (v.Flyer != null) { v.Flyer.Speed = F(a, 1, 8f); if (a.Length > 2) v.Flyer.Altitude = F(a, 2, 14f); } break;   // "fly 8 [14]": m/s round a circle [altitude, m]
-                case "walk": foreach (var v in Vehicles) if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; } break;   // "walk 2 [1]": a walker's pace, m/s [on the spot]
+                // "walk 2 [1]": a walker's or a driven machine's pace, m/s [on the spot]. A tracked or wheeled machine
+                // could not be driven at all before (Y3); it now takes the same command.
+                case "walk":
+                    foreach (var v in Vehicles)
+                    {
+                        if (v.Walker != null) { v.Walker.Speed = F(a, 1, 2f); v.Walker.InPlace = F(a, 2, 0f) > 0.5f; }
+                        if (v.Ground != null) { v.Ground.Speed = F(a, 1, 2f); v.Ground.InPlace = F(a, 2, 0f) > 0.5f; }
+                    }
+                    break;
                 case "clip":
                     {
                         int k = Library.ClipIndex(line.Substring(line.IndexOf(' ') + 1).Trim());

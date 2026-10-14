@@ -38,7 +38,9 @@ namespace TW.Presentation.Tactical
     public sealed partial class TankRenderer : MonoBehaviour
     {
         public SimHost Host;
-        public float LodDistance = 170f;
+        /// <summary>Metres: from here out the far model is drawn. The playground's own auto-LOD poses by it (Y3).</summary>
+        public const float DefaultLodDistance = 170f;
+        public float LodDistance = DefaultLodDistance;
         public int MaxWrecks = 48;
         const float UnlinkedSinkAfter = 75f;   // seconds a hull with no sim wreck prop burns before it sinks away
         public static readonly Vector4 TeamTintB = new Vector4(0.52f, 0.56f, 0.60f, 0.8f);   // field grey
@@ -239,7 +241,7 @@ namespace TW.Presentation.Tactical
         public const string FarAtlasSuffix = "Atlas_LOD1";
         public const float FlyingFrom = 2f;     // a lift from here up is flight: level, and a fall when it dies
         // the hover pose (critic round 4: the Skimmer sat, pitched and ditched like a tank)
-        const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
+        public const float HoverLift = 0.35f, HoverBob = 0.1f, HoverBobHz = 0.5f;   // metres off the ground; its bob, and how often
         const float HoverSettle = 3f;       // omega of its pitch and roll: a cushion rides the ground's average, slowly
         const float HoverDip = 0.3f;        // how far below its skirt's highest ground it may ride (round 6)
         const float NightSideShare = 0.3f;  // the share of a part's side colour it wears at night (round 7)
@@ -250,7 +252,7 @@ namespace TW.Presentation.Tactical
         const float RackRidingPitch = 16f, RackFiringPitch = 28f, RackMaxPitch = 30f;   // degrees
         const float RackRaiseRate = 30f;    // deg/s: up before its first rocket leaves (12, a gun's, left the first ones low)
         const float RackRecoilDecay = 10f;  // per second: each rocket's kick shows, and is gone before the next
-        const float FanMaxShown = 14f;      // rad/s: faster, a six-bladed fan strobes backwards at 60 fps; shown at this
+        public const float FanMaxShown = 14f;      // rad/s: faster, a six-bladed fan strobes backwards at 60 fps; shown at this
         const float RackRecoil = 0.1f;                      // metres back along the barrel at full Recoil (a rack's)
         public const float GunRecoil = 0.45f;               // metres back along the barrel at full Recoil (a gun's; the playground poses by it)
         const float RackFireKick = 0.35f;                   // Recoil when the rack fires (each rocket then adds its own)
