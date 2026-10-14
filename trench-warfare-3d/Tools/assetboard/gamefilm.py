@@ -185,11 +185,14 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
         print(f'  {name}: timed out with {len(list(frames_dir.glob("*.jpg")))} of {frames} frames')
         return False
     mp4 = OUT / f'{name}.mp4'
+    part = mp4.with_name(mp4.name + '.part')
     r = subprocess.run([FFMPEG, '-y', '-loglevel', 'error', '-r', str(FPS), '-i', str(frames_dir / '%05d.jpg'), '-an', '-c:v', 'libx264', '-preset', 'slow',
-                        '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(mp4)], capture_output=True, text=True)
+                        '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(part)], capture_output=True, text=True)
     if r.returncode != 0:
+        part.unlink(missing_ok=True)
         print(f'  {name}: ffmpeg: {r.stderr[-200:]}')
         return False
+    os.replace(part, mp4)
     shutil.copyfile(frames_dir / f'{frames // 3:05d}.jpg', OUT / f'{name}.jpg')
     shutil.rmtree(frames_dir, ignore_errors=True)
     print(f'  {name}.mp4  {seconds:.0f} s  {mp4.stat().st_size // 1024} KB')
