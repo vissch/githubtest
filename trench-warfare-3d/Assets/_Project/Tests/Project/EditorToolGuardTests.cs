@@ -51,6 +51,18 @@ namespace TW.Tests
             Assert.AreEqual("0", CaptureRig.Pending(), "[E4] an edit-mode call queued a shot nobody will ever take");
         }
 
+        [Test]
+        public void TheAssetScaleAuditRefusesToRunInPlay()   // [E8]
+        {
+            // in Play it would build and dispose a second BattlefieldKit, and the dispose takes the live kit's global
+            // _PigmentSheet down with it. It has to refuse before the kit is built, so this costs nothing.
+            string file = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "e8-audit.md");
+            if (System.IO.File.Exists(file)) System.IO.File.Delete(file);
+            UnityEngine.TestTools.LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("Asset scale audit: " + OutOfPlay + ".*"));
+            Assert.IsNull(AssetScaleAudit.Write(file, playing: true), "[E8] the audit ran while the game was in Play");
+            Assert.IsFalse(System.IO.File.Exists(file), "[E8] the audit wrote its report while the game was in Play");
+        }
+
         [TearDown]
         public void Clean()
         {
