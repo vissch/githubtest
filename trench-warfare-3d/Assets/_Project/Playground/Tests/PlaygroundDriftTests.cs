@@ -385,5 +385,24 @@ namespace TW.Tests.Playground
             Assert.That(buffer[5], Is.EqualTo(Vector4.zero), "[Y10] a ring nobody queued keeps no old colour");
             Assert.That(buffer.Length, Is.EqualTo(PlaygroundFx.MaxRings), "[Y10] the buffer the block was given never changes length");
         }
+
+        [Test]
+        public void TheReportFolderIsMade()
+        {
+            // [Y12] a report path under a folder that does not exist yet (lodpop.json, lodfit.json, sidehue.json, the
+            // Capture PNG) threw on Directory.CreateDirectory(null) when the path was a bare file name (E1): EnsureDir
+            // makes the folder when there is one, and does nothing (not throw) when there is not.
+            string dir = System.IO.Path.Combine(System.IO.Path.GetTempPath(), "tw-y12-" + System.Guid.NewGuid().ToString("N"));
+            string path = System.IO.Path.Combine(dir, "sub", "lodpop.json");
+            try
+            {
+                PlaygroundHost.EnsureDir(path);
+                Assert.That(System.IO.Directory.Exists(System.IO.Path.GetDirectoryName(path)), "[Y12] EnsureDir did not make the folder");
+                Assert.DoesNotThrow(() => System.IO.File.WriteAllText(path, "{}"), "[Y12] the report could not be written after EnsureDir");
+
+                Assert.DoesNotThrow(() => PlaygroundHost.EnsureDir("lodpop.json"), "[Y12] a bare file name must not throw");
+            }
+            finally { if (System.IO.Directory.Exists(dir)) System.IO.Directory.Delete(dir, true); }
+        }
     }
 }
