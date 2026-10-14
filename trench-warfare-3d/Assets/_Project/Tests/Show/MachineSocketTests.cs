@@ -38,12 +38,17 @@ namespace TW.Tests
         {
             var maw = TankModel.Load("Maw", VehicleArchetype.Maw, "Hull", VehicleSize.Tank);
             Assert.IsNotNull(maw);
-            foreach (var s in new[] { "Socket_Exhaust0", "Socket_Exhaust1", "Socket_Fire0" })
+            // [TS20] the three numbered sockets Maw_LOD0.fbx really declares: a `continue` here skipped a name the Maw
+            // does not have (Socket_Exhaust1) and would have skipped all three in silence had the fbx lost them.
+            int hits = 0;
+            foreach (var s in new[] { "Socket_Exhaust0", "Socket_Fire0", "Socket_Fire1" })
             {
-                if (!maw.Sockets.TryGetValue(s, out var own)) continue;
+                Assert.IsTrue(maw.Sockets.TryGetValue(s, out var own), $"[TS20] the Maw declares {s} in its fbx");
                 Assert.IsTrue(MachineSockets.TryResolve(maw, s, out var found), s);
                 Assert.AreEqual(own, found, $"the Maw's own {s}, unchanged");
+                hits++;
             }
+            Assert.AreEqual(3, hits, "[TS20] the Maw's own numbered sockets were all checked, not skipped");
             Assert.IsFalse(MachineSockets.TryResolve(maw, "Socket_Nowhere", out _));
             Assert.IsFalse(MachineSockets.TryResolve(null, "Socket_Exhaust0", out _));
         }

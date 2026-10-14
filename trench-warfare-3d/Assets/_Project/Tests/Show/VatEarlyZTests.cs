@@ -20,19 +20,21 @@ namespace TW.Tests
         {
             string src = File.ReadAllText(ShaderPath);
             // the source the keyword-off variant compiles: each _TW_LIMBCUT block replaced by its #else branch, if any
+            string code = Regex.Replace(src, @"//[^\n]*", "");   // [TS20] a commented-out line is not code: strip first, check after
             string living = Regex.Replace(src, @"#if defined\(_TW_LIMBCUT\)(.*?)(?:#else(.*?))?#endif", m => m.Groups[2].Value, RegexOptions.Singleline);
             living = Regex.Replace(living, @"//[^\n]*", "");   // what the comments say is not code
             Assert.That(Regex.IsMatch(living, @"\bclip\s*\(|\bdiscard\b"), Is.False,
                 "a clip() or discard reaches the living men's passes: put it behind _TW_LIMBCUT (VAT_CLIP_LOST), or every man loses early-Z");
-            Assert.That(Regex.Matches(src, @"#pragma multi_compile_local_fragment _ _TW_LIMBCUT").Count, Is.EqualTo(4),
-                "each pass that clips the fallen (ForwardLit, Outline, ShadowCaster, DepthOnly) declares the keyword, as multi_compile so a build keeps both variants of these runtime-made materials");
+            Assert.That(Regex.Matches(code, @"#pragma multi_compile_local_fragment _ _TW_LIMBCUT").Count, Is.EqualTo(4),
+                "[TS20] each pass that clips the fallen (ForwardLit, Outline, ShadowCaster, DepthOnly) declares the keyword, as multi_compile so a build keeps both variants of these runtime-made materials");
         }
 
         [Test]
         public void TheFallenKeepTheLimbCut()
         {
-            Assert.That(File.ReadAllText(RendererPath), Does.Contain("fallen.EnableKeyword(\"_TW_LIMBCUT\")"),
-                "the fallen's material must enable _TW_LIMBCUT, or a man a shell took a limb off lies whole");
+            string code = Regex.Replace(File.ReadAllText(RendererPath), @"//[^\n]*", "");   // [TS20] not a commented-out call
+            Assert.That(code, Does.Contain("fallen.EnableKeyword(\"_TW_LIMBCUT\")"),
+                "[TS20] the fallen's material must enable _TW_LIMBCUT, or a man a shell took a limb off lies whole");
         }
     }
 }

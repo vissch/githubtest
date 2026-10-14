@@ -48,7 +48,9 @@ namespace TW.Tests
         public void BakedFigures_IfPresent_HaveARowPerClipAndHoldTheirOneShots([Values("Soldier", "Sniper")] string figure)
         {
             var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
-            if (data == null || !data.Valid) Assert.Ignore("no baked " + figure + " (TW/VAT/Bake Infantry); the renderer falls back to the box soldier");
+            // [TS19] Resources/Units/Figure<figure>.asset is committed: a missing or invalid bake is a broken repo, not a skip.
+            Assert.IsNotNull(data, "[TS19] Units/Figure" + figure + " is committed; a missing bake is a broken repo, not a skip");
+            Assert.IsTrue(data.Valid, "[TS19] the committed Units/Figure" + figure + " bake is invalid");
             var asset = data.ToAsset();
             CheckContract(asset, (int)Clip.Count);
             Assert.IsTrue(asset.ClipAtlas);

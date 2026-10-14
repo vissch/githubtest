@@ -66,12 +66,28 @@ namespace TW.Tests
             Assert.GreaterOrEqual(accents, (int)(0.8f * Mathf.Min(inKept.Accents, ScatterLayers.MaxAccent)), $"{accents} accents of the {inKept.Accents} the kept grass carries");
             Assert.Greater(far, 0, "the far rows have grass");
             Assert.Less(Mathf.Abs(near - far), 0.15f * Mathf.Max(near, far), $"near {near} and far {far} thirds within 15 %");
-            // a blank field has no trenches or dugouts: every crate and shell stack is the rear band's
-            var rearInput = ScatterInput.Blank(120, 240, 1917);
-            var rearWant = ScatterLayers.Walk(rearInput, field, null, default);
-            int rear = 0; foreach (var s in laid) if (s.Kind == ScatterKind.ShellStack || s.Kind == ScatterKind.Crate) rear++;
-            Assert.LessOrEqual(rear, ScatterLayers.MaxRear, "the rear band keeps under its cap");
-            if (rearWant.Rear > ScatterLayers.MaxRear) Assert.Greater(rear, ScatterLayers.MaxRear / 2, "and fills a fair share of it");
+        }
+
+        /// <summary>[TS16] The rear band keeps under its cap, on a field that really has a rear band: the old assert ran on
+        /// an input whose RearA/RearB were still -inf/+inf, so nothing was ever in the rear and it asserted 0 &lt;= 360.</summary>
+        [Test]
+        public void The_Rear_Band_Keeps_Under_Its_Cap()
+        {
+            var input = ScatterInput.Blank(120, 240, 1917);   // 240 x 480 m at Cell 2 m: 30 rows of rear at each end
+            input.RearA = 60f; input.RearB = 420f;
+            var field = Grown(input);
+            var want = ScatterLayers.Walk(input, field, null, default);
+            Assert.Greater(want.Rear, ScatterLayers.MaxRear, "[TS16] the rear band wants more than its cap (else the test proves nothing)");
+            // a blank field has no trenches or dugouts: every crate and shell stack laid is the rear band's
+            int rear = 0;
+            foreach (var s in Laid(input, field))
+            {
+                if (s.Kind != ScatterKind.Crate && s.Kind != ScatterKind.ShellStack) continue;
+                rear++;
+                Assert.IsTrue(input.InRear(s.Z), $"[TS16] a rear item at z {s.Z:0.0} lies outside the rear band");
+            }
+            Assert.LessOrEqual(rear, ScatterLayers.MaxRear, "[TS16] the rear band keeps under its cap");
+            Assert.Greater(rear, ScatterLayers.MaxRear / 2, "[TS16] and fills a fair share of it");
         }
 
         /// <summary>A site's footprint turns the way Unity turns the site (Quaternion.Euler(0, yaw, 0)): the scatter's mask

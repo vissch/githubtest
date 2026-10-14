@@ -1,4 +1,6 @@
 // Phase: A5d (2026-09-29, the owner's night look) — the knobs that draw today's night at 0, and what they do past it.
+using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Terrain;
@@ -80,6 +82,10 @@ namespace TW.Tests
             Assert.AreEqual(1f, w.x, 1e-6f);
             Assert.Less(w.y, 1f); Assert.Less(w.z, w.y, "blue goes most: orange, not the pale sand the lantern colour alone made");
             Assert.AreEqual(32, NightLights.MaxPools, "TW_MAX_POOLS in TWLightPools.hlsl");
+            // [TS20] and the hlsl define itself, read: pinning the C# side alone let the two drift apart silently
+            var pools = Regex.Match(File.ReadAllText("Assets/_Project/Shaders/TWLightPools.hlsl"), @"#define\s+TW_MAX_POOLS\s+(\d+)");
+            Assert.IsTrue(pools.Success, "[TS20] TWLightPools.hlsl defines TW_MAX_POOLS");
+            Assert.AreEqual(NightLights.MaxPools, int.Parse(pools.Groups[1].Value), "[TS20] TW_MAX_POOLS and NightLights.MaxPools must be the same number");
         }
 
         [Test]
