@@ -104,7 +104,11 @@ namespace TW.Tests
                     Assert.AreEqual(TW.Presentation.BannerRules.Rank(SimEventType.AbilityFired, player == 0), rank);
                 }
             Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.TrenchCaptured, A = 2, B = 1 }, out var lost, out _, out var lostCls, out _));
-            Assert.AreEqual("Trench 2 lost", lost); Assert.AreEqual("tw-banner--defeat", lostCls);
+            // [I7] A = 2 is the sim's 0-based trench id, so the player reads "Trench 3": the hover card and the
+            // selection panel print id + 1 for the same trench, and the banner printed the raw id.
+            Assert.AreEqual("Trench 3 lost", lost, "[I7] the capture banner prints the raw 0-based trench id"); Assert.AreEqual("tw-banner--defeat", lostCls);
+            Assert.AreEqual("Trench 1 captured!", TW.UI.HudText.CapturedBanner(0, true), "[I7] trench 0 is the player's TRENCH 1");
+            Assert.AreEqual("Trench 1 lost", TW.UI.HudText.CapturedBanner(0, false), "[I7] trench 0 is the player's TRENCH 1");
             Assert.IsTrue(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.MatchEnded, A = 0 }, out var won, out float stays, out _, out int endRank));
             Assert.AreEqual(TW.UI.HudText.VictoryBanner, won); Assert.GreaterOrEqual(stays, 600f, "the end stays up"); Assert.AreEqual(TW.Presentation.BannerRules.MatchEnd, endRank);
             Assert.IsFalse(TW.UI.ObjectiveTracker.BannerFor(new SimEvent { Type = SimEventType.Shot }, out _, out _, out _, out _), "a shot raises nothing");
