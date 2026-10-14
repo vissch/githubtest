@@ -268,12 +268,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 ## Open: waiting on the owner
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
-  the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
-  sides: the Skimmer's gun is 12 mm); a halted Kettle whose path does not point at its targets never fires (the original
+  the Tusk to win at a price); a halted Kettle whose path does not point at its targets never fires (the original
   game's machine, left alone). Still to check in Play: rockets reaching the ground on their burst's frame, the trails at
   night (alpha 0.7), the hover over trenches, both far LODs at 170 m, and the ribbon shader in a Windows build.
   The Salvo's reload and the halted Kettle are decided (Process and How units move and fight, 2026-10-06). The Skimmer
-  against the Tusk is decided too (How units move and fight, 2026-10-08): a 14 mm gun.
+  against the Tusk is decided too (How units move and fight, 2026-10-08): a 14 mm gun, **built 2026-10-14** on
+  `lane/sim/skimmer-14mm` (replay format v38, renumbered at landing). It now holes a Tusk's and a Breaker's 12 mm side,
+  a Pavise's 13 mm and a Maw's 12 mm front; a Tusk's 16 mm front and its 16 mm turret side stay shut. Ten fixed-seed
+  duels at the current ranges (gun 104 m, stand-off 72 m): against a Tusk 0 wins in 10 before, 5 in 10 after (mean
+  34 s to kill); against a Maw 8 before, 9 after (21 s then 20 s).
 - **Names and jobs for the six models without a settled one (2026-09-28):** proposed and not answered: Brute as the
   Anvil (a medium tank) or as the Breaker's missing model; the Croaker a leaping assault walker; the Hopper as the
   Dragonfly, the aircraft that flies the strafe run and the drop; the Mercy a healer; the Frog as the Wader, amphibious
