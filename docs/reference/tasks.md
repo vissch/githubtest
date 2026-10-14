@@ -537,9 +537,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   axis of its own: `FlipbookFx.InkLay`, `FlipbookFx.LayAlong`),
   BannerFireInkTests (`FlipbookFx.InkLay` + `FlipbookFx.LayAlong`, measured on the PIXELS of the sheet: every book a
   machine lays along its bore declares the root and the direction its drawing actually has in its cell, and from the
-  same four eyes and two yaws the DRAWING's root sits within a quarter of the barrel mouth's own on-screen width of
-  the mouth, its axis within 10 deg of the projected bore, and the wide bright end is the end at the mouth; the whole
-  of `TankRenderer.Machines` is measured, so a second machine that starts laying a flame is held too),
+  same four eyes and two yaws the DRAWING's root sits within 0.15 m (and a quarter of the barrel mouth's own on-screen
+  width, whichever is tighter) of the mouth, its axis within 5 deg of the projected bore, and the wide bright end is
+  the end at the mouth; a laid book's declared root and point must match its own pixels within 0.01 UV and 1.5 deg
+  (`FlipbookFx.Sheets`'s `InkRoot`/`InkPoint` for `GunBlast`, read off `FireGunBlast.png`); the whole of
+  `TankRenderer.Machines` is measured, so a second machine that starts laying a flame is held too),
   MachineMuzzleTests (`TankModel.Load` + `TankRenderer.MuzzleWorld`, every machine in the roster: a gun whose art gives
   it no muzzle socket reads its mouth off the mesh of the barrel that fires it, so no gun draws its fire from
   MuzzleWorld's last-ditch point in open air, and a machine with its own `Socket_Muzzle` draws exactly where it did).
