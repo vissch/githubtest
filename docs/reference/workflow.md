@@ -282,8 +282,13 @@ a whole run does not yet, measured 2026-10-01 at up to 35 % of a close band betw
 (the newest seven kept); exit 0 nothing new, 2 something to look at, 1 could not run. Scheduling it daily is the owner's call.
 It also reads the newest sweep run under `%LOCALAPPDATA%\TrenchWarfare\sweeps\` that reported [a faction
 band](decisions.md#d-matches) and adds a "Balance band" section with that baseline's shares; it never runs a sweep
-itself. A faction out of band is a line there and a look item (so it moves the exit to 2 too); no sweep report yet
-is one line, nothing to look at. `python Tools/test_nightly.py` tests this part with no editor and no sweep run.
+itself. A report.json caught mid-write is named as unreadable and an older sweep is tried instead. The sweep found is
+judged only when it is fresh (at most 7 days old), clean (not dirty, no `not_run` variant), on-spec (`factions.json`)
+and on tonight's commit; otherwise it is named with its age and the reason and nothing becomes a look item. A faction
+out of band in a judged sweep is a line there and a look item only when it is new since last night's report (a
+different sweep read, or a side newly out of band), so one old out-of-band sweep does not move the exit to 2 every
+night; no sweep report yet is one line, nothing to look at. `python Tools/test_nightly.py` tests this part with no
+editor and no sweep run.
 
 **A balance number, swept (2026-10-04).** The bench says how units behave; `python Tools/sweep.py run <spec.json>` says
 what a number does to the fight. A spec names variants, and a variant is data, so nothing is recompiled or committed:
