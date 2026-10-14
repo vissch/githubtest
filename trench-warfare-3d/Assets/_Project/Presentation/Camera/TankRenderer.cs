@@ -298,7 +298,7 @@ namespace TW.Presentation.Tactical
         {
             // knobs (Knobs): MaxWrecks only where its knob is set, so an inspector value still holds
             MaxWrecks = Knobs.Get("tank.maxWrecks", MaxWrecks);
-            maxLoose = Knobs.Get("tank.maxLoose", MaxLoose);
+            maxLoose = ReadMaxLoose();
         }
 
         void Start()
@@ -1074,6 +1074,10 @@ namespace TW.Presentation.Tactical
         /// <summary>Loose parts on the field at once; past it the oldest piece at rest is taken away (a track slid off is kept: it goes back when mended).</summary>
         public const int MaxLoose = 160;
         int maxLoose = MaxLoose;   // or the knob tank.maxLoose (Awake)
+
+        /// <summary>The knob tank.maxLoose as Awake resolves it (bare: no clamp). A static so a test can run the
+        /// real read.</summary>
+        public static int ReadMaxLoose() => Knobs.Get("tank.maxLoose", MaxLoose);
         void TrimDebris()
         {
             while (debris.Count > maxLoose)

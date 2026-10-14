@@ -1,5 +1,8 @@
 // Phase: tooling (AOSA loop, 2026-09-25) - the knob registry parses, falls back, logs what was read, and with nothing
 // set every knob-backed value is the constant it replaced (the old numbers are written out here on purpose).
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
@@ -157,7 +160,10 @@ namespace TW.Tests
             Assert.AreEqual(1536, FlipbookFx.MaxCards);
             Assert.AreEqual(160, TankRenderer.MaxLoose);
             Assert.AreEqual(1536, Knobs.Get("flipbook.maxCards", FlipbookFx.MaxCards));
-            Assert.AreEqual(160, Knobs.Get("tank.maxLoose", TankRenderer.MaxLoose));
+            // [TS14] read what TankRenderer.Awake resolves, not a name and fallback retyped here
+            Assert.AreEqual(160, TankRenderer.ReadMaxLoose(), "[TS14] tank.maxLoose nothing set is the old 160");
+            Knobs.Set("tank.maxLoose", "7");
+            Assert.AreEqual(7, TankRenderer.ReadMaxLoose(), "[TS14] a set tank.maxLoose is what Awake reads");
         }
 
         [Test]
@@ -667,11 +673,12 @@ namespace TW.Tests
         [Test]
         public void Terrain_NothingSet_IsTheOldConstants()
         {
-            Assert.AreEqual(48, Knobs.Get("props.maxLoose", PropDestruction.MaxLoose));
-            Assert.AreEqual(256, Knobs.Get("props.maxFalling", PropDestruction.MaxFalling));
+            // [TS14] the capacity knobs read through the production readers Awake calls, not retyped here
+            Assert.AreEqual(48, PropDestruction.ReadMaxLoose(), "[TS14] props.maxLoose nothing set is the old 48");
+            Assert.AreEqual(256, PropDestruction.ReadMaxFalling(), "[TS14] props.maxFalling nothing set is the old 256");
+            Assert.AreEqual(6, SmallLife.ReadMaxRats(), "[TS14] life.maxRats nothing set is the old 6");
+            Assert.AreEqual(900, SmallLife.ReadMaxMotes(), "[TS14] life.maxMotes nothing set is the old 900");
             Assert.AreEqual(2800, Knobs.Get("rain.maxStreaks", Rain.MaxStreaks));
-            Assert.AreEqual(6, Knobs.Get("life.maxRats", SmallLife.MaxRats));
-            Assert.AreEqual(900, Knobs.Get("life.maxMotes", SmallLife.MaxMotes));
             Assert.AreEqual(12, Knobs.Get("lights.maxLanterns", NightLights.MaxLanterns));
             Assert.AreEqual(14, Knobs.Get("lights.maxTrenchLamps", NightLights.MaxTrenchLamps));
             Assert.AreEqual(5, Knobs.Get("lights.maxFires", NightLights.MaxFires));
@@ -732,5 +739,86 @@ namespace TW.Tests
             Assert.IsTrue(GreyboxTerrainView.MipsDue(1000.0, 1000.0, false, false));
             Assert.IsTrue(GreyboxTerrainView.MipsDue(10.0, 1000.0, true, false));
         }
+
+        /// <summary>[TS14] A capacity knob's clamp was tested nowhere, which is how X3 (fx.maxBodies=0 throwing inside
+        /// OnSimEvent) got through. 0 and 99999 go through the production readers Awake calls (Awake itself does not
+        /// run on AddComponent in EditMode) and must land inside the clamp.</summary>
+        [Test]
+        public void CapacityKnobs_ZeroAndHuge_LandInsideTheProductionClamp()
+        {
+            foreach (string knob in new[] { "0", "99999" })
+            {
+                Knobs.Clear();
+                Knobs.Set("props.maxLoose", knob);
+                Assert.That(PropDestruction.ReadMaxLoose(), Is.InRange(PropDestruction.KeptForChunks + 1, 1023),
+                    "[TS14] props.maxLoose=" + knob + " must stay inside [KeptForChunks+1, 1023]");
+
+                Knobs.Clear();
+                Knobs.Set("life.maxRats", knob);
+                Assert.That(SmallLife.ReadMaxRats(), Is.InRange(0, 1023),
+                    "[TS14] life.maxRats=" + knob + " must stay inside one instanced draw");
+
+                Knobs.Clear();
+                Knobs.Set("life.maxMotes", knob);
+                Assert.GreaterOrEqual(SmallLife.ReadMaxMotes(), 0,
+                    "[TS14] life.maxMotes=" + knob + " must never be negative");
+            }
+        }
+
+        /// <summary>[TS14] The registry: 81 knob names are read across Presentation and UI and no test looked at the
+        /// set. This finds every name, holds its shape, and pins which capacity knobs production clamps - so a clamp
+        /// that is dropped (X3) or a capacity knob added with none is one red test, not a silent hole.</summary>
+        [Test]
+        public void EveryKnobNameHasTheRegistryShape_AndTheClampedCapacityKnobsAreTheKnownOnes()
+        {
+            string[] roots = { "Assets/_Project/Presentation", "Assets/_Project/UI" };
+            var names = new SortedSet<string>();
+            var clamped = new SortedSet<string>();
+            var unclamped = new SortedSet<string>();
+            var capacity = new Regex("max|capacity|cards|streaks|loose|poolsize|machinepool", RegexOptions.IgnoreCase);
+            var get = new Regex("Knobs\\.Get\\(\"([^\"]+)\"");
+            int files = 0;
+            foreach (string root in roots)
+            {
+                Assert.IsTrue(Directory.Exists(root), "[TS14] " + root + " moved: the scan would pass empty");
+                foreach (string file in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+                {
+                    files++;
+                    foreach (string line in File.ReadAllLines(file))
+                        foreach (Match m in get.Matches(line))
+                        {
+                            string name = m.Groups[1].Value;
+                            names.Add(name);
+                            if (!capacity.IsMatch(name)) continue;
+                            string before = line.Substring(0, m.Index);
+                            bool held = before.Contains("Mathf.Clamp") || before.Contains("Mathf.Max") || before.Contains("Mathf.Min");
+                            (held ? clamped : unclamped).Add(name);
+                        }
+                }
+            }
+            Assert.Greater(files, 50, "[TS14] the scan read almost no files");
+            Assert.GreaterOrEqual(names.Count, 75, "[TS14] 81 knob names were read on 2026-10-04; found " + names.Count);
+            var shape = new Regex("^[a-z][a-z0-9]*\\.[a-z][A-Za-z0-9]*$");
+            foreach (string name in names)
+                Assert.IsTrue(shape.IsMatch(name), "[TS14] knob name out of shape: " + name);
+
+            // the clamps that exist today, X3's two among them: dropping one of these fails here
+            string[] knownClamped = {
+                "flipbook.maxCards", "fx.maxBodies", "fx.maxMarks", "life.maxMotes", "life.maxRats",
+                "lights.machinePool", "lights.maxFires", "lights.maxLanterns", "lights.maxMachineGlows",
+                "lights.maxPropLamps", "lights.maxTorches", "lights.maxTrenchLamps", "lights.poolSize",
+                "props.maxLoose", "rain.maxStreaks", "vat.maxFallen",
+            };
+            // capacity knobs still read bare (reported, not this unit's to fix): a new one must be added here on purpose
+            string[] knownBare = {
+                "debris.capacityScale", "fx.maxAmbientChunks", "fx.maxChunks", "props.maxFalling",
+                "tank.maxLoose", "tank.maxWrecks", "vat.maxGrow",
+            };
+            foreach (string name in knownClamped)
+                Assert.IsTrue(clamped.Contains(name), "[TS14] " + name + " is no longer read inside a clamp");
+            Assert.AreEqual(string.Join(",", knownBare), string.Join(",", unclamped.Where(n => !clamped.Contains(n))),
+                "[TS14] the unclamped capacity knobs changed: clamp it, or add it here on purpose");
+        }
+
     }
 }
