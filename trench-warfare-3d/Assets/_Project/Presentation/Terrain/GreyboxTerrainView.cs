@@ -459,16 +459,12 @@ namespace TW.Presentation.Terrain
             go.AddComponent<MeshFilter>().sharedMesh = mesh;
             var r2 = go.AddComponent<MeshRenderer>();
             var skirtMat = Toon(Color.white);
-            // Texels a metre for a surface that is mostly drawn beyond the fog. Three was picked by eye and never
-            // costed: at 12.4 MB this was the third largest texture in the game (docs/05). It stays at three because
-            // the inner five metres of this texture blend into the real ground at the map edge, where a coarser grid
-            // would show a seam; the saving comes from the format instead.
-            const float texelsPerMetre = 3f;
+            // Texels a metre for a surface that is mostly drawn beyond the fog: SkirtTexelsPerMetre, below.
             // Block compression works on 4x4 blocks and silently declines a texture whose sides are not a multiple of
             // four, so the grid is rounded up and the world mapping below is derived from the ROUNDED size rather
             // than assuming texelsPerMetre exactly. Getting that backwards would skew the paint against the mesh's UVs.
             float spanX = w + paintedBorder * 2f, spanZ = l + paintedBorder * 2f;
-            int tw = Round4(Mathf.CeilToInt(spanX * texelsPerMetre)), th = Round4(Mathf.CeilToInt(spanZ * texelsPerMetre));
+            SkirtTexels(spanX, spanZ, out int tw, out int th);
             var texture = new Texture2D(tw, th, TextureFormat.RGBA32, true) { name = "Painted horizon", wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear, anisoLevel = 4 };
             var pixels = new Color32[tw * th];
             for (int z = 0; z < th; z++)
@@ -490,12 +486,34 @@ namespace TW.Presentation.Terrain
             // copy dropped. The cost is a one-time compression at scene load, not yet measured; the gain is four to
             // one on 4.5 MB of base level plus its mips.
             texture.SetPixels32(pixels);
-            texture.Apply(true, false);
-            texture.Compress(true);
-            texture.Apply(false, true);
+            CompressHorizon(texture);
             owned.Add(texture);
             skirtMat.SetTexture("_BaseMap", texture);
             r2.sharedMaterial = skirtMat; r2.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        }
+
+        /// <summary>Texels a metre of the painted horizon. Three was picked by eye and never costed: at 12.4 MB this
+        /// was the third largest texture in the game (docs/05). It stays at three because the inner five metres of
+        /// this texture blend into the real ground at the map edge, where a coarser grid would show a seam; the
+        /// saving comes from the format instead.</summary>
+        public const float SkirtTexelsPerMetre = 3f;
+
+        /// <summary>The painted horizon's texture size for a skirt spanning spanX by spanZ metres, rounded up to the
+        /// 4x4 block grid every DXT format works in. A size that is not a block multiple is declined silently.</summary>
+        public static void SkirtTexels(float spanX, float spanZ, out int tw, out int th)
+        {
+            tw = Round4(Mathf.CeilToInt(spanX * SkirtTexelsPerMetre));
+            th = Round4(Mathf.CeilToInt(spanZ * SkirtTexelsPerMetre));
+        }
+
+        /// <summary>Block compress the painted horizon in place: mips built while the pixels are still readable, then
+        /// the compressed result uploaded and the CPU copy dropped. dropCpuCopy false keeps the texels readable, which
+        /// only a test that measures what the compression did to them wants.</summary>
+        public static void CompressHorizon(Texture2D texture, bool dropCpuCopy = true)
+        {
+            texture.Apply(true, false);
+            texture.Compress(true);
+            texture.Apply(false, dropCpuCopy);
         }
 
         static float span2(bool alongZ, float w, float l) => alongZ ? w : l;
