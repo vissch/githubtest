@@ -46,5 +46,33 @@ class OccTest(unittest.TestCase):
         self.assertIn("occ: git", out, "[A10] a failed git call must be reported, not folded into 'nothing changed'")
 
 
+    # [A10] an asmdef-only change (references, defines) changes the dll, so --changed must not say
+    # "nothing to compile" for it
+    def test_a10_an_asmdef_only_change_is_still_a_change(self):
+        tmp = Path(tempfile.mkdtemp(prefix="occ-asmdef-"))
+        asmdef = tmp / "trench-warfare-3d" / "Assets" / "_Project" / "Thing" / "TW.Thing.asmdef"
+        asmdef.parent.mkdir(parents=True)
+        asmdef.write_text('{"name": "TW.Thing"}', encoding="utf-8")
+        table = {"TW.Thing": (asmdef, {"name": "TW.Thing"})}
+        rel = str(asmdef.relative_to(tmp)).replace("\\", "/")
+
+        def fake_run(cmd, **kw):
+            out = rel + chr(10) if "diff" in cmd else ""
+            return __import__("subprocess").CompletedProcess(cmd, 0, out, "")
+
+        orig_proj, orig_run = occ.PROJ, occ.subprocess.run
+        occ.PROJ = tmp / "trench-warfare-3d"
+        occ.subprocess.run = fake_run
+        occ.asmdefs = lambda: table
+        try:
+            self.assertEqual(occ.changed(table), ["TW.Thing"],
+                             "[A10] a changed .asmdef must put its assembly in --changed")
+            code, out = self.run_main(["--changed"])
+        finally:
+            occ.PROJ, occ.subprocess.run = orig_proj, orig_run
+        self.assertNotIn("nothing to compile", out,
+                         "[A10] an asmdef-only change must not read as nothing to compile")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

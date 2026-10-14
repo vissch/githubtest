@@ -50,6 +50,23 @@ class ScanRunVerdicts(unittest.TestCase):
         self.assertTrue(bad, "[O1] a non-zero exit code after #DONE must set bad")
         self.assertIn("exited 1", printed, "[O1] otr says the runner exited non-zero after #DONE")
 
+    def test_o13_an_engine_readback_line_is_printed_without_v(self):
+        # [O13] an ENGINE line is silent without -v, so a test that used to pass and now reads an unregistered
+        # Get*/Has*/get_* call (the stand-in keeps no rendering state) vanished from a plain otr run.
+        nl = chr(10)
+        text = ("#CLASS X" + nl +
+                "ENGINE  X.reads  otr engine: UnityEngine.Material::GetColor reads back rendering state "
+                "the stand-in does not keep" + nl +
+                "ENGINE  X.layout  UI Toolkit" + nl + "#DONE" + nl)
+        tally, bad, current, done, printed = scan(text)
+        self.assertIn("X.reads", printed, "[O13] a read-back ENGINE line is printed without -v")
+        self.assertNotIn("X.layout", printed, "[O13] every other ENGINE line still needs -v")
+
+    def test_o13_render_cs_still_throws_the_wording_otr_looks_for(self):
+        render = pathlib.Path(otr.__file__).resolve().parent / "otr" / "Render.cs"
+        self.assertIn(otr.READBACK, render.read_text(encoding="utf-8"),
+                      "[O13] Render.cs must still throw otr.READBACK's wording, or the two drift apart")
+
     def test_clean_run_is_not_bad(self):
         tally, bad, current, done, _ = scan("#CLASS A\nPASS  A.one\n#DONE\n", returncode=0)
         self.assertFalse(bad, "[O1] a clean run stays good")
@@ -128,6 +145,30 @@ class StaleDlls(unittest.TestCase):
         self.dll()
         self.assertIsNone(otr.stale(self.table, self.dirs, self.out, self.root),
                           "[O10] every source in the rsp and on disk, the dll newest: a verdict")
+
+    def test_o10_a_failed_compile_does_not_make_a_deleted_source_read_fresh(self):
+        # [O10] occ.py wrote the .rsp before it compiled, so a FAILED compile left an rsp naming today's files
+        # beside yesterday's dll: a deleted .cs then read as fresh and otr gave a verdict on code that is gone.
+        import occ   # importing otr put Tools/aosa on sys.path
+        a, b = self.write("A.cs", "B.cs")
+        self.rsp(a, b)
+        self.dll()
+        b.unlink()
+        empty = self.root / "none"
+        empty.mkdir()
+        saved = (occ.OUT, occ.UNITY, occ.MAIN_LIB, occ.PKG_CACHE, occ.subprocess.run)
+        occ.OUT, occ.UNITY, occ.MAIN_LIB, occ.PKG_CACHE = self.out, empty, empty, empty
+        occ.subprocess.run = lambda *a, **k: subprocess.CompletedProcess(a[0] if a else [], 1, "A.cs(1,1): error CS0103: no", "")
+        try:
+            out = io.StringIO()
+            with contextlib.redirect_stdout(out):
+                ok = occ.compile_one("TW.Thing", self.table, {}, self.dirs)
+        finally:
+            occ.OUT, occ.UNITY, occ.MAIN_LIB, occ.PKG_CACHE, occ.subprocess.run = saved
+        self.assertFalse(ok, "[O10] the compile failed, so compile_one reports False")
+        why = otr.stale(self.table, self.dirs, self.out, self.root)
+        self.assertIsNotNone(why, "[O10] a failed compile must not leave the dll reading as fresh: not a verdict")
+        self.assertIn("B.cs", why, "[O10] the rsp still names the source that is gone")
 
     def test_o10_no_rsp_beside_the_dll_is_stale(self):
         a, = self.write("A.cs")
