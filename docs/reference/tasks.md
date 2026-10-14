@@ -100,7 +100,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `workflow.md`, section 5. Its two plain tests hold that a patch writes the field it names and fails on any it
   cannot, and that a variant changing nothing is the same ladder). `sweep.py report`'s Factions table judges a match
   scenario against [the owner's band](decisions.md#d-matches) (40-60 % of the matches that end), named by a spec's
-  `sides`; `Tools/test_sweep.py`'s `FactionBandTest`.
+  `sides`; a run folder with no `swapSeats` in its `<run.json>` falls back to its `<spec.json>`, and if that too
+  cannot be read the match count is unknown rather than assumed; a mirror variant (its own `sides.variants` labels)
+  gets a plain "variant" header and names its own label in its cell; `Tools/test_sweep.py`'s `FactionBandTest` and
+  `FactionRowsTest`.
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`

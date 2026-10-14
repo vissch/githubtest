@@ -287,7 +287,9 @@ judged only when it is fresh (at most 7 days old), clean (not dirty, no `not_run
 and on tonight's commit; otherwise it is named with its age and the reason and nothing becomes a look item. A faction
 out of band in a judged sweep is a line there and a look item only when it is new since last night's report (a
 different sweep read, or a side newly out of band), so one old out-of-band sweep does not move the exit to 2 every
-night; no sweep report yet is one line, nothing to look at. `python Tools/test_nightly.py` tests this part with no
+night; a band finding already carried over from last night is not a look item either. A run folder whose
+`<run.json>` predates `swapSeats` is never judged: its match count is unknown, printed as `?`, not assumed one match
+a seed. no sweep report yet is one line, nothing to look at. `python Tools/test_nightly.py` tests this part with no
 editor and no sweep run.
 
 **A balance number, swept (2026-10-04).** The bench says how units behave; `python Tools/sweep.py run <spec.json>` says
