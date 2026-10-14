@@ -306,11 +306,12 @@ def editor_state():
     except BaseException as e:
         return False, "unknown (editor_lock failed: %s)" % e, None
     text = "%s - %s (%s)" % (pr["state"].upper(), pr["detail"], project_dir())
-    # The shared slot queues the MAIN clone's editor. The loop opens only its own project, so the slot is shown for
-    # information and never blocks it; only this project's lockfile does.
+    # The slot is per checkout (editor_lock.slot_path digests the project path), so this is THIS project's own
+    # advisory slot. It is shown for information and never blocks the loop; only this project's lockfile does.
     if slot:
         mins = max(0, int((slot.get("until", 0) - time.time()) / 60))
-        text += "; main clone's slot: %s for ~%d min (does not concern this tree)" % (slot.get("who"), mins)
+        text += "; this project's advisory slot: held by %s for ~%d min (advisory only: the lockfile blocks)" % (
+            slot.get("who"), mins)
     return pr["state"] == "free", text, slot
 
 
