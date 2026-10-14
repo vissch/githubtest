@@ -57,6 +57,10 @@ namespace TW.Tests
         static HouseDef House(float x, float z, float yaw = 0f) =>
             new HouseDef { Pos = new float3(x, 0f, z), Yaw = yaw, Half = new float2(4f, 3f) };
 
+        /// <summary>A long thin wall: at a yaw off the 90s the right frame and its mirror differ by metres.</summary>
+        static HouseDef Wall(float x, float z, float yaw) =>
+            new HouseDef { Pos = new float3(x, 0f, z), Yaw = yaw, Half = new float2(8f, 1.5f) };
+
         /// <summary>A hamlet block: wide enough to stand between a whole firing line and one man.</summary>
         static HouseDef Block(float x, float z) =>
             new HouseDef { Pos = new float3(x, 0f, z), Yaw = 0f, Half = new float2(8f, 5f) };
@@ -73,6 +77,21 @@ namespace TW.Tests
             // turned 90 degrees the footprint is x 47..53, z 46..54, so a line down x = 53.5 misses it
             Assert.IsFalse(HouseRules.Blocks(House(50f, 50f, math.PI * 0.5f), new float3(53.5f, 0f, 80f), new float3(53.5f, 0f, 20f)));
             Assert.IsTrue(HouseRules.Blocks(House(50f, 50f, math.PI * 0.5f), new float3(50f, 0f, 80f), new float3(50f, 0f, 20f)));
+
+            // [H.1] a yaw that is not a multiple of 90: the footprint must sit in the sim's own frame, forward
+            // (sin, cos) as SimMath.DirFromYaw, right (cos, -sin). Hand-worked: the 16 x 3 m wall at yaw 30 covers
+            // z 46.1..47.7 at x 57 (mirrored in z = 50, i.e. at -Yaw, it would cover z 52.3..53.9), and at yaw 120
+            // it covers z 52.2..57.5 at x 53 (mirrored: z 42.5..47.8).
+            var w30 = Wall(50f, 50f, math.radians(30f));
+            Assert.IsFalse(HouseRules.Blocks(w30, new float3(57f, 0f, 80f), new float3(57f, 0f, 50f)),
+                "[H.1] yaw 30: the wall is south of z 50 at x 57, so a shot coming to z 50 never crosses it");
+            Assert.IsTrue(HouseRules.Blocks(w30, new float3(57f, 0f, 50f), new float3(57f, 0f, 40f)),
+                "[H.1] yaw 30: the wall covers z 46.1..47.7 at x 57");
+            var w120 = Wall(50f, 50f, math.radians(120f));
+            Assert.IsTrue(HouseRules.Blocks(w120, new float3(53f, 0f, 80f), new float3(53f, 0f, 50f)),
+                "[H.1] yaw 120: the wall covers z 52.2..57.5 at x 53");
+            Assert.IsFalse(HouseRules.Blocks(w120, new float3(53f, 0f, 50f), new float3(53f, 0f, 20f)),
+                "[H.1] yaw 120: nothing of the wall lies south of z 50 at x 53");
         }
 
         // one still man, eight rifles 30 m off, every man held in place, the same seed and the same positions every

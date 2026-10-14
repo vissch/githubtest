@@ -15,15 +15,12 @@ namespace TW.Sim.Terrain
 
     public static class HouseRules
     {
-        /// <summary>Hit-chance reduction for a man on foot with the house between him and the shooter. The owner,
-        /// 2026-10-07, to "Houses give cover: by how much?": "A little: 35 % less, like a man in a shell hole".</summary>
-        public const float Cover = 0.35f;
-
         /// <summary>True when the segment from → to really crosses the footprint, so "behind" differs from "in
         /// front" and "beside" for any shooter bearing. A 2D slab test in the house's own frame.</summary>
         public static bool Blocks(in HouseDef h, float3 from, float3 to)
         {
-            float2 sc = SimMath.SinCos(-h.Yaw);   // x = sin, y = cos
+            // the house's own frame, the sim's yaw convention (SimMath.DirFromYaw): forward (sin, cos), right (cos, -sin)
+            float2 sc = SimMath.SinCos(h.Yaw);    // x = sin, y = cos
             float2 a = Local(from.xz - h.Pos.xz, sc), b = Local(to.xz - h.Pos.xz, sc);
             float2 d = b - a;
             float t0 = 0f, t1 = 1f;
