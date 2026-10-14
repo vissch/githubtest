@@ -15,6 +15,9 @@ inspector field, carried by `MatchLaunch.Request` when a mission sets it.
 **Recording a match:** the run-time knob `replay.record` (`-twknob replay.record=1`, `TW_KNOBS`, or a bench's
 `knobs=`), off by default. On, the match is recorded with the existing replay format and the file's path is logged
 at the end of it; off, nothing is recorded and nothing is slower (`Presentation/Core/MatchRecording.cs`).
+What it costs, measured in the editor stress bench (1500 a side, 400 ticks, 2026-10-14): the per-tick hash is
+1.45 ms a tick (`per_tick_ms["TW.Sim.Hash"]`, 0 with the option off), so a sim step goes 0.94 -> 2.38 ms a tick.
+A tick is 100 ms, so the frame cost does not move: p50 2.45 -> 2.44 ms.
 
 **Two that surprise people:**
 - `tw.hud.toolkit` is stored in the Windows registry per machine. If someone pressed F9, that machine shows the old
