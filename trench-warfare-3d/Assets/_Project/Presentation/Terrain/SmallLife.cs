@@ -25,10 +25,17 @@ namespace TW.Presentation.Terrain
         readonly List<Vector3> floors = new List<Vector3>();
         Matrix4x4[] bodies = new Matrix4x4[MaxRats], tails = new Matrix4x4[MaxRats];
 
+        /// <summary>The knob life.maxRats as Awake resolves it: one instanced draw's worth at most. A static so a
+        /// test can run the real read.</summary>
+        public static int ReadMaxRats() => Mathf.Clamp(Knobs.Get("life.maxRats", MaxRats), 0, 1023);
+
+        /// <summary>The knob life.maxMotes as Awake resolves it, never negative.</summary>
+        public static int ReadMaxMotes() => Mathf.Max(0, Knobs.Get("life.maxMotes", MaxMotes));
+
         void Awake()
         {
-            maxRats = Mathf.Clamp(Knobs.Get("life.maxRats", MaxRats), 0, 1023);   // one instanced draw's worth at most
-            maxMotes = Mathf.Max(0, Knobs.Get("life.maxMotes", MaxMotes));
+            maxRats = ReadMaxRats();
+            maxMotes = ReadMaxMotes();
             if (maxRats != MaxRats) { rats = new Rat[maxRats]; bodies = new Matrix4x4[maxRats]; tails = new Matrix4x4[maxRats]; }
         }
         Mesh motes, capsule, cube;

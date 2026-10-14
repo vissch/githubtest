@@ -144,11 +144,17 @@ namespace TW.Presentation.Terrain
 
         int maxLoose = MaxLoose, maxFalling = MaxFalling;   // or the knobs props.maxLoose / props.maxFalling (Awake)
 
+        /// <summary>The knob props.maxLoose as Awake resolves it: at most one instanced draw's worth, and at least
+        /// room for the chunks KeptForChunks holds back for. A static so a test can run the real read.</summary>
+        public static int ReadMaxLoose() => Mathf.Clamp(Knobs.Get("props.maxLoose", MaxLoose), KeptForChunks + 1, 1023);
+
+        /// <summary>The knob props.maxFalling as Awake resolves it.</summary>
+        public static int ReadMaxFalling() => Knobs.Get("props.maxFalling", MaxFalling);
+
         void Awake()
         {
-            // at most one instanced draw's worth; at least room for the chunks KeptForChunks holds back for
-            maxLoose = Mathf.Clamp(Knobs.Get("props.maxLoose", MaxLoose), KeptForChunks + 1, 1023);
-            maxFalling = Knobs.Get("props.maxFalling", MaxFalling);
+            maxLoose = ReadMaxLoose();
+            maxFalling = ReadMaxFalling();
             if (maxLoose != MaxLoose) { looseMatrices = new Matrix4x4[maxLoose]; looseMasks = new Vector4[maxLoose]; }
         }
 
