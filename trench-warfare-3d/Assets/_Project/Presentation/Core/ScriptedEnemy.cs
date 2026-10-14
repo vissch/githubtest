@@ -210,7 +210,11 @@ namespace TW.Presentation
                     if (k != front && ts.GarrisonCount > 0) enemy.Issue(new SimCommand { Tick = t, Player = Side, Type = CommandType.TrenchAdvance, A = k });
                 }
             }
-            if (UsesSupport && Defends && PlannedAttack == 0 && t % 20 == 10 && view.Abilities != null) Sos(view, enemy, t);
+            // One support order a tick (M3, 2026-10-14). At t=150 all three gates below are true at once (150%20==10,
+            // 150%100==50, 150%200==150), and each read silver and the cooldowns from BEFORE the others landed (commands
+            // take three ticks), so the SOS barrage, the attack barrage and harassing fire could all issue on one tick:
+            // the "barrage AND a gas attack in one tick" the header says was removed. The first one wins the tick.
+            bool support = UsesSupport && Defends && PlannedAttack == 0 && t % 20 == 10 && view.Abilities != null && Sos(view, enemy, t);
             if (Attacks && PlannedAttack != 0 && t >= PlannedAttack)
             {
                 // the barrage is coming down: over the top now, whatever the count, or the shells were wasted
@@ -234,14 +238,15 @@ namespace TW.Presentation
                         enemy.Issue(OverTheTop(t, front));
                         Said?.Invoke($"{t / 20} s over the top bare, {mine} against {held}");
                     }
-                    else if (mine >= Odds * held && UsesSupport && Barrage(view, enemy, t, theirs))
+                    else if (!support && mine >= Odds * held && UsesSupport && Barrage(view, enemy, t, theirs))
                     {
+                        support = true;
                         PlannedAttack = t + (uint)Mathf.Max(1, BarrageLeadTicks);
                         Said?.Invoke($"{t / 20} s barrage called, {mine} against {held}");
                     }
                 }
             }
-            if (UsesSupport && PlannedAttack == 0 && t % 200 == 150 && view.Abilities != null)
+            if (!support && UsesSupport && PlannedAttack == 0 && t % 200 == 150 && view.Abilities != null)
             {
                 short mine = view.Fields.FrontTrench(Other);
                 var ability = (supportCount & 1) == 0 ? OffMapAbilityId.HeBarrage : OffMapAbilityId.ChlorineGas;
