@@ -107,5 +107,54 @@ namespace TW.Tests
 
             Assert.AreEqual(math.PI / 2f, r.A.Yaw[v], 1e-4f, "[P4a] a vehicle's drawn yaw must follow the sim's yaw every tick, not freeze at spawn");
         }
+
+        [Test]
+        public void AManWhoFillsADeadMansSlotPlaysNoHitReaction()
+        {
+            using var r = new Rig();
+            int man = r.M.World.Spawn(0, 0, new float3(10f, 0f, 10f), 100f, 3f, false);
+            int enemy = r.M.World.Spawn(1, 0, new float3(10f, 0f, 0f), 100f, 3f, false);
+            r.Tick();
+
+            r.M.World.Generation[man]++;   // a newcomer takes the slot this same tick
+            r.M.World.Events.Add(r.M.World.Tick, SimEventType.Hit, enemy, man, default, new float3(0, 0, 1), 1f);
+            r.Tick();
+
+            var s = r.A.State[man];
+            Assert.AreNotEqual(Rung.Reaction, s.Rung, "[P6a] a newcomer in a refilled slot must not play the dead man's hit");
+            Clip clip = (Clip)r.A.Row[man];
+            Assert.IsFalse(clip == Clip.HitStand || clip == Clip.HitWalk || clip == Clip.HitRun || clip == Clip.HitHeavy || clip == Clip.KneelFlinch,
+                "[P6a] a newcomer in a refilled slot must not play the dead man's hit");
+        }
+
+        [Test]
+        public void TheTraceStopsGrowingAtItsCap()
+        {
+            using var r = new Rig();
+            int man = r.M.World.Spawn(0, 0, new float3(10f, 0f, 10f), 100f, 3f, false);
+            int enemy = r.M.World.Spawn(1, 0, new float3(10f, 0f, 0f), 100f, 3f, false);
+            r.A.FollowSlot = man;
+            r.A.TraceCap = 8;
+            uint startTick = r.M.World.Tick;
+
+            // a hit every few ticks keeps forcing a new rung-change (Note), well past the cap
+            for (int t = 0; t < 200; t++)
+            {
+                if (t % 5 == 0) r.M.World.Events.Add(r.M.World.Tick, SimEventType.Hit, enemy, man, default, new float3(0, 0, 1), 1f);
+                r.Tick();
+            }
+
+            Assert.LessOrEqual(r.A.Trace.Count, 8, "[P9a] the trace must not grow without a bound");
+            Assert.Greater(r.A.Trace.Count, 0, "the premise: at least one rung change was recorded");
+            Assert.Greater(r.A.Trace[0].Tick, startTick, "[P9a] the newest entries, not the oldest, must survive the cap");
+        }
+
+        [Test]
+        public void TheDeadAnimationStoresAreGone()
+        {
+            Assert.IsNull(typeof(AnimState).GetField("LastNearMiss"), "[P9a] AnimState.LastNearMiss was never read and must be gone");
+            Assert.IsNull(typeof(AnimationController).GetField("leftTrench", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance),
+                "[P9a] AnimationController.leftTrench was never read and must be gone");
+        }
     }
 }

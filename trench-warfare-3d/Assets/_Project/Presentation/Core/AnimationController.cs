@@ -123,7 +123,7 @@ namespace TW.Presentation
         public Rung Rung;
         public byte Stance, WantStance;                 // animated stance, the stance the situation implies
         public float AimYaw, BodyYaw, ShownYaw, TurnTo;   // where he aims; where his feet point; what is drawn (eases to BodyYaw); the yaw a turn clip ends at
-        public uint IdleSince, LastShot, LastHit, LastNearMiss, LastBlast, LastDuck, ClipStart;
+        public uint IdleSince, LastShot, LastHit, LastBlast, LastDuck, ClipStart;
         public ushort Shots, Generation;
         public byte Team, Archetype;                    // who holds the slot, taken at Fresh: a death seen after a same-tick refill still knows
         public uint Seed;
@@ -189,13 +189,15 @@ namespace TW.Presentation
         // the burst's reaction still running out to him: the tick it reaches him, its radius and how far off it was
         NativeArray<uint> waveAt;
         NativeArray<float> waveR, waveD;
-        NativeArray<byte> shotThisTick, leftTrench, gasHere;
+        NativeArray<byte> shotThisTick, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
 
         // ---- trace: one man followed through his fight
         public int FollowSlot = -1;
+        /// <summary>The trace keeps at most this many entries (P9a): past it the oldest half is dropped.</summary>
+        public int TraceCap = 4096;
         public struct TraceEntry { public uint Tick; public Rung Rung; public Clip Clip; public string Why; public float3 Pos; public byte Stance; public float Speed; public int Target; public float Suppression; }
         public readonly List<TraceEntry> Trace = new List<TraceEntry>(512);
         readonly Dictionary<Clip, float> timeIn = new Dictionary<Clip, float>();
@@ -221,7 +223,6 @@ namespace TW.Presentation
             blastRadius = new NativeArray<float>(maxSlots, Allocator.Persistent);
             blastDist = new NativeArray<float>(maxSlots, Allocator.Persistent);
             shotThisTick = new NativeArray<byte>(maxSlots, Allocator.Persistent);
-            leftTrench = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
@@ -232,7 +233,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -281,6 +282,8 @@ namespace TW.Presentation
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
             Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0;   // a new man in the slot comes up clean
+            // the dead man's latches from this same tick must not hand his hit reaction to the newcomer (P6a)
+            hitKind[i] = 0; blastRadius[i] = 0f; blastDist[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; gasHere[i] = 0; shotAt[i] = -1;
             return s;
         }
 
@@ -303,7 +306,7 @@ namespace TW.Presentation
 
         void Latch(SimWorld w)
         {
-            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; leftTrench[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
+            for (int i = 0; i < count; i++) { hitKind[i] = 0; blastRadius[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; gasHere[i] = 0; died[i] = 0; clawed[i] = 0; }
             crushSpotCount = 0;
             var ev = w.Events.Events;
             for (int k = 0; k < ev.Length; k++)
@@ -319,9 +322,6 @@ namespace TW.Presentation
                         break;
                     case SimEventType.Shot:
                         if (e.A >= 0 && e.A < count && e.Scalar < 0.5f) { shotThisTick[e.A] = 1; shotAt[e.A] = e.B; }
-                        break;
-                    case SimEventType.UnitLeftTrench:
-                        if (e.A >= 0 && e.A < count) leftTrench[e.A] = 1;
                         break;
                     case SimEventType.GrenadeThrown:
                         if (e.A >= 0 && e.A < count) { threw[e.A] = 1; shotAt[e.A] = e.B; }
@@ -411,6 +411,7 @@ namespace TW.Presentation
 
         void Note(int i, Rung rung, Clip clip, string why)
         {
+            if (Trace.Count >= TraceCap) Trace.RemoveRange(0, Trace.Count - TraceCap / 2);
             LastWhy = why;
             Trace.Add(new TraceEntry { Tick = tick, Rung = rung, Clip = clip, Why = why, Pos = lastPos, Stance = lastStance, Speed = lastSpeed, Target = lastTarget, Suppression = lastSupp });
         }
@@ -629,7 +630,7 @@ namespace TW.Presentation
             }
             if (hitKind[i] == 3 && speed < 0.3f && !prone && s.Routine != 6 && tick - s.LastDuck > (supp > 30f ? 20 : 60) && !(s.Rung == Rung.Fire && s.Frame < 0.5f))
             {
-                s.LastDuck = tick; s.LastNearMiss = tick;
+                s.LastDuck = tick;
                 Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, "near miss, standing still: ducks");
                 return;
             }
@@ -637,7 +638,7 @@ namespace TW.Presentation
             {
                 // walking into fire is not ignored: at a run he stumbles on, slower he ducks his head and keeps going, and
                 // under heavy fire he sometimes throws himself flat instead
-                s.LastDuck = tick; s.LastNearMiss = tick;
+                s.LastDuck = tick;
                 if (supp > 45f && Hash(s.Seed, tick + 57) < 0.25f)
                 {
                     s.LastDive = tick;
