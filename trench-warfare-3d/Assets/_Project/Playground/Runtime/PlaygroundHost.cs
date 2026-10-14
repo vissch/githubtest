@@ -34,6 +34,10 @@ namespace TW.Playground
         public float VehicleSize;
         public float UnitScale = 1.125f;     // VATRenderer.UnitScale: a 1.78 m bake drawn as a 2.0 m man
         public bool ShowPanel = true;
+        /// <summary>[Y13] Where the looks-only stream (UnityEngine.Random) starts: nothing seeded it, so the cards in
+        /// PlaygroundFx and the figures' shot and flame timers differed run to run. Every scene command restarts it
+        /// here, so two builds of the same scene look alike.</summary>
+        public int LooksSeed = 12345;
 
         public static PlaygroundHost Instance { get; private set; }
         public PlaygroundCamera Cam { get; private set; }
@@ -206,10 +210,10 @@ namespace TW.Playground
             return v;
         }
 
-        UnitRig SpawnUnit(Vector3 at, float yaw, int lod, float phase = 0f)
+        UnitRig SpawnUnit(Vector3 at, float yaw, int lod, float phase = 0f, int seed = 1)
         {
             if (Library.Units.Length == 0) return null;
-            var u = UnitRig.Build(Library.Units[unitIndex % Library.Units.Length], Deck, Fx, stage, at, yaw, UnitScale);
+            var u = UnitRig.Build(Library.Units[unitIndex % Library.Units.Length], Deck, Fx, stage, at, yaw, UnitScale, seed);
             u.ForcedLod = lod; u.Phase = phase;
             if (clip >= 0) u.Play(clip, 0f, phase);
             Units.Add(u);
@@ -218,6 +222,7 @@ namespace TW.Playground
 
         void Scene(string mode)
         {
+            Random.InitState(LooksSeed);
             Clear(); Mode = mode;
             switch (mode)
             {
@@ -233,13 +238,13 @@ namespace TW.Playground
                     Cam.Preset("close", new Vector3(0f, 1.1f, 0f)); Cam.Distance = 5.5f; Cam.Yaw = 180f; break;
                 case "unit.compare":
                     // LOD0 on the left as the camera sees it (the camera looks -Z, so screen left is +X)
-                    for (int k = 0; k < 4; k++) SpawnUnit(new Vector3((1.5f - k) * 2.4f, 0f, 0f), 15f, k);
+                    for (int k = 0; k < 4; k++) SpawnUnit(new Vector3((1.5f - k) * 2.4f, 0f, 0f), 15f, k, seed: 1);
                     Cam.Preset("close", new Vector3(0f, 1.1f, 0f)); Cam.Distance = 10f; Cam.Yaw = 180f; Cam.Pitch = 8f; break;
                 case "unit.squad":
                     {
                         // a file of men walking away from the standard view's camera, from 8 m out to 300 m
                         float[] d = { 8, 14, 22, 32, 45, 60, 80, 105, 135, 170, 210, 255, 300 };
-                        for (int i = 0; i < d.Length; i++) SpawnUnit(new Vector3((i % 2 == 0 ? -1f : 1f) * (1.2f + 0.06f * d[i]), 0f, d[i]), 200f, forcedLod, i * 0.37f);
+                        for (int i = 0; i < d.Length; i++) SpawnUnit(new Vector3((i % 2 == 0 ? -1f : 1f) * (1.2f + 0.06f * d[i]), 0f, d[i]), 200f, forcedLod, i * 0.37f, i + 1);
                         Cam.Focus = new Vector3(0f, 1f, 0f); Cam.Fov = 25f; Cam.Pitch = 14f; Cam.Yaw = 0f; Cam.Distance = 10f;
                         break;
                     }
@@ -256,7 +261,7 @@ namespace TW.Playground
                 case "mixed":
                     SpawnVehicle(new Vector3(0f, 0f, 0f), 205f, forcedLod, 1);
                     // twelve men 3 m apart, 6 m clear of the hull, so every one of them can be seen against it
-                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-6f + (i % 6) * 3f, 0f, 9f + (i / 6) * 4f), 20f, forcedLod, i * 0.21f);   // between the hull and the camera
+                    for (int i = 0; i < 12; i++) SpawnUnit(new Vector3(-6f + (i % 6) * 3f, 0f, 9f + (i / 6) * 4f), 20f, forcedLod, i * 0.21f, i + 1);   // between the hull and the camera
                     Cam.Preset("standard", new Vector3(-1f, 1.5f, 3f)); Cam.Distance = 55f; Cam.Yaw = 200f; break;
             }
         }
