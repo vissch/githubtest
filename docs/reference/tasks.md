@@ -1670,8 +1670,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   KnobsTests, PerfWindowTests, ShotLogTests, ShowAllocationTests (Burst, a burning hull's per-frame socket work, a
   BattlefieldComposer recomposition and PropWear's sweep, through `AllocProbe`; the gap TS5 found). An unknown option is
   listed in the report's `warnings` (`BenchOptions.Unknown`), not refused, so read the warnings before trusting a run.
-- **Trap:** the report carries the frame budget twice, as `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws`
-  (the overhaul's names) and `frame_budget_*` (the AOSA loop's); both read `FrameBudget` on the same frame.
+- The frame budget is written once, as `frame_budget_draws`/`_vertices`/`_indirect` (the names AOSA and its stored
+  runs read; speed-names dropped the `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws` twins, BenchSeriesNameTests).
 - `terrain_chunk_rebuilds` / `terrain_chunk_rows` (`tw-perf/1`, `PerfBench.Sample`): this frame's delta of
   `GreyboxTerrainView.ChunksRebuilt` / `ChunkRowsFilled`, so a barrage with none finishing shows as zero even while
   rows are filled.
