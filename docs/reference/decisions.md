@@ -482,6 +482,32 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   sight checks, accepting a lipped crest.
   The agent's default, taken as nothing was committed: NOTHING. The proof is written and failing, so no commit was
   made on it; the lane stands at `3a4cb32b`. (a) is the one that keeps both the idea and the wander.
+| 2026-10-13 | **The ridge's slope starts at each stretch of the crest trench's own line.** The owner, to the brief "The Ridge's crest trench sits behind its crest: which fix?": "A: The slope starts at each stretch of trench's own line: the trench keeps its bends and sees down the slope". The profile's plateau ends at the crest trench's own line per nav column, so the ground in front of each stretch falls from that stretch's line and not from one z across the field; the trench keeps its wander. Declined: (b) ruling the crest trench straight to fit one z, and (c) keeping the lipped crest and dropping the sight checks. Built on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground` as a second seam commit. (owner, 2026-10-13, on the Decide page) |
+
+## Open: waiting on the owner
+- **The ridge's proof measures the trench's carved floor, so two of its six bars cannot pass (2026-10-14, the sim
+  lane `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`).** The owner's fix A is built: the profile's
+  plateau now ends at the crest trench's own line per nav column. It does what he asked - on all eight seeds the
+  crest now sees the foot of its own slope and the hollow does not see 30 m behind the crest
+  (`TheCrestSeesTheFootAndTheHollowDoesNotSeeTheRear` passes, where it failed before), and
+  `TheCrestStandsNineMetresOverTheHollow`, `TheSlopeIsGentle` and `BothSidesStillReachEachOther` pass too.
+  Two bars in the parked proof still fail, and no change to the ground can make them pass:
+  `NoFlatLipBeforeTheCrest` asks that the ground 2 m in front of the crest line stand 0.5 m below "the platform",
+  but what it samples at the line is the trench's **carved floor** (`AddFireTrench` cuts 1.8 m down across the
+  trench's cells and gives the fire step 0.7 m back), and 2 m in front of the line is still inside the trench, on
+  that fire step. Measured on all eight seeds: every one of the 55 columns is under the bar, worst -0.38 to -0.56 m;
+  measured from the trench's own front edge against open ground it is still -0.56 to +0.22 m. The design's bank
+  falls 0.303 m per metre, so 2 m of ground can never be 0.5 m below a floor 1.8 m down. `TheBankIsSteep` has the
+  same cause: the crest's mean height is the carved floor, so the fall to z 153..157 is 3.41 to 4.98 m over the
+  eight seeds (4.0 m is the bar; 1917 gives 3.95). The ground is right; the two bars measure the wrong datum.
+  Options: (a) measure both against the parapet (the trench's raw platform: the floor + 1.8 m, or the open ground
+  just outside the levelled shelf) and keep the 0.5 m and 4.0 m numbers, which is what the design's prose means;
+  (b) keep the datum and lower the bars to what the carve leaves (about -0.6 m and 3.4 m), which tests nothing;
+  (c) carve the crest trench shallower so its floor rides higher, which changes every trench on every map.
+  The agent's default, taken as nothing may weaken a bar: NOTHING. The ground change is committed (the seam) and the
+  proof is NOT: it is parked at
+  `C:/Users/PC/AppData/Local/TrenchWarfare/relay/runs/20261008-231452-46128/desk/05/RidgeTests.cs`. (a) is the one
+  that keeps the idea. No `[ridge-own-line]` tag was put on the lane: the proof is not green.
 - **Spread and the fight (2026-09-28), the agent's choices, each one a constant or a rule to turn:** (1) a man climbs
   out of and drops into a trench anywhere, so ladders are no longer the only way (`FlowField.CanStepInfantry`); (2) a
   garrison stays in its trench and fights from the step: only men in the open go after the enemy; (3) nobody stands
