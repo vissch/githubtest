@@ -178,6 +178,10 @@ def band_part(root=None, sha=None, then=None):
         md += [f'{name} ({age_text}) not judged: {info["reason"]}.', '']
         return md, [], info
     md += [f'{name} ({age_text}), commit {meta.get("commit", "?")}.', '']
+    if row.get('seatings_unknown'):
+        info['reason'] = 'swapSeats unknown'
+        md += ['? this run predates swapSeats: the match count is unknown.', '']
+        return md, [], info
     if not row['judged']:
         info['reason'] = 'no match ended'
         md += [f'No match ended ({row["unended"]} played).', '']

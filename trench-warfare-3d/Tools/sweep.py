@@ -239,12 +239,24 @@ def faction_band(report, seatings=1, band=WIN_BAND):
             'out': out, 'judged': True}
 
 
-def faction_rows(data, names, meta):
+def faction_rows(data, names, meta, out=None):
     """One row per variant with a report, match scenario only (the ladder has no winner): each side's share of the
-    matches that ended, and its label (the spec's `sides`, or a mirror variant's own)."""
+    matches that ended, and its label (the spec's `sides`, or a mirror variant's own). A run from before
+    `swapSeats` was recorded in run.json falls back to the spec file in `out`; if that too is unreadable, seatings
+    (and so the match count) is unknown rather than silently assumed 1 [B4]."""
     if meta.get('scenario') != 'match':
         return []
-    seatings = 2 if meta.get('swapSeats') else 1
+    if 'swapSeats' in meta:
+        seatings = 2 if meta.get('swapSeats') else 1
+    else:
+        seatings = None
+        if out is not None:
+            try:
+                with open(os.path.join(out, 'spec.json')) as f:
+                    header, _ = compile_spec(json.load(f))
+                seatings = 2 if header['swapSeats'] else 1
+            except (SpecError, ValueError, KeyError, OSError):
+                seatings = None
     sides = meta.get('sides') or {}
     default = {'a': sides.get('a', 'a'), 'b': sides.get('b', 'b')}
     per_variant = sides.get('variants', {})
@@ -253,7 +265,11 @@ def faction_rows(data, names, meta):
         if n not in data:
             continue
         labels = per_variant.get(n, default)
-        row = faction_band(data[n], seatings)
+        if seatings is None:
+            row = {'played': None, 'ended': None, 'unended': None, 'share_a': None, 'share_b': None, 'out': [],
+                   'judged': False, 'seatings_unknown': True}
+        else:
+            row = faction_band(data[n], seatings)
         row.update(name=n, label_a=labels.get('a', default['a']), label_b=labels.get('b', default['b']))
         rows.append(row)
     return rows
@@ -313,19 +329,25 @@ def render(rows, names, targets, meta, frows=()):
     if frows:
         sides = meta.get('sides') or {}
         a_name, b_name = sides.get('a', 'a'), sides.get('b', 'b')
+        mirrored = any(r['label_a'] != a_name or r['label_b'] != b_name for r in frows)
+        a_head, b_head = ('side a', 'side b') if mirrored else (a_name, b_name)
         lines += ['', '## Factions', '', f'Of matches that end, each side should win {WIN_BAND[0] * 100:.0f}-{WIN_BAND[1] * 100:.0f} %'
                   ' (owner, 2026-10-06); a match that does not end is counted and shown here, never judged.', '',
-                  f'| variant | {a_name} | {b_name} | ended | did not end |', '|---|---|---|---|---|']
+                  f'| variant | {a_head} | {b_head} | ended | did not end |', '|---|---|---|---|---|']
         outs = []
         for r in frows:
+            if r.get('seatings_unknown'):
+                lines.append(f'| {r["name"]} | ? | ? | ? | this run predates swapSeats: the match count is unknown |')
+                continue
             if not r['judged']:
                 lines.append(f'| {r["name"]} | - | - | no match ended | {r["unended"]} |')
                 continue
 
-            def cell(side):
+            def cell(side, label):
                 share = r['share_a'] if side == 'a' else r['share_b']
-                return f'{share * 100:.0f} % {"OUT" if side in r["out"] else "IN"}'
-            lines.append(f'| {r["name"]} | {cell("a")} | {cell("b")} | {r["ended"]} | {r["unended"]} |')
+                name = f'{label} ' if mirrored else ''
+                return f'{name}{share * 100:.0f} % {"OUT" if side in r["out"] else "IN"}'
+            lines.append(f'| {r["name"]} | {cell("a", r["label_a"])} | {cell("b", r["label_b"])} | {r["ended"]} | {r["unended"]} |')
             for side in r['out']:
                 label = r['label_a'] if side == 'a' else r['label_b']
                 share = r['share_a'] if side == 'a' else r['share_b']
@@ -349,7 +371,7 @@ def report(out):
         return 1
     targets = meta.get('targets', {})
     rows = compare(data, names, targets)
-    frows = faction_rows(data, names, meta)
+    frows = faction_rows(data, names, meta, out)
     md = render(rows, names, targets, meta, frows)
     not_run = [n for n in names if n not in data]
     if not_run:
