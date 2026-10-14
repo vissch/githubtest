@@ -55,6 +55,7 @@ namespace TW.Playground.Editor
             }
             // the game's clips
             var clips = new List<PlaygroundLibrary.ClipEntry>();
+            var untabled = new List<string>();
             foreach (var guid in AssetDatabase.FindAssets("t:Model", new[] { Clips }))
             {
                 string path = AssetDatabase.GUIDToAssetPath(guid);
@@ -62,8 +63,24 @@ namespace TW.Playground.Editor
                 if (clip == null) continue;
                 string n = Path.GetFileNameWithoutExtension(path);
                 bool death = n.Contains("Death") || n.Contains("Dying") || n == "Fall Over";
-                bool loop = !death && (clip.isLooping || n.Contains("Idle") || n.Contains("Walk") || n.Contains("Run") || n.Contains("Crawl") || n.Contains("Sprint") || n.StartsWith("Firing") || n.Contains("Wade"));
-                clips.Add(new PlaygroundLibrary.ClipEntry { Name = n, Clip = clip, Loop = loop, Death = death });
+                var e = new PlaygroundLibrary.ClipEntry { Name = n, Clip = clip, Death = death, Rate = 1f };
+                // how the game plays this file: its own table, not a guess from the name. A file several rows cut
+                // different windows out of (Reloading: the whole reload at 1.5x, and the bolt 2.3-3.3 at 1.25x) is shown
+                // as its widest window, which is what a playground capture is for; the narrower rows are not shown.
+                var row = Widest(clip, n);
+                if (row.File != null)
+                {
+                    e.Loop = row.Loop; e.CutStart = row.CutStart; e.CutEnd = row.CutEnd;
+                    e.Rate = row.Rate > 0f ? row.Rate : 1f; e.KeepRoot = row.KeepRoot; e.Aim = row.Aim;
+                }
+                else
+                {
+                    untabled.Add(n);
+                    e.Loop = !death && (clip.isLooping || n.Contains("Idle") || n.Contains("Walk") || n.Contains("Run") || n.Contains("Crawl") || n.Contains("Sprint") || n.StartsWith("Firing") || n.Contains("Wade"));
+                    e.KeepRoot = !e.Loop;
+                    e.Aim = n.StartsWith("Fir") || n.Contains("Aim");
+                }
+                clips.Add(e);
             }
             clips.Sort((a, b) => string.CompareOrdinal(a.Name, b.Name));
             lib.Vehicles = vehicles.ToArray(); lib.Units = units.ToArray(); lib.Clips = clips.ToArray();
@@ -78,7 +95,9 @@ namespace TW.Playground.Editor
                 go.AddComponent<PlaygroundHost>().Library = lib;
                 EditorSceneManager.SaveScene(scene, ScenePath);
             }
-            return $"playground library: {vehicles.Count} vehicles ({string.Join(",", vehicles.Select(v => v.Name + "x" + v.Lods.Length))}), {units.Count} units, {clips.Count} clips, source {(lib.ClipSource != null ? "ok" : "MISSING")}";
+            untabled.Sort(string.CompareOrdinal);
+            return $"playground library: {vehicles.Count} vehicles ({string.Join(",", vehicles.Select(v => v.Name + "x" + v.Lods.Length))}), {units.Count} units, {clips.Count} clips, source {(lib.ClipSource != null ? "ok" : "MISSING")}"
+                 + (untabled.Count > 0 ? $"; {untabled.Count} clips the game's table has no row for, played whole and guessed from the name: {string.Join(", ", untabled)}" : "");
         }
 
         [MenuItem("TW/Playground/Open and Play")]
@@ -88,6 +107,20 @@ namespace TW.Playground.Editor
             EditorSceneManager.OpenScene(ScenePath, OpenSceneMode.Single);
             EditorApplication.isPlaying = true;
             return "playing " + ScenePath;
+        }
+
+        /// <summary>The row of the game's clip table for this file that cuts the widest window out of it (CutEnd 0 is the
+        /// file's end; ties go to the first row). A file with no row: File is null.</summary>
+        static TW.Editor.ClipSource Widest(AnimationClip clip, string file)
+        {
+            var best = default(TW.Editor.ClipSource); float widest = -1f;
+            foreach (var row in TW.Editor.InfantryClipTable.Entries)
+            {
+                if (row.File != file) continue;
+                float span = (row.CutEnd > 0f ? row.CutEnd : clip.length) - row.CutStart;
+                if (span > widest) { widest = span; best = row; }
+            }
+            return best;
         }
 
         static IEnumerable<string> Dirs(string root)
