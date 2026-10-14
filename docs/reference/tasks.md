@@ -177,7 +177,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
   before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests,
-  HouseCoverTests (behind a house, in front of it, beside it, in the open).
+  HouseCoverTests (behind a house, in front of it, beside it, in the open; yaw 30 and 120 for the footprint frame).
+  Its `Report_DeathsPerManMinute` crosses 24 men onto a trench on eight seeds, past a hamlet of eight blocks with
+  8 m lanes between them: deaths per man-minute mean 1.638 (min 1.362, max 1.741) without houses against 1.453
+  (min 1.301, max 1.572) with them, down on 8 of 8 seeds.
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
   shooting at, or else the nearest enemy in the open within `HuntRadius` (70 m x `CombatTables.RangeScale` 0.8: the
