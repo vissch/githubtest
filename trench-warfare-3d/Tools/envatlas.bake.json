@@ -1,0 +1,18 @@
+{
+  "atlas": "Assets/_Project/Resources/Env/EnvAtlas.jpg",
+  "atlas_sha256": "f7b9daa2b6d6695030e2e1f24fd5770715f2e12ed1acba7548a303c6793b59e4",
+  "cell": 1024,
+  "cols": 4,
+  "rows": 4,
+  "sets": [
+    "Fence",
+    "Plants",
+    "Siege",
+    "Stones",
+    "Weapons",
+    "Wood",
+    "Houses",
+    "Military",
+    "Ruins"
+  ]
+}
