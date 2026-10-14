@@ -31,10 +31,15 @@ namespace TW.Editor
         [MenuItem("TW/UI/Generate Placeholder Skin (force)")]
         public static void GenerateForce() => Generate(true);
 
-        /// <summary>Returns the number of files written.</summary>
+        /// <summary>Returns the number of files written, or -1 when it refused: the sidecar record was unreadable
+        /// (a rebase conflict?), so nothing was painted and the record was not rewritten.</summary>
         public static int Generate(bool force)
         {
-            var side = LoadSidecar();
+            if (!TryLoadSidecar(out var side, out var error))
+            {
+                Debug.LogError($"UiSkinGenerator: {SidecarPath} is unreadable ({error}); nothing written and the record was not rewritten — fix the file (a rebase conflict?) and run again.");
+                return -1;
+            }
             var recorded = new Dictionary<string, Entry>();
             foreach (var e in side.files) recorded[e.file] = e;
             int written = 0, promoted = 0, kept = 0;
@@ -92,10 +97,15 @@ namespace TW.Editor
             else { e = new Entry { file = file, sha1 = sha }; side.files.Add(e); recorded[file] = e; }
         }
 
-        /// <summary>Files this tool wrote that nobody has replaced yet.</summary>
+        /// <summary>Files this tool wrote that nobody has replaced yet. On an unreadable record, logs and answers
+        /// an empty list rather than null or throwing: the caller AddRanges it into the artist's to-do list.</summary>
         public static List<string> StillPlaceholder()
         {
-            var side = LoadSidecar();
+            if (!TryLoadSidecar(out var side, out var error))
+            {
+                Debug.LogError($"UiSkinGenerator: {SidecarPath} is unreadable ({error}); nothing written and the record was not rewritten — fix the file (a rebase conflict?) and run again.");
+                return new List<string>();
+            }
             var list = new List<string>();
             foreach (var e in side.files)
             {
@@ -106,12 +116,30 @@ namespace TW.Editor
             return list;
         }
 
-        public static Sidecar LoadSidecar()
+        /// <summary>Parses a sidecar's text. False with a reason when it is null/whitespace, carries a rebase
+        /// conflict marker, fails to parse, or parses to null; true with the record otherwise.</summary>
+        public static bool TryParseSidecar(string text, out Sidecar side, out string error)
+        {
+            side = null;
+            if (string.IsNullOrWhiteSpace(text)) { error = "empty"; return false; }
+            if (text.Contains("<<<<<<<") || text.Contains("=======") || text.Contains(">>>>>>>")) { error = "unresolved merge conflict markers"; return false; }
+            try { side = JsonUtility.FromJson<Sidecar>(text); }
+            catch (Exception e) { error = e.Message; return false; }
+            if (side == null) { error = "parsed to null"; return false; }
+            error = null;
+            return true;
+        }
+
+        /// <summary>True with a fresh empty record when the file is absent (a first run, not a fault), false when
+        /// the read throws or the text fails to parse.</summary>
+        public static bool TryLoadSidecar(out Sidecar side, out string error)
         {
             string full = FullPath(SidecarPath);
-            if (!File.Exists(full)) return new Sidecar();
-            try { return JsonUtility.FromJson<Sidecar>(File.ReadAllText(full)) ?? new Sidecar(); }
-            catch (Exception) { return new Sidecar(); }
+            if (!File.Exists(full)) { side = new Sidecar(); error = null; return true; }
+            string text;
+            try { text = File.ReadAllText(full); }
+            catch (Exception e) { side = null; error = e.Message; return false; }
+            return TryParseSidecar(text, out side, out error);
         }
 
         static void SaveSidecar(Sidecar s)
