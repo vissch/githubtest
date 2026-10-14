@@ -28,6 +28,8 @@ namespace TW.UI
         readonly Label name, side, hp, stats, header;
         readonly Label ordersLine;   // "G: MG, ASSAULT OF TRENCH 2 GO OVER THE TOP (5)" when the selection is a trench's categories
         int shownOrdersKey = int.MinValue;
+        // [I5] what the HP and stats labels already say, so the 5 Hz refresh only sets a label when its own inputs changed
+        int lastHpSlot = -1, lastHpCur = -1, lastHpMax = -1, lastSpeedTenths = -1, lastState = -1;
         int drawnVersion = -1; float nextHp;
         public const float FlashHz = 2.5f;
         public readonly GroupAlerts Alerts = new GroupAlerts();
@@ -67,6 +69,7 @@ namespace TW.UI
         void Rebuild(SimWorld w)
         {
             var m = sel.Model;
+            lastHpSlot = -1; lastHpCur = -1; lastHpMax = -1; lastSpeedTenths = -1; lastState = -1;   // [I5] a new selection always writes once
             panel.style.display = m.Count > 0 ? DisplayStyle.Flex : DisplayStyle.None;
             if (m.Count == 0) return;
             bool one = m.Count == 1;
@@ -131,6 +134,14 @@ namespace TW.UI
             return t;
         }
 
+        /// <summary>[I5] The single-unit HP line, ceiled as the label has always shown it.</summary>
+        public static string HpText(float cur, float max) => $"HP {Mathf.CeilToInt(cur)} / {Mathf.CeilToInt(max)}";
+
+        /// <summary>[I5] The single-unit state and speed line. The speed is formatted invariant: on a German machine
+        /// the current culture printed "1,5 M/S".</summary>
+        public static string StatsText(UnitState st, float speed)
+            => UnitStatus.Word(st) + "  ·  SPEED " + speed.ToString("0.0", System.Globalization.CultureInfo.InvariantCulture) + " M/S";
+
         void RefreshHp(SimWorld w)
         {
             var m = sel.Model;
@@ -138,10 +149,16 @@ namespace TW.UI
             {
                 var h = m.Items[0];
                 float cur = w.Hp[h.Slot], max = Mathf.Max(1f, w.MaxHp[h.Slot]), k = Mathf.Clamp01(cur / max);
-                hp.text = $"HP {Mathf.CeilToInt(cur)} / {Mathf.CeilToInt(max)}";
+                int curI = Mathf.CeilToInt(cur), maxI = Mathf.CeilToInt(max);
+                if (h.Slot != lastHpSlot || curI != lastHpCur || maxI != lastHpMax)
+                { hp.text = HpText(cur, max); lastHpCur = curI; lastHpMax = maxI; }
                 hpFill.style.width = Length.Percent(k * 100f);
                 var st = UnitStatus.Of(w, h.Slot);
-                stats.text = UnitStatus.Word(st) + $"  ·  SPEED {w.Speed[h.Slot]:0.0} M/S";
+                float speed = w.Speed[h.Slot];
+                int tenths = Mathf.RoundToInt(speed * 10f);
+                if (h.Slot != lastHpSlot || tenths != lastSpeedTenths || (int)st != lastState)
+                { stats.text = StatsText(st, speed); lastSpeedTenths = tenths; lastState = (int)st; }
+                lastHpSlot = h.Slot;
                 stats.EnableInClassList("hud-hover__state--warn", UnitStatus.Tone(st) == StateTone.Warn);
                 stats.EnableInClassList("hud-hover__state--alarm", UnitStatus.Tone(st) == StateTone.Alarm);
                 string n = UnitArt.NameOf(w.Archetype[h.Slot]);
@@ -172,7 +189,8 @@ namespace TW.UI
             var w = World;
             int present = scoped ? TrenchScope.Present(g, t) : 0;
             // who really goes: every category in the groups picked (the sim moves whole groups)
-            int eff = scoped ? TrenchScope.Effective(TrenchScope.Widen(raw, present, a => TrenchScope.GroupOf(w, a)), present) : 0;
+            // [I5] the world overload: the Func form allocated a closure and a delegate on every 5 Hz refresh
+            int eff = scoped ? TrenchScope.Effective(TrenchScope.Widen(raw, present, w), present) : 0;
             int go = 0, stay = 0;
             if (scoped)
                 for (int a = 0; a <= TrenchScope.MaxMaskArchetype; a++)

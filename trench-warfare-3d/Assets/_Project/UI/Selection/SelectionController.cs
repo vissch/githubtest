@@ -419,7 +419,8 @@ namespace TW.UI
             var w = World;
             int present = TrenchScope.Present(Garrison, trench);
             // every category the sim will move for this pick (it moves whole groups), so the brackets and the tooltip tell the truth
-            return TrenchScope.Effective(TrenchScope.Widen(mask, present, a => TrenchScope.GroupOf(w, a)), present);
+            // [I5] the world overload, not a => GroupOf(w, a): this runs for every drawn trench cluster every frame
+            return TrenchScope.Effective(TrenchScope.Widen(mask, present, w), present);
         }
 
         public bool CategorySelected(int trench, int archetype) =>

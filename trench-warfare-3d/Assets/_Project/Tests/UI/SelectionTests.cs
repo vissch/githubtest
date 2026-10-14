@@ -210,6 +210,48 @@ namespace TW.Tests
             Assert.That(TrenchScope.Effective(TrenchScope.Widen(rifle | gunner | officer, present, groupOf), present), Is.EqualTo(0), "everyone: a plain advance");
         }
 
+        /// <summary>[I5] The per-frame callers (the trench cluster's brackets, the panel's orders line) use world overloads:
+        /// a => GroupOf(w, a) allocated a closure and a delegate on every call.</summary>
+        [Test]
+        public void TheGroupMasksAreAlsoReadStraightFromTheWorld_WithoutAllocating()
+        {
+            using var m = TW.Sim.Match.MatchSim.CreateGreybox(TW.Sim.SimConfig.Default);
+            var w = m.World;
+            int rifle = 1 << TW.Sim.InfantryArchetype.Rifle, assault = 1 << TW.Sim.InfantryArchetype.Assault;
+            int gunner = 1 << TW.Sim.InfantryArchetype.Machinegunner, officer = 1 << TW.Sim.InfantryArchetype.Officer;
+            int present = rifle | assault | gunner | officer;
+            Assert.That(TrenchScope.Groups(gunner, w), Is.EqualTo(TW.Sim.OrderGroup.Gun), "[I5] the gunners are sent as the guns");
+            Assert.That(TrenchScope.Groups(rifle, w), Is.EqualTo(TW.Sim.OrderGroup.Line), "[I5] the riflemen are the line");
+            Assert.That(TrenchScope.Widen(rifle, present, w), Is.EqualTo(rifle | assault), "[I5] the riflemen take the assault men with them");
+            Assert.That(TrenchScope.Widen(gunner, present, w), Is.EqualTo(gunner), "[I5] the guns go alone");
+            // nothing is allocated: the Func form made a closure and a delegate on every call. The constraint is spelt
+            // out because `using UnityEngine.TestTools.Constraints` would shadow NUnit's Is in the rest of this file.
+            var noAlloc = new NUnit.Framework.Constraints.NotConstraint(new UnityEngine.TestTools.Constraints.AllocatingGCMemoryConstraint());
+            int sink = TrenchScope.Widen(rifle, present, w) + TrenchScope.Groups(rifle, w);   // warm up
+            Assert.That(() => { sink = TrenchScope.Widen(rifle, present, w); }, noAlloc, "[I5] Widen allocated while drawing a frame");
+            Assert.That(() => { sink = TrenchScope.Groups(rifle, w); },
+                        new NUnit.Framework.Constraints.NotConstraint(new UnityEngine.TestTools.Constraints.AllocatingGCMemoryConstraint()),
+                        "[I5] Groups allocated while drawing a frame");
+            Assert.That(sink, Is.Not.EqualTo(0), "[I5] the masks are still worked out");
+        }
+
+        /// <summary>[I5] The single-unit HP and stats lines are built where a test can read them, and the speed is
+        /// formatted invariant: on a German machine the current culture printed "1,5 M/S".</summary>
+        [Test]
+        public void TheSelectionPanelsHpAndSpeedLinesReadTheSameInEveryCulture()
+        {
+            var before = System.Globalization.CultureInfo.CurrentCulture;
+            try
+            {
+                System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("de-DE");
+                string stats = SelectionPanel.StatsText(UnitState.HoldingFire, 1.5f);
+                Assert.That(stats, Does.Contain("1.5 M/S"), "[I5] the speed is written with a point in every culture");
+                Assert.That(stats, Does.Not.Contain("1,5"), "[I5] a German machine showed 1,5 M/S");
+                Assert.That(SelectionPanel.HpText(3.2f, 10f), Is.EqualTo("HP 4 / 10"), "[I5] the HP line is ceiled, as it always was");
+            }
+            finally { System.Globalization.CultureInfo.CurrentCulture = before; }
+        }
+
         [Test]
         public void GroupOf_ReadsTheMatchsUnitTable()
         {
