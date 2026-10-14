@@ -179,6 +179,9 @@ namespace TW.Tests
             Assert.AreEqual(0, r.M.Abilities.Scheduled.Length);
         }
 
+        // [S2.3] the command path of the beam below is covered by TheAbilityPaysSchedulesAndFires above (the
+        // SupportFire command, the 300 silver charged once, the cooldown refusal, the scheduled BeamStart payload)
+        // and by DeterminismReplayTests, which replays a Beam SupportFire command at tick 61.
         static ulong[] Run(uint seed, bool beam)
         {
             using var r = new Rig(seed: seed);

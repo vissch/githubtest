@@ -166,6 +166,9 @@ namespace TW.Tests
             ulong Play()
             {
                 using var m = Coast();
+                // [S2.4] the count below is only "the men who landed" if the map starts empty. The sibling
+                // TheOtherSideStillWalksUpFromItsOwnRear pins this by hand: it deploys one man and finds exactly 1.
+                Assert.AreEqual(0, m.World.AliveCount, "[S2.4] setup: the Coast map starts empty, so the count below is the men who landed");
                 Deploy(m, 1, 0, 5);
                 Run(m, 320);
                 landed = m.World.AliveCount;
