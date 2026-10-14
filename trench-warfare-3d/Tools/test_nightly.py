@@ -67,6 +67,16 @@ class BandPartTest(unittest.TestCase):
         self.assertTrue(any('No match ended' in l for l in md))
         self.assertEqual(look, [])
 
+    def test_B4_unknown_seatings_is_reported_and_unjudged(self):
+        # [B4] a row whose swapSeats (and so its match count) is unknown must never be judged as "no match ended".
+        row = {'name': 'now', 'judged': False, 'seatings_unknown': True, 'played': None, 'ended': None,
+               'unended': None, 'share_a': None, 'share_b': None, 'out': [], 'label_a': 'Iron', 'label_b': 'Brass'}
+        write_report(self.root, stamp(), row, sha='abc12345')
+        md, look, info = N.band_part(self.root, sha='abc12345')
+        self.assertTrue(any('swapSeats' in l and 'unknown' in l for l in md))
+        self.assertEqual(look, [])
+        self.assertFalse(info['judged'])
+
     def test_a_report_with_no_factions_rows_is_skipped(self):
         write_report(self.root, stamp(days_ago=1, sha='old'), None, sha='abc12345')
         row = {'name': 'now', 'judged': True, 'played': 10, 'ended': 10, 'unended': 0,

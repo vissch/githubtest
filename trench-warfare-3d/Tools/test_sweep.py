@@ -144,6 +144,43 @@ class FactionBandTest(unittest.TestCase):
         self.assertEqual((band["played"], band["ended"], band["unended"]), (8, 5, 3))
 
 
+class FactionRowsTest(unittest.TestCase):
+    def test_missing_swapseats_falls_back_to_the_spec_file(self):
+        # [B4] run.json (meta) predates swapSeats; spec.json sets swap_seats true. 3 seeds, win_a 1.0 each:
+        # with swapSeats each seed already averages 2 matches, so 3 ended seeds report 6 ended, not 3.
+        with tempfile.TemporaryDirectory() as out:
+            with open(os.path.join(out, "spec.json"), "w") as f:
+                json.dump({"scenario": "match", "swap_seats": True}, f)
+            data = {"now": {f"seed{i}": {"win_a": 1.0, "win_b": 0.0} for i in range(3)}}
+            meta = {"scenario": "match"}   # no swapSeats key: an old run folder
+            rows = S.faction_rows(data, ["now"], meta, out)
+            self.assertEqual(rows[0]["ended"], 6)
+            self.assertFalse(rows[0].get("seatings_unknown"))
+
+    def test_missing_swapseats_and_no_spec_file_is_unknown_not_assumed_one(self):
+        # [B4] no run.json swapSeats and no spec.json to fall back to: seatings (and so ended) is unknown,
+        # never silently assumed 1.
+        with tempfile.TemporaryDirectory() as out:
+            data = {"now": {f"seed{i}": {"win_a": 1.0, "win_b": 0.0} for i in range(3)}}
+            meta = {"scenario": "match"}
+            rows = S.faction_rows(data, ["now"], meta, out)
+            self.assertTrue(rows[0]["seatings_unknown"])
+            self.assertIsNone(rows[0]["ended"])
+            self.assertIsNone(rows[0]["share_a"])
+
+    def test_a_mirror_variants_header_names_its_own_label(self):
+        # [B5] a mirror variant whose labels differ from the spec's default sides: the header carries no faction
+        # name and the mirror's own cell names its own label.
+        meta = {"scenario": "match", "swapSeats": False, "sides": {"a": "Iron", "b": "Brass"}}
+        data = {"now": {f"seed{i}": {"win_a": 0.5, "win_b": 0.5} for i in range(4)},
+                "mirror": {f"seed{i}": {"win_a": 0.55, "win_b": 0.45} for i in range(4)}}
+        meta["sides"]["variants"] = {"mirror": {"a": "Iron", "b": "Iron"}}
+        rows = S.faction_rows(data, ["now", "mirror"], meta, None)
+        md = S.render([], ["now", "mirror"], {}, meta, rows)
+        self.assertIn("| variant | side a | side b | ended | did not end |", md)
+        self.assertIn("Iron 55 % IN", md)
+
+
 def stand_in(win_by_variant, refuse=()):
     """Plays a chunk as Unity would: one report per variant, none for a variant the test refuses."""
     calls = []
