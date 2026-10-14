@@ -91,12 +91,20 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
         // put the DRAWING on the ground (see Flamethrower.Standing). Fill: how much of the cell's width it uses. All
         // three are per book because they are facts about a drawing, not tuning.
+        // InkRoot, InkPoint: where the DRAWING's root sits inside its cell (cell UV, v up) and which way it points
+        // from there, for a book that is LAID ALONG a direction (LayAlong). Both left at zero means the old rule - the
+        // root is the midpoint of the left edge and it points along +u - which is what GunLong and every undirected
+        // book actually draw. A root and no point means a bloom: it has a centre and no direction, so it is placed on
+        // its root and never rolled. Measured off the PNGs (the leg's ink.md, 2026-10-14): the GunBlast flame grows out
+        // of its cell's LOWER-LEFT corner at +39 degrees, not out of the left edge's middle, so laying the quad by its
+        // left edge put the flame's root a quarter of a turn and half a card off the mouth of the Banner's gun - the
+        // owner's "its visually still off, line it up properly" of 2026-10-14.
         // Snap: the book was drawn frame by frame and is played that way - each cel is CUT to, never dissolved into the
         // next (TW/Flipbook reads it off _Grid.w). Fps: play it at the rate it was drawn at rather than stretching the
         // Fire: drawn OVER the frame premultiplied rather than added to it (see TW/Flipbook's note). Fire is the one
@@ -123,7 +131,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "Puff",   Cols = 3, Rows = 3, Frames = 9,  Tint = new Color(0.74f, 0.80f, 0.34f), Low = 0.15f, High = 0.60f, Lit = 0.75f },
             new Sheet { Name = "Muzzle", Cols = 3, Rows = 4, Frames = 12, Additive = true, Tint = new Color(1.0f, 0.78f, 0.42f), Low = 0f, High = 1f },
             new Sheet { Name = "Star",   Cols = 1, Rows = 1, Frames = 1,  Additive = true, MaskOnly = true, Tint = new Color(1.0f, 0.88f, 0.62f), Low = 0f, High = 1f },
-            new Sheet { Name = "Flash",  Cols = 1, Rows = 1, Frames = 1,  Additive = true, Tint = new Color(1.0f, 0.80f, 0.50f), Low = 0f, High = 1f },
+            new Sheet { Name = "Flash",  Cols = 1, Rows = 1, Frames = 1,  Additive = true, Tint = new Color(1.0f, 0.80f, 0.50f), Low = 0f, High = 1f, InkRoot = new Vector2(0.500f, 0.537f) },   // a bloom: its bright middle is its root, it has no direction of its own (measured aspect 1.57)
             // fire (generated from the owner's flipbook pack by Tools/firebooks.py). Additive, so the dark smoke the
             // pack drew into them adds nothing and only the flame survives - the smoke off a fire is its own cards.
             // A deep orange tint taken past 1 by the caller's glow is what gives fire its colour ramp: the heart of a
@@ -185,7 +193,7 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "LeanBurst", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.40f, 0.33f, 0.26f), Low = 0.11f, High = 0.73f, Ink = new Vector2(0.26f, 0.73f), Fill = 0.90f },
             new Sheet { Name = "FireCookOff", Cols = 8, Rows = 4, Frames = 29, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.90f, Bands = new Vector4(0.07f, 0.28f, 0.75f, 0.75f), Ink = new Vector2(0.07f, 0.91f), Fill = 0.94f },
             new Sheet { Name = "FireTall", Cols = 8, Rows = 4, Frames = 24, Snap = true, Fps = 12f, Cycle = true, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.08f, High = 0.85f, Bands = new Vector4(0.11f, 0.28f, 0.65f, 0.75f), Ink = new Vector2(0.05f, 0.99f), Fill = 0.62f },
-            new Sheet { Name = "FireGunBlast", Cols = 8, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.23f, 0.78f), Fill = 0.60f },
+            new Sheet { Name = "FireGunBlast", Cols = 8, Rows = 4, Frames = 12, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.23f, 0.78f), Fill = 0.60f, InkRoot = new Vector2(0.070f, 0.276f), InkPoint = new Vector2(0.777f, 0.629f) },   // the flame grows out of the cell's lower-left corner at +39 deg
             new Sheet { Name = "Smoulder", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.45f, Tint = new Color(0.50f, 0.47f, 0.43f), Low = 0.07f, High = 0.85f, Ink = new Vector2(0.05f, 0.92f), Fill = 0.45f },
             new Sheet { Name = "GroundRing", Cols = 8, Rows = 4, Frames = 32, Snap = true, Fps = 0f, Ground = true, Lit = 0.75f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.20f, High = 0.81f, Ink = new Vector2(0.12f, 0.88f), Fill = 0.94f },
             new Sheet { Name = "DustPuff", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Mood = 0.45f, Tint = new Color(0.86f, 0.78f, 0.64f), Low = 0.16f, High = 0.91f, Ink = new Vector2(0.18f, 0.82f), Fill = 0.90f },
@@ -757,7 +765,8 @@ namespace TW.Presentation.Tactical
                     else if (canLay && c.Axis.sqrMagnitude > 0f)
                     {
                         // laid along a world axis (a muzzle flame along its bore): the root stays on the mouth at any angle
-                        LayAlong(layRight, layUp, c.Pos, c.Axis, c.Width * swell, c.Height * swell, out var laidAt, out float laidRoll, out float laidWidth);
+                        InkLay(c.Book, out Vector2 inkRoot, out Vector2 inkPoint);
+                        LayAlong(layRight, layUp, c.Pos, c.Axis, c.Width * swell, c.Height * swell, inkRoot, inkPoint, out var laidAt, out float laidRoll, out float laidWidth);
                         batch[n++] = Pack(laidAt, laidWidth, c.Height * swell, frame, fade, bright, laidRoll, c.Kind, c.Alpha);
                     }
                     else batch[n++] = Pack(c.Pos, c.Width * swell, c.Height * swell, frame, fade, bright, c.Roll, c.Kind, c.Alpha);
@@ -793,25 +802,68 @@ namespace TW.Presentation.Tactical
         /// shows a bloom at the mouth, not a line.</summary>
         public const float LaidMinShare = 0.35f;
 
-        /// <summary>Lays a card of this size along a WORLD direction, rooted at `root`: gives the centre to draw it at,
-        /// the roll to draw it with and the width to draw it at, so that on screen its art root (the midpoint of its
-        /// left edge, where the fire books start their drawing) sits on `root` and its long side runs along the axis'
-        /// projection. The card's cross-section (its height) is left alone.
-        /// The quad TW/Flipbook builds is `at + right * cx + up * cy` with `(cx, cy) = rot(roll) * (uv - centre)` scaled
-        /// by `(width, height)` AFTER the rotation (Flipbook_URP.shader, vert). Two things follow, and both are undone
-        /// here: the scale skews the drawn long axis away from `roll` whenever width and height differ, so the roll is
-        /// pre-skewed; and the left edge sits at `-0.5 * (cos * width, sin * height)`, so the centre is placed by that
-        /// exact offset rather than by half a width.</summary>
+        /// <summary>A book's sheet: the PNG's name in Resources/VFX and the grid it is cut into. Read-only, for a
+        /// test that measures the ink the book actually draws.</summary>
+        public static void Grid(Book book, out string name, out int cols, out int rows, out int frames)
+        {
+            var sheet = Sheets[(int)book];
+            name = sheet.Name; cols = sheet.Cols; rows = sheet.Rows; frames = sheet.Frames;
+        }
+
+        /// <summary>Where a book's drawing starts and which way it points inside its cell, for laying it along a
+        /// direction. A book that declares neither keeps the old rule: the root is the midpoint of the left edge and
+        /// the drawing runs along +u. A zero `point` means a bloom - a centre and no direction.</summary>
+        public static void InkLay(Book book, out Vector2 root, out Vector2 point)
+        {
+            var sheet = Sheets[(int)book];
+            bool declared = sheet.InkRoot != Vector2.zero || sheet.InkPoint != Vector2.zero;
+            root = declared ? sheet.InkRoot : new Vector2(0f, 0.5f);
+            point = declared ? sheet.InkPoint : new Vector2(1f, 0f);
+        }
+
+        /// <summary>Lays a card of this size along a WORLD direction, rooted at `root`, by the book's own drawing (its
+        /// InkRoot and InkPoint). Keeps the old left-edge rule for a book that declares no ink.</summary>
         public static void LayAlong(Vector3 camRight, Vector3 camUp, Vector3 root, Vector3 axis, float width, float height,
                                     out Vector3 at, out float roll, out float drawnWidth)
+            => LayAlong(camRight, camUp, root, axis, width, height, new Vector2(0f, 0.5f), new Vector2(1f, 0f), out at, out roll, out drawnWidth);
+
+        /// <summary>Lays a card of this size along a WORLD direction, rooted at `root`: gives the centre to draw it at,
+        /// the roll to draw it with and the width to draw it at, so that on screen the DRAWING's root - the point
+        /// `inkRoot` of the cell, where the book's flame actually starts - sits on `root`, and the drawing's own
+        /// direction `inkPoint` runs along the axis' projection. The card's cross-section (its height) is left alone.
+        /// The quad TW/Flipbook builds is `at + right * cx + up * cy` with `(cx, cy) = rot(roll) * (uv - centre)` scaled
+        /// by `(width, height)` AFTER the rotation (Flipbook_URP.shader, vert). Two things follow, and both are undone
+        /// here: the scale skews the drawn direction away from `roll` whenever width and height differ, so the roll is
+        /// solved for the drawn direction rather than set to the bore's screen angle; and the drawing's root is then
+        /// wherever that roll put it, so the centre is placed by exactly minus that offset.
+        /// A book with no direction of its own (`inkPoint` zero: the Flash's round bloom) is placed on its root with no
+        /// roll at all - rolling a bloom only smears it, and rolling it by the bore used to carry its bright middle
+        /// half a card out in front of the mouth.</summary>
+        public static void LayAlong(Vector3 camRight, Vector3 camUp, Vector3 root, Vector3 axis, float width, float height,
+                                    Vector2 inkRoot, Vector2 inkPoint, out Vector3 at, out float roll, out float drawnWidth)
         {
             float cx = Vector3.Dot(axis, camRight), cy = Vector3.Dot(axis, camUp);
             float s = Mathf.Sqrt(cx * cx + cy * cy) / Mathf.Max(1e-6f, axis.magnitude);
             drawnWidth = width * Mathf.Max(s, LaidMinShare);
-            if (cx * cx + cy * cy < 1e-6f) { at = root; roll = 0f; return; }   // the bore points at the eye: a bloom on the mouth
-            // the bore's angle on screen, pre-skewed so that the DRAWN long axis comes out along it
-            roll = Mathf.Atan2(cy * drawnWidth, cx * height);
-            at = root + (camRight * (Mathf.Cos(roll) * drawnWidth) + camUp * (Mathf.Sin(roll) * height)) * 0.5f;
+            float px = inkRoot.x - 0.5f, py = inkRoot.y - 0.5f;   // the drawing's root in the unit card the shader rotates
+            // the bore points at the eye, or the drawing has no direction: the root on the mouth, unrolled
+            if (cx * cx + cy * cy < 1e-6f || inkPoint.sqrMagnitude < 1e-12f)
+            {
+                roll = 0f;
+                at = root - (camRight * (px * drawnWidth) + camUp * (py * height));
+                return;
+            }
+            // solve for the roll at which the DRAWN direction (the ink's direction rotated, then scaled by the card's
+            // own width and height) comes out along the bore's screen direction
+            float a = inkPoint.x, b = inkPoint.y;
+            roll = Mathf.Atan2(cy * drawnWidth * a - cx * height * b, cy * drawnWidth * b + cx * height * a);
+            float sr = Mathf.Sin(roll), cr = Mathf.Cos(roll);
+            // of the two solutions, the one that points OUT of the gun and not back into it
+            if (((a * cr - b * sr) * drawnWidth) * cx + ((a * sr + b * cr) * height) * cy < 0f)
+            {
+                roll += Mathf.PI; sr = -sr; cr = -cr;
+            }
+            at = root - (camRight * ((px * cr - py * sr) * drawnWidth) + camUp * ((px * sr + py * cr) * height));
         }
 
         /// <summary>The record TW/Flipbook reads out of the instance matrix (see the shader's header).</summary>
