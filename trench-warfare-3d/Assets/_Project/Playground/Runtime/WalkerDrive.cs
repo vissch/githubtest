@@ -42,13 +42,17 @@ namespace TW.Playground
         VehicleRig rig;
         WalkerGait gait = new WalkerGait();
         public WalkerGait Gait => gait;                 // read by tests and the gait probe
+        // the gait's own numbers, without its type: read by tests that cannot reference TW.Presentation.Camera
+        public float GaitSwing => gait.SwingScale;
+        public float GaitArc => gait.ArcScale;
+        /// <summary>Where the gait stands foot `s`, in the gait's frame (the probe and the tests read it).</summary>
+        public Vector3 FootPlace(int s) => gait.Feet.Length > s ? gait.Feet[s].At : Vector3.zero;
         TankModel model;
         Vector3 startPos; Quaternion startRot; bool started;
-        // where each foot stood when it died: WalkerGait skids a collapsing walker's feet outward (right for its rigid crab
-        // legs, and ours are given to it as one piece), and the Croaker's slid 4.5 m into the splits (r39). Jointed legs
-        // fold instead: the feet stay put and the knees go down.
-        Vector3[] deadFeet;
-        Vector3 FootAt(int s) => deadFeet != null ? deadFeet[s] : gait.Feet[s].At;
+        // a dead walker's feet are the gait's own: WalkerGait skids a collapsing walker's feet outward and the game shows
+        // that, so the playground shows it too (Y2; the playground used to freeze them where they stood at death). The
+        // body is still held no lower than the legs can fold (the fold clamp in Pose), which is what stopped the splits
+        // of r39 from putting the hull through the ground.
         VehicleRig.Part hull, turret;
         readonly VehicleRig.Part[] thigh = new VehicleRig.Part[2], shin = new VehicleRig.Part[2], foot = new VehicleRig.Part[2], claw = new VehicleRig.Part[2], jaw = new VehicleRig.Part[2];
         Vector3 hullPivot;
@@ -58,7 +62,11 @@ namespace TW.Playground
 
         public WalkerDrive Init(VehicleRig r)
         {
-            rig = r; gait = new WalkerGait();   // a gait keeps its stance once worked out: a new rig needs a new one
+            rig = r;
+            // the game's own gait for this machine: TankRenderer builds it with the drive style's swing and arc
+            // (TankRenderer.cs:584; the Croaker 0.9 / 1.5), and the playground took the defaults 1 / 1 (Y2)
+            var style = TankRenderer.StyleFor(TankRenderer.ArchetypeOfModel(r.Model));
+            gait = new WalkerGait { SwingScale = style.Swing, ArcScale = style.Arc };   // a gait keeps its stance once worked out: a new rig needs a new one
             // where it was built, once (a re-Init keeps it). NOT `startRot == default`: Unity's == on quaternions compares
             // by dot product, which never equals the all-zero default, so the spawn was never taken and every walker
             // walked from the world's origin, three LODs stacked on one spot (loop 2 r33)
@@ -114,8 +122,6 @@ namespace TW.Playground
             if (free && !InPlace) transform.SetPositionAndRotation(startPos + startRot * WalkPos, startRot * face);
             byte lost = 0;
             for (int s = 0; s < 2; s++) if (thigh[s].Loose || shin[s].Loose || foot[s].Loose) lost |= (byte)(1 << s);
-            if (dead && deadFeet == null && gait.Feet.Length >= 2) deadFeet = new[] { gait.Feet[0].At, gait.Feet[1].At };
-            if (!dead) deadFeet = null;
             if (dt > 0f) gait.Step(model, GaitPos, WalkYaw, vel / GaitScale, yawRate, lost, dead, dt, Ground);
             if (v < 0.05f && !dead && lost == 0) Settle(face);
             Pose(face);
@@ -155,14 +161,14 @@ namespace TW.Playground
                 float k = Mathf.Sin(gait.Feet[s].Swing * Mathf.PI);
                 lift = Mathf.Max(lift, k); lean += (s == 0 ? -1f : 1f) * k;   // left foot up: lean onto the right
             }
-            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (FootAt(s) - GaitPos)).z / size;
+            for (int s = 0; s < 2 && s < gait.Feet.Length; s++) stride += (s == 0 ? 1f : -1f) * (inv * (gait.Feet[s].At - GaitPos)).z / size;
             dy += Rise * lift;
             // no lower than the legs can fold with their feet where they are (the collapsing Croaker's feet slid 4.5 m
             // forward into the splits as the body sank below what the legs could reach, r39)
             for (int s = 0; s < 2 && s < gait.Feet.Length; s++)
             {
                 if (thigh[s].Loose || shin[s].Loose) continue;
-                Vector3 toeAt = inv * (FootAt(s) - GaitPos) / size;
+                Vector3 toeAt = inv * (gait.Feet[s].At - GaitPos) / size;
                 Vector3 ankleAt = toeAt + (ankle0[s] - toe0[s]);
                 float fold = Mathf.Abs(l1[s] - l2[s]) + 0.25f * Mathf.Min(l1[s], l2[s]);
                 var flat = new Vector2(hip0[s].x - ankleAt.x, hip0[s].z - ankleAt.z);
@@ -180,7 +186,7 @@ namespace TW.Playground
                 if (thigh[s].Loose || gait.Feet.Length <= s) continue;
                 var f = gait.Feet[s];
                 // the foot's toe in the rig's frame; a swinging foot tips its toe down a little
-                Vector3 toe = inv * (FootAt(s) - GaitPos) / size;
+                Vector3 toe = inv * (gait.Feet[s].At - GaitPos) / size;
                 float swing = f.Swing >= 0f ? Mathf.Sin(f.Swing * Mathf.PI) : 0f;
                 var footRot = Quaternion.Euler(18f * swing, 0f, 0f);
                 Vector3 ankle = toe + footRot * (ankle0[s] - toe0[s]);
