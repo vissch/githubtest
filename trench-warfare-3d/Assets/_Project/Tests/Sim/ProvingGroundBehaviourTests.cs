@@ -62,6 +62,17 @@ namespace TW.Tests
                 if (System.Array.IndexOf(keep, i) < 0 && m.World.IsAlive(i) && m.World.Team[i] == team) m.World.Despawn(i, -1, default);
         }
 
+        /// <summary>The Mercy carries the wounded now and heals nobody on the spot (2026-10-07, the owner), so no unit
+        /// ships a healer's spec on a machine any more. SupportSystem's generic rule — a machine with a healer's spec
+        /// heals the men beside it — still stands and is still the Proving Ground's; these tests write the spec the
+        /// Mercy used to carry into the match's table and prove the rule on it.</summary>
+        static void GiveTheAmbulanceAHealersSpec(MatchSim m)
+        {
+            var spec = m.World.Units.Infantry[VehicleArchetype.Mercy];
+            spec.HealRadius = 10f; spec.HealPerSecond = 25f;
+            m.World.Units.Infantry[VehicleArchetype.Mercy] = spec;
+        }
+
         // ---------------------------------------------------------------------------------------------- the ambulance
         [Test]
         public void AnAmbulanceHealsTheMenBesideItAndNobodyElse()
@@ -69,6 +80,7 @@ namespace TW.Tests
             // the patients are medics: nobody here carries a rifle, so nobody is shot before the assertion
             using var m = NewMatch();
             var w = m.World;
+            GiveTheAmbulanceAHealersSpec(m);
             int mercy = Still(m, 0, VehicleArchetype.Mercy, 60f, 30f);
             float reach = w.Units.Infantry[VehicleArchetype.Mercy].HealRadius + m.Vehicles.Profiles[VehicleArchetype.Mercy].HalfLength;
             int near = Still(m, 0, InfantryArchetype.Medic, 60f + reach - 1f, 30f);
@@ -95,6 +107,7 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             var w = m.World;
+            GiveTheAmbulanceAHealersSpec(m);
             int mercy = Still(m, 0, VehicleArchetype.Mercy, 60f, 30f);
             int maw = Still(m, 0, VehicleArchetype.Maw, 90f, 30f);
             int a = Still(m, 0, InfantryArchetype.Medic, 64f, 30f);

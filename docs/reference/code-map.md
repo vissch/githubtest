@@ -173,6 +173,7 @@ determinism test: `docs/03-determinism-rules.md`).
 | 1109 | `MeleeSystem` | `Melee` | `Sim/Combat/MeleeSystem.cs` | registered (only if `combat`) |
 | 1110 | `MovementSystem` | `Movement` | `Sim/Nav/MovementSystem.cs` | registered |
 | 1115 | `BreakerSystem` | `Breaker` | `Sim/Units/Breaker.cs` | registered |
+| 1117 | `MercyCarrySystem` | `MercyCarry` | `Sim/Units/MercyCarry.cs` | registered |
 | 1120 | `VehicleKinematicsSystem` | `VehicleKinematics` | `Sim/Nav/VehicleKinematics.cs` | registered |
 | 1125 | `PounceSystem` | `Pounce` | `Sim/Combat/PounceSystem.cs` | registered (only if `combat`) |
 | 1130 | `MineSystem` | `VehicleKinematics + 10` | `Sim/Combat/Mines.cs` | registered |

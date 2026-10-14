@@ -63,6 +63,9 @@ namespace TW.Sim
         public const int Movement = 1110;
         /// <summary>The Breaker's phases: after Movement listed the vehicles, before Kinematics drives them.</summary>
         public const int Breaker = 1115;
+        /// <summary>The Mercy's carrying (MercyCarrySystem): after the Breaker, before Kinematics drives it, so the
+        /// man it goes for is driven at the same tick.</summary>
+        public const int MercyCarry = 1117;
         public const int VehicleKinematics = 1120;
         /// <summary>A crab's pounce (PounceSystem): after Kinematics, whose move it holds and then overrides. 2026-09-28.</summary>
         public const int Pounce = 1125;

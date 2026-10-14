@@ -133,7 +133,8 @@ namespace TW.Tests
             Assert.IsTrue(m.Catalogue.Weapon[InfantryArchetype.Flamethrower].SetsBurning);
             Assert.AreEqual(FireMode.Cone, m.Catalogue.Weapon[InfantryArchetype.Flamethrower].Mode);
             Assert.AreEqual(12f * CombatTables.RangeScale, m.Catalogue.Weapon[InfantryArchetype.Flamethrower].RangeMax);
-            Assert.AreEqual(25f, w.Units.Infantry[VehicleArchetype.Mercy].HealPerSecond, "an ambulance heals");
+            Assert.AreEqual(0f, w.Units.Infantry[VehicleArchetype.Mercy].HealPerSecond, "an ambulance heals nobody on the spot: it carries them out (MercyCarrySystem, 2026-10-07)");
+            Assert.AreEqual(TW.Sim.Units.MercyCarrySystem.Seats, m.Catalogue.Tank[VehicleArchetype.Mercy].Seats, "and it has its four seats");
             Assert.AreEqual(0f, m.Catalogue.Weapon[VehicleArchetype.Mercy].RangeMax, "and shoots nothing");
             Assert.AreEqual(2, m.Vehicles.Profiles[VehicleArchetype.Croaker].Legs, "two legs");
             Assert.IsTrue(m.Vehicles.Profiles[VehicleArchetype.Hopper].Walker, "the gunship strides everything");

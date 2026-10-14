@@ -28,6 +28,7 @@ namespace TW.Sim.Match
         public TW.Sim.Units.SupportSystem Support;
         public LeapSystem Leap;
         public TW.Sim.Units.BreakerSystem Breaker;
+        public TW.Sim.Units.MercyCarrySystem Mercy;
         public HeroSystem Hero;
         public SuppressionSystem Suppression;
         /// <summary>Null on an inland map.</summary>
@@ -123,6 +124,8 @@ namespace TW.Sim.Match
             World.AddSystem(Vehicles);                      // A1 / A5b: vehicles: trenches, ditching, mud, slopes, crushing
             Breaker = new TW.Sim.Units.BreakerSystem(map);
             World.AddSystem(Breaker);                       // A5b: the Breaker's wind-up, charge, strike and withdrawal (steps before Kinematics drives it)
+            Mercy = new TW.Sim.Units.MercyCarrySystem(map);
+            World.AddSystem(Mercy);                         // 2026-10-07: the Mercy fetches badly hurt men, carries them out and puts them back
             if (combat)
             {
                 Engage = new EngageSystem(map);

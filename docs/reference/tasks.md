@@ -290,7 +290,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   when a vehicle is destroyed), `Sim/Nav/VehicleKinematics.cs` (`VehicleSize`, `VehicleProfile`, momentum and steering, trench crossing, crushing),
   `Sim/Core/ChassisKind.cs` (what a unit stands on, `Foot`/`Tracked`/`Legged`/`Wheeled`: a field of `RosterEntry`,
   read through `SimWorld.ChassisOf`; it replaced the id ranges of `IsTank`/`IsWalker`/`IsArmoured`),
-  `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
+  `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off),
+  `Sim/Units/MercyCarry.cs` (the Mercy fetches badly hurt men of its own side, carries up to `Seats` of them out past its
+  own spawn line and puts them back there at full health; `TankSpec.Seats`, `SimWorld.Lift`). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
   (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap

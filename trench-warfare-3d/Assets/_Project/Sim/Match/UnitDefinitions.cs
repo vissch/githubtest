@@ -231,18 +231,20 @@ namespace TW.Sim.Match
         };
 
         /// <summary>Mercy (24): a field ambulance. Unarmed, on wheels (a tracked chassis with the wheeled bog, since wheels
-        /// have no rules of their own), it drives up and patches the men beside it the way the medic does, once SupportSystem
-        /// lets a vehicle heal (the next SIM commit). Thin, and full of fuel.</summary>
+        /// have no rules of their own). It patches nobody on the spot any more (2026-10-07, the owner): it drives to badly
+        /// hurt men of its own side at the front, takes up to MercyCarrySystem.Seats of them aboard, carries them out past
+        /// its own side's spawn line and puts them back there at full health. Thin, and full of fuel.</summary>
         public static UnitDef Mercy => new UnitDef
         {
             Archetype = VehicleArchetype.Mercy,
             Roster = Machine(VehicleArchetype.Mercy, 150, 1000f, 3.8f, 300, ChassisKind.Tracked),
-            Infantry = new InfantrySpec { Group = OrderGroup.Support, HealRadius = 10f, HealPerSecond = 25f },
+            Infantry = new InfantrySpec { Group = OrderGroup.Support },
             Weapon = new WeaponStats { Id = VehicleArchetype.Mercy },   // RangeMax 0: acquires nothing
             Machine = new TankSpec
             {
                 Hull = Plate(5f, 4f, 4f, 3f), Turret = Plate(5f, 4f, 4f, 3f),
                 TurretChance = 0f, Crew = 2, GunCount = 0, ShortHalt = false, FuelRisk = 0.40f, AmmoRisk = 0f,
+                Seats = TW.Sim.Units.MercyCarrySystem.Seats,
             },
             Drive = new VehicleProfile
             {
