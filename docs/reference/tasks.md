@@ -428,7 +428,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   "beam" | "crush" | "machine" | "maw" | "salvo" | "skimmer" | "walker", x, z)` (`Editor/DeathLab.cs`: every death made
   by the sim's own systems). Unattended, from batch mode: DeathStills (`Tests/Stills`, explicit, run by name with a
   graphics device; `TW_STILLS_DIR` outside the checkout, `TW_DEATH_ABSURD`, `TW_DEATH_SCENES`, `TW_STILLS_FIELD`
-  (`Winter` for daylight)) films each scene as a strip and a contact sheet.
+  (`Winter` for daylight), `TW_DEATH_WINDOW=seconds,frames` overriding every scene's timing (unset: today's
+  per-scene numbers), for a moment that falls between a scene's own default frames) films each scene as a strip
+  and a contact sheet.
 - **Trap:** read a dead man through `Animation.TryDeath(slot, eventTick)`, never `State[slot]`: events are
   dispatched once per frame after every tick ran, and the slot may hold another man by then.
 

@@ -87,3 +87,8 @@ well inside the owner's wider bar ("less then half a second is ok").
 
 Nothing is built until the build stage runs: no clock change, no event hook, no sim change. The pick is already
 made (2026-10-09, page A).
+
+## Built (2026-10-15)
+
+Shipped as `Presentation/Camera/TimePinch.cs`: option A's own 0.200 s hold, with the ramp trimmed from 0.080 s to
+0.040 s — 0.240 s total, strictly under the 0.250 s bar (`TimePinchTests`).
