@@ -160,7 +160,7 @@ namespace TW.Tests
         /// its long side may lie this far off the barrel's own axis on screen (the owner's words, 2026-10-14: the fire
         /// "starts exactly at the mouth of the barrel that fired, lies along that barrel's own axis, and stays there
         /// from every camera angle").</summary>
-        const float LineTol = 0.15f, AngleTol = 5f;
+        const float LineTol = 0.15f, AngleTol = 5f, InkAngleTol = 10f;
 
         /// <summary>A camera the owner looks from: where it stands round the machine (bearing from the way it faces,
         /// degrees), how high it is lifted (pitch, degrees) and how far off it is (m).</summary>
@@ -203,18 +203,26 @@ namespace TW.Tests
             return at + right * cx + up * cy;
         }
 
-        /// <summary>The drawn quad of a live card, rebuilt exactly as Flipbook_URP.shader's vert does: the art root (the
-        /// midpoint of its left edge, where the fire books start their drawing) and the far end of its long side.
-        /// A laid card is placed, rolled and shortened from the eye the way FlipbookFx.Draw does it.</summary>
+        /// <summary>The drawn ends of a live card's DRAWING, rebuilt exactly as Flipbook_URP.shader's vert does: the
+        /// point of the cell its book starts its drawing on (FlipbookFx.InkLay, measured off the PNG) and the far end of
+        /// that drawing. A laid card is placed, rolled and shortened from the eye the way FlipbookFx.Draw does it.
+        /// It used to take the midpoint of the LEFT EDGE for the root, which is where GunLong starts its drawing but not
+        /// where FireGunBlast starts its: that book's flame grows out of the cell's lower-left corner at +39 degrees, so
+        /// this test read 0.0 cm while the flame stood 1.43 m off the gun (the owner, 2026-10-14; BannerFireInkTests
+        /// measures the drawing against the barrel's own on-screen width and holds the three figures he asked for).</summary>
         static void DrawnQuad(Camera cam, Vector3 pos, Vector3 axis, float width, float height, float storedRoll, bool mirrored,
-                              out Vector3 root, out Vector3 tipEnd)
+                              FlipbookFx.Book book, out Vector3 root, out Vector3 tipEnd)
         {
             Vector3 right = cam.transform.right, up = cam.transform.up;
+            FlipbookFx.InkLay(book, out Vector2 inkRoot, out Vector2 inkPoint);
             Vector3 at = pos; float roll = storedRoll, w = width;
-            if (axis.sqrMagnitude > 0f) FlipbookFx.LayAlong(right, up, pos, axis, width, height, out at, out roll, out w);
+            if (axis.sqrMagnitude > 0f) FlipbookFx.LayAlong(right, up, pos, axis, width, height, inkRoot, inkPoint, out at, out roll, out w);
             float mirror = mirrored ? -1f : 1f, sr = Mathf.Sin(roll), cr = Mathf.Cos(roll);
-            root = Corner(at, right, up, -0.5f * mirror, 0f, sr, cr, w, height);
-            tipEnd = Corner(at, right, up, 0.5f * mirror, 0f, sr, cr, w, height);
+            Vector2 p = new Vector2((inkRoot.x - 0.5f) * mirror, inkRoot.y - 0.5f);
+            Vector2 far = inkPoint.sqrMagnitude > 1e-12f ? p + new Vector2(inkPoint.normalized.x * mirror, inkPoint.normalized.y) * 0.5f
+                                                         : p + new Vector2(0.5f * mirror, 0f);
+            root = Corner(at, right, up, p.x, p.y, sr, cr, w, height);
+            tipEnd = Corner(at, right, up, far.x, far.y, sr, cr, w, height);
         }
 
         static System.Collections.IList Cards(FlipbookFx fx) =>
@@ -318,12 +326,20 @@ namespace TW.Tests
                                     if (book != FlipbookFx.Book.GunBlast && book != FlipbookFx.Book.Flash) continue;
                                     fire++;
                                     DrawnQuad(cam, (Vector3)Field(c, "Pos"), (Vector3)Field(c, "Axis"), (float)Field(c, "Width"), (float)Field(c, "Height"),
-                                        (float)Field(c, "Roll"), ((FlipbookFx.Kind)Field(c, "Kind") & FlipbookFx.Kind.Mirror) != 0, out Vector3 root, out Vector3 end);
+                                        (float)Field(c, "Roll"), ((FlipbookFx.Kind)Field(c, "Kind") & FlipbookFx.Kind.Mirror) != 0, book, out Vector3 root, out Vector3 end);
                                     float off = OnScreen(cam, tip, root).magnitude;
                                     float ang = Vector2.Angle(OnScreen(cam, root, end), boreScreen);
-                                    TestContext.Out.WriteLine($"  {e.Name}: the {book} card starts {off * 100f:0.0} cm off the mouth of {barrel} and lies {ang:0.0} deg off its axis");
+                                    // a book with no direction of its own (the Flash's round bloom) is laid unrolled
+                                    // on its own centre: it has no long side to lie along anything
+                                    FlipbookFx.InkLay(book, out _, out Vector2 points);
+                                    bool directed = points.sqrMagnitude > 1e-12f;
+                                    TestContext.Out.WriteLine($"  {e.Name}: the {book} card starts {off * 100f:0.0} cm off the mouth of {barrel}" + (directed ? $" and lies {ang:0.0} deg off its axis" : " (a bloom: no axis of its own)"));
                                     Assert.Less(off, LineTol, $"from the {e.Name} the Banner's {book} starts {off * 100f:0.0} cm off the mouth of {barrel}: the fire is not on the gun");
-                                    Assert.Less(ang, AngleTol, $"from the {e.Name} the Banner's {book} lies {ang:0.0} deg off the axis of {barrel}: the flame is not along the bore");
+                                    if (!directed) { measured++; continue; }
+                                    // the DRAWING's axis, held to the owner's 10 degrees rather than the quad's 5: a
+                                    // book's declared direction is the mean of its own frames and each frame wanders a
+                                    // few degrees round it (BannerFireInkTests measures both against the pixels)
+                                    Assert.Less(ang, InkAngleTol, $"from the {e.Name} the Banner's {book} lies {ang:0.0} deg off the axis of {barrel}: the flame is not along the bore");
                                     measured++;
                                 }
                                 Assert.AreEqual(2, fire, $"the Banner's shot drew {fire} fire cards from the {e.Name}, not the blast and the flash");
