@@ -284,9 +284,13 @@ namespace TW.Tests
 
             var cmds = new SimCommand[total];
             for (int k = 0; k < total; k++) cmds[k] = Lay(w, 0, slots[k], UnitAbilityId.LayMine, Open + new float3(-60f + k * 3f, 0f, 0f));
+            // Count walks the whole Log, which is cumulative over every step: the errands this one step takes are the
+            // difference between before and after, not the total (the loop above already ordered MaxGoals + 8 of them).
+            int orderedBefore = r.Count(SimEventType.SapperOrdered);
+            int rejectedBefore = r.Count(SimEventType.CommandRejected);
             Assert.DoesNotThrow(() => r.Step(cmds));
-            Assert.AreEqual(FlowFieldManager.MaxCellGoals, r.Count(SimEventType.SapperOrdered), "[T29] exactly the cell reserve's worth of errands are accepted");
-            Assert.AreEqual(extra, r.Count(SimEventType.CommandRejected), "[T29] the four over the reserve are rejected");
+            Assert.AreEqual(FlowFieldManager.MaxCellGoals, r.Count(SimEventType.SapperOrdered) - orderedBefore, "[T29b] exactly the cell reserve's worth of errands are accepted");
+            Assert.AreEqual(extra, r.Count(SimEventType.CommandRejected) - rejectedBefore, "[T29b] the four over the reserve are rejected");
             Assert.LessOrEqual(r.M.Fields.GoalCount, FlowFieldManager.MaxGoals);
 
             Assert.IsTrue(r.RunUntil(600, () => r.Count(SimEventType.MinePlaced) >= FlowFieldManager.MaxGoals + 8 + FlowFieldManager.MaxCellGoals), "[T29] every accepted errand finishes");
@@ -294,8 +298,11 @@ namespace TW.Tests
 
             int fresh = r.Man(InfantryArchetype.Sapper, Open + new float3(0f, 0f, -40f));
             r.Step();
+            // the slot number is re-used after a Despawn, so orders the earlier tenants of this slot took are in the
+            // Log under the same a: again the difference, not the total.
+            int freshBefore = r.Count(SimEventType.SapperOrdered, fresh);
             r.Step(Lay(w, 0, fresh, UnitAbilityId.LayMine, Open + new float3(0f, 0f, -34f)));
-            Assert.AreEqual(1, r.Count(SimEventType.SapperOrdered, fresh), "[T29] a fresh order is accepted again once the errands finish");
+            Assert.AreEqual(1, r.Count(SimEventType.SapperOrdered, fresh) - freshBefore, "[T29b] a fresh order is accepted again once the errands finish");
         }
 
         [Test]
