@@ -1,8 +1,7 @@
 # What the game accepts: Tools/firebooks.py and FlipbookFx
 
 ## firebooks.py
-`cd trench-warfare-3d && python Tools/firebooks.py [packdir] [outdir]`. The defaults are `G:/My Drive/vfx/sheets` and
-`Assets/_Project/Resources/VFX`.
+`cd trench-warfare-3d && python Tools/firebooks.py [packdir] [outdir]`. The defaults are `G:/My Drive/vfx/sheets` (desktop only) and `Assets/_Project/Resources/VFX`.
 
 - **Table-driven, not filename-driven.** `BOOKS = {BookName: (exact pack filename, mode, root_left, keep)}` and
   `FRAMES_IN = {BookName: n}` are typed by hand. The script never parses `_CxR_`, `_Nf`, `_loop` or `_piv`.
@@ -35,7 +34,7 @@
 | FireBloom | blue_ground_explosion_8x4_12fps_27f | light | | (4, 24) |
 | FireHead | orange_explosion_8x4_12fps_26f | luma | | (4, 22) |
 
-`G:\My Drive\vfx\sheets` also holds `chlorine_billow`, `chlorine_vent` and `smoke_bank` (2026-09-25). No game code uses them yet; the game's Gas is a tinted `Puff`.
+`G:\My Drive\vfx\sheets` (desktop only) also holds `chlorine_billow`, `chlorine_vent` and `smoke_bank` (2026-09-25). No game code uses them yet; the game's Gas is a tinted `Puff`.
 
 ## Registering a book: FlipbookFx.cs (Presentation/Camera, SHOW lane)
 1. Add a `Book` enum entry.

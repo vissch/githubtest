@@ -3,7 +3,7 @@
 Unity 6000.3.19f1 (2D URP) project with its own sheet importer; its `Tools/gen` scripts are what matter here.
 Run every script from `Tools\gen`.
 
-## Where things land
+## Where things land (desktop only)
 | What | Path |
 |---|---|
 | Reference clips (cut) | `C:\Users\PC\Documents\drive\vfx-flipbooks\refs360\<ref>.mp4`, `<ref>_k0..k2.png` |
@@ -54,7 +54,7 @@ Timing: 23 fire jobs took 3,849 s (≈167 s each). Broker class `h3_full` (20 st
 - **`wallfix.py "<glob>"`**: in place, erodes straight walls into wavy lobes (up to 3 passes per frame).
 - **`review_sheets.py "<glob>" out.jpg [row_h]`**: montage, 8 frames per sheet on grey.
 
-## GPU broker (shared: C:\Users\PC\Documents\claude\EMTD-AgentAnimation\tools\gpu-broker)
+## GPU broker (shared, desktop only: C:\Users\PC\Documents\claude\EMTD-AgentAnimation\tools\gpu-broker)
 - Broker on 8188 in front of ComfyUI on 8191; the broker owns the backend process. Operator page `http://127.0.0.1:8188/broker`.
 - Owner: header `X-Gpu-Agent` (else `extra_data.agent`). Up to 200 pending per owner (HTTP 429 above that). A job orphans after 3,600 s with no poll or submit.
 - Wait: `GET /broker/jobs/{id}/wait?timeout=N` (max 540). It returns on a phase change or with `timed_out: true`. A running job refuses cancel without `force`.

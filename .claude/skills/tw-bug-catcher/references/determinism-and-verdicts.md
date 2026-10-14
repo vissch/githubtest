@@ -8,13 +8,13 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **`SimHashTests`** (`P\Tests\Sim\SimHashTests.cs`): `const string SystemChain` (re-grep for its line), the order-numbered system list from `40 CombatCatalogueSystem` to `1200 SectorControlSystem`.
   - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 25` and the chain.
   - A system joining or moving fails here: bump FormatVersion and pin the new chain in the same commit (`D\inbox\2026-09-27-all-lanes-landed.md:29-31`).
-- **`DeterminismReplayTests`** (`P\Tests\EditMode\DeterminismReplayTests.cs`):
+- **`DeterminismReplayTests`** (`P\Tests\Sim\DeterminismReplayTests.cs`):
   - `SameSeedAndCommands_ProduceIdenticalHashes` (:75): 300 greybox ticks with a scripted ability script, plus the `Seams()` system calls for mines, tripwire and burning (:44-55).
   - `Replay_SerializesAndVerifies` (:87): `ReplayRecorder` → `Serialize` → `ReplayPlayer.Parse` → `Verify` == -1.
   - `DifferentSeeds_DivergeOnDeployment` (:100).
 - **`HashIntervalTests`**: skipping the hash leaves the state identical; the recorder refuses `HashInterval != 1` (:1-4, :19, :29). The guard itself is `P\Net\LockstepDriver.cs:34-35`.
 - **`SinglePlayerEquivalenceTests`**: one world vs the canary vs the canary under latency 2 / jitter 1 / loss 0.05. Hash-identical every tick for 1000 ticks (see A).
-- **`BattlefieldLockstepTests`** (`P\Tests\EditMode\BattlefieldLockstepTests.cs`):
+- **`BattlefieldLockstepTests`** (`P\Tests\Sim\BattlefieldLockstepTests.cs`):
   - `FirstDifference(a,b)` (:52-97) names the first differing array (Position, Velocity, Yaw, Hp, MaxHp, Speed, Team, Archetype, SourceTrench, Generation, Suppression, StanceOf, Layer, TrenchId, PostCell, PostKind, TargetSlot, GoalId, Flags, Cooldown, FireCooldown, Knock, Silver, SilverFraction, Rally, SlotCooldown, SlotUnlocked). Failing that, it names the system whose `Hash()` differs.
   - `SameGround` compares `Map.Hash` because the heightfield is **not** in `SimWorld.Hash()` (:99-104).
   - Tests at :130, :143, :200, :280, :317, :386 (seed 1917 plus a second seed).
@@ -26,7 +26,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **`SimProbe`** (`P\Editor\SimProbe.cs`):
   - `Unit(int slot)` :17: sim state vs drawn state.
   - `Match()` :53: seed, battlefield seed, ground, bombardment, stress, tick and mission, everything needed to rebuild the match in a test.
-  - `Arrays(bool peer=false)` :64-75 hashes **only 8 arrays**: position, hp, stance, layer, trench, post, target, flags. Pause at the desync tick and diff `Arrays()` with `Arrays(true)` (workflow.md:423-427). The test's `FirstDifference` is broader.
+  - `Arrays(bool peer=false)` :64-75 hashes **only 8 arrays**: position, hp, stance, layer, trench, post, target, flags. Pause at the desync tick and diff `Arrays()` with `Arrays(true)` (workflow.md, "reproducing a bug", the SimProbe.Arrays diff step). The test's `FirstDifference` is broader.
 - **`DeterminismPlatformReport.Write`** (`P\Editor\DeterminismPlatformReport.cs:16-40`): menu `TW/Determinism/Write Platform Report`. 2,000 greybox ticks, seed `0xC0FFEE`, StartingSilver 5000, deploy commands only (every 7th and 11th tick). Writes `DeterminismReport-<platform>-<arch>.txt`.
   - Batch: `Unity.exe -batchmode -quit -projectPath … -executeMethod TW.Editor.DeterminismPlatformReport.Write -logFile …`.
   - Desktop vs laptop at 2ad4973 were byte-identical, final hash `10D3E099A988AC12` (`G:\My Drive\TW3D-pipeline\determinism\RESULT.md`). That covers deploys only.
@@ -43,14 +43,15 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Gate verdicts
 **`gate.ps1`** (`R\gate.ps1`)
+- A test over 3 s carries `[Category("Long")]` (47 of them). `gate.ps1 -EditOnly` leaves them out with `-testCategory !Long`; `-Long` runs them, and the full gate always does.
 - Exit codes: 0 green, 8 a test failed, 6 no verdict, 5 validate, 3 held, 1 no unity (:5-7).
 - "The xml is the verdict, not unity's exit code" (:22-23, :63-64). Zero tests run, or nothing passed, is exit 6 (:62, :65).
 - **Stale-xml fix:** it deletes `test-results.xml` and `test-results-<mode>.xml` before each run, so "a run that writes nothing must not leave the last green copy" (:70-71; commits `cfc2045` and `34de04b`).
 - Noise reruns happen only when every failure matches `unity-pipeline-port|Failed to handle /api/exec request` and none carries `Expected|But was|Assert` (:27-28, :39-52, :75-83).
 - The laptop's memory "Unity batch gate verdicts — never trust the exit code or an unwatched results file; four ways `unity test` has misreported, and the stale-xml one that failed open" (`G:\My Drive\TW3D-pipeline\LAPTOP_INVENTORY.md:245`) is implemented here. The memory file itself is not readable from this machine.
-- **Latest results** in the main clone (2026-09-28 00:21): EditMode 736 run, 733 passed, 3 skipped; PlayMode 16/16. workflow.md:170 still quotes 343.
+- **Latest results** in the main clone (2026-09-28 00:21): EditMode 736 run, 733 passed, 3 skipped; PlayMode 16/16. Re-grep workflow.md's own count before trusting it; it has drifted before.
 
-**False reds** (`D\reference\workflow.md:174-185`)
+**False reds** (workflow.md §5, "false reds")
 1. After Play in the same editor, statics not reset by `SceneStatics` survive. Run `RequestScriptReload` and rerun.
 2. External pipeline noise: `WriteToProjectRoot failed: Sharing violation on path ...\.unity-pipeline-port` or `Failed to handle /api/exec request: Main thread operation timed out`. The gate reruns once.
 3. The first run after a Burst job edit can run managed code; rerun before trusting a single determinism failure.
@@ -63,10 +64,10 @@ Also seen: `No graphic device is available` under `-nographics` (`land.ps1:62`),
 - **`otr.py`** (`T\otr.py:1-26`): `python Tools/otr.py [Filter…] [-v]`, after `occ.py`.
   - Unity's Mono with stand-in engine calls. No Burst codegen, no job threads, no GPU or pixels. UI Toolkit, GameObjects, physics and audio report ENGINE.
   - Env: `TW_OTR_ENGINE=0`, `TW_OTR_LOG=1`, `TW_OTR_TRACE=1`, `TW_OTR_STACK=1`, `TW_OTR_BUILD=<dir>`.
-  - Verdicts: PASS, FAIL, ERROR, LOGERR, TIMEOUT, IGNORE, ENGINE, RUNNER, CRASH, KNOWN (from `T\otr\known.txt`), SKIP-*. It is a first filter, never the verdict (workflow.md:128-132).
+  - Verdicts: PASS, FAIL, ERROR, LOGERR, TIMEOUT, IGNORE, ENGINE, RUNNER, CRASH, KNOWN (from `T\otr\known.txt`), SKIP-*. It is a first filter, never the verdict (workflow.md, the otr paragraph in §6).
   - Its hashes are not comparable with Burst ones: managed code evaluates float maths differently (`D\03-determinism-rules.md:47-50`; LESSONS.md:173-178 on Mono double precision).
 
-### Reproducing a bug (workflow.md:389-439)
+### Reproducing a bug (workflow.md, "reproducing a bug")
 - Live matches are not recorded, so reproduce in an EditMode test: `MatchSim.CreateBattlefield(cfg, MatchLaunch.Field(Ground, BattlefieldSeed))`, driven by `LockstepSession` and `StepOnce(ai)`.
 - Order timing depends on frame rate, so sweep the issue tick a few ticks either side (:395-406).
 - Sim or drawing? Use `SimProbe.Unit`. If the sim has him in a trench but he is drawn on the parapet, the fault is SHOW. If the sim has him on the surface, it is SIM: write a test and a note in `docs/inbox/` (:407-417).

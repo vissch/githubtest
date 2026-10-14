@@ -15,16 +15,18 @@ prompt that works), `references/firebooks-contract.md` (what the game accepts, a
 
 ## 0. Preflight
 
+Runs from the repo root of the game checkout (desktop only — `C:/Users/PC`, `G:/My Drive` paths below are DESKTOP-NLJRH7R only).
+
 | Check | How | If it fails |
 |---|---|---|
 | This is the desktop | `hostname` = `DESKTOP-NLJRH7R` | stop: the laptop has no ComfyUI |
-| Broker healthy | `curl -s http://127.0.0.1:8188/broker/status` → `"health": "ok"` | `schtasks /Run /TN gpu-broker`; diagnose with `uv run --directory C:/Users/PC/Documents/claude/EMTD-AgentAnimation/tools/gpu-broker python -m gpu_broker doctor`. Never start ComfyUI yourself |
-| Commit headroom | the broker trips its thrash guard above 108 % commit with paging; `python trench-warfare-3d/Tools/pipeline/run_detached.py` refuses below a floor | run one H3 job at a time; never alongside a full gate or a Unity bench |
+| Broker healthy | `curl -s http://127.0.0.1:8188/broker/status` → `"health": "ok"` | `schtasks /Run /TN gpu-broker`; diagnose with `uv run --directory C:/Users/PC/Documents/claude/EMTD-AgentAnimation/tools/gpu-broker python -m gpu_broker doctor` (desktop only). Never start ComfyUI yourself |
+| Commit headroom | the broker trips its thrash guard above 108 % commit with paging; `run_detached.py`'s `--min-headroom-gb` default is 0 (no floor unless you pass one) — pass `--min-headroom-gb 10` to get a floor: `cd trench-warfare-3d && python Tools/pipeline/run_detached.py start <name> --timeout <s> --min-headroom-gb 10 -- <cmd>` | run one H3 job at a time; never alongside a full gate or a Unity bench |
 | A lane worktree for the game half | a `lane/show/*` checkout (e.g. `githubtest-desk-show`) | the main clone is on integration: never edit there |
 
 ## 1. Generate (about 150-200 s per job, RTX 5090)
 
-Work from `C:\Users\PC\Documents\unity\vfx-flipbooks\Tools\gen` — the scripts import each other and write
+Runs from `C:\Users\PC\Documents\unity\vfx-flipbooks\Tools\gen` (desktop only). Work from there — the scripts import each other and write
 `black768.png` into the working directory.
 
 1. Pick a reference burst from `C:\Users\PC\Documents\drive\vfx-flipbooks\refs360\` (24 cut DucVu refs +
@@ -45,6 +47,8 @@ Broker rules (it is shared with other agents' jobs):
 
 ## 2. Cut, fix, check — always into a stage folder
 
+Runs from `C:\Users\PC\Documents\unity\vfx-flipbooks\Tools\gen` (desktop only, same directory as section 1).
+
 ```bash
 D=C:/Users/PC/Documents/drive/vfx-flipbooks
 python sheet.py $D/<tag>/<name>_00001_.mp4 --name <name> --out $D/stage/<tag> \
@@ -54,7 +58,7 @@ python edgecheck.py "$D/stage/<tag>/*.png"          # must be all clean, exit 0
 python review_sheets.py "$D/stage/<tag>/*.png" $D/stage/rv_<tag>.jpg 130   # montage for the owner
 ```
 - `sheet.py`'s own defaults are t0 14 / t1 70; the pipeline's are **8 / 40**. Always pass them.
-- **Never point `--out` at `G:/My Drive/vfx/sheets` or the Unity `Sheets` folder**: the batch cutters
+- **Never point `--out` at `G:/My Drive/vfx/sheets` (desktop only) or the Unity `Sheets` folder**: the batch cutters
   (`make_sheets.py`, `make_fire_sheets.py`, `remake_all.py`) delete older sheets of the same name in `--out`.
 - A montage alone misses flat cuts; edgecheck + wallfix every time.
 
@@ -72,23 +76,25 @@ Anything else is silently cut wrong. Check the grid before publishing.
 
 ## 4. Publish and convert (game repo, a `lane/show/*` worktree)
 
+Runs from the repo root of that worktree (not `trench-warfare-3d/`); step 1's `G:\My Drive\vfx\sheets` path is desktop only.
+
 1. Copy the accepted `<name>_8x4_12fps_<n>f.png` into `G:\My Drive\vfx\sheets` **under a new name**. Never overwrite
    or delete a sheet there: signed-off books are cut from exact files, and the Unity `Sheets` recut does not match them.
-2. `Tools/firebooks.py`: add `BOOKS["Fire<X>"] = (file, "luma" | "light", root_left, keep)` and `FRAMES_IN["Fire<X>"] = n`.
-   `luma` for orange sheets, `light` for saturated blue/green/red; pick the sheet by its **shape** (the colour is thrown away).
-   `Tools/**` is shared: this edit is **a commit of its own**.
+2. `trench-warfare-3d/Tools/firebooks.py`: add `BOOKS["Fire<X>"] = (file, "luma" | "light", root_left, keep)` and
+   `FRAMES_IN["Fire<X>"] = n`. `luma` for orange sheets, `light` for saturated blue/green/red; pick the sheet by its
+   **shape** (the colour is thrown away). `Tools/**` is shared: this edit is **a commit of its own**.
 3. `cd trench-warfare-3d && python Tools/firebooks.py` — expect `UNCHANGED` for FireBall, FireColumn, FireBurst, then
    `git diff --stat -- Assets/_Project/Resources/VFX`: only the new book may appear.
 4. `FlipbookFx.cs`: a `Book` enum entry **and** a `Sheets` row at the **same position** (the table is indexed by the
    enum's number), with Cols 8, Rows 4, Frames = kept count, Fps 12, and Low/High/Bands/Ink/Fill pasted from the
    firebooks printout. A missing PNG disables every flipbook (`Ready`).
-5. Let the editor import it (writes the `.meta`), `gate.ps1 -EditOnly`, then look at it in Play:
-   `bash Tools/flameshots <prefix>` and `python Tools/flamecheck.py Tools/flame-shots/<prefix>_jet.png`. Capture the same
-   build twice first to know the noise.
+5. Let the editor import it (writes the `.meta`), `cd trench-warfare-3d && powershell ... -File gate.ps1 -EditOnly`, then look at it in Play:
+   `cd trench-warfare-3d && bash Tools/flameshots <prefix>` and `cd trench-warfare-3d && python Tools/flamecheck.py Tools/flame-shots/<prefix>_jet.png`.
+   Capture the same build twice first to know the noise.
 
 ## Owner questions — ask, never decide
 
 - Explosion batches B and C: the go was given 2026-09-28 (`docs/reference/decisions.md`); it lands only on the owner's word.
-- Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets`.
+- Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets` (desktop only).
 - Known open finding: `FlipbookFx` Core/Head/Bloom rows are out of order with the enum (board `findings/`); do not
   "fix" it inside an unrelated change.

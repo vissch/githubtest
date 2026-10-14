@@ -9,7 +9,7 @@ description: Master merger for Trench Warfare 3D — review what the pipeline st
 scorecard, codemap/validate/selftest requirements, the maintainability audit; snapshot at 558c667).
 The board and the stage states: `../pipeline/SKILL.md`, `docs/reference/stations.md`.
 
-## Review with the owner (`/pipeline review <item>`)
+## Review with the owner (when the owner asks to review an item — no `/pipeline` command does this)
 1. Build the dossier (written to the run folder on the board, not the checkout: a bare `dossier.html` is not
    git-ignored and leaves the tree dirty for `land.py`) with, per stage:
    - the verdict and critic score;

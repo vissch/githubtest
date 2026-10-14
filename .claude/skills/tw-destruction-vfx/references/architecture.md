@@ -32,7 +32,7 @@ This is a read-only pass. Every number and name below was read from the file cit
 - `powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly` (before every commit)
 - `... gate.ps1` (before landing, and after any sim change)
 
-**Assemblies**, in dependency order for `python Tools/aosa/occ.py` (`workflow.md:123`): `TW.Presentation.Core` → `TW.Presentation.Units` → `TW.Presentation.Camera` (which holds `CombatFx`, `DebrisRenderer`, `FlipbookFx`, `TankRenderer`) → `TW.Presentation.Terrain` (which holds `PropDestruction`, `HouseKit`, `TrenchSection`). This order was read from each folder's `.asmdef` references.
+**Assemblies**, in dependency order for `python Tools/aosa/occ.py` (workflow.md, the occ.py paragraph in §6): `TW.Presentation.Core` → `TW.Presentation.Units` → `TW.Presentation.Camera` (which holds `CombatFx`, `DebrisRenderer`, `FlipbookFx`, `TankRenderer`) → `TW.Presentation.Terrain` (which holds `PropDestruction`, `HouseKit`, `TrenchSection`). This order was read from each folder's `.asmdef` references.
 
 ---
 
@@ -487,7 +487,7 @@ Measurement:
 
 **How to run it:**
 - **Editor:** `TW.Editor.CaptureRig.Bench(string args)` with GreyboxCorridor open and not in Play. It sets `TW_BENCH` and enters Play (`P\Editor\CaptureRig.cs:592-599`). Poll `TW.Perf.PerfBench.LastResultPath`.
-- **Player** (`workflow.md:345-348`): `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`. Adding `-screen-fullscreen 0 -screen-width 1280 -screen-height 720` keeps it in a window.
+- **Player** (workflow.md, the player bench command in §6): `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`. Adding `-screen-fullscreen 0 -screen-width 1280 -screen-height 720` keeps it in a window.
 - **AOSA driver:** `aosa.py bench <label> [--player/--editor] [--scenario S] [--shot-tick N] [--shot-frames N] [--no-hud] [--knobs k=v,...] [--repeats N] [--against L]` (`T\aosa\aosa.py:1491-1509`; `D\reference\aosa\README.md:210-212`).
 
 **BenchOptions.Parse keys** (`P\Perf\BenchOptions.cs:81-128`):
@@ -524,7 +524,7 @@ Measurement:
 - `Hold(weatherClock=120)` (`:465`), `Release()` (`:474`)
 - `Diff(pathA, pathB, outPath=null)` (`:490`): writes `changed_frac` and the luma deltas
 - `LastReport()` (`:583`), `Bench(args)` (`:592`), `Profile(path, frames=300)` (`:608`)
-- `Stress(unitsPerSide=1000, path="stress.json", frames=300, settleSeconds=120)` (`:721`): has no fixed tick and no hash, so never use it for A/B (`workflow.md:431-432`)
+- `Stress(unitsPerSide=1000, path="stress.json", frames=300, settleSeconds=120)` (`:721`): has no fixed tick and no hash, so never use it for A/B (workflow.md, the "reproducing a bug" section, tick-sweep note)
 
 **TankCapture** (`P\Editor\TankCapture.cs`):
 - `Spawn(team, archetype, x, z, yawDeg=-999)` (`:78-92`)
@@ -539,7 +539,7 @@ Measurement:
 
 **Queuing a shell by hand:** `MatchSim.Blast` is public (`P\Sim\Match\MatchSim.cs:34`). An eval of `h.WriteWorlds(m => m.Blast.Queue(new TW.Sim.Combat.Impact{...}))` fits the pattern the tests use (`BattlefieldTests.cs:103`), but no helper exists and I did not run it.
 
-**The rest of workflow §6** (`D\reference\workflow.md:187-331`):
+**The rest of workflow §6**:
 - stills (`:193-195`), top-down walker (`:197-203`), luma numbers (`:204-214`)
 - `tw shot` + `shotstats.py` (`:217-230`)
 - timed effects: `tw pause true` → eval → `tw stepto 1.5` / `tw step 12` → `tw shot` → `tw pause false` (`:250-260`)
@@ -581,7 +581,7 @@ Silent splitter traps (`pipelines.md:30-37`):
 
 ### 3.5 Tests that guard this area
 
-EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.<Class> --timeout 300`, after `editor_stop` and a script reload (`workflow.md:139-141`).
+EditMode tests live under `P\Tests\Sim\`, `P\Tests\Match\` and `P\Tests\Show\`. Run one class with `Tools/tw run run_tests -- --mode EditMode --filter TW.Tests.<Class> --timeout 300`, after `editor_stop` and a script reload (workflow.md, the script-reload note in §6).
 
 - **HouseKitTests:**
   - `A_Mask_Holds_Every_Chunk_A_House_May_Have_And_Each_Word_Survives_A_Float` (`:17`): the 24-bit-per-word guard
@@ -622,7 +622,7 @@ EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_
   - `NoBarrageEverDigsThroughTheBedrock...` (`:237`), `TheGroundIsInTheTickHash` (`:257`), `TwoMachinesShellingTheSameGroundAgreeOnIt` (`:267`)
 - **DirectionalBlastTests:** 8 tests covering far side vs near side, no-flight bursts, bay factor 0.7, `FieldShadow`, the raycast cap, masonry, `MinThrough`, determinism.
 - **ScorchTilePainterTests:** `Tiles_WithOverlappingScorch_AreTheOldLoopsTexels`, `Texel_RoundsAsSetPixelDoes_OnEveryBytesEdge`.
-- **FrameBudgetCoverageTests** (`P\Tests\EditMode\FrameBudgetCoverageTests.cs`):
+- **FrameBudgetCoverageTests** (`P\Tests\Show\FrameBudgetCoverageTests.cs`):
   - `EveryDrawGoesThroughFrameBudget` (`:43-64`): no `Graphics.Render*`/`Draw*` or CommandBuffer draw anywhere under `Presentation` or `UI` (`:17`), except `RenderGround.cs` and `DebugOverlay.cs` (`:18`)
   - `ThePatternSeesFrameBudgetsOwnCalls` (`:67`)
 - **StaticLifecycleTests:**
@@ -754,7 +754,7 @@ These are the open items (`decisions.md:72-96`; ask with AskUserQuestion, then m
 
 1. Whether `Book.Core`/`Head`/`Bloom` → FireHead/FireBloom/FireCore (§2.3) is intentional. It looks like an ordinal mismatch; I did not check it in Play.
 2. The working directory a relative `out=` resolves against. The code uses `Path.GetFullPath` (`PerfBench.cs:651`); I assume the project folder in the editor and the launch folder in the player, but did not verify either.
-3. That `tw stepabs`, `tw stepto` and the timed-effects recipe still work. `workflow.md:250` says they were last verified 2026-09-25 and "not re-run here". I only confirmed the subcommands exist (`T\tw:55,83,101,108`).
+3. That `tw stepabs`, `tw stepto` and the timed-effects recipe still work. workflow.md's timed-effects recipe says they were last verified 2026-09-25 and "not re-run here". I only confirmed the subcommands exist (`T\tw:55,83,101,108`).
 4. Whether the gate's EditMode run includes `TW.Tests.Playground` (an Editor-only asmdef). `gate.ps1` has no Playground filter, so it probably does, but I did not verify.
 5. An eval-only way to queue an arbitrary `Impact` (`h.WriteWorlds(m => m.Blast.Queue(...))`). The API exists (`MatchSim.cs:34`, `SimHost.cs:174`); I did not run it, and no helper wraps it.
 6. The PropWear behaviour in Play ("Seen in Play: not yet", `D\16-destruction.md:344-346`) and the three-minute-barrage before/after bench for the lining ("Not yet", `:768-769`). Both are documented as not done.
