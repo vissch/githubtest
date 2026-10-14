@@ -247,7 +247,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   - `scenario{scene,stress_per_side,seed,battlefield_seed,generated,bombardment_per_min,canary,view,weather_clock,name,requested}` (:857-865)
   - `still{path,at,tick,held_frame,time,…,window_clock(held|real),frames,hud}` (:871-878)
   - `window{tick_start,tick_end,hash_start,hash_end,hash_end_tick,alive_peak_before,alive_start,alive_end,frames,seconds,fps_mean,desync,focused,gc_collections,mono_used_mb,hitches_over_33ms,hitch_records,hitch_carriers}` (:880-904)
-  - `series{dt_ms,cpu_frame_ms,main_ms,render_ms,gpu_ms,setpass,draw_calls,gc_bytes,vat_*,frame_draw_calls,frame_vertices,frame_indirect_draws,frame_budget_draws/vertices/indirect,script:*,TW.Hud.*}` with p50/p95/p99/mean/max/sum/n (:529-560, :696-697)
+  - `series{dt_ms,cpu_frame_ms,main_ms,render_ms,gpu_ms,setpass,draw_calls,gc_bytes,vat_*,frame_budget_draws/vertices/indirect,script:*,TW.Hud.*}` with p50/p95/p99/mean/max/sum/n (:529-560, :696-697)
   - `per_tick_ms`, `script_markers`, `unavailable`, `warnings` (:912-930); `shot_log*` (:769-799)
 - **Commands** (`D\reference\workflow.md:345-351`):
   - Player: `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`
