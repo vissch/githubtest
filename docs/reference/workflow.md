@@ -453,7 +453,9 @@ Each CLI call is a second or two of wall clock and the editor only stays paused 
 created before pausing runs out between calls. `Tools/flameshots <prefix>` is the worked example: it pins each
 shot's birth to an absolute game time with `stepabs` before creating the effect, and
 `python Tools/test_flameshots.py` checks that it does, by running the script against a stand-in `tw` that
-only records its calls (no editor).
+only records its calls (no editor). A shot whose clock could not be pinned is not taken: `stepabs` fails when
+game time is already past the wanted mark (a late editor), and `flameshots` then skips that shot and exits
+non-zero. `python Tools/test_tw.py` checks that `stepabs` refuses, against a stand-in `unity` CLI.
 
 **Repeatable captures.** Anything animated on noise or `Time.time` looks different at a different absolute time,
 so two captures of "the same moment" can differ more than the change you are judging (a ninefold spread was

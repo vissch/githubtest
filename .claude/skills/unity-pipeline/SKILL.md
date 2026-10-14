@@ -10,17 +10,21 @@ command ...` — with several editors on this machine it can land in another ses
 only `Tools/tw` pins `UNITY_PROJECT_PATH`. Never run `unity pipeline install` or `package_add`
 here; packages change only through the `unity-package-management` skill's Client API script.**
 
-Invoke commands with `unity command <name> [args]`. Run `unity command` with no name to
-list what an instance exposes. Two servers exist: **Editor** (`7800-7849`, auto-starts with
+So in this repo every command below is run as `Tools/tw run <name> [args]`. The package's own form is
+`unity command <name> [args]` — that is what `Tools/tw run` wraps, and what the examples in this file are
+written in; read each of them as the `Tools/tw run` call, and do not run one bare. `unity cmd` with no name
+lists what an instance exposes (a listing only, it drives no editor). Two servers exist: **Editor** (`7800-7849`, auto-starts with
 the editor) and **Runtime** (`7900-7949`, only in a dev Player build). See the package
 `README.md` "Commands" reference for the full list and parameters.
 
-## 1. Install & verify
+## 1. Verify (never install)
+
+The package is already in this project. Installing or changing it is the `unity-package-management` skill's
+Client API script, never a command from here. All this step does is check the editor answers:
 
 ```bash
-unity pipeline install            # install into current project (or --project-path)
-unity pipeline list               # confirm the editor instance + server are reachable
-unity command editor_status       # confirm the editor server answers
+Tools/tw up                       # this checkout's editor is running, and an eval comes back
+Tools/tw run editor_status        # the editor server answers
 ```
 
 ## 2. Autonomous edit loop (Editor)
