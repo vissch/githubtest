@@ -103,6 +103,10 @@ class ApprovalRows(unittest.TestCase):
                 return '1'
 
             @staticmethod
+            def run(repo, *args, timeout=None):
+                return '1', True
+
+            @staticmethod
             def family(name):
                 return name
 
