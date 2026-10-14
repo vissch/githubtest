@@ -222,6 +222,42 @@ namespace TW.Tests
 
         static object Field(object card, string name) => card.GetType().GetField(name, Any).GetValue(card);
 
+        /// <summary>Every barrel the Banner can fire draws its fire out of ITS OWN mouth. The Banner's two barrels are
+        /// stacked and BOTH are gun 0 (Gun_Lower part 15, Gun_Upper part 16), and only the lower one carries
+        /// Socket_Muzzle, so MuzzlePart is (15, -1) and GunPart is (16, -1). MuzzleWorld(v, 1) therefore finds no part
+        /// at all and falls back to `v.Pos + up * 2.5`, which is a point in the air beside the machine: when the upper
+        /// barrel fires, the flame is drawn there and not on any barrel. That is the metre of daylight the owner sees
+        /// in 5-5-new-close-0332.png, and the reason the film of 2026-10-14 still shows the flame off the gun after the
+        /// cards were laid along the bore (c341dc52): laying a card correctly along a bore cannot help a card that was
+        /// never put on the barrel. TheBannersFireLiesAlongTheBarrelFromEveryEye skips a gun with no muzzle of its own
+        /// (MuzzlePart[k] &lt; 0), so it measured only the lower barrel and read 0.0 cm while the picture was wrong.</summary>
+        [Test]
+        public void EveryBarrelOfTheBannerFiresFromItsOwnMouth()
+        {
+            var m = Load();
+            var (r, v) = Rig(m);
+            try
+            {
+                var parts = m.Lods[0].Parts;
+                PoseWorld(r, v, m);
+                for (int part = 0; part < parts.Count; part++)
+                {
+                    if (parts[part].Role != TankPartRole.Gun) continue;
+                    Vector3 tip = Mouth(v, m, part);
+                    float best = float.MaxValue; int from = -1;
+                    for (int k = 0; k < m.MuzzlePart.Length; k++)
+                    {
+                        Vector3 drawn = DrawnMuzzle(r, v, k, out _);
+                        float off = (drawn - tip).magnitude;
+                        if (off < best) { best = off; from = k; }
+                    }
+                    TestContext.Out.WriteLine($"barrel {parts[part].Name}: the nearest fire the renderer draws is gun {from}'s, {best * 100f:0.0} cm off its mouth");
+                    Assert.Less(best, MouthTol, $"no gun of the Banner draws its fire out of the mouth of {parts[part].Name}: the nearest is {best * 100f:0.0} cm away, so when that barrel fires the flame is drawn off the machine");
+                }
+            }
+            finally { Object.DestroyImmediate(r.gameObject); }
+        }
+
         /// <summary>The Banner's muzzle fire, measured on what is DRAWN: for every barrel that can fire, two yaws of the
         /// top and four eyes (front quarter, side, rear quarter and the game's own tactical view), the flame's art root
         /// sits on the mouth of that barrel's mesh and its long side lies along that barrel's own axis, both measured on
@@ -247,7 +283,9 @@ namespace TW.Tests
                 int measured = 0;
                 for (int k = 0; k < m.MuzzlePart.Length; k++)
                 {
-                    if (m.MuzzlePart[k] < 0) continue;
+                    // never skip a gun with no muzzle of its own: that skip is what let this test read 0.0 cm while
+                    // the upper barrel's fire was drawn 2.9 m off the machine (2026-10-14)
+                    Assert.GreaterOrEqual(m.MuzzlePart[k], 0, $"gun {k} of the Banner has no mouth of its own, so its fire cannot be measured and is drawn off the machine");
                     int part = m.MuzzlePart[k];
                     string barrel = m.Lods[0].Parts[part].Name;
                     foreach (float top in new[] { 0f, 55f * Mathf.Deg2Rad })

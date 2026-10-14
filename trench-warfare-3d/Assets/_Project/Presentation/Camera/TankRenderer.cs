@@ -974,7 +974,19 @@ namespace TW.Presentation.Tactical
             // both gun 0, and its socket is on the lower one (BannerFireFitTests)
             int part = v.Model.MuzzlePart[k] >= 0 ? v.Model.MuzzlePart[k] : v.Model.GunPart[k];
             dir = Vector3.forward;
-            if (part < 0) return v.Pos + Vector3.up * 2.5f;
+            if (part < 0)
+            {
+                // nothing to hang the fire on: this machine has no k-th gun part at all. TankModel.Load gives a gun
+                // whose art carries no muzzle socket the mouth of its own barrel's mesh, so a barrel that can fire
+                // never comes here; say which machine and gun did, once per model, rather than draw in open air in
+                // silence (the Banner's gun 1 did until 2026-10-14, 2.9 m off the mouth of Gun_Upper).
+                if (!v.Model.WarnedNoMuzzle)
+                {
+                    v.Model.WarnedNoMuzzle = true;
+                    Debug.LogWarning($"TankRenderer: {v.Model.Name} has no part for gun {k}, so its fire is drawn 2.5 m above the hull and not out of a barrel");
+                }
+                return v.Pos + Vector3.up * 2.5f;
+            }
             var mtx = v.World[part];
             dir = mtx.MultiplyVector(v.Model.MuzzleLocal[k] - Vector3.zero).normalized;
             if (v.Model.Lods[0].Parts[part].Role == TankPartRole.Gun) dir = mtx.MultiplyVector(Vector3.forward).normalized;
