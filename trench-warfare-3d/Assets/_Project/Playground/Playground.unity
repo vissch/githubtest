@@ -151,7 +151,7 @@ MonoBehaviour:
   Library: {fileID: 11400000, guid: 57827954c9c2ea6408a4011912dd5715, type: 2}
   Field: 0
   StartMode: vehicle
-  VehicleSize: 1.7
+  VehicleSize: 0
   UnitScale: 1.125
   ShowPanel: 1
   LastShot: 

@@ -196,8 +196,10 @@ so `VehicleRig` breaks, burns and cooks them off the way it does the tank, the s
 - **Measuring on this bench, lessons:** m3's contrast flips 0.24/0.44 frame to frame on one build, so the round takes nine
   frames and scores the median (floor 0.08); a vehicle's block colour wanders 0.2-1.0 on an unchanged model; the editor's
   fps is not a signal. `round.sh` selects the tank itself (a round once scored the hovercraft as "the tank").
-- Scales: the mech 5.8 m tall and the gunship 8 m long at `size 1`, the ambulance 4.6 m long. The battle draws walkers
-  2.5x and tanks 1.7x (`VehicleSize`); how big these should be beside them is the owner's call too.
+- Scales: the mech 5.8 m tall and the gunship 8 m long at `size 1`, the ambulance 4.6 m long. `size 0` (the default
+  since 2026-10-14, review finding Y1) draws each machine at the game's own scale, per machine, from TankRenderer's
+  Machines table: the mech-split models are written in metres and drawn at 1, where the battle's older tanks are drawn
+  1.7x and the crab walkers 2.5x (`VehicleSize`). `size <n>` overrides the table for every machine at once.
 
 ## Readability
 `ground mud` swaps the metre grid for a dark warm mud; `team 0|1|split` puts the battle's side colours on (the tank's

@@ -51,6 +51,8 @@ namespace TW.Playground
         // budget) for close-ups only (under ~45 m), LOD1 at the standard view's 78 m, LOD2 beyond ~145 m
         public LodPicker Picker = new LodPicker(0.70f, 0.22f);
         public float Size = 1f;
+        public string Model = "";                       // the library entry's name ("Croaker"), which is the game's model name:
+                                                        // the drives read the game's own table by it (TankRenderer.ArchetypeOfModel)
         public int Seed = 1;
         public float CookDelay = 7f;                    // < 0: never cooks off, burns out to a wreck
         public float GroundY;
@@ -85,7 +87,7 @@ namespace TW.Playground
             root.transform.SetPositionAndRotation(at, Quaternion.Euler(0f, yaw, 0f));
             root.transform.localScale = Vector3.one * size;
             var rig = root.AddComponent<VehicleRig>();
-            rig.Fx = fx; rig.Size = size; rig.Seed = seed; rig.GroundY = at.y;
+            rig.Fx = fx; rig.Size = size; rig.Seed = seed; rig.GroundY = at.y; rig.Model = e.Name;
             rig.Manifest = VehicleManifest.Parse(e.Manifest);
             rig.rng = new System.Random(seed);
             // parts that come off hang here, in the vehicle's own frame: they fly in local units, so where the vehicle

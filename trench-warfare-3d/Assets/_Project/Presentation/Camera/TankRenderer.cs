@@ -217,6 +217,23 @@ namespace TW.Presentation.Tactical
             for (int c = 0; c < Machines.Length; c++) if (Machines[c].Archetype == a) return Machines[c].Scale;
             return VehicleSize.Tank;
         }
+
+        /// <summary>The archetype drawn with a model of this name (the Maw's, for a name with no row): the playground names
+        /// its machines by their model, and reads the game's table by that name.</summary>
+        public static byte ArchetypeOfModel(string name)
+        {
+            if (!string.IsNullOrEmpty(name))
+                for (int c = 0; c < Machines.Length; c++) if (string.Equals(Machines[c].Name, name, System.StringComparison.OrdinalIgnoreCase)) return Machines[c].Archetype;
+            return VehicleArchetype.Maw;
+        }
+
+        /// <summary>How much bigger than its file the model of this name is built (ScaleOf by model name).</summary>
+        public static float ScaleOfModel(string name)
+        {
+            if (!string.IsNullOrEmpty(name))
+                for (int c = 0; c < Machines.Length; c++) if (string.Equals(Machines[c].Name, name, System.StringComparison.OrdinalIgnoreCase)) return Machines[c].Scale;
+            return VehicleSize.Tank;
+        }
         public const float FlyerLift = 9f;      // metres: over the wire, the parapets and a walker's back; under the camera's near views
         /// <summary>Resources/Vehicles/&lt;Name&gt; + this: the far model's own atlas, where it has one.</summary>
         public const string FarAtlasSuffix = "Atlas_LOD1";
@@ -234,9 +251,10 @@ namespace TW.Presentation.Tactical
         const float RackRaiseRate = 30f;    // deg/s: up before its first rocket leaves (12, a gun's, left the first ones low)
         const float RackRecoilDecay = 10f;  // per second: each rocket's kick shows, and is gone before the next
         const float FanMaxShown = 14f;      // rad/s: faster, a six-bladed fan strobes backwards at 60 fps; shown at this
-        const float RackRecoil = 0.1f, GunRecoil = 0.45f;   // metres back along the barrel at full Recoil
+        const float RackRecoil = 0.1f;                      // metres back along the barrel at full Recoil (a rack's)
+        public const float GunRecoil = 0.45f;               // metres back along the barrel at full Recoil (a gun's; the playground poses by it)
         const float RackFireKick = 0.35f;                   // Recoil when the rack fires (each rocket then adds its own)
-        const float FanIdle = 9f, FanThrottle = 25f;        // rad/s: a fan's turn at idle, and what full throttle adds
+        public const float FanIdle = 9f, FanThrottle = 25f; // rad/s: a fan's turn at idle, and what full throttle adds
         /// <summary>The model and the two LOD materials of each Machines row.</summary>
         readonly TankModel[] models = new TankModel[Machines.Length];
         readonly Material[,] modelMats = new Material[Machines.Length, 2];
