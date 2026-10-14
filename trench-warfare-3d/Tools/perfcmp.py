@@ -14,11 +14,19 @@ force = '--force' in sys.argv
 
 
 def load(path):
-    """[H20] a file that is not a PerfBench report used to reach r['window'] / r['run'] / r['series'] and traceback."""
-    r = json.load(open(path))
+    """[H20] a file that is not a PerfBench report used to reach r['window'] / r['run'] / r['series'] and traceback.
+    [H20.2] a file that is not JSON at all (json.load's own error), or a report whose per_tick_ms is missing or
+    not a dict, used to reach the same lines and traceback too: both are now named instead."""
+    try:
+        r = json.load(open(path, encoding='utf-8'))
+    except (OSError, ValueError) as e:
+        sys.exit(f'{path}: not readable as JSON ({e})')
     for key in ('window', 'run', 'series'):
         if not isinstance(r, dict) or key not in r:
             sys.exit(f'{path} has no "{key}" section: not a PerfBench report (tw-perf/1)')
+    if not isinstance(r.get('per_tick_ms'), dict):
+        print(f'{path}: no per_tick_ms section, so its per-system rows stay blank (a release build has no markers)')
+        r['per_tick_ms'] = {}
     return r
 
 
@@ -46,8 +54,6 @@ row('gc collections', lambda r: r['window']['gc_collections'])
 row('hitches >33ms (cap 64)', lambda r: len(r['window']['hitches_over_33ms']))
 for k in ['cpu_frame_ms', 'main_ms', 'main_ms_tick_frames', 'main_ms_idle_frames', 'render_ms', 'gpu_ms', 'draw_calls', 'setpass', 'gc_bytes', 'gc_count', 'vat_vertices', 'vat_shadows_on']:
     row(k + ' p50/p95/p99', lambda r, k=k: '%s/%s/%s' % tuple(('%.4g' % r['series'][k][q]) for q in ('p50', 'p95', 'p99')))
-for r in runs:
-    r.setdefault('per_tick_ms', {})   # a release report has no markers
 keys = sorted({k for r in runs for k in r['per_tick_ms']}, key=lambda k: -max(r['per_tick_ms'].get(k, 0) for r in runs))
 print('per tick ms (all worlds):')
 for k in keys:

@@ -146,12 +146,22 @@ def main():
             return {n for n in git('ls-tree', '--name-only', rev, './', cwd=here).split()
                     if n.startswith(old.stem + '.') and n.endswith(old.suffix) and n != old.name}
         try:
-            base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
-            mine, theirs = partials('HEAD') - partials(base), partials('MERGE_HEAD') - partials(base)
+            git('rev-parse', '--verify', '--quiet', 'MERGE_HEAD', cwd=here)
         except subprocess.CalledProcessError:
             # [H20] no MERGE_HEAD: git used to raise here with its own traceback, before any helpful message.
             sys.exit('not in a merge: --merge is for a stopped `git merge` (MERGE_HEAD is missing). '
                      'Use --from/--to instead.')
+        try:
+            base = git('merge-base', 'HEAD', 'MERGE_HEAD', cwd=here).strip()
+        except subprocess.CalledProcessError:
+            # [H20.3] MERGE_HEAD is real but the two histories share no ancestor: merge-base fails on its own,
+            # and that used to fall into the "not in a merge" message above, which is wrong (we are in a merge).
+            sys.exit('HEAD and MERGE_HEAD have no common ancestor (unrelated histories): port with --from/--to '
+                      'instead.')
+        try:
+            mine, theirs = partials('HEAD') - partials(base), partials('MERGE_HEAD') - partials(base)
+        except subprocess.CalledProcessError as e:
+            sys.exit(f'git failed reading the merge: {e}')
         if mine and not theirs:
             split_here = True
         elif theirs and not mine:

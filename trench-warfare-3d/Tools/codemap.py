@@ -444,14 +444,23 @@ def generated():
 
 
 def write_all():
+    """[H19.1] every doc's markers are checked before any doc is written, so a regenerate is whole or not at all:
+    a bad marker in a later doc used to leave the earlier ones already rewritten on disk."""
+    prepared, errors = [], []
     for doc, new in generated().items():
         text = read(doc)
         missing = set(new) - set(blocks(text))
         if missing:
-            sys.exit(f'{doc.name}: no <!-- gen:{", ".join(sorted(missing))} --> marker to write into')
+            errors.append(f'{doc.name}: no <!-- gen:{", ".join(sorted(missing))} --> marker to write into')
+            continue
         bad = marker_errors(doc, text, new)
         if bad:
-            sys.exit('\n'.join('codemap: ' + e for e in bad))
+            errors.extend(bad)
+            continue
+        prepared.append((doc, text, new))
+    if errors:
+        sys.exit('\n'.join('codemap: ' + e for e in errors))
+    for doc, text, new in prepared:
         doc.write_text(replace_blocks(text, new), encoding='utf-8', newline='\n')
         print(f'wrote {rel(doc, REPO)}')
 
