@@ -95,11 +95,17 @@ namespace TW.Tests
                 Assert.IsFalse(fieldKeys.Contains(imported), imported + " is an imported prop, keyed as Set/Prop");
             // the imported props are named in BattlefieldKit.BuildImported: Imported("Set", "Prop", ...)
             string src = File.ReadAllText(Path.Combine("Assets", "_Project", "Presentation", "Terrain", "BattlefieldKit.cs"));   // relative to the project: Unity's working folder, and Tools/otr.py's
+            Assert.IsNotEmpty(src, "[TS6] BattlefieldKit.cs moved or is empty: this scan proves nothing");
+            var found = new List<string>();
             foreach (Match m in Regex.Matches(src, "Imported\\(\"(\\w+)\", \"(\\w+)\""))
             {
                 string key = m.Groups[1].Value + "/" + m.Groups[2].Value;
+                found.Add(key);
                 if (!AssetScaleTable.TryGet(key, out _)) missing.Add(key);
             }
+            Assert.GreaterOrEqual(found.Count, 30, "[TS6] expected at least 30 Imported(\"Set\", \"Prop\" calls in BattlefieldKit.cs, found " + found.Count);
+            foreach (var key in new[] { "Weapons/FieldGun", "Stones/Sandbag", "Plants/GrassClump", "Weapons/Biplane" })
+                Assert.Contains(key, found, "[TS6] " + key + " is one of the imported props line 94 names; the scan must find it");
             Assert.IsEmpty(missing, "every module the kit draws has a row in AssetScaleTable (Strict, Structure, Organic or Machine): " + string.Join(", ", missing));
         }
 
@@ -107,17 +113,22 @@ namespace TW.Tests
         public void The_Looks_Of_Man_Made_Props_Stand_In_Proportion_To_The_Man()
         {
             var layout = Resources.Load<PropLayout>(PropLayout.ResourcePath((int)Seed));
-            if (layout == null) Assert.Ignore("no Resources/Layouts/Battlefield" + Seed);
+            Assert.IsNotNull(layout, "[TS7] Resources/Layouts/Battlefield1917 is committed; a missing one is a broken checkout, not a reason to skip");
             var failed = new List<string>();
+            int judged = 0; var skips = new List<string>();
             foreach (var look in layout.Looks)
             {
-                if (look == null || !AssetScaleTable.TryGet(look.Module, out var rule) || !rule.Bounded) continue;
+                if (look == null) { skips.Add("null look"); continue; }
+                if (!AssetScaleTable.TryGet(look.Module, out var rule) || !rule.Bounded) { skips.Add(look.Module + " unbounded/no rule"); continue; }
                 var mesh = Resources.Load<Mesh>("Env/" + look.Module);
-                if (mesh == null) continue;
+                if (mesh == null) { skips.Add(look.Module + " no mesh"); continue; }
+                judged++;
                 float su = AssetScaleTable.SoldierUnits(rule, mesh.bounds.size, look.Baseline);
                 TestContext.WriteLine(look.Module + ": " + su.ToString("0.00") + " SU (" + rule.MinSU + "-" + rule.MaxSU + ")");
                 if (!rule.Holds(su)) failed.Add(look.Module + " draws " + su.ToString("0.00") + " SU, bounds " + rule.MinSU + "-" + rule.MaxSU);
             }
+            Assert.Greater(layout.Looks.Count, 0, "[TS7] the layout holds no looks, so this proved nothing");
+            Assert.Greater(judged, 0, "[TS7] no look was judged, so this proved nothing: " + string.Join("; ", skips));
             Assert.IsEmpty(failed, "a look was learned when men were 2.67 m and never rescaled; run python Tools/looks.py --apply: " + string.Join("; ", failed));
         }
 
@@ -125,9 +136,12 @@ namespace TW.Tests
         public void Hand_Edits_Of_Bounded_Kinds_Are_Brought_Into_Bounds_By_The_Clamp()
         {
             var layout = Resources.Load<PropLayout>(PropLayout.ResourcePath((int)Seed));
-            if (layout == null) Assert.Ignore("no Resources/Layouts/Battlefield" + Seed);
+            Assert.IsNotNull(layout, "[TS7] Resources/Layouts/Battlefield1917 is committed; a missing one is a broken checkout, not a reason to skip");
+            Assert.Greater(layout.Edits.Count, 0, "[TS7] the layout holds no hand edits, so this proved nothing");
+            var rows = AssetScaleReport.Edits(layout);
+            Assert.Greater(rows.Count, 0, "[TS7] the layout holds hand edits but none was judged");
             int touched = 0;
-            foreach (var (key, module, raw, after) in AssetScaleReport.Edits(layout))
+            foreach (var (key, module, raw, after) in rows)
             {
                 AssetScaleTable.TryGet(module, out var rule);
                 Assert.IsTrue(rule.Holds(after), key + " after the clamp: " + after.ToString("0.00") + " SU");
