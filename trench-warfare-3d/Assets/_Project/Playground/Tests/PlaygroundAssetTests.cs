@@ -19,7 +19,8 @@ namespace TW.Tests.Playground
         static PlaygroundLibrary lib;
         static PlaygroundLibrary Lib()
         {
-            if (lib == null) { PlaygroundSetup.Build(); lib = AssetDatabase.LoadAssetAtPath<PlaygroundLibrary>(PlaygroundSetup.LibraryPath); }
+            if (lib == null) lib = AssetDatabase.LoadAssetAtPath<PlaygroundLibrary>(PlaygroundSetup.LibraryPath);
+            Assert.IsNotNull(lib, "[TU1] the committed library is missing; run TW/Playground/Build");
             return lib;
         }
 
@@ -28,6 +29,52 @@ namespace TW.Tests.Playground
             if (t.name == name) return t;
             for (int i = 0; i < t.childCount; i++) { var r = FindDeep(t.GetChild(i), name); if (r != null) return r; }
             return null;
+        }
+
+        /// <summary>One line per vehicle, unit and clip, so two libraries can be compared as text.</summary>
+        static string Signature(PlaygroundLibrary l)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var v in l.Vehicles)
+            {
+                sb.Append("vehicle ").Append(v.Name).Append(" manifest=").Append(AssetDatabase.GetAssetPath(v.Manifest));
+                foreach (var go in v.Lods) sb.Append(" lod=").Append(AssetDatabase.GetAssetPath(go));
+                foreach (var t in v.Atlas) sb.Append(" atlas=").Append(AssetDatabase.GetAssetPath(t));
+                sb.Append("\n");
+            }
+            foreach (var u in l.Units)
+            {
+                sb.Append("unit ").Append(u.Name).Append(" model=").Append(AssetDatabase.GetAssetPath(u.Model))
+                  .Append(" rig=").Append(AssetDatabase.GetAssetPath(u.Rig));
+                foreach (var t in u.Atlas) sb.Append(" atlas=").Append(AssetDatabase.GetAssetPath(t));
+                sb.Append("\n");
+            }
+            foreach (var c in l.Clips)
+                sb.Append("clip ").Append(c.Name).Append(' ').Append(AssetDatabase.GetAssetPath(c.Clip))
+                  .Append(" death=").Append(c.Death).Append(" loop=").Append(c.Loop)
+                  .Append(" rate=").Append(c.Rate.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append(" cut=").Append(c.CutStart.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append('-').Append(c.CutEnd.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture))
+                  .Append(" keepRoot=").Append(c.KeepRoot).Append(" aim=").Append(c.Aim).Append("\n");
+            sb.Append("source ").Append(AssetDatabase.GetAssetPath(l.ClipSource)).Append("\n");
+            return sb.ToString();
+        }
+
+        [Test]
+        public void A_Dry_Rebuild_Matches_The_Committed_Library()
+        {
+            // [TU1] every other test here reads the library the test run itself rebuilt, so it could never catch the
+            // committed asset drifting from the art. This one compares the committed asset with a fresh fill that
+            // touches no file on disk.
+            string committed = Signature(Lib());
+            var fresh = ScriptableObject.CreateInstance<PlaygroundLibrary>();
+            try
+            {
+                PlaygroundSetup.Fill(fresh);
+                Assert.AreEqual(committed, Signature(fresh),
+                    "[TU1] the committed library no longer matches the art; run TW/Playground/Build and commit it");
+            }
+            finally { Object.DestroyImmediate(fresh); }
         }
 
         [Test]
