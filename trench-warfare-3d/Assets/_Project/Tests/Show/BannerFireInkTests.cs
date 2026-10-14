@@ -19,6 +19,10 @@
 //
 // Measured on the quad's four drawn corners and the sheet frame's opaque ink, not on rendered pixels: an EditMode test
 // has no frame to read, and the quad plus the ink inside it is exactly what a frame would show.
+//
+// Over the whole roster (2026-10-14): the Banner is the ONLY machine that lays a card along its bore, so it was the
+// only one drawn wrong and the only one this fix moves. EveryLaidFlameRootsOnTheMouthAndPointsDownTheBore runs over
+// every row of TankRenderer.Machines, so a machine that starts laying a flame is measured here without a new test.
 using System.Collections.Generic;
 using System.IO;
 using NUnit.Framework;
