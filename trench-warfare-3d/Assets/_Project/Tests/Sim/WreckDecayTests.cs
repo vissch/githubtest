@@ -576,6 +576,35 @@ namespace TW.Tests
         }
 
         [Test]
+        // [found-atwreck-picks-nearest-shelter-by-teams-not-b-20261015-0] AtWreck picked one wreck, the nearest whose
+        // Teams bit (built over the whole reach disc) held an enemy, and returned outright when its shadow was empty.
+        // An enemy on the flank of a nearer wreck won the pick and silenced the gun for the tick, so a covering machine
+        // gun went quiet instead of firing at the farther wreck whose shadow his enemies are in.
+        public void ANearerWreckWithAnEmptyShadowDoesNotHoldHisFire()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            // a decoy wreck 3.7 m off the line in x and 0.6 m nearer the gun in z: the nearest man (1.2 m off the line)
+            // is 3.61 m from it, inside its 4 m reach, so its Teams holds team 1, but 2.58 m off the gun -> decoy line,
+            // outside the 2 m shadow its body casts. It is 0.54 m nearer the gun than the real wreck, so it wins the pick.
+            float side = math.sign(m.World.Position[gun].z - m.Map.Props[wreck].Pos.z);
+            int decoy = -1;
+            foreach (float x in new[] { 3.7f, -3.7f })
+            {
+                var at = m.Map.Props[wreck].Pos + new float3(x, 0f, side * 0.6f);
+                if ((m.Map.LayerAt(at) & NotOpen) != 0) continue;
+                decoy = m.Map.AddProp(new PropDef { Pos = at, Kind = PropKind.Wreck });
+                if (decoy >= 0) break;
+            }
+            Assert.GreaterOrEqual(decoy, 0, "a spot for the decoy wreck beside the real one");
+            // Watch asserts every prop shot names `wreck`, so a shot at the decoy fails loudly
+            var (atWreck, atMen, _) = Watch(m, wreck, gun, men, 400);
+            Assert.AreEqual(0, atMen, "below the rim and out of their rifles' range, nobody is seen");
+            Assert.Greater(atWreck, 20, "[found-atwreck-picks-nearest-shelter-by-teams-not-b-20261015-0] a nearer " +
+                "wreck with an empty shadow silenced the gun");
+        }
+
+        [Test]
         // [N5.3b] the owner's rule (2026-10-12): fire at a wreck is fire at a place, not at a man who must be seen,
         // so a thick screen on the gun -> wreck line neither stops the shot nor spares the men in its shadow.
         public void ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck()
