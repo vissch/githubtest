@@ -42,7 +42,9 @@ namespace TW.UI
             }
             if (alive < w.Last)
             {
-                int threshold = System.Math.Max(MinHitLosses, (w.Strength + 3) / 4);
+                // a quarter of the group, but never more losses than the ring keeps: above 256 men HIT fires at 64
+                // losses inside the window (the ring is the limit, not the quarter)
+                int threshold = System.Math.Max(MinHitLosses, System.Math.Min(MaxLossesKept, (w.Strength + 3) / 4));
                 if (LossesWithin(w, now) >= threshold) w.HitUntil = now + HitShowSeconds;
                 if (alive == 0 && w.Strength > 0) w.LostUntil = now + LostShowSeconds;
             }

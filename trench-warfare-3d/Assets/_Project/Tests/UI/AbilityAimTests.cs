@@ -191,6 +191,15 @@ namespace TW.Tests
             Assert.AreEqual(AbilityAim.PointFallbackRadius, AimReadout.GasReticleM, "one reticle radius for the aim and the readout");
         }
 
+        // [I10] the readout's cache was keyed at min(n, 511), so the first count over 511 took slot 511 and every
+        // later count of 511 showed that stranger's number
+        [Test]
+        public void ABigCountDoesNotTakeOverTheLastCacheSlot()
+        {
+            AimReadout.Text(1, 600);
+            Assert.That(AimReadout.Text(1, 511), Is.EqualTo("511 OF OURS IN REACH"), "[I10] a count over 511 sat in slot 511 and spoke for it");
+        }
+
         [Test]
         public void TheAimPreviewHookIsClearedWithTheOtherHooks()
         {

@@ -155,12 +155,16 @@ namespace TW.UI
         }
 
         /// <summary>"UNDER IT: 14 ENEMY" / "3 OF OURS IN REACH", cached per count (no string per frame).</summary>
-        static string Text(int line, int n)
+        /// <remarks>public so a test can read the cache.</remarks>
+        public static string Text(int line, int n)
         {
-            int k = line * 512 + Mathf.Min(n, 511);
-            return Cache[k] ??= line == 0
+            if (n > 511) return Build(line, n);   // past the cache's reach: a fresh string, and never a slot's owner
+            return Cache[line * 512 + n] ??= Build(line, n);
+        }
+
+        static string Build(int line, int n)
+            => line == 0
                 ? (n == 0 ? "NO ENEMY UNDER IT" : "UNDER IT: " + n + " ENEMY")
                 : (n == 0 ? "NONE OF OURS IN REACH" : n + " OF OURS IN REACH");
-        }
     }
 }
