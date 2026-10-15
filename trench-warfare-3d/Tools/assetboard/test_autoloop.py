@@ -174,6 +174,18 @@ def main():
     case('the loop is the only keeper: the main relay is started when it is not running and has a unit to take, not when its queue is empty or parked',
          idle_main == [] and parked_only == [] and held_only == [] and wm.started == [1] and 'main relay' in has_work[-1]
          and ('autoloop', '--release') in wm.holds, (idle_main, parked_only, held_only, has_work, wm.started, wm.holds))
+    wd = Fake(tmp / 'dirty')
+    wd.works = lambda: {3: tmp / 'w3'}
+    wd.asides = []
+    wd.put_aside = lambda work, n: wd.asides.append((work.name, n)) or 'put aside'
+    put(wd.extras[3], 'queue', 'd-1', lane='lane/show/d')
+    wd.text[wd.main] = RUN
+    wd.text[wd.extras[2]] = RUN
+    wd.text[wd.extras[3]] = ('NOT RUNNING. Last run 20261015-141327-10424: the work checkout cannot be used: it has uncommitted changes '
+                             'that are not a saved leg snapshot (0 legs).')
+    lines = autoloop.feed(wd)
+    case('a stopped relay whose checkout holds a leg\'s leftover files has them put aside (patch and stash, as the old keeper did) and is started',
+         wd.asides == [('w3', 3)] and wd.started == [3] and any('leftover files' in l for l in lines), (lines, wd.asides, wd.started))
     w3 = Fake(tmp / 'c')
     put(w3.main, 'queue', 'x-1', lane='lane/show/x', priority=99)
     case('with no free lane an empty relay is not started', autoloop.feed(w3) == [] and w3.started == [])
@@ -214,8 +226,8 @@ def main():
             self.gitcalls.append(a[0])
             return 0, ''
 
-        def rebased(self, work):        # two worktrees of one repo see the same branches
-            return [('lane/show/heroes-off-bench-c', 'abc123def'), ('lane/show/relay-four-checks', 'fed456')] if work.name in ('w1', 'w2') else []
+        def rebased(self, work):        # two worktrees of one repo see the same branches; a session's own lane among them
+            return [('lane/show/heroes-off-bench-c', 'abc123def'), ('lane/show/relay-four-checks', 'fed456'), ('lane/show/a-sessions-own', 'aaa111')] if work.name in ('w1', 'w2') else []
 
         def free_name(self, work, lane):
             return lane + '-b'
@@ -225,6 +237,7 @@ def main():
             return 0, ''
     w = Rb(tmp / 'h')
     w.gitcalls, w.pushes = [], []
+    put(w.main, 'queue', 'heroes-c', lane='lane/show/heroes-off-bench-c')     # a unit names that lane; the other lane is nobody's
     w.text[w.extras[2]] = RUN
     lines = autoloop.rescue(w)
     again = autoloop.rescue(w)

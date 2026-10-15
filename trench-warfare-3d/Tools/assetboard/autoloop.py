@@ -256,6 +256,18 @@ class World:
         """Push a commit to a NEW branch on origin; never a force push."""
         return self.git(work, 'push', '-q', 'origin', f'{sha}:refs/heads/{name}')
 
+    def put_aside(self, work, n):
+        """Leftover work of a leg that ended without committing: kept as a patch and a named stash, so the relay can
+        start again (what keep_relays4.ps1 did). Returns what was done."""
+        stamp = time.strftime('%Y%m%d-%H%M%S')
+        d = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'Temp' / 'clear-dirty-patches'
+        d.mkdir(parents=True, exist_ok=True)
+        code, diff = self.git(work, '--no-optional-locks', 'diff', 'HEAD')
+        (d / f'{stamp}-relay{n}.patch').write_text(diff + '\n', encoding='utf-8')
+        branch = self.git(work, 'rev-parse', '--abbrev-ref', 'HEAD')[1]
+        code, said = self.git(work, 'stash', 'push', '-u', '-q', '-m', f'put aside {stamp} by autoloop.py so relay {n} can start: left on {branch}')
+        return f'put aside (stash exit {code}, patch {d / (stamp + "-relay" + str(n) + ".patch")})'
+
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
 
@@ -397,6 +409,8 @@ def feed(w):
             continue
         if not may_start(w, n, reason):
             continue
+        if 'uncommitted changes' in reason and n in w.works():
+            out.append(f'feed: relay {n} stopped on leftover files: {w.put_aside(w.works()[n], n)}')
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
@@ -429,6 +443,7 @@ def rescue(w):
     lane is pushed as <lane>-b (or the next free suffix), never forced, and said; the coordinator did it by hand
     twice on 2026-10-15. Only for a relay that is not running, so no leg is mid-way."""
     out, done, seen = [], load(w.home / 'rescued.json', {}), set()
+    units = {v.get('lane') for b in [w.main, *w.extras.values()] for v in open_units(b).values()}
     busy = running_lanes(w)
     if busy is None:
         return ['rescue: a relay did not say whether it runs: nothing is pushed this round']
@@ -439,7 +454,7 @@ def rescue(w):
         if w.acting:
             w.git(work, 'fetch', '-q', 'origin')         # refs only; the index is not touched
         for lane, sha in w.rebased(work):
-            if f'{lane}@{sha}' in done or lane in busy or (lane, sha) in seen:
+            if lane not in units or f'{lane}@{sha}' in done or lane in busy or (lane, sha) in seen:
                 continue                    # done before, a leg works on it now, or seen in another worktree of the same repo
             seen.add((lane, sha))
             name = w.free_name(work, lane)
