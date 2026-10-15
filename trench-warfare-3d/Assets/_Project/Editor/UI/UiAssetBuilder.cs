@@ -124,7 +124,7 @@ namespace TW.Editor
             AssetDatabase.SaveAssets();
         }
 
-        static void EnsureFolder(string assetFolder)
+        public static void EnsureFolder(string assetFolder)
         {
             string full = UiSkinGenerator.FullPath(assetFolder);
             if (!Directory.Exists(full)) { Directory.CreateDirectory(full); AssetDatabase.Refresh(); }

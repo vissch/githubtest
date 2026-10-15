@@ -30,7 +30,7 @@ namespace TW.Editor
         [MenuItem("TW/UI/Build Shell Assets")]
         public static ShellAssets Build()
         {
-            Folder("Assets/_Project/UI/Resources"); Folder(MissionsFolder);
+            UiAssetBuilder.EnsureFolder("Assets/_Project/UI/Resources"); UiAssetBuilder.EnsureFolder(MissionsFolder);
             var backdrop = KeyArt() ?? EnsureBackdrop();
             var catalog = EnsureCatalog();
             var assets = AssetDatabase.LoadAssetAtPath<ShellAssets>(ShellAssetPath);
@@ -144,12 +144,6 @@ namespace TW.Editor
                 }
             }
             return AssetDatabase.LoadAssetAtPath<Texture2D>(KeyArtPath);
-        }
-
-        static void Folder(string assetFolder)
-        {
-            string full = UiSkinGenerator.FullPath(assetFolder);
-            if (!Directory.Exists(full)) { Directory.CreateDirectory(full); AssetDatabase.Refresh(); }
         }
 
         // ---- scenes ---------------------------------------------------------------------------------------------------

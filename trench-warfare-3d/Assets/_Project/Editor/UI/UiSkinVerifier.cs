@@ -1,7 +1,8 @@
 // Phase: B6 (implemented) — every skin file on disk matches the table, every sheet resolves, every unit has a portrait.
 // TW/UI/Verify Skin runs the same checks SkinAssetTests asserts on, so a missing or mis-sized artist file fails the
 // gate rather than drawing a hole: per SkinSpec entry the PNG exists at the spec's size with the spec's border and
-// import settings, glyphs are white-bodied and uncoloured, portraits have transparent corners and sane coverage; every
+// every importer setting UiSkinImport.Apply writes (the two read the same table, UiSkinImport.Rules, so they
+// cannot drift apart), glyphs are white-bodied and uncoloured, portraits have transparent corners and sane coverage; every
 // url() in the skin sheets points at a file the table knows; the style sheets imported without errors; the fonts
 // exist; and every archetype either side's default roster hands out maps to a portrait. The report also lists what
 // is still a placeholder (UiSkinGenerator's record), which is the artist's to-do list.
@@ -66,11 +67,24 @@ namespace TW.Editor
             if (!File.Exists(full)) { r.Failures.Add($"missing: {e.Path}"); return; }
             var imp = AssetImporter.GetAtPath(e.Path) as TextureImporter;
             if (imp == null) { r.Failures.Add($"not a texture import: {e.Path}"); return; }
-            if (imp.textureType != TextureImporterType.Sprite) r.Failures.Add($"{e.File}: texture type is {imp.textureType}, expected Sprite");
-            if (imp.spriteImportMode != SpriteImportMode.Single) r.Failures.Add($"{e.File}: sprite mode is {imp.spriteImportMode}, expected Single");
-            if (imp.mipmapEnabled) r.Failures.Add($"{e.File}: mipmaps on");
-            if (imp.textureCompression != TextureImporterCompression.Uncompressed) r.Failures.Add($"{e.File}: compressed");
-            if (!imp.alphaIsTransparency) r.Failures.Add($"{e.File}: alpha is transparency off");
+            var want1 = UiSkinImport.Rules;
+            var got = UiSkinImport.Read(imp);
+            if (got.TextureType != want1.TextureType) r.Failures.Add($"{e.File}: texture type is {got.TextureType}, expected {want1.TextureType}");
+            if (got.SpriteImportMode != want1.SpriteImportMode) r.Failures.Add($"{e.File}: sprite mode is {got.SpriteImportMode}, expected {want1.SpriteImportMode}");
+            if (got.SpritePixelsPerUnit != want1.SpritePixelsPerUnit) r.Failures.Add($"{e.File}: pixels per unit is {got.SpritePixelsPerUnit}, expected {want1.SpritePixelsPerUnit}");
+            if (got.SRGBTexture != want1.SRGBTexture) r.Failures.Add($"{e.File}: sRGB {(got.SRGBTexture ? "on" : "off")}, expected {(want1.SRGBTexture ? "on" : "off")}");
+            if (got.AlphaSource != want1.AlphaSource) r.Failures.Add($"{e.File}: alpha source is {got.AlphaSource}, expected {want1.AlphaSource}");
+            if (got.AlphaIsTransparency != want1.AlphaIsTransparency) r.Failures.Add($"{e.File}: alpha is transparency off");
+            if (got.MipmapEnabled) r.Failures.Add($"{e.File}: mipmaps on");
+            if (got.IsReadable != want1.IsReadable) r.Failures.Add($"{e.File}: read/write is {(got.IsReadable ? "on" : "off")}, expected {(want1.IsReadable ? "on" : "off")}");
+            if (got.TextureCompression != want1.TextureCompression) r.Failures.Add($"{e.File}: compressed");
+            if (got.MaxTextureSize != want1.MaxTextureSize) r.Failures.Add($"{e.File}: max size {got.MaxTextureSize}, expected {want1.MaxTextureSize}");
+            if (got.WrapMode != want1.WrapMode) r.Failures.Add($"{e.File}: wrap mode is {got.WrapMode}, expected {want1.WrapMode}");
+            if (got.FilterMode != want1.FilterMode) r.Failures.Add($"{e.File}: filter mode is {got.FilterMode}, expected {want1.FilterMode}");
+            if (got.NpotScale != want1.NpotScale) r.Failures.Add($"{e.File}: npot scale is {got.NpotScale}, expected {want1.NpotScale}");
+            if (got.SpriteMeshType != want1.SpriteMeshType) r.Failures.Add($"{e.File}: sprite mesh type is {got.SpriteMeshType}, expected {want1.SpriteMeshType}");
+            if (got.SpriteGenerateFallbackPhysicsShape != want1.SpriteGenerateFallbackPhysicsShape) r.Failures.Add($"{e.File}: generate fallback physics shape is {(got.SpriteGenerateFallbackPhysicsShape ? "on" : "off")}, expected {(want1.SpriteGenerateFallbackPhysicsShape ? "on" : "off")}");
+            if (got.SpriteExtrude != want1.SpriteExtrude) r.Failures.Add($"{e.File}: sprite extrude is {got.SpriteExtrude}, expected {want1.SpriteExtrude}");
             var want = e.HasBorder ? new Vector4(e.L, e.B, e.R, e.T) : Vector4.zero;
             if (imp.spriteBorder != want) r.Failures.Add($"{e.File}: border {imp.spriteBorder} expected {want}");
             if (!Decode(full, out var tex)) { r.Failures.Add($"{e.File}: PNG did not decode"); return; }
