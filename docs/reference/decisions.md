@@ -287,6 +287,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   relay guard refuses any git switch off the leg's own lane ("relay: a leg stays on its own lane"), so no leg can
   build on origin/lane/show/relay-harness, and the lane cannot be rebased onto that line either (it is on origin, and
   no leg may force-push). So the choice is really (a) or (c), and only the owner can pick.
+  Checked again on 2026-10-15 by a later leg (relay-four-checks, after the above): `Tools/relay` is not tracked on
+  the integration branch at all (`git ls-files trench-warfare-3d/Tools/relay` prints nothing here), so the unit's
+  own checkout (`githubtest-relay-work`, lane/show/relay-four-checks) has no relay test tooling to run and
+  its done_when can never go green from this lane. The real relay line sits on origin/lane/show/relay-harness
+  (tip 2e01bfd94, ahead of this lane's base by many commits); `githubtest-relay-dev` is on lane/show/relay-next, an
+  ancestor 53 commits behind it. A leg is also refused from switching or committing outside its own lane and
+  checkout (confirmed again this leg), so the four checks need a leg whose own lane **is** the relay line. Options:
+  (a) re-queue this unit with `--lane lane/show/relay-next` on `githubtest-relay-dev`, done_when measured against
+  `origin/lane/show/relay-next`, once the owner fast-forwards that branch to `origin/lane/show/relay-harness` (a leg
+  cannot do this fast-forward itself) - the default taken here; (b) the same but on a fresh checkout of
+  `lane/show/relay-harness` itself (53 commits newer, what the running relay is built from); (c) copy `Tools/relay`
+  into this show lane, which would satisfy the card's done_when but forks the relay line into this lane's gate,
+  along with the known test-isolation and prompt-file drift noted above. Nothing of the four checks is
+  built or committed by this leg.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
