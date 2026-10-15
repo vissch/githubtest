@@ -367,7 +367,10 @@ namespace TW.Playground
             {
                 float reach = 3.5f * Size;
                 var ground = new Vector3(world.x, GroundY, world.z);
-                Fx?.Burst(ground, 1.4f * Mathf.Sqrt(Size));
+                // Y17: a shell that meets a flyer where it flies bursts THERE. The burst used to be drawn on the ground
+                // under the aircraft, 14 m below the hit, and the clods belong on the ground, so an air burst has none.
+                bool air = Flyer != null && world.y - GroundY > 2f;
+                Fx?.Burst(air ? world : ground, 1.4f * Mathf.Sqrt(Size));
                 LastEvent = $"HE {damage:0} at {new Vector2(at.x, at.z).magnitude * Size:0.0} m";
                 float nearest = float.MaxValue;
                 foreach (var p in Parts)
@@ -379,7 +382,7 @@ namespace TW.Playground
                     Hurt(p, damage * (1f - d / reach), at, 7f, false);
                 }
                 if (nearest < reach) HurtHull(damage * (1f - nearest / reach));
-                Fx?.Debris?.Burst(DebrisRenderer.Piece.Clod, ground, 10, 7f, 0.35f, new Color(0.35f, 0.29f, 0.22f), 12f, 0f, 1.6f, default, (uint)Seed);
+                if (!air) Fx?.Debris?.Burst(DebrisRenderer.Piece.Clod, ground, 10, 7f, 0.35f, new Color(0.35f, 0.29f, 0.22f), 12f, 0f, 1.6f, default, (uint)Seed);
             }
         }
 
@@ -422,7 +425,7 @@ namespace TW.Playground
             if (Hp <= 0f && State < Stage.KnockedOut) KnockOut();
             // overkill cooks it off, but not in the same breath as the knock-out: a machine killed by one big hit went
             // straight to the cook-off and never showed itself burning (critic loop 2 r30, the Croaker)
-            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff && State == Stage.KnockedOut && Time.time - knockedAt > Mathf.Max(1.5f, CookDelay * 0.5f)) CookOff();
+            if (Hp <= -MaxHp * 0.6f && State < Stage.CookedOff && State == Stage.KnockedOut && CookDelay >= 0f && Time.time - knockedAt > Mathf.Max(1.5f, CookDelay * 0.5f)) CookOff();
         }
 
         /// <summary>Throw a part off. velocity in m/s and spin in rad/s, both in the vehicle's frame.</summary>

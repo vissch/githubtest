@@ -435,6 +435,9 @@ namespace TW.Playground
                 case "sidehue": huePath = a.Length > 1 ? a[1] : Path.Combine(Application.dataPath, "../Captures/sidehue.json"); hueStep = 0; break;
                 case "lodtint": foreach (var v in Vehicles) v.UseLodTints(F(a, 1, 1f) > 0.5f); foreach (var u in Units) u.UseLodTints(F(a, 1, 1f) > 0.5f); break;
                 case "model":   // "model u 1": which of the library's figures (v: vehicles) the scenes build
+                    // Y15: a negative index used to be taken and answered "ok"; every later scene then threw on
+                    // Library.Vehicles[index % Length] (a negative remainder).
+                    if (a.Length > 2 && (int)F(a, 2, 0) < 0) return "bad index " + a[2];
                     if (a.Length > 2 && a[1] == "v") vehicleIndex = (int)F(a, 2, 0); else if (a.Length > 2) unitIndex = (int)F(a, 2, 0);
                     Queue(Mode); break;
                 case "unitrings": Fx.UnitRings = F(a, 1, 1f) > 0.5f; break;
