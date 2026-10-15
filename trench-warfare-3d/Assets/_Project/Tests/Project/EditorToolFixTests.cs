@@ -57,5 +57,100 @@ namespace TW.Tests
                     Quaternion.identity, Quaternion.identity, 1f),
                 "[E9] the hips turning no longer counts as bound");
         }
+
+        [Test]
+        public void ADroppedShotSaysSo()   // [E15]
+        {
+            var was = new List<Camera>();
+            foreach (var c in Camera.allCameras) { was.Add(c); c.enabled = false; }
+            var go = new GameObject("e15-rig");
+            try
+            {
+                var rig = go.AddComponent<CaptureRig.Rig>();
+                var render = typeof(CaptureRig.Rig).GetMethod("Render", BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                Assert.IsNotNull(render, "[E15] CaptureRig.Rig.Render is gone");
+                string path = Path.Combine(Path.GetTempPath(), "e15-dropped.png");
+                var shot = new CaptureRig.Rig.Shot { Path = path, W = 8, H = 8 };
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("e15-dropped"));
+                render.Invoke(rig, new object[] { shot });
+                Assert.IsFalse(File.Exists(path), "[E15] the test wrote a picture, so Camera.main was not null after all");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                foreach (var c in was) if (c != null) c.enabled = true;
+            }
+        }
+
+        [Test]
+        public void TheCrowdLineSaysHowManyMenStoodThere()   // [E15]
+        {
+            // the value comes from ShotCrowd's own promise: "the focus it chose and how many men were standing in that square"
+            Assert.AreEqual("queued a.png on the crowd at 10.0, 20.0 (7 men)",
+                CaptureRig.CrowdLine("d/a.png", new Vector2(10f, 20f), 7),
+                "[E15] ShotCrowd's answer does not say how many men stood in the square");
+        }
+
+        [Test]
+        public void ASheetTilesOnlyTheFramesOfItsOwnSeries()   // [E15]
+        {
+            string dir = Path.Combine(Path.GetTempPath(), "tw-e15-" + System.Guid.NewGuid().ToString("N"));
+            Directory.CreateDirectory(dir);
+            var png = new Texture2D(8, 8, TextureFormat.RGB24, false);
+            try
+            {
+                var bytes = png.EncodeToPNG();
+                foreach (var name in new[] { "s_00.png", "s_01.png", "s_sheet.png" })
+                    File.WriteAllBytes(Path.Combine(dir, name), bytes);
+                string answer = CaptureRig.Sheet(dir, "s", Path.Combine(dir, "out.png"), 2, 16);
+                StringAssert.Contains("sheet of 2", answer,
+                    "[E15] the sheet tiled in a file that only starts with the stem: " + answer);
+            }
+            finally { Object.DestroyImmediate(png); Directory.Delete(dir, true); }
+        }
+
+        [Test]
+        public void ASecondProfileDoesNotTakeOverTheFirst()   // [E15]
+        {
+            Assert.AreEqual(typeof(string), typeof(CaptureRig.Profiler).GetMethod("Begin").ReturnType,
+                "[E15] Profiler.Begin cannot refuse: it answers nothing");
+            var go = new GameObject("e15-prof");
+            try
+            {
+                var prof = go.AddComponent<CaptureRig.Profiler>();
+                Assert.IsNull(prof.Begin("a.json", 3), "[E15] a free profiler refused the first run");
+                string busy = prof.Begin("b.json", 3);
+                Assert.IsNotNull(busy, "[E15] a second Begin overwrote five live recorders without disposing them");
+                StringAssert.Contains("a.json", busy, "[E15] the refusal does not name the run already in flight");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void TheFilmTextureGoesWithTheBench()   // [E15]
+        {
+            var go = new GameObject("e15-bench");
+            var tex = new Texture2D(8, 8, TextureFormat.RGB24, false);
+            try
+            {
+                var bench = go.AddComponent<RiderLab.Bench>();
+                var f = typeof(RiderLab.Bench).GetField("tex", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(f, "[E15] RiderLab.Bench.tex is gone");
+                f.SetValue(bench, tex);
+                // OnDestroy is called directly: Unity refuses a DestroyImmediate made while it is tearing the
+                // GameObject down, so destroying the object here would hide the fix rather than show it.
+                var d = typeof(RiderLab.Bench).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(d, "[E15] RiderLab.Bench.OnDestroy is gone");
+                d.Invoke(bench, null);
+                Assert.IsTrue(tex == null, "[E15] the bench left its film texture behind");
+                Assert.IsNull(f.GetValue(bench), "[E15] the bench still holds its destroyed film texture");
+            }
+            finally
+            {
+                if (go != null) Object.DestroyImmediate(go);
+                if (tex != null) Object.DestroyImmediate(tex);
+                typeof(RiderLab.Bench).GetField("Instance", BindingFlags.Static | BindingFlags.Public)?.SetValue(null, null);
+            }
+        }
     }
 }

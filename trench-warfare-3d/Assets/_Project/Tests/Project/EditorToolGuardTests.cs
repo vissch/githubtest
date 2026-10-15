@@ -123,6 +123,41 @@ namespace TW.Tests
             }
         }
 
+        [Test]
+        public void ARefusedPlayPutsTheStressCountBack()   // [E11]
+        {
+            var abort = typeof(CaptureRig).GetMethod("AbortIfPlayRefused",
+                BindingFlags.Static | BindingFlags.NonPublic | BindingFlags.Public);
+            Assert.IsNotNull(abort, "[E11] CaptureRig.AbortIfPlayRefused is gone: a refused play leaves the scene dirty");
+
+            var go = new GameObject("e11-host");
+            try
+            {
+                var h = go.AddComponent<TW.Presentation.SimHost>();
+                h.StressUnits = 7;
+                // exactly what Stress leaves behind before it asks for play
+                UnityEditor.SessionState.SetString("tw.rig.stress.restore", "7");
+                UnityEditor.SessionState.SetString("tw.rig.stress", "e11.json|300|1|1000");
+                h.StressUnits = 1000;
+
+                UnityEngine.TestTools.LogAssert.Expect(LogType.Warning, new System.Text.RegularExpressions.Regex("play was refused"));
+                abort.Invoke(null, null);
+
+                Assert.AreEqual(7, h.StressUnits,
+                    "[E11] the scene kept the stress count after play was refused: " + h.StressUnits);
+                Assert.AreEqual("", UnityEditor.SessionState.GetString("tw.rig.stress", ""),
+                    "[E11] the stress request still stands, so the next play would run it");
+                Assert.AreEqual("", UnityEditor.SessionState.GetString("tw.rig.stress.restore", ""),
+                    "[E11] the restore key still stands");
+            }
+            finally
+            {
+                UnityEditor.SessionState.EraseString("tw.rig.stress");
+                UnityEditor.SessionState.EraseString("tw.rig.stress.restore");
+                Object.DestroyImmediate(go);
+            }
+        }
+
         [TearDown]
         public void Clean()
         {
