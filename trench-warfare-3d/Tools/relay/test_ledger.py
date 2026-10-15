@@ -25,8 +25,9 @@ class Ledger(unittest.TestCase):
     def setUp(self):
         self.tmp = Path(tempfile.mkdtemp(prefix="ledger-test-"))
         self.board, self.home, self.n = self.tmp / "board", self.tmp / "home", 0
-        self.old = os.environ.get("TW_RELAY_HOME")
+        self.old, self.old_also = os.environ.get("TW_RELAY_HOME"), os.environ.get("TW_BOARD_ALSO")
         os.environ["TW_RELAY_HOME"] = str(self.home)
+        os.environ.pop("TW_BOARD_ALSO", None)                # nor any other relay's board
         self.limits = config.limits                         # these tests count in dollars or in measured legs:
         config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
                                              day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
@@ -35,6 +36,7 @@ class Ledger(unittest.TestCase):
     def tearDown(self):
         config.limits = self.limits
         os.environ.pop("TW_RELAY_HOME", None) if self.old is None else os.environ.__setitem__("TW_RELAY_HOME", self.old)
+        os.environ.pop("TW_BOARD_ALSO", None) if self.old_also is None else os.environ.__setitem__("TW_BOARD_ALSO", self.old_also)
         shutil.rmtree(self.tmp, ignore_errors=True)
 
     def leg(self, cost, phase="plan", days_ago=0, station="desktop", unit="u1", model="opus", effort="high", **kw):
