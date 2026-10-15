@@ -288,6 +288,7 @@ namespace TW.Tests
             Assert.Less(full, 16777216f, "every value a float holds exactly");
             Assert.AreEqual(0, VatPad.Char(VatPad.Pack(63, 1f, 255)), "nothing set: not burned");
             Assert.AreEqual(2, VatPad.Char(VatPad.Pack(0, 0f, 0, 2)));
+            Assert.AreEqual(0, VatPad.Lost(VatPad.Pack(0, 1f, 255)), "[TS10] a living man never reads as cut, however dirty");
         }
 
         [Test]
