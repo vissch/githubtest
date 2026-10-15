@@ -274,6 +274,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **The relay's own tests cannot go green on this machine (2026-10-15, unit relay-four-checks):** the relay line
+  (origin/lane/show/relay-harness, 2e01bfd94) brings five test files for the relay tooling. Copied into a lane, 20 of
+  their cases fail, every one of them because they read the live TrenchWarfare ledger under LOCALAPPDATA and the
+  board's week reading instead of their own temp copy (they expect "no leg is measured yet" and get today's real
+  spend and a 4% week). The tool check runs them, so the edit gate is exit 5 for any tree holding them, and leg finish
+  will not commit. No lane can build the four guard checks the owner allowed on 2026-10-10 until this is settled.
+  Options: (a) fix the isolation first (those tests point at a temp home and board) as a unit of its own, the default
+  taken here, which is why relay-four-checks ends blocked with nothing of it committed; (b) let the four checks land
+  on the relay line itself, where the gate is not asked; or (c) leave the relay's test files out of the tool check
+  until they are isolated.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
