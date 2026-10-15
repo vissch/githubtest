@@ -373,6 +373,18 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Options: (1) yes, next the route into the game; (2) yes, with changes; (3) another round. Brief with three sheets on
   the Decide page: "Infantry weapons: toy box, and brass as its upgrade. Right?".
 
+- **`lane/show/relay-harness` is rebased and green but cannot push (2026-10-15):** the rebase onto
+  `origin/claude/trench-warfare-2d-3d-plan-idt7lf` is done (HEAD `3a71dd395`, 0 commits behind integration, 90 of
+  its own, `[relay-harness-rebase]` in 147bea56f's message, `Tools/selftest.py` green, the edit gate green for the
+  tree). `git push` is refused: origin's lane tip (`2e01bfd94`) is not an ancestor of the rebased history, and
+  `Tools/relay/prepush.py` refuses any push whose remote tip is not an ancestor of what is pushed (and refuses a
+  ref other than `refs/heads/<the leg's lane>`, so pushing as `lane/show/relay-harness-b` is refused too). No leg
+  can force-push; `relay-harness-rebase-b`'s card forbids it as well. Options: (1) the owner force-pushes
+  `lane/show/relay-harness` by hand (`git push --force-with-lease origin lane/show/relay-harness`) from a machine
+  with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
+  ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
+  acted on; the rebase stays local on this checkout pending the owner's push.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
