@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-"""Tests that a film encode never leaves a partial file at its published path (N12.4), and that a Blender time
-limit ends the other workers and is reported as a failure rather than killing the whole build (N12.11): findings
-of the second code review. Run from trench-warfare-3d/:
+"""Tests that a film encode never leaves a partial file at its published path (N12.4), that its ffmpeg call always
+names an output format so the '.part' temp name does not make it fail (review2-film-part-format), and that a
+Blender time limit ends the other workers and is reported as a failure rather than killing the whole build
+(N12.11): findings of the second code review. Run from trench-warfare-3d/:
 python Tools/assetboard/test_filmsafe.py
 """
 import io
@@ -92,6 +93,37 @@ class EncodeFfmpegSucceeds(unittest.TestCase):
         self.assertTrue(poster.exists(), 'the poster must be written on a clean encode')
         left = [p for p in (stage / 'film').iterdir() if p.suffix == '.part']
         self.assertEqual([], left, f'a .part file was left behind after a clean encode: {left}')
+
+
+class ArgvFfmpeg(GoodFfmpeg):
+    """A clean ffmpeg exit that also records its own argv, to check what format it was told to write."""
+    seen = []
+
+    def __init__(self, args, **kw):
+        super().__init__(args, **kw)
+        ArgvFfmpeg.seen.append(list(args))
+
+
+class EncodeOutputFormat(unittest.TestCase):
+    """[review2-film-part-format] the temp name ffmpeg writes to ends '.part' with no extension ffmpeg can read a
+    muxer from, so the call must name the format itself (-f mp4) or the name must already end in .mp4."""
+
+    def test_the_ffmpeg_call_names_its_output_format(self):
+        stage = Path(tempfile.mkdtemp(dir=TEMP, prefix='stage-'))
+        frames = frame_folder(2)
+        result = dict(frames=2, segments=[])
+        mp4, poster = stage / 'film' / 'x.mp4', stage / 'film' / 'x.jpg'
+        ArgvFfmpeg.seen = []
+        with mock.patch.object(films, 'subprocess', SimpleNamespace(Popen=ArgvFfmpeg, PIPE=subprocess.PIPE, TimeoutExpired=subprocess.TimeoutExpired)):
+            films.encode(frames, result, mp4, poster)
+        self.assertEqual(1, len(ArgvFfmpeg.seen), 'films.encode must start exactly one ffmpeg')
+        args = ArgvFfmpeg.seen[0]
+        out = args[-1]
+        # a bare 'in args' would pass on the broken code too: films.py already gives ffmpeg '-f rawvideo' for the
+        # *input*, so only an adjacent ('-f', 'mp4') pair proves the *output* muxer was named
+        named = any(args[i] == '-f' and args[i + 1] == 'mp4' for i in range(len(args) - 1))
+        self.assertTrue(Path(out).name.endswith('.mp4') or named,
+                         f'[review2-film-part-format] films.encode writes to {Path(out).name} with no -f mp4: ffmpeg cannot pick a muxer')
 
 
 class StuckBlender:

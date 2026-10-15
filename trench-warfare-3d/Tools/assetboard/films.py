@@ -196,7 +196,7 @@ def encode(frames: Path, result, mp4: Path, poster: Path):
     segs = result.get('segments') or []
     named = len(segs) > 1 or (segs and segs[0].get('caption'))
     proc = subprocess.Popen([FFMPEG, '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'rgb24', '-s', f'{SIZE}x{SIZE}', '-r', str(FPS), '-i', '-',
-                             '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(tmp)],
+                             '-an', '-c:v', 'libx264', '-preset', 'slow', '-crf', '27', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-f', 'mp4', str(tmp)],
                             stdin=subprocess.PIPE, stderr=subprocess.PIPE)
     try:
         for f in range(result['frames']):
