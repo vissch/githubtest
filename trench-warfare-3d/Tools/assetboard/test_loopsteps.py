@@ -298,6 +298,25 @@ def main():
     lines = autoloop.copy_back(w)
     case('once it has stopped they are copied', (w.main / 'relay' / 'done' / 'look-code-editor-ui-20261015.json').exists(), lines)
 
+    # a close refused after the unit was queued: the next round closes it with that unit, writes its row, runs no second leg
+    w = world(tmp, 'w7')
+    w.free, w.reply, w.ans = 1.0, BUILD, [dict(WRITE)]
+    real_take = w.take
+    w.take = lambda a, **k: (_ for _ in ()).throw(ValueError('the unit is not on the board\'s origin/main yet'))
+    autoloop.take_answers(w)
+    w.take = real_take
+    autoloop.take_answers(w)
+    case('a brief whose close was refused after its unit was queued is closed next round with that unit and its row, with no second leg',
+         len(w.legs) == 1 and [a['id'] for a in w.added] == ['ridge-slope-from-parapet'] and w.taken == [(WRITE['id'], 'ridge-slope-from-parapet', '')] and len(w.rows) == 1,
+         (w.legs, w.added, w.taken, w.rows))
+
+    # the day's pace as relay.py day prints it (ledger.pace_line), in percent and in dollars
+    pp = autoloop.parse_pace
+    case('the pace line is read in percent and dollars; a spent cap or a day ahead is nothing free; no line or a new wording is unknown (no leg runs)',
+         pp('Pace: 7.0% of the week allowed by 15:11, about 4.6% of it free.') == 4.6 and pp('Pace: $40.00 allowed by 15:11, $4.50 of it free.') == 4.5
+         and pp('Pace: 7.0% of the week allowed by 15:11. The day\'s cap is spent.') == 0.0 and pp('Pace: 7% allowed by 1:00, and the day is about 1.2% ahead of that.') == 0.0
+         and pp('Today: about 2.3%') is None and pp('Pace: something new') is None)
+
     print(f'{sum(results)} of {len(results)} cases behaved')
     return 0 if all(results) else 1
 

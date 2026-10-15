@@ -161,8 +161,9 @@ def take_writes(w):
         if (st.get(key) or {}).get('unit'):             # queued by an earlier round whose close was refused: close it, no second leg
             try:
                 w.take(a, queued=st[key]['unit'], option=option_of(a))
+                dropped_by(w, a['id'])
+                w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a.get("option")}: {found.one(a.get("said") or a.get("text"))}** Queued as `{st[key]["unit"]}`. (owner, Decide page, note {a["note"]}) |')
                 st[key]['went'] = 'queued'
-                st[key].pop('unit_open', None)
                 out.append(f'writes: {a["id"]}: closed with {st[key]["unit"]}, queued in an earlier round')
             except Exception as e:      # noqa: BLE001
                 out.append(f'writes: {a["id"]}: {st[key]["unit"]} is queued, the brief not closed yet ({str(e)[:120]})')
@@ -297,7 +298,7 @@ def reviews(w, fw):
 
 # ---- attempts: no unit is gone over again without progress ------------------------------------------------------------
 
-NOT_ITS_OWN = re.compile(r'cannot be switched to|the work checkout cannot be used|did not answer in|index\.lock', re.I)   # a clash between relays, not the unit's try
+NOT_ITS_OWN = re.compile(r'cannot be switched to|the work checkout cannot be used|index\.lock', re.I)   # a clash between relays, not the unit's try
 
 
 def paths_named(text):
