@@ -11,8 +11,8 @@ Shader "TW/VAT Infantry (URP)"
 {
     Properties
     {
-        _PosTex ("VAT Position (RGBAHalf)", 2D) = "black" {}
-        _NrmTex ("VAT Normal (RGBAHalf)", 2D) = "black" {}
+        _PosTex ("VAT Position (RGBA64)", 2D) = "black" {}
+        _NrmTex ("VAT Normal (RGBA32)", 2D) = "black" {}
         _VertexCount ("Vertex Count", Float) = 264
         _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
@@ -23,8 +23,6 @@ Shader "TW/VAT Infantry (URP)"
         _Lift ("Rider lift (set per draw)", Float) = 0
         _LiftA ("Rider rim, side 0 (set per draw)", Color) = (0.35, 0.85, 1, 1)
         _LiftB ("Rider rim, side 1 (set per draw)", Color) = (0.88, 0.25, 0.16, 1)
-        _WoundCenter ("Wound Ellipsoid Center", Vector) = (0,0,0,0)
-        _WoundRadii ("Wound Ellipsoid Radii", Vector) = (0,0,0,0)
         // set per figure by VATRenderer from the baked asset; declared so a material copy (new Material(m)) and a shader
         // reload during Play keep them: an undeclared value is dropped by both, and every man then decodes to a point
         [HideInInspector] _PosMin ("VAT position min", Vector) = (0,0,0,0)
@@ -51,7 +49,6 @@ Shader "TW/VAT Infantry (URP)"
             float _VertexCount, _TotalFrames, _Lerp;
             float4 _PosMin, _PosSize;
             float4 _TeamColorA, _TeamColorB;
-            float4 _WoundCenter, _WoundRadii;
             float4 _OutlineColor; float _OutlineWidth;
             float _Lift;   // 1 on the men riding a machine (VATRenderer.DrawExtras), 0 on everyone else
             float4 _LiftA, _LiftB;   // their side's colour, as on the rings and the seat pips (TankRenderer.TeamA/B)
@@ -227,15 +224,6 @@ Shader "TW/VAT Infantry (URP)"
                     half3 inside = i.cut > 0.5 ? half3(0.16, 0.035, 0.03) : inner;
                     return half4(MixFog(ApplyFieldFog(ApplyMist(inside, i.positionWS), i.positionWS), i.fog), 1.0);
                 }
-                // B4: ellipsoid wound clip exposes embedded gore geometry (the fallen only: nothing sets it on the living,
-                // and even an untaken clip here would cost them early-Z)
-            #if defined(_TW_LIMBCUT)
-                if (_WoundRadii.x > 0.0)
-                {
-                    float3 d = (i.positionOS - _WoundCenter.xyz) / _WoundRadii.xyz;
-                    clip(dot(d, d) - 1.0);
-                }
-            #endif
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
                 // webbing, pack and puttees were baked near white, so from the gameplay pitch a man read as a stack of pale

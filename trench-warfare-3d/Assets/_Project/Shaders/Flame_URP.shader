@@ -28,7 +28,6 @@ Shader "TW/Flame (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             TEXTURE2D(_Noise); SAMPLER(sampler_Noise);
             CBUFFER_START(UnityPerMaterial)
-                float4 _Noise_ST;
                 float _Strength;
             CBUFFER_END
 

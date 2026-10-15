@@ -40,26 +40,6 @@ half3 TWPoolRoll(half3 sum)
     return sum / (1.0 + m * _TWPoolShoulder);
 }
 
-/// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands (softened by
-/// look.poolSoft), brightest in the middle third of the reach, falling to a faint rim, and only on the side that faces
-/// the flame.
-half3 TWLightPools(float3 positionWS, half3 normalWS)
-{
-    half3 sum = 0;
-    int count = (int)_TWPoolCount;
-    [loop] for (int k = 0; k < count; k++)
-    {
-        float3 d = _TWPools[k].xyz - positionWS;
-        float reach = _TWPools[k].w;
-        float dist2 = dot(d, d);
-        if (dist2 >= reach * reach) continue;
-        float t = sqrt(dist2) / reach;                                            // 0 under the flame, 1 at the rim
-        half facing = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))) * 0.6 + 0.4);
-        sum += _TWPoolTint[k].rgb * TWPoolBand(t) * facing;
-    }
-    return TWPoolRoll(sum);
-}
-
 /// For a figure (a man, a machine): the pools' light and a warm rim together in one pass. The rim: the edge of a figure
 /// turned toward a flame catches it, hard and warm, strongest near it, as the owner's colour edit rims every man on the
 /// trench's lip orange from the wreck burning behind him; it shows where the surface turns away from the eye AND toward
@@ -90,7 +70,7 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
 
 /// The ground's pools and, where it is wet (glintOn), the flames' glints in its reflection r, in ONE pass over the pools:
 /// the two separate loops cost the terrain two walks of 32 pools on every wet pixel (round 12: the pool system measured
-/// 0.4-0.5 ms). Same bands, same glints, as TWLightPools and TWPoolGlints.
+/// 0.4-0.5 ms). The same hard bands as TWPoolsOnFigure, and the same hard highlight toward r as a wet reflection catches.
 half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn, out half3 glints)
 {
     half3 sum = 0; glints = 0;
@@ -110,24 +90,6 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
             glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
     }
     return TWPoolRoll(sum);
-}
-
-/// look.wet: the flames' glints on wet ground. A reflection r that points back at a flame within its pool catches a hard
-/// highlight of its colour, so the mud near a fire sparkles orange and, away from it, only the moon's blue remains.
-half3 TWPoolGlints(float3 positionWS, float3 r)
-{
-    half3 sum = 0;
-    int count = (int)_TWPoolCount;
-    [loop] for (int k = 0; k < count; k++)
-    {
-        float3 d = _TWPools[k].xyz - positionWS;
-        float reach = _TWPools[k].w * 1.6;                                      // a glint is seen from further than the pool
-        float dist2 = dot(d, d);
-        if (dist2 >= reach * reach) continue;
-        half toward = smoothstep(0.86, 0.92, dot(r, d * rsqrt(max(dist2, 1e-4))));
-        sum += _TWPoolTint[k].rgb * toward * (1.0 - smoothstep(0.55, 1.0, sqrt(dist2) / reach));
-    }
-    return sum;
 }
 
 #endif
