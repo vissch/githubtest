@@ -820,5 +820,28 @@ namespace TW.Tests
                 "[TS14] the unclamped capacity knobs changed: clamp it, or add it here on purpose");
         }
 
+        [Test]
+        public void Clear_KeepsTheEnvAndCommandLineKnobs()
+        {
+            // [TS21] Clear() used to wipe the env var's knobs too (initialised stayed true, so they were never
+            // read again): a fixture's [SetUp] Knobs.Clear() or LookLab's "Clear all" silently killed them for the
+            // rest of the editor session. 7 is this test's own input, not a sum the code produces. Last in the
+            // file: ResetSession() resets every registered static, not just Knobs.
+            string old = System.Environment.GetEnvironmentVariable(Knobs.EnvVar);
+            try
+            {
+                System.Environment.SetEnvironmentVariable(Knobs.EnvVar, "ts21.fromEnv=7");
+                SceneStatics.ResetSession();
+                Assert.AreEqual(7f, Knobs.Get("ts21.fromEnv", 0f), "[TS21] the env knob is read");
+                Knobs.Clear();
+                Assert.AreEqual(7f, Knobs.Get("ts21.fromEnv", 0f), "[TS21] Clear() must put the env knob back, not drop it");
+                Assert.IsTrue(Knobs.Overrides.ContainsKey("ts21.fromEnv"), "[TS21] and it is still in Overrides");
+            }
+            finally
+            {
+                System.Environment.SetEnvironmentVariable(Knobs.EnvVar, old);
+                SceneStatics.ResetSession();
+            }
+        }
     }
 }
