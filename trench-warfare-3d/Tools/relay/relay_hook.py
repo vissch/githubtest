@@ -164,6 +164,9 @@ def off_limits(path, d, leg, C):
     board = leg.get("board")
     if board and inside(path, board, C) and not inside(path, Path(board) / "evidence", C):
         return "on the board a leg writes only under evidence/: results, claims and the queue are the runner's"
+    why = C.drive_why(path)
+    if why:
+        return why
     if "/.git/" in C.norm_path(path) + "/":
         return "a leg does not write inside a .git folder: use git commands"
     return None
@@ -206,6 +209,9 @@ def refusal(d, leg, inp, C):
     if cmd:
         if names_runner_folder(cmd, d, leg, C):
             return "that folder is the runner's: no command may name it"
+        why = C.drive_why(cmd)
+        if why:
+            return why
         if C.skips_guard(cmd):
             return "git's push guard is the runner's: a leg does not touch or skip it"
         why = C.never(cmd, leg)

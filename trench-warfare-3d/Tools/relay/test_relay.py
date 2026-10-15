@@ -118,6 +118,20 @@ class Settings(Base):
         self.assertEqual(config.report_problems("RESULT: done. Pictures are on the board.", st), [])
         self.assertEqual(len(config.report_problems("word " * 200, st)), 2)
 
+    def test_the_drive_evidence_folder_is_added_to_the_workspace(self):
+        d = self.leg()
+        old = launch.drive_dir
+        try:
+            launch.drive_dir = lambda: cmdrules.DRIVE_EVIDENCE
+            a = launch.argv(d, legdir.read(d), self.lim)
+            self.assertIn("--add-dir", a)
+            self.assertIn(cmdrules.DRIVE_EVIDENCE, a)
+            launch.drive_dir = lambda: ""
+            a = launch.argv(d, legdir.read(d), self.lim)
+            self.assertNotIn(cmdrules.DRIVE_EVIDENCE, a)
+        finally:
+            launch.drive_dir = old
+
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))
                        if p.name != "test_relay.py")
@@ -415,6 +429,21 @@ class Guards(Base):
                     'python -c "import runpy; runpy.run_path(\'Tools/land.py\')"',
                     'python -c "import subprocess; subprocess.run([\'python\', \'Tools/land.py\'])"'):
             self.assertTrue(self.denied("Bash", command=cmd), cmd)
+
+    def test_a_leg_writes_on_the_drive_only_under_decisions_evidence(self):
+        self.leg()
+        for cmd in ('cp film.mp4 "G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12/banner-day-film/film.mp4"',
+                    'Copy-Item a.mp4 "G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12/x/"',
+                    'ls "G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12"',
+                    'cp a.mp4 "G:\\My Drive\\TW3D-pipeline\\decisions-evidence\\2026-10-12\\x.mp4"',
+                    'cp a.mp4 "/g/my drive/TW3D-pipeline/decisions-evidence/2026-10-12/x.mp4"'):
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        self.assertFalse(self.denied("Write", file_path="G:/My Drive/TW3D-pipeline/decisions-evidence/x.md"))
+        for cmd in ('cp x "G:/My Drive/TW3D-pipeline/decisions/x.md"', 'ls "G:/My Drive"',
+                    'cp x "G:/My Drive/TW3D-pipeline/decisions-evidence/../decisions/x"',
+                    'cp x "G:/My Drive/TW3D-pipeline/decisions-evidence-old/x"'):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+        self.assertTrue(self.denied("Write", file_path="G:/My Drive/TW3D-pipeline/notes/x.md"))
 
     def test_a_plan_leg_may_check_its_plan_and_its_card_names_the_command(self):
         d = self.leg("plan")

@@ -16,6 +16,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 from pipeline import now, proc_start          # noqa: E402
 from run_detached import kill_tree            # noqa: E402
+import cmdrules                               # noqa: E402
 import config                                 # noqa: E402
 import legdir                                 # noqa: E402
 import prompt                                 # noqa: E402
@@ -71,6 +72,12 @@ def make_leg(run, nn, unit, phase, worktree, lane, board, body, lim=None, plan=N
     return d
 
 
+def drive_dir():
+    """The owner's Drive evidence folder when this machine has it, else "". A leg may write there (the owner,
+    2026-10-12); the guard keeps the rest of the Drive shut."""
+    return cmdrules.DRIVE_EVIDENCE if Path(cmdrules.DRIVE_EVIDENCE).is_dir() else ""
+
+
 def argv(d, leg, lim):
     d = Path(d)
     a = claude_cmd() + ["-p", "--output-format", "stream-json", "--verbose", "--name",
@@ -81,6 +88,8 @@ def argv(d, leg, lim):
                         "--autocompact", "%dk" % (lim["autocompact_tokens"] // 1000), "--add-dir", leg["desk"]]
     if leg.get("board"):
         a += ["--add-dir", leg["board"]]
+    if drive_dir():
+        a += ["--add-dir", drive_dir()]
     if lim.get("leg_budget_usd"):
         a += ["--max-budget-usd", str(lim["leg_budget_usd"])]
     return a
