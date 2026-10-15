@@ -63,7 +63,7 @@ namespace TW.Editor
             var sum = report.summary;
             double seconds = (DateTime.UtcNow - started).TotalSeconds;
             string line = $"{sum.result}: {opts.locationPathName} ({sum.totalSize / 1048576} MB, {sum.totalErrors} errors, {sum.totalWarnings} warnings, {seconds:0} s)";
-            WriteInfo(dir, development, sum, seconds, scenes);
+            WriteInfo(dir, development, sum.result, (long)sum.totalSize, seconds, scenes);
             File.WriteAllText(status, line);
             Debug.Log("BuildWindows: " + line);
             return line;
@@ -77,8 +77,11 @@ namespace TW.Editor
             EditorApplication.Exit(line.StartsWith("Succeeded", StringComparison.Ordinal) ? 0 : 1);
         }
 
-        static void WriteInfo(string dir, bool development, BuildSummary sum, double seconds, List<string> scenes)
+        /// <summary>Writes build-info.json beside the exe. A failed build writes nothing and returns false, so the
+        /// file keeps describing the exe that is actually there (code review 2026-10-04, E14).</summary>
+        public static bool WriteInfo(string dir, bool development, BuildResult result, long sizeBytes, double seconds, List<string> scenes)
         {
+            if (result != BuildResult.Succeeded) return false;
             string sha = Git("rev-parse HEAD").Trim();
             string porcelain = Git("status --porcelain");
             int dirty = 0; foreach (var l in porcelain.Split('\n')) if (l.Trim().Length > 0) dirty++;
@@ -89,14 +92,15 @@ namespace TW.Editor
               .Append(", \"backend\": \"").Append(backend).Append("\"")
               .Append(", \"development\": ").Append(development ? "true" : "false")
               .Append(", \"frame_timing_stats\": ").Append(PlayerSettings.enableFrameTimingStats ? "true" : "false")
-              .Append(", \"result\": \"").Append(sum.result).Append("\"")
-              .Append(", \"size_mb\": ").Append((sum.totalSize / 1048576.0).ToString("0.0", CultureInfo.InvariantCulture))
+              .Append(", \"result\": \"").Append(result).Append("\"")
+              .Append(", \"size_mb\": ").Append((sizeBytes / 1048576.0).ToString("0.0", CultureInfo.InvariantCulture))
               .Append(", \"build_seconds\": ").Append(seconds.ToString("0", CultureInfo.InvariantCulture))
               .Append(", \"built_utc\": \"").Append(DateTime.UtcNow.ToString("yyyy-MM-ddTHH:mm:ssZ", CultureInfo.InvariantCulture)).Append("\"")
               .Append(", \"scenes\": [");
             for (int i = 0; i < scenes.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(scenes[i]).Append('"');
             sb.Append("] }");
             File.WriteAllText(Path.Combine(dir, "build-info.json"), sb.ToString());
+            return true;
         }
 
         static string Git(string args)
