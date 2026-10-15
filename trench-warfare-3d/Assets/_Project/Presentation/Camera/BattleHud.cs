@@ -191,6 +191,15 @@ namespace TW.Presentation.Tactical
         void Start()
         {
             if (Panel == null) Panel = GetComponent<TestPanel>();
+        }
+
+        /// <summary>[Q9] The ~35 generated textures used to be built in Start, which runs even when
+        /// HudBridge.UseToolkitHud keeps this component from ever drawing (DebugOverlay.Start only adds a BattleHud
+        /// when the old HUD is in use, but a scene can still carry one from before that guard existed). Building
+        /// them lazily, the first time OnGUI actually draws, means an unused BattleHud leaks nothing.</summary>
+        void EnsureArt()
+        {
+            if (sideTex != null) return;
             sideTex = Solid(new Color(0.42f, 0.42f, 0.39f));
             stripTex = Solid(new Color(0.36f, 0.23f, 0.16f));
 
@@ -370,8 +379,9 @@ namespace TW.Presentation.Tactical
         void OnGUI()
         {
             BeginChrome();   // Q5: a frame that draws nothing below leaves no stale rect for a ground click to find
-            if (Host == null || Host.Local == null || stripTex == null) return;
+            if (Host == null || Host.Local == null) return;
             if (InputFocus.Modal) return;   // a shell screen is up
+            EnsureArt();
             EnsureStyles();
             var w = Host.Local.World;
             bool over = w.WinnerTeam >= 0;
