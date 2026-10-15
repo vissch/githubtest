@@ -60,6 +60,14 @@ def prices():
     return json.loads((HERE / "vendors.json").read_text(encoding="utf-8"))
 
 
+def usual_minutes(vendor_name):
+    """How long one run of that vendor usually takes (vendors.json "minutes"), 1 when its row names none: a caller
+    with a deadline has to know a vendor's length before it starts it."""
+    row = prices().get(vendor_name) or {}
+    m = row.get("minutes")
+    return float(m) if isinstance(m, (int, float)) and not isinstance(m, bool) else 1.0
+
+
 def tree_hash(folder):
     """One hash over every file under a folder: its path and its bytes."""
     h = hashlib.sha256()

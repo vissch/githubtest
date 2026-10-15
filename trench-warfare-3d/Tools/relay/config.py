@@ -64,12 +64,22 @@ def limits(folder=None, overrides=None):
     return out
 
 
+def parse_second(value):
+    """The vendors that score each critic round a second time, in the order they run; () when nobody does. A name
+    that is not a vendor, or one named twice, stops the run here rather than in a leg (second.py)."""
+    names = [p.strip() for p in str(value or "").split(",") if p.strip()]
+    if names == ["off"]:
+        return ()
+    for n in names:
+        if n not in SECOND_VENDORS or names.count(n) > 1:
+            raise SystemExit('relay: second_critic is "", "off", or names of %s separated by commas, each once '
+                             '(got "%s")' % (", ".join(SECOND_VENDORS), value))
+    return tuple(names)
+
+
 def second_critic(folder=None):
-    """The vendor that scores each critic round a second time, recording only; "" when nobody does (second.py)."""
-    v = _read("limits.json", folder).get("second_critic", "")
-    if v not in ("",) + SECOND_VENDORS:
-        raise SystemExit("relay: limits.json second_critic is \"\" or one of %s" % ", ".join(SECOND_VENDORS))
-    return v
+    """limits.json second_critic, parsed: the vendors that score each critic round, recording only (second.py)."""
+    return parse_second(_read("limits.json", folder).get("second_critic", ""))
 
 
 def phases(folder=None):

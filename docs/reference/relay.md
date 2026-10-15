@@ -65,6 +65,8 @@ and the note says so. Queued lane work has no evidence bundle and gets no critic
 `Tools/relay/second.py` asks another vendor's model for a critic's score or a second reader's report, on the same
 files a Claude critic or reader gets: Grok Build (`grok`) or Codex (`codex`), under the owner's own sign-in on the
 desktop. It records and decides nothing. The owner asked for it on 2026-10-09 (`decisions.md`).
+desktop. It records and decides nothing. The owner asked for it on 2026-10-09, and on 2026-10-10 for "as many
+critiques as possible" (`decisions.md`).
 
 **What holds a run to reading.** Nothing here goes through the relay's guard hooks; a second opinion has rails of
 its own, and `providers/<vendor>.py` says how each vendor does its part.
@@ -98,6 +100,24 @@ own cap is a count, `second_per_day` over every station, because it draws on the
 **Cost.** The owner's plans with the two vendors cover these runs. `vendors.json` holds the model each is asked for
 and list prices, for a "what this would have cost" figure on the row (`list_usd`): Grok prints its own, Codex prints
 tokens only. Codex's row names the best model the installed `codex.exe` may use; move it when Codex is updated.
+**In a run.** `limits.json` `second_critic` names the vendors, in the order they run; `"codex,grok"` as shipped, so
+every critic round gets a Codex score and a Grok score too. `run --second codex,grok|off` outranks the file, and an
+unknown name there stops the run before its first leg. After each critic round each vendor in turn scores a fresh
+copy of the same bundle with the same card: Codex first because it is fast (a median 21 s), Grok after it, and a
+vendor is skipped for that round when its usual run (`vendors.json` `minutes`: codex 1, grok 6) does not fit in the
+time the run has left ("no second opinion from grok on round 1: its 6 minutes do not fit in the 4 left"). Each
+paper is kept beside the critic's as `critic-r<n>-<vendor>.md`, a row per vendor goes to `relay/<station>/second/`
+on the board, and the result's note says "codex on round 1: 72/100; grok on round 1: 65/100". A later round's
+bundle holds no earlier paper, whoever wrote it. **The Claude critic's score alone decides a fix round and the
+verdict.** A second opinion that fails, runs out of its time (`second_minutes`) or cannot be trusted is words in the
+note: one vendor's failure stops neither the other nor the run. It is no leg: the leg cap does not count it and the
+day's spend does not hold it. Its own cap is a count, `second_per_day` over every station, because it draws on the
+other vendor's plan.
+
+**Cost.** The owner's plans with the two vendors cover these runs. `vendors.json` holds the model each is asked for,
+its usual minutes and list prices, for a "what this would have cost" figure on the row (`list_usd`): Grok prints its
+own, Codex prints tokens only. Codex's row names the best model the installed `codex.exe` may use; move it when
+Codex is updated.
 
 Not built: plan and execute legs by another vendor. Those need the guard, the context meter and the day's budget
 for that vendor.
@@ -159,6 +179,7 @@ $R run --work <work checkout> [--hours 3] [--max-legs N] [--sources pipeline,lan
 $R run --work <work checkout> --day-pct 15        # the day's cap in percent of the week, when the owner named one (default 11)
 $R run --work <work checkout> --day-budget 20     # the day's cap in dollars of cost for this run; the percent cap is then not used
 $R run --work <work checkout> --view              # also open a Windows Terminal tab per leg that shows its output
+$R run --work <work checkout> --second codex,grok|off   # who scores each critic round a second time (default: limits.json second_critic)
 $R run --work <work checkout> --who <name>        # who starts it: shown by status and kept in the stop record
 $R status                                         # is a run going, on what; else how the last one stopped
 $R stop [--now]                                   # end before the next leg (--now: end the leg too)
@@ -188,6 +209,7 @@ $R hold <who> [--hours 4] [--release]             # one session at a time builds
 $R update [<commit>]                              # move the frozen copy to a commit (default: origin's relay lane)
 python trench-warfare-3d/Tools/relay/test_relay.py   # the tests; they use a stand-in for Claude
 python trench-warfare-3d/Tools/relay/test_ledger.py  # the tests of the day's spend
+python trench-warfare-3d/Tools/relay/test_second.py  # the tests of a second opinion by another vendor
 python trench-warfare-3d/Tools/relay/test_outcomes.py  # the tests of what became of a passed unit
 python trench-warfare-3d/Tools/relay/test_day.py     # the tests of the day screen, the queue's order, his answers, add --unit
 python trench-warfare-3d/Tools/relay/test_usage.py   # the tests of the weekly-limit readings

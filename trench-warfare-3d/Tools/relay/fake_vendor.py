@@ -2,7 +2,7 @@
 """A stand-in for grok.exe and codex.exe, for the tests: `fake_vendor.py grok|codex <the real arguments>`. It prints
 what the real one prints for one turn, in that vendor's shape. No model, no network, no cost.
 
-TW_FAKE_SECOND is a JSON file:
+TW_FAKE_SECOND_GROK or TW_FAKE_SECOND_CODEX, else TW_FAKE_SECOND, is a JSON file:
   "report"   the last message                      "calls"  [{"tool": name, "ran": true|false, "what": ".."}]
   "write"    a file name to create in the working folder (a run that got past its rail)
   "tools"    grok: the tool list it says it has (default: what --tools asked for, and the two meta tools)
@@ -25,7 +25,8 @@ def out(obj):
 
 def main():
     who, args = sys.argv[1], sys.argv[2:]
-    script = json.loads(Path(os.environ["TW_FAKE_SECOND"]).read_text(encoding="utf-8"))
+    scr = os.environ.get("TW_FAKE_SECOND_" + who.upper()) or os.environ["TW_FAKE_SECOND"]
+    script = json.loads(Path(scr).read_text(encoding="utf-8"))
     if os.environ.get("TW_FAKE_SECOND_ARGV"):
         with open(os.environ["TW_FAKE_SECOND_ARGV"], "a", encoding="utf-8") as f:
             f.write(json.dumps(args) + "\n")

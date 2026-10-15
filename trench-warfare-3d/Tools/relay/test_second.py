@@ -187,6 +187,11 @@ class Money(Base):
         want = (10000 * row["in"] + 90000 * row["cached"] + 1000 * row["out"]) / 1e6
         self.assertEqual((c["cost_usd"], c["cost_from"]), (round(want, 4), "list price"))
 
+    def test_each_vendors_usual_minutes_come_from_vendors_json(self):
+        # measured 2026-10-09: Codex a median 21 s a run, Grok about 6 minutes. A row with no figure counts as 1.
+        self.assertEqual((second.usual_minutes("codex"), second.usual_minutes("grok")), (1.0, 6.0))
+        self.assertEqual(second.usual_minutes("nobody"), 1.0)
+
 
 class Review(Base):
     def repo(self):
