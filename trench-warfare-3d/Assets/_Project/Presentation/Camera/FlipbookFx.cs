@@ -24,7 +24,6 @@ namespace TW.Presentation.Tactical
             Flash,      // the burst's own light (additive)
             Fire,       // rolling fire: the flamethrower's stream, a pool of burning fuel, a man alight (additive)
             Pyre,       // the same fire standing up and licking: a big thing burning, what a pool settles into (additive)
-            Fireball,   // fuel going up at once: the flamethrower's tank when he is killed (additive)
             // round 3: the rest of the pack. Tools/firebooks.py throws the pack's colour away, so a blue sheet is not a
             // blue effect - it is a different DRAWING, and these are the drawings the fire had been faking until now.
             Jet,        // the stream itself, drawn rooted at its left edge: it starts, holds and stops like a valve
@@ -38,7 +37,7 @@ namespace TW.Presentation.Tactical
             Count
         }
 
-        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4, HoldLast = 8 }
+        [System.Flags] public enum Kind : byte { None = 0, Upright = 1, Anchored = 2, Mirror = 4 }
 
         struct Card
         {
@@ -92,7 +91,6 @@ namespace TW.Presentation.Tactical
             // shadow) and the base of a flame is the hottest part of it.
             new Sheet { Name = "FireBall",   Cycle = true, Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.16f, High = 0.86f, Play = 0.62f, Fps = 12f, Bands = new Vector4(0.00f, 0.21f, 0.88f, 0.75f), Ink = new Vector2(0.23f, 0.72f), Fill = 0.90f },
             new Sheet { Name = "FireColumn", Cycle = true, Cols = 8, Rows = 4, Frames = 30, Fire = true, Snap = true, Tint = new Color(1.3f, 0.64f, 0.19f), Low = 0.18f, High = 0.88f, Play = 0.80f, Fps = 12f, Rise = 0.70f, Bands = new Vector4(0.00f, 0.05f, 0.42f, 0.75f), Ink = new Vector2(0.29f, 0.71f), Fill = 0.90f },
-            new Sheet { Name = "FireBurst",  Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.4f, 0.68f, 0.24f), Low = 0.14f, High = 0.84f, Fps = 12f, Rise = 0.55f, Bands = new Vector4(0.00f, 0.04f, 0.31f, 0.75f), Ink = new Vector2(0.28f, 0.78f), Fill = 0.90f },
             // FireStand's window is wide open, and the reason is worth keeping. It was narrowed to 0.62 to make the
             // book brighter and it came out DARKER - twenty luminance darker, the dimmest fire in the build. The
             // window was innocent: narrowing it pushes the measured band cuts up with it, and at 0.62 the core cut
@@ -601,9 +599,19 @@ namespace TW.Presentation.Tactical
         public void Add(Book book, Vector3 at, float width, float life, Kind kind = Kind.None, Vector3 velocity = default, float grow = 0f, float roll = 0f, float alpha = 1f, float glow = 1f, float height = 0f, float pop = 0f, float delay = 0f, float startFrame = 0f, float soil = 0f, float soilCap = 1f, float cut = 0f)
         {
             if (!Ready) return;
-            if (cards.Count >= maxCards) cards.RemoveAt(0);
             float h = height > 0f ? height : width / Mathf.Max(0.05f, aspect[(int)book]);
-            cards.Add(new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind });
+            var card = new Card { Pos = at, Vel = velocity, Born = Time.time + delay, Life = Mathf.Max(0.02f, life), Width = width, Height = h, Grow = grow, Roll = roll, Alpha = alpha, Glow = glow, Pop = pop, Start = startFrame, Soil = soil, Cap = soilCap, Cut = cut > 0f && cut < 1f ? cut : 0f, Book = book, Kind = kind };
+            // X6: at the cap the OLDEST card gives up its slot in place. RemoveAt(0) moved every other card down the
+            // list on every Add at the cap (up to 1,535 of them), and the card it dropped was only the first one added,
+            // not the oldest: a delayed card is born later than one added after it. Draw does not care about the order.
+            if (cards.Count >= maxCards)
+            {
+                int oldest = 0;
+                for (int i = 1; i < cards.Count; i++) if (cards[i].Born < cards[oldest].Born) oldest = i;
+                cards[oldest] = card;
+                return;
+            }
+            cards.Add(card);
         }
 
         /// <summary>Move, age and draw every card. Clouds before the lights, so the flash is not hidden by its own smoke.</summary>
@@ -635,8 +643,7 @@ namespace TW.Presentation.Tactical
                     float fps = Sheets[b].Fps;
                     float run = (fps > 0f ? (now - c.Born) * fps : k * frames * play) + c.Start;   // at the rate it was drawn, or spread over the life
                     float span = frames * play - 1.001f;
-                    float frame = (c.Kind & Kind.HoldLast) != 0 ? Mathf.Min(k * frames, frames - 1f)
-                                : Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
+                    float frame = Sheets[b].Cycle ? Mathf.Repeat(run, span) : Mathf.Min(run, span);
                     float bright = 1f + (c.Glow - 1f) * (1f - Mathf.Clamp01(k / 0.15f));   // the fire is out in the first sixth
                     if (c.Soil > 0f)
                     {
