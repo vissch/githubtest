@@ -108,9 +108,11 @@ namespace TW.Presentation.Tactical
         /// <summary>By day among the men a round's streak is halved: 6 m cream bars read as poles lying on the snow (lin6).</summary>
         public static float DayStreakAt(bool night, float closeUp, bool classLooks) => night || !classLooks ? 1f : Mathf.Lerp(1f, 0.5f, closeUp);
 
-        /// <summary>By day up close the flare is drawn from the gun-blast fire book, whose soot fringe shows on snow; the additive
-        /// Muzzle card is light added to white and vanished (lin5, lin6). Past this closeness only.</summary>
-        public const float DayFlareCloseUp = 0.3f;
+        /// <summary>By day the flare is drawn from the gun-blast fire book, whose soot fringe shows on snow; the additive
+        /// Muzzle card is light added to white and vanished (lin5, lin6). Past this closeness only - 0 since the gun-fire
+        /// pass, so the standard view gets it too: at zoom 30 the additive card measured 0.28 % warm pixels and no frame
+        /// of 144 over 1 %, the day fault the owner asked about first (before.md, 2026-10-15).</summary>
+        public const float DayFlareCloseUp = 0f;
         public static bool DayFlare(bool night, float closeUp, bool classLooks) => classLooks && !night && closeUp >= DayFlareCloseUp;
 
         /// <summary>The class's own muzzle book (critique la5: one book scaled can never make classes differ in shape), or
@@ -140,11 +142,17 @@ namespace TW.Presentation.Tactical
         /// whose identity is its length, and let nothing stop a fan ballooning (critique r14).</summary>
         public const float ClassBookTallest = 1.6f;
 
+        /// <summary>The rifle's own cone at the standard view: at the flare's plain size the premultiplied card is a two or
+        /// three pixel speck on snow at zoom 30 (before.md). 1.35 is the smallest that reads there and is still under
+        /// half a man, so a firing line does not become a wall of flame.</summary>
+        public const float RifleStandard = 1.35f;
+
         public static float MuzzleScale(FlipbookFx.Book book, float closeUp)
         {
             float k = book == FlipbookFx.Book.MuzzleBrake ? (SceneMood.Night ? 1.25f : BrakeDay) : book == FlipbookFx.Book.MuzzleStream ? 1.4f : book == FlipbookFx.Book.MuzzlePop ? 0.9f
                     : book == FlipbookFx.Book.MuzzleBurst && !SceneMood.Night ? BurstDay : 1f;
-            return Mathf.Lerp(1f, k * (SceneMood.Night ? BookGrowNight : BookGrow), closeUp);
+            float near = book == FlipbookFx.Book.MuzzleRifle ? RifleStandard : 1f;   // the rifle's cone big enough to read at zoom 30
+            return Mathf.Lerp(near, Mathf.Max(near, k * (SceneMood.Night ? BookGrowNight : BookGrow)), closeUp);
         }
 
         /// <summary>A flame nearly end-on (just short of the Star pop) blooms into a soft ellipse: its glow x0.7 there.</summary>
