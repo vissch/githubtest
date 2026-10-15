@@ -35,18 +35,20 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>A lantern post has gone (PropDestruction): the lamps hung within `reach` of it go out, their light and
-        /// their card in the night glows mesh (card j is lanterns[j]). Before, the light burned on over the flattened post.</summary>
+        /// their card in the night glows mesh (lantern j's card is lanternCard[j], which is not j: MoreFires adds cards with no
+        /// lantern of their own). Before, the light burned on over the flattened post.</summary>
         void LampOut(Vector3 at, float reach)
         {
             Color[] cols = null;
-            for (int j = 0; j < lanterns.Count && j < lanternHome.Count; j++)
+            for (int j = 0; j < lanterns.Count && j < lanternHome.Count && j < lanternCard.Count; j++)
             {
                 float dx = lanternHome[j].x - at.x, dz = lanternHome[j].z - at.z;
                 if (dx * dx + dz * dz > reach * reach || lampOut[j]) continue;
                 lampOut[j] = true; lanterns[j].enabled = false;   // out for good: the real-lamp rule never lights it again
                 if (nightGlows == null) continue;
                 if (cols == null) cols = nightGlows.colors;
-                for (int k = 0; k < 4 && j * 4 + k < cols.Length; k++) cols[j * 4 + k] = Color.clear;
+                int card = lanternCard[j];
+                for (int k = 0; k < 4 && card * 4 + k < cols.Length; k++) cols[card * 4 + k] = Color.clear;
             }
             if (cols != null) nightGlows.colors = cols;
         }
