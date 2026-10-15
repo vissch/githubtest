@@ -53,6 +53,42 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>[X7] Burst scaled the count for the zoom before it checked for a count of 0, so Max(1, ...)
+        /// turned "throw nothing" into one piece. Fails on old code (the pool holds one record), passes with the
+        /// guard first.</summary>
+        [Test]
+        public void A_Burst_Of_Nothing_Throws_Nothing_When_Zoomed()
+        {
+            var go = new GameObject("DebrisRenderer");
+            NativeArray<DebrisRenderer.Record> records = default;
+            float zoom = DebrisRenderer.ZoomShare;
+            try
+            {
+                var dr = go.AddComponent<DebrisRenderer>();
+                var t = typeof(DebrisRenderer);
+                t.GetField("groundFn", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, (System.Func<float, float, float>)((x, z) => 0f));
+                records = new NativeArray<DebrisRenderer.Record>(8, Allocator.Persistent);
+                t.GetField("records", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, records);
+                var poolType = t.GetNestedType("Pool", BindingFlags.NonPublic);
+                var pool = System.Activator.CreateInstance(poolType, nonPublic: true);
+                poolType.GetField("Start").SetValue(pool, 0);
+                poolType.GetField("Capacity").SetValue(pool, 8);
+                var pools = (System.Array)t.GetField("pools", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(dr);
+                pools.SetValue(pool, (int)DebrisRenderer.Piece.Clod);
+                t.GetField("<Ready>k__BackingField", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, true);
+
+                DebrisRenderer.ZoomShare = 0.5f;
+                dr.Burst(DebrisRenderer.Piece.Clod, Vector3.zero, 0, 6f, 0.2f, Color.white);
+                Assert.AreEqual(0, (int)poolType.GetField("Count").GetValue(pool), "[X7] a count of 0 still threw a piece when zoomed");
+            }
+            finally
+            {
+                DebrisRenderer.ZoomShare = zoom;
+                if (records.IsCreated) records.Dispose();
+                Object.DestroyImmediate(go);
+            }
+        }
+
         [Test]
         public void TimeToHeight_IsTheFallOfAThrow()
         {
