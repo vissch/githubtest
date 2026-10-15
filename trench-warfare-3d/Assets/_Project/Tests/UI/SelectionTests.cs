@@ -179,6 +179,17 @@ namespace TW.Tests
             Assert.That(a.Of(0, 23f + GroupAlerts.HitShowSeconds + 0.1f), Is.EqualTo(GroupAlerts.Alert.None), "the flash ends");
         }
 
+        // [I9] a big group never flashed HIT: the quarter threshold rose above the 64 losses the ring keeps, so from
+        // 254 men up no window could ever reach it
+        [Test]
+        public void ABigGroupCutDownStillFlashesHit()
+        {
+            var a = new GroupAlerts();
+            a.Observe(0, 1, 400, 0, 0f);                                 // assigned: four hundred men
+            a.Observe(0, 1, 300, 0, 1f);                                 // a hundred gone in one second
+            Assert.That(a.Of(0, 1f), Is.EqualTo(GroupAlerts.Alert.Hit), "[I9] a group of 400 losing a hundred men never flashed HIT");
+        }
+
         [Test]
         public void HalfPinnedIsPinnedAWipedGroupIsLostAndReassigningStartsAgain()
         {
