@@ -19,6 +19,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A bomb in the air: where it left the hand, its launch velocity, and the sim seconds it left and flies.</summary>
         struct Bomb { public Vector3 From, Velocity; public float Born, Air, Size; }
         readonly System.Collections.Generic.List<Bomb> bombs = new System.Collections.Generic.List<Bomb>(16);
+        float lastBombDraw = -1f;   // the sim time DrawBombs last ran: paused, the clock stands still and no new fuse spark is made
 
         /// <summary>Where a bomb thrown from <paramref name="from"/> at <paramref name="velocity"/> is <paramref name="t"/> seconds on.</summary>
         public static Vector3 BombAt(Vector3 from, Vector3 velocity, float t) => from + velocity * t + Vector3.down * (0.5f * DebrisMath.Gravity * t * t);
@@ -32,6 +33,7 @@ namespace TW.Presentation.Tactical
         {
             if (bombs.Count == 0) return;
             float now = SimNow;
+            bool moved = now != lastBombDraw; lastBombDraw = now;
             for (int k = bombs.Count - 1; k >= 0; k--)
             {
                 var b = bombs[k];
@@ -40,7 +42,7 @@ namespace TW.Presentation.Tactical
                 if (t < 0f || chunks.Count >= MaxChunks - 2) continue;
                 Vector3 at = BombAt(b.From, b.Velocity, t);
                 chunks.Add(new Chunk { Pos = at, Vel = Vector3.zero, Born = Time.time, Life = 0f, Size = b.Size, Kind = 0 });   // drawn this frame only
-                chunks.Add(new Chunk { Pos = at, Vel = UnityEngine.Random.insideUnitSphere * 0.8f + Vector3.up * 0.4f, Born = Time.time, Life = UnityEngine.Random.Range(0.15f, 0.35f), Size = 0.05f, Kind = 3 });
+                if (moved) chunks.Add(new Chunk { Pos = at, Vel = UnityEngine.Random.insideUnitSphere * 0.8f + Vector3.up * 0.4f, Born = Time.time, Life = UnityEngine.Random.Range(0.15f, 0.35f), Size = 0.05f, Kind = 3 });   // X5: paused, the sim clock does not move, so no new sparks
             }
         }
 
