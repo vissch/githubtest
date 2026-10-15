@@ -53,7 +53,7 @@ Shader "TW/Debris (URP)"
         float4 QAxisAngle(float3 axis, float angle) { float h = angle * 0.5; return float4(axis * sin(h), cos(h)); }
         float4 QNlerp(float4 a, float4 b, float t) { if (dot(a, b) < 0.0) b = -b; return normalize(lerp(a, b, t)); }
 
-        struct Placed { float3 positionWS; float3 normalWS; float3 smoothWS; float4 tint; float age; float life; float3 positionOS; };
+        struct Placed { float3 positionWS; float3 normalWS; float3 smoothWS; float4 tint; float age; float life; float3 positionOS; float scale; };
 
         Placed Place(float3 positionOS, float3 normalOS, float3 smoothOS, uint svInstanceID)
         {
@@ -102,6 +102,8 @@ Shader "TW/Debris (URP)"
             o.smoothWS = QRotate(q, dot(smoothOS, smoothOS) > 0.01 ? smoothOS : normalOS);
             o.tint = float4(r.tint.rgb * _DebrisBiome.rgb, molten ? max(r.tint.a, saturate((t - r.landT) * 3.0)) : r.tint.a);   // a swallowed piece flares as it goes
             o.age = t; o.life = r.life;
+            o.scale = scale;                                                // 0 once the piece has sunk or run out: it is collapsed and must draw nothing
+
             return o;
         }
         ENDHLSL
@@ -204,7 +206,7 @@ Shader "TW/Debris (URP)"
                 float2 dir = mul((float3x3)UNITY_MATRIX_VP, a.smoothWS).xy;
                 dir = dir / max(length(dir), 1e-4);
                 float px = clamp(_OutlineWidth * 70.0 / max(cs.w, 1.0), 0.0, _OutlineWidth);
-                cs.xy += dir * px * 2.0 / _ScreenParams.xy * cs.w;
+                cs.xy += a.scale <= 0.0 ? 0.0 : dir * px * 2.0 / _ScreenParams.xy * cs.w;   // a gone piece is collapsed; the rim must not pull it apart again
                 o.positionCS = cs;
                 o.positionWS = a.positionWS;
                 o.fog = ComputeFogFactor(cs.z);

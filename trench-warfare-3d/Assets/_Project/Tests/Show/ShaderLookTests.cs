@@ -13,6 +13,7 @@ namespace TW.Tests
     {
         const string ToonPath = "Assets/_Project/Shaders/Toon_URP.shader";
         const string VatPath = "Assets/_Project/Shaders/VAT_URP.shader";
+        const string DebrisPath = "Assets/_Project/Shaders/Debris_URP.shader";
         const string PigmentPath = "Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs";
 
         // [Hs1] the painted sheet is R8, so it clamps at 1, but the paint peaks at 1.22 (Earth's seam lip): the
@@ -76,6 +77,39 @@ namespace TW.Tests
                 Assert.That(pass, Does.Contain("ApplyMist("), "[Hs3] the outline pass of " + path + " skips the ground mist the body applies");
                 Assert.That(pass, Does.Contain("ApplyFieldFog("), "[Hs3] the outline pass of " + path + " skips the field fog the body applies");
             }
+        }
+
+        // [Hs6] a hidden house chunk and a sunk debris piece are collapsed onto a point so their triangles have no
+        // area: the outline pass must not push the three vertices apart in screen space again, or an ink dot of a
+        // couple of pixels is left behind at the origin.
+        [Test]
+        public void ACollapsedPieceGrowsNoOutline()
+        {
+            string toon = File.ReadAllText(ToonPath);
+            Assert.That(Regex.IsMatch(toon, @"bool TWChunkHidden\(float chunk\)"), Is.True,
+                "[Hs6] Toon_URP must be able to ask whether a chunk is hidden, not only collapse it");
+            Assert.That(OutlinePass(toon), Does.Match(@"cs\.xy \+= *hidden \?"),
+                "[Hs6] Toon's outline pass extrudes a hidden chunk: it leaves an ink dot at the house origin");
+            Assert.That(OutlinePass(toon), Does.Contain("TWChunkHidden(v.chunk.x)"),
+                "[Hs6] Toon's outline pass must read the chunk mask to know what is hidden");
+            Assert.That(Regex.IsMatch(toon, @"v\.positionOS\.xyz = TWChunk\("), Is.True,
+                "[Hs6] the body passes must still collapse a hidden chunk");
+
+            string debris = File.ReadAllText(DebrisPath);
+            Assert.That(Regex.IsMatch(debris, @"struct Placed \{[^}]*float scale;"), Is.True,
+                "[Hs6] Place must hand its scale on, or the outline pass cannot tell a gone piece from a live one");
+            Assert.That(OutlinePass(debris), Does.Match(@"cs\.xy \+= *a\.scale <= 0\.0 \?"),
+                "[Hs6] Debris' outline pass extrudes a sunk piece: it leaves an ink dot where the piece went under");
+        }
+
+        /// The HLSL of the pass named "Outline", up to its ENDHLSL.
+        static string OutlinePass(string src)
+        {
+            int start = src.IndexOf("Name \"Outline\"");
+            Assert.That(start, Is.GreaterThan(-1), "[Hs6] no Outline pass found");
+            int end = src.IndexOf("ENDHLSL", start);
+            Assert.That(end, Is.GreaterThan(start), "[Hs6] the Outline pass has no HLSL block");
+            return src.Substring(start, end - start);
         }
     }
 }
