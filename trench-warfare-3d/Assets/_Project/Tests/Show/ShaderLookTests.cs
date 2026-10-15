@@ -14,6 +14,7 @@ namespace TW.Tests
         const string ToonPath = "Assets/_Project/Shaders/Toon_URP.shader";
         const string VatPath = "Assets/_Project/Shaders/VAT_URP.shader";
         const string DebrisPath = "Assets/_Project/Shaders/Debris_URP.shader";
+        const string TankDiscPath = "Assets/_Project/Shaders/TankDisc_URP.shader";
         const string PigmentPath = "Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs";
 
         // [Hs1] the painted sheet is R8, so it clamps at 1, but the paint peaks at 1.22 (Earth's seam lip): the
@@ -130,6 +131,32 @@ namespace TW.Tests
             Assert.That(renderer, Does.Not.Contain("ScreenSpaceShadows"),
                 "[Hs7] TW-Renderer.asset now has a Screen Space Shadows feature: the dropped keyword must come back " +
                 "and the shadow coord in these six passes must be fixed to screen space first");
+        }
+
+        // [Hs8] PipCorner and PipGlyph were byte-for-byte duplicated in both TankDisc passes, and the second
+        // pass declared no CBUFFER_START(UnityPerMaterial), so it was not SRP-Batcher compatible.
+        [Test]
+        public void ATankDiscGlyphIsWrittenOnce()
+        {
+            string src = File.ReadAllText(TankDiscPath);
+            Assert.That(Regex.Matches(src, @"half4 PipGlyph\(").Count, Is.EqualTo(1),
+                "[Hs8] PipGlyph must be defined once, in a SubShader-level HLSLINCLUDE block");
+            Assert.That(Regex.Matches(src, @"float3 PipCorner\(").Count, Is.EqualTo(1),
+                "[Hs8] PipCorner must be defined once, in a SubShader-level HLSLINCLUDE block");
+            var cbuffer = Regex.Matches(src, @"CBUFFER_START\(UnityPerMaterial\)");
+            Assert.That(cbuffer.Count, Is.EqualTo(1), "[Hs8] UnityPerMaterial must be declared once");
+            int passStart = Regex.Match(src, @"\bPass\s*\{").Index;
+            Assert.That(cbuffer[0].Index, Is.LessThan(passStart),
+                "[Hs8] UnityPerMaterial must be declared before the first Pass, so both passes share it");
+
+            int hiddenStart = src.IndexOf("Name \"TankDiscHidden\"");
+            Assert.That(hiddenStart, Is.GreaterThan(-1), "[Hs8] no TankDiscHidden pass found");
+            int hiddenEnd = src.IndexOf("ENDHLSL", hiddenStart);
+            string hiddenPass = src.Substring(hiddenStart, hiddenEnd - hiddenStart);
+            Assert.That(hiddenPass, Does.Not.Match(@"half4 PipGlyph\("),
+                "[Hs8] TankDiscHidden must not redeclare PipGlyph");
+            Assert.That(hiddenPass, Does.Not.Match(@"float3 PipCorner\("),
+                "[Hs8] TankDiscHidden must not redeclare PipCorner");
         }
 
         /// The HLSL of the pass named "Outline", up to its ENDHLSL.
