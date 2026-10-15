@@ -189,7 +189,8 @@ namespace TW.Tests
             const float grade = 0.12f;
             float trueDeg = Mathf.Atan(grade) * Mathf.Rad2Deg;      // 6.84
             System.Func<float, float, float> hill = (x, z) => z * grade;
-            var names = new[] { "Pincer", "Censer", "Kettle", "Pavise", "Banner", "Redoubt" };
+            // [TS10] the name comes off VehicleIds (reflected from VehicleArchetype itself), not a parallel array
+            // that could drift from the ids beside it.
             var kinds = new byte[] { VehicleArchetype.Pincer, VehicleArchetype.Censer, VehicleArchetype.Kettle,
                                      VehicleArchetype.Pavise, VehicleArchetype.Banner, VehicleArchetype.Redoubt };
             var flat = new List<string>();
@@ -197,12 +198,13 @@ namespace TW.Tests
 
             for (int k = 0; k < kinds.Length; k++)
             {
-                var m = Load(names[k], kinds[k]);
+                string name = VehicleIds.ById[kinds[k]];
+                var m = Load(name, kinds[k]);
                 var g = Walk(m, hill, 1.3f, 6f);
                 float deg = g.Pitch * Mathf.Rad2Deg;
-                if (deg < 3f) flat.Add($"{names[k]} {deg:0.00} deg");
+                if (deg < 3f) flat.Add($"{name} {deg:0.00} deg");
                 // nose-up on a climb, and never beyond the ground it is standing on by more than a degree
-                if (deg > trueDeg + 1f) over.Add($"{names[k]} {deg:0.00} deg against a {trueDeg:0.00} deg slope");
+                if (deg > trueDeg + 1f) over.Add($"{name} {deg:0.00} deg against a {trueDeg:0.00} deg slope");
             }
 
             Assert.That(flat, Is.Empty, $"drawn level on a {trueDeg:0.00} degree slope: {string.Join(", ", flat)}");
