@@ -33,12 +33,13 @@ namespace TW.Tests
         {
             var go = new GameObject("vat");
             var vat = go.AddComponent<VATRenderer>();
+            var tanks = go.AddComponent<TankRenderer>();
             try
             {
                 float first = -1f;
                 foreach (var zoom in Zooms)
                 {
-                    float riderScale = Mathf.Min(vat.ScaleAt(zoom) / FigureMetrics.UnitScale * 1.15f, 2.2f);
+                    float riderScale = tanks.RiderScaleAt(vat, zoom);
                     if (first < 0f) first = riderScale;
                     Assert.AreEqual(first, riderScale, 1e-4f, $"rider at zoom {zoom}");
                 }
@@ -54,7 +55,7 @@ namespace TW.Tests
             float first = -1f;
             foreach (var zoom in Zooms)
             {
-                float height = model.Height;   // VehicleSize.Tank is baked into the vertices at load time, not the zoom
+                float height = MachineScale.DrawnHeightM(model, zoom);
                 if (first < 0f) first = height;
                 Assert.AreEqual(first, height, 1e-4f, $"Maw at zoom {zoom}");
             }
@@ -68,10 +69,51 @@ namespace TW.Tests
             float first = -1f;
             foreach (var zoom in Zooms)
             {
-                float height = model.Height;
+                float height = MachineScale.DrawnHeightM(model, zoom);
                 if (first < 0f) first = height;
                 Assert.AreEqual(first, height, 1e-4f, $"Pincer at zoom {zoom}");
             }
+        }
+
+        /// <summary>Proves the three assertions above can fail: run against a stand-in whose "drawn" size grows with
+        /// the zoom (the grow men used to get before 2026-10-13, FigureMetrics.GrowFromZoom) and expect them to go red.</summary>
+        [Test]
+        public void OneSizeAssertions_Catches_A_Grow_That_Came_Back()
+        {
+            static float Grown(float size, float zoom) => size * (1f + zoom / FigureMetrics.GrowFromZoom);
+
+            Assert.Throws<AssertionException>(() =>
+            {
+                float first = -1f;
+                foreach (var zoom in Zooms)
+                {
+                    float height = Grown(3f, zoom);
+                    if (first < 0f) first = height;
+                    Assert.AreEqual(first, height, 1e-4f, $"Maw at zoom {zoom}");
+                }
+            }, "a zoom-dependent tank height must fail the one-size assertion");
+
+            Assert.Throws<AssertionException>(() =>
+            {
+                float first = -1f;
+                foreach (var zoom in Zooms)
+                {
+                    float height = Grown(2.6f, zoom);
+                    if (first < 0f) first = height;
+                    Assert.AreEqual(first, height, 1e-4f, $"Pincer at zoom {zoom}");
+                }
+            }, "a zoom-dependent walker height must fail the one-size assertion");
+
+            Assert.Throws<AssertionException>(() =>
+            {
+                float first = -1f;
+                foreach (var zoom in Zooms)
+                {
+                    float riderScale = Grown(FigureMetrics.UnitScale, zoom);
+                    if (first < 0f) first = riderScale;
+                    Assert.AreEqual(first, riderScale, 1e-4f, $"rider at zoom {zoom}");
+                }
+            }, "a zoom-dependent rider scale must fail the one-size assertion");
         }
     }
 }

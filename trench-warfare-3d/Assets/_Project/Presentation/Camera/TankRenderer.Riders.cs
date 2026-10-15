@@ -73,6 +73,12 @@ namespace TW.Presentation.Tactical
         /// stay readable from far out; on a deck whose seats are a man's width apart that piles eight giants through each
         /// other and the hull, so riders stop at this (their machine is big enough to find them by).</summary>
         public float RiderMaxGrow = 2.2f;
+        /// <summary>A touch larger than the men on the ground: he is up against a bright hull.</summary>
+        public float RiderGrowOverMen = 1.15f;
+        /// <summary>A rider's grow, from a man's grow: scaled up a touch, capped at RiderMaxGrow.</summary>
+        public float RiderGrow(float manGrow) => Mathf.Min(manGrow * RiderGrowOverMen, RiderMaxGrow);
+        /// <summary>A rider's drawn scale at a given zoom, read off the VAT renderer's own numbers.</summary>
+        public float RiderScaleAt(VATRenderer vat, float zoom) => vat.UnitScale * RiderGrow(vat.ScaleAt(zoom) / vat.UnitScale);
         /// <summary>Past this growth only every other rider is drawn (the seats are handed out spread, so the half left is
         /// still spread over the deck): at the standard view a man drawn at his true size vanished against the hull, and
         /// eight drawn large overlapped. Four readable men say "carrying infantry" better than eight blobs.</summary>
@@ -249,7 +255,7 @@ namespace TW.Presentation.Tactical
             if (riders.Count == 0 && loose.Count == 0) return;
             if (Vat() == null) return;
             var match = Host.Local; var w = match.World;
-            float grow = Mathf.Min(vat.CurrentGrow * 1.15f, RiderMaxGrow);   // a touch larger than the men on the ground: he is up against a bright hull
+            float grow = RiderGrow(vat.CurrentGrow);
             float scale = vat.UnitScale * grow, dt = Mathf.Max(1e-4f, Time.deltaTime);
             bool thin = grow > RiderThinAbove;
             if (Host.TimeScale <= 0f) dt = 0f;

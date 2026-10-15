@@ -105,8 +105,8 @@ namespace TW.Tests
                 if (File.Exists(path) && new FileInfo(path).Length > 20000) written++;
 
                 float manH = vat.ScaleAt(zoom) * FigureMetrics.BakeHeightM;
-                float riderH = vat.UnitScale * Mathf.Min(vat.CurrentGrow * 1.15f, tanks.RiderMaxGrow) * FigureMetrics.BakeHeightM;
-                log.AppendLine($"zoom {zoom:0} ({tag}): man {manH:0.00} m, rider {riderH:0.00} m, tank {tankModel.Height:0.00} m, walker {walkerModel.Height:0.00} m");
+                float riderH = tanks.RiderScaleAt(vat, zoom) * FigureMetrics.BakeHeightM;
+                log.AppendLine($"zoom {zoom:0} ({tag}): man {manH:0.00} m, rider {riderH:0.00} m, tank {MachineScale.DrawnHeightM(tankModel, zoom):0.00} m, walker {MachineScale.DrawnHeightM(walkerModel, zoom):0.00} m");
             }
             File.WriteAllText(Path.Combine(dir, "heights.txt"), log.ToString());
 
