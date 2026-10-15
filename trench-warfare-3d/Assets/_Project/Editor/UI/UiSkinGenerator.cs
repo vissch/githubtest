@@ -458,7 +458,7 @@ namespace TW.Editor
                 case "ico_pause": g = Sdf.Union(Sdf.Box(cx - 9 * u, cy, 5 * u, 18 * u), Sdf.Box(cx + 9 * u, cy, 5 * u, 18 * u)); break;
                 case "ico_play": g = Sdf.Triangle(cx - 14 * u, cy - 18 * u, cx - 14 * u, cy + 18 * u, cx + 18 * u, cy); break;
                 case "ico_speed": g = Sdf.Union(Sdf.Triangle(cx - 24 * u, cy - 14 * u, cx - 24 * u, cy + 14 * u, cx - 2 * u, cy), Sdf.Triangle(cx + 2 * u, cy - 14 * u, cx + 2 * u, cy + 14 * u, cx + 24 * u, cy)); break;
-                case "ico_silver": g = Sdf.Union(Sdf.Hexagon(cx, cy, 22 * u), Sdf.Scale(-1f, Sdf.Hexagon(cx, cy, 15 * u))); g = Sdf.Union(Sdf.Sub(Sdf.Hexagon(cx, cy, 22 * u), Sdf.Hexagon(cx, cy, 16 * u)), Sdf.Hexagon(cx, cy, 9 * u)); break;
+                case "ico_silver": g = Sdf.Union(Sdf.Sub(Sdf.Hexagon(cx, cy, 22 * u), Sdf.Hexagon(cx, cy, 16 * u)), Sdf.Hexagon(cx, cy, 9 * u)); break;
                 case "ico_men":
                     // a Brodie helmet side-on: a shallow dome on a wide flat brim, the crown stud on top (R0.5: the old
                     // narrow brim read as a bowl)
