@@ -81,14 +81,23 @@ namespace TW.Tests
         [Test]
         public void TheKnobsDoNotTouchTheShape()
         {
-            // the gain and the depth write are material state only: every tracer matrix is the same with them set
+            // [TS21] Matrix takes neither GlowKnob nor DepthKnob and reads no knob: it asks the read log for nothing,
+            // and fx.tracerGlow/fx.tracerHaloDepth land only in HaloColor/HaloZWrite, not in the geometry.
+            Knobs.Clear();
             var from = new Vector3(12f, 1.3f, 40f); var to = new Vector3(80f, 1.1f, 95f);
             Vector3 d = to - from; float len = d.magnitude;
-            var before = new Matrix4x4[3];
-            for (int side = 0; side < 3; side++) before[side] = TracerLook.Matrix(from, d, len, 0.4f, true, side, 0f, 0f);
-            Knobs.Set(TracerLook.GlowKnob, "2"); Knobs.Set(TracerLook.DepthKnob, "0");
-            TracerLook.ReadGlow(); TracerLook.ReadDepth();
-            for (int side = 0; side < 3; side++) Assert.IsTrue(TracerLook.Matrix(from, d, len, 0.4f, true, side, 0f, 0f).Equals(before[side]), "side " + side);
+            for (int side = 0; side < 3; side++) TracerLook.Matrix(from, d, len, 0.4f, true, side, 0f, 0f);
+            TracerLook.Matrix(from, d, len, 0.4f, true, 0, 0f, true);
+            TracerLook.Matrix(from, d, len, 0.4f, true, 0, 0f, 0.5f);
+            Assert.AreEqual(0, Knobs.Read.Count, "the shape geometry asks for no knob");
+
+            // where the knobs do land: the colour gain and the depth write, not the shape
+            var c = new Color(0.5f, 0.2f, 0.1f, 0.7f);
+            var gained = TracerLook.HaloColor(c, 2f);
+            Assert.AreEqual(c.r * 2f, gained.r, 1e-6f); Assert.AreEqual(c.g * 2f, gained.g, 1e-6f); Assert.AreEqual(c.b * 2f, gained.b, 1e-6f);
+            Assert.AreEqual(c.a, gained.a, "gain never touches alpha");
+            Assert.AreEqual(0f, TracerLook.HaloZWrite(true, 0f), "depth 0 never writes depth");
+            Assert.AreEqual(1f, TracerLook.HaloZWrite(true, 1f), "depth 1 writes depth with the order on");
         }
     }
 }

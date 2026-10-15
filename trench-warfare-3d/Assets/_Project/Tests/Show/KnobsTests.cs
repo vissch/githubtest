@@ -270,9 +270,8 @@ namespace TW.Tests
             foreach (bool moon in new[] { false, true })
             {
                 float n = FlipbookFx.NightScale(FlipbookFx.ReadNightSize(), close, moon);
+                // [TS21] the whole old-look claim: CombatFx's burst width is `r * 2.6f * n`, so n == 1 is the width factor
                 Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
-                foreach (float r in new[] { 2f, 3.7f, 9f })
-                    Assert.IsTrue(r * 2.6f * n == r * 2.6f, "burst width, r " + r);
             }
 
             // out of range: the value kept in [0, 1], the size in [0.05, 4]
@@ -331,10 +330,8 @@ namespace TW.Tests
             foreach (bool moon in new[] { false, true })
             {
                 float n = FlipbookFx.NightScale(FlipbookFx.ReadEarthSize(), close, moon);
+                // [TS21] the whole old-look claim: CombatFx's column width is `r * 2.1f * scale * n`, so n == 1 is the width factor
                 Assert.IsTrue(n == 1f, "closeUp " + close + ", moonlit " + moon);
-                foreach (float r in new[] { 2f, 3.7f, 8f, 9f })
-                foreach (float scale in new[] { 1f, 3f, 0.5f })
-                    Assert.IsTrue(r * 2.1f * scale * n == r * 2.1f * scale, "column width, r " + r + ", fx.columnScale " + scale);
             }
 
             // out of range: the value kept in [0, 1], the size in [0.05, 4]
