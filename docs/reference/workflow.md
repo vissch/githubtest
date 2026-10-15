@@ -475,6 +475,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.RiderLab.Freeze(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Panel(on)` | Editor/RiderLab.cs | (no summary: read the method) |
 | `TW.Editor.RiderLab.Camera(slot, zoom, yaw, pitch)` | Editor/RiderLab.cs | Frame the camera on a slot: zoom, yaw, pitch (the follow keeps it framed while it walks). |
+| `TW.Editor.RiderLab.CameraRestore()` | Editor/RiderLab.cs | Puts ZoomMin, Pitch and ClosePitch back as the scene shipped them (what Camera(...) overwrote). |
 | `TW.Editor.RiderLab.Film(dir, seconds, fps, w, h)` | Editor/RiderLab.cs | Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower). |
 | `TW.Editor.RiderLab.VolleyShot(path, shots)` | Editor/RiderLab.cs | Save a still to `path` the frame `shots` more rider shots have been fired (a volley caught as it lands). |
 | `TW.Editor.RiderLab.FilmStatus()` | Editor/RiderLab.cs | (no summary: read the method) |

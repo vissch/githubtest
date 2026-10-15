@@ -62,9 +62,20 @@ namespace TW.Tests
                 "[E2] an abandoned set left running true: every later Shot answers \"queued\" forever");
         }
 
+        [Test]
+        public void AHeldPausedWorldComesBackPaused()   // [E12]
+        {
+            Time.timeScale = 0f;
+            CaptureRig.Hold();
+            CaptureRig.Release();
+            Assert.AreEqual(0f, Time.timeScale,
+                "[E12] Release assumed the clock had been running: a world held while paused came back at " + Time.timeScale);
+        }
+
         [TearDown]
         public void Clean()
         {
+            Time.timeScale = 1f;
             if (File.Exists(BareName)) File.Delete(BareName);
             foreach (var go in new[] { tcGo, camGo, rigGo }) if (go != null) Object.DestroyImmediate(go);
             tcGo = camGo = rigGo = null;

@@ -236,10 +236,22 @@ namespace TW.Editor
 
         public static string Fire(bool on) { var t = Tanks; if (t == null) return "no TankRenderer"; t.RidersFire = on; return "riders fire " + on; }
 
+        // [E12] what the scale was before the freeze, not an assumed 1. NaN is "nothing kept": 0 is a real scale.
+        static float heldTimeScale = float.NaN;
+
         public static string Freeze(bool on)
         {
             var h = Host; if (h == null) return "no SimHost";
-            h.TimeScale = on ? 0f : 1f;
+            if (on)
+            {
+                if (float.IsNaN(heldTimeScale)) heldTimeScale = h.TimeScale;
+                h.TimeScale = 0f;
+            }
+            else
+            {
+                h.TimeScale = float.IsNaN(heldTimeScale) ? 1f : heldTimeScale;
+                heldTimeScale = float.NaN;
+            }
             return "time scale " + h.TimeScale;
         }
 
@@ -249,9 +261,24 @@ namespace TW.Editor
         public static string Camera(int slot, float zoom, float yaw, float pitch)
         {
             var c = Object.FindFirstObjectByType<TacticalCamera>(); if (c == null) return "no camera";
+            // [E12] the first framing keeps what the scene camera shipped with, so CameraRestore can put it back:
+            // these three were written and never restored, and the next session inherited the lab's lens.
+            if (float.IsNaN(heldZoomMin)) { heldZoomMin = c.ZoomMin; heldPitch = c.Pitch; heldClosePitch = c.ClosePitch; }
             c.ZoomMin = Mathf.Min(c.ZoomMin, 4f);
             c.Pitch = pitch; c.ClosePitch = pitch;
             return TankCapture.Follow(slot, zoom, yaw);
+        }
+
+        static float heldZoomMin = float.NaN, heldPitch = float.NaN, heldClosePitch = float.NaN;
+
+        /// <summary>Puts ZoomMin, Pitch and ClosePitch back as the scene shipped them (what Camera(...) overwrote).</summary>
+        public static string CameraRestore()
+        {
+            if (float.IsNaN(heldZoomMin)) return "camera never framed by the lab";
+            var c = Object.FindFirstObjectByType<TacticalCamera>();
+            if (c != null) { c.ZoomMin = heldZoomMin; c.Pitch = heldPitch; c.ClosePitch = heldClosePitch; }
+            heldZoomMin = heldPitch = heldClosePitch = float.NaN;
+            return c == null ? "no camera" : "camera put back";
         }
 
         /// <summary>Record `seconds` of GAME time as `fps` frames a second into `dir` (a frame is repeated when the editor renders slower).</summary>
@@ -530,7 +557,7 @@ namespace TW.Editor
                 FilmIndex++; FilmLeft--;
             }
 
-            void OnDestroy() { if (rt != null) rt.Release(); if (watched != null) watched.RiderLanded -= OnLanded; if (Instance == this) Instance = null; }
+            void OnDestroy() { if (rt != null) rt.Release(); if (watched != null) watched.RiderLanded -= OnLanded; if (Instance == this) Instance = null; CameraRestore(); }   // [E12] leaving Play puts the camera back
 
             /// <summary>A rider is on the ground: put his man back in the sim there (or make one), all from this Bench's own state.</summary>
             /// <summary>Keep each rider's hidden sim man where the rider is (roughly what a sim CarriedBy will do). Left at

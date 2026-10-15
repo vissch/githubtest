@@ -490,7 +490,9 @@ namespace TW.Editor
 
         // ---- holding the world still, so two stills can differ by one thing ----------------------------------
 
-        static float heldScale = -1f;
+        // [E12] NaN is the sentinel, not a negative number: a world held while already paused (timeScale 0) must
+        // come back to 0, and 0 is not "nothing was kept".
+        static float heldScale = float.NaN;
 
         /// <summary>
         /// Stops the clock and pins the weather. Two stills taken either side of a change then differ by the change
@@ -501,7 +503,7 @@ namespace TW.Editor
         /// </summary>
         public static string Hold(float weatherClock = 120f)
         {
-            if (heldScale < 0f) heldScale = Time.timeScale;
+            if (float.IsNaN(heldScale)) heldScale = Time.timeScale;
             Time.timeScale = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = weatherClock;
             return "held at weather clock " + weatherClock.ToString("0.#", CultureInfo.InvariantCulture);
@@ -510,8 +512,8 @@ namespace TW.Editor
         /// <summary>Lets the world run again and gives the weather back its own clock.</summary>
         public static string Release()
         {
-            Time.timeScale = heldScale > 0f ? heldScale : 1f;
-            heldScale = -1f;
+            Time.timeScale = float.IsNaN(heldScale) ? 1f : heldScale;
+            heldScale = float.NaN;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             return "released";
         }
@@ -870,6 +872,10 @@ namespace TW.Editor
             void LateUpdate()
             {
                 if (left <= 0) return;
+                // [E10] the prop editor hands BattlefieldProps the Scene view's camera every editor tick, so every prop
+                // is culled against two frusta while a Scene view is open. A player never pays that, so a measured run
+                // does not either (PerfBench.Update does the same for the bench).
+                TW.Presentation.Terrain.BattlefieldProps.EditorCamera = null;
                 if (main.Valid && main.CurrentValue > 0) mainMs.Add(main.CurrentValue * 1e-6);
                 if (gpu.Valid && gpu.CurrentValue > 0) gpuMs.Add(gpu.CurrentValue * 1e-6);
                 if (setPass.Valid) passes.Add(setPass.LastValue);
@@ -886,9 +892,17 @@ namespace TW.Editor
                 EnsureDir(path);
                 File.WriteAllText(path, sb.ToString());
                 Debug.Log("Capture rig: frame cost written to " + path + "\n" + sb);
-                main.Dispose(); gpu.Dispose(); setPass.Dispose(); batches.Dispose(); gc.Dispose();
+                Dispose();
                 Done = true;
             }
+
+            void Dispose()
+            {
+                main.Dispose(); gpu.Dispose(); setPass.Dispose(); batches.Dispose(); gc.Dispose();
+            }
+
+            // a run cut short (a destroyed profiler, a domain reload) must not leave its recorders open
+            void OnDestroy() { if (left > 0) { left = 0; Dispose(); } }
 
             static void Stat(StringBuilder sb, string key, List<double> v, double budget)
             {
