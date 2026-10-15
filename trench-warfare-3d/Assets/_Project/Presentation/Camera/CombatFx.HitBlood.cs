@@ -25,10 +25,11 @@ namespace TW.Presentation.Tactical
         /// is drawn larger, over how many zoom units it doubles, the most, and the most for a mark on the ground.</summary>
         public const int HitSplash = 3;
         public const float HitSplashLife = 0.5f, HitMarkBoostCap = 1.6f;
-        /// <summary>Kept as names only: every red size now comes from GoreScale, the one place the curve lives
-        /// (gore-by-zoom, 2026-10-13). A ground mark is not gore coming out of a man, so HitMarkBoostCap still holds
-        /// the marks where they were.</summary>
-        public const float HitZoomFrom = GoreScale.TrueUntilZoom, HitZoomOver = GoreScale.GrowOver, HitZoomMost = GoreScale.MostGrow;
+        /// <summary>Every red piece's size now comes from GoreScale, the one place that curve lives
+        /// (gore-by-zoom, 2026-10-13). A ground mark is not gore coming out of a man, so it keeps its own curve by
+        /// name: close in it is true to size, from zoom HitMarkZoomFrom out it grows over HitMarkZoomOver zoom
+        /// units, capped at HitMarkBoostCap (restored 2026-10-15, zoom-hit-marks-size).</summary>
+        public const float HitMarkZoomFrom = 12f, HitMarkZoomOver = 15f;
         int hitMarksFrame = -1, hitMarksThisFrame;
         static readonly int TWGoreId = Shader.PropertyToID("_TWGore");
 
@@ -45,7 +46,6 @@ namespace TW.Presentation.Tactical
             // at, droplets and marks sized for a close look were not there at all, four-view film 2026-09-29)
             var cam = Camera.main;
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
-            float boost = HitZoomBoost(zoom);
             if (near && debris != null && debris.Ready)
             {
                 // the splash where the round met him: a few large blobs, gone in half a second, the read at a distance
@@ -74,7 +74,7 @@ namespace TW.Presentation.Tactical
             if (hitMarksFrame != Time.frameCount) { hitMarksFrame = Time.frameCount; hitMarksThisFrame = 0; }
             if (hitMarksThisFrame >= HitMarksPerFrame) return;
             hitMarksThisFrame += 2;
-            float grow = Mathf.Min(boost, HitMarkBoostCap);   // marks outlast the zoom they were laid at: grown less
+            float grow = HitMarkGrow(zoom);   // marks outlast the zoom they were laid at: grown less
             float size = (0.45f + 0.4f * heavy) * Mathf.Sqrt(gore) * scale * grow;
             float life = SceneTints.Now.Frozen ? HitMarkLife * 2f : HitMarkLife;
             Vector3 behind = p + toward * (rng.Range(0.5f, 1.1f) * scale) + new Vector3(rng.Range(-0.2f, 0.2f), 0f, rng.Range(-0.2f, 0.2f)) * scale;
@@ -84,7 +84,11 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>How much larger a hit's blood is drawn at a zoom. One thin forward to GoreScale.Size, the one
-        /// place the curve lives; the ground marks and GoreZoomStills still read it by this name.</summary>
+        /// place the curve lives; GoreZoomStills still reads it by this name.</summary>
         public static float HitZoomBoost(float zoom) => GoreScale.Size(zoom);
+
+        /// <summary>The ground marks' own size by zoom: true to size close in, 1.6 from zoom 30 out — the curve
+        /// they had before zoom-scale (gore-by-zoom briefly put them on GoreScale.Size instead, shrinking them).</summary>
+        public static float HitMarkGrow(float zoom) => Mathf.Clamp(1f + (zoom - HitMarkZoomFrom) / HitMarkZoomOver, 1f, HitMarkBoostCap);
     }
 }
