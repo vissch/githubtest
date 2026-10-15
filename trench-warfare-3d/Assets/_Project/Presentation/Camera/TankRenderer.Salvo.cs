@@ -38,6 +38,9 @@ namespace TW.Presentation.Tactical
             public readonly List<Vector3> P = new List<Vector3>(64);
             public readonly List<float> T = new List<float>(64);
             public bool Live;                      // its rocket is still flying
+            // K6: points expire off the front, so the list index is not a point's identity. This counts how many have
+            // gone, and the break-up pattern is keyed on Dropped + k, which stays put for a point all its life.
+            public int Dropped;
         }
 
         readonly List<Ribbon> ribbons = new List<Ribbon>(32), ribbonPool = new List<Ribbon>(32);
@@ -145,7 +148,7 @@ namespace TW.Presentation.Tactical
                     r.Flying = true;
                     r.Trail = ribbonPool.Count > 0 ? ribbonPool[ribbonPool.Count - 1] : new Ribbon();
                     if (ribbonPool.Count > 0) ribbonPool.RemoveAt(ribbonPool.Count - 1);
-                    r.Trail.P.Clear(); r.Trail.T.Clear(); r.Trail.Live = true;
+                    r.Trail.P.Clear(); r.Trail.T.Clear(); r.Trail.Live = true; r.Trail.Dropped = 0;
                     r.Trail.P.Add(r.From); r.Trail.T.Add(now);
                     ribbons.Add(r.Trail);
                     if (fx) Launch(r, now);
@@ -225,7 +228,7 @@ namespace TW.Presentation.Tactical
                 var rb = ribbons[n];
                 int old = 0;
                 while (old < rb.T.Count && now - rb.T[old] > RibbonLife) old++;
-                if (old > 0) { rb.P.RemoveRange(0, old); rb.T.RemoveRange(0, old); }
+                if (old > 0) { rb.P.RemoveRange(0, old); rb.T.RemoveRange(0, old); rb.Dropped += old; }
                 if (rb.P.Count == 0 && !rb.Live) { ribbons.RemoveAt(n); ribbonPool.Add(rb); continue; }
                 if (rb.P.Count < 2) continue;
                 int first = rV.Count, seed = rb.GetHashCode();
@@ -237,7 +240,7 @@ namespace TW.Presentation.Tactical
                     float age = Mathf.Clamp01((now - rb.T[k]) / RibbonLife);
                     float half = 0.5f * (RibbonWidth + RibbonGrow * age);
                     // puffy: each point's own share of the alpha (fixed per point, so it does not flicker), soft at the edges
-                    float lump = 1f - RibbonBreak * Hash01(seed + k * 7919);
+                    float lump = 1f - RibbonBreak * Hash01(seed + (rb.Dropped + k) * 7919);
                     var c = tone; c.a = RibbonAlpha * lump * (1f - age) * (k == rb.P.Count - 1 && rb.Live ? 0f : 1f);
                     var edge = c; edge.a = 0f;
                     rV.Add(p - side * half); rV.Add(p); rV.Add(p + side * half); rC.Add(edge); rC.Add(c); rC.Add(edge);
