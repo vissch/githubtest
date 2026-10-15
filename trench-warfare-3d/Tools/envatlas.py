@@ -5,7 +5,7 @@
 # Six textures is also six bindings, and SetPass was measured at 321 against 374 draw calls, very nearly one state
 # change per draw.
 #
-# The sheets go into a 4 x 2 grid of 1024x1024 cells, which makes the sheet 4096x2048.
+# The sheets go into a 4 x 4 grid of 1024x1024 cells, which makes the sheet 4096x4096.
 # It is 4 x 2 and not 3 x 2 because 3072 is not a power of two: measured 2026-09-22, Unity's default NPOT rule
 # rounded a 3072-wide sheet up to 4096 and resampled it, and forcing it to keep 3072 instead cost the block
 # compressor entirely — it came back as uncompressed RGB24 at 25 MB, worse than the six sheets it replaced.
@@ -15,7 +15,7 @@
 # have cost EVERY set half its resolution to house one new one, and these are looked at from a metre away.
 # The shader needs no change at all: TW/Toon (URP) already
 # transforms its UVs by _BaseMap_ST, so a set is selected by giving its material the cell's scale and offset.
-# Prop UVs live inside 0..1 of their own sheet, so scale (1/3, 1/2) and the cell's offset put them in the right cell.
+# Prop UVs live inside 0..1 of their own sheet, so scale (1/4, 1/4) and the cell's offset put them in the right cell.
 #
 # Unity's V axis runs from the bottom, PIL's Y from the top, so cell row 0 (drawn at the top) is the UPPER half of
 # the atlas and gets V offset 0.5. SETS below is the authority for that order; BattlefieldKit.EnvCell mirrors it and
