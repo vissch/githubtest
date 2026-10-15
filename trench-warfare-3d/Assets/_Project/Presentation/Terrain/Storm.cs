@@ -217,7 +217,8 @@ namespace TW.Presentation.Terrain
         /// <summary>Stop the world for this many (unscaled) seconds; a second strike inside the hold extends it.</summary>
         void Freeze(float seconds)
         {
-            if (frozenUntil < 0f) scaleBefore = Time.timeScale;
+            // never save the punch's own 0.25 as our "before": ask it for the scale behind it instead
+            if (frozenUntil < 0f) scaleBefore = TW.Presentation.Tactical.TimePinch.ScaleBehindThePunch(Time.timeScale);
             frozenUntil = Mathf.Max(frozenUntil, clock + seconds);
             Time.timeScale = 0f;
         }

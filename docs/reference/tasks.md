@@ -417,12 +417,17 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Salvo's rockets fizz off), on `Presentation/Camera/VehicleGags.cs` (the flights, pure); tests FigurePartsTests (the
   parts cut from the figure), GibPlanTests and VehicleDeathTests. A heap's `DeathGag.Fountain` fires a slow-mo punch
   (owner, 2026-10-11): `Presentation/Camera/TimePinch.cs` (`PunchPinch`'s pure hold-then-ramp curve, under 0.25 s;
-  `TimePinch` drives `Time.timeScale` from it, one window at a time, yielding to Storm's lightning freeze), fired
-  from `CombatFx.Gags.cs`'s `GagDeath`.
+  `PunchClock`, also pure, is the whole interrupt decision — a freeze, a pause, another writer of `Time.timeScale`,
+  or the window just ending, always hands back the scale from *before* the punch fired, never its own 0.25;
+  `TimePinch` is the thin Unity shell over it, one window at a time, yielding to Storm's lightning freeze), fired
+  from `CombatFx.Gags.cs`'s `GagDeath` with the match's single-player/lockstep flag (`Fire(bool lockstepMatch)`,
+  `SimHost.CanaryActive`): never fires on lockstep, where a local time-scale change would desync the two worlds.
+  Storm reads `TimePinch.ScaleBehindThePunch` for its own freeze's "before", never the punch's in-flight scale.
 - **Tests:** BlastReactionTests (knockdown and daze), DeathVarietyTests (the death ladder and its records),
   DeathGagTests (the gags: nothing at 0, one per cause, the trench rule, the caps, no allocation),
-  TickAllocationTests (no per-tick allocation), TimePinchTests (the punch's window stays under 0.25 s, and its
-  curve is a hold then a ramp back).
+  TickAllocationTests (no per-tick allocation), TimePinchTests (the punch's window stays under 0.25 s, its curve is
+  a hold then a ramp back, `Lightning_During_Punch_Restores_Time_Scale` and
+  `Lockstep_Match_Never_Fires_The_Punch`).
 - **See it:** `Animation.Follow(slot)` then `Animation.TraceText()` through eval, for one man's decisions. The gags in
   Play: `TW.Editor.DeathLab.Absurd(1)`, then `DeathLab.Scene("shot" | "mg" | "wounds" (hit, not killed: the hit blood) | "shell" | "heap" | "gas" | "fire" |
   "beam" | "crush" | "machine" | "maw" | "salvo" | "skimmer" | "walker", x, z)` (`Editor/DeathLab.cs`: every death made
