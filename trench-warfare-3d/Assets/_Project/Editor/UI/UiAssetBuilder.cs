@@ -4,7 +4,9 @@
 // HudLayout's reference (1600x900), matched on height, themed by DustFront.tss) and updates it in place when it exists.
 // TW/UI/Bake Skin Fonts copies the two OFL/Apache faces the Editor ships (Inter SemiBold, Roboto Mono Bold) with their
 // licences into UI/Skin/Fonts and bakes DustFrontDisplay / DustFrontLabel / DustFrontMono .asset from them. Swapping the
-// final stencil face is: drop the TTF over the placeholder name and run this again.
+// final stencil face is: drop the TTF over the placeholder name and run this again. Baking deletes and recreates each
+// font asset, so it gets a new GUID; BakeFonts reimports the skin sheets itself so their url() references resolve to
+// the live asset even when run on its own from the menu, not only from BuildAll.
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -101,6 +103,9 @@ namespace TW.Editor
             }
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
+            // Each baked font asset above got a new GUID (delete+create); the sheets' url() references resolve the
+            // GUID at import time, so without this they keep pointing at the dead one when run outside BuildAll.
+            ReimportSheets();
         }
 
         [MenuItem("TW/UI/Build All UI Assets")]
