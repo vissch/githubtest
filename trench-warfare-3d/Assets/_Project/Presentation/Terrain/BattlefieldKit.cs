@@ -68,7 +68,6 @@ namespace TW.Presentation.Terrain
         readonly List<Module> modules = new List<Module>();
         public IReadOnlyList<Module> Modules => modules;
         readonly List<Mesh> ownedMeshes = new List<Mesh>();
-        readonly List<Texture2D> ownedTextures = new List<Texture2D>();
         Texture2DArray pigmentSheet;
         /// <summary>
         /// The painted surfaces are layers of one shared array rather than a texture each: the shader is told which
@@ -376,8 +375,8 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>
-        /// The six Tripo sheets, halved and packed into one 4096x2048 image by Tools/envatlas.py: a 4 x 2 grid of
-        /// 1024 cells in the order below, with the last two spare. Six 2048 sheets were about 17 MB of compressed
+        /// The Tripo sheets, halved and packed into one 4096x4096 image by Tools/envatlas.py: a 4 x 4 grid of
+        /// 1024 cells holding the nine sets in the order below, with seven cells spare. Six 2048 sheets were about 17 MB of compressed
         /// VRAM and six texture bindings to draw props that are mostly a metre across. Nothing in the shader had to
         /// change — TW/Toon (URP) already transforms its UVs by _BaseMap_ST, so a set is chosen by giving the
         /// material its cell's scale and offset, and a prop's UVs (which live inside 0..1 of its own sheet) land in
@@ -826,7 +825,6 @@ namespace TW.Presentation.Terrain
         public void Dispose()
         {
             foreach (var mesh in ownedMeshes) DiscardObject(mesh);
-            foreach (var texture in ownedTextures) DiscardObject(texture);
             DiscardObject(pigmentSheet);
             foreach (var module in Modules) DiscardObject(module.Material);
         }
