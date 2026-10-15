@@ -45,7 +45,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Net` | `Net/` | `TW.Net` | Sim.Core |
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Playground.Editor` | `Playground/Editor/` | `TW.Playground.Editor` | Playground, Presentation.Terrain, Editor |
-| `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Net, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
+| `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Tests.Playground` | `Playground/Tests/` | `TW.Tests.Playground` | Playground, Playground.Editor |
 | `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net |
 | `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation`, `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data |
