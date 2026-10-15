@@ -6,10 +6,12 @@
 // from the menu or from `unity command eval` (TW.Editor.HudCapture.Shoot(path)); the file appears a frame later.
 // Beside the PNG it writes <png>.json: the capture-pixel rectangle of every named element in Probes that is laid out
 // on any document sharing the panel, measured while the panel is on the capture target, so a critic can crop and zoom
-// on exactly one component rather than guessing where it is.
+// on exactly one component rather than guessing where it is. The first match per name in document draw order wins,
+// skipping anything inside a display:none branch; the JSON key order is Probes order, not insertion order.
 using System.Collections;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Text;
 using System.IO;
 using UnityEditor;
@@ -23,7 +25,8 @@ namespace TW.Editor
     {
         public const string DefaultPath = "Captures/hud.png";
 
-        /// <summary>Elements whose rectangles go into the sidecar (the first match per name per document).</summary>
+        /// <summary>Elements whose rectangles go into the sidecar (the first match per name in document draw
+        /// order, skipping anything inside a display:none branch; the JSON key order is Probes order).</summary>
         public static readonly string[] Probes =
         {
             "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
@@ -33,6 +36,52 @@ namespace TW.Editor
 
         [MenuItem("TW/UI/Capture HUD (Play)")]
         public static void Menu() => Shoot(DefaultPath);
+
+        /// <summary>Documents sorted so the one drawn on top (highest sortingOrder) comes first, ties broken by a stable scene/hierarchy key.</summary>
+        public static List<UIDocument> InDrawOrder(IEnumerable<UIDocument> docs)
+        {
+            static string Key(UIDocument doc)
+            {
+                var parts = new List<string>();
+                for (var t = doc.transform; t != null; t = t.parent)
+                    parts.Insert(0, t.name + "[" + t.GetSiblingIndex() + "]");
+                return doc.gameObject.scene.name + "/" + string.Join("/", parts);
+            }
+            return docs.Where(d => d != null)
+                .OrderByDescending(d => d.sortingOrder)
+                .ThenBy(Key, System.StringComparer.Ordinal)
+                .ToList();
+        }
+
+        /// <summary>True when the element or any of its ancestors is display:none (resolved or inline).</summary>
+        public static bool InHiddenBranch(VisualElement e)
+        {
+            for (var cur = e; cur != null; cur = cur.hierarchy.parent)
+            {
+                if (cur.resolvedStyle.display == DisplayStyle.None) return true;
+                if (cur.style.display.value == DisplayStyle.None) return true;
+            }
+            return false;
+        }
+
+        /// <summary>JSON {"w","h","rects":{name:[x,y,w,h]}}, keys in Probes order first, then any other key ordinal-ascending.</summary>
+        public static string RectsJson(int w, int h, IReadOnlyDictionary<string, Rect> rects)
+        {
+            var keys = new List<string>(Probes.Where(rects.ContainsKey));
+            keys.AddRange(rects.Keys.Where(k => System.Array.IndexOf(Probes, k) < 0).OrderBy(k => k, System.StringComparer.Ordinal));
+            var sb = new StringBuilder();
+            sb.Append("{\"w\":").Append(w).Append(",\"h\":").Append(h).Append(",\"rects\":{");
+            bool first = true;
+            foreach (var key in keys)
+            {
+                if (!first) sb.Append(','); first = false;
+                var r = rects[key];
+                sb.Append('"').Append(key).Append("\":[")
+                  .Append(r.x.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.y.ToString("0", CultureInfo.InvariantCulture)).Append(',')
+                  .Append(r.width.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.height.ToString("0", CultureInfo.InvariantCulture)).Append(']');
+            }
+            return sb.Append("}}").ToString();
+        }
 
         /// <summary>Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged.</summary>
         public static string Shoot(string path, int width = 1920, int height = 1080)
@@ -88,32 +137,21 @@ namespace TW.Editor
             static string Probe(PanelSettings panel, int w, int h)
             {
                 var found = new Dictionary<string, Rect>();
-                foreach (var doc in Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None))
+                foreach (var doc in InDrawOrder(Object.FindObjectsByType<UIDocument>(FindObjectsSortMode.None)))
                 {
                     if (doc.panelSettings != panel || doc.rootVisualElement == null || doc.rootVisualElement.panel == null) continue;
                     var top = doc.rootVisualElement.panel.visualTree;
                     float sx = w / Mathf.Max(1f, top.layout.width), sy = h / Mathf.Max(1f, top.layout.height);
                     void Add(string key, VisualElement e)
                     {
-                        if (e == null || found.ContainsKey(key) || e.resolvedStyle.display == DisplayStyle.None) return;
+                        if (e == null || found.ContainsKey(key) || InHiddenBranch(e)) return;
                         var b = e.worldBound; if (b.width <= 0f || b.height <= 0f || float.IsNaN(b.x)) return;
                         found[key] = new Rect(b.x * sx, b.y * sy, b.width * sx, b.height * sy);
                     }
                     foreach (var n in Probes) Add(n, doc.rootVisualElement.Q(n));
                     doc.rootVisualElement.Query(className: "hud-orders").ForEach(e => { if (!e.ClassListContains("is-hidden")) Add("orders", e); });
                 }
-                var sb = new StringBuilder();
-                sb.Append("{\"w\":").Append(w).Append(",\"h\":").Append(h).Append(",\"rects\":{");
-                bool first = true;
-                foreach (var kv in found)
-                {
-                    if (!first) sb.Append(','); first = false;
-                    var r = kv.Value;
-                    sb.Append('"').Append(kv.Key).Append("\":[")
-                      .Append(r.x.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.y.ToString("0", CultureInfo.InvariantCulture)).Append(',')
-                      .Append(r.width.ToString("0", CultureInfo.InvariantCulture)).Append(',').Append(r.height.ToString("0", CultureInfo.InvariantCulture)).Append(']');
-                }
-                return sb.Append("}}").ToString();
+                return RectsJson(w, h, found);
             }
 
             static Texture2D Read(RenderTexture rt)

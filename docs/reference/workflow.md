@@ -512,6 +512,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.TankCapture.Spawn(team, archetype, x, z, yawDeg)` | Editor/TankCapture.cs | A unit at an exact place in both worlds, with the stats the match table gives its archetype. |
 | `TW.Editor.TankCapture.Ignite(slot, fire)` | Editor/TankCapture.cs | Set something burning in both worlds (to watch a fire, a bail-out and a cook-off). |
 | `TW.Editor.TankCapture.Status()` | Editor/TankCapture.cs | (no summary: read the method) |
+| `TW.Editor.HudCapture.RectsJson(w, h, IReadOnlyDictionary<string, rects)` | Editor/UI/HudCapture.cs | JSON {"w","h","rects":{name:[x,y,w,h]}}, keys in Probes order first, then any other key ordinal-ascending. |
 | `TW.Editor.HudCapture.Shoot(path, width, height)` | Editor/UI/HudCapture.cs | Queue a capture; returns the absolute path the PNG will be written to, or null with a reason logged. |
 | `TW.Editor.UiSkinGenerator.FullPath(assetPath)` | Editor/UI/UiSkinGenerator.cs | (no summary: read the method) |
 | `TW.Editor.VfxLab.Shell(x, z, radius, damage)` | Editor/VfxLab.cs | One shell, bursting next tick in every world. |
