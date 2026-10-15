@@ -206,6 +206,9 @@ python Tools/gate_bg.py            # the full gate as a process of its own; the 
 python Tools/gate_bg.py --wait     # wait for it and print the verdict (exit 0: green)
 python Tools/gate_bg.py --status   # running, green, or how it ended
 ```
+A stale pid (the process is gone, or it is a different program that reused the id) is reported as an ended gate and
+no longer blocks a new one. `python Tools/test_gate_bg.py` is its tests.
+
 `-EditOnly` skips a slow module only when nothing your lane changed can reach it. It compares the working tree
 with the merge-base on origin's integration branch, so a lane that touched the sim runs the sim tests on every commit:
 
