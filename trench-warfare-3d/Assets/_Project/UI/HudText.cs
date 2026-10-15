@@ -28,8 +28,9 @@ namespace TW.UI
         /// faction's roster hands out so a new machine cannot inherit its neighbour's picture.</summary>
         public const int PortraitCount = UnitLook.PortraitCount;
 
-        /// <summary>The key printed in a card's badge: ten roster slots take "1".."9" and "0" (UnitLook).</summary>
-        public static string Hotkey(int slot) => UnitLook.Hotkey(slot);
+        /// <summary>The key printed in a card's badge: whatever KeyMap binds the slot's deploy action to now, so a
+        /// rebinding shows on the card ([I12]: UnitLook.Hotkey was a fixed "1".."0" while HudHotkeys read KeyMap).</summary>
+        public static string Hotkey(int slot) => slot >= 0 && slot < RosterEntry.SlotCount ? Badge(KeyMap.Display(KeyMap.Primary((GameAction)((int)GameAction.Deploy1 + slot)))) : "";
         static readonly GameAction[] SupportActions = { GameAction.ArmBarrage, GameAction.ArmGas, GameAction.ArmDrop,
             GameAction.ArmCreeping, GameAction.ArmSmoke, GameAction.ArmStrafe, GameAction.ArmBeam };
         /// <summary>The key on a support card, in HudView.SupportAbilities order: whatever KeyMap binds the arm action to
