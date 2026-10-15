@@ -52,6 +52,9 @@ BY = 'autoloop'
 DAY_PCT = os.environ.get('TW_DAY_PCT') or '11'   # the day's cap for every relay together (the owner, 2026-10-07); the start script counts all boards
 PARKED = found.PARKED
 STARTS = (1800, 14400)      # after a start, wait at least this long; when it stopped again for the same reason, double it, up to the second
+INTEGRATION = found.INTEGRATION
+NEEDS_RELAY = 'trench-warfare-3d/Tools/relay/relay.py'     # a unit that works on the relay needs it on its lane
+WAITS = 'relay-harness'     # what such a unit waits for: the relay line landing on integration
 STALE = 900                 # a lock whose loop has not beaten for this long is taken over
 
 
@@ -192,6 +195,54 @@ class World:
 
     def now(self):
         return time.time()
+
+    def repo(self, *a):
+        """git in the checkout this file runs from, read only (refs and objects; never a work checkout's index)."""
+        r = subprocess.run(['git', '-C', str(found.build.REPO), *a], capture_output=True, stdin=subprocess.DEVNULL, timeout=300)
+        return r.returncode, (r.stdout + r.stderr).decode('utf-8', 'replace').strip()
+
+    def has(self, ref, path):
+        return self.repo('cat-file', '-e', f'{ref}:{path}')[0] == 0
+
+    def lane_ref(self, lane):
+        """origin/<lane> when it is on origin, else integration (a new lane starts there)."""
+        return f'origin/{lane}' if self.repo('rev-parse', '--verify', '-q', f'origin/{lane}')[0] == 0 else f'origin/{INTEGRATION}'
+
+    def works(self):
+        """{relay number: its work checkout}; 1 is the main relay."""
+        out = {1: GH / 'githubtest-relay-work'}
+        out.update({n: GH / f'githubtest-relay-work{n}' for n in self.extras})
+        return {n: p for n, p in out.items() if (p / '.git').exists()}
+
+    def rebased(self, work):
+        """[(branch, sha)] of the lane branches in a work checkout that were rebased onto integration and cannot
+        fast-forward their origin branch. Reads refs and objects only: the relay refuses to start for ten minutes
+        after a checkout's index moves, and nothing here touches the index."""
+        g = lambda *a: self.git(work, *a)       # noqa: E731
+        code, out = g('for-each-ref', '--format=%(refname:short) %(objectname)', 'refs/heads/lane/')
+        res = []
+        for line in out.splitlines() if code == 0 else []:
+            name, _, sha = line.partition(' ')
+            if g('rev-parse', '--verify', '-q', f'refs/remotes/origin/{name}')[0]:
+                continue                                        # not on origin: the relay pushes it itself
+            if g('merge-base', '--is-ancestor', f'origin/{name}', sha)[0] == 0:
+                continue                                        # it fast-forwards: nothing to rescue
+            if g('for-each-ref', '--points-at', sha, 'refs/remotes/origin/')[1].strip():
+                continue                                        # on origin already, under another name
+            if g('merge-base', '--is-ancestor', f'origin/{INTEGRATION}', sha)[0] == 0:
+                res.append((name, sha))
+        return res
+
+    def free_name(self, work, lane):
+        for s in 'bcdefghij':
+            name = f'{lane}-{s}'
+            if self.git(work, 'rev-parse', '--verify', '-q', f'refs/remotes/origin/{name}')[0]:
+                return name
+        return ''
+
+    def push_as(self, work, sha, name):
+        """Push a commit to a NEW branch on origin; never a force push."""
+        return self.git(work, 'push', '-q', 'origin', f'{sha}:refs/heads/{name}')
 
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
@@ -338,9 +389,92 @@ def feed(w):
     return out
 
 
+def running_lanes(w):
+    """The lanes every relay works now, or None when one of them does not say."""
+    lanes = set()
+    for board in [w.main, *w.extras.values()]:
+        got, _ = w.status(board)
+        if got is None:
+            return None
+        lanes |= got
+    return lanes
+
+
+def rescue(w):
+    """A leg that rebased its lane cannot push it (the relay refuses a force push) and ends BLOCKED. The rebased
+    lane is pushed as <lane>-b (or the next free suffix), never forced, and said; the coordinator did it by hand
+    twice on 2026-10-15. Only for a relay that is not running, so no leg is mid-way."""
+    out, done, seen = [], load(w.home / 'rescued.json', {}), set()
+    busy = running_lanes(w)
+    if busy is None:
+        return ['rescue: a relay did not say whether it runs: nothing is pushed this round']
+    for n, work in sorted(w.works().items()):
+        running, _ = w.status(w.main if n == 1 else w.extras[n])
+        if running is None or running:
+            continue
+        if w.acting:
+            w.git(work, 'fetch', '-q', 'origin')         # refs only; the index is not touched
+        for lane, sha in w.rebased(work):
+            if done.get(f'{lane}@{sha}') or lane in busy or (lane, sha) in seen:
+                continue                    # done before, a leg works on it now, or seen in another worktree of the same repo
+            seen.add((lane, sha))
+            name = w.free_name(work, lane)
+            if not name:
+                out.append(f'rescue: {lane} ({sha[:9]}) is rebased and cannot fast-forward; no free name -b..-j')
+                continue
+            if not w.acting:
+                out.append(f'rescue: would push the rebased {lane} ({sha[:9]}) as {name}')
+                continue
+            code, said = w.push_as(work, sha, name)
+            if code:
+                out.append(f'rescue: {lane} as {name} was refused: {said[:160]}')
+                continue
+            done[f'{lane}@{sha}'] = name
+            save(w.home / 'rescued.json', done)
+            w.log_decision(f'| {time.strftime("%Y-%m-%d")} | **Done by the loop.** **The rebased {lane} could not fast-forward, so it was pushed as {name} ({sha[:9]}), with no force push.** A session moves the lane\'s units to {name}. |')
+            out.append(f'rescue: the rebased {lane} pushed as {name} ({sha[:9]})')
+    return out
+
+
+def wait_for_relay(w):
+    """A depends-on the queue has no field for: a unit about the relay (its goal names Tools/relay) whose lane has
+    no Tools/relay waits parked at 99 until the relay line has landed, then goes back to its old priority."""
+    out, held = [], load(w.home / 'held.json', {})
+    busy = running_lanes(w)
+    if busy is None:
+        return ['waits: a relay did not say whether it runs: nothing is parked this round']
+    landed = w.has(f'origin/{INTEGRATION}', NEEDS_RELAY)
+    q, done = queue_of(w.main)
+    for uid, old in sorted(held.items()):
+        if uid in done or uid not in q:
+            held.pop(uid)
+            continue
+        if landed or w.has(w.lane_ref(q[uid].get('lane', '')), NEEDS_RELAY):
+            if w.acting and w.prio(uid, old)[0]:
+                continue
+            held.pop(uid)
+            out.append(f'waits: {uid} goes back to priority {old}: its lane has Tools/relay now')
+    if not landed:
+        for uid, u in q.items():
+            if uid in done or uid in held or found.prio(u) >= PARKED or u.get('lane') in busy or 'Tools/relay' not in str(u.get('goal', '')):
+                continue
+            if w.has(w.lane_ref(u.get('lane', '')), NEEDS_RELAY):
+                continue
+            if not w.acting:
+                out.append(f'waits: {uid} would wait for {WAITS} (its lane has no Tools/relay)')
+                continue
+            if w.prio(uid, PARKED)[0]:
+                continue
+            held[uid] = found.prio(u)
+            out.append(f'waits: {uid} waits for {WAITS} to land (its lane has no Tools/relay): parked at {PARKED}')
+    if w.acting:
+        save(w.home / 'held.json', held)
+    return out
+
+
 def round_(w):
     lines = []
-    for step in (copy_back, take_answers, feed):
+    for step in (copy_back, take_answers, wait_for_relay, rescue, feed):
         try:
             lines += step(w)
         except Exception:       # noqa: BLE001  one step that fails must not stop the others

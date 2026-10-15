@@ -61,6 +61,15 @@ class Fake(autoloop.World):
     def pull(self, board):
         return 0, ''
 
+    def works(self):            # never the desktop's real work checkouts
+        return {}
+
+    def has(self, ref, path):
+        return True
+
+    def lane_ref(self, lane):
+        return 'origin/' + lane
+
     def tracked(self, board, folder):
         return set(self.committed)
 
@@ -177,6 +186,52 @@ def main():
          [u['id'] for u in w.added] == ['late-unit', 'banner-whole'] and w.added[1]['role'] == 'lane' and 'priority' not in w.added[1]
          and w.taken == [('b1', 'banner-whole', ''), ('b2', '', 'nothing is built')] and len(w.rows) == 2 and not any('late-unit' in r for r in w.rows)
          and 'not closed this round' in lines[0] and 'wait for a session' in lines[-1], (lines, w.taken, w.rows))
+
+    # ---- a rebased lane that cannot fast-forward ----
+    class Rb(Fake):
+        def works(self):
+            return {1: tmp / 'w1', 2: tmp / 'w2'}
+
+        def git(self, work, *a):
+            self.gitcalls.append(a[0])
+            return 0, ''
+
+        def rebased(self, work):        # two worktrees of one repo see the same branches
+            return [('lane/show/heroes-off-bench-c', 'abc123def'), ('lane/show/relay-four-checks', 'fed456')] if work.name in ('w1', 'w2') else []
+
+        def free_name(self, work, lane):
+            return lane + '-b'
+
+        def push_as(self, work, sha, name):
+            self.pushes.append((work.name, sha, name))
+            return 0, ''
+    w = Rb(tmp / 'h')
+    w.gitcalls, w.pushes = [], []
+    w.text[w.extras[2]] = RUN
+    lines = autoloop.rescue(w)
+    again = autoloop.rescue(w)
+    case('a lane a leg rebased and could not push is pushed as <lane>-b with no force, once, and recorded; a relay that runs is left alone; '
+         'nothing but a fetch and a push touches its checkout (the index never moves)',
+         w.pushes == [('w1', 'abc123def', 'lane/show/heroes-off-bench-c-b')] and again == [] and len(w.rows) == 1 and '-b' in lines[0]
+         and set(w.gitcalls) <= {'fetch'}, (lines, w.pushes, w.gitcalls))
+
+    # ---- depends-on: units about the relay wait for the relay line ----
+    class Dep(Fake):
+        landed = False
+
+        def has(self, ref, path):
+            return self.landed and ref.endswith(autoloop.INTEGRATION)
+
+        def lane_ref(self, lane):
+            return 'origin/' + lane
+    w = Dep(tmp / 'i')
+    put(w.main, 'queue', 'second-critic-on', goal='change Tools/relay/runner.py so ...', priority=20)
+    put(w.main, 'queue', 'banner-legs', goal='the Banner walks', priority=30)
+    first = autoloop.wait_for_relay(w)
+    w.landed = True
+    back = autoloop.wait_for_relay(w)
+    case('a unit about the relay whose lane has no Tools/relay waits parked at 99 (not a run that blocks); once the relay line has landed it goes back to its own priority; other units are left alone',
+         'waits for relay-harness' in first[0] and len(first) == 1 and w.prios == {'second-critic-on': 20} and 'goes back to priority 20' in back[0], (first, back, w.prios))
 
     # ---- one round, and the lock ----
     calls = []
