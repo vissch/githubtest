@@ -177,15 +177,30 @@ def main():
     wd = Fake(tmp / 'dirty')
     wd.works = lambda: {3: tmp / 'w3'}
     wd.asides = []
-    wd.put_aside = lambda work, n: wd.asides.append((work.name, n)) or 'put aside'
+    wd.put_aside = lambda work, n: (wd.asides.append((work.name, n)) or True, 'put aside')
     put(wd.extras[3], 'queue', 'd-1', lane='lane/show/d')
     wd.text[wd.main] = RUN
     wd.text[wd.extras[2]] = RUN
     wd.text[wd.extras[3]] = ('NOT RUNNING. Last run 20261015-141327-10424: the work checkout cannot be used: it has uncommitted changes '
                              'that are not a saved leg snapshot (0 legs).')
     lines = autoloop.feed(wd)
-    case('a stopped relay whose checkout holds a leg\'s leftover files has them put aside (patch and stash, as the old keeper did) and is started',
-         wd.asides == [('w3', 3)] and wd.started == [3] and any('leftover files' in l for l in lines), (lines, wd.asides, wd.started))
+    wd.clock += 60
+    soon = autoloop.feed(wd)
+    wd.clock += autoloop.QUIET
+    later = autoloop.feed(wd)
+    case('a stopped relay whose checkout holds a leg\'s leftover files has them put aside (patch and stash, as the old keeper did) once, '
+         'and is started only after the relay\'s ten quiet minutes',
+         wd.asides == [('w3', 3)] and any('leftover files' in l for l in lines) and soon == [] and wd.started == [3] and len(later) == 1, (lines, soon, later, wd.asides, wd.started))
+    wf = Fake(tmp / 'dirty2')
+    wf.works = lambda: {3: tmp / 'w3'}
+    wf.put_aside = lambda work, n: (False, 'not put aside: git stash failed (index.lock)')
+    put(wf.extras[3], 'queue', 'd-1', lane='lane/show/d')
+    wf.text[wf.main] = RUN
+    wf.text[wf.extras[2]] = RUN
+    wf.text[wf.extras[3]] = ('NOT RUNNING. Last run 20261015-141327-10424: the work checkout cannot be used: '
+                             'it has uncommitted changes that are not a saved leg snapshot (0 legs).')
+    failed = autoloop.feed(wf)
+    case('when the files cannot be put aside the relay is not started, and it says why', wf.started == [] and 'stash failed' in failed[0], failed)
     w3 = Fake(tmp / 'c')
     put(w3.main, 'queue', 'x-1', lane='lane/show/x', priority=99)
     case('with no free lane an empty relay is not started', autoloop.feed(w3) == [] and w3.started == [])

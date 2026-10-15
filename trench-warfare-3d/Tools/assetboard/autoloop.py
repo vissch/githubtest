@@ -57,6 +57,7 @@ STARTS = (1800, 14400)      # after a start, wait at least this long; when it st
 INTEGRATION = found.INTEGRATION
 NEEDS_RELAY = 'trench-warfare-3d/Tools/relay/relay.py'     # a unit that works on the relay needs it on its lane
 WAITS = 'relay-harness'     # what such a unit waits for: the relay line landing on integration
+QUIET = 690                 # the relay refuses a start for ten minutes after a checkout's index moves
 STALE = 900                 # a lock whose loop has not beaten for this long is taken over
 
 
@@ -263,10 +264,14 @@ class World:
         d = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'Temp' / 'clear-dirty-patches'
         d.mkdir(parents=True, exist_ok=True)
         code, diff = self.git(work, '--no-optional-locks', 'diff', 'HEAD')
+        if code:
+            return False, f'not put aside: git diff failed ({diff[:120]})'
         (d / f'{stamp}-relay{n}.patch').write_text(diff + '\n', encoding='utf-8')
         branch = self.git(work, 'rev-parse', '--abbrev-ref', 'HEAD')[1]
         code, said = self.git(work, 'stash', 'push', '-u', '-q', '-m', f'put aside {stamp} by autoloop.py so relay {n} can start: left on {branch}')
-        return f'put aside (stash exit {code}, patch {d / (stamp + "-relay" + str(n) + ".patch")})'
+        if code:
+            return False, f'not put aside: git stash failed ({said[:120]})'
+        return True, f'put aside as a stash and {d / (stamp + "-relay" + str(n) + ".patch")}'
 
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
@@ -407,10 +412,17 @@ def feed(w):
         if not w.acting:
             out.append(f'feed: relay {n} is not running and has work: it would be started')
             continue
+        if 'uncommitted changes' in reason and n in w.works():
+            starts = load(w.home / 'starts.json', {})
+            if (starts.get(str(n)) or {}).get('reason') != 'put aside':
+                ok, said = w.put_aside(w.works()[n], n)
+                out.append(f'feed: relay {n} stopped on leftover files: {said}')
+                if ok:          # the relay wants ten quiet minutes after the index moved: start it from the next round after that
+                    starts[str(n)] = dict(at=w.now(), reason='put aside', wait=QUIET)
+                    save(w.home / 'starts.json', starts)
+                continue
         if not may_start(w, n, reason):
             continue
-        if 'uncommitted changes' in reason and n in w.works():
-            out.append(f'feed: relay {n} stopped on leftover files: {w.put_aside(w.works()[n], n)}')
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
