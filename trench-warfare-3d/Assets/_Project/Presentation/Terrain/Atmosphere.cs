@@ -271,6 +271,12 @@ namespace TW.Presentation.Terrain
             Shader.SetGlobalVector(MistColorId, Vector4.zero);
             Shader.SetGlobalVector(ShadeTintId, Vector4.zero); Shader.SetGlobalVector(SkyId, Vector4.zero); Shader.SetGlobalVector(WetId, Vector4.zero);
             Shader.SetGlobalVector(FieldFogColorId, Vector4.zero);
+            // each term next to its colour (W9): a scene loaded after this one must not keep its wind, mist band,
+            // field size or fog bank
+            Shader.SetGlobalVector(WindId, Vector4.zero);
+            Shader.SetGlobalVector(MistId, Vector4.zero);
+            Shader.SetGlobalVector(FieldId, Vector4.zero);
+            Shader.SetGlobalVector(FieldFogId, Vector4.zero);
             Shader.SetGlobalFloat(WetLookId, 0f); Shader.SetGlobalFloat(InkFogFadeId, 0f); Shader.SetGlobalFloat(WaterDimId, 0f); Shader.SetGlobalFloat(GlowHueId, 0f); Shader.SetGlobalFloat(GlowFadeId, 0f); Shader.SetGlobalFloat(MoonSheenId, 0f); Shader.SetGlobalVector(CurtainId, Vector4.zero);
             ClearBiome();
             UnhookFog();
