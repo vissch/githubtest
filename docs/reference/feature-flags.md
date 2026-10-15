@@ -64,6 +64,5 @@ Code and inspector switches (static fields or `SimHost` inspector fields):
 | `ProfileSubscribers` | `Presentation/Core/EventPump.cs` | Profiler marker per event subscriber (perf work only). |
 | `Disabled` | `UI/HudBootstrap.cs` | HudBootstrap.Disabled: tests set it so no HUD is added to their scenes. |
 | `Disabled` | `UI/Shell/ShellBoot.cs` | ShellBoot.Disabled: tests set it so no menu shell is added. |
-| `LegacyOverlayActive` | `UI/HudHotkeys.cs` | Whether the IMGUI debug overlay still takes F-keys. |
 | `PinnedClock` | `Presentation/Terrain/Atmosphere.cs` | Freeze weather/rain at a clock value for repeatable captures; -1 = live. |
 <!-- /gen:flags -->
