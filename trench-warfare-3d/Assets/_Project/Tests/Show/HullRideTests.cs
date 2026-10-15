@@ -202,5 +202,39 @@ namespace TW.Tests
                 }
             }
         }
+
+        /// <summary>The owner, 2026-10-15: the top kick is the Banner's alone. Drives TankRenderer's own private
+        /// TakeTopKick by reflection, the way ModelCutTests.Rig drives TankRenderer's views, so the test reads the
+        /// real method and nothing can drift from it.</summary>
+        [Test]
+        public void OnlyTheBannerTakesTheTopKickOnAShot()
+        {
+            const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public;
+            var go = new GameObject("TopKickUnderTest");
+            var r = go.AddComponent<TankRenderer>();
+            var view = r.GetType().GetNestedType("View", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Public);
+            Assert.NotNull(view, "TankRenderer has no View");
+            var takeTopKick = r.GetType().GetMethod("TakeTopKick", Any);
+            Assert.NotNull(takeTopKick, "TankRenderer has no TakeTopKick");
+
+            float Velocity(byte archetype, int gun)
+            {
+                object v = System.Activator.CreateInstance(view, true);
+                view.GetField("Archetype", Any).SetValue(v, archetype);
+                takeTopKick.Invoke(r, new object[] { v, gun });
+                object spring = view.GetField("TopKick", Any).GetValue(v);
+                return (float)spring.GetType().GetField("Velocity", Any).GetValue(spring);
+            }
+
+            float bannerGun0 = Velocity(VehicleArchetype.Banner, 0);
+            float bannerGun1 = Velocity(VehicleArchetype.Banner, 1);
+            Assert.AreNotEqual(0f, bannerGun0, "the Banner should take a top kick on gun 0");
+            Assert.AreNotEqual(0f, bannerGun1, "the Banner should take a top kick on gun 1");
+            Assert.AreNotEqual(Mathf.Sign(bannerGun0), Mathf.Sign(bannerGun1), "the Banner's two guns swing the top opposite ways");
+            Assert.AreEqual(0f, Velocity(VehicleArchetype.Maw, 0), "a Maw should not take a top kick");
+            Assert.AreEqual(0f, Velocity(VehicleArchetype.Pincer, 0), "a Pincer should not take a top kick");
+
+            Object.DestroyImmediate(go);
+        }
     }
 }

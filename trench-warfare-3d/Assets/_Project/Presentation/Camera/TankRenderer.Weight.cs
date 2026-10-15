@@ -110,10 +110,13 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The top's share of a shot: the barrel kicks back, the top swings a little with it and springs back
         /// to the sim's mark. Fed here and nowhere else, and never into Settle, which SettleTurrets wipes whenever a
-        /// shot is due. Which way it swings is the gun's side, so the Banner's two guns do not swing it the same way.</summary>
+        /// shot is due. Which way it swings is the gun's side, so the Banner's two guns do not swing it the same way.
+        /// The owner, 2026-10-15: this kick is the Banner's alone. Every other machine keeps its hull kick (ShotKick)
+        /// and its barrel's recoil (RecoilShape) and draws its top on the mark the sim laid.</summary>
         void TakeTopKick(View v, int gun)
         {
             if (!weightOn || shotRockDeg <= 0f) return;
+            if (v.Archetype != VehicleArchetype.Banner) return;
             v.TopKick.Velocity += (gun == 1 ? -1f : 1f) * HullRide.TopKickFor(v.ShotW[gun]);
         }
 
