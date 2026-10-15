@@ -8,6 +8,7 @@ You are one short session in a chain. Nobody is watching and nobody can answer y
 - The repo's CLAUDE.md is the law. Lanes, seam commits and the gate before every commit all apply to you.
 - Write nothing new into a checkout except the work itself. Notes, plans and logs go in your leg folder.
 - Long jobs (gate, bench, build) run detached; wait for them with one call, not by polling.
+- Proof a decision needs may be copied to `G:/My Drive/TW3D-pipeline/decisions-evidence/<date>/<topic>/`, and nowhere else on the Drive.
 
 # Your context is limited
 - A message "RELAY: ... (amber)" means: finish the step you are on, start nothing new.

@@ -9,7 +9,7 @@
 
 <guard> is the leg's guard folder (leg.json, the meter, the logs). It is in the hook's command line only, never in
 the leg's environment, so the leg is not told where its rules are; every tool is refused a path inside it, inside
-the relay's own code, and on the board outside its evidence. pre-tool fails closed: rules it cannot read, or any
+the relay's own code, on the board outside its evidence, and on the Drive outside decisions-evidence/. pre-tool fails closed: rules it cannot read, or any
 error, refuse the call. The other events log the error and let the leg go on. This is the second line of defence;
 the first is outside the model (prepush.py, land.py and pipeline.py, the runner's audit). The meter reads the
 transcript one batch late, so red sits well under the compaction size. Stdlib only. ASCII only.
@@ -169,7 +169,8 @@ def may_write(path, leg, C):
 
 
 def off_limits(path, d, leg, C):
-    """Why no tool may write this path: the runner's guard, the relay's own code, the board outside evidence."""
+    """Why no tool may write this path: the runner's guard, the relay's own code, the board outside evidence, the
+    Drive outside decisions-evidence/."""
     run_root = Path(d).parents[1]                # <home>/runs/<run>
     if inside(path, run_root, C) and not inside(path, leg.get("desk") or run_root / "none", C):
         return "that folder is the runner's: write in your leg folder (%s)" % leg.get("desk")
@@ -178,6 +179,8 @@ def off_limits(path, d, leg, C):
     board = leg.get("board")
     if board and inside(path, board, C) and not inside(path, Path(board) / "evidence", C):
         return "on the board a leg writes only under evidence/: results, claims and the queue are the runner's"
+    if inside(path, C.DRIVE, C) and not inside(path, C.EVIDENCE, C):
+        return "on the Drive a leg writes only under decisions-evidence/"
     if "/.git/" in C.norm_path(path) + "/":
         return "a leg does not write inside a .git folder: use git commands"
     return None

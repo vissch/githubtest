@@ -7,6 +7,7 @@ outside the model (the git pre-push hook in prepush.py, land.py and pipeline.py 
 audit after each leg).
 
   never(cmd, leg)        why no leg may run this, in any phase (land, claim, force-push, another lane, ...)
+  never_drive(cmd)       why no leg may run this: a path on the Drive outside decisions-evidence/
   skips_guard(cmd)       True when it names git's push guard or tells git to skip it (a commit message may)
   read_only_ok(cmd)      True when every part only looks (the plan, critic and retro phases)
   red_ok(cmd, relay_py)  True when it is one close-out command (context at red)
@@ -16,6 +17,10 @@ Stdlib only. ASCII only.
 import os, re
 
 INTEGRATION = "claude/trench-warfare-2d-3d-plan-idt7lf"
+DRIVE = "G:/My Drive/TW3D-pipeline"            # the owner, 2026-10-12: "A: Allow relay sessions to write to your
+                                                # Drive evidence folder: proof lands where you already look for it"
+EVIDENCE = DRIVE + "/decisions-evidence"
+DRIVE_RE = re.compile(r"(?:\bg:|/g)/my drive/tw3d-pipeline(?![/\\]?decisions-evidence)")
 OPS = set(";&|\n")
 HEREDOC = re.compile(r"<<-?\s*(['\"]?)(\w+)\1[^\n]*\n.*?\n\s*\2\b", re.S)
 HARMLESS = {"2>&1", "1>&2", "2>/dev/null", ">/dev/null", "2>nul", ">nul", "2>$null", "&>/dev/null"}
@@ -408,6 +413,28 @@ def never_part(words, leg):
     return None
 
 
+def never_drive(cmd):
+    """Why no leg may run this: it names a path on the Drive outside decisions-evidence/. Git's -m/--message value
+    is text, not a path, and is dropped exactly as skips_guard does."""
+    for words in commands(cmd):
+        is_git, skip = prog(words) == "git", False
+        kept = []
+        for w in words[1:]:
+            b = bare(w)
+            if skip:
+                skip = False
+            elif is_git and b.lower() in ("-m", "--message"):
+                skip = True
+            elif is_git and (b.lower().startswith("--message=") or (b.lower().startswith("-m") and not b.lower().startswith("--"))):
+                pass
+            else:
+                kept.append(b)
+        flat = " ".join(kept).lower().replace("\\", "/")
+        if DRIVE_RE.search(flat):
+            return "on the Drive a leg writes only under decisions-evidence/"
+    return None
+
+
 def never_env(names):
     for n in names:
         raw = n.lstrip("-").upper()
@@ -424,6 +451,9 @@ def never(cmd, leg, depth=0):
         why = never_part(words, leg)
         if why:
             return why
+    why = never_drive(cmd)
+    if why:
+        return why
     why = never_env(env)
     if why or depth >= 4:
         return why

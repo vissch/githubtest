@@ -531,6 +531,35 @@ class Guards(Base):
         raw = json.loads((HERE / "relay-hooks.json").read_text(encoding="utf-8"))["hooks"]
         self.assertEqual(sorted(raw), ["PostToolBatch", "PreCompact", "PreToolUse", "SessionStart"])
 
+    def test_a_leg_may_copy_proof_into_the_drives_evidence_folder_and_write_nowhere_else_on_it(self):
+        self.leg()
+        evidence = "G:/My Drive/TW3D-pipeline/decisions-evidence/2026-10-12/banner-day-film"
+        self.assertFalse(self.denied("Write", file_path=evidence + "/banner.mp4"))
+        self.assertFalse(self.denied("Bash", command='cp banner.mp4 "%s/"' % evidence))
+        self.assertFalse(self.denied("PowerShell", command='Copy-Item banner.mp4 "%s/"' % evidence))
+        self.assertFalse(self.denied("Bash", command=
+            'git commit -m "films at G:/My Drive/TW3D-pipeline/decisions/2026-10-12-x"'))
+        self.assertTrue(self.denied("Write",
+            file_path="G:/My Drive/TW3D-pipeline/decisions/2026-10-12-x/brief.json"))
+        self.assertTrue(self.denied("Write", file_path="G:/My Drive/TW3D-pipeline/notes/x.md"))
+        self.assertTrue(self.denied("Bash", command='cp a "G:/My Drive/TW3D-pipeline/decisions/x"'))
+        self.assertTrue(self.denied("Bash", command='cp a "/g/My Drive/TW3D-pipeline/notes/x"'))
+        self.assertTrue(self.denied("Bash", command="cp a G:\\My Drive\\TW3D-pipeline\\decisions\\x"))
+        self.assertTrue(self.denied("Bash", command='echo x > "G:/My Drive/TW3D-pipeline/queue.json"'))
+        why = json.loads((self.d / "denials.jsonl").read_text(encoding="utf-8").splitlines()[-1])["why"]
+        self.assertIn("decisions-evidence", why)
+
+    def test_a_leg_is_handed_the_drives_evidence_folder_only_when_it_is_there(self):
+        d = self.leg()
+        old = cmdrules.EVIDENCE
+        self.addCleanup(setattr, cmdrules, "EVIDENCE", old)
+        there = self.tmp / "drive" / "decisions-evidence"
+        there.mkdir(parents=True)
+        cmdrules.EVIDENCE = str(there)
+        self.assertIn(str(there), launch.argv(d, legdir.read(d), self.lim))
+        cmdrules.EVIDENCE = str(self.tmp / "no-such-drive" / "decisions-evidence")
+        self.assertNotIn(cmdrules.EVIDENCE, launch.argv(d, legdir.read(d), self.lim))
+
 
 PLAN = """## Goal
 Add a.txt to the repo.

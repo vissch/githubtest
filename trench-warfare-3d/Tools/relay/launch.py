@@ -18,6 +18,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 from pipeline import now, proc_start          # noqa: E402
 from run_detached import kill_tree            # noqa: E402
+import cmdrules                               # noqa: E402
 import config                                 # noqa: E402
 import legdir                                 # noqa: E402
 import prompt                                 # noqa: E402
@@ -96,6 +97,11 @@ def make_leg(run, nn, unit, phase, worktree, lane, board, body, lim=None, plan=N
     return d
 
 
+def drive_evidence():
+    """The Drive's evidence folder as a string, when it is there; else None (a station with no Drive mounted)."""
+    return cmdrules.EVIDENCE if Path(cmdrules.EVIDENCE).is_dir() else None
+
+
 def argv(d, leg, lim):
     d = Path(d)
     a = claude_cmd() + ["-p", "--output-format", "stream-json", "--verbose", "--name",
@@ -112,6 +118,9 @@ def argv(d, leg, lim):
         a += ["--disable-slash-commands"]
     if leg.get("board"):
         a += ["--add-dir", leg["board"]]
+    evidence = drive_evidence()
+    if evidence:
+        a += ["--add-dir", evidence]
     if lim.get("leg_budget_usd"):
         a += ["--max-budget-usd", str(lim["leg_budget_usd"])]
     return a
