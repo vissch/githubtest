@@ -119,6 +119,7 @@ namespace TW.Presentation.Tactical
                 if (books != null && books.Ready) books.Add(FlipbookFx.Book.Puff, v.Pos + Vector3.up * 0.3f, v.Model.HalfLength * 1.8f, 1.2f, FlipbookFx.Kind.Upright, velocity: Vector3.up * 0.5f, grow: 0.7f, alpha: 0.7f);
             }
             v.Hidden |= WreckStageRules.Hidden(CarcassOf(v.Model, 0), stage, 1f);
+            v.PoseDirty = true;   // K10: its hull slumped or was squashed, so Smoulder must solve the pose again
             return true;
         }
 
@@ -151,6 +152,7 @@ namespace TW.Presentation.Tactical
                     var rng = new DebrisRng(v.PropPos, 0xC0A0u + match.World.Tick);
                     ThrowChunks(v, newly, 4.5f, rng);
                     v.Hidden |= newly;
+                    v.PoseDirty = true;   // K10
                     Scrap(v.Pos + Vector3.up * (v.Heave.Value + v.Model.Height * 0.7f), 3, 6f, 0.25f, v.Burn * 0.5f, 20f, v.Harm, match.World.Tick);
                 }
             }
@@ -162,6 +164,7 @@ namespace TW.Presentation.Tactical
                 float age = now - v.ClearedAt;
                 v.Heave.Value -= dt * v.Model.Height * WreckStageRules.ScrapHeight / ClearSinkSeconds;
                 foreach (var d in v.Pieces) if (d.Resting) d.World.m13 -= dt * 0.25f;
+                v.PoseDirty = true;   // K10: a sinking heap moves every frame
                 if (age < ClearSinkSeconds) continue;
                 foreach (var p in v.Pieces) debris.Remove(p);
                 shards.RemoveAll(s => s.Owner == v);
@@ -297,6 +300,7 @@ namespace TW.Presentation.Tactical
                 }
                 if (stage >= WreckStageRules.Broken) { v.Hidden = WreckStageRules.Hidden(CarcassOf(model, 0), stage, 1f); for (int p = 1; p < v.Off.Length; p++) v.Off[p] = true; }
                 if (stage == WreckStageRules.Scrap) v.Squash = WreckStageRules.ScrapHeight;
+                v.PoseDirty = true;   // K10: posed above, and posed again on its first smoulder
                 wrecks.Add(v);
                 adopted++;
             }

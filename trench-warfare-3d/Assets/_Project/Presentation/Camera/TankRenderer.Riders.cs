@@ -237,6 +237,7 @@ namespace TW.Presentation.Tactical
             {
                 if (v.Archetype != archetype || v.Dead) continue;
                 v.Model = model;
+                v.iTrackL = v.iTrackR = v.iTurret = -2;   // K10: the cached part indices belong to the old model
                 v.Off = new bool[model.Lods[0].Parts.Count];
                 v.World = new Matrix4x4[model.Lods[0].Parts.Count];
                 v.Legs = null; v.LegLocal = null; v.LegSolved = null;
