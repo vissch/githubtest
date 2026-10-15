@@ -355,8 +355,9 @@ namespace TW.Editor
                         Pose(clip, from, lower, src.LowerTime);
                         Vector3 first = Flat(rig.Hips.position); float yaw0 = rig.FacingYaw(), rifle0 = RifleYaw(rig);
                         Quaternion hips0 = rig.Hips.rotation; Vector3 knee0 = rig.ShinL.position - rig.Hips.position;
+                        Quaternion upper0 = rig.HandR.rotation;   // an upper-body bone only this clip's own curves drive
                         Pose(clip, from + span * 0.5f, lower, src.LowerTime);
-                        bool bound = Quaternion.Angle(hips0, rig.Hips.rotation) > 0.5f || (rig.ShinL.position - rig.Hips.position - knee0).magnitude > 0.005f * u;
+                        bool bound = Bound(hips0, rig.Hips.rotation, knee0, rig.ShinL.position - rig.Hips.position, upper0, rig.HandR.rotation, u);
                         if (!bound) { Debug.LogWarning("VATBaker: " + src.File + " does not move between its first frame and its middle: its curves may not bind to this rig"); unbound++; }
                         Pose(clip, to, lower, src.LowerTime);
                         Vector3 last = Flat(rig.Hips.position); float yawN = rig.FacingYaw(), rifleN = RifleYaw(rig);
@@ -450,6 +451,16 @@ namespace TW.Editor
         }
 
         static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
+
+        /// <summary>Does a clip's own curves bind to this rig? True when anything moved between the clip's first frame
+        /// and its middle: the hips turned, the knee offset shifted, or the upper body turned. The upper-body term is
+        /// what the 5 composed clips need: their hips and legs come from the fixed lower clip at a fixed time, so they
+        /// never move and the old hips/knee-only test called every composed clip unbound (code review 2026-10-04, E9).</summary>
+        public static bool Bound(Quaternion hips0, Quaternion hips1, Vector3 knee0, Vector3 knee1,
+            Quaternion upper0, Quaternion upper1, float unit)
+            => Quaternion.Angle(hips0, hips1) > 0.5f
+               || (knee1 - knee0).magnitude > 0.005f * unit
+               || Quaternion.Angle(upper0, upper1) > 0.5f;
 
         /// <summary>The bones the uniform hangs on: what the team colour recolours.</summary>
         /// <summary>Which limb a bone belongs to, for the shell that takes it off: shoulders and hips stay with the body.</summary>
