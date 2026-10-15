@@ -150,8 +150,10 @@ namespace TW.Presentation.Terrain
 
         /// <summary>
         /// Which look belongs to which ground. THE ONLY PLACE THIS PAIRING IS WRITTEN DOWN. It lives here rather
-        /// than beside the presets because TW.Sim cannot see Biome without closing a reference cycle, and it is a
-        /// switch rather than a table so that adding a ground without choosing its look is a compile error.
+        /// than beside the presets because TW.Sim cannot see Biome without closing a reference cycle. Every Ground
+        /// is named below; `default` is only what an unnamed one falls to, nothing names this switch exhaustive.
+        /// WeatherReviewTests.EveryGroundNamesItsOwnLook is the guard: it fails if a Ground is added without a
+        /// case naming it here (W10).
         ///
         /// Landing is night mud on purpose: the coast is the same war at the same hour, and it is the sea and the
         /// sand that make it a different place, not the weather.
@@ -161,6 +163,8 @@ namespace TW.Presentation.Terrain
             switch (ground)
             {
                 case TW.Presentation.Ground.WinterLine: return Biome.Winter;
+                case TW.Presentation.Ground.ShelledForest: return Biome.NightMud;
+                case TW.Presentation.Ground.Landing: return Biome.NightMud;
                 default: return Biome.NightMud;
             }
         }
