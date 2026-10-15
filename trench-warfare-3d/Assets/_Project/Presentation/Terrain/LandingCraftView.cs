@@ -38,8 +38,18 @@ namespace TW.Presentation.Terrain
         Vector3[] craftPrev, craftNow;
         float[] yawPrev, yawNow;
         bool[] craftWas;
+        /// <summary>No gunboat has fired yet: far enough in the past that the .45 s kick and the 1.2 s bow ring are
+        /// both already over at load (W8), unlike a zeroed stamp which reads as "fired at time zero".</summary>
+        public const float Never = -1000f;
         /// <summary>When each gunboat last fired (LandingCraftView flashes its gun and lets the smoke drift off).</summary>
-        readonly float[] shipFired = new float[TW.Sim.Match.SeaLandingSystem.Ships];
+        readonly float[] shipFired = Stamps(TW.Sim.Match.SeaLandingSystem.Ships);
+
+        static float[] Stamps(int n)
+        {
+            var a = new float[n];
+            for (int i = 0; i < n; i++) a[i] = Never;
+            return a;
+        }
         /// <summary>The fleet that is always there: ships standing off in the haze and the hulks of earlier waves on
         /// the sand. Worked out once from the map, drawn like the craft, and part of no simulation.</summary>
         struct Hulk { public Vector3 At; public Quaternion Turn; public float Size; public bool Ship; public bool Broken; }

@@ -61,6 +61,9 @@ namespace TW.Presentation.Terrain
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             Shader.SetGlobalVector(QuietId, Vector4.zero);
+            // _TWPresence still points at tex until something else sets it; white is presence 1, "men everywhere",
+            // so the quiet fog reads lifted rather than through a destroyed texture (W9)
+            Shader.SetGlobalTexture(PresenceId, Texture2D.whiteTexture);
             if (tex != null) Destroy(tex);
         }
 

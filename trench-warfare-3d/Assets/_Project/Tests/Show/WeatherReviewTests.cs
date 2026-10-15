@@ -161,5 +161,92 @@ namespace TW.Tests
             Assert.That(f, Is.Not.Null, "[W7] NightLights." + field + " moved");
             f.SetValue(target, value);
         }
+
+        // [W8] shipFired used to start at all zeros, which reads as "fired at time zero": at load, Time.timeSinceLevelLoad
+        // is itself near zero, so every gunboat's gun kicked and showed a bow ring for its first fraction of a second.
+        [Test]
+        public void AGunboatHasNotFiredWhenTheLevelLoads()
+        {
+            var go = new GameObject("W8 landing craft") { hideFlags = HideFlags.HideAndDontSave };
+            try
+            {
+                var view = go.AddComponent<LandingCraftView>();
+                var f = typeof(LandingCraftView).GetField("shipFired",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(f, Is.Not.Null, "[W8] LandingCraftView.shipFired moved");
+                var shipFired = (float[])f.GetValue(view);
+                Assert.That(shipFired.Length, Is.EqualTo(TW.Sim.Match.SeaLandingSystem.Ships));
+                foreach (var t in shipFired)
+                    Assert.That(t, Is.LessThanOrEqualTo(-0.45f),
+                        "[W8] an unfired gunboat must already be past the .45 s kick window at load");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        // [W9] Atmosphere.OnDestroy cleared only the colours, leaving _TWWind, _TWMist, _TWField and _TWFieldFog
+        // (and QuietFog's _TWPresence, pointed at a texture it just destroyed) standing for the next scene.
+        [Test]
+        public void AtmosphereAndQuietFogLeaveNoGlobalsBehind()
+        {
+            int windId = Shader.PropertyToID("_TWWind"), mistId = Shader.PropertyToID("_TWMist");
+            int fieldId = Shader.PropertyToID("_TWField"), fieldFogId = Shader.PropertyToID("_TWFieldFog");
+            int presenceId = Shader.PropertyToID("_TWPresence");
+            var stray = new Vector4(1f, 2f, 3f, 4f);
+            Shader.SetGlobalVector(windId, stray); Shader.SetGlobalVector(mistId, stray);
+            Shader.SetGlobalVector(fieldId, stray); Shader.SetGlobalVector(fieldFogId, stray);
+            var throwaway = new Texture2D(1, 1);
+            Shader.SetGlobalTexture(presenceId, throwaway);
+
+            GameObject atmoGo = null, fogGo = null;
+            try
+            {
+                atmoGo = new GameObject("W9 atmosphere") { hideFlags = HideFlags.HideAndDontSave };
+                var atmo = atmoGo.AddComponent<Atmosphere>();
+                var atmoDestroy = typeof(Atmosphere).GetMethod("OnDestroy",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(atmoDestroy, Is.Not.Null, "[W9] Atmosphere.OnDestroy moved");
+                atmoDestroy.Invoke(atmo, null);
+
+                fogGo = new GameObject("W9 quiet fog") { hideFlags = HideFlags.HideAndDontSave };
+                var fog = fogGo.AddComponent<QuietFog>();
+                var fogDestroy = typeof(QuietFog).GetMethod("OnDestroy",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(fogDestroy, Is.Not.Null, "[W9] QuietFog.OnDestroy moved");
+                fogDestroy.Invoke(fog, null);
+
+                Assert.That(Shader.GetGlobalVector(windId), Is.EqualTo(Vector4.zero), "[W9] _TWWind must not outlive Atmosphere");
+                Assert.That(Shader.GetGlobalVector(mistId), Is.EqualTo(Vector4.zero), "[W9] _TWMist must not outlive Atmosphere");
+                Assert.That(Shader.GetGlobalVector(fieldId), Is.EqualTo(Vector4.zero), "[W9] _TWField must not outlive Atmosphere");
+                Assert.That(Shader.GetGlobalVector(fieldFogId), Is.EqualTo(Vector4.zero), "[W9] _TWFieldFog must not outlive Atmosphere");
+                Assert.That(Shader.GetGlobalTexture(presenceId), Is.Not.EqualTo(throwaway),
+                    "[W9] _TWPresence must not point at the texture QuietFog just destroyed");
+            }
+            finally
+            {
+                Shader.SetGlobalVector(windId, Vector4.zero); Shader.SetGlobalVector(mistId, Vector4.zero);
+                Shader.SetGlobalVector(fieldId, Vector4.zero); Shader.SetGlobalVector(fieldFogId, Vector4.zero);
+                Shader.SetGlobalTexture(presenceId, Texture2D.whiteTexture);
+                if (atmoGo != null) Object.DestroyImmediate(atmoGo);
+                if (fogGo != null) Object.DestroyImmediate(fogGo);
+                Object.DestroyImmediate(throwaway);
+            }
+        }
+
+        // [W10] BiomeProfile.ForGround claimed a missing case is a compile error, but only WinterLine was named and
+        // ShelledForest/Landing fell through `default` silently; this test is the real guard the comment promises.
+        [Test]
+        public void EveryGroundNamesItsOwnLook()
+        {
+            const string path = "Assets/_Project/Presentation/Terrain/BiomeProfile.cs";
+            string src = File.ReadAllText(path);
+            foreach (var g in System.Enum.GetValues(typeof(TW.Presentation.Ground)))
+                Assert.That(src, Does.Match(@"case\s+TW\.Presentation\.Ground\." + g + @"\s*:"),
+                    "[W10] Ground." + g + " must be named in BiomeProfile.ForGround's switch");
+            Assert.That(src, Does.Not.Contain("compile error"),
+                "[W10] the comment must not promise a compile error the switch cannot give");
+        }
     }
 }
