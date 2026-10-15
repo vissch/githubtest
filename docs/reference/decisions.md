@@ -379,6 +379,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   with a man in frame reads him") — **the default taken here**, and the proof is then about men; (b) lift the machines
   at close range as well (a `Tank_URP` change, a new look knob, judged against the owner's approved vehicle stills);
   (c) leave the bar as it is and accept that it can never be green.
+- **A rebased lane cannot be pushed: the relay refuses every force push (2026-10-15, review-tools-rebase):**
+  `lane/show/review-tools` was rebased onto origin's integration branch (`a36537bb4`), 47 commits replayed, gate
+  green. The push needs `--force-with-lease` (a rebase rewrites the lane's own history), but the relay hook allows
+  only the bare `git push origin <lane>`, which github rejects as non-fast-forward, and refuses any form carrying a
+  force flag. Options: (a) let the hook pass `--force-with-lease` when the ref is the leg's own lane, the default
+  asked for here; (b) the owner pushes it by hand from the desktop; or (c) the lane is not rebased but merged, which
+  CLAUDE.md forbids. The work sits committed in `githubtest-relay-work2` at the rebased tip; nothing is lost.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
