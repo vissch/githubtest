@@ -1,0 +1,71 @@
+{
+  "subject": "review:Z015",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Blast.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/GasSmokeField.cs",
+    "docs/02-contracts.md",
+    "docs/reference/decisions.md",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/WreckDecayTests.cs"
+  ],
+  "tasks": [
+    {
+      "title": "AtWreck picks nearest shelter by Teams, not by shadow, and returns",
+      "why": "DirectFire.Wrecks.cs:126-134 picks `best` as the nearest shelter whose Teams bit (built over the whole reach disc at lines 99-103) has an enemy, then at line 144 returns outright if InShadow(...) == 0. An enemy on the flank of a nearer wreck wins the pick and silences the shooter for the tick; he never tries a farther wreck whose shadow does have enemies in it. Covering machine guns go quiet in exactly the case decisions.md row 221 ([N5.3]) was fought over. P1.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a new case in Assets/_Project/Tests/Sim/WreckDecayTests.cs with a nearer wreck that has no enemy in its shadow and a farther wreck that does: red before the fix (no shot fired), green after (the farther wreck is fired at)",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "Shelter Body uses full WreckBlastReach, Reach's half of it does not match",
+      "why": "DirectFire.Wrecks.cs:88 builds `reach` as ShelterRadius + WreckBlastReach * 0.5 * scale (\"halved\", per the comment at line 47), but line 103 sets Body to the full WreckBlastReach * scale, twice that half-width. A man up to 2 m off the firing line (at scale 1) is still counted as in the shadow and kept down by InShadow's `side > s.Body` test at line 176, [N5.3] applied at only half the intended width. P3, decide which figure is meant and make code and comment agree.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a new case in Assets/_Project/Tests/Sim/WreckDecayTests.cs with an enemy placed at the current Body width but outside the intended half-width: red before, green after the fix makes Body and Reach consistent",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "BuildShelters excludes vehicles from Teams, InShadow suppresses them anyway",
+      "why": "DirectFire.Wrecks.cs:99 skips Vehicle and Airborne flags when building a shelter's Teams bitmask, so a wreck sheltering only vehicles is never picked as a target. But InShadow at lines 168-170 counts and suppresses any alive enemy including vehicles once a wreck is otherwise picked for infantry. The set that makes a wreck worth firing at is not the set InShadow keeps down. P3.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a new case in Assets/_Project/Tests/Sim/WreckDecayTests.cs showing a vehicle in a wreck's shadow is (or is deliberately not) suppressed consistent with whether it counted toward Teams",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "InShadow sweeps the spatial hash twice per wreck shot",
+      "why": "DirectFire.Wrecks.cs calls InShadow once to count at line 144 (near = 0) and again to suppress at line 155, each re-walking the same spatial-hash cells around the shelter. One pass that counts and defers the AddSuppression call would halve this per-shot cost. P3, perf only, no hashed value moves.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "existing WreckDecayTests.cs cases stay green; a new case asserts InShadow's suppression total is unchanged after collapsing to one pass",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
