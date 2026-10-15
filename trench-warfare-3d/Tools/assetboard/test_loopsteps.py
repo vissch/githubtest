@@ -338,7 +338,20 @@ def main():
     lines = autoloop.round_(w)
     got = sorted(p.stem for p in w.extras[2].glob('relay/queue/*.json'))
     case('an idle extra relay whose only unit went nowhere (BLOCKED, nothing changed) does not count it as work: it goes off that board and the relay gets other work',
-         got == ['fresh-1'] and ('b2', 'relay-four-checks') in w.unqueued, (lines, got))
+         got == ['fresh-1'] and ('b2', 'relay-four-checks') in w.unqueued and w.prios.get('relay-four-checks') == 50, (lines, got, w.prios))
+    w = world(tmp, 's4')
+    put(w.main, 'queue', 'cover-pass', lane='lane/show/cover-pass', priority=30)
+    put(w.main, 'queue', 'cover-pass-c', lane='lane/show/cover-art', priority=30)
+    autoloop.round_(w)
+    case('two units that only share a name ending (cover-pass, cover-pass-c on another lane) are not copies: neither is parked',
+         w.unqueued == [], w.unqueued)
+    w = world(tmp, 's5')
+    put(w.extras[2], 'queue', 'relay-four-checks', lane='lane/show/relay-four-checks')
+    put(w.main, 'queue', 'relay-four-checks-b', lane='lane/show/relay-four-checks-b', priority=20)
+    w.text[w.extras[2]] = RUN
+    w.text[w.extras[6]] = RUN.replace('relay-four-checks', 'other')
+    lines = autoloop.feed(w)
+    case('while an extra relay works x, the main relay is not started on its copy x-b', 1 not in w.started, (lines, w.started))
 
     # restarts: a run that worked and then failed is one attempt; a start the hold refused is no start
     w = world(tmp, 't1')

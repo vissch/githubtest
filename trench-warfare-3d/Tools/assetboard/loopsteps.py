@@ -444,17 +444,25 @@ def family(uid):
     return (m.group(1), ' bcdefghij'.index(m.group(2))) if m else (uid, 0)
 
 
+def work_key(uid, u):
+    """What makes two units one piece of work: the same id and the same lane once a copy's -b..-j is taken off both
+    (rescue pushes a rebased lane as <lane>-b, and its unit becomes <id>-b). Two units that only share a name
+    ending are not copies when their lanes differ."""
+    return family(uid)[0], family(str((u or {}).get('lane', '')))[0]
+
+
 def superseded(w, st, opens, idle):
     """When a later copy of a unit (x-b, x-c) is open, the earlier one is parked for good, with no brief: two relays
     never work one piece of work (relay 3 ran relay-proof-to-drive while relay 6 had relay-proof-to-drive-b)."""
-    out, best = [], {}
-    ids = {uid for us in opens.values() for uid in us}
-    for uid in ids:
-        f, r = family(uid)
-        best[f] = max(best.get(f, -1), r)
-    for uid in sorted(ids):
-        f, r = family(uid)
-        if r >= best[f]:
+    out, best, units = [], {}, {}
+    for us in opens.values():
+        for uid, u in us.items():
+            units.setdefault(uid, u)
+    for uid, u in units.items():
+        k = work_key(uid, u)
+        best[k] = max(best.get(k, -1), family(uid)[1])
+    for uid in sorted(units):
+        if family(uid)[1] >= best[work_key(uid, units[uid])]:
             continue
         rec = st.setdefault(uid, dict(seen=[], fails=[]))
         on = {b: us[uid] for b, us in opens.items() if uid in us and (Path(b) / 'relay' / 'queue' / f'{uid}.json').exists()}
@@ -490,8 +498,13 @@ def stuck_on_extras(w, st, opens, idle, extras):
             if not w.acting:
                 out.append(f'attempts: {uid} would go off {Path(b).name}: it went nowhere there and nothing changed since')
                 continue
-            if w.unqueue(b, uid):
-                out.append(f'attempts: {uid} taken off {Path(b).name}: it went nowhere there and nothing changed since, so it is not that relay\'s work')
+            main = (opens.get(w.main) or {}).get(uid)
+            if main is None or len(rec.get('fails') or []) >= TRIES:
+                continue                                    # no main copy to fall back on, or its park is due: left as it is
+            if w.unqueue(b, uid):                           # its second try goes to the main relay: its copy there comes off 99
+                code, said = w.prio(uid, 50) if found.prio(main) >= PARKED else (0, '')
+                out.append(f'attempts: {uid} taken off {Path(b).name}: it went nowhere there and nothing changed since; '
+                           + ('its second try is the main relay\'s' if code == 0 else f'its main copy stays at {found.prio(main)}: {said[:100]}'))
     return out
 
 

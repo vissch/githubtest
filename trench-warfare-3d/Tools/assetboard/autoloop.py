@@ -107,7 +107,7 @@ def parse_status(text):
     if not why:
         return set(), m.group(1).strip()[:200]
     said = why.group(2).strip()[:200]
-    if why.group(3) and int(why.group(3)) > 0 and 'nothing left to do' not in said:     # a run that worked and then failed or timed out is one attempt, not a
+    if why.group(3) and int(why.group(3)) >= 2 and 'nothing left to do' not in said:     # a run that did work: one leg that fails at once still doubles     # a run that worked and then failed or timed out is one attempt, not a
         said += f' [run {why.group(1).split()[0]}]'  # relay that stops at once: its restart wait does not double (the coordinator, 20:25)
     return set(), said
 
@@ -162,7 +162,8 @@ class World:
             code, out = self.git(board, 'pull', '--rebase', '-q')
             if code == 0 or not re.search(r'multiple branches|index\.lock|cannot lock ref|Unable to create', out, re.I):
                 return code, out
-            time.sleep(3 + 3 * n)
+            if n < 3:
+                time.sleep(3 + 3 * n)
         return code, out
 
     def tracked(self, board, folder):
@@ -563,7 +564,8 @@ def feed(w):
             return ['feed: a relay did not say whether it runs: nothing is fed this round']
         lanes |= got
     held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()} | lanes
-    kin = {loopsteps.family(u)[0] for b in w.extras.values() for u in open_units(b)}    # x and x-b are one piece of work
+    kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}   # x and x-b are one piece of work
+    kin_lanes = {loopsteps.family(l)[0] for l in lanes}
     q, done = queue_of(w.main)
     for n, board in sorted(w.extras.items()):
         running, reason = w.status(board)
@@ -571,15 +573,16 @@ def feed(w):
             continue
         latest = {}
         for b in [w.main, *w.extras.values()]:
-            for u in open_units(b):
-                f, r = loopsteps.family(u)
-                latest[f] = max(latest.get(f, 0), r)
+            for u, v in open_units(b).items():
+                k = loopsteps.work_key(u, v)
+                latest[k] = max(latest.get(k, 0), loopsteps.family(u)[1])
         mine = {u: v for u, v in open_units(board).items() if u not in done                  # done on the main board: not work
-                and loopsteps.family(u)[1] >= latest.get(loopsteps.family(u)[0], 0)}          # nor a unit a later copy (x-b) replaces
+                and loopsteps.family(u)[1] >= latest.get(loopsteps.work_key(u, v), 0)}       # nor a unit a later copy (x-b) replaces
         if not mine:
             free = {}
             for uid, u in q.items():
-                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or loopsteps.family(uid)[0] in kin:
+                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or loopsteps.work_key(uid, u) in kin \
+                        or loopsteps.family(u['lane'])[0] in kin_lanes:
                     continue
                 free.setdefault(u['lane'], []).append((found.prio(u), uid, u))
             if not free:
@@ -627,7 +630,9 @@ def feed(w):
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
-    work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held for u, v in q.items())
+    extra_kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}
+    work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held and loopsteps.work_key(u, v) not in extra_kin
+               for u, v in q.items())                  # nor the copy of a unit an extra relay holds
     started = False
     if running == set() and work:
         if not w.acting:
