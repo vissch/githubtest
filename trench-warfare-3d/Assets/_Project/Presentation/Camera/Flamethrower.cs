@@ -870,7 +870,6 @@ namespace TW.Presentation.Tactical
 
                 // the chain, which is now either the fallback when the stream is pointed at the eye, or the loose fire
                 // boiling off its far half when it is not
-                if (chainWeight > 0.05f || true)
                 {
                     int links = chainWeight > 0.05f ? JetLinks : 4;
                     float from = chainWeight > 0.05f ? 0.10f : 0.55f;
