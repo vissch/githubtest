@@ -23,7 +23,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent / "pipeline"))
 import pipeline as P                                                # noqa: E402
-import agents, boardio, config, gitio, launch, ledger, legdir, papers, sources   # noqa: E402
+import agents, boardio, config, gitio, idsfile, launch, ledger, legdir, papers, sources   # noqa: E402
 sys.path.append(str(HERE.parent / "supervisor"))                    # last: no name here is shadowed
 try:
     import breaker_gate                                             # noqa: E402
@@ -503,6 +503,9 @@ class Run:
         src.claim(unit)
         self.claimed = src
         remote_before, body = gitio.remote_head(self.work, unit["lane"]), src.body(unit)
+        line = idsfile.card_line(body, self.work, self.board)
+        if line:
+            body += "\n" + line
         d, leg = self.leg(unit, "plan", body)
         plan_file = legdir.desk(d) / self.ph["plan"]["output"]
         plan = plan_file.read_text(encoding="utf-8") if plan_file.exists() else ""

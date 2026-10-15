@@ -2805,6 +2805,53 @@ class Dispatch(Repo):
         self.assertIn("leg 01  plan    u1", out)
 
 
+class IdsFile(Repo):
+    """The leg card names the file that holds the unit's bracketed ids (the owner's check 4, 2026-10-10)."""
+    def dec(self, text):
+        p = self.work / "docs" / "reference" / "decisions.md"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text(text, encoding="utf-8")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "decisions"])
+        self.g(["push", "-q", "origin", gitio.INTEGRATION])
+        return p
+
+    def test_the_line_names_decisions_md_when_it_holds_the_id(self):
+        import idsfile
+        dec = self.dec("row: [N5.3] do the thing\n")
+        self.assertEqual(idsfile.card_line("Fix [N5.3] in the sim.", self.work), "- The ids this unit names (N5.3) stand in %s" % dec)
+
+    def test_a_removed_row_is_found_by_its_last_commit(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        before = self.g(["rev-parse", "--short", "HEAD"]).stdout.decode().strip()
+        (self.work / "docs" / "reference" / "decisions.md").write_text("row gone\n", encoding="utf-8")
+        self.g(["add", "-A"]); self.g(["commit", "-q", "-m", "row resolved"])
+        line = idsfile.card_line("Fix [N5.3] in the sim.", self.work)
+        self.assertIn("not at HEAD: read it with git show %s:docs/reference/decisions.md" % before, line)
+
+    def test_a_named_report_file_wins_over_decisions_md(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        report = self.work / "report.md"
+        report.write_text("[N5.3] is done.\n", encoding="utf-8")
+        line = idsfile.card_line("See `report.md` for [N5.3].", self.work)
+        self.assertEqual(line, "- The ids this unit names (N5.3) stand in %s" % report)
+
+    def test_no_bracketed_id_returns_none(self):
+        import idsfile
+        self.dec("row: [N5.3] do the thing\n")
+        self.assertIsNone(idsfile.card_line("Fix the sim, no id here.", self.work))
+
+    def test_the_card_names_the_file_end_to_end(self):
+        self.dec("row: [N5.3] do the thing\n")
+        self.queue("u1", raw=json.dumps({"id": "u1", "lane": "lane/show/x", "role": "lane",
+                                         "goal": "Fix [N5.3] in the sim.", "done_when": ["git", "cat-file", "-e", "HEAD:a.txt"]}))
+        self.script(self.GOOD)
+        out, stop = self.go(max_legs=1)
+        card = (legdir.leg_path(stop["run"], 1) / "card.md").read_text(encoding="utf-8")
+        self.assertIn("stand in %s" % (self.work / "docs" / "reference" / "decisions.md"), card)
+
+
 class PipelineSource(Repo):
     """The board source end to end, on a throwaway board with one item."""
     def setUp(self):
