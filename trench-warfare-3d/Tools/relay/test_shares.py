@@ -23,6 +23,7 @@ from sources import pipeline as pipe_src              # noqa: E402
 
 results = []
 ROLE = "destruction-vfx-simulator"
+RUN = time.strftime("%Y%m%d") + "-103442-1"
 
 
 def case(name, ok, detail=""):
@@ -53,11 +54,11 @@ def unit(board, uid, role, priority=None, kind=None):
 
 
 def leg(board, n, source, role, usd, kind=None):
-    rec = dict(run="20261010-103442-1", leg=n, unit="u%d" % n, source=source, role=role, phase="execute",
+    rec = dict(run=RUN, leg=n, unit="u%d" % n, source=source, role=role, phase="execute",
                cost_usd=usd, started_at=time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()))
     if kind:
         rec["kind"] = kind
-    P.write_json(board / "relay" / "desktop" / "legs" / ("20261010-103442-1-%02d.json" % n), rec)
+    P.write_json(board / "relay" / "desktop" / "legs" / ("%s-%02d.json" % (RUN, n)), rec)
 
 
 def main():

@@ -14,7 +14,7 @@ sys.path.insert(0, str(HERE))
 import answers, config, day, gitio, relay, usage   # noqa: E402
 from sources import lane            # noqa: E402
 
-ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_STATION", "TW_BRIEFS", "TW_NOTES")
+ENV = ("TW_RELAY_HOME", "TW_BOARD", "TW_BOARD_ALSO", "TW_STATION", "TW_BRIEFS", "TW_NOTES")
 
 
 def git(args, cwd):
@@ -30,6 +30,7 @@ class Base(unittest.TestCase):
         self.briefs.mkdir()
         self.notes.mkdir()
         self.old = {k: os.environ.get(k) for k in ENV}
+        os.environ.pop("TW_BOARD_ALSO", None)
         os.environ.update(TW_RELAY_HOME=str(self.home), TW_BOARD=str(self.board), TW_STATION="desktop",
                           TW_BRIEFS=str(self.briefs), TW_NOTES=str(self.notes))
         self.limits = config.limits                         # these tests count in dollars or in measured legs:

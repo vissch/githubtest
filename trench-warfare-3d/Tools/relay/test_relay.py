@@ -18,7 +18,7 @@ LANE = "lane/show/pipe-house5"
 ENV = ("TW_RELAY_HOME", "TW_RELAY_LEG", "TW_BOARD", "TW_STATION", "TW_RELAY_CLAUDE", "TW_FAKE_SCRIPT", "TW_AGENT_LOGS",
        "TW_RELAY_NO_QUIET", "GIT_AUTHOR_NAME", "GIT_AUTHOR_EMAIL", "GIT_COMMITTER_NAME", "GIT_COMMITTER_EMAIL",
        "TW_WORKER_PID", "TW_RUNS", "TW_RELAY_GATE", "TW_RELAY", "TW_RELAY_NO_WINDOW", "TW_RELAY_WT", "TW_RELAY_NOTIFY",
-       "TW_RELAY_PLAY")
+       "TW_RELAY_PLAY", "TW_BOARD_ALSO")
 
 
 def jpeg(width, height, size=2000):
@@ -37,6 +37,7 @@ class Base(unittest.TestCase):
         self.tmp = Path(tempfile.mkdtemp(prefix="relay-test-"))
         self.old = {k: os.environ.get(k) for k in ENV}
         os.environ.pop("TW_RELAY", None)                     # run by a relay leg, the tests are still not one
+        os.environ.pop("TW_BOARD_ALSO", None)
         self.cwd = os.getcwd()
         os.chdir(self.tmp)                                   # nor are they in the checkout a leg holds
         os.environ["TW_RELAY_HOME"] = str(self.tmp / "home")

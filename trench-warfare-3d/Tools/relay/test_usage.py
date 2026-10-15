@@ -25,6 +25,7 @@ class Usage(unittest.TestCase):
     def setUp(self):
         self.home = Path(tempfile.mkdtemp(prefix="usage-test-"))
         self.old, self.old_board = os.environ.get("TW_RELAY_HOME"), os.environ.get("TW_BOARD")
+        self.old_also = os.environ.pop("TW_BOARD_ALSO", None)
         os.environ["TW_RELAY_HOME"] = str(self.home)
         os.environ["TW_BOARD"] = str(self.home / "board")
         self.lim = config.limits()
@@ -32,6 +33,7 @@ class Usage(unittest.TestCase):
     def tearDown(self):
         os.environ.pop("TW_RELAY_HOME", None) if self.old is None else os.environ.__setitem__("TW_RELAY_HOME", self.old)
         os.environ.pop("TW_BOARD", None) if self.old_board is None else os.environ.__setitem__("TW_BOARD", self.old_board)
+        os.environ.pop("TW_BOARD_ALSO", None) if self.old_also is None else os.environ.__setitem__("TW_BOARD_ALSO", self.old_also)
         shutil.rmtree(self.home, ignore_errors=True)
 
     def main(self, text, *argv):
