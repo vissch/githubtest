@@ -32,7 +32,8 @@ namespace TW.Sim.Combat
     }
 
     /// <summary>A wreck men are behind this tick: where it is, which, how far its shelter reaches, how wide its body is
-    /// (half-width of the shadow it casts), whose men (a bit a side).</summary>
+    /// (half-width of the shadow it casts: WreckBlastReach x size, halved, the same figure Reach is built from),
+    /// whose men (a bit a side).</summary>
     public struct Shelter
     {
         public float3 Pos;
@@ -85,7 +86,9 @@ namespace TW.Sim.Combat
             {
                 var prop = map.Props[p];
                 if (!PropRules.IsWreckage(prop.Kind) || prop.Hp <= 0f) continue;
-                float reach = ShelterRadius + PropRules.WreckBlastReach * 0.5f * (prop.Scale > 0f ? prop.Scale : 1f);
+                float size = prop.Scale > 0f ? prop.Scale : 1f;
+                float body = PropRules.WreckBlastReach * 0.5f * size;   // half-width of the shadow: the one figure reach is built from
+                float reach = ShelterRadius + body;
                 int x0 = math.max(0, (int)((prop.Pos.x - reach) / hash.CellSize)), x1 = math.min(hash.Width - 1, (int)((prop.Pos.x + reach) / hash.CellSize));
                 int z0 = math.max(0, (int)((prop.Pos.z - reach) / hash.CellSize)), z1 = math.min(hash.Length - 1, (int)((prop.Pos.z + reach) / hash.CellSize));
                 int teams = 0;
@@ -100,7 +103,7 @@ namespace TW.Sim.Combat
                         if (math.distancesq(w.Position[j].xz, prop.Pos.xz) <= reach * reach) teams |= 1 << (w.Team[j] & 7);
                     } while (hash.Map.TryGetNextValue(out j, ref it));
                 }
-                if (teams != 0) shelters.Add(new Shelter { Pos = prop.Pos, Prop = p, Teams = teams, Reach = reach, Body = PropRules.WreckBlastReach * (prop.Scale > 0f ? prop.Scale : 1f) });
+                if (teams != 0) shelters.Add(new Shelter { Pos = prop.Pos, Prop = p, Teams = teams, Reach = reach, Body = body });
             }
         }
 

@@ -385,8 +385,10 @@ namespace TW.Tests
 
         /// <summary>Three enemy riflemen (team 1) in a trench behind a wreck, below its rim, and one `gun` of team 0 in the
         /// open `distance` metres off with a clear sight of the wreck; everyone held and too tough to die. Gun, wreck and
-        /// men stand on one line along z, the men 2 m past the wreck and no more than 1.2 m off the line, so they are
-        /// inside the 2 m shadow its body casts ([N5.3]). `flankX` moves the wreck that far off the line in x instead, so
+        /// men stand on one line along z, the men 2 m past the wreck and no more than 1.2 m off the line; the man on the
+        /// line is inside the 1 m shadow its body casts, the two beside him are not ([N5.3], and
+        /// [found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] for the width). The S4 tests read the most
+        /// suppression of the three, which the man on the line carries. `flankX` moves the wreck that far off the line in x instead, so
         /// the men stand on its flank: inside its shelter's reach, outside its shadow.
         /// Returns the men; the wreck and the gun come out.</summary>
         static int[] Hidden(MatchSim m, byte gun, float distance, out int wreck, out int shooter, float flankX = 0f)
@@ -566,13 +568,54 @@ namespace TW.Tests
         {
             using var m = NewMatch();
             // the wreck 4 m off the gun -> men line: the nearest man is 3.4 m away, inside its 4 m shelter reach and
-            // 2.8 m off the line of fire, outside the 2 m shadow its body casts
+            // 2.8 m off the line of fire, well outside the 1 m shadow its body casts
             var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun, flankX: 4f);
             var (atWreck, _, suppressed) = Watch(m, wreck, gun, men, 400);
             Assert.AreEqual(0, atWreck, "[N5.3] he fired at a wreck sheltering nobody");
             // no round goes at the wreck, so none of this is the wreck's: what is left (about 1) is a stray near miss
             // from the rest of the field, a fortieth of the 99.6 the flank took while every round in reach suppressed it
             Assert.Less(suppressed, 2f, "[N5.3] a man beside the wreck, not behind it, was suppressed");
+        }
+
+        [Test]
+        // [found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] narrows [N5.3]: Shelter.Body was the full
+        // WreckBlastReach x size (2 m at scale 1) while the shelter's reach was built from half of it, so a man up to
+        // 2 m off the firing line was counted in the shadow and kept down at twice the intended half-width.
+        public void AManOffTheLineButInsideTheOldBodyIsNotKeptDown()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            // men[1] stands on the gun -> wreck line, at the trench centre: one more man 1.6 m off it along the trench,
+            // inside the old 2 m body and outside the intended 1 m half-width, 0.4 m of margin each way. He is 2.56 m
+            // from the wreck (2 m past it), inside the 4 m shelter reach, so only the width of the shadow decides him.
+            // His own crowd pushed him out to 2.5 m when he was left to walk, so he is held on his mark each tick.
+            float3 c = m.World.Position[men[1]];
+            float3 mark = c + new float3(1.6f, 0f, 0f);
+            int extra = m.World.Spawn(1, InfantryArchetype.Rifle, mark, 100000f, 0f, false);
+            m.World.GoalId[extra] = -1; m.World.TrenchId[extra] = -1;
+
+            int atWreck = 0; float suppressed = 0f;
+            for (int t = 0; t < 400; t++)
+            {
+                m.World.Position[extra] = mark; m.World.Velocity[extra] = float3.zero;
+                Step(m);
+                m.World.Position[extra] = mark; m.World.Velocity[extra] = float3.zero;
+                if (t < Settle) continue;
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                    if (ev[i].Type == SimEventType.Shot && ev[i].A == gun && PropTarget.IsProp(ev[i].B) && PropTarget.Decode(ev[i].B) == wreck) atWreck++;
+                foreach (int u in men) suppressed = math.max(suppressed, m.World.Suppression[u]);
+            }
+
+            // the test proves nothing unless he is still off the line, inside the old body and inside the reach
+            float off = math.abs(m.World.Position[extra].x - c.x);
+            Assert.Greater(off, 1f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the extra man is not off the shadow's half-width");
+            Assert.Less(off, 2f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the extra man is outside the old body");
+            Assert.Less(math.distance(m.World.Position[extra].xz, m.Map.Props[wreck].Pos.xz), 4f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the extra man is outside the shelter's reach");
+            // the gun did fire and the man on the line is still kept down: a false green would have neither
+            Assert.Greater(atWreck, 20, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the gun never fired at the wreck");
+            Assert.Greater(suppressed, 20f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] the man on the line was not kept down");
+            Assert.Less(m.World.Suppression[extra], 2f, "[found-shelter-body-uses-full-wreckblastreach-reach-20261015-0] a man 1.6 m off the firing line was kept down: the body is twice the shadow's half-width");
         }
 
         [Test]
