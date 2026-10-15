@@ -48,7 +48,7 @@ namespace TW.Presentation.Terrain
         // draws land on the same frames in every held run. Everything here is relative to it, so play is unchanged.
         float clock;
         Vector3 struckWhere;
-        Mesh bolt; Material boltMaterial, glowMaterial; Light flashLight; GameObject glowCard;
+        Mesh bolt, glowMesh; Material boltMaterial, glowMaterial; Light flashLight; GameObject glowCard;
         AudioSource voice; AudioClip[] thunder;
         struct Pending { public float At, Volume; public int Clip; }
         readonly List<Pending> pending = new List<Pending>();
@@ -73,7 +73,7 @@ namespace TW.Presentation.Terrain
             glowMaterial.SetColor("_Tint", Color.black);
             glowCard = new GameObject("Lightning glow") { hideFlags = HideFlags.DontSave };
             glowCard.transform.SetParent(lightGo.transform, false);
-            var gm = new Mesh { name = "Lightning glow", hideFlags = HideFlags.HideAndDontSave };
+            var gm = glowMesh = new Mesh { name = "Lightning glow", hideFlags = HideFlags.HideAndDontSave };
             gm.SetVertices(new List<Vector3> { Vector3.zero, Vector3.zero, Vector3.zero, Vector3.zero });
             gm.SetUVs(0, new List<Vector2> { new Vector2(-1, -1), new Vector2(1, -1), new Vector2(1, 1), new Vector2(-1, 1) });
             gm.SetUVs(1, new List<Vector4> { new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f), new Vector4(13f, .2f, 0f, .1f) });
@@ -100,6 +100,7 @@ namespace TW.Presentation.Terrain
             if (bolt != null) Destroy(bolt);
             if (boltMaterial != null) Destroy(boltMaterial);
             if (glowMaterial != null) Destroy(glowMaterial);
+            if (glowMesh != null) Destroy(glowMesh);
             if (thunder != null) foreach (var clip in thunder) if (clip != null) Destroy(clip);
         }
 
