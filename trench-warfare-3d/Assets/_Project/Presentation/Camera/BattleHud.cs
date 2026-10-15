@@ -125,6 +125,16 @@ namespace TW.Presentation.Tactical
         static readonly Color Pale = new Color(0.86f, 0.84f, 0.76f);
         static readonly Color Dark = new Color(0.17f, 0.17f, 0.16f);
 
+        static readonly string[] SpeedLabels = { "", "1x", "2x", "4x", "8x" };
+        static readonly float[] SpeedScales = { 0f, 1f, 2f, 4f, 8f };
+
+        /// <summary>[Q10] The index into <see cref="SpeedScales"/>/<see cref="SpeedLabels"/> for `scale`, or -1.</summary>
+        static int SpeedIndex(float scale)
+        {
+            for (int i = 0; i < SpeedScales.Length; i++) if (Mathf.Approximately(SpeedScales[i], scale)) return i;
+            return -1;
+        }
+
         GUIStyle stone, slate, wood, green, number, cost, unitName, silver, hint, tip, speed;
         Texture2D sideTex, stripTex, coin, lockClosed, lockOpen, lockGrey, advance, fallback, fire, fireHeld, pause, barrage, gas, drop;
         Texture2D[] unitIcons;
@@ -462,21 +472,19 @@ namespace TW.Presentation.Tactical
 
             // pause and speed, right side
             float rx = Screen.width - 10f, ry = Screen.height - sideH * 0.5f - 18f;
-            string[] labels = { "", "1x", "2x", "4x", "8x" };
-            float[] scales = { 0f, 1f, 2f, 4f, 8f };
             if (narrow)
             {
-                int cur = System.Array.FindIndex(scales, v => Mathf.Approximately(v, Host.TimeScale));
+                int cur = SpeedIndex(Host.TimeScale);
                 var rc = new Rect(rx - 44f, ry, 40f, 40f);
-                if (GUI.Button(rc, new GUIContent(cur > 0 ? labels[cur] : "1x", "Speed: click to cycle 1x, 2x, 4x, 8x"), speed)) Host.TimeScale = scales[cur <= 0 || cur == 4 ? 1 : cur + 1];
+                if (GUI.Button(rc, new GUIContent(cur > 0 ? SpeedLabels[cur] : "1x", "Speed: click to cycle 1x, 2x, 4x, 8x"), speed)) Host.TimeScale = SpeedScales[cur <= 0 || cur == 4 ? 1 : cur + 1];
                 rx -= 44f;
             }
-            for (int k = narrow ? 0 : labels.Length - 1; k >= 0; k--)
+            for (int k = narrow ? 0 : SpeedLabels.Length - 1; k >= 0; k--)
             {
                 rx -= 44f;
-                bool active = Mathf.Approximately(Host.TimeScale, scales[k]);
+                bool active = Mathf.Approximately(Host.TimeScale, SpeedScales[k]);
                 var r = new Rect(rx, ry, 40f, 40f);
-                if (GUI.Button(r, new GUIContent(labels[k], k == 0 ? "Pause" : $"Speed {labels[k]}"), active ? slate : speed)) Host.TimeScale = active && k == 0 ? 1f : scales[k];
+                if (GUI.Button(r, new GUIContent(SpeedLabels[k], k == 0 ? "Pause" : $"Speed {SpeedLabels[k]}"), active ? slate : speed)) Host.TimeScale = active && k == 0 ? 1f : SpeedScales[k];
                 if (k == 0) DrawIcon(r, pause, 11f);
             }
 
