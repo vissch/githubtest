@@ -12,6 +12,13 @@ it prints to tw-gate.log in this checkout's git dir, beside the tw-gate-green ma
 
 Only the full gate (no arguments to gate.ps1): a run before a commit is short and wants no detaching. One run per
 checkout: a second start while the first is alive is refused, because two gates on one project lock each other out.
+
+WHY a pid alone is not enough. Windows reuses process ids: once the gate's process has died, its pid can be
+reassigned to an unrelated program. A liveness check on the pid alone then reports the old gate as still running
+forever. A pid only counts as our gate when it is alive *and* matches what we started: its start time is close to
+the stamp written beside the pid (one minute either way, local time), or its command line is PowerShell running
+gate.ps1. When neither can be read (no CIM/wmic, odd permissions), we say so and fall back to the old pid-only
+answer rather than guess a dead gate away.
 """
 import os
 import pathlib
@@ -40,11 +47,78 @@ def alive(pid):
     return str(pid) in out
 
 
-def read_pid(pidfile):
+def read_pidfile(pidfile):
+    """(pid, stamp_epoch): stamp is None when missing or unparsable, not an error -- old pidfiles still work."""
     try:
-        return int(pidfile.read_text().split()[0])
+        parts = pidfile.read_text().split()
+        pid = int(parts[0])
     except (OSError, ValueError, IndexError):
-        return None
+        return None, None
+    stamp = None
+    if len(parts) > 1:
+        try:
+            stamp = time.mktime(time.strptime(parts[1], '%Y-%m-%dT%H:%M:%S'))
+        except ValueError:
+            stamp = None
+    return pid, stamp
+
+
+def probe(pid):
+    """(start_epoch, cmdline), either half None when it could not be read."""
+    if os.name == 'nt':
+        script = (f"$p = Get-CimInstance Win32_Process -Filter 'ProcessId={pid}'; "
+                  "if ($p) { Write-Output ('start=' + ([datetime]$p.CreationDate).ToString('yyyy-MM-ddTHH:mm:ss')); "
+                  "Write-Output ('cmd=' + $p.CommandLine) }")
+        try:
+            out = subprocess.run(['powershell', '-NoProfile', '-NonInteractive', '-Command', script],
+                                  capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            return None, None
+        if out.returncode != 0:
+            return None, None
+        start, cmd = None, None
+        for line in out.stdout.splitlines():
+            if line.startswith('start='):
+                try:
+                    start = time.mktime(time.strptime(line[len('start='):], '%Y-%m-%dT%H:%M:%S'))
+                except ValueError:
+                    start = None
+            elif line.startswith('cmd='):
+                cmd = line[len('cmd='):].strip() or None
+        return start, cmd
+    try:
+        with open(f'/proc/{pid}/stat') as f:
+            fields = f.read().rsplit(')', 1)[1].split()
+        start_ticks = int(fields[19])  # field 22 overall, 20th after the comm field
+        hertz = os.sysconf('SC_CLK_TCK')
+        with open('/proc/stat') as f:
+            btime = next(int(l.split()[1]) for l in f if l.startswith('btime'))
+        start = btime + start_ticks / hertz
+    except (OSError, IndexError, ValueError, StopIteration):
+        start = None
+    try:
+        with open(f'/proc/{pid}/cmdline', 'rb') as f:
+            cmd = f.read().replace(b'\0', b' ').decode(errors='replace').strip() or None
+    except OSError:
+        cmd = None
+    return start, cmd
+
+
+def is_gate(pid, stamp):
+    """Whether pid is alive and matches the gate we started (by start time or command line). (bool, reason)."""
+    if not alive(pid):
+        return False, 'not running'
+    start, cmdline = probe(pid)
+    evidence = []
+    if start is not None and stamp is not None:
+        evidence.append(abs(start - stamp) <= 60)
+    if cmdline is not None:
+        evidence.append('gate.ps1' in cmdline.lower())
+    if not evidence:
+        return True, f"could not read pid {pid}'s start time or command line: trusting the pid alone"
+    if any(evidence):
+        return True, f'pid {pid} is the gate we started'
+    return False, f'pid {pid} is alive but is not the gate we started (started {start}; cmd {cmdline})'
 
 
 def verdict(log):
@@ -64,13 +138,15 @@ def verdict(log):
 
 
 def status(log, pidfile):
-    pid = read_pid(pidfile)
+    pid, stamp = read_pidfile(pidfile)
     if pid is None:
         print('no gate was started here with gate_bg.py')
         return 1
-    if alive(pid):
-        print(f'running (pid {pid}); log {log}')
+    gate, reason = is_gate(pid, stamp)
+    if gate:
+        print(f'running (pid {pid}); log {log} -- {reason}')
         return 2
+    print(reason)
     v = verdict(log)
     print(v if v.startswith('Gate green') else f'ended without a green verdict: {v}  (log {log})')
     return 0 if v.startswith('Gate green') else 8
@@ -81,12 +157,12 @@ def main():
     if '--status' in sys.argv:
         sys.exit(status(log, pidfile))
     if '--wait' in sys.argv:
-        pid = read_pid(pidfile)
-        while pid is not None and alive(pid):
+        pid, stamp = read_pidfile(pidfile)
+        while pid is not None and is_gate(pid, stamp)[0]:
             time.sleep(15)
         sys.exit(status(log, pidfile))
-    pid = read_pid(pidfile)
-    if pid is not None and alive(pid):
+    pid, stamp = read_pidfile(pidfile)
+    if pid is not None and is_gate(pid, stamp)[0]:
         sys.exit(f'a gate started here is still running (pid {pid}); log {log}')
     gate = REPO / 'gate.ps1'
     # the wrapper adds the exit code as the log's last line, so a run that ended red is told from one that was killed
