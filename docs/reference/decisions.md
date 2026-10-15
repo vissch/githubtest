@@ -915,6 +915,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `python Tools/relay/relay.py update origin/lane/show/heroes-off-bench` in the relay-run checkout once the day's
   runs have stopped, because a leg cannot move the frozen copy while its own run holds the lock
   (`push-heroes-off-bench-retry`, this leg).
+- **The relay's own tests cannot go green on this machine (2026-10-15, unit relay-four-checks):** the relay line
+  (origin/lane/show/relay-harness, 2e01bfd94) brings five test files for the relay tooling. Copied into a lane, 20 of
+  their cases fail, every one of them because they read the live TrenchWarfare ledger under LOCALAPPDATA and the
+  board's week reading instead of their own temp copy (they expect "no leg is measured yet" and get today's real
+  spend and a 4% week). The tool check runs them, so the edit gate is exit 5 for any tree holding them, and leg finish
+  will not commit. No lane can build the four guard checks the owner allowed on 2026-10-10 until this is settled.
+  Options: (a) fix the isolation first (those tests point at a temp home and board) as a unit of its own, the default
+  taken here, which is why relay-four-checks ends blocked with nothing of it committed; (b) let the four checks land
+  on the relay line itself, where the gate is not asked; or (c) leave the relay's test files out of the tool check
+  until they are isolated.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
   in the suppression path excludes a machine. `AddSuppression` (DirectFire.cs:326) skips only `Airborne`, and splash
