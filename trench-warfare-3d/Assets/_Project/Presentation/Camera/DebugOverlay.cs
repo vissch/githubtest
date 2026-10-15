@@ -63,6 +63,14 @@ namespace TW.Presentation.Tactical
 
         static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
+        /// <summary>[Q8] 625 cells were walked every frame to draw lines a player build never shows: the overlay
+        /// has to ask whether anything would come of it, not just whether the toggle is on.</summary>
+        public static bool DrawsFlowField(bool show, bool editor) => show && editor;
+
+        /// <summary>[Q8] F4 swapped the rendered men for capsules even in a shipped, non-debug build; the overlay
+        /// has to ask the same question TestPanel.OfferedIn does before honouring the toggle.</summary>
+        public static bool OffersCapsuleSwap(bool editor, bool development) => editor || development;
+
         void Update()
         {
             if (Host == null || Host.Presenter == null) return;
@@ -70,23 +78,21 @@ namespace TW.Presentation.Tactical
             bool capsules = ForceCapsules || units == null || !units.Ready;
             if (units != null) units.enabled = !ForceCapsules;   // never disabled before its Start has run
             if (capsules) DrawUnits();
-            if (ShowFlowField) DrawFlowField();
+            if (DrawsFlowField(ShowFlowField, Application.isEditor)) DrawFlowField();
         }
 
         void HandleInput()
         {
-            var kb = Keyboard.current;
-            if (kb == null) return;
             uint t = Host.Local.World.Tick;
             // Q8: these used to read raw regardless of a shell screen (InputFocus.Modal) and of whether the build
             // ships (F4 swaps the men for capsules even there); they are a debug toggle, not gameplay, in both cases.
-            if (!InputFocus.Modal && (Application.isEditor || Debug.isDebugBuild))
-            {
-                if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
-                if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
-                if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
-                if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
-            }
+            // Reading them through KeyMap also makes them rebindable instead of hard-wired to F1-F4.
+            if (KeyMap.Down(GameAction.DebugFlowField)) ShowFlowField = !ShowFlowField;
+            if (KeyMap.Down(GameAction.DebugStats)) ShowStats = !ShowStats;
+            if (KeyMap.Down(GameAction.DebugNextGoal)) ViewGoal++;
+            if (OffersCapsuleSwap(Application.isEditor, Debug.isDebugBuild) && KeyMap.Down(GameAction.DebugCapsules)) ForceCapsules = !ForceCapsules;
+            var kb = Keyboard.current;
+            if (kb == null) return;
             // the gameplay keys belong to the Toolkit HUD's KeyMap (Space is the tactical pause there) whenever it is the HUD
             if (HudBridge.UseToolkitHud || !InputFocus.Gameplay) return;
             if (kb.digit1Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 0));
