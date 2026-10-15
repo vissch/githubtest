@@ -32,7 +32,8 @@ half3 TWSky() { return _TWSky.a > 0.5 ? _TWSky.rgb : unity_FogColor.rgb; }
 // sandbags but not on the men, the tanks or the thrown debris is worse than no snow, because the eye reads the
 // men as cut out of a different picture. Any shader that draws something standing on the battlefield includes
 // this file and asks the same question.
-float4 _TWSnow;        // x coverage 0..1, y the normal.y below which a surface sheds it, z sparkle, w drift break-up
+float4 _TWSnow;        // x coverage 0..1, y the normal.y below which a surface sheds it, z sparkle (SnowSparkle,
+                        // BattlefieldKit/Water_URP, docs/19): written by Atmosphere.cs but read by no shader today, w drift break-up
 half4 _TWSnowColor;    // rgb lying snow, a the gloss it adds (fresh snow is matt; old wind-packed snow is not)
 float4 _TWHeat;        // x glow strength, y plates per metre, z crack width, w world Y of the molten level
 half4 _TWHeatColor;    // rgb what molten rock throws up out of its cracks
