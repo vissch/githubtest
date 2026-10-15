@@ -70,9 +70,20 @@ namespace TW.Tests
             }
         }
 
-        /// <summary>How long each scene takes to play out, and how many stills it gets across that time.</summary>
+        /// <summary>How long each scene takes to play out, and how many stills it gets across that time.
+        /// TW_DEATH_WINDOW=seconds,frames overrides every scene's timing (unset: today's per-scene numbers), for a
+        /// scene whose moment falls between two of its own default frames.</summary>
         static (float seconds, int frames) Timing(string scene)
         {
+            string w = System.Environment.GetEnvironmentVariable("TW_DEATH_WINDOW");
+            if (!string.IsNullOrEmpty(w))
+            {
+                var parts = w.Split(',');
+                if (parts.Length == 2
+                    && float.TryParse(parts[0], System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out float ws)
+                    && int.TryParse(parts[1], out int wf))
+                    return (ws, wf);
+            }
             switch (scene)
             {
                 case "shell": case "heap": return (4f, 12);
