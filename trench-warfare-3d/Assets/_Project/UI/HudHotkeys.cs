@@ -21,7 +21,9 @@ namespace TW.UI
         public void Update()
         {
             if (Keyboard.current == null) return;
-            if (!InputFocus.Typing && KeyMap.DownRaw(GameAction.HudToggle)) { HudBridge.UseToolkitHud = !HudBridge.UseToolkitHud; hud.ApplyFlag(); }
+            // [I12] KeyMap.Down, not DownRaw: F9 must not toggle the HUD from a menu or while a rebind is capturing a key
+            // (Down = InputFocus.Gameplay && DownRaw, KeyMap.cs:136, so it also covers the earlier !InputFocus.Typing guard)
+            if (KeyMap.Down(GameAction.HudToggle)) { HudBridge.UseToolkitHud = !HudBridge.UseToolkitHud; hud.ApplyFlag(); }
             if (!InputFocus.Gameplay || !hud.Interactive) return;
             int first = LegacyOverlayActive ? 5 : 0;
             // with Ctrl or Shift held the digits are control-group keys (SelectionController), not deploys

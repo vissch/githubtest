@@ -233,6 +233,24 @@ namespace TW.Tests
             Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmDrop], Is.EqualTo(Key.F7));
         }
 
+        /// <summary>[I12] A card's badge is the key that actually deploys the slot: rebind Deploy1 and the first card
+        /// must print the new key, not the fixed "1" UnitLook.Hotkey handed out while HudHotkeys already read KeyMap.</summary>
+        [Test]
+        public void ACardBadgeFollowsARebind()
+        {
+            var was = KeyMap.Primary(GameAction.Deploy1);
+            try
+            {
+                KeyMap.Set(GameAction.Deploy1, Key.P);
+                Assert.That(HudText.Hotkey(0), Is.EqualTo(KeyMap.Display(Key.P)), "[I12] the first card still prints the old digit after a rebind");
+                KeyMap.Set(GameAction.Deploy1, Key.None);
+                Assert.That(HudText.Hotkey(0), Is.EqualTo("—"), "[I12] an unbound slot gets a dash, not an empty badge");
+            }
+            finally { KeyMap.Set(GameAction.Deploy1, was); }
+            Assert.That(HudText.Hotkey(RosterEntry.SlotCount), Is.Empty, "[I12] a slot the roster does not have has no key");
+            Assert.That(HudText.Hotkey(-1), Is.Empty, "[I12] a negative slot has no key");
+        }
+
         /// <summary>Every roster slot and every support card has a key of its own: two cards on one key means one of
         /// them cannot be reached from the keyboard, and the bar would not say so.</summary>
         [Test]
