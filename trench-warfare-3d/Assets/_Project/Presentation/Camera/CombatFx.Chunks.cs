@@ -204,6 +204,11 @@ namespace TW.Presentation.Tactical
                 if (batch.Count == 1023) Flush(cube, rpS);
             }
             if (batch.Count > 0) Flush(cube, rpS);
+            DropSpentChunks();   // X5: a Life=0 chunk is drawn in its own frame and dropped at the end of it, whatever the clock does
         }
+
+        /// <summary>Drop every chunk that asked to be drawn for one frame only (Life 0). The age prune cannot do it:
+        /// at a standstill `at - Born > 0` is false, so the lump stayed and DrawBombs added another one every frame.</summary>
+        void DropSpentChunks() => Prune(chunks, 0f, static (c, _) => c.Life <= 0f);
     }
 }

@@ -287,8 +287,8 @@ namespace TW.Presentation.Tactical
         /// </summary>
         public void Burst(Piece piece, Vector3 at, int count, float speed, float scale, Color tint, float life = 20f, float burn = 0f, float up = 1.6f, Vector3 lean = default, uint salt = 0)
         {
+            if (!Ready || count <= 0) return;   // X7: before the zoom scale, or Max(1, ...) turned a count of 0 into one piece
             if (ZoomShare < 0.999f) count = Mathf.Max(1, Mathf.RoundToInt(count * Mathf.Clamp01(ZoomShare)));
-            if (!Ready || count <= 0) return;
             count = Mathf.CeilToInt(count * DebrisMath.Share(CameraShake.DistanceToLook(at), shareNear, shareFar));
             var rng = new DebrisRng(at, salt + (uint)piece * 17u);
             for (int k = 0; k < count; k++)

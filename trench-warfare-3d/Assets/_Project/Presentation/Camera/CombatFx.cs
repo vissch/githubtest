@@ -107,10 +107,17 @@ namespace TW.Presentation.Tactical
         /// </summary>
         void ApplyTints()
         {
-            if (books == null || !books.Ready) return;
             var t = SceneTints.Now;
-            tintEpoch = SceneTints.Epoch;
+            // X9: the plain materials are painted first; they do not need the books, and the old early return
+            // left them at their built-in colours in every frame before the flipbooks were baked
             if (waterMat != null) waterMat.color = t.Splash;
+            if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
+            if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
+            if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
+            // the flash stays a mood question rather than a biome one: over-bright under the moon so bloom spreads it
+            if (flashMat != null) flashMat.color = SceneMood.Night ? new Color(3.2f, 2.5f, 1.3f) : new Color(1f, 0.91f, 0.65f);
+            if (books == null || !books.Ready) return;   // the stamp stays behind, so this runs again next frame
+            tintEpoch = SceneTints.Epoch;
             // the column is the half of a splash a player actually sees: 28 chunks of 0.18 m are sub-pixel at
             // the standard camera, while this stands up to 11 m out of the water for a second and a half
             books.Tint(FlipbookFx.Book.Splash, t.Splash);
@@ -123,11 +130,6 @@ namespace TW.Presentation.Tactical
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.NightEarth(columnEarth);   // AOSA C57: after the biome's column tint
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.ColumnBurstLit(columnBurstLit);   // AOSA C108: before C103's (1 sets nothing)
             if (FlipbookFx.MoonLit(SceneMood.Night, t.MoltenLiquid)) books.SoilEarth(columnSoil, columnEarth);   // AOSA C103: over C57's paint (soil 0 sets nothing)
-            if (smokeMat != null) smokeMat.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.36f);
-            if (smokeThin != null) smokeThin.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.20f);
-            if (smokeFaint != null) smokeFaint.color = new Color(t.Smoke.r, t.Smoke.g, t.Smoke.b, 0.07f);
-            // the flash stays a mood question rather than a biome one: over-bright under the moon so bloom spreads it
-            if (flashMat != null) flashMat.color = SceneMood.Night ? new Color(3.2f, 2.5f, 1.3f) : new Color(1f, 0.91f, 0.65f);
         }
 
         /// <summary>An unlit material that adds its colour to what is behind it (glow halos).</summary>
@@ -471,8 +473,7 @@ namespace TW.Presentation.Tactical
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
-            if (markQuad != null) Destroy(markQuad);
-            if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
+            FreeMeshes();
             // the gag marks' two materials are made lazily with HideAndDontSave (CombatFx.Gags) and were left behind
             // (review 2, N7.6)
             for (int k = 0; k < gagMarkMats.Length; k++) { Discard(gagMarkMats[k]); gagMarkMats[k] = null; }
@@ -481,6 +482,17 @@ namespace TW.Presentation.Tactical
         /// <summary>Destroy a run-time object the right way for where we are: an edit-mode test runs OnDestroy outside Play,
         /// where Destroy does nothing (the pattern of BattlefieldKit.Discard).</summary>
         static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+
+        /// <summary>Free every mesh this component builds itself. X8: clod was built in Start with HideAndDontSave
+        /// and never destroyed, so it leaked one mesh per scene load.</summary>
+        void FreeMeshes()
+        {
+            Discard(plume); plume = null;
+            Discard(puff); puff = null;
+            Discard(flashMesh); flashMesh = null;
+            Discard(markQuad); markQuad = null;
+            Discard(clod); clod = null;
+        }
 
         /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between
         /// the Flamethrower's shots (4 a second), so a man who keeps firing keeps one unbroken stream.</summary>
