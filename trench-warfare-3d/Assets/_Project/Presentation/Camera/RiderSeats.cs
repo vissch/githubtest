@@ -392,7 +392,6 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        /// <summary>The highest surface under (x, z), looking straight down from `top`, and whether a man may sit on it.</summary>
         /// <summary>The triangles bucketed by the xz cells their footprint covers.</summary>
         sealed class TriGrid
         {

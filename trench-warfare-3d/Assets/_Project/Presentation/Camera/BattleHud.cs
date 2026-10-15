@@ -106,9 +106,9 @@ namespace TW.Presentation.Tactical
         // The words are UnitLook's, which the Toolkit HUD reads too: while each HUD kept its own copy the two said
         // different things about the same man, and the copies drifted the moment the roster grew. Only the pictures
         // below are this file's own.
-        static string NameOf(int slot, in RosterEntry e) => UnitLook.Name(e.Archetype);
+        static string NameOf(in RosterEntry e) => UnitLook.Name(e.Archetype);
 
-        static string TipOf(int slot, in RosterEntry e) => UnitLook.Tip(e.Archetype);
+        static string TipOf(in RosterEntry e) => UnitLook.Tip(e.Archetype);
 
         public static string VehicleName(byte archetype) => UnitLook.VehicleName(archetype);
 
@@ -290,6 +290,51 @@ namespace TW.Presentation.Tactical
         Texture2D IconFor(byte archetype) =>
             archetype < unitIcons.Length && unitIcons[archetype] != null ? unitIcons[archetype] : unitIcons[InfantryArchetype.Rifle];
 
+        /// <summary>[Q9] ~35 HideAndDontSave textures and the GUIStyle backgrounds built from them, generated fresh
+        /// every time this component starts; nothing else owns them, so a restart leaked the lot. Discard works in an
+        /// edit-mode test too, where Destroy is a no-op (TankRenderer.Discard). unitIcons shares textures between
+        /// archetypes (a walker borrowing another's silhouette), so a HashSet discards each one once.</summary>
+        void OnDestroy()
+        {
+            Discard(sideTex); sideTex = null;
+            Discard(stripTex); stripTex = null;
+            Discard(coin); coin = null;
+            Discard(lockClosed); lockClosed = null;
+            Discard(lockOpen); lockOpen = null;
+            Discard(lockGrey); lockGrey = null;
+            Discard(advance); advance = null;
+            Discard(fallback); fallback = null;
+            Discard(fire); fire = null;
+            Discard(fireHeld); fireHeld = null;
+            Discard(pause); pause = null;
+            Discard(barrage); barrage = null;
+            Discard(gas); gas = null;
+            Discard(drop); drop = null;
+            Discard(mapGround); mapGround = null;
+            Discard(mapDots); mapDots = null;
+            Discard(whiteTex); whiteTex = null;
+            if (unitIcons != null)
+            {
+                var seen = new System.Collections.Generic.HashSet<Texture2D>();
+                foreach (var t in unitIcons) if (t != null && seen.Add(t)) Discard(t);
+                unitIcons = null;
+            }
+            DiscardStyle(stone); stone = null;
+            DiscardStyle(slate); slate = null;
+            DiscardStyle(wood); wood = null;
+            DiscardStyle(green); green = null;
+        }
+
+        static void DiscardStyle(GUIStyle s)
+        {
+            if (s == null) return;
+            Discard(s.normal.background as Texture2D);
+            Discard(s.hover.background as Texture2D);
+            Discard(s.active.background as Texture2D);
+        }
+
+        static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
+
         void EnsureStyles()
         {
             if (stone != null) return;
@@ -374,7 +419,7 @@ namespace TW.Presentation.Tactical
                 bool can = !over && unlocked && cd == 0 && w.Silver[0] >= e.Cost;
                 var r = new Rect(x, y, size, size);
                 GUI.enabled = can;
-                if (GUI.Button(r, new GUIContent("", unlocked ? $"{TipOf(s, e)}  ({e.Cost} silver, key {UnitLook.Hotkey(s)})" : "Locked"), stone))
+                if (GUI.Button(r, new GUIContent("", unlocked ? $"{TipOf(e)}  ({e.Cost} silver, key {UnitLook.Hotkey(s)})" : "Locked"), stone))
                     Host.Issue(SimCommand.Deploy(w.Tick, 0, s));
                 GUI.enabled = true;
                 if (!unlocked) DrawIcon(r, lockGrey, size * 0.26f);
@@ -382,7 +427,7 @@ namespace TW.Presentation.Tactical
                 {
                     DrawIcon(new Rect(r.x, r.y - 4f, r.width, r.height), IconFor(e.Archetype), size * 0.2f, can);
                     GUI.Label(new Rect(r.x + 5f, r.y + 2f, 20f, 14f), UnitLook.Hotkey(s), number);
-                    if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), NameOf(s, e), unitName);
+                    if (size >= 70f) GUI.Label(new Rect(r.x + 5f, r.y, r.width - 10f, r.height - 3f), NameOf(e), unitName);
                     GUI.Label(new Rect(r.x, r.y, r.width - 5f, r.height - 3f), cd > 0 ? $"{cd * w.Config.TickSeconds:0}s" : $"{e.Cost}", cost);
                 }
                 x += size + Gap;

@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
     {
         readonly System.Text.StringBuilder line = new System.Text.StringBuilder(256);
         public SimHost Host;
-        public bool ShowFlowField = true;
+        public bool ShowFlowField = false;   // Q8: 625 cells walked every frame for Debug.DrawLine, which draws nothing in a player build
         public bool ShowStats = false;   // F2; the BattleHud is the playing interface
         public int FlowArrowRadiusCells = 12;
         public int ViewGoal;
@@ -36,9 +36,14 @@ namespace TW.Presentation.Tactical
             var fx = GetComponent<CombatFx>();                       // scenes built before A2 do not have it yet
             if (fx == null) fx = gameObject.AddComponent<CombatFx>();
             if (fx.Host == null) fx.Host = Host;
-            var hud = GetComponent<BattleHud>();
-            if (hud == null) hud = gameObject.AddComponent<BattleHud>();
-            if (hud.Host == null) hud.Host = Host;
+            // Q9: the Toolkit HUD is the default now; its own chrome replaces this one, so adding it too just means
+            // two HUDs drawing and ~35 textures the Toolkit HUD never asked for.
+            if (!HudBridge.UseToolkitHud)
+            {
+                var hud = GetComponent<BattleHud>();
+                if (hud == null) hud = gameObject.AddComponent<BattleHud>();
+                if (hud.Host == null) hud.Host = Host;
+            }
             units = GetComponent<VATRenderer>();
             if (units == null) units = gameObject.AddComponent<VATRenderer>();
             if (units.Host == null) units.Host = Host;
@@ -50,6 +55,13 @@ namespace TW.Presentation.Tactical
             matA = new Material(shader) { enableInstancing = true, color = new Color(0.55f, 0.45f, 0.25f) };
             matB = new Material(shader) { enableInstancing = true, color = new Color(0.35f, 0.4f, 0.5f) };
         }
+
+        /// <summary>[Q9] matA/matB are created fresh every time this component starts; nothing else owns them, so a
+        /// restart (a new scene load) leaked a material pair each time. Discard works in an edit-mode test too,
+        /// where Destroy is a no-op (TankRenderer.Discard).</summary>
+        void OnDestroy() { Discard(matA); matA = null; Discard(matB); matB = null; }
+
+        static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Destroy(o); else DestroyImmediate(o); }
 
         void Update()
         {
@@ -66,10 +78,15 @@ namespace TW.Presentation.Tactical
             var kb = Keyboard.current;
             if (kb == null) return;
             uint t = Host.Local.World.Tick;
-            if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
-            if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
-            if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
-            if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
+            // Q8: these used to read raw regardless of a shell screen (InputFocus.Modal) and of whether the build
+            // ships (F4 swaps the men for capsules even there); they are a debug toggle, not gameplay, in both cases.
+            if (!InputFocus.Modal && (Application.isEditor || Debug.isDebugBuild))
+            {
+                if (kb.f1Key.wasPressedThisFrame) ShowFlowField = !ShowFlowField;
+                if (kb.f2Key.wasPressedThisFrame) ShowStats = !ShowStats;
+                if (kb.f3Key.wasPressedThisFrame) ViewGoal++;
+                if (kb.f4Key.wasPressedThisFrame) ForceCapsules = !ForceCapsules;
+            }
             // the gameplay keys belong to the Toolkit HUD's KeyMap (Space is the tactical pause there) whenever it is the HUD
             if (HudBridge.UseToolkitHud || !InputFocus.Gameplay) return;
             if (kb.digit1Key.wasPressedThisFrame) Host.Issue(SimCommand.Deploy(t, 0, 0));

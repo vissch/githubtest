@@ -365,10 +365,6 @@ namespace TW.Presentation.Tactical
         static bool IsLimb(TankPartRole r)
             => r == TankPartRole.Leg || r == TankPartRole.Thigh || r == TankPartRole.Shin || r == TankPartRole.Foot;
 
-        /// <summary>The tip of a leg in the last chain part's own frame.</summary>
-        static Vector3 ToeOf(TankModel model, Lod lod, List<int> chain, int tip, bool useSockets)
-            => ToeOf(model, lod, chain, tip, useSockets, out _);
-
         /// <summary>`asAuthored` is the toe before the mesh has had its say, so a caller that finds the corrected
         /// one impossible can fall back to it rather than ship a leg with its toe above its hip.</summary>
         static Vector3 ToeOf(TankModel model, Lod lod, List<int> chain, int tip, bool useSockets, out Vector3 asAuthored)

@@ -12,6 +12,7 @@
 // person to widen the bar, add a support button or grow the roster is told by the gate rather than by the owner.
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Tactical;
 using TW.UI;
 using UnityEngine.UIElements;
@@ -163,6 +164,62 @@ namespace TW.Tests
                 Assert.IsFalse(panel.Visible, "[Q3] a shipped build can still open the debug drawer");
             }
             finally { Object.DestroyImmediate(go); }
+        }
+
+        /// <summary>[Q9] BattleHud generates ~35 HideAndDontSave textures (plus the GUIStyle backgrounds built from
+        /// them) in Start and owned them alone: nothing destroyed them when the component did, so a restart (a new
+        /// scene load adding a fresh BattleHud) leaked the lot. OnDestroy must free them.</summary>
+        [Test]
+        public void BattleHudFreesItsGeneratedTexturesOnDestroy()
+        {
+            var go = new GameObject("BattleHud");
+            BattleHud hud = null;
+            Texture2D[] icons;
+            Texture2D side;
+            try
+            {
+                hud = go.AddComponent<BattleHud>();
+                typeof(BattleHud).GetMethod("Start", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(hud, null);
+                icons = (Texture2D[])typeof(BattleHud).GetField("unitIcons", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(hud);
+                side = (Texture2D)typeof(BattleHud).GetField("sideTex", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .GetValue(hud);
+                Assert.IsNotNull(side, "[Q9] setup: Start should have built sideTex");
+                Assert.IsTrue(System.Array.Exists(icons, t => t != null), "[Q9] setup: Start should have built at least one icon");
+                // invoked directly rather than through Object.Destroy(hud), which in edit mode only queues OnDestroy
+                // for the next editor update rather than running it inside this test
+                typeof(BattleHud).GetMethod("OnDestroy", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(hud, null);
+            }
+            finally
+            {
+                if (hud != null) Object.DestroyImmediate(hud);
+                Object.DestroyImmediate(go);
+            }
+            Assert.IsTrue(side == null, "[Q9] BattleHud.OnDestroy did not free sideTex");
+            Assert.IsTrue(System.Array.TrueForAll(icons, t => t == null), "[Q9] BattleHud.OnDestroy did not free every unit icon");
+        }
+
+        /// <summary>[Q9] DebugOverlay.Start always added a BattleHud alongside its own capsule/stats overlay, even
+        /// when the Toolkit HUD (HudBridge.UseToolkitHud) is the one actually drawing the game's chrome: two HUDs
+        /// drawing, and a BattleHud's textures the Toolkit HUD never needed.</summary>
+        [Test]
+        public void DebugOverlayAddsNoBattleHudUnderTheToolkitHud()
+        {
+            bool was = HudBridge.UseToolkitHud;
+            var go = new GameObject("DebugOverlay");
+            try
+            {
+                HudBridge.UseToolkitHud = true;
+                var host = go.AddComponent<SimHost>();
+                var overlay = go.AddComponent<DebugOverlay>();
+                overlay.Host = host;
+                typeof(DebugOverlay).GetMethod("Start", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(overlay, null);
+                Assert.IsNull(go.GetComponent<BattleHud>(), "[Q9] DebugOverlay added a BattleHud while the Toolkit HUD is in charge");
+            }
+            finally { HudBridge.UseToolkitHud = was; Object.DestroyImmediate(go); }
         }
     }
 }
