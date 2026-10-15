@@ -2,6 +2,7 @@
 // Y15: "model v -1" was taken and answered "ok"; every later scene threw on Library.Vehicles[index % Length].
 // Y17: an HE shell on a flying machine drew its burst on the ground under it, and "cookdelay -1" ("never cooks off")
 // still cooked a machine off on overkill, because Mathf.Max(1.5f, CookDelay * 0.5f) turns -1 into 1.5 s.
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using NUnit.Framework;
@@ -9,6 +10,7 @@ using TW.Playground;
 using TW.Playground.Editor;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.TestTools;
 
 namespace TW.Tests.Playground
 {
@@ -81,6 +83,92 @@ namespace TW.Tests.Playground
                 Assert.That(r.State, Is.EqualTo(VehicleRig.Stage.KnockedOut), "[Y17] cookdelay -1 means never, but it cooked off");
             }
             finally { Object.DestroyImmediate(parent.gameObject); }
+        }
+        [Test]   // [Y18]
+        public void TheBakedMeshGoesWithTheFigure()
+        {
+            var l = Lib();
+            if (l.Units.Length == 0) Assert.Ignore("no unit in the library");
+            var parent = new GameObject("test stage").transform;
+            ClipDeck deck = null;
+            try
+            {
+                deck = ClipDeck.Make(l, parent);
+                if (deck == null) Assert.Ignore("the library has no ClipSource");
+                var u = UnitRig.Build(l.Units[0], deck, null, parent, Vector3.zero, 0f, 1f);
+                u.Drift(out _, out _);          // this is what bakes the mesh
+                var field = typeof(UnitRig).GetField("baked", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(field, "UnitRig.baked is gone; this test needs rewriting");
+                var baked = field.GetValue(u) as Mesh;
+                Assert.IsNotNull(baked, "nothing was baked, so this test proves nothing");
+                // OnDestroy is called directly: inside an edit-mode DestroyImmediate chain Unity swallows the rig's own
+                // DestroyImmediate calls, so even the materials the rig has always cleaned up survive there
+                var onDestroy = typeof(UnitRig).GetMethod("OnDestroy", BindingFlags.Instance | BindingFlags.NonPublic);
+                Assert.IsNotNull(onDestroy, "UnitRig.OnDestroy is gone; this test needs rewriting");
+                onDestroy.Invoke(u, null);
+                Assert.IsTrue(baked == null, "[Y18] the baked mesh outlived the figure: one leaks per figure per report");
+            }
+            finally { if (deck != null) deck.Destroy(); Object.DestroyImmediate(parent.gameObject); }
+        }
+
+        [Test]   // [Y18]
+        public void ForgettingTheCutsDestroysTheMeshesItBuilt()
+        {
+            var parent = new GameObject("test stage").transform;
+            try
+            {
+                BuildingRig.ForgetCuts();
+                BuildingRig.Build("Houses", "House5", null, parent, Vector3.zero, 0f, 11);
+                var field = typeof(BuildingRig).GetField("recut", BindingFlags.Static | BindingFlags.NonPublic);
+                Assert.IsNotNull(field, "BuildingRig.recut is gone; this test needs rewriting");
+                var cache = (System.Collections.Generic.Dictionary<Mesh, Mesh>)field.GetValue(null);
+                var cut = cache.Where(kv => kv.Value != null && kv.Value != kv.Key).Select(kv => kv.Value).ToList();
+                var kept = cache.Where(kv => kv.Value != null && kv.Value == kv.Key).Select(kv => kv.Value).ToList();
+                if (cut.Count == 0) Assert.Ignore("this house has no cut faces, so this test proves nothing");
+                BuildingRig.ForgetCuts();
+                Assert.IsTrue(cut.All(m => m == null), "[Y18] the cut-face meshes outlived the cache: one per module per scene");
+                Assert.IsTrue(kept.All(m => m != null), "[Y18] an uncut mesh is the kit's own and must not be destroyed");
+            }
+            finally { Object.DestroyImmediate(parent.gameObject); BuildingRig.ForgetCuts(); }
+        }
+
+        [Test]   // [Y18]
+        public void ClearingDebrisKeepsTheOneRenderer()
+        {
+            var go = new GameObject("fx");
+            bool ignoring = LogAssert.ignoreFailingMessages;
+            LogAssert.ignoreFailingMessages = true;   // the old tree's Destroy() in edit mode complains
+            try
+            {
+                var fx = go.AddComponent<PlaygroundFx>();
+                // read through reflection: DebrisRenderer lives in TW.Presentation.Camera, which this test assembly
+                // does not reference (and the reference list is a seam)
+                var debris = typeof(PlaygroundFx).GetProperty("Debris");
+                Assert.IsNotNull(debris, "PlaygroundFx.Debris is gone; this test needs rewriting");
+                fx.ClearDebris();
+                object first = debris.GetValue(fx);
+                Assert.IsNotNull(first, "no debris renderer at all");
+                fx.ClearDebris();
+                Assert.AreSame(first, debris.GetValue(fx), "[Y18] a new DebrisRenderer per scene: it is not Ready until its Start, so debris in the same batch is dropped");
+            }
+            finally { LogAssert.ignoreFailingMessages = ignoring; Object.DestroyImmediate(go); }
+        }
+
+        [Test]   // [Y19]
+        public void ThePoseSignatureReadsTheSameInEveryCulture()
+        {
+            var e = Lib().Vehicles.FirstOrDefault();
+            Assert.IsNotNull(e, "no vehicle in the library");
+            var parent = new GameObject("test stage").transform;
+            var was = CultureInfo.CurrentCulture;
+            try
+            {
+                CultureInfo.CurrentCulture = new CultureInfo("de-DE");
+                var r = VehicleRig.Build(e, null, parent, Vector3.zero, 0f, 1.7f, 3);
+                var sig = r.PoseSignature();
+                Assert.That(sig, Does.Contain("."), "[Y19] the signature was written in the machine's own culture, so a comma-decimal machine compared nonsense");
+            }
+            finally { CultureInfo.CurrentCulture = was; Object.DestroyImmediate(parent.gameObject); }
         }
     }
 }

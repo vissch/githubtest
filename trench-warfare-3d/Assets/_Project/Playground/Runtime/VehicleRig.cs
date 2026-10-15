@@ -766,7 +766,9 @@ namespace TW.Playground
             foreach (var p in Parts)
             {
                 LocalPose(p, out var c, out _); c *= Size;
-                sb.Append(p.Name).Append(p.Loose ? "*" : "").Append(':').Append(c.x.ToString("0.00")).Append(',').Append(c.y.ToString("0.00")).Append(',').Append(c.z.ToString("0.00")).Append(' ');
+                // [Y19] invariant: on a comma-decimal machine the signature read "1,20,3,40" and the LOD proof compared nonsense
+                var ci = System.Globalization.CultureInfo.InvariantCulture;
+                sb.Append(p.Name).Append(p.Loose ? "*" : "").Append(':').Append(c.x.ToString("0.00", ci)).Append(',').Append(c.y.ToString("0.00", ci)).Append(',').Append(c.z.ToString("0.00", ci)).Append(' ');
             }
             return sb.ToString();
         }

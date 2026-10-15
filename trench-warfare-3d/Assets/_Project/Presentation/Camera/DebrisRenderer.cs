@@ -357,6 +357,21 @@ namespace TW.Presentation.Tactical
         }
 
         // ------------------------------------------------------------------ frame
+        /// <summary>[Y18] Forget everything thrown so far, keeping the renderer itself: the pools go empty, the GPU
+        /// records and the buffer stay as they are (nothing is drawn from them while Count is 0) and Ready is untouched,
+        /// so the next piece asked for in the same frame still lands.</summary>
+        public void Forget()
+        {
+            for (int k = 0; k < pools.Length; k++)
+            {
+                var pool = pools[k];
+                if (pool == null) continue;
+                pool.Count = 0; pool.Head = 0; pool.AliveUntil = 0f;
+                pool.DirtyLo = int.MaxValue; pool.DirtyHi = -1;
+            }
+            Alive = 0;
+        }
+
         void LateUpdate()
         {
             using var perf = TW.Sim.PerfMarkers.DebrisLate.Auto();

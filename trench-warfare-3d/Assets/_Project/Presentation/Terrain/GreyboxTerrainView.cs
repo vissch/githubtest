@@ -301,7 +301,7 @@ namespace TW.Presentation.Terrain
         /// G and B are the slope, which the shader lights as a hard-edged relief; A is the lumps' tone alone, which
         /// the shader reads a second time, larger and turned, for blotches broad enough to show from the overview.
         /// </summary>
-        static Texture2D BuildMudDetail()
+        public static Texture2D BuildMudDetail()
         {
             const int n = 512, cells = 17;
             var height = new float[n * n]; var tone = new float[n * n]; var broad = new float[n * n];

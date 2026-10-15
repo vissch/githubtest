@@ -169,8 +169,10 @@ namespace TW.Playground
         /// <summary>Everything thrown so far off the ground: the debris pools are rebuilt empty.</summary>
         public void ClearDebris()
         {
-            if (Debris != null) Destroy(Debris);
-            Debris = gameObject.AddComponent<DebrisRenderer>();
+            // [Y18] the one renderer stays: a fresh component is not Ready until its Start runs, so debris asked for by
+            // later commands in the same batch was dropped on the floor
+            if (Debris == null) Debris = gameObject.AddComponent<DebrisRenderer>();
+            else Debris.Forget();
         }
 
         public int LampsAlive => lamps.Count;
