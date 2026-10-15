@@ -71,16 +71,20 @@ Shader "TW/Toon (URP)"
         /// The mask is four words of 24 bits rather than one, because a float holds a whole number exactly only that
         /// far: chunk i is bit (i % 24) of word (i / 24). The word is picked by compare rather than by indexing the
         /// vector, which on some targets spills it to memory for a dynamic index.
-        float3 TWChunk(float3 positionOS, float chunk)
+        bool TWChunkHidden(float chunk)
         {
         #if defined(_CHUNKMASK)
             float4 packed = UNITY_ACCESS_INSTANCED_PROP(TWChunks, _ChunkMask);
             uint i = (uint)(chunk + 0.5);
             uint word = i / 24u;
             uint mask = (uint)(word == 0u ? packed.x : word == 1u ? packed.y : word == 2u ? packed.z : packed.w);
-            if ((mask >> (i % 24u)) & 1u) return float3(0, 0, 0);
+            if ((mask >> (i % 24u)) & 1u) return true;
         #endif
-            return positionOS;
+            return false;
+        }
+        float3 TWChunk(float3 positionOS, float chunk)
+        {
+            return TWChunkHidden(chunk) ? float3(0, 0, 0) : positionOS;
         }
         /// Reeds, grass and scrub lean with the wind and shiver in the gusts: the bend grows with the square of the height
         /// above the root (object space), so the foot stays planted. Same in every pass.
@@ -358,6 +362,7 @@ Shader "TW/Toon (URP)"
             Varyings vert(Attributes v)
             {
                 UNITY_SETUP_INSTANCE_ID(v);
+                bool hidden = TWChunkHidden(v.chunk.x);                 // a hidden chunk is collapsed below; the rim must not pull it apart again
                 v.positionOS.xyz = TWChunk(v.positionOS.xyz, v.chunk.x);
                 Varyings o;
                 o.positionWS = TWSway(TransformObjectToWorld(v.positionOS.xyz), v.positionOS.y);
@@ -367,7 +372,7 @@ Shader "TW/Toon (URP)"
                 float2 dir = mul((float3x3)UNITY_MATRIX_VP, nWS).xy;
                 dir = dir / max(length(dir), 1e-4);
                 float px = clamp(_OutlineWidth * 70.0 / max(cs.w, 1.0), 0.0, _OutlineWidth);   // full width within 70 m, thinner beyond
-                cs.xy += dir * px * 2.0 / _ScreenParams.xy * cs.w;
+                cs.xy += hidden ? 0.0 : dir * px * 2.0 / _ScreenParams.xy * cs.w;
                 o.positionCS = cs;
                 o.fog = ComputeFogFactor(cs.z);
                 return o;
