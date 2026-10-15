@@ -1,9 +1,10 @@
 // Phase: B5 (implemented) — what a shell does to the men who live through it, as the character controller shows it: a man
 // close enough for the sim to throw him hard is blown off his feet (lifted, down on his face away from it, up again,
 // dazed); the men further out react one after another as the burst runs out through them, as far as WaveReach past
-// its radius; everyone near it wears some of the earth it threw (grime), which reaches the shader through VatPad; and
-// the camera feels it only once the sound could have arrived. No sim is stepped: the tests place men, write the
-// Explosion event and the sim's throw the way BlastSystem would, and tick the controller alone.
+// its radius; everyone near it wears some of the earth it threw (grime), which reaches the shader through VatPad
+// (DeathVarietyTests.VatPadCarriesTheCharBitsBesideEverythingElse); and the camera feels it only once the sound
+// could have arrived. No sim is stepped: the tests place men, write the Explosion event and the sim's throw the
+// way BlastSystem would, and tick the controller alone.
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -136,21 +137,6 @@ namespace TW.Tests
             r.Tick();
             Assert.Greater(r.A.Grime[close], once, "a second shell adds to it");
             Assert.LessOrEqual(r.A.Grime[close], 1f);
-        }
-
-        [Test]
-        public void ThePadCarriesTheLimbsTheGrimeAndTheSeed()
-        {
-            float pad = VatPad.Pack(0b101010, 0.5f, 200);
-            Assert.AreEqual(0b101010, VatPad.Lost(pad));
-            Assert.AreEqual(0.5f, VatPad.Grime(pad), 1f / 255f);
-            Assert.AreEqual(200, VatPad.Seed(pad));
-            float full = VatPad.Pack(63, 1f, 255);
-            Assert.AreEqual(63, VatPad.Lost(full));
-            Assert.AreEqual(1f, VatPad.Grime(full), 1e-6f);
-            Assert.AreEqual(255, VatPad.Seed(full));
-            Assert.Less(full, 16777216f, "a float holds it exactly only below 2^24");
-            Assert.AreEqual(0, VatPad.Lost(VatPad.Pack(0, 1f, 255)), "a living man never reads as cut, however dirty");
         }
 
         [Test]

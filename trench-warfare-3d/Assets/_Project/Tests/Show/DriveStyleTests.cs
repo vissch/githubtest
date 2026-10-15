@@ -8,6 +8,26 @@ using TW.Sim;
 
 namespace TW.Tests
 {
+    /// <summary>[TS10] id-to-name pairs reflected off VehicleArchetype's own public const byte fields, so a test that
+    /// names a machine cannot drift from the ids the sim actually declares.</summary>
+    public static class VehicleIds
+    {
+        public static readonly Dictionary<byte, string> ById = Build();
+
+        static Dictionary<byte, string> Build()
+        {
+            var map = new Dictionary<byte, string>();
+            foreach (var f in typeof(VehicleArchetype).GetFields(
+                         System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.Public))
+            {
+                if (f.FieldType != typeof(byte)) continue;
+                byte id = (byte)f.GetValue(null);
+                if (!map.ContainsKey(id)) map[id] = f.Name;
+            }
+            return map;
+        }
+    }
+
     public class DriveStyleTests
     {
         static readonly byte[] Machines =
@@ -29,6 +49,25 @@ namespace TW.Tests
                 Assert.AreNotEqual(TankRenderer.PlainStyle, s, $"archetype {a} has a ride of its own");
                 foreach (var o in seen) Assert.AreNotEqual(o, s, $"archetype {a} rides as another machine does");
                 seen.Add(s);
+            }
+        }
+
+        [Test]
+        public void EveryExplicitMachineIsARealArchetype()
+        {
+            foreach (byte a in Machines)
+                Assert.That(VehicleIds.ById.ContainsKey(a), $"[TS10] {a} is not a const on VehicleArchetype");
+        }
+
+        [Test]
+        public void NoMachineWithARideOfItsOwnIsLeftOffTheList()
+        {
+            var listed = new HashSet<byte>(Machines);
+            foreach (var kv in VehicleIds.ById)
+            {
+                if (listed.Contains(kv.Key)) continue;
+                Assert.AreEqual(TankRenderer.PlainStyle, S(kv.Key),
+                    $"[TS10] {kv.Value} ({kv.Key}) has a ride of its own in StyleFor but is missing from Machines");
             }
         }
 

@@ -110,9 +110,9 @@ namespace TW.Tests
         /// the lava field, which sets no snow colour and therefore carried the default WHITE one, every lantern
         /// faded to snow at the edge of its pool.
         ///
-        /// Read out of the source because TW.Presentation.Terrain is not in this assembly's references (see the
-        /// note on the test above), and because what is being checked is a source-level property anyway: these are
-        /// two lists of names that have to match.
+        /// [TS10] Read out of the source, not called at runtime: what is being checked is a source-level property,
+        /// which Globals a method's body sets, not a value a running Atmosphere could ever be asked for. These are
+        /// two lists of names that have to match, and no runtime call can show that on its own.
         /// </summary>
         [Test]
         public void EveryGlobalABiomePushesIsAGlobalABiomeClears()

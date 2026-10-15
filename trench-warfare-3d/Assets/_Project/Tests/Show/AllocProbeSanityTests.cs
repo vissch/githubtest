@@ -45,7 +45,7 @@ namespace TW.Tests
         }
 
         /// <summary>Records what the old instrument says about a 1 MB allocation, so the reason it was replaced stays in
-        /// the test log. It does not assert: if a Unity upgrade makes it work, nothing here should go red for it.</summary>
+        /// the test log, beside a verdict on the replacement itself rather than a circular Assert.Pass().</summary>
         [Test]
         public void TheOldInstrumentIsRecorded()
         {
@@ -55,7 +55,8 @@ namespace TW.Tests
             long after = GC.GetAllocatedBytesForCurrentThread();
             TestContext.WriteLine($"GC.GetAllocatedBytesForCurrentThread saw {after - before} bytes for a 1,048,576-byte array " +
                                   "(0 = the Boehm stub that made every earlier allocation test blind)");
-            Assert.Pass();
+            Assert.That(AllocProbe.PerCall(() => keep = new byte[1 << 20], 2, 10), Is.EqualTo(1),
+                "[TS10] the replacement probe sees the same 1 MB array OneLargeArrayIsOneAllocation pins");
         }
     }
 }

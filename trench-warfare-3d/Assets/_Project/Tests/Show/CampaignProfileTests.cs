@@ -105,10 +105,15 @@ namespace TW.Tests
                 if (Directory.Exists(dir)) Directory.Delete(dir, true);
             }
 
-            var mine = new CampaignProfile { Gold = 7 };
-            ProfileStore.Use(mine);
-            Assert.That(ProfileStore.Current, Is.SameAs(mine));
-            ProfileStore.Use(null);
+            var was = ProfileStore.Current;
+            try
+            {
+                var mine = new CampaignProfile { Gold = 7 };
+                ProfileStore.Use(mine);
+                Assert.That(ProfileStore.Current, Is.SameAs(mine));
+            }
+            finally { ProfileStore.Use(was); }
+            Assert.That(ProfileStore.Current, Is.SameAs(was), "[TS10] a test that substitutes a profile must hand it back, not guess at what was there");
         }
 
         [Test]
