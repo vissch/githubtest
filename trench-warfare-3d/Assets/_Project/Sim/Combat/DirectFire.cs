@@ -83,6 +83,7 @@ namespace TW.Sim.Combat
             ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
             stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
             shelters = new NativeList<Shelter>(16, Allocator.Persistent);
+            shadowHits = new NativeList<int>(32, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
             ones = new NativeArray<float>(world.Config.MaxSlots, Allocator.Persistent);
             for (int i = 0; i < ones.Length; i++) ones[i] = 1f;
@@ -146,7 +147,7 @@ namespace TW.Sim.Combat
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
                 Impacts = blast != null ? thrown : noImpacts, CanThrow = blast != null,
-                CoverStops = stopped, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
+                CoverStops = stopped, ShadowHits = shadowHits, Shelters = shelters.AsArray(), Height = map.Height, TrenchId = w.TrenchId,
             }.Run();
             for (int k = 0; k < thrown.Length; k++)
             {
@@ -504,6 +505,7 @@ namespace TW.Sim.Combat
             if (scorched.IsCreated) scorched.Dispose();
             if (stopped.IsCreated) stopped.Dispose();
             if (shelters.IsCreated) shelters.Dispose();
+            if (shadowHits.IsCreated) shadowHits.Dispose();
             if (noSmoke.IsCreated) noSmoke.Dispose();
             if (ones.IsCreated) ones.Dispose();
             if (grenades.IsCreated) grenades.Dispose();

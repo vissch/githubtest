@@ -44,6 +44,8 @@ namespace TW.Sim.Combat
     {
         NativeList<WreckRound> stopped;
         NativeList<Shelter> shelters;
+        /// <summary>The slots one sweep found in a wreck's shadow, in hash order, kept so the suppression can be applied after the shot.</summary>
+        NativeList<int> shadowHits;
         /// <summary>Men this far past a wreck's body (WreckBlastReach x size, halved) are behind it.</summary>
         public const float ShelterRadius = 3f;
         /// <summary>What a machine gun's round that hits a wreck it was fired at does to it, of the round's damage.</summary>
@@ -106,6 +108,8 @@ namespace TW.Sim.Combat
 
         partial struct FireJob
         {
+            public NativeList<int> ShadowHits;
+
             /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight with its enemies behind
             /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not,
             /// nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).
@@ -141,7 +145,7 @@ namespace TW.Sim.Combat
                 float dist = SimMath.Length(d3);
                 float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
                 // nobody in its shadow: no shot and no cooldown spent ([N5.3])
-                if (InShadow(i, s, dir, 0f) == 0) return;
+                if (InShadow(i, s, dir) == 0) return;
                 FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                 Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
                 float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
@@ -151,15 +155,16 @@ namespace TW.Sim.Combat
                     CoverStops.Add(new WreckRound { Cell = CellOf(s.Pos), Target = PropTarget.Encode(s.Prop), Damage = weapon.Damage * DamageMul[i] * WreckFireShare, Way = dir });
                 // hit or not, every round keeps the heads in its shadow down
                 float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
-                InShadow(i, s, dir, near);
+                for (int k = 0; k < ShadowHits.Length; k++) { int j = ShadowHits[k]; AddSuppression(j, near * SuppressionMul[j]); }
             }
 
             /// <summary>The enemies of slot i in the wreck's shadow: within its shelter's reach, past it on the shooter's
             /// line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. How many, and
-            /// with `near` above zero their heads kept down by that much ([N5.3]: a man on the wreck's flank is neither).</summary>
-            int InShadow(int i, in Shelter s, float3 along, float near)
+            /// their slots in ShadowHits in that order; the caller keeps their heads down after its shot ([N5.3]: a man
+            /// on the wreck's flank is neither).</summary>
+            int InShadow(int i, in Shelter s, float3 along)
             {
-                int n = 0;
+                ShadowHits.Clear();
                 int cx0 = math.clamp((int)((s.Pos.x - s.Reach) / Spatial.CellSize), 0, Spatial.Width - 1), cx1 = math.clamp((int)((s.Pos.x + s.Reach) / Spatial.CellSize), 0, Spatial.Width - 1);
                 int cz0 = math.clamp((int)((s.Pos.z - s.Reach) / Spatial.CellSize), 0, Spatial.Length - 1), cz1 = math.clamp((int)((s.Pos.z + s.Reach) / Spatial.CellSize), 0, Spatial.Length - 1);
                 for (int z = cz0; z <= cz1; z++)
@@ -174,11 +179,10 @@ namespace TW.Sim.Combat
                         float t = rel.x * along.x + rel.z * along.z;
                         float side = math.abs(rel.x * along.z - rel.z * along.x);
                         if (t < 0f || side > s.Body) continue;
-                        n++;
-                        if (near > 0f) AddSuppression(j, near * SuppressionMul[j]);
+                        ShadowHits.Add(j);
                     } while (Spatial.Map.TryGetNextValue(out j, ref it));
                 }
-                return n;
+                return ShadowHits.Length;
             }
         }
 

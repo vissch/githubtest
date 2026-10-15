@@ -576,6 +576,39 @@ namespace TW.Tests
         }
 
         [Test]
+        // [found-inshadow-sweeps-the-spatial-hash-twice-per-w-20261015-0] a guard, not a red-before test: InShadow
+        // was swept twice per shot (once only to count), and is swept once now. Nothing observable moves, so this is
+        // green before and after the collapse — do not try to make it red on the old code. One round's keep-down on a
+        // man in the shadow, by the rule at DirectFire.Wrecks.cs: SuppressionPerShot 9 x 0.6 x no smoke 1 = 5.4,
+        // times his SuppressionMul of 1. The band's low end allows one tick of decay; it excludes 0 (the pass dropped)
+        // and 10.8 (applied twice).
+        public void OneRoundAtAWreckKeepsEachHeadInItsShadowDownOnce()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            int measured = 0;
+            for (int t = 0; t < 400; t++)
+            {
+                foreach (int u in men) m.World.Suppression[u] = 0f;
+                Step(m);
+                if (t < Settle) continue;
+                int shots = 0;
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                    if (ev[i].Type == SimEventType.Shot && ev[i].A == gun && PropTarget.IsProp(ev[i].B)) shots++;
+                if (shots != 1) continue;
+                measured++;
+                foreach (int u in men)
+                {
+                    float sup = m.World.Suppression[u];
+                    Assert.GreaterOrEqual(sup, 4.9f, "[found-inshadow-sweeps-the-spatial-hash-twice-per-w-20261015-0] one round's keep-down moved");
+                    Assert.LessOrEqual(sup, 5.5f, "[found-inshadow-sweeps-the-spatial-hash-twice-per-w-20261015-0] one round's keep-down moved");
+                }
+            }
+            Assert.GreaterOrEqual(measured, 5, "[found-inshadow-sweeps-the-spatial-hash-twice-per-w-20261015-0] the gun fired no single round at the wreck");
+        }
+
+        [Test]
         // [N5.3b] the owner's rule (2026-10-12): fire at a wreck is fire at a place, not at a man who must be seen,
         // so a thick screen on the gun -> wreck line neither stops the shot nor spares the men in its shadow.
         public void ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck()
