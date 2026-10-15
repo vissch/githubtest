@@ -12,6 +12,8 @@ namespace TW.Tests
 {
     public class ViewGroundTests
     {
+        // [TS21] Rain.cs and NightLights.cs verified still here today (2026-10-15): both still carry their own copy
+        // of the formula, and no other presentation file does, so they stay on Allowed until their lanes move them.
         static readonly string[] Allowed = { "ViewGround.cs", "Rain.cs", "NightLights.cs" };
 
         [Test]
@@ -37,7 +39,10 @@ namespace TW.Tests
         public void No_Presentation_File_Writes_The_Formula_Out_Again()
         {
             var root = Path.Combine(Application.dataPath, "_Project", "Presentation");
-            var copy = new Regex(@"Mathf\.Max\([^;]*-[\w.]*forward\.y\)");
+            // [TS21] the old regex only caught one spelling of the copied formula (Mathf.Max(...-forward.y)); a copy
+            // written any other way slipped through. Widened to plain forward.y: any presentation file that touches
+            // the camera's forward.y outside Allowed is a copy of this formula.
+            var copy = new Regex(@"forward\.y");
             var found = Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories)
                 .Where(f => !Allowed.Contains(Path.GetFileName(f)) && copy.IsMatch(File.ReadAllText(f)))
                 .Select(Path.GetFileName).ToList();

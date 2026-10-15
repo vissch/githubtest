@@ -39,9 +39,19 @@ namespace TW.Tests
         public void ProceduralSoldier_AtlasMatchesMeshAndAnimRows()
         {
             var asset = ProceduralSoldier.Build();
-            CheckContract(asset, (int)AnimRow.Count);
-            Assert.IsFalse(asset.ClipAtlas);
-            Assert.Less(asset.Mesh.vertexCount, 400, "3,000 of these have to stay under about a million vertices");
+            try
+            {
+                CheckContract(asset, (int)AnimRow.Count);
+                Assert.IsFalse(asset.ClipAtlas);
+                Assert.Less(asset.Mesh.vertexCount, 400, "3,000 of these have to stay under about a million vertices");
+            }
+            finally
+            {
+                // [TS21] an assert above leaked the mesh and both textures this test builds; nothing else owns them
+                if (asset.Mesh != null) Object.DestroyImmediate(asset.Mesh);
+                if (asset.Positions != null) Object.DestroyImmediate(asset.Positions);
+                if (asset.Normals != null) Object.DestroyImmediate(asset.Normals);
+            }
         }
 
         [Test]
@@ -52,24 +62,32 @@ namespace TW.Tests
             Assert.IsNotNull(data, "[TS19] Units/Figure" + figure + " is committed; a missing bake is a broken repo, not a skip");
             Assert.IsTrue(data.Valid, "[TS19] the committed Units/Figure" + figure + " bake is invalid");
             var asset = data.ToAsset();
-            CheckContract(asset, (int)Clip.Count);
-            Assert.IsTrue(asset.ClipAtlas);
-            Assert.AreEqual(asset.Mesh.vertexCount, asset.Mesh.colors32.Length, "vertex colours carry albedo and the team mask");
-            Assert.Less(asset.Mesh.vertexCount, 1200, "3,000 of these have to stay near three million vertices");
-            for (int c = 1; c < (int)Clip.Count; c++)
+            try
             {
-                bool loop = Clips.Table[c].Loop;
-                Assert.AreEqual(loop, asset.Loops(c), ((Clip)c) + " loops in the table and in the bake alike");
+                CheckContract(asset, (int)Clip.Count);
+                Assert.IsTrue(asset.ClipAtlas);
+                Assert.AreEqual(asset.Mesh.vertexCount, asset.Mesh.colors32.Length, "vertex colours carry albedo and the team mask");
+                Assert.Less(asset.Mesh.vertexCount, 1200, "3,000 of these have to stay near three million vertices");
+                for (int c = 1; c < (int)Clip.Count; c++)
+                {
+                    bool loop = Clips.Table[c].Loop;
+                    Assert.AreEqual(loop, asset.Loops(c), ((Clip)c) + " loops in the table and in the bake alike");
+                }
+                Assert.Less(asset.TotalFrames, 8000, "the atlas stays inside the budget docs/15 section 11 set");
+                // the sockets the muzzle flash and the tracer leave from: in front of the man, at the height of his stance
+                Assert.AreEqual(3, asset.SocketsPerFrame, "muzzle, barrel and chest are baked with every frame");
+                Muzzle(asset, Clip.FireStand, 1.0f, 1.9f);
+                Muzzle(asset, Clip.FireKneel, 0.55f, 1.35f);
+                Muzzle(asset, Clip.FireProne, 0.0f, 0.65f);
+                Assert.IsTrue(asset.Socket((int)Clip.FireStand, 0f, VatAsset.Barrel, out var barrel));
+                Assert.Greater(barrel.z, 0.5f, "a man firing points his barrel the way he faces");
             }
-            Assert.Less(asset.TotalFrames, 8000, "the atlas stays inside the budget docs/15 section 11 set");
-            // the sockets the muzzle flash and the tracer leave from: in front of the man, at the height of his stance
-            Assert.AreEqual(3, asset.SocketsPerFrame, "muzzle, barrel and chest are baked with every frame");
-            Muzzle(asset, Clip.FireStand, 1.0f, 1.9f);
-            Muzzle(asset, Clip.FireKneel, 0.55f, 1.35f);
-            Muzzle(asset, Clip.FireProne, 0.0f, 0.65f);
-            Assert.IsTrue(asset.Socket((int)Clip.FireStand, 0f, VatAsset.Barrel, out var barrel));
-            Assert.Greater(barrel.z, 0.5f, "a man firing points his barrel the way he faces");
-            Object.DestroyImmediate(asset.Positions); Object.DestroyImmediate(asset.Normals);
+            finally
+            {
+                // [TS21] an assert above leaked Positions/Normals; Mesh is the committed asset ToAsset() reused, left alone
+                if (asset.Positions != null) Object.DestroyImmediate(asset.Positions);
+                if (asset.Normals != null) Object.DestroyImmediate(asset.Normals);
+            }
         }
 
         static void Muzzle(VatAsset asset, Clip clip, float low, float high)
