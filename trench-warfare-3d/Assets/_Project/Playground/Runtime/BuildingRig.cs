@@ -114,7 +114,13 @@ namespace TW.Playground
         static readonly Dictionary<Mesh, Mesh> recut = new Dictionary<Mesh, Mesh>();
         /// <summary>Paint the re-projected cut faces magenta, to see which faces the prototype found (critic r7).</summary>
         public static bool DebugCuts;
-        public static void ForgetCuts() { recut.Clear(); CutFacesFound = 0; }
+        /// <summary>[Y18] Drop the cut-face cache AND the meshes CutFaces built for it. `recut[src] = src` means "no cut
+        /// found": that one is the kit's own mesh and must not be destroyed.</summary>
+        public static void ForgetCuts()
+        {
+            foreach (var kv in recut) if (kv.Value != null && kv.Value != kv.Key) VehicleRig.Kill(kv.Value);
+            recut.Clear(); CutFacesFound = 0;
+        }
         static Material debugMat;
         static Material DebugMaterial()
         {

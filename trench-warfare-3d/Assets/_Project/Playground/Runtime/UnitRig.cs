@@ -195,7 +195,8 @@ namespace TW.Playground
             return u;
         }
 
-        void OnDestroy() { if (mats != null) foreach (var m in mats) if (m != null) VehicleRig.Kill(m); }
+        // [Y18] the baked mesh goes with the rig: Drift() makes one per figure and a report builds a squad of them
+        void OnDestroy() { if (baked != null) { VehicleRig.Kill(baked); baked = null; } if (mats != null) foreach (var m in mats) if (m != null) VehicleRig.Kill(m); }
 
         /// <summary>How many bones actually move this LOD (weights above zero), not how many the FBX lists: every LOD of
         /// one armature lists all of them.</summary>

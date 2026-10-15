@@ -32,7 +32,7 @@ namespace TW.Playground
         /// TankRenderer's Machines table — the mech-split models are written in metres and drawn at 1, not 1.7). Y1: the
         /// playground judged the Skimmer about 12 m long where the game draws it 7 m.</summary>
         public float VehicleSize;
-        public float UnitScale = 1.125f;     // VATRenderer.UnitScale: a 1.78 m bake drawn as a 2.0 m man
+        public float UnitScale = TW.Presentation.FigureMetrics.UnitScale;   // what VATRenderer draws figures at: a 1.78 m bake as a 2.0 m man
         public bool ShowPanel = true;
         /// <summary>[Y13] Where the looks-only stream (UnityEngine.Random) starts: nothing seeded it, so the cards in
         /// PlaygroundFx and the figures' shot and flame timers differed run to run. Every scene command restarts it
@@ -105,7 +105,7 @@ namespace TW.Playground
             atmosphereGo.transform.SetParent(transform, false);
             atmosphere = atmosphereGo.AddComponent<Atmosphere>();
             atmosphere.Field = b;
-            Fx.Night = true;
+            Fx.Night = BiomeProfile.For(b).Dark;   // [Y19] winter is not night: Atmosphere sets SceneMood.Night from the same flag
         }
 
         Material groundMat; Texture2D gridTex, mudTex, mudDetail;
@@ -130,10 +130,9 @@ namespace TW.Playground
                 }
                 groundMat.SetTexture("_BaseMap", mudTex); groundMat.mainTexture = mudTex;
                 // the battle's own close-up mud grain and relief (GreyboxTerrainView.BuildMudDetail), at its settings
-                var build = typeof(TW.Presentation.Terrain.GreyboxTerrainView).GetMethod("BuildMudDetail", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static);
-                if (build != null && groundMat.HasProperty("_DetailMap"))
+                if (groundMat.HasProperty("_DetailMap"))
                 {
-                    if (mudDetail == null) mudDetail = build.Invoke(null, null) as Texture2D;
+                    if (mudDetail == null) mudDetail = GreyboxTerrainView.BuildMudDetail();   // [Y19] called, not reflected
                     groundMat.SetTexture("_DetailMap", mudDetail); groundMat.SetFloat("_DetailScale", 1f / 12f);
                     groundMat.SetFloat("_DetailStrength", 0.20f); groundMat.SetFloat("_DetailBump", 1f);
                 }
