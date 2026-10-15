@@ -35,7 +35,12 @@ def read(t):
         # the split goes 5/4 or 4/5 (r41 0.373 -> r42 0.269, nothing changed that touches the men or the ground)
         if vals: sc[tag + " contrast"] = round(sum(vals) / len(vals), 3)
     # frames per second as the round saw them (a big drop means something got expensive)
-    fps = [json.load(open(f)).get("fps", 0) for f in glob.glob(f"{D}/{t}_*.json") if not os.path.basename(f).startswith(f"{t}_pop") and "fps" in open(f).read(200)]
+    fps = []
+    for f in glob.glob(f"{D}/{t}_*.json"):
+        if os.path.basename(f).startswith(f"{t}_pop"): continue
+        j = json.load(open(f))
+        # read the whole file: a unit/squad/mixed shot pushes "fps" well past the first few hundred characters
+        if isinstance(j, dict) and "fps" in j: fps.append(j["fps"])
     if fps: sc["fps median"] = sorted(fps)[len(fps) // 2]
     return sc
 
