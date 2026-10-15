@@ -552,10 +552,15 @@ namespace TW.Tests
             for (int side = 0; side < (night ? 3 : 1); side++)
             {
                 Vector3 d = to - from; float len = d.magnitude;
+                // the old lengths and widths, cut to the gun (infantry-firing, 2026-10-15): the bar's head runs from its
+                // own length out to the target over the round's life and its tail follows that length behind it, so it
+                // grows out of the muzzle instead of existing whole and centred on a travelling point
                 float streak = Mathf.Min(len, night ? 10f : 6f);
-                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+                float seg = side == 2 ? streak * 0.8f : streak * 1.15f;
+                float head = Mathf.Min(len, Mathf.Min(seg, len) + k * (len - Mathf.Min(seg, len)));
+                float tail = Mathf.Max(0f, head - seg);
                 float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, close);
-                var old = Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
+                var old = Matrix4x4.TRS(from + d.normalized * ((head + tail) * 0.5f), Quaternion.LookRotation(d), new Vector3(thick, thick, head - tail));
                 Assert.IsTrue(TracerLook.Matrix(from, d, len, k, night, side, close, false).Equals(old), "off: night " + night + ", side " + side + ", k " + k + ", len " + len);
                 // on: the day streak and the night's white core keep their width; the day streak does not move at all
                 var at = TracerLook.Matrix(from, d, len, k, night, side, close, true);
