@@ -48,7 +48,7 @@ MAIN = GH / 'tw3d-board'
 EXTRAS = tuple(range(2, 7))
 START = Path(os.environ.get('LOCALAPPDATA') or tempfile.gettempdir()) / 'Temp' / 'relayN-start-2026-10-13.ps1'   # not TEMP: a process WMI starts gets the system's
 MAIN_START = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'relay-test-start.ps1'
-MAIN_WHO = 'laptop-relay-test'      # the name the main relay's runs and hold go by
+MAIN_WHO = 'autoloop'               # the loop's own name for the main relay's hold and runs: no session's hold is renewed
 HOME = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'autoloop'
 BY = 'autoloop'
 DAY_PCT = os.environ.get('TW_DAY_PCT') or '11'   # the day's cap for every relay together (the owner, 2026-10-07); the start script counts all boards
@@ -165,7 +165,7 @@ class World:
             return 'would start'
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)   # DETACHED_PROCESS: powershell runs nothing
         if n == 1:                  # the main relay: its hold first, then a run under the usual day (no figure passed)
-            code, said = self.relay(self.main, 'hold', MAIN_WHO)
+            code, said = self.relay(self.main, 'hold', MAIN_WHO, '--hours', '0.25')     # long enough to start; given back when idle
             if code:
                 return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
             cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', 'lane']
@@ -400,11 +400,16 @@ def feed(w):
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
-    if running == set() and any(u not in done and found.prio(v) < PARKED for u, v in q.items()):
+    work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held for u, v in q.items())
+    started = False
+    if running == set() and work:
         if not w.acting:
             out.append('feed: the main relay is not running and has work: it would be started')
         elif may_start(w, 1, reason):
             out.append(f'feed: the main relay is not running and has work: {w.start(1)}')
+            started = True
+    if running == set() and not started and w.acting:
+        w.relay(w.main, 'hold', MAIN_WHO, '--release')     # the loop's own hold only: another name's is refused, not taken
     return out
 
 

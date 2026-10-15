@@ -47,6 +47,9 @@ class Fake(autoloop.World):
     def relay(self, board, *a):
         if a[0] == 'status':
             return 0, self.text[board]
+        if a[0] == 'hold':
+            self.holds = getattr(self, 'holds', []) + [a[1:]]
+            return 0, ''
         if a[0] == 'prio':
             if a[1] in self.refuse_prio:
                 return 1, 'relay: the board push was refused'
@@ -163,12 +166,14 @@ def main():
     parked_only = autoloop.feed(wm)
     put(wm.main, 'queue', 'm-2', lane='lane/show/m2', priority=50)
     put(wm.extras[2], 'queue', 'm-2', lane='lane/show/m2')       # an extra holds that lane: the main relay keeps its own work
-    put(wm.main, 'queue', 'm-3', lane='lane/show/m3', priority=50)
     wm.text[wm.extras[2]] = RUN
     wm.text[wm.extras[3]] = RUN
+    held_only = autoloop.feed(wm)
+    put(wm.main, 'queue', 'm-3', lane='lane/show/m3', priority=50)
     has_work = autoloop.feed(wm)
     case('the loop is the only keeper: the main relay is started when it is not running and has a unit to take, not when its queue is empty or parked',
-         idle_main == [] and parked_only == [] and wm.started == [1] and 'main relay' in has_work[-1], (idle_main, parked_only, has_work, wm.started))
+         idle_main == [] and parked_only == [] and held_only == [] and wm.started == [1] and 'main relay' in has_work[-1]
+         and ('autoloop', '--release') in wm.holds, (idle_main, parked_only, held_only, has_work, wm.started, wm.holds))
     w3 = Fake(tmp / 'c')
     put(w3.main, 'queue', 'x-1', lane='lane/show/x', priority=99)
     case('with no free lane an empty relay is not started', autoloop.feed(w3) == [] and w3.started == [])
