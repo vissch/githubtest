@@ -179,6 +179,32 @@ namespace TW.Tests
             finally { map.Unbind(); }
         }
 
+        // [L8] BuildList wrote each row's chip once, with Selected as it was at build time; Select only moved the
+        // tw-list-row--selected class, so the old row kept HERE and the newly selected row kept OPEN.
+        [Test]
+        public void TheRowChipsFollowTheSelection()
+        {
+            var profile = new CampaignProfile();
+            TW.Presentation.CampaignSession.Clear();
+            var lowlands = CampaignGraph.Find("lowlands");
+            for (int i = 0; i < lowlands.Missions.Length; i++) profile.Complete("lowlands", i);   // opens the-coast and river-line
+            var map = new StrategicMapScreen(profile);
+            map.Bind(Instantiate("StrategicMap", "Assets/_Project/UI/Resources/Shell/"), null);
+            try
+            {
+                map.Select("the-coast");
+                var coastChip = map.Root.Q<Button>("row-the-coast").Q<Label>(className: "tw-list-row__sub").text;
+                Assert.That(coastChip, Does.StartWith("HERE"), "[L8] the selected row must read HERE, was " + coastChip);
+
+                map.Select("river-line");
+                var riverChip = map.Root.Q<Button>("row-river-line").Q<Label>(className: "tw-list-row__sub").text;
+                coastChip = map.Root.Q<Button>("row-the-coast").Q<Label>(className: "tw-list-row__sub").text;
+                Assert.That(riverChip, Does.StartWith("HERE"), "[L8] the newly selected row must read HERE, was " + riverChip);
+                Assert.That(coastChip, Does.StartWith("OPEN"), "[L8] the row left behind must go back to OPEN, was " + coastChip);
+            }
+            finally { map.Unbind(); }
+        }
+
         [Test]
         public void TheMapKeepsTheChosenMissionWhenItsNodeIsSelectedAgain()
         {
