@@ -1096,12 +1096,14 @@ namespace TW.Presentation.Tactical
                 if (len < 0.1f) continue;
                 // a streak that travels from muzzle to target over the tracer's life (TracerLook: the old shape, or C104's)
                 float k = Mathf.Clamp01((now - t.Born) / Mathf.Max(0.01f, t.Life));
-                var tm = TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape);
                 // a heavier round is thicker (and keeps it up close); a class's round longer or shorter, never past its target
                 float thick = t.Width > 0f ? (classArms > 0f ? TracerWidthAt(t.Width, SceneHooks.CloseUp) : t.Width) : 1f;
                 float streak = t.Streak <= 0f || t.Streak == 1f ? 1f : t.Streak < 1f ? t.Streak : Mathf.Min(t.Streak, Mathf.Max(1f, len / (night ? 10f : 6f)));
                 if (t.Streak > 0f) streak *= dayStreak;   // a man's round, by day up close: shorter (the strafe's and the guns' as they were)
-                batch.Add(thick != 1f || streak != 1f ? tm * Matrix4x4.Scale(new Vector3(thick, thick, streak)) : tm);
+                // the length goes INTO the shape (infantry-firing): scaling the finished matrix stretched the bar about its
+                // centre and put its tail behind the muzzle. Only the width is scaled here.
+                var tm = TracerLook.Matrix(t.From, d, len, k, night, side, SceneHooks.CloseUp, tracerShape, streak);
+                batch.Add(thick != 1f ? tm * Matrix4x4.Scale(new Vector3(thick, thick, 1f)) : tm);
                 if (batch.Count == 1023) Flush(cube, rpT);
             }
             if (batch.Count > 0) Flush(cube, rpT);

@@ -36,6 +36,13 @@
 //                       it stays before the smoke (a cloud still dims it) but no longer cuts the cloud and the bursts
 //                       behind it, so it adds to them again. Off, it does nothing (the old halo never wrote depth).
 // Same materials, same instances: no draw is added.
+// infantry-firing (2026-10-15): every shape is now anchored at the muzzle. Each layer's box runs from `from` forward,
+// never behind it, and grows out of the gun over the round's first frames instead of existing whole and centred on a
+// travelling point. The weapon's own streak scale (CombatFx's Streak: 0.5 an SMG, 1.2 the MG's tracer round) is passed
+// in here instead of being multiplied in afterwards, which stretched the bar about its centre and put a machinegunner's
+// tracer a metre behind his gun (the review's "orange shapes over empty ground with no shooter behind them"). So
+// `fx.tracerInSmoke=0` and `fx.tracerShape=0` no longer mean the old look bit for bit: they mean the old lengths,
+// widths and queues, cut to the gun. The owner asked for the tracer to start at the muzzle.
 using UnityEngine;
 
 namespace TW.Presentation.Tactical
@@ -97,43 +104,60 @@ namespace TW.Presentation.Tactical
             => Matrix(from, d, len, k, night, side, closeUp, inSmoke ? 1f : 0f);
 
         /// <summary>
+        /// One layer's box, anchored at the muzzle (infantry-firing, 2026-10-15): its head runs from the round's own
+        /// tip (`core`, plus this layer's `lead`) out to the target over the round's life, and its tail follows `box`
+        /// behind that head, never behind `from`. Before, every layer was
+        /// CENTRED on the travelling point, so at k = 0 a tracer's tail stood 0.075 x its length behind the gun and the
+        /// whole bar existed on its first frame — the review's "orange shapes over empty ground with no shooter behind
+        /// them". `lead` is how far this layer's head sits ahead of the core's (the night halo's glowing tip), and `leadMax`
+        /// the largest lead of any layer, so the layer that leads is the one that reaches the target.
+        /// </summary>
+        static Matrix4x4 Bar(Vector3 from, Vector3 along, Vector3 d, float len, float k, float box, float core, float lead, float leadMax, float thick)
+        {
+            float run = Mathf.Max(0f, len - leadMax);                       // where the leading head stops, so the lead still fits
+            float start = Mathf.Min(core, run);                             // the round's own tip when it has just left the gun
+            float head = Mathf.Min(len, start + k * (run - start) + lead);
+            float tail = Mathf.Max(0f, head - box);
+            return Matrix4x4.TRS(from + along * ((head + tail) * 0.5f), Quaternion.LookRotation(d), new Vector3(thick, thick, head - tail));
+        }
+
+        /// <summary>
         /// As above with the night shape as a 0-1 blend (fx.tracerShape): 0 is the old code and 1 C104's, each bit for bit
         /// (their own branches); between them the streak, the halo's width and length and its tip's lead are lerped.
         /// </summary>
-        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, float shape)
+        public static Matrix4x4 Matrix(Vector3 from, Vector3 d, float len, float k, bool night, int side, float closeUp, float shape, float streakScale = 1f)
         {
             if (shape <= 0f || !night)
             {
-                float streak = Mathf.Min(len, night ? 10f : 6f);
-                Vector3 mid = from + d.normalized * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
-                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, closeUp);   // sized for the standard view; among the men a round is a thin line
-                return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, side == 2 ? streak * 0.8f : streak * 1.15f));
-            }
-            if (shape < 1f) return Blend(from, d, len, k, side, closeUp, shape);
-            {
-                float streak = Mathf.Min(len, NightStreak);
+                float streak = Mathf.Min(len, night ? 10f : 6f) * streakScale;
                 Vector3 along = d.normalized;
-                Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
+                float thick = (!night ? 0.045f : side == 2 ? 0.075f : 0.24f) * Mathf.Lerp(1f, 0.30f, closeUp);   // sized for the standard view; among the men a round is a thin line
+                float seg = side == 2 ? streak * 0.8f : streak * 1.15f;
+                return Bar(from, along, d, len, k, seg, seg, 0f, 0f, thick);   // each layer on its own: the old lengths, cut to the gun
+            }
+            if (shape < 1f) return Blend(from, d, len, k, side, closeUp, shape, streakScale);
+            {
+                float streak = Mathf.Min(len, NightStreak) * streakScale;
+                Vector3 along = d.normalized;
                 float thick = (side == 2 ? 0.075f : NightHalo) * Mathf.Lerp(1f, 0.30f, closeUp);
-                if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
-                // the head: the halo's front sits a little ahead of the core's tip (the core is 0.8 x the streak, centred)
-                float halo = streak * NightHaloLength;
-                Vector3 head = mid + along * (streak * (0.4f + NightHaloLead) - halo * 0.5f);
-                return Matrix4x4.TRS(head, Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
+                float core = streak * 0.8f, lead = streak * NightHaloLead;
+                if (side == 2) return Bar(from, along, d, len, k, core, core, 0f, lead, thick);
+                // the head: the halo's front sits a little ahead of the core's tip, and both grow out of the gun
+                return Bar(from, along, d, len, k, streak * NightHaloLength, core, lead, lead, thick);
             }
         }
 
-        static Matrix4x4 Blend(Vector3 from, Vector3 d, float len, float k, int side, float closeUp, float s)
+        static Matrix4x4 Blend(Vector3 from, Vector3 d, float len, float k, int side, float closeUp, float s, float streakScale)
         {
-            float streak = Mathf.Min(len, Mathf.Lerp(10f, NightStreak, s));
+            float streak = Mathf.Min(len, Mathf.Lerp(10f, NightStreak, s)) * streakScale;
             Vector3 along = d.normalized;
-            Vector3 mid = from + along * Mathf.Lerp(streak * 0.5f, len - streak * 0.5f, k);
             float thick = (side == 2 ? 0.075f : Mathf.Lerp(0.24f, NightHalo, s)) * Mathf.Lerp(1f, 0.30f, closeUp);
-            if (side == 2) return Matrix4x4.TRS(mid, Quaternion.LookRotation(d), new Vector3(thick, thick, streak * 0.8f));
-            // the old halo is centred (its tip 0.575 x the streak ahead of mid), C104's tip is 0.4 + lead ahead: lerp both
+            float core = streak * 0.8f, lead = streak * Mathf.Lerp(0f, NightHaloLead, s);
+            if (side == 2) return Bar(from, along, d, len, k, core, core, 0f, lead, thick);
+            // the old halo is 1.15 x the streak and the whole round, C104's is 0.5 of it and only the head, its tip a
+            // little ahead of the core's: lerp the box, the tip it hangs from and the lead
             float halo = streak * Mathf.Lerp(1.15f, NightHaloLength, s);
-            float tip = streak * Mathf.Lerp(0.575f, 0.4f + NightHaloLead, s);
-            return Matrix4x4.TRS(mid + along * (tip - halo * 0.5f), Quaternion.LookRotation(d), new Vector3(thick, thick, halo));
+            return Bar(from, along, d, len, k, halo, Mathf.Lerp(halo, core, s), lead, lead, thick);
         }
     }
 }
