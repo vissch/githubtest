@@ -8,6 +8,7 @@ using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Perf;
+using TW.Presentation.Tactical;
 
 namespace TW.Tests
 {
@@ -34,6 +35,8 @@ namespace TW.Tests
         {
             if (go != null) UnityEngine.Object.DestroyImmediate(go);
             if (File.Exists(outPath)) File.Delete(outPath);
+            CameraShake.Strength = 1f;
+            CombatFx.ShowOverlays = true;
         }
 
         static FieldInfo Field(string name)
@@ -95,6 +98,29 @@ namespace TW.Tests
                 "[F7] a run whose window never opened wrote a hash_start it never took");
             StringAssert.DoesNotContain("0000000000000000", json,
                 "[F7] a run whose window never opened wrote zeros as its hash");
+        }
+
+        [Test]
+        public void TheShakeComesBackAsItWasFound()   // [F14]
+        {
+            CameraShake.Strength = 0.7f;
+            Call(bench, "TakeCamera");
+            Call(bench, "TakeCamera");   // stands for Approach's own call: keepShake must not be overwritten with 0
+            Assert.AreEqual(0f, CameraShake.Strength, "[F14] the shake should be off while the bench holds the camera");
+            Call(bench, "Finish", 0, "...");
+            Assert.AreEqual(0.7f, CameraShake.Strength, "[F14] a second save overwrote the shake that was there with 0");
+        }
+
+        [Test]
+        public void TheOverlaysComeBackWhenTheRunStays()   // [F14]
+        {
+            bench.Options = BenchOptions.Parse("quit=0 shot_tick=0 shot_hud=0");
+            bench.Options.Out = outPath;
+            Call(bench, "HideHud");
+            Assert.IsFalse(CombatFx.ShowOverlays, "[F14] HideHud did not hide the overlays");
+            Call(bench, "Finish", 0, "...");
+            Assert.IsTrue(CombatFx.ShowOverlays,
+                "[F14] a run that stayed (quit=0) left the overlays hidden: nothing ever put them back");
         }
 
         [Test]
