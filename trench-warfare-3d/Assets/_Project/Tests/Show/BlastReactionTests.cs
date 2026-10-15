@@ -197,12 +197,20 @@ namespace TW.Tests
         [Test]
         public void TheCameraFeelsABurstWhenTheSoundArrives()
         {
-            Assert.AreEqual(1f, CameraShake.Arrival(CameraShake.SoundSpeed), 1e-5f);
-            Assert.AreEqual(0f, CameraShake.Arrival(-3f));
-            int before = CameraShake.Pending;
-            Assume.That(before, Is.LessThan(24), "the queue is full from earlier tests");
-            CameraShake.Add(Vector3.zero, 8f);
-            Assert.AreEqual(before + 1, CameraShake.Pending, "the kick waits for the sound rather than landing at once");
+            // [TS8] a stale queue or look point from an earlier test made this flaky: Reset() clears both.
+            CameraShake.Reset();
+            try
+            {
+                Assert.AreEqual(1f, CameraShake.Arrival(CameraShake.SoundSpeed), 1e-5f);
+                Assert.AreEqual(0f, CameraShake.Arrival(-3f));
+                Assert.AreEqual(0, CameraShake.Pending, "[TS8] the queue should start empty after Reset()");
+                CameraShake.Add(Vector3.zero, 8f);
+                Assert.AreEqual(1, CameraShake.Pending, "[TS8] the kick waits for the sound rather than landing at once");
+            }
+            finally
+            {
+                CameraShake.Reset();
+            }
         }
     }
 }

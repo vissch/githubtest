@@ -3,6 +3,7 @@
 // flashes CombatFx and TankRenderer use) and DebrisRenderer (the pooled flying scrap). What is tested here is what the
 // battle will draw. Plus a small pool of point lights, which the battle gets from its own lamp system.
 using System.Collections.Generic;
+using TW.Presentation;
 using TW.Presentation.Tactical;
 using UnityEngine;
 using Book = TW.Presentation.Tactical.FlipbookFx.Book;
@@ -246,7 +247,7 @@ namespace TW.Playground
             if (discM.Count > rings) discM.RemoveRange(rings, discM.Count - rings);
             discProps.SetVectorArray("_Color", ringColours);
             var rp = new RenderParams(discMat) { worldBounds = Everywhere, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false, matProps = discProps };
-            Graphics.RenderMeshInstanced(rp, discMesh, 0, discM);
+            FrameBudget.Draw(rp, discMesh, 0, discM);
             discM.Clear(); discC.Clear();
         }
 

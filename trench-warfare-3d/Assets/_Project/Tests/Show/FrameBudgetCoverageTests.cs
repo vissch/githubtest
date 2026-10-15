@@ -14,15 +14,25 @@ namespace TW.Tests
 {
     public class FrameBudgetCoverageTests
     {
-        static readonly string[] Roots = { "Assets/_Project/Presentation", "Assets/_Project/UI" };
-        static readonly string[] Allowed = { "RenderGround.cs", "DebugOverlay.cs" };
+        static readonly string[] Roots = {
+            "Assets/_Project/Presentation", "Assets/_Project/UI",
+            "Assets/_Project/Playground", "Assets/_Project/Perf"
+        };
+        // [TS9] relative paths, matched against the scanned path (\ turned into /) with EndsWith, not a filename
+        // compare: a same-named file elsewhere in the tree must not slip through unseen.
+        static readonly string[] Allowed = {
+            "Assets/_Project/Presentation/Core/RenderGround.cs",
+            "Assets/_Project/Presentation/Camera/DebugOverlay.cs"
+        };
 
         // Graphics.RenderMesh*, RenderPrimitives*, DrawMesh*, DrawProcedural*, DrawTexture...; a CommandBuffer's
-        // DrawMesh*, DrawProcedural*, DrawRenderer*, DrawMultipleMeshes; and the using-static that would hide either.
+        // DrawMesh*, DrawProcedural*, DrawRenderer*, DrawMultipleMeshes; the using-static that would hide either;
+        // and [TS9] the using-alias form (using G = UnityEngine.Graphics;) that hides every call behind it too.
         static readonly Regex DrawApi = new Regex(
             @"\bGraphics\s*\.\s*(?:Render|Draw)\w*\s*\(" +
             @"|\.\s*(?:DrawMesh|DrawProcedural|DrawRenderer|DrawMultipleMeshes)\w*\s*\(" +
-            @"|using\s+static\s+UnityEngine\.Graphics\b");
+            @"|using\s+static\s+UnityEngine\.Graphics\b" +
+            @"|using\s+\w+\s*=\s*UnityEngine\.Graphics\s*;");
 
         /// <summary>The source with comments blanked, newlines kept so a match's line number is still right.</summary>
         static string Code(string path)
@@ -42,18 +52,25 @@ namespace TW.Tests
         [Test]
         public void EveryDrawGoesThroughFrameBudget()
         {
+            // [TS9] an allow entry that no longer exists would widen the scan silently (a rename or a typo)
+            foreach (string allow in Allowed)
+                Assert.That(File.Exists(allow), Is.True, allow + " does not exist: Allowed would widen the scan silently");
+
             var direct = new List<string>();
             int scanned = 0;
             foreach (string root in Roots)
             {
                 Assert.That(Directory.Exists(root), Is.True, root + " is missing: the test would pass by reading nothing");
-                foreach (string path in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
+                foreach (string rawPath in Directory.GetFiles(root, "*.cs", SearchOption.AllDirectories))
                 {
-                    if (System.Array.IndexOf(Allowed, Path.GetFileName(path)) >= 0) continue;
+                    string path = rawPath.Replace(System.IO.Path.DirectorySeparatorChar, '/');
+                    bool allowed = false;
+                    foreach (string allow in Allowed) if (path.EndsWith(allow)) { allowed = true; break; }
+                    if (allowed) continue;
                     scanned++;
                     string code = Code(path);
                     foreach (Match m in DrawApi.Matches(code))
-                        direct.Add(path.Replace(System.IO.Path.DirectorySeparatorChar, '/') + ":" + LineOf(code, m.Index) + "  " + m.Value.Trim());
+                        direct.Add(path + ":" + LineOf(code, m.Index) + "  " + m.Value.Trim());
                 }
             }
             Assert.That(scanned, Is.GreaterThan(20), "the scan found almost no source; the roots moved");
