@@ -439,12 +439,13 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   whether this lane was pushed is still open.
 
 - **`lane/show/relay-harness` is rebased and green but cannot push (2026-10-15):** the rebase onto
-  `origin/claude/trench-warfare-2d-3d-plan-idt7lf` is done (HEAD `3a71dd395`, 0 commits behind integration, 90 of
-  its own, `[relay-harness-rebase]` in 147bea56f's message, `Tools/selftest.py` green, the edit gate green for the
-  tree). `git push` is refused: origin's lane tip (`2e01bfd94`) is not an ancestor of the rebased history, and
-  `Tools/relay/prepush.py` refuses any push whose remote tip is not an ancestor of what is pushed (and refuses a
-  ref other than `refs/heads/<the leg's lane>`, so pushing as `lane/show/relay-harness-b` is refused too). No leg
-  can force-push; `relay-harness-rebase-b`'s card forbids it as well. Options: (1) the owner force-pushes
+  `origin/claude/trench-warfare-2d-3d-plan-idt7lf` is done (0 commits behind integration, over 50 of its own,
+  `[relay-harness-rebase]` in 147bea56f's message). `git push` is refused: origin's lane tip is not an ancestor of
+  the rebased history, and `Tools/relay/prepush.py` refuses any push whose remote tip is not an ancestor of what is
+  pushed (and refuses a ref other than `refs/heads/<the leg's lane>`, so pushing as `lane/show/relay-harness-b` is
+  refused too). No leg can force-push; `relay-harness-rebase-b`'s card forbids it as well. Re-measured 2026-10-15 by
+  `relay-harness-rebase-b`: `Tools/selftest.py` green, the push is still refused (plain `git push` rejected
+  non-fast-forward before prepush.py is even reached). Options: (1) the owner force-pushes
   `lane/show/relay-harness` by hand (`git push --force-with-lease origin lane/show/relay-harness`) from a machine
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
