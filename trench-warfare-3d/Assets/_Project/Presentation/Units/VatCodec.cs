@@ -91,13 +91,25 @@ namespace TW.Presentation.Units
     {
         const string Magic = "TWVAT3", MagicNoSockets = "TWVAT2";
 
+        /// <summary>[V6] The bounds every frame's vertices fit in, the one place both Textures and Encode get them.</summary>
+        static void Bounds(Vector3[][] frames, int vertexCount, out Vector3 min, out Vector3 size)
+        {
+            min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue); var max = -min;
+            for (int f = 0; f < frames.Length; f++) for (int i = 0; i < vertexCount; i++) { min = Vector3.Min(min, frames[f][i]); max = Vector3.Max(max, frames[f][i]); }
+            size = Vector3.Max(max - min, new Vector3(1e-3f, 1e-3f, 1e-3f));
+        }
+
+        /// <summary>A position offset from min, over the bounds, in 16 bits (0.04 mm steps over a 2.5 m figure).</summary>
+        static ushort Q16(float v, float size) => (ushort)Mathf.RoundToInt(Mathf.Clamp01(v / size) * 65535f);
+
+        /// <summary>A normal component in 8 bits, signed range folded into 0..1.</summary>
+        static byte Q8(float d) => (byte)Mathf.RoundToInt(Mathf.Clamp01(d * 0.5f + 0.5f) * 255f);
+
         /// <summary>Quantise frames into the two textures. frames[f][v] in metres, normals unit length.</summary>
         public static void Textures(Vector3[][] frames, Vector3[][] normals, int vertexCount, string name, out Texture2D pos, out Texture2D nrm, out Vector3 min, out Vector3 size)
         {
             int total = frames.Length;
-            min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue); var max = -min;
-            for (int f = 0; f < total; f++) for (int i = 0; i < vertexCount; i++) { min = Vector3.Min(min, frames[f][i]); max = Vector3.Max(max, frames[f][i]); }
-            size = Vector3.Max(max - min, new Vector3(1e-3f, 1e-3f, 1e-3f));
+            Bounds(frames, vertexCount, out min, out size);
             var p = new NativeArray<ushort>(vertexCount * total * 4, Allocator.Temp);
             var n = new NativeArray<byte>(vertexCount * total * 4, Allocator.Temp);
             for (int f = 0; f < total; f++)
@@ -105,11 +117,11 @@ namespace TW.Presentation.Units
                 {
                     int k = (f * vertexCount + i) * 4;
                     Vector3 q = frames[f][i] - min;
-                    p[k] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(q.x / size.x) * 65535f); p[k + 1] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(q.y / size.y) * 65535f);
-                    p[k + 2] = (ushort)Mathf.RoundToInt(Mathf.Clamp01(q.z / size.z) * 65535f); p[k + 3] = 65535;
+                    p[k] = Q16(q.x, size.x); p[k + 1] = Q16(q.y, size.y);
+                    p[k + 2] = Q16(q.z, size.z); p[k + 3] = 65535;
                     Vector3 d = normals[f][i];
-                    n[k] = (byte)Mathf.RoundToInt(Mathf.Clamp01(d.x * 0.5f + 0.5f) * 255f); n[k + 1] = (byte)Mathf.RoundToInt(Mathf.Clamp01(d.y * 0.5f + 0.5f) * 255f);
-                    n[k + 2] = (byte)Mathf.RoundToInt(Mathf.Clamp01(d.z * 0.5f + 0.5f) * 255f); n[k + 3] = 255;
+                    n[k] = Q8(d.x); n[k + 1] = Q8(d.y);
+                    n[k + 2] = Q8(d.z); n[k + 3] = 255;
                 }
             pos = new Texture2D(vertexCount, total, TextureFormat.RGBA64, false, true) { name = name + "Positions", filterMode = FilterMode.Point, wrapMode = TextureWrapMode.Clamp, hideFlags = HideFlags.HideAndDontSave };
             pos.SetPixelData(p, 0); pos.Apply(false, true);
@@ -122,9 +134,7 @@ namespace TW.Presentation.Units
         public static byte[] Encode(Vector3[][] frames, Vector3[][] normals, int vertexCount, Vector2[] rowTable, float[] rowSeconds, Vector3[][] sockets = null)
         {
             int total = frames.Length;
-            var min = new Vector3(float.MaxValue, float.MaxValue, float.MaxValue); var max = -min;
-            for (int f = 0; f < total; f++) for (int i = 0; i < vertexCount; i++) { min = Vector3.Min(min, frames[f][i]); max = Vector3.Max(max, frames[f][i]); }
-            var size = Vector3.Max(max - min, new Vector3(1e-3f, 1e-3f, 1e-3f));
+            Bounds(frames, vertexCount, out var min, out var size);
             using (var ms = new MemoryStream())
             {
                 using (var gz = new GZipStream(ms, System.IO.Compression.CompressionLevel.Optimal, true))
@@ -137,13 +147,13 @@ namespace TW.Presentation.Units
                         for (int i = 0; i < vertexCount; i++)
                         {
                             Vector3 q = frames[f][i] - min;
-                            w.Write((ushort)Mathf.RoundToInt(Mathf.Clamp01(q.x / size.x) * 65535f)); w.Write((ushort)Mathf.RoundToInt(Mathf.Clamp01(q.y / size.y) * 65535f)); w.Write((ushort)Mathf.RoundToInt(Mathf.Clamp01(q.z / size.z) * 65535f));
+                            w.Write(Q16(q.x, size.x)); w.Write(Q16(q.y, size.y)); w.Write(Q16(q.z, size.z));
                         }
                     for (int f = 0; f < total; f++)
                         for (int i = 0; i < vertexCount; i++)
                         {
                             Vector3 d = normals[f][i];
-                            w.Write((byte)Mathf.RoundToInt(Mathf.Clamp01(d.x * 0.5f + 0.5f) * 255f)); w.Write((byte)Mathf.RoundToInt(Mathf.Clamp01(d.y * 0.5f + 0.5f) * 255f)); w.Write((byte)Mathf.RoundToInt(Mathf.Clamp01(d.z * 0.5f + 0.5f) * 255f));
+                            w.Write(Q8(d.x)); w.Write(Q8(d.y)); w.Write(Q8(d.z));
                         }
                     // sockets: a count, then that many points a frame, as floats (a few kilobytes)
                     int per = sockets != null && sockets.Length == total && total > 0 && sockets[0] != null ? sockets[0].Length : 0;
