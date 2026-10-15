@@ -289,8 +289,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 `Sim/Match/MissionScript.cs` (the baked mission table; nothing steps it yet. `Sim/Units/SpecialAbilities.cs` is only
 the `UnitAbilityId` enum now, its stub system deleted 2026-09-28; the six unregistered systems that threw —
 Logistics, WaveAi, Grenades, Stance, the mission runner — deleted 2026-10-13, review U13),
-`Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
-(each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
+`Net/HashExchange.cs`, `Net/Snapshot.cs` (each its assembly's only file; the two Presentation stub assemblies, the
+VFX and Audio event routers, were deleted 2026-10-15, V6). Building one out is a feature, and for the sim ones a
+hash change.
 Indirect fire solves the launch angle for range at fixed v0, schedules the impact tick and hands the terminal
 position to BlastSystem; trench cells take full blast, bunker cells none; its stub deleted 2026-10-13 (review C8).
 - **Tests:** SimStubTests holds the deleted indirect-fire stub and its `ScheduledImpact` gone.

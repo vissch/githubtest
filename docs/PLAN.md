@@ -559,8 +559,6 @@ trench-warfare-3d/
     Presentation/Camera/  TW.Presentation.Camera.asmdef  TacticalCamera, DebugOverlay
     Presentation/Terrain/ TW.Presentation.Terrain.asmdef TerrainChunkRenderer, TrenchKitPlacer (stubs)
     Presentation/Units/   TW.Presentation.Units.asmdef   VATRenderer, LodTiers, RagdollPool, CorpseBaker (stubs)
-    Presentation/VFX/     TW.Presentation.VFX.asmdef     EventVfxRouter, GasVolumeRenderer (stubs)
-    Presentation/Audio/   TW.Presentation.Audio.asmdef   EventAudioRouter (stub)
     UI/             TW.UI.asmdef            DeployBar, TrenchWidget, AbilityBar, ObjectiveTracker, MissionDialogue (stubs)
     Data/           TW.Data.asmdef          UnitDefinition, WeaponDefinition, VehicleDefinition, AbilityDefinition,
                                             FactionDefinition, MissionDefinition, MissionScript, blob bakers;
