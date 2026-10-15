@@ -159,7 +159,6 @@ STATIC_SWITCHES = [
     ('Presentation/Core/EventPump.cs', 'ProfileSubscribers', 'Profiler marker per event subscriber (perf work only).'),
     ('UI/HudBootstrap.cs', 'Disabled', 'HudBootstrap.Disabled: tests set it so no HUD is added to their scenes.'),
     ('UI/Shell/ShellBoot.cs', 'Disabled', 'ShellBoot.Disabled: tests set it so no menu shell is added.'),
-    ('UI/HudHotkeys.cs', 'LegacyOverlayActive', 'Whether the IMGUI debug overlay still takes F-keys.'),
     ('Presentation/Terrain/Atmosphere.cs', 'PinnedClock', 'Freeze weather/rain at a clock value for repeatable captures; -1 = live.'),
 ]
 
