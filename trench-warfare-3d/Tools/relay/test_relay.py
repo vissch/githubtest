@@ -10,7 +10,8 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import boardio, cmdrules, config, gitio, launch, ledger, legcmd, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
+import boardio, cmdrules, config, gitio, launch, ledger, legcmd, legdir, papers, relay, relay_hook as H   # noqa: E402
+import runner, second                                                              # noqa: E402
 from sources import pipeline as SP                                                 # noqa: E402
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
@@ -49,11 +50,15 @@ class Base(unittest.TestCase):
         self.limits = config.limits                          # these tests count in dollars or in measured legs:
         config.limits = lambda *a, **k: dict(self.limits(*a, **k), week_usd=0,   # no guessed week (see Guess),
                                              day_budget_pct=0, pace_to_hour=0)   # no percent cap, no pace (see Pace)
+        self.second_critic = config.second_critic            # as shipped both vendors score every critic round
+        config.second_critic = lambda *a, **k: ()            # (Settings holds that): a test that wants one says so
+                                                             # with second=, the rest run with nobody
         self.lim, self.ph = config.limits(), config.phases()
         self.board, self.d = self.tmp / "board", None
 
     def tearDown(self):
         config.limits = self.limits
+        config.second_critic = self.second_critic
         os.chdir(self.cwd)
         for k, v in self.old.items():
             os.environ.pop(k, None) if v is None else os.environ.__setitem__(k, v)
@@ -105,15 +110,17 @@ class Settings(Base):
         lim = config.limits(overrides={"red_tokens": 900000, "run_hours": 99})
         self.assertEqual((lim["red_tokens"], lim["run_hours"]), (300000, 12))
 
-    def test_nobody_gives_a_second_opinion_as_shipped_and_only_a_known_vendor_can(self):
+    def test_both_vendors_give_a_second_opinion_as_shipped_and_only_known_ones_can(self):
         import providers
-        self.assertEqual(config.second_critic(), "")
-        self.assertEqual(config.SECOND_VENDORS, providers.NAMES)
-        cfg = self.tmp / "cfg2"
-        cfg.mkdir()
-        (cfg / "limits.json").write_text(json.dumps({"second_critic": "claude"}), encoding="utf-8")
-        with self.assertRaises(SystemExit):
-            config.second_critic(cfg)
+        self.assertEqual(self.second_critic(), ("codex", "grok"))   # the owner, 2026-10-10: Codex every round, and
+        self.assertEqual(config.SECOND_VENDORS, providers.NAMES)    # Grok too (the saved original: setUp patches it)
+        self.assertEqual((config.parse_second(""), config.parse_second("off")), ((), ()))
+        for bad in ("claude", "codex,codex", "codex,claude"):
+            cfg = self.tmp / ("cfg2-" + bad.replace(",", "-"))
+            cfg.mkdir()
+            (cfg / "limits.json").write_text(json.dumps({"second_critic": bad}), encoding="utf-8")
+            with self.assertRaises(SystemExit):
+                self.second_critic(cfg)
 
     def test_a_bad_limits_file_stops_the_run(self):
         bad = self.tmp / "cfg"
@@ -2672,9 +2679,10 @@ class PipelineSource(Repo):
 
     # ----- a second opinion by another vendor beside the critic's own (second.py): it records, it steers nothing -----
     def vendor(self, name="grok", **script):
-        f, self.started = self.tmp / "second.json", self.tmp / "second-argv.jsonl"
-        f.write_text(json.dumps(script), encoding="utf-8")
-        os.environ.update({"TW_FAKE_SECOND": str(f), "TW_FAKE_SECOND_ARGV": str(self.started),
+        f, self.started = self.tmp / ("second-%s.json" % name), self.tmp / "second-argv.jsonl"
+        f.write_text(json.dumps(script), encoding="utf-8")       # one script file per vendor, so two stand-ins at
+        os.environ.update({"TW_FAKE_SECOND": str(f),             # once do not overwrite each other
+                           "TW_FAKE_SECOND_" + name.upper(): str(f), "TW_FAKE_SECOND_ARGV": str(self.started),
                            "TW_RELAY_" + name.upper(): json.dumps([sys.executable, str(HERE / "fake_vendor.py"), name])})
 
     def seconds(self):
@@ -2683,7 +2691,8 @@ class PipelineSource(Repo):
     ONE_ROUND = {"plan": [{"write": "plan.md", "text": PLAN}], "execute": PUSH,
                  "critic": [{"write": "critic.md", "text": CRITIC % 88}]}
 
-    def test_no_vendor_is_started_unless_a_second_opinion_is_asked_for(self):
+    def test_no_vendor_is_started_when_the_run_turns_it_off(self):
+        # as shipped both vendors score every round; these tests patch that default off (Base.setUp)
         self.script(self.ONE_ROUND)
         self.vendor(report=CRITIC % 40)
         out, stop = self.go_with_evidence()
@@ -2722,6 +2731,36 @@ class PipelineSource(Repo):
         self.assertNotIn("Write critic.md", prompt)
         self.assertNotIn(str(self.board).replace("\\", "/"), prompt.replace("\\", "/"))
 
+    def test_both_vendors_score_a_round_and_steer_nothing(self):
+        self.script(self.ONE_ROUND)
+        self.vendor("codex", report=CRITIC % 72)              # as shipped: Codex first, Grok after it
+        self.vendor("grok", report=CRITIC % 65)
+        out, stop = self.go_with_evidence(second="codex,grok")
+        res = self.results()
+        self.assertEqual([(r["stage"], r["verdict"]) for r in res], [("shots", "PASS")])
+        self.assertIn("critic 88/100 (target 85)", res[0]["note"])       # the Claude critic alone steers
+        self.assertIn("codex on round 1: 72/100; grok on round 1: 65/100", res[0]["note"])
+        shots = self.board / "evidence" / "thing" / "shots"
+        self.assertIn("72/100", (shots / "critic-r1-codex.md").read_text(encoding="utf-8"))
+        self.assertIn("65/100", (shots / "critic-r1-grok.md").read_text(encoding="utf-8"))
+        self.assertIn("88/100", (shots / "critic-r1.md").read_text(encoding="utf-8"))
+        self.assertEqual([(r["round"], r["critic_score"], r["score"], r["vendor"]) for r in self.seconds()],
+                         [(1, 88, 72, "codex"), (1, 88, 65, "grok")])
+
+    def test_a_slow_vendor_is_skipped_when_its_minutes_do_not_fit_and_the_fast_one_still_scores(self):
+        usual = second.usual_minutes
+        second.usual_minutes = lambda v: 999.0 if v == "grok" else 1.0
+        self.addCleanup(setattr, second, "usual_minutes", usual)
+        self.script(self.ONE_ROUND)
+        self.vendor("codex", report=CRITIC % 72)
+        self.vendor("grok", report=CRITIC % 65)
+        out, stop = self.go_with_evidence(second="codex,grok")
+        res = self.results()
+        self.assertEqual(res[0]["verdict"], "PASS")
+        self.assertIn("codex on round 1: 72/100", res[0]["note"])
+        self.assertIn("its 999 minutes do not fit", res[0]["note"])
+        self.assertEqual([r["vendor"] for r in self.seconds()], ["codex"])
+
     def failing_second(self, why, **script):
         """A second opinion that fails is words in the note: the verdict, the critic's score and the run stand."""
         self.script(self.ONE_ROUND)
@@ -2757,7 +2796,7 @@ class PipelineSource(Repo):
             f.parent.mkdir(parents=True, exist_ok=True)
             f.write_text(json.dumps({"day": day}), encoding="utf-8")
         out, stop = self.go_with_evidence(second="grok")
-        self.assertIn("no second opinion on round 1: today's %d are used" % self.lim["second_per_day"],
+        self.assertIn("no second opinion from grok on round 1: today's %d are used" % self.lim["second_per_day"],
                       self.results()[0]["note"])
         self.assertFalse(self.started.exists())
         self.assertEqual(self.results()[0]["verdict"], "PASS")
