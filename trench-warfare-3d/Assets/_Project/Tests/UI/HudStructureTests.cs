@@ -169,5 +169,16 @@ namespace TW.Tests
             float lighter = Mathf.Max(la, lb), darker = Mathf.Min(la, lb);
             return (lighter + 0.05f) / (darker + 0.05f);
         }
+
+        /// <summary>[I12] F9 is read with KeyMap.Down, which answers only while the field owns the input. With DownRaw
+        /// it toggled the HUD from a menu and while the settings screen was capturing a key. Update() cannot run in
+        /// EditMode (it needs a Keyboard and a HudController), so this is a source ratchet on the call itself.</summary>
+        [Test]
+        public void TheHudToggleGoesThroughTheFocusCheck()
+        {
+            var src = System.IO.File.ReadAllText("Assets/_Project/UI/HudHotkeys.cs");
+            Assert.That(src, Does.Not.Contain("DownRaw("), "[I12] HudHotkeys reads a key with DownRaw, skipping InputFocus");
+            Assert.That(src, Does.Contain("KeyMap.Down(GameAction.HudToggle)"), "[I12] the HUD toggle must be read with KeyMap.Down");
+        }
     }
 }
