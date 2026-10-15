@@ -456,9 +456,18 @@ namespace TW.Playground
                         // by name, or by index in the library's (alphabetical) order: a new machine shifts every index after
                         // it (the Bullfrog made round2.sh's "Croaker 1" select itself)
                         int byName = System.Array.FindIndex(Library.Vehicles, x => string.Equals(x.Name, a[2], System.StringComparison.OrdinalIgnoreCase));
-                        vehicleIndex = byName >= 0 ? byName : (int)F(a, 2, 0);
+                        int vi = byName >= 0 ? byName : (int)F(a, 2, 0);
+                        // Y15: a negative index used to be taken and answered "ok"; every later scene then threw on
+                        // Library.Vehicles[index % Length] (a negative remainder).
+                        if (vi < 0) return "bad index " + a[2];
+                        vehicleIndex = vi;
                     }
-                    else if (a.Length > 2) unitIndex = (int)F(a, 2, 0);
+                    else if (a.Length > 2)
+                    {
+                        int ui = (int)F(a, 2, 0);
+                        if (ui < 0) return "bad index " + a[2];   // Y15
+                        unitIndex = ui;
+                    }
                     Queue(Mode); break;
                 case "unitrings": Fx.UnitRings = F(a, 1, 1f) > 0.5f; break;
                 case "cutsdebug": BuildingRig.DebugCuts = F(a, 1, 1f) > 0.5f; BuildingRig.ForgetCuts(); if (Mode == "building") Scene("building"); break;
