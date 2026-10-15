@@ -22,6 +22,19 @@ namespace TW.Tests
         }
 
         [Test]
+        public void BakeFontsReimportsTheSkinSheets()
+        {
+            string path = Path.GetFullPath(Path.Combine(Application.dataPath, "_Project", "Editor", "UI", "UiAssetBuilder.cs"));
+            string src = File.ReadAllText(path);
+            int start = src.IndexOf("public static void BakeFonts()");
+            Assert.That(start, Is.GreaterThanOrEqualTo(0), "BakeFonts() not found in UiAssetBuilder.cs");
+            int next = src.IndexOf("[MenuItem(", start);
+            Assert.That(next, Is.GreaterThan(start), "could not find the next menu item after BakeFonts()");
+            string body = src.Substring(start, next - start);
+            StringAssert.Contains("ReimportSheets()", body, "BakeFonts() must reimport the skin sheets after rebaking fonts (each bake gives a font asset a new GUID)");
+        }
+
+        [Test]
         public void TheSpecTableHasNoDuplicateFiles()
         {
             var seen = new System.Collections.Generic.HashSet<string>();
