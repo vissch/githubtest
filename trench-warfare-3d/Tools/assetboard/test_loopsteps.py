@@ -340,6 +340,34 @@ def main():
     case('an idle extra relay whose only unit went nowhere (BLOCKED, nothing changed) does not count it as work: it goes off that board and the relay gets other work',
          got == ['fresh-1'] and ('b2', 'relay-four-checks') in w.unqueued, (lines, got))
 
+    # restarts: a run that worked and then failed is one attempt; a start the hold refused is no start
+    w = world(tmp, 't1')
+    put(w.extras[2], 'queue', 'slow-1', lane='lane/show/slow')
+    w.text[w.main] = w.text[w.extras[6]] = RUN
+    stop = 'NOT RUNNING. Last run 20261015-19%02d00-1 (desktop): leg 03 ended TIMEOUT (3 legs, 1 unit: 1 FAIL).'
+    w.text[w.extras[2]] = stop % 10
+    autoloop.feed(w)
+    w.text[w.extras[2]] = stop % 40
+    w.clock += autoloop.STARTS[0] + 1
+    autoloop.feed(w)
+    w.text[w.extras[2]] = stop % 59
+    w.clock += autoloop.STARTS[0] + 1
+    autoloop.feed(w)
+    case('a relay whose runs worked and then timed out is restarted after the usual wait each time (relay 5, 19:30): the wait doubles only for a relay that stops at once',
+         w.started == [2, 2, 2], w.started)
+    w = world(tmp, 't2')
+    put(w.main, 'queue', 'main-1', lane='lane/show/main-1', priority=20)
+    w.text[w.extras[2]] = w.text[w.extras[6]] = RUN
+    w.text[w.main] = 'NOT RUNNING. Last run 20261015-180712-71488 (desktop): leg 02 broke a rule: the board changed (2 legs, 1 unit: 1 FAIL).'
+    real_start = w.start
+    w.start = lambda n: 'not started: HELD by master-2026-10-15 until 22:06'
+    held = autoloop.feed(w)
+    w.start = real_start
+    w.clock += 300
+    freed = autoloop.feed(w)
+    case('a main relay start that its hold refused is not counted: once the hold is gone it is started the next round, not an hour later',
+         w.started == [1] and 'HELD' in held[-1], (held, freed, w.started))
+
     # the day's pace as relay.py day prints it (ledger.pace_line), in percent and in dollars
     pp = autoloop.parse_pace
     case('the pace line is read in percent and dollars; a spent cap or a day ahead is nothing free; no line or a new wording is unknown (no leg runs)',

@@ -103,8 +103,13 @@ def parse_status(text):
     m = re.search(r'^NOT RUNNING\.(.*)$', text or '', re.M)
     if not m:
         return None, ''
-    why = re.match(r'\s*Last run [^:]*: (.*?)(?: \(\d+ legs.*)?\.?$', m.group(1))
-    return set(), (why.group(1) if why else m.group(1)).strip()[:200]
+    why = re.match(r'\s*Last run ([^:]*): (.*?)(?: \((\d+) legs.*)?\.?$', m.group(1))
+    if not why:
+        return set(), m.group(1).strip()[:200]
+    said = why.group(2).strip()[:200]
+    if why.group(3) and int(why.group(3)) > 0 and 'nothing left to do' not in said:     # a run that worked and then failed or timed out is one attempt, not a
+        said += f' [run {why.group(1).split()[0]}]'  # relay that stops at once: its restart wait does not double (the coordinator, 20:25)
+    return set(), said
 
 
 def parse_pace(text):
@@ -151,7 +156,14 @@ class World:
         return parse_status(text) if code == 0 else (None, '')
 
     def pull(self, board):
-        return self.git(board, 'pull', '--rebase', '-q')
+        """git pull --rebase, tried again when another git on the board was mid-fetch ("Cannot rebase onto multiple
+        branches", 19:35) or held its lock."""
+        for n in range(4):
+            code, out = self.git(board, 'pull', '--rebase', '-q')
+            if code == 0 or not re.search(r'multiple branches|index\.lock|cannot lock ref|Unable to create', out, re.I):
+                return code, out
+            time.sleep(3 + 3 * n)
+        return code, out
 
     def tracked(self, board, folder):
         """The file names git has under `folder` of a board, committed."""
@@ -620,9 +632,16 @@ def feed(w):
     if running == set() and work:
         if not w.acting:
             out.append('feed: the main relay is not running and has work: it would be started')
-        elif may_start(w, 1, reason):
-            out.append(f'feed: the main relay is not running and has work: {w.start(1)}')
-            started = True
+        else:
+            before = load(w.home / 'starts.json', {}).get('1')
+            if may_start(w, 1, reason):
+                said = w.start(1)
+                out.append(f'feed: the main relay is not running and has work: {said}')
+                started = not said.startswith('not started')
+                if not started:                 # a start its hold refused is no start: tried again next round, the wait not doubled
+                    starts = load(w.home / 'starts.json', {})
+                    starts.pop('1', None) if before is None else starts.__setitem__('1', before)
+                    save(w.home / 'starts.json', starts)
     if running == set() and not started and w.acting:
         w.relay(w.main, 'hold', MAIN_WHO, '--release')     # the loop's own hold only: another name's is refused, not taken
     return out
