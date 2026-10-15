@@ -576,6 +576,46 @@ namespace TW.Tests
         }
 
         [Test]
+        // [found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] BuildShelters skips Vehicle and Airborne when
+        // it builds a shelter's Teams bitmask, so a machine never makes a wreck worth firing at; InShadow counted and
+        // suppressed it anyway once the wreck was picked for the men behind it. One set for both ends of the rule.
+        public void AMachineInTheWrecksShadowIsNeitherCountedNorKeptDown()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            float3 wp = m.Map.Props[wreck].Pos, gp = m.World.Position[gun];
+            float3 along = math.normalize(new float3(wp.x - gp.x, 0f, wp.z - gp.z));
+            // shelter reach 4 m, body 2 m: 1 m past the wreck on the line of fire is squarely in its shadow, and 1 m
+            // short of the men; parked, so it leaves the wreck beside it alone
+            int hull = m.World.Spawn(1, VehicleArchetype.Tusk, wp + along * 1f, 100000f, 0f, true);
+            Assert.GreaterOrEqual(hull, 0);
+            m.World.GoalId[hull] = -1; m.World.TrenchId[hull] = -1; m.Vehicles.HaltTicks[hull] = 100000;
+
+            int atWreck = 0, atMen = 0; float menMax = 0f, hullMax = 0f;
+            for (int t = 0; t < 400; t++)
+            {
+                m.World.Suppression[gun] = 0f;   // the Tusk's own fire may never pin the gun and silence AtWreck ([N5.2])
+                Step(m);
+                if (t < Settle) continue;
+                var ev = m.World.Events.Events;
+                for (int i = 0; i < ev.Length; i++)
+                {
+                    if (ev[i].Type != SimEventType.Shot || ev[i].A != gun) continue;
+                    if (PropTarget.IsProp(ev[i].B)) atWreck++;
+                    else if (ev[i].B >= 0) atMen++;
+                }
+                foreach (int u in men) menMax = math.max(menMax, m.World.Suppression[u]);
+                hullMax = math.max(hullMax, m.World.Suppression[hull]);
+            }
+            // the two figures of the green AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind (same harness, 400 ticks)
+            Assert.Greater(atWreck, 20, "[found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] the gun stopped firing at the wreck the men are behind");
+            Assert.Greater(menMax, 20f, "[found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] the men in the wreck's shadow were no longer kept down");
+            Assert.AreEqual(0, atMen, "[found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] small arms are no threat to armour, so the hull is never a living target");
+            // the flank test's measured stray floor (about 1 over the same 400 ticks)
+            Assert.Less(hullMax, 2f, "[found-buildshelters-excludes-vehicles-from-teams-i-20261015-0] the hull in the wreck's shadow was kept down though it never counted toward the shelter's Teams");
+        }
+
+        [Test]
         // [N5.3b] the owner's rule (2026-10-12): fire at a wreck is fire at a place, not at a man who must be seen,
         // so a thick screen on the gun -> wreck line neither stops the shot nor spares the men in its shadow.
         public void ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck()

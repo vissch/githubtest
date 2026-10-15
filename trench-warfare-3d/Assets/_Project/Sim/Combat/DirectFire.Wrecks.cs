@@ -10,8 +10,10 @@
 // job with no target (a living target always wins), not pinned and not holding a trench, fires at the nearest wreck in
 // his range and sight that shelters his enemies: a Shot whose b names the prop (PropTarget), a hit (a hull-sized mark)
 // from a machine gun wears it by WreckFireShare of the round, and every round keeps the heads behind it down (the near
-// miss's suppression on each enemy in its shadow: within its reach, past it on the shooter's line and no wider than its
-// body; a man on its flank is neither sheltered nor suppressed, [N5.3]). A screen on the line does not stop it: fire at
+// miss's suppression on each enemy man on foot in its shadow: within its reach, past it on the shooter's line and no wider
+// than its body; a man on its flank is neither sheltered nor suppressed, [N5.3]). Only men on foot throughout: a machine
+// and a man in the air neither shelter behind a wreck nor are kept down by fire at it (Shelter and InShadow skip the same
+// Vehicle and Airborne flags). A screen on the line does not stop it: fire at
 // a wreck is fire at a place, not at a man who must be seen ([N5.3b], owner 2026-10-12). Nothing is drawn for a man with a target, so a field with no one
 // behind a wreck fights as before. Tank guns are TankGunnerySystem's and do not do this.
 // The props' hit points are in MapData's hash, so this system still hashes nothing of its own.
@@ -154,9 +156,11 @@ namespace TW.Sim.Combat
                 InShadow(i, s, dir, near);
             }
 
-            /// <summary>The enemies of slot i in the wreck's shadow: within its shelter's reach, past it on the shooter's
-            /// line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. How many, and
-            /// with `near` above zero their heads kept down by that much ([N5.3]: a man on the wreck's flank is neither).</summary>
+            /// <summary>The enemy men on foot of slot i in the wreck's shadow: within its shelter's reach, past it on the
+            /// shooter's line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. How many,
+            /// and with `near` above zero their heads kept down by that much ([N5.3]: a man on the wreck's flank is neither).
+            /// A machine and a man in the air are skipped, the same set BuildShelters counts into a shelter's Teams: the set
+            /// that makes a wreck worth firing at is the set the fire keeps down.</summary>
             int InShadow(int i, in Shelter s, float3 along, float near)
             {
                 int n = 0;
@@ -168,7 +172,7 @@ namespace TW.Sim.Combat
                     if (!Spatial.Map.TryGetFirstValue(Spatial.KeyXZ(x, z), out int j, out var it)) continue;
                     do
                     {
-                        if ((Flags[j] & (uint)UnitFlags.Alive) == 0 || Hp[j] <= 0f || Team[j] == Team[i]) continue;
+                        if ((Flags[j] & (uint)UnitFlags.Alive) == 0 || (Flags[j] & ((uint)UnitFlags.Vehicle | (uint)UnitFlags.Airborne)) != 0 || Hp[j] <= 0f || Team[j] == Team[i]) continue;
                         if (math.distancesq(Position[j].xz, s.Pos.xz) > s.Reach * s.Reach) continue;
                         float3 rel = Position[j] - s.Pos; rel.y = 0f;
                         float t = rel.x * along.x + rel.z * along.z;
