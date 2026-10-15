@@ -111,6 +111,7 @@ namespace TW.Presentation.Units
         NativeArray<byte> figureOf;
         NativeArray<float4> vehicles;   // xyz + yaw; w sign carries the team
         NativeArray<int> counts;
+        NativeArray<int> group;        // [V5] per figure: count at k, start at figures.Length + k, filled by the fill job
         NativeArray<float4> planes;
         NativeArray<ushort> nearRowOf, farRowOf;   // Clip -> row in the near / far atlas
         NativeArray<ushort> animRowNearOf;   // AnimRow (procedural) -> row in the near atlas, for the no-controller / missed-clip path
@@ -124,7 +125,7 @@ namespace TW.Presentation.Units
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
         public bool ClipAtlas => clipAtlas;
 
-        static Figure Make(Shader shader, VatAsset a)
+        static Figure Make(Shader shader, VatAsset a, bool withFallen = true)
         {
             var m = new Material(shader) { hideFlags = HideFlags.HideAndDontSave };
             m.SetTexture("_PosTex", a.Positions); m.SetTexture("_NrmTex", a.Normals);
@@ -134,12 +135,18 @@ namespace TW.Presentation.Units
             rows.SetData(a.RowTable);
             // the fallen are drawn from the same atlas with both sides: where a shell took a limb off the inside shows (dark),
             // not the field through a hollow shell. Cull is render state, not a property block value, hence a second material.
-            var fallen = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
-            fallen.SetFloat(CullId, (float)CullMode.Off);
-            fallen.EnableKeyword("_TW_LIMBCUT");   // and only they can have lost a limb: the living draw with no clip() (VAT_URP)
-            // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
-            // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
-            fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
+            // [V6] only the near figures need it: the far tier's fallen draw goes through far.Material with
+            // far.FallenProps (VATRenderer.Fallen.cs), so a second far material was built and killed unused.
+            Material fallen = null;
+            if (withFallen)
+            {
+                fallen = new Material(m) { hideFlags = HideFlags.HideAndDontSave };
+                fallen.SetFloat(CullId, (float)CullMode.Off);
+                fallen.EnableKeyword("_TW_LIMBCUT");   // and only they can have lost a limb: the living draw with no clip() (VAT_URP)
+                // new Material(m) copies only what the shader declares: _PosMin/_PosSize are not in its Properties block, and
+                // without them every vertex decodes to the origin (the fallen drew as a dot). Set them again.
+                fallen.SetVector(PosMinId, a.PosMin); fallen.SetVector(PosSizeId, a.PosSize);
+            }
             // the range goes on the property blocks too: a shader reload during Play resets a material's values to the
             // shader's defaults (every man then decodes to a 1 m box or a point), and a block is never touched by that
             var props = new MaterialPropertyBlock(); var fallenProps = new MaterialPropertyBlock();
@@ -179,8 +186,8 @@ namespace TW.Presentation.Units
             {
                 figures = new Figure[baked.Count];
                 for (int k = 0; k < baked.Count; k++) figures[k] = Make(shader, baked[k]);
-                far = Make(shader, ProceduralSoldier.Build());
-                far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f);
+                far = Make(shader, ProceduralSoldier.Build(), withFallen: false);
+                far.Material.SetFloat(LerpId, 0f);
                 if (clipAtlas) Clips.Apply(baked[0].RowSeconds);   // the controller times its one-shots by the bake
             }
             else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
@@ -230,6 +237,18 @@ namespace TW.Presentation.Units
             return a;
         }
 
+        /// <summary>[V5] A stable counting sort of the near records by figure, so each figure is one contiguous
+        /// indirect draw: dst holds the records grouped, group[k] is figure k's count and group[figures + k] its
+        /// first index. No managed state, so it runs inside the Burst fill job instead of on the main thread.</summary>
+        public static void GroupByFigure(NativeArray<VatInstance> src, NativeArray<byte> figureOf, int count, int figures, NativeArray<VatInstance> dst, NativeArray<int> group)
+        {
+            for (int k = 0; k < figures; k++) { group[k] = 0; group[figures + k] = 0; }
+            for (int i = 0; i < count; i++) group[figureOf[i]]++;
+            for (int k = 0, at = 0; k < figures; k++) { group[figures + k] = at; at += group[k]; }
+            for (int i = 0; i < count; i++) { int k = figureOf[i]; dst[group[figures + k]++] = src[i]; }
+            for (int k = 0; k < figures; k++) group[figures + k] -= group[k];   // the cursors wound back to the starts
+        }
+
         void EnsureCapacity(int maxSlots)
         {
             if (instances.IsCreated && instances.Length >= maxSlots) return;
@@ -239,6 +258,7 @@ namespace TW.Presentation.Units
             figureOf = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             vehicles = new NativeArray<float4>(maxSlots, Allocator.Persistent);
             counts = new NativeArray<int>(3, Allocator.Persistent);
+            group = new NativeArray<int>(figures.Length * 2, Allocator.Persistent);
             planes = new NativeArray<float4>(6, Allocator.Persistent);
             spare = new NativeArray<float>(1, Allocator.Persistent);
             spareBytes = new NativeArray<byte>(1, Allocator.Persistent);
@@ -271,7 +291,7 @@ namespace TW.Presentation.Units
             {
                 Poses = presenter.Poses, PoseCount = presenter.PoseCount, PoseSlot = presenter.PoseSlot, Height = Host.Local.Map.Height, Scale = UnitScale * grow,
                 Ground = ReferenceEquals(RenderGround.Map, Host.Local.Map) ? RenderGround.Grid : default,
-                Instances = instances, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = EffectiveCullRadius(cullRadius, UnitScale, grow),
+                Instances = instances, Sorted = sorted, Group = group, FigureOf = figureOf, Figures = figures.Length, Vehicles = vehicles, Counts = counts, Planes = planes, Cull = cam != null, Radius = EffectiveCullRadius(cullRadius, UnitScale, grow),
                 CamPos = cam != null ? (float3)cam.transform.position : default, FarSq = far != null && cam != null ? LodDistance * LodDistance : float.MaxValue,
                 Controlled = controlled, NearRowOf = nearRowOf, FarRowOf = farRowOf, AnimRowNearOf = animRowNearOf,
                 PrevRow = anim != null ? anim.PrevRow : nearRowOf, PrevPhase = anim != null ? anim.PrevPhase : spare, Blend = anim != null ? anim.Blend : spare, Lift = anim != null ? anim.Lift : spare,
@@ -286,12 +306,8 @@ namespace TW.Presentation.Units
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
             if (DrawnInfantry > 0)
             {
-                // the near records grouped by figure, so each figure is one contiguous indirect draw
-                for (int k = 0; k < figures.Length; k++) figures[k].Near = 0;
-                for (int i = 0; i < DrawnNear; i++) figures[figureOf[i]].Near++;
-                for (int k = 0, at = 0; k < figures.Length; k++) { figures[k].Start = at; at += figures[k].Near; }
-                for (int i = 0; i < DrawnNear; i++) { var f = figures[figureOf[i]]; sorted[f.Start++] = instances[i]; }
-                for (int k = 0; k < figures.Length; k++) figures[k].Start -= figures[k].Near;
+                // the near records were grouped by figure in the fill job ([V5] GroupByFigure); these are its spans
+                for (int k = 0; k < figures.Length; k++) { figures[k].Near = group[k]; figures[k].Start = group[figures.Length + k]; }
                 int farStart = instances.Length - DrawnFar;
                 if (DrawnNear > 0) instanceBuffer.SetData(sorted, 0, 0, DrawnNear);
                 if (DrawnFar > 0) instanceBuffer.SetData(instances, farStart, farStart, DrawnFar);
@@ -395,8 +411,9 @@ namespace TW.Presentation.Units
             [ReadOnly] public NativeArray<byte> Hidden;
             [ReadOnly] public NativeArray<byte> Char;
             [ReadOnly] public NativeArray<byte> Wound;
-            public NativeArray<VatInstance> Instances;
+            public NativeArray<VatInstance> Instances, Sorted;
             public NativeArray<byte> FigureOf;
+            public NativeArray<int> Group;
             public NativeArray<float4> Vehicles;
             public NativeArray<int> Counts;
             [ReadOnly] public NativeArray<float4> Planes;
@@ -450,6 +467,7 @@ namespace TW.Presentation.Units
                     else { FigureOf[n] = (byte)math.min(Figures - 1, FigureOfArchetype(p.Archetype)); Instances[n++] = inst; }
                 }
                 Counts[0] = n; Counts[1] = v; Counts[2] = far;
+                GroupByFigure(Instances, FigureOf, n, Figures, Sorted, Group);
             }
         }
 
@@ -481,6 +499,7 @@ namespace TW.Presentation.Units
             if (figureOf.IsCreated) figureOf.Dispose();
             if (vehicles.IsCreated) vehicles.Dispose();
             if (counts.IsCreated) counts.Dispose();
+            if (group.IsCreated) group.Dispose();
             if (planes.IsCreated) planes.Dispose();
             if (spare.IsCreated) spare.Dispose();
             if (spareBytes.IsCreated) spareBytes.Dispose();
