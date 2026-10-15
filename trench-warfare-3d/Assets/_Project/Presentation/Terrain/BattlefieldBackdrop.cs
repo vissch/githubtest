@@ -160,7 +160,7 @@ namespace TW.Presentation.Terrain
                 if (side == 2 && map.HasSea && map.SeaSide == 0) continue;
                 bool alongZ = side < 2;
                 float span = alongZ ? l : w;
-                float from = alongZ ? -90f : -90f, to = span + 90f;
+                float from = -90f, to = span + 90f;
                 for (float t = from; t < to; t += 2.4f)
                 {
                     if (CutByTrench(side, t)) continue;   // a trench runs out of the map here: wire is not strung across its mouth
