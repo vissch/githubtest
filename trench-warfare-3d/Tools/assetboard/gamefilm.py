@@ -187,7 +187,7 @@ def record(name, seconds, cues=(), spin=0.0, battle=None):
     mp4 = OUT / f'{name}.mp4'
     part = mp4.with_name(mp4.name + '.part')
     r = subprocess.run([FFMPEG, '-y', '-loglevel', 'error', '-r', str(FPS), '-i', str(frames_dir / '%05d.jpg'), '-an', '-c:v', 'libx264', '-preset', 'slow',
-                        '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', str(part)], capture_output=True, text=True)
+                        '-crf', '24', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', '-f', 'mp4', str(part)], capture_output=True, text=True)
     if r.returncode != 0:
         part.unlink(missing_ok=True)
         print(f'  {name}: ffmpeg: {r.stderr[-200:]}')
