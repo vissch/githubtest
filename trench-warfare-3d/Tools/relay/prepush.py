@@ -8,7 +8,7 @@ The hook file is shared by every checkout of the repo, but it acts only where th
 process that carries the leg's TW_RELAY variable: that one may not push from any other checkout at all.
 Stdin, from git: one line per ref, "<local ref> <local sha> <remote ref> <remote sha>". Stdlib only. ASCII only.
 """
-import json, os, subprocess, sys
+import json, os, re, subprocess, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
@@ -36,15 +36,24 @@ def marker():
     return rec if proc_start(rec.get("pid", -1)) == rec.get("pid_start") else None
 
 
+def rebased_name(lane, remote_ref, remote_sha):
+    """True for a NEW branch <lane>-b .. <lane>-j: where a leg that rebased its lane pushes it, since it may not
+    force-push the lane itself (2026-10-15: two legs ended BLOCKED on that, and a session pushed them by hand)."""
+    return bool(lane) and remote_sha == ZERO and re.fullmatch(re.escape("refs/heads/" + lane) + "-[b-j]", remote_ref) is not None
+
+
 def refusal(rec, line):
     local_ref, local_sha, remote_ref, remote_sha = line.split()[:4]
     lane = rec.get("lane")
+    if local_sha != ZERO and rebased_name(lane, remote_ref, remote_sha):
+        return None
     if not lane or remote_ref != "refs/heads/" + lane:
         return "a relay leg pushes only its own lane (%s), not %s" % (lane, remote_ref)
     if local_sha == ZERO:
         return "a relay leg does not delete a branch"
     if remote_sha != ZERO and git(["merge-base", "--is-ancestor", remote_sha, local_sha])[0] != 0:
-        return "a relay leg does not force-push: origin's %s is not an ancestor of what you push" % lane
+        return ("a relay leg does not force-push: origin's %s is not an ancestor of what you push. A rebased lane is "
+                "pushed as a new branch instead: git push origin HEAD:refs/heads/%s-b (or -c .. -j when taken)" % (lane, lane))
     return None
 
 

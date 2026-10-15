@@ -1565,6 +1565,16 @@ class Runs(Repo):
         self.assertEqual(self.legs()[0]["moved_on_origin"], ["lane/show/neighbour"])
         self.assertEqual(stop["moved_on_origin"], ["lane/show/neighbour"])
 
+    def test_a_leg_pushes_its_rebased_lane_as_a_new_b_branch_but_never_forces(self):
+        import prepush
+        rec, z = {"lane": "lane/show/x"}, prepush.ZERO
+        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-b %s" % ("1" * 40, z)))
+        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-c %s" % ("1" * 40, z)))
+        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-b %s" % ("1" * 40, "2" * 40)))   # over an existing -b: no
+        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-bb %s" % ("1" * 40, z)))
+        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/y-b %s" % ("1" * 40, z)))
+        self.assertIn("own lane", prepush.refusal(rec, "(delete) %s refs/heads/lane/show/x-b %s" % (z, z)))
+
     def test_a_leg_may_not_push_from_any_other_checkout(self):
         gitio.install_prepush(self.work)
         env = dict(os.environ, TW_RELAY="1")
