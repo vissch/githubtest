@@ -16,6 +16,10 @@ namespace TW.Tests
         const string DebrisPath = "Assets/_Project/Shaders/Debris_URP.shader";
         const string TankDiscPath = "Assets/_Project/Shaders/TankDisc_URP.shader";
         const string PigmentPath = "Assets/_Project/Presentation/Terrain/BattlefieldPigment.cs";
+        const string LightPoolsPath = "Assets/_Project/Shaders/TWLightPools.hlsl";
+        const string FlamePath = "Assets/_Project/Shaders/Flame_URP.shader";
+        const string RainCurtainPath = "Assets/_Project/Shaders/RainCurtain_URP.shader";
+        const string TerrainDisplacePath = "Assets/_Project/Shaders/TerrainDisplace.shader";
 
         // [Hs1] the painted sheet is R8, so it clamps at 1, but the paint peaks at 1.22 (Earth's seam lip): the
         // bake has to scale it down and the shader has to scale it back, or every highlight above 1.0 is lost.
@@ -157,6 +161,29 @@ namespace TW.Tests
                 "[Hs8] TankDiscHidden must not redeclare PipGlyph");
             Assert.That(hiddenPass, Does.Not.Match(@"float3 PipCorner\("),
                 "[Hs8] TankDiscHidden must not redeclare PipCorner");
+        }
+
+        // [Hs9] no shader called TWLightPools or TWPoolGlints; TerrainDisplace.shader had no user; VAT's wound
+        // ellipsoid and its RGBAHalf labels were stale; Flame and RainCurtain declared a tiling/offset nobody reads.
+        [Test]
+        public void NoShaderCodeIsLeftWithoutAUser()
+        {
+            string lightPools = File.ReadAllText(LightPoolsPath);
+            Assert.That(Regex.IsMatch(lightPools, @"half3 TWLightPools\("), Is.False,
+                "[Hs9] TWLightPools has no caller and must be gone");
+            Assert.That(lightPools, Does.Not.Contain("TWPoolGlints("),
+                "[Hs9] TWPoolGlints has no caller and must be gone");
+
+            Assert.That(File.Exists(TerrainDisplacePath), Is.False, "[Hs9] TerrainDisplace.shader has no user and must be gone");
+            Assert.That(File.Exists(TerrainDisplacePath + ".meta"), Is.False, "[Hs9] TerrainDisplace.shader.meta must be gone with the shader");
+
+            string vat = File.ReadAllText(VatPath);
+            Assert.That(vat, Does.Not.Contain("_WoundCenter"), "[Hs9] nothing sets _WoundCenter, so the dead clip must be gone");
+            Assert.That(vat, Does.Not.Contain("_WoundRadii"), "[Hs9] nothing sets _WoundRadii, so the dead clip must be gone");
+            Assert.That(vat, Does.Not.Contain("RGBAHalf"), "[Hs9] VatCodec bakes RGBA64/RGBA32, not RGBAHalf");
+
+            Assert.That(File.ReadAllText(FlamePath), Does.Not.Contain("_Noise_ST"), "[Hs9] Flame_URP never calls TRANSFORM_TEX");
+            Assert.That(File.ReadAllText(RainCurtainPath), Does.Not.Contain("_Noise_ST"), "[Hs9] RainCurtain_URP never calls TRANSFORM_TEX");
         }
 
         /// The HLSL of the pass named "Outline", up to its ENDHLSL.

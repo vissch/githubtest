@@ -30,7 +30,7 @@ Shader "TW/Rain Curtain (URP)"
             #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Core.hlsl"
             TEXTURE2D(_Noise); SAMPLER(sampler_Noise);
             CBUFFER_START(UnityPerMaterial)
-                float4 _Noise_ST, _Drift, _Weather;
+                float4 _Drift, _Weather;
             CBUFFER_END
 
             struct Attributes { float4 positionOS : POSITION; float2 corner : TEXCOORD0; };
