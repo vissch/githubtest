@@ -68,7 +68,6 @@ PURPOSE = {
     'Playground/Tests': 'EditMode checks of the playground art: parts per LOD, rigs per LOD, the LOD-identical breakup.',
     'Perf': 'PerfBench (editor + player benchmark), AllocProbe, bench options.',
     'Presentation': 'Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds).',
-    'Presentation/Audio': 'Stub: event audio router (B7). No audio assets exist yet.',
     'Presentation/Camera': 'NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, '
                            'DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical.',
     'Presentation/Core': 'SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, '
@@ -76,7 +75,6 @@ PURPOSE = {
     'Presentation/Meta': 'The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera.',
     'Presentation/Terrain': 'Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea.',
     'Presentation/Units': 'VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback.',
-    'Presentation/VFX': 'Stub assembly (B5 router). Real effects live in Presentation/Camera.',
     'Resources': 'Everything loaded by name at runtime (Resources.Load). Moving a file here breaks a string somewhere.',
     'Resources/Env': 'Imported environment sets (Tripo), one folder per set, plus EnvAtlas.jpg built by Tools/envatlas.py.',
     'Resources/Layouts': "PropLayout asset: the owner's hand edits over the composed props.",
