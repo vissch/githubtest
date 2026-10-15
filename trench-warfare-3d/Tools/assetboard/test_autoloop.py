@@ -81,7 +81,7 @@ class Fake(autoloop.World):
 
     def start(self, n):
         self.started.append(n)
-        self.text[self.extras[n]] = RUN.replace('relay-four-checks', f'x{n}')
+        self.text[self.main if n == 1 else self.extras[n]] = RUN.replace('relay-four-checks', f'x{n}')
         return 'started'
 
     def answers(self):
@@ -157,6 +157,18 @@ def main():
     after_double = autoloop.feed(w)
     case('a relay that stops at once is not started every round: not again inside the wait after a start; when it stopped again for the same reason the wait doubles; a running one is left alone',
          w.started == [3, 3] and not any('gets' in l for l in soon + later) and soon == [] and len(later) == 1 and doubled == [] and len(after_double) == 1,(soon, later, doubled, after_double, w.started))
+    wm = Fake(tmp / 'm')
+    idle_main = autoloop.feed(wm)
+    put(wm.main, 'queue', 'm-1', lane='lane/show/m', priority=99)
+    parked_only = autoloop.feed(wm)
+    put(wm.main, 'queue', 'm-2', lane='lane/show/m2', priority=50)
+    put(wm.extras[2], 'queue', 'm-2', lane='lane/show/m2')       # an extra holds that lane: the main relay keeps its own work
+    put(wm.main, 'queue', 'm-3', lane='lane/show/m3', priority=50)
+    wm.text[wm.extras[2]] = RUN
+    wm.text[wm.extras[3]] = RUN
+    has_work = autoloop.feed(wm)
+    case('the loop is the only keeper: the main relay is started when it is not running and has a unit to take, not when its queue is empty or parked',
+         idle_main == [] and parked_only == [] and wm.started == [1] and 'main relay' in has_work[-1], (idle_main, parked_only, has_work, wm.started))
     w3 = Fake(tmp / 'c')
     put(w3.main, 'queue', 'x-1', lane='lane/show/x', priority=99)
     case('with no free lane an empty relay is not started', autoloop.feed(w3) == [] and w3.started == [])
@@ -164,6 +176,7 @@ def main():
     put(w4.main, 'queue', 'two-1', lane='lane/show/two', priority=20)
     put(w4.main, 'queue', 'two-2', lane='lane/show/two', priority=30)
     w4.refuse_prio = {'two-2'}
+    w4.text[w4.main] = RUN
     lines = autoloop.feed(w4)
     case('when the main board refuses to park a lane, what was parked is put back and the extra board gets nothing: two relays never work one lane',
          list((w4.extras[2] / 'relay' / 'queue').glob('*.json')) == [] and w4.prios == {'two-1': 20} and w4.started == [] and 'put back' in lines[0], (lines, w4.prios))

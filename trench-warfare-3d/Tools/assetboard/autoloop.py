@@ -47,6 +47,8 @@ RELAY = GH / 'githubtest-relay-run' / 'trench-warfare-3d' / 'Tools' / 'relay' / 
 MAIN = GH / 'tw3d-board'
 EXTRAS = tuple(range(2, 7))
 START = Path(os.environ.get('TEMP') or tempfile.gettempdir()) / 'relayN-start-2026-10-13.ps1'
+MAIN_START = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'relay-test-start.ps1'
+MAIN_WHO = 'laptop-relay-test'      # the name the main relay's runs and hold go by
 HOME = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'autoloop'
 BY = 'autoloop'
 DAY_PCT = os.environ.get('TW_DAY_PCT') or '11'   # the day's cap for every relay together (the owner, 2026-10-07); the start script counts all boards
@@ -162,7 +164,14 @@ class World:
         if not self.acting:
             return 'would start'
         flags = getattr(subprocess, 'DETACHED_PROCESS', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
-        p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', str(START), '-N', str(n), '-DayPct', DAY_PCT],
+        if n == 1:                  # the main relay: its hold first, then a run under the usual day (no figure passed)
+            code, said = self.relay(self.main, 'hold', MAIN_WHO)
+            if code:
+                return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
+            cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', 'lane']
+        else:
+            cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT]
+        p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *cmd],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         return f'started (pid {p.pid})'
 
@@ -389,6 +398,13 @@ def feed(w):
         if not may_start(w, n, reason):
             continue
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
+    running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
+    q, done = queue_of(w.main)
+    if running == set() and any(u not in done and found.prio(v) < PARKED for u, v in q.items()):
+        if not w.acting:
+            out.append('feed: the main relay is not running and has work: it would be started')
+        elif may_start(w, 1, reason):
+            out.append(f'feed: the main relay is not running and has work: {w.start(1)}')
     return out
 
 
@@ -533,12 +549,12 @@ def main(argv=None):
     ap.add_argument('--once', action='store_true', help='one round, for real')
     ap.add_argument('--watch', type=float, default=0, help='seconds between rounds, for ever')
     ap.add_argument('--main', default=str(MAIN), help='the main board')
-    ap.add_argument('--extras', default=','.join(map(str, EXTRAS)), help='the extra relays\' numbers (their boards tw3d-board-N); empty for none')
+    ap.add_argument('--extras', default=','.join(map(str, EXTRAS)), help='the extra relays\' numbers (their boards tw3d-board-N); none for none')
     ap.add_argument('--home', default=str(HOME))
     a = ap.parse_args(argv)
     home = Path(a.home)
     home.mkdir(parents=True, exist_ok=True)
-    extras = tuple(int(x) for x in a.extras.split(',') if x.strip())
+    extras = tuple(int(x) for x in a.extras.split(',') if x.strip().isdigit())      # 'none' for none
     if not (a.once or a.watch):
         print('\n'.join(round_(World(a.main, extras, home, acting=False))))
         return 0
