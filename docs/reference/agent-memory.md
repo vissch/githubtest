@@ -148,3 +148,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-10-18. Four relay legs died levelling a lane diverged from its own origin** with `git reset --hard` and
   `git branch -f`, both refused. The allowed move is `git rebase --onto origin/<lane> HEAD`. A leg also cannot
   publish a lane rebased onto integration: the push guard allows a `-b` name, the model-side command rules do not.
+- **2026-10-15. A task to fix three failing tool tests was already stale.** `test_aosa.py`, `test_flameshots.py`
+  and `test_tw.py` all passed on the lane tip handed to the leg: the `[review-tools-rebase]` commit had already
+  fixed the same three bugs during an earlier rebase. Checked the done-when command before touching any script.
