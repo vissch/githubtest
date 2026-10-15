@@ -4,6 +4,7 @@
 // a HUD comment once claimed numbers nobody had checked (HudTextTests).
 using System.IO;
 using NUnit.Framework;
+using UnityEditor;
 using UnityEngine;
 using TW.Editor;
 using TW.UI;
@@ -19,6 +20,37 @@ namespace TW.Tests
         {
             var r = UiSkinVerifier.Run();
             Assert.That(r.Failures, Is.Empty, r.ToString());
+        }
+
+        /// <summary>[V1] An Inspector visit or a merged .meta can flip an importer setting without touching the
+        /// generator; the verifier must notice that, not just the six settings it used to check.</summary>
+        [Test]
+        public void TheVerifierNoticesAnImportSettingChangedByHand()
+        {
+            var entry = SkinSpec.All[0];
+            var imp = AssetImporter.GetAtPath(entry.Path) as TextureImporter;
+            Assert.That(imp, Is.Not.Null, $"[V1] {entry.Path} did not import as a texture");
+            bool srgb = imp.sRGBTexture; FilterMode filter = imp.filterMode; int maxSize = imp.maxTextureSize;
+            try
+            {
+                imp.sRGBTexture = false;
+                imp.filterMode = FilterMode.Point;
+                imp.maxTextureSize = 512;
+
+                var r = UiSkinVerifier.Run();
+                Assert.That(r.Failures, Is.Not.Empty, "[V1] changing sRGB, filter mode and max size by hand should fail the verifier");
+                string joined = string.Join("\n", r.Failures);
+                StringAssert.Contains("sRGB", joined, $"[V1] no failure mentions sRGB:\n{joined}");
+                StringAssert.Contains("filter", joined, $"[V1] no failure mentions filter mode:\n{joined}");
+                StringAssert.Contains("max size", joined, $"[V1] no failure mentions max size:\n{joined}");
+            }
+            finally
+            {
+                imp.sRGBTexture = srgb; imp.filterMode = filter; imp.maxTextureSize = maxSize;
+                AssetDatabase.ImportAsset(entry.Path, ImportAssetOptions.ForceUpdate);
+            }
+            var clean = UiSkinVerifier.Run();
+            Assert.That(clean.Failures, Is.Empty, $"[V1] the verifier should be green again after a reimport:\n{clean}");
         }
 
         [Test]
