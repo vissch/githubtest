@@ -49,7 +49,7 @@ namespace TW.Editor
             return full;
         }
 
-        sealed class Runner : MonoBehaviour
+        public sealed class Runner : MonoBehaviour
         {
             public IEnumerator Run(PanelSettings panel, Camera cam, string full, int w, int h)
             {
@@ -59,28 +59,45 @@ namespace TW.Editor
                 var rtUi = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture UI" };
                 var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
                 var oldTarget = panel.targetTexture; bool oldClear = panel.clearColor; var oldColor = panel.colorClearValue;
-                panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
-                yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
-                yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
-                string rects = Probe(panel, w, h);
-                var camTarget = cam.targetTexture;
-                cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
-                var scene = Read(rtScene); var ui = Read(rtUi);
-                panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
-                var px = scene.GetPixels32(); var upx = ui.GetPixels32();
-                for (int i = 0; i < px.Length; i++)
+                Texture2D scene = null, ui = null;
+                // The PanelSettings asset is shared and nothing else in the project assigns targetTexture, so a
+                // skipped restore (a throw or Play exit mid-coroutine) blanks the HUD for the whole editor session.
+                try
                 {
-                    var u = upx[i]; if (u.a == 0) continue;
-                    float a = u.a / 255f; var s = px[i];
-                    px[i] = new Color32((byte)(u.r * a + s.r * (1f - a)), (byte)(u.g * a + s.g * (1f - a)), (byte)(u.b * a + s.b * (1f - a)), 255);
+                    panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
+                    yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
+                    yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                    string rects = Probe(panel, w, h);
+                    var camTarget = cam.targetTexture;
+                    cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
+                    scene = Read(rtScene); ui = Read(rtUi);
+                    var px = scene.GetPixels32(); var upx = ui.GetPixels32();
+                    for (int i = 0; i < px.Length; i++)
+                    {
+                        var u = upx[i]; if (u.a == 0) continue;
+                        float a = u.a / 255f; var s = px[i];
+                        px[i] = new Color32((byte)(u.r * a + s.r * (1f - a)), (byte)(u.g * a + s.g * (1f - a)), (byte)(u.b * a + s.b * (1f - a)), 255);
+                    }
+                    scene.SetPixels32(px); scene.Apply(false, false);
+                    Directory.CreateDirectory(Path.GetDirectoryName(full));
+                    File.WriteAllBytes(full, scene.EncodeToPNG());
+                    File.WriteAllText(full + ".json", rects);
+                    Debug.Log($"HudCapture: wrote {full} ({w}x{h})");
                 }
-                scene.SetPixels32(px); scene.Apply(false, false);
-                Directory.CreateDirectory(Path.GetDirectoryName(full));
-                File.WriteAllBytes(full, scene.EncodeToPNG());
-                File.WriteAllText(full + ".json", rects);
-                Debug.Log($"HudCapture: wrote {full} ({w}x{h})");
-                Destroy(scene); Destroy(ui); rtUi.Release(); rtScene.Release(); Destroy(rtUi); Destroy(rtScene);
-                Destroy(gameObject);
+                finally
+                {
+                    panel.targetTexture = oldTarget; panel.clearColor = oldClear; panel.colorClearValue = oldColor;
+                    Kill(scene); Kill(ui);
+                    if (rtUi != null) { rtUi.Release(); Kill(rtUi); }
+                    if (rtScene != null) { rtScene.Release(); Kill(rtScene); }
+                    Kill(gameObject);
+                }
+            }
+
+            static void Kill(Object o)
+            {
+                if (o == null) return;
+                if (Application.isPlaying) Destroy(o); else DestroyImmediate(o);
             }
 
             /// <summary>JSON {"w","h","rects":{name:[x,y,w,h]}} in capture pixels, top-left origin; the first
