@@ -121,5 +121,33 @@ namespace TW.Tests
             Assert.That(src, Does.Not.Contain("DownRaw("), "[I12] HudHotkeys reads a key with DownRaw, skipping InputFocus");
             Assert.That(src, Does.Contain("KeyMap.Down(GameAction.HudToggle)"), "[I12] the HUD toggle must be read with KeyMap.Down");
         }
+
+        /// <summary>[I13] The interim hooks the Toolkit HUD needed while the IMGUI HUD was still the HUD are gone:
+        /// HudHotkeys.LegacyOverlayActive (always false by the time Update() can run, so both its branches were dead),
+        /// the BattleHud.MinimapRect sync (TestPanel asks HudBridge while the Toolkit HUD is on), TrenchOrderCluster
+        /// .Interactive (no writer anywhere), HoverCard.key (assigned, never read) and BindCard's inTransit parameter
+        /// with the card badge it fed (the one caller always passed 0).</summary>
+        [Test]
+        public void TheInterimHudHooksAreGone()
+        {
+            const System.Reflection.BindingFlags Any = System.Reflection.BindingFlags.Public
+                | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance
+                | System.Reflection.BindingFlags.Static;
+            Assert.That(typeof(HudHotkeys).GetField("LegacyOverlayActive", Any), Is.Null,
+                "[I13] HudHotkeys.LegacyOverlayActive is dead: hotkeys only run while the Toolkit HUD is the HUD");
+            Assert.That(typeof(TrenchOrderCluster).GetField("Interactive", Any), Is.Null,
+                "[I13] TrenchOrderCluster.Interactive has no writer: it is always true");
+            Assert.That(typeof(HoverCard).GetField("key", Any), Is.Null,
+                "[I13] HoverCard.key is assigned and never read; keyCount is the one that counts");
+            var bind = typeof(HudView).GetMethod("BindCard");
+            Assert.That(bind, Is.Not.Null);
+            foreach (var p in bind.GetParameters())
+                Assert.That(p.Name, Is.Not.EqualTo("inTransit"), "[I13] BindCard's inTransit is always 0 at its one caller");
+            Assert.That(typeof(CardRefs).GetField("Badge", Any), Is.Null,
+                "[I13] the card badge was only ever written from inTransit, so it went with it");
+            var ctrl = System.IO.File.ReadAllText("Assets/_Project/UI/HudController.cs");
+            Assert.That(ctrl, Does.Not.Contain("BattleHud.MinimapRect ="),
+                "[I13] the MinimapRect sync is dead: TestPanel reads HudBridge while the Toolkit HUD is on");
+        }
     }
 }

@@ -96,14 +96,12 @@ namespace TW.UI
         public void ApplyFlag()
         {
             flagOn = HudBridge.UseToolkitHud;
-            HudHotkeys.LegacyOverlayActive = !flagOn;   // DebugOverlay handles 1-5 / Space / Backspace / L only while the IMGUI HUD is the HUD
             var root = doc != null ? doc.rootVisualElement : null;
             if (root != null) root.style.display = flagOn && visible ? DisplayStyle.Flex : DisplayStyle.None;
             if (flagOn) HudBridge.PointerOverUi = PointerOverHud;
             else if (HudBridge.PointerOverUi == PointerOverHud) HudBridge.PointerOverUi = null;
             if (legacy != null) legacy.enabled = !flagOn;
             if (!flagOn) selection?.Release();
-            if (!flagOn && Panel != null) BattleHud.MinimapRect = default;
         }
 
         public void SetVisible(bool on)
@@ -347,7 +345,7 @@ namespace TW.UI
                     {
                         int s = c.Slot;
                         var e = w.Roster[s];
-                        HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds, 0);
+                        HudView.BindCard(c, silver, w.SlotCooldown[s], Mathf.Max(1, e.CooldownTicks), w.SlotUnlocked[s] != 0, over, tickSeconds);
                     }
                     else
                     {
@@ -370,9 +368,9 @@ namespace TW.UI
         }
 
         /// <summary>
-        /// Until DebugOverlay and TestPanel read HudBridge (step A5): switch the IMGUI HUD off ourselves and keep its
-        /// static MinimapRect pointing at OUR minimap, so TestPanel.TryGroundPoint's old mask still refuses a ground
-        /// click under it. The bottom 100 px it also refuses is where our bar is.
+        /// Until the IMGUI HUD goes for good: switch it off ourselves while we are the HUD. Its static MinimapRect
+        /// needs no sync — TestPanel.TryGroundPoint asks HudBridge.IsPointerOverUi while the Toolkit HUD is on and
+        /// never looks at the old IMGUI mask ([I13], TestPanel.cs:105).
         /// </summary>
         void LegacyInterim()
         {
@@ -383,14 +381,6 @@ namespace TW.UI
                 legacy = main != null ? main.GetComponent<BattleHud>() : null;
             }
             if (legacy != null && legacy.enabled) legacy.enabled = false;
-            var root = doc.rootVisualElement;
-            float h = root.resolvedStyle.height;
-            if (h > 0f && refs.Minimap.panel != null)
-            {
-                float k = Screen.height / h;   // panel units to screen pixels (the panel is matched on height)
-                var wb = refs.MinimapBezel.worldBound;
-                BattleHud.MinimapRect = new Rect(wb.x * k, wb.y * k, wb.width * k, wb.height * k);
-            }
         }
     }
 

@@ -120,7 +120,7 @@ namespace TW.Tests
                 {
                     var c = refs.Cards[i];
                     if (c.IsSupport) HudView.BindSupportCard(c, silver, (f + i * 13) % 300, 300, false, false, tick);
-                    else HudView.BindCard(c, silver, (f + i * 17) % 200, 200, true, false, tick, f % 4);
+                    else HudView.BindCard(c, silver, (f + i * 17) % 200, 200, true, false, tick);
                 }
             }
             int next = 0;

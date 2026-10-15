@@ -1,7 +1,7 @@
 // Phase: B6 (implemented) — the single table of every sprite the interface skin is made of.
 // The importer (UiSkinImport) applies each entry's border and settings, the generator (UiSkinGenerator) paints a
 // placeholder for it, the verifier (UiSkinVerifier / SkinAssetTests) checks that the file on disk matches it, and
-// docs/16-ui-art-spec.md must mention every name in it. No file name is typed anywhere else, so an artist's
+// docs/17-ui-art-spec.md must mention every name in it (SkinAssetTests reads that file). No file name is typed anywhere else, so an artist's
 // replacement PNG can only be wrong in ways this table catches.
 namespace TW.UI
 {

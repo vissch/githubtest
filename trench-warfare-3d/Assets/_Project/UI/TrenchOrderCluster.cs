@@ -83,7 +83,6 @@ namespace TW.UI
         readonly Action<CommandType, int, int> issue;
         readonly GarrisonStats garrison;
         readonly TrenchFlagRequests flags;
-        public bool Interactive = true;
         /// <summary>The trench whose men badge is under the cursor, or -1.</summary>
         public int HoveredTrench { get; private set; } = -1;
 
@@ -283,7 +282,7 @@ namespace TW.UI
         /// <summary>Called once per frame after the camera has moved (execution order), with the panel to convert into.</summary>
         public void Refresh(IPanel panel, Camera unityCam, float panelW, float panelH, bool over)
         {
-            if (panel == null || unityCam == null || over || !Interactive) { HideAll(); return; }
+            if (panel == null || unityCam == null || over) { HideAll(); return; }
             var fields = host.Local.Fields;
             garrison?.Refresh(host.Local.World, fields.Trenches.Length);
             var map = host.Local.Map;

@@ -24,7 +24,7 @@ namespace TW.UI
         /// <summary>The portrait file stem under Assets/_Project/UI/Skin/Portraits/, per SkinSpec.PortraitNames.</summary>
         public static string PortraitName(byte archetype) => UnitLook.PortraitName(archetype);
 
-        /// <summary>How many unit portraits the skin has: archetypes 0..18, held at or above every archetype either
+        /// <summary>How many unit portraits the skin has: archetypes 0..20, held at or above every archetype either
         /// faction's roster hands out so a new machine cannot inherit its neighbour's picture.</summary>
         public const int PortraitCount = UnitLook.PortraitCount;
 
