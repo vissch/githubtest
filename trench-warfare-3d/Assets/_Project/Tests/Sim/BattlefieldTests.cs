@@ -136,9 +136,14 @@ namespace TW.Tests
 
             var p = BattlefieldParams.ShelledForest(1917);
             p.Rise = 9f;
+            p.TestLevel = true;
             var round = BattlefieldParams.Deserialize(p.Serialize());
             Assert.AreEqual(9f, round.Rise, 0f, "Rise survives the blob");
-            Assert.AreEqual(p.SeaMargin, round.SeaMargin, 0f, "Rise was appended after SeaMargin, not into it");
+            Assert.AreEqual(p.SeaMargin, round.SeaMargin, 0f, "Rise was appended after TestLevel, not into SeaMargin");
+            // The blob order is the seam: TestLevel landed first, so Rise is read after it. Swap the two and the
+            // float reads the bool's byte, which fails right here.
+            Assert.IsTrue(round.TestLevel, "TestLevel is still read before Rise");
+            Assert.AreEqual(9f, round.Rise, 0f, "Rise is read after TestLevel, not over it");
 
             var old = BattlefieldParams.ShelledForest(1917).Serialize();
             Assert.AreEqual(0f, BattlefieldParams.Deserialize(old).Rise, 0f, "a blob without the field reads 0");
