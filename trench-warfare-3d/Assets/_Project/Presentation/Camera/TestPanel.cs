@@ -4,6 +4,7 @@
 // time control, camera presets and restart. Everything goes through SimHost.Issue / IssuePeer so the lockstep path
 // is exercised exactly as it will be with a real opponent.
 using System;
+using Unity.Collections;
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Sim;
@@ -122,7 +123,7 @@ namespace TW.Presentation.Tactical
         {
             FlameClick();
             if (aim.Armed == OffMapAbilityId.None || Host == null || Host.Local == null) return;
-            if (!InputFocus.Gameplay) return;   // a shell screen has the input
+            if (!InputFocus.Gameplay) { aim.DropDrag(); return; }   // a shell screen took the input mid-drag (Q6)
             var mouse = Mouse.current;
             var kb = Keyboard.current;
             if ((kb != null && kb.escapeKey.wasPressedThisFrame) || (mouse != null && mouse.rightButton.wasPressedThisFrame))
@@ -145,9 +146,27 @@ namespace TW.Presentation.Tactical
             }
             else if (aim.Dragging && mouse != null)
             {
+                // Q6: a shell screen stealing the input mid-drag leaves no button held when it closes; the next
+                // release with neither held nor itself a release-this-frame used to fire a corridor from the old
+                // press point anyway.
+                if (!DragSurvives(true, mouse.leftButton.isPressed, mouse.leftButton.wasReleasedThisFrame)) { aim.DropDrag(); return; }
                 if (TryGroundPoint(out var q)) aim.Drag(q);
                 if (mouse.leftButton.wasReleasedThisFrame && aim.Release(aim.Current, tick, 0, out var line)) Host.Issue(line);
             }
+        }
+
+        /// <summary>[Q6] Whether a drag in progress should still be allowed to update or fire this frame: gameplay
+        /// has the input, and either the button is still down or this is the frame it was released.</summary>
+        public static bool DragSurvives(bool gameplay, bool leftHeld, bool releasedThisFrame) => gameplay && (leftHeld || releasedThisFrame);
+
+        /// <summary>[Q7] The first roster slot that is a tank for this faction, starting at <paramref name="offset"/>
+        /// (a player's roster base in a flat array), or -1. Slot 6 is only a tank for Brass; the other factions put
+        /// an engineer, a marksman or a medic there.</summary>
+        public static int TankSlot(NativeArray<RosterEntry> roster, int offset)
+        {
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+                if (ChassisKind.IsTank(roster[offset + s].Chassis)) return s;
+            return -1;
         }
 
         /// <summary>The living man of a team nearest a point on the ground, or -1. Vehicles do not carry flamethrowers.</summary>
@@ -385,7 +404,14 @@ namespace TW.Presentation.Tactical
             Host.ScriptedPeer = GUILayout.Toggle(Host.ScriptedPeer, " auto-deploy a unit every " + (Host.PeerDeployEveryTicks * w.Config.TickSeconds).ToString("0") + " s");
             GUILayout.BeginHorizontal();
             if (GUILayout.Button("Enemy deploy 5")) for (int k = 0; k < 5; k++) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 0));
-            if (GUILayout.Button("Enemy tank (Tusk)")) Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, 6));   // FactionRoster.Slot: Brass's tank
+            // Q7: slot 6 is a tank only for Brass; the British, German, French and Austro-Hungarian rosters put an
+            // engineer, a marksman or a medic there instead, so the slot (and its name) has to be read off the
+            // enemy's own roster rather than hard-coded.
+            int enemyTankSlot = TankSlot(Host.EnemyView.World.Roster, RosterEntry.SlotCount);
+            GUI.enabled = enemyTankSlot >= 0;
+            if (GUILayout.Button(enemyTankSlot >= 0 ? $"Enemy tank ({UnitLook.VehicleName(Host.EnemyView.World.Roster[RosterEntry.SlotCount + enemyTankSlot].Archetype)})" : "Enemy tank (none)"))
+                Host.IssuePeer(SimCommand.Deploy(Host.EnemyView.World.Tick, 1, enemyTankSlot));
+            GUI.enabled = true;
             GUILayout.EndHorizontal();
             Host.PeerDeploysTanks = GUILayout.Toggle(Host.PeerDeploysTanks, " sends a tank whenever it can afford one");
             Host.PeerAttacks = GUILayout.Toggle(Host.PeerAttacks, $" attacks on its own: {Host.PeerAttackGarrison}+ men at 2:1 behind a barrage, or 3:1");

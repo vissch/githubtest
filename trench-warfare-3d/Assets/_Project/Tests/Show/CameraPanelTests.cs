@@ -1,8 +1,11 @@
 // Phase: review-fix (rv-37-p2-u16, 2026-10-13) — code review 2026-10-04, unit 16: Q1 (TestPanel.cs:262), Q4
 // (TacticalCamera.cs:156,171), Q5 (TestPanel.cs:59-67).
+// rv-74-p3-u16, 2026-10-15: Q6 (TestPanel.cs:81), Q7 (TestPanel.cs:343).
 using NUnit.Framework;
+using Unity.Collections;
 using UnityEngine;
 using TW.Sim;
+using TW.Sim.Match;
 using TW.Presentation;
 using TW.Presentation.Tactical;
 
@@ -67,6 +70,62 @@ namespace TW.Tests
             Vector2 panelButton = new Vector2(corner.x + 5f, screenH - (corner.y + 5f));
             Assert.IsTrue(TestPanel.OverImguiChrome(panelButton, false, true, screenW, screenH),
                 "[Q5] the Debug panel button itself did not swallow the click");
+        }
+
+        /// <summary>[Q6] A line-ability drag interrupted by a shell screen (gameplay lost mid-drag) stays alive with
+        /// no button held, so a later release — neither held nor itself a release-this-frame — used to fire a
+        /// corridor from the old press point. DragSurvives is false the moment gameplay is not focused or neither
+        /// condition holds, true while the button is still down or on its own release frame.</summary>
+        [Test]
+        public void DragSurvivesOnlyWhileGameplayHasTheButtonOrItsRelease()
+        {
+            Assert.IsFalse(TestPanel.DragSurvives(false, false, false), "[Q6] no gameplay focus, nothing held: must not survive");
+            Assert.IsFalse(TestPanel.DragSurvives(true, false, false), "[Q6] gameplay focus but no button and no release: must not survive");
+            Assert.IsTrue(TestPanel.DragSurvives(true, true, false), "[Q6] the button is still held: must survive");
+            Assert.IsTrue(TestPanel.DragSurvives(true, false, true), "[Q6] this is the release frame: must survive");
+        }
+
+        /// <summary>[Q6] DropDrag clears Dragging without touching Armed, so a following Release sees no drag and
+        /// fires nothing — the stuck corridor is gone, the ability itself is still up.</summary>
+        [Test]
+        public void DropDragLosesTheLineButKeepsTheAbilityArmed()
+        {
+            var aim = new AbilityAim();
+            aim.Arm(OffMapAbilityId.SmokeScreen);   // Target.Line: a press starts a drag rather than firing at once
+            aim.Press(new Vector3(10f, 0f, 10f), 0, 0, out _);
+            Assert.IsTrue(aim.Dragging, "[Q6] setup: the press should have started a drag");
+
+            aim.DropDrag();
+
+            Assert.IsFalse(aim.Dragging, "[Q6] DropDrag left the drag alive");
+            Assert.AreEqual(OffMapAbilityId.SmokeScreen, aim.Armed, "[Q6] DropDrag disarmed the ability, not just the drag");
+            Assert.IsFalse(aim.Release(new Vector3(20f, 0f, 10f), 1, 0, out var cmd), "[Q6] a release after DropDrag still fired a command");
+        }
+
+        /// <summary>[Q7] TankSlot is the first roster slot that is a tracked (tank) chassis. The FactionRoster table:
+        /// slot 6 is the Maw for Iron and the Tusk for Brass (both tracked), but for the four historical armies slot 6
+        /// is an engineer, an officer or a medic and their tank sits at slot 7.</summary>
+        [Test]
+        public void TankSlotFindsTheFirstTrackedSlotForEveryFaction()
+        {
+            var roster = new NativeArray<RosterEntry>(2 * RosterEntry.SlotCount, Allocator.Temp);
+            try
+            {
+                void Check(FactionId faction, int expectedSlot)
+                {
+                    for (int s = 0; s < RosterEntry.SlotCount; s++) roster[RosterEntry.SlotCount + s] = FactionRoster.Slot(faction, s);
+                    int ts = TestPanel.TankSlot(roster, RosterEntry.SlotCount);
+                    Assert.AreEqual(expectedSlot, ts, $"[Q7] {faction}'s tank slot");
+                    Assert.IsTrue(ChassisKind.IsTank(roster[RosterEntry.SlotCount + ts].Chassis), $"[Q7] {faction}'s found slot is not a tank");
+                }
+                Check(FactionId.Iron, 6);
+                Check(FactionId.Brass, 6);
+                Check(FactionId.British, 7);
+                Check(FactionId.German, 7);
+                Check(FactionId.French, 7);
+                Check(FactionId.AustroHungarian, 7);
+            }
+            finally { roster.Dispose(); }
         }
     }
 }
