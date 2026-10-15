@@ -22,7 +22,9 @@ namespace TW.Presentation.Tactical
         void GagDeath(in SimEvent e, in DeathRecord rec, Vector3 p, float yaw, byte team, byte archetype, int variant, Clip clip, Clip from, float fromPhase, float fade, Vector3 fly, int gib, float grime, int density, int chr)
         {
             var gag = rec.Gag;
-            if (gag.Gag == DeathGag.Fountain) TimePinch.For(gameObject).Fire();
+            // the lockstep flag is the match's own single-player/lockstep answer (LockstepSession.Canary, via
+            // SimHost.CanaryActive): a local time-scale change under lockstep would desync the two worlds
+            if (gag.Gag == DeathGag.Fountain) TimePinch.For(gameObject).Fire(Host != null && Host.CanaryActive);
             // torn in two by the shell (CombatFx.OwnGibs): both his halves flew, so no corpse; his path is still planned,
             // and the dust and the blood go where it comes down, which is where the upper half lands
             if ((gib & GibPlan.TornBit) != 0) { gib &= ~GibPlan.TornBit; gag.Flags |= GagFlags.NoCorpse; }
