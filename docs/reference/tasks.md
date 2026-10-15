@@ -735,6 +735,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   event is delivered twice or lost), EventPumpTests (the pump remembers how many events the last Dispatch delivered,
   which is the count the debug overlay prints),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
+  ShotStaggerTests, TracerGlowTests, TracerSideBySideTests (`fx.tracerInSmoke` off by default, both orders draw),
+  ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests. `TracerStills` (`Tests/Stills/`, explicit): the night tracer moment filmed twice, today's beams and
   tracers inside the smoke, same seed and step, for the side-by-side decision brief (`docs/reference/decisions.md`,
@@ -743,6 +745,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and `fx.maxBodies` to [1, 1023], so neither knob can empty-list-crash `OnDeath`/`AddMark` or overflow a batch),
   CombatFxReviewTests (a bomb in the air at a standstill does not fill the chunk pool; the water, smoke and flash
   tints are painted before the flipbooks are baked; every mesh the component builds is freed)).- **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
+- **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
   heave and smoke in the shell-burst handler (`fx.columnSoil`, `fx.columnCap`, `fx.columnPlay`, `fx.smokeNight*`; the VFX
   pass's burst recipes, `fx.recipes`, on by default since 2026-10-07, 0 = the old burst, `CombatFx.Recipes.cs`; the medic's glint behind it, `CombatFx.Support.cs`, the gas and smoke banks, `CombatFx.Banks.cs`, the incoming shells, `CombatFx.Barrage.cs`; fire from far off, halo and thinning, `FlipbookFx.FarFire.cs`; the smoke weight and lean, `fx.smokeWeight`/`fx.smokeLean`, `FlipbookFx.Smoke.cs`; the fire in a shell burst, the bloom on the hole and the pockets in its cloud, `fx.shellFire`, the grit `fx.shellGrit`, `CombatFx.ShellFire.cs`; the census of which events the picture draws most, `VfxEventCensusTests.cs` (explicit, run by name); each class's small arms, `fx.classArms`, `CombatFx.Weapons.cs`; what a gun does at play zoom - the muzzle flash's cel, roll and size per shot, the muzzle's own short cloud and the dust where a round strikes a man, `CombatFx.GunFx.cs`, guarded by `GunFxTests.cs`; each machine's gun and the mortar's arc, the Salvo's ripple and each gun's own piece near the eye, `TankRenderer.Guns.cs`; each weapon's own drawing among the men and the close assault's thrown bundle, `CombatFx.Close.cs`; each burst by what made it (mortar, rocket, calibre, mine, tripwire), `CombatFx.Bursts.cs`; the effects' quality tier (Low/Medium/High/Epic: every budget, the close-up reach; the knob `fx.quality`, the setting EFFECTS DETAIL), `Presentation/Core/FxQuality.cs`, tested in `FxQualityTests.cs`), when a
   tick's rifle shots are shown (`Presentation/Core/ShotStagger.cs`, `fx.shotStagger`), and where a tracer is drawn among
