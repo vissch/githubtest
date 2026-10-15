@@ -17,6 +17,9 @@ namespace TW.Presentation.Terrain
         const int SlotsPerStep = 3;
         readonly Vector4[] rings = new Vector4[Count];
         int next, cursor;
+        readonly int[] picks = new int[SlotsPerStep];
+        System.Func<int, bool> rippling;
+        SimWorld scanWorld;
         float nextStep;
         bool subscribed;
         static readonly int RingsId = Shader.PropertyToID("_TWRings"), NowId = Shader.PropertyToID("_TWNow");
@@ -24,6 +27,34 @@ namespace TW.Presentation.Terrain
         void Awake()
         {
             for (int i = 0; i < Count; i++) rings[i] = new Vector4(0f, 0f, -1000f, 0f);
+            rippling = Rippling;   // built once: the step itself must allocate nothing
+        }
+
+        bool Rippling(int i)
+        {
+            if ((scanWorld.Flags[i] & (uint)UnitFlags.Alive) == 0) return false;
+            var v = scanWorld.Velocity[i];
+            if (v.x * v.x + v.z * v.z < .09f) return false;
+            var p = scanWorld.Position[i];
+            return IsWater(p.x, p.z);
+        }
+
+        /// <summary>The slots that ripple this step: walks `scan` slots from `cursor` round `high`, keeps the first
+        /// `slots` that `ripples` says yes to in `into`, and leaves `next` one past the last one it took (W6: the
+        /// cursor used to move inside the walk, which also added n, so the walk skipped slots). Fewer than `slots`
+        /// found: `next` catches up past the whole scanned run, as before. Returns how many it found.</summary>
+        public static int RipplesThisStep(int high, int scan, int slots, System.Func<int, bool> ripples, int[] into, int cursor, out int next)
+        {
+            int found = 0, last = -1;
+            for (int n = 0; n < high && n < scan && found < slots; n++)   // bounded: 3,000 men on dry land must not cost 3,000 lookups
+            {
+                int i = ((cursor + n) % high + high) % high;
+                if (!ripples(i)) continue;
+                into[found++] = i; last = i;
+            }
+            if (found >= slots && slots > 0) next = last + 1;
+            else next = high > 0 ? (((cursor + scan) % high) + high) % high : 0;
+            return found;
         }
 
         void OnDestroy()
@@ -54,20 +85,14 @@ namespace TW.Presentation.Terrain
             {
                 // a few wading men a step, taken in turn round the unit slots so a whole column ripples, not its first three
                 nextStep = Time.time + .22f;
-                var w = Host.Local.World;
-                int found = 0;
-                for (int n = 0; n < w.HighWater && n < 400 && found < SlotsPerStep; n++)   // bounded: 3,000 men on dry land must not cost 3,000 lookups
+                scanWorld = Host.Local.World;
+                int found = RipplesThisStep(scanWorld.HighWater, 400, SlotsPerStep, rippling, picks, cursor, out cursor);
+                for (int s = 0; s < found; s++)
                 {
-                    int i = (cursor + n) % w.HighWater;
-                    if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
-                    var v = w.Velocity[i];
-                    if (v.x * v.x + v.z * v.z < .09f) continue;
-                    var p = w.Position[i];
-                    if (!IsWater(p.x, p.z)) continue;
-                    Add(p.x, p.z, (w.Flags[i] & (uint)UnitFlags.Vehicle) != 0 ? 3.2f : 1.15f);
-                    found++; cursor = i + 1;
+                    int i = picks[s];
+                    var p = scanWorld.Position[i];
+                    Add(p.x, p.z, (scanWorld.Flags[i] & (uint)UnitFlags.Vehicle) != 0 ? 3.2f : 1.15f);
                 }
-                if (found < SlotsPerStep) cursor = w.HighWater > 0 ? (cursor + 400) % w.HighWater : 0;
             }
             Shader.SetGlobalVectorArray(RingsId, rings);
             Shader.SetGlobalFloat(NowId, Time.time);

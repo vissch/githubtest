@@ -1,12 +1,14 @@
-// Phase: review fixes (rv-77-p3-u19a) — the weather findings W4 and W5. Both are source contracts: Storm's meshes
+// Phase: review fixes (rv-77-p3-u19a) — the weather findings W4, W5, W6 and W7. Both are source contracts: Storm's meshes
 // are made in Start and freed in OnDestroy, which only run in play (and Destroy throws in edit mode), and the rain's
 // wrap is a deal between Rain.cs and Rain_URP.shader that nothing here can run. So each test pins the one line the
 // finding is about and the number on the other side it has to agree with.
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation.Terrain;
 
 namespace TW.Tests
 {
@@ -78,6 +80,86 @@ namespace TW.Tests
                 Assert.That(jump, Is.LessThan(1e-4f),
                     "[W5] streak " + i + " jumps " + jump + " boxes at a wrap; it must jump none");
             }
+        }
+
+        // [W6] the wading scan must take the slots in turn: the cursor used to move inside the same walk that adds
+        // n, so after the first hit the walk restarted and skipped slots. Expected values from the finding's worked
+        // example: 20 alive units all rippling, cursor 0, three a step -> 0, 1, 2 and the cursor left at 3.
+        [Test]
+        public void TheWadingScanTakesEverySlotInTurn()
+        {
+            var into = new int[3];
+            int found = WaterRings.RipplesThisStep(20, 400, 3, i => true, into, 0, out int next);
+            Assert.That(found, Is.EqualTo(3), "[W6] three rippling slots a step");
+            Assert.That(new[] { into[0], into[1], into[2] }, Is.EqualTo(new[] { 0, 1, 2 }),
+                "[W6] the scan skipped slots: it must take them in turn");
+            Assert.That(next, Is.EqualTo(3), "[W6] the cursor must come to rest one past the last slot taken");
+
+            var rippling = new HashSet<int> { 5, 6, 7, 12 };
+            found = WaterRings.RipplesThisStep(20, 400, 3, i => rippling.Contains(i), into, 0, out next);
+            Assert.That(found, Is.EqualTo(3), "[W6] three of the four rippling slots this step");
+            Assert.That(new[] { into[0], into[1], into[2] }, Is.EqualTo(new[] { 5, 6, 7 }),
+                "[W6] the scan must take the rippling slots in turn, not every other one");
+            Assert.That(next, Is.EqualTo(8), "[W6] the cursor must come to rest one past the last slot taken");
+        }
+
+        // [W7] LampOut used to clear glow card j for lantern j, but MoreFires appends cards with no lantern, so a
+        // lantern added after it points at a burning tree's card. Here lantern 2's card is 4; cards 2 and 3 are
+        // MoreFires'. Expected: card 4 goes clear, cards 0-3 stay lit.
+        [Test]
+        public void LampOutClearsTheCardOfTheLampThatWentOut()
+        {
+            var go = new GameObject("W7 night lights");
+            var mesh = new Mesh();
+            var lights = new List<Light>();
+            try
+            {
+                var nl = go.AddComponent<NightLights>();
+                for (int i = 0; i < 3; i++)
+                {
+                    var lgo = new GameObject("lamp " + i);
+                    lgo.transform.position = new Vector3(i * 20f, 0f, 0f);
+                    var l = lgo.AddComponent<Light>();
+                    l.enabled = true;
+                    lights.Add(l);
+                }
+                var verts = new Vector3[20]; var cols = new Color[20];      // five glow cards, four vertices each
+                for (int i = 0; i < 20; i++) cols[i] = Color.white;
+                mesh.vertices = verts; mesh.colors = cols;
+
+                Set(nl, "lanterns", lights);
+                Set(nl, "lanternHome", new List<Vector3> { lights[0].transform.position, lights[1].transform.position, lights[2].transform.position });
+                Set(nl, "lanternCard", new List<int> { 0, 1, 4 });
+                Set(nl, "nightGlows", mesh);
+
+                var lampOut = typeof(NightLights).GetMethod("LampOut",
+                    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                Assert.That(lampOut, Is.Not.Null, "[W7] NightLights.LampOut moved");
+                lampOut.Invoke(nl, new object[] { new Vector3(40f, 0f, 0f), 1f });
+
+                var after = mesh.colors;
+                Assert.That(lights[2].enabled, Is.False, "[W7] the lamp whose post went must go out");
+                for (int k = 0; k < 4; k++)
+                    Assert.That(after[4 * 4 + k], Is.EqualTo(Color.clear), "[W7] card 4 is that lamp's card and must go clear");
+                for (int c = 0; c < 4; c++)
+                for (int k = 0; k < 4; k++)
+                    Assert.That(after[c * 4 + k], Is.EqualTo(Color.white),
+                        "[W7] card " + c + " belongs to another lamp or to MoreFires and must stay lit");
+            }
+            finally
+            {
+                foreach (var l in lights) if (l != null) Object.DestroyImmediate(l.gameObject);
+                Object.DestroyImmediate(mesh);
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        static void Set(object target, string field, object value)
+        {
+            var f = target.GetType().GetField(field,
+                System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+            Assert.That(f, Is.Not.Null, "[W7] NightLights." + field + " moved");
+            f.SetValue(target, value);
         }
     }
 }

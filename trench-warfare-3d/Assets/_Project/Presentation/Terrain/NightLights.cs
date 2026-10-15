@@ -52,6 +52,9 @@ namespace TW.Presentation.Terrain
         readonly List<Light> lanterns = new List<Light>();
         readonly List<float> lanternPhase = new List<float>(), lanternBase = new List<float>();
         readonly List<Vector3> lanternHome = new List<Vector3>();
+        /// <summary>The night-glows card each lantern really got: MoreFires adds cards with no lantern, so card j is
+        /// not lanterns[j] (W7). LampOut clears lanternCard[j].</summary>
+        readonly List<int> lanternCard = new List<int>();
         readonly List<Vector3> firePoints = new List<Vector3>();
         /// <summary>Where the lamps hang and the big fires burn, once built (SmallLife puts moths and ash there).</summary>
         public IReadOnlyList<Vector3> LampPoints => lanternHome;
@@ -208,7 +211,7 @@ namespace TW.Presentation.Terrain
                 Part(PrimitiveType.Cube, lamp + site.Rotation * new Vector3(.34f, -.22f, 0f), new Vector3(.20f, .30f, .20f), glass, site.Rotation);
                 var l = MakeLight("Lantern " + lanterns.Count, Lantern, LanternIntensity, LanternRange);
                 l.transform.position = lamp + site.Rotation * new Vector3(.34f, -.20f, 0f);
-                lanterns.Add(l); lanternPhase.Add(i * 1.618f);
+                lanterns.Add(l); lanternPhase.Add(i * 1.618f); lanternCard.Add(centres.Count);
                 centres.Add(l.transform.position); shapes.Add(new Vector4(2.6f, .18f, i * .137f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .55f));
             }
             // a lamp on a post by each observation stand and field gun, on the side the standard view sees (critique round 1:
@@ -233,7 +236,7 @@ namespace TW.Presentation.Terrain
                     Part(PrimitiveType.Cube, lamp + facing * new Vector3(.34f, -.22f, 0f), new Vector3(.20f, .30f, .20f), glass, facing);
                     var l = MakeLight("Prop lamp " + propLamps, Lantern, LanternIntensity, LanternRange);
                     l.transform.position = lamp + facing * new Vector3(.34f, -.20f, 0f);
-                    lanterns.Add(l); lanternPhase.Add(propLamps * 2.39f);
+                    lanterns.Add(l); lanternPhase.Add(propLamps * 2.39f); lanternCard.Add(centres.Count);
                     centres.Add(l.transform.position); shapes.Add(new Vector4(2.6f, .18f, propLamps * .151f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .55f));
                     propLamps++;
                 }
@@ -251,7 +254,7 @@ namespace TW.Presentation.Terrain
                     Vector3 at = p + Vector3.up * LanternGlassHeight;
                     var l = MakeLight("Trench lamp " + hung, Lantern, LanternIntensity * .8f, 8.5f);
                     l.transform.position = at;
-                    lanterns.Add(l); lanternPhase.Add(p.x * 2.3f + p.z);
+                    lanterns.Add(l); lanternPhase.Add(p.x * 2.3f + p.z); lanternCard.Add(centres.Count);
                     centres.Add(at); shapes.Add(new Vector4(2.0f, .18f, i * .091f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .5f));
                     hung++;
                 }
@@ -275,7 +278,7 @@ namespace TW.Presentation.Terrain
                 Part(PrimitiveType.Cube, at + Vector3.up * .2f, new Vector3(.05f, .16f, .05f), post, Quaternion.identity);
                 var l = MakeLight("Trench lamp " + hung, Lantern, LanternIntensity * .8f, 8.5f);
                 l.transform.position = at + new Vector3(0f, .05f, .25f);
-                lanterns.Add(l); lanternPhase.Add(x * 2.3f + z);
+                lanterns.Add(l); lanternPhase.Add(x * 2.3f + z); lanternCard.Add(centres.Count);
                 centres.Add(at); shapes.Add(new Vector4(2.0f, .18f, x * .091f, .5f)); colors.Add(new Color(Lantern.r, Lantern.g, Lantern.b, .5f));
                 hung++;
             }
@@ -289,7 +292,7 @@ namespace TW.Presentation.Terrain
                 Vector3 at = new Vector3(prop.Pos.x, RenderGround.Sample(map, prop.Pos.x, prop.Pos.z) + (prop.Kind == PropKind.Stump ? .5f : 1.3f), prop.Pos.z);
                 var l = MakeLight("Fire " + fires, Burst, 7f, 11f);
                 l.transform.position = at + Vector3.up * .4f;
-                lanterns.Add(l); lanternPhase.Add(i * .77f);
+                lanterns.Add(l); lanternPhase.Add(i * .77f); lanternCard.Add(centres.Count);
                 centres.Add(at); shapes.Add(new Vector4(3.4f, .6f, i * .173f, .4f)); colors.Add(new Color(1f, .45f, .12f, .9f));
                 flameFeet.Add(at - Vector3.up * .15f); flameShapes.Add(new Vector4(1.25f, 1.9f, Hash(i, 97), 0f));
                 flameFeet.Add(at + new Vector3(.35f, -.3f, .2f)); flameShapes.Add(new Vector4(.7f, 1.0f, Hash(i, 101), 0f));
@@ -311,7 +314,7 @@ namespace TW.Presentation.Terrain
                 Vector3 wick = at + Vector3.up * 1.68f;
                 var l = MakeLight("Torch " + torches, new Color(1f, .58f, .22f), 6.5f, 10f);
                 l.transform.position = wick + Vector3.up * .25f;
-                lanterns.Add(l); lanternPhase.Add(i * 3.1f);
+                lanterns.Add(l); lanternPhase.Add(i * 3.1f); lanternCard.Add(centres.Count);
                 centres.Add(wick + Vector3.up * .25f); shapes.Add(new Vector4(3.0f, .5f, i * .213f, .4f)); colors.Add(new Color(1f, .50f, .15f, .8f));
                 flameFeet.Add(wick); flameShapes.Add(new Vector4(.42f, .80f, Hash(i, 89), 0f));
                 torches++;
@@ -344,7 +347,7 @@ namespace TW.Presentation.Terrain
             var host = new GameObject("Night glows") { hideFlags = HideFlags.DontSave };
             host.transform.SetParent(transform, false);
             AddGlowMesh(host, glow, centres.ToArray(), shapes.ToArray(), colors.ToArray());
-            nightGlows = host.GetComponent<MeshFilter>().sharedMesh;   // card j is lanterns[j]: a lamp whose post goes is put out on it (LampOut)
+            nightGlows = host.GetComponent<MeshFilter>().sharedMesh;   // lantern j's card is lanternCard[j] (not j: MoreFires adds cards with no lantern): a lamp whose post goes is put out on it (LampOut)
         }
 
         void AddFlameMesh(List<Vector3> feet, List<Vector4> flameShapes)
