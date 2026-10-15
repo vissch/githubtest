@@ -237,5 +237,26 @@ namespace TW.Tests
             Assert.Contains("ticks=4e2", o.Bad, "a value that is not a number must be reported");
             Assert.Contains(@"Drive\run.json", o.Unknown, "a token with no '=' must be reported");
         }
+
+        [Test]
+        public void ABareBenchFlagArmsTheDefaultRun()   // [F16]
+        {
+            Assert.AreEqual("", PerfBench.RawFromArgs(new[] { "g.exe", "-twbench" }),
+                "[F16] -twbench as the last argument must arm the default run, not nothing");
+            Assert.AreEqual("", PerfBench.RawFromArgs(new[] { "g.exe", "-twbench", "-batchmode" }),
+                "[F16] -twbench before another switch must not swallow that switch as its own value");
+            Assert.AreEqual("ticks=5", PerfBench.RawFromArgs(new[] { "g.exe", "-twbench", "ticks=5" }));
+            Assert.IsNull(PerfBench.RawFromArgs(new[] { "g.exe" }), "[F16] no -twbench at all must arm nothing");
+        }
+
+        [Test]
+        public void NegativeTicksAndSettleAreClampedAndReported()   // [F16]
+        {
+            var o = BenchOptions.Parse("settle=-1 ticks=-1");
+            Assert.AreEqual(0, o.SettleTicks, "[F16] settle=-1 cast to uint would run for billions of ticks");
+            Assert.AreEqual(1, o.Ticks, "[F16] ticks=-1 cast to uint would run for billions of ticks");
+            Assert.Contains("settle=-1 -> 0", o.Clamped, "[F16] a clamped value must be reported");
+            Assert.Contains("ticks=-1 -> 1", o.Clamped, "[F16] a clamped value must be reported");
+        }
     }
 }

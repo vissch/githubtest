@@ -82,15 +82,13 @@ namespace TW.Perf
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.BeforeSceneLoad)]
         static void Boot()
         {
-            string raw = null;
-            var args = Environment.GetCommandLineArgs();
-            for (int i = 0; i + 1 < args.Length; i++) if (args[i] == CommandLineArg) { raw = args[i + 1]; break; }
+            string raw = RawFromArgs(Environment.GetCommandLineArgs());
             if (raw == null)
             {
                 raw = Environment.GetEnvironmentVariable(EnvVar);
                 if (!string.IsNullOrEmpty(raw)) Environment.SetEnvironmentVariable(EnvVar, null);   // one run per request
+                if (string.IsNullOrEmpty(raw)) return;   // TW_BENCH="" arms nothing, same as absent
             }
-            if (string.IsNullOrEmpty(raw)) return;
             var o = BenchOptions.Parse(raw);
             ClearStaleReport(o);   // F7: a hung run must not leave the previous report where a reader takes it for this one's
             // presentation knobs before the scene loads, so every Awake/Start that reads one sees the bench's value
@@ -106,6 +104,20 @@ namespace TW.Perf
             Running.Options = o;
             Debug.Log("[PerfBench] armed: " + raw);
             if (o.GroundUnknown) Debug.LogError("[PerfBench] " + UnknownGroundWhy(o));   // the run stops on its first frame (WaitHost)
+        }
+
+        /// <summary>[F16] the `-twbench` command line value: null when the flag is absent, "" when it is the last
+        /// argument or the next one looks like another switch (a bare `-twbench` used to arm nothing, or swallow the
+        /// next switch as its own value), else that value.</summary>
+        public static string RawFromArgs(string[] args)
+        {
+            for (int i = 0; i < args.Length; i++)
+            {
+                if (args[i] != CommandLineArg) continue;
+                if (i + 1 >= args.Length || args[i + 1].StartsWith("-", StringComparison.Ordinal)) return "";
+                return args[i + 1];
+            }
+            return null;
         }
 
         /// <summary>F7: the report of the run before is removed as this one is armed, so a run that never reports
@@ -130,6 +142,7 @@ namespace TW.Perf
         float zoomUsed = float.NaN;   // the camera's zoom after its own clamp (Options.Zoom is what was asked)
         int waitFrames, warmLeft, alivePeak;
         float stageDeadline, keepShake = 1f;
+        bool shakeHeld;
         uint lastTick, t0;
         ulong hashStart, hashEnd;
         bool hashStartTaken;
@@ -253,8 +266,7 @@ namespace TW.Perf
             if (cam == null) cam = Camera.main;
             focus = float.IsNaN(Options.FocusX) || float.IsNaN(Options.FocusZ) ? ArmyCentre(w) : new Vector2(Options.FocusX, Options.FocusZ);
             if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
-            keepShake = CameraShake.Strength;
-            CameraShake.Strength = 0f;
+            HoldShake();
             if (Options.Weather >= 0f) Atmosphere.PinnedClock = Options.Weather;
             warmLeft = Mathf.Max(1, Options.Warm);
             Enter(Stage.Warm);
@@ -335,8 +347,17 @@ namespace TW.Perf
             cam = tactical != null ? tactical.GetComponent<Camera>() : null;
             if (cam == null) cam = Camera.main;
             if (tactical != null) tactical.enabled = false;   // it re-places the camera every frame; the bench holds it
+            HoldShake();
+        }
+
+        /// <summary>[F14] saves CameraShake.Strength once (TakeCamera and Approach both call this; the second call used
+        /// to overwrite keepShake with the first's already-zeroed value, so the shake never came back).</summary>
+        void HoldShake()
+        {
+            if (shakeHeld) return;
             keepShake = CameraShake.Strength;
             CameraShake.Strength = 0f;
+            shakeHeld = true;
         }
 
         /// <summary>The lead-in's view: the standard view over the army's centre on this frame's tick. The window's
@@ -419,12 +440,26 @@ namespace TW.Perf
         /// <summary>`shot_hud=0` on an image run: every UI Toolkit panel's root is set to display none, each frame (a panel
         /// rebuilt later is caught too), and CombatFx's world-space overlays (strike target discs, aiming circle, banner) are
         /// not drawn. The HUD still runs; it is only not drawn.</summary>
+        bool hudHidden;
+
         void HideHud()
         {
             if (Options.ShotHud || Options.ShotTick < 0) return;
             TW.Presentation.Tactical.CombatFx.ShowOverlays = false;   // the strike discs and the banner are HUD too, drawn in the world (C56)
             foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
                 if (doc.rootVisualElement != null) doc.rootVisualElement.style.display = UnityEngine.UIElements.DisplayStyle.None;
+            hudHidden = true;
+        }
+
+        /// <summary>[F14] undoes HideHud: nothing ever put the overlays and HUD back, so a run that stayed (quit=0)
+        /// left the editor with no HUD. StyleKeyword.Null (not Flex) gives each panel back whatever its stylesheet says.</summary>
+        void ShowHud()
+        {
+            if (!hudHidden) return;
+            TW.Presentation.Tactical.CombatFx.ShowOverlays = true;
+            foreach (var doc in FindObjectsByType<UnityEngine.UIElements.UIDocument>(FindObjectsSortMode.None))
+                if (doc.rootVisualElement != null) doc.rootVisualElement.style.display = UnityEngine.UIElements.StyleKeyword.Null;
+            hudHidden = false;
         }
 
         /// <summary>The `shot=` still, once, written at the end of this frame. The report's `still` block says which frame
@@ -717,6 +752,7 @@ namespace TW.Perf
             if (gpuRec.Valid) gpuRec.Dispose();
             ReleaseClock();
             CameraShake.Strength = keepShake;
+            ShowHud();   // [F14] a quitting run may restore too: it costs nothing
             Atmosphere.PinnedClock = -1f;
             EventPump.ProfileSubscribers = false;
             SimHost.StressOverride = -1;
@@ -1008,6 +1044,7 @@ namespace TW.Perf
             if (splitSkipped > 0) warnings.Add(splitSkipped + " of " + frames + " frames had no Main Thread recorder value: they are in main_ms but not in the tick/idle series");   // F4
             if (Options.Unknown.Count > 0) warnings.Add("unknown bench option(s) ignored: " + string.Join(", ", Options.Unknown));
             if (Options.Bad.Count > 0) warnings.Add("bench option(s) with an unreadable number, the default ran instead: " + string.Join(", ", Options.Bad));   // F5
+            if (Options.Clamped.Count > 0) warnings.Add("bench option(s) out of range, clamped: " + string.Join(", ", Options.Clamped));   // F16
             if (Options.Scenario == BenchScenario.None && Options.ScenarioRaw.Length > 0 && Options.ScenarioRaw.ToLowerInvariant() != "none")
                 warnings.Add("unknown scenario '" + Options.ScenarioRaw + "': ran none");
             warnings.AddRange(scenarioLog.Warnings);

@@ -81,6 +81,9 @@ namespace TW.Perf
         /// <summary>F5: values that are not a number ("ticks=4e2"), which fell back to the default. PerfBench warns, so a
         /// bad number cannot run the default silently.</summary>
         public System.Collections.Generic.List<string> Bad = new System.Collections.Generic.List<string>();
+        /// <summary>[F16] values a range check pulled up to a minimum (e.g. "settle=-1 -> 0"): without this, a negative
+        /// settle or ticks cast to uint and ran for billions of ticks instead of stopping at the stage deadline.</summary>
+        public System.Collections.Generic.List<string> Clamped = new System.Collections.Generic.List<string>();
 
         /// <summary>F5: the bench string cut into key=value tokens. Space, comma and semicolon separate, but only OUTSIDE
         /// double quotes, and the quotes themselves are dropped: `out="G:/My Drive/run.json"` stays one token.</summary>
@@ -114,15 +117,15 @@ namespace TW.Perf
                 string k = token.Substring(0, eq).Trim().ToLowerInvariant(), v = token.Substring(eq + 1).Trim();
                 switch (k)
                 {
-                    case "stress": o.Stress = I(v, o.Stress, k, o); break;
-                    case "settle_ticks": case "settle": o.SettleTicks = I(v, o.SettleTicks, k, o); break;
-                    case "ticks": o.Ticks = I(v, o.Ticks, k, o); break;
-                    case "warm": o.Warm = I(v, o.Warm, k, o); break;
-                    case "ff": o.FastForward = F(v, o.FastForward, k, o); break;
+                    case "stress": o.Stress = Clamp(I(v, o.Stress, k, o), 0, k, o); break;
+                    case "settle_ticks": case "settle": o.SettleTicks = Clamp(I(v, o.SettleTicks, k, o), 0, k, o); break;
+                    case "ticks": o.Ticks = Clamp(I(v, o.Ticks, k, o), 1, k, o); break;
+                    case "warm": o.Warm = Clamp(I(v, o.Warm, k, o), 1, k, o); break;
+                    case "ff": o.FastForward = ClampF(F(v, o.FastForward, k, o), 0.1f, k, o); break;
                     case "quality": o.Quality = I(v, o.Quality, k, o); break;
                     case "vsync": o.VSync = v == "1" || v.ToLowerInvariant() == "true"; break;
-                    case "w": case "width": o.Width = I(v, o.Width, k, o); break;
-                    case "h": case "height": o.Height = I(v, o.Height, k, o); break;
+                    case "w": case "width": o.Width = Clamp(I(v, o.Width, k, o), 16, k, o); break;
+                    case "h": case "height": o.Height = Clamp(I(v, o.Height, k, o), 16, k, o); break;
                     case "weather": o.Weather = F(v, o.Weather, k, o); break;
                     case "zoom": o.Zoom = F(v, o.Zoom, k, o); break;
                     case "yaw": o.Yaw = F(v, o.Yaw, k, o); break;
@@ -134,7 +137,7 @@ namespace TW.Perf
                     case "label": o.Label = v; break;
                     case "out": o.Out = v; break;
                     case "shot": o.Shot = v; break;
-                    case "shot_tick": o.ShotTick = I(v, o.ShotTick, k, o); break;
+                    case "shot_tick": o.ShotTick = Clamp(I(v, o.ShotTick, k, o), -1, k, o); break;
                     case "shot_hud": o.ShotHud = !(v == "0" || v.ToLowerInvariant() == "false"); break;
                     case "shot_frames": o.ShotFrames = Math.Max(1, I(v, o.ShotFrames, k, o)); break;
                     case "quit": o.Quit = !(v == "0" || v.ToLowerInvariant() == "false"); break;
@@ -198,6 +201,22 @@ namespace TW.Perf
             if (float.TryParse(v, NumberStyles.Float, CultureInfo.InvariantCulture, out float x)) return x;
             o.Bad.Add(k + "=" + v);
             return d;
+        }
+
+        /// <summary>[F16] a floor only: a value below `min` is pulled up to it and remembered in o.Clamped, so a
+        /// negative settle or ticks (cast to uint elsewhere) cannot run for billions of ticks unseen.</summary>
+        static int Clamp(int x, int min, string k, BenchOptions o)
+        {
+            if (x >= min) return x;
+            o.Clamped.Add(k + "=" + x + " -> " + min);
+            return min;
+        }
+
+        static float ClampF(float x, float min, string k, BenchOptions o)
+        {
+            if (x >= min) return x;
+            o.Clamped.Add(k + "=" + x.ToString(CultureInfo.InvariantCulture) + " -> " + min.ToString(CultureInfo.InvariantCulture));
+            return min;
         }
     }
 
