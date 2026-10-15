@@ -37,11 +37,10 @@ namespace TW.Tests
             Assert.AreEqual("fx.tracerHaloDepth", TracerLook.DepthKnob);
             Assert.AreEqual(1f, TracerLook.ReadDepth());
             Assert.AreEqual("1", Knobs.Read["fx.tracerHaloDepth"]);
-            // C104's two-argument answer is the one-argument one for both orders
-            foreach (bool on in new[] { false, true })
-                Assert.AreEqual(TracerLook.HaloZWrite(on), TracerLook.HaloZWrite(on, TracerLook.ReadDepth()), "order " + on);
-            Assert.AreEqual(0f, TracerLook.HaloZWrite(false, 1f));
-            Assert.AreEqual(1f, TracerLook.HaloZWrite(true, 1f));
+            // [Q10] the one-argument HaloZWrite(bool) was dead (nothing called it outside these tests, which
+            // only checked it against the two-argument one); the two-argument answer for both orders, unset:
+            Assert.AreEqual(0f, TracerLook.HaloZWrite(false, TracerLook.ReadDepth()));
+            Assert.AreEqual(1f, TracerLook.HaloZWrite(true, TracerLook.ReadDepth()));
         }
 
         [Test]

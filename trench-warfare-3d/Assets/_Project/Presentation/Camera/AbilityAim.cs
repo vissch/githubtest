@@ -41,6 +41,11 @@ namespace TW.Presentation.Tactical
         public void Arm(OffMapAbilityId id) { Armed = id; Pattern = 0; Dragging = false; }
         public void Cancel() { Armed = OffMapAbilityId.None; Pattern = 0; Dragging = false; }
 
+        /// <summary>[Q6] The half-drawn line is lost, but the ability stays armed: a shell screen taking the input
+        /// mid-drag used to leave Dragging true with no button held, so the next release fired a corridor from the
+        /// old press point.</summary>
+        public void DropDrag() { Dragging = false; }
+
         /// <summary>The next pattern the ability offers (Tab). False when it has only the one.</summary>
         public bool CyclePattern()
         {

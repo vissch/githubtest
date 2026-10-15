@@ -543,7 +543,7 @@ namespace TW.Tests
             bool on = TracerLook.On(TracerLook.Read());
             Assert.IsFalse(on);
             Assert.AreEqual(3100, TracerLook.HaloQueue(on));
-            Assert.AreEqual(0f, TracerLook.HaloZWrite(on));
+            Assert.AreEqual(0f, TracerLook.HaloZWrite(on, TracerLook.ReadDepth()));
             Assert.AreEqual(0f, TracerLook.ReadShape(on), "the old shape");
             // fx.tracerInSmoke=0 set explicitly is the same old look
             Knobs.Set(TracerLook.Knob, "0");
@@ -575,7 +575,7 @@ namespace TW.Tests
             Assert.IsTrue(on);
             Assert.Less(TracerLook.HaloQueue(on), 3010, "the halos before the smoke, so a cloud in front covers them");
             Assert.Greater(TracerLook.HaloQueue(on), 2500, "still a transparent: after the opaque men and ground");
-            Assert.AreEqual(1f, TracerLook.HaloZWrite(on));
+            Assert.AreEqual(1f, TracerLook.HaloZWrite(on, TracerLook.ReadDepth()));
 
             // on, a long night shot: shorter, and the halo narrower, shorter than the core and at its head, ahead of the tip
             {

@@ -63,8 +63,6 @@ namespace TW.Presentation.Tactical
         /// <summary>The night halo's queue: after every transparent (the old look), or just before the smoke books (3010).</summary>
         public const int OldHaloQueue = 3100, InSmokeHaloQueue = 3005;
         public static int HaloQueue(bool inSmoke) => inSmoke ? InSmokeHaloQueue : OldHaloQueue;
-        /// <summary>The night halo's _ZWrite: off (the old look), or on, so a cloud behind the round is not drawn over it.</summary>
-        public static float HaloZWrite(bool inSmoke) => inSmoke ? 1f : 0f;
 
         public const string GlowKnob = "fx.tracerGlow";
         public const float DefaultGlow = 1f, OldGlow = 1f, MaxGlow = 4f;
