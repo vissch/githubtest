@@ -429,6 +429,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |
 | `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
 | `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
+| `TW.Editor.CaptureRig.CrowdLine(path, at, men)` | Editor/CaptureRig.cs | ShotCrowd's answer: the file, the focus it chose and how many men stood in that square. |
 | `TW.Editor.CaptureRig.Series(dir, stem, x, z, zoom, yaw, pitch, count, everyFrames, w, h, aimY)` | Editor/CaptureRig.cs | A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's smoke column climbing and leaning off, a body ... |
 | `TW.Editor.CaptureRig.Sheet(dir, stem, outPath, cols, cellW)` | Editor/CaptureRig.cs | Tiles a series into one image, because eight PNGs opened one after another is not a sequence you can see. |
 | `TW.Editor.CaptureRig.Hold(weatherClock)` | Editor/CaptureRig.cs | Stops the clock and pins the weather. |

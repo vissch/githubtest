@@ -527,6 +527,7 @@ namespace TW.Editor
                 if (rt == null || rt.width != FilmW || rt.height != FilmH)
                 {
                     if (rt != null) rt.Release();
+                    if (tex != null) Object.DestroyImmediate(tex);
                     rt = new RenderTexture(FilmW, FilmH, 24, RenderTextureFormat.ARGB32);
                     tex = new Texture2D(FilmW, FilmH, TextureFormat.RGB24, false);
                 }
@@ -551,13 +552,18 @@ namespace TW.Editor
                 VolleyPath = null; VolleyFrom = -1;
             }
 
+            // the project's pattern (BattleHud, CombatFx, TankRenderer): Destroy is deferred and legal in Play, and
+            // DestroyImmediate is the only one edit mode takes
+            static void Discard(Object o) { if (o == null) return; if (Application.isPlaying) Object.Destroy(o); else Object.DestroyImmediate(o); }
+
             void Save()
             {
                 File.WriteAllBytes(Path.Combine(FilmDir, $"f_{FilmIndex:0000}.png"), png);
                 FilmIndex++; FilmLeft--;
             }
 
-            void OnDestroy() { if (rt != null) rt.Release(); if (watched != null) watched.RiderLanded -= OnLanded; if (Instance == this) Instance = null; CameraRestore(); }   // [E12] leaving Play puts the camera back
+            // [E15] the film's CPU texture was never destroyed: every size change and every leave of Play leaked one
+            void OnDestroy() { if (rt != null) { rt.Release(); rt = null; } if (tex != null) { Discard(tex); tex = null; } if (watched != null) watched.RiderLanded -= OnLanded; if (Instance == this) Instance = null; CameraRestore(); }   // [E12] leaving Play puts the camera back
 
             /// <summary>A rider is on the ground: put his man back in the sim there (or make one), all from this Bench's own state.</summary>
             /// <summary>Keep each rider's hidden sim man where the rider is (roughly what a sim CarriedBy will do). Left at

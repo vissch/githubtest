@@ -183,7 +183,10 @@ namespace TW.Editor
 
             void Render(Shot shot)
             {
-                var c = Camera.main; if (c == null) return;
+                var c = Camera.main;
+                // [E15] a set taken with no enabled camera used to come back as nothing at all: no file, no error,
+                // and a caller polling Pending() watched the queue drain and read the absence as a bad picture.
+                if (c == null) { Debug.LogError("[rig] no enabled Camera.main: dropped " + shot.Path); return; }
                 if (Verbose) Debug.Log($"[rig] render {Path.GetFileName(shot.Path)} frame={Time.frameCount} at={c.transform.position} want={shot.Want}");
                 var rt = RenderTexture.GetTemporary(shot.W, shot.H, 24, RenderTextureFormat.ARGB32);
                 var before = c.targetTexture;
@@ -397,8 +400,12 @@ namespace TW.Editor
         /// wire and one man the size of a thumbnail, and why a whole critique round argued about pictures with
         /// nobody in them. Buckets the living into `cell`-metre squares and returns the centre of the fullest.
         /// </summary>
-        public static Vector2 Crowd(float cell = 20f)
+        public static Vector2 Crowd(float cell = 20f) => Crowd(cell, out _);
+
+        /// <summary>As Crowd(cell), and also how many men stood in the square it chose.</summary>
+        public static Vector2 Crowd(float cell, out int men)
         {
+            men = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host == null || host.Local == null) return Vector2.zero;
             var w = host.Local.World;
@@ -413,6 +420,7 @@ namespace TW.Editor
                 sum.TryGetValue(key, out Vector2 s); sum[key] = s + new Vector2(p.x, p.z);
                 if (n + 1 > bestCount) { bestCount = n + 1; bestKey = key; }
             }
+            men = bestCount;
             return bestCount > 0 ? sum[bestKey] / bestCount : Vector2.zero;
         }
 
@@ -421,10 +429,16 @@ namespace TW.Editor
         public static string ShotCrowd(string path, float zoom, float yaw, float pitch = 25f, int w = 1600, int h = 900, float cell = 20f)
         {
             if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
-            var at = Crowd(cell);
+            var at = Crowd(cell, out int men);
             Shot(path, at.x, at.y, zoom, yaw, pitch, w, h);
-            return "queued " + Path.GetFileName(path) + " on the crowd at " + at.x.ToString("0.0", CultureInfo.InvariantCulture) + ", " + at.y.ToString("0.0", CultureInfo.InvariantCulture);
+            return CrowdLine(path, at, men);
         }
+
+        /// <summary>ShotCrowd's answer: the file, the focus it chose and how many men stood in that square. [E15] the
+        /// summary promised the count and never said it, so a still of an empty square read like a still of a crowd.</summary>
+        public static string CrowdLine(string path, Vector2 at, int men) =>
+            "queued " + Path.GetFileName(path) + " on the crowd at " + at.x.ToString("0.0", CultureInfo.InvariantCulture)
+            + ", " + at.y.ToString("0.0", CultureInfo.InvariantCulture) + " (" + men + " men)";
 
         /// <summary>
         /// A run of stills from one pose, `everyFrames` apart, so a thing that only exists over time — a shell's
@@ -452,7 +466,12 @@ namespace TW.Editor
         /// </summary>
         public static string Sheet(string dir, string stem, string outPath, int cols = 4, int cellW = 400)
         {
-            var files = new List<string>(Directory.GetFiles(dir, stem + "_*.png"));
+            // [E15] stem + "_*.png" tiled in anything that merely starts with the stem, the sheet this call wrote
+            // last time included, so a re-run grew by one cell each time. Only stem_<digits>.png is a frame.
+            var frame = new System.Text.RegularExpressions.Regex("^" + System.Text.RegularExpressions.Regex.Escape(stem) + @"_\d+\.png$");
+            var files = new List<string>();
+            foreach (var f in Directory.GetFiles(dir, stem + "_*.png"))
+                if (frame.IsMatch(Path.GetFileName(f))) files.Add(f);
             files.Sort(System.StringComparer.Ordinal);
             if (files.Count == 0) return "no stills matching " + stem + "_*.png in " + dir;
             var first = Load(files[0]); if (first == null) return "cannot read " + files[0];
@@ -648,7 +667,8 @@ namespace TW.Editor
         {
             if (!Application.isPlaying) return "not in Play: enter Play (GreyboxCorridor) first";
             var host = Get().gameObject.GetComponent<Profiler>() ?? Get().gameObject.AddComponent<Profiler>();
-            host.Begin(path, frames);
+            string busy = host.Begin(path, frames);
+            if (busy != null) return busy;
             return "profiling " + frames + " frames into " + path;
         }
 
@@ -773,7 +793,27 @@ namespace TW.Editor
             host.StressUnits = unitsPerSide;
             EditorUtility.SetDirty(host);           // dirty, never saved: the scene on disk keeps its own setting
             EditorApplication.EnterPlaymode();
+            // [E11] only the EnteredEditMode hook put StressUnits back, so a play that was refused (a compile error,
+            // a cancelled save) left the open scene dirty at the stress count with nothing to undo it.
+            EditorApplication.delayCall += AbortIfPlayRefused;
             return "entering play with " + (unitsPerSide * 2) + " men; " + path + " will be written and play stopped";
+        }
+
+        /// <summary>One editor tick after Stress asked for play: still in edit mode with the request standing means
+        /// play was refused, so the scene goes back as it was. [E11]</summary>
+        static void AbortIfPlayRefused()
+        {
+            if (string.IsNullOrEmpty(SessionState.GetString(Request, ""))) return;
+            if (EditorApplication.isPlayingOrWillChangePlaymode) return;
+            string was = SessionState.GetString(Restore, "");
+            SessionState.EraseString(Request); SessionState.EraseString(Restore);
+            var host = Object.FindFirstObjectByType<SimHost>();
+            if (host != null && !string.IsNullOrEmpty(was))
+            {
+                host.StressUnits = int.Parse(was, CultureInfo.InvariantCulture);
+                EditorUtility.SetDirty(host);
+            }
+            Debug.LogWarning("Capture rig: play was refused, the stress request is dropped and StressUnits put back to " + was);
         }
 
         [InitializeOnLoadMethod]
@@ -829,7 +869,8 @@ namespace TW.Editor
                 alive = Alive();
                 var prof = Get().gameObject.GetComponent<Profiler>() ?? Get().gameObject.AddComponent<Profiler>();
                 prof.Extra = "  \"men_alive\": " + alive + ",\n  \"men_wanted\": " + Wanted + ",\n";
-                prof.Begin(Path, Frames);
+                string busy = prof.Begin(Path, Frames);
+                if (busy != null) { Debug.LogError("Capture rig: stress run could not profile: " + busy); yield break; }
                 while (!prof.Done) yield return null;
                 Debug.Log("Capture rig: stress profile of " + alive + " men written to " + Path);
                 yield return null;
@@ -858,8 +899,11 @@ namespace TW.Editor
             /// <summary>False until the file is on disk, so a run can wait for it instead of guessing at a duration.</summary>
             public bool Done;
 
-            public void Begin(string p, int frames)
+            /// <summary>Starts a run; null when it took the job, or why it refused. A run already in flight is left
+            /// alone: the old Begin overwrote five live recorders without disposing them. [E15]</summary>
+            public string Begin(string p, int frames)
             {
+                if (left > 0 && !Done) return "already profiling " + left + " frames into " + path;
                 path = p; left = frames; Done = false;
                 mainMs.Clear(); gpuMs.Clear(); passes.Clear(); draws.Clear(); alloc.Clear();
                 main = ProfilerRecorder.StartNew(ProfilerCategory.Internal, "Main Thread");
@@ -867,6 +911,7 @@ namespace TW.Editor
                 setPass = ProfilerRecorder.StartNew(ProfilerCategory.Render, "SetPass Calls Count");
                 batches = ProfilerRecorder.StartNew(ProfilerCategory.Render, "Draw Calls Count");
                 gc = ProfilerRecorder.StartNew(ProfilerCategory.Memory, "GC Allocated In Frame");
+                return null;
             }
 
             void LateUpdate()
