@@ -17,7 +17,7 @@ namespace TW.UI
     {
         public Button Root;
         public VisualElement Portrait, Cooldown, Rim, Lock, Weapon;
-        public Label Name, Cost, Hotkey, Badge;
+        public Label Name, Cost, Hotkey;
         public int Slot = -1;                      // roster slot, or -1 for a support card
         public byte Archetype;
         public OffMapAbilityId Ability = OffMapAbilityId.None;
@@ -26,7 +26,7 @@ namespace TW.UI
         public string PortraitClass;
         public int BaseCost;
         // cached state
-        public int LastCostText = int.MinValue, LastCooldownPct = -1, LastBadge = -1;
+        public int LastCostText = int.MinValue, LastCooldownPct = -1;
         public bool LastLocked, LastPoor, LastArmed, LastOver, LastCooling, LastEnabled = true;
         public bool IsSupport => Slot < 0;
     }
@@ -199,7 +199,7 @@ namespace TW.UI
             if (parent.childCount == 1) holder.AddToClassList(FirstSlotClass);   // USS has no :first-child, so the group's first card is marked here
             c.Root = holder.Q<Button>("card");
             c.Portrait = holder.Q("portrait"); c.Cooldown = holder.Q("cooldown"); c.Rim = holder.Q("rim"); c.Lock = holder.Q("lock"); c.Weapon = holder.Q("weapon");
-            c.Name = holder.Q<Label>("name"); c.Cost = holder.Q<Label>("cost"); c.Hotkey = holder.Q<Label>("hotkey"); c.Badge = holder.Q<Label>("badge");
+            c.Name = holder.Q<Label>("name"); c.Cost = holder.Q<Label>("cost"); c.Hotkey = holder.Q<Label>("hotkey");
             return c;
         }
 
@@ -234,7 +234,7 @@ namespace TW.UI
         // ---- binding ------------------------------------------------------------------------------------------------
 
         /// <summary>A roster card from the sim's numbers. Returns true when anything on it changed.</summary>
-        public static bool BindCard(CardRefs c, int silver, int cooldownTicks, int cooldownTotalTicks, bool unlocked, bool over, float tickSeconds, int inTransit)
+        public static bool BindCard(CardRefs c, int silver, int cooldownTicks, int cooldownTotalTicks, bool unlocked, bool over, float tickSeconds)
         {
             bool changed = false;
             bool cooling = cooldownTicks > 0;
@@ -253,12 +253,6 @@ namespace TW.UI
             }
             int pct = cooling && cooldownTotalTicks > 0 ? Mathf.Clamp(Mathf.RoundToInt(100f * cooldownTicks / cooldownTotalTicks), 1, 100) : 0;
             if (pct != c.LastCooldownPct) { c.Cooldown.style.height = Length.Percent(pct * 0.86f); c.LastCooldownPct = pct; changed = true; }
-            if (inTransit != c.LastBadge)
-            {
-                c.Badge.text = inTransit > 0 ? IntText.Get(inTransit) : "";
-                c.Badge.style.display = inTransit > 0 ? DisplayStyle.Flex : DisplayStyle.None;
-                c.LastBadge = inTransit; changed = true;
-            }
             return changed;
         }
 
