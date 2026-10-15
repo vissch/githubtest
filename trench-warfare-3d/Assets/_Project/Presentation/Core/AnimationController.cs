@@ -373,6 +373,12 @@ namespace TW.Presentation
         /// <summary>`why` is read only for the followed man (FollowSlot, the trace), so every caller that FORMATS one passes
         /// (i == FollowSlot ? ... : null): building it for every man on every tick was ~400 KB of garbage a tick with
         /// 2,000 men out, the periodic GC spike docs/05 could not name (perf pass, 2026-09-23).</summary>
+        /// <summary>How far into a one-shot fire clip a man may start: his own place in the firing cycle, up to 0.15 of it
+        /// (a rifleman's FireSnap is 0.27 s, FireStand 1.17 s), so a squad firing on one tick is not six of the same man.</summary>
+        public const float FirePhase = 0.15f;
+        /// <summary>The one-shot fire clips, the ones a phase offset is given to (the loops phase themselves).</summary>
+        public static bool OneShotFire(Clip c) => c == Clip.FireStand || c == Clip.FireSnap || c == Clip.FireKneel || c == Clip.FireProne;
+
         void Start(int i, ref AnimState s, Clip clip, Rung rung, string why, float rate = 1f, float fade = 0.15f)
         {
             if (s.Clip == clip && Clips.Table[(int)clip].Loop) { s.Rung = rung; s.Rate = rate; return; }   // same loop: keep the phase
@@ -384,7 +390,13 @@ namespace TW.Presentation
             }
             s.PrevClip = s.Clip; s.PrevFrame = s.Frame; s.Blend = s.Fade = fade;
             var next = Clips.Table[(int)clip];
-            s.Clip = clip; s.Frame = next.Loop ? Hash(s.Seed, (uint)clip * 17u) * next.Seconds : 0f; s.Rate = rate; s.Rung = rung; s.ClipStart = tick;
+            // a loop starts anywhere in its cycle; a one-shot at 0 — except a shot, which starts a little way in, each man
+            // his own share of it (infantry-firing, 2026-10-15): a squad whose sim fires on one tick was in the same frame
+            // of the same clip, six identical men. A death, a turn (info.Turn reads Frame/Seconds), a climb and a throw
+            // keep frame 0; FireKneel's shoulder-raise survives 0.15 of the clip (the risk the plan names).
+            s.Clip = clip; s.Frame = next.Loop ? Hash(s.Seed, (uint)clip * 17u) * next.Seconds
+                                              : OneShotFire(clip) ? Hash(s.Seed, (uint)clip * 17u) * FirePhase * next.Seconds : 0f;
+            s.Rate = rate; s.Rung = rung; s.ClipStart = tick;
             if (i == FollowSlot) Note(i, rung, clip, why);
         }
 
@@ -665,7 +677,9 @@ namespace TW.Presentation
                 s.Routine = 0;
                 if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }   // the feet come round while he fires (Advance, at a firing pace)
                 Clip fire = prone ? (arche == 2 ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : arche == 2 ? Clip.FireStoop : bolt ? Clip.FireSnap : Clip.FireStand;
-                Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 1f, 0.05f);
+                // and his own pace through it, within a tenth either way, so repeated shots keep drifting apart instead of
+                // falling back into step with his neighbour's (infantry-firing, 2026-10-15)
+                Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 0.9f + 0.2f * Hash(s.Seed, 23u), 0.05f);
                 return;
             }
             // a one-shot fire plays out before a stance change, a turn or the idle can take him (the loops of rung 8 have their own hold)
@@ -762,7 +776,10 @@ namespace TW.Presentation
             {
                 s.IdleSince = tick;
                 float rel = target >= 0 ? Relative(step, s.AimYaw) : 0f;
-                bool firing = target >= 0 && w.FireCooldown[i] < 30;
+                // the shot he fires as he walks: the cooldown is at its longest right AFTER a shot (a rifleman's is 41 ticks,
+                // a sniper's longer), which is exactly the half second the fire pose is wanted, so the shot itself and the
+                // second after it count as firing too (infantry-firing, 2026-10-15)
+                bool firing = target >= 0 && (w.FireCooldown[i] < 30 || shotThisTick[i] != 0 || tick - s.LastShot <= 20);
                 Clip gait; float authored;
                 string env = "";
                 s.Routine = 0;
@@ -770,7 +787,9 @@ namespace TW.Presentation
                 if (flat) gait = math.abs(rel) > 2.27f ? Clip.CrawlBack : Clip.Crawl;
                 else if (depth > 0.5f) { gait = Clip.Wade; env = " wading"; }
                 else if (wire && speed < 2.2f) { gait = Clip.WireCross; env = " through the wire"; }
-                else if (inTrench || simStance == Stance.Crouch) gait = speed > 1.8f ? Clip.CrouchRun : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
+                // crouched and shooting as he goes: FireStoop, authored at 1 m/s (the rate clamp covers 0.6 to 1.6); above
+                // that the crouched run wins, nobody fires at that pace
+                else if (inTrench || simStance == Stance.Crouch) gait = firing && speed < 2.2f ? Clip.FireStoop : speed > 1.8f ? Clip.CrouchRun : supp > 40f ? Clip.StoopLow : Clip.StoopWalk;
                 else if (arche == 2 && speed < 2.2f && target < 0) { gait = Clip.MGCarry; env = " carrying the gun"; }
                 else if ((simStance == Stance.Sprint && speed > 2.2f) || speed > 3.6f) gait = firing && arche == 1 ? Clip.FireSprint : Clip.Sprint;
                 else if (speed > 2.2f) gait = math.abs(rel) > 2.27f && arche <= 1 ? Clip.RunBack : firing && math.abs(rel) < 0.87f ? Clip.FireRun : Clip.Run;
