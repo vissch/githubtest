@@ -121,6 +121,7 @@ namespace TW.Presentation.Tactical
         readonly Quaternion[] bone = new Quaternion[4];
         // set while a step is being chosen, so the choice does not allocate
         readonly int[] order = new int[8];
+        readonly float[] urg = new float[8];   // K10: each candidate leg's urgency, measured once instead of per comparison
 
         /// <summary>Put every foot back on the ground under it. Used on the first frame and after a teleport.</summary>
         public void Plant(TankModel model, Vector3 pos, float yaw, System.Func<float, float, float> ground)
@@ -304,11 +305,9 @@ namespace TW.Presentation.Tactical
             if (!dead && want > 0)
             {
                 int allowance = Mathf.Max(1, Mathf.Min(rigs.Length >= 6 ? 3 : 2, alive / 2));
-                // worst offender first
-                for (int a = 0; a < want; a++)
-                    for (int b = a + 1; b < want; b++)
-                        if (Urgency(rigs[order[b]], body, pos, yaw, order[b]) > Urgency(rigs[order[a]], body, pos, yaw, order[a]))
-                            { int t = order[a]; order[a] = order[b]; order[b] = t; }
+                // worst offender first: K10, urgency once per leg, not twice per comparison
+                for (int a = 0; a < want; a++) urg[a] = Urgency(rigs[order[a]], body, pos, yaw, order[a]);
+                SortDesc(order, want, urg);
 
                 for (int k = 0; k < want && swinging < allowance; k++)
                 {
@@ -464,6 +463,21 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>K10: sorts the first `count` entries of `order` so their keys fall, keys moving with them
+        /// (a selection sort: eight legs at most, and it must not call the key again while it swaps).</summary>
+        public static void SortDesc(int[] order, int count, float[] key)
+        {
+            for (int a = 0; a < count; a++)
+            {
+                int best = a;
+                for (int b = a + 1; b < count; b++) if (key[b] > key[best]) best = b;
+                if (best == a) continue;
+                int t = order[a]; order[a] = order[best]; order[best] = t;
+                float f = key[a]; key[a] = key[best]; key[best] = f;
+            }
+        }
+
+
         /// <summary>How badly a leg needs to step: the worse of how far its foot has fallen behind and how much
         /// FURTHER than its own resting stance it has been drawn out. Both are shares of reach, so the two can be
         /// compared, and both are zero when the leg is standing where it wants to.
@@ -483,6 +497,7 @@ namespace TW.Presentation.Tactical
         ///
         /// Measuring each leg against its own resting extension puts every leg at zero when it is comfortable, so
         /// the order reflects which foot actually needs to move.</summary>
+
         float Urgency(TankModel.LegRig rig, Quaternion body, Vector3 pos, float yaw, int i)
         {
             if (rig.Reach <= 1e-4f || MaxSpan(rig) <= 1e-4f) return 0f;

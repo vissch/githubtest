@@ -128,6 +128,12 @@ namespace TW.Presentation.Tactical
             public bool Ditched, Bogged, Stalled, Dead, CookOff;
             public int State; public float Fire;
             public bool[] Off;                     // LOD0 parts drawn apart (debris), by index
+            /// <summary>K10: the LOD0 index of the parts looked for every frame by name, found once. -2 is not
+            /// looked up yet, -1 is this model has no such part. Reset where the model is swapped (Riders' Resize).</summary>
+            public int iTrackL = -2, iTrackR = -2, iTurret = -2;
+            /// <summary>K10: this wreck's pose is out of date and must be solved again (Smoulder). A wreck does not
+            /// move once its legs are down, so it is posed on a change, not every frame.</summary>
+            public bool PoseDirty;
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
             public float NextMend, NextColumn, NextVent, NextBreak;
@@ -148,12 +154,30 @@ namespace TW.Presentation.Tactical
 
         sealed class Batch
         {
+            /// <summary>K10: the most one instanced draw takes, and the room a batch starts with. A mesh first seen in
+            /// combat used to take ~118 KB at once; it now doubles from Start up to Max as it fills.</summary>
+            public const int Max = 1023, Start = 64;
+
             public Mesh Mesh; public Material Material; public int Count;
-            public readonly Matrix4x4[] M = new Matrix4x4[1023];
-            public readonly float[] Tread = new float[1023];
-            public readonly Vector4[] Damage = new Vector4[1023], Tint = new Vector4[1023], Team = new Vector4[1023];
-            public readonly float[] Chunks = new float[1023];   // a carcass's gone chunks (TankRenderer.WreckStages); 0 on every other mesh
-            public readonly MaterialPropertyBlock Props = new MaterialPropertyBlock();
+            public Matrix4x4[] M = new Matrix4x4[Start];
+            public float[] Tread = new float[Start];
+            public Vector4[] Damage = new Vector4[Start], Tint = new Vector4[Start], Team = new Vector4[Start];
+            public float[] Chunks = new float[Start];   // a carcass's gone chunks (TankRenderer.WreckStages); 0 on every other mesh
+            // a MaterialPropertyBlock fixes an array's length at the first SetFloatArray, so a grown batch needs a new one
+            public MaterialPropertyBlock Props = new MaterialPropertyBlock();
+
+            /// <summary>Makes room for one more instance, keeping what is queued. False once the batch is full.</summary>
+            public bool Grow()
+            {
+                if (Count < M.Length) return true;
+                if (M.Length >= Max) return false;
+                int n = Mathf.Min(Max, M.Length * 2);
+                System.Array.Resize(ref M, n); System.Array.Resize(ref Tread, n);
+                System.Array.Resize(ref Damage, n); System.Array.Resize(ref Tint, n); System.Array.Resize(ref Team, n);
+                System.Array.Resize(ref Chunks, n);
+                Props = new MaterialPropertyBlock();
+                return true;
+            }
         }
 
         struct Pop { public View Owner; public float At; public Vector3 Offset; public float Size; }
@@ -718,7 +742,7 @@ namespace TW.Presentation.Tactical
             // A machine whose only weapon is small arms (the Skimmer's machine gun) has no TankGun to lay its turret, so
             // TankGunnery never turns it: point it at what the small-arms systems are shooting at (SimWorld.TargetSlot),
             // so the tracers leave a barrel that faces their mark, and back to the front when there is nothing.
-            if (spec.GunCount == 0 && m.Lods[0].Find("Turret") >= 0 && match.Catalogue != null && match.Catalogue.Weapon.IsCreated
+            if (spec.GunCount == 0 && PartIndex(v, ref v.iTurret, "Turret") >= 0 && match.Catalogue != null && match.Catalogue.Weapon.IsCreated
                 && match.Catalogue.Weapon[w.Archetype[s]].RangeMax > 0f)
             {
                 int t = w.TargetSlot[s];
@@ -749,7 +773,7 @@ namespace TW.Presentation.Tactical
 
             Pose(v, v.Model.Lods[0], v.World);
             // a broken track is thrown off, and put back when it is mended
-            Throw(v, "Track_L", !trackL, -1); Throw(v, "Track_R", !trackR, 1);
+            Throw(v, PartIndex(v, ref v.iTrackL, "Track_L"), !trackL, -1); Throw(v, PartIndex(v, ref v.iTrackR, "Track_R"), !trackR, 1);
             Effects(match, v, engine, dt, now, fwd);
         }
 
@@ -1212,9 +1236,17 @@ namespace TW.Presentation.Tactical
         }
 
         // ------------------------------------------------------------------ parts coming away
-        void Throw(View v, string name, bool off, int side)
+        /// <summary>K10: a part's LOD0 index, looked up by name once per view and kept (Lod.Find walks every part).</summary>
+        static int PartIndex(View v, ref int cache, string name)
         {
-            int i = v.Model.Lods[0].Find(name);
+            if (cache == -2) cache = v.Model.Lods[0].Find(name);
+            return cache;
+        }
+
+        void Throw(View v, string name, bool off, int side) => Throw(v, v.Model.Lods[0].Find(name), off, side);
+
+        void Throw(View v, int i, bool off, int side)
+        {
             if (i < 0 || v.Off[i] == off) return;
             if (off)
             {
@@ -1228,7 +1260,7 @@ namespace TW.Presentation.Tactical
             {
                 for (int k = v.Pieces.Count - 1; k >= 0; k--)
                     if (v.Pieces[k].Part == i && v.Pieces[k].Thrown) { debris.Remove(v.Pieces[k]); v.Pieces.RemoveAt(k); }
-                v.Off[i] = false;
+                v.Off[i] = false; v.PoseDirty = true;
             }
         }
 
@@ -1243,7 +1275,7 @@ namespace TW.Presentation.Tactical
                 for (int k = up; k >= 0; k = parts[k].Parent) if (k == part) { under = true; break; }
                 if (under) d.Local[c] = PartLocal(v, parts[c], c);
             }
-            v.Off[part] = true;
+            v.Off[part] = true; v.PoseDirty = true;
             v.Pieces.Add(d); debris.Add(d);
             TrimDebris();
             return d;
@@ -1370,6 +1402,7 @@ namespace TW.Presentation.Tactical
                     v.Heave.Value = floor; v.Landed = true;
                     CameraShake.Add(v.Pos, 8f);
                 }
+                v.PoseDirty = true;
             }
             if (!v.Linked && age > UnlinkedSinkAfter)
             {
@@ -1377,6 +1410,7 @@ namespace TW.Presentation.Tactical
                 float dy = dt * 0.2f;
                 v.Heave.Value -= dy;
                 foreach (var d in v.Pieces) if (d.Resting) d.World.m13 -= dy;
+                v.PoseDirty = true;
                 if (age > UnlinkedSinkAfter + 18f) return false;
             }
             // the fire dies down, but embers glow dimly in the seams for three minutes: burnt metal, not a grey prop
@@ -1392,8 +1426,11 @@ namespace TW.Presentation.Tactical
                 v.Pitch.Value = v.Legs.Pitch; v.Pitch.Velocity = 0f;
                 v.Roll.Value = v.Legs.Roll; v.Roll.Velocity = 0f;
                 v.Heave.Value = v.Legs.Height; v.Heave.Velocity = 0f;
+                v.PoseDirty = true;
             }
-            Pose(v, v.Model.Lods[0], v.World);
+            // K10: a wreck's pose only changes while its legs still collapse, while it falls or sinks, or when a part
+            // comes away. Posing every one of them every frame was work for nothing.
+            if (v.PoseDirty) { Pose(v, v.Model.Lods[0], v.World); v.PoseDirty = false; }
             float fire = v.CookOff ? Mathf.Clamp01(1f - age / 40f) : Mathf.Clamp01(v.Fire - age / 30f);
             float smoke = Mathf.Clamp01(1f - age / 120f);
             Burning(v, now, fire, smoke);
@@ -1922,7 +1959,7 @@ namespace TW.Presentation.Tactical
         void Queue(Mesh mesh, Material mat, Matrix4x4 m, float tread, Vector4 damage, Vector4 tint, Vector4 team = default, uint chunks = 0u)
         {
             var b = BatchFor(mesh, mat);
-            if (b.Count >= b.M.Length) return;
+            if (!b.Grow()) return;
             b.M[b.Count] = m; b.Tread[b.Count] = tread; b.Damage[b.Count] = damage; b.Tint[b.Count] = tint; b.Team[b.Count] = team; b.Chunks[b.Count] = chunks;
             b.Count++;
         }
