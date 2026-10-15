@@ -162,7 +162,7 @@ def validate_cases(wt: pathlib.Path):
     new_cs = lambda rel, body: (P / rel).write_text(body)
 
     expect('asmdef_json', 'an asmdef that is not JSON', 'invalid JSON',
-           lambda: (P / 'Presentation/VFX/TW.Presentation.VFX.asmdef').write_text('{ not json'))
+           lambda: (P / 'Presentation/Terrain/TW.Presentation.Terrain.asmdef').write_text('{ not json'))
     expect('asmdef_refs', 'a reference to an assembly that does not exist', 'TW.Net: unknown reference TW.Nope',
            lambda: add_ref('Net/TW.Net.asmdef', 'TW.Sim.Core', 'TW.Nope'))
     expect('sim_isolation', 'a sim assembly referencing presentation', 'TW.Sim.Core: sim assembly must not reference TW.Presentation.Core',
@@ -189,7 +189,7 @@ def validate_cases(wt: pathlib.Path):
     expect('audio_volume', 'the project muted in its settings asset', 'm_Volume is 0',
            lambda: edit(proj / 'ProjectSettings/AudioManager.asset', 'm_Volume: 1', 'm_Volume: 0'))
 
-    (P / 'Presentation/VFX/TW.Presentation.VFX.asmdef').write_text('{ "name": "TW.Presentation.VFX" }\n')
+    (P / 'Presentation/Terrain/TW.Presentation.Terrain.asmdef').write_text('{ "name": "TW.Presentation.VFX" }\n')
     code, out = validate()
     case('[G9] an asmdef with no "references" key does not crash validate, or blame a check for it',
          'Traceback' not in out and 'crashed (KeyError' not in out and 'assemblies, ' in out, f'exit {code}:\n{out[:800]}')
