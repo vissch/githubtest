@@ -17,7 +17,7 @@ prompt that works), `references/firebooks-contract.md` (what the game accepts, a
 Before a new effect, animation or character is built, or the look of one is changed, put two to four concepts or
 references to the owner and build the one he picks. A concept is a picture or a short film generated on the desktop's
 GPU broker, a reference that was found, or a page drawn in HTML or SVG. Write them as one brief:
-`python Tools/assetboard/briefs.py concepts --title ... --for ... --concept PATH="what it is" --concept ... --why ...`
+`cd trench-warfare-3d && python Tools/assetboard/briefs.py concepts --title ... --for ... --concept PATH="what it is" --concept ... --why ...`
 (from `trench-warfare-3d/`, your own choice first). He picks on the board's Decide page. A fix that changes no look
 (a bug, a number, a test) needs none.
 
@@ -103,12 +103,12 @@ Runs from the repo root of that worktree (not `trench-warfare-3d/`); step 1's `G
 ## Owner questions — ask, never decide
 
 - **Decided on 2026-09-28** (`decisions.md`):
-  - explosion batches B and C are **go**, inside the VFX pass;
+  - explosion batches B and C are **go** (2026-09-28), inside the VFX pass;
   - blood on hits uses the pack's blood sheets, scaled by GORE.
 
   The VFX lane and the broker queue belong to the session doing the VFX run (pc-e5 on 2026-09-28): check with it
   before queueing.
-- Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets`.
+- Priority changes on the shared broker; overwriting or renaming anything in `G:\My Drive\vfx\sheets` (desktop only).
 - The `FlipbookFx` Core/Head/Bloom row order is fixed **inside the VFX pass**, as its own commit with
   `FlipbookOrdinalTests` (decided 2026-09-28). It is never fixed inside an unrelated change.
 

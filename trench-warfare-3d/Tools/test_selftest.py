@@ -129,12 +129,34 @@ def h20_snapshot_copies_skips_big_untracked():
              f'[H20] keep={keep} skipped={skipped}')
 
 
+def t3_changed_paths_leaves_gits_warnings_out():
+    """A path built from a git call that also warned ("LF will be replaced by CRLF") made the copy raise
+    WinError 123. The lines a path is built from come off stdout only."""
+    with tempfile.TemporaryDirectory() as tmp:
+        tmp = pathlib.Path(tmp)
+        repo = tmp / 'repo'
+        repo.mkdir()
+        git(['init', '-q'], repo)
+        git(['config', 'core.autocrlf', 'true'], repo)
+        (repo / '.gitattributes').write_text('* text=auto\n')
+        f = repo / 'Code.cs'
+        f.write_bytes(b'class C {}\n')
+        git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'add', '.'], repo)
+        git(['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-qm', 'base'], repo)
+        f.write_bytes(b'class C { int a; }\n')          # LF in a CRLF tree: git warns on every read
+        copy, delete = selftest.changed_paths(str(repo))
+        bad = [c for c in copy + delete if 'warning' in c or 'LF will be replaced' in c]
+        case("[T3.4] changed_paths builds its paths from stdout, not from git's warnings",
+             not bad and 'Code.cs' in copy, f'copy={copy} delete={delete}')
+
+
 def main():
     h4_rmtree_hard_and_sweep_stale()
     h5_run_scrubs_git_env()
     h6_must_exits()
     h7_changed_paths_rename()
     h20_snapshot_copies_skips_big_untracked()
+    t3_changed_paths_leaves_gits_warnings_out()
     print(f'{sum(results)} of {len(results)} cases behaved')
     sys.exit(0 if all(results) else 1)
 

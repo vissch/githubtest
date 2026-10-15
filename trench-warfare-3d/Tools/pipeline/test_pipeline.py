@@ -195,6 +195,12 @@ class PipelineTest(unittest.TestCase):
         with self.assertRaises(SystemExit, msg="[O15] an id/file-name mismatch was accepted") as e:
             self.states()
         self.assertIn("file name", str(e.exception))
+        # [O15.1] a caller that lints a definition before it is written passes a label, not a file name
+        # (idearoute checks a route by its kind): the id rule still applies, the file-name rule cannot.
+        import pipeline as P
+        P.lint_item(json.loads(json.dumps(ITEM)), "mechanic")
+        with self.assertRaises(SystemExit, msg="[O15.1] a bad id was accepted when linted by label"):
+            P.lint_item(dict(json.loads(json.dumps(ITEM)), id="../escape"), "mechanic")
         bad["id"] = "../escape"
         (self.board / "items" / "crate.json").write_text(json.dumps(bad))
         with self.assertRaises(SystemExit, msg="[O15] an item id that escapes the board was accepted") as e:

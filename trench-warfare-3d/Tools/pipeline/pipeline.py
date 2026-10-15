@@ -120,7 +120,9 @@ def lint_item(item, name):
     if not ID_RE.match(item.get("id") or ""):
         raise SystemExit("%s: item id %r is not [A-Za-z0-9._-]+ and would not be safe in a file name"
                          % (name, item.get("id")))
-    if item["id"] != Path(name).stem:
+    # the file-name rule holds for an item read off disk; a caller that lints a definition it has not written yet
+    # (idearoute's route check) passes a plain label, and that label is no file name to compare against
+    if name.endswith(".json") and item["id"] != Path(name).stem:
         raise SystemExit("%s: item id %s does not match the file name (results are globbed by the id)"
                          % (name, item["id"]))
     seen = set()

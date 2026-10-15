@@ -72,17 +72,21 @@ def must(cmd, cwd):
     return out
 
 
+def out_lines(cmd, cwd):
+    """The lines a git command printed on stdout, with its stderr left out: a path built from a run that also
+    carried git's own warning ("LF will be replaced by CRLF ...") made the copy raise WinError 123."""
+    env = {k: v for k, v in os.environ.items() if not k.startswith('GIT_')}
+    env['GIT_CEILING_DIRECTORIES'] = tempfile.gettempdir()
+    p = subprocess.run(cmd, cwd=cwd, capture_output=True, env=env)
+    return [l.strip() for l in p.stdout.decode('utf-8', 'replace').split('\n') if l.strip()]
+
+
 def changed_paths(repo):
     # [H7] --no-renames on both sides: without it a rename reports only the new path, so the old file is never
     # removed from the copy of the tree under test.
-    copy = [l.strip() for l in
-            run(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=AMR', 'HEAD'], repo)[1].split('\n')
-            if l.strip()]
-    copy += [l.strip() for l in run(['git', 'ls-files', '--others', '--exclude-standard'], repo)[1].split('\n')
-             if l.strip()]
-    delete = [l.strip() for l in
-              run(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=D', 'HEAD'], repo)[1].split('\n')
-              if l.strip()]
+    copy = out_lines(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=AMR', 'HEAD'], repo)
+    copy += out_lines(['git', 'ls-files', '--others', '--exclude-standard'], repo)
+    delete = out_lines(['git', 'diff', '--name-only', '--no-renames', '--diff-filter=D', 'HEAD'], repo)
     return copy, delete
 
 
@@ -90,8 +94,7 @@ def snapshot_copies(repo, copy, cap=1_000_000):
     # [H20] main() used to copy every untracked file into the throwaway worktree and commit it, so untracked art
     # went into the shared object store on every run. A tracked path (it came from the diff) is always kept; an
     # untracked path over `cap` bytes is skipped.
-    others = set(l.strip() for l in run(['git', 'ls-files', '--others', '--exclude-standard'], repo)[1].split('\n')
-                 if l.strip())
+    others = set(out_lines(['git', 'ls-files', '--others', '--exclude-standard'], repo))
     keep, skipped = [], []
     for rel in copy:
         try:
@@ -1256,6 +1259,13 @@ esac
     case('[H15] tw stepto prints how far game time advanced without an awk error',
          code == 0 and 'advanced' in out and 'awk' not in out and 'unterminated' not in out, f'exit {code}: {out}')
 
+    # [T3.2.1] the refusal message of `tw stepabs` had the same raw newline inside its awk program as [H15]: awk
+    # died with "unterminated string", so a shot taken on a late clock was refused without ever saying why.
+    code, out = run_tw(ok_bin, 'stepabs', '1.0')
+    case('[T3.2.1] tw stepabs says why it refuses a clock already past the mark, without an awk error',
+         code == 1 and 'clock already at' in out and 'unterminated' not in out and 'awk:' not in out,
+         f'exit {code}: {out}')
+
     # [H20] the header NOTE used to claim `tw shot` passes an absolute path outside Assets; the shot case
     # passes the relative _shots/<name>.png and moves the PNG out afterwards.
     header = tw_path.read_text(encoding='utf-8').splitlines()[:20]
@@ -1355,6 +1365,9 @@ def scrub(path):
         except OSError:
             pass
     shutil.rmtree(p, onerror=writable)
+
+
+rmtree_hard = scrub        # one deleter under two names (test_selftest.py reads both)
 
 
 STALE_HOURS = 6   # no run takes an hour: a folder this old is a killed run's, or one from before scrub()
