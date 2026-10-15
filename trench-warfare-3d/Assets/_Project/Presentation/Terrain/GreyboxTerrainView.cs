@@ -633,7 +633,7 @@ namespace TW.Presentation.Terrain
                 nextScorchRepaint = Time.time + RepaintEvery;
                 scorchSweep = scorchSweep % scorchMarks.Count;
                 int m = scorchSweep++;
-                if (m < scorchBorn.Count && Time.time - scorchBorn[m] < SnowFillSeconds) QueueScorchTiles(scorchMarks[m]);
+                if (m < scorchBorn.Count && ScorchWorthRepaint(Time.time - scorchBorn[m], scorchMarks.Count)) QueueScorchTiles(scorchMarks[m]);
             }
             // A row at a time, so the budget binds at a row rather than at a whole tile. A tile is written to the
             // texture only when its last row is done, so the texture never shows half of one.
@@ -695,7 +695,7 @@ namespace TW.Presentation.Terrain
         /// <summary>A crater landed: repaint its texels and re-read the chunks it touches.</summary>
         void OnSimEvent(TW.Sim.SimEvent e)
         {
-            if (e.Type != TW.Sim.SimEventType.CraterStamp && e.Type != TW.Sim.SimEventType.WireBreached) return;
+            if (e.Type != TW.Sim.SimEventType.CraterStamp && e.Type != TW.Sim.SimEventType.WireBreached && e.Type != TW.Sim.SimEventType.PropChanged) return;
             var map = Host.Local.Map;
             if (e.Type == TW.Sim.SimEventType.CraterStamp)
             {
@@ -706,18 +706,40 @@ namespace TW.Presentation.Terrain
                     scorchMarks.Add(e); scorchBorn.Add(Time.time);
                 }
             }
+            if (e.Type == TW.Sim.SimEventType.PropChanged)
+            {
+                // [Gt8] PropShade stamps its grid once, lazily, at Start: a wreck (or any prop change) that arrives in
+                // play got no dark seat. Stamp straight into the live grid when there is one; a reach of 0 (a wreck
+                // cleared, a shade that must shrink) can only shrink by rebuilding, so drop the grid for PropShade to redo.
+                float reach = ShadeReach((PropKind)e.B);
+                float queueReach;
+                if (propShade != null && reach > 0f) { StampShade(propShade, shadeW, shadeL, e.Pos.x, e.Pos.z, reach); queueReach = reach; }
+                else { propShade = null; queueReach = 4.2f; }
+                int rx0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - queueReach - 1f)), rx1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + queueReach + 1f));
+                int rz0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.z - queueReach - 1f)), rz1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(e.Pos.z + queueReach + 1f));
+                for (int z = rz0 / 2; z <= rz1 / 2; z++) for (int x = rx0 / 2; x <= rx1 / 2; x++)
+                { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
+                return;
+            }
             float r = e.Scalar + 8f; // Include the inferred rim and its pale outer shoulder.
             int x0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.x - r)), x1 = Mathf.Min(map.Height.Width - 1, Mathf.CeilToInt(e.Pos.x + r));
             int z0 = Mathf.Max(0, Mathf.FloorToInt(e.Pos.z - r)), z1 = Mathf.Min(map.Height.Length - 1, Mathf.CeilToInt(e.Pos.z + r));
             for (int z = z0 / 2; z <= z1 / 2; z++) for (int x = x0 / 2; x <= x1 / 2; x++)
             { var tile = new Vector2Int(x, z); if (queuedTiles.Add(tile)) paintTiles.Enqueue(tile); }
-            for (int cz = z0 / ChunkMeters; cz <= z1 / ChunkMeters; cz++)
-            for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); cx <= x1 / ChunkMeters; cx++)
-            {
-                int i = cz * chunksX + cx;
-                if (i >= 0 && i < chunks.Count) { var c = chunks[i]; Restale(ref c.NextRow, ref c.Dirty, ref c.Again); }   // heights changed: read it over
-            }
+            if (MovesGround(e.Type))
+                for (int cz = z0 / ChunkMeters; cz <= z1 / ChunkMeters; cz++)
+                for (int cx = Mathf.Max(0, (x0 - 1) / ChunkMeters); cx <= x1 / ChunkMeters; cx++)
+                {
+                    int i = cz * chunksX + cx;
+                    if (i >= 0 && i < chunks.Count) { var c = chunks[i]; Restale(ref c.NextRow, ref c.Dirty, ref c.Again); }   // heights changed: read it over
+                }
         }
+
+        /// <summary>[Gt6] Whether a sim event moves the ground, so the view only re-stales chunks and uploads the depth
+        /// map for the kinds that actually raise or lower it. A wire breach never moves heights (raised in
+        /// Sim/Match/Deformation.cs:169 and Sim/Nav/VehicleKinematics.cs:283; the shell that caused one raises its own
+        /// CraterStamp), so it still queues its colour tiles above but no longer touches the mesh or depth texture.</summary>
+        public static bool MovesGround(TW.Sim.SimEventType type) => type == TW.Sim.SimEventType.CraterStamp;
 
         /// <summary>The tiles a crater's burn covers, clamped to the map. Pure, so the eviction below can name them
         /// without touching the queue.</summary>
@@ -749,6 +771,10 @@ namespace TW.Presentation.Terrain
         /// <summary>Make room for one more scorch mark: the oldest goes, and <paramref name="repaint"/> is filled with
         /// the tiles it burned so that ground is painted again without it. The sweep cursor indexes the same list, so
         /// it moves down with it. False when there was room already.</summary>
+        /// <summary>[Gt4] Still worth repainting: one sweep cycle of grace past SnowFillSeconds so the visit that would
+        /// paint a mark fully filled is not refused by a sweep that only comes round once every RepaintEvery * marks.</summary>
+        public static bool ScorchWorthRepaint(float age, int marks) => age < SnowFillSeconds + RepaintEvery * Mathf.Max(1, marks);
+
         public static bool MakeRoomForScorch(List<TW.Sim.SimEvent> marks, List<float> born, ref int sweep, int mapW, int mapL, List<Vector2Int> repaint)
         {
             repaint.Clear();
@@ -895,7 +921,27 @@ namespace TW.Presentation.Terrain
         static readonly Color Occlusion = new Color(0.115f, 0.085f, 0.065f);
         float[] propShade; int shadeW, shadeL;
 
-        /// <summary>0..0.7: how much a solid prop darkens the ground here. Stamped once at half-metre cells.</summary>
+        /// <summary>[Gt8] How far a prop of this kind darkens the ground, 0 for a kind that casts no shade at all
+        /// (so PropChanged can tell "shrink, rebuild" from "stamp more").</summary>
+        public static float ShadeReach(PropKind kind) => kind == PropKind.Bridge || kind == PropKind.Cleared ? 0f : PropRules.IsWreckage(kind) ? 4.2f : kind == PropKind.Log ? 1.7f : 1.25f;
+
+        /// <summary>[Gt8] Stamp one prop's shade disc (max-blend, so overlapping props never lighten each other) into a
+        /// shade grid at half-metre cells.</summary>
+        public static void StampShade(float[] shade, int w, int l, float px, float pz, float reach)
+        {
+            int x0 = Mathf.Max(0, (int)((px - reach) * 2f)), x1 = Mathf.Min(w - 1, (int)((px + reach) * 2f));
+            int z0 = Mathf.Max(0, (int)((pz - reach) * 2f)), z1 = Mathf.Min(l - 1, (int)((pz + reach) * 2f));
+            for (int z = z0; z <= z1; z++)
+            for (int x = x0; x <= x1; x++)
+            {
+                float d = Vector2.Distance(new Vector2((x + .5f) * .5f, (z + .5f) * .5f), new Vector2(px, pz)) / reach;
+                float v = .7f * (1f - Mathf.SmoothStep(.25f, 1f, d));
+                if (v > shade[z * w + x]) shade[z * w + x] = v;
+            }
+        }
+
+        /// <summary>0..0.7: how much a solid prop darkens the ground here. Stamped once at half-metre cells; a prop that
+        /// changes kind in play is stamped straight into the live grid by OnSimEvent instead (Gt8).</summary>
         float PropShade(MapData map, float wx, float wz)
         {
             if (propShade == null)
@@ -904,17 +950,9 @@ namespace TW.Presentation.Terrain
                 for (int i = 0; i < map.Props.Length; i++)
                 {
                     var prop = map.Props[i];
-                    if (prop.Kind == PropKind.Bridge || prop.Kind == PropKind.Cleared) continue;
-                    float reach = PropRules.IsWreckage(prop.Kind) ? 4.2f : prop.Kind == PropKind.Log ? 1.7f : 1.25f;
-                    int x0 = Mathf.Max(0, (int)((prop.Pos.x - reach) * 2f)), x1 = Mathf.Min(shadeW - 1, (int)((prop.Pos.x + reach) * 2f));
-                    int z0 = Mathf.Max(0, (int)((prop.Pos.z - reach) * 2f)), z1 = Mathf.Min(shadeL - 1, (int)((prop.Pos.z + reach) * 2f));
-                    for (int z = z0; z <= z1; z++)
-                    for (int x = x0; x <= x1; x++)
-                    {
-                        float d = Vector2.Distance(new Vector2((x + .5f) * .5f, (z + .5f) * .5f), new Vector2(prop.Pos.x, prop.Pos.z)) / reach;
-                        float v = .7f * (1f - Mathf.SmoothStep(.25f, 1f, d));
-                        if (v > propShade[z * shadeW + x]) propShade[z * shadeW + x] = v;
-                    }
+                    float reach = ShadeReach(prop.Kind);
+                    if (reach <= 0f) continue;
+                    StampShade(propShade, shadeW, shadeL, prop.Pos.x, prop.Pos.z, reach);
                 }
             }
             float fx = Mathf.Clamp(wx * 2f - .5f, 0f, shadeW - 1.001f), fz = Mathf.Clamp(wz * 2f - .5f, 0f, shadeL - 1.001f);
