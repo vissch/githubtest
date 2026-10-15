@@ -143,3 +143,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-10-07. A full gate died with the session that started it** (PlayMode part, no verdict, half an hour). Start it
   with `Tools/gate_bg.py`. The same night: `selftest.py` had left 151 folders in the temp folder (rmtree stops at git's
   read-only objects on Windows), one a registered worktree with a broken index that failed git's upkeep on every fetch.
+- **2026-10-15. A task to fix three failing tool tests was already stale.** `test_aosa.py`, `test_flameshots.py`
+  and `test_tw.py` all passed on the lane tip handed to the leg: the `[review-tools-rebase]` commit had already
+  fixed the same three bugs during an earlier rebase. Checked the done-when command before touching any script.
