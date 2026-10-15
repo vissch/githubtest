@@ -614,3 +614,42 @@ the picture would not show it.
 
 When the men's shadows are on (smaller armies), their shadow pass also loses its pixel work: with no clip and no
 colour it has none left.
+
+## The stress bench with no hero: the new baseline (2026-10-15)
+
+Since 2026-10-06 the stress preset fields no hero on either side (`SimHost.StressPreset`, `HeroSystem.TeamMask = 0`),
+so the bench window times a steady trench fight; `knobs=stress.heroes=1` puts the old hero back. The baseline that
+stood here was measured on a tree about 400 commits old and was reverted. These are four runs on one editor, one
+tree and one scene load, interleaved `off, on, off, on`, so the old and the new preset come off one build:
+
+```
+stress=1500 settle_ticks=1800 ticks=400 warm=120 ff=8 vsync=0 quality=5 canary=0
+```
+
+Editor, i9-14900K + RTX 5090 (a proxy, not the target machine). Reports:
+`docs/reference/perf-pass-2026-09/runs/heroes-{off,on}-{1,2}.json`, all `run.exit` 0, no desync.
+`hash_start` 81DE2EA679355B5C for both no-hero runs, D248F136FCDC842D for both hero runs — one battle per side, a
+different battle between them (the hero changes the fight, so `perfcmp.py` needs `--force` across the pair).
+
+| tick 1800-2200, pair means | hero (the old preset) | **no hero (the baseline)** |
+|---|---|---|
+| fps mean (editor) | 281.8 | **290.5** |
+| `cpu_frame_ms` p50 / p95 / p99 | 2.571 / 7.076 / 13.72 ms | **2.471 / 7.072 / 13.78 ms** |
+| `main_ms` on tick frames p50 / p95 / p99 | 2.624 / 12.87 / 129.7 ms | **2.486 / 13.32 / 132.3 ms** |
+| `gc_bytes` p99 | 13.41 KB | 13.41 KB |
+| `TW.Sim.Step` per tick | 0.965 ms | **0.984 ms** |
+| `TW.Host.Update` per tick | 4.075 ms | **4.187 ms** |
+| `alive_start` / `alive_end` | 534 / 531 | 534 / 531 |
+
+**Run-to-run spread of the two no-hero runs**, which is what any later comparison has to beat: fps +3.1 %,
+`cpu_frame_ms` p50 -1.7 %, p95 -9.9 %, p99 +1.2 %, `main_ms` on tick frames p50 +4.1 % / p95 +3.3 % / p99 -3.0 %,
+`gc_bytes` identical to the byte, `TW.Sim.Step` -0.5 %, `TW.Host.Update` +1.6 %. All inside the bands in
+`docs/reference/workflow.md` section 7 (p50 ~1 %, p95 ~12 %, p99 and per-system ms ~25 %) except p50, which came
+out a little wider than 1 % on a shared desktop.
+
+Two things the old reverted numbers predicted and this run does not show: the hero does **not** cost p99 or GC here,
+and he does not thin the field — both sides end the window with the same 534/531 men, because the settle to tick
+1800 is what decides the survivors and the hero's charge is over by then. Every difference between hero and no hero
+(fps +3 %, p50 -4 %) sits at or inside the noise band, so the honest reading is: **the preset change costs nothing
+measurable; what it buys is a steady scene and agreement with its own tests**, not frame time. The baseline is
+provisional in the usual way — one machine, one editor, two repeats a side.
