@@ -114,21 +114,16 @@ namespace TW.Presentation.Units
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1 };
             // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
             // and his death clip is played so his back meets it as he lands.
+            // where he lands is settled here; the arc to it is solved after the heap has lifted him, or the landing
+            // frame jumps up by that lift (V4)
+            bool thrown = false; float flyY = 0f;
             if (fly.y > 0.05f && Host != null && Host.Local != null)
             {
                 var size = Host.Local.Map.SizeMeters;
                 Vector3 land = pos + new Vector3(fly.x, 0f, fly.z);
                 land.x = Mathf.Clamp(land.x, 0.5f, size.x - 0.5f); land.z = Mathf.Clamp(land.z, 0.5f, size.y - 0.5f);
                 land.y = RenderGround.Sample(Host.Local.Map, land.x, land.z) - 0.02f;
-                float g = Mathf.Max(1f, ThrowGravity), top = Mathf.Max(pos.y, land.y) + fly.y;
-                float up = Mathf.Sqrt(2f * (top - pos.y) / g), down = Mathf.Sqrt(2f * (top - land.y) / g);
-                man.Pos = land; man.Up = up; man.Top = top; man.Flight = up + down;
-                // a high arc lasts longer, but under about 0.8x he tumbles in slow motion over a battlefield at full speed:
-                // below that he lands a moment early and holds the pose
-                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.8f, 1.8f);
-                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
-                // and end over end: once on a long flight, twice when the heap he came out of threw him high
-                man.Flips = (byte)(man.Flight >= TwoFlipsFlight && density >= 2 ? 2 : man.Flight >= OneFlipFlight ? 1 : 0);
+                man.Pos = land; thrown = true; flyY = fly.y;
             }
             // the heap: whoever is already down on his cell lifts him, shoves him aside and tilts him
             int cell = PileCell(man.Pos);
@@ -149,6 +144,19 @@ namespace TW.Presentation.Units
                     fallenMen[k] = below;
                 }
             }
+            // now his resting place is final (the heap lifted and nudged him): solve the arc to it, so the last frame of
+            // the flight is where he lies and he does not snap up as he lands (V4)
+            if (thrown)
+            {
+                SolveThrow(man.From.y, man.Pos.y, flyY, ThrowGravity, out float up, out float top, out float flight);
+                man.Up = up; man.Top = top; man.Flight = flight;
+                // a high arc lasts longer, but under about 0.8x he tumbles in slow motion over a battlefield at full speed:
+                // below that he lands a moment early and holds the pose
+                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.8f, 1.8f);
+                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
+                // and end over end: once on a long flight, twice when the heap he came out of threw him high
+                man.Flips = (byte)(man.Flight >= TwoFlipsFlight && density >= 2 ? 2 : man.Flight >= OneFlipFlight ? 1 : 0);
+            }
             pile[cell] = (byte)Mathf.Min(255, stacked + 1);
             man.Cell = cell;
             fallenMen.Add(man);
@@ -163,9 +171,28 @@ namespace TW.Presentation.Units
             float sunk = FallenSeconds > 0f ? Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds) * SinkDepth : 0f;
             if (f.Gag != 0) { var on = FallenFlight.At(f.Path, age); return sunk > 0f ? on - new Vector3(0f, sunk, 0f) : on; }
             if (f.Flight <= 0f || age >= f.Flight) return sunk > 0f ? f.Pos - new Vector3(0f, sunk, 0f) : f.Pos;
-            Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
-            float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
-            at.y = f.Top - 0.5f * g * fromTop * fromTop;
+            return ThrownAt(f.From, f.Pos, f.Up, f.Top, f.Flight, ThrowGravity, age);
+        }
+
+        /// <summary>The arc of a thrown corpse: it leaves fromY, tops out flyY above the higher of the two ends, and comes
+        /// down on toY (where he will lie, heap lift and all). up is the time to the top, flight the whole time in the air.
+        /// Pure, so VatThrowPileTests holds it.</summary>
+        public static void SolveThrow(float fromY, float toY, float flyY, float gravity, out float up, out float top, out float flight)
+        {
+            float g = Mathf.Max(1f, gravity);
+            top = Mathf.Max(fromY, toY) + flyY;
+            up = Mathf.Sqrt(2f * (top - fromY) / g);
+            flight = up + Mathf.Sqrt(2f * (top - toY) / g);
+        }
+
+        /// <summary>Where a thrown corpse is at age seconds: xz straight from where he was hit to where he lands, y on the
+        /// parabola SolveThrow fitted. At age == flight it is rest, to the metre the shader draws. Pure, so a test can
+        /// check the landing frame with no scene.</summary>
+        public static Vector3 ThrownAt(Vector3 from, Vector3 rest, float up, float top, float flight, float gravity, float age)
+        {
+            Vector3 at = Vector3.Lerp(from, rest, flight > 0f ? age / flight : 1f);
+            float g = Mathf.Max(1f, gravity), fromTop = age - up;
+            at.y = top - 0.5f * g * fromTop * fromTop;
             return at;
         }
 
