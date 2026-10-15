@@ -45,6 +45,8 @@ namespace TW.Tests
             ["BattleHud.Chrome"] = "legacy IMGUI HUD layout, laid out again every frame it draws; retired in the audit backlog",
             ["BattleHud.chromeNext"] = "reset to 0 at the top of every OnGUI (BeginChrome) before anything reads Chrome; same lifetime as BattleHud.Chrome",
             ["BattleHud.barWarned"] = "a warn-once latch for the legacy IMGUI HUD; retired in the audit backlog",
+            ["BattleHud.SpeedLabels"] = "[Q10] a constant table (pause/1x/2x/4x/8x), lifted out of OnGUI so SpeedIndex is not a per-frame closure; no production code writes a row",
+            ["BattleHud.SpeedScales"] = "[Q10] a constant table (0/1/2/4/8), lifted out of OnGUI so SpeedIndex is not a per-frame closure; no production code writes a row",
             ["BattlefieldProps.EditorCamera"] = "the prop editor's camera, set and cleared by EnvPropEditor, not by a match",
             ["BootstrapLoader.Override"] = "which scene Bootstrap loads, set by tools before they load it",
             ["CampaignSession.NodeId"] = "the campaign mission in flight, carried across the scene load; MatchLaunch.QuitToMenu clears it",
