@@ -131,7 +131,7 @@ namespace TW.Sim
         // the scan that can give the man back. Layout and chain unchanged.
         // v43 (2026-10-09, [N5.3]): a wreck shelters only the men in its shadow, and a screen on the line blinds the
         // shot. DirectFire.AtWreck lists and suppresses only enemies past the wreck on the shooter's line and within
-        // its body (WreckBlastReach x size), holds its cooldown when nobody is in that shadow, and returns when
+        // its body (WreckBlastReach x size, halved), holds its cooldown when nobody is in that shadow, and returns when
         // SmokeBlindMetres of thick smoke lie on the line. A gun no longer pins a trench bay on a wreck's flank.
         // Layout and chain unchanged.
         // v44 (2026-10-09, [N5.4]): a wreck's size comes from the dead machine, not from its slot. The
@@ -155,7 +155,11 @@ namespace TW.Sim
         // v52 (2026-10-13, [U11]): BreakerSystem, SapperSystem and SupportSystem hash their per-slot arrays to
         // SimWorld.HighWater instead of MaxSlots, as SimWorld.Hash() already did. No field added, moved or dropped
         // and no balance change; the hash of any match with an unfilled world moves, so older replays do not verify.
-        public const ushort FormatVersion = 52;
+        // v53 (2026-10-15, [found-shelter-body-uses-full-wreckblastreach-reach-20261015-0]): a wreck's shadow is as
+        // wide as its body is, half of WreckBlastReach x size, the same figure its shelter's reach is built from.
+        // Body was the full WreckBlastReach, twice that, so a man up to 2 m off the firing line was kept down. No
+        // field added, moved or dropped; shots, suppression and wreck wear move, so hashes and balance move.
+        public const ushort FormatVersion = 53;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
