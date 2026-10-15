@@ -1474,6 +1474,18 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   `githubtest-relay-run` sits at `f258066cd6`, whose `Tools/relay/prepush.py` still refuses any push whose remote
   tip is not an ancestor, so option (b) — updating that checkout to a commit carrying the force-push fix — is a
   one-command fix for the owner or any non-leg session; no lane commit can cure it from inside.
+- **How does `lane/show/second-critic-on` get the relay line as its base? (2026-10-15):** the second-critic plan's
+  first step is to put that lane (sitting on the integration tip a36537bb4, with no `Tools/relay` at all) onto the
+  relay line `lane/show/relay-harness`, tip 434093a7e, which is 88 commits ahead of integration and not landed. The
+  relay's own command rules (its cmdrules module, absent from this branch) refuse every verb that would do it from inside a leg:
+  `git reset --hard` ("a leg does not throw commits or work away"), `git merge --ff-only` ("lanes rebase, they never
+  merge") and `git rebase 434093a7e` ("rebase only onto origin/claude/trench-warfare-2d-3d-plan-idt7lf"). So no leg
+  can base this lane, and nothing of the port (step 2, the `relay-second` diff 80a415e63..e7dca117a) can be written
+  or tested here. Options: (a) land `lane/show/relay-harness` first, then this lane rebases onto integration in the
+  normal way and the port goes on - the default taken here, nothing was built; (b) the master, outside a leg, moves
+  `lane/show/second-critic-on` to 434093a7e and a later leg does only step 2; (c) do the work on
+  `lane/show/relay-harness` itself, as one more commit of the relay line, and drop this lane. (a) is the cleanest:
+  it keeps one lane per line of work and asks no leg to break its own rules.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
