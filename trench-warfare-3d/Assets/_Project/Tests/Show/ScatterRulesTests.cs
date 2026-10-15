@@ -198,6 +198,10 @@ namespace TW.Tests
             input.Obstructions.Add(new ScatterInput.Obstruction { X = 25f, Z = 25f, Radius = 0.1f, Height = 1.5f });
             var field = Grown(input);
             int at = input.Index(12, 12), off = input.Index(12, 15);   // the post's cell, and six metres away
+            // [TS21] GrassDensity(field, off) == 0 made the ratio below Infinity and the asserts pass on an empty result
+            Assert.Greater(ScatterLayers.GrassDensity(field, off), 0f, "the field six metres off the post still grows some grass");
+            // [TS21] the shape the rule claims (density = Patch * (1 + 1.5 * Vertical) * ...): nearer the post is denser
+            Assert.Greater(ScatterLayers.GrassDensity(field, at), ScatterLayers.GrassDensity(field, input.Index(12, 14)), "denser at the post than four metres out");
             Assert.GreaterOrEqual(ScatterLayers.GrassDensity(field, at) / ScatterLayers.GrassDensity(field, off), 1.5f, "denser within 2 m of the post than 6 m off it");
             var laid = Laid(input, field);
             int near = 0, far = 0;
@@ -207,6 +211,8 @@ namespace TW.Tests
                 int c = CellOf(input, s);
                 if (c == at) near++; else if (c == off) far++;
             }
+            // [TS21] near >= far * 1.5f held at 0 >= 0 too, which proved nothing: require some grass actually grew
+            Assert.Greater(near, 0, "tufts grew against the post");
             Assert.GreaterOrEqual(near, far * 1.5f, $"{near} tufts against the post, {far} six metres off");
         }
 
