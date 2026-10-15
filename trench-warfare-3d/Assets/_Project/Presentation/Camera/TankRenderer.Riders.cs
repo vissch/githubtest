@@ -30,6 +30,7 @@ namespace TW.Presentation.Tactical
         public sealed class Rider
         {
             public byte Team, Archetype; public int Seed, Seat = -1, SimSlot = -1;
+            public ushort Gen;   // the view's Generation when he boarded: a slot reused by another machine is not his (K9)
             public RiderState State; public float StateAt;
             public Vector3 Pos, From, Land; public float Yaw, Flight, Top, Up;
             public float Phase, ShotAt = -1f, NextShot, FlinchAt = -10f, LastHeave;
@@ -204,7 +205,8 @@ namespace TW.Presentation.Tactical
             int seat = 0;
             for (; seat < MaxSeatIndex; seat++) { bool taken = false; foreach (var o in list) if (o.Seat == seat) { taken = true; break; } if (!taken) break; }
             int seed = slot * 131 + seat * 17 + 7 + (simSlot >= 0 ? simSlot * 3 : 0);
-            return new Rider { Machine = slot, Team = w.Team[slot], Archetype = (byte)archetype, Seed = seed, Seat = seat, SimSlot = simSlot, Phase = Hash(seed) * 3f, NextShot = NextVolley(slot, now + 1f) + Hash(seed + 3) * VolleySpread, StateAt = now, ClipAt = now };
+            ushort gen = views.TryGetValue(slot, out var view) ? view.Gen : (ushort)0;
+            return new Rider { Machine = slot, Gen = gen, Team = w.Team[slot], Archetype = (byte)archetype, Seed = seed, Seat = seat, SimSlot = simSlot, Phase = Hash(seed) * 3f, NextShot = NextVolley(slot, now + 1f) + Hash(seed + 3) * VolleySpread, StateAt = now, ClipAt = now };
         }
         const int MaxSeatIndex = RiderSeats.MaxSeats;
 
@@ -266,6 +268,8 @@ namespace TW.Presentation.Tactical
             {
                 bool alive = views.TryGetValue(kv.Key, out var v) && !v.Dead && v.World != null;
                 var list = kv.Value;
+                // the sim reuses slots: another machine in this slot is not the one they boarded (K9)
+                if (alive && list.Count > 0 && list[0].Gen != v.Gen) alive = false;
                 if (!alive) { ThrowOff(kv.Key, list, now); riderGone.Add(kv.Key); continue; }   // the machine went under them
                 var seats = SeatsFor(v.Model);
                 if (seats == null || seats.Seats.Count == 0) continue;
@@ -615,7 +619,8 @@ namespace TW.Presentation.Tactical
             if (r.State == RiderState.Seated && r.ShotAt >= 0f && !r.Flashed && now - r.ShotAt >= vat.SecondsFor(RiderShot) * 0.2f)
             {
                 r.Flashed = true;
-                if (vat.MuzzleOf(inst, fig, out var muzzle, out var dir) && books != null && books.Ready)
+                bool got = vat.MuzzleOf(inst, fig, out var muzzle, out var dir);
+                if (got && books != null && books.Ready)
                 {
                     // bigger the further out the camera is (2.5x at the standard view): at their close-up size a volley did not
                     // register beside the machine's own gun (critic r13)
@@ -631,20 +636,24 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Puff, muzzle + dir * 0.6f + Vector3.up * 0.15f, 0.8f * big, 1.0f, velocity: Vector3.up * 0.3f + dir * 0.25f, grow: 0.9f, roll: Hash(r.Seed + (int)(now * 3f)) * 6.28f, alpha: 0.35f);
                     }
                 }
-                SceneHooks.Flash?.Invoke(muzzle, new Color(1f, 0.75f, 0.45f), 6f, 5f, 0.07f);
-                // and the round: at the night's range a flash alone did not say where he was shooting. It is not a sim hit,
-                // so it goes to about the man, not into him
-                var w = Host.Local.World;
-                if (r.Aim >= 0 && r.Aim < w.HighWater && w.IsAlive(r.Aim) && Fx() != null)
+                // only where the muzzle really is: without MuzzleOf both the flash and the tracer came off the world origin (K9)
+                if (got)
                 {
-                    var tp = (Vector3)(Unity.Mathematics.float3)w.Position[r.Aim];
-                    int shot = (int)(r.ShotAt * 10f);
-                    tp += new Vector3(Hash(r.Seed + shot) - 0.5f, 0f, Hash(r.Seed + shot + 1) - 0.5f) * 3f;
-                    tp.y = Ground(tp.x, tp.z) + (0.4f + Hash(r.Seed + shot + 2) * 1.2f) * scale / vat.UnitScale;
-                    // wider at the standard view, back to the sim's width close in (doubled there they read as laser beams: critic r7)
-                    var eye = Camera.main;
-                    float far = eye != null ? Mathf.Clamp01((Vector3.Distance(eye.transform.position, muzzle) - 30f) / 45f) : 1f;
-                    fx.AddTracer(muzzle, tp, r.Team, Mathf.Lerp(1f, RiderTracerWidth, far));
+                    SceneHooks.Flash?.Invoke(muzzle, new Color(1f, 0.75f, 0.45f), 6f, 5f, 0.07f);
+                    // and the round: at the night's range a flash alone did not say where he was shooting. It is not a sim hit,
+                    // so it goes to about the man, not into him
+                    var w = Host.Local.World;
+                    if (r.Aim >= 0 && r.Aim < w.HighWater && w.IsAlive(r.Aim) && Fx() != null)
+                    {
+                        var tp = (Vector3)(Unity.Mathematics.float3)w.Position[r.Aim];
+                        int shot = (int)(r.ShotAt * 10f);
+                        tp += new Vector3(Hash(r.Seed + shot) - 0.5f, 0f, Hash(r.Seed + shot + 1) - 0.5f) * 3f;
+                        tp.y = Ground(tp.x, tp.z) + (0.4f + Hash(r.Seed + shot + 2) * 1.2f) * scale / vat.UnitScale;
+                        // wider at the standard view, back to the sim's width close in (doubled there they read as laser beams: critic r7)
+                        var eye = Camera.main;
+                        float far = eye != null ? Mathf.Clamp01((Vector3.Distance(eye.transform.position, muzzle) - 30f) / 45f) : 1f;
+                        fx.AddTracer(muzzle, tp, r.Team, Mathf.Lerp(1f, RiderTracerWidth, far));
+                    }
                 }
             }
             riderInst[n] = inst; riderFig[n] = fig; n++;
@@ -735,7 +744,7 @@ namespace TW.Presentation.Tactical
             pipDeaths.TryGetValue(v.Slot, out var deaths);
             if (deaths != null)
             {
-                deaths.RemoveAll(d => SeatTaken(list, d.seat));
+                for (int d = deaths.Count - 1; d >= 0; d--) if (SeatTaken(list, deaths[d].seat)) deaths.RemoveAt(d);   // no closure per frame (K9)
                 if (deaths.Count == 0) { pipDeaths.Remove(v.Slot); deaths = null; }
             }
             // after a plain dismount the empty row goes sooner: fifteen empty rings under a machine carrying nobody (critic r7)
@@ -880,7 +889,7 @@ namespace TW.Presentation.Tactical
         void AddShotMarks()
         {
             float now = Time.time;
-            shotMarks.RemoveAll(m => now - m.born > ShotMarkSeconds);
+            for (int m = shotMarks.Count - 1; m >= 0; m--) if (now - shotMarks[m].born > ShotMarkSeconds) shotMarks.RemoveAt(m);   // no closure per frame (K9)
             var cam = Camera.main;
             if (cam == null) return;
             foreach (var (muzzleAt, aim, born) in shotMarks)
@@ -905,6 +914,11 @@ namespace TW.Presentation.Tactical
         readonly List<PipRow> pipRows = new List<PipRow>();
         readonly List<Rect> placedRows = new List<Rect>();
         readonly List<(float y, int i)> rowsDown = new List<(float y, int i)>();
+        sealed class TopDownComparer : IComparer<(float y, int i)>
+        {
+            public int Compare((float y, int i) a, (float y, int i) b) => b.y.CompareTo(a.y);
+        }
+        static readonly IComparer<(float y, int i)> TopDown = new TopDownComparer();
 
         /// <summary>
         /// Walkers in a tight column put their rows on top of each other and into each other's rings, so a row could not be
@@ -922,7 +936,7 @@ namespace TW.Presentation.Tactical
                 var sp = cam.WorldToScreenPoint(pipRows[i].Anchor);
                 if (sp.z > 0.1f) rowsDown.Add((sp.y + pipRows[i].MidY * px / (2f * sp.z * tanHalf), i));
             }
-            rowsDown.Sort((a, b) => b.y.CompareTo(a.y));
+            rowsDown.Sort(TopDown);   // a cached comparer: List.Sort(IComparer) allocates nothing per call (K9)
             placedRows.Clear();
             foreach (var (_, i) in rowsDown)
             {
