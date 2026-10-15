@@ -18,6 +18,8 @@ namespace TW.Presentation
 
         static readonly object gate = new object();
         static readonly Dictionary<string, string> overrides = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        // what EnsureInit read from TW_KNOBS and the command line, kept aside so Clear() can put it back (TS21).
+        static readonly Dictionary<string, string> fromSources = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         static readonly Dictionary<string, string> read = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         static readonly HashSet<string> warned = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         static bool initialised;
@@ -132,18 +134,20 @@ namespace TW.Presentation
         {
             lock (gate)
             {
-                overrides.Clear(); read.Clear(); warned.Clear();
+                overrides.Clear(); read.Clear(); warned.Clear(); fromSources.Clear();
                 initialised = false;
                 generation++;
             }
         }
 
-        /// <summary>Drops every override and the read log (and the env var and command line are not read again).</summary>
+        /// <summary>Drops every override set by code and puts the env var and command line knobs back (not read
+        /// again from the environment: the copy EnsureInit made the first time).</summary>
         public static void Clear()
         {
             lock (gate)
             {
                 overrides.Clear(); read.Clear(); warned.Clear();
+                foreach (var kv in fromSources) overrides[kv.Key] = kv.Value;
                 initialised = true;
                 generation++;
             }
@@ -189,6 +193,8 @@ namespace TW.Presentation
                 warns ??= new List<string>();
                 warns.Add("Knobs: could not read " + EnvVar + " or the command line: " + e.Message);
             }
+            fromSources.Clear();
+            foreach (var kv in overrides) fromSources[kv.Key] = kv.Value;
             // logged in the lock only at the first use; Debug.LogWarning never calls back into Knobs
             if (warns != null) foreach (var w in warns) Debug.LogWarning(w);
         }
