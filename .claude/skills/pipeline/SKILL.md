@@ -47,7 +47,7 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 | ux | `tw-ux` | either (the flow), desktop (the review of what was built) |
 | ui-artist | `tw-ui-art` | either |
 | master | `tw-master` | review either; gate and land on the desktop |
-| gym (proving ground for every role) | `tw-gym` | desktop (runs); either (reading) |
+| gym | `tw-gym`, the proving ground for every role | desktop (runs); either (reading) |
 | lowpoly | `tw-lowpoly` | desktop (Blender) |
 | housekeeping | `tw-housekeeping`: after every long job | both |
 | review-fix | none: its rules are `Tools/relay/roles/review-fix.md`, which the relay adds to the leg's prompt | desktop |
