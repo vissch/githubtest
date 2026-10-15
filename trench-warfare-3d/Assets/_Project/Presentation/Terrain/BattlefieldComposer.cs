@@ -68,9 +68,6 @@ namespace TW.Presentation.Terrain
             this.emit = emit;
             MapProps(map, surface); yield return true;
             TrenchKit(map, surface); yield return true;
-            Debris(map, surface); yield return true;
-            Litter(map, surface); yield return true;
-            Clumps(map, surface); yield return true;
             Margins(map, surface); yield return true;
             if (!ReferenceEquals(layoutMap, map) || regenerateLayout)
             { sites.Clear(); marks.Clear(); landmarksPlaced = false; rejections.Clear(); PlaceHamlets(map, surface); PlaceRear(map, surface); PlaceSites(map, surface); layoutMap = map; }
@@ -98,10 +95,43 @@ namespace TW.Presentation.Terrain
                 if (SceneTints.Now.Frozen && kit.icicles != null) Icicles(h);
             }
             yield return true;
+            // after the layout, and clear of it: placed before it, the first build had no houses or sites to avoid and
+            // left scrub and boulders standing inside buildings (review call B8)
+            Debris(map, surface); yield return true;
+            Litter(map, surface); yield return true;
+            Clumps(map, surface); yield return true;
             Landmarks(map, surface); yield return true;
             Scatter(map, surface); yield return true;   // after the footprints that mask it (docs/21 phase 2)
             if (SceneTints.Now.Frozen) { SnowGround(map, surface); yield return true; }
             backdrop.Build(map, surface, emit);   // the lines run on past the flanks, and the edges are closed off
+        }
+
+        /// <summary>
+        /// [B8] Is this spot inside a building's footprint - a house's or a trench site's? The rotated rectangle of the
+        /// house's own bounds (h.Radius, its footprint's diagonal, only when the kit cannot say), and the blueprint's
+        /// footprint at the site's place and turn - the same shape the scatter is already fed.
+        /// </summary>
+        bool Taken(float x, float z)
+        {
+            foreach (var h in hamlets)
+            {
+                if (kit.Houses == null || h.House < 0 || h.House >= kit.Houses.Length)
+                {
+                    if (new Vector2(x - h.Centre.x, z - h.Centre.z).sqrMagnitude < h.Radius * h.Radius) return true;
+                    continue;
+                }
+                var bounds = kit.Houses[h.House].Bounds;
+                var local = Quaternion.Inverse(h.Matrix.rotation) * new Vector3(x - h.Centre.x, 0f, z - h.Centre.z);
+                if (Mathf.Abs(local.x) < bounds.extents.x + .30f && Mathf.Abs(local.z) < bounds.extents.z + .30f) return true;
+            }
+            foreach (var site in sites)
+            {
+                var fp = site.Blueprint.Footprint;
+                var c = site.Position + site.Rotation * fp.center;
+                var local = Quaternion.Inverse(site.Rotation) * new Vector3(x - c.x, 0f, z - c.z);
+                if (Mathf.Abs(local.x) < fp.extents.x + .30f && Mathf.Abs(local.z) < fp.extents.z + .30f) return true;
+            }
+            return false;
         }
 
         void PlaceSites(MapData map, BattlefieldSurface surface)

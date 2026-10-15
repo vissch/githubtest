@@ -36,6 +36,7 @@ namespace TW.Presentation.Terrain
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked | NavLayer.Wire)) != 0) continue;
                 var at = surface.At(x, z);
                 if (at.Wetness > .35f || at.BankDistance < 1.2f) continue;
+                if (Taken(x, z)) continue;   // not inside a house or a site (review call B8)
                 float pick = Rand(k, 64), ground = surface.VisualHeight(x, z);
                 var yaw = Quaternion.Euler(0f, Rand(k, 65) * 360f, 0f);
                 var tilt = Quaternion.Euler((Rand(k, 67) - .5f) * 8f, 0f, (Rand(k, 68) - .5f) * 8f);   // bedded unevenly in the mud
@@ -95,6 +96,7 @@ namespace TW.Presentation.Terrain
                 var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
                 if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) continue;
                 if (at.Wetness > .35f || at.BankDistance < 1.1f) continue;
+                if (Taken(x, z)) continue;   // not inside a house or a site (review call B8)
                 float pick = Rand(k, 134);
                 if (byTrench || pick >= .07f || at.Hollow >= 0) continue;   // only the graves are left to this step
                 var module = kit.graveMarker;
@@ -108,6 +110,7 @@ namespace TW.Presentation.Terrain
             if (x < 1f || z < 1f || x > map.SizeMeters.x - 1f || z > map.SizeMeters.y - 1f) return false;
             var layer = (NavLayer)map.NavLayers[map.NavIndex(Mathf.Clamp((int)(x / MapData.NavCellSize), 0, map.NavWidth - 1), Mathf.Clamp((int)(z / MapData.NavCellSize), 0, map.NavLength - 1))];
             if ((layer & (NavLayer.Trench | NavLayer.Link | NavLayer.Blocked)) != 0) return false;
+            if (Taken(x, z)) return false;   // not inside a house or a site (review call B8)
             var at = surface.At(x, z);
             return at.Wetness < .3f && at.BankDistance > 1.3f && at.Hollow < 0;
         }
@@ -309,17 +312,25 @@ namespace TW.Presentation.Terrain
         /// </summary>
         void Icicles(Hamlet h)
         {
-            float eave = h.Radius * 0.72f;             // in from the footprint's corner radius, at the wall
+            // The house's own frame (review call B5): the footprint is a rotated rectangle, and h.Radius is its
+            // DIAGONAL, so the old world-axis square of 0.72 * Radius hung ice in mid-air off the real walls.
+            bool known = kit.Houses != null && h.House >= 0 && h.House < kit.Houses.Length;
+            var bounds = known ? kit.Houses[h.House].Bounds : new Bounds(Vector3.zero, new Vector3(h.Radius * 1.414f, 5f, h.Radius * 1.414f));
+            var ext = bounds.extents;
+            var turn = h.Matrix.rotation;
             for (int side = 0; side < 4; side++)
             for (int run = 0; run < 3; run++)
             {
                 int key = h.House * 64 + side * 8 + run;
                 if (Rand(key, 71) < 0.42f) continue;   // most eaves carry nothing; a few carry a long run
-                float along = (run - 1) * (eave * 0.62f) + (Rand(key, 72) - 0.5f) * 0.5f;
-                float turn = side * 90f;
-                var outward = Quaternion.Euler(0f, turn, 0f);
-                var at = h.Centre + outward * new Vector3(along, 0f, eave);
-                float high = 2.35f + Rand(key, 73) * 0.9f;   // the eave line; the houses are one and two storeys
+                // sides 0 and 2 are the walls that run along local x (they face +-Z), 1 and 3 the walls along local z
+                bool alongX = (side & 1) == 0;
+                float wall = alongX ? ext.z : ext.x;                              // out to the wall this side is
+                float reach = Mathf.Max(.10f, (alongX ? ext.x : ext.z) - 0.25f);   // along it, inset from the corners
+                float along = Mathf.Clamp((run - 1) * (reach * 0.62f) + (Rand(key, 72) - 0.5f) * 0.5f, -reach, reach);
+                var outward = turn * Quaternion.Euler(0f, side * 90f, 0f);
+                var at = h.Centre + outward * new Vector3(along, 0f, wall);
+                float high = bounds.max.y - 0.10f - Rand(key, 73) * 0.25f;   // the eave line of this house, off its bounds
                 emit(kit.icicles, Matrix4x4.TRS(new Vector3(at.x, h.Centre.y + high, at.z),
                                                 outward * Quaternion.Euler(0f, 0f, (Rand(key, 74) - 0.5f) * 6f),
                                                 Vector3.one * (0.75f + Rand(key, 75) * 0.5f)));
