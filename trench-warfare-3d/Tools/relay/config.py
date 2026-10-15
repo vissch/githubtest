@@ -14,7 +14,9 @@ FIXED = ("autocompact_tokens", "no_progress_units", "stuck_lanes", "max_plan_par
          "done_when_seconds", "gate_seconds", "play_seconds", "critic_target", "critic_rounds", "critic_max_bytes",
          "retro_max_bytes", "usual_leg_usd", "price_legs", "queue_priority", "queue_priority_max",
          "day_queue_rows", "day_line_chars", "usage_max_age_seconds", "week_usd", "pace_from_hour",
-         "pace_to_hour", "share_finish", "share_fix", "share_critique", "ideas_in_flight")
+         "pace_to_hour", "share_finish", "share_fix", "share_critique", "ideas_in_flight",
+         "second_minutes", "second_per_day")
+SECOND_VENDORS = ("grok", "codex")      # providers.NAMES: who may give a second opinion (test_relay holds them equal)
 SHARES = ("finish", "fix", "critique")      # the kinds of work the day is split over (sources.KINDS): share_<kind>
 
 
@@ -60,6 +62,14 @@ def limits(folder=None, overrides=None):
     if not 0 <= out["pace_from_hour"] <= 24 or not 0 <= out["pace_to_hour"] <= 24:
         raise SystemExit("relay: limits.json pace_from_hour and pace_to_hour are hours of the day, 0 to 24")
     return out
+
+
+def second_critic(folder=None):
+    """The vendor that scores each critic round a second time, recording only; "" when nobody does (second.py)."""
+    v = _read("limits.json", folder).get("second_critic", "")
+    if v not in ("",) + SECOND_VENDORS:
+        raise SystemExit("relay: limits.json second_critic is \"\" or one of %s" % ", ".join(SECOND_VENDORS))
+    return v
 
 
 def phases(folder=None):
