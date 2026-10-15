@@ -295,6 +295,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-15 | **The ridge's two re-datumed proof bars are measured against the crest trench's parapet, and kept at 0.5 m and 4.0 m.** The owner, 00:10, on the recommendation that followed the 2026-10-14 finding (the two bars had measured the trench's carved floor, which the design's bank can never clear): "fine its approved", with the recommendation taken as given: "measure the two proof bars against the parapet and keep 0.5 m and 4.0 m". `NoFlatLipBeforeTheCrest` and `TheBankIsSteep` in `RidgeTests.cs` now sample the raw platform 4 m uphill of each column's own crest line (the carved floor + 1.8 m) instead of the line itself; `TheBankIsSteep`'s upper guard moves from 7.0 to 7.5 m because the datum moved up by that same 1.8 m. Built on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground`, tagged `[ridge-own-line]`. (owner, 2026-10-15, on the Decide page) |
 
 ## Open: waiting on the owner
+- **The rebased ridge lane cannot be pushed: its remote `-b` branch still holds the pre-rebase tip (2026-10-15,
+  `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`).** The rebase onto integration `013960fb7` is
+  done and the edit gate is green on it (1289 run, 0 failed, RidgeTests 6 of 6), but
+  `origin/lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b` already carries the eight pre-rebase
+  commits (`1347ccd19`), so the push is not a fast-forward and the relay refuses a force push.
+  Options: (a) the owner (or the master) deletes `origin/lane/.../-high-ground-b` and lets the lane be pushed
+  afresh; (b) the owner force-pushes that branch himself; (c) the rebased work is pushed under a new lane name
+  (`...-high-ground-c`), which leaves two stale remote branches behind.
+  The agent's default, taken because a leg may not force-push and may not push another lane's name: NOTHING is
+  pushed. The work sits committed locally at `984df70be` in `githubtest-relay-work2`, with the pre-rebase tip kept
+  on the local branch `backup/ridge-own-line-before-rebase-2026-10-15`. (a) is the cleanest.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
