@@ -23,6 +23,8 @@ namespace TW.UI
         IStrategicMapView view;
         Func<Vector2, bool> mine;
         readonly List<Button> rows = new List<Button>(), missionRows = new List<Button>();
+        readonly List<Label> rowChips = new List<Label>();
+        readonly List<CampaignNode> rowNodes = new List<CampaignNode>();
         public string Selected { get; private set; }
         public int Mission { get; private set; }
 
@@ -90,7 +92,7 @@ namespace TW.UI
             var goldLabel = Root.Q<Label>("gold-value");
             if (goldLabel != null) goldLabel.tooltip = given == null && !ProfileStore.Writable ? ProfileStore.NotSavingWhy : null;
             var list = Root.Q("node-list");
-            rows.Clear();
+            rows.Clear(); rowChips.Clear(); rowNodes.Clear();
             if (list != null)
             {
                 list.Clear();
@@ -99,14 +101,15 @@ namespace TW.UI
                     var n = CampaignGraph.Find(id); if (n == null) continue;
                     var row = new Button { name = "row-" + n.Id }; row.AddToClassList("tw-list-row"); row.focusable = false;
                     var t = new Label(n.Name) { pickingMode = PickingMode.Ignore }; t.AddToClassList("tw-list-row__title"); row.Add(t);
-                    var state = CampaignGraph.StateOf(n, profile, Selected);
-                    var s = new Label(StateChips[(int)state] + "  ·  " + CampaignGraph.Done(n, profile) + " / " + n.Missions.Length) { pickingMode = PickingMode.Ignore }; s.AddToClassList("tw-list-row__sub"); row.Add(s);
+                    var s = new Label(RowSub(n)) { pickingMode = PickingMode.Ignore }; s.AddToClassList("tw-list-row__sub"); row.Add(s);
                     string pick = n.Id; row.clicked += () => Select(pick);
-                    list.Add(row); rows.Add(row);
+                    list.Add(row); rows.Add(row); rowChips.Add(s); rowNodes.Add(n);
                 }
             }
             Select(Selected ?? Opening(profile));
         }
+
+        string RowSub(CampaignNode n) => StateChips[(int)CampaignGraph.StateOf(n, profile, Selected)] + "  ·  " + CampaignGraph.Done(n, profile) + " / " + n.Missions.Length;
 
         public void Select(string id)
         {
@@ -117,7 +120,11 @@ namespace TW.UI
             bool same = id == Selected && Mission >= 0 && Mission < n.Missions.Length && CampaignGraph.CanFight(n, Mission, profile);
             Selected = id; CampaignSession.MapNode = id;
             if (!same) Mission = CampaignGraph.NextMission(n, profile);
-            foreach (var r in rows) r.EnableInClassList("tw-list-row--selected", r.name == "row-" + id);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                rows[i].EnableInClassList("tw-list-row--selected", rows[i].name == "row-" + id);
+                rowChips[i].text = RowSub(rowNodes[i]);   // L8: the chip was only ever written at build time, so moving HERE left it stale
+            }
             if (view != null)
             {
                 foreach (var other in CampaignGraph.Nodes) view.SetState(other.Id, CampaignGraph.StateOf(other, profile, Selected));
