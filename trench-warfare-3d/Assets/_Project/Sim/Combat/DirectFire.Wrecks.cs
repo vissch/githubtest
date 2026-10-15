@@ -47,6 +47,9 @@ namespace TW.Sim.Combat
         NativeList<Shelter> shelters;
         /// <summary>Men this far past a wreck's body (WreckBlastReach x size, halved) are behind it.</summary>
         public const float ShelterRadius = 3f;
+        /// <summary>How many sheltering wrecks an idle gun tries, nearest first, before it holds its fire: InShadow is a
+        /// spatial hash scan, so the cost of a pass is bounded here.</summary>
+        public const int WreckTries = 4;
         /// <summary>What a machine gun's round that hits a wreck it was fired at does to it, of the round's damage.</summary>
         public const float WreckFireShare = 0.5f;
         FlowFieldManager fields;
@@ -141,27 +144,51 @@ namespace TW.Sim.Combat
                 float3 p = Position[i];
                 float range = weapon.RangeMax;
                 if ((f & (uint)UnitFlags.Exposed) != 0 && (f & (uint)UnitFlags.Vehicle) == 0) range = math.min(range, CombatTables.AdvanceFireRange);
-                int mine = 1 << (Team[i] & 7), best = -1;
-                float bestSq = range * range;
-                for (int k = 0; k < Shelters.Length; k++)
-                {
-                    if ((Shelters[k].Teams & ~mine) == 0) continue;   // only his own side behind it
-                    float d = math.distancesq(Shelters[k].Pos.xz, p.xz);
-                    if (d < bestSq) { bestSq = d; best = k; }
-                }
-                if (best < 0) return;
-                var s = Shelters[best];
+                int mine = 1 << (Team[i] & 7);
+                float rangeSq = range * range;
                 float3 eye = new float3(p.x, Height.Sample(p.x, p.z) + HeightfieldRaycast.EyeHeight((Stance)StanceOf[i]), p.z);
-                float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
-                if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) return;
+                // the Shelters' Teams bit is built over the whole reach disc, so it only over-reports: a nearer wreck
+                // whose shadow is empty, or that he cannot see, is passed over and the next-nearest tried, up to
+                // WreckTries of them. (d, k) is a total order, so which one he ends on is deterministic.
+                float fromSq = -1f;
+                int fromK = -1;
+                for (int tries = 0; tries < WreckTries; tries++)
+                {
+                    int best = -1;
+                    float bestSq = 0f;
+                    for (int k = 0; k < Shelters.Length; k++)
+                    {
+                        if ((Shelters[k].Teams & ~mine) == 0) continue;   // only his own side behind it
+                        float d = math.distancesq(Shelters[k].Pos.xz, p.xz);
+                        if (d >= rangeSq) continue;
+                        if (d < fromSq || (d == fromSq && k <= fromK)) continue;   // already tried
+                        if (best >= 0 && (d > bestSq || (d == bestSq && k > best))) continue;
+                        bestSq = d; best = k;
+                    }
+                    if (best < 0) return;
+                    fromSq = bestSq; fromK = best;
 
-                float3 d3 = s.Pos - p; d3.y = 0f;
-                float dist = SimMath.Length(d3);
-                float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
-                // one walk of the shelter's cells both counts the heads in its shadow and keeps them down; nobody there:
-                // no shot and no cooldown spent ([N5.3]), and the walk suppressed nobody either
-                float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
-                if (InShadow(i, s, dir, near) == 0) return;
+                    var s = Shelters[best];
+                    float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
+                    if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) continue;
+
+                    float3 d3 = s.Pos - p; d3.y = 0f;
+                    float dist = SimMath.Length(d3);
+                    float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
+                    // one walk of the shelter's cells both counts the heads in its shadow and keeps them down; nobody
+                    // there: no shot, no cooldown spent and nobody suppressed ([N5.3]), so try the next-nearest wreck
+                    float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
+                    if (InShadow(i, s, dir, near) == 0) continue;
+                    Fire(i, s, dir, dist, f, weapon);
+                    return;
+                }
+            }
+
+            /// <summary>Slot i fires his round at wreck `s` (`dir`/`dist`: his xz line to it): the Shot and the roll that
+            /// may wear it. The near miss on the heads in its shadow was already dealt by AtWreck's InShadow walk.</summary>
+            void Fire(int i, in Shelter s, float3 dir, float dist, uint f, in WeaponStats weapon)
+            {
+                float3 p = Position[i];
                 FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                 Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
                 float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));

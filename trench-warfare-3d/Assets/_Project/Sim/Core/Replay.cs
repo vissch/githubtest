@@ -211,6 +211,10 @@ namespace TW.Sim
         // catalogue, whose fingerprints fold into every tick's hash, are not the ones v37 recorded against: a v37
         // replay does not replay. Layout and hash chain unchanged. Renumbered at landing if another sim lane lands
         // 38 first.
+        // v53 (2026-10-15, [found-atwreck-picks-nearest-shelter-by-teams-not-b-20261015-0]): AtWreck tries up to
+        // WreckTries sheltering wrecks, nearest first, instead of returning on the nearest one whose shadow is empty
+        // or that it cannot see. No field added, moved or dropped; the shots, suppression and prop hit points differ
+        // at a tick, so older replays do not verify.
         public const ushort FormatVersion = 65;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
