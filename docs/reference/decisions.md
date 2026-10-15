@@ -304,6 +304,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+<<<<<<< HEAD
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
@@ -327,6 +328,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
+=======
+- **A rebased lane cannot be pushed: the relay refuses every force push (2026-10-15, review-tools-rebase):**
+  `lane/show/review-tools` was rebased onto origin's integration branch (`a36537bb4`), 47 commits replayed, gate
+  green. The push needs `--force-with-lease` (a rebase rewrites the lane's own history), but the relay hook allows
+  only the bare `git push origin <lane>`, which github rejects as non-fast-forward, and refuses any form carrying a
+  force flag. Options: (a) let the hook pass `--force-with-lease` when the ref is the leg's own lane, the default
+  asked for here; (b) the owner pushes it by hand from the desktop; or (c) the lane is not rebased but merged, which
+  CLAUDE.md forbids. The work sits committed in `githubtest-relay-work2` at the rebased tip; nothing is lost.
+>>>>>>> ae799c63f5 ([review-tools-rebase] decisions.md: a rebased lane cannot be pushed, the relay refuses every force push - open question with the default asked for)
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
