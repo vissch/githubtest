@@ -167,8 +167,9 @@ namespace TW.Tests
         }
 
         /// <summary>[Q9] BattleHud generates ~35 HideAndDontSave textures (plus the GUIStyle backgrounds built from
-        /// them) in Start and owned them alone: nothing destroyed them when the component did, so a restart (a new
-        /// scene load adding a fresh BattleHud) leaked the lot. OnDestroy must free them.</summary>
+        /// them), and used to build them in Start where they leaked even on a BattleHud the Toolkit HUD keeps from
+        /// ever drawing. EnsureArt (rv-74-p3-u16) builds them lazily, on the first OnGUI; OnDestroy must still free
+        /// whatever EnsureArt built.</summary>
         [Test]
         public void BattleHudFreesItsGeneratedTexturesOnDestroy()
         {
@@ -181,12 +182,14 @@ namespace TW.Tests
                 hud = go.AddComponent<BattleHud>();
                 typeof(BattleHud).GetMethod("Start", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .Invoke(hud, null);
+                typeof(BattleHud).GetMethod("EnsureArt", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
+                    .Invoke(hud, null);
                 icons = (Texture2D[])typeof(BattleHud).GetField("unitIcons", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .GetValue(hud);
                 side = (Texture2D)typeof(BattleHud).GetField("sideTex", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)
                     .GetValue(hud);
-                Assert.IsNotNull(side, "[Q9] setup: Start should have built sideTex");
-                Assert.IsTrue(System.Array.Exists(icons, t => t != null), "[Q9] setup: Start should have built at least one icon");
+                Assert.IsNotNull(side, "[Q9] setup: EnsureArt should have built sideTex");
+                Assert.IsTrue(System.Array.Exists(icons, t => t != null), "[Q9] setup: EnsureArt should have built at least one icon");
                 // invoked directly rather than through Object.Destroy(hud), which in edit mode only queues OnDestroy
                 // for the next editor update rather than running it inside this test
                 typeof(BattleHud).GetMethod("OnDestroy", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)

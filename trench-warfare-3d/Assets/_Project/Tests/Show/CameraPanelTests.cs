@@ -1,6 +1,8 @@
 // Phase: review-fix (rv-37-p2-u16, 2026-10-13) — code review 2026-10-04, unit 16: Q1 (TestPanel.cs:262), Q4
 // (TacticalCamera.cs:156,171), Q5 (TestPanel.cs:59-67).
-// rv-74-p3-u16, 2026-10-15: Q6 (TestPanel.cs:81), Q7 (TestPanel.cs:343).
+// rv-74-p3-u16, 2026-10-15: Q6 (TestPanel.cs:81), Q7 (TestPanel.cs:343), Q8 (DebugOverlay.cs:61,69-72),
+// Q9 (BattleHud.cs:176-263,493-499; DebugOverlay.cs:50-51).
+using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
@@ -126,6 +128,116 @@ namespace TW.Tests
                 Check(FactionId.AustroHungarian, 7);
             }
             finally { roster.Dispose(); }
+        }
+
+        /// <summary>[Q8] ShowFlowField on a fresh DebugOverlay must be off: it used to default to true, walking
+        /// 625 cells a frame for Debug.DrawLine calls a player build never shows.</summary>
+        [Test]
+        public void FlowFieldIsOffByDefault()
+        {
+            var go = new GameObject("DebugOverlayQ8");
+            try
+            {
+                var overlay = go.AddComponent<DebugOverlay>();
+                Assert.IsFalse(overlay.ShowFlowField, "[Q8] ShowFlowField defaulted to true");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        /// <summary>[Q8] DrawsFlowField only says yes when the toggle is on AND the build is the editor: a player
+        /// build never shows the gizmo lines, so walking the cells for it there is pure waste.</summary>
+        [Test]
+        public void DrawsFlowFieldOnlyInTheEditorWithTheToggleOn()
+        {
+            Assert.IsFalse(DebugOverlay.DrawsFlowField(false, true), "[Q8] toggle off: must not draw");
+            Assert.IsFalse(DebugOverlay.DrawsFlowField(true, false), "[Q8] a player build: must not draw");
+            Assert.IsTrue(DebugOverlay.DrawsFlowField(true, true), "[Q8] editor with the toggle on: must draw");
+        }
+
+        /// <summary>[Q8] OffersCapsuleSwap mirrors TestPanel.OfferedIn: F4 used to swap the rendered men for
+        /// capsules even in a plain shipped build, which has neither flag set.</summary>
+        [Test]
+        public void CapsuleSwapIsOfferedOnlyInEditorOrDevelopmentBuilds()
+        {
+            Assert.IsFalse(DebugOverlay.OffersCapsuleSwap(false, false), "[Q8] a shipped build must not offer it");
+            Assert.IsTrue(DebugOverlay.OffersCapsuleSwap(true, false), "[Q8] the editor must offer it");
+            Assert.IsTrue(DebugOverlay.OffersCapsuleSwap(false, true), "[Q8] a development build must offer it");
+        }
+
+        /// <summary>[Q8] The four debug keys used to read Keyboard.current directly, so they fired under a shell
+        /// screen (InputFocus.Modal) and ignored any rebinding. Reading them through KeyMap.Down ties them to
+        /// InputFocus.Gameplay like every other action.</summary>
+        [Test]
+        public void DebugKeysAreDeadUnderAModalScreen()
+        {
+            bool was = InputFocus.Modal;
+            try
+            {
+                InputFocus.Modal = true;
+                Assert.IsFalse(KeyMap.Down(GameAction.DebugFlowField), "[Q8] DebugFlowField read under a modal screen");
+                Assert.IsFalse(KeyMap.Down(GameAction.DebugStats), "[Q8] DebugStats read under a modal screen");
+                Assert.IsFalse(KeyMap.Down(GameAction.DebugNextGoal), "[Q8] DebugNextGoal read under a modal screen");
+                Assert.IsFalse(KeyMap.Down(GameAction.DebugCapsules), "[Q8] DebugCapsules read under a modal screen");
+            }
+            finally { InputFocus.Modal = was; }
+        }
+
+        /// <summary>[Q9] BattleHud used to build ~35 HideAndDontSave textures in Start and never free them: a
+        /// restart leaked the lot. Start now only looks up Panel; EnsureArt (first OnGUI) builds the art, and
+        /// OnDestroy frees every texture it built.</summary>
+        [Test]
+        public void BattleHudBuildsItsArtLazilyAndFreesItOnDestroy()
+        {
+            var go = new GameObject("BattleHudQ9");
+            try
+            {
+                var hud = go.AddComponent<BattleHud>();
+                var t = typeof(BattleHud);
+                var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+                string[] textureFields = { "sideTex", "stripTex", "coin", "lockClosed", "lockOpen", "lockGrey",
+                    "advance", "fallback", "fire", "fireHeld", "pause", "barrage", "gas", "drop" };
+
+                t.GetMethod("Start", flags).Invoke(hud, null);
+                foreach (var name in textureFields)
+                    Assert.IsNull(t.GetField(name, flags).GetValue(hud), $"[Q9] Start built {name} before EnsureArt ran");
+                Assert.IsNull(t.GetField("unitIcons", flags).GetValue(hud), "[Q9] Start built unitIcons before EnsureArt ran");
+
+                t.GetMethod("EnsureArt", flags).Invoke(hud, null);
+                foreach (var name in textureFields)
+                    Assert.IsNotNull(t.GetField(name, flags).GetValue(hud), $"[Q9] EnsureArt left {name} unbuilt");
+                Assert.IsNotNull(t.GetField("unitIcons", flags).GetValue(hud), "[Q9] EnsureArt left unitIcons unbuilt");
+
+                t.GetMethod("OnDestroy", flags).Invoke(hud, null);
+                foreach (var name in textureFields)
+                    Assert.IsNull(t.GetField(name, flags).GetValue(hud), $"[Q9] OnDestroy left {name} behind");
+                Assert.IsNull(t.GetField("unitIcons", flags).GetValue(hud), "[Q9] OnDestroy left unitIcons behind");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        /// <summary>[Q9] DebugOverlay's two instanced materials were built in Start with nothing to free them;
+        /// OnDestroy now discards both.</summary>
+        [Test]
+        public void DebugOverlayFreesItsMaterialsOnDestroy()
+        {
+            var go = new GameObject("DebugOverlayQ9");
+            try
+            {
+                var overlay = go.AddComponent<DebugOverlay>();
+                var t = typeof(DebugOverlay);
+                var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+                var shader = Shader.Find("Universal Render Pipeline/Lit") ?? Shader.Find("Standard");
+                var matA = new Material(shader);
+                var matB = new Material(shader);
+                t.GetField("matA", flags).SetValue(overlay, matA);
+                t.GetField("matB", flags).SetValue(overlay, matB);
+
+                t.GetMethod("OnDestroy", flags).Invoke(overlay, null);
+
+                Assert.IsNull(t.GetField("matA", flags).GetValue(overlay), "[Q9] matA survived OnDestroy");
+                Assert.IsNull(t.GetField("matB", flags).GetValue(overlay), "[Q9] matB survived OnDestroy");
+            }
+            finally { Object.DestroyImmediate(go); }
         }
     }
 }
