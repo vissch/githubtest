@@ -104,6 +104,25 @@ namespace TW.Editor
             return c;
         }
 
+        /// <summary>Paints the 960x540 dark plate (night sky into churned ground, amber horizon glow, grained) and
+        /// returns it in texture row order (row 0 at the bottom), ready for <c>Texture2D.SetPixels32</c>.</summary>
+        public static Color32[] BackdropPixels(int w, int h)
+        {
+            var c = new UiSkinGenerator.Canvas(w, h);
+            var sky = new Color32(0x0E, 0x0F, 0x12, 255); var haze = new Color32(0x3A, 0x22, 0x18, 255); var ground = new Color32(0x14, 0x14, 0x16, 255);
+            int horizon = (int)(h * 0.58f);
+            c.GradientV(0, 0, w, horizon, sky, haze);
+            c.GradientV(0, horizon, w, h - horizon, new Color32(0x24, 0x1C, 0x18, 255), ground);
+            for (int x = 0; x < w; x++)   // a broken skyline of stumps and ruins
+            {
+                uint hh = UiSkinGenerator.Canvas.Hash(x / 6, 0, 3);
+                int height = 4 + (int)(hh % 26); if ((hh >> 8) % 7 == 0) height += 30;
+                c.Fill(x, horizon - height, 1, height + 2, new Color32(0x0A, 0x0B, 0x0C, 255));
+            }
+            c.Grain(0, 0, w, h, 0, 0.12f, 11, true);
+            return UiSkinGenerator.TextureRows(c.Px, w, h);
+        }
+
         /// <summary>A 960x540 dark plate: night sky into churned ground with an amber glow on the horizon, grained.</summary>
         static Texture2D EnsureBackdrop()
         {
@@ -111,19 +130,8 @@ namespace TW.Editor
             if (!File.Exists(full))
             {
                 const int W = 960, H = 540;
-                var c = new UiSkinGenerator.Canvas(W, H);
-                var sky = new Color32(0x0E, 0x0F, 0x12, 255); var haze = new Color32(0x3A, 0x22, 0x18, 255); var ground = new Color32(0x14, 0x14, 0x16, 255);
-                int horizon = (int)(H * 0.58f);
-                c.GradientV(0, 0, W, horizon, sky, haze);
-                c.GradientV(0, horizon, W, H - horizon, new Color32(0x24, 0x1C, 0x18, 255), ground);
-                for (int x = 0; x < W; x++)   // a broken skyline of stumps and ruins
-                {
-                    uint h = UiSkinGenerator.Canvas.Hash(x / 6, 0, 3);
-                    int height = 4 + (int)(h % 26); if ((h >> 8) % 7 == 0) height += 30;
-                    c.Fill(x, horizon - height, 1, height + 2, new Color32(0x0A, 0x0B, 0x0C, 255));
-                }
-                c.Grain(0, 0, W, H, 0, 0.12f, 11, true);
-                var t = new Texture2D(W, H, TextureFormat.RGBA32, false); t.SetPixels32(c.Px); t.Apply();
+                var rows = BackdropPixels(W, H);
+                var t = new Texture2D(W, H, TextureFormat.RGBA32, false); t.SetPixels32(rows); t.Apply();
                 File.WriteAllBytes(full, t.EncodeToPNG()); Object.DestroyImmediate(t);
                 AssetDatabase.ImportAsset(BackdropPath, ImportAssetOptions.ForceUpdate);
                 var imp = AssetImporter.GetAtPath(BackdropPath) as TextureImporter;
