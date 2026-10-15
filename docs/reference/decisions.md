@@ -283,7 +283,10 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   Options: (a) fix the isolation first (those tests point at a temp home and board) as a unit of its own, the default
   taken here, which is why relay-four-checks ends blocked with nothing of it committed; (b) let the four checks land
   on the relay line itself, where the gate is not asked; or (c) leave the relay's test files out of the tool check
-  until they are isolated.
+  until they are isolated. Tried on 2026-10-15 by a later leg: option (b) cannot be done by a relay leg at all. The
+  relay guard refuses any git switch off the leg's own lane ("relay: a leg stays on its own lane"), so no leg can
+  build on origin/lane/show/relay-harness, and the lane cannot be rebased onto that line either (it is on origin, and
+  no leg may force-push). So the choice is really (a) or (c), and only the owner can pick.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The Skimmer and the Salvo (sandbox units, 2026-09-28):** the Salvo beats a Tusk 6 in 10 (the balance critic expected
   the Tusk to win at a price); the Skimmer cannot touch a Tusk (all its plate is 10 mm or more, 12 mm or more at front and
