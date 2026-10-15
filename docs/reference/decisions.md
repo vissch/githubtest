@@ -366,6 +366,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   into this show lane, which would satisfy the card's done_when but forks the relay line into this lane's gate,
   along with the known test-isolation and prompt-file drift noted above. Nothing of the four checks is
   built or committed by this leg.
+- **The four checks are built and gate-green but cannot reach origin (2026-10-16, unit relay-four-checks):** this
+  checkout's lane (`lane/show/relay-four-checks`, tip `a2fa0fb26`) carries all four of the owner's allowed checks
+  (2026-10-10), each gate-green with `python Tools/relay/test_relay.py` passing 184 tests. `origin/lane/show/relay-four-checks`
+  still sits at `a42034f05` (its pre-rebase tip, on the old integration base) and is not an ancestor of `a2fa0fb26`
+  (`git merge-base --is-ancestor origin/lane/show/relay-four-checks HEAD` exits 1), so a plain `git push origin
+  lane/show/relay-four-checks` is a non-fast-forward. `Tools/relay/prepush.py`'s `rebased_name` sanctions pushing a
+  rebased lane under a renamed ref (`<lane>-b .. -j`), but the live relay's `cmdrules.push_ok` only allows the
+  literal lane name, and `legcmd.finish()` only ever pushes `origin <lane>` with no rename fallback - so the push is
+  refused at the session guard (already tried and refused, run `20261015-211321-75344` leg 14; not retried here).
+  Options: (a) the owner moves `origin/lane/show/relay-four-checks` onto this checkout's `a2fa0fb26` himself (one
+  force-push of a tree already gate-green and reviewed) - the default taken here, since the work is finished; (b)
+  re-queue the unit under a fresh name with no origin branch yet (e.g. `lane/show/relay-four-checks-c`), so a leg's
+  own push is a plain fast-forward; (c) teach the live `cmdrules.push_ok` and `legcmd.finish()` the `-b..-j` rename
+  fallback `prepush.py` already allows - a fifth change the owner did not ask for, not built here. This leg ends
+  blocked with nothing pushed; the commit carrying this row also cannot reach origin for the same reason.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
