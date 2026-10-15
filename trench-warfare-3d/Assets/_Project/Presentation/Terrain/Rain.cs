@@ -30,6 +30,10 @@ namespace TW.Presentation.Terrain
         const float CurtainCell = 70f, CurtainHeight = 55f;
         static readonly int DriftId = Shader.PropertyToID("_Drift"), WeatherId = Shader.PropertyToID("_Weather");
         Vector3 fallen;   // how far the rain has fallen and blown so far: integrated here, so a change of wind bends the streaks without making them jump
+        /// <summary>The fall is wrapped after this many boxes. The shader quantises each streak's own Y scale to steps
+        /// of 1/Wraps against _Offset.w, so every streak's offset is a whole number of boxes at a wrap and none of them
+        /// jumps when it comes round (W5).</summary>
+        public const float Wraps = 64f;
         static readonly int OffsetId = Shader.PropertyToID("_Offset"), LevelId = Shader.PropertyToID("_Level");
         static readonly int CentreId = Shader.PropertyToID("_Centre"), SizeId = Shader.PropertyToID("_Size"), FallId = Shader.PropertyToID("_Fall"), ColorId = Shader.PropertyToID("_Color");
 
@@ -146,8 +150,8 @@ namespace TW.Presentation.Terrain
                 ? new Vector3(wind.x * 3.2f, -(FallSpeed + 1.2f * level), wind.y * 3.2f)
                 : new Vector3(wind.x, -(FallSpeed + 7f * level), wind.y);   // heavy drops fall faster
             fallen += velocity * Time.deltaTime;
-            for (int k = 0; k < 3; k++) fallen[k] = Mathf.Repeat(fallen[k], Box[k] * 64f);   // keep the numbers small; 64 boxes is a whole number of wraps
-            material.SetVector(OffsetId, fallen);
+            for (int k = 0; k < 3; k++) fallen[k] = Mathf.Repeat(fallen[k], Box[k] * Wraps);   // keep the numbers small; a whole number of wraps
+            material.SetVector(OffsetId, new Vector4(fallen.x, fallen.y, fallen.z, Wraps));
             material.SetVector(FallId, new Vector4(velocity.x, -velocity.y, velocity.z, StreakLength * (.7f + .9f * level)));
             material.SetFloat(LevelId, level);
             if (curtains != null)

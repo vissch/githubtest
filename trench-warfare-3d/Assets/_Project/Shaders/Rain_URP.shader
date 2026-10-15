@@ -45,8 +45,11 @@ Shader "TW/Rain (URP)"
             Varyings vert(Attributes v)
             {
                 Varyings o;
-                float3 velocity = float3(_Fall.x, -_Fall.y * (0.8 + 0.4 * v.random.x), _Fall.z);
-                float3 p = v.positionOS.xyz * _Size.xyz + _Offset.xyz * float3(1.0, 0.8 + 0.4 * v.random.x, 1.0);
+                // Each streak falls at its own rate, but the CPU wraps the fall at _Offset.w boxes: the rate is
+                // quantised to steps of 1/w so ys * w is whole and the wrap is seamless (W5). 0.8..1.2, 26 speeds.
+                float w = max(1.0, _Offset.w); float ys = round((0.8 + 0.4 * v.random.x) * w) / w;
+                float3 velocity = float3(_Fall.x, -_Fall.y * ys, _Fall.z);
+                float3 p = v.positionOS.xyz * _Size.xyz + _Offset.xyz * float3(1.0, ys, 1.0);
                 // Snow wanders on its way down; rain does not. Two sines at rates set by the flake's own random, so
                 // no two flakes share a path and none of them is on a grid. Zero for rain, and free when it is.
                 if (_Flutter > 0.0)
