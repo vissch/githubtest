@@ -163,7 +163,7 @@ class World:
     def start(self, n):
         if not self.acting:
             return 'would start'
-        flags = getattr(subprocess, 'DETACHED_PROCESS', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)
+        flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)   # DETACHED_PROCESS: powershell runs nothing
         if n == 1:                  # the main relay: its hold first, then a run under the usual day (no figure passed)
             code, said = self.relay(self.main, 'hold', MAIN_WHO)
             if code:
