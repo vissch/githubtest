@@ -551,16 +551,23 @@ def feed(w):
             return ['feed: a relay did not say whether it runs: nothing is fed this round']
         lanes |= got
     held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()} | lanes
+    kin = {loopsteps.family(u)[0] for b in w.extras.values() for u in open_units(b)}    # x and x-b are one piece of work
     q, done = queue_of(w.main)
     for n, board in sorted(w.extras.items()):
         running, reason = w.status(board)
         if running:
             continue
-        mine = {u: v for u, v in open_units(board).items() if u not in done}     # done on the main board: not work
+        latest = {}
+        for b in [w.main, *w.extras.values()]:
+            for u in open_units(b):
+                f, r = loopsteps.family(u)
+                latest[f] = max(latest.get(f, 0), r)
+        mine = {u: v for u, v in open_units(board).items() if u not in done                  # done on the main board: not work
+                and loopsteps.family(u)[1] >= latest.get(loopsteps.family(u)[0], 0)}          # nor a unit a later copy (x-b) replaces
         if not mine:
             free = {}
             for uid, u in q.items():
-                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held:
+                if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or loopsteps.family(uid)[0] in kin:
                     continue
                 free.setdefault(u['lane'], []).append((found.prio(u), uid, u))
             if not free:
@@ -720,7 +727,7 @@ def attempts(w):
     dones = set().union(*(queue_of(b)[1] for b in boards))
     opens = {b: {u: v for u, v in open_units(b).items() if u not in dones} for b in boards}
     idle = [b for b in boards if w.status(b)[0] == set()]
-    return loopsteps.attempts(w, opens, dones, running_lanes(w), idle)
+    return loopsteps.attempts(w, opens, dones, running_lanes(w), idle, set(w.extras.values()))
 
 
 def round_(w):

@@ -310,6 +310,36 @@ def main():
          len(w.legs) == 1 and [a['id'] for a in w.added] == ['ridge-slope-from-parapet'] and w.taken == [(WRITE['id'], 'ridge-slope-from-parapet', '')] and len(w.rows) == 1,
          (w.legs, w.added, w.taken, w.rows))
 
+    # an original and its -b copy are never both worked
+    w = world(tmp, 's1')
+    put(w.main, 'queue', 'relay-proof-to-drive', lane='lane/show/relay-proof-to-drive', priority=99)
+    put(w.extras[2], 'queue', 'relay-proof-to-drive', lane='lane/show/relay-proof-to-drive')
+    put(w.main, 'queue', 'relay-proof-to-drive-b', lane='lane/show/relay-proof-to-drive-b', priority=20)
+    w.text[w.main] = RUN
+    lines = autoloop.round_(w)
+    extra_ids = sorted(p.stem for b in w.extras.values() for p in b.glob('relay/queue/*.json'))
+    case('when relay-proof-to-drive-b is queued, relay-proof-to-drive goes off the extra relay (no brief) and only the -b is worked there, never both',
+         ('b2', 'relay-proof-to-drive') in w.unqueued and w.briefs_written == [] and extra_ids == ['relay-proof-to-drive-b'], (lines, w.unqueued, extra_ids))
+    w = world(tmp, 's2')
+    put(w.extras[2], 'queue', 'proof-x', lane='lane/show/proof-x')
+    put(w.main, 'queue', 'proof-x-b', lane='lane/show/proof-x-b', priority=20)
+    w.text[w.main] = RUN
+    w.text[w.extras[2]] = RUN
+    lines = autoloop.feed(w)
+    case('while a relay works x, its copy x-b is not fed to another relay', not list(w.extras[6].glob('relay/queue/*.json')), lines)
+    # a relay holding only a unit that went nowhere is fed other work
+    w = world(tmp, 's3')
+    put(w.main, 'queue', 'relay-four-checks', lane='lane/show/relay-four-checks', priority=99)
+    put(w.extras[2], 'queue', 'relay-four-checks', lane='lane/show/relay-four-checks')
+    put(w.main, 'queue', 'fresh-1', lane='lane/show/fresh', priority=30)
+    w.stop_records = STOPS[:1]
+    w.stop_records = [(r, at, 'relay-four-checks', 'BLOCKED', 'no result') for r, at, _, _, _ in STOPS[:1]]
+    w.text[w.main] = RUN
+    lines = autoloop.round_(w)
+    got = sorted(p.stem for p in w.extras[2].glob('relay/queue/*.json'))
+    case('an idle extra relay whose only unit went nowhere (BLOCKED, nothing changed) does not count it as work: it goes off that board and the relay gets other work',
+         got == ['fresh-1'] and ('b2', 'relay-four-checks') in w.unqueued, (lines, got))
+
     # the day's pace as relay.py day prints it (ledger.pace_line), in percent and in dollars
     pp = autoloop.parse_pace
     case('the pace line is read in percent and dollars; a spent cap or a day ahead is nothing free; no line or a new wording is unknown (no leg runs)',

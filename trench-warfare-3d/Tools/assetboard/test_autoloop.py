@@ -147,7 +147,7 @@ class Fake(autoloop.World):
         return []
 
     def unqueue(self, board, uid):
-        (Path(board) / 'relay' / 'queue' / f'{uid}.json').unlink()
+        (Path(board) / 'relay' / 'queue' / f'{uid}.json').unlink(missing_ok=True)
         self.unqueued = self.unqueued + [(Path(board).name, uid)]
         return True
 

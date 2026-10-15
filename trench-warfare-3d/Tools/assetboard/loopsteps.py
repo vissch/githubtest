@@ -349,7 +349,7 @@ def park(w, uid, rec, on, out, dropped=False):
     return True
 
 
-def attempts(w, opens, dones, running, idle):
+def attempts(w, opens, dones, running, idle, extras=None):
     """Count each unit's tries from the stop records of every board; park the ones that went nowhere twice; bring a
     parked one back when something changed. `opens` {board: {id: unit}}, `dones` the ids done on any board, `running`
     the lanes a relay works now (None when one did not say), `idle` the boards whose relay does not run: a queue is
@@ -428,8 +428,70 @@ def attempts(w, opens, dones, running, idle):
             rec['brief'] = ''
             out.append(f'attempts: {uid} parked, its brief was refused: {str(e)[:160]}')
         out.append(f'attempts: {uid} parked after {len(rec["fails"])} tries with no progress ({", ".join(rec["fails"][-3:])}); brief {rec.get("brief") or "not written"}')
+    out += superseded(w, st, opens, idle)
+    out += stuck_on_extras(w, st, opens, idle, extras or set())
     if w.acting:
         save(w.home / 'attempts.json', st)
+    return out
+
+
+SUFFIX = re.compile(r'^(.+?)-([b-j])$')
+
+
+def family(uid):
+    """(the id a copy was made of, its rank): x-b is a later copy of x, x-c of x-b."""
+    m = SUFFIX.match(uid)
+    return (m.group(1), ' bcdefghij'.index(m.group(2))) if m else (uid, 0)
+
+
+def superseded(w, st, opens, idle):
+    """When a later copy of a unit (x-b, x-c) is open, the earlier one is parked for good, with no brief: two relays
+    never work one piece of work (relay 3 ran relay-proof-to-drive while relay 6 had relay-proof-to-drive-b)."""
+    out, best = [], {}
+    ids = {uid for us in opens.values() for uid in us}
+    for uid in ids:
+        f, r = family(uid)
+        best[f] = max(best.get(f, -1), r)
+    for uid in sorted(ids):
+        f, r = family(uid)
+        if r >= best[f]:
+            continue
+        rec = st.setdefault(uid, dict(seen=[], fails=[]))
+        on = {b: us[uid] for b, us in opens.items() if uid in us and (Path(b) / 'relay' / 'queue' / f'{uid}.json').exists()}
+        if rec.get('parked') or not on:
+            continue
+        if not w.acting:
+            out.append(f'attempts: {uid} would be parked: a later copy of it is queued')
+            continue
+        ready = {b: u for b, u in on.items() if Path(b) in idle}         # off the idle boards now, the others when idle
+        if ready and len(ready) < len(on):
+            for b in ready:
+                if w.unqueue(b, uid):
+                    out.append(f'attempts: {uid} taken off {Path(b).name}: its later copy is queued')
+        elif ready and park(w, uid, rec, on, out, dropped=True):
+            out.append(f'attempts: {uid} parked for good: its later copy is queued')
+    return out
+
+
+def stuck_on_extras(w, st, opens, idle, extras):
+    """An idle extra relay whose queue holds a unit that ended FAIL or BLOCKED with nothing changed since does not
+    count that unit as work: it goes off that board (the main board keeps it at 99, where its second try or its park
+    is decided), so the relay is fed other work instead of standing still (relay 2 held only relay-four-checks)."""
+    out = []
+    for b in sorted(extras, key=str):
+        if Path(b) not in idle:
+            continue
+        for uid, u in sorted((opens.get(b) or opens.get(Path(b)) or {}).items()):
+            rec = st.get(uid) or {}
+            if rec.get('parked') or not (Path(b) / 'relay' / 'queue' / f'{uid}.json').exists():
+                continue                                    # parked this round already
+            if not rec.get('fails') or changed_since(w, rec.get('fp') or {}, u):
+                continue
+            if not w.acting:
+                out.append(f'attempts: {uid} would go off {Path(b).name}: it went nowhere there and nothing changed since')
+                continue
+            if w.unqueue(b, uid):
+                out.append(f'attempts: {uid} taken off {Path(b).name}: it went nowhere there and nothing changed since, so it is not that relay\'s work')
     return out
 
 
