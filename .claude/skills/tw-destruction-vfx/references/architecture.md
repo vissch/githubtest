@@ -289,7 +289,7 @@ The broken twin of a lining panel collapses to `max(2, Pieces/2)` pieces (`:232`
   - `PileStep` 0.28, `PileMax` 3 (`:36`); `PitchSteps` 32 (`:39`)
 - Owner decision: `decisions.md:49`.
 
-**EventVfxRouter** (`P\Presentation\VFX\EventVfxRouter.cs:8-16`) is a stub: `Start()` throws `NotImplementedException("Phase B5 ...")`, and so does `GasVolumeRenderer`. It is listed as not wired in `tasks.md:133-137`. The real effects live in `Presentation/Camera`.
+**EventVfxRouter** was a stub whose `Start()` threw `NotImplementedException("Phase B5 ...")`, as did `GasVolumeRenderer`; both and their `Presentation/VFX/` assembly were deleted 2026-10-15 (V6). The real effects live in `Presentation/Camera`.
 
 **Design doc `D\16-destruction.md`, section by section:**
 - The rule `:7`; renderer `:18`; what throws what `:58`

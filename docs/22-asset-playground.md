@@ -463,7 +463,7 @@ Balance note: 8 racks on 6 riflemen moving at ~150 m killed 2. Consistent with t
 where the target was when it fired (`AManWhoMovesAwayBeforeTheRocketsLandEscapes`), and in 1-3 s of flight a man at
 3 m/s leaves most of the 5.6 m circle; against men standing 5 m apart a rack killed ~1.1 (4.5 in 4). The Salvo is
 artillery against men who stay put, and trenches. Not changed. **Audio:** the whole game is silent
-(`EventAudioRouter` is a B7 stub): the owner's scope decision, not built here.
+(no audio router exists; the B7 stub was deleted 2026-10-15): the owner's scope decision, not built here.
 
 ### Critic round 7: measured live (2026-09-28)
 Images `figures/battle-loop/r7-*`; all in GreyboxCorridor, Play, the machines held in place with `SimHost.WriteWorlds`.

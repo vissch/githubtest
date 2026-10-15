@@ -284,8 +284,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 `Sim/Combat/IndirectFire.cs`, `Sim/Match/Logistics.cs`, `Sim/Match/MissionScript.cs`, `Sim/Match/WaveAi.cs`,
 `Sim/Units/Grenades.cs` (unregistered systems that throw, `code-map.md`; `Sim/Units/SpecialAbilities.cs` is only the
 `UnitAbilityId` enum now, its stub system deleted 2026-09-28),
-`Net/HashExchange.cs`, `Net/Snapshot.cs`, `Presentation/Audio/EventAudioRouter.cs`, `Presentation/VFX/EventVfxRouter.cs`
-(each its assembly's only file). Building one out is a feature, and for the sim ones a hash change.
+`Net/HashExchange.cs`, `Net/Snapshot.cs` (each its assembly's only file; the two Presentation stub assemblies, the
+VFX and Audio event routers, were deleted 2026-10-15, V6). Building one out is a feature,
+and for the sim ones a hash change.
 
 ### Fire in the sim
 - **Files:** vehicles burn: `Sim/Units/VehicleModules.cs` (`Fire`, `StartFire`, `UnitFlags.Burning`, the

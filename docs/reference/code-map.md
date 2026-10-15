@@ -14,7 +14,8 @@ the asmdefs, the folders and `Sim/Match/MatchSim.cs`; edit the code or the scrip
   and `SceneHooks`, `SceneTints`, `SceneMood`, `FrameBudget` in `Presentation/Core/RenderGround.cs`. Search for the class declaration, not for a file named after it.
 - **Two partial classes:** `PropDestruction` across `Presentation/Terrain/PropDestruction.cs` and `PropWear.cs`;
   `CombatFx` across `Presentation/Camera/CombatFx.cs` and its `.Ground`, `.Chunks`, `.Ambient`, `.Bodies` parts.
-- **`Presentation/VFX/` and `Presentation/Audio/` are stubs.** Effects are in `Presentation/Camera/`; there is no audio.
+- **There are no VFX or Audio folders under Presentation.** Their stub assemblies were deleted 2026-10-15 (V6);
+  effects are in `Presentation/Camera/`, and there is no audio.
 
 ## Entry points
 | What | Where |
@@ -40,19 +41,17 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | Assembly | Folder | Namespaces declared | References (TW.*) |
 |---|---|---|---|
 | `TW.Data` | `Data/` | `TW.Data` | Sim.Core, Sim.Terrain, Sim.Combat, Sim.Units, Sim.Match |
-| `TW.Editor` | `Editor/` | `TW.Editor` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, Presentation.VFX, Presentation.Audio, UI, Perf, Playground |
+| `TW.Editor` | `Editor/` | `TW.Editor` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Units, UI, Perf, Playground |
 | `TW.Net` | `Net/` | `TW.Net` | Sim.Core |
 | `TW.Perf` | `Perf/` | `TW.Perf` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Playground.Editor` | `Playground/Editor/` | `TW.Playground.Editor` | Playground, Presentation.Terrain, Editor |
 | `TW.Playground` | `Playground/Runtime/` | `TW.Playground` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Net, Presentation.Core, Presentation.Units, Presentation.Camera, Presentation.Terrain |
 | `TW.Tests.Playground` | `Playground/Tests/` | `TW.Tests.Playground` | Playground, Playground.Editor |
-| `TW.Presentation.Audio` | `Presentation/Audio/` | `TW.Presentation.Audio` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Presentation.Camera` | `Presentation/Camera/` | `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core, Presentation.Units, Net |
 | `TW.Presentation.Core` | `Presentation/Core/` | `TW.Presentation`, `TW.Presentation.Tactical` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Net, Data |
 | `TW.Presentation.Meta` | `Presentation/Meta/` | `TW.Presentation.Meta` | Sim.Core, Sim.Terrain, Presentation.Core, Presentation.Camera, Presentation.Terrain |
 | `TW.Presentation.Terrain` | `Presentation/Terrain/` | `TW.Presentation.Terrain` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Camera, Presentation.Core |
 | `TW.Presentation.Units` | `Presentation/Units/` | `TW.Presentation.Units` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
-| `TW.Presentation.VFX` | `Presentation/VFX/` | `TW.Presentation.VFX` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units, Sim.Match, Data, Presentation.Core |
 | `TW.Sim.Combat` | `Sim/Combat/` | `TW.Sim.Combat` | Sim.Core, Sim.Terrain, Sim.Nav |
 | `TW.Sim.Core` | `Sim/Core/` | `TW.Sim` | (none) |
 | `TW.Sim.Match` | `Sim/Match/` | `TW.Sim.Match` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Units |
@@ -69,7 +68,7 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `TW.Tests.UI` | `Tests/UI/` | `TW.Tests` | Sim.Core, Sim.Terrain, Sim.Nav, Sim.Combat, Sim.Match, Net, Sim.Units, Presentation.Units, Presentation.Core, Presentation.Camera, Presentation.Terrain, Presentation.Meta, UI, Data |
 | `TW.UI` | `UI/` | `TW.UI` | Sim.Core, Sim.Terrain, Sim.Units, Sim.Match, Data, Presentation.Core, Sim.Nav, Presentation.Camera |
 
-29 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
+27 assemblies. Assembly names and namespaces differ on purpose: `using` takes the namespace.
 <!-- /gen:assemblies -->
 
 ## Folders
@@ -90,13 +89,11 @@ Instanced-indirect shaders index instance data with `GetIndirectInstanceID_Base`
 | `Playground/Runtime/` | PlaygroundHost (scene, panel, commands, captures), VehicleRig, UnitRig, Retarget, PlaygroundFx. |
 | `Playground/Tests/` | EditMode checks of the playground art: parts per LOD, rigs per LOD, the LOD-identical breakup. |
 | `Presentation/` | Everything drawn. Reads the sim, never writes it (except through SimHost.WriteWorlds). |
-| `Presentation/Audio/` | Stub: event audio router (B7). No audio assets exist yet. |
 | `Presentation/Camera/` | NOT just the camera: TacticalCamera plus CombatFx, TankRenderer, WalkerGait, Flamethrower, DebrisRenderer, FlipbookFx, the IMGUI BattleHud and TestPanel. Namespace TW.Presentation.Tactical. |
 | `Presentation/Core/` | SimHost (owns the match), SimPresenter, EventPump, AnimationController, SceneHooks/RenderGround, MatchClock, KeyMap, settings, HudBridge. |
 | `Presentation/Meta/` | The campaign views behind the menus: the Home Front diorama (sliced houses shown to a stage), the strategic map (a generated continent, pins, the front line) and their camera. |
 | `Presentation/Terrain/` | Ground mesh, battlefield composer and prop kit, destruction and wear, houses, weather, night, sea. |
 | `Presentation/Units/` | VATRenderer (all infantry), VAT codec/asset data, ProceduralSoldier far-tier fallback. |
-| `Presentation/VFX/` | Stub assembly (B5 router). Real effects live in Presentation/Camera. |
 | `Resources/` | Everything loaded by name at runtime (Resources.Load). Moving a file here breaks a string somewhere. |
 | `Resources/Env/` | Imported environment sets (Tripo), one folder per set, plus EnvAtlas.jpg built by Tools/envatlas.py. |
 | `Resources/Layouts/` | PropLayout asset: the owner's hand edits over the composed props. |

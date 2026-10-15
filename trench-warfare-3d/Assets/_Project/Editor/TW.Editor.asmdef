@@ -19,8 +19,6 @@
     "TW.Presentation.Camera",
     "TW.Presentation.Terrain",
     "TW.Presentation.Units",
-    "TW.Presentation.VFX",
-    "TW.Presentation.Audio",
     "TW.UI",
     "TW.Perf",
     "TW.Playground"
