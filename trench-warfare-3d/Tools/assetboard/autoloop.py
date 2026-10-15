@@ -229,6 +229,9 @@ class World:
                 continue                                        # it fast-forwards: nothing to rescue
             if g('for-each-ref', '--points-at', sha, 'refs/remotes/origin/')[1].strip():
                 continue                                        # on origin already, under another name
+            code, cherry = g('cherry', sha, f'origin/{name}')
+            if code or any(l.startswith('+') for l in cherry.splitlines()):
+                continue                                        # origin has work this branch lacks: stale or a dropped commit
             if g('merge-base', '--is-ancestor', f'origin/{INTEGRATION}', sha)[0] == 0:
                 res.append((name, sha))
         return res
@@ -415,19 +418,26 @@ def rescue(w):
         if w.acting:
             w.git(work, 'fetch', '-q', 'origin')         # refs only; the index is not touched
         for lane, sha in w.rebased(work):
-            if done.get(f'{lane}@{sha}') or lane in busy or (lane, sha) in seen:
+            if f'{lane}@{sha}' in done or lane in busy or (lane, sha) in seen:
                 continue                    # done before, a leg works on it now, or seen in another worktree of the same repo
             seen.add((lane, sha))
             name = w.free_name(work, lane)
             if not name:
-                out.append(f'rescue: {lane} ({sha[:9]}) is rebased and cannot fast-forward; no free name -b..-j')
+                done[f'{lane}@{sha}'] = 'no free name'
+                save(w.home / 'rescued.json', done)
+                out.append(f'rescue: {lane} ({sha[:9]}) is rebased and cannot fast-forward; no free name -b..-j (said once)')
                 continue
             if not w.acting:
                 out.append(f'rescue: would push the rebased {lane} ({sha[:9]}) as {name}')
                 continue
+            again = running_lanes(w)                 # a relay may have started since the round began
+            if again is None or lane in again or w.status(w.main if n == 1 else w.extras[n])[0]:
+                continue
             code, said = w.push_as(work, sha, name)
             if code:
-                out.append(f'rescue: {lane} as {name} was refused: {said[:160]}')
+                done[f'{lane}@{sha}'] = 'refused: ' + said[:160]
+                save(w.home / 'rescued.json', done)
+                out.append(f'rescue: {lane} as {name} was refused (said once): {said[:160]}')
                 continue
             done[f'{lane}@{sha}'] = name
             save(w.home / 'rescued.json', done)
@@ -448,6 +458,9 @@ def wait_for_relay(w):
     for uid, old in sorted(held.items()):
         if uid in done or uid not in q:
             held.pop(uid)
+            continue
+        if found.prio(q[uid]) != PARKED:
+            held.pop(uid)                       # somebody set another priority meanwhile: theirs stands
             continue
         if landed or w.has(w.lane_ref(q[uid].get('lane', '')), NEEDS_RELAY):
             if w.acting and w.prio(uid, old)[0]:

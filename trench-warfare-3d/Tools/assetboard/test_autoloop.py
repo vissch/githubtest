@@ -227,11 +227,13 @@ def main():
     w = Dep(tmp / 'i')
     put(w.main, 'queue', 'second-critic-on', goal='change Tools/relay/runner.py so ...', priority=20)
     put(w.main, 'queue', 'banner-legs', goal='the Banner walks', priority=30)
+    put(w.main, 'queue', 'relay-moved', goal='Tools/relay/x.py', priority=40)
     first = autoloop.wait_for_relay(w)
+    w.relay(w.main, 'prio', 'relay-moved', '3')            # a person moves one meanwhile
     w.landed = True
     back = autoloop.wait_for_relay(w)
     case('a unit about the relay whose lane has no Tools/relay waits parked at 99 (not a run that blocks); once the relay line has landed it goes back to its own priority; other units are left alone',
-         'waits for relay-harness' in first[0] and len(first) == 1 and w.prios == {'second-critic-on': 20} and 'goes back to priority 20' in back[0], (first, back, w.prios))
+         len(first) == 2 and all('waits for relay-harness' in l for l in first) and w.prios == {'second-critic-on': 20, 'relay-moved': 3} and len(back) == 1 and 'goes back to priority 20' in back[0], (first, back, w.prios))
 
     # ---- one round, and the lock ----
     calls = []
