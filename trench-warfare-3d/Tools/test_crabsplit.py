@@ -115,7 +115,8 @@ def real_limbs(entry, cfg):
     assert membership and labels, not the order inside one leg."""
     piv, s = entry["pivots"], entry["scale"]
     def bl(u): return (-u[0] / s, -u[2] / s, u[1] / s)
-    mid = bl(piv["Body"])
+    # the root part is "Body" on a sheet-cut machine and "Hull" on one cut again to the walking standard
+    mid = bl(piv["Body"] if "Body" in piv else piv["Hull"])
     keys = [k for k in piv if k.split("_")[0] in ("Thigh", "Shin", "Foot")
             or (k.startswith("Claw") and not cfg.get("claws", True))]
     out = []
@@ -145,8 +146,14 @@ class RealGeometryTest(unittest.TestCase):
                     want.setdefault(label, set()).add(part)
             legs, leftover = group_legs(real_limbs(entry, cfg), cfg.get("legs"), name)
             got = {g["label"]: set(g["keys"]) for g in legs}
-            self.assertEqual(want, got,
-                             "[T3.1] %s no longer groups as it is committed: %s" % (name, legs))
+            if name == "Banner":
+                # Banner was cut again to the walking standard: its legs are numbered from the rear (R1, L2),
+                # not labelled by quadrant, so only the grouping can be compared, not the labels.
+                self.assertEqual(sorted(map(sorted, want.values())), sorted(map(sorted, got.values())),
+                                 "[T3.1] %s no longer groups as it is committed: %s" % (name, legs))
+            else:
+                self.assertEqual(want, got,
+                                 "[T3.1] %s no longer groups as it is committed: %s" % (name, legs))
             self.assertEqual([], leftover, "[T3.1] %s lost a leg piece into the Body" % name)
 
         # the Redoubt's committed split is the wrong one R1 found, so only the shape of the answer is checked:
