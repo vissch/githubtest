@@ -170,13 +170,19 @@ namespace TW.Editor
             }
         }
 
-        static void WritePng(string assetPath, Color32[] px, int w, int h)
+        // The canvas is drawn top row first (y down, as every rule above reads: "light top-left", a lock's shackle on
+        // top); a Texture2D's row 0 is the BOTTOM. Until v6 the rows went in unflipped and every sprite and glyph came
+        // out upside down: plates lit from below, the helmet read as a dropdown arrow, the padlock stood on its shackle.
+        public static Color32[] TextureRows(Color32[] px, int w, int h)
         {
-            // The canvas is drawn top row first (y down, as every rule above reads: "light top-left", a lock's shackle on
-            // top); a Texture2D's row 0 is the BOTTOM. Until v6 the rows went in unflipped and every sprite and glyph came
-            // out upside down: plates lit from below, the helmet read as a dropdown arrow, the padlock stood on its shackle.
             var rows = new Color32[px.Length];
             for (int y = 0; y < h; y++) System.Array.Copy(px, y * w, rows, (h - 1 - y) * w, w);
+            return rows;
+        }
+
+        static void WritePng(string assetPath, Color32[] px, int w, int h)
+        {
+            var rows = TextureRows(px, w, h);
             var t = new Texture2D(w, h, TextureFormat.RGBA32, false);
             t.SetPixels32(rows); t.Apply(false, false);
             File.WriteAllBytes(FullPath(assetPath), t.EncodeToPNG());

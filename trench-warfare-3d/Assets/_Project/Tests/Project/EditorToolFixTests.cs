@@ -152,5 +152,18 @@ namespace TW.Tests
                 typeof(RiderLab.Bench).GetField("Instance", BindingFlags.Static | BindingFlags.Public)?.SetValue(null, null);
             }
         }
+
+        [Test]
+        public void TheMenuBackdropIsWrittenSkyUp()   // [F15]
+        {
+            var rows = ShellAssetsBuilder.BackdropPixels(960, 540);
+            // sky 0x0E0F12 is darker in every channel than ground 0x141416; both are grained (intensity 0.12),
+            // so allow the noise's spread and average a short run of pixels rather than comparing a single one.
+            int TopSum(int c) { int s = 0; for (int x = 0; x < 8; x++) { var p = rows[(540 - 1) * 960 + x]; s += c == 0 ? p.r : c == 1 ? p.g : p.b; } return s / 8; }
+            int BotSum(int c) { int s = 0; for (int x = 0; x < 8; x++) { var p = rows[x]; s += c == 0 ? p.r : c == 1 ? p.g : p.b; } return s / 8; }
+            Assert.Less(TopSum(0), BotSum(0), "[F15] the top texture row is not darker than the bottom (sky vs ground, red)");
+            Assert.Less(TopSum(1), BotSum(1), "[F15] the top texture row is not darker than the bottom (sky vs ground, green)");
+            Assert.Less(TopSum(2), BotSum(2), "[F15] the top texture row is not darker than the bottom (sky vs ground, blue)");
+        }
     }
 }
