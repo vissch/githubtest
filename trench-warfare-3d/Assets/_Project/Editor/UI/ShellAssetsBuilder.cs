@@ -3,7 +3,9 @@
 // TW/UI/Build Shell Assets is idempotent: existing assets are updated in place, existing mission cards are left as
 // the designer edited them. TW/UI/Build Main Menu Scene writes Scenes/MainMenu.unity (camera and light only; the
 // menu is a UI panel), re-targets Bootstrap.unity at it, and registers [Bootstrap, MainMenu, GreyboxCorridor] in the
-// build settings without regenerating GreyboxCorridor (which would reset SimHost's serialized fields).
+// build settings without regenerating GreyboxCorridor (which would reset SimHost's serialized fields), each only
+// when its scene file exists.
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -152,8 +154,17 @@ namespace TW.Editor
 
         // ---- scenes ---------------------------------------------------------------------------------------------------
         [MenuItem("TW/UI/Build Main Menu Scene")]
-        public static void BuildMainMenuScene()
+        public static void BuildMainMenuScene() => BuildMainMenuScene(EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo);
+
+        /// <summary>Returns false and changes nothing when the user declines to save the open scenes.</summary>
+        public static bool BuildMainMenuScene(System.Func<bool> saveOpenScenes)
         {
+            if (!saveOpenScenes())
+            {
+                Debug.Log("ShellAssetsBuilder: Build Main Menu Scene cancelled, the open scenes are unsaved.");
+                return false;
+            }
+
             var setup = EditorSceneManager.GetSceneManagerSetup();
             string menu = $"{ScenesDir}/MainMenu.unity";
             var scene = EditorSceneManager.NewScene(NewSceneSetup.DefaultGameObjects, NewSceneMode.Single);
@@ -168,15 +179,23 @@ namespace TW.Editor
                 var loader = Object.FindFirstObjectByType<BootstrapLoader>();
                 if (loader != null && loader.SceneName != MatchLaunch.MenuScene) { loader.SceneName = MatchLaunch.MenuScene; EditorSceneManager.MarkSceneDirty(bs); EditorSceneManager.SaveScene(bs); }
             }
-            string greybox = $"{ScenesDir}/GreyboxCorridor.unity";
-            EditorBuildSettings.scenes = new[]
-            {
-                new EditorBuildSettingsScene(bootstrap, true),
-                new EditorBuildSettingsScene(menu, true),
-                new EditorBuildSettingsScene(greybox, true),
-            };
+            EditorBuildSettings.scenes = ShellBuildScenes(p => File.Exists(UiSkinGenerator.FullPath(p)));
             if (setup != null && setup.Length > 0) EditorSceneManager.RestoreSceneManagerSetup(setup);
             Debug.Log("ShellAssetsBuilder: MainMenu.unity built, Bootstrap targets MainMenu, build settings [Bootstrap, MainMenu, GreyboxCorridor].");
+            return true;
+        }
+
+        /// <summary>The shell's build scenes in load order: Bootstrap, MainMenu, GreyboxCorridor, each only when its file is on disk.</summary>
+        public static EditorBuildSettingsScene[] ShellBuildScenes(System.Func<string, bool> onDisk)
+        {
+            var paths = new[] { $"{ScenesDir}/Bootstrap.unity", $"{ScenesDir}/MainMenu.unity", $"{ScenesDir}/GreyboxCorridor.unity" };
+            var scenes = new List<EditorBuildSettingsScene>();
+            foreach (var p in paths)
+            {
+                if (onDisk(p)) scenes.Add(new EditorBuildSettingsScene(p, true));
+                else Debug.LogWarning($"ShellAssetsBuilder: {p} not found, leaving it out of the build settings.");
+            }
+            return scenes.ToArray();
         }
 
         [MenuItem("TW/UI/Build All Shell (assets + scene)")]
