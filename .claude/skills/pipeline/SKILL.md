@@ -93,19 +93,9 @@ question.
    wrapper pid `$R start` prints, or a long-lived shell's pid); without it the claim is refused. Refused as busy:
    another worker on this station has it; stop.
 3. Do the stage. RECHECK means run only its checks on the outputs it already has; REGENERATE means the full stage.
-<<<<<<< HEAD
-<<<<<<< HEAD
-   The stage's role skill (the table above) says how. A job over a few minutes (gate, bench, sweep,
-   Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status`.
-=======
-   The stage's role agent (`.claude/agents/<role>.md`) says how. A job over a few minutes (gate, bench, sweep,
-=======
    The stage's role skill (`.claude/skills/<skill>/SKILL.md`, from the "Role skills" table above) says how. A job
-   over a few minutes (gate, bench, sweep,
->>>>>>> c5d8e1eb7 ([K5s] test: SkillDocsTest.test_k5s_docs_say_to_set_tw_station_on_a_hostless_station - pipeline/SKILL.md and tw-master/SKILL.md called pipeline.py/feedback without ever setting TW_STATION, and stations.json lists no host for laptop, so station() exits "unknown host" there; added a setup line to each.)
-   Blender, ComfyUI) goes through `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll
-   `$R status <job>` using the same name given to `$R start`.
->>>>>>> e7afff6d8 ([K1s] test: SkillDocsTest.test_k1s_unity_pipeline_warns_against_bare_unity_commands - unity-pipeline/SKILL.md had no warning against bare unity calls/package_add; added a header pointing at Tools/tw and the package-management skill.)
+   over a few minutes (gate, bench, sweep, Blender, ComfyUI) goes through
+   `$R start <job> --timeout <s> --min-headroom-gb 10 -- <cmd>`; poll `$R status <job>` with that same name.
 4. Commit outputs on the stage's lane (`lane/sim/pipe-<item>` or `lane/show/pipe-<item>`) with
    `gate.ps1 -EditOnly` green first. A path on the seam list (`CLAUDE.md`) stops the job: BLOCKED, and ask.
 5. Put evidence on the board under `evidence/<item>/<stage>/`, JPG, at most 400 KB each, one per required band.

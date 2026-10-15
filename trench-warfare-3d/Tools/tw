@@ -86,8 +86,7 @@ case "${1:-}" in
     # A clock already at or past the mark cannot be pinned to it: the editor was late, the effect would be born at
     # some other absolute time, and the phases the shot is anchored on would differ. Fail instead of pretending.
     if [ -n "$t" ] && awk -v a="$t" -v w="$want" 'BEGIN{exit !(a>=w)}'; then
-      awk -v a="$t" -v w="$want"         'BEGIN{printf "stepabs: clock already at %.2fs, past %ss - the birth cannot be pinned
-", a, w}' >&2
+      awk -v a="$t" -v w="$want" 'BEGIN{printf "stepabs: clock already at %.2fs, past %ss - the birth cannot be pinned\n", a, w}' >&2
       exit 1
     fi
     gap=$(awk -v a="$t" -v w="$want" 'BEGIN{printf "%.2f", w-a-0.4}')

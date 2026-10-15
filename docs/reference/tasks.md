@@ -140,7 +140,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
   Unattended, from batch mode (a knob's A/B, one launch a side): BenchRuns (`Tests/Stills`, explicit, run by name with
-  a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/aosa/cmp.py`.
+  a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/perfcmp.py`.
 
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),

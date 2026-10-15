@@ -646,8 +646,10 @@ def check(errors, warnings):
 
 def main():
     if '--check' in sys.argv:
-        errors = []
-        check(errors)
+        errors, warnings = [], []
+        check(errors, warnings)
+        for w in warnings:
+            print('warning: ' + w)
         if errors:
             print('\n'.join('codemap: ' + e for e in errors))
             sys.exit(1)

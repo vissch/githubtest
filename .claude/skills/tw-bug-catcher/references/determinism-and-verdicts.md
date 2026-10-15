@@ -6,7 +6,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Determinism tests
 - **`SimHashTests`** (`P\Tests\Sim\SimHashTests.cs`): `const string SystemChain` (re-grep for its line), the order-numbered system list from `40 CombatCatalogueSystem` to `1200 SectorControlSystem`.
-  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 25` and the chain.
+  - `TheHashChainIsTheOneItsFormatVersionNames` asserts `ReplayRecorder.FormatVersion == 52` and the chain.
   - A system joining or moving fails here: bump FormatVersion and pin the new chain in the same commit (`D\inbox\2026-09-27-all-lanes-landed.md:29-31`).
 - **`DeterminismReplayTests`** (`P\Tests\Sim\DeterminismReplayTests.cs`):
   - `SameSeedAndCommands_ProduceIdenticalHashes` (:75): 300 greybox ticks with a scripted ability script, plus the `Seams()` system calls for mines, tripwire and burning (:44-55).
@@ -43,7 +43,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Gate verdicts
 **`gate.ps1`** (`R\gate.ps1`)
-- A test over 3 s carries `[Category("Long")]` (47 of them). `gate.ps1 -EditOnly` leaves them out with `-testCategory !Long`; `-Long` runs them, and the full gate always does.
+- A test over 3 s carries `[Category("Long")]` (50 of them). `gate.ps1 -EditOnly` leaves them out with `-testCategory !Long`; `-Long` runs them, and the full gate always does.
 - Exit codes: 0 green, 8 a test failed, 6 no verdict, 5 validate, 3 held, 1 no unity (:5-7).
 - "The xml is the verdict, not unity's exit code" (:22-23, :63-64). Zero tests run, or nothing passed, is exit 6 (:62, :65).
 - **Stale-xml fix:** it deletes `test-results.xml` and `test-results-<mode>.xml` before each run, so "a run that writes nothing must not leave the last green copy" (:70-71; commits `cfc2045` and `34de04b`).
