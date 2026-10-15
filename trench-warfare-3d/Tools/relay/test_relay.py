@@ -439,6 +439,26 @@ class Guards(Base):
         self.assertTrue(self.denied("Edit", agent=True, file_path=str(self.tmp / "work" / "a.cs")))
         self.assertTrue(self.denied("Bash", agent=True, command="git commit -m x"))
 
+    def test_a_read_only_leg_may_fetch_ask_for_help_and_write_in_its_own_desk(self):
+        """The owner's check (1) of 2026-10-10: read-only commands and writes inside the leg's own desk go through,
+        a write into the checkout does not."""
+        d = self.leg("plan")
+        desk = str(legdir.desk(d)).replace("\\", "/")
+        work = str(self.tmp / "work").replace("\\", "/")
+        for cmd in ("git fetch origin", "git fetch", "git fetch -q origin", "git log -1", "grep -n x f", "ls",
+                    "cat f", "python x.py --help", "python Tools/build.py --help", "gate.ps1 -h", "git lfs help",
+                    "echo x > %s/note.md" % desk, "mkdir %s/sub" % desk, "touch %s/a.txt" % desk,
+                    "git log --oneline -20 > %s/log.txt" % desk, "cp %s/a.txt %s/b.txt" % (desk, desk),
+                    "tee %s/out.txt" % desk):
+            self.assertFalse(self.denied("Bash", command=cmd), cmd)
+        for cmd in ("echo x > %s/a.txt" % work, "git fetch origin x:main", "git fetch origin HEAD:refs/heads/main2",
+                    "rm -rf %s" % desk, "mkdir %s/sub" % work, "cp %s/a.txt %s/a.txt" % (desk, work),
+                    "touch %s/a.txt %s/b.txt" % (desk, work), "tee %s/a.txt" % work, "mkdir sub", "touch f",
+                    "git log > %s/log.txt" % work, "python x.py --help > %s/h.txt" % work,
+                    "git -C %s fetch origin" % (work + "-other"),         # another checkout, not this leg's
+                    "git -c core.hooksPath=x fetch origin"):
+            self.assertTrue(self.denied("Bash", command=cmd), cmd)
+
     def test_what_real_legs_were_refused_now_passes_and_the_writers_beside_it_do_not(self):
         relay = str(HERE / "relay.py").replace("\\", "/")
         self.leg("plan")

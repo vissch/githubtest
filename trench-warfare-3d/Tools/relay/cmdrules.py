@@ -8,7 +8,8 @@ audit after each leg).
 
   never(cmd, leg)        why no leg may run this, in any phase (land, claim, force-push, another lane, ...)
   skips_guard(cmd)       True when it names git's push guard or tells git to skip it (a commit message may)
-  read_only_ok(cmd)      True when every part only looks (the plan, critic and retro phases)
+  read_only_ok(cmd, relay_py, desk)
+                         True when every part only looks, fetches, asks for help, or writes inside the leg's desk
   red_ok(cmd, relay_py)  True when it is one close-out command (context at red)
   look_only(cmd)         True for a note's prediction command
 Stdlib only. ASCII only.
@@ -62,6 +63,8 @@ LOOK_SCRIPTS = {"pipeline.py": ("status", "why", "next"), "health.py": None, "va
                 "codemap.py": ("--check",), "run_detached.py": ("status",), "aosa.py": ("status", "pick"),
                 "editor_lock.py": ("status", "guard")}       # the lock is how a leg asks "is the project free"
 PYTHONS = {"python", "python3", "py", "pythonw"}
+HELP_WORDS = {"--help", "-h", "help", "-help", "/?"}
+DESK_PROGS = {"mkdir", "cp", "touch", "tee"}
 PY_WRITES = re.compile(r"open\s*\([^)]*,\s*['\"][^'\"]*[wax+]|mode\s*=\s*['\"][^'\"]*[wax+]|\.open\s*\(\s*['\"][^'\"]*[wax+]"
                        r"|\.write|write_(text|bytes)|unlink|rmtree|rmdir|remove\s*\(|rename|mkdir|makedirs|touch\s*\("
                        r"|chmod|subprocess|os\.system|popen|shutil|exec\s*\(|eval\s*\(|__import__|importlib|socket"
@@ -522,15 +525,85 @@ def leg_done_part(words, relay_py):
             and norm_path(w[1]) == norm_path(relay_py) and w[2:] == ["leg", "done"])
 
 
-def read_only_ok(cmd, relay_py=None):
-    """Every line and every part only looks, or is the leg's own `leg done`. A $( ) may hold one git look-up
-    (merge-base, rev-parse); nothing in front of a command sets a variable."""
+def redirect_targets(words):
+    """The files a part writes to or reads from, in order; None for one this reader cannot pin down."""
+    out, want = [], False
+    for w in words:
+        if want:
+            out.append(bare(w))
+            want = False
+            continue
+        if w[:1] in "\"'" or w.lower() in HARMLESS:
+            continue
+        m = re.match(r"^\d*(>>|>|<)(.*)$", w)
+        if m and "&" not in w and not re.search(r"[<>]", m.group(2)):
+            if m.group(2):
+                out.append(bare(m.group(2)))
+            else:
+                want = True
+        elif re.search(r"[<>]", w):
+            out.append(None)                                # &>, 2>&3, something this reader does not know
+    if want:
+        out.append(None)
+    return out
+
+
+def in_desk(path, desk):
+    if not desk or not path:
+        return False
+    a, b = norm_path(path), norm_path(desk)
+    return a == b or a.startswith(b + "/")
+
+
+def fetch_ok(words):
+    """`git fetch`, `git fetch origin`: it writes no branch (no refspec), names no other checkout, sets nothing."""
+    if prog(words) != "git" or redirects(words):
+        return False
+    sub, args, cdir, keys, lead = git_parse(words)
+    return (sub == "fetch" and cdir is None and not keys
+            and not any(":" in a or a.startswith(("--refmap", "--upload-pack")) for a in args))
+
+
+def help_only(words):
+    """The part asks a program to print its usage and nothing else: every flag is a help flag, and the only other
+    words name the program (a script, a subcommand). No redirect, so it prints and writes nothing."""
+    rest = [bare(w) for w in words[1:]]
+    if not rest or redirects(words):
+        return False
+    flags = [w for w in rest if w.startswith("-") or w == "/?"]
+    named = [w for w in rest if w not in flags]
+    return (bool([w for w in rest if w.lower() in HELP_WORDS]) and all(w.lower() in HELP_WORDS for w in flags)
+            and len(named) <= 2 and all(re.match(r"^[\w.@/\:+-]+$", w) for w in named))
+
+
+def desk_write_ok(words, desk):
+    """A small write (mkdir, cp, touch, tee) whose every path is inside the leg's own desk folder."""
+    if prog(words) not in DESK_PROGS or not desk:
+        return False
+    paths = [a for a in plain(words[1:]) if not a.startswith("-")] + redirect_targets(words)
+    return bool(paths) and all(in_desk(a, desk) for a in paths)
+
+
+def look_with_desk_output(words, desk):
+    """A look part that sends its output into the leg's own desk folder."""
+    targets = redirect_targets(words)
+    if not targets or not all(in_desk(t, desk) for t in targets):
+        return False
+    return look_part(plain(words))
+
+
+def read_only_ok(cmd, relay_py=None, desk=None):
+    """Every line and every part only looks, asks for help, fetches, writes inside the leg's own desk folder, or is
+    the leg's own `leg done`. A $( ) may hold one git look-up (merge-base, rev-parse); nothing in front of a command
+    sets a variable. Whatever never() refuses is refused here too: the caller asks it first."""
     flat, inner = substitutions(cmd)
     if "`" in cmd or not all(sub_look(s) for s in inner):
         return False
     env = []
     cs = commands(flat, env)
-    return bool(cs) and not env and all(look_part(w) or leg_done_part(w, relay_py) for w in cs)
+    return bool(cs) and not env and all(
+        look_part(w) or leg_done_part(w, relay_py) or fetch_ok(w) or help_only(w)
+        or look_with_desk_output(w, desk) or desk_write_ok(w, desk) for w in cs)
 
 
 def red_ok(cmd, relay_py):
