@@ -12,6 +12,8 @@ audit after each leg).
                          True when every part only looks, fetches, asks for help, or writes inside the leg's desk
   red_ok(cmd, relay_py)  True when it is one close-out command (context at red)
   look_only(cmd)         True for a note's prediction command
+  drive_why(text)        why no leg may touch this path or command: it names the owner's Drive outside
+                        decisions-evidence. None when it is not on the Drive at all.
 Stdlib only. ASCII only.
 """
 import os, re
@@ -32,6 +34,9 @@ ENV_OK = {"GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "GIT_PAGER", "GIT_TERMINAL_PROMPT
           "GIT_COMMITTER_EMAIL", "GIT_OPTIONAL_LOCKS", "GIT_LFS_SKIP_SMUDGE"}
 RELAY_VARS = ("TW_RELAY", "TW_WORKER_PID", "TW_BOARD", "TW_RUNS")
 GUARD_WORDS = ("relay-leg.json", "hooks/pre-push")
+DRIVE_EVIDENCE = "G:/My Drive/TW3D-pipeline/decisions-evidence"
+DRIVE_MARKS = ("g:/my drive", "/g/my drive")
+EVID_TAIL = "/tw3d-pipeline/decisions-evidence"
 PUSH_FLAGS = ("-u", "--set-upstream", "-q", "--quiet", "-v", "--verbose", "--progress")
 FORCE = ("-f", "--force", "--force-with-lease", "--force-if-includes")
 SUB_LOOK = {"merge-base": None, "rev-parse": ("--short", "--verify", "-q", "--abbrev-ref", "--show-toplevel",
@@ -87,6 +92,20 @@ def norm_path(p):
     except OSError:
         p = os.path.abspath(p)
     return os.path.normcase(p).replace("\\", "/").rstrip("/")
+
+
+def drive_why(text):
+    """Why no leg may touch this path, or this command: it names the owner's Drive outside decisions-evidence.
+    A path or command that is not on the Drive at all: None. One text rule, two callers."""
+    t = str(text).replace("\\", "/").lower()
+    for m in DRIVE_MARKS:
+        i = t.find(m)
+        while i >= 0:
+            seg = re.split(r"[\"'\s]", t[i + len(m):], 1)[0]
+            if not (seg == EVID_TAIL or seg.startswith(EVID_TAIL + "/")) or ".." in seg:
+                return "on the Drive a leg writes only under %s" % DRIVE_EVIDENCE
+            i = t.find(m, i + 1)
+    return None
 
 
 def parts(cmd):
