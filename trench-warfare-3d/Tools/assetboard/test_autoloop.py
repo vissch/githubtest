@@ -95,16 +95,68 @@ class Fake(autoloop.World):
         put(self.main, 'queue', unit['id'], **{k: v for k, v in unit.items() if k != 'id'})
         return True, 'queued. Board: pushed.'
 
-    def take(self, a, queued='', outcome=''):
+    def take(self, a, queued='', outcome='', option=''):
         if a['id'] == 'bad':
             raise ValueError('bad: the unit is not on the board\'s origin/main yet')
-        self.taken.append((a['id'], queued, outcome))
+        self.taken.append((a['id'], queued, outcome) + ((option,) if option else ()))
 
     def log_decision(self, line):
         self.rows.append(line)
 
     def now(self):
         return self.clock
+
+    # the steps of loopsteps.py: nothing outside the test is ever reached
+    free, legs, booked, routed_ideas, stop_records, unqueued, briefs_written, answered_briefs = 0.0, [], [], None, [], [], [], set()
+    shas, reply = {}, ''
+
+    def pace_free(self):
+        return self.free
+
+    def leg(self, prompt, usd):
+        self.legs = self.legs + [prompt]
+        return self.reply, 0.02
+
+    def book(self, rec):
+        self.booked = self.booked + [rec]
+        return 0, ''
+
+    def lane_facts(self, lane):
+        return f'{lane} is not on origin'
+
+    def ideas(self, write):
+        self.idea_calls = getattr(self, 'idea_calls', []) + [write]
+        return self.routed_ideas or ([], dict(asked=[], done=[], owed=[]), '')
+
+    def changed(self, board, folders):
+        return []
+
+    def stops(self):
+        return list(self.stop_records)
+
+    def lane_sha(self, lane, at=''):
+        return self.shas.get(lane, 'L0')
+
+    def int_sha(self, at=''):
+        return self.shas.get('INT', 'I0')
+
+    def lane_files(self, lane):
+        return []
+
+    def changed_files(self, a, b):
+        return []
+
+    def unqueue(self, board, uid):
+        (Path(board) / 'relay' / 'queue' / f'{uid}.json').unlink()
+        self.unqueued = self.unqueued + [(Path(board).name, uid)]
+        return True
+
+    def park_brief(self, uid, rec, nxt, unit):
+        self.briefs_written = self.briefs_written + [(uid, nxt, unit)]
+        return f'brief-{uid}'
+
+    def brief_answered(self, bid):
+        return bid in self.answered_briefs
 
 
 def main():
@@ -227,10 +279,10 @@ def main():
              dict(base, id='b3', title='Ridge slope?', note='n3', go='write')]
     lines = autoloop.take_answers(w)
     case('his plain yes on the Decide page is carried out with no session: the unit is queued (with a role, never its own priority) and the brief closed; a yes to nothing closes it; '
-         'an answer in his own words is left for a session; one that cannot be closed yet holds up no other and leaves no row',
+         'an answer in his own words waits while the day\'s pace has nothing free; one that cannot be closed yet holds up no other and leaves no row',
          [u['id'] for u in w.added] == ['late-unit', 'banner-whole'] and w.added[1]['role'] == 'lane' and 'priority' not in w.added[1]
          and w.taken == [('b1', 'banner-whole', ''), ('b2', '', 'nothing is built')] and len(w.rows) == 2 and not any('late-unit' in r for r in w.rows)
-         and 'not closed this round' in lines[0] and 'wait for a session' in lines[-1], (lines, w.taken, w.rows))
+         and 'not closed this round' in lines[0] and 'in his own words wait' in lines[-1], (lines, w.taken, w.rows))
 
     # ---- a rebased lane that cannot fast-forward ----
     class Rb(Fake):

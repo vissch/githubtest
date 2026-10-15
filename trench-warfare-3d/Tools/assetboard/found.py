@@ -276,8 +276,19 @@ class World:
                 changed[base] = set(self.git('diff', '--name-only', base, head)[1].splitlines())
             n = len(set(files) & changed[base])
             if n:
-                out.append(dict(id=sid, kind='review', path=f'{u["id"]} ({", ".join(files[:12])})', at=head, base=base, drift=n))
+                out.append(dict(id=sid, kind='review', path=f'{u["id"]} ({", ".join(files[:12])})', at=head, base=base, drift=n, files=files))
         return out
+
+    def tip(self):
+        """Integration's head on origin, fetched; '' when it does not read."""
+        self.git('fetch', '-q', 'origin', INTEGRATION)
+        code, out = self.git('rev-parse', '--verify', '-q', 'origin/' + INTEGRATION)
+        return '' if code else out
+
+    def changed(self, a, b):
+        """The files that differ between two commits."""
+        code, out = self.git('diff', '--name-only', a, b)
+        return [] if code else out.splitlines()
 
     def exists(self, path):
         return self.git('cat-file', '-e', f'origin/{INTEGRATION}:{path}')[0] == 0
@@ -350,8 +361,10 @@ def takeable(w):
     return sorted(uid for uid, u in q.items() if uid not in done and prio(u) < PARKED)
 
 
-def rota(w, now=None):
-    """Queue the next look, or say why not. Returns a line."""
+def rota(w, now=None, why='', among=None):
+    """Queue the next look, or say why not. Returns a line. `why` ('landing', 'daily': autoloop's loopsteps.reviews)
+    queues one while the queue still has work, and `among` names the subjects to pick from; the ceiling of FIX_MOST
+    unstarted fixes and one open look at a time hold whatever the why."""
     state, taken = load(w.home / 'state.json', {}), load(w.home / 'taken.json', [])
     q, done = w.queued()
     open_looks = [u for u, v in q.items() if v.get('kind') == 'critique' and u not in done]
@@ -361,9 +374,9 @@ def rota(w, now=None):
     if n >= FIX_MOST:
         return f'found: {n} fix units wait unstarted (the most is {FIX_MOST}): no new look until the fixes catch up'
     left = takeable(w)
-    if left:
+    if left and not why:
         return f'found: the queue has {len(left)} units to take ({left[0]} ...): no look until it runs dry'
-    s = pick(w.subjects(), state)
+    s = pick(w.subjects() if among is None else among, state)
     if not s:
         return 'found: every subject was looked at as it stands now: nothing is due'
     unit = unit_of(s, f'{now or datetime.datetime.now():%Y%m%d}')
@@ -372,7 +385,7 @@ def rota(w, now=None):
         return f'found: the look at {s["id"]} was not queued: {said}'
     state[s['id']] = dict(state.get(s['id']) or {}, at=s['at'], unit=unit['id'], **({'base': s['at']} if s['kind'] == 'review' else {}), queued=f'{now or datetime.datetime.now():%Y-%m-%d %H:%M}')
     put(w.home / 'state.json', state)
-    return f'found: queued the look {unit["id"]} ({s["id"]})'
+    return f'found: queued the look {unit["id"]} ({s["id"]})' + (f' ({why})' if why else '')
 
 
 def take(w, now=None):

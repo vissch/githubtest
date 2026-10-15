@@ -12,15 +12,20 @@ their own boards. One round does, in this order:
 
   back      copy the done records of the extra boards (tw3d-board-N) to the main board, so the main board knows
   answers   take up his Decide-page answers that are a plain yes to a unit (briefs.py `queue`) or to nothing being
-            built (`nothing`): queue the unit, then close the brief. Answers in his own words (`write`) wait for a
-            session, which must read them: they are counted, not guessed at
+            built (`nothing`): queue the unit, then close the brief. Answers in his own words (`write`): one cheap
+            leg reads them and the loop queues the unit they lead to, or closes the brief saying why nothing
+            (loopsteps.take_writes)
+  attempts  a unit that went nowhere TRIES times with nothing changed between is parked and put to him once
+            (loopsteps.attempts)
+  ideas     his "Do it" and his steps on an idea's route go on the pipeline's board (loopsteps.route_ideas)
   feed      an extra relay that is not running and has nothing open on its board gets the open units of ONE free
             lane of the main board (no running relay works it; parked at 99 on the main board first), and is
             started. One that has open units and is not running is started too, with a growing wait when it
             stops again for the same reason (STARTS): a relay that stops at once is not started every round
   found     found.py take, then found.py rota: a finished look's findings become fix units (small) or cards for
             him (major); and when the main queue has run dry and fewer than FIX_MOST fix units wait, the next look
-            is queued: first the review-index unit whose files changed most since its last review
+            is queued: first the review-index unit whose files changed most since its last review. Also after a
+            landing and once a day, not only when dry (loopsteps.reviews)
 
 Every unit goes through the relay's own `add`, and runs under the relay's day (11% of the week for all relays
 together, spent evenly) and its shares (the 25% fix share for review fixes, 15% for looks): this file starts no
@@ -41,6 +46,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import found  # noqa: E402
+import loopsteps  # noqa: E402
 
 GH = Path(os.environ.get('TW_STEWARD_GH') or 'C:/Users/PC/Documents/GitHub')
 RELAY = GH / 'githubtest-relay-run' / 'trench-warfare-3d' / 'Tools' / 'relay' / 'relay.py'
@@ -99,6 +105,18 @@ def parse_status(text):
         return None, ''
     why = re.match(r'\s*Last run [^:]*: (.*?)(?: \(\d+ legs.*)?\.?$', m.group(1))
     return set(), (why.group(1) if why else m.group(1)).strip()[:200]
+
+
+def parse_pace(text):
+    """The percent of the week the day's pace has free, from `relay.py day`; 0.0 when its line says none is free,
+    None when there is no such line (an older relay)."""
+    line = next((x for x in str(text or '').splitlines() if x.startswith('Pace:')), None)
+    if line is None:
+        return None
+    if 'cap is spent' in line or 'ahead of that' in line:
+        return 0.0
+    m = re.search(r', (?:about )?\$?([\d.]+)%? of it free', line)
+    return float(m.group(1)) if m else None
 
 
 # ---- the outside world ---------------------------------------------------------------------------------------------------
@@ -181,16 +199,16 @@ class World:
         import notes
         return briefs.answers(briefs.read_all(briefs.folder()), notes.read_all(notes.folder()))
 
-    def take(self, a, queued='', outcome=''):
+    def take(self, a, queued='', outcome='', option=''):
         import briefs
         import notes
-        briefs.take(briefs.folder(), notes.folder(), a['id'], by=BY, note=a['note'], queued=queued, outcome=outcome, board=self.main)
+        briefs.take(briefs.folder(), notes.folder(), a['id'], by=BY, note=a['note'], queued=queued, outcome=outcome, option=option, board=self.main)
 
     def add(self, unit):
         f = Path(tempfile.mkdtemp(prefix='tw-autoloop-')) / (unit['id'] + '.json')
         f.write_text(json.dumps(unit, indent=1), encoding='utf-8')
         code, said = self.relay(self.main, 'add', '--unit', str(f))
-        return code == 0 or 'queued already' in said, (said.splitlines() or [''])[-1][:300]
+        return code == 0 or 'queued already, the same unit' in said, (said.splitlines() or [''])[-1][:300]
 
     def prio(self, uid, n):
         return self.relay(self.main, 'prio', uid, str(n))
@@ -276,18 +294,185 @@ class World:
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
 
+    # ---- for loopsteps.py ----
+    def pace_free(self):
+        """The percent of the week the day's pace has free now (relay.py day), 0.0 when none, None when unread."""
+        code, text = self.relay(self.main, 'day')
+        return parse_pace(text) if code == 0 else None
+
+    def leg(self, prompt, usd):
+        """One headless Sonnet answer at low effort, no tools, no project files, at most `usd`: (its text, its cost).
+        Run from an empty folder with no setting sources, so no CLAUDE.md, skill or memory is loaded (with them the
+        same one-line answer cost $0.44 before a word; without, $0.001)."""
+        cmd = ['claude', '-p', '--model', 'sonnet', '--effort', 'low', '--max-budget-usd', str(usd), '--output-format', 'json',
+               '--tools', '', '--no-session-persistence', '--disable-slash-commands', '--strict-mcp-config', '--setting-sources', '',
+               '--system-prompt', 'You turn a game studio owner\'s decision into one JSON work unit. Reply with the JSON object only.']
+        where = Path(tempfile.mkdtemp(prefix='tw-autoloop-leg-'))
+        try:
+            r = subprocess.run(cmd, input=prompt, capture_output=True, text=True, encoding='utf-8', errors='replace', cwd=str(where),
+                               timeout=300, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+            d = json.loads(r.stdout or '{}')
+        except (OSError, ValueError, subprocess.TimeoutExpired) as e:
+            return f'the leg did not answer: {e}', 0.0
+        return str(d.get('result') or ''), float(d.get('total_cost_usd') or 0.0)
+
+    def book(self, rec):
+        """Book the loop's own legs on the day (relay.py agents book --file): a run going here takes it in itself."""
+        f = Path(tempfile.mkdtemp(prefix='tw-autoloop-book-')) / 'booking.json'
+        f.write_text(json.dumps(rec), encoding='utf-8')
+        return self.relay(self.main, 'agents', 'book', '--file', str(f))
+
+    def lane_facts(self, lane):
+        if not lane:
+            return 'no lane is named'
+        ref = f'origin/{lane}'
+        if self.repo('rev-parse', '--verify', '-q', ref)[0]:
+            return f'{lane} is not on origin'
+        if self.repo('merge-base', '--is-ancestor', ref, f'origin/{INTEGRATION}')[0] == 0:
+            return f'{lane} is already on the integration branch (landed)'
+        n = self.repo('rev-list', '--count', f'origin/{INTEGRATION}..{ref}')[1]
+        b = self.repo('rev-list', '--count', f'{ref}..origin/{INTEGRATION}')[1]
+        return f'{lane} has {n} commits not on the integration branch and is {b} commits behind it'
+
+    def ideas(self, write):
+        """idearoute's route and gates on the main board: (routed, gates, error)."""
+        import briefs
+        import ideas
+        import idearoute
+        import notes
+        routed, g, err = [], dict(asked=[], done=[], owed=[]), ''
+        try:
+            routed = idearoute.route(ideas.folder(), self.main, write=write)
+            g = idearoute.gates(ideas.folder(), briefs.folder(), notes.folder(), self.main, write=write)
+        except (ValueError, SystemExit) as e:
+            err = str(e)
+        return routed, g, err
+
+    def changed(self, board, folders):
+        code, out = self.git(board, 'ls-files', '-m', '-o', '--exclude-standard', '--', *folders)
+        return [] if code else [p for p in out.splitlines() if p.strip()]
+
+    def stops(self):
+        """[(run, stopped at, unit, verdict, why)] of every board's stop records of the last SINCE_DAYS days, oldest first."""
+        since = time.strftime('%Y%m%d', time.localtime(self.now() - loopsteps.SINCE_DAYS * 86400))
+        out = []
+        for board in [self.main, *self.extras.values()]:
+            for f in Path(board).glob('relay/*/stops/*.json'):
+                if f.name[:8] < since:
+                    continue
+                d = load(f, {})
+                for uid, v in (d.get('units') or {}).items() if isinstance(d, dict) else []:
+                    why = (d.get('problems') or {}).get(uid) or d.get('reason') or ''
+                    out.append((d.get('run') or f.stem, d.get('stopped_at') or '', uid, v, ' '.join(map(str, why)) if isinstance(why, list) else str(why)))
+        return sorted(out, key=lambda x: (x[1], x[0]))
+
+    def lane_sha(self, lane, at=''):
+        """The head of origin/<lane>, or the commit it stood at by `at` (a stop record's time); '' when none."""
+        if not lane:
+            return ''
+        code, out = self.repo('rev-list', '-1', *([f'--before={at}'] if at else []), f'origin/{lane}')
+        return '' if code else out
+
+    def int_sha(self, at=''):
+        return self.lane_sha(INTEGRATION, at)
+
+    def lane_files(self, lane):
+        code, out = self.repo('diff', '--name-only', f'origin/{INTEGRATION}...origin/{lane}')
+        return [] if code else out.splitlines()
+
+    def changed_files(self, a, b):
+        code, out = self.repo('diff', '--name-only', a, b)
+        return [] if code else out.splitlines()
+
+    def unqueue(self, board, uid):
+        """Take a unit off a board's queue: git rm, committed (pushed on the main board). True when it is off."""
+        rel = f'relay/queue/{uid}.json'
+        if not (Path(board) / rel).exists():
+            return True
+        if self.git(board, 'rm', '-q', '--', rel)[0]:
+            return False
+        code, said = self.git(board, 'commit', '-q', '-m', f'relay: {uid} parked by the loop (no progress in its tries)', '--', rel)   # that path only, never the whole index
+        if code:
+            self.git(board, 'reset', '-q', 'HEAD', '--', rel)
+            self.git(board, 'checkout', '-q', 'HEAD', '--', rel)      # put back as it was: it is tried next round
+            return False
+        if Path(board) == Path(self.main):
+            for _ in range(3):
+                if self.git(board, 'push', '-q')[0] == 0:
+                    break
+                self.pull(board)
+        return True
+
+    def park_brief(self, uid, rec, nxt, unit):
+        """The one brief a parked unit gets: A puts it back as it is, B drops it, C is his words to the writes leg."""
+        import briefs
+        import notes
+        title, what_for, why = loopsteps.park_text(uid, rec, nxt)
+        b = briefs.add(briefs.folder(), title=title, what_for=what_for,
+                       options=['Try it once more as it stands', 'Drop it: nothing more is built', 'Change it: write in a note what to do instead'],
+                       why=why, no_evidence='a unit that went nowhere has nothing to show but its stop records', lane=unit.get('lane', ''), by='autoloop.py')
+        ns = notes.read_all(notes.folder())
+        try:
+            briefs.then(briefs.folder(), ns, b['id'], 'A', 'It goes back on the relay\'s queue as it is', unit)
+        except ValueError:
+            pass                                    # its id is another brief's already: A is then his words, for the writes leg
+        briefs.then(briefs.folder(), ns, b['id'], 'B', 'Nothing more is built; it stays off the queue', None)
+        return b['id']
+
+    def ids(self):
+        """Every unit id a board has queued or done: a new unit never takes one of them."""
+        return set().union(*(set(queue_of(b)[0]) | queue_of(b)[1] for b in [self.main, *self.extras.values()]))
+
+    def brief_answered(self, bid):
+        import briefs
+        hit = [b for b in briefs.read_all(briefs.folder()) if b['id'] == bid]
+        return bool(hit) and hit[0].get('state') == 'answered'
+
 
 # ---- the four steps -------------------------------------------------------------------------------------------------------
 
+def forward_done(w):
+    """A unit done on the main board (or another extra) that an extra board still has open gets that done record on
+    the extra board, committed there (kept local, as its relay keeps its board), so its relay does not start again
+    on finished work (heroes-off-bench, relay 6, four runs in the night of 2026-10-15). Not under a run: a leg that
+    sees relay/done move under it ends the run."""
+    out = []
+    boards = [w.main, *w.extras.values()]
+    for n, board in sorted(w.extras.items()):
+        mine = open_units(board)
+        hits = {uid: f for b in boards if Path(b) != Path(board) for uid in mine
+                for f in [Path(b) / 'relay' / 'done' / f'{uid}.json'] if f.is_file()}
+        if not hits:
+            continue
+        running, _ = w.status(board)
+        if running is None or running:
+            continue
+        if not w.acting:
+            out.append(f'back: relay {n} has {len(hits)} units open that are done elsewhere: their done records would be copied to it')
+            continue
+        (Path(board) / 'relay' / 'done').mkdir(parents=True, exist_ok=True)
+        for uid, f in hits.items():
+            shutil.copyfile(f, Path(board) / 'relay' / 'done' / f.name)
+        w.commit_push(board, [f'relay/done/{uid}.json' for uid in hits], f'relay: {len(hits)} done records from the other boards ({", ".join(sorted(hits)[:6])})', push=False)
+        out.append(f'back: relay {n} had {len(hits)} units open that are done elsewhere ({", ".join(sorted(hits)[:4])}): their done records copied to it')
+    return out
+
+
 def copy_back(w):
-    """Done records of the extra boards that the main board has not committed are copied to it and pushed."""
+    """Done records of the extra boards that the main board has not committed are copied to it and pushed. Not while
+    the main relay runs: a leg that sees the board's relay/done move under it ends the run with "broke a rule" (the
+    main run of 2026-10-15 13:51 stopped so)."""
+    out = forward_done(w)
+    running, _ = w.status(w.main)
+    if running is None or running:
+        return out + (['back: the main relay runs: done records are copied to its board once it has stopped'] if running else [])
     if w.acting:
-        code, out = w.pull(w.main)
+        code, said = w.pull(w.main)
         if code:
-            return [f'back: the main board did not pull ({out[:120]}): tried next round']
+            return out + [f'back: the main board did not pull ({said[:120]}): tried next round']
     have = w.tracked(w.main, 'relay/done')
     if have is None:
-        return ['back: git did not list the main board\'s done records: tried next round']
+        return out + ['back: git did not list the main board\'s done records: tried next round']
     mine = w.main / 'relay' / 'done'
     new = []
     for n, board in sorted(w.extras.items()):
@@ -295,7 +480,7 @@ def copy_back(w):
             if f.name not in have and f.name not in {g.name for _, g in new}:
                 new.append((n, f))
     if not new:
-        return []
+        return out
     if w.acting:
         mine.mkdir(parents=True, exist_ok=True)
         for _, f in new:
@@ -303,18 +488,15 @@ def copy_back(w):
                 shutil.copyfile(f, mine / f.name)
     said = w.commit_push(w.main, ['relay/done/' + f.name for _, f in new],
                          f'relay: {len(new)} done records of the extra relays copied back ({", ".join(f.stem for _, f in new[:6])})')
-    return [f'back: {len(new)} done records copied from the extra boards: {said}']
+    return out + [f'back: {len(new)} done records copied from the extra boards: {said}']
 
 
 def take_answers(w):
-    """His plain yes on the Decide page is carried out; his own words wait for a session. Each answer on its own:
+    """His plain yes on the Decide page is carried out; his own words are read by a leg (loopsteps.take_writes). Each answer on its own:
     one that fails is tried again next round and does not hold up the others; its row is written once, after the
     brief is closed."""
-    out, write = [], 0
+    out = []
     for a in w.answers():
-        if a['go'] == 'write':
-            write += 1
-            continue
         if a['go'] not in ('queue', 'nothing'):
             continue
         try:
@@ -330,6 +512,7 @@ def take_answers(w):
                     out.append(f'answers: {a["id"]}: the relay refused {unit.get("id")}: {said}')
                     continue
                 w.take(a, queued=unit['id'])
+                loopsteps.answered(w, unit['id'])          # a parked unit he sent back: its tries start over
                 w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Queued as `{unit["id"]}`. (owner, Decide page, note {a["note"]}) |')
                 out.append(f'answers: {a["id"]}: his yes queued {unit["id"]} and the brief is closed')
             else:
@@ -337,13 +520,12 @@ def take_answers(w):
                     out.append(f'answers: {a["id"]}: would close it, nothing is built')
                     continue
                 w.take(a, outcome=a.get('says') or 'his option builds nothing')
+                loopsteps.dropped_by(w, a['id'])           # his B on a parked unit's brief
                 w.log_decision(f'| {a["when"][:10]} | **Taken up by the loop.** **{a["title"]}: {a["option"]}: {a["text"]}** Nothing is built. (owner, Decide page, note {a["note"]}) |')
                 out.append(f'answers: {a["id"]}: his answer builds nothing; the brief is closed')
         except Exception as e:      # noqa: BLE001  e.g. take refuses while the unit's push has not reached the board's origin
             out.append(f'answers: {a["id"]}: not closed this round ({str(e)[:200]})')
-    if write:
-        out.append(f'answers: {write} in his own words wait for a session (briefs.py waiting)')
-    return out
+    return out + loopsteps.take_writes(w)
 
 
 def may_start(w, n, reason):
@@ -374,7 +556,7 @@ def feed(w):
         running, reason = w.status(board)
         if running:
             continue
-        mine = open_units(board)
+        mine = {u: v for u, v in open_units(board).items() if u not in done}     # done on the main board: not work
         if not mine:
             free = {}
             for uid, u in q.items():
@@ -533,14 +715,26 @@ def wait_for_relay(w):
     return out
 
 
+def attempts(w):
+    boards = [w.main, *w.extras.values()]
+    dones = set().union(*(queue_of(b)[1] for b in boards))
+    opens = {b: {u: v for u, v in open_units(b).items() if u not in dones} for b in boards}
+    idle = [b for b in boards if w.status(b)[0] == set()]
+    return loopsteps.attempts(w, opens, dones, running_lanes(w), idle)
+
+
 def round_(w):
     lines = []
-    for step in (copy_back, take_answers, wait_for_relay, rescue, feed):
+    for step in (copy_back, take_answers, attempts, wait_for_relay, rescue, loopsteps.route_ideas, feed):
         try:
             lines += step(w)
         except Exception:       # noqa: BLE001  one step that fails must not stop the others
             lines.append(f'{step.__name__}: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
     fw = w.found()
+    try:
+        lines += loopsteps.reviews(w, fw)
+    except Exception:           # noqa: BLE001
+        lines.append('reviews: failed: ' + traceback.format_exc().strip().splitlines()[-1][:300])
     try:
         if w.acting:
             lines += found.take(fw)
