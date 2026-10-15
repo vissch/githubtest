@@ -44,6 +44,31 @@ namespace TW.Tests
 {
     public class WalkerStills
     {
+        // [TU8] HudBootstrap.Disabled and ShellBoot.Disabled are plain statics, and EnterPlayMode triggers a
+        // domain reload, which resets every static field to its default before Awake runs. Setting the flags
+        // right before `yield return new EnterPlayMode()` therefore has no effect: by the time the scene's
+        // bootstrap code runs, both are false again. SessionState survives the reload; InitializeOnEnterPlayMode
+        // runs after it and before Awake, so it is the one place that can put the flags back.
+        static class StillsBoot
+        {
+            const string Key = "TW.Tests.WalkerStills.DisableBoot";
+
+            public static void Disable(bool on)
+            {
+                UnityEditor.SessionState.SetBool(Key, on);
+                Apply(on);
+            }
+
+            [UnityEditor.InitializeOnEnterPlayMode]
+            static void OnEnterPlayMode() => Apply(UnityEditor.SessionState.GetBool(Key, false));
+
+            static void Apply(bool on)
+            {
+                HudBootstrap.Disabled = on;
+                ShellBoot.Disabled = on;
+            }
+        }
+
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
 
         // the six, in the order the board lists them
@@ -95,10 +120,11 @@ namespace TW.Tests
         [UnityTest, Explicit("Diagnostic: is a spawned walker drawn at all?")]
         public IEnumerator ASpawnedWalkerIsActuallyDrawn()
         {
-            HudBootstrap.Disabled = true;
-            ShellBoot.Disabled = true;
+            StillsBoot.Disable(true);
             EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
             yield return new EnterPlayMode();
+            Assert.That(HudBootstrap.Disabled && ShellBoot.Disabled, Is.True,
+                "[TU8] the HUD/shell boot flags did not survive the domain reload");
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
             for (int f = 0; f < 120; f++) yield return null;
@@ -135,24 +161,39 @@ namespace TW.Tests
             // the world changes between the two frames except whether TankRenderer is allowed to submit.
             RiderLab.Stop(slot);
             for (int f = 0; f < 30; f++) yield return null;
-            CaptureRig.Hold(30f);                       // Time.timeScale = 0; frames and LateUpdates still run
-            for (int f = 0; f < 5; f++) yield return null;
+            try
+            {
+                CaptureRig.Hold(30f);                       // Time.timeScale = 0; frames and LateUpdates still run
+                for (int f = 0; f < 5; f++) yield return null;
 
-            CaptureRig.Shot(a, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
-            yield return Drain(a);
-            if (tanks != null) tanks.enabled = false;
-            for (int f = 0; f < 5; f++) yield return null;
-            CaptureRig.Shot(b, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
-            yield return Drain(b);
-            if (tanks != null) tanks.enabled = true;
-            CaptureRig.Release();
+                CaptureRig.Shot(a, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
+                yield return Drain(a);
+                if (tanks != null) tanks.enabled = false;
+                for (int f = 0; f < 5; f++) yield return null;
+                CaptureRig.Shot(b, p.x, p.z, 15f, 20f, 22f, 1600, 900, p.y + 3f);
+                yield return Drain(b);
 
-            long la = new FileInfo(a).Length, lb = new FileInfo(b).Length;
-            TestContext.Out.WriteLine($"with TankRenderer {la} bytes, without {lb} bytes, delta {la - lb}");
+                long la = new FileInfo(a).Length, lb = new FileInfo(b).Length;
+                TestContext.Out.WriteLine($"with TankRenderer {la} bytes, without {lb} bytes, delta {la - lb}");
 
-            string diff = CaptureRig.Diff(a, b, Path.Combine(dir, "diff.png"));
-            TestContext.Out.WriteLine("DIFF: " + diff);
-            TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+                // [TU9] this used to log the diff and assert nothing, so a run that found "the two stills are the
+                // same picture" (the renderer never drew the machine) or "the change touches the whole frame" (the
+                // diff is noise, not the machine) still went green. Those two notes are CaptureRig.Diff's own
+                // verdict on the question this test exists to answer; assert on them.
+                string diff = CaptureRig.Diff(a, b, Path.Combine(dir, "diff.png"));
+                TestContext.Out.WriteLine("DIFF: " + diff);
+                Assert.That(diff, Does.Not.Contain("the two stills are the same picture"),
+                    "[TU9] the spawned walker left no mark on the frame: it is not being drawn");
+                Assert.That(diff, Does.Not.Contain("the change touches the whole frame"),
+                    "[TU9] the diff covers the whole frame: it is noise, not the walker");
+            }
+            finally
+            {
+                if (tanks != null) tanks.enabled = true;
+                CaptureRig.Release();
+                TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            }
+            StillsBoot.Disable(false);
             yield return new ExitPlayMode();
         }
 
@@ -176,11 +217,12 @@ namespace TW.Tests
         [UnityTest, Explicit("Locked-off side-on strip; run by name, with a graphics device.")]
         public IEnumerator EveryWalkerIsPhotographedSideOnAgainstFixedGround()
         {
-            HudBootstrap.Disabled = true;
-            ShellBoot.Disabled = true;
+            StillsBoot.Disable(true);
             CaptureRig.Rig.Verbose = false;
             EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
             yield return new EnterPlayMode();
+            Assert.That(HudBootstrap.Disabled && ShellBoot.Disabled, Is.True,
+                "[TU8] the HUD/shell boot flags did not survive the domain reload");
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
             for (int f = 0; f < 120; f++) yield return null;
@@ -252,6 +294,7 @@ namespace TW.Tests
             foreach (var mk in Machines)
                 CaptureRig.Sheet(dir, mk.name, Path.Combine(dir, mk.name + "_strip.png"), 4, 900);
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            StillsBoot.Disable(false);
             yield return new ExitPlayMode();
 
             TestContext.Out.WriteLine($"wrote {written.Count} side-on stills to {dir}");
@@ -262,14 +305,15 @@ namespace TW.Tests
         [UnityTest, Explicit("Enters Play and writes PNGs; run it by name, with a graphics device.")]
         public IEnumerator EveryWalkerIsPhotographedWalkingOnRealGround()
         {
-            HudBootstrap.Disabled = true;
-            ShellBoot.Disabled = true;
+            StillsBoot.Disable(true);
             CaptureRig.Rig.Verbose = true;      // every pose and render logged with its frame number
 
             // open the real scene in edit mode, then play it. Loading it from inside Play would need
             // SceneManager and the scene is not guaranteed to be the one the runner started in.
             EditorSceneManager.OpenScene(Scene, OpenSceneMode.Single);
             yield return new EnterPlayMode();
+            Assert.That(HudBootstrap.Disabled && ShellBoot.Disabled, Is.True,
+                "[TU8] the HUD/shell boot flags did not survive the domain reload");
 
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host, Is.Not.Null, "GreyboxCorridor came up without a SimHost");
@@ -383,6 +427,7 @@ namespace TW.Tests
             string made = CaptureRig.Sheet(dir, "*", Path.Combine(dir, "sheet.png"), 6, 460);
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
 
+            StillsBoot.Disable(false);
             yield return new ExitPlayMode();
 
             TestContext.Out.WriteLine($"wrote {written.Count} stills to {dir}");
