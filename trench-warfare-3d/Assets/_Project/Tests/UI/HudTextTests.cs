@@ -334,5 +334,20 @@ namespace TW.Tests
             }
             return false;
         }
+
+        /// <summary>[I14] the end banner must come from the sim's WinnerTeam, not only from the MatchEnded event: a
+        /// dropped event or a HUD rebuilt mid-match would leave no banner at all.</summary>
+        [Test]
+        public void TheEndBannerIsDueFromWinnerTeamAndOnlyOnce()
+        {
+            Assert.IsTrue(TW.UI.ObjectiveTracker.EndBannerDue(0, false, out var won, out var wonCls, out _), "[I14] we won and no banner is due");
+            Assert.AreEqual(HudText.VictoryBanner, won, "[I14] winner 0 is our victory");
+            Assert.AreEqual("tw-banner--victory", wonCls, "[I14] our victory wears the victory class");
+            Assert.IsTrue(TW.UI.ObjectiveTracker.EndBannerDue(1, false, out var lost, out var lostCls, out _), "[I14] they won and no banner is due");
+            Assert.AreEqual(HudText.DefeatBanner, lost, "[I14] winner 1 is our defeat");
+            Assert.AreEqual("tw-banner--defeat", lostCls, "[I14] our defeat wears the defeat class");
+            Assert.IsFalse(TW.UI.ObjectiveTracker.EndBannerDue(-1, false, out _, out _, out _), "[I14] the match is still on");
+            Assert.IsFalse(TW.UI.ObjectiveTracker.EndBannerDue(0, true, out _, out _, out _), "[I14] the end banner was shown again");
+        }
     }
 }

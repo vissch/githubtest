@@ -119,5 +119,26 @@ namespace TW.Tests
                 Assert.That(d.Queued, Is.EqualTo(4));
             }
         }
+
+        /// <summary>[I8] a death reaches the HUD a frame late: at 2x-8x the dead man's slot may already hold a new man,
+        /// and then his type must not be charged with the loss.</summary>
+        [Test]
+        public void ALossInARefilledSlotIsNotChargedToTheNewMan()
+        {
+            var cfg = SimConfig.Default;
+            using var w = new SimWorld(cfg, new SimConfig.WorldInit
+            {
+                SpawnA = new Unity.Mathematics.float3(60f, 0f, 10f),
+                SpawnB = new Unity.Mathematics.float3(60f, 0f, 200f),
+            });
+            int dead = w.Spawn(0, 3, new Unity.Mathematics.float3(1f, 0f, 1f), 10f, 1f, false);
+            int live = w.Spawn(0, 2, new Unity.Mathematics.float3(2f, 0f, 2f), 10f, 1f, false);
+            w.Flags[dead] &= ~(uint)UnitFlags.Alive;    // he fell; nobody has taken his slot yet
+
+            Assert.That(HudCommentary.OurLoss(w, dead, out byte fell), Is.True, "[I8] a fallen man of ours is a loss of ours");
+            Assert.That(fell, Is.EqualTo((byte)3), "[I8] the loss was counted against the wrong type");
+            Assert.That(HudCommentary.OurLoss(w, live, out _), Is.False,
+                "[I8] the loss was counted against the live man now in the slot");
+        }
     }
 }

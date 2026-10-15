@@ -42,6 +42,21 @@ namespace TW.UI
             return (w.Team[slot] & 1) == 0;
         }
 
+        /// <summary>A loss of ours in that slot, and whose type fell. Events reach us once a frame: at 2x-8x a later
+        /// tick may already have deployed a new man into the dead man's slot, and then the slot describes the new man,
+        /// so the loss would be counted against his type. A refilled slot tells us nothing, so nothing is counted
+        /// (DeathMarks.OnEvent guards the same way). Public and static so a test can reach it without a host.</summary>
+        public static bool OurLoss(SimWorld w, int slot, out byte archetype)
+        {
+            archetype = 0;
+            if (w == null || slot < 0 || slot >= w.Team.Length || w.IsAlive(slot)) return false;
+            archetype = w.Archetype[slot];
+            return (w.Team[slot] & 1) == 0;
+        }
+
+        bool OurLoss(int slot, out byte archetype) =>
+            OurLoss(host != null && host.Local != null ? host.Local.World : null, slot, out archetype);
+
         /// <summary>Public so a test can feed events without a running sim.</summary>
         public void OnEvent(SimEvent ev)
         {
@@ -57,7 +72,7 @@ namespace TW.UI
                 }
                 case SimEventType.Death:
                 {
-                    if (!Ours(ev.A, out byte a) || a >= losses.Length) break;
+                    if (!OurLoss(ev.A, out byte a) || a >= losses.Length) break;
                     int n = ++losses[a];
                     string art = UnitArt.NameOf(a);
                     if (!UnitArt.HasFace(art)) break;
@@ -67,7 +82,7 @@ namespace TW.UI
                 }
                 case SimEventType.VehicleDestroyed:
                 {
-                    if (!Ours(ev.A, out byte a)) break;
+                    if (!OurLoss(ev.A, out byte a)) break;
                     string art = UnitArt.NameOf(a);
                     if (UnitArt.HasFace(art)) say.Say(art, HudText.Name(a).ToUpperInvariant(), HudText.MachineLost, Mood.Critical);
                     else Sergeant(HudText.LostMachine(a), Mood.Shouting);

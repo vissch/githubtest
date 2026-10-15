@@ -26,6 +26,7 @@ namespace TW.UI
         readonly List<Row> rows = new List<Row>();
         float bannerUntil = -1f;
         bool bannerShown;
+        bool endShown;          // the end banner is up (or was): it is shown once, and never cleared and shown again
 
         public ObjectiveTracker(HudRefs refs, VisualTreeAsset rowTemplate, SimHost host)
         {
@@ -64,8 +65,16 @@ namespace TW.UI
             return h;
         }
 
+        /// <summary>How long the end banner stays: until the match is left.</summary>
+        public const float EndBannerSeconds = 3600f;
+
         public void Refresh()
         {
+            // the end banner comes from the sim's WinnerTeam, not only from the MatchEnded event: a dropped event or a
+            // HUD rebuilt mid-match would otherwise leave no banner at all
+            if (host != null && host.Local != null &&
+                EndBannerDue(host.Local.World.WinnerTeam, endShown, out string endText, out string endCls, out int endRank))
+            { endShown = true; Banner(endText, EndBannerSeconds, endCls, endRank); }
             var sectors = host.Local.Sectors;
             if (sectors != null && sectors.States.IsCreated)
             {
@@ -88,7 +97,7 @@ namespace TW.UI
                 }
             }
             // banner timeout
-            if (bannerShown && Time.unscaledTime >= bannerUntil) { refs.Banner.EnableInClassList("is-visible", false); bannerShown = false; }
+            if (bannerShown && !endShown && Time.unscaledTime >= bannerUntil) { refs.Banner.EnableInClassList("is-visible", false); bannerShown = false; }
         }
 
         static readonly string[] pct = new string[101];
@@ -96,7 +105,9 @@ namespace TW.UI
 
         void OnEvent(SimEvent ev)
         {
-            if (BannerFor(ev, out var text, out float seconds, out var cls, out int rank)) Banner(text, seconds, cls, rank);
+            if (!BannerFor(ev, out var text, out float seconds, out var cls, out int rank)) return;
+            if (ev.Type == SimEventType.MatchEnded) endShown = true;
+            Banner(text, seconds, cls, rank);
         }
 
         /// <summary>The banner a sim event raises, if any: its text, how long it stays, its style class and its rank
@@ -109,11 +120,20 @@ namespace TW.UI
             {
                 case SimEventType.TrenchCaptured: text = HudText.CapturedBanner(ev.A, mine); seconds = HudLayout.BannerSeconds; break;
                 case SimEventType.AbilityFired: text = HudText.AbilityBanner((OffMapAbilityId)ev.A, mine); seconds = mine ? HudLayout.BannerSeconds : 4f; break;
-                case SimEventType.MatchEnded: text = mine ? HudText.VictoryBanner : HudText.DefeatBanner; seconds = 3600f; break;
+                case SimEventType.MatchEnded: text = mine ? HudText.VictoryBanner : HudText.DefeatBanner; seconds = EndBannerSeconds; break;
                 default: text = null; seconds = 0f; cls = null; return false;
             }
             cls = mine ? (ev.Type == SimEventType.AbilityFired ? null : "tw-banner--victory") : "tw-banner--defeat";
             return true;
+        }
+
+        /// <summary>The end banner still owed for that WinnerTeam (-1 none), unless it is already up: the same text,
+        /// class and rank BannerFor gives the MatchEnded event, so the two can never disagree. Pure, for HudTextTests.</summary>
+        public static bool EndBannerDue(int winnerTeam, bool endShown, out string text, out string cls, out int rank)
+        {
+            text = null; cls = null; rank = 0;
+            if (winnerTeam < 0 || endShown) return false;
+            return BannerFor(new SimEvent { Type = SimEventType.MatchEnded, A = winnerTeam }, out text, out _, out cls, out rank);
         }
 
         int bannerRank;
