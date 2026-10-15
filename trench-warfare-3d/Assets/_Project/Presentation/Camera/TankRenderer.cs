@@ -908,11 +908,23 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        float zoomAt = -1f; int zoomFrame = -1;
+        /// <summary>The camera's zoom, read once per frame (Pose runs per machine per frame).</summary>
+        float Zoom()
+        {
+            if (zoomFrame != Time.frameCount)
+            {
+                var cam = Camera.main;
+                zoomAt = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
+                zoomFrame = Time.frameCount;
+            }
+            return zoomAt;
+        }
+
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
         {
-            float wide = v.HopSquash == 1f ? 1f : 1f / Mathf.Sqrt(Mathf.Max(0.5f, v.HopSquash));
-            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), new Vector3(wide, v.HopSquash, wide));
+            var root = Matrix4x4.TRS(new Vector3(v.Pos.x, v.Heave.Value + v.Bob + v.Foot.Value, v.Pos.z), HullRotation(v), MachineScale.RootScale(v.HopSquash, Zoom()));
             // the legs are solved against the body as it is actually sitting, tilt and all, so a machine standing
             // across a slope has its downhill legs reach further rather than its feet float
             if (v.Legs != null && v.Legs.Ready && lod.Legs != null)
