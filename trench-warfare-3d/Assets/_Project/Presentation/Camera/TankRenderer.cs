@@ -494,6 +494,30 @@ namespace TW.Presentation.Tactical
         static bool IsTank(SimWorld w, int i)
             => (w.Flags[i] & ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle)) == ((uint)UnitFlags.Alive | (uint)UnitFlags.Vehicle) && ChassisKind.IsArmoured(w.ChassisOf(w.Archetype[i]));
 
+        /// <summary>K11: everything the renderer holds of the match that just ended. The branch in LateUpdate used to
+        /// drop only the rockets, the views and the ribbons, so a second match started with the first one's wrecks,
+        /// shards, flames, riders and pips still in hand. Kept out: the pools and caches that are not of a match
+        /// (ribbonPool, models, modelRow, seatsOf), the batches' arrays and property blocks (only their counts are
+        /// reset) and the cut carcasses, whose meshes are ours and are freed in OnDestroy.</summary>
+        void ForgetMatch()
+        {
+            rockets.Clear();
+            ribbonPool.AddRange(ribbons); ribbons.Clear();
+            rV.Clear(); rC.Clear(); rI.Clear();
+            views.Clear(); wrecks.Clear(); debris.Clear(); pops.Clear(); flames.Clear(); fireballs.Clear(); gone.Clear();
+            fPos.Clear(); fCorner.Clear(); fShape.Clear(); fTris.Clear();
+            foreach (var b in batches.Values) b.Count = 0;
+            shards.Clear();
+            fizzers.Clear();
+            UnboardAll();                 // riders and loose, each handed back to the VAT
+            riderGone.Clear();
+            lastGunYaw.Clear(); riderAim.Clear();
+            pipDeaths.Clear(); pipLinger.Clear(); pipAnchor.Clear(); pipWrap.Clear();
+            pipRows.Clear(); placedRows.Clear(); rowsDown.Clear();
+            shotMarks.Clear();
+            volleyBase.Clear(); volleyPuff.Clear();
+        }
+
         // ------------------------------------------------------------------ frame
         void LateUpdate()
         {
@@ -502,7 +526,7 @@ namespace TW.Presentation.Tactical
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var match = Host.Local; var w = match.World;
             WeightKnobs();
-            if (match != lastMatch) { lastMatch = match; rockets.Clear(); views.Clear(); ribbonPool.AddRange(ribbons); ribbons.Clear(); }   // a new match: nothing of the last one flies on
+            if (match != lastMatch) { lastMatch = match; ForgetMatch(); }   // a new match: nothing of the last one flies on
             float dt = Mathf.Max(1e-4f, Time.deltaTime), now = Time.time;
             Capture(match);
             foreach (var v in views.Values) v.Seen = false;
@@ -1129,7 +1153,7 @@ namespace TW.Presentation.Tactical
                     // reads as a machine press rather than a thing that walked, and the trail is a row of bubbles.
                     if (SceneHooks.FootFall != null)
                     {
-                        var wp = TW.Sim.Nav.VehicleProfile.ForArchetype(v.Archetype);
+                        var wp = Drive(v.Archetype);
                         float n = Mathf.Abs(Mathf.Sin((at.x * 12.9898f + at.z * 78.233f + k * 3.7f)) * 43758.5453f) % 1f;
                         float grow = 0.80f + 0.34f * n;
                         SceneHooks.FootFall(at, v.Yaw * Mathf.Rad2Deg + (n - 0.5f) * 22f,
