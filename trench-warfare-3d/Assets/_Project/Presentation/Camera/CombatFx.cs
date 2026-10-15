@@ -63,7 +63,7 @@ namespace TW.Presentation.Tactical
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
         static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => ShowOverlays = true);
 
-        struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width, Life, Streak; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
+        struct Tracer { public Vector3 From, To; public float Born; public byte Team; public float Width, Life, Streak; }   // Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
         struct Burst { public Vector3 Pos; public float Radius, Born; public int Variant; }
         struct Flash { public Vector3 Pos, Direction; public float Born; }
@@ -99,7 +99,7 @@ namespace TW.Presentation.Tactical
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
-        Mesh cube, capsule, sphere, plume, puff, flashMesh;
+        Mesh cube, sphere, plume, puff, flashMesh;
         Mesh clod;   // a lump for the dirt a burst or a round throws: Unity's cube read as a cube from close by
         Material flashMat;
         Material tracerNightA, tracerNightB, tracerCore, sparkMat;
@@ -163,7 +163,7 @@ namespace TW.Presentation.Tactical
             m.SetOverrideTag("RenderType", "Transparent"); m.renderQueue = 3100;
             return m;
         }
-        Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
+        Material tracerMat, burstMat, markMine, markTheirs, aimMat;
         readonly Material[] gasMats = new Material[3];
         FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
         DebrisRenderer debris;   // what a blast breaks off: clods, splinters, a tree's crown, a man's limbs and kit (GPU-side arcs)
@@ -226,7 +226,6 @@ namespace TW.Presentation.Tactical
         void Start()
         {
             cube = Resources.GetBuiltinResource<Mesh>("Cube.fbx");
-            capsule = Resources.GetBuiltinResource<Mesh>("Capsule.fbx");
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             if (unlit == null) unlit = Shader.Find("Unlit/Color");
@@ -262,8 +261,6 @@ namespace TW.Presentation.Tactical
             var lens = Camera.main;
             if (lens != null && lens.GetComponent<CameraShake>() == null) lens.gameObject.AddComponent<CameraShake>();
             tracerCore = new Material(unlit) { enableInstancing = true, color = new Color(3.0f, 2.7f, 2.3f) };   // the streak itself: white-hot
-            bodyMatA = new Material(lit) { enableInstancing = true, color = new Color(0.30f, 0.25f, 0.14f) };
-            bodyMatB = new Material(lit) { enableInstancing = true, color = new Color(0.19f, 0.22f, 0.28f) };
             sphere = Resources.GetBuiltinResource<Mesh>("Sphere.fbx");
             {
                 var lv = new List<Vector3>(); var lt = new List<int>(); var lc = new List<Color>(); var lrng = new DebrisRng(Vector3.one, 5u);
@@ -494,7 +491,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
