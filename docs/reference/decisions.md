@@ -353,6 +353,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   wrench is for an Engineer no unit list has. Nothing is built in the game; the route into the game stays open.
   Options: (1) yes, next the route into the game; (2) yes, with changes; (3) another round. Brief with three sheets on
   the Decide page: "Infantry weapons: toy box, and brass as its upgrade. Right?".
+- **`lane/show/heroes-off-bench` cannot reach origin (2026-10-15):** the lane's history was rebuilt (its earlier
+  false PASS reverted, then redone on today's integration), so its local tip no longer has origin's old tip
+  (`1eb8ac418`, 508 commits behind integration, holding 4 commits the lane no longer carries) as an ancestor. A
+  plain `git push` is refused as non-fast-forward, and this relay's hook refuses every form of force push. The work
+  itself is done and gated: the stress preset fields no hero on either side by default, the proof test is red on
+  the old code and green on the new, and the new baseline (281.8 -> 290.5 fps mean) is committed locally with the
+  tag `[heroes-off-bench]`. Options: (a) the owner runs `git push --force-with-lease origin lane/show/heroes-off-bench`
+  from this checkout, the default taken here, so the work stays local until he does; (b) the relay leg gets
+  permission to force-push this lane; (c) the owner deletes origin's stale branch first, then a plain push works.
+  Do not build any of these without asking.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
