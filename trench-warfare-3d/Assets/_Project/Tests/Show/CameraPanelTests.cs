@@ -1,7 +1,7 @@
 // Phase: review-fix (rv-37-p2-u16, 2026-10-13) — code review 2026-10-04, unit 16: Q1 (TestPanel.cs:262), Q4
 // (TacticalCamera.cs:156,171), Q5 (TestPanel.cs:59-67).
 // rv-74-p3-u16, 2026-10-15: Q6 (TestPanel.cs:81), Q7 (TestPanel.cs:343), Q8 (DebugOverlay.cs:61,69-72),
-// Q9 (BattleHud.cs:176-263,493-499; DebugOverlay.cs:50-51).
+// Q9 (BattleHud.cs:176-263,493-499; DebugOverlay.cs:50-51), Q10 (dead code; BattleHud.cs:391-395,435 closures).
 using System.Reflection;
 using NUnit.Framework;
 using Unity.Collections;
@@ -238,6 +238,36 @@ namespace TW.Tests
                 Assert.IsNull(t.GetField("matB", flags).GetValue(overlay), "[Q9] matB survived OnDestroy");
             }
             finally { Object.DestroyImmediate(go); }
+        }
+
+        /// <summary>[Q10] The dead members the report names are gone: no 1-arg HaloZWrite(bool), no 4-arg
+        /// static ToeOf, no 2-arg NameOf/TipOf(int slot, in RosterEntry). SpeedIndex (the field BattleHud now
+        /// uses instead of an Array.FindIndex closure in OnGUI) answers the slot of each speed, or -1.</summary>
+        [Test]
+        public void Q10DeadMembersAreGoneAndSpeedIndexMatchesTheScale()
+        {
+            var flags = BindingFlags.NonPublic | BindingFlags.Static;
+
+            Assert.IsNull(typeof(TracerLook).GetMethod("HaloZWrite", new[] { typeof(bool) }),
+                "[Q10] TracerLook.HaloZWrite(bool) should have been removed");
+
+            Assert.IsNull(typeof(TankModel).GetMethod("ToeOf", flags,
+                    null, new[] { typeof(TankModel), typeof(bool) }, null),
+                "[Q10] TankModel's 4-arg ToeOf wrapper should have been removed");
+
+            Assert.IsNull(typeof(BattleHud).GetMethod("NameOf", BindingFlags.NonPublic | BindingFlags.Static,
+                    null, new[] { typeof(int), typeof(RosterEntry).MakeByRefType() }, null),
+                "[Q10] BattleHud.NameOf(int slot, in RosterEntry) should have been removed");
+            Assert.IsNull(typeof(BattleHud).GetMethod("TipOf", BindingFlags.NonPublic | BindingFlags.Static,
+                    null, new[] { typeof(int), typeof(RosterEntry).MakeByRefType() }, null),
+                "[Q10] BattleHud.TipOf(int slot, in RosterEntry) should have been removed");
+
+            var speedIndex = typeof(BattleHud).GetMethod("SpeedIndex", flags);
+            Assert.IsNotNull(speedIndex, "[Q10] BattleHud.SpeedIndex is missing");
+            Assert.AreEqual(0, (int)speedIndex.Invoke(null, new object[] { 0f }), "[Q10] 0f is scale 0");
+            Assert.AreEqual(1, (int)speedIndex.Invoke(null, new object[] { 1f }), "[Q10] 1f is scale 1x");
+            Assert.AreEqual(4, (int)speedIndex.Invoke(null, new object[] { 8f }), "[Q10] 8f is scale 8x");
+            Assert.AreEqual(-1, (int)speedIndex.Invoke(null, new object[] { 3f }), "[Q10] 3f is not one of the speeds");
         }
     }
 }
