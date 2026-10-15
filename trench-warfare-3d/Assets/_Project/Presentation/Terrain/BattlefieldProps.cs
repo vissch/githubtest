@@ -41,12 +41,22 @@ namespace TW.Presentation.Terrain
                 {
                     page = Counts.Count; Counts.Add(0); PageBounds.Add(default);
                     spatialPages[key] = page;
-                    if (Pages.Count <= page) Pages.Add(new Matrix4x4[1023]);
+                    // 16 slots, doubled as the page fills (review call B7): a page held a 1,023-matrix array (65 KB)
+                    // from its first instance, and most pages hold a handful. A page's fill is Counts[page], never
+                    // its array's length, so growing it changes nothing for the readers.
+                    if (Pages.Count <= page) Pages.Add(new Matrix4x4[16]);
                 }
                 var instanceBounds = InstanceBounds(m);
                 var merged = Counts[page] == 0 ? instanceBounds : PageBounds[page];
                 merged.Encapsulate(instanceBounds); PageBounds[page] = merged;
-                slot = Counts[page]; Pages[page][slot] = m; Counts[page]++;
+                slot = Counts[page];
+                var array = Pages[page];
+                if (slot == array.Length)
+                {
+                    System.Array.Resize(ref array, Mathf.Min(1023, array.Length * 2));
+                    Pages[page] = array;
+                }
+                array[slot] = m; Counts[page]++;
                 return page;
             }
             Bounds InstanceBounds(Matrix4x4 m)
