@@ -623,11 +623,7 @@ namespace TW.Presentation.Tactical
                 // a model leg index threw the wrong leg, or none at all when the sim's bit had no model leg to match.
                 int simLegs = Drive(w.Archetype[s]).Legs;
                 byte lost = modules != null ? ModelLegMask(modules.LegsLost[s], simLegs, v.Model.LegsPerSide) : (byte)0;
-                if (lost != v.LegsLost)
-                {
-                    for (int k = 0; k < 8; k++) if ((lost & (1 << k)) != 0 && (v.LegsLost & (1 << k)) == 0) ThrowLeg(v, k);
-                    v.LegsLost = lost;
-                }
+                if (lost != v.LegsLost) LegsChangedTo(v, lost);
                 // the feet: planted on the ground and left there while the body walks over them
                 if (v.Legs == null) v.Legs = new WalkerGait { SwingScale = v.Style.Swing, ArcScale = v.Style.Arc };
                 v.Legs.LeanScale = 1f / (real * real);   // K1: the gait's turn lean is yawRate * pace, both per real second
@@ -976,15 +972,27 @@ namespace TW.Presentation.Tactical
             return result;
         }
 
-        /// <summary>A leg the damage system has taken off: it goes the way a track does, thrown clear.</summary>
-        void ThrowLeg(View v, int leg)
+        /// <summary>The legs this machine has lost, as the sim now has them: each one newly lost is thrown clear, and
+        /// each one that is whole again is put back (K7 — a cleared LegsLost bit left the leg hidden for good).</summary>
+        void LegsChangedTo(View v, byte lost)
+        {
+            for (int k = 0; k < 8; k++)
+            {
+                bool had = (v.LegsLost & (1 << k)) != 0, has = (lost & (1 << k)) != 0;
+                if (has != had) SetLeg(v, k, has);
+            }
+            v.LegsLost = lost;
+        }
+
+        /// <summary>A leg the damage system has taken off: it goes the way a track does, thrown clear; off false puts it back.</summary>
+        void SetLeg(View v, int leg, bool off)
         {
             var parts = v.Model.Lods[0].Parts;
             for (int i = 0; i < parts.Count; i++)
             {
                 var p = parts[i];
                 if (p.Leg != leg || (p.Role != TankPartRole.Leg && p.Role != TankPartRole.Thigh)) continue;
-                Throw(v, p.Name, true, p.Outward.x < 0f ? -1 : 1);
+                Throw(v, p.Name, off, p.Outward.x < 0f ? -1 : 1);
                 return;
             }
         }
