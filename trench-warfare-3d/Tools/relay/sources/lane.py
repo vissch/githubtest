@@ -13,7 +13,7 @@ job's do. "lane" is the role with none.
 A unit that is not done leaves a handoff note (sources/notes.py): its state is not on the board or in a ledger. The
 note reaches the next run's legs on the card, with each of its predictions scored hit or miss by script.
 """
-import re, subprocess, sys
+import datetime, re, subprocess, sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "pipeline"))
@@ -85,10 +85,34 @@ def files(board):
     return sorted(ok, key=place), skipped
 
 
+def held_elsewhere(ctx):
+    """{unit id: run} from the board's live records (boardio.live_record): what another run says it is on right
+    now. A unit another run has a leg open on gets no second leg (the owner, 2026-10-10). A record whose beat is
+    older than two legs' turns is stale: a run that was killed leaves its file behind, and it must not stall the
+    queue."""
+    stale = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(
+        minutes=2 * config.limits()["leg_minutes"])
+    out = {}
+    for f in sorted(Path(ctx["board"]).glob("relay/*/live/*.json")):
+        try:
+            rec = read_json(f)
+            beat = datetime.datetime.strptime(rec["beat"], "%Y-%m-%dT%H:%M:%SZ").replace(
+                tzinfo=datetime.timezone.utc)
+        except (OSError, ValueError, KeyError, TypeError):
+            continue
+        if beat < stale or rec.get("run") == ctx.get("run"):
+            continue
+        on = rec.get("now_on") or {}
+        if isinstance(on, dict) and on.get("unit"):
+            out[on["unit"]] = rec.get("run") or f.stem
+    return out
+
+
 def next(ctx, kind=None):
     """The first queued unit, or with `kind` the first of that kind of work (sources.kind_of)."""
     from sources import kind_of
     root = Path(ctx["board"]) / "relay"
+    held = held_elsewhere(ctx)
     ok, skipped = files(ctx["board"])
     for p in skipped:
         print("skipping %s: it is not committed on the board, so nobody but a leg may have written it" % p.name)
@@ -97,6 +121,9 @@ def next(ctx, kind=None):
         if u["id"] in ctx["skip"] or (root / "done" / (u["id"] + ".json")).exists():
             continue
         if kind and kind_of(NAME, u["role"], u.get("kind")) != kind:
+            continue
+        if u["id"] in held:
+            print("skipping %s: run %s has a leg open on it" % (u["id"], held[u["id"]]))
             continue
         return dict(u, source=NAME)
     return None
@@ -117,8 +144,30 @@ def done_when(unit, ctx):
         return "done_when could not run: %s" % e
 
 
+def on_origin(unit, ctx):
+    """Put the work checkout on origin's lane before done_when is measured, so what is measured is what is pushed
+    (the owner, 2026-10-10). None when it is there; else why it is not, in one line for the log. A dirty tree is
+    never touched: its done_when runs on the checkout as it stands."""
+    work, lane_name = ctx["work"], unit["lane"]
+    try:
+        sha = gitio.remote_head(work, lane_name)
+        if not sha:
+            return "origin has no %s yet: done_when runs on the checkout as it is" % lane_name
+        if gitio.head(work) == sha:
+            return None
+        if gitio.dirty(work):
+            return "the checkout is dirty: done_when runs on it as it is, not on origin/%s" % lane_name
+        gitio.git(["reset", "-q", "--hard", sha], work)
+    except gitio.GitError as e:
+        return "the checkout could not be put on origin/%s (%s): done_when runs on it as it is" % (lane_name, e)
+    return None
+
+
 def already_done(unit, ctx):
-    """Asked before any leg: work that is already there and pushed costs no session."""
+    """Asked before any leg: work that is already there and pushed costs no session. Measured on origin/<lane>."""
+    say = on_origin(unit, ctx)
+    if say:
+        print("unit %s: %s" % (unit["id"], say))
     return done_when(unit, ctx) is None and not gitio.dirty(ctx["work"]) and gitio.pushed(ctx["work"], unit["lane"])
 
 

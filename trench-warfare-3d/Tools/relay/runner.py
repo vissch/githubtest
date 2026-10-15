@@ -82,7 +82,8 @@ class Run:
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
         self.deadline = time.time() + self.lim["run_hours"] * 3600
-        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0}
+        self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0,
+                    "run": self.run}
         self.legs, self.idle, self.claimed, self.ready = 0, 0, None, False
         self.heads, self.lanes, self.stop_file = {}, set(), stop_path(self.home)
         self.units, self.no_window = {}, launch.no_window()     # unit id -> PASS | FAIL | BLOCKED
