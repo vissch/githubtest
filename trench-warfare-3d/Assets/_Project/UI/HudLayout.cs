@@ -31,7 +31,7 @@ namespace TW.UI
         public const float CaptionPx = 14f;      // the INFANTRY / ARMOUR / SUPPORT caption above each group
         public const float CaptionGapPx = 2f;    // under each caption
         public const float BarPadTopPx = 6f, BarPadBottomPx = 8f;
-        /// <summary>The support row is every card HudView offers (six since docs/21 phase 5): the width model and the
+        /// <summary>The support row is every card HudView offers (seven since docs/21 phase 5): the width model and the
         /// shrink factor (HudView.BarFit) must count what the bar really draws, or the row runs off a narrow window.</summary>
         public static int SupportSlots => HudView.SupportAbilities.Length;
         public const int Dividers = 1;           // infantry | (armour over support)

@@ -63,7 +63,6 @@ namespace TW.Tests
             ["HudBootstrap.Disabled"] = "a test switch the tests set and restore",
             ["HudBridge.PointerOverUi"] = "set and cleared by its owner (HudController) and by ResetSession; a scene load must NOT clear it",
             ["HudBridge.WheelClaimed"] = "set and cleared by its owner (SelectionController) and by ResetSession; a scene load must NOT clear it",
-            ["HudHotkeys.LegacyOverlayActive"] = "follows the HUD flag, set by the HUD it belongs to",
             ["InputFocus.Modal"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.Listening"] = "cleared by SceneStatics.Reset on every scene load",
             ["InputFocus.escapeFrame"] = "a frame stamp, cleared by SceneStatics.Reset on every scene load",

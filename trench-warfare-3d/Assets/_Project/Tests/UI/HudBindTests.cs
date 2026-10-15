@@ -56,41 +56,38 @@ namespace TW.Tests
             var refs = BuildBare(Roster(0));
             var c = refs.Cards[0];
             float tick = SimConfig.Default.TickSeconds;
-            HudView.BindCard(c, silver: 1000, cooldownTicks: 0, cooldownTotalTicks: 1, unlocked: true, over: false, tickSeconds: tick, inTransit: 0);
+            HudView.BindCard(c, silver: 1000, cooldownTicks: 0, cooldownTotalTicks: 1, unlocked: true, over: false, tickSeconds: tick);
             Assert.That(c.Cost.text, Is.EqualTo(c.BaseCost.ToString()));
             Assert.That(c.Root.enabledSelf, Is.True);
-            HudView.BindCard(c, 1000, cooldownTicks: 200, cooldownTotalTicks: 200, unlocked: true, over: false, tickSeconds: tick, inTransit: 0);
+            HudView.BindCard(c, 1000, cooldownTicks: 200, cooldownTotalTicks: 200, unlocked: true, over: false, tickSeconds: tick);
             Assert.That(c.Cost.text, Is.EqualTo("10s"), "200 ticks at 20 Hz is ten seconds");
             Assert.That(c.Root.ClassListContains("is-cooling"));
             Assert.That(c.Root.enabledSelf, Is.False);
             Assert.That(c.Cooldown.style.height.value.value, Is.GreaterThan(80f), "the cooldown mask fills the card at the start");
-            HudView.BindCard(c, 1000, 0, 1, true, false, tick, 0);
+            HudView.BindCard(c, 1000, 0, 1, true, false, tick);
             Assert.That(c.Cost.text, Is.EqualTo(c.BaseCost.ToString()));
             Assert.That(c.Root.ClassListContains("is-cooling"), Is.False);
         }
 
         [Test]
-        public void LockedPoorOverAndInTransitStates()
+        public void LockedPoorAndOverStates()   // [I13] the in-transit badge went with BindCard's inTransit parameter
         {
             var refs = BuildBare(Roster(0));
             var c = refs.Cards[4];   // the Maw
             float tick = SimConfig.Default.TickSeconds;
-            HudView.BindCard(c, silver: 0, cooldownTicks: 0, cooldownTotalTicks: 1, unlocked: false, over: false, tickSeconds: tick, inTransit: 0);
+            HudView.BindCard(c, silver: 0, cooldownTicks: 0, cooldownTotalTicks: 1, unlocked: false, over: false, tickSeconds: tick);
             Assert.That(c.Root.ClassListContains("is-locked"));
             Assert.That(c.Root.enabledSelf, Is.False);
-            HudView.BindCard(c, silver: c.BaseCost - 1, 0, 1, unlocked: true, over: false, tick, 0);
+            HudView.BindCard(c, silver: c.BaseCost - 1, 0, 1, unlocked: true, over: false, tick);
             Assert.That(c.Root.ClassListContains("is-locked"), Is.False);
             Assert.That(c.Root.ClassListContains("is-poor"), "one silver short is unaffordable");
             Assert.That(c.Root.enabledSelf, Is.False);
-            HudView.BindCard(c, silver: c.BaseCost, 0, 1, true, false, tick, 3);
+            HudView.BindCard(c, silver: c.BaseCost, 0, 1, true, false, tick);
             Assert.That(c.Root.ClassListContains("is-poor"), Is.False);
             Assert.That(c.Root.enabledSelf, Is.True);
-            Assert.That(c.Badge.text, Is.EqualTo("3"), "three men riding the boats in");
-            Assert.That(c.Badge.style.display.value, Is.EqualTo(DisplayStyle.Flex));
-            HudView.BindCard(c, 9999, 0, 1, true, over: true, tick, 0);
+            HudView.BindCard(c, 9999, 0, 1, true, over: true, tick);
             Assert.That(c.Root.ClassListContains("is-over"));
             Assert.That(c.Root.enabledSelf, Is.False, "the match is over");
-            Assert.That(c.Badge.style.display.value, Is.EqualTo(DisplayStyle.None));
         }
 
         [Test]
@@ -136,10 +133,10 @@ namespace TW.Tests
             var refs = BuildBare(Roster(0));
             var c = refs.Cards[1];
             float tick = SimConfig.Default.TickSeconds;
-            HudView.BindCard(c, 500, 40, 200, true, false, tick, 1);
-            Assert.That(HudView.BindCard(c, 500, 40, 200, true, false, tick, 1), Is.False, "a steady frame must touch nothing");
-            Assert.That(HudView.BindCard(c, 500, 39, 200, true, false, tick, 1), Is.False, "39 vs 40 ticks is the same second and the same percent");
-            Assert.That(HudView.BindCard(c, 500, 20, 200, true, false, tick, 1), Is.True);
+            HudView.BindCard(c, 500, 40, 200, true, false, tick);
+            Assert.That(HudView.BindCard(c, 500, 40, 200, true, false, tick), Is.False, "a steady frame must touch nothing");
+            Assert.That(HudView.BindCard(c, 500, 39, 200, true, false, tick), Is.False, "39 vs 40 ticks is the same second and the same percent");
+            Assert.That(HudView.BindCard(c, 500, 20, 200, true, false, tick), Is.True);
         }
 
         // ---- the words, held to the sim (the assertions HudTextTests made of BattleHud) ----------------------------

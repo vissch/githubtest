@@ -1,7 +1,7 @@
 // Phase: B6 (implemented) — the keyboard side of the battle HUD, through KeyMap.
-// While DebugOverlay still handles 1-5, Space, Backspace and L on its own, this only takes the keys nobody else reads
-// (slots 6-8, arming the support cards, over the top on G, hold fire on F, speed, the HUD toggle); LegacyOverlayActive
-// goes false when DebugOverlay is gated behind HudBridge (step A5 of the UI plan) and the whole map is handled here.
+// This handles the whole key map while the Toolkit HUD is the HUD: the ten deploy slots, arming the support cards,
+// over the top on G, hold fire on F, the tactical pause, fall back, lock, speed and the HUD toggle. DebugOverlay's own
+// poll of 1-5 / Space / Backspace / L is gated behind HudBridge.UseToolkitHud, so nothing here double-fires.
 using UnityEngine;
 using UnityEngine.InputSystem;
 using TW.Presentation;
@@ -12,9 +12,6 @@ namespace TW.UI
 {
     public sealed class HudHotkeys
     {
-        /// <summary>DebugOverlay still polls 1-5, Space, Backspace and L itself; do not double-fire them.</summary>
-        public static bool LegacyOverlayActive = true;
-
         readonly HudController hud;
         public HudHotkeys(HudController hud) { this.hud = hud; }
 
@@ -25,10 +22,9 @@ namespace TW.UI
             // (Down = InputFocus.Gameplay && DownRaw, KeyMap.cs:136, so it also covers the earlier !InputFocus.Typing guard)
             if (KeyMap.Down(GameAction.HudToggle)) { HudBridge.UseToolkitHud = !HudBridge.UseToolkitHud; hud.ApplyFlag(); }
             if (!InputFocus.Gameplay || !hud.Interactive) return;
-            int first = LegacyOverlayActive ? 5 : 0;
             // with Ctrl or Shift held the digits are control-group keys (SelectionController), not deploys
             if (!SelectionController.GroupModifierHeld())
-                for (int s = first; s < RosterEntry.SlotCount; s++)
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
                     if (KeyMap.Down((GameAction)((int)GameAction.Deploy1 + s))) hud.Deploy(s);
             // support: F5-F7 arm the barrage, the gas and the paratroopers (the digit row is ten deploy slots), C M V B the
             // four line abilities (docs/21 phase 5); none of them is a group key, so no modifier applies
@@ -43,12 +39,9 @@ namespace TW.UI
             if (KeyMap.Down(GameAction.HoldFire)) hud.ToggleFront(CommandType.TrenchHoldFire);
             if (KeyMap.Down(GameAction.SpeedDown)) hud.Clock?.StepSpeed(-1);
             if (KeyMap.Down(GameAction.SpeedUp)) hud.Clock?.StepSpeed(+1);
-            if (!LegacyOverlayActive)
-            {
-                if (KeyMap.Down(GameAction.TacticalPause)) hud.Clock?.Toggle(MatchClock.Hold.Tactical);
-                if (KeyMap.Down(GameAction.Fallback)) hud.OrderFront(CommandType.TrenchFallback);
-                if (KeyMap.Down(GameAction.LockTrench)) hud.ToggleFront(CommandType.TrenchLock);
-            }
+            if (KeyMap.Down(GameAction.TacticalPause)) hud.Clock?.Toggle(MatchClock.Hold.Tactical);
+            if (KeyMap.Down(GameAction.Fallback)) hud.OrderFront(CommandType.TrenchFallback);
+            if (KeyMap.Down(GameAction.LockTrench)) hud.ToggleFront(CommandType.TrenchLock);
         }
     }
 }

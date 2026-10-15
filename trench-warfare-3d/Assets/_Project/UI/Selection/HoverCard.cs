@@ -29,7 +29,7 @@ namespace TW.UI
         static readonly System.Func<int, bool, string> PinnedHint = (n, ours) => "PINNED MEN WILL NOT GO OVER THE TOP";
         static readonly System.Func<int, bool, string> ReadyHint = (n, ours) => "READY TO GO OVER THE TOP";
 
-        long key; int keyCount = -1; float restingSince; bool shown;
+        int keyCount = -1; float restingSince; bool shown;
         // what is drawn now, so a text is rebuilt only when its numbers change
         int shownCount = -1, shownHpCur = -1, shownHpMax = -1, shownPct = -1, shownTypes = -1;
         int shownStateHash = -1, shownHint = -2;
@@ -126,7 +126,7 @@ namespace TW.UI
         bool Rested(long k, int n)
         {
             if (keyCount < 0) restingSince = Time.unscaledTime;   // the cursor has just come onto something
-            key = k; keyCount = n;
+            keyCount = n;
             return shown || Time.unscaledTime - restingSince >= ShowAfterSeconds;
         }
 
