@@ -108,7 +108,9 @@ Shader "TW/Toon (URP)"
             #pragma multi_compile_instancing
             #pragma shader_feature_local_vertex _ _CHUNKMASK
             #pragma multi_compile_fog
-            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE _MAIN_LIGHT_SHADOWS_SCREEN
+            // [Hs7] the screen-space shadow variant is left out on purpose: this pass builds its shadow coord with
+            // TransformWorldToShadowCoord (light-space), and the renderer has no Screen Space Shadows feature.
+            #pragma multi_compile _ _MAIN_LIGHT_SHADOWS _MAIN_LIGHT_SHADOWS_CASCADE
             #pragma multi_compile_fragment _ _SHADOWS_SOFT
             #pragma multi_compile _ _ADDITIONAL_LIGHTS
             #pragma multi_compile _ _FORWARD_PLUS

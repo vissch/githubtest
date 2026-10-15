@@ -102,6 +102,36 @@ namespace TW.Tests
                 "[Hs6] Debris' outline pass extrudes a sunk piece: it leaves an ink dot where the piece went under");
         }
 
+        // [Hs7] these six passes build their shadow coord with TransformWorldToShadowCoord(positionWS), a
+        // light-space coord, but their multi_compile also asked for _MAIN_LIGHT_SHADOWS_SCREEN, a screen-space
+        // variant that only a Screen Space Shadows renderer feature can turn on; TW-Renderer.asset has none.
+        [Test]
+        public void NoShaderAsksForScreenSpaceShadows()
+        {
+            string[] paths =
+            {
+                ToonPath, VatPath, DebrisPath,
+                "Assets/_Project/Shaders/Tank_URP.shader",
+                "Assets/_Project/Shaders/Sea_URP.shader",
+                "Assets/_Project/Shaders/Water_URP.shader",
+            };
+            foreach (string path in paths)
+            {
+                string src = File.ReadAllText(path);
+                Assert.That(src, Does.Not.Contain("_MAIN_LIGHT_SHADOWS_SCREEN"),
+                    "[Hs7] " + path + " compiles the screen-space shadow variant but passes a light-space coord");
+                Assert.That(src, Does.Contain("_MAIN_LIGHT_SHADOWS_CASCADE"),
+                    "[Hs7] " + path + " must still ask for the cascade shadow variant");
+                Assert.That(src, Does.Contain("TransformWorldToShadowCoord"),
+                    "[Hs7] " + path + " must still build its shadow coord in light space");
+            }
+
+            string renderer = File.ReadAllText("Assets/_Project/Settings/TW-Renderer.asset");
+            Assert.That(renderer, Does.Not.Contain("ScreenSpaceShadows"),
+                "[Hs7] TW-Renderer.asset now has a Screen Space Shadows feature: the dropped keyword must come back " +
+                "and the shadow coord in these six passes must be fixed to screen space first");
+        }
+
         /// The HLSL of the pass named "Outline", up to its ENDHLSL.
         static string OutlinePass(string src)
         {
