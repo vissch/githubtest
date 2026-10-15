@@ -13,6 +13,8 @@
   "ui-artist": "tw-ui-art",
   "character": "tw-character-sim",
   "critic": "tw-critic",
+  "gym": "tw-gym",
+  "housekeeping": "tw-housekeeping",
   "sim": null,
   "lowpoly": null,
   "master": null,
