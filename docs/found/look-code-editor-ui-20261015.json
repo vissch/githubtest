@@ -1,0 +1,77 @@
+{
+  "subject": "code:Editor/UI",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Editor/UI/HudCapture.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiAssetBuilder.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinVerifier.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinImport.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/LogoImport.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/ShellAssetsBuilder.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinGenerator.cs (lines 1-120)",
+    "trench-warfare-3d/Assets/_Project/Tests/Project/SkinAssetTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/ShellUxmlTests.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/SkinSpec.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss",
+    "docs/reference/tasks.md (the HudCapture and skin rows)",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Restore the HUD panel target in a finally, not mid-coroutine",
+      "why": "Read in code, not confirmed in Play. HudCapture.cs:61 saves panel.targetTexture, clearColor and colorClearValue and line 69 restores them, with no try/finally between. Anything that throws or ends the coroutine in lines 63-68 (the two WaitForEndOfFrame, Probe, cam.Render, Read) or leaving Play between them skips line 69, while line 82 releases rtUi only when it is reached. The panel then points at a dead RenderTexture, and nothing else in the project assigns panel.targetTexture, so the HUD draws nowhere for the rest of the editor session: every later Shoot returns a blank interface and nothing is logged.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/UI/HudCapture.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The save/restore pair sits in a try/finally that also releases both RenderTextures, and a Play-mode run of Shoot with a write path that cannot be created leaves panel.targetTexture at its old value and a following Shoot produces a non-blank HUD.",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Bake Skin Fonts breaks the sheets' font references on its own",
+      "why": "Read in code. UiAssetBuilder.cs:95-96 does DeleteAsset then CreateAsset for each font asset, which gives it a new GUID. dustfront.components.uss lines 8-18 name those assets through url(\"Fonts/DustFrontLabel.asset\") and friends, and an imported StyleSheet holds the resolved reference, so after a bake the sheets point at deleted GUIDs until something reimports them. BuildAll (line 106) calls ReimportSheets afterwards and is safe; the standalone menu item TW/UI/Bake Skin Fonts does not, so a font swap leaves every Label and Button on the default face. UiSkinVerifier.cs:188-189 only checks the FontAsset loads from disk, and line 272 reads the sheet's stale importedWithErrors flag, so the gate stays green with a fontless UI.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiAssetBuilder.cs",
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinVerifier.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "BakeFonts ends with ReimportSheets (or rewrites the asset in place instead of delete plus create), and the verifier checks that each sheet's url(\"Fonts/*.asset\") resolves to the live asset; SkinAssetTests goes red when a font asset is deleted and recreated without the reimport.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, true, true, false]
+    },
+    {
+      "title": "Make the HudCapture sidecar rects the same run to run",
+      "why": "Read in code. HudCapture.cs:26 promises \"the first match per name per document\", but found (line 90) is one dictionary across every document and Add (line 98) returns early on found.ContainsKey. The documents come from FindObjectsByType(FindObjectsSortMode.None), which is unsorted by contract, so for a name two documents both carry (tabs, title and card appear in the HUD and in shell screens) the sidecar rect is whichever document Unity enumerated first this run. Add also tests display on the element only, never on its ancestors, so an element inside a hidden screen can win the name. A critic cropping on card gets a different region run to run with no sign anything moved.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/UI/HudCapture.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Documents are visited in a stable order and an element with a display:none ancestor is skipped; two Shoot calls in one Play session with the same screen open write byte-identical .json rects, diffed by a script.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, true, false]
+    },
+    {
+      "title": "Build Main Menu Scene throws away unsaved scene edits",
+      "why": "Read in code. ShellAssetsBuilder.cs:261 calls EditorSceneManager.NewScene(..., NewSceneMode.Single) with no SaveCurrentModifiedScenesIfUserWantsTo first, and line 269 opens Bootstrap.unity Single as well; line 280 then reopens the previous scenes from disk. Clicking TW/UI/Build Main Menu Scene with a dirty scene loses that work with no prompt. Lines 273-279 also register Scenes/GreyboxCorridor.unity in EditorBuildSettings.scenes without checking the file exists, so a checkout without it carries a missing scene entry in the build settings.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/UI/ShellAssetsBuilder.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "BuildMainMenuScene returns early when SaveCurrentModifiedScenesIfUserWantsTo is declined, and the greybox entry is added only when File.Exists; run in batch with the greybox file renamed away, EditorBuildSettings.scenes comes back with two entries and no missing path.",
+      "risk": [true, false, false, false, true],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Close the verifier's import blind spots and merge the folder helper",
+      "why": "Read in code. UiSkinImport.Apply (lines 45-69) sets fourteen importer settings; UiSkinVerifier.CheckSprite (lines 200-208) checks six of them. sRGBTexture, alphaSource, isReadable, spritePixelsPerUnit, maxTextureSize, wrapMode, filterMode, npotScale and spriteMeshType can all drift (an Inspector visit, a merged .meta) and the gate stays green, which is the class of fault SkinAssetTests exists to catch. Separately UiAssetBuilder.EnsureFolder (line 127) and ShellAssetsBuilder.Folder (line 249) are the same four lines twice.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiSkinVerifier.cs",
+        "trench-warfare-3d/Assets/_Project/Editor/UI/UiAssetBuilder.cs",
+        "trench-warfare-3d/Assets/_Project/Editor/UI/ShellAssetsBuilder.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "CheckSprite compares every setting Apply writes and the two folder helpers are one method; SkinAssetTests.EverySkinFileMatchesTheSpec goes red when one skin .meta has sRGBTexture or filterMode changed by hand, and green again after a reimport.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
