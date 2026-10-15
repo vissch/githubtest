@@ -155,7 +155,11 @@ namespace TW.Sim
         // v52 (2026-10-13, [U11]): BreakerSystem, SapperSystem and SupportSystem hash their per-slot arrays to
         // SimWorld.HighWater instead of MaxSlots, as SimWorld.Hash() already did. No field added, moved or dropped
         // and no balance change; the hash of any match with an unfilled world moves, so older replays do not verify.
-        public const ushort FormatVersion = 52;
+        // v53 (2026-10-15, [found-buildshelters-excludes-vehicles-from-teams-i-20261015-0]): a wreck's shadow
+        // keeps down only the men its Teams bitmask counted - DirectFire's InShadow skips Vehicle and Airborne
+        // slots, as BuildShelters already did. No field added, moved or dropped; suppression differs at a tick
+        // wherever a vehicle or airborne slot stood in a wreck's shadow, so the hash moves there.
+        public const ushort FormatVersion = 53;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
