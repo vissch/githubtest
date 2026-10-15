@@ -1,0 +1,56 @@
+{
+  "subject": "review:Z009",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Data/DataBaker.cs",
+    "trench-warfare-3d/Assets/_Project/Data/Definitions.cs",
+    "trench-warfare-3d/Assets/_Project/Data/FactionMap.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Faction.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DataBakerTests.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/AssetScaleAudit.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/BuildWindows.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/DeterminismPlatformReport.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvKitImport.cs",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvPropEditor.cs",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the twelve files",
+    "docs/03-determinism-rules.md",
+    "docs/reference/decisions.md",
+    "docs/reference/tasks.md",
+    "docs/found/look-code-editor-ui-20261015.json"
+  ],
+  "tasks": [
+    {
+      "title": "Restore the tactical camera and zoom when a capture queue is interrupted",
+      "why": "Read in code. CaptureRig.Rig.Run() (CaptureRig.cs:112-148) disables TacticalCamera at line 115 and only re-enables it, and restores zoom/focus/fov/transform, at lines 146-148 after the while loop over Queue finishes normally. A coroutine that never reaches those lines — Play stopped mid-set, a domain reload from a recompile, an exception thrown from Pose or Render inside the loop — leaves tc.enabled false and the camera at the last shot's pose and zoom for the rest of the editor session. Nothing catches or logs this; the next person to enter Play just finds the tactical camera dead and has to work out why.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The restore of tc.enabled/Zoom/Focus/fieldOfView/transform runs in a try/finally around the while loop (or an EditorApplication.playModeStateChanged hook restores it on ExitingPlayMode); starting a multi-shot Series and stopping Play before it drains leaves the tactical camera enabled and at its pre-capture zoom on the next Play.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "ApplyUpgrades' dmg/acc-tier upgrade path has no caller outside its test",
+      "why": "Read in code and confirmed by grep. DataBaker.cs:70-76's ApplyUpgrades applies +5*dmgTier to weapon.Damage and +0.05*accTier to weapon.Accuracy (the change this diff added), but grep -rn \"ApplyUpgrades\\b\" Assets/_Project turns up only the method itself and DataBakerTests.cs:46. The meta-progression upgrade tiers (hpTier/dmgTier/accTier) never reach a baked UnitStats/WeaponStats in a real bake, so a player's upgrades would silently do nothing even though the test (and tasks.md:183) reports this path as guarded.",
+      "files": ["trench-warfare-3d/Assets/_Project/Data/DataBaker.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "BakeMission (or whichever campaign-load path reads a save's upgrade tiers) calls ApplyUpgrades for every slotted unit before ToStats, or ApplyUpgrades is removed along with its test until a caller exists; a search for ApplyUpgrades then finds a production call site.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A mission with an unset faction fields FactionId.Iron, not British",
+      "why": "Read in code. DataBaker.cs:41-42 falls back to the literal 0 (FactionId.Iron, Faction.cs:15) when MissionDefinition.PlayerFaction/EnemyFaction is null, while FactionMap.ToSim's own default (FactionMap.cs:23) is FactionId.British for every other unmapped case. Definitions.cs:152 declares PlayerFaction/EnemyFaction as plain object references with no [Required] or bake-time check, so an authored mission that never got a FactionDefinition assigned silently fields the greybox Iron roster in play instead of the British one FactionMap uses everywhere else, and nothing reports that the field was empty.",
+      "files": ["trench-warfare-3d/Assets/_Project/Data/DataBaker.cs", "trench-warfare-3d/Assets/_Project/Data/Definitions.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "BakeMission either routes the null case through FactionMap.ToSim's own default (British) or logs/asserts when a mission's PlayerFaction or EnemyFaction is unset; a DataBakerTests case with a null PlayerFaction documents which one.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
