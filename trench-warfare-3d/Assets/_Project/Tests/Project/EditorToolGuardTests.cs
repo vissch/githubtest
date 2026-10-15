@@ -63,6 +63,66 @@ namespace TW.Tests
             Assert.IsFalse(System.IO.File.Exists(file), "[E8] the audit wrote its report while the game was in Play");
         }
 
+        [Test]
+        public void TheLabPutsTheCameraBackAsItFoundIt()   // [E12]
+        {
+            var go = new GameObject("e12-tc");
+            try
+            {
+                var c = go.AddComponent<TW.Presentation.Tactical.TacticalCamera>();
+                c.ZoomMin = 9f; c.Pitch = 50f; c.ClosePitch = 55f;
+                RiderLab.Camera(0, 20f, 0f, 30f);   // answers E4's "not in Play"; the camera writes happen first
+                Assert.AreEqual(4f, c.ZoomMin, "[E12] the lab did not lower ZoomMin, so there is nothing to restore");
+                Assert.AreEqual(30f, c.Pitch, "[E12] the lab did not write Pitch");
+                RiderLab.CameraRestore();
+                Assert.AreEqual(9f, c.ZoomMin, "[E12] ZoomMin was never put back");
+                Assert.AreEqual(50f, c.Pitch, "[E12] Pitch was never put back");
+                Assert.AreEqual(55f, c.ClosePitch, "[E12] ClosePitch was never put back");
+            }
+            finally { RiderLab.CameraRestore(); Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void UnfreezingGivesBackTheScaleThatWasThere()   // [E12]
+        {
+            var go = new GameObject("e12-host");
+            try
+            {
+                var h = go.AddComponent<TW.Presentation.SimHost>();
+                h.TimeScale = 0.5f;
+                RiderLab.Freeze(true);
+                Assert.AreEqual(0f, h.TimeScale, "[E12] Freeze(true) did not stop the sim clock");
+                RiderLab.Freeze(false);
+                Assert.AreEqual(0.5f, h.TimeScale,
+                    "[E12] Freeze(false) assumed a scale of 1: a half-speed world came back at " + h.TimeScale);
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void AMeasuredRunDrawsNoPropsForTheSceneView()   // [E10]
+        {
+            var camGo = new GameObject("e10-cam");
+            var profGo = new GameObject("e10-prof");
+            try
+            {
+                TW.Presentation.Terrain.BattlefieldProps.EditorCamera = camGo.AddComponent<Camera>();
+                var prof = profGo.AddComponent<CaptureRig.Profiler>();
+                prof.Begin(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "e10-profile.json"), 2);
+                var late = typeof(CaptureRig.Profiler).GetMethod("LateUpdate",
+                    BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+                Assert.IsNotNull(late, "[E10] CaptureRig.Profiler.LateUpdate is gone");
+                late.Invoke(prof, null);
+                Assert.IsNull(TW.Presentation.Terrain.BattlefieldProps.EditorCamera,
+                    "[E10] the profiler left the Scene view's camera in place: the props are culled against two frusta");
+            }
+            finally
+            {
+                Object.DestroyImmediate(profGo); Object.DestroyImmediate(camGo);
+                TW.Presentation.Terrain.BattlefieldProps.EditorCamera = null;
+            }
+        }
+
         [TearDown]
         public void Clean()
         {
