@@ -34,7 +34,10 @@ inbox    7 notes, 1 for you
   `python Tools/selftest.py --only land,relay` runs only those groups (`codemap`, `validate`, `gate`,
   `aosa_land`, `port_split`, `scorecard`, `gate_scope`, `land`, `relay`, `health`), in seconds.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
-  the exact commit first, and `toolcheck.py` too when the lane changes a tool.
+  the exact commit first, and `toolcheck.py` too when the lane changes a tool. A landing owes the time-lapse a
+  frame: `land.py` prints the `python Tools/timelapse.py shoot --sha <sha>` command for the commit it just landed
+  (`pipelines.md`); it never waits on an editor itself, so run it when one is free, or catch up with `timelapse.py
+  missing`.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted
   files, big files, `SceneHooks` references, explained statics, last gate counts, how long the last run before a
   commit took and whether that is past 300 s). With a history file it prints
