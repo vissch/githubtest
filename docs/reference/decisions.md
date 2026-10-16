@@ -298,8 +298,10 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 ## Open: waiting on the owner
 - **The ridge lane's finished push is left for a non-leg hand (2026-10-16):** the owner has said to move
   `origin/lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b` to the local rebased tip; a leg cannot
-  do it. Run, from `C:\Users\PC\Documents\GitHub\githubtest-relay-work`:
-  `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:1347ccd19 origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
+  do it. An earlier hand push landed (origin held `5ca548dac`), and the lane has since been rebased again onto
+  integration `c8a9225692`, with its content unchanged, so origin is a non-ancestor once more and a leg's push is
+  refused as non-fast-forward. Run, from `C:\Users\PC\Documents\GitHub\githubtest-relay-work`:
+  `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:5ca548dac origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
   then check CI with `gh run list --branch lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b --limit 3`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
