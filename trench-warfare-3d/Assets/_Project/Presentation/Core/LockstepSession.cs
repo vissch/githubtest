@@ -103,7 +103,7 @@ namespace TW.Presentation
         void Compare(bool local)
         {
             var w = local ? Local.World : Peer.World;
-            uint tick = w.Tick;   // the tick just completed: LastHash is the state after it
+            uint tick = w.Tick - 1;   // SimWorld.Step increments Tick before it hashes, so the tick whose state LastHash covers is w.Tick - 1
             int k = (int)(tick % Ring);
             var mine = local ? localHash : peerHash; var mineAt = local ? localAt : peerAt;
             var theirs = local ? peerHash : localHash; var theirsAt = local ? peerAt : localAt;
