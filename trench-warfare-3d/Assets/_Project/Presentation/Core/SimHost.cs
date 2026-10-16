@@ -171,6 +171,7 @@ namespace TW.Presentation
             bool canary = CanaryOverride ?? (DeterminismCanary || System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-twCanary") >= 0);
             session = new LockstepSession(() => NewMatch(cfg), canary, LatencyTicks, JitterTicks, LossChance, Seed);
             Local = session.Local; Peer = session.Peer; LocalDriver = session.LocalDriver; PeerDriver = session.PeerDriver;
+            LocalSeat.SetFrom(LocalDriver.Transport);   // which team is mine, for the camera, the fog and the mine marks
             Presenter = new SimPresenter(cfg.MaxSlots);
             Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn, Presenter.YawIn);
             Presenter.Capture(Local.World);

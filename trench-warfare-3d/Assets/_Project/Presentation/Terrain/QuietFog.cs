@@ -17,7 +17,6 @@ namespace TW.Presentation.Terrain
     public sealed class QuietFog : MonoBehaviour
     {
         public SimHost Host;
-        public byte LocalTeam = 0;
         [Range(0f, 1f)] public float Density = 0.5f;
         [Tooltip("Metres above the water table where the quiet fog ends.")]
         public float Top = 5f;
@@ -93,10 +92,11 @@ namespace TW.Presentation.Terrain
         void Scan()
         {
             var sim = Host.Local; var w = sim.World; var map = sim.Map;
+            byte mine = LocalSeat.Team;   // which team is mine: the seat, not team 0
             System.Array.Clear(target, 0, target.Length); System.Array.Clear(occupied, 0, occupied.Length);
             for (int i = 0; i < w.HighWater; i++)
             {
-                if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.Team[i] != LocalTeam) continue;
+                if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.Team[i] != mine) continue;
                 var p = w.Position[i];
                 occupied[Mathf.Clamp((int)(p.z / Cell), 0, gl - 1) * gw + Mathf.Clamp((int)(p.x / Cell), 0, gw - 1)] = true;
             }
@@ -106,7 +106,7 @@ namespace TW.Presentation.Terrain
             for (int o = 0; o < map.Objectives.Length; o++)   // home is never fogged
             {
                 var def = map.Objectives[o];
-                if (def.Kind != ObjectiveKind.HQ || def.SideTeam != LocalTeam || def.CellCount == 0) continue;
+                if (def.Kind != ObjectiveKind.HQ || def.SideTeam != mine || def.CellCount == 0) continue;
                 int cell = map.ObjectiveCells[def.CellStart + def.CellCount / 2];
                 Stamp((cell % map.NavWidth + .5f) * MapData.NavCellSize, (cell / map.NavWidth + .5f) * MapData.NavCellSize, 1.25f, 1f);
             }

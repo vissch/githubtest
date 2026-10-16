@@ -6,6 +6,7 @@
 //   between the two sides -> square to the front (0), flatter (FlatPitch)
 //   beyond the enemy      -> turned back towards your side (-StandardYaw), Pitch
 // "Your men" and "the enemy" are the mean Z of each side's living units, so the turning point moves with the fight.
+// "Your men" is the seat's team (LocalSeat, off the transport), not team 0: seated as player 1 the whole view mirrors.
 // Zooming far out lifts the view to OverviewPitch and takes the turn out; the last stretch of zooming in (below
 // CloseZoom) drops to ClosePitch and opens the lens, ending at NearZoom aimed at the middle of a CloseFitHeight-tall
 // box (CloseAimHeight) instead of the feet, so the closest view holds a whole tall machine with headroom rather
@@ -68,12 +69,14 @@ namespace TW.Presentation.Tactical
         public float RotateSpeed = 60f;
         public Vector2 Focus = new Vector2(38f, 34f);   // the owner's standard view: on your rear trench, where men arrive
         float yaw, zoomBeforeSuper, pitchOffset, panHeld;
-        float autoYaw, autoPitch, mineZ, theirsZ, nextArmies;
+        float autoYaw, autoPitch, mineZ, theirsZ, nextArmies, toEnemy = 1f;
         /// <summary>The yaw the camera adds on its own to follow the battle (tooling that aims the view subtracts it).</summary>
         public float AutoYaw => autoYaw;
         bool autoPrimed;
         /// <summary>Where the view sits between the sides: 0 behind your men, 0.5 between, 1 beyond the enemy (for the HUD and tests).</summary>
         public float Along { get; private set; }
+        /// <summary>Which way the enemy lies along world Z from your side: +1 seated as team 0, -1 seated as team 1.</summary>
+        public float ToEnemy => toEnemy;
         bool freeLook;   // the right mouse button has turned the view past the Q/E limits
         bool lookFromUi, panFromUi;   // the drag began over HUD chrome: it stays the HUD's until the button is released
         Camera cam;
@@ -90,27 +93,37 @@ namespace TW.Presentation.Tactical
         /// <summary>Frame, turned by yawDeg about the focus (free look, past the Q/E limits): the captures that walk round a man.</summary>
         public void FrameFrom(Vector2 focus, float zoom, float yawDeg) { Frame(focus, zoom); yaw = yawDeg; freeLook = true; }
 
+        /// <summary>Where the two sides stand along world Z, from your seat (LocalSeat): your mean Z, theirs, and which
+        /// way the enemy lies. Called four times a second by FollowBattle; a test calls it directly.</summary>
+        public void ScanArmies(TW.Sim.SimWorld w, float length)
+        {
+            byte mine = LocalSeat.Team;
+            toEnemy = mine == 0 ? 1f : -1f;
+            float sumA = 0f, sumB = 0f; int a = 0, b = 0;
+            for (int i = 0; i < w.HighWater; i++)
+            {
+                if ((w.Flags[i] & (uint)TW.Sim.UnitFlags.Alive) == 0) continue;
+                if (w.Team[i] == mine) { sumA += w.Position[i].z; a++; } else { sumB += w.Position[i].z; b++; }
+            }
+            mineZ = a > 0 ? sumA / a : length * (toEnemy > 0f ? 0.2f : 0.8f);      // nobody on the field yet: the trench lines
+            theirsZ = b > 0 ? sumB / b : length * (toEnemy > 0f ? 0.8f : 0.2f);
+            // a melee: keep a span to turn across, the signed way round, or seat 1's span collapses reversed
+            if ((theirsZ - mineZ) * toEnemy < 40f) { float mid = (mineZ + theirsZ) * 0.5f; mineZ = mid - 20f * toEnemy; theirsZ = mid + 20f * toEnemy; }
+            Along = Mathf.InverseLerp(mineZ, theirsZ, Focus.y);
+        }
+
         /// <summary>The angle the battle asks for at this focus and zoom, eased in.</summary>
         void FollowBattle(float close)
         {
             if (Host != null && Host.Local != null && Time.unscaledTime >= nextArmies)
             {
                 nextArmies = Time.unscaledTime + 0.25f;
-                var w = Host.Local.World;
-                float length = Host.Local.Map.SizeMeters.y, sumA = 0f, sumB = 0f; int a = 0, b = 0;
-                for (int i = 0; i < w.HighWater; i++)
-                {
-                    if ((w.Flags[i] & (uint)TW.Sim.UnitFlags.Alive) == 0) continue;
-                    if (w.Team[i] == 0) { sumA += w.Position[i].z; a++; } else { sumB += w.Position[i].z; b++; }
-                }
-                mineZ = a > 0 ? sumA / a : length * 0.2f;      // nobody on the field yet: the trench lines
-                theirsZ = b > 0 ? sumB / b : length * 0.8f;
-                if (theirsZ < mineZ + 40f) { float mid = (mineZ + theirsZ) * 0.5f; mineZ = mid - 20f; theirsZ = mid + 20f; }   // a melee: keep a span to turn across
+                ScanArmies(Host.Local.World, Host.Local.Map.SizeMeters.y);
             }
             Along = Mathf.InverseLerp(mineZ, theirsZ, Focus.y);
             float side = 1f - 2f * Mathf.SmoothStep(0f, 1f, Along);   // +1 behind your men, 0 between, -1 beyond the enemy
             float overview = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(OverviewFromZoom, OverviewFullZoom, Zoom));
-            float wantYaw = StandardYaw * side * (1f - overview);
+            float wantYaw = StandardYaw * side * toEnemy * (1f - overview);   // side says behind or beyond, toEnemy which world direction that is
             float wantPitch = Mathf.Lerp(Mathf.Lerp(Mathf.Lerp(Pitch, FlatPitch, 1f - Mathf.Abs(side)), OverviewPitch, overview), ClosePitch, close);
             float k = autoPrimed ? 1f - Mathf.Exp(-FollowRate * Time.unscaledDeltaTime) : 1f;
             autoYaw = Mathf.Lerp(autoYaw, wantYaw, k); autoPitch = Mathf.Lerp(autoPitch, wantPitch, k);
