@@ -27,7 +27,7 @@ namespace TW.Editor
         public static readonly string[] Probes =
         {
             "gauges", "gauge-silver", "gauge-men", "gauge-time", "objectives", "minimap-bezel", "speed-bar", "bar",
-            "group-infantry", "group-armour", "group-support", "card", "tooltip", "banner", "pause-plate",
+            "group-infantry", "group-armour", "group-support", "card", "tooltip", "hint", "banner", "pause-plate",
             "settings-plate", "tabs", "debrief-plate", "stats-table", "title", "menu-stack", "mission-list", "info-panel",
         };
 

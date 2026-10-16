@@ -4,6 +4,8 @@
 // every layout layer ignores picking (that IS the click mask: panel.Pick answers only for chrome), builds the cards
 // for the default roster and checks their count, hotkeys and that no button can take keyboard focus (Space must stay
 // the tactical pause). No SimHost, no scene, no frame.
+using System.IO;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEditor;
@@ -109,6 +111,63 @@ namespace TW.Tests
             var row = Instantiate(RowPath);
             foreach (var n in new[] { "objective", "bullet", "objective-name", "objective-progress" })
                 Assert.That(row.Q(n), Is.Not.Null, $"ObjectiveRow.uxml has no '{n}'");
+        }
+
+        const string HudSheetPath = "Assets/_Project/UI/Resources/Hud/BattleHud.uss";
+        const string TokensPath = "Assets/_Project/UI/Skin/dustfront.tokens.uss";
+
+        [Test]
+        public void TheAimHintSitsOnAPlateThatReadsOverBrightGround()
+        {
+            string sheet = File.ReadAllText(Path.GetFullPath(HudSheetPath));
+            var block = Regex.Match(sheet, @"\.hud-hint\s*\{([^}]*)\}");
+            Assert.That(block.Success, Is.True, "BattleHud.uss has no '.hud-hint { ... }' rule");
+            string body = block.Groups[1].Value;
+
+            var bg = Regex.Match(body, @"background-color:\s*rgba\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*([\d.]+)\s*\)");
+            Assert.That(bg.Success, Is.True, "'.hud-hint' must declare a background-color plate, or the text has nothing behind it");
+            float alpha = float.Parse(bg.Groups[4].Value, System.Globalization.CultureInfo.InvariantCulture);
+            Assert.That(alpha, Is.GreaterThanOrEqualTo(0.85f), "the hint plate must be near-opaque, or bright ground shows through it");
+
+            Assert.That(Regex.IsMatch(body, @"\bright\s*:"), Is.False, "'.hud-hint' must not span the screen edge-to-edge: a screen-wide plate letterboxes the HUD instead of backing the words");
+
+            string tokens = File.ReadAllText(Path.GetFullPath(TokensPath));
+            var textBright = Regex.Match(tokens, @"--tw-text-bright:\s*#([0-9A-Fa-f]{6})");
+            Assert.That(textBright.Success, Is.True, "dustfront.tokens.uss has no --tw-text-bright");
+            Color text = HexToColor(textBright.Groups[1].Value);
+
+            float plateR = float.Parse(bg.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
+            float plateG = float.Parse(bg.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+            float plateB = float.Parse(bg.Groups[3].Value, System.Globalization.CultureInfo.InvariantCulture);
+            // composite the plate over pure white: the worst a sun-lit, blown-out crop can give behind it
+            Color plateOverWhite = new Color(
+                Mathf.Lerp(255f, plateR, alpha) / 255f,
+                Mathf.Lerp(255f, plateG, alpha) / 255f,
+                Mathf.Lerp(255f, plateB, alpha) / 255f);
+
+            float ratio = ContrastRatio(text, plateOverWhite);
+            Assert.That(ratio, Is.GreaterThanOrEqualTo(4.5), $"WCAG 2.1 AA for normal text is 4.5:1; '.hud-hint' over a blown-out crop is only {ratio:F2}:1");
+        }
+
+        static Color HexToColor(string hex)
+        {
+            byte r = byte.Parse(hex.Substring(0, 2), System.Globalization.NumberStyles.HexNumber);
+            byte g = byte.Parse(hex.Substring(2, 2), System.Globalization.NumberStyles.HexNumber);
+            byte b = byte.Parse(hex.Substring(4, 2), System.Globalization.NumberStyles.HexNumber);
+            return new Color32(r, g, b, 255);
+        }
+
+        static float RelativeLuminance(Color c)
+        {
+            float Lin(float v) => v <= 0.03928f ? v / 12.92f : Mathf.Pow((v + 0.055f) / 1.055f, 2.4f);
+            return 0.2126f * Lin(c.r) + 0.7152f * Lin(c.g) + 0.0722f * Lin(c.b);
+        }
+
+        static float ContrastRatio(Color a, Color b)
+        {
+            float la = RelativeLuminance(a), lb = RelativeLuminance(b);
+            float lighter = Mathf.Max(la, lb), darker = Mathf.Min(la, lb);
+            return (lighter + 0.05f) / (darker + 0.05f);
         }
     }
 }
