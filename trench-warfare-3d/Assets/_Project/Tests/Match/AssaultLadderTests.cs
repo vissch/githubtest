@@ -196,7 +196,9 @@ namespace TW.Tests
         /// two, behind smoke and a barrage. The wreck shadow narrowed to the firing line ([narrow-wreck-shadow-firing-line],
         /// replay v53) takes away much of what covering guns did, as [N5.3b] did before it: measured on this lane at
         /// `6bd7e8d89`, eight seeds lost 22 with the guns covering against 25 with them going over, a ratio of 0.88, not
-        /// the 2.9-versus-5.6 of before the narrower shadow.</summary>
+        /// the 2.9-versus-5.6 of before the narrower shadow. Covering still costs the attack about as many men as
+        /// going over (asserted between 0.8 and 0.95 of it): the lower bound is where the old, wide shadow's 0.52 would
+        /// fail, so the band pins the narrow shadow's number rather than merely asserting an upper limit.</summary>
         [Test, Category("Long")]
         public void GunsThatStayToCover_CostTheAttackFewerMen()
         {
@@ -210,6 +212,7 @@ namespace TW.Tests
             }
             Assert.GreaterOrEqual(takenCover, takenGo, "covering does not cost the trench");
             Assert.Less(cover, 0.95f * go, $"attackers lost over eight seeds: {cover} with the guns covering, {go} with them going over");
+            Assert.Greater(cover, 0.8f * go, $"attackers lost over eight seeds: {cover} with the guns covering, {go} with them going over");
         }
 
         sealed class Orders : TW.Net.ICommandSink
