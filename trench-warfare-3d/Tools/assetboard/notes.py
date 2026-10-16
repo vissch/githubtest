@@ -224,6 +224,11 @@ def handler(where: Path, key: str):
                 d = json.loads(self.rfile.read(size).decode('utf-8'))
                 if not isinstance(d, dict) or not secrets.compare_digest(str(d.get('key', '')), key):
                     return self.reply(403, dict(ok=False, why='the key is not the one in the notes folder'))
+                if self.path.startswith('/concept/'):             # an approval or a request of the concept page (concepts.py)
+                    import concepts
+                    if self.path not in concepts.ROUTES:
+                        return self.reply(404, dict(ok=False, why='nothing here'))
+                    return self.reply(200, dict(ok=True, **concepts.post(self.path, d)))
                 with writing:                              # the look-up and the write are one step; the reply is not
                     if self.path == '/note':
                         # the page's own id of the note: a post of an id a note here already carries is that note's

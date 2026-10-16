@@ -21,7 +21,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 TMP = Path(tempfile.mkdtemp(prefix='tw-tasks-test-'))
 # no case writes into the owner's own folders: set before anything reads them
-os.environ.update(TW_TASKS=str(TMP / 'root'), TW_FEEDBACK=str(TMP / 'inbox'), TW_NOTES=str(TMP / 'notes'), TW_BRIEFS=str(TMP / 'briefs'), TW_TASKBRIEFS=str(TMP / 'taskbriefs'), TW_TASKBRIEF_OFF='1')
+os.environ.update(TW_CONCEPTS_OFF='1', TW_TASKS=str(TMP / 'root'), TW_FEEDBACK=str(TMP / 'inbox'), TW_NOTES=str(TMP / 'notes'), TW_BRIEFS=str(TMP / 'briefs'), TW_TASKBRIEFS=str(TMP / 'taskbriefs'), TW_TASKBRIEF_OFF='1')
 import briefs     # noqa: E402
 import feedback   # noqa: E402
 import notes      # noqa: E402

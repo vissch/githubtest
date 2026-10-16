@@ -1,0 +1,322 @@
+#!/usr/bin/env python3
+"""Tests of the concept page. Run from trench-warfare-3d/: python Tools/assetboard/test_concepts.py
+
+What is found on disk and joined to its prompt (concepts.py scan), what an approval and a request refuse and write,
+a request's steps against a desktop that answers, does not answer or fails to start (a fake ssh, nothing is reached),
+the listener's /concept routes with and without the key, the data scripts the watcher writes (read back under node),
+the page's own rules (concepts.js, under node), and the page as ops.py writes it. Everything is built from files made
+here; nothing of the owner's is read, and nothing is sent to the desktop.
+"""
+import http.client
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(HERE))
+TMP = Path(tempfile.mkdtemp(prefix='tw-concepts-test-'))
+os.environ.update(TW_CONCEPTS=str(TMP / 'concepts'), TW_NOTES=str(TMP / 'notes'), TW_CONCEPT_IMAGES=str(TMP / 'drive'), TW_CONCEPT_PROJECT=str(TMP / 'project'))
+import concepts  # noqa: E402
+import notes     # noqa: E402
+
+results = []
+
+
+def case(name, ok, detail=''):
+    results.append(bool(ok))
+    print(('ok    ' if ok else 'FAIL  ') + name + ('' if ok else '\n      ' + str(detail)[:900]))
+
+
+def raises(fn, *a, **k):
+    try:
+        fn(*a, **k)
+    except ValueError as e:
+        return str(e)
+    return None
+
+
+def picture(path: Path, colour=(120, 160, 90)):
+    from PIL import Image
+    path.parent.mkdir(parents=True, exist_ok=True)
+    Image.new('RGB', (64, 48), colour).save(path)
+
+
+def fake_drive():
+    """One session's folders as ComfyUI leaves them, a manifest and an ideas index for it, a picture without either, and a prompted one."""
+    drive, proj = TMP / 'drive', TMP / 'project'
+    d = drive / 'twf3d_mech60_exploration' / 'mechs60_a' / '01_light-biped-scout-runner'
+    for f in ('01-1_gauge-dash-runner_s1_00001_.png', '01-1_gauge-dash-runner_s2_00001_.png', '01-2_webfoot-skimmer_s1_00001_.png'):
+        picture(d / f)
+    picture(drive / 'twf3d_mech60_exploration' / 'mechs60_a' / '02_wheel-type' / '02-1_unlisted-thing_s1_00001_.png')       # no manifest line, no idea
+    picture(drive / 'twf3d_mech60_exploration' / '_tests' / 'x' / 'ignored_00001_.png')                                      # a test folder: not a concept
+    (d / 'notes.txt').write_text('not a picture', encoding='utf-8')
+    proj.mkdir(parents=True)
+    pre = 'twf3d_mech60_exploration/mechs60_a/01_light-biped-scout-runner/01-1_gauge-dash-runner'
+    (proj / 'manifest_mech60.json').write_text(json.dumps([dict(id='a', prompt='@clashroyale, 3d render, a skinny scout mech', seed=111, prefix=pre + '_s1'),
+                                                           dict(id='b', prompt='@clashroyale, 3d render, a skinny scout mech', seed=222, prefix=pre + '_s2')]), encoding='utf-8')
+    (proj / 'ideas_index_mech60.json').write_text(json.dumps([dict(category='mechs60_a', n=1, type='Light biped scout runner', idea=1, name='Gauge Dash Runner', subject='s'),
+                                                              dict(category='mechs60_a', n=1, type='Light biped scout runner', idea=2, name='Webfoot Skimmer', subject='a lean frog mech')]), encoding='utf-8')
+    return drive
+
+
+def scanning():
+    drive = fake_drive()
+    items = concepts.scan()
+    mech = [i for i in items if i['s'] == 'mech60']
+    case('scan: every picture on disk is found, test folders and other files are not', len(items) == 4 and len(mech) == 4, [i['id'] for i in items])
+    g = next(i for i in mech if i['id'].endswith('s2_00001_.png') and '01-1' in i['id'])
+    case('scan: a picture is joined to its prompt and seed (the manifest) and its idea name (the index)', g['p'] == '@clashroyale, 3d render, a skinny scout mech' and g['seed'] == 222 and g['n'] == 'Gauge Dash Runner' and g['k'] == 2 and g['t'] == 'Light biped scout runner', g)
+    w = next(i for i in mech if 'webfoot' in i['id'])
+    case('scan: with no manifest line the idea\'s own words stand in for the prompt', w['p'] == 'a lean frog mech' and w['seed'] is None and w['n'] == 'Webfoot Skimmer', w)
+    u = next(i for i in mech if 'unlisted' in i['id'])
+    case('scan: a picture neither file knows is still shown, named by its file', u['n'] == 'unlisted thing' and u['p'] == '' and u['cl'] == 'mechs60 a', u)
+    case('scan: a session whose folder is not there lists nothing', not [i for i in items if i['s'] in ('first', 'frog', 'mechjp', 'prompted')])
+    return drive
+
+
+def asking():
+    r = concepts.request('A fat frog-pilot light tank with a bathtub turret', kind='vehicle', takes=3, theme='frog')
+    case('request: written queued with a seed a take, a prefix under the prompted folder, and the made prompt',
+         r['state'] == 'queued' and len(r['seeds']) == 3 and r['prefix'].startswith('twf3d_concepts/vehicle/' + r['id'] + '/') and r['prompt'].startswith('@clashroyale, 3d render, A fat frog-pilot')
+         and 'dieselpunk' in r['prompt'] and r['prompt'].endswith('plain light background') and (concepts.requests_dir() / f'{r["id"]}.json').exists(), r)
+    r2 = concepts.request('A fat frog-pilot light tank with a bathtub turret', takes=1)
+    case('request: two in one second do not share a name', r2['id'] != r['id'] and len(concepts.read_requests()) == 2, (r['id'], r2['id']))
+    case('request: his own edited prompt is sent as it stands', concepts.request('A lanky frog scout in a trench coat', kind='character', prompt='custom words only')['prompt'] == 'custom words only')
+    case('request: a short description is refused', raises(concepts.request, 'tank') is not None)
+    case('request: 0 or 9 pictures, an unknown kind, an unknown theme and a LoRA over 1.5 are refused', all(raises(concepts.request, 'a frog tank with a long gun', **k) for k in (dict(takes=0), dict(takes=9), dict(kind='planet'), dict(theme='x'), dict(lora=2))))
+    case('build_prompt: a trigger he typed himself is not doubled', concepts.build_prompt('item', '@clashroyale, 3d render, a brass lantern.', '').count('@clashroyale') == 1)
+    return r, r2
+
+
+def approving():
+    ids = ['twf3d_mech60_exploration/mechs60_a/01_light-biped-scout-runner/01-1_gauge-dash-runner_s1_00001_.png', 'twf3d_mech60_exploration/mechs60_a/01_light-biped-scout-runner/01-2_webfoot-skimmer_s1_00001_.png']
+    d = concepts.approve(ids, True)
+    case('approve: several pictures at once, each with the time', set(d) == set(ids) and all(d.values()), d)
+    first = d[ids[0]]
+    concepts.approve(ids[0], True, now=None)
+    case('approve: approving twice keeps the first time', concepts.approved()[ids[0]] == first)
+    case('approve: taking it back removes it and leaves the other', set(concepts.approve(ids[0], False)) == {ids[1]})
+    case('approve: nothing that leaves the images folder, nothing that is not a picture',
+         all(raises(concepts.approve, bad, True) for bad in ('../secret.png', '/etc/x.png', 'C:/x.png', 'a/../../b.png', 'notes.txt', '', None)))
+    return ids
+
+
+def stepping(r, r2):
+    where = concepts.folder()
+    calls = []
+
+    def ssh_down(cmd, timeout=0):
+        calls.append(cmd)
+        return 7, '000'                     # curl's own exit code comes back through the remote shell
+
+    def ssh_gone(cmd, timeout=0):
+        calls.append(cmd)
+        return 255, 'ssh: connect to host emtd-desktop: timed out'
+    got = concepts.step(dict(r), where, run_ssh=ssh_gone, now=1000.0)
+    case('step: a desktop that cannot be reached leaves it queued, with the reason', got['state'] == 'queued' and 'not reachable' in got['why'], got)
+    got = concepts.step(dict(got), where, run_ssh=ssh_gone, now=1100.0)
+    case('step: the same reason is not logged again on the next look', len(got['log']) == 1, got['log'])
+    n = len(calls)
+    concepts.step(dict(got), where, run_ssh=ssh_gone, now=1110.0)
+    case('step: the desktop is not asked again within 45 seconds', len(calls) == n)
+    got = concepts.step(dict(r), where, run_ssh=ssh_down, now=2000.0)
+    case('step: a broker that does not answer leaves it queued and says so', got['state'] == 'queued' and 'ComfyUI' in got['why'] and 'not answering' in got['why'] and 'not reachable' not in got['why'], got)
+
+    sent = []
+
+    def ssh_ok(cmd, timeout=0):
+        calls.append(cmd)
+        return (0, '200') if 'system_stats' in cmd else (0, 'create rc 0 pid 4242')
+
+    def scp_ok(local, name, timeout=0):
+        sent.append((Path(local).read_text(encoding='utf-8'), name))
+        return 0, ''
+    calls.clear()
+    got = concepts.step(dict(r), where, run_ssh=ssh_ok, run_scp=scp_ok, now=3000.0, tmp=TMP / 'scratch')
+    jobs = json.loads(sent[0][0]) if sent else []
+    case('step: a broker that answers gets the manifest, a job a take, each saved under the request\'s prefix with the LoRA strength',
+         got['state'] == 'rendering' and len(jobs) == 3 and all(j['prefix'].startswith(r['prefix']) and j['prompt'] == r['prompt'] and j['lora'] == 1.0 for j in jobs)
+         and {j['seed'] for j in jobs} == set(r['seeds']) and sent[0][1] == f'manifest_{r["id"]}.json', (got, jobs[:1]))
+    case('step: gen.py is started by the desktop\'s own launch.ps1 with this request\'s manifest and tag', any('launch.ps1' in c and f'-Tag {r["id"]}' in c and f'manifest_{r["id"]}.json' in c for c in calls), calls)
+    got = concepts.step(dict(got), where, now=3100.0)
+    case('step: rendering with no picture yet stays rendering', got['state'] == 'rendering' and got['got'] == 0, got)
+    for seed in r['seeds'][:2]:
+        picture(TMP / 'drive' / 'twf3d_concepts' / 'vehicle' / r['id'] / f'a-fat-frog_s{seed}_00001_.png')
+    got = concepts.step(dict(got), where, now=3200.0)
+    case('step: two of three pictures in the Drive is still rendering, and says how many', got['state'] == 'rendering' and got['got'] == 2, got)
+    picture(TMP / 'drive' / 'twf3d_concepts' / 'vehicle' / r['id'] / f'a-fat-frog_s{r["seeds"][2]}_00001_.png')
+    got = concepts.step(dict(got), where, now=3300.0)
+    case('step: all its pictures in the Drive is done', got['state'] == 'done' and got['got'] == 3, got)
+    late = concepts.step(dict(r2, state='rendering', launched=0.0), where, now=concepts.RENDER_LIMIT + 5, run_ssh=ssh_ok)
+    case('step: a request still short of its pictures after the hour has failed, and says how many it got', late['state'] == 'failed' and '0 of 1 pictures after 60 minutes' in late['why'], late)
+
+    def ssh_nostart(cmd, timeout=0):
+        return (0, '200') if 'system_stats' in cmd else (1, 'File launch.ps1 cannot be loaded')
+    bad = concepts.step(dict(r2), where, run_ssh=ssh_nostart, run_scp=scp_ok, now=4000.0, tmp=TMP / 'scratch')
+    case('step: gen.py that does not start has failed, with what the desktop said, and is not tried again by itself', bad['state'] == 'failed' and 'cannot be loaded' in bad['why'], bad)
+    case('step: a failed request is left alone by a later step', concepts.step(dict(bad), where, run_ssh=ssh_ok, now=9000.0)['state'] == 'failed')
+    saved = {x['id']: x for x in concepts.read_requests(where)}
+    case('step: what it did is in its file', saved[r['id']]['state'] == 'done' and saved[r2['id']]['state'] == 'failed', {k: v['state'] for k, v in saved.items()})
+    case('retry: a failed request is queued again, and a running one cannot be cancelled', concepts.change(r2['id'], 'retry')['state'] == 'queued' and raises(concepts.change, r['id'], 'cancel') is not None)
+    case('cancel: a request that has not started can be, and only then retried', concepts.change(r2['id'], 'cancel')['state'] == 'cancelled' and concepts.change(r2['id'], 'retry')['state'] == 'queued')
+    case('cancel: a name that is no request is refused', raises(concepts.change, 'c000000-000000', 'cancel') is not None)
+    return saved
+
+
+def the_site():
+    out = TMP / 'site'
+    n = concepts.site(out, force=True)
+    got = concepts.read_requests()
+    d = out / 'data'
+    case('site: the picture count is the scan\'s, with the prompted ones of the request that is done', n == 4 + 3, n)
+    case('site: thumbnails are made, a budget at a time, and the state says how many are still owed', len(list((out / 'img' / 'concept').glob('*.jpg'))) == n and json.loads((d / 'concepts-state.js').read_text(encoding='utf-8').split(' = ', 1)[1].rstrip(';\n'))['thumbs_missing'] == 0)
+    node = shutil.which('node')
+    if not node:
+        print('      (no node on this machine: the data and page cases were not run)')
+        return out
+    js = ('const fs=require("fs"),vm=require("vm"),w={};const ctx=vm.createContext({window:w});'
+          'for(const f of process.argv.slice(1,3))vm.runInContext(fs.readFileSync(f,"utf8"),ctx);'
+          'const P=require(process.argv[3]);const pics=P.pictures(w.CONCEPTS);'
+          'console.log(JSON.stringify({n:pics.length,first:pics[0],sess:w.CONCEPTS.sessions.map(s=>[s.id,s.count]),root:w.CONCEPTS.root,'
+          'compose:P.compose(w.CONCEPT_STATE.builder,"character","  A lanky frog scout.  ","frog"),state:w.CONCEPT_STATE.requests.map(r=>r.state),order:w.CONCEPT_STATE.builder.order}));')
+    r = subprocess.run([node, '-e', js, str(d / 'concepts.js'), str(d / 'concepts-state.js'), str(HERE / 'static' / 'concepts.js')], capture_output=True)
+    if r.returncode:
+        case('site: the data scripts read back under node', False, r.stderr.decode()[-900:])
+        return out
+    o = json.loads(r.stdout)
+    case('site: the pictures read back as objects with their prompts, and every session is listed with its count', o['n'] == n and o['first']['p'] and dict(map(tuple, o['sess']))['mech60'] == 4 and dict(map(tuple, o['sess']))['prompted'] == 3, o)
+    case('site: the page is told where the originals are, spaces made safe', ' ' not in o['root'] and o['root'].startswith(str(TMP / 'drive').replace('\\', '/').split(':')[0]), o['root'])
+    case('site: the prompt the page makes is the prompt concepts.py makes (one builder, two readers)',
+         o['compose'] == concepts.build_prompt('character', 'A lanky frog scout.', 'frog'), (o['compose'], concepts.build_prompt('character', 'A lanky frog scout.', 'frog')))
+    case('site: the kinds come in their own order, vehicle first', o['order'] == ['vehicle', 'character', 'item', 'other'], o['order'])
+    top = json.loads((d / 'concepts-state.js').read_text(encoding='utf-8').split(' = ', 1)[1].rstrip(';\n'))['top']
+    case('site: the overview gets the counts and the latest approved pictures only (newest first, with their thumbnails), not the list', top['total'] == n and top['approved'] == len(concepts.approved())
+         and all(set(x) == {'id', 'n', 's', 'th'} for x in top['recent']) and [x['id'] for x in top['recent']] == [i for i, _ in sorted(concepts.approved().items(), key=lambda kv: kv[1], reverse=True)][:8], top)
+    before = (d / 'concepts-state.js').read_text(encoding='utf-8')
+    concepts.site(out)
+    case('site: nothing changed, nothing written again', (d / 'concepts-state.js').read_text(encoding='utf-8') == before)
+    return out
+
+
+def listener(out):
+    where = notes.folder()
+    server, key = notes.serve(port=0)
+    port = server.server_address[1]
+
+    def send(path, body, k=True):
+        c = http.client.HTTPConnection('127.0.0.1', port, timeout=10)
+        c.request('POST', path, json.dumps(dict(body, key=key) if k else body))
+        r = c.getresponse()
+        return r.status, json.loads(r.read())
+    ids = ['twf3d_mech60_exploration/mechs60_a/01_light-biped-scout-runner/01-1_gauge-dash-runner_s2_00001_.png']
+    state = out / 'data' / 'concepts-state.js'
+    code, body = send('/concept/approve', dict(ids=ids, approved=True))
+    case('listener: an approval with the key is written, and the site\'s state has it before the answer comes back', code == 200 and ids[0] in body['approved'] and ids[0] in state.read_text(encoding='utf-8'), (code, body))
+    case('listener: the same without the key is refused and writes nothing', send('/concept/approve', dict(ids=ids, approved=False), k=False)[0] == 403 and ids[0] in concepts.approved())
+    code, body = send('/concept/request', dict(text='A wobbly frog medic with a brass syringe', kind='character', takes=2))
+    case('listener: a request is written queued, and shows in the state at once', code == 200 and body['request']['state'] == 'queued' and body['request']['id'] in state.read_text(encoding='utf-8'), (code, body))
+    case('listener: a request with too little in it is a 400 with the reason', send('/concept/request', dict(text='tank'))[0] == 400)
+    code, body = send('/concept/cancel', dict(id=body['request']['id']))
+    case('listener: a queued request is cancelled from the page', code == 200 and body['request']['state'] == 'cancelled', (code, body))
+    case('listener: a route that is not there is a 404, and the notes route still works', send('/concept/nothing', {})[0] == 404 and send('/note', dict(text='still here', kind='page'))[0] == 200)
+    case('listener: the owner\'s note landed in the notes folder, not in the concepts', len(list(where.glob('*.md'))) == 1 and not list(concepts.folder().glob('*.md')))
+    server.shutdown()
+
+
+def the_page():
+    import re
+    import ops
+    site = TMP / 'pages'
+    ops.page(site, dict(built='t', station='t', commit='c', refs_as_of='r'))
+    html = (site / 'concepts.html').read_text(encoding='utf-8')
+    js = (HERE / 'static' / 'concepts.js').read_text(encoding='utf-8')
+    used = set(re.findall(r"\$\('(cc-[a-z-]+)'\)", js))
+    have = set(re.findall(r'id="(cc-[a-z-]+)"', html))
+    case('page: every element the script reaches for is in the template', used <= have, sorted(used - have))
+    case('page: the script and its sheet are in the site, and the page loads its data and no other page\'s script', (site / 'concepts.js').exists() and (site / 'concepts.css').exists()
+         and 'data/concepts.js' in html and 'data/concepts-state.js' in html and 'priorities.js' not in html)
+    case('page: Concepts is in the top bar of every page, marked on its own', all('concepts.html' in (site / p).read_text(encoding='utf-8') for p in ('decide.html', 'priorities.html', 'runs.html', 'concepts.html')) and 'aria-current="page">Concepts' in html)
+    import ops
+    quiet = TMP / 'quiet'
+    os.environ['TW_CONCEPTS_OFF'] = '1'
+    case('ops: with TW_CONCEPTS_OFF the watcher reads no pictures and writes no data', ops.the_concepts(quiet) == 0 and not quiet.exists())
+    del os.environ['TW_CONCEPTS_OFF']
+    index = (site / 'index.html')
+    from jinja2 import Environment, FileSystemLoader, select_autoescape
+    env = Environment(loader=FileSystemLoader(str(HERE / 'templates')), autoescape=select_autoescape(['html']), trim_blocks=True, lstrip_blocks=True)
+    env.globals.update(STATUS_LABEL={}, CATEGORY={}, BLURB={}, KIND={}, meta=dict(built='t', station='t', commit='c', refs_as_of='r'))
+    over = env.get_template('index.html').render(sections=[], levels=[], total=0, root='')
+    tids = set(re.findall(r'id="(cct-[a-z-]+|concepts-top)"', over))
+    top_js = (HERE / 'static' / 'conceptstop.js').read_text(encoding='utf-8')
+    case('overview: the Concepts block is on the control screen with every element its script reaches for, and loads the state, not the list of pictures',
+         {'concepts-top', 'cct-n', 'cct-all', 'cct-rows', 'cct-line'} <= tids and set(re.findall(r"getElementById\('(cct-[a-z]+|concepts-top)'\)", top_js)) <= tids
+         and 'data/concepts-state.js' in over and 'data/concepts.js' not in over and 'conceptstop.js' in over and (site / 'conceptstop.js').exists(), sorted(tids))
+    case('overview: the page\'s own script does nothing on a page without its box (it only lends its words)', "getElementById('cc-new')" in js)
+    case('page: an approval and a request go to the notes listener\'s concept routes', all(x in js for x in ("'/concept/approve'", "'/concept/request'", "'/concept/' + what")))
+
+
+def page_rules():
+    node = shutil.which('node')
+    if not node:
+        print('      (no node on this machine: the page\'s own cases were not run)')
+        return
+    js = r"""
+const P = require(process.argv[1]); const out = {};
+const L = [
+  {id:'a/x/1.png', s:'frog', c:'tanks', cl:'tanks', n:'Warty Diamond', t:'Rhomboid heavy tank', p:'a diamond tank with a frog'},
+  {id:'a/x/2.png', s:'frog', c:'boards', cl:'boards', n:'Croaker Deck', t:'Skateboard cannon', p:'a board'},
+  {id:'b/x/3.png', s:'mechjp', c:'mechs', cl:'mechs', n:'Rocket Fist', t:'Super robot', p:'a robot with a frog pilot'},
+  {id:'b/x/4.png', s:'mechjp', c:'mechs', cl:'mechs', n:'Tin Samurai', t:'Samurai', p:'a samurai'}];
+const ap = {'b/x/3.png': 'now'};
+out.all = P.visible(L, {}, ap).length;
+out.session = P.visible(L, {sessions:['mechjp']}, ap).map(i => i.n);
+out.two = P.visible(L, {sessions:['frog','mechjp']}, ap).length;
+out.cat = P.visible(L, {cat:'boards'}, ap).map(i => i.n);
+out.words = P.visible(L, {q:'frog pilot'}, ap).map(i => i.n);
+out.wordsAll = P.visible(L, {q:'FROG'}, ap).length;
+out.hide = P.visible(L, {sessions:['mechjp'], hide:true}, ap).map(i => i.n);
+out.cats = P.categories(L, ['frog']).map(c => c.join(':'));
+out.catsAll = P.categories(L, []).length;
+out.cnt = P.sessionCount(L, 'frog', 'boards');
+out.url = P.fullUrl('G:/Other%20computers/My%20Computer/drive', 'twf3d_x/tanks/01 a#b/01-1_x_s1_00001_.png');
+out.line = [P.requestLine({state:'rendering', got:2, takes:4}), P.requestLine({state:'queued', why:'waiting for the desktop'}), P.requestLine({state:'failed', why:'gen.py did not start'}), P.requestLine({state:'done', got:4, takes:4})];
+out.count = [P.count([], {}), P.count(L, ap)];
+out.top = require(process.argv[2]).line({top:{total:1592, approved:3}, requests:[{state:'done',title:'x'},{state:'rendering',title:'A frog medic',got:1,takes:2},{state:'queued',title:'A tank',why:'waiting for the desktop'}]});
+out.pend = [Object.keys(P.pending({a:'t1'}, {b:{on:true}, a:{on:false}})), Object.keys(P.pending({a:'t1'}, {}))];
+out.settle = [Object.keys(P.settle({a:'t'}, {a:{on:true,at:0}, b:{on:true,at:0}, c:{on:true,at:1000}}, 2000)), Object.keys(P.settle({}, {z:{on:true,at:0}}, 1e6))];
+out.merge = P.mergeRequests([{r:{id:'x',state:'cancelled'},at:50000}, {r:{id:'old',state:'queued'},at:0}], [{id:'x',state:'queued'},{id:'old',state:'done'},{id:'y',state:'queued'}], 100000).map(r => r.id + ':' + r.state).sort();
+console.log(JSON.stringify(out));
+"""
+    r = subprocess.run([node, '-e', js, str(HERE / 'static' / 'concepts.js'), str(HERE / 'static' / 'conceptstop.js')], capture_output=True)
+    if r.returncode:
+        case('page: concepts.js runs under node', False, r.stderr.decode()[-900:])
+        return
+    o = json.loads(r.stdout)
+    case('page: no filter lets everything through; a session, two sessions, a category and a word narrow it', o['all'] == 4 and o['session'] == ['Rocket Fist', 'Tin Samurai'] and o['two'] == 4 and o['cat'] == ['Croaker Deck'], o)
+    case('page: every word must be in the name, type or prompt, in any case', o['words'] == ['Rocket Fist'] and o['wordsAll'] == 2, o['words'])
+    case('page: "hide approved" leaves the others of the session', o['hide'] == ['Tin Samurai'], o['hide'])
+    case('page: the categories follow the picked sessions, with their counts', o['cats'] == ['tanks:tanks:1', 'boards:boards:1'] and o['catsAll'] == 3 and o['cnt'] == 1, o['cats'])
+    case('page: the original\'s address keeps its folders and makes spaces and # safe', o['url'] == 'file:///G:/Other%20computers/My%20Computer/drive/twf3d_x/tanks/01%20a%23b/01-1_x_s1_00001_.png', o['url'])
+    case('page: a request says what it is doing in his words, and waiting says why once', o['line'] == ['Rendering: 2 of 4 pictures', 'Waiting for the desktop', 'Failed: gen.py did not start', 'Done: 4 pictures in Prompted'], o['line'])
+    case('page: the line over the page counts pictures and approvals', o['count'] == ['No pictures yet.', '4 pictures, 1 approved'], o['count'])
+    case('overview: the line says how many pictures and approvals, then what is being made or waits', o['top'] == '1592 pictures, 3 approved  ·  A frog medic · Rendering: 1 of 2 pictures  ·  A tank · Waiting for the desktop', o['top'])
+    case('page: his click stands over the state until the state agrees, then stops standing', o['pend'] == [['b'], ['a']] and o['settle'] == [['b', 'c'], []], (o['pend'], o['settle']))
+    case('page: his own answer to a request stands for a minute and a half, then the state\'s does', o['merge'] == ['old:done', 'x:cancelled', 'y:queued'], o['merge'])
+
+
+if __name__ == '__main__':
+    scanning()
+    r1, r2 = asking()
+    approving()
+    stepping(r1, r2)
+    out = the_site()
+    listener(out)
+    the_page()
+    page_rules()
+    shutil.rmtree(TMP, ignore_errors=True)
+    print(f'{sum(results)} of {len(results)} cases behaved')
+    sys.exit(0 if all(results) else 1)
