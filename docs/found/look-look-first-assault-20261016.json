@@ -1,0 +1,31 @@
+{
+  "subject": "look:first-assault",
+  "looked_at": [
+    "Tools/tw eval 'return TW.Editor.SimProbe.Match();' -> ground ShelledForest, confirms default field",
+    "Captures/first-assault/assault-standard.png + .json (zoom 30, the standard play view, focus 58,126 on the thickest knot of the attacking line)",
+    "Captures/first-assault/assault-close.png + .json (zoom 12, close read of the same knot)",
+    "Captures/first-assault/assault-wide.png + .json (zoom 60, both lines)",
+    "Captures/first-assault/crowd-standard.png + .json, crowd-close.png + .json, crowd-wide.png + .json (ShotCrowd's own pick, a rear two-man cluster)",
+    "Captures/first-assault/hud.png + hud.png.json (TW.Editor.HudCapture.Shoot, same moment)",
+    "Captures/first-assault/push_00..07.png + .json and push-sheet.png (Series/Sheet; taken after Release() so the knot had already walked out of frame by the time it ran — men_in_frame 0 on all eight, not usable as evidence)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs (ZoomMin 6, CloseZoom 15, ZoomMax 600, so zoom 30 is the standard tactical view, not the far band)",
+    "docs/reference/decisions.md rows on readability (2026-09-26, 2026-10-13, 2026-10-15: only the farthest zoom's readability loss is a decided trade; zoom 30 is not that zoom)",
+    "docs/reference/tasks.md rows \"Objectives, money, victory, the debrief\", \"Battle HUD\", \"The enemy (ScriptedEnemy, SHOW)\""
+  ],
+  "tasks": [
+    {
+      "title": "Infantry are invisible against the ground at the standard play zoom during a fight",
+      "why": "The first assault across no man's land (team1 pushing from z148 to z126, tick 1322, team0 defending at z43-49) was shot at zoom 30 — the plan's own \"standard play view\", not the far zoom the owner already traded away (2026-10-13 decision) — and no soldier is visible to the eye in assault-standard.png despite 5-9 men reported in frame. MEASURED, TWO-VIEW: assault-standard.json contrast_median 0.03929 and assault-wide.json contrast_median 0.01241, both under CaptureRig's own 0.12 floor, both carrying its \"men barely separate from the ground: unreadable\" warning; crowd-standard.json (a different pose, same moment) also warns unreadable at 0.08319. A player cannot answer the owner's first question - who is winning and why - if the men fighting are not visible at the zoom the camera sits at by default.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/Toon_URP.shader",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain"
+      ],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "CaptureRig.ShotCrowd at zoom 30 on a live assault reports contrast_median >= 0.12 and no 'unreadable' warning in its sidecar json",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
