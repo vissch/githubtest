@@ -16,6 +16,12 @@ namespace TW.Tests
     {
         const float Tolerance = 1e-3f;
 
+        /// <summary>[X4] DebrisRenderer has no ExecuteAlways, so AddComponent in an EditMode test does not run Awake.
+        /// Call it by hand: it sets groundFn = Ground (and Ground returns 0 with no Host), which is the caching these
+        /// tests are about, so no test may set groundFn itself.</summary>
+        static void Awake(DebrisRenderer dr) =>
+            typeof(DebrisRenderer).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(dr, null);
+
         /// <summary>[X4] Throw's call to Ground converted a method group to a Func every call (CombatFx already caches
         /// the equivalent, groundAt). Fails on old code (one allocation for the delegate), passes once DebrisRenderer
         /// caches it in groundFn (set once in Awake).</summary>
@@ -26,11 +32,9 @@ namespace TW.Tests
             NativeArray<DebrisRenderer.Record> records = default;
             try
             {
-                var dr = go.AddComponent<DebrisRenderer>();   // runs Awake (Instance)
+                var dr = go.AddComponent<DebrisRenderer>();
+                Awake(dr);   // sets groundFn; the test must not set it itself, that is the very caching it claims
                 var t = typeof(DebrisRenderer);
-                // groundFn is cached in Awake from the instance method Ground, which needs no Host here: set the same
-                // shape by hand so the test does not depend on Awake's timing in an edit-mode test
-                t.GetField("groundFn", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, (System.Func<float, float, float>)((x, z) => 0f));
                 records = new NativeArray<DebrisRenderer.Record>(8, Allocator.Persistent);
                 t.GetField("records", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, records);
                 var poolType = t.GetNestedType("Pool", BindingFlags.NonPublic);
@@ -65,8 +69,8 @@ namespace TW.Tests
             try
             {
                 var dr = go.AddComponent<DebrisRenderer>();
+                Awake(dr);
                 var t = typeof(DebrisRenderer);
-                t.GetField("groundFn", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, (System.Func<float, float, float>)((x, z) => 0f));
                 records = new NativeArray<DebrisRenderer.Record>(8, Allocator.Persistent);
                 t.GetField("records", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(dr, records);
                 var poolType = t.GetNestedType("Pool", BindingFlags.NonPublic);

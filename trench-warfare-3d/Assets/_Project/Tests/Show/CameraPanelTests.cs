@@ -3,9 +3,11 @@
 // rv-74-p3-u16, 2026-10-15: Q6 (TestPanel.cs:81), Q7 (TestPanel.cs:343), Q8 (DebugOverlay.cs:61,69-72),
 // Q9 (BattleHud.cs:176-263,493-499; DebugOverlay.cs:50-51), Q10 (dead code; BattleHud.cs:391-395,435 closures).
 using System.Reflection;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using Unity.Collections;
 using UnityEngine;
+using UnityEngine.TestTools;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Presentation;
@@ -35,19 +37,32 @@ namespace TW.Tests
 
         /// <summary>[Q4] A middle-drag's pixels were scaled by PanSpeed * Time.unscaledDeltaTime same as the
         /// keys/edge-scroll per-second pan, so the same mouse movement panned less at a high frame rate and more
-        /// at a low one. DragPanMeters is the pure fix: a drag's own pixels are the frame's actual movement
-        /// already, never scaled by dt again.</summary>
+        /// at a low one. This goes through PanDelta, the whole frame's pan LateUpdate uses, not DragPanMeters
+        /// alone: the dt the bug lived in is an argument here, so putting dt back on the drag turns this red.</summary>
         [Test]
         public void AMiddleDragPansTheSameAtAnyFrameRate()
         {
-            const float zoom = 45f;
-            Vector2 oneFrameOfTen = TacticalCamera.DragPanMeters(new Vector2(10f, 0f), zoom);
-            Vector2 twoFramesOfFive = TacticalCamera.DragPanMeters(new Vector2(5f, 0f), zoom)
-                                     + TacticalCamera.DragPanMeters(new Vector2(5f, 0f), zoom);
-            Assert.AreEqual(oneFrameOfTen.x, twoFramesOfFive.x, 1e-4f, "[Q4] 10px in one frame != two frames of 5px");
+            const float zoom = 45f, panSpeed = 60f;
+            var drag = new Vector2(10f, 0f);
+            Vector3 slow = TacticalCamera.PanDelta(Vector3.forward, Vector3.right, Vector2.zero, drag, panSpeed, 1f, zoom, 1f / 30f);
+            Vector3 fast = TacticalCamera.PanDelta(Vector3.forward, Vector3.right, Vector2.zero, drag, panSpeed, 1f, zoom, 1f / 120f);
 
-            float expected = 10f * 0.12f * (zoom / 90f);
-            Assert.AreEqual(expected, oneFrameOfTen.x, 1e-4f, "[Q4] a 10px drag did not move the worked-example distance");
+            float expected = 10f * 0.12f * (zoom / 90f);   // 0.6 m, the worked example (TacticalCamera.cs:25-28)
+            Assert.AreEqual(expected, slow.x, 1e-4f, "[Q4] a 10px drag did not pan the worked-example 0.6 m at 30 fps");
+            Assert.AreEqual(expected, fast.x, 1e-4f, "[Q4] the same 10px drag panned a different distance at 120 fps");
+        }
+
+        /// <summary>[Q4] The other half of the rule: the keys ARE a per-second rate and must keep their dt, so
+        /// PanDelta is not simply dt-blind. 60 m/s * 1/30 s * (45/90) = 1.0 m a frame at 30 fps, half at 60.</summary>
+        [Test]
+        public void TheKeysPanPerSecondButTheDragPansPerPixel()
+        {
+            const float zoom = 45f, panSpeed = 60f;
+            var keys = new Vector2(1f, 0f);
+            Vector3 slow = TacticalCamera.PanDelta(Vector3.forward, Vector3.right, keys, Vector2.zero, panSpeed, 1f, zoom, 1f / 30f);
+            Vector3 fast = TacticalCamera.PanDelta(Vector3.forward, Vector3.right, keys, Vector2.zero, panSpeed, 1f, zoom, 1f / 60f);
+            Assert.AreEqual(1.0f, slow.x, 1e-4f, "[Q4] the key pan is a per-second rate: 60 * 1/30 * 45/90 = 1 m a frame");
+            Assert.AreEqual(0.5f, fast.x, 1e-4f, "[Q4] the key pan must halve when the frame is half as long");
         }
 
         /// <summary>[Q5] TestPanel.TryGroundPoint's chrome mask only ever covered this panel, the deploy bar and the
@@ -72,6 +87,57 @@ namespace TW.Tests
             Vector2 panelButton = new Vector2(corner.x + 5f, screenH - (corner.y + 5f));
             Assert.IsTrue(TestPanel.OverImguiChrome(panelButton, false, true, screenW, screenH),
                 "[Q5] the Debug panel button itself did not swallow the click");
+        }
+
+        /// <summary>[Q5.2] A HUD switched off kept its last frame's rects in the static Chrome mask, and they went
+        /// on swallowing ground clicks with nothing drawn on screen. OnDisable clears them.</summary>
+        [Test]
+        public void ADisabledBattleHudLeavesNoChromeSwallowingClicks()
+        {
+            var go = new GameObject("BattleHud");
+            try
+            {
+                BattleHud.BeginChrome();
+                BattleHud.AddChrome(new Rect(900, 400, 44, 44));
+                Assert.IsTrue(BattleHud.OverChrome(new Vector2(920f, 420f)), "[Q5.2] premise: the button swallows the click while the HUD draws");
+
+                var hud = go.AddComponent<BattleHud>();
+                var onDisable = typeof(BattleHud).GetMethod("OnDisable", BindingFlags.NonPublic | BindingFlags.Instance);
+                Assert.NotNull(onDisable, "[Q5.2] BattleHud has no OnDisable, so nothing clears its chrome when it stops drawing");
+                onDisable.Invoke(hud, null);
+
+                Assert.IsFalse(BattleHud.OverChrome(new Vector2(920f, 420f)), "[Q5.2] a disabled HUD's chrome still swallowed a ground click");
+                Assert.AreEqual(0, (int)typeof(BattleHud).GetField("chromeNext", BindingFlags.NonPublic | BindingFlags.Static).GetValue(null), "[Q5.2] chromeNext was not reset");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                BattleHud.BeginChrome();
+            }
+        }
+
+        /// <summary>[Q5.2] Past ChromeMax a rect was dropped with no word said, so the click under it fell through
+        /// to the ground and nobody could see why. The extra rect is still not masked — that cannot be helped
+        /// without a bigger array — but it is said once.</summary>
+        [Test]
+        public void ChromeBeyondItsLimitSaysSo()
+        {
+            var warned = typeof(BattleHud).GetField("chromeWarned", BindingFlags.NonPublic | BindingFlags.Static);
+            warned.SetValue(null, false);
+            try
+            {
+                BattleHud.BeginChrome();
+                for (int i = 0; i < BattleHud.ChromeMax; i++) BattleHud.AddChrome(new Rect(i * 50f, 0f, 10f, 10f));
+                LogAssert.Expect(LogType.Warning, new Regex("BattleHud.*chrome"));
+                var extra = new Rect(5000f, 5000f, 10f, 10f);
+                BattleHud.AddChrome(extra);
+                Assert.IsFalse(BattleHud.OverChrome(new Vector2(5005f, 5005f)), "[Q5.2] premise: the rect past the limit is dropped, which is why it must be said");
+            }
+            finally
+            {
+                warned.SetValue(null, false);
+                BattleHud.BeginChrome();
+            }
         }
 
         /// <summary>[Q6] A line-ability drag interrupted by a shell screen (gameplay lost mid-drag) stays alive with

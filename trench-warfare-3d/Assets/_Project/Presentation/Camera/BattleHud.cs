@@ -85,8 +85,19 @@ namespace TW.Presentation.Tactical
         public const int ChromeMax = 32;
         public static Rect[] Chrome = new Rect[ChromeMax];
         static int chromeNext;
+        /// <summary>Warn-once latch for a full Chrome array (Q5.2): OnGUI runs twice a frame, so this must not log every frame.</summary>
+        static bool chromeWarned;
         public static void BeginChrome() { for (int i = 0; i < ChromeMax; i++) Chrome[i] = default; chromeNext = 0; }
-        public static void AddChrome(Rect r) { if (chromeNext < ChromeMax) Chrome[chromeNext++] = r; }
+        public static void AddChrome(Rect r)
+        {
+            if (chromeNext < ChromeMax) { Chrome[chromeNext++] = r; return; }
+            // Q5.2: past ChromeMax a rect was dropped without a word, and the click under it fell through to the
+            // ground. Say so once: the fix is to raise ChromeMax, not to live with a hole in the mask.
+            if (!chromeWarned) { chromeWarned = true; Debug.LogWarning($"BattleHud: more than ChromeMax ({ChromeMax}) chrome rects this frame; the extra ones do not swallow clicks."); }
+        }
+        /// <summary>Q5.2: a HUD switched off kept its last frame's rects in Chrome, and they went on swallowing
+        /// ground clicks with nothing on screen. Clear the mask when the HUD stops drawing.</summary>
+        void OnDisable() { BeginChrome(); }
         public static bool OverChrome(Vector2 gui)
         {
             for (int i = 0; i < ChromeMax; i++) if (Chrome[i].Contains(gui)) return true;
