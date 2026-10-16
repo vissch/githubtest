@@ -1,0 +1,41 @@
+{
+  "subject": "code:Presentation/Audio",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Audio/EventAudioRouter.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Audio/TW.Presentation.Audio.asmdef",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AudioLevels.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/GameSettings.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Storm.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Shell/SettingsApplier.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/GameSettingsTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/PlayMode/MatchLaunchPlayTests.cs",
+    "docs/reference/tasks.md (searched \"audio\"/\"storm\"/\"thunder\")",
+    "docs/reference/decisions.md (searched \"audio\")"
+  ],
+  "tasks": [
+    {
+      "title": "GameSettingsTests asserts Sfx/Music bus lines that cannot fail",
+      "why": "Read in code, not confirmed by running. GameSettingsTests.cs ~line 104-105 asserts AudioLevels.Sfx == half.Audio.Sfx and AudioLevels.Music == half.Audio.Music, but half = GameSettings.Defaults() with only Master and Ambience changed, so half.Audio.Sfx/Music equal the defaults. AudioLevels.cs:16-18 initialises the Sfx and Music statics from GameSettings.Defaults() at domain load, so both lines already hold before ApplyAudio runs at all; only the Ambience line (half.Audio.Ambience = 1f, line 103) actually exercises the copy. A regression that stops ApplyAudio from writing AudioLevels.Sfx or .Music would leave this test green.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/UI/GameSettingsTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "half sets Sfx and Music to values that differ from GameSettings.Defaults(), and the test goes red when ApplyAudio's Sfx/Music lines are commented out (it already goes red for Ambience).",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Storm.MakeThunder's cost at every Start is unmeasured",
+      "why": "Read in code, not profiled. Storm.Start calls MakeThunder three times (Storm.cs ~line 90) with seconds 5.5/6.5/7.5 at a 22050 Hz rate, so it synthesizes about 22050*(5.5+6.5+7.5) = 430,000 samples, each sample doing several Mathf.Exp calls inside the swell loop (4 per sample, ~1.7M Exp calls total) plus a second Tanh pass over the same 430,000 samples for the peak normalisation. This runs once per Storm instance with no caching across scene loads, so every match start (or editor Play session) re-synthesizes the same three clips from the same seed-derived data. Nothing here measures how long that takes or whether it shows up as a load-time stall; it may be negligible or it may not be.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Storm.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "A profiler capture or a Stopwatch log around Storm.Start's three MakeThunder calls gives a milliseconds number for the real build target; if it is below a few ms, close as not-a-finding instead of caching the clips.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
