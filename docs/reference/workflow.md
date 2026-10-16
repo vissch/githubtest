@@ -406,7 +406,9 @@ the screen with the HUD and the state of the game into a folder: `tasks.md`, "Fe
 Staging traps:
 - Move the camera with `TacticalCamera.FrameFrom(new Vector2(x, z), zoom, yaw)`. Setting `Camera.main.transform`
   does nothing; the controller overwrites it every frame. For a fixed shot, disable `TacticalCamera` in the same eval.
-- `CaptureRig.Pose` clamps zoom to `TacticalCamera.ZoomMin` (6). Lower `ZoomMin` for super close-ups.
+- `CaptureRig.Pose` clamps zoom to `TacticalCamera.NearZoom` (about 15, the closest zoom that holds a whole machine
+  with headroom; derived from `CloseFitHeight`/`CloseFitFill`, never below `ZoomMin`, and never above `CloseZoom`).
+  For a super close-up, lower `CloseFitHeight` as well as `ZoomMin`.
 - A spawned unit is moved to its deploy zone by the sim. Read `World.Position[slot]` back before aiming.
 - Freeze a live scene with `SimHost.TimeScale = 0` (and `Time.timeScale = 0` for effects), then put both back.
 - Ground height at a point: `TW.Presentation.RenderGround.Sample(map, x, z)`. The ground sits well above y = 0.

@@ -151,7 +151,7 @@ namespace TW.Editor
 
             void Pose(TacticalCamera tc, Camera cam, Shot shot)
             {
-                tc.Zoom = Mathf.Clamp(shot.Zoom, tc.ZoomMin, tc.ZoomMax);
+                tc.Zoom = Mathf.Clamp(shot.Zoom, tc.NearZoom, tc.ZoomMax);
                 tc.Focus = shot.Focus;
                 if (!LampsFade) { var night = FindFirstObjectByType<TW.Presentation.Terrain.NightLights>(); if (night != null) night.CutLamps(); }
                 // what TacticalCamera.Update sets for this zoom: the close-up band (grit, footprints, litter, the effects'
@@ -159,7 +159,7 @@ namespace TW.Editor
                 // drawn as the standard view (found 2026-09-23: CloseUp read 0 in a zoom-5 series).
                 SceneHooks.CloseUp = tc.CloseUpAt(tc.Zoom);
                 Shader.SetGlobalFloat("_TWClose", SceneHooks.CloseUp);
-                float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.ZoomMin, tc.CloseZoom, tc.Zoom));
+                float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(tc.NearZoom, tc.CloseZoom, tc.Zoom));
                 float fov = Mathf.Lerp(tc.Fov, tc.CloseFov, close);
                 cam.fieldOfView = fov; cam.nearClipPlane = 0.2f;
                 float pitch = Mathf.Clamp(shot.Pitch, tc.PitchMin, tc.PitchMax);
@@ -171,7 +171,7 @@ namespace TW.Editor
                 // CloseZoom — so at an ordinary zoom the camera looks at WORLD y = 0 regardless of how high the
                 // ground is. That is fine for a wide view of a field near sea level and wrong for framing one object
                 // standing on raised ground: it walks off the top of the picture. AimY overrides it.
-                float aimY = float.IsNaN(shot.AimY) ? ground * close + 1.1f * close : shot.AimY;
+                float aimY = float.IsNaN(shot.AimY) ? ground * close + tc.CloseAimHeight * close : shot.AimY;
                 var aim = new Vector3(shot.Focus.x, aimY, shot.Focus.y);
                 shot.Want = aim - rot * Vector3.forward * distance;
                 cam.transform.SetPositionAndRotation(shot.Want, rot);
