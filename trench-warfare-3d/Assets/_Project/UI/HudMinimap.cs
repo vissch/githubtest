@@ -38,6 +38,11 @@ namespace TW.UI
         static readonly Color32 TrenchOurs = new Color32(0xC8, 0xC9, 0xC6, 255);   // --tw-text
         static readonly Color32 TrenchTheirs = new Color32(0xB5, 0x52, 0x3A, 255); // --tw-enemy
         static readonly Color32 TrenchNone = new Color32(30, 22, 16, 255);
+        /// <summary>The ring around every dot. The dot colours are the trench colours (ours bone, theirs rust), so a man
+        /// standing in his own trench — where men nearly always are — painted his dot in the line's own colour and vanished
+        /// into it (measured 2026-10-17: 22 of 38 dot pixels bit-identical to the ground beneath). This near-black ring is
+        /// darker than any ground colour, so the dot reads as a dot on top of the line.</summary>
+        static readonly Color32 DotEdge = new Color32(0x0C, 0x0B, 0x0A, 255);
 
         public HudMinimap(HudRefs refs, SimHost host, TacticalCamera cam)
         {
@@ -102,11 +107,14 @@ namespace TW.UI
                     if (me) mine++; else theirs++;
                     var c = map.NavCellOf(w.Position[i]);
                     int u = c.y, v = th - 1 - c.x;
-                    for (int dv = 0; dv < 2; dv++) for (int du = 0; du < 2; du++)
-                    {
-                        int uu = Mathf.Min(tw - 1, u + du), vv = Mathf.Max(0, v - dv);
-                        dotPixels[vv * tw + uu] = me ? Mine : Theirs;
-                    }
+                    DotRing(dotPixels, tw, th, u, v);
+                }
+                // the cores come after every ring, so one man's ring never rubs out his neighbour's dot
+                for (int i = 0; i < w.HighWater; i++)
+                {
+                    if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0) continue;
+                    var c = map.NavCellOf(w.Position[i]);
+                    DotCore(dotPixels, tw, th, c.y, th - 1 - c.x, w.Team[i] == 0 ? Mine : Theirs);
                 }
                 MyMen = mine; TheirMen = theirs;
                 dots.SetPixels32(dotPixels); dots.Apply(false, false);
@@ -125,6 +133,31 @@ namespace TW.UI
                 lastVx = vx; lastVy = vy; lastVw = fw; lastVh = fh;
             }
         }
+
+        /// <summary>The 1 px ring around a dot's 2x2 core (the core box grown by one, core cells left alone).</summary>
+        public static void DotRing(Color32[] px, int tw, int th, int u, int v)
+        {
+            for (int dv = -2; dv <= 1; dv++) for (int du = -1; du <= 2; du++)
+            {
+                if (du >= 0 && du <= 1 && dv >= -1 && dv <= 0) continue;   // the core
+                int uu = u + du, vv = v + dv;
+                if (uu < 0 || uu >= tw || vv < 0 || vv >= th) continue;
+                px[vv * tw + uu] = DotEdge;
+            }
+        }
+
+        /// <summary>A man's dot: 2x2 cells, clamped into the texture as before.</summary>
+        public static void DotCore(Color32[] px, int tw, int th, int u, int v, Color32 colour)
+        {
+            for (int dv = 0; dv < 2; dv++) for (int du = 0; du < 2; du++)
+            {
+                int uu = Mathf.Min(tw - 1, u + du), vv = Mathf.Max(0, v - dv);
+                px[vv * tw + uu] = colour;
+            }
+        }
+
+        public static Color32 DotColour(bool mine) => mine ? Mine : Theirs;
+        public static Color32 DotRingColour => DotEdge;
 
         static Color32 TrenchColour(short id, FlowFieldManager fields)
         {
