@@ -24,11 +24,17 @@ namespace TW.Tests
     {
         /// <summary>Room across the bar for each window the game can plausibly be asked to draw itself into, with
         /// the debug panel shut and open. Derived the way BattleHud derives it, from the same thresholds.</summary>
-        static float Room(int screenWidth, bool panelOpen)
+        static float Room(int screenWidth, bool panelOpen) => BattleHud.BarRoom(screenWidth, panelOpen);
+
+        /// <summary>[TU11] This file used to hand-copy the 320/1000/8/118/104/236 thresholds of OnGUI, so every test
+        /// below could agree with a copy that had drifted from the bar the player sees. They now call OnGUI's own
+        /// BarRoom, and these two values are worked by hand instead: wide, no panel, 1920 - 0 - 118 - 236, and
+        /// narrow with the panel open, 1024 - 320 - 8 - 104.</summary>
+        [Test]
+        public void TheRoomAcrossTheBarIsTheWindowLessThePanelTheIncomeAndTheSpeedButtons()
         {
-            float barLeft = panelOpen ? 320f : 0f;
-            bool narrow = screenWidth - barLeft < 1000f;
-            return screenWidth - barLeft - (narrow ? 8f : 118f) - (narrow ? 104f : 236f);
+            Assert.That(BattleHud.BarRoom(1920f, false), Is.EqualTo(1566f).Within(0.001f), "[TU11] at 1920 with the panel shut the bar gets the window less the 118 px income readout and the 236 px speed buttons");
+            Assert.That(BattleHud.BarRoom(1024f, true), Is.EqualTo(592f).Within(0.001f), "[TU11] at 1024 with the 320 px panel open the bar is narrow: 8 px left, 104 px right");
         }
 
         static readonly int[] Widths = { 3840, 2560, 1920, 1600, 1366, 1280, 1024, 800 };

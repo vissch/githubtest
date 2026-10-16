@@ -179,6 +179,7 @@ namespace TW.Tests
         {
             var iron = new HashSet<byte> { VehicleArchetype.Maw, VehicleArchetype.Pincer, VehicleArchetype.Pavise, VehicleArchetype.Banner };
             var brass = new HashSet<byte> { VehicleArchetype.Tusk, VehicleArchetype.Kettle, VehicleArchetype.Censer, VehicleArchetype.Redoubt };
+            var seen = new HashSet<byte>();
             foreach (var f in Factions)
                 foreach (var b in FactionBuildings.Of(f))
                     foreach (var l in b.Lines)
@@ -186,7 +187,11 @@ namespace TW.Tests
                         if (l.Kind != LineKind.UnitTrack) continue;
                         if (l.Archetype < VehicleArchetype.Maw) continue;   // infantry: both sides field them
                         Assert.That(f == FactionBuildings.Iron ? iron : brass, Does.Contain(l.Archetype), b.Id + " sells " + l.Name + ", not this faction's machine");
+                        seen.Add(l.Archetype);
                     }
+            // [TU11] every assertion above is inside the walk, so a building list that stopped carrying UnitTrack
+            // lines passed in silence. Four machines a side, the two sets named above, each sold over several tiers.
+            Assert.That(seen.Count, Is.EqualTo(8), "[TU11] the two factions sell eight machines between them; this walk checked " + seen.Count);
         }
 
         [Test]

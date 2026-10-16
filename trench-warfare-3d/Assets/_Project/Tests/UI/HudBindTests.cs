@@ -146,6 +146,9 @@ namespace TW.Tests
             var found = new System.Collections.Generic.List<byte>();
             foreach (int p in new[] { 0, 1 })
                 foreach (var e in Roster(p)) if (e.IsVehicle && !found.Contains(e.Archetype)) found.Add(e.Archetype);
+            // [TU11] the tests below only foreach over this: an empty array asserts nothing. Eight machines between
+            // the two factions (FactionBuildingsTests.Unit_Tracks_Name_The_Factions_Own_Machines' iron + brass sets).
+            Assert.That(found.Count, Is.EqualTo(8), "[TU11] the two rosters field eight machines between them; this walk found " + found.Count);
             return found.ToArray();
         }
 
