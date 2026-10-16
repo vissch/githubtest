@@ -1,0 +1,26 @@
+{
+  "subject": "branch:lane/show/agents-wiring-relay",
+  "looked_at": [
+    "docs/reference/decisions.md",
+    "trench-warfare-3d/Tools/selftest.py",
+    "trench-warfare-3d/Tools/pipeline/roles.json",
+    "docs/reference/relay.md",
+    "git log origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/agents-wiring-relay",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/agents-wiring-relay",
+    "git log --cherry-mark --right-only origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/agents-wiring-relay",
+    "git rev-list --count origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/agents-wiring-relay",
+    "git rev-list --count origin/lane/show/agents-wiring-relay..origin/claude/trench-warfare-2d-3d-plan-idt7lf"
+  ],
+  "tasks": [
+    {
+      "title": "Close lane/show/agents-wiring-relay: its work is on integration",
+      "why": "52 commits ahead of integration, 740 behind, tip 8 days old (2026-10-08 02:16). cherry-mark shows 41 of 52 patch-equal upstream already; the other 11 were re-landed, not lost: 6 are decisions.md rows that land alone by cherry-pick (2026-10-04, 2026-10-05, 2026-10-06 x2, 2026-10-07), selftest.py --only is on integration (Tools/selftest.py:10), and the pipeline role table (Tools/pipeline/roles.json) already holds game-designer/concept-artist/ux/ui-artist. Its one live use was decisions.md's 2026-10-08 pin of the relay's run copy to 646b0648 of this branch; later rows (2026-10-11, 2026-10-12) moved past it. Keeping it costs every health.py --lanes run and trial merge a 59-file ghost nobody can tell from unlanded work.",
+      "files": ["docs/reference/decisions.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "git ls-remote --exit-code origin lane/show/agents-wiring-relay exits 2, git branch --list lane/show/agents-wiring-relay prints nothing, and decisions.md records the SHA 646b0648 and the close before deletion",
+      "risk": [true, true, true, false, false],
+      "change": [false, false, false, true, false]
+    }
+  ]
+}
