@@ -453,6 +453,20 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
+- **`lane/show/relay-harness` has nothing left to land (2026-10-16):** its fixes reached integration by another
+  route. Integration's `195b5f981` is the lane's own last commit `147bea56f` (same subject: the five relay tests
+  isolate from this machine's live boards). Rebased today onto `origin/claude/trench-warfare-2d-3d-plan-idt7lf`
+  (`6959ad812`): git skipped 91 of the lane's 92 commits as previously applied, and **1 commit of its own remains**,
+  a `decisions.md` edit. The whole diff against integration is `docs/reference/decisions.md` and nothing else.
+  `Tools/selftest.py` is green (138 of 138 cases). So the `relay-harness-rebase` unit's done_when floor of "at
+  least 50 of its own commits after the rebase" **can never be met**: the commits are gone because they landed,
+  not because a leg dropped or squashed them. Integration is also the *newer* side on the two relay files the lane
+  still differed on before the rebase: it added `prepush.rebased_name` (a leg may push a rebased lane as
+  `<lane>-b .. -j`) and its test, which the lane never had. Options: (1) close the unit and delete
+  `lane/show/relay-harness` on origin, the default taken here, nothing acted on; (2) keep the lane as a fresh base
+  for new relay work, now that it sits on integration; (3) treat the 50-commit floor as a mistake in the unit card
+  and rewrite it. Default taken: option 1 as the recommendation, but no branch deleted and no landing done.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
