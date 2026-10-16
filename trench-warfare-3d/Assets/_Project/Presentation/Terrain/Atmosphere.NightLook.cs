@@ -51,6 +51,27 @@
 // look.rainCurtain (round 7's critic, the loudest defect at the wide view: vertical stripes over the sky): the distant rain
 // curtains are the haze colour times 1.9, near white once the haze was lifted and lightened; while lifted they are 1.15
 // times it at look.rainCurtain of their alpha.
+// look.menClose (2026-10-16, the close-range reshoot): at the game's own close zoom the foot units were dark olive
+// lumps in a near-black trench while the wet mud beside them carried bright specular sheets; 55 of 76 stills read a
+// figure/ground contrast_median under 0.25 and 34 of them carried the capture rig's 'men barely separate from the
+// ground' warning. Only the close band moves: the lift is SceneHooks.CloseUp (TacticalCamera.CloseUpAt, 1 at zoom 12
+// and nearer, 0 by zoom 28), so at the standard view (zoom 30) it is exactly 0 and the night look the owner approved
+// does not move. Two things change together: the men gain value and an edge (MenCloseLift, VAT_URP's _TWMenRead) and
+// the wet mud's fine sparkle beside them is damped (MenCloseSheen on look.moonSheen), so the ratio the sidecar
+// measures rises from both ends. look.menClose 0 is tonight's look exactly.
+// Measured with a probe in the reshoot (2026-10-16): SceneHooks.CloseUp read 0 wherever the atmosphere runs, whatever
+// the shot's zoom, so the whole band is invisible to anything computed here (the capture rig poses the camera after
+// LateUpdate, and the tactical camera puts its own zoom back). So C# sends the amount AT full closeness and the
+// shaders apply the closeness themselves, from the globals that are already right while they render: _TWClose for the
+// figures (TacticalCamera and CaptureRig.Pose both set it with the shot's zoom) and Toon_URP's own distance-based
+// close for the mud. _TWMenRead is MenLift at close 1; _TWMenSheenCut is what the sheen loses there, so the shader's
+// 1 - cut x close is exactly SheenAtClose. Toon_URP takes the wet sparkle UP to 1 as the camera closes in
+// (lerp(look.moonSheen, 1, close)): that rising sheen beside a dark figure was the owner's guess, and it was right.
+// Swept on the reshoot (76 stills at zoom 9, pitch 25, yaws 21 and 201): the pair 1.2 / 0.2, the plan's cap and floor,
+// takes the stills below the bar from 55 to 22 with no still blown out and none reading 'pasted on' (contrast_median
+// over 2.0); the worst foot stills went 0.0104-0.08 to over 0.25. Every still still under the bar is a VEHICLE unit,
+// where CaptureRig measures the hull as the 'man' (its men_in_frame counts any live entity): nothing on the figure
+// path can move those, so they are not evidence against these numbers.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -159,6 +180,26 @@ namespace TW.Presentation.Terrain
         /// ground between the pools dead, no highlight on the wet mud, where the palette edit's near mud glints cold).</summary>
         public const float DefaultMoonSheen = 0.45f;   // 0.9 turned the near mud to noisy speckle; round 19's critic read 0.6 as frost on the open mud
         float moonSheen = DefaultMoonSheen;
+        public const string MenCloseKnob = "look.menClose";
+        /// <summary>look.menClose (1 by default, 0 = tonight's look exactly): how much of the close-range readability
+        /// fix is applied. MenCloseLift is what the men gain at the closest view, MenCloseSheen what the wet mud's
+        /// sparkle is multiplied by there.</summary>
+        public const float DefaultMenClose = 1f, MenCloseLift = 1.2f, MenCloseSheen = 0.2f;
+        static readonly int MenReadId = Shader.PropertyToID("_TWMenRead"), MenSheenCutId = Shader.PropertyToID("_TWMenSheenCut");
+        float menClose = DefaultMenClose;
+
+        /// <summary>_TWMenRead: what the figures gain at this closeness (0 at the standard view, MenCloseLift x k at the
+        /// closest).</summary>
+        public static float MenLift(float close, float k) => MenCloseLift * Mathf.Clamp01(close) * Mathf.Clamp01(k);
+
+        /// <summary>look.moonSheen damped inside the close band, so the wet mud stops out-glinting the men standing on it
+        /// (close 0 or k 0: the sheen unchanged).</summary>
+        public static float SheenAtClose(float sheen, float close, float k) =>
+            sheen * Mathf.Lerp(1f, MenCloseSheen, Mathf.Clamp01(close) * Mathf.Clamp01(k));
+
+        /// <summary>_TWMenSheenCut: what the wet sheen loses at the closest view, so a shader with its own closeness can
+        /// write SheenAtClose as sheen x (1 - cut x close).</summary>
+        public static float SheenCut(float k) => (1f - MenCloseSheen) * Mathf.Clamp01(k);
         /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
         public const float DefaultGlowHue = 0.8f, DefaultGlowFade = 0.85f;
         static readonly int GlowFadeId = Shader.PropertyToID("_TWGlowFade");
@@ -181,12 +222,15 @@ namespace TW.Presentation.Terrain
                 glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
                 glowFade = Mathf.Clamp01(Knobs.Get("look.glowFade", DefaultGlowFade));
                 moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
+                menClose = Mathf.Clamp01(Knobs.Get(MenCloseKnob, DefaultMenClose));
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
             Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
             Shader.SetGlobalFloat(GlowFadeId, night ? glowFade : 0f);
             Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
+            Shader.SetGlobalFloat(MenReadId, night ? MenLift(1f, menClose) : 0f);
+            Shader.SetGlobalFloat(MenSheenCutId, night ? SheenCut(menClose) : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }

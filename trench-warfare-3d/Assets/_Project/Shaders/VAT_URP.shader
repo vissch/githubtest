@@ -330,7 +330,15 @@ Shader "TW/VAT Infantry (URP)"
                 color *= lerp(0.58, 1.0, mainLight.shadowAttenuation);
                 // at night the men must still read: the moon catches their edge (the rim only shows when a mood tints the shade)
                 half rim = pow(1.0 - saturate(dot(normalize(i.normalWS), normalize(_WorldSpaceCameraPos - i.positionWS))), 2.2);
-                color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4;
+                color += (albedo * 0.6 + 0.10) * mainLight.color * rim * saturate(1.0 - dot(TWShadeTint(), half3(0.34, 0.33, 0.33))) * 1.4 * (1.0 + _TWMenRead * (1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 20.0)));
+                // look.menClose: at close range he is lifted off the mud. Both terms are needed: a man in a near-black
+                // trench has almost nothing to multiply, so the additive albedo floor is what gets him off the ground,
+                // and the multiply is what keeps a lit man from going flat.
+                // the closeness is measured here, from the camera to the man: _TWClose read 0 through the capture rig's
+                // render (probed 2026-10-16), and this is the same 14 m / 34 m band Toon_URP's wet ground uses
+                half menClose = 1.0 - saturate((distance(_WorldSpaceCameraPos, i.positionWS) - 14.0) / 20.0);
+                half menRead = _TWMenRead * menClose;
+                color = color * (1.0 + menRead) + albedo * 0.25 * menRead;
             #if defined(_TW_LIMBCUT)
                 // the dead keep their own colour on the night field, as blood and thrown parts do (frog critic round 14: the dead
                 // frogs dissolved into the dark mud, only the red stars showed where they lay); by day the floor is under the light
