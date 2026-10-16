@@ -67,11 +67,11 @@
 // close for the mud. _TWMenRead is MenLift at close 1; _TWMenSheenCut is what the sheen loses there, so the shader's
 // 1 - cut x close is exactly SheenAtClose. Toon_URP takes the wet sparkle UP to 1 as the camera closes in
 // (lerp(look.moonSheen, 1, close)): that rising sheen beside a dark figure was the owner's guess, and it was right.
-// Swept on the reshoot (76 stills at zoom 9, pitch 25, yaws 21 and 201): the pair 1.2 / 0.2, the plan's cap and floor,
-// takes the stills below the bar from 55 to 22 with no still blown out and none reading 'pasted on' (contrast_median
-// over 2.0); the worst foot stills went 0.0104-0.08 to over 0.25. Every still still under the bar is a VEHICLE unit,
-// where CaptureRig measures the hull as the 'man' (its men_in_frame counts any live entity): nothing on the figure
-// path can move those, so they are not evidence against these numbers.
+// Swept on the reshoot (76 stills at zoom 9, pitch 25, yaws 21 and 201): the pair 1.2 / 0.2, the plan's cap and floor;
+// the "55 to 22, all vehicle" reading of that sweep log was never reproduced. On a rerun with the foot-only bar
+// (`CaptureRig.IsFootFigure`, 2026-10-16), 13 stills with a foot figure are still under the bar — nine too dark
+// (contrast_median under 0.25) and four warned (muzzle-flash blow-out) — so these numbers moved the stills a long
+// way but did not finish the job; see `docs/reference/decisions.md`.
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;

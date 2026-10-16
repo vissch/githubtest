@@ -3,7 +3,8 @@
 // lumps in a near-black trench while the wet mud beside them carries bright specular sheets. That measurement could
 // not be rerun, so this test IS the proof: it photographs every unit of ProvingGround.Catalogue() at zoom 9, pitch 25,
 // yaws 21 and 201, and fails naming every still where a man is in frame and contrast_median is under 0.25 or the
-// sidecar carries a warning. At the commit that added it, it is red on about 14 stills — that is the baseline.
+// sidecar carries a warning. Measured, not guessed: red on 55 of 76 at the commit that added it (`226bd4195`), and
+// on 13 foot stills after `look.menClose` (`dd43e57ee`) and the foot-only bar (`ff3da5ae3`).
 //
 // The bar is foot figures only, by the owner's answer of 2026-10-16 ("count only foot figures: the bar is reachable
 // now, vehicles are left as they are"): CaptureRig.Measure's men_in_frame skips a vehicle slot, so a vehicle still

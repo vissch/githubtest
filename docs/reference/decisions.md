@@ -318,9 +318,11 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   (the owner's 0.25 line, or the 2% blown-out line) if these are judged acceptable on review of the stills
   (`TW_STILLS_DIR` from this run, kept at
   `C:\Users\PC\AppData\Local\TrenchWarfare\relay3\runs\20261016-103259-66888\desk\02\stills`); (c) leave
-  `UnitCloseStills` red and accept it does not pass yet. Default taken here: (c), nothing built, so the lane's own
-  commit (vehicles excluded, proven by a test) ships without the `[foot-only-mud-lift]` tag and the lane is not
-  landed.
+  `UnitCloseStills` red and accept it does not pass yet. Default taken here: (a) as a new unit — the look fix
+  (widen `look.menClose` to reach the nine dark stills; the muzzle-flash blow-out of `01-Assault-b`, `02-MG-b`,
+  `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
+  figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
+  `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
