@@ -60,8 +60,9 @@ namespace TW.Tests
         [Test]
         public void PulledOut_ItGrowsByTheNamedNumbers()
         {
-            Assert.AreEqual(1f + (Far - GoreScale.TrueUntilZoom) / GoreScale.GrowOver, GoreScale.Size(Far), 1e-5f,
-                "at the farthest zoom blood is drawn at, the grow is the named curve");
+            // the named curve: x1.30 at zoom 120 (GoreScale's GrowOver doc comment), not Size's own sum
+            Assert.AreEqual(1.30f, GoreScale.Size(Far), 0.005f,
+                "at the farthest zoom blood is drawn at, the grow is the named x1.30");
             Assert.Greater(GoreScale.Size(Far), 1f, "pulled out, the gore grows so it still reads");
             Assert.Less(GoreScale.Size(Far), GoreScale.MostGrow, "but at zoom 120 it is not yet at the cap");
         }
@@ -72,15 +73,24 @@ namespace TW.Tests
             foreach (float zoom in new[] { 600f, 10_000f })
             {
                 Assert.AreEqual(GoreScale.MostGrow, GoreScale.Size(zoom), 1e-5f, "the cap at zoom " + zoom);
-                foreach (float share in new[] { GoreScale.BlobShare, GoreScale.DropShare, GoreScale.LumpShare,
-                                                GoreScale.CardShare, GoreScale.BigCardShare })
-                    Assert.AreEqual(GoreScale.Cap(share), GoreScale.Sized(share, zoom), 1e-5f,
-                        "Sized never goes past Cap, at zoom " + zoom);
+                // each piece's capped size in metres, worked out by hand (share * 2.00 m man * 1.5 cap)
+                Assert.AreEqual(0.36f, GoreScale.Sized(GoreScale.BlobShare, zoom), 0.005f,
+                    "a splash blob caps at 0.36 m, at zoom " + zoom);
+                Assert.AreEqual(0.18f, GoreScale.Sized(GoreScale.DropShare, zoom), 0.005f,
+                    "a droplet caps at 0.18 m, at zoom " + zoom);
+                Assert.AreEqual(0.1575f, GoreScale.Sized(GoreScale.LumpShare, zoom), 0.005f,
+                    "a gore lump caps at 0.1575 m, at zoom " + zoom);
+                Assert.AreEqual(1.20f, GoreScale.Sized(GoreScale.CardShare, zoom), 0.005f,
+                    "the blood card caps at 1.20 m, at zoom " + zoom);
+                Assert.AreEqual(1.65f, GoreScale.Sized(GoreScale.BigCardShare, zoom), 0.005f,
+                    "the sniper's card caps at 1.65 m, at zoom " + zoom);
             }
             // no red piece is ever taller than the man, at any zoom
             Assert.LessOrEqual(GoreScale.Cap(GoreScale.CardShare + GoreScale.CardHeavyShare), Man,
                 "even capped, the heaviest blood card is no taller than the man");
             Assert.LessOrEqual(GoreScale.Cap(GoreScale.BigCardShare), Man, "nor the sniper's card");
+            Assert.AreEqual(1.65f, GoreScale.Cap(GoreScale.BigCardShare), 0.005f,
+                "the sniper's card caps at 1.65 m");
         }
 
         [Test]
