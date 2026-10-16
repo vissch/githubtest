@@ -173,6 +173,8 @@ def the_site():
     got = concepts.read_requests()
     d = out / 'data'
     case('site: the picture count is the scan\'s, with the prompted ones of the request that is done', n == 4 + 3, n)
+    thin = TMP / 'thin'
+    case('thumbs: a read that has no time left makes none and says how many are owed, and the next read makes them', concepts.thumbs(concepts.current_items([]), thin, seconds=-1) == n and concepts.thumbs(concepts.current_items([]), thin) == 0, n)
     case('site: thumbnails are made, a budget at a time, and the state says how many are still owed', len(list((out / 'img' / 'concept').glob('*.jpg'))) == n and json.loads((d / 'concepts-state.js').read_text(encoding='utf-8').split(' = ', 1)[1].rstrip(';\n'))['thumbs_missing'] == 0)
     node = shutil.which('node')
     if not node:
