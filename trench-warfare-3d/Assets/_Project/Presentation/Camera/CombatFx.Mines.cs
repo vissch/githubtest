@@ -20,8 +20,9 @@ namespace TW.Presentation.Tactical
         public sealed class MineMarks
         {
             public readonly List<MineMark> Marks = new List<MineMark>(64);
-            /// <summary>The seat the picture is drawn for (as the incoming markers: b == 0 is ours).</summary>
-            public const int LocalPlayer = 0;
+            /// <summary>The seat the picture is drawn for (as the incoming markers: b == LocalPlayer is ours). Defaults
+            /// to the one source, the seat off the transport; a test may set it.</summary>
+            public int LocalPlayer = LocalSeat.Player;
 
             /// <summary>MinePlaced: a = index, b = player, pos, dir = heading x length (zero for a mine), scalar = kind.</summary>
             public void Placed(int index, int player, Vector3 pos, Vector3 dirLength, byte kind)
