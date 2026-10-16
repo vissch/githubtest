@@ -5,6 +5,10 @@
     python Tools/land.py --dry-run             every check, and the push it would make, without pushing
     python Tools/land.py --carry-sim "<why>"   a SHOW lane that carries SIM commits, by an owner decision: say which
 
+After a landing it prints the `timelapse.py shoot` command for the commit that just landed, and nothing else: it
+never waits on an editor itself (that would make every landing wait twenty minutes), so the shot is left for
+whoever has an editor free, or a station picking it up from `timelapse.py missing`.
+
 WHY. Landing by hand was: rebase, gate, fast-forward the local integration ref, push two branches. A second lane
 landing during your gate made the fast-forward fail, and "rebase again" then landed a combination no gate had seen;
 a push that failed after the local fast-forward left the local integration ref ahead of origin for good.
@@ -189,6 +193,7 @@ def main():
     local = git('fetch', '.', f'{sha}:{INTEGRATION}')
     print(f'landed {branch} on {INTEGRATION} at {git("rev-parse", "--short", sha)[1]}' +
           ('' if local[0] == 0 else f' (local {INTEGRATION} not moved: {local[1]})'))
+    print(f'this landing owes a frame: python Tools/timelapse.py shoot --sha {sha}')
 
 
 if __name__ == '__main__':
