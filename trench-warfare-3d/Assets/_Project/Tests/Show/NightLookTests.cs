@@ -64,6 +64,22 @@ namespace TW.Tests
         }
 
         [Test]
+        public void MenClose_LiftsTheMenOnlyInTheCloseBand()
+        {
+            Assert.AreEqual(0f, Atmosphere.MenLift(0f, 1f), 1e-6f, "the play view (zoom 30, CloseUp 0) is untouched: the owner's night look does not move");
+            Assert.AreEqual(Atmosphere.MenCloseLift, Atmosphere.MenLift(1f, 1f), 1e-6f, "at the closest view the men gain the full lift");
+            Assert.AreEqual(0f, Atmosphere.MenLift(1f, 0f), 1e-6f, "look.menClose 0 is tonight's look exactly");
+            Assert.AreEqual(0.45f * Atmosphere.MenCloseSheen, Atmosphere.SheenAtClose(0.45f, 1f, 1f), 1e-6f, "worked by hand from the two constants");
+            Assert.AreEqual(0.45f, Atmosphere.SheenAtClose(0.45f, 0f, 1f), 1e-6f, "and the sheen at the play view is the knob's own");
+            Assert.Less(Atmosphere.MenCloseSheen, 1f, "the wet mud's sparkle is damped among the men, or it out-glints the figures standing on it");
+            Assert.Greater(Atmosphere.MenCloseLift, 0f, "a man in a near-black trench has to be lifted off the mud to read at all");
+            Assert.AreEqual(Atmosphere.SheenAtClose(0.45f, 1f, 1f), 0.45f * (1f - Atmosphere.SheenCut(1f) * 1f), 1e-6f,
+                            "what the shader computes from _TWMenSheenCut and its own closeness is the same number");
+            Assert.AreEqual(0f, Atmosphere.SheenCut(0f), 1e-6f, "the knob at 0 takes nothing off the sheen");
+            Assert.AreEqual(1f, Atmosphere.DefaultMenClose, "readability is a veto: the fix is on by default");
+        }
+
+        [Test]
         public void ThePools_TurnAFlameOrange_NotPale()
         {
             var w = NightLights.PoolWarmth;
