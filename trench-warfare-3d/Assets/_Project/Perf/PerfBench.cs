@@ -377,7 +377,24 @@ namespace TW.Perf
         void Capture(string path)
         {
             if (heldFrameTimes != null && stage == Stage.Window && framesShot < heldFrameTimes.Length) heldFrameTimes[framesShot] = Time.time;   // C72
-            try { ScreenCapture.CaptureScreenshot(path); }
+            // ScreenCapture.CaptureScreenshot writes nothing in a batch-mode (windowless) editor: render the camera to
+            // a RenderTexture and read it back instead, as CaptureRig.Render and gamefilm.py already do.
+            try
+            {
+                var c = cam != null ? cam : Camera.main;
+                if (c == null) { warnings.Add("screenshot failed: no camera"); }
+                else
+                {
+                    var rt = RenderTexture.GetTemporary(Screen.width, Screen.height, 24, RenderTextureFormat.ARGB32);
+                    var before = c.targetTexture; c.targetTexture = rt; c.Render(); c.targetTexture = before;
+                    var was = RenderTexture.active; RenderTexture.active = rt;
+                    var tex = new Texture2D(Screen.width, Screen.height, TextureFormat.RGB24, false);
+                    tex.ReadPixels(new Rect(0, 0, Screen.width, Screen.height), 0, 0); tex.Apply();
+                    RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                    File.WriteAllBytes(path, tex.EncodeToPNG());
+                    UnityEngine.Object.Destroy(tex);
+                }
+            }
             catch (Exception e) { warnings.Add("screenshot failed: " + e.Message); }
             framesShot++; lastShotFrame = Time.frameCount;
         }
