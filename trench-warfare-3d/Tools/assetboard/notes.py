@@ -101,12 +101,12 @@ def write(where: Path, text, kind='page', about='', title='', lane='', asset='',
 
 
 
-def write_whole(path: Path, text):
+def write_whole(path: Path, text, newline=None):
     """Write `path` whole or not at all: a temp file of this writer's own beside it, then a rename over it. On Windows
     the rename raises PermissionError while any reader holds the file (the page reads notes while it writes them), so
     try again for about a second; still held, remove the temp and raise ValueError, nothing written (N10.4b)."""
     tmp = path.with_name(f'{path.name}.{os.getpid()}.{uuid.uuid4().hex[:6]}.tmp')
-    tmp.write_text(text, encoding='utf-8')
+    tmp.write_text(text, encoding='utf-8', newline=newline)
     for left in range(9, -1, -1):
         try:
             tmp.replace(path)
