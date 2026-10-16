@@ -347,6 +347,13 @@ class World:
         now = str(load(home / 'runs' / m.group(1) / 'progress.json', {}).get('now_on') or '')
         return now.split(',')[0].strip(), lane
 
+    def main_last(self):
+        """(the main relay's last stopped run, who holds the relay now or '') from its status text."""
+        code, text = self.relay(self.main, 'status')
+        run = re.search(r'^NOT RUNNING\. Last run (\S+?):', text or '', re.M)
+        who = re.search(r'held by (\S+) until', text or '')
+        return (run.group(1) if run else ''), (who.group(1) if who else '')
+
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
 
@@ -760,10 +767,15 @@ def feed(w):
                 lane_free(w, 1, lane, cos, runs, out)    # its 12:42 run had 4 FAILs that were only these refusals (2026-10-16)
     if running == set() and work and w.acting and 'uncommitted changes' in reason and 1 in w.works():
         starts = load(w.home / 'starts.json', {})       # a leg left files in the main checkout (a staged decisions.md, 15:25):
-        if (starts.get('1') or {}).get('reason') != 'put aside':     # put aside as the extras' are, only once its run has stopped
+        run, holder = w.main_last()                     # put aside as the extras' are, once per stopped run, never under another's hold
+        if holder and holder != MAIN_WHO:
+            out.append(f'feed: the main relay stopped on leftover files; {holder} holds it, so they are left alone')
+            work = False
+        elif run and run not in load(w.home / 'asides.json', []):
             ok, said = w.put_aside(w.works()[1], 1)
-            out.append(f'feed: the main relay stopped on leftover files: {said}')
+            out.append(f'feed: the main relay stopped on leftover files (run {run}): {said}')
             if ok:
+                save(w.home / 'asides.json', (load(w.home / 'asides.json', []) + [run])[-50:])
                 starts['1'] = dict(at=w.now(), reason='put aside', wait=QUIET)
                 save(w.home / 'starts.json', starts)
             work = False

@@ -411,6 +411,19 @@ def main():
     w2.text[w2.main] = RUN
     autoloop.feed(w2)
     case('a running main relay\'s checkout is never put aside', w2.asides == [], w2.asides)
+    w.clock += autoloop.QUIET + 1
+    third = autoloop.feed(w)
+    case('after the quiet wait the main relay is started, and the same stopped run is not put aside twice',
+         1 in w.started and w.asides == [1], (third, w.asides, w.started))
+    w3 = Fake(tmp / 'wt14', extras=())
+    w3.work_dirs = {1: 'C:/gh/relay-work'}
+    w3.asides = []
+    w3.put_aside = lambda work, n: (w3.asides.append(n) or True, 'put aside')
+    put(w3.main, 'queue', 'mainwork', lane='lane/show/mainwork', priority=10)
+    w3.text[w3.main] = ('NOT RUNNING. Last run 20261016-142533-81884: the work checkout cannot be used: it has uncommitted changes '
+                        'that are not a saved leg snapshot (0 legs).\nThe relay build is held by coordinator until 2026-10-16 16:00 (relay.py hold).')
+    autoloop.feed(w3)
+    case('while a session holds the relay, the main checkout\'s files are left alone and it is not started', w3.asides == [] and 1 not in w3.started, (w3.asides, w3.started))
     w = Fake(tmp / 'wt10', extras=(4,))
     w.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
     w.cos = {'lane/show/heroes': 'C:/gh/relay-work4'}
