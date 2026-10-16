@@ -9,6 +9,7 @@ from pathlib import Path
 
 MAX_FILES = 2500
 MAX_BYTES = 400 * 1024 * 1024        # the films are most of it
+MAX_CONCEPTS = 4000                  # the concept page's thumbnails (img/concept/, concepts.py): many small files, counted on their own
 
 
 def sync(stage: Path, out: Path):
@@ -28,7 +29,11 @@ def sync(stage: Path, out: Path):
             if old.relative_to(out).as_posix() not in pages:
                 old.unlink()
     files = [p for p in out.rglob('*') if p.is_file()]
-    size = sum(p.stat().st_size for p in files)
+    concept = [p for p in files if p.relative_to(out).as_posix().startswith('img/concept/')]
+    files = [p for p in files if p not in set(concept)]
+    size = sum(p.stat().st_size for p in files + concept)
+    if len(concept) > MAX_CONCEPTS:
+        print(f'assetboard: the concept thumbnails are {len(concept)} files: over their budget of {MAX_CONCEPTS}. Prune img/concept/ by hand.')
     if len(files) > MAX_FILES or size > MAX_BYTES:
         print(f'assetboard: the site is {len(files)} files, {size // (1024 * 1024)} MB: over its budget of {MAX_FILES} files, '
               f'{MAX_BYTES // (1024 * 1024)} MB. Prune img/ by hand, or lower PER_ASSET in src_images.py.')
