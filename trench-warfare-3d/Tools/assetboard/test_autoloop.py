@@ -474,10 +474,27 @@ def main():
     rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
     case('when its main copy cannot come off 99, the unit is not marked as the main relay\'s, so it is never stranded', not rec.get('main_try'), rec)
 
+    whys = []
+    real = (autoloop.found.take, autoloop.found.rota)
+    autoloop.found.take, autoloop.found.rota = (lambda fw: []), (lambda fw, why='': whys.append(why) or 'found: x')
+    try:
+        w = wt('wt15')
+        for uid in ('first', 'second'):
+            (w.main / 'relay' / 'queue' / f'{uid}.json').unlink()
+        put(w.main, 'queue', 'ridge', lane='lane/show/ridge', priority=50)
+        (w.home / 'attempts.json').write_text(json.dumps({'ridge': dict(seen=['r1'], fails=['r1 FAIL'], main_try=True)}), encoding='utf-8')
+        w.text[w.main] = RUN.replace('relay-four-checks', 'other')
+        w.found = lambda: None
+        autoloop.round_(w)
+    finally:
+        autoloop.found.take, autoloop.found.rota = real
+    case('"dry" means no unit an idle relay can take: with idle extra relays and only a unit kept for the main relay, a look is queued (15:41-16:25)',
+         whys and 'idle' in whys[-1], whys)
+
     # ---- one round, and the lock ----
     calls = []
     real = (autoloop.found.take, autoloop.found.rota)
-    autoloop.found.take, autoloop.found.rota = (lambda fw: calls.append('take') or []), (lambda fw: calls.append('rota') or 'found: queued the look x')
+    autoloop.found.take, autoloop.found.rota = (lambda fw: calls.append('take') or []), (lambda fw, why='': calls.append('rota') or 'found: queued the look x')
     try:
         w = Fake(tmp / 'g')
         w.found = lambda: None

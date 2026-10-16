@@ -899,6 +899,18 @@ def attempts(w):
     return loopsteps.attempts(w, opens, dones, running_lanes(w), idle, set(w.extras.values()))
 
 
+def idle_why(w, lines):
+    """'' or why a look is queued although the main queue still has units: an extra relay stands idle with an empty
+    board and this round fed it nothing, so what the queue holds is nothing an idle relay can take (15:41-16:25,
+    2026-10-16: one unit kept for the busy main relay's second try held five relays idle for 40 minutes)."""
+    if any(': it gets ' in l or 'would get' in l for l in lines):
+        return ''
+    for n, board in sorted(w.extras.items()):
+        if w.status(board)[0] == set() and not open_units(board):
+            return f'relay {n} is idle and no queued unit is one it can take'
+    return ''
+
+
 def round_(w):
     lines = []
     for step in (copy_back, take_answers, attempts, wait_for_relay, rescue, loopsteps.route_ideas, feed):
@@ -914,7 +926,7 @@ def round_(w):
     try:
         if w.acting:
             lines += found.take(fw)
-            lines.append(found.rota(fw))
+            lines.append(found.rota(fw, why=idle_why(w, lines)))
         else:
             left = found.takeable(fw)
             lines.append(f'found: {found.waiting(fw)} fix units wait unstarted (the most is {found.FIX_MOST}); '
