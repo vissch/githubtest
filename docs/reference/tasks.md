@@ -58,7 +58,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   LockstepFrameValidationTests (frames the driver must drop: bogus player, stale tick, duplicate),
   LockstepHashLabelTests (which tick a frame's hash belongs to),
   CanaryFixture (makes every PlayMode SimHost run the canary), CanaryPlayTests (a real two-world match with
-  units fighting, and a nudged world the detector must see).
+  units fighting, and a nudged world the detector must see),
+  AlignWorldsTests (M5: the enemy's script thinks for the tick AlignWorlds steps outside StepOnce),
+  ToolWritePlayTests (M4: a unit a tool spawns through WriteWorlds while the host is paused is drawn at once).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
   `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.
 
@@ -101,6 +103,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   time to breach, trench retention and who wins, per seed. `python Tools/sweep.py run Tools/sweeps/factions.json`:
   `workflow.md`, section 5. Its two plain tests hold that a patch writes the field it names and fails on any it
   cannot, and that a variant changing nothing is the same ladder).
+  EnemySupportTickTests (M3: one support order a tick — on tick 150 the SOS, attack-barrage and harassing gates
+  are all open at once, and each reads silver and cooldowns from before the others land).
 
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
@@ -536,7 +540,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   thrower plays `Clip.Throw` from its swing (`AnimationController`, the `threw` latch).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   EventPumpDispatchTests (the pump that feeds all of this: a subscriber that throws is logged and skipped, and no
-  event is delivered twice or lost),
+  event is delivered twice or lost), EventPumpTests (the pump remembers how many events the last Dispatch delivered,
+  which is the count the debug overlay prints),
   ShotStaggerTests, TracerGlowTests, ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, FlipbookFxTests (`Book` maps to `Sheets` by position; `Awake` clamps `fx.maxMarks`
