@@ -457,7 +457,8 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   route. Integration's `195b5f981` is the lane's own last commit `147bea56f` (same subject: the five relay tests
   isolate from this machine's live boards). Rebased today onto `origin/claude/trench-warfare-2d-3d-plan-idt7lf`
   (`6959ad812`): git skipped 91 of the lane's 92 commits as previously applied, and **1 commit of its own remains**,
-  a `decisions.md` edit. The whole diff against integration is `docs/reference/decisions.md` and nothing else.
+  a `decisions.md` edit (the lane now carries three, the other two being this leg's record of all this). The
+  whole diff against integration is `docs/reference/decisions.md` and nothing else.
   `Tools/selftest.py` is green (138 of 138 cases). So the `relay-harness-rebase` unit's done_when floor of "at
   least 50 of its own commits after the rebase" **can never be met**: the commits are gone because they landed,
   not because a leg dropped or squashed them. Integration is also the *newer* side on the two relay files the lane
