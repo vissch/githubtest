@@ -221,8 +221,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   to one over eight seeds takes 1 and costs the garrison 22 % (38 % without it); the test asks eight seeds for 15 %.
   **The guns (v22):** twenty attackers with four machine gunners against ten with two, eight seeds: bare, sending the
   guns over takes 0 and loses 18.3 a seed, leaving them on the parapet takes 1 and loses 14.1 (the garrison 3.5
-  instead of 0); behind smoke and a barrage both take 8 of 8, and the attack loses 2.9 with the guns covering against
-  5.6 with them going over (`GunsThatStayToCover_CostTheAttackFewerMen` asks under 0.8 of it).
+  instead of 0); behind smoke and a barrage both take 8 of 8, and the attack loses 22 with the guns covering against
+  25 with them going over since the wreck shadow was narrowed to the firing line
+  (`GunsThatStayToCover_CostTheAttackFewerMen` asks under 0.95 of it).
 - **Dead ground (2026-09-29):** `TargetAcquisition` does not let a shooter on the far side of a team's front trench see
   a man of that team on foot in the open more than `CombatTables.DeadGroundMetres` (10 m) behind it, measured at his
   column (`FrontZ`, rebuilt when a front moves). He is on the approaches. Before it a machine gun (170 m) in the enemy's
