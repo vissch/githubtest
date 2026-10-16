@@ -229,6 +229,9 @@ namespace TW.Editor
             // and kit behind him. Contrast is |man - background| / (background + 0.02), so it is a ratio, not a
             // difference, and 0.4 means "you can find him", 0.1 means "he is mud".
             var contrasts = new List<float>();
+            // the ratio alone cannot tell dark men on light mud from men the same value as the mud, and the two want
+            // opposite fixes (take the haze off them, or move their value). So keep both sides of it.
+            var manLumas = new List<float>(); var bgLumas = new List<float>();
             int inFrame = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host != null && host.Local != null && cam != null)
@@ -237,15 +240,22 @@ namespace TW.Editor
                 for (int s = 0; s < world.HighWater; s++)
                 {
                     if ((world.Flags[s] & 1u) == 0) continue;
-                    Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
+                    // where he is DRAWN, not where the sim keeps him. The presenter hands back y = 0 and the shader
+                    // stands him on the terrain, which here is 0.75-1.94 m up, so a chest taken at a flat 1.3 m sat at
+                    // his boots or below them: the disc sampled the mud he stands on, came out the value of the ring
+                    // around it, and every frame of a readable battle was reported "unreadable" (2026-10-16, the shot
+                    // that found this had six men plainly visible at 0.02).
+                    Vector3 foot = (Vector3)host.Presenter.Drawn(s);
+                    foot.y = Mathf.Max(foot.y, RenderGround.Sample(host.Local.Map, foot.x, foot.z));
+                    Vector3 chest = foot + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
                     Vector3 sp = cam.WorldToScreenPoint(chest);
                     int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
                     // him, and he is 80 px tall at the tactical camera and several hundred up close — a fixed radius
                     // measured the man against himself and called every frame unreadable.
-                    Vector3 footS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s));
-                    Vector3 headS = cam.WorldToScreenPoint((Vector3)host.Presenter.Drawn(s) + Vector3.up * 2.6f);
+                    Vector3 footS = cam.WorldToScreenPoint(foot);
+                    Vector3 headS = cam.WorldToScreenPoint(foot + Vector3.up * 2.6f);
                     float tall = Mathf.Abs(headS.y - footS.y) * h / cam.pixelHeight;
                     if (tall < 6f) continue;                                  // too small to say anything honest about
                     int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f));
@@ -255,9 +265,12 @@ namespace TW.Editor
                     float man = Disc(lum, w, h, cx, cy, 0, rMan);
                     float bg = Ring(lum, w, h, cx, cy, rIn, rOut);            // median, so a neighbour in the ring does not skew it
                     contrasts.Add(Mathf.Abs(man - bg) / (bg + 0.02f));
+                    manLumas.Add(man); bgLumas.Add(bg);
                 }
             }
-            contrasts.Sort();
+            contrasts.Sort(); manLumas.Sort(); bgLumas.Sort();
+            float manMed = manLumas.Count > 0 ? manLumas[manLumas.Count / 2] : -1f;
+            float bgMed = bgLumas.Count > 0 ? bgLumas[bgLumas.Count / 2] : -1f;
             float cMed = contrasts.Count > 0 ? contrasts[contrasts.Count / 2] : -1f;
             float c10 = contrasts.Count > 0 ? contrasts[Mathf.Min(contrasts.Count - 1, (int)(contrasts.Count * 0.10f))] : -1f;
 
@@ -277,6 +290,9 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            // which side of the ratio is wrong: man_luma < bg_luma means dark shapes on lighter mud, the two near
+            // equal means the men's value is the mud's and no outline or lift will be read as a figure
+            N(sb, "man_luma", manMed); N(sb, "bg_luma", bgMed);
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
@@ -533,7 +549,7 @@ namespace TW.Editor
                 N(sb, "box_frac", (maxX - minX + 1) * (maxY - minY + 1) / (float)pa.Length);
             }
             // and the measured numbers either side, so a change of look and a change of cost are read together
-            foreach (var key in new[] { "luma_mean", "blown_frac", "black_frac", "men_in_frame", "contrast_median", "contrast_p10", "vertices", "rain", "pose_error_m" })
+            foreach (var key in new[] { "luma_mean", "blown_frac", "black_frac", "men_in_frame", "contrast_median", "contrast_p10", "man_luma", "bg_luma", "vertices", "rain", "pose_error_m" })
             {
                 double va = Number(Path.ChangeExtension(pathA, ".json"), key), vb = Number(Path.ChangeExtension(pathB, ".json"), key);
                 if (double.IsNaN(va) || double.IsNaN(vb)) continue;
