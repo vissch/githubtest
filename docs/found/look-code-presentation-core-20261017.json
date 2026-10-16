@@ -1,0 +1,51 @@
+{
+  "subject": "code:Presentation/Core",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs (integration, origin/claude/trench-warfare-2d-3d-plan-idt7lf, 1-232)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SimPresenter.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/EventPump.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/SimClock.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/HeavyWork.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ShotStagger.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/MatchClock.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs (integration, whole, 1-421)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs (integration, 1-250, 860-948)",
+    "grep of UseAnimationController across Presentation/** (CombatFx.Bodies.cs, CombatFx.Deaths.cs, VATRenderer.cs, SimHost.cs)",
+    "docs/reference/tasks.md (grep simhost/animationcontroller/lockstepsession/scriptedenemy)",
+    "docs/reference/decisions.md (grep simhost/animationcontroller/lockstepsession/scriptedenemy)",
+    "docs/found/look-code-presentation-camera-20261016.json"
+  ],
+  "tasks": [
+    {
+      "title": "SimHost.Update advances animTime by wall time, not by TimeScale",
+      "why": "SimHost.cs:160-168 (integration): `accumulator += Time.deltaTime * TimeScale` and `Animation.Advance(Time.deltaTime * TimeScale)` both scale by TimeScale, but the line between them, `animTime += Time.deltaTime`, does not. `animTime` is the AnimT seed `Presenter.Interpolate(Alpha, animTime)` passes into `SimPresenter.InterpolateJob` for every slot not driven by the controller (`UseController` false — CombatFx.Bodies.cs, VATRenderer.cs and CombatFx.Deaths.cs all read `Host.UseAnimationController` as a live per-call toggle, so a build or a debug panel can flip it). At TimeScale 0 (MatchClock's Tactical/Menu/Debrief hold) the sim and the controller both freeze, but the fallback stance-based pose keeps playing off the real clock, so a paused match still shows walking/firing loop motion on any slot drawn without the controller. At TimeScale 2/4/8 the same slots run at wall speed while the sim and controller run faster, so the two desync visibly the longer a fast-forward lasts.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs"],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "a test or Tools/tw eval pauses the host (TimeScale=0 or MatchClock.Add(Hold.Tactical)), reads Presenter's drawn AnimT/pose for a slot with UseAnimationController=false across two frames, and shows it unchanged instead of advancing",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "SyncEnemy() re-copies ScriptedEnemy's fields on every catch-up iteration, not once a frame",
+      "why": "SimHost.Update's catch-up `while (accumulator >= tick && guard-- > 0)` loop calls `SyncEnemy()` first thing each pass (SimHost.cs ~162), so a frame that steps 2-8 ticks to drain backlog (the guard is `Max(8, Ceil(TimeScale*2))`) copies the same nine serialized fields onto `enemy` that many times over, instead of once before the loop. Cheap per call, but it is dead repetition on the one path (catch-up after a stall or at TimeScale>1) that is already the frame's hot spot, and it is easy to miss when a tenth field is added later and someone assumes SyncEnemy runs once a frame like the rest of Update.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/SimHost.cs"],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "a profiler capture or a call-count probe on SyncEnemy shows it called once per Update rather than once per stepped tick during a multi-tick catch-up frame",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "ScriptedEnemy.ArmedSlot/MixSlot/MachineSlot scan the roster fresh every call, every tick",
+      "why": "`EnemyOrders` calls `ArmedSlot(pw, n)` (ScriptedEnemy.cs:115-124, a double pass over RosterEntry.SlotCount) on every deploy-interval tick, `MachineSlot` (158-164) on every tank-check tick, and `StressSide` calls `MixSlot` (128-138) four times per tick while the stress preset is still deploying — none of it caches across calls even though the roster (`pw.Roster[...]`) only changes at match start. SlotCount is small (RosterEntry.SlotCount, a handful), so each call alone is cheap, but it is work with a result that is constant for the whole match being redone every tick it is needed instead of once in Awake/Think's first call, and it is the kind of per-tick allocation-free scan that is easy to let grow (e.g. StressMix's MixSlot already does the double-scan dance for every stress deploy).",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs"],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "a profiler marker around EnemyOrders/StressSide for a match with StressUnits>0 shows ArmedSlot/MixSlot/MachineSlot's roster scan no longer re-run once the roster is known, or a comment records why it must stay per-tick",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
