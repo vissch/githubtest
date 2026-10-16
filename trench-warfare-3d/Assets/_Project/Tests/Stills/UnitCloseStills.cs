@@ -5,6 +5,11 @@
 // yaws 21 and 201, and fails naming every still where a man is in frame and contrast_median is under 0.25 or the
 // sidecar carries a warning. At the commit that added it, it is red on about 14 stills — that is the baseline.
 //
+// The bar is foot figures only, by the owner's answer of 2026-10-16 ("count only foot figures: the bar is reachable
+// now, vehicles are left as they are"): CaptureRig.Measure's men_in_frame skips a vehicle slot, so a vehicle still
+// never has a man in it to judge and vehicles are left exactly as stuck as before. Machine units are still
+// photographed here (the `machine` column below says which), just not judged.
+//
 // Run it by name WITH a graphics device (not -nographics), the way WreckStills is run:
 //   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testFilter UnitCloseStills \
 //             -testResults <out.xml> -logFile <out.log>
@@ -111,6 +116,7 @@ namespace TW.Tests
             TestContext.Out.WriteLine(units.Count + " units in the catalogue");
             var lines = new List<string>();
             var offenders = new List<string>();
+            int judged = 0;
 
             for (int u = 0; u < units.Count; u++)
             {
@@ -137,7 +143,8 @@ namespace TW.Tests
                     string json = File.ReadAllText(side);
                     float men = Num(json, "men_in_frame"), med = Num(json, "contrast_median"), p10 = Num(json, "contrast_p10");
                     string warn = Warnings(json);
-                    lines.Add($"{stem}\tmen_in_frame {men:0}\tcontrast_median {med:0.0000}\tcontrast_p10 {p10:0.0000}\twarnings {(warn.Length > 0 ? warn : "-")}");
+                    lines.Add($"{stem}\tmachine {(unit.Machine ? 1 : 0)}\tmen_in_frame {men:0}\tcontrast_median {med:0.0000}\tcontrast_p10 {p10:0.0000}\twarnings {(warn.Length > 0 ? warn : "-")}");
+                    if (men >= 1f) judged++;
                     if (men >= 1f && (med < Bar || warn.Length > 0))
                         offenders.Add($"{stem}: men {men:0}, contrast_median {med:0.0000}, warnings {(warn.Length > 0 ? warn : "-")}");
                 }
@@ -146,7 +153,9 @@ namespace TW.Tests
             File.WriteAllText(Path.Combine(dir, "info.txt"), string.Join("\n", lines) + "\n");
             foreach (var l in lines) TestContext.Out.WriteLine(l);
             CaptureRig.Release();
-            TestContext.Out.WriteLine(lines.Count + " stills in " + dir + ", " + offenders.Count + " below the bar");
+            TestContext.Out.WriteLine(lines.Count + " stills in " + dir + ", " + offenders.Count + " below the bar, " + judged + " judged on a man");
+            // the bar is foot figures only: if nothing was ever judged, "no offenders" is worthless, not a pass
+            Assert.That(judged, Is.GreaterThanOrEqualTo(30), "too few stills had a man in frame to judge: " + judged);
             Assert.That(offenders, Is.Empty, "stills where a man is in frame and he does not read against the ground (bar: contrast_median >= "
                         + Bar.ToString("0.00", CultureInfo.InvariantCulture) + ", no warning):\n" + string.Join("\n", offenders));
             yield return new ExitPlayMode();

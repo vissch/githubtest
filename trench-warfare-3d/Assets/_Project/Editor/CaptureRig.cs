@@ -25,11 +25,17 @@ using UnityEditor;
 using Unity.Profiling;
 using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.Sim;
 
 namespace TW.Editor
 {
     public static class CaptureRig
     {
+        /// <summary>A live slot drawn as a man, not a machine: the same mask the figure path itself uses
+        /// (`VATRenderer.cs:312`) to decide whether a slot gets sockets, so what is measured is what is drawn
+        /// as a man, foot soldier or rider, trench or not.</summary>
+        public static bool IsFootFigure(uint flags) => (flags & (uint)UnitFlags.Alive) != 0 && (flags & (uint)UnitFlags.Vehicle) == 0;
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -225,9 +231,11 @@ namespace TW.Editor
             float mean = (float)(sum / px.Length);
             float p50 = sorted[px.Length / 2], p95 = sorted[(int)(px.Length * 0.95f)];
 
-            // every man the game drew, measured where he is drawn: a disc on his chest against a ring of the ground
-            // and kit behind him. Contrast is |man - background| / (background + 0.02), so it is a ratio, not a
-            // difference, and 0.4 means "you can find him", 0.1 means "he is mud".
+            // every foot figure the game drew, measured where he is drawn: a disc on his chest against a ring of the
+            // ground and kit behind him. Contrast is |man - background| / (background + 0.02), so it is a ratio, not
+            // a difference, and 0.4 means "you can find him", 0.1 means "he is mud". A vehicle is skipped: on a tank
+            // unit the ring sampled the ground beside the hull and called the hull an unreadable man, a reading the
+            // figure path never makes (it has no sockets for a vehicle slot either, `VATRenderer.cs:312`).
             var contrasts = new List<float>();
             int inFrame = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
@@ -236,7 +244,7 @@ namespace TW.Editor
                 var world = host.Local.World;
                 for (int s = 0; s < world.HighWater; s++)
                 {
-                    if ((world.Flags[s] & 1u) == 0) continue;
+                    if (!IsFootFigure(world.Flags[s])) continue;
                     Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
                     Vector3 sp = cam.WorldToScreenPoint(chest);
