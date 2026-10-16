@@ -44,6 +44,19 @@ namespace TW.Presentation.Tactical
         public static readonly Vector4 TeamTintB = new Vector4(0.52f, 0.56f, 0.60f, 0.8f);   // field grey
         // the sides' colours (horns, ground ring): blue and red read against the night grade and against each other
         public static readonly Color TeamA = new Color(0.35f, 0.85f, 1.0f), TeamB = new Color(0.88f, 0.25f, 0.16f);
+        // the shader used to multiply the ring by this itself; now the CPU applies it so the near fade below can
+        // scale the same number and the shader stays a flat pass-through
+        public const float RingGlow = 1.4f;
+        /// <summary>0.25 at 18 m and nearer, up to 1 from 42 m out (the standard view, ~54 m at zoom 30, unchanged):
+        /// close up the ring was the brightest thing in the frame, brighter than the unit it marks.</summary>
+        public static float RingStrength(float dist) => Mathf.Lerp(0.25f, 1f, Mathf.InverseLerp(18f, 42f, dist));
+        /// <summary>The band's brightest pixel painted over ground of luma groundLuma, mirroring the shader's blend
+        /// (peak ring 1, alpha 0.55 of strength).</summary>
+        public static float BandLuma(Color side, float strength, float groundLuma)
+        {
+            var band = Color.Lerp(new Color(groundLuma, groundLuma, groundLuma), new Color(Mathf.Clamp01(side.r * RingGlow), Mathf.Clamp01(side.g * RingGlow), Mathf.Clamp01(side.b * RingGlow)), 0.55f * strength);
+            return 0.2126f * band.r + 0.7152f * band.g + 0.0722f * band.b;
+        }
 
         struct Spring
         {
@@ -1863,7 +1876,7 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>The contact blob and side ring under a tank: the footprint plus a margin, on the ground, turned with the hull.</summary>
-        void QueueDisc(View v)
+        void QueueDisc(View v, Vector3 eye)
         {
             if (discMat == null || discCount >= discM.Length) return;
             var m = v.Model;
@@ -1881,7 +1894,7 @@ namespace TW.Presentation.Tactical
             var at = new Vector3(v.Pos.x, Mathf.Max(Ground(v.Pos.x, v.Pos.z), v.Heave.Value - 0.3f) + 0.12f, v.Pos.z);
             discM[discCount] = Matrix4x4.TRS(at, Quaternion.AngleAxis(v.Yaw * Mathf.Rad2Deg, Vector3.up), new Vector3(w, 1f, l));
             var c = v.Team == 1 ? TeamB : TeamA;
-            discC[discCount] = new Vector4(c.r, c.g, c.b, v.Dead ? WreckRing(v) : 1f);
+            discC[discCount] = new Vector4(c.r * RingGlow, c.g * RingGlow, c.b * RingGlow, (v.Dead ? WreckRing(v) : 1f) * RingStrength(Vector3.Distance(eye, at)));
             discCount++;
             QueuePips(v, at, w, l);   // a wreck too: its riders' row stays a moment, the dead in red
         }
@@ -1900,7 +1913,7 @@ namespace TW.Presentation.Tactical
                 catch (System.Exception ex) { if (!debrisLogged) { debrisLogged = true; Debug.LogError($"TankRenderer debris part {d.Part} owner {(d.Owner == null ? "null" : d.Owner.Slot.ToString())} model {(d.Owner?.Model == null ? "null" : "ok")} local {d.Local?.Count}: {ex}"); } }
             }
             DrawShards();   // chunks of wrecks in the air and on the ground (TankRenderer.WreckStages)
-            DrawRest();
+            DrawRest(eye);
         }
 
         bool debrisLogged;
@@ -1924,11 +1937,11 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        void DrawRest()
+        void DrawRest(Vector3 eye)
         {
             discCount = 0;
-            foreach (var v in views.Values) if (!v.Ditched) QueueDisc(v);
-            foreach (var v in wrecks) QueueDisc(v);
+            foreach (var v in views.Values) if (!v.Ditched) QueueDisc(v, eye);
+            foreach (var v in wrecks) QueueDisc(v, eye);
             if (discCount > 0 && discProps != null)
             {
                 discProps.SetVectorArray(ColorId, discC);
