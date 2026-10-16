@@ -32,14 +32,24 @@ namespace TW.Data
             return arr;
         }
 
+        // Used to cast the unset case straight to the literal 0 (FactionId.Iron), the greybox roster, instead of
+        // FactionMap's own default (British) — and never said that the field was empty.
+        static byte MissionFaction(MissionDefinition m, FactionDefinition f, string field)
+        {
+            if (f != null) return (byte)FactionMap.ToSim(f.Faction);
+            Debug.LogWarning($"MissionDefinition '{(string.IsNullOrEmpty(m.Title) ? m.name : m.Title)}' has no {field}: " +
+                             $"baking {FactionMap.Unmapped} (FactionMap's default for an unmapped nation) instead of the greybox Iron roster.");
+            return (byte)FactionMap.Unmapped;
+        }
+
         public static MissionScript BakeMission(MissionDefinition m, Allocator a)
         {
             var s = new MissionScript(a)
             {
                 Win = m.Win, WinParam = m.WinParam, Lose = m.Lose, LoseParam = m.LoseParam,
                 StartingSilver = m.StartingSilver, IncomePerSecond = m.IncomePerSecond, Difficulty = m.Difficulty,
-                PlayerFaction = (byte)(m.PlayerFaction != null ? FactionMap.ToSim(m.PlayerFaction.Faction) : 0),
-                EnemyFaction = (byte)(m.EnemyFaction != null ? FactionMap.ToSim(m.EnemyFaction.Faction) : 0),
+                PlayerFaction = MissionFaction(m, m.PlayerFaction, nameof(m.PlayerFaction)),
+                EnemyFaction = MissionFaction(m, m.EnemyFaction, nameof(m.EnemyFaction)),
             };
             if (m.Waves != null)
                 foreach (var w in m.Waves)

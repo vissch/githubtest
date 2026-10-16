@@ -8,6 +8,9 @@ namespace TW.Data
 {
     public static class FactionMap
     {
+        /// <summary>The roster an unmapped nation, or an unset mission faction field, bakes to.</summary>
+        public const FactionId Unmapped = FactionId.British;
+
         public static FactionId ToSim(Faction nation)
         {
             switch (nation)
@@ -20,7 +23,7 @@ namespace TW.Data
                 case Faction.Ottoman:
                 case Faction.Bulgarian: return FactionId.German;
                 // and the rest of the Entente as the British
-                default: return FactionId.British;
+                default: return Unmapped;
             }
         }
     }
