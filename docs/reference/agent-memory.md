@@ -143,3 +143,5 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-10-07. A full gate died with the session that started it** (PlayMode part, no verdict, half an hour). Start it
   with `Tools/gate_bg.py`. The same night: `selftest.py` had left 151 folders in the temp folder (rmtree stops at git's
   read-only objects on Windows), one a registered worktree with a broken index that failed git's upkeep on every fetch.
+- **2026-10-16. A count read off a sweep log sent a leg chasing a fault that was not there** ("55 to 22, all vehicle"
+  on `UnitCloseStills`). A reshoot's numbers only count from a rerun of the test itself.
