@@ -198,6 +198,11 @@ def handler(where: Path, key: str):
                     note = write(where, d.get('text'), **{k: d.get(k, '') for k in ('kind', 'about', 'title', 'lane', 'asset', 'page', 'then') if d.get(k)})
                 elif self.path == '/close':
                     note = answer(where, str(d.get('id', '')), d.get('text') or 'Closed by the owner.', by='owner')
+                elif self.path.startswith('/concept/'):         # an approval or a request of the concept page (concepts.py)
+                    import concepts
+                    if self.path not in concepts.ROUTES:
+                        return self.reply(404, dict(ok=False, why='nothing here'))
+                    return self.reply(200, dict(ok=True, **concepts.post(self.path, d)))
                 else:
                     return self.reply(404, dict(ok=False, why='nothing here'))
                 self.reply(200, dict(ok=True, note=note))

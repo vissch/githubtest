@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Concepts{% endblock %}
+{% block bodyclass %}overview concepts{% endblock %}
+{% block head %}<link rel="stylesheet" href="concepts.css">{% endblock %}
+{% block main %}
+{# The concept pictures ComfyUI made for the project (concepts.py reads them off the Drive, concepts.js draws them): filter by
+   the session (the run) that made them, approve the ones he wants, and a box that asks the desktop for new ones. The
+   approved ones stand in a section of their own; nothing else is done with them, the section is an overview (the owner,
+   2026-10-15). An approval and a request go to the notes listener (notes.py, /concept/...), the same box the notes use. #}
+<section class="k-office cc-page" id="concepts">
+  <header class="k-head">
+    <p class="k-eyebrow"><span class="k-star" aria-hidden="true"></span>Concepts</p>
+    <h2>What we have made, <span class="k-soft">and what you approved.</span></h2>
+    <p class="cc-count" id="cc-count" aria-live="polite">reading the pictures…</p>
+  </header>
+  <div class="cc-warn" id="cc-warn" role="status" hidden></div>
+
+  <form class="cc-new" id="cc-new" autocomplete="off">
+    <h3>Make something new</h3>
+    <div class="cc-kinds" id="cc-kinds" role="group" aria-label="What to make"></div>
+    <label class="cc-lab" for="cc-text">Describe it</label>
+    <textarea id="cc-text" rows="3" maxlength="1500" placeholder="A fat frog-pilot light tank with a bathtub turret and brass pipes…"></textarea>
+    <div class="cc-opts">
+      <label class="cc-opt"><input type="checkbox" id="cc-frog"> Frog + dieselpunk flavour</label>
+      <label class="cc-opt">Pictures <select id="cc-takes" aria-label="How many pictures"></select></label>
+      <button class="cc-go" id="cc-go" type="submit">Make it</button>
+    </div>
+    <details class="cc-full" id="cc-fulld"><summary>The full prompt it will send</summary>
+      <textarea id="cc-prompt" rows="4" aria-label="The full prompt"></textarea>
+      <p class="cc-hint">Made from your words. Change it here and your change is sent as it stands. <button class="cc-link" id="cc-reset" type="button">Back to the made prompt</button></p>
+    </details>
+    <p class="cc-say" id="cc-say" role="status"></p>
+    <div class="cc-reqs" id="cc-reqs"></div>
+  </form>
+
+  <div class="cc-tools">
+    <div class="cc-tabs" id="cc-sessions" role="group" aria-label="Show the pictures of one session"></div>
+    <select class="cc-cat" id="cc-cat" aria-label="Category"></select>
+    <input class="cc-find" id="cc-find" type="search" placeholder="Find a word" aria-label="Find a word in the names and prompts">
+    <label class="cc-opt"><input type="checkbox" id="cc-hide"> Hide approved below</label>
+  </div>
+  <p class="cc-about" id="cc-about"></p>
+
+  <section class="cc-sec cc-approved" aria-labelledby="cc-ap-h">
+    <h3 id="cc-ap-h">Approved <span class="cc-n" id="cc-ap-n">0</span></h3>
+    <div class="cc-grid" id="cc-ap"></div>
+  </section>
+  <section class="cc-sec" aria-labelledby="cc-all-h">
+    <h3 id="cc-all-h">Concepts <span class="cc-n" id="cc-all-n">0</span></h3>
+    <div class="cc-grid" id="cc-all"></div>
+    <p class="cc-more"><button class="cc-btn" id="cc-more" type="button" hidden></button></p>
+  </section>
+</section>
+<div class="cc-lb" id="cc-lb" role="dialog" aria-modal="true" aria-label="A concept" hidden></div>
+<noscript><p class="warn">This page is drawn by a script.</p></noscript>
+{% endblock %}
+{% block script %}<script src="data/ops.js"></script><script src="data/queue.js"></script><script src="data/beat.js"></script><script src="data/crew.js"></script><script src="data/concepts.js"></script><script src="data/concepts-state.js"></script><script src="queue.js"></script><script src="crew.js"></script><script src="concepts.js"></script>{% endblock %}
