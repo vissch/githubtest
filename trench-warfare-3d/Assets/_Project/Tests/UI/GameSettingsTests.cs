@@ -96,13 +96,42 @@ namespace TW.Tests
 
                 // the mechanism: master is the listener and ONLY the listener, the buses carry their own value
                 // unmultiplied. If master ever reappears as a bus, a source that reads both squares it.
+                // every bus below must differ from GameSettings.Defaults() and from each other: AudioLevels'
+                // statics are seeded from Defaults() at domain load, so a value that IS the default would
+                // already hold before ApplyAudio ran and the assert would prove nothing.
                 var half = GameSettings.Defaults();
-                half.Audio.Master = 0.5f; half.Audio.Ambience = 1f;
+                half.Audio.Master = 0.5f; half.Audio.Ambience = 1f; half.Audio.Sfx = 0.25f; half.Audio.Music = 0.75f;
                 TW.UI.SettingsApplier.ApplyAudio(half);
                 Assert.That(AudioListener.volume, Is.EqualTo(0.5f), "master goes to the listener unchanged");
                 Assert.That(AudioLevels.Ambience, Is.EqualTo(1f), "the ambience bus is not scaled by master as well");
-                Assert.That(AudioLevels.Sfx, Is.EqualTo(half.Audio.Sfx));
-                Assert.That(AudioLevels.Music, Is.EqualTo(half.Audio.Music));
+                Assert.That(AudioLevels.Sfx, Is.EqualTo(0.25f), "the sfx bus is copied from the settings");
+                Assert.That(AudioLevels.Music, Is.EqualTo(0.75f), "the music bus is copied from the settings");
+            }
+            finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
+        }
+
+        /// <summary>
+        /// [found-gamesettingstests-asserts-sfx-music-bus-line-20261016-0] AudioLevels' statics are seeded from
+        /// GameSettings.Defaults() at domain load, so asserting a bus against a value that IS the default proves
+        /// nothing: it held before ApplyAudio ran. Every bus here is given a value no default can supply.
+        /// </summary>
+        [Test]
+        public void ApplyAudioCopiesEveryBusToAudioLevels()
+        {
+            float restore = AudioListener.volume;
+            try
+            {
+                var s = GameSettings.Defaults();
+                s.Audio.Master = 0.5f; s.Audio.Ambience = 0.1f; s.Audio.Sfx = 0.25f; s.Audio.Music = 0.75f;
+                TW.UI.SettingsApplier.ApplyAudio(s);
+                Assert.That(AudioListener.volume, Is.EqualTo(0.5f),
+                    "[found-gamesettingstests-asserts-sfx-music-bus-line-20261016-0] ApplyAudio did not write the master bus");
+                Assert.That(AudioLevels.Ambience, Is.EqualTo(0.1f),
+                    "[found-gamesettingstests-asserts-sfx-music-bus-line-20261016-0] ApplyAudio did not write the ambience bus");
+                Assert.That(AudioLevels.Sfx, Is.EqualTo(0.25f),
+                    "[found-gamesettingstests-asserts-sfx-music-bus-line-20261016-0] ApplyAudio did not write the sfx bus");
+                Assert.That(AudioLevels.Music, Is.EqualTo(0.75f),
+                    "[found-gamesettingstests-asserts-sfx-music-bus-line-20261016-0] ApplyAudio did not write the music bus");
             }
             finally { AudioListener.volume = restore; TW.UI.SettingsApplier.ApplyAudio(SettingsStore.Current); }
         }
