@@ -1,0 +1,74 @@
+{
+  "subject": "look:every-unit-close",
+  "looked_at": [
+    "Captures/units/frames.txt (76 stills, 38 units, two yaws, clock HELD, pose_error_m 0)",
+    "Captures/units/00-Rifle-a.png",
+    "Captures/units/09-Pavise-a.png",
+    "Captures/units/09-Pavise-b.png",
+    "Captures/units/11-Redoubt-a.png",
+    "Captures/units/25-Frog-b.png",
+    "Captures/units/26-Sentry-b.png",
+    "Captures/units/29-MarkIV-a.png",
+    "Captures/units/37-Bullfrog-b.png",
+    "Captures/units/motion/sheet-21-Brute.png",
+    "docs/reference/tasks.md (The Proving Ground)",
+    "docs/reference/decisions.md (The Proving Ground)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (which model each machine wears)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (what the sidecar measures)",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Selection/SelectCursor.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Lift foot units off the mud at close range",
+      "why": "MEASURED: the capture sidecar fires 'men barely separate from the ground: unreadable' on 14 of 76 stills, with contrast_median 0.009 to 0.17 (09-Pavise-b 0.00901, 11-Redoubt-a 0.02312, 27-ATRifle-b 0.05579) against 0.30 to 1.44 on the same unit's other yaw, so the read flips with camera yaw alone. By eye it is worse than the number: in 00-Rifle-a and 26-Sentry-b the riflemen are dark olive lumps a few dozen pixels wide inside a near-black trench, no rim, no outline, while the wet mud beside them carries bright specular sheets. Readability is a veto: at the game's own close zoom a player cannot find his own infantry. GUESS: the night look's ground sheen sits above the figures' value. Wanted: on a reshoot of the same 76 poses, no still carries the warning and every still with a man in frame reads him in one glance.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs",
+        "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "The 38 units are reshot at zoom 9, pitch 25, yaws 21 and 201 with CaptureRig; in the 76 sidecars every still with men_in_frame >= 1 has contrast_median >= 0.25 and none carries the 'men barely separate from the ground' warning (today 14 do).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Repaint the Pavise: its atlas reads as marbled placeholder",
+      "why": "TWO-VIEW: 09-Pavise-a and 09-Pavise-b. The Pavise's shield, carapace and every leg segment are covered in a blue-on-white liquid marble swirl that follows the UVs, not the light, and changes pattern per part. Beside it 11-Redoubt-a is flat toon paint with a crisp spiral emblem and panel lines, which is the look the game has. The Pavise looks like a texture nobody finished, and its shield, the one part a player must recognise it by, is the loudest noise in the frame, so the unit reads as damaged or special when it is neither. Wanted: flat base colour with the house trim and emblem, the swirl gone, silhouette unchanged.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Resources/Vehicles/PaviseAtlas.jpg",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "PaviseAtlas.jpg is rebaked, ProvingGroundModelTests stays green, and a fresh close pair (`python Tools/assetboard/gamefilm.py battle Pavise`) is put beside 09-Pavise-a/-b for a blind critic, who must pick the new one as the finished paint.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Tone down the teal ground band under machines",
+      "why": "TWO-VIEW: 29-MarkIV-a and 37-Bullfrog-b, also in 09-Pavise-a/-b and 11-Redoubt-a. A glowing teal rounded-square band is painted on the ground under every machine. At close range it is the brightest thing in the frame, brighter than the unit it marks: in 37-Bullfrog-b the band fills the lower third and the toad's own green armour sits darker than it, and in 29-MarkIV-a the band crosses in front of the track and cuts the hull's base line. It is a fixed size, so the closer the camera the more of the screen it eats, and it carries more eye than the unit. The same marker is absent under foot units, so the loudest ground mark in the game says nothing about whose unit it is. GUESS: it is drawn at a fixed world width with no fade by camera distance; it is not in SelectionMarkers.cs, so a fixer must find what draws it first.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionController.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Selection/SelectionMarkers.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A close capture at zoom 9 of a machine has its brightest pixel on the machine, not on the ground band: the band's luma p95 inside the still is below the unit body's luma p95, checked by a short script over the new PNG and its sidecar, and ProvingGroundScreenTests stays green.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Keep tall machines in frame at the closest zoom",
+      "why": "TWO-VIEW: 37-Bullfrog-b and 29-MarkIV-a, both shot at the rig's zoom 9, pitch 25, which is above the camera's own ZoomMin of 6. The Bullfrog is cut off above the shoulders, its gatlings and head out of frame; the Mark IV shows one track and a slice of sponson and nothing else. The camera frames the feet, so the taller the machine the more of it leaves the top of the screen, and the units with the most expensive silhouettes are the ones a player cannot see whole when he leans in. Wanted: at the closest zoom the whole machine fits with headroom.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test puts the camera at ZoomMin on the tallest machine (the Bullfrog) and asserts its renderer bounds project wholly inside the viewport with at least 5% margin on every side; it fails on today's code.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
