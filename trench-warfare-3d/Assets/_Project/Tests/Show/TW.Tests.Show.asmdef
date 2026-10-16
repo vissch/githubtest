@@ -20,7 +20,8 @@
     "TW.Presentation.Terrain",
     "TW.Data",
     "Unity.InputSystem",
-    "TW.Perf"
+    "TW.Perf",
+    "TW.Editor"
   ],
   "includePlatforms": [
     "Editor"
