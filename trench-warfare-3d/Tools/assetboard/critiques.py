@@ -39,6 +39,7 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import briefs     # noqa: E402
 import build      # noqa: E402
+import notes      # noqa: E402
 
 VERDICT = re.compile(r'\s*VERDICT\b[^\n]*?(\d{1,3})\s*/\s*100\W*(.*)')
 TOP3 = re.compile(r'\s*TOP-3 MANDATED FIXES')
@@ -126,7 +127,7 @@ def save(where: Path, papers, title, subject, by='', role='', pictures=(), note=
         if name not in [x['file'] for x in c['pictures']]:
             c['pictures'].append(dict(file=name, caption=one(caption)))
         (home / name).write_bytes(data)
-    (home / 'critique.json').write_text(json.dumps(c, indent=1, sort_keys=True) + '\n', encoding='utf-8', newline='\n')
+    notes.write_whole(home / 'critique.json', json.dumps(c, indent=1, sort_keys=True) + '\n', newline='\n')
     return c
 
 
