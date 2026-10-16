@@ -81,6 +81,14 @@ namespace TW.Presentation.Units
         /// size" — overturns the 2026-09-26 decisions.md row that grew men for readability far out, so
         /// `FigureMetrics.Grow` is 1 at every zoom now and this is always UnitScale.</summary>
         public float ScaleAt(float zoom) => UnitScale * FigureMetrics.Grow(zoom);
+        /// <summary>The thinnest the men's ink outline is ever drawn, in screen pixels (VAT_URP's Outline pass reads it
+        /// as the global `_TWManOutlineMinPx`). The line is extruded in world space, which comes to about a pixel at the
+        /// standard play zoom, where a man is only ~30 px tall: the men measured readable there and still took looking
+        /// for. A pixel floor is what Toon_URP already does for the houses. Swept on a held assault frame at zoom 30 and
+        /// zoom 6; 0 restores the plain world-space line.</summary>
+        public static float OutlineMinPx = DefaultOutlineMinPx;
+        public const float DefaultOutlineMinPx = 1.6f;
+        static VATRenderer() => SceneStatics.Register(nameof(VATRenderer), () => OutlineMinPx = DefaultOutlineMinPx);   // a sweep ends with Play
         public bool CastShadows = true;
         [Tooltip("Metres from the camera beyond which the far model is used (a man is under about 40 pixels tall there).")]
         public float LodDistance = 170f;
@@ -124,6 +132,7 @@ namespace TW.Presentation.Units
         GraphicsBuffer.IndirectDrawIndexedArgs[] args;
         readonly Matrix4x4[] tankBatchA = new Matrix4x4[256], tankBatchB = new Matrix4x4[256];
         static readonly int LerpId = Shader.PropertyToID("_Lerp"), PosMinId = Shader.PropertyToID("_PosMin"), PosSizeId = Shader.PropertyToID("_PosSize"), CullId = Shader.PropertyToID("_Cull");
+        static readonly int OutlineMinPxId = Shader.PropertyToID("_TWManOutlineMinPx");
         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
         public bool ClipAtlas => clipAtlas;
@@ -227,6 +236,8 @@ namespace TW.Presentation.Units
         void LateUpdate()   // after SimHost.Update has interpolated this frame's poses
         {
             using var perf = TW.Sim.PerfMarkers.VatLate.Auto();
+            // every frame, not once: a shader reload during Play drops a global as readily as a material value
+            Shader.SetGlobalFloat(OutlineMinPxId, OutlineMinPx);
             if (figures == null || Host == null || Host.Presenter == null || Host.Local == null) return;
             var presenter = Host.Presenter;
             EnsureCapacity(presenter.Poses.Length);

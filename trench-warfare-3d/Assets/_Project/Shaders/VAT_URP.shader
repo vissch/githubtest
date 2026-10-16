@@ -57,6 +57,10 @@ Shader "TW/VAT Infantry (URP)"
             float4 _LiftA, _LiftB;   // their side's colour, as on the rings and the seat pips (TankRenderer.TeamA/B)
         CBUFFER_END
         float _TWGore;   // the GORE slider, 0..1 (CombatFx sets it each frame): the blood on a wounded man's uniform scales by it
+        // the men's outline is never thinner than this many pixels (VATRenderer.OutlineMinPx sets it each frame). A
+        // global, not a material float: a shader reload during Play resets material values to the shader's defaults,
+        // and 0 here would silently put the men back to the one-pixel line nobody could find.
+        float _TWManOutlineMinPx;
         #include "Assets/_Project/Shaders/TWAtmosphere.hlsl"   // ground mist and the quiet fog, as on the field
 
         // gone: 1 on a vertex of a limb this man has lost (the record's pad is a bit per limb id, the mesh's UV1.x the
@@ -396,7 +400,17 @@ Shader "TW/VAT Infantry (URP)"
                 // the line is extruded in world space, so it follows how big the man is drawn as well as how far off he is
                 // (the back rank of a standard frame is 149 m out and used to lose its outline entirely)
                 float width = _OutlineWidth * a.scale * clamp(w / 25.0, 1.0, 6.0);
-                o.positionCS = TransformWorldToHClip(a.positionWS + a.normalWS * width);
+                float4 cs0 = TransformWorldToHClip(a.positionWS);
+                float4 cs1 = TransformWorldToHClip(a.positionWS + a.normalWS * width);
+                // ...and a world-space line is about a pixel wide at the standard zoom, where a man is ~30 px tall:
+                // too thin to find him by eye. Toon_URP's outline clamps its width in PIXELS (Toon_URP.shader, the
+                // Outline pass); give the men the same floor, by topping up whatever the world extrusion got on
+                // screen. It only ever adds, so near zooms keep exactly the line they have.
+                float2 dpx = (cs1.xy / max(cs1.w, 1e-4) - cs0.xy / max(cs0.w, 1e-4)) * 0.5 * _ScreenParams.xy;
+                float px = length(dpx);
+                float2 dir = px > 1e-4 ? dpx / px : float2(0.0, 0.0);
+                cs1.xy += dir * max(_TWManOutlineMinPx - px, 0.0) * 2.0 / _ScreenParams.xy * cs1.w;
+                o.positionCS = cs1;
                 o.fog = ComputeFogFactor(o.positionCS.z);
                 return o;
             }
