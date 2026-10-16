@@ -149,6 +149,7 @@ namespace TW.Data
         public string Title;
         [TextArea] public string Briefing;
         public int MapId = 1;
+        [Tooltip("Required. Unset bakes FactionMap's default (British) and logs a warning at bake time.")]
         public FactionDefinition PlayerFaction, EnemyFaction;
         public UnitDefinition[] PlayerSlotOverrides = new UnitDefinition[5];
         public bool[] SlotUnlockedAtStart = { true, true, true, true, true };
