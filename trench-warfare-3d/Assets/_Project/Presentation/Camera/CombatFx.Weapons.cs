@@ -7,8 +7,9 @@
 // Critique lin5 (22/100: "size multipliers on cards too small to see"): a class is now told apart by its round's LIFE and
 // STREAK as well as its width (a sniper's long white streak that hangs, a pistol's short spit, a machine gun's dashes with
 // every third round a real tracer), and the classes are spread further apart (a sniper's flare 2.4, an officer's crisp pop).
-// Also here: the view (camera, zoom, unit scale) read once a frame for the shot and hit paths, which ran Camera.main and
-// TryGetComponent<IZoomSource> for each of about sixty events a second.
+// Also here: the view (camera, zoom, unit scale) read once a frame for the shot and hit paths, which used to look the
+// camera up again for each of about sixty events a second. The camera and the zoom now come from ViewEye, the one
+// reader for the whole picture; this keeps its own stamp only for the men's drawn scale, which needs the units field.
 using UnityEngine;
 using TW.Sim;
 
@@ -191,8 +192,8 @@ namespace TW.Presentation.Tactical
             if (viewFrame != Time.frameCount)
             {
                 viewFrame = Time.frameCount;
-                viewCam = Camera.main;
-                viewZoom = viewCam != null && viewCam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+                viewCam = ViewEye.Main;
+                viewZoom = ViewEye.Zoom;
                 viewScale = units != null ? units.UnitScale * Mathf.Clamp(viewZoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow) : 1f;
             }
             cam = viewCam; zoom = viewZoom; scale = viewScale;

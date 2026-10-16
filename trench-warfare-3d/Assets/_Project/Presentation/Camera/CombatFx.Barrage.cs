@@ -36,8 +36,7 @@ namespace TW.Presentation.Tactical
             incomingTick = tick;
             if (offMap == null) offMap = w.GetSystem<OffMapAbilitySystem>();
             if (offMap == null || !offMap.Scheduled.IsCreated || offMap.Scheduled.Length == 0) return;
-            var cam = Camera.main;
-            if (cam != null && cam.TryGetComponent<IZoomSource>(out var zs) && zs.CurrentZoom >= IncomingFarZoom) return;
+            if (ViewEye.Zoom >= IncomingFarZoom) return;
             uint lead = IncomingLeadTicks(w.Config.TickSeconds);
             for (int i = 0; i < offMap.Scheduled.Length; i++)
             {
@@ -96,8 +95,7 @@ namespace TW.Presentation.Tactical
         void OnDropLanded(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
-            var cam = Camera.main;
-            if (cam != null && cam.TryGetComponent<IZoomSource>(out var zs) && zs.CurrentZoom >= IncomingFarZoom) return;
+            if (ViewEye.Zoom >= IncomingFarZoom) return;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
             books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 2f, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
         }

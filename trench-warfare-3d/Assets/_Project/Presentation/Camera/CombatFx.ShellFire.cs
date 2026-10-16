@@ -87,7 +87,7 @@ namespace TW.Presentation.Tactical
         /// <summary>How much the shell's fire grows with the zoom: from 40 (FlipbookFx.FarGrow starts at 80, so at z70 it was 1
         /// and the fire a pinprick in the blizzard: critique c1b), to 2.2 from 88. The cloud grows by its square root.</summary>
         public static float ShellFarAt(float zoom) => Mathf.Clamp(zoom / 40f, 1f, 2.2f);
-        float ShellFar() { var eye = Camera.main; return ShellFarAt(eye != null && eye.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f); }
+        float ShellFar() => ShellFarAt(ViewEye.Zoom);
 
         /// <summary>How many grains of grit a burst of radius r sprays (before DebrisRenderer's own share by distance and zoom).</summary>
         public static int GritCount(float r) => Mathf.RoundToInt(12f + 2.5f * Mathf.Clamp(r, 2f, 9f));

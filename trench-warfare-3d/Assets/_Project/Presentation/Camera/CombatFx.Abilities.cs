@@ -180,7 +180,7 @@ namespace TW.Presentation.Tactical
                     // was 1.5 m, a sliver). Past zoom 80 it widens and brightens with FarGrow: the old white column was the
                     // overview's strongest read, and the drawn one must not lose it.
                     float run = (simNow - s.T0) * 12f;
-                    float far = FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
+                    float far = FlipbookFx.FarGrow(ViewEye.Zoom);
                     float bright = (SceneMood.Night ? 1.5f : 1f) * Mathf.Lerp(1f, 2f, (far - 1f) / (FlipbookFx.FarGrowMax - 1f));
                     // height grows with the zoom too: at 240 the old column stood 60 m, the drawn one stands 75
                     lanceCards.Clear();
