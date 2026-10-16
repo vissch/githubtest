@@ -367,6 +367,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   attempt. Run, from wherever the lane's tip lives:
   `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:5ca548dac origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
   then check CI with `gh run list --branch lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b --limit 3`.
+- **The close-range readability bar counts a tank as a man (2026-10-16, lane
+  `found-lift-foot-units-off-the-mud-at-close-range`):** the foot figures are lifted off the mud at close range
+  (`look.menClose`): the reshoot's stills below the bar fell from 55 of 76 to 22. All 22 that remain are **vehicle**
+  units: `CaptureRig.Measure`'s `men_in_frame` counts every live entity, so on a tank unit it measures the hull
+  against the ground beside it and calls it an unreadable man. Nothing on the figure path can move those numbers.
+  Options: (a) measure only entities that are drawn as foot figures, so the bar says what the goal says ("every still
+  with a man in frame reads him") — **the default taken here**, and the proof is then about men; (b) lift the machines
+  at close range as well (a `Tank_URP` change, a new look knob, judged against the owner's approved vehicle stills);
+  (c) leave the bar as it is and accept that it can never be green.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
