@@ -54,6 +54,18 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>
+        /// The room across the bar: the window less the debug panel, the income readout on the left and the pause
+        /// and speed buttons on the right, each of which shrinks below 1000 px of bar. OnGUI derives it here and
+        /// nowhere else, so a test can state the thresholds once instead of hand-copying them (TU11).
+        /// </summary>
+        public static float BarRoom(float screenWidth, bool panelOpen)
+        {
+            float barLeft = panelOpen ? 320f : 0f;
+            bool narrow = screenWidth - barLeft < 1000f;
+            return screenWidth - barLeft - (narrow ? 8f : 118f) - (narrow ? 104f : 236f);
+        }
+
+        /// <summary>
         /// What the drawing loop actually advances through for a given cell size — the figure BarMetrics has to
         /// cover. This duplicates the loop's arithmetic, which is the very thing that drifted, so it is NOT the
         /// safeguard: the safeguard is the assertion at the end of the bar, which measures the real loop. This
@@ -425,7 +437,7 @@ namespace TW.Presentation.Tactical
             // ---- bottom bar: income | wooden frame with roster and support | pause and speed -----------------
             const float sideH = BarHeight - 14f;
             bool narrow = Screen.width - (panelOpen ? 320f : 0f) < 1000f;
-            float rightW = narrow ? 104f : 236f, leftW = narrow ? 8f : 118f;
+            float leftW = narrow ? 8f : 118f;   // the right-hand width lives in BarRoom
             float barLeft = panelOpen ? 320f : 0f;
             GUI.DrawTexture(new Rect(barLeft, Screen.height - sideH, Screen.width - barLeft, sideH), sideTex);
             GUI.DrawTexture(new Rect(barLeft, Screen.height - sideH, Screen.width - barLeft, 4f), stripTex);
@@ -435,7 +447,7 @@ namespace TW.Presentation.Tactical
                 GUI.DrawTexture(new Rect(barLeft + leftW - 28f, Screen.height - sideH * 0.5f - 10f, 20f, 20f), coin);
             }
 
-            float room = Screen.width - barLeft - leftW - rightW;
+            float room = BarRoom(Screen.width, panelOpen);
             // Sized by BarMetrics from the same constants this loop advances by, so the frame cannot drift from its
             // contents the way it had — and checked against what the loop actually drew, at the end of the bar.
             BarMetrics(room, out float size, out float frameW);

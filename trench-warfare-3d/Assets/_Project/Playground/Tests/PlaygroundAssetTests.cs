@@ -400,7 +400,9 @@ namespace TW.Tests.Playground
                 float hip = u.Skel.HipsRest.y;
                 foreach (var name in new[] { "Rifle Idle", "Walk With Rifle", "Crouch Idle" })
                 {
-                    int c = l.ClipIndex(name); if (c < 0) continue;
+                    // [TU11] a missing clip used to skip in silence: the whole loop could check nothing
+                    int c = l.ClipIndex(name);
+                    Assert.That(c, Is.GreaterThanOrEqualTo(0), $"[TU11] the library has no clip named \"{name}\", so nothing was posed for it");
                     foreach (float t in new[] { 0f, 0.3f, 0.6f })
                     {
                         deck.Pose(u, c, t, 1f, null);
@@ -414,7 +416,7 @@ namespace TW.Tests.Playground
                 // the rifle measure reads the pose: with the body push off, a crouch walk puts the barrel in the torso; with
                 // it on, never (critic r5: a number that never changes proves nothing)
                 int crouch = l.ClipIndex("Rifle Crouch Walk");
-                if (crouch >= 0)
+                Assert.That(crouch, Is.GreaterThanOrEqualTo(0), "[TU11] the library has no \"Rifle Crouch Walk\", so the rifle-clearance control never ran");
                 {
                     float worst = 0f, kept = 0f;
                     u.KeepRifleClear = false;
@@ -426,7 +428,7 @@ namespace TW.Tests.Playground
                 }
                 // and a walk actually moves the legs
                 int walk = l.ClipIndex("Walk With Rifle");
-                if (walk >= 0)
+                Assert.That(walk, Is.GreaterThanOrEqualTo(0), "[TU11] the library has no \"Walk With Rifle\", so the leg swing was never checked");
                 {
                     deck.Pose(u, walk, 0.1f, 1f, null); var a = u.Skel.Bones[14].localRotation;
                     deck.Pose(u, walk, 0.6f, 1f, null); var b = u.Skel.Bones[14].localRotation;
@@ -449,7 +451,8 @@ namespace TW.Tests.Playground
             // WalkerDrive: the game's WalkerGait places the feet, the playground bends the knees forward. Walking for five
             // seconds, no foot may sink into the ground and one must always be standing on it, and the body stays up.
             var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).walker);
-            if (e == null) Assert.Ignore("no walker in the library");
+            // [TU11] Assert.Ignore passed in silence: the committed library has a walker
+            Assert.That(e, Is.Not.Null, "[TU11] no walker in the committed library, so nothing walked");
             var parent = new GameObject("test stage").transform;
             try
             {
@@ -481,7 +484,7 @@ namespace TW.Tests.Playground
         public void A_Flyer_Hovers_And_Falls_When_Knocked_Out()
         {
             var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).flyer);
-            if (e == null) Assert.Ignore("no flyer in the library");
+            Assert.That(e, Is.Not.Null, "[TU11] no flyer in the committed library, so nothing hovered");
             var parent = new GameObject("test stage").transform;
             try
             {
@@ -502,7 +505,7 @@ namespace TW.Tests.Playground
         {
             // VehicleRig.Sag once rolled the wrong way: every wreck leaned onto the wheel it still had, into the mud (r38)
             var e = Lib().Vehicles.FirstOrDefault(v => VehicleManifest.Parse(v.Manifest).partList.Any(p => p.name == "Wheel_FL"));
-            if (e == null) Assert.Ignore("no wheeled vehicle in the library");
+            Assert.That(e, Is.Not.Null, "[TU11] no wheeled vehicle in the committed library, so no wreck was checked");
             var parent = new GameObject("test stage").transform;
             try
             {

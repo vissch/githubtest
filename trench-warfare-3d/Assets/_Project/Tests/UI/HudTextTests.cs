@@ -49,26 +49,26 @@ namespace TW.Tests
                 }
             }
             roster.Dispose();
+            // [TU11] every foreach in this file walks this array, so an empty one asserts nothing and the whole file
+            // goes green on a roster that stopped being filled. Both factions field eight machines (the iron and
+            // brass sets of FactionBuildingsTests.Unit_Tracks_Name_The_Factions_Own_Machines), and the men on top.
+            if (vehicles) Assert.That(found.Count, Is.EqualTo(8), "[TU11] the two rosters field eight machines between them; this walk found " + found.Count);
+            else Assert.That(found.Count, Is.GreaterThan(8), "[TU11] both rosters hold the eight machines and the men besides; this walk found " + found.Count);
             return found.ToArray();
         }
 
+        /// <summary>[TU11] The two loops that used to stand here walked the same archetypes as
+        /// HudBindTests.EveryDeployableMachineHasItsOwnNamePortraitAndTooltipOnBothSides, which asserts more about
+        /// each one. BattleHud.VehicleName/VehicleTip (BattleHud.cs:124,127) only forward to UnitLook, exactly as
+        /// HudText does, so what is left to check is that the old HUD's two forwarders really are the same words.</summary>
         [Test]
-        public void EveryDeployableMachineHasANameOfItsOwn()
+        public void TheOldHudsNamesAndTooltipsAreTheSameWordsAsTheNewHuds()
         {
-            foreach (byte a in DeployableArchetypes())
-                Assert.That(BattleHud.VehicleName(a), Is.Not.EqualTo("Vehicle"),
-                    $"archetype {a} is in the default roster but falls through to the generic name, so its deploy " +
-                    "button is labelled \"Vehicle\"");
-        }
-
-        [Test]
-        public void EveryDeployableMachineHasATooltipOfItsOwn()
-        {
-            string generic = BattleHud.VehicleTip(200);   // an archetype that cannot exist: the default branch
-            foreach (byte a in DeployableArchetypes())
-                Assert.That(BattleHud.VehicleTip(a), Is.Not.EqualTo(generic),
-                    $"archetype {a} is deployable but falls through to the generic tooltip, so the player is told " +
-                    "nothing about what they are buying");
+            byte machine = DeployableArchetypes()[0];
+            Assert.That(BattleHud.VehicleName(machine), Is.EqualTo(HudText.VehicleName(machine)), "[TU11] the two HUDs name archetype " + machine + " differently");
+            Assert.That(BattleHud.VehicleTip(machine), Is.EqualTo(HudText.VehicleTip(machine)), "[TU11] the two HUDs describe archetype " + machine + " differently");
+            Assert.That(BattleHud.VehicleName(200), Is.EqualTo(HudText.VehicleName(200)), "[TU11] the two HUDs fall through differently for an archetype that cannot exist");
+            Assert.That(BattleHud.VehicleTip(200), Is.EqualTo(HudText.VehicleTip(200)), "[TU11] the two HUDs fall through differently for an archetype that cannot exist");
         }
 
         /// <summary>One banner per event (CombatFx drew a second, IMGUI one over the HUD's until a player build's shot showed

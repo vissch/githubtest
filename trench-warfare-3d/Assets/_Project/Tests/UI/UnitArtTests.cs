@@ -31,8 +31,10 @@ namespace TW.Tests
         [Test]
         public void TheArtImportsWithStraightAlphaAndNoMips()
         {
+            int textures = 0;
             foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/_Project/UI/Resources/UnitArt" }))
             {
+                textures++;
                 var path = AssetDatabase.GUIDToAssetPath(guid);
                 var imp = (TextureImporter)AssetImporter.GetAtPath(path);
                 Assert.That(imp.alphaIsTransparency, Is.True, path);
@@ -40,6 +42,8 @@ namespace TW.Tests
                 var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
                 Assert.That(tex.width % 4 == 0 && tex.height % 4 == 0, $"{path} is {tex.width}x{tex.height}: block compression needs multiples of 4");
             }
+            // [TU11] FindAssets returning nothing (a moved or renamed folder) used to pass this test in silence.
+            Assert.That(textures, Is.GreaterThan(0), "[TU11] no texture at all under Assets/_Project/UI/Resources/UnitArt: the import settings of nothing were checked");
         }
 
         static HudDialogue Strip(out VisualElement root)
