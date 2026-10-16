@@ -298,7 +298,7 @@ def reviews(w, fw):
 
 # ---- attempts: no unit is gone over again without progress ------------------------------------------------------------
 
-NOT_ITS_OWN = re.compile(r'cannot be switched to|the work checkout cannot be used|index\.lock', re.I)   # a clash between relays, not the unit's try
+NOT_ITS_OWN = re.compile(r'cannot be switched to|already used by worktree|is already checked out at|the work checkout cannot be used|index\.lock', re.I)   # a clash between relays, not the unit's try
 
 
 def paths_named(text):
@@ -367,6 +367,8 @@ def attempts(w, opens, dones, running, idle, extras=None):
         if run in rec['seen']:
             continue
         rec['seen'] = (rec['seen'] + [run])[-40:]
+        if verdict == 'PASS' or not NOT_ITS_OWN.search(why or ''):
+            rec.pop('main_try', None)                       # a real try since it was sent to the main relay: feed may give it out again
         if verdict == 'PASS':
             rec.update(fails=[], fp={})
         elif verdict in ('FAIL', 'BLOCKED') and not NOT_ITS_OWN.search(why or ''):
@@ -502,6 +504,8 @@ def stuck_on_extras(w, st, opens, idle, extras):
             if main is None or len(rec.get('fails') or []) >= TRIES:
                 continue                                    # no main copy to fall back on, or its park is due: left as it is
             if w.unqueue(b, uid):                           # its second try goes to the main relay: its copy there comes off 99
+                rec['main_try'] = True                      # and feed does not hand it straight back to an extra relay (07:26-10:02, 2026-10-16)
+                st[uid] = rec
                 code, said = w.prio(uid, 50) if found.prio(main) >= PARKED else (0, '')
                 out.append(f'attempts: {uid} taken off {Path(b).name}: it went nowhere there and nothing changed since; '
                            + ('its second try is the main relay\'s' if code == 0 else f'its main copy stays at {found.prio(main)}: {said[:100]}'))

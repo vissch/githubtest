@@ -65,7 +65,7 @@ class Fake(autoloop.World):
         return 0, ''
 
     def works(self):            # never the desktop's real work checkouts
-        return {}
+        return {n: Path(p) for n, p in self.work_dirs.items()}
 
     def has(self, ref, path):
         return True
@@ -157,6 +157,23 @@ class Fake(autoloop.World):
 
     def brief_answered(self, bid):
         return bid in self.answered_briefs
+
+    # the checkouts: what `git worktree list` says, which are clean, and what was detached
+    cos, dirty, detached, on_main, work_dirs = {}, set(), [], ('', ''), {}
+
+    def checkouts(self):
+        return dict(self.cos)
+
+    def clean(self, work):
+        return work not in self.dirty
+
+    def detach(self, work):
+        self.detached = self.detached + [work]
+        self.cos = {k: v for k, v in self.cos.items() if v != work}
+        return 0, ''
+
+    def main_on(self):
+        return self.on_main
 
 
 def main():
@@ -332,6 +349,68 @@ def main():
     back = autoloop.wait_for_relay(w)
     case('a unit about the relay whose lane has no Tools/relay waits parked at 99 (not a run that blocks); once the relay line has landed it goes back to its own priority; other units are left alone',
          len(first) == 2 and all('waits for relay-harness' in l for l in first) and w.prios == {'second-critic-on': 20, 'relay-moved': 3} and len(back) == 1 and 'goes back to priority 20' in back[0], (first, back, w.prios))
+
+    # ---- a lane checked out in another checkout (the night of 2026-10-16) ----
+    def wt(name, **kw):
+        w = Fake(tmp / name, extras=(2, 3))
+        w.work_dirs = {1: 'C:/gh/relay-work', 2: 'C:/gh/relay-work2', 3: 'C:/gh/relay-work3'}
+        put(w.main, 'queue', 'first', lane='lane/show/first', priority=10)
+        put(w.main, 'queue', 'second', lane='lane/show/second', priority=20)
+        for k, v in kw.items():
+            setattr(w, k, v)
+        return w
+    w = wt('wt1', cos={'lane/show/first': 'C:/gh/relay-work'}, dirty={'C:/gh/relay-work'})
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case("a lane checked out in another relay's work checkout whose tree has changes is never fed: the relay gets the next lane, and the log says the lane was skipped",
+         got == ['second'] and w.detached == [] and any('lane/show/first skipped' in l for l in lines), (got, lines))
+    w = wt('wt2', cos={'lane/show/first': 'C:/gh/relay-work'})
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case("the main relay's work checkout still holding its last lane after its run stopped (clean, not running) is detached to free it, and the lane is fed",
+         got == ['first'] and w.detached == ['C:/gh/relay-work'] and any('lane/show/first freed' in l for l in lines) and 2 in w.started, (got, lines, w.detached))
+    w = wt('wt3', cos={'lane/show/first': 'C:/gh/relay-work3', 'lane/show/second': 'C:/gh/githubtest-relay'})
+    w.text[w.extras[3]] = RUN.replace('relay-four-checks', 'x3')
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case("a lane checked out by a running relay or by a checkout that is no relay's is not fed nor freed; with no lane left the relay gets nothing and is not started",
+         got == [] and w.detached == [] and 2 not in w.started and sum('skipped' in l for l in lines) == 2, (got, lines))
+    w = wt('wt4', cos={'lane/show/mine': 'C:/gh/githubtest-relay'})
+    put(w.extras[2], 'queue', 'mine', lane='lane/show/mine')
+    lines = autoloop.feed(w)
+    case("an extra relay whose own queued unit's lane is checked out elsewhere is not started (it would fail at once with 0 legs)",
+         2 not in w.started and any('relay 2 is not started' in l for l in lines), (lines, w.started))
+    w = wt('wt5', on_main=('first', ''))
+    w.text[w.main] = RUN.replace('lane lane/show/relay-four-checks', 'lane None')
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case('the unit the running main relay is on (its progress now_on) is never fed to an extra relay, also while its status names no lane yet',
+         'first' not in got and got == ['second'], (got, lines))
+    w = wt('wt6')
+    (w.home / 'attempts.json').write_text(json.dumps({'first': dict(seen=['r1'], fails=['r1 FAIL'], main_try=True)}), encoding='utf-8')
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case('a unit taken off an extra relay for its second try on the main relay is not handed straight back to an extra relay',
+         got == ['second'], (got, lines))
+
+    w = wt('wt8', cos={'lane/show/first': 'C:/gh/relay-work2'})
+    put(w.extras[2], 'queue', 'own', lane='lane/show/own')
+    lines = autoloop.feed(w)
+    case('a relay started this round keeps its checkout: another relay does not detach it in the same round',
+         2 in w.started and w.detached == [] and not (w.extras[3] / 'relay' / 'queue' / 'first.json').exists(), (lines, w.detached))
+    w = wt('wt7')
+    put(w.extras[2], 'queue', 'first', lane='lane/show/first')
+    w.stop_records = [('r1', '2026-10-16T05:00:00', 'first', 'FAIL', 'execute leg 1 of 1 reported blocked'),
+                      ('r2', '2026-10-16T09:46:00', 'first', 'FAIL', "fatal: 'lane/show/first' is already used by worktree at 'C:/gh/relay-work'"),
+                      ('r3', '2026-10-16T09:52:00', 'first', 'FAIL', "fatal: 'lane/show/first' is already used by worktree at 'C:/gh/relay-work'")]
+    lines = autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
+    case('a 0-leg FAIL that is only a lane-switch refusal ("already used by worktree") is the loop\'s mistake: it is no try of the unit, and the unit is not parked for it',
+         rec.get('fails') == ['r1 FAIL'] and not rec.get('parked') and (w.extras[2] / 'relay' / 'queue' / 'first.json').exists() is False and rec.get('main_try'), (rec, lines))
+    w.stop_records = w.stop_records + [('r4', '2026-10-16T11:00:00', 'first', 'BLOCKED', 'execute leg 2 of 2 reported blocked')]
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
+    case('once the main relay has given it a real try, the unit may be fed to an extra relay again', not rec.get('main_try'), rec)
 
     # ---- one round, and the lock ----
     calls = []

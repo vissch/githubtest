@@ -304,6 +304,49 @@ class World:
             return False, f'not put aside: git stash failed ({said[:120]})'
         return True, f'put aside as a stash and {d / (stamp + "-relay" + str(n) + ".patch")}'
 
+    def checkouts(self):
+        """{branch: the checkout it is checked out in} from `git worktree list --porcelain` of the run copy's repo
+        and of every work checkout's (one repo today, but a work checkout cloned apart would have its own); None when
+        git did not answer. A branch checked out in one worktree cannot be switched to in another: the extra relay
+        fed such a lane failed at once with 0 legs, all night of 2026-10-16."""
+        out, asked = {}, 0
+        for where in [RELAY.parents[3], *self.works().values()]:
+            if not Path(where).exists():
+                continue
+            code, text = self.git(where, 'worktree', 'list', '--porcelain')
+            if code:
+                continue
+            asked += 1
+            path = ''
+            for line in text.splitlines():
+                if line.startswith('worktree '):
+                    path = line[9:].strip()
+                elif line.startswith('branch refs/heads/') and path:
+                    out.setdefault(line[18:].strip(), path)
+        return out if asked else None
+
+    def clean(self, work):
+        """True when a checkout has no changed or new files (read only: no index refresh is written)."""
+        code, out = self.git(work, '--no-optional-locks', 'status', '--porcelain')
+        return code == 0 and not out.strip()
+
+    def detach(self, work):
+        """Let go of a checkout's branch (git switch --detach), so another checkout can take the lane."""
+        return self.git(work, 'switch', '-q', '--detach')
+
+    def main_on(self):
+        """(unit, lane) the main relay's current run is on, from its progress.json now_on and its status line;
+        ('', '') when it does not run. The status line names no lane before the run's first leg has one: the loop
+        then fed relay 2 the very unit the running main relay was on (01:41, 2026-10-16)."""
+        code, text = self.relay(self.main, 'status')
+        m = re.search(r'^RUNNING: \S+ (\S+)[^,\n]*, lane (\S+)', text or '', re.M) if code == 0 else None
+        if not m:
+            return '', ''
+        lane = '' if m.group(2) in ('None', '') else m.group(2)
+        home = Path(os.environ.get('LOCALAPPDATA') or Path.home()) / 'TrenchWarfare' / 'relay'
+        now = str(load(home / 'runs' / m.group(1) / 'progress.json', {}).get('now_on') or '')
+        return now.split(',')[0].strip(), lane
+
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
 
@@ -554,19 +597,59 @@ def may_start(w, n, reason):
     return True
 
 
+def lane_free(w, n, lane, cos, runs, out):
+    """True when relay n can switch its work checkout to `lane`: no other checkout has it checked out, or the one
+    that has it is the work checkout of a relay that does not run and has a clean tree, which is then detached to
+    let go of it. `cos` {branch: checkout} (checkouts()), `runs` {relay number: its running lanes or None}. A lane
+    the loop may not take is said in `out` and left alone."""
+    if not lane:
+        return True
+    works = {m: Path(p) for m, p in w.works().items()}
+    at = cos.get(lane)
+    if not at or (n in works and os.path.normcase(os.path.abspath(at)) == os.path.normcase(os.path.abspath(works[n]))):
+        return True
+    m = next((m for m, p in works.items() if os.path.normcase(os.path.abspath(p)) == os.path.normcase(os.path.abspath(at))), None)
+    if m is None or m == n or runs.get(m) != set() or not w.clean(at):
+        why = ('it is not a relay\'s work checkout' if m is None else 'its relay runs' if runs.get(m) != set() else 'its tree has changes')
+        out.append(f'feed: relay {n}: {lane} skipped: it is checked out in {at} ({why})')
+        return False
+    if not w.acting:
+        out.append(f'feed: relay {n}: {lane} would be freed from {at} (relay {m} does not run, clean tree)')
+        return True
+    code, said = w.detach(at)
+    if code:
+        out.append(f'feed: relay {n}: {lane} skipped: {at} could not let go of it ({said[:120]})')
+        return False
+    cos.pop(lane, None)
+    out.append(f'feed: relay {n}: {lane} freed: {at} (relay {m}, not running, clean) was detached from it')
+    return True
+
+
 def feed(w):
     """Every extra relay that is not running gets work and is started."""
     out = []
-    lanes = set()
-    for board in [w.main, *w.extras.values()]:
+    lanes, runs = set(), {}
+    boards = {1: w.main, **w.extras}
+    for m, board in boards.items():
         got, _ = w.status(board)
         if got is None:
             return ['feed: a relay did not say whether it runs: nothing is fed this round']
         lanes |= got
+        runs[m] = got
+    cos = w.checkouts()
+    if cos is None:
+        return ['feed: git did not list the checkouts: nothing is fed this round']
+    main_unit, main_lane = w.main_on()          # the main run's unit and lane, also before its status names a lane
+    if main_lane:
+        lanes.add(main_lane)
+    tries = loopsteps.load(w.home / 'attempts.json', {})
     held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()} | lanes
     kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}   # x and x-b are one piece of work
     kin_lanes = {loopsteps.family(l)[0] for l in lanes}
     q, done = queue_of(w.main)
+    main_ids = {loopsteps.family(main_unit)[0]} if main_unit else set()
+    if main_unit and (q.get(main_unit) or {}).get('lane'):
+        held.add(q[main_unit]['lane'])
     for n, board in sorted(w.extras.items()):
         running, reason = w.status(board)
         if running:
@@ -582,12 +665,14 @@ def feed(w):
             free = {}
             for uid, u in q.items():
                 if uid in done or found.prio(u) >= PARKED or not u.get('lane') or u['lane'] in held or loopsteps.work_key(uid, u) in kin \
-                        or loopsteps.family(u['lane'])[0] in kin_lanes:
+                        or loopsteps.family(u['lane'])[0] in kin_lanes or loopsteps.family(uid)[0] in main_ids \
+                        or (tries.get(uid) or {}).get('main_try'):      # sent to the main relay for its second try: not fed back
                     continue
                 free.setdefault(u['lane'], []).append((found.prio(u), uid, u))
-            if not free:
+            lane = next((k for k in sorted(free, key=lambda k: (min(p for p, _, _ in free[k]), k))
+                         if lane_free(w, n, k, cos, runs, out)), None)
+            if lane is None:
                 continue
-            lane = min(free, key=lambda k: (min(p for p, _, _ in free[k]), k))
             units = sorted(free[lane], key=lambda x: (x[0], x[1]))
             held.add(lane)
             if not w.acting:
@@ -613,6 +698,12 @@ def feed(w):
             w.commit_push(board, ['relay/queue/' + f'{uid}.json' for _, uid, _ in units], f'relay: {len(units)} units of {lane} for extra relay {n}, kept local', push=False)
             out.append(f'feed: relay {n} was empty: it gets {lane} ({", ".join(uid for _, uid, _ in units)}), parked at {PARKED} on the main board')
             reason = ''
+        else:
+            blocked = sorted({v.get('lane') for v in mine.values()} - {None, ''})
+            blocked = [l for l in blocked if l in lanes or not lane_free(w, n, l, cos, runs, out)]
+            if blocked:                         # it would fail at once with 0 legs: not started
+                out.append(f'feed: relay {n} is not started: {", ".join(blocked)} cannot be switched to now')
+                continue
         if not w.acting:
             out.append(f'feed: relay {n} is not running and has work: it would be started')
             continue
@@ -628,6 +719,7 @@ def feed(w):
         if not may_start(w, n, reason):
             continue
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
+        runs[n] = {'started this round'}        # its checkout is no longer free to detach in this round
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
     extra_kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}
