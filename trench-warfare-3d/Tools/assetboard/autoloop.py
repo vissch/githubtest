@@ -647,6 +647,16 @@ def feed(w):
     kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}   # x and x-b are one piece of work
     kin_lanes = {loopsteps.family(l)[0] for l in lanes}
     q, done = queue_of(w.main)
+    waiting = load(w.home / 'lane_waits.json', {})          # {unit: lane} taken off an extra relay because its lane was held
+    for uid, lane in sorted(waiting.items()):
+        if uid in done or uid not in q:
+            waiting.pop(uid)
+        elif lane not in cos and lane not in lanes and w.acting and w.prio(uid, 50)[0] == 0:
+            waiting.pop(uid)
+            q[uid]['priority'] = 50
+            out.append(f'feed: {uid} goes back to priority 50: {lane} is free now')
+    if w.acting:
+        save(w.home / 'lane_waits.json', waiting)
     main_ids = {loopsteps.family(main_unit)[0]} if main_unit else set()
     if main_unit and (q.get(main_unit) or {}).get('lane'):
         held.add(q[main_unit]['lane'])
@@ -661,6 +671,15 @@ def feed(w):
                 latest[k] = max(latest.get(k, 0), loopsteps.family(u)[1])
         mine = {u: v for u, v in open_units(board).items() if u not in done                  # done on the main board: not work
                 and loopsteps.family(u)[1] >= latest.get(loopsteps.work_key(u, v), 0)}       # nor a unit a later copy (x-b) replaces
+        stuck = {u: v for u, v in mine.items() if v.get('lane') and v['lane'] not in lanes and not lane_free(w, n, v['lane'], cos, runs, out)}
+        if stuck and w.acting:                  # its lane is held where the loop cannot free it: the relay is not left standing on it
+            for uid, v in sorted(stuck.items()):
+                if w.unqueue(board, uid):
+                    mine.pop(uid)
+                    waiting[uid] = v['lane']
+                    out.append(f'feed: relay {n}: {uid} taken off its queue: {v["lane"]} is held where the loop cannot free it; '
+                               f'it waits parked on the main board until the lane is free')
+            save(w.home / 'lane_waits.json', waiting)
         if not mine:
             free = {}
             for uid, u in q.items():
@@ -726,6 +745,10 @@ def feed(w):
     work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held and loopsteps.work_key(u, v) not in extra_kin
                for u, v in q.items())                  # nor the copy of a unit an extra relay holds
     started = False
+    if running == set() and work:               # the lanes it will take, held by a stopped extra relay's clean checkout, are freed first
+        for lane in sorted({v.get('lane') for u, v in q.items() if u not in done and found.prio(v) < PARKED and v.get('lane')} - held):
+            if lane in cos:
+                lane_free(w, 1, lane, cos, runs, out)    # its 12:42 run had 4 FAILs that were only these refusals (2026-10-16)
     if running == set() and work:
         if not w.acting:
             out.append('feed: the main relay is not running and has work: it would be started')

@@ -374,12 +374,28 @@ def main():
     lines = autoloop.feed(w)
     got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
     case("a lane checked out by a running relay or by a checkout that is no relay's is not fed nor freed; with no lane left the relay gets nothing and is not started",
-         got == [] and w.detached == [] and 2 not in w.started and sum('skipped' in l for l in lines) == 2, (got, lines))
+         got == [] and w.detached == [] and 2 not in w.started and sum('relay 2:' in l and 'skipped' in l for l in lines) == 2, (got, lines))
     w = wt('wt4', cos={'lane/show/mine': 'C:/gh/githubtest-relay'})
     put(w.extras[2], 'queue', 'mine', lane='lane/show/mine')
+    put(w.main, 'queue', 'mine', lane='lane/show/mine', priority=99)
     lines = autoloop.feed(w)
-    case("an extra relay whose own queued unit's lane is checked out elsewhere is not started (it would fail at once with 0 legs)",
-         2 not in w.started and any('relay 2 is not started' in l for l in lines), (lines, w.started))
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case("an extra relay whose own queued unit's lane is held where the loop cannot free it is not left standing on it: the unit comes off its queue and it is fed the next free lane (relay 5, 11:42-12:16)",
+         got == ['first', 'second'][:len(got)] and 'mine' not in got and got and 2 in w.started, (lines, got, w.started))
+    w.cos = {}
+    w.text = {b: IDLE for b in w.text}
+    back = autoloop.feed(w)
+    case('once its lane is free, the unit taken off for it goes back to priority 50 on the main board',
+         w.prios.get('mine') == 50 and any('mine goes back to priority 50' in l for l in back), (back, w.prios))
+    w = Fake(tmp / 'wt10', extras=(4,))
+    w.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
+    w.cos = {'lane/show/heroes': 'C:/gh/relay-work4'}
+    put(w.extras[4], 'queue', 'other', lane='lane/show/other')                 # relay 4 stopped, waiting out its restart wait
+    (w.home / 'starts.json').write_text(json.dumps({'4': dict(at=w.clock, reason='', wait=1800)}), encoding='utf-8')
+    put(w.main, 'queue', 'heroes', lane='lane/show/heroes', priority=10)
+    lines = autoloop.feed(w)
+    case('the main relay\'s lane held by a stopped extra relay\'s clean checkout is freed before the main relay starts (its 12:42 run: 4 FAILs that were only these refusals)',
+         w.detached == ['C:/gh/relay-work4'] and 1 in w.started, (lines, w.detached, w.started))
     w = wt('wt5', on_main=('first', ''))
     w.text[w.main] = RUN.replace('lane lane/show/relay-four-checks', 'lane None')
     lines = autoloop.feed(w)
