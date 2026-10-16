@@ -52,7 +52,7 @@ PROMPTED = 'twf3d_concepts'                      # the folder of IMAGES the page
 DESKTOP = 'emtd-desktop'                         # the ssh host of the GPU machine (the owner's ~/.ssh/config)
 DESKTOP_DIR = 'C:/Users/PC/Documents/claude/twf3d-vehicle-exploration'      # gen.py and launch.ps1 are there
 THUMB = 360                                      # the longest side of a thumbnail, in pixels
-THUMBS_PER_READ = 60                             # new thumbnails a read makes at most: a first read of 1,600 takes a few of them
+THUMB_SECONDS = 25                               # how long a read spends on new thumbnails at most: the first read of 1,600 takes a few of them
 RESCAN_SECONDS = 60                              # how often the folders are listed again
 RENDER_LIMIT = 60 * 60                           # a request still not done after this long has failed
 LOOK_AFTER = 10 * 60                             # and after this long without all its pictures the desktop is asked how it went
@@ -338,19 +338,18 @@ def make_thumb(src: Path, dst: Path):
     tmp.replace(dst)
 
 
-def thumbs(items, out: Path, images: Path = None, budget=THUMBS_PER_READ):
-    """Make the thumbnails the site does not have yet, at most `budget` a read. Returns how many are still missing."""
-    images, missing = Path(images or IMAGES), 0
+def thumbs(items, out: Path, images: Path = None, seconds=THUMB_SECONDS):
+    """Make the thumbnails the site does not have yet, for `seconds` at most a read. Returns how many are still missing."""
+    images, missing, stop = Path(images or IMAGES), 0, time.time() + seconds
     for it in items:
         dst = out / 'img' / 'concept' / thumb_name(it['id'])
         if dst.exists():
             continue
-        if budget <= 0:
+        if time.time() > stop:
             missing += 1
             continue
         try:
             make_thumb(images / it['id'], dst)
-            budget -= 1
         except Exception:     # noqa: BLE001  a picture still being written, or one that does not open: next read
             missing += 1
     return missing
