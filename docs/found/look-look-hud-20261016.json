@@ -1,0 +1,41 @@
+{
+  "subject": "look:hud",
+  "looked_at": [
+    "Captures/hud/hud-standard.png (+ .json)",
+    "Captures/hud/hud-close.png (+ .json)",
+    "Captures/hud/hud-far.png (+ .json)",
+    "Captures/hud/hud-armed.png (+ .json)",
+    "Captures/hud/hud-orders.png (+ .json)",
+    "Captures/hud/hud-banner.png (+ .json)",
+    "Captures/hud/world-standard.png (+ .json, CaptureRig no-HUD twin)",
+    "Captures/hud/minimap-crop.png (3x crop of the minimap-bezel rect from hud-standard.png.json)",
+    "TW.Editor.SimProbe.Match() -> seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 6677 mission ''",
+    "Assets/_Project/UI/HudMinimap.cs",
+    "Assets/_Project/UI/HudText.cs",
+    "Assets/_Project/UI/Resources/Hud/BattleHud.uss",
+    "Assets/_Project/UI/HudController.cs",
+    "docs/reference/decisions.md (checked the 2026-09-23 and 2026-09-27 HUD rows before writing these: placeholder card art and the 16:9 battle-bar squeeze are already decided, not reported here)"
+  ],
+  "tasks": [
+    {
+      "title": "Minimap draws no unit dots; a player cannot see where the men are",
+      "why": "HudMinimap.cs:1 says the minimap shows 'both sides' men as dots' and Refresh() runs every HudController tick (HudController.cs:316), but all 6 HUD captures taken over a running 90+s match (ticks 1605-2957, both sides fighting: 'vs 2' losses counter climbing) show only the trench lines and the camera-frame box on the minimap -- zero dots anywhere, in close, standard, far, armed, orders and banner frames alike. Captures/hud/minimap-crop.png is a 3x crop of the exact minimap-bezel rect (hud-standard.png.json: [1455,14,448,169]); it is empty of dots. At a glance the minimap is the one HUD element meant to answer 'where is the fight', and right now it only answers 'where are the trenches'.",
+      "files": ["trench-warfare-3d/Assets/_Project/UI/HudMinimap.cs"],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "A fresh HudCapture.Shoot() mid-match, cropped to the minimap-bezel rect from its sidecar, shows non-background pixels in the Mine/Theirs dot colours (Color32 0xC8C9C6 / 0xB5523A) somewhere inside the bezel.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Aim-mode hint text has no plate; low-contrast over a bright battlefield",
+      "why": "Arming a support ability shows HudText.AimHint ('Click the map to fire.  Tab changes the pattern.  Esc or right click cancels.') via HudView.ShowHint. Its only styling is `.hud-hint { ... -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }` (BattleHud.uss:59) -- no background, no border, no text-shadow. In Captures/hud/hud-armed.png and hud-orders.png the line sits mid-screen directly over burning wreckage and bright ground lamps with nothing behind it; it is the only instruction telling the player how to fire an armed ability, and it is plain bright text on a frame that is already full of bright warm highlights.",
+      "files": ["trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss", "trench-warfare-3d/Assets/_Project/UI/HudText.cs"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "`.hud-hint` (or a wrapping element) has a backing plate or shadow strong enough that a HudCapture taken over a lit/bright crop of the battlefield still reads the line at normal contrast; a before/after pair over the same armed-ability pose shows the difference.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
