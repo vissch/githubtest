@@ -1,0 +1,74 @@
+{
+  "subject": "review:Z006",
+  "looked_at": [
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the twelve Z006 files",
+    "trench-warfare-3d/Assets/_Project/Data/DataBaker.cs",
+    "trench-warfare-3d/Assets/_Project/Data/FactionMap.cs",
+    "trench-warfare-3d/Assets/_Project/Data/TW.Data.asmdef",
+    "trench-warfare-3d/Assets/_Project/Editor/TW.Editor.asmdef",
+    "trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs",
+    "trench-warfare-3d/Assets/_Project/Net/HashExchange.cs",
+    "trench-warfare-3d/Assets/_Project/Net/ICommandSink.cs",
+    "trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs",
+    "trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs",
+    "trench-warfare-3d/Assets/_Project/Net/LoopbackTransport.cs",
+    "trench-warfare-3d/Assets/_Project/Net/Snapshot.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs (Step, Tick, LastHash, HashInterval)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs (shipped WeaponStats accuracies)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs:365-375 (how Accuracy becomes odds)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs:95-115",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LockstepHashLabelTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LockstepFrameValidationTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/HashIntervalTests.cs",
+    "docs/03-determinism-rules.md",
+    "docs/reference/decisions.md (searched)",
+    "docs/reference/tasks.md (Lockstep, CommandFrame, HashTick, DataBaker)",
+    "docs/found/look-review-z009-20261016.json"
+  ],
+  "tasks": [
+    {
+      "title": "Mark a frame that carries no hash instead of labelling tick 0",
+      "why": "Read in code. P1. LockstepDriver.cs:104 sends Hash = World.LastHash with HashTick = World.Tick - 1 unconditionally, but LastHash is 0 on every tick a world does not hash: SimWorld.cs:269-275 sets LastHash = 0UL in the else branch, and docs/03-determinism-rules.md:114 says single player ships with HashInterval = 0, so its LastHash is 0 forever (HashIntervalTests asserts exactly that: 'a world that never hashes reports LastHash 0'). CommandSeat.cs:56 goes further and sends Hash = 0, HashTick = 0, which now reads as a positive claim about tick 0. ILockstepTransport.cs:14 still documents 0 as 'when unknown', but since the S9 split the frame also carries a tick label, so N3's HashExchange.Observe (HashExchange.cs:10) cannot tell 'the hash of tick 7 is 0' from 'I have no hash'. Whoever writes that comparison either reports a false desync against every unhashed peer or must silently skip any frame whose hash is 0, which also skips real mismatches.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs",
+        "trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs",
+        "trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "CommandFrame says 'no hash' in one place only (a HasHash flag, or HashTick = uint.MaxValue when World.LastHash is not a hash), and a new LockstepHashLabelTests case drives a driver on a world with HashInterval = 0 and asserts every sent frame reports no hash rather than HashTick = World.Tick - 1.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, true, false]
+    },
+    {
+      "title": "LastSteppedTick returns the next tick, not the last stepped one",
+      "why": "Read in code. P2. SimWorld.Step increments Tick at SimWorld.cs:268, after the systems, so once tick 0 has been stepped World.Tick is 1, and before any step World.Tick is 0 while tick 0 is not stepped. LockstepDriver.cs:29 nevertheless defines LastSteppedTick => World.Tick, which is one too high in every state: it is the next tick to step. Line 104 of the same file answers the same question correctly for the hash label (World.Tick == 0 ? 0u : World.Tick - 1u), so one file holds both conventions and the wrong one is the one with the explanatory name. grep finds no production caller today (only the declaration), so nothing is broken yet; this is the property N3's desync check and any stall UI will reach for first, and if read as named every reported tick is off by one.",
+      "files": ["trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "LastSteppedTick either returns World.Tick - 1 with 'nothing stepped yet' distinguishable, or is renamed to NextTickToStep; a test steps a driver twice and asserts the property against the tick numbers the world actually stepped, and would fail on today's code.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, true, false]
+    },
+    {
+      "title": "The canary's DESYNC message names one tick past the divergence",
+      "why": "Read in code. P2. LockstepSession.cs:106 takes uint tick = w.Tick with the comment 'the tick just completed', but SimWorld.cs:268 has already incremented Tick by the time Step returns, so tick is the completed tick plus one. Both worlds use the same label, so the comparison at :111 is still sound and no desync is missed; what is wrong is the number in DesyncTick and in the 'DESYNC at tick {tick}' error at :114. The person reading that log then looks at the wrong tick of the replay, and docs/03-determinism-rules.md:144 records that this exact class of tick arithmetic already cost an hour once.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Compare labels the ring slot with the tick that was stepped (w.Tick - 1), and a test that forces a divergence on a known tick asserts DesyncTick equals that tick; it fails on today's code by exactly one.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Accuracy upgrades are unclamped and the comment misstates the unit",
+      "why": "Read in code. P3. DataBaker.cs:67-68 documents '+5% per tier to weapon Accuracy', but :74 does weapon.Accuracy += 0.05f * accTier, which is 5 percentage points a tier, not 5% of the value, and nothing clamps the result. Accuracy is a hit chance (CombatStructs.cs:16) and the shipped tables already reach 0.9 (CombatTables.cs:95, the sniper), so three accuracy tiers make it 1.05; DirectFire.cs:372 tests rng.NextFloat() < odds with no clamp above, so that weapon never misses at optimal range. Z009 already queued wiring ApplyUpgrades up to a real caller; this is what that wiring would ship, and it is a different fix (clamp plus an honest comment), so it should ride with it rather than be found again afterwards.",
+      "files": ["trench-warfare-3d/Assets/_Project/Data/DataBaker.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "ApplyUpgrades clamps the upgraded Accuracy to at most 1 (or the comment and the maths agree on a multiplicative +5%), and a DataBakerTests case feeds a 0.9-accuracy weapon with accTier 3 and asserts the baked Accuracy is not above 1.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
