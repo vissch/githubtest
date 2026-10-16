@@ -219,18 +219,44 @@ namespace TW.Tests
         [Test]
         public void TheKeysCoverTenSlotsAndSevenSupportCards()
         {
-            for (int s = 0; s < RosterEntry.SlotCount; s++)
-                Assert.That(HudText.Hotkey(s), Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s}");
-            Assert.That(HudText.Hotkey(RosterEntry.SlotCount), Is.Empty, "a slot the roster does not have");
-            Assert.That(HudText.Hotkey(-1), Is.Empty);
-            // HE, gas and the drop on the function row; the overhaul's four line abilities on letters
-            string[] support = { "F5", "F6", "F7", "C", "M", "V", "B" };
-            for (int i = 0; i < support.Length; i++) Assert.That(HudText.SupportHotkey(i), Is.EqualTo(support[i]), $"support card {i}");
-            Assert.That(HudText.SupportHotkey(support.Length), Is.Empty, "a card the bar does not have");
-            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.Deploy10], Is.EqualTo(Key.Digit0), "the tenth slot is 0");
-            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmBarrage], Is.EqualTo(Key.F5));
-            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmGas], Is.EqualTo(Key.F6));
-            Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmDrop], Is.EqualTo(Key.F7));
+            // [TU10] the badges below are the default bindings; HudText.Hotkey/SupportHotkey read the live
+            // KeyMap.Current, which in an editor with rebound keys is not the defaults (a false red)
+            var keys = KeyMap.Current;
+            KeyMap.Current = KeyMap.Defaults();
+            try
+            {
+                for (int s = 0; s < RosterEntry.SlotCount; s++)
+                    Assert.That(HudText.Hotkey(s), Is.EqualTo(((s + 1) % 10).ToString()), $"slot {s}");
+                Assert.That(HudText.Hotkey(RosterEntry.SlotCount), Is.Empty, "a slot the roster does not have");
+                Assert.That(HudText.Hotkey(-1), Is.Empty);
+                // HE, gas and the drop on the function row; the overhaul's four line abilities on letters
+                string[] support = { "F5", "F6", "F7", "C", "M", "V", "B" };
+                for (int i = 0; i < support.Length; i++) Assert.That(HudText.SupportHotkey(i), Is.EqualTo(support[i]), $"support card {i}");
+                Assert.That(HudText.SupportHotkey(support.Length), Is.Empty, "a card the bar does not have");
+                Assert.That(KeyMap.Defaults().Primary[(int)GameAction.Deploy10], Is.EqualTo(Key.Digit0), "the tenth slot is 0");
+                Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmBarrage], Is.EqualTo(Key.F5));
+                Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmGas], Is.EqualTo(Key.F6));
+                Assert.That(KeyMap.Defaults().Primary[(int)GameAction.ArmDrop], Is.EqualTo(Key.F7));
+            }
+            finally { KeyMap.Current = keys; }
+        }
+
+        /// <summary>[TU10] The badge test above is pinned to the default bindings, so it stays green in an editor
+        /// where the player has rebound a deploy key. Before the fix it read KeyMap.Current and went red on "1".</summary>
+        [Test]
+        public void TheKeyBadgesAreCheckedAgainstTheDefaultsNotThePlayersBindings()
+        {
+            var keys = KeyMap.Current;
+            try
+            {
+                var rebound = KeyMap.Defaults();
+                rebound.Primary[(int)GameAction.Deploy1] = Key.P;
+                KeyMap.Current = rebound;
+                Assert.That(HudText.Hotkey(0), Is.EqualTo("P"), "[TU10] the live badge follows the rebind");
+                Assert.DoesNotThrow(TheKeysCoverTenSlotsAndSevenSupportCards, "[TU10] the badge test must not read the player's bindings");
+                Assert.That(KeyMap.Current, Is.SameAs(rebound), "[TU10] it must put the player's bindings back");
+            }
+            finally { KeyMap.Current = keys; }
         }
 
         /// <summary>[I12] A card's badge is the key that actually deploys the slot: rebind Deploy1 and the first card

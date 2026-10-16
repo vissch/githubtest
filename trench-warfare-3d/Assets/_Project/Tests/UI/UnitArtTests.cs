@@ -86,13 +86,22 @@ namespace TW.Tests
             Assert.That(status.text, Is.EqualTo("CRITICAL")); Assert.That(strip.ClassListContains("is-critical"), Is.True);
         }
 
+/// <summary>[TU10] The old test filled `ours` from the same roster `all` is built from, so the subset assert held by
+        /// construction and could not fail. The claim in the name is about the roster halves: slots 0..SlotCount-1 are
+        /// Iron's, SlotCount..2n-1 Brass's, so our side owns Iron's four machines and none of Brass's, while the armoury
+        /// still lists all eight (the enemy's carry an ENEMY chip). The expected machines come from
+        /// FactionBuildingsTests.Unit_Tracks_Name_The_Factions_Own_Machines, not from ArmouryScreen.</summary>
         [Test]
         public void TheArmouryKnowsWhichUnitsAreOurs()
         {
             var ours = new System.Collections.Generic.HashSet<byte>();
             var all = ArmouryScreen.Units(null, ours);
-            Assert.That(ours.Count, Is.GreaterThan(0));
-            foreach (var a in ours) Assert.That(all, Does.Contain(a), $"our archetype {a} is missing from the armoury");
+            byte[] iron = { VehicleArchetype.Maw, VehicleArchetype.Pincer, VehicleArchetype.Banner, VehicleArchetype.Breaker };
+            byte[] brass = { VehicleArchetype.Tusk, VehicleArchetype.Kettle, VehicleArchetype.Censer, VehicleArchetype.Redoubt };
+            foreach (var a in iron) Assert.That(ours.Contains(a), Is.True, $"[TU10] our own machine {a} is not on our side of the roster");
+            foreach (var a in brass) Assert.That(ours.Contains(a), Is.False, $"[TU10] the enemy's machine {a} counts as ours");
+            foreach (var a in iron) Assert.That(all, Does.Contain(a), $"[TU10] the armoury does not list our machine {a}");
+            foreach (var a in brass) Assert.That(all, Does.Contain(a), $"[TU10] the armoury does not list the enemy's machine {a} (it shows it with an ENEMY chip)");
         }
 
         [Test]

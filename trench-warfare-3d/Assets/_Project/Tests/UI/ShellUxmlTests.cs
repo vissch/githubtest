@@ -500,7 +500,21 @@ namespace TW.Tests
                 var scene = System.IO.File.ReadAllText($"Assets/_Project/Scenes/{MatchLaunch.BattleScene}.unity");
                 Assert.That(scene, Does.Contain("BombardmentPerMinute: 0\n").Or.Contain("BombardmentPerMinute: 0\r"), "the battle scene's own rate");
             }
-            finally { MatchLaunch.Current = null; UnityEngine.Object.DestroyImmediate(go); }
+            finally { MatchLaunch.Current = null; MatchLaunch.Apply(null); UnityEngine.Object.DestroyImmediate(go); }   // [TU10] Apply set Running
+        }
+
+        /// <summary>[TU10] A shell test that arms a request must leave none of it behind: MatchLaunch.Running and
+        /// .Current are statics the next test (and a live editor) reads, and CampaignSession is carried across scene
+        /// loads on purpose, so nothing clears it for us. Before the fix NoMissionShellsTheFieldAllMatchLong's finally
+        /// nulled Current but not Running, so the Bombardment request stayed armed.</summary>
+        [Test]
+        public void NoShellTestLeavesARunningMatchOrACampaignBehind()
+        {
+            ARequestAppliesToAHostsFields();
+            NoMissionShellsTheFieldAllMatchLong();
+            Assert.That(MatchLaunch.Running, Is.Null, "[TU10] a shell test left a match armed in MatchLaunch.Running");
+            Assert.That(MatchLaunch.Current, Is.Null, "[TU10] a shell test left a request in MatchLaunch.Current");
+            Assert.That(CampaignSession.Active, Is.False, "[TU10] a shell test left a campaign mission in flight");
         }
     }
 }
