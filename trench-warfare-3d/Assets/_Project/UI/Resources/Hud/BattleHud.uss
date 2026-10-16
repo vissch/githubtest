@@ -56,7 +56,7 @@
 .hud-card { }
 .hud-tooltip { position: absolute; bottom: 232px; left: 50%; translate: -50% 0; display: none; }
 .hud-tooltip.is-visible { display: flex; }
-.hud-hint { position: absolute; bottom: 230px; left: 0; right: 0; -unity-text-align: middle-center; color: var(--tw-text-bright); display: none; }
+.hud-hint { position: absolute; bottom: 230px; left: 50%; translate: -50% 0; max-width: 70%; white-space: normal; padding: 4px 14px; -unity-text-align: middle-center; color: var(--tw-text-bright); background-color: rgba(14, 15, 16, 0.9); border-width: 1px; border-color: rgba(232, 225, 210, 0.22); border-radius: var(--tw-radius-sm); display: none; }
 .hud-hint.is-visible { display: flex; }
 
 /* trench order clusters */
