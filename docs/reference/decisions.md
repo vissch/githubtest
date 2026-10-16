@@ -394,6 +394,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `C:\Users\PC\Documents\GitHub\githubtest-relay-work` while no relay leg holds that checkout:
   `git push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin HEAD:refs/heads/lane/show/relay-four-checks`
   The lease refuses safely if origin's lane moved before he runs it.
+  **Re-checked, 2026-10-16 (unit move-origin-relay-four-checks):** origin's lane has not moved
+  (`origin/lane/show/relay-four-checks` is still `4c5ce2b29`, not an ancestor of this tree), so this leg could not
+  commit the tag; the push is still the owner's to make. Re-verified on this tree: 184 relay tests still green
+  (`python Tools/relay/test_relay.py`), `git rev-list --left-right --count
+  origin/claude/trench-warfare-2d-3d-plan-idt7lf...HEAD` now `0 9`. The checkout named above was wrong: the lane
+  lives in `C:\Users\PC\Documents\GitHub\githubtest-relay-work2`, not `...-work` (that one is detached at the same
+  commit). The corrected command, run while no relay leg holds that checkout:
+  `git -C C:/Users/PC/Documents/GitHub/githubtest-relay-work2 push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin lane/show/relay-four-checks`
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
