@@ -185,11 +185,35 @@ def paint_atlas(x, labels, names, steps=4, blue=0.07, line=0.18, flat_radius=12,
 
 
 # ------------------------------------------------------------------------------------------------- masks (Blender)
+def _fill_tri(m, p):
+    """Set the pixels of one UV triangle in the bool image `m` (barycentric, numpy only: Blender has no PIL)."""
+    import numpy as np
+    size = m.shape[0]
+    (x0, y0), (x1, y1), (x2, y2) = p
+    lo_x, hi_x = int(np.floor(min(x0, x1, x2))), int(np.ceil(max(x0, x1, x2)))
+    lo_y, hi_y = int(np.floor(min(y0, y1, y2))), int(np.ceil(max(y0, y1, y2)))
+    lo_x, hi_x = max(lo_x, 0), min(hi_x, size - 1)
+    lo_y, hi_y = max(lo_y, 0), min(hi_y, size - 1)
+    if hi_x < lo_x or hi_y < lo_y:
+        return
+    area = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0)
+    if abs(area) < 1e-12:                                           # a degenerate triangle covers nothing
+        return
+    yy, xx = np.mgrid[lo_y:hi_y + 1, lo_x:hi_x + 1]
+    xx = xx + 0.5
+    yy = yy + 0.5
+    w0 = ((x1 - xx) * (y2 - yy) - (x2 - xx) * (y1 - yy)) / area
+    w1 = ((x2 - xx) * (y0 - yy) - (x0 - xx) * (y2 - yy)) / area
+    w2 = 1.0 - w0 - w1
+    e = 1e-6                                                        # a touch of slack, so shared edges never gap
+    inside = (w0 >= -e) & (w1 >= -e) & (w2 >= -e)
+    m[lo_y:hi_y + 1, lo_x:hi_x + 1] |= inside
+
+
 def uv_labels(vehicles_dir, name, size=1024):
     """Rasterise each mesh object's UV0 triangles of <Name>/<Name>_LOD0.fbx into a uint8 label image (0 = empty)."""
     import bpy                                                      # Blender only
     import numpy as np
-    from PIL import Image, ImageDraw
     bpy.ops.wm.read_factory_settings(use_empty=True)
     fbx = os.path.join(vehicles_dir, name, "%s_LOD0.fbx" % name)
     bpy.ops.import_scene.fbx(filepath=fbx)                          # read-only: nothing is ever exported
@@ -201,12 +225,10 @@ def uv_labels(vehicles_dir, name, size=1024):
         me = o.data
         me.calc_loop_triangles()
         uv = me.uv_layers[0].data
-        layer = Image.new("L", (size, size), 0)
-        d = ImageDraw.Draw(layer)
+        m = np.zeros((size, size), bool)
         for t in me.loop_triangles:
             p = [(uv[li].uv[0] * (size - 1), (1.0 - uv[li].uv[1]) * (size - 1)) for li in t.loops]
-            d.polygon(p, fill=255)
-        m = np.asarray(layer, np.uint8) > 0
+            _fill_tri(m, p)
         out.append(o.name.split('.')[0])
         labels[m] = len(out)
     return labels, out
@@ -224,13 +246,13 @@ def main(argv=None):
     p = sub.add_parser("score"); p.add_argument("atlas", nargs="+")
     a = ap.parse_args(argv if argv is not None else _args())
     import numpy as np
-    from PIL import Image
-    if a.mode == "masks":
+    if a.mode == "masks":                                           # Blender's python has numpy but no PIL
         labels, names = uv_labels(a.vehicles, a.name, a.size)
         np.savez(a.out, labels=labels, names=np.array(names))
         print("masks %s: %d parts (%s), %.1f %% of the atlas covered"
               % (a.out, len(names), ", ".join(names), 100.0 * (labels > 0).mean()))
         return 0
+    from PIL import Image
     if a.mode == "score":
         for f in a.atlas:
             x = np.asarray(Image.open(f).convert("RGB")).astype(np.float32) / 255.0
