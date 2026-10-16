@@ -229,6 +229,37 @@ def listener(out):
     server.shutdown()
 
 
+def publishing():
+    import contextlib
+    import io
+    import publish
+    stage, out = TMP / 'stage', TMP / 'published'
+    (stage / 'img' / 'concept').mkdir(parents=True)
+    for k in range(6):
+        (stage / 'img' / 'concept' / f't{k}.jpg').write_bytes(b'x')
+    (stage / 'index.html').write_text('x', encoding='utf-8')
+    (stage / 'a.html').write_text('x', encoding='utf-8')
+
+    def synced(files=None, concepts=None):
+        old = publish.MAX_FILES, publish.MAX_CONCEPTS
+        publish.MAX_FILES, publish.MAX_CONCEPTS = files or old[0], concepts or old[1]
+        said = io.StringIO()
+        try:
+            with contextlib.redirect_stdout(said):
+                publish.sync(stage, out)
+        finally:
+            publish.MAX_FILES, publish.MAX_CONCEPTS = old
+        (stage / 'img' / 'concept').mkdir(parents=True, exist_ok=True)       # sync removes the stage
+        for k in range(6):
+            (stage / 'img' / 'concept' / f't{k}.jpg').write_bytes(b'x')
+        (stage / 'index.html').write_text('x', encoding='utf-8')
+        (stage / 'a.html').write_text('x', encoding='utf-8')
+        return said.getvalue()
+    case('publish: the concept thumbnails are not counted in the site budget (six of them and two pages under a budget of three)', 'over its budget' not in synced(files=3), 'said')
+    case('publish: pages over the budget still say so', 'over its budget' in synced(files=1))
+    case('publish: thumbnails have a budget of their own and say so when it is passed', 'concept thumbnails' in synced(concepts=2))
+
+
 def the_page():
     import re
     import ops
@@ -317,6 +348,7 @@ if __name__ == '__main__':
     stepping(r1, r2)
     out = the_site()
     listener(out)
+    publishing()
     the_page()
     page_rules()
     shutil.rmtree(TMP, ignore_errors=True)
