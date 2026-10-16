@@ -13,12 +13,36 @@ using TW.Net;
 using TW.Presentation;
 using TW.Sim;
 using TW.Sim.Match;
+using UnityEngine.TestTools;
 
 namespace TW.Tests
 {
     public class SinglePlayerEquivalenceTests
     {
         const int Ticks = 1000;
+
+        [TearDown]
+        public void ResetLog() => LogAssert.ignoreFailingMessages = false;
+
+        // [found-the-canary-s-desync-message-names-one-tick-p-20261016-2] the canary must name the tick that diverged.
+        // Worked example: both worlds start at Tick 0; after N passes each has stepped ticks 0..N-1 and Tick == N, so the
+        // next step is tick N. Perturbing the peer just before it makes tick DivergeAt the first tick whose hashes differ.
+        [Test]
+        public void Canary_NamesTheTickThatDiverged_NotTheOneAfterIt()
+        {
+            const uint DivergeAt = 7;
+            var cfg = SimConfig.Default;
+            using var session = new LockstepSession(() => MatchSim.CreatePlaytest(cfg), canary: true, 0, 0, 0f, cfg.Seed);
+            int guard = 400;
+            while (session.Local.World.Tick < DivergeAt && guard-- > 0) session.StepOnce(null);
+            Assert.That(session.Local.World.Tick, Is.EqualTo(DivergeAt), "lockstep stalled before the divergence");
+            Assert.That(session.Peer.World.Tick, Is.EqualTo(DivergeAt), "the zero-lag canary's worlds drifted apart");
+            LogAssert.ignoreFailingMessages = true;   // the fix logs one Debug.LogError on purpose
+            session.Peer.World.Silver[0] += 1;        // hashed state (SimWorld.Hash), so only the peer's tick-7 hash differs
+            session.StepOnce(null);
+            Assert.That(session.Desync, Is.True, "[found-the-canary-s-desync-message-names-one-tick-p-20261016-2] the canary missed the forced divergence");
+            Assert.That(session.DesyncTick, Is.EqualTo(DivergeAt), "[found-the-canary-s-desync-message-names-one-tick-p-20261016-2] DESYNC named the tick after the divergence");
+        }
 
         [Test, Category("Long")]
         public void OneWorldPlaysTheSameMatchAsTheTwoWorldCanary()
