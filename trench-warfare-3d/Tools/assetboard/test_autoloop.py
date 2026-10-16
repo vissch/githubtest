@@ -146,7 +146,7 @@ class Fake(autoloop.World):
     def changed_files(self, a, b):
         return []
 
-    def unqueue(self, board, uid):
+    def unqueue(self, board, uid, why=""):
         (Path(board) / 'relay' / 'queue' / f'{uid}.json').unlink(missing_ok=True)
         self.unqueued = self.unqueued + [(Path(board).name, uid)]
         return True
@@ -387,6 +387,11 @@ def main():
     back = autoloop.feed(w)
     case('once its lane is free, the unit taken off for it goes back to priority 50 on the main board',
          w.prios.get('mine') == 50 and any('mine goes back to priority 50' in l for l in back), (back, w.prios))
+    w = wt('wt11', cos={'lane/show/mine': 'C:/gh/githubtest-relay'})
+    put(w.extras[2], 'queue', 'mine', lane='lane/show/mine')               # no copy on the main board
+    lines = autoloop.feed(w)
+    case('a unit with no copy on the main board is never taken off: it would be lost; its relay is not started on the held lane',
+         (w.extras[2] / 'relay' / 'queue' / 'mine.json').exists() and 2 not in w.started, (lines, w.started))
     w = Fake(tmp / 'wt10', extras=(4,))
     w.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
     w.cos = {'lane/show/heroes': 'C:/gh/relay-work4'}

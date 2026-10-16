@@ -440,14 +440,14 @@ class World:
         code, out = self.repo('diff', '--name-only', a, b)
         return [] if code else out.splitlines()
 
-    def unqueue(self, board, uid):
+    def unqueue(self, board, uid, why='parked by the loop (no progress in its tries)'):
         """Take a unit off a board's queue: git rm, committed (pushed on the main board). True when it is off."""
         rel = f'relay/queue/{uid}.json'
         if not (Path(board) / rel).exists():
             return True
         if self.git(board, 'rm', '-q', '--', rel)[0]:
             return False
-        code, said = self.git(board, 'commit', '-q', '-m', f'relay: {uid} parked by the loop (no progress in its tries)', '--', rel)   # that path only, never the whole index
+        code, said = self.git(board, 'commit', '-q', '-m', f'relay: {uid} {why}', '--', rel)   # that path only, never the whole index
         if code:
             self.git(board, 'reset', '-q', 'HEAD', '--', rel)
             self.git(board, 'checkout', '-q', 'HEAD', '--', rel)      # put back as it was: it is tried next round
@@ -625,6 +625,15 @@ def lane_free(w, n, lane, cos, runs, out):
     return True
 
 
+def outside(w, lane, cos):
+    """True when `lane` is checked out in a checkout that is no relay's work checkout (a session's): the loop never frees it."""
+    at = cos.get(lane)
+    if not at:
+        return False
+    key = lambda p: os.path.normcase(os.path.abspath(str(p)))      # noqa: E731
+    return key(at) not in {key(p) for p in w.works().values()}
+
+
 def feed(w):
     """Every extra relay that is not running gets work and is started."""
     out = []
@@ -651,7 +660,7 @@ def feed(w):
     for uid, lane in sorted(waiting.items()):
         if uid in done or uid not in q:
             waiting.pop(uid)
-        elif lane not in cos and lane not in lanes and w.acting and w.prio(uid, 50)[0] == 0:
+        elif not outside(w, lane, cos) and lane not in lanes and lane not in held and w.acting and w.prio(uid, 50)[0] == 0:
             waiting.pop(uid)
             q[uid]['priority'] = 50
             out.append(f'feed: {uid} goes back to priority 50: {lane} is free now')
@@ -671,10 +680,10 @@ def feed(w):
                 latest[k] = max(latest.get(k, 0), loopsteps.family(u)[1])
         mine = {u: v for u, v in open_units(board).items() if u not in done                  # done on the main board: not work
                 and loopsteps.family(u)[1] >= latest.get(loopsteps.work_key(u, v), 0)}       # nor a unit a later copy (x-b) replaces
-        stuck = {u: v for u, v in mine.items() if v.get('lane') and v['lane'] not in lanes and not lane_free(w, n, v['lane'], cos, runs, out)}
+        stuck = {u: v for u, v in mine.items() if u in q and v.get('lane') and v['lane'] not in lanes and outside(w, v['lane'], cos)}   # a relay's checkout is freed when its relay stops; a unit with no main copy stays
         if stuck and w.acting:                  # its lane is held where the loop cannot free it: the relay is not left standing on it
             for uid, v in sorted(stuck.items()):
-                if w.unqueue(board, uid):
+                if w.unqueue(board, uid, why='off this relay: its lane is held by a checkout that is no relay\'s'):
                     mine.pop(uid)
                     waiting[uid] = v['lane']
                     out.append(f'feed: relay {n}: {uid} taken off its queue: {v["lane"]} is held where the loop cannot free it; '
