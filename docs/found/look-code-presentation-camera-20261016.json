@@ -1,0 +1,81 @@
+{
+  "subject": "code:Presentation/Camera",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs (1-120)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CameraShake.cs (1-70)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (880-900, 1060-1130, 1240-1250)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Weapons.cs (1-30, 170-200)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs (44-50)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Mines.cs (24-30)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs",
+    "grep of TryGetComponent<IZoomSource> over Presentation (17 sites, 15 of them in Presentation/Camera)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ViewGround.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/QuietFog.cs (20, 99, 109)",
+    "trench-warfare-3d/Assets/_Project/Net/LoopbackTransport.cs (46), Net/ILockstepTransport.cs (21), Net/CommandSeat.cs (22)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/GoreScaleTests.cs (1-90)",
+    "docs/reference/tasks.md (the Camera and 'Tanks and walkers drawn' rows)",
+    "docs/reference/decisions.md (grep camera/zoom/gore/dust)"
+  ],
+  "tasks": [
+    {
+      "title": "Read the zoom once a frame, in one place, not per event",
+      "why": "Camera.main + TryGetComponent<IZoomSource> is written out 15 times under Presentation/Camera (CombatFx.cs:894 inside the per-burst recipe loop, CombatFx.Banks.cs:47, CombatFx.Barrage.cs twice, Bodies, HitBlood, ShellFire, Support, Abilities, FlipbookFx.FarFire.cs, TankRenderer.cs:1113), and twice more outside. CombatFx.Weapons.cs:10-11 already names the cost in the repo's own words: the same idiom ran 'for each of about sixty events a second', and it built ViewNow/ViewZoom (CombatFx.Weapons.cs:177-193) as the fix for the shot and hit paths only. The other sites still pay Camera.main (a tagged find) plus a GetComponent per event. ViewGround.cs:1-4 is the precedent for folding an idiom written out many times into one place.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Weapons.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Barrage.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.HitBlood.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.ShellFire.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Support.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Abilities.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.FarFire.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "A test in the shape of ViewGroundTests greps the presentation sources and fails when TryGetComponent<IZoomSource> appears outside the one frame-stamped reader; the 15 sites in Presentation/Camera are gone and the gate is green.",
+      "risk": [false, false, false, false, false],
+      "change": [true, false, false, false, false]
+    },
+    {
+      "title": "Ask one place which team is mine; stop hardcoding 0",
+      "why": "TacticalCamera.cs:92 sums 'w.Team[i] == 0' into mineZ and every other team into theirsZ, and Along, the turn (side, line 97) and the pitch all hang off it. Seated as player 1 the standard view is inverted: you stand on the enemy side and the 21-degree turn goes the wrong way. Net/LoopbackTransport.cs:46 and ILockstepTransport.cs:21 hand out a LocalPlayer, so the seat already exists, and two other presentation files answer the same question their own way (QuietFog.cs:20 'public byte LocalTeam = 0', CombatFx.Mines.cs:24 'const int LocalPlayer = 0').",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/QuietFog.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Mines.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "One presentation-side source answers 'which team is mine' (off the transport's LocalPlayer), the three sites read it, and an EditMode test with two teams on the field sets it to 1 and asserts Along flips (0 becomes 1) for the same Focus.",
+      "risk": [false, false, false, false, false],
+      "change": [true, false, true, false, false]
+    },
+    {
+      "title": "Test TacticalCamera's pure maths; it has none",
+      "why": "tasks.md's Camera row says 'Tests: none' for TacticalCamera.cs and CameraShake.cs, yet their defaults ARE the owner's standard view (decisions.md 2026-09-21: fov 25, pitch 25, zoom 30) and are copied as bare constants into tests that do exist: Tests/Show/BannerFireFitTests.cs:174 (pitch 25, dist 30), UnitOneSizeTests.cs:16 (zoom 6/600), ViewGroundTests.cs:28 (pitch 8 = PitchMin). Change Pitch, Zoom or PitchMin and those premises go quietly false while every test stays green. The pieces are already pure enough to call: CloseUpAt (TacticalCamera.cs:107), Along and the wantYaw/wantPitch curve (92-105), CameraShake.Arrival and DistanceToLook (CameraShake.cs:38-46).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/TacticalCameraTests.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CameraShake.cs"
+      ],
+      "lane": "show",
+      "role": "bug-catcher",
+      "done_when": "A new EditMode test in TW.Tests.Show asserts the standard-view defaults against decisions.md's numbers, CloseUpAt's 1-at-DetailFullZoom and 0-at-DetailGoneZoom ends, the side curve's three states, and Arrival(343) == 1; the tests that copy the constants read them from the component instead.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Two GoreScaleTests asserts restate the code, so cannot fail",
+      "why": "GoreScaleTests.cs:63 asserts 1f + (Far - GoreScale.TrueUntilZoom) / GoreScale.GrowOver equals GoreScale.Size(Far) - the expected value is worked out the way Size works it out (GoreScale.cs:39), so any GrowOver keeps it green. Lines 74-77 assert Cap(share) == Sized(share, zoom) at zoom 600 and 10000 right after line 73 has asserted Size(zoom) == MostGrow; Sized is share*HeightM*Size and Cap is share*HeightM*MostGrow (GoreScale.cs:42,45), i.e. the same product twice. The file's header (line 8) claims these cases were red with the old numbers; only the neighbouring Greater/Less asserts actually hold the curve.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Show/GoreScaleTests.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The two asserts use the measured numbers from the file's header (1.30 at zoom 120, the capped card in metres) instead of the formula; setting GrowOver to 600 in a scratch build turns the test red, and the gate is green with the real numbers.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
