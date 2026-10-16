@@ -466,6 +466,11 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   `lane/show/relay-harness` on origin, the default taken here, nothing acted on; (2) keep the lane as a fresh base
   for new relay work, now that it sits on integration; (3) treat the 50-commit floor as a mistake in the unit card
   and rewrite it. Default taken: option 1 as the recommendation, but no branch deleted and no landing done.
+  The rebased history is still only local: `git push origin lane/show/relay-harness` is rejected
+  non-fast-forward, and the `-b` fallback (`git push origin HEAD:refs/heads/lane/show/relay-harness-b`) is
+  refused by the relay leg's command rules, which allow a leg only `git push origin <its own lane>`. The
+  `prepush.rebased_name` allowance lives on integration but the running relay checkout does not apply it to
+  the leg's command rules, so no leg can get this history to origin without the owner.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
