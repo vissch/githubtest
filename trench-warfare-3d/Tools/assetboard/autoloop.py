@@ -758,6 +758,15 @@ def feed(w):
         for lane in sorted({v.get('lane') for u, v in q.items() if u not in done and found.prio(v) < PARKED and v.get('lane')} - held):
             if lane in cos:
                 lane_free(w, 1, lane, cos, runs, out)    # its 12:42 run had 4 FAILs that were only these refusals (2026-10-16)
+    if running == set() and work and w.acting and 'uncommitted changes' in reason and 1 in w.works():
+        starts = load(w.home / 'starts.json', {})       # a leg left files in the main checkout (a staged decisions.md, 15:25):
+        if (starts.get('1') or {}).get('reason') != 'put aside':     # put aside as the extras' are, only once its run has stopped
+            ok, said = w.put_aside(w.works()[1], 1)
+            out.append(f'feed: the main relay stopped on leftover files: {said}')
+            if ok:
+                starts['1'] = dict(at=w.now(), reason='put aside', wait=QUIET)
+                save(w.home / 'starts.json', starts)
+            work = False
     if running == set() and work:
         if not w.acting:
             out.append('feed: the main relay is not running and has work: it would be started')

@@ -392,6 +392,25 @@ def main():
     lines = autoloop.feed(w)
     case('a unit with no copy on the main board is never taken off: it would be lost; its relay is not started on the held lane',
          (w.extras[2] / 'relay' / 'queue' / 'mine.json').exists() and 2 not in w.started, (lines, w.started))
+    w = Fake(tmp / 'wt12', extras=())
+    w.work_dirs = {1: 'C:/gh/relay-work'}
+    w.asides = []
+    w.put_aside = lambda work, n: (w.asides.append(n) or True, 'put aside')
+    put(w.main, 'queue', 'mainwork', lane='lane/show/mainwork', priority=10)
+    w.text[w.main] = ('NOT RUNNING. Last run 20261016-142533-81884: the work checkout cannot be used: it has uncommitted changes '
+                      'that are not a saved leg snapshot (0 legs).')
+    lines = autoloop.feed(w)
+    again = autoloop.feed(w)
+    case('the main relay\'s checkout left dirty by a leg is put aside (stash and patch) once its run has stopped, as the extras\' are, and it is not started into the dirty tree',
+         w.asides == [1] and 1 not in w.started and any('main relay stopped on leftover files' in l for l in lines), (lines, again, w.asides, w.started))
+    w2 = Fake(tmp / 'wt13', extras=())
+    w2.work_dirs = {1: 'C:/gh/relay-work'}
+    w2.asides = []
+    w2.put_aside = lambda work, n: (w2.asides.append(n) or True, 'put aside')
+    put(w2.main, 'queue', 'mainwork', lane='lane/show/mainwork', priority=10)
+    w2.text[w2.main] = RUN
+    autoloop.feed(w2)
+    case('a running main relay\'s checkout is never put aside', w2.asides == [], w2.asides)
     w = Fake(tmp / 'wt10', extras=(4,))
     w.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
     w.cos = {'lane/show/heroes': 'C:/gh/relay-work4'}
