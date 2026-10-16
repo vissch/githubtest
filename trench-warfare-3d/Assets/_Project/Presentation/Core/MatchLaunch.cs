@@ -91,6 +91,21 @@ namespace TW.Presentation
             /// <summary>Does a mask field an ability: bit (int)id, or everything when the mask is 0 (a skirmish, a test). The one
             /// copy: the HUD's cards and keys, the debug panel and (B1, later) the sim ask this.</summary>
             public static bool Offered(uint mask, int ability) => mask == 0 || (mask & (1u << ability)) != 0;
+
+            /// <summary>[M8 landing] Kept: UI/Shell/FeedbackCapture.cs calls this, so it is not the dead
+            /// method the finding grepped for on the old base.</summary>
+            /// <summary>The scene's SimHost as it is, so a request can start from what the scene already says.</summary>
+            public static Request From(SimHost h) => new Request
+            {
+                MatchSeed = h.Seed, StartingSilver = h.StartingSilver, SilverPerSecond = h.SilverPerSecond,
+                FactionA = h.FactionA, FactionB = h.FactionB, LoadoutA = h.LoadoutA, LoadoutB = h.LoadoutB,
+                GeneratedBattlefield = h.GeneratedBattlefield, PlaytestMap = h.PlaytestMap, BattlefieldSeed = h.BattlefieldSeed,
+                Ground = h.Ground,
+                Bombardment = h.BombardmentPerMinute, ScriptedPeer = h.ScriptedPeer, PeerDeployEveryTicks = h.PeerDeployEveryTicks,
+                PeerAttacks = h.PeerAttacks, PeerAttackGarrison = h.PeerAttackGarrison, PeerDeploysTanks = h.PeerDeploysTanks,
+                PeerUsesSupport = h.PeerUsesSupport, PeerSupportReserve = h.PeerSupportReserve, PeerDefends = h.PeerDefends,
+                Endless = h.Endless,
+            };
         }
 
         /// <summary>The request the next SimHost.Awake applies, or null for "whatever the scene says".</summary>
