@@ -44,8 +44,7 @@ namespace TW.Presentation.Tactical
             bool near = CameraShake.DistanceToLook(p) < HitBloodReach;
             // pulled back, what flies is drawn larger (his drawn size alone grows too little: at the zoom the game is played
             // at, droplets and marks sized for a close look were not there at all, four-view film 2026-09-29)
-            var cam = Camera.main;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+            float zoom = ViewEye.Zoom;
             if (near && debris != null && debris.Ready)
             {
                 // the splash where the round met him: a few large blobs, gone in half a second, the read at a distance

@@ -53,8 +53,7 @@ namespace TW.Presentation.Tactical
             if (!farFire) return 0f;
             if (farFrame == Time.frameCount) return farBlend;
             farFrame = Time.frameCount;
-            var cam = Camera.main;
-            farBlend = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? FarFireBlend(zs.CurrentZoom) : 0f;
+            farBlend = ViewEye.Main != null ? FarFireBlend(ViewEye.Zoom) : 0f;
             return farBlend;
         }
 

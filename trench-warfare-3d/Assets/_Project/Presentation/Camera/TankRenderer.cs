@@ -921,18 +921,8 @@ namespace TW.Presentation.Tactical
             }
         }
 
-        float zoomAt = -1f; int zoomFrame = -1;
-        /// <summary>The camera's zoom, read once per frame (Pose runs per machine per frame).</summary>
-        float Zoom()
-        {
-            if (zoomFrame != Time.frameCount)
-            {
-                var cam = Camera.main;
-                zoomAt = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
-                zoomFrame = Time.frameCount;
-            }
-            return zoomAt;
-        }
+        /// <summary>The camera's zoom (Pose runs per machine per frame; ViewEye reads it once for the whole frame).</summary>
+        float Zoom() => ViewEye.Zoom;
 
         /// <summary>Every part of one LOD in the world; a part drawn apart (debris) and what hangs off it are left out.</summary>
         void Pose(View v, TankModel.Lod lod, Matrix4x4[] world)
@@ -1134,8 +1124,7 @@ namespace TW.Presentation.Tactical
                     // card every WreckSmokeEvery taking up the loop where the last left it; it grows past zoom 80 (FarGrow) so
                     // a dead or burning tank is marked from the overview
                     v.NextColumn = now + WreckSmokeEvery;
-                    var cam = Camera.main;
-                    float far = FlipbookFx.FarGrow(cam != null && cam.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
+                    float far = FlipbookFx.FarGrow(ViewEye.Zoom);
                     // film 2026-10-07: at 3-7 m and 0.35-0.65 the column was a thread over the fire (its drawing is 0.43 of the
                     // card, and fx.smokeLean narrows that), so wider and fuller, and a second card behind it, mirrored and a
                     // third of the loop on, so the two drawings' rings close into one body of smoke

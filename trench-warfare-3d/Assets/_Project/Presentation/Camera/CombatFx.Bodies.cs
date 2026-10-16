@@ -15,8 +15,7 @@ namespace TW.Presentation.Tactical
         float FigureScale()
         {
             if (units == null) return 1f;
-            var cam = Camera.main;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+            float zoom = ViewEye.Zoom;
             return units.UnitScale * Mathf.Clamp(zoom / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
         }
 

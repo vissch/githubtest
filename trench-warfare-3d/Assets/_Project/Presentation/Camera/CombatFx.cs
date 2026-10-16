@@ -920,7 +920,7 @@ namespace TW.Presentation.Tactical
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
                         // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
                         // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
-                        float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f) : 1f;
+                        float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(ViewEye.Zoom) : 1f;
                         if (recipe.Ring && !recipe.Dust && (!wet || melt)) SmoulderCrater(p, r, far);   // L23: 30 % of heavy dry bursts leave the crater smouldering
                         if (recipe.Curtain)
                         {
@@ -1100,8 +1100,8 @@ namespace TW.Presentation.Tactical
 
             // how much of every debris burst is worth throwing at this zoom (docs/21 phase 3): all of it among the men,
             // less at the standard view, little from far out
-            var view = Camera.main;   // once a frame: the zoom share here, the tracers and the men's growth below read it
-            float zoomNow = view != null && view.TryGetComponent<IZoomSource>(out var zoomSource) ? zoomSource.CurrentZoom : 0f;
+            var view = ViewEye.Main;   // once a frame (ViewEye): the zoom share here, the silhouettes' facing and the men's growth below
+            float zoomNow = ViewEye.Zoom;
             DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
             Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
@@ -1273,7 +1273,7 @@ namespace TW.Presentation.Tactical
 
             // the fallen: a still figure in one of four deaths, lying on the slope where he fell
             float grow = 1f;
-            if (units != null && view != null) grow = units.UnitScale * Mathf.Clamp((view.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f) / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
+            if (units != null && view != null) grow = units.UnitScale * Mathf.Clamp(zoomNow / Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow);
             var rpF = new RenderParams(fallenMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = true };
             // the mud takes these too (the box stand-ins, when the figures are not drawn): the same half minute, the same sinking
             float bodyLife = units != null ? units.FallenSeconds : 30f;

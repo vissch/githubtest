@@ -44,8 +44,7 @@ namespace TW.Presentation.Tactical
             if (books == null || !books.Ready) return;
             var w = Host.Local.World;
             if (e.B < 0 || e.B >= w.HighWater) return;
-            var cam = Camera.main;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var source) ? source.CurrentZoom : 0f;
+            float zoom = ViewEye.Zoom;
             float now = Time.time;
             healNext.TryGetValue(e.A, out float next);
             if (!HealGlint(now, next, zoom, recipes)) return;

@@ -43,8 +43,7 @@ namespace TW.Presentation.Tactical
 
         int CurrentBankStep()
         {
-            var cam = Camera.main;
-            return BankStep(cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
+            return BankStep(ViewEye.Zoom);
         }
 
         /// <summary>Refill a field's cells if the tick or the step has moved. floor: the least a cell must hold to stand;
