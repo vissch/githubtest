@@ -1,0 +1,71 @@
+{
+  "subject": "tools:.claude/skills",
+  "looked_at": [
+    ".claude/skills/master/SKILL.md",
+    ".claude/skills/tw-master/SKILL.md",
+    ".claude/skills/relay/SKILL.md",
+    ".claude/skills/pipeline/SKILL.md",
+    ".claude/skills/unity-pipeline/SKILL.md",
+    ".claude/skills/tw-housekeeping/SKILL.md",
+    ".claude/skills/tw-critic/SKILL.md",
+    ".claude/skills/tw-gym/SKILL.md",
+    ".claude/skills/tw-destruction-vfx/SKILL.md",
+    ".claude/skills/tw-destruction-vfx/references/architecture.md",
+    ".claude/skills/tw-optimizer/references/aosa-and-perf.md",
+    ".claude/skills/tw-balance-sim/references/balance.md",
+    ".claude/skills/tw-balance-sim/SKILL.md",
+    ".claude/skills/tw-optimizer/SKILL.md",
+    ".claude/skills/tw-vehicle-sim/SKILL.md",
+    ".claude/skills/tw-character-sim/SKILL.md",
+    ".claude/skills/tw-env-sim/SKILL.md",
+    ".claude/skills/tw-bug-catcher/SKILL.md",
+    ".claude/skills/tw-master/references/integration.md",
+    "trench-warfare-3d/Tools/pipeline/stations.json",
+    "docs/reference/workflow.md (lines 60-70, 240-250, 530-545)",
+    "docs/reference/decisions.md (skill and budget rows)",
+    "docs/reference/tasks.md (skill mentions)",
+    "CLAUDE.md"
+  ],
+  "tasks": [
+    {
+      "title": "Pin unity-pipeline skill to this checkout and the editor lock",
+      "why": "unity-pipeline/SKILL.md:3 says 'Assumes the `unity` CLI is on PATH' and every command in it is a bare `unity command ...`. workflow.md:66 says the opposite: `Tools/tw` pins every call to its own checkout and a bare `unity cmd` from another folder hits the wrong editor; CLAUDE.md says unity.exe is at %LOCALAPPDATA%/unity/bin/unity.exe. Six relay work checkouts exist on this machine, so an agent that follows this skill can recompile, enter Play or run tests in another agent's editor. It also never names `Tools/editor_lock.py` (only tw-gym does, SKILL.md:12), so it tells agents to drive an editor without claiming it.",
+      "files": [".claude/skills/unity-pipeline/SKILL.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep in .claude/skills/unity-pipeline/SKILL.md finds the full %LOCALAPPDATA%/unity/bin/unity.exe path (or Tools/tw), a --project-path/--instance rule in the first screen, and editor_lock.py; no line starts with a bare `unity ` command. validate.py and selftest.py stay green.",
+      "risk": [false, true, true, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Teach relay and pipeline skills the six relay stations",
+      "why": "relay/SKILL.md:13 and master/SKILL.md:13 hardcode WORK=githubtest-relay-work, and relay/SKILL.md:68 says leg folders live in %LOCALAPPDATA%/TrenchWarfare/relay/runs. On disk there are six: githubtest-relay-work..work6 and relay..relay6. Worse, pipeline/SKILL.md:19 lists the checkouts the pipeline may run git in and names only githubtest-relay-work, telling a leg in work2..work6 to 'refuse git work and say where to run it' - a leg that obeys it cannot commit its own unit. Cost: a wrongly refused leg, or a run pointed at a checkout another run is using.",
+      "files": [".claude/skills/relay/SKILL.md", ".claude/skills/pipeline/SKILL.md", ".claude/skills/master/SKILL.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep for 'relay-work' in the three SKILL.md files shows a pattern covering work..work6 (e.g. githubtest-relay-work<N>) and no line that names only githubtest-relay-work as the one allowed relay checkout; the same for the relay<N> run folder. validate.py green.",
+      "risk": [false, true, true, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Re-anchor the big references by symbol, not by line",
+      "why": "The three deep references are pinned snapshots at 558c667/c43b73f; integration is 841 commits past 558c667 and 831 past c43b73f. Spot-check of four file:line citations in tw-destruction-vfx/references/architecture.md: SimWorld.cs:424 (claimed SimWorld.Hash) is a roster comment, CombatFx.cs:478 (claimed OnSimEvent) is a SetInt blend line, TankRenderer.cs:912 (claimed OnSimEvent) is Pose(); only PropDestruction.cs:327 still holds. Each wrong line costs a leg a re-read of the real file, and a leg that trusts it edits the wrong place. The banner says 're-grep the symbol', so the fix is to cite the symbol and drop the line number.",
+      "files": [".claude/skills/tw-destruction-vfx/references/architecture.md", ".claude/skills/tw-optimizer/references/aosa-and-perf.md", ".claude/skills/tw-balance-sim/references/balance.md", ".claude/skills/tw-gym/references/gym-design.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a script walks every `<File>.cs:<N>` citation in the four files and checks the named symbol is within 5 lines of N, or that the citation names only the file and symbol; it exits 0 with no stale pair. validate.py green.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Give the 61 KB architecture reference a section map",
+      "why": "tw-destruction-vfx/SKILL.md:10 sends a leg to references/architecture.md as 'Deep reference' with no hint of which part to read. The file is 61 KB (about 17k tokens) with 31 headings and nine top-level sections, and the pointer carries no index, so a leg that follows it spends a sixth of a small context before it starts work. aosa-and-perf.md and balance.md are 21 KB each with the same shape.",
+      "files": [".claude/skills/tw-destruction-vfx/SKILL.md", ".claude/skills/tw-optimizer/SKILL.md", ".claude/skills/tw-balance-sim/SKILL.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "each of the three SKILL.md files holds a short 'read only this section for X' table whose section names all match a `## ` heading in its reference file; a script checks every named section exists. validate.py green.",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
