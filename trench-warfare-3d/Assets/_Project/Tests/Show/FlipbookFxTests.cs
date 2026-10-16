@@ -32,6 +32,13 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>[X3] CombatFx has no ExecuteAlways/ExecuteInEditMode, so AddComponent in an EditMode test never
+        /// runs Awake: the clamp test passed on the unclamped code because the knobs were never read at all. Call it
+        /// by hand, as DebrisTests does. Awake only reads knobs and pure Read* helpers, so it is safe here and twice
+        /// over is harmless.</summary>
+        static void Awake(CombatFx fx) =>
+            typeof(CombatFx).GetMethod("Awake", BindingFlags.NonPublic | BindingFlags.Instance).Invoke(fx, null);
+
         /// <summary>[X3] fx.maxBodies=0 makes CombatFx.Deaths.cs's RemoveAt(0) run on an empty bodies list (OnDeath
         /// throws); fx.maxMarks=0 makes CombatFx.Ground.cs's AddMark fall into marks[0] on an empty list (throws). Past
         /// 1023 either overflows the instancing batch every frame it draws. Fails on old code (0 and 5000 pass through
@@ -44,7 +51,8 @@ namespace TW.Tests
             {
                 Knobs.Set("fx.maxBodies", "0");
                 Knobs.Set("fx.maxMarks", "0");
-                var fx = go.AddComponent<CombatFx>();   // Awake runs on AddComponent
+                var fx = go.AddComponent<CombatFx>();
+                Awake(fx);
                 Assert.GreaterOrEqual(fx.MaxBodies, 1, "[X3] fx.maxBodies=0 must not reach RemoveAt(0) on an empty list");
                 int maxMarks = (int)typeof(CombatFx).GetField("MaxMarks", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx);
                 Assert.GreaterOrEqual(maxMarks, 1, "[X3] fx.maxMarks=0 must not reach marks[0] on an empty list");
@@ -53,6 +61,7 @@ namespace TW.Tests
                 Knobs.Set("fx.maxBodies", "5000");
                 Knobs.Set("fx.maxMarks", "5000");
                 var fx2 = go.AddComponent<CombatFx>();
+                Awake(fx2);
                 Assert.LessOrEqual(fx2.MaxBodies, 1023, "[X3] fx.maxBodies must not overflow the instancing batch");
                 int maxMarks2 = (int)typeof(CombatFx).GetField("MaxMarks", BindingFlags.NonPublic | BindingFlags.Instance).GetValue(fx2);
                 Assert.LessOrEqual(maxMarks2, 1023, "[X3] fx.maxMarks must not overflow the instancing batch");

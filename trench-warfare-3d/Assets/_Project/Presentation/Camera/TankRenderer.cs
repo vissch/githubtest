@@ -910,7 +910,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The sim's leg-lost bitmask, numbered over its own `simLegs` (VehicleModules.cs, which can run
         /// more legs per side than the model has geometry for), remapped onto the model's own numbering
         /// (`modelPerSide` per side, TankModel.LegsPerSide). Each side is carried over by the FRACTION of that
-        /// side's sim legs lost, rounded to the nearest whole model leg on that side: losing a sim side outright
+        /// side's sim legs lost, rounded UP to a whole model leg on that side: losing a sim side outright
         /// (every sim leg on it) always throws every model leg on that side, and a model with the same leg count on
         /// both sides as the sim (simLegs == modelPerSide*2) maps to itself.</summary>
         public static byte ModelLegMask(byte simMask, int simLegs, int modelPerSide)
@@ -919,8 +919,12 @@ namespace TW.Presentation.Tactical
             int leftLost = 0, rightLost = 0;
             for (int k = 0; k < simPerSide; k++) if ((simMask & (1 << k)) != 0) leftLost++;
             for (int k = 0; k < simPerSide; k++) if ((simMask & (1 << (simPerSide + k))) != 0) rightLost++;
-            int leftModel = Mathf.Clamp(Mathf.RoundToInt((float)leftLost / simPerSide * modelPerSide), 0, modelPerSide);
-            int rightModel = Mathf.Clamp(Mathf.RoundToInt((float)rightLost / simPerSide * modelPerSide), 0, modelPerSide);
+            // The rounding is chosen, not inherited (Q2.1): a side's lost fraction always rounds UP, so a leg lost
+            // in the sim never draws as a whole walker. Mathf.RoundToInt is banker's rounding and turned 1 sim leg
+            // lost of 4 into 0 model legs (and 3 of 4 into 2): the machine went on walking as if nothing had
+            // happened. One model leg too many thrown is the lesser lie.
+            int leftModel = Mathf.Clamp(Mathf.CeilToInt((float)leftLost / simPerSide * modelPerSide), 0, modelPerSide);
+            int rightModel = Mathf.Clamp(Mathf.CeilToInt((float)rightLost / simPerSide * modelPerSide), 0, modelPerSide);
             byte result = 0;
             for (int k = 0; k < leftModel; k++) result |= (byte)(1 << k);
             for (int k = 0; k < rightModel; k++) result |= (byte)(1 << (modelPerSide + k));

@@ -37,6 +37,29 @@ namespace TW.Tests
             Assert.AreEqual((byte)0b0011, TankRenderer.ModelLegMask(0b0011, 4, 2), "[Q2] identity broke for a 1:1 walker");
         }
 
+        /// <summary>[Q2.1] A PART of a side lost, which the whole-side test above never saw. The rule: a leg lost
+        /// in the sim must never show as no leg lost, so a side's lost fraction rounds UP (TankRenderer.cs,
+        /// ModelLegMask). Banker's rounding (Mathf.RoundToInt) drew 1 sim leg lost of 4 as a whole walker.</summary>
+        [Test]
+        public void ARedoubtShowsALegDownForEveryPartOfASideItLoses()
+        {
+            var model = TankModel.Load("Redoubt", VehicleArchetype.Redoubt, "Body", VehicleSize.Walker);
+            Assert.NotNull(model, "Redoubt did not load");
+
+            // the Redoubt's own numbers: 6 sim legs (3 a side) on 2 model legs a side
+            byte oneOfThree = TankRenderer.ModelLegMask(0b000001, 6, 2);
+            Assert.AreEqual((byte)0b0001, oneOfThree, "[Q2.1] 1 of 3 left sim legs lost must show one left model leg down");
+            Assert.AreEqual((byte)0b0011, TankRenderer.ModelLegMask(0b000011, 6, 2), "[Q2.1] 2 of 3 left sim legs lost must show both left model legs down");
+            byte oneOfThreeRight = TankRenderer.ModelLegMask(0b001000, 6, 2);
+            Assert.AreEqual((byte)0b0100, oneOfThreeRight, "[Q2.1] 1 of 3 RIGHT sim legs lost must show one right model leg down");
+            AssertSideMatches(model, oneOfThree, "left");
+            AssertSideMatches(model, oneOfThreeRight, "right");
+
+            // 4 sim legs a side on 2 model legs: the case banker's rounding dropped altogether
+            Assert.AreEqual((byte)0b0001, TankRenderer.ModelLegMask(0b00000001, 8, 2), "[Q2.1] 1 of 4 sim legs lost showed no leg lost at all");
+            Assert.AreEqual((byte)0b0011, TankRenderer.ModelLegMask(0b00000111, 8, 2), "[Q2.1] 3 of 4 sim legs lost must show both model legs down");
+        }
+
         /// <summary>Every model leg number in a mapped mask must belong to a part whose Outward.x sign is the side
         /// the mask claims: bits 0,1 are LEFT (Outward.x < 0), bits 2,3 (modelPerSide 2) are RIGHT (Outward.x > 0).</summary>
         static void AssertSideMatches(TankModel model, byte mask, string label)

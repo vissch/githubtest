@@ -27,6 +27,16 @@ namespace TW.Presentation.Tactical
         /// per-second rate and is meant to cover more ground per frame when frames come slower).</summary>
         public static Vector2 DragPanMeters(Vector2 dragPixels, float zoom) => dragPixels * 0.12f * (zoom / 90f);
 
+        /// <summary>The whole pan of one frame, keys/edge scroll and middle-drag together, as a pure function
+        /// (Q4): the keys term IS a per-second rate and takes dt, the drag term is the frame's own pixels and must
+        /// never take dt again. LateUpdate calls this and nothing else, so a test can pin the two apart.</summary>
+        public static Vector3 PanDelta(Vector3 fwd, Vector3 right, Vector2 keys, Vector2 dragPixels, float panSpeed, float accel, float zoom, float dt)
+        {
+            Vector2 dragMeters = DragPanMeters(dragPixels, zoom);
+            return (fwd * keys.y + right * keys.x) * panSpeed * accel * dt * (zoom / 90f)
+                 + (fwd * dragMeters.y + right * dragMeters.x);
+        }
+
         public SimHost Host;
         public float PanSpeed = 60f;
         public float PanAccel = 3.5f, PanAccelSeconds = 2f;
@@ -180,9 +190,7 @@ namespace TW.Presentation.Tactical
             // the drag's own pixels are the frame's actual mouse movement already, not a per-second rate like keys
             // and edge scroll: scaling it by dt again made a 10 px drag pan less at a high frame rate and more at a
             // low one (Q4), instead of the same distance for the same mouse movement whatever the frame rate.
-            Vector2 dragMeters = DragPanMeters(dragPan, Zoom);
-            Vector3 delta = (fwd * pan.y + right * pan.x) * PanSpeed * accel * Time.unscaledDeltaTime * (Zoom / 90f)
-                           + (fwd * dragMeters.y + right * dragMeters.x);
+            Vector3 delta = PanDelta(fwd, right, pan, dragPan, PanSpeed, accel, Zoom, Time.unscaledDeltaTime);
             Focus += new Vector2(delta.x, delta.z);
             if (Host != null && Host.Local != null)
             {
