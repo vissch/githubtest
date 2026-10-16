@@ -7,7 +7,9 @@
 //   beyond the enemy      -> turned back towards your side (-StandardYaw), Pitch
 // "Your men" and "the enemy" are the mean Z of each side's living units, so the turning point moves with the fight.
 // Zooming far out lifts the view to OverviewPitch and takes the turn out; the last stretch of zooming in (below
-// CloseZoom) drops to ClosePitch and opens the lens, ending among the men. Z jumps there and back.
+// CloseZoom) drops to ClosePitch and opens the lens, ending at NearZoom aimed at the middle of a CloseFitHeight-tall
+// box (CloseAimHeight) instead of the feet, so the closest view holds a whole tall machine with headroom rather
+// than cutting its head off. Z jumps there and back.
 // Pan / turn / reset / super-zoom keys come from KeyMap (rebindable; WASD+arrows, Q/E, Home, Z by default) and are
 // ignored while a shell screen owns the input (InputFocus). Edge scroll pans, the wheel zooms, right mouse drag turns
 // and tilts freely, middle mouse drag pans; a drag or a wheel turn that starts over HUD chrome (HudBridge) is left to
@@ -31,6 +33,16 @@ namespace TW.Presentation.Tactical
         [Tooltip("Pan when the cursor touches the screen edge. Off in the editor: the Game view is a panel, and a cursor resting on its border drags the view into the map corner.")]
         public bool EdgeScroll = true;
         public float ZoomMin = 6f, ZoomMax = 600f;
+        [Tooltip("Metres of machine the closest view holds whole: the tallest machine (the Bullfrog) with headroom. Bigger than its real height (5.1 m) because the Bullfrog's rest-pose footprint is wide (6.4 m) for its height, and at a close pitched-down view a wide machine's near corner dips below frame before its head leaves the top; the camera has to stand back far enough for that corner, not just the top. Capped by CloseZoom: raising this past the point where NearZoom reaches CloseZoom breaks the close-up blend.")]
+        public float CloseFitHeight = 13.2f;
+        [Tooltip("The machine fills at most this much of the frame's height at the closest zoom; the rest is headroom.")]
+        public float CloseFitFill = 0.8f;
+        /// <summary>The middle of the box the closest view holds whole: what the closest view aims at.</summary>
+        public float CloseAimHeight => CloseFitHeight * 0.5f;
+        /// <summary>The closest zoom that still holds a CloseFitHeight-tall box at CloseFitFill of the frame, at
+        /// ClosePitch and CloseFov: the near end of the zoom range, which can sit above ZoomMin.</summary>
+        public float NearZoom => Mathf.Max(ZoomMin, CloseAimHeight * (Mathf.Cos(ClosePitch * Mathf.Deg2Rad) / CloseFitFill
+            + Mathf.Sin(ClosePitch * Mathf.Deg2Rad) * Mathf.Tan(CloseFov * 0.5f * Mathf.Deg2Rad)) / Mathf.Tan(30f * Mathf.Deg2Rad));
         [Tooltip("Below this zoom the view tilts and widens towards ClosePitch / CloseFov (super zoom).")]
         public float CloseZoom = 15f;
         [Tooltip("The small things of the field (grit, footprints, brass, litter) are all there at DetailFullZoom and gone by DetailGoneZoom, so the standard view never pays for them.")]
@@ -74,7 +86,7 @@ namespace TW.Presentation.Tactical
         }
 
         /// <summary>Snap to a point on the map at a zoom distance; used by the test panel's presets.</summary>
-        public void Frame(Vector2 focus, float zoom) { Focus = focus; Zoom = Mathf.Clamp(zoom, ZoomMin, ZoomMax); yaw = 0f; pitchOffset = 0f; freeLook = false; }
+        public void Frame(Vector2 focus, float zoom) { Focus = focus; Zoom = Mathf.Clamp(zoom, NearZoom, ZoomMax); yaw = 0f; pitchOffset = 0f; freeLook = false; }
         /// <summary>Frame, turned by yawDeg about the focus (free look, past the Q/E limits): the captures that walk round a man.</summary>
         public void FrameFrom(Vector2 focus, float zoom, float yawDeg) { Frame(focus, zoom); yaw = yawDeg; freeLook = true; }
 
@@ -132,7 +144,7 @@ namespace TW.Presentation.Tactical
                 if (KeyMap.DownRaw(GameAction.ResetView)) { yaw = 0f; pitchOffset = 0f; freeLook = false; }
                 if (KeyMap.DownRaw(GameAction.SuperZoom))
                 {
-                    if (Zoom > ZoomMin * 1.5f) { zoomBeforeSuper = Zoom; Zoom = ZoomMin; }
+                    if (Zoom > NearZoom * 1.5f) { zoomBeforeSuper = Zoom; Zoom = NearZoom; }
                     else Zoom = zoomBeforeSuper > CloseZoom ? zoomBeforeSuper : 30f;
                 }
             }
@@ -157,9 +169,9 @@ namespace TW.Presentation.Tactical
                 }
                 if (mouse.middleButton.isPressed && !panFromUi) { pan.x -= drag.x * 0.12f; pan.y -= drag.y * 0.12f; }
                 float wheel = mouse.scroll.ReadValue().y;
-                if (Mathf.Abs(wheel) > 0.01f && !overUi && !HudBridge.IsWheelClaimed()) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, ZoomMin, ZoomMax);
+                if (Mathf.Abs(wheel) > 0.01f && !overUi && !HudBridge.IsWheelClaimed()) Zoom = Mathf.Clamp(Zoom - wheel * 0.08f * Zoom, NearZoom, ZoomMax);
             }
-            float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(ZoomMin, CloseZoom, Zoom));   // 0 tactical, 1 among the men
+            float close = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(NearZoom, CloseZoom, Zoom));   // 0 tactical, 1 at the closest zoom
             // the small things of the field (grit, footprints, brass, litter) come in over a wider band and cost nothing at the standard view
             SceneHooks.CloseUp = CloseUpAt(Zoom);
             Shader.SetGlobalFloat(CloseId, SceneHooks.CloseUp);
@@ -187,7 +199,7 @@ namespace TW.Presentation.Tactical
             transform.rotation = camRot;
             float distance = Zoom * Mathf.Tan(30f * Mathf.Deg2Rad) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
             float ground = Host != null && Host.Local != null ? Host.Local.Map.Height.Sample(Focus.x, Focus.y) : 0f;
-            transform.position = new Vector3(Focus.x, ground * close + 1.1f * close, Focus.y) - camRot * Vector3.forward * distance;
+            transform.position = new Vector3(Focus.x, ground * close + CloseAimHeight * close, Focus.y) - camRot * Vector3.forward * distance;
         }
     }
 }
