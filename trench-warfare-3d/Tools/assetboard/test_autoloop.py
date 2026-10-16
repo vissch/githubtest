@@ -412,6 +412,15 @@ def main():
     rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
     case('once the main relay has given it a real try, the unit may be fed to an extra relay again', not rec.get('main_try'), rec)
 
+    w = wt('wt9')
+    put(w.main, 'queue', 'first', lane='lane/show/first', priority=99)
+    put(w.extras[2], 'queue', 'first', lane='lane/show/first')
+    w.refuse_prio = {'first'}
+    w.stop_records = [('r1', '2026-10-16T05:00:00', 'first', 'FAIL', 'execute leg 1 of 1 reported blocked')]
+    autoloop.attempts(w)
+    rec = json.loads((w.home / 'attempts.json').read_text(encoding='utf-8')).get('first') or {}
+    case('when its main copy cannot come off 99, the unit is not marked as the main relay\'s, so it is never stranded', not rec.get('main_try'), rec)
+
     # ---- one round, and the lock ----
     calls = []
     real = (autoloop.found.take, autoloop.found.rota)

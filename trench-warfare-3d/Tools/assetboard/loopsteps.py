@@ -504,9 +504,10 @@ def stuck_on_extras(w, st, opens, idle, extras):
             if main is None or len(rec.get('fails') or []) >= TRIES:
                 continue                                    # no main copy to fall back on, or its park is due: left as it is
             if w.unqueue(b, uid):                           # its second try goes to the main relay: its copy there comes off 99
-                rec['main_try'] = True                      # and feed does not hand it straight back to an extra relay (07:26-10:02, 2026-10-16)
-                st[uid] = rec
                 code, said = w.prio(uid, 50) if found.prio(main) >= PARKED else (0, '')
+                if code == 0:                               # feed does not hand it straight back to an extra relay (07:26-10:02, 2026-10-16);
+                    rec['main_try'] = True                  # left unmarked when its main copy stays parked, so it is never stranded
+                    st[uid] = rec
                 out.append(f'attempts: {uid} taken off {Path(b).name}: it went nowhere there and nothing changed since; '
                            + ('its second try is the main relay\'s' if code == 0 else f'its main copy stays at {found.prio(main)}: {said[:100]}'))
     return out
