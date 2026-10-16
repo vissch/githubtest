@@ -299,6 +299,27 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-14 | **It is the flame's lay: (c). The Banner fires one gun and the point is right; the card is laid wrong.** The question of 2026-10-14 (which barrel is the gun, and does the upper one ever fire) is answered by the owner's own close frame the side-on close frame of 2026-10-14 (the evidence folder _evidence-banner-fire-2026-10-14 on the Drive, side close): the tracer leaves the mouth of the barrel correctly, so the point is right, and `TankSpec.Banner` keeps `GunCount = 1` firing from Gun_Lower's `Socket_Muzzle`. What is off is the flame's picture: its bright wide root hangs below and ahead of the mouth and only its thin tip touches the tracer about one and a half barrel-mouths out - a quarter turn plus an offset of about the card's own half size. So neither (a) `GunCount = 2` plus new art nor (b) moving the socket to Gun_Upper is built; (c) is: the flame's root must touch the mouth and its tip point away along the bore, from every eye. The mesh-derived mouth of 009cbb18e and MachineMuzzleTests stay, being right in themselves. Taken up on `lane/show/banner-day-film` as `banner-fire-on-the-mouth`. (read off the owner's evidence frame, 2026-10-14) |
 
 ## Open: waiting on the owner
+- **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
+  lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
+  is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
+  vehicle still reads `men_in_frame 0` — the vehicle part is done and verified (two runs, byte-identical numbers,
+  not a flaky harness). But `UnitCloseStills` is still red: 13 stills with a **foot** figure in frame stay below
+  the bar (contrast_median under 0.25, or a warning) — `02-MG-a` 0.196, `04-Officer-b` 0.185, `05-Shield-b` 0.1973,
+  `06-Medic-a` 0.1648, `07-Engineer-b` 0.1409, `08-Para-b` 0.2167, `09-Jetpack-b` 0.1872, `11-Sentry-a` 0.2386,
+  `15-Flamer-b` 0.2184 (too dark against the mud, the same fault `look.menClose` was built for on 2026-10-16), and
+  `01-Assault-b`, `02-MG-b`, `06-Medic-b`, `12-AT-Rifle-a` carry a warning (two "more than 2% of the frame is blown
+  out", from muzzle flash, two "men barely separate from the ground"). So the 2026-10-16 reading of the reshoot
+  ("55 to 22, all 22 remaining are vehicle") was measured wrong or at a different build; `look.menClose` did not
+  fully reach these nine men, and two more separately blow out on their own muzzle flash. Nothing in this lane
+  touches the look: fixing it is a new look change, out of scope here (`CLAUDE.md`: a bug fix does not grow into
+  the next feature). Options: (a) `look.menClose` (or a further knob) is widened to reach these nine darker
+  stills, and the two blown-out ones are a separate muzzle-flash fix — a new lane; (b) the bar itself is loosened
+  (the owner's 0.25 line, or the 2% blown-out line) if these are judged acceptable on review of the stills
+  (`TW_STILLS_DIR` from this run, kept at
+  `C:\Users\PC\AppData\Local\TrenchWarfare\relay3\runs\20261016-103259-66888\desk\02\stills`); (c) leave
+  `UnitCloseStills` red and accept it does not pass yet. Default taken here: (c), nothing built, so the lane's own
+  commit (vehicles excluded, proven by a test) ships without the `[foot-only-mud-lift]` tag and the lane is not
+  landed.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
