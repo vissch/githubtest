@@ -6,7 +6,9 @@
 // artist modelled actually reaches the foot the gait chose, that something is always holding the machine up, that a
 // step goes OVER a parapet rather than through it, and that a machine losing legs leans into the hole they left.
 // None of it is in the simulation — this is all presentation — so none of it can be checked by a hash.
+using System;
 using System.Collections.Generic;
+using System.Reflection;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Sim;
@@ -500,6 +502,112 @@ namespace TW.Tests
             Assert.AreEqual(2.06f, fourX, 0.4f, "[K1] at TimeScale 4 the same turn must bank the same, not 16x");
             float unscaled = Walk(m, Flat, 4.8f, 6f, yawRate: 2.0f).Roll * Mathf.Rad2Deg;
             Assert.GreaterOrEqual(unscaled, 10f, "[K1] unscaled, a 4x walk sits on the lean clamp (banked 22 degrees)");
+        }
+
+        // [K1][W2.4] the wiring and the lean sites, through TankRenderer itself (not a hand-fed LeanScale as
+        // TheTurnLeanIsTheSameAtFourTimesSpeed above does). At TimeScale 4, Speed/YawRate are the per-real-second
+        // rates (4.8 m/s, 2.0 rad/s); LeanRates (TankRenderer.cs) must turn those into the per-sim-second rates
+        // (1.2 m/s, 0.5 rad/s) carried in LeanSpeed/LeanYawRate and Legs.LeanScale = 1/16.
+        const BindingFlags Any = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Static;
+
+        static object MakeView(Type viewType) => Activator.CreateInstance(viewType, true);
+
+        static void SetF(object v, string field, object value)
+        {
+            var f = v.GetType().GetField(field, Any);
+            Assert.NotNull(f, $"{v.GetType().Name} has no field {field}");
+            f.SetValue(v, value);
+        }
+
+        static object GetF(object v, string field) => v.GetType().GetField(field, Any).GetValue(v);
+
+        [Test]
+        public void TheRenderersOwnWiringCarriesTheSimSecondRatesDown()
+        {
+            var go = new GameObject("lean wiring rig");
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                var type = r.GetType();
+                var viewType = type.GetNestedType("View", BindingFlags.NonPublic);
+                Assert.NotNull(viewType, "TankRenderer.View");
+                object v = MakeView(viewType);
+                SetF(v, "Legs", new WalkerGait());
+                SetF(v, "Speed", 4.8f);
+                SetF(v, "YawRate", 2.0f);
+
+                var leanRates = type.GetMethod("LeanRates", Any);
+                Assert.NotNull(leanRates, "TankRenderer.LeanRates");
+                leanRates.Invoke(r, new object[] { v, 4f });
+
+                Assert.AreEqual(1.2f, (float)GetF(v, "LeanSpeed"), 1e-4f, "[K1][W2.4] LeanSpeed must be the per-sim-second rate (Speed / TimeScale)");
+                Assert.AreEqual(0.5f, (float)GetF(v, "LeanYawRate"), 1e-4f, "[K1][W2.4] LeanYawRate must be the per-sim-second rate (YawRate / TimeScale)");
+                var legs = (WalkerGait)GetF(v, "Legs");
+                Assert.AreEqual(1f / 16f, legs.LeanScale, 1e-4f, "[K1][W2.4] a walker's LeanScale must be 1 / TimeScale^2");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
+        }
+
+        [Test]
+        public void TheLeanSitesReadTheSimSecondRatesNotTheRealOnes()
+        {
+            var go = new GameObject("lean sites rig");
+            try
+            {
+                var r = go.AddComponent<TankRenderer>();
+                var type = r.GetType();
+                var viewType = type.GetNestedType("View", BindingFlags.NonPublic);
+                Assert.NotNull(viewType, "TankRenderer.View");
+                var model = TankModel.Load("Hopper", VehicleArchetype.Hopper, "Hull", 1f);
+                Assert.NotNull(model, "the Hopper did not load from Resources/Vehicles/Hopper");
+
+                object v = MakeView(viewType);
+                SetF(v, "Model", model);
+                // the TimeScale-4 numbers the renderer would hand it, and the correct per-sim-second rates beside them
+                SetF(v, "Speed", 4.8f); SetF(v, "YawRate", 2.0f);
+                SetF(v, "LeanSpeed", 1.2f); SetF(v, "LeanYawRate", 0.5f);
+                SetF(v, "Lift", TankRenderer.FlyerLift);   // >= FlyingFrom: HoverPose's flyer-bank branch
+
+                var style = TankRenderer.StyleFor(VehicleArchetype.Maw);   // Lean != 0; walkers lean off their feet instead
+                Assert.AreNotEqual(0f, style.Lean, "the premise: Maw's DriveStyle has a non-zero Lean");
+                SetF(v, "Style", style);
+
+                float pitch = 0f, roll = 0f;
+                var flair = type.GetMethod("Flair", Any);
+                Assert.NotNull(flair, "TankRenderer.Flair");
+                object[] flairArgs = { v, 100f, pitch, roll };
+                flair.Invoke(null, flairArgs);
+                roll = (float)flairArgs[3];
+                float wantFlairRoll = -style.Lean * 0.5f * Mathf.Abs(1.2f);   // Lean * LeanYawRate * |LeanSpeed|, the 1x numbers
+                Assert.AreEqual(wantFlairRoll, roll, 0.001f,
+                    "[K1][W2.4] Flair's turn-lean roll must come off LeanYawRate/LeanSpeed (per sim second), not YawRate/Speed " +
+                    $"(off by {Mathf.Abs(roll - wantFlairRoll):F3}; at the real rates it would sit on the +-0.12 clamp)");
+
+                Vector3 fwd = Vector3.forward, right = Vector3.right;
+                var hoverPose = type.GetMethod("HoverPose", Any);
+                Assert.NotNull(hoverPose, "TankRenderer.HoverPose");
+                float hpPitch = 0f, hpRoll = 0f, hpHeave = 0f;
+                const float dt = 1f / 60f;
+                for (int i = 0; i < 180; i++)   // let v.Drift converge to its lerped target
+                {
+                    object[] hpArgs = { v, fwd, right, 100f + i * dt, dt, hpPitch, hpRoll, hpHeave };
+                    hoverPose.Invoke(r, hpArgs);
+                    hpPitch = (float)hpArgs[5]; hpRoll = (float)hpArgs[6]; hpHeave = (float)hpArgs[7];
+                }
+                float wantBankRoll = Mathf.Clamp(0.5f * 0.25f, -0.2f, 0.2f);   // LeanYawRate * 0.25, the 1x number
+                Assert.AreEqual(wantBankRoll, hpRoll, 0.001f,
+                    "[K1][W2.4] a flyer's bank must come off LeanYawRate, not YawRate (at the real rate it would sit on the +-0.2 clamp)");
+                float wantDrift = Mathf.Clamp(-0.5f * Mathf.Abs(1.2f) * 0.08f, -0.25f, 0.25f);   // -LeanYawRate * |LeanSpeed| * HoverDrift
+                Assert.AreEqual(wantDrift, (float)GetF(v, "Drift"), 0.01f,
+                    "[K1][W2.4] a hovering machine's drift must come off LeanYawRate/LeanSpeed, not YawRate/Speed (at the real rates it would sit on the +-0.25 clamp)");
+            }
+            finally
+            {
+                UnityEngine.Object.DestroyImmediate(go);
+            }
         }
 
         [Test]

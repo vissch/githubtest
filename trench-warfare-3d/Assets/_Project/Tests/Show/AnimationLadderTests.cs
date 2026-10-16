@@ -3,6 +3,7 @@
 // vehicle's drawn yaw frozen at its spawn yaw. No sim is stepped: the tests place units and tick the controller alone.
 using System;
 using NUnit.Framework;
+using UnityEngine;
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim;
@@ -50,21 +51,39 @@ namespace TW.Tests
         [Test]
         public void AClimbingManRisesUpTheParapetWithoutSnappingBack()
         {
+            // [P2a][W2.2] the old lift read saturate(Frame/0.8): ClimbOut (0.53s = ~11 ticks) hands off to ClimbHold,
+            // a 1s LOOP whose own Frame wraps back toward 0 once a second while the climb keeps going. Running 50
+            // ticks (ClimbOut's ~11 plus more than one full ClimbHold loop of 20) puts a wrap inside the window
+            // whatever phase ClimbHold happens to start the loop hashed to, so the old bug cannot dodge it by luck.
             using var r = new Rig();
             int man = r.M.World.Spawn(0, 0, new float3(10f, 0f, 10f), 100f, 3f, false);
             r.M.World.StanceOf[man] = (byte)Stance.Vault;
 
             float prev = 0f;
-            bool reachedFull = false;
-            for (int t = 0; t < 40; t++)
+            bool climbing = false;
+            int sinceClimb = -1;
+            for (int t = 0; t < 50; t++)
             {
                 r.Tick();
+                var clip = r.A.State[man].Clip;
+                bool isClimb = clip == Clip.ClimbOut || clip == Clip.ClimbHold || clip == Clip.ClimbLadder;
+                if (isClimb) sinceClimb = climbing ? sinceClimb + 1 : 1;   // ClimbTime already carries this tick's dt
+                climbing = isClimb;
+
                 float lift = r.A.Lift[man];
-                Assert.GreaterOrEqual(lift, prev, "[P2a] a climbing man's Lift must never fall back down mid-climb (tick " + t + ")");
+                Assert.GreaterOrEqual(lift, prev - 1e-5f, "[P2a][W2.2] a climbing man's Lift must never fall back down mid-climb (tick " + t + ")");
                 prev = lift;
-                if (t >= 17 && lift >= 1f) reachedFull = true;
+
+                if (!isClimb || sinceClimb < 0) continue;
+                // 0.8s to full at 20 Hz = 16 ticks, so each tick ramps 0.0625 of the way there
+                float want = Mathf.Min(1f, sinceClimb * 0.0625f);
+                Assert.AreEqual(want, lift, 0.01f,
+                    $"[P2a][W2.2] tick {sinceClimb} since the climb began should give Lift {want:F3}, not {lift:F3} "
+                  + "(ClimbHold's own Frame wraps once a second; Lift must key off time since the climb started, not the clip's phase)");
+                if (want >= 1f)
+                    Assert.AreEqual(1f, lift, 1e-4f, $"[P2a][W2.2] tick {sinceClimb}: Lift reached 1 but must stay exactly 1, not fall back as ClimbHold loops");
             }
-            Assert.IsTrue(reachedFull, "[P2a] after 0.8s+ of climbing, Lift should reach and hold at 1");
+            Assert.GreaterOrEqual(sinceClimb, 16, "[P2a][W2.2] the premise: the climb ran long enough (16+ ticks) to prove Lift held at 1 through a ClimbHold wrap");
         }
 
         [Test]

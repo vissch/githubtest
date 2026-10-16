@@ -599,6 +599,15 @@ namespace TW.Presentation.Tactical
         float Ground(float x, float z) => Host != null && Host.Local != null ? RenderGround.Sample(Host.Local.Map, x, z) : 0f;
         System.Func<float, float, float> groundFn;   // kept, so asking it per foot per frame does not allocate
 
+        // K1: Speed and YawRate are per real second, so at TimeScale t their product (a turn's lean) goes as t^2.
+        // LeanSpeed, LeanYawRate and the gait's LeanScale carry the per-sim-second rates back down to 1x.
+        void LeanRates(View v, float timeScale)
+        {
+            float real = Mathf.Max(1f, timeScale);
+            v.LeanSpeed = v.Speed / real; v.LeanYawRate = v.YawRate / real;
+            if (v.Legs != null) v.Legs.LeanScale = 1f / (real * real);
+        }
+
         // ------------------------------------------------------------------ one tank, one frame
         void Animate(TW.Sim.Match.MatchSim match, View v, float dt, float now)
         {
@@ -616,8 +625,7 @@ namespace TW.Presentation.Tactical
             v.Accel = Mathf.Lerp(v.Accel, dt > 1e-4f ? (v.Speed - wasSpeed) / dt : 0f, 1f - Mathf.Exp(-dt * 6f));
             v.Travel = Mathf.Repeat(v.Travel + Mathf.Abs(v.Speed) * dt, 1000f);
             v.YawRate = Mathf.Lerp(v.YawRate, yawRate, 1f - Mathf.Exp(-dt * 10f));
-            float real = Mathf.Max(1f, Host != null ? Host.TimeScale : 1f);
-            v.LeanSpeed = v.Speed / real; v.LeanYawRate = v.YawRate / real;
+            LeanRates(v, Host != null ? Host.TimeScale : 1f);
             if (weightOn) FeelTheWay(w, v, dt);   // the acceleration off the sim's own speed, not off the drawn position
 
             // what the sim says about it
@@ -646,7 +654,7 @@ namespace TW.Presentation.Tactical
                 if (lost != v.LegsLost) LegsChangedTo(v, lost);
                 // the feet: planted on the ground and left there while the body walks over them
                 if (v.Legs == null) v.Legs = new WalkerGait { SwingScale = v.Style.Swing, ArcScale = v.Style.Arc };
-                v.Legs.LeanScale = 1f / (real * real);   // K1: the gait's turn lean is yawRate * pace, both per real second
+                LeanRates(v, Host != null ? Host.TimeScale : 1f);   // v.Legs just made: its LeanScale needs its own write
                 if (groundFn == null) groundFn = Ground;
                 Vector3 vel = Host.TimeScale <= 0f ? Vector3.zero : (v.Pos - v.LastPos) / Mathf.Max(1e-4f, dt);
                 v.Legs.Step(v.Model, v.Pos, v.Yaw, vel, v.YawRate, lost, dead, dt, groundFn);
