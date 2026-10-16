@@ -516,6 +516,7 @@ namespace TW.Presentation.Tactical
             pipRows.Clear(); placedRows.Clear(); rowsDown.Clear();
             shotMarks.Clear();
             volleyBase.Clear(); volleyPuff.Clear();
+            standCards.Clear();           // a per-frame scratch list of Stand-fire cards; nothing of a match should outlive it either
         }
 
         // ------------------------------------------------------------------ frame
