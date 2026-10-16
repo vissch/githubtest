@@ -1,0 +1,32 @@
+{
+  "subject": "branch:lane/show/anim-critique",
+  "looked_at": [
+    "docs/reference/decisions.md",
+    "docs/reference/pipelines.md",
+    "docs/found/look-branch-lane-show-agents-wiring-relay-20261016.json",
+    "git log --format=%B origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/anim-critique",
+    "git show origin/lane/show/anim-critique:trench-warfare-3d/Assets/_Project/Presentation/Camera/FilmAim.cs",
+    "git show origin/lane/show/anim-critique:trench-warfare-3d/Assets/_Project/Tests/Show/FilmFollowTests.cs",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/anim-critique -- trench-warfare-3d/Tools/assetboard/gamefilm.py",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/anim-critique -- trench-warfare-3d/Tools/assetboard/test_assetboard.py",
+    "git merge-tree --write-tree origin/claude/trench-warfare-2d-3d-plan-idt7lf origin/lane/show/anim-critique",
+    "trench-warfare-3d/Captures (this checkout, listed)",
+    "tw3d-board-2 checkout (searched for film/score data)"
+  ],
+  "tasks": [
+    {
+      "title": "Re-run gamefilm film+battle to remake the 46 critique films, then land the branch",
+      "why": "decisions.md:197 (R0 C1) names three deliverables for this unit: the camera keeps its subject, a check in the filming tool fails a film that loses it, and the 46 films are made again. The first two hold: FilmAim/TacticalCamera.HoldAuto fix the bearing math (FilmFollowTests covers worked numbers, not a tautology), and gamefilm.py's new check() / check_trace() exits 1 on LOST SUBJECT, STILL, FROM BEHIND and NO SUBJECT, wired into film()/battle() so a bad take fails the run (test_assetboard.py:gamefilm_cases, 18 cases, exercised against hand-written traces). The third is missing: no assetfilm folder or trace exists anywhere reachable (not in this checkout's Captures/, not in tw3d-board-2); the branch's own commit message only reports a single manual Mercy batch run, not the 46-film critique set. Landing without the re-film leaves the owner's own standing complaint (19 of 46 scored, none checked) unresolved even though the tool that would check them is ready. Cost of not doing this: the fixed camera and check sit idle, and the owner's next review page waits on nothing being re-filmed. The merge onto integration (236 commits ahead) is otherwise clean except one text conflict in docs/reference/tasks.md (both sides added rows), which the landing session resolves by hand per CLAUDE.md.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/gamefilm.py",
+        "trench-warfare-3d/Captures/assetfilm",
+        "docs/reference/tasks.md"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "`python Tools/assetboard/gamefilm.py up`, `film`, `battle`, `down` have run on lane/show/anim-critique (rebased), `python Tools/assetboard/gamefilm.py check` reports 46 films checked with 0 fails (or named, fixed fails), and the branch lands via Tools/land.py",
+      "risk": [true, true, true, false, false],
+      "change": [true, false, true, false, false]
+    }
+  ]
+}
