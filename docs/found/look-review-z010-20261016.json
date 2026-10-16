@@ -1,0 +1,74 @@
+{
+ "subject": "review:Z010",
+ "looked_at": [
+  "trench-warfare-3d/Tools/assetboard/briefs.py (928 lines, whole; and the diff 7943d2b..origin/integration)",
+  "trench-warfare-3d/Tools/assetboard/build.py (144 lines, whole; and the diff)",
+  "trench-warfare-3d/Tools/assetboard/critiques.py (270 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/ops.py (live_check, board_root, the_queue)",
+  "trench-warfare-3d/Tools/assetboard/src_git.py (git, head)",
+  "trench-warfare-3d/Tools/assetboard/notes.py (answer, read_all)",
+  "trench-warfare-3d/Tools/assetboard/static/decide.js (BRIEFS_BAD)",
+  "trench-warfare-3d/Tools/aosa/aosa.py (1584 lines, whole)",
+  "trench-warfare-3d/Tools/aosa/occ.py",
+  "trench-warfare-3d/Tools/aosa/cmp.py",
+  "trench-warfare-3d/Tools/aosa/bench.sh",
+  "trench-warfare-3d/Tools/aosa/player_bench.sh",
+  "trench-warfare-3d/Tools/aosa/land.ps1",
+  "trench-warfare-3d/Tools/abtest.py",
+  "trench-warfare-3d/Tools/animforge.py",
+  ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md",
+  "docs/reference/tasks.md and docs/reference/decisions.md (grep for these tool names only)"
+ ],
+ "tasks": [
+  {
+   "title": "take: a left-over brief must not swallow --queued",
+   "why": "briefs.py:513-515: take() calls left_over() and returns its (brief, note) before it ever looks at --queued/--outcome/--board. A session that reruns take with the unit it has just queued gets exit 0 and main (briefs.py:890-893) prints 'closed with X (queued as <the OLD record>)', while the unit it names is written nowhere: the owner's yes is on record with the wrong outcome, and nobody is told. P1.",
+   "files": ["trench-warfare-3d/Tools/assetboard/briefs.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_briefstates.py closes a brief with outcome words, leaves one open note of his, then calls take(..., queued='u-1') and asserts it either refuses or records queued='u-1'; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "queued_on: tell a failed board read from 'not queued'",
+   "why": "briefs.py:282,288 read the board through src_git.git (src_git.py:28-30), which returns stdout and drops git's exit code. A board with no fetched origin/main, or any git error, gives '' names, so queued_on returns '' exactly as if nothing were queued, and take raises the refusal at briefs.py:533-540 claiming 'nothing is queued as X' with a push-it-first instruction that is false. The owner's answer then cannot be taken up except with --unchecked, which files a reason nobody actually established. P2.",
+   "files": ["trench-warfare-3d/Tools/assetboard/briefs.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test points queued_on at a git repo without origin/main and asserts it reports the read as failed (not ''), and that take's message says the board could not be read; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "critiques.py: write critique.json whole or not at all",
+   "why": "critiques.py:129 writes critique.json straight over itself, while briefs.py:168-175 (put) and notes.py:162 already use a temp-and-rename for exactly this (N10.4). A write cut half way leaves a file read_all (critiques.py:84-91) drops without a word, so a whole kept critic loop vanishes from the listing and from ideas.py context; a board loop returns on the next collect, a hand-saved one is gone. P2.",
+   "files": ["trench-warfare-3d/Tools/assetboard/critiques.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test truncates a kept critique.json, asserts read_all still drops it, then asserts save() writes through a temp file (no partial critique.json after an interrupted write); and nothing in the listing changes otherwise",
+   "risk": [false, false, false, false, false],
+   "change": [false, false, false, false, false]
+  },
+  {
+   "title": "build.py: let --json-only --out run without TW_BRIEFS",
+   "why": "build.py:86-90 refuses any --out unless TW_BRIEFS and TW_NOTES are set, but with --json-only the run writes assets.json alone: ops.page/ops.once (build.py:135-138), the only callers that touch his live briefs and notes, are already behind 'not args.json_only and not args.no_git'. So the tool's own documented read-only command (build.py:10, 'python Tools/assetboard/build.py --json-only --out DIR') now exits 2 for a danger it cannot cause. P2.",
+   "files": ["trench-warfare-3d/Tools/assetboard/build.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_readonly.py runs build.main(['--json-only','--check','--out',tmp]) with TW_BRIEFS and TW_NOTES unset and asserts exit 0, while a plain --out run still exits 2",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "animforge concat: dead branch picks the same clip twice",
+   "why": "animforge.py:321, 'b = nxt if set(nxt.data) >= set(a.data) else nxt': both arms are nxt, so the test does nothing. Either a bone-set check was meant and is missing (a clip with fewer bones is then held at its last frame by the line below) or the line should be 'b = nxt'. It misleads the next reader of the only clip-joining path. P3.",
+   "files": ["trench-warfare-3d/Tools/animforge.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "the line is one branch, or the intended check is written with a test joining two clips of different bone sets; python Tools/animforge.py-driven make_missing_clips.py still writes byte-identical clips",
+   "risk": [false, false, false, false, true],
+   "change": [false, false, false, false, false]
+  }
+ ]
+}
