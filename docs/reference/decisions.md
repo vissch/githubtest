@@ -381,6 +381,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   own push is a plain fast-forward; (c) teach the live `cmdrules.push_ok` and `legcmd.finish()` the `-b..-j` rename
   fallback `prepush.py` already allows - a fifth change the owner did not ask for, not built here. This leg ends
   blocked with nothing pushed; the commit carrying this row also cannot reach origin for the same reason.
+  **Answered, 2026-10-16 (Decide page): option (a), move origin's copy.** The owner: "Move origin's copy of the
+  lane to match this finished, passing version (loses nothing of value on origin's side)". Nothing of value is lost:
+  `origin/lane/show/relay-four-checks`'s three commits (`4c5ce2b29`, `04f874f3b`, `f9d9a1f34`) are the same three docs
+  edits, same subjects and same diffs, as `a42034f05`, `538ed9000`, `274a642a1` already in this lane's history
+  (checked by eye, e.g. `f9d9a1f34` against `274a642a1`, both "docs: the relay's own tests read the live ledger, so
+  no lane can carry them past the gate - one open question for the owner", identical diff); and
+  `origin/lane/show/relay-four-checks-b` (tip `6277abc69`, checks 1-3 only) sits on a base 36 commits behind
+  integration, superseded by this lane's tip. What is left is one command, not a decision: re-verified on 2026-10-16
+  by the unit's own leg (184 relay tests still green on this tree, `git rev-list --left-right --count
+  origin/claude/trench-warfare-2d-3d-plan-idt7lf...HEAD` still `0 8`), run in
+  `C:\Users\PC\Documents\GitHub\githubtest-relay-work` while no relay leg holds that checkout:
+  `git push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin HEAD:refs/heads/lane/show/relay-four-checks`
+  The lease refuses safely if origin's lane moved before he runs it.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
