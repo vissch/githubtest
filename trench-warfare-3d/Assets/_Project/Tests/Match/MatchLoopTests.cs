@@ -162,9 +162,11 @@ namespace TW.Tests
         sealed class Defence
         {
             public readonly List<Report> Reports = new List<Report>();
-            public readonly List<string> Decisions = new List<string>();
+            // [W2.1] one inner list per seed: ticks restart at 0 for every seed, so a tick is only meaningful inside
+            // its own seed's list. A list shared across seeds would hold the same tick three times (once per seed).
+            public readonly List<List<string>> Decisions = new List<List<string>>();
             // [T35] the enemy's own (mine, held) at the tick it decided, read independently of the string it logged
-            public readonly List<(uint Tick, int Mine, int Held)> Odds = new List<(uint Tick, int Mine, int Held)>();
+            public readonly List<List<(uint Tick, int Mine, int Held)>> Odds = new List<List<(uint Tick, int Mine, int Held)>>();
             public int Hoarded, Short;   // samples short of men for the odds, and those sitting on the reserve
         }
         static Defence defended;
@@ -175,7 +177,11 @@ namespace TW.Tests
             var d = new Defence();
             for (uint s = 1; s <= 3; s++)
             {
-                var ai = new ScriptedEnemy { Said = x => d.Decisions.Add(x) };
+                var decisions = new List<string>();
+                var odds = new List<(uint Tick, int Mine, int Held)>();
+                d.Decisions.Add(decisions);
+                d.Odds.Add(odds);
+                var ai = new ScriptedEnemy { Said = x => decisions.Add(x) };
                 d.Reports.Add(Play(Policy.Defend, 10, s, ai, 8, m =>
                 {
                     var w = m.World;
@@ -184,7 +190,7 @@ namespace TW.Tests
                         short front = m.Fields.FrontTrench(1), theirs = m.Fields.FrontTrench(0);
                         int mine = front >= 0 ? m.Fields.Trenches[front].GarrisonCount : 0;
                         int held = theirs >= 0 ? m.Fields.Trenches[theirs].GarrisonCount : 0;
-                        d.Odds.Add((w.Tick, mine, held));
+                        odds.Add((w.Tick, mine, held));
                     }
                     if (w.Tick < 600 || w.Tick % 100 != 0) return;
                     short theirs2 = m.Fields.FrontTrench(0);
@@ -214,25 +220,36 @@ namespace TW.Tests
             // its own mine/held check already passed: re-asserting those same numbers cannot fail short of a typo.
             // This independently reads the trenches' garrison counts at the decision tick (d.Odds, from Defence's
             // per-tick inspector) and asserts on THOSE, not on what the enemy said about itself.
-            var said = Defended().Decisions;
-            var odds = Defended().Odds;
-            Assert.IsNotEmpty(said, "it attacked at all");
+            var defence = Defended();
+            var allSaid = defence.Decisions;
+            var allOdds = defence.Odds;
+            Assert.IsTrue(allSaid.Exists(s => s.Count > 0), "it attacked at all, in at least one seed");
             int checked_ = 0;
-            foreach (var d in said)
+            for (int seed = 0; seed < defence.Reports.Count; seed++)
             {
-                if (!d.Contains("barrage called") && !d.Contains("bare")) continue;
-                // the log line starts "{t/20} s ...": the decision tick is t % 100 == 50, so t/20 round-trips as
-                // tick = 20*s + 10 (checked: t=50,150,250,... -> t/20=2,7,12,... -> 20*s+10 gives back 50,150,250,...)
-                var parts = d.Split(' ');
-                int s = int.Parse(parts[0]);
-                uint tick = (uint)(20 * s + 10);
-                int found = odds.FindIndex(o => o.Tick == tick);
-                Assert.GreaterOrEqual(found, 0, $"no recorded odds at tick {tick} for decision {d}");
-                var (_, mine, held) = odds[found];
-                float want = d.Contains("bare") ? 3f : 2f;
-                Assert.GreaterOrEqual(mine, want * held, d);
-                Assert.GreaterOrEqual(mine, 8, d);
-                checked_++;
+                var said = allSaid[seed];
+                var odds = allOdds[seed];
+                foreach (var d in said)
+                {
+                    if (!d.Contains("barrage called") && !d.Contains("bare")) continue;
+                    // the log line starts "{t/20} s ...": the decision tick is t % 100 == 50, so t/20 round-trips as
+                    // tick = 20*s + 10 (checked: t=50,150,250,... -> t/20=2,7,12,... -> 20*s+10 gives back 50,150,250,...)
+                    var parts = d.Split(' ');
+                    int s = int.Parse(parts[0]);
+                    uint tick = (uint)(20 * s + 10);
+                    // [W2.1] within this seed's own list the tick is recorded exactly once; before the fix the three
+                    // seeds' odds were pooled into one list, so the same tick number showed up three times (once per
+                    // seed) and this lookup would be ambiguous whatever the match did.
+                    Assert.AreEqual(1, odds.FindAll(o => o.Tick == tick).Count,
+                        $"[W2.1] seed {seed + 1}: odds at tick {tick} recorded exactly once, not pooled across seeds");
+                    int found = odds.FindIndex(o => o.Tick == tick);
+                    Assert.GreaterOrEqual(found, 0, $"seed {seed + 1}: no recorded odds at tick {tick} for decision {d}");
+                    var (_, mine, held) = odds[found];
+                    float want = d.Contains("bare") ? 3f : 2f;
+                    Assert.GreaterOrEqual(mine, want * held, $"seed {seed + 1}: {d}");
+                    Assert.GreaterOrEqual(mine, 8, $"seed {seed + 1}: {d}");
+                    checked_++;
+                }
             }
             Assert.Greater(checked_, 0, "at least one attack decision was checked against the recorded odds");
         }
