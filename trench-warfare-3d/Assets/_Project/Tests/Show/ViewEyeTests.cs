@@ -1,6 +1,5 @@
 // Phase: maintenance (2026-10-16) — the one place the camera's zoom is read, and a ratchet so the idiom is not
-// written out again. VATRenderer still carries its own copy until its lane lands (the same arrangement
-// ViewGroundTests has for Rain and NightLights); take it off Allowed when it moves to ViewEye.
+// written out again. Every presentation source now reads through ViewEye, so only ViewEye itself is allowed.
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -13,7 +12,7 @@ namespace TW.Tests
 {
     public class ViewEyeTests
     {
-        static readonly string[] Allowed = { "ViewEye.cs", "VATRenderer.cs" };
+        static readonly string[] Allowed = { "ViewEye.cs" };
 
         /// <summary>A camera that reports a zoom and counts who asked.</summary>
         sealed class CountingZoom : MonoBehaviour, IZoomSource

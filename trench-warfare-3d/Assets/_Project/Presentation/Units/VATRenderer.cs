@@ -230,13 +230,13 @@ namespace TW.Presentation.Units
             if (figures == null || Host == null || Host.Presenter == null || Host.Local == null) return;
             var presenter = Host.Presenter;
             EnsureCapacity(presenter.Poses.Length);
-            var cam = Camera.main;
+            var cam = ViewEye.Main;
             if (cam != null)
             {
                 GeometryUtility.CalculateFrustumPlanes(cam, frustum);
                 for (int i = 0; i < 6; i++) planes[i] = new float4(frustum[i].normal, frustum[i].distance);
             }
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
+            float zoom = ViewEye.Zoom;
             float grow = ScaleAt(zoom) / UnitScale;   // units are one size at every zoom (owner, 2026-10-13)
             CurrentGrow = grow;
             var anim = Host.Animation;
@@ -317,9 +317,9 @@ namespace TW.Presentation.Units
             float ground = RenderGround.Sample(map, p.x, p.z), lift = anim.Lift[slot];
             if (lift > 0f) ground = Mathf.Lerp(ground, map.Height.Sample(p.x, p.z), lift);
             var at = new Vector3(p.x, ground, p.z);
-            var cam = Camera.main;
+            var cam = ViewEye.Main;
             if (cam != null && far != null && (at - cam.transform.position).sqrMagnitude > LodDistance * LodDistance) return false;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var z) ? z.CurrentZoom : 0f;
+            float zoom = ViewEye.Zoom;
             float scale = ScaleAt(zoom);
             at.y += anim.Hop[slot] * scale;   // a shell has him in the air (life-size metres, drawn at his scale)
             int row = nearRowOf[math.min((int)anim.Row[slot], nearRowOf.Length - 1)], prev = nearRowOf[math.min((int)anim.PrevRow[slot], nearRowOf.Length - 1)];
