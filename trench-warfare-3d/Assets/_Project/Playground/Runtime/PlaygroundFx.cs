@@ -177,7 +177,7 @@ namespace TW.Playground
             float w = (halfW + padW) * 2f / 0.72f, l = (halfL + padL) * 2f / 0.72f;   // TankRenderer: the ring sits at 0.72 of the quad
             discM.Add(Matrix4x4.TRS(at + Vector3.up * 0.12f, Quaternion.Euler(0f, yaw, 0f), new Vector3(w, 1f, l)));
             var c = team == 1 ? TankRenderer.TeamB : TankRenderer.TeamA;
-            discC.Add(new Vector4(c.r, c.g, c.b, dead ? 0f : 1f));
+            discC.Add(new Vector4(c.r * TankRenderer.RingGlow, c.g * TankRenderer.RingGlow, c.b * TankRenderer.RingGlow, dead ? 0f : 1f));
         }
 
         // ------------------------------------------------------------------ a flyer's tether

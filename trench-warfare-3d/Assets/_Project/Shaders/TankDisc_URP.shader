@@ -6,7 +6,8 @@
 // the side marker (critique round 2). Only the ground: tanks and figures set stencil bit 8 (Tank_URP, VAT_URP) and the
 // hidden pass skips it, or a tank's ring painted its side's colour over the infantry beside it and across its own hull
 // (asset playground, critic round 8: friendly frogs on an enemy tank's ring read as enemy).
-//  _Color  per instance: rgb the side's colour, a the ring's strength (0 on a wreck: only the blob).
+//  _Color  per instance: rgb the side's colour (TankRenderer.RingGlow already applied), a the ring's strength (0 on
+//          a wreck: only the blob; TankRenderer.RingStrength fades it near the camera too).
 //          a >= 2 makes the quad a RIDER PIP instead (TankRenderer.Riders): a dot by the ring, one per seat, a - 2 its
 //          fill - 1 a man aboard, between a man climbing on or off, 0 an empty seat (a dark disc ringed in the side's
 //          colour); a >= 3.5 draws a TRIANGLE pointing down the screen instead (a man flat under a sweeping barrel; the
@@ -140,7 +141,7 @@ Shader "TW/TankDisc (URP)"
                 float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);   // 0 at the rounded edge of the inner box
                 half blob = (1.0 - smoothstep(-0.25, 0.16, d)) * _Blob;
                 half ring = (smoothstep(0.18, 0.23, d) * (1.0 - smoothstep(0.32, 0.39, d))) * i.side.a;
-                half3 color = lerp(half3(0.02, 0.018, 0.016), i.side.rgb * 1.4, ring / max(ring + blob, 1e-3));
+                half3 color = lerp(half3(0.02, 0.018, 0.016), i.side.rgb, ring / max(ring + blob, 1e-3));
                 half alpha = max(blob, ring * 0.55);
                 color = ApplyMist(color, i.positionWS);
                 color = ApplyFieldFog(color, i.positionWS);
@@ -254,7 +255,7 @@ Shader "TW/TankDisc (URP)"
                 float2 q = abs(p) - 0.62;
                 float d = length(max(q, 0.0)) + min(max(q.x, q.y), 0.0);
                 half ring = (smoothstep(0.18, 0.23, d) * (1.0 - smoothstep(0.32, 0.39, d))) * i.side.a;
-                return half4(i.side.rgb * 1.4, ring * 0.3);
+                return half4(i.side.rgb, ring * 0.3);
             }
             ENDHLSL
         }
