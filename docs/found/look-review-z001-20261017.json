@@ -1,0 +1,74 @@
+{
+ "subject": "review:Z001",
+ "looked_at": [
+  "trench-warfare-3d/Assets/_Project/Sim/Core/AbilityArgs.cs (38 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/ChassisKind.cs (23 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/Faction.cs (48 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/FactionRoster.cs (122 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/IAuraProvider.cs (11 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/ISeaLift.cs (13 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs (71 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/InfantrySpec.cs (92 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/Lane.cs (36 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/OrderGroup.cs (62 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/PerfMarkers.cs (64 lines, whole)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/PropTarget.cs (12 lines, whole)",
+  "git diff 7943d2b9..origin/claude/trench-warfare-2d-3d-plan-idt7lf over those twelve files (one comment line, ISeaLift.cs:1)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/RosterEntry.cs (the archetype id tables, SlotCount)",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/UnitCatalogue.cs:43-48 (who fills Units.Infantry)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs (OffMapAbilityId, TryGetStats, the SupportFire handler :190-215)",
+  "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs (every Infantry = ... line, Apply :470-495)",
+  "trench-warfare-3d/Assets/_Project/Sim/Units/TrenchOrders.cs:79 (the group filter)",
+  "trench-warfare-3d/Assets/_Project/Editor/SliceDefinitions.cs:84-89 (the five data-only abilities)",
+  "trench-warfare-3d/Assets/_Project/Perf/GymCatalogue.cs:107-118, Perf/PerfBench.cs:543",
+  "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs:200 (the only caller of PerfMarkers.ForSystem)",
+  "trench-warfare-3d/Assets/_Project/UI/HudView.cs:60-95 (SeatMask), Presentation/Camera/BattleHud.cs:577, TestPanel.cs:44-46",
+  "trench-warfare-3d/Assets/_Project/Tests/Sim/AbilityArgsTests.cs (47 lines, whole), Tests/Sim/FactionRosterTests.cs (the MayCall asserts)",
+  ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md",
+  "docs/reference/tasks.md and docs/reference/decisions.md (grep for OrderGroup, FactionRoster, AbilityArgs, off-map, MayCall)"
+ ],
+ "tasks": [
+  {
+   "title": "derive the off-map ability mask from the id enum, not a second table",
+   "why": "FactionRoster.cs:113-118 hardcodes six ability bits plus ParaDrop. OffMapAbilityId (Sim/Match/OffMapAbilities.cs:37-38) has five more ids with full stats already written in Editor/SliceDefinitions.cs:84-89 (MustardGas 4, BomberRun 5, MortarSalvo 7, ReconFlight 8, ReinforcementSurge 9). Today nothing breaks, because OffMapAbilitySystem.TryGetStats has no case for them and rejects first. The day one of them gets sim stats, the handler's own next line (OffMapAbilities.cs:200, MayCall) refuses it to every faction and the only sign is a Reject event: an ability that is built, costed and offered fires for nobody. Nothing holds the two tables together. P2.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/FactionRoster.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FactionRosterTests.cs"
+   ],
+   "lane": "sim",
+   "role": "review-fix",
+   "done_when": "a test in FactionRosterTests walks every OffMapAbilityId with TryGetStats stats and asserts some faction MayCall it; it goes red if a stats case is added without a mask bit",
+   "risk": [false, true, false, false, false],
+   "change": [false, false, false, false, false]
+  },
+  {
+   "title": "put each system's profiler marker name in PerfMarkers.Names",
+   "why": "PerfMarkers.cs:26 (ForSystem) builds 'TW.Sim.Sys.<Type>' but never adds the name to `names`, so the claim at PerfMarkers.cs:22 ('every marker below, by name... PerfBench records all of them without a list of its own') is false for exactly the markers the file was written for. PerfBench.cs:543 records only PerfMarkers.Names, so the per-system sim budget in docs/05 ('flow field 0.60 ms', 'separation + movement 0.60 ms') still cannot be checked by the bench, which the file's own header gives as its reason to exist. SimWorld.cs:200 builds one per registered system, so the names are known at world build. P2.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/PerfMarkers.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs"
+   ],
+   "lane": "sim",
+   "role": "optimizer",
+   "done_when": "a bench run's report names a per-system row (TW.Sim.Sys.MovementSystem) with a millisecond figure, and a test asserts PerfMarkers.Names contains it after a world with that system is built",
+   "risk": [false, false, false, false, false],
+   "change": [false, false, false, false, false]
+  },
+  {
+   "title": "hold every UnitDef's order Group against OrderGroup.Of",
+   "why": "A man's Group has two sources. InfantrySpec.cs:68 sets it from OrderGroup.Of; UnitDefinitions.Apply (UnitDefinitions.cs:485) then overwrites the whole spec with the def's own Infantry, Group and all. So OrderGroup.Of's `default: return Line` (OrderGroup.cs:191) is wrong for the two units it would reach (Sentry 26 is a gun, AtRifle 27 a marksman) and only harmless because their defs happen to set Gun and Marksman (UnitDefinitions.cs:272, :283). Worse, a def that omits Group gets 0, and TrenchOrders.cs:79 then drops that unit from every group order with no event at all: the exact silent failure OrderGroup.cs:146-160 says the groups replaced. No test holds the two tables together. P2.",
+   "files": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/OrderGroup.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/InfantrySpec.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/UnitDefinitionTests.cs"
+   ],
+   "lane": "sim",
+   "role": "review-fix",
+   "done_when": "a test in UnitDefinitionTests asserts every UnitDef's Infantry.Group is non-zero and equals OrderGroup.Of(its archetype), and that OrderGroup.Of names Sentry and AtRifle rather than falling to the default",
+   "risk": [false, true, false, false, false],
+   "change": [false, false, true, false, false]
+  }
+ ]
+}
