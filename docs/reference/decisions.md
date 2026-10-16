@@ -311,6 +311,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `docs/05-performance-budgets.md`). This relay leg's own rebased tip carries no new file (it is an ancestor-equal
   rebuild) and is pushed under the hook's own escape rule for a rebased lane, as a new branch
   `lane/show/heroes-off-bench-<letter>` — no owner action needed for that either. (heroes-off-bench-c, this leg)
+| 2026-10-16 | **A stuck lane's push: the guard is loosened, so a leg may push under a new branch name.** The owner,
+  to "A stuck lane's push: loosen the guard, or clear the stale branch by hand", answered on the Decide page:
+  "Loosen the guard to allow a fallback push under a new branch name". Two layers guard a push and only one had the
+  escape: `Tools/relay/prepush.py` (git's pre-push hook) already allowed a new `<lane>-b` .. `<lane>-j`, while
+  `Tools/relay/cmdrules.py`'s `push_ok` accepted no refspec but the lane itself, so the command was refused before
+  git ever ran and the hook's escape was unreachable from a leg. Both now take any `HEAD:<lane>-<suffix>`
+  (`[a-z0-9][a-z0-9.-]*`, anchored), and the hook still refuses a push over an existing branch, a delete, and
+  another lane's name. Nothing about landing, and the stale `origin/lane/show/heroes-off-bench` is left alone. The
+  loosening is committed on `lane/show/heroes-off-bench` (`90199269b`); the live rules a leg runs are the
+  relay-run checkout's copies, which still carry the old `push_ok`, so the fallback push stayed refused in this leg
+  (see `docs/inbox/2026-10-16-all-relay-push-guard.md`). The work itself already sits on origin as
+  `lane/show/heroes-off-bench-d`. (owner, 2026-10-16, on the Decide page; built this leg) |
 | 2026-11-03 | **`lane/show/heroes-off-bench` rebased clean and pushed as a forced push onto its own name, as the owner directed.** The owner, on the Decide page, to "heroes-off-bench-c: tried 2 times, no progress": "Try it once more as it stands". Integration's `Tools/relay/` rules (as of `a95b9c088` in the frozen relay-run checkout) now let a leg force-push onto the lane named in full (`cmdrules.py push_ok`), and `prepush.py refusal` no longer refuses a rebased lane as "not an ancestor" — only another ref or a delete. So the lane's own `<lane>-<suffix>` fallback (`bdb01972e`, 2026-10-16, below) is superseded: it solved the same stuck-push problem the other way, and keeping it would let `cmdrules.py` wave through a push that upstream's hook now refuses by a different rule, two layers disagreeing. The lane rebased onto integration, resolved by hand (this file, and `Tools/relay/cmdrules.py` / `prepush.py` / `test_relay.py` taking integration's version over the lane's superseded fallback), and pushed with `git push --force-with-lease origin lane/show/heroes-off-bench`. (this leg, heroes-off-bench-retry, 2026-11-03)
 
 ## Open: waiting on the owner
