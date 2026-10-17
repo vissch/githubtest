@@ -334,6 +334,21 @@ namespace TW.Presentation.Terrain
             jolts.Add(new Jolted { Module = it.Module, Page = it.Page, Slot = it.Slot, Home = it.M, Push = dir * amp, Born = Time.time });
         }
 
+        /// <summary>Tests only: knocks whatever stands at a point, as a bullet's Knock would. Returns false if nothing
+        /// is found there.</summary>
+        public bool KnockForTests(BattlefieldKit.Module module, Vector3 at, Vector3 dir)
+        {
+            if (rules == null || props == null || !rules.TryGetValue(module, out var rule)) return false;
+            found.Clear();
+            props.Within(module, new Vector2(at.x, at.z), 1f, found);
+            if (found.Count == 0) return false;
+            var (page, slot, m) = found[0];
+            Knock(new Standing_ { Module = module, Page = page, Slot = slot, M = Home(module, page, slot, m) }, rule, dir, 1u);
+            return jolts.Count > 0;
+        }
+        /// <summary>Tests only: a Twitch pass at a given time.</summary>
+        public void TwitchForTests(float now) => Twitch(now);
+
         void Unjolt(in Standing_ it) => UnjoltSlot(it.Module, it.Page, it.Slot);
 
         void UnjoltSlot(BattlefieldKit.Module module, int page, int slot)
@@ -351,7 +366,9 @@ namespace TW.Presentation.Terrain
             {
                 var j = jolts[i];
                 float k = (now - j.Born) / JoltSeconds;
-                bool gone = destroyed.Contains(Key(j.Module, j.Home));
+                // a lining twin's damage, and its death, live under the panel's key (KeyOf), not its own
+                long key = rules != null && rules.TryGetValue(j.Module, out var rule) ? KeyOf(j.Module, rule, j.Home) : Key(j.Module, j.Home);
+                bool gone = destroyed.Contains(key);
                 if (gone) { jolts.RemoveAt(i); continue; }
                 if (k >= 1f) { props.Move(j.Module, j.Page, j.Slot, j.Home); jolts.RemoveAt(i); continue; }
                 float fade = (1f - k) * (1f - k);

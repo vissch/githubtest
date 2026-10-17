@@ -395,7 +395,7 @@ namespace TW.Presentation.Terrain
         /// where it stood and the pieces it lost fly), or gone (whatever stands there collapses).</summary>
         void Section(BattlefieldKit.Module module, Rule rule, int page, int slot, long key, in Matrix4x4 m, Vector3 origin, float power, float harm, float hp, SectionState was, SectionState state, DebrisRenderer debris, uint salt, bool shake)
         {
-            if (state == SectionState.Gone) { Finish(module, rule, page, slot, key, m, origin, power, harm, debris, salt, shake); return; }
+            if (state == SectionState.Gone) { UnjoltSlot(module, page, slot); Finish(module, rule, page, slot, key, m, origin, power, harm, debris, salt, shake); return; }   // a knock still running on the slot that is going out of the draw
             damage[key] = hp;
             if (state == SectionState.Damaged && was == SectionState.Intact && rule.Damaged != null)
             {
