@@ -1,0 +1,26 @@
+{
+  "subject": "branch:lane/show/balance-band",
+  "looked_at": [
+    "git log origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/balance-band",
+    "git diff --stat (three-dot) origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/balance-band",
+    "trench-warfare-3d/Tools/sweep.py (branch side: faction_band, faction_rows, variant_sides, render)",
+    "trench-warfare-3d/Tools/nightly.py (branch side: band_part)",
+    "trench-warfare-3d/Tools/sweeps/factions.json",
+    "docs/reference/decisions.md (the d-matches row)",
+    "docs/reference/workflow.md (the night's run and the sweep sections)",
+    "docs/reference/tasks.md (the balance-sweep row)",
+    "git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf origin/lane/show/balance-band -- trench-warfare-3d/Tools/sweep.py trench-warfare-3d/Tools/nightly.py trench-warfare-3d/Tools/test_sweep.py trench-warfare-3d/Tools/test_nightly.py trench-warfare-3d/Tools/sweeps/factions.json"
+  ],
+  "tasks": [
+    {
+      "title": "Close lane/show/balance-band: it landed, the branch is dead",
+      "why": "Every file it changed is byte-identical to integration (the two-dot diff on sweep.py, nightly.py, test_sweep.py, test_nightly.py and sweeps/factions.json prints nothing) and integration already carries the same four show: commits under new shas (9b9e830df, 83fa168c1, 73035293f, 54f312239), with the docs landed too (decisions.md:268, workflow.md:286/293, tasks.md:103). It touches no repo file, so files is empty. Left on origin it costs: Tools/health.py --lanes keeps reporting it as a live lane ~4 days and 300+ files behind, and its trial merge raises false conflicts against every other lane's files.",
+      "files": [],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "git ls-remote origin lane/show/balance-band prints nothing, and git branch --list lane/show/balance-band is empty in every checkout (health.py --lanes no longer names it).",
+      "risk": [true, false, true, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
