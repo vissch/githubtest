@@ -582,6 +582,13 @@ def take_answers(w):
         if a['go'] not in ('queue', 'nothing'):
             continue
         try:
+            if w.acting:        # his notes as they stand now: the list read at the round's start goes stale while 34 units are queued
+                now = [x for x in w.answers() if x['id'] == a['id']]   # one at a time, and two clicks seconds apart (22:21, 10-17)
+                if not now:
+                    continue
+                a = now[0]      # its note is his newest; notes on two options make it 'write', a leg's
+                if a['go'] not in ('queue', 'nothing'):
+                    continue
             if a['go'] == 'queue':
                 unit = dict(a['unit'] or {})
                 unit.setdefault('role', 'lane')

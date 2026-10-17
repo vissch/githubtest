@@ -501,6 +501,25 @@ def main():
     case('"dry" means no unit an idle relay can take: with idle extra relays and only a unit kept for the main relay, a look is queued (15:41-16:25)',
          whys and 'idle' in whys[-1], whys)
 
+    # ---- two clicks of his seconds apart: the newest note is the one acted on (34 briefs, 22:21-22:22, 10-17) ----
+    class Twice(Fake):
+        def answers(self):
+            self.reads = getattr(self, 'reads', 0) + 1
+            return list(self.ans if self.reads == 1 else self.later)
+
+        def take(self, a, queued='', outcome='', option=''):
+            if a['note'] != 'new-' + a['id']:
+                raise ValueError(f'{a["id"]}: his last note about it is new-{a["id"]}, not {a["note"]}: read it first')
+            Fake.take(self, a, queued, outcome, option)
+    w = Twice(tmp / 'twice')
+    u1, u2 = dict(id='u1', lane='lane/show/u1', goal='g', done_when=['python', '-c', '1']), dict(id='u2', lane='lane/show/u2', goal='g', done_when=['python', '-c', '1'])
+    b = dict(text='Do it', when='2026-10-17 22:21', says='', title='t')
+    w.ans = [dict(b, id='same', option='A', note='old-same', go='queue', unit=u1), dict(b, id='turn', option='A', note='old-turn', go='queue', unit=u2)]
+    w.later = [dict(b, id='same', option='A', note='new-same', go='queue', unit=u1), dict(b, id='turn', option='B', note='new-turn', go='write', why='his notes do not all pick the same option')]
+    lines = autoloop.take_answers(w)
+    case('two notes of his on a brief: the newest is the note taken up, the unit is queued once, and when his notes pick two options nothing of the older is queued (a leg reads his words)',
+         [u['id'] for u in w.added] == ['u1'] and w.taken == [('same', 'u1', '')], (lines, w.added, w.taken))
+
     # ---- editors a relay leg left open (relay 4, 10-16 17:59 to 10-17 22:20) ----
     w = Fake(tmp / 'ed')
     w.work_dirs = {n: tmp / 'ed' / f'work{n}' for n in (1, 2, 3)}
