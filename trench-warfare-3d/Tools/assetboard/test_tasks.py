@@ -300,6 +300,27 @@ def captures():
     case('capture: while his box for words is open the capture waits for them; one whose game ended with the box open is taken in after half an hour, and the marker is not part of it',
          took == ['open-forgotten-HERE'] and (src / 'open-now' / 'capture.json').exists() and not (src / 'open-forgotten').exists()
          and sorted(p.name for p in (dst / 'open-forgotten-HERE').iterdir()) == ['board.json', 'capture.json', 'shot.png'], (took, sorted(p.name for p in src.iterdir())))
+    # [found-feedback-say-so-when-an-f10-capture-json-doe-20261017-2] a capture.json that is there but does not read (a torn write) must not be skipped in silence
+    src = TMP / 'inbox-torn'
+    torn, other, young = src / 'torn', src / 'other-schema', src / 'torn-young'
+    torn.mkdir(parents=True)
+    (torn / 'capture.json').write_text((HERE / 'feedback.example.json').read_text(encoding='utf-8')[:40], encoding='utf-8')
+    other.mkdir(parents=True)
+    oc = json.loads((HERE / 'feedback.example.json').read_text(encoding='utf-8'))
+    oc.update(id='other-schema', schema='something-else/9')
+    (other / 'capture.json').write_text(json.dumps(oc), encoding='utf-8')
+    young.mkdir(parents=True)
+    (young / 'capture.json').write_text((HERE / 'feedback.example.json').read_text(encoding='utf-8')[:40], encoding='utf-8')
+    for folder, age_min in ((torn, 45), (other, 45), (young, 2)):
+        for g in list(folder.iterdir()) + [folder]:
+            os.utime(g, (NOW - age_min * MIN, NOW - age_min * MIN))
+    rows = feedback.broken(src, now=NOW)
+    by_name = {b['name']: b for b in rows}
+    case('[found-feedback-say-so-when-an-f10-capture-json-doe-20261017-2] a capture.json that is there but does not read (a torn write) is not skipped in silence: broken() lists it with a why that names the unreadable state file',
+         sorted(by_name) == ['other-schema', 'torn'] and 'capture.json' in by_name['torn']['why'] and 'does not read' in by_name['torn']['why']
+         and 'schema' in by_name['other-schema']['why'], rows)
+    case('[found-feedback-say-so-when-an-f10-capture-json-doe-20261017-2] a capture whose state file does not read is reported, not silently moved',
+         feedback.take_in(src, TMP / 'store-torn', host='HERE', now=NOW, checkout=lambda p: {}) == [], rows)
 
 
 def his_word(P, board):

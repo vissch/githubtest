@@ -17,8 +17,9 @@ take_in() copies, compares every byte, and only then removes the game's copy. It
 game ran from as it is at that moment (board.json): its branch, its commit and how many files were changed. The game
 says its own branch and commit at the press (build.branch, build.commit), and those are what a row shows: the
 checkout may have moved on by the time the board takes the capture in, and the row says so when it did.
-A folder the game left that never becomes a capture (no state file half an hour on, or more bytes than a capture
-is) is not skipped in silence: broken() lists it and the board shows it as an F10 that failed.
+A folder the game left that never becomes a capture (no state file half an hour on, a state file that does not
+read, or more bytes than a capture is) is not skipped in silence: broken() lists it and the board shows it as an
+F10 that failed.
 The format is feedback.example.json, which the game's tests and these tests both read.
 """
 import argparse
@@ -55,12 +56,25 @@ def store():
     return src_tasks.root() / 'feedback'
 
 
-def read(folder: Path):
+def check(folder: Path):
+    """Read a folder's capture.json, and say why when it is no capture: (capture_or_None, why_or_None)."""
     try:
         c = json.loads((folder / 'capture.json').read_text(encoding='utf-8-sig'))
-    except (OSError, ValueError):
-        return None
-    return c if isinstance(c, dict) and c.get('schema') == SCHEMA and c.get('id') else None
+    except FileNotFoundError:
+        return None, 'the game made its folder and wrote no state file'
+    except OSError:
+        return None, 'capture.json cannot be read'
+    except ValueError:
+        return None, 'capture.json does not read: a torn write'
+    if not isinstance(c, dict) or not c.get('id'):
+        return None, 'capture.json holds no capture: no id in it'
+    if c.get('schema') != SCHEMA:
+        return None, f'capture.json is schema {str(c.get("schema"))[:30]!r}, not {SCHEMA}'
+    return c, None
+
+
+def read(folder: Path):
+    return check(folder)[0]
 
 
 def finished(folder: Path, now):
@@ -87,10 +101,10 @@ def broken(src: Path = None, now=None):
     for folder in sorted(p for p in src.iterdir() if p.is_dir()) if src.is_dir() else []:
         try:
             at = folder.stat().st_mtime
-            if read(folder) is None:
-                if now - at < OPEN_FOR or not any(folder.iterdir()) or (folder / 'capture.json').exists():
-                    continue                        # still being written, an empty folder that is nobody's, or another schema's file
-                why = 'the game made its folder and wrote no state file'
+            c, why = check(folder)
+            if c is None:
+                if now - at < OPEN_FOR or not any(folder.iterdir()):
+                    continue                        # still being written, or an empty folder that is nobody's
             elif sum(f.stat().st_size for f in folder.iterdir() if f.is_file()) > MOST:
                 why = f'it is larger than {MOST // 2 ** 20} MB, which is no capture'
             else:
