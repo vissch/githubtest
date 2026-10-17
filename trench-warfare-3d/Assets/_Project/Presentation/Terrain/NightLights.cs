@@ -31,6 +31,12 @@ namespace TW.Presentation.Terrain
         public const float LanternGlassHeight = 1.25f, LampSpacing = 18f;
         [Tooltip("Seconds between star shells, least and most.")]
         public Vector2 FlareEvery = new Vector2(22f, 40f);
+        [Tooltip("The star shell's light at full burn.")]
+        public float FlarePeak = 150f;
+        [Tooltip("How far it reaches, metres.")]
+        public float FlareReach = 60f;
+        // the pre-calm numbers (rollback): the 420 over 95 m that washed the field to daylight (fire_09.json)
+        public const float FlarePeakOld = 420f, FlareReachOld = 95f;
 
         struct Pooled { public Light Light; public float Born, Life, Peak, Card; }
         Pooled[] pool = new Pooled[PoolSize];   // sized again in Start (lights.poolSize)
@@ -139,7 +145,10 @@ namespace TW.Presentation.Terrain
             // blue glow in the lifted haze (critique rounds 1, 5)
             bool warmFlare = WarmFlareLook;
             if (warmFlare) Flare = FlareNeutral;
-            flareLight = MakeLight("Star shell", Flare, 0f, 95f);
+            // look.calmFlare (NightLights.Pools.cs): 1 the calm star shell, 0 the old 420 over 95 m that blew the
+            // field to 4.3 % (fire_09.json)
+            if (!CalmFlareLook) { FlarePeak = FlarePeakOld; FlareReach = FlareReachOld; }
+            flareLight = MakeLight("Star shell", Flare, 0f, FlareReach);
             flare = flareLight.transform; flareLight.enabled = false;
             AddGlowMesh(flare.gameObject, flareGlow, new[] { Vector3.zero }, new[] { new Vector4(warmFlare ? 5f : 9f, .25f, .3f, .2f) },
                 new[] { warmFlare ? new Color(FlareGlowWarm.r, FlareGlowWarm.g, FlareGlowWarm.b, 1.4f) : new Color(Flare.r, Flare.g, Flare.b, 2.2f) });
@@ -606,7 +615,8 @@ namespace TW.Presentation.Terrain
             float sway = Mathf.Sin(Time.time * .9f) * 2.5f;
             flare.position = flareFrom + new Vector3(sway + age * 9f, -age * 26f, Mathf.Cos(Time.time * .7f) * 2f);
             float burn = Mathf.SmoothStep(0f, 1f, age / .06f) * (1f - Mathf.SmoothStep(.8f, 1f, age));
-            flareLight.intensity = 420f * burn * (.92f + .08f * Mathf.Sin(Time.time * 31f));
+            flareLight.range = FlareReach;
+            flareLight.intensity = FlarePeak * burn * (.92f + .08f * Mathf.Sin(Time.time * 31f));
             flareGlow.SetColor("_Tint", Color.white * burn);
             if (burn > .5f && Time.time >= nextDrip) { nextDrip = Time.time + .14f; SceneHooks.Sparks?.Invoke(flare.position, 1); }   // the star shell sheds burning drops
         }

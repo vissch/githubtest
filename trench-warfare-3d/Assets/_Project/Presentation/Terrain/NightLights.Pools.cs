@@ -194,6 +194,10 @@ namespace TW.Presentation.Terrain
         static bool WarmFlareLook => Knobs.Get("look.warmFlare", 1f) > 0f;
         public static readonly Color FlareNeutral = new Color(1f, 0.96f, 0.88f), FlareGlowWarm = new Color(1f, 0.82f, 0.55f);
 
+        /// <summary>look.calmFlare (1; 0 the old): 1 the calm star shell, 0 the old 420 over 95 m that blew the field
+        /// to 4.3 % (fire_09.json). Read once, at Start.</summary>
+        static bool CalmFlareLook => Knobs.Get("look.calmFlare", 1f) > 0f;
+
         /// <summary>look.moreFires (6; 0 none): burning trees in no man's land past the MaxFires that carry a real light,
         /// each with its flames, its glow card and a painted pool, but no light: the renderer takes eight an object, and the
         /// pool is what shows. Round 7's critic: warm light too sparse in an ordinary view (0.7 % against the edit's 2.4 %).</summary>

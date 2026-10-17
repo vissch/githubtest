@@ -59,6 +59,15 @@ namespace TW.Tests
             Assert.Less(Atmosphere.DefaultPuddleSky, 1f, "still water mirrors less of the pale sky at night: dark glass, not a pale slab");
             Assert.Greater(Atmosphere.DefaultWaterDim, 0f, "the flooded ground's water sheet is darker at night");
             Assert.Greater(Atmosphere.DefaultGrade, 0f, "the night grade grounds the shadows in umber");
+            var go = new GameObject("NightLookTests flare");
+            try
+            {
+                var lights = go.AddComponent<NightLights>();
+                Assert.Less(lights.FlarePeak, NightLights.FlarePeakOld * 0.5f, "fire_09's 0.195 luma over the pre-shell frame has to fall to 0.091 or less to clear the goal's 1.4x bar, and the light is what raised it");
+                Assert.Less(lights.FlareReach, NightLights.FlareReachOld, "the calm shell reaches less of the field than the old 95 m that washed it to daylight");
+                Assert.AreEqual(150f, lights.FlarePeak); Assert.AreEqual(60f, lights.FlareReach); // the pair the capture series passed with (fire_09.json rework)
+            }
+            finally { Object.DestroyImmediate(go); }
             Assert.Greater(Atmosphere.GradeUmber.x, Atmosphere.GradeUmber.z, "umber: warmer than the blue it replaces");
             Assert.Greater(Atmosphere.LiftHaze.grayscale, 0.35f, "the haze lighter than the lit ground, so the distance's silhouettes stand dark against it");
         }
