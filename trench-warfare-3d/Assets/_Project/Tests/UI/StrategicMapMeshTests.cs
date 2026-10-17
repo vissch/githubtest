@@ -4,6 +4,7 @@
 using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
+using TW.Presentation;
 using TW.Presentation.Meta;
 using TW.UI;
 
@@ -142,6 +143,21 @@ namespace TW.Tests
                 }
             Assert.GreaterOrEqual(far, 0, "some land lies well away from the front");
             Assert.AreEqual(charted[far], known[far], 1e-4f, "far from it, untouched");
+        }
+
+        // [found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] selecting a pin flips Current<->Available,
+        // which moves no fog hole: only locking or unlocking a node may rebake the 45,632-texel grid.
+        [Test]
+        public void Only_A_Lock_Changing_Dirties_The_Fog()
+        {
+            Assert.That(StrategicMapView.FogAffects(NodeState.Current, NodeState.Available), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Available, NodeState.Current), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Locked, NodeState.Available), Is.True, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] unlocking a node must rebake the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Available, NodeState.Locked), Is.True, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] unlocking a node must rebake the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Available, NodeState.Complete), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Current, NodeState.Complete), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Locked, NodeState.Locked), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
+            Assert.That(StrategicMapView.FogAffects(NodeState.Available, NodeState.Available), Is.False, "[found-fog-rebakes-full-45k-texel-grid-on-every-pin-20261017-0] a click that only moves the selection rebakes the fog");
         }
     }
 }
