@@ -88,6 +88,36 @@ namespace TW.Presentation
         Stress playerStress = new Stress { LastTick = uint.MaxValue }, enemyStress = new Stress { LastTick = uint.MaxValue };
         uint lastTick = uint.MaxValue;
 
+        /// <summary>The three slot picks for one (world, side): constant for the whole match, because nothing writes
+        /// `SimWorld.Roster`/`SlotUnlocked` after `FillRosters` runs (the `SimWorld` constructor, once more from
+        /// `UnitDefinitions.Apply` in MatchSim's constructor, MatchSim.cs:148) - so it is scanned once, not every tick.</summary>
+        sealed class SlotPlan { public SimWorld World; public byte Side; public int[] Armed; public int[] Mix; public int Machine; }
+        readonly SlotPlan[] plans = new SlotPlan[4];
+        int nextPlan;
+        /// <summary>Incremented once per plan built (never per call): the proof that the roster is scanned once per
+        /// (world, side), not every tick it is needed.</summary>
+        public int RosterScans;
+
+        SlotPlan PlanFor(SimWorld w, byte side)
+        {
+            for (int i = 0; i < plans.Length; i++)
+                if (plans[i] != null && plans[i].World == w && plans[i].Side == side) return plans[i];
+
+            var armed = new System.Collections.Generic.List<int>();
+            var mix = new System.Collections.Generic.List<int>();
+            int machine = -1;
+            for (int s = 0; s < RosterEntry.SlotCount; s++)
+            {
+                if (Armed(w, side, s)) armed.Add(s);
+                if (s >= 1 && ArmedOf(w, side, s)) mix.Add(s);
+                if (machine < 0 && w.Roster[side * RosterEntry.SlotCount + s].IsVehicle) machine = s;
+            }
+            var plan = new SlotPlan { World = w, Side = side, Armed = armed.ToArray(), Mix = mix.ToArray(), Machine = machine };
+            plans[nextPlan++ & 3] = plan;
+            RosterScans++;
+            return plan;
+        }
+
         /// <summary>Decide this tick's orders. `view` is the world the enemy reads (the player's own in single player, the
         /// peer's in the canary: the same state at the same tick); `local` is the player's match, for the stress preset's
         /// own-side orders; `enemy` and `player` are the seats the orders go to.</summary>
@@ -112,29 +142,20 @@ namespace TW.Presentation
         /// once every twenty seconds, so a script deploying by index spent a third of its silver on men who cannot
         /// shoot; paratroopers are dropped by the air card and are not deployable from a trench. -1 if it fields none.
         /// </summary>
-        int ArmedSlot(SimWorld pw, int n)
+        public int ArmedSlot(SimWorld pw, int n)
         {
-            int count = 0;
-            for (int s = 0; s < RosterEntry.SlotCount; s++) if (Armed(pw, s)) count++;
-            if (count == 0) return -1;
-            int want = ((n % count) + count) % count;
-            for (int s = 0; s < RosterEntry.SlotCount; s++)
-                if (Armed(pw, s) && want-- == 0) return s;
-            return -1;
+            var p = PlanFor(pw, Side);
+            if (p.Armed.Length == 0) return -1;
+            return p.Armed[((n % p.Armed.Length) + p.Armed.Length) % p.Armed.Length];
         }
 
         /// <summary>StressMix: the n-th man of `side`'s stress army - slot 0 for every even one, and for the odd ones the side's
         /// armed classes other than slot 0's in turn (0 if it fields no other).</summary>
-        static int MixSlot(SimWorld w, byte side, int n)
+        public int MixSlot(SimWorld w, byte side, int n)
         {
             if ((n & 1) == 0) return 0;
-            int count = 0;
-            for (int s = 1; s < RosterEntry.SlotCount; s++) if (ArmedOf(w, side, s)) count++;
-            if (count == 0) return 0;
-            int want = (n >> 1) % count;
-            for (int s = 1; s < RosterEntry.SlotCount; s++)
-                if (ArmedOf(w, side, s) && want-- == 0) return s;
-            return 0;
+            var p = PlanFor(w, side);
+            return p.Mix.Length == 0 ? 0 : p.Mix[(n >> 1) % p.Mix.Length];
         }
 
         /// <summary>A foot soldier in `side`'s roster slot who can shoot, and is not a rifleman as slot 0 is.</summary>
@@ -146,22 +167,17 @@ namespace TW.Presentation
                 && e.Archetype != InfantryArchetype.Para && e.Archetype != InfantryArchetype.Rifle;
         }
 
-        /// <summary>A foot soldier of the enemy's roster who can actually shoot back.</summary>
-        bool Armed(SimWorld pw, int slot)
+        /// <summary>A foot soldier of `side`'s roster who can actually shoot back.</summary>
+        static bool Armed(SimWorld pw, byte side, int slot)
         {
-            var e = pw.Roster[Side * RosterEntry.SlotCount + slot];
+            var e = pw.Roster[side * RosterEntry.SlotCount + slot];
             if (e.IsVehicle) return false;
             return e.Archetype != InfantryArchetype.Medic && e.Archetype != InfantryArchetype.Repair
                 && e.Archetype != InfantryArchetype.Para;
         }
 
         /// <summary>The enemy's first machine, whatever its faction calls it; -1 if it fields none.</summary>
-        int MachineSlot(SimWorld pw)
-        {
-            for (int s = 0; s < RosterEntry.SlotCount; s++)
-                if (pw.Roster[Side * RosterEntry.SlotCount + s].IsVehicle) return s;
-            return -1;
-        }
+        public int MachineSlot(SimWorld pw) => PlanFor(pw, Side).Machine;
 
         void EnemyOrders(MatchSim view, ICommandSink enemy, uint t)
         {
