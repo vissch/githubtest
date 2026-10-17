@@ -224,6 +224,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-15 | **R1 C1.** **Agent rules by folder and effort on the three agents land.** The owner, to "Agent rules by folder, and effort on the three agents: land it?": "Land it" (2026-10-14 01:41). `lane/show/harness-guide` (`.claude/rules/`, effort on tw-critic, tw-reviewer and tw-scout, a refusal to read secrets files) lands on the landing stack of 2026-10-15. (landing agent, 2026-10-15) |
 | 2026-10-15 | **R1 C2.** **Units are drawn at one world size at every zoom, and the gore's size follows the zoom, capped under the man; both land as built.** The owner, to "Units one size": "Land it: the owner's one-size rule as built, readability far out traded away on purpose." and to "The gore's size now follows the zoom": "Land it as it is" (2026-10-14). `lane/show/zoom-scale` lands on the landing stack of 2026-10-15. (landing agent, 2026-10-15) |
 | 2026-10-15 | **R1 C2.** **The Banner lands whole: front legs, shot, recoil and fire.** The owner, to "The Banner's muzzle flame now roots on the mouth of the barrel": "Land the Banner whole: legs shot recoil and fire" (2026-10-14 11:12), and 2026-10-15 00:10: "~68 queued units are parked, lets land them or finalize them". `lane/show/banner-day-film` lands as passed; the upper-barrel unit was parked and is not in it. (landing agent, 2026-10-15) |
+| 2026-10-17 | **`lane/show/agents-wiring-relay` is closed: its work is on integration.** Tip `646b0648d` (2026-10-08 02:16:59 +0200), 52 commits ahead of `origin/claude/trench-warfare-2d-3d-plan-idt7lf` and 746 behind (measured on this tree, 2026-10-17; `git log --cherry-mark` finds 41 of the 52 patch-equal upstream already). The other 11: six `decisions.md` rows that landed alone by cherry-pick (295b92b9f 2026-10-04, e1d4800da 2026-10-05, 6a400bcc4 and 802fca6d3 and 105b41cb3 on 2026-10-06, 50ef41ebf 2026-10-07); `selftest.py --only` is on integration (`Tools/selftest.py` line 10, from a465b69f9/c7be85f80/73f706ced); and the pipeline role table (`Tools/pipeline/roles.json`, from 8b9a774b9/0baff61b1) already holds `game-designer`, `concept-artist`, `ux` and `ui-artist` (verified on this tree). Its one live use was the 2026-10-08 row above pinning the relay's run copy to `646b0648` of this branch; the 2026-10-11 and 2026-10-12 rows moved the run copy past it. Keeping the branch costs every `health.py --lanes` run and trial merge a 59-file ghost nobody can tell from unlanded work. Nothing on it is to be carried over. (found by the look `look-branch-lane-show-agents-wiring-relay-20261016`) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
@@ -394,6 +395,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   with the rebased branch, overwriting `2e01bfd94`; (2) a leg is given explicit permission to force-push this one
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
+
+- **`lane/show/agents-wiring-relay` still exists on origin and locally (2026-10-17):** the close row above records
+  that its work is on integration, but the branch itself is not yet deleted. `Tools/relay/prepush.py` refuses any
+  push whose ref is not `refs/heads/<the leg's lane>` and refuses a branch delete outright, so
+  `git push origin --delete lane/show/agents-wiring-relay` cannot run from a leg; the local branch is checked out in
+  another worktree (`C:/Users/PC/Documents/GitHub/githubtest-agents-wiring-relay`, at `646b0648d`), and a leg never
+  touches another checkout's lane. Two commands, run by the owner: `git push origin --delete
+  lane/show/agents-wiring-relay`, and, once that worktree is clean, `git worktree remove
+  C:/Users/PC/Documents/GitHub/githubtest-agents-wiring-relay` then `git branch -D lane/show/agents-wiring-relay`.
+  Default taken: the record is committed, both refs stay until he runs those commands.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
