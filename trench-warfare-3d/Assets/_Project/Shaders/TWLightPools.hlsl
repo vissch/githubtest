@@ -26,6 +26,7 @@ float _TWPropRim;
 float _TWMenSheenCut;   // look.menClose: what the wet sheen loses at the closest view, applied by the shader's own closeness
 float _TWMenRead;   // look.menClose (Atmosphere.NightLook.cs): what a foot figure gains at close range, so he reads
                     // against the mud instead of sinking into it (VAT_URP); 0 at the standard view and by day
+float _TWPoolFigure;   // look.poolFigure: a man in a pool keeps his own silhouette (TWPoolsOnFigure's figureCut), 0 = today
 float _TWMoonSheen;   // look.moonSheen (Atmosphere.NightLook.cs): the standard view's share of the fine wet sparkle (0.3 before); 0 = as before
 float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
                        // or its thin rim of orange over blue read violet (critique round 15: 1.5 % of pixels violet, all at pool edges)   // look.propRim: a prop's (not the ground's) warm rim toward the nearest pools, like the men's; 0 = none   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
@@ -89,11 +90,18 @@ half3 TWLightPools(float3 positionWS, half3 normalWS)
 /// TW_FIGURE_POOLS pools only. NightLights sorts them best first for the camera, so these are the ones that light the
 /// most of what it sees; looping all 32 twice over a thousand men cost the GPU 0.8 to 1.6 ms (bench, 2026-09-30).
 #define TW_FIGURE_POOLS 12
-half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3 rimOut, half edgeLo = 0.30)
+// look.poolFigure (figureCut, NightLights.Pools.cs): a man standing in a lamp's pool took its hue and lost his outline
+// (owner, 2026-10-17: lamp_z12.png, man and mud one degree of hue apart and both near value 1). At figureCut 1 his
+// shaded side keeps more of the moon's blue (a shallower facing floor), the sum cannot stack past one lamp's light
+// (a roll-off with its own shoulder), and the warm rim fades where the pool under him is already bright, so his edge
+// stays dark against a blazing floor instead of being repainted the floor's hue. 0 is exactly today (Toon_URP's
+// props, Tank_URP's machines: neither passes this argument).
+half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3 rimOut, half edgeLo = 0.30, half figureCut = 0.0)
 {
     half3 sum = 0; rimOut = 0;
     half edge = 1.0 - saturate(dot(normalWS, viewWS));
     int count = min((int)_TWPoolCount, TW_FIGURE_POOLS);
+    half facingLo = lerp(0.6, 0.85, figureCut), facingHi = lerp(0.4, 0.15, figureCut);
     [loop] for (int k = 0; k < count; k++)
     {
         float3 d = _TWPools[k].xyz - positionWS;
@@ -104,9 +112,19 @@ half3 TWPoolsOnFigure(float3 positionWS, half3 normalWS, half3 viewWS, out half3
         half toward = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))));
         float tp = t * 1.25;                                                    // the pool's own reach, not the rim's
         half band = tp < 1.0 ? TWPoolBand(tp) : 0.0;
-        sum += _TWPoolTint[k].rgb * band * (toward * 0.6 + 0.4);
+        sum += _TWPoolTint[k].rgb * band * (toward * facingLo + facingHi);
         rimOut += _TWPoolTint[k].rgb * smoothstep(edgeLo, edgeLo + 0.08, edge * toward) * (1.0 - smoothstep(0.45, 1.0, t));
     }
+    // a man under two lamps cannot stack past one lamp's light (figureCut's own, steeper shoulder than TWPoolRoll's)
+    half figureShoulder = lerp(0.0, 1.2, figureCut);
+    if (figureShoulder > 0.0)
+    {
+        half m = max(sum.r, max(sum.g, sum.b));
+        sum = sum / (1.0 + m * figureShoulder);
+    }
+    // the warm rim is what reads on a man against the dark; against a floor already blazing from the pool it fades
+    // out, so his edge stays dark and his silhouette still shows
+    rimOut *= saturate(1.0 - max(sum.r, max(sum.g, sum.b)) * 0.9 * figureCut);
     return TWPoolRoll(sum);
 }
 
