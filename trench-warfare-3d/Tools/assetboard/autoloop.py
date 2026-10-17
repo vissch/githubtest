@@ -876,13 +876,13 @@ def end_editors(w):
                 why = f'relay {n}\'s run has stopped'
         if not why:
             continue
-        if stub and w.kill(p['ppid'])[0] == 0:
-            out.append(f'editors: ended the unity.cmd stub {p["ppid"]} of Unity {p["pid"]}')
-        code, said = w.kill(p['pid'])
+        code, said = w.kill(p['pid'])            # Unity first: taskkill /T on the stub would take it, and its kill would then fail
         out.append(f'editors: ended Unity {p["pid"]} on {project} ({why})' if code == 0 else f'editors: Unity {p["pid"]} on {project} did not end: {said[:200]}')
         if code == 0:
             ended[project] = n
             gone.add(p['pid'])
+        if stub and w.kill(p['ppid'])[0] == 0:
+            out.append(f'editors: ended the unity.cmd stub {p["ppid"]} of Unity {p["pid"]}')
     for p in procs:                              # stubs left with no Unity, waiting on a relay's project for over STUB_AGE
         project = project_of(p.get('cmd'))
         if is_stub(p) and (p.get('age') or 0) > STUB_AGE and project and relay_of(project, works) \

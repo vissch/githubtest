@@ -180,9 +180,10 @@ class Fake(autoloop.World):
     def procs(self):
         return list(self.ps)
 
-    def kill(self, pid):
+    def kill(self, pid):            # as taskkill /T: a pid ended already, or whose parent was, is not found
+        dead = {q['pid'] for q in self.ps if q['pid'] in self.killed or q.get('ppid') in self.killed}
         self.killed = self.killed + [pid]
-        return 0, ''
+        return (128, 'not found') if pid in dead else (0, '')
 
 
 def main():
@@ -517,7 +518,7 @@ def main():
             dict(pid=99, ppid=1, name='cmd.exe', cmd='cmd /c unity.cmd -projectPath x', age=3 * 3600, parent='', parent_cmd='')]
     lines = getattr(autoloop, 'end_editors', lambda w: [])(w)
     case("an editor on a stopped relay's work checkout is ended and its UnityLockfile removed; a unity.cmd Unity older than 2 h goes with its stub; a running relay's editor and another project's are left alone",
-         sorted(w.killed) == [10, 13, 99] and not (w.work_dirs[2] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists()
+         sorted(w.killed) == [10, 13, 99] and not any('did not end' in l for l in lines) and not (w.work_dirs[2] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists()
          and (other / 'Temp' / 'UnityLockfile').exists() and (w.work_dirs[3] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists(), (w.killed, lines))
 
     # ---- one round, and the lock ----
