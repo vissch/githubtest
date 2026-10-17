@@ -38,13 +38,15 @@ namespace TW.Editor
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         static readonly CultureInfo Inv = CultureInfo.InvariantCulture;
         public static string LastRun = "";
+        public const string Entering = "entering Play for the gym: ";
+        public const string InSession = "gym running in this Play session: ";
 
         /// <summary>Play the catalogue unattended. Options: tabs=scenes,clips,units,abilities,deaths,events (all when absent),
         /// filter=&lt;part of a name, or parts split by |&gt;, film=&lt;seconds: a unit fights an enemy line, filmed to mp4&gt;, max=&lt;entries&gt;, bands=all|close (close: T3, T2, T1), out=&lt;run folder&gt;,
         /// minutes=&lt;wall-clock limit, default 45&gt;, quit=1 (exit the editor when done; CommandLine adds it).</summary>
         public static string Run(string options = "")
         {
-            if (EditorApplication.isPlaying) { StartRunner(options); return "gym running in this Play session: " + options; }
+            if (EditorApplication.isPlaying) { StartRunner(options); return InSession + options; }
             if (EditorSceneManager.GetActiveScene().path != Scene)
             {
                 if (!EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo()) return "the open scene has unsaved changes: save or discard them first";
@@ -52,8 +54,15 @@ namespace TW.Editor
             }
             SessionState.SetString(Request, options ?? "");
             EditorApplication.EnterPlaymode();
-            return "entering Play for the gym: " + options;
+            return Entering + options;
         }
+
+        /// <summary>The exit code CommandLine takes from Run's answer: 0 when a run started (it exits the editor
+        /// itself, through GymRun.Finish or StartRunner), 1 when Run came back without one, because then nothing
+        /// will ever call Exit and a batch editor would hold the project lock and the GPU for good.</summary>
+        public static int ExitCodeFor(string said) =>
+            said != null && (said.StartsWith(Entering, System.StringComparison.Ordinal)
+                             || said.StartsWith(InSession, System.StringComparison.Ordinal)) ? 0 : 1;
 
         /// <summary>-executeMethod entry: options from -twgym "&lt;options&gt;", and the editor exits when the run ends:
         /// 0 no flags, 2 flagged entries, 1 it could not run or a guard stopped it (1 GB, 10 GB free, the wall-clock limit).</summary>
@@ -62,7 +71,9 @@ namespace TW.Editor
             var args = System.Environment.GetCommandLineArgs();
             string opts = "";
             for (int i = 0; i < args.Length - 1; i++) if (args[i] == "-twgym") opts = args[i + 1];
-            Run(opts + " quit=1");
+            string said = Run(opts + " quit=1");
+            int code = ExitCodeFor(said);
+            if (code != 0) { Debug.LogError("Gym: the run never started: " + said); EditorApplication.Exit(code); }
         }
 
         [InitializeOnLoadMethod]
