@@ -15,15 +15,15 @@ namespace TW.Sim
         // every marker below, by name, in declaration order: PerfBench records all of them without a list of its own
         static readonly List<string> names = new List<string>();
         public static IReadOnlyList<string> Names => names;
-        static ProfilerMarker M(string name) { names.Add(name); return new ProfilerMarker(name); }
+        static ProfilerMarker M(string name) { if (!names.Contains(name)) names.Add(name); return new ProfilerMarker(name); }
 
         // ---- the sim: one world, one tick
         public static readonly ProfilerMarker SimStep = M("TW.Sim.Step");
         public static readonly ProfilerMarker SimHash = M("TW.Sim.Hash");
 
-        /// <summary>One marker per registered system, named after its type (TW.Sim.Sys.MovementSystem). Built once, when
-        /// the system is added, so no name is ever formatted per tick.</summary>
-        public static ProfilerMarker ForSystem(object system) => new ProfilerMarker("TW.Sim.Sys." + system.GetType().Name);
+        /// <summary>One marker per registered system, named after its type (TW.Sim.Sys.MovementSystem). The name is
+        /// added to Names once, the first time any world registers that system type.</summary>
+        public static ProfilerMarker ForSystem(object system) => M("TW.Sim.Sys." + system.GetType().Name);
 
         // ---- the host: what a frame does around the sim
         public static readonly ProfilerMarker HostUpdate = M("TW.Host.Update");
