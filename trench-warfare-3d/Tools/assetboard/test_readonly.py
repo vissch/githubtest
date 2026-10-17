@@ -152,5 +152,33 @@ class OutNeedsTheOtherFolders(unittest.TestCase):
                     os.environ[k] = v
 
 
+class OutWithJsonOnlyIsRead(unittest.TestCase):
+    """[found-build-py-let-json-only-out-run-without-tw-br-20261016-0] --json-only (and --check) cannot reach
+    ops.page/ops.once, so --out with them must not be refused for want of TW_BRIEFS and TW_NOTES."""
+
+    def test_a_json_only_check_with_out_runs_with_the_live_folders_unset(self):
+        import build
+        keep = {k: os.environ.get(k) for k in ('TW_BRIEFS', 'TW_NOTES')}
+        for k in keep:
+            os.environ.pop(k, None)
+        try:
+            tmp = Path(tempfile.mkdtemp(dir=TEMP))
+            rc = build.main(['--json-only', '--check', '--out', str(tmp)])
+            self.assertEqual(rc, 0,
+                              '[found-build-py-let-json-only-out-run-without-tw-br-20261016-0] '
+                              '--json-only --check --out exited %r with TW_BRIEFS/TW_NOTES unset' % rc)
+            tmp2 = Path(tempfile.mkdtemp(dir=TEMP))
+            rc2 = build.main(['--out', str(tmp2)])
+            self.assertEqual(rc2, 2,
+                              '[found-build-py-let-json-only-out-run-without-tw-br-20261016-0] '
+                              'a plain --out run should still be refused without TW_BRIEFS/TW_NOTES, got %r' % rc2)
+        finally:
+            for k, v in keep.items():
+                if v is None:
+                    os.environ.pop(k, None)
+                else:
+                    os.environ[k] = v
+
+
 if __name__ == '__main__':
     unittest.main()
