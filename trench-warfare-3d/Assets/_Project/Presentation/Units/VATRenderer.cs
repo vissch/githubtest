@@ -270,6 +270,8 @@ namespace TW.Presentation.Units
             DrawnNear = counts[0]; DrawnFar = counts[2];
             DrawnInfantry = DrawnNear + DrawnFar;
             DrawnVehicles = counts[1];
+            // DrawExtras reads these after Render: a frame that draws no infantry must not hand it last frame's decision
+            ShadowsThisFrame = CastShadows; VerticesThisFrame = 0;
 
             var size = Host.Local.Map.SizeMeters;
             var bounds = new Bounds(new Vector3(size.x * 0.5f, 0f, size.y * 0.5f), new Vector3(size.x + 20f, 60f, size.y + 20f));
