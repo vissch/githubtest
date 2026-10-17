@@ -16,7 +16,8 @@ cited file that does not exist, a folder with no purpose line, an undocumented c
 tasks.md never names, an agent-memory.md over its cap. validate.py prints the two lines its callers read on a clean
 tree, and each check in Tools/checks catches the break it is for, alone (--only), without hiding another check or
 stopping it when it crashes; an asmdef with no references key does not take it down, a test in an
-[Explicit]-only assembly that is not [Explicit] is caught, and an [Explicit] one there is left alone.
+[Explicit]-only assembly that is not [Explicit] is caught, and an [Explicit] one there is left alone; a skill's
+section map that has drifted from its reference's headings, or is missing for a big reference, is caught too.
 port_split.py, on a small repo built here: an edit to moved code lands in the new file, an edit to code that stayed lands in the old one, and an edit whose lines both sides
 changed (or whose lines the other side changed in one of two identical copies) goes to the .rej file. health.py
 --lanes runs and lists this checkout. scorecard.py keeps reporting a regression until it is fixed or accepted, and
@@ -227,6 +228,14 @@ def validate_cases(wt: pathlib.Path):
     wf = wt / 'docs/reference/workflow.md'
     expect('codemap_docs', 'what codemap --check finds', 'codemap: ',
            lambda: wf.write_bytes(wf.read_bytes() + b'\nSee `Presentation/Core/NoSuchFile.cs`.\n'))
+
+    balance_ref = wt / '.claude/skills/tw-balance-sim/references/balance.md'
+    expect('skill_maps', 'a section map cell that matches no heading', 'matches no "## " heading',
+           lambda: edit(balance_ref, '## Combat tables', '## Combat tables RENAMED'))
+    optimizer_skill = wt / '.claude/skills/tw-optimizer/SKILL.md'
+    expect('skill_maps', 'a missing section map for a reference over 15,000 bytes', 'missing "## Section map',
+           lambda: edit(optimizer_skill, '## Section map — `references/aosa-and-perf.md`',
+                         '## Not a section map'))
 
     # one check must not hide or stop another
     new_cs('Presentation/Core/Unbalanced.cs', '// Phase: x\nnamespace TW.Presentation { class Unbalanced {\n')
