@@ -33,6 +33,7 @@ inbox    7 notes, 1 for you
   `validate.py` on a lane that changes a tool, and `land.py` refuses such a lane while it is red.
   `python Tools/selftest.py --only land,relay` runs only those groups (`codemap`, `validate`, `gate`,
   `aosa_land`, `port_split`, `scorecard`, `gate_scope`, `land`, `relay`, `health`), in seconds.
+- `python Tools/skillcite.py` checks the big skill references under `.claude/skills/*/references/` (`architecture.md`, `aosa-and-perf.md`, `balance.md`, `gym-design.md`): every backticked `File.cs:NN` must still have the symbol the same line names within five lines of NN, and a citation naming only the file and its symbol passes. Those pages are pinned snapshots, so their line numbers rot; cite the symbol instead. `--files` checks other pages, `-v` prints every citation. Its own tests: `python Tools/test_skillcite.py` (fixtures only).
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on
   the exact commit first, and `toolcheck.py` too when the lane changes a tool.
 - `python Tools/scorecard.py [--selftest] [--history FILE]` measures the docs, code and tools (reading cost, unrouted

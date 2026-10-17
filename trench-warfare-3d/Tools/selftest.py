@@ -1083,11 +1083,16 @@ def main():
             # test the tree as it is on disk (the change you are about to commit): copy every changed and new file over
             changed = run(['git', 'diff', '--name-only', '--diff-filter=AMR', 'HEAD'], REPO)[1].split('\n')
             changed += run(['git', 'ls-files', '--others', '--exclude-standard'], REPO)[1].split('\n')
-            for rel in filter(None, (c.strip() for c in changed)):
+            # run() folds stderr in, so git's "warning: ... LF will be replaced by CRLF" lands among the names;
+            # such a line is no path and mkdir then died on it (2026-10-18). Drop what git said, keep the names.
+            def names(out):
+                return [l.strip() for l in out.split('\n')
+                        if l.strip() and not l.startswith(('warning:', 'hint:'))]
+            for rel in names('\n'.join(changed)):
                 (wt / rel).parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(REPO / rel, wt / rel)
-            for rel in filter(None, run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1].split('\n')):
-                (wt / rel.strip()).unlink(missing_ok=True)
+            for rel in names(run(['git', 'diff', '--name-only', '--diff-filter=D', 'HEAD'], REPO)[1]):
+                (wt / rel).unlink(missing_ok=True)
             run(['git', 'add', '-A'], wt)
             run(['git', '-c', 'user.name=selftest', '-c', 'user.email=selftest@local', 'commit', '-qm', 'selftest: the working tree as it is on disk',
                  '--allow-empty', '--no-verify'], wt)
