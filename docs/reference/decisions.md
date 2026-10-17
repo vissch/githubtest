@@ -472,6 +472,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   refused by the relay leg's command rules, which allow a leg only `git push origin <its own lane>`. The
   `prepush.rebased_name` allowance lives on integration but the running relay checkout does not apply it to
   the leg's command rules, so no leg can get this history to origin without the owner.
+  Re-measured (2026-10-17): origin carries three branches of this lane, not one. `lane/show/relay-harness` itself
+  is still the pre-rebase history (`2e01bfd94`); `lane/show/relay-harness-b` (`c558e9d33`) is the same pre-rebase
+  history, pushed by hand; `lane/show/relay-harness-c` (`64a84828f`) is **0 commits ahead of integration and 42
+  behind it**, so it is contained in integration and that work has already landed. `cmdrules.push_ok` (the leg's
+  own command rules) refuses the `-d .. -j` rebased-name push that `prepush.rebased_name` would otherwise allow:
+  it only ever permits `origin <lane>`, `origin HEAD`, `HEAD:<lane>` or `HEAD:refs/heads/<lane>`, one layer before
+  `prepush.rebased_name` is reached, so the 4 local `decisions.md` commits on this lane can reach origin only by
+  the owner's own push, never a leg's. The default stands: option 1, close the unit; delete
+  `lane/show/relay-harness`, `-b` and `-c` on origin, since all three are either duplicates of each other or
+  already landed.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
