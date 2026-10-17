@@ -1,0 +1,76 @@
+{
+  "subject": "look:night",
+  "looked_at": [
+    "live night battle in Assets/_Project/Scenes/GreyboxCorridor.unity, batch editor in Play: SimProbe.Match() = \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 12996 mission ''\"",
+    "Captures/night/c2_z12.png + .json (clock held, zoom 12): men_in_frame 7, contrast_median 0.13847, contrast_p10 0.05392, luma_mean 0.18035, luma_p95 0.4451, blown_frac 2e-05, pose_error_m 0",
+    "Captures/night/c2_z30.png + .json (clock held, zoom 30): men_in_frame 7, contrast_median 0.12866, luma_mean 0.19233, luma_p95 0.48254, blown_frac 0.00302, pose_error_m 0",
+    "Captures/night/c2_z60.png + .json (clock held, zoom 60): men_in_frame 7, contrast_median 0.11825, luma_mean 0.20314, blown_frac 0.00115, pose_error_m 0",
+    "Captures/night/crowd_z12/30/60.png + .json (clock held, only 2 men alive on the field: too thin a sample, used only as a second view of the ground)",
+    "Captures/night/lamp_z12.png + .json (clock held, lamp cluster at 67,180, zoom 12): luma_mean 0.25006, luma_p95 0.64319, blown_frac 0.00841, pose_error_m 0 (men_in_frame 1: the sidecar's man counts say nothing here)",
+    "Captures/night/lamp_z30.png + .json (same cluster, zoom 30): luma_mean 0.20585, luma_p95 0.49696, blown_frac 0.00165, pose_error_m 0",
+    "Captures/night/fx_00..07.png + fx_sheet.png (clock running, 8 frames 12 frames apart over the trench line: nothing happened in frame, nothing judged from it)",
+    "Captures/night/fire_00..09.png + .json + fire_sheet.png (clock running, 10 frames 6 frames apart over a live fire fight at 50,173)",
+    "crop measurements made on c2_z12.png and lamp_z12.png with PIL (Rec.709 luma, brightest quartile for figures), quoted in the findings",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs (lines 12, 28, 33, 95, 138-143: the star shell, FlareEvery 22-40 s, FlareLife 16 s, look.warmFlare)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs, NightLights.RealLamps.cs, RealLampSet.cs, Atmosphere.NightLook.cs (knob names and what each paints)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs behaviour via docs/reference/workflow.md section 6 (sidecar fields, Hold/Release, CutLamps)",
+    "docs/reference/decisions.md rows 2026-09-21, 2026-09-29 (x3), 2026-10-01 (x2), 2026-10-06 (x2), 2026-10-07 (x4), 2026-10-08 (the night with 8 real lamps, and the tracers row)",
+    "docs/reference/tasks.md, 'Terrain view, weather, night, biomes' (knob names, the eight-real-lamps rule)",
+    "docs/found/look-look-every-unit-close-20261016.json (the only other found file naming night; no overlap)"
+  ],
+  "tasks": [
+    {
+      "title": "Star shell washes the whole night to flat grey daylight",
+      "why": "MEASURED. Captures/night/fire_09.json: \"luma_mean\": 0.42227, \"blown_frac\": 0.04349, against the nine frames before it (fire_08.json: \"luma_mean\": 0.2275, \"blown_frac\": 0.00078) - one frame 0.1 s later and the whole field is 1.9x brighter, with 4.3% of pixels blown, past the capture rig's own 0.02 INVALID bar. In fire_09.png the mud, sandbags and trench walls read as overcast noon concrete, the night's blue is gone and every warm lamp pool but the one at the far right is washed out. NightLights.cs:33 FlareEvery 22-40 s and :95 FlareLife 16 s, so this covers roughly half of playing time, not a moment. It breaks the shipping look (decisions.md 2026-09-21, night is the default look) and it is not what the warmFlare row asked for: that row (2026-09-29, look.warmFlare, NightLights.cs:138-143) asked only that the glow be small and warm and the light neutral, not that the light reach daylight level over 95 m.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "With the clock running, CaptureRig.Series over a trench line across one star shell (12 frames, 6 frames apart, zoom 22, the shell forced with NightLights.FireStarShell): in every sidecar blown_frac stays under 0.02 and no frame's luma_mean is more than 1.4x the frame before the shell (today 1.86x), while the frame at the shell's peak still shows the lamp pools warm.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Unlit wet mud out-brights every soldier, and is cold blue",
+      "why": "MEASURED. On Captures/night/c2_z12.png (sidecar: men_in_frame 7, contrast_median 0.13847, blown_frac 2e-05, so nothing is clipping) the plain wet mud at x 900-1250, y 600-800, with no lamp on it, measures luma mean 0.232, p95 0.574, mean RGB 0.190 0.234 0.335; the seven men at x 760-900, y 330-560 measure luma mean 0.181, p95 0.429. So the ground's highlights beat the men's by a third, and they are blue-dominant (B 0.335 against R 0.190). The same pale marbling covers the near half of c2_z30.png. The decided direction is the opposite: spend the highlights on warm fire and on broken sparkles, 'not on big pale surfaces', and look.wet was meant to put less pale sky in the puddles (decisions.md 2026-09-29). This is a value question, not a new look: nothing here asks to change the night of 2026-10-07.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "A fresh CaptureRig.ShotCrowd at zoom 12 with the clock held and at least 6 men in frame: the luma p95 of a 350x200 crop of unlit wet mud is below the luma p95 of a crop of the men in the same frame, and contrast_median rises above today's 0.13847 (workflow.md section 6: 0.4 you can find him, 0.1 he is mud).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A man in a lamp pool takes the pool's hue and loses his outline",
+      "why": "MEASURED. On Captures/night/lamp_z12.png (blown_frac 0.00841, so the frame is valid) the brightest quartile of the man at x 700-800, y 320-420 measures RGB 0.943 0.755 0.316, hue 42 deg, value 0.94; the lamp-lit ground beside him at x 760-1150, y 440-540 measures hue 41 deg, value 0.99. Man and mud are one degree apart in hue and both near the top of the range, so inside the pool he is a yellow smear on a yellow floor. The same man away from a lamp (c2_z12.png, x 760-900, y 330-470) is hue 218 deg, value 0.46. The pile of men at x 80-250, y 580-680 goes the same way (hue 36 deg, saturation 0.81) and reads as another faction's colour. This is not the brightness that was accepted on 2026-10-07 ('men by a lamp get brighter than today'): the fault is that hue and value both collapse onto the ground's, so the silhouette goes.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Shaders/TWLightPools.hlsl",
+        "trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs"
+      ],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "A CaptureRig.Shot at zoom 12 framed on a lamp with men standing in its pool, clock held: the brightest quartile of a crop on a man and of a crop of the lit ground beside him differ by at least 12 degrees of hue or 0.2 of value (today 1 degree and 0.05), and the frame's blown_frac stays under 0.02.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Lamp pools end at a hard edge and erase the mud inside them",
+      "why": "TWO-VIEW. Captures/night/lamp_z12.png: the pool's boundary runs as a scalloped line from about x 700, y 560 to x 1150, y 470, bright saturated orange on one side and full blue night on the other, with no falloff band between; inside it the wet mud's shading and marbling is gone, so the ground goes flat. Captures/night/lamp_z30.png shows the same shape on the right-hand lamp at about x 1170, y 280: a sharp-edged ellipse of orange lying over the mud. It reads as paint on the ground rather than light falling on it, against the row of 2026-09-29 that asked for 'many torches and lanterns each lighting its patch of ground'. The knobs for exactly this already exist (look.poolSoft, look.poolShoulder in NightLights.Pools.cs), so this is a tune, not a rebuild, and it does not ask for the second night pass that was refused on 2026-10-07.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/TWLightPools.hlsl"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "Two CaptureRig.Shot stills of the same lamp at zoom 12 and 30, clock held, before and after: along a 200 px line crossing the pool's edge the luma falls from inside to outside over at least 40 px instead of today's step, and the standard deviation of luma in a 200x200 crop inside the pool is at least 0.6x the same measure on unlit mud in the same frame.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
