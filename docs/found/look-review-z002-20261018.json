@@ -1,0 +1,45 @@
+{
+  "subject": "review:Z002",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs (517 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Blast.cs (328 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs (321 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/GasSmokeField.cs (262 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs (236 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs (204 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs (202 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs (155 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs (118 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs (66 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs (54 lines)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs (34 lines)",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the five changed files (DirectFire.Wrecks.cs, Blast.cs, CombatTables.cs, CombatStructs.cs, Burning.cs)",
+    "git log --oneline for the same range and paths"
+  ],
+  "tasks": [
+    {
+      "title": "Fire-at-wreck picks nearest shelter even when its shadow is empty",
+      "why": "DirectFire.Wrecks.cs:126-144 (AtWreck): the shelter a man with no living target fires at is chosen purely by distance among wrecks whose Teams bitmask has an enemy somewhere within Reach (a disc built in BuildShelters). [N5.3] then restricts who is actually suppressed/fired-at to the shooter-facing shadow strip (InShadow). If the nearest eligible wreck has an enemy in its Teams disc but nobody in this particular shooter's shadow cone (common once there is more than one wreck or the enemy sits to the side), `InShadow(i, s, dir, 0f) == 0` makes AtWreck return with no shot and no cooldown spent — it never tries the next-nearest shelter. A gunner can therefore go silent every tick despite a farther wreck correctly sheltering men in his shadow, which is a real regression from the pre-[N5.3] behaviour (any shelter in the Teams disc was always fired at). Not covered by WreckDecayTests, which only ever sets up one wreck. P1.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a WreckDecayTests case with two wrecks in range, the nearer one's shadow empty from the shooter's angle and the farther one's shadow holding an enemy, asserts a Shot event at the farther wreck (or scans every eligible shelter, not just the nearest, before giving up)",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "AtWreck scans the shadow strip twice per shot: a dry run then the real pass",
+      "why": "DirectFire.Wrecks.cs:144 and :154: `InShadow(i, s, dir, 0f)` is called purely to get a count, then `InShadow(i, s, dir, near)` repeats the identical spatial-hash walk over the same cell range to apply suppression. Every eligible shooter (one in three each tick, N5.6's stagger) pays the cost of walking the wreck's shelter cells twice instead of once; InShadow could return the count from the same pass that applies suppression (defer AddSuppression calls, or always apply and only emit the Shot event if n > 0). P2.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "InShadow is called once per AtWreck invocation and DeterminismReplayTests plus WreckDecayTests still pass unchanged",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
