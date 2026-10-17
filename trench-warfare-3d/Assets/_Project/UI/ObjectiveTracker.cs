@@ -1,6 +1,7 @@
 // Phase: B6 (implemented) — the objectives list top-left (Dust Front's red-bulleted list) and the centre banner.
 // One row per sector objective: a bullet in the owner's colour (amber while someone is capturing it), its name and
-// the capture progress; rows are built once and rebound only when owner, capturer or percent change. The banner
+// the capture progress; rows are built once and rebound (name, bullet colour and percent) when owner, capturer or
+// percent change. The banner
 // takes the sim's events straight from the pump (a capture, an incoming barrage, the end of the match), the same
 // three CombatFx's OnGUI banner reported.
 using System.Collections.Generic;
@@ -40,7 +41,7 @@ namespace TW.UI
                 r.Holder.pickingMode = PickingMode.Ignore;
                 refs.ObjectivesList.Add(r.Holder);
                 r.Bullet = r.Holder.Q("bullet"); r.Name = r.Holder.Q<Label>("objective-name"); r.Progress = r.Holder.Q<Label>("objective-progress");
-                r.Name.text = NameOf(def);
+                r.Name.text = RowName(def, def.OwnerTeam);
                 rows.Add(r);
             }
             refs.Objectives.EnableInClassList("is-empty", n == 0);
@@ -49,10 +50,28 @@ namespace TW.UI
 
         public void Dispose() { if (host != null) host.Events.OnEvent -= OnEvent; }
 
-        static string NameOf(in ObjectiveDef def)
+        /// <summary>The row's leading words: who holds it now, never the fixed side it started as, so they can
+        /// never disagree with the bullet (BulletClass) on the exact row that matters most, a falling front line.
+        /// Pure, so HudTextTests drives it.</summary>
+        public static string RowName(in ObjectiveDef def, byte owner)
         {
             string kind = def.Kind.ToString().ToUpperInvariant();
-            return def.SideTeam == 0 ? "OUR " + kind : "ENEMY " + kind;
+            if (owner > 1) return "NEUTRAL " + kind;
+            bool ours = owner == 0;
+            bool held = owner != def.SideTeam;
+            return (ours ? "OUR" : "ENEMY") + (held ? "-HELD " : " ") + kind;
+        }
+
+        static readonly string[] bulletClasses = { "tw-bullet--mine", "tw-bullet--theirs", "tw-bullet--neutral", "tw-bullet--capturing" };
+
+        /// <summary>The bullet's style class for a sector's state: capturing wins over whoever still holds it.
+        /// The single rule behind the dot's colour, so RowName and the dot can never drift apart (the finding).</summary>
+        public static string BulletClass(in ObjectiveState st)
+        {
+            if (st.CapturingTeam != 255 && st.CaptureProgressTicks > 0) return "tw-bullet--capturing";
+            if (st.Owner == 0) return "tw-bullet--mine";
+            if (st.Owner == 1) return "tw-bullet--theirs";
+            return "tw-bullet--neutral";
         }
 
         static VisualElement RowFallback()
@@ -77,11 +96,9 @@ namespace TW.UI
                     int pct = st.CaptureProgressTicks > 0 ? 100 * st.CaptureProgressTicks / Mathf.Max(1, def.CaptureTicks) : 0;
                     if (st.Owner != r.LastOwner || st.CapturingTeam != r.LastCapturing)
                     {
-                        bool capturing = st.CapturingTeam != 255 && st.CaptureProgressTicks > 0;
-                        r.Bullet.EnableInClassList("tw-bullet--mine", !capturing && st.Owner == 0);
-                        r.Bullet.EnableInClassList("tw-bullet--theirs", !capturing && st.Owner == 1);
-                        r.Bullet.EnableInClassList("tw-bullet--neutral", !capturing && st.Owner > 1);
-                        r.Bullet.EnableInClassList("tw-bullet--capturing", capturing);
+                        string cls = BulletClass(st);
+                        foreach (string c in bulletClasses) r.Bullet.EnableInClassList(c, c == cls);
+                        r.Name.text = RowName(def, st.Owner);
                         r.LastOwner = st.Owner; r.LastCapturing = st.CapturingTeam;
                     }
                     if (pct != r.LastPct) { r.Progress.text = pct > 0 ? PctText(pct) : ""; r.LastPct = pct; }

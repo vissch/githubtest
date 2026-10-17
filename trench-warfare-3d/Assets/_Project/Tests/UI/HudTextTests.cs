@@ -20,6 +20,7 @@ using TW.UI;
 using TW.Sim;
 using TW.Sim.Combat;
 using TW.Sim.Match;
+using TW.Sim.Terrain;
 
 namespace TW.Tests
 {
@@ -296,6 +297,36 @@ namespace TW.Tests
             StringAssert.Contains($"{s.Shells} shells", tip);
             StringAssert.Contains($"{s.Radius:0} m", tip);
             StringAssert.Contains($"{s.WarmupTicks * SimConfig.Default.TickSeconds:0} s", tip);
+        }
+
+        /// <summary>The objectives list's leading word must agree with its own bullet colour: the finding was a
+        /// row reading "OUR MAINLINE" beside the enemy's red dot. [found-the-objectives-list-still-says-our-on-a-line-20261017-0]</summary>
+        [Test]
+        public void AnObjectiveRowLeadsWithWhoHoldsItNow()
+        {
+            var def0 = new ObjectiveDef { Kind = ObjectiveKind.MainLine, SideTeam = 0 };
+            Assert.AreEqual("OUR MAINLINE", TW.UI.ObjectiveTracker.RowName(def0, 0), "[found-the-objectives-list-still-says-our-on-a-line-20261017-0] our line, our hands");
+            Assert.AreEqual("ENEMY-HELD MAINLINE", TW.UI.ObjectiveTracker.RowName(def0, 1), "[found-the-objectives-list-still-says-our-on-a-line-20261017-0] our line, taken");
+            StringAssert.StartsWith("NEUTRAL", TW.UI.ObjectiveTracker.RowName(def0, 255), "[found-the-objectives-list-still-says-our-on-a-line-20261017-0] nobody holds it");
+
+            var def1 = new ObjectiveDef { Kind = ObjectiveKind.MainLine, SideTeam = 1 };
+            Assert.AreEqual("ENEMY MAINLINE", TW.UI.ObjectiveTracker.RowName(def1, 1), "[found-the-objectives-list-still-says-our-on-a-line-20261017-0] their line, their hands");
+            Assert.AreEqual("OUR-HELD MAINLINE", TW.UI.ObjectiveTracker.RowName(def1, 0), "[found-the-objectives-list-still-says-our-on-a-line-20261017-0] their line, taken");
+
+            // the pairing itself: the leading word and the bullet colour must always name the same owner
+            var def = new ObjectiveDef { Kind = ObjectiveKind.ReserveLine, SideTeam = 0 };
+            foreach (byte owner in new byte[] { 0, 1, 2, 255 })
+                foreach (byte side in new byte[] { 0, 1 })
+                {
+                    def.SideTeam = side;
+                    var st = new ObjectiveState { Owner = owner, CapturingTeam = 255, CaptureProgressTicks = 0 };
+                    string cls = TW.UI.ObjectiveTracker.BulletClass(st);
+                    string name = TW.UI.ObjectiveTracker.RowName(def, owner);
+                    string firstWord = name.Split(' ')[0].Split('-')[0];
+                    string expected = cls == "tw-bullet--mine" ? "OUR" : cls == "tw-bullet--theirs" ? "ENEMY" : "NEUTRAL";
+                    Assert.AreEqual(expected, firstWord,
+                        $"[found-the-objectives-list-still-says-our-on-a-line-20261017-0] the dot says {cls} and the words say \"{name}\"");
+                }
         }
 
         // ---- helpers -----------------------------------------------------------------------------------------
