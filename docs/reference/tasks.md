@@ -949,10 +949,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
   `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
   `ContinentMesh.cs` (the generated continent, pins, the front line, the fog sheet), `MapFog.cs` (the fog mask:
-  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map),
-  `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
+  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map), `MetaPick.cs` (the
+  pick-collider names and the per-frame pointer block both views share), `MetaKeyLight.cs` (the saved key light,
+  taken and released by both views), `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
 - **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
   MetaCameraTests, StrategicMapMeshTests.
+  StrategicMapMeshTests, MetaPickTests.
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
@@ -1106,4 +1108,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
+- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
+- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->

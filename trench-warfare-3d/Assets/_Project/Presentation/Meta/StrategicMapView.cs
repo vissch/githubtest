@@ -27,7 +27,6 @@ namespace TW.Presentation.Meta
         public static readonly Color FogColor = new Color(0.80f, 0.82f, 0.86f);
         public const float KeyIntensity = 0.95f;
         static readonly Bounds Everything = new Bounds(new Vector3(ContinentMesh.Width * 0.5f, 0f, ContinentMesh.Length * 0.5f), Vector3.one * 600f);
-        const string PickPrefix = "pick:";
 
         /// <summary>The fog texel grid: the sheet's rectangle, two texels a metre.</summary>
         public static MapFog.Grid FogGrid => new MapFog.Grid(-FogMargin, -FogMargin, ContinentMesh.Width * ContinentMesh.Cell + 2f * FogMargin, ContinentMesh.Length * ContinentMesh.Cell + 2f * FogMargin);
@@ -45,7 +44,7 @@ namespace TW.Presentation.Meta
         readonly List<Vector2> holes = new List<Vector2>();
         readonly List<Vector2> frontLine = new List<Vector2>();   // the front's world XZ, for the fog's band along it
         readonly List<Pin> pins = new List<Pin>();
-        Light key; Color savedKeyColor; float savedKeyIntensity; bool keyHeld;
+        readonly MetaKeyLight keyLight = new MetaKeyLight();
         bool shown;
 
         public MetaCamera Rig { get; } = new MetaCamera();
@@ -83,7 +82,7 @@ namespace TW.Presentation.Meta
             for (int i = 0; i < nodes.Count; i++)
             {
                 var p = new Pin { View = nodes[i], Pos = ContinentMesh.WorldOf(heights, nodes[i].MapPos) };
-                p.Pick = new GameObject(PickPrefix + nodes[i].Id);
+                p.Pick = new GameObject(MetaPick.NameFor(nodes[i].Id));
                 p.Pick.transform.SetParent(transform, false);
                 p.Pick.transform.position = p.Pos + Vector3.up * PinHeight * 0.5f;
                 p.Pick.AddComponent<SphereCollider>().radius = PickRadius;
@@ -97,7 +96,7 @@ namespace TW.Presentation.Meta
                 foreach (var id in frontLine) { var p = Find(id); if (p != null) { points.Add(p.Pos); this.frontLine.Add(new Vector2(p.Pos.x, p.Pos.z)); } }
             if (points.Count >= 2) ribbon = MetaMeshes.Ribbon(points, RibbonWidth, 0.18f, RibbonDash, "FrontLine");
             fogDirty = true;
-            TakeLight();
+            keyLight.Take(KeyLight, KeyIntensity);
             Rig.Take(Camera.main, MetaCamera.Mode.Map, centre);
         }
 
@@ -119,7 +118,7 @@ namespace TW.Presentation.Meta
         {
             shown = false;
             Rig.Release();
-            ReleaseLight();
+            keyLight.Release();
             gameObject.SetActive(false);
         }
 
@@ -130,17 +129,8 @@ namespace TW.Presentation.Meta
         {
             if (!shown) return;
             float dt = Time.unscaledDeltaTime, now = Time.unscaledTime;
-            var mouse = Mouse.current;
-            Vector2 at = mouse != null ? mouse.position.ReadValue() : default;
-            bool free = mouse != null && !HudBridge.IsPointerOverUi(at);
-            Rig.Tick(dt, free, now);
-            Hover = null;
-            if (free && Rig.TryRay(at, out var ray) && Physics.Raycast(ray, out var hit, PickReach))
-            {
-                string n = hit.collider != null ? hit.collider.name : "";
-                if (n.StartsWith(PickPrefix, StringComparison.Ordinal)) Hover = n.Substring(PickPrefix.Length);
-            }
-            if (Hover != null && mouse.leftButton.wasPressedThisFrame) Picked?.Invoke(Hover);
+            Hover = MetaPick.Tick(Rig, dt, now, PickReach, out bool pressed);
+            if (pressed) Picked?.Invoke(Hover);
             Draw(now);
         }
 
@@ -203,27 +193,9 @@ namespace TW.Presentation.Meta
             pins.Clear(); Hover = null;
         }
 
-        void TakeLight()
-        {
-            if (!keyHeld)
-            {
-                key = null;
-                foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type == LightType.Directional) { key = l; break; }
-                if (key == null) return;
-                savedKeyColor = key.color; savedKeyIntensity = key.intensity; keyHeld = true;
-            }
-            key.color = KeyLight; key.intensity = KeyIntensity;
-        }
-
-        void ReleaseLight()
-        {
-            if (keyHeld && key != null) { key.color = savedKeyColor; key.intensity = savedKeyIntensity; }
-            keyHeld = false;
-        }
-
         void OnDestroy()
         {
-            Rig.Release(); ReleaseLight();
+            Rig.Release(); keyLight.Release();
             foreach (var m in new[] { land, sea, pin, disc, ring, ribbon, fog }) if (m != null) Destroy(m);
             foreach (var m in new[] { seaMat, ribbonMat, ringMat, fogMat }) if (m != null) Destroy(m);
             if (fogTex != null) Destroy(fogTex);

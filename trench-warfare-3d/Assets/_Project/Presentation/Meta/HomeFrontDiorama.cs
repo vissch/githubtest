@@ -24,7 +24,6 @@ namespace TW.Presentation.Meta
         public static readonly Color IronPlate = new Color(0.36f, 0.33f, 0.29f), BrassPlate = new Color(0.27f, 0.25f, 0.23f), RoadColor = new Color(0.22f, 0.20f, 0.18f);
         public static readonly Color HoverRing = new Color(1f, 0.72f, 0.30f), PickedRing = new Color(0.92f, 0.88f, 0.78f), ChimneyColor = new Color(0.30f, 0.24f, 0.21f), LampColor = new Color(1f, 0.72f, 0.40f);
         static readonly Bounds Everything = new Bounds(Vector3.zero, Vector3.one * 400f);
-        const string PickPrefix = "pick:";
 
         sealed class Placed
         {
@@ -44,7 +43,7 @@ namespace TW.Presentation.Meta
         Mesh plate, road, ring, chimney; Material plateMat, roadMat, hoverMat, pickedMat, chimneyMat;
         FlipbookFx smoke; float nextPuff;
         Texture2D atlas; bool atlasLoaded;
-        Light key; Color savedKeyColor; float savedKeyIntensity; bool keyHeld;
+        readonly MetaKeyLight keyLight = new MetaKeyLight();
         bool shown;
 
         public MetaCamera Rig { get; } = new MetaCamera();
@@ -82,14 +81,14 @@ namespace TW.Presentation.Meta
                 p.Mask = HomeFrontStages.HiddenAt(house, p.Shown);
                 p.Extent = Mathf.Max(house.Bounds.extents.x, house.Bounds.extents.z) + 0.6f;
                 p.Foot = p.Matrix.MultiplyPoint3x4(new Vector3(house.Bounds.center.x, 0f, house.Bounds.center.z));
-                p.Pick = new GameObject(PickPrefix + view.Id);
+                p.Pick = new GameObject(MetaPick.NameFor(view.Id));
                 p.Pick.transform.SetParent(transform, false);
                 p.Pick.transform.SetPositionAndRotation(view.Place, rot);
                 var col = p.Pick.AddComponent<BoxCollider>(); col.center = house.Bounds.center; col.size = house.Bounds.size;
                 placed.Add(p);
             }
             RebuildLamps();
-            TakeLight();
+            keyLight.Take(Faction == 1 ? BrassKey : IronKey, Faction == 1 ? BrassKeyIntensity : IronKeyIntensity);
             smoke ??= new FlipbookFx();
             Rig.Take(Camera.main, MetaCamera.Mode.Orbit, new Vector3(0f, 1.5f, 0f));
         }
@@ -109,7 +108,7 @@ namespace TW.Presentation.Meta
         {
             shown = false;
             Rig.Release();
-            ReleaseLight();
+            keyLight.Release();
             gameObject.SetActive(false);
         }
 
@@ -128,17 +127,8 @@ namespace TW.Presentation.Meta
                 p.Shown = Mathf.MoveTowards(p.Shown, p.Goal, dt / RiseSeconds);
                 p.Mask = HomeFrontStages.HiddenAt(p.House, p.Shown);
             }
-            var mouse = Mouse.current;
-            Vector2 at = mouse != null ? mouse.position.ReadValue() : default;
-            bool free = mouse != null && !HudBridge.IsPointerOverUi(at);
-            Rig.Tick(dt, free, now);
-            Hover = null;
-            if (free && Rig.TryRay(at, out var ray) && Physics.Raycast(ray, out var hit, PickReach))
-            {
-                string n = hit.collider != null ? hit.collider.name : "";
-                if (n.StartsWith(PickPrefix, StringComparison.Ordinal)) Hover = n.Substring(PickPrefix.Length);
-            }
-            if (Hover != null && mouse.leftButton.wasPressedThisFrame) Picked?.Invoke(Hover);
+            Hover = MetaPick.Tick(Rig, dt, now, PickReach, out bool pressed);
+            if (pressed) Picked?.Invoke(Hover);
             Draw(now);
         }
 
@@ -261,25 +251,6 @@ namespace TW.Presentation.Meta
             }
         }
 
-        void TakeLight()
-        {
-            if (!keyHeld)
-            {
-                key = null;
-                foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None)) if (l.type == LightType.Directional) { key = l; break; }
-                if (key == null) return;
-                savedKeyColor = key.color; savedKeyIntensity = key.intensity; keyHeld = true;
-            }
-            key.color = Faction == 1 ? BrassKey : IronKey;
-            key.intensity = Faction == 1 ? BrassKeyIntensity : IronKeyIntensity;
-        }
-
-        void ReleaseLight()
-        {
-            if (keyHeld && key != null) { key.color = savedKeyColor; key.intensity = savedKeyIntensity; }
-            keyHeld = false;
-        }
-
         void ClearPlaced()
         {
             foreach (var p in placed) if (p.Pick != null) Destroy(p.Pick);
@@ -291,7 +262,7 @@ namespace TW.Presentation.Meta
 
         void OnDestroy()
         {
-            Rig.Release(); ReleaseLight();
+            Rig.Release(); keyLight.Release();
             smoke?.Dispose(); smoke = null;
             foreach (var m in wholes.Values) if (m != null) Destroy(m);
             wholes.Clear();
