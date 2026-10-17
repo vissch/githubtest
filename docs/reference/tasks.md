@@ -981,6 +981,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   refused, so read the warnings before trusting a run.
 - **Trap:** the report carries the frame budget twice, as `frame_draw_calls`/`frame_vertices`/`frame_indirect_draws`
   (the overhaul's names) and `frame_budget_*` (the AOSA loop's); both read `FrameBudget` on the same frame.
+- `terrain_chunk_rebuilds` / `terrain_chunk_rows` (`tw-perf/1`, `PerfBench.Sample`): this frame's delta of
+  `GreyboxTerrainView.ChunksRebuilt` / `ChunkRowsFilled`, so a barrage with none finishing shows as zero even while
+  rows are filled.
 - **Trap:** `GC.GetAllocatedBytesForCurrentThread` reads 0 in Unity. Count allocations with `AllocProbe`.
 - **Trap:** a bench `shot=` includes the HUD. `shot_tick=N shot_hud=0` hides it (and `CombatFx`'s world overlays,
   `CombatFx.ShowOverlays`) and holds the clock so the still repeats; such a run's timings are not real time.
