@@ -223,5 +223,70 @@ namespace TW.Tests
                 Object.DestroyImmediate(whole);
             }
         }
+
+        /// <summary>Found-house-chunk-masks-are-recomputed-for-every-v-20261017-2: MaskOf's answer is a pure function
+        /// of the house matrix and the destroyed set, so repeated asks with nothing destroyed cost one build, not one
+        /// a call.</summary>
+        [Test]
+        public void A_House_Mask_Is_Built_Once_Per_Instance_And_Not_Again()
+        {
+            using var kit = new BattlefieldKit();
+            Assert.Greater(kit.HouseOfWhole.Count, 0, "the kit has at least one sliced house");
+            BattlefieldKit.Module whole = null;
+            foreach (var kv in kit.HouseOfWhole) { whole = kv.Key; break; }
+            var go = new GameObject("house mask test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                var m = Matrix4x4.TRS(new Vector3(40f, 0f, 40f), Quaternion.identity, Vector3.one);
+                HouseKit.ChunkMask? first = null;
+                for (int i = 0; i < 10; i++)
+                {
+                    var mask = props.MaskOf(whole, m);
+                    if (first == null) first = mask; else Assert.AreEqual(first.Value, mask, "every answer the same");
+                }
+                Assert.AreEqual(10, destruction.MaskLookups);
+                Assert.AreEqual(1, destruction.MaskBuilds, "the body runs once; the rest are cache hits");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void A_Destroyed_Chunk_Invalidates_Its_House_Mask()
+        {
+            using var kit = new BattlefieldKit();
+            Assert.Greater(kit.HouseOfWhole.Count, 0, "the kit has at least one sliced house");
+            BattlefieldKit.Module whole = null; HouseKit.House house = null;
+            foreach (var kv in kit.HouseOfWhole) { whole = kv.Key; house = kv.Value; break; }
+            var go = new GameObject("house mask invalidate test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                var m = Matrix4x4.TRS(new Vector3(40f, 0f, 40f), Quaternion.identity, Vector3.one);
+                int i = 0;
+                var chunkMatrix = HouseKit.Place(m, house.Chunks[i]);
+                props.AddInstance(house.Chunks[i].Module, chunkMatrix);
+                props.MaskOf(whole, m);   // builds the mask once before anything is struck
+                int builtBefore = destruction.MaskBuilds;
+                var centre = chunkMatrix.MultiplyPoint3x4(house.Chunks[i].Module.Mesh.bounds.center);
+                for (int strike = 0; strike < 6 && destruction.Collapsed == 0; strike++)
+                    destruction.StrikeForTests(centre, 3f, 6f);
+                Assert.Greater(destruction.Collapsed, 0, "the chunk came down");
+                var mask = props.MaskOf(whole, m);
+                Assert.AreEqual(builtBefore + 1, destruction.MaskBuilds, "Down invalidated the cached mask");
+                Assert.IsTrue(mask.Has(i));
+                for (int j = 0; j < house.Chunks.Length; j++) if (j != i) Assert.IsFalse(mask.Has(j), "chunk " + j + " was not struck");
+                int builtAfter = destruction.MaskBuilds;
+                props.MaskOf(whole, m);
+                Assert.AreEqual(builtAfter, destruction.MaskBuilds, "asking again is a cache hit");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
     }
 }
