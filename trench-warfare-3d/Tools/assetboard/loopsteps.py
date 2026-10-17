@@ -218,9 +218,9 @@ def route_ideas(w):
     routed, g, err = w.ideas(write=False)
     if err:
         return [f'ideas: idearoute could not read the ideas: {err[:200]}']
-    if not (routed or g['asked'] or g['done']):
+    if not (routed or g['asked'] or g['done'] or g.get('passed')):
         return []
-    what = f'{len(routed)} ideas he said yes to, {len(g["asked"])} steps of his to put to him, {len(g["done"])} of his step answers'
+    what = f'{len(routed)} ideas he said yes to, {len(g.get("passed") or [])} steps of his that pass by themselves, {len(g["asked"])} steps of his to put to him, {len(g["done"])} of his step answers'
     if running:
         return [f'ideas: {what} wait: the main relay runs, and its board is not written under a leg']
     if not w.acting:

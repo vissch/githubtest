@@ -433,7 +433,7 @@ class GateBriefWrite(unittest.TestCase):
 
         pathlib.Path.write_text = held
         try:
-            got = idearoute.gates(self.where, self.bwhere, self.nwhere, self.board, now=self.day)
+            got = idearoute.gates(self.where, self.bwhere, self.nwhere, self.board, now=self.day, ask=True)
         finally:
             pathlib.Path.write_text = real
         # [U055.2] the id carries the revision of the steps before it: ask idearoute for it, as gates() does

@@ -403,7 +403,7 @@ class World:
         import ideas
         import idearoute
         import notes
-        routed, g, err = [], dict(asked=[], done=[], owed=[]), ''
+        routed, g, err = [], dict(asked=[], done=[], owed=[], passed=[]), ''
         try:
             routed = idearoute.route(ideas.folder(), self.main, write=write)
             g = idearoute.gates(ideas.folder(), briefs.folder(), notes.folder(), self.main, write=write)
