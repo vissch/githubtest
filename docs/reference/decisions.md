@@ -238,6 +238,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-11-02 | **R1 C2.** **A goal's chain of fix units stops at 3 generations or $100, whichever comes first, and becomes one brief with pictures.** The owner: "3, 3 100$". It caps what ability-fx-captures did (120 units, 14 generations, $990). | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
 | 2026-11-02 | **R2 C2 SYSTEMIC.** **A visual unit is PASS only with a critic score of 70 or more on its stills.** The owner: "4 yes". It closes the open question of 2026-10-20 (no focus unit had reached 70 while about 25 passed their own check). | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
 | 2026-11-02 | **R2 C2.** **The landing stage lands fixes, tests, tools and docs by itself after a second read; looks and play wait on the owner.** The owner: "5also ok", as he answered on 2026-10-10 and 2026-10-17. | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
+| 2026-10-17 | **`lane/show/agents-wiring-relay` is closed: its work is on integration.** Tip `646b0648d` (2026-10-08 02:16:59 +0200), 52 commits ahead of `origin/claude/trench-warfare-2d-3d-plan-idt7lf` and 746 behind (measured on this tree, 2026-10-17; `git log --cherry-mark` finds 41 of the 52 patch-equal upstream already). The other 11: six `decisions.md` rows that landed alone by cherry-pick (295b92b9f 2026-10-04, e1d4800da 2026-10-05, 6a400bcc4 and 802fca6d3 and 105b41cb3 on 2026-10-06, 50ef41ebf 2026-10-07); `selftest.py --only` is on integration (`Tools/selftest.py` line 10, from a465b69f9/c7be85f80/73f706ced); and the pipeline role table (`Tools/pipeline/roles.json`, from 8b9a774b9/0baff61b1) already holds `game-designer`, `concept-artist`, `ux` and `ui-artist` (verified on this tree). Its one live use was the 2026-10-08 row above pinning the relay's run copy to `646b0648` of this branch; the 2026-10-11 and 2026-10-12 rows moved the run copy past it. Keeping the branch costs every `health.py --lanes` run and trial merge a 59-file ghost nobody can tell from unlanded work. Nothing on it is to be carried over. (found by the look `look-branch-lane-show-agents-wiring-relay-20261016`) |
 
 ## The Proving Ground (a test level with every unit)
 | Date | Decision |
@@ -543,6 +544,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   closer to where they were but makes a line of guns fire as one; (c) the burst is abandoned. Default taken: none.
   The work is built and tested in the checkout but **not committed**: the edit gate is red on exactly this one test,
   and a leg commits only on a green gate.
+
+- **`lane/show/agents-wiring-relay` still exists on origin and locally (2026-10-17):** the close row above records
+  that its work is on integration, but the branch itself is not yet deleted. `Tools/relay/prepush.py` refuses any
+  push whose ref is not `refs/heads/<the leg's lane>` and refuses a branch delete outright, so
+  `git push origin --delete lane/show/agents-wiring-relay` cannot run from a leg; the local branch is checked out in
+  another worktree (`C:/Users/PC/Documents/GitHub/githubtest-agents-wiring-relay`, at `646b0648d`), and a leg never
+  touches another checkout's lane. Two commands, run by the owner: `git push origin --delete
+  lane/show/agents-wiring-relay`, and, once that worktree is clean, `git worktree remove
+  C:/Users/PC/Documents/GitHub/githubtest-agents-wiring-relay` then `git branch -D lane/show/agents-wiring-relay`.
+  Default taken: the record is committed, both refs stay until he runs those commands.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
