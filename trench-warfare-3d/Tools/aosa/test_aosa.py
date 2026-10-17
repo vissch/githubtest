@@ -433,5 +433,54 @@ class AosaTest(unittest.TestCase):
         self.assertIn("WIP 1/3, ready 5", out)
 
 
+class PlayerBenchExitTest(unittest.TestCase):
+    # [found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0]
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="player-bench-test-"))
+        (self.tmp / "aosa").mkdir(parents=True)
+        self.script = self.tmp / "aosa" / "player_bench.sh"
+        shutil.copyfile(HERE / "player_bench.sh", self.script)
+        (self.tmp / "runs").mkdir()
+        (self.tmp / "build").mkdir()
+        (self.tmp / "build" / "TrenchWarfare.exe").write_bytes(b"")
+        self.bindir = self.tmp / "bin"
+        self.bindir.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _bash(self):
+        bash = shutil.which("bash") or r"C:\Program Files\Git\bin\bash.exe"
+        self.assertTrue(os.path.exists(bash), "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] no bash found")
+        return bash
+
+    def _run(self):
+        bash = self._bash()
+        env = dict(os.environ)
+        env["PATH"] = str(self.bindir) + os.pathsep + env.get("PATH", "")
+        p = subprocess.run([bash, str(self.script), "lbl", "", str(self.tmp / "build")],
+                            env=env, capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
+
+    def test_no_report_exits_non_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        fake = self.bindir / "timeout"
+        fake.write_text("#!/bin/bash\necho crashed > \"%s\"\nexit 7\n" % log)
+        os.chmod(fake, 0o755)
+        rc, out = self._run()
+        self.assertNotEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] no report must not exit 0")
+        self.assertIn("NO REPORT", out)
+
+    def test_report_exits_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        js = (self.tmp / "runs" / "lbl.json").as_posix()
+        fake = self.bindir / "timeout"
+        fake.write_text("#!/bin/bash\necho ok > \"%s\"\necho '{}' > \"%s\"\nexit 0\n" % (log, js))
+        os.chmod(fake, 0o755)
+        rc, out = self._run()
+        self.assertEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] a written report must exit 0")
+        self.assertIn("report written", out)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
