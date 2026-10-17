@@ -18,6 +18,8 @@ and the playground commands of a shot are queued on exact frames.
 
 The unity CLI is called by its full path (%LOCALAPPDATA%/unity/bin/unity.exe). On this machine a `unity` shim earlier
 on PATH starts a full editor instead, which then waits on a dialog nobody sees (2026-10-03).
+
+film and battle need ffmpeg (TW_FFMPEG or PATH) and refuse to start the editor without it.
 """
 import json
 import os
@@ -37,6 +39,11 @@ FFMPEG = os.environ.get('TW_FFMPEG') or shutil.which('ffmpeg')
 FPS, W, H = 24, 960, 540
 SCENE = 'Assets/_Project/Playground/Playground.unity'
 STAGE = 'panel 0; labels 0; timescale 1; lod -1; ground grid; team -1'
+
+
+def ffmpeg_ready():
+    """True when the ffmpeg we would call exists. `which` takes both a full path (TW_FFMPEG) and a bare name."""
+    return bool(FFMPEG) and shutil.which(FFMPEG) is not None
 
 RECORDER = r'''
 string dir = @"%(dir)s"; int frames = %(frames)d, w = %(w)d, h = %(h)d; float spin = %(spin)sf;
@@ -373,10 +380,26 @@ def battle(only):
     return 0
 
 
-if __name__ == '__main__':
-    cmd = sys.argv[1] if len(sys.argv) > 1 else ''
+def missing_tools(cmd):
+    """The message to print when this machine cannot run `cmd`, '' when it can. film and battle encode every shot
+    with ffmpeg at the end, so without it the frames are rendered and thrown away; refuse before the editor."""
     if not CLI.exists():
-        print(f'gamefilm: no unity CLI at {CLI}')
-        sys.exit(1)
-    sys.exit(up() if cmd == 'up' else down() if cmd == 'down' else film(set(sys.argv[2:])) if cmd == 'film'
-             else battle(set(sys.argv[2:])) if cmd == 'battle' else (print(__doc__) or 2))
+        return f'gamefilm: no unity CLI at {CLI}'
+    if cmd in ('film', 'battle') and not ffmpeg_ready():
+        return f'gamefilm: no ffmpeg at {FFMPEG or "TW_FFMPEG or PATH"}: film and battle encode every shot with it'
+    return ''
+
+
+def main(argv):
+    cmd = argv[0] if argv else ''
+    bad = missing_tools(cmd)
+    if bad:
+        print(bad)
+        return 1
+    only = set(argv[1:])
+    return (up() if cmd == 'up' else down() if cmd == 'down' else film(only) if cmd == 'film'
+            else battle(only) if cmd == 'battle' else (print(__doc__) or 2))
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))
