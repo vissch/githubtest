@@ -230,7 +230,8 @@ namespace TW.Presentation.Units
             if (farCount > 0 && far != null)
             {
                 far.FallenProps.SetBuffer("_Instances", fallenBuffer); far.FallenProps.SetBuffer("_RowTable", far.Rows);
-                FrameBudget.DrawIndirect(new RenderParams(far.Material) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
+                // far.Fallen, like the near figures: both sides and the limb cut
+                FrameBudget.DrawIndirect(new RenderParams(far.Fallen) { worldBounds = bounds, shadowCastingMode = ShadowCastingMode.Off, receiveShadows = true, matProps = far.FallenProps }, far.Asset.Mesh, fallenArgs, 1, figures.Length);
             }
         }
 

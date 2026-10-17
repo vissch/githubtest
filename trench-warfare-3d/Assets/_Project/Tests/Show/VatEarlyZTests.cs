@@ -3,7 +3,8 @@
 // none), so only the fallen's material enables _TW_LIMBCUT, the keyword the lost-limb and wound clips sit behind. A clip
 // anywhere in a pass, even one that never fires, makes the GPU run the whole shader before the depth test: in the
 // benchmark's held frame that was 1.5 ms of a 3.5 ms opaque pass (docs/05). Nothing but this test would notice it
-// coming back, because the picture is the same either way.
+// coming back, because the picture is the same either way. The keyword only helps the material that is actually
+// drawn: TheFarFallenDrawUsesTheFallenMaterial is what holds that for the far tier.
 using System.IO;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
@@ -14,6 +15,7 @@ namespace TW.Tests
     {
         const string ShaderPath = "Assets/_Project/Shaders/VAT_URP.shader";
         const string RendererPath = "Assets/_Project/Presentation/Units/VATRenderer.cs";
+        const string FallenPath = "Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs";
 
         [Test]
         public void TheLivingVariantCannotDiscard()
@@ -33,6 +35,23 @@ namespace TW.Tests
         {
             Assert.That(File.ReadAllText(RendererPath), Does.Contain("fallen.EnableKeyword(\"_TW_LIMBCUT\")"),
                 "the fallen's material must enable _TW_LIMBCUT, or a man a shell took a limb off lies whole");
+        }
+
+        // [found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0]
+        [Test]
+        public void TheFarFallenDrawUsesTheFallenMaterial()
+        {
+            string src = File.ReadAllText(FallenPath);
+            var matches = Regex.Matches(src, @"new RenderParams\(([^)]*)\)");
+            Assert.That(matches.Count, Is.EqualTo(2),
+                "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] expected exactly two fallen draws: the near figures' and the far tier's");
+            foreach (Match m in matches)
+            {
+                Assert.That(m.Groups[1].Value.Trim(), Does.EndWith(".Fallen"),
+                    "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] the far corpses draw with the living's material: Cull On, no _TW_LIMBCUT, so a far corpse lies whole and unwounded");
+            }
+            Assert.That(src, Does.Not.Contain("RenderParams(far.Material)"),
+                "[found-draw-far-tier-fallen-corpses-with-far-fallen-20261017-0] the far corpses draw with the living's material: Cull On, no _TW_LIMBCUT, so a far corpse lies whole and unwounded");
         }
     }
 }
