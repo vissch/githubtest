@@ -10,8 +10,9 @@
 // drawn with the far model in its own indirect draw from the same instance buffer (near records from the front,
 // far records from the back). The far tier is the 264-vertex box soldier.
 // Figures: the baked atlases in Resources/Units (Figure<Name>, VATBaker.Figures order): the Soldier for the
-// rifleman, assault and machine-gunner, the hooded Sniper for the sniper. Without any bake the box soldier is the
-// only tier. Rows: the controller writes a Clip per man; a clip atlas plays it as is, the box soldier maps it to one
+// rifleman, assault and machine-gunner, the hooded Sniper for the sniper. A missing figure falls back to the
+// Soldier's bake (FigureOfArchetype's mapping stays untouched); without the Soldier the box soldier is the only
+// tier. Rows: the controller writes a Clip per man; a clip atlas plays it as is, the box soldier maps it to one
 // of its 18 procedural rows (Clips.Table[].Fallback).
 using System.Collections.Generic;
 using Unity.Burst;
@@ -101,6 +102,18 @@ namespace TW.Presentation.Units
         /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
         public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
 
+        /// <summary>Which loaded bake fills each FigureNames slot: its own (k), else the Soldier's (0, the named
+        /// default). -1 in every slot when the Soldier bake itself is missing: the near tier shares one clip->row map
+        /// (nearRowOf), so a clip atlas cannot be mixed with the box soldier, and the box soldier is then the only
+        /// tier. has[k]: Resources holds a valid Figure&lt;FigureNames[k]&gt;.</summary>
+        public static int[] FigureSources(bool[] has)
+        {
+            var src = new int[FigureNames.Length];
+            bool soldier = has.Length > 0 && has[0];
+            for (int k = 0; k < src.Length; k++) src[k] = !soldier ? -1 : (k < has.Length && has[k]) ? k : 0;
+            return src;
+        }
+
         sealed class Figure
         {
             public VatAsset Asset; public Material Material, Fallen; public GraphicsBuffer Rows; public int Near, Start;
@@ -168,25 +181,27 @@ namespace TW.Presentation.Units
         {
             var shader = Shader.Find("TW/VAT Infantry (URP)");
             if (shader == null || !SystemInfo.supportsComputeShaders) { Debug.LogWarning("VATRenderer: VAT shader unavailable, units fall back to capsules"); return; }
-            var baked = new List<VatAsset>();
-            foreach (var name in FigureNames)
+            var data = new VatAssetData[FigureNames.Length];
+            var has = new bool[FigureNames.Length];
+            for (int k = 0; k < FigureNames.Length; k++)
             {
-                var data = Resources.Load<VatAssetData>("Units/Figure" + name);   // written by TW/VAT/Bake Infantry
-                if (data != null && data.Valid) baked.Add(data.ToAsset());
-                else if (baked.Count > 0) baked.Add(baked[baked.Count - 1]);   // a missing figure borrows the one before it
-                else Debug.LogWarning("VATRenderer: no bake for figure " + name);
+                data[k] = Resources.Load<VatAssetData>("Units/Figure" + FigureNames[k]);   // written by TW/VAT/Bake Infantry
+                has[k] = data[k] != null && data[k].Valid;
+                if (!has[k]) Debug.LogWarning("VATRenderer: no bake for figure " + FigureNames[k]);
             }
-            if (baked.Count > 0 && baked.Count < FigureNames.Length) for (int k = baked.Count; k < FigureNames.Length; k++) baked.Add(baked[0]);
-            clipAtlas = baked.Count > 0 && baked[0].ClipAtlas;
-            if (baked.Count > 0)
+            var src = FigureSources(has);
+            if (src[0] >= 0)
             {
-                figures = new Figure[baked.Count];
-                for (int k = 0; k < baked.Count; k++) figures[k] = Make(shader, baked[k]);
+                var asset = new VatAsset[FigureNames.Length];
+                for (int k = 0; k < src.Length; k++) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
+                figures = new Figure[FigureNames.Length];
+                for (int k = 0; k < figures.Length; k++) figures[k] = Make(shader, asset[src[k]]);
+                clipAtlas = asset[0].ClipAtlas;
                 far = Make(shader, ProceduralSoldier.Build());
                 far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f);
-                if (clipAtlas) Clips.Apply(baked[0].RowSeconds);   // the controller times its one-shots by the bake
+                if (clipAtlas) Clips.Apply(asset[0].RowSeconds);   // the controller times its one-shots by the bake
             }
-            else figures = new[] { Make(shader, ProceduralSoldier.Build()) };
+            else { clipAtlas = false; figures = new[] { Make(shader, ProceduralSoldier.Build()) }; }
             argsBuffer = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
             args = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
             // the controller hands every man a Clip; each tier turns it into a row of its own atlas
@@ -468,8 +483,8 @@ namespace TW.Presentation.Units
         /// top of the first, and the editor held both until it was quit. That doubling is the whole of the ~144 MB
         /// the VAT atlases were measured at.
         ///
-        /// Assets are de-duplicated by reference because a figure whose bake is missing borrows the one before it
-        /// (see Start), so the same VatAsset appears in several slots and must be released once.
+        /// Assets are de-duplicated by reference because a figure whose bake is missing falls back to the Soldier's
+        /// bake (see Start), so the same VatAsset appears in several slots and must be released once.
         /// </summary>
         void OnDestroy()
         {
