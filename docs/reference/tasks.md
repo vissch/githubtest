@@ -822,7 +822,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   EditMode: `CaptureRig.IsFootFigure` against `UnitFlags` and the figure path's own vehicle mask), BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
   repaints only its own tile of the ground colour, `Presentation/Terrain/ScorchTilePainter.cs`), HollowRescanTests and
   DrainageTests (crater hollows and rill drainage, presentation only), TerrainChunkPassTests (the per-frame chunk walk,
-  `GreyboxTerrainView.ChunkPass`, is planned before any chunk moves `chunkCursor`).
+  `GreyboxTerrainView.ChunkPass`, is planned before any chunk moves `chunkCursor`). TerrainChunkScheduleTests (`GreyboxTerrainView.Overlaps`
+  / `ChunkWaits`: a crater's rescan restarts and blocks chunk work only within `HollowReachMeters` of itself, not the
+  whole field, so a chunk far from the shelling keeps its part-built rows and finishes).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
@@ -1200,3 +1202,4 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->
+- **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests<!-- /gen:tests -->
