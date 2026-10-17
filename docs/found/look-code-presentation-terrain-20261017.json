@@ -1,0 +1,78 @@
+{
+  "subject": "code:Presentation/Terrain",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/HouseKit.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/HeavyWork.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/PropWearTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/StaticLifecycleTests.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md",
+    "docs/found/look-look-night-20261017.json",
+    "docs/found/look-code-presentation-meta-20261017.json"
+  ],
+  "tasks": [
+    {
+      "title": "Chunk cursor is moved inside the loop that reads it, skipping dirty chunks",
+      "why": "GreyboxTerrainView.cs:629 picks the chunk to work on as `int i = (chunkCursor + n) % chunks.Count`, but lines 632 and 639 both assign chunkCursor inside the same loop body. So every chunk that finishes advances the cursor by one AND n advances by one, and the next iteration lands two chunks further on. With chunks 0..9 all dirty the frame visits 0, 2, 5, 9, 4, ... instead of 0,1,2,3: about half the dirty chunks are never looked at in that frame even with budget left, and finished chunks are revisited. No work is lost (a skipped chunk is reached on a later frame), but the frames stretched are the ones after a barrage, when most of the field is dirty. The fix is one line: snapshot the cursor before the loop.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The walk is lifted into a pure helper (the sequence of chunk indices one pass visits) and an EditMode test asserts that with N chunks all dirty and no budget limit the pass visits each index exactly once; the test goes red on today's expression.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Every crater throws away all part-built chunk rows and blocks chunk work",
+      "why": "GreyboxTerrainView.cs:665 sets hollowsDirty on each CraterStamp. Line 623 then refuses to touch any chunk while hollowsDirty is set or on the frame of a rescan, and line 585, on the rescan, runs `foreach (var chunk in chunks) chunk.NextRow = 0`, discarding the rows already filled in a chunk that was half-way through. A chunk is 65 rows of 65 vertices (ChunkMeters 32 and GridStep .5, lines 30-31) and each vertex costs about three Surface.VisualHeight samples (FillRow, lines 230-249), roughly 12,700 samples a chunk, against a 2 ms budget a frame. Under a barrage of several craters a second a chunk can be restarted before it ever finishes, so the drawn ground keeps its pre-crater heights for as long as the shelling lasts, which is the one moment the holes matter.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Terrain/GreyboxTerrainView.cs"],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "In Play with a barrage running, a counter of finished chunk rebuilds per second stays above zero over 30 s of shelling (today it can sit at zero); or an EditMode test drives Update with a crater arriving every other frame and asserts a chunk reaches Dirty == false within a bounded number of frames.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "House chunk masks are recomputed for every visible house every frame",
+      "why": "BattlefieldProps.cs:463 calls MaskOf once per instance of a masked module, every frame, as the pages are merged. PropDestruction.MaskOf (PropDestruction.cs:498-506) loops every chunk of the house and for each one builds a matrix (HouseKit.Place, HouseKit.cs:225, a 4x4 multiply) and hashes a key into the destroyed HashSet. Its early-out at line 500 is `destroyed.Count == 0`, so it stops helping the moment the first prop anywhere on the map breaks, which in a battle is within seconds. With twenty-chunk houses and a few dozen in frame that is hundreds of matrix multiplies and set probes a frame for an answer that only changes when a chunk of that house is destroyed. The mask is a pure function of the house matrix and the destroyed set, so it can be cached per matrix and invalidated in Down (PropDestruction.cs:508).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "A counter of MaskOf bodies actually run per frame (not cache hits) reads zero on a frame in which no chunk was destroyed, in Play on a field with houses standing after something has been broken.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "PropWearTests asserts only on constants; no wear behaviour is covered",
+      "why": "All eight tests in Tests/Show/PropWearTests.cs read const fields and divide them by a weapon's rate of fire. Not one builds a prop, a cell or a jolt, so Wear, SweepCell, WearCell, WearShelter, Knock, Unjolt, Twitch and Home - about 250 lines, PropWear.cs:145-365 - could be emptied and the file stays green. Two concrete holes it leaves open. First, the eviction in SweepCell (PropWear.cs:191-198) drops the entry with the smallest Built, which is the oldest-built, not the least recently used: once 64 cells are cached, the cell under the longest burst is the first one re-swept, against the file's own claim that a sweep 'is paid once and then reused for as long as it lasts'. Second, A_Knock_Is_Small_Enough_To_Read_As_A_Flinch asserts JoltReach < Quantum (0.08 < 0.25) while the bound the code states twice (PropWear.cs:20-22 and 52-53) is half of Quantum, and the real displacement is JoltReach * Jolt * up to 1.45 (Knock, PropWear.cs:331). A JoltReach of 0.15 passes the test and moves a prop 0.217 m, past the 0.125 m the key grain allows.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Show/PropWearTests.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "New EditMode tests, on top of today's calibration ones, go red when SweepCell's cache is made to return an empty list, when Twitch stops putting a prop back, and when JoltReach is set to 0.15.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "A destroyed lining section keeps its jolt: Twitch keys it the wrong way",
+      "why": "PropWear.cs:354 asks `destroyed.Contains(Key(j.Module, j.Home))`, the module's own key, while everything else in the class keys a lining section through KeyOf (PropDestruction.cs:299), which maps a broken twin onto its whole panel's key. Lining rules carry Jolt .06-.12 (PropDestruction.cs:233-239), so lining sections do get jolted. When a shell takes a section to Gone, Section (PropDestruction.cs:396-398) goes straight into Finish without the UnjoltSlot that the bullet path does call (PropWear.cs:232 and 267), so a jolt entry stays live, and the key mismatch means Twitch never sees it as gone: it calls props.Move on the hidden slot every frame for up to JoltSeconds. Nothing is seen today only because BattlefieldProps.Move (BattlefieldProps.cs:216-218) refuses a slot whose scale Hide shrank - the bug is held up by a guard in another file, not by its own logic.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropWear.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/PropDestruction.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test jolts a lining panel, strikes it to Gone through StrikeForTests, and asserts Knocked == 0 after the next Twitch; it goes red on today's Key call.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
