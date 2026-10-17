@@ -45,6 +45,22 @@ namespace TW.Tests
         }
 
         [Test]
+        public void ProceduralSoldier_HoldsItsOneShotRows()
+        {
+            var hold = new[]
+            {
+                AnimRow.Throw, AnimRow.Vault, AnimRow.Flinch0, AnimRow.Flinch1, AnimRow.Flinch2,
+                AnimRow.Death0, AnimRow.Death1, AnimRow.Death2, AnimRow.Death3,
+            };
+            var asset = ProceduralSoldier.Build();
+            for (int r = 0; r < (int)AnimRow.Count; r++)
+                Assert.AreEqual(System.Array.IndexOf(hold, (AnimRow)r) < 0, asset.Loops(r),
+                    (AnimRow)r + ": y > 0 loops, y < 0 plays once and holds the last frame (VatAsset.RowTable)");
+            Assert.AreEqual(ProceduralSoldier.FramesPerRow, asset.Frames((int)AnimRow.Death0), "a held row still has all its frames");
+            asset.Release();
+        }
+
+        [Test]
         public void BakedFigures_IfPresent_HaveARowPerClipAndHoldTheirOneShots([Values("Soldier", "Sniper")] string figure)
         {
             var data = Resources.Load<VatAssetData>("Units/Figure" + figure);
