@@ -263,6 +263,17 @@ def figure(job):
 
 KINDS = {"turn": turn, "apart": apart, "figure": figure}
 
+
+def write_results(path, results):
+    """Whole or not at all: films.py reads this file, a worker killed inside a write must not truncate it."""
+    tmp = path + ".part"
+    with open(tmp, "w", encoding="utf-8") as f:
+        json.dump(results, f, indent=1)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, path)
+
+
 if __name__ == "__main__":
     argv = sys.argv[sys.argv.index("--") + 1:]
     jobs = json.load(open(argv[0], encoding="utf-8"))
@@ -273,4 +284,4 @@ if __name__ == "__main__":
             results[job["id"]] = KINDS[job["kind"]](job)
         except Exception as e:
             results[job["id"]] = {"ok": False, "error": "%s: %s" % (type(e).__name__, e), "trace": traceback.format_exc()[-800:]}
-        json.dump(results, open(argv[1], "w", encoding="utf-8"), indent=1)
+        write_results(argv[1], results)
