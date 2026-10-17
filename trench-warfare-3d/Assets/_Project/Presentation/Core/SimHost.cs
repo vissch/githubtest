@@ -108,6 +108,8 @@ namespace TW.Presentation
         readonly ScriptedEnemy enemy = new ScriptedEnemy();
         float accumulator;
         float animTime;
+        System.Action syncEnemy;
+        System.Func<bool> stepOnce;
 
         /// <summary>
         /// A chosen ten as the sim takes it: at most ten ids, and nothing past the end of the tables an archetype
@@ -169,6 +171,28 @@ namespace TW.Presentation
             Presenter = new SimPresenter(cfg.MaxSlots);
             Animation = new AnimationController(cfg.MaxSlots, Local.Map, Local.Gas, Presenter.RowIn, Presenter.PhaseIn, Presenter.YawIn);
             Presenter.Capture(Local.World);
+            syncEnemy = SyncEnemy; stepOnce = StepLocalOnce;
+        }
+
+        /// <summary>The frame's catch-up, testable: the enemy's knobs are copied ONCE a frame, then the frame steps as
+        /// many ticks as the backlog holds (guard, or a stall, ends it). Returns the ticks stepped.</summary>
+        public static int StepFrame(ref float accumulator, float tick, int guard, System.Action sync, System.Func<bool> step)
+        {
+            sync();
+            int stepped = 0;
+            while (accumulator >= tick && guard-- > 0)
+            {
+                if (!step()) break;          // stalled: wait for frames without burning time
+                accumulator -= tick; stepped++;
+            }
+            return stepped;
+        }
+
+        bool StepLocalOnce()
+        {
+            if (!session.StepOnce(enemy)) return false;
+            LocalStepped();
+            return true;
         }
 
         void Update()
@@ -177,13 +201,7 @@ namespace TW.Presentation
             float tick = Local.World.Config.TickSeconds;
             accumulator += Time.deltaTime * Mathf.Max(0f, TimeScale);
             int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
-            while (accumulator >= tick && guard-- > 0)
-            {
-                SyncEnemy();
-                bool a = session.StepOnce(enemy);
-                if (a) LocalStepped();
-                if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
-            }
+            StepFrame(ref accumulator, tick, guard, syncEnemy, stepOnce);
             Alpha = Mathf.Clamp01(accumulator / tick);
             animTime += Time.deltaTime;
             PerfMarkers.AnimAdvance.Begin(); Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
