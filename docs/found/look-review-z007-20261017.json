@@ -1,0 +1,63 @@
+{
+  "subject": "review:Z007",
+  "looked_at": [
+    "git diff --stat 7943d2b9..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- Assets/_Project/Editor/ prints nothing: no Editor file changed since Z007's last review, so this is a review of the files as they stand",
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the role, the P0-P3 ladder, report only what you read at the cited lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/AssetScaleAudit.cs (66 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs (154 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/BuildWindows.cs (115 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (870 lines, whole, in two parts)",
+    "trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs (104 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs (192 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeterminismPlatformReport.cs (42 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvKitImport.cs (81 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvPropEditor.cs (550 lines, whole, in two parts)",
+    "trench-warfare-3d/Assets/_Project/Editor/GameViewFit.cs (31 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/Gym.cs (688 lines, whole, in two parts)",
+    "trench-warfare-3d/Assets/_Project/Editor/InfantryClipTable.cs (97 lines, whole)",
+    "grep of docs/reference/tasks.md and docs/reference/decisions.md for every one of the twelve file names: the Z007 rows are file maps only (tasks.md:44, 111-123, 397, 416, 433-434, 468, 632-638, 684, 709, 718, 946, 974, 1000-1011); none of the four findings below is already queued, decided or rejected",
+    "docs/found/look-code-editor-ui-20261015.json covered Editor/UI/** only: no overlap"
+  ],
+  "tasks": [
+    {
+      "title": "Create the report folder only when the path has one",
+      "why": "P1. CaptureRig.Profiler.LateUpdate:850 calls Directory.CreateDirectory(Path.GetDirectoryName(path)). CaptureRig.Stress:728 defaults path to the bare name \"stress.json\", for which GetDirectoryName returns the empty string and CreateDirectory throws ArgumentException. The throw happens after left has reached 0, so LateUpdate:836 returns early ever after and Done (821) never becomes true; StressRun.Start:795 then spins on `while (!prof.Done) yield return null` forever. Play is never exited (798), so the StressUnits restore in OnPlayMode:762-769 never runs and the editor sits in Play holding the checkout and the GPU until someone notices. Profile(path):615 has the same bare-path hole. Cost: a stress run invoked the documented way writes no numbers and hangs the editor.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test calls the same path logic with \"stress.json\" and a nested path and both write the file without throwing; by hand, `tw eval 'return TW.Editor.CaptureRig.Stress(50);'` leaves Play on its own and stress.json exists in the project folder.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Restore camera and running flag in CaptureRig.Run with try/finally",
+      "why": "P1. CaptureRig.Rig.Run:112-115 saves the tactical camera's state and sets tc.enabled = false; the restore at 146-149 (zoom, focus, fov, transform, tc.enabled, running = false) is plain straight-line code at the end of the coroutine. Any throw inside Pose (152-179) or Render (181-199) — the empty-directory ArgumentException of the first finding, a null SimHost field, a Measure NRE — kills the coroutine there, so the TacticalCamera stays disabled, the camera stays parked at the last pose, and `running` stays true, which makes LateUpdate:84 never start a run again. Every later CaptureRig.Shot in that Play session queues silently and writes no PNG, and Gym's capture wait (Gym.cs:303-304) just times out and judges \"no capture\". Cost: one bad shot kills the rest of a capture or gym session with no error naming the cause.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A PlayMode test queues a shot with a path that cannot be written, then a valid shot, and the second PNG exists; the TacticalCamera is enabled again after the queue drains.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Gym.CommandLine must exit non-zero when the run never starts",
+      "why": "P1. Gym.CommandLine:60-66 throws away Run's return value. Run:48-52 returns the string \"the open scene has unsaved changes: save or discard them first\" without entering Play when SaveCurrentModifiedScenesIfUserWantsTo fails, and in that path nothing ever calls EditorApplication.Exit: the only exits are StartRunner:87 (no SimHost) and GymRun.Finish:581. The GymRun watchdog (Gym.cs:204-211) cannot help, because no GymRun was created. So a batch editor started with -executeMethod TW.Editor.Gym.CommandLine sits idle forever holding the checkout's project lock and the GPU, and a caller that reads the exit code gets no verdict rather than a failure. Fix: capture the return, and Exit(1) with the message when it does not say the editor is entering Play.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/Gym.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test over the same decision (the return string of Run against the exit code CommandLine picks) shows a non-entering return maps to exit 1; by hand, the batch line exits within seconds instead of hanging when the gym cannot start.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Ask before NewScene throws away unsaved scene edits",
+      "why": "P1 (lost work). BootstrapSceneBuilder.BuildGreybox:117 and BuildBootstrap:147 call EditorSceneManager.NewScene(..., NewSceneMode.Single) with no dirty check, and BuildScenes:111 then OpenScene's the result. The dialogs at 31-34 and 95-98 only ask about replacing the committed asset and scene FILES; nothing asks about the scene open in the editor, so whatever is unsaved in it is gone without a prompt — the same hazard Gym.Run:50 guards with EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo. It fires from the menu TW/Build Bootstrap Scenes and from SetupAll (67-73) on a checkout missing either scene file. Cost: an afternoon of hand scene work with no undo.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The two NewScene calls are preceded by SaveCurrentModifiedScenesIfUserWantsTo and BuildScenes returns early when it returns false; an EditMode test marks the open scene dirty, calls BuildScenes in a mode where the prompt is declined, and asserts the scene files were not rewritten.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
