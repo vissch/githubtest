@@ -1,0 +1,68 @@
+{
+ "subject": "tools:trench-warfare-3d/Tools/assetboard",
+ "looked_at": [
+  "trench-warfare-3d/Tools/assetboard/found.py",
+  "trench-warfare-3d/Tools/assetboard/src_git.py",
+  "trench-warfare-3d/Tools/assetboard/src_tasks.py",
+  "trench-warfare-3d/Tools/assetboard/idearoute.py",
+  "trench-warfare-3d/Tools/assetboard/autoloop.py",
+  "trench-warfare-3d/Tools/assetboard/src_images.py",
+  "trench-warfare-3d/Tools/assetboard/briefs.py",
+  "trench-warfare-3d/Tools/assetboard/ops.py",
+  "trench-warfare-3d/Tools/assetboard/ideas.py",
+  "trench-warfare-3d/Tools/assetboard/test_readonly.py",
+  "trench-warfare-3d/Tools/assetboard/test_rowguards.py",
+  "trench-warfare-3d/Tools/assetboard/test_briefshape.py",
+  "trench-warfare-3d/Tools/assetboard/test_found.py",
+  "trench-warfare-3d/Tools/pipeline/pipeline.py",
+  "trench-warfare-3d/Tools/relay/prompt.py",
+  "trench-warfare-3d/Tools/relay/roles (directory listing)",
+  "docs/reference/pipelines.md (lines 171-230, assetboard tools table)",
+  "docs/reference/tasks.md",
+  "docs/reference/decisions.md",
+  "docs/found/look-tools-claude-skills-20261016.json"
+ ],
+ "tasks": [
+  {
+   "title": "Give look units a role prompt, or stop handing out hard-critic",
+   "why": "found.py:78 ROLES has no 'hard-critic', but found.py:79 ROLE_OF_LOOK gives every kind='look' unit (the LOOKS views, e.g. night, hud, vehicles) exactly that role, and found.py:97 GOAL text even tells the leg 'role: one of {roles}' where hard-critic is absent from that list. Tools/relay/prompt.py:18-25 builds the system prompt by trying roles/<role>.md and, when it does not exist (it does not: Tools/relay/roles has no hard-critic.md), silently skips it with no error, no fallback. So every look-look-* leg (the ones that judge fresh captures against the game's look) runs with no role-specific guidance at all, forever, and nothing ever reports it: the leg still completes and the unit still closes.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/found.py",
+    "trench-warfare-3d/Tools/relay/prompt.py"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "a unit test on found.py asserts ROLE_OF_LOOK['look'] is in ROLES, and Tools/relay/prompt.py raises (or a tw-critic.md role file exists) when a role has no roles/<role>.md; the test fails before the fix and passes after",
+   "risk": [false, true, false, false, true],
+   "change": [true, true, false, false, false]
+  },
+  {
+   "title": "Make every assetboard tool resolve the board the same way, honouring TW_BOARD",
+   "why": "Three different ways find the board: briefs.py:823 and idearoute.py:230 say 'TW_BOARD, or tw3d-board beside the checkout' and Tools/pipeline/pipeline.py:60-61 actually implements that (os.environ.get('TW_BOARD') or REPO.parent/'tw3d-board'); but found.py:52-54 ignores TW_BOARD entirely and instead reads TW_STEWARD_GH (GH / 'tw3d-board'), and src_images.py:113 hardcodes repo.parent/'tw3d-board' with no env override at all. autoloop.py:108 shows this machine already runs extra relays with sibling boards tw3d-board-2, tw3d-board-3, etc. On a machine with several checkouts and several boards (confirmed: tw3d-board-2 exists here beside this very checkout), a tool that is told TW_BOARD points elsewhere can still have found.py queue cards to one board while src_images.py links evidence from another, with no error either way.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/found.py",
+    "trench-warfare-3d/Tools/assetboard/src_images.py",
+    "trench-warfare-3d/Tools/pipeline/pipeline.py"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "a test sets TW_BOARD to a temp folder and asserts found.py's World and src_images.py's board-evidence lookup both resolve to it, not to repo.parent/'tw3d-board' or TW_STEWARD_GH",
+   "risk": [false, false, true, false, true],
+   "change": [true, true, false, false, false]
+  },
+  {
+   "title": "Add found.py and autoloop.py to the pipelines.md tools table",
+   "why": "docs/reference/pipelines.md's assetboard table (lines 171-230) lists build.py, briefs.py, ops.py, idearoute.py, ideas.py and about twenty more, but never found.py (what decides which old work is looked at next, and what a look's findings become) or autoloop.py (the loop that runs the whole relay unattended, including found.py's rota/take). CLAUDE.md's own table sends an agent to pipelines.md for 'any Tools/ script', so a session reading only that table never learns these two scripts, or their rota/take or round_ commands, exist at all; this leg itself had to read found.py's own docstring instead of pipelines.md to learn what rota and take do.",
+   "files": [
+    "docs/reference/pipelines.md",
+    "trench-warfare-3d/Tools/assetboard/found.py",
+    "trench-warfare-3d/Tools/assetboard/autoloop.py"
+   ],
+   "lane": "show",
+   "role": "lane",
+   "done_when": "validate.py (or a grep of pipelines.md for 'found.py' and 'autoloop.py') finds a row for each, and the row names rota/take and round_",
+   "risk": [false, false, false, false, true],
+   "change": [false, false, false, false, false]
+  }
+ ]
+}
