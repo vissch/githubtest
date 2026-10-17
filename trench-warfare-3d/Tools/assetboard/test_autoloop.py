@@ -82,8 +82,14 @@ class Fake(autoloop.World):
             self.committed |= {Path(p).name for p in paths}
         return 'pushed' if push else 'committed (kept local)'
 
-    def start(self, n):
+    pipe = False
+
+    def pipeline_work(self):
+        return self.pipe
+
+    def start(self, n, sources='lane'):
         self.started.append(n)
+        self.sources = getattr(self, 'sources', []) + [(n, sources)]
         self.text[self.main if n == 1 else self.extras[n]] = RUN.replace('relay-four-checks', f'x{n}')
         return 'started'
 
@@ -519,6 +525,19 @@ def main():
     lines = autoloop.take_answers(w)
     case('two notes of his on a brief: the newest is the note taken up, the unit is queued once, and when his notes pick two options nothing of the older is queued (a leg reads his words)',
          [u['id'] for u in w.added] == ['u1'] and w.taken == [('same', 'u1', '')], (lines, w.added, w.taken))
+
+    # ---- the main relay with nothing on its queue it can take works the pipeline board (option A, 2026-10-17) ----
+    w = Fake(tmp / 'pipe', extras=())
+    w.pipe = True
+    lines = autoloop.feed(w)
+    w0 = Fake(tmp / 'pipe0', extras=())
+    autoloop.feed(w0)
+    w2 = Fake(tmp / 'pipe2', extras=())
+    w2.pipe = True
+    put(w2.main, 'queue', 'q1', priority=50)
+    autoloop.feed(w2)
+    case('the main relay with no unit it can take is started on the pipeline board when it has a job (pipeline only, not the held units); none, not started; with a unit, on its lane queue as before',
+         getattr(w, 'sources', []) == [(1, 'pipeline')] and w0.started == [] and getattr(w2, 'sources', []) == [(1, 'lane')], (lines, getattr(w, 'sources', None), getattr(w2, 'sources', None)))
 
     # ---- editors a relay leg left open (relay 4, 10-16 17:59 to 10-17 22:20) ----
     w = Fake(tmp / 'ed')

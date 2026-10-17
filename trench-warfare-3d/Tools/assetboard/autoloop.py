@@ -199,7 +199,7 @@ class World:
             self.pull(board)
         return 'committed; the push was refused three times: it is pushed with the next one'
 
-    def start(self, n):
+    def start(self, n, sources='lane'):
         if not self.acting:
             return 'would start'
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)   # DETACHED_PROCESS: powershell runs nothing
@@ -207,12 +207,17 @@ class World:
             code, said = self.relay(self.main, 'hold', MAIN_WHO, '--hours', '0.25')     # long enough to start; given back when idle
             if code:
                 return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
-            cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', 'lane']
+            cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', sources]
         else:
             cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT]
         p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *cmd],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         return f'started (pid {p.pid})'
+
+    def pipeline_work(self):
+        """True when the main relay's runner would take a job off the pipeline board now (its own dry run says so)."""
+        code, said = self.relay(self.main, 'run', '--work', str(GH / 'githubtest-relay-work'), '--dry-run', '--sources', 'pipeline')
+        return code == 0 and said.lstrip().startswith('Would run: pipeline')
 
     def answers(self):
         import briefs
@@ -787,6 +792,9 @@ def feed(w):
     work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held and loopsteps.work_key(u, v) not in extra_kin
                for u, v in q.items())                  # nor the copy of a unit an extra relay holds
     started = False
+    pipe = running == set() and not work and w.pipeline_work()   # nothing on its queue it can take: the pipeline board's routed
+    #   ideas are its work (option A, the owner 2026-10-17: everything accepted; 11 ideas waited). Pipeline only: a lane source
+    #   would take the units held back above (parked, a lane an extra relay holds, an extra's copy)
     if running == set() and work:               # the lanes it will take, held by a stopped extra relay's clean checkout, are freed first
         for lane in sorted({v.get('lane') for u, v in q.items() if u not in done and found.prio(v) < PARKED and v.get('lane')} - held):
             if lane in cos:
@@ -805,14 +813,15 @@ def feed(w):
                 starts['1'] = dict(at=w.now(), reason='put aside', wait=QUIET)
                 save(w.home / 'starts.json', starts)
             work = False
-    if running == set() and work:
+    if running == set() and (work or pipe):
+        what = 'has work' if work else 'has no queued unit it can take: the pipeline board has a job'
         if not w.acting:
-            out.append('feed: the main relay is not running and has work: it would be started')
+            out.append(f'feed: the main relay is not running and {what}: it would be started')
         else:
             before = load(w.home / 'starts.json', {}).get('1')
             if may_start(w, 1, reason):
-                said = w.start(1)
-                out.append(f'feed: the main relay is not running and has work: {said}')
+                said = w.start(1) if work else w.start(1, sources='pipeline')
+                out.append(f'feed: the main relay is not running and {what}: {said}')
                 started = not said.startswith('not started')
                 if not started:                 # a start its hold refused is no start: tried again next round, the wait not doubled
                     starts = load(w.home / 'starts.json', {})
