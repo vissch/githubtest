@@ -505,8 +505,8 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     `option` overrules the option read from his notes, for an answer whose option his notes do not settle. A brief
     that closes with a unit closes only when that unit stands on the relay's queue of `board`, committed and pushed on
     the board's origin/main with that id inside the file: a yes of his taken up without the work being queued is his
-    word dropped. A unit only in the relay's done folder closes it and the answer says so, so a done record of that id
-    left by an earlier unit does not pass a new yes in silence. `unchecked` says why nobody could read the board, and is said
+    word dropped. A unit found only in the relay's done folder is refused, because the relay never runs an id its
+    done record holds; queue a fresh id, or say `--outcome`. `unchecked` says why nobody could read the board, and is said
     in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
     his notes is finished instead of refused; a note he wrote after the close is refused, saying so. Write the row in decisions.md first. Returns (the brief, his note)."""
     import notes
@@ -530,7 +530,14 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     if one(option) and a['go'] != 'write':
         raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
     stands = '' if not one(queued) or one(unchecked) else queued_on(board, queued)
-    if one(queued) and not one(unchecked) and not stands:
+    if one(queued) and not one(unchecked) and stands != 'queue':
+        if stands == 'done':
+            raise ValueError(f'{a["id"]}: {one(queued)} has only a relay/done/{one(queued)}.json on the board '
+                             f'{board or "(none named)"}\'s origin/main, an earlier unit\'s: the relay never runs an id '
+                             f'its done record already holds, so nothing of this yes would ever run. Queue it under a '
+                             f'fresh id instead ({one(queued)}-2) and take with --queued {one(queued)}-2; or say '
+                             f'--outcome "words" when nothing is to be built after all; or say with --unchecked "why" '
+                             f'that the board could not be read')
         raise ValueError(f'{a["id"]}: nothing is queued as {one(queued)}: the board {board or "(none named)"} has no '
                          f'relay/queue/{one(queued)}.json and no relay/done/{one(queued)}.json on its origin/main '
                          f'with that id inside it. Queue it first: '
@@ -539,8 +546,7 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
                          f'so a file nobody pushed is nothing to it; or say with --unchecked "why" that the board could '
                          f'not be read')
     took = one(option) or a['option']
-    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome, unchecked=unchecked,
-               done_already='an earlier unit of that id' if stands == 'done' else '')
+    b = answer(where, a['id'], took, a['said'], by, now, queued=queued, outcome=outcome, unchecked=unchecked)
     n = [m for m in notes.read_all(notes_where) if m['id'] == a['note']][0]
     for m in notes.read_all(notes_where):
         if m.get('about') == 'brief:' + b['id'] and m.get('state') != 'done':
