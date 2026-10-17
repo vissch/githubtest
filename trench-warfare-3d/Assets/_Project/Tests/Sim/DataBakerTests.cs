@@ -48,5 +48,20 @@ namespace TW.Tests
             Assert.AreEqual(35f, upgraded.Damage, 1e-4f, "[S10] ApplyUpgrades must apply +5 per dmgTier (25 + 5*2 = 35)");
             Assert.AreEqual(0.55f, upgraded.Accuracy, 1e-4f, "[S10] ApplyUpgrades must apply accTier to Accuracy, not ignore it");
         }
+
+        // [found-accuracy-upgrades-are-unclamped-and-the-comm-20261016-0]
+        [Test]
+        public void ApplyUpgrades_ClampsAccuracyToOne()
+        {
+            var stats = default(TW.Sim.Units.UnitStats);
+            var weapon = new WeaponStats { Damage = 95f, Accuracy = 0.9f };
+
+            DataBaker.ApplyUpgrades(stats, weapon, hpTier: 0, dmgTier: 0, accTier: 3, out var upgraded);
+
+            Assert.LessOrEqual(upgraded.Accuracy, 1f,
+                "[found-accuracy-upgrades-are-unclamped-and-the-comm-20261016-0] a hit chance must never exceed 1; 0.9 + 3 tiers was 1.05");
+            Assert.AreEqual(1f, upgraded.Accuracy, 1e-4f,
+                "[found-accuracy-upgrades-are-unclamped-and-the-comm-20261016-0] three tiers on the 0.9 sniper clamp to exactly 1");
+        }
     }
 }
