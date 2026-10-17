@@ -1,4 +1,4 @@
-> Snapshot read at integration 558c667 (2026-09-28). file:line citations drift: re-grep the symbol before editing. The code wins over this page.
+> Snapshot read at integration 558c667 (2026-09-28). Citations name the file and the symbol, no line numbers: grep the symbol. The code wins over this page.
 
 # Destruction, death and VFX in trench-warfare-3d: reference for a skill
 
@@ -26,7 +26,7 @@ This is a read-only pass. Every number and name below was read from the file cit
 **Seam:**
 - `SimWorld.Hash()` is append-only; bump `FormatVersion` when it changes (`CLAUDE.md:56-...`).
 - Seam item 4 is "the float4 house chunk mask in `Toon_URP.shader`" (`CLAUDE.md:63`).
-- `FormatVersion = 9` (`P\Sim\Core\Replay.cs:33`).
+- `FormatVersion` = 9 (`P\Sim\Core\Replay.cs`).
 
 **Gate** (`CLAUDE.md:87-88`), run from the repo root with the editor closed:
 - `powershell -NoProfile -ExecutionPolicy Bypass -File gate.ps1 -EditOnly` (before every commit)
@@ -49,7 +49,7 @@ This is a read-only pass. Every number and name below was read from the file cit
 
 TerrainHash 50, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 900, Deformation 1000, Mines 1130.
 
-**BlastSystem** (`P\Sim\Combat\Blast.cs`)
+**`BlastSystem`** (`P\Sim\Combat\Blast.cs`)
 - `BlastShape { Shell=0, Masonry=1, CookOff=2, Incendiary=3, Beam=4, Mine=5, Strafe=6 }` (`:52`).
 - `Impact` fields (`:54-70`): `Pos`, `Dir` (XZ flight direction; zero means no lean), `Damage`, `Radius`, `Suppression`, `CraterRadius`, `CraterDepth`, `Rubble`, `SafeBehind`, `Source`, `Player`, `Shape`.
 - `BlastRules` (`:73-100`):
@@ -64,7 +64,7 @@ TerrainHash 50, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 9
   - calls `Despawn(slot, DeathCause.Blast, (kx,1,kz), speed)` for each man killed (`:161-165`).
 - `Hash(h) => h`: its lists are not hashed, by design (`:303`).
 
-**DeformationSystem** (`P\Sim\Match\Deformation.cs`)
+**`DeformationSystem`** (`P\Sim\Match\Deformation.cs`)
 - `MaxStampsPerTick = 4` (`:38`).
 - Takes over `blast.Craters` (`:85-86`) and runs `Shake` on each resolved impact (`:87`).
 - `Shake` (`:140-157`): prop `Hp -= Damage*(1-0.75 d/R)`; at 0 it calls `PropRules.Next` and emits `PropChanged(p, next)`. A breach emits `WireBreached(scalar = CraterRadius*2)` (`:158-166`).
@@ -73,7 +73,7 @@ TerrainHash 50, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 9
 - Applies stamps with `ApplyDynamic` and emits `CraterStamp` with `dir.y` = signed depth, negative for a mound (`:119-129`).
 - `Hash`: Wrecks, Applied, PropsChanged, WireOpened, checksum, Queue (`:171-180`).
 
-**VehicleModulesSystem** (`P\Sim\Units\VehicleModules.cs`)
+**`VehicleModulesSystem`** (`P\Sim\Units\VehicleModules.cs`)
 - Pipeline header (`:1-23`).
 - Constants (`:35-62`):
   - `TrackFullAbove` 0.8, `TrackThrownBelow` 0.2, `TrackWorstFactor` 0.35, `TrackMismatch` 0.15
@@ -86,29 +86,29 @@ TerrainHash 50, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 9
 - `Wreck` calls `Despawn`, which emits `VehicleDestroyed` (`:646-651`).
 - `Hash` covers every module array (`:653-673`).
 
-**CraterStamp** (`P\Sim\Terrain\CraterStamp.cs`)
+**`CraterStamp`** (`P\Sim\Terrain\CraterStamp.cs`)
 - `CraterKind { Bowl=0, Mound=1 }` (`:35-41`).
 - `HoleRecord { Center, Radius, Depth, RimAt, Hits }` (`:45-54`).
 - Constants (`:64-86`): `MaxRadius` 12, `MaxDepth` 4.5, `MergeShare` 0.75, `GrowShare` 0.6, `DepthShare` 1.2, `RimShare` 0.25, `MaxRim` 0.5, `RimWidth` 0.3, `TrenchKeep` 1, `TrenchGuard` 4, `MaxUnderWater` 1.8, `MaxHoles` 512.
 - `Apply` is for the authored map; `ApplyDynamic` is the in-match path that grows holes, throws rims and obeys the guard band (`:89-93`). `Hard()` (`:96-100`).
 
-**MapData** (`P\Sim\Terrain\MapData.cs`)
+**`MapData`** (`P\Sim\Terrain\MapData.cs`)
 - `Version` (`:22`), `Props` (`:61`), `Holes` (`:67`).
 - `CellTrenchDist` (`:72`) starts at 255 (`:100-101`). Zero would mean "every cell touches a trench" and nothing would dig.
 - `Bedrock` (`:76`), `BedrockBelow = 6` (`:81`).
 - `AddProp` (`:176`), `SetPropKind` (`:192`), `BuildTrenchDistance` (`:228`).
 - `Hash` (`:281-303`) folds in: `Height.Cm`, `NavLayers`, `NavCost`, `CellTrenchId`, `CellCover`, `CellTrenchDist`, `Bedrock`, every Hole field, `WaterLevel`, the sea fields, and each prop's `Pos/Hp/Scale/Cell/Kind`.
 
-**TerrainHashSystem** (`P\Sim\Match\TerrainHashSystem.cs:22-33`)
+**`TerrainHashSystem`** (`P\Sim\Match\TerrainHashSystem.cs`)
 - Steps nothing; `Hash => map.Hash(h)`.
 - About 105 KB of FNV per hashed tick. Single player sets `HashInterval = 0`, so only the canary, tests and replays pay it (`:15-17`).
 
 **Hash seam, in one list**
-- `SimWorld.Hash` folds in every system's hash (`P\Sim\Core\SimWorld.cs:424`).
+- `SimWorld.Hash` folds in every system's hash (`P\Sim\Core\SimWorld.cs`).
 - **In the hash:** ground, holes and props (through TerrainHashSystem), Deformation (wrecks), VehicleModules.
 - **Not in the hash:** BlastSystem's lists, and everything in `Presentation`: prop damage, trench lining state, house chunks, debris, scorch.
 
-**Event contract** (`P\Sim\Core\SimEvents.cs`)
+**Event contract** (`SimEvent` in `P\Sim\Core\SimEvents.cs`)
 - `Explosion` (`:14`), `CraterStamp` (`:15`), `Death` (`:16-17`), `VehicleDestroyed` (`:30`), `WireBreached` (`:31`), `PropChanged` (`:39`).
 - `VehicleArmourHit` (`:42`), `VehicleOnFire` (`:44`), `VehicleKnockedOut` (`:47`), `VehicleCookOff` (`:48`), `VehicleCrushed` (`:51`), `VehicleLegLost` (`:53`), `UnitAlight` (`:64`), `WreckRecorded` (`:84`).
 - `DeathCause { Blast=-1, Gas=-2, Crush=-3, Burning=-4, Beam=-5 }` (`:89`); `VehicleKillCause` (`:92`).
@@ -122,23 +122,23 @@ TerrainHash 50, Blast 720, Beam 723, Burning 725, VehicleModules 730, GasSmoke 9
 - Consequence: read a dead man through `Animation.TryDeath`, never `State[slot]`. The slot may already hold someone else (`tasks.md:220-221`).
 
 Subscribers:
-- `CombatFx.OnSimEvent` (`P\Presentation\Camera\CombatFx.cs:478`)
-- `PropDestruction.OnSimEvent` (`P\Presentation\Terrain\PropDestruction.cs:327-349`)
-- `TankRenderer.OnSimEvent` (`P\Presentation\Camera\TankRenderer.cs:912`)
-- `BattlefieldProps` marks itself dirty on `PropChanged`, `WireBreached` and `CraterStamp` (`BattlefieldProps.cs:178`)
-- `GreyboxTerrainView` handles `CraterStamp` and `WireBreached`, keeping at most 64 scorch marks (`GreyboxTerrainView.cs:661-667`). `MaxChunkRebuilds = 2` (`:64`).
+- `CombatFx.OnSimEvent` (`P\Presentation\Camera\CombatFx.cs`)
+- `PropDestruction.OnSimEvent` (`P\Presentation\Terrain\PropDestruction.cs`)
+- `TankRenderer.OnSimEvent` (`P\Presentation\Camera\TankRenderer.cs`)
+- `BattlefieldProps` marks itself dirty on `PropChanged`, `WireBreached` and `CraterStamp` (`BattlefieldProps.cs`)
+- `GreyboxTerrainView` handles `CraterStamp` and `WireBreached`, keeping at most 64 scorch marks (`GreyboxTerrainView.cs`). `MaxChunkRebuilds = 2` (`:64`).
 
 ### 1.4 Presentation components
 
-**CombatFx** is one partial class in six files (`CombatFx.cs:6-11`). Its handlers:
+**`CombatFx`** is one partial class in six files (`CombatFx.cs`). Its handlers:
 
 | Event | What it draws | Where |
 |---|---|---|
-| Death | `OnDeath` (`CombatFx.cs:602`) → see below | `CombatFx.Deaths.cs:31-94` |
-| UnitAlight | lights or douses the drawn torch (`CombatFx.cs:605`) | `CombatFx.Deaths.cs:24-29` |
-| Explosion | burst, column, wings, smoke, clods, rim, shake | `CombatFx.cs:617-754` |
-| PropChanged | splinters, a puff, `TreeBreaks` | `CombatFx.cs:770-778` |
-| VehicleCrushed (b=2) | helmet, limb, lumps; skipped when Gore is 0 | `CombatFx.cs:786-795` |
+| Death | `OnDeath` (`CombatFx.cs`) → see below | `CombatFx.Deaths.cs` |
+| UnitAlight | `OnAlight` lights or douses the drawn torch (`CombatFx.cs`) | `CombatFx.Deaths.cs` |
+| `Explosion` | burst, column, wings, smoke, clods, rim, shake | `CombatFx.cs` |
+| PropChanged | splinters, a puff, `TreeBreaks` | `CombatFx.cs` |
+| `VehicleCrushed` (b=2) | helmet, limb, lumps; skipped when Gore is 0 | `CombatFx.cs` |
 
 - `OnDeath` details:
   - skips tank slots (`:36`);
@@ -158,11 +158,11 @@ Subscribers:
 - Other `CombatFx` pieces:
   - `DebrisRenderer.ZoomShare` is set every frame (`:830`).
   - Gas is drawn per 4 m cell where concentration is ≥ 0.8 (`:936-962`).
-  - The `SceneHooks.CookOff` hook is wired at `:231` and drawn at `CombatFx.Chunks.cs:21-43`.
-  - `Gibs` (`CombatFx.Bodies.cs:36-74`), `TreeBreaks` (`:81-107`).
-  - Close-up-only work sits behind `if (!close) return;` (`CombatFx.Ground.cs:225`).
+  - The `SceneHooks.CookOff` hook is wired at `:231` and drawn at `CombatFx.Chunks.cs`.
+  - `Gibs` (`CombatFx.Bodies.cs`), `TreeBreaks` (`:81-107`).
+  - Close-up-only work (`CloseLife`) sits behind `if (!close) return;` (`CombatFx.Ground.cs`).
 
-**PropDestruction** (`P\Presentation\Terrain\PropDestruction.cs`)
+**`PropDestruction`** (`P\Presentation\Terrain\PropDestruction.cs`)
 
 Constants (`:54-84`):
 - `Quantum` 0.25, `MaxRemembered` 20000, `BlastReach` 1.15, `CrownFallSeconds` 4.8
@@ -221,22 +221,22 @@ Methods, in call order:
 
 The broken twin of a lining panel collapses to `max(2, Pieces/2)` pieces (`:232`).
 
-**PropWear** is a partial of PropDestruction (`P\Presentation\Terrain\PropWear.cs`):
+**PropWear** is a partial of `PropDestruction` (`P\Presentation\Terrain\PropWear.cs`):
 - `CellSize` 4 (`:35`), `WearTicks` 4 (`:38`), `WearPerRound` 0.03 (`:41`), `SpallBudget` 8 (`:50`)
 - `WearPerBag` 0.7 (`:61`), `ShelterShellHp` 3, `ShelterShellErode` 0.08 (`:64`)
 - `RoundsToWear`, `RoundsToStrip`, `RoundsToOpenShelter` (`:96-99`)
 - `Home(module, page, slot, drawn)` is private (`:105`)
 - Rates table: `D\16-destruction.md:293-303`
 
-**TrenchSection** (`P\Presentation\Terrain\TrenchSection.cs`):
+**TrenchSection** (`TrenchSectionRules` in `P\Presentation\Terrain\TrenchSection.cs`):
 - `SectionState { Intact, Damaged, Gone }` (`:8`); `DamagedBelow` 0.5 (`:13`)
 - `HeavyRadius` 6, `HeavyPower` 1.05, `HeavyInner` 0.5 (`:17`)
 - `PieceLife => LiningLife/(1+LifeJitter)` (`:22`); `LiningLife` 12 (`:23`); `MaxSectionPiecesPerStrike` 120 (`:25`)
 - `IsHeavy` (`:27-28`), `Apply` (`:32-39`)
 
-**ScorchTilePainter** (`P\Presentation\Terrain\ScorchTilePainter.cs:1-14`) repaints one tile, bit-exact with the old loop. `Burnt` colour is at `:24`.
+**ScorchTilePainter** (`P\Presentation\Terrain\ScorchTilePainter.cs`) repaints one tile, bit-exact with the old loop. `Burnt` colour is at `:24`.
 
-**DebrisRenderer + Debris_URP** (`P\Presentation\Camera\DebrisRenderer.cs`, `P\Shaders\Debris_URP.shader`)
+**`DebrisRenderer` + Debris_URP** (`P\Presentation\Camera\DebrisRenderer.cs`, `P\Shaders\Debris_URP.shader`)
 - `DebrisMath` (`:30-105`): `BounceKeep` 0.45, `BounceUp` 0.30, `SinkSeconds` 3, `LifeJitter` 0.3.
 - **Spend by distance:** `Share` is 1 under 55 m, 0.5 under 120 m, 0.25 beyond (`:96-97`).
 - `Piece` enum: Clod, Shard, Plank, Rubble, Sandbag, Plate, Crown, Limb, Helmet, Rifle (`:131-144`).
@@ -252,7 +252,7 @@ The broken twin of a lining panel collapses to `max(2, Pieces/2)` pieces (`:232`
 - The shader reads records with `GetIndirectInstanceID_Base` (`Debris_URP.shader:61`).
 - Design notes: `D\16-destruction.md:18-56`. The pool table is at `:30-43`: 3,520 records, 330 KB, at most 10 draws.
 
-**FlipbookFx** (`P\Presentation\Camera\FlipbookFx.cs`)
+**`FlipbookFx`** (`P\Presentation\Camera\FlipbookFx.cs`)
 - `Book` enum (`:12-39`), `Kind` flags `{Upright, Anchored, Mirror, HoldLast}` (`:41`), `Sheets[]` (`:73-132`).
 - `MaxCards` 1536 (`:144`; knob `flipbook.maxCards` at `:536`).
 - Textures load as `Resources.Load("VFX/" + Name)` (`:546`). `Ready = found == Sheets.Length` (`:570`).
@@ -260,36 +260,36 @@ The broken twin of a lining panel collapses to `max(2, Pieces/2)` pieces (`:232`
 - `Tint(book, color)` (`:586`).
 - Book → sheet mapping and the index bug are in §2.3.
 
-**HouseKit chunk mask** (`P\Presentation\Terrain\HouseKit.cs`)
+**`HouseKit` chunk mask** (`P\Presentation\Terrain\HouseKit.cs`)
 - `ChunkMask` has `BitsPerWord = 24` and `Words = 4` (`:45-90`); `MaxChunks = 96` (`:94`). The 24-bit warning is at `:41-44`.
 - `Solve` (`:161`). `BuildWhole` logs an error above `MaxChunks` (`:203-205`). `Place`/`HouseOf` (`:225-227`). `GroundedBelow` 0.35 (`:20`).
 - **Toon_URP `_CHUNKMASK`:** header `Toon_URP.shader:16-17`; instanced `float4 _ChunkMask` (`:65-68`); `TWChunk` (`:74`); `shader_feature_local_vertex` in all 4 passes (`:105, 317, 354, 393`).
-- The mask is set from `BattlefieldProps.cs:439,457`, `PropDestruction.cs:842` (loose chunks) and `Meta\HomeFrontDiorama.cs:159`.
-- `Resources/Env/Houses/HouseMask.mat` keeps the shader variant in a build (`BattlefieldKit.cs:225`).
+- The `ChunkMask` is set from `BattlefieldProps.cs:439,457`, `PropDestruction.cs` (loose chunks) and `Meta\HomeFrontDiorama.cs`.
+- `HouseMask` (`Resources/Env/Houses/HouseMask.mat`) keeps the shader variant in a build (`BattlefieldKit.cs`).
 
 **SceneHooks.DrawnWreck and tank wrecks**
-- Hook declared at `P\Presentation\Core\RenderGround.cs:123-124`.
-- `TankRenderer` sets it (`TankRenderer.cs:206-210`): true when a linked wreck is within 1 m.
-- `BattlefieldComposer.cs:273` reads it and leaves the prop stand-in out.
-- A hull is linked to its wreck prop by `PropChanged` Wreck with `dir.x = slot+1` (`TankRenderer.cs:917-924`).
+- `DrawnWreck` is declared at `P\Presentation\Core\RenderGround.cs`.
+- `TankRenderer` sets it (`TankRenderer.cs`): true when a linked wreck is within 1 m.
+- `BattlefieldComposer.cs` reads `DrawnWreck` and leaves the prop stand-in out.
+- A hull is linked to its wreck prop by `PropChanged` Wreck with `dir.x = slot+1` (`TankRenderer.cs`).
 - `TankRenderer` limits: `MaxWrecks` 48 (`:42`, knob `tank.maxWrecks`, oldest dropped at `:285`); `MaxLoose` 160 (`:775`, knob `tank.maxLoose`).
 - `Scrap` plates go through DebrisRenderer (`:793-798`). `Wreckify` (`:827`).
 - Cook-off fireball uses `DrawnForHalfLength` 2.5 (`:1019`); `VehicleDestroyed` triggers `Wreckify` (`:1037-1038`); `Blasted` (`:1092`).
 
 **Deaths: VAT launched bodies**
-- `P\Presentation\Core\AnimationController.Death.cs`:
+- `AnimationController` (`P\Presentation\Core\AnimationController.Death.cs`):
   - header (`:1-11`), `DeathRecord` (`:20-31`)
   - `DeathKind { Shot, Blast, Gas, Crushed, Burning, Beam }` (`:34`)
   - `PileRadius` 4, `PileWindow` 12 (`:39`); `DensityPerMan` 0.35, `DensityCap` 5 (`:41`)
   - `DeathRingSize` 256 (`:48`)
   - `public bool TryDeath(int slot, uint atTick, out DeathRecord record)` (`:113`); `Density` (`:126`)
-- `P\Presentation\Units\VATRenderer.Fallen.cs`:
+- `VATRenderer` (`P\Presentation\Units\VATRenderer.Fallen.cs`):
   - `ThrowGravity` 14 (`:25`), `MaxFallen` 600 (`:27`), `FallenSeconds` 30 (`:28`)
   - `SinkSeconds` 2.5 (`:29`), `CharredLies` 14 (`:32`)
   - `PileStep` 0.28, `PileMax` 3 (`:36`); `PitchSteps` 32 (`:39`)
 - Owner decision: `decisions.md:49`.
 
-**EventVfxRouter** (`P\Presentation\VFX\EventVfxRouter.cs:8-16`) is a stub: `Start()` throws `NotImplementedException("Phase B5 ...")`, and so does `GasVolumeRenderer`. It is listed as not wired in `tasks.md:133-137`. The real effects live in `Presentation/Camera`.
+**EventVfxRouter** (`P\Presentation\VFX\EventVfxRouter.cs`) is a stub: `Start()` throws `NotImplementedException("Phase B5 ...")`, and so does `GasVolumeRenderer`. It is listed as not wired in `tasks.md:133-137`. The real effects live in `Presentation/Camera`.
 
 **Design doc `D\16-destruction.md`, section by section:**
 - The rule `:7`; renderer `:18`; what throws what `:58`
@@ -304,10 +304,10 @@ The broken twin of a lining panel collapses to `max(2, Pieces/2)` pieces (`:232`
 ## 2. VFX
 
 ### 2.1 Where effects live
-- **tasks.md "Combat effects"** (`:238-270`) names the files: `CombatFx.cs`, `.Mines`, `.Deaths`, `.Abilities`, `.Chunks`, `.Bodies`, `.Ambient`, `CameraShake.cs`, `FlipbookFx.cs` with `Shaders/Flipbook_URP.shader`.
+- **tasks.md "Combat effects"** (`:238-270`) names the files of `CombatFx`, `CameraShake` and `FlipbookFx`: `CombatFx.cs`, `.Mines`, `.Deaths`, `.Abilities`, `.Chunks`, `.Bodies`, `.Ambient`, `CameraShake.cs`, `FlipbookFx.cs` with `Shaders/Flipbook_URP.shader`.
 - **Colour:** six books' tints (Splash, Column, Wings, Spurt, Puff, Smoke) are overwritten every scene by `CombatFx.ApplyTints` from `BiomeProfile`. At night the burst lights its smoke through `_TWBurst` / `TWBurstLight` in `TWAtmosphere.hlsl` (`:253-258`).
-- **Flamethrower:** `Presentation/Camera/Flamethrower.cs` and `Shaders/Flame_URP.shader` (`tasks.md:280-291`).
-- **Night light:** `NightLights` provides `SceneHooks.Flash` and `FireLight`, and the star shell (`NightLights.FireStarShell`, used by `BenchScenarios.cs:201-209`).
+- **Flamethrower:** `Flamethrower` in `Presentation/Camera/Flamethrower.cs` and `Shaders/Flame_URP.shader` (`tasks.md:280-291`).
+- **Night light:** `NightLights` provides `SceneHooks.Flash` and `FireLight`, and the star shell (`NightLights.FireStarShell`, used by `BenchScenarios.cs`).
 
 ### 2.2 Flipbook textures (`P\Resources\VFX\`)
 19 PNGs: Burst, Column, FireBall, FireBlast, FireBloom, FireBurst, FireColumn, FireCore, FireFan, FireHead, FireJet, FirePool, FireStand, Flash, Muzzle, Puff, Spurt, Star, Wings.
@@ -322,7 +322,7 @@ The trap as written (`tasks.md:289-291`):
 
 Also: "three sheets are named 'Puff': count the rows, the smoke book is the one with `Erode = true`" (`tasks.md:257-258`).
 
-**Mapping as it stands.** `Sheets[(int)b]` is indexed directly (`FlipbookFx.cs:137`).
+**Mapping as it stands.** `Sheets` is indexed directly as `Sheets[(int)b]` (`FlipbookFx.cs`).
 
 | Index | Book (enum) | Sheet row | Match? |
 |---|---|---|---|
@@ -379,8 +379,8 @@ The enum's own comments (`:35-37`) and `firebooks.py:61-76` say Head is the clos
   - Every score is still `-` except J03 at 5.
 
 ### 2.7 Gas, fire and explosions
-- **Gas:** the sim field is `GasSmokeSystem` (order 900). It is drawn as the `Book.Gas` card per 4 m cell (`CombatFx.cs:936-962`). The translucent cubes are the fallback when the books are missing (`:963`).
-- **Vehicle fire:** `VehicleModulesSystem.Fire` (tasks.md "Fire in the sim", `:139-144`). The staging helper is `TankCapture.Ignite(slot, fire=0.62f)`, which writes `Modules.Fire[slot]` in both worlds (`P\Editor\TankCapture.cs:95-101`).
+- **Gas:** the sim field is `GasSmokeSystem` (order 900). It is drawn as the `Book.Gas` card per 4 m cell (`CombatFx.cs`). The translucent cubes are the fallback when the books are missing (`:963`).
+- **Vehicle fire:** `VehicleModulesSystem.Fire` (tasks.md "Fire in the sim", `:139-144`). The staging helper is `TankCapture.Ignite(slot, fire=0.62f)`, which writes `Modules.Fire[slot]` in both worlds (`P\Editor\TankCapture.cs`).
 - **Men and ground on fire:** `BurningSystem` (sim). The drawn torch is `Flamethrower`, driven by `UnitAlight`.
 - **Explosion batches** (`D\16-destruction.md:393-429`, `decisions.md:78`): batch A shipped; B and C are parked.
 
@@ -391,12 +391,12 @@ The enum's own comments (`:35-37`) and `firebooks.py:61-76` say Head is the clos
 ### 3.1 Asset playground (never shipped)
 
 **Scene and menus:**
-- Scene `P\Playground\Playground.unity`; library `Playground/PlaygroundLibrary.asset` (`PlaygroundSetup.cs:19-20`).
-- Menus: **TW/Playground/Build** (`P\Playground\Editor\PlaygroundSetup.cs:24-25`) and **TW/Playground/Open and Play** (`:84-85`).
+- Scene `P\Playground\Playground.unity`; library `Playground/PlaygroundLibrary.asset` (`PlaygroundSetup` in `PlaygroundSetup.cs`).
+- `PlaygroundSetup` menus: **TW/Playground/Build** (`P\Playground\Editor\PlaygroundSetup.cs`) and **TW/Playground/Open and Play** (`:84-85`).
 - Driving it from code (`D\22-asset-playground.md:32-38`): `TW.Playground.PlaygroundHost.Instance.Queue("vehicle.compare; seq")`.
-- Keys (`PlaygroundHost.cs:405-417`): F1 panel, Space freeze, H = `ap Hull 25`, G = fire. A click on a vehicle is an AP hit of 22.
+- Keys (`PlaygroundHost.cs`): F1 toggles `ShowPanel`, Space freeze, H = `ap Hull 25`, G = fire. A click on a vehicle is an AP hit of 22.
 
-**Every command `PlaygroundHost.Do` accepts** (`P\Playground\Runtime\PlaygroundHost.cs:267-376`). Anything else returns `unknown command <c>`; success returns `ok <line>`.
+**Every command `PlaygroundHost.Do` accepts** (`P\Playground\Runtime\PlaygroundHost.cs`). Anything else returns `unknown command <c>`; success returns `ok <line>`.
 
 Scenes (`:274`, built at `:205-247`): `vehicle`, `vehicle.compare`, `unit`, `unit.compare`, `unit.squad`, `mixed`, `building`.
 
@@ -452,7 +452,7 @@ Measurement:
 
 **sheet.py:** `python Tools/playground/sheet.py TAG [DIR]` writes `TAG_sheet_{v,u,m,b}.jpg` and a stats table (`T\playground\sheet.py:2`).
 
-**BuildingRig** (`P\Playground\Runtime\BuildingRig.cs`):
+**`BuildingRig`** (`P\Playground\Runtime\BuildingRig.cs`):
 - `Kit(set)` (`:43`)
 - `Build(set, house, fx, parent, at, yaw, seed)` (`:69-100`):
   - **HP is `(Timber ? 30 : 60) * (Grounded ? 3 : 1)`** (`:93`);
@@ -464,33 +464,33 @@ Measurement:
 - `Rebuild` (`:426`); `Advance(dt)` (`:438-464`) runs on the building's own clock.
 - `DebugCuts`, `ForgetCuts`, `CutFacesFound` (`:106-114`).
 
-**VehicleRig** (`P\Playground\Runtime\VehicleRig.cs`):
+**`VehicleRig`** (`P\Playground\Runtime\VehicleRig.cs`):
 - Damage model and tiers (`:8-13`): Intact → Damaged → Immobilised → KnockedOut → CookedOff. Tier 1 accessories, tier 2 running gear, tier 3 turret (only at the cook-off), tier 4 casemate plates (only at the cook-off). The hull never leaves.
 - `Stage` (`:22`), `HitKind { AP, HE }` (`:23`); `CookDelay` 7 (below 0 means it never cooks off) (`:55`).
 - `Find` (`:217`), `FirstOfTier` (`:221`), `HitPart` (`:323`), `Hit` (`:333`), `HitLocal` (`:338`), `Detach` (`:412`)
 - `KnockOut` (`:433`), `CookOff` (`:442`), `FireGun` (`:493`), `Repair` (`:502`), `Advance` (`:547`), `PoseSignature` (`:737`)
 
-**Tumble** (`P\Playground\Runtime\Tumble.cs`): `Step(Bounds box, float metres, float h[, float floor])` (`:32-36`). It works in the owner's local frame, so the copies at three LODs agree bit for bit (`:1-6`).
+**`Tumble`** (`P\Playground\Runtime\Tumble.cs`): `Step(Bounds box, float metres, float h[, float floor])` (`:32-36`). It works in the owner's local frame, so the copies at three LODs agree bit for bit (`:1-6`).
 
-**PlaygroundFx** (`P\Playground\Runtime\PlaygroundFx.cs`):
+**`PlaygroundFx`** (`P\Playground\Runtime\PlaygroundFx.cs`):
 - Wraps the game's own `FlipbookFx` and `DebrisRenderer` (`:15-16, 27-32`).
 - `Burst` (`:173`), `Smoke` (`:200`), `CookOff` (`:218`).
 - It calls `Graphics.RenderMeshInstanced` directly (`:102`). This is allowed only because the budget test scans Presentation and UI, not Playground (§3.4).
 
 ### 3.2 Battle bench
 
-**PerfBench** (`P\Perf\PerfBench.cs`):
+**`PerfBench`** (`P\Perf\PerfBench.cs`):
 - The arg is `-twbench`; the env var is `TW_BENCH` (`:73`), consumed once per request (`:90-91`).
 - Exit codes (`:77-78`): 0 ok, 2 bad option, 3 settle timed out, 4 desync, 5 write failed.
-- **Where the JSON goes:** `Path.GetFullPath(Options.Out)`; the default is `"perf.json"` (`:651`; `BenchOptions.cs:39`). A relative `out=` resolves against the process working directory, so always pass an absolute path.
+- **Where the JSON goes:** `GetFullPath` of `Options.Out`; the default is `"perf.json"` (`:651`; `BenchOptions.cs`). A relative `out=` resolves against the process working directory, so always pass an absolute path.
 - `quit=1` leaves Play in the editor and quits the player (`:674-678`).
 
 **How to run it:**
-- **Editor:** `TW.Editor.CaptureRig.Bench(string args)` with GreyboxCorridor open and not in Play. It sets `TW_BENCH` and enters Play (`P\Editor\CaptureRig.cs:592-599`). Poll `TW.Perf.PerfBench.LastResultPath`.
+- **Editor:** `TW.Editor.CaptureRig.Bench(string args)` with GreyboxCorridor open and not in Play. It sets `TW_BENCH` and enters Play (`P\Editor\CaptureRig.cs`). Poll `TW.Perf.PerfBench.LastResultPath`.
 - **Player** (`workflow.md:345-348`): `Builds/WinBench/TrenchWarfare.exe -twbench "stress=1500 settle_ticks=1800 ticks=400 quality=5 canary=0 shot=<png> out=<json>"`. Adding `-screen-fullscreen 0 -screen-width 1280 -screen-height 720` keeps it in a window.
 - **AOSA driver:** `aosa.py bench <label> [--player/--editor] [--scenario S] [--shot-tick N] [--shot-frames N] [--no-hud] [--knobs k=v,...] [--repeats N] [--against L]` (`T\aosa\aosa.py:1491-1509`; `D\reference\aosa\README.md:210-212`).
 
-**BenchOptions.Parse keys** (`P\Perf\BenchOptions.cs:81-128`):
+**`BenchOptions.Parse` keys** (`P\Perf\BenchOptions.cs`):
 - `stress` (default 1500), `settle_ticks`/`settle` (1800), `ticks` (400), `warm` (120), `ff` (8)
 - `quality` (-1; always pass it), `vsync`, `w`/`width`, `h`/`height`, `weather` (120)
 - `zoom` (30), `yaw` (21), `pitch` (25), `fx`/`fz` (focus in map metres)
@@ -499,7 +499,7 @@ Measurement:
 - `scenario`, `knobs` (`a=1|b=2`, and repeated tokens add up), `ground` (ShelledForest / forest / winter / WinterLine; unknown exits 2)
 - Unknown keys land in `warnings` (`:124`).
 
-**BenchScenarios** (`P\Perf\BenchScenarios.cs`). `scenario=` values (`BenchOptions.cs:131-140`) are `barrage`, `armour`/`armor`, `vfx`; anything else runs `none`. They are issued after `hash_start` (`BenchScenarios.cs:1-15`).
+**BenchScenarios** (`P\Perf\BenchScenarios.cs`). `scenario=` values (`BenchOptions.cs`) are `barrage`, `armour`/`armor`, `vfx`; anything else runs `none`. They are issued after `hash_start` (`BenchScenarios.cs`).
 - **barrage:** each side fires an HE barrage on the enemy's front-trench cell nearest the view (`:58-66`).
 - **armour:** every vehicle roster slot is deployed (`:68-90`).
 - **vfx:** each side fires an HE barrage 8 m either side of the focus, chlorine 12 m upwind, and `NightLights.FireStarShell()` goes off (`:92-105`).
@@ -512,11 +512,11 @@ Measurement:
 - `props.maxLoose`, `props.maxFalling`
 - `tank.maxLoose`, `tank.maxWrecks`
 - `fx.maxBodies`, `fx.maxChunks`, `fx.maxAmbientChunks`, `fx.maxMarks`, `fx.columnScale`, `fx.closeReach`, `fx.tracerSeconds`
-- look knobs `fx.smokeAlpha`, `fx.burstGlow`, `fx.smokeNightSize`, `fx.smokeHard`, `fx.columnHard`, `fx.columnEarthSize`, `fx.columnSoil`, `fx.columnCap`, `fx.columnPlay` (`FlipbookFx.cs:155-497`), `fx.shotStagger`
+- look knobs `fx.smokeAlpha`, `fx.burstGlow`, `fx.smokeNightSize`, `fx.smokeHard`, `fx.columnHard`, `fx.columnEarthSize`, `fx.columnSoil`, `fx.columnCap`, `fx.columnPlay` (`FlipbookFx.cs`), `fx.shotStagger`
 
 ### 3.3 CaptureRig, TankCapture and RiderLab (`tw eval` helpers)
 
-**CaptureRig** (`P\Editor\CaptureRig.cs`):
+**`CaptureRig`** (`P\Editor\CaptureRig.cs`):
 - `Shot(path, x, z, zoom, yaw, pitch=25, w=1600, h=900, aimY=NaN)` (`:348`)
 - `Pending()` (`:356`); `ShotCrowd(path, zoom, yaw, pitch=25, w, h, cell=20)` (`:386`)
 - `Series(dir, stem, x, z, zoom, yaw, pitch=25, count=8, everyFrames=6, w, h, aimY)` (`:398`)
@@ -526,18 +526,18 @@ Measurement:
 - `LastReport()` (`:583`), `Bench(args)` (`:592`), `Profile(path, frames=300)` (`:608`)
 - `Stress(unitsPerSide=1000, path="stress.json", frames=300, settleSeconds=120)` (`:721`): has no fixed tick and no hash, so never use it for A/B (`workflow.md:431-432`)
 
-**TankCapture** (`P\Editor\TankCapture.cs`):
+**`TankCapture`** (`P\Editor\TankCapture.cs`):
 - `Spawn(team, archetype, x, z, yawDeg=-999)` (`:78-92`)
 - `Ignite(slot, fire=0.62f)` (`:95-101`)
 - `Status()` (`:103`), `Shot(path, w, h)` (`:65`), `Follow(slot, zoom=22, yaw=30)` (`:67`), `Silver(amount)` (`:69`)
 
-**RiderLab** (`P\Editor\RiderLab.cs`):
+**`RiderLab`** (`P\Editor\RiderLab.cs`):
 - `Setup(archetype=6, riders=8, x, z, team, yawDeg, climb)` (`:44`)
-- `Kill(slot)` calls `World.Despawn(slot)`, which emits Death and VehicleDestroyed, so a wreck forms (`:157-163`; `SimWorld.cs:217-225`)
+- `Kill(slot)` calls `Despawn` as `World.Despawn(slot)`, which emits Death and VehicleDestroyed, so a wreck forms (`:157-163`; `SimWorld.cs`)
 - `Drive(slot, dz)` (`:142`), `Enemies(...)` (`:166`), `Freeze(on)` (`:212`), `Camera(...)` (`:222`), `Film(dir, seconds, fps, w, h)` (`:231`)
 - `Fire(on)` only toggles `TankRenderer.RidersFire` (`:210`); it is not a weapon.
 
-**Queuing a shell by hand:** `MatchSim.Blast` is public (`P\Sim\Match\MatchSim.cs:34`). An eval of `h.WriteWorlds(m => m.Blast.Queue(new TW.Sim.Combat.Impact{...}))` fits the pattern the tests use (`BattlefieldTests.cs:103`), but no helper exists and I did not run it.
+**Queuing a shell by hand:** `MatchSim.Blast` is public (`P\Sim\Match\MatchSim.cs`). An eval of `h.WriteWorlds(m => m.Blast.Queue(new TW.Sim.Combat.Impact{...}))` fits the pattern the tests use (`BattlefieldTests.cs`), but no helper exists and I did not run it.
 
 **The rest of workflow §6** (`D\reference\workflow.md:187-331`):
 - stills (`:193-195`), top-down walker (`:197-203`), luma numbers (`:204-214`)
@@ -622,7 +622,7 @@ EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_
   - `NoBarrageEverDigsThroughTheBedrock...` (`:237`), `TheGroundIsInTheTickHash` (`:257`), `TwoMachinesShellingTheSameGroundAgreeOnIt` (`:267`)
 - **DirectionalBlastTests:** 8 tests covering far side vs near side, no-flight bursts, bay factor 0.7, `FieldShadow`, the raycast cap, masonry, `MinThrough`, determinism.
 - **ScorchTilePainterTests:** `Tiles_WithOverlappingScorch_AreTheOldLoopsTexels`, `Texel_RoundsAsSetPixelDoes_OnEveryBytesEdge`.
-- **FrameBudgetCoverageTests** (`P\Tests\EditMode\FrameBudgetCoverageTests.cs`):
+- **`FrameBudgetCoverageTests`** (`P\Tests\Show\FrameBudgetCoverageTests.cs`):
   - `EveryDrawGoesThroughFrameBudget` (`:43-64`): no `Graphics.Render*`/`Draw*` or CommandBuffer draw anywhere under `Presentation` or `UI` (`:17`), except `RenderGround.cs` and `DebugOverlay.cs` (`:18`)
   - `ThePatternSeesFrameBudgetsOwnCalls` (`:67`)
 - **StaticLifecycleTests:**
@@ -670,15 +670,15 @@ EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_
   - a stale `Library/BurstCache` shows as NullReference or IndexOutOfRange in Burst jobs.
 - **Read numbers before eyes:** "Do not judge a picture by eye first. Read the numbers, then look." (`:189`; also `tasks.md:30-31`).
 - **Brightness scales:** `CaptureRig` `luma_mean` is 0–1 Rec.709, blown above 0.90; `shotstats.py` is 0–255 Rec.601, blown at 250 and up. "Never compare a number from one with a number from the other." (`:204-208`)
-  - The playground's `luma_mean` is a third scale: 0–255 Rec.709, blown above 0.9·255 (`PlaygroundHost.cs:870-872`).
+  - The playground's `luma_mean` is a third scale: 0–255 Rec.709, blown above 0.9·255 (`PlaygroundHost.cs`).
 - **Staging traps** (`:236-248`): `FrameFrom`; `ZoomMin` 6; spawned units get moved by the sim; freeze with `SimHost.TimeScale=0` and `Time.timeScale=0`; `RenderGround.Sample`; **do not diff paused frames**; let ticks run before `Hold()`; `AlignWorlds` may say "a tick apart", so retry.
 - **Timed effects:** pause before creating the effect. This was last verified 2026-09-25 (`:250-260`).
 - **Noise:** rain and wind move 1–3% of pixels; a ninefold spread was measured. Seed and use `stepabs` (`:228-230, 262-268`).
 
 ### 4.3 FrameBudget rule
-- Every gameplay draw goes through `FrameBudget.Draw` or `FrameBudget.DrawIndirect` (`P\Presentation\Core\RenderGround.cs:174-232`), enforced by FrameBudgetCoverageTests (`tasks.md:528`).
-- `Vertices` excludes indirect draws (the men and the debris) (`RenderGround.cs:190-198`).
-- The comment at `RenderGround.cs:163-165`, saying PropDestruction and BattlefieldProps still draw directly, is stale: the test now forbids it, and a grep shows no such calls.
+- Every gameplay draw goes through `FrameBudget.Draw` or `FrameBudget.DrawIndirect` (`P\Presentation\Core\RenderGround.cs`), enforced by FrameBudgetCoverageTests (`tasks.md:528`).
+- `Vertices` excludes indirect draws (the men and the debris) (`RenderGround.cs`).
+- The comment at `RenderGround.cs`, saying `PropDestruction` and BattlefieldProps still draw directly, is stale: the test now forbids it, and a grep shows no such calls.
 
 ### 4.4 Budgets that matter here (`D\05-performance-budgets.md`)
 - **Frame:** 60 fps at 1080p on a GTX 1050 (`:5-6`).
@@ -691,9 +691,9 @@ EditMode tests are in `P\Tests\EditMode\`. Run one class with `Tools/tw run run_
 - `docs/05:29` and `:73` still budget ragdolls (≤ 15 active, a 15-slot pool). That contradicts the owner decision: no ragdolls (`decisions.md:49`).
 
 ### 4.5 Stale or contradictory docs (the code wins, per `CLAUDE.md`)
-- `D\16-destruction.md:600` says `DepthShare 0.6`; the code has 1.2 (`CraterStamp.cs:77`).
-- `:620` says Bedrock is "less 1.5 m"; the code has `BedrockBelow` 6 (`MapData.cs:81`) and `MaxDepth` 4.5.
-- `:211-212` says "at most 24 chunks"; now 96 (`HouseKit.cs:94`).
+- `D\16-destruction.md:600` says `DepthShare` 0.6; the code has 1.2 (`CraterStamp.cs`).
+- `:620` says Bedrock is "less 1.5 m"; the code has `BedrockBelow` 6 (`MapData.cs`) and `MaxDepth` 4.5.
+- `:211-212` says "at most 24 chunks"; `MaxChunks` is now 96 (`HouseKit.cs`).
 - `:708-710` says `FormatVersion` 3 → 4; it is now 9.
 - `pipelines.md:17` says "All four run headless" while the table lists eight Blender scripts.
 - `crabsplit.py` usage differs between `pipelines.md:24` and the script (§3.4).
@@ -753,9 +753,9 @@ These are the open items (`decisions.md:72-96`; ask the owner in the chat, in Cl
 ## Things I could not confirm
 
 1. Whether `Book.Core`/`Head`/`Bloom` → FireHead/FireBloom/FireCore (§2.3) is intentional. It looks like an ordinal mismatch; I did not check it in Play.
-2. The working directory a relative `out=` resolves against. The code uses `Path.GetFullPath` (`PerfBench.cs:651`); I assume the project folder in the editor and the launch folder in the player, but did not verify either.
+2. The working directory a relative `out=` resolves against. The code uses `Path.GetFullPath` (`PerfBench.cs`); I assume the project folder in the editor and the launch folder in the player, but did not verify either.
 3. That `tw stepabs`, `tw stepto` and the timed-effects recipe still work. `workflow.md:250` says they were last verified 2026-09-25 and "not re-run here". I only confirmed the subcommands exist (`T\tw:55,83,101,108`).
 4. Whether the gate's EditMode run includes `TW.Tests.Playground` (an Editor-only asmdef). `gate.ps1` has no Playground filter, so it probably does, but I did not verify.
-5. An eval-only way to queue an arbitrary `Impact` (`h.WriteWorlds(m => m.Blast.Queue(...))`). The API exists (`MatchSim.cs:34`, `SimHost.cs:174`); I did not run it, and no helper wraps it.
+5. An eval-only way to queue an arbitrary `Impact` (`h.WriteWorlds(m => m.Blast.Queue(...))`). The API exists (`WriteWorlds`, `Blast`: `MatchSim.cs`, `SimHost.cs`); I did not run it, and no helper wraps it.
 6. The PropWear behaviour in Play ("Seen in Play: not yet", `D\16-destruction.md:344-346`) and the three-minute-barrage before/after bench for the lining ("Not yet", `:768-769`). Both are documented as not done.
 7. That the Blender scripts other than housesplit, tank3split, jeepsplit, mechsplit and crabsplit run under 5.0. `pipelines.md` states it only generally.
