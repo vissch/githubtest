@@ -5,8 +5,24 @@ description: Balancing simulator for Trench Warfare 3D — pitch game ideas, set
 
 # Balance simulator
 
-Deep reference: `references/balance.md` (every stat table, id, ability, config field, checklist; snapshot at 558c667).
+Deep reference: `references/balance.md` (every stat table, id, ability, config field, checklist; snapshot at 558c667);
+its section map is below.
 The owner's roster redesign: `G:\My Drive\TW3D-pipeline\unit-roster-v2.md` (titled v3).
+
+## Section map — `references/balance.md` (21 KB; read one section, not the file)
+| Section | Read it for | ≈KB |
+|---|---|---|
+| Unit data | RosterEntry, infantry/machine stat tables, archetype ids | 4 |
+| Abilities: `OffMapAbilities` (`P\Sim\Match\OffMapAbilities.cs`) | ability ids, costs, cooldowns, validation | 1 |
+| Match config: `SimConfig` (`P\Sim\Core\SimConfig.cs`) | SimConfig fields, loadouts, the runtime-vs-default economy | 1 |
+| Combat tables | CombatTables and TankSpec: damage, range, RPS, accuracy | 2 |
+| Winning, events, stats | WinnerTeam, per-step events, MatchStats/MatchReport | 1 |
+| Building matches | MatchSim, LockstepSession, ScriptedEnemy, SimCommand | 2 |
+| Campaign and meta | CampaignGraph difficulties, nodes, FactionBuildings tiers | 1 |
+| Checklists (quoted) | the verbatim steps for adding a unit or a support ability | 2 |
+| Seam rules | the seam list, SourceId bands, FormatVersion | 1 |
+| Relevant decisions (`D\reference\decisions.md`) | decisions.md rows this role relies on, open questions | 1 |
+| Roster v3 proposal (`G:\My Drive\TW3D-pipeline\unit-roster-v2.md`; the title reads "(v3)") | the owner's redesign and where it diverges from code | 3 |
 
 ## The facts that decide how you work
 - **The sim is deterministic and pure C#** (Burst Strict floats, "same build, same architecture"). The desktop and the laptop produced byte-identical hashes at 2ad4973 (deploy-only match), so sweeps may run on either station.

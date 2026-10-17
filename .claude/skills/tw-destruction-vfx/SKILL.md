@@ -7,8 +7,22 @@ description: Destruction, death and VFX simulator for Trench Warfare 3D — make
 
 **The rule** (docs/16-destruction.md): the sim decides what breaks; presentation decides how the pieces fly; the
 pieces cost the CPU nothing a frame. There is no PhysX, no GameObject per piece and no allocation after load.
-Deep reference: `references/architecture.md` (every system, constant, handler and test, snapshot at 558c667).
+Deep reference: `references/architecture.md` (every system, constant, handler and test, snapshot at 558c667);
+its section map is below.
 Driving and capture: `../pipeline/references/driving-and-evidence.md`. New sheets: `../tw-vfx-sheets/SKILL.md`.
+
+## Section map — `references/architecture.md` (61 KB; read one section, not the file)
+| Section | Read it for | ≈KB |
+|---|---|---|
+| 0. Rules that bind this work | the four open findings before anything else | 1 |
+| 1. Architecture: sim → events → presentation | the event path, handlers, SimEvents | 18 |
+| 2. VFX | CombatFx, FlipbookFx books, the blood decision, Sheets ordering | 7 |
+| 3. Tools and rigs | CaptureRig, Playground BuildingRig/VehicleRig, benches, flameshots | 21 |
+| 4. Traps | the Sheets ordinal bug, Explosion.Dir, draw-call ceiling | 5 |
+| 5. tasks.md sections for this area (task → files → tests → how to see it) | which tasks.md row to open for a given task | 3 |
+| Owner decisions (verbatim rows, `D\reference\decisions.md`) | the verbatim decisions.md rows this skill relies on | 1 |
+| Owner questions: never build without asking | the open questions, never decide them yourself | 1 |
+| Things I could not confirm | gaps this snapshot left unchecked | 1 |
 
 ## Concepts first (the owner, 2026-10-06)
 Before a new effect, animation or character is built, or the look of one is changed, put two to four concepts or

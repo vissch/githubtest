@@ -2,9 +2,9 @@
 
 Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warfare-3d/Tools, D = docs.
 
-## A. BALANCE simulator
+# A. BALANCE simulator
 
-### Unit data
+## Unit data
 **`RosterEntry`** (`P\Sim\Core\RosterEntry.cs`)
 - **Fields** (:7-18): `byte Archetype`, `int Cost` (silver), `float Hp`, `float Speed` (m/s), `int CooldownTicks` (redeploy), `bool IsVehicle`, `byte Chassis` (a `ChassisKind`: Foot / Tracked / Legged / Wheeled).
 - `public const int SlotCount = 10;` (:20). This is a seam item.
@@ -67,7 +67,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - `MayCall(faction, id)` requires `id < 32` (:119-120). **Ability ids must stay below 32.**
 - `FactionId`: Iron 0, Brass 1, British 2, German 3, French 4, AustroHungarian 5; `Factions.Count = 6` (`P\Sim\Core\Faction.cs:13-21`).
 
-### Abilities: `OffMapAbilities` (`P\Sim\Match\OffMapAbilities.cs`)
+## Abilities: `OffMapAbilities` (`P\Sim\Match\OffMapAbilities.cs`)
 - `enum OffMapAbilityId : short` (:35-46): None 0, HeBarrage 1, CreepingBarrage 2, ChlorineGas 3, MustardGas 4, BomberRun 5, SmokeScreen 6, MortarSalvo 7, ReconFlight 8, ReinforcementSurge 9, StrafeRun 10, Beam 11, ParaDrop 12.
 - `AbilitySlots = 16` (:102).
 - `static bool TryGetStats(int ability, out AbilityStats s)` (:123-163). Only 1, 2, 3, 6, 10, 11 and 12 have stats (costs in silver, times in ticks):
@@ -84,13 +84,13 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 - **Validation** (:193-200) rejects: a winner already set, a bad id or pattern, a target off the map, cooldown still running, not enough silver, the Beam cap, and `!FactionRoster.MayCall`.
 
-### Match config: `SimConfig` (`P\Sim\Core\SimConfig.cs`)
+## Match config: `SimConfig` (`P\Sim\Core\SimConfig.cs`)
 - **Fields** (:12-39): `TickRate`, `InputDelayTicks`, `MaxSlots`, `Seed`, `SilverPerSecond`, `StartingSilver`, `EventCapacity`, `byte FactionA, FactionB`, `float HeroPity0, HeroPity1`, `FixedList32Bytes<byte> LoadoutA, LoadoutB`.
 - **Loadouts:** empty means the faction's default. A shorter list falls back per slot (:32-38). `FillRosters` locks any slot whose entry has `Hp <= 0` (`SimWorld.cs:101-120`). Since the 2026-09-25 loadouts, the rosters are hashed (`SimWorld.cs:392-395`).
 - **`Default`** (:45-56): TickRate 20, InputDelayTicks 3, MaxSlots 3584, Seed `0xC0FFEE`, SilverPerSecond 1, StartingSilver 120, EventCapacity 8192, Iron vs Brass.
 - **Runtime economy is not the default.** `SimHost` sets `StartingSilver = 300` and `SilverPerSecond = 2f` (`P\Presentation\Core\SimHost.cs:36-37`, applied :129-130). `MatchLaunch.Request` has the same values (:49-50), as do `MissionCard` (:32-33) and `CampaignMission` (:36-37). Stress runs use `StressUnits*25` silver (SimHost.cs:129). `Data/Definitions.cs:157-158` holds 120 / 1.2, which is **not read at runtime** (`D\reference\tasks.md:448`).
 
-### Combat tables
+## Combat tables
 **`CombatTables`** (`P\Sim\Combat\CombatTables.cs`, placeholder data)
 - **Constants** (:14-31): TrenchCover 0.75, CraterCover 0.35, CloseAssault 8 m / 600 dmg / 20 mm / 0.5 chance, MovingAccuracy 0.5, AdvanceFireRange 60, GarrisonFireSuppressionLimit 40, SmokeBlindMetres 12.5.
 - **`WeaponFor(byte)`** (:33-74), as damage / range / rounds per second / accuracy:
@@ -116,7 +116,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - `NativeList<int2> Killed` holds this tick's (slot, killer) pairs (:61).
 - Reach them as `match.Fire.Kills[team]`. `Fire` is null when `combat:false`.
 
-### Winning, events, stats
+## Winning, events, stats
 - **Winner:** `SimWorld.WinnerTeam = -1` (:19). Set by `SectorControlSystem` when an HQ is captured (`P\Sim\Match\SectorControl.cs:1-7`, :118), or by Surrender (`SimWorld.cs:275-277`). It emits `MatchEnded` (a = winner).
 - **Events per Step:**
   - `SimWorld.Step` clears `Events` first (`SimWorld.cs:233`), so read `m.World.Events.Events` after each `Step()`, or after `StepOnce` returns true.
@@ -129,7 +129,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   - Counted from events (:59-71). Kills and Shots come from `Local.Fire` (:88).
   - It needs a `SimHost` (MonoBehaviour), so a headless balance run should tally the events itself.
 
-### Building matches
+## Building matches
 **`MatchSim`** (`P\Sim\Match\MatchSim.cs`)
 - `CreateGreybox(SimConfig, bool combat=true)` :46-50
 - `CreatePlaytest(SimConfig)` :53
@@ -149,7 +149,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **Removing hero randomness:** `m.World.GetSystem<HeroSystem>().TeamMask = 0` (`StressPresetTests.cs:32`).
 - **`StressPresetTests`**: PerSide 200, 900 ticks, `ShelledForest(1917u)`, `ScriptedEnemy{StressUnits=PerSide, StressSpread=spread}`, both canary and single player (:19, :34-58). Knob `stress.spread=1`.
 
-### Campaign and meta
+## Campaign and meta
 **`CampaignGraph`** (`P\UI\Campaign\CampaignGraph.cs`)
 - **Difficulties** (:22-27):
   - EASY: deploy every 60 ticks, garrison 12, no tanks, no support, reserve 400, tier 0
@@ -169,7 +169,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - Per tier: SilverPerTier 50, IncomePerTier 0.25, ArmourMm 2, Ability% 8, PerTier 0.05 (:72-75).
 - **Only starting silver and income reach a match** (`ApplyTo`, :334-340). Unit tiers, armour and ability masks wait for the sim upgrade seam, docs/21 B1 (header :1-8). `MatchLaunch.Request.AbilityMaskA/B` is HUD-only for now (`P\Presentation\Core\MatchLaunch.cs:64-70`; `D\reference\tasks.md:473-476`).
 
-### Checklists (quoted)
+## Checklists (quoted)
 **Adding a unit type** (`D\reference\tasks.md:175-195`)
 > "This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first; the SHOW lane then does 3-6.
 > 1. **Where it goes:** each faction fields ten slots (`RosterEntry.SlotCount`, the digit keys 1-0) from a larger pool (`Sim/Core/FactionRoster.cs`). A new unit joins a pool, or takes a slot from another unit.
@@ -184,7 +184,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the command is rejected" (tasks.md:116-118).
 
-### Seam rules
+## Seam rules
 - **Seam list** (`R\CLAUDE.md:57-64`):
   1. `SimWorld` fields and `Hash()`: append only, bump `ReplayRecorder.FormatVersion`, log it in `docs/02-contracts.md`.
   2. `RosterEntry.SlotCount`, archetype ids, `SimConfig`, asmdef reference lists, `ProjectSettings/`, the manifest and lock file.
@@ -194,7 +194,7 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
 - **SourceId bands** (`P\Sim\Core\SourceId.cs:18-33`): an ability is its own id 0..999 (`AbilityMax`), a unit's weapon is `UnitBase` 1000 + archetype, an emplacement is 1300 + kind, `CookOff` 2000, `Ship` 2001. See also tasks.md:120-123.
 - **Current format:** FormatVersion 9 (`D\02-contracts.md:101`). The hash chain is pinned in `SimHashTests` (see C).
 
-### Relevant decisions (`D\reference\decisions.md`)
+## Relevant decisions (`D\reference\decisions.md`)
 - :13 Windows x64; determinism is same-build (Burst `FloatMode.Strict`).
 - :16 "**3,000 units maximum.** `SimConfig.MaxSlots` = 3584".
 - :17 8 unit types per player (ten slots since 2026-09-25).
@@ -212,7 +212,7 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
 - `ASK.md` S04 (answered, :118-128): keep the 3,000 ceiling. Per living man the sim cost is flat (0.82 vs 0.87 µs per tick per 1,000 men).
 - The laptop's House5 balance job (`G:\My Drive\TW3D-pipeline\LAPTOP_STEP_house5_balance.md:15-22`, done: `LAPTOP_DONE.txt` "house5--balance--e6300e32 PASS board 49a10ce") found two HP scales: battle 1.4 stone / 1.0 timber, playground 60 / 30.
 
-### Roster v3 proposal (`G:\My Drive\TW3D-pipeline\unit-roster-v2.md`; the title reads "(v3)")
+## Roster v3 proposal (`G:\My Drive\TW3D-pipeline\unit-roster-v2.md`; the title reads "(v3)")
 - **Core idea** (:3-4): each faction owns one step of the trench assault, and war-winning weapons are *built during the match by labour*.
 - **Assault cycle** (:40-47), step / owner:
   - Prepare: British (industrial attrition)
