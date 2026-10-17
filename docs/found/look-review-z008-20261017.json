@@ -1,0 +1,118 @@
+{
+ "subject": "review:Z008",
+ "looked_at": [
+  ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the role and the P0-P3 ladder)",
+  "the diff 7943d2b9..origin/claude/trench-warfare-2d-3d-plan-idt7lf for this unit, read whole: only briefs.py (+265/-37) and build.py (+5) changed; the other ten files were judged as they stand",
+  "trench-warfare-3d/Tools/assetboard/briefs.py (928 lines, whole: put, read_all/unreadable, queued_on, then, answer, his_open/after_answer/late, waiting, answers, one_answer, became_of/told/left_over, take, shown, steps, site, lines, bad_line, waiting_lines/late_lines, main)",
+  "trench-warfare-3d/Tools/assetboard/build.py (144 lines, the new ops.live_check call at 86-90)",
+  "trench-warfare-3d/Tools/assetboard/critiques.py (270 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/feedback.py (261 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/films.py (288 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/film_blender.py (276 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/gamefilm.py (382 lines, whole)",
+  "trench-warfare-3d/Tools/aosa/occ.py (188 lines, whole) and Tools/aosa/cmp.py (31 lines, whole)",
+  "trench-warfare-3d/Tools/assetboard/src_git.py (git, head), ops.py (board_root, live_check), found.py:155-174 (check_task, the queue gate these tasks must pass)",
+  "not reread this leg: Tools/aosa/aosa.py (1584), Tools/abtest.py (323), Tools/animforge.py (485) - unchanged since the last review, read whole there (look-review-z010-20261016.json) with nothing found; the context went to briefs.py and the board tools that write his files",
+  "docs/found/look-review-z010-20261016.json, look-tools-trench-warfare-3d-tools-assetboard-20261017.json, look-review-z011-20261017.json: nothing below repeats them (take swallowing --queued, queued_on's dropped git exit code, critique.json written in place, build.py --json-only --out, the hard-critic prompt, the three board paths, pipelines.md rows)",
+  "grepped docs/reference/tasks.md and docs/reference/decisions.md for briefs, aosa, abtest, animforge, film, feedback: none of the four below is queued, decided or rejected"
+ ],
+ "tasks": [
+  {
+   "title": "take: a done record must not close a brief as queued",
+   "why": "P1. briefs.py:532-542: when queued_on finds the unit only in the board's relay/done, `stands` is 'done', the guard at 533 does not fire, and answer() is called with queued=<uid> and done_already set. So the brief closes saying 'Queued as <uid>' when nothing stands on the relay's queue and nothing will ever run: the record line of a done unit of that name, left by an earlier unit, passes his new yes. became_of (briefs.py:467-471) only adds 'The relay has a done record of that id already' - no session is told to queue anything, and the brief is gone from waiting(). This is the exact failure the guard above it was written to stop ('a yes of his taken up without the work being queued is his word dropped').",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/briefs.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_briefstates.py stubs queued_on to return 'done' and asserts take either refuses (naming that only a done record exists) or closes the brief with no 'queued' key and an outcome that says nothing was queued; red on today's code",
+   "risk": [
+    false,
+    false,
+    true,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    true,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "Board build must survive a Blender film worker that dies",
+   "why": "P2. films.py:251-253 waits on each Blender worker with proc.wait(timeout=4*3600) and then does json.loads(res.read_text()) with no try. film_blender.py:276 rewrites results<k>.json in place after every job (open(...,'w'), no temp file), so a worker killed or crashed inside that write leaves a truncated file: json.loads raises ValueError straight out of attach(), and the whole asset board build dies. A worker that hangs raises TimeoutExpired from the same line, and nothing kills it, so a Blender holding the film cache is left behind. Both defeat the per-job failure path two lines below (films.py:255, 'Blender wrote no result for it'), which exists precisely to let one bad film fail alone.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/films.py",
+    "trench-warfare-3d/Tools/assetboard/film_blender.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test writes a truncated results0.json and a valid one, calls films.attach with a stubbed Blender, and asserts it returns with those films marked failed in meta['warnings'] instead of raising; and film_blender writes its results through a temp file and os.replace",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "feedback: say so when an F10 capture.json does not read",
+   "why": "P2. feedback.py:90-92: a folder whose capture.json is there but does not read (a torn write, or a schema the board does not know) hits `(folder / 'capture.json').exists()` and is skipped for good. finished() (line 69) also returns False for it, so take_in never moves it, read_all never lists it, and broken() never reports it: the owner presses F10, gives his words, and the capture is dropped with nobody told. The file's own contract (feedback.py:20-21) says the opposite: 'A folder the game left that never becomes a capture ... is not skipped in silence: broken() lists it'. The comment on line 92 shows only the other-schema case was considered.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/feedback.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test writes a capture folder with a truncated capture.json, ages it past OPEN_FOR, and asserts broken() lists it with a why that names the unreadable state file; red on today's code",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  },
+  {
+   "title": "gamefilm: refuse to film when there is no ffmpeg",
+   "why": "P3. gamefilm.py:188 passes FFMPEG as argv[0] of subprocess.run, and FFMPEG is None when neither TW_FFMPEG nor PATH has ffmpeg (line 36). The entry point only checks the unity CLI (line 378), so on such a machine `gamefilm.py film` starts the editor, waits out a first import, renders a model's 192 frames and then dies with a bare TypeError, every frame wasted and the editor left in Play. films.py:240 guards the same call with `bool(FFMPEG)` and says which tool is missing; this one does not.",
+   "files": [
+    "trench-warfare-3d/Tools/assetboard/gamefilm.py"
+   ],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test (or a run with TW_FFMPEG pointing nowhere and ffmpeg off PATH) calls the entry point for film and battle and asserts it prints that ffmpeg is missing and exits non-zero before any editor call",
+   "risk": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ],
+   "change": [
+    false,
+    false,
+    false,
+    false,
+    false
+   ]
+  }
+ ]
+}
