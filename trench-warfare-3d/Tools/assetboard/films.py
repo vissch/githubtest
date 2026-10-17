@@ -248,9 +248,18 @@ def attach(P: Path, assets, code, stage: Path, out: Path, local: Path, meta, onl
                                                 stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)))
         done = {}
         for res, proc in procs:
-            proc.wait(timeout=4 * 3600)
+            try:
+                proc.wait(timeout=4 * 3600)
+            except subprocess.TimeoutExpired:
+                proc.kill()
+                proc.wait()
+                meta['warnings'].append(f'films: a Blender worker hung and was killed ({res.name})')
+                continue
             if res.exists():
-                done.update(json.loads(res.read_text(encoding='utf-8')))
+                try:
+                    done.update(json.loads(res.read_text(encoding='utf-8')))
+                except (ValueError, OSError) as e:
+                    meta['warnings'].append(f'films: could not read {res.name}: {e}')
         for j in todo:
             r = done.get(j['id'], dict(ok=False, error='Blender wrote no result for it'))
             if r.get('ok'):
