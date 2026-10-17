@@ -51,7 +51,10 @@ import build  # noqa: E402
 
 GH = Path(os.environ.get('TW_STEWARD_GH') or 'C:/Users/PC/Documents/GitHub')
 RELAY = GH / 'githubtest-relay-run' / 'trench-warfare-3d' / 'Tools' / 'relay' / 'relay.py'
-BOARD = GH / 'tw3d-board'
+
+
+def board_dir():
+    return build.board_dir() or GH / 'tw3d-board'
 INTEGRATION = 'claude/trench-warfare-2d-3d-plan-idt7lf'
 LANE = 'lane/show/found'            # where a look writes; it is never landed
 P = 'trench-warfare-3d/'
@@ -433,10 +436,10 @@ def take(w, now=None):
 def main(argv=None):
     ap = argparse.ArgumentParser(description='old work is looked at in turn, and what a look finds becomes tasks')
     ap.add_argument('what', nargs='?', default='look', choices=('look', 'rota', 'take'))
-    ap.add_argument('--board', default='', help='the pipeline\'s board (default: tw3d-board beside the checkouts)')
+    ap.add_argument('--board', default='', help='the pipeline\'s board (default: TW_BOARD, or tw3d-board beside the checkout)')
     ap.add_argument('--home', default='', help='its own folder (what was looked at, what was taken)')
     a = ap.parse_args(argv)
-    w = World(build.REPO, Path(a.board) if a.board else BOARD, Path(a.home) if a.home else build.LOCAL.parent / 'found')
+    w = World(build.REPO, Path(a.board) if a.board else board_dir(), Path(a.home) if a.home else build.LOCAL.parent / 'found')
     if a.what == 'rota':
         print(rota(w))
     elif a.what == 'take':

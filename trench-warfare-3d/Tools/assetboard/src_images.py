@@ -19,6 +19,16 @@ PER_ASSET = 12
 IMG = ('.png', '.jpg', '.jpeg')
 
 
+def evidence_dir():
+    """The board's evidence folder, resolved the one way (build.board_dir()); None when it cannot be resolved."""
+    HERE = Path(__file__).resolve().parent
+    import sys
+    sys.path.insert(0, str(HERE))
+    import build  # noqa: E402 (local import: build.py imports this module lazily, so this would be circular at top level)
+    b = build.board_dir()
+    return b / 'evidence' if b else None
+
+
 def put(src: Path, stage: Path, out: Path, aid: str, kind: str, width: int):
     """Copy one picture into img/<asset>/ at most `width` wide. Returns its path in the site, or None."""
     from PIL import Image
@@ -110,9 +120,9 @@ def attach(repo: Path, P: Path, assets, stage: Path, out: Path, meta):
                     add(a, f, 'gym', date, 'In the game: gym strip', 1600)
 
     # ---- on this machine: the board's evidence for the items that are about an asset
-    board = repo.parent / 'tw3d-board' / 'evidence'
-    meta['sources']['board_evidence'] = dict(found=board.is_dir())
-    if board.is_dir():
+    board = evidence_dir()
+    meta['sources']['board_evidence'] = dict(found=bool(board and board.is_dir()))
+    if board and board.is_dir():
         for a in assets.values():
             for item in sorted({b['item'] for b in a['board']}):
                 files = sorted(f for f in (board / item).rglob('*') if f.suffix.lower() in IMG)

@@ -41,6 +41,16 @@ DRIVE = Path('G:/My Drive/TW3D-pipeline')
 LOCAL = Path(os.environ.get('LOCALAPPDATA', tempfile.gettempdir())) / 'TrenchWarfare' / 'assetboard'
 
 
+def board_dir():
+    """The board, the one way: TW_BOARD, or tw3d-board beside the checkout (Tools/pipeline/pipeline.py decides)."""
+    sys.path.insert(0, str(ROOT / 'Tools' / 'pipeline'))
+    try:
+        import pipeline
+        return pipeline.board_dir()
+    except (SystemExit, Exception):
+        return None
+
+
 def out_dir(arg):
     if arg:
         return Path(arg)
