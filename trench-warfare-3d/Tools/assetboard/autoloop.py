@@ -65,6 +65,13 @@ NEEDS_RELAY = 'trench-warfare-3d/Tools/relay/relay.py'     # a unit that works o
 WAITS = 'relay-harness'     # what such a unit waits for: the relay line landing on integration
 QUIET = 690                 # the relay refuses a start for ten minutes after a checkout's index moves
 STALE = 900                 # a lock whose loop has not beaten for this long is taken over
+STUB_AGE = 7200             # a Unity a unity.cmd stub started is ended after this long when its stub is gone or still waits
+PS_LIST = ("$all = @{}; Get-CimInstance Win32_Process | ForEach-Object { $all[[int]$_.ProcessId] = $_ }; "
+           "$now = Get-Date; $all.Values | Where-Object { $_.Name -in 'Unity.exe','cmd.exe' } | ForEach-Object { "
+           "$p = $all[[int]$_.ParentProcessId]; $gone = (-not $p) -or ($p.CreationDate -gt $_.CreationDate); "
+           "[pscustomobject]@{pid=[int]$_.ProcessId; ppid=[int]$_.ParentProcessId; name=$_.Name; cmd=[string]$_.CommandLine; "
+           "age=[int]($now - $_.CreationDate).TotalSeconds; parent=$(if ($gone) {''} else {$p.Name}); "
+           "parent_cmd=$(if ($gone) {''} else {[string]$p.CommandLine})} } | ConvertTo-Json -Compress")
 
 
 def load(f: Path, default):
@@ -356,6 +363,18 @@ class World:
 
     def found(self):
         return found.World(found.build.REPO, self.main, self.home / 'found')
+
+    def procs(self):
+        """[{pid, ppid, name, cmd, age (s), parent (its name, '' when gone), parent_cmd}] of every Unity.exe and cmd.exe."""
+        r = subprocess.run(['powershell', '-NoProfile', '-Command', PS_LIST], capture_output=True, text=True, encoding='utf-8',
+                           errors='replace', stdin=subprocess.DEVNULL, timeout=120, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        got = json.loads(r.stdout or '[]') if r.returncode == 0 else []
+        return [got] if isinstance(got, dict) else got
+
+    def kill(self, pid):
+        r = subprocess.run(['taskkill', '/PID', str(pid), '/T', '/F'], capture_output=True, text=True, errors='replace',
+                           stdin=subprocess.DEVNULL, timeout=60, creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
+        return r.returncode, (r.stdout + r.stderr).strip()
 
     # ---- for loopsteps.py ----
     def pace_free(self):
@@ -808,6 +827,82 @@ def running_lanes(w):
     return lanes
 
 
+def project_of(cmd):
+    """The -projectPath of a Unity or unity.cmd command line, as a lower-case path with forward slashes, or ''."""
+    m = re.search(r'-projectpath\s+(?:"([^"]+)"|(\S+))', cmd or '', re.I)
+    return (m.group(1) or m.group(2)).replace('\\', '/').rstrip('/').lower() if m else ''
+
+
+def relay_of(project, works):
+    """The relay number whose work checkout holds this project, or 0 (another project: never touched)."""
+    for n, work in works.items():
+        root = str(work).replace('\\', '/').rstrip('/').lower()
+        if project == root or project.startswith(root + '/'):
+            return n
+    return 0
+
+
+def end_editors(w):
+    """End the Unity editors a relay leg left open: a Unity.exe on a relay's work checkout once that relay's run has
+    stopped, and a Unity a unity.cmd stub started that is older than STUB_AGE while its stub is gone or still waits
+    (with that stub); then the project's Temp/UnityLockfile goes. Relay 4 refused to start for a day on an editor left
+    open on githubtest-relay-work4 (10-16 17:59); three stubs had hung since 10-09. Unity on any other project is left alone."""
+    works = w.works()
+    if not works:
+        return []
+    boards = {1: w.main, **w.extras}
+    procs = w.procs()
+    stopped = {}
+    out, ended, gone = [], {}, set()
+
+    def is_stub(p):
+        return (p.get('name') or '').lower() == 'cmd.exe' and 'unity.cmd' in (p.get('cmd') or '').lower()
+    for p in procs:
+        if (p.get('name') or '').lower() != 'unity.exe':
+            continue
+        project = project_of(p.get('cmd'))
+        n = relay_of(project, works) if project else 0
+        if not n:
+            continue
+        stub = (p.get('parent') or '').lower() == 'cmd.exe' and 'unity.cmd' in (p.get('parent_cmd') or '').lower()
+        why = ''
+        if (p.get('age') or 0) > STUB_AGE and (stub or not p.get('parent')):
+            why = f'started by a unity.cmd stub {int(p["age"]) // 3600} h ago, ' + ('the stub still waits' if stub else 'its parent is gone')
+        else:
+            if n not in stopped:
+                b = boards.get(n)
+                stopped[n] = b is not None and w.status(b)[0] == set()     # None (status unread) is not "stopped"
+            if stopped[n]:
+                why = f'relay {n}\'s run has stopped'
+        if not why:
+            continue
+        if stub and w.kill(p['ppid'])[0] == 0:
+            out.append(f'editors: ended the unity.cmd stub {p["ppid"]} of Unity {p["pid"]}')
+        code, said = w.kill(p['pid'])
+        out.append(f'editors: ended Unity {p["pid"]} on {project} ({why})' if code == 0 else f'editors: Unity {p["pid"]} on {project} did not end: {said[:200]}')
+        if code == 0:
+            ended[project] = n
+            gone.add(p['pid'])
+    for p in procs:                              # stubs left with no Unity, waiting on a relay's project for over STUB_AGE
+        project = project_of(p.get('cmd'))
+        if is_stub(p) and (p.get('age') or 0) > STUB_AGE and project and relay_of(project, works) \
+                and not any(q.get('ppid') == p.get('pid') and (q.get('name') or '').lower() == 'unity.exe' for q in procs):
+            if w.kill(p['pid'])[0] == 0:
+                out.append(f'editors: ended the unity.cmd stub {p["pid"]} on {project}, waiting {int(p["age"]) // 3600} h')
+                ended[project] = relay_of(project, works)
+    for project in ended:
+        lock = Path(project) / 'Temp' / 'UnityLockfile'
+        if any(project_of(q.get('cmd')) == project and q.get('pid') not in gone for q in procs if (q.get('name') or '').lower() == 'unity.exe'):
+            continue
+        try:
+            if lock.exists():
+                lock.unlink()
+                out.append(f'editors: removed {lock}')
+        except OSError as e:
+            out.append(f'editors: {lock} could not be removed: {e}')
+    return out
+
+
 def rescue(w):
     """A leg that rebased its lane cannot push it (the relay refuses a force push) and ends BLOCKED. The rebased
     lane is pushed as <lane>-b (or the next free suffix), never forced, and said; the coordinator did it by hand
@@ -913,7 +1008,7 @@ def idle_why(w, lines):
 
 def round_(w):
     lines = []
-    for step in (copy_back, take_answers, attempts, wait_for_relay, rescue, loopsteps.route_ideas, feed):
+    for step in (copy_back, take_answers, attempts, end_editors, wait_for_relay, rescue, loopsteps.route_ideas, feed):
         try:
             lines += step(w)
         except Exception:       # noqa: BLE001  one step that fails must not stop the others

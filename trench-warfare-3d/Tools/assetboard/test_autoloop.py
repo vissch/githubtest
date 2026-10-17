@@ -175,6 +175,15 @@ class Fake(autoloop.World):
     def main_on(self):
         return self.on_main
 
+    ps, killed = [], []
+
+    def procs(self):
+        return list(self.ps)
+
+    def kill(self, pid):
+        self.killed = self.killed + [pid]
+        return 0, ''
+
 
 def main():
     tmp = Path(tempfile.mkdtemp(prefix='tw-autoloop-test-'))
@@ -490,6 +499,26 @@ def main():
         autoloop.found.take, autoloop.found.rota = real
     case('"dry" means no unit an idle relay can take: with idle extra relays and only a unit kept for the main relay, a look is queued (15:41-16:25)',
          whys and 'idle' in whys[-1], whys)
+
+    # ---- editors a relay leg left open (relay 4, 10-16 17:59 to 10-17 22:20) ----
+    w = Fake(tmp / 'ed')
+    w.work_dirs = {n: tmp / 'ed' / f'work{n}' for n in (1, 2, 3)}
+    w.text[w.extras[3]] = RUN
+    other = tmp / 'ed' / 'empire-og-client'
+    for d in (w.work_dirs[2] / 'trench-warfare-3d', w.work_dirs[3] / 'trench-warfare-3d', other):
+        (d / 'Temp').mkdir(parents=True)
+        (d / 'Temp' / 'UnityLockfile').write_text('', encoding='utf-8')
+    ed = lambda pid, proj, age=60, parent='explorer.exe', pcmd='', ppid=1: dict(
+        pid=pid, ppid=ppid, name='Unity.exe', cmd=f'"C:/Unity/Unity.exe" -projectPath "{proj}" -batchmode', age=age, parent=parent, parent_cmd=pcmd)
+    w.ps = [ed(10, w.work_dirs[2] / 'trench-warfare-3d'),                       # relay 2 stopped: ended
+            ed(11, w.work_dirs[3] / 'trench-warfare-3d'),                       # relay 3 runs: kept
+            ed(12, other, age=99999, parent=''),                                # another project: never touched
+            ed(13, w.work_dirs[3] / 'trench-warfare-3d', age=3 * 3600, parent='cmd.exe', pcmd='cmd /c unity.cmd -projectPath x', ppid=99),
+            dict(pid=99, ppid=1, name='cmd.exe', cmd='cmd /c unity.cmd -projectPath x', age=3 * 3600, parent='', parent_cmd='')]
+    lines = getattr(autoloop, 'end_editors', lambda w: [])(w)
+    case("an editor on a stopped relay's work checkout is ended and its UnityLockfile removed; a unity.cmd Unity older than 2 h goes with its stub; a running relay's editor and another project's are left alone",
+         sorted(w.killed) == [10, 13, 99] and not (w.work_dirs[2] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists()
+         and (other / 'Temp' / 'UnityLockfile').exists() and (w.work_dirs[3] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists(), (w.killed, lines))
 
     # ---- one round, and the lock ----
     calls = []
