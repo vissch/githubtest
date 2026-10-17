@@ -17,7 +17,8 @@
 //                   thinner (warm pixels 1.9 -> 1.4 % at pose c), so it waited at 0.35 until round 13's critic asked for a
 //                   hot core fading to the edge: fully soft with the lamps' gain 4 -> 6.4 lifts warm pixels (pose a 2.8 ->
 //                   3.5 %, c 2.2 -> 2.6 %) and the pool falls off from the lamp instead of lying flat
-//   look.poolShoulder  a roll-off for bright sums (0: no fire pool clipped, 0.00 % of pixels over 0.95 at zoom 14)
+//   look.poolShoulder  a roll-off for bright sums (1.2 since 2026-10-17: under it a pool's own gradient clipped away and
+//                   the pool ended on a hard scalloped line; 0.4 and below bring that edge back)
 //   look.poolsThroughHaze  the share of a pool's light the Toon shader adds after the fog (1): with the haze lifted
 //                   the distance's lamps went out in it (warm pixels 2.8 to 1.6 %, 2026-09-30); 0 fogs them as before
 // Fires reach SceneHooks.FirePool; a big fire counts as nearer than a lamp at the same distance, by its reach squared
@@ -31,7 +32,9 @@ namespace TW.Presentation.Terrain
     public sealed partial class NightLights
     {
         public const int MaxPools = 32;   // TW_MAX_POOLS in TWLightPools.hlsl
-        public const float PoolReach = 6.5f, PoolGain = 5.2f, FirePoolGain = 3.2f;   // fires 4 -> 3.2 in round 17 (their pools clipped near wrecks)   // lamps 5.2 (6.4 in round 13 went white-hot: critique round 15); fires kept at 4, they already flood
+        public const float PoolReach = 6.5f, PoolGain = 7f, FirePoolGain = 3.2f;   // fires 4 -> 3.2 in round 17 (their pools clipped near wrecks)   // lamps 5.2 (6.4 in round 13 went white-hot: critique round 15); fires kept at 4, they already flood
+        // lamps 5.2 -> 7 on 2026-10-17: the shoulder at 1.2 costs the core what the clipping used to give it for free, and
+        // the gain is the only place to pay it back without narrowing the fall again (the look's rule: keep the warmth).
         /// <summary>On by default since the owner's word (2026-09-29); look.pools 0 sets no pool: the old night.</summary>
         public const float DefaultPools = 1f;
         /// <summary>look.poolsThroughHaze: the share of a pool's light the Toon shader adds after the fog (1), so the
@@ -51,7 +54,16 @@ namespace TW.Presentation.Terrain
         static readonly int ThroughHazeId = Shader.PropertyToID("_TWPoolsThroughHaze"), PoolSoftId = Shader.PropertyToID("_TWPoolSoft"), PoolShoulderId = Shader.PropertyToID("_TWPoolShoulder");
         /// <summary>look.poolSoft: the bands toward a soft falloff; look.poolShoulder: the roll-off that keeps a fire's pool
         /// from clipping (critique round 5: "cut-out discs", fire pools clipping).</summary>
-        public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 0.4f;   // 0.4 since round 19: at the wide view the lamp-lit mounds clipped to flat yellow domes
+        public const float DefaultPoolSoft = 1f, DefaultPoolShoulder = 1.2f;   // 0.4 since round 19: at the wide view the lamp-lit mounds clipped to flat yellow domes.
+        // 1.2 since 2026-10-17: at 0.4 a sum could still roll off to 2.5, so the inner half of a lamp's pool clipped per
+        // channel and the pool lay flat (the look's lamp_z12.png). 1.2 holds every sum under 1/1.2, so nothing clips.
+        // Measured on GreyboxCorridor at the look's own pose (focus 67,180 zoom 12 yaw 21 pitch 25, clock held at 120,
+        // 1600x900): with the band and the facing wrap below, the mud OUTSIDE the pool's rim went from luma 57 to 70 and
+        // the warm share 15.7 -> 17.0 %, so the light now carries over a shell hole's crest instead of stopping on it.
+        // What it did NOT move is the scalloped line itself: across it (shotstats --line 905,417,945,613) the fall stayed
+        // 14-15 px at every setting swept, shoulder 0.15-1.2, gain 0.35-1, reach 6.5-16. That edge is the crater lip's
+        // own step in the ground - with look.pools 0 AND lights.realLamps 0 the same line still falls 9 px, 42 to 88 luma -
+        // multiplied by whatever light stands on it. No pool knob can widen it; the terrain's own shading has to.
         static readonly int PoolsId = Shader.PropertyToID("_TWPools"), PoolTintId = Shader.PropertyToID("_TWPoolTint"), PoolCountId = Shader.PropertyToID("_TWPoolCount");
         readonly Vector4[] poolAt = new Vector4[MaxPools], poolTint = new Vector4[MaxPools];
         readonly float[] poolD = new float[MaxPools];
