@@ -1,0 +1,86 @@
+{
+  "subject": "code:Presentation/Meta",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/StrategicMapView.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontDiorama.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontStages.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/ContinentMesh.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MapFog.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaCamera.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaMeshes.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaBoot.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/StrategicMapMeshTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/HomeFrontDioramaTests.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/RenderGround.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Campaign/StrategicMapScreen.cs",
+    "trench-warfare-3d/Assets/_Project/UI/Campaign/CampaignGraph.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Fog rebakes full 45k-texel grid on every pin click that changes no hole",
+      "why": "SetState marks fogDirty on any state change, but BakeFog only cares whether a node is Locked (StrategicMapView.cs:182). StateOf makes the selected node Current and the one before it Available (CampaignGraph.cs:196-201), both non-Locked, so a click flips two states, changes zero holes, yet still runs the full bake in the next Draw: 248x184=45,632 texels, 5 hole distances + a 4-octave Fbm (16 hashes) + HeightAt + ToPolyline over 4 front segments each, a fresh float[45632] (178 KB garbage), 45,632 Color32 writes, and a SetPixels32+Apply upload, all on the main thread inside Draw.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/StrategicMapView.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A pure predicate (e.g. StrategicMapView.FogAffects(NodeState,NodeState)) with an EditMode test that is false for Current->Available and true for Locked->Available.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Home Front submits one instanced draw per building where Terrain batches",
+      "why": "HomeFrontDiorama.Draw (lines 156-162) calls FrameBudget.Draw(hp, p.Whole, 0, one, 1) once per building with one[]/oneMask[] of length 1, shadows on, every frame, roughly eight submissions a frame for a faction's buildings. BattlefieldProps.Submit (BattlefieldProps.cs:473-486) batches instead: one submission per module with a _ChunkMask vector array, its own comment noting the block is copied once per queued draw so it serves every submission. The same Draw also recomputes HomeFrontStages.Limit and every chimney's world position each frame though they only change while a building animates.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontDiorama.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/BattlefieldProps.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "FrameBudget.DrawCalls read in Play on the Home Front screen drops to one or two per set.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Strategic map builds continent mesh and fog in the opening frame, unbudgeted",
+      "why": "Awake runs ContinentMesh.Heights (6,305 corners x a 16-hash Fbm), Land (12,288 triangles, 36,864 unshared vertices into four List<>s with no capacity, roughly 1.6 MB kept plus as much again in doubling garbage) and FogSheet; the first Draw then bakes the fog as in finding 1. MetaServices.EnsureMap caches the view so this is once per scene, not once per open.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/ContinentMesh.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/StrategicMapView.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "An EditMode test asserts ContinentMesh.Land's allocation under a threshold, or a Stopwatch round the first Show.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "MetaCamera's Take/Release contract (134 lines) has no test at all",
+      "why": "The two test files cover only pure helpers (HomeFrontStages, ContinentMesh, MapFog, MetaBoot). Take saves the menu camera's position, rotation, fov and cullingMask and sets the mask to ~0; Release must restore all four. The menu camera draws nothing on its own (mask 0), so a Release that stops restoring cullingMask leaves the menu drawing the whole scene and no test would go red. Zoom clamping per mode and Focus(animate:false) are equally unguarded.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/MetaCamera.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A new EditMode test fails when the cullingMask restore line is removed from Release.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "TakeLight/ReleaseLight and the pointer-pick block are copied verbatim twice",
+      "why": "TakeLight/ReleaseLight (HomeFrontDiorama.cs:264-281 and StrategicMapView.cs:202-218) are identical but for the colour, and the pointer/hover/pick block in Update (HomeFrontDiorama.cs:131-141 and StrategicMapView.cs:129-139) is identical line for line, down to PickPrefix and the Substring call. A fix made in one copy will silently miss the other.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/HomeFrontDiorama.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Meta/StrategicMapView.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A single shared helper replaces both copies and both views still pass their existing tests.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
