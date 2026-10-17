@@ -326,16 +326,23 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
-- **A rebased lane cannot be pushed: the relay refuses every force push (2026-10-15, asked again 2026-10-17, review-tools-rebase):**
-  `lane/show/review-tools` is rebased onto origin's integration tip (`6959ad812`), all 49 of its own commits
-  replayed, none dropped or squashed, `Tools/selftest.py` green at 188 of 188 cases. The push needs
-  `--force-with-lease` (a rebase rewrites the lane's own history), but the relay hook allows only the bare
-  `git push origin <lane>`, which github rejects as non-fast-forward ("the tip of your current branch is behind its
-  remote counterpart"), and refuses any form carrying a force flag. Tried again on 2026-10-17 and refused the same
-  way, so two legs' rebases now sit unpushed. Options: (a) let the hook pass `--force-with-lease` when the ref is
-  the leg's own lane, the default asked for here; (b) the owner pushes it by hand from the desktop
-  (`git push --force-with-lease origin lane/show/review-tools`); or (c) the lane is not rebased but merged, which
-  CLAUDE.md forbids. The work sits committed in `githubtest-relay-work` at the rebased tip; nothing is lost.
+- **The push route the hook allows is the one the leg rules refuse (2026-10-15, asked again 2026-10-17, review-tools-rebase):**
+  `lane/show/review-tools` is rebased onto origin's integration tip, 50 of its own commits replayed, none dropped
+  or squashed, `Tools/selftest.py` green at 188 of 188 cases; the leg card's `done_when` one-liner prints
+  `review-tools-rebase: all met`, exit 0. `Tools/relay/prepush.py:38 rebased_name()` sanctions the way out of a
+  rebase it cannot force-push: a rebased lane is pushed as a new `<lane>-b .. -j` branch (`-b` already holds the
+  2026-10-15 rebase, `-c` another unit's). But `Tools/relay/cmdrules.py:323 push_ok()` accepts only `origin`, `HEAD`,
+  `HEAD:<lane>`, `HEAD:refs/heads/<lane>`, `<lane>:<lane>` — not `HEAD:refs/heads/<lane>-d`, the next free name. So
+  the route git and `prepush.py` permit is refused before git runs. Tried on 2026-10-17:
+  `git push origin HEAD:refs/heads/lane/show/review-tools-d` -> `relay: push only your own lane: git push origin
+  lane/show/review-tools`. The two relay rules disagree with each other, not just with the owner's wish to push;
+  the copy that governs a leg (in the `githubtest-relay-run` checkout) has the same `push_ok` and a leg may not
+  edit it. Options: (a) **the default asked for** — add the rebased name to `push_ok` in `cmdrules.py`, one line,
+  accepting `rest[1]` matching `HEAD:refs/heads/<lane>-[b-j]`, then re-queue this unit so it pushes to `-d` and
+  ends green; (b) the owner pushes by hand from the desktop:
+  `git push --force-with-lease origin lane/show/review-tools`; (c) the lane is merged, not rebased, which
+  CLAUDE.md forbids. Nothing is lost either way: `-b` holds the 2026-10-15 rebase, `githubtest-relay-work` holds
+  today's newer one at its committed tip.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
