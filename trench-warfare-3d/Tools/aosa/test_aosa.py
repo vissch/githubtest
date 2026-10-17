@@ -785,15 +785,39 @@ class AosaTest(unittest.TestCase):
         self.assertTrue(ok, out.getvalue())
         self.assertIn("report written", out.getvalue())
 
-    def test_the_script_is_checked_out_with_lf_endings(self):   # [player-bench-test-runs-on-the-desktop-20261019]
-        data = (HERE / "player_bench.sh").read_bytes()
-        self.assertNotIn(b"\r\n", data,
-                         "[player-bench-test-runs-on-the-desktop-20261019] a CRLF bash script exits 127")
-        attrs = (HERE.parents[2] / ".gitattributes").read_text()
-        self.assertTrue(
-            any(line.split()[0] == "*.sh" and "eol=lf" in line
-                for line in attrs.splitlines() if line.strip()),
-            "[player-bench-test-runs-on-the-desktop-20261019] .gitattributes must pin *.sh to eol=lf")
+class PlayerBenchExitTest(unittest.TestCase):
+    # [found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0]
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="player-bench-test-"))
+        (self.tmp / "aosa").mkdir(parents=True)
+        self.script = self.tmp / "aosa" / "player_bench.sh"
+        shutil.copyfile(HERE / "player_bench.sh", self.script)
+        (self.tmp / "runs").mkdir()
+        (self.tmp / "docs").mkdir()
+        (self.tmp / "build").mkdir()
+        (self.tmp / "build" / "TrenchWarfare.exe").write_bytes(b"")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _run(self, timeout_body=None):
+        bash = git_bash()
+        if not bash:
+            self.skipTest("no bash on PATH")
+        env = dict(os.environ, TW_BENCH_OUT=str(self.tmp / "runs"), AOSA_DOCS=str(self.tmp / "docs"))
+        if timeout_body is not None:
+            # an exported function always wins over a PATH lookup, so this always shadows the real timeout
+            env["BASH_FUNC_timeout%%"] = "() { %s\n}" % timeout_body
+        p = subprocess.run([bash, str(self.script), "lbl", "", str(self.tmp / "build")],
+                            env=env, capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
+
+    def test_report_exits_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        js = (self.tmp / "runs" / "lbl.json").as_posix()
+        rc, out = self._run("echo ok > \"%s\"; echo '{}' > \"%s\"; return 0" % (log, js))
+        self.assertEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] a written report must exit 0")
+        self.assertIn("report written", out)
 
     def test_the_script_is_checked_out_with_lf_endings(self):   # [player-bench-test-runs-on-the-desktop-20261019]
         data = (HERE / "player_bench.sh").read_bytes()
