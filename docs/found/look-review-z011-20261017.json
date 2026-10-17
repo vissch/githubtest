@@ -1,0 +1,61 @@
+{
+  "subject": "review:Z011",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the role, the P0-P3 ladder, report only what was read at the cited lines)",
+    "git show b42e85857 -- Assets/_Project/Net/ : the whole of the diff 7943d2b9..origin/claude/trench-warfare-2d-3d-plan-idt7lf for this unit (S6 three drop rules + BufferedTicks, S9 HashOfPreviousTick -> Hash + HashTick); the other eight files did not change and were read as they stand",
+    "trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs (107 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs (29 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs (59 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/LoopbackTransport.cs (77 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Net/HashExchange.cs, Net/Snapshot.cs, Net/UtpTransport.cs, Net/ICommandSink.cs (whole; stubs by the 2026-09-20 decision, so only a stub's written contract was judged)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs lines 60-80 and 245-280 (LastHash, HashInterval, and the Tick++ before the hash in Step) to settle which side of the S9 off-by-one is wrong",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LockstepFrameValidationTests.cs (87 lines) and Tests/Sim/LockstepHashLabelTests.cs (66 lines), the guards for S6 and S9: both would fail on the old code, so neither is a test that cannot fail",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/EventPump.cs (87 lines, whole), Presentation/Core/HudBridge.cs (46 lines, whole), Presentation/Camera/AbilityAim.cs (132 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/BattleHud.cs (591 lines, whole, in two parts), plus MapData.NavCellOf (it clamps, so the minimap dot write at BattleHud.cs:535 cannot run off its array) and UI/HudController.cs LegacyInterim",
+    "docs/found/look-code-presentation-camera-20261016.json and docs/found/look-code-presentation-core-20261017.json: nothing below repeats their tasks (CombatFx zoom, hardcoded team 0, TacticalCamera tests, GoreScaleTests, SimHost animTime, SyncEnemy, ScriptedEnemy slot scans)",
+    "grepped docs/reference/tasks.md and docs/reference/decisions.md for LockstepDriver, CommandFrame, HashTick, LastSteppedTick, HashExchange, EventPump, BattleHud, AbilityAim, HudBridge: the only ruling is 2026-09-20 (keep the door open, real transport after Mission 3); none of the four below is queued, decided or rejected",
+    "docs/03-determinism-rules.md and the seam section of CLAUDE.md (CommandFrame is net only and not in SimWorld.Hash(), so none of these findings moves a hashed value)"
+  ],
+  "tasks": [
+    {
+      "title": "Clear EventPump.Frame in a finally, not after the loop",
+      "why": "P2. Presentation/Core/EventPump.cs:69-85: Dispatch walks Frame and clears it at line 84, outside any try. One subscriber that throws (a null ref in a VFX, audio or ragdoll handler) skips the Clear, so next frame Collect appends to a list that still holds this frame's events and every event is dispatched a second time - duplicated bursts, duplicated sound, a list that grows every frame, forever after the first throw. The marker End() at line 80 is leaked the same way, which leaves the profiler's TW.Events.To.* scopes unbalanced.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Core/EventPump.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "an EditMode test subscribes a handler that throws on the first event plus a counting handler, calls Collect+Dispatch twice, and asserts the counting handler saw each event once and EventPump.Frame is empty after each Dispatch; red before the fix",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Say in the contract that Hash 0 means no hash, not HashTick",
+      "why": "P2. The sentinel for 'this frame carries no hash' is Hash == 0 (Net/ILockstepTransport.cs:14), but nothing that will read the field is told so. HashExchange.cs:2 says it compares each peer's reported hash for its HashTick against the local hash for that tick, with no mention of skipping Hash 0; CommandSeat.cs:56 sends Hash = 0 with HashTick = 0, which reads as 'the hash of tick 0 is 0'; and a world with HashInterval != 1 leaves LastHash 0 on every skipped tick (SimWorld.cs:269-275), which is the live single-player path (Presentation/Core/LockstepSession.cs:59 sets HashInterval = 0), so every frame it sends carries Hash 0 with a real HashTick. An N3 HashExchange written to the comment it has freezes the match and dumps a desync the first time it compares a 0 against a real hash.",
+      "files": ["trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs", "trench-warfare-3d/Assets/_Project/Net/HashExchange.cs", "trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "the HashExchange header states the Hash == 0 skip and the HashInterval case, and an EditMode test drives a LockstepDriver on a world with HashInterval = 0 and asserts every frame it sends has Hash == 0 (so a reader keying on HashTick alone would compare nothing)",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Bound how far ahead LockstepDriver buffers a peer frame",
+      "why": "P2. Net/LockstepDriver.cs:64-73 drops a frame below World.Tick and from a player no peer has, but there is no upper bound on f.Tick: a frame for any tick ahead creates a dictionary entry at line 67-70 that nothing removes until that tick is stepped. A peer or a wire error that sends one far-future tick leaks a Dictionary per distinct tick for the rest of the match, and the pooled spare stack never gets it back. This is the other end of the leak S6 closed, left open: BufferedTicks only makes it visible, it does not bound it. Loopback cannot produce it; the N2 UtpTransport reads from a socket and can.",
+      "files": ["trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs", "trench-warfare-3d/Assets/_Project/Tests/Sim/LockstepFrameValidationTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a test in LockstepFrameValidationTests delivers a frame for World.Tick + 100000 (and one just inside the window), steps a few ticks and asserts BufferedTicks did not grow for the far frame while the near one is still accepted; red before the fix",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "LockstepDriver.LastSteppedTick returns the next tick, not the last",
+      "why": "P3. Net/LockstepDriver.cs:29 says LastSteppedTick => World.Tick, but SimWorld.Step increments Tick before it hashes (SimWorld.cs:267-275), so after stepping tick T the world reads Tick = T + 1 and the last stepped tick is World.Tick - 1. Line 104 in the same file knows this and computes HashTick = World.Tick - 1 for what ILockstepTransport.cs:15-16 calls 'the last tick the sender had stepped', so the file contradicts itself by one tick. Nothing reads the property today, which is why it is P3; an N3 HashExchange or a stall UI that trusts its name compares or reports the wrong tick.",
+      "files": ["trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "an EditMode test steps a driver n times and asserts LastSteppedTick equals the HashTick of the frame sent on the next TryStep, and equals World.Tick - 1; red before the fix",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
