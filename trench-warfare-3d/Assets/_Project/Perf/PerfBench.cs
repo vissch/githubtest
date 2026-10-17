@@ -436,6 +436,8 @@ namespace TW.Perf
         readonly FrameTiming[] timing = new FrameTiming[1];
         Series dt, cpu, main, render, gpu, mainTick, mainIdle, ticksPerFrame;
         Series vatDrawn, vatNear, vatVerts, vatShadows, propDraws, propVerts, debrisAlive, debrisDraws, paintMs, alive, frameDraws, frameVerts, frameIndirect;
+        Series chunkRebuilds, chunkRows;
+        int lastChunksRebuilt, lastChunkRowsFilled;
         Series budgetDraws, budgetVerts, budgetIndirect;   // the same FrameBudget counts under aosa's keys (frame_budget_*), kept for its tools
         VATRenderer vat; BattlefieldProps props; DebrisRenderer debris; GreyboxTerrainView terrain;
         readonly int[] hitchFrame = new int[64]; readonly uint[] hitchTick = new uint[64]; readonly double[] hitchMs = new double[64];
@@ -561,6 +563,7 @@ namespace TW.Perf
             propDraws = New("props_draw_calls"); propVerts = New("props_vertices"); debrisAlive = New("debris_alive"); debrisDraws = New("debris_draw_calls");
             frameDraws = New("frame_draw_calls"); frameVerts = New("frame_vertices"); frameIndirect = New("frame_indirect_draws");   // FrameBudget: every submission in Presentation, the lining included
             paintMs = New("terrain_paint_ms"); alive = New("alive");
+            chunkRebuilds = New("terrain_chunk_rebuilds"); chunkRows = New("terrain_chunk_rows");
             // RenderGround's own count of what our code submitted, the last complete frame (acceptance rules 3 and 7)
             budgetDraws = New("frame_budget_draws"); budgetVerts = New("frame_budget_vertices"); budgetIndirect = New("frame_budget_indirect");
 #if UNITY_EDITOR
@@ -624,7 +627,12 @@ namespace TW.Perf
             if (props != null) { propDraws.Add(props.DrawCalls); propVerts.Add(props.SubmittedVertices); }
             frameDraws.Add(FrameBudget.DrawCalls); frameVerts.Add(FrameBudget.Vertices); frameIndirect.Add(FrameBudget.IndirectDraws);
             if (debris != null) { debrisAlive.Add(debris.Alive); debrisDraws.Add(debris.DrawCalls); }
-            if (terrain != null) paintMs.Add(terrain.LastPaintMilliseconds);
+            if (terrain != null)
+            {
+                paintMs.Add(terrain.LastPaintMilliseconds);
+                chunkRebuilds.Add(terrain.ChunksRebuilt - lastChunksRebuilt); lastChunksRebuilt = terrain.ChunksRebuilt;
+                chunkRows.Add(terrain.ChunkRowsFilled - lastChunkRowsFilled); lastChunkRowsFilled = terrain.ChunkRowsFilled;
+            }
             alive.Add(w.AliveCount);
             budgetDraws.Add(FrameBudget.DrawCalls); budgetVerts.Add(FrameBudget.Vertices); budgetIndirect.Add(FrameBudget.IndirectDraws);
             long mono = UnityEngine.Profiling.Profiler.GetMonoUsedSizeLong();
