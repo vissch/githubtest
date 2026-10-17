@@ -2,9 +2,9 @@
 
 Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warfare-3d/Tools, D = docs.
 
-## B. OPTIMIZER (the AOSA loop)
+# B. OPTIMIZER (the AOSA loop)
 
-### Contract (`D\reference\aosa\README.md`)
+## Contract (`D\reference\aosa\README.md`)
 - **Mandate** (:3-7): a Claude session on `lane/show/aosa`. It never edits `Sim/`, `Net/` or `Data/`; those become proposals in `ASK.md`.
 - **Files** (:12-27): README, LESSONS, BACKLOG, JUICE, ASK, LEDGER, `attempts.jsonl`, `priors.json` and `knobs.json` (derived, never hand-edited), `budget.json`, `agents/*.md`, `runs/<cycle>/`.
 
@@ -79,7 +79,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - It never closes a card on an argument.
 - It never compares release with development numbers. When a number and a screenshot disagree, the screenshot wins.
 
-### The seven agent briefs (`D\reference\aosa\agents\`)
+## The seven agent briefs (`D\reference\aosa\agents\`)
 - **`cycle.md`** (the orchestrator, ≤20 min per cycle):
   - Read, `status`, `pick`, then `git fetch && git rebase origin/claude/trench-warfare-2d-3d-plan-idt7lf`.
   - Write each prediction before measuring. Fan out.
@@ -120,7 +120,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   Output: `CARD/RESULT/PREDICTION/IMAGE CLASS/FILES/DIFF/OCC/TEST/RISK`.
 - **`retrospective.md`** (every 10 cycles) runs `aosa.py retro` and answers: what paid, what stalled, repeated revert reasons, calibration outliers, image-budget split, critic vs owner agreement, cadence and WIP. It outputs patches to README, BACKLOG and budget.json plus a 10-line summary.
 
-### ASK / LESSONS / JUICE
+## ASK / LESSONS / JUICE
 **`ASK.md` open items**
 - A01 merge policy
 - A02 metric ranking; default main p95, then gpu p95, then T1 critic
@@ -163,7 +163,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - J01 recipe: `--scenario barrage --shot-tick 140 --shot-frames 16 --no-hud`.
 - J03 is scored 5.
 
-### `aosa.py` (`T\aosa\aosa.py`)
+## `aosa.py` (`T\aosa\aosa.py`)
 **Environment** (:20-23)
 - `AOSA_DOCS`, `TW_BUILDS` (default `trench-warfare-3d/Builds`), `TW_PROJECT`, `AOSA_FALKIT` (default `~/Documents/claude/emtd-dragon-circle/falkit.py`), `AOSA_OFFLINE=1`.
 - Standard bench: `stress=1500 settle_ticks=1800 ticks=400 warm=120 ff=8 vsync=0`, plus `quality=5` for the player and `canary=0` (:65, :672).
@@ -200,7 +200,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - **`shots LABEL [--all] [--min 4] [--section N] [--table]`** (:1385-1483): the shot_log analysis.
 - **`stilldiff PNGs|LABEL [--threshold 8]`** (:345-368): pairwise per-channel threshold. The worst pair must be < 0.001; exits 1 otherwise.
 
-### Other AOSA tools
+## Other AOSA tools
 **`land.ps1`** (`T\aosa\land.ps1`): `powershell -NoProfile -ExecutionPolicy Bypass -File Tools/aosa/land.ps1 [-EditOnly] [-NoBuild] [-Log <path>]` (:3-5)
 - Runs at below-normal priority.
 - Refuses with **exit 9** when `Assets/_AosaLocal/PipelineServerOff.asset` is missing (:20; A08 answered at `ASK.md:115-117`: an untracked asset with AutoStart off, never committed).

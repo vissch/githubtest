@@ -7,7 +7,16 @@ description: Optimizer for Trench Warfare 3D — look at the merged build, find 
 
 **Contract:** `docs/reference/aosa/README.md`. Read its cycle, the acceptance rules and "what the loop never does"
 before anything. Deep reference: `references/aosa-and-perf.md` (every aosa.py subcommand, BenchOptions key,
-tw-perf/1 field, budget; snapshot at 558c667). Agent briefs: `docs/reference/aosa/agents/*.md`.
+tw-perf/1 field, budget; snapshot at 558c667); its section map is below. Agent briefs: `docs/reference/aosa/agents/*.md`.
+
+## Section map — `references/aosa-and-perf.md` (21 KB; read one section, not the file)
+| Section | Read it for | ≈KB |
+|---|---|---|
+| Contract (`D\reference\aosa\README.md`) | the cycle, acceptance rules 1-10, knobs, image budget | 6 |
+| The seven agent briefs (`D\reference\aosa\agents\`) | what each of cycle/diagnoser/critic/juice/lander/patch/retro does | 3 |
+| ASK / LESSONS / JUICE | open ASK items, top lessons, JUICE moments | 2 |
+| `aosa.py` (`T\aosa\aosa.py`) | every subcommand: status, bench, compare, learn, pick, etc. | 3 |
+| Other AOSA tools | land.ps1, PerfBench, perfcmp.py, instruments, budgets, LODs | 6 |
 
 ## Where it runs
 The desktop, in its own worktree, with no visible editor: players run minimised, at below-normal priority, from `-batchmode` builds. Never claim the shared editor slot (`%LOCALAPPDATA%\TrenchWarfare\editor-slot.json`). Never compare release numbers with development numbers.
