@@ -257,6 +257,39 @@ namespace TW.Tests
             Assert.AreEqual(30f, TW.Presentation.Units.VATRenderer.LiesUnder(10f, 30f, 12f, 14f), 1e-4f, "one that already outlasts him keeps its time");
         }
 
+        /// <summary>The heap's stack height (HeapUnder) and the set of bodies the extend loop (DownUnder) reaches must
+        /// agree, on the plain path and the gagged one alike: the two drifted apart once the cap evicted a body (the
+        /// plain path's old byte counter and the gagged path's list scan could disagree).</summary>
+        [Test]
+        public void ThePlainAndTheGaggedBodyHeapTheSameWay()
+        {
+            int[] cell = { 7, 7, 9 };
+            float[] arrive = { 0f, 5f, 0f };
+            int CellOf(int k) => cell[k];
+            float ArriveOf(int k) => arrive[k];
+
+            Assert.AreEqual(1, VATRenderer.HeapUnder(cell.Length, 7, 3f, CellOf, ArriveOf), "at 3 s only the one already down");
+            Assert.AreEqual(2, VATRenderer.HeapUnder(cell.Length, 7, 6f, CellOf, ArriveOf), "at 6 s the 5 s one is down too");
+
+            foreach (float at in new[] { 3f, 6f })
+            {
+                int counted = VATRenderer.HeapUnder(cell.Length, 7, at, CellOf, ArriveOf);
+                int extended = 0;
+                for (int k = 0; k < cell.Length; k++) if (VATRenderer.DownUnder(7, at, CellOf(k), ArriveOf(k))) extended++;
+                Assert.AreEqual(counted, extended, "the height counted and the set extended must agree, at " + at + " s");
+            }
+
+            // the cell's first body evicted (MaxFallen's cap): both the count and the extended set fall to 1 together
+            int[] evictedCell = { 7, 9 };
+            float[] evictedArrive = { 5f, 0f };
+            int EvictedCellOf(int k) => evictedCell[k];
+            float EvictedArriveOf(int k) => evictedArrive[k];
+            Assert.AreEqual(1, VATRenderer.HeapUnder(evictedCell.Length, 7, 6f, EvictedCellOf, EvictedArriveOf));
+            int extendedAfterEvict = 0;
+            for (int k = 0; k < evictedCell.Length; k++) if (VATRenderer.DownUnder(7, 6f, EvictedCellOf(k), EvictedArriveOf(k))) extendedAfterEvict++;
+            Assert.AreEqual(1, extendedAfterEvict);
+        }
+
         [Test]
         public void TwoMenShotStandingBesideEachOtherDoNotDieTheSameWay()
         {

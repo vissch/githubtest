@@ -393,11 +393,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Infantry rendering (VAT)
 - **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers, the living; the figure scale is `UnitScale` in
   `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Units/VATRenderer.Fallen.cs` (the dead:
-  the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Core/IZoomSource.cs`,
+  the throw arc, the tumble, the heap per 2 m cell stacked by who lands first, the charred), `Presentation/Core/IZoomSource.cs`,
   `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
   (far tier and fallback), `Presentation/Units/VatTint.cs` (what `VatInstance.Tint` carries),
   `Presentation/Units/FallenFlight.cs` (a gagged body's path: hold, throw, bounces, skid, rest; its turns and squash),
-  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn; the heap stacked by who lands first),
+  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch),
   VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path),
