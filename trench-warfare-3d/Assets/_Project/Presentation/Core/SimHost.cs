@@ -103,6 +103,9 @@ namespace TW.Presentation
         public EventPump Events { get; } = new EventPump();
         public bool Desync => session != null && session.Desync;
         public float Alpha { get; private set; }
+        /// <summary>The AnimT seed Presenter.Interpolate passes to the stance fallback (UseAnimationController false).
+        /// Sim time, not wall time: a hold freezes it.</summary>
+        public float AnimTime => animTime;
 
         LockstepSession session;
         readonly ScriptedEnemy enemy = new ScriptedEnemy();
@@ -175,7 +178,8 @@ namespace TW.Presentation
         {
             using var update = PerfMarkers.HostUpdate.Auto();
             float tick = Local.World.Config.TickSeconds;
-            accumulator += Time.deltaTime * Mathf.Max(0f, TimeScale);
+            float dt = Time.deltaTime * Mathf.Max(0f, TimeScale);   // the sim's clock: wall time at TimeScale, never backwards
+            accumulator += dt;
             int guard = Mathf.Max(8, Mathf.CeilToInt(TimeScale * 2f));
             while (accumulator >= tick && guard-- > 0)
             {
@@ -185,8 +189,8 @@ namespace TW.Presentation
                 if (a) accumulator -= tick; else break; // stalled: wait for frames without burning time
             }
             Alpha = Mathf.Clamp01(accumulator / tick);
-            animTime += Time.deltaTime;
-            PerfMarkers.AnimAdvance.Begin(); Animation.Advance(Time.deltaTime * Mathf.Max(0f, TimeScale)); PerfMarkers.AnimAdvance.End();
+            animTime += dt;   // the AnimT seed must run at the sim's speed, not the wall's: a paused match must not keep walking
+            PerfMarkers.AnimAdvance.Begin(); Animation.Advance(dt); PerfMarkers.AnimAdvance.End();
             Presenter.UseController = UseAnimationController;
             PerfMarkers.PresentInterpolate.Begin(); Presenter.Interpolate(Alpha, animTime); PerfMarkers.PresentInterpolate.End();
             Events.Dispatch();
