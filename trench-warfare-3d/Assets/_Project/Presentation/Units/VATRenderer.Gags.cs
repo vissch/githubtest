@@ -44,53 +44,16 @@ namespace TW.Presentation.Units
             if ((gag.Flags & GagFlags.NoCorpse) != 0) return;
 
             if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());
-            ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
-            int figure = figures != null ? Mathf.Clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
-            bool near = clipAtlas && clip != Clip.None;
-            float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
-            bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            float lies = chr >= 2 ? CharredLies * (0.85f + 0.3f * Hash01(pos)) : FallenSeconds * (0.7f + 0.6f * Hash01(pos));
-            var man = new FallenMan
-            {
-                Pos = path.Rest, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure,
-                Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = near ? (ushort)clip : farRow, FarRow = farRow,
-                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1,
-                Gag = (byte)gag.Gag, GagFlags = gag.Flags, Absurd = gag.Intensity, Path = path, Flight = path.ArcsEnd,
-            };
+            var man = NewFallen(pos, yaw, team, variant, clip, archetype, fromClip, fromPhase, fade, gib, grime, chr, out bool near);
+            man.Pos = path.Rest; man.Gag = (byte)gag.Gag; man.GagFlags = gag.Flags; man.Absurd = gag.Intensity; man.Path = path; man.Flight = path.ArcsEnd;
             // he lands his death clip on his back as his first arc comes down (as the plain throw does)
             if (near && clip == Clip.DeathThrown && path.Arcs > 0) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / Mathf.Max(0.05f, path.A0.Dur), 0.8f, 1.8f);
             if (gag.ClipRate > 0f) man.Rate = gag.ClipRate;
             if (path.Arcs > 0) man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f))) * gag.SpinScale;
 
-            // the heap, by who comes down first
-            int cell = PileCell(man.Pos);
-            float arrive = man.Born + path.Arrive;
-            int under = 0;
-            for (int k = 0; k < fallenMen.Count; k++) if (fallenMen[k].Cell == cell && ArriveOf(fallenMen[k]) <= arrive) under++;
-            if (under > 0)
-            {
-                float h = Hash01(man.Pos + new Vector3(1.7f, 0f, 9.2f));
-                float a = h * 6.2831853f;
-                var rest = man.Pos + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * PileNudge;
-                rest.y += PileStep * UnitScale * Mathf.Min(under, PileMax);
-                FallenFlight.EndAt(ref man.Path, rest);
-                man.Pos = rest; man.Pitch = (sbyte)(h < 0.5f ? -1 : 1);
-                for (int k = 0; k < fallenMen.Count; k++)
-                {
-                    var below = fallenMen[k];
-                    if (below.Cell != cell || ArriveOf(below) > arrive) continue;
-                    below.Lies = LiesUnder(below.Born, below.Lies > 0.01f ? below.Lies : FallenSeconds, man.Born, man.Lies);
-                    fallenMen[k] = below;
-                }
-            }
-            pile[cell] = (byte)Mathf.Min(255, pile[cell] + 1);
-            man.Cell = cell;
-            fallenMen.Add(man);
+            Heap(ref man);
             path = man.Path;
         }
-
-        /// <summary>When a body comes to rest: the plain ones at the end of their one arc, the gagged at the end of their path.</summary>
-        float ArriveOf(in FallenMan f) => f.Born + (f.Gag != 0 ? f.Path.Arrive : f.Flight);
 
         /// <summary>The yaw a gagged body is drawn at: turning while he flies, twitching while a machine gun jigs him.</summary>
         static float GagYaw(in FallenMan f, float age)

@@ -45,16 +45,14 @@ namespace TW.Presentation.Units
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
         GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
         readonly List<int>[] fallenByFigure = new List<int>[8];
-        NativeArray<byte> pile;   // bodies per 2 m cell of the map
         int pileW, pileL;
 
         int PileCell(Vector3 at)
         {
-            if (!pile.IsCreated)
+            if (pileW == 0)
             {
                 var size = Host != null && Host.Local != null ? Host.Local.Map.SizeMeters : new float2(600f, 1200f);
                 pileW = Mathf.Max(1, Mathf.CeilToInt(size.x / 2f)); pileL = Mathf.Max(1, Mathf.CeilToInt(size.y / 2f));
-                pile = new NativeArray<byte>(pileW * pileL, Allocator.Persistent);
             }
             int cx = Mathf.Clamp((int)(at.x / 2f), 0, pileW - 1), cz = Mathf.Clamp((int)(at.z / 2f), 0, pileL - 1);
             return cz * pileW + cx;
@@ -73,6 +71,53 @@ namespace TW.Presentation.Units
             return SoonestEnd(fallenMen.Count, endOfFallen);
         }
 
+        /// <summary>When a body comes to rest: the plain ones at the end of their one arc, the gagged at the end of their path.</summary>
+        float ArriveOf(in FallenMan f) => f.Born + (f.Gag != 0 ? f.Path.Arrive : f.Flight);
+
+        /// <summary>One body already down under a body arriving now: on his cell, and down no later.</summary>
+        public static bool DownUnder(int cell, float arrive, int belowCell, float belowArrive) => belowCell == cell && belowArrive <= arrive;
+
+        /// <summary>How many of the first `count` fallen are already down under a body on `cell` arriving at `arrive`.
+        /// Pure, so DeathVarietyTests drives it against the extend loop in <see cref="Heap"/> directly.</summary>
+        public static int HeapUnder(int count, int cell, float arrive, System.Func<int, int> cellOf, System.Func<int, float> arriveOf)
+        {
+            int under = 0;
+            for (int k = 0; k < count; k++) if (DownUnder(cell, arrive, cellOf(k), arriveOf(k))) under++;
+            return under;
+        }
+
+        System.Func<int, int> cellOfFallen;      // made once, as endOfFallen: a lambda per death at the cap (critic r9)
+        System.Func<int, float> arriveOfFallen;
+
+        /// <summary>The heap: whoever is already down on his cell, by when they come down (not when they died), lifts
+        /// him, shoves him aside and tilts him; he, in turn, keeps every one of them down at least as long as he lies.</summary>
+        void Heap(ref FallenMan man)
+        {
+            int cell = PileCell(man.Pos);
+            float arrive = ArriveOf(man);
+            cellOfFallen ??= k => fallenMen[k].Cell;
+            arriveOfFallen ??= k => ArriveOf(fallenMen[k]);
+            int under = HeapUnder(fallenMen.Count, cell, arrive, cellOfFallen, arriveOfFallen);
+            if (under > 0)
+            {
+                float h = Hash01(man.Pos + new Vector3(1.7f, 0f, 9.2f));
+                float a = h * 6.2831853f;
+                var rest = man.Pos + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * PileNudge;
+                rest.y += PileStep * UnitScale * Mathf.Min(under, PileMax);
+                if (man.Gag != 0) FallenFlight.EndAt(ref man.Path, rest);
+                man.Pos = rest; man.Pitch = (sbyte)(h < 0.5f ? -1 : 1);
+                for (int k = 0; k < fallenMen.Count; k++)
+                {
+                    var below = fallenMen[k];
+                    if (!DownUnder(cell, arrive, below.Cell, ArriveOf(below))) continue;
+                    below.Lies = LiesUnder(below.Born, below.Lies > 0.01f ? below.Lies : FallenSeconds, man.Born, man.Lies);
+                    fallenMen[k] = below;
+                }
+            }
+            man.Cell = cell;
+            fallenMen.Add(man);
+        }
+
         /// <summary>The index whose end comes first; a tie goes to the later index (a heap's bottom, extended to its top's
         /// end, often ties it, and the later-added top must go first: critic r7). Pure, so DeathVarietyTests holds it.</summary>
         public static int SoonestEnd(int count, System.Func<int, float> endOf)
@@ -82,11 +127,21 @@ namespace TW.Presentation.Units
             return best;
         }
 
-        void Remove(int index)
+        void Remove(int index) => fallenMen.RemoveAt(index);
+
+        /// <summary>The shared setup every AddFallen overload starts from: his figure, which row, whether the clip he was
+        /// in fades out, and how long he lies. out near: the gag path needs it again for its own rate tweak.</summary>
+        FallenMan NewFallen(Vector3 pos, float yaw, int team, int variant, Clip clip, int archetype, Clip fromClip, float fromPhase, float fade, int gib, float grime, int chr, out bool near)
         {
-            var f = fallenMen[index];
-            if (pile.IsCreated && f.Cell >= 0 && f.Cell < pile.Length && pile[f.Cell] > 0) pile[f.Cell] = (byte)(pile[f.Cell] - 1);
-            fallenMen.RemoveAt(index);
+            ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
+            int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
+            near = clipAtlas && clip != Clip.None;
+            float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
+            // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
+            bool blend = near && fromClip != Clip.None && fade > 0.01f;
+            float lies = chr >= 2 ? CharredLies * (0.85f + 0.3f * Hash01(pos)) : FallenSeconds * (0.7f + 0.6f * Hash01(pos));
+            return new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = near ? (ushort)clip : farRow, FarRow = farRow,
+                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1 };
         }
 
         /// <summary>
@@ -101,15 +156,7 @@ namespace TW.Presentation.Units
         public void AddFallen(Vector3 pos, float yaw, int team, int variant, Clip clip = Clip.None, int archetype = 0, Clip fromClip = Clip.None, float fromPhase = 0f, float fade = 0f, Vector3 fly = default, int gib = 0, float grime = 0f, int density = 0, int chr = 0)
         {
             if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());   // not the oldest: that is often a heap's bottom (LiesUnder), and taking it floated the man on top (critic r6)
-            ushort farRow = (ushort)((int)AnimRow.Death0 + (variant & 3));
-            int figure = figures != null ? math.clamp(FigureOfArchetype(archetype), 0, figures.Length - 1) : 0;
-            bool near = clipAtlas && clip != Clip.None;
-            float seconds = near ? figures[figure].Asset.RowSeconds[(int)clip] : FallSeconds;
-            // the clip he was in as he was hit fades out over the death's first moments (the living instance stops drawing him)
-            bool blend = near && fromClip != Clip.None && fade > 0.01f;
-            float lies = chr >= 2 ? CharredLies * (0.85f + 0.3f * Hash01(pos)) : FallenSeconds * (0.7f + 0.6f * Hash01(pos));
-            var man = new FallenMan { Pos = pos, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure, Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = near ? (ushort)clip : farRow, FarRow = farRow,
-                FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1 };
+            var man = NewFallen(pos, yaw, team, variant, clip, archetype, fromClip, fromPhase, fade, gib, grime, chr, out bool near);
             // thrown: fly.xz is how far, fly.y how high above the higher end the arc goes. He lands on the drawn ground there,
             // and his death clip is played so his back meets it as he lands.
             if (fly.y > 0.05f && Host != null && Host.Local != null)
@@ -128,28 +175,7 @@ namespace TW.Presentation.Units
                 // and end over end: once on a long flight, twice when the heap he came out of threw him high
                 man.Flips = (byte)(man.Flight >= TwoFlipsFlight && density >= 2 ? 2 : man.Flight >= OneFlipFlight ? 1 : 0);
             }
-            // the heap: whoever is already down on his cell lifts him, shoves him aside and tilts him
-            int cell = PileCell(man.Pos);
-            int stacked = pile[cell];
-            if (stacked > 0)
-            {
-                float h = Hash01(man.Pos + new Vector3(1.7f, 0f, 9.2f));
-                float a = h * 6.2831853f;
-                man.Pos += new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * PileNudge;
-                man.Pos.y += PileStep * UnitScale * Mathf.Min(stacked, PileMax);
-                man.Pitch = (sbyte)(h < 0.5f ? -1 : 1);
-                // whoever he lies on stays down at least as long as he does
-                for (int k = 0; k < fallenMen.Count; k++)
-                {
-                    var below = fallenMen[k];
-                    if (below.Cell != cell) continue;
-                    below.Lies = LiesUnder(below.Born, below.Lies > 0.01f ? below.Lies : FallenSeconds, man.Born, man.Lies);
-                    fallenMen[k] = below;
-                }
-            }
-            pile[cell] = (byte)Mathf.Min(255, stacked + 1);
-            man.Cell = cell;
-            fallenMen.Add(man);
+            Heap(ref man);
         }
 
         /// <summary>Where a fallen man is drawn now: on his arc while a shell's throw lasts, then where he landed, and at
@@ -269,7 +295,6 @@ namespace TW.Presentation.Units
         {
             fallenBuffer?.Dispose(); fallenArgs?.Dispose();
             if (fallenInstances.IsCreated) fallenInstances.Dispose();
-            if (pile.IsCreated) pile.Dispose();
         }
     }
 }
