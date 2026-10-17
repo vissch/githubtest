@@ -90,7 +90,7 @@ namespace TW.Presentation.Meta
                     GoalTarget -= (flat.right * drag.x + flat.forward * drag.y) * PanMetresPerPixel * (Zoom / MapZoom);
                     Target = GoalTarget;
                 }
-                if (Mathf.Abs(wheel) > 0.01f) GoalZoom = Mathf.Clamp(GoalZoom - Mathf.Sign(wheel) * WheelZoomPerNotch, ZoomMin, ZoomMax);
+                if (Mathf.Abs(wheel) > 0.01f) GoalZoom = ClampZoom(GoalZoom - Mathf.Sign(wheel) * WheelZoomPerNotch);
             }
             if (kb != null && CurrentMode == Mode.Map)
             {
@@ -110,6 +110,8 @@ namespace TW.Presentation.Meta
 
         float ZoomMin => CurrentMode == Mode.Orbit ? OrbitZoomMin : MapZoomMin;
         float ZoomMax => CurrentMode == Mode.Orbit ? OrbitZoomMax : MapZoomMax;
+
+        public float ClampZoom(float zoom) => Mathf.Clamp(zoom, ZoomMin, ZoomMax);
 
         (Vector3 forward, Vector3 right) FlatAxes()
         {
