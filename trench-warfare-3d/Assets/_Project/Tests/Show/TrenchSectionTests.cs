@@ -86,6 +86,35 @@ namespace TW.Tests
             finally { Object.DestroyImmediate(go); }
         }
 
+        /// <summary>[found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4] A section knocked by fire and then
+        /// taken to Gone by a shell keeps no jolt: Twitch must stop moving a slot that is no longer drawn.</summary>
+        [Test]
+        public void A_Gone_Section_Keeps_No_Knock()
+        {
+            var go = new GameObject("lining jolt test");
+            try
+            {
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var destruction = go.AddComponent<PropDestruction>();
+                destruction.AttachForTests(props);
+                var wall = kit.TrenchWalls[0]; var twin = kit.TrenchWallsDamaged[0];
+                var m = Matrix4x4.TRS(new Vector3(10f, 0f, 10f), Quaternion.identity, Vector3.one);
+                props.AddInstance(wall, m);
+                // harm 0.6 at 1 m from a 3 m reach, power 0.8: half the revetment's 1.2 hp, not heavy ordnance
+                destruction.StrikeForTests(new Vector3(11f, 0f, 10f), 3f, 0.8f);
+                Assert.AreEqual(1, destruction.SectionsDamaged, "the section is damaged, not gone");
+                float t = Time.time;
+                Assert.IsTrue(destruction.KnockForTests(twin, new Vector3(10f, 0f, 10f), Vector3.forward), "[found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4] the twin is knocked");
+                Assert.AreEqual(1, destruction.Knocked, "[found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4] the twin is being knocked about");
+                destruction.StrikeForTests(new Vector3(11f, 0f, 10f), 3f, 0.8f);
+                Assert.AreEqual(0, destruction.SectionsDamaged, "the section is gone");
+                destruction.TwitchForTests(t);
+                Assert.AreEqual(0, destruction.Knocked, "[found-a-destroyed-lining-section-keeps-its-jolt-tw-20261017-4] a section taken to Gone keeps no knock");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
         /// <summary>One shell over forty sections throws at most MaxSectionPiecesPerStrike lining pieces, whichever way each
         /// section goes (broken, collapsed or chipped); the ration is charged with or without a renderer (critic r7: it was
         /// charged only when a DebrisRenderer was up, so nothing could test it).</summary>
