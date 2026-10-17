@@ -14,4 +14,10 @@ timeout 1200 "$EXE" -screen-fullscreen 0 -screen-width 1920 -screen-height 1080 
   -twbench "stress=1500 settle_ticks=1800 ticks=400 warm=120 ff=8 vsync=0 quality=5 $EXTRA label=$LABEL out=$OUT"
 rc=$?
 echo "$LABEL: player exit $rc after $(( $(date +%s) - start )) s"
-[ -f "$SP/../runs/$LABEL.json" ] && echo "report written" || { echo "NO REPORT; log tail:"; tail -20 "$SP/../runs/$LABEL.log"; }
+if [ -f "$SP/../runs/$LABEL.json" ]; then
+  echo "report written"
+else
+  echo "NO REPORT; log tail:"
+  tail -20 "$SP/../runs/$LABEL.log" 2>/dev/null
+  exit 1
+fi
