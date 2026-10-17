@@ -42,6 +42,7 @@ namespace TW.Presentation.Units
         public int FallenCount => fallenMen.Count;
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
+        Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
         GraphicsBuffer.IndirectDrawIndexedArgs[] fallenArgsData;
         readonly List<int>[] fallenByFigure = new List<int>[8];
         NativeArray<byte> pile;   // bodies per 2 m cell of the map
@@ -172,6 +173,7 @@ namespace TW.Presentation.Units
             if (!fallenInstances.IsCreated)
             {
                 fallenInstances = new NativeArray<VatInstance>(MaxFallen, Allocator.Persistent);
+                fallenDrawAt = new Vector3[fallenInstances.Length];
                 fallenBuffer = new GraphicsBuffer(GraphicsBuffer.Target.Structured, MaxFallen, 48);
                 fallenArgs = new GraphicsBuffer(GraphicsBuffer.Target.IndirectArguments, figures.Length + 1, GraphicsBuffer.IndirectDrawIndexedArgs.size);
                 fallenArgsData = new GraphicsBuffer.IndirectDrawIndexedArgs[figures.Length + 1];
@@ -205,13 +207,13 @@ namespace TW.Presentation.Units
                 }
                 bool distant = (at - eye).sqrMagnitude > nearSq;
                 if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
-                else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
+                else { fallenDrawAt[i] = at; fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i); }
             }
             int near = 0;
             for (int k = 0; k < figures.Length; k++)
             {
                 int start = near;
-                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; fallenInstances[near++] = Fallen(fallenMen[i], figures[k].Asset, fallenMen[i].Row, now, scale, FallenAt(fallenMen[i], now)); }
+                foreach (int i in fallenByFigure[k]) { if (near + farCount >= fallenInstances.Length) break; var f = fallenMen[i]; fallenInstances[near++] = Fallen(f, figures[k].Asset, f.Row, now, scale, fallenDrawAt[i]); }
                 fallenArgsData[k] = Args(figures[k].Asset.Mesh, near - start, start);
             }
             if (near + farCount == 0) return;
