@@ -1,0 +1,42 @@
+{
+  "subject": "branch:lane/show/asked-once",
+  "looked_at": [
+    "git log origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/asked-once",
+    "git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/asked-once",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/asked-once",
+    "git log --cherry-mark --right-only origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/asked-once",
+    "git merge-base origin/claude/trench-warfare-2d-3d-plan-idt7lf origin/lane/show/asked-once",
+    "git rev-list --count origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/asked-once",
+    "git rev-list --count origin/lane/show/asked-once..origin/claude/trench-warfare-2d-3d-plan-idt7lf",
+    "git show --stat 32b383bfe",
+    "trench-warfare-3d/Tools/assetboard/briefs.py (branch diff)",
+    "trench-warfare-3d/Tools/assetboard/tasks.py (branch diff)",
+    "trench-warfare-3d/static/decide.js (branch diff)",
+    "trench-warfare-3d/Tools/assetboard/test_tasks.py (branch diff)",
+    "docs/reference/decisions.md (branch rows)",
+    "docs/reference/pipelines.md (branch rows)",
+    "trench-warfare-3d/Tools/assetboard/briefs.py (integration)",
+    "trench-warfare-3d/Tools/assetboard/tasks.py (integration)",
+    "docs/reference/decisions.md (integration)",
+    "trench-warfare-3d/Tools/assetboard/test_tasks.py (integration)",
+    "trench-warfare-3d/Tools/selftest.py"
+  ],
+  "tasks": [
+    {
+      "title": "Rebase lane/show/asked-once, green its tests, put it up to land",
+      "why": "3 commits ahead of integration / 448 behind, tip 2026-10-10, all three marked + under cherry-mark: none is upstream. Integration has no lander.py and no go='land' in briefs.py, and neither 2026-10-09 decisions.md row (desktop lands on click, do-it means recommended) is landed, so a session still asks the owner to type a land command. briefs.py drifted +265 lines on integration in the same functions the branch edits (then, answers, take, site, main), and test_idearoute.py changed on both sides, so the rebase only gets harder with time. Integration's tasks.py act() skips a row on (answered and unit), so a second click on an already-queued task leaves the note open for good, with no test_tasks.py case for it.",
+      "files": [
+        "docs/reference/decisions.md",
+        "docs/reference/pipelines.md",
+        "trench-warfare-3d/Tools/assetboard/briefs.py",
+        "trench-warfare-3d/Tools/assetboard/tasks.py",
+        "trench-warfare-3d/Tools/assetboard/idearoute.py"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "On the rebased tip: python Tools/assetboard/test_lander.py, test_tasks.py and test_idearoute.py each exit 0, the edit gate is green, and git rev-list --count origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/asked-once is 3 with a merge base at origin's tip.",
+      "risk": [true, true, true, false, true],
+      "change": [false, true, false, true, true]
+    }
+  ]
+}
