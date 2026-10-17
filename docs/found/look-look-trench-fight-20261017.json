@@ -1,0 +1,32 @@
+{
+  "subject": "look:trench-fight",
+  "looked_at": [
+    "live battle in Assets/_Project/Scenes/GreyboxCorridor.unity, batch editor in Play: SimProbe.Match() = \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 0 mission ''\"",
+    "the live match ran to tick 13794 with team0 wiped out (alive0 0) before a trench fight occurred: not usable, so the fight was staged with TW.Editor.VfxLab.Men plus a direct SimHost.WriteWorlds write of TrenchId/PostKind onto trench index 1 (owner team 0, centre 45,69, from Host.Local.Map.Trenches), and an attacker group given Speed to close from 2-16 m",
+    "Captures/trench-fight/melee_z12.png + .json (melee pair at 39.1,69.0, pose_error_m 0.24967, valid)",
+    "Captures/trench-fight/melee_z30c.png + .json and melee_z60b.png + .json (reshot after the first z30/z60 pair came back pose_error_m 1.00 and 1.16, over the rig's 0.5 bar: INVALID, discarded)",
+    "Captures/trench-fight/flip_z12_b.png + .json (zoom 12, focus 45,70.5, pose_error_m 0, men_in_frame 3, fallen 1): trench 1 held by team 0 at the start of the capture pass, found held by team 1 moments later (TrenchId1, team1) while staging a second attacker group nearby - the flip itself, not a scripted cutscene",
+    "Captures/trench-fight/flip_hud.png (TW.Editor.HudCapture.Shoot, same moment) and a 2x crop of its objectives panel, flip_hud_crop.png",
+    "trench-warfare-3d/Assets/_Project/UI/ObjectiveTracker.cs (NameOf, lines 51-52; the bullet classing in Refresh, lines 77-80; BannerFor/BannerSeconds, lines 104-115, HudLayout.cs:57)",
+    "trench-warfare-3d/Assets/_Project/Editor/VfxLab.cs (Men, Host, WriteWorlds pattern)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (Shot, Hold/Release, sidecar fields)",
+    "docs/reference/tasks.md: 'Infantry combat' (Hand to hand and the pounce, The assault's grenade rule, the assault ladder table) and 'Objectives, money, victory, the debrief'",
+    "docs/inbox/2026-09-28-all-melee.md and trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.cs:83 (MeleeStab/Punch/Smash still mapped to AnimRow.FireStanding: the melee picture is still a queued stand-in, so no melee-animation finding is reported here)",
+    "docs/reference/decisions.md rows on readability (2026-09-26, 2026-10-13, 2026-10-15) and trench ownership (2026-10-07 nearest-first retaking)",
+    "docs/found/look-look-first-assault-20261016.json, look-look-every-unit-close-20261016.json, look-look-night-20261017.json (checked for overlap: the standard-zoom infantry readability loss these already found recurred in melee_z30c/melee_z60b, contrast_median 0.055/0.075, both already-reported and not repeated here)"
+  ],
+  "tasks": [
+    {
+      "title": "The objectives list still says \"OUR\" on a line the enemy just took",
+      "why": "MEASURED, from flip_hud_crop.png (ObjectiveTracker.cs:51-52, NameOf: `def.SideTeam == 0 ? \"OUR \" + kind : \"ENEMY \"+kind`, fixed at the row's construction) against the bullet colour (Refresh, lines 77-80, which does track the live owner). At the captured moment \"OUR MAINLINE\" shows the same red/orange dot as every \"ENEMY ...\" row below it, while \"OUR RESERVELINE\" and \"OUR HQ\" show white - i.e. the dot is telling the truth (that sector is now the enemy's) and the four words beside it are not. The centre banner that should carry this news is gone in 3 s (HudLayout.BannerSeconds) and fires only on the `TrenchCaptured` event at the instant it happens; the list is the only lasting read a player gets (plan step 5), and right now its one piece of text contradicts its own colour on the exact row that matters most, the player's own front line falling. A player glancing back at the panel after missing the banner reads \"OUR MAINLINE\" and believes it still theirs.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/ObjectiveTracker.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "After a sector's SectorStates.Owner changes, the row's Name.text is rebuilt to lead with the current holder (e.g. \"ENEMY-HELD MAINLINE\" or swapping OUR/ENEMY to match st.Owner) instead of the fixed def.SideTeam, checked by a HudTextTests case that flips an objective's owner and asserts the row text changes, and by a fresh flip_hud.png whose objectives-panel crop shows no row where the bullet colour and the leading word disagree.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
