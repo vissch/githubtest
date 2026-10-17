@@ -74,14 +74,16 @@ namespace TW.Data
             return s;
         }
 
-        /// <summary>Apply meta-progression upgrades before baking: +5 per tier to HP and to weapon Damage, +5% per
-        /// tier to weapon Accuracy. Phase A7. Damage and accuracy live on the weapon, not the unit, so this also
-        /// takes and returns the primary weapon's stats.</summary>
+        /// <summary>Apply meta-progression upgrades before baking: +5 per tier to HP and to weapon Damage, and +5
+        /// percentage points per tier to weapon Accuracy, clamped to 1 (Accuracy is a hit chance, CombatStructs.cs).
+        /// Phase A7. Damage and accuracy live on the weapon, not the unit, so this also takes and returns the
+        /// primary weapon's stats.</summary>
         public static UnitStats ApplyUpgrades(UnitStats stats, WeaponStats weapon, int hpTier, int dmgTier, int accTier, out WeaponStats upgradedWeapon)
         {
             stats.Hp += 5f * hpTier;
             weapon.Damage += 5f * dmgTier;
             weapon.Accuracy += 0.05f * accTier;
+            if (weapon.Accuracy > 1f) weapon.Accuracy = 1f;   // a hit chance: DirectFire's rng.NextFloat() < odds never misses above 1
             upgradedWeapon = weapon;
             return stats;
         }
