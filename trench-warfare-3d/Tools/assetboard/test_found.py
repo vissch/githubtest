@@ -4,7 +4,9 @@ Run from trench-warfare-3d/: python Tools/assetboard/test_found.py
 
 git and the relay's queue are a stand-in here (Fake); the cards are real briefs in a temp folder. No look is run:
 what a look writes is given as it would be handed in, the good and the bad."""
+import contextlib
 import datetime
+import io
 import json
 import os
 import sys
@@ -13,8 +15,9 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import briefs   # noqa: E402
-import found    # noqa: E402
+import briefs      # noqa: E402
+import found       # noqa: E402
+import src_images  # noqa: E402
 
 results = []
 A, T = found.A, found.P + 'Tools/'
@@ -54,6 +57,44 @@ class Fake(found.World):
         self.added.append(unit)
         self.q[unit['id']] = unit
         return True, 'queued %s. Board: pushed.' % unit['id']
+
+
+def board_cases():
+    tmpboard = Path(tempfile.mkdtemp(prefix='tw-board-test-'))
+    other_gh = Path(tempfile.mkdtemp(prefix='tw-gh-test-'))
+    old_board, old_gh, old_world = os.environ.get('TW_BOARD'), os.environ.get('TW_STEWARD_GH'), found.World
+    try:
+        os.environ['TW_BOARD'] = str(tmpboard)
+        os.environ['TW_STEWARD_GH'] = str(other_gh)
+        resolved_a = found.board_dir()
+        resolved_b = src_images.evidence_dir().parent
+        case('found.board_dir() and src_images.evidence_dir() both honour TW_BOARD, not TW_STEWARD_GH',
+             resolved_a == tmpboard.resolve() and resolved_b == tmpboard.resolve()
+             and 'tw3d-board' not in str(resolved_a) and 'tw3d-board' not in str(resolved_b), (resolved_a, resolved_b))
+
+        seen = {}
+
+        class Recording(Fake):
+            def __init__(self, repo, board, home):
+                Fake.__init__(self, home)
+                self.board = board
+                seen['board'] = board
+
+        found.World = Recording
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            found.main(['look'])
+        case('the World that main() builds gets the TW_BOARD board', seen.get('board') == tmpboard.resolve(), seen)
+    finally:
+        found.World = old_world
+        if old_board is None:
+            os.environ.pop('TW_BOARD', None)
+        else:
+            os.environ['TW_BOARD'] = old_board
+        if old_gh is None:
+            os.environ.pop('TW_STEWARD_GH', None)
+        else:
+            os.environ['TW_STEWARD_GH'] = old_gh
 
 
 def main():
@@ -213,6 +254,7 @@ def main():
     second = found.take(w7, now)
     case('a finding the relay cannot take now (a refused push) is not lost: the look is read again next round and the finding queued then',
          'read again next round' in first[0] and '1 queued' in second[0] and [u['kind'] for u in w7.added] == ['critique', 'fix'], (first, second))
+    board_cases()
     print(f'{sum(results)} of {len(results)} cases behaved')
     return 0 if all(results) else 1
 

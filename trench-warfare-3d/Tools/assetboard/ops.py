@@ -199,12 +199,7 @@ def ready_since(data, store_path: Path):
 
 
 def board_root():
-    sys.path.insert(0, str(build.ROOT / 'Tools' / 'pipeline'))
-    try:
-        import pipeline
-        return pipeline.board_dir()
-    except (SystemExit, Exception):
-        return None
+    return build.board_dir()
 
 
 def row_shot(out: Path, path):
