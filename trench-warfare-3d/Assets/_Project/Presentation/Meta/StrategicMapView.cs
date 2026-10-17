@@ -2,7 +2,7 @@
 // with a pin per country node tinted by its state (locked plate, available amber, current power-blue and pulsing,
 // complete bone), a dashed front-line ribbon through the nodes in order, a ring under the hovered pin, and the fog
 // of the unexplored map (MapFog): a sheet draped over the land that opens round every node the player can reach,
-// thinner over the charted sea and along the known front, rebaked when a state changes; a locked pin is a stub
+// thinner over the charted sea and along the known front, rebaked when a node locks or unlocks; a locked pin is a stub
 // under the haze. Built at runtime in the menu scene, no asset.
 // Picking is a ray against a sphere collider per pin while the pointer is not over the UI; Focus eases the map
 // camera onto a node. Talks to the screen through IStrategicMapView. Every draw goes through FrameBudget.
@@ -32,6 +32,10 @@ namespace TW.Presentation.Meta
         /// <summary>The fog texel grid: the sheet's rectangle, two texels a metre.</summary>
         public static MapFog.Grid FogGrid => new MapFog.Grid(-FogMargin, -FogMargin, ContinentMesh.Width * ContinentMesh.Cell + 2f * FogMargin, ContinentMesh.Length * ContinentMesh.Cell + 2f * FogMargin);
 
+        /// <summary>The fog mask only has holes round the pins that are not locked, so only a change in a node's
+        /// locked-ness moves a hole; Current to Available and back leave the bake with nothing to do.</summary>
+        public static bool FogAffects(NodeState from, NodeState to) => (from == NodeState.Locked) != (to == NodeState.Locked);
+
         sealed class Pin { public NodeView View; public Vector3 Pos; public GameObject Pick; }
 
         float[] heights;
@@ -49,7 +53,7 @@ namespace TW.Presentation.Meta
         public string Hover { get; private set; }
         public int Count => pins.Count;
         public float[] Heights => heights;
-        /// <summary>The fog has a bake waiting for the next frame (a state changed since the last one).</summary>
+        /// <summary>The fog has a bake waiting for the next frame (a node locked or unlocked since the last one).</summary>
         public bool FogDirty => fogDirty;
 
         void Awake()
@@ -101,7 +105,7 @@ namespace TW.Presentation.Meta
         {
             var p = Find(id);
             if (p == null) return;
-            if (p.View.State != state) fogDirty = true;
+            if (FogAffects(p.View.State, state)) fogDirty = true;
             var v = p.View; v.State = state; p.View = v;
         }
 
