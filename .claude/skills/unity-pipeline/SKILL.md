@@ -1,21 +1,50 @@
 ---
 name: unity-pipeline
-description: Drive a running Unity Editor or development Player from the command line via the unity-pipeline package — install the package, keep the editor ticking while unfocused, run the edit→recompile→run_tests loop, evaluate C#, and code-reload files at runtime. Use when an agent needs to control a live Unity instance, automate Unity tests, recompile scripts headlessly, or apply runtime reloads. Assumes the `unity` CLI is on PATH.
+description: Drive a running Unity Editor or development Player from the command line via the unity-pipeline package — install the package, keep the editor ticking while unfocused, run the edit→recompile→run_tests loop, evaluate C#, and code-reload files at runtime. Use when an agent needs to control a live Unity instance, automate Unity tests, recompile scripts headlessly, or apply runtime reloads. Pins every call to one checkout — `%LOCALAPPDATA%\unity\bin\unity.exe` with `--project-path`, under `Tools/editor_lock.py`.
 ---
 
 # Unity Pipeline (agent control)
 
-Invoke commands with `unity command <name> [args]`. Run `unity command` with no name to
+Invoke commands with `U command <name> [args]`. Run `U command` with no name to
 list what an instance exposes. Two servers exist: **Editor** (`7800-7849`, auto-starts with
 the editor) and **Runtime** (`7900-7949`, only in a dev Player build). See the package
 `README.md` "Commands" reference for the full list and parameters.
 
+## 0. Which editor, and whose
+
+The binary is a full path, never a bare `unity`: on `PATH` another `unity` may come first and
+starts a whole Editor that sits on a dialog nobody sees (`Tools/tw` lines ~24-27 record this,
+2026-10-03).
+
+```bash
+UNITY="$(cygpath "$LOCALAPPDATA")/unity/bin/unity.exe"   # Windows: %LOCALAPPDATA%\unity\bin\unity.exe
+PROJ="/c/Users/PC/Documents/GitHub/<your checkout>/trench-warfare-3d"   # YOUR checkout, absolute
+U() { "$UNITY" --no-banner --project-path "$PROJ" "$@"; }   # global flags FIRST: after a `--` they are the command's own args
+```
+
+Every call carries `--project-path <absolute path>` or `--instance host:port`. The CLI
+auto-detects a project; six work checkouts can be open on this machine, so an unpinned call can
+recompile, enter Play or run tests in another agent's editor, or land in a batch gate run and
+fail it (`docs/reference/workflow.md`, section 2, "Never drive someone else's editor").
+
+`--project-path` matches by substring, so pass the full path: checkout names here differ only in
+a suffix.
+
+In this repo prefer the wrapper that already does all of it: `Tools/tw up`,
+`Tools/tw run <cmd> -- --flag v`, `Tools/tw eval '<c#>'` (`workflow.md` section 6 lists the
+helpers).
+
+Claim the slot before driving, release after: `python Tools/editor_lock.py status` to see if the
+project is free, `python Tools/editor_lock.py claim <you> --minutes 15 --why "<what>" || exit 1`,
+`release <you>` when done. The claim is a gate — a `;` or a pipe after it swallows its exit code.
+Never wait for, or stop, an editor you did not start.
+
 ## 1. Install & verify
 
 ```bash
-unity pipeline install            # install into current project (or --project-path)
-unity pipeline list               # confirm the editor instance + server are reachable
-unity command editor_status       # confirm the editor server answers
+"$UNITY" pipeline install --project-path "$PROJ"   # install into current project
+"$UNITY" pipeline list --project-path "$PROJ"      # confirm the editor instance + server are reachable
+U command editor_status                            # confirm the editor server answers
 ```
 
 ## 2. Autonomous edit loop (Editor)
@@ -25,26 +54,26 @@ This is the core agent workflow: keep the editor alive, change code, recompile, 
 ```bash
 # 1. Keep the editor ticking even when unfocused/minimized. REQUIRED before headless work —
 #    Unity otherwise throttles or stalls update/compile when it isn't the active app.
-unity command set_autotick --enable true
+U command set_autotick --enable true
 
 # 2. Edit C# source files on disk normally.
 
 # 3. Recompile (async: triggers a domain reload, then poll until done).
-unity command recompile
-unity command recompile_status    # repeat until "completed" or "up_to_date"
+U command recompile
+U command recompile_status    # repeat until "completed" or "up_to_date"
 #   Tolerate connection errors while the domain reload is in flight — that is expected.
 #   If recompile_status reports failed=true, read its "errors" array and fix before testing.
 
 # 4. (Optional) List available tests without running them.
-unity command list_tests --mode editor            # mode: all | editor | playmode
+U command list_tests --mode editor            # mode: all | editor | playmode
 
 # 5. Run tests (filter to keep it fast).
-unity command run_tests --mode editor --filter MyFixture.MyTest
+U command run_tests --mode editor --filter MyFixture.MyTest
 ```
 
 `run_tests` modes: `all` | `editor` | `playmode`. `filter_type`: `testName` | `assembly` |
-`category`. For long runs use `--async_tests true` and poll `unity command test_status`
-(abort with `unity command cancel_tests`).
+`category`. For long runs use `--async_tests true` and poll `U command test_status`
+(abort with `U command cancel_tests`).
 
 > **Known caveat:** when any selected test *fails*, `run_tests` may surface an opaque
 > result instead of the failure details. Re-run a narrower `--filter`, or inspect the
@@ -63,7 +92,7 @@ Do not retry an exit 2 unchanged, and do not rewrite a command line on an exit 6
 ## 3. Runtime code reload
 
 Change gameplay code in a **running** game with no domain reload. The game must be live:
-enter Editor Play Mode (`unity command editor_play`) or run a dev Player. A
+enter Editor Play Mode (`U command editor_play`) or run a dev Player. A
 The runtime Pipeline driver (enabled via Project Settings > Pipeline > Runtime) auto-discovers tagged methods on `Awake` (no manual
 registration). Mono only — Editor Play Mode and Mono desktop dev builds, not IL2CPP. The token
 is auto-injected for local requests.
@@ -76,18 +105,18 @@ Edit the method body directly; no separate file, no boilerplate.
 2. Edit its body on disk.
 3. Apply (re-run to iterate):
    ```bash
-   unity command reload_file --filename Assets/Spinner.cs
+   U command reload_file --filename Assets/Spinner.cs
    ```
    Add `--pdb` to make it debuggable — emits a portable PDB mapped to your source so breakpoints in
    the original file bind (attach the IDE + enable Editor Attaching; compiles unoptimized):
    ```bash
-   unity command reload_file --filename Assets/Spinner.cs --pdb
+   U command reload_file --filename Assets/Spinner.cs --pdb
    ```
 
 Constraints: `void` instance methods only; **public** members only; debugging requires `--pdb`
 (the default emits no symbols).
 
-`unity command codereload_status` shows active overrides. `reload_file` options: `--timeout <ms>`
+`U command codereload_status` shows active overrides. `reload_file` options: `--timeout <ms>`
 (default 30000), `--assemblyDir <dir>` (persist DLLs instead of in-memory);
 `cleanup_codereload --assemblyDir <dir>` clears old DLLs.
 
@@ -102,10 +131,10 @@ a 15–20s recompile.
 # 1. Write the builder OUTSIDE Assets/ (so the write triggers no asset import / domain reload),
 #    e.g. AgentScripts/Build.cs:  public static class Build { public static int All() { ... } }
 # 2. Run it — relative paths resolve against the project root (the parent of Assets/):
-unity command run_script --file AgentScripts/Build.cs --entry Build.All
+U command run_script --file AgentScripts/Build.cs --entry Build.All
 # 3. Iterate: edit the file, re-run. Useful extras:
-unity command run_script --file AgentScripts/Build.cs --dry_run true   # compile-only check: diagnostics, nothing loaded or executed
-unity command run_script --file AgentScripts/Build.cs --entry Build.All --args '[3, "Green"]'
+U command run_script --file AgentScripts/Build.cs --dry_run true   # compile-only check: diagnostics, nothing loaded or executed
+U command run_script --file AgentScripts/Build.cs --entry Build.All --args '[3, "Green"]'
 ```
 
 Rules of thumb:
@@ -127,9 +156,9 @@ Rules of thumb:
 For genuinely ad-hoc one-liners only — anything longer belongs in a file run via `run_script`.
 
 ```bash
-unity command eval "return 2 + 2;"
+U command eval "return 2 + 2;"
 # Or evaluate a .cs file on disk (contents run through the same path):
-unity command eval_file Assets/Scratch.cs
+U command eval_file Assets/Scratch.cs
 ```
 
 ## 5. Project audit (Editor)
@@ -137,8 +166,8 @@ unity command eval_file Assets/Scratch.cs
 Static-analysis scan via Project Auditor, producing a CSV of issues to fix. Trigger, poll, read.
 
 ```bash
-unity command audit                              # optional: --categories Code,ProjectSetting --output my.csv
-unity command audit_status                       # repeat until terminal status
+U command audit                              # optional: --categories Code,ProjectSetting --output my.csv
+U command audit_status                       # repeat until terminal status
 ```
 
 `audit_status` is terminal on `completed` (with `csvPath` + `issueCount`), `failed`, `unavailable`, or
@@ -151,7 +180,7 @@ CSV columns: `Category, Severity, Areas, Description, RelativePath, Line, Descri
 
 > **Requires Project Auditor plus its rules.** `unavailable` means the Editor has no Project Auditor,
 > or it has no analysis rules — in a built-in-module Editor the rules live in the separate
-> `com.unity.project-auditor-rules` package (`unity command package_add --identifier
+> `com.unity.project-auditor-rules` package (`U command package_add --identifier
 > com.unity.project-auditor-rules --confirm true`). Read the `message` field; the command never reports
 > an empty `completed` scan that would look like a clean project.
 
@@ -160,14 +189,15 @@ CSV columns: `Category, Severity, Areas, Description, RelativePath, Line, Descri
 - **`set_autotick` first.** Without it, recompile and tests can hang while the editor is
   unfocused. The package's watchdog relies on the tick loop staying alive.
 - **A stuck command may mean a modal dialog is open**, not a hang — a dialog blocks the main
-  thread until dismissed. If a command runs long, check `unity command editor_status` (answers
+  thread until dismissed. If a command runs long, check `U command editor_status` (answers
   instantly even when blocked); `status: "blocked_by_dialog"` means stop retrying and tell the
   human what's blocking (its `dialog.title`/`message`/`buttons`) — it can't be clicked over CLI.
 - **Code reload needs the game running.** `reload_file` applies to a live
-  game — enter Editor Play Mode (`unity command editor_play`) first, or run a dev Player.
+  game — enter Editor Play Mode (`U command editor_play`) first, or run a dev Player.
 - **Player-only commands need a dev Player.** `log`, `set_timescale`, `runtime_status`, etc. hit
   the Runtime server, which does not run in the Editor.
 - **Async commands poll.** `recompile`→`recompile_status`, `run_tests --async_tests`→
   `test_status`. Never assume completion from the trigger call's response.
-- **Target a specific instance** with `--instance host:port` or `--project-path <path>`
-  when more than one is running.
+- **More than one instance is always running here** (six work checkouts can be open at once) —
+  pinning is not optional, see section 0. `--instance host:port` reaches a *second* editor on
+  purpose; otherwise always `--project-path <path>` to your own checkout.
