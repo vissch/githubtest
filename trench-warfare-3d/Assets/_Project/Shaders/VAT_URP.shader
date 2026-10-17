@@ -350,11 +350,12 @@ Shader "TW/VAT Infantry (URP)"
                     half3 n = normalize(i.normalWS), toEye = normalize(_WorldSpaceCameraPos - i.positionWS);
                     half lamps = _TWLampScale > 0.0 ? _TWLampScale : 1.0;
                     half3 fireRim;
-                    color += albedo * 0.8 * TWPoolsOnFigure(i.positionWS, n, toEye, fireRim) * lamps;
+                    half3 figurePools = TWPoolsOnFigure(i.positionWS, n, toEye, fireRim, 0.30, _TWPoolFigure);
+                    color += albedo * lerp(0.8, 0.8 * 0.5, _TWPoolFigure) * figurePools * lamps;
                     // the rim is painted in the fire's own hue over his edge, not added: added on khaki it read pale yellow
                     fireRim *= lamps;
                     half rimA = saturate(max(fireRim.r, max(fireRim.g, fireRim.b)));
-                    color = lerp(color, fireRim / max(rimA, 1e-3) * 0.95, rimA * 0.75);
+                    color = lerp(color, fireRim / max(rimA, 1e-3) * 0.95, rimA * lerp(0.75, 0.75 * 0.4, _TWPoolFigure));
                 }
                 if (_TWClose > 0.0 && _TWWet.x > 0.0)
                 {
