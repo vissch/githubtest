@@ -394,6 +394,19 @@ Tools/flame-shots/nav-check.png  1600x900
   warm 2.14%  warm span 1600 px
   grid  41  40  43 /  36  49  48 /  34  47  57
 ```
+**Is that edge hard, is that patch flat?** Two measures for a light pool, a shadow or a decal, both on the same
+0-255 scale as the rest of `shotstats.py` (`python Tools/test_shotstats.py` tests them with no editor):
+```bash
+python Tools/shotstats.py shot.png --line 905,417,945,613          # fall px: how wide the edge on that line is
+python Tools/shotstats.py shot.png --crop 700,480,200,200 --crop 300,480,200,200 \
+       --min-fall 40 --min-spread 0.6                              # exit 1 when too hard or too flat
+```
+`fall px` is the width of the slope between the line's own low and high plateau (its 10th and 90th percentile):
+1-3 px is a step, tens is light falling off, so draw the line from inside the pool to well outside it. `spread` is
+the standard deviation of luma in a box: flat ground is near 0, mud with shading and marbling is 8-20. With two
+boxes, `--min-spread R` wants the first box at least R times the second, so pass the lit box first and an unlit
+box at the same depth second. Either check failing exits 1 and prints `FAIL`.
+
 Compare two captures: `python Tools/shotstats.py after.png before.png` adds the mean change, the share of pixels
 that moved, and where. Rain and wind move 1-3% of pixels between identical poses: freeze first with
 `TW.Editor.CaptureRig.Hold()` (and `CaptureRig.Release()` after), or compare the grid rather than the diff.
