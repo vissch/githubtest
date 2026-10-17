@@ -14,7 +14,12 @@ float4 _TWPools[TW_MAX_POOLS];
 float4 _TWPoolTint[TW_MAX_POOLS];
 float _TWPoolCount;
 float _TWWetLook;   // look.wet (Atmosphere.NightLook.cs): 0 today
-float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff (critique round 5: "cut-out discs")
+#ifndef TW_POOLSOFT_DECLARED
+#define TW_POOLSOFT_DECLARED
+float _TWPoolSoft;   // look.poolSoft: 0 the three hard bands, 1 a soft falloff (critique round 5: "cut-out discs").
+                     // Declared here AND in TWLocalLights.hlsl behind the same guard: that header is included first
+                     // (Toon_URP, Tank_URP, VAT_URP) and alone (Debris, Sea, Water), and it softens the real lamps' steps by the same knob.
+#endif
 float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire's pool never clips the ground to flat orange
 float _TWPoolsThroughHaze;
 float _TWPropRim;
@@ -31,7 +36,11 @@ half TWPoolBand(float t)
 {
     half hard = 0.45 * (1.0 - smoothstep(0.30, 0.34, t)) + 0.33 * (1.0 - smoothstep(0.62, 0.66, t)) + 0.22 * (1.0 - smoothstep(0.94, 1.0, t));
     half s = 1.0 - saturate(t);
-    half soft = s * s * (0.55 + 0.45 * (1.0 - smoothstep(0.35, 0.65, t)));
+    // The shoulder spreads over the whole reach, not the middle third: with (0.35, 0.65) and s*s the pool's own
+    // gradient sat inside the core the roll-off had already flattened, so the only visible step was a thin ring at
+    // the rim (the look of 2026-10-17, lamp_z12.png). pow(s, 1.5) and (0.15, 0.95) put the fall across the outer
+    // half of the reach, where the eye can see it.
+    half soft = pow(s, 1.5) * (0.55 + 0.45 * (1.0 - smoothstep(0.15, 0.95, t)));
     return lerp(hard, soft * 1.6, _TWPoolSoft);
 }
 
@@ -41,6 +50,16 @@ half3 TWPoolRoll(half3 sum)
     if (_TWPoolShoulder <= 0.0) return sum;
     half m = max(sum.r, max(sum.g, sum.b));
     return sum / (1.0 + m * _TWPoolShoulder);
+}
+
+/// How much of a pool a surface takes by the way it faces the flame. The wrap (dot * 0.6 + 0.4) runs out at
+/// dot -0.67, so the pool STOPS dead on the crest of a shell hole or a mound: the lit bowl inside and night outside,
+/// with the terminator doing the cutting, not the falloff (the look of 2026-10-17, lamp_z12.png). look.poolSoft
+/// wraps it further (0.45, 0.55), so the light carries over the crest and the pool ends in a gradient instead.
+half TWPoolFacing(half3 normalWS, float3 dir)
+{
+    half k = lerp(0.6, 0.45, saturate(_TWPoolSoft)), b = lerp(0.4, 0.55, saturate(_TWPoolSoft));
+    return saturate(dot(normalWS, dir) * k + b);
 }
 
 /// The warm light the pools throw on a surface at positionWS facing normalWS: three hard bands (softened by
@@ -57,7 +76,7 @@ half3 TWLightPools(float3 positionWS, half3 normalWS)
         float dist2 = dot(d, d);
         if (dist2 >= reach * reach) continue;
         float t = sqrt(dist2) / reach;                                            // 0 under the flame, 1 at the rim
-        half facing = saturate(dot(normalWS, d * rsqrt(max(dist2, 1e-4))) * 0.6 + 0.4);
+        half facing = TWPoolFacing(normalWS, d * rsqrt(max(dist2, 1e-4)));
         sum += _TWPoolTint[k].rgb * TWPoolBand(t) * facing;
     }
     return TWPoolRoll(sum);
@@ -108,7 +127,7 @@ half3 TWPoolsAndGlints(float3 positionWS, half3 normalWS, float3 r, bool glintOn
         float dist = sqrt(dist2);
         float3 dn = d / max(dist, 1e-2);
         if (dist < reach)
-            sum += _TWPoolTint[k].rgb * TWPoolBand(dist / reach) * saturate(dot(normalWS, dn) * 0.6 + 0.4);
+            sum += _TWPoolTint[k].rgb * TWPoolBand(dist / reach) * TWPoolFacing(normalWS, dn);
         if (glintOn)
             glints += _TWPoolTint[k].rgb * smoothstep(0.86, 0.92, dot(r, dn)) * (1.0 - smoothstep(0.55, 1.0, dist / glintReach));
     }

@@ -1,8 +1,17 @@
 // Phase: B2 (implemented) - lanterns, muzzle flashes and flares on the painted world. They are ordinary URP additional
-// lights (NightLights.cs owns them); this adds each one in hard steps, so a lamp throws a pool with an edge, not a gradient.
+// lights (NightLights.cs owns them); this adds each one in steps. At look.poolSoft 0 they are the old hard steps, so a
+// lamp throws a pool with an edge; at 1 (the default) the same three steps are widened into ramps, keeping their levels,
+// because the outer one at 0.02 -> 0.04 of the arriving light is a few centimetres of ground under inverse-square
+// attenuation: a hard disc, and several lamps' discs read as one scalloped line (the look of 2026-10-17). No new knob.
 // Include after URP's Lighting.hlsl. Without _ADDITIONAL_LIGHTS it returns 0.
 #ifndef TW_LOCAL_LIGHTS_INCLUDED
 #define TW_LOCAL_LIGHTS_INCLUDED
+
+#ifndef TW_POOLSOFT_DECLARED
+#define TW_POOLSOFT_DECLARED
+float _TWPoolSoft;   // look.poolSoft (NightLights.Pools.cs), declared here too: this header is included BEFORE
+                     // TWLightPools.hlsl (Toon_URP, Tank_URP, VAT_URP) and alone (Debris, Sea, Water).
+#endif
 
 /// Lanterns, muzzle flashes, flares: each adds its colour in two hard steps (a bright core, a dim reach).
 /// view and gloss add the wet highlight: the same light mirrored off the surface toward the eye, in one hard step,
@@ -21,7 +30,10 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
     uint count = GetAdditionalLightsCount();
     LIGHT_LOOP_BEGIN(count)
         Light l = GetAdditionalLight(lightIndex, positionWS);
-        half facing = saturate(dot(normalWS, l.direction) * 0.6 + 0.4);   // wrapped: a lantern still shows on the wall beside it
+        // wrapped: a lantern still shows on the wall beside it. look.poolSoft wraps it further, so a lamp's light
+        // carries over the crest of a shell hole instead of stopping on it and cutting its pool with the terminator.
+        half spF = saturate(_TWPoolSoft);
+        half facing = saturate(dot(normalWS, l.direction) * lerp(0.6, 0.45, spF) + lerp(0.4, 0.55, spF));
         half peak = max(l.color.r, max(l.color.g, l.color.b));
         half e = l.distanceAttenuation * facing * peak;                    // how much light arrives, whatever its colour
         // the pool of light is layered like the glow: a deep-coloured reach, the light's own colour, a hotter heart
@@ -34,7 +46,13 @@ half3 TWLocalLights(float3 positionWS, float3 normalWS, float4 positionCS, float
         // albedo three times what it was tuned against. The core is not the problem and must not be dimmed with it:
         // on a single-hue field the lamps are the only warm things left and their job is to be precious.
         half reach = lamp * lamp, mid = lamp, core = sqrt(lamp);
-        sum += deep * smoothstep(0.02, 0.04, e) * 0.36 * reach + tint * smoothstep(0.12, 0.20, e) * 0.38 * mid + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(0.55, 0.75, e) * 0.44 * core;
+        // look.poolSoft widens the three bands, never their levels: the levels are what the biome scaling above and
+        // the muzzle flashes, flares and winter/lava lamp scale were tuned against.
+        half sp = spF;
+        half2 bR = lerp(half2(0.02, 0.04), half2(0.004, 0.09), sp);
+        half2 bM = lerp(half2(0.12, 0.20), half2(0.05, 0.38), sp);
+        half2 bC = lerp(half2(0.55, 0.75), half2(0.35, 1.10), sp);
+        sum += deep * smoothstep(bR.x, bR.y, e) * 0.36 * reach + tint * smoothstep(bM.x, bM.y, e) * 0.38 * mid + lerp(tint, half3(1, 1, 1), 0.45) * smoothstep(bC.x, bC.y, e) * 0.44 * core;
     LIGHT_LOOP_END
 #endif
     highlight *= lamp;
