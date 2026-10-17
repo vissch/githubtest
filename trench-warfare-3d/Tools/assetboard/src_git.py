@@ -24,9 +24,18 @@ NEW_ASSET = [(re.compile(PREFIX + r'Resources/Vehicles/([A-Z]\w+)/'), 'vehicle')
              (re.compile(PREFIX + r'Playground/Art/Units/([A-Z]\w+)/'), 'character')]
 
 
-def git(repo, *args):
+def tried(repo, *args):
+    """Like git(), and why it failed: ('', 'why') when git returned non-zero, '' when it worked."""
     p = subprocess.run(['git', '-C', str(repo), *args], capture_output=True)
-    return p.stdout.decode('utf-8', 'replace')
+    out = p.stdout.decode('utf-8', 'replace')
+    if p.returncode:
+        why = p.stderr.decode('utf-8', 'replace').strip().splitlines()
+        return out, (why[0] if why else f'git {args[0]} exited {p.returncode}')
+    return out, ''
+
+
+def git(repo, *args):
+    return tried(repo, *args)[0]
 
 
 def head(repo):

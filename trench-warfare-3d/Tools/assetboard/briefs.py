@@ -271,30 +271,40 @@ def check_then(says, unit=None):
 
 
 def queued_on(board, uid):
-    """Where the unit `uid` stands on the relay's queue of the board: `'queue'`, `'done'`, or `''` when nowhere.
-    Read from the board's **origin/main**, as ideas.board_units does, because that is what the relay picks units off:
-    a file in this station's working tree that nobody committed and pushed is nothing to it. The file's name is not
-    the id: the `id` inside the file decides, so a unit queued as `<id>-2` is found by `<id>-2` only. `'queue'` wins
-    over `'done'`. Reads only: it writes nothing and makes no folder."""
-    if not board or not one(uid) or not Path(board).is_dir():
-        return ''
+    """Where the unit `uid` stands on the relay's queue of the board: `'queue'`, `'done'`, or `''` when nowhere; and
+    why the read failed when it did (`''` when it worked). Read from the board's **origin/main**, as
+    ideas.board_units does, because that is what the relay picks units off: a file in this station's working tree
+    that nobody committed and pushed is nothing to it. The file's name is not the id: the `id` inside the file
+    decides, so a unit queued as `<id>-2` is found by `<id>-2` only. `'queue'` wins over `'done'`. Reads only: it
+    writes nothing and makes no folder."""
+    if not one(uid):
+        return '', ''
+    if not board:
+        return '', 'no board was named'
+    if not Path(board).is_dir():
+        return '', f'the board folder {board} is not there'
     import src_git
-    names = src_git.git(Path(board), 'ls-tree', '-r', '--name-only', 'origin/main', 'relay/queue', 'relay/done').split()
+    names, why = src_git.tried(Path(board), 'ls-tree', '-r', '--name-only', 'origin/main', 'relay/queue', 'relay/done')
+    if why:
+        return '', why
     where = ''
-    for n in names:
+    for n in names.split():
         if not n.endswith('.json'):
             continue
+        shown, why = src_git.tried(Path(board), 'show', f'origin/main:{n}')
+        if why:
+            return '', why
         try:
-            u = json.loads(src_git.git(Path(board), 'show', f'origin/main:{n}'))
+            u = json.loads(shown)
         except ValueError:
-            continue
+            return '', f'{n} on {board}\'s origin/main is not valid JSON'
         if not (isinstance(u, dict) and one(u.get('id')) == one(uid)):
             continue
         if n.startswith('relay/queue/'):
-            return 'queue'
+            return 'queue', ''
         if n.startswith('relay/done/'):
             where = 'done'
-    return where
+    return where, ''
 
 
 def find(where: Path, bid):
@@ -508,7 +518,9 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     word dropped. A unit only in the relay's done folder closes it and the answer says so, so a done record of that id
     left by an earlier unit does not pass a new yes in silence. `unchecked` says why nobody could read the board, and is said
     in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
-    his notes is finished instead of refused; a note he wrote after the close is refused, saying so. Write the row in decisions.md first. Returns (the brief, his note)."""
+    his notes is finished instead of refused; a note he wrote after the close is refused, saying so. A board that
+    could not be read is refused as unknown, not as nothing queued. Write the row in decisions.md first. Returns
+    (the brief, his note)."""
     import notes
     done_before = left_over(where, notes_where, bid, by, now)
     if done_before:
@@ -529,7 +541,12 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
         queued, outcome = (a['unit']['id'], '') if a['go'] == 'queue' else ('', a['says'])
     if one(option) and a['go'] != 'write':
         raise ValueError(f'{a["id"]}: his click says {a["option"]}; another option is for an answer whose option his notes do not settle')
-    stands = '' if not one(queued) or one(unchecked) else queued_on(board, queued)
+    stands, unread = ('', '') if not one(queued) or one(unchecked) else queued_on(board, queued)
+    if one(queued) and not one(unchecked) and unread:
+        raise ValueError(f'{a["id"]}: the board {board or "(none named)"} could not be read, so whether '
+                         f'{one(queued)} stands on the relay queue is unknown: {unread}. Fetch it '
+                         f'(git -C <board> fetch origin), or say with --unchecked "why" that the board could not '
+                         f'be read')
     if one(queued) and not one(unchecked) and not stands:
         raise ValueError(f'{a["id"]}: nothing is queued as {one(queued)}: the board {board or "(none named)"} has no '
                          f'relay/queue/{one(queued)}.json and no relay/done/{one(queued)}.json on its origin/main '
