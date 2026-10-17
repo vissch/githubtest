@@ -1,0 +1,92 @@
+{
+  "subject": "code:Presentation/Units",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Gags.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Extras.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/FallenFlight.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/ProceduralSoldier.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatCodec.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatTint.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VatAssetData.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatAssetTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatEarlyZTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/VatTintTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FallenFlightTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/DeathVarietyTests.cs",
+    "trench-warfare-3d/Assets/_Project/Shaders/VAT_URP.shader",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Deaths.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Gags.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Riders.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Draw far-tier fallen corpses with far.Fallen, not far.Material",
+      "why": "VATRenderer.Fallen.cs:233 builds RenderParams(far.Material) for the far corpse draw while every near figure (line 228) uses fig.Fallen; far.Fallen (built VATRenderer.cs:186) is never drawn anywhere. far.Fallen is the only material with Cull Off and _TW_LIMBCUT enabled (VATRenderer.cs:143-146), the keyword the lost-limb and wound clips need (VatEarlyZTests.cs:1-6). Past FallenNearDistance (70m, Fallen.cs:32) a corpse's missing limbs regrow and its wounds vanish, popping in/out as the camera crosses 70m. VatEarlyZTests.TheFallenKeepTheLimbCut only greps VATRenderer.cs for the EnableKeyword string, so it passes whichever material is actually drawn.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/VatEarlyZTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The far corpse draw call uses far.Fallen, and a new EditMode assertion checks the RenderParams built for the far fallen draw actually references far.Fallen (not far.Material), so reverting the swap fails it.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Fix box soldier's loop sign; row-sign test can never fail",
+      "why": "ProceduralSoldier.cs:96 writes table[r] = new Vector2(r*FramesPerRow, FramesPerRow), always positive y for all 18 rows, but VAT_URP.shader:93-94 treats row.y > 0 as looping. The contract (VatCodec.cs:20) is y negative = play once and hold. So on the far tier (and any figure with no bake) Death0-3, Throw, Vault and Flinch0-2 wrap instead of holding: a man beyond LodDistance dying snaps upright and dies again, a vault repeats. VatAssetTests.CheckContract:30 only asserts AreNotEqual(0f, row.y), never its sign, so this is invisible to it; the one test that compares loop flags against Clips.Table (VatAssetTests.cs:57-61) is inside BakedFigures_IfPresent_..., which Assert.Ignores when no bake exists (line 51) — exactly the case ProceduralSoldier covers.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/ProceduralSoldier.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/VatAssetTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "ProceduralSoldier.Build marks the one-shot AnimRows (Death*, Throw, Vault, Flinch*) with negative row.y, and CheckContract (or a new assertion run unconditionally, not inside the Ignore'd bake test) asserts the sign of each row.y matches the row's intended loop/hold behaviour so a regression fails without a bake present.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "De-duplicate the two AddFallen bodies; their heap logic has drifted",
+      "why": "VATRenderer.Fallen.cs:100-152 and VATRenderer.Gags.cs:26-90 each repeat ~35 lines (farRow, figure, near, seconds, blend, lies, the FallenMan initialiser, the heap block, the pile increment) and have already diverged: the plain path extends below.Lies for every body sharing the cell with no arrival check (Fallen.cs:144), while the gag path only extends bodies that land first (Gags.cs:81); the plain path reads the pile[cell] byte counter for the stack height (Fallen.cs:132), while the gag path counts matching list entries (Gags.cs:69), so the two disagree once the MaxFallen cap has evicted anyone from the cell.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Gags.cs"
+      ],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "The shared setup (figure/row/seconds/blend/lies and the heap arrival+stack-height logic) is extracted into one path both AddFallen overloads call, and a DeathVarietyTests case drives both the plain and gagged path through the same pile cell and asserts they agree on stack height and which bodies get extended.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Stop computing FallenAt twice per near corpse per frame",
+      "why": "VATRenderer.Fallen.cs:198 computes at for the frustum test and the near/far split, then line 213 calls FallenAt(fallenMen[i], now) again for the same man to build the near instance — up to MaxFallen (600, Fallen.cs:29) redundant FallenFlight.At evaluations a frame for a value already in hand. Separately, ShadowsThisFrame (VATRenderer.cs:277) is only assigned inside if (DrawnInfantry > 0) (line 261), so a frame with zero infantry drawn leaves DrawExtras (Extras.cs:156) reading the previous frame's shadow decision.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Fallen.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.Extras.cs"
+      ],
+      "lane": "show",
+      "role": "optimizer",
+      "done_when": "The near-tier loop reuses the at already computed for the frustum/distance test instead of recalling FallenAt, and ShadowsThisFrame is computed unconditionally each frame (not only when DrawnInfantry > 0) so DrawExtras never reads a stale value.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix the missing-figure pad: it borrows the wrong neighbour, shifting indices",
+      "why": "VATRenderer.cs:171-180: a missing bake borrows baked[baked.Count-1] (the one just before it), which is wrong for the very first name, and when any figure is missing the later pad loop (line 180) fills every remaining slot from baked[0] instead of the correct source. With Soldier missing and Sniper baked, baked ends at length 2 and slot 2 is padded from baked[0] (Soldier's placeholder), so FigureOfArchetype's mapping (cs:101) no longer lines up with FigureNames: riflemen draw as the sniper or the box soldier in any partial-bake tree.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "Each FigureNames slot either loads its own bake or explicitly falls back to the box soldier/a named default, and a test with a synthetic partial bake set (missing first entry) asserts FigureOfArchetype still maps every archetype to the figure its name says, not a shifted neighbour.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
