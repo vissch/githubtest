@@ -1,7 +1,8 @@
 // Phase: B3 (implemented; placeholder for the C2 rigs)
 // A box soldier and its vertex animation texture, built in code so the B3 renderer can be driven before any rig
 // exists. The output has exactly the layout VATBaker produces from real clips: U = vertex index, V = frame, rows
-// stacked in AnimRow order, quantised object-space positions and normals (VatCodec), plus a row table (start, length).
+// stacked in AnimRow order, quantised object-space positions and normals (VatCodec), plus a row table (start,
+// length; negative length = play once and hold, VatCodec).
 // It is the far tier: the controller's clips map onto these 18 rows beyond LodDistance (Clips.Table[].Fallback).
 // Vertex colour: rgb = albedo, a = 1 where the team colour multiplies it (uniform, pack), 0 elsewhere.
 using System.Collections.Generic;
@@ -58,6 +59,27 @@ namespace TW.Presentation.Units
             };
         }
 
+        // Negative row.y tells the shader and VatAsset.Loops to hold the last frame instead of wrapping: without
+        // it a far-away death or vault wraps back to its start forever (VatCodec, VAT_URP.shader row.y > 0 test).
+        static bool Holds(AnimRow r)
+        {
+            switch (r)
+            {
+                case AnimRow.Throw:
+                case AnimRow.Vault:
+                case AnimRow.Flinch0:
+                case AnimRow.Flinch1:
+                case AnimRow.Flinch2:
+                case AnimRow.Death0:
+                case AnimRow.Death1:
+                case AnimRow.Death2:
+                case AnimRow.Death3:
+                    return true;
+                default:
+                    return false;
+            }
+        }
+
         public static VatAsset Build()
         {
             var boxes = Boxes();
@@ -93,7 +115,7 @@ namespace TW.Presentation.Units
             var m = new Matrix4x4[(int)Part.Count];
             for (int r = 0; r < rows; r++)
             {
-                table[r] = new Vector2(r * FramesPerRow, FramesPerRow); seconds[r] = 1f;
+                table[r] = new Vector2(r * FramesPerRow, Holds((AnimRow)r) ? -FramesPerRow : FramesPerRow); seconds[r] = 1f;
                 for (int f = 0; f < FramesPerRow; f++)
                 {
                     Solve(Sample((AnimRow)r, f / (float)FramesPerRow), m);
