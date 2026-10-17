@@ -73,6 +73,7 @@ namespace TW.Presentation.Terrain
         public static bool Unmetered;
         float[] rowBehindAhead = new float[0];   // the samples 0.25 m either side of a row's vertices along x, shared
         int chunkCursor;
+        readonly List<int> chunkPass = new List<int>();
         /// <summary>A crater's hollows are still to be rescanned: until they are, nothing that reads them (the chunks
         /// here, BattlefieldProps' composition) should rebuild, or it would keep the ground's old pools.</summary>
         public bool HollowsPending => hollowsDirty;
@@ -109,6 +110,14 @@ namespace TW.Presentation.Terrain
         /// paint queue has drained, so the mips are never left stale after the painting stops.</summary>
         public static bool MipsDue(double sinceMipsMs, double intervalMs, bool drained, bool unmetered) =>
             unmetered || intervalMs <= 0.0 || sinceMipsMs >= intervalMs || drained;
+
+        /// <summary>The chunks one frame's pass visits, in order: the ring once from where the last frame stopped. The pass
+        /// is planned before any work is done, because finishing a chunk moves chunkCursor on, and reading the cursor again
+        /// inside the loop skipped about half of a freshly dirtied field (code look 2026-10-17).</summary>
+        public static void ChunkPass(int start, int count, List<int> into)
+        {
+            for (int n = 0; n < count; n++) into.Add((start + n) % count);
+        }
 
         void Start()
         {
@@ -624,9 +633,10 @@ namespace TW.Presentation.Terrain
             {
                 chunkWatch.Restart();
                 int rows = 0;
-                for (int n = 0; n < chunks.Count; n++)
+                chunkPass.Clear(); ChunkPass(chunkCursor, chunks.Count, chunkPass);
+                for (int n = 0; n < chunkPass.Count; n++)
                 {
-                    int i = (chunkCursor + n) % chunks.Count;
+                    int i = chunkPass[n];
                     var c = chunks[i];
                     if (!c.Dirty) continue;
                     chunkCursor = i;   // stay on it until it is done
