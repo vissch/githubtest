@@ -214,6 +214,10 @@ class Taking(unittest.TestCase):
         (self.board / 'relay' / 'queue').mkdir(parents=True)
         (self.board / 'relay' / 'done').mkdir(parents=True)
         self.git('init', '-q')
+        (self.board / 'README.md').write_text('board\n', encoding='utf-8')
+        self.git('add', '-A')
+        self.git('-c', 'user.email=t@t', '-c', 'user.name=t', 'commit', '-q', '-m', 'init')
+        self.git('update-ref', 'refs/remotes/origin/main', 'HEAD')
         self.unit = dict(id='unit-cover', lane='lane/sim/cover', goal='Men behind a building take less damage.',
                          done_when=['python', 'Tools/otr.py', 'CoverTests'])
         self.brief = a_brief(self.where, 'Do houses give cover')
@@ -380,6 +384,37 @@ class Taking(unittest.TestCase):
         got, why = self.take(board=self.board)
         self.assertIsNone(got, '[N10.13] a brief that is closed with his notes answered was taken a second time')
         self.assertTrue(why, '[N10.13] a second take says nothing')
+
+    def test_a_board_that_cannot_be_read_is_not_nothing_queued(self):
+        # [found-queued-on-tell-a-failed-board-read-from-not-20261016-0] a board nobody fetched gives a failed read,
+        # not the same '' as an empty queue
+        self.git('update-ref', '-d', 'refs/remotes/origin/main')
+        got = briefs.queued_on(self.board, 'unit-cover')
+        where, why = got if isinstance(got, tuple) else (got, '')
+        self.assertTrue(why.strip(),
+                        '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] queued_on gave no reason '
+                        'for a board with no fetched origin/main: %r' % (got,))
+        self.assertEqual(where, '',
+                         '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] a failed read named a '
+                         'queue state: %r' % (got,))
+
+    def test_take_says_the_board_could_not_be_read(self):
+        # [found-queued-on-tell-a-failed-board-read-from-not-20261016-0] the refusal must say the board could not
+        # be read, not claim nothing is queued (which nobody could tell)
+        self.git('update-ref', '-d', 'refs/remotes/origin/main')
+        got, why = self.take(board=self.board)
+        self.assertIsNone(got,
+                          '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] the brief closed although '
+                          'the board could not be read')
+        self.assertIn('could not be read', why,
+                      '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] the refusal does not say the '
+                      'board could not be read: %s' % why)
+        self.assertNotIn('nothing is queued', why,
+                         '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] the refusal claims '
+                         'nothing is queued although the board could not be read: %s' % why)
+        self.assertEqual(self.state().get('state'), 'open',
+                         '[found-queued-on-tell-a-failed-board-read-from-not-20261016-0] the brief is closed '
+                         'although the board could not be read')
 
 
 class GateBriefWrite(unittest.TestCase):
