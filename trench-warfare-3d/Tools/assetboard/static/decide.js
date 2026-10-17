@@ -49,6 +49,7 @@
     var w = b && b.waits, same = w && note && w.note === note.id;
     if (same && w.go === 'queue') return 'the master queues ' + w.unit + ' when you next talk to him';
     if (same && w.go === 'nothing') return 'nothing to build; the master writes it down when you next talk to him';
+    if (same && w.go === 'land') return w.refused ? 'not landed: ' + w.refused : 'the desktop lands it within a few minutes; nothing for you to type';
     if (same && w.go === 'write') return 'what it leads to is queued next, without asking you again';
     return 'a session takes it up next';
   }
