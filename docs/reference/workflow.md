@@ -398,6 +398,16 @@ Compare two captures: `python Tools/shotstats.py after.png before.png` adds the 
 that moved, and where. Rain and wind move 1-3% of pixels between identical poses: freeze first with
 `TW.Editor.CaptureRig.Hold()` (and `CaptureRig.Release()` after), or compare the grid rather than the diff.
 
+**Does a figure still read against what's behind it (lamp pools, tints)?** `shotstats.py` and `contrast_median`
+answer brightness; `crophue.py` answers hue and value of two crops' brightest quartile (a man, and the ground
+beside him), the only way to catch a figure collapsing onto the ground's colour, not just its brightness:
+```bash
+python Tools/crophue.py shot.png --crop x0,y0,x1,y1 --crop x0,y0,x1,y1 --sep 12,0.2
+```
+Crops are PIL coordinates (top-left, bottom-right), y down. `--sep H,V` exits 1 when the two crops' hue gap (the
+short way round the circle) is under H degrees AND their value gap is under V, or when the still's `blown_frac`
+(from CaptureRig's sidecar `.json`) is 0.02 or more; exits 0 otherwise, printing both gaps.
+
 **Other capture tools** (all in `Editor/`): `TW.Editor.CaptureRig.Series` / `Sheet` / `Diff` / `Bench`,
 `TW.Editor.TankCapture.Spawn(team, archetype, x, z)` then `Shot` or `Follow(slot)`, and
 `TW.Editor.HudCapture.Shoot(path)`, the only path a script has that includes the HUD. (By hand, F10 in Play writes
