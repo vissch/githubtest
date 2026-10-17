@@ -17,9 +17,10 @@
 // Feedback, because being shot at has to read on screen: a prop under fire spits a chip on every pass (one piece, dust
 // only as it visibly loses material, the budget shared round-robin so nothing is starved), and light things — a helmet,
 // a mess tin, brass, a loose board — are knocked about where they lie. Knocked, not thrown: a bullet must not launch a
-// helmet out of the battle, so the prop keeps its place in the field and stays destructible. Its displacement is held
-// under half of Quantum, because a prop IS its position rounded to 0.25 m (Key) and a prop that moved further would
-// become a different prop and lose everything done to it.
+// helmet out of the battle, so the prop keeps its place in the field and stays destructible. Its displacement
+// (JoltReach * JoltJitterHigh, the furthest a round ever pushes it) is held under half of Quantum, because a prop IS
+// its position rounded to 0.25 m (Key) and a prop that moved further would become a different prop and lose
+// everything done to it.
 //
 // Presentation only, like the rest of the file: the sim's cover and line of sight never hear about any of it.
 using System.Collections.Generic;
@@ -52,9 +53,13 @@ namespace TW.Presentation.Terrain
         /// material rather than being touched. Chips come every pass regardless: that is the feedback.</summary>
         public const float DustEveryWear = 0.15f;
         /// <summary>Things being knocked about at once, how long one takes to settle (s), and the furthest a round moves
-        /// anything. Held under Quantum/2 = 0.125 m: past that a prop's Key changes and it forgets what it has taken.</summary>
+        /// anything. JoltReach * JoltJitterHigh is held under Quantum/2 = 0.125 m: past that a prop's Key changes and
+        /// it forgets what it has taken.</summary>
         public const int MaxJolts = 48;
         public const float JoltSeconds = 0.25f, JoltReach = 0.08f;
+        /// <summary>The least and the most of the push a round gives, so the furthest a prop is ever moved is
+        /// JoltReach * JoltJitterHigh.</summary>
+        public const float JoltJitterLow = 0.55f, JoltJitterHigh = 1.45f;
         /// <summary>Wear a shelter must take to lose one more sandbag. ShedBags blows a whole sack off for any hit above
         /// 0.2 and nothing at all below it, and a pass of fire is about 0.04 — so a shelter gathers wear here instead and
         /// sheds on the same terms a shell does, one sack at a time. A machine gun strips a parapet in about a minute.</summary>
@@ -68,7 +73,7 @@ namespace TW.Presentation.Terrain
         /// <summary>One prop found standing in a square.</summary>
         struct Standing_ { public BattlefieldKit.Module Module; public int Page, Slot; public Matrix4x4 M; }
         /// <summary>What stands in a square, found once and kept while the fire lasts.</summary>
-        sealed class Swept { public List<Standing_> Props; public int Cursor; public float Built; }
+        sealed class Swept { public List<Standing_> Props; public int Cursor; public long Used; }
         /// <summary>A prop a round has knocked, on its way back to where it lies.</summary>
         struct Jolted { public BattlefieldKit.Module Module; public int Page, Slot; public Matrix4x4 Home; public Vector3 Push; public float Born; }
 
@@ -81,6 +86,7 @@ namespace TW.Presentation.Terrain
         System.Comparison<int> byRounds;
         uint lastWearTick = uint.MaxValue;
         int generation = -1;
+        long sweepClock;
 
         /// <summary>Props worn away by small-arms fire, chips thrown by it, and sacks it has taken off shelters.</summary>
         public int Worn { get; private set; }
@@ -90,6 +96,8 @@ namespace TW.Presentation.Terrain
         public int Knocked => jolts.Count;
         /// <summary>Squares whose contents are remembered, for the capture tools.</summary>
         public int FireCells => swept.Count;
+        /// <summary>Squares whose contents have been found, for the capture tools and the tests.</summary>
+        public int Sweeps { get; private set; }
 
         /// <summary>Rounds of one weapon needed to wear a thing away, at this strength and this material. The calibration:
         /// a machine gun fires 7 a second, so a sandbag stack (Hp 0.9, Erode 1) is gone in about five seconds of it.</summary>
@@ -125,6 +133,30 @@ namespace TW.Presentation.Terrain
             cells[i].DirZ += e.Dir.z;
         }
 
+        /// <summary>Tests only (PropWearTests): a fire grid of this size with no map, as MakeGrid builds one from it.</summary>
+        public void GridForTests(int x, int z)
+        {
+            cellsX = x; cellsZ = z;
+            cells = new Cell[x * z];
+        }
+
+        /// <summary>Tests only (PropWearTests): rounds landing on the cell at this point, on this bearing, a round at a
+        /// time, as FireAt does from a Shot.</summary>
+        public void RoundsForTests(float x, float z, int rounds, Vector3 dir)
+        {
+            int i = CellAt(x, z);
+            if (i < 0) return;
+            cells[i].Rounds += rounds;
+            cells[i].DirX += dir.x * rounds;
+            cells[i].DirZ += dir.z * rounds;
+        }
+
+        /// <summary>Tests only (PropWearTests): one wear pass at this tick, as Update drives through Wear.</summary>
+        public void WearForTests(uint tick) => Wear(tick);
+
+        /// <summary>Tests only (PropWearTests): one settle pass at this time, as Update drives through Twitch.</summary>
+        public void TwitchForTests(float now) => Twitch(now);
+
         bool MakeGrid()
         {
             var map = Host.Local.Map;
@@ -152,11 +184,13 @@ namespace TW.Presentation.Terrain
 
         /// <summary>The pass: the squares taking the most fire give up what has gathered in them. Squares over the budget
         /// keep their rounds and are worn next time, so nothing fired is ever lost, only put off.</summary>
-        void Wear(SimWorld w)
+        void Wear(SimWorld w) => Wear(w.Tick);
+
+        void Wear(uint tick)
         {
             if (cells == null || rules == null || props == null) return;
-            if (lastWearTick != uint.MaxValue && w.Tick - lastWearTick < WearTicks) return;
-            lastWearTick = w.Tick;
+            if (lastWearTick != uint.MaxValue && tick - lastWearTick < WearTicks) return;
+            lastWearTick = tick;
             // a new composition renumbers every page and slot: what was found before means nothing now
             if (props.Generation != generation) { swept.Clear(); jolts.Clear(); generation = props.Generation; }
 
@@ -179,7 +213,7 @@ namespace TW.Presentation.Terrain
                 done++;
                 var dir = new Vector3(dx, 0f, dz);
                 dir = dir.sqrMagnitude > 1e-4f ? dir.normalized : Vector3.forward;
-                WearCell(here, rounds, dir, CellCentre(index), debris, w.Tick * 17u + (uint)index * 101u);
+                WearCell(here, rounds, dir, CellCentre(index), debris, tick * 17u + (uint)index * 101u);
             }
         }
 
@@ -187,13 +221,14 @@ namespace TW.Presentation.Terrain
         /// as a blast pays. Fire stays on the same ground, so it is paid once and then reused for as long as it lasts.</summary>
         Swept SweepCell(int index)
         {
-            if (swept.TryGetValue(index, out var found_)) return found_;
+            if (swept.TryGetValue(index, out var found_)) { found_.Used = ++sweepClock; return found_; }
             if (swept.Count >= MaxCachedCells)
             {
-                int oldest = -1; float when = float.MaxValue;
-                foreach (var kv in swept) if (kv.Value.Built < when) { when = kv.Value.Built; oldest = kv.Key; }
-                if (oldest >= 0) swept.Remove(oldest);
+                int coldest = -1; long when = long.MaxValue;
+                foreach (var kv in swept) if (kv.Value.Used < when) { when = kv.Value.Used; coldest = kv.Key; }
+                if (coldest >= 0) swept.Remove(coldest);
             }
+            Sweeps++;
             var centre = CellCentre(index);
             var list = new List<Standing_>(16);
             float reach = CellSize * 0.5f + 1.5f;   // a little past the square: a prop leans over its edge
@@ -207,7 +242,7 @@ namespace TW.Presentation.Terrain
                     list.Add(new Standing_ { Module = kv.Key, Page = page, Slot = slot, M = Home(kv.Key, page, slot, m) });
                 }
             }
-            var made = new Swept { Props = list, Cursor = 0, Built = Time.time };
+            var made = new Swept { Props = list, Cursor = 0, Used = ++sweepClock };
             swept[index] = made;
             return made;
         }
@@ -330,7 +365,7 @@ namespace TW.Presentation.Terrain
             if (jolts.Count >= MaxJolts) return;
             for (int i = 0; i < jolts.Count; i++)
                 if (jolts[i].Page == it.Page && jolts[i].Slot == it.Slot && jolts[i].Module == it.Module) return;   // already jumping
-            float amp = JoltReach * Mathf.Clamp01(rule.Jolt) * (0.55f + 0.9f * Hash01(salt + (uint)it.Slot * 31u));
+            float amp = JoltReach * Mathf.Clamp01(rule.Jolt) * (JoltJitterLow + (JoltJitterHigh - JoltJitterLow) * Hash01(salt + (uint)it.Slot * 31u));
             jolts.Add(new Jolted { Module = it.Module, Page = it.Page, Slot = it.Slot, Home = it.M, Push = dir * amp, Born = Time.time });
         }
 

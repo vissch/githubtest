@@ -1,6 +1,7 @@
 // Phase: B5 (implemented) — the calibration of wearing the field away with small-arms fire (PropWear): how long one
 // machine gun needs on a thing before it goes. These are the owner's feel numbers ("4-6 seconds for a sandbag stack
 // or a timber wall section"), locked against the sim's real rates of fire, so that tuning either end shows up here.
+using System.Collections.Generic;
 using NUnit.Framework;
 using UnityEngine;
 using TW.Sim;
@@ -105,10 +106,156 @@ namespace TW.Tests
             // a bullet nudges a helmet; it does not launch it out of the battle (that is Toss, for a shell). Identity is
             // safe whatever the size, because everything keys off PropWear.Home rather than off what is drawn — this is
             // only about how it looks.
-            Assert.That(PropDestruction.JoltReach, Is.LessThan(PropDestruction.Quantum),
-                "a knock moves a thing less than the grain the field is keyed at: it twitches where it lies");
+            Assert.That(PropDestruction.JoltReach * PropDestruction.JoltJitterHigh, Is.LessThanOrEqualTo(PropDestruction.Quantum * 0.5f),
+                "the furthest a round ever pushes a prop is held under half the grain the field is keyed at, or it becomes a different prop");
             Assert.That(PropDestruction.JoltSeconds, Is.LessThan(0.5f), "and it is back down almost at once");
             Assert.That(PropDestruction.MaxJolts, Is.LessThanOrEqualTo(64), "with a bound on how many are moving at once");
+        }
+
+        [Test]
+        public void A_Cell_Under_Fire_Is_Swept_Once_And_Then_Reused()
+        {
+            var go = new GameObject("sweep reuse test");
+            try
+            {
+                var kit = new BattlefieldKit();
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var wear = go.AddComponent<PropDestruction>();
+                wear.AttachForTests(props);
+                wear.GridForTests(4, 4);
+
+                wear.RoundsForTests(2f, 2f, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                wear.WearForTests(0);
+                Assert.AreEqual(1, wear.Sweeps, "one square under fire pays for one sweep");
+                Assert.AreEqual(1, wear.FireCells);
+
+                // still under fire, several passes later: the same square must not pay again
+                for (int n = 1; n <= 3; n++)
+                {
+                    wear.RoundsForTests(2f, 2f, 1, Vector3.forward);
+                    wear.WearForTests((uint)(n * PropDestruction.WearTicks));
+                }
+                Assert.AreEqual(1, wear.Sweeps, "a square under constant fire is paid once and then reused for as long as it lasts");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void A_Cell_Under_The_Longest_Burst_Is_Not_The_First_One_The_Cache_Lets_Go()
+        {
+            var go = new GameObject("sweep lru test");
+            try
+            {
+                var kit = new BattlefieldKit();
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var wear = go.AddComponent<PropDestruction>();
+                wear.AttachForTests(props);
+                wear.GridForTests(16, 16);   // 256 squares: far more than MaxCachedCells
+
+                uint tick = 0;
+                // cellA is swept first and then kept under fire (and so re-touched) on every pass after
+                wear.RoundsForTests(2f, 2f, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                wear.WearForTests(tick); tick += (uint)PropDestruction.WearTicks;
+                Assert.AreEqual(1, wear.Sweeps);
+
+                // fill the cache with MaxCachedCells - 1 more distinct squares, re-touching cellA every pass
+                for (int i = 1; i < PropDestruction.MaxCachedCells; i++)
+                {
+                    float x = 2f + (i % 16) * PropDestruction.CellSize, z = 2f + (i / 16) * PropDestruction.CellSize;
+                    wear.RoundsForTests(x, z, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                    wear.RoundsForTests(2f, 2f, 1, Vector3.forward);
+                    wear.WearForTests(tick); tick += (uint)PropDestruction.WearTicks;
+                }
+                Assert.AreEqual(PropDestruction.MaxCachedCells, wear.FireCells, "the cache is exactly full");
+
+                // one more, brand-new square: the cache must let someone go
+                float nx = 2f + (PropDestruction.MaxCachedCells % 16) * PropDestruction.CellSize;
+                float nz = 2f + (PropDestruction.MaxCachedCells / 16) * PropDestruction.CellSize;
+                wear.RoundsForTests(nx, nz, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                wear.WearForTests(tick); tick += (uint)PropDestruction.WearTicks;
+                int sweepsAfterNewCell = wear.Sweeps;
+                Assert.AreEqual(PropDestruction.MaxCachedCells, wear.FireCells, "still exactly one cache's worth of squares");
+
+                // cellA was touched on every single pass: eviction by "oldest built" would drop it first, since it was
+                // built before every other square in the cache. It must not have paid for a fresh sweep here.
+                wear.RoundsForTests(2f, 2f, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                wear.WearForTests(tick);
+                Assert.AreEqual(sweepsAfterNewCell, wear.Sweeps, "the square under the longest burst is reused, not re-swept");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void Twitch_Puts_A_Knocked_Prop_Back_Exactly_Where_It_Lay()
+        {
+            var go = new GameObject("knock test");
+            try
+            {
+                var kit = new BattlefieldKit();
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var wear = go.AddComponent<PropDestruction>();
+                wear.AttachForTests(props);
+                wear.GridForTests(4, 4);
+
+                var sandbag = kit.sandbag;
+                var home = Matrix4x4.TRS(new Vector3(2f, 0f, 2f), Quaternion.identity, Vector3.one);
+                props.AddInstance(sandbag, home);
+
+                // enough rounds to wear it (Hp 0.9, Erode 1, Jolt .08) without finishing it off (10 * 0.03 = 0.3 < 0.9)
+                wear.RoundsForTests(2f, 2f, 10, Vector3.forward);
+                wear.WearForTests(0);
+                Assert.AreEqual(1, wear.Knocked, "a hit thing with Jolt > 0 is knocked");
+
+                float t0 = Time.time;
+                wear.TwitchForTests(t0 + 0.1f);   // mid-flight: it has moved off home
+                var mid = Drawn(props, sandbag);
+                Assert.Greater(Vector3.Distance(mid.GetPosition(), home.GetPosition()), 1e-4f, "it jumps while settling");
+
+                wear.TwitchForTests(t0 + 10f);   // long past JoltSeconds: it has settled
+                Assert.AreEqual(0, wear.Knocked, "it has settled");
+                var back = Drawn(props, sandbag);
+                Assert.Less(Vector3.Distance(back.GetPosition(), home.GetPosition()), 1e-4f, "and lies exactly where it did before it was ever hit");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        [Test]
+        public void Sustained_Fire_Wears_A_Prop_Away_Through_The_Real_Wear_And_Sweep()
+        {
+            var go = new GameObject("wear away test");
+            try
+            {
+                var kit = new BattlefieldKit();
+                var props = go.AddComponent<BattlefieldProps>();
+                props.AttachKitForTests(kit);
+                var wear = go.AddComponent<PropDestruction>();
+                wear.AttachForTests(props);
+                wear.GridForTests(4, 4);
+
+                // a helmet (kit.helmet-like light prop, Hp 0.2 per What_A_Man_Drops_Is_Shot_Away_Almost_At_Once): one
+                // sweep's worth of rounds (30 * 0.03 = 0.9) is far past its Hp and finishes it in the first pass
+                var prop = kit.sandbag;
+                props.AddInstance(prop, Matrix4x4.TRS(new Vector3(2f, 0f, 2f), Quaternion.identity, Vector3.one));
+
+                uint tick = 0;
+                for (int n = 0; n < 4 && wear.Worn == 0; n++)
+                {
+                    wear.RoundsForTests(2f, 2f, PropDestruction.MinRoundsForSweep, Vector3.forward);
+                    wear.WearForTests(tick); tick += (uint)PropDestruction.WearTicks;
+                }
+                Assert.AreEqual(1, wear.Worn, "the real Wear/SweepCell/WearCell path takes the prop down, not just the constants it is built from");
+            }
+            finally { Object.DestroyImmediate(go); }
+        }
+
+        static Matrix4x4 Drawn(BattlefieldProps props, BattlefieldKit.Module module)
+        {
+            var found = new List<(int page, int slot, Matrix4x4 m)>();
+            props.Within(module, new Vector2(2f, 2f), 5f, found);
+            return found[0].m;
         }
     }
 }
