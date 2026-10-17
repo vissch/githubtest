@@ -114,39 +114,56 @@ namespace TW.Editor
                 Vector3 keepPos = cam.transform.position; Quaternion keepRot = cam.transform.rotation;
                 tc.enabled = false;
 
-                while (Queue.Count > 0)
+                try
                 {
-                    var shot = Queue.Dequeue();
-                    Pose(tc, cam, shot);
-                    yield return null;                        // a whole frame, so everything that culls or scales
-                                                              // against the camera has seen this pose
-                    if (!Application.isBatchMode)
+                    while (Queue.Count > 0)
                     {
-                        yield return new WaitForEndOfFrame();
-                        Render(shot);
+                        var shot = Queue.Dequeue();
+                        if (!TryPose(tc, cam, shot)) continue;
+                        yield return null;                        // a whole frame, so everything that culls or scales
+                                                                  // against the camera has seen this pose
+                        if (!Application.isBatchMode)
+                        {
+                            yield return new WaitForEndOfFrame();
+                            Render(shot);
+                        }
+                        else
+                        {
+                            // Batch mode has no end of frame to wait for — no swap chain — so WaitForEndOfFrame never
+                            // resumes and a batch capture used to hang here forever, drain no queue and write no PNG, in
+                            // silence. Rendering straight from the coroutine instead does NOT work either, and the way it
+                            // fails is worth writing down because it cost three capture runs: a coroutine resumes during
+                            // Update, BEFORE every LateUpdate in that frame. The tanks, the men and the effects are all
+                            // submitted with Graphics.DrawMesh* from their own LateUpdate and last only the frame they
+                            // are submitted in, so a Camera.Render() called from Update draws the scene's real
+                            // MeshRenderers — terrain, props, bunkers — and NOTHING that is drawn procedurally. The
+                            // stills come back looking correct and complete, with every machine and every man missing.
+                            // So the render is handed to this component's own LateUpdate, which is ordered last.
+                            toRender = shot;
+                            while (toRender != null) yield return null;
+                        }
+                        for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
                     }
-                    else
-                    {
-                        // Batch mode has no end of frame to wait for — no swap chain — so WaitForEndOfFrame never
-                        // resumes and a batch capture used to hang here forever, drain no queue and write no PNG, in
-                        // silence. Rendering straight from the coroutine instead does NOT work either, and the way it
-                        // fails is worth writing down because it cost three capture runs: a coroutine resumes during
-                        // Update, BEFORE every LateUpdate in that frame. The tanks, the men and the effects are all
-                        // submitted with Graphics.DrawMesh* from their own LateUpdate and last only the frame they
-                        // are submitted in, so a Camera.Render() called from Update draws the scene's real
-                        // MeshRenderers — terrain, props, bunkers — and NOTHING that is drawn procedurally. The
-                        // stills come back looking correct and complete, with every machine and every man missing.
-                        // So the render is handed to this component's own LateUpdate, which is ordered last.
-                        toRender = shot;
-                        while (toRender != null) yield return null;
-                    }
-                    for (int k = 0; k < shot.Gap; k++) yield return null;   // let the world move on between stills
                 }
+                finally
+                {
+                    // A throw from Pose or Render used to kill this coroutine right here: the TacticalCamera stayed
+                    // disabled, the camera stayed parked at the last pose, and `running` stayed true forever, which
+                    // made LateUpdate never start a run again — every later shot queued silently and wrote no PNG.
+                    if (tc != null) { tc.Zoom = keepZoom; tc.Focus = keepFocus; tc.enabled = keepEnabled; }
+                    if (cam != null) { cam.fieldOfView = keepFov; cam.transform.SetPositionAndRotation(keepPos, keepRot); }
+                    running = false;
+                }
+            }
 
-                tc.Zoom = keepZoom; tc.Focus = keepFocus; cam.fieldOfView = keepFov;
-                cam.transform.SetPositionAndRotation(keepPos, keepRot);
-                tc.enabled = keepEnabled;
-                running = false;
+            bool TryPose(TacticalCamera tc, Camera cam, Shot shot)
+            {
+                try { Pose(tc, cam, shot); return true; }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("[rig] shot " + shot.Path + " failed to pose: " + ex);
+                    return false;
+                }
             }
 
             void Pose(TacticalCamera tc, Camera cam, Shot shot)
@@ -180,22 +197,29 @@ namespace TW.Editor
 
             void Render(Shot shot)
             {
-                var c = Camera.main; if (c == null) return;
-                if (Verbose) Debug.Log($"[rig] render {Path.GetFileName(shot.Path)} frame={Time.frameCount} at={c.transform.position} want={shot.Want}");
-                var rt = RenderTexture.GetTemporary(shot.W, shot.H, 24, RenderTextureFormat.ARGB32);
-                var before = c.targetTexture;
-                c.targetTexture = rt; c.Render(); c.targetTexture = before;
-                var was = RenderTexture.active; RenderTexture.active = rt;
-                var tex = new Texture2D(shot.W, shot.H, TextureFormat.RGB24, false);
-                tex.ReadPixels(new Rect(0, 0, shot.W, shot.H), 0, 0); tex.Apply();
-                RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
+                try
+                {
+                    var c = Camera.main; if (c == null) return;
+                    if (Verbose) Debug.Log($"[rig] render {Path.GetFileName(shot.Path)} frame={Time.frameCount} at={c.transform.position} want={shot.Want}");
+                    var rt = RenderTexture.GetTemporary(shot.W, shot.H, 24, RenderTextureFormat.ARGB32);
+                    var before = c.targetTexture;
+                    c.targetTexture = rt; c.Render(); c.targetTexture = before;
+                    var was = RenderTexture.active; RenderTexture.active = rt;
+                    var tex = new Texture2D(shot.W, shot.H, TextureFormat.RGB24, false);
+                    tex.ReadPixels(new Rect(0, 0, shot.W, shot.H), 0, 0); tex.Apply();
+                    RenderTexture.active = was; RenderTexture.ReleaseTemporary(rt);
 
-                Directory.CreateDirectory(Path.GetDirectoryName(shot.Path));
-                File.WriteAllBytes(shot.Path, tex.EncodeToPNG());
-                LastJson = Measure(tex, shot, c);
-                File.WriteAllText(Path.ChangeExtension(shot.Path, ".json"), LastJson);
-                Object.Destroy(tex);
-                Last = shot.Path;
+                    Directory.CreateDirectory(Path.GetDirectoryName(shot.Path));
+                    File.WriteAllBytes(shot.Path, tex.EncodeToPNG());
+                    LastJson = Measure(tex, shot, c);
+                    File.WriteAllText(Path.ChangeExtension(shot.Path, ".json"), LastJson);
+                    Object.Destroy(tex);
+                    Last = shot.Path;
+                }
+                catch (System.Exception ex)
+                {
+                    Debug.LogError("[rig] shot " + shot.Path + " failed: " + ex);
+                }
             }
         }
 
