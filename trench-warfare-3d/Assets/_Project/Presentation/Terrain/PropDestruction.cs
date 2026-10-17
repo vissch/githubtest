@@ -91,6 +91,17 @@ namespace TW.Presentation.Terrain
         readonly Dictionary<long, int> bagsLeft = new Dictionary<long, int>(32);
         readonly HashSet<long> destroyed = new HashSet<long>();
         readonly HashSet<long> damaged = new HashSet<long>();   // lining sections in their damaged state (the whole panel's key)
+        /// <summary>A house's chunk mask, cached per instance matrix (the same key Suppress trusts to name one instance):
+        /// the mask only ever changes when one of its chunks goes (Down clears it then). Capped so a long match cannot
+        /// grow it past a field holds a few hundred house instances; past the cap it is cleared rather than grown.</summary>
+        readonly Dictionary<long, HouseKit.ChunkMask> maskCache = new Dictionary<long, HouseKit.ChunkMask>(64);
+        public const int MaxMaskCache = 4096;
+        /// <summary>MaskOf bodies actually run (a cache miss), for the capture tools.</summary>
+        public int MaskBuilds { get; private set; }
+        /// <summary>Every ask of MaskOf, cache hits included.</summary>
+        public int MaskLookups { get; private set; }
+        public int MaskBuildsLastFrame { get; private set; }
+        int maskBuildsAtFrameStart;
         int sectionPieces;                                       // pieces thrown off the lining by the strike in hand
         // the sections the strike in hand has already hit: the rules dictionary lists a panel just before its broken twin,
         // so a panel that broke drew its twin under the same strike, which then took the same harm again and went straight
@@ -186,6 +197,7 @@ namespace TW.Presentation.Terrain
         void Update()
         {
             using var perf = TW.Sim.PerfMarkers.DestructionUpdate.Auto();
+            MaskBuildsLastFrame = MaskBuilds - maskBuildsAtFrameStart; maskBuildsAtFrameStart = MaskBuilds;
             if (Host == null || Host.Local == null || props.Kit == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             if (rules == null) BuildRules(props.Kit);
@@ -494,20 +506,33 @@ namespace TW.Presentation.Terrain
         }
 
         /// <summary>The chunks of the house drawn at this matrix that have come down: exactly the ones remembered as
-        /// destroyed (a house chunk is always remembered, past MaxRemembered too, or its house would draw it again).</summary>
+        /// destroyed (a house chunk is always remembered, past MaxRemembered too, or its house would draw it again).
+        /// A pure function of the house matrix and the destroyed set, so the answer is cached per instance (keyed as
+        /// Suppress keys one) and dropped only in Down, when a chunk of some house goes.</summary>
         HouseKit.ChunkMask MaskOf(BattlefieldKit.Module whole, Matrix4x4 m)
         {
+            MaskLookups++;
             var mask = default(HouseKit.ChunkMask);
-            if (destroyed.Count == 0 || props.Kit == null || !props.Kit.HouseOfWhole.TryGetValue(whole, out var house)) return mask;
-            var chunks = house.Chunks;
-            for (int i = 0; i < chunks.Length; i++)
-                if (destroyed.Contains(Key(chunks[i].Module, HouseKit.Place(m, chunks[i])))) mask.Set(i);
+            if (props.Kit == null || !props.Kit.HouseOfWhole.TryGetValue(whole, out var house)) return mask;
+            long at = Key(whole, m);
+            if (maskCache.TryGetValue(at, out var hit)) return hit;
+            MaskBuilds++;
+            if (destroyed.Count > 0)
+            {
+                var chunks = house.Chunks;
+                for (int i = 0; i < chunks.Length; i++)
+                    if (destroyed.Contains(Key(chunks[i].Module, HouseKit.Place(m, chunks[i])))) mask.Set(i);
+            }
+            if (maskCache.Count >= MaxMaskCache) maskCache.Clear();
+            maskCache[at] = mask;
             return mask;
         }
 
         void Down(BattlefieldKit.Module module, int page, int slot, long key)
         {
-            if (destroyed.Count < MaxRemembered || (props.Kit != null && props.Kit.HouseChunkOf.ContainsKey(module))) destroyed.Add(key);
+            bool chunk = props.Kit != null && props.Kit.HouseChunkOf.ContainsKey(module);
+            if (destroyed.Count < MaxRemembered || chunk) destroyed.Add(key);
+            if (chunk) maskCache.Clear();
             props.Hide(module, page, slot);
         }
 
