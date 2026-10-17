@@ -65,23 +65,30 @@ namespace TW.Presentation
             OverrunTotal += w.Events.Overrun;
         }
 
-        /// <summary>Dispatch and clear. Call once per render frame after all ticks for the frame were stepped.</summary>
+        /// <summary>Dispatch and clear. Call once per render frame after all ticks for the frame were stepped.
+        /// Frame is cleared in a finally: the events are consumed once per frame, so a subscriber that throws must
+        /// still lose them, or Collect would append next frame onto a list that still holds this one and every
+        /// kept event is dispatched again (duplicated bursts and sound, a list that only grows). The throw itself
+        /// still propagates out of Dispatch — this is not a catch.</summary>
         public void Dispatch()
         {
             using var dispatch = PerfMarkers.EventsDispatch.Auto();
-            for (int i = 0; i < Frame.Count; i++)
+            try
             {
-                var e = Frame[i];
-                if (Skip != null && Skip(e)) continue;
-                var h = handlers;   // re-read per event: a handler added mid-dispatch hears the next event, as with a delegate
-                if (ProfileSubscribers)
+                for (int i = 0; i < Frame.Count; i++)
                 {
-                    var m = handlerMarkers;
-                    for (int k = 0; k < h.Length; k++) { m[k].Begin(); h[k](e); m[k].End(); }
+                    var e = Frame[i];
+                    if (Skip != null && Skip(e)) continue;
+                    var h = handlers;   // re-read per event: a handler added mid-dispatch hears the next event, as with a delegate
+                    if (ProfileSubscribers)
+                    {
+                        var m = handlerMarkers;
+                        for (int k = 0; k < h.Length; k++) { m[k].Begin(); try { h[k](e); } finally { m[k].End(); } }
+                    }
+                    else for (int k = 0; k < h.Length; k++) h[k](e);
                 }
-                else for (int k = 0; k < h.Length; k++) h[k](e);
             }
-            Frame.Clear();
+            finally { Frame.Clear(); }
         }
     }
 }
