@@ -249,13 +249,16 @@ Shader "TW/Toon (URP)"
                     float3 r = reflect(-view, n);
                     half fresnel = pow(1.0 - saturate(dot(n, view)), 3.0);
                     half3 sky = TWSky() * lerp(1.08, 0.62, saturate(r.y * 1.4));   // bright at the horizon, darker overhead
-                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7) * (1.0 - 0.55 * _TWWetLook));   // look.wet: less of the pale sky in every puddle   // a puddle mirrors at most a third of the sky: dark water, not paper
+                    color = lerp(color, sky, min(gloss * (0.22 + 0.70 * fresnel), lerp(1.0, 0.35, saturate(gloss * 2.0 - 1.0))) * (1.0 - shore * 0.7) * (1.0 - _TWWetLook * lerp(_TWMudSky > 0.0 ? _TWMudSky : 0.55, 0.55, saturate(gloss * 2.0 - 1.0))));   // look.wet: less of the pale sky in every puddle; look.mudSky: the MUD loses more of it still (its blue was the sky's: B:R 1.77), while still water keeps today's 0.55 (its slab was tuned in rounds 7-10)   // a puddle mirrors at most a third of the sky: dark water, not paper
                     half glint = smoothstep(0.990, 0.994, dot(r, mainLight.direction));
                     color += glint * gloss * mainLight.color * 0.55 * mainLight.shadowAttenuation;
                     // wet sheen: a broad soft highlight toward the light, on top of the hard glint (the moon on soaked mud)
                     half toLight = saturate(dot(r, mainLight.direction));
                     half mudOnly = 1.0 - saturate(gloss * 2.0 - 1.0) * 0.72;   // the sheen is the mud's; still water only mirrors
-                    color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                    // look.mudSheen: the mud's own share of the moon. lerp(_TWMoonSheen, 1.0, close) below goes to 1 among the
+                    // men, so at zoom 12 that knob cannot touch the near mud - this one can, and it is what the near mud's p95 is.
+                    half mudSheen = lerp(1.0, _TWMudSheen > 0.0 ? _TWMudSheen : 1.0, _TWWetLook);
+                    color += (pow(toLight, 14.0) * 0.20 + smoothstep(0.93, 0.96, toLight) * lerp(0.26, 0.40, close)) * gloss * mudOnly * mudSheen * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     // look.wet: the flames' own glints on the wet ground (TWLightPools.hlsl), orange near a fire
                     glintR = r; glintW = gloss * mudOnly * _TWWetLook * 0.6;   // applied with the pools below, in one pass (TWPoolsAndGlints)
                     if (_DetailStrength > 0.0 && _TWWet.y > 0.0)
@@ -265,7 +268,7 @@ Shader "TW/Toon (URP)"
                         half2 fine = SAMPLE_TEXTURE2D(_DetailMap, sampler_DetailMap, i.positionWS.xz * _DetailScale * 4.3 + 0.17).gb - 0.5;
                         float3 facet = normalize(n + float3(fine.x, 0, fine.y) * 1.25);
                         half spark = smoothstep(0.972, 0.984, dot(reflect(-view, facet), mainLight.direction));
-                        color += spark * 1.7 * near * lerp(_TWMoonSheen > 0.0 ? _TWMoonSheen : 0.3, 1.0, close) * gloss * mudOnly * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
+                        color += spark * 1.7 * near * lerp(_TWMoonSheen > 0.0 ? _TWMoonSheen : 0.3, 1.0, close) * gloss * mudOnly * mudSheen * _TWWet.y * mainLight.color * mainLight.shadowAttenuation;
                     }
                 }
                 if (_TWWet.z > 0.0)

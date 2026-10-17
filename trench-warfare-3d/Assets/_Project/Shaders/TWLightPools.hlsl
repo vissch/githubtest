@@ -19,6 +19,10 @@ float _TWPoolShoulder;   // look.poolShoulder: rolls a bright sum off, so a fire
 float _TWPoolsThroughHaze;
 float _TWPropRim;
 float _TWMoonSheen;   // look.moonSheen (Atmosphere.NightLook.cs): the standard view's share of the fine wet sparkle (0.3 before); 0 = as before
+float _TWMudSky;     // look.mudSky (Atmosphere.NightLook.cs): how much LESS of the pale sky the night mud mirrors than still water does
+                     // (1 = none of today's 0.55 share kept, 0.55 = as before). Still water keeps 0.55 whatever this is. 0 = as before.
+float _TWMudSheen;   // look.mudSheen: the night mud's own share of the moon's broad sheen and fine spark (1 = as before); 0 = as before.
+                     // Unlit wet mud out-brightened every soldier (2026-10-17: mud luma p95 0.567 against the men's 0.444, mud B:R 1.77).
 float _TWPoolUnblue;   // look.poolUnblue: where a pool adds warm light it takes that much blue out of the moonlit ground under it,
                        // or its thin rim of orange over blue read violet (critique round 15: 1.5 % of pixels violet, all at pool edges)   // look.propRim: a prop's (not the ground's) warm rim toward the nearest pools, like the men's; 0 = none   // look.poolsThroughHaze: the share of a pool's light added after the haze, so a lamp far off still lights its mud through it
 

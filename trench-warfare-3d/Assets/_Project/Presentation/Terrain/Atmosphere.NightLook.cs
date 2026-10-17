@@ -51,6 +51,29 @@
 // look.rainCurtain (round 7's critic, the loudest defect at the wide view: vertical stripes over the sky): the distant rain
 // curtains are the haze colour times 1.9, near white once the haze was lifted and lightened; while lifted they are 1.15
 // times it at look.rainCurtain of their alpha.
+// look.mudSheen and look.mudSky (the look of 2026-10-17: "unlit wet mud out-brights every soldier, and is cold blue").
+// Measured at zoom 12 with eight men in frame: a crop of plain unlit mud read luma p95 0.567 against the men's 0.444, and
+// its mean RGB 0.201 0.248 0.355 - blue at 1.77 times its own red. So the frame spent its highlights on a big pale
+// surface and tinted it with the sky, which is the opposite of the decided direction (2026-09-29: the highlights go on
+// warm fire and on broken sparkles, "not on big pale surfaces"). This is a value question, not a new look: the night of
+// 2026-10-07 stays, and both knobs are night-only (0 by day, in winter and on lava) and 0 = the old night exactly.
+// look.mudSky: the mud loses look.mudSky of the sky mirror (Toon_URP line 252, the lerp toward TWSky()) where still
+// water keeps today's 0.55 share - the water slab was tuned in rounds 7-10 and must not move.
+// Swept at zoom 12 (2026-10-17), and the mirror turned out NOT to be where this mud's blue comes from: over the whole
+// range, mudSky 0.55 (the old night) to 1.00 (no mirror at all), the mud crop's B:R moved 1.836 to 1.828 and its p95
+// 0.3605 to 0.3596. At this pitch the mirror is gated by gloss and a small fresnel, so it is a sliver of the mud's
+// light; the blue is the moonlight's own colour and the grade. Cutting the sheen takes the blue down in absolute terms
+// (B-R 0.161 -> 0.110) but cannot change the ratio, because it scales R and B alike. Getting the ratio itself down
+// means the moon's colour or the grade - the night of 2026-10-07, which this is not allowed to touch. The knob stays
+// at 0.85 because it is right in principle (unlit mud should mirror less sky than still water) and costs nothing, and
+// it bites harder at the grazing angles of the wider views; it is not what fixed this frame.
+// look.mudSheen: the mud's share of the moon's broad sheen (line 258) and fine spark (line 268). look.moonSheen cannot
+// do this job: it is lerped to 1 at close range, so at zoom 12 it is already out of the way, and these two are what the
+// near mud's p95 is. The pools' own glints and look.propRim are left alone - that is where the highlights are meant to go.
+// This knob is what turns the frame. Swept at 0.45 / 0.30 / 0.20 (mud p95, men p95, contrast_median against the old
+// night's 0.5903 / 0.5292 / 0.19241): 0.45 -> 0.3600 / 0.4025 / 0.26665, 0.30 -> 0.2941 / 0.3619 / 0.28939,
+// 0.20 -> 0.2534 / 0.3493 / 0.30826. 0.45 is the mildest that puts the mud under the men, so it is the default: the
+// cut is paid out of a big pale surface, not out of the fire (warm 5.17 % -> 5.30 %, so the pools were left alone).
 // Dark fields only, never lava: its magenta fog is its own look.
 using UnityEngine;
 using UnityEngine.Rendering;
@@ -159,6 +182,11 @@ namespace TW.Presentation.Terrain
         /// ground between the pools dead, no highlight on the wet mud, where the palette edit's near mud glints cold).</summary>
         public const float DefaultMoonSheen = 0.45f;   // 0.9 turned the near mud to noisy speckle; round 19's critic read 0.6 as frost on the open mud
         float moonSheen = DefaultMoonSheen;
+        /// <summary>look.mudSheen: the night mud's own share of the moon's broad sheen and fine spark (1 = as before);
+        /// look.mudSky: how much of the pale sky the mud stops mirroring, where still water keeps today's 0.55 share.</summary>
+        public const float DefaultMudSheen = 0.45f, DefaultMudSky = 0.85f;
+        static readonly int MudSheenId = Shader.PropertyToID("_TWMudSheen"), MudSkyId = Shader.PropertyToID("_TWMudSky");
+        float mudSheen = DefaultMudSheen, mudSky = DefaultMudSky;
         /// <summary>look.glowHue: a distant glow's core keeps its lamp's colour in the haze instead of going white.</summary>
         public const float DefaultGlowHue = 0.8f, DefaultGlowFade = 0.85f;
         static readonly int GlowFadeId = Shader.PropertyToID("_TWGlowFade");
@@ -181,12 +209,16 @@ namespace TW.Presentation.Terrain
                 glowHue = Mathf.Clamp01(Knobs.Get("look.glowHue", DefaultGlowHue));
                 glowFade = Mathf.Clamp01(Knobs.Get("look.glowFade", DefaultGlowFade));
                 moonSheen = Mathf.Clamp(Knobs.Get("look.moonSheen", DefaultMoonSheen), 0.01f, 1f);
+                mudSheen = Mathf.Clamp(Knobs.Get("look.mudSheen", DefaultMudSheen), 0.05f, 1f);
+                mudSky = Mathf.Clamp(Knobs.Get("look.mudSky", DefaultMudSky), 0.55f, 1f);
             }
             bool night = Look == Mood.Night && Profile.HeatStrength <= 0f;
             Shader.SetGlobalFloat(WaterDimId, night ? waterDim : 0f);
             Shader.SetGlobalFloat(GlowHueId, night ? glowHue : 0f);
             Shader.SetGlobalFloat(GlowFadeId, night ? glowFade : 0f);
             Shader.SetGlobalFloat(MoonSheenId, night ? moonSheen : 0f);
+            Shader.SetGlobalFloat(MudSheenId, night ? mudSheen : 0f);
+            Shader.SetGlobalFloat(MudSkyId, night ? mudSky : 0f);
             Shader.SetGlobalVector(CurtainId, night && fogLifted > 0f ? new Vector4(CurtainPale, curtain, 0f, 0f) : Vector4.zero);
             return night ? puddleSky : 1f;
         }
