@@ -2,7 +2,6 @@
 // of value noise over a basin that falls away to the sea at the edges, faceted (flat-shaded triangles) and cut into
 // three height bands, each a submesh with its own Toon colour. Deterministic from its seed, so the same map every
 // time and a test can ask where a country node stands. The sea is a plate below zero. Plain code, no scene.
-using System.Collections.Generic;
 using UnityEngine;
 
 namespace TW.Presentation.Meta
@@ -73,19 +72,33 @@ namespace TW.Presentation.Meta
         /// the sea are left out (the sea plate covers them).</summary>
         public static Mesh Land(float[] h, int w = Width, int l = Length, string name = "Continent")
         {
-            var v = new List<Vector3>(); var n = new List<Vector3>(); var s = new List<Vector3>(); var uv = new List<Vector2>();
-            var tris = new[] { new List<int>(), new List<int>(), new List<int>() };
+            // Two passes over the same grid: the first counts what survives the cull and how it falls into the bands, the
+            // second fills exact-size arrays. One List<> without a capacity grew by doubling to 36,864 entries, so the
+            // throw-away intermediate arrays cost as much again as the mesh it keeps (about 1.6 MB), once per scene.
+            int kept = 0;
+            var perBand = new int[3];
+            for (int z = 0; z < l; z++)
+                for (int x = 0; x < w; x++)
+                {
+                    float h00 = h[Index(w, x, z)], h10 = h[Index(w, x + 1, z)], h01 = h[Index(w, x, z + 1)], h11 = h[Index(w, x + 1, z + 1)];
+                    if (!(h00 < 0f && h01 < 0f && h11 < 0f)) { kept++; perBand[Band((h00 + h01 + h11) / 3f)]++; }
+                    if (!(h00 < 0f && h11 < 0f && h10 < 0f)) { kept++; perBand[Band((h00 + h11 + h10) / 3f)]++; }
+                }
+            var v = new Vector3[kept * 3]; var n = new Vector3[kept * 3]; var s = new Vector3[kept * 3]; var uv = new Vector2[kept * 3];
+            var tris = new[] { new int[perBand[0] * 3], new int[perBand[1] * 3], new int[perBand[2] * 3] };
+            var cursor = new int[3];
+            int vi = 0;
             for (int z = 0; z < l; z++)
                 for (int x = 0; x < w; x++)
                 {
                     float h00 = h[Index(w, x, z)], h10 = h[Index(w, x + 1, z)], h01 = h[Index(w, x, z + 1)], h11 = h[Index(w, x + 1, z + 1)];
                     var p00 = new Vector3(x * Cell, h00 * Relief, z * Cell); var p10 = new Vector3((x + 1) * Cell, h10 * Relief, z * Cell);
                     var p01 = new Vector3(x * Cell, h01 * Relief, (z + 1) * Cell); var p11 = new Vector3((x + 1) * Cell, h11 * Relief, (z + 1) * Cell);
-                    Tri(v, n, s, uv, tris, p00, p01, p11, (h00 + h01 + h11) / 3f);
-                    Tri(v, n, s, uv, tris, p00, p11, p10, (h00 + h11 + h10) / 3f);
+                    Emit(v, n, s, uv, tris, cursor, ref vi, p00, p01, p11, (h00 + h01 + h11) / 3f);
+                    Emit(v, n, s, uv, tris, cursor, ref vi, p00, p11, p10, (h00 + h11 + h10) / 3f);
                 }
             var mesh = new Mesh { name = name, hideFlags = HideFlags.HideAndDontSave };
-            if (v.Count > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
+            if (v.Length > 65535) mesh.indexFormat = UnityEngine.Rendering.IndexFormat.UInt32;
             mesh.SetVertices(v); mesh.SetNormals(n); mesh.SetUVs(0, uv); mesh.SetUVs(3, s);
             mesh.subMeshCount = 3;
             for (int b = 0; b < 3; b++) mesh.SetTriangles(tris[b], b);
@@ -93,18 +106,21 @@ namespace TW.Presentation.Meta
             return mesh;
         }
 
-        static void Tri(List<Vector3> v, List<Vector3> n, List<Vector3> s, List<Vector2> uv, List<int>[] tris, Vector3 a, Vector3 b, Vector3 c, float rawMean)
+        static void Emit(Vector3[] v, Vector3[] n, Vector3[] s, Vector2[] uv, int[][] tris, int[] cursor, ref int i, Vector3 a, Vector3 b, Vector3 c, float rawMean)
         {
             if (a.y < 0f && b.y < 0f && c.y < 0f) return;
             var normal = Vector3.Cross(b - a, c - a).normalized;
             if (normal.y < 0f) normal = -normal;
-            int i = v.Count;
-            v.Add(a); v.Add(b); v.Add(c);
-            n.Add(normal); n.Add(normal); n.Add(normal);
-            s.Add(Vector3.up); s.Add(Vector3.up); s.Add(Vector3.up);
-            uv.Add(new Vector2(a.x, a.z) * 0.05f); uv.Add(new Vector2(b.x, b.z) * 0.05f); uv.Add(new Vector2(c.x, c.z) * 0.05f);
-            var t = tris[Band(rawMean)];
-            t.Add(i); t.Add(i + 1); t.Add(i + 2);
+            v[i] = a; v[i + 1] = b; v[i + 2] = c;
+            n[i] = normal; n[i + 1] = normal; n[i + 2] = normal;
+            s[i] = Vector3.up; s[i + 1] = Vector3.up; s[i + 2] = Vector3.up;
+            uv[i] = new Vector2(a.x, a.z) * 0.05f; uv[i + 1] = new Vector2(b.x, b.z) * 0.05f; uv[i + 2] = new Vector2(c.x, c.z) * 0.05f;
+            int band = Band(rawMean);
+            var t = tris[band];
+            int k = cursor[band];
+            t[k] = i; t[k + 1] = i + 1; t[k + 2] = i + 2;
+            cursor[band] = k + 3;
+            i += 3;
         }
 
         /// <summary>The sea: one plate just below zero, reaching past the land by <paramref name="margin"/>.</summary>
