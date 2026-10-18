@@ -395,6 +395,45 @@ class Day(Base):
         self.main("day")
         self.assertEqual(sorted((str(p), p.stat().st_mtime_ns) for p in self.tmp.rglob("*")), before)
 
+    def test_one_screen_walks_the_legs_glob_once_and_reads_each_record_once(self):
+        # [found-the-day-screen-reads-every-leg-record-on-the-20261018-0]
+        import ledger
+        self.queue("a")
+        for c in (1, 2, 3):
+            self.leg(c, "plan")
+            self.leg(c * 2, "execute")
+        d = self.board / "relay" / "desktop" / "legs"
+        f = sorted(d.glob("*.json"))[-1]
+        rec = json.loads(f.read_text(encoding="utf-8"))
+        f.write_text(json.dumps(dict(rec, week_used=1.2, week_end={
+            "at": "2026-10-05T16:54:00Z", "at_s": 1, "week": 41.0, "resets": "2026-10-08 16:00"})), encoding="utf-8")
+        want = self.screen()                    # the same board, before any counting is wrapped
+
+        walks, reads = [], {}
+        real_once, real_read = ledger._once, ledger._read
+
+        def counted_once(board, pattern):
+            if pattern == "relay/*/legs/*.json":
+                walks.append(1)
+            return real_once(board, pattern)
+
+        def counted_read(f):
+            reads[f] = reads.get(f, 0) + 1
+            return real_read(f)
+
+        ledger._once, ledger._read = counted_once, counted_read
+        try:
+            out = self.screen()
+        finally:
+            ledger._once, ledger._read = real_once, real_read
+
+        self.assertEqual(len(walks), 1, "[found-the-day-screen-reads-every-leg-record-on-the-20261018-0] "
+                          "the legs glob must be walked once for one screen, was walked %d times" % len(walks))
+        self.assertTrue(all(n <= 1 for n in reads.values()),
+                         "[found-the-day-screen-reads-every-leg-record-on-the-20261018-0] "
+                         "a leg record must not be read twice: %s" % reads)
+        self.assertEqual(out, want)
+
 
 class Answers(Base):
     """What the owner answered on the Decide page and nobody took up is on the master's screen (answers.py)."""
