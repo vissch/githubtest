@@ -49,9 +49,19 @@ def working_tree(wt):
     """The tree a commit of the working tree would record (untracked files too), the way gate.ps1 reads it."""
     with tempfile.TemporaryDirectory() as tmp:
         env = dict(os.environ, GIT_INDEX_FILE=str(Path(tmp) / "index"))
-        gitio.git_raw(["read-tree", "HEAD"], wt, env)
-        gitio.git_raw(["add", "-A"], wt, env)
-        return gitio.git_raw(["write-tree"], wt, env).stdout.decode().strip()
+        for args in (["read-tree", "HEAD"], ["add", "-A"]):
+            r = gitio.git_raw(args, wt, env)
+            if r.returncode:
+                raise gitio.GitError("git %s failed in %s: %s"
+                                     % (" ".join(args), wt, r.stderr.decode("utf-8", "replace").strip()))
+        r = gitio.git_raw(["write-tree"], wt, env)
+        if r.returncode:
+            raise gitio.GitError("git write-tree failed in %s: %s"
+                                 % (wt, r.stderr.decode("utf-8", "replace").strip()))
+        tree = r.stdout.decode().strip()
+        if not tree:
+            raise gitio.GitError("git write-tree gave no tree id")
+        return tree
 
 
 def gate_command(root):
@@ -86,8 +96,11 @@ def verdict(desk, wt):
         return "RUNNING", "%s, started %s" % (detail, rec["started_at"])
     if st != "DONE" or run.get("exit_code") != 0:
         return "RED", "%s %s; the log: %s" % (st, detail, run.get("log"))
-    if working_tree(wt) != rec["tree"]:
-        return "STALE", "the gate was green, but the files changed since: gate again"
+    try:
+        if working_tree(wt) != rec["tree"]:
+            return "STALE", "the gate was green, but the files changed since: gate again"
+    except gitio.GitError as e:
+        return "RED", "the working tree could not be read: %s; gate again" % e
     return "GREEN", "green for exactly these files"
 
 
@@ -99,7 +112,12 @@ def gate_start(desk, leg):
         raise SystemExit("relay: a PlayMode run holds the project: wait for it first (python relay.py leg play <filter>)")
     root = gitio.git(["rev-parse", "--show-toplevel"], wt)
     job = "gate-%d" % (len(list((desk / "jobs").glob("gate-*"))) + 1 if (desk / "jobs").is_dir() else 1)
-    write_json(desk / GATE, {"job": job, "tree": working_tree(wt), "started_at": now()})
+    try:
+        tree = working_tree(wt)
+    except gitio.GitError as e:
+        print("RED: the working tree could not be read: %s" % e)
+        return EXIT["RED"]
+    write_json(desk / GATE, {"job": job, "tree": tree, "started_at": now()})
     run_detached.main(["start", job, "--timeout", str(config.limits()["gate_seconds"]), "--cwd", root, "--"]
                       + gate_command(root))
     print("gate started for the files as they are now. Wait for it: python relay.py leg gate wait")

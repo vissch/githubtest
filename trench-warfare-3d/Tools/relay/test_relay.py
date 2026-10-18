@@ -2425,6 +2425,32 @@ class CloseOut(Repo):
         self.assertEqual(self.leg_cmd("finish")[0], 1)
         self.assertEqual(gitio.head(self.work), head)
 
+    # [found-working-tree-ignores-git-errors-so-an-empty-20261018-0]
+    def test_a_git_error_reading_the_working_tree_is_never_a_green_gate(self):
+        real = gitio.git_raw
+
+        def stub(args, cwd, env=None):
+            if args[:1] == ["write-tree"]:
+                return subprocess.CompletedProcess(args, 128, b"", b"fatal: unable to write new index file")
+            return real(args, cwd, env)
+
+        gitio.git_raw = stub
+        self.addCleanup(setattr, gitio, "git_raw", real)
+        (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+        start_code, start_out = self.leg_cmd("gate", "start")
+        self.leg_cmd("gate", "wait", "--max", "60")
+        head = gitio.head(self.work)
+        code, out = self.leg_cmd("gate", "status")
+        self.assertNotEqual(out[:5], "GREEN",
+            "[found-working-tree-ignores-git-errors-so-an-empty-20261018-0] a git error read as GREEN")
+        self.assertIn("unable to write new index file", start_out + out,
+            "[found-working-tree-ignores-git-errors-so-an-empty-20261018-0] the git error was not reported")
+        code, out = self.leg_cmd("finish", "-m", "add a.txt")
+        self.assertEqual(code, 1,
+            "[found-working-tree-ignores-git-errors-so-an-empty-20261018-0] finish committed on an unreadable tree")
+        self.assertEqual(gitio.head(self.work), head,
+            "[found-working-tree-ignores-git-errors-so-an-empty-20261018-0] a commit was made on an unreadable tree")
+
     def test_in_a_plan_leg_done_checks_the_plan_as_the_runner_will(self):
         self.d = legdir.new_leg("r1", 2, dict(UNIT, role="lane"), "plan", self.ph["plan"], self.lim, self.work,
                                 "lane/show/x", self.board)
