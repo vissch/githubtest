@@ -1,4 +1,4 @@
-> Snapshot read at integration 558c667 (2026-09-28). file:line citations drift: re-grep the symbol before editing. The code wins over this page.
+> Snapshot read at integration 558c667 (2026-09-28). Citations name the file and the symbol, no line numbers: grep the symbol. The code wins over this page.
 
 Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warfare-3d/Tools, D = docs.
 
@@ -210,7 +210,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - `Unchurn` reverts the three URP assets (:15-16, :71). `prune --apply` (:72).
 
 **PerfBench**
-- **`BenchOptions`** keys (`P\Perf\BenchOptions.cs:92-123`, defaults :13-79):
+- **`BenchOptions`** keys (`P\Perf\BenchOptions.cs`, defaults :13-79):
 
   | Key | Default |
   |---|---|
@@ -239,7 +239,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
   | `ground` | – (an unknown value means exit 2) |
 
   Unknown keys go to `warnings` (:124).
-- **`tw-perf/1` fields** (`P\Perf\PerfBench.cs`):
+- **`tw-perf/1` fields** (`PerfBench`, `P\Perf\PerfBench.cs`):
   - `run{label,utc,context,build(editor|development|release),args,exit,why,ended_in}` (:819-823)
   - `build_info` (a copy of `build-info.json`, player only) (:824-831)
   - `machine{cpu,cores,ram_mb,gpu,gpu_api,vram_mb,os,refresh_hz,battery}` (:832-836)
@@ -259,8 +259,8 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Noise (:5-9; workflow.md:352-354): p50 about 1%, p95 up to about 12%, p99 and per-system up to about 25%, hitches 2 vs 5. Trust p50; believe a per-system change only past about 30% and in both runs.
 
 **Instruments**
-- **`FrameBudget`** (`P\Presentation\Core\RenderGround.cs:174-202`): `DrawCalls`, `Vertices` and `IndirectDraws` of the last complete frame. **`Vertices` excludes indirect draws, which means it excludes the men** (:193-197).
-- **`HitchAttribution`** (`P\Perf\HitchAttribution.cs:1-7`) names the outermost TW marker that carried each hitch over 33 ms.
+- **`FrameBudget`** (`P\Presentation\Core\RenderGround.cs`): `DrawCalls`, `Vertices` and `IndirectDraws` of the last complete frame. **`Vertices` excludes indirect draws, which means it excludes the men** (:193-197).
+- **`HitchAttribution`** (`P\Perf\HitchAttribution.cs`) names the outermost TW marker that carried each hitch over 33 ms.
 - **`AllocProbe`** (`P\Perf\AllocProbe.cs`): `Count(Action)` :38 and `PerCall(step, warm, reps)` :58 count GC.Alloc samples. Returns -1 in a release player.
 
 **Budgets** (`D\05-performance-budgets.md`)
@@ -272,7 +272,7 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 - Fewer than 300 draw calls (:60-63).
 - Banned patterns (:65-76). Profiling procedure (:78-93).
 
-**Builds** (`P\Editor\BuildWindows.cs`)
+**Builds** (`BuildWindows`, `P\Editor\BuildWindows.cs`)
 - `ReleaseDir="Builds/WinBench"`, `DevelopmentDir="Builds/WinBenchDev"`, `Exe="TrenchWarfare.exe"` (:25).
 - `Build(bool)` :41. `Queue` (:32-38) relies on `delayCall`, which never fires in a background editor (workflow.md:339).
 - `CommandLine()` (:73-78) reads `-twdev` and exits 0 or 1.
@@ -285,5 +285,5 @@ Commit one change per commit on `lane/show/aosa`, with the A/B table (:115-116).
 **LODs and vertex budgets**
 - `TW_DERIVE` (default `"12"`; `1` derives LOD1 only, `0` keeps Tripo's own) in `T\frogrig.py:242-251` and `T\tank3split.py:513-530`. Decided in `decisions.md:29` and `D\22-asset-playground.md:94`. Frog `TW_DERIVE_SYM` at :263.
 - Unit art budget (decisions.md:26): 1,200-1,500 verts (max 2,000), far model 250-400 beyond 170 m, vehicles 3,000-5,000.
-- `LodTiers.VertexBudget = 1500000`, knob `vat.vertexBudget` (`P\Presentation\Units\VATRenderer.cs:56`, :62). Shadows are on only while `nearVerts*2 + farVerts <= vertexBudget` (:272).
+- `LodTiers.VertexBudget = 1500000`, knob `vat.vertexBudget` (`P\Presentation\Units\VATRenderer.cs`, :62). Shadows are on only while `nearVerts*2 + farVerts <= vertexBudget` (:272).
 - `occ.py`: `python Tools/aosa/occ.py <assemblies in dependency order>` or `--changed`. `TW_LIB` overrides the Library (workflow.md:120-126).

@@ -1,4 +1,4 @@
-> Snapshot read at integration 558c667 (2026-09-28). file:line citations drift: re-grep the symbol before editing. The code wins over this page.
+> Snapshot read at integration 558c667 (2026-09-28). Citations name the file and the symbol, no line numbers: grep the symbol. The code wins over this page.
 
 Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warfare-3d/Tools, D = docs.
 
@@ -39,9 +39,9 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   | Banner | 400 | 1900 | 2.4 | 700 | Legged |
   | Redoubt | 330 | 3200 | 1.7 | 600 | Legged |
 
-- **Ids** (:102-103, 116-127): Rifle 0, Assault 1, MG 2, Sniper 3, Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9, Banner 10, Redoubt 11, Officer 12, Shield 13, Medic 14, Repair 15, Para 16, Jetpack 17, Breaker 18. Ids 19-63 are free (`UnitDefinitionTests` uses spare id 20, `P\Tests\EditMode\UnitDefinitionTests.cs:22`).
-- `Archetypes.Count = 64` and `Max = 63` (`P\Sim\Core\OrderGroup.cs:53-54`).
-- Orders address groups, not ids (`OrderGroup.cs:16-20`, `Of()` at :26-42): Line, Marksman, Support, Raider.
+- **Ids** (:102-103, 116-127): Rifle 0, Assault 1, MG 2, Sniper 3, Maw 4, Tusk 5, Pincer 6, Kettle 7, Censer 8, Pavise 9, Banner 10, Redoubt 11, Officer 12, Shield 13, Medic 14, Repair 15, Para 16, Jetpack 17, Breaker 18. Ids 19-63 are free (`UnitDefinitionTests` uses spare id 20, `P\Tests\Sim\UnitDefinitionTests.cs`).
+- `Archetypes`: `Count` = 64 and `Max` = 63 (`P\Sim\Core\OrderGroup.cs`).
+- Orders address groups, not ids (`OrderGroup.cs`, `Of()` at :26-42): Line, Marksman, Support, Raider.
 - There is **no Sapper** in the code (grep finds 0 hits).
 
 **`UnitDefinitions`** (`P\Sim\Match\UnitDefinitions.cs`)
@@ -51,9 +51,9 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
   - writes `world.Units.Roster/Infantry`, `CombatCatalogueSystem.Weapon/Tank` and `VehicleKinematicsSystem.Profiles`;
   - skips an id `>= Archetypes.Count` (:55);
   - re-seals the fingerprints, then calls `world.FillRosters()` (:65-69).
-- `MatchSim` calls `UnitDefinitions.Apply(World)` last (`P\Sim\Match\MatchSim.cs:136`).
+- `MatchSim` calls `UnitDefinitions.Apply(World)` last (`P\Sim\Match\MatchSim.cs`).
 - **A new unit is one `UnitDef`.** The worked example is `UnitDefinitionTests.Fake()` (:24-32).
-- **Balance trick for tests:** call `UnitDefinitions.Apply(m.World, new[]{ tweakedDef })` on a live `MatchSim` to override any unit's numbers without editing sim code. It is idempotent (test at :55-63). It changes the `Units` fingerprint, which is folded into `Hash()` (`P\Sim\Core\SimWorld.cs:388`).
+- **Balance trick for tests:** call `UnitDefinitions.Apply(m.World, new[]{ tweakedDef })` on a live `MatchSim` to override any unit's numbers without editing sim code. It is idempotent (test at :55-63). It changes the `Units` fingerprint, which is folded into `Hash()` (`P\Sim\Core\SimWorld.cs`).
 
 **`FactionRoster`** (`P\Sim\Core\FactionRoster.cs`)
 - `SharedSlots = 3` (:22): slots 0-2 are Rifle, Assault, MG for every faction.
@@ -65,9 +65,9 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - **Ability bits** (:113-114): `HeBarrageBit=1`, `CreepingBarrageBit=2`, `ChlorineGasBit=3`, `SmokeScreenBit=6`, `StrafeRunBit=10`, `BeamBit=11`, `ParaDropBit=12`.
 - `AbilityMask(faction) => Everyone | (Brass ? 1<<12 : 0)` (:117-118).
 - `MayCall(faction, id)` requires `id < 32` (:119-120). **Ability ids must stay below 32.**
-- `FactionId`: Iron 0, Brass 1, British 2, German 3, French 4, AustroHungarian 5; `Factions.Count = 6` (`P\Sim\Core\Faction.cs:13-21`).
+- `FactionId`: Iron 0, Brass 1, British 2, German 3, French 4, AustroHungarian 5; `Factions.Count = 6` (`P\Sim\Core\Faction.cs`).
 
-### Abilities: `OffMapAbilities` (`P\Sim\Match\OffMapAbilities.cs`)
+### Abilities: `OffMapAbilitySystem` (`P\Sim\Match\OffMapAbilities.cs`)
 - `enum OffMapAbilityId : short` (:35-46): None 0, HeBarrage 1, CreepingBarrage 2, ChlorineGas 3, MustardGas 4, BomberRun 5, SmokeScreen 6, MortarSalvo 7, ReconFlight 8, ReinforcementSurge 9, StrafeRun 10, Beam 11, ParaDrop 12.
 - `AbilitySlots = 16` (:102).
 - `static bool TryGetStats(int ability, out AbilityStats s)` (:123-163). Only 1, 2, 3, 6, 10, 11 and 12 have stats (costs in silver, times in ticks):
@@ -86,9 +86,9 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 
 ### Match config: `SimConfig` (`P\Sim\Core\SimConfig.cs`)
 - **Fields** (:12-39): `TickRate`, `InputDelayTicks`, `MaxSlots`, `Seed`, `SilverPerSecond`, `StartingSilver`, `EventCapacity`, `byte FactionA, FactionB`, `float HeroPity0, HeroPity1`, `FixedList32Bytes<byte> LoadoutA, LoadoutB`.
-- **Loadouts:** empty means the faction's default. A shorter list falls back per slot (:32-38). `FillRosters` locks any slot whose entry has `Hp <= 0` (`SimWorld.cs:101-120`). Since the 2026-09-25 loadouts, the rosters are hashed (`SimWorld.cs:392-395`).
+- **Loadouts:** empty means the faction's default. A shorter list falls back per slot (:32-38). `FillRosters` locks any slot whose entry has `Hp <= 0` (`SimWorld.cs`). Since the 2026-09-25 loadouts, the rosters are hashed (`SimWorld.cs`).
 - **`Default`** (:45-56): TickRate 20, InputDelayTicks 3, MaxSlots 3584, Seed `0xC0FFEE`, SilverPerSecond 1, StartingSilver 120, EventCapacity 8192, Iron vs Brass.
-- **Runtime economy is not the default.** `SimHost` sets `StartingSilver = 300` and `SilverPerSecond = 2f` (`P\Presentation\Core\SimHost.cs:36-37`, applied :129-130). `MatchLaunch.Request` has the same values (:49-50), as do `MissionCard` (:32-33) and `CampaignMission` (:36-37). Stress runs use `StressUnits*25` silver (SimHost.cs:129). `Data/Definitions.cs:157-158` holds 120 / 1.2, which is **not read at runtime** (`D\reference\tasks.md:448`).
+- **Runtime economy is not the default.** `SimHost` sets `StartingSilver = 300` and `SilverPerSecond = 2f` (`P\Presentation\Core\SimHost.cs`, applied :129-130). `MatchLaunch.Request` has the same values (:49-50), as do `MissionCard` (:32-33) and `CampaignMission` (:36-37). Stress runs use `StressUnits*25` silver (SimHost.cs). `Data/Definitions.cs` holds `StartingSilver` 120 / `IncomePerSecond` 1.2, which is **not read at runtime** (`D\reference\tasks.md:448`).
 
 ### Combat tables
 **`CombatTables`** (`P\Sim\Combat\CombatTables.cs`, placeholder data)
@@ -109,7 +109,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 **`TankSpec`** (`P\Sim\Combat\TankSpec.cs`)
 - `For(byte)` defaults to Maw (:63-77).
 - Entries: Breaker :84, Pincer :98, Kettle :110, Censer :128, Pavise :139, Banner :156, Redoubt :173, Maw :188, Tusk :197.
-- Movement profiles: `VehicleProfile.*` in `P\Sim\Nav\VehicleKinematics.cs:95-127`. Redoubt has `Legs = 6` (:127), while its model has 4 (`D\reference\aosa\ASK.md:27-30`, A06).
+- Movement profiles: `VehicleProfile` in `P\Sim\Nav\VehicleKinematics.cs`. Redoubt has `Legs = 6` (:127), while its model has 4 (`D\reference\aosa\ASK.md:27-30`, A06).
 
 **`DirectFireSystem`** (`P\Sim\Combat\DirectFire.cs`)
 - `public readonly int[] Shots, Kills` per team since the match began. They are derived and not hashed (:41-43), incremented at :97 and :103.
@@ -117,10 +117,10 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - Reach them as `match.Fire.Kills[team]`. `Fire` is null when `combat:false`.
 
 ### Winning, events, stats
-- **Winner:** `SimWorld.WinnerTeam = -1` (:19). Set by `SectorControlSystem` when an HQ is captured (`P\Sim\Match\SectorControl.cs:1-7`, :118), or by Surrender (`SimWorld.cs:275-277`). It emits `MatchEnded` (a = winner).
+- **Winner:** `SimWorld.WinnerTeam = -1` (:19). Set by `SectorControlSystem` when an HQ is captured (`P\Sim\Match\SectorControl.cs`, :118), or by Surrender (`SimWorld.cs`). It emits `MatchEnded` (a = winner).
 - **Events per Step:**
-  - `SimWorld.Step` clears `Events` first (`SimWorld.cs:233`), so read `m.World.Events.Events` after each `Step()`, or after `StepOnce` returns true.
-  - Check `Events.Overrun` (`P\Sim\Core\SimEvents.cs:110`); capacity is 8192.
+  - `SimWorld.Step` clears `Events` first (`SimWorld.cs`), so read `m.World.Events.Events` after each `Step()`, or after `StepOnce` returns true.
+  - Check `Events.Overrun` (`P\Sim\Core\SimEvents.cs`); capacity is 8192.
   - `Death`: a = slot, b = killer slot (>=0) or a `DeathCause` (<0: Blast -1, Gas -2, Crush -3, Burning -4, Beam -5) (:16-17, :89).
   - Also useful: `UnitDeployed` (a = slot, b = roster slot, dir.y = player, :70) and `VehicleDestroyed`.
   - Slots are reused after a death: read the team at dispatch, or check `Generation`.
@@ -134,19 +134,19 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 - `CreateGreybox(SimConfig, bool combat=true)` :46-50
 - `CreatePlaytest(SimConfig)` :53
 - `CreateBattlefield(SimConfig, BattlefieldParams, bool combat=true)` :56-61. It sets `Bombardment.ShellsPerMinute`.
-- Presets: `BattlefieldParams.ShelledForest(1917u)` (used at `StressPresetTests.cs:38`), `WinterLine`, `Landing` (`D\reference\tasks.md:70`).
+- Presets: `BattlefieldParams.ShelledForest(1917u)` (`ShelledForest`, used in `StressPresetTests.cs`), `WinterLine`, `Landing` (`D\reference\tasks.md:70`).
 - Registration order: :69-136.
 
-**Two-sided match loop** (the worked example is `P\Tests\EditMode\SinglePlayerEquivalenceTests.cs`)
-- `new LockstepSession(Func<MatchSim> newMatch, bool canary, int latencyTicks, int jitterTicks, float lossChance, uint seed)` (`P\Presentation\Core\LockstepSession.cs:43`). It is a SHOW assembly (`TW.Presentation`). In single player it sets `HashInterval = 0` (:59); a test sets it back to 1 (SinglePlayerEquivalenceTests.cs:45).
+**Two-sided match loop** (the worked example is `SinglePlayerEquivalenceTests`, `P\Tests\Match\SinglePlayerEquivalenceTests.cs`)
+- `new LockstepSession(Func<MatchSim> newMatch, bool canary, int latencyTicks, int jitterTicks, float lossChance, uint seed)` (`P\Presentation\Core\LockstepSession.cs`). It is a SHOW assembly (`TW.Presentation`). In single player it sets `HashInterval = 0` (:59); a test sets it back to 1 (SinglePlayerEquivalenceTests.cs).
 - `bool StepOnce(ScriptedEnemy ai)` (:65-77): at most one tick. Returns true when `Local` stepped.
-- Player orders: `session.LocalDriver.Issue(SimCommand.Deploy(tick, 0, slot))` (SinglePlayerEquivalenceTests.cs:55). An order lands `InputDelayTicks` (3) later.
+- Player orders: `session.LocalDriver.Issue(SimCommand.Deploy(tick, 0, slot))` (SinglePlayerEquivalenceTests.cs). An order lands `InputDelayTicks` (3) later.
 - **`ScriptedEnemy`** (`P\Presentation\Core\ScriptedEnemy.cs`):
   - Fields (:32-46): `Enabled`, `DeployEveryTicks` 40, `Attacks`, `DeploysTanks`, `AttackGarrison` 8, `UsesSupport`, `SupportReserve` 180, `StressUnits`, `StressAdvanceDelayTicks` 300, `StressSpread` false.
   - It plays **player 1**. The stress preset orders both sides (:70-74).
   - The test config is `DeployEveryTicks=20, AttackGarrison=6, UsesSupport=true, SupportReserve=100, StressUnits=60, StressAdvanceDelayTicks=120`, with `cfg.StartingSilver=4000` (:43-48). It runs 1000 ticks and asserts the enemy has more than 5 men.
-- `SimCommand` (`P\Sim\Core\SimCommand.cs:7-34`): DeployUnit 1, TrenchAdvance 2, TrenchSelectAdvance 3, TrenchLock 4, TrenchFallback 5, UnitStance 6, SupportFire 7 (b = `AbilityArgs.Pack(heading, pattern, length)`), UnitAbility 8, SetRally 9, Surrender 10, TrenchHoldFire 11.
-- **Removing hero randomness:** `m.World.GetSystem<HeroSystem>().TeamMask = 0` (`StressPresetTests.cs:32`).
+- `SimCommand` (`P\Sim\Core\SimCommand.cs`): DeployUnit 1, TrenchAdvance 2, TrenchSelectAdvance 3, TrenchLock 4, TrenchFallback 5, UnitStance 6, SupportFire 7 (b = `AbilityArgs.Pack(heading, pattern, length)`), UnitAbility 8, SetRally 9, Surrender 10, TrenchHoldFire 11.
+- **Removing hero randomness:** `m.World.GetSystem<HeroSystem>().TeamMask = 0` (`HeroSystem`, `StressPresetTests.cs`).
 - **`StressPresetTests`**: PerSide 200, 900 ticks, `ShelledForest(1917u)`, `ScriptedEnemy{StressUnits=PerSide, StressSpread=spread}`, both canary and single player (:19, :34-58). Knob `stress.spread=1`.
 
 ### Campaign and meta
@@ -167,7 +167,7 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 **`FactionBuildings`** (the meta upgrade tracks, `P\UI\Campaign\FactionBuildings.cs`)
 - Stage costs 40 / 80 / 150; track tiers 15 / 20 / 40 / 60 / 80 / 100; global rows 30 / 60 / 120; unlock 60 (:67-70).
 - Per tier: SilverPerTier 50, IncomePerTier 0.25, ArmourMm 2, Ability% 8, PerTier 0.05 (:72-75).
-- **Only starting silver and income reach a match** (`ApplyTo`, :334-340). Unit tiers, armour and ability masks wait for the sim upgrade seam, docs/21 B1 (header :1-8). `MatchLaunch.Request.AbilityMaskA/B` is HUD-only for now (`P\Presentation\Core\MatchLaunch.cs:64-70`; `D\reference\tasks.md:473-476`).
+- **Only starting silver and income reach a match** (`ApplyTo`, :334-340). Unit tiers, armour and ability masks wait for the sim upgrade seam, docs/21 B1 (header :1-8). `AbilityMaskA` / `AbilityMaskB` on `MatchLaunch.Request` are HUD-only for now (`P\Presentation\Core\MatchLaunch.cs`; `D\reference\tasks.md:473-476`).
 
 ### Checklists (quoted)
 **Adding a unit type** (`D\reference\tasks.md:175-195`)
@@ -175,12 +175,12 @@ Path keys: R = repo root, P = trench-warfare-3d/Assets/_Project, T = trench-warf
 > 1. **Where it goes:** each faction fields ten slots (`RosterEntry.SlotCount`, the digit keys 1-0) from a larger pool (`Sim/Core/FactionRoster.cs`). A new unit joins a pool, or takes a slot from another unit.
 > 2. Sim: a new archetype id (ids are a seam item; `Archetypes.Count` is 64) and one `UnitDef` in `Sim/Match/UnitDefinitions.cs`: its roster line with its `ChassisKind`, its `InfantrySpec`, its weapon, and for a machine its `TankSpec` and `VehicleProfile`. … code that asks whether a unit is a tank reads `ChassisKind` through `SimWorld.ChassisOf`, or `RosterEntry.ForArchetype(a).Chassis` where no world is at hand.
 > 3. HUD: name, tooltip and portrait in `Presentation/Core/UnitLook.cs` …, the portrait stem in `UI/Skin/SkinSpec.cs` (`PortraitNames`), the pictures in `UI/Skin/Portraits/` and `UI/Resources/UnitArt/`. HudTextTests, HudBindTests and UnitArtTests fail until every archetype has them.
-> 4. Art: infantry needs a figure in `Editor/VATBaker.cs` and a bake. Vehicles need a `Resources/Vehicles/<Name>/` folder … a walker also needs its id and model name in `TankRenderer`'s `CrabArchetypes` and `CrabNames` … (GaitTests).
+> 4. Art: infantry needs a figure in `VATBaker`'s `Figures` (`Editor/VATBaker.cs`) and a bake. Vehicles need a `Resources/Vehicles/<Name>/` folder … a walker also needs its id and model name in `TankRenderer`'s `CrabArchetypes` and `CrabNames` … (GaitTests).
 > 5. The legacy IMGUI `Presentation/Camera/BattleHud.cs` reads the same `UnitLook` names; its icon array is `UnitLook.PortraitCount` long. No test runs OnGUI, so check it in Play with F9.
 > 6. Tests to run: FactionRosterTests, UnitDefinitionTests, CrabTests or TankTests, GaitTests, HudTextTests, HudBindTests, UnitArtTests, then the full gate."
 
 **Adding a support ability** (`D\reference\tasks.md:419-426`)
-> "SIM first: `OffMapAbilityId` and its stats in `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`, the factions that may call it (`FactionRoster.AbilityMask`). Then SHOW: `UI/HudView.cs` `SupportAbilities`; the slot counts in `UI/HudLayout.cs` and `Presentation/Camera/BattleHud.cs`; a `GameAction`, key and label in `Presentation/Core/KeyMap.cs`; `UI/HudHotkeys.cs`; name and card text in `UI/HudText.cs`; its icon in `UI/Skin/SkinSpec.cs`; `Presentation/Camera/TestPanel.cs`; the aim circle and effects in `CombatFx.cs`; the AI's choice in `Presentation/Core/ScriptedEnemy.cs`. Tests: SupportAbilityTests, HudBindTests, HudStructureTests, KeyMapTests, SkinAssetTests."
+> "SIM first: `OffMapAbilityId` and its stats in `Sim/Match/OffMapAbilities.cs`, the asset in `Editor/SliceDefinitions.cs`, the factions that may call it (`FactionRoster.AbilityMask`). Then SHOW: `UI/HudView.cs` `SupportAbilities`; the slot counts in `UI/HudLayout.cs` and `Presentation/Camera/BattleHud.cs`; a `GameAction`, key and label in `Presentation/Core/KeyMap.cs`; `UI/HudHotkeys.cs`; name and card text in `UI/HudText.cs`; its icon in `SkinSpec.All` (`UI/Skin/SkinSpec.cs`); `Presentation/Camera/TestPanel.cs`; the aim circle and effects off `OnAbilityFired` in `CombatFx.cs`; the AI's choice in `Presentation/Core/ScriptedEnemy.cs`. Tests: SupportAbilityTests, HudBindTests, HudStructureTests, KeyMapTests, SkinAssetTests."
 
 The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the command is rejected" (tasks.md:116-118).
 
@@ -191,7 +191,7 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
   3. `docs/02` and `docs/03`.
   4. The house chunk mask, the env atlas grid, `VehicleSize`.
 - "its own commit, alone, first" (:66-67).
-- **SourceId bands** (`P\Sim\Core\SourceId.cs:18-33`): an ability is its own id 0..999 (`AbilityMax`), a unit's weapon is `UnitBase` 1000 + archetype, an emplacement is 1300 + kind, `CookOff` 2000, `Ship` 2001. See also tasks.md:120-123.
+- **SourceId bands** (`P\Sim\Core\SourceId.cs`): an ability is its own id 0..999 (`AbilityMax`), a unit's weapon is `UnitBase` 1000 + archetype, an emplacement is 1300 + kind, `CookOff` 2000, `Ship` 2001. See also tasks.md:120-123.
 - **Current format:** FormatVersion 9 (`D\02-contracts.md:101`). The hash chain is pinned in `SimHashTests` (see C).
 
 ### Relevant decisions (`D\reference\decisions.md`)
@@ -255,6 +255,6 @@ The patterns trap: "Add a pattern only to `AbilityStats.Patterns`, or the comman
   4. One Great Work per side, or a choice of two?
   5. The card id 10 clash. **Already resolved:** ParaDrop = 12 (decisions.md:70; `tw3d-offmap-ability-id-10-clash.md:11-15`).
 - **Where the proposal does not match the code:**
-  - Its "1.2 silver/s" (:18) and price-in-seconds table (:25-27) assume 1.2. The game runs at 2.0/s from 300 (SimHost.cs:36-37).
+  - Its "1.2 silver/s" (:18) and price-in-seconds table (:25-27) assume 1.2. The game runs at 2.0/s from 300 (SimHost.cs).
   - Its weapon columns are the docs/06 designs (`D\06-units-and-factions.md:11-20`), not `CombatTables`. For example, the rifle is 25 dmg / 60 m / 0.8/s in the proposal and 36 / 130 / 0.5 in code.
   - The Sapper, Great Works, balloon, commanders and wheeled units do not exist in code.

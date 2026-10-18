@@ -14,7 +14,7 @@ Paths are under `trench-warfare-3d/Assets/_Project/` unless they say otherwise.
 | Calling an ability the way the benches do | `BenchScenarios.Issue`: tops up silver and clears cooldowns through `WriteWorlds`, then issues SupportFire | `Perf/BenchScenarios.cs` ~117-122, ~144-156 |
 | Which abilities the sim takes | `OffMapAbilitySystem.TryGetStats` (false → CommandRejected); `FactionRoster.MayCall` (ParaDrop Brass only) | `Sim/Match/OffMapAbilities.cs` ~159-161, ~193; `Sim/Core/FactionRoster.cs` ~117-120 |
 | Unit abilities | Breaker, Leap and Support run on their own. `SpecialAbilitiesSystem.Step` throws, and `CommandType.UnitAbility` has no consumer | `Sim/Units/Breaker.cs`, `Sim/Combat/Leap.cs`, `Sim/Units/Support.cs`, `Sim/Units/SpecialAbilities.cs` ~18 |
-| Burning a man | `m.Burning.Ignite(...)` inside `WriteWorlds`; the burning system kills him in its step; `Animation.SetAlight` gives the look | `Sim/Combat/Burning.cs` ~90, ~199; AnimationController ~397 |
+| Burning a man | `m.Burning.Ignite(...)` (`Ignite`) inside `WriteWorlds`; the burning system kills him in its step; `Animation.SetAlight` gives the look | `Sim/Combat/Burning.cs` ~90, ~199; AnimationController ~397 |
 | Events to the screen | `EventPump.Frame` (a public list dispatched once per frame), `Events.OnEvent` | `Presentation/Core/EventPump.cs` ~15, ~23, ~66 |
 | Who draws which event | `CombatFx` (13 types), `TankRenderer` (13), `PropDestruction` (4) | `Presentation/Camera/CombatFx.cs` ~484-786; `TankRenderer.cs` ~958-1110 |
 | Zoom | `TacticalCamera.FrameFrom`; zoom 6-600 | `Presentation/Camera/TacticalCamera.cs` ~77, ~33 |
