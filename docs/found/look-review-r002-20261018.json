@@ -1,0 +1,66 @@
+{
+  "subject": "review:R002",
+  "looked_at": [
+    "trench-warfare-3d/Tools/relay/relay.py (624 lines)",
+    "trench-warfare-3d/Tools/relay/runner.py (759 lines)",
+    "trench-warfare-3d/Tools/relay/relay_hook.py (306 lines)",
+    "trench-warfare-3d/Tools/relay/papers.py (262 lines)",
+    "trench-warfare-3d/Tools/relay/prepush.py (77 lines)",
+    "trench-warfare-3d/Tools/relay/prompt.py (55 lines)",
+    "trench-warfare-3d/Tools/relay/sources/__init__.py (75 lines)",
+    "trench-warfare-3d/Tools/relay/sources/lane.py (171 lines)",
+    "trench-warfare-3d/Tools/relay/sources/pipeline.py (256 lines)",
+    "trench-warfare-3d/Tools/relay/sources/briefs.py (53 lines)",
+    "trench-warfare-3d/Tools/relay/test_agents.py (218 lines)",
+    "docs/reference/relay.md, lines 108-254, 347-400, 467-480 (Commands, the three checkouts, the day's budget and pace, After the pass, What stops a run, What holds a leg)",
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the method)",
+    "docs/found/look-review-r001-20261018.json (its three findings are out of scope here)",
+    "trench-warfare-3d/Tools/relay/gitio.py install_prepush / door_state / tree_hashes (grepped only, to settle that the installed hook points at the frozen copy and is covered by the runner's audit: it is, nothing reported)",
+    "trench-warfare-3d/Tools/relay/cmdrules.py never / never_git / never_part / skips_guard (grepped only, to settle whether a shell command's write path is checked anywhere: it is not, see task 2)",
+    "trench-warfare-3d/Tools/relay/ledger.py (grepped for its read guards, to weigh task 3)",
+    "docs/reference/tasks.md (no relay row queued) and docs/reference/decisions.md (grepped for runner, relay_hook, prepush, papers, queue: nothing on these)",
+    "git: the 11 files in the working tree are identical to origin's integration branch, and the diff since the last review (7943d2b9) is +2,856 lines with 0 deleted, so the whole unit is what changed"
+  ],
+  "tasks": [
+    {
+      "title": "relay.py add must refuse an id that is already done",
+      "why": "P1. relay.py:452-473 (add) checks only whether <board>/relay/queue/<id>.json exists. It never looks at <board>/relay/done/<id>.json, but sources/lane.py:97 skips every queued unit that has one: `if u['id'] in ctx['skip'] or (root/'done'/(u['id']+'.json')).exists(): continue`. So queueing work again under an id that passed once (a review to redo, a unit the owner wants rerun) prints 'queued <id> on <lane>', commits and pushes the board, and no run ever picks it up: no leg, no FAIL, no line anywhere saying why. The owner waits for work that cannot start. relay.py:487-488 (prio) and relay.py:521-522 (role) both refuse a done id with 'is done already'; add is the one door that does not. Fix: the same done check in add, before the file is written, saying to delete the done record or pick another id.",
+      "files": ["trench-warfare-3d/Tools/relay/relay.py", "trench-warfare-3d/Tools/relay/test_day.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_day.py: with <board>/relay/done/u1.json present, `relay.py add u1 --lane lane/show/x --role lane --goal .. --done-when ..` and `add --unit <file>` both exit non-zero, say the unit is done already, and leave no file under relay/queue/; `python Tools/relay/test_day.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, true, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "The pre-tool guard checks write paths only for the Write tools",
+      "why": "P2. relay_hook.py:11-13 promises 'every tool is refused a path inside it, inside the relay's own code, and on the board outside its evidence', but refusal() calls off_limits only under `if tool in WRITE_TOOLS` (relay_hook.py:218-221). For a Bash or PowerShell command (relay_hook.py:222-229) it runs only names_runner_folder, C.skips_guard and C.never, and cmdrules.never (cmdrules.py:421-434, never_part 386-408, never_git 333-383) has no path rule at all: it judges the program and its flags, never where output goes. So `python -c \"open(r'<board>/relay/done/x.json','w')..\"` or a copy over a file in the frozen Tools/relay is not refused. The runner's audit (runner.py:269-276) does catch it, but only after the leg, and the answer is to stop the whole run; meanwhile the board file is already written. Fix: run off_limits over the paths a command names (the words that look like paths), or state in the docstring that shell commands are the audit's to catch.",
+      "files": ["trench-warfare-3d/Tools/relay/relay_hook.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "New cases in test_relay.py's guard class: relay_hook.py pre-tool, given a Bash call that writes under <board>/relay/ outside evidence/ and one that writes inside the relay's own folder, answers deny with the off_limits reason; an ordinary Bash call in the work checkout is still let through; `python Tools/relay/test_relay.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "A stop record is lost when the day's spend cannot be counted",
+      "why": "P2. runner.py:644-698: the try that turns every error into a Stop ends at line 672, but the stop record is built after it. Lines 687-688 call self.day() (ledger.day_budget) and line 694 calls ledger.spent(...) again, both outside any try, and both walk every leg record on the board. An OSError there (an unreadable board folder, a file held open) escapes run_units, so boardio.stop_record at 692-698 never runs, the STOP: line at 701 is never printed, and relay/<station>/stops/<run>.json is not written. runner.py:10 and relay.md ('Every stop writes relay/<station>/stops/<run>.json') both say a run always ends with a record; relay.py:221-225 (status) then reports the run before it as the last one, and a failed unit is hidden behind an older 'nothing left to do'. Fix: compute the day's figures inside a try that falls back to no figures, so the record is always written.",
+      "files": ["trench-warfare-3d/Tools/relay/runner.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_relay.py: with ledger.day_budget (or ledger.spent) stubbed to raise OSError, a run still writes relay/<station>/stops/<run>.json with its reason and its units, and prints a STOP: line; `python Tools/relay/test_relay.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, true, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "critique asks no_room twice, and the second answer may be None",
+      "why": "P3. runner.py:529-530 writes `if self.no_room('critic'): note = 'no critic round %d: %s' % (r, self.no_room('critic'))`, and 544-545 does the same for 'execute'. no_room calls no_budget (runner.py:293-338), which is not a pure question: it loops with sleep(PACE_STEP) until the day's pace allows the leg, and it re-reads the clock, the stop file and the board's spend each time. So the two calls can disagree: the first says the pace would outlast the run, the second, a moment later, returns None, and the unit's note reads 'no critic round 1: None' on the board and in the printed line (runner.py:560-561) with nothing saying what really happened. The same double call sits in moves_up (runner.py:515). Fix: ask once, keep the Why in a variable, and use it in the note.",
+      "files": ["trench-warfare-3d/Tools/relay/runner.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_relay.py that stubs no_room to answer a Why the first time and None the second: the unit's critic_note names the reason and never contains 'None', and the stub is called once per decision; `python Tools/relay/test_relay.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
