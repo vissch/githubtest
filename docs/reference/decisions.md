@@ -232,6 +232,7 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-15 | **R1 C2.** **The Banner lands whole: front legs, shot, recoil and fire.** The owner, to "The Banner's muzzle flame now roots on the mouth of the barrel": "Land the Banner whole: legs shot recoil and fire" (2026-10-14 11:12), and 2026-10-15 00:10: "~68 queued units are parked, lets land them or finalize them". `lane/show/banner-day-film` lands as passed; the upper-barrel unit was parked and is not in it. (landing agent, 2026-10-15) |
 | 2026-10-18 | **A relay leg may force-push its own lane, and only its own lane.** The owner, to "Let the relay force-push its own rebased lane, or keep pushing those by hand": "Let the hook allow a forced push, but only onto a lane's own branch, never the trunk or another lane". It closes the open question of 2026-10-15 (asked again 2026-10-17, review-tools-rebase), where the hook and the command rules disagreed and a rebased lane could not be pushed at all. What changes: `Tools/relay/prepush.py` lets a forced push through onto `refs/heads/<the leg's lane>` only (its non-fast-forward check is dropped); a push to the trunk, to another lane, and a branch delete stay refused, as does a push from another checkout. `Tools/relay/cmdrules.py` lets `-f` / `--force` / `--force-with-lease` / `--force-if-includes` through when the push names the lane in full (`origin <lane>`, `origin HEAD:<lane>`, `origin HEAD:refs/heads/<lane>`, `origin <lane>:<lane>`); a bare `git push --force` and `git push -f origin HEAD` stay refused. The leg role card says the same. Built on `lane/show/review-tools` as `allow-forced-push-own-lane`, landed as `lane/show/review-tools-1022`. (owner, 2026-10-18, on the Decide page) |
 | 2026-10-19 | **R1 C4 DANGEROUS SYSTEMIC MAJOR.** **For now replays do not matter: a bump of the replay format is accepted and is no reason to hold a landing or to mark it dangerous; the sim's determinism tests stay.** The owner, in chat about 19:10: "right now we do not care about replays, land the paradrop refund instead." It came with today's v54, the ParaDrop short-landing refund (landed in 59cbf66d8f). It relaxes the earlier rule that a change of the replay version is a risk to hold a landing on (the score's risk point 2 and change point 4 still name it, so the score is kept honest); it holds until he says replays matter again. | the owner, chat 2026-10-19 |
+| 2026-10-18 | **R1 C1.** **The `lane/show/relay-harness` unit is closed; its three branches on origin are to be deleted.** The owner, to "The relay-harness lane's fixes already landed elsewhere: close it, keep it, or lower its bar": "Close the unit and delete the lane on origin (recommended by the leg that hit this)". The lane's fixes reached integration by another route (integration's `195b5f981` is the lane's own `147bea56f`); the rebase skipped 91 of its 92 commits as already applied, so the `relay-harness-rebase` unit's floor of 50 own commits can never be met; origin's `lane/show/relay-harness`, `-b` and `-c` are duplicates of each other or already contained in integration. Left for the owner: `git push origin --delete lane/show/relay-harness`, the same for `-b` and `-c`. No leg can run them (`trench-warfare-3d/Tools/relay/prepush.py` refuses a deleting push and `trench-warfare-3d/Tools/relay/cmdrules.py` refuses `git branch -D`), and the 6 local `decisions.md` commits on this lane reach integration only by his own push or a cherry-pick onto a landed `lane/show/decision-2026-10-18-relay-harness`; deleting the branches without that loses this record with them. (relay leg, 2026-10-18) |
 | 2026-11-02 | **R1 C3 SYSTEMIC.** **The relay harness is rebuilt in phases from small modules, each with an off/dry/on switch, proved on the replay of the relays' real records.** The owner, after the review of 10-19..11-02: "lets make a plan to implement in phases. lets try to make eveything modular", then "execute". Plan: PLAN_relay_harness_v2_2026-11-02.md on the Drive; code in `Tools/supervisor/`. | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
 | 2026-11-02 | **R1 C1.** **A stray Unity outside the relay checkouts may be killed when it holds the machine's licence; the relays run on once a gate on a clean checkout is green.** The owner: "1, yes kill it" (the batch Unity of `githubtest-footage`, alive since 10-27 18:30, that made every gate red from 10-31) and "2, ok" (run on after a green gate). | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
 | 2026-11-02 | **R1 C2.** **A goal's chain of fix units stops at 3 generations or $100, whichever comes first, and becomes one brief with pictures.** The owner: "3, 3 100$". It caps what ability-fx-captures did (120 units, 14 generations, $990). | the owner, chat 2026-11-02, answers to PLAN_relay_harness_v2_2026-11-02.md |
@@ -452,36 +453,6 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   acted on; the rebase stays local on this checkout pending the owner's push.
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
-
-- **`lane/show/relay-harness` has nothing left to land (2026-10-16):** its fixes reached integration by another
-  route. Integration's `195b5f981` is the lane's own last commit `147bea56f` (same subject: the five relay tests
-  isolate from this machine's live boards). Rebased today onto `origin/claude/trench-warfare-2d-3d-plan-idt7lf`
-  (`6959ad812`): git skipped 91 of the lane's 92 commits as previously applied, and **1 commit of its own remains**,
-  a `decisions.md` edit (the lane now carries three, the other two being this leg's record of all this). The
-  whole diff against integration is `docs/reference/decisions.md` and nothing else.
-  `Tools/selftest.py` is green (138 of 138 cases). So the `relay-harness-rebase` unit's done_when floor of "at
-  least 50 of its own commits after the rebase" **can never be met**: the commits are gone because they landed,
-  not because a leg dropped or squashed them. Integration is also the *newer* side on the two relay files the lane
-  still differed on before the rebase: it added `prepush.rebased_name` (a leg may push a rebased lane as
-  `<lane>-b .. -j`) and its test, which the lane never had. Options: (1) close the unit and delete
-  `lane/show/relay-harness` on origin, the default taken here, nothing acted on; (2) keep the lane as a fresh base
-  for new relay work, now that it sits on integration; (3) treat the 50-commit floor as a mistake in the unit card
-  and rewrite it. Default taken: option 1 as the recommendation, but no branch deleted and no landing done.
-  The rebased history is still only local: `git push origin lane/show/relay-harness` is rejected
-  non-fast-forward, and the `-b` fallback (`git push origin HEAD:refs/heads/lane/show/relay-harness-b`) is
-  refused by the relay leg's command rules, which allow a leg only `git push origin <its own lane>`. The
-  `prepush.rebased_name` allowance lives on integration but the running relay checkout does not apply it to
-  the leg's command rules, so no leg can get this history to origin without the owner.
-  Re-measured (2026-10-17): origin carries three branches of this lane, not one. `lane/show/relay-harness` itself
-  is still the pre-rebase history (`2e01bfd94`); `lane/show/relay-harness-b` (`c558e9d33`) is the same pre-rebase
-  history, pushed by hand; `lane/show/relay-harness-c` (`64a84828f`) is **0 commits ahead of integration and 42
-  behind it**, so it is contained in integration and that work has already landed. `cmdrules.push_ok` (the leg's
-  own command rules) refuses the `-d .. -j` rebased-name push that `prepush.rebased_name` would otherwise allow:
-  it only ever permits `origin <lane>`, `origin HEAD`, `HEAD:<lane>` or `HEAD:refs/heads/<lane>`, one layer before
-  `prepush.rebased_name` is reached, so the 4 local `decisions.md` commits on this lane can reach origin only by
-  the owner's own push, never a leg's. The default stands: option 1, close the unit; delete
-  `lane/show/relay-harness`, `-b` and `-c` on origin, since all three are either duplicates of each other or
-  already landed.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
