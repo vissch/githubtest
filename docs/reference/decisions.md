@@ -296,12 +296,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **Move origin's copy of the rebased ridge lane to match the finished, passing version.** The owner, on the Decide page, to "The ridge's own-line work is rebased and ready; origin still holds the old copy": "Move origin's copy of the lane to match this finished, passing version". The local rebased tip is `c4a5d6b9c` (sim work at `984df70be`, full gate green: 1289 run, 0 failed) on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`; `origin/...-high-ground-b` still holds the pre-rebase tip `1347ccd19` (eight commits), not an ancestor of `c4a5d6b9c`, so a leg's push is refused as non-fast-forward (confirmed again this leg). Nothing is lost by overwriting origin's copy: `1347ccd19` stays reachable on `origin/...-high-ground` (no `-b`), `origin/build/playtest-2026-10-15`, and locally on `backup/ridge-own-line-before-rebase-2026-10-15`. A relay leg cannot make this push itself (`Tools/relay/cmdrules.py` and the pre-push hook refuse any force push); it is left for the owner or a non-leg session, below. |
 
 ## Open: waiting on the owner
-- **The ridge lane's finished push is left for a non-leg hand (2026-10-16):** the owner has said to move
+- **The ridge lane's finished push is left for a non-leg hand (2026-10-16, re-run 2026-10-18 per "Try it once more
+  as it stands"):** the owner has said to move
   `origin/lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b` to the local rebased tip; a leg cannot
-  do it. An earlier hand push landed (origin held `5ca548dac`), and the lane has since been rebased again onto
-  integration `6959ad812`, with its content unchanged (the sim work is `f2d2db7b4`, the tip is this line's own
-  commit), so origin is a non-ancestor once more and a leg's push is refused as non-fast-forward. Run, from
-  `C:\Users\PC\Documents\GitHub\githubtest-relay-work2`, where the lane's tip lives:
+  do it. The 2026-10-18 retry confirms the lane still sits rebased onto integration `6959ad812` (an ancestor of
+  HEAD), with its content unchanged (`git diff backup/ridge-own-line-before-rebase-2026-10-16 HEAD --
+  trench-warfare-3d/Assets` is empty); the tip is `a09c35e8f`, this file's own commit. `origin/...-high-ground-b`
+  still holds `5ca548dac`, not an ancestor of `a09c35e8f`, so a leg's push is refused as non-fast-forward
+  (confirmed again this leg). `origin/...-high-ground-b-b` already carries `a09c35e8f` for anyone who needs the
+  work before the hand push. Run, from wherever the lane's tip lives:
   `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:5ca548dac origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
   then check CI with `gh run list --branch lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b --limit 3`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
