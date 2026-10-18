@@ -1,0 +1,78 @@
+{
+  "subject": "code:Presentation/VFX",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/VFX/EventVfxRouter.cs (whole, 17 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/VFX/TW.Presentation.VFX.asmdef (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Recipes.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bursts.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.ShellFire.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Chunks.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/FxQuality.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (lines 790-994, the Explosion dispatch)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs (lines 699-812: Add, Draw, DrawPacked; grep of the material build and the per-frame smells)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs (lines 1-30, 88-140, plus a grep of every RecipeFor call)",
+    "trench-warfare-3d/Assets/_Project/Tests/UI/FxQualityTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Show/FlipbookOrdinalTests.cs (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Match/VfxEventCensusTests.cs (whole)",
+    "docs/reference/tasks.md (the VFX pass row, 565; the stub row, 283)",
+    "docs/reference/decisions.md (grep: the VFX sheet waves, fx.recipes, the ordinal bug)",
+    "docs/reference/maintainability-audit-2026-09.md (lines 60-75: the stubs are left alone on purpose)",
+    "docs/found/look-code-presentation-camera-20261016.json (the four tasks already filed)"
+  ],
+  "tasks": [
+    {
+      "title": "Key the per-class burst look on damp, not wet",
+      "why": "CombatFx.cs:810 reads `classArms > 0f && !wet ? BurstBy(e.A) : BurstLook.Same`. Twelve lines above it (793-800) the file states the rule it breaks: water absorbs a shell, molten rock does not, so every number that stands for that absorption keys on `damp` (wet and not melt), and `wet` alone was the defect piece cycle 11 half-fixed. BurstBy is not an absorption number at all: it is which weapon fired. So on the lava field, where the river is 11 % of the ground, a mine, a tripwire, a Kettle mortar round or a Salvo rocket that lands in the melt loses its own burst and draws the generic shell burst: the tripwire stands a full earth column (CombatFx.cs:848 tests look.Tripwire), the mine draws the fireball it must never have (925 tests look.Fire), and BurstExtras (926) runs inside the melt branch but with an all-default look, so it adds nothing. Read in code, not seen in Play.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bursts.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/UI/FxQualityTests.cs"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "The choice moves into a pure static (e.g. `CombatFx.BurstLookFor(int source, float classArms, bool wet, bool melt)`) and a new FxQualityTests case asserts that a mine's source keeps Mine and Fire 0 when wet and melt are both true, and still falls back to BurstLook.Same on plain water. The case must be run once against HEAD and go red there.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A mine draws its black smoke on top of seven grey puffs",
+      "why": "The sim's mine shape is 5, and RecipeFor (CombatFx.Recipes.cs:44) returns BurstRecipe.Old for any kind other than 0 or 2, so OldSmoke is true for a mine (BurstRecipeTests.cs:86 pins exactly this). CombatFx.cs:920 then suppresses only the glowing Burst cloud, saying `a mine's is its black smoke`, while the seven-puff loop at 934-945 is gated on recipe.OldSmoke alone and runs. BurstExtras (CombatFx.Bursts.cs:63-68) adds two MineSmoke cards and a lit Smoke crown on top. So every mine draws ten smoke cards where a shell draws seven or one, and seven of the ten are the shell's grey, against the design line in the file header. It costs the look and the card pool: FlipbookFx.Add drops the oldest card once `maxCards` is reached (FlipbookFx.cs:702), so a mined approach evicts other effects' cards faster.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Recipes.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "The puff loop is skipped for a mine (or RecipeFor clears OldSmoke for the mine shape), and BurstRecipeTests asserts the mine's recipe has no OldSmoke while fx.recipes 0 still hands it the old burst. Read the smoke card count in Play once over a tripwire and a mine, since what is right here is a look.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Banks test hardcodes 17 and 28, so it guards nothing",
+      "why": "BurstRecipeTests.cs:109-118 (`Banks_MergeFromTheOverviewAndBoilInsideTheirFrames`) asserts `CombatFx.BankFrame(17f, 28f, t)` stays in [17, 28]. Both the bounds and the argument are the literal pair, and BankFrame is `first + (last-first)*(0.5+0.5*sin)` (CombatFx.Banks.cs:42), so the assert restates the expression and holds for any first/last. The thing worth guarding, that a gas bank boils inside its full spread, is GasBankFirst/GasBankLast (Banks.cs:20), which are private consts the test cannot see: set either to 0 and the test is still green while the bank plays its puff frames as a blanket. Same fault as the filed GoreScaleTests one.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/BurstRecipeTests.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "GasBankFirst/GasBankLast and SmokeBankFirst/SmokeBankLast are public consts, the test asserts the boil against those names and that each range lies inside its book's frame count (FlipbookFx.Grid), and lowering GasBankFirst to 0 turns the test red.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Compute the burst column's width once, not twice",
+      "why": "CombatFx.cs:841 builds `columnWidth = r * (damp ? 1.25f : 2.1f) * columnScale * earth` and 847 multiplies in look.Column; line 868, the branch that draws the ordinary column, spells the whole product out again and adds `(dayEarth ? DayColumnWidth : 1f)`, ignoring the variable. The two copies are already not the same: the day slimming at 868 is missing from the soil and cap branches at 856 and 864. Today that is harmless only because those branches require MoonLit and dayEarth requires !MoonLit (838-845) - an invariant nothing states or tests. The next retune of 2.1, columnScale or DayColumnWidth lands in one copy, and the moonlit column silently keeps the old width.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "One expression feeds all three branches (the day factor applied where it belongs), and a new pure helper plus a test pins the width for the four cases (wet, dry day, moonlit, moonlit with soil) so a retune of one constant moves all of them.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
