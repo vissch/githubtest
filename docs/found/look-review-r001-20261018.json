@@ -1,0 +1,55 @@
+{
+  "subject": "review:R001",
+  "looked_at": [
+    "trench-warfare-3d/Tools/relay/config.py (225 lines)",
+    "trench-warfare-3d/Tools/relay/legdir.py (70 lines)",
+    "trench-warfare-3d/Tools/relay/gitio.py (278 lines)",
+    "trench-warfare-3d/Tools/relay/boardio.py (180 lines)",
+    "trench-warfare-3d/Tools/relay/ledger.py (471 lines)",
+    "trench-warfare-3d/Tools/relay/answers.py (90 lines)",
+    "trench-warfare-3d/Tools/relay/day.py (172 lines)",
+    "trench-warfare-3d/Tools/relay/agents.py (280 lines)",
+    "trench-warfare-3d/Tools/relay/cmdrules.py (565 lines)",
+    "trench-warfare-3d/Tools/relay/launch.py (459 lines)",
+    "trench-warfare-3d/Tools/relay/legcmd.py (288 lines)",
+    "trench-warfare-3d/Tools/relay/fake_claude.py (97 lines, read as part of the test stand-in)",
+    "docs/reference/relay.md (475 lines, the rulebook the code is held to)",
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the method)",
+    "docs/reference/decisions.md (grepped for relay, budget, pace, token: 30 rows) and docs/reference/tasks.md (no relay row queued)",
+    "trench-warfare-3d/Tools/relay/test_relay.py (the gate and finish tests, lines 2380-2445) to see what is already pinned",
+    "trench-warfare-3d/Tools/relay/runner.py and relay_hook.py (grepped only, to settle whether the leg spend cap and hand commits are guarded elsewhere; out of this unit, nothing reported against them)",
+    "git log 7943d2b..origin/claude/trench-warfare-2d-3d-plan-idt7lf for these files: 3,175 added lines and 0 deleted, so the whole unit is what changed"
+  ],
+  "tasks": [
+    {
+      "title": "leg finish must refuse a commit no gate ever saw",
+      "why": "P0. legcmd.py:203-223 (finish) only looks at the gate inside `if gitio.dirty(wt)`. A leg that commits by hand first (cmdrules.never_git, cmdrules.py:333-383, refuses only `commit --amend`, so a plain `git commit -am` is allowed) reaches finish with a clean tree: the gate is never asked, the commit is pushed, and it prints 'closed: nothing uncommitted'. legcmd.py:250-257 (done) exits 0 on the same tree. That is a tree pushed on the lane that no green gate tested, which CLAUDE.md's 'Gate' section and relay.md:175 both forbid, and the runner's after-leg audit does not gate either. Fix: before the push, require a gate record whose tree matches HEAD's tree (and the working tree), else refuse and say to run the gate.",
+      "files": ["trench-warfare-3d/Tools/relay/legcmd.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_relay.py's gate class: the leg commits by hand with no gate started, then `leg finish` exits non-zero, prints that no gate covers the commit, and origin's lane is unmoved; `python Tools/relay/test_relay.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "working_tree ignores git errors, so an empty tree reads as green",
+      "why": "P1. legcmd.py:48-54 runs read-tree, `add -A` and write-tree through gitio.git_raw and never looks at a return code; a failed write-tree gives '' . That '' is stored as the gate's tree (legcmd.py:102) and compared again at the verdict (legcmd.py:89), so '' == '' and the verdict is GREEN, 'green for exactly these files', whatever changed in between: STALE can never fire and finish commits and pushes. `add -A` failing part way (a file another process holds open on Windows is the normal cause) gives the same silent result with files left out of the tree id. Fix: check all three calls and make the verdict RED or NONE with the git error when the tree cannot be read.",
+      "files": ["trench-warfare-3d/Tools/relay/legcmd.py", "trench-warfare-3d/Tools/relay/test_relay.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A new case in test_relay.py that makes the tree read fail (a stub git or an unreadable index) and asserts `leg gate status` is not GREEN and `leg finish` does not commit; `python Tools/relay/test_relay.py` from trench-warfare-3d/ exits 0.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "The day screen reads every leg record on the board many times over",
+      "why": "P3. day.py:145 calls week_line(board, home, lim) twice, once to test it and once to use it, and each call runs ledger.standing (ledger.py:196-204), which globs and json-reads every leg record the board has ever held, with no since cut, until it finds a reading. On top of that day.py:141-143 calls ledger.usuals, ledger.one_line and ledger.day_budget, and one_line and day_budget each run spent() and _rate() again: five or more full passes over relay/*/legs/*.json for one screen. The /master skill starts every turn with `relay.py day`, so the cost is paid all day and grows with the board. Fix: compute week_line once, and have day.py pass one shared ledger reading into the lines it prints.",
+      "files": ["trench-warfare-3d/Tools/relay/day.py", "trench-warfare-3d/Tools/relay/ledger.py", "trench-warfare-3d/Tools/relay/test_day.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "test_day.py counts the leg-record reads behind one `day.lines(...)` call and asserts the board's legs folder is walked once, with the screen's text unchanged; `python Tools/relay/test_day.py` and `python Tools/relay/test_ledger.py` from trench-warfare-3d/ both exit 0.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
