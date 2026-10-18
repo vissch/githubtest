@@ -793,7 +793,7 @@ def feed(w):
                for u, v in q.items())                  # nor the copy of a unit an extra relay holds
     started = False
     s1 = load(w.home / 'starts.json', {}).get('1') or {}
-    pipe = running == set() and not work and w.now() - s1.get('at', 0) >= s1.get('wait', STARTS[0]) and w.pipeline_work()   # its dry run only when a start may follow   # nothing on its queue it can take: the pipeline board's routed
+    pipe = running == set() and not work and (not s1 or w.now() - s1.get('at', 0) >= s1.get('wait', STARTS[0])) and w.pipeline_work()   # its dry run only when a start may follow   # nothing on its queue it can take: the pipeline board's routed
     #   ideas are its work (option A, the owner 2026-10-17: everything accepted; 11 ideas waited). Pipeline only: a lane source
     #   would take the units held back above (parked, a lane an extra relay holds, an extra's copy)
     if running == set() and work:               # the lanes it will take, held by a stopped extra relay's clean checkout, are freed first
