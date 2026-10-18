@@ -296,15 +296,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **Move origin's copy of the rebased ridge lane to match the finished, passing version.** The owner, on the Decide page, to "The ridge's own-line work is rebased and ready; origin still holds the old copy": "Move origin's copy of the lane to match this finished, passing version". The local rebased tip is `c4a5d6b9c` (sim work at `984df70be`, full gate green: 1289 run, 0 failed) on `lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`; `origin/...-high-ground-b` still holds the pre-rebase tip `1347ccd19` (eight commits), not an ancestor of `c4a5d6b9c`, so a leg's push is refused as non-fast-forward (confirmed again this leg). Nothing is lost by overwriting origin's copy: `1347ccd19` stays reachable on `origin/...-high-ground` (no `-b`), `origin/build/playtest-2026-10-15`, and locally on `backup/ridge-own-line-before-rebase-2026-10-15`. A relay leg cannot make this push itself (`Tools/relay/cmdrules.py` and the pre-push hook refuse any force push); it is left for the owner or a non-leg session, below. |
 
 ## Open: waiting on the owner
-- **The ridge lane's finished push is left for a non-leg hand (2026-10-16, re-run 2026-10-18 per "Try it once more
-  as it stands"):** the owner has said to move
+- **The ridge lane's finished push is left for a non-leg hand (2026-10-16, re-run 2026-10-18, fourth attempt
+  2026-10-18 per "Try it once more as it stands"):** the owner has said to move
   `origin/lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b` to the local rebased tip; a leg cannot
-  do it. The 2026-10-18 retry confirms the lane still sits rebased onto integration `6959ad812` (an ancestor of
-  HEAD), with its content unchanged (`git diff backup/ridge-own-line-before-rebase-2026-10-16 HEAD --
-  trench-warfare-3d/Assets` is empty); the tip is `a09c35e8f`, this file's own commit. `origin/...-high-ground-b`
-  still holds `5ca548dac`, not an ancestor of `a09c35e8f`, so a leg's push is refused as non-fast-forward
-  (confirmed again this leg). `origin/...-high-ground-b-b` already carries `a09c35e8f` for anyone who needs the
-  work before the hand push. Run, from wherever the lane's tip lives:
+  do it. The fourth attempt (2026-10-18) found the lane still rebased onto integration `6959ad812` (an ancestor
+  of HEAD), 14 commits ahead, with its Assets/ProjectSettings/Packages tree unchanged since the last green full
+  gate (`c4a5d6b9c`, 1289 run, 0 failed). `git push origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`
+  (no flags) exited 1, last line `error: failed to push some refs to 'https://github.com/vissch/githubtest.git'`,
+  refused as non-fast-forward against `origin/...-high-ground-b`'s tip `5ca548dac`, which is still not an
+  ancestor of HEAD. The edit gate ran green for this exact tree afterward. No new mirror branch was made this
+  attempt. Run, from wherever the lane's tip lives:
   `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:5ca548dac origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
   then check CI with `gh run list --branch lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b --limit 3`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
