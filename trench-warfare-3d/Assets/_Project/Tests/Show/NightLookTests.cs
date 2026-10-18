@@ -2,6 +2,7 @@
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation.Terrain;
+using TW.Presentation.Tactical;
 
 namespace TW.Tests
 {
@@ -79,6 +80,27 @@ namespace TW.Tests
             Assert.AreEqual(d2, NightLights.PoolRank(d2, NightLights.PoolReach), 1e-3f, "a lantern ranks by its distance");
             Assert.AreEqual(d2, NightLights.PoolRank(d2, 3f), 1e-3f, "a small flame is not counted farther off");
             Assert.Less(NightLights.PoolRank(d2, 13f), NightLights.PoolRank(30f * 30f, NightLights.PoolReach), "a wreck 13 m across at 40 m beats a lamp at 30 m");
+        }
+
+        [Test]
+        public void AFullyAlightMaw_AsksForThePoolAndTheTonguesTheCaptureProved()
+        {
+            // Measured in Play at the standard view (zoom 30, yaw 21, a Maw alight, the clock held; leg 07-08 of 2026-10-18,
+            // Captures/vehicles/burn_wide.png was the before): at 0.35 + 0.75 * fire the mud under its tracks read luma 0.212
+            // against 0.203 for empty mud 60 m away - no pool at all. At the values below it reads 0.402 with a quarter of it
+            // warm, and the empty mud is untouched.
+            const float MawHalfLength = 4.34f;   // VehicleSize.Tank, as TankRenderer's tear-open comment records
+            float s = TankRenderer.FirePoolStrength(1f);
+            Assert.GreaterOrEqual(s, 2.3f, "a fully alight machine asks for the pool the capture proved (0.8 + 1.5 * fire)");
+            Assert.Less(s, 4f, "and stays under AddFirePool's cap of 4, so nothing clips");
+            Assert.Greater(TankRenderer.FirePoolStrength(0f), 0f, "a fire just caught already paints");
+            Assert.GreaterOrEqual(TankRenderer.FirePoolReach(1f, MawHalfLength), 8.8f, "as wide as the capture's pool");
+            Assert.LessOrEqual(TankRenderer.FirePoolReach(1f, MawHalfLength), 12f, "no wider: round 17's pool swallowed the men beside it");
+            Assert.Less(TankRenderer.FirePoolHeight, 2f, "hung just over the mud, or its falloff is spent in the air");
+            Assert.Greater(TankRenderer.FireLightPeak(1f), 10f, "its real light carries the near ground with the painted pool");
+            Assert.Greater(TankRenderer.TongueNightBright, 1.4f, "the tongues burn brighter at night than the 1.4 that measured warm_frac 0.0001 on the hull");
+            Assert.That(TankRenderer.TongueFloor, Is.InRange(0.1f, 0.5f), "a small fire still shows a tongue, without a new fire reading as a full one");
+            Assert.Greater(TankRenderer.EmberCards, 0, "embers come off a burning deck (one book, one draw)");
         }
 
         [Test]

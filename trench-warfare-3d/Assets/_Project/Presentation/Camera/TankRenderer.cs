@@ -128,6 +128,7 @@ namespace TW.Presentation.Tactical
             public float NextExhaust, NextDust, NextSmoke, Born, DiedAt;
             public readonly float[] ModuleLeft = { 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f };   // L21: what each VehicleModule had left at its last hit
             public float NextMend, NextColumn, NextVent, NextBreak;
+            public float NextEmber;
             public int BreakerPhase;               // L18: the Breaker's last BreakerPhase (0 approach, 1 wind-up, 2 charge, 3 strike, 4 withdraw)
             public uint BeatTick = uint.MaxValue;   // L21: the tick an engine or fuel beat was drawn, so that tick's stall or fire does not draw it again     // fx.recipes: the next engineer's sparks card (L16), the next WreckSmoke card (L22)
             public bool Linked; public Vector3 PropPos;   // the sim's wreck prop drawn by this hull
@@ -1093,21 +1094,32 @@ namespace TW.Presentation.Tactical
         /// paints mud hangs just over it.</summary>
         public const float FirePoolHeight = 1.2f;
 
+        /// <summary>The smallest fire that still scales a tongue: under it the tongues would be specks at the standard view,
+        /// and a machine with a fire starting on it would read as a dark hull (the found report of 2026-10-18).</summary>
+        public const float TongueFloor = 0.3f;
+
+        /// <summary>Ember cards sent up per burst off a burning deck. They share one book, so the whole shower is one draw.</summary>
+        public const int EmberCards = 2;
+
         void Burning(View v, float now, float fire, float smoke)
         {
             if (fire > 0.02f)
             {
                 // its pool of firelight on the mud round it, renewed each frame (look.firePools, NightLights.Pools.cs)
                 SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * FirePoolHeight, FirePoolColour, FirePoolStrength(fire), FirePoolReach(fire, v.Model.HalfLength), 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
+                // at the standard view (zoom 30) a tongue 1.2-3.8 m tall measured as nothing on the hull (the found report:
+                // warm_frac 0.0001). A machine on fire is the loudest thing on the field, so its tongues stand well over the
+                // deck; TongueFloor keeps one alive at a fire too small to scale to anything a player can see.
+                float lit = Mathf.Max(TongueFloor, fire);
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
-                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, at), Width = 0.7f + 1.3f * fire, Height = 1.2f + 2.6f * fire, Phase = v.Slot * 0.37f + k * 0.5f });
+                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, at), Width = 1.1f + 1.9f * lit, Height = 2.2f + 4.2f * lit, Phase = v.Slot * 0.37f + k * 0.5f });
                 }
                 if (fire > 0.55f)
                 {
                     var hatch = SocketWorld(v, "Socket_Crew", out bool ok);
-                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, hatch), Width = 0.9f * fire, Height = 2.4f * fire, Phase = v.Slot * 0.71f });
+                    if (ok) flames.Add(new Flame { Foot = OnWhatIsLeft(v, hatch), Width = 1.4f * lit, Height = 3.6f * lit, Phase = v.Slot * 0.71f });
                 }
                 // the fire spreads over the deck: a few more tongues at fixed places on the hull (seeded by the slot, so
                 // they do not jump), one of them big
@@ -1115,14 +1127,28 @@ namespace TW.Presentation.Tactical
                 float hl = v.Model.HalfLength, hg = v.Model.HalfGauge;
                 for (int k = 0; k < 3; k++)
                 {
-                    if (fire < 0.25f + 0.2f * k) break;
+                    if (fire < 0.15f + 0.15f * k) break;
                     float a = Mathf.Sin((v.Slot + 1) * 12.9898f + k * 78.233f) * 43758.5453f; a -= Mathf.Floor(a);
                     float b = Mathf.Sin((v.Slot + 1) * 39.3468f + k * 11.135f) * 24634.6345f; b -= Mathf.Floor(b);
                     Vector3 local = new Vector3((a - 0.5f) * hg * 1.2f, 0f, (b - 0.6f) * hl * 1.4f);
                     Vector3 top = hull.MultiplyPoint3x4(local);
                     top.y = v.Heave.Value + v.Model.Height * (0.75f + 0.1f * a);
                     bool big = k == 0;
-                    flames.Add(new Flame { Foot = OnWhatIsLeft(v, top), Width = (big ? 1.6f : 0.8f) * fire, Height = (big ? 3.6f : 1.8f) * fire, Phase = v.Slot * 0.53f + k * 1.7f });
+                    flames.Add(new Flame { Foot = OnWhatIsLeft(v, top), Width = (big ? 2.4f : 1.2f) * lit, Height = (big ? 5.4f : 2.8f) * lit, Phase = v.Slot * 0.53f + k * 1.7f });
+                }
+            }
+            // embers coming off the deck: a few small MendSparks cards (the welding-spark loop, reused - no new sheet), the
+            // sign a fire is live and not a dark hull. One book, so they cost one draw while a machine burns.
+            if (fire > 0.1f && books != null && books.Ready && now >= v.NextEmber)
+            {
+                v.NextEmber = now + Mathf.Lerp(0.5f, 0.18f, Mathf.Clamp01(fire));
+                var deck = OnWhatIsLeft(v, SocketWorld(v, "Socket_Fire0", out _));
+                for (int k = 0; k < EmberCards; k++)
+                {
+                    float ex = UnityEngine.Random.Range(-v.Model.HalfGauge, v.Model.HalfGauge), ez = UnityEngine.Random.Range(-v.Model.HalfLength * 0.6f, v.Model.HalfLength * 0.6f);
+                    books.Add(FlipbookFx.Book.MendSparks, deck + new Vector3(ex, 0.6f + 0.5f * k, ez), 0.5f + 0.5f * fire, 1.1f + 0.5f * fire,
+                        FlipbookFx.Kind.Upright, velocity: Vector3.up * (2.2f + 1.8f * fire) + new Vector3(ex * 0.1f, 0f, ez * 0.1f),
+                        grow: 0.3f, alpha: Mathf.Clamp01(0.5f + fire * 0.5f), startFrame: UnityEngine.Random.Range(0f, 32f));
                 }
             }
             if (books != null && books.Ready && now >= v.NextSmoke && smoke > 0.02f)
@@ -2014,6 +2040,12 @@ namespace TW.Presentation.Tactical
 
         readonly List<Matrix4x4> standCards = new List<Matrix4x4>(256);
 
+        /// <summary>How bright a drawn tongue burns at night. At 1.4 a fully alight Maw's hull measured warm_frac 0.0001 at the
+        /// standard view - darker than the mud beside it (the found report of 2026-10-18); a fire is the brightest thing on a
+        /// night field, so it burns well over a lantern's 0.32 luma. The FireStand row's own window (Low/High/Bands) is left
+        /// alone: its band cuts are measured with Tools/firebooks.py and a core cut at 1.00 switches the hot band off.</summary>
+        public const float TongueNightBright = 2.4f;
+
         void DrawFlames()
         {
             if (recipes >= 0.5f && books != null && books.Ready)
@@ -2026,7 +2058,7 @@ namespace TW.Presentation.Tactical
                 {
                     var f = flames[g];
                     if (f.Height < 0.05f) continue;
-                    standCards.Add(FlipbookFx.Pack(f.Foot, f.Width * 2.6f, f.Height * 1.25f, Mathf.Repeat(now * 12f + f.Phase * 7f, 15f), 1f, SceneMood.Night ? 1.4f : 1f, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
+                    standCards.Add(FlipbookFx.Pack(f.Foot, f.Width * 2.6f, f.Height * 1.25f, Mathf.Repeat(now * 12f + f.Phase * 7f, 15f), 1f, SceneMood.Night ? TongueNightBright : 1f, 0f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored));
                 }
                 flames.Clear();
                 if (standCards.Count > 0) books.DrawPacked(FlipbookFx.Book.Stand, standCards, Everywhere);
