@@ -682,6 +682,31 @@ def main():
     case('a stopped extra relay lets go of its lane at once (the looks all use lane/show/found); one left dirty by a TIMEOUT is put aside once; a running one is left alone',
          w.detached == [Path('C:/gh/w2')] and w.asides == [3] and not any('put aside' in l for l in again), (lines, again, w.detached, w.asides))
 
+    w = Fake(tmp / 't22', extras=(2, 3))
+    w.work_dirs = {2: Path('C:/gh/w2'), 3: Path('C:/gh/w3')}
+    w.cos = {'lane/show/e2': Path('C:/gh/w2'), 'lane/show/e3': Path('C:/gh/w3')}
+    w.dirty = {Path('C:/gh/w3')}
+    w.text[w.main] = RUN
+    w.text[w.extras[3]] = 'NOT RUNNING. Last run 20261018-214001-1: leg 03 ended TIMEOUT (3 legs).'
+    put(w.extras[2], 'queue', 'e-2', lane='lane/show/e2')
+    put(w.extras[3], 'queue', 'e-3', lane='lane/show/e3')
+    (w.home / 'starts.json').write_text(json.dumps({'2': dict(at=w.clock - 600, reason='x', wait=1800),
+                                                    '3': dict(at=w.clock - 600, reason='x', wait=1800)}), encoding='utf-8')
+    w.touches = {2: (w.clock - 3000, w.clock - 3000)}
+
+    def aside(work, n):                 # a stash writes the index now, as git does
+        w.dirty.discard(work)
+        w.touches[n] = (w.clock, w.clock - 3000)
+        return True, 'put aside'
+    w.put_aside = aside
+    det = w.detach
+    w.detach = lambda work: (w.touches.__setitem__(2, (w.clock, w.clock - 3000)) if work == Path('C:/gh/w2') else None) or det(work)
+    tl = autoloop.tidy(w)
+    fl = autoloop.feed(w)
+    case('a relay the loop tidied this round (put aside, or let go of its lane) is started in that round past the quiet wait '
+         'and its last start\'s wait (relays 3-6 put aside 22:10, refused "index moved 28 s ago", started 22:43)',
+         sorted(getattr(w, 'quiet_offs', [])) == [(2, True), (3, True)], (tl, fl, getattr(w, 'quiet_offs', None)))
+
     # ---- one round, and the lock ----
     calls = []
     real = (autoloop.found.take, autoloop.found.rota)
