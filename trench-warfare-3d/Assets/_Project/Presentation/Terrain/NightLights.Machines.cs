@@ -40,12 +40,16 @@ namespace TW.Presentation.Terrain
         void LampOut(Vector3 at, float reach)
         {
             Color[] cols = null;
-            for (int j = 0; j < lanterns.Count && j < lanternHome.Count && j < lanternCard.Count; j++)
+            // lampOut and lanternCard are each as long as lanterns only once RealLamps and Build have both run; the
+            // lamp still goes out when one of them is short, it just has no slot to remember it by or no card to clear
+            // (W7: gating the whole loop on lanternCard.Count let a post fall with the lamp still burning).
+            for (int j = 0; j < lanterns.Count && j < lanternHome.Count; j++)
             {
                 float dx = lanternHome[j].x - at.x, dz = lanternHome[j].z - at.z;
-                if (dx * dx + dz * dz > reach * reach || lampOut[j]) continue;
-                lampOut[j] = true; lanterns[j].enabled = false;   // out for good: the real-lamp rule never lights it again
-                if (nightGlows == null) continue;
+                if (dx * dx + dz * dz > reach * reach) continue;
+                if (j < lampOut.Count) { if (lampOut[j]) continue; lampOut[j] = true; }   // out for good: the real-lamp rule never lights it again
+                lanterns[j].enabled = false;
+                if (nightGlows == null || j >= lanternCard.Count) continue;
                 if (cols == null) cols = nightGlows.colors;
                 int card = lanternCard[j];
                 for (int k = 0; k < 4 && card * 4 + k < cols.Length; k++) cols[card * 4 + k] = Color.clear;
