@@ -647,6 +647,45 @@ namespace TW.Tests
         }
 
         [Test]
+        // the whole scan is thrown away in a tick where every gun has a mark: BuildShelters' AnyGunIdle gate.
+        public void TheShelterListIsBuiltOnlyWhenAGunHasNoTarget()
+        {
+            using var m = NewMatch();
+            var fire = m.World.GetSystem<DirectFireSystem>();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            int builtTicks = 0;
+            for (int t = 0; t < Settle + 6; t++) { Step(m); if (t >= Settle && fire.ShelterCount > 0) builtTicks++; }
+            Assert.Greater(builtTicks, 0, "the list is still built when a gun has nobody to shoot at");
+
+            // a wreck with a man inside its shelter reach (the old code always listed it, nobody idle or not), facing
+            // another man 15 m off: a living target always wins, so both of them keep a target and BuildShelters has
+            // nobody idle to build for, even though the one near the wreck would otherwise always make the list.
+            using var m2 = NewMatch();
+            var fire2 = m2.World.GetSystem<DirectFireSystem>();
+            int wreck2 = m2.Map.AddProp(new PropDef { Pos = At, Kind = PropKind.Wreck });
+            int a = m2.World.Spawn(0, InfantryArchetype.Rifle, At + new float3(0f, 0f, 1f), 100000f, 0f, false);
+            int b = m2.World.Spawn(1, InfantryArchetype.Rifle, At + new float3(0f, 0f, 16f), 100000f, 0f, false);
+            m2.World.GoalId[a] = -1; m2.World.TrenchId[a] = -1;
+            m2.World.GoalId[b] = -1; m2.World.TrenchId[b] = -1;
+            int checkedTicks = 0;
+            for (int t = 0; t < Settle + 300; t++)
+            {
+                Step(m2);
+                if (t < Settle) continue;
+                bool everyoneHasATarget = true;
+                for (int i = 0; i < m2.World.HighWater; i++)
+                {
+                    if (!m2.World.IsAlive(i) || (m2.World.Flags[i] & (uint)UnitFlags.Vehicle) != 0) continue;
+                    if (m2.World.TargetSlot[i] < 0) { everyoneHasATarget = false; break; }
+                }
+                if (!everyoneHasATarget) continue;
+                checkedTicks++;
+                Assert.AreEqual(0, fire2.ShelterCount, "the whole scan is thrown away");
+            }
+            Assert.Greater(checkedTicks, 0, "at least one tick must have had every living slot with a target");
+        }
+
+        [Test]
         public void TheNewStagesHaveTheRulesTheOwnerChose()
         {
             Assert.AreEqual(PropKind.BrokenWreck, PropRules.Next(PropKind.Wreck));
