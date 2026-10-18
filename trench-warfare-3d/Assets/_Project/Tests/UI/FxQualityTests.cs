@@ -182,6 +182,22 @@ namespace TW.Tests
         }
 
         [Test]
+        public void A_Burst_In_Melt_Keeps_Its_Own_Look()
+        {
+            int mine = MineSystem.SourceBase + (int)MineKind.Mine;
+            var melt = CombatFx.BurstLookFor(mine, 1f, true, true);
+            Assert.IsTrue(melt.Mine, "a mine in molten rock keeps its earth throw");
+            Assert.AreEqual(0f, melt.Fire, "and never draws the fireball water would have taken anyway");
+            var water = CombatFx.BurstLookFor(mine, 1f, true, false);
+            Assert.IsFalse(water.Mine); Assert.AreEqual(1f, water.Fire); Assert.AreEqual(1f, water.Column, "plain water falls back to the shell burst");
+            int wire = MineSystem.SourceBase + (int)MineKind.Tripwire;
+            Assert.AreEqual(0f, CombatFx.BurstLookFor(wire, 1f, true, true).Column, "the melt tripwire stands no column");
+            int kettle = SourceId.Unit(VehicleArchetype.Kettle);
+            Assert.IsTrue(CombatFx.BurstLookFor(kettle, 1f, false, false).Mortar, "dry keeps the Kettle's own look");
+            Assert.IsTrue(CombatFx.BurstLookFor(kettle, 0f, false, false).Equals(CombatFx.BurstLook.Same), "fx.classArms 0 still draws every burst as it always did");
+        }
+
+        [Test]
         public void The_Salvo_Ripples_By_Tier()
         {
             Assert.AreEqual(1, TankRenderer.RocketsOf(FxTier.Low));
