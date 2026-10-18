@@ -100,6 +100,73 @@ def _read(f):
         return None
 
 
+class Reading:
+    """One pass over the board's leg records, shared by every ledger figure a caller asks for from it: the glob
+    (_files) runs once in the constructor, and each record is json-read at most once, kept by path."""
+    def __init__(self, board, home=None, lim=None):
+        self.board, self.home, self.lim = board, home, lim or config.limits()
+        self._all = sorted(_once(board, "relay/*/legs/*.json"), key=lambda p: p.name)
+        self._cache = {}
+        self._days_cache = {}
+        self._price = None
+        self._rate_val = None
+        self._standing_val = "unset"
+        self._agents = None
+
+    def _rec(self, f):
+        if f not in self._cache:
+            self._cache[f] = _read(f)
+        return self._cache[f]
+
+    def files(self, since=None):
+        files = self._all
+        if since:
+            cut = (datetime.datetime.strptime(since, DAY) - datetime.timedelta(days=1)).strftime("%Y%m%d")
+            files = [f for f in files if not (f.name[:8].isdigit() and f.name[:8] < cut)]
+        return files
+
+    def recs(self, since=None):
+        out = []
+        for f in self.files(since):
+            rec = self._rec(f)
+            if rec is not None:
+                out.append((f, rec))
+        return out
+
+    @property
+    def price(self):
+        if self._price is None:
+            self._price = _usuals(self, self.lim)
+        return self._price
+
+    @property
+    def per_usd_guess(self):
+        if self._rate_val is None:
+            self._rate_val = _rate(self, self.lim)
+        return self._rate_val
+
+    @property
+    def standing(self):
+        if self._standing_val == "unset":
+            self._standing_val = _standing(self)
+        return self._standing_val
+
+    @property
+    def agents(self):
+        if self._agents is None:
+            self._agents = _booked(self)
+        return self._agents
+
+    def days_cut(self, since):
+        if since not in self._days_cache:
+            self._days_cache[since] = _days(self, since)
+        return self._days_cache[since]
+
+
+def reading(board, home=None, lim=None):
+    return Reading(board, home, lim)
+
+
 def known_cost(rec, home=None):
     """The cost of one leg from its record, else from its leg folder here, else None."""
     c = rec.get("cost_usd")
@@ -117,15 +184,13 @@ def _median(xs):
     return (xs[(len(xs) - 1) // 2] + xs[len(xs) // 2]) / 2.0
 
 
-def usuals(board, home=None, lim=None):
+def _usuals(read, lim):
     """A function (phase, model, effort) -> the usual cost of such a leg. From the newest limits.json price_legs
     records with a known cost: three or more legs of the same phase, model and effort, else the legs of the phase,
     else every leg, else limits.json usual_leg_usd."""
-    lim = lim or config.limits()
     known = []
-    for f in _files(board)[-int(lim["price_legs"]):]:
-        rec = _read(f)
-        c = known_cost(rec, home) if rec else None
+    for f, rec in read.recs()[-int(lim["price_legs"]):]:
+        c = known_cost(rec, read.home)
         if c is not None:
             known.append((rec.get("phase"), rec.get("model"), rec.get("effort"), c))
 
@@ -137,8 +202,14 @@ def usuals(board, home=None, lim=None):
     return usual
 
 
-def usual(board, phase, model=None, effort=None, home=None, lim=None):
-    return usuals(board, home, lim)(phase, model, effort)
+def usuals(board, home=None, lim=None, read=None):
+    read = read or reading(board, home, lim)
+    return read.price
+
+
+def usual(board, phase, model=None, effort=None, home=None, lim=None, read=None):
+    read = read or reading(board, home, lim)
+    return read.price(phase, model, effort)
 
 
 def need(price, ph, phases):
@@ -153,30 +224,30 @@ def known_week(rec):
     return float(w) if isinstance(w, (int, float)) and not isinstance(w, bool) and w >= 0 else None
 
 
-def rate(board, home=None, lim=None):
+def rate(board, home=None, lim=None, read=None):
     """Percent points of the week one dollar of leg cost stands for: what the newest limits.json price_legs legs
     with a measured week used, over what they cost. While no leg is measured it is the guess, 100 over
     limits.json week_usd, and None when that is 0."""
-    return _rate(board, home, lim)[0]
+    read = read or reading(board, home, lim)
+    return read.per_usd_guess[0]
 
 
-def guessed(board, home=None, lim=None):
-    return _rate(board, home, lim)[1]
+def guessed(board, home=None, lim=None, read=None):
+    read = read or reading(board, home, lim)
+    return read.per_usd_guess[1]
 
 
-def _rate(board, home, lim):
+def _rate(read, lim):
     """(the rate or None, True when it is the guess)."""
-    lim = lim or config.limits()
     used = cost = 0.0
     price = None
-    for f in _files(board)[-int(lim["price_legs"]):]:
-        rec = _read(f)
-        w = known_week(rec) if rec else None
+    for f, rec in read.recs()[-int(lim["price_legs"]):]:
+        w = known_week(rec)
         if w is None:
             continue
-        c = known_cost(rec, home)
+        c = known_cost(rec, read.home)
         if c is None:
-            price = price or usuals(board, home, lim)
+            price = price or read.price
             c = price(rec.get("phase"), rec.get("model"), rec.get("effort"))
         used, cost = used + w, cost + c
     if cost > 0 and used > 0:
@@ -193,10 +264,14 @@ def week(day, per_usd):
     return day["week"] + (day["usd_unmeasured"] + day["agents_usd"]) * (per_usd or 0.0), day["unmeasured"]
 
 
-def standing(board):
+def standing(board, read=None):
     """The newest reading a leg left on the board ({at, week, resets}), or None."""
-    for f in reversed(_files(board)):
-        rec = _read(f) or {}
+    read = read or reading(board)
+    return read.standing
+
+
+def _standing(read):
+    for f, rec in reversed(read.recs()):
         for key in ("week_end", "week_start"):
             r = rec.get(key)
             if isinstance(r, dict) and isinstance(r.get("week"), (int, float)):
@@ -209,36 +284,40 @@ def _empty(day):
             "usd_unmeasured": 0.0, "week_units": {}, "agents": 0, "agents_usd": 0.0, "kinds": {}}
 
 
-def booked(board, since=None):
+def booked(board, since=None, read=None):
     """What agents.py booked for the agents sessions spawned outside the relay: [{day, station, usd, agents}], one
     per station and day, for since (a day) or later. A station books its day's total, so a newer booking of the
     same day replaces the older one; a file that does not read counts as nothing."""
+    read = read or reading(board)
+    out = [rec for rec in read.agents if rec["day"] >= (since or "")]
+    return out
+
+
+def _booked(read):
     out = []
-    for f in sorted(_once(board, "relay/*/agents/*.json"), key=lambda p: (p.name, p.parent.parent.name)):
+    for f in sorted(_once(read.board, "relay/*/agents/*.json"), key=lambda p: (p.name, p.parent.parent.name)):
         rec = _read(f) or {}
         usd, n = rec.get("usd"), rec.get("agents")
-        if f.stem < (since or "") or not isinstance(usd, (int, float)) or isinstance(usd, bool) or usd < 0:
+        if not isinstance(usd, (int, float)) or isinstance(usd, bool) or usd < 0:
             continue                                            # the file is named by its day
         out.append({"day": f.stem, "station": f.parent.parent.name, "usd": float(usd),
                     "agents": n if isinstance(n, int) and not isinstance(n, bool) and n > 0 else 0})
     return out
 
 
-def _days(board, since, home, lim):
+def _days(read, since):
     """{day: {day, usd, legs, estimated, units: {unit: {phase: usd}}, week, unmeasured, usd_unmeasured,
     week_units: {unit: {phase: [percent points measured, dollars of the legs not measured]}}, agents, agents_usd}}
     for the legs started on since or later, and the agents booked for those days (in usd, and apart in agents_usd)."""
-    out, price = {}, None
-    for f in _files(board, since):
-        rec = _read(f)
-        day = day_of(rec.get("started_at") or rec.get("finished_at")) if rec else None
+    out = {}
+    for f, rec in read.recs(since):
+        day = day_of(rec.get("started_at") or rec.get("finished_at"))
         if not day or day < since:
             continue
         d = out.setdefault(day, _empty(day))
-        c = known_cost(rec, home)
+        c = known_cost(rec, read.home)
         if c is None:
-            price = price or usuals(board, home, lim)
-            c = price(rec.get("phase"), rec.get("model"), rec.get("effort"))
+            c = read.price(rec.get("phase"), rec.get("model"), rec.get("effort"))
             d["estimated"] += 1
         d["usd"] += c
         d["legs"] += 1
@@ -257,7 +336,7 @@ def _days(board, since, home, lim):
         else:
             d["week"] += w
             cell[0] += w
-    for rec in booked(board, since):
+    for rec in booked(read.board, since, read):
         d = out.setdefault(rec["day"], _empty(rec["day"]))
         d["usd"] += rec["usd"]
         d["agents_usd"] += rec["usd"]
@@ -275,7 +354,7 @@ def pace_share(now, lim):
     return min(1.0, max(0.0, (hour - a) / (z - a)))
 
 
-def day_budget(board, lim=None, home=None, now=None):
+def day_budget(board, lim=None, home=None, now=None, read=None):
     """The day's budget as the runner and every screen count it, or None when none is set.
       unit              "pct": percent points of the week (limits.json day_budget_pct), whenever there is a rate
                         "usd": dollars of cost (day_budget_usd), while nothing can be said in percent
@@ -285,8 +364,9 @@ def day_budget(board, lim=None, home=None, now=None):
       about             True when spent is not all measured
       day               the day's sums (spent())"""
     lim = lim or config.limits()
-    d = spent(board, None, home, lim)
-    per_usd, guess = _rate(board, home, lim)
+    read = read or reading(board, home, lim)
+    d = spent(board, None, home, lim, read)
+    per_usd, guess = read.per_usd_guess
     pct = float(lim.get("day_budget_pct") or 0)
     if pct > 0 and per_usd is not None:
         used, est = week(d, per_usd)
@@ -351,27 +431,30 @@ def pace_line(b, lim, now=None, need_usd=None):
     return head + tail
 
 
-def spent(board, day=None, home=None, lim=None):
+def spent(board, day=None, home=None, lim=None, read=None):
     day = day or today()
-    return _days(board, day, home, lim).get(day) or _empty(day)
+    read = read or reading(board, home, lim)
+    return read.days_cut(day).get(day) or _empty(day)
 
 
-def history(board, days=7, home=None, lim=None):
+def history(board, days=7, home=None, lim=None, read=None):
+    read = read or reading(board, home, lim)
     first = datetime.datetime.now() - datetime.timedelta(days=days - 1)
-    got = _days(board, first.strftime(DAY), home, lim)
+    got = read.days_cut(first.strftime(DAY))
     names = [(first + datetime.timedelta(days=i)).strftime(DAY) for i in range(days)]
     return [got.get(n) or _empty(n) for n in names]
 
 
-def lines(board, budget, days=7, home=None, lim=None, now=None):
+def lines(board, budget, days=7, home=None, lim=None, now=None, read=None):
     """What `relay.py budget` prints: today against the budget, the pace, per unit and phase, then the days
     before. budget is the cap in dollars, which counts while nothing can be said in percent."""
     lim = dict(lim or config.limits(), day_budget_usd=budget or 0)
-    hist = history(board, days, home, lim)
+    read = read or reading(board, home, lim)
+    hist = history(board, days, home, lim, read)
     today_ = hist[-1]
-    b = day_budget(board, lim, home, now)
+    b = day_budget(board, lim, home, now, read)
     pace = [pace_line(b, lim, now)] if pace_line(b, lim, now) else []
-    per_usd, guess = _rate(board, home, lim)
+    per_usd, guess = read.per_usd_guess
     if per_usd is not None:
         cap = b["cap"] if b and b["unit"] == "pct" else None
         out = _week_lines(hist, budget, per_usd, GUESS % lim["week_usd"] if guess else "", cap)
@@ -441,15 +524,16 @@ def _week_lines(hist, budget, per_usd, guess="", cap=None):
     return out
 
 
-def one_line(board, budget, home=None, lim=None):
+def one_line(board, budget, home=None, lim=None, read=None):
     """One line for `relay.py status`, `relay.py day` and the stop line: the day in percent of the week whenever
     there is a rate, in dollars until then. It says so when legs are counted at the usual cost, not their own, or
     from their cost, not a reading. budget is the cap in dollars, which counts while limits.json day_budget_pct is
     0 or nothing can be said in percent."""
     lim = dict(lim or config.limits(), day_budget_usd=budget or 0)
-    now = spent(board, None, home, lim)
-    b = day_budget(board, lim, home)
-    per_usd, guess = _rate(board, home, lim)
+    read = read or reading(board, home, lim)
+    now = spent(board, None, home, lim, read)
+    b = day_budget(board, lim, home, read=read)
+    per_usd, guess = read.per_usd_guess
     if per_usd is not None:
         used, est = week(now, per_usd)
         if b and b["unit"] == "pct":

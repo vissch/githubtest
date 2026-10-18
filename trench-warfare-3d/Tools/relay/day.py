@@ -108,10 +108,10 @@ def run_lines(board, home):
     return out, needs
 
 
-def week_line(board, home, lim):
+def week_line(board, home, lim, read=None):
     """Where the plan's week stands: from a reading on this machine that is new enough, else from the newest one a
     leg left on the board, else None: a line with no source is not shown."""
-    return usage.line(usage.read(home, lim)) or usage.line(ledger.standing(board), old=True)
+    return usage.line(usage.read(home, lim)) or usage.line(ledger.standing(board, read), old=True)
 
 
 def answer_lines(answered, width, rows):
@@ -138,16 +138,18 @@ def lines(board, home, lim, ph, holder=None, answered=None, now=None):
     the pace is read at (a test's own clock)."""
     width, rows = int(lim["day_line_chars"]), int(lim["day_queue_rows"])
     units, problems = queue(board)
-    price = ledger.need(ledger.usuals(board, home, lim), ph, ("plan", "execute"))
-    out = fit(ledger.one_line(board, lim["day_budget_usd"], home, lim), width)
-    pace = ledger.pace_line(ledger.day_budget(board, lim, home, now), lim, now, price if units else None)
+    read = ledger.reading(board, home, lim)
+    price = ledger.need(ledger.usuals(board, home, lim, read), ph, ("plan", "execute"))
+    out = fit(ledger.one_line(board, lim["day_budget_usd"], home, lim, read), width)
+    pace = ledger.pace_line(ledger.day_budget(board, lim, home, now, read), lim, now, price if units else None)
     out += fit(pace, width) if pace else []
-    out += fit(week_line(board, home, lim), width) if week_line(board, home, lim) else []
+    week = week_line(board, home, lim, read)
+    out += fit(week, width) if week else []
     run, needs = run_lines(board, home)
     for line in run:
         out += fit(line, width)
     if units:
-        per_usd = ledger.rate(board, home, lim)
+        per_usd = ledger.rate(board, home, lim, read)
         if per_usd is None:
             out.append("Queue: %d unit%s, about $%.2f at the usual cost of $%.2f a unit (plan and execute)."
                        % (len(units), "" if len(units) == 1 else "s", price * len(units), price))
