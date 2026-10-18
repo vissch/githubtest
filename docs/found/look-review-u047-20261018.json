@@ -1,0 +1,20 @@
+{
+  "subject": "review:U047",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DeterminismReplayTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DirectionalBlastTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DriveFeelTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/DynamicGroundTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FactionRosterTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FlowFieldManagerTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/GarrisonAndOrdersTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/GarrisonTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FlowFieldTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/HashIntervalTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/FlamethrowerTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/GrenadeTests.cs",
+    "docs/03-determinism-rules.md",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for the twelve files above"
+  ],
+  "tasks": []
+}
