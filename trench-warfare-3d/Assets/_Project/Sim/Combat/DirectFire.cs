@@ -6,7 +6,7 @@
 // × (1 − target cover). A hit adds the weapon's suppression to the target; a miss adds 60 % of it to every enemy
 // of the shooter within 1.5 m of the target (NearMiss). Deaths are applied on the main thread after the job.
 // A vehicle is only ever close-assaulted (TargetAcquisition): the bundle of grenades is a VehicleHit on the armour,
-// queued on TankGunnerySystem.PendingHits for VehicleModulesSystem (without them, it takes the damage straight off).
+// always queued on TankGunnerySystem.PendingHits, which VehicleModulesSystem resolves against the top plate.
 // A knocked-out hulk is not worth a grenade.
 // Smoke (docs/21 phase 5): every metre of thick smoke on the line of fire (SmokeLos) takes SmokeAccuracyPerMetre
 // off the chance, down to SmokeAccuracyFloor, and a target standing inside thick smoke gains only SmokeSuppression
@@ -42,7 +42,6 @@ namespace TW.Sim.Combat
         MovementSystem movement;
         NativeList<SimEvent> events;
         NativeList<int2> killed;     // (slot, killer) in the order they died
-        NativeList<VehicleHit> ownHits;   // close assaults when no TankGunnerySystem is registered
         TankGunnerySystem gunnery;
         GasSmokeSystem gas;               // registered after this system: resolved on the first step
         bool lookedForGas;
@@ -80,7 +79,6 @@ namespace TW.Sim.Combat
             catalogue = world.GetSystem<CombatCatalogueSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs CombatCatalogueSystem registered before it");
             events = new NativeList<SimEvent>(1024, Allocator.Persistent);
             killed = new NativeList<int2>(256, Allocator.Persistent);
-            ownHits = new NativeList<VehicleHit>(16, Allocator.Persistent);
             stopped = new NativeList<WreckRound>(16, Allocator.Persistent);
             shelters = new NativeList<Shelter>(16, Allocator.Persistent);
             noSmoke = new NativeArray<float>(1, Allocator.Persistent);
@@ -114,14 +112,13 @@ namespace TW.Sim.Combat
             int n = w.HighWater;
             if (n == 0) return;
             if (movement == null) movement = w.GetSystem<MovementSystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs MovementSystem");
-            if (gunnery == null) gunnery = w.GetSystem<TankGunnerySystem>();
+            if (gunnery == null) gunnery = w.GetSystem<TankGunnerySystem>() ?? throw new System.InvalidOperationException("DirectFireSystem needs TankGunnerySystem registered: close assaults go through VehicleModulesSystem, never straight off Hp");
             if (!lookedForGas) { gas = w.GetSystem<GasSmokeSystem>(); lookedForGas = true; }
             bool smokeOn = gas != null && gas.SmokeActive;
             if (aura == null) aura = w.GetSystem<AuraSystem>();
             if (!lookedForBlast) { blast = w.GetSystem<BlastSystem>(); lookedForBlast = true; }
             events.Clear();
             killed.Clear();
-            ownHits.Clear();
             ignited.Clear();
             scorched.Clear();
             thrown.Clear();
@@ -146,7 +143,7 @@ namespace TW.Sim.Combat
                 Specs = w.Units.Infantry, Roster = w.Units.Roster, Weapons = catalogue.Weapon, Tanks = catalogue.Tank,
                 TargetSlot = w.TargetSlot, FireCooldown = w.FireCooldown, Hp = w.Hp, Suppression = w.Suppression,
                 Spatial = movement.Spatial, CellTrenchId = map.CellTrenchId, Layers = map.NavLayers, CellCover = map.CellCover, NavWidth = map.NavWidth, NavLength = map.NavLength,
-                Events = events, Killed = killed, VehicleHits = gunnery != null ? gunnery.PendingHits : ownHits,
+                Events = events, Killed = killed, VehicleHits = gunnery.PendingHits,
                 Smoke = smokeOn ? gas.Smoke : noSmoke, SmokeW = smokeOn ? gas.Width : 1, SmokeL = smokeOn ? gas.Length : 1, SmokeOn = smokeOn,
                 DamageMul = aura != null ? aura.DamageMul : ones, SuppressionMul = aura != null ? aura.SuppressionMul : ones,
                 Generation = w.Generation, Grenades = grenades, GrenadeGen = grenadeGen,
@@ -164,14 +161,6 @@ namespace TW.Sim.Combat
                 });
                 lands.Add(w.Tick + (uint)CombatTables.GrenadeFlightTicks(d.y, w.Config.TickSeconds));
             }
-            for (int k = 0; k < ownHits.Length; k++)
-            {
-                var hit = ownHits[k];   // no armour model registered: the charge's damage comes straight off
-                w.Hp[hit.Target] = w.Hp[hit.Target] - hit.Damage;
-                w.Events.Add(w.Tick, SimEventType.Hit, hit.Shooter, hit.Target, hit.Pos, hit.Dir, hit.Damage);
-                if (w.Hp[hit.Target] <= 0f && w.IsAlive(hit.Target)) killed.Add(new int2(hit.Target, hit.Shooter));
-            }
-
             WearWrecks(w);   // the rounds wreck cover stopped (DirectFire.Wrecks)
             for (int e = 0; e < events.Length; e++)
             {
@@ -504,7 +493,6 @@ namespace TW.Sim.Combat
         {
             if (events.IsCreated) events.Dispose();
             if (killed.IsCreated) killed.Dispose();
-            if (ownHits.IsCreated) ownHits.Dispose();
             if (ignited.IsCreated) ignited.Dispose();
             if (scorched.IsCreated) scorched.Dispose();
             if (stopped.IsCreated) stopped.Dispose();
