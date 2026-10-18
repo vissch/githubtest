@@ -28,6 +28,25 @@ namespace TW.Presentation.Tactical
         /// <summary>How far a foot may fall behind where it would like to stand, as a share of the leg's reach,
         /// before that leg takes a step.</summary>
         public const float TriggerShare = 0.32f;
+        /// <summary>Below this speed (m/s, and with the machine not turning) it is PARKED, not walking slowly.
+        /// A standing machine does not shuffle its feet and does not stand tipped onto its nose, and both of
+        /// those need the same test, so there is one number for it.</summary>
+        public const float ParkPace = 0.05f;
+        /// <summary>How far a PARKED hull may be tilted away from the ground it is standing over. The legs' own
+        /// slack cap (capP in Carry) bounds how far the hull may follow the ground; it does not bound the plane
+        /// FIT itself, so one foot in a shell hole used to tip the fit past the cap and, once the machine had
+        /// stopped, nothing ever brought it back. MEASURED in Captures/vehicles/pincer_stop.csv: a parked Pincer
+        /// held -11.2152 degrees, to within 0.0001, for the whole of a 181-frame trace — that is the cap, not a
+        /// ground angle. Three degrees is the owner's bar for "a machine standing there looks like it is
+        /// standing there", and it is added to the real ground angle, so a machine parked on a slope still leans
+        /// with the slope.
+        ///
+        /// It is three and not two because two was tried and changed nothing: on the dented ground of
+        /// GaitTests.AHaltedWalkerStandsLevelAndStill the parked fit lands INSIDE this allowance on every walker
+        /// (Pincer 3.764 degrees, Pavise 3.167, each within a tenth of the ground under it), so the bound is not
+        /// what sets the parked attitude there — it is the backstop for the shell-hole case the field trace
+        /// caught, where the fit ran away to the leg-slack cap.</summary>
+        public const float ParkTilt = 3f * Mathf.Deg2Rad;
         /// <summary>A foot this far behind (as a share of reach) has waited long enough: it steps whatever its
         /// neighbours are doing. Without this a leg can be held back by one neighbour after another while the body
         /// walks on, and by the time its turn comes its foot is further behind than the leg is long.</summary>
@@ -245,6 +264,16 @@ namespace TW.Presentation.Tactical
             var body = Quaternion.AngleAxis(yaw * Mathf.Rad2Deg, Vector3.up);
             float pace = new Vector2(vel.x, vel.z).magnitude;
             float swingTime = Mathf.Lerp(SwingSlow, SwingFast, Mathf.Clamp01(pace / 3f)) * SwingScale;
+            // Standing still is its own case. `runningOut` below is a reach-safety PREDICTION measured against a
+            // hip, and a hip moves with Pitch, Roll and Height — a hull tipped 0.1957 rad swings a hip 1.25 m out
+            // by about 0.24 m, which is enough to push a leg over the gate with nothing having moved the machine.
+            // The leg re-plants, the new anchor changes meanY and the plane fit, the fit moves the tilt, and the
+            // tilt moves the hips again: a limit cycle that reads as a parked machine breathing. The file's own
+            // note records runningOut holding on 97% of Pincer's ticks, so at rest it is the only term still
+            // firing. A parked machine therefore needs a REAL reason to lift a foot — drift, ExtendAt or Frantic,
+            // all of which need something to actually have moved — and nothing is moving a parked foot, so the
+            // feet freeze and meanY with them.
+            bool parked = pace < ParkPace && Mathf.Abs(yawRate) < 0.05f;
 
             int alive = 0, gone = 0;
             for (int i = 0; i < rigs.Length; i++)
@@ -333,8 +362,9 @@ namespace TW.Presentation.Tactical
                     // The advance is PLANAR, matching `pace` (which is the xz magnitude of `vel`): a machine dropping
                     // or climbing must not have that counted as ground covered.
                     Vector3 advance = new Vector3(vel.x, 0f, vel.z) * swingTime;
-                    bool runningOut = (Feet[i].Anchor - (hipNow + advance)).magnitude
-                                      >= span * (StepSafety - 0.05f);
+                    bool runningOut = !parked
+                                      && (Feet[i].Anchor - (hipNow + advance)).magnitude
+                                         >= span * (StepSafety - 0.05f);
                     if (drift < span * TriggerShare && stretched < ExtendAt && !runningOut) continue;
                     // a leg that has waited too long, or is nearly out of length, goes now whatever its neighbours
                     // are doing: being held back by one neighbour after another is what let the body sink
@@ -677,6 +707,39 @@ namespace TW.Presentation.Tactical
             capP = Mathf.Max(capP, 0.035f);
             capR = Mathf.Max(capR, 0.035f);
             TiltCapPitch = capP; TiltCapRoll = capR;
+
+            // A PARKED machine is bounded by the ground it is standing over as well as by its legs. The cap above
+            // bounds how far the hull may FOLLOW the fit; nothing bounds the fit itself, so one foot in a shell
+            // hole tips the whole plane and, with the machine stopped and no foot ever moving again, that tilt is
+            // where it stays for ever. That is exactly the field trace: -11.2152 degrees held to within 0.0001,
+            // which is -capP and not an angle of any ground.
+            //
+            // So the dirt under the hull gets a vote on the tilt, the same way it already gets one on the ride
+            // height below. It is sampled fore/aft and left/right at the hull's own hip spread rather than out at
+            // the feet, so a single crater under one toe cannot set it, and the fit is allowed ParkTilt either
+            // side of it. On the level that is within three degrees of level; on a slope the ground angle carries
+            // the lean, so a machine parked on a grade still stands on the grade.
+            //
+            // At pace this does nothing: a walking machine's feet keep the fit honest by themselves, and reading
+            // four terrain samples per frame to second-guess them would fight the gait rather than help it.
+            if (pace < ParkPace && Mathf.Abs(yawRate) < 0.05f && ground != null)
+            {
+                float df = 0f, dr = 0f;
+                for (int i = 0; i < rigs.Length; i++)
+                {
+                    if (rigs[i] == null) continue;
+                    df = Mathf.Max(df, Mathf.Abs(rigs[i].Hip.z));
+                    dr = Mathf.Max(dr, Mathf.Abs(rigs[i].Hip.x));
+                }
+                df = Mathf.Max(0.5f, df); dr = Mathf.Max(0.5f, dr);
+                Vector3 af = fwd * df, ar = right * dr;
+                float gp = Mathf.Atan2(ground(pos.x + af.x, pos.z + af.z) - ground(pos.x - af.x, pos.z - af.z), 2f * df);
+                // Settle's sense again: left up is positive, so the roll of the ground is the negative of its
+                // rightward gradient, matching fitRoll above.
+                float gr = -Mathf.Atan2(ground(pos.x + ar.x, pos.z + ar.z) - ground(pos.x - ar.x, pos.z - ar.z), 2f * dr);
+                fitPitch = Mathf.Clamp(fitPitch, gp - ParkTilt, gp + ParkTilt);
+                fitRoll = Mathf.Clamp(fitRoll, gr - ParkTilt, gr + ParkTilt);
+            }
 
             // the fit is capped by the legs; the leans are added on top and bounded only by the hull
             Pitch = Mathf.Lerp(Pitch, Mathf.Clamp(Mathf.Clamp(fitPitch, -capP, capP) + leanP, -0.42f, 0.42f), k2);
