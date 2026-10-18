@@ -333,6 +333,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
+  found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
+  (`DirectFire.cs:162-168`) skips armour and can count a kill twice in a world with no `TankGunnerySystem`. Read in
+  code: `DirectFireSystem` and `TankGunnerySystem` are both registered only inside `if (combat)`
+  (`MatchSim.cs:91` and `:132`) and nothing else constructs either, so `gunnery` is never null when direct fire
+  steps and the path never runs. The plan's proof (an EditMode test that is red first) is therefore impossible.
+  Options: (a) delete the fallback loop and its list as dead code, so a world without the gunnery system simply has
+  no close assaults -- the default taken here, nothing built yet; (b) hand the bundles to
+  `VehicleModulesSystem` through a queue so a gunnery-less world resolves them against the plate (machinery for a
+  world that cannot produce a bundle today); (c) leave it. (b) is what the plan asked for.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
   folded its own foot into its own thigh (0.015 m, where its mirrored twin kept 0.453 m), and the gait now holds that
