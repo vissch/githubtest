@@ -349,7 +349,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   retried. So this row's closing commits sit only on this checkout, local to `lane/show/relay-harness` (not on
   origin at all, under any name): the owner's own push from this checkout, or a cherry-pick of them onto a landed
   `lane/show/decision-2026-10-18-relay-harness`, is now the only way they reach integration. Default taken while he
-  has not: the unit stays closed and nothing else on this lane is worked.
+  has not: the unit stays closed and nothing else on this lane is worked. The closing commits had also accidentally
+  carried 66 `Tools/otr/test_classify`/`test_objects`/`test_render` `bin`/`obj` build files; they were removed again
+  on this lane and the paths ignored, so his hand-push from this checkout now carries docs only.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
