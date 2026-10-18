@@ -10,7 +10,7 @@ from pathlib import Path
 sys.dont_write_bytecode = True
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
-import cmdrules, config, gitio, launch, ledger, legdir, papers, relay, relay_hook as H, runner   # noqa: E402
+import cmdrules, config, gitio, launch, ledger, legdir, papers, prompt, relay, relay_hook as H, runner   # noqa: E402
 from sources import pipeline as SP                                                 # noqa: E402
 
 UNIT = {"id": "house5--evidence--d1192f67", "source": "pipeline", "role": "destruction-vfx-simulator"}
@@ -131,6 +131,10 @@ class Settings(Base):
             self.assertNotIn(cmdrules.DRIVE_EVIDENCE, a)
         finally:
             launch.drive_dir = old
+
+    def test_the_execute_prompt_names_the_drive_evidence_folder(self):
+        text = prompt.system_text(UNIT["role"], "execute", config.style(), self.lim["prompt_max_bytes"])
+        self.assertIn(cmdrules.DRIVE_EVIDENCE, text)
 
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))

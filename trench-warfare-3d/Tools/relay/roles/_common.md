@@ -28,3 +28,7 @@ You are one short session in a chain. Nobody is watching and nobody can answer y
   `C:/Users/PC/Documents/GitHub/githubtest-assetboard/trench-warfare-3d/Tools/assetboard/gamefilm.py` does exactly
   this (it may not be on your lane): read it and copy its way of working.
 - Stop the editor you started before the gate and before you end.
+
+# Proof on the Drive
+- Proof the owner must see goes under `G:/My Drive/TW3D-pipeline/decisions-evidence/<date>/<unit>/`, the only
+  place on the Drive a leg may write. The report names the path it wrote.
