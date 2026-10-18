@@ -41,6 +41,13 @@ namespace TW.Presentation.Tactical
             return look;
         }
 
+        /// <summary>BurstBy, gated on what actually damps a shell: water, not melt (CombatFx.cs's `damp`).</summary>
+        public static BurstLook BurstLookFor(int source, float classArms, bool wet, bool melt)
+        {
+            bool damp = wet && !melt;   // water absorbs the shell; molten rock does not (CombatFx.cs, the `damp` comment)
+            return classArms > 0f && !damp ? BurstBy(source) : BurstLook.Same;
+        }
+
         /// <summary>The pieces only this burst has, drawn after the shell burst's own. p: the burst on the ground; r: its radius
         /// as drawn (after look.Size); salt: the tick, for variety.</summary>
         void BurstExtras(in BurstLook look, Vector3 p, float r, bool mirror, Vector3 drift, uint salt)

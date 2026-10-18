@@ -836,7 +836,7 @@ namespace TW.Presentation.Tactical
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
                     var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
-                    var look = classArms > 0f && !wet ? BurstBy(e.A) : BurstLook.Same;     // CombatFx.Bursts.cs: the burst by what made it
+                    var look = BurstLookFor(e.A, classArms, wet, melt);     // CombatFx.Bursts.cs: the burst by what made it
                     if (drawn)
                     {
                         // the drawn burst: its own light for an instant, the earth (or water) stood up in a column, the low
