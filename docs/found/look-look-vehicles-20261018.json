@@ -1,0 +1,125 @@
+{
+  "subject": "look:vehicles",
+  "looked_at": [
+    "Captures/vehicles/pincer_walk_00..09.png + sidecars (Pincer walking, clock running, zoom 14)",
+    "Captures/vehicles/pincer.csv, Captures/vehicles/pincer_stop.csv (WeightLab traces, 161 and 181 frames)",
+    "Captures/vehicles/pincer_stand.png (Pincer halted, zoom 14)",
+    "Captures/vehicles/maw_drive.png, maw_marks_top.png, maw_track_00..07.png, sheet_maw_track.png, maw_path_top.png, maw_behind_close.png (Maw driving, zooms 12/22/30/45)",
+    "Captures/vehicles/wreck_s0..s4.png, sheet_wreck.png (a Tusk wreck shelled Wreck -> BrokenWreck -> Scrap -> Cleared)",
+    "Captures/vehicles/burn_00..05.png, sheet_burn.png, burn_wide.png (a Maw alight and still alive, zoom 14 and 30)",
+    "WeightLab.TraceStatus and WreckLab.Wreck rows (quoted in the leg's shots.md)",
+    "Assets/_Project/Presentation/Camera/CombatFx.Ground.cs (the mark stepping, lines 150-200)",
+    "Assets/_Project/Presentation/Camera/WalkerGait.cs (TiltCapPitch/TiltCapRoll, line 94)",
+    "docs/reference/tasks.md (Tanks and walkers drawn; Ground marks and footfalls; Vehicles in the sim)",
+    "docs/reference/decisions.md (2026-09-23, 2026-09-28, 2026-09-29, 2026-10-13 and the whole open block)",
+    "docs/20-rig-scoreboard.md lines 47-63 (W1-W6, T1-T5)",
+    "docs/found/look-look-every-unit-close-20261016.json, docs/found/look-look-night-20261017.json"
+  ],
+  "tasks": [
+    {
+      "title": "Make a burning machine read as burning at the standard view",
+      "why": "MEASURED on Captures/vehicles/burn_wide.png (zoom 30, the view the game is played at, blown_frac 0): the box over a fully alight Maw's hull measures luma_mean 0.1618 and warm_frac 0.0001 - DARKER than the empty mud 400 px away (0.1640) - and the mud under it 0.1921 / warm 0.0000, so it throws no pool. One small lantern in the same frame measures 0.3198 / warm 0.2918. Close in (sheet_burn.png, zoom 14) the fire is only an orange wash painted on the hull: no flame tongues, no embers, no smoke column, no light on the ground. A player cannot tell a machine that is on fire from one that is merely dark, so the strongest 'this thing is about to die' signal in a tank fight is invisible. It also contradicts the night look the owner settled (decisions 2026-09-29: cel flame tongues with embers, every fire paints an orange pool, look.pools on by default).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/FlipbookFx.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Machines.cs"
+      ],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "VfxLab.Burning(4, x, z) then CaptureRig.Shot at zoom 30: the same hull box measures warm_frac over 0.10 (today 0.0001) and the mud box under the machine luma_mean over 0.25 (today 0.1921), with blown_frac still under 0.02.",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A machine that crosses the mud leaves no mark at all",
+      "why": "MEASURED and seen at three zooms. The Maw in slot 1 drove from z 231.1 to z 185.5 (45.6 m, read off SimWorld.Position before and after) over open mud. The eight top-down frames taken during that drive (maw_track_00..07, sheet_maw_track.png, zoom 22, pitch 80, clock running), the close top-down straight onto the ground it had just crossed (maw_behind_close.png, zoom 12) and the wide top-down over the whole path (maw_path_top.png, zoom 45) all show unbroken mud: not one rut, and the halted Pincer in the same wide frame has left no footprint either. CombatFx.Ground.cs:191-197 stamps a pair of ruts every 0.85 m with a 70 s life, so they should be lying there for a minute after the pass. The field reads as if nothing heavy ever moved on it, and a tracked machine has no weight without them. (Not the dust: TrackDust is lane/show/pipe-vfx's.)",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Ground.cs",
+        "trench-warfare-3d/Assets/_Project/Shaders/GroundMark_URP.shader",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "The same run - spawn a Maw, DeathLab.DriveAt it 45 m, CaptureRig.Shot top-down (zoom 12, pitch 80) on the ground behind it - shows a visible rut pair, and a pixel count over the strip behind the machine differs from the same strip before the drive by more than the 1-3 % rain noise (today: no difference a reader can see in any of 10 frames).",
+      "risk": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A parked walker stands 11 degrees nose-down and bobs two thirds of a metre",
+      "why": "MEASURED in Captures/vehicles/pincer_stop.csv, 181 frames of the Pincer in slot 5. From t 2.55 s on, speed is under 0.007 m/s - the machine is standing still - and hull_pitch sits pinned at -11.2152 degrees to within 0.0001 for the rest of the trace, while hull_heave wanders from 1.023 to 1.701 m over the same seconds. So the body is parked tipped a visible 11 degrees onto its nose and at the same time rises and sinks 0.68 m with nothing moving it. pincer_stand.png (zoom 14) shows the same tipped attitude. A player reads a tipped, breathing machine as broken or as stuck in the mud, not as idle; it is also the opposite of the weighty machines the owner asked for (decisions 2026-09-29, Dust Front as a craft reference).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/WalkerGait.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Weight.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/HullRide.cs"
+      ],
+      "lane": "show",
+      "role": "vehicle-simulator",
+      "done_when": "WeightLab.Trace on a halted walker: over the seconds where speed stays under 0.01 m/s, hull_pitch is within 3 degrees of level (today -11.2152) and hull_heave moves less than 0.10 m peak to peak (today 0.68 m).",
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "A walker braking hard shows no weight shift at all",
+      "why": "MEASURED, WeightLab.TraceStatus verbatim for the Pincer halted from a full walk: 'stop at 2.15 s: dip -0.01 deg at +3.25 s, rebound 0.00 deg at +3.85 s, settled within 0.1 deg by +0.00 s'. The same trace records speed falling from 2.889 m/s under accel -3.245 m/s2, and the weighted column is 1 for every row, so the weight layer is on (it is on by default, decisions 2026-09-29) and simply produces nothing: a hundredth of a degree of dip on a 2.5x-scale machine stopping dead. Nothing a player could ever see. A heavy machine that halts without pitching forward reads as a sprite being switched off, which is the one thing the weight work was meant to cure.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Weight.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/HullRide.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.DriveStyle.cs"
+      ],
+      "lane": "show",
+      "role": "vehicle-simulator",
+      "done_when": "WeightLab.Trace on a walker halted from over 2.5 m/s, then TraceStatus: dip is at least 1.0 degree (today -0.01) with a rebound over 0.3 degree (today 0.00), and DriveStyleTests and HullRideTests stay green.",
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        false,
+        false
+      ]
+    }
+  ]
+}
