@@ -1,0 +1,24 @@
+{
+  "subject": "branch:lane/show/balance-sweep",
+  "looked_at": [
+    "git log --oneline origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/balance-sweep (27 commits, last 088988b0d, 2026-10-04)",
+    "git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/balance-sweep (38 files changed, +3826/-12)",
+    "git rev-list --left-right --count origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/balance-sweep (746 27)",
+    "git ls-tree -r --name-only origin/claude/trench-warfare-2d-3d-plan-idt7lf | grep for sweep.py, sweeps/, test_sweep.py, nightly.py, abtest.py, Gym.cs, GymCatalogue.cs, GymDirector.cs, AnimationController.Pin.cs, BalanceSweepTests.cs, BehaviourBenchTests.cs, GymPlayTests.cs, GymCatalogueTests.cs, test_nightly.py (all already present on integration)",
+    "git diff --stat (two-dot, integration tip vs branch) for the six branch-only paths: .claude/skills/tw-balance-sim/SKILL.md, trench-warfare-3d/Assets/_Project/Perf/GymCatalogue.cs, trench-warfare-3d/Tools/nightly.py, trench-warfare-3d/Tools/sweep.py, trench-warfare-3d/Tools/sweeps/factions.json, trench-warfare-3d/Tools/test_sweep.py (every one dominated by deletions, e.g. sweep.py 7 insertions/120 deletions, nightly.py 2/115, test_sweep.py 2/83)",
+    "git diff (same six paths) grep '^\\+[^+]' to read only the + side: every added line is either a now-superseded doc sentence, a smaller/older ArchetypeForFigure helper, or an old report.json/report.md shape already grown past on integration; no new behaviour or test case absent from integration",
+    "docs/reference/tasks.md and docs/reference/decisions.md grep for 'balance-sweep' (no match in either)"
+  ],
+  "tasks": [
+    {
+      "title": "Close lane/show/balance-sweep: its work is already on integration",
+      "why": "Every file the branch touches (Tools/sweep.py, Tools/sweeps/*, Tools/test_sweep.py, Tools/nightly.py, Tools/abtest.py, Editor/Gym.cs, Perf/GymCatalogue.cs, Perf/GymDirector.cs, AnimationController.Pin.cs, BalanceSweepTests.cs, BehaviourBenchTests.cs, GymPlayTests.cs) exists on integration already, grown past the branch's version (the branch's own diff against integration is almost pure deletion on all six files that differ at all). The branch is 746 commits behind and 27 ahead with no behaviour integration lacks, so a rebase would cost 38 files of conflict for nothing. Keeping it costs nothing today but invites a future session to spend time reviewing or rebasing a branch that has nothing to contribute.",
+      "files": [],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "git ls-remote origin lane/show/balance-sweep prints nothing",
+      "risk": [true, false, true, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
