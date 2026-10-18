@@ -18,7 +18,21 @@
     "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs:235-248 (Despawn)",
     "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropHarm.cs:1-45, Sim/Terrain/Heightfield.cs:25-29, Sim/Match/MatchSim.cs:120-140",
     "docs/reference/decisions.md and docs/reference/tasks.md, greps for DirectFire, TargetAcquisition, suppress, wreck, HuntsArmour",
-    "docs/02-contracts.md:138,151 (the wreck-fire contract), docs/found/look-code-presentation-vfx-20261018.json, docs/found/look-review-z002-20261018.json"
+    "docs/02-contracts.md:138,151 (the wreck-fire contract), docs/found/look-code-presentation-vfx-20261018.json, docs/found/look-review-z002-20261018.json",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TankGunnery.cs:1-519 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TankSpec.cs:1-247 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/MeleeSystem.cs:1-437 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/PounceSystem.cs:1-237 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Leap.cs:1-158 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs:1-236 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/HeroSystem.cs:1-335 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/TankTests.cs:1-369 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/MeleeTests.cs:1-667 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/HeroTests.cs:1-191 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs:300-399 (the Hunt pick, re-read against Engage.cs:184)",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs:1-130 (the Salvo and Skimmer specs, to check TankSpec.For's silent default)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimEvents.cs:161-180 (the per-tick event buffer, to check HeroSystem's veteran rescan)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs (system order: Hero 805, Leap 1105, Engage 1108, Melee 1109, Pounce 1125)"
   ],
   "tasks": [
     {
@@ -33,8 +47,20 @@
       "lane": "sim",
       "role": "bug-catcher",
       "done_when": "A new EditMode test (TankTests or CombatTests) parks a Maw in a machinegunner's field of fire, steps ten seconds, and asserts the machine's Suppression stays below SuppressionRules.PinnedThreshold and its TargetSlot is not cleared. It must be red on this commit first. Whichever way the owner decides, the chosen rule goes in docs/02-contracts.md with the replay bump a hashed suppression change costs.",
-      "risk": [false, true, false, false, false],
-      "change": [false, false, true, true, false]
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        true,
+        true,
+        false
+      ]
     },
     {
       "title": "Build the wreck shelter list only when a gun has no target",
@@ -46,28 +72,92 @@
       "lane": "sim",
       "role": "optimizer",
       "done_when": "The determinism, replay and hash tests plus WreckDecayTests stay green (the shots fired must not move), and a bench of the scripts' 48-man ShelledForest match shows the sim tick's mean cost down, reported before and after. A test asserts the shelter list is empty on a tick where every living slot has a target.",
-      "risk": [false, true, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     },
     {
       "title": "Fix the standoff test's setup guard: it cannot fail",
       "why": "CombatTests.cs:160-187, TwoDugInLinesDoNotEngageEachOther. Its own comment (lines 155-157) says the range is 'asserted FIRST' so the standoff proves the stance rule and not the map. But line 167 first patches the weapon table: longRifle.RangeMax = max(RangeMax, apart + 20f), written back into m.Catalogue.Weapon[Rifleman]; line 168 reads that same value back and line 169 asserts Assert.Less(apart, rifle). After the patch rifle >= apart + 20 by construction, so the guard holds whatever map, trench spacing or range scale it is handed: the same pattern filed for BankFrame in docs/found/look-code-presentation-vfx-20261018.json. The test's body still has teeth; the guard meant to stop it passing for the wrong reason has none. Read in code, not run.",
-      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs"],
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs"
+      ],
       "lane": "sim",
       "role": "review-fix",
       "done_when": "The assert is made on the unpatched range (capture m.Catalogue.Weapon[Rifleman].RangeMax before line 167 and assert the lines are within that range plus the 20 m the test grants), so that moving the trenches apart on ShelledForest or cutting RangeScale again turns the test red. Prove it: temporarily halve CombatTables.RangeScale, or point the test at the greybox, and see it red; then green on ShelledForest as it stands.",
-      "risk": [false, true, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     },
     {
       "title": "Close-assault fallback skips armour and can count a kill twice",
       "why": "DirectFire.cs:162-168, the ownHits path used when no TankGunnerySystem is registered (MatchSim.cs:126-133 registers it only with combat: true). It subtracts VehicleHit.Damage from Hp straight, so a grenade bundle's CloseAssaultDamage of 600 (CombatTables.cs) goes through a heavy hull with no plate, facing or module roll, even though VehicleModulesSystem is registered in such a world (MatchSim.cs:136). And the kill test is 'w.Hp[target] <= 0f && w.IsAlive(target)': SimWorld.Despawn is not called until DirectFire.cs:177-183, so a second bundle landing on the same machine in the same tick passes the same test again and pushes the slot into killed twice. The second Despawn is a no-op (SimWorld.cs:237) but Kills[team] is incremented before it (DirectFire.cs:180), so the debrief's kill count and the derived hit rate are wrong. Read in code, not seen in Play; it bites only a world built with combat: false.",
-      "files": ["trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"],
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"
+      ],
       "lane": "sim",
       "role": "bug-catcher",
       "done_when": "An EditMode test builds a world with no TankGunnerySystem, lands two close assaults on one machine in a single tick, and asserts DirectFireSystem.Kills[team] rose by exactly one; red on this commit first. Either make the fallback skip a target already in killed, or drop the fallback and require the armour model.",
-      "risk": [false, true, false, false, false],
-      "change": [false, false, false, false, false]
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "title": "Make the hero determinism test prove a hero happened",
+      "why": "HeroTests.cs:164-189, ABattleWithAHeroInItIsTheSameOnEveryMachine. Play() returns (hash, first) where first is the tick of the first HeroMoment and stays 0 when none fires (line 178, 'uint first = 0'); the test then asserts only x.Item1 == y.Item1 and x.Item2 == y.Item2 (lines 187-188). With no hero in the 700 ticks both runs give first = 0 and both asserts still pass, so the only test that guards a HERO battle's determinism degrades silently into a plain two-run hash test. It is not idle: the forced path needs Pity to climb from HeroPity0 = 0.9 (line 169) past PityThreshold at PityPerPoint = 0.0002 a point (HeroSystem.cs:213), about 500 desperation points from the eight garrison men it deploys; a touch to those constants, to TeamMask, or to the enemy line at lines 173-177 turns the test green with the hero code never entered. Read in code, not run.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/HeroTests.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "The test asserts x.Item2 > 0u (a HeroMoment did fire) before comparing the two runs, and that the hero's slot and HeroCount match across the runs. Prove it has teeth: set HeroRules.PityPerPoint to 0f, or clear HeroSystem.TeamMask, in a throwaway edit and see the test red; then green on this commit as it stands.",
+      "risk": [
+        false,
+        true,
+        false,
+        false,
+        false
+      ],
+      "change": [
+        false,
+        false,
+        false,
+        false,
+        false
+      ]
     }
   ]
 }
