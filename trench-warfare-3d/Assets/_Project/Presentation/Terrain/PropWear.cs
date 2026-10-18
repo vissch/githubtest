@@ -381,9 +381,6 @@ namespace TW.Presentation.Terrain
             Knock(new Standing_ { Module = module, Page = page, Slot = slot, M = Home(module, page, slot, m) }, rule, dir, 1u);
             return jolts.Count > 0;
         }
-        /// <summary>Tests only: a Twitch pass at a given time.</summary>
-        public void TwitchForTests(float now) => Twitch(now);
-
         void Unjolt(in Standing_ it) => UnjoltSlot(it.Module, it.Page, it.Slot);
 
         void UnjoltSlot(BattlefieldKit.Module module, int page, int slot)
