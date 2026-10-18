@@ -501,7 +501,7 @@ def main():
 
     whys = []
     real = (autoloop.found.take, autoloop.found.rota)
-    autoloop.found.take, autoloop.found.rota = (lambda fw: []), (lambda fw, why='': whys.append(why) or 'found: x')
+    autoloop.found.take, autoloop.found.rota = (lambda fw: []), (lambda fw, why='', **k: whys.append(why) or 'found: x')
     try:
         w = wt('wt15')
         for uid in ('first', 'second'):
@@ -654,10 +654,25 @@ def main():
     case('D: a unit whose later copy is done (review-tools-rebase) or whose lane has landed after it failed (relay-harness-rebase-b) is not fed but parked; other work is',
          got == ['fine'] and 'other-on-it' not in w.prios and w.prios.get('review-tools-rebase') == 99 and w.prios.get('relay-harness-rebase-b') == 99, (got, w.prios, lines))
 
+    w = Fake(tmp / 'h18', extras=(2,))
+    put(w.main, 'queue', 'look-held', priority=99)
+    f = w.main / 'relay' / 'queue' / 'look-held.json'
+    f.write_text(json.dumps(dict(json.loads(f.read_text(encoding='utf-8')), kind='critique')), encoding='utf-8')
+    (w.home / 'attempts.json').write_text(json.dumps({'look-held': dict(seen=['r'], fails=['r FAIL'], main_try=True)}), encoding='utf-8')
+    w.text[w.main] = RUN
+    w.on_main = ('other-unit', 'lane/show/relay-four-checks')
+    held = getattr(autoloop, 'held_looks', lambda w: set())(w)
+    fw = autoloop.found.World(tmp, w.main, tmp / 'h18home', also=w.extras.values())
+    fw.subjects = lambda: [dict(id='code:X', kind='code', at='a1', path='X')]
+    fw.add = lambda unit: (True, 'queued')
+    line = autoloop.found.rota(fw, why='relay 2 is idle', **({'held': held} if held else {}))
+    case('a look kept for the busy main relay second try does not hold back a new look for the idle relays (16:01-16:12)',
+         held == {'look-held'} and 'queued the look' in line, (held, line))
+
     # ---- one round, and the lock ----
     calls = []
     real = (autoloop.found.take, autoloop.found.rota)
-    autoloop.found.take, autoloop.found.rota = (lambda fw: calls.append('take') or []), (lambda fw, why='': calls.append('rota') or 'found: queued the look x')
+    autoloop.found.take, autoloop.found.rota = (lambda fw: calls.append('take') or []), (lambda fw, why='', **k: calls.append('rota') or 'found: queued the look x')
     try:
         w = Fake(tmp / 'g')
         w.found = lambda: None

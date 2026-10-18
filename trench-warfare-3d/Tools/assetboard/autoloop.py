@@ -1163,6 +1163,17 @@ def attempts(w):
     return loopsteps.attempts(w, opens, dones, running_lanes(w), idle, set(w.extras.values()))
 
 
+def held_looks(w):
+    """Open units on the main board kept for the main relay's second try while it runs on something else, and on no
+    extra board: no idle relay can take them now."""
+    running, _ = w.status(w.main)
+    if not running:
+        return set()
+    tries, on = loopsteps.load(w.home / 'attempts.json', {}), w.main_on()[0]
+    extra = {u for b in w.extras.values() for u in open_units(b)}
+    return {u for u in open_units(w.main) if (tries.get(u) or {}).get('main_try') and u != on and u not in extra}
+
+
 def idle_why(w, lines):
     """'' or why a look is queued although the main queue still has units: an extra relay stands idle with an empty
     board and this round fed it nothing, so what the queue holds is nothing an idle relay can take (15:41-16:25,
@@ -1190,7 +1201,8 @@ def round_(w):
     try:
         if w.acting:
             lines += found.take(fw)
-            lines.append(found.rota(fw, why=idle_why(w, lines)))
+            why = idle_why(w, lines)
+            lines.append(found.rota(fw, why=why, held=held_looks(w) if why else ()))
         else:
             left = found.takeable(fw)
             lines.append(f'found: {found.waiting(fw)} fix units wait unstarted (the most is {found.FIX_MOST}); '

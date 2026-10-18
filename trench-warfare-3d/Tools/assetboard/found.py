@@ -364,13 +364,15 @@ def takeable(w):
     return sorted(uid for uid, u in q.items() if uid not in done and prio(u) < PARKED)
 
 
-def rota(w, now=None, why='', among=None):
+def rota(w, now=None, why='', among=None, held=()):
     """Queue the next look, or say why not. Returns a line. `why` ('landing', 'daily': autoloop's loopsteps.reviews)
     queues one while the queue still has work, and `among` names the subjects to pick from; the ceiling of FIX_MOST
-    unstarted fixes and one open look at a time hold whatever the why."""
+    unstarted fixes and one open look at a time hold whatever the why. `held`: open looks no idle relay can take and
+    none runs (kept for the busy main relay's second try): they do not count as the one open look, or four relays
+    stood idle beside one (16:01-16:12, 2026-10-18)."""
     state, taken = load(w.home / 'state.json', {}), load(w.home / 'taken.json', [])
     q, done = w.queued()
-    open_looks = [u for u, v in q.items() if v.get('kind') == 'critique' and u not in done]
+    open_looks = [u for u, v in q.items() if v.get('kind') == 'critique' and u not in done and u not in set(held)]
     if open_looks:
         return f'found: the look {open_looks[0]} is queued and not done: no second one beside it'
     n = waiting(w, taken)
