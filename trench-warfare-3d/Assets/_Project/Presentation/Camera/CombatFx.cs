@@ -722,6 +722,7 @@ namespace TW.Presentation.Tactical
                     if (vehicle && SceneHooks.TanksDrawn) { hitsThisFrame--; break; }   // TankRenderer strikes the sparks where the round met the plate
                     Vector3 p;
                     if (vehicle || units == null || !units.Sockets(e.B, out _, out _, out p)) p = EstimateChest(e.B, scale);   // his chest as he is drawn
+                    float feetY = DustFeetY(p.y, ChestOf(e.B), scale);   // his own drawn feet: a man on a fire-step gets his dust on the step (the review, 2026-10-18)
                     Vector3 toward = new Vector3(e.Dir.x, 0f, e.Dir.z); if (toward.sqrMagnitude < 0.01f) toward = Vector3.forward;
                     p -= toward.normalized * (0.18f * scale);   // on the side the round came from
                     p += new Vector3(UnityEngine.Random.Range(-0.12f, 0.12f), UnityEngine.Random.Range(-0.15f, 0.15f), UnityEngine.Random.Range(-0.12f, 0.12f)) * scale;
@@ -761,7 +762,7 @@ namespace TW.Presentation.Tactical
                         if (!vehicle)
                         {
                             var dust = ImpactPuff(e.Tick, e.B);
-                            Vector3 feet = new Vector3(p.x, RenderGround.Sample(Host.Local.Map, p.x, p.z), p.z);
+                            Vector3 feet = new Vector3(p.x, feetY, p.z);
                             books.Add(FlipbookFx.Book.Spurt, feet, dust.Wide * scale, dust.Life,
                                 FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (dust.Mirror ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None),
                                 grow: 0.3f, roll: dust.Roll, alpha: 0.8f, pop: 0.3f);

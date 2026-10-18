@@ -240,15 +240,32 @@ namespace TW.Presentation.Tactical
             }
         }
 
+        /// <summary>A man's chest above his own feet for the stance he is drawn in, life-size metres (before his drawn scale).</summary>
+        public static float ChestHeight(Stance stance, bool vehicle) => vehicle ? 1.4f
+            : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 0.8f : 1.2f;
+
+        /// <summary>
+        /// Where the dust of a hit lands: under the chest he was drawn with, so the puff sits on the fire-step, bridge or
+        /// roof he stands on and not on the bare terrain under it (the review, 2026-10-18).
+        /// </summary>
+        public static float DustFeetY(float chestY, float chestHeight, float scale) => chestY - chestHeight * scale;
+
+        /// <summary>His chest height above his drawn feet, by the stance he is drawn in (the controller's, else the sim's).</summary>
+        float ChestOf(int slot)
+        {
+            var w = Host.Local.World;
+            bool vehicle = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
+            var anim = Host.Animation;
+            var stance = (Stance)(anim != null && Host.UseAnimationController && !vehicle ? anim.State[slot].Stance : w.StanceOf[slot]);
+            return ChestHeight(stance, vehicle);
+        }
+
         /// <summary>A man's chest when his figure has no sockets to say, from his (drawn) stance.</summary>
         Vector3 EstimateChest(int slot, float scale)
         {
             var w = Host.Local.World;
             Vector3 at = Host.Presenter != null ? (Vector3)Host.Presenter.Drawn(slot) : (Vector3)w.Position[slot];
-            bool vehicle = (w.Flags[slot] & (uint)UnitFlags.Vehicle) != 0;
-            var anim = Host.Animation;
-            var stance = (Stance)(anim != null && Host.UseAnimationController && !vehicle ? anim.State[slot].Stance : w.StanceOf[slot]);
-            float chest = vehicle ? 1.4f : stance == Stance.Prone || stance == Stance.Pinned ? 0.3f : stance == Stance.Crouch ? 0.8f : 1.2f;
+            float chest = ChestOf(slot);
             return new Vector3(at.x, RenderGround.Sample(Host.Local.Map, at.x, at.z) + chest * scale, at.z);
         }
     }
