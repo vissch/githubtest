@@ -55,3 +55,7 @@ test-results*.json
 
 # python bytecode (Tools/health.py imports editor_lock)
 __pycache__/
+
+# otr test projects' .NET build output: never tracked
+/Tools/otr/*/bin/
+/Tools/otr/*/obj/
