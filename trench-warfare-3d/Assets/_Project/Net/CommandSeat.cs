@@ -53,6 +53,8 @@ namespace TW.Net
             var cmds = pending.Count == 0 ? System.Array.Empty<SimCommand>() : pending.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pending.Clear();
+            // a seat steps no world of its own, so it has no hash: Hash = 0 means "no hash" (see CommandFrame.Hash),
+            // not "the hash of tick 0"; HashTick is ignored by the reader on such a frame.
             Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = 0, HashTick = 0 });
         }
     }
