@@ -155,7 +155,11 @@ namespace TW.Sim
         // v52 (2026-10-13, [U11]): BreakerSystem, SapperSystem and SupportSystem hash their per-slot arrays to
         // SimWorld.HighWater instead of MaxSlots, as SimWorld.Hash() already did. No field added, moved or dropped
         // and no balance change; the hash of any match with an unfilled world moves, so older replays do not verify.
-        public const ushort FormatVersion = 52;
+        // v53 (2026-10-18, small arms and a crew's nerve): DirectFire.AddSuppression ignores a UnitFlags.Vehicle slot
+        // exactly as it ignores Airborne, so no gunfire path (hit, near miss, fire-step miss, shield graze, wreck
+        // shadow) suppresses a hull; blast, gas, fire and beams are unchanged. Hashed Suppression values move, so
+        // replays recorded before this commit no longer verify.
+        public const ushort FormatVersion = 53;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)

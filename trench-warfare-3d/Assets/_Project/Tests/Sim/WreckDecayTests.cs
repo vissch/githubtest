@@ -604,6 +604,33 @@ namespace TW.Tests
         }
 
         [Test]
+        // the owner's rule (decisions.md 2026-10-18): small arms do not shake a crew, so no gunfire path suppresses a
+        // hull. A Maw parked in the wreck's shadow, where the men beside it are kept down, takes nothing and is never
+        // silenced for it.
+        public void AMachineInTheWrecksShadowIsNotPinnedBySmallArms()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int wreck, out int gun);
+            float3 wp = m.Map.Props[wreck].Pos, gp = m.World.Position[gun];
+            float2 along = math.normalize(new float2(wp.x - gp.x, wp.z - gp.z));
+            var at = wp + new float3(along.x, 0f, along.y) * 3f;   // inside Reach 4 m and the 2 m body shadow
+            int maw = m.World.Spawn(1, VehicleArchetype.Maw, at, 100000f, 0f, true);
+            m.World.GoalId[maw] = -1;   // parked: it never drives out of the shadow
+
+            float maxHull = 0f, maxMen = 0f; bool silenced = false;
+            for (int t = 0; t < 400; t++)
+            {
+                Step(m);
+                maxHull = math.max(maxHull, m.World.Suppression[maw]);
+                if (m.World.Suppression[maw] >= SuppressionRules.PinnedThreshold) silenced = true;
+                foreach (int u in men) maxMen = math.max(maxMen, m.World.Suppression[u]);
+            }
+            Assert.Greater(maxMen, 20f, "the control: the gun's fire really was keeping the men's heads down");
+            Assert.IsFalse(silenced, "rifle calibre pinned a machine's hull guns");
+            Assert.AreEqual(0f, maxHull, "small arms do not shake a crew: nothing else in this scene suppresses a hull");
+        }
+
+        [Test]
         public void TheNewStagesHaveTheRulesTheOwnerChose()
         {
             Assert.AreEqual(PropKind.BrokenWreck, PropRules.Next(PropKind.Wreck));

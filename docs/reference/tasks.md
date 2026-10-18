@@ -180,11 +180,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   and `SuppressionMul`), the hero moment `Sim/Combat/HeroSystem.cs`, the jetpack's leap `Sim/Combat/Leap.cs`, the
   medic and the repair engineer `Sim/Units/Support.cs` (a machine with a healer's spec heals too: the Mercy), the shield
   bearer's plate in `DirectFire` and `TargetAcquisition`, `HuntsArmour` in the same two (a machine's small arms or a man's
-  anti-tank rifle at a plate they beat), `NeverPinned` in `Sim/Combat/Suppression.cs` (the Death Battalion).
+  anti-tank rifle at a plate they beat), `NeverPinned` in `Sim/Combat/Suppression.cs` (the Death Battalion). No gunfire suppresses a hull at all: `DirectFire.AddSuppression` returns for a `UnitFlags.Vehicle` slot as it does for `Airborne` (small arms do not shake a crew, `decisions.md` 2026-10-18, replay v53); blast, gas, fire and beams still can.
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
   before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests,
-  DataBakerTests (`Data/DataBaker.cs`'s campaign Faction -> FactionId mapping and ApplyUpgrades' dmg/acc tiers).
+  DataBakerTests (`Data/DataBaker.cs`'s campaign Faction -> FactionId mapping and ApplyUpgrades' dmg/acc tiers), WreckDecayTests (`AMachineInTheWrecksShadowIsNotPinnedBySmallArms`: small arms never pin a hull).
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
   shooting at, or else the nearest enemy in the open within `HuntRadius` (70 m x `CombatTables.RangeScale` 0.8: the

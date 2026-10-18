@@ -326,6 +326,7 @@ namespace TW.Sim.Combat
             void AddSuppression(int slot, float amount)
             {
                 if ((Flags[slot] & (uint)UnitFlags.Airborne) != 0) return;   // nothing reaches a man in the air (LeapSystem)
+                if ((Flags[slot] & (uint)UnitFlags.Vehicle) != 0) return;    // small arms do not shake a crew (decisions.md 2026-10-18)
                 float before = Suppression[slot], after = math.min(100f, before + amount);
                 Suppression[slot] = after;
                 if (before < SuppressionRules.PinnedThreshold && after >= SuppressionRules.PinnedThreshold)
