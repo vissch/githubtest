@@ -1226,6 +1226,18 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   (B) widen the relay's command rules to the same branch-name pattern its push guard already allows (a
   `Tools/relay` change, its own unit). Default taken: (A) — the lane stays as it stands, not rebased onto
   integration and not landed; four relay legs died on this gap before this one stopped trying.
+- **`lane/show/heroes-off-bench` cannot push: the retry held, but the live guard it needed hasn't caught up
+  (2026-10-18):** the owner's "Try it once more as it stands" was run exactly once:
+  `git push origin lane/show/heroes-off-bench` from HEAD `ce49ad6d0` (4 commits ahead of integration, 0 behind),
+  refused as a non-fast-forward against the diverged `origin/lane/show/heroes-off-bench` (`1eb8ac418`). This lane's
+  own commit `5234e6444` already loosens `cmdrules.py`/`prepush.py` to accept a push to a new `<lane>-[b-j]` name,
+  but that loosening lives only in this checkout's copy; the frozen relay-run checkout's `cmdrules.py` `push_ok`
+  (checked this leg) still accepts only the lane itself, so a suffix push is refused before git runs and the
+  loosening can never reach the frozen copy by being pushed. Options: (a, recommended) delete the stale
+  `origin/lane/show/heroes-off-bench` by hand, so the lane's own next push creates it fresh and fast-forwards every
+  time after; (b) push or land this lane by hand, then update the relay-run checkout's rules
+  (`Tools/relay/relay.py update`). Default taken: neither; recorded and stopped (`docs/inbox/2026-10-16-all-relay-push-guard.md`
+  still stands).
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
