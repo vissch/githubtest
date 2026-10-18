@@ -165,6 +165,7 @@ namespace TW.Presentation.Terrain
                 case TW.Presentation.Ground.WinterLine: return Biome.Winter;
                 case TW.Presentation.Ground.ShelledForest: return Biome.NightMud;
                 case TW.Presentation.Ground.Landing: return Biome.NightMud;
+                case TW.Presentation.Ground.Narrows: return Biome.NightMud;
                 default: return Biome.NightMud;
             }
         }

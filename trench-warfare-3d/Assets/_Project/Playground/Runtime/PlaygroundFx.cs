@@ -160,7 +160,7 @@ namespace TW.Playground
                 if (list.Count == 0) continue;
                 if (list.Count == 1) list.Add(Matrix4x4.Scale(Vector3.zero));
                 var rp = new RenderParams(mat) { worldBounds = Everywhere, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
-                Graphics.RenderMeshInstanced(rp, cube, 0, list);
+                FrameBudget.Draw(rp, cube, 0, list);
                 list.Clear();
             }
         }
