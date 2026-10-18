@@ -363,5 +363,18 @@ namespace TW.Tests
             for (int i = 0; i < a.Length && !differs; i++) differs = a[i] != c[i];
             Assert.IsTrue(differs, "a different seed changes the dice");
         }
+
+        // The gunnery-less fallback is gone (2026-10-18): a world built without TankGunnerySystem must refuse to
+        // step rather than take a close assault's damage straight off Hp with no armour model.
+        [Test]
+        public void DirectFireWithoutTankGunneryRefusesToStep()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000; cfg.Seed = 0xC0FFEE;
+            var m = MatchSim.CreateGreybox(cfg, combat: false);
+            m.World.AddSystem(new DirectFireSystem(m.Map));
+            m.World.Spawn(0, Rifleman, new float3(120f, 0f, 120f), 100f, 3f, false);
+            Assert.Throws<System.InvalidOperationException>(() => Step(m),
+                "a world with no armour model must not resolve a grenade bundle itself");
+        }
     }
 }
