@@ -1,0 +1,73 @@
+{
+  "subject": "code:Sim/Combat",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs:1-517 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs:1-204 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs:1-399 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Suppression.cs:1-71 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/SmokeLos.cs:1-42 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/HeightfieldRaycast.cs:1-73 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs:1-54 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs:1-118 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs:1-155 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs:1-34 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs:1-66 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs:1-367 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SpreadAndEngageTests.cs:1-581 (whole)",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/LaneAndEngageRulesTests.cs:1-218 (whole)",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs:235-248 (Despawn)",
+    "trench-warfare-3d/Assets/_Project/Sim/Terrain/PropHarm.cs:1-45, Sim/Terrain/Heightfield.cs:25-29, Sim/Match/MatchSim.cs:120-140",
+    "docs/reference/decisions.md and docs/reference/tasks.md, greps for DirectFire, TargetAcquisition, suppress, wreck, HuntsArmour",
+    "docs/02-contracts.md:138,151 (the wreck-fire contract), docs/found/look-code-presentation-vfx-20261018.json, docs/found/look-review-z002-20261018.json"
+  ],
+  "tasks": [
+    {
+      "title": "Decide whether small arms can pin a machine's hull guns",
+      "why": "Nothing in the suppression path excludes a machine. DirectFire.cs:326-335 AddSuppression only skips Airborne; the near-miss loop (DirectFire.cs:471) filters on team alone, and DirectFire.Wrecks.cs:171-178 InShadow suppresses every alive enemy behind a wreck, vehicles included, although BuildShelters (DirectFire.Wrecks.cs:99) deliberately ignores vehicles when deciding who shelters. TargetAcquisition.cs:325-327 then silences any slot at Suppression >= PinnedThreshold, hull machine guns and all, and DirectFire.cs:398 and DirectFire.Wrecks.cs:147 take up to half its accuracy on the way up. One machine gun firing at a wreck adds SuppressionPerShot 9 x 0.6 about five times a second (CombatTables.cs, weapon id 2) against a decay of 8 a second (Suppression.cs:19), so a Maw parked behind that wreck goes blind in a few seconds to rifle calibre that cannot scratch it. Read in code, not seen in Play; no contract row covers it (docs/02-contracts.md:138 says 'each enemy within the shelter's reach' and names no exclusion), so it is either an undocumented rule or a leak.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs",
+        "docs/02-contracts.md"
+      ],
+      "lane": "sim",
+      "role": "bug-catcher",
+      "done_when": "A new EditMode test (TankTests or CombatTests) parks a Maw in a machinegunner's field of fire, steps ten seconds, and asserts the machine's Suppression stays below SuppressionRules.PinnedThreshold and its TargetSlot is not cleared. It must be red on this commit first. Whichever way the owner decides, the chosen rule goes in docs/02-contracts.md with the replay bump a hashed suppression change costs.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, true, false]
+    },
+    {
+      "title": "Build the wreck shelter list only when a gun has no target",
+      "why": "DirectFire.Wrecks.cs:80-105 BuildShelters runs every tick from Step (DirectFire.cs:135) and walks the whole prop list (map.Props, a NativeList seeded at 256 entries, MapData.cs:99, mostly trees on a shelled field); for each piece of wreckage with hit points it scans every spatial-hash cell in a box of radius ShelterRadius + WreckBlastReach/2 around it and distance-tests every man it finds. The result is read only at DirectFire.cs:349, for a slot whose TargetSlot is -1, and AtWreck itself fires at most one tick in three per slot (DirectFire.Wrecks.cs:118). In a tick where every gun has a mark the whole scan is thrown away. Read in code, not measured on a frame; the cheap gate is that FireJob needs Shelters only when at least one live slot has TargetSlot < 0, which Step can see before it builds.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"
+      ],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "The determinism, replay and hash tests plus WreckDecayTests stay green (the shots fired must not move), and a bench of the scripts' 48-man ShelledForest match shows the sim tick's mean cost down, reported before and after. A test asserts the shelter list is empty on a tick where every living slot has a target.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix the standoff test's setup guard: it cannot fail",
+      "why": "CombatTests.cs:160-187, TwoDugInLinesDoNotEngageEachOther. Its own comment (lines 155-157) says the range is 'asserted FIRST' so the standoff proves the stance rule and not the map. But line 167 first patches the weapon table: longRifle.RangeMax = max(RangeMax, apart + 20f), written back into m.Catalogue.Weapon[Rifleman]; line 168 reads that same value back and line 169 asserts Assert.Less(apart, rifle). After the patch rifle >= apart + 20 by construction, so the guard holds whatever map, trench spacing or range scale it is handed: the same pattern filed for BankFrame in docs/found/look-code-presentation-vfx-20261018.json. The test's body still has teeth; the guard meant to stop it passing for the wrong reason has none. Read in code, not run.",
+      "files": ["trench-warfare-3d/Assets/_Project/Tests/Sim/CombatTests.cs"],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "The assert is made on the unpatched range (capture m.Catalogue.Weapon[Rifleman].RangeMax before line 167 and assert the lines are within that range plus the 20 m the test grants), so that moving the trenches apart on ShelledForest or cutting RangeScale again turns the test red. Prove it: temporarily halve CombatTables.RangeScale, or point the test at the greybox, and see it red; then green on ShelledForest as it stands.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Close-assault fallback skips armour and can count a kill twice",
+      "why": "DirectFire.cs:162-168, the ownHits path used when no TankGunnerySystem is registered (MatchSim.cs:126-133 registers it only with combat: true). It subtracts VehicleHit.Damage from Hp straight, so a grenade bundle's CloseAssaultDamage of 600 (CombatTables.cs) goes through a heavy hull with no plate, facing or module roll, even though VehicleModulesSystem is registered in such a world (MatchSim.cs:136). And the kill test is 'w.Hp[target] <= 0f && w.IsAlive(target)': SimWorld.Despawn is not called until DirectFire.cs:177-183, so a second bundle landing on the same machine in the same tick passes the same test again and pushes the slot into killed twice. The second Despawn is a no-op (SimWorld.cs:237) but Kills[team] is incremented before it (DirectFire.cs:180), so the debrief's kill count and the derived hit rate are wrong. Read in code, not seen in Play; it bites only a world built with combat: false.",
+      "files": ["trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs"],
+      "lane": "sim",
+      "role": "bug-catcher",
+      "done_when": "An EditMode test builds a world with no TankGunnerySystem, lands two close assaults on one machine in a single tick, and asserts DirectFireSystem.Kills[team] rose by exactly one; red on this commit first. Either make the fallback skip a target already in killed, or drop the fallback and require the armour model.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
