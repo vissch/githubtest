@@ -394,14 +394,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `C:\Users\PC\Documents\GitHub\githubtest-relay-work` while no relay leg holds that checkout:
   `git push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin HEAD:refs/heads/lane/show/relay-four-checks`
   The lease refuses safely if origin's lane moved before he runs it.
-  **Still open, 2026-10-18 (unit move-origin-relay-four-checks):** origin's lane has still not moved
-  (`origin/lane/show/relay-four-checks` is still `4c5ce2b29`, not an ancestor of this tree). The newest tip now
-  lives in `C:\Users\PC\Documents\GitHub\githubtest-relay-work4` (10 commits ahead of integration, rebased onto it;
-  the `-work2` copy named above has 9 and is now behind this one). The four checks are green on it: 184 relay tests
-  pass (`python Tools/relay/test_relay.py`, `Ran 184 tests ... OK`), `git rev-list --left-right --count
-  origin/claude/trench-warfare-2d-3d-plan-idt7lf...HEAD` is `0 10`. The push is still the owner's to make, while no
+  **Still open, 2026-10-18 (unit retry-relay-four-checks, third attempt, "try it once more as it stands"):**
+  origin's lane has still not moved (`origin/lane/show/relay-four-checks` is still `4c5ce2b29`, not an ancestor of
+  this tree). The newest tip no longer lives in `githubtest-relay-work4` (that checkout has moved on to another
+  unit, `heroes-off-bench`); it is now in `C:\Users\PC\Documents\GitHub\githubtest-relay-work5` (12 commits ahead of
+  integration, rebased onto it). The four checks are green on it: 184 relay tests pass (`python
+  Tools/relay/test_relay.py`, `Ran 184 tests ... OK`), `git rev-list --left-right --count
+  origin/claude/trench-warfare-2d-3d-plan-idt7lf...HEAD` is `0 12`. The push is still the owner's to make, while no
   relay leg holds that checkout:
-  `git -C C:/Users/PC/Documents/GitHub/githubtest-relay-work4 push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin lane/show/relay-four-checks`
+  `git -C C:/Users/PC/Documents/GitHub/githubtest-relay-work5 push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin lane/show/relay-four-checks`
   The lease refuses safely if origin's lane moved before he runs it.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
