@@ -404,6 +404,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   relay leg holds that checkout:
   `git -C C:/Users/PC/Documents/GitHub/githubtest-relay-work5 push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin lane/show/relay-four-checks`
   The lease refuses safely if origin's lane moved before he runs it.
+  **Still open, 2026-10-18 (unit retry-relay-four-checks, fourth attempt, "try it once more as it stands"):**
+  the newest tip is now in `C:\Users\PC\Documents\GitHub\githubtest-relay-work`, not `-work5` (that checkout has
+  since moved on to another unit, `lane/sim/found-make-the-hero-determinism-test-prove-a-hero-20261018-0`) - this
+  correction matters, the command above now pushes the wrong branch. On this checkout's tree the four checks are
+  still green (184 relay tests, `Ran 184 tests ... OK`) and the lane is still rebased onto integration (`0 12` left
+  side). `origin/lane/show/relay-four-checks` has still not moved (still `4c5ce2b29`, not an ancestor of this
+  tree), so the one plain `git push origin lane/show/relay-four-checks` this leg is allowed to try was rejected
+  exactly as before: `! [rejected] lane/show/relay-four-checks -> lane/show/relay-four-checks (non-fast-forward)`.
+  No relay leg can push past this: `cmdrules.push_ok` allows only `origin <lane>` / `HEAD` / `HEAD:<lane>` and
+  strips no force flag, and `legcmd.finish()` only ever runs `push -q origin <lane>`. The one command left to the
+  owner, updated to this checkout:
+  `git -C C:/Users/PC/Documents/GitHub/githubtest-relay-work push --force-with-lease=lane/show/relay-four-checks:4c5ce2b29 origin lane/show/relay-four-checks`
+  The lease refuses safely if origin's lane moved before he runs it.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
