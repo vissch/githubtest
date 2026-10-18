@@ -83,5 +83,28 @@ namespace TW.Tests
             driverA.TryStep(); driverB.TryStep();
             Assert.That(driverB.BufferedTicks, Is.EqualTo(driverA.BufferedTicks), "[S6] the frame for the stepped tick 0 is still buffered: nothing ever removes it");
         }
+
+        [Test] // [found-bound-how-far-ahead-lockstepdriver-buffers-a-20261017-0]
+        public void AFrameFarAheadIsNotBufferedWhileANearOneStillIs()
+        {
+            using var mA = MatchSim.CreateGreybox(Config());
+            using var mB = MatchSim.CreateGreybox(Config());
+            var netA = new ScriptedTransport(); var netB = new ScriptedTransport();
+            var driverA = new LockstepDriver(mA.World, netA);
+            var driverB = new LockstepDriver(mB.World, netB);
+            netA.DeliverPeerFrames(0, 2); netB.DeliverPeerFrames(0, 2);
+            // Tick 50 is inside MaxFutureTicks but past anything the driver's own lookahead (World.Tick + InputDelay)
+            // reaches during this test, so the peer frame alone creates the entry instead of filling one the
+            // driver's own send already made (which would not move BufferedTicks).
+            netB.Deliver(new CommandFrame { Tick = 50, Player = 1, Commands = System.Array.Empty<SimCommand>() });
+            netB.Deliver(new CommandFrame { Tick = 100000, Player = 1, Commands = System.Array.Empty<SimCommand>() });
+            for (int i = 0; i < 3; i++)
+            {
+                Assert.That(driverA.TryStep(), Is.True, "[found-bound-how-far-ahead-lockstepdriver-buffers-a-20261017-0] the twin without the far frame stalled");
+                Assert.That(driverB.TryStep(), Is.True, "[found-bound-how-far-ahead-lockstepdriver-buffers-a-20261017-0] the twin fed the far frame stalled");
+            }
+            Assert.That(mB.World.Tick, Is.EqualTo(mA.World.Tick), "[found-bound-how-far-ahead-lockstepdriver-buffers-a-20261017-0] the far frame stalled or advanced the twin that received it");
+            Assert.That(driverB.BufferedTicks, Is.EqualTo(driverA.BufferedTicks + 1), "[found-bound-how-far-ahead-lockstepdriver-buffers-a-20261017-0] the far-future frame leaked a buffered tick (+2) or the bound dropped the near frame (+0)");
+        }
     }
 }
