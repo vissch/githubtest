@@ -1,0 +1,34 @@
+{
+  "subject": "review:Z013",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs (1287 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Bodies.cs (256 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Abilities.cs (331 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Barrage.cs (105 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Deaths.cs (134 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Support.cs (129 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/AbilityAim.cs (132 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/DebrisRenderer.Figure.cs (213 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GibPlan.cs (106 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AimShape.cs (21 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/AnimationController.Death.cs (266 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/DeathGags.cs (260 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/GoreScale.cs and TracerLook.cs (callees, read for the parts the diff uses)",
+    "git diff 7943d2b923141fb34d3fc6a5ae2301ce0e57c932..origin/claude/trench-warfare-2d-3d-plan-idt7lf for CombatFx.cs and CombatFx.Bodies.cs",
+    "git log --oneline for the same range: 6fb02f1c3 gun-fire-effects, 6eb17009a gore-by-zoom, bdfed04ff infantry-firing"
+  ],
+  "tasks": [
+    {
+      "title": "Impact dust lands on raw ground, ignoring the man's own drawn height",
+      "why": "CombatFx.cs:758-768 (the new feet Spurt in the Hit case, from bdfed04ff/the review 2026-10-12): `feet = (p.x, RenderGround.Sample(Host.Local.Map, p.x, p.z), p.z)` throws away `p.y` outright and resamples raw terrain height. `p` itself can come from `units.Sockets(e.B, ...)`, the figure's real drawn chest position, which may sit above bare terrain (a man on a trench fire-step, a bridge, a roof prop); EstimateChest's fallback already uses the same ground sample, but the socketed case does not. The dust puff then draws at bare-ground level, floating above or sunk below the man's actual feet, and in water it draws dry dust under the surface instead of a splash. No existing test exercises a socketed hit on raised ground. P2.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.cs"
+      ],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "a test with units.Sockets returning a chest position above RenderGround.Sample's height for that x/z asserts the Spurt's y tracks the socketed height (or its offset from it), not the raw ground sample alone",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
