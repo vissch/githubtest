@@ -690,7 +690,7 @@ def main():
     w.text[w.extras[3]] = 'NOT RUNNING. Last run 20261018-214001-1: leg 03 ended TIMEOUT (3 legs).'
     put(w.extras[2], 'queue', 'e-2', lane='lane/show/e2')
     put(w.extras[3], 'queue', 'e-3', lane='lane/show/e3')
-    (w.home / 'starts.json').write_text(json.dumps({'2': dict(at=w.clock - 600, reason='x', wait=1800),
+    (w.home / 'starts.json').write_text(json.dumps({'2': dict(at=w.clock - 1900, reason='x', wait=1800),
                                                     '3': dict(at=w.clock - 600, reason='x', wait=1800)}), encoding='utf-8')
     w.touches = {2: (w.clock - 3000, w.clock - 3000)}
 
@@ -703,9 +703,15 @@ def main():
     w.detach = lambda work: (w.touches.__setitem__(2, (w.clock, w.clock - 3000)) if work == Path('C:/gh/w2') else None) or det(work)
     tl = autoloop.tidy(w)
     fl = autoloop.feed(w)
-    case('a relay the loop tidied this round (put aside, or let go of its lane) is started in that round past the quiet wait '
-         'and its last start\'s wait (relays 3-6 put aside 22:10, refused "index moved 28 s ago", started 22:43)',
-         sorted(getattr(w, 'quiet_offs', [])) == [(2, True), (3, True)], (tl, fl, getattr(w, 'quiet_offs', None)))
+    first = sorted(getattr(w, 'quiet_offs', []))
+    w.clock += 600
+    w.text[w.extras[2]] = IDLE                          # relay 2 took its lane and stopped at once
+    w.cos['lane/show/e2'] = Path('C:/gh/w2')
+    tl2, fl2 = autoloop.tidy(w), autoloop.feed(w)
+    case('a relay the loop put aside this round is started in that round past the quiet wait and its last start\'s wait '
+         '(relays 3-6 put aside 22:10, refused "index moved 28 s ago", started 22:43); one it let go of skips the quiet wait, '
+         'but one that stops at once is not restarted every round',
+         first == [(2, True), (3, True)] and w.started.count(2) == 1, (tl, fl, tl2, fl2, first, w.started))
 
     # ---- one round, and the lock ----
     calls = []

@@ -1190,9 +1190,10 @@ def tidy(w):
     """Every stopped extra relay lets go of its lane at once (a clean checkout is detached), so the next look or unit on
     that lane is not held by it (every look is on lane/show/found; relays 2 and 5 kept theirs, 2026-10-18 17:50); a
     stopped one left dirty by a run that ended otherwise (relay 3, a TIMEOUT at 15:56, 8 files) is put aside once per
-    stopped run, so it can be fed and started again. The relays it tidied are kept in w.tidied: feed starts them in the
+    stopped run, so it can be fed and started again. The relays it put aside are kept in w.tidied: feed starts them in the
     same round, past their quiet wait and their last start's wait (relays 3-6 put aside at 22:10 were refused "git index
-    moved 28 s ago", let go of their lanes at 22:20 and only started at 22:43, 2026-10-18)."""
+    moved 28 s ago" and only started at 22:43, 2026-10-18). A detach is the loop's own write too (touched.json), so it
+    skips the quiet wait, but not the start wait: a relay that stops at once would else be restarted every round."""
     w.tidied = set()
     out, cos = [], w.checkouts()
     if cos is None:
@@ -1231,7 +1232,6 @@ def tidy(w):
         code, said = w.detach(work)
         if code == 0:
             save(w.home / 'touched.json', dict(load(w.home / 'touched.json', {}), **{str(n): w.now()}))
-            w.tidied.add(n)
         out.append(f'tidy: relay {n} stopped: let go of {lane}' if code == 0 else f'tidy: relay {n} could not let go of {lane}: {said[:120]}')
     return out
 
