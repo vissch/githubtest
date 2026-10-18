@@ -145,3 +145,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
   read-only objects on Windows), one a registered worktree with a broken index that failed git's upkeep on every fetch.
 - **2026-10-16. A count read off a sweep log sent a leg chasing a fault that was not there** ("55 to 22, all vehicle"
   on `UnitCloseStills`). A reshoot's numbers only count from a rerun of the test itself.
+- **2026-10-18. Four relay legs died levelling a lane diverged from its own origin** with `git reset --hard` and
+  `git branch -f`, both refused. The allowed move is `git rebase --onto origin/<lane> HEAD`. A leg also cannot
+  publish a lane rebased onto integration: the push guard allows a `-b` name, the model-side command rules do not.
