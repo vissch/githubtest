@@ -472,6 +472,16 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   time after; (b) push or land this lane by hand, then update the relay-run checkout's rules
   (`Tools/relay/relay.py update`). Default taken: neither; recorded and stopped (`docs/inbox/2026-10-16-all-relay-push-guard.md`
   still stands).
+- **heroes-off-bench-c: the unit's substance is already on origin through integration; nothing left to measure or
+  rebuild (2026-10-18).** `8d0893f73` and `d0dd949c6` (the `TeamMask = 0` fix, gated on `stressUnits > 0` so every
+  other preset is untouched) and `bf47ff7f5` (the tag, carrying the old→new baseline numbers) are all ancestors of
+  `origin/claude/trench-warfare-2d-3d-plan-idt7lf`; the lane itself is 0 commits behind integration. Run on today's
+  tree this leg, offline (`Tools/aosa/occ.py` on every `TW.*` assembly, then `Tools/otr.py StressPresetTests -v`):
+  all 6 tests PASS, including `StressPreset_FieldsNoHeroOnEitherSide`, `NoStressUnits_KeepsItsHeroes` and
+  `StressPreset_HeroesKnob_IsThePresetBefore20261006` — the owner's "matches its own tests", taken on current code
+  rather than the 400-commit-old tree the original false PASS used. A later leg that re-benches the stress preset
+  or rebuilds this lane is repeating work three legs have already spent on. Why: three legs in a row rediscovered
+  this before recording it. (heroes-off-bench-c, this leg)
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
