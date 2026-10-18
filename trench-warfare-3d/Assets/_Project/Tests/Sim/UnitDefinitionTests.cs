@@ -96,6 +96,29 @@ namespace TW.Tests
             return false;
         }
 
+        // [found-hold-every-unitdef-s-order-group-against-ord-20261017-0]
+        [Test]
+        public void EveryDefinitionsOrderGroupIsSetAndAgreesWithOrderGroupOf()
+        {
+            foreach (var d in UnitDefinitions.All)
+            {
+                Assert.AreNotEqual(0, d.Infantry.Group,
+                    $"[found-hold-every-unitdef-s-order-group-against-ord-20261017-0] archetype {d.Archetype} has no group: TrenchOrders drops him from every group order silently");
+                Assert.AreEqual(OrderGroup.Of(d.Archetype), d.Infantry.Group,
+                    $"[found-hold-every-unitdef-s-order-group-against-ord-20261017-0] archetype {d.Archetype}: OrderGroup.Of disagrees with the definition's own Group");
+            }
+        }
+
+        // [found-hold-every-unitdef-s-order-group-against-ord-20261017-0]
+        [Test]
+        public void OrderGroupOf_NamesTheSentryAndTheAtRifle_RatherThanFallingToLine()
+        {
+            Assert.AreEqual(OrderGroup.Gun, OrderGroup.Of(InfantryArchetype.Sentry),
+                "[found-hold-every-unitdef-s-order-group-against-ord-20261017-0] Sentry is a gun, not the Line the default falls to");
+            Assert.AreEqual(OrderGroup.Marksman, OrderGroup.Of(InfantryArchetype.AtRifle),
+                "[found-hold-every-unitdef-s-order-group-against-ord-20261017-0] AtRifle is a marksman, not the Line the default falls to");
+        }
+
         /// <summary>The ids the file defines are free ids: none is a unit the old switches already ship, which the
         /// definition would silently replace.</summary>
         [Test]
