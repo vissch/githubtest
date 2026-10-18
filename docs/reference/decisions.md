@@ -352,11 +352,15 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   pushed. The work sits committed locally at `984df70be` in `githubtest-relay-work2`, with the pre-rebase tip kept
   on the local branch `backup/ridge-own-line-before-rebase-2026-10-15`. (a) is the cleanest.
 - **The ridge lane's finished push is left for a non-leg hand (2026-10-16):** the owner has said to move
+- **The ridge lane's finished push is left for a non-leg hand (2026-10-16, re-run 2026-10-18 per "Try it once more
+  as it stands"):** the owner has said to move
   `origin/lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b` to the local rebased tip; a leg cannot
-  do it. An earlier hand push landed (origin held `5ca548dac`), and the lane has since been rebased again onto
-  integration `6959ad812`, with its content unchanged (the sim work is `f2d2db7b4`, the tip is this line's own
-  commit), so origin is a non-ancestor once more and a leg's push is refused as non-fast-forward. Run, from
-  `C:\Users\PC\Documents\GitHub\githubtest-relay-work2`, where the lane's tip lives:
+  do it. The 2026-10-18 retry confirms the lane still sits rebased onto integration `6959ad812` (an ancestor of
+  HEAD), with its content unchanged (`git diff backup/ridge-own-line-before-rebase-2026-10-16 HEAD --
+  trench-warfare-3d/Assets` is empty); the tip is `a09c35e8f`, this file's own commit. `origin/...-high-ground-b`
+  still holds `5ca548dac`, not an ancestor of `a09c35e8f`, so a leg's push is refused as non-fast-forward
+  (confirmed again this leg). `origin/...-high-ground-b-b` already carries `a09c35e8f` for anyone who needs the
+  work before the hand push. Run, from wherever the lane's tip lives:
   `git push --force-with-lease=lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b:5ca548dac origin lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b`,
   then check CI with `gh run list --branch lane/sim/pipe-idea-the-ridge-one-side-holds-the-high-ground-b --limit 3`.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
