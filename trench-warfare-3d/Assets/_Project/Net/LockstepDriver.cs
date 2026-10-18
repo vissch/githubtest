@@ -101,7 +101,13 @@ namespace TW.Net
             var cmds = pendingLocal.Count == 0 ? Array.Empty<SimCommand>() : pendingLocal.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pendingLocal.Clear();
-            Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick == 0 ? 0u : World.Tick - 1u });
+            if (LastHashIsAHash())
+                Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick - 1u });
+            else
+                Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = 0, HashTick = CommandFrame.NoHash });
         }
+
+        // Mirrors SimWorld.Step's hash branch: true only on the tick the world actually hashed, so World.LastHash is that tick's hash and not a stale 0.
+        bool LastHashIsAHash() => World.Tick > 0 && World.HashInterval > 0 && World.Tick % (uint)World.HashInterval == 0;
     }
 }

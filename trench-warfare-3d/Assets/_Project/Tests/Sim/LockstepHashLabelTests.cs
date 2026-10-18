@@ -62,5 +62,77 @@ namespace TW.Tests
             }
             Assert.That(checkedWithAHash, Is.GreaterThan(0), "[S9] no frame with a hash was checked");
         }
+
+        [Test] // [found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0]
+        public void AWorldThatNeverHashesSendsFramesThatSayNoHash()
+        {
+            var cfg = SimConfig.Default; cfg.InputDelayTicks = 2;
+            using var m = MatchSim.CreateGreybox(cfg);
+            m.World.HashInterval = 0;
+            var net = new RecordingTransport();
+            var driver = new LockstepDriver(m.World, net);
+            net.DeliverPeerFrames(0, 40);
+            for (int i = 0; i < 10; i++)
+                Assert.That(driver.TryStep(), Is.True, "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the driver stalled");
+            Assert.That(net.Sent.Count, Is.GreaterThanOrEqualTo(10), "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the driver sent no frames to check");
+            foreach (var f in net.Sent)
+            {
+                Assert.That(f.HasHash, Is.False, $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the frame for tick {f.Tick} claims a hash although the world never hashes");
+                Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the frame for tick {f.Tick} is not labelled NoHash");
+                if (f.Tick > 0)
+                    Assert.That(f.HashTick, Is.Not.EqualTo(f.Tick - 1u), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the frame for tick {f.Tick} is labelled as the hash of tick {f.Tick - 1u} instead of NoHash");
+                Assert.That(f.HashTick, Is.Not.EqualTo(0u), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the frame for tick {f.Tick} is labelled as the hash of tick 0 instead of NoHash");
+            }
+        }
+
+        [Test] // [found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0]
+        public void AWorldThatHashesEveryTenthTickLabelsOnlyTheHashedTicks()
+        {
+            var cfg = SimConfig.Default; cfg.InputDelayTicks = 2;
+            using var m = MatchSim.CreateGreybox(cfg);
+            m.World.HashInterval = 10;
+            var net = new RecordingTransport();
+            var driver = new LockstepDriver(m.World, net);
+            net.DeliverPeerFrames(0, 60);
+            var hashOf = new Dictionary<uint, ulong>();   // tick -> the hash of the world after that tick was stepped, for hashed ticks only
+            for (int i = 0; i < 25; i++)
+            {
+                Assert.That(driver.TryStep(), Is.True, "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the driver stalled");
+                uint stepped = m.World.Tick - 1u;
+                if ((stepped + 1u) % 10u == 0u) hashOf[stepped] = m.World.LastHash;
+            }
+            bool sawHashed = false, sawUnhashed = false;
+            foreach (var f in net.Sent)
+            {
+                if (f.HasHash)
+                {
+                    sawHashed = true;
+                    Assert.That((f.HashTick + 1u) % 10u, Is.EqualTo(0u), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] frame for tick {f.Tick} claims a hash for tick {f.HashTick}, which is not a hashed tick");
+                    Assert.That(hashOf.ContainsKey(f.HashTick), Is.True, $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] tick {f.HashTick} was never recorded as hashed");
+                    Assert.That(f.Hash, Is.EqualTo(hashOf[f.HashTick]), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] frame for tick {f.Tick} does not carry the hash of tick {f.HashTick}");
+                }
+                else
+                {
+                    sawUnhashed = true;
+                    Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] frame for tick {f.Tick} has no hash but is not labelled NoHash");
+                }
+            }
+            Assert.That(sawHashed, Is.True, "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] no frame with a hash was sent");
+            Assert.That(sawUnhashed, Is.True, "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] no frame without a hash was sent");
+        }
+
+        [Test] // [found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0]
+        public void ASeatSendsFramesThatSayNoHash()
+        {
+            var net = new RecordingTransport();
+            var seat = new CommandSeat(net, 2);
+            for (uint t = 0; t < 4; t++) seat.Pump(t);
+            Assert.That(net.Sent.Count, Is.GreaterThan(0), "[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the seat sent no frames to check");
+            foreach (var f in net.Sent)
+            {
+                Assert.That(f.HasHash, Is.False, $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the seat's frame for tick {f.Tick} claims a hash although a seat owns no world");
+                Assert.That(f.HashTick, Is.EqualTo(CommandFrame.NoHash), $"[found-mark-a-frame-that-carries-no-hash-instead-of-20261016-0] the seat's frame for tick {f.Tick} is not labelled NoHash");
+            }
+        }
     }
 }

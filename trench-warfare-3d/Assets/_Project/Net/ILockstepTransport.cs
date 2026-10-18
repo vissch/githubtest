@@ -8,12 +8,15 @@ namespace TW.Net
 {
     public struct CommandFrame
     {
+        public const uint NoHash = uint.MaxValue;   // HashTick when the sender had no hash for any tick (never hashes, or has stepped none yet)
+
         public uint Tick;
         public byte Player;
         public SimCommand[] Commands;   // may be empty; an empty frame still counts as "peer reported for tick"
-        public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3); 0 when unknown
+        public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3); meaningful only when HasHash (0 is a real hash value, not a marker)
         public uint HashTick;           // S9: the tick Hash is the hash of. It is NOT frame.Tick - 1: a frame is sent
                                         // InputDelay ticks ahead, so HashTick is the last tick the sender had stepped.
+        public bool HasHash => HashTick != NoHash;
     }
 
     public interface ILockstepTransport
