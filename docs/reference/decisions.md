@@ -301,6 +301,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
+- **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
+  in the suppression path excludes a machine. `AddSuppression` (DirectFire.cs:326) skips only `Airborne`, and splash
+  reaches a hull two ways: the near-miss loop (DirectFire.cs:471) filters on team alone, and the wreck shadow
+  (DirectFire.Wrecks.cs:171) suppresses every alive enemy behind a wreck, vehicles included, although `BuildShelters`
+  (Wrecks.cs:99) deliberately ignores vehicles when listing who shelters. `TargetAcquisition.cs:325` then silences any
+  slot at `Suppression >= PinnedThreshold`, hull machine guns and all. One machine gun firing at a wreck adds 9 x 0.6
+  about five times a second against a decay of 8 a second, so a Maw parked behind that wreck goes blind in a few
+  seconds to rifle calibre that cannot scratch it. Read in code, not seen in Play; `docs/02-contracts.md:138` names no
+  exclusion. Options: (a) small arms never suppress a machine — `AddSuppression` ignores `UnitFlags.Vehicle` exactly as
+  it ignores `Airborne` (one line), blast, gas, fire and beams still write `Suppression` directly, **the default taken
+  here** (the two sibling rules above already exclude hulls, and the owner's standing line is "as realistic as
+  possible"); (b) a hull gathers suppression but is never silenced for it (the same guard at
+  `TargetAcquisition.cs:325` instead); or (c) keep today's behaviour and only document it. (a) and (b) are hashed
+  suppression changes and each cost a replay bump (`ReplayRecorder.FormatVersion` 52 -> 53); (c) costs none.
 - **The Banner's front legs, shot and recoil, redone: land it? (2026-10-13):** his answer of 2026-10-12 is built on
   `lane/show/banner-day-film`. Leg against leg never came closer than 0.488 m, so nothing crossed; the right front leg
   folded its own foot into its own thigh (0.015 m, where its mirrored twin kept 0.453 m), and the gait now holds that
