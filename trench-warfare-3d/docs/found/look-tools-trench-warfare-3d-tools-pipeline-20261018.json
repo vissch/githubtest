@@ -1,0 +1,70 @@
+{
+  "subject": "tools:trench-warfare-3d/Tools/pipeline",
+  "looked_at": [
+    "trench-warfare-3d/Tools/pipeline/pipeline.py",
+    "trench-warfare-3d/Tools/pipeline/run_detached.py",
+    "trench-warfare-3d/Tools/pipeline/test_pipeline.py",
+    "trench-warfare-3d/Tools/pipeline/roles.json",
+    "trench-warfare-3d/Tools/pipeline/stations.json",
+    "docs/reference/stations.md",
+    ".claude/skills/pipeline/references/driving-and-evidence.md",
+    "trench-warfare-3d/Tools/relay/sources/pipeline.py",
+    "trench-warfare-3d/Tools/selftest.py",
+    "docs/reference/workflow.md",
+    "docs/reference/decisions.md",
+    "docs/reference/tasks.md",
+    "docs/inbox/2026-09-28-all-pipeline-tooling.md"
+  ],
+  "tasks": [
+    {
+      "title": "Hash only what a stage consumes, not its whole definition",
+      "why": "consumed_hash (pipeline.py:224) hashes the whole stage dict bar 'notes', so editing bands, station, outputs or role makes a new job id and throws away a PASS: the stage goes STALE and a desktop capture or Blender stage is re-run for nothing. stations.md warns only about role. It bites now: decisions.md:166 asks for a band on the stages that name none (16 of 21 stages on tw3d-board-6/items have no bands), and giving them one re-runs each.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py", "docs/reference/stations.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a case in test_pipeline.py adds a band to a DONE stage and the state stays DONE, while an inputs or lane change still goes STALE",
+      "risk": [false, true, true, false, false],
+      "change": [true, true, false, true, false]
+    },
+    {
+      "title": "Make complete check the evidence folder layout, not just path existence",
+      "why": "cmd_complete (pipeline.py:383-388) accepts any path on the board for a band. The skill (driving-and-evidence.md, 'Evidence on the board') and the relay's own checker (Tools/relay/sources/pipeline.py:114,141-152) require evidence/<item>/<stage>/<band>.jpg with a <band>.json sidecar and a frames.txt line; stations.md's complete example says --evidence t1=evidence/<item>/t1.jpg, one folder short. A station worker's hand PASS is then evidence the critic cannot read and the relay would have failed: the capture is shot twice.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py", "docs/reference/stations.md", ".claude/skills/pipeline/references/driving-and-evidence.md"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a case in test_pipeline.py where a PASS with evidence/t1.jpg is refused and one with evidence/crate/sim/t1.jpg + sidecar + frames.txt passes; the stations.md example says the same path",
+      "risk": [false, false, true, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Refuse a detached restart while the recorded child still runs",
+      "why": "cmd_start (run_detached.py:59) refuses only RUNNING and STALLED. A wrapper that died leaves CRASHED with 'child still running (stop it or wait)' (state, run_detached.py:124-128), and a start is allowed: two gates or two Unity batch jobs on one checkout, both red, an hour gone. test_pipeline.py has no case for run_detached.py at all.",
+      "files": ["trench-warfare-3d/Tools/pipeline/run_detached.py"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a case writes a run.json with a dead wrapper_pid and a live child (a sleep it started), and start exits non-zero naming stop",
+      "risk": [false, false, false, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Make the commit-headroom floor the default, not a flag to remember",
+      "why": "--min-headroom-gb defaults to 0 (run_detached.py:163), so the guard is off unless the caller types it, while four places tell agents to type --min-headroom-gb 10 every single time (pipeline/SKILL.md:93, driving-and-evidence.md:24, tw-gym/SKILL.md:73, pipelines.md:219). One forgotten flag starts a gate at 3 GB headroom and Windows kills the editors.",
+      "files": ["trench-warfare-3d/Tools/pipeline/run_detached.py"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test_pipeline.py case asserts the parser default is 10 and that start refuses with headroom_gb patched below it, --min-headroom-gb 0 being the way out",
+      "risk": [false, false, false, false, false],
+      "change": [true, true, false, false, false]
+    },
+    {
+      "title": "Drop text=True from refuse_in_leg's git call",
+      "why": "pipeline.py:352 reads git with text=True, against this file's own docstring (line 23) and workflow.md:578: on a non-ASCII checkout path the marker path is mangled, the relay-leg check silently finds no marker, and a leg may claim a job its runner should.",
+      "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py"],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "grep -c \"text=True\" trench-warfare-3d/Tools/pipeline/*.py is 0 and selftest.py's two 'refuses inside a relay leg' cases stay green",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
