@@ -5,6 +5,7 @@ using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.Sim.Combat;
 
 namespace TW.Tests
 {
@@ -83,7 +84,21 @@ namespace TW.Tests
             AssertOld(CombatFx.RecipeFor(2f, 0f, true, 1f), "a cook-off in water");
             AssertOld(CombatFx.RecipeFor(1f, 0f, false, 1f), "falling masonry");
             AssertOld(CombatFx.RecipeFor(3f, 0f, false, 1f, 9f), "an incendiary");
-            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f), "a mine (no lean, but not a mortar)");
+            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f), "a mine's shape from no known source");
+        }
+
+        [Test]
+        public void On_AMine_DrawsItsOwnBlackSmokeNotTheSevenPuffs()
+        {
+            int mine = MineSystem.SourceBase + (int)MineKind.Mine, wire = MineSystem.SourceBase + (int)MineKind.Tripwire;
+            var r = CombatFx.RecipeFor(5f, 0f, false, 1f, 9f, mine);
+            Assert.IsFalse(r.OldSmoke, "its black smoke is its own (CombatFx.Bursts.cs)");
+            Assert.IsTrue(r.Column, "the earth is still thrown");
+            Assert.IsFalse(r.Plume || r.Mortar || r.CookOff || r.Ring || r.Lean || r.Dust || r.Curtain);
+            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 0f, 9f, mine), "fx.recipes 0");
+            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f, mine, 0f), "fx.classArms 0: no black smoke, so the puffs stay");
+            AssertOld(CombatFx.RecipeFor(5f, 0f, true, 1f, 9f, mine), "a mine in water");
+            AssertOld(CombatFx.RecipeFor(5f, 0f, false, 1f, 9f, wire), "a tripwire has no black smoke");
         }
 
         [Test]

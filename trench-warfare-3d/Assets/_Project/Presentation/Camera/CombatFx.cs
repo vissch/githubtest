@@ -835,7 +835,7 @@ namespace TW.Presentation.Tactical
                     Vector3 flight = new Vector3(e.Dir.x, 0f, e.Dir.z);
                     float lean = flight.magnitude;
                     if (lean > 1e-3f) flight /= lean; else { flight = Vector3.zero; lean = 0f; }
-                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
+                    var recipe = RecipeFor(e.Dir.y, lean, wet, recipes, e.Scalar, e.A, classArms);   // fx.recipes 0: BurstRecipe.Old, the burst as it always was
                     var look = classArms > 0f && !wet ? BurstBy(e.A) : BurstLook.Same;     // CombatFx.Bursts.cs: the burst by what made it
                     if (drawn)
                     {
