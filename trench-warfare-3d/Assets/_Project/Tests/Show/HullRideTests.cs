@@ -203,6 +203,34 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>A walker braking hard must be seen to pitch forward (the owner, 2026-10-18: "a walker braking hard
+        /// shows no weight shift at all"). The numbers are the measured trace of a Pincer halted from a full walk:
+        /// 3.245 m/s^2 of braking held for the 0.89 s it takes to shed 2.889 m/s. Asked for: a dip at or below
+        /// -1.0 degree and a rebound at or above +0.3 degree.</summary>
+        [Test]
+        public void AWalkerNosesDownWhenItBrakesHardAndRebounds()
+        {
+            float squat = TankRenderer.StyleFor(VehicleArchetype.Pincer).Squat * HullRide.SquatShare;
+            Assert.Greater(squat, 0f, "the Pincer has no squat to lurch on");
+            float value = 0f, velocity = 0f, dt = 1f / 60f;
+            float dip = 0f;
+            for (float t = 0f; t < 0.89f; t += dt)
+            {
+                HullRide.StepLurch(ref value, ref velocity, HullRide.LurchTarget(squat, -3.245f), dt);
+                dip = Mathf.Min(dip, value);
+            }
+            float rebound = value;
+            for (float t = 0f; t < 2f; t += dt)
+            {
+                HullRide.StepLurch(ref value, ref velocity, HullRide.LurchTarget(squat, 0f), dt);
+                dip = Mathf.Min(dip, value);
+                rebound = Mathf.Max(rebound, value);
+            }
+            Assert.LessOrEqual(dip * Mathf.Rad2Deg, -1.0f, "a Pincer braking at 3.245 m/s^2 should nose down at least a degree");
+            Assert.GreaterOrEqual(rebound * Mathf.Rad2Deg, 0.3f, "it should rock back past level when it stops");
+            Assert.LessOrEqual(Mathf.Abs(dip) * Mathf.Rad2Deg, HullRide.LurchMaxDeg + 1e-3f, "the lurch went past its cap");
+        }
+
         /// <summary>The owner, 2026-10-15: the top kick is the Banner's alone. Drives TankRenderer's own private
         /// TakeTopKick by reflection, the way ModelCutTests.Rig drives TankRenderer's views, so the test reads the
         /// real method and nothing can drift from it.</summary>

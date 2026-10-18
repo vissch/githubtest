@@ -2,7 +2,7 @@
 // How heavy a machine looks, behind knobs. Each drew the old machines at 0 until the owner had seen the captures (the
 // fx.deathAbsurd rule); the owner set them on (2026-09-29, decisions.md), and 0 still draws the old machines:
 //  - tank.weight: each machine's own ride (TankRenderer.DriveStyle.cs) on an acceleration followed from the sim's own
-//    speed; a walker's kicks and footfalls on layers of their own. Off, every machine rides PlainStyle, as before;
+//    speed; a walker's kicks, its lurch under the brakes and its footfalls on layers of their own. Off, every machine rides PlainStyle, as before;
 //  - tank.squat: the share of each style's squat drawn against the sim's held acceleration (0.4, HullRide.SquatShare);
 //  - tank.recoil: the barrel's travel and return by the weight of its shot (the Maw's six-pounder is 1);
 //  - tank.shotRock: degrees a six-pounder rocks its hull, by the shot's weight (0 keeps today's kick of 0.35 rad/s);
@@ -92,6 +92,16 @@ namespace TW.Presentation.Tactical
             HullRide.StepKick(ref v.KickR.Value, ref v.KickR.Velocity, dt, HullRide.KickCap(v.Legs.TiltCapRoll));
         }
 
+        /// <summary>A walker's lurch on the brakes. Its tilt is written straight off its feet each frame, so a squat
+        /// put into the ride spring is wiped; and its kick layer is capped by the gait's own tilt cap, as low as 1 degree
+        /// on some walkers, which would clip the dip and zero the rebound. So the lurch is a layer of its own, held
+        /// against the felt acceleration (v.Accel) and released when the machine stops shedding way.</summary>
+        void LurchOnTheBrakes(View v, float dt)
+        {
+            if (!weightOn) { v.Lurch = default; return; }   // tank.weight 0 draws the old machine exactly
+            HullRide.StepLurch(ref v.Lurch.Value, ref v.Lurch.Velocity, HullRide.LurchTarget(v.Style.Squat, v.Accel), dt);
+        }
+
         /// <summary>The footfall's dip, on a spring of its own at the machine's heave rate rather than on the hull's heave,
         /// which the riders read to flinch (a Redoubt's two-footed stomp was 2.4 m/s against their 2 m/s).</summary>
         static void StepFootfall(View v, float dt) => HullRide.Solve(ref v.Foot.Value, ref v.Foot.Velocity, 0f, dt, v.Style.HeaveOmega, 1f);
@@ -171,7 +181,7 @@ namespace TW.Presentation.Tactical
         /// <summary>A dead machine keeps none of this: its wreck lies as it fell, not frozen mid-rock.</summary>
         static void StillWeight(View v)
         {
-            v.KickP = default; v.KickR = default; v.Foot = default;
+            v.KickP = default; v.KickR = default; v.Foot = default; v.Lurch = default;
             v.Settle[0] = default; v.Settle[1] = default; v.TopKick = default;
         }
     }
