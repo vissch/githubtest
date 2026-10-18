@@ -576,6 +576,51 @@ namespace TW.Tests
         }
 
         [Test]
+        // [found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] the shelter was picked purely by distance
+        // among the wrecks whose Teams disc held an enemy; if nobody stood in THIS shooter's shadow strip, AtWreck
+        // returned with no shot and never tried the next-nearest wreck, so a gun went silent every tick though a
+        // farther wreck did shelter men in his shadow.
+        public void AnEmptyShadowOnTheNearestWreckDoesNotSilenceHim()
+        {
+            using var m = NewMatch();
+            var men = Hidden(m, InfantryArchetype.Machinegunner, GunOff, out int far, out int gun);
+            // a second wreck, nearer the gun than the far one and off to the side: its shelter disc holds the men
+            // (so BuildShelters lists it) but its shadow from the gun's angle is empty
+            float3 mc = m.World.Position[men[1]];
+            float side = math.sign(m.World.Position[gun].z - mc.z);
+            var at = mc + new float3(3.7f, 0f, side * 2.8f);
+            if ((m.Map.LayerAt(at) & NotOpen) != 0) at = mc + new float3(-3.7f, 0f, side * 2.8f);
+            int near = m.Map.AddProp(new PropDef { Pos = at, Kind = PropKind.Wreck });
+            Assert.GreaterOrEqual(near, 0, "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] the second wreck was not placed");
+
+            float reach = DirectFireSystem.ShelterRadius + PropRules.WreckBlastReach * 0.5f;   // 4 m
+            float body = PropRules.WreckBlastReach;                                            // 2 m
+            float3 gp = m.World.Position[gun], fp = m.Map.Props[far].Pos;
+            // (a) the new wreck is the nearer of the two to the gun, so the old code picks it
+            Assert.Less(math.distancesq(at.xz, gp.xz), math.distancesq(fp.xz, gp.xz),
+                "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] the second wreck must be the nearer one");
+            // (b) a man inside its reach, so BuildShelters lists it with the enemy side
+            float closest = float.MaxValue;
+            foreach (int u in men) closest = math.min(closest, math.distance(m.World.Position[u].xz, at.xz));
+            Assert.Less(closest, reach, "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] no man inside the nearer wreck's shelter reach");
+            // (c) every man further off the gun -> nearer wreck line than its body, so that shadow is empty
+            float3 alongXZ = at - gp; alongXZ.y = 0f;
+            float3 along = alongXZ / SimMath.Length(alongXZ);
+            foreach (int u in men)
+            {
+                float3 rel = m.World.Position[u] - at; rel.y = 0f;
+                Assert.Greater(math.abs(rel.x * along.z - rel.z * along.x), body,
+                    "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] a man stands in the nearer wreck's shadow");
+            }
+
+            // Watch asserts every prop-targeted Shot names the wreck passed in, so the far wreck is the only one fired at
+            var (atWreck, _, suppressed) = Watch(m, far, gun, men, 400);
+            Assert.Greater(atWreck, 5, "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] the gun went silent: the nearest wreck's shadow is empty, the farther one shelters men in his shadow");
+            // one round's keep-down: SuppressionPerShot 9 x 0.6 = 5.4 ([N5.3b])
+            Assert.Greater(suppressed, 2f, "[found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0] the men behind the farther wreck were not kept down");
+        }
+
+        [Test]
         // [N5.3b] the owner's rule (2026-10-12): fire at a wreck is fire at a place, not at a man who must be seen,
         // so a thick screen on the gun -> wreck line neither stops the shot nor spares the men in its shadow.
         public void ABlindingScreenOnTheLineDoesNotStopTheFireAtTheWreck()

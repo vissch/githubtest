@@ -155,7 +155,12 @@ namespace TW.Sim
         // v52 (2026-10-13, [U11]): BreakerSystem, SapperSystem and SupportSystem hash their per-slot arrays to
         // SimWorld.HighWater instead of MaxSlots, as SimWorld.Hash() already did. No field added, moved or dropped
         // and no balance change; the hash of any match with an unfilled world moves, so older replays do not verify.
-        public const ushort FormatVersion = 52;
+        // v53 (2026-10-18, [found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0]): a gun with no living
+        // target walks the wrecks in his range nearest first instead of trying only the nearest: one whose shadow is
+        // empty from where he stands, or whose top he cannot see, is skipped and the next-nearest tried. He went
+        // silent every tick when the nearest shelter's disc held an enemy but his shadow strip did not. Behaviour
+        // only, no layout change; shots, suppression and prop hit points move at a tick, so hashes and balance move.
+        public const ushort FormatVersion = 53;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)
