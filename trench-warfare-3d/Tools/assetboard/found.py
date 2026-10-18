@@ -75,7 +75,7 @@ NOT_BRANCHES = ('lane/show/relay', 'lane/show/pipe-idea-', 'lane/sim/pipe-idea-'
 ALWAYS_HIS = (A + 'Sim/', A + 'Net/', A + 'Data/', P + 'Tools/land.py', P + 'gate.ps1', P + 'Tools/gate', P + 'Tools/relay/', P + 'Tools/pipeline/',
               P + 'Tools/assetboard/landq.py', P + 'Tools/assetboard/notes.py', P + 'Tools/assetboard/briefs.py', P + 'Tools/assetboard/steward.py',
               P + 'Tools/assetboard/found.py', P + 'Tools/toolcheck.py', P + 'validate.py')
-ROLES = ('lane', 'review-fix', 'destruction-vfx-simulator', 'character-simulator', 'vehicle-simulator', 'optimizer', 'balance-simulator', 'env-simulator', 'bug-catcher')
+ROLES = ('lane', 'review-fix', 'destruction-vfx-simulator', 'character-simulator', 'vehicle-simulator', 'optimizer', 'balance-simulator', 'env-simulator', 'bug-catcher', 'hard-critic')
 ROLE_OF_LOOK = dict(code='bug-catcher', look='hard-critic', branch='lane', tools='lane', review='lane')
 RISK = ('It is hard to undo: landed, deleted, pushed over, sent out', 'It can break the sim, replays or the gate, or stop other agents\' work',
         'It reaches outside its lane: the board, the Drive, another checkout or machine', 'It costs over 2% of the week',

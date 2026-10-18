@@ -79,6 +79,13 @@ def main():
          and 'LOOK, do not build' in u['goal'] and '5. No script or test can check the result' in u['goal'] and 'At most 5 tasks' in u['goal'] and u['done_when'][:2] == ['python', '-c']
          and '[look-look-night-20261011]' in u['done_when'][2] and len(u['goal']) < 6000, u)
 
+    # ---- the roles a look may hand out ----
+    table = json.loads((HERE.parent / 'pipeline' / 'roles.json').read_text(encoding='utf-8'))
+    unknown = [r for r in found.ROLE_OF_LOOK.values() if r not in found.ROLES]
+    off = [r for r in found.ROLES if r not in table]
+    case('every role a look is given, and every role it may hand out, is one found.py calls known and one the role table has',
+         not unknown and not off, 'not in ROLES: %s; not in Tools/pipeline/roles.json: %s' % (unknown, off))
+
     # ---- what a look hands in ----
     have = {A + 'Presentation/Flag/FlagView.cs', A + 'Sim/Core/Match.cs', T + 'sweep.py', T + 'land.py', 'docs/reference/tasks.md'}
     ex = have.__contains__

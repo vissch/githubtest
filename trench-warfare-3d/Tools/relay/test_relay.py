@@ -138,6 +138,18 @@ class Settings(Base):
             self.assertIn("Never end your turn while a gate", text)
         self.assertNotIn("full gate", prompt.system_text("lane", "plan", st, top))    # a plan leg runs no gate
 
+    def test_a_hard_critic_leg_is_told_its_standing_rules_and_every_role_of_the_table_builds_a_prompt(self):
+        import prompt
+        st, top = config.style(), self.lim["prompt_max_bytes"]
+        crit, plain = (prompt.system_text(role, "execute", st, top) for role in ("hard-critic", "lane"))
+        self.assertIn("You judge, you do not build", crit)
+        self.assertNotIn("You judge, you do not build", plain)       # the role file rides only with its role
+        table = json.loads((HERE.parents[1] / "Tools" / "pipeline" / "roles.json").read_text(encoding="utf-8"))
+        phases = json.loads((HERE / "phases.json").read_text(encoding="utf-8"))
+        for role in table:                      # every role the table has, every phase, and under the byte limit
+            for phase in phases:
+                prompt.system_text(role, phase, st, top)
+
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))
                        if p.name != "test_relay.py")
