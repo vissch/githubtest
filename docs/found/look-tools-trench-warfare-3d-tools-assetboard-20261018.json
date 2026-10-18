@@ -1,0 +1,33 @@
+{
+  "subject": "tools:trench-warfare-3d/Tools/assetboard",
+  "looked_at": [
+    "trench-warfare-3d/Tools/assetboard/notes.py",
+    "trench-warfare-3d/Tools/assetboard/tasks.py",
+    "trench-warfare-3d/Tools/assetboard/critiques.py",
+    "trench-warfare-3d/Tools/assetboard/feedback.py",
+    "trench-warfare-3d/Tools/assetboard/feedback.example.json",
+    "trench-warfare-3d/Tools/assetboard/build.py",
+    "trench-warfare-3d/Tools/assetboard/runreport.py",
+    "trench-warfare-3d/Tools/assetboard/taskbrief.py",
+    "trench-warfare-3d/Tools/assetboard/publish.py",
+    "trench-warfare-3d/Tools/assetboard/src_images.py",
+    "trench-warfare-3d/Tools/assetboard/src_queue.py",
+    "docs/reference/pipelines.md"
+  ],
+  "tasks": [
+    {
+      "title": "Make the site's size budget stop the build, not just print a line",
+      "why": "publish.py:32-34 prints 'the site is over its budget... Prune img/ by hand, or lower PER_ASSET' when the built site passes MAX_FILES/MAX_BYTES, but sync() still returns normally and build.py:132 never checks it or publish.py's exit code. ops.py --watch runs build.py headless and unattended, so the print lands in a log nobody reads; main() exits 0 regardless. The check that was meant to catch a harvest filling the Drive cannot fail, so it never prompts the one by-hand step (pruning img/, or lowering PER_ASSET in src_images.py:18) it names as the fix, and the Drive can keep growing past 400 MB unnoticed.",
+      "files": [
+        "trench-warfare-3d/Tools/assetboard/publish.py",
+        "trench-warfare-3d/Tools/assetboard/build.py",
+        "trench-warfare-3d/Tools/assetboard/src_images.py"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "build.py exits non-zero (or writes a warning file ops.py's page surfaces) when publish.sync finds the site over MAX_FILES/MAX_BYTES, and a test fixture that forces the over-budget branch asserts that signal.",
+      "risk": [false, false, false, false, true],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
