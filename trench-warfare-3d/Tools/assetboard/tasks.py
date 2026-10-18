@@ -224,6 +224,20 @@ def act(T, notes_where: Path = None, units: Path = None, now=None):
                 did.append(f'{r["id"]}: an older word of his no longer holds, and was answered')
             except (OSError, ValueError) as e:
                 did.append(f'{r["id"]}: its older note was not answered ({e})')
+    # a click he made more than once (2026-10-08: four on one task inside a minute, three left open for two days):
+    # each is answered with the unit the first one made, so none stays on the page as a word nobody heard
+    every = notes.read_all(notes_where)
+    for r in T['rows']:
+        if r['state'] not in ('queued', 'relay') or not r.get('note') or not r.get('unit'):
+            continue
+        for n in every:
+            if (n['state'] != 'done' and n['id'] != r['note'] and n.get('from', 'owner') == 'owner' and n.get('about') == 'task: ' + r['id'] and n['text'].strip() == src_tasks.QUEUE_SAY
+                    and n['id'] not in (r.get('stale') or [])):
+                try:
+                    notes.answer(notes_where, n['id'], f'Unit {r["unit"]}: you had queued this already; it is one unit, and one click was enough.', by=BY, now=now)
+                    did.append(f'{r["id"]}: a second click of his was answered')
+                except (OSError, ValueError) as e:
+                    did.append(f'{r["id"]}: its second note was not answered ({e})')
     taken = set((T.get('relay') or {}).get('taken') or [])
     for n in notes.read_all(notes_where):
         if n['state'] != 'done' and n.get('from', 'owner') == 'owner' and str(n.get('about', '')).startswith('task: ') and n['text'].strip() == src_tasks.DROP_SAY:
