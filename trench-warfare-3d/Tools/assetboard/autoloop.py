@@ -1186,9 +1186,52 @@ def idle_why(w, lines):
     return ''
 
 
+def tidy(w):
+    """Every stopped extra relay lets go of its lane at once (a clean checkout is detached), so the next look or unit on
+    that lane is not held by it (every look is on lane/show/found; relays 2 and 5 kept theirs, 2026-10-18 17:50); a
+    stopped one left dirty by a run that ended otherwise (relay 3, a TIMEOUT at 15:56, 8 files) is put aside once per
+    stopped run, so it can be fed and started again."""
+    out, cos = [], w.checkouts()
+    if cos is None:
+        return out
+    key = lambda p: os.path.normcase(os.path.abspath(str(p)))      # noqa: E731
+    on = {key(p): b for b, p in cos.items()}
+    asides = load(w.home / 'asides.json', [])
+    for n, work in sorted(w.works().items()):
+        if n == 1 or n not in w.extras:
+            continue
+        running, reason = w.status(w.extras[n])
+        if running != set():
+            continue
+        if not w.clean(work):
+            m = re.search(r'\[run (\S+)\]', reason or '')
+            run = f'{n}:' + (m.group(1) if m else (reason or '')[:60])
+            if 'uncommitted changes' in (reason or '') or run in asides:
+                continue                    # feed puts that one aside when it has work; once per stopped run here
+            if not w.acting:
+                out.append(f'tidy: relay {n} stopped with leftover files: they would be put aside')
+                continue
+            ok, said = w.put_aside(work, n)
+            asides = (asides + [run])[-50:]
+            save(w.home / 'asides.json', asides)
+            out.append(f'tidy: relay {n} stopped with leftover files ({str(reason)[:80]}): {said}')
+            continue
+        lane = on.get(key(work))
+        if not lane:
+            continue
+        if not w.acting:
+            out.append(f'tidy: relay {n} would let go of {lane}')
+            continue
+        code, said = w.detach(work)
+        if code == 0:
+            save(w.home / 'touched.json', dict(load(w.home / 'touched.json', {}), **{str(n): w.now()}))
+        out.append(f'tidy: relay {n} stopped: let go of {lane}' if code == 0 else f'tidy: relay {n} could not let go of {lane}: {said[:120]}')
+    return out
+
+
 def round_(w):
     lines = []
-    for step in (copy_back, take_answers, attempts, end_editors, wait_for_relay, rescue, loopsteps.route_ideas, feed):
+    for step in (copy_back, take_answers, attempts, end_editors, wait_for_relay, rescue, tidy, loopsteps.route_ideas, feed):
         try:
             lines += step(w)
         except Exception:       # noqa: BLE001  one step that fails must not stop the others

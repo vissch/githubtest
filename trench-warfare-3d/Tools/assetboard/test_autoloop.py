@@ -669,6 +669,19 @@ def main():
     case('a look kept for the busy main relay second try does not hold back a new look for the idle relays (16:01-16:12)',
          held == {'look-held'} and 'queued the look' in line, (held, line))
 
+    w = Fake(tmp / 't18', extras=(2, 3, 5))
+    w.work_dirs = {2: 'C:/gh/w2', 3: 'C:/gh/w3', 5: 'C:/gh/w5'}
+    w.cos = {'lane/show/found': Path('C:/gh/w2'), 'lane/show/review-tools': Path('C:/gh/w3'), 'lane/show/x': Path('C:/gh/w5')}
+    w.dirty = {Path('C:/gh/w3')}
+    w.text[w.extras[3]] = 'NOT RUNNING. Last run 20261018-141559-1: leg 02 ended TIMEOUT (2 legs).'
+    w.text[w.extras[5]] = RUN
+    w.asides = []
+    w.put_aside = lambda work, n: (w.asides.append(n) or True, 'put aside')
+    lines = getattr(autoloop, 'tidy', lambda w: [])(w)
+    again = getattr(autoloop, 'tidy', lambda w: [])(w)
+    case('a stopped extra relay lets go of its lane at once (the looks all use lane/show/found); one left dirty by a TIMEOUT is put aside once; a running one is left alone',
+         w.detached == [Path('C:/gh/w2')] and w.asides == [3] and not any('put aside' in l for l in again), (lines, again, w.detached, w.asides))
+
     # ---- one round, and the lock ----
     calls = []
     real = (autoloop.found.take, autoloop.found.rota)
