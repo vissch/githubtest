@@ -343,11 +343,11 @@ class Guards(Base):
                     "python Tools/relay/test_relay.py", "python Tools/relay/test_relay.py 2>&1 | tail -60",
                     "python -m unittest Tools.relay.test_relay -v", "timeout 3000 python Tools\\relay\\test_relay.py -v",
                     "python Tools/pipeline/run_detached.py start t --timeout 3600 -- python Tools/toolcheck.py",
-                    "python -m unittest discover -s Tools/relay"):
+                    "python -m unittest discover -s Tools/relay", "pytest Tools/relay/test_relay.py"):
             self.assertTrue(self.denied("Bash", command=cmd), "[relay-tool-legs-fit] a whole slow suite ran: " + cmd)
         for cmd in ("python Tools/relay/test_relay.py Budget.test_a_day_that_cannot_be_counted_still_writes_the_stop_record",
                     "timeout 120 python -m unittest Tools.relay.test_relay.Budget.test_x -v",
-                    "python Tools/relay/test_relay.py -k stop_record", "python Tools/relay/test_day.py", "grep -n toolcheck Tools/land.py", "cat Tools/relay/test_relay.py"):
+                    "python Tools/relay/test_relay.py -k stop_record", "python Tools/relay/test_day.py", "python Tools/toolcheck.py --list", "grep -n toolcheck Tools/land.py", "cat Tools/relay/test_relay.py"):
             self.assertFalse(self.denied("Bash", command=cmd), "[relay-tool-legs-fit] a named test was refused: " + cmd)
         lim = config.limits()
         gate, leg = lim["gate_seconds"], lim["leg_minutes"] * 60

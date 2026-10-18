@@ -399,8 +399,9 @@ def whole_slow_suite(words):
         return True
     for i, x in enumerate(w):
         base = x.rsplit("/", 1)[-1]
-        if base == "toolcheck.py" or base.split(".")[-1] == "toolcheck" and i and w[i - 1] == "-m":
-            return True
+        if ((base == "toolcheck.py" and (i == 0 or w[i - 1].startswith("-") and w[i - 1] != "--file"))
+                or (base.split(".")[-1] == "toolcheck" and i and w[i - 1] == "-m")):
+            return "--list" not in w        # the script itself is run; --list only names its parts
         if base == "test_relay.py":
             named = [y for y in w[i + 1:] if not y.startswith("-")]
             if "::" not in x and not named and "-k" not in w:
@@ -431,6 +432,8 @@ def never_part(words, leg):
             return never(" ".join(words[words.index("--") + 1:] if "--" in words else []), leg)
         if whole_slow_suite(words):
             return SLOW_SUITE
+    elif p == "pytest" and whole_slow_suite(["python"] + words):
+        return SLOW_SUITE
     elif p == "gh":
         if low[:2] == ["pr", "merge"] or (low[:1] == ["api"] and any("merge" in a for a in low)):
             return "legs never merge a pull request"
