@@ -10,9 +10,13 @@ the work, check it and decide to go on; you read their lines, start them, and te
 
 ```bash
 R="python C:/Users/PC/Documents/GitHub/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py"
-WORK="C:/Users/PC/Documents/GitHub/githubtest-relay-work"
+N=""                                                              # the station: "" for relay 1, else 2..6
+WORK="C:/Users/PC/Documents/GitHub/githubtest-relay-work$N"
 ```
-These are the desktop's paths: runs start there, from the frozen copy. On another machine `$R day` and `$R budget`
+These are the desktop's paths: runs start there, from the frozen copy. By hand you run station 1
+(`githubtest-relay-work`) unless the owner names another; for station N the checkout is `githubtest-relay-work<N>`
+— set `TW_BOARD=tw3d-board-<N>` and `TW_RELAY_HOME=...\relay<N>` first, so `$R day`, `$R status` and the run read
+that station. On another machine `$R day` and `$R budget`
 still work from any checkout of the relay lane, but they show that machine's copy of the board: pull the
 board first. (`$R status` also needs `TW_STATION` set when the host is not in `Tools/pipeline/stations.json`.)
 
@@ -241,6 +245,6 @@ What follows from the score:
 ## Never
 
 - Edit `githubtest-relay-run`, or `Tools/relay/` and `Tools/pipeline/` while a run is going.
-- Point `--work` at a checkout a session or an editor is using.
+- Point `--work` at a checkout a session or an editor is using, or that belongs to another station.
 - Start a run without the hold, or keep the hold when you are done (`$R hold <name> --release`).
 - Report a run as fine from its exit alone: read the `STOP:` line and the units in the stop record.
