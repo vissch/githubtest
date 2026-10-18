@@ -161,13 +161,15 @@ namespace TW.Tests
             Assert.AreNotEqual(a.World.Hash(), b.World.Hash());
         }
 
+        // [found-make-the-hero-determinism-test-prove-a-hero-20261018-0] a battle with no HeroMoment in it must
+        // not pass as proof that a hero battle is deterministic: the asserts below require a hero to have fired.
         [Test, Category("Long")]
         public void ABattleWithAHeroInItIsTheSameOnEveryMachine()
         {
-            (ulong, uint) Play()
+            (ulong, uint, int, int) Play()
             {
                 using var m = NewMatch(pity: 0.9f);
-                short t = Garrison(m, 8);
+                short t = Garrison(m, 24);
                 float z = m.Map.NavCellCenter(m.Map.TrenchCells[m.Map.Trenches[t].CellStart]).z;
                 int goal = m.Fields.GetGoal(GoalKey.Trench(t));
                 for (int k = 0; k < 14; k++)
@@ -176,16 +178,22 @@ namespace TW.Tests
                     m.World.GoalId[s] = goal; m.World.Flags[s] |= (uint)UnitFlags.Exposed;
                 }
                 uint first = 0;
+                int slot = -1;
                 for (int i = 0; i < 700; i++)
                 {
                     Step(m);
-                    if (first == 0) { var ev = m.World.Events.Events; for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.HeroMoment) first = m.World.Tick; }
+                    PinTeam(m.World, 0);
+                    if (first == 0) { var ev = m.World.Events.Events; for (int k = 0; k < ev.Length; k++) if (ev[k].Type == SimEventType.HeroMoment) { first = m.World.Tick; slot = ev[k].A; } }
                 }
-                return (m.World.Hash(), first);
+                return (m.World.Hash(), first, slot, m.Hero.HeroCount);
             }
             var x = Play(); var y = Play();
-            Assert.AreEqual(x.Item1, y.Item1);
-            Assert.AreEqual(x.Item2, y.Item2);
+            Assert.Greater(x.Item2, 0u, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0] no HeroMoment in 700 ticks: this compared two heroless runs");
+            Assert.Greater(x.Item4, 0, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0] no hero was ever made");
+            Assert.AreEqual(x.Item1, y.Item1, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0]");
+            Assert.AreEqual(x.Item2, y.Item2, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0]");
+            Assert.AreEqual(x.Item3, y.Item3, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0] the hero's slot differed between runs");
+            Assert.AreEqual(x.Item4, y.Item4, "[found-make-the-hero-determinism-test-prove-a-hero-20261018-0] HeroCount differed between runs");
         }
     }
 }
