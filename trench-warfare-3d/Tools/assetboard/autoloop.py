@@ -210,7 +210,7 @@ class World:
                 return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
             cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', sources] + (['-NoQuiet'] if quiet_off else [])
         else:
-            cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT]
+            cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT] + (['-NoQuiet'] if quiet_off else [])
         p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *cmd],
                              stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, creationflags=flags, close_fds=True)
         return f'started (pid {p.pid})'
@@ -360,15 +360,15 @@ class World:
         now = str(load(home / 'runs' / m.group(1) / 'progress.json', {}).get('now_on') or '')
         return now.split(',')[0].strip(), lane
 
-    def main_touch(self):
-        """(the newest write to the main work checkout's git index or HEAD, the end of its newest run that had legs),
+    def main_touch(self, n=1):
+        """(the newest write to relay n's work checkout's git index or HEAD, the end of its newest run that had legs),
         in epoch seconds, 0 when unread. Read only."""
-        work, newest, ended = self.works().get(1), 0.0, 0.0
+        work, newest, ended = self.works().get(n), 0.0, 0.0
         if work:
             code, gd = self.git(work, 'rev-parse', '--absolute-git-dir')
             if code == 0:
                 newest = max((f.stat().st_mtime for f in (Path(gd) / 'index', Path(gd) / 'HEAD') if f.exists()), default=0.0)
-        for f in sorted(Path(self.main).glob('relay/*/stops/*.json'), key=lambda p: p.name)[-12:]:
+        for f in sorted(Path(self.main if n == 1 else self.extras[n]).glob('relay/*/stops/*.json'), key=lambda p: p.name)[-12:]:
             d = load(f, {})
             if isinstance(d, dict) and d.get('legs') and d.get('stopped_at'):
                 try:
@@ -691,8 +691,8 @@ def lane_free(w, n, lane, cos, runs, out):
         out.append(f'feed: relay {n}: {lane} skipped: {at} could not let go of it ({said[:120]})')
         return False
     cos.pop(lane, None)
-    if m == 1 and w.acting:                 # the loop's own touch of the main checkout: not "somebody works in it"
-        save(w.home / 'touched.json', dict(load(w.home / 'touched.json', {}), main=w.now()))
+    if w.acting:                            # the loop's own touch of relay m's checkout: not "somebody works in it"
+        save(w.home / 'touched.json', dict(load(w.home / 'touched.json', {}), **{'main' if m == 1 else str(m): w.now()}))
     out.append(f'feed: relay {n}: {lane} freed: {at} (relay {m}, not running, clean) was detached from it')
     w.freed = getattr(w, 'freed', 0) + 1
     return True
@@ -716,12 +716,12 @@ def all_done(w):
 QUIET_OWN = (90, 30)    # a write this soon after the main relay's own last run ended, or after the loop detached its checkout
 
 
-def own_touch(w):
+def own_touch(w, n=1):
     """True when the main work checkout's last git write was the relay's own (its last run's legs) or the loop's
     (a detach), so its ten quiet minutes guard against nobody: each main start after a run was refused "git index
     moved 222 s ago" by that run's own last commit (08:03, 2026-10-18), and 12 s after the loop's own detach (04:54)."""
-    newest, ended = w.main_touch()
-    mine = load(w.home / 'touched.json', {}).get('main', 0)
+    newest, ended = w.main_touch(n)     # the extras too: relays 2, 3 and 5 were refused so right after a feed (11:08-11:16, 2026-10-18)
+    mine = load(w.home / 'touched.json', {}).get('main' if n == 1 else str(n), 0)
     if not newest or w.now() - newest >= QUIET:
         return False
     return newest <= max(ended + QUIET_OWN[0] if ended else 0, mine + QUIET_OWN[1] if mine else 0)
@@ -924,7 +924,9 @@ def feed(w):
                 continue
         if not may_start(w, n, reason, fresh=bool(not mine and fresh)):
             continue
-        out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
+        own = own_touch(w, n)
+        out.append(f'feed: relay {n} is not running and has work: {w.start(n, quiet_off=own)}'
+                   + (' (its checkout was last written by its own run or the loop: the quiet wait is skipped)' if own else ''))
         runs[n] = {'started this round'}        # its checkout is no longer free to detach in this round
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)

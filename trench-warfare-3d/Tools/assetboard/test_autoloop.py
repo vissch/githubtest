@@ -184,8 +184,8 @@ class Fake(autoloop.World):
 
     touch, landed_lanes = (0.0, 0.0), set()
 
-    def main_touch(self):
-        return self.touch
+    def main_touch(self, n=1):
+        return self.touch if n == 1 else getattr(self, 'touches', {}).get(n, (0.0, 0.0))
 
     def landed(self, lane):
         return lane in self.landed_lanes
@@ -630,6 +630,15 @@ def main():
     w3.touch = (w3.clock + 5, 0.0)
     w3.clock += 700 - autoloop.QUIET + 20
     case("C: a write by the loop's own detach of the main checkout is its own too", getattr(autoloop, 'own_touch', lambda w: False)(w3), w3.detached)
+
+    w = Fake(tmp / 'c18x', extras=(2, 3))
+    put(w.main, 'queue', 'e-1', lane='lane/show/e1', priority=20)
+    w.text[w.main] = RUN
+    w.touches = {2: (w.clock - 30, w.clock - 60), 3: (w.clock - 30, w.clock - 3000)}    # relay 2: its own run's last write; relay 3: somebody's
+    put(w.extras[3], 'queue', 'e-3', lane='lane/show/e3')
+    autoloop.feed(w)
+    case('C: an extra relay whose checkout was last written by its own run is started past the quiet wait; one written later by somebody is not (relays 2, 3, 5 refused 11:08-11:16)',
+         sorted(getattr(w, 'quiet_offs', [])) == [(2, True), (3, False)], getattr(w, 'quiet_offs', None))
 
     w = Fake(tmp / 'd18', extras=(2,))
     put(w.main, 'queue', 'review-tools-rebase', lane='lane/show/review-tools', priority=20)
