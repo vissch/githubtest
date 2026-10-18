@@ -24,9 +24,10 @@ namespace TW.Presentation.Tactical
         const int MaxRests = 320;
         int MaxMarks = 900;          // knob fx.maxMarks (Awake); machine marks lie for minutes and are laid out to MachineMarkReach, so the field holds more of them than when only boots printed
         float CloseReach = 42f;      // knob fx.closeReach (Awake)
-        /// <summary>How far out a machine's marks are laid and drawn. A boot print is invisible past CloseReach and is not
-        /// made past it; a tank's ruts and a walker's footfalls are metres across and belong on the ground at the standard
-        /// view, where the game is actually played, so they run to the edge of what the camera holds.</summary>
+        /// <summary>How far out a machine's marks are DRAWN (they are laid wherever the machine is: see CloseLife).
+        /// A boot print is invisible past CloseReach and is not made past it; a tank's ruts and a walker's footfalls are
+        /// metres across and belong on the ground at the standard view, where the game is actually played, so they run
+        /// to the edge of what the camera holds.</summary>
         const float MachineMarkReach = 130f;
         readonly Mesh[] fallen = new Mesh[8];
         /// <summary>One a shape (boot, rut, walker's foot). The fade used to be three materials a shape, which meant the
@@ -38,6 +39,12 @@ namespace TW.Presentation.Tactical
         Material fallenMat, brassMat, helmetMat, vapourMat;
         Mesh markQuad;
         float nextPrint, nextBreath, nextExhaust; int breathCursor;
+        // ---- the probe (MarkReport): what the last frame actually laid and drew, so a leg can tell a laying fault
+        // from a draw fault without reading the code again.
+        int drawnMarksLast;             // marks handed to a draw call by the last DrawClose
+        int probeSlot = -1;             // the last machine slot CloseLife stepped
+        float probeFar;                 // the step it saw that tick (metres since the trail's last mark)
+        int probeTicks, probeRuns, probeLaid, probeWet;   // ticks that stepped it, of those the ones that reached the stride, marks laid, points refused as water
         /// <summary>The ground's tilt at a point, so a print or a body lies on the slope and not in the air above it.</summary>
         Quaternion Lie(float x, float z, float yawDegrees, float span = 0.3f)
         {
@@ -61,10 +68,16 @@ namespace TW.Presentation.Tactical
             // marks live for minutes and the pool sits at its ceiling - that is the whole time. Overwrite the one
             // nearest gone instead: no shift, and a mark on its way out is a better thing to lose than the oldest,
             // which on this field may be a rut with four minutes left while a boot print beside it has two seconds.
+            // A mark no camera can see is worth less than one it can: now that machines lay wherever they are, a pair
+            // of tanks crossing the far side of the field would otherwise churn the ruts under the view out of the
+            // pool. Out of the draw's reach counts as most of a life already spent.
+            var cam = Camera.main; Vector3 eye = cam != null ? cam.transform.position : at;
+            float seen = MachineMarkReach * MachineMarkReach;
             int worst = 0; float gone = -1f, now = Time.time;
             for (int i = 0; i < marks.Count; i++)
             {
-                float k = (now - marks[i].Born) / marks[i].Life;
+                float ex = marks[i].At.m03 - eye.x, ez = marks[i].At.m23 - eye.z;
+                float k = (now - marks[i].Born) / marks[i].Life + (ex * ex + ez * ez > seen ? 1f : 0f);
                 if (k > gone) { gone = k; worst = i; }
             }
             marks[worst] = mark;
@@ -96,13 +109,21 @@ namespace TW.Presentation.Tactical
             // away eight marks in nine. MaxMarks is below the 1023 an instanced draw takes, so no bucket can overflow
             // mid-sweep and none of this needs to flush early.
             for (int k = 0; k < markBatch.Length; k++) markBatch[k].Clear();
-            float bootReach = CloseReach * CloseReach, machineReach = MachineMarkReach * MachineMarkReach;
+            // A MACHINE'S MARK IS SUBMITTED WHEREVER IT LIES; only the shader decides how far out it is still seen
+            // (_FadeFrom/_FadeOver, against the camera that is actually rendering). The sweep used to drop every mark
+            // past MachineMarkReach of Camera.main's transform as it stood in Update - which is not where a second
+            // camera, or Camera.main itself once CaptureRig has posed it for a still, is looking from. Measured
+            // 2026-10-18: a top-down capture of ground a Maw had just crossed drew none of its 84 ruts, because the
+            // gameplay camera sat 180 m away when the frame's marks were chosen. A CPU cull cannot know what a frame
+            // will be rendered from, and at MaxMarks the whole pool is one instanced draw of flat quads, so it buys
+            // nothing. Boot prints keep theirs: there are thousands of them, and they are a close-camera thing anyway.
+            float bootReach = CloseReach * CloseReach;
             for (int i = 0; i < marks.Count; i++)
             {
                 var m = marks[i];
                 if (m.Kind == 0 && !close) continue;   // boot prints only once the camera is in among the men
                 float dx = m.At.m03 - eye.x, dz = m.At.m23 - eye.z;
-                if (dx * dx + dz * dz > (m.Kind == 0 ? bootReach : machineReach)) continue;
+                if (m.Kind == 0 && dx * dx + dz * dz > bootReach) continue;
                 // the mark's age travels to the shader in its object Y scale: the quad is flat, so scaling Y moves no
                 // vertex, and the shader reads the Y axis's length back out whatever tilt the ground put on it. It
                 // holds most of its strength, then goes - which is what the three stages were approximating.
@@ -115,9 +136,43 @@ namespace TW.Presentation.Tactical
                 var at = m.At; at.m01 *= left; at.m11 *= left; at.m21 *= left;
                 markBatch[m.Kind].Add(at);
             }
+            drawnMarksLast = markBatch[0].Count + markBatch[1].Count + markBatch[2].Count;
             for (int k = 0; k < markBatch.Length; k++)
                 if (markBatch[k].Count > 0)
                     Flush(markQuad, markBatch[k], new RenderParams(markMats[k]) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off });
+        }
+
+        /// <summary>One line on the ground marks, for `tw eval` in Play: how many are held and of what shape, how many the
+        /// last frame drew, how far the eye is from the nearest track rut, and the gates that can silence laying for the
+        /// last machine stepped. Nothing in the game calls it; it exists to tell a laying fault from a draw fault.</summary>
+        public string MarkReport()
+        {
+            int boots = 0, ruts = 0, feet = 0;
+            for (int i = 0; i < marks.Count; i++) { if (marks[i].Kind == 0) boots++; else if (marks[i].Kind == 1) ruts++; else feet++; }
+            var cam = Camera.main;
+            float near = -1f;
+            if (cam != null)
+            {
+                Vector3 eye = cam.transform.position;
+                for (int i = 0; i < marks.Count; i++)
+                {
+                    if (marks[i].Kind != 1) continue;
+                    float dx = marks[i].At.m03 - eye.x, dz = marks[i].At.m23 - eye.z, d = Mathf.Sqrt(dx * dx + dz * dz);
+                    if (near < 0f || d < near) near = d;
+                }
+            }
+            string slot = "slot none";
+            if (probeSlot >= 0 && Host != null && Host.Local != null && probeSlot < Host.Local.World.HighWater)
+            {
+                var w = Host.Local.World;
+                var p = w.Position[probeSlot];
+                bool vehicle = (w.Flags[probeSlot] & (uint)UnitFlags.Vehicle) != 0;
+                bool water = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
+                slot = $"slot {probeSlot} vehicle={vehicle} water={water} far={probeFar:0.00} z={p.z:0.0} ticks={probeTicks} runs={probeRuns} laid={probeLaid} wet={probeWet}";
+            }
+            return $"marks={marks.Count} boots={boots} ruts={ruts} feet={feet} drawn={drawnMarksLast} nearestRut={near:0.0} "
+                 + $"closeUp={SceneHooks.CloseUp:0.00} mats={(markMats[0] != null && markQuad != null ? "ok" : "MISSING")} "
+                 + $"max={MaxMarks} frozen={SceneTints.Now.Frozen} {slot}";
         }
 
         /// <summary>Boot prints behind walking men, ruts and flung mud behind tanks, breath in the cold, steam off fresh craters.</summary>
@@ -139,8 +194,16 @@ namespace TW.Presentation.Tactical
                     bool tank = (flags & (uint)UnitFlags.Vehicle) != 0;
                     if (!tank && !close) continue;   // boot prints are a close-camera thing; a machine's marks are not
                     var p = w.Position[i]; float dx = p.x - eye.x, dz = p.z - eye.z;
-                    float reach = tank ? MachineMarkReach : CloseReach;
-                    if (dx * dx + dz * dz > reach * reach) continue;
+                    // A MACHINE LAYS ITS RUTS WHEREVER IT IS. The laying used to be culled at MachineMarkReach from
+                    // the eye, as the draw still is, and that made the ground forget: a tank driven while the camera
+                    // was elsewhere crossed the field and left it unbroken, and a capture or a pan onto the ground it
+                    // had just crossed found mud (measured 2026-10-18: a Maw driven 45 m at 198 m from Camera.main
+                    // laid nothing at all, and the trail for its slot was never even started). Ruts are the ground's
+                    // history, not an effect of looking; a man's boot prints are not, there are thousands of them and
+                    // they are invisible past CloseReach, so those stay in the close band. The cost of lifting the cull
+                    // is one trail and a stride's worth of marks per machine on the field - tens, not thousands - and
+                    // the pool keeps the marks a camera can see in preference to the ones it cannot (AddMark).
+                    if (!tank && dx * dx + dz * dz > CloseReach * CloseReach) continue;
                     Vector3 here = new Vector3(p.x, 0f, p.z);
                     if (!trails.TryGetValue(i, out var trail)) { trails[i] = new Trail { Last = here, Seen = now }; continue; }
                     trail.Seen = now;
@@ -152,6 +215,7 @@ namespace TW.Presentation.Tactical
                     Vector3 step = here - trail.Last;
                     float far = step.magnitude;
                     float stride = walker ? Mathf.Max(1.5f, profile.HalfLength * (profile.Legs >= 6 ? 0.62f : 0.85f)) : tank ? 0.85f : 0.72f;
+                    if (tank) { probeSlot = i; probeFar = far; probeTicks++; if (far >= stride && far <= 6f) probeRuns++; }   // the probe (MarkReport)
                     if (far > 6f) { trail.Last = here; trails[i] = trail; continue; }   // the slot was reused by another man
                     if (far >= stride)
                     {
@@ -166,7 +230,8 @@ namespace TW.Presentation.Tactical
                         for (float d = stride; d <= far && d < stride * 4.5f; d += stride)
                         {
                             Vector3 at = trail.Last + dir * d;
-                            if (dryFooting || (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z))) continue;
+                            if (dryFooting || (SceneHooks.IsWater != null && SceneHooks.IsWater(at.x, at.z))) { if (tank) probeWet++; continue; }
+                            if (tank) probeLaid++;
                             if (tank && walker && drawnWalker)
                             {
                                 // TankRenderer is putting this one's legs on the ground and stamping each real footfall

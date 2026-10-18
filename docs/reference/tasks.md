@@ -596,6 +596,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/TankRenderer.cs` (calls `FootFall` where a walker's foot lands).
 - **Tests:** none.
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
+- **Measure it:** `Tools/tw eval 'return UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>().MarkReport();'`
+  in Play prints one line: how many marks are held and of what shape, how many the last frame drew (`drawn`),
+  the distance from `Camera.main` to the nearest rut, `closeUp`, whether the mark material and quad exist
+  (`mats=ok`), and for the last machine stepped its `Vehicle` flag, `IsWater` at its feet, the step it saw, and
+  running counts of the ticks that stepped it, the ones that reached the stride, the marks laid and the points
+  refused as water.
+  `ruts > 0` with `drawn = 0` is a draw fault; `ruts = 0` is a laying fault and the slot's gates say which.
 
 ### Flamethrower
 - **Files:** `Presentation/Camera/Flamethrower.cs` (the picture: driven by the debug panel's flame tools and, since
