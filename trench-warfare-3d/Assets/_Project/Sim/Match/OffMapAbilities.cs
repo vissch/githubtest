@@ -20,7 +20,9 @@
 // Radius disc round the point, each on open ground (VehicleModulesSystem.OpenGround), Exposed, and walk for the
 // nearest enemy-held fire trench. A drop is REFUSED on water, in a trench, off the map, or within ParaDropKeepOut
 // metres of the enemy's rear trench (the critic's ambush: a stick garrisoning the trench every fresh reinforcement
-// walks into). Every SupportFire is also checked against the caller's faction (FactionRoster.MayCall).
+// walks into). Every SupportFire is also checked against the caller's faction (FactionRoster.MayCall): that check
+// is now a refusal list (only a faction-only id is named), not an allow list, so a new stats case here needs no
+// second edit there.
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim.Combat;
