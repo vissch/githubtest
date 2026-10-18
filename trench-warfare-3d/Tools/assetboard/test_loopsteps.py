@@ -373,7 +373,7 @@ def main():
     w.text[w.extras[2]] = w.text[w.extras[6]] = RUN
     w.text[w.main] = 'NOT RUNNING. Last run 20261015-180712-71488 (desktop): leg 02 broke a rule: the board changed (2 legs, 1 unit: 1 FAIL).'
     real_start = w.start
-    w.start = lambda n: 'not started: HELD by master-2026-10-15 until 22:06'
+    w.start = lambda n, **k: 'not started: HELD by master-2026-10-15 until 22:06'
     held = autoloop.feed(w)
     w.start = real_start
     w.clock += 300

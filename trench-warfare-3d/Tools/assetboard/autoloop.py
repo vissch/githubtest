@@ -32,6 +32,7 @@ together, spent evenly) and its shares (the 25% fix share for review fixes, 15% 
 model and spends nothing itself. A file autoloop.stop in its folder makes it stand by.
 """
 import argparse
+import calendar
 import json
 import os
 import re
@@ -199,7 +200,7 @@ class World:
             self.pull(board)
         return 'committed; the push was refused three times: it is pushed with the next one'
 
-    def start(self, n, sources='lane'):
+    def start(self, n, sources='lane', quiet_off=False):
         if not self.acting:
             return 'would start'
         flags = getattr(subprocess, 'CREATE_NO_WINDOW', 0) | getattr(subprocess, 'CREATE_NEW_PROCESS_GROUP', 0)   # DETACHED_PROCESS: powershell runs nothing
@@ -207,7 +208,7 @@ class World:
             code, said = self.relay(self.main, 'hold', MAIN_WHO, '--hours', '0.25')     # long enough to start; given back when idle
             if code:
                 return 'not started: ' + (said.splitlines() or ['the hold was refused'])[0][:160]
-            cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', sources]
+            cmd = [str(MAIN_START), '-Who', MAIN_WHO, '-Sources', sources] + (['-NoQuiet'] if quiet_off else [])
         else:
             cmd = [str(START), '-N', str(n), '-DayPct', DAY_PCT]
         p = subprocess.Popen(['powershell', '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', *cmd],
@@ -359,6 +360,34 @@ class World:
         now = str(load(home / 'runs' / m.group(1) / 'progress.json', {}).get('now_on') or '')
         return now.split(',')[0].strip(), lane
 
+    def main_touch(self):
+        """(the newest write to the main work checkout's git index or HEAD, the end of its newest run that had legs),
+        in epoch seconds, 0 when unread. Read only."""
+        work, newest, ended = self.works().get(1), 0.0, 0.0
+        if work:
+            code, gd = self.git(work, 'rev-parse', '--absolute-git-dir')
+            if code == 0:
+                newest = max((f.stat().st_mtime for f in (Path(gd) / 'index', Path(gd) / 'HEAD') if f.exists()), default=0.0)
+        for f in sorted(Path(self.main).glob('relay/*/stops/*.json'), key=lambda p: p.name)[-12:]:
+            d = load(f, {})
+            if isinstance(d, dict) and d.get('legs') and d.get('stopped_at'):
+                try:
+                    ended = max(ended, calendar.timegm(time.strptime(d['stopped_at'][:19], '%Y-%m-%dT%H:%M:%S')))
+                except ValueError:
+                    pass
+        return newest, ended
+
+    def landed(self, lane):
+        """True when origin/<lane> is on the integration branch and its tip is over a day old: its work has landed.
+        A lane made from integration today and not yet worked on is not "landed"."""
+        ref = f'origin/{lane}'
+        if not lane or self.repo('rev-parse', '--verify', '-q', ref)[0]:
+            return False
+        if self.repo('merge-base', '--is-ancestor', ref, f'origin/{INTEGRATION}')[0]:
+            return False
+        code, t = self.repo('log', '-1', '--format=%ct', ref)
+        return code == 0 and t.strip().isdigit() and self.now() - int(t.strip()) > 86400
+
     def main_last(self):
         """(the main relay's last stopped run, who holds the relay now or '') from its status text."""
         code, text = self.relay(self.main, 'status')
@@ -367,7 +396,7 @@ class World:
         return (run.group(1) if run else ''), (who.group(1) if who else '')
 
     def found(self):
-        return found.World(found.build.REPO, self.main, self.home / 'found')
+        return found.World(found.build.REPO, self.main, self.home / 'found', also=self.extras.values())
 
     def procs(self):
         """[{pid, ppid, name, cmd, age (s), parent (its name, '' when gone), parent_cmd}] of every Unity.exe and cmd.exe."""
@@ -622,14 +651,17 @@ def take_answers(w):
     return out + loopsteps.take_writes(w)
 
 
-def may_start(w, n, reason):
+def may_start(w, n, reason, fresh=False):
     """True when relay n may be started now: STARTS[0] after its last start, doubled each time it stopped again for
-    the same reason, at most STARTS[1]. Remembered in the loop's folder."""
+    the same reason, at most STARTS[1]. Remembered in the loop's folder. `fresh`: something changed this round (it was
+    fed new work, or its lane was freed), so the wait its last stop earned does not hold it back: relay 2, fed at
+    22:57 after empty runs had doubled its wait to 4 h, was not started until 01:43 (2026-10-18); the main relay, its
+    lane freed at 22:57, not until 00:03."""
     starts = load(w.home / 'starts.json', {})
     s = starts.get(str(n))
-    if s and w.now() - s.get('at', 0) < s.get('wait', STARTS[0]):
+    if s and not fresh and w.now() - s.get('at', 0) < s.get('wait', STARTS[0]):
         return False
-    same = bool(s and reason and reason == s.get('reason'))
+    same = bool(s and reason and reason == s.get('reason') and not fresh)
     starts[str(n)] = dict(at=w.now(), reason=reason, wait=min(s.get('wait', STARTS[0]) * 2, STARTS[1]) if same else STARTS[0])
     save(w.home / 'starts.json', starts)
     return True
@@ -659,7 +691,10 @@ def lane_free(w, n, lane, cos, runs, out):
         out.append(f'feed: relay {n}: {lane} skipped: {at} could not let go of it ({said[:120]})')
         return False
     cos.pop(lane, None)
+    if m == 1 and w.acting:                 # the loop's own touch of the main checkout: not "somebody works in it"
+        save(w.home / 'touched.json', dict(load(w.home / 'touched.json', {}), main=w.now()))
     out.append(f'feed: relay {n}: {lane} freed: {at} (relay {m}, not running, clean) was detached from it')
+    w.freed = getattr(w, 'freed', 0) + 1
     return True
 
 
@@ -670,6 +705,106 @@ def outside(w, lane, cos):
         return False
     key = lambda p: os.path.normcase(os.path.abspath(str(p)))      # noqa: E731
     return key(at) not in {key(p) for p in w.works().values()}
+
+
+def all_done(w):
+    """The ids done on any board. An extra relay's done records reach the main board only between main runs (a leg
+    that sees relay/done move under it ends its run), so the loop does not wait for that copy to know them."""
+    return set().union(*(queue_of(b)[1] for b in [w.main, *w.extras.values()]))
+
+
+QUIET_OWN = (90, 30)    # a write this soon after the main relay's own last run ended, or after the loop detached its checkout
+
+
+def own_touch(w):
+    """True when the main work checkout's last git write was the relay's own (its last run's legs) or the loop's
+    (a detach), so its ten quiet minutes guard against nobody: each main start after a run was refused "git index
+    moved 222 s ago" by that run's own last commit (08:03, 2026-10-18), and 12 s after the loop's own detach (04:54)."""
+    newest, ended = w.main_touch()
+    mine = load(w.home / 'touched.json', {}).get('main', 0)
+    if not newest or w.now() - newest >= QUIET:
+        return False
+    return newest <= max(ended + QUIET_OWN[0] if ended else 0, mine + QUIET_OWN[1] if mine else 0)
+
+
+def sweep(w):
+    """Queue files on an idle extra board whose unit is done (on that board or the main one) are taken off it, in one
+    local commit: relay 2's board held about 60 of them (old rv-*, look-*, done units)."""
+    out, main_done = [], queue_of(w.main)[1]
+    for n, board in sorted(w.extras.items()):
+        q, done = queue_of(board)
+        stale = sorted(u for u in q if u in done or u in main_done)
+        if not stale or w.status(board)[0] != set():
+            continue
+        if not w.acting:
+            out.append(f'feed: relay {n}: {len(stale)} queue files of done units would be taken off its board')
+            continue
+        for u in stale:
+            (Path(board) / 'relay' / 'queue' / f'{u}.json').unlink(missing_ok=True)
+        try:
+            said = w.commit_push(board, [f'relay/queue/{u}.json' for u in stale], f'relay: {len(stale)} queue files of done units taken off', push=False)
+        except RuntimeError as e:
+            said = str(e)[:120]
+        out.append(f'feed: relay {n}: {len(stale)} queue files of done units taken off its board ({said})')
+    return out
+
+
+def retire(w, out):
+    """{unit: why} of the open units that are no work any more: a later copy of them (x-b, or a unit on <lane>-b) is
+    queued or done on any board, or their lane has landed and they failed there since. They come off the extra boards and are parked on the main
+    one, once: relay-harness-rebase-b (its lane landed 10-15) and review-tools-rebase ran again on 10-18."""
+    boards = [w.main, *w.extras.values()]
+    seen, units = {}, {}
+    for b in boards:
+        q, d = queue_of(b)
+        for uid, u in q.items():
+            units.setdefault(uid, u)
+        for uid in d:
+            units.setdefault(uid, q.get(uid) or load(Path(b) / 'relay' / 'done' / f'{uid}.json', {}))
+    best = {}
+    for uid, u in units.items():
+        lane = str((u or {}).get('lane') or '')
+        for k, r in ((('id',) + (loopsteps.family(uid)[0],), loopsteps.family(uid)[1]),
+                     (('lane', loopsteps.family(lane)[0]), loopsteps.family(lane)[1])):
+            if k[-1]:
+                best[k] = max(best.get(k, 0), r)
+    done = all_done(w)
+    state, tries = load(w.home / 'retired.json', {}), load(w.home / 'attempts.json', {})
+    gone, landed = {}, {}
+    on = w.main_on()[0]
+    for b in boards:
+        if Path(b) != Path(w.main) and w.status(b)[0] != set():    # an extra relay that runs (or did not say) keeps its board as it
+            continue                        # is: it may be on that unit. The main board's queue is only re-prioritised, as feed does under a run
+        for uid, u in open_units(b).items():
+            if uid in done or (on and loopsteps.family(uid)[0] == loopsteps.family(on)[0]):
+                continue
+            lane = str(u.get('lane') or '')
+            fid, fl = loopsteps.family(uid), loopsteps.family(lane)
+            why = ''
+            if best.get(('id', fid[0]), 0) > fid[1]:
+                why = 'a later copy of it is queued or done'
+            elif lane and best.get(('lane', fl[0]), 0) > fl[1]:
+                why = f'a unit on a later copy of {lane} is queued or done'
+            elif lane and (tries.get(uid) or {}).get('fails'):     # tried and failed since: a new unit on an old lane is work
+                if lane not in landed:
+                    landed[lane] = w.landed(lane)
+                if landed[lane]:
+                    why = f'{lane} has landed on the integration branch'
+            if not why:
+                continue
+            gone[uid] = why
+            if not w.acting:
+                continue
+            if Path(b) != Path(w.main):
+                w.unqueue(b, uid, why='off this relay: ' + why)
+            elif found.prio(u) < PARKED:
+                w.prio(uid, PARKED)
+            if uid not in state:
+                state[uid] = why
+                out.append(f'feed: {uid} is not fed: {why}; taken off the extra boards and parked on the main one')
+    if w.acting:
+        save(w.home / 'retired.json', state)
+    return gone
 
 
 def feed(w):
@@ -690,10 +825,13 @@ def feed(w):
     if main_lane:
         lanes.add(main_lane)
     tries = loopsteps.load(w.home / 'attempts.json', {})
+    out += sweep(w)
+    gone = retire(w, out)
     held = {v.get('lane') for b in w.extras.values() for v in open_units(b).values()} | lanes
     kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}   # x and x-b are one piece of work
     kin_lanes = {loopsteps.family(l)[0] for l in lanes}
     q, done = queue_of(w.main)
+    done = done | all_done(w) | set(gone)
     waiting = load(w.home / 'lane_waits.json', {})          # {unit: lane} taken off an extra relay because its lane was held
     for uid, lane in sorted(waiting.items()):
         if uid in done or uid not in q:
@@ -709,6 +847,7 @@ def feed(w):
         held.add(q[main_unit]['lane'])
     for n, board in sorted(w.extras.items()):
         running, reason = w.status(board)
+        fresh = False
         if running:
             continue
         latest = {}
@@ -763,7 +902,7 @@ def feed(w):
                 (qd / f'{uid}.json').write_text(json.dumps(u, indent=2, ensure_ascii=False) + '\n', encoding='utf-8', newline='\n')
             w.commit_push(board, ['relay/queue/' + f'{uid}.json' for _, uid, _ in units], f'relay: {len(units)} units of {lane} for extra relay {n}, kept local', push=False)
             out.append(f'feed: relay {n} was empty: it gets {lane} ({", ".join(uid for _, uid, _ in units)}), parked at {PARKED} on the main board')
-            reason = ''
+            reason, fresh = '', True
         else:
             blocked = sorted({v.get('lane') for v in mine.values()} - {None, ''})
             blocked = [l for l in blocked if l in lanes or not lane_free(w, n, l, cos, runs, out)]
@@ -782,12 +921,13 @@ def feed(w):
                     starts[str(n)] = dict(at=w.now(), reason='put aside', wait=QUIET)
                     save(w.home / 'starts.json', starts)
                 continue
-        if not may_start(w, n, reason):
+        if not may_start(w, n, reason, fresh=bool(not mine and fresh)):
             continue
         out.append(f'feed: relay {n} is not running and has work: {w.start(n)}')
         runs[n] = {'started this round'}        # its checkout is no longer free to detach in this round
     running, reason = w.status(w.main)          # the main relay: started when it has a unit to take
     q, done = queue_of(w.main)
+    done = done | all_done(w) | set(gone)
     extra_kin = {loopsteps.work_key(u, v) for b in w.extras.values() for u, v in open_units(b).items()}
     work = any(u not in done and found.prio(v) < PARKED and v.get('lane') not in held and loopsteps.work_key(u, v) not in extra_kin
                for u, v in q.items())                  # nor the copy of a unit an extra relay holds
@@ -796,6 +936,7 @@ def feed(w):
     pipe = running == set() and not work and (not s1 or w.now() - s1.get('at', 0) >= s1.get('wait', STARTS[0])) and w.pipeline_work()   # its dry run only when a start may follow   # nothing on its queue it can take: the pipeline board's routed
     #   ideas are its work (option A, the owner 2026-10-17: everything accepted; 11 ideas waited). Pipeline only: a lane source
     #   would take the units held back above (parked, a lane an extra relay holds, an extra's copy)
+    w.freed = 0
     if running == set() and work:               # the lanes it will take, held by a stopped extra relay's clean checkout, are freed first
         for lane in sorted({v.get('lane') for u, v in q.items() if u not in done and found.prio(v) < PARKED and v.get('lane')} - held):
             if lane in cos:
@@ -820,8 +961,16 @@ def feed(w):
             out.append(f'feed: the main relay is not running and {what}: it would be started')
         else:
             before = load(w.home / 'starts.json', {}).get('1')
-            if may_start(w, 1, reason):
-                said = w.start(1) if work else w.start(1, sources='pipeline')
+            if not may_start(w, 1, reason, fresh=bool(w.freed)):
+                s1 = before or {}
+                out.append('feed: the main relay is not running and has work; its next start waits until '
+                           + time.strftime('%H:%M', time.localtime(s1.get('at', 0) + s1.get('wait', STARTS[0])))
+                           + f' (it stopped: {str(s1.get("reason") or "-")[:100]})')
+            else:
+                own = own_touch(w)
+                said = w.start(1, quiet_off=own) if work else w.start(1, sources='pipeline', quiet_off=own)
+                if own:
+                    said += ' (the checkout was last touched by the relay or the loop itself: its quiet wait is skipped)'
                 out.append(f'feed: the main relay is not running and {what}: {said}')
                 started = not said.startswith('not started')
                 if not started:                 # a start its hold refused is no start: tried again next round, the wait not doubled

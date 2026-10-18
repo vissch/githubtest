@@ -87,8 +87,9 @@ class Fake(autoloop.World):
     def pipeline_work(self):
         return self.pipe
 
-    def start(self, n, sources='lane'):
+    def start(self, n, sources='lane', quiet_off=False):
         self.started.append(n)
+        self.quiet_offs = getattr(self, 'quiet_offs', []) + [(n, quiet_off)]
         self.sources = getattr(self, 'sources', []) + [(n, sources)]
         self.text[self.main if n == 1 else self.extras[n]] = RUN.replace('relay-four-checks', f'x{n}')
         return 'started'
@@ -180,6 +181,14 @@ class Fake(autoloop.World):
 
     def main_on(self):
         return self.on_main
+
+    touch, landed_lanes = (0.0, 0.0), set()
+
+    def main_touch(self):
+        return self.touch
+
+    def landed(self, lane):
+        return lane in self.landed_lanes
 
     ps, killed = [], []
 
@@ -558,6 +567,82 @@ def main():
     case("an editor on a stopped relay's work checkout is ended and its UnityLockfile removed; a unity.cmd Unity older than 2 h goes with its stub; a running relay's editor and another project's are left alone",
          sorted(w.killed) == [10, 13, 99] and not any('did not end' in l for l in lines) and not (w.work_dirs[2] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists()
          and (other / 'Temp' / 'UnityLockfile').exists() and (w.work_dirs[3] / 'trench-warfare-3d' / 'Temp' / 'UnityLockfile').exists(), (w.killed, lines))
+
+    # ---- 2026-10-18: faults seen live ----
+    w = Fake(tmp / 'a18', extras=(3,))
+    put(w.extras[3], 'done', 'look-x')                  # relay 3 passed the look; the main board has no copy yet (main runs)
+    put(w.main, 'queue', 'look-x', priority=99)
+    q, done = w.found().queued()
+    case('A: a unit done on an extra board counts as done for the looks while the main board has no copy yet (look-code-presentation-vfx stayed "not done" 05:21-08:03)',
+         'look-x' in done, done)
+
+    w = Fake(tmp / 'e18', extras=(2,))
+    (w.home / 'starts.json').write_text(json.dumps({'2': dict(at=w.clock - 2000, reason='nothing left to do', wait=14400)}), encoding='utf-8')
+    put(w.main, 'queue', 'new-1', lane='lane/show/new', priority=20)
+    w.text[w.main] = RUN
+    lines = autoloop.feed(w)
+    case('E: an extra relay fed new work this round is started then, not after the 4 h wait its empty runs earned (relay 2 fed 22:57, started 01:43)',
+         2 in w.started, (lines, w.started))
+
+    w = Fake(tmp / 'e18b', extras=(2,))
+    for i in range(3):
+        put(w.extras[2], 'queue', f'old-{i}')
+        put(w.extras[2] if i else w.main, 'done', f'old-{i}')
+    put(w.extras[2], 'queue', 'open-1')
+    lines = autoloop.feed(w)
+    left = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case('E: an idle extra board keeps only its open units on its queue: queue files of units done there or on the main board go, in one commit',
+         left == ['open-1'] and any(paths and not push and Path(paths[0]).parent.name == 'queue' for _, paths, push in w.pushed), (left, lines, w.pushed))
+
+    w = Fake(tmp / 'f18', extras=(4,))
+    w.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
+    w.cos = {'lane/show/storm': 'C:/gh/relay-work4'}
+    (w.home / 'starts.json').write_text(json.dumps({'1': dict(at=w.clock - 100, reason='5 units in a row whose lane cannot be switched to', wait=1800),
+                                                    '4': dict(at=w.clock, reason='', wait=1800)}), encoding='utf-8')
+    put(w.extras[4], 'queue', 'other', lane='lane/show/other')
+    put(w.main, 'queue', 'storm', lane='lane/show/storm', priority=10)
+    lines = autoloop.feed(w)
+    case('F: the main relay whose lane the loop just freed is started in that round, not held back by its last wait (freed 22:57, started 00:03)',
+         w.detached == ['C:/gh/relay-work4'] and 1 in w.started, (lines, w.detached, w.started))
+
+    w = Fake(tmp / 'f18b', extras=())
+    (w.home / 'starts.json').write_text(json.dumps({'1': dict(at=w.clock - 100, reason='x', wait=1800)}), encoding='utf-8')
+    put(w.main, 'queue', 'm', lane='lane/show/m', priority=10)
+    lines = autoloop.feed(w)
+    case('F: a main relay held back by its wait says so, with the time it may start', 1 not in w.started and any('waits until' in l for l in lines), lines)
+
+    w = Fake(tmp / 'c18', extras=())
+    put(w.main, 'queue', 'm', lane='lane/show/m', priority=10)
+    w.touch = (w.clock - 222, w.clock - 230)            # the index written by the run that ended 8 s later (08:00, refused at 08:03)
+    autoloop.feed(w)
+    own = list(getattr(w, 'quiet_offs', []))
+    w2 = Fake(tmp / 'c18b', extras=())
+    put(w2.main, 'queue', 'm', lane='lane/show/m', priority=10)
+    w2.touch = (w2.clock - 60, w2.clock - 3000)         # somebody wrote it long after the last run ended: the quiet wait stands
+    autoloop.feed(w2)
+    case("C: the main relay is started past its quiet wait when the checkout's last write was its own last run's, never when somebody wrote it later",
+         own == [(1, True)] and getattr(w2, 'quiet_offs', []) == [(1, False)], (own, getattr(w2, 'quiet_offs', None)))
+    w3 = Fake(tmp / 'c18c', extras=(4,))
+    w3.work_dirs = {1: 'C:/gh/relay-work', 4: 'C:/gh/relay-work4'}
+    w3.cos = {'lane/show/x': 'C:/gh/relay-work'}
+    put(w3.extras[4], 'queue', 'x4', lane='lane/show/x')
+    autoloop.feed(w3)                                   # the loop detaches the main checkout for relay 4
+    w3.touch = (w3.clock + 5, 0.0)
+    w3.clock += 700 - autoloop.QUIET + 20
+    case("C: a write by the loop's own detach of the main checkout is its own too", getattr(autoloop, 'own_touch', lambda w: False)(w3), w3.detached)
+
+    w = Fake(tmp / 'd18', extras=(2,))
+    put(w.main, 'queue', 'review-tools-rebase', lane='lane/show/review-tools', priority=20)
+    put(w.main, 'done', 'review-tools-b', lane='lane/show/review-tools-b')
+    put(w.main, 'queue', 'relay-harness-rebase-b', lane='lane/show/relay-harness', priority=30)
+    put(w.main, 'queue', 'fine', lane='lane/show/fine', priority=40)
+    (w.home / 'attempts.json').write_text(json.dumps({'relay-harness-rebase-b': dict(seen=['r'], fails=['r FAIL'])}), encoding='utf-8')
+    w.landed_lanes = {'lane/show/relay-harness'}
+    w.text[w.main] = RUN
+    lines = autoloop.feed(w)
+    got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
+    case('D: a unit whose later copy is done (review-tools-rebase) or whose lane has landed after it failed (relay-harness-rebase-b) is not fed but parked; other work is',
+         got == ['fine'] and w.prios.get('review-tools-rebase') == 99 and w.prios.get('relay-harness-rebase-b') == 99, (got, w.prios, lines))
 
     # ---- one round, and the lock ----
     calls = []

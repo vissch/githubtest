@@ -231,8 +231,9 @@ def route(found, look, exists, known):
 # ---- the outside world -----------------------------------------------------------------------------------------------------
 
 class World:
-    def __init__(self, repo: Path, board: Path, home: Path):
+    def __init__(self, repo: Path, board: Path, home: Path, also=()):
         self.repo, self.board, self.home = Path(repo), Path(board), Path(home)
+        self.also = [Path(b) for b in also]     # the extra relays' boards: their done records count as done here too
 
     def git(self, *a):
         r = subprocess.run(['git', '-C', str(self.repo), *a], capture_output=True, stdin=subprocess.DEVNULL)
@@ -307,7 +308,9 @@ class World:
     def queued(self):
         """{unit id: the unit} of the relay's queue, and the ids that are done."""
         q = {f.stem: load(f, {}) for f in (self.board / 'relay' / 'queue').glob('*.json')} if (self.board / 'relay' / 'queue').is_dir() else {}
-        done = {f.stem for f in (self.board / 'relay' / 'done').glob('*.json')} if (self.board / 'relay' / 'done').is_dir() else set()
+        done = set()          # done on any board: the main board gets an extra's done records only between its runs, and a look
+        for b in [self.board, *self.also]:      # an extra relay passed stayed "queued and not done" all of 2026-10-18 05:21-08:03
+            done |= {f.stem for f in (b / 'relay' / 'done').glob('*.json')} if (b / 'relay' / 'done').is_dir() else set()
         return q, done
 
     def add(self, unit):
