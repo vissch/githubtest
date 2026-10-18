@@ -1,0 +1,65 @@
+{
+  "subject": "code:Sim/Match",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Match/SectorControl.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SectorControlTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Match/AssaultLadderTests.cs",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Fix SectorControl capture progress freezing instead of draining under one attacker",
+      "why": "SectorControl.cs:92-108: progress grows only when attackers >= RequiredUnits and defenders == 0, and drains only when attackers == 0. With RequiredUnits=3 (GreyboxMapGenerator.cs:153), two attackers alone with no defender left freeze CaptureProgressTicks instead of draining, so the third man flips the objective in one tick instead of needing CaptureTicks (10s) again. The header's own promise at lines 4-5 says progress drains whenever attackers leave and only freezes while contested; two attackers with no defender is not contested. CapturingTeam also stays set while frozen, so the HUD names a capture that is not running. No existing test exercises a partial withdrawal: SectorControlTests.cs only calls the pure static Unlocked, and CombatTests/PlaytestMapTests only cover a full clean capture or the HQ end.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/SectorControl.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Sim/SectorControlTests.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "A new test on a greybox map stands 3 attackers in an objective for CaptureTicks-1 ticks, removes one (leaving 2, 0 defenders), steps 400 ticks, and asserts progress reaches 0; a separate assertion that a third man arriving after the drain does not flip the objective within 5 ticks.",
+      "risk": [true, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Index props by cell so Deformation.Shake does not scan every prop per impact",
+      "why": "Deformation.cs:147-163 (Shake) loops every prop in the map for every blast impact, every tick a blast resolves. A barrage can land 12-40 impacts in one tick (OffMapAbilities.cs:128-135) and a forest map carries hundreds of props, so this is tens of thousands of distance tests a tick on the main thread, almost all outside the burst radius. There is no spatial index or cell-based early reject.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/Deformation.cs"
+      ],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "A bench scenario with a barrage landing in a forest map reports tick time (or Shake's own time) before and after, showing a measured drop; no behaviour or hash change.",
+      "risk": [false, true, false, false, true],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "AssaultLadderTests rung asserts taken<=3 of 8 seeds where only 1 of 8 was measured",
+      "why": "AssaultLadderTests.cs:190-192 (ABareAttackAtTwoToOne_IsBeatenOff_ButBleedsTheGarrison) measured 1 of 8 seeds taken (its own comment, line 189) but asserts taken <= 3: the attack could triple its success rate and the test stays green. The neighbouring rung at line 181-182 asserts taken >= 3 of only 4 seeds (Rung4(3, ...) default), so the two bounds are not even measured on the same seed count. A loose bound, not a dead test, but it will not catch a real regression in that range.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Tests/Match/AssaultLadderTests.cs"
+      ],
+      "lane": "sim",
+      "role": "balance-simulator",
+      "done_when": "The rung's bound is tightened to the measured value plus a small margin (e.g. taken <= 1 or 2 of 8) and the test still passes on current code; it fails if re-run against a build where the attack's success rate is doubled.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Refund ParaDrop silver/cooldown and emit an event when a stick lands short",
+      "why": "OffMapAbilities.cs:394-406 (Land): the silver cost and cooldown are already spent when ParaDrop is scheduled (lines 203-204), and DropInbound already promised stats.Men men (line 295). If w.Spawn fails partway through the loop (field full), line 402 just returns: the remaining men are silently dropped, nothing is refunded, and no event tells the player or the debrief that the stick landed short.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Match/OffMapAbilities.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "A test schedules ParaDrop onto a field left with room for fewer than stats.Men slots and asserts either a partial-refund event is emitted or the shortfall is reported, instead of landing silently short.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
