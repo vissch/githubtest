@@ -1,0 +1,32 @@
+{
+  "subject": "branch:lane/show/banner-day-film",
+  "looked_at": [
+    "git log --oneline origin/claude/trench-warfare-2d-3d-plan-idt7lf..origin/lane/show/banner-day-film (20 commits, tip 36671b644)",
+    "git diff --stat origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/banner-day-film (23 files, +2367/-57)",
+    "git rev-list --left-right --count origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/banner-day-film (282 behind, 20 ahead)",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf...origin/lane/show/banner-day-film -- docs/reference/decisions.md docs/reference/tasks.md",
+    "python Tools/assetboard/briefs.py waiting (0 answers nobody has taken up)",
+    "python Tools/assetboard/briefs.py missing ('The Banner' and \"The Banner's front legs\" listed as open questions with no brief)",
+    "python Tools/assetboard/notes.py --for lane/show/banner-day-film (0 open notes)",
+    "git merge-tree --write-tree --name-only origin/claude/trench-warfare-2d-3d-plan-idt7lf origin/lane/show/banner-day-film (conflicts: docs/reference/decisions.md, docs/reference/tasks.md, TankRenderer.Weight.cs, HullRideTests.cs)",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf:.../TankRenderer.Weight.cs origin/lane/show/banner-day-film:.../TankRenderer.Weight.cs",
+    "git diff origin/claude/trench-warfare-2d-3d-plan-idt7lf:.../HullRideTests.cs origin/lane/show/banner-day-film:.../HullRideTests.cs",
+    "git grep -n -i banner origin/claude/trench-warfare-2d-3d-plan-idt7lf -- docs/reference/decisions.md"
+  ],
+  "tasks": [
+    {
+      "title": "Delete the lane/show/banner-day-film branch ref; its work already landed",
+      "why": "Integration's docs/reference/decisions.md already carries a 2026-10-15 row, 'The Banner lands whole: front legs, shot, recoil and fire', which says in its own words 'lane/show/banner-day-film lands as passed'. The code backs this up: integration's TankRenderer.Weight.cs already dropped the 'if (v.Archetype != VehicleArchetype.Banner) return;' guard the branch still carries in TakeTopKick, and integration no longer has the matching OnlyTheBannerTakesTheTopKickOnAShot test the branch still carries in HullRideTests.cs - i.e. integration's content supersedes the branch's, landed through a squash or cherry-pick that never deleted this ref. The 'Open: waiting on the owner' row the branch itself still carries ('land the whole Banner?') is stale: decisions.md on integration shows the owner answered it at 2026-10-14 11:12 ('Land the Banner whole: legs shot recoil and fire') and it landed 2026-10-15, a day before this look. Rebasing or landing this branch as-is would re-ask an already-answered question and reintroduce a narrower (Banner-only) top-kick rule integration has already generalised away. Costs: a wasted land.py attempt, and a misleading 'Not landed' row if anyone trusts the branch's own copy of decisions.md over integration's.",
+      "files": [
+        "docs/reference/decisions.md",
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Weight.cs",
+        "trench-warfare-3d/Assets/_Project/Tests/Show/HullRideTests.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "git branch -a | grep banner-day-film returns nothing (local and on origin), and docs/reference/decisions.md on integration still shows the 2026-10-15 'lands as passed' row with no new row contradicting it",
+      "risk": [true, false, true, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
