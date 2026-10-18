@@ -377,6 +377,49 @@ class Taking(unittest.TestCase):
         self.assertEqual([n['id'] for _, n in pairs], [later['id']],
                          '[N10.13b] waiting does not list the word he left after the brief was closed')
 
+    def test_a_left_over_take_does_not_swallow_the_unit_it_is_given(self):
+        # [found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] a left-over take given a different outcome
+        # must refuse it or record it, never swallow it and answer his note with the old outcome
+        briefs.answer(self.where, self.brief['id'], 'A', said='', by='master', now=self.T0,
+                      outcome='Nothing was queued: he wants it by hand')
+        self.queue(self.unit)
+        got, why = self.take(board=self.board, queued='unit-cover')
+        a = self.state().get('answer') or {}
+        if got is None:
+            self.assertIn('unit-cover', why,
+                          '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] the refusal does not '
+                          'name the unit it was given: %s' % why)
+            self.assertEqual(a.get('queued', ''), '',
+                             '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] the unit it was given '
+                             'was written although the take was refused: %s' % a)
+            self.assertEqual(a.get('outcome'), 'Nothing was queued: he wants it by hand',
+                             '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] the old outcome on '
+                             'record was overwritten: %s' % a)
+            self.assertNotEqual(notes.read_all(self.box)[0].get('state'), 'done',
+                                '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] his note was '
+                                'answered although the take naming a new unit was refused')
+        else:
+            self.assertEqual(a.get('queued'), 'unit-cover',
+                             '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] the unit it was given '
+                             'was not recorded: %s' % a)
+
+    def test_a_left_over_take_with_the_same_record_finishes_his_notes(self):
+        # [found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] a legitimate rerun naming what is already
+        # on record must still finish answering his notes
+        briefs.answer(self.where, self.brief['id'], 'A', said='', by='master', now=self.T0, queued='unit-cover')
+        self.queue(self.unit)
+        got, why = self.take(board=self.board, queued='unit-cover')
+        self.assertEqual(why, '',
+                         '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] a left-over take naming '
+                         'the same unit as the record was refused: %s' % why)
+        self.assertEqual([n.get('state') for n in notes.read_all(self.box)], ['done'],
+                         '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] his note is left open '
+                         'although the take named the same unit already on record')
+        text = notes.read_all(self.box)[0]['answers'][-1]['text']
+        self.assertIn('unit-cover', text,
+                      '[found-take-a-left-over-brief-must-not-swallow-queu-20261016-0] his note is not answered '
+                      'with the unit on record: %s' % text)
+
     def test_a_closed_brief_with_no_open_note_is_still_refused(self):
         # [N10.13] finishing a left-over take is not a second close
         self.queue(self.unit)
