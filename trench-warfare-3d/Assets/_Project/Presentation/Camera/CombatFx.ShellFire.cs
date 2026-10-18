@@ -33,6 +33,16 @@ namespace TW.Presentation.Tactical
         /// where the veil was the widest thing on the snow.</summary>
         public static float BurstWidth(bool night, float fire) => night || fire <= 0f ? 2.6f : 2.2f;
 
+        /// <summary>Whether the day slimming (DayColumnWidth) applies: dry, a live shell fire, and not moonlit. The soil
+        /// heave (AOSA C103) and the capped card (AOSA C108) branches are moonlit-only, so this is always false there -
+        /// an invariant this method, not a comment, now guarantees.</summary>
+        public static bool DayEarth(bool wet, float fire, bool moonLit) => !wet && fire > 0f && !moonLit;
+
+        /// <summary>The one width every column branch (soil, capped, ordinary) draws at, so a retune of 2.1, columnScale
+        /// or DayColumnWidth moves all three together.</summary>
+        public static float ColumnWidth(float r, bool damp, float columnScale, float earth, float lookColumn, bool dayEarth) =>
+            r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * lookColumn;
+
         /// <summary>The warm light on the young burst cloud's underside (0 with fx.shellFire 0): peach by day, an ember at night,
         /// where the moonlit grade was tuned against a darker cloud.</summary>
         public static Color EmberFor(bool night, float fire)
