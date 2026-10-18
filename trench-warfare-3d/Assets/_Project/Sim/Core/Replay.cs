@@ -163,7 +163,13 @@ namespace TW.Sim
         // put every man down pays back the silver and the wait of the men it lost and raises DropLandedShort. No
         // field added, moved or dropped; a battle with a full field keeps silver and an ability it used to lose, so
         // hashes and balance move.
-        public const ushort FormatVersion = 54;
+        // v55 (2026-10-22, [found-fire-at-wreck-picks-nearest-shelter-even-whe-20261018-0]): a gun with no living
+        // target walks the wrecks in his range nearest first instead of trying only the nearest. One whose shadow
+        // is empty from where he stands, or whose top he cannot see, is skipped and the next-nearest tried. He went
+        // silent every tick when the nearest shelter's disc held an enemy but his shadow strip did not. v53 was
+        // already the shadow's half-width, so this takes the next free number. Behaviour only, no layout change;
+        // shots, suppression and prop hit points move at a tick, so hashes and balance move.
+        public const ushort FormatVersion = 55;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)

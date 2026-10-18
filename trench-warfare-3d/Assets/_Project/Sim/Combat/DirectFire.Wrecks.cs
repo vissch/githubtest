@@ -8,7 +8,9 @@
 // Guns with nobody to shoot at (owner, 2026-09-28: "automatic only", no order, no HUD): each tick the wrecks men are
 // behind are listed with their sides (Shelter: within ShelterRadius of the wreck's body). A man or a machine in the fire
 // job with no target (a living target always wins), not pinned and not holding a trench, fires at the nearest wreck in
-// his range and sight that shelters his enemies: a Shot whose b names the prop (PropTarget), a hit (a hull-sized mark)
+// his range and sight whose SHADOW holds his enemies: a wreck whose shadow is empty from where he stands is skipped and
+// the next-nearest tried, and only when no shelter is left does he hold his fire and his cooldown. A Shot whose b names
+// the prop (PropTarget), a hit (a hull-sized mark)
 // from a machine gun wears it by WreckFireShare of the round, and every round keeps the heads behind it down (the near
 // miss's suppression on each enemy in its shadow: within its reach, past it on the shooter's line and no wider than its
 // body; a man on its flank is neither sheltered nor suppressed, [N5.3]). A screen on the line does not stop it: fire at
@@ -124,10 +126,11 @@ namespace TW.Sim.Combat
 
         partial struct FireJob
         {
-            /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight with its enemies behind
-            /// it, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do not,
-            /// nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).
-            /// Only the enemies in the wreck's shadow count and are kept down ([N5.3]). A blinding screen on the line
+            /// <summary>Slot i has nobody to shoot at: the nearest wreck in its range and sight whose shadow holds its
+            /// enemies, fired at (the fire job's own cooldown and roll). A pinned man and a garrison holding its trench do
+            /// not, nor a knocked-out hull: it has no target because it is dead, not because nobody is seen ([N5.2]).
+            /// Only the enemies in the wreck's shadow count and are kept down ([N5.3]), so a nearer wreck with an empty
+            /// shadow is skipped and the next-nearest tried; only with no shelter left does he hold his fire and cooldown. A blinding screen on the line
             /// does not stop the shot: fire at a wreck is fire at a place, not at a man who must be seen ([N5.3b]).
             /// Only on his own scan tick (TargetAcquisition's stagger, one tick in three): a man whose mark ducked on an
             /// off tick has no target yet, and must keep his cooldown for the scan that can give the man back ([N5.6]).</summary>
@@ -141,34 +144,48 @@ namespace TW.Sim.Combat
                 float3 p = Position[i];
                 float range = weapon.RangeMax;
                 if ((f & (uint)UnitFlags.Exposed) != 0 && (f & (uint)UnitFlags.Vehicle) == 0) range = math.min(range, CombatTables.AdvanceFireRange);
-                int mine = 1 << (Team[i] & 7), best = -1;
-                float bestSq = range * range;
-                for (int k = 0; k < Shelters.Length; k++)
+                int mine = 1 << (Team[i] & 7);
+                float rangeSq = range * range, prevSq = -1f;
+                int prev = -1;
+                // the eligible shelters nearest first: an empty shadow or a blocked sight is skipped, not the end of his
+                // fire. No sorting and no allocation: each pass takes the next shelter by (distance squared, index).
+                while (true)
                 {
-                    if ((Shelters[k].Teams & ~mine) == 0) continue;   // only his own side behind it
-                    float d = math.distancesq(Shelters[k].Pos.xz, p.xz);
-                    if (d < bestSq) { bestSq = d; best = k; }
-                }
-                if (best < 0) return;
-                var s = Shelters[best];
-                float3 eye = new float3(p.x, Height.Sample(p.x, p.z) + HeightfieldRaycast.EyeHeight((Stance)StanceOf[i]), p.z);
-                float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
-                if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) return;
+                    int best = -1; float bestSq = 0f;
+                    for (int k = 0; k < Shelters.Length; k++)
+                    {
+                        if ((Shelters[k].Teams & ~mine) == 0) continue;   // only his own side behind it
+                        float d = math.distancesq(Shelters[k].Pos.xz, p.xz);
+                        if (d > rangeSq) continue;
+                        if (d < prevSq || (d == prevSq && k <= prev)) continue;   // nearer than, or, one already tried
+                        if (best < 0 || d < bestSq) { bestSq = d; best = k; }     // ties to the lower index, as before
+                    }
+                    if (best < 0) return;   // no shelter left to try: no shot and no cooldown spent
+                    prevSq = bestSq; prev = best;
+                    var s = Shelters[best];
 
-                float3 d3 = s.Pos - p; d3.y = 0f;
-                float dist = SimMath.Length(d3);
-                float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
-                // one walk of the shelter's cells both counts the heads in its shadow and keeps them down; nobody there:
-                // no shot and no cooldown spent ([N5.3]), and the walk suppressed nobody either
-                float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
-                if (InShadow(i, s, dir, near) == 0) return;
-                FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
-                Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
-                float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
-                if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (f & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
-                var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
-                if (rng.NextFloat() < math.clamp(chance, 0.02f, 0.95f) && CombatTables.WearsWrecks(weapon))
-                    CoverStops.Add(new WreckRound { Cell = CellOf(s.Pos), Target = PropTarget.Encode(s.Prop), Damage = weapon.Damage * DamageMul[i] * WreckFireShare, Way = dir });
+                    float3 d3 = s.Pos - p; d3.y = 0f;
+                    float dist = SimMath.Length(d3);
+                    float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
+                    // nobody in THIS one's shadow: try the next-nearest ([N5.3]). Count with near 0 so a skip
+                    // suppresses nobody; the keep-down walk is the one after the shot. The count runs before the
+                    // raycast, and neither has a side effect here.
+                    if (InShadow(i, s, dir, 0f) == 0) continue;
+                    float3 eye = new float3(p.x, Height.Sample(p.x, p.z) + HeightfieldRaycast.EyeHeight((Stance)StanceOf[i]), p.z);
+                    float3 top = new float3(s.Pos.x, Height.Sample(s.Pos.x, s.Pos.z) + 1.5f, s.Pos.z);
+                    if (!HeightfieldRaycast.HasLineOfSight(Height, eye, top)) continue;
+                    FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
+                    Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
+                    float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
+                    if (SimMath.Length(Velocity[i]) > CombatTables.MovingSpeed && (f & (uint)UnitFlags.Vehicle) == 0) chance *= CombatTables.MovingAccuracy;
+                    var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
+                    if (rng.NextFloat() < math.clamp(chance, 0.02f, 0.95f) && CombatTables.WearsWrecks(weapon))
+                        CoverStops.Add(new WreckRound { Cell = CellOf(s.Pos), Target = PropTarget.Encode(s.Prop), Damage = weapon.Damage * DamageMul[i] * WreckFireShare, Way = dir });
+                    // hit or not, every round keeps the heads in its shadow down
+                    float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
+                    InShadow(i, s, dir, near);
+                    return;
+                }
             }
 
             /// <summary>The enemies of slot i in the wreck's shadow: within its shelter's reach, past it on the shooter's

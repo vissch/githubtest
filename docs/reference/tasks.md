@@ -343,7 +343,7 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   behind (`DirectFire.Wrecks`, `Shelter`). The shelter list itself is built only on a tick where a live slot, off
   cooldown and on its own scan tick, has no target (`DirectFire.Wrecks.AnyGunIdle`): a tick where every gun has a
   mark throws the whole scan away.
-- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages, and `TheShelterListIsBuiltOnlyWhenAGunHasNoTarget`), SimTickBenchTests (the shelter scan's share of a tick, `Report_TheSimTickCost`).
+- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages, `TheShelterListIsBuiltOnlyWhenAGunHasNoTarget`, and `AnEmptyShadowOnTheNearestWreckDoesNotSilenceHim`), SimTickBenchTests (the shelter scan's share of a tick, `Report_TheSimTickCost`).
 
 ### Factions, rosters and the unit table
 - **Files:** `Sim/Core/Faction.cs` (`FactionId`: Iron and Brass, the greybox pair, and four historical armies; a side's
