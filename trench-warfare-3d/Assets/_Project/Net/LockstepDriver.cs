@@ -26,7 +26,10 @@ namespace TW.Net
         readonly List<CommandFrame> scratch = new List<CommandFrame>();
         uint nextSendTick;
         public int StallTicks;         // ticks we could not step because a peer frame was missing (UI shows a stall after N)
-        public uint LastSteppedTick => World.Tick;
+        public const uint NothingStepped = uint.MaxValue;   // no tick has been stepped yet
+        /// <summary>The tick the world last finished stepping; NothingStepped (uint.MaxValue) before the first step.
+        /// World.Tick is the NEXT tick to step, which is what this property wrongly returned.</summary>
+        public uint LastSteppedTick => World.Tick - 1u;     // unsigned: wraps to NothingStepped while Tick is 0
         public int BufferedTicks => frames.Count;   // S6: ticks held but not yet stepped; a leak is visible here
         // A real peer steps tick T only once it holds our frame for T, and we have sent at most World.Tick +
         // InputDelay, so a real peer is at most 2 * InputDelay ticks ahead and sends at most that far beyond it;
@@ -107,6 +110,7 @@ namespace TW.Net
             var cmds = pendingLocal.Count == 0 ? Array.Empty<SimCommand>() : pendingLocal.ToArray();
             for (int i = 0; i < cmds.Length; i++) cmds[i].Tick = tick;
             pendingLocal.Clear();
+            // HashTick keeps 0 for "no tick stepped yet" over the wire, deliberately not LastSteppedTick's sentinel.
             Transport.Send(new CommandFrame { Tick = tick, Player = (byte)Transport.LocalPlayer, Commands = cmds, Hash = World.LastHash, HashTick = World.Tick == 0 ? 0u : World.Tick - 1u });
         }
     }
