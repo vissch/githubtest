@@ -361,6 +361,9 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `git push --force-with-lease origin lane/show/review-tools`; (c) the lane is merged, not rebased, which
   CLAUDE.md forbids. Nothing is lost either way: `-b` holds the 2026-10-15 rebase, `githubtest-relay-work` holds
   today's newer one at its committed tip.
+| 2026-10-18 | **A relay leg may force-push its own lane, and only its own lane.** The owner, to "Let the relay force-push its own rebased lane, or keep pushing those by hand": "Let the hook allow a forced push, but only onto a lane's own branch, never the trunk or another lane". It closes the open question of 2026-10-15 (asked again 2026-10-17, review-tools-rebase), where the hook and the command rules disagreed and a rebased lane could not be pushed at all. What changes: `Tools/relay/prepush.py` lets a forced push through onto `refs/heads/<the leg's lane>` only (its non-fast-forward check is dropped); a push to the trunk, to another lane, and a branch delete stay refused, as does a push from another checkout. `Tools/relay/cmdrules.py` lets `-f` / `--force` / `--force-with-lease` / `--force-if-includes` through when the push names the lane in full (`origin <lane>`, `origin HEAD:<lane>`, `origin HEAD:refs/heads/<lane>`, `origin <lane>:<lane>`); a bare `git push --force` and `git push -f origin HEAD` stay refused. The leg role card says the same. Built on `lane/show/review-tools` as `allow-forced-push-own-lane`. (owner, 2026-10-18, on the Decide page) |
+
+## Open: waiting on the owner
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
