@@ -217,8 +217,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 
   So: an equal attack with nothing behind it takes nothing; two to one is beaten off but costs the garrison a third,
   so the next wave finds a thinner line; three to one, or two to one behind smoke or a barrage, takes the trench.
-  `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass. Since dead ground (below) a bare two
-  to one over eight seeds takes 1 and costs the garrison 22 % (38 % without it); the test asks eight seeds for 15 %.
+  `Report_TheAssaultLadder` (Explicit) prints the whole table for a tuning pass. Since dead ground (below), measured
+  2026-10-18 on eight seeds for both bare rungs (same seed count on both sides of the ladder, not four and eight): a
+  bare two to one takes 1 of 8 and costs the garrison 34 %, so the test asks `taken <= 1` and `bled >= 15 %`; a bare
+  three to one takes 8 of 8, so the test asks `taken >= 8` of the same eight seeds. `Report_TwoToOne_WithTheAttackTwiceAsGood`
+  (Explicit) proves the 2:1 bound is tight: doubling the Assault archetype's damage and Hp alone pushes it to 5 of 8.
   **The guns (v22):** twenty attackers with four machine gunners against ten with two, eight seeds: bare, sending the
   guns over takes 0 and loses 18.3 a seed, leaving them on the parapet takes 1 and loses 14.1 (the garrison 3.5
   instead of 0); behind smoke and a barrage both take 8 of 8, and the attack loses 2.9 with the guns covering against

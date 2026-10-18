@@ -11,6 +11,7 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim;
+using TW.Sim.Combat;
 using TW.Sim.Match;
 using TW.Sim.Nav;
 using TW.Sim.Terrain;
@@ -158,12 +159,12 @@ namespace TW.Tests
         }
 
         /// <summary>Some seeds of one rung: how many took the trench, and the share of the garrison it cost.</summary>
-        static (int taken, float bled, string said) Rung4(int ratio, Support support, uint seeds = 4)
+        static (int taken, float bled, string said) Rung4(int ratio, Support support, uint seeds = 4, System.Action<MatchSim> built = null)
         {
             int taken = 0, lost = 0, held = 0; var sb = new StringBuilder();
             for (uint s = 0; s < seeds; s++)
             {
-                var r = Run(10 * ratio, 10, support, 0xA55A0000u + s);
+                var r = Run(10 * ratio, 10, support, 0xA55A0000u + s, built: built);
                 if (r.Taken) taken++;
                 lost += r.DefendersLost; held += r.Defenders;
                 sb.AppendLine($"{support} {ratio}:1 seed {s}  {r}");
@@ -178,18 +179,43 @@ namespace TW.Tests
         [Test, Category("Long")]
         public void ABareAttackAtThreeToOne_TakesTheTrench()
         {
-            var (taken, _, said) = Rung4(3, Support.None);
-            Assert.GreaterOrEqual(taken, 3, said);
+            // eight seeds, same count as the 2:1 rung below: measured 2026-10-18 at d01e03f80, 8 of 8 taken
+            var (taken, _, said) = Rung4(3, Support.None, 8);
+            Assert.GreaterOrEqual(taken, 8, said);
         }
 
         [Test, Category("Long")]
         public void ABareAttackAtTwoToOne_IsBeatenOff_ButBleedsTheGarrison()
         {
-            // eight seeds: the rung sits on the edge (one seed where eight men got in used to decide it), so four were
-            // noise; measured 2026-09-29 with dead ground, 1 of 8 taken and the garrison 22 % down (38 % without it)
+            // eight seeds: measured 2026-10-18 at d01e03f80, 1 of 8 taken and the garrison 34 % down. The bound is
+            // that measured count: re-measure and update it here before moving it, do not widen it to make room.
             var (taken, bled, said) = Rung4(2, Support.None, 8);
-            Assert.LessOrEqual(taken, 3, said);
+            Assert.LessOrEqual(taken, 1, said);
             Assert.GreaterOrEqual(bled, 0.15f, "the next wave finds a thinner line: " + said);
+        }
+
+        /// <summary>Proves the 2:1 bound above is tight: doubling the Assault archetype's damage and Hp (one man in
+        /// four of the attack, never in the garrison) alone took it past the bound, 5 of 8 (measured 2026-10-18 at
+        /// d01e03f80, against the bound of 1 of 8).</summary>
+        [Test, Explicit("proves the 2:1 bound is tight: the same rung with the attack made twice as good")]
+        public void Report_TwoToOne_WithTheAttackTwiceAsGood()
+        {
+            var (taken, _, said) = Rung4(2, Support.None, 8, built: m =>
+            {
+                var w = m.World;
+                var combat = w.GetSystem<CombatCatalogueSystem>();
+                var d = new UnitDef
+                {
+                    Archetype = InfantryArchetype.Assault,
+                    Roster = w.Units.Roster[InfantryArchetype.Assault],
+                    Infantry = w.Units.Infantry[InfantryArchetype.Assault],
+                    Weapon = combat.Weapon[InfantryArchetype.Assault],
+                };
+                d.Weapon.Damage *= 2f;
+                d.Roster.Hp *= 2f;
+                UnitDefinitions.Apply(w, new[] { d });
+            });
+            Assert.Greater(taken, 1, said);
         }
 
         /// <summary>The guns hold the parapet (v22): twenty men with four machine gunners against a garrison of ten with
