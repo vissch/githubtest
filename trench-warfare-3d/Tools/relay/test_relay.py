@@ -2425,6 +2425,29 @@ class CloseOut(Repo):
         self.assertEqual(self.leg_cmd("finish")[0], 1)
         self.assertEqual(gitio.head(self.work), head)
 
+    # [found-leg-finish-must-refuse-a-commit-no-gate-ever-20261018-0]
+    def test_a_commit_the_gate_never_saw_is_not_pushed(self):
+        (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+        self.g(["add", "-A"])
+        self.g(["commit", "-q", "-m", "by hand"])
+        before = gitio.remote_head(self.work, "lane/show/x")
+        code, out = self.leg_cmd("finish")
+        self.assertNotEqual(code, 0, "[found-leg-finish-must-refuse-a-commit-no-gate-ever-20261018-0] a hand "
+                             "commit with no gate must refuse finish")
+        self.assertIn("no gate", out, "[found-leg-finish-must-refuse-a-commit-no-gate-ever-20261018-0] the "
+                       "refusal must say no gate covers the commit")
+        self.assertEqual(gitio.remote_head(self.work, "lane/show/x"), before,
+                          "[found-leg-finish-must-refuse-a-commit-no-gate-ever-20261018-0] origin's lane must "
+                          "stay unmoved")
+        self.assertEqual(self.leg_cmd("done")[0], 1, "[found-leg-finish-must-refuse-a-commit-no-gate-ever-"
+                          "20261018-0] the lane is still not pushed")
+        self.leg_cmd("gate", "start")
+        self.leg_cmd("gate", "wait", "--max", "60")
+        code, out = self.leg_cmd("finish")
+        self.assertEqual(code, 0, "[found-leg-finish-must-refuse-a-commit-no-gate-ever-20261018-0] " + out)
+        self.assertTrue(gitio.pushed(self.work, "lane/show/x"), "[found-leg-finish-must-refuse-a-commit-no-gate-"
+                         "ever-20261018-0] a green gate for this exact tree must let finish push")
+
     def test_in_a_plan_leg_done_checks_the_plan_as_the_runner_will(self):
         self.d = legdir.new_leg("r1", 2, dict(UNIT, role="lane"), "plan", self.ph["plan"], self.lim, self.work,
                                 "lane/show/x", self.board)
