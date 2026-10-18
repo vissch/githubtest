@@ -478,19 +478,26 @@ def told(a, took=''):
     return said + (f' Nobody could read the board: {one(a["unchecked"])}' if one(a.get('unchecked')) else '')
 
 
-def left_over(where: Path, notes_where: Path, bid, by='', now=None):
+def left_over(where: Path, notes_where: Path, bid, by='', now=None, queued='', outcome='', option=''):
     """An earlier take that closed a brief and did not get to his notes, finished: (the brief, his last note) when
     the brief is closed and open notes of his about it are left, else None. A second take is refused, so without this
-    those notes stay open for good (N10.13)."""
+    those notes stay open for good (N10.13). A take that names a different `queued`/`outcome`/`option` than what is on
+    record is refused too, not swallowed: the unit or words it was given would be written nowhere."""
     import notes
     hits = [x for x in read_all(where) if x['id'] == bid or x['id'].endswith(bid)]
     if len(hits) != 1 or hits[0].get('state') != 'answered':
         return None
     b = hits[0]
-    # only what he wrote before the answer: a later note of his is a decision of its own, and `late` lists it (N10.13b)
     his = [m for m in his_open(notes.read_all(notes_where), b) if not after_answer(b, m)]
     if not his:
         return None
+    a = b.get('answer') or {}
+    for name, val in (('queued', queued), ('outcome', outcome), ('option', option)):
+        if one(val) and one(val) != one(a.get(name)):
+            became = became_of(a) if (a.get('queued') or a.get('outcome')) else 'its answer does not say what became of it'
+            raise ValueError(f'{b["id"]} is already closed ({a.get("when", "")}): {became} This take names {name} '
+                              f'{one(val)!r}, which is written nowhere. Rerun take with no --queued/--outcome to finish '
+                              f'answering his notes with what is on record, or put him a new brief for the new unit.')
     for m in his:
         notes.answer(notes_where, m['id'], told(b.get('answer') or {}), by=by or (b.get('answer') or {}).get('by', ''), now=now)
     return b, his[-1]
@@ -508,9 +515,11 @@ def take(where: Path, notes_where: Path, bid, by='', now=None, note='', queued='
     word dropped. A unit only in the relay's done folder closes it and the answer says so, so a done record of that id
     left by an earlier unit does not pass a new yes in silence. `unchecked` says why nobody could read the board, and is said
     in the answer and in what his notes are answered with. An earlier take that closed the brief and did not get to
-    his notes is finished instead of refused; a note he wrote after the close is refused, saying so. Write the row in decisions.md first. Returns (the brief, his note)."""
+    his notes is finished instead of refused; a note he wrote after the close is refused, saying so. A left-over take
+    that names another `queued`/`outcome`/`option` than what is on record is refused too, not swallowed. Write the row
+    in decisions.md first. Returns (the brief, his note)."""
     import notes
-    done_before = left_over(where, notes_where, bid, by, now)
+    done_before = left_over(where, notes_where, bid, by, now, queued=queued, outcome=outcome, option=option)
     if done_before:
         return done_before
     his = notes.read_all(notes_where)
