@@ -5,7 +5,10 @@
 // protection), is suppressed, catches fire (BurningSystem.Ignite, so he runs alight if he lives) and dies of
 // DeathCause.Beam when it is too much; a vehicle within HalfWidth of its hull loses BeamVehicleDps a second straight
 // off the structure (VehicleModulesSystem knocks it out and emits the wreck the same tick) and a VehicleArmourHit
-// (b = -1, scalar > 0) each tick for the sparks. Every ScorchEvery ticks the head queues a Beam-shaped Impact that
+// (b = -1, scalar > 0) each tick for the sparks. The corridor's half width is the MEN's rule only: a hull burns when
+// the trail's segment runs under its footprint (VehicleProfile.Crosses, the match's profile table, grown by
+// HullMargin), not when its centre is within HalfWidth of the line - a hull must actually be over the burning line,
+// whatever its size (before 2026-10-18 a 3.5 m disc round the centre spared a Maw 4 m off and burned a Mercy 3 m off). Every ScorchEvery ticks the head queues a Beam-shaped Impact that
 // BlastSystem resolves without touching men (they are this system's), so Deformation wears the trees and the wire
 // under it and the Explosion event (dir.y = BlastShape.Beam) is the picture's scorch cue. MaxPerPlayer is a safety
 // cap on the sweeps in flight per player: the cooldown (3600) outlasts a sweep (200), so a second command meets the
@@ -14,6 +17,7 @@ using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
+using TW.Sim.Nav;
 using TW.Sim.Terrain;
 
 namespace TW.Sim.Combat
@@ -29,7 +33,10 @@ namespace TW.Sim.Combat
     public sealed class BeamSystem : ISimSystem
     {
         public const float BeamDps = 300f, BeamVehicleDps = 1200f, BeamSuppressionPerSecond = 120f;
-        public const float AlightSeconds = 7f, TrailMetres = 4f, HullReach = 1.5f;
+        public const float AlightSeconds = 7f, TrailMetres = 4f;
+        /// <summary>How far past the plate the burn still counts, the mine burst's own margin:
+        /// VehicleModulesSystem.MineHullMargin.</summary>
+        public const float HullMargin = 0.6f;
         public const float ScorchDamage = 60f, ScorchSuppression = 15f, ScorchRadiusFactor = 1.5f;
         public const int ScorchEvery = 4, MaxPerPlayer = 2;
         public int Order => SimSystemOrder.Beam;
@@ -41,6 +48,8 @@ namespace TW.Sim.Combat
         readonly MapData map;
         BlastSystem blast;
         BurningSystem burning;
+        VehicleKinematicsSystem kinematics;        // registered after this system: resolved on the first step
+        NativeArray<VehicleProfile> compiled;      // the compiled defaults, for a world with no kinematics system
         NativeList<int> killed, lit, hulls;
         NativeList<float3> killedDir;
 
@@ -55,6 +64,8 @@ namespace TW.Sim.Combat
             killedDir = new NativeList<float3>(64, Allocator.Persistent);
             lit = new NativeList<int>(64, Allocator.Persistent);
             hulls = new NativeList<int>(16, Allocator.Persistent);
+            compiled = new NativeArray<VehicleProfile>(Archetypes.Count, Allocator.Persistent);
+            for (int a = 0; a < Archetypes.Count; a++) compiled[a] = VehicleProfile.ForArchetype((byte)a);
         }
 
         public int ActiveFor(int player)
@@ -101,10 +112,15 @@ namespace TW.Sim.Combat
             if (keep == 0) return;
 
             killed.Clear(); killedDir.Clear(); lit.Clear(); hulls.Clear();
+            if (kinematics == null) kinematics = w.GetSystem<VehicleKinematicsSystem>();
             new BeamJob
             {
                 Count = w.HighWater, Beams = Beams.AsArray(), Tick = w.Tick, Dt = w.Config.TickSeconds,
                 Position = w.Position, Flags = w.Flags, Hp = w.Hp, Suppression = w.Suppression,
+                Archetype = w.Archetype, Yaw = w.Yaw,
+                // the match's table, as the mine trigger reads it: the compiled switch knows no unit that is only a
+                // definition, and would give every such machine the Maw's footprint
+                Profiles = kinematics != null && kinematics.Profiles.IsCreated ? kinematics.Profiles : compiled,
                 Killed = killed, KilledDir = killedDir, Lit = lit, Hulls = hulls,
             }.Run();
             for (int k = 0; k < hulls.Length; k += 2)
@@ -138,6 +154,9 @@ namespace TW.Sim.Combat
             [ReadOnly] public NativeArray<ActiveBeam> Beams;
             [ReadOnly] public NativeArray<float3> Position;
             [ReadOnly] public NativeArray<uint> Flags;
+            [ReadOnly] public NativeArray<byte> Archetype;
+            [ReadOnly] public NativeArray<float> Yaw;
+            [ReadOnly] public NativeArray<VehicleProfile> Profiles;
             public NativeArray<float> Hp, Suppression;
             public NativeList<int> Killed, Lit, Hulls;
             public NativeList<float3> KilledDir;
@@ -163,16 +182,16 @@ namespace TW.Sim.Combat
                     {
                         uint f = Flags[i];
                         if ((f & (uint)UnitFlags.Alive) == 0 || Hp[i] <= 0f) continue;
-                        bool vehicle = (f & (uint)UnitFlags.Vehicle) != 0;
-                        float d = ToSegment(Position[i], tail, head);
-                        if (d > b.HalfWidth + (vehicle ? HullReach : 0f)) continue;
-                        if (vehicle)
+                        if ((f & (uint)UnitFlags.Vehicle) != 0)
                         {
                             if ((f & (uint)UnitFlags.KnockedOut) != 0) continue;
+                            // the trail under the hull's footprint in its own yaw, not a disc round its centre
+                            if (!Profiles[Archetype[i]].Crosses(Yaw[i], Position[i], tail, head, HullMargin)) continue;
                             Hp[i] = Hp[i] - BeamVehicleDps * Dt;   // the structure: VehicleModulesSystem knocks it out this tick
                             Hulls.Add(i); Hulls.Add(k);              // the slot and the beam, in pairs
                             continue;
                         }
+                        if (ToSegment(Position[i], tail, head) > b.HalfWidth) continue;   // the men: the corridor's half width
                         float dmg = BeamDps * Dt;
                         if ((f & (uint)UnitFlags.InTrench) != 0) dmg *= BlastRules.TrenchBayFactor;
                         Hp[i] = Hp[i] - dmg;
@@ -197,6 +216,7 @@ namespace TW.Sim.Combat
             if (killedDir.IsCreated) killedDir.Dispose();
             if (lit.IsCreated) lit.Dispose();
             if (hulls.IsCreated) hulls.Dispose();
+            if (compiled.IsCreated) compiled.Dispose();
         }
     }
 }

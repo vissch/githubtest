@@ -1,6 +1,6 @@
 // Phase: A5 (docs/21 phase 5, SIM-C) — the sweeping beam: its head walks the corridor and the man it passes dies as
 // it reaches him while a man six metres off is untouched; a trench keeps limited protection; a Maw on the line loses
-// hull and throws sparks; a tree under the head wears; a man it passes without killing runs alight; two sweeps a
+// hull and throws sparks; size decides whose hull it burns (the footprint, not a disc round the centre); a tree under the head wears; a man it passes without killing runs alight; two sweeps a
 // player at most; the ability pays, schedules and fires; the beam is hashed and deterministic.
 using System;
 using System.Collections.Generic;
@@ -28,6 +28,7 @@ namespace TW.Tests
             }
             public int Man(float3 at, float hp, byte team = 1) => W.Spawn(team, 0, at, hp, 0f, false);
             public int Tank(float3 at, byte team = 1) => W.Spawn(team, 4, at, 5000f, 0f, true);
+            public int Machine(float3 at, byte archetype, byte team = 1) => W.Spawn(team, archetype, at, 5000f, 0f, true);
             public void Step(params SimCommand[] cmds)
             {
                 using var arr = new NativeArray<SimCommand>(cmds, Allocator.Temp);
@@ -108,6 +109,47 @@ namespace TW.Tests
             }
             Assert.Less(r.W.Hp[maw], hp - 300f, "the hull takes it straight, through any plate");
             Assert.IsTrue(sparks, "and sparks fly off it each tick it is in the beam");
+        }
+
+        /// <summary>One tick of a sweep on one machine: the structure it loses, and whether a spark named it. The first
+        /// tick of a sweep is not a scorch tick (ScorchEvery divides the ticks since the start, and this is tick 1), so
+        /// nothing but the beam's own rule touches the hull, and the trail is still half a metre long beside Start.</summary>
+        static float BurnOfOneTick(byte archetype, float offLine, out bool sparks)
+        {
+            using var r = new Rig();
+            float3 at = Start + new float3(0f, 0f, offLine);
+            int slot = r.Machine(at, archetype);
+            float nose = math.PI * 0.5f;                     // along +X, up the corridor
+            r.W.Yaw[slot] = nose;
+            float hp = r.W.Hp[slot];
+            Assert.IsTrue(r.M.Beam.Start(r.W, Start, new float3(1f, 0f, 0f), 60f, 2f, Sweep, 0, (int)OffMapAbilityId.Beam));
+            r.Step();
+            Assert.AreEqual(nose, r.W.Yaw[slot], 1e-4f, "guard: nothing turned it, so the geometry put above is the geometry tested");
+            Assert.AreEqual(at.z, r.W.Position[slot].z, 0.01f, "guard: and nothing moved it off the line");
+            Assert.AreEqual(0, r.Count(SimEventType.Explosion), "guard: no scorch burst on this tick, so the beam's rule alone is under test");
+            sparks = r.Find(SimEventType.VehicleArmourHit, e => e.A == slot && e.B == -1 && e.Scalar > 0f, out _);
+            return hp - r.W.Hp[slot];
+        }
+
+        /// <summary>A hull burns when the trail runs under its FOOTPRINT, not when its centre is within 3.5 m of the
+        /// line. Until 2026-10-18 the rule was the distance from the centre to the trail against HalfWidth + 1.5 m, so a
+        /// Maw (3.83 m half width) 4 m off a 2 m-wide beam lost nothing while a Mercy (1.6 m) 3 m off burned. Worked by
+        /// hand off the profiles: Maw 3.825 + 0.6 margin = 4.425 m > 4 m, burning; Mercy 1.6 + 0.6 = 2.2 m < 3 m, clear.</summary>
+        [Test]
+        public void ASizeDecidesWhoseHullTheBeamBurns()
+        {
+            using (var setup = new Rig())
+            {
+                Assert.AreEqual(1.6f, setup.M.Vehicles.Profiles[VehicleArchetype.Mercy].HalfWidth, 1e-4f, "setup: the Mercy is a machine that is only a definition, read from the match's table");
+                Assert.Greater(setup.M.Vehicles.Profiles[VehicleArchetype.Maw].HalfWidth, 3.8f, "setup: the Maw's flank reaches past 3.8 m");
+            }
+            float tick = SimConfig.Default.TickSeconds;
+            float maw = BurnOfOneTick(VehicleArchetype.Maw, 4f, out bool mawSparks);
+            Assert.AreEqual(BeamSystem.BeamVehicleDps * tick, maw, 0.01f, "the trail runs under the Maw's hull four metres off the line: it burns, straight off the structure");
+            Assert.IsTrue(mawSparks, "and throws sparks");
+            float mercy = BurnOfOneTick(VehicleArchetype.Mercy, 3f, out bool mercySparks);
+            Assert.AreEqual(0f, mercy, "the Mercy three metres off is clear of its own narrow hull: untouched");
+            Assert.IsFalse(mercySparks, "and no sparks name it");
         }
 
         [Test]
