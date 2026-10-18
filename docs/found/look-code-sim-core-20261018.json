@@ -1,0 +1,85 @@
+{
+  "subject": "code:Sim/Core",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimMath.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimHash.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/Lane.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/SimEvents.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/UnitCatalogue.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/RosterEntry.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Core/OrderGroup.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SimHashTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/HashIntervalTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/CommandValidationTests.cs",
+    "trench-warfare-3d/Assets/_Project/Tests/Sim/SlotHashBoundTests.cs",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs"
+  ],
+  "tasks": [
+    {
+      "title": "Throw in AddSystem when two systems share an Order",
+      "why": "SimWorld.AddSystem (SimWorld.cs:198) sorts with List.Sort, which is unstable, so two systems registered at one Order step in whichever order the runtime picks. SimSystemOrder.Hero's own doc comment dodges this by hand (805, not 810). SimHashTests pins only the greybox match's registered set; Proving Ground and sandbox matches register their own. Two SIM lanes that each add a system at one order merge clean and a determinism rerun compares the merged build with itself and passes, the exact failure the hash test exists to catch. All 31 public int Order values in Sim/** are distinct today, so the guard breaks nothing.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Core/ISimSystem.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a test adding two stub systems at one order expects AddSystem to throw, and the full gate stays green",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Guard SimMath.Floor against NaN/out-of-range before the int cast",
+      "why": "SimMath.Floor casts (int)x with no range or NaN guard (SimMath.cs:29-33), yet the file's header promises results bit-identical on every target CPU built only from +, -, *, /, sqrt. A float->int cast out of int range is INT_MIN on x86 and saturating on ARM, and NaN differs again, so WrapAngle -> Sin/Cos/DirFromYaw (every hashed yaw) is platform-dependent for a large or non-finite angle. Not known reachable today (yaws come from Atan2 and are wrapped), so this is a hole in the determinism promise, not a live desync: SimMath.Sin(1e30f) returns NaN on x86 today.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/SimMath.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a new test asserts Sin/Cos of 1e30f, -1e30f, NaN and Infinity are finite and within [-1, 1], and that test is red on this commit",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Make the canary desync check distinguish no-hash from same-hash",
+      "why": "LockstepSession.Compare returns on theirs[k] == w.LastHash, and SimWorld.Step sets LastHash = 0 on every tick HashInterval skips (SimWorld.cs:273). The canary is safe today only by accident: its constructor branch never touches HashInterval while the single-player branch sets it to 0, and LockstepDriver only guards the interval when a recorder is attached. Anyone who makes the canary cheaper (raising HashInterval) gets a canary that reports agreement forever, with no test to catch it.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "a test builds a canary pair with HashInterval = 10, writes one world's Hp[0], and expects Desync; red today",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Share Deploy's next-slot prediction with Spawn's free-list rule",
+      "why": "SimWorld.cs:332 recomputes freeSlots[Length-1]-or-HighWater to predict the slot Spawn will take two lines later (SimWorld.cs:217-218), so the man's lane (Lane.Of) is right only while the two copies agree; Hash()'s own comment names both lines as paired. Change the allocation policy in one copy and men silently deploy on another man's lane with no test to say so.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs"
+      ],
+      "lane": "sim",
+      "role": "lane",
+      "done_when": "a PeekNextSlot() helper is used by both call sites, and an invariant test (a deployed footman's Position.x equals Lane.Of(slot, Generation[slot], SizeMeters.x) after a despawn put a used slot back on the free list) goes red when PeekNextSlot is made to return HighWater unconditionally",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Fix the deploy cooldown being one tick short",
+      "why": "Deploy sets SlotCooldown[ri] = entry.CooldownTicks (SimWorld.cs:324/340), and StepEconomy decrements it in the same Step call (SimWorld.cs:361), so a 200-tick cooldown is actually 199 ticks before the next deploy is allowed. True off-by-one, costs 50ms of cooldown, no test guards it. Moves the hash, so it needs a Replay.FormatVersion bump and a docs/02-contracts.md entry.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Core/SimWorld.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Core/Replay.cs"
+      ],
+      "lane": "sim",
+      "role": "balance-simulator",
+      "done_when": "a test deploys at tick 0 and expects the second deploy refused at tick 199 and taken at tick 200",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, true, false]
+    }
+  ]
+}
