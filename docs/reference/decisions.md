@@ -417,6 +417,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `git push --force-with-lease origin lane/show/review-tools`; (c) the lane is merged, not rebased, which
   CLAUDE.md forbids. Nothing is lost either way: `-b` holds the 2026-10-15 rebase, `githubtest-relay-work` holds
   today's newer one at its committed tip.
+- **How a relay leg pushes a rebased lane (2026-10-18, `lane/show/landing-2026-10-12-review-fixes`):** the lane is
+  147 commits ahead and must be rebased onto the integration branch to land, but a rebase rewrites those commits, so
+  origin's tip stops being an ancestor and the pre-push hook refuses the push as a force-push. That hook sanctions one
+  way out, pushing the rebased lane as a new branch `<lane>-b` .. `-j`, but the relay's command rules (`push_ok` in
+  the relay's cmdrules module) accept only `origin <lane>`, `origin HEAD`, `HEAD:<lane>` or `HEAD:refs/heads/<lane>`:
+  tried on 2026-10-18 and refused ("push only your own lane"). So no command a leg may run can push a rebased lane.
+  Options: **(a, recommended)** widen `push_ok` to accept `HEAD:refs/heads/<lane>-[b-j]`, which the pre-push hook
+  already allows, one line in a shared tool; (b) the owner rebases and force-pushes this lane by hand; (c) pull the
+  integration branch into the lane instead (the rules do allow `git pull origin <integration>`), against CLAUDE.md's
+  rebase-only rule. Default taken: **do not rebase**, so the lane stays pushable and nothing is lost; the review
+  fixes on it stay unrebased and unlanded.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
