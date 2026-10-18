@@ -636,13 +636,14 @@ def main():
     put(w.main, 'done', 'review-tools-b', lane='lane/show/review-tools-b')
     put(w.main, 'queue', 'relay-harness-rebase-b', lane='lane/show/relay-harness', priority=30)
     put(w.main, 'queue', 'fine', lane='lane/show/fine', priority=40)
+    put(w.main, 'queue', 'other-on-it', lane='lane/show/review-tools', priority=45)       # another unit on the old lane: still work
     (w.home / 'attempts.json').write_text(json.dumps({'relay-harness-rebase-b': dict(seen=['r'], fails=['r FAIL'])}), encoding='utf-8')
     w.landed_lanes = {'lane/show/relay-harness'}
     w.text[w.main] = RUN
     lines = autoloop.feed(w)
     got = sorted(p.stem for p in (w.extras[2] / 'relay' / 'queue').glob('*.json'))
     case('D: a unit whose later copy is done (review-tools-rebase) or whose lane has landed after it failed (relay-harness-rebase-b) is not fed but parked; other work is',
-         got == ['fine'] and w.prios.get('review-tools-rebase') == 99 and w.prios.get('relay-harness-rebase-b') == 99, (got, w.prios, lines))
+         got == ['fine'] and 'other-on-it' not in w.prios and w.prios.get('review-tools-rebase') == 99 and w.prios.get('relay-harness-rebase-b') == 99, (got, w.prios, lines))
 
     # ---- one round, and the lock ----
     calls = []

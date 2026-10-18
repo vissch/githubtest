@@ -764,10 +764,10 @@ def retire(w, out):
     best = {}
     for uid, u in units.items():
         lane = str((u or {}).get('lane') or '')
-        for k, r in ((('id',) + (loopsteps.family(uid)[0],), loopsteps.family(uid)[1]),
-                     (('lane', loopsteps.family(lane)[0]), loopsteps.family(lane)[1])):
-            if k[-1]:
-                best[k] = max(best.get(k, 0), r)
+        fid = loopsteps.family(uid)[0]
+        best[('id', fid)] = max(best.get(('id', fid), 0), loopsteps.family(uid)[1])
+        if lane:                            # the ids of the units on each copy of a lane: a later lane copy supersedes only its own kin
+            best.setdefault(('lanes', loopsteps.family(lane)[0]), []).append((loopsteps.family(lane)[1], fid))
     done = all_done(w)
     state, tries = load(w.home / 'retired.json', {}), load(w.home / 'attempts.json', {})
     gone, landed = {}, {}
@@ -783,7 +783,8 @@ def retire(w, out):
             why = ''
             if best.get(('id', fid[0]), 0) > fid[1]:
                 why = 'a later copy of it is queued or done'
-            elif lane and best.get(('lane', fl[0]), 0) > fl[1]:
+            elif lane and any(r > fl[1] and (f.startswith(fid[0]) or fid[0].startswith(f))       # review-tools-b supersedes
+                              for r, f in best.get(('lanes', fl[0]), [])):                  # review-tools-rebase; an unrelated unit stays
                 why = f'a unit on a later copy of {lane} is queued or done'
             elif lane and (tries.get(uid) or {}).get('fails'):     # tried and failed since: a new unit on an old lane is work
                 if lane not in landed:
