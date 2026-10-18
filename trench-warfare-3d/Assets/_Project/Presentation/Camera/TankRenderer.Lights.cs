@@ -181,6 +181,12 @@ namespace TW.Presentation.Tactical
             return g + 1;
         }
 
+        /// <summary>A burning machine's own light, before its flicker. At the old 3 + 6 * fire a fully alight Maw lit no
+        /// mud a camera could measure at the standard view (leg 07, 2026-10-18); the real light carries the near ground
+        /// with the painted pool (TankRenderer.FirePoolStrength), inside MachineLightReach's 10 m, which is kept so the
+        /// per-object light limit does not put out the lanterns beside it.</summary>
+        public static float FireLightPeak(float fire) => 5f + 9f * Mathf.Clamp01(fire);
+
         /// <summary>The lights one machine asks NightLights' machine pool for this frame; returns how many it asked.</summary>
         int AskMachineLights(View v, float now)
         {
@@ -189,7 +195,7 @@ namespace TW.Presentation.Tactical
             {
                 float flick = 0.82f + 0.18f * Mathf.Sin(now * 11f + v.Slot) * Mathf.Sin(now * 4.3f + v.Slot * 1.7f);
                 var at = SocketWorld(v, "Socket_Fire0", out _) + Vector3.up * 0.8f;
-                SceneHooks.MachineLight(v.Slot * 4 + 1, 2, at, FireHot, (3f + 6f * v.Fire) * flick, MachineLightReach, 0f);
+                SceneHooks.MachineLight(v.Slot * 4 + 1, 2, at, FireHot, FireLightPeak(v.Fire) * flick, MachineLightReach, 0f);
                 asked++;
             }
             if (!v.Stalled && FurnaceFor(v.Model, out Vector3 mouth))
