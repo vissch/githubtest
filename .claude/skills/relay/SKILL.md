@@ -10,9 +10,13 @@ start it, read its lines and tell the owner in short plain words (he skims: answ
 
 ```bash
 R="python C:/Users/PC/Documents/GitHub/githubtest-relay-run/trench-warfare-3d/Tools/relay/relay.py"
-WORK="C:/Users/PC/Documents/GitHub/githubtest-relay-work"
+N=""                                                              # the station: "" for relay 1, else 2..6
+WORK="C:/Users/PC/Documents/GitHub/githubtest-relay-work$N"
 ```
-The work checkout is the relay's own. Never point `--work` at a checkout a session or an editor is using.
+The work checkout is the relay's own. Station 1 is `githubtest-relay-work`, board `tw3d-board`, leg folders
+`TrenchWarfare\relay`. Stations 2..6 are `githubtest-relay-work<N>`, board `tw3d-board-<N>` (`TW_BOARD`), leg folders
+`TrenchWarfare\relay<N>` (`TW_RELAY_HOME`) — the autoloop sets both when it starts an extra station. Never point
+`--work` at a checkout a session or an editor is using, or another station.
 `githubtest-relay-run` is the frozen copy: it only runs the relay. The relay is built in `githubtest-relay-dev`.
 
 **First, every time:** `$R hold <your session name>`. Exit 1 means another session holds the relay: stop and tell
@@ -65,6 +69,7 @@ the owner. Give it back with `$R hold <your session name> --release` when you ar
   the last 10 minutes: `--no-quiet` skips that last check when you know nobody is in it).
 - Do not edit `Tools/relay/` or `Tools/pipeline/` while a run is going: the runner sees its own code change and stops.
 - Legs never land. Landing stays the owner's word (tw-master).
-- Leg folders and logs: `%LOCALAPPDATA%\TrenchWarfare\relay\runs\<run>\`. Tests: `python Tools/relay/test_relay.py`.
+- Leg folders and logs: `%LOCALAPPDATA%\TrenchWarfare\relay<N>\runs\<run>\` (`relay` on station 1, `relay2`..`relay6`
+  on the others; `TW_RELAY_HOME` moves it). Tests: `python Tools/relay/test_relay.py`.
 - Sources: the one-behaviour, expected-value, guesses and mechanical-or-judgement rules, here and in
   `Tools/relay/roles/`, rework ideas from github.com/mattpocock/skills at f3fc5632f401 (MIT).
