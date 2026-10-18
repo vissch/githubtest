@@ -143,8 +143,10 @@ namespace TW.Sim.Combat
                 float3 d3 = s.Pos - p; d3.y = 0f;
                 float dist = SimMath.Length(d3);
                 float3 dir = dist > 1e-3f ? d3 / dist : new float3(0f, 0f, 1f);
-                // nobody in its shadow: no shot and no cooldown spent ([N5.3])
-                if (InShadow(i, s, dir, 0f) == 0) return;
+                // one walk of the shelter's cells both counts the heads in its shadow and keeps them down; nobody there:
+                // no shot and no cooldown spent ([N5.3]), and the walk suppressed nobody either
+                float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
+                if (InShadow(i, s, dir, near) == 0) return;
                 FireCooldown[i] = CombatTables.CooldownTicks(weapon, TickSeconds);
                 Events.Add(new SimEvent { Tick = Tick, Type = SimEventType.Shot, A = i, B = PropTarget.Encode(s.Prop), Pos = p, Dir = dir, Scalar = 0f });
                 float chance = weapon.Accuracy * CombatTables.RangeFalloff(dist, weapon.RangeMax) * CombatTables.HullTargetBonus * (1f - 0.5f * math.saturate(Suppression[i] * 0.01f));
@@ -152,14 +154,12 @@ namespace TW.Sim.Combat
                 var rng = SimRandom.For(Seed, Tick, SimRandom.SystemId.DirectFire, (uint)i);
                 if (rng.NextFloat() < math.clamp(chance, 0.02f, 0.95f) && CombatTables.WearsWrecks(weapon))
                     CoverStops.Add(new WreckRound { Cell = CellOf(s.Pos), Target = PropTarget.Encode(s.Prop), Damage = weapon.Damage * DamageMul[i] * WreckFireShare, Way = dir });
-                // hit or not, every round keeps the heads in its shadow down
-                float near = weapon.SuppressionPerShot * 0.6f * (InSmoke(s.Pos) ? CombatTables.SmokeSuppression : 1f);
-                InShadow(i, s, dir, near);
             }
 
             /// <summary>The enemies of slot i in the wreck's shadow: within its shelter's reach, past it on the shooter's
-            /// line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. How many, and
-            /// with `near` above zero their heads kept down by that much ([N5.3]: a man on the wreck's flank is neither).</summary>
+            /// line `along` (a unit xz way, shooter -> wreck) and no further off that line than its body. One walk both
+            /// counts them and, with `near` above zero, keeps their heads down by that much ([N5.3]: a man on the
+            /// wreck's flank is neither counted nor suppressed).</summary>
             int InShadow(int i, in Shelter s, float3 along, float near)
             {
                 int n = 0;
