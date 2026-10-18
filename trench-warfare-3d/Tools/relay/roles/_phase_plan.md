@@ -14,7 +14,9 @@ do not polish it. Exactly these sections:
   gets `(new)` on its line. A file that is named, not marked (new) and not there fails the plan.
 - `## Checks` the exact commands that prove it works, with the result you expect. A new test names where its
   expected value comes from: a worked example, a number in the goal, or a run of a build known to be right (name
-  the commit). A value worked out the way the code works it out proves nothing.
+  the commit). A value worked out the way the code works it out proves nothing. For a tool, name the tests to run
+  (`python Tools/relay/test_relay.py Class.test_name`), never `Tools/toolcheck.py` or a whole `test_relay.py`: the
+  edit gate runs toolcheck for a tool lane, and the leg has no time to run it twice.
 - `## Done when` one line a script can check.
 - `## Difficulty` one word, `easy`, `medium` or `hard`, then one sentence why. It picks the model that does the
   work. hard: it touches the seam, the sim's rules or the replay format, or more than five files, or no test can

@@ -383,6 +383,33 @@ def never_git(words, leg):
     return None
 
 
+# The tool suites a leg never runs whole by hand. On the desktop, with six relays and a gate sharing it, toolcheck.py
+# took 2530 s and test_relay.py alone 1744 s (2026-10-18): a fix leg that ran them by hand, and then the edit gate
+# that runs toolcheck again for a tool lane, ended TIMEOUT at 90 minutes night after night.
+SLOW_MODULES = ("toolcheck", "test_relay")
+SLOW_SUITE = ("a whole tool suite takes over 30 minutes here, and for a lane that changes a tool the edit gate "
+              "(leg gate start) runs Tools/toolcheck.py once for the exact tree: run only the tests you added or "
+              "changed, by name, like python Tools/relay/test_relay.py Budget.test_name")
+
+
+def whole_slow_suite(words):
+    """True when a python command runs toolcheck.py, or all of test_relay.py with no test named."""
+    w = [x.lower().replace("\\", "/") for x in plain(words[1:])]
+    if "discover" in w and ("unittest" in w or "pytest" in w):
+        return True
+    for i, x in enumerate(w):
+        base = x.rsplit("/", 1)[-1]
+        if base == "toolcheck.py" or base.split(".")[-1] == "toolcheck" and i and w[i - 1] == "-m":
+            return True
+        if base == "test_relay.py":
+            named = [y for y in w[i + 1:] if not y.startswith("-")]
+            if "::" not in x and not named and "-k" not in w:
+                return True
+        elif base in SLOW_MODULES or base.endswith("." + SLOW_MODULES[1]):
+            return True                     # python -m unittest Tools.relay.test_relay: the module, no class named
+    return False
+
+
 def never_part(words, leg):
     p = prog(words)
     if p == "git":
@@ -402,6 +429,8 @@ def never_part(words, leg):
             return "the runner claims and completes pipeline jobs"
         if "run_detached.py" in sc and "--" in raw:
             return never(" ".join(words[words.index("--") + 1:] if "--" in words else []), leg)
+        if whole_slow_suite(words):
+            return SLOW_SUITE
     elif p == "gh":
         if low[:2] == ["pr", "merge"] or (low[:1] == ["api"] and any("merge" in a for a in low)):
             return "legs never merge a pull request"
