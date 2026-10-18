@@ -33,6 +33,8 @@ namespace TW.Tests
 
         static System.Func<float, float, float> Flat => (x, z) => 0f;
         static System.Func<float, float, float> Slope => (x, z) => z * 0.18f;
+        /// <summary>Craters and humps with no net gradient: the ground a parked machine really stands on.</summary>
+        static System.Func<float, float, float> Dents => (x, z) => -0.35f * Mathf.Sin(x * 0.7f) * Mathf.Cos(z * 0.6f);
 
         /// <summary>Walk one straight line and hand every frame to the caller.</summary>
         static WalkerGait Walk(TankModel m, System.Func<float, float, float> ground, float speed, float seconds,
@@ -483,6 +485,81 @@ namespace TW.Tests
                 for (int i = 0; i < g.Feet.Length; i++) if ((g.Landed & (1 << i)) != 0) falls++;
             });
             Assert.Greater(falls, 10, "a machine walking five seconds should have put its feet down many times");
+        }
+
+        /// <summary>A machine that has stopped stands still and stands level. MEASURED on a Pincer in the field
+        /// (Captures/vehicles/pincer_stop.csv, 181 frames): from t 2.55 s on its speed is under 0.007 m/s, yet
+        /// hull_pitch sat pinned at -11.2152 degrees to within 0.0001 and hull_heave wandered from 1.023 to
+        /// 1.701 m — a body parked visibly tipped onto its nose and breathing 0.68 m with nothing moving it. A
+        /// player reads that as broken or stuck in the mud, not as idle.
+        ///
+        /// The thresholds are the owner's, written before the measurement: within 3 degrees of the ground it is
+        /// standing on, and under 0.10 m of heave peak to peak. The hull columns of that trace are this gait's
+        /// Pitch and Height to within 0.015 m (TankRenderer.Probe.cs: a walker has no PitchFx and no Bob, and the
+        /// rumble and footfall springs together come to 0.014 m), so this is a fair proxy for the trace.</summary>
+        /// <summary>The pitch of the ground the machine is standing over, in degrees: a central difference of the
+        /// terrain fore and aft of it, taken across the spread of its own feet.</summary>
+        static float GroundUnder(WalkerGait g, Vector3 pos, System.Func<float, float, float> ground)
+        {
+            float r = 0f; int n = 0;
+            for (int i = 0; i < g.Feet.Length; i++)
+            {
+                if (g.Feet[i].Lost) continue;
+                r += Mathf.Abs(g.Feet[i].At.z - pos.z); n++;
+            }
+            r = n > 0 ? Mathf.Max(0.5f, r / n) : 1f;
+            return Mathf.Atan2(ground(pos.x, pos.z + r) - ground(pos.x, pos.z - r), 2f * r) * Mathf.Rad2Deg;
+        }
+
+        [Test]
+        public void AHaltedWalkerStandsLevelAndStill()
+        {
+            // The bar is "level" on level ground, which is what the field trace stood on. On the dented ground it
+            // is the ground the machine is actually standing over, measured HERE from the terrain function across
+            // the spread of its own feet — the hull being parallel to its own dirt is the thing a player reads as
+            // "parked", and a machine on the lip of a crater honestly is not horizontal. That angle is worked out
+            // from the feet, which the gait placed and the solver never touched, so it is not the hull's own
+            // answer handed back to it.
+            var grounds = new (string name, System.Func<float, float, float> f)[] { ("flat", Flat), ("dents", Dents) };
+            var bad = new List<string>();
+            foreach (var (gname, ground) in grounds)
+                foreach (var (name, archetype) in Walkers)
+                {
+                    var m = Load(name, archetype);
+                    var gait = new WalkerGait();
+                    const float dt = 1f / 60f;
+                    Vector3 pos = new Vector3(20f, 0f, 20f);
+                    gait.Plant(m, pos, 0f, ground);
+                    var trail = new System.Text.StringBuilder();
+                    float lowest = float.MaxValue, highest = float.MinValue, worstDeg = 0f, groundDeg = 0f;
+                    int ticks = 0;
+                    // 3 s of walking, then 4 s standing still; judged over the last 2.5 s only, as the trace is
+                    for (int k = 0; k < 420; k++)
+                    {
+                        bool walking = k < 180;
+                        Vector3 vel = walking ? new Vector3(0f, 0f, 2.2f) : Vector3.zero;
+                        if (walking) pos += vel * dt;
+                        gait.Step(m, pos, 0f, vel, 0f, 0, false, dt, ground);
+                        if (k == 270) groundDeg = GroundUnder(gait, pos, ground);
+                        if (k >= 270)
+                        {
+                            lowest = Mathf.Min(lowest, gait.Height); highest = Mathf.Max(highest, gait.Height);
+                            float d = Mathf.Abs(gait.Pitch * Mathf.Rad2Deg - groundDeg);
+                            if (d > worstDeg) worstDeg = d;
+                            ticks++;
+                        }
+                        if (k % 60 == 0 || k == 419)
+                            trail.Append($"\n  t {k / 60f:F1}s pitch {gait.Pitch * Mathf.Rad2Deg:F3} deg "
+                                       + $"height {gait.Height:F3} landed 0x{gait.Landed:X}");
+                    }
+                    Assert.Greater(ticks, 0);
+                    if (worstDeg >= 3f)
+                        bad.Add($"{name} on {gname}: parked {worstDeg:F3} deg off its ground "
+                              + $"(which lies at {groundDeg:F3} deg; cap 3){trail}");
+                    if (highest - lowest >= 0.10f)
+                        bad.Add($"{name} on {gname}: parked, it breathed {highest - lowest:F3} m (cap 0.10){trail}");
+                }
+            Assert.That(bad, Is.Empty, "a halted walker must stand level and still:\n" + string.Join("\n", bad));
         }
 
         [Test]
