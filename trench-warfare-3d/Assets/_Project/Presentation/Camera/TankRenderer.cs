@@ -1074,12 +1074,31 @@ namespace TW.Presentation.Tactical
 
         static readonly Color FirePoolColour = new Color(1f, 0.5f, 0.2f);   // deeper than a lamp: firelight on the mud reads orange, not cream
 
+        /// <summary>How strong a burning machine's pool of firelight is (NightLights.AddFirePool caps it at 4). Measured at
+        /// the standard view (zoom 30, leg 07 of 2026-10-18): at the old 0.35 + 0.75 * fire a fully alight Maw left the mud
+        /// under its tracks at luma 0.212 against 0.203 for empty mud 60 m away - no pool at all, while one lantern in the
+        /// same frame lit its own mud to 0.44. A fire is the brightest thing on a night field: it starts near a lantern's
+        /// strength and goes past it. At 0.8 + 1.5 * fire that mud measures 0.402 with a quarter of it warm, and the empty
+        /// mud 60 m away is untouched at 0.202; at 1.3 + 2.7 * fire it went to 0.63, brighter than any lantern in the frame.</summary>
+        public static float FirePoolStrength(float fire) => 0.8f + 1.5f * Mathf.Clamp01(fire);
+
+        /// <summary>How far that pool reaches (m; NightLights.AddFirePool caps it at 20): about 8.8 m on a Maw, as round 17
+        /// left it after its pool swallowed the men beside a wreck. It is kept: widening it to 12 m lit mud well past the
+        /// machine and bought nothing under it. What the mud under the machine was missing was strength and a pool hung low
+        /// enough to reach it, not reach.</summary>
+        public static float FirePoolReach(float fire, float halfLength) => (6f + halfLength * (0.8f + 0.6f * Mathf.Clamp01(fire))) * 0.75f;
+
+        /// <summary>How high over the hull's floor the pool is hung (m). It used to sit at the hull's top (Height + 0.5,
+        /// about 4 m on a Maw): its falloff was spent in the air and the ground under the machine got nothing. A fire that
+        /// paints mud hangs just over it.</summary>
+        public const float FirePoolHeight = 1.2f;
+
         void Burning(View v, float now, float fire, float smoke)
         {
             if (fire > 0.02f)
             {
                 // its pool of firelight on the mud round it, renewed each frame (look.firePools, NightLights.Pools.cs)
-                SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * (v.Model.Height + 0.5f), FirePoolColour, 0.35f + 0.75f * fire, (6f + v.Model.HalfLength * (0.8f + 0.6f * fire)) * 0.75f, 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
+                SceneHooks.FirePool?.Invoke(v.World[0].GetPosition() + Vector3.up * FirePoolHeight, FirePoolColour, FirePoolStrength(fire), FirePoolReach(fire, v.Model.HalfLength), 0f);   // a quarter less reach (round 17: it swallowed the men beside it)
                 for (int k = 0; k < 2; k++)
                 {
                     var at = SocketWorld(v, "Socket_Fire" + k, out bool ok);
