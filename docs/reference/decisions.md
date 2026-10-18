@@ -467,6 +467,17 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   time after; (b) push or land this lane by hand, then update the relay-run checkout's rules
   (`Tools/relay/relay.py update`). Default taken: neither; recorded and stopped (`docs/inbox/2026-10-16-all-relay-push-guard.md`
   still stands).
+  Third attempt, 2026-10-18: the owner's "Try it once more as it stands" was run exactly once more from HEAD
+  `bc73064ec` (6 commits ahead of integration, 0 behind): `git push origin lane/show/heroes-off-bench` refused
+  again, same shape — `! [rejected] lane/show/heroes-off-bench -> lane/show/heroes-off-bench (non-fast-forward)`,
+  "Updates were rejected because the tip of your current branch is behind its remote counterpart" — against the
+  same stale `origin/lane/show/heroes-off-bench` (`1eb8ac418`, unchanged, confirmed by `git ls-remote` this leg).
+  Nothing about the push path changed between attempts two and three; the loosened `cmdrules.py`/`prepush.py` on
+  this lane (`5234e6444`) still cannot reach the frozen relay-run checkout by being pushed, for the same reason as
+  above. Options: (a, recommended) the owner deletes `origin/lane/show/heroes-off-bench` by hand so this lane's
+  next push creates it fresh and fast-forwards every time after; (b) run `Tools/relay/relay.py update` on the
+  relay-run checkout so the live rules pick up the suffix fallback; (c) the owner pushes or lands this lane by
+  hand. Default taken: none; recorded and stopped (this leg, push-heroes-off-bench-retry).
 - **heroes-off-bench-c: the unit's substance is already on origin through integration; nothing left to measure or
   rebuild (2026-10-18).** `8d0893f73` and `d0dd949c6` (the `TeamMask = 0` fix, gated on `stressUnits > 0` so every
   other preset is untouched) and `bf47ff7f5` (the tag, carrying the old→new baseline numbers) are all ancestors of
