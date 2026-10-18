@@ -7,8 +7,9 @@
   relay.py leg play <filter> [--max S]   run the PlayMode tests the filter names (a class or a full test name) in
                                   this checkout and wait for them: GREEN | RED with total, passed, failed and each
                                   failed test, or RUNNING after S seconds (the same command again waits on)
-  relay.py leg finish [-m MSG]    commit and push when the gate is green for exactly these files; if it is not,
-                                  save the uncommitted work as a patch beside the leg and say so
+  relay.py leg finish [-m MSG]    commit and push only when the gate is green for exactly this tree, HEAD's tree
+                                  included; otherwise it pushes nothing and saves any uncommitted work as a patch
+                                  beside the leg
   relay.py leg done               exit 0 when nothing is left: no uncommitted file, the lane pushed. In a plan leg:
                                   exit 0 when plan.md passes the check the runner will run on it
 
@@ -215,6 +216,11 @@ def finish(desk, guard, leg, message):
         gitio.git(["commit", "-q", "-m", message or "relay: %s, leg %02d close-out" % (leg["unit"], leg["leg"])], wt)
         print("committed %s" % gitio.head(wt)[:10])
     if not gitio.pushed(wt, lane):
+        st, why = verdict(desk, wt)
+        if st != "GREEN":
+            print("NOT PUSHED: no gate covers this commit (the gate is %s: %s). Nothing left this checkout. "
+                  "Run python relay.py leg gate start, wait for it, then leg finish again." % (st, why))
+            return 1
         r = gitio.git_raw(["push", "-q", "origin", lane], wt)
         if r.returncode:
             print("PUSH FAILED: %s" % r.stderr.decode("utf-8", "replace").strip()[-300:])

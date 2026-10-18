@@ -172,7 +172,7 @@ Inside a leg, the leg card names these:
 | `$R leg gate start` | starts `gate.ps1 -EditOnly` detached and records the tree it started on |
 | `$R leg gate wait` | waits up to 9 minutes; prints GREEN, RED, RUNNING, STALE (the files changed since) or NONE |
 | `$R leg play <filter>` | runs the PlayMode tests the filter names (a class or a full test name) for this checkout and waits up to 9 minutes; prints GREEN or RED with total, passed, failed and each failed test, or RUNNING (the same command again waits on). The report is `playmode-<n>.xml` in the leg's folder |
-| `$R leg finish -m "<message>"` | commits and pushes when the gate is green for exactly these files; otherwise saves the work as a patch beside the leg |
+| `$R leg finish -m "<message>"` | commits and pushes only when the gate is green for exactly this tree, HEAD's tree included; otherwise it pushes nothing and saves any uncommitted work as a patch beside the leg |
 | `$R leg done` | exit 0 when nothing is uncommitted and the lane is pushed |
 
 **Nobody wakes a leg.** The end of a leg's turn is the end of the leg, so nothing in it may wait for a notice. A leg
