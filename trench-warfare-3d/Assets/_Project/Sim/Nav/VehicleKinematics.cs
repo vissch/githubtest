@@ -81,14 +81,30 @@ namespace TW.Sim.Nav
 
         /// <summary>Is a world point under this hull's footprint: the rectangle HalfLength x HalfWidth in the hull's yaw
         /// (forward = (sin yaw, 0, cos yaw)), grown by <paramref name="margin"/> on every side. The one test for "under
-        /// the hull": MineSystem's trigger asks it with no margin, a mine's burst on the hull (VehicleModulesSystem) with
-        /// the burst's 0.6 m, and nothing else decides.</summary>
+        /// the hull" in its point form: MineSystem's trigger asks it with no margin, a mine's burst on the hull
+        /// (VehicleModulesSystem) with the burst's 0.6 m; Crosses below is its segment form, for BeamSystem's trail.</summary>
         public bool Covers(float yaw, float3 centre, float3 point, float margin = 0f)
         {
             float3 q = point - centre;
             float s = SimMath.Sin(yaw), c = SimMath.Cos(yaw);
             float lx = q.x * c - q.z * s, lz = q.x * s + q.z * c;
             return math.abs(lx) <= HalfWidth + margin && math.abs(lz) <= HalfLength + margin;
+        }
+
+        /// <summary>Does the segment a-b run under this hull's footprint (the rectangle HalfLength x HalfWidth in the
+        /// hull's yaw, grown by <paramref name="margin"/>)? Covers is its point form; BeamSystem's trail asks this one.
+        /// Three separating axes, no divide and no sqrt; with a == b it is exactly Covers.</summary>
+        public bool Crosses(float yaw, float3 centre, float3 a, float3 b, float margin = 0f)
+        {
+            float s = SimMath.Sin(yaw), c = SimMath.Cos(yaw);
+            float3 qa = a - centre, qb = b - centre;
+            float ax = qa.x * c - qa.z * s, az = qa.x * s + qa.z * c;
+            float bx = qb.x * c - qb.z * s, bz = qb.x * s + qb.z * c;
+            float mx = (ax + bx) * 0.5f, mz = (az + bz) * 0.5f;      // the segment as a midpoint and a half vector
+            float hx = (bx - ax) * 0.5f, hz = (bz - az) * 0.5f;
+            float ex = HalfWidth + margin, ez = HalfLength + margin;
+            return math.abs(mx) <= ex + math.abs(hx) && math.abs(mz) <= ez + math.abs(hz)
+                && math.abs(mx * hz - mz * hx) <= ex * math.abs(hz) + ez * math.abs(hx);
         }
 
         /// <summary>The farthest the footprint reaches from the centre: a corner.</summary>
