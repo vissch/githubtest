@@ -28,6 +28,11 @@ namespace TW.Net
         public int StallTicks;         // ticks we could not step because a peer frame was missing (UI shows a stall after N)
         public uint LastSteppedTick => World.Tick;
         public int BufferedTicks => frames.Count;   // S6: ticks held but not yet stepped; a leak is visible here
+        // A real peer steps tick T only once it holds our frame for T, and we have sent at most World.Tick +
+        // InputDelay, so a real peer is at most 2 * InputDelay ticks ahead and sends at most that far beyond it;
+        // 256 is far past that for any InputDelayTicks the game uses (default 3), so nothing a real peer sends is
+        // dropped, and frames can hold at most 257 ticks.
+        public const int MaxFutureTicks = 256;
         public int Player => Transport.LocalPlayer;
 
         public LockstepDriver(SimWorld world, ILockstepTransport transport, ReplayRecorder recorder = null)
@@ -64,6 +69,7 @@ namespace TW.Net
                 // S6: a frame is only buffered when it can still be stepped and could only come from a real peer.
                 if (f.Player >= Transport.PeerCount) continue;   // a bogus player would complete a tick on its own
                 if (f.Tick < World.Tick) continue;               // stale: that tick is stepped, the entry would be kept forever
+                if (f.Tick - World.Tick > (uint)MaxFutureTicks) continue;   // far future: nothing would ever step or remove it
                 if (!frames.TryGetValue(f.Tick, out var byPlayer))
                 {
                     byPlayer = spare.Count > 0 ? spare.Pop() : new Dictionary<byte, CommandFrame>();
