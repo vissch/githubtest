@@ -257,6 +257,15 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   switched off, each change a knob to turn on later; (3) leave it. Default taken: not landed. Brief with six before
   and after pictures: `2026-10-06-the-night-look-second-part`.
 
+- **How does a rebased lane reach origin (2026-10-18)?** `lane/show/pipe-idea-the-narrows-a-field-half-as-deep`'s
+  content work is finished (origin's probe fix, 211/211 cases, toolcheck green) but the lane is 517 commits behind
+  integration and no leg can rebase it onto integration and push the result: the relay's push guard would allow a
+  `-b`-suffixed branch name, but the command rules a leg runs under do not. Options: (A) a hand outside the relay
+  (the owner, or a session not bound by these rules) rebases and force-pushes the lane when it is time to land;
+  (B) widen the relay's command rules to the same branch-name pattern its push guard already allows (a
+  `Tools/relay` change, its own unit). Default taken: (A) — the lane stays as it stands, not rebased onto
+  integration and not landed; four relay legs died on this gap before this one stopped trying.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.

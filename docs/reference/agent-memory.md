@@ -143,3 +143,6 @@ lines, with every measurement) is in git: `git show afc6fe8:docs/reference/agent
 - **2026-10-07. A full gate died with the session that started it** (PlayMode part, no verdict, half an hour). Start it
   with `Tools/gate_bg.py`. The same night: `selftest.py` had left 151 folders in the temp folder (rmtree stops at git's
   read-only objects on Windows), one a registered worktree with a broken index that failed git's upkeep on every fetch.
+- **2026-10-18. Four relay legs died levelling a lane diverged from its own origin** with `git reset --hard` and
+  `git branch -f`, both refused. The allowed move is `git rebase --onto origin/<lane> HEAD`. A leg also cannot
+  publish a lane rebased onto integration: the push guard allows a `-b` name, the model-side command rules do not.
