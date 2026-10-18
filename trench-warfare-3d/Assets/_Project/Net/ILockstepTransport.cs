@@ -11,9 +11,15 @@ namespace TW.Net
         public uint Tick;
         public byte Player;
         public SimCommand[] Commands;   // may be empty; an empty frame still counts as "peer reported for tick"
-        public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3); 0 when unknown
+        public ulong Hash;              // the sender's sim hash when it sent this frame, for desync detection (N3).
+                                        // Hash == 0 means "this frame carries no hash": the sender had not stepped a
+                                        // tick yet (the primed frames before InputDelay), or its world skipped the
+                                        // hash this tick (SimWorld.HashInterval != 1, the live single-player path).
+                                        // A reader must skip a frame with Hash == 0 and must not read HashTick on it:
+                                        // HashTick is meaningless when there is no hash to go with it.
         public uint HashTick;           // S9: the tick Hash is the hash of. It is NOT frame.Tick - 1: a frame is sent
                                         // InputDelay ticks ahead, so HashTick is the last tick the sender had stepped.
+                                        // Ignore this field when Hash == 0.
     }
 
     public interface ILockstepTransport

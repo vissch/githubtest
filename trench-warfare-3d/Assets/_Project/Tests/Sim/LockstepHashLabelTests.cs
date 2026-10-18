@@ -62,5 +62,32 @@ namespace TW.Tests
             }
             Assert.That(checkedWithAHash, Is.GreaterThan(0), "[S9] no frame with a hash was checked");
         }
+
+        [Test] // [found-say-in-the-contract-that-hash-0-means-no-has-20261017-0]
+        public void AFrameFromAWorldThatDoesNotHashCarriesNoHashAndIsSkipped()
+        {
+            var cfg = SimConfig.Default; cfg.InputDelayTicks = 2;
+            using var m = MatchSim.CreateGreybox(cfg);
+            m.World.HashInterval = 0;   // the live single-player path (LockstepSession.cs:59)
+            var net = new RecordingTransport();
+            var driver = new LockstepDriver(m.World, net);
+            net.DeliverPeerFrames(0, 40);
+            for (int i = 0; i < 10; i++)
+                Assert.That(driver.TryStep(), Is.True, "[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] the driver stalled");
+
+            Assert.That(net.Sent.Count, Is.GreaterThanOrEqualTo(10), "[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] the driver sent no frames to check");
+            var exchange = new HashExchange();
+            foreach (var f in net.Sent)
+            {
+                Assert.That(f.Hash, Is.EqualTo(0UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a world with HashInterval = 0 must send Hash 0 on every frame, but the frame for tick {f.Tick} carries a hash");
+                if (f.Tick > (uint)cfg.InputDelayTicks)
+                {
+                    uint expected = f.Tick - (uint)cfg.InputDelayTicks - 1u;   // the finding's formula, a real tick that was stepped
+                    Assert.That(f.HashTick, Is.EqualTo(expected), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] the frame for tick {f.Tick} is labelled as the hash of tick {f.HashTick}, not {expected} — a reader keying on HashTick alone would compare Hash 0 against a real local hash");
+                }
+                Assert.DoesNotThrow(() => exchange.Observe(f, 0xABCDEF1234567890UL), $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] HashExchange.Observe must skip a frame with Hash == 0, not try to compare it");
+                Assert.That(exchange.DesyncDetected, Is.False, $"[found-say-in-the-contract-that-hash-0-means-no-has-20261017-0] a frame with Hash == 0 carries no hash and must never raise a desync");
+            }
+        }
     }
 }
