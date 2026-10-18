@@ -132,7 +132,7 @@ namespace TW.Tests
                     Assert.AreNotEqual(InfantryArchetype.Jetpack, roster[s].Archetype, $"{faction} slot {s} is a jetpack man");
                 }
                 Assert.IsFalse(FactionRoster.MayCall(faction, FactionRoster.ParaDropBit), $"{faction} cannot drop paratroopers");
-                Assert.IsTrue(FactionRoster.MayCall(faction, FactionRoster.HeBarrageBit), $"{faction} can call a barrage");
+                Assert.IsTrue(FactionRoster.MayCall(faction, (int)OffMapAbilityId.HeBarrage), $"{faction} can call a barrage");
             }
         }
 
@@ -238,6 +238,21 @@ namespace TW.Tests
             Assert.IsTrue(FactionRoster.MayCall(FactionId.Brass, (int)OffMapAbilityId.ChlorineGas));
             Assert.AreEqual((int)OffMapAbilityId.ParaDrop, FactionRoster.ParaDropBit);
             Assert.Less((int)OffMapAbilityId.ParaDrop, OffMapAbilitySystem.AbilitySlots);
+        }
+
+        // [found-derive-the-off-map-ability-mask-from-the-id-20261017-0] the mask comes from the id enum, not a
+        // second table: an ability with stats that no faction may call fires for nobody (only a Reject event shows it).
+        [Test]
+        public void EveryOffMapAbilityIdIsCallableBySomeFaction()
+        {
+            foreach (OffMapAbilityId id in System.Enum.GetValues(typeof(OffMapAbilityId)))
+            {
+                if (id == OffMapAbilityId.None) continue;
+                bool any = false, hasStats = OffMapAbilitySystem.TryGetStats((int)id, out _);
+                for (int f = 0; f < Factions.Count; f++) any |= FactionRoster.MayCall(Factions.Of((byte)f), (int)id);
+                Assert.IsTrue(any, $"[found-derive-the-off-map-ability-mask-from-the-id-20261017-0] {id} ({(int)id}) " +
+                                   $"is in the enum (stats: {hasStats}) and no faction may call it");
+            }
         }
 
         [Test]

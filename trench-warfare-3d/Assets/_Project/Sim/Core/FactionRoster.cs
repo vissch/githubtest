@@ -107,15 +107,16 @@ namespace TW.Sim
         }
 
         /// <summary>Bit per off-map ability id (TW.Sim.Match.OffMapAbilityId, which Core cannot name): the support a
-        /// faction may call. Everyone shells, gasses, creeps a barrage, lays smoke and calls the strafe and the beam (the
-        /// overhaul's abilities, open to every side as they were before factions met them, 2026-09-27: the owner may split
-        /// them per faction); Brass alone drops paratroopers.</summary>
-        public const int HeBarrageBit = 1, CreepingBarrageBit = 2, ChlorineGasBit = 3, SmokeScreenBit = 6, StrafeRunBit = 10,
-            BeamBit = 11, ParaDropBit = 12;
-        const uint Everyone = (1u << HeBarrageBit) | (1u << CreepingBarrageBit) | (1u << ChlorineGasBit) | (1u << SmokeScreenBit)
-            | (1u << StrafeRunBit) | (1u << BeamBit);
+        /// faction may call. The enum is the one table: a new id is open to every faction the day it gets sim stats
+        /// (as the overhaul's abilities were before factions met them, 2026-09-27: the owner may split them per
+        /// faction later); only a faction-only id is named here (Brass alone drops paratroopers). An id the sim
+        /// does not know never reaches this check: OffMapAbilitySystem.Step rejects it on TryGetStats and on
+        /// cmd.A >= AbilitySlots first.</summary>
+        public const int ParaDropBit = 12; // a test holds this to (int)OffMapAbilityId.ParaDrop
+        const uint EveryAbility = ~1u; // every bit but None (0)
+        const uint FactionOnly = 1u << ParaDropBit; // the only ids that are not everyone's
         public static uint AbilityMask(FactionId faction)
-            => Everyone | (faction == FactionId.Brass ? 1u << ParaDropBit : 0u);
+            => (EveryAbility & ~FactionOnly) | (faction == FactionId.Brass ? 1u << ParaDropBit : 0u);
         public static bool MayCall(FactionId faction, int abilityId)
             => abilityId >= 0 && abilityId < 32 && (AbilityMask(faction) & (1u << abilityId)) != 0;
     }
