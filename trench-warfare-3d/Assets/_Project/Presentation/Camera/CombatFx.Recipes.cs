@@ -34,14 +34,20 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The parts a burst draws. shape: the sim's Dir.y (0 shell, 1 masonry, 2 cook-off, 3 incendiary, 5 mine); lean: how much of Dir.xz
         /// there was (0 for a round with no flight: the Kettle's, the Salvo's); recipes: fx.recipes; radius: the sim's blast radius;
-        /// source: the Explosion's a (SourceId), which tells a jetpack landing from a shell.</summary>
-        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f, int source = 0)
+        /// source: the Explosion's a (SourceId), which tells a jetpack landing from a shell; arms: fx.classArms, which gates a mine's
+        /// own recipe on BurstBy drawing its black smoke at all (CombatFx.Bursts.cs).</summary>
+        public static BurstRecipe RecipeFor(float shape, float lean, bool wet, float recipes, float radius = 0f, int source = 0, float arms = 1f)
         {
             if (recipes < 0.5f || wet) return BurstRecipe.Old;   // water keeps its splash and its drawn smoke as they were
             if (source == TW.Sim.Combat.LeapSystem.LandingSource) return new BurstRecipe { Ring = true, Dust = true };   // L15: a man lands, no shell: no column, no smoke
             int kind = Mathf.RoundToInt(shape);
             if (kind == 2) return new BurstRecipe { CookOff = true, Plume = true };   // no earth: the hull is what goes up
-            if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine (5): their own looks come later (L14, L19, L24)
+            // L24: a mine's own black smoke (BurstExtras, CombatFx.Bursts.cs) replaces the shell's seven grey puffs; a tripwire
+            // has no black smoke of its own and keeps the old burst. With fx.classArms 0 BurstBy draws no smoke at all
+            // (look.Mine would be false), so the old burst's puffs stand in for it, as every other class keeps its old shot.
+            if (arms >= 0.5f && kind == (int)TW.Sim.Combat.BlastShape.Mine && source == TW.Sim.Combat.MineSystem.SourceBase + (int)TW.Sim.Combat.MineKind.Mine)
+                return new BurstRecipe { Column = true };
+            if (kind != 0) return BurstRecipe.Old;   // masonry (1), incendiary (3), a mine's tripwire (5): their own looks come later (L14, L19)
             return new BurstRecipe { Column = true, Plume = true, Mortar = lean <= 0f, Lean = lean > 0f, Ring = radius >= RingRadius,
                                      Curtain = source == (int)TW.Sim.Match.OffMapAbilityId.CreepingBarrage };
         }
