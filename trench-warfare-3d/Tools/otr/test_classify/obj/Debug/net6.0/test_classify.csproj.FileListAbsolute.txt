@@ -1,0 +1,15 @@
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\bin\Debug\net6.0\test_classify.exe
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\bin\Debug\net6.0\test_classify.deps.json
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\bin\Debug\net6.0\test_classify.runtimeconfig.json
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\bin\Debug\net6.0\test_classify.dll
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\bin\Debug\net6.0\test_classify.pdb
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.GeneratedMSBuildEditorConfig.editorconfig
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.AssemblyInfoInputs.cache
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.AssemblyInfo.cs
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.csproj.CoreCompileInputs.cache
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.sourcelink.json
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.dll
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\refint\test_classify.dll
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.pdb
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\test_classify.genruntimeconfig.cache
+C:\Users\PC\Documents\GitHub\githubtest-relay-work\trench-warfare-3d\Tools\otr\test_classify\obj\Debug\net6.0\ref\test_classify.dll
