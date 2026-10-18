@@ -105,15 +105,34 @@ namespace TW.Tests
             Assert.AreEqual(FlipbookFx.Book.BloodSpurt, CombatFx.BloodFor(24f, 1f, 30f, 1f), "a rifle");
             Assert.AreEqual(FlipbookFx.Book.BloodSnipe, CombatFx.BloodFor(95f, 1f, 30f, 1f), "the sniper");
         }
+        // [found-banks-test-hardcodes-17-and-28-so-it-guards-20261018-2] the gas and smoke banks must boil inside their
+        // own named range, and that range must sit in the grown half of the book: the first half of each sheet's frames
+        // is the puff/growth the bank is drawn past, per CombatFx.Banks.cs's own comment on GasBankFirst/SmokeBankFirst.
         [Test]
         public void Banks_MergeFromTheOverviewAndBoilInsideTheirFrames()
         {
             Assert.AreEqual(1, CombatFx.BankStep(30f), "close: a card a cell");
             Assert.AreEqual(2, CombatFx.BankStep(CombatFx.BankMergeZoom), "the overview: a card a 2 x 2 block");
+
+            CheckBank(FlipbookFx.Book.GasBank, CombatFx.GasBankFirst, CombatFx.GasBankLast, "gas");
+            CheckBank(FlipbookFx.Book.SmokeBank, CombatFx.SmokeBankFirst, CombatFx.SmokeBankLast, "smoke");
+        }
+
+        static void CheckBank(FlipbookFx.Book book, float first, float last, string label)
+        {
+            FlipbookFx.Grid(book, out _, out _, out _, out int frames);
+            Assert.Less(first, last,
+                $"[found-banks-test-hardcodes-17-and-28-so-it-guards-20261018-2] the {label} bank's spread is a range, not a point");
+            Assert.LessOrEqual(last, frames - 1,
+                $"[found-banks-test-hardcodes-17-and-28-so-it-guards-20261018-2] the {label} bank's last frame must be one its sheet has");
+            Assert.GreaterOrEqual(first, frames * 0.5f,
+                $"[found-banks-test-hardcodes-17-and-28-so-it-guards-20261018-2] the {label} bank starts in its puff frames");
+
             for (float t = 0f; t < 7f; t += 0.37f)
             {
-                float f = CombatFx.BankFrame(17f, 28f, t);
-                Assert.That(f, Is.InRange(17f, 28f), "the boil stays inside the bank's full frames");
+                float f = CombatFx.BankFrame(first, last, t);
+                Assert.That(f, Is.InRange(first, last),
+                    $"[found-banks-test-hardcodes-17-and-28-so-it-guards-20261018-2] the boil stays inside the {label} bank's full frames");
             }
         }
         [Test]
