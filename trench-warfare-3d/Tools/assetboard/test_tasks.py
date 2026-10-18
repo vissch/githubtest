@@ -348,6 +348,14 @@ def his_word(P, board):
          and next(n for n in said.values() if n['about'] == 'task: unit-never-queued' and n['text'] == src_tasks.QUEUE_SAY)['answers'][-1]['text'].startswith('Unit never-queued: it is a unit file already'), did)
     stamp = (units / 'task-agent-cutlong.json').stat().st_mtime_ns
     T = read()
+    twice = [say('agent-cutlong', src_tasks.QUEUE_SAY), say('agent-cutlong', src_tasks.QUEUE_SAY)]
+    T2 = read()
+    did2 = tasks.act(T2, where, units, now=day)
+    after2 = {n['id']: n for n in notes.read_all(where)}
+    case('act: a click he made again on a task that is queued already is answered with its unit at once, the task stays one unit, and no note of his about it is left open',
+         sum('a second click of his was answered' in d for d in did2) >= 1 and all(after2[n['id']]['state'] == 'done' and after2[n['id']]['answers'][-1]['text'].startswith('Unit task-agent-cutlong: ') for n in twice)
+         and len(list(units.glob('task-agent-cutlong*.json'))) == 1 and [r['state'] for r in read()['rows'] if r['id'] == 'agent-cutlong'] == ['queued']
+         and not [d for d in tasks.act(read(), where, units, now=day) if 'second click' in d], (did2, [after2[n['id']] for n in twice]))
     again = tasks.act(T, where, units, now=day)
     by = {r['id']: r for r in T['rows']}
     case('tasks: taken up once: the next reading knows the unit by name, says so on the row, and writes and answers nothing again',
