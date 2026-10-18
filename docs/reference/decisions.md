@@ -483,6 +483,17 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   next push creates it fresh and fast-forwards every time after; (b) run `Tools/relay/relay.py update` on the
   relay-run checkout so the live rules pick up the suffix fallback; (c) the owner pushes or lands this lane by
   hand. Default taken: none; recorded and stopped (this leg, push-heroes-off-bench-retry).
+  Fourth attempt, 2026-10-18 (`heroes-off-bench-retry`): the owner's "Try it once more as it stands" was run
+  exactly once more from HEAD `6a129c614` (7 commits ahead of integration, 0 behind): `git push origin
+  lane/show/heroes-off-bench` refused again, same shape — `! [rejected] lane/show/heroes-off-bench ->
+  lane/show/heroes-off-bench (non-fast-forward)` — against the same stale `origin/lane/show/heroes-off-bench`
+  (`1eb8ac418`, unchanged, confirmed by `git ls-remote` this leg). The refusal is git's own non-fast-forward
+  check, not a relay guard this time (`cmdrules.py`'s `fallback_name` is still absent from the live relay-run
+  copy, confirmed this leg: 0 matches). Options unchanged from the third attempt: (a, recommended) the owner
+  deletes `origin/lane/show/heroes-off-bench` by hand so this lane's next push creates it fresh and
+  fast-forwards every time after; (b) run `Tools/relay/relay.py update` on the relay-run checkout so the live
+  rules pick up the suffix fallback; (c) the owner pushes or lands this lane by hand. Default taken: none;
+  recorded and stopped (this leg, heroes-off-bench-retry).
 - **heroes-off-bench-c: the unit's substance is already on origin through integration; nothing left to measure or
   rebuild (2026-10-18).** `8d0893f73` and `d0dd949c6` (the `TeamMask = 0` fix, gated on `stressUnits > 0` so every
   other preset is untouched) and `bf47ff7f5` (the tag, carrying the old→new baseline numbers) are all ancestors of
