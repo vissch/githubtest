@@ -489,6 +489,9 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   fast-forwards every time after; (b) run `Tools/relay/relay.py update` on the relay-run checkout so the live
   rules pick up the suffix fallback; (c) the owner pushes or lands this lane by hand. Default taken: none;
   recorded and stopped (this leg, heroes-off-bench-retry).
+  Fifth attempt, 2026-10-18 (`push-heroes-off-bench-retry`): run once more from HEAD `5018872236`, refused the
+  same way against the same unchanged `1eb8ac418`; the options and the reasons are exactly those of the fourth
+  attempt above. Default taken: none; recorded and stopped.
 - **heroes-off-bench-c: the unit's substance is already on origin through integration; nothing left to measure or
   rebuild (2026-10-18).** `8d0893f73` and `d0dd949c6` (the `TeamMask = 0` fix, gated on `stressUnits > 0` so every
   other preset is untouched) and `bf47ff7f5` (the tag, carrying the old→new baseline numbers) are all ancestors of
