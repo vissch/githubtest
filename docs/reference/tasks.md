@@ -317,8 +317,10 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time, as do machine-gun rounds a wreck's cover stopped
   (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`). A shot at a wreck names it in `Shot.b` as
   `Sim/Core/PropTarget.cs` encodes it (`-2 - prop`): a gun with nobody to shoot at fires at a wreck its enemies are
-  behind (`DirectFire.Wrecks`, `Shelter`).
-- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages).
+  behind (`DirectFire.Wrecks`, `Shelter`). The shelter list itself is built only on a tick where a live slot, off
+  cooldown and on its own scan tick, has no target (`DirectFire.Wrecks.AnyGunIdle`): a tick where every gun has a
+  mark throws the whole scan away.
+- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages, and `TheShelterListIsBuiltOnlyWhenAGunHasNoTarget`), SimTickBenchTests (the shelter scan's share of a tick, `Report_TheSimTickCost`).
 
 ### Factions, rosters and the unit table
 - **Files:** `Sim/Core/Faction.cs` (`FactionId`: Iron and Brass, the greybox pair, and four historical armies; a side's
@@ -1049,7 +1051,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 <!-- /gen:hooks -->
 
 <!-- gen:tests -->
-- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
+- **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CampaignProfileTests, ColumnLightTests, ColumnPlayTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, StaticLifecycleTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatTintTests, VehicleDeathTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests

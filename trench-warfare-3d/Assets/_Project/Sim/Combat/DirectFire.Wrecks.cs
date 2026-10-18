@@ -75,11 +75,26 @@ namespace TW.Sim.Combat
             }
         }
 
+        /// <summary>A live slot off cooldown, on its own scan tick (AtWreck's own stagger), with no target: the same gate
+        /// AtWreck tests before it reads Shelters, and nothing narrower (Melee/Disarmed, pinned, TrenchId, Airborne,
+        /// KnockedOut, weapon damage are left out on purpose, so this never drifts tighter than what AtWreck needs).</summary>
+        bool AnyGunIdle(SimWorld w)
+        {
+            for (int i = (int)(w.Tick % 3u); i < w.HighWater; i += 3)
+            {
+                if ((w.Flags[i] & (uint)UnitFlags.Alive) == 0 || w.Hp[i] <= 0f || w.FireCooldown[i] > 0) continue;
+                if (w.TargetSlot[i] < 0) return true;
+            }
+            return false;
+        }
+
         /// <summary>The wrecks with men behind them this tick, in prop order, from the spatial hash (a tick old, as the near
-        /// miss's). Main thread, before the fire job.</summary>
+        /// miss's). Main thread, before the fire job. Built only when AnyGunIdle: AtWreck is this list's only reader, and
+        /// it needs nothing from a tick where every live slot already has a target.</summary>
         void BuildShelters(SimWorld w)
         {
             shelters.Clear();
+            if (!AnyGunIdle(w)) { ShelterSkips++; return; }
             var hash = movement.Spatial;
             for (int p = 0; p < map.Props.Length; p++)
             {

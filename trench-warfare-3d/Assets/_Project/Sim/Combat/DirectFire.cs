@@ -104,6 +104,11 @@ namespace TW.Sim.Combat
         /// <summary>This tick's kills, (slot, killer) in the order they died; valid until the next Step (HeroSystem reads it).</summary>
         public NativeList<int2> Killed => killed;
 
+        /// <summary>The wrecks men are behind this tick, valid after Step (DirectFire.Wrecks.BuildShelters).</summary>
+        public int ShelterCount => shelters.Length;
+        /// <summary>Ticks BuildShelters skipped the scan because no live slot had no target (DirectFire.Wrecks.AnyGunIdle).</summary>
+        public int ShelterSkips;
+
         public void Step(SimWorld w)
         {
             int n = w.HighWater;
