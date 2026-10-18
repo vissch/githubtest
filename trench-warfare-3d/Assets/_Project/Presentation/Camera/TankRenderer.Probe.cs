@@ -11,7 +11,7 @@ namespace TW.Presentation.Tactical
         /// <summary>The ride springs alone (Pitch, Roll, Heave), and what the hull is drawn at (Hull*: with the kick layer,
         /// the flair and the footfall on top).</summary>
         public float Pitch, Roll, Heave, HullPitch, HullRoll, HullHeave;
-        public float KickPitch, KickRoll, Foot;
+        public float KickPitch, KickRoll, Foot, Lurch;
         public float Recoil0, Recoil1, GunYaw0, Settle0, Settle1, TopKick;
         public int FeetLanded;
         public bool Legged, Stalled, Weighted;
@@ -27,9 +27,9 @@ namespace TW.Presentation.Tactical
             const float D = Mathf.Rad2Deg;
             p.Speed = v.Speed; p.Accel = v.Accel; p.YawRate = v.YawRate; p.Throttle = v.Throttle;
             p.Pitch = v.Pitch.Value * D; p.Roll = v.Roll.Value * D; p.Heave = v.Heave.Value;
-            p.HullPitch = (v.Pitch.Value + v.PitchFx + v.KickP.Value) * D; p.HullRoll = (v.Roll.Value + v.KickR.Value) * D;
+            p.HullPitch = (v.Pitch.Value + v.PitchFx + v.KickP.Value + v.Lurch.Value) * D; p.HullRoll = (v.Roll.Value + v.KickR.Value) * D;
             p.HullHeave = v.Heave.Value + v.Bob + v.Foot.Value;
-            p.KickPitch = v.KickP.Value * D; p.KickRoll = v.KickR.Value * D; p.Foot = v.Foot.Value;
+            p.KickPitch = v.KickP.Value * D; p.Lurch = v.Lurch.Value * D; p.KickRoll = v.KickR.Value * D; p.Foot = v.Foot.Value;
             p.Recoil0 = v.Recoil[0]; p.Recoil1 = v.Recoil[1];
             p.GunYaw0 = (v.GunYaw[0] + v.Settle[0].Value) * D; p.Settle0 = v.Settle[0].Value * D; p.Settle1 = v.Settle[1].Value * D; p.TopKick = v.TopKick.Value * D;
             p.Legged = v.Legs != null && v.Legs.Ready;

@@ -97,6 +97,9 @@ namespace TW.Presentation.Tactical
             /// time, and a slow turret's settle past its mark.</summary>
             public uint SimTick = uint.MaxValue; public float SimSpeed;
             public Spring Felt, KickP, KickR, Foot;
+            /// <summary>The brake lurch (TankRenderer.Weight.cs): a walker's nose-down under the brakes, a layer on top
+            /// of the gait's tilt, which is written straight and would wipe a sprung squat.</summary>
+            public Spring Lurch;
             /// <summary>The top's own answer to a shot (yaw, radians): a quick swing on the barrel's kick that
             /// springs back to the mark the sim laid. Not Settle, which SettleTurrets wipes whenever a shot is due.</summary>
             public Spring TopKick;
@@ -625,7 +628,7 @@ namespace TW.Presentation.Tactical
             // omega 7 costs 0.433 s of extra lag - the pair together take 0.700 s to reach 90% of a new tilt,
             // 0.84 m of travel at 1.2 m/s, and the second filter is 162% of the total. It is lag for nothing, and
             // it is what makes a machine read as a box on a spring rather than a body carried on legs.
-            if (legged) { TakeWalkerKicks(v, dt); v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
+            if (legged) { TakeWalkerKicks(v, dt); LurchOnTheBrakes(v, dt); v.Pitch.Value = pitch; v.Pitch.Velocity = 0f; v.Roll.Value = roll; v.Roll.Velocity = 0f; }
             else
             {
                 float omega = v.Hover && st.Omega == PlainStyle.Omega ? HoverSettle : st.Omega;
@@ -766,7 +769,7 @@ namespace TW.Presentation.Tactical
 
         // ------------------------------------------------------------------ pose
         Quaternion HullRotation(View v)
-            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.HopTilt + v.PitchFx + v.KickP.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.Heel + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
+            => Quaternion.AngleAxis((v.Yaw + v.Drift) * Mathf.Rad2Deg, Vector3.up) * Quaternion.AngleAxis(-(v.Pitch.Value + v.HopTilt + v.PitchFx + v.KickP.Value + v.Lurch.Value) * Mathf.Rad2Deg, Vector3.right) * Quaternion.AngleAxis(-(v.Roll.Value + v.Heel + v.KickR.Value) * Mathf.Rad2Deg, Vector3.forward);
 
         /// <summary>A part's matrix in its parent's frame, with what it is doing now.</summary>
         Matrix4x4 PartLocal(View v, TankModel.Part p, int index)

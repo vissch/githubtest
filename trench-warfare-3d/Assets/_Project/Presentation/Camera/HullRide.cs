@@ -109,6 +109,32 @@ namespace TW.Presentation.Tactical
             else if (value < -cap) { value = -cap; if (velocity < 0f) velocity = 0f; }
         }
 
+        // ---- a walker's lurch on the brakes ----
+
+        /// <summary>The walker brake lurch: its spring, its damping and how far it may ever pitch. A walker's tilt is
+        /// written straight off its feet each frame, so a squat cannot be put into the ride spring (it would be wiped);
+        /// this is a layer on top, like the kick layer, but held against the acceleration rather than decaying from a
+        /// kick, and on a cap of its own so a low gait tilt cap cannot clip it. Zeta is the rebound: released from -A the layer
+        /// overshoots to +exp(-pi zeta / sqrt(1 - zeta^2)) A. Zeta 0.45 (0.205 A) traced a Pincer's halt at dip -2.49
+        /// degrees but a rebound of only 0.26, under the 0.3 asked, because the hull is still settling on its feet when
+        /// the layer comes back; 0.38 (0.275 A) measured -2.50 and 0.46 (traced 2026-10-18). Omega 5 peaks in 0.68 s, inside the
+        /// 0.89 s a Pincer takes to stop from a full walk.</summary>
+        public const float LurchOmega = 5f, LurchZeta = 0.38f, LurchMaxDeg = 3.5f;
+
+        /// <summary>Where the lurch layer is pulled to (radians): the style's squat against the felt acceleration, the
+        /// same sign as Flair's squat (squat positive, braking acceleration negative, so the nose goes down).</summary>
+        public static float LurchTarget(float squat, float accel)
+            => Mathf.Clamp(squat * accel, -LurchMaxDeg * Mathf.Deg2Rad, LurchMaxDeg * Mathf.Deg2Rad);
+
+        /// <summary>One frame of the layer: it springs to its target, clamped to LurchMaxDeg.</summary>
+        public static void StepLurch(ref float value, ref float velocity, float target, float dt)
+        {
+            Solve(ref value, ref velocity, target, dt, LurchOmega, LurchZeta);
+            float cap = LurchMaxDeg * Mathf.Deg2Rad;
+            if (value > cap) { value = cap; if (velocity > 0f) velocity = 0f; }
+            else if (value < -cap) { value = -cap; if (velocity < 0f) velocity = 0f; }
+        }
+
         // ---- the top takes a little of the shot ----
 
         /// <summary>The share of a barrel's kick the top passes on (the owner, 2026-10-12: the recoil should read),

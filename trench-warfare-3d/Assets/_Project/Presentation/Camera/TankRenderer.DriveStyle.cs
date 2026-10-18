@@ -76,14 +76,15 @@ namespace TW.Presentation.Tactical
                 case VehicleArchetype.Hopper:
                     s.Omega = 3f; s.Zeta = 0.5f; s.HeaveOmega = 5f; s.Squat = -0.06f; s.Lean = -0.09f;
                     s.RumbleAmp = 0.003f; s.RumbleThrottle = 0.004f; s.RumbleRate = 70f; s.Rev = 0.6f; s.Puff = 0.6f; break;
-                // the walkers: how they step, not how they ride (their tilt comes off their feet)
-                case VehicleArchetype.Pincer:  s.Swing = 0.8f;  s.Arc = 0.85f; s.Stomp = 0.25f; s.HeaveOmega = 12f; s.RumbleAmp = 0.003f; break;   // six legs scuttle
-                case VehicleArchetype.Kettle:  s.Swing = 1.0f;  s.Arc = 1.25f; s.Stomp = 0.55f; s.HeaveOmega = 9f; break;                          // high-stepping, bouncy
-                case VehicleArchetype.Censer:  s.Swing = 0.75f; s.Arc = 1.0f;  s.Stomp = 0.3f;  s.HeaveOmega = 12f; s.RumbleAmp = 0.003f; break;   // quick and skittery
-                case VehicleArchetype.Pavise:  s.Swing = 1.3f;  s.Arc = 0.8f;  s.Stomp = 1.3f;  s.HeaveOmega = 8f; break;                          // plants each foot hard
-                case VehicleArchetype.Banner:  s.Swing = 1.25f; s.Arc = 1.4f;  s.Stomp = 0.45f; s.HeaveOmega = 9f; break;                          // tall, stately steps
-                case VehicleArchetype.Redoubt: s.Swing = 1.4f;  s.Arc = 0.7f;  s.Stomp = 1.7f;  s.HeaveOmega = 7f; s.RumbleAmp = 0.009f; break;    // the ponderous blockhouse
-                case VehicleArchetype.Croaker: s.Swing = 0.9f;  s.Arc = 1.5f;  s.Stomp = 1.2f;  s.HeaveOmega = 8f; break;                          // two legs, lunging strides
+                // the walkers: how they step, not how they ride (their tilt comes off their feet) - and how hard each
+                // noses down under the brakes (Squat, drawn on a layer of its own: TankRenderer.Weight.cs)
+                case VehicleArchetype.Pincer:  s.Swing = 0.8f; s.Squat = 0.027f;  s.Arc = 0.85f; s.Stomp = 0.25f; s.HeaveOmega = 12f; s.RumbleAmp = 0.003f; break;   // six legs scuttle
+                case VehicleArchetype.Kettle:  s.Swing = 1.0f; s.Squat = 0.030f;  s.Arc = 1.25f; s.Stomp = 0.55f; s.HeaveOmega = 9f; break;                          // high-stepping, bouncy
+                case VehicleArchetype.Censer:  s.Swing = 0.75f; s.Squat = 0.024f; s.Arc = 1.0f;  s.Stomp = 0.3f;  s.HeaveOmega = 12f; s.RumbleAmp = 0.003f; break;   // quick and skittery
+                case VehicleArchetype.Pavise:  s.Swing = 1.3f; s.Squat = 0.036f;  s.Arc = 0.8f;  s.Stomp = 1.3f;  s.HeaveOmega = 8f; break;                          // plants each foot hard
+                case VehicleArchetype.Banner:  s.Swing = 1.25f; s.Squat = 0.034f; s.Arc = 1.4f;  s.Stomp = 0.45f; s.HeaveOmega = 9f; break;                          // tall, stately steps
+                case VehicleArchetype.Redoubt: s.Swing = 1.4f; s.Squat = 0.038f;  s.Arc = 0.7f;  s.Stomp = 1.7f;  s.HeaveOmega = 7f; s.RumbleAmp = 0.009f; break;    // the ponderous blockhouse
+                case VehicleArchetype.Croaker: s.Swing = 0.9f; s.Squat = 0.032f;  s.Arc = 1.5f;  s.Stomp = 1.2f;  s.HeaveOmega = 8f; break;                          // two legs, lunging strides
             }
             return s;
         }
