@@ -43,7 +43,12 @@ namespace TW.Sim
                 case InfantryArchetype.Repair: return Support;
                 case InfantryArchetype.Para:
                 case InfantryArchetype.Jetpack: return Raider;
-                default: return Line;   // an unknown man holds the parapet with everyone else rather than ignoring orders
+                case InfantryArchetype.Sentry: return Gun;
+                case InfantryArchetype.AtRifle: return Marksman;
+                case InfantryArchetype.Sapper: return Support;
+                case VehicleArchetype.Mercy: return Support;
+                default: return Line;   // an id nothing defines yet holds the parapet with everyone else; every id
+                                         // UnitDefinitions defines is named above and must agree with its own Group
             }
         }
     }
