@@ -215,6 +215,10 @@ namespace TW.Sim
         // WreckTries sheltering wrecks, nearest first, instead of returning on the nearest one whose shadow is empty
         // or that it cannot see. No field added, moved or dropped; the shots, suppression and prop hit points differ
         // at a tick, so older replays do not verify.
+        // v53 (2026-10-18, small arms and a crew's nerve): DirectFire.AddSuppression ignores a UnitFlags.Vehicle slot
+        // exactly as it ignores Airborne, so no gunfire path (hit, near miss, fire-step miss, shield graze, wreck
+        // shadow) suppresses a hull; blast, gas, fire and beams are unchanged. Hashed Suppression values move, so
+        // replays recorded before this commit no longer verify.
         public const ushort FormatVersion = 66;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
