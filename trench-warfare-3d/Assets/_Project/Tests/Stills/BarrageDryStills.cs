@@ -75,6 +75,9 @@ namespace TW.Tests
             yield return new EnterPlayMode();
             for (int f = 0; f < 900 && (Host == null || Host.Local == null); f++) yield return null;
             Assert.That(Host?.Local, Is.Not.Null, "no match");
+            // critic r1, fix 1: r4 shot barrage-t1 with the yellow aim disc on, so effect_area measured the marker.
+            // Overlays off and shake 0 keeps the plate and the shot on one camera: the mask is the burst, nothing else.
+            TestContext.Out.WriteLine("quiet frame: " + CaptureRig.QuietFrame());
 
             string dir = System.Environment.GetEnvironmentVariable("TW_BARRAGEDRY_DIR");
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Captures", "barragedry");
@@ -93,33 +96,51 @@ namespace TW.Tests
             var host = Host;
             var map = host.Local.Map;
             var size = map.SizeMeters;
-            float room = VfxStills.Room("barrage");
+            // 8 m, not VfxStills.Room("barrage") 12 m: the damp paint this test needs sits along the trenches, and the
+            // 12 m rule (plus 18 m clear of static cover) rejects every damp patch on the field - the wettest point it
+            // allows is 0.059 of cells wet against 0.198 in the open, and the baseline then shows no plume to speak of.
+            // The plate is shot at the same pose, so a prop or a trench lip in frame subtracts out of the mask.
+            const float room = 8f;
 
-            // dry ground: open enough for a barrage, and no standing water over SplashDepth within 14 m. The driest
-            // point found is kept as a fallback, so a flooded field is reported rather than shot as if it were dry.
-            float x = -1f, z = -1f, deepest = 0f; int wet = 0, cells = 0;
-            float bestX = -1f, bestZ = -1f, bestDeep = float.MaxValue; int bestWet = 0, bestCells = 0;
-            for (float zz = 40f; zz < size.y - 40f && x < 0f; zz += 6f)
-                for (float xx = 20f; xx < size.x - 20f && x < 0f; xx += 6f)
+            // critic r1, fix 2: dry ground is not enough. r4's point was merely dry, so the OLD code drew earth there
+            // too and the A/B was 0.36% of pixels apart. What shows the bug is ground with no standing water over
+            // SplashDepth but a high share of cells the old IsWater test calls wet (a painted damp patch, dressed shell
+            // holes): there the old code splashes blue and the new code throws earth. Pick the wettest such point.
+            float x = -1f, z = -1f, deepest = 0f; int wet = 0, cells = 0; float share = -1f;
+            float bestX = -1f, bestZ = -1f, bestDeep = 0f; int bestWet = 0, bestCells = 0; float bestShare = -1f;
+            // the whole field, less the room the camera and the scatter need, at 2 m: on GreyboxCorridor the damp
+            // paint sits where r4's narrower window (x 20, z 40, 6 m) never looked, and the wettest shallow ground
+            // there reaches 0.225 of cells within 12 m against 0.071 inside it (measured 2026-10-19).
+            for (float zz = 14f; zz < size.y - 14f; zz += 2f)
+                for (float xx = 14f; xx < size.x - 14f; xx += 2f)
                 {
                     if (!VfxStills.Open(map, xx, zz, room)) continue;
-                    var w = Water(xx, zz, 14f);
-                    if (w.deepest < bestDeep) { bestDeep = w.deepest; bestX = xx; bestZ = zz; bestWet = w.wet; bestCells = w.cells; }
-                    if (w.deepest > CombatFx.SplashDepth) continue;
-                    x = xx; z = zz; deepest = w.deepest; wet = w.wet; cells = w.cells;
+                    var w = Water(xx, zz, 12f);   // 12 m: the shells' scatter, and the frame the plume is drawn in.
+                    // A 6 m core was tried on 2026-10-19 and read WORSE in the baseline (blue 0.0097 against 0.0665):
+                    // the impacts that matter are spread over the frame, not piled on the aim point.
+                    float sh = w.cells > 0 ? w.wet / (float)w.cells : 0f;
+                    if (sh > bestShare) { bestShare = sh; bestX = xx; bestZ = zz; bestDeep = w.deepest; bestWet = w.wet; bestCells = w.cells; }
+                    // dry over 25 m, not 12: the shells scatter wider than the frame, and one of them landing in the
+                    // river makes BOTH codes splash - which is how the first r5 take came back with the before and
+                    // after shot pixel for pixel the same (2026-10-19).
+                    if (Water(xx, zz, 25f).deepest > CombatFx.SplashDepth) continue;
+                    if (sh <= share) continue;
+                    share = sh; x = xx; z = zz; deepest = w.deepest; wet = w.wet; cells = w.cells;
                 }
-            bool fallback = x < 0f;
-            if (fallback) { x = bestX; z = bestZ; deepest = bestDeep; wet = bestWet; cells = bestCells; }
+            bool fallback = x < 0f || share < 0.5f;
+            if (x < 0f) { x = bestX; z = bestZ; deepest = bestDeep; wet = bestWet; cells = bestCells; share = bestShare; }
             Assert.Greater(x, 0f, "no open ground for a barrage at all");
+            string note = fallback
+                ? " (FALLBACK: the wettest dry point reaches only " + share.ToString("0.###") + " of cells IsWater-wet, under 0.5)"
+                : "";
             TestContext.Out.WriteLine("barrage at " + x + ", " + z + ": deepest water " + deepest.ToString("0.###")
-                + " m, IsWater called " + wet + " of " + cells + " probed cells wet"
-                + (fallback ? " (FALLBACK: nothing drier than SplashDepth " + CombatFx.SplashDepth + " m)" : ""));
+                + " m, IsWater called " + wet + " of " + cells + " probed cells wet (share " + share.ToString("0.###") + ")" + note);
 
             var log = new System.Text.StringBuilder();
             log.Append("barrage at ").Append(x).Append(", ").Append(z)
                .Append(": deepest standing water ").Append(deepest.ToString("0.###")).Append(" m, SplashDepth ")
                .Append(CombatFx.SplashDepth).Append(" m; IsWater called ").Append(wet).Append(" of ").Append(cells)
-               .Append(" probed cells wet").Append(fallback ? " (FALLBACK: no point drier than SplashDepth)" : "")
+               .Append(" probed cells wet (share ").Append(share.ToString("0.###")).Append(')').Append(note)
                .Append(baseline ? "; BASELINE run: SceneHooks.WaterDepth nulled, CombatFx on the old IsWater test" : "")
                .Append('\n');
 
@@ -144,7 +165,10 @@ namespace TW.Tests
             while (latch.At < 0f && Time.time < start + 20f) yield return null;   // the barrage warms up ~4 s before its first shell
             string moment;
             if (latch.At < 0f) moment = "Explosion never fired in 20 s: shot anyway";
-            else { float due = latch.At + 0.4f; while (Time.time < due) yield return null; moment = "0.4 s after the first Explosion"; }
+            // 2 s, not r4's 0.4 s: at 0.4 s one or two shells have landed, and with 13% of the ground damp the old
+            // code's blue plume was a coin flip - the before and after shot came back byte-identical (2026-10-19).
+            // By 2 s a dozen shells have landed and their plumes overlap, and the T1 effect area is still 0.11.
+            else { float due = latch.At + 2f; while (Time.time < due) yield return null; moment = "2 s after the first Explosion"; }
             log.Append("barrage-t1 and barrage-o240: ").Append(moment).Append('\n');
             TestContext.Out.WriteLine("barrage: " + moment);
 

@@ -1,0 +1,7 @@
+GreyboxCorridor, NightMud (the owner's night look), clock running, weather pinned at 30 s.
+barrage at 58, 228: deepest standing water 0 m, SplashDepth 0.2 m; IsWater called 22 of 169 probed cells wet (share 0.13) (FALLBACK: the wettest dry point reaches only 0.13 of cells IsWater-wet, under 0.5)
+plate-t1 and plate-o240: the same pose, before the call, no area marker
+barrage-t1 and barrage-o240: 2 s after the first Explosion
+barrage-t1: against plate-t1.jpg | effect_area 0.3176, blue_share 0.0172 (raw 0.0538), outside_bbox_luma_diff 1.959 | pose_error_m 0
+barrage-o240: against plate-o240.jpg | effect_area 0.0160, blue_share 0.0454 (raw 0.2493), outside_bbox_luma_diff 0.876 | pose_error_m 0
+baseline-barrage-t1: against baseline-plate-t1.jpg | effect_area 0.3176, blue_share 0.0183 (raw 0.0547), outside_bbox_luma_diff 1.960 | pose_error_m 0

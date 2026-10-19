@@ -1,0 +1,55 @@
+{
+  "barrage_blue_share_o240": 0.0454,
+  "barrage_blue_share_t1": 0.0172,
+  "barrage_effect_area_o240": 0.016,
+  "barrage_effect_area_t1": 0.3176,
+  "baseline_blue_min": 0.1,
+  "baseline_blue_share_t1": 0.0183,
+  "baseline_effect_area_t1": 0.3176,
+  "blue_limit": 0.02,
+  "effect_area_max": 0.4,
+  "effect_area_min": 0.05,
+  "effect_area_min_o240": 0.01,
+  "outside_bbox_luma_diff": 1.959,
+  "outside_bbox_luma_diff_max": 3.0,
+  "pose_error_m": {
+    "barrage-o240": 0,
+    "barrage-t1": 0,
+    "baseline-barrage-t1": 0,
+    "baseline-plate-t1": 0,
+    "plate-o240": 0,
+    "plate-t1": 0
+  },
+  "rows": [
+    {
+      "blue_share": 0.0172,
+      "blue_share_raw": 0.0538,
+      "effect_area": 0.3176,
+      "mask_pixels": 114335,
+      "outside_bbox_luma_diff": 1.959,
+      "plate": "plate-t1.jpg",
+      "sampled_pixels": 360000,
+      "still": "barrage-t1"
+    },
+    {
+      "blue_share": 0.0454,
+      "blue_share_raw": 0.2493,
+      "effect_area": 0.016,
+      "mask_pixels": 5777,
+      "outside_bbox_luma_diff": 0.876,
+      "plate": "plate-o240.jpg",
+      "sampled_pixels": 360000,
+      "still": "barrage-o240"
+    },
+    {
+      "blue_share": 0.0183,
+      "blue_share_raw": 0.0547,
+      "effect_area": 0.3176,
+      "mask_pixels": 114340,
+      "outside_bbox_luma_diff": 1.96,
+      "plate": "baseline-plate-t1.jpg",
+      "sampled_pixels": 360000,
+      "still": "baseline-barrage-t1"
+    }
+  ]
+}
