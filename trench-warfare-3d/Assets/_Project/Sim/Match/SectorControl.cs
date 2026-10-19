@@ -3,7 +3,7 @@
 // defender inside, in OrderIndex order along that side's line (Outpost -> Main -> Reserve -> HQ): a team must own
 // every lower-ordered objective on a side before it can take the next; a side winning back its OWN line goes the
 // other way, nearest first (Reserve before Main), which is Unlocked's ownSide branch. Progress drains at the same rate when the
-// attackers leave, and freezes while the cells are contested. When the objective lies on a trench, the trench
+// attackers leave, and freezes only while both sides have men inside. When the objective lies on a trench, the trench
 // changes owner with it (TrenchCaptured), which moves both teams' front trench and hands the garrison's orders to
 // the new owner. Capturing an HQ ends the match. Traverse-by-traverse capture and the mustard-gas block are later.
 using Unity.Collections;
@@ -89,6 +89,7 @@ namespace TW.Sim.Match
                 if (s.Owner > 1) continue;                       // neutral objectives are a mission feature (A6)
                 byte attacker = (byte)(1 - s.Owner);
                 int attackers = counts[o * 2 + attacker], defenders = counts[o * 2 + s.Owner];
+                bool contested = attackers > 0 && defenders > 0;
                 if (attackers >= def.RequiredUnits && defenders == 0 && Unlocked(o, attacker))
                 {
                     s.CapturingTeam = attacker;
@@ -101,7 +102,7 @@ namespace TW.Sim.Match
                         continue;
                     }
                 }
-                else if (attackers == 0 && s.CaptureProgressTicks > 0)
+                else if (s.CaptureProgressTicks > 0 && !contested)
                 {
                     s.CaptureProgressTicks--;
                     if (s.CaptureProgressTicks == 0) s.CapturingTeam = 255;
