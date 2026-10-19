@@ -10,6 +10,8 @@
 //     distance, played late by the speed of sound and quieter from further off.
 // Strikes come more often when the rain is heavy (Atmosphere.RainNow). All of it is one small mesh, one light, one glow
 // card and one AudioSource.
+// Start logs "[Storm] thunder synth N ms" around the three MakeThunder calls (not editor-only: this is the cost a
+// release player pays, once per Storm instance, with no caching across scene loads — found 2026-10-16, see tasks.md).
 // The freeze frame (owner, 2026-09-22): the world stops for FreezeSeconds while a strike flickers, like a photograph
 // taken by its light: Time.timeScale holds at 0 (the sim, the men, the rain and every effect stand still; the camera and
 // the storm run on unscaled time), the flicker is spread across the hold so the frozen picture stays lit, and time
@@ -80,7 +82,10 @@ namespace TW.Presentation.Terrain
             // deliberately NOT creating an AudioListener here. FindFirstObjectByType skips inactive objects, so a
             // frame where the camera is inactive used to add a SECOND listener, which Unity warns about and which
             // makes global volume non-deterministic. Listener ownership belongs to the camera, not to the weather.
+            var sw = System.Diagnostics.Stopwatch.StartNew();
             thunder = new[] { MakeThunder(0, 1f, 5.5f), MakeThunder(1, .45f, 6.5f), MakeThunder(2, .08f, 7.5f) };   // near: a crack; far: all rumble
+            sw.Stop();
+            Debug.Log($"[Storm] thunder synth {sw.Elapsed.TotalMilliseconds:F1} ms, 3 clips, {5.5f + 6.5f + 7.5f}s");
             nextStrike = clock + 9f;
         }
 
