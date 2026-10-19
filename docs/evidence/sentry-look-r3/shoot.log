@@ -1,0 +1,51 @@
+sentry-look-r3 capture  2026-10-19 14:22:05
+scene Assets/_Project/Scenes/GreyboxCorridor.unity  yaw=21.0 1920x1080  bands ['t3', 't1', 'o120']
+open the battle scene and enter Play
+  scene        -> opened
+  loaded       -> GreyboxCorridor
+stage the Sentry and the Machinegunner side by side
+  place        -> sentry=5 gunner=7 control=8 centre=(45.00, 0.00, 6.00) tick=1312
+pin the line, then let them aim and let the Sentry set his plate down
+  pin          -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=True alive=True/True/True plate_to_man_m=1.412
+  state        -> tick=1688 | sentry alive=True hp=500 stance=1 target=-1 | gunner alive=True hp=500 stance=1 target=-1 | control alive=True hp=499 stance=1 target=-1 | spot_set=True spot_foot=(45.62, 2.36, 7.87) spot_fwd=(-0.26, 0.00, 0.96) mask=False
+  pin          -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+the pair, at each band
+  pin_pair_t3  -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  shot_pair_t3 -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\pair_t3.png
+  pair_t3      -> pair_t3.png (2481 KB) pose_error_m=0 men_in_frame=1 drawn_near=3 drawn_far=0
+  pin_crops_t3 -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  crops_t3     -> {"pose_check_m":0.0000,"fov":40.741,"zoom":7.5,"pitch":13,"men":{"sentry":{"foot":[408.45,648.20],"head":[387.70,415.28],"slot":5},"gunner":{"foot":[960.00,645.18],"head":[960.00,412.03],"slot":7},"control":{"foot":[1511.75,645.91],"head":[1532.51,412.82],"slot":8}}}
+  release_t3   -> released
+  pin_pair_t1  -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  shot_pair_t1 -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\pair_t1.png
+  pair_t1      -> pair_t1.png (3182 KB) pose_error_m=0 men_in_frame=3 drawn_near=3 drawn_far=0
+  pin_crops_t1 -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  crops_t1     -> {"pose_check_m":0.0000,"fov":25.000,"zoom":30,"pitch":25,"men":{"sentry":{"foot":[817.86,471.18],"head":[816.35,415.12],"slot":5},"gunner":{"foot":[960.00,470.44],"head":[960.00,414.36],"slot":7},"control":{"foot":[1102.16,470.62],"head":[1103.67,414.54],"slot":8}}}
+  release_t1   -> released
+  pin_pair_o120 -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  shot_pair_o120 -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\pair_o120.png
+  pair_o120    -> pair_o120.png (2147 KB) pose_error_m=0 men_in_frame=3 drawn_near=0 drawn_far=4
+  pin_crops_o120 -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  crops_o120   -> {"pose_check_m":0.0001,"fov":25.000,"zoom":120,"pitch":55,"men":{"sentry":{"foot":[924.70,529.18],"head":[924.53,520.48],"slot":5},"gunner":{"foot":[960.00,529.07],"head":[960.00,520.36],"slot":7},"control":{"foot":[995.30,529.10],"head":[995.48,520.39],"slot":8}}}
+  release_o120 -> released
+the plate's own pixels, at T3, in the flat mask mode
+  pin_mask_t3  -> pinned sentry=(45.72, 0.00, 7.54) mid=(47.33, 0.00, 11.74) forgot_plate=False alive=True/True/True plate_to_man_m=0.345
+  shot_mask_t3 -> held: held at weather clock 120 | mask=True zoom=7.5 pitch=13 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\mask_t3.png
+  mask_t3      -> mask_t3.png (2488 KB) pose_error_m=0 men_in_frame=1 drawn_near=3 drawn_far=0
+  release_mask -> released
+the bare ground: every man 500 m off, every plate forgotten
+  empty        -> moved=17 sentry_now=float3(545.7197f, 0f, 507.5397f) spot_set=False
+  shot_empty_t3 -> held: held at weather clock 120 | mask=False zoom=7.5 pitch=13 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\empty_t3.png
+  empty_t3     -> empty_t3.png (2498 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=0
+  release_e_t3 -> released
+  shot_empty_t1 -> held: held at weather clock 120 | mask=False zoom=30 pitch=25 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\empty_t1.png
+  empty_t1     -> empty_t1.png (3213 KB) pose_error_m=0 men_in_frame=0 drawn_near=1 drawn_far=0
+  release_e_t1 -> released
+  shot_empty_o120 -> held: held at weather clock 120 | mask=False zoom=120 pitch=55 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3\empty_o120.png
+  empty_o120   -> empty_o120.png (2146 KB) pose_error_m=0 men_in_frame=0 drawn_near=0 drawn_far=1
+  release_e_o120 -> released
+  crops t3    pose_check_m=0.0 sentry foot=[408.45, 648.2] head=[387.7, 415.28] | gunner foot=[960.0, 645.18] head=[960.0, 412.03]
+  crops t1    pose_check_m=0.0 sentry foot=[817.86, 471.18] head=[816.35, 415.12] | gunner foot=[960.0, 470.44] head=[960.0, 414.36]
+  crops o120  pose_check_m=0.0001 sentry foot=[924.7, 529.18] head=[924.53, 520.48] | gunner foot=[960.0, 529.07] head=[960.0, 520.36]
+  release      -> released
+done: seven stills, their sidecars and crops.json are in C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r3
