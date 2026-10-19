@@ -24,6 +24,7 @@ namespace TW.Presentation
                 Heavy = hitKind[i] == 2,
                 // a machine gun: the infantry's, or a machine's small arms (its tracks and claws are the two above)
                 MachineGun = killer && !crushed && (vehicle || w.Archetype[b] == InfantryArchetype.Machinegunner),
+                Frog = w.Archetype[i] == InfantryArchetype.Frog,
                 Density = density, Travel = new float3(simDir.x, 0f, simDir.z),
                 Throw = new float3(s.ThrowX, s.ThrowUp, s.ThrowZ),
                 BodyYaw = s.BodyYaw, KillerYaw = killer ? w.Yaw[b] : s.BodyYaw,
