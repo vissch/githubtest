@@ -93,7 +93,18 @@ namespace TW.Presentation.Tactical
         /// <summary>The dust puff's width at zero zoom (today's size, up close): grown by FarGrow so the landing stays
         /// readable at the overview, where the drop itself has no burst to read instead.</summary>
         public const float DropDustBase = 2f;
-        public static float DropDustWidth(float zoom) => DropDustBase * FlipbookFx.FarGrow(zoom);
+
+        /// <summary>The overview zoom the extra widening starts at, and how far it goes. FarGrow alone left the puff
+        /// 5 m (about 16 px at zoom 240's 3.25 px/m) against a scene whose luma_mean is 0.206: measured, it did not
+        /// clear a 0.05 luma lift over the bare ground (the harsh critic's fix 3).</summary>
+        public const float DropDustOverviewFrom = 120f;
+        public const float DropDustOverviewMax = 2.2f;
+
+        /// <summary>The overview-only extra scale, 1 at and below DropDustOverviewFrom so T3/T2/T1 are untouched by
+        /// construction. Pure, so a test can hold it.</summary>
+        public static float DropDustOverview(float zoom) => Mathf.Clamp(zoom / DropDustOverviewFrom, 1f, DropDustOverviewMax);
+
+        public static float DropDustWidth(float zoom) => DropDustBase * FlipbookFx.FarGrow(zoom) * DropDustOverview(zoom);
 
         /// <summary>Whether the drop is drawn at a zoom: unlike a shell's streak (IsIncoming, culled from
         /// IncomingFarZoom because the burst is the far read instead), a drop has no burst of its own, so its marker and
@@ -139,7 +150,9 @@ namespace TW.Presentation.Tactical
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(ViewEye.Zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+            bool overview = DropDustOverview(ViewEye.Zoom) > 1f;
+            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(ViewEye.Zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
+                alpha: overview ? 0.95f : 0.7f, glow: overview ? (SceneMood.Night ? 2.2f : 1.2f) : 1f);
         }
     }
 }
