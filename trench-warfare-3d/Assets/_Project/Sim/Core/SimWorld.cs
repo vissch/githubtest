@@ -53,7 +53,7 @@ namespace TW.Sim
         public NativeArray<byte> SlotUnlocked;      // MaxPlayers * RosterEntry.SlotCount (missions lock slots)
 
         // ---- bookkeeping ----
-        NativeList<int> freeSlots;      // LIFO; deterministic, and hashed (see Hash())
+        NativeList<int> freeSlots;      // LIFO; deterministic, and hashed (see Hash()); its tail is read by PeekNextSlot()
         public int HighWater;           // highest slot index ever used + 1
         public int AliveCount;
         public SimEventBuffer Events;   // transient (not hashed)
@@ -217,11 +217,16 @@ namespace TW.Sim
         // ------------------------------------------------------------------ slots
         public bool IsAlive(int slot) => slot >= 0 && slot < HighWater && (Flags[slot] & (uint)UnitFlags.Alive) != 0;
 
+        /// <summary>The slot the next <see cref="Spawn"/> will take: the free list's tail, or a fresh one at HighWater
+        /// (which is Config.MaxSlots when the world is full and Spawn will refuse). Deploy reads it to work out the
+        /// man's lane before he exists, so the prediction and the allocation are one rule, not two copies.</summary>
+        public int PeekNextSlot() => freeSlots.Length > 0 ? freeSlots[freeSlots.Length - 1] : HighWater;
+
         public int Spawn(byte team, byte archetype, float3 pos, float hp, float speed, bool vehicle)
         {
-            int slot;
-            if (freeSlots.Length > 0) { slot = freeSlots[freeSlots.Length - 1]; freeSlots.RemoveAt(freeSlots.Length - 1); }
-            else { if (HighWater >= Config.MaxSlots) return -1; slot = HighWater++; }
+            int slot = PeekNextSlot();
+            if (slot >= Config.MaxSlots) return -1;              // world full: only the HighWater branch can reach this
+            if (freeSlots.Length > 0) freeSlots.RemoveAt(freeSlots.Length - 1); else HighWater++;
 
             Position[slot] = pos; Velocity[slot] = float3.zero; Yaw[slot] = team == 0 ? 0f : SimMath.Pi;
             Hp[slot] = hp; MaxHp[slot] = hp; Suppression[slot] = 0f; Alarm[slot] = 0f; Speed[slot] = speed;
@@ -335,7 +340,7 @@ namespace TW.Sim
             // reinforcements come up on a front as wide as the field: a man on foot starts on his own lane (Lane), so
             // nobody crosses the rear area to reach it; a machine within 30 m of the spawn point, as before
             float across = rng.NextFloat(-30f, 30f);
-            int next = freeSlots.Length > 0 ? freeSlots[freeSlots.Length - 1] : HighWater;   // the slot Spawn takes
+            int next = PeekNextSlot();   // the slot Spawn takes, by the same rule
             spawn.x = entry.IsVehicle || next >= Config.MaxSlots ? spawn.x + across : Lane.Of(next, (ushort)(Generation[next] + 1), Init.SizeMeters.x);
             spawn.z += rng.NextFloat(-2f, 2f);
             int slot = Spawn(c.Player, entry.Archetype, ClampToMap(spawn), entry.Hp, entry.Speed, entry.IsVehicle);
@@ -466,9 +471,9 @@ namespace TW.Sim
             h = SimHash.Array(Alarm, n, h);   // v27
             foreach (var s in systems) h = s.Hash(h);
             // v48: the free list is state, not bookkeeping. Its LIFO order decides which slot the next Spawn
-            // takes (lines 219 and 331 read the tail), so two machines that despawned the same men in a
-            // different order must disagree here at once instead of ticks later, when the next deploy lands on
-            // a different slot. Appended at the very end of the chain.
+            // takes (PeekNextSlot() reads the tail, and Spawn/Deploy both call it), so two machines that despawned
+            // the same men in a different order must disagree here at once instead of ticks later, when the next
+            // deploy lands on a different slot. Appended at the very end of the chain.
             h = SimHash.Value(freeSlots.Length, h);
             h = SimHash.Array(freeSlots.AsArray(), h);
             return h;
