@@ -980,6 +980,9 @@ def relay_cases(tmp: pathlib.Path):
     gitio.install_prepush(work)
     code, out = tool('land.py', '--dry-run')
     case('land.py refuses in a checkout a relay leg holds (the marker, no variable)', code == 1 and 'relay leg' in out, out)
+    code, out = tool('pipeline/pipeline.py', 'claim', 'thing--shots--0')
+    case('pipeline.py refuses to claim in a checkout a relay leg holds (the marker, no variable)',
+         code != 0 and 'relay leg' in out, out)
     (work / 'a.txt').write_text('b\n'); g('commit', '-qam', 'more')
     code, out = g('push', '-q', 'origin', 'HEAD:refs/heads/other')
     case('git refuses a held checkout\'s push to another branch (the relay\'s pre-push hook)', code != 0 and 'relay' in out, out)

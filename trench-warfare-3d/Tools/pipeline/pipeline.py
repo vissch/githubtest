@@ -20,7 +20,8 @@ Usage (from anywhere in the checkout):
   python Tools/pipeline/pipeline.py feedback <item> <stage> "<the user's words>" --check "<measurable check>"
   python Tools/pipeline/pipeline.py close-feedback <FR-id>
 Environment: TW_BOARD (board repo path), TW_STATION (desktop|laptop; default from stations.json by host name).
-Stdlib only. ASCII only. Git output is read as bytes and decoded as UTF-8 (workflow.md: never text=True).
+Stdlib only. ASCII only. Git output is read as bytes and decoded as UTF-8 (workflow.md section 8: never let
+subprocess decode a repo file).
 """
 import argparse, ctypes, datetime, hashlib, json, os, random, socket, subprocess, sys, time
 from pathlib import Path
@@ -349,8 +350,8 @@ def refuse_in_leg():
     """A relay leg (Tools/relay) never claims, completes or releases: its runner does, after checking the result."""
     held = False
     if not os.environ.get("TW_RELAY"):           # the marker the runner leaves in the checkout a leg works in
-        r = subprocess.run(["git", "rev-parse", "--absolute-git-dir"], capture_output=True, text=True)
-        marker = Path(r.stdout.strip()) / "relay-leg.json" if r.returncode == 0 else None
+        out = git(["rev-parse", "--absolute-git-dir"], cwd=Path.cwd(), check=False).strip()
+        marker = Path(out) / "relay-leg.json" if out else None
         try:
             held = bool(marker) and marker.exists() and json.loads(marker.read_text(encoding="utf-8")).get("pid") != os.getpid()
         except (OSError, ValueError, AttributeError):
