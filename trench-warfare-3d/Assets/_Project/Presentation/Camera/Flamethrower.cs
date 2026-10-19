@@ -88,6 +88,14 @@ namespace TW.Presentation.Tactical
         const float TorchEvery = 0.20f;     // a man alight is re-lit this often: he runs out from under his own fire otherwise
         const float CatchEvery = 0.12f;     // how often fire looks to see who is standing in it
         const float CatchSeconds = 0.9f;    // how long a big fire takes to take hold, whatever it has left to burn
+        public const int TipSmokeCards = 3;   // critique r1 fix 2 (2026-10-19): "no dark smoke past the jet's tip ... add a dark smoke plume"
+        public const FlipbookFx.Book TipSmokeBook = FlipbookFx.Book.MineSmoke;   // the wreck's near-black smoke, not Book.Smoke's warm grey (ApplyTints overwrites Smoke's tint every scene, so it can never be soot)
+
+        /// <summary>Where the i-th tip-smoke card sits, past the stream's end along its aim. Kept low (under ~2 m up):
+        /// the probe needs pixels darker than the plate, and nothing is darker than a near-black night sky, so the
+        /// plume has to cover moonlit mud, not sky.</summary>
+        public static Vector3 TipSmokeAt(Vector3 far, Vector3 aim, int i, float jitter01)
+            => far + aim * (1.0f + i * 1.1f + jitter01 * 0.4f) + Vector3.up * (0.5f + i * 0.3f);
         const float LightEvery = 0.09f;     // the pooled light is only lent to us; do not ask for one every frame
         // The last argument of FireLight is the LIGHT'S GLOW CARD, and for fire it is now ZERO everywhere.
         // ...and then, with the disc off, the peaks went too far the other way and the light became a broad tint over
@@ -926,11 +934,20 @@ namespace TW.Presentation.Tactical
                 Vector3 mid = mouth + j.Aim * (Reach * station * valve);
                 float flick = 0.82f + Mathf.PerlinNoise(j.Seed + 11f, now * 7f) * 0.5f;
                 SceneHooks.FireLight?.Invoke(mid + Vector3.up * 0.7f, Firelight, 9f * flick * valve, 6.5f, LightEvery * 2.3f, 0f);
-                // the top of the jet turns over into smoke, the way burning fuel always does
-                // smaller than the fire it comes off and late, the same rule the cook-off's smoke got: at the impact
-                // it was the biggest shape in the frame, so a stream hitting a bank read as "small ember, large smoke"
-                books.Add(FlipbookFx.Book.Smoke, far + Vector3.up * (0.6f + Random.value * 0.5f), 3.2f + Random.value * 1.5f, 1.9f + Random.value,
-                          velocity: j.Aim * 1.6f + Vector3.up * (1.2f + Random.value), grow: 1.2f, alpha: 0.15f, pop: 0.4f, delay: 0.35f, startFrame: 3.2f + Random.value * 1.2f);
+                // the top of the jet turns over into smoke, the way burning fuel always does, and past the tip it is
+                // SOOT, not the warm grey of Book.Smoke (CombatFx.ApplyTints overwrites Smoke's tint every scene, so
+                // that book can never read as dark) - critique r1 fix 2 (2026-10-19): "no dark smoke past the jet's
+                // tip (orange cards only) ... add a dark smoke plume". Replaces the one card it used to lay (budget
+                // rule: replace, never add), with MineSmoke's near-black wreck drawing kept low over the mud, where a
+                // night sky behind it is already near-black and could never read darker still against the plate.
+                for (int i = 0; i < TipSmokeCards; i++)
+                {
+                    float jitter = Random.value;
+                    Vector3 at = TipSmokeAt(far, j.Aim, i, jitter);
+                    books.Add(TipSmokeBook, at, 3.6f + Random.value * 1.4f, 1.8f + Random.value * 0.8f,
+                              velocity: j.Aim * 1.3f + Vector3.up * 0.9f, grow: 1.25f, alpha: 0.62f, pop: 0.4f,
+                              delay: 0.15f * i, startFrame: Random.value * 28f);
+                }
                 if (Random.value < 0.6f) SceneHooks.Sparks?.Invoke(far + Vector3.up * 0.9f, 4);
             }
             // and what it sweeps over catches. Sampled along the stream rather than at its end, because a jet held on

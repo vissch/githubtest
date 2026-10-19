@@ -91,7 +91,7 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; public bool NoInk; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -175,13 +175,13 @@ namespace TW.Presentation.Tactical
             // cut is therefore 0, which means "only true black is soot", and it is the closest they get. Left on the
             // shared default they sat at 64% and 70% soot and Book.Pyre rendered as a near-black slab standing through
             // the middle of every pyre and cook-off.
-            new Sheet { Name = "FireJet",   Cols = 8, Rows = 4, Frames = 29, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.80f, Fps = 12f, Bands = new Vector4(0.07f, 0.23f, 0.89f, 0.75f), Ink = new Vector2(0.25f, 0.77f), Fill = 0.90f },
+            new Sheet { Name = "FireJet",   Cols = 8, Rows = 4, Frames = 29, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.80f, Fps = 12f, Bands = new Vector4(0.07f, 0.23f, 0.89f, 0.75f), Ink = new Vector2(0.25f, 0.77f), Fill = 0.90f, NoInk = true },
             new Sheet { Name = "FireBlast", Cols = 8, Rows = 4, Frames = 32, Fire = true, Snap = true, Tint = new Color(1.40f, 0.66f, 0.20f), Low = 0.11f, High = 0.75f, Fps = 12f, Rise = 0.45f, Bands = new Vector4(0.08f, 0.30f, 0.96f, 0.75f), Ink = new Vector2(0.23f, 0.77f), Fill = 0.90f },
             new Sheet { Name = "FireFan",   Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.09f, High = 0.75f, Fps = 12f, Bands = new Vector4(0.02f, 0.08f, 0.64f, 0.75f), Ink = new Vector2(0.00f, 1.00f), Fill = 0.98f },
             new Sheet { Name = "FireStand", Cycle = true, Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.13f, High = 1.00f, Fps = 12f, Rise = 0.62f, Bands = new Vector4(0.05f, 0.13f, 0.73f, 0.75f), Ink = new Vector2(0.11f, 0.90f), Fill = 0.83f },
             new Sheet { Name = "FirePool",  Cycle = true, Cols = 8, Rows = 4, Frames = 16, Fire = true, Snap = true, Tint = new Color(1.30f, 0.58f, 0.16f), Low = 0.00f, High = 0.53f, Fps = 12f, Rise = 0.80f, Play = 0.75f, Bands = new Vector4(0.42f, 0.51f, 0.80f, 0.75f), Ink = new Vector2(0.06f, 0.94f), Fill = 1.00f },
-            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.05f, 0.51f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },
-            new Sheet { Name = "FireHead",  Cols = 8, Rows = 4, Frames = 19, Fire = true, Snap = true, Tint = new Color(1.44f, 0.66f, 0.18f), Low = 0.08f, High = 0.79f, Fps = 12f, Bands = new Vector4(0.03f, 0.05f, 0.29f, 0.75f), Ink = new Vector2(0.23f, 0.80f), Fill = 0.89f },
+            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.05f, 0.51f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f, NoInk = true },
+            new Sheet { Name = "FireHead",  Cols = 8, Rows = 4, Frames = 19, Fire = true, Snap = true, Tint = new Color(1.44f, 0.66f, 0.18f), Low = 0.08f, High = 0.79f, Fps = 12f, Bands = new Vector4(0.03f, 0.05f, 0.29f, 0.75f), Ink = new Vector2(0.23f, 0.80f), Fill = 0.89f, NoInk = true },
             new Sheet { Name = "FireBloom", Cols = 8, Rows = 4, Frames = 21, Fire = true, Snap = true, Tint = new Color(1.38f, 0.64f, 0.18f), Low = 0.12f, High = 0.74f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.39f, 0.75f), Ink = new Vector2(0.05f, 0.98f), Fill = 0.84f },
             // VFX pass wave 1 (2026-09-28): Low/High, Ink, Fill and the fire Bands from the Tools/firebooks.py printout.
             // Tints are starting points: CombatFx.ApplyTints sets the biome's (catalogue IN-2). Smoke-like books erode like Smoke.
@@ -226,6 +226,12 @@ namespace TW.Presentation.Tactical
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
         public static string SheetName(Book b) => Sheets[(int)b].Name;
         public static int SheetCount => Sheets.Length;
+
+        /// <summary>Whether a book's material drops the fire contour's ink ring (set for the stream's own cards only).</summary>
+        public static bool NoInkOf(Book b) => Sheets[(int)b].NoInk;
+
+        /// <summary>A book's row tint, before any per-scene ApplyTints overwrite.</summary>
+        public static Color RowTint(Book b) => Sheets[(int)b].Tint;
 
         /// <summary>Where a book's drawing sits in its cell: y as bottom-up fractions, and its width as a fraction of the cell.</summary>
         public static void Geometry(Book b, out float inkLow, out float inkHigh, out float fill)
@@ -655,6 +661,9 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
+                // the stream's own cards (Jet, Core, Head) read as a texture with the default ink ring round every
+                // card (critique r1 fix 2, 2026-10-19): drop the contour's darkness for those three, nobody else's
+                m.SetVector("_Contour", new Vector4(0.10f, 0.26f, s.NoInk ? 0f : 0.85f, 0f));
                 if ((Book)k == Book.Fireball) { m.SetColor("_Smoke", new Color(0.48f, 0.40f, 0.33f, 1f)); m.SetColor("_Core", new Color(1.6f, 1.3f, 0.8f, 1f)); }   // the shell's fireball: its soot the burst cloud's lit brown (at 0.36 it ringed each fire in dark: critique c1b), its heart yellow, not the flamethrower's white (critique c2)
                 if (s.Bands.sqrMagnitude > 0f) m.SetVector("_Bands", s.Bands);
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
