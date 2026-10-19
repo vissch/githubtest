@@ -568,7 +568,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   takes `SceneHooks.WaterY` (the height of the water's surface at x, z, the bed where there is none; `WaterRings`
   publishes it, `GreyboxTerrainView` fills it as `max(WaterLevel, ground)` so a puddle above the table keeps its own
   height) and the `Splash.Y` it returns is what the `Anchored` card's foot is drawn at; no hook wired up leaves the
-  point's own y),
+  point's own y. **See it**: `AgentScripts/water_entry_fling.cs` (`Tools/tw run eval_file`, in Play in
+  GreyboxCorridor) flings a body into the ford with the clock running and shoots the moments either side of the
+  landing; `docs/evidence/water-entry-splash-r5/` holds that run and `probe.py`, which counts the splash's pixels.
+  What a man's entry actually shows at T1 is the `Splash` card: the ring is 1.8 m opening from a point, under the
+  render's own noise at the standard view),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).

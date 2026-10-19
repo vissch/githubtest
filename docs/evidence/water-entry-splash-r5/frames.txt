@@ -1,0 +1,42 @@
+water-entry-splash-r5 - what each still is. Facts only; the reading of them is in probe.json and in the commit.
+
+The run. GreyboxCorridor in Play, ground ShelledForest (the scene's own default), NightMud look, rain forced to 0,
+sky pinned (Atmosphere.PinnedClock = 120), sim frozen (SimHost.TimeScale = 0) so no man moves or wades, presentation
+clock running at Time.captureFramerate = 60 so every frame is exactly 1/60 s. A body is flung off the dry bank at
+(12, 128, y 0.69) into the ford at (15, 130), bed y -0.25, water surface y 0.15, with fly = (3, 0.5, 2) - the two
+production lines CombatFx.Deaths.cs runs for a flung body, VATRenderer.AddFallen and WaterEntry.Throw with
+FallenFlight.Solve's duration (0.721 s) as the delay. Staged by AgentScripts/water_entry_fling.cs in one run.
+Thrown on frame 114095, reaches the water on frame 114138.
+
+All eight stills: 1600 x 900, camera T1 (zoom 30, yaw 21, pitch 25), focus (15, 130), aimY 0.15 (the water's
+surface). Every sidecar reports pose_error_m 0 and the same mark: mark_x 15, mark_z 130, mark_px_x 800.0,
+mark_px_y 450.0, mark_px_per_m 19.222 (CaptureRig.Mark, set before the first shot).
+
+plate.png          the ford, no throw at all, clock running, frame 114086. Bare water, the bank and its duckboards
+                   at the left, no body, no splash. The owner's no-throw plate; it is NOT what probe.py measures
+                   against (see below).
+pre.png            land - 0.217 s (frozen at frame 114125, t 2423.438). The body is in the air above and short of
+                   the landing point. The water under it is bare: no ring, no card.
+pre-nosplash.png   the same frozen instant, rendered again with the water entry lifted out (WaterRings' ring array
+                   emptied, FlipbookFx's card list emptied), nothing else touched.
+land.png           land + 0.033 s (frozen at frame 114154, t 2423.688). A pale Splash card standing on the water at
+                   the landing point. The body is under the surface.
+land-b.png         the same frozen world rendered a second time, unchanged: the noise floor.
+land-nosplash.png  the landing instant with the water entry lifted out.
+post.png           land + 0.283 s (frozen at frame 114189, t 2423.938). The card has spread and is breaking into
+                   droplets.
+post-nosplash.png  the land + 0.283 s instant with the water entry lifted out.
+
+Why every moment has its own reference and the plate is only for the record: the water's foam and lapping are
+animated from _Time.y in TWWater.hlsl, so a still taken a second after the plate differs from it across the whole
+water sheet - about 1,600 changed pixels in a 3 m disc at the landing point, whether anything landed there or not.
+Measured that way the first run of this capture read ring_px_pre 1577 against ring_px_land 1703 and could not tell
+a splash from the river moving. A reference rendered at the same frozen instant with the splash lifted out has the
+same foam, the same body, the same shadows and the same sky.
+
+Two things seen in these frames that are not the claim under test, recorded because they are visible:
+ - The ring itself does not read at T1. A man's ring is 1.8 m wide and opens from a point, so 0.03 s after the
+   landing it is a 0.3 m circle about two pixels thick on dark night water. Lifting the rings out ALONE moved no
+   pixel by more than 0.014 luma against a 0.011 noise floor, while lifting the Splash card out as well moved 326
+   pixels by up to 0.108. What a man's water entry shows at this view is the card; the ring is detail under it.
+ - The body is gone from view at land + 0.033 s: it is under the surface, not floating or lying in the shallows.
