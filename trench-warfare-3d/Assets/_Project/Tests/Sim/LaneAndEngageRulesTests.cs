@@ -214,5 +214,35 @@ namespace TW.Tests
                 Assert.AreNotEqual(MovementSystem.EngageClose, m.Movement.Engage[man], $"tick {t}: he set off through the wire");
             }
         }
+
+        /// <summary>Deploy predicts the slot Spawn will give the man to work out his lane. A despawn puts a used slot
+        /// back on the free list, so the next man lands there and not at HighWater: if the two rules drift apart he
+        /// starts on another man's lane.</summary>
+        [Test]
+        public void ADeployedFootman_StartsOnTheLaneOfTheSlotSpawnGivesHim()
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 100000;
+            using var m = MatchSim.CreateGreybox(cfg, combat: false);
+            var w = m.World;
+            var mine = new System.Collections.Generic.List<int>();
+            for (int t = 0; t < 200 && mine.Count < 3; t++)
+            {
+                Step(m, SimCommand.Deploy(w.Tick, 0, 0));          // roster slot 0: a rifleman, on foot
+                for (int i = 0; i < w.Events.Events.Length; i++)
+                    if (w.Events.Events[i].Type == SimEventType.UnitDeployed) mine.Add(w.Events.Events[i].A);
+            }
+            Assert.AreEqual(3, mine.Count, "nobody deployed: the roster or the silver changed");
+            int reused = mine[1];
+            w.Despawn(reused);                                     // his slot goes back on the free list
+            int highWater = w.HighWater;
+            Step(m, SimCommand.Deploy(w.Tick, 0, 0));
+            int slot = -1; float x = 0f;
+            for (int i = 0; i < w.Events.Events.Length; i++)
+                if (w.Events.Events[i].Type == SimEventType.UnitSpawned) { slot = w.Events.Events[i].A; x = w.Events.Events[i].Pos.x; }
+            Assert.AreEqual(reused, slot, "the free slot was not let again");
+            Assert.Less(slot, highWater, "he took a fresh slot: the free-list path was never tried");
+            Assert.AreEqual(Lane.Of(slot, w.Generation[slot], w.Init.SizeMeters.x), x, 1e-3f,
+                "Deploy predicted another slot than Spawn gave him: he deploys on another man's lane");
+        }
     }
 }
