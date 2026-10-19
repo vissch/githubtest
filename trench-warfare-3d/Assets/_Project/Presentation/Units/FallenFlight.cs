@@ -32,6 +32,8 @@ namespace TW.Presentation.Units
         /// <summary>A resting squash (a pancake, a wilt) is reached over this long.</summary>
         public const float RestSquashSeconds = 0.15f;
         public const int Steps = 32;   // VATRenderer.PitchSteps: a whole turn
+        /// <summary>Seconds a rest roll (a frog belly up) takes to settle once the arcs are done.</summary>
+        public const float RollSettle = 0.3f;
 
         public struct Arc
         {
@@ -61,6 +63,10 @@ namespace TW.Presentation.Units
             public sbyte PulseQ, RestQ; public float PulseDur;
             /// <summary>Seconds (after the delay) until he lies still.</summary>
             public float Settled;
+            /// <summary>A rest roll reached once the arcs are done (a frog belly up, in roll steps), and a decaying
+            /// twitch on top of it: amplitude (roll steps), rate (Hz) and how long it lasts.</summary>
+            public sbyte RestRoll;
+            public float TwitchRoll, TwitchHz, TwitchDur;
             public float Gravity;
             /// <summary>Seconds from his death until he lies still.</summary>
             public float Arrive => Delay + Settled;
@@ -217,13 +223,21 @@ namespace TW.Presentation.Units
             return age - p.Delay < 0f ? 0 : restPitch & (Steps - 1);
         }
 
-        /// <summary>Side over side: whole turns on each arc, level between.</summary>
+        /// <summary>Side over side: whole turns on each arc, level between; off the arcs, a rest roll settled into
+        /// (a frog belly up) with a decaying twitch riding on top of it (the legs shaking).</summary>
         public static int RollStep(in Plan p, float age)
         {
             int k = ArcAt(p, age);
-            if (k < 0) return 0;
-            var a = ArcN(p, k);
-            return a.Rolls == 0 ? 0 : Mathf.RoundToInt(a.Rolls * Steps * ((age - p.Delay - a.Start) / a.Dur)) & (Steps - 1);
+            if (k >= 0)
+            {
+                var a = ArcN(p, k);
+                return a.Rolls == 0 ? 0 : Mathf.RoundToInt(a.Rolls * Steps * ((age - p.Delay - a.Start) / a.Dur)) & (Steps - 1);
+            }
+            float t = age - p.Delay - p.ArcsEnd;
+            if (t < 0f) return 0;
+            float r = p.RestRoll * Mathf.Clamp01(t / RollSettle);
+            if (t < p.TwitchDur) r += p.TwitchRoll * Mathf.Sin(2f * Mathf.PI * p.TwitchHz * t) * (1f - t / p.TwitchDur);
+            return Mathf.RoundToInt(r) & (Steps - 1);
         }
 
         /// <summary>

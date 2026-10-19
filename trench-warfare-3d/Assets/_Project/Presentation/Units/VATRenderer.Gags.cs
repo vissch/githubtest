@@ -39,8 +39,10 @@ namespace TW.Presentation.Units
             path = FallenFlight.Make(pos, fly, gag.Flips, gag.Rolls, gag.Bounces, gag.Skid, skidDir, gag.Delay, gag.HoldLift, gag.Jig, ThrowGravity, new Vector2(size.x, size.y), map.WaterLevel, ref ground);
             path.Topple = gag.Topple; path.ToppleDur = gag.ToppleDur;
             path.PulseQ = gag.PulseQ; path.PulseDur = gag.PulseDur; path.RestQ = gag.RestQ;
+            path.RestRoll = gag.RestRoll; path.TwitchRoll = gag.TwitchRoll; path.TwitchHz = gag.TwitchHz; path.TwitchDur = gag.TwitchDur;
             if (gag.PulseDur > 0f && path.Arcs == 0 && path.SkidDur <= 0f) path.Settled = Mathf.Max(path.Settled, gag.PulseDur);
             if (gag.Topple > 0) path.Settled = Mathf.Max(path.Settled, gag.ToppleDur);
+            if (gag.TwitchDur > 0f) path.Settled = Mathf.Max(path.Settled, gag.TwitchDur + FallenFlight.RollSettle);
             if ((gag.Flags & GagFlags.NoCorpse) != 0) return;
 
             if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());
