@@ -36,6 +36,58 @@ namespace TW.Editor
         /// as a man, foot soldier or rider, trench or not.</summary>
         public static bool IsFootFigure(uint flags) => (flags & (uint)UnitFlags.Alive) != 0 && (flags & (uint)UnitFlags.Vehicle) == 0;
 
+        // ---- the mark: one world point a still can be measured against ---------------------------------------
+        //
+        // A probe that counts the pixels of a splash has to know where in the image the splash SHOULD be, and how
+        // many pixels a metre is there, or "the ring is 300 px" says nothing about where it rang. So a capture run
+        // can name one world point before it shoots; every sidecar then carries that point and its projection.
+        // Nothing is drawn into the frame for it: a visible marker would be counted as splash pixels.
+        static bool marked;
+        static Vector3 mark;
+
+        /// <summary>Record the world point the next shots are measured against. Its height is the drawn ground at
+        /// (x, z), lifted to the water surface where there is water, which is where a splash card sits
+        /// (`WaterEntry.cs`, the r3 fix).</summary>
+        public static void Mark(float x, float z)
+        {
+            float y = RenderGround.Map != null ? RenderGround.Sample(RenderGround.Map, x, z) : 0f;
+            if (SceneHooks.WaterY != null) y = Mathf.Max(y, SceneHooks.WaterY(x, z));
+            mark = new Vector3(x, y, z); marked = true;
+        }
+
+        public static void Unmark() { marked = false; }
+
+        /// <summary>Where a world point lands in an image of w x h taken with this pose, and how many pixels a
+        /// metre is there. Pinhole arithmetic only, no scene: Unity's `fieldOfView` is the VERTICAL angle, so the
+        /// focal length in pixels is (h / 2) / tan(fov / 2). Pixels are counted from the image's TOP-left, the way
+        /// an image library reads them, not from Unity's bottom-left.
+        ///
+        /// `pxPerM` is the average of the two ground axes, doubled from a half-metre step in each: a metre along the
+        /// view is foreshortened by the camera's pitch and a metre across it is not, so one number for both is a
+        /// compromise, and it is the one the probe wants (a ring is round on the water, an ellipse in the picture).
+        /// </summary>
+        public static void ProjectMark(Vector3 point, Vector3 camPos, Quaternion camRot, float fov, int w, int h,
+                                       out float pxX, out float pxY, out float pxPerM)
+        {
+            float f = (h * 0.5f) / Mathf.Tan(fov * 0.5f * Mathf.Deg2Rad);
+            var inv = Quaternion.Inverse(camRot);
+            Project(point, camPos, inv, f, w, h, out pxX, out pxY);
+            Project(point + new Vector3(0.5f, 0f, 0f), camPos, inv, f, w, h, out float ax, out float ay);
+            Project(point + new Vector3(0f, 0f, 0.5f), camPos, inv, f, w, h, out float bx, out float by);
+            float dx = Mathf.Sqrt((ax - pxX) * (ax - pxX) + (ay - pxY) * (ay - pxY));
+            float dz = Mathf.Sqrt((bx - pxX) * (bx - pxX) + (by - pxY) * (by - pxY));
+            pxPerM = (dx + dz);            // (dx + dz) / 2 per half metre, so x2 per metre: the halves cancel
+        }
+
+        static void Project(Vector3 point, Vector3 camPos, Quaternion invRot, float f, int w, int h,
+                            out float pxX, out float pxY)
+        {
+            Vector3 local = invRot * (point - camPos);
+            float depth = Mathf.Max(0.01f, local.z);
+            pxX = w * 0.5f + local.x / depth * f;
+            pxY = h * 0.5f - local.y / depth * f;
+        }
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -306,6 +358,13 @@ namespace TW.Editor
             N(sb, "frame", Time.frameCount);
             N(sb, "want_x", shot.Want.x); N(sb, "want_y", shot.Want.y); N(sb, "want_z", shot.Want.z);
             N(sb, "pose_error_m", Vector3.Distance(shot.Want, cam.transform.position));
+            if (marked)
+            {
+                ProjectMark(mark, cam.transform.position, cam.transform.rotation, cam.fieldOfView, w, h,
+                            out float mpx, out float mpy, out float mppm);
+                N(sb, "mark_x", mark.x); N(sb, "mark_z", mark.z);
+                N(sb, "mark_px_x", mpx); N(sb, "mark_px_y", mpy); N(sb, "mark_px_per_m", mppm);
+            }
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
