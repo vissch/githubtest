@@ -1329,7 +1329,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `FlyerLift`, `HoverPose`) and answered nothing on the ground below it. `Presentation/Camera/TankRenderer.HopArc.cs`
   rises it 3.2 m over a trench, its link or a wire belt (`MapData.LayerAt` under the hull and 5 m ahead), noses it up
   leaving and down settling, and blows two downwash puffs off the ground as it comes back to cruise. It never lands
-  (owner `#d-hopper`) and the sim is untouched: no flight in the sim yet. Tests: HopperHopArcTests. Trap: the arc
+  (owner `#d-hopper`) and the sim is untouched: no flight in the sim yet. Tests: HopperHopArcTests; HopperHopStills
+  (`Tests/Stills`, Explicit, needs a graphics device) photographs the cruise and the top of one arc over a trench and
+  the same instants with the renderer off, which `docs/evidence/hopper-hop-arc/probe.py` measures. Trap: the arc
   writes `View.Bob` after `Flair`, which leaves a Hopper's Bob at 0 (its DriveStyle `Chug` is 0) - a `Flair` moved
   after that call would wipe the arc.
 - **Not built yet:** models of their own for the stand-ins and the Breaker, figures of their own for the other foot
@@ -1561,6 +1563,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, FrogFlopStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GasNightStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
+- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, HopperHopStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests

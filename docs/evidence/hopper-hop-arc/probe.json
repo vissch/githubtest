@@ -1,0 +1,27 @@
+{
+  "apex_px": 54,
+  "floor_px": 0,
+  "zoom": 30,
+  "top_px": {
+    "cruise": 238,
+    "apex": 184,
+    "apex_b": 184
+  },
+  "mask_px": {
+    "cruise": 31980,
+    "apex": 37530,
+    "apex_b": 37767
+  },
+  "pose_error_m": {
+    "apex": 0,
+    "apex_b": 0,
+    "cruise": 0,
+    "empty": 0,
+    "empty_apex": 0
+  },
+  "zoom_in_sidecars": [
+    30
+  ],
+  "delta": 30,
+  "row_min": 8
+}
