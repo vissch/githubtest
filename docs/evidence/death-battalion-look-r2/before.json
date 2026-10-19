@@ -1,0 +1,94 @@
+{
+ "which": "before",
+ "db_diff": [
+  0.1053,
+  0.1128,
+  0.2719
+ ],
+ "noise_diff": [
+  0.089,
+  0.094,
+  0.13
+ ],
+ "head_iou": [
+  0.9568,
+  0.9496,
+  0.5702
+ ],
+ "head_iou_noise": [
+  0.9143,
+  0.9143,
+  0.9143
+ ],
+ "torso_luma_step": [
+  0.0045,
+  -0.002,
+  0.0036,
+  0.0031,
+  0.0045,
+  0.0062
+ ],
+ "torso_luma_noise": [
+  0.0053,
+  0.0078,
+  0.0062,
+  0.0073,
+  0.0042,
+  0.0078
+ ],
+ "blob_px": [
+  [
+   1642,
+   1605,
+   1596
+  ],
+  [
+   1641,
+   1639,
+   1622
+  ],
+  [
+   1748,
+   1620,
+   1574
+  ]
+ ],
+ "files": [
+  [
+   "before_seed1_men.png",
+   "before_seed1_bg.png",
+   "before_seed1_fire.png"
+  ],
+  [
+   "before_seed2_men.png",
+   "before_seed2_bg.png",
+   "before_seed2_fire.png"
+  ],
+  [
+   "before_seed3_men.png",
+   "before_seed3_bg.png",
+   "before_seed3_fire.png"
+  ]
+ ],
+ "tolerance": 20,
+ "min_blob_px": 1200,
+ "box_px": 600,
+ "head_frac": 0.15,
+ "torso_band": [
+  0.2,
+  0.55
+ ],
+ "bars": {
+  "diff_margin": 0.15,
+  "diff_ratio": 3.0,
+  "torso_luma_step": 0.08,
+  "head_iou_max": 0.8
+ },
+ "checks": {
+  "diff_beats_noise_by_margin": false,
+  "diff_beats_noise_by_ratio": false,
+  "torso_darker_everywhere": false,
+  "head_differs": false
+ },
+ "pass": false
+}
