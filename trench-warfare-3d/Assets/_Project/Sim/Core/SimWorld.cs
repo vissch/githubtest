@@ -347,6 +347,10 @@ namespace TW.Sim
         /// <summary>Drop a command deterministically and report it. Systems call this for commands they validate.</summary>
         public void Reject(SimCommand c) => Events.Add(Tick, SimEventType.CommandRejected, (int)c.Type, c.Player);
 
+        // Deploy (called from ApplyCoreCommands, above StepEconomy in Step) sets SlotCooldown[ri] to the entry's
+        // CooldownTicks, and the decrement below runs in the same Step right after: a slot set to N this tick is
+        // free again exactly N ticks later, not N-1 (checked 2026-10-18, look-code-sim-core-20261018; pinned by
+        // CommandValidationTests.ADeploySlotWaitsExactlyItsCooldownTicks_RefusedAtOneTickShortTakenOnTheTick).
         void StepEconomy()
         {
             for (int p = 0; p < SimConfig.MaxPlayers; p++)

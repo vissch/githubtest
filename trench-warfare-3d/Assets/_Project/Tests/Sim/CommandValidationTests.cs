@@ -47,6 +47,35 @@ namespace TW.Tests
             Assert.AreEqual(1, m.World.AliveCount);
         }
 
+        /// <summary>Pins the deploy cooldown boundary: `ApplyCoreCommands` (where Deploy sets SlotCooldown) runs
+        /// before `StepEconomy` (where it decrements) in the same Step, so a slot set to N this tick is free again
+        /// exactly N ticks later, not N-1. Reported as an off-by-one by a code look; it was not one. Guards against
+        /// a future reorder of the two calls silently shifting every deploy by a tick.</summary>
+        [Test]
+        public void ADeploySlotWaitsExactlyItsCooldownTicks_RefusedAtOneTickShortTakenOnTheTick()
+        {
+            AssertWait(1, 3, 200);   // Brass slot 3: Sniper
+            AssertWait(0, 3, 400);   // Iron slot 3: Officer
+        }
+
+        static void AssertWait(byte player, int slot, int cooldown)
+        {
+            var cfg = SimConfig.Default; cfg.StartingSilver = 2000;
+            using var m = MatchSim.CreateGreybox(cfg);
+            int ri = player * RosterEntry.SlotCount + slot;
+            Assert.AreEqual(cooldown, m.World.Roster[ri].CooldownTicks, "setup");
+            using var one = new NativeArray<SimCommand>(new[] { SimCommand.Deploy(0, player, slot) }, Allocator.Temp);
+            using var none = new NativeArray<SimCommand>(0, Allocator.Temp);
+            m.Step(one);   // the deploy, at tick 0
+            for (uint t = 1; t < (uint)cooldown - 1; t++) m.Step(none);   // ticks 1 .. cooldown-2
+            m.Step(one);   // tick cooldown-1: one tick short
+            Assert.AreEqual(1, CountEvents(m.World, SimEventType.CommandRejected), "refused one tick short");
+            Assert.AreEqual(0, CountEvents(m.World, SimEventType.UnitDeployed), "and nobody came up");
+            m.Step(one);   // tick cooldown: taken
+            Assert.AreEqual(0, CountEvents(m.World, SimEventType.CommandRejected), "taken on the tick");
+            Assert.AreEqual(1, CountEvents(m.World, SimEventType.UnitDeployed), "the second man is up");
+        }
+
         /// <summary>A UnitAbility is the sapper's (SapperSystem, 2026-09-28): any other ability id, and a laying order for
         /// a slot that holds no sapper, is rejected rather than quietly dropped.</summary>
         [Test]
