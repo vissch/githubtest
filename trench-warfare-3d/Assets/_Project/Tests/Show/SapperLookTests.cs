@@ -69,7 +69,7 @@ namespace TW.Tests
             {
                 Vector3 at = pieces[k].GetColumn(3);
                 Assert.That(at.z, Is.LessThanOrEqualTo(-0.10f), $"charge {k} is not on his back (z {at.z})");
-                Assert.That(Mathf.Abs(at.x), Is.InRange(0.14f, 0.26f), $"charge {k} sits the wrong way off the pack (x {at.x})");
+                Assert.That(Mathf.Abs(at.x), Is.InRange(0.18f, 0.30f), $"charge {k} sits the wrong way off the pack (x {at.x})");
             }
             Assert.That(((Vector3)pieces[1].GetColumn(3)).x * ((Vector3)pieces[2].GetColumn(3)).x, Is.LessThan(0f),
                 "both charges are on the same side of him");
@@ -78,6 +78,32 @@ namespace TW.Tests
                 "his tooltip still calls him a stand-in");
 
             using var r = new Rig();
+            SapperRigChecks(r);
+        }
+
+        /// <summary>The pack and charges must break the man's own silhouette, not sit inside it (critic r1: at
+        /// night the kit read as the Engineer's outline). These are relations between the kit and the chest socket,
+        /// not the code's own arithmetic; the pixel probe (docs/evidence/sapper-look-3/probe.py) is the real bar.</summary>
+        [Test]
+        public void HisKitStandsOutsideHisOutline()
+        {
+            var pieces = new Matrix4x4[CombatFx.SapperKitPieceMax];
+            Vector3 chest = new Vector3(0f, 1.30f, 0.05f), muzzle = new Vector3(0f, 1.35f, 0.60f), barrel = new Vector3(0f, 0f, 1f);
+            CombatFx.SapperKitPieces(InfantryArchetype.Sapper, chest, muzzle, barrel, 1f, pieces);
+
+            Vector3 packAt = pieces[0].GetColumn(3);
+            float packTop = packAt.y + pieces[0].lossyScale.y * 0.5f;
+            Assert.That(packAt.y, Is.GreaterThan(chest.y), "the pack's centre must sit above the chest socket");
+            Assert.That(packTop - chest.y, Is.GreaterThanOrEqualTo(0.15f),
+                $"the pack's top must clear the chest socket by at least 0.15 m (clears by {packTop - chest.y})");
+
+            Vector3 c1 = pieces[1].GetColumn(3), c2 = pieces[2].GetColumn(3);
+            Assert.That(Vector3.Distance(c1, c2), Is.GreaterThanOrEqualTo(0.44f),
+                $"the two charges must sit at least 0.44 m apart (measured {Vector3.Distance(c1, c2)})");
+        }
+
+        static void SapperRigChecks(Rig r)
+        {
             int slot = r.W.Spawn(0, InfantryArchetype.Sapper, new float3(150f, 0f, 300f), 100f, 3f, false);
             r.Tick();
             r.M.Sapper.Phase[slot] = SapperSystem.Laying;

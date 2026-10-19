@@ -2,6 +2,7 @@
 // Sapper's own look. He wore the Engineer's (InfantryArchetype.Repair) look and his tooltip called him a stand-in;
 // neither is baked as its own figure, so what tells the two apart at T2 is the pack and two charges drawn over him
 // off the near tier's sockets (CombatFx.Kit.cs does the same for the Flamethrower).
+using System.Collections.Generic;
 using UnityEngine;
 using TW.Sim;
 using TW.Presentation;
@@ -15,6 +16,8 @@ namespace TW.Presentation.Tactical
         /// <summary>The most pieces one man's kit has (the pack and two charges), so a caller can size its array.</summary>
         public const int SapperKitPieceMax = 3;
         readonly Matrix4x4[] sapperPieces = new Matrix4x4[SapperKitPieceMax];
+        readonly List<Matrix4x4> sapperPacks = new List<Matrix4x4>(SapperKitMax);
+        readonly List<Matrix4x4> sapperCharges = new List<Matrix4x4>(SapperKitMax * 2);
 
         /// <summary>
         /// The pieces of one man's kit, in the frame his barrel socket gives: 0 the pack on his back, 1 and 2 the two
@@ -29,13 +32,14 @@ namespace TW.Presentation.Tactical
             right = right.sqrMagnitude > 0.0001f ? right.normalized : Vector3.right;
             Vector3 up = Vector3.Cross(fwd, right).normalized;
             var turn = Quaternion.LookRotation(fwd, up);
-            // the pack: a satchel wider than it is deep, so it reads as a pack and not as the Flamer's tanks
-            Vector3 pack = chest + (up * 0.05f - fwd * 0.20f) * scale;
-            into[0] = Matrix4x4.TRS(pack, turn, new Vector3(0.58f, 0.52f, 0.32f) * scale);
-            // the two charges, one each side of the pack (InfantrySpec.MineCharges is 2), slung a little lower
-            Vector3 charges = chest + (-up * 0.06f - fwd * 0.20f) * scale;
-            into[1] = Matrix4x4.TRS(charges + right * (0.19f * scale), turn, new Vector3(0.27f, 0.27f, 0.21f) * scale);
-            into[2] = Matrix4x4.TRS(charges - right * (0.19f * scale), turn, new Vector3(0.27f, 0.27f, 0.21f) * scale);
+            // the pack: lifted above the shoulder line so its top edge breaks the man's own silhouette, not just
+            // another dark mass inside it (critic r1: the kit read as the Engineer's outline at night)
+            Vector3 pack = chest + (up * 0.20f - fwd * 0.22f) * scale;
+            into[0] = Matrix4x4.TRS(pack, turn, new Vector3(0.62f, 0.46f, 0.34f) * scale);
+            // the two charges, one each side of the pack (InfantrySpec.MineCharges is 2), pushed past the torso's width
+            Vector3 charges = chest + (-up * 0.04f - fwd * 0.22f) * scale;
+            into[1] = Matrix4x4.TRS(charges + right * (0.24f * scale), turn, new Vector3(0.30f, 0.30f, 0.22f) * scale);
+            into[2] = Matrix4x4.TRS(charges - right * (0.24f * scale), turn, new Vector3(0.30f, 0.30f, 0.22f) * scale);
             return SapperKitPieceMax;
         }
 
@@ -46,9 +50,10 @@ namespace TW.Presentation.Tactical
         {
             if (units == null) return;
             var w = Host.Local.World;
-            batch.Clear();
             int men = 0;
             ViewNow(out _, out _, out float scale);
+            var packs = sapperPacks; packs.Clear();
+            var charges = sapperCharges; charges.Clear();
             for (int slot = 0; slot < w.HighWater && men < SapperKitMax; slot++)
             {
                 uint flags = w.Flags[slot];
@@ -67,10 +72,13 @@ namespace TW.Presentation.Tactical
                     muzzle = chest + barrel * (0.6f * scale);
                 }
                 int n = SapperKitPieces(archetype, chest, muzzle, barrel, scale, sapperPieces);
-                for (int k = 0; k < n; k++) batch.Add(sapperPieces[k]);
+                if (n > 0) packs.Add(sapperPieces[0]);
+                for (int k = 1; k < n; k++) charges.Add(sapperPieces[k]);
                 men++;
             }
-            if (batch.Count > 0) Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            // two passes, pale canvas over waxed charges, so the three pieces do not fuse into one dark mass
+            if (packs.Count > 0) Flush(cube, packs, new RenderParams(sapperPackMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (charges.Count > 0) Flush(cube, charges, new RenderParams(sapperChargeMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
         }
     }
 }

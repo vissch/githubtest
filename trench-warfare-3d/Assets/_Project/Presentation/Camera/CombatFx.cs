@@ -142,6 +142,7 @@ namespace TW.Presentation.Tactical
         public static readonly Color DirtColour = new Color(0.27f, 0.235f, 0.20f);
         /// <summary>The cold steel a man's worn kit is painted in (<see cref="kitMat"/>), which must not read as dirt.</summary>
         public static readonly Color KitColour = new Color(0.72f, 0.76f, 0.80f);
+        Material sapperPackMat, sapperChargeMat;
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -375,6 +376,8 @@ namespace TW.Presentation.Tactical
                 clod.SetVertices(lv); clod.SetTriangles(lt, 0); clod.RecalculateNormals(); clod.RecalculateBounds();
             }
             dirtMat = Painted(DirtColour, 0.7f);
+            sapperPackMat = Painted(new Color(0.66f, 0.60f, 0.44f), 0.9f);
+            sapperChargeMat = Painted(new Color(0.42f, 0.36f, 0.22f), 0.9f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
@@ -603,7 +606,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat, canopyMat, sapperPackMat, sapperChargeMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat, beamSheath, kitMat }) if (mat != null) Destroy(mat);
