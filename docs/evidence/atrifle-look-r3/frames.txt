@@ -60,3 +60,93 @@ The stills:
                      apart. His mask is 876 / 874 / 867 px; the spread between the three is
                      silhouette_diff_vs_sniper_base_max = 0.0126, the noise floor of the measure.
   base-plate.png     the same camera pose with that man, and only that man, moved off the map.
+
+
+================================================================================
+STEP 9 — THE FIXED BUILD, AND THE SNIPER BESIDE HIM          (2026-10-19, leg 04)
+================================================================================
+
+Same ground, restaged from scratch: SimProbe.Match() read back
+  seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1)
+  stress 0 (override -1) mission ''
+which is the base set's match, line for line. Rain 0, CaptureRig.Hold(120), pose_error_m 0 in every sidecar.
+The spawn is reported as "slot 12" for the AT rifleman and "slot 4" for the Sniper in this session; the number
+TankCapture.Spawn prints is NOT always the world index, so each one was checked with SimProbe.Unit(N) before it
+was staged (team 0, archetype 27 / archetype 3) and only then written to.
+
+The fixed AT rifleman (SimProbe.Unit(12), frozen, at the focus):
+  team 0 archetype 27 hp 90/90
+  sim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface
+  drawn at 50.00 0.00 25.00  ground there 2.95   yaw -2.29
+  animation clip ProneIdle rung Idle stance Prone
+Against the base set's KneelIdle / Crouch at the same point: this is the change the lane made. He lies down.
+
+The Sniper (SimProbe.Unit(4), frozen, at the same focus):
+  team 0 archetype 3 hp 80/80
+  sim at 50.00 0.00 25.00  trench 0 post cell 651 kind 1 stance Crouch layer Surface
+  drawn at 50.00 0.00 25.00  ground there 2.95   yaw 2.04
+  animation clip KneelIdle rung Idle stance Crouch
+
+ONE FOCUS, ONE ZOOM, ONE PITCH, ONE SIZE — AND A CAMERA YAW PER MAN. Read this before judging the numbers.
+  The r1 critique threw r2's IoU out because the two men were framed on two different FOCUS POINTS (50.37 and
+  52.09), so the man sat at a different place in the frame and the overlap measured the offset as much as the men.
+  That fault is gone: focus is (50, 25) for every still in this set, zoom 30, pitch 22, 1600x900, and the MAN is
+  moved to the focus rather than the camera moved to the man. The focus point projects to the same pixels at any
+  camera yaw, so both men sit in the same window.
+  What could NOT be made equal is the men's own heading. A man at a post is snapped to that POST's facing, and the
+  two men do not take the same post at the same point: the prone AT rifleman takes a kind-2 post facing -2.29 rad,
+  the kneeling Sniper a kind-1 post facing 2.04 rad. Neither budges — 20 and 26 refreeze cycles were spent trying,
+  and a written Yaw is overwritten (see the base set's note). So the heading is a property of the staging, not
+  something a camera yaw of 243.6 could be chosen around for both.
+  Therefore the camera yaw is turned by exactly the difference between the two men's headings, and nothing else
+  is touched:
+      AT rifleman   yaw -2.29 rad (-131.21 deg)   camera yaw 243.60
+      Sniper        yaw  2.04 rad ( 116.88 deg)   camera yaw 131.69   (= 243.60 + 248.09)
+  so cam_yaw - man_yaw is the same for both: each man is seen from the SAME relative angle, side-on, same height,
+  same distance, same lens. The two silhouettes are then comparable as silhouettes, which is the claim.
+  The cost, said plainly: the GROUND behind the two men is not the same ground, because the camera orbited. That
+  does not reach the measure — every mask is a difference against a plate shot from that man's OWN camera, with
+  that man and only that man moved off the map — but it does mean the two crops do not look like one place.
+
+The eval lines, verbatim and in order (the staging writes are the base set's, with Hp pinned every time; a man
+left at (50,25) with his Hp not restored is shot dead within a few seconds, which cost this leg two restages):
+
+  UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+  return TW.Editor.VfxLab.Rain(0f);
+  return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);     // -> "slot 12"; CHECK IT with SimProbe.Unit(12)
+  // six times with no pause, the sim RUNNING (the presenter will not move a frozen man):
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.WriteWorlds(m=>{ m.World.Position[12]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Yaw[12]=21f*UnityEngine.Mathf.Deg2Rad; m.World.Speed[12]=0f; m.World.Hp[12]=90f; }); return 0;
+  var h=...; h.WriteWorlds(... same ...); h.TimeScale=0f; return "frozen";
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/fix-at-1.png", 50f, 25f, 30f, 243.6f, 22f, 1600, 900);   // and -2, -3
+  return TW.Editor.CaptureRig.Release();
+  var h=...; h.TimeScale=1f; h.WriteWorlds(m=>{ m.World.Position[12]=new Unity.Mathematics.float3(-5000f,0f,-5000f); m.World.Hp[12]=0f; }); return "off map, running";
+  var h=...; h.TimeScale=0f; return "frozen";
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/fix-plate.png", 50f, 25f, 30f, 243.6f, 22f, 1600, 900);
+  // then Play restarted clean, and the same again for the Sniper with archetype 3, slot 4, Hp 80 and yaw 131.69f,
+  // writing sniper.png and sniper-plate.png.
+
+The stills:
+  fix-at-1/2/3.png   the fixed AT rifleman, three repeats of one frozen pose. His mask is 546 / 546 / 546 px: a
+                     prone man at a post has no LookAround beat, so the pose does not merely repeat within a
+                     noise floor, it repeats EXACTLY. The three readings of the claim are 0.827 / 0.827 / 0.827.
+  fix-plate.png      the same camera with that man, and only that man, off the map. men_in_frame 0.
+  sniper.png         the Sniper, same focus, same lens, camera yaw 131.69. His mask is 654 px.
+  sniper-plate.png   his plate, men_in_frame 0.
+
+What the numbers say (probe.json, every one of them read from the pixels):
+  silhouette_diff_vs_sniper_base_max  0.0126   the spread of three repeats of the UNCHANGED man: the noise floor
+  silhouette_diff_vs_sniper           0.827    the MIN of the fixed build's three readings, so the worst of them
+  the bar                             0.60
+So the difference between the two men is sixty-six times the noise of the measure, and clears the bar.
+
+What the numbers do NOT say, and the next critic should be told it first:
+  The 0.827 is carried by the POSE. The fixed man lies flat behind the parapet where the old man knelt upright,
+  and the Sniper kneels; that is most of the 1 - IoU, and it is a real and readable difference in the game.
+  The 1.65 m anti-tank rifle itself is NOT separately legible at T1 in these crops — at zoom 30 the barrel is a
+  few dark pixels against a dark parapet, and no number here isolates it. A claim that "the long rifle reads at
+  T1" is NOT proven by this set. What is proven is that the AT rifleman no longer reads as the Sniper.
+  Also still open, and out of this unit by the plan: contrast_median for the Sniper at his camera yaw is 0.057
+  (the AT rifleman's is 1.52), i.e. the "men barely separate from the ground" warning of r2 is untouched. A night
+  rim-light is its own unit.

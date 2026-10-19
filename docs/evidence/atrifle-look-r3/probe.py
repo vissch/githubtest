@@ -4,12 +4,24 @@
 The question: does the AT rifleman read as his own man, or as the Sniper with another name?
 
 r2 answered it with an IoU of 0.43, and the harsh critic was right to throw that number out: the
-two stills were framed on two different focus points (atrifle 50.37, sniper 52.09), so the overlap
-it measured was partly the men and partly the offset between two cameras. Here every still in the
-set — the AT rifleman, the Sniper, and both their plates — is taken from ONE camera pose: focus
-(50, 25), zoom 30 (T1), yaw 243.6, pitch 22, 1600x900, the man moved to that focus rather than the
-camera moved to the man. So the frame coordinates of the two masks are directly comparable and one
-window serves every still.
+two stills were framed on two different focus points (atrifle 50.37, sniper 52.09), so the man sat
+at a different place in the frame and the overlap it measured was partly the men and partly that
+offset. Here the focus is (50, 25) for every still in the set — the AT rifleman, the Sniper and both
+their plates — with zoom 30 (T1), pitch 22 and 1600x900 shared too, and the MAN moved to that focus
+rather than the camera moved to the man. The focus point projects to the same pixels at any camera
+yaw, so both men sit inside one window and the masks are comparable.
+
+One thing could not be made equal: the men's own heading. A man at a post is snapped to that POST's
+facing, and the two do not take the same post at the same point (the prone AT rifleman a kind-2 post
+facing -2.29 rad, the kneeling Sniper a kind-1 post facing 2.04 rad); neither budges, and a written
+Yaw is overwritten. So the camera yaw is turned by exactly the difference between the two headings
+and nothing else is touched — AT rifleman yaw -2.29 at camera yaw 243.6, Sniper yaw 2.04 at camera
+yaw 131.69 — which holds cam_yaw minus man_yaw equal for both. Each man is therefore seen from the
+same relative angle, side-on, at the same height and distance through the same lens, and the two
+silhouettes are comparable as silhouettes. The ground behind them differs, because the camera
+orbited; that never reaches the measure, because every mask is a difference against a plate shot
+from that man's OWN camera with that man, and only that man, moved off the map. frames.txt says all
+of this again at length.
 
 A pixel is "the man" when its Rec.709 luma differs from the plate's by more than 0.04. The plate is
 the same camera pose with that man, and only that man, moved off the map. Two guards against the
@@ -20,7 +32,7 @@ night's flicker reading as a man, carried over from r2:
     between any two frames, fall outside it.
 
 Three things are stricter than r2:
-  * ONE window for every still, because every still now shares one camera;
+  * ONE window for every still, because every still now shares one focus, lens and size;
   * a loud failure if any mask pixel touches the window border — a cut mask is not a silhouette;
   * MIN_MASK_PX is 400, not 2000: a man at T1 (zoom 30) is about a fifth of his T2 size, and
     MIN_BLOB is 300, because the plate is shot with the sim let off its freeze for a moment (the
@@ -47,7 +59,7 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THRESHOLD = 0.04
-WINDOW = (slice(300, 405), slice(720, 880))   # y, x — one window, every still
+WINDOW = (slice(300, 405), slice(720, 880))   # y, x — one window, every still (one focus)
 MIN_BLOB = 300
 MIN_MASK_PX = 400
 PASS_DIFF = 0.6
