@@ -97,6 +97,14 @@ namespace TW.Presentation.Tactical
         const float TorchEvery = 0.20f;     // a man alight is re-lit this often: he runs out from under his own fire otherwise
         const float CatchEvery = 0.12f;     // how often fire looks to see who is standing in it
         const float CatchSeconds = 0.9f;    // how long a big fire takes to take hold, whatever it has left to burn
+        public const int TipSmokeCards = 3;   // critique r1 fix 2 (2026-10-19): "no dark smoke past the jet's tip ... add a dark smoke plume"
+        public const FlipbookFx.Book TipSmokeBook = FlipbookFx.Book.MineSmoke;   // the wreck's near-black smoke, not Book.Smoke's warm grey (ApplyTints overwrites Smoke's tint every scene, so it can never be soot)
+
+        /// <summary>Where the i-th tip-smoke card sits, past the stream's end along its aim. Kept low (under ~2 m up):
+        /// the probe needs pixels darker than the plate, and nothing is darker than a near-black night sky, so the
+        /// plume has to cover moonlit mud, not sky.</summary>
+        public static Vector3 TipSmokeAt(Vector3 far, Vector3 aim, int i, float jitter01)
+            => far + aim * (1.0f + i * 1.1f + jitter01 * 0.4f) + Vector3.up * (0.5f + i * 0.3f);
         const float LightEvery = 0.09f;     // the pooled light is only lent to us; do not ask for one every frame
         // The last argument of FireLight is the LIGHT'S GLOW CARD, and for fire it is now ZERO everywhere.
         // ...and then, with the disc off, the peaks went too far the other way and the light became a broad tint over

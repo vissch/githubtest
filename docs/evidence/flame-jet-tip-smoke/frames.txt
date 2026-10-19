@@ -1,0 +1,2 @@
+plate-t2.png  focus=(100,104) zoom=16 yaw=0 pitch=25  frame at capture: no jet fired this session  pose_error_m=0
+jet-t2.png    focus=(100,104) zoom=16 yaw=0 pitch=25  frame at capture: 1.0s after Flamethrower.Active.Burst(seed 20250925)  pose_error_m=0
