@@ -55,5 +55,20 @@ namespace TW.Tests
             }
             finally { Object.DestroyImmediate(cam.gameObject); }
         }
+
+        [Test]
+        public void TheMineMarksReadTheSeatLive()   // [L1.1] the seat was taken in a field initializer, before SimHost.Awake set it
+        {
+            LocalSeat.Reset();                                  // a fresh domain: no seat read yet
+            var marks = new CombatFx.MineMarks();               // CombatFx's field initializer runs here, before Awake
+            LocalSeat.Set(1);                                   // SimHost.Awake reads seat 1 off the transport
+            marks.Placed(0, 1, new Vector3(10f, 0f, 20f), Vector3.zero, 0);
+            Assert.AreEqual(1, marks.Marks.Count, "[L1.1] seated as 1, our own mine is marked");
+            marks.Placed(1, 0, new Vector3(30f, 0f, 20f), Vector3.zero, 0);
+            Assert.AreEqual(1, marks.Marks.Count, "[L1.1] seated as 1, the enemy's (player 0) mine is not marked");
+            marks.LocalPlayer = 0;                              // a test's seat still wins over the live one
+            marks.Placed(2, 0, new Vector3(50f, 0f, 20f), Vector3.zero, 0);
+            Assert.AreEqual(2, marks.Marks.Count, "[L1.1] a seat set by hand wins over the live seat");
+        }
     }
 }
