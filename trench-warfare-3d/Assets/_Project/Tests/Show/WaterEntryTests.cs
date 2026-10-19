@@ -38,8 +38,8 @@ namespace TW.Tests
 
             Assert.IsTrue(sp.Any, "a man dying in water splashes");
             Assert.AreEqual(1, rings.Count, "one ring, sized by mass");
-            Assert.AreEqual(WaterEntry.ManRing, sp.Ring, 1e-4f, "a man's own mass opens his named ring");
-            Assert.AreEqual(1.1f, sp.Card, 1e-4f, "and a Splash card to go with it");
+            Assert.AreEqual(2.8f, sp.Ring, 1e-4f, "a man's own mass opens his named ring (ManRing, raised for r6)");
+            Assert.AreEqual(2.4f, sp.Card, 1e-4f, "and a crown card to go with it (ManCard, raised for r6)");
             Assert.Less(sp.Ring, 3f, "under the smallest a shell opens (WaterRings.OnSimEvent)");
         }
 
@@ -91,11 +91,36 @@ namespace TW.Tests
             float rifleRing = WaterEntry.Ring(WaterEntry.RifleKg);
             float helmetRing = WaterEntry.Ring(WaterEntry.HelmetKg);
 
-            // worked by hand: cbrt(4.3/75) = 0.3859, cbrt(1.2/75) = 0.2520, times ManRing (1.8)
-            Assert.AreEqual(0.695f, rifleRing, 0.01f, "the dropped rifle's ring, sized by its mass");
-            Assert.AreEqual(0.454f, helmetRing, 0.01f, "the helmet's ring, smaller still");
+            // worked by hand: cbrt(4.3/75) = 0.3859, cbrt(1.2/75) = 0.2520, times ManRing (2.8)
+            Assert.AreEqual(1.081f, rifleRing, 0.01f, "the dropped rifle's ring, sized by its mass");
+            Assert.AreEqual(0.706f, helmetRing, 0.01f, "the helmet's ring, smaller still");
             Assert.Less(rifleRing, WaterEntry.ManRing, "sized by mass: lighter than a man");
             Assert.Less(helmetRing, WaterEntry.ManRing, "sized by mass: lighter than a man");
+        }
+
+        [Test]
+        public void ACrownAndTwoWingsGoUp()
+        {
+            // r6, harsh critic r1: one 1.1 m card measured 326 px at T1 against a bar of 1000. Worked by hand from
+            // the constants: crown = ManCard 2.4 x scale 1; wings = WingSize 0.55 x 2.4 = 1.32, sitting
+            // WingOut 0.45 x ManRing 2.8 = 1.26 m either side.
+            var buf = new WaterEntry.CardPlan[3];
+            Assert.AreEqual(3, WaterEntry.Cards(WaterEntry.ManKg, 1f, buf), "a crown and two wings");
+
+            Assert.AreEqual(0f, buf[0].Dx, 1e-4f, "the crown stands over the entry point");
+            Assert.AreEqual(2.4f, buf[0].Size, 1e-4f, "ManCard x scale 1");
+            Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the left wing, 0.45 x the ring out");
+            Assert.AreEqual(1.26f, buf[2].Dx, 1e-3f, "and the right wing the other side");
+            Assert.AreEqual(1.32f, buf[1].Size, 1e-3f, "a wing is 0.55 of the crown");
+            Assert.AreEqual(1.32f, buf[2].Size, 1e-3f);
+            Assert.IsFalse(buf[1].Mirror, "one wing as the sheet draws it");
+            Assert.IsTrue(buf[2].Mirror, "the other flipped, so it is not the same picture twice");
+
+            // half-size thing (scale 0.5): the crown halves, and the wings follow it, not the ring
+            Assert.AreEqual(3, WaterEntry.Cards(WaterEntry.ManKg, 0.5f, buf));
+            Assert.AreEqual(1.2f, buf[0].Size, 1e-4f, "the crown takes the caller's scale");
+            Assert.AreEqual(0.66f, buf[1].Size, 1e-3f, "0.55 of that crown");
+            Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the reach is the ring's, which scale does not touch");
         }
 
         [Test]

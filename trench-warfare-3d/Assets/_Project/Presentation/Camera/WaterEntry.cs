@@ -13,14 +13,18 @@ namespace TW.Presentation.Tactical
         const int Pending = 32;
         static readonly PendingRing[] pending = new PendingRing[Pending];
         static int pendingCount;
+        static readonly CardPlan[] cards = new CardPlan[3];
 
         static WaterEntry() => SceneStatics.Register(nameof(WaterEntry), Clear);
 
         public const float ManKg = 75f, RifleKg = 4.3f, HelmetKg = 1.2f;
         /// <summary>The ring a man's own mass opens, and the clamp either side of it.</summary>
-        public const float ManRing = 1.8f, MinRing = 0.35f, MaxRing = 2.6f;
-        /// <summary>The Splash card a man's own mass throws (a rifle round's is 0.9 x scale, CombatFx.cs:657).</summary>
-        public const float ManCard = 1.1f;
+        public const float ManRing = 2.8f, MinRing = 0.35f, MaxRing = 2.95f;
+        /// <summary>The Splash card a man's own mass throws (a rifle round's is 0.9 x scale, CombatFx.cs:657). Raised
+        /// from 1.1 after harsh critic r1: at T1 a 1.1 m card measured 326 px against a bar of 1000.</summary>
+        public const float ManCard = 2.4f;
+        /// <summary>The crown's two wings: how far out they sit (times the ring) and how big against the crown.</summary>
+        public const float WingOut = 0.45f, WingSize = 0.55f;
 
         /// <summary>How big a thing of this mass draws against a man: a cube root, so a heavier man is not a wider
         /// splash, he is a girthier one.</summary>
@@ -32,6 +36,21 @@ namespace TW.Presentation.Tactical
 
         /// <summary>The Splash card a thing of this mass throws.</summary>
         public static float Card(float massKg) => ManCard * Scale(massKg);
+
+        /// <summary>One card of the crown: how far out along x it sits, how big it draws, and whether its sheet is
+        /// flipped (so the two wings are not the same picture twice).</summary>
+        public struct CardPlan { public float Dx, Size; public bool Mirror; }
+
+        /// <summary>The crown a thing of this mass throws, as pure arithmetic a test can read: a crown over the
+        /// entry point and a wing either side of it. Returns how many cards were written (always 3).</summary>
+        public static int Cards(float massKg, float scale, CardPlan[] into)
+        {
+            float crown = Card(massKg) * scale, reach = WingOut * Ring(massKg), wing = WingSize * crown;
+            into[0] = new CardPlan { Dx = 0f, Size = crown, Mirror = false };
+            into[1] = new CardPlan { Dx = -reach, Size = wing, Mirror = false };
+            into[2] = new CardPlan { Dx = reach, Size = wing, Mirror = true };
+            return 3;
+        }
 
         public struct Splash
         {
@@ -64,8 +83,18 @@ namespace TW.Presentation.Tactical
                 pending[slot] = new PendingRing { X = at.x, Z = at.z, Size = sp.Ring, Left = delay };
             }
             if (books != null && books.Ready)
-                books.Add(FlipbookFx.Book.Splash, new Vector3(at.x, sp.Y, at.z), sp.Card * scale, 0.5f,
-                    FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
+            {
+                int n = Cards(massKg, scale, cards);
+                for (int i = 0; i < n; i++)
+                {
+                    var c = cards[i];
+                    bool flip = c.Mirror ^ mirror;
+                    books.Add(i == 0 ? FlipbookFx.Book.Splash : FlipbookFx.Book.Wings,
+                        new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, 0.5f,
+                        FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (flip ? FlipbookFx.Kind.Mirror : 0),
+                        alpha: 0.9f, delay: delay);
+                }
+            }
             return sp;
         }
 

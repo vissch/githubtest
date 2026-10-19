@@ -7,6 +7,11 @@
 #define TW_RING_COUNT 16
 float4 _TWRings[TW_RING_COUNT];   // x, z, start time, size in metres
 float _TWNow;
+// The water's own clock. A capture shoots the same throw twice seconds apart, and the lapping, the drift and the
+// raindrops would move ~1,600 px between the two runs by themselves, which is noise nothing can measure through.
+// WaterRings.Update pushes a pinned value here (WaterRings.PinnedClock); 0 means let it run.
+float _TWWaterClock;
+#define TW_WTIME (_TWWaterClock > 0.0 ? _TWWaterClock : _Time.y)
 
 /// Pale expanding rings at a point on the water: two lines a ring, fading as they spread. stir returns how much the
 /// water inside a young ring is stirred up (a wading man or a shell clouds it with silt for as long as the ring lives).
@@ -18,10 +23,13 @@ half TWRings(float2 xz, out half stir)
         float4 r = _TWRings[k];
         float age = (_TWNow - r.z) / (0.9 + r.w * 0.4);
         half alive = step(0.0, age) * step(age, 1.0) * step(0.01, r.w);
-        float radius = r.w * sqrt(saturate(age));
-        float width = 0.05 + r.w * 0.035;
+        // a body punches a hole in the water, it does not grow one from nothing: the ring opens at 0.22 of its
+        // size. The width is sublinear, so an 8 m shell ring fattens to 0.69 m, not to a metre (harsh critic r1:
+        // at land+0.05 s the entry ring was a 0.3 m circle two pixels thick).
+        float radius = r.w * (0.22 + 0.78 * sqrt(saturate(age)));
+        float width = 0.07 + 0.22 * sqrt(r.w);
         float d = distance(xz, r.xy);
-        half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.6 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
+        half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.85 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
         sum += lines * (1.0 - age) * (1.0 - age) * alive;
         stir += (1.0 - smoothstep(radius * 0.35, radius * 0.95 + 0.05, d)) * (1.0 - age) * alive;
     }
@@ -42,7 +50,7 @@ half TWRainRings(float2 xz)
             float2 cell = floor(p), f = frac(p);
             float h = frac(sin(dot(cell, float2(127.1, 311.7))) * 43758.5453);
             float2 c = float2(frac(h * 13.7), frac(h * 7.3)) * 0.5 + 0.25;
-            float age = frac(_Time.y * (0.75 + 0.5 * h) + h * 9.0);
+            float age = frac(TW_WTIME * (0.75 + 0.5 * h) + h * 9.0);
             float d = distance(f, c);
             sum += (1.0 - smoothstep(0.018, 0.04, abs(d - age * 0.24))) * (1.0 - age) * (1.0 - age) * saturate((_TWWet.z - h * 0.9) * 6.0);
         }
@@ -53,7 +61,7 @@ half TWRainRings(float2 xz)
             float2 cell = floor(p), f = frac(p);
             float h = frac(sin(dot(cell, float2(74.7, 173.3))) * 43758.5453);
             float2 c = float2(frac(h * 11.3), frac(h * 5.9)) * 0.5 + 0.25;
-            float age = frac(_Time.y * (1.3 + 0.8 * h) + h * 7.0);
+            float age = frac(TW_WTIME * (1.3 + 0.8 * h) + h * 7.0);
             half fine = _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos.xz, xz) - 14.0) / 16.0));
             sum += (1.0 - smoothstep(0.03, 0.07, abs(distance(f, c) - age * 0.30))) * (1.0 - age) * saturate((_TWWet.z - h * 0.9) * 6.0) * fine * 0.8;
         }
@@ -70,7 +78,7 @@ half TWRainSplash(float2 xz)
     float2 p = xz * 3.3;
     float2 cell = floor(p), f = frac(p);
     float h = frac(sin(dot(cell, float2(269.5, 183.3))) * 43758.5453);
-    float slotTime = _Time.y * (2.6 + 1.4 * h) + h * 31.0;
+    float slotTime = TW_WTIME * (2.6 + 1.4 * h) + h * 31.0;
     float slot = floor(slotTime), age = frac(slotTime);
     float r = frac(sin(dot(cell + slot * 0.618, float2(12.9898, 78.233))) * 43758.5453);
     float2 c = float2(frac(r * 17.3), frac(r * 5.71)) * 0.6 + 0.2;
@@ -89,7 +97,7 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     half channel = smoothstep(0.62, 0.78, depth);
     half3 albedo = lerp(lerp(body, deep, channel), shallow, margin);
     shore = 1.0 - smoothstep(0.015, 0.05, depth);
-    float lap = frac(depth * 3.2 + _Time.y * 0.11 + noise * 0.35);
+    float lap = frac(depth * 3.2 + TW_WTIME * 0.11 + noise * 0.35);
     half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * ringAmount;
     half3 pale = foam * lerp(half3(1, 1, 1), TWShadeTint() * 1.6, 0.7);   // under a night mood the pale lines dim with everything else
     half stir;
@@ -104,7 +112,7 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
         half fleck = step(0.83, fh) * (1.0 - smoothstep(0.18, 0.42, distance(frac(sp), float2(frac(fh * 7.1), frac(fh * 3.3)) * 0.4 + 0.3)));
         flecks = fleck * smoothstep(0.02, 0.05, depth) * (1.0 - smoothstep(0.10, 0.20, depth)) * _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos.xz, xz) - 12.0) / 14.0));
     }
-    return lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.75, TWRainRings(xz) * 0.55)));
+    return lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.92, TWRainRings(xz) * 0.55)));
 }
 
 #endif
