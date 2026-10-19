@@ -953,8 +953,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   hidden wins over spied, and the mask's area follows the camera's own lens).
   His own look is `Presentation/Camera/CombatFx.Kit.cs` (`CombatFx.KitPieces`/`DrawKit`, `KitMax`): the two fuel
   tanks on his back and the wand in his hands, drawn over the baked soldier off the near tier's sockets, since no
-  Flamer figure is baked.
-- **Tests:** FlamerLookTests (his kit's shape, and that his tooltip is no longer a stand-in's).
+  Flamer figure is baked. His portrait is his own since 2026-10-19 (`Portraits/Flamer.png`, cut from a CaptureRig
+  still of him with his tanks and wand by `docs/evidence/special-portraits-r2/portrait_cut.py`, not baked by
+  `UiSkinGenerator` and no longer listed in `UI/Skin/placeholders.json`).
+- **Tests:** FlamerLookTests (his kit's shape, and that his tooltip is no longer a stand-in's); PortraitStills
+  (Explicit, with a graphics device: it photographs him and the Sentry alone, and the ground without them, which is
+  what their portraits are cut from) and SkinAssetTests (neither portrait is a byte copy of another man's).
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
 - **Files:** `Presentation/Camera/Flamethrower.cs` (the sim's flamethrower unit, archetype 36, burns men for real
   since 2026-09-28, see "Fire in the sim"; since look-03, 2026-10-06, its `Shot` is the route to this picture:
@@ -1323,6 +1327,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   once when he sets it down, and beyond `VATRenderer.LodDistance` (no sockets on the far box soldier) his sim facing
   stands in, so a plate is set at every tier. It is flushed in `plateMat` (painted steel, not the ground's own dirt
   colour) and far off `CombatFx.PlateGrow` grows it up to 3x to an 8 px floor.
+  2026-10-19 (`Portraits/Sentry.png`, cut from a CaptureRig still of him behind his plate by
+  `docs/evidence/special-portraits-r2/portrait_cut.py`, not baked by `UiSkinGenerator` and no longer listed in
+  `UI/Skin/placeholders.json`) and no longer borrows the MG man's, and his own look
+  on the field is the 8 mm plate he fires over, drawn over the baked soldier in
+  `Presentation/Camera/CombatFx.Plate.cs` (`CombatFx.PlatePieces`/`DrawPlate`); his muzzle flash is an MG's
+  (`CombatFx.KindOf`), so only the plate tells the two apart.
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
@@ -1612,6 +1622,9 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, HopperHopStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **Stills:** BenchRuns, DeathStills, DropLandingDustStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, SapperLayStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlamerLookTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, SentryLookTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
+- **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
+- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, PortraitStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
