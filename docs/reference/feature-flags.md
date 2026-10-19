@@ -48,11 +48,12 @@ Both are read only when `StressUnits > 0`, so no other preset sees them.
 | `tw.rig.stress.restore` | SessionState | `Editor/CaptureRig.cs` | SessionState: the StressUnits value CaptureRig puts back afterwards. |
 | `TW_AUDIT_OUT` | environment variable | `Editor/AssetScaleAudit.cs` | Environment variable: where -executeMethod TW.Editor.AssetScaleAudit.Run writes the asset scale audit. Default docs/reference/asset-scale.md. |
 | `TW_BENCH` | environment variable | `Perf/PerfBench.cs` | Environment variable, same as -twbench. Also fires in editor Play if set, so unset it after use. |
-| `TW_BOARD` | environment variable | `Editor/Gym.cs` | Environment variable: the pipeline job board checkout (default ../tw3d-board beside the repo); a gym run appends its recurring flags to its lessons.md. |
+| `TW_BOARD` | environment variable | `Editor/Gym.cs` | Environment variable: the pipeline job board checkout (default ../tw3d-board beside the repo); a gym run outside a relay leg (TW_RELAY unset) appends its recurring flags to its lessons.md. |
 | `TW_FEEDBACK` | environment variable | `UI/Shell/FeedbackCapture.cs` | Environment variable: the folder the F10 feedback captures are written in (default %LOCALAPPDATA%\TrenchWarfare\feedback). The game and Tools/assetboard/feedback.py both read it. |
 | `TW_FFMPEG` | environment variable | `Editor/Gym.cs` | Environment variable: the ffmpeg the gym joins its film= frames with into an mp4 (default: ffmpeg on PATH; none: the frames are kept). |
 | `TW_GYM` | environment variable | `Editor/Gym.cs` | Environment variable: the folder gym runs are written in (default %LOCALAPPDATA%\TrenchWarfare\gym). Never a checkout. |
 | `TW_KNOBS` | environment variable | `Presentation/Core/Knobs.cs` | Environment variable: run-time knobs, "a=1,b=2" (also \| or ; between entries; `Presentation/Core/Knobs.cs`); a bench report lists every knob it read. |
+| `TW_RELAY` | environment variable | `Editor/Gym.cs` | **undocumented: add to FLAG_EFFECT in Tools/codemap.py** |
 | `TW_SEATSHEET_OUT` | environment variable | `Editor/RiderLab.cs` | Environment variable: where the RiderLab batch seat sheet (the seats of every crab) writes its images. |
 | `TW_SEATSHEET_SCALES` | environment variable | `Editor/RiderLab.cs` | Environment variable: the walker sizes the RiderLab batch seat sheet draws, comma separated (default 1,1.5). |
 

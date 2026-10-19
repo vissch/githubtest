@@ -7,7 +7,8 @@
 // capture numbers, and for a pinned man the clip he is drawn in. summary.json lists every entry and its flags; the bug
 // catcher reads it (tw-bug-catcher). A flag the kept older run raised on the same entry is "recurring": summary.json lists
 // it and the run appends it to the board's lessons.md (../tw3d-board beside the repo, or TW_BOARD), so a lesson is written
-// without anyone choosing to. Tools/abtest.py gym diffs two runs (each band's changed pixels, every sidecar number, blind
+// without anyone choosing to; never inside a relay leg (TW_RELAY set), whose board guard fails a leg that changed it.
+// Tools/abtest.py gym diffs two runs (each band's changed pixels, every sidecar number, blind
 // pairs); the run is paced in game time (CaptureFps), so the same code draws the same run.
 // Runs are written outside every checkout (an untracked file changes the tree land.py checks):
 // %LOCALAPPDATA%\TrenchWarfare\gym\<yyyyMMdd-HHmm>-<sha>\, or TW_GYM. A run keeps itself and the newest older run and
@@ -546,10 +547,12 @@ namespace TW.Editor
             return list;
         }
 
-        /// <summary>Append recurring flags to the board's lessons.md, when the board is there (the gym never commits it).</summary>
-        static void AppendLessons(string sha, List<string> recurring)
+        /// <summary>Append recurring flags to the board's lessons.md, when the board is there (the gym never commits it).
+        /// Not inside a relay leg: TW_RELAY marks one (Tools/relay/launch.py leg_env), its TW_BOARD is the relay's own
+        /// board, and the relay fails a leg that left that board changed (relays 2, 3, 5, 2026-10-19).</summary>
+        public static void AppendLessons(string sha, List<string> recurring)
         {
-            if (recurring.Count == 0) return;
+            if (recurring.Count == 0 || InRelayLeg()) return;
             try
             {
                 string board = System.Environment.GetEnvironmentVariable("TW_BOARD");
@@ -563,6 +566,8 @@ namespace TW.Editor
             }
             catch (System.Exception ex) { Debug.LogWarning("Gym: could not append lessons: " + ex.Message); }
         }
+
+        public static bool InRelayLeg() => !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("TW_RELAY"));
 
         static void SafeWrite(string dir, StringBuilder summary, GymEntry e, GymDirector.Result r, List<string> jsons, List<string> flags,
                               ref int flagged, ref int done, string sheet, AnimState? pose)
