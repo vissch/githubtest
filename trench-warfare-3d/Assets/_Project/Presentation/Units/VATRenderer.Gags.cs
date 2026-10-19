@@ -41,6 +41,17 @@ namespace TW.Presentation.Units
             path.PulseQ = gag.PulseQ; path.PulseDur = gag.PulseDur; path.RestQ = gag.RestQ;
             if (gag.PulseDur > 0f && path.Arcs == 0 && path.SkidDur <= 0f) path.Settled = Mathf.Max(path.Settled, gag.PulseDur);
             if (gag.Topple > 0) path.Settled = Mathf.Max(path.Settled, gag.ToppleDur);
+            // the rocketed man planted head first: his arc ends upside down (HalfTurn) and drives on into the mud, so his
+            // legs stand PlantLegsAboveM above the drawn ground; they kick, then fold (DeathGags, VatTint.UpsideDownHeight)
+            bool planted = gag.Gag == DeathGag.Planted;
+            if (planted)
+            {
+                path.A0.HalfTurn = 1;
+                FallenFlight.EndAt(ref path, path.Rest - Vector3.up * PlantDepth(UnitScale));
+                path.Kick = (byte)DeathGags.PlantKickSteps; path.KickHz = DeathGags.PlantKickHz;
+                path.KickEnd = path.Settled + DeathGags.PlantKickSeconds;
+                path.RestFrom = path.KickEnd; path.RestDur = DeathGags.PlantFoldSeconds;
+            }
             if ((gag.Flags & GagFlags.NoCorpse) != 0) return;
 
             if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());
@@ -55,6 +66,7 @@ namespace TW.Presentation.Units
                 Pos = path.Rest, From = pos, Yaw = yaw, Born = Time.time, Seconds = Mathf.Max(0.1f, seconds), Lies = lies, Team = (byte)team, Figure = (byte)figure,
                 Gib = (byte)(gib & 0xFF), Grime = grime, Char = (byte)Mathf.Clamp(chr, 0, 3), Row = near ? (ushort)clip : farRow, FarRow = farRow,
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1,
+                Pitch = (sbyte)(planted ? FallenFlight.Steps / 2 : 0),
                 Gag = (byte)gag.Gag, GagFlags = gag.Flags, Absurd = gag.Intensity, Path = path, Flight = path.ArcsEnd,
             };
             // he lands his death clip on his back as his first arc comes down (as the plain throw does)
@@ -67,7 +79,7 @@ namespace TW.Presentation.Units
             float arrive = man.Born + path.Arrive;
             int under = 0;
             for (int k = 0; k < fallenMen.Count; k++) if (fallenMen[k].Cell == cell && ArriveOf(fallenMen[k]) <= arrive) under++;
-            if (under > 0)
+            if (under > 0 && !planted)
             {
                 float h = Hash01(man.Pos + new Vector3(1.7f, 0f, 9.2f));
                 float a = h * 6.2831853f;
@@ -100,12 +112,27 @@ namespace TW.Presentation.Units
             return yaw;
         }
 
+        /// <summary>How far below the drawn ground a planted man's Pos sits, so his feet (object y 0, hanging upside down
+        /// about VatTint.Pivot) stand DeathGags.PlantLegsAboveM above it.</summary>
+        static float PlantDepth(float scale) => VatTint.UpsideDownHeight(0f, 0, scale) - DeathGags.PlantLegsAboveM;
+
+        /// <summary>Where the first planted man came to rest (his Pos, sunk): what a capture aims at (DeathLab.Planted).</summary>
+        public bool TryPlantedMan(out Vector3 at)
+        {
+            for (int k = 0; k < fallenMen.Count; k++)
+                if (fallenMen[k].Gag == (byte)DeathGag.Planted) { at = fallenMen[k].Path.Rest; return true; }
+            at = Vector3.zero; return false;
+        }
+
         /// <summary>A gagged body's Tint: his turns, his squash and whether it all happens about his feet (VatTint).</summary>
         static float GagTint(in FallenMan f, int pitch, float age)
         {
             int roll = FallenFlight.RollStep(f.Path, age);
             int q = FallenFlight.Squash(f.Path, age, f.Absurd);
-            bool feet = (f.GagFlags & GagFlags.Feet) != 0 || (q != 0 && age >= f.Path.Delay && FallenFlight.ArcAt(f.Path, age) < 0);
+            // a planted man squashes about his middle, as the fold was worked out for: the automatic off-arc feet flag
+            // would move the pivot to 0 and throw the whole fold out
+            bool feet = (f.GagFlags & GagFlags.Feet) != 0
+                || (q != 0 && age >= f.Path.Delay && FallenFlight.ArcAt(f.Path, age) < 0 && f.Gag != (byte)DeathGag.Planted);
             return VatTint.Pack(f.Team, pitch, roll, q, feet, VatTint.FallenWound);
         }
     }

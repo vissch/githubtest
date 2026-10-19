@@ -203,7 +203,9 @@ namespace TW.Presentation.Units
                     for (int k = 0; k < 6 && seen; k++) seen = frustum[k].GetDistanceToPoint(at) > -2.5f * scale;
                     if (!seen) continue;
                 }
-                bool distant = (at - eye).sqrMagnitude > nearSq;
+                // the box tier has no gag of its own, and the standard camera sits past FallenNearDistance: a planted man
+                // would only ever play zoomed in (no draw call is added, the figure's own indirect draw takes him)
+                bool distant = (at - eye).sqrMagnitude > nearSq && f.Gag != (byte)DeathGag.Planted;
                 if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
                 else fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i);
             }

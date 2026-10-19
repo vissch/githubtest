@@ -246,10 +246,13 @@ namespace TW.Tests
                 return new float3(rec.ThrowX, rec.ThrowUp, rec.ThrowZ);
             }
             var before = Today(0f, out _); var after = Today(1f, out var gagged);
-            Assert.AreEqual(DeathGag.Rocket, gagged.Gag.Gag);
+            // a throw this high is a Rocket, or the half of them the dice plants head first in the mud (DeathGag.Planted,
+            // the owner's pick 2026-10-19): the throw is scaled the same for both, and only the landing differs
+            bool planted = gagged.Gag.Gag == DeathGag.Planted;
+            Assert.IsTrue(planted || gagged.Gag.Gag == DeathGag.Rocket, "rocketed, or planted: " + gagged.Gag.Gag);
             Assert.AreEqual(DeathGags.RocketFar, after.x / before.x, 0.01f, "nearly twice as far");
             Assert.AreEqual(math.min(DeathGags.RocketHigh * before.y, DeathGags.HighCap), after.y, 0.01f, "and higher");
-            Assert.AreEqual(2, gagged.Gag.Bounces);
+            Assert.AreEqual(planted ? 0 : 2, gagged.Gag.Bounces, planted ? "a planted man sticks" : "and bouncing");
             Assert.GreaterOrEqual(gagged.Gag.Flips, 1);
         }
 

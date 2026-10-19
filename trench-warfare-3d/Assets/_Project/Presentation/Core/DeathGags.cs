@@ -13,7 +13,7 @@ using TW.Sim;
 
 namespace TW.Presentation
 {
-    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots }
+    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots, Planted }
 
     /// <summary>GagPlan.Flags.</summary>
     public static class GagFlags
@@ -78,6 +78,17 @@ namespace TW.Presentation
         public const float BodyGravity = 14f;
         /// <summary>Share of standing shot deaths punted off their feet at intensity 1.</summary>
         public const float PuntShare = 0.45f;
+        /// <summary>The rocketed man planted head first in the mud (the owner's pick, 2026-10-19): a throw this high or
+        /// higher may drive him in instead of bouncing, this share of the time. His legs stand this far above the drawn
+        /// ground (an absolute height, the owner's number), kick for this long at this rate and this many roll steps each
+        /// way, then fold over PlantFoldSeconds to PlantFoldToM. VATRenderer.Gags turns the legs' height into how far his
+        /// Pos is sunk (VatTint.UpsideDownHeight); Core cannot see VatTint.</summary>
+        public const float PlantMinHigh = 5f, PlantShare = 0.5f;
+        public const float PlantLegsAboveM = 0.905f, PlantFoldToM = 0.50f, PlantKickSeconds = 3.0f, PlantKickHz = 1.6f, PlantFoldSeconds = 0.5f;
+        public const int PlantKickSteps = 4;
+        /// <summary>The height factor his legs fold to (a VatTint code of -15, drawing them at PlantFoldToM).</summary>
+        public const float PlantFoldHeight = 0.600f;
+
         /// <summary>No-corpse gags (the beam's boots) only from this intensity: below it he burns where he fell.</summary>
         public const float BootsFrom = 0.5f;
 
@@ -179,6 +190,18 @@ namespace TW.Presentation
                 if (g.InTrench) { far *= 0.5f; }   // the ladder already made it up, not out: keep it so
                 fly = new float3(way.x * far, high, way.z * far);
                 plan.Gag = heap ? DeathGag.Fountain : DeathGag.Rocket;
+                if (!heap && !g.InTrench && high >= PlantMinHigh && Dice(s, t, 981u) < PlantShare * math.min(1f, a))
+                {
+                    // head first into the mud, legs kicking in the air: he sticks where he lands, no bounce and no skid,
+                    // his clip held straight (the kick is the roll), and the fold is the resting squash
+                    plan.Gag = DeathGag.Planted; plan.Flags = GagFlags.Freeze;
+                    plan.Flips = (byte)math.clamp(TurnsFor(math.min(high, HighCap), Towards(0.6f, 1.6f, a)), 1, FlipCap);
+                    plan.Bounces = 0; plan.Skid = 0f;
+                    plan.RestQ = (sbyte)VatTintCode(PlantFoldHeight);
+                    plan.SpinScale = Towards(1f, 1.6f, a);
+                    clip = Clip.DeathThrown;
+                    return Capped(ref plan, ref fly);
+                }
                 int turns = TurnsFor(math.min(high, HighCap), Towards(0.6f, 1.6f, a));
                 if (heap && (s & 1u) != 0u) { plan.Rolls = (byte)math.clamp(turns, 1, RollCap); plan.Flips = (byte)math.min(1, turns); }   // a cartwheel
                 else plan.Flips = (byte)math.clamp(turns, 1, FlipCap);

@@ -9,6 +9,7 @@
 //  - Call(ability, x, z, args): a support call for player 0 (silver topped up first): 1 HE, 3 chlorine, 11 the beam;
 //  - Disarm(slot): a machine's guns out of action, so it runs men down rather than shelling them;
 //  - DriveAt(slot, x, z): a machine driven straight at a point;
+//  - Planted(): where the first man planted head first in the mud lies, to aim a capture at him;
 //  - Parts(x, z): one of each of a man's parts dropped in a row, to look at them close;
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
 //  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
@@ -35,6 +36,16 @@ namespace TW.Editor
         {
             DeathGags.Pin(intensity);
             return "fx.deathAbsurd " + (intensity < 0f ? "from the knob: " + DeathGags.Intensity : DeathGags.Intensity.ToString("0.00"));
+        }
+
+        /// <summary>Where the first man planted head first in the mud (DeathGag.Planted) came to rest, so a capture can be
+        /// aimed at him instead of guessing: "x z" in metres, or why there is none.</summary>
+        public static string Planted()
+        {
+            var vat = Object.FindFirstObjectByType<TW.Presentation.Units.VATRenderer>();
+            if (vat == null) return "no VATRenderer";
+            if (!vat.TryPlantedMan(out var at)) return "no planted man among " + vat.FallenCount + " fallen";
+            return at.x.ToString("0.00") + " " + at.z.ToString("0.00") + " (y " + at.y.ToString("0.00") + ")";
         }
 
         /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
