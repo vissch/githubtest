@@ -202,6 +202,7 @@ namespace TW.Presentation
         NativeArray<byte> blow;         // he struck a blow this tick (MeleeBlow): 1 + its style (stab, butt, smash, fists); shotAt holds whom at
         NativeArray<byte> blocked;      // he turned a blow aside this tick (MeleeBlow with scalar 0)
         TW.Sim.Combat.MeleeSystem melee; bool lookedForMelee;
+        NativeArray<uint> layUntil;     // a sapper's SapperLaying deadline (tick he stops kneeling to lay the mine); 0 = not laying
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         // this tick's task event naming him: 1 he healed a man (UnitHealed), 2 he mended a vehicle (VehicleHullMended),
         // 3 he landed by parachute (DropLanded), 4 he leapt on his jetpack (LeapStarted); actOn is the patient, the
@@ -245,6 +246,7 @@ namespace TW.Presentation
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             leapSeconds = new NativeArray<float>(maxSlots, Allocator.Persistent); leapMetres = new NativeArray<float>(maxSlots, Allocator.Persistent);
             blow = new NativeArray<byte>(maxSlots, Allocator.Persistent); blocked = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            layUntil = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             act = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             actOn = new NativeArray<int>(maxSlots, Allocator.Persistent);
@@ -255,7 +257,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose();
+            shotThisTick.Dispose(); gasHere.Dispose(); threw.Dispose(); leapSeconds.Dispose(); leapMetres.Dispose(); Lunge.Dispose(); blow.Dispose(); blocked.Dispose(); layUntil.Dispose(); shotAt.Dispose(); act.Dispose(); actOn.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -303,7 +305,7 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i]; heading[i] = float2.zero;
-            Grime[i] = 0f; Hop[i] = 0f; Lunge[i] = default; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; Lunge[i] = default; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0; layUntil[i] = 0u;   // a new man in the slot comes up clean
             // the dead man's latches from this same tick must not hand his hit reaction to the newcomer (P6a)
             hitKind[i] = 0; blastRadius[i] = 0f; blastDist[i] = 0f; shotThisTick[i] = 0; threw[i] = 0; gasHere[i] = 0; shotAt[i] = -1;
             return s;
@@ -374,6 +376,8 @@ namespace TW.Presentation
                         if (e.A >= 0 && e.A < count) { blow[e.A] = (byte)(1 + math.clamp((int)math.round(e.Dir.y), 0, 3)); shotAt[e.A] = e.B; }
                         if (e.B >= 0 && e.B < count && e.Scalar == 0f) blocked[e.B] = 1;
                         if (e.B >= 0 && e.B < count && e.Scalar > 0f) { blocked[e.B] = 2; hitDir[e.B] = e.Dir; }   // it landed: he is driven back
+                    case SimEventType.SapperLaying:
+                        if (e.A >= 0 && e.A < count) layUntil[e.A] = tick + (uint)math.max(1f, math.round(e.Scalar / tickSeconds));
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
@@ -795,6 +799,18 @@ namespace TW.Presentation
             // the magazine each weapon draws a reload after: SMG and machine pistol 20, MG belt 50, pistol 8, rifle 5
             int magazine = arche == 1 || arche == 17 ? 20 : arche == 2 ? 50 : arche == 13 ? 8 : 5;
             bool bolt = arche == 0 || arche == 3;   // the rifle and the sniper work a bolt after every shot
+            if (tick < layUntil[i] && !prone && speed < 0.3f)
+            {
+                s.Routine = 0; s.Aimed = false; s.WantStance = (byte)Stance.Crouch;
+                if (s.Stance != (byte)Stance.Crouch)
+                {
+                    if (cur != Clip.StandToKneel) Start(i, ref s, Clip.StandToKneel, Rung.Action, "lays a mine: down on one knee");
+                    else if (!Playing(s)) s.Stance = (byte)Stance.Crouch;
+                    return;
+                }
+                if (cur != Clip.KneelInspect || !Playing(s)) Start(i, ref s, Clip.KneelInspect, Rung.Action, "places the mine");
+                return;
+            }
             if (threw[i] != 0 && !prone && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {
                 // the bomb left his hand this tick (CombatFx draws it from there): the clip joins at its swing, so the arm
