@@ -905,6 +905,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   it, and `Tools/flameband.py` (tests: `Tools/test_flameband.py`) asks the harder question - whether the lit pixels
   form a BAND from muzzle to target or a blob round the man. look-03 passed flamecheck with 143028 lit pixels and
   fails flameband on width.
+  `Tools/flamecheck.py` rejects a shot with no fire in it. `python docs/evidence/flame-jet-core/probe.py` measures
+  the jet's hot core off the T2 night stills beside it (`core_over_tip_luma`, how much harder the first third of the
+  stream burns than its tip, and `see_through_frac`, how much of the near third still shows the empty field behind
+  it) and writes `probe.json`; it exits 0 at the owner's bar of 1.5 and 0.1 (2026-10-19).
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
   A missing PNG or a row out of order silently disables every flipbook in the game. Add the enum entry, the row and
   the PNG together, and check `books.Ready`.
