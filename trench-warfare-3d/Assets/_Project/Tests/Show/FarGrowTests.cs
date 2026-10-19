@@ -71,17 +71,49 @@ namespace TW.Tests
             Assert.GreaterOrEqual(240f, CombatFx.IncomingFarZoom);
             Assert.IsTrue(CombatFx.DropDrawnAt(240f));
 
-            const int men = 8;
             const float seconds = 5f;
+            int waves = CombatFx.DropStreakWaves(seconds);
             float prev = -1f;
-            for (int k = 0; k < men; k++)
+            for (int w = 0; w < waves; w++)
             {
-                float d = CombatFx.DropStreakDelay(k, men, seconds);
+                float d = CombatFx.DropStreakDelay(w, waves, seconds);
                 Assert.That(d, Is.InRange(0f, seconds));
-                Assert.Greater(d, prev, "streak " + k + " starts after the last");
+                Assert.Greater(d, prev, "wave " + w + " starts after the last");
                 prev = d;
             }
-            Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(men - 1, men, seconds), 1e-6f, "the last streak ends as the shell's streak would");
+            Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(waves - 1, waves, seconds), 1e-6f, "the last wave ends as the shell's streak would");
+        }
+
+        [Test]
+        public void DropStreaksOnePerMan()
+        {
+            // r2 critique fix 3: the falling streaks could not be seen in any still (men 0 in frame) because each
+            // man got only ONE 1 s card staggered across the whole flight, so at any instant 1-2 of 8 were up.
+            // Every man now streaks unbroken over the last DropStreakWindow seconds, so the goal's capture moment
+            // (2.5 s after the call, on a 5 s flight) shows all 8 at once, and nothing falls at the call itself
+            // (the flare does that job).
+            const int men = 8;
+            const float seconds = 5f;
+            Assert.AreEqual(8, CombatFx.DropStreaksUp(2.5f, men, seconds), "one streak per man at the capture moment");
+            Assert.AreEqual(0, CombatFx.DropStreaksUp(0.2f, men, seconds), "nothing falls at the call");
+
+            int waves = CombatFx.DropStreakWaves(seconds);
+            Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(waves - 1, waves, seconds), 1e-6f, "the last wave ends as the shell's own streak would");
+
+            // the 8 ring points (k/men*2pi, alternating DropStreakRingNear/Far, no jitter) are each separated enough
+            // that a 4.5 m-wide card at zoom 120 (3 * FarGrow(120)) cannot blob into its neighbour.
+            var pts = new Vector3[men];
+            for (int k = 0; k < men; k++)
+            {
+                float a = (float)k / men * 6.2832f;
+                float d = (k & 1) == 0 ? CombatFx.DropStreakRingNear : CombatFx.DropStreakRingFar;
+                pts[k] = new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
+            }
+            float min = float.MaxValue;
+            for (int i = 0; i < men; i++)
+                for (int j = i + 1; j < men; j++)
+                    min = Mathf.Min(min, Vector3.Distance(pts[i], pts[j]));
+            Assert.GreaterOrEqual(min, 6f, "farther apart than a card is wide at zoom 120");
         }
 
         [Test]
@@ -92,8 +124,8 @@ namespace TW.Tests
             // arithmetic: distance = zoom * tan(30deg) / tan(fov/2), fov = TacticalCamera.Fov = 25deg, so the view
             // height at the focus is 2 * distance * tan(fov/2) = 2 * zoom * tan(30deg) = 1.1547 * zoom metres —
             // 277.1 m at zoom 240 over the default 900-px-high still, which is 3.25 px/m (not r1's 3.75, which
-            // assumed the view height equals the zoom). docs/evidence/paradrop-inbound-marker-r2/dustprobe2.py
-            // measures 16 px on a still shot at this exact pose, anchoring the number to a picture, not the formula.
+            // assumed the view height equals the zoom). docs/evidence/paradrop-inbound-marker-r4/streakprobe.py
+            // measures the stills at this exact pose, anchoring the number to a picture, not the formula.
             float viewHeightM = 2f * 240f * Mathf.Tan(30f * Mathf.Deg2Rad);
             float pxPerM = 900f / viewHeightM;
             Assert.AreEqual(2f, CombatFx.DropDustWidth(30f), 1e-6f, "the standard view is untouched");

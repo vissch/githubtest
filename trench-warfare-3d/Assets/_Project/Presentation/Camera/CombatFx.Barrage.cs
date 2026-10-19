@@ -14,7 +14,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         public const float IncomingLead = 7f / 12f;     // the ShellFall book reaches its last frame (the streak on the ground) 7/12 s in
-        const float IncomingCardLife = 1f;               // held a little past the landing, so the fade (the last third) starts after it
+        public const float IncomingCardLife = 1f;        // held a little past the landing, so the fade (the last third) starts after it
         public const float IncomingFarZoom = 120f;
         uint incomingTick = uint.MaxValue;
         OffMapAbilitySystem offMap;
@@ -101,16 +101,41 @@ namespace TW.Presentation.Tactical
         /// landing dust are never culled. Pure, so a test can hold it.</summary>
         public static bool DropDrawnAt(float zoom) => true;
 
-        /// <summary>When the k-th of `men` falling streaks starts, spread evenly over the last (up to) 2.5 s before
-        /// landing, the final one at IncomingLead before the ground (the streak's own last frame). Pure, so a test can
-        /// hold it.</summary>
-        public static float DropStreakDelay(int k, int men, float seconds)
+        /// <summary>Men come down over the last DropStreakWindow seconds of the flight (or the whole flight if
+        /// shorter): a man's streak is made of this many back-to-back ShellFall cards (IncomingCardLife each), so
+        /// every man has an unbroken streak falling, not one flash in the middle of the flight (the harsh critic's
+        /// finding: "men 0 in frame" because only 1-2 of 8 single cards were ever up at once).</summary>
+        public const float DropStreakWindow = 4f;
+
+        /// <summary>The ring radii the streaks alternate between (men & 1), both inside ParaDrop's own 12 m disc, far
+        /// enough apart that a 4.5 m-wide card at zoom 120 (3 * FarGrow(120)) does not blob into its neighbour.</summary>
+        public const float DropStreakRingNear = 7f, DropStreakRingFar = 11.5f;
+
+        /// <summary>How many back-to-back cards make up one man's streak over a flight of `seconds`. Pure, so a test
+        /// can hold it.</summary>
+        public static int DropStreakWaves(float seconds) => Mathf.Clamp(Mathf.CeilToInt(Mathf.Min(seconds, DropStreakWindow) / IncomingCardLife), 1, 4);
+
+        /// <summary>When the `wave`-th (of `waves`) card of a man's streak starts: the last wave ends as the shell's
+        /// own streak would (IncomingLead before the ground, the book's last frame on the landing), each earlier
+        /// wave IncomingCardLife before it, so the streak is unbroken back to seconds - DropStreakWindow.</summary>
+        public static float DropStreakDelay(int wave, int waves, float seconds)
         {
-            float span = Mathf.Min(seconds, 2.5f);
             float last = Mathf.Max(0f, seconds - IncomingLead);
-            float first = Mathf.Max(0f, last - span);
-            float t = men > 1 ? (float)k / (men - 1) : 1f;
-            return Mathf.Clamp(Mathf.Lerp(first, last, t), 0f, seconds);
+            return Mathf.Max(0f, last - (waves - 1 - wave) * IncomingCardLife);
+        }
+
+        /// <summary>How many of `men` paratroopers have a falling-streak card up on screen `t` seconds after the
+        /// DropInbound call, over a flight of `seconds`: pure, so a test can hold it without a scene.</summary>
+        public static int DropStreaksUp(float t, int men, float seconds)
+        {
+            int waves = DropStreakWaves(seconds);
+            int up = 0;
+            for (int w = 0; w < waves; w++)
+            {
+                float delay = DropStreakDelay(w, waves, seconds);
+                if (t >= delay && t < delay + IncomingCardLife) { up = men; break; }
+            }
+            return up;
         }
 
         /// <summary>L11 (fx.recipes): a drop called in (DropInbound: pos, b = men, scalar = seconds to landing): a smoke
@@ -126,13 +151,17 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.Smoulder, at, 6f * grow, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
             books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
             int men = Mathf.Clamp(e.B, 1, 8);
+            int waves = DropStreakWaves(e.Scalar);
             for (int k = 0; k < men; k++)
             {
-                float a = Hash01(at.x, at.z, 70 + k) * 6.2832f, d = 12f * Hash01(at.x, at.z, 80 + k);
+                float a = (float)k / men * 6.2832f + (Hash01(at.x, at.z, 70 + k) - 0.5f) * 0.3f;
+                float d = (k & 1) == 0 ? DropStreakRingNear : DropStreakRingFar;
                 Vector3 p = at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
                 p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
-                books.Add(FlipbookFx.Book.ShellFall, p, 3f * grow, IncomingCardLife, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
-                    glow: SceneMood.Night ? 1.6f : 1f, delay: DropStreakDelay(k, men, e.Scalar));
+                float startFrame = Hash01(at.x, at.z, 70 + k) * 7f;
+                for (int w = 0; w < waves; w++)
+                    books.Add(FlipbookFx.Book.ShellFall, p, 3f * grow, IncomingCardLife, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
+                        glow: SceneMood.Night ? 2.4f : 1.3f, delay: DropStreakDelay(w, waves, e.Scalar), startFrame: startFrame);
             }
         }
 
