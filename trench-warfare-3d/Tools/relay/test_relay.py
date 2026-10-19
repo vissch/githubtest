@@ -1369,7 +1369,13 @@ class Runs(Repo):
         self.queue("u1")
         self.script({"plan": [{"sleep": 120}]})
         r = runner.Run(self.args())
-        r.deadline = time.time() + 3
+        real = r.no_room
+
+        def from_the_leg(*a, **k):      # the 3 s count from the first leg's own check, not from the run's start-up:
+            if not r.legs:              # on a loaded desktop the start-up alone took over 3 s, and no leg ran (0 != 1)
+                r.deadline = time.time() + 3
+            return real(*a, **k)
+        r.no_room = from_the_leg
         with contextlib.redirect_stdout(io.StringIO()):
             r.loop()
         stop = json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
