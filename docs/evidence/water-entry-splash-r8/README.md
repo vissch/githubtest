@@ -82,3 +82,42 @@ Fix the ring, and only the ring: a hollow centre that opens outward. Then three 
 `probe.py --fixed`, which must clear all five owner bars **and** the ladder. The bars for the three true claims sit
 outside the baseline's spread by construction (0.60 against a measured 1.000–1.008; 1.50 against a measured
 1.4483 on all three runs), so clearing them cannot happen by luck.
+
+## What changed, and what it measures (the fix, runs 12-14)
+
+Three edits, all in `trench-warfare-3d/Assets/_Project/Shaders/TWWater.hlsl` (`TWRings`, `TWWaterAlbedo`,
+`TWRingValueStep`), mirrored as arithmetic a test can read in `WaterEntry.RingRadius`:
+
+1. the inner line of each ring is gone and the crest is clamped to `radius * 0.30`, so the ring is a crest and
+   not a filled disc;
+2. the expansion has its own clock (`0.35 + 0.05 s per metre of ring`, eased by `pow(grow, 0.7)`) instead of
+   riding the ring's 2.02 s life;
+3. the hollow inside the crest is multiplied into the finished water colour instead of being a thin dark line
+   added by `TWRingValueStep`.
+
+| key | bar | baseline (3 runs) | fixed (runs 12, 13, 14) | |
+|---|---|---|---|---|
+| `ring_growth` | >= 1.5 | 1.4483 x3 | 1.9661, 1.9643, 1.9643 | **fixed** |
+| `centre_rim_ratio` | <= 0.6 | 1.0043, 1.0082, 1.0 | 0.8024, 0.8094, 0.8038 | **still short** |
+| `crown_height_m` | >= 1.3 | cleared | 3.3293 x3 | clears |
+| `crown_fall_ratio_06` | <= 0.5 | cleared | 0.0926, 0.097, 0.0694 | clears |
+| `o120_crown_contrast` | >= 0.09 | cleared | 0.3248, 0.3317, 0.3243 | clears |
+| `bands_monotone` | true | false | false | the next unit's |
+
+Two numbers moved the wrong way and are reported rather than hidden: `ring_only_px` at the landing fell from
+1289 to 704 (bar 300), which is the filled disc becoming a crest, and `crown_contrast_post` fell from 0.2102 to
+0.196 (bar 0.09). Neither crosses its bar. `crown_contrast_land` is flat: 0.2923 against 0.2935.
+
+### Why `centre_rim_ratio` is still 0.80, measured and not reasoned
+
+The hole is cut in the water, but the probe's centre region is not water. `centre_rim` takes the median of the
+lit frame inside 0.35 of the crest radius, with the splash CARDS thrown out - and at the entry point the body
+itself stands there, which no card mask removes and no water shader can darken.
+
+The proof is a run with the trough set to 0.02, a nearly black hole, shot and measured like any other
+(run-11): `centre_rim_ratio` moved from 0.810 to 0.798. A hole twenty times darker bought 0.012. The same runs
+show the crest arriving as it should (the radial median jumps from 0.252 inside to 0.337 at the crest against
+0.247 for water with no ring), so the ring is drawn - it is the measurement window that is occupied.
+
+Nothing here moves a bar. The bar stands and the key fails; what to do about it is the owner's, and it is
+written up under "Open: waiting on the owner" in `docs/reference/decisions.md`.

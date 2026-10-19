@@ -13,7 +13,7 @@ float _TWNow;
 float _TWWaterClock;
 #define TW_WTIME (_TWWaterClock > 0.0 ? _TWWaterClock : _Time.y)
 
-/// Pale expanding rings at a point on the water: two lines a ring, fading as they spread. stir returns how much the
+/// Pale expanding rings at a point on the water: a crest a ring over a dark hollow, fading as they spread. stir returns how much the
 /// water inside a young ring is stirred up (a wading man or a shell clouds it with silt for as long as the ring lives).
 half TWRings(float2 xz, out half stir, out half trough)
 {
@@ -26,16 +26,24 @@ half TWRings(float2 xz, out half stir, out half trough)
         // a body punches a hole in the water, it does not grow one from nothing: the ring opens at 0.22 of its
         // size. The width is sublinear, so an 8 m shell ring fattens to 0.69 m, not to a metre (harsh critic r1:
         // at land+0.05 s the entry ring was a 0.3 m circle two pixels thick).
-        float radius = r.w * (0.22 + 0.78 * sqrt(saturate(age)));
-        float width = 0.07 + 0.22 * sqrt(r.w);
+        // the expansion has its own clock, sized by the ring, so the entry ring opens in 0.49 s (radius 1.06 m at
+        // land+0.05 s against 2.17 m at +0.3 s) while an 8 m shell ring still takes 0.75 s and does not snap open.
+        // Harsh critic r1: tied to the ring's LIFE the radius grew 1.45x between the spec moments, under the 1.5 bar.
+        float grow = saturate((_TWNow - r.z) / (0.35 + 0.05 * r.w));
+        float radius = r.w * (0.22 + 0.78 * pow(grow, 0.7));
+        // the crest is clamped to a third of the radius: at 0.44 m wide on a 0.96 m radius the smoothstep plus the
+        // inner line lit the whole disc, which is how a ring measured a centre of 0.329 against a rim of 0.328.
+        float width = min(0.07 + 0.22 * sqrt(r.w), radius * 0.30);
         float d = distance(xz, r.xy);
-        half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.85 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
+        half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius)));
         sum += lines * (1.0 - age) * (1.0 - age) * alive;
         stir += (1.0 - smoothstep(radius * 0.35, radius * 0.95 + 0.05, d)) * (1.0 - age) * alive;
         // the hollow just inside the crest. Harsh critic r1: a pale ring on night water moved the luma by 0.019,
         // under the 0.02 the capture can tell from nothing, because the pale sources are the night-dimmed foam
         // colour. A DARK trough is a value step the night cannot take away.
-        trough += (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.78))) * (1.0 - age) * alive;
+        // ...and it is the whole inside, not a line just inside the crest: a body punches a cavity, so everything
+        // from 0.52 to 0.86 of the radius is the dark side of the value step (squared fade, so it is a young ring's).
+        trough += (1.0 - smoothstep(radius * 0.52, radius * 0.86, d)) * (1.0 - age) * (1.0 - age) * alive;
     }
     stir = saturate(stir); trough = saturate(trough);
     return saturate(sum);
@@ -106,9 +114,13 @@ half TWRainSplash(float2 xz)
 
 /// The thrown ring as a value step on the lit colour: a crest brighter than this water and a trough darker than it.
 /// With no ring live both weights are 0, so every other water pixel in the game is bit-identical.
+/// `trough` is taken but no longer used here: the hole is cut in the ALBEDO (TWWaterAlbedo below), because the
+/// ford a body actually lands in is a puddle painted by Toon_URP, which never calls this. Measured: with the
+/// darkening here only, the capture read the inside of the ring at 0.2562 against water's own 0.2545 - no hole at
+/// all - while the crest, which the albedo's pale source draws, read 0.34. The param stays so the three call
+/// sites do not move.
 half3 TWRingValueStep(half3 color, half thrown, half trough)
 {
-    color = lerp(color, color * TW_RING_TROUGH, trough * 0.85);
     return lerp(color, min(half3(1, 1, 1), color + TW_RING_LIFT), thrown * 0.92);
 }
 
@@ -138,7 +150,13 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     }
     // the pale sources as they always were (a puddle's ring, the sea's foam): the ring's VALUE step is the caller's,
     // applied to the lit colour with TWRingValueStep
-    return lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.92, TWRainRings(xz) * 0.55)));
+    half3 wet = lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.92, TWRainRings(xz) * 0.55)));
+    // The cavity inside the crest, MULTIPLIED into the finished water colour. Three measured reasons it is here and
+    // not anywhere earlier: in TWRingValueStep it never reached the ford at all (Toon_URP paints that puddle and
+    // never calls it), on the albedo the pale shore source above lerped it straight back out, and additive it would
+    // die at night (r7: an albedo step of 0.26 arrived as 0.02 luma). A factor of 0.45 is a factor of 0.45 at any
+    // light level, and the bar is a ratio: centre / rim <= 0.6.
+    return wet * lerp(half3(1, 1, 1), half3(TW_RING_TROUGH, TW_RING_TROUGH, TW_RING_TROUGH), trough * 0.85);
 }
 
 #endif
