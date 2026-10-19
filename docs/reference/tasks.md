@@ -42,7 +42,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), SimMathTests (Sin/Cos of a huge or non-finite angle stay finite and in range; Floor never goes through an out-of-range int cast), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
   (what `Death.b`, `dir` and `scalar` mean), PerfMarkersTests (every registered system's marker name lands in
   `PerfMarkers.Names`).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
@@ -146,14 +146,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
   `Sim/Terrain/MudField.cs`, `Sim/Terrain/PropDef.cs`, `Sim/Match/Deformation.cs` (the only thing that edits the map).
-  `DeformationSystem.Shake` reads the props near a blast through `MapData.PropsByCell` (`Sim/Terrain/PropIndex.cs`),
-  not by walking every prop.
   Contracts `Sim/Terrain/MapStructs.cs`, `Sim/Terrain/NavLayer.cs`; `Sim/Terrain/GreyboxMapGenerator.cs` is the
   flat corridor the determinism tests use.
 - **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests; NarrowsTests (the Narrows, the
-  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds);
-  PropIndexTests (a barrage in a forest: the cell index cuts the distance tests and harms exactly the same props in
-  the same order).
+  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds).
 - **Trap:** a feature tested only on the playtest map is untested. BattlefieldTests runs the generated map.
 
 ### Movement, flow fields, garrison, trench orders
@@ -331,8 +327,7 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
-  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index; a blast finds it through
-  `MapData.PropsByCell`, which pads its query by the wreck reach), each with less cover, scrap
+  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
   no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
   `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
@@ -418,11 +413,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Infantry rendering (VAT)
 - **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers, the living; the figure scale is `UnitScale` in
   `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Units/VATRenderer.Fallen.cs` (the dead:
-  the throw arc, the tumble, the heap per 2 m cell stacked by who lands first, the charred), `Presentation/Core/IZoomSource.cs`,
+  the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Core/IZoomSource.cs`,
   `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
   (far tier and fallback), `Presentation/Units/VatTint.cs` (what `VatInstance.Tint` carries),
   `Presentation/Units/FallenFlight.cs` (a gagged body's path: hold, throw, bounces, skid, rest; its turns and squash),
-  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn),
+  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn; the heap stacked by who lands first),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests (FallenAt computed once per
   fallen man per frame, the shadow decision made every frame), DeathVarietyTests (VatPad char bits, the tumble's pitch),
@@ -454,6 +449,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Design: `docs/15-character-controller.md` (section 9 is the death ladder).
   The absurd deaths (owner, 2026-09-28): `Presentation/Core/DeathGags.cs` chooses a gag on top of the ladder's death
   (punt, jig, headshot pop, rocket, fountain, pancake, fling, wilt, plank, skid, boots), seeded, capped;
+  a killed frog (`InfantryArchetype.Frog`) always gets its own gag, `FrogFlop` (2026-10-19, pick A: "flops belly up,
+  legs twitch"): a small hop, then half a turn's rest roll (16 of `FallenFlight`'s 32 roll steps — a stated
+  convention, `VatTint.cs`'s head comment, not recomputed) and a decaying twitch (`FallenFlight.RollStep` off the
+  arcs); test FrogDeathTests.
   `Presentation/Core/AnimationController.Gags.cs` feeds it and puts the plan in the `DeathRecord`. The knob
   `fx.deathAbsurd` (0 today's deaths exactly, 1 the new look, 2 ludicrous) defaults to 1 (the owner turned it on, 2026-09-30);
   `DeathGags.Pin` overrides it for a test or a capture. What a shell takes off a man at the knob above 0:
@@ -586,8 +585,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),
-  ImpactDustFeetTests (a Hit's feet dust tracks the chest he was actually drawn with -- a fire-step, not the bare
-  terrain sample under it -- through `CombatFx.DustFeetY` / `CombatFx.ChestHeight`: `CombatFx.Bodies.cs`),
   GoreZoomStills (`Tests/Stills`, explicit, run by name with a graphics device: men who can take many
   hits are shot by several weapons in GreyboxCorridor at zoom 6, 30 and 120, and `DebrisRenderer.Watch` (a test probe)
   records every red piece thrown with its size, so the drawn gore can be measured against the drawn man -- it writes
@@ -720,10 +717,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   about 11 ms, whole-map and order-dependent, marker `TW.Terrain.Hollows`, run under `HeavyWork`; no test covers it),
   `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs` (with `NightLights.Machines.cs`: the
   machines' glow cards after the flash pool's, `lights.maxMachineGlows`, and their own light pool, `lights.machinePool`),
-  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs` (`Start` synthesizes its three thunder clips,
-  about 90 ms in a release player (measured 2026-10-19, commit 120524e9b9, two runs 87.5/92.2 ms); cached in
-  `shared` since 2026-10-19 so only the first `Storm` instance of a session pays it, test
-  `Tests/Show/StormThunderTests.cs`), `Presentation/Terrain/QuietFog.cs`,
+  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs`, `Presentation/Terrain/QuietFog.cs`,
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
@@ -793,15 +787,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   kicks, storm bolts, fog and focus distance): `Presentation/Core/ViewGround.cs`. The main camera and its zoom, read
   once a frame for the whole picture: `Presentation/Core/ViewEye.cs` (the only place that looks `IZoomSource` up; the
   idiom used to be written out fifteen times under `Presentation/Camera`).
-  Which team is mine is asked in one place, `Presentation/Core/LocalSeat.cs` (off the transport's `LocalPlayer`, set
-  by `SimHost` in `Awake`); `TacticalCamera` (`ScanArmies`, `ToEnemy`), `QuietFog` and `CombatFx.Mines` all read it
-  instead of each hardcoding team 0.
 - **Tests:** ViewGroundTests (also fails when a presentation file writes the formula out again; Rain and NightLights
   still have their own copy until their lanes land). CameraCloseFitTests (the closest zoom, `NearZoom`/
   `CloseFitHeight`/`CloseAimHeight`, holds a whole tall machine in frame with headroom instead of framing the feet).
-  ViewEyeTests (the zoom is read once a frame, and no presentation
+  still have their own copy until their lanes land), ViewEyeTests (the zoom is read once a frame, and no presentation
   file looks `IZoomSource` up again; VATRenderer still has its own copy until its lane lands).
-  TacticalCameraSeatTests (the standard view mirrors seated as player 1).
 - **Trap:** setting `Camera.main.transform` does nothing; the controller overwrites it every frame. Use `FrameFrom`.
 
 ## Interface (SHOW lane)
@@ -1121,8 +1111,8 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Match:** AssaultLadderTests, BalanceSweepTests, BehaviourBenchTests, DefinedUnitTests, LaunchLoadoutTests, MatchLoopTests, ScriptedEnemySlotTests, SimTickBenchTests, SinglePlayerEquivalenceTests, SteadyStepTests, StressPresetTests, VfxEventCensusTests
 - **PlayMode:** AnimClockPlayTests, CaptureRigPlayTests, DebriefViewFieldPlayTests, FeedbackPlayTests, GymPlayTests, HudLayoutPlayTests, HudMinimapPlayTests, HudOrderPlayTests, LockstepLoopbackTests, MatchClockTests, MatchLaunchPlayTests, ShellRouterPlayTests
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
-- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
-- **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
+- **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, FrogDeathTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
+- **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
 - **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->

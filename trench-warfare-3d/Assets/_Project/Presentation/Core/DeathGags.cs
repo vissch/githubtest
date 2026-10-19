@@ -13,7 +13,7 @@ using TW.Sim;
 
 namespace TW.Presentation
 {
-    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots }
+    public enum DeathGag : byte { None, Punt, Flop, HeadPop, Jig, Rocket, Fountain, Pancake, Flung, Wilt, Plank, Skid, Boots, FrogFlop }
 
     /// <summary>GagPlan.Flags.</summary>
     public static class GagFlags
@@ -43,6 +43,10 @@ namespace TW.Presentation
         /// and its bearing, seconds of the plank's topple and the pulse, the clip's rate (0 = the renderer's own), a
         /// multiple of the flight's yaw spin, the gore dice (0..1) and the intensity it was chosen at.</summary>
         public float Delay, HoldLift, Jig, Skid, SkidYaw, ToppleDur, PulseDur, ClipRate, SpinScale, Dice, Intensity;
+        /// <summary>A dead frog's rest roll (belly up, in roll steps) and its legs' twitch: a rate in Hz, a decaying
+        /// duration, and the amplitude in roll steps.</summary>
+        public sbyte RestRoll;
+        public float TwitchRoll, TwitchHz, TwitchDur;
         public uint Seed;
         public bool Any => Gag != DeathGag.None;
     }
@@ -51,7 +55,7 @@ namespace TW.Presentation
     public struct GagInput
     {
         public DeathKind Cause; public Clip Clip;
-        public bool Flat, InTrench, Crushed, Clawed, Heavy, MachineGun;
+        public bool Flat, InTrench, Crushed, Clawed, Heavy, MachineGun, Frog;
         public int Density;
         /// <summary>The way the harm went, flat and unit (the round's line, the knock); zero when unknown.</summary>
         public float3 Travel;
@@ -127,6 +131,7 @@ namespace TW.Presentation
                 if (a >= BootsFrom) { plan.Gag = DeathGag.Boots; plan.Flags = GagFlags.NoCorpse | GagFlags.HelmetPop; return plan; }
                 return SkidFrom(ref plan, g, a);
             }
+            if (g.Frog) return FrogFlop(ref plan, g, a, ref fly);
             if (g.Cause == DeathKind.Burning) return SkidFrom(ref plan, g, a);
             if (g.Cause == DeathKind.Gas)
             {
@@ -228,6 +233,20 @@ namespace TW.Presentation
             fly = new float3(travel.x * farShot, highShot, travel.z * farShot);
             plan.Flips = (byte)flips; plan.Bounces = (byte)bounces; plan.Skid = skid * math.min(1f, a);
             clip = Clip.DeathThrown; yaw = Yaw(-travel);   // facing the gun that punted him, thrown backwards
+            return Capped(ref plan, ref fly);
+        }
+
+        /// <summary>A killed frog flops belly up and his legs twitch (pick A, 2026-10-19): a small hop so the pose reads
+        /// the same whatever killed him, held on its back with half a turn's rest roll (16 of the 32 roll steps a turn —
+        /// VatTint.cs's head comment fixes the format, not recomputed here), and a decaying twitch in the legs.</summary>
+        static GagPlan FrogFlop(ref GagPlan plan, in GagInput g, float a, ref float3 fly)
+        {
+            plan.Gag = DeathGag.FrogFlop;
+            plan.RestRoll = 16;
+            fly = new float3(0f, Towards(0f, 0.35f, a), 0f);
+            plan.Rolls = 0;
+            plan.PulseQ = (sbyte)VatTintCode(Towards(1f, 1.12f, a)); plan.PulseDur = 0.12f;
+            plan.TwitchRoll = 2f * math.min(1f, a); plan.TwitchHz = 5f; plan.TwitchDur = 1.6f * math.min(1f, a);
             return Capped(ref plan, ref fly);
         }
 
