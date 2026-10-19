@@ -170,10 +170,10 @@ MG, whose belt change waits for the sim). Throw and melee simply do not happen u
 | Situation | Signal | Response |
 |---|---|---|
 | Shot and hurt | `Hit` event (target = him, Scalar > 0) | by gait: `Hit Reaction (1)`/`(3)` standing, `Hit Reaction` heavy when Scalar > 40% of MaxHp, `Walking Hit Reaction`, `Hit Reaction (2)` running (0.6 s, keeps going), `Rifle Prone Hit Reaction`. Direction: the clip is chosen by which of front/back/side the `Dir` falls in, else mirrored |
-| Near miss, standing still | `NearMiss` event | `Dodging` (duck), not more than once per 3 s. Kneeling and prone men have no flinch clip in the set (listed in 13); they hold their idle |
+| Near miss, standing still | `NearMiss` event | `Dodging` (duck), not more than once per 3 s. Kneeling men get `Kneel Flinch`, prone men `Prone Flinch`/`Prone Roll`, both baked from their own FBX |
 | Suppressed | `Suppressed` event, meter ≥ 40 | goes to the low stoop / squat if not already; aimed idle becomes ready idle |
 | Pinned | stance Pinned | `Prone Idle`; `Rifle Prone Hit Reaction` per near miss |
-| Shell lands close | `Explosion` within radius + 3 m, standing | within radius x 0.6: `Dive Roll` (ends standing) for assault / rifle, `Rifle Shielding Face` for the rest (ends kneeling); within radius + 3: `Dodging`. Prone: `Prone Roll` away from the burst |
+| Shell lands close | `Explosion` within radius + 3 m, standing | within radius x 0.6: `Dive Roll` (ends standing) for assault / rifle, `Rifle Shielding Face` for the rest (ends kneeling); within radius + 3: `Dodging`; walking at 0.3-1.5 m/s: `Dodging`/`Kneel Flinch` on the move, held at least 0.3 s so the walk cut cannot drop it mid-step. Prone: `Prone Roll` away from the burst |
 | Gas cloud on his cell | `GasCloudSpawned` / gas field > 6 on his cell | `Rifle Shielding Face` once, then stooped gait with `Walk With Rifle (1)`; with `Masked`: nothing |
 | Trip | Bogged flag on a man (future), or wire cell entered at run speed, or hash 2% per second in Mud cells at a run | `Fall Over` (ends flat), then `Rifle Prone To Kneel` + `Rifle Kneel To Stand`; 2.5 s lost, the sim keeps moving him so the get-up is cut short at 60 m+ |
 | Burning | `Burning` flag (future) | `Hit Reaction` heavy looped at 1.4x until it clears or he dies |

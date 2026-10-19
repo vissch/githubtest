@@ -99,6 +99,36 @@ namespace TW.Tests
         }
 
         [Test]
+        public void MenFlinchUnderShelling()
+        {
+            using var r = new Rig();
+            int standing = r.Man(5f);
+            int kneeling = r.Man(5f);
+            r.M.World.StanceOf[kneeling] = (byte)Stance.Crouch;
+            int prone = r.Man(5f);
+            r.M.World.StanceOf[prone] = (byte)Stance.Prone;
+            int walking = r.Man(5f);
+            r.M.World.Events.Clear();
+            for (int t = 0; t < 4; t++)
+            {
+                r.M.World.Position[walking] += new float3(0f, 0f, 0.05f);
+                r.Tick();
+            }
+            r.Shell();
+            r.Tick();
+            r.Tick();
+
+            Assert.AreEqual(Clip.Duck, r.ClipOf(standing), "standing at 5 m: ducks");
+            Assert.AreEqual(Clip.KneelFlinch, r.ClipOf(kneeling), "kneeling at 5 m: kneel flinch");
+            var proneClip = r.ClipOf(prone);
+            Assert.IsTrue(proneClip == Clip.ProneRoll || proneClip == Clip.ProneFlinch, "prone at 5 m: rolls or flinches flat, got " + proneClip);
+            Assert.AreEqual(Clip.Duck, r.ClipOf(walking), "walking at ~1 m/s, 0.3-1.5 m/s band: ducks his head on the move");
+
+            r.Tick(); r.Tick();
+            Assert.AreEqual(Clip.Duck, r.ClipOf(walking), "the walker's flinch holds its first 0.3 s (6 ticks) before the walk cut can drop it");
+        }
+
+        [Test]
         public void TheReactionRunsOutThroughTheMen()
         {
             using var r = new Rig();

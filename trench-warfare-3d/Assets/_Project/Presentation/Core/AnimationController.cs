@@ -589,9 +589,10 @@ namespace TW.Presentation
                 }
                 else if (speed < 0.3f) Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, (i == FollowSlot ? "shell at " + d.ToString("0.0") + " m: " + (low ? "flinches" : "ducks") : null));
                 else if (speed > 1.5f && !inTrench && Hash(s.Seed, tick) < 0.5f) Start(i, ref s, Clip.Stumble, Rung.Reaction, (i == FollowSlot ? "shell at " + d.ToString("0.0") + " m at a run: stumbles" : null), math.clamp(speed / 3f, 1f, 2f));   // a runner keeps going (half the time with a stumble)
+                else Start(i, ref s, low ? Clip.KneelFlinch : Clip.Duck, Rung.Reaction, (i == FollowSlot ? "shell at " + d.ToString("0.0") + " m on the move: ducks his head" : null));   // 0.3-1.5 m/s: between the still flinch and the runner's stumble, otherwise unhandled
                 if (s.Rung == Rung.Reaction && s.ClipStart == tick) return;
             }
-            if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down)) return;   // a stumble is 1.2 s of it, then the run
+            if (s.Rung == Rung.Reaction && Playing(s) && !(cur == Clip.Stumble && s.Frame > 1.2f) && !(speed > 0.3f && cur != Clip.Stumble && cur != Clip.HitRun && cur != Clip.DiveAway && Left(s) > 0.4f && !s.Down && !(tick - s.LastBlast < 6u && (cur == Clip.Duck || cur == Clip.KneelFlinch)))) return;   // a stumble is 1.2 s of it, then the run; a blast flinch holds its first 0.3 s on a moving man before the walk/run cut can drop it
             if (s.Down && s.KnockedUntil != 0u && cur == Clip.Trip)
             {
                 // blown down: he lies on his face where he landed a moment, then picks himself up (at once, and quickly, if
