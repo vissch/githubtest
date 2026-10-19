@@ -1,0 +1,23 @@
+{
+  "bar_min_diff": 0.04,
+  "flamer_min_diff": 0.12108,
+  "flamer_nearest": "Brute",
+  "flamer_opaque_frac": 0.375,
+  "flamer_sha1": "9de6f49ac6dbe8fec14e272f869dc62f65101f59",
+  "listed_as_placeholder": {
+    "Flamer": false,
+    "Sentry": false
+  },
+  "portraits": 31,
+  "sentry_min_diff": 0.145405,
+  "sentry_nearest": "Flamer",
+  "sentry_opaque_frac": 0.3609,
+  "sentry_sha1": "c35af82f0a20c49fd50e028482dab55b93e5e9ea",
+  "still_pose_error_m": {
+    "Flamer-empty": 0.0,
+    "Flamer-man": 0.0,
+    "Sentry-empty": 0.0,
+    "Sentry-man": 0.0
+  },
+  "unique_hashes": true
+}
