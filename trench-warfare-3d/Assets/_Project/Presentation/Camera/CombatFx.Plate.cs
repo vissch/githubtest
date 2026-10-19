@@ -27,6 +27,10 @@ namespace TW.Presentation.Tactical
 
         PlateSpot[] spots = new PlateSpot[0];
 
+        /// <summary>Where one man's plate stands, for tooling to read (docs/evidence/sentry-look-r2/shoot.py checks a
+        /// spot was emplaced before it shoots). An unset spot for a slot that carries no plate.</summary>
+        public PlateSpot SpotOf(int slot) => slot >= 0 && slot < spots.Length ? spots[slot] : default;
+
         /// <summary>
         /// When this is on, the plate, its post and a calibration bar are drawn unlit and flat-coloured, so a still of
         /// them can be measured in pixels (docs/evidence/sentry-look-r2). Off in play.
