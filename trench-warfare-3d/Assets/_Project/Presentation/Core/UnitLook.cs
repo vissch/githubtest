@@ -38,7 +38,11 @@ namespace TW.Presentation
         /// <summary>The portrait file stem under Assets/_Project/UI/Skin/Portraits/, per SkinSpec.PortraitNames.</summary>
         public static string PortraitName(byte archetype) =>
             archetype < InfantryPortraits.Length ? InfantryPortraits[archetype]
-            : StandInPortrait(archetype) ?? FootName(archetype) ?? VehicleName(archetype);
+            : OwnPortrait(archetype) ?? StandInPortrait(archetype) ?? FootName(archetype) ?? VehicleName(archetype);
+
+        /// <summary>A unit with its own picture, told apart from the archetypes it stands in for elsewhere (the tip,
+        /// the card name). Checked before StandInPortrait so an entry there is never reached for these.</summary>
+        static string OwnPortrait(byte archetype) => archetype == InfantryArchetype.AtRifle ? "AtRifle" : null;
 
         /// <summary>
         /// The Proving Ground's units (archetypes 21-36, 2026-09-28) have no portrait of their own yet: each wears the
@@ -56,7 +60,6 @@ namespace TW.Presentation
                 case VehicleArchetype.RenaultFT: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Tusk";
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
                 case InfantryArchetype.Sentry: return "MG";
-                case InfantryArchetype.AtRifle: return "Sniper";
                 case InfantryArchetype.Sapper: return "Engineer";
                 case InfantryArchetype.Flamethrower: return "Assault";
                 default: return null;
@@ -112,7 +115,7 @@ namespace TW.Presentation
                 // the Proving Ground's men: numbers from UnitDefinitions (ProvingGroundTests holds them)
                 case InfantryArchetype.Frog: return "Frog, prototype: a rifleman's numbers under the playground's frog";
                 case InfantryArchetype.Sentry: return "Sentry, stand-in: a machine gun behind an 8 mm plate over a 60 degree arc";
-                case InfantryArchetype.AtRifle: return "AT rifle, stand-in: pierces 20 mm at up to 70 m, one round in five seconds";
+                case InfantryArchetype.AtRifle: return "AT rifle: a bipod-laid heavy rifle. Pierces 20 mm to 70 m, one round in five seconds";
                 case InfantryArchetype.DeathBattalion: return "Death Battalion, stand-in: a harder-hitting rifleman who never stays pinned";
                 case InfantryArchetype.Sapper: return "Sapper, stand-in: carries two charges. Walks out and lays a mine or a tripwire";
                 case InfantryArchetype.Flamethrower: return "Flamethrower, stand-in: a 12 m jet that sets men and ground alight, past a plate";

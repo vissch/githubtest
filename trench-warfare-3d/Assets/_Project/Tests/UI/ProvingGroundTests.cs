@@ -11,6 +11,7 @@ using TW.Net;
 using TW.Presentation;
 using TW.Sim;
 using TW.Sim.Match;
+using TW.UI;
 
 namespace TW.Tests
 {
@@ -575,6 +576,22 @@ namespace TW.Tests
                 Assert.IsTrue(FactionRoster.MayCall(Factions.Of(r.FactionB), (int)id), id + " may be called by the other seat (the panel calls it for them)");
             }
             Assert.That(r.LoadoutA, Is.EqualTo(ten), "and the ten is still the one handed in");
+        }
+
+        [Test]
+        public void AtRifleWearsItsOwnLook()
+        {
+            var own = UnitLook.PortraitName(InfantryArchetype.AtRifle);
+            Assert.AreEqual("AtRifle", own);
+            Assert.AreNotEqual(UnitLook.PortraitName(InfantryArchetype.Sniper), own);
+            Assert.Contains(own, SkinSpec.PortraitNames, "its own portrait stem is painted by the skin generator");
+
+            var tip = UnitLook.Tip(InfantryArchetype.AtRifle);
+            Assert.That(tip, Does.Not.Contain("stand-in"));
+            Assert.Less(tip.Length, 100, "the tip is one line and clips rather than wraps");
+            Assert.That(tip, Does.Contain("bipod"));
+
+            Assert.AreEqual("AT Rifle", UnitLook.Name(InfantryArchetype.AtRifle));
         }
     }
 }
