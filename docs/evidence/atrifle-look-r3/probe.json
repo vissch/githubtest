@@ -1,0 +1,17 @@
+{
+  "mask_px_base-at-1": 876,
+  "mask_px_base-at-2": 874,
+  "mask_px_base-at-3": 867,
+  "silhouette_diff_vs_sniper_base_max": 0.0126,
+  "n_captures": 0,
+  "pose_error_m_max": 0.0,
+  "rain_max": 0.0,
+  "threshold_luma": 0.04,
+  "window_xywh": [
+    720,
+    300,
+    160,
+    105
+  ],
+  "problems": []
+}
