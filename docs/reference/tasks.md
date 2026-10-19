@@ -140,11 +140,17 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   at the overview, each with a NO-GAS PLATE of the same pose and the same frame, so the gas can be told from the field
   by subtraction. `TW_STILLS_DIR` or SessionState `tw.gasbank.dir` says where; `TW_GAS_PLATE=1` or SessionState
   `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
-  2026-10-19 found that every call was taken and no bank was ever drawn in the stills:
-  `docs/evidence/ability-fx-captures-r2/` and the open question in `decisions.md`. The pipeline's `run_tests` selects
+  2026-10-19 found that every call was taken, and the capture frame's own `gas_cells`, `gas_cards`, `recipes`,
+  `books_ready` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
+  The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
-  `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`).
+  GasBankCards (`Tests/Stills/GasBankCards.cs`, Explicit, a graphics device: the isolation still behind GasBankStills
+  - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
+  puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
+  once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
+  `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`);
+  `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
