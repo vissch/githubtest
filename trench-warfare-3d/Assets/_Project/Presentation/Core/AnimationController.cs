@@ -178,6 +178,7 @@ namespace TW.Presentation
         NativeArray<float> waveR, waveD;
         NativeArray<byte> shotThisTick, leftTrench, gasHere;
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
+        NativeArray<uint> layUntil;     // a sapper's SapperLaying deadline (tick he stops kneeling to lay the mine); 0 = not laying
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
 
@@ -211,6 +212,7 @@ namespace TW.Presentation
             leftTrench = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
+            layUntil = new NativeArray<uint>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
@@ -219,7 +221,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); layUntil.Dispose(); shotAt.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -262,7 +264,7 @@ namespace TW.Presentation
             s.Stance = s.WantStance = w.StanceOf[i]; s.BodyYaw = s.AimYaw = s.ShownYaw = w.Yaw[i];
             s.Team = w.Team[i]; s.Archetype = w.Archetype[i];
             prevPos[i] = w.Position[i];
-            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0;   // a new man in the slot comes up clean
+            Grime[i] = 0f; Hop[i] = 0f; waveAt[i] = 0u; Char[i] = 0; Wound[i] = 0; layUntil[i] = 0u;   // a new man in the slot comes up clean
             return s;
         }
 
@@ -307,6 +309,9 @@ namespace TW.Presentation
                         break;
                     case SimEventType.GrenadeThrown:
                         if (e.A >= 0 && e.A < count) { threw[e.A] = 1; shotAt[e.A] = e.B; }
+                        break;
+                    case SimEventType.SapperLaying:
+                        if (e.A >= 0 && e.A < count) layUntil[e.A] = tick + (uint)math.max(1f, math.round(e.Scalar / tickSeconds));
                         break;
                     case SimEventType.Death:
                         LatchDeath(e);   // what killed him and how hard: Die reads it (AnimationController.Death.cs)
@@ -659,6 +664,18 @@ namespace TW.Presentation
             // ---- rung 4: actions (the shot first: it cuts an aim-up, a flinch or a duck, never a hit)
             int magazine = arche == 1 ? 20 : arche == 2 ? 50 : 5;
             bool bolt = arche == 0 || arche == 3;   // the rifle and the sniper work a bolt after every shot
+            if (tick < layUntil[i] && !prone && speed < 0.3f)
+            {
+                s.Routine = 0; s.Aimed = false; s.WantStance = (byte)Stance.Crouch;
+                if (s.Stance != (byte)Stance.Crouch)
+                {
+                    if (cur != Clip.StandToKneel) Start(i, ref s, Clip.StandToKneel, Rung.Action, "lays a mine: down on one knee");
+                    else if (!Playing(s)) s.Stance = (byte)Stance.Crouch;
+                    return;
+                }
+                if (cur != Clip.KneelInspect || !Playing(s)) Start(i, ref s, Clip.KneelInspect, Rung.Action, "places the mine");
+                return;
+            }
             if (threw[i] != 0 && !prone && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {
                 // the bomb left his hand this tick (CombatFx draws it from there): the clip joins at its swing, so the arm
