@@ -31,29 +31,41 @@ namespace TW.Presentation.Tactical
             var turn = Quaternion.LookRotation(fwd, up);
             // the pack: a satchel wider than it is deep, so it reads as a pack and not as the Flamer's tanks
             Vector3 pack = chest + (up * 0.05f - fwd * 0.20f) * scale;
-            into[0] = Matrix4x4.TRS(pack, turn, new Vector3(0.34f, 0.30f, 0.18f) * scale);
+            into[0] = Matrix4x4.TRS(pack, turn, new Vector3(0.58f, 0.52f, 0.32f) * scale);
             // the two charges, one each side of the pack (InfantrySpec.MineCharges is 2), slung a little lower
             Vector3 charges = chest + (-up * 0.06f - fwd * 0.20f) * scale;
-            into[1] = Matrix4x4.TRS(charges + right * (0.19f * scale), turn, new Vector3(0.16f, 0.16f, 0.12f) * scale);
-            into[2] = Matrix4x4.TRS(charges - right * (0.19f * scale), turn, new Vector3(0.16f, 0.16f, 0.12f) * scale);
+            into[1] = Matrix4x4.TRS(charges + right * (0.19f * scale), turn, new Vector3(0.27f, 0.27f, 0.21f) * scale);
+            into[2] = Matrix4x4.TRS(charges - right * (0.19f * scale), turn, new Vector3(0.27f, 0.27f, 0.21f) * scale);
             return SapperKitPieceMax;
         }
 
-        /// <summary>Draw the kit of every live Sapper on the field: near tier only, where the sockets exist.</summary>
+        /// <summary>Draw the kit of every live Sapper on the field: off the near tier's sockets where they exist, and
+        /// off his drawn position and yaw beyond that (the far tier's box carries no sockets), so he is told apart
+        /// from the Engineer at every zoom the camera reaches, not only close up.</summary>
         void DrawSapperKit(Bounds bounds)
         {
             if (units == null) return;
             var w = Host.Local.World;
             batch.Clear();
             int men = 0;
+            ViewNow(out _, out _, out float scale);
             for (int slot = 0; slot < w.HighWater && men < SapperKitMax; slot++)
             {
                 uint flags = w.Flags[slot];
                 if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 byte archetype = w.Archetype[slot];
                 if (archetype != InfantryArchetype.Sapper) continue;
-                if (!units.Sockets(slot, out var muzzle, out var barrel, out var chest)) continue;   // far tier, or the controller is off
-                ViewNow(out _, out _, out float scale);
+                Vector3 muzzle, barrel, chest;
+                if (!units.Sockets(slot, out muzzle, out barrel, out chest))
+                {
+                    // far tier, or the controller is off: estimate from his drawn position and yaw instead of skipping him
+                    Vector3 at = Host.Presenter.Drawn(slot);
+                    float ground = RenderGround.Sample(Host.Local.Map, at.x, at.z);
+                    float yaw = w.Yaw[slot];
+                    barrel = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+                    chest = new Vector3(at.x, ground, at.z) + Vector3.up * (1.3f * scale);
+                    muzzle = chest + barrel * (0.6f * scale);
+                }
                 int n = SapperKitPieces(archetype, chest, muzzle, barrel, scale, sapperPieces);
                 for (int k = 0; k < n; k++) batch.Add(sapperPieces[k]);
                 men++;

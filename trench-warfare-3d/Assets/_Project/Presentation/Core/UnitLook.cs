@@ -62,7 +62,6 @@ namespace TW.Presentation
                 // but the card PICTURE is still the rifleman's until one is rendered off it
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
                 case InfantryArchetype.Sentry: return "MG";
-                case InfantryArchetype.Sapper: return "Engineer";
                 case InfantryArchetype.Flamethrower: return "Assault";
                 default: return null;
             }

@@ -138,6 +138,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
+- `Sapper.png`
 - `Cutter.png` is reserved: the model exists but no archetype fields it yet.
 
 Framing, so the set reads as one: machine turned 55 degrees so its nose points to the viewer's front-right (the enemy is screen-right everywhere in the HUD); camera 18 degrees above horizontal with a long lens (22 degree vertical field); the model fills 86% of the frame's larger extent, centred on its bounds. Infantry: a bust from mid-chest, body turned 30 degrees, face toward frame right; the Rifleman, Assault and MG share one figure and differ by a small weapon badge the card adds. Light: warm key upper-left-front, cool rim from behind-right, dim cool fill from below-front. No ground, no shadow disc, no team colour (the card's rim carries the team). Support emblems are painted, not rendered: a shell over a crater burst (HeBarrage), a drum with a drifting cloud (ChlorineGas), in plate colours with an amber or gas-green accent.
