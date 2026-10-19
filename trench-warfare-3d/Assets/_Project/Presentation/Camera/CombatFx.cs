@@ -794,6 +794,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.WireBreached:
                     OnWireBreached(e);   // CombatFx.Barrage.cs (fx.recipes)
                     break;
+                case SimEventType.DropInbound:
+                    OnDropInbound(e);    // CombatFx.Barrage.cs (fx.recipes): the aircraft's run-in and the canopies
+                    break;
                 case SimEventType.DropLanded:
                     OnDropLanded(e);     // CombatFx.Barrage.cs (fx.recipes)
                     break;
@@ -874,6 +877,11 @@ namespace TW.Presentation.Tactical
                         bool dayEarth = !wet && shellFire > 0f && !FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid);   // the day column slimmer and its wings cut too (critique c1b)
                         Vector3 columnLean = flight * (r * 0.45f * lean);   // the column leans the way the shell was going
                         columnWidth *= look.Column;
+                        // IN-5: the column grows with the zoom past 80 the way the recipes' plume and ring do, so a
+                        // shell is still a column from the overview and not a few pixels of it. Harsh critic r1 fix 3
+                        // measured a water splash at 0.0003 of an O240 frame against its own no-effect plate.
+                        float farCol = FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var colZoom) ? colZoom.CurrentZoom : 0f);
+                        columnWidth *= farCol;
                         if (recipe.Column && look.Column > 0f && !look.Tripwire)
                         {
                             if (soil > 0f)
@@ -894,11 +902,11 @@ namespace TW.Presentation.Tactical
                                     velocity: columnLean, height: tall * FlipbookFx.ColumnCapScale(columnCap, FlipbookFx.SoilCap(behind, tanPitch, reach)), cut: cut);
                             }
                             else
-                                books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * look.Column, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
+                                books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * look.Column * farCol, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
                                     velocity: columnLean, cut: cut);
                             // the two wings are not a mirror pair: the second is born a little later and a little smaller
-                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
-                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings * farCol, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings * farCol, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
                         }
                         // a tripwire's charge stands no column and no wings: its ring and its spark fan are its whole shape (CombatFx.Bursts.cs)
                         // fx.recipes (CombatFx.Recipes.cs): a round with no lean bursts wide and low over its column; a hull goes up

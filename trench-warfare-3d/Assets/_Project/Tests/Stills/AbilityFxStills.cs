@@ -73,10 +73,14 @@ namespace TW.Tests
         {
             switch (subject)
             {
-                case "smoke": return (12f, 1f, 150, 260);
-                case "barrage": return (12f, 2f, 90, 200);
-                case "splash": return (7f, 3f, 20, 120);
-                default: return (12f, 12f, 120, 240);   // drop: WarmupTicks 100 + 20 frames
+                // The sim runs at 20 ticks a second against 30 captured frames, so a frame is two thirds of a tick, and
+                // a peak has to clear the ability's WarmupTicks (OffMapAbilities.cs) or the still is taken before the
+                // payload arrives. Baseline r1 shot the barrage 11 ticks before its first shell and the drop 11 ticks
+                // before its men were down - which is why both read 0.0000 against their plates.
+                case "smoke": return (12f, 1f, 150, 260);         // warmup 40 ticks (60 frames)
+                case "barrage": return (12f, 2f, 200, 320);       // warmup 80 ticks, 12 shells over 120 more: mid-barrage
+                case "splash": return (7f, 3f, 20, 120);          // one shell, bursting the next tick
+                default: return (12f, 12f, 155, 300);             // drop: warmup 100 ticks (150 frames), shot just after the landing
             }
         }
 
@@ -112,6 +116,10 @@ namespace TW.Tests
             bool plate = PlatePass;
 
             TW.Presentation.Tactical.CombatFx.ShowOverlays = false;   // the yellow ability-area disc is drawn here (DrawAim)
+            // A burst shakes the camera, and the rig poses the camera one frame and photographs it the next, so the
+            // shake pushed it off the pose it was given: baseline r1's splash came back with pose_error_m 4.4 at O240.
+            TW.Presentation.Tactical.CameraShake.Strength = 0f;
+            TW.Presentation.Tactical.CameraShake.Reset();
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
             Host.WriteWorlds(m => { var b = m.World.GetSystem<AmbientBombardmentSystem>(); if (b != null) b.ShellsPerMinute = 0f; });
             var sky = Object.FindFirstObjectByType<TW.Presentation.Terrain.Atmosphere>();
@@ -134,15 +142,28 @@ namespace TW.Tests
 
             for (int f = 0; f < 120; f++) yield return null;   // let the field settle before the first block
 
+            // One block per subject AND per band, on its own point, with the camera already at the band's zoom when
+            // the effect is staged. Two things need that: the cards that grow with the zoom (FlipbookFx.FarGrow) read
+            // CurrentZoom as they are born, not as the shot is posed, and the handlers that cull past a zoom see the
+            // band they will be photographed at. The overview band goes FIRST so its frame, which holds the whole map,
+            // cannot contain an earlier block's smoke, craters or paratroopers.
             foreach (string subject in subjects)
+            foreach (float zoom in new[] { 240f, 30f })
             {
+                string band = zoom < 100f ? "T1" : "O240";
                 var pl = Plan(subject);
+                // How far this band's point must stand from the one the other band used. The overview band runs first,
+                // so this only keeps the standard view's frame clear of what the overview block left behind: water is
+                // scarce and a splash is gone in 1.5 s, and open ground a drop can land on is scarcer still (7 points
+                // on this map at room 12), so each gets what its own leavings need and no more.
+                float apart = subject == "splash" ? 20f : subject == "drop" ? 34f : 60f;
+                if (tc != null) { tc.BaseYaw = -90f; tc.Zoom = zoom; }
                 float x = -1f, z = -1f;
                 for (float zz = 40f; zz < size.y - 40f && x < 0f; zz += 6f)
                     for (float xx = 20f; xx < size.x - 20f && x < 0f; xx += 6f)
                     {
                         bool clear = true;
-                        foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 34f) clear = false;
+                        foreach (var u in used) if (Mathf.Abs(u.x - xx) < apart && Mathf.Abs(u.y - zz) < apart) clear = false;
                         if (!clear) continue;
                         if (subject == "splash")
                         {
@@ -162,51 +183,56 @@ namespace TW.Tests
                         for (float xx = 20f; xx < size.x - 20f; xx += 6f)
                         {
                             bool clear = true;
-                            foreach (var u in used) if (Mathf.Abs(u.x - xx) < 34f && Mathf.Abs(u.y - zz) < 34f) clear = false;
+                            foreach (var u in used) if (Mathf.Abs(u.x - xx) < apart && Mathf.Abs(u.y - zz) < apart) clear = false;
                             if (clear) nClear++;
                             if (Open(map, xx, zz, pl.room)) nOpen++;
                             if (abilities != null && abilities.CanLand(0, new float3(xx, 0f, zz))) nLand++;
                         }
-                    TestContext.Out.WriteLine(subject + ": no point found; map " + size.x + "x" + size.y
+                    TestContext.Out.WriteLine(subject + " " + band + ": no point found; map " + size.x + "x" + size.y
                         + ", cells clear " + nClear + ", open " + nOpen + ", CanLand " + nLand
                         + ", abilities " + (abilities == null ? "null" : "found"));
                     continue;
                 }
                 used.Add(new Vector2(x, z));
+                if (tc != null) tc.Focus = new Vector2(x, z);
+                for (int f = 0; f < 10; f++) yield return null;   // the camera takes the new zoom and focus
 
                 int before = Paras();
                 if (!plate)
                 {
+                    // the first band's call put the ability on its cooldown (HeBarrage 1200 ticks, ParaDrop 1500), which
+                    // would refuse the second band's; cleared here, not in the sim
+                    Host.WriteWorlds(m =>
+                    {
+                        var ab = m.World.GetSystem<OffMapAbilitySystem>();
+                        if (ab != null && ab.Cooldown.IsCreated) for (int i = 0; i < ab.Cooldown.Length; i++) ab.Cooldown[i] = 0;
+                    });
                     string said = subject == "smoke" ? VfxLab.Call((int)OffMapAbilityId.SmokeScreen, x, z)
                                 : subject == "barrage" ? VfxLab.Call((int)OffMapAbilityId.HeBarrage, x, z)
                                 : subject == "splash" ? VfxLab.Shell(x, z)
                                 : VfxLab.Call((int)OffMapAbilityId.ParaDrop, x, z);
-                    TestContext.Out.WriteLine(subject + " at " + x + ", " + z + ": " + said);
+                    TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": " + said);
                 }
-                else TestContext.Out.WriteLine(subject + " at " + x + ", " + z + ": plate, nothing staged");
+                else TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": plate, nothing staged");
 
                 for (int f = 0; f < pl.peak; f++) yield return null;
 
-                foreach (float zoom in new[] { 30f, 240f })
-                {
-                    string band = zoom < 100f ? "T1" : "O240";
-                    string path = Path.Combine(dir, subject + "_" + band + (plate ? "_plate" : "") + ".png");
-                    if (tc != null) tc.BaseYaw = -90f;
-                    CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
-                    yield return Drain(path);
-                    if (File.Exists(path)) written++;
-                }
+                string path = Path.Combine(dir, subject + "_" + band + (plate ? "_plate" : "") + ".png");
+                CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
+                yield return Drain(path);
+                if (File.Exists(path)) written++;
                 for (int f = 0; f < Mathf.Max(0, pl.block - pl.peak); f++) yield return null;   // the block is a fixed length either way
 
                 if (subject == "drop")
                 {
-                    dropped = Paras() - before;
-                    TestContext.Out.WriteLine("drop: paratroopers in the world " + before + " -> " + Paras());
+                    dropped += Paras() - before;
+                    TestContext.Out.WriteLine("drop " + band + ": paratroopers in the world " + before + " -> " + Paras());
                 }
             }
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            TW.Presentation.Tactical.CameraShake.Strength = 1f;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
             Assert.AreEqual(2 * subjects.Length, written, "a still is missing");

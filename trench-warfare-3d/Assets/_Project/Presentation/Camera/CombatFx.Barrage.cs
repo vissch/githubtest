@@ -91,15 +91,75 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
         }
 
-        /// <summary>L11 (fx.recipes): a paratrooper down (DropLanded: pos): the dust he lands in. The canopy is a mesh and
-        /// owner question Q8.</summary>
+        // L11b (2026-10-19, harsh critic r1 fix 3: "no paratrooper or landing can be seen"). A drop used to be eight
+        // small puffs on the ground, culled past IncomingFarZoom, so from the overview nothing happened at all. The
+        // sim raises DropInbound as the call goes in, carrying the point, the men and the seconds to the landing
+        // (SimEvents.cs), which is everything the whole run needs - so it is laid out once, each card on its own
+        // delay, with no per-frame state to tick. The aircraft itself reuses the strafe's path
+        // (CombatFx.Abilities.cs): a Flyover of zero length is PlaneRunIn metres out and high as the call goes in,
+        // and over the drop point as the men land.
+        public const float DropTrailEvery = 6f;    // a card of the aircraft's wake every this many metres of its run-in
+        public const float DropTrailLife = 5f;
+        public const float DropCanopyFall = 4f;    // seconds a canopy is in the air; it hangs a second past the landing
+        public const float DropCanopyLinger = 1f;
+
+        /// <summary>How wide the drop's cards are drawn at a zoom: the wake, the canopies and the landing dust all grow
+        /// with the overview the way a burst's plume and ring do (FlipbookFx.FarGrow, IN-5).</summary>
+        float DropGrow() => FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f);
+
+        /// <summary>L11b: the drop on its way in (DropInbound: pos the point, b the men, scalar the seconds to the
+        /// landing). The kit biplane runs in over the point, trailing a wake the eye can follow from the overview, and
+        /// a canopy comes down per man over the last seconds. Books and the kit mesh only: no new look is authored here.</summary>
+        void OnDropInbound(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready || Host == null || Host.Local == null) return;
+            var map = Host.Local.Map;
+            Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(map, at.x, at.z);
+            float warm = Mathf.Max(0.5f, e.Scalar);
+            int men = Mathf.Clamp(e.B, 1, 24);
+            float far = DropGrow();
+            // the run-in comes from the near half of the map, so its wake lies over the field and not off the edge
+            var size = map.SizeMeters;
+            var dir = new Vector3(0f, 0f, at.z > size.y * 0.5f ? 1f : -1f);
+
+            float run = Mathf.Min(PlaneRunIn, warm * PlaneSpeed);
+            for (float along = -run; along <= 0.01f; along += DropTrailEvery)
+            {
+                Vector3 p = at + dir * along;
+                float gx = Mathf.Clamp(p.x, 1f, size.x - 1f), gz = Mathf.Clamp(p.z, 1f, size.y - 1f);
+                p.y = RenderGround.Sample(map, gx, gz) + PlaneAltitude(along, 0f);
+                books.Add(FlipbookFx.Book.SmokeBank, p, 11f * far, DropTrailLife, FlipbookFx.Kind.Upright,
+                          alpha: 0.45f, delay: Mathf.Max(0f, warm + along / PlaneSpeed), startFrame: 12f);
+            }
+
+            float fall = Mathf.Min(DropCanopyFall, warm);
+            for (int k = 0; k < men; k++)
+            {
+                float a = (k + 0.5f) / men * 6.2832f, d = 12f * Mathf.Sqrt(Hash01(at.x + k, at.z, 71 + k));
+                Vector3 g = at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
+                float gx = Mathf.Clamp(g.x, 1f, size.x - 1f), gz = Mathf.Clamp(g.z, 1f, size.y - 1f);
+                g.y = RenderGround.Sample(map, gx, gz);
+                // down at PlaneLow / (fall + linger), so the canopy is still a few metres up as the man lands and
+                // settles onto the ground a second later instead of sinking through it
+                float seconds = fall + DropCanopyLinger;
+                books.Add(FlipbookFx.Book.Puff, g + Vector3.up * PlaneLow, 6f * far, seconds, FlipbookFx.Kind.Upright,
+                          velocity: Vector3.down * (PlaneLow / seconds), alpha: 0.8f, delay: Mathf.Max(0f, warm - fall), grow: 0.1f);
+            }
+
+            if (flyovers.Count >= 4) flyovers.RemoveAt(0);
+            flyovers.Add(new Flyover { Start = at, Dir = dir, Length = 0f, Fired = e.Tick * Host.Local.World.Config.TickSeconds, Warm = warm });
+        }
+
+        /// <summary>L11 (fx.recipes): a paratrooper down (DropLanded: pos): the dust he lands in, and the dust the drop
+        /// as a whole kicks up. Drawn at every band - the far-zoom early-out this used to have is what made the
+        /// overview still a plate (harsh critic r1 fix 3); from far out the cards grow instead (FlipbookFx.FarGrow).</summary>
         void OnDropLanded(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
-            var cam = Camera.main;
-            if (cam != null && cam.TryGetComponent<IZoomSource>(out var zs) && zs.CurrentZoom >= IncomingFarZoom) return;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 2f, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+            float far = DropGrow();
+            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 5f * far, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+            books.Add(FlipbookFx.Book.SmokeBank, at - Vector3.up * 0.2f, 9f * far, 4f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.4f, grow: 0.3f, startFrame: 14f);
         }
     }
 }

@@ -27,6 +27,12 @@ namespace TW.Presentation.Tactical
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
         const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
+        // How thick a cell must be to stand a card, and how firm the card is drawn: at the standard view, and from the
+        // overview (FlipbookFx.FarGrowMax), where the screen has to read as one mass and not as a few thick cells.
+        public const float SmokeFloor = 1.5f, SmokeFarFloor = 0.15f, SmokeFarAlpha = 0.85f;
+        // and wider again than FarGrow alone: a screen the men hide behind has to read as a screen from the overview,
+        // not as a smudge (harsh critic r1 fix 3; measured against its own no-effect plate, docs/evidence/ability-fx-captures-r3)
+        public const float SmokeFarWide = 1.35f;
 
         /// <summary>A card's worth of field: its hash, how thick, and where it stands.</summary>
         struct BankCell { public uint Hash; public float Thick, X, Z, Ground; }
@@ -102,16 +108,25 @@ namespace TW.Presentation.Tactical
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, 1.5f, 20f, 2.2f, 83492791, 29349663);
+            // IN-5: the bank grows with the zoom past 80 the way a burst's plume and ring do (FlipbookFx.FarGrow), and
+            // from the overview the thin edge of the screen stands as well (SmokeFarFloor) at a firmer alpha. Without
+            // any of that a 40 m screen was 70 m of a 1280 px overview frame - under 1 % of it, which is why harsh
+            // critic r1 fix 3 could not find the smoke at O240. The cards are repacked every frame, so the zoom is
+            // read as the frame is drawn, not as the smoke was called in.
+            float far = FlipbookFx.FarGrow(Camera.main != null && Camera.main.TryGetComponent<IZoomSource>(out var zoomSrc) ? zoomSrc.CurrentZoom : 0f);
+            float t = (far - 1f) / (FlipbookFx.FarGrowMax - 1f);
+            Refresh(smokeBank, gas.Smoke, gas.Width, gas.Length, step, Mathf.Lerp(SmokeFloor, SmokeFarFloor, t), 20f, 2.2f, 83492791, 29349663);
             smokeCards.Clear();
             foreach (var b in smokeBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.18f + h3 * 6.2832f;
-                float width = (6f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                float width = (6f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step * far * Mathf.Lerp(1f, SmokeFarWide, t);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                // a white band is the most readable thing on a night field: at most 0.7, so the HUD rings show through it
-                smokeCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, Mathf.Min(0.7f, 0.3f + 0.45f * b.Thick)));
+                // a white band is the most readable thing on a night field: at most 0.7 at the standard view, so the HUD
+                // rings show through it; from the overview, where the rings are a few pixels anyway, up to SmokeFarAlpha
+                smokeCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind,
+                    Mathf.Min(Mathf.Lerp(0.7f, SmokeFarAlpha, t), Mathf.Lerp(0.3f, 0.5f, t) + 0.45f * b.Thick)));
             }
             if (smokeCards.Count > 0) books.DrawPacked(FlipbookFx.Book.SmokeBank, smokeCards, bounds);
         }
