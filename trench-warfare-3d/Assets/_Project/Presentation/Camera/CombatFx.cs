@@ -1298,6 +1298,7 @@ namespace TW.Presentation.Tactical
                 if (batch.Count > 0) Flush(fallen[kind], rpF);
             }
             DrawClose(now, bounds);
+            DrawPlate(bounds);   // the pieces a baked figure does not carry (CombatFx.Plate.cs): the Sentry's 8 mm plate
         }
 
         /// <summary>Draw a batch that is not the shared one (the marks keep a list a shape, so one sweep can fill them all).</summary>
