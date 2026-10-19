@@ -25,6 +25,7 @@ namespace TW.Tests
         public void TearDown()
         {
             SceneHooks.IsWater = null;
+            SceneHooks.WaterY = null;
             SceneHooks.AddRing = null;
             WaterEntry.Clear();
         }
@@ -40,6 +41,29 @@ namespace TW.Tests
             Assert.AreEqual(WaterEntry.ManRing, sp.Ring, 1e-4f, "a man's own mass opens his named ring");
             Assert.AreEqual(1.1f, sp.Card, 1e-4f, "and a Splash card to go with it");
             Assert.Less(sp.Ring, 3f, "under the smallest a shell opens (WaterRings.OnSimEvent)");
+        }
+
+        [Test]
+        public void WaterSplashSitsOnTheSurface()
+        {
+            // knee-deep in a river: the surface stands at 0.5, the bed he dies on at -0.6
+            SceneHooks.IsWater = (x, z) => true;
+            SceneHooks.WaterY = (x, z) => 0.5f;
+            var sp = WaterEntry.Throw(null, new Vector3(12f, -0.6f, 20f), WaterEntry.ManKg);
+
+            Assert.IsTrue(sp.Any);
+            Assert.AreEqual(0.5f, sp.Y, 0.02f, "the card sits on the surface, not on the bed");
+            Assert.Greater(sp.Y, -0.6f, "above the bed he died on");
+
+            // no water sheet (no hook): the point's own y, so nothing regresses
+            SceneHooks.WaterY = null;
+            sp = WaterEntry.Throw(null, new Vector3(12f, -0.6f, 20f), WaterEntry.ManKg);
+            Assert.AreEqual(-0.6f, sp.Y, 1e-4f, "with no hook the card keeps the point's own height");
+
+            // a painted puddle above the water table: the ground there is already its surface
+            SceneHooks.WaterY = (x, z) => 0.1f;
+            sp = WaterEntry.Throw(null, new Vector3(12f, 0.4f, 20f), WaterEntry.ManKg);
+            Assert.AreEqual(0.4f, sp.Y, 1e-4f, "a puddle above the table keeps its own ground height");
         }
 
         [Test]
