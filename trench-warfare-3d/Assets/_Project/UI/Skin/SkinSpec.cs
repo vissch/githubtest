@@ -137,6 +137,7 @@ namespace TW.UI
             "Rifleman", "Assault", "MG", "Sniper", "Maw", "Tusk", "Pincer", "Kettle", "Censer", "Pavise", "Banner", "Redoubt",
             "Officer", "Shield", "Medic", "Engineer", "Para", "Jetpack", "Breaker", "Skimmer", "Salvo",
             "Brute", "Croaker", "Hopper", "Mercy", "Bullfrog",   // the playground's (2026-09-28, the Bullfrog 2026-10-01), rendered off their battle models
+            "Flamer",                                           // his own picture, not the Assault's (2026-10-19)
             "HeBarrage", "ChlorineGas", "ParaDrop",
         };
 
