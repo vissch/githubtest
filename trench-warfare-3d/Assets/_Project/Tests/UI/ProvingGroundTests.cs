@@ -480,6 +480,13 @@ namespace TW.Tests
             Assert.That(tip, Does.Contain("bipod"));
 
             Assert.AreEqual("AT Rifle", UnitLook.Name(InfantryArchetype.AtRifle));
+
+            // his shot is his own, but no wider than the machine gun's (critique r1): the prone pose, the fat flare
+            // and the thick short streak tell it from the Sniper's, not the width.
+            var at = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.AtRifle, 10u, 3);
+            var mg = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Machinegunner, 10u, 3);
+            Assert.LessOrEqual(at.Spurt, mg.Spurt, "the bipod blast is no wider than the machine gun's");
+            Assert.LessOrEqual(at.Flare, mg.Flare, "the bipod flare is no wider than the machine gun's");
         }
     }
 }

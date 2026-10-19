@@ -63,8 +63,9 @@ namespace TW.Presentation.Tactical
                     return Stream(Look(1.35f, tracerRound ? 1.3f : 0.7f, 1.1f, 1.3f, true, 0.18f, 1f, 1f), round, tracerRound);
                 case InfantryArchetype.Sniper:   // one big flash, a thin white-hot needle that lingers, a heavy kick of dirt
                     return Look(1.5f, 1.3f, 1.5f, 1.6f, true, 0.22f, 2.2f, 1f);
-                case InfantryArchetype.AtRifle:   // the bipod's blast off the ground: the widest spurt on the field, a fat short flare, a thick short streak unlike the Sniper's thin long one
-                    return Look(1.8f, 1.5f, 2.2f, 2.0f, true, 0.3f, 1.6f, 0.8f);
+                case InfantryArchetype.AtRifle:   // the bipod's blast off the ground, no wider than the MG's (critique r1): the shot is told from
+                    // the Sniper's by his prone pose, the fat 0.3 s flare, the long 1.6 s thick-short streak (0.8) and the heavy 2.0 smoke, not by width
+                    return Look(1.35f, 1.5f, 1.1f, 2.0f, true, 0.3f, 1.6f, 0.8f);
                 case InfantryArchetype.Officer:  // a carbine: a crisp pop, hardly a wisp
                     return Look(0.8f, 0.9f, 0.9f, 0.3f, true, 0.12f, 0.8f, 0.7f);   // smaller and quicker than the SMG's cone (critique r7)
                 case InfantryArchetype.Shield:   // a pistol behind the plate: a short spit

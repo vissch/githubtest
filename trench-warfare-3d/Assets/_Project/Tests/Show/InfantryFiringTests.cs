@@ -156,7 +156,9 @@ namespace TW.Tests
             var sniperArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Sniper, 10u, 3);
             Assert.AreEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.AtRifle, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
             Assert.AreNotEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.Sniper, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
-            Assert.Greater(atArms.Spurt, sniperArms.Spurt, "the AT rifle's bipod blast kicks the widest dirt on the field");
+            var mgArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Machinegunner, 10u, 3);
+            Assert.LessOrEqual(atArms.Spurt, mgArms.Spurt, "the bipod blast is no wider than the machine gun's (critique r1)");
+            Assert.LessOrEqual(atArms.Flare, mgArms.Flare, "the bipod flare is no wider than the machine gun's (critique r1)");
             Assert.Less(atArms.Streak, sniperArms.Streak, "the AT rifle's streak is thick and short, unlike the Sniper's thin long one");
         }
 
