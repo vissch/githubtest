@@ -23,6 +23,18 @@
 //  3. land-noring.png: the frozen landing frame with the ring slots parked but the CARDS kept, so the probe can
 //     report ring_only_px. The critic's "the ring does not register" is answered with that number, not with prose.
 //
+// r7 changes two things and nothing else. Harsh critic r1 scored r6 56/100: ring_only_px was 0, so the ring still
+// did not register, and the crown's value step over the water was never measured at all.
+//  a. post-noring.png: the same rings-parked, cards-kept shot taken at land + 0.3 s as well. The crown card is
+//     2.7 m wide and the landing ring only 1.9 m across, so at land + 0.05 s the card can cover the ring it is
+//     meant to prove; at + 0.3 s the ring is the wider of the two. With both moments shot, ring_only_px is the MIN
+//     of them, and a ring that only shows on one lucky frame cannot pass.
+//  b. Every run writes its own docs/evidence/water-entry-splash-r7/run-N/ (N = the first free one), so the three
+//     baseline runs and the three runs of the fixed build never overwrite each other and the probe can report the
+//     spread over a set instead of one capture's word.
+// Everything else stands: the bisected 43-frame flight, the shots on the spec moments, the pinned sky and water
+// clocks, rain 0, the frozen sim and the noise floor from a second live throw.
+//
 // --- the reference frame, and why it is not a plate taken earlier ---------------------------------------------
 // The first run of r5 shot a no-throw plate and compared every later still against it. That does not work, and the
 // failure is worth keeping written down: the water's foam and lapping are animated from the water clock in
@@ -47,7 +59,12 @@
 // The throw itself is the two production lines CombatFx.Deaths.cs runs for a flung body - VATRenderer.AddFallen
 // with the throw, and WaterEntry.Throw with FallenFlight.Solve's duration as the delay - and nothing else, so what
 // is photographed is the shipped path.
-var dir = "C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r6/";
+// The first free run-N, so a capture never overwrites an earlier one: three runs prove the current build and three
+// the fixed one, and the probe reads a set of run folders by name.
+var root = "C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/";
+int runNo = 1;
+while (System.IO.Directory.Exists(root + "run-" + runNo)) runNo++;
+var dir = root + "run-" + runNo + "/";
 System.IO.Directory.CreateDirectory(dir);
 var log = new System.Text.StringBuilder();
 void Say(string s)
@@ -171,7 +188,7 @@ string Shoot(string name) =>
     TW.Editor.CaptureRig.Shot(dir + name + ".png", land.x, land.z, 30f, 21f, 25f, 1600, 900, waterY);
 
 var timings = new System.Text.StringBuilder();
-timings.AppendLine("water-entry-splash-r6 - the game-time delta from the landing instant of every frozen moment, as");
+timings.AppendLine("water-entry-splash-r7 - the game-time delta from the landing instant of every frozen moment, as");
 timings.AppendLine("the harness measured it (AgentScripts/water_entry_fling.cs), never typed. Spec: -0.200/+0.050/+0.300.");
 timings.AppendLine("flight_s " + delay.ToString("0.00000"));
 timings.AppendLine("flight_frames " + (delay * 60f).ToString("0.00000"));
@@ -182,7 +199,8 @@ void Timing(string name, float tLand)
 }
 
 // One moment: freeze on its own game-time instant, shoot it, shoot it again with the water entry lifted out, put
-// the splash back, let go. `noring` adds the landing's diagnostic shot, rings parked and cards kept.
+// the splash back, let go. `noring` adds this moment's diagnostic shot, rings parked and cards kept, which is what
+// lets the probe say in pixels how much of the frame the ring alone accounts for at that moment.
 void Shots(string name, float when, float tLand, bool noring, System.Action<int> next)
 {
     AtTime(when, () =>
@@ -193,7 +211,7 @@ void Shots(string name, float when, float tLand, bool noring, System.Action<int>
         int step = at + 8;
         if (noring)
         {
-            AtFrame(step, () => { RingsOff(); return "land-noring (ring slots parked, cards kept) " + Shoot("land-noring"); });
+            AtFrame(step, () => { RingsOff(); return name + "-noring (ring slots parked, cards kept) " + Shoot(name + "-noring"); });
             step += 6;
             AtFrame(step, () => { CardsOff(); return name + "-nosplash (rings and cards out) " + Shoot(name + "-nosplash"); });
         }
@@ -252,7 +270,7 @@ AtFrame(f0 + 90, () =>
     float tLand = ThrowOnce();
     Shots("pre", tLand - 0.2f, tLand, false, _ =>
         Shots("land", tLand + 0.05f, tLand, true, _ =>
-            Shots("post", tLand + 0.3f, tLand, false, afterPost =>
+            Shots("post", tLand + 0.3f, tLand, true, afterPost =>
                 // --- run 2: the same throw again, from a scene put back to before run 1 ---
                 AtFrame(afterPost + 10, () =>
                 {

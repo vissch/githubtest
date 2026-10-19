@@ -1,0 +1,23 @@
+ford: from=(12.00, 0.69, 128.00) land=(15.00, -0.25, 130.00) waterY=0.150 fly=(3.00, 0.49, 2.00) flight=0.71667 s = 43.00000 frames at 1/60 figureScale=1.125
+plate (no throw at all) queued at frame 2892: queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/plate.png
+thrown at frame 2982, t=135.8200, lands at t=136.5367 (frame 3025); any=True ring=2.800 card=2.400 cardY=0.150
+run 1 staged
+pre: frozen at frame 3013, t=136.3367, delta=-0.2000
+pre queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/pre.png
+pre-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/pre-nosplash.png
+pre done, splash back, running again at frame 3027, pending=0
+land: frozen at frame 3042, t=136.5867, delta=+0.0500
+land queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/land.png
+land-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/land-noring.png
+land-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/land-nosplash.png
+land done, splash back, running again at frame 3062, pending=0
+post: frozen at frame 3077, t=136.8367, delta=+0.3000
+post queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/post.png
+post-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/post-noring.png
+post-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/post-nosplash.png
+post done, splash back, running again at frame 3097, pending=0
+thrown at frame 3107, t=137.0033, lands at t=137.7200 (frame 3150); any=True ring=2.800 card=2.400 cardY=0.150
+run 2 thrown (scene reset, seed 20261019 again), lands at t=137.7200
+land-run2: frozen at frame 3153, delta=+0.0500
+land-run2 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r7/run-2/land-run2.png
+DONE, scene put back; pending=0
