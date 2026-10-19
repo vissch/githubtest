@@ -62,5 +62,30 @@ namespace TW.Tests
             Assert.IsTrue(FlipbookFx.IsSmoke(FlipbookFx.Book.Smoke) && FlipbookFx.IsSmoke(FlipbookFx.Book.ShellPlume) && FlipbookFx.IsSmoke(FlipbookFx.Book.WreckSmoke) && FlipbookFx.IsSmoke(FlipbookFx.Book.Burst));
             Assert.IsFalse(FlipbookFx.IsSmoke(FlipbookFx.Book.GasBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.SmokeBank) || FlipbookFx.IsSmoke(FlipbookFx.Book.DustPuff), "the field's gas and screen, and grit, are not a fire's smoke");
         }
+
+        [Test]
+        public void DropInboundMarksTheZone()
+        {
+            // the drop survives the zoom that culls a shell's streak (harsh critic: "men just appear" at the overview)
+            Assert.GreaterOrEqual(240f, CombatFx.IncomingFarZoom);
+            Assert.IsTrue(CombatFx.DropDrawnAt(240f));
+
+            // zoom 240: a 240 m view over a 900 px frame is 3.75 px/m; the puff is 2m * FarGrow(240) = 5m wide
+            float pxPerM = 900f / 240f;
+            Assert.AreEqual(2f, CombatFx.DropDustWidth(30f), 1e-6f, "the standard view is untouched");
+            Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 12f, "readable landing dust at zoom 240");
+
+            const int men = 8;
+            const float seconds = 5f;
+            float prev = -1f;
+            for (int k = 0; k < men; k++)
+            {
+                float d = CombatFx.DropStreakDelay(k, men, seconds);
+                Assert.That(d, Is.InRange(0f, seconds));
+                Assert.Greater(d, prev, "streak " + k + " starts after the last");
+                prev = d;
+            }
+            Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(men - 1, men, seconds), 1e-6f, "the last streak ends as the shell's streak would");
+        }
     }
 }

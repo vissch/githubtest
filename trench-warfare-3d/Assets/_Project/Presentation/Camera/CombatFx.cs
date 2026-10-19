@@ -794,6 +794,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.WireBreached:
                     OnWireBreached(e);   // CombatFx.Barrage.cs (fx.recipes)
                     break;
+                case SimEventType.DropInbound:
+                    OnDropInbound(e);    // CombatFx.Barrage.cs (fx.recipes)
+                    break;
                 case SimEventType.DropLanded:
                     OnDropLanded(e);     // CombatFx.Barrage.cs (fx.recipes)
                     break;
