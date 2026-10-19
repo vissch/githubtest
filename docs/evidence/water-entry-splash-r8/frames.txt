@@ -1,0 +1,29 @@
+water-entry-splash-r8 - the baseline round (the UNCHANGED build), frame by frame.
+
+Every JPG under base/ is for the eye. Every number in probe.json was read off the PNGs in the
+git-ignored trench-warfare-3d/Captures/water-entry-r8/run-N/, never off a JPG: JPEG chroma
+subsampling moves luma by more than the 0.02 threshold the probe counts with, so a measurement
+taken on one of these pictures would be a measurement of the compressor.
+
+The achieved moment of each freeze, as the harness measured it on the game clock (spec
+-0.200 / +0.050 / +0.300 / +0.600 from the landing instant):
+
+  run-1:  flight_s 0.71667  flight_frames 43.00000  pre -0.200  land +0.050  post +0.300  p06 +0.600  land-run2 +0.050
+  run-2:  flight_s 0.71667  flight_frames 43.00000  pre -0.200  land +0.050  post +0.300  p06 +0.600  land-run2 +0.050
+  run-3:  flight_s 0.71667  flight_frames 43.00000  pre -0.200  land +0.050  post +0.300  p06 +0.600  land-run2 +0.050
+
+The ten stills kept per run, and what each is for:
+
+  land.jpg           land + 0.05 s at T1 (zoom 30, yaw 21, pitch 25) - the budget view
+  land-noring.jpg    the same frozen world with the ring slots parked, the cards kept
+  land-nosplash.jpg  the same frozen world with the water entry lifted out entirely
+  t3 / t2 / o120 / o240.jpg   that SAME frozen world from the other four gym bands
+  post.jpg           land + 0.3 s at T1, and post-noring.jpg beside it
+  p06.jpg            land + 0.6 s at T1 - the fall-back the critic said was never shown
+
+The sidecar beside each still carries that still's own camera pose and its own mark_px_x/y and
+mark_px_per_m: the landing point (15, 130) projected for THAT band. That is what lets one patch of
+world be measured at five zooms without assuming T1's scale anywhere.
+
+Capture noise, measured live from a second throw with the same seed in the same Play session, in
+changed pixels inside the 6 m window: 1, 9, 1. Over about ten means the Play session was reused; these were three fresh ones.

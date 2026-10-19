@@ -1,0 +1,9 @@
+water-entry-splash-r8 - the game-time delta from the landing instant of every frozen moment, as
+the harness measured it (AgentScripts/water_entry_fling_r8.cs), never typed. Spec: -0.200/+0.050/+0.300/+0.600.
+flight_s 0.71667
+flight_frames 43.00000
+pre -0.200
+land +0.050
+post +0.300
+p06 +0.600
+land-run2 +0.050
