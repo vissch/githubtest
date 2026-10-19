@@ -65,6 +65,9 @@ namespace TW.Sim.Terrain
 
         public NativeList<PropDef> Props;          // trees, stumps, wrecks, bridges (A4); mutable during a match
         public NativeArray<byte> CellCover;        // derived from Props: cover percent per nav cell
+        /// <summary>Props by grid cell, so a blast asks for the props near it instead of walking them all
+        /// (PropIndex). Grown by AddProp; derived from Props, so it is not hashed.</summary>
+        public PropIndex PropsByCell;
 
         // ---- the ground as it is dug (A4, owner 2026-09-24) -------------------------------------------------
         /// <summary>Every shell hole in the field, so a second shell on one WIDENS it instead of only deepening it
@@ -97,6 +100,7 @@ namespace TW.Sim.Terrain
             CellTrenchId = new NativeArray<short>(NavWidth * NavLength, allocator);
             CellCover = new NativeArray<byte>(NavWidth * NavLength, allocator);
             Props = new NativeList<PropDef>(256, allocator);
+            PropsByCell = new PropIndex(sizeMeters, allocator);
             Holes = new NativeList<HoleRecord>(64, allocator);
             // 255 = "further from a trench than anything cares about". It MUST start there rather than at zero: the
             // generator carves its own pre-shelled field before BuildTrenchDistance has run, and an all-zero array
@@ -187,6 +191,7 @@ namespace TW.Sim.Terrain
             prop.Cell = cell;
             if (prop.Hp <= 0f) prop.Hp = PropRules.StartHp(prop.Kind, prop.Scale);
             Props.Add(prop);
+            PropsByCell.Add(Props.Length - 1, prop);
             if (PropRules.Blocks(prop.Kind)) SetLayer(c.x, c.y, layer | NavLayer.Blocked);
             StampCover(cell, PropRules.CoverPercent(prop.Kind));
             Version++;
@@ -311,7 +316,7 @@ namespace TW.Sim.Terrain
 
         public void Dispose()
         {
-            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose();
+            Height.Dispose(); NavLayers.Dispose(); NavCost.Dispose(); CellTrenchId.Dispose(); CellCover.Dispose(); Props.Dispose(); PropsByCell.Dispose();
             Holes.Dispose(); if (CellTrenchDist.IsCreated) CellTrenchDist.Dispose();
             Trenches.Dispose(); TrenchCells.Dispose(); FireStepCells.Dispose(); LinkCells.Dispose();
             Objectives.Dispose(); ObjectiveCells.Dispose(); StaticCover.Dispose(); Spawns.Dispose();

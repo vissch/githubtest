@@ -44,8 +44,12 @@ namespace TW.Sim.Match
         BlastSystem blast;
         public NativeList<CraterStamp> Queue;
         public NativeList<WreckRecord> Wrecks;
+        NativeList<int> candidates;   // reused by Shake, one blast at a time
         VehicleModulesSystem modules;
         public int Applied, PropsChanged, WireOpened;
+        /// <summary>Props examined by Shake this match: the bench's measure of the cell index. Never hashed.</summary>
+        public int PropsScanned;
+        static bool DiagDone;
         ulong checksum = SimHash.Offset;
 
         public DeformationSystem(MapData map) { this.map = map; }
@@ -75,6 +79,7 @@ namespace TW.Sim.Match
             fields = world.GetSystem<FlowFieldManager>() ?? throw new System.InvalidOperationException("DeformationSystem needs FlowFieldManager registered before it");
             blast = world.GetSystem<BlastSystem>();
             Wrecks = new NativeList<WreckRecord>(16, Allocator.Persistent);
+            candidates = new NativeList<int>(64, Allocator.Persistent);
             Queue = new NativeList<CraterStamp>(64, Allocator.Persistent);
         }
 
@@ -147,9 +152,41 @@ namespace TW.Sim.Match
         bool Shake(SimWorld w, Impact im)
         {
             bool nav = false;
-            for (int p = 0; p < map.Props.Length; p++)
+            // the props whose grid cell the burst touches, in ascending prop index: exactly the props the old full
+            // scan would have reached, in the order it reached them, so the hash chain and the events are unchanged
+            map.PropsByCell.Query(im.Pos, im.Radius, candidates);
+            // SCRATCH DIAG
+            if (!DiagDone)
             {
+                for (int i = 0; i < map.Props.Length; i++)
+                {
+                    var pr = map.Props[i];
+                    float3 dd = pr.Pos - im.Pos; dd.y = 0f;
+                    float di = SimMath.Length(dd);
+                    bool wk = PropRules.IsWreckage(pr.Kind);
+                    if (wk) di = math.max(0f, di - PropRules.WreckBlastReach * (pr.Scale > 0f ? pr.Scale : 1f));
+                    if (di >= im.Radius) continue;
+                    bool found = false;
+                    for (int k = 0; k < candidates.Length; k++) if (candidates[k] == i) { found = true; break; }
+                    if (!found)
+                    {
+                        DiagDone = true;
+                        System.IO.File.WriteAllText("C:/Users/PC/AppData/Local/Temp/tw-diag2.txt",
+                            "MISS prop=" + i + " kind=" + (int)pr.Kind + " scale=" + pr.Scale + " hp=" + pr.Hp +
+                            " pos=" + pr.Pos.x + "," + pr.Pos.y + "," + pr.Pos.z +
+                            " impact=" + im.Pos.x + "," + im.Pos.y + "," + im.Pos.z + " r=" + im.Radius + " dist=" + di +
+                            " props=" + map.Props.Length + " reach=" + map.PropsByCell.MaxWreckReach +
+                            " grid=" + map.PropsByCell.Width + "x" + map.PropsByCell.Length + " size=" + map.SizeMeters.x + "x" + map.SizeMeters.y +
+                            " cand=" + candidates.Length + " key=" + map.PropsByCell.KeyOf(pr.Pos) + " ikey=" + map.PropsByCell.KeyOf(im.Pos));
+                        break;
+                    }
+                }
+            }
+            for (int k = 0; k < candidates.Length; k++)
+            {
+                int p = candidates[k];
                 var prop = map.Props[p];
+                PropsScanned++;
                 if (prop.Hp <= 0f) continue;   // stumps, logs, bridges, a cleared wreck: nothing left to break
                 bool wreck = PropRules.IsWreckage(prop.Kind);
                 float3 d = prop.Pos - im.Pos; d.y = 0f;
@@ -196,6 +233,6 @@ namespace TW.Sim.Match
             return h;
         }
 
-        public void Dispose() { if (Queue.IsCreated) Queue.Dispose(); if (Wrecks.IsCreated) Wrecks.Dispose(); }
+        public void Dispose() { if (Queue.IsCreated) Queue.Dispose(); if (Wrecks.IsCreated) Wrecks.Dispose(); if (candidates.IsCreated) candidates.Dispose(); }
     }
 }
