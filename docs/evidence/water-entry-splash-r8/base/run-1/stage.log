@@ -1,0 +1,39 @@
+ford: from=(12.00, 0.69, 128.00) land=(15.00, -0.25, 130.00) waterY=0.150 fly=(3.00, 0.49, 2.00) flight=0.71667 s = 43.00000 frames at 1/60 figureScale=1.125
+plate (no throw at all) queued at frame 653: queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/plate.png
+thrown at frame 743, t=32.0200, lands at t=32.7367 (frame 786); any=True ring=2.800 card=2.400 cardY=0.150
+run 1 staged
+pre: frozen at frame 774, t=32.5367, delta=-0.2000
+pre queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/pre.png
+pre-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/pre-nosplash.png
+pre done, splash back, running again at frame 792, pending=0
+land: frozen at frame 807, t=32.7867, delta=+0.0500
+land queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/land.png
+t3 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t3.png
+t2 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t2.png
+o120 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o120.png
+o240 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o240.png
+land-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/land-noring.png
+t3-noring queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t3-noring.png
+t2-noring queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t2-noring.png
+o120-noring queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o120-noring.png
+o240-noring queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o240-noring.png
+land-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/land-nosplash.png
+t3-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t3-nosplash.png
+t2-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/t2-nosplash.png
+o120-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o120-nosplash.png
+o240-nosplash queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/o240-nosplash.png
+land done, splash back, running again at frame 877, pending=0
+post: frozen at frame 892, t=33.0367, delta=+0.3000
+post queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/post.png
+post-noring (ring slots parked, cards kept) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/post-noring.png
+post-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/post-nosplash.png
+post done, splash back, running again at frame 914, pending=0
+p06: frozen at frame 932, t=33.3367, delta=+0.6000
+p06 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/p06.png
+p06-nosplash (rings and cards out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/p06-nosplash.png
+p06 done, splash back, running again at frame 950, pending=0
+thrown at frame 960, t=33.5033, lands at t=34.2200 (frame 1003); any=True ring=2.800 card=2.400 cardY=0.150
+run 2 thrown (scene reset, seed 20261019 again), lands at t=34.2200
+land-run2: frozen at frame 1006, delta=+0.0500
+land-run2 queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/trench-warfare-3d/Captures/water-entry-r8/run-1/land-run2.png
+DONE, scene put back; pending=0
