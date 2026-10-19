@@ -14,6 +14,12 @@ jump is wholly a property of the Release/Hold cycle, not of anything this change
 generous box around the man's own on-screen footprint (found from the kit diff itself, which is unaffected by
 the despawn cycle) with a wide margin; restricting every comparison to it keeps the measurement about him, not
 about a fire two hundred metres off that the despawn cycle happened to relight.
+
+PORTRAIT keys (part 2): portrait_diff_vs_engineer is the mean abs RGBA diff (0..1 per channel) of the two 256x256
+UI portraits baked by UiSkinGenerator, sapper-portrait.png vs engineer-portrait.png; _base_max is the same measure
+on the unchanged build's sapper-portrait-base.png (the generator's "?" placeholder, before PaintSapperPortrait)
+vs engineer-portrait.png, so the bar is cleared by the new bust, not by the dot-count bar that already told the
+two names apart.
 """
 import json
 import os
@@ -22,6 +28,17 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CROP_BOX = (180, 390, 250, 460)  # x0, y0, x1, y1 - around the man's footprint at (50, 50), T1 STANDARD
+
+
+def mean_abs_rgba_diff(path_a, path_b):
+    a = Image.open(path_a).convert("RGBA")
+    b = Image.open(path_b).convert("RGBA")
+    pa = list(a.getdata())
+    pb = list(b.getdata())
+    total = 0
+    for (ra, ga, ba_, aa), (rb, gb, bb, ab) in zip(pa, pb):
+        total += abs(ra - rb) + abs(ga - gb) + abs(ba_ - bb) + abs(aa - ab)
+    return total / (len(pa) * 4 * 255.0)
 
 
 def load(name):
@@ -65,24 +82,33 @@ def main():
             base_ratios.append(diff_px(engineers[i], engineers[j]) / man_px)
     silhouette_diff_vs_engineer_base_max = max(base_ratios)
 
+    portrait_diff_vs_engineer = mean_abs_rgba_diff(
+        os.path.join(HERE, "sapper-portrait.png"), os.path.join(HERE, "engineer-portrait.png"))
+    portrait_diff_vs_engineer_base_max = mean_abs_rgba_diff(
+        os.path.join(HERE, "sapper-portrait-base.png"), os.path.join(HERE, "engineer-portrait.png"))
+
     probe = {
         "n_captures": 3,
         "man_px": man_px,
         "noise_full_frame_px": noise_full_frame,
         "silhouette_diff_vs_engineer": silhouette_diff_vs_engineer,
         "silhouette_diff_vs_engineer_base_max": silhouette_diff_vs_engineer_base_max,
+        "portrait_diff_vs_engineer": portrait_diff_vs_engineer,
+        "portrait_diff_vs_engineer_base_max": portrait_diff_vs_engineer_base_max,
     }
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(probe, f, indent=2)
     print(json.dumps(probe, indent=2))
 
-    bar = 0.15
-    base = probe["silhouette_diff_vs_engineer_base_max"]
-    val = probe["silhouette_diff_vs_engineer"]
-    if not (base < bar <= val):
-        print(f"FAIL silhouette_diff_vs_engineer: base_max={base} bar={bar} value={val}")
-        return 1
-    return 0
+    bars = {"silhouette_diff_vs_engineer": 0.15, "portrait_diff_vs_engineer": 0.04}
+    failed = False
+    for key, bar in bars.items():
+        base = probe[key + "_base_max"]
+        val = probe[key]
+        if not (base < bar <= val):
+            print(f"FAIL {key}: base_max={base} bar={bar} value={val}")
+            failed = True
+    return 1 if failed else 0
 
 
 if __name__ == "__main__":
