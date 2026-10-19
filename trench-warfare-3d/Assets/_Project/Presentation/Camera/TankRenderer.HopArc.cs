@@ -37,6 +37,10 @@ namespace TW.Presentation.Tactical
             return phase;
         }
 
+        /// <summary>Where a Hopper is in its arc (0 at rest, or no such hull): what the stills test waits on, so it
+        /// photographs the cruise and the top of one arc instead of guessing at frame numbers.</summary>
+        public float HopArcPhaseOf(int slot) => views.TryGetValue(slot, out var v) ? v.HopArcPhase : 0f;
+
         /// <summary>The scene half: read the ground under and ahead of the hull, step the arc, and write the bob and
         /// nose tilt the root matrix reads. Runs after Flair, which leaves a Hopper's Bob at 0 (DriveStyle Chug = 0).</summary>
         void HopArcPose(View v, float dt)
