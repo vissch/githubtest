@@ -135,7 +135,16 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   play zoom and one close, by day and by night, with a draw-call json a film; `TW_STILLS_DIR`, `TW_STILLS_FIELD` or
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
-  EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).
+  EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
+  GasBankStills (`Tests/Stills/GasBankStills.cs`, Explicit, a graphics device: the chlorine bank at the play zoom and
+  at the overview, each with a NO-GAS PLATE of the same pose and the same frame, so the gas can be told from the field
+  by subtraction. `TW_STILLS_DIR` or SessionState `tw.gasbank.dir` says where; `TW_GAS_PLATE=1` or SessionState
+  `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
+  2026-10-19 found that every call was taken and no bank was ever drawn in the stills:
+  `docs/evidence/ability-fx-captures-r2/` and the open question in `decisions.md`. The pipeline's `run_tests` selects
+  no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
+  -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
+  `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
