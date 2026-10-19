@@ -43,6 +43,17 @@ namespace TW.Presentation.Units
             if (gag.PulseDur > 0f && path.Arcs == 0 && path.SkidDur <= 0f) path.Settled = Mathf.Max(path.Settled, gag.PulseDur);
             if (gag.Topple > 0) path.Settled = Mathf.Max(path.Settled, gag.ToppleDur);
             if (gag.TwitchDur > 0f) path.Settled = Mathf.Max(path.Settled, gag.TwitchDur + FallenFlight.RollSettle);
+            // the rocketed man planted head first: his arc ends upside down (HalfTurn) and drives on into the mud, so his
+            // legs stand PlantLegsAboveM above the drawn ground; they kick, then fold (DeathGags, VatTint.UpsideDownHeight)
+            bool planted = gag.Gag == DeathGag.Planted;
+            if (planted)
+            {
+                path.A0.HalfTurn = 1;
+                FallenFlight.EndAt(ref path, path.Rest - Vector3.up * PlantDepth(UnitScale));
+                path.Kick = (byte)DeathGags.PlantKickSteps; path.KickHz = DeathGags.PlantKickHz;
+                path.KickEnd = path.Settled + DeathGags.PlantKickSeconds;
+                path.RestFrom = path.KickEnd; path.RestDur = DeathGags.PlantFoldSeconds;
+            }
             if ((gag.Flags & GagFlags.NoCorpse) != 0) return;
 
             if (fallenMen.Count >= MaxFallen) Remove(SoonestGone());
@@ -65,12 +76,27 @@ namespace TW.Presentation.Units
             return yaw;
         }
 
+        /// <summary>How far below the drawn ground a planted man's Pos sits, so his feet (object y 0, hanging upside down
+        /// about VatTint.Pivot) stand DeathGags.PlantLegsAboveM above it.</summary>
+        static float PlantDepth(float scale) => VatTint.UpsideDownHeight(0f, 0, scale) - DeathGags.PlantLegsAboveM;
+
+        /// <summary>Where the first planted man came to rest (his Pos, sunk): what a capture aims at (DeathLab.Planted).</summary>
+        public bool TryPlantedMan(out Vector3 at)
+        {
+            for (int k = 0; k < fallenMen.Count; k++)
+                if (fallenMen[k].Gag == (byte)DeathGag.Planted) { at = fallenMen[k].Path.Rest; return true; }
+            at = Vector3.zero; return false;
+        }
+
         /// <summary>A gagged body's Tint: his turns, his squash and whether it all happens about his feet (VatTint).</summary>
         static float GagTint(in FallenMan f, int pitch, float age)
         {
             int roll = FallenFlight.RollStep(f.Path, age);
             int q = FallenFlight.Squash(f.Path, age, f.Absurd);
-            bool feet = (f.GagFlags & GagFlags.Feet) != 0 || (q != 0 && age >= f.Path.Delay && FallenFlight.ArcAt(f.Path, age) < 0);
+            // a planted man squashes about his middle, as the fold was worked out for: the automatic off-arc feet flag
+            // would move the pivot to 0 and throw the whole fold out
+            bool feet = (f.GagFlags & GagFlags.Feet) != 0
+                || (q != 0 && age >= f.Path.Delay && FallenFlight.ArcAt(f.Path, age) < 0 && f.Gag != (byte)DeathGag.Planted);
             return VatTint.Pack(f.Team, pitch, roll, q, feet, VatTint.FallenWound);
         }
     }

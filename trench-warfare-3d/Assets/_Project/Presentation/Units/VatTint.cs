@@ -20,6 +20,9 @@ namespace TW.Presentation.Units
         /// <summary>The drawn height is 1 + q x this: q = -32 is 0.12 (a man under a track), q = +13 is 1.36.</summary>
         public const float SquashStep = 0.0275f;
         public const int SquashMin = -32, SquashMax = 31;
+        /// <summary>The object-space y every turn and squash happens about when the feet bit is clear (a man's middle).
+        /// VAT_URP.shader has the same 0.9 twice: change both together.</summary>
+        public const float Pivot = 0.9f;
 
         public static float Pack(int team, int pitch, int roll = 0, int squash = 0, bool feet = false, int wound = 0)
         {
@@ -46,6 +49,11 @@ namespace TW.Presentation.Units
 
         /// <summary>The drawn height factor a squash code stands for.</summary>
         public static float Height(int squash) => 1f + squash * SquashStep;
+
+        /// <summary>How high above his Pos a point objectH up his mesh is drawn when he hangs upside down (half a turn of
+        /// pitch about Pivot), squashed by this code and drawn at this scale: the shader's own order (turn, squash, scale).
+        /// A planted man's legs are UpsideDownHeight(0, ...) above his Pos.</summary>
+        public static float UpsideDownHeight(float objectH, int squash, float scale) => scale * (Pivot + (Pivot - objectH) * Height(squash));
 
         /// <summary>The nearest squash code to a height factor (1 = none), clamped to what fits.</summary>
         public static int SquashOf(float height)

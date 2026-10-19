@@ -42,6 +42,9 @@ namespace TW.Presentation.Units
             /// (world y), and the height above the higher end it was solved for.</summary>
             public float Start, Dur, Up, Top, Height;
             public byte Flips, Rolls;
+            /// <summary>Half a turn of pitch on top of the whole Flips, so the arc ENDS upside down (a rocketed man driven
+            /// head first into the mud) instead of popping there when he lands.</summary>
+            public byte HalfTurn;
             public float End => Start + Dur;
         }
 
@@ -70,6 +73,12 @@ namespace TW.Presentation.Units
             /// <summary>Metres he rises over RollSettle as that rest roll settles (a body turning over about his feet
             /// would otherwise sink by his own lying thickness). 0 for every other gag, so nothing else moves.</summary>
             public float RestLift;
+            /// <summary>Legs kicking where he lies (a planted man): roll steps each way, its rate in Hz, and the second
+            /// (after the delay) it stops. Kick 0 is no kick, and every other gag passes 0.</summary>
+            public byte Kick; public float KickHz, KickEnd;
+            /// <summary>When the resting squash starts and how long it takes, for a rest reached long after he settled (a
+            /// planted man's legs folding after the kick). Both 0 keeps Settled / RestSquashSeconds.</summary>
+            public float RestFrom, RestDur;
             public float Gravity;
             /// <summary>Seconds from his death until he lies still.</summary>
             public float Arrive => Delay + Settled;
@@ -157,9 +166,9 @@ namespace TW.Presentation.Units
             else if (p.Arcs > 0)
             {
                 ref Arc last = ref p.Arcs == 1 ? ref p.A0 : ref p.Arcs == 2 ? ref p.A1 : ref p.A2;
-                byte flips = last.Flips, rolls = last.Rolls;
+                byte flips = last.Flips, rolls = last.Rolls, half = last.HalfTurn;
                 last = Solve(last.From, rest, last.Height, last.Start, p.Gravity);
-                last.Flips = flips; last.Rolls = rolls;
+                last.Flips = flips; last.Rolls = rolls; last.HalfTurn = half;
                 p.Settled = last.End;
             }
             else p.Origin = rest;
@@ -219,7 +228,8 @@ namespace TW.Presentation.Units
             if (k >= 0)
             {
                 var a = ArcN(p, k);
-                return a.Flips == 0 ? 0 : Mathf.RoundToInt(a.Flips * Steps * ((age - p.Delay - a.Start) / a.Dur)) & (Steps - 1);
+                int turn = a.Flips * Steps + a.HalfTurn * (Steps / 2);
+                return turn == 0 ? 0 : Mathf.RoundToInt(turn * ((age - p.Delay - a.Start) / a.Dur)) & (Steps - 1);
             }
             if (p.Topple > 0 && p.ToppleDur > 0f)
             {
@@ -239,6 +249,9 @@ namespace TW.Presentation.Units
                 var a = ArcN(p, k);
                 return a.Rolls == 0 ? 0 : Mathf.RoundToInt(a.Rolls * Steps * ((age - p.Delay - a.Start) / a.Dur)) & (Steps - 1);
             }
+            // a planted man's legs kick where he lies, then the rest roll and twitch take over
+            float tk = age - p.Delay;
+            if (p.Kick != 0 && tk >= 0f && tk < p.KickEnd) return Mathf.RoundToInt(p.Kick * Mathf.Sin(2f * Mathf.PI * p.KickHz * tk)) & (Steps - 1);
             float t = age - p.Delay - p.ArcsEnd;
             if (t < 0f) return 0;
             float r = p.RestRoll * Mathf.Clamp01(t / RollSettle);
@@ -278,8 +291,9 @@ namespace TW.Presentation.Units
             }
             if (p.RestQ != 0)
             {
-                float since = t - (p.Arcs > 0 || p.SkidDur > 0f ? p.Settled : p.PulseDur);
-                return Mathf.RoundToInt(p.RestQ * Mathf.Clamp01(since / RestSquashSeconds));
+                float from = p.RestDur > 0f ? p.RestFrom : p.Arcs > 0 || p.SkidDur > 0f ? p.Settled : p.PulseDur;
+                float over = p.RestDur > 0f ? p.RestDur : RestSquashSeconds;
+                return Mathf.RoundToInt(p.RestQ * Mathf.Clamp01((t - from) / over));
             }
             return 0;
         }

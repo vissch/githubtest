@@ -125,7 +125,7 @@ namespace TW.Presentation.Units
             cellOfFallen ??= k => fallenMen[k].Cell;
             arriveOfFallen ??= k => ArriveOf(fallenMen[k]);
             int under = HeapUnder(fallenMen.Count, cell, arrive, cellOfFallen, arriveOfFallen);
-            if (under > 0)
+            if (under > 0 && man.Gag != (byte)DeathGag.Planted)   // a planted man stays planted: no heap nudge
             {
                 float h = Hash01(man.Pos + new Vector3(1.7f, 0f, 9.2f));
                 float a = h * 6.2831853f;
@@ -314,7 +314,7 @@ namespace TW.Presentation.Units
                 }
                 // a frog stays a frog dead at any range: the far tier is the soldier's, and at the play zoom the frogs lay
                 // there as pale dead men (frog critic rounds 12-13)
-                bool distant = f.Figure != FrogFigure && (at - eye).sqrMagnitude > nearSq;
+                bool distant = f.Figure != FrogFigure && f.Gag != (byte)DeathGag.Planted && (at - eye).sqrMagnitude > nearSq;   // and a planted man only ever plays near (the box tier has no gag)
                 if (distant) { if (farCount < fallenInstances.Length) fallenInstances[last - farCount++] = Fallen(f, far.Asset, f.FarRow, now, scale, at); }
                 else { fallenDrawAt[i] = at; fallenByFigure[math.min(f.Figure, figures.Length - 1)].Add(i); }
             }
