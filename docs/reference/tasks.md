@@ -718,7 +718,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   about 11 ms, whole-map and order-dependent, marker `TW.Terrain.Hollows`, run under `HeavyWork`; no test covers it),
   `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs` (with `NightLights.Machines.cs`: the
   machines' glow cards after the flash pool's, `lights.maxMachineGlows`, and their own light pool, `lights.machinePool`),
-  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs`, `Presentation/Terrain/QuietFog.cs`,
+  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs` (`Start` synthesizes its three thunder clips,
+  about 90 ms in a release player (measured 2026-10-19, commit 120524e9b9, two runs 87.5/92.2 ms), no caching
+  across scene loads), `Presentation/Terrain/QuietFog.cs`,
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
