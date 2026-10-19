@@ -85,7 +85,7 @@ namespace TW.Tests
 
         /// <summary>Open ground for an effect centred on (x, z): no trench, ladder, wire, bunker or blocked cell within
         /// `r` metres, no prop within r, and no ruin or wall the sim holds as cover within r + 6.</summary>
-        static bool Open(MapData map, float x, float z, float r)
+        internal static bool Open(MapData map, float x, float z, float r)
         {
             var size = map.SizeMeters;
             for (float zz = z - r; zz <= z + r; zz += 2f)
@@ -111,7 +111,7 @@ namespace TW.Tests
         }
 
         /// <summary>How much open ground an effect needs round its centre.</summary>
-        static float Room(string scene) => scene == "barrage" || scene == "gas" || scene == "smoke" || scene == "strafe" || scene == "beam" ? 12f : 7f;
+        internal static float Room(string scene) => scene == "barrage" || scene == "gas" || scene == "smoke" || scene == "strafe" || scene == "beam" ? 12f : 7f;
 
         [UnityTest, Explicit("The game's effects photographed; run by name, with a graphics device.")]
         public IEnumerator EveryEffectIsPhotographed()

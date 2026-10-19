@@ -210,6 +210,14 @@ namespace TW.Presentation.Terrain
                     if (map.WaterLevel > MapData.NoWater && RenderGround.Sample(map, x, z) < map.WaterLevel - .04f) return true;
                     return colorTex.GetPixel((int)(x * Tpm), (int)(z * Tpm)).a < .42f;   // a painted puddle
                 };
+                // Metres of liquid actually standing here, which a painted puddle's alpha cannot say: the river's
+                // own depth, or the water held in a dressed shell hole. Damp ground reports 0.
+                SceneHooks.WaterDepth = (x, z) =>
+                {
+                    if (x < 0f || z < 0f || x >= map.SizeMeters.x || z >= map.SizeMeters.y) return 0f;
+                    float river = map.WaterLevel > MapData.NoWater ? map.WaterLevel - RenderGround.Sample(map, x, z) : 0f;
+                    return Mathf.Max(river, Surface.PoolDepth(x, z));
+                };
             }
             if (map.HasSea)
             {
