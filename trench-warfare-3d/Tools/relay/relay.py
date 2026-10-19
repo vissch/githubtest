@@ -432,7 +432,8 @@ def add(a):
     The unit comes in words (an id, --lane, --goal, --done-when) or as a file (--unit): an answer of the owner's on
     the Decide page names its unit as a file, and a file crosses ssh where quoted words do not.
     The same unit from a file, queued a second time, is queued once: the call pushes the board again and ends 0, so
-    a take-up that stopped halfway can be repeated. Another unit under an id that is taken is refused."""
+    a take-up that stopped halfway can be repeated. Another unit under an id that is taken is refused.
+    An id that is done already is refused too: its queue file would be work the runner skips."""
     board = P.board_dir()
     if a.unit:
         if a.id or a.lane or a.goal or a.done_when:
@@ -449,6 +450,10 @@ def add(a):
                              % role_help())
         unit = {"id": a.id, "lane": a.lane, "role": a.role, "goal": a.goal, "done_when": a.done_when}
     known_role(unit["role"])
+    donep = board / "relay" / "done" / (unit["id"] + ".json")
+    if donep.exists():                               # the queue skips a done id: it would be work no run can take
+        raise SystemExit("relay: %s is done already: delete %s to queue it again, or pick another id"
+                         % (unit["id"], donep))
     p = board / "relay" / "queue" / (unit["id"] + ".json")
     if p.exists():
         try:
