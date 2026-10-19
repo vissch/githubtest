@@ -1,0 +1,91 @@
+{
+  "foot_gap_m": 0.0,
+  "plate_shift_px": 0.0,
+  "plate_px_after_death": 10105,
+  "px_per_m": 146.0,
+  "bar_m": 0.5,
+  "tolerance_per_channel": 40,
+  "thresholds": {
+    "foot_gap_m": 0.05,
+    "plate_shift_px": 2.0,
+    "plate_px_after_death": "> 0"
+  },
+  "shots": {
+    "plate_t": {
+      "file": "plate_t.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 10107,
+        "top": 439,
+        "bottom": 622,
+        "centre": [
+          530.5,
+          946.0
+        ]
+      },
+      "cyan": {
+        "count": 3357,
+        "top": 548,
+        "bottom": 621,
+        "centre": [
+          584.5,
+          958.5
+        ]
+      }
+    },
+    "plate_t60": {
+      "file": "plate_t60.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 10103,
+        "top": 439,
+        "bottom": 622,
+        "centre": [
+          530.5,
+          946.0
+        ]
+      },
+      "cyan": {
+        "count": 3358,
+        "top": 548,
+        "bottom": 621,
+        "centre": [
+          584.5,
+          958.5
+        ]
+      }
+    },
+    "plate_dead": {
+      "file": "plate_dead.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 10105,
+        "top": 439,
+        "bottom": 622,
+        "centre": [
+          530.5,
+          946.0
+        ]
+      },
+      "cyan": {
+        "count": 3359,
+        "top": 548,
+        "bottom": 621,
+        "centre": [
+          584.5,
+          958.5
+        ]
+      }
+    }
+  },
+  "pass": true
+}
