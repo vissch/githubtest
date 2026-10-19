@@ -479,7 +479,7 @@ namespace TW.Presentation
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;
             if (simStance == Stance.Vault || simStance == Stance.FireStep || simStance == Stance.Sprint) want = (byte)Stance.Standing;
-            if (arche == 3 && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee
+            if ((arche == 3 || arche == InfantryArchetype.AtRifle) && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee; the AT rifle too, off the fire step
             s.WantStance = want;
 
             // a one-shot that a higher rung did not take keeps the body
@@ -676,7 +676,7 @@ namespace TW.Presentation
                 if (s.Rung == Rung.StanceChange && Playing(s)) { if (Left(s) > 0.4f) return; s.Stance = s.WantStance; low = s.Stance == (byte)Stance.Crouch; }   // a rise or a drop finishes first (the tracer still draws); one nearly done lands
                 s.Routine = 0;
                 if (aimAt >= 0 && aimAt < count) { s.BodyYaw = s.AimYaw; s.TurnTo = s.AimYaw; }   // the feet come round while he fires (Advance, at a firing pace)
-                Clip fire = prone ? (arche == 2 ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : arche == 2 ? Clip.FireStoop : bolt ? Clip.FireSnap : Clip.FireStand;
+                Clip fire = prone ? (arche == 2 ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : arche == 2 ? Clip.FireStoop : arche == InfantryArchetype.AtRifle ? Clip.FireProne : bolt ? Clip.FireSnap : Clip.FireStand;
                 // and his own pace through it, within a tenth either way, so repeated shots keep drifting apart instead of
                 // falling back into step with his neighbour's (infantry-firing, 2026-10-15)
                 Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 0.9f + 0.2f * Hash(s.Seed, 23u), 0.05f);
