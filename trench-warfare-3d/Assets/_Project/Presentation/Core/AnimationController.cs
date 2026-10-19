@@ -479,7 +479,11 @@ namespace TW.Presentation
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;
             if (simStance == Stance.Vault || simStance == Stance.FireStep || simStance == Stance.Sprint) want = (byte)Stance.Standing;
-            if ((arche == 3 || arche == InfantryArchetype.AtRifle) && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee; the AT rifle too, off the fire step
+            if (arche == 3 && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee, off the fire step
+            // the AT rifle is bipod-laid (UnitLook): standing still, in a trench or in the open, he lies down behind his
+            // gun, which is what tells him from the Sniper at a glance (critique r1: the two men read as one)
+            if (arche == InfantryArchetype.AtRifle && speed < 0.15f && simStance != Stance.Melee && simStance != Stance.Leap && simStance != Stance.Vault && simStance != Stance.Dead)
+                want = (byte)Stance.Prone;
             s.WantStance = want;
 
             // a one-shot that a higher rung did not take keeps the body
@@ -825,10 +829,11 @@ namespace TW.Presentation
             if (s.Rung != Rung.Idle) { s.IdleSince = tick; s.Routine = 0; }
             uint idleFor = tick - s.IdleSince;
             bool aimed = s.Aimed || target >= 0;
-            if (inTrench && !prone && target < 0 && TrenchRoutine(i, ref s, idleFor, supp)) return;
+            bool lying = s.Stance == (byte)Stance.Prone || s.Stance == (byte)Stance.Pinned;   // the stance he is DRAWN in: a man laid behind his gun keeps the ground
+            if (inTrench && !lying && target < 0 && TrenchRoutine(i, ref s, idleFor, supp)) return;
             // a trench man who has just walked up stands stooped a moment (1.5 s) before he settles onto the knee
             bool settling = inTrench && (Clips.Table[(int)cur].Speed > 0f || (cur == Clip.StoopIdle && idleFor < 30));
-            Clip idle = prone ? Clip.ProneIdle : low ? (aimed ? Clip.KneelAimedIdle : settling ? Clip.StoopIdle : Clip.KneelIdle) : aimed ? Clip.AimedIdle : Clip.ReadyIdle;
+            Clip idle = lying ? Clip.ProneIdle : low ? (aimed ? Clip.KneelAimedIdle : settling ? Clip.StoopIdle : Clip.KneelIdle) : aimed ? Clip.AimedIdle : Clip.ReadyIdle;
             if (idle == Clip.ReadyIdle && idleFor > 240 + (s.Seed % 360) && target < 0 && supp < 10f)
             {
                 s.IdleSince = tick;
