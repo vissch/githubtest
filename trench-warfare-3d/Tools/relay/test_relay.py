@@ -353,6 +353,33 @@ class Guards(Base):
         self.assertFalse(self.denied("Write", file_path=str(self.board / "evidence" / "thing" / "shots" / "near.jpg")))
         self.assertFalse(self.denied("Edit", file_path=str(self.tmp / "work" / "a.cs")))
 
+    def test_a_command_may_not_write_on_the_board_or_in_the_relay(self):
+        # [found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0]
+        self.leg()
+        board = str(self.board / "relay" / "done" / "x.json").replace("\\", "/")
+        relay = str(HERE / "cmdrules.py").replace("\\", "/")
+        for tool, cmd in (
+            ("Bash", "python -c \"open(r'%s','w').write('{}')\"" % board),
+            ("Bash", "echo {} > %s" % board),
+            ("Bash", "cp note.md %s" % relay),
+            ("PowerShell", "Copy-Item note.md %s" % relay),
+            ("PowerShell", 'Set-Content %s -Value "{}"' % board),
+        ):
+            why = self.hook("pre-tool", {"tool_name": tool, "tool_input": {"command": cmd}})[1]
+            self.assertIsNotNone(why, "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
+            reason = why["permissionDecisionReason"]
+            if "cp " in cmd or "Copy-Item" in cmd:
+                self.assertIn("does not edit the relay", reason,
+                              "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
+            else:
+                self.assertIn("evidence/", reason,
+                              "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
+        for cmd in ("cp a.cs b.cs", "echo x > %s" % (self.tmp / "work" / "a.txt"),
+                    "cat %s" % (self.board / "relay" / "queue" / "x.json"), "git -C %s push" % self.board,
+                    'python "%s" leg done' % (HERE / "relay.py")):
+            self.assertFalse(self.denied("Bash", command=cmd),
+                              "[found-the-pre-tool-guard-checks-write-paths-only-f-20261018-0] %s" % cmd)
+
     def test_the_hook_as_a_process_refuses_when_its_rules_are_broken(self):
         d = self.leg()
         broken = self.tmp / "relaycopy"

@@ -9,12 +9,14 @@
 
 <guard> is the leg's guard folder (leg.json, the meter, the logs). It is in the hook's command line only, never in
 the leg's environment, so the leg is not told where its rules are; every tool is refused a path inside it, inside
-the relay's own code, and on the board outside its evidence. pre-tool fails closed: rules it cannot read, or any
-error, refuse the call. The other events log the error and let the leg go on. This is the second line of defence;
-the first is outside the model (prepush.py, land.py and pipeline.py, the runner's audit). The meter reads the
+the relay's own code, and on the board outside its evidence. For a Write-family tool that path is the file it
+names; for a command it is the paths the command writes to (a redirect, a copying or deleting program, inline code
+that opens or writes a file). A subtler write a command hides at runtime is the second line of defence to catch
+(prepush.py, land.py and pipeline.py, the runner's audit). pre-tool fails closed: rules it cannot read, or any
+error, refuse the call. The other events log the error and let the leg go on. The meter reads the
 transcript one batch late, so red sits well under the compaction size. Stdlib only. ASCII only.
 """
-import json, os, sys, time
+import json, os, re, sys, time
 from pathlib import Path
 
 AMBER_TEXT = ("RELAY: context is at %d tokens (amber). Finish the step you are on and start nothing new. If you have "
@@ -23,6 +25,13 @@ RED_TEXT = ("RELAY: context is at %d tokens (red). Close the leg now. Only these
             "writing note.md in your leg folder, and python \"%s\" leg gate wait | leg finish | leg done. "
             "leg finish commits and pushes for you when the gate is green for these exact files.")
 WRITE_TOOLS = ("Write", "Edit", "NotebookEdit", "MultiEdit")
+WRITE_PROGS = ("cp", "copy", "mv", "move", "rm", "del", "erase", "touch", "tee", "dd", "truncate", "ln", "install",
+               "rsync", "robocopy", "xcopy", "mkdir", "md", "rmdir", "unzip", "tar", "7z", "copy-item", "move-item",
+               "remove-item", "new-item", "rename-item", "set-content", "add-content", "clear-content", "out-file",
+               "tee-object")
+CODE_WRITE = re.compile(
+    r"\.write|write_(text|bytes)|open\s*\([^)]*['\"][wax+]|set-content|add-content|out-file|new-item|remove-item|"
+    r"copy-item|move-item|unlink|rmtree|os\.remove|shutil\.(copy|move)|rename|mkdir|makedirs|touch", re.I)
 CARD_HOOK_MAX = 9000    # characters. Claude Code hands a hook's context over whole only up to about 10,000: a
                         # longer one reaches the session as a preview and a file path, and the leg spends a call
                         # reading its own card (105 of 337 legs, 2026-10-12). Such a card rides in the prompt.
@@ -183,6 +192,46 @@ def off_limits(path, d, leg, C):
     return None
 
 
+def _as_path(word, C):
+    w = C.bare(word)
+    if w.startswith("--") and "=" in w:
+        w = w.split("=", 1)[1]
+    return w if ("/" in C.bare(w) or "\\" in C.bare(w)) else None
+
+
+def write_targets(cmd, C):
+    """The paths a command could write: a redirect, a copying or deleting program's arguments, or a path named
+    inside code a program is told to run (python -c, powershell -Command). A word only run or read is not here."""
+    out = []
+    for words in C.commands(cmd):
+        redirected = set(id(w) for w in C.redirects(words))
+        for i, w in enumerate(words):
+            if id(w) not in redirected:
+                continue
+            tail = re.sub(r"^.*[<>]", "", w)        # note.md>X and plain X after a bare > both end up here
+            p = _as_path(tail, C) if tail else None
+            if p:
+                out.append(p)
+            elif not tail and i + 1 < len(words):    # a bare >, >>, 2> : the target is the next word
+                p = _as_path(words[i + 1], C)
+                if p:
+                    out.append(p)
+        if C.prog(words) in WRITE_PROGS:
+            for w in words[1:]:
+                if not C.bare(w).startswith("-"):
+                    p = _as_path(w, C)
+                    if p:
+                        out.append(p)
+        for w in words:
+            raw = C.bare(w)
+            if CODE_WRITE.search(raw):
+                for tok in re.findall(r"['\"]([^'\"]{3,})['\"]", raw) + raw.split():
+                    p = _as_path(tok, C)
+                    if p:
+                        out.append(p)
+    return out
+
+
 def names_runner_folder(cmd, d, leg, C):
     """True when a command names the runner's folder: in full, or as a .. path out of the leg's own desk."""
     run_root, desk = Path(d).parents[1], leg.get("desk") or ""
@@ -227,6 +276,10 @@ def refusal(d, leg, inp, C):
         why = C.never(cmd, leg)
         if why:
             return why
+        for p in write_targets(cmd, C):
+            why = off_limits(p, d, leg, C)
+            if why:
+                return why
     red = level(d) == "red"
     if leg.get("mode") == "read_only" or red:
         what = "context is at red: only the close-out works" if red else "this phase only reads"
