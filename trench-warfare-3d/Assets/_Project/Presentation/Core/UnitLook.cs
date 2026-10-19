@@ -120,7 +120,7 @@ namespace TW.Presentation
                 case InfantryArchetype.AtRifle: return "AT rifle: a bipod-laid heavy rifle. Pierces 20 mm to 70 m, one round in five seconds";
                 case InfantryArchetype.DeathBattalion: return "Death Battalion: a harder-hitting rifleman in a greatcoat who never stays pinned";
                 case InfantryArchetype.Sapper: return "Sapper, stand-in: carries two charges. Walks out and lays a mine or a tripwire";
-                case InfantryArchetype.Flamethrower: return "Flamethrower, stand-in: a 12 m jet that sets men and ground alight, past a plate";
+                case InfantryArchetype.Flamethrower: return "Flamethrower: fuel on his back, a 12 m jet that sets men and ground alight, past a plate";
                 default: return null;
             }
         }
