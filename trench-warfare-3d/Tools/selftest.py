@@ -1214,6 +1214,13 @@ def relay_cases(tmp: pathlib.Path):
     case('git refuses a held checkout\'s push to another branch (the relay\'s pre-push hook)', code != 0 and 'relay' in out, out)
     code, out = g('push', '-q', 'origin', 'lane/show/t')
     case('the same hook lets the leg\'s own lane through', code == 0, out)
+    g('commit', '-q', '--amend', '-m', 'rewritten')          # the lane's history rewritten, as after a rebase
+    code, out = g('push', '--force', '-q', 'origin', 'lane/show/t')
+    case('the hook lets a forced push of the leg\'s own lane through', code == 0, out)
+    code, out = g('push', '--force', '-q', 'origin', 'HEAD:refs/heads/' + gitio.INTEGRATION)
+    case('the hook still refuses a forced push to the trunk', code != 0 and 'relay' in out, out)
+    code, out = g('push', '--force', '-q', 'origin', 'HEAD:refs/heads/lane/show/other')
+    case('the hook still refuses a forced push to another lane', code != 0 and 'relay' in out, out)
     marker.unlink()
     code, out = g('push', '-q', 'origin', 'HEAD:refs/heads/other')
     case('without the marker the hook does nothing', code == 0, out)
@@ -1221,7 +1228,9 @@ def relay_cases(tmp: pathlib.Path):
     leg = {'lane': 'lane/show/t', 'worktree': str(work), 'board': str(board)}
     case('the leg\'s command rules refuse land.py and a push to main, and pass a push of its own lane',
          bool(cmdrules.never('python Tools/land.py', leg)) and bool(cmdrules.never('git push origin main', leg))
-         and cmdrules.never('git push origin lane/show/t', leg) is None)
+         and cmdrules.never('git push origin lane/show/t', leg) is None
+         and cmdrules.never('git push --force origin lane/show/t', leg) is None
+         and bool(cmdrules.never('git push --force origin main', leg)))
 
 
 def editor_lock_cases(tmp: pathlib.Path):

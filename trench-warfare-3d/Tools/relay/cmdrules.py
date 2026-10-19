@@ -6,7 +6,7 @@ message. This is the SECOND line of defence: text rules cannot see every way to 
 outside the model (the git pre-push hook in prepush.py, land.py and pipeline.py refusing inside a leg, the runner's
 audit after each leg).
 
-  never(cmd, leg)        why no leg may run this, in any phase (land, claim, force-push, another lane, ...)
+  never(cmd, leg)        why no leg may run this, in any phase (land, claim, another lane, a forced push off its lane, ...)
   skips_guard(cmd)       True when it names git's push guard or tells git to skip it (a commit message may)
   read_only_ok(cmd)      True when every part only looks (the plan, critic and retro phases)
   red_ok(cmd, relay_py)  True when it is one close-out command (context at red)
@@ -32,6 +32,7 @@ ENV_OK = {"GIT_EDITOR", "GIT_SEQUENCE_EDITOR", "GIT_PAGER", "GIT_TERMINAL_PROMPT
 RELAY_VARS = ("TW_RELAY", "TW_WORKER_PID", "TW_BOARD", "TW_RUNS")
 GUARD_WORDS = ("relay-leg.json", "hooks/pre-push")
 PUSH_FLAGS = ("-u", "--set-upstream", "-q", "--quiet", "-v", "--verbose", "--progress")
+FORCE = ("-f", "--force", "--force-with-lease", "--force-if-includes")
 SUB_LOOK = {"merge-base": None, "rev-parse": ("--short", "--verify", "-q", "--abbrev-ref", "--show-toplevel",
                                               "--git-dir", "--absolute-git-dir", "--git-common-dir")}
 SHELLS = {"bash": ("-c", "-lc"), "sh": ("-c",), "zsh": ("-c",), "cmd": ("/c", "/k"), "wsl": ("--", "-e"),
@@ -320,14 +321,26 @@ def is_own(folder, leg):
     return a == b or a.startswith(b + "/")
 
 
+def is_force(a):
+    return a in FORCE or a.startswith("--force-with-lease=") or a.startswith("--force-if-includes=")
+
+
 def push_ok(args, cdir, leg):
     """A push goes to the leg's own lane: named, or left to git as the current branch (`git push`, `origin HEAD`).
-    git's pre-push hook holds whatever git makes of it to the lane. Or it is `git -C <board> push`, no refspec."""
+    git's pre-push hook holds whatever git makes of it to the lane. Or it is `git -C <board> push`, no refspec.
+    A forced push is allowed too, but only onto the lane named in full: never a bare `git push --force`."""
     if cdir is not None:
         return is_board(cdir, leg) and not args
-    rest, lane = [a for a in args if a not in PUSH_FLAGS], leg.get("lane")
-    return bool(lane) and (rest in ([], ["origin"]) or rest[:1] == ["origin"] and len(rest) == 2 and rest[1] in (
-        lane, "HEAD", "HEAD:" + lane, "HEAD:refs/heads/" + lane, "%s:%s" % (lane, lane)))
+    lane = leg.get("lane")
+    forced = any(is_force(a) for a in args)
+    rest = [a for a in args if a not in PUSH_FLAGS and not is_force(a)]
+    if not lane:
+        return False
+    named = ("HEAD:" + lane, "HEAD:refs/heads/" + lane, "%s:%s" % (lane, lane))
+    if forced:
+        return len(rest) == 2 and rest[0] == "origin" and rest[1] in (lane,) + named
+    return rest in ([], ["origin"]) or (
+        rest[:1] == ["origin"] and len(rest) == 2 and rest[1] in (lane, "HEAD") + named)
 
 
 def never_git(words, leg):

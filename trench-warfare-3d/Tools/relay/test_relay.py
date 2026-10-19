@@ -267,10 +267,10 @@ class Guards(Base):
         for cmd in ("python Tools/land.py", "python Tools\\land.py", "python Tools/LAND.PY", "py -3 Tools/land.py",
                     "python -m land", 'cd Tools; python -c "import land; land.main()"',
                     "python Tools/pipeline/pipeline.py claim j1", "python -m pipeline complete j --verdict PASS",
-                    "git push --force", "git push origin lane/show/other", "git push --force origin " + LANE,
+                    "git push --force", "git push origin lane/show/other",
                     "git push origin HEAD:claude/trench-warfare-2d-3d-plan-idt7lf # " + board,
                     "git push origin --delete lane/show/other; ls " + board, "git push --all",
-                    "git push origin %s:other" % LANE, "git  push  -f origin " + LANE, "git.exe push origin main",
+                    "git push origin %s:other" % LANE, "git.exe push origin main",
                     '"git" push origin main', "git -C %s push origin main" % board, "git p --force origin main",
                     "$g='pu'+'sh'; git $g --force origin main", "git commit -m x --amend", "git commit --amend -m x",
                     "git reset --hard HEAD~1", "git reset --keep HEAD~3", "git branch -f %s HEAD~5" % LANE,
@@ -311,6 +311,8 @@ class Guards(Base):
     def test_ordinary_work_is_not_refused(self):
         self.leg()
         for cmd in ("git push origin " + LANE, "git push -u origin " + LANE, "git -C %s push" % self.board,
+                    "git push --force origin " + LANE, "git  push  -f origin " + LANE,
+                    "git push --force-with-lease origin " + LANE,
                     'git commit -m "fix the push ordering"', 'git commit -m "note about land.py"',
                     "git log --grep push", "cat Tools/land.py", "git rebase origin/claude/trench-warfare-2d-3d-plan-idt7lf",
                     "git add -A", "python Tools/codemap.py", "git checkout -- a.cs", "git fetch origin",
@@ -1498,7 +1500,7 @@ class Runs(Repo):
     def test_git_itself_refuses_a_leg_pushing_anywhere_but_its_lane(self):
         self.queue("u1")
         for push in (["push", "-q", "origin", "HEAD:refs/heads/other"], ["push", "-q", "origin", "HEAD:" + gitio.INTEGRATION],
-                     ["push", "-q", "--force", "origin", "HEAD~1:lane/show/x"], ["push", "-q", "origin", ":lane/show/x"]):
+                     ["push", "-q", "--force", "origin", "HEAD~1:refs/heads/other"], ["push", "-q", "origin", ":lane/show/x"]):
             self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.COMMIT + [{"git": push}]})
             before = gitio.remote_heads(self.work).get("refs/heads/" + gitio.INTEGRATION)
             _, stop = self.go()
@@ -1631,15 +1633,14 @@ class Runs(Repo):
         self.assertEqual(self.legs()[0]["moved_on_origin"], ["lane/show/neighbour"])
         self.assertEqual(stop["moved_on_origin"], ["lane/show/neighbour"])
 
-    def test_a_leg_pushes_its_rebased_lane_as_a_new_b_branch_but_never_forces(self):
+    def test_a_leg_may_force_push_its_own_lane_and_nothing_else(self):
         import prepush
-        rec, z = {"lane": "lane/show/x"}, prepush.ZERO
-        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-b %s" % ("1" * 40, z)))
-        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-c %s" % ("1" * 40, z)))
-        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-b %s" % ("1" * 40, "2" * 40)))   # over an existing -b: no
-        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x-bb %s" % ("1" * 40, z)))
-        self.assertIn("own lane", prepush.refusal(rec, "HEAD %s refs/heads/lane/show/y-b %s" % ("1" * 40, z)))
-        self.assertIn("own lane", prepush.refusal(rec, "(delete) %s refs/heads/lane/show/x-b %s" % (z, z)))
+        rec, z, old, new = {"lane": "lane/show/x"}, prepush.ZERO, "2" * 40, "1" * 40
+        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x %s" % (new, old)))   # rewritten: yes
+        self.assertIsNone(prepush.refusal(rec, "HEAD %s refs/heads/lane/show/x %s" % (new, z)))     # new branch: yes
+        for ref in ("refs/heads/" + gitio.INTEGRATION, "refs/heads/lane/show/y", "refs/heads/lane/show/x-b"):
+            self.assertIn("own lane", prepush.refusal(rec, "HEAD %s %s %s" % (new, ref, old)), ref)
+        self.assertIn("does not delete", prepush.refusal(rec, "(delete) %s refs/heads/lane/show/x %s" % (z, old)))
 
     def test_a_leg_may_not_push_from_any_other_checkout(self):
         gitio.install_prepush(self.work)
