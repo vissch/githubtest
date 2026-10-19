@@ -1,0 +1,17 @@
+ford: from=(12.00, 0.69, 128.00) land=(15.00, -0.25, 130.00) waterY=0.150 fly=(3.00, 0.50, 2.00) flight=0.721 s (43 frames at 1/60) figureScale=1.125
+plate (no throw at all) queued at frame 114085: queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/plate.png
+thrown at frame 114095, lands at frame 114138; splash any=True ring=1.800 card=1.100 cardY=0.150
+pre: frozen at frame 114125, t=2423.4380
+pre queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/pre.png
+pre-nosplash (rings and cards lifted out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/pre-nosplash.png
+pre done, splash back, running again at frame 114139, pending=0
+land: frozen at frame 114154, t=2423.6880
+land queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/land.png
+land-b queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/land-b.png
+land-nosplash (rings and cards lifted out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/land-nosplash.png
+land done, splash back, running again at frame 114174, pending=0
+post: frozen at frame 114189, t=2423.9380
+post queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/post.png
+post-nosplash (rings and cards lifted out) queued C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/post-nosplash.png
+post done, splash back, running again at frame 114203, pending=0
+DONE, scene put back; pending=0
