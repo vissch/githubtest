@@ -90,6 +90,29 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
         }
 
+        /// <summary>The dust puff's width at zero zoom (today's size, up close): grown by FarGrow so the landing stays
+        /// readable at the overview, where the drop itself has no burst to read instead.</summary>
+        public const float DropDustBase = 2f;
+        public static float DropDustWidth(float zoom) => DropDustBase * FlipbookFx.FarGrow(zoom);
+
+        /// <summary>Whether the drop is drawn at a zoom: unlike a shell's streak (IsIncoming, culled from
+        /// IncomingFarZoom because the burst is the far read instead), a drop has no burst of its own, so its marker and
+        /// landing dust are never culled. Pure, so a test can hold it.</summary>
+        public static bool DropDrawnAt(float zoom) => true;
+
+        /// <summary>When the k-th of `men` falling streaks starts, spread evenly over the last (up to) 2.5 s before
+        /// landing, the final one at IncomingLead before the ground (the streak's own last frame). Pure, so a test can
+        /// hold it.</summary>
+        public static float DropStreakDelay(int k, int men, float seconds)
+        {
+            float span = Mathf.Min(seconds, 2.5f);
+            float last = Mathf.Max(0f, seconds - IncomingLead);
+            float first = Mathf.Max(0f, last - span);
+            float t = men > 1 ? (float)k / (men - 1) : 1f;
+            return Mathf.Clamp(Mathf.Lerp(first, last, t), 0f, seconds);
+        }
+
+
         // L11b (2026-10-19, harsh critic r1 fix 3: "no paratrooper or landing can be seen"). A drop used to be eight
         // small puffs on the ground, culled past IncomingFarZoom, so from the overview nothing happened at all. The
         // sim raises DropInbound as the call goes in, carrying the point, the men and the seconds to the landing
@@ -117,6 +140,10 @@ namespace TW.Presentation.Tactical
             float warm = Mathf.Max(0.5f, e.Scalar);
             int men = Mathf.Clamp(e.B, 1, 24);
             float far = DropGrow();
+            // the zone marked the moment it is called (paradrop-inbound-marker, 2026-11-07): a smoke flare on the ground
+            // and a star, so the eye finds the point before the aircraft is in
+            books.Add(FlipbookFx.Book.Smoulder, at, 6f * far, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
+            books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
             // the run-in comes from the near half of the map, so its wake lies over the field and not off the edge
             var size = map.SizeMeters;
             var dir = new Vector3(0f, 0f, at.z > size.y * 0.5f ? 1f : -1f);

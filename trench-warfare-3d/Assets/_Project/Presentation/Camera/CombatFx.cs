@@ -1000,7 +1000,7 @@ namespace TW.Presentation.Tactical
                     OnWireBreached(e);   // CombatFx.Barrage.cs (fx.recipes)
                     break;
                 case SimEventType.DropInbound:
-                    OnDropInbound(e);    // CombatFx.Barrage.cs (fx.recipes): the aircraft's run-in and the canopies
+                    OnDropInbound(e);    // CombatFx.Barrage.cs (fx.recipes)
                     break;
                 case SimEventType.DropLanded:
                     OnDropLanded(e);     // CombatFx.Barrage.cs (fx.recipes)
