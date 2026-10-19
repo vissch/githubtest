@@ -1298,6 +1298,7 @@ namespace TW.Presentation.Tactical
                 if (batch.Count > 0) Flush(fallen[kind], rpF);
             }
             DrawClose(now, bounds);
+            DrawKit(bounds);   // the pieces a baked figure does not carry (CombatFx.Kit.cs): the Flamer's tanks and wand
         }
 
         /// <summary>Draw a batch that is not the shared one (the marks keep a list a shape, so one sweep can fill them all).</summary>
