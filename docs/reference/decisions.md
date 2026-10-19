@@ -332,6 +332,27 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   garrison's heads down, and `WreckDecayTests.AnIdleMachineGunFiresAtTheWreckHiddenEnemiesAreBehind` asserts exactly
   that. Options: (a) keep blind fire on a garrison below the rim, the default taken here; or (b) drop it, so a gun
   only suppresses men it could engage. (b) changes that landed test and the hash (another bump).
+- **A card portrait cannot be cut out of a night battlefield still: the difference mask catches the kit, never the
+  man (2026-10-19, lane `lane/show/special-portraits-r3`):** r2 cut `Flamer.png` and `Sentry.png` by photographing
+  each man in GreyboxCorridor at night, photographing the same ground empty, and keeping the pixels that differ.
+  Measured on a reshoot this leg, that mask holds **only the pale kit**: the Flamer's 2 342 differing pixels are
+  his wand alone and the Sentry's 1 606 are his plate alone, so both cutouts come out a bare slab with no man in
+  them (`docs/evidence/special-portraits-r3/cut-Flamer.png`, `cut-Sentry.png`). Lowering the threshold from 18 to 4
+  adds 600 pixels and no body; `--lift` only brightens the slab. His khaki body simply does not separate from the
+  mud at night - the same fault as the open `UnitCloseStills` row above, and what `CaptureRig` itself reports as
+  `"men barely separate from the ground: unreadable"` with `contrast_median` 0.07-0.12 against the owner's 0.15 bar.
+  r2's portraits only looked man-shaped because `Settle()` let the world run 20 frames between the paired shots, so
+  background motion padded the mask; freezing the clock (this leg) removes the padding and exposes the slab.
+  Reshooting cannot fix it: pitch 12 -> 35 -> 55 moved the Flamer 0.064 -> 0.116 -> 0.119, a per-man yaw and moving
+  him to the Sentry's lit spot both made it worse, and the capture cannot go closer than `TacticalCamera.NearZoom`.
+  Options: (a) light the man for the portrait - the `look.menClose` fix the row above already waits on - and then
+  recut, the cheapest if that lane lands; (b) cut the portraits from a dedicated render with a real alpha channel
+  (`Tools/portraitcut.py`, the path the painted portraits use) instead of a battlefield difference, which drops the
+  night look the owner's evidence rule asks for but gives a clean silhouette every time; (c) shoot the portrait in
+  the day look and keep the difference cut. Default taken here: **none built** - the unit is stopped and nothing
+  was committed over `Flamer.png` or `Sentry.png`, which stay as r2 left them, because every option changes a look
+  the owner decides. The capture fix, the cutter and the probe are committed and ready for whichever he picks
+  (this leg, 20261019-164049-89816-03).
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
