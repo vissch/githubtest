@@ -54,6 +54,44 @@ namespace TW.Tests
                 $"the kit (luma {kit:F3}) reads as thrown earth (luma {dirt:F3})");
         }
 
+        [Test]
+        public void FlamerTanksAreDarkSteel()
+        {
+            // Harsh critic r1 (41/100): the tanks were flat white blocks, brighter than anything else in a night
+            // frame. The numbers below are not arithmetic - they are the window the rendered stills of this lane
+            // proved: docs/evidence/flamer-tank-steel (GreyboxCorridor, night, 2026-10-19, pose_error_m 0) with
+            // KitColour at luma 0.356 measured tank_luma_median_t2 89.9, inside the goal's 60-140 band, 25.9 luma
+            // steps over his own torso and 60.0 over the mud. The ladder either side of it, same rig, same night:
+            // the same base with no self-light read 24.0 (under the mud at 29.8, an invisible kit), with more of it
+            // 127.8 (the top of the band), and r2's pale base read 95.5 - the paper look the critic saw.
+            float kit = Luma(CombatFx.KitColour);
+            Assert.That(kit, Is.InRange(0.30f, 0.42f),
+                $"the kit's base luma {kit:F3} is outside the window the committed stills measured 89.9 at");
+            float hi = Luma(CombatFx.KitHighlightColour);
+            Assert.That(hi, Is.GreaterThanOrEqualTo(kit + 0.25f),
+                $"the lid highlight (luma {hi:F3}) does not stand off the dark steel (luma {kit:F3})");
+
+            var bands = new Matrix4x4[CombatFx.KitHighlightMax];
+            Vector3 chest = new Vector3(0f, 1.30f, 0.05f), muzzle = new Vector3(0f, 1.35f, 0.60f), barrel = new Vector3(0f, 0f, 1f);
+            Assert.That(CombatFx.KitHighlights(InfantryArchetype.Assault, chest, barrel, 1f, bands), Is.EqualTo(0),
+                "the Assault wears no kit, so he gets no highlight");
+            Assert.That(CombatFx.KitHighlights(InfantryArchetype.Flamethrower, chest, barrel, 1f, bands), Is.EqualTo(2),
+                "one lit band along each of the two tanks");
+
+            var tanks = new Matrix4x4[CombatFx.KitPieceMax];
+            CombatFx.KitPieces(InfantryArchetype.Flamethrower, chest, muzzle, barrel, 1f, tanks);
+            for (int k = 0; k < 2; k++)
+            {
+                Vector3 band = bands[k].GetColumn(3), tank = tanks[k].GetColumn(3);
+                Assert.That(band.y - tank.y, Is.GreaterThanOrEqualTo(0.20f),
+                    $"band {k} is not on the lid of its tank (it sits {band.y - tank.y:F3} m over its centre)");
+                Assert.That(((Vector3)bands[k].GetColumn(1)).magnitude, Is.LessThanOrEqualTo(0.10f),
+                    $"band {k} is a slab, not a highlight: a thick band drags the kit's measured median back up");
+            }
+            Assert.That(((Vector3)bands[0].GetColumn(3)).x * ((Vector3)bands[1].GetColumn(3)).x, Is.LessThan(0f),
+                "both highlights are on the same side of him");
+        }
+
         /// <summary>Rec.601 luma, the same weighting the capture probe measures the stills with.</summary>
         static float Luma(Color c) => 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
     }
