@@ -609,6 +609,7 @@ namespace TW.Presentation.Tactical
             Discard(flashMesh); flashMesh = null;
             Discard(markQuad); markQuad = null;
             Discard(clod); clod = null;
+            Discard(atRifleMat); atRifleMat = null; Discard(atRifleMesh); atRifleMesh = null;   // the AT rifle drawn on his back (atrifle-look-r3)
         }
 
         /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between
@@ -1304,6 +1305,7 @@ namespace TW.Presentation.Tactical
             var view = ViewEye.Main;   // once a frame (ViewEye): the zoom share here, the silhouettes' facing and the men's growth below
             float zoomNow = ViewEye.Zoom;
             DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
+            DrawAtRifles(bounds);   // the AT rifleman's long gun, laid where his drawn pose holds it (CombatFx.AtRifle.cs)
             Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;
