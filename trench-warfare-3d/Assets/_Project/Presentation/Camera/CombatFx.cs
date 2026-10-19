@@ -96,7 +96,7 @@ namespace TW.Presentation.Tactical
         // Held here because it spends CombatFx's books and CombatFx already has the presenter and the ground.
         readonly Flamethrower flames = new Flamethrower();
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
-        Material dirtMat, woodMat, smokeMat;
+        Material dirtMat, woodMat, kitMat, smokeMat;
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -272,6 +272,9 @@ namespace TW.Presentation.Tactical
             }
             dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
+            // pale steel for the metal a man carries (fuel tanks, wand, the Sentry's plate): dirtMat is the
+            // colour of his cloth and of the mud, so kit flushed with it read as one khaki block (critic, 2026-10-19).
+            kitMat = Painted(new Color(0.46f, 0.48f, 0.50f), 0.35f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
             smokeThin = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.20f));
@@ -493,7 +496,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, kitMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);

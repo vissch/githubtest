@@ -17,6 +17,12 @@ namespace TW.Presentation.Tactical
         readonly Matrix4x4[] kitPieces = new Matrix4x4[KitPieceMax];
 
         /// <summary>
+        /// Leaves the wand out of <see cref="KitPieces"/> (the tanks stay). Off in play; set by a stills run that wants
+        /// the same pose twice, with and without the prop, to measure how many pixels the prop is worth.
+        /// </summary>
+        public static bool HideWand;
+
+        /// <summary>
         /// The pieces of one man's kit, in the frame his barrel socket gives: 0 and 1 the fuel tanks on his back, 2 the
         /// wand. Pure - no Unity state, no camera - so an EditMode test can measure it. Returns how many of
         /// <paramref name="into"/> were filled: 0 for every archetype that wears no kit.
@@ -30,15 +36,16 @@ namespace TW.Presentation.Tactical
             Vector3 up = Vector3.Cross(fwd, right).normalized;
             var turn = Quaternion.LookRotation(fwd, up);
             // the two tanks, high on his back, one each side of the spine
-            var tank = new Vector3(0.16f, 0.46f, 0.16f) * scale;
+            var tank = new Vector3(0.14f, 0.46f, 0.14f) * scale;
             Vector3 back = chest + (up * 0.02f - fwd * 0.18f) * scale;
-            into[0] = Matrix4x4.TRS(back + right * (0.11f * scale), turn, tank);
-            into[1] = Matrix4x4.TRS(back - right * (0.11f * scale), turn, tank);
+            into[0] = Matrix4x4.TRS(back + right * (0.13f * scale), turn, tank);
+            into[1] = Matrix4x4.TRS(back - right * (0.13f * scale), turn, tank);
             // the wand: a 1.10 m tube that starts 0.45 m behind the muzzle - in his hands, over the baked rifle - and
             // runs forward from there. (The plan's "centred on muzzle - 0.45*fwd" put the far end 0.65 m ahead of the
             // chest, which its own test rejects at 1.0 m; the back end is what 0.45 m measures.)
+            if (HideWand) return KitPieceMax - 1;
             float wand = 1.10f * scale;
-            into[2] = Matrix4x4.TRS(muzzle + fwd * ((0.55f - 0.45f) * scale), turn, new Vector3(0.09f * scale, 0.09f * scale, wand));
+            into[2] = Matrix4x4.TRS(muzzle + fwd * ((0.55f - 0.45f) * scale), turn, new Vector3(0.12f * scale, 0.12f * scale, wand));
             return KitPieceMax;
         }
 
@@ -61,7 +68,7 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < n; k++) batch.Add(kitPieces[k]);
                 men++;
             }
-            if (batch.Count > 0) Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (batch.Count > 0) Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
         }
     }
 }

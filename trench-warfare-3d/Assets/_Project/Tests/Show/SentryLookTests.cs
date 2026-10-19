@@ -13,6 +13,9 @@ namespace TW.Tests
 {
     public class SentryLookTests
     {
+        [TearDown]
+        public void ShowThePlateAgain() => CombatFx.HidePlate = false;
+
         [Test]
         public void SentryWearsItsOwnLook()
         {
@@ -47,6 +50,16 @@ namespace TW.Tests
 
             Assert.That(UnitLook.Tip(InfantryArchetype.Sentry), Does.Not.Contain("stand-in"),
                 "his tooltip still calls him a stand-in");
+        }
+
+        [Test]
+        public void HidePlateDrawsNothing()
+        {
+            var pieces = new Matrix4x4[CombatFx.PlatePieceMax];
+            Vector3 chest = new Vector3(0f, 1.30f, 0.05f), muzzle = new Vector3(0f, 1.35f, 0.60f), barrel = new Vector3(0f, 0f, 1f);
+            CombatFx.HidePlate = true;
+            Assert.That(CombatFx.PlatePieces(InfantryArchetype.Sentry, chest, muzzle, barrel, 1f, pieces), Is.EqualTo(0),
+                "with the plate hidden he stands in the open: no piece is drawn");
         }
     }
 }

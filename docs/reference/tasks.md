@@ -655,7 +655,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   Flamer figure is baked. His portrait is his own since 2026-10-19 (`Portraits/Flamer.png`, cut from a CaptureRig
   still of him with his tanks and wand by `docs/evidence/special-portraits-r2/portrait_cut.py`, not baked by
   `UiSkinGenerator` and no longer listed in `UI/Skin/placeholders.json`).
-- **Tests:** FlamerLookTests (his kit's shape, and that his tooltip is no longer a stand-in's); PortraitStills
+- **Tests:** FlamerLookTests (his kit's shape, his wand's width, the `CombatFx.HideWand` switch, and that his
+  tooltip is no longer a stand-in's); SentryLookTests (the plate's shape, his MG flash, the `CombatFx.HidePlate`
+  switch); PortraitStills
   (Explicit, with a graphics device: it photographs him and the Sentry alone, and the ground without them, which is
   what their portraits are cut from) and SkinAssetTests (neither portrait is a byte copy of another man's).
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and

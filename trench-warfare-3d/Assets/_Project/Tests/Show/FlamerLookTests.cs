@@ -12,6 +12,9 @@ namespace TW.Tests
 {
     public class FlamerLookTests
     {
+        [TearDown]
+        public void ShowTheWandAgain() => CombatFx.HideWand = false;
+
         [Test]
         public void FlamerWearsItsOwnLook()
         {
@@ -28,7 +31,7 @@ namespace TW.Tests
             {
                 Vector3 at = pieces[k].GetColumn(3);
                 Assert.That(at.z, Is.LessThanOrEqualTo(-0.10f), $"tank {k} is not on his back (z {at.z})");
-                Assert.That(Mathf.Abs(at.x), Is.InRange(0.08f, 0.15f), $"tank {k} sits the wrong way off his spine (x {at.x})");
+                Assert.That(Mathf.Abs(at.x), Is.InRange(0.08f, 0.16f), $"tank {k} sits the wrong way off his spine (x {at.x})");
                 Assert.That(((Vector3)pieces[k].GetColumn(1)).magnitude, Is.GreaterThanOrEqualTo(0.40f), $"tank {k} is too short to read");
             }
             Assert.That(((Vector3)pieces[0].GetColumn(3)).x * ((Vector3)pieces[1].GetColumn(3)).x, Is.LessThan(0f),
@@ -40,8 +43,27 @@ namespace TW.Tests
             Assert.That(far.z - chest.z, Is.GreaterThanOrEqualTo(1.0f), $"the wand does not reach out in front of him (far end z {far.z})");
             Assert.That(Mathf.Abs(far.x), Is.LessThanOrEqualTo(0.20f), $"the wand points off his centre line (x {far.x})");
 
+            // across, not just long: a thin tube vanished in the portrait (critic, 2026-10-19)
+            float wide = ((Vector3)pieces[2].GetColumn(0)).magnitude;
+            Assert.That(wide, Is.GreaterThanOrEqualTo(0.10f), $"the wand is too thin to see ({wide} m across)");
+
             Assert.That(UnitLook.Tip(InfantryArchetype.Flamethrower), Does.Not.Contain("stand-in"),
                 "his tooltip still calls him a stand-in");
+        }
+
+        [Test]
+        public void HideWandDropsTheWandAndKeepsTheTanks()
+        {
+            var pieces = new Matrix4x4[CombatFx.KitPieceMax];
+            Vector3 chest = new Vector3(0f, 1.30f, 0.05f), muzzle = new Vector3(0f, 1.35f, 0.60f), barrel = new Vector3(0f, 0f, 1f);
+            Assert.That(CombatFx.KitPieces(InfantryArchetype.Flamethrower, chest, muzzle, barrel, 1f, pieces), Is.EqualTo(3));
+            Vector3 tank0 = pieces[0].GetColumn(3), tank1 = pieces[1].GetColumn(3);
+
+            CombatFx.HideWand = true;
+            Assert.That(CombatFx.KitPieces(InfantryArchetype.Flamethrower, chest, muzzle, barrel, 1f, pieces), Is.EqualTo(2),
+                "with the wand hidden only the two tanks are drawn");
+            Assert.That((Vector3)pieces[0].GetColumn(3), Is.EqualTo(tank0), "hiding the wand moved a tank");
+            Assert.That((Vector3)pieces[1].GetColumn(3), Is.EqualTo(tank1), "hiding the wand moved a tank");
         }
     }
 }

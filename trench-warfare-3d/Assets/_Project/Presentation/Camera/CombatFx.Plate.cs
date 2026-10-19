@@ -17,12 +17,20 @@ namespace TW.Presentation.Tactical
         readonly Matrix4x4[] platePieces = new Matrix4x4[PlatePieceMax];
 
         /// <summary>
+        /// Leaves the plate and its post out of <see cref="PlatePieces"/> altogether. Off in play; set by a stills run
+        /// that wants the same pose twice, with and without the prop, to measure how many pixels the prop is worth.
+        /// </summary>
+        public static bool HidePlate;
+        readonly System.Collections.Generic.List<Matrix4x4> posts = new System.Collections.Generic.List<Matrix4x4>(PlateMax);
+
+        /// <summary>
         /// The pieces of one Sentry's plate, in the frame his barrel socket gives: 0 the plate, 1 the post under it. Pure
         /// - no Unity state, no camera - so an EditMode test can measure it. Returns how many of <paramref name="into"/>
         /// were filled: 0 for every archetype that carries no plate.
         /// </summary>
         public static int PlatePieces(byte archetype, Vector3 chest, Vector3 muzzle, Vector3 barrel, float scale, Matrix4x4[] into)
         {
+            if (HidePlate) return 0;
             if (archetype != InfantryArchetype.Sentry || into == null || into.Length < PlatePieceMax) return 0;
             Vector3 fwd = barrel.sqrMagnitude > 0.0001f ? barrel.normalized : Vector3.forward;
             Vector3 right = Vector3.Cross(Vector3.up, fwd);
@@ -47,6 +55,7 @@ namespace TW.Presentation.Tactical
             if (units == null) return;
             var w = Host.Local.World;
             batch.Clear();
+            posts.Clear();
             int men = 0;
             for (int slot = 0; slot < w.HighWater && men < PlateMax; slot++)
             {
@@ -57,10 +66,17 @@ namespace TW.Presentation.Tactical
                 if (!units.Sockets(slot, out var muzzle, out var barrel, out var chest)) continue;   // far tier, or the controller is off
                 ViewNow(out _, out _, out float scale);
                 int n = PlatePieces(archetype, chest, muzzle, barrel, scale, platePieces);
-                for (int k = 0; k < n; k++) batch.Add(platePieces[k]);
+                if (n > 0) batch.Add(platePieces[0]);
+                if (n > 1) posts.Add(platePieces[1]);
                 men++;
             }
-            if (batch.Count > 0) Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (batch.Count > 0) Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (posts.Count > 0)
+            {
+                batch.Clear();
+                for (int k = 0; k < posts.Count; k++) batch.Add(posts[k]);
+                Flush(cube, new RenderParams(woodMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            }
         }
     }
 }
