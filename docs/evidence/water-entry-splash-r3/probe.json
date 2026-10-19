@@ -1,0 +1,6 @@
+{
+  "splash_px_t1": 292,
+  "noise_px": 118,
+  "threshold_luma": 0.02,
+  "region": "above the centre row (the waterline at the death point), middle 30 % of the width"
+}

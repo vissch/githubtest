@@ -1,0 +1,7 @@
+before.png: T1 standard (zoom 30, yaw 21, pitch 25, fov 25), 1920x1080 centre crop 672x384, aimed at the water's
+  surface (aimY 0.15) over the river ford at x 15, z 130 in GreyboxCorridor (ShelledForest, River, WaterLevel 0.15,
+  bed -0.39, knee deep). Clock held (Hold 120), sim frozen, rain 0. Six water entries of 80 kg along the ford at
+  x 12.0 to 18.0, z 130, each with its ring and Splash card. The Splash cards sit at the riverbed height.
+after.png: the same stage, pose, moment and clock. The Splash cards sit on the water's surface.
+noise.png: the same stage and build as after.png, staged and shot a second time: the noise floor.
+probe.json: written by probe.py from these three stills.
