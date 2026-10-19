@@ -294,6 +294,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **A wreck's shadow is narrowed to the firing line: (a), the half-width.** The owner, to "A wreck's shadow: narrow it to match its reach, or keep it wide and fix the words": "Narrow the shadow to match the firing line, and let the guns-holding-position test be re-tuned to the new number". So (a) is built — `Shelter.Body` and the shelter's reach both come from one `body = WreckBlastReach * 0.5f * size` (`6bd7e8d89`, replay v53, `WreckDecayTests.AManOffTheLineButInsideTheOldBodyIsNotKeptDown`) — and `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` is re-tuned to the narrower shadow's measured ratio, not the body widened back. Built on this lane as `[narrow-wreck-shadow-firing-line]`. (owner, 2026-10-16, on the Decide page) |
 
 ## Open: waiting on the owner
+- **How big a point effect must read from the overview (2026-10-19, ability-fx-captures-r3):** harsh critic r1 fix 3
+  asks that every ability effect cover at least 10 % of a T1 frame and 3 % of an O240 one, measured against a
+  no-effect plate of the same pose and tick (`docs/evidence/ability-fx-captures-r3/probe.json`). After this unit's
+  work four of the eight readings clear it (smoke T1 0.166 / O240 0.032, HE barrage T1 0.219, ParaDrop T1 0.161) and
+  the area effects came from nowhere: the drop was 0.0000 at both bands and is now 0.161 and 0.021. Four do not, and
+  arithmetic says they cannot: at zoom 240 the camera stands 625 m off and the frame covers roughly 470 m, so 3 % of
+  it is a feature about 85 m across. A 12-shell HE barrage reads 0.0064 and one shell's water column 0.0011 - and to
+  reach 3 % that column would have to stand 85 m tall. The same shell is only 0.024 at T1 against the 0.10 asked for,
+  because a water splash is drawn at 1.25r where an earth column is 2.1r. Options: (a) keep the thresholds for area
+  effects (smoke, gas, a drop, a creeping barrage) and set a lower one for a point effect - the default taken here,
+  with the four failures recorded as failures and nothing faked to pass them; (b) raise the splash and the burst
+  column until they do pass, which means a 60-85 m water column at the overview - a new look, so concepts first
+  (tw-destruction-vfx: nothing authored before the owner picks); (c) measure a point effect inside a crop round its
+  own point instead of the whole frame. Nothing is built on this until he answers.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
