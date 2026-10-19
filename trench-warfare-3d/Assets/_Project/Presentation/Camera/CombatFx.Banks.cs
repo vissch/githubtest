@@ -23,6 +23,37 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
+        // Phase: gas-smoke-night (the owner, 2026-10-19: the ability clouds were tuned by day; at night black or grey
+        // smoke vanishes). Two knobs, read once in Awake, a moonlit field only (CombatFx.ApplyTints), both at their old
+        // value drawing today's image bit for bit:
+        //   fx.smokeScreenNight  the luma the smoke screen's bank is painted at, at the drawing's middle ink
+        //                        (FlipbookFx.NightBanks -> PaintNight), so the moon can neither dim it nor tint it blue.
+        //                        0 = the old look (the biome's dust tint, lit by the moon).
+        //   fx.gasNight          a lift on GasBankNight on a moonlit field. 1 = the old look. The gas sheet's own Lit
+        //                        (0.75) and High (0.60) are left alone: they put its middle ink in the light band on
+        //                        purpose, which is what makes it read green and not grey, so this only brightens it.
+        // Tuned on docs/evidence/gas-smoke-night/smoke_night.png and gas_night.png (zoom 30, NightMud), measured by
+        // probe.py beside them. SmokeBankNight is the light warm grey the screen lands on at the default.
+        public const string SmokeScreenNightKnob = "fx.smokeScreenNight", GasNightKnob = "fx.gasNight";
+        public static readonly Color SmokeBankNight = new Color(0.80f, 0.78f, 0.74f);
+        public const float OldSmokeScreenNight = 0f, OldGasNight = 1f;
+        public static readonly float DefaultSmokeScreenNight = BankLuma(SmokeBankNight);
+        public const float DefaultGasNight = 1.08f;
+
+        /// <summary>A colour's luma on probe.py's scale (Rec.709, 0 to 1).</summary>
+        public static float BankLuma(Color c) => 0.2126f * c.r + 0.7152f * c.g + 0.0722f * c.b;
+
+        /// <summary>How clearly a bank at this luma reads against ground at that luma: Michelson contrast, the one
+        /// definition docs/evidence/gas-smoke-night/probe.py measures off the pixels and the test quotes.</summary>
+        public static float BankContrast(float cloud, float ground)
+            => cloud + ground > 0f ? Mathf.Abs(cloud - ground) / (cloud + ground) : 0f;
+
+        /// <summary>fx.smokeScreenNight, in [0, 1] (0 = the old look).</summary>
+        public static float ReadSmokeScreenNight() => Mathf.Clamp01(Knobs.Get(SmokeScreenNightKnob, DefaultSmokeScreenNight));
+
+        /// <summary>fx.gasNight, in [1, 2] (1 = the old look).</summary>
+        public static float ReadGasNight() => Mathf.Clamp(Knobs.Get(GasNightKnob, DefaultGasNight), 1f, 2f);
+
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
