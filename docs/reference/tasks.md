@@ -42,7 +42,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests,
+  SimMathTests (`SimMath.Floor`/`Sin`/`Cos` stay finite and in range for a huge or non-finite angle, platform-independent)
   (what `Death.b`, `dir` and `scalar` mean), PerfMarkersTests (every registered system's marker name lands in
   `PerfMarkers.Names`).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
@@ -330,7 +331,9 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
   no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
-  `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
+  `WreckBlastReach` off its middle, and a cook-off spares the wreck it made — it asks `Sim/Terrain/PropIndex.cs`
+  (`MapData.PropsByCell`) for the props near the burst rather than walking every prop on the map, in the same order
+  every time (the order feeds the sim's hash chain). A heavy machine grinds down a wreck it
   brushes or pushes against and any machine flattens scrap it drives over (`Sim/Nav/VehicleKinematics.Wrecks.cs`);
   both wear through `Sim/Terrain/PropHarm.cs`, one stage at a time, as do machine-gun rounds a wreck's cover stopped
   (`Sim/Combat/DirectFire.Wrecks.cs`, `CombatTables.WearsWrecks`). A shot at a wreck names it in `Shot.b` as
@@ -338,7 +341,7 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   behind (`DirectFire.Wrecks`, `Shelter`). The shelter list itself is built only on a tick where a live slot, off
   cooldown and on its own scan tick, has no target (`DirectFire.Wrecks.AnyGunIdle`): a tick where every gun has a
   mark throws the whole scan away.
-- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages, and `TheShelterListIsBuiltOnlyWhenAGunHasNoTarget`), SimTickBenchTests (the shelter scan's share of a tick, `Report_TheSimTickCost`).
+- **Tests:** TankTests, TankMobilityTests, DriveFeelTests (momentum, pivot share, look-ahead steering; the Breaker charges where the men are), CrabTests, ChassisTests, WalkerArmamentTests, BreakerTests, WreckRecordTests, WreckDecayTests (the wreck's stages, and `TheShelterListIsBuiltOnlyWhenAGunHasNoTarget`), SimTickBenchTests (the shelter scan's share of a tick, `Report_TheSimTickCost`), PropIndexTests (the cell lookup's work drops against the old full scan, and the exact same props are harmed in the exact same order).
 
 ### Factions, rosters and the unit table
 - **Files:** `Sim/Core/Faction.cs` (`FactionId`: Iron and Brass, the greybox pair, and four historical armies; a side's
@@ -579,6 +582,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   (`SourceId.Grenade`) is drawn small (flash, spurt, puff, a few clods, a small kick) instead of as a shell. The
   thrower plays `Clip.Throw` from its swing (`AnimationController`, the `threw` latch).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
+  ImpactDustFeetTests (the Hit case's feet `Spurt` reads the chest he was actually drawn with, `CombatFx.DustFeetY`/
+  `ChestHeight` in `CombatFx.Bodies.cs`, not a raw `RenderGround` resample),
   ShotStaggerTests, TracerGlowTests, TracerMuzzleTests (every tracer shape starts at the gun and stops at the target),
   ColumnLightTests, ColumnPlayTests, ColumnWidthTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
@@ -752,7 +757,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   0 off; built and ticked by `SelectionController` beside DeathMarks, styled `.hud-comic` in `BattleHud.uss`). Tests:
   ComicWordsTests.
 - **Tests:** NightLookTests, RealLampSetTests (the eight nearest, no pop on a tie or a pan, 43 is the old night, the water
-  rule, and that only the fixed lamps are switched), NightLampStills (`Tests/Stills/NightLampStills.cs`, Explicit: run
+  rule, and that only the fixed lamps are switched), StormThunderTests (`Storm.Start`'s three thunder clips are
+  synthesized once per session and shared, not resynthesized at every Start: 87.5/92.2 ms in a release player),
+  NightLampStills (`Tests/Stills/NightLampStills.cs`, Explicit: run
   by name with a graphics device; one held night frame photographed with the rule off and on from nine poses, a row
   of stills along a pan for the fade, and a rough timing; its info file says which lamps were real in each),
   UnitCloseStills (`Tests/Stills/UnitCloseStills.cs`, Explicit: run by name with a graphics device; the owner's
@@ -782,12 +789,15 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** none.
 
 ### Camera
-- **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`),
+- **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`; mirrors
+  with the seat, `Presentation/Core/LocalSeat.cs` — one place answers which team is "mine", read by the camera, the
+  fog and the mine marks, instead of a hardcoded team 0),
   `Presentation/Camera/CameraShake.cs`, `Editor/GameViewFit.cs`. Where the view meets the ground (the shake, ambient
   kicks, storm bolts, fog and focus distance): `Presentation/Core/ViewGround.cs`. The main camera and its zoom, read
   once a frame for the whole picture: `Presentation/Core/ViewEye.cs` (the only place that looks `IZoomSource` up; the
   idiom used to be written out fifteen times under `Presentation/Camera`).
-- **Tests:** ViewGroundTests (also fails when a presentation file writes the formula out again; Rain and NightLights
+- **Tests:** TacticalCameraSeatTests (the standard view reads the seat, not a hardcoded team 0: seated as player 1
+  the 21 degree turn mirrors), ViewGroundTests (also fails when a presentation file writes the formula out again; Rain and NightLights
   still have their own copy until their lanes land). CameraCloseFitTests (the closest zoom, `NearZoom`/
   `CloseFitHeight`/`CloseAimHeight`, holds a whole tall machine in frame with headroom instead of framing the feet).
   still have their own copy until their lanes land), ViewEyeTests (the zoom is read once a frame, and no presentation
