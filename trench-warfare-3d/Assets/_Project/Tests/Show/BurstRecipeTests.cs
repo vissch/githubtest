@@ -274,5 +274,14 @@ namespace TW.Tests
             Assert.IsFalse(CombatFx.LeapOver(leap, 50.4f), "held in a pause he is still in the air");
             Assert.AreEqual(50.2f, CombatFx.LeapStart(3, 50f, 10f, 0f).Until, 1e-4f, "never shorter than 0.2 s");
         }
+        [Test]
+        public void TheGasBankLiesOnTheGround_NotOverAMansHead()
+        {
+            // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
+            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed it is 1.28 m, under a man's head.
+            float top = 7f * CombatFx.GasBankSquash / 3f;
+            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
+            Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
     }
 }
