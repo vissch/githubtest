@@ -1,0 +1,16 @@
+stand-base_00.jpg: close zoom (7.5), pitch 13, yaw 21, camera held fixed; a standing man, no shell; weather clock pinned at 120s, rain 0.20069
+stand-base_01.jpg: same view, 31 frames later (~0.3s at this machine's fps); no shell
+stand-base_02.jpg: same view, no shell
+stand-base_03.jpg: same view, 31 frames after stand-base_02; no shell
+stand-base_04.jpg: same view, no shell
+stand-base_05.jpg: same view, 31 frames after stand-base_04; no shell
+stand_00.jpg: same view; an 8m-radius shell landed 7.5m to his side, out of frame
+stand_01.jpg: same view, 31 frames after stand_00; shell's reaction holding
+walk-base_00.jpg: close zoom (7.5), pitch 13, yaw 21, camera held fixed; a walking man (0.3-1.5 m/s), no shell; weather clock pinned at 120s
+walk-base_01.jpg: same view, 31 frames later; no shell
+walk-base_02.jpg: same view, no shell
+walk-base_03.jpg: same view, 31 frames after walk-base_02; no shell
+walk-base_04.jpg: same view, no shell
+walk-base_05.jpg: same view, 31 frames after walk-base_04; no shell
+walk_00.jpg: same view; an 8m-radius shell landed 7.5m to his side, out of frame, while he was walking
+walk_01.jpg: same view, 31 frames after walk_00; shell's reaction holding on the move

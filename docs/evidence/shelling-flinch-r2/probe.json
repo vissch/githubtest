@@ -1,0 +1,19 @@
+{
+ "baseline_px": [
+  0.0,
+  0.0,
+  0.0
+ ],
+ "pose_delta_px": 0.0,
+ "walk_baseline_px": [
+  0.0,
+  15.34,
+  18.72
+ ],
+ "walk_delta_px": 18.79,
+ "max_pose_error": 0.0,
+ "frame_gap": 31,
+ "frame_gap_mismatch": false,
+ "fps": 20.0,
+ "blocks": 83
+}
