@@ -36,15 +36,22 @@ namespace TW.Presentation.Tactical
         public struct Splash
         {
             public float Ring, Card;
+            /// <summary>The height the Splash card's foot sits at: the water's surface, not the bed under it.</summary>
+            public float Y;
             public bool Any;
         }
+
+        /// <summary>The height of the water's surface at this point. No hook wired up (a test, or a map with no
+        /// water sheet) leaves the point's own y, so nothing can regress.</summary>
+        public static float SurfaceY(Vector3 at) =>
+            SceneHooks.WaterY == null ? at.y : Mathf.Max(at.y, SceneHooks.WaterY(at.x, at.z));
 
         /// <summary>A man, a flung body, or a dropped item enters the water at `at`: one ring sized by mass and a
         /// Splash card, nothing on dry ground. `books` null (no scene, a test) still rings.</summary>
         public static Splash Throw(FlipbookFx books, Vector3 at, float massKg, float delay = 0f, float scale = 1f, bool mirror = false)
         {
             if (SceneHooks.IsWater == null || !SceneHooks.IsWater(at.x, at.z)) return default;
-            var sp = new Splash { Ring = Ring(massKg), Card = Card(massKg), Any = true };
+            var sp = new Splash { Ring = Ring(massKg), Card = Card(massKg), Y = SurfaceY(at), Any = true };
             if (delay <= 0f)
             {
                 SceneHooks.AddRing?.Invoke(at.x, at.z, sp.Ring);
@@ -57,7 +64,7 @@ namespace TW.Presentation.Tactical
                 pending[slot] = new PendingRing { X = at.x, Z = at.z, Size = sp.Ring, Left = delay };
             }
             if (books != null && books.Ready)
-                books.Add(FlipbookFx.Book.Splash, at, sp.Card * scale, 0.5f,
+                books.Add(FlipbookFx.Book.Splash, new Vector3(at.x, sp.Y, at.z), sp.Card * scale, 0.5f,
                     FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
             return sp;
         }

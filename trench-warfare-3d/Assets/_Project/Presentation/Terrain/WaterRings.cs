@@ -13,6 +13,8 @@ namespace TW.Presentation.Terrain
         public SimHost Host;
         /// <summary>Is there standing water at this point? GreyboxTerrainView answers (water table or a painted puddle).</summary>
         public System.Func<float, float, bool> IsWater;
+        /// <summary>How high the water's surface stands at this point; the bed where there is none. GreyboxTerrainView answers.</summary>
+        public System.Func<float, float, float> WaterY;
         const int Count = 16, SlotsPerStep = 3;
         readonly Vector4[] rings = new Vector4[Count];
         int next, cursor;
@@ -28,7 +30,7 @@ namespace TW.Presentation.Terrain
         void OnDestroy()
         {
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
-            SceneHooks.IsWater = null; SceneHooks.AddRing = null;
+            SceneHooks.IsWater = null; SceneHooks.WaterY = null; SceneHooks.AddRing = null;
             Awake(); Shader.SetGlobalVectorArray(RingsId, rings);
         }
 
@@ -48,7 +50,7 @@ namespace TW.Presentation.Terrain
         {
             using var perf = TW.Sim.PerfMarkers.WaterRingsUpdate.Auto();
             if (Host == null || Host.Local == null) return;
-            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; SceneHooks.IsWater = IsWater; SceneHooks.AddRing = Add; }
+            if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; SceneHooks.IsWater = IsWater; SceneHooks.WaterY = WaterY; SceneHooks.AddRing = Add; }
             if (Time.time >= nextStep && IsWater != null)
             {
                 // a few wading men a step, taken in turn round the unit slots so a whole column ripples, not its first three

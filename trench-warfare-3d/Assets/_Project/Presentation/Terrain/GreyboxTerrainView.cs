@@ -201,6 +201,13 @@ namespace TW.Presentation.Terrain
                     if (map.WaterLevel > MapData.NoWater && RenderGround.Sample(map, x, z) < map.WaterLevel - .04f) return true;
                     return colorTex.GetPixel((int)(x * Tpm), (int)(z * Tpm)).a < .42f;   // a painted puddle
                 };
+                rings.WaterY = (x, z) =>
+                {
+                    // the water table is one flat sheet (BuildWater), so max is the surface: the bed lifts to the
+                    // sheet, while a painted puddle above the table keeps its own ground height.
+                    float bed = RenderGround.Sample(map, x, z);
+                    return map.WaterLevel > MapData.NoWater ? Mathf.Max(map.WaterLevel, bed) : bed;
+                };
             }
             if (map.HasSea)
             {
