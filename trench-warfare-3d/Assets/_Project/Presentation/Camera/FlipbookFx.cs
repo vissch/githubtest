@@ -93,7 +93,7 @@ namespace TW.Presentation.Tactical
 
         // one book: its texture in Resources/VFX, grid, whether it adds light or is a cloud the moon lights, and which of
         // the drawing's values are its shade and its light (Low, High: measured from the pixels, so each book uses both bands)
-        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; }
+        struct Sheet { public string Name; public int Cols, Rows, Frames; public bool Additive, MaskOnly, Erode, Snap, Fire; public Color Tint; public float Low, High, Play, Lit, RampIn, Mood, Fps; public bool Cycle; public Vector4 Bands; public Vector2 Ink; public float Fill; public float Rise; public bool Deep; public bool Ground; public bool Bank; public Vector2 InkRoot, InkPoint; public bool Solid; }
         // Bands: a fire book's own cel cuts (soot|fringe|body|core, then edge softness), read off ITS ink histogram by
         // Tools/firebooks.py; left at zero the shader's default is used, which was measured on FireBall. Ink: where the
         // drawing sits inside its cell as bottom-up fractions, so a card standing on something can be sized and sunk to
@@ -223,7 +223,7 @@ namespace TW.Presentation.Tactical
             // instead of the orange one - which is the owner's "opaque white-yellow core over the first third,
             // orange towards the tip" of 2026-10-19. A second row may share a sheet name (MineSmoke shares
             // WreckSmoke's), so this costs no PNG and Ready still counts one texture per row.
-            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.12f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },   // JetCore
+            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.12f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f, Solid = true },   // JetCore
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
@@ -234,6 +234,8 @@ namespace TW.Presentation.Tactical
         /// <summary>The file a book draws: `Sheets` is indexed by the enum's number, so row and enum must agree.</summary>
         public static string SheetName(Book b) => Sheets[(int)b].Name;
         public static int SheetCount => Sheets.Length;
+        /// <summary>Is this book drawn as a body of burning fuel rather than a veil (shader _Solid)? The jet core only.</summary>
+        public static bool SheetSolid(Book b) => Sheets[(int)b].Solid;
 
         /// <summary>Where a book's drawing sits in its cell: y as bottom-up fractions, and its width as a fraction of the cell.</summary>
         public static void Geometry(Book b, out float inkLow, out float inkHigh, out float fill)
@@ -663,6 +665,7 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
+                m.SetFloat("_Solid", s.Solid ? 1f : 0f);   // a body of burning fuel, not a veil: the jet core only
                 // the jet's hot heart: a white-yellow core over a yellow body, so the near third of a stream reads as
                 // burning gas rather than as orange paint (owner, 2026-10-19)
                 if ((Book)k == Book.JetCore) { m.SetColor("_Core", new Color(2.0f, 1.90f, 1.35f, 1f)); m.SetColor("_Tint", new Color(1.5f, 1.15f, 0.35f, 1f)); }

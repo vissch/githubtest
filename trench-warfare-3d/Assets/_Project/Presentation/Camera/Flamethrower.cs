@@ -471,6 +471,21 @@ namespace TW.Presentation.Tactical
             else if (a < least) w = h * least;
         }
 
+        /// <summary>
+        /// Which book draws the envelope at u along the run. The near third is the owner's opaque white-yellow core
+        /// (2026-10-19), so it is JetCore - the solid fire book - and the stream hands over to the orange Jet drawing
+        /// downstream. The head is its own closed bolus. Named rather than inline so a test can ask the rule.
+        /// </summary>
+        public static FlipbookFx.Book JetLink(float u, bool head)
+            => head ? FlipbookFx.Book.Head : u < HotThird ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Jet;
+
+        /// <summary>Which book draws the core chain at u along the run. Same hot third, opaque, inside the envelope.</summary>
+        public static FlipbookFx.Book CoreLink(float u)
+            => u < HotThird ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Core;
+
+        /// <summary>How much of the run burns as the white-hot core: the owner's "first third".</summary>
+        public const float HotThird = 0.34f;
+
         static Vector3 Arc(Camera cam, float u, float len, Vector3 along)
         {
             Vector3 down = cam != null
@@ -642,7 +657,7 @@ namespace TW.Presentation.Tactical
                         // nozzle, so with the core hot inside an orange envelope the mouth still measured no brighter
                         // than the tip. The first two links are therefore the same hot book as the core, and the
                         // stream hands over to the orange drawing downstream.
-                        var eBook = head ? FlipbookFx.Book.Head : u < 0.34f ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Jet;
+                        var eBook = JetLink(u, head);
                         Shapely(eBook, ref cw, ref ch);
                         // the arc: fuel leaves flat and the far end rises as it slows
                         // A SAG, not a ramp. Rising steadily over its whole run is what helium does; thickened petrol
@@ -709,6 +724,11 @@ namespace TW.Presentation.Tactical
                                   // reading. It is no longer the reading being drawn: the brightness now starts hot at
                                   // the nozzle and falls away downrange, where the stream hands over to the smoke.
                                   // Do not restore the old 0.38 -> 1.60 ramp without the owner saying so.
+                                  // Tried at 3.20 on 2026-10-19 and MEASURED WORSE, so it stays at 2.50: over three
+                                  // captures core_over_tip_luma_min went 1.520 -> 1.446 and near_edge_corr 0.164 ->
+                                  // 0.219. The shader rolls brightness off toward _Hot preserving hue, so past about
+                                  // 2.5 the mouth buys almost no luminance and the extra spill widens the stream's
+                                  // soft outer ring, which is the part of it the ground still shows through.
                                   glow: glow * Mathf.Lerp(2.50f, 0.16f, Mathf.Min(1f, u * 1.10f)),
                                   velocity: j.ManVel,
                                   // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
@@ -794,8 +814,8 @@ namespace TW.Presentation.Tactical
                         // are a quarter thicker than the rest of the chain so the nozzle end is covered by overlapping
                         // opaque cards rather than by one curl with a hole through it: nothing is to show through near
                         // the mouth. Same nine links, so the only cost is one more instanced draw while a jet is up.
-                        bool hot = u < 0.34f;
-                        var cBook = hot ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Core;
+                        bool hot = u < HotThird;
+                        var cBook = CoreLink(u);
                         float cThick = Mathf.Lerp(2.60f, 3.40f, u) * breath * (hot ? 1.8f : 1f);   // 1.70 still left a 41 px nozzle bin against a 306 px
                                                                               // head - measured 4.4:1, a tadpole. The mouth of a
                                                                               // pressurised jet is the one place the fuel is dense.
@@ -824,7 +844,16 @@ namespace TW.Presentation.Tactical
                         // other way, so the near third is covered TWICE over. One chain of curls still left the
                         // measured mouth no brighter than the tip, because a curl is mostly its own hole; two
                         // staggered chains fill each other's. Two cards, and only while a jet is actually on screen.
-                        if (hot && (i & 1) == 0)
+                        // EVERY hot link, not every other one, and a third pass behind it. Firing the stagger on
+                        // even links only left the odd links covered by a single curl, and a curl is mostly its own
+                        // hole: measured on the near third, hedgehogs and stakes read straight through at x 330-480.
+                        // Three overlapping opaque cards per near-third pixel is what closes it - the stagger half a
+                        // step along, and a wider, slightly shorter pass half a step BEHIND, whose job is only to be
+                        // under whatever gap the other two leave. Alpha stays at valve * drawnWeight: the opacity
+                        // comes from the book being _Solid now, not from asking for an alpha past 1, which the
+                        // shader clamps (and past 1 on a premultiplied card eats a dark halo out of the frame).
+                        if (hot)
+                        {
                             books.Add(cBook,
                                       mouth + along * (cStep * (i + 1.0f)) + Arc(cam, u, len, along),
                                       cW * 0.88f, RootEvery * 1.15f,
@@ -834,6 +863,17 @@ namespace TW.Presentation.Tactical
                                       height: cH * 0.92f,
                                       alpha: valve * drawnWeight, glow: glow * 2.2f, velocity: j.ManVel,
                                       startFrame: Mathf.Max(3f, 15f - (CoreLinks - 1 - i) * 2.2f));
+                            books.Add(cBook,
+                                      mouth + along * (cStep * (i + 0.15f)) + Arc(cam, u, len, along),
+                                      cW * 1.25f, RootEvery * 1.15f,   // 1.50 measured worse (near_edge_corr 0.164 -> 0.219): a wider
+                                                                       // card is a bigger soft rim, and the rim is what still shows through
+                                      cFlip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
+                                      roll: (cFlip ? roll + Mathf.PI : roll)
+                                          + (Mathf.PerlinNoise(j.Seed + i * 6.7f, 5.5f) - 0.5f) * 0.40f,
+                                      height: cH * 1.15f,
+                                      alpha: valve * drawnWeight, glow: glow * 2.1f, velocity: j.ManVel,
+                                      startFrame: Mathf.Max(3f, 14f - (CoreLinks - 1 - i) * 2.2f));
+                        }
                     }
 
                     // THE TERMINUS. Where the stream runs out - whether it met anything or not - the fuel stops being

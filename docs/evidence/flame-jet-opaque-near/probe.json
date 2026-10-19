@@ -1,0 +1,14 @@
+{
+  "near_edge_corr": 0.2108,
+  "core_over_tip_luma_min": 1.3659,
+  "near_edge_corr_each": [
+    0.1572,
+    0.1697,
+    0.2108
+  ],
+  "core_over_tip_luma_each": [
+    1.4478,
+    1.6088,
+    1.3659
+  ]
+}
