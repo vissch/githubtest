@@ -1,0 +1,58 @@
+{
+  "n_captures": 3,
+  "frog_area_frac": 0.12161,
+  "frog_area_frac_base_max": 0.0048,
+  "frog_leg_motion_px": 122469,
+  "frog_leg_motion_px_base_max": 0,
+  "frog_belly_up": true,
+  "frozen_pair_diffs_px": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "base_area_frac": [
+    0.0048,
+    0.00232,
+    0.00405
+  ],
+  "per_take": {
+    "take0": {
+      "area_frac": 0.12161,
+      "area_px": 58372,
+      "mark_px": 960.0033,
+      "mark_py": 676.62067,
+      "px_per_m": 169.02487,
+      "zoom": 4.65957,
+      "motion_px": 141672
+    },
+    "take1": {
+      "area_frac": 0.19687,
+      "area_px": 94499,
+      "mark_px": 960,
+      "mark_py": 676.61792,
+      "px_per_m": 169.02307,
+      "zoom": 4.65957,
+      "motion_px": 122469
+    },
+    "take2": {
+      "area_frac": 0.13927,
+      "area_px": 66850,
+      "mark_px": 960,
+      "mark_py": 676.61871,
+      "px_per_m": 169.02295,
+      "zoom": 4.65957,
+      "motion_px": 166239
+    }
+  },
+  "crop": [
+    800,
+    600
+  ],
+  "delta": 30
+}
