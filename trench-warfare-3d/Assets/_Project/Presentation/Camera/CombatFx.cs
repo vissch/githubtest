@@ -500,6 +500,8 @@ namespace TW.Presentation.Tactical
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);
+            if (atRifleMat != null) Destroy(atRifleMat);
+            if (atRifleMesh != null) Destroy(atRifleMesh);
         }
 
         /// <summary>How long one Shot of a burning weapon holds the stream open: a little over the quarter second between
@@ -1103,6 +1105,7 @@ namespace TW.Presentation.Tactical
             var view = ViewEye.Main;   // once a frame (ViewEye): the zoom share here, the silhouettes' facing and the men's growth below
             float zoomNow = ViewEye.Zoom;
             DebrisRenderer.ZoomShare = (SceneHooks.CloseUp > 0f ? Mathf.Lerp(0.6f, 1f, SceneHooks.CloseUp) : zoomNow > 60f ? 0.3f : 0.6f) * FxQuality.Now.Debris;   // x the effects' tier
+            DrawAtRifles(bounds);   // the AT rifleman's long gun, laid where his drawn pose holds it (CombatFx.AtRifle.cs)
             Shader.SetGlobalFloat(TWGoreId, DebrisRenderer.Gore);   // the blood on a wounded man's uniform (VAT_URP) scales by the slider
             // tracers
             float now = Time.time;

@@ -1,4 +1,4 @@
-// Phase: infantry-firing (2026-10-15) — two of the three repairs the owner asked for in the infantry's firing (Rifle,
+﻿// Phase: infantry-firing (2026-10-15) — two of the three repairs the owner asked for in the infantry's firing (Rifle,
 // Assault, Machinegunner, Sniper), as the character controller shows them. The third, the tracer cut to the gun, is
 // TracerMuzzleTests.
 //   * The shot fired while advancing has its own pose. The locomotion rung called a man "firing" only while
@@ -160,6 +160,28 @@ namespace TW.Tests
             Assert.LessOrEqual(atArms.Spurt, mgArms.Spurt, "the bipod blast is no wider than the machine gun's (critique r1)");
             Assert.LessOrEqual(atArms.Flare, mgArms.Flare, "the bipod flare is no wider than the machine gun's (critique r1)");
             Assert.Less(atArms.Streak, sniperArms.Streak, "the AT rifle's streak is thick and short, unlike the Sniper's thin long one");
+        }
+
+        [Test]
+        public void AtRifleAtHisPostLiesBehindHisGunWhileHisNeighboursDoNot()
+        {
+            // his gun is bipod-laid (UnitLook), so a still AT rifleman is DRAWN prone and holds the prone idle, in a
+            // trench or in the open: it is what tells him from the Sniper beside him at a glance (critique r1, where
+            // the two men's silhouettes measured 1 - IoU 0.43).
+            using var r = new Rig();
+            int at = r.Man((byte)InfantryArchetype.AtRifle, 0f, 0f);
+            int rifle = r.Man((byte)InfantryArchetype.Rifle, 2f, 0f);
+            int sniper = r.Man((byte)InfantryArchetype.Sniper, 4f, 0f);
+            r.M.World.Events.Clear();
+            for (int t = 0; t < 120; t++) r.Tick();   // nobody moves, nobody has a target: the stance rung takes him down
+
+            Assert.AreEqual(Stance.Prone, (Stance)r.A.State[at].Stance, "the AT rifleman is drawn " + (Stance)r.A.State[at].Stance + ", not laid behind his gun");
+            Assert.AreEqual(Clip.ProneIdle, r.ClipOf(at), "laid at his post he holds " + r.ClipOf(at));
+            foreach (int man in new[] { rifle, sniper })
+            {
+                Assert.AreNotEqual(Stance.Prone, (Stance)r.A.State[man].Stance, "slot " + man + " went flat too");
+                Assert.AreNotEqual(Clip.ProneIdle, r.ClipOf(man), "slot " + man + " holds the prone idle too");
+            }
         }
 
         [Test]
