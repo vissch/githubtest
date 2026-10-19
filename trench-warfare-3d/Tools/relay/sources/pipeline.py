@@ -1,8 +1,8 @@
 """Source: jobs on the two-station board (docs/reference/stations.md). The runner claims and completes; the leg only
 does the stage. A master stage (review, gate, land) is the owner's and is never taken.
-A job that ends FAIL or BLOCKED is taken again by a later run (candidates, waits_on_someone), and its id is a hash
-of its inputs, so it may be another by then: the handoff note its last leg left (sources/notes.py) is kept under
-the item and the stage, which stay."""
+A job that ends FAIL or BLOCKED reads FAILED (stations.md) and is no candidate at all; it is taken again once an
+input moves or someone files feedback, which gives it a new id (a hash of its inputs), so the handoff note its last
+leg left (sources/notes.py) is kept under the item and the stage, which stay, not the id."""
 import json, os, re, shutil, sys
 from pathlib import Path
 
@@ -34,9 +34,11 @@ def jpeg_size(data):
 def waits_on_someone(board, item, sid, job):
     """True for a job whose last attempt ended BLOCKED: it asked a person something, and nothing has changed since,
     or its id would be another (the id is a hash of its inputs and of the feedback requests on its stage). The
-    pipeline calls such a job READY, which is right for a person and wrong for the relay: every new run took the
-    Ridge's battlefield job again, planned it for about 6 dollars and ended BLOCKED on the same question
-    (2026-10-08, attempts 1 and 2). It is taken again when an input moves or someone answers with
+    pipeline itself now calls such a job FAILED and keeps `candidates()` from offering it at all (stations.md); this
+    guard still catches the rare BLOCKED result that reaches here (a result written before 67d6d6d2ca, or a stage
+    this read sees before `evaluate` has settled). Before that state existed, every new run took the Ridge's
+    battlefield job again, planned it for about 6 dollars and ended BLOCKED on the same question (2026-10-08,
+    attempts 1 and 2). It is taken again when an input moves or someone answers with
     `pipeline.py feedback <item> <stage> "..."`."""
     res = P.valid_result(board.results(item["id"], sid), job)
     return bool(res) and res.get("verdict") == "BLOCKED"
@@ -56,7 +58,9 @@ def in_flight(evs):
 def candidates(ctx, only=None):
     """Every job this station may take now, the one to take first. The order (the owner, 2026-10-10: sixty legs went
     to the first steps of fifteen ideas and none landed; the runner took items by file name):
-      1. a job whose last attempt failed goes behind every job that has not failed: a retry does not hold the queue
+      1. a job whose last attempt failed is no candidate at all: the pipeline reads it FAILED (stations.md) and
+         `evaluate` never returns READY, STALE or RECHECK for it, so this field of the sort key no longer fires; it
+         stays for the day a failed job is a candidate again
       2. the job with the fewest stages left before its item is finished: what is nearest a landing goes first
       3. the item's name, as before
     And no NEW item is started while ideas_in_flight items are started and not finished (0: no cap)."""
