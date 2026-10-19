@@ -5,7 +5,8 @@ namespace TW.Sim
 {
     public interface ISimSystem
     {
-        /// <summary>Stable order key. Lower runs first. Values are listed in SimSystemOrder.</summary>
+        /// <summary>Stable order key. Lower runs first. Values are listed in SimSystemOrder. Must be unique across
+        /// the systems of one world: AddSystem refuses a clash, so the unstable List.Sort can never decide step order.</summary>
         int Order { get; }
         void Initialize(SimWorld world);
         void Step(SimWorld world);
@@ -44,8 +45,8 @@ namespace TW.Sim
         /// <summary>Medics and repair engineers: after VehicleModules has written the modules, before Suppression.</summary>
         public const int Support = 735;
         public const int Suppression = 800;
-        /// <summary>Heroes: after Suppression decayed, before Stance/Garrison read it. Not 810: Stance holds that and
-        /// AddSystem's List.Sort is unstable, so two systems at one order step in an order nobody chose.</summary>
+        /// <summary>Heroes: after Suppression decayed, before Stance/Garrison read it. Not 810: Stance holds that, and
+        /// orders must be distinct because AddSystem refuses a clash.</summary>
         public const int Hero = 805;
         public const int Stance = 810;
         public const int TrenchGarrison = 820;

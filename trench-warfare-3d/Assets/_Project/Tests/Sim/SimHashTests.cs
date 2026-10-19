@@ -67,6 +67,27 @@ namespace TW.Tests
             Assert.AreEqual(SystemChain, chain.ToString(), "the hash chain changed: bump ReplayRecorder.FormatVersion and pin this chain: " + chain);
         }
 
+        sealed class OrderStub : ISimSystem
+        {
+            public int Order { get; }
+            public OrderStub(int order) { Order = order; }
+            public void Initialize(SimWorld world) { }
+            public void Step(SimWorld world) { }
+            public ulong Hash(ulong h) => h;
+            public void Dispose() { }
+        }
+
+        [Test]
+        public void TwoSystemsAtOneOrderAreRefused()
+        {
+            using var w = new SimWorld(SimConfig.Default, BareInit());
+            w.AddSystem(new OrderStub(777));
+            var ex = Assert.Throws<System.ArgumentException>(() => w.AddSystem(new OrderStub(777)));
+            StringAssert.Contains("777", ex.Message);
+            w.AddSystem(new OrderStub(778));
+            Assert.AreEqual(2, w.Systems.Count, "the clash was refused, a free order was still taken");
+        }
+
         const int Seed = 1917;
 
         /// <summary>What the scripted match actually did, so a pin cannot pass on an empty world.</summary>

@@ -174,3 +174,5 @@ determinism test: `docs/03-determinism-rules.md`).
 
 Step order follows `Order`; `Initialize` order follows the `AddSystem` calls in `Sim/Match/MatchSim.cs`. Order constants no system uses: `Mission` (200), `SpatialHash` (500), `IndirectFire` (710), `Building` (728), `Stance` (810), `Separation` (1100), `Death` (1300).
 <!-- /gen:sim-order -->
+
+Two systems may not share an `Order`: `AddSystem` throws on a clash, so a new system must take a free number.
