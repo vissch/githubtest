@@ -136,6 +136,31 @@ namespace TW.Tests
         }
 
         [Test]
+        public void AtRifleFiresProneOffItsBipod()
+        {
+            // the AT rifle (27) drops to the ground to fire, which tells him from the Sniper (3) at a glance,
+            // and his shot carries its own look rather than the Sniper's needle (atrifle-look).
+            using var r = new Rig();
+            int man = r.Man((byte)InfantryArchetype.AtRifle, 0f, 0f);
+            int enemy = r.Man((byte)InfantryArchetype.Rifle, 0f, 30f, 1);
+            r.M.World.StanceOf[man] = (byte)Stance.Prone;
+            r.M.World.Events.Clear();
+            r.Tick();
+            r.M.World.StanceOf[man] = (byte)Stance.Prone;
+            r.Aim(man, enemy);
+            r.Shot(man, enemy);
+            r.Decide();
+            Assert.AreEqual(Clip.FireProne, r.ClipOf(man), "the AT rifle fires from the ground, not standing or kneeling");
+
+            var atArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.AtRifle, 10u, 3);
+            var sniperArms = TW.Presentation.Tactical.CombatFx.ArmsFor(InfantryArchetype.Sniper, 10u, 3);
+            Assert.AreEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.AtRifle, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
+            Assert.AreNotEqual(TW.Presentation.Tactical.CombatFx.ArmsKind.Sniper, TW.Presentation.Tactical.CombatFx.KindOf(InfantryArchetype.AtRifle));
+            Assert.Greater(atArms.Spurt, sniperArms.Spurt, "the AT rifle's bipod blast kicks the widest dirt on the field");
+            Assert.Less(atArms.Streak, sniperArms.Streak, "the AT rifle's streak is thick and short, unlike the Sniper's thin long one");
+        }
+
+        [Test]
         public void ASquadFiringOnOneTickIsNotSixOfTheSameMan([Values(0, 1, 2, 3)] int arche)
         {
             using var r = new Rig();
