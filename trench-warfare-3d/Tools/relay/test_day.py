@@ -584,6 +584,23 @@ class AddUnit(Base):
         self.assertNotIn("the same unit", str(e.exception))
         self.assertEqual(self.queued().read_bytes(), before)
 
+    def test_an_id_that_is_done_already_is_refused_whichever_way_it_is_added(self):
+        # [found-relay-py-add-must-refuse-an-id-that-is-alrea-20261018-0] the queue skips a done id, so add must
+        TAG = "[found-relay-py-add-must-refuse-an-id-that-is-alrea-20261018-0]"
+        self.done("u1")
+        for argv in (["u1", "--lane", "lane/show/x", "--role", "lane", "--goal", "g", "--done-when", "git", "status"],
+                     ["--unit", self.file(dict(self.UNIT, id="u1"))]):
+            with self.assertRaises(SystemExit, msg="%s add took a done id: %s" % (TAG, argv)) as e:
+                self.main("add", *argv)
+            self.assertIn("is done already", str(e.exception), "%s add said nothing of the done record" % TAG)
+        self.assertEqual(list((self.board / "relay" / "queue").glob("*.json")), [],
+                         "%s a done id left a queue file no run will take" % TAG)
+        self.main("add", "--unit", self.file(dict(self.UNIT, id="u2")))      # queued first, done since:
+        self.done("u2")                                                     # the same-unit path must not end 0
+        with self.assertRaises(SystemExit) as e:
+            self.main("add", "--unit", self.file(dict(self.UNIT, id="u2")))
+        self.assertIn("is done already", str(e.exception), "%s the same unit again ended 0 on a done id" % TAG)
+
     def test_a_unit_the_queue_would_not_take_is_refused_and_leaves_no_file(self):
         gone = {k: v for k, v in self.UNIT.items() if k != "done_when"}
         for bad in (dict(raw="{ not json"), dict(unit=gone), dict(unit=dict(self.UNIT, lane="feature/x")),
