@@ -35,6 +35,7 @@ Shader "TW/Flipbook (URP)"
         _Ember ("A cloud born of fire: warm light on its underside while it is young (0 = none)", Color) = (0, 0, 0, 0)
         _EmberLit ("The ember on the lit billows (1) or in the drawing's darks (0)", Range(0, 1)) = 0
         _Ground ("A book lying on the ground (1): not softened against the ground it lies on", Float) = 0
+        _Solid ("Fire: drawn as a body, not a veil", Float) = 0
         [Enum(UnityEngine.Rendering.BlendMode)] _SrcBlend ("Src", Float) = 5
         [Enum(UnityEngine.Rendering.BlendMode)] _DstBlend ("Dst", Float) = 10
     }
@@ -61,7 +62,7 @@ Shader "TW/Flipbook (URP)"
             CBUFFER_START(UnityPerMaterial)
                 float4 _Grid, _Levels, _Bands, _Contour;
                 half4 _Tint, _Shade, _Smoke, _Fringe, _Core, _InkColor, _Ember;
-                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit;
+                float _Lit, _MaskOnly, _Erode, _SrcBlend, _DstBlend, _ShadeMood, _Fire, _Rise, _Hot, _Soft, _Hard, _BurstLit, _Ground, _EmberLit, _Solid;
             CBUFFER_END
             struct Attributes { float4 positionOS : POSITION; float2 uv : TEXCOORD0; UNITY_VERTEX_INPUT_INSTANCE_ID };
             struct Varyings
@@ -124,6 +125,15 @@ Shader "TW/Flipbook (URP)"
                 half threshold = gone * (0.45 + 0.55 * edge);
                 half torn = saturate((tex.a - threshold) / 0.45) * pow(1.0 - gone, 1.5);
                 half alpha = lerp(tex.a * i.tone.x, torn, _Erode) * i.opacity;
+                // A solid fire book (_Solid, the jet core) is a BODY of burning fuel, not a veil over the field. The
+                // sheets are keyed with a soft edge, so the fringe and the thin interior wash come out part-alpha and
+                // the ground reads straight through them. Remap the keyed ramp so anything the artist drew at all goes
+                // opaque and only true holes stay holes. _Solid is 0 for every other book, so they are drawn bit for bit.
+                // The ramp, and not harder than this. 0.10/0.12 was tried on 2026-10-19 and bought nothing:
+                // near_edge_corr stayed at 0.164 and core_over_tip_luma_min fell to 1.351. The field that still
+                // shows through the near third is not this ramp's doing, so hardening it further only costs the
+                // drawing its own edge.
+                if (_Solid > 0.5) alpha = saturate((tex.a - 0.18) / 0.22) * i.tone.x * i.opacity;
                 // AOSA C61 (fx.smokeHard, the smoke and the burst's cloud only): a toon cut instead of the drawing's soft
                 // alpha falloff. The silhouette (torn as above when the book erodes) is stepped at half, about a pixel wide,
                 // and the cloud inside it keeps its fade and opacity, so it thins as a whole and tears at hard edges. The
@@ -141,7 +151,7 @@ Shader "TW/Flipbook (URP)"
                 // through the lens: up close a card wider than the picture was a wall of smoke for seconds
                 float scene = LinearEyeDepth(SampleSceneDepth(i.screen.xy / i.screen.w), _ZBufferParams);
                 // a ground book (_Ground 1) lies a hand above the ground, so the ground soften would take most of it away
-                alpha *= lerp(saturate((scene - i.extra.y) / 0.8), 1.0, _Ground) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
+                alpha *= lerp(saturate((scene - i.extra.y) / 0.8), 1.0, max(_Ground, _Solid)) * saturate((i.extra.y - 0.25 * i.extra.x) / (0.5 * i.extra.x + 0.01));
                 // AOSA C52 (fx.smokeSoft, the smoke and the burst's cloud only): a cloud is as deep as it is wide, so it
                 // thins in front of whatever it stands among over a share of its own width. Its base, where the men are,
                 // lets them through; the smoke aloft, far in front of the ground, stays dark. The standard view only
@@ -175,7 +185,8 @@ Shader "TW/Flipbook (URP)"
                     // and smoke is thin - but at 0.55 the darkest band went so sheer that the hillside read straight
                     // through the middle of the jet's head. A head you can see terrain through is not a body of
                     // burning fuel, it is a stain on glass, and it inverts the energy of the whole stream.
-                    alpha *= lerp(0.72, 1.0, band);
+                    // ... and on a solid book not even that: its dark bands are the body of the stream, not smoke in it.
+                    alpha *= lerp(lerp(0.72, 1.0, band), 1.0, _Solid);
                     // Cel bands, not a ramp. A single hue scaled by the drawing's value is a GRADIENT, and a gradient
                     // is the one thing hand-drawn fire never is: the artist puts down four flat shapes - the soot
                     // drawn into it, a cool fringe, the body, and a heart hotter than white - with a hard line between
