@@ -74,6 +74,43 @@ namespace TW.Tests
             Assert.That(again.Fwd, Is.EqualTo(first.Fwd), $"the plate turned with the gun (fwd {again.Fwd} was {first.Fwd})");
         }
 
+        // r3: the plate must read at every tier, not only where the sockets answer and not at a couple of pixels.
+        [Test]
+        public void ThePlateIsEmplacedWithoutSockets()
+        {
+            // beyond VATRenderer.LodDistance the far box soldier has no sockets, so the man's sim facing stands in for
+            // the barrel. It must emplace exactly as the barrel path does, or no plate is ever set out there.
+            Vector3 feet = new Vector3(-4f, 0f, 7f);
+            const float yaw = 0.9f;
+            Vector3 fromYaw = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw));
+
+            var spot = CombatFx.Emplace(default, feet, fromYaw, 1f);
+            Assert.That(spot.Set, Is.True, "a plate is never emplaced without sockets, so the far tiers get none");
+            Assert.That(Vector3.Distance(spot.Foot, feet), Is.EqualTo(0.32f).Within(1e-4f),
+                $"the yaw path does not put the plate 0.32 m ahead like the barrel path ({Vector3.Distance(spot.Foot, feet)} m)");
+            Assert.That((spot.Fwd - fromYaw.normalized).magnitude, Is.LessThan(1e-4f),
+                $"the plate does not face the way he faces (fwd {spot.Fwd}, yaw {fromYaw.normalized})");
+
+            var byBarrel = CombatFx.Emplace(default, feet, fromYaw * 3f, 1f);
+            Assert.That(Vector3.Distance(byBarrel.Foot, spot.Foot), Is.LessThan(1e-4f),
+                "the same facing must emplace the same plate whether it came from the barrel or from the yaw");
+        }
+
+        [Test]
+        public void ThePlateGrowsOnlyFarOff()
+        {
+            const float fov = 40f; const int screenH = 1080; const float plateW = 0.90f;
+            Assert.That(CombatFx.PlateGrow(20f, fov, screenH, plateW), Is.EqualTo(1f).Within(1e-4f),
+                "the near tier's plate was grown: T3 and T1 must not change");
+            Assert.That(CombatFx.PlateGrow(60f, fov, screenH, plateW), Is.EqualTo(1f).Within(1e-4f),
+                "the T1 tier's plate was grown");
+            float far = CombatFx.PlateGrow(400f, fov, screenH, plateW);
+            Assert.That(far, Is.GreaterThan(1f), $"far off the plate is a couple of pixels and is not grown ({far}x)");
+            foreach (float d in new[] { 1f, 50f, 170f, 400f, 2000f, 100000f })
+                Assert.That(CombatFx.PlateGrow(d, fov, screenH, plateW), Is.InRange(1f, 3f),
+                    $"the grow ran away at {d} m ({CombatFx.PlateGrow(d, fov, screenH, plateW)}x)");
+        }
+
         [Test]
         public void TheCalibrationBarStandsOnTheGroundAndIsWiderThanThePlate()
         {
