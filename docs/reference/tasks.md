@@ -559,6 +559,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   so the effects draw it without knowing the panel), `Presentation/Camera/AbilityAim.cs` (the aim
   state machine: point, or press-drag-release with patterns and snapping; `TestPanel` drives it),
   `Presentation/Camera/CombatFx.Chunks.cs` (thrown dirt, splinters, smoke balls, cook-offs),
+  `Presentation/Camera/WaterEntry.cs` (the ONE place a falling thing's splash lives: a man dying in water, a flung
+  body landing in it, a dropped rifle or helmet -- one ring sized by mass (a cube root, so it grows with girth, not
+  weight) plus a `Splash` card at the water point, nothing on dry ground; only a shell still rings wider than a man,
+  harsh critic, idea-things-that-fall-in-the-water-splash),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
@@ -584,6 +588,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   ColumnLightTests, ColumnPlayTests, ColumnWidthTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
+  WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan: `WaterEntry.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),
   ImpactDustFeetTests (a Hit's feet dust tracks the chest he was actually drawn with -- a fire-step, not the bare
@@ -1097,8 +1102,8 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 | SceneHooks member | Set by | Read / called by |
 |---|---|---|
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
-| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer |
-| `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer |
+| `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer, WaterEntry |
+| `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer, WaterEntry |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
 | `SmokeSources` | NightLights | CombatFx.Ambient |
