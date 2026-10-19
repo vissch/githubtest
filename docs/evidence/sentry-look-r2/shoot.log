@@ -1,0 +1,29 @@
+sentry-look-r2 capture  2026-10-19 12:51:40
+scene Assets/_Project/Scenes/GreyboxCorridor.unity  pose zoom=7.5 yaw=21.0 pitch=13.0 1920x1080
+open the battle scene and enter Play
+  scene      -> opened
+  loaded     -> GreyboxCorridor
+stage the Sentry
+  place      -> slot=4 men=1 foes=8 at=float3(45f, 0f, 6f) tick=1078
+let him step, aim and set his plate down
+  state      -> tick=1524 alive=True hp=156.6 sockets=False barrel_yaw=NaN unit_yaw=0.0 target=-1 spot_set=True spot_foot=(44.58, 2.53, 6.05) spot_fwd=(-1.00, 0.00, -0.06) pos=float3(30.62469f, 0f, 28.56556f) mask=False
+still 1 of 3: firing at the group dead ahead
+  ring_0     -> stood 8 foes at 0 deg, 25 m from float3(30.62469f, 0f, 28.56556f)
+  state_t    -> tick=2401 alive=True hp=156.6 sockets=True barrel_yaw=-134.3 unit_yaw=0.0 target=-1 spot_set=True spot_foot=(44.58, 2.53, 6.05) spot_fwd=(-1.00, 0.00, -0.06) pos=float3(30.62469f, 0f, 28.56556f) mask=False
+  shot_plate_t -> held: held at weather clock 120 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r2\plate_t.png
+  plate_t    -> plate_t.png (2581 KB) pose_error_m=0 men_in_frame=0
+still 2 of 3: the same group 60 deg round, so his gun traverses
+  release    -> released
+  ring_60    -> stood 8 foes at 60 deg, 25 m from float3(30.62469f, 0f, 28.56556f)
+  state_t60  -> tick=3906 alive=True hp=156.6 sockets=True barrel_yaw=-41.6 unit_yaw=0.0 target=-1 spot_set=True spot_foot=(44.58, 2.53, 6.05) spot_fwd=(-1.00, 0.00, -0.06) pos=float3(30.62469f, 0f, 28.56556f) mask=True
+  shot_plate_t60 -> held: held at weather clock 120 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r2\plate_t60.png
+  plate_t60  -> plate_t60.png (2565 KB) pose_error_m=0 men_in_frame=0
+  traverse   -> barrel yaw -134.3 -> -41.6 deg = 92.7 deg of swing
+still 3 of 3: after he is dead
+  release    -> released
+  kill       -> killed slot=4 alive=False hp=0 archetype=26 stance=7 held at weather clock 120
+  state_dead -> tick=4049 alive=False hp=0.0 sockets=True barrel_yaw=-64.9 unit_yaw=0.0 target=-1 spot_set=True spot_foot=(44.58, 2.53, 6.05) spot_fwd=(-1.00, 0.00, -0.06) pos=float3(30.62469f, 0f, 28.56556f) mask=True
+  shot_plate_dead -> held: held at weather clock 120 | queued C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r2\plate_dead.png
+  plate_dead -> plate_dead.png (2598 KB) pose_error_m=0 men_in_frame=0
+  release    -> released
+done: plate_t.png, plate_t60.png, plate_dead.png and their sidecars are in C:\Users\PC\Documents\GitHub\githubtest-relay-work5\docs\evidence\sentry-look-r2
