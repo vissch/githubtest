@@ -1,0 +1,88 @@
+{
+  "tiles": 8,
+  "sac_contrast_ok_tiles": 0,
+  "contrast_ok_threshold": 2.5,
+  "min_blob_px": 25,
+  "per_tile": [
+    {
+      "tile": "t0",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t1",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t2",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t3",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t4",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t5",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t6",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    },
+    {
+      "tile": "t7",
+      "width": 1600,
+      "height": 900,
+      "zoom": 30.0,
+      "blob_px": 0,
+      "contrast": null,
+      "sac_across_m": null,
+      "ok": false
+    }
+  ]
+}
