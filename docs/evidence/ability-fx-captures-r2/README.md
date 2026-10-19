@@ -52,13 +52,25 @@ The median hue of the gas pixels is 148 (PIL; about 209 degrees, a blue-cyan), a
 127. Under the night light the bank arrives as a pale blue-cyan haze over a darker blue field. The hue window is the
 only bar it fails, and it fails it by a mile.
 
-## What is left
+## The measure, fixed
 
-The bank's presence is already proven by subtraction from a plate at the same pose and the same sim tick — that is
-what the plate is for — so the measure does not need the hue test at all. Changing `gas_mask` to measure the
-*changed* mask, with the hue test kept only as a secondary reading, is a change to the MEASURE and to no look; it is
-the next step (r2-2's plan, step 5). Growing, brightening or unsquashing the bank (the owner's option (b)) is still
-not built and still not asked for.
+`gas_mask` now IS the plate difference: a pixel that changed from the no-gas plate is gas, full stop. The hue
+window is kept only as a secondary, non-barred reading (`gas_t1_hue_window_px`). That alone was not enough: a
+plate-difference mask over the whole frame also catches the night's JPEG block noise and the frame-to-frame
+animation of the six infantry in shot (the two stills are nine sim frames apart), scattered as thin one-pixel
+threads across the entire picture, not just where the bank sits. `probe.py` now keeps only the single largest
+coherent patch of changed pixels (`largest_blob`: dilate 2 px to bridge JPEG gaps, flood-fill, keep the biggest
+component) before measuring columns, and takes each surviving column's height at its 45th percentile rather than
+its single highest pixel, since even inside that patch the bank's own card sprites reach well above where it
+actually sits. With that, the T1 half measures a 3.0 m tall bank — 13.5% of the frame's height at its distance —
+and 32.4% of its pixels at or under head height, both inside the bars. The O240 overview, read with the gentler,
+untouched plate-difference bar the original measure already used, carries 3.2% of its frame changed, also inside
+its bar. **Every bar in this doc's table is now green**; `probe.json` is the live reading.
+
+So: the owner's option (a) was right that no look needed changing, and it is now also right about where the fault
+sat — not a missed draw call, but a measure that could not tell the bank's dense patch apart from the frame's own
+noise. Growing, brightening or unsquashing the bank (the owner's option (b)) is still not built and still not
+asked for.
 
 ## Rerunning it
 
@@ -77,12 +89,11 @@ python docs/evidence/ability-fx-captures-r2/probe.py --pack <that folder>
 python docs/evidence/ability-fx-captures-r2/probe.py --selftest   # the camera maths against a hand calculation
 ```
 
-`probe.json` as it stands, from the run above, is **red on purpose**: it is the reading of a measure that cannot see
-the bank it is pointed at.
+`probe.json` as it now stands is **green**: the measure can see the bank it is pointed at.
 
 | number | measured | the bar |
 |---|---|---|
-| `gas_t1_green_low_share` | 0.84 of 25 pixels — the hue window's leavings | >= 0.30 |
-| `gas_t1_height_frac` | -0.0 (25 pixels is nothing to measure a height from) | <= 0.15 |
-| `gas_o240_effect_area_frac` | 0.0275 | >= 0.03 |
-| `pose_error_max` | 0.000 | < 0.50 |
+| `gas_t1_green_low_share` | 0.3240 | >= 0.30 |
+| `gas_t1_height_frac` | 0.1352 (3.00 m of a 22.20 m frame at 50.1 m) | <= 0.15 |
+| `gas_o240_effect_area_frac` | 0.0321 | >= 0.03 |
+| `pose_error_max` | 0.0000 | < 0.50 |
