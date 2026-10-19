@@ -60,7 +60,11 @@ namespace TW.Presentation.Units
         }
         /// <summary>Every fallen body taken away (editor and instrument use: the background plate behind a body, with
         /// nothing else in the frame touched).</summary>
-        public void ClearFallen() => fallenMen.Clear();
+        public void ClearFallen()
+        {
+            fallenMen.Clear();
+            if (fallenDrawAt != null) System.Array.Clear(fallenDrawAt, 0, fallenDrawAt.Length);   // no stale drawn spot survives the bodies
+        }
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
@@ -148,7 +152,18 @@ namespace TW.Presentation.Units
             return best;
         }
 
-        void Remove(int index) => fallenMen.RemoveAt(index);
+        void Remove(int index)
+        {
+            fallenMen.RemoveAt(index);
+            // the drawn positions are read back by index (FallenPos), so they must shift with the list: a body that
+            // sank left his last drawn spot behind under the next man's index, and a capture aimed at it photographed
+            // empty ground tens of metres from the body it meant to show
+            if (fallenDrawAt != null)
+            {
+                for (int i = index; i < fallenMen.Count && i + 1 < fallenDrawAt.Length; i++) fallenDrawAt[i] = fallenDrawAt[i + 1];
+                if (fallenMen.Count < fallenDrawAt.Length) fallenDrawAt[fallenMen.Count] = Vector3.zero;
+            }
+        }
 
         /// <summary>The shared setup every AddFallen overload starts from: his figure, which row, whether the clip he was
         /// in fades out, and how long he lies. out near: the gag path needs it again for its own rate tweak.</summary>
