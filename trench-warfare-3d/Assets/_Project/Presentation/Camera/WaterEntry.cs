@@ -9,6 +9,13 @@ namespace TW.Presentation.Tactical
 {
     public static class WaterEntry
     {
+        struct PendingRing { public float X, Z, Size, Left; }
+        const int Pending = 32;
+        static readonly PendingRing[] pending = new PendingRing[Pending];
+        static int pendingCount;
+
+        static WaterEntry() => SceneStatics.Register(nameof(WaterEntry), Clear);
+
         public const float ManKg = 75f, RifleKg = 4.3f, HelmetKg = 1.2f;
         /// <summary>The ring a man's own mass opens, and the clamp either side of it.</summary>
         public const float ManRing = 1.8f, MinRing = 0.35f, MaxRing = 2.6f;
@@ -38,11 +45,38 @@ namespace TW.Presentation.Tactical
         {
             if (SceneHooks.IsWater == null || !SceneHooks.IsWater(at.x, at.z)) return default;
             var sp = new Splash { Ring = Ring(massKg), Card = Card(massKg), Any = true };
-            SceneHooks.AddRing?.Invoke(at.x, at.z, sp.Ring);
+            if (delay <= 0f)
+            {
+                SceneHooks.AddRing?.Invoke(at.x, at.z, sp.Ring);
+            }
+            else
+            {
+                int slot = pendingCount < Pending ? pendingCount++ : 0;
+                if (slot == 0 && pendingCount >= Pending)
+                    SceneHooks.AddRing?.Invoke(pending[0].X, pending[0].Z, pending[0].Size);
+                pending[slot] = new PendingRing { X = at.x, Z = at.z, Size = sp.Ring, Left = delay };
+            }
             if (books != null && books.Ready)
                 books.Add(FlipbookFx.Book.Splash, at, sp.Card * scale, 0.5f,
                     FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (mirror ? FlipbookFx.Kind.Mirror : 0), alpha: 0.9f, delay: delay);
             return sp;
         }
+
+        /// <summary>Called once a frame (CombatFx.Update): counts down every pending ring and opens each that
+        /// reached its landing, so a flung body's ring opens with its Splash card, not a whole flight before it.</summary>
+        public static void Pump(float dt)
+        {
+            if (pendingCount == 0) return;
+            for (int i = pendingCount - 1; i >= 0; i--)
+            {
+                pending[i].Left -= dt;
+                if (pending[i].Left > 0f) continue;
+                SceneHooks.AddRing?.Invoke(pending[i].X, pending[i].Z, pending[i].Size);
+                pending[i] = pending[--pendingCount];
+            }
+        }
+
+        /// <summary>No scene is live: drop every pending ring (SceneStatics.ResetSession).</summary>
+        public static void Clear() => pendingCount = 0;
     }
 }
