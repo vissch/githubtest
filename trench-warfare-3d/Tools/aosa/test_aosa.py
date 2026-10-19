@@ -510,6 +510,11 @@ class PlayerBenchExitTest(unittest.TestCase):
         self.assertNotEqual(str(wa / "bash.exe"), got,
                             "[player-bench-test-runs-on-the-desktop-20261019] WSL's bash.exe must not be picked")
 
+    def test_the_script_is_checked_out_with_lf_endings(self):   # [player-bench-test-runs-on-the-desktop-20261019]
+        data = (HERE / "player_bench.sh").read_bytes()
+        self.assertNotIn(b"\r\n", data,
+                         "[player-bench-test-runs-on-the-desktop-20261019] a CRLF bash script exits 127")
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
