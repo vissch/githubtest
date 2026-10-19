@@ -1,0 +1,36 @@
+flamer-look-r2 — what each still is, and how it was made (2026-10-19, before the fix)
+
+Scene      GreyboxCorridor, in Play, batch-mode editor of the checkout githubtest-relay-work2.
+           The scene is already Mood.Night / Biome.NightMud — the owner's target look. No knob was touched.
+Spot       x 42, z 12. Map.Height is 2.5 m and level over x 30..48, z 10..16: flat open mud, a bunker behind.
+Camera     yaw 90 (TacticalCamera.BaseYaw is -90, so the camera looks along +z, which is the way these men are
+           drawn: we stand behind him, where the fuel tanks are). pose_error_m is 0.000 on all seven stills.
+Moment     every still is a frozen world: SimHost.TimeScale = 0 and CaptureRig.Hold(120) — weather clock held at
+           120 s, rain 0.20, wind 3.0, identical in all seven. The man was placed, moved onto the spot, given a
+           few frames to be seen by the controller, then frozen. Nothing moves between the frames of a band.
+One man per frame, not two side by side: see the WHY block at the top of probe.py. Two men in one frame put two
+different pieces of background in the two boxes and the control came out at 7075 px against a cap of 10.
+
+  flamer_t3.png    T3 (zoom 7.5, pitch 13)  one Flamethrower (archetype 36) alone on the spot, from behind.
+  flamer_t2.png    T2 (zoom 16,  pitch 22)  the same man, same frozen world, the standard fighting view.
+  flamer_t1.png    T1 (zoom 30,  pitch 25)  the same man, the far view.
+  assault_t3.png   T3  an Assault (archetype 1) standing on the same spot, same camera, same held clock.
+  assault_t2.png   T2  the same.
+  assault_t1.png   T1  the same.
+  control_t3.png   T3  a SECOND Assault on the spot: the control. Against assault_t3 it must read ~0 differing
+                       pixels, and it reads exactly 0 — the method has no noise of its own.
+
+  *_boxes.png      the same stills with the projected boxes drawn on them (quantised to 128 colours), so a human
+                   can see the boxes are on the man: red tanks, orange wand, yellow the whole kit, blue torso,
+                   green the ground sample, white cross his feet.
+
+What they show (probe.json, measured off these very files after they were resampled to 1280x720)
+  kit_px_t3            278  (needs >= 150)  the kit IS drawn at T3 — 278 of 153x56 px differ from the bare man
+  kit_px_t2            142  (needs >= 40)   and at T2
+  kit_px_control         0  (needs <= 10)   the method measures nothing when there is no kit
+  tank_vs_ground_dL_t2  12.78 (needs >= 10) the tanks are a little lighter than the mud he stands on
+  tank_vs_torso_dL_t2   -6.64 (needs >= 12) FAIL — the tanks are DARKER than his own torso. This is the critic's
+                       second finding in a number: the kit is drawn in dirtMat, dirt on dirt, at night.
+  (t1 is measured too and is not a threshold: 4 px of 37x14 differ — at the far view the kit is gone.)
+
+Reproduce: the phase lines at the top of stage.cs, then `python probe.py --check`.
