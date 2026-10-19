@@ -302,6 +302,20 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The water entry's `centre_rim_ratio` bar measures the body, not the water (2026-10-19, lane
+  `lane/show/water-entry-splash-r8`):** harsh critic r1 asked the entry ring for a hollow centre, and the bar set
+  for it is `centre_rim_ratio <= 0.6` in `docs/evidence/water-entry-splash-r8/probe.py`. The hole is now cut
+  (TWWater.hlsl multiplies the finished water colour inside the crest) and the ring also expands as asked
+  (`ring_growth` 1.448 -> 1.964 on 3 of 3 runs, bar 1.5), but the ratio only fell 1.004 -> 0.803. The reason is
+  measured, not argued: the probe's centre region is the 0.35-of-the-radius ellipse at the entry point, where the
+  BODY stands. It throws out the splash cards but nothing throws out the corpse. A control run with the trough at
+  0.02, a nearly black hole, moved the ratio by 0.012 (0.810 -> 0.798). No water shader can clear this bar.
+  Options: (a) measure the ratio on water pixels only - exclude every pixel the body covers, a change to probe.py,
+  which this lane has been told is the bar and must not be touched; (b) keep the bar, accept the key red, and let
+  the critic judge the ring by eye and by `ring_growth`; (c) move the measurement off the entry point to the far
+  side of the ring where no body stands. **Default taken while nobody answers: (b)** - the shader fix and the
+  growth are committed, `centre_rim_ratio` stays red, nothing lands on it and no bar was moved.
+
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
