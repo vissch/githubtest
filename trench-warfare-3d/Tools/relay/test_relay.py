@@ -2364,6 +2364,28 @@ class Pace(Repo):
         self.at(1, 19)
         self.assertIn("would run: lane u1", self.go(dry_run=True)[0])
 
+    def test_a_wait_whose_start_time_moves_on_as_others_spend_gives_the_turn_back(self):
+        # relay 6, 2026-10-19: told "until 11:17" at 10:47; other relays and agents spent the day faster than the
+        # pace, the start time moved on with them, and the run sat until the owner stopped it at 13:09
+        self.queue("u1")
+        self.script(self.GOOD)
+        self.at(0, 30)
+        seen = []
+
+        def spent_elsewhere(seconds):                           # 0.02 points every 30 s: faster than the pace's 0.0038
+            self.sleep(seconds)
+            self.spent(0.2, n=10 + len(self.slept))
+            seen.append(json.loads((legdir.home() / "runs").glob("*/progress.json").__next__().read_text(
+                encoding="utf-8"))["now_on"])
+        runner.sleep = spent_elsewhere
+        out, stop = self.go()
+        self.assertEqual((stop["reason_kind"], stop["legs"]), ("pace", 0))
+        self.assertTrue(stop["reason"].startswith("the day's pace moved the start of a unit from 01:19 to "), stop["reason"])
+        self.assertLess(sum(self.slept), 2 * 3600)              # not hours of a wait that never ends
+        self.assertIn("paced: a unit may start at", out.split("paced: a unit may start at 01:19;", 1)[1])
+        self.assertNotEqual(seen[-1], "waiting for the day's pace until 01:19")    # the time said moves with the wait
+        self.assertFalse((self.board / "relay" / "done" / "u1.json").exists())
+
     def test_hours_nobody_used_can_be_spent_later_the_same_day(self):
         self.queue("u1")
         self.script(dict(self.GOOD, cost={"plan": 20, "execute": 25}))     # 4.5 points at once, late in the day

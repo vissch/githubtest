@@ -32,6 +32,7 @@ NO_WINDOW = ("\n- This run cannot open a window (it was not started from the own
              "unless UNITY_CLI_ALLOW_LOCKED=1, and then it starts a second editor. unity status on the CLI in "
              "%LOCALAPPDATA%/unity/bin does list a batch editor.")
 PACE_STEP = 30                          # seconds between two looks at the clock while a run waits for the pace
+PACE_SLIDE = 30                         # minutes the pace's start time may move on during a wait before the run ends
 clock = datetime.datetime.now           # the wall clock the day's pace is read from
 sleep = time.sleep
 said = launch.said                      # the one rule for a report's verdict; run_leg reads it too
@@ -313,7 +314,7 @@ class Run:
         price = ledger.usuals(self.board, lim=self.lim)
         need = ledger.need(price, config.routed(self.ph, unit) if unit else self.ph, phases)   # a routed leg at its own price
         what = "a %s leg" % phases[0] if len(phases) == 1 else "a unit"
-        told = False
+        told, first, shown = False, None, ""
         while True:
             b = self.day()
             if b is None:
@@ -339,11 +340,22 @@ class Run:
                            % (what, when, self.lim["run_hours"]))
             if self.stop_file.exists():
                 return self.asked()
-            if not told:
-                told = True
-                print("paced: %s may start at %s; the day's budget is spent evenly over the day" % (what, when),
-                      flush=True)
-                if self.ready:
+            if told and at - first > datetime.timedelta(minutes=PACE_SLIDE):
+                # Others spend the same day while this run waits, so its start time moves on with them and the
+                # wait need never end; and the run holds the cap it started with (relay 6, 2026-10-19: told 11:17 at
+                # 10:47, still waiting at 13:09 while the owner had raised the cap to 26%). Give the turn back: the
+                # loop starts a new run when the pace has room, with the cap as it is then.
+                return Why("pace", "the day's pace moved the start of %s from %s to %s while this run waited: the day "
+                           "is spent elsewhere faster than the pace allows" % (what, first.strftime("%H:%M"), when))
+            if not told or when != shown:
+                if not told:
+                    first = at
+                    print("paced: %s may start at %s; the day's budget is spent evenly over the day" % (what, when),
+                          flush=True)
+                else:
+                    print("paced: %s may start at %s now" % (what, when), flush=True)
+                told, shown = True, when
+                if self.ready:                                  # the time said is the time waited for, not the first
                     self.progress("waiting for the day's pace until %s" % when)
                     self.live(paced=when)                       # a wait can last hours: say so elsewhere too
                     self.send("waiting for the day's pace until %s" % when)
