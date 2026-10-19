@@ -18,7 +18,7 @@
   "tasks": [
     {
       "title": "Hash only what a stage consumes, not its whole definition",
-      "why": "consumed_hash (pipeline.py:224) hashes the whole stage dict bar 'notes', so editing bands, station, outputs or role makes a new job id and throws away a PASS: the stage goes STALE and a desktop capture or Blender stage is re-run for nothing. stations.md warns only about role. It bites now: decisions.md:166 asks for a band on the stages that name none (16 of 21 stages on tw3d-board-6/items have no bands), and giving them one re-runs each.",
+      "why": "consumed_hash (pipeline.py:224) hashes the whole stage dict bar 'notes', so editing bands, station, outputs or role makes a new job id and throws away a PASS: the stage goes STALE and a desktop capture or Blender stage is re-run for nothing. stations.md warns only about role. It bites now: decisions.md:166 asks for a band on the stages that name none (six stages on the board have no bands), and giving them one re-runs each.",
       "files": ["trench-warfare-3d/Tools/pipeline/pipeline.py", "docs/reference/stations.md"],
       "lane": "show",
       "role": "lane",
