@@ -81,6 +81,14 @@ namespace TW.Presentation.Tactical
             return Matrix4x4.TRS(foot + up * (0.25f * scale), turn, new Vector3(1.40f, 0.50f, 0.02f) * scale);
         }
 
+        /// <summary>
+        /// Whether this slot is drawn its plate: the Sentry's, and once he has set it down it stays whether he lives or
+        /// not - a plate does not fall over with its man. <paramref name="spotSet"/> is whether he already emplaced it.
+        /// Pure, so an EditMode test can hold the rule a dead Sentry's plate lives by.
+        /// </summary>
+        public static bool KeepsPlate(byte archetype, uint flags, bool spotSet)
+            => archetype == InfantryArchetype.Sentry && (spotSet || (flags & (uint)UnitFlags.Alive) != 0);
+
         /// <summary>The plate's frame from the way it faces: upright, facing <paramref name="fwd"/> flattened.</summary>
         static void Frame(Vector3 fwd, out Quaternion turn, out Vector3 up)
         {
@@ -115,9 +123,9 @@ namespace TW.Presentation.Tactical
                 if ((flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Archetype[slot] != InfantryArchetype.Sentry) { spots[slot] = default; continue; }   // a reused slot keeps no dead man's plate
                 ViewNow(out _, out _, out float scale);
+                if (!KeepsPlate(w.Archetype[slot], flags, spots[slot].Set)) continue;                    // he died before he could set it down
                 if (!spots[slot].Set)
                 {
-                    if ((flags & (uint)UnitFlags.Alive) == 0) continue;                                   // he died before he could set it down
                     if (!units.Sockets(slot, out _, out var barrel, out _)) continue;                    // far tier, or the controller is off
                     float3 p = Host.Presenter.Drawn(slot);
                     var spot = Emplace(spots[slot], new Vector3(p.x, 0f, p.z), barrel, scale);
