@@ -1,5 +1,7 @@
 """Manufacture the clips the Mixamo download lacks (docs/15-character-controller.md section 13) from the ones it has.
-Usage: python Tools/make_missing_clips.py "<folder of Mixamo .fbx>" [out folder = <folder>/Made]
+Usage: python Tools/make_missing_clips.py "<folder of Mixamo .fbx>" [out folder = <folder>/Made] [--only "<clip>"]
+--only makes that one clip, for a source folder that holds only some of the recipes' sources (the repo's own
+Art/Characters/Clips, say, where an unfiltered run would die on the first missing Mixamo file).
 Writes 15 FBX files on the Mixamo rig plus made-clips.png (stick-figure contact sheet) and made-clips.csv.
 Every clip is either a reversal, a retiming, a layering of one clip's limbs over another, an IK pose held under an
 envelope, or a procedural cycle; the recipes are in MAKE below and print what they did.
@@ -7,6 +9,10 @@ envelope, or a procedural cycle; the recipes are in MAKE below and print what th
 import sys, os, math, csv
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import animforge as af
+
+only = None
+if '--only' in sys.argv:
+    i = sys.argv.index('--only'); only = sys.argv[i + 1]; del sys.argv[i:i + 2]
 
 src = sys.argv[1]
 out = sys.argv[2] if len(sys.argv) > 2 else os.path.join(src, 'Made')
@@ -221,6 +227,18 @@ def mg_carry():
     c = c.wave('LeftArm', 0, 3, 2); c = c.wave('RightArm', 0, 3, 2)          # the gun heaves with each step
     return c.loopify(4)
 
+def cheer():
+    """The trench is taken: the rifle goes up overhead in both hands, he leans back and shouts, two pumps."""
+    c = clip('Rifle Idle').resample(60, 'Rifle Cheer')
+    hold = trap(0.0, 0.18, 0.78, 1.0)
+    c = ik_hold(c, 'Left', lambda p: [p['Head'][0] + 30, p['Head'][1] + 45, p['Head'][2] + 6], 0, hold)    # both hands over the head, wide of the helmet
+    c = ik_hold(c, 'Right', lambda p: [p['Head'][0] - 30, p['Head'][1] + 45, p['Head'][2] + 6], 0, hold)
+    c = c.offset('Spine', (-10, 0, 0), trap(0.0, 0.2, 0.75, 1.0)); c = c.offset('Head', (-14, 0, 0), trap(0.0, 0.2, 0.75, 1.0))   # leans back, chin up, shouting
+    c = c.offset('LeftArm', (10, 0, 0), bump(0.35, 0.07)); c = c.offset('RightArm', (10, 0, 0), bump(0.35, 0.07))   # two pumps
+    c = c.offset('LeftArm', (10, 0, 0), bump(0.58, 0.07)); c = c.offset('RightArm', (10, 0, 0), bump(0.58, 0.07))
+    c = c.wave('Hips', 1, 2, 2, kind='T')                                                                  # up on the toes with each pump
+    return c
+
 def wire():
     base = clip('Walk Crouching Forward').retime(1 / 2.0, 'Wire Crossing')
     base = high_step(base, 18, 0.85, 0.35, 1.8)
@@ -243,6 +261,7 @@ MAKE = [
     ('Officer Point', point, 'once', 'Idle, the right arm raised high then chopped forward to the point (IK), the left hand on the hip, the body turned into it, chin up'),
     ('Officer Whistle', whistle, 'once', 'Idle, the right hand to the mouth, the left arm straight up (follow me), head back to blow, 0.6 s'),
     ('MG Carry Walk', mg_carry, 'loop', 'Rifle Walk at 0.77x, short steps, right hand at the hip and left on the barrel (IK), leaning back off the weight, the gun heaving with the stride'),
+    ('Rifle Cheer', cheer, 'once', "the trench is taken: Rifle Idle held 2 s, both hands IK'd overhead with the rifle, leaning back chin up, two arm pumps and a bob"),
     ('Wire Crossing', wire, 'loop', 'Walk Crouching Forward at 0.5x, thighs lifted with the forward swing 1.5x and the trailing 0.5x, stooped, watching the ground, arms from Rifle Crouch Walk'),
 ]
 
@@ -250,6 +269,7 @@ made = []
 with open(os.path.join(out, 'made-clips.csv'), 'w', newline='') as fh:
     w = csv.writer(fh); w.writerow(['clip', 'kind', 'seconds', 'frames', 'template', 'recipe'])
     for name, fn, kind, recipe in MAKE:
+        if only and name != only: continue
         print(name)
         c = fn(); c.name = name
         template = getattr(c, 'template', None) or clip('Rifle Idle').template
