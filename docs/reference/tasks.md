@@ -42,7 +42,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), SimMathTests (Sin/Cos of a huge or non-finite angle stay finite and in range; Floor never goes through an out-of-range int cast), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
   (what `Death.b`, `dir` and `scalar` mean), PerfMarkersTests (every registered system's marker name lands in
   `PerfMarkers.Names`).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
@@ -146,6 +146,8 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
   `Sim/Terrain/MudField.cs`, `Sim/Terrain/PropDef.cs`, `Sim/Match/Deformation.cs` (the only thing that edits the map).
+  `DeformationSystem.Shake` reads the props near a blast through `MapData.PropsByCell` (`Sim/Terrain/PropIndex.cs`),
+  not by walking every prop.
   Contracts `Sim/Terrain/MapStructs.cs`, `Sim/Terrain/NavLayer.cs`; `Sim/Terrain/GreyboxMapGenerator.cs` is the
   flat corridor the determinism tests use.
 - **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests; NarrowsTests (the Narrows, the
@@ -329,7 +331,8 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
-  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
+  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index; a blast finds it through
+  `MapData.PropsByCell`, which pads its query by the wreck reach), each with less cover, scrap
   no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
   `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
