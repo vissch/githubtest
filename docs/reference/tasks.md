@@ -650,7 +650,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   man expire by the sim's clock (`BornSim`/`LifeSim`, `Flamethrower.SimNow` from `Presentation/Core/SimClock.cs`), so a
   paused match keeps its fires; their flicker and cards still animate on `Time.time`. A man's death douses his torch
   (`flames.Douse` in `CombatFx.Deaths.cs`), so the slot's next tenant is not drawn alight.
-- **Tests:** none.
+  His own look is `Presentation/Camera/CombatFx.Kit.cs` (`CombatFx.KitPieces`/`DrawKit`, `KitMax`): the two fuel
+  tanks on his back and the wand in his hands, drawn over the baked soldier off the near tier's sockets, since no
+  Flamer figure is baked.
+- **Tests:** FlamerLookTests (his kit's shape, and that his tooltip is no longer a stand-in's).
 - **See it:** `Tools/flameshots <prefix>` captures the four reference shots deterministically, and
   `Tools/flamecheck.py` rejects a shot with no fire in it.
 - **Trap:** `FlipbookFx` indexes its sheets by the `Book` enum's ordinal and is only `Ready` when every sheet loads.
