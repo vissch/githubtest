@@ -42,6 +42,29 @@ namespace TW.Tests
             Assert.AreNotEqual(FallenFlight.RollStep(path, t0), FallenFlight.RollStep(path, t1), "the legs move");
         }
 
+        /// <summary>The twitch must not cancel at a 1 s sampling gap: 2 roll steps of 32 is 22.5 deg of a ~1.2 m
+        /// body, about 40 px of silhouette at the 41 px/m of a 2560x1440 still at zoom 30 (goal's probe bar).</summary>
+        [Test]
+        public void TheTwitchReadsASecondApart()
+        {
+            DeathGags.Pin(1f);
+            var g = new GagInput { Frog = true, Cause = DeathKind.Shot, Seed = 7, Tick = 1000 };
+            float3 fly = 0f; var clip = Clip.DeathBack; float yaw = 0f;
+            var plan = DeathGags.Choose(g, 1f, ref fly, ref clip, ref yaw);
+
+            var ground = new Flat();
+            var path = FallenFlight.Make(Vector3.zero, new Vector3(fly.x, fly.y, fly.z), plan.Flips, plan.Rolls, plan.Bounces,
+                plan.Skid, Vector3.zero, plan.Delay, plan.HoldLift, plan.Jig, 14f, new Vector2(600f, 600f), -10000f, ref ground);
+            path.RestRoll = plan.RestRoll; path.TwitchRoll = plan.TwitchRoll; path.TwitchHz = plan.TwitchHz; path.TwitchDur = plan.TwitchDur;
+
+            for (float t1 = 0f; t1 <= 0.6f + 1e-4f; t1 += 0.05f)
+            {
+                int a = FallenFlight.RollStep(path, path.Arrive + t1);
+                int b = FallenFlight.RollStep(path, path.Arrive + t1 + 1.0f);
+                Assert.GreaterOrEqual(Mathf.Abs(a - b), 2, $"at t1={t1:F2}s, a second apart must differ by >= 2 roll steps");
+            }
+        }
+
         [Test]
         public void ANonFrogDeathIsUnchanged()
         {

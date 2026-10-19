@@ -236,7 +236,9 @@ namespace TW.Presentation.Units
             float t = age - p.Delay - p.ArcsEnd;
             if (t < 0f) return 0;
             float r = p.RestRoll * Mathf.Clamp01(t / RollSettle);
-            if (t < p.TwitchDur) r += p.TwitchRoll * Mathf.Sin(2f * Mathf.PI * p.TwitchHz * t) * (1f - t / p.TwitchDur);
+            // a slow second term (0.9 Hz) rides under the main twitch rate so no 1 s sampling gap can land in
+            // phase on both terms at once.
+            if (t < p.TwitchDur) r += p.TwitchRoll * (0.75f * Mathf.Sin(2f * Mathf.PI * p.TwitchHz * t) + 0.25f * Mathf.Sin(2f * Mathf.PI * 0.9f * t)) * (1f - t / p.TwitchDur);
             return Mathf.RoundToInt(r) & (Steps - 1);
         }
 
