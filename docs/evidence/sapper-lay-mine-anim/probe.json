@@ -1,0 +1,12 @@
+{
+  "pose_delta_px": 7.0,
+  "columns": 37,
+  "box": [
+    193,
+    331,
+    527,
+    646
+  ],
+  "idle": "idle.png",
+  "laying": "laying.png"
+}
