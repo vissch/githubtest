@@ -18,6 +18,7 @@ namespace TW.Tests
         {
             rings = new List<Vector3>();
             SceneHooks.AddRing = (x, z, size) => rings.Add(new Vector3(x, z, size));
+            WaterEntry.Clear();
         }
 
         [TearDown]
@@ -25,6 +26,7 @@ namespace TW.Tests
         {
             SceneHooks.IsWater = null;
             SceneHooks.AddRing = null;
+            WaterEntry.Clear();
         }
 
         [Test]
@@ -70,6 +72,26 @@ namespace TW.Tests
             Assert.AreEqual(0.454f, helmetRing, 0.01f, "the helmet's ring, smaller still");
             Assert.Less(rifleRing, WaterEntry.ManRing, "sized by mass: lighter than a man");
             Assert.Less(helmetRing, WaterEntry.ManRing, "sized by mass: lighter than a man");
+        }
+
+        [Test]
+        public void WaterEntryRingWaitsForLanding()
+        {
+            SceneHooks.IsWater = (x, z) => true;
+            var sp = WaterEntry.Throw(null, new Vector3(12f, 0.1f, 20f), WaterEntry.ManKg, 0.8f);
+
+            Assert.IsTrue(sp.Any, "a flung body landing in water still splashes");
+            Assert.AreEqual(0, rings.Count, "the ring does not open at the throw");
+
+            WaterEntry.Pump(0.4f); // half the flight in, nothing yet
+            Assert.AreEqual(0, rings.Count, "half the flight in, nothing yet");
+
+            WaterEntry.Pump(0.45f); // 0.85 s total, past the 0.8 s landing
+            Assert.AreEqual(1, rings.Count, "the ring opens once the body lands");
+            Assert.AreEqual(WaterEntry.ManRing, rings[0].z, 1e-4f, "sized the same as an immediate ring");
+
+            WaterEntry.Pump(1f);
+            Assert.AreEqual(1, rings.Count, "it opens once, not every frame after");
         }
     }
 }
