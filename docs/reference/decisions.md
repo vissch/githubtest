@@ -327,6 +327,18 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
+- **The chlorine bank is not in the picture at all (2026-10-19, ability-fx-captures-r2):** four CaptureRig stills in
+  GreyboxCorridor at night - the play zoom and the overview, each with a no-gas plate of the same pose and frame -
+  hold no gas bank, while the sim took every call (the cooldown it sets proves it) and `CombatFx.gasCards` held up to
+  133 packed cards at that moment. Pictures, numbers and what was ruled out: `docs/evidence/ability-fx-captures-r2/`.
+  So r1's claim that "the gas pools on the ground" rests on the yellow ability-area MARKER disc, not on the bank.
+  Options: (a) treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet)
+  misses `CaptureRig`'s own `Camera.Render()`, the default taken here, since it changes no look; (b) treat it as a
+  look fault and make the bank bigger, brighter or less squashed until it reads at night - a look change, and the
+  same question as the standing "how big a point effect must read from the overview"; (c) leave it. Nobody to ask in
+  this run: nothing is landed on it and the lane is blocked.
+  **Closed by `ability-fx-captures-r2-2`** (see "How units move and fight", 2026-10-19 and 2026-10-20 rows above):
+  the bank was never missing, and at the owner's request it was then grown and brightened.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
