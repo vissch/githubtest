@@ -101,6 +101,10 @@ namespace TW.Presentation
         public static float CloseUp;
         /// <summary>Is there standing water here? (WaterRings)</summary>
         public static System.Func<float, float, bool> IsWater;
+        /// <summary>Metres of standing liquid here, 0 where the ground is merely damp. IsWater answers yes to a damp
+        /// patch as well, which is what the rings, the lamps and the tracks want; an effect that has to tell a puddle
+        /// from a pool asks this instead. (GreyboxTerrainView)</summary>
+        public static System.Func<float, float, float> WaterDepth;
         /// <summary>Open a ring on the water: x, z, size in metres. (WaterRings)</summary>
         public static System.Action<float, float, float> AddRing;
         /// <summary>Throw some sparks from a point. (CombatFx)</summary>
@@ -165,7 +169,7 @@ namespace TW.Presentation
         public static void Reset()
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
-            IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
+            IsWater = null; WaterDepth = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
             MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;
         }
