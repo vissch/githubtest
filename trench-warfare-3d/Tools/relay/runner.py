@@ -33,6 +33,7 @@ NO_WINDOW = ("\n- This run cannot open a window (it was not started from the own
              "%LOCALAPPDATA%/unity/bin does list a batch editor.")
 PACE_STEP = 30                          # seconds between two looks at the clock while a run waits for the pace
 PACE_SLIDE = 30                         # minutes the pace's start time may move on during a wait before the run ends
+PACE_RESAY = 5                          # minutes it moves on before the run says the new time (not every look)
 clock = datetime.datetime.now           # the wall clock the day's pace is read from
 sleep = time.sleep
 said = launch.said                      # the one rule for a report's verdict; run_leg reads it too
@@ -310,11 +311,12 @@ class Run:
         The day's cap is spent evenly over the day (ledger.pace_share). When the day covers the legs and the pace
         does not yet, the run waits here for the pace, when that time comes before the run's own time is up, and
         then asks the day again. A dry run does not wait, and a wait that would outlast the run does not start:
-        both say the time."""
+        both say the time. A wait whose start time moves on more than PACE_SLIDE minutes, because others spend the
+        same day faster than the pace, ends the run too: it would never end, and the run holds its first cap."""
         price = ledger.usuals(self.board, lim=self.lim)
         need = ledger.need(price, config.routed(self.ph, unit) if unit else self.ph, phases)   # a routed leg at its own price
         what = "a %s leg" % phases[0] if len(phases) == 1 else "a unit"
-        told, first, shown = False, None, ""
+        told, first, said = False, None, None
         while True:
             b = self.day()
             if b is None:
@@ -344,17 +346,18 @@ class Run:
                 # Others spend the same day while this run waits, so its start time moves on with them and the
                 # wait need never end; and the run holds the cap it started with (relay 6, 2026-10-19: told 11:17 at
                 # 10:47, still waiting at 13:09 while the owner had raised the cap to 26%). Give the turn back: the
-                # loop starts a new run when the pace has room, with the cap as it is then.
+                # loop starts a new run when the pace has room, with the cap the loop holds then (the autoloop reads
+                # TW_DAY_PCT when it starts; it had restarted at 10:29 with 26).
                 return Why("pace", "the day's pace moved the start of %s from %s to %s while this run waited: the day "
                            "is spent elsewhere faster than the pace allows" % (what, first.strftime("%H:%M"), when))
-            if not told or when != shown:
+            if not told or at - said >= datetime.timedelta(minutes=PACE_RESAY):
                 if not told:
                     first = at
                     print("paced: %s may start at %s; the day's budget is spent evenly over the day" % (what, when),
                           flush=True)
                 else:
                     print("paced: %s may start at %s now" % (what, when), flush=True)
-                told, shown = True, when
+                told, said = True, at
                 if self.ready:                                  # the time said is the time waited for, not the first
                     self.progress("waiting for the day's pace until %s" % when)
                     self.live(paced=when)                       # a wait can last hours: say so elsewhere too
