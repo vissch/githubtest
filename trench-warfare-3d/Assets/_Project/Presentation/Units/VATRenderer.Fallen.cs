@@ -44,6 +44,23 @@ namespace TW.Presentation.Units
         public int FallenGag(int i) => i < 0 || i >= fallenMen.Count ? -1 : fallenMen[i].Gag;
         /// <summary>The roll step (0..31) the i'th fallen man is drawn at now, or -1 out of range.</summary>
         public int FallenRollStep(int i) => i < 0 || i >= fallenMen.Count ? -1 : FallenFlight.RollStep(fallenMen[i].Path, Time.time - fallenMen[i].Born);
+        /// <summary>Whether the i'th fallen man exists at all: a probe asks before it reads him.</summary>
+        public bool FallenAlive(int i) => i >= 0 && i < fallenMen.Count;
+        /// <summary>Where the i'th fallen man is drawn, as the frame drew him: the near loop's own answer
+        /// (<c>fallenDrawAt</c>) while it is warm, else the path worked out again from his age. A probe must read the
+        /// drawn pose, never the plan (critic r1: a still whose numbers came from the plan showed something else).</summary>
+        public Vector3 FallenPos(int i)
+        {
+            if (i < 0 || i >= fallenMen.Count) return Vector3.zero;
+            if (fallenDrawAt != null && i < fallenDrawAt.Length && fallenDrawAt[i] != Vector3.zero) return fallenDrawAt[i];
+            // the draw list is cold (he is far, culled, or nothing has drawn yet): his path, worked out here rather
+            // than through FallenAt, which VatFallenReuseTests holds to one call per fallen man per frame
+            var f = fallenMen[i];
+            return f.Gag != 0 ? FallenFlight.At(f.Path, Time.time - f.Born) : f.Pos;
+        }
+        /// <summary>Every fallen body taken away (editor and instrument use: the background plate behind a body, with
+        /// nothing else in the frame touched).</summary>
+        public void ClearFallen() => fallenMen.Clear();
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt

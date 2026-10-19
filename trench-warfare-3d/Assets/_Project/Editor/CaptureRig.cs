@@ -231,6 +231,35 @@ namespace TW.Editor
 
         // ---- measurement -------------------------------------------------------------------------------------
 
+        /// <summary>Which fallen body (VATRenderer's index) every still of this set points at, or -1 for none.</summary>
+        static int markFallen = -1;
+
+        /// <summary>Point the stills at one fallen body: each sidecar then says where he is in the image it wrote, how
+        /// big a metre is there, and which gag and roll step he was drawn at. Critic r1 (12/100) threw out a whole set
+        /// because nothing in the stills said where the frog was, and a probe had guessed his box by hand.</summary>
+        public static string MarkFallen(int index) { markFallen = index; return "marking fallen " + index; }
+
+        /// <summary>No mark: the mark_* keys drop out of the sidecars again.</summary>
+        public static string MarkOff() { markFallen = -1; return "mark off"; }
+
+        /// <summary>
+        /// A world point in the pixels of a written image: x from the left, y DOWN from the top (PIL's own order, so a
+        /// probe needs no conversion — Unity's screen y counts up from the bottom and the PNG's first row is the top).
+        /// perM is the pixel length of a 1 m rod at that point across the view, h / (2 d tan(fov/2)).
+        /// Returns whether the point is in front of the camera and inside the image.
+        /// </summary>
+        public static bool MarkPixels(Camera cam, Vector3 at, int w, int h, out float px, out float py, out float perM)
+        {
+            px = py = perM = 0f;
+            if (cam == null) return false;
+            if (Vector3.Dot(at - cam.transform.position, cam.transform.forward) <= 0f) return false;
+            Vector3 sp = cam.WorldToScreenPoint(at);
+            Vector3 up = cam.WorldToScreenPoint(at + cam.transform.up);   // 1 m across the view, never along it
+            px = sp.x * w / cam.pixelWidth; py = h - sp.y * h / cam.pixelHeight;
+            perM = Mathf.Abs(up.y - sp.y) * h / cam.pixelHeight;
+            return px >= 0f && py >= 0f && px < w && py < h;
+        }
+
         static float Luma(Color32 p) => (0.2126f * p.r + 0.7152f * p.g + 0.0722f * p.b) / 255f;
 
         /// <summary>
@@ -318,6 +347,22 @@ namespace TW.Editor
                 N(sb, "drawn_infantry", vat.DrawnInfantry); N(sb, "drawn_near", vat.DrawnNear); N(sb, "drawn_far", vat.DrawnFar);
                 N(sb, "vertices", vat.VerticesThisFrame); N(sb, "shadows", vat.ShadowsThisFrame ? 1 : 0);
                 N(sb, "fallen", vat.FallenCount);
+                // the marked body, and how many OTHER bodies share the frame with him. `fallen` counts every body in
+                // the scene, so with one frog dead it is 1 and can never be 0; "no other body in frame" is this key.
+                int others = 0;
+                for (int i = 0; i < vat.FallenCount; i++)
+                {
+                    if (i == markFallen) continue;
+                    if (MarkPixels(cam, vat.FallenPos(i), w, h, out _, out _, out _)) others++;
+                }
+                N(sb, "fallen_in_frame", others);
+                if (markFallen >= 0 && vat.FallenAlive(markFallen))
+                {
+                    bool seen = MarkPixels(cam, vat.FallenPos(markFallen), w, h, out float mx, out float my, out float perM);
+                    N(sb, "mark_px", mx); N(sb, "mark_py", my); N(sb, "mark_in_frame", seen ? 1 : 0);
+                    N(sb, "mark_px_per_m", perM);
+                    N(sb, "mark_gag", vat.FallenGag(markFallen)); N(sb, "mark_roll", vat.FallenRollStep(markFallen));
+                }
             }
             // the warnings the evening of 2026-09-22 would have wanted shouted at it
             var warn = new List<string>();

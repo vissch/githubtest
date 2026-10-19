@@ -464,6 +464,8 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.AssetScaleAudit.Write(path)` | Editor/AssetScaleAudit.cs | (no summary: read the method) |
 | `TW.Editor.BuildWindows.Queue(development)` | Editor/BuildWindows.cs | Schedules a build for the next editor tick and returns at once, so a `unity command eval` does not hold the command server for the minutes a first ... |
 | `TW.Editor.BuildWindows.Build(development)` | Editor/BuildWindows.cs | (no summary: read the method) |
+| `TW.Editor.CaptureRig.MarkFallen(index)` | Editor/CaptureRig.cs | Point the stills at one fallen body: each sidecar then says where he is in the image it wrote, how big a metre is there, and which gag and roll step ... |
+| `TW.Editor.CaptureRig.MarkOff()` | Editor/CaptureRig.cs | No mark: the mark_* keys drop out of the sidecars again. |
 | `TW.Editor.CaptureRig.Shot(path, x, z, zoom, yaw, pitch, w, h, aimY)` | Editor/CaptureRig.cs | Queue one still. |
 | `TW.Editor.CaptureRig.Pending()` | Editor/CaptureRig.cs | How many shots are still to be taken; 0 means the set is finished and the camera is back. |
 | `TW.Editor.CaptureRig.ShotCrowd(path, zoom, yaw, pitch, w, h, cell)` | Editor/CaptureRig.cs | A still of the thickest knot of men, so a capture contains soldiers without anyone guessing at coordinates. |
@@ -486,6 +488,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
 | `TW.Editor.DeathLab.Scene(name, x, z)` | Editor/DeathLab.cs | A whole staging by name at (x, z): a row of men and what kills them. |
 | `TW.Editor.DeathLab.Frog(x, z, withRow)` | Editor/DeathLab.cs | A frog, optionally among a few standing riflemen (so CaptureRig's contrast_median has live men to read when wanted; a probe reading the frog alone ... |
+| `TW.Editor.DeathLab.FrogAlone(x, z)` | Editor/DeathLab.cs | One frog and nothing else: no row, no second body, no live man anywhere near him. |
 | `TW.Editor.DeathLab.Machine(archetype, x, z)` | Editor/DeathLab.cs | A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the picture draws it there (a machine killed the ... |
 | `TW.Editor.DeathLab.Parts(x, z)` | Editor/DeathLab.cs | One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z) along x, a metre apart and a metre up, in the ... |
 | `TW.Editor.DeathLab.DriveAt(slot, x, z)` | Editor/DeathLab.cs | A machine driven straight at a point (VehicleKinematicsSystem.DriveStraight), not along a flow field (the crush stills' Maw sat still on a field goal ... |

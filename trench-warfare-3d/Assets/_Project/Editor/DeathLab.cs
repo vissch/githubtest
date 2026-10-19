@@ -12,7 +12,8 @@
 //  - Parts(x, z): one of each of a man's parts dropped in a row, to look at them close;
 //  - Later(seconds, act): something done a moment from now (the "machine" scene's shell);
 //  - Machine(archetype, x, z): a machine held where it stands and shelled to death a moment later (its absurd death);
-//  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, frog, parts, and the
+//  - FrogAlone(x, z): one frog, no row and no other body, killed by a shell 10 m off: the frame holds him alone;
+//  - Scene(name, x, z): a whole staging by name (shot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, and the
 //    machines: machine (a Tusk), maw, salvo, skimmer, walker (a Pincer)), then film it with TankCapture.Follow/Shot or
 //    CaptureRig.
 // None of this is part of the game; it exists for the capture-and-critique loop.
@@ -94,6 +95,7 @@ namespace TW.Editor
                 case "fire": return Row(6, x, z, 0, 1.6f, 40f) + "; " + Fire(x + 4f, z, 6f);
                 case "beam": return Row(6, x, z, 1, 1.6f, 100f) + "; " + Call((int)OffMapAbilityId.Beam, x - 10f, z, AbilityArgs.Pack(90, 0, 0));   // it walks east from there along the row (x >= 14 or the call is off the map)
                 case "frog": return Frog(x, z);
+                case "frogalone": return FrogAlone(x, z);
                 case "parts": return Parts(x, z);
                 case "machine": return Machine(VehicleArchetype.Tusk, x, z);      // a turret, tracks
                 case "maw": return Machine(VehicleArchetype.Maw, x, z);           // a cupola, road wheels, tracks
@@ -108,7 +110,7 @@ namespace TW.Editor
                     int slot = int.Parse(tank.Substring(5));
                     return row + "; " + tank + "; " + Disarm(slot) + "; " + DriveAt(slot, x + 3f, z + 12f);   // unarmed, or it shells the row before it gets there
                 }
-                default: return "scenes: shot, mg, shell, heap, gas, fire, beam, crush, frog, parts, machine, maw, salvo, skimmer, walker";
+                default: return "scenes: shot, mg, shell, heap, gas, fire, beam, crush, frog, frogalone, parts, machine, maw, salvo, skimmer, walker";
             }
         }
 
@@ -127,6 +129,22 @@ namespace TW.Editor
             h.WriteWorlds(m => { m.World.Hp[slot] = 1f; m.World.Speed[slot] = 0f; });
             string row = withRow ? Row(4, x + 3f, z, 0, 1.6f) + "; " : "";
             return s + "; " + row + Shell(x + 8f, z, 12f, 600f);
+        }
+
+        /// <summary>One frog and nothing else: no row, no second body, no live man anywhere near him. He is killed by
+        /// a shell 10 m off (the burst's radius reaches him; its smoke, dust and crater stay out there, so a close
+        /// frame on him holds his body alone and nothing of the burst can be read as his legs moving). The take the
+        /// critic asked for (r1, 12/100: "no frog can be found at the frame centre ... the stills are not frog alone")
+        /// is shot on this, with CaptureRig.MarkFallen on him, so the sidecars read men_in_frame 0 and
+        /// fallen_in_frame 0. Returns his slot, as Frog does.</summary>
+        public static string FrogAlone(float x = 100f, float z = 120f)
+        {
+            var h = Host; if (h == null) return "no SimHost";
+            string s = TankCapture.Spawn(0, InfantryArchetype.Frog, x, z, 0f);
+            if (!s.StartsWith("slot ")) return s;
+            int slot = int.Parse(s.Substring(5));
+            h.WriteWorlds(m => { m.World.Hp[slot] = 1f; m.World.Speed[slot] = 0f; });
+            return s + "; " + Shell(x + 10f, z, 14f, 600f);
         }
 
         /// <summary>A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the
