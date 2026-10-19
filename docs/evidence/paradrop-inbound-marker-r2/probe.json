@@ -1,0 +1,12 @@
+{
+  "landing_dust_px_z240": 29,
+  "centre_off_px": 17.95,
+  "luma_delta": 0.02321,
+  "blob_w": 29,
+  "blob_h": 27,
+  "noise_px": 113,
+  "mark_px": [
+    799.99994,
+    440.7756
+  ]
+}
