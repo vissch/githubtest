@@ -19,7 +19,7 @@ namespace TW.Presentation.Tactical
         public const float GagDustReach = 120f;
 
         /// <summary>A gagged death (OnDeath hands it here instead of the plain AddFallen): the body, and what comes off it.</summary>
-        void GagDeath(in SimEvent e, in DeathRecord rec, Vector3 p, float yaw, byte team, byte archetype, int variant, Clip clip, Clip from, float fromPhase, float fade, Vector3 fly, int gib, float grime, int density, int chr)
+        void GagDeath(in SimEvent e, in DeathRecord rec, Vector3 p, float yaw, byte team, byte archetype, int variant, Clip clip, Clip from, float fromPhase, float fade, Vector3 fly, int gib, float grime, int density, int chr, out FallenFlight.Plan path)
         {
             var gag = rec.Gag;
             // torn in two by the shell (CombatFx.OwnGibs): both his halves flew, so no corpse; his path is still planned,
@@ -29,7 +29,7 @@ namespace TW.Presentation.Tactical
             bool pieces = debris != null && debris.Ready, gore = pieces && DebrisRenderer.Gore > 0f;
             // a headshot may take his head: the shader cuts limb 1 (the head and the helmet) from the body, GORE willing
             if ((gag.Flags & GagFlags.HeadOff) != 0 && DebrisRenderer.Gore >= 0.5f && gag.Dice < 0.6f) gib |= 1 << 1;
-            units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, variant, clip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr, gag, out var path);
+            units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, variant, clip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr, gag, out path);
             if (!pieces) return;
             var rng = new DebrisRng(rec.Pos, 0x6A6u + gag.Seed);
             Vector3 head = p + Vector3.up * (1.62f * scale);
@@ -71,12 +71,14 @@ namespace TW.Presentation.Tactical
                     break;
                 }
             }
-            // dust where each arc of a bouncing body comes down, timed to the landing
+            // dust where each arc of a bouncing body comes down, timed to the landing; a landing in water gets the splash
+            // instead (CombatFx.Water), never both
             bool near = CameraShake.DistanceToLook(p) < GagDustReach;
             if (books != null && books.Ready && path.Arcs > 0 && near)
                 for (int k = 0; k < path.Arcs; k++)
                 {
                     var a = k == 0 ? path.A0 : k == 1 ? path.A1 : path.A2;
+                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(a.To.x, a.To.z)) continue;
                     books.Add(FlipbookFx.Book.Puff, a.To + Vector3.up * 0.15f, (k == 0 ? 1.6f : 1.1f) * scale, 0.8f, FlipbookFx.Kind.Upright,
                         velocity: Vector3.up * 0.6f, grow: 0.8f, alpha: k == 0 ? 0.7f : 0.5f, pop: 0.2f, delay: path.Delay + a.End);
                 }

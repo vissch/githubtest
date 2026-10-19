@@ -52,6 +52,7 @@ namespace TW.Presentation.Tactical
             // burns too (the event's b alone called him a plain shot death)
             bool burning = controlled ? rec.Cause == (byte)DeathKind.Burning || rec.Cause == (byte)DeathKind.Beam : e.B == (int)DeathCause.Burning || e.B == (int)DeathCause.Beam;
             // he goes down as the figure he was (VATRenderer plays the death and holds it); without it, a still box figure
+            FallenFlight.Plan path = default; bool planned = false;
             if (units != null && units.Ready)
             {
                 // the record: the clip the controller chose for his stance, gait, cause and the side it came from, how far a
@@ -79,7 +80,7 @@ namespace TW.Presentation.Tactical
                     flames.Spill(p, 1.2f, 6f);
                     AddSmoulder(p, e.Pos);
                 }
-                if (controlled && rec.Gag.Any) GagDeath(e, rec, p, yaw, team, archetype, death, deathClip, from, fromPhase, fade, fly, gib, grime, density, chr);   // CombatFx.Gags
+                if (controlled && rec.Gag.Any) { GagDeath(e, rec, p, yaw, team, archetype, death, deathClip, from, fromPhase, fade, fly, gib, grime, density, chr, out path); planned = true; }   // CombatFx.Gags
                 else if ((gib & GibPlan.TornBit) == 0) units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr);   // torn in two: both halves flew
             }
             else
@@ -88,6 +89,10 @@ namespace TW.Presentation.Tactical
                 if (burning) AddSmoulder(p, e.Pos);
                 bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
             }
+            var landing = DeathLanding(path, planned, p, out float waterDelay);
+            float groundY = RenderGround.Sample(Host.Local.Map, landing.x, landing.z);
+            bool hook = SceneHooks.IsWater != null && SceneHooks.IsWater(landing.x, landing.z);
+            if (Wet(groundY, Host.Local.Map.WaterLevel, hook)) WaterDeath(landing, waterDelay, planned && path.Arcs > 0);
             // his helmet comes off as he goes down and rolls a step away
             if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on
                 chunks.Add(new Chunk { Pos = p + Vector3.up * 1.2f, Vel = Quaternion.Euler(0f, fellYaw + Mathf.Lerp(-70f, 70f, Hash01(e.Pos.x, e.Pos.z, 1)), 0f) * Vector3.forward * Mathf.Lerp(1.2f, 2.4f, Hash01(e.Pos.x, e.Pos.z, 2)) + Vector3.up * 1.6f,
@@ -115,6 +120,7 @@ namespace TW.Presentation.Tactical
         {
             DrawGagMarks(now);   // the gags' blood and scorch (CombatFx.Gags)
             DueGibs(now);   // a heap's parts, each with its man (CombatFx.Bodies)
+            TickWaterSplashes(now);   // a splash where a death first meets the water (CombatFx.Water)
             if (smoulders.Count == 0) return;
             bool draw = books != null && books.Ready;
             for (int i = smoulders.Count - 1; i >= 0; i--)
