@@ -121,6 +121,14 @@ namespace TW.Tests
                     $"{u.Name} ({u.Archetype}) names the portrait \"{UnitLook.PortraitName(u.Archetype)}\", which the skin does not bake");
         }
 
+        /// <summary>His own look, 2026-10-19: he wore the Assault's picture while he wore the Assault's model.</summary>
+        [Test]
+        public void TheFlamerNamesHisOwnPortrait()
+        {
+            Assert.AreEqual("Flamer", UnitLook.PortraitName(InfantryArchetype.Flamethrower));
+            Assert.GreaterOrEqual(Array.IndexOf(TW.UI.SkinSpec.PortraitNames, "Flamer"), 0, "the skin bakes it");
+        }
+
         [Test]
         public void PlacingPutsThemAtTheRallyInRanksWithTheTablesNumbers()
         {
