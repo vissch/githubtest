@@ -127,6 +127,8 @@ namespace TW.Presentation.Tactical
             /// <summary>A hopper's place in its hop (0 on the ground .. 1 landing), the nose tilt it gives, and its
             /// gatlings' spin (0..1, wound up by each round) and angle.</summary>
             public float HopPhase, HopTilt, Spin, SpinAngle;
+            /// <summary>A Hopper's place in its hop arc over a trench or wire (0 cruising; TankRenderer.HopArc.cs).</summary>
+            public float HopArcPhase;
             public int BarrelTurn, BarrelFrame;   // which barrel cluster fires, and the frame it last changed
             /// <summary>A hopper's height as a share of its sculpt's (1 at rest): it flattens as it lands and gathers, stretches
             /// at the top of a hop, and breathes when it sits. Its width and length give way so its bulk stays.</summary>
@@ -637,6 +639,7 @@ namespace TW.Presentation.Tactical
             v.Heave.Step(heave + Mathf.Sin(now * st.RumbleRate + s) * vib, dt, st.HeaveOmega);
             StepFootfall(v, dt);
             if (v.Archetype == VehicleArchetype.Bullfrog) HopPose(v, dt);
+            else if (v.Archetype == VehicleArchetype.Hopper) HopArcPose(v, dt);
             v.Throttle = Mathf.MoveTowards(v.Throttle, v.Stalled ? 0f : Mathf.Clamp01(Mathf.Abs(v.Speed) / 1.6f + Mathf.Abs(v.YawRate) * 0.8f + st.Rev * Mathf.Max(0f, v.Accel) + (v.Bogged || v.Ditched ? 0.9f : 0f)), dt * 1.5f);
 
             // tracks and wheels: each at the hull's speed plus or minus the turn; stuck, they spin
