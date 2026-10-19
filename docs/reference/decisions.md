@@ -302,6 +302,23 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The Death Battalion's cloth cannot read 0.08 luma darker at the lineup's light (2026-10-19, lane
+  `lane/show/death-battalion-look-r2`):** the r2 bars ask that his torso median sit at least 0.08 luma under the
+  rifleman's beside him, in and out of fire light. It cannot be reached by darkening him. Measured ceiling, from a
+  throwaway capture with the kit multiply at `(1, 0, 0)` — green and blue killed outright, the strongest darkening
+  the shader can do — the torso median moved **0.009**, and with the shipped `(0.42, 0.44, 0.48)` it moves 0.006
+  (`docs/evidence/death-battalion-look-r2/probe.json`, the new `torso_luma_abs` key: every man, in every seed, in
+  both frames, sits at 0.216-0.230). At this night light and this camera the men are 53 px tall and their pixels
+  are almost all haze, so the cloth is about a per cent of what is measured. The head bar is met on the same
+  stills (head IoU 0.6911 in all three seeds against a bar of 0.80); the two silhouette-diff bars are not
+  (db_diff 0.087 against a rifleman-vs-rifleman noise of 0.10 in the same frame).
+  Options: (a) shoot the lineup under more light — a day or flare-lit frame — and re-shoot the `before_*` set in
+  the same light, so both sides are measured where cloth is more than haze; (b) score the fire frame only, which
+  is brighter but moved the torso by 0.006 here too; (c) drop the luma bar and prove the man by silhouette alone,
+  leaning on a bigger greatcoat rather than a darker one.
+  **Default taken, nobody to ask:** (a). This leg lands the helmet, the bake-relative bands and the probe fix, and
+  stops before re-shooting under a different light, because that re-shoots the agreed `before_*` baseline too.
+
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
