@@ -61,7 +61,6 @@ namespace TW.Presentation
                 // the Death Battalion is drawn as its own man (VATRenderer's DeathBn figure: greatcoat, darker cloth),
                 // but the card PICTURE is still the rifleman's until one is rendered off it
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
-                case InfantryArchetype.Flamethrower: return "Assault";
                 default: return null;
             }
         }

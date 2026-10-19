@@ -142,6 +142,7 @@ namespace TW.UI
             "Brute", "Croaker", "Hopper", "Mercy", "Bullfrog",   // the playground's (2026-09-28, the Bullfrog 2026-10-01), rendered off their battle models
             "AtRifle",   // its own card picture, drawn: a long rifle on its bipod
             "Sentry",                                           // his own picture, not the MG man's (2026-10-19)
+            "Flamer",                                           // his own picture, not the Assault's (2026-10-19)
             "HeBarrage", "ChlorineGas", "ParaDrop",
             "Sapper",   // his own look (2026-10-19): no longer the Engineer's picture
         };

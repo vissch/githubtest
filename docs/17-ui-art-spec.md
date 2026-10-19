@@ -136,6 +136,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Bullfrog.png`
 - `AtRifle.png`
 - `Sentry.png`
+- `Flamer.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
