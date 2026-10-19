@@ -149,7 +149,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   Contracts `Sim/Terrain/MapStructs.cs`, `Sim/Terrain/NavLayer.cs`; `Sim/Terrain/GreyboxMapGenerator.cs` is the
   flat corridor the determinism tests use.
 - **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests; NarrowsTests (the Narrows, the
-  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds).
+  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds);
+  PropIndexTests (a barrage in a forest: the cell index cuts the distance tests and harms exactly the same props in
+  the same order).
 - **Trap:** a feature tested only on the playtest map is untested. BattlefieldTests runs the generated map.
 
 ### Movement, flow fields, garrison, trench orders
