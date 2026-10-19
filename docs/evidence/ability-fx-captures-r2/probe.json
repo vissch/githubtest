@@ -1,0 +1,20 @@
+{
+ "gas_o240_effect_area_frac": 0.0274,
+ "gas_t1_green_low_share": 0.8929,
+ "gas_t1_height_frac": -0.0,
+ "pose_error_max": 0.0,
+ "rows": {
+  "gas_o240_green_area_frac": 0.0009,
+  "gas_t1_columns": 20,
+  "gas_t1_dist_m": 87.12,
+  "gas_t1_frame_height_m": 38.63,
+  "gas_t1_height_m": -0.0,
+  "gas_t1_mask_px": 28,
+  "pose_error_m": {
+   "gas-o240": 0.0,
+   "gas-o240-plate": 0.0,
+   "gas-t1": 0.0,
+   "gas-t1-plate": 0.0
+  }
+ }
+}
