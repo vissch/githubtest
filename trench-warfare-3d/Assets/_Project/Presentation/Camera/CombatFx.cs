@@ -14,6 +14,7 @@ using UnityEngine;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Presentation;
+using TW.Presentation.Tactical;
 
 namespace TW.Presentation.Tactical
 {
@@ -486,6 +487,7 @@ namespace TW.Presentation.Tactical
 
         void OnDestroy()
         {
+            WaterEntry.Clear();
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.Sparks = null;
             if (SceneHooks.CookOff == (System.Action<Vector3, float>)CookOff) SceneHooks.CookOff = null;
@@ -1092,6 +1094,7 @@ namespace TW.Presentation.Tactical
         void Update()
         {
             using var perf = TW.Sim.PerfMarkers.FxUpdate.Auto();
+            WaterEntry.Pump(Time.deltaTime);
             if (Host == null || Host.Local == null) return;
             if (!subscribed) { Host.Events.OnEvent += OnSimEvent; subscribed = true; }
             var size = Host.Local.Map.SizeMeters;
