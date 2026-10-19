@@ -630,9 +630,20 @@ namespace TW.Presentation.Tactical
                         // the core hiding inside it. Widening the envelope's root and easing off its head is the only
                         // thing that moves the ratio: it had gone 4.36 -> 4.68 -> 5.26 against a 2.0-3.0 target while
                         // three separate attempts aimed at the core.
-                        float thick = Mathf.Lerp(3.5f, 3.7f, Mathf.Min(1f, u * 1.05f)) * breath * (head ? 0.85f : 1f);
+                        // The mouth is now the WIDEST part of the envelope, not the narrowest (owner, 2026-10-19).
+                        // A thin pointed nose at the nozzle is a dim sliver however hot the book is, and it was the
+                        // one part of the near third that still measured cold; a pressurised jet is thickest where the
+                        // fuel leaves the gun anyway. The head/mouth ratio this trades against was 4.4-5.3 against a
+                        // 2.0-3.0 target, so this moves it the right way as well.
+                        float thick = Mathf.Lerp(5.0f, 3.7f, Mathf.Min(1f, u * 1.05f)) * breath * (head ? 0.85f : 1f);
                         float ch = thick / Mathf.Max(0.05f, hi - lo);       // the drawing fills only part of its cell
-                        Shapely(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, ref cw, ref ch);
+                        // The ENVELOPE's near links are hot too (owner, 2026-10-19). The core alone could not carry
+                        // "white-yellow over the first third": the envelope is what draws the silhouette at the
+                        // nozzle, so with the core hot inside an orange envelope the mouth still measured no brighter
+                        // than the tip. The first two links are therefore the same hot book as the core, and the
+                        // stream hands over to the orange drawing downstream.
+                        var eBook = head ? FlipbookFx.Book.Head : u < 0.34f ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Jet;
+                        Shapely(eBook, ref cw, ref ch);
                         // the arc: fuel leaves flat and the far end rises as it slows
                         // A SAG, not a ramp. Rising steadily over its whole run is what helium does; thickened petrol
                         // leaves the nozzle flat and fast, loses the argument with gravity through the middle of its
@@ -679,7 +690,7 @@ namespace TW.Presentation.Tactical
                         // burning fuel. FireHead is an explosion sheet, measured at 0.91 solid through its own
                         // centroid where the stream books run 0.65 to 0.72: a closed bolus, which is what the front
                         // of a gout actually is.
-                        books.Add(head ? FlipbookFx.Book.Head : FlipbookFx.Book.Jet, at, cw, RootEvery * 1.15f,
+                        books.Add(eBook, at, cw, RootEvery * 1.15f,
                                   flip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   // mirrored AND turned through half a circle flips a card about the aim; Mirror alone
                                   // would put the root of a rooted book at its FAR end
@@ -687,24 +698,18 @@ namespace TW.Presentation.Tactical
                                   // The HEAD is fully opaque, and the thinning lives behind it. Carrying opacity down the run still left the
                                   // head the most transparent part of the stream, which is backwards: the head is where unburnt fuel is
                                   // thickest, and terrain reading through it makes the whole jet a coloured gel rather than a body.
-                                                                    // Glow ramped along the run. The nozzle cel is the one authored into the hot band,
-                                  // so raising the ceiling made the stream brightest exactly where the fuel is still
-                                  // cold and has not caught - measured, mouth-to-head luminance went from 1.09 to
-                                  // 1.41 the wrong way. A pressurised stream is dim at the mouth and peaks a third of
-                                  // the way out, where combustion finishes.
-                                  height: ch, alpha: (head ? 1f : 0.88f - 0.06f * u) * valve * drawnWeight,
-                                  // This ramp was meant to make the stream dim at the mouth and brightest a third of the way out, and measured
-                                  // on the render it does the opposite: mean luminance peaks in bin 3 near the nozzle at 160
-                                  // and falls to 79-104 at the head, with the hot-core median sitting at 36% along. The
-                                  // reason is the u * 2.2: it saturates at u = 0.45, so the whole downstream half is served
-                                  // one flat value while the cards out there are thinner and more transparent than the ones
-                                  // at the mouth. Ramping the whole length instead of the first half lets the head win.
-                                  // Floor pulled DOWN rather than ceiling pushed up. Widening the envelope's root (above) stacks more
-                                  // layers of card over the same pixels, so it quietly added at the mouth the brightness this
-                                  // ramp exists to move downstream: measured, the mouth went 85 -> 133 mean luminance while
-                                  // the head stayed at 92, so the two changes were cancelling. The head must out-burn the
-                                  // mouth - that is where the fuel has finished atomising.
-                                  glow: glow * Mathf.Lerp(0.38f, 1.60f, Mathf.Min(1f, u * 1.10f)),
+                                                                    // Glow and alpha both ramp DOWN along the run now (owner, 2026-10-19). The nozzle cel
+                                  // is the one authored into the hot band, and that is now what is wanted: the mouth
+                                  // is the opaque white-yellow part and the stream cools and thins toward the tip.
+                                  height: ch, alpha: (head ? 1f : 0.95f - 0.12f * u) * valve * drawnWeight,
+                                  // REVERSED by the owner on 2026-10-19: "an opaque white-yellow core over the first
+                                  // third, orange towards the tip, dark smoke past the tip". Every round before this
+                                  // argued the opposite - that the head must out-burn the mouth, because that is where
+                                  // the fuel has finished atomising - and the ramp was tuned up and down against that
+                                  // reading. It is no longer the reading being drawn: the brightness now starts hot at
+                                  // the nozzle and falls away downrange, where the stream hands over to the smoke.
+                                  // Do not restore the old 0.38 -> 1.60 ramp without the owner saying so.
+                                  glow: glow * Mathf.Lerp(2.50f, 0.16f, Mathf.Min(1f, u * 1.10f)),
                                   velocity: j.ManVel,
                                   // Reversed, and this was a real bug rather than a matter of degree. Staggering by i
                                   // put the TIP on frame-11.6, clamped to zero - the very first cel of the book, where
@@ -754,7 +759,9 @@ namespace TW.Presentation.Tactical
                                   RootEvery * 1.15f,
                                   lmir ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: roll + wob * 0.9f, height: lh,
-                                  alpha: valve * drawnWeight, glow: glow * 1.35f,
+                                  // dimmer than they were (1.35): these are the scraps coming adrift PAST the head,
+                                  // and the owner's 2026-10-19 reversal puts the heat at the mouth, not out here
+                                  alpha: valve * drawnWeight, glow: glow * 0.26f,
                                   velocity: j.ManVel + Vector3.up * 0.7f,
                                   startFrame: 8f + Mathf.Repeat(now * 12f + i * 3f, 10f));
                     }
@@ -782,10 +789,17 @@ namespace TW.Presentation.Tactical
                         // ENVELOPE's floor and not this one left the near links pinned flat against the aspect clamp,
                         // and a card pinned at the clamp has a boundary measurably straighter than any brush in the
                         // build: 1.8 px RMS over 120, against 5-22 px for every hand-drawn contour beside it.
-                        float cThick = Mathf.Lerp(2.60f, 3.40f, u) * breath;   // 1.70 still left a 41 px nozzle bin against a 306 px
+                        // The near third is the owner's opaque white-yellow core (2026-10-19), and it is drawn from
+                        // Book.JetCore - the same FireCore glyph with its body cut moved into the hot band. Its cards
+                        // are a quarter thicker than the rest of the chain so the nozzle end is covered by overlapping
+                        // opaque cards rather than by one curl with a hole through it: nothing is to show through near
+                        // the mouth. Same nine links, so the only cost is one more instanced draw while a jet is up.
+                        bool hot = u < 0.34f;
+                        var cBook = hot ? FlipbookFx.Book.JetCore : FlipbookFx.Book.Core;
+                        float cThick = Mathf.Lerp(2.60f, 3.40f, u) * breath * (hot ? 1.8f : 1f);   // 1.70 still left a 41 px nozzle bin against a 306 px
                                                                               // head - measured 4.4:1, a tadpole. The mouth of a
                                                                               // pressurised jet is the one place the fuel is dense.
-                        FlipbookFx.Geometry(FlipbookFx.Book.Core, out float cLo, out float cHi, out float cFill);
+                        FlipbookFx.Geometry(cBook, out float cLo, out float cHi, out float cFill);
                         // The envelope stopped stamping when it got a second drawing, and the repeat simply moved into
                         // the core: its signature is a cream crescent hook, it is the brightest value in the picture,
                         // and three of them at one handedness and one size evenly spaced is a thing the eye locks onto
@@ -794,16 +808,32 @@ namespace TW.Presentation.Tactical
                         bool cFlip = (i & 1) == 0;
                         float cVary = 1f + (Mathf.PerlinNoise(j.Seed + i * 7.1f, 3.5f) - 0.5f) * 0.30f;
                         float cW = cSeg / cFill * cVary, cH = cThick * cVary / Mathf.Max(0.05f, cHi - cLo);
-                        Shapely(FlipbookFx.Book.Core, ref cW, ref cH);
-                        books.Add(FlipbookFx.Book.Core,
+                        Shapely(cBook, ref cW, ref cH);
+                        books.Add(cBook,
                                   mouth + along * (cStep * (i + 0.5f)) + Arc(cam, u, len, along),
                                   cW, RootEvery * 1.15f,
                                   cFlip ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: (cFlip ? roll + Mathf.PI : roll)
                                       + (Mathf.PerlinNoise(j.Seed + i * 3.7f, 2.5f) - 0.5f) * 0.40f,
                                   height: cH,
-                                  alpha: valve * drawnWeight, glow: glow, velocity: j.ManVel,
+                                  // the hot third burns harder than the rest of the chain: the owner's white-yellow
+                                  // core has to be the brightest thing in the picture, not merely a different hue
+                                  alpha: valve * drawnWeight, glow: glow * (hot ? 2.3f : 1f), velocity: j.ManVel,
                                   startFrame: Mathf.Max(3f, 16f - (CoreLinks - 1 - i) * 2.2f));
+                        // Two extra hot cards, laid half a step along from the first and third links and turned the
+                        // other way, so the near third is covered TWICE over. One chain of curls still left the
+                        // measured mouth no brighter than the tip, because a curl is mostly its own hole; two
+                        // staggered chains fill each other's. Two cards, and only while a jet is actually on screen.
+                        if (hot && (i & 1) == 0)
+                            books.Add(cBook,
+                                      mouth + along * (cStep * (i + 1.0f)) + Arc(cam, u, len, along),
+                                      cW * 0.88f, RootEvery * 1.15f,
+                                      cFlip ? FlipbookFx.Kind.None : FlipbookFx.Kind.Mirror,
+                                      roll: (cFlip ? roll : roll + Mathf.PI)
+                                          + (Mathf.PerlinNoise(j.Seed + i * 5.1f, 4.5f) - 0.5f) * 0.40f,
+                                      height: cH * 0.92f,
+                                      alpha: valve * drawnWeight, glow: glow * 2.2f, velocity: j.ManVel,
+                                      startFrame: Mathf.Max(3f, 15f - (CoreLinks - 1 - i) * 2.2f));
                     }
 
                     // THE TERMINUS. Where the stream runs out - whether it met anything or not - the fuel stops being
@@ -830,7 +860,9 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Bloom, new Vector3(far.x, bY, far.z) + toEye * 0.9f,
                                   Mathf.Lerp(1.9f, 2.8f, valve), RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
-                                  height: bH, alpha: valve * drawnWeight, glow: glow,
+                                  // dimmer since 2026-10-19: the heat now lives at the mouth, and what the stream
+                                  // lands in is meant to be handing over to the smoke past the tip
+                                  height: bH, alpha: valve * drawnWeight, glow: glow * 0.18f,
                                   startFrame: 1f + Mathf.Repeat(now * 12f, 7f));
                     }
 
@@ -850,7 +882,7 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Fan, sunk, reach * 0.42f, RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   roll: FlipbookFx.ScreenRoll(cam, peel),
-                                  height: reach * 0.42f, alpha: Coal * 0.8f * valve * drawnWeight, glow: glow,
+                                  height: reach * 0.42f, alpha: Coal * 0.8f * valve * drawnWeight, glow: glow * 0.32f,
                                   startFrame: 2f + Mathf.Repeat(now * 12f, 12f));
                         // and a smaller one, mirrored, lower, and a few frames out of phase. Two copies of one drawing at
                         // the same size standing side by side is a repeat, and a repeat reads as a sticker; at three
@@ -859,7 +891,7 @@ namespace TW.Presentation.Tactical
                                   reach * 0.26f, RootEvery * 1.15f,
                                   (Mathf.FloorToInt(now * 12f) & 1) == 0 ? FlipbookFx.Kind.None : FlipbookFx.Kind.Mirror,
                                   roll: FlipbookFx.ScreenRoll(cam, (Vector3.up * 0.7f - j.Aim * 1.1f).normalized),
-                                  height: reach * 0.26f, alpha: Coal * 0.5f * valve * drawnWeight, glow: glow,
+                                  height: reach * 0.26f, alpha: Coal * 0.5f * valve * drawnWeight, glow: glow * 0.32f,
                                   startFrame: 2f + Mathf.Repeat(now * 12f + 5f, 12f));
                     }
                 }
@@ -886,7 +918,8 @@ namespace TW.Presentation.Tactical
                         books.Add(FlipbookFx.Book.Fire, at, w, RootEvery * 1.15f,
                                   (i & 1) == 0 ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                                   height: w * (0.72f + 0.20f * along01),
-                                  alpha: a, glow: glow,
+                                  // cooling downstream, with the rest of the 2026-10-19 reversal
+                                  alpha: a, glow: glow * Mathf.Lerp(1.0f, 0.22f, along01),
                                   startFrame: 4f + Mathf.Repeat(now * 12f + i * 2.7f, 9f));
                     }
                 }
@@ -909,7 +942,7 @@ namespace TW.Presentation.Tactical
                           0.45f + Random.value * 0.3f,
                           Random.value < 0.5f ? FlipbookFx.Kind.Mirror : FlipbookFx.Kind.None,
                           velocity: vel, grow: 1.15f + Random.value * 0.45f, roll: Lean() * 2f,
-                          alpha: Coal * 0.7f, glow: glow, pop: 0.32f, startFrame: Body());
+                          alpha: Coal * 0.7f, glow: glow * 0.55f, pop: 0.32f, startFrame: Body());
             }
 
             // where the stream is putting its fire down, and the smoke and light that come with it
@@ -922,15 +955,24 @@ namespace TW.Presentation.Tactical
                 // crosses reads as a decal pasted on the sky plane. They alternate rather than both being laid every
                 // beat because NightLights pools its lights and drops the dimmest - two competing every beat would
                 // have starved the pools and the impact, which need their light more.
-                float station = (Mathf.FloorToInt(now / LightEvery) & 1) == 0 ? 0.55f : 0.88f;   // the fire is at the far end, so the light is too
+                // Moved back up the stream on 2026-10-19 with the owner's reversal of the brightness ramp: the
+                // hottest part of the jet is now the first third, so that is where the ground under it is lit from.
+                // At 0.55/0.88 the mud at the impact was lit as hard as the mud under the mouth, which both flattened
+                // the stream's own falloff and lit the tip the stream is meant to be handing over to smoke.
+                float station = (Mathf.FloorToInt(now / LightEvery) & 1) == 0 ? 0.10f : 0.18f;
                 Vector3 mid = mouth + j.Aim * (Reach * station * valve);
                 float flick = 0.82f + Mathf.PerlinNoise(j.Seed + 11f, now * 7f) * 0.5f;
-                SceneHooks.FireLight?.Invoke(mid + Vector3.up * 0.7f, Firelight, 9f * flick * valve, 6.5f, LightEvery * 2.3f, 0f);
+                // tighter and harder with the 2026-10-19 reversal: a wide soft 6.5 m pool smeared dim orange over the
+                // mud either side of the stream, which is a haze, not a fire lighting what it passes over.
+                SceneHooks.FireLight?.Invoke(mid + Vector3.up * 0.7f, Firelight, 34f * flick * valve, 4.8f, LightEvery * 2.3f, 0f);
                 // the top of the jet turns over into smoke, the way burning fuel always does
                 // smaller than the fire it comes off and late, the same rule the cook-off's smoke got: at the impact
                 // it was the biggest shape in the frame, so a stream hitting a bank read as "small ember, large smoke"
-                books.Add(FlipbookFx.Book.Smoke, far + Vector3.up * (0.6f + Random.value * 0.5f), 3.2f + Random.value * 1.5f, 1.9f + Random.value,
-                          velocity: j.Aim * 1.6f + Vector3.up * (1.2f + Random.value), grow: 1.2f, alpha: 0.15f, pop: 0.4f, delay: 0.35f, startFrame: 3.2f + Random.value * 1.2f);
+                // Past the tip, and in soot rather than in more orange (owner, 2026-10-19: "dark smoke past the
+                // tip"). MineSmoke is the wreck's smoke drawing tinted near-black, so the stream ends in something
+                // that is plainly not fire instead of fading into another warm cloud. Same one card.
+                books.Add(FlipbookFx.Book.MineSmoke, far + j.Aim * 3.4f + Vector3.up * (0.9f + Random.value * 0.5f), 3.8f + Random.value * 1.5f, 1.9f + Random.value,
+                          velocity: j.Aim * 1.6f + Vector3.up * (1.2f + Random.value), grow: 1.2f, alpha: 0.45f, pop: 0.4f, delay: 0.35f, startFrame: 3.2f + Random.value * 1.2f);
                 if (Random.value < 0.6f) SceneHooks.Sparks?.Invoke(far + Vector3.up * 0.9f, 4);
             }
             // and what it sweeps over catches. Sampled along the stream rather than at its end, because a jet held on
