@@ -564,7 +564,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   weight) plus a `Splash` card at the water point, nothing on dry ground; only a shell still rings wider than a man,
   harsh critic, idea-things-that-fall-in-the-water-splash. A delayed throw's ring waits out the fall with its card:
   `WaterEntry.Pump`, called each frame by `CombatFx.Update`, opens it within 0.05 s of the landing instead of a
-  whole flight early),
+  whole flight early. The card sits on the water's SURFACE, not on the riverbed the man dies on: `WaterEntry.SurfaceY`
+  takes `SceneHooks.WaterY` (the height of the water's surface at x, z, the bed where there is none; `WaterRings`
+  publishes it, `GreyboxTerrainView` fills it as `max(WaterLevel, ground)` so a puddle above the table keeps its own
+  height) and the `Splash.Y` it returns is what the `Anchored` card's foot is drawn at; no hook wired up leaves the
+  point's own y),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
@@ -591,7 +595,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan,
-  WaterEntryRingWaitsForLanding: `WaterEntry.cs`),
+  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface: `WaterEntry.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),
   ImpactDustFeetTests (a Hit's feet dust tracks the chest he was actually drawn with -- a fire-step, not the bare
@@ -1106,6 +1110,7 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 |---|---|---|
 | `CloseUp` | CaptureRig, PerfBench, TacticalCamera | Atmosphere, BattlefieldProps, CombatFx, CombatFx.Bursts, CombatFx.Chunks, CombatFx.Close, CombatFx.Grenades, CombatFx.Ground, NightLights, PropDestruction, SmallLife |
 | `IsWater` | WaterRings | CombatFx, CombatFx.Ambient, CombatFx.Chunks, CombatFx.Ground, CombatFx.Mines, NightLights, TankRenderer, WaterEntry |
+| `WaterY` | WaterRings | WaterEntry |
 | `AddRing` | WaterRings | CombatFx, CombatFx.Chunks, LandingCraftView, TankRenderer, WaterEntry |
 | `Sparks` | CombatFx | CombatFx.Abilities, Flamethrower, NightLights, TankRenderer, TankRenderer.Fizzers |
 | `AimPreview` | TestPanel | CombatFx.Abilities |
