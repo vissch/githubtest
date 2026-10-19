@@ -58,7 +58,7 @@ namespace TW.Editor
                     var decision = Decide(file, recorded, side.generator, force, out var entry);
                     if (decision == Decision.Artist) { if (entry != null) { side.files.Remove(entry); promoted++; } continue; }
                     if (decision == Decision.Keep) { kept++; continue; }
-                    var px = PaintPortraitPlaceholder(name);
+                    var px = name == "Sapper" ? PaintSapperPortrait() : PaintPortraitPlaceholder(name);
                     WritePng(SkinSpec.PortraitPath(name), px, SkinSpec.PortraitSize, SkinSpec.PortraitSize);
                     Record(side, recorded, file, SkinSpec.PortraitPath(name));
                     written++;
@@ -501,6 +501,35 @@ namespace TW.Editor
             // the name, as a bar of dots so each portrait differs (the verifier reads coverage, not text)
             int n = Mathf.Clamp(name.Length, 1, 12);
             for (int i = 0; i < n; i++) c.Rivet(cx - (n - 1) * 7f + i * 14f, cy + s * 0.34f, 3f, Plate500);
+            return c.Px;
+        }
+
+        /// <summary>The Sapper's own shoulders-up bust, in the same disc and ring as the placeholder: a helmet dome,
+        /// a satchel strap across the chest and two charge blocks at the belt, pale canvas and waxed charge body
+        /// (mirrors sapperPackMat / sapperChargeMat in CombatFx.SapperKit.cs) so he does not read as the same "?"
+        /// mark as every other undrawn unit.</summary>
+        public static Color32[] PaintSapperPortrait()
+        {
+            int s = SkinSpec.PortraitSize;
+            var c = new Canvas(s, s);
+            float cx = s * 0.5f - 0.5f, cy = s * 0.5f - 0.5f, u = s / 64f;
+            var pack = new Color32(0xA8, 0x99, 0x70, 255);    // pale canvas, mirrors sapperPackMat
+            var charge = new Color32(0x6E, 0x62, 0x45, 255);  // waxed charge body, mirrors sapperChargeMat
+            c.Glyph(Sdf.Circle(cx, cy, s * 0.42f), new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
+            c.Glyph(Sdf.Ring(cx, cy, s * 0.42f - 4f, 2f), Plate500, null);
+            // shoulders-up bust: head, helmet dome and brim below the ring's horizon
+            float headCy = cy - 12f * u;
+            c.Glyph(Sdf.Circle(cx, headCy + 3f * u, 9f * u), Plate400, EdgeDark);
+            c.Glyph(Sdf.Sub(Sdf.Circle(cx, headCy, 11f * u), Sdf.Box(cx, headCy + 11f * u, 16f * u, 6f * u)), Plate500, EdgeDark);
+            c.Glyph(Sdf.Capsule(cx - 15f * u, headCy + 3f * u, cx + 15f * u, headCy + 3f * u, 2.6f * u), Plate500, EdgeDark);
+            float shoulderCy = cy + 10f * u;
+            c.Glyph(Sdf.Box(cx, shoulderCy + 10f * u, 22f * u, 16f * u), Plate700, EdgeDark);
+            // satchel strap across the chest, from the left shoulder to the right hip
+            c.Glyph(Sdf.Capsule(cx - 16f * u, shoulderCy - 2f * u, cx + 12f * u, shoulderCy + 18f * u, 2.5f * u), pack, EdgeDark);
+            // two charge blocks at the belt, pale and dark so the three pieces do not fuse
+            c.Glyph(Sdf.Box(cx - 9f * u, shoulderCy + 16f * u, 5f * u, 4f * u), charge, EdgeDark);
+            c.Glyph(Sdf.Box(cx + 9f * u, shoulderCy + 16f * u, 5f * u, 4f * u), charge, EdgeDark);
+            c.Glyph(Sdf.Box(cx, shoulderCy + 15f * u, 6f * u, 5f * u), pack, EdgeDark);
             return c.Px;
         }
 
