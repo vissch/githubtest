@@ -42,7 +42,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (platform-independent maths), `Sim/Core/UnitPose.cs` (the pose stream to rendering), `Sim/Core/PerfMarkers.cs`
   (profiler markers), `Sim/Match/TerrainHashSystem.cs` (puts the ground in the hash). The cross-platform gate:
   `Editor/DeterminismPlatformReport.cs`.
-- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), SimMathTests (Sin/Cos of a huge or non-finite angle stay finite and in range; Floor never goes through an out-of-range int cast), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
+- **Tests:** SimHashTests, SlotHashBoundTests (a slot above HighWater is not hashed), BurstOptionsTests, DeterminismReplayTests, ReplayGuardTests, CommandValidationTests, HashIntervalTests, DeathEventContractTests
   (what `Death.b`, `dir` and `scalar` mean), PerfMarkersTests (every registered system's marker name lands in
   `PerfMarkers.Names`).
 - **Trap:** `Hash()` is an ordered chain. Append, never insert. A new array must be hashed and must bump
@@ -59,8 +59,6 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   LockstepHashLabelTests (which tick a frame's hash belongs to),
   LockstepSteppedTickTests (LastSteppedTick names the tick the world last finished stepping),
   CanaryFixture (makes every PlayMode SimHost run the canary).
-  CanaryFixture (makes every PlayMode SimHost run the canary),
-  SimHostCatchUpTests (the frame copies the enemy's knobs once, whatever the backlog).
 - **Trap:** single player runs ONE world, so `SimHost.Peer` is null in Play. Write through
   `SimHost.WriteWorlds(...)`, never into `Local.World` by hand, or the canary desyncs.
 
@@ -87,9 +85,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   riflemen because the rotation runs on the clock and skips a slot it cannot pay for; per silver a gunner kills about
   0.085, a sniper 0.05-0.08, a rifleman 0.019 (the script against itself, Iron against Brass, eight seeds). Brass beat
   Iron in 7 of the 8 matches that ended, from either side, on its gunners and snipers: faction balance, the owner's. `Side` is the seat it plays (1;
-  0 puts it on the player's side). `Said` reports each attack decision with its count. `ArmedSlot`/`MixSlot`/`MachineSlot`
-  scan the roster once per (world, side) and cache the picks (`PlanFor`), since nothing changes `SimWorld.Roster` after
-  match start; `RosterScans` counts the builds, for a test.
+  0 puts it on the player's side). `Said` reports each attack decision with its count.
 - **Why:** the assault ladder says a trench falls at about three to one bare and two to one behind support, and a
   garrison with machine guns falls only behind support (two gunners in ten: bare attacks fail at three to one, two to
   one behind smoke and a barrage takes it four times in four). The enemy before 2026-09-29 attacked with eight men
@@ -111,20 +107,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   gets a plain "variant" header and names its own label in its cell; `Tools/test_sweep.py`'s `FactionBandTest` and
   `FactionRowsTest`.
 
-### Capture rig queue (shots posed on one frame, rendered the next)
-- **Files (SHOW):** `Editor/CaptureRig.cs` (`Rig.Run`: poses and renders a queue of `Shot`s, restoring the
-  TacticalCamera, its zoom/focus/fov/pose and the `running` flag in a `try`/`finally`; `Rig.TryPose` and `Render`
-  each catch and log `[rig] shot <path> failed...` by name so one bad shot does not stop the rest of the queue).
-- **Tests:** CaptureRigPlayTests (a shot whose directory cannot be written is logged by name and skipped; the
-  queue still drains and the TacticalCamera is enabled again afterwards).
-
 ### The stress preset (thousands of men for perf work)
 - **Files (SHOW):** `Presentation/Core/SimHost.cs` (`StressUnits`, `StressOverride`), `Presentation/Core/ScriptedEnemy.cs`
   (`StressSide` deploys both armies at their spawn points), `Perf/BenchOptions.cs` (`stress=`),
   `Editor/CaptureRig.cs` (`Bench`, and `Stress`: a rough 2,000-man footprint check).
 - **Tests:** SinglePlayerEquivalenceTests (runs the preset with 60 men a side), BattlefieldLockstepTests,
-  StressPresetTests (the player's army spread over its trenches), ScriptedEnemySlotTests (the slot picks, and that the
-  roster is scanned once per (world, side), not every tick).
+  StressPresetTests (the player's army spread over its trenches).
 
 ### The VFX pass (every effect filmed for a critique, 2026-10-01)
 - **Files (SHOW):** `Editor/VfxLab.cs` (stages one effect at a time by name: a shell, the HE barrage, a machine's
@@ -135,25 +123,30 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   play zoom and one close, by day and by night, with a draw-call json a film; `TW_STILLS_DIR`, `TW_STILLS_FIELD` or
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
-  EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).
+  EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
+  GasBankStills (`Tests/Stills/GasBankStills.cs`, Explicit, a graphics device: the chlorine bank at the play zoom and
+  at the overview, each with a NO-GAS PLATE of the same pose and the same frame, so the gas can be told from the field
+  by subtraction. `TW_STILLS_DIR` or SessionState `tw.gasbank.dir` says where; `TW_GAS_PLATE=1` or SessionState
+  `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
+  2026-10-19 found that every call was taken and no bank was ever drawn in the stills:
+  `docs/evidence/ability-fx-captures-r2/` and the open question in `decisions.md`. The pipeline's `run_tests` selects
+  no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
+  -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
+  `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.
   Unattended, from batch mode (a knob's A/B, one launch a side): BenchRuns (`Tests/Stills`, explicit, run by name with
-  a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/perfcmp.py`.
+  a graphics device; `TW_BENCH_RUN` the bench string, its `out=` outside the checkout), then `Tools/aosa/cmp.py`.
 
 ### Map generation and ground (sim side)
 - **Files:** `Sim/Terrain/BattlefieldGenerator.cs` (`BattlefieldParams` presets: `ShelledForest`, `WinterLine`, `Landing`),
   `Sim/Terrain/MapData.cs`, `Sim/Terrain/CraterStamp.cs`, `Sim/Terrain/Heightfield.cs`, `Sim/Terrain/WireBelt.cs`,
   `Sim/Terrain/MudField.cs`, `Sim/Terrain/PropDef.cs`, `Sim/Match/Deformation.cs` (the only thing that edits the map).
-  `DeformationSystem.Shake` reads the props near a blast through `MapData.PropsByCell` (`Sim/Terrain/PropIndex.cs`),
-  not by walking every prop.
   Contracts `Sim/Terrain/MapStructs.cs`, `Sim/Terrain/NavLayer.cs`; `Sim/Terrain/GreyboxMapGenerator.cs` is the
   flat corridor the determinism tests use.
 - **Tests:** BattlefieldTests, DynamicGroundTests, CoastTests, WinterMapTests; NarrowsTests (the Narrows, the
-  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds);
-  PropIndexTests (a barrage in a forest: the cell index cuts the distance tests and harms exactly the same props in
-  the same order).
+  half-depth field: the gap between the front trenches, trench and wire clearances, both HQs, over 8 seeds).
 - **Trap:** a feature tested only on the playtest map is untested. BattlefieldTests runs the generated map.
 
 ### Movement, flow fields, garrison, trench orders
@@ -202,10 +195,7 @@ rather than a new static or a reference to the other part. Audit R2 will move th
 - **Tests:** CombatTests, HeightfieldRaycastTests, OfficerTests, HeroTests, ShieldTests, JetpackTests, SupportUnitTests,
   ProvingGroundBehaviourTests (the ambulance, the anti-tank rifle, the never-pinned rifleman; each fails on the sim
   before 2026-09-28), SpreadAndEngageTests, LaneAndEngageRulesTests, GrenadeTests, AssaultLadderTests, DeadGroundTests,
-  DataBakerTests (`Data/DataBaker.cs`'s campaign Faction -> FactionId mapping). The Home Front upgrade lines in
-  `CampaignProfile` reach no baked `UnitStats`/`WeaponStats` yet: there is no code path, and a SHOW task must add
-  one when the feature is wanted. When it does, accuracy is a hit chance and clamps at 1 (0.9 plus three tiers
-  stays 1, not 1.05).
+  DataBakerTests (`Data/DataBaker.cs`'s campaign Faction -> FactionId mapping and ApplyUpgrades' dmg/acc tiers and the accuracy clamp).
 - **The fight on foot (2026-09-28, the owner: "go out of their way to attack each other"):** `Sim/Combat/Engage.cs`
   (`EngageSystem`, order `SimSystemOrder.Engage`, just before Movement). A man in the open goes after the man he is
   shooting at, or else the nearest enemy in the open within `HuntRadius` (70 m x `CombatTables.RangeScale` 0.8: the
@@ -334,8 +324,7 @@ position to BlastSystem; trench cells take full blast, bunker cells none; its st
   `Sim/Units/Breaker.cs` (the Breaker's halt, wind-up, charge and back-off). The wreck itself is a map prop made in
   `Sim/Match/Deformation.cs` (`Sim/Terrain/PropDef.cs`, `MapData.AddProp`); which vehicle it was, what killed it and
   how whole it was are kept in `DeformationSystem.Wrecks` (`WreckRecord`), not on the prop. A wreck breaks in stages
-  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index; a blast finds it through
-  `MapData.PropsByCell`, which pads its query by the wreck reach), each with less cover, scrap
+  (`PropRules.Next`: Wreck, BrokenWreck, Scrap, Cleared; a cleared prop keeps its index), each with less cover, scrap
   no longer blocking. Its hit points (`PropRules.StartHp(kind, scale)`) are sized to its machine through
   `PropDef.Scale` (`PropRules.WreckSize`); `DeformationSystem.Shake` wears it a stage a blast, measured
   `WreckBlastReach` off its middle, and a cook-off spares the wreck it made. A heavy machine grinds down a wreck it
@@ -421,14 +410,13 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Infantry rendering (VAT)
 - **Files:** `Presentation/Units/VATRenderer.cs` (LOD tiers, the living; the figure scale is `UnitScale` in
   `Presentation/Core/FigureMetrics.cs`, shared with the picker), `Presentation/Units/VATRenderer.Fallen.cs` (the dead:
-  the throw arc, the tumble, the heap per 2 m cell stacked by who lands first, the charred), `Presentation/Core/IZoomSource.cs`,
+  the throw arc, the tumble, the heap per 2 m cell, the charred), `Presentation/Core/IZoomSource.cs`,
   `Presentation/Units/VatCodec.cs`, `Presentation/Units/VatAssetData.cs`, `Presentation/Units/ProceduralSoldier.cs`
   (far tier and fallback), `Presentation/Units/VatTint.cs` (what `VatInstance.Tint` carries),
   `Presentation/Units/FallenFlight.cs` (a gagged body's path: hold, throw, bounces, skid, rest; its turns and squash),
-  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn),
+  `Presentation/Units/VATRenderer.Gags.cs` (a gagged body laid down and drawn; the heap stacked by who lands first),
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
-- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests (FallenAt computed once per
-  fallen man per frame, the shadow decision made every frame), DeathVarietyTests (VatPad char bits, the tumble's pitch),
+- **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, DeathVarietyTests (VatPad char bits, the tumble's pitch),
   VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path),
   UnitOneSizeTests (every unit's drawn world height is the same at the closest, a middle and the farthest camera
   zoom: infantry, a hero, a rider, one tank and one walker — the owner, 2026-10-13, overturning the readability
@@ -442,13 +430,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `VatTint.FallenWound`; the shader scales it by `_TWGore`, the GORE slider, which `CombatFx` sets each frame). An
   unwounded living man's Tint is his team. Build it with `VatTint.Pack`, never by hand, and never read `Tint`
   as the team on the C# side. `VatPad` packs limbs, grime, seed and char into 24 bits: nothing more fits.
-
-### Event dispatch (sim events reaching VFX, audio, UI, ragdolls)
-- **Files:** `Presentation/Core/EventPump.cs` (`Collect` copies the tick's `SimWorld.Events` into `Frame`;
-  `Dispatch` walks `Frame` and clears it in a `finally`, so a subscriber's throw still loses this frame's events
-  rather than leaving them to be dispatched again next frame).
-- **Tests:** EventPumpDispatchTests (a throwing subscriber still loses the frame, with and without
-  `ProfileSubscribers`), TickAllocationTests (`Events.Collect` has no per-tick budget).
 
 ### Animation (which clip a man plays)
 - **Files:** `Presentation/Core/AnimationController.cs` (the per-man priority ladder, run every tick by SimHost),
@@ -523,9 +504,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   nearest it, for staging one by hand.
 - **Tests:** GaitTests (plus the sim tests above), WreckModelTests (the carcass and the stages' masks), WalkerPivotTests (every walker's and the Cutter's part and socket
   where crabsplit.py built it, at both LODs: `Editor/TankImport.cs` puts them there from `crabs.json`), WalkerJointTests (the joined legs hang together at both LODs), ModelCutTests (a walker cut to the standard, the Banner first: Hull on the origin, every leg Thigh > Shin > Foot named by side and numbered from the rear, every joint on its parent as cut, a toe socket on every sole, the legs the rules count, the part budget; walking, its body clear of the ground and a planted foot neither sliding nor turning with its shin), WalkerUnchangedTests (every walker that was not cut again walks exactly as it did before the leg code learned to hold a foot: the recorded sums of two walks each), BannerFrontLegsTests (the Banner's legs do not pass through each other, measured on the real meshes — vertex to triangle, both ways — over seven cases: straight, a turn on the spot, a stop, a slope, a rolling ground, a turning walk on it and the same at LOD1; also every pair of parts on the machine, a leg against itself and the turret skirt reported but not claimed; and that no front leg folds its own foot into its own thigh, 0.06 m of margin, which is what the owner saw as "clipping" on the day film), DriveStyleTests (no two machines ride alike), HullRideTests (the weight layer's maths: exact, stable on long frames, no chatter, shots weighed, kicks sized; PlainStyle is the old ride), MachineSocketTests (every walker finds its exhaust and fire), MachineLampTests (four lamps on the upper corners of all ten hulls, front at the front; the Maw's furnace), MachineLightPoolTests (forty burning machines never light more than the pool; a cook-off takes a fire's light, a furnace cannot; the lamps' colour and card size), TrackDustTests (a pivot throws dust where the hull-speed gate threw none), RiderSeatTests, DefinedMachineModelTests (the Skimmer's and Salvo's
-  models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint), TankDiscRingTests (the
-  side ring's teal band fades near the camera and stays unchanged at the standard view, so it no longer paints brighter than
-  the machine it marks). WalkerStills (`Tests/Stills`) captures the walkers
+  models: both LODs, parts under the Hull, the barrel forward, drawn the size of their footprint). WalkerStills (`Tests/Stills`) captures the walkers
   for the rig scoreboard in `docs/20-rig-scoreboard.md`, and films one walker through a step for a before and after (`OneWalkerIsFilmedThroughAStep`: `TW_STILLS_MACHINE`, `TW_STILLS_DIR`, `TW_STILLS_FIELD`); WreckStills (`Tests/Stills/WreckStills.cs`) films a Maw killed and its wreck
   shelled through every stage to nothing (a contact sheet, `TW_STILLS_DIR`).
 - **See it:** `TW.Editor.TankCapture.Spawn(team, archetype, x, z)`, then read `World.Position[slot]` back: the sim
@@ -584,13 +563,11 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   thrower plays `Clip.Throw` from its swing (`AnimationController`, the `threw` latch).
 - **Tests:** BlastReactionTests (camera feels a burst), ComponentLookupAllocationTests, AbilityAimTests (the aim),
   ShotStaggerTests, TracerGlowTests, TracerMuzzleTests (every tracer shape starts at the gun and stops at the target),
-  ColumnLightTests, ColumnPlayTests, ColumnWidthTests, GrenadeLookTests (the drawn bomb lands on the
+  ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),
-  ImpactDustFeetTests (a Hit's feet dust tracks the chest he was actually drawn with -- a fire-step, not the bare
-  terrain sample under it -- through `CombatFx.DustFeetY` / `CombatFx.ChestHeight`: `CombatFx.Bodies.cs`),
   GoreZoomStills (`Tests/Stills`, explicit, run by name with a graphics device: men who can take many
   hits are shot by several weapons in GreyboxCorridor at zoom 6, 30 and 120, and `DebrisRenderer.Watch` (a test probe)
   records every red piece thrown with its size, so the drawn gore can be measured against the drawn man -- it writes
@@ -614,7 +591,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   it no muzzle socket reads its mouth off the mesh of the barrel that fires it, so no gun draws its fire from
   MuzzleWorld's last-ditch point in open air, and a machine with its own `Socket_Muzzle` draws exactly where it did).
   ShotStaggerTests, TracerGlowTests, TracerSideBySideTests (`fx.tracerInSmoke` off by default, both orders draw),
-  ColumnLightTests, ColumnPlayTests, ColumnWidthTests, GrenadeLookTests (the drawn bomb lands on the
+  ColumnLightTests, ColumnPlayTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests. `TracerStills` (`Tests/Stills/`, explicit): the night tracer moment filmed twice, today's beams and
   tracers inside the smoke, same seed and step, for the side-by-side decision brief (`docs/reference/decisions.md`,
@@ -636,13 +613,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/TankRenderer.cs` (calls `FootFall` where a walker's foot lands).
 - **Tests:** none.
 - **See it:** a top-down capture in Play. A paused editor draws no marks, so do not diff paused frames.
-- **Measure it:** `Tools/tw eval 'return UnityEngine.Object.FindFirstObjectByType<TW.Presentation.Tactical.CombatFx>().MarkReport();'`
-  in Play prints one line: how many marks are held and of what shape, how many the last frame drew (`drawn`),
-  the distance from `Camera.main` to the nearest rut, `closeUp`, whether the mark material and quad exist
-  (`mats=ok`), and for the last machine stepped its `Vehicle` flag, `IsWater` at its feet, the step it saw, and
-  running counts of the ticks that stepped it, the ones that reached the stride, the marks laid and the points
-  refused as water.
-  `ruts > 0` with `drawn = 0` is a draw fault; `ruts = 0` is a laying fault and the slot's gates say which.
 
 ### Flamethrower
 - **Files:** `Presentation/Camera/Flamethrower.cs` (the picture: driven by the debug panel's flame tools and, since
@@ -723,10 +693,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   about 11 ms, whole-map and order-dependent, marker `TW.Terrain.Hollows`, run under `HeavyWork`; no test covers it),
   `Presentation/Terrain/Atmosphere.cs`, `Presentation/Terrain/NightLights.cs` (with `NightLights.Machines.cs`: the
   machines' glow cards after the flash pool's, `lights.maxMachineGlows`, and their own light pool, `lights.machinePool`),
-  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs` (`Start` synthesizes its three thunder clips,
-  about 90 ms in a release player (measured 2026-10-19, commit 120524e9b9, two runs 87.5/92.2 ms); cached in
-  `shared` since 2026-10-19 so only the first `Storm` instance of a session pays it, test
-  `Tests/Show/StormThunderTests.cs`), `Presentation/Terrain/QuietFog.cs`,
+  `Presentation/Terrain/Rain.cs`, `Presentation/Terrain/Storm.cs`, `Presentation/Terrain/QuietFog.cs`,
   `Presentation/Terrain/FogWisps.cs`, `Presentation/Terrain/SmallLife.cs`, `Presentation/Terrain/WaterRings.cs`,
   `Presentation/Terrain/BiomeProfile.cs`, `Presentation/Core/RenderGround.cs` (shared ground height, `SceneTints`),
   shaders `Toon_URP`, `Water_URP`, `TWAtmosphere.hlsl`, `TWLocalLights.hlsl`, `TWWater.hlsl`.
@@ -736,7 +703,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and the bank lift by only `look.liftMist` / `look.liftBank` of it, since both lie over the near ground too; `look.wet`
   less pale sky in the puddles and the flames' glints on wet mud), `Presentation/Terrain/NightLights.Pools.cs`
   (`look.pools`: each camera hands its nearest 32 flames to the Toon shader as painted light pools, past the eight real
-  lights an object may take; `look.poolReach`; `look.hazeLight` the lifted haze's lightness, `look.puddleSky` / `look.waterDim` still water darker at night (the mirrored sky, `Water_URP`'s lit body), `look.grade` the night grade's umber shadows (`look.gradeSat`, `look.gradeDark`), `look.inkFade` the ink lines fading with the distance fog (`InkLines_URP`); `look.moonSheen` (the fine wet sparkle's share at the play view), `look.menClose` (close range only: the foot figures lifted off the mud in `VAT_URP` through `_TWMenRead` and the wet sheen damped beside them, 0 at the standard view), `look.poolAmber` / `look.poolVary` (lamp pools deeper amber, each lamp's reach varied), `look.poolUnblue` (a pool's faint edge takes blue out of the moonlit ground so it reads amber, not violet), `look.propRim` (props, not the ground, take the men's warm pool rim in Toon), `look.glowHue` / `look.glowFade` (a far glow keeps its colour in the haze and fades as it thickens, `Glow_URP`), `look.moreFires` (burning trees in no man's land with flames, glow and a painted pool but no real light, read at Start), `look.rainCurtain` (the distant rain curtains' alpha, their colour 1.15 x the lifted haze), `look.horizonFires` (the horizon's fire glows faint, with a small orange core) and `look.warmFlare` (the star shell's glow small and warm, its light neutral), both read at Start; `look.poolSoft` / `look.poolShoulder` the bands toward a soft falloff and a roll-off for bright sums; `look.poolsThroughHaze` the pools' share added after the fog so far lamps shine through the haze; `look.firePools` the fires that come and go, through
+  lights an object may take; `look.poolReach`; `look.hazeLight` the lifted haze's lightness, `look.puddleSky` / `look.waterDim` still water darker at night (the mirrored sky, `Water_URP`'s lit body), `look.grade` the night grade's umber shadows (`look.gradeSat`, `look.gradeDark`), `look.inkFade` the ink lines fading with the distance fog (`InkLines_URP`); `look.moonSheen` (the fine wet sparkle's share at the play view), `look.poolAmber` / `look.poolVary` (lamp pools deeper amber, each lamp's reach varied), `look.poolUnblue` (a pool's faint edge takes blue out of the moonlit ground so it reads amber, not violet), `look.propRim` (props, not the ground, take the men's warm pool rim in Toon), `look.glowHue` / `look.glowFade` (a far glow keeps its colour in the haze and fades as it thickens, `Glow_URP`), `look.moreFires` (burning trees in no man's land with flames, glow and a painted pool but no real light, read at Start), `look.rainCurtain` (the distant rain curtains' alpha, their colour 1.15 x the lifted haze), `look.horizonFires` (the horizon's fire glows faint, with a small orange core) and `look.warmFlare` (the star shell's glow small and warm, its light neutral), both read at Start; `look.poolSoft` / `look.poolShoulder` the bands toward a soft falloff and a roll-off for bright sums; `look.poolsThroughHaze` the pools' share added after the fog so far lamps shine through the haze; `look.firePools` the fires that come and go, through
   `SceneHooks.FirePool`: a burning machine or wreck from `TankRenderer.Burning`, a flamethrower's fires from
   `SceneHooks.FireLight`; the men (`VAT_URP`) and machines (`Tank_URP`) take the pools too, with a warm rim on the edge
   turned to a fire, `TWPoolsOnFigure`), shader include `TWLightPools.hlsl`; `Editor/LookLab.cs` sets knobs
@@ -763,17 +730,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 - **Tests:** NightLookTests, RealLampSetTests (the eight nearest, no pop on a tie or a pan, 43 is the old night, the water
   rule, and that only the fixed lamps are switched), NightLampStills (`Tests/Stills/NightLampStills.cs`, Explicit: run
   by name with a graphics device; one held night frame photographed with the rule off and on from nine poses, a row
-  of stills along a pan for the fade, and a rough timing; its info file says which lamps were real in each),
-  UnitCloseStills (`Tests/Stills/UnitCloseStills.cs`, Explicit: run by name with a graphics device; the owner's
-  close-range reshoot -- every unit of `ProvingGround.Catalogue()` placed six at a time and photographed at zoom 9,
-  pitch 25, yaws 21 and 201, and the figure/ground contrast of the sidecars judged against the bar
-  `contrast_median >= 0.25` with no warning; the stills and a line-per-still info file go to `TW_STILLS_DIR`. The bar
-  is foot figures only (owner, 2026-10-16): `CaptureRig.Measure` counts a slot via `CaptureRig.IsFootFigure`, so a
-  vehicle unit is still photographed but never judged), CaptureRigMeasureTests (`Tests/Show/CaptureRigMeasureTests.cs`,
-  EditMode: `CaptureRig.IsFootFigure` against `UnitFlags` and the figure path's own vehicle mask), BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
+  of stills along a pan for the fade, and a rough timing; its info file says which lamps were real in each), BiomeProfileTests, PaintedHorizonCompressionTests, WinterLevelTests, ScorchTilePainterTests (a crater
   repaints only its own tile of the ground colour, `Presentation/Terrain/ScorchTilePainter.cs`), HollowRescanTests and
-  DrainageTests (crater hollows and rill drainage, presentation only), TerrainChunkPassTests (the per-frame chunk walk,
-  `GreyboxTerrainView.ChunkPass`, is planned before any chunk moves `chunkCursor`).
+  DrainageTests (crater hollows and rill drainage, presentation only).
 - **Trap:** post-processing only runs because `Settings/TW-Renderer.asset` references URP's `PostProcessData`; with
   it null the whole grade silently does nothing while the volume stack still reports its values.
 - **Trap:** `SimHost.Ground` picks the terrain but not the look. For a winter test set the biome look too
@@ -793,18 +752,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
 ### Camera
 - **Files:** `Presentation/Camera/TacticalCamera.cs` (standard view: fov 25, pitch 25, zoom 30; `FrameFrom`),
   `Presentation/Camera/CameraShake.cs`, `Editor/GameViewFit.cs`. Where the view meets the ground (the shake, ambient
-  kicks, storm bolts, fog and focus distance): `Presentation/Core/ViewGround.cs`. The main camera and its zoom, read
-  once a frame for the whole picture: `Presentation/Core/ViewEye.cs` (the only place that looks `IZoomSource` up; the
-  idiom used to be written out fifteen times under `Presentation/Camera`).
-  Which team is mine is asked in one place, `Presentation/Core/LocalSeat.cs` (off the transport's `LocalPlayer`, set
-  by `SimHost` in `Awake`); `TacticalCamera` (`ScanArmies`, `ToEnemy`), `QuietFog` and `CombatFx.Mines` all read it
-  instead of each hardcoding team 0.
+  kicks, storm bolts, fog and focus distance): `Presentation/Core/ViewGround.cs`.
 - **Tests:** ViewGroundTests (also fails when a presentation file writes the formula out again; Rain and NightLights
-  still have their own copy until their lanes land). CameraCloseFitTests (the closest zoom, `NearZoom`/
-  `CloseFitHeight`/`CloseAimHeight`, holds a whole tall machine in frame with headroom instead of framing the feet).
-  ViewEyeTests (the zoom is read once a frame, and no presentation
-  file looks `IZoomSource` up again; VATRenderer still has its own copy until its lane lands).
-  TacticalCameraSeatTests (the standard view mirrors seated as player 1).
+  still have their own copy until their lanes land).
 - **Trap:** setting `Camera.main.transform` does nothing; the controller overwrites it every frame. Use `FrameFrom`.
 
 ## Interface (SHOW lane)
@@ -818,9 +768,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   words of the barrage, gas and drop cards, are `Presentation/Core/UnitLook.cs`, keyed by archetype, so both HUDs say
   the same.
 - **Tests:** HudBindTests, HudStructureTests, HudLayoutPlayTests (PlayMode: the bar fits, `HudLayout.BarWidth`),
-  HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one),
-  HudMinimapPlayTests (the unit dots carry a dark ring, so a man in his own trench does not vanish into the line),
-  UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
+  HudOrderPlayTests (PlayMode: an unscoped G orders the manned trench, not the empty front one), UnitArtTests. `HudText` strings are tested in HudBindTests. HudTextTests checks that the unit names and tooltips
   match the sim's numbers. HudLayoutTests, despite its name, tests the legacy `BattleHud`.
 - **Centre banner** (a trench taken, an ability, the match end): `ObjectiveTracker.BannerFor` (`UI/ObjectiveTracker.cs`,
   pure, tested in HudTextTests) picks the words and rank, `Presentation/Core/BannerRules.cs` decides which banner
@@ -880,7 +828,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   and its chosen ten go from `MatchLaunch.Request` (`FactionA`/`FactionB`, `LoadoutA`/`LoadoutB`) through `SimHost`
   into the sim's `SimConfig`. Unlocks are data in `Data/Definitions.cs` (SIM lane), not yet read at runtime.
 - **Tests:** ShellUxmlTests, ShellRouterPlayTests, DebriefViewFieldPlayTests (VIEW THE FIELD really clears the
-  debrief's fill), GameSettingsTests, KeyMapTests, MatchClockTests, AnimClockPlayTests, MatchLaunchPlayTests, LaunchLoadoutTests.
+  debrief's fill), GameSettingsTests, KeyMapTests, MatchClockTests, MatchLaunchPlayTests, LaunchLoadoutTests.
 - **Settings sliders:** each slider's range is a row in `GameSettings.Sliders`; loading clamps to it and
   `SettingsScreen` sets the slider from it. A new slider needs a row, or GameSettingsTests fails.
 
@@ -982,12 +930,10 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `MetaServices`), `Presentation/Meta/` (its own assembly, `TW.Presentation.Meta`: `HomeFrontDiorama.cs` and
   `HomeFrontStages.cs` (sliced houses shown to a stage by chunk mask), `StrategicMapView.cs` and
   `ContinentMesh.cs` (the generated continent, pins, the front line, the fog sheet), `MapFog.cs` (the fog mask:
-  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map), `MetaPick.cs` (the
-  pick-collider names and the per-frame pointer block both views share), `MetaKeyLight.cs` (the saved key light,
-  taken and released by both views), `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
+  clear round every reachable node, dense elsewhere), `MetaCamera.cs` (orbit / map),
+  `MetaMeshes.cs`, `MetaBoot.cs` (installs the view factories at start-up)).
 - **Tests:** CampaignGraphTests, CampaignProfileTests, FactionBuildingsTests, HomeFrontDioramaTests,
-  MetaCameraTests, StrategicMapMeshTests.
-  StrategicMapMeshTests, MetaPickTests.
+  StrategicMapMeshTests.
 - **Trap:** `CampaignSession` must not register with `SceneStatics` (the router resets those on every scene load,
   which is exactly when the session has to survive); `MatchLaunch.QuitToMenu` clears it. Unit tiers, armour
   plate and the ability mask are stored in the profile but reach the sim only once the upgrade seam lands
@@ -1068,8 +1014,6 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   - GymCatalogueTests: a new event, ability or death kind with no gym row fails.
   - AnimationPinTests: the pin holds, replays a one-shot, lets go on a new generation, and loses to a death.
   - GymPlayTests: a pinned clip is drawn, and a barrage called through the gym is accepted.
-  - GymExitCodeTests: a run that never entered Play exits the batch editor non-zero, not idle.
-  - GymLessonsTests: a gym run inside a relay leg (TW_RELAY) leaves lessons.md on the board alone; outside a leg it still writes recurring flags.
 - **See it:** in Play in GreyboxCorridor, **TW > Gym** (Quiet, a tab, Play, a band button). Unattended:
   `Tools/tw eval 'return TW.Editor.Gym.Run("tabs=clips max=20");'`, or `-executeMethod TW.Editor.Gym.CommandLine -twgym
   "<options>"`.
@@ -1127,6 +1071,6 @@ Which component sets, reads or calls each `SceneHooks` member (the hand rows abo
 - **Project:** FreshCloneSetupTests, GymExitCodeTests, GymLessonsTests, ShaderInclusionTests, SkinAssetTests, WalkerPivotTests
 - **Show:** AllocProbeSanityTests, AnimationPinTests, AssetScaleTests, BannerFireFitTests, BannerFireInkTests, BannerFrontLegsTests, BenchOptionsTests, BiomeProfileTests, BlastReactionTests, BullfrogLegsTests, BurstRecipeTests, CameraCloseFitTests, CampaignProfileTests, CaptureRigMeasureTests, ColumnLightTests, ColumnPlayTests, ColumnWidthTests, ComponentLookupAllocationTests, DeathGagTests, DeathVarietyTests, DebrisTests, DefinedMachineModelTests, DrainageTests, DriveStyleTests, EnvAtlasTests, EventPumpDispatchTests, FallenFlightTests, FarGrowTests, FigurePartsTests, FlipbookOrdinalTests, FrameBudgetCoverageTests, GaitTests, GibPlanTests, GoreScaleTests, GrenadeLookTests, GunFxTests, GunMuzzleLookTests, GymCatalogueTests, HitMarkSizeTests, HitchAttributionTests, HollowRescanTests, HouseKitTests, HullRideTests, ImpactDustFeetTests, InfantryFiringTests, KeyMapTests, KnobsTests, MachineLampTests, MachineLightPoolTests, MachineMuzzleTests, MachineSocketTests, ModelCutTests, NightLookTests, PaintedHorizonCompressionTests, PropWearTests, ProvingGroundModelTests, RealLampSetTests, RiderSeatTests, ScatterRulesTests, SceneStaticsTests, ScorchTilePainterTests, ShotLogTests, ShotStaggerTests, SimHostCatchUpTests, StaticLifecycleTests, StormThunderTests, TacticalCameraSeatTests, TankDiscRingTests, TerrainChunkPassTests, TickAllocationTests, TracerGlowTests, TracerMuzzleTests, TracerSideBySideTests, TrackDustTests, TrenchSectionTests, UnitOneSizeTests, VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, VatFallenReuseTests, VatTintTests, VehicleDeathTests, ViewEyeTests, ViewGroundTests, WalkerJointTests, WalkerUnchangedTests, WreckModelTests
 - **Sim:** AbilityArgsTests, AirDropTests, BarragePatternTests, BattlefieldLockstepTests, BattlefieldTests, BeamTests, BreakerTests, BurningSystemTests, BurstOptionsTests, ChassisTests, CoastTests, CombatTests, CommandSeatTests, CommandValidationTests, CrabTests, DataBakerTests, DeadGroundTests, DeathEventContractTests, DeterminismReplayTests, DirectionalBlastTests, DriveFeelTests, DynamicGroundTests, FactionRosterTests, FlamethrowerTests, FlowFieldManagerTests, FlowFieldTests, GarrisonAndOrdersTests, GarrisonTests, GrenadeTests, HashIntervalTests, HeightfieldRaycastTests, HeroTests, JetpackTests, LandingTests, LaneAndEngageRulesTests, LoadoutTests, LockstepFrameValidationTests, LockstepHashLabelTests, LockstepSteppedTickTests, MeleeTests, MineTests, OfficerTests, PerfMarkersTests, PlaytestMapTests, PropIndexTests, ProvingGroundBehaviourTests, ProvingGroundUnitTests, ReplayGuardTests, SapperTests, SectorControlTests, ShieldTests, SimHashTests, SimMathTests, SimStubTests, SlotHashBoundTests, SmokeScreenTests, SpreadAndEngageTests, StrafeRunTests, SupportAbilityTests, SupportUnitTests, TankMobilityTests, TankTests, TrenchSpreadTests, UnitCatalogueTests, UnitDefinitionTests, WalkerArmamentTests, WinterMapTests, WreckDecayTests, WreckRecordTests
-- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
+- **Stills:** BenchRuns, DeathStills, EffectFilmStills, GasBankStills, GoreZoomStills, InfantryFiringStills, NightLampStills, TracerStills, UnitCloseStills, VfxStills, WalkerStills, WreckStills, ZoomScaleStills
 - **UI:** AbilityAimTests, CampaignGraphTests, ComicWordsTests, FactionBuildingsTests, FeedbackCaptureTests, FxQualityTests, GameSettingsTests, HomeFrontDioramaTests, HudBindTests, HudLayoutTests, HudStructureTests, HudTextTests, MetaCameraTests, MetaPickTests, NarrowsTests, ProvingGroundScreenTests, ProvingGroundTests, SelectionTests, ShellUxmlTests, StrategicMapMeshTests, UnitArtTests, WinterLevelTests
 <!-- /gen:tests -->
