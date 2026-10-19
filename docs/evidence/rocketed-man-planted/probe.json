@@ -1,0 +1,67 @@
+{
+  "contrast_median": 0.17331,
+  "samples": [
+    {
+      "still": "plant_1.png",
+      "legs_px": 21.3,
+      "px_per_m_vertical": 23.55,
+      "man_luma": 0.15362,
+      "bg_luma": 0.20043,
+      "contrast": 0.21237,
+      "man_disc_r_px": 4,
+      "cam_dist_m": 78.13,
+      "fov_deg": 25.0
+    },
+    {
+      "still": "plant_2.png",
+      "legs_px": 21.3,
+      "px_per_m_vertical": 23.55,
+      "man_luma": 0.18016,
+      "bg_luma": 0.17293,
+      "contrast": 0.03745,
+      "man_disc_r_px": 4,
+      "cam_dist_m": 78.13,
+      "fov_deg": 25.0
+    },
+    {
+      "still": "plant_3.png",
+      "legs_px": 21.3,
+      "px_per_m_vertical": 23.55,
+      "man_luma": 0.14541,
+      "bg_luma": 0.1895,
+      "contrast": 0.21043,
+      "man_disc_r_px": 4,
+      "cam_dist_m": 78.13,
+      "fov_deg": 25.0
+    },
+    {
+      "still": "plant_4.png",
+      "legs_px": 21.3,
+      "px_per_m_vertical": 23.55,
+      "man_luma": 0.13927,
+      "bg_luma": 0.17266,
+      "contrast": 0.17331,
+      "man_disc_r_px": 4,
+      "cam_dist_m": 78.13,
+      "fov_deg": 25.0
+    },
+    {
+      "still": "plant_5.png",
+      "legs_px": 21.3,
+      "px_per_m_vertical": 23.55,
+      "man_luma": 0.13925,
+      "bg_luma": 0.16082,
+      "contrast": 0.11925,
+      "man_disc_r_px": 4,
+      "cam_dist_m": 78.13,
+      "fov_deg": 25.0
+    }
+  ],
+  "stills": [
+    "plant_1.png",
+    "plant_2.png",
+    "plant_3.png",
+    "plant_4.png",
+    "plant_5.png"
+  ]
+}

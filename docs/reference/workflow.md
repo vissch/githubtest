@@ -562,6 +562,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp, archetype)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp, alongZ)` | Editor/DeathLab.cs | n men in a line along x (or, with alongZ, along z) from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Planted()` | Editor/DeathLab.cs | Where the first man planted head first in the mud (DeathGag.Planted) came to rest, so a capture can be aimed at him instead of guessing: "x z" in ... |
+| `TW.Editor.DeathLab.Planted()` | Editor/DeathLab.cs | Where the newest man planted head first in the mud (DeathGag.Planted) came to rest, so a capture can be aimed at him instead of guessing: "x z" in ... |
 | `TW.Editor.DeathLab.Row(n, x, z, team, spacing, hp, maxHp)` | Editor/DeathLab.cs | n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots. |
 | `TW.Editor.DeathLab.Shell(x, z, radius, damage)` | Editor/DeathLab.cs | One shell, bursting next tick in every world (the men it kills die of it as they would in battle). |
 | `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
