@@ -99,8 +99,14 @@ namespace TW.Presentation.Tactical
         Material dirtMat, woodMat, smokeMat;
         /// <summary>The mud and timber brown every bit of thrown earth is painted in (<see cref="dirtMat"/>).</summary>
         public static readonly Color DirtColour = new Color(0.27f, 0.235f, 0.20f);
-        /// <summary>The cold steel a man's worn kit is painted in (<see cref="kitMat"/>), which must not read as dirt.</summary>
-        public static readonly Color KitColour = new Color(0.72f, 0.76f, 0.80f);
+        /// <summary>The cold steel a man's worn kit is painted in (<see cref="kitMat"/>), which must not read as dirt.
+        /// Dark, not pale: at 0.72/0.76/0.80 with a lit <c>_Emission</c> the tanks were the brightest thing in a night
+        /// frame and read as paper (harsh critic r1, 2026-10-19). Dark steel keeps them metal and still 29 luma steps
+        /// clear of <see cref="DirtColour"/>; the one bright edge is <see cref="KitHighlightColour"/>.</summary>
+        public static readonly Color KitColour = new Color(0.33f, 0.36f, 0.40f);
+        /// <summary>The single lit edge along the lid of each fuel tank (<see cref="kitHiMat"/>): what makes a dark
+        /// block read as steel instead of a hole. Its luma stays at least 0.25 above <see cref="KitColour"/>.</summary>
+        public static readonly Color KitHighlightColour = new Color(0.70f, 0.73f, 0.78f);
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -361,7 +367,19 @@ namespace TW.Presentation.Tactical
             // a man's kit is steel, not mud: dirtMat put the Flamer's tanks 6.6 luma steps DARKER than his own
             // khaki torso at night, so the thing that tells him apart read as a smudge. Cold pale steel with a
             // strong outline silhouettes against both the torso and the ground he stands on.
-            kitMat = Painted(KitColour, 1.2f); kitMat.SetColor("_Emission", new Color(0.22f, 0.24f, 0.26f));
+            // No self-light on the kit any more: the old (0.22, 0.24, 0.26) emission is why two mud-sized blocks
+            // out-glowed the night around them (harsh critic r1, 2026-10-19). The lid highlight carries the read.
+            // The old emission was (0.22, 0.24, 0.26) over a near-white base: together they made the kit the
+            // brightest thing in a night frame (harsh critic r1, 2026-10-19). Night lighting alone carries almost
+            // nothing here - a dark base with no self-light at all measured 24.0 luma against mud at 29.9, i.e. an
+            // invisible kit (this lane's first render, 2026-10-19) - so the body keeps just enough to sit above the
+            // mud, and the lit lid is what reads as steel. The ladder, all three rendered in GreyboxCorridor at
+            // night (this lane, 2026-10-19): emission 0.01 -> tank median 24.0 (under the mud), 0.15 -> 60.2 (level
+            // with his own torso, 63.0), 0.38 -> 127.8 (the top of the band), 0.25 -> the committed probe.json of
+            // this lane. Mid-band, not the ceiling: the whole point of the fix is that the kit is no longer the
+            // brightest thing in the frame.
+            kitMat = Painted(KitColour, 1.2f); kitMat.SetColor("_Emission", new Color(0.24f, 0.25f, 0.28f));
+            kitHiMat = Painted(KitHighlightColour, 0.4f); kitHiMat.SetColor("_Emission", new Color(0.73f, 0.77f, 0.82f));
             vapourMat = Transparent(unlit, new Color(0.74f, 0.80f, 0.90f, 0.13f));
             var markShader = Shader.Find("TW/GroundMark (URP)");
             if (markShader != null)
@@ -504,7 +522,7 @@ namespace TW.Presentation.Tactical
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
-            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, kitMat, vapourMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, kitMat, kitHiMat, vapourMat }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);

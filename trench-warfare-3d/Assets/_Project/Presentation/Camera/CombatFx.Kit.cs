@@ -57,6 +57,34 @@ namespace TW.Presentation.Tactical
             return KitPieceMax;
         }
 
+        /// <summary>The most highlight bands one man's kit has (one along each tank's lid).</summary>
+        public const int KitHighlightMax = 2;
+        readonly Matrix4x4[] kitHighlights = new Matrix4x4[KitHighlightMax];
+
+        /// <summary>
+        /// The one lit edge of each fuel tank: a thin band laid along the lid, in the same standing frame the tanks
+        /// use. Dark steel on its own reads as a hole at night, so the pair of bands is what says "metal" (harsh
+        /// critic r1, 2026-10-19). Pure, like <see cref="KitPieces"/>, so an EditMode test can measure it. Returns how
+        /// many of <paramref name="into"/> were filled: 0 for every archetype that wears no kit.
+        /// </summary>
+        public static int KitHighlights(byte archetype, Vector3 chest, Vector3 barrel, float scale, Matrix4x4[] into)
+        {
+            if (archetype != InfantryArchetype.Flamethrower || into == null || into.Length < KitHighlightMax) return 0;
+            Vector3 fwd = barrel.sqrMagnitude > 0.0001f ? barrel.normalized : Vector3.forward;
+            Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+            flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.forward;
+            Vector3 side = Vector3.Cross(Vector3.up, flat).normalized;
+            var stand = Quaternion.LookRotation(flat, Vector3.up);
+            // Thin on purpose: the probe takes the MEDIAN luma of the pixels the kit changes, so a fat bright band
+            // would drag the whole kit's median back up to the paper-white it is being taken away from.
+            var band = new Vector3(0.20f, 0.05f, 0.20f) * scale;
+            Vector3 back = chest + (Vector3.up * 0.10f - flat * 0.55f) * scale;
+            Vector3 lid = back + Vector3.up * (0.26f * scale);
+            into[0] = Matrix4x4.TRS(lid + side * (0.11f * scale), stand, band);
+            into[1] = Matrix4x4.TRS(lid - side * (0.11f * scale), stand, band);
+            return KitHighlightMax;
+        }
+
         /// <summary>Draw the kit of every live man on the field who wears one: near tier only, where the sockets exist.</summary>
         void DrawKit(Bounds bounds)
         {
@@ -88,7 +116,28 @@ namespace TW.Presentation.Tactical
                 men++;
             }
             KitDrawnLast = men;
-            if (batch.Count > 0) Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            if (batch.Count == 0) return;
+            Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            // One extra draw at the near tier (kits are rare; the ceiling is 300): the lit lids of the same men.
+            batch.Clear();
+            for (int slot = 0, lit = 0; slot < w.HighWater && lit < KitMax; slot++)
+            {
+                uint flags = w.Flags[slot];
+                if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
+                byte archetype = w.Archetype[slot];
+                if (archetype != InfantryArchetype.Flamethrower) continue;
+                ViewNow(out _, out float zoom, out _);
+                float scale = units.ScaleAt(zoom);
+                if (!units.Sockets(slot, out _, out var barrel, out var chest))
+                {
+                    EstimateMuzzle(slot, -1, scale, out _, out barrel);
+                    chest = EstimateChest(slot, scale);
+                }
+                int n = KitHighlights(archetype, chest, barrel, scale, kitHighlights);
+                for (int k = 0; k < n; k++) batch.Add(kitHighlights[k]);
+                lit++;
+            }
+            if (batch.Count > 0) Flush(cube, new RenderParams(kitHiMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
         }
     }
 }
