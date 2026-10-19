@@ -162,5 +162,17 @@ namespace TW.Tests
             WaterEntry.Pump(1f);
             Assert.AreEqual(1, rings.Count, "it opens once, not every frame after");
         }
+
+        [Test]
+        public void RingGrowsHalfAgainBetweenTheSpecMoments()
+        {
+            float size = WaterEntry.Ring(WaterEntry.ManKg);
+            float early = WaterEntry.RingRadius(size, 0.05f), late = WaterEntry.RingRadius(size, 0.30f);
+
+            // the owner's bar is 1.5x on the capture's mask measurement, and the baseline capture read 0.952 of
+            // the analytic ratio (1.4483 against 1.5208), so 1.5 / 0.952 = 1.576 is break-even: 1.75 is margin.
+            Assert.GreaterOrEqual(late / early, 1.75f,
+                $"the ring must open, not sit still: {early:F3} m at land+0.05 s, {late:F3} m at +0.3 s");
+        }
     }
 }

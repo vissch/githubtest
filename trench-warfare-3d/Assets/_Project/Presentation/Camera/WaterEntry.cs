@@ -37,6 +37,19 @@ namespace TW.Presentation.Tactical
         /// reads at night.</summary>
         public const float CrownWhite = 0.6f, CrownGain = 1.6f;
 
+        /// <summary>How the ring's radius opens: it starts at 0.22 of its size, and the expansion has its own
+        /// clock of RingGrowBase + RingGrowPerM per metre of ring, eased by RingGrowPow. TWWater.hlsl (TWRings) is
+        /// what actually draws it: these four numbers and RingRadius below are the same arithmetic, and the shader
+        /// and this file must be changed together or the test guards nothing.</summary>
+        public const float RingOpen = 0.22f, RingGrowBase = 0.35f, RingGrowPerM = 0.05f, RingGrowPow = 0.7f;
+
+        /// <summary>The radius a ring of this size has `elapsed` seconds after it opened.</summary>
+        public static float RingRadius(float size, float elapsed)
+        {
+            float grow = Mathf.Clamp01(elapsed / (RingGrowBase + RingGrowPerM * size));
+            return size * (RingOpen + (1f - RingOpen) * Mathf.Pow(grow, RingGrowPow));
+        }
+
         /// <summary>The crown's tint for a biome whose splash is `splash`: its own hue, its value lifted.</summary>
         public static Color CrownTint(Color splash)
         {
