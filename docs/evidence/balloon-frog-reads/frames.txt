@@ -1,0 +1,32 @@
+balloon-frog-reads — the shot frog's balloon death at zoom 30, before any readability fix
+Captured 2026-10-19 in GreyboxCorridor, shipping Night look (Atmosphere.Mood.Night, Biome.NightMud — the owner's
+target, decided 2026-09-21), weather clock pinned to 120 s. DeathLab.Absurd(1), DeathLab.Force("balloon"),
+DeathLab.Scene("frogshot", 380, 300): six frogs in a row, two riflemen 30 m up the field.
+CaptureRig.Series(dir, "b", 380, 300, zoom 30, yaw 21, pitch 25, 24 frames, every 4 frames) — 1600x900, T1 band.
+The eight tiles below are frames b_02..b_22 of that run, chosen to span the 0.4 s swell and hops one and two.
+Game time was NOT held (CaptureRig.Hold sets Time.timeScale = 0, which would stop the swell); only the weather
+clock was pinned, so the sky is identical across all eight.
+
+tile  band  moment                                   clock held       what is in frame
+t0    T1    swell, ~0.1 s after the first frog dies  weather 120 s    1 fallen, 17 men standing, 5 frogs alive
+t1    T1    swell, ~0.23 s in                        weather 120 s    1 fallen, 17 standing — the sac is at its widest here
+t2    T1    swell ending, ~0.37 s in                 weather 120 s    1 fallen, 17 standing
+t3    T1    hop one, second frog just shot           weather 120 s    2 fallen, 16 standing
+t4    T1    hop one into hop two                     weather 120 s    3 fallen, 15 standing
+t5    T1    hop two                                  weather 120 s    3 fallen, 15 standing
+t6    T1    hop three, shrinking                     weather 120 s    3 fallen, 15 standing
+t7    T1    at rest, the flat skin                   weather 120 s    3 fallen, 15 standing
+
+WHAT THE PIXELS SAY (probe-before.json, written by probe.py beside these files)
+  0 of 8 tiles read the sac. Every tile: blob 0 px, so no contrast and no width could be measured.
+  The sac is not small-and-low-contrast at zoom 30 — in the shipping Night look it is not pale at all:
+    - the brightest pixel in the whole of t1 has Rec.709 linear luma 0.1304 (rgb 85,101,137 — a rain streak);
+    - the probe's pale-sac floor is 0.45 linear, which nothing in a Night frame can reach;
+    - 11 pixels out of 1 440 000 are greener than they are blue. #e9f0c8 does not survive the night grade.
+  The whole frame's luma_mean is 0.214 and p95 0.293 (CaptureRig's 0-1 Rec.709 scale). CaptureRig's own sidecar
+  warns on these frames: "men barely separate from the ground: unreadable".
+
+  So the critic's "~20 px pale blob at zoom 30" was generous. At the shipping look and band there is no pale blob:
+  the frogs are ~15 px dark silhouettes against dark mud, sac and all. Whether the fix may touch the night grade
+  or must stay inside the frog's own art is an owner decision — see docs/reference/decisions.md, the open row
+  "the balloon frog's sac at zoom 30 in the Night look".
