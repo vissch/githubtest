@@ -190,6 +190,74 @@ namespace TW.Tests
             Assert.AreEqual(0, CountType(m, SimEventType.CommandRejected), "[Z011.2] and still accepts the open point");
         }
 
+        /// <summary>A match with room for only a few men, and exact silver (no income), so the sums are arithmetic.</summary>
+        static MatchSim SmallMatch(int maxSlots)
+        {
+            var cfg = SimConfig.Default;
+            cfg.Seed = 0xC0FFEEu; cfg.StartingSilver = 100000; cfg.SilverPerSecond = 0f;
+            cfg.FactionA = (byte)FactionId.Brass; cfg.FactionB = (byte)FactionId.Iron;
+            cfg.MaxSlots = maxSlots;
+            return MatchSim.CreateGreybox(cfg);
+        }
+
+        static void Deploy(MatchSim m, byte player, int slot, int times = 1)
+        {
+            var list = new SimCommand[times];
+            for (int i = 0; i < times; i++) list[i] = SimCommand.Deploy(m.World.Tick, player, slot);
+            using var cmds = new NativeArray<SimCommand>(list, Allocator.Temp);
+            m.Step(cmds);
+        }
+
+        // the stick is paid for and the cooldown runs the moment it is called, and DropInbound promises stats.Men men:
+        // when the field fills up partway through the landing the rest must be paid back, not silently dropped.
+        [Test]
+        public void AStickWithRoomForOnlyPartOfItIsPaidBackTheRest()
+        {
+            using var m = SmallMatch(3);
+            var at = OpenPoint(m, 0);
+            OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.ParaDrop, out var stats);
+            int silver = m.World.Silver[0];
+            Step(m, Drop(m, 0, at));
+            var log = Run(m, stats.WarmupTicks);
+            Assert.AreEqual(3, Count(log, SimEventType.DropLanded, 0), "three slots, three men");
+            Assert.AreEqual(1, Count(log, SimEventType.DropLandedShort), "one word that the stick landed short");
+            foreach (var e in log)
+            {
+                if (e.Type != SimEventType.DropLandedShort) continue;
+                Assert.AreEqual(0, e.A, "the caller");
+                Assert.AreEqual(stats.Men - 3, e.B, "five never came down");
+                Assert.AreEqual(3f, e.Dir.x, "three did");
+                Assert.AreEqual(260 * 5 / 8, e.Scalar, "260 * 5 / 8 = 162, integer: 162.5 cut down");
+            }
+            Assert.AreEqual(silver - stats.Cost + 162, m.World.Silver[0], "the five men's silver is back");
+            // 1500 on the command tick (after that tick's decrement), then 100 flight ticks each take one: 1400 left
+            // when Land runs, and 1400 * 3 / 8 = 525 of the wait is kept for the three who did land
+            Assert.AreEqual(525, m.Abilities.CooldownOf(0, OffMapAbilityId.ParaDrop), "the wait goes back with the silver");
+        }
+
+        [Test]
+        public void AStickWithNoRoomAtAllGetsTheWholeCostAndTheWholeWaitBack()
+        {
+            using var m = SmallMatch(2);
+            var at = OpenPoint(m, 0);
+            OffMapAbilitySystem.TryGetStats((int)OffMapAbilityId.ParaDrop, out var stats);
+            Deploy(m, 0, 0, 2);   // the field is full before the drop is even called
+            int silver = m.World.Silver[0];
+            Step(m, Drop(m, 0, at));
+            var log = Run(m, stats.WarmupTicks);
+            Assert.AreEqual(0, Count(log, SimEventType.DropLanded), "nowhere to put a man");
+            Assert.AreEqual(1, Count(log, SimEventType.DropLandedShort));
+            foreach (var e in log)
+            {
+                if (e.Type != SimEventType.DropLandedShort) continue;
+                Assert.AreEqual(stats.Men, e.B, "the whole stick");
+                Assert.AreEqual(0f, e.Dir.x, "nobody landed");
+                Assert.AreEqual(stats.Cost, e.Scalar, "the whole cost back");
+            }
+            Assert.AreEqual(silver, m.World.Silver[0], "the call cost nothing in the end");
+            Assert.AreEqual(0, m.Abilities.CooldownOf(0, OffMapAbilityId.ParaDrop), "nobody landed: ready at once");
+        }
+
         [Test]
         public void TheDropIsTheSameOnEveryMachine()
         {
