@@ -14,6 +14,7 @@ using UnityEngine;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Terrain;
+using TW.Sim.Units;
 
 namespace TW.Presentation
 {
@@ -180,6 +181,8 @@ namespace TW.Presentation
         NativeArray<byte> threw;        // he threw a bomb this tick (GrenadeThrown); shotAt holds whom at
         NativeArray<int> shotAt;        // whom the shot went to (the sim clears TargetSlot on a kill the same tick)
         float3[] prevPos;
+        SapperSystem sappers;
+        NativeArray<byte> laying;       // 1 while his lay-charge pose runs (so a lay longer than the clip restarts it)
 
         // ---- trace: one man followed through his fight
         public int FollowSlot = -1;
@@ -212,6 +215,7 @@ namespace TW.Presentation
             gasHere = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             threw = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             shotAt = new NativeArray<int>(maxSlots, Allocator.Persistent);
+            laying = new NativeArray<byte>(maxSlots, Allocator.Persistent);
             prevPos = new float3[maxSlots];
             AllocateDeaths(maxSlots);
         }
@@ -219,7 +223,7 @@ namespace TW.Presentation
         public void Dispose()
         {
             State.Dispose(); PrevRow.Dispose(); PrevPhase.Dispose(); Blend.Dispose(); Lift.Dispose(); Hop.Dispose(); Grime.Dispose(); waveAt.Dispose(); waveR.Dispose(); waveD.Dispose(); hitKind.Dispose(); blastRadius.Dispose(); blastDist.Dispose(); hitDir.Dispose();
-            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose();
+            shotThisTick.Dispose(); leftTrench.Dispose(); gasHere.Dispose(); threw.Dispose(); shotAt.Dispose(); laying.Dispose();
             DisposeDeaths(); DisposePins();
         }
 
@@ -230,6 +234,7 @@ namespace TW.Presentation
             tick = w.Tick; tickSeconds = w.Config.TickSeconds; count = w.HighWater;
             Latch(w);
             Incoming(w);
+            sappers = w.GetSystem<SapperSystem>();
             for (int i = 0; i < count; i++)
             {
                 uint f = w.Flags[i];
@@ -669,6 +674,21 @@ namespace TW.Presentation
                 s.Frame = 0.4f * Clips.Table[(int)Clip.Throw].Seconds;
                 return;
             }
+            // a sapper placing a mine or stringing a wire kneels over it; Clip.KneelInspect is a stand-in (the only
+            // kneel-and-work clip baked, Clips.Table line 82) until a charge-laying clip is baked, the owner's call
+            bool laysNow = sappers != null && sappers.Phase.IsCreated && i < sappers.Phase.Length && sappers.Phase[i] == SapperSystem.Laying && speed < 0.3f;
+            if (laysNow && (laying[i] == 0 || (cur == Clip.KneelInspect && !Playing(s))))
+            {
+                laying[i] = 1; s.Routine = 0; s.WantStance = s.Stance = (byte)Stance.Crouch;
+                Start(i, ref s, Clip.KneelInspect, Rung.Action, "lays a charge");
+                return;
+            }
+            if (!laysNow && laying[i] != 0)
+            {
+                laying[i] = 0;
+                if (cur == Clip.KneelInspect) s.Rung = Rung.Idle;   // the errand ended: drop the pose the tick he finishes
+            }
+            if (laysNow && cur == Clip.KneelInspect && Playing(s)) return;
             if (shotThisTick[i] != 0) { s.Shots++; s.LastShot = tick; s.Aimed = true; }
             if (shotThisTick[i] != 0 && speed < 0.3f && !(s.Rung == Rung.Reaction && hitClip && Playing(s)))
             {
