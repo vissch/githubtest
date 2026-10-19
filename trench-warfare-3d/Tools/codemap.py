@@ -129,6 +129,7 @@ FLAG_EFFECT = {
     'TW_FEEDBACK': 'Environment variable: the folder the F10 feedback captures are written in (default %LOCALAPPDATA%\\TrenchWarfare\\feedback). The game and Tools/assetboard/feedback.py both read it.',
     'TW_FFMPEG': 'Environment variable: the ffmpeg the gym joins its film= frames with into an mp4 (default: ffmpeg on PATH; none: the frames are kept).',
     'TW_BOARD': 'Environment variable: the pipeline job board checkout (default ../tw3d-board beside the repo); a gym run outside a relay leg (TW_RELAY unset) appends its recurring flags to its lessons.md.',
+    'TW_RELAY': 'Environment variable: set in a relay leg (Tools/relay/launch.py); land.py and pipeline.py refuse, and a gym run leaves the board''s lessons.md alone.',
     'TW.Gym.Request': 'SessionState key (editor): a gym run asked for before Play, carried over the domain reload; erased when the run starts.',
     'tw.hud.toolkit': 'PlayerPrefs int (registry, per machine): 1 = UI Toolkit HUD, 0 = IMGUI BattleHud. F9 flips it. '
                       'Default 1. A machine where someone pressed F9 shows the other HUD.',

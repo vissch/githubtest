@@ -53,7 +53,7 @@ Both are read only when `StressUnits > 0`, so no other preset sees them.
 | `TW_FFMPEG` | environment variable | `Editor/Gym.cs` | Environment variable: the ffmpeg the gym joins its film= frames with into an mp4 (default: ffmpeg on PATH; none: the frames are kept). |
 | `TW_GYM` | environment variable | `Editor/Gym.cs` | Environment variable: the folder gym runs are written in (default %LOCALAPPDATA%\TrenchWarfare\gym). Never a checkout. |
 | `TW_KNOBS` | environment variable | `Presentation/Core/Knobs.cs` | Environment variable: run-time knobs, "a=1,b=2" (also \| or ; between entries; `Presentation/Core/Knobs.cs`); a bench report lists every knob it read. |
-| `TW_RELAY` | environment variable | `Editor/Gym.cs` | **undocumented: add to FLAG_EFFECT in Tools/codemap.py** |
+| `TW_RELAY` | environment variable | `Editor/Gym.cs` | Environment variable: set in a relay leg (Tools/relay/launch.py); land.py and pipeline.py refuse, and a gym run leaves the boards lessons.md alone. |
 | `TW_SEATSHEET_OUT` | environment variable | `Editor/RiderLab.cs` | Environment variable: where the RiderLab batch seat sheet (the seats of every crab) writes its images. |
 | `TW_SEATSHEET_SCALES` | environment variable | `Editor/RiderLab.cs` | Environment variable: the walker sizes the RiderLab batch seat sheet draws, comma separated (default 1,1.5). |
 
