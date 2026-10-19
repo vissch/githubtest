@@ -15,6 +15,9 @@ namespace TW.Presentation.Tactical
         /// <summary>The most pieces one man's kit has (two tanks and a wand), so a caller can size its array.</summary>
         public const int KitPieceMax = 3;
         readonly Matrix4x4[] kitPieces = new Matrix4x4[KitPieceMax];
+        /// <summary>How many men were given their kit in the last frame: what a capture session reads to tell "no man
+        /// matched" from "drawn but invisible".</summary>
+        public int KitDrawnLast;
 
         /// <summary>
         /// The pieces of one man's kit, in the frame his barrel socket gives: 0 and 1 the fuel tanks on his back, 2 the
@@ -30,10 +33,22 @@ namespace TW.Presentation.Tactical
             Vector3 up = Vector3.Cross(fwd, right).normalized;
             var turn = Quaternion.LookRotation(fwd, up);
             // the two tanks, high on his back, one each side of the spine
-            var tank = new Vector3(0.16f, 0.46f, 0.16f) * scale;
-            Vector3 back = chest + (up * 0.02f - fwd * 0.18f) * scale;
-            into[0] = Matrix4x4.TRS(back + right * (0.11f * scale), turn, tank);
-            into[1] = Matrix4x4.TRS(back - right * (0.11f * scale), turn, tank);
+            // Clear of his back, not inside it: at 0.18 m behind the chest socket the tanks sat within the baked
+            // soldier's own silhouette and only 563 px of a 113x116 box changed when he put them on (a still,
+            // 2026-10-19). A real set rides high and proud of the shoulder blades.
+            // The tanks hang off the way he FACES, not the way he points his weapon. Taken off the barrel they
+            // followed a rifle held low and went up into his own head: the whole set projected onto his shoulders
+            // and not one pixel of a 56x49 box changed when he put it on (a still, 2026-10-19). Flat forward and
+            // world up put them on his back wherever he is aiming, and 0.55 m behind the chest socket clears the
+            // baked soldier's cape - at 0.30 m one tank showed a corner and the rest was inside him.
+            Vector3 flat = new Vector3(fwd.x, 0f, fwd.z);
+            flat = flat.sqrMagnitude > 0.0001f ? flat.normalized : Vector3.forward;
+            Vector3 side = Vector3.Cross(Vector3.up, flat).normalized;
+            var stand = Quaternion.LookRotation(flat, Vector3.up);
+            var tank = new Vector3(0.18f, 0.52f, 0.18f) * scale;
+            Vector3 back = chest + (Vector3.up * 0.10f - flat * 0.55f) * scale;
+            into[0] = Matrix4x4.TRS(back + side * (0.11f * scale), stand, tank);
+            into[1] = Matrix4x4.TRS(back - side * (0.11f * scale), stand, tank);
             // the wand: a 1.10 m tube that starts 0.45 m behind the muzzle - in his hands, over the baked rifle - and
             // runs forward from there. (The plan's "centred on muzzle - 0.45*fwd" put the far end 0.65 m ahead of the
             // chest, which its own test rejects at 1.0 m; the back end is what 0.45 m measures.)
@@ -55,13 +70,25 @@ namespace TW.Presentation.Tactical
                 if ((flags & (uint)UnitFlags.Alive) == 0 || (flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 byte archetype = w.Archetype[slot];
                 if (archetype != InfantryArchetype.Flamethrower) continue;
-                if (!units.Sockets(slot, out var muzzle, out var barrel, out var chest)) continue;   // far tier, or the controller is off
-                ViewNow(out _, out _, out float scale);
+                // The man's own size, not ViewNow's: ViewNow still carries the old grow-with-zoom formula, while the
+                // men are drawn one size at every zoom (owner, 2026-10-13 - VATRenderer.ScaleAt). Sized by ViewNow
+                // the kit came out a 1.5 m slab over a 1.8 m man at the close view (seen in a still, 2026-10-19).
+                ViewNow(out _, out float zoom, out _);
+                float scale = units.ScaleAt(zoom);
+                // The sockets only exist at the near tier, so taking them as a condition hid the kit at the very
+                // views the game is played at. Past the near tier his drawn pose is estimated, as every other piece
+                // hung on a man already does (CombatFx.Bodies.cs), so he reads as a Flamer at T2 and T1 too.
+                if (!units.Sockets(slot, out var muzzle, out var barrel, out var chest))
+                {
+                    EstimateMuzzle(slot, -1, scale, out muzzle, out barrel);
+                    chest = EstimateChest(slot, scale);
+                }
                 int n = KitPieces(archetype, chest, muzzle, barrel, scale, kitPieces);
                 for (int k = 0; k < n; k++) batch.Add(kitPieces[k]);
                 men++;
             }
-            if (batch.Count > 0) Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+            KitDrawnLast = men;
+            if (batch.Count > 0) Flush(cube, new RenderParams(kitMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
         }
     }
 }

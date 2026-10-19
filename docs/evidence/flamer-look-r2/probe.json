@@ -1,7 +1,7 @@
 {
   "kit_px_control": 0,
-  "kit_px_t2": 142,
-  "kit_px_t3": 278,
-  "tank_vs_ground_dL_t2": 12.78,
-  "tank_vs_torso_dL_t2": -6.64
+  "kit_px_t2": 574,
+  "kit_px_t3": 2422,
+  "tank_vs_ground_dL_t2": 65.53,
+  "tank_vs_torso_dL_t2": 31.61
 }

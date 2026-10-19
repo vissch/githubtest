@@ -36,7 +36,7 @@ namespace TW.Presentation.Tactical
         /// the mark thins out continuously.</summary>
         readonly Material[] markMats = new Material[3];
         readonly List<Matrix4x4>[] markBatch = { new List<Matrix4x4>(256), new List<Matrix4x4>(256), new List<Matrix4x4>(256) };
-        Material fallenMat, brassMat, helmetMat, vapourMat;
+        Material fallenMat, brassMat, helmetMat, vapourMat, kitMat;
         Mesh markQuad;
         float nextPrint, nextBreath, nextExhaust; int breathCursor;
         // ---- the probe (MarkReport): what the last frame actually laid and drew, so a leg can tell a laying fault
