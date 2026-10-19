@@ -39,13 +39,13 @@ namespace TW.Editor
         }
 
         /// <summary>n men in a line along x from (x, z), facing +z, each with hp hit points; returns their slots.</summary>
-        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f)
+        public static string Row(int n = 6, float x = 100f, float z = 120f, int team = 0, float spacing = 1.6f, float hp = 1f, float maxHp = -1f, int archetype = 0)
         {
             var h = Host; if (h == null) return "no SimHost";
             var sb = new StringBuilder("slots");
             for (int k = 0; k < n; k++)
             {
-                string s = TankCapture.Spawn(team, 0, x + k * spacing, z, 0f);
+                string s = TankCapture.Spawn(team, archetype, x + k * spacing, z, 0f);
                 if (!s.StartsWith("slot ")) return s;
                 int slot = int.Parse(s.Substring(5));
                 h.WriteWorlds(m => { m.World.Hp[slot] = hp; m.World.Speed[slot] = 0f; if (maxHp > 0f) m.World.MaxHp[slot] = maxHp; });
