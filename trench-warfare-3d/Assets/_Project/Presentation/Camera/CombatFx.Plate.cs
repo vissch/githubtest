@@ -7,6 +7,11 @@
 // ground and the whole thing swung round with the gun as he traversed, then vanished the frame he died. A plate is
 // emplaced: the barrel is read once, when he sets it down, and from then on the plate stands on the ground where he put
 // it, whatever the gun does and whether he is alive.
+//
+// r3 (the harsh critic, fix 3): r2 only ever emplaced the plate where the sockets answer (inside VATRenderer.LodDistance)
+// and flushed it in dirtMat, the night ground's own colour - so at T1 and O120 the Sentry was an MG man double again.
+// Now his sim facing stands in for the barrel out there, the plate is painted steel, and far off it is grown to an 8 px
+// floor so it is more than a couple of pixels.
 using UnityEngine;
 using Unity.Mathematics;
 using TW.Sim;
@@ -81,6 +86,22 @@ namespace TW.Presentation.Tactical
             return Matrix4x4.TRS(foot + up * (0.25f * scale), turn, new Vector3(1.40f, 0.50f, 0.02f) * scale);
         }
 
+        /// <summary>
+        /// How much the plate is grown so it still reads far off. At O120 a 0.90 m plate is a couple of pixels across
+        /// and the Sentry is an MG man double again, so below an 8 px floor it is grown up to 3x. Pure, so a test can
+        /// hold it: 1.0 at the near tiers (T3, T1), above 1.0 only far off.
+        /// </summary>
+        public static float PlateGrow(float camDist, float fovDeg, int screenH, float plateW)
+        {
+            float half = Mathf.Tan(Mathf.Deg2Rad * Mathf.Clamp(fovDeg, 1f, 179f) * 0.5f);
+            float px = screenH * plateW / Mathf.Max(0.0001f, 2f * Mathf.Max(0.01f, camDist) * half);
+            return Mathf.Clamp(8f / Mathf.Max(0.0001f, px), 1f, 3f);
+        }
+
+        /// <summary>Forget every emplaced plate, so a still of the same pose can be shot with no plate in it
+        /// (docs/evidence/sentry-look-r3/shoot.py shoots the pair and then the empty background).</summary>
+        public void ForgetPlates() { System.Array.Clear(spots, 0, spots.Length); }
+
         /// <summary>The plate's frame from the way it faces: upright, facing <paramref name="fwd"/> flattened.</summary>
         static void Frame(Vector3 fwd, out Quaternion turn, out Vector3 up)
         {
@@ -100,8 +121,9 @@ namespace TW.Presentation.Tactical
             return mat;
         }
 
-        /// <summary>Draw the plate of every Sentry on the field, from where he emplaced it: near tier only, where the
-        /// sockets exist, but once set it is drawn after he dies too - a plate does not fall over with its man.</summary>
+        /// <summary>Draw the plate of every Sentry on the field, from where he emplaced it: at every tier - the far box
+        /// soldier carries no sockets, so out there his sim facing emplaces it - and once set it is drawn after he dies
+        /// too, because a plate does not fall over with its man.</summary>
         void DrawPlate(Bounds bounds)
         {
             if (units == null) return;
@@ -114,24 +136,32 @@ namespace TW.Presentation.Tactical
                 uint flags = w.Flags[slot];
                 if ((flags & (uint)UnitFlags.Vehicle) != 0) continue;
                 if (w.Archetype[slot] != InfantryArchetype.Sentry) { spots[slot] = default; continue; }   // a reused slot keeps no dead man's plate
-                ViewNow(out _, out _, out float scale);
+                ViewNow(out var cam, out _, out float scale);
                 if (!spots[slot].Set)
                 {
                     if ((flags & (uint)UnitFlags.Alive) == 0) continue;                                   // he died before he could set it down
-                    if (!units.Sockets(slot, out _, out var barrel, out _)) continue;                    // far tier, or the controller is off
+                    // the barrel when the sockets answer (read once, so a traverse does not swing the plate round);
+                    // beyond VATRenderer.LodDistance the far box soldier carries none, so his sim facing stands in -
+                    // otherwise no plate is ever emplaced at T1 or O120 and the Sentry is an MG man double there.
+                    Vector3 fwd;
+                    if (units.Sockets(slot, out _, out var barrel, out _)) fwd = barrel;
+                    else { float yaw = w.Yaw[slot]; fwd = new Vector3(Mathf.Sin(yaw), 0f, Mathf.Cos(yaw)); }
                     float3 p = Host.Presenter.Drawn(slot);
-                    var spot = Emplace(spots[slot], new Vector3(p.x, 0f, p.z), barrel, scale);
+                    var spot = Emplace(spots[slot], new Vector3(p.x, 0f, p.z), fwd, scale);
                     spot.Foot.y = RenderGround.Sample(Host.Local.Map, spot.Foot.x, spot.Foot.z);
                     spots[slot] = spot;
                 }
-                int n = PlatePieces(InfantryArchetype.Sentry, spots[slot].Foot, spots[slot].Fwd, scale, platePieces);
+                float grow = cam != null
+                    ? PlateGrow(Vector3.Distance(cam.transform.position, spots[slot].Foot), cam.fieldOfView, Mathf.Max(1, cam.pixelHeight), 0.90f * scale)
+                    : 1f;
+                int n = PlatePieces(InfantryArchetype.Sentry, spots[slot].Foot, spots[slot].Fwd, scale * grow, platePieces);
                 for (int k = 0; k < n; k++) batch.Add(platePieces[k]);
                 men++;
             }
             if (batch.Count == 0) return;
             if (!PlateMask)
             {
-                Flush(cube, new RenderParams(dirtMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
+                Flush(cube, new RenderParams(plateMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On });
                 return;
             }
             if (maskPlateMat == null) { maskPlateMat = Unlit(new Color(1f, 0f, 1f)); maskBarMat = Unlit(new Color(0f, 1f, 1f)); }

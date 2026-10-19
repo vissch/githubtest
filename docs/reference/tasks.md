@@ -865,12 +865,16 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   2026-10-19 (`Portraits/Sentry.png`, baked by `UiSkinGenerator`) and no longer borrows the MG man's, and his own look
   on the field is the 8 mm plate he fires over, drawn over the baked soldier in
   `Presentation/Camera/CombatFx.Plate.cs` (`CombatFx.PlatePieces`/`DrawPlate`); his muzzle flash is an MG's
-  (`CombatFx.KindOf`), so only the plate tells the two apart.
+  (`CombatFx.KindOf`), so only the plate tells the two apart. The plate is emplaced, not carried: the barrel is read
+  once when he sets it down, and beyond `VATRenderer.LodDistance` (no sockets on the far box soldier) his sim facing
+  stands in, so a plate is set at every tier. It is flushed in `plateMat` (painted steel, not the ground's own dirt
+  colour) and far off `CombatFx.PlateGrow` grows it up to 3x to an 8 px floor.
   A card's picture is the USS class `.tw-portrait-<name>` in `UI/Skin/dustfront.components.uss`: a portrait
   baked without its class is a blank card (eight were, until 2026-09-28; ProvingGroundScreenTests holds them).
 - **Tests:** ProvingGroundTests (runs offline in otr: the catalogue, placing, waves placed and through slots, the
   timer, the enemy's support, the sappers' orders, the request, the same on two worlds, the Sentry's own portrait),
-  SentryLookTests (his plate's shape, his gun being an MG's, and that his tooltip is no longer a stand-in's),
+  SentryLookTests (his plate's shape, his gun being an MG's, that his tooltip is no longer a stand-in's,
+  that the plate is emplaced without sockets, and that it grows only far off),
   ProvingGroundScreenTests
   (the editor: both UXMLs, picking a ten, the panel over a director of its own, the sim's flame jet).
 - **Seen in Play (2026-09-28, the owner's "test and verify"):** a wave through the enemy's slots, the sappers of both
