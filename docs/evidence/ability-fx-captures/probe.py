@@ -4,6 +4,7 @@ ParaDrop), so the critic's two complaints are numbers and not an opinion.
 
 WHY. The harsh critic scored this group 29/100 with "no capture at all", naming two faults: gas floats instead of
 pooling, and the night water splash is the most saturated thing in frame. Both are measurable from the pixels:
+`gas_height_frac` is how tall the gas band stands as a share of the frame (a low rolling bank is the shorter one),
 `green_low_share` is how much of a gas still's green sits in the lower third of its column (pooling, not floating),
 and `sat_p99` is how saturated the brightest-coloured 1% of a frame is.
 
@@ -71,9 +72,12 @@ def percentile(hist, p):
     return 255
 
 
-def green_low_share(img):
-    """Of the gas-hue pixels in the middle third of the frame (the subject's own column), the share sitting in the
-    lower third of it."""
+def gas_shape(img):
+    """Two numbers from the gas-hue pixels in the middle third of the frame (the subject's own column):
+    green_low_share, the share of them in the lower third of the frame, and gas_height_frac, how tall the band
+    they make is as a share of the frame (its 2nd to 98th percentile row). A squashed bank lying on the ground is
+    the shorter band. green_low_share says where the bank sits in frame, so it only compares two shots of the same
+    pose; gas_height_frac compares the bank's own height."""
     w, h = img.size
     col = img.crop((w // 3, 0, 2 * w // 3, h))
     hsv = col.convert("HSV")
@@ -81,6 +85,7 @@ def green_low_share(img):
     cw, ch = col.size
     hp, sp, vp = H.load(), S.load(), V.load()
     total = low = 0
+    rows = []
     for y in range(0, ch, 2):
         for x in range(0, cw, 2):
             if sp[x, y] < 50 or vp[x, y] < 30:
@@ -88,9 +93,14 @@ def green_low_share(img):
             if not (GAS_HUE_LOW <= hp[x, y] <= GAS_HUE_HIGH):
                 continue
             total += 1
+            rows.append(y)
             if y >= 2 * ch // 3:
                 low += 1
-    return round(low / total, 3) if total else None
+    if not total:
+        return None, None
+    rows.sort()
+    tall = rows[int(total * 0.98)] - rows[int(total * 0.02)]
+    return round(low / total, 3), round(tall / float(ch), 3)
 
 
 def measure(jpg):
@@ -108,7 +118,7 @@ def measure(jpg):
         "bytes": os.path.getsize(jpg),
     }
     if subject == "gas":
-        row["green_low_share"] = green_low_share(img)
+        row["green_low_share"], row["gas_height_frac"] = gas_shape(img)
     return row
 
 
@@ -141,7 +151,8 @@ def main():
     for r in rows:
         print("  %-14s luma %5.1f blown %.4f sat_p99 %.3f%s"
               % (r["still"], r["luma_mean"], r["blown_frac"], r["sat_p99"],
-                 "" if "green_low_share" not in r else " green_low_share %s" % r["green_low_share"]))
+                 "" if "green_low_share" not in r else " green_low_share %s gas_height_frac %s"
+                 % (r["green_low_share"], r["gas_height_frac"])))
     ok = len(rows) >= WANT_STILLS and worst < BLOWN_LIMIT
     if not ok:
         print("NOT OK: %d stills (want %d), max blown %.4f (want under %.2f)" % (len(rows), WANT_STILLS, worst, BLOWN_LIMIT))

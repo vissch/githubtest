@@ -4,55 +4,57 @@
     {
       "band": "o240",
       "blown_frac": 0.0001,
-      "bytes": 148924,
+      "bytes": 149551,
       "luma_mean": 53.3,
-      "sat_p99": 0.604,
+      "sat_p99": 0.608,
       "still": "barrage-o240",
       "subject": "barrage"
     },
     {
       "band": "t1",
       "blown_frac": 0.0,
-      "bytes": 408562,
-      "luma_mean": 86.9,
-      "sat_p99": 0.788,
+      "bytes": 299767,
+      "luma_mean": 86.3,
+      "sat_p99": 0.8,
       "still": "barrage-t1",
       "subject": "barrage"
     },
     {
       "band": "o240",
       "blown_frac": 0.0,
-      "bytes": 150608,
+      "bytes": 150138,
+      "gas_height_frac": 0.042,
       "green_low_share": 0.0,
-      "luma_mean": 53.7,
-      "sat_p99": 0.71,
+      "luma_mean": 53.0,
+      "sat_p99": 0.714,
       "still": "gas-o240",
       "subject": "gas"
     },
     {
       "band": "t1",
       "blown_frac": 0.0,
-      "bytes": 398857,
-      "green_low_share": 0.064,
-      "luma_mean": 59.9,
-      "sat_p99": 0.718,
+      "bytes": 304607,
+      "gas_height_frac": 0.32,
+      "green_low_share": 0.003,
+      "luma_mean": 61.9,
+      "sat_p99": 0.749,
       "still": "gas-t1",
       "subject": "gas"
     },
     {
       "band": "o240",
       "blown_frac": 0.0,
-      "bytes": 144179,
+      "bytes": 143823,
       "luma_mean": 52.6,
-      "sat_p99": 0.608,
+      "sat_p99": 0.612,
       "still": "paradrop-o240",
       "subject": "paradrop"
     },
     {
       "band": "t1",
       "blown_frac": 0.0,
-      "bytes": 392860,
-      "luma_mean": 63.7,
+      "bytes": 398148,
+      "luma_mean": 65.4,
       "sat_p99": 0.961,
       "still": "paradrop-t1",
       "subject": "paradrop"
@@ -60,8 +62,8 @@
     {
       "band": "o240",
       "blown_frac": 0.0,
-      "bytes": 136021,
-      "luma_mean": 52.0,
+      "bytes": 137043,
+      "luma_mean": 51.9,
       "sat_p99": 0.596,
       "still": "smoke-o240",
       "subject": "smoke"
@@ -69,17 +71,17 @@
     {
       "band": "t1",
       "blown_frac": 0.0,
-      "bytes": 351804,
-      "luma_mean": 60.3,
-      "sat_p99": 0.612,
+      "bytes": 358349,
+      "luma_mean": 60.1,
+      "sat_p99": 0.62,
       "still": "smoke-t1",
       "subject": "smoke"
     },
     {
       "band": "o240",
       "blown_frac": 0.0,
-      "bytes": 132474,
-      "luma_mean": 53.7,
+      "bytes": 132303,
+      "luma_mean": 53.4,
       "sat_p99": 0.592,
       "still": "water-o240",
       "subject": "water"
@@ -87,9 +89,9 @@
     {
       "band": "t1",
       "blown_frac": 0.0,
-      "bytes": 308990,
-      "luma_mean": 55.6,
-      "sat_p99": 0.835,
+      "bytes": 306741,
+      "luma_mean": 53.8,
+      "sat_p99": 0.812,
       "still": "water-t1",
       "subject": "water"
     }

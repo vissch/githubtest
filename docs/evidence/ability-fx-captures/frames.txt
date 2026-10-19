@@ -1,10 +1,10 @@
-barrage-o240: barrage at 26, 142, band o240 | 0.4 s after Explosion | clock running, weather pinned | luma 53.3, blown 0.0001, sat_p99 0.604
-barrage-t1: barrage at 26, 142, band t1 | 0.4 s after Explosion | clock running, weather pinned | luma 86.9, blown 0.0000, sat_p99 0.788
-gas-o240: gas at 44, 232, band o240 | 8 s after the call, the bank grown | clock running, weather pinned | luma 53.7, blown 0.0000, sat_p99 0.710
-gas-t1: gas at 44, 232, band t1 | 8 s after the call, the bank grown | clock running, weather pinned | luma 59.9, blown 0.0000, sat_p99 0.718
-paradrop-o240: paradrop at 20, 100, band o240 | 0.4 s after DropLanded | clock running, weather pinned | luma 52.6, blown 0.0000, sat_p99 0.608
-paradrop-t1: paradrop at 20, 100, band t1 | 0.4 s after DropLanded | clock running, weather pinned | luma 63.7, blown 0.0000, sat_p99 0.961
-smoke-o240: smoke at 68, 232, band o240 | 6 s after the call, the bank grown | clock running, weather pinned | luma 52.0, blown 0.0000, sat_p99 0.596
-smoke-t1: smoke at 68, 232, band t1 | 6 s after the call, the bank grown | clock running, weather pinned | luma 60.3, blown 0.0000, sat_p99 0.612
-water-o240: water at 20, 12, band o240 | 0.4 s after Explosion | clock running, weather pinned | luma 53.7, blown 0.0000, sat_p99 0.592
-water-t1: water at 20, 12, band t1 | 0.4 s after Explosion | clock running, weather pinned | luma 55.6, blown 0.0000, sat_p99 0.835
+barrage-o240: barrage at 26, 142, band o240 | 0.4 s after Explosion | clock running, weather pinned | luma 53.3, blown 0.0001, sat_p99 0.608
+barrage-t1: barrage at 26, 142, band t1 | 0.4 s after Explosion | clock running, weather pinned | luma 86.3, blown 0.0000, sat_p99 0.800
+gas-o240: gas at 44, 232, band o240 | 8 s after the call, the bank grown | clock running, weather pinned | luma 53.0, blown 0.0000, sat_p99 0.714
+gas-t1: gas at 44, 232, band t1 | 8 s after the call, the bank grown | clock running, weather pinned | luma 61.9, blown 0.0000, sat_p99 0.749
+paradrop-o240: paradrop at 20, 100, band o240 | 0.4 s after DropLanded | clock running, weather pinned | luma 52.6, blown 0.0000, sat_p99 0.612
+paradrop-t1: paradrop at 20, 100, band t1 | 0.4 s after DropLanded | clock running, weather pinned | luma 65.4, blown 0.0000, sat_p99 0.961
+smoke-o240: smoke at 68, 232, band o240 | 6 s after the call, the bank grown | clock running, weather pinned | luma 51.9, blown 0.0000, sat_p99 0.596
+smoke-t1: smoke at 68, 232, band t1 | 6 s after the call, the bank grown | clock running, weather pinned | luma 60.1, blown 0.0000, sat_p99 0.620
+water-o240: water at 20, 12, band o240 | 0.4 s after Explosion | clock running, weather pinned | luma 53.4, blown 0.0000, sat_p99 0.592
+water-t1: water at 20, 12, band t1 | 0.4 s after Explosion | clock running, weather pinned | luma 53.8, blown 0.0000, sat_p99 0.812

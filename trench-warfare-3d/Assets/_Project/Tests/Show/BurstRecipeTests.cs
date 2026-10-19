@@ -117,6 +117,15 @@ namespace TW.Tests
             }
         }
         [Test]
+        public void GasBank_IsSquashedSoItsDrawingStaysUnderAMansHead()
+        {
+            // The sheet's gas card fills the bottom third of its drawing, so a 7 m wide card standing on the ground
+            // tops out at 7 / 3 = 2.33 m -- over a 1.8 m man's head. Squashed it tops out at 7 * 0.55 / 3 = 1.28 m.
+            const float width = 7f, head = 1.8f;
+            Assert.That(width / 3f, Is.GreaterThan(head), "a square card's bank would stand over a man's head");
+            Assert.That(width * CombatFx.GasBankSquash / 3f, Is.LessThan(head), "the squashed bank is a low rolling one");
+        }
+        [Test]
         public void JetpackLanding_RingAndDustNoColumn()
         {
             int landing = TW.Sim.Combat.LeapSystem.LandingSource;
