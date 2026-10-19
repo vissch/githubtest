@@ -39,9 +39,11 @@ namespace TW.Presentation.Tactical
         public static bool DayEarth(bool wet, float fire, bool moonLit) => !wet && fire > 0f && !moonLit;
 
         /// <summary>The one width every column branch (soil, capped, ordinary) draws at, so a retune of 2.1, columnScale
-        /// or DayColumnWidth moves all three together.</summary>
+        /// or DayColumnWidth moves all three together. The damp (water) column is the wider of the two: a shell in water
+        /// throws a crown taller and broader than an earth column, where 1.25 drew it at 60 % of dry earth and the probe
+        /// of ability-fx-captures-r3-2-2 measured only 0.0239 of the T1 frame against a 0.0709 floor.</summary>
         public static float ColumnWidth(float r, bool damp, float columnScale, float earth, float lookColumn, bool dayEarth) =>
-            r * (damp ? 1.25f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * lookColumn;
+            r * (damp ? 2.3f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * lookColumn;
 
         /// <summary>The warm light on the young burst cloud's underside (0 with fx.shellFire 0): peach by day, an ember at night,
         /// where the moonlit grade was tuned against a darker cloud.</summary>

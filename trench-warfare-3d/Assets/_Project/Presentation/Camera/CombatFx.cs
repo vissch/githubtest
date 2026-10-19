@@ -795,6 +795,9 @@ namespace TW.Presentation.Tactical
                 case SimEventType.WireBreached:
                     OnWireBreached(e);   // CombatFx.Barrage.cs (fx.recipes)
                     break;
+                case SimEventType.DropInbound:
+                    OnDropInbound(e);    // CombatFx.Barrage.cs (fx.recipes): the aircraft's run-in and the canopies
+                    break;
                 case SimEventType.DropLanded:
                     OnDropLanded(e);     // CombatFx.Barrage.cs (fx.recipes)
                     break;
@@ -869,7 +872,11 @@ namespace TW.Presentation.Tactical
                         // AOSA C103: a dry column on a moonlit field is the soil heave at fx.columnSoil (0: the old column exactly)
                         float soil = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? columnSoil : 0f;
                         bool dayEarth = DayEarth(wet, shellFire, FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid));   // the day column slimmer and its wings cut too (critique c1b)
-                        float columnWidth = ColumnWidth(r, damp, columnScale, earth, look.Column, dayEarth);
+                        // IN-5: the burst's big parts grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
+                        // reads where a shell landed. ability-fx-captures-r3-2: the column and its wings grow too, not only
+                        // the recipes' plume, ring and curtain - a water splash measured 0.0011 of an O240 frame without it.
+                        float far = FlipbookFx.FarGrow(ViewEye.Zoom);
+                        float columnWidth = ColumnWidth(r, damp, columnScale, earth, look.Column, dayEarth) * far;
                         // AOSA C109: a dry column on a moonlit field stops before its book's late arcs at fx.columnPlay (1: cut 0, the old card exactly)
                         float cut = !wet && FlipbookFx.MoonLit(SceneMood.Night, SceneTints.Now.MoltenLiquid) ? FlipbookFx.ColumnPlayCut(columnPlay)
                             : !wet && shellFire > 0f ? FlipbookFx.ColumnPlayCut(DayColumnPlay) : 0f;   // by day too (CombatFx.ShellFire.cs): the late arcs hung over the snow as icicles
@@ -897,8 +904,17 @@ namespace TW.Presentation.Tactical
                                 books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, columnWidth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
                                     velocity: columnLean, cut: cut);
                             // the two wings are not a mirror pair: the second is born a little later and a little smaller
-                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
-                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings * far, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
+                            books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings * far, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
+                            if (wet)
+                            {
+                                // ability-fx-captures-r3-2-2: the crown alone read 0.0239 of a T1 frame against a 0.0709 floor. A shell in
+                                // water also leaves foam spreading flat on the surface, so two flat cards of the same Splash book lie on the
+                                // water and widen after it: at 6.0/8.2 r the splash covers 508 m^2 against the 400 m^2 asked for (3.2/4.4 r
+                                // read 246, 4.8/6.6 r 386). No new book, no new sheet, no new draw call - the barrage frame has none to spare.
+                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 6.0f * far, 1.8f, FlipbookFx.Kind.Flat, grow: 0.6f, alpha: 0.5f, delay: 0.1f);
+                                books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 8.2f * far, 2.4f, FlipbookFx.Kind.Flat, grow: 0.9f, alpha: 0.45f, delay: 0.35f);
+                            }
                         }
                         // a tripwire's charge stands no column and no wings: its ring and its spark fan are its whole shape (CombatFx.Bursts.cs)
                         // fx.recipes (CombatFx.Recipes.cs): a round with no lean bursts wide and low over its column; a hull goes up
@@ -918,9 +934,6 @@ namespace TW.Presentation.Tactical
                                 books.Add(FlipbookFx.Book.DustPuff, p + Vector3.up * 0.2f, r * 1.1f, 28f / 12f, ground | (k == 1 ? FlipbookFx.Kind.Mirror : 0), velocity: new Vector3(k == 0 ? 1.2f : -1.2f, 0.3f, 0f), alpha: 0.75f);
                         if (recipe.CookOff)
                             books.Add(FlipbookFx.Book.FireCookOff, p, r * 2.4f, 2.4f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.25f, pop: 0.1f);
-                        // IN-5: the recipes' plume and ring grow with the zoom past 80 (FlipbookFx.FarGrow), so the overview still
-                        // reads where a shell landed; the old parts are not grown (fx.recipes 0 draws exactly as before)
-                        float far = recipe.Plume || recipe.Ring || recipe.Curtain ? FlipbookFx.FarGrow(ViewEye.Zoom) : 1f;
                         if (recipe.Ring && !recipe.Dust && (!wet || melt)) SmoulderCrater(p, r, far);   // L23: 30 % of heavy dry bursts leave the crater smouldering
                         if (recipe.Curtain)
                         {
