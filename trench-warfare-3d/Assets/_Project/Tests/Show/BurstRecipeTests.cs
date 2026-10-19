@@ -20,6 +20,18 @@ namespace TW.Tests
         }
 
         [Test]
+        public void SplashNeedsStandingWater()
+        {
+            // critic r1 fix 2 (2026-10-19): the HE barrage drew the water ability's blue plume on dry mud, because
+            // SceneHooks.IsWater calls a painted damp patch and every dressed shell hole "water". A splash now wants
+            // real depth: the painter scales a pool's alpha over 0.7 m, so SplashDepth is under a third of a pool.
+            Assert.AreEqual(0.2f, CombatFx.SplashDepth, 1e-6f, "ankle deep, under a third of the 0.7 m pool scale");
+            Assert.IsFalse(CombatFx.SplashWet(0f), "dry ground is not a splash");
+            Assert.IsFalse(CombatFx.SplashWet(0.05f), "a damp sheen is not a splash");
+            Assert.IsTrue(CombatFx.SplashWet(0.6f), "a flooded shell hole is");
+        }
+
+        [Test]
         public void Knob_DefaultIsTheRecipes_ZeroIsTheOldBurst()
         {
             Assert.AreEqual("fx.recipes", CombatFx.RecipesKnob);

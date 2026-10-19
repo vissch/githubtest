@@ -20,6 +20,12 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx : MonoBehaviour
     {
         public SimHost Host;
+        /// <summary>Metres of standing water a shell has to land in before its burst is drawn as a splash rather than
+        /// as thrown earth. The painter scales a dressed pool's alpha over 0.7 m (GreyboxTerrainView), so 0.2 m is
+        /// under a third of a pool - ankle deep - while a damp patch with no hollow in it reports 0 m.</summary>
+        public const float SplashDepth = 0.2f;
+        /// <summary>Is this much standing water enough for a splash? (SplashDepth)</summary>
+        public static bool SplashWet(float depth) => depth >= SplashDepth;
         public float TracerSeconds = 0.12f;
         public int MaxBodies = 600;
         // knob fx.shotStagger (Awake): a tick's shots are shown spread over this much of the tick (ShotStagger), so a
@@ -819,7 +825,13 @@ namespace TW.Presentation.Tactical
                     p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
                     if (LightBurst(e, p, Time.time)) break;   // a strafe's rounds, a beam's scorch: not a shell (CombatFx.Abilities.cs)
                     if (e.A == SourceId.Grenade && GrenadeBurst(e, p)) break;   // a hand grenade: not a shell either (CombatFx.Grenades.cs)
-                    bool wet = SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z);
+                    // Standing water, not damp ground: IsWater says yes to a painted damp patch and to every dressed
+                    // shell hole on the flooded night field, so on dry mud a shell drew the water ability's blue plume
+                    // (critic r1, 2026-10-19). WaterDepth answers in metres; a scene that does not fill it keeps the
+                    // old test, so every other field draws exactly what it drew.
+                    bool wet = SceneHooks.WaterDepth != null
+                        ? SplashWet(SceneHooks.WaterDepth(p.x, p.z))
+                        : (SceneHooks.IsWater != null && SceneHooks.IsWater(p.x, p.z));
                     // Water damps a shell; melt does not. IsWater is map data and knows nothing about the
                     // biome, so on the lava field it is true over the river - 11% of the ground, measured -
                     // and every shell that landed there lost its burst, its smoke and its debris: the

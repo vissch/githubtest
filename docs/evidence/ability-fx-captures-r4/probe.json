@@ -1,0 +1,44 @@
+{
+  "barrage_blue_share_o240": 0.0139,
+  "barrage_blue_share_t1": 0.0,
+  "barrage_effect_area_t1": 0.8097,
+  "baseline_blue_share_t1": 0.0,
+  "baseline_effect_area_t1": 0.8097,
+  "blue_limit": 0.02,
+  "effect_area_min": 0.05,
+  "pose_error_m": {
+    "barrage-o240": 0,
+    "barrage-t1": 0,
+    "plate-o240": 0,
+    "plate-t1": 0
+  },
+  "rows": [
+    {
+      "blue_share": 0.0,
+      "blue_share_raw": 0.0001,
+      "effect_area": 0.8097,
+      "mask_pixels": 291508,
+      "plate": "plate-t1.jpg",
+      "sampled_pixels": 360000,
+      "still": "barrage-t1"
+    },
+    {
+      "blue_share": 0.0139,
+      "blue_share_raw": 0.0859,
+      "effect_area": 0.0314,
+      "mask_pixels": 11286,
+      "plate": "plate-o240.jpg",
+      "sampled_pixels": 360000,
+      "still": "barrage-o240"
+    },
+    {
+      "blue_share": 0.0,
+      "blue_share_raw": 0.0001,
+      "effect_area": 0.8097,
+      "mask_pixels": 291485,
+      "plate": "plate-t1.jpg",
+      "sampled_pixels": 360000,
+      "still": "baseline-barrage-t1"
+    }
+  ]
+}
