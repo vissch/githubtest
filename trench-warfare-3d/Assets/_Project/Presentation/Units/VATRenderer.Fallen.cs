@@ -21,6 +21,8 @@ namespace TW.Presentation.Units
             public byte Team, Figure, Gib, Flips, Char; public sbyte Pitch; public ushort Row, FarRow, FromRow; public int Cell;
             // a death gag (DeathGags; VATRenderer.Gags): which, its flags, the intensity it was chosen at, and his whole path
             public byte Gag, GagFlags; public float Absurd; public FallenFlight.Plan Path;
+            /// <summary>A plain throw (no gag) that owns a Path too: the blast knockback's bounce/skid/settle.</summary>
+            public bool Thrown;
         }
         static float Hash01(Vector3 v) { float h = Mathf.Sin(v.x * 12.9898f + v.z * 78.233f) * 43758.5453f; return h - Mathf.Floor(h); }
         /// <summary>Gravity for a thrown corpse (m/s2): a little over the real thing, so the arc reads as a blow, not a float.</summary>
@@ -71,8 +73,8 @@ namespace TW.Presentation.Units
             return SoonestEnd(fallenMen.Count, endOfFallen);
         }
 
-        /// <summary>When a body comes to rest: the plain ones at the end of their one arc, the gagged at the end of their path.</summary>
-        float ArriveOf(in FallenMan f) => f.Born + (f.Gag != 0 ? f.Path.Arrive : f.Flight);
+        /// <summary>When a body comes to rest: the plain ones at the end of their one arc, the gagged and the thrown at the end of their path.</summary>
+        float ArriveOf(in FallenMan f) => f.Born + (f.Gag != 0 || f.Thrown ? f.Path.Arrive : f.Flight);
 
         /// <summary>One body already down under a body arriving now: on his cell, and down no later.</summary>
         public static bool DownUnder(int cell, float arrive, int belowCell, float belowArrive) => belowCell == cell && belowArrive <= arrive;
@@ -104,7 +106,7 @@ namespace TW.Presentation.Units
                 float a = h * 6.2831853f;
                 var rest = man.Pos + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * PileNudge;
                 rest.y += PileStep * UnitScale * Mathf.Min(under, PileMax);
-                if (man.Gag != 0) FallenFlight.EndAt(ref man.Path, rest);
+                if (man.Gag != 0 || man.Thrown) FallenFlight.EndAt(ref man.Path, rest);
                 man.Pos = rest; man.Pitch = (sbyte)(h < 0.5f ? -1 : 1);
                 for (int k = 0; k < fallenMen.Count; k++)
                 {
@@ -144,6 +146,17 @@ namespace TW.Presentation.Units
                 FromRow = blend ? (ushort)fromClip : (ushort)0, FromT = fromPhase, Fade = blend ? fade : 0f, Rate = 1f, Cell = -1 };
         }
 
+        /// <summary>A plain throw's path (no gag): the outward fly, whole flips, no rolls, and a bounce/skid worked out
+        /// from how far he goes, on the drawn ground. Static and ground-generic so FallenFlightTests and
+        /// DeathVarietyTests can drive it with a flat plane, exactly as the gag path's Make does.</summary>
+        public static FallenFlight.Plan ThrowPath<G>(Vector3 pos, Vector3 fly, int flips, int rolls, int density, float gravity, Vector2 mapSize, float water, ref G ground) where G : struct, IGroundHeight
+        {
+            float far = new Vector2(fly.x, fly.z).magnitude;
+            int bounces = far >= 6f && density >= 2 ? 2 : far >= 3f ? 1 : 0;
+            float skid = far >= 1.5f ? Mathf.Clamp(0.25f * far, 0.3f, 2f) : 0f;
+            return FallenFlight.Make(pos, fly, flips, rolls, bounces, skid, Vector3.zero, 0f, 0f, 0f, gravity, mapSize, water, ref ground);
+        }
+
         /// <summary>
         /// A man died here: he goes down facing yaw (radians) and stays. The oldest is taken away past MaxFallen. With the clip
         /// atlas the near tier plays the death the controller chose (clip) on his archetype's figure; the far tier and the box
@@ -161,19 +174,22 @@ namespace TW.Presentation.Units
             // and his death clip is played so his back meets it as he lands.
             if (fly.y > 0.05f && Host != null && Host.Local != null)
             {
-                var size = Host.Local.Map.SizeMeters;
+                var map = Host.Local.Map;
+                var size = map.SizeMeters;
                 Vector3 land = pos + new Vector3(fly.x, 0f, fly.z);
                 land.x = Mathf.Clamp(land.x, 0.5f, size.x - 0.5f); land.z = Mathf.Clamp(land.z, 0.5f, size.y - 0.5f);
-                land.y = RenderGround.Sample(Host.Local.Map, land.x, land.z) - 0.02f;
+                land.y = RenderGround.Sample(map, land.x, land.z) - 0.02f;
                 float g = Mathf.Max(1f, ThrowGravity), top = Mathf.Max(pos.y, land.y) + fly.y;
-                float up = Mathf.Sqrt(2f * (top - pos.y) / g), down = Mathf.Sqrt(2f * (top - land.y) / g);
-                man.Pos = land; man.Up = up; man.Top = top; man.Flight = up + down;
+                float flight = Mathf.Sqrt(2f * (top - pos.y) / g) + Mathf.Sqrt(2f * (top - land.y) / g);
+                // and end over end: once on a long flight, twice when the heap he came out of threw him high
+                man.Flips = (byte)(flight >= TwoFlipsFlight && density >= 2 ? 2 : flight >= OneFlipFlight ? 1 : 0);
+                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
+                var ground = new DrawnGround { Map = map };
+                man.Path = ThrowPath(pos, fly, man.Flips, 0, density, ThrowGravity, new Vector2(size.x, size.y), map.WaterLevel, ref ground);
+                man.Thrown = true; man.Pos = man.Path.Rest; man.Flight = man.Path.ArcsEnd;
                 // a high arc lasts longer, but under about 0.8x he tumbles in slow motion over a battlefield at full speed:
                 // below that he lands a moment early and holds the pose
-                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / man.Flight, 0.8f, 1.8f);
-                man.Spin = (Hash01(pos) < 0.5f ? -1f : 1f) * Mathf.Lerp(1.1f, 2.6f, Hash01(pos + new Vector3(7.3f, 0f, 3.1f)));   // he goes over as he flies
-                // and end over end: once on a long flight, twice when the heap he came out of threw him high
-                man.Flips = (byte)(man.Flight >= TwoFlipsFlight && density >= 2 ? 2 : man.Flight >= OneFlipFlight ? 1 : 0);
+                if (near && clip == Clip.DeathThrown) man.Rate = Mathf.Clamp(AnimationController.ThrownLands / Mathf.Max(0.05f, man.Path.A0.Dur), 0.8f, 1.8f);
             }
             Heap(ref man);
         }
@@ -185,7 +201,7 @@ namespace TW.Presentation.Units
             float age = now - f.Born;
             float lies = f.Lies > 0.01f ? f.Lies : FallenSeconds;
             float sunk = FallenSeconds > 0f ? Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds) * SinkDepth : 0f;
-            if (f.Gag != 0) { var on = FallenFlight.At(f.Path, age); return sunk > 0f ? on - new Vector3(0f, sunk, 0f) : on; }
+            if (f.Gag != 0 || f.Thrown) { var on = FallenFlight.At(f.Path, age); return sunk > 0f ? on - new Vector3(0f, sunk, 0f) : on; }
             if (f.Flight <= 0f || age >= f.Flight) return sunk > 0f ? f.Pos - new Vector3(0f, sunk, 0f) : f.Pos;
             Vector3 at = Vector3.Lerp(f.From, f.Pos, age / f.Flight);
             float g = Mathf.Max(1f, ThrowGravity), fromTop = age - f.Up;
@@ -274,21 +290,24 @@ namespace TW.Presentation.Units
         static VatInstance Fallen(in FallenMan f, VatAsset tier, ushort row, float now, float scale, Vector3 at)
         {
             float age = now - f.Born;
-            bool gag = f.Gag != 0;
+            bool gag = f.Gag != 0, thrown = f.Thrown;
             // a gag's clip starts at its launch (a jig or a claw's hold comes first), or is held at its first frame (a plank)
-            float t = gag && (f.GagFlags & GagFlags.Freeze) != 0 ? 0.02f : Mathf.Clamp01((gag ? Mathf.Max(0f, age - f.Path.Delay) : age) * f.Rate / f.Seconds);
+            float t = gag && (f.GagFlags & GagFlags.Freeze) != 0 ? 0.02f : Mathf.Clamp01(((gag || thrown) ? Mathf.Max(0f, age - f.Path.Delay) : age) * f.Rate / f.Seconds);
             if (tier.Loops(row)) { float frames = Mathf.Max(2f, tier.Frames(row)); t *= (frames - 0.99f) / frames; }   // a looping row: stop on its last frame
             float blend = f.Fade > 0f && row == f.Row ? Mathf.Clamp01(1f - age / f.Fade) : 0f;   // the near tier only: the far rows are another atlas
             // thrown: he turns as he goes through the air and comes to rest the way he landed
             float yaw = f.Yaw;
             if (gag) yaw = GagYaw(f, age);
-            else if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(age, f.Flight);
-            int pitch = gag ? FallenFlight.PitchStep(f.Path, age, f.Pitch) : PitchStepOf(age, f.Flight, f.Flips, f.Pitch);
+            else if (f.Flight > 0f && f.Spin != 0f) yaw += f.Spin * Mathf.Min(age, thrown ? FallenFlight.Airborne(f.Path, age) : f.Flight);
+            int pitch = gag || thrown ? FallenFlight.PitchStep(f.Path, age, f.Pitch) : PitchStepOf(age, f.Flight, f.Flips, f.Pitch);
             // charred: the embers go out after EmberSeconds, and the mud takes what is left smaller than it was
             int chr = f.Char == 3 && age > EmberSeconds ? 2 : f.Char;
             float lies = f.Lies > 0.01f ? f.Lies : 30f;
             if (f.Char >= 2) scale *= Mathf.Lerp(1f, CharredShrink, Mathf.Clamp01((age - (lies - SinkSeconds)) / SinkSeconds));
-            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = gag ? GagTint(f, pitch, age) : VatTint.Pack(f.Team, pitch, wound: VatTint.FallenWound), Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = VatPad.Pack(f.Gib, f.Grime, (int)(Hash01(f.From) * 255f), chr) };
+            float tint = gag ? GagTint(f, pitch, age)
+                : thrown ? VatTint.Pack(f.Team, pitch, FallenFlight.RollStep(f.Path, age), FallenFlight.Squash(f.Path, age, 1f), false, VatTint.FallenWound)
+                : VatTint.Pack(f.Team, pitch, wound: VatTint.FallenWound);
+            return new VatInstance { Pos = at, Yaw = yaw, AnimRow = row, AnimT = t, Tint = tint, Scale = scale, PrevRow = f.FromRow, PrevT = f.FromT, Blend = blend, Pad = VatPad.Pack(f.Gib, f.Grime, (int)(Hash01(f.From) * 255f), chr) };
         }
 
         void ReleaseFallen()

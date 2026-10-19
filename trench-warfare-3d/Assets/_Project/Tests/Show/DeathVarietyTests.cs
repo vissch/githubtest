@@ -7,6 +7,7 @@ using System;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
+using UnityEngine;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Presentation;
@@ -106,6 +107,47 @@ namespace TW.Tests
             Assert.AreEqual((byte)DeathKind.Blast, rec.Cause);
             Assert.AreEqual(0, rec.Density, "nobody else went down beside him");
             Assert.IsFalse(r.A.TryDeath(man, at + 5, out _), "another tick is another death");
+        }
+
+        struct Flat : IGroundHeight { public float At(float x, float z) => 0f; }
+
+        /// <summary>The settle this unit adds: a blast death's throw now bounces/skids and tumbles, not one arc that
+        /// freezes on landing. The 2.0 m floor: Die's far = lerp(1.8, 7.5, closeness) * jitter(0.8..1.2) before the
+        /// trench/prone cuts, so at full closeness (knock >= FullThrowKnock) far is 6-9 m and a standing man in the
+        /// open clears 2 m with margin; at the floor (closeness 0) far = 1.8 * 0.8 = 1.44 m plus a >= 0.3 m skid
+        /// (ThrowPath's floor) still clears it.</summary>
+        [Test]
+        public void BlastDeathThrowsBodyOutward()
+        {
+            using var r = new Rig();
+            int man = r.Man(Here);
+            r.Tick();
+            r.W.Despawn(man, (int)DeathCause.Blast, new float3(1f, 1f, 0f), 10f);
+            r.Tick();
+            var s = r.A.State[man];
+            Assert.AreEqual(Clip.DeathThrown, s.Clip);
+            var fly = new UnityEngine.Vector3(s.ThrowX, s.ThrowUp, s.ThrowZ);
+            Assert.Greater(fly.y, 0.05f, "a blast throws up too, so a path is built at all");
+
+            var ground = new Flat();
+            var death = new UnityEngine.Vector3(Here.x, Here.y, Here.z);
+            var p = VATRenderer.ThrowPath(death, fly, 1, 0, 0, 14f, new UnityEngine.Vector2(600f, 1200f), -10000f, ref ground);
+
+            Assert.GreaterOrEqual(p.Rest.x - death.x, 2.0f, "outward, along the knock");
+            Assert.Less(Mathf.Abs(p.Rest.z - death.z), 0.5f);
+            Assert.IsTrue(p.Arcs >= 2 || p.SkidDur > 0f, "he bounces or skids, not one arc that freezes");
+            Assert.AreNotEqual(0, FallenFlight.PitchStep(p, p.A0.Dur * 0.5f, 0), "he tumbles");
+            var settled = FallenFlight.At(p, p.Arrive + 0.1f);
+            var later = FallenFlight.At(p, p.Arrive + 5f);
+            Assert.Less(UnityEngine.Vector3.Distance(settled, later), 1e-3f, "he settles and stays");
+
+            // the contrast: a rifle death gives no knock, so no throw and no path at all
+            using var r2 = new Rig();
+            int rifled = r2.Man(Here);
+            r2.Tick();
+            r2.W.Despawn(rifled);
+            r2.Tick();
+            Assert.AreEqual(0f, r2.A.State[rifled].ThrowUp, "a rifle death throws nobody");
         }
 
         static float ThrowOf(bool heap)
