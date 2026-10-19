@@ -69,6 +69,12 @@ namespace TW.Sim
         /// sim reads the hash, so skipping it changes no state and no later hash; single player skips it because
         /// nobody compares it there (it was 1.4 ms a tick across two worlds at 1,500 a side, 2026-09-23).</summary>
         public int HashInterval = 1;
+        /// <summary>True when the tick numbered <paramref name="tick"/> computes the full-state hash into LastHash
+        /// (tick numbers count completed ticks, the value of Tick after Step returns). LastHash is 0 on every other
+        /// tick, and 0 means "no hash", never "the same hash as yours": anyone comparing two worlds (the determinism
+        /// canary in LockstepSession.Compare, HashExchange.Observe) must skip those ticks instead of reading 0 == 0 as
+        /// agreement.</summary>
+        public bool HashesTick(uint tick) => HashInterval > 0 && tick % (uint)HashInterval == 0;
         public bool UsePhase0Movement = true;   // replaced by TW.Sim.Nav.MovementSystem in A1
 
         readonly List<ISimSystem> systems = new List<ISimSystem>();
@@ -266,7 +272,7 @@ namespace TW.Sim
             }
             if (UsePhase0Movement) StepPhase0Movement();
             Tick++;
-            if (HashInterval > 0 && Tick % (uint)HashInterval == 0)
+            if (HashesTick(Tick))
             {
                 PerfMarkers.SimHash.Begin();
                 LastHash = Hash();

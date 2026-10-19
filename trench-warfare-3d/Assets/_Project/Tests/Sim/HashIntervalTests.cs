@@ -35,6 +35,45 @@ namespace TW.Tests
             Assert.Throws<ArgumentException>(() => new LockstepDriver(m.World, net.A, new ReplayRecorder(cfg, default, 1)));
         }
 
+        [Test]
+        public void AWorldThatSkipsAHashReportsNoHashNotAnAgreeingHash()
+        {
+            const string tag = "[found-make-the-canary-desync-check-distinguish-no-20261018-0]";
+            var cfg = SimConfig.Default; cfg.StartingSilver = 3000;
+            using var a = MatchSim.CreateGreybox(cfg);
+            using var b = MatchSim.CreateGreybox(cfg);
+            a.World.HashInterval = 10;
+            b.World.HashInterval = 10;
+
+            var hashedTicks = new System.Collections.Generic.List<uint>();
+            for (uint t = 0; t < 25; t++)
+            {
+                var deployCmds = new NativeArray<SimCommand>(t == 0 ? 2 : 0, Allocator.Temp);
+                if (deployCmds.Length > 0)
+                {
+                    deployCmds[0] = SimCommand.Deploy(t, 0, 0);
+                    deployCmds[1] = SimCommand.Deploy(t, 1, 0);
+                }
+                a.World.Step(deployCmds);
+                b.World.Step(deployCmds);
+                deployCmds.Dispose();
+
+                if (a.World.HashesTick(t + 1)) hashedTicks.Add(t + 1);
+            }
+
+            Assert.That(a.World.IsAlive(0), tag + " slot 0 must be alive for writing Hp[0] to mean anything");
+            // Diverge the two worlds after stepping, so the ticks' hashes above were computed on identical state.
+            a.World.Hp[0] = a.World.Hp[0] * 0.5f;
+
+            Assert.That(hashedTicks, Is.EqualTo(new uint[] { 10, 20 }), tag + " only ticks 10 and 20 hash in 25 ticks of HashInterval=10");
+            for (uint t = 1; t <= 25; t++)
+                Assert.That(a.World.HashesTick(t), Is.EqualTo(t == 10 || t == 20), tag + $" HashesTick disagrees with the hashed-tick list at tick {t}");
+
+            Assert.That(a.World.LastHash, Is.EqualTo(0UL), tag + " tick 25 did not hash (only 10 and 20 do), so LastHash is 0 here");
+            // The trap: on this skipped tick both worlds report LastHash == 0, the same value, despite diverging state.
+            Assert.That(a.World.LastHash, Is.EqualTo(b.World.LastHash), tag + " two disagreeing worlds both report LastHash 0 on a skipped tick: 0 must never be read as 'same hash'");
+        }
+
         static ulong Run(int interval, out ulong lastHash)
         {
             var cfg = SimConfig.Default; cfg.StartingSilver = 3000;
