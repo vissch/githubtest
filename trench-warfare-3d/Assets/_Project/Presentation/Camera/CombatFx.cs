@@ -97,6 +97,10 @@ namespace TW.Presentation.Tactical
         readonly Flamethrower flames = new Flamethrower();
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
+        /// <summary>The mud and timber brown every bit of thrown earth is painted in (<see cref="dirtMat"/>).</summary>
+        public static readonly Color DirtColour = new Color(0.27f, 0.235f, 0.20f);
+        /// <summary>The cold steel a man's worn kit is painted in (<see cref="kitMat"/>), which must not read as dirt.</summary>
+        public static readonly Color KitColour = new Color(0.72f, 0.76f, 0.80f);
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -270,7 +274,7 @@ namespace TW.Presentation.Tactical
                 clod = new Mesh { name = "Clod", hideFlags = HideFlags.HideAndDontSave };
                 clod.SetVertices(lv); clod.SetTriangles(lt, 0); clod.RecalculateNormals(); clod.RecalculateBounds();
             }
-            dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
+            dirtMat = Painted(DirtColour, 0.7f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
@@ -354,6 +358,10 @@ namespace TW.Presentation.Tactical
             fallenMat = Painted(Color.white, 1.2f);
             brassMat = Painted(new Color(0.80f, 0.60f, 0.24f), 0f); brassMat.SetColor("_Emission", new Color(0.20f, 0.14f, 0.04f));
             helmetMat = Painted(new Color(0.25f, 0.28f, 0.23f), 0.9f);
+            // a man's kit is steel, not mud: dirtMat put the Flamer's tanks 6.6 luma steps DARKER than his own
+            // khaki torso at night, so the thing that tells him apart read as a smudge. Cold pale steel with a
+            // strong outline silhouettes against both the torso and the ground he stands on.
+            kitMat = Painted(KitColour, 1.2f); kitMat.SetColor("_Emission", new Color(0.22f, 0.24f, 0.26f));
             vapourMat = Transparent(unlit, new Color(0.74f, 0.80f, 0.90f, 0.13f));
             var markShader = Shader.Find("TW/GroundMark (URP)");
             if (markShader != null)
@@ -496,7 +504,7 @@ namespace TW.Presentation.Tactical
             foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
-            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { fallenMat, brassMat, helmetMat, kitMat, vapourMat }) if (mat != null) Destroy(mat);
             foreach (var mesh in fallen) if (mesh != null) Destroy(mesh);
             if (markQuad != null) Destroy(markQuad);
             if (plume != null) Destroy(plume); if (puff != null) Destroy(puff); if (flashMesh != null) Destroy(flashMesh);

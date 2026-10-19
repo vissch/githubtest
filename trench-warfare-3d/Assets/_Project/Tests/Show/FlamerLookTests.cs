@@ -43,5 +43,18 @@ namespace TW.Tests
             Assert.That(UnitLook.Tip(InfantryArchetype.Flamethrower), Does.Not.Contain("stand-in"),
                 "his tooltip still calls him a stand-in");
         }
+
+        [Test]
+        public void FlamerKitIsNotDirtColoured()
+        {
+            // The owner's floor, out of the goal: the kit must stand off the man and the mud by at least 12 of 255
+            // luma steps. It was drawn in dirtMat, which at night read as dirt on dirt.
+            float kit = Luma(CombatFx.KitColour), dirt = Luma(CombatFx.DirtColour);
+            Assert.That(Mathf.Abs(kit - dirt), Is.GreaterThanOrEqualTo(12f / 255f),
+                $"the kit (luma {kit:F3}) reads as thrown earth (luma {dirt:F3})");
+        }
+
+        /// <summary>Rec.601 luma, the same weighting the capture probe measures the stills with.</summary>
+        static float Luma(Color c) => 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
     }
 }

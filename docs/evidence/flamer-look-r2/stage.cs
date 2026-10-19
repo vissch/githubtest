@@ -46,11 +46,29 @@ System.Func<int> find = () =>
 {
     var w0 = host.Local.World;
     for (int i = 0; i < w0.HighWater; i++)
-        if ((w0.Flags[i] & 1u) != 0 && w0.Team[i] == 0 && w0.Archetype[i] == archetype) return i;
+        if ((w0.Flags[i] & 1u) != 0 && w0.Team[i] == 0 && (w0.Archetype[i] == 1 || w0.Archetype[i] == 36)) return i;
     return -1;
 };
 
-if (placing)
+// ONE MAN, ONE SLOT, THE ARCHETYPE FLIPPED - NOT THREE MEN (measured 2026-10-19).
+// Two men in two slots never render alike, whatever is pinned: VATRenderer gives each his own grime seed and
+// character from his slot (`seed = slot * 37`, `chr = Char[slot]`, VATRenderer.cs ~413) and SimPresenter gives
+// each his own place in the idle loop (`t = frac(AnimTime + i * 0.137f)`, SimPresenter.cs ~143). A second Assault
+// came out 829 px different over the kit box with no kit in the frame at all, against the goal's cap of 10.
+// So ONE man is placed, on one spot, in one slot, and photographed three times: as a Flamethrower, then with his
+// archetype flipped to Assault (the only thing that changes is whether CombatFx draws him a kit - both archetypes
+// are the same baked soldier, VATRenderer.FigureOfArchetype), then a second time as the Assault, the control.
+// Every pixel that differs between the flamer stills and the assault stills is therefore the kit and nothing else.
+if (phase == "assault" || phase == "control")
+{
+    int keep = find();
+    if (keep < 0) return "no man on the spot (run the flamer phases first)";
+    if (phase == "assault")
+        host.WriteWorlds(m => { m.World.Archetype[keep] = 1; });
+    host.TimeScale = 1f;   // a few frames, exactly as a freshly placed man gets, then freeze again
+    return "the same man, slot " + keep + ", as the " + phase + " - freeze NOW";
+}
+else if (placing)
 {
     int placed = 0;
     host.WriteWorlds(m =>
@@ -86,10 +104,33 @@ if (phase == "freeze")
         var w3 = m.World;
         w3.Position[man] = new Unity.Mathematics.float3(spotX, 0f, spotZ);
         w3.Yaw[man] = manYaw;
+        // Stand him up and give him nobody to shoot at. SimPresenter picks the drawn row from the SIM's stance
+        // unless the animation controller is driving (SimPresenter.cs ~133), and the men on this field lie prone:
+        // the first rounds photographed a man flat on his belly under a kit (2026-10-19).
+        w3.StanceOf[man] = (byte)TW.Sim.Stance.Standing;
+        w3.TargetSlot[man] = -1;
     });
     // The presenter only reads the world on a sim step, and we are about to stop stepping: a man placed and frozen
     // in the same frame was drawn at the world origin (2026-10-19: Drawn = 0,0,0, his sockets reporting a chest at
     // y 3.6 over nothing). Capture twice, so his previous and his next both hold the spot and the lerp is flat.
+    // PIN THE DRAWN POSE. The yaw cannot be dictated through the sim (AnimationController turns a man with no
+    // target towards his own parapet), and it had not finished turning when the frame was frozen: three subjects
+    // came out at 0.493, 0.705 and -0.341 rad, so the two Assaults of the control faced three ways and 6829 px of
+    // a 98x106 box differed on the men themselves. The controller's own arrays are what the renderer reads, so
+    // every subject is pinned to one pose here: the same clip, the same place in it, no blend, no lift, no grime.
+    var anim = host.Animation;
+    if (anim.Yaw.IsCreated && man < anim.Yaw.Length)
+    {
+        anim.Yaw[man] = manYaw;
+        // Clip.Idle, a standing man - Row 0 is Clip.None and the renderer drew him flat on his face (2026-10-19).
+        ushort idle = (ushort)TW.Presentation.Clip.Idle;
+        anim.Row[man] = idle; anim.Phase[man] = 0.25f;
+        anim.PrevRow[man] = idle; anim.PrevPhase[man] = 0.25f; anim.Blend[man] = 0f;
+        anim.Lift[man] = 0f; anim.Hop[man] = 0f; anim.Grime[man] = 0f;
+    }
+    // The pin has to come BEFORE the two Capture calls: VATRenderer draws a man from the PRESENTER's pose
+    // (VATRenderer.cs ~409 reads p.AnimRow), which is a copy the presenter takes on a sim step. Pinned after the
+    // captures, the pin never reached the screen and the men were drawn sprawled on the ground (2026-10-19).
     host.Presenter.Capture(host.Local.World);
     host.Presenter.Capture(host.Local.World);
     host.TimeScale = 0f;
@@ -135,10 +176,9 @@ if (phase == "shoot")
         var aim = new UnityEngine.Vector3(spotX, ground * close + 1.1f * close, spotZ);
         cam.transform.SetPositionAndRotation(aim - rot * UnityEngine.Vector3.forward * distance, rot);
 
-        // CombatFx.ViewNow's scale, exactly: the men grow as the view closes in, and the kit is sized with them.
-        float scale = units != null
-            ? units.UnitScale * UnityEngine.Mathf.Clamp(zoom / UnityEngine.Mathf.Max(1f, units.GrowFromZoom), 1f, units.MaxGrow)
-            : 1f;
+        // The man's own drawn size, which is what DrawKit sizes the kit with (VATRenderer.ScaleAt: one size at
+        // every zoom, the owner's call of 2026-10-13).
+        float scale = units != null ? units.ScaleAt(zoom) : 1f;
         UnityEngine.Vector3 muzzle = default, barrel = default, chest = default;
         bool sock = units != null && units.Sockets(man, out muzzle, out barrel, out chest);
         if (!sock)

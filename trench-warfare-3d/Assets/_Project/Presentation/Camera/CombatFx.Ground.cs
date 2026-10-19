@@ -35,7 +35,7 @@ namespace TW.Presentation.Tactical
         /// the mark thins out continuously.</summary>
         readonly Material[] markMats = new Material[3];
         readonly List<Matrix4x4>[] markBatch = { new List<Matrix4x4>(256), new List<Matrix4x4>(256), new List<Matrix4x4>(256) };
-        Material fallenMat, brassMat, helmetMat, vapourMat;
+        Material fallenMat, brassMat, helmetMat, vapourMat, kitMat;
         Mesh markQuad;
         float nextPrint, nextBreath, nextExhaust; int breathCursor;
         /// <summary>The ground's tilt at a point, so a print or a body lies on the slope and not in the air above it.</summary>
