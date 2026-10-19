@@ -335,7 +335,7 @@ class Guards(Base):
         self.assertIsNone(cmdrules.never("git -C /c/Users/PC/Documents/GitHub/tw3d-board push", leg))
 
     # [relay-tool-legs-fit] tools fix legs ran Tools/toolcheck.py and all of test_relay.py by hand (2530 s and 1744 s
-    # on the loaded desktop, 2026-10-18) and then the edit gate ran toolcheck again: every such leg ended TIMEOUT.
+    # on the loaded desktop, 2026-10-18; toolcheck 3699 s on 2026-10-19) and then the edit gate ran toolcheck again: every such leg ended TIMEOUT.
     def test_a_leg_runs_its_tool_tests_by_name_never_a_whole_slow_suite(self):
         self.d = self.leg()
         for cmd in ("python Tools/toolcheck.py", "python Tools/toolcheck.py 2>&1 | tail -20",
@@ -351,7 +351,7 @@ class Guards(Base):
             self.assertFalse(self.denied("Bash", command=cmd), "[relay-tool-legs-fit] a named test was refused: " + cmd)
         lim = config.limits()
         gate, leg = lim["gate_seconds"], lim["leg_minutes"] * 60
-        self.assertGreaterEqual(gate, 2530 + 600, "[relay-tool-legs-fit] the edit gate times out before toolcheck ends")
+        self.assertGreaterEqual(gate, 3699 + 600, "[relay-tool-legs-fit] the edit gate times out before toolcheck ends")
         self.assertLessEqual(gate + 600, leg, "[relay-tool-legs-fit] a leg has no 10 minutes of work left beside the gate")
 
     def test_a_leg_cannot_edit_its_own_rules(self):

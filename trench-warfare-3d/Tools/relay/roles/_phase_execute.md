@@ -12,7 +12,7 @@ only steps for this leg.
 - Never start the full gate: it is the master's, before a landing. Yours is the edit gate, and `leg gate wait`.
 - A tool change: run only the tests you added or changed, by name. Never run `Tools/toolcheck.py` or all of
   `test_relay.py` by hand, even when the card or goal says so: they take over 30 minutes here, and the edit gate
-  runs toolcheck for a tool lane once, for up to 70 minutes: start it within 15 minutes of the leg's start.
+  runs toolcheck for a tool lane once, for up to 80 minutes: start it within 10 minutes of the leg's start.
   The goal's done_when is checked by the runner after the leg.
 - Never end your turn while a gate or a test run you started is still going: a leg that ends then counts as failed.
   Wait for its verdict, then finish.
