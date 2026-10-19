@@ -70,6 +70,11 @@ namespace TW.Editor
             /// from the last one showed the last one's lamps, a frame into their fade.</summary>
             public static bool LampsFade;
 
+            /// <summary>A world point a capture wants to find again, so a window a probe measures around it is
+            /// found by projection, not by eye. NaN (the default) writes nothing; set it before a shot and the
+            /// sidecar carries where it actually fell on screen.</summary>
+            public static Vector3 Mark = new Vector3(float.NaN, 0f, 0f);
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
@@ -277,6 +282,17 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            if (!float.IsNaN(Rig.Mark.x))
+            {
+                Vector3 markS = cam.WorldToScreenPoint(Rig.Mark);
+                float markPxX = markS.x * w / cam.pixelWidth;
+                // Unity's screen y is bottom-up; Pillow and numpy index rows from the top, so a probe reading
+                // this sidecar needs rows-from-top, not the raw screen space CaptureRig poses with everywhere else.
+                float markPxY = h - markS.y * h / cam.pixelHeight;
+                N(sb, "mark_px_x", markPxX); N(sb, "mark_px_y", markPxY);
+                N(sb, "mark_on_screen", markS.z > 0f && markS.x >= 0f && markS.x <= cam.pixelWidth && markS.y >= 0f && markS.y <= cam.pixelHeight ? 1 : 0);
+                N(sb, "mark_depth_m", markS.z);
+            }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
