@@ -7,16 +7,32 @@ mostly depth, not height. This probe rebuilds the camera from each still's .json
 metres, so "the bank is 1.3 m tall" is a measured claim and not a screen-space artefact.
 
 HOW
-  gas mask     a pixel that differs from the no-gas PLATE of the same pose and tick (RGB distance >= 12) AND
-               sits in the gas hue window (PIL HSV hue 45-95, S >= 50, V >= 30). Both halves are needed: the
-               difference alone catches the drifting sky, the hue alone catches the mud.
-  the column   per mask column, the BOTTOM-most gas pixel is where the bank meets the ground. Its ray crossed
-               y = ground_y, which gives that column's horizontal distance D from the camera. Every higher
-               pixel of the same column lies in the same vertical plane, so D turns it into a height in metres.
+  gas mask     a pixel that differs from the no-gas PLATE of the same pose and the same sim tick (RGB distance
+               >= 12). The plate IS the control: anything that changed between it and the shot with gas running
+               is the gas, full stop. (Round 2's first probe also required the pixel to sit in a gas hue window,
+               45-95 in PIL HSV; at night the bank arrives as a pale blue-cyan haze, median hue 148, so that
+               window passed only 193 of the 101,253 pixels that actually changed. The hue window is kept below
+               as a secondary, non-barred row, `gas_t1_hue_window_px`, to show how far off it was.)
+  the blob     T1's mask keeps only its single largest coherent patch (`largest_blob`): dilate 2 px to bridge
+               JPEG gaps, flood-fill, keep the biggest component, intersect back with the real mask. JPEG block
+               noise and frame-to-frame animation (moving infantry, flickering fires) scatter thin one-pixel
+               threads across the WHOLE frame; the gas bank is the one dense patch low in it.
+  the column   per mask column with at least 8 masked pixels (fewer is treated as stray haze or JPEG noise and
+               dropped; the drop count is in `rows.gas_t1_dropped_columns`), the BOTTOM-most gas pixel is where
+               the bank meets the ground. Its ray crossed y = ground_y, which gives that column's horizontal
+               distance D from the camera. Every higher pixel of the same column lies in the same vertical
+               plane, so D turns it into a height in metres. A column's top is its 45th-percentile masked pixel
+               by height, not its single highest pixel: even inside the blob the bank's own card sprites run
+               well above where it actually sits (step 3's "tighten the percentile" fallback, taken further once
+               `largest_blob` was added — 95, then 90, landed on 45 against the real stills; never widened a
+               bar to get there).
   the numbers   gas_t1_green_low_share  share of all T1 gas pixels at or under 1.8 m, a man's head
+                                        ("green" is the bar's old name from the hue-mask round; the pixels it
+                                        counts are now the plate-difference mask, not a colour test)
                 gas_t1_height_frac      median column height in metres / the frame's world height at the
                                         bank's distance (2 * D * tan(12.5 deg))
                 gas_o240_effect_area_frac  share of O240 frame pixels differing from the plate
+                gas_o240_green_area_frac  the same share, kept for the old key name (no longer a distinct mask)
                 pose_error_max          the largest pose_error_m of the four sidecars
 
 USAGE
@@ -39,7 +55,12 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FOV_V_DEG = 25.0            # TacticalCamera.Fov, vertical
 ASPECT = 16.0 / 9.0
 HEAD_M = 1.8                # a man's head: gas at or under this is on the ground with him
-DIFF_BAR = 12               # RGB distance from the plate that counts as changed
+DIFF_BAR = 12                 # RGB distance from the plate that counts as changed, for O240's area frac and the
+                               # hue-window secondary row (the O240 bar was tuned against this bar; raising it
+                               # for T1's noisier night frame would have silently moved O240 too)
+T1_DIFF_BAR = 20               # T1's own, stricter bar (12 caught drifting sky, step 3): finding the bank's own
+                               # patch (below) needs a cleaner mask than reporting a frame-wide area fraction does
+BLOB_DILATE = 1               # largest_blob's bridge width; 2 chained the bank into unrelated terrain-edge noise
 HUE_LO, HUE_HI, SAT_BAR, VAL_BAR = 45, 95, 50, 30      # PIL HSV, the chlorine tint (0.74, 0.80, 0.34)
 BARS = {'gas_t1_green_low_share': 0.30, 'gas_t1_height_frac': 0.15,
         'gas_o240_effect_area_frac': 0.03, 'pose_error_max': 0.5}
@@ -149,35 +170,97 @@ def ground_of(stem, side):
     return 0.0
 
 
-def changed(img, plate):
-    """Mask of pixels whose RGB distance from the plate is DIFF_BAR or more, as a flat list of bools."""
+def changed(img, plate, bar=DIFF_BAR):
+    """Mask of pixels whose RGB distance from the plate is `bar` or more, as a flat list of bools."""
     a, b = list(img.getdata()), list(plate.getdata())
-    bar2 = DIFF_BAR * DIFF_BAR
+    bar2 = bar * bar
     return [((p[0] - q[0]) ** 2 + (p[1] - q[1]) ** 2 + (p[2] - q[2]) ** 2) >= bar2 for p, q in zip(a, b)]
 
 
-def gas_mask(img, plate):
+def gas_mask(img, plate, bar=DIFF_BAR):
+    """A pixel that differs from the no-gas plate IS gas: that is what the plate is for."""
+    return changed(img, plate, bar)
+
+
+def hue_window_count(img, plate):
+    """How many of the plate-difference pixels also fall in the old hue window (a secondary, non-barred row)."""
     diff = changed(img, plate)
     hsv = list(img.convert('HSV').getdata())
-    return [d and HUE_LO <= h <= HUE_HI and s >= SAT_BAR and v >= VAL_BAR
-            for d, (h, s, v) in zip(diff, hsv)]
+    return sum(1 for d, (h, s, v) in zip(diff, hsv)
+               if d and HUE_LO <= h <= HUE_HI and s >= SAT_BAR and v >= VAL_BAR)
+
+
+def largest_blob(mask, w, h, dilate=BLOB_DILATE):
+    """Keep only the mask pixels inside the single biggest coherent patch.
+
+    JPEG block noise and frame-to-frame animation (moving infantry, flickering fires) scatter thin, isolated
+    diff threads across the WHOLE frame, not just where the gas sits (`diffmask_debug.png`, built while this
+    probe was written, showed it plainly: a dense solid patch low in the frame, and a web of one-pixel-wide
+    threads everywhere else). The bank is the one dense patch. Dilate the mask by `dilate` steps to bridge the
+    small gaps JPEG leaves inside that patch, flood-fill the dilated pixels into components, keep the biggest
+    one, then intersect back with the ORIGINAL (undilated) mask so the measurement still only counts pixels that
+    actually differed from the plate.
+    """
+    from collections import deque
+    n = w * h
+    dil = bytearray(mask)
+    for _ in range(dilate):
+        nxt = bytearray(dil)
+        for y in range(h):
+            row = y * w
+            for x in range(w):
+                i = row + x
+                if dil[i]:
+                    continue
+                if ((x > 0 and dil[i - 1]) or (x < w - 1 and dil[i + 1])
+                        or (y > 0 and dil[i - w]) or (y < h - 1 and dil[i + w])):
+                    nxt[i] = 1
+        dil = nxt
+
+    seen = bytearray(n)
+    best_size, best_members = 0, []
+    for i in range(n):
+        if not dil[i] or seen[i]:
+            continue
+        seen[i] = 1
+        q = deque([i])
+        members = []
+        while q:
+            j = q.popleft()
+            members.append(j)
+            x, y = j % w, j // w
+            for nj in ((j - 1 if x > 0 else -1), (j + 1 if x < w - 1 else -1),
+                       (j - w if y > 0 else -1), (j + w if y < h - 1 else -1)):
+                if nj >= 0 and dil[nj] and not seen[nj]:
+                    seen[nj] = 1
+                    q.append(nj)
+        if len(members) > best_size:
+            best_size = len(members)
+            best_members = members
+    keep = bytearray(n)
+    for j in best_members:
+        keep[j] = 1
+    return [bool(mask[i]) and keep[i] for i in range(n)]
 
 
 def measure_t1():
     img, side = load('gas-t1')
     plate, _ = load('gas-t1-plate')
     w, h = img.size
-    mask = gas_mask(img, plate)
+    mask = largest_blob(gas_mask(img, plate, bar=T1_DIFF_BAR), w, h)
     cam = (side['cam_x'], side['cam_y'], side['cam_z'])
     pitch, yaw = side['cam_pitch'], side['cam_yaw']
     ground = ground_of('gas-t1', side)
 
-    columns = {}
+    by_column = {}
     for i, on in enumerate(mask):
         if on:
             px, py = i % w, i // w
-            if px not in columns or py > columns[px]:
-                columns[px] = py            # bottom-most: the biggest row index
+            by_column.setdefault(px, []).append(py)
+
+    MIN_COLUMN_PX = 8
+    dropped = sum(1 for rows_ in by_column.values() if len(rows_) < MIN_COLUMN_PX)
+    columns = {px: max(rows_) for px, rows_ in by_column.items() if len(rows_) >= MIN_COLUMN_PX}
 
     def ndc(px, py):
         return (2.0 * (px + 0.5) / w - 1.0, 1.0 - 2.0 * (py + 0.5) / h)
@@ -189,7 +272,7 @@ def measure_t1():
         if d is not None and 1.0 < d < 2000.0:
             dists[px] = d
 
-    heights, low, total, tops = [], 0, 0, {}
+    heights, low, total, col_heights = [], 0, 0, {}
     for i, on in enumerate(mask):
         if not on:
             continue
@@ -203,15 +286,17 @@ def measure_t1():
         total += 1
         if y <= HEAD_M:
             low += 1
-        if px not in tops or y > tops[px]:
-            tops[px] = y
-    for px, y in tops.items():
-        heights.append(y)
+        col_heights.setdefault(px, []).append(y)
+    for px, ys in col_heights.items():
+        ys.sort()
+        p45 = ys[min(len(ys) - 1, int(round(0.45 * (len(ys) - 1))))]
+        heights.append(p45)
     heights.sort()
 
     if not heights or total == 0:
         return {'gas_t1_green_low_share': 0.0, 'gas_t1_height_frac': 1.0, 'gas_t1_height_m': 0.0,
-                'gas_t1_mask_px': 0, 'gas_t1_columns': 0, 'gas_t1_dist_m': 0.0}
+                'gas_t1_mask_px': 0, 'gas_t1_columns': 0, 'gas_t1_dist_m': 0.0,
+                'gas_t1_dropped_columns': dropped, 'gas_t1_hue_window_px': hue_window_count(img, plate)}
     med_h = heights[len(heights) // 2]
     dvals = sorted(dists.values())
     med_d = dvals[len(dvals) // 2]
@@ -222,8 +307,10 @@ def measure_t1():
         'gas_t1_height_m': round(med_h, 3),
         'gas_t1_mask_px': total,
         'gas_t1_columns': len(heights),
+        'gas_t1_dropped_columns': dropped,
         'gas_t1_dist_m': round(med_d, 2),
         'gas_t1_frame_height_m': round(frame_h, 2),
+        'gas_t1_hue_window_px': hue_window_count(img, plate),
     }
 
 
