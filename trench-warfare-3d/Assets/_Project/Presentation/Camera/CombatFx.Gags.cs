@@ -78,7 +78,7 @@ namespace TW.Presentation.Tactical
                 for (int k = 0; k < path.Arcs; k++)
                 {
                     var a = k == 0 ? path.A0 : k == 1 ? path.A1 : path.A2;
-                    if (WaterEntry.Throw(near ? books : null, a.To, WaterEntry.ManKg, path.Delay + a.End, scale).Any) continue;
+                    if (WaterEntry.Throw(near ? books : null, a.To, WaterEntry.ManKg, path.Delay + a.End, scale, night: SceneMood.Night).Any) continue;
                     if (books != null && books.Ready && near)
                         books.Add(FlipbookFx.Book.Puff, a.To + Vector3.up * 0.15f, (k == 0 ? 1.6f : 1.1f) * scale, 0.8f, FlipbookFx.Kind.Upright,
                             velocity: Vector3.up * 0.6f, grow: 0.8f, alpha: k == 0 ? 0.7f : 0.5f, pop: 0.2f, delay: path.Delay + a.End);

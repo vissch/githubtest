@@ -85,13 +85,13 @@ namespace TW.Presentation.Tactical
                     if ((gib & GibPlan.TornBit) == 0) units.AddFallen(new Vector3(p.x, p.y - 0.02f, p.z), yaw, team, death, deathClip, archetype, from, fromPhase, fade, fly, gib, grime, density, chr);   // torn in two: both halves flew
                     // where he enters the water: a throw lands where the arc ends, timed to the arc's own length, so the
                     // card breaks exactly when he does; no throw splashes where he fell (idea-things-that-fall-in-the-water-splash)
-                    if (fly.y <= 0.05f) WaterEntry.Throw(books, p, WaterEntry.ManKg);
+                    if (fly.y <= 0.05f) WaterEntry.Throw(books, p, WaterEntry.ManKg, scale: FigureScale(), night: SceneMood.Night);
                     else
                     {
                         Vector3 land = p + new Vector3(fly.x, 0f, fly.z);
                         land.y = RenderGround.Sample(Host.Local.Map, land.x, land.z);
                         float delay = FallenFlight.Solve(p, land, fly.y, 0f, units.ThrowGravity).Dur;
-                        WaterEntry.Throw(books, land, WaterEntry.ManKg, delay, FigureScale());
+                        WaterEntry.Throw(books, land, WaterEntry.ManKg, delay, FigureScale(), night: SceneMood.Night);
                     }
                 }
             }
@@ -100,7 +100,7 @@ namespace TW.Presentation.Tactical
                 flames.Douse(e.A);
                 if (burning) AddSmoulder(p, e.Pos);
                 bodies.Add(new Body { Pos = p, Rot = Lie(p.x, p.z, fellYaw, 0.6f), Born = Time.time, Team = team, Variant = (byte)death });
-                WaterEntry.Throw(books, p, WaterEntry.ManKg);
+                WaterEntry.Throw(books, p, WaterEntry.ManKg, scale: FigureScale(), night: SceneMood.Night);
             }
             // his helmet comes off as he goes down and rolls a step away
             if (!(units != null && units.Ready) && Near(p, 60f) && chunks.Count < 700)   // the animated figure keeps his helmet on

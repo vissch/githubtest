@@ -39,7 +39,7 @@ namespace TW.Tests
             Assert.IsTrue(sp.Any, "a man dying in water splashes");
             Assert.AreEqual(1, rings.Count, "one ring, sized by mass");
             Assert.AreEqual(2.8f, sp.Ring, 1e-4f, "a man's own mass opens his named ring (ManRing, raised for r6)");
-            Assert.AreEqual(2.4f, sp.Card, 1e-4f, "and a crown card to go with it (ManCard, raised for r6)");
+            Assert.AreEqual(3.0f, sp.Card, 1e-4f, "and a crown card to go with it (ManCard, raised for night-read)");
             Assert.Less(sp.Ring, 3f, "under the smallest a shell opens (WaterRings.OnSimEvent)");
         }
 
@@ -101,26 +101,61 @@ namespace TW.Tests
         [Test]
         public void ACrownAndTwoWingsGoUp()
         {
-            // r6, harsh critic r1: one 1.1 m card measured 326 px at T1 against a bar of 1000. Worked by hand from
-            // the constants: crown = ManCard 2.4 x scale 1; wings = WingSize 0.55 x 2.4 = 1.32, sitting
-            // WingOut 0.45 x ManRing 2.8 = 1.26 m either side.
-            var buf = new WaterEntry.CardPlan[3];
-            Assert.AreEqual(3, WaterEntry.Cards(WaterEntry.ManKg, 1f, buf), "a crown and two wings");
+            // harsh critic r1 fix 1: at night, six staged entries measured 292 px against 118 px of noise, a few
+            // faint streaks, not a man dying knee-deep. Worked by hand from the constants: crown = ManCard 3.0 x
+            // scale 1; wings = WingSize 0.55 x 3.0 = 1.65, sitting WingOut 0.45 x ManRing 2.8 = 1.26 m either side.
+            var buf = new WaterEntry.CardPlan[8];
+            Assert.AreEqual(8, WaterEntry.Cards(WaterEntry.ManKg, 1f, buf), "a crown, two wings, four droplets and a foam skirt");
 
             Assert.AreEqual(0f, buf[0].Dx, 1e-4f, "the crown stands over the entry point");
-            Assert.AreEqual(2.4f, buf[0].Size, 1e-4f, "ManCard x scale 1");
+            Assert.AreEqual(3.0f, buf[0].Size, 1e-4f, "ManCard x scale 1");
             Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the left wing, 0.45 x the ring out");
             Assert.AreEqual(1.26f, buf[2].Dx, 1e-3f, "and the right wing the other side");
-            Assert.AreEqual(1.32f, buf[1].Size, 1e-3f, "a wing is 0.55 of the crown");
-            Assert.AreEqual(1.32f, buf[2].Size, 1e-3f);
+            Assert.AreEqual(1.65f, buf[1].Size, 1e-3f, "a wing is 0.55 of the crown");
+            Assert.AreEqual(1.65f, buf[2].Size, 1e-3f);
             Assert.IsFalse(buf[1].Mirror, "one wing as the sheet draws it");
             Assert.IsTrue(buf[2].Mirror, "the other flipped, so it is not the same picture twice");
 
             // half-size thing (scale 0.5): the crown halves, and the wings follow it, not the ring
-            Assert.AreEqual(3, WaterEntry.Cards(WaterEntry.ManKg, 0.5f, buf));
-            Assert.AreEqual(1.2f, buf[0].Size, 1e-4f, "the crown takes the caller's scale");
-            Assert.AreEqual(0.66f, buf[1].Size, 1e-3f, "0.55 of that crown");
+            Assert.AreEqual(8, WaterEntry.Cards(WaterEntry.ManKg, 0.5f, buf));
+            Assert.AreEqual(1.5f, buf[0].Size, 1e-4f, "the crown takes the caller's scale");
+            Assert.AreEqual(0.825f, buf[1].Size, 1e-3f, "0.55 of that crown");
             Assert.AreEqual(-1.26f, buf[1].Dx, 1e-3f, "the reach is the ring's, which scale does not touch");
+        }
+
+        [Test]
+        public void WaterSplashReadsAtNight()
+        {
+            // harsh critic r1 fix 1 (2026-10-19): the crown of droplets and foam that lifts a night entry out of
+            // the dark, proved as arithmetic a test can read (the pixel bar is docs/evidence/water-splash-night-read).
+            var buf = new WaterEntry.CardPlan[8];
+            int n = WaterEntry.Cards(WaterEntry.ManKg, 1f, buf);
+            Assert.AreEqual(8, n, "the crown, two wings, four droplets and the foam skirt");
+
+            float area = 0f;
+            for (int i = 0; i < n; i++) area += buf[i].Size;
+            // r6's crown was 2.4 (ManCard) + 2 x 0.55 x 2.4 (the two wings) = 5.04
+            float r6Area = 2.4f + 2f * 0.55f * 2.4f;
+            Assert.GreaterOrEqual(area, 3f * r6Area, "at least 3x r6's crown and wings");
+
+            Assert.GreaterOrEqual(WaterEntry.Glow(true), 3f, "night lifts the entry out of the dark");
+            Assert.Greater(WaterEntry.Glow(true), WaterEntry.Glow(false), "brighter at night than in daylight");
+
+            Assert.GreaterOrEqual(buf[7].Life, 1f, "the foam skirt still stands at the O120 shot");
+
+            // no card asks for the mud-tinted Wings book any more: every water card is drawn from Book.Splash
+            // (WaterEntry.Throw), proved indirectly here by every card carrying its own life and alpha, not the
+            // shared defaults Wings used to get.
+            for (int i = 0; i < n; i++)
+            {
+                Assert.Greater(buf[i].Life, 0f, "card " + i + " has a life");
+                Assert.Greater(buf[i].Alpha, 0f, "card " + i + " has an alpha");
+            }
+
+            // a dry-ground entry still draws nothing
+            SceneHooks.IsWater = (x, z) => false;
+            var sp = WaterEntry.Throw(null, new Vector3(5f, 0.1f, 5f), WaterEntry.ManKg, night: true);
+            Assert.IsFalse(sp.Any, "dry ground throws no splash, day or night");
         }
 
         [Test]

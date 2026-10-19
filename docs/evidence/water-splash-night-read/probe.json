@@ -1,0 +1,8 @@
+{
+  "splash_px_t1": 2990,
+  "noise_px": 0,
+  "splash_px_o120": 182,
+  "luma_threshold": 0.02,
+  "window_m": 3.0,
+  "pass": true
+}
