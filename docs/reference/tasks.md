@@ -570,13 +570,22 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   height) and the `Splash.Y` it returns is what the `Anchored` card's foot is drawn at; no hook wired up leaves the
   point's own y. **See it**: `AgentScripts/water_entry_fling.cs` (`Tools/tw run eval_file`, in Play in
   GreyboxCorridor) flings a body into the ford with the clock running and shoots the moments either side of the
-  landing; `docs/evidence/water-entry-splash-r5/` holds that run and `probe.py`, which counts the splash's pixels.
+  landing; `docs/evidence/water-entry-splash-r7/` holds the current runs and `probe.py`, which measures them (r5 and
+  r6's folders are the older rounds).
   The entry reads at T1 since r6 (harsh critic r1, 60/100): `WaterEntry.Cards` is a pure three-card plan -- a crown
   (`ManCard` 2.4 m) over the entry point and a wing either side of it (`WingSize` 0.55 of the crown, `WingOut` 0.45 of
-  the ring out along x, the right one mirrored) -- the crown on the `Splash` book, the wings on `Wings`; the ring is
+  the ring out along x, the right one mirrored) -- the crown on its OWN book, `Crown` (the `Column` drawing again,
+  tinted by `WaterEntry.CrownTint` in `ApplyTints`: the biome's splash hue with its value lifted toward white, so the
+  crown steps above the water's own foam instead of matching it -- harsh critic r1 on r6, 56/100), the wings on
+  `Wings`; the ring is
   `ManRing` 2.8 m, still under the 3 m a shell is clamped to. The ring itself is drawn in `Shaders/TWWater.hlsl`
   (`TWRings`): it opens at 0.22 of its size rather than from a point, its width is sublinear (`0.07 + 0.22 * sqrt`),
   and the pale weight it takes in `TWWaterAlbedo` is 0.92 -- which fattens EVERY ring, a shell's included.
+  Since r7 a thrown ring ALSO reads by value, and on the lit colour rather than the albedo: `TWRings` hands out a
+  `trough` (the hollow just inside the crest) beside the crest, `TWWaterAlbedo` hands both to its caller, and
+  `Water_URP.shader` applies `TWRingValueStep` AFTER the lighting and `_TWWaterDim` (`TW_RING_LIFT` 0.26 on the
+  crest, `TW_RING_TROUGH` 0.45 in the hollow). Measured: the same step put in the albedo arrives on screen at
+  night as 0.02 luma, which is nothing. Painted puddles (`Toon_URP`) and the sea keep the old pale ring only.
   A capture that shoots the same throw twice to measure its own noise pins the water's animation with
   `WaterRings.PinnedClock` (`ClockToPush`, pushed as `_TWWaterClock`, read as `TW_WTIME` for every `_Time.y` in
   `TWWater.hlsl` and for the drift in `Water_URP.shader`); 0 lets it run),
@@ -584,7 +593,7 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
   `CombatFx` is one partial class: an event arrives in `CombatFx.cs` and is handed to the part that draws it.
-  **Colours:** sixteen books' tints (Splash, Column, Wings, Spurt, Puff, Smoke, and the VFX pass's MortarBurst, ShellFall,
+  **Colours:** seventeen books' tints (Splash, Crown, Column, Wings, Spurt, Puff, Smoke, and the VFX pass's MortarBurst, ShellFall,
   LeanBurst, ShellLean with Column, ShellPlume, Smoulder, WreckSmoke with Smoke, SmokeBank, GroundRing, DustPuff with Dust) are overwritten every scene by
   `CombatFx.ApplyTints` from
   `BiomeProfile` (`SmokeTint` and the other `*Tint` fields, through `SceneTints`), so change a colour there. At
@@ -606,7 +615,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
   WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan,
-  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownAndTwoWingsGoUp: `WaterEntry.cs`),
+  WaterEntryRingWaitsForLanding, WaterSplashSitsOnTheSurface, ACrownAndTwoWingsGoUp,
+  TheCrownKeepsTheBiomesHueAndLiftsItsValue: `WaterEntry.cs`),
   WaterRingsClockTests (the pinned water clock wins and `SceneStatics.ResetSession` gives it back: `WaterRings.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),

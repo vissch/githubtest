@@ -30,6 +30,20 @@ namespace TW.Presentation.Tactical
         /// and a column of water that is gone in half a second looks snatched away rather than fallen back.</summary>
         public const float CardLife = 0.7f;
 
+        /// <summary>How much of the way to white the crown's tint is pushed, and how far past 1 the whole tint goes.
+        /// Harsh critic r1: the crown was blue-white on blue water, the same hue as the foam flecks, and measured a
+        /// 0.03 value step over water whose own p90 in the crown box is 0.313. The biome's splash hue is kept (a
+        /// desert ford is not the same water as a flooded trench) and its VALUE is lifted, which is what a player
+        /// reads at night.</summary>
+        public const float CrownWhite = 0.6f, CrownGain = 1.6f;
+
+        /// <summary>The crown's tint for a biome whose splash is `splash`: its own hue, its value lifted.</summary>
+        public static Color CrownTint(Color splash)
+        {
+            var c = Color.Lerp(splash, Color.white, CrownWhite) * CrownGain;
+            return new Color(c.r, c.g, c.b, 1f);
+        }
+
         /// <summary>How big a thing of this mass draws against a man: a cube root, so a heavier man is not a wider
         /// splash, he is a girthier one.</summary>
         public static float Scale(float massKg) => Mathf.Clamp(Mathf.Pow(massKg / ManKg, 1f / 3f), 0.22f, 1.25f);
@@ -93,10 +107,10 @@ namespace TW.Presentation.Tactical
                 {
                     var c = cards[i];
                     bool flip = c.Mirror ^ mirror;
-                    books.Add(i == 0 ? FlipbookFx.Book.Splash : FlipbookFx.Book.Wings,
+                    books.Add(i == 0 ? FlipbookFx.Book.Crown : FlipbookFx.Book.Wings,
                         new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, CardLife,
                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (flip ? FlipbookFx.Kind.Mirror : 0),
-                        alpha: 0.9f, delay: delay);
+                        alpha: 1f, delay: delay);
                 }
             }
             return sp;

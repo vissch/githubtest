@@ -32,8 +32,8 @@ python docs/evidence/water-entry-splash-r7/probe.py --fixed run-4 run-5 run-6   
   pinned, the sim frozen, `pose_error_m` 0. Nine stills with a `.json` sidecar each, plus `timings.txt` (the
   achieved game-time delta of every frozen moment) and `stage.log`. `plate.png`, the ford with no throw at all,
   is kept in `run-1` only; the other runs would only repeat it.
-- `land-run-N.png` — a copy of each run's landing frame at the top level, so the key frame of every run can be
-  opened without going into a folder.
+- `land-run-N.png` (baseline) and `land-fixed-run-N.png` (the fix) — a copy of each run's landing frame at the top
+  level, so the key frame of every run can be opened without going into a folder.
 - `probe.json` — the baseline block (`*_base_max`, `n_base_captures`) and, once the fix is captured, the fixed
   block (the bar keys, `n_captures`, `pass`) and a `runs` block with every single run's own numbers.
 
@@ -52,3 +52,37 @@ spread, so clearing it cannot be capture noise.
 The three runs agree to within 0.005, and they reproduce r6's committed stills (0.0335 and 0.0237), so the gap to
 the bars — about 4.5x on the crown, everything on the ring — is the effect's, not the capture's. The water's own p90
 in the crown box is 0.313: that is the foam the crown has to step above.
+
+## The fix, captured three times
+
+`run-6`, `run-9` and `run-10`, each in its OWN Play session (see below). Every key is the MIN over the three.
+
+| key | run-6 | run-9 | run-10 | taken | `_base_max` | bar |
+|---|---|---|---|---|---|---|
+| `ring_only_px` | 1292 | 1292 | 1289 | 1289 | 0 | 300 |
+| `crown_contrast_land` | 0.2961 | 0.2966 | 0.2958 | 0.2958 | 0.0320 | 0.15 |
+| `crown_contrast_post` | 0.2092 | 0.2081 | 0.2080 | 0.2080 | 0.0289 | 0.09 |
+
+`probe.py --fixed run-6 run-9 run-10` exits 0: every bar is cleared with about four times the baseline's best, and
+r6's own guards hold too (`noise_px` 2, `ring_px_land` 3128 against a floor of 1000, `ring_px_post` 4135 against
+600, the ring's centroid 0.068 m off its mark).
+
+## What the pixels taught this round, and what they overturned
+
+**A value step in the ALBEDO is not a value step on SCREEN at night.** The first fixed build did exactly what the
+plan asked — the crest lifted the water's albedo by 0.26, the trough cut it to 0.62 — and the capture came back at
+`ring_only_px` 0 with a largest move of 0.0196: the same "the ring adds nothing" the critic wrote. Night water is a
+dark albedo times a dim moon times `1 - _TWWaterDim`, so an albedo step of 0.26 arrives as 0.02. The step now goes
+on the LIT colour, in `TWRingValueStep`, after the lighting and the dim (`Water_URP.shader`). Same two weights, a
+different place in the pipeline, and `ring_only_px` went from 0 to 1289.
+
+**The crown's `Lit = 0.35` made it DARKER, not brighter.** The reasoning was sound — `Flipbook_URP` draws a card as
+`_Tint * lerp(ink, lit, _Lit)` and at night `lit` is the moon's dim colour — but the drawing's own ink is the DARK
+half of this card, so inking more of it measured `crown_contrast_land` at -0.0187: the crown was darker than the
+water it stood in. The `Crown` row keeps its opened window (`Low` 0.22) and no `Lit` override; the value is carried
+by the tint `ApplyTints` paints from `WaterEntry.CrownTint`.
+
+**One Play session, one capture run.** `run-7` and `run-8` were shot in the same Play session as `run-6` and
+measured `noise_px` ~1030 against `run-6`'s 1. The staging script puts the scene back, but not far enough for a
+second capture to repeat the first to the pixel. Each of the three committed fixed runs was staged in a Play
+session of its own, and its noise floor is 2 px because of it; the baseline's three measured 2, 1 and 9.

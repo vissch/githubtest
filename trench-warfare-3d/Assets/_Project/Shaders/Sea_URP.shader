@@ -149,7 +149,7 @@ Shader "TW/Sea (URP)"
                 half whitecap = smoothstep(0.80, 0.97, crest) * smoothstep(2.5, 6.0, depth) * 0.75 * _Surf;   // the open sea is not glass in this weather
                 half foam = saturate(max(max(breaker, spent), max(wash, whitecap)) * (0.75 + 0.5 * r1.b));
                 // and what is put into the water: a boat's wake, men wading ashore, shells (WaterRings), and the rain
-                half stir; half rings = TWRings(xz, stir);
+                half stir, ringTrough; half rings = TWRings(xz, stir, ringTrough);   // the open sea keeps the foam ring only: a trough in the swell is the swell's own (water entry r7 added the out)
                 foam = saturate(max(foam, rings * 0.85) + TWRainRings(xz) * 0.45);
                 albedo = lerp(albedo, _Foam.rgb, foam);
 

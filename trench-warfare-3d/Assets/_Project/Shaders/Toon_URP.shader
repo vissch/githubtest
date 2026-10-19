@@ -149,7 +149,8 @@ Shader "TW/Toon (URP)"
                 {
                     gloss = 1.0;
                     half lapNoise = frac(dot(floor(i.positionWS.xz * 0.5), float2(0.37, 0.61)));
-                    albedo = TWWaterAlbedo((1.0 - base.a / 0.4) * 0.7, i.positionWS.xz, lapNoise, half3(0.36, 0.34, 0.27), half3(0.165, 0.18, 0.15), half3(0.095, 0.115, 0.11), half3(0.44, 0.45, 0.42), 0.45, shore) * i.color.rgb;
+                    half puddleThrown, puddleTrough;   // a painted puddle keeps the pale ring it always had (r7's value step is the river sheet's)
+                    albedo = TWWaterAlbedo((1.0 - base.a / 0.4) * 0.7, i.positionWS.xz, lapNoise, half3(0.36, 0.34, 0.27), half3(0.165, 0.18, 0.15), half3(0.095, 0.115, 0.11), half3(0.44, 0.45, 0.42), 0.45, shore, puddleThrown, puddleTrough) * i.color.rgb;
                 }
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half2 slope = 0;

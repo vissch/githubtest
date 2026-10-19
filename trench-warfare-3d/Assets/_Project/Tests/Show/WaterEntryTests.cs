@@ -124,6 +124,26 @@ namespace TW.Tests
         }
 
         [Test]
+        public void TheCrownKeepsTheBiomesHueAndLiftsItsValue()
+        {
+            // harsh critic r1: the crown was blue-white on blue water and measured a 0.03 value step over it. The
+            // bar itself is the capture's (0.15 at land); this only holds the direction and the hue.
+            var splash = new Color(0.60f, 0.66f, 0.76f);   // the Splash book's own tint (FlipbookFx.Sheets)
+            var crown = WaterEntry.CrownTint(splash);
+
+            float lumaIn = 0.2126f * splash.r + 0.7152f * splash.g + 0.0722f * splash.b;
+            float lumaOut = 0.2126f * crown.r + 0.7152f * crown.g + 0.0722f * crown.b;
+            Assert.Greater(lumaOut, lumaIn * 1.35f, "the crown is a clear value step over the water's own splash tint");
+
+            // the hue survives: the channels keep their order, so a desert ford is still not a flooded trench
+            Assert.Less(crown.r, crown.g, "blue-green water stays blue-green, only brighter");
+            Assert.Less(crown.g, crown.b);
+            var warm = WaterEntry.CrownTint(new Color(0.76f, 0.66f, 0.50f));
+            Assert.Greater(warm.r, warm.b, "a warm, silty ford's crown is warm too");
+            Assert.AreEqual(1f, crown.a, 1e-4f, "the tint carries no alpha of its own");
+        }
+
+        [Test]
         public void WaterEntryRingWaitsForLanding()
         {
             SceneHooks.IsWater = (x, z) => true;
