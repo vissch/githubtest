@@ -32,7 +32,7 @@ inbox    7 notes, 1 for you
   `test_<tool>.py` under `Tools/`, found by name; `--list` names the parts). The gate runs it in place of
   `validate.py` on a lane that changes a tool, and `land.py` refuses such a lane while it is red.
   While a part runs, toolcheck prints a dot whenever the part's output grows (`Tools/test_toolcheck.py`), so a
-  quiet gate log means a hung test: a relay leg's `leg gate wait` stops a gate whose log is quiet 20 minutes.
+  quiet gate log means a hung test: a relay leg's `leg gate wait` stops a gate whose log is quiet 15 minutes (35 in a Unity run).
   `python Tools/selftest.py --only land,relay` runs only those groups (`codemap`, `validate`, `gate`,
   `aosa_land`, `port_split`, `scorecard`, `gate_scope`, `land`, `relay`, `health`), in seconds.
 - `python Tools/land.py [--dry-run]` lands your lane (CLAUDE.md, Integration); the full gate must have gone green on

@@ -2607,6 +2607,29 @@ class CloseOut(Repo):
         self.assertIn("GATE FAULT", self.leg_cmd("gate", "status")[1])
         self.assertEqual(self.leg_cmd("finish")[0], 1)                         # a red gate commits nothing
 
+    def test_the_quiet_limit_waits_out_a_unity_run_and_a_finished_gate_keeps_its_verdict(self):
+        log = self.tmp / "gate.log"
+        log.write_text("scope    x\n\n== Tools/toolcheck.py ==\nok    validate.py  5 s\n....\n", encoding="utf-8")
+        self.assertEqual(legcmd.quiet_limit(log), legcmd.GATE_QUIET_S)
+        with open(log, "a", encoding="utf-8") as f:
+            f.write("toolcheck OK\n\n== EditMode ==\n")               # unity prints nothing until it is done
+        self.assertEqual(legcmd.quiet_limit(log), legcmd.UNITY_QUIET_S)
+        self.assertGreater(legcmd.UNITY_QUIET_S, 1800)               # gate.ps1 $TestTimeout per unity run
+        self.assertIn("$TestTimeout = 1800", (Path(gitio.git(["rev-parse", "--show-toplevel"], HERE)) / "gate.ps1")
+                      .read_text(encoding="utf-8-sig"))
+        (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+        self.leg_cmd("gate", "start")
+        self.assertEqual(self.leg_cmd("gate", "wait", "--max", "60")[0], 0)
+        os.environ["TW_RELAY_GATE_QUIET"] = "1"
+        try:
+            time.sleep(2)
+            with contextlib.redirect_stdout(io.StringIO()):
+                legcmd.run_detached.main(["stop", "gate-1"])           # the leg's end stops every job, done or not
+            self.assertIsNone(legcmd.stop_if_stalled(legdir.desk(self.d)))
+        finally:
+            os.environ.pop("TW_RELAY_GATE_QUIET")
+        self.assertEqual(self.leg_cmd("gate", "status")[1][:5], "GREEN")
+
     def test_a_gate_is_capped_at_the_time_the_leg_has_left(self):
         legdir.update(self.d, ends_at=round(time.time() + 1000))
         (self.work / "a.txt").write_text("one\n", encoding="utf-8")

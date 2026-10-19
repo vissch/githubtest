@@ -144,6 +144,9 @@ def cmd_status(a):
 def cmd_stop(a):
     rj = runs_root() / a.name / "run.json"
     rec = read_json(rj)
+    if rec.get("state") in ("DONE", "TIMEOUT", "STOPPED"):   # over already: never overwrite its verdict
+        print("already", rec["state"], a.name)
+        return
     for p, s in (("wrapper_pid", "wrapper_start"), ("child_pid", "child_start")):
         if rec.get(p) and proc_start(rec[p]) == rec.get(s):   # only the process we started, never a reused pid
             kill_tree(rec[p])

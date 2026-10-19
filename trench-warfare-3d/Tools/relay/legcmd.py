@@ -35,18 +35,28 @@ import config, gitio, papers                      # noqa: E402
 
 GATE, PLAY = "gate.json", "play.json"
 EXIT = {"GREEN": 0, "RED": 1, "RUNNING": 2, "STALE": 3, "NONE": 4}
-# A gate whose log has not grown for this long is stopped by `leg gate wait` and called a gate fault. Measured
-# 2026-10-19: the longest quiet stretch of a healthy edit gate is the Unity run (the unity CLI's own cap is 900 s,
-# gate.ps1 TestTimeout); toolcheck prints a dot whenever a part's output grows, so a tool test no longer goes quiet
-# for its whole run (test_relay.py was 1583 s without a line). TW_RELAY_GATE_QUIET overrides it (the tests).
-GATE_QUIET_S = 1200
+# A gate whose log has not grown for this long is stopped by `leg gate wait` and called a gate fault. The limit
+# depends on the gate's phase, read from its last "== <part> ==" header:
+#  - the tool check (and validate): 900 s. toolcheck prints a dot whenever a running part's output grew (30 s
+#    looks) and test_relay.py ends a test that runs 600 s (its watchdog), so a healthy part is never quiet that
+#    long; before the dots test_relay.py was 1583 s without a line (relay 4, 2026-10-19).
+#  - a Unity run (== EditMode == / == PlayMode ==): the unity CLI prints nothing until it is done and gate.ps1
+#    lets one run take $TestTimeout = 1800 s, so 1800 + 300.
+# TW_RELAY_GATE_QUIET overrides both (the tests).
+GATE_QUIET_S, UNITY_QUIET_S = 900, 2100
 # What a leg keeps after its gate for the finish, the commit and the report; a gate is capped at the leg's time
 # left minus this, and is not started at all when less than GATE_MIN_S would remain.
 CLOSE_S, GATE_MIN_S = 300, 300
 
 
-def quiet_limit():
-    return int(os.environ.get("TW_RELAY_GATE_QUIET") or GATE_QUIET_S)
+def quiet_limit(log=None):
+    if os.environ.get("TW_RELAY_GATE_QUIET"):
+        return int(os.environ["TW_RELAY_GATE_QUIET"])
+    try:
+        heads = [l for l in Path(log).read_text(encoding="utf-8", errors="replace").splitlines() if l.startswith("== ")]
+    except (OSError, TypeError):
+        heads = []
+    return UNITY_QUIET_S if heads and ("EditMode" in heads[-1] or "PlayMode" in heads[-1]) else GATE_QUIET_S
 
 
 def gate_seconds(leg, now_s=None):
@@ -152,8 +162,10 @@ def stop_if_stalled(desk):
     if run.get("state") != "RUNNING" or not run.get("heartbeat"):
         return None
     beat = calendar.timegm(time.strptime(run["heartbeat"], "%Y-%m-%dT%H:%M:%SZ"))
-    quiet = time.time() - beat
-    if quiet < quiet_limit():
+    quiet, limit = time.time() - beat, quiet_limit(run.get("log"))
+    if quiet < limit:
+        return None
+    if read_json(job).get("state") != "RUNNING":      # it finished while we looked: its own verdict stands
         return None
     with contextlib.redirect_stdout(io.StringIO()):
         old = os.environ.get("TW_RUNS")
@@ -162,7 +174,7 @@ def stop_if_stalled(desk):
             run_detached.main(["stop", rec["job"]])
         finally:
             os.environ.pop("TW_RUNS") if old is None else os.environ.__setitem__("TW_RUNS", old)
-    rec["fault"] = "no log growth for %d s (the limit is %d s), so the relay stopped it" % (quiet, quiet_limit())
+    rec["fault"] = "no log growth for %d s (the limit is %d s), so the relay stopped it" % (quiet, limit)
     write_json(desk / GATE, rec)
     return rec["fault"]
 
