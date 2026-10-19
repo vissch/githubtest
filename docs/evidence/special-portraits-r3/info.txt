@@ -1,0 +1,9 @@
+night 1	zoom 9.0	yaw 21.0	pitch 35.0	side 1536
+Flamer	pos 48.74 0.00 14.18
+Flamer-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.0732
+Flamer-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.0693
+Flamer-empty	pose_error_m 0.0000	men_in_frame 0	contrast_median -1.0000
+Sentry	pos 48.76 0.00 10.63
+Sentry-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.3040
+Sentry-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.3131
+Sentry-empty	pose_error_m 0.0000	men_in_frame 0	contrast_median -1.0000

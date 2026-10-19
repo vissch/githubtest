@@ -20,6 +20,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine.TestTools;
 using TW.Editor;
 using TW.Presentation;
+using TW.Presentation.Tactical;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.UI;
@@ -31,22 +32,43 @@ namespace TW.Tests
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         // Zoom 9 is clamped up to TacticalCamera.NearZoom (~15 m) by CaptureRig.Pose; that is still the near tier,
         // which is the point: without sockets the kit is not drawn and the portrait would be a bare soldier.
-        const float Zoom = 9f, Yaw = 21f, Pitch = 12f;
+        const float Zoom = 9f, Yaw = 21f, Pitch = 35f;
         const int Side = 1536;
         const float PoseBar = 0.5f;      // the owner's evidence rule, 2026-10-19
+        // The harsh critic's r1 reading of r2: "men barely separate from the ground", contrast_median 0.064. The
+        // capture itself has to prove the figure reads now, so the Flamer's man still fails the test below this.
+        const float ContrastBar = 0.15f;
 
-        static readonly (byte Archetype, string Name)[] Men =
+        // Prop is the piece of kit the third still drops, so the cut can measure how many portrait pixels it owns.
+        // Yaw is each man's own: ProvingGround.Place drops each archetype on its own spot, and at the shared yaw 21
+        // the Flamer stood behind a pale lump of scenery that hid everything but his helmet, one hand and a boot -
+        // 2 235 differing pixels, a cutout of his wand alone, and contrast_median 0.12. The camera orbits to clear
+        // the obstacle; it is the subject that decides a portrait's angle, not a constant shared with another man.
+        static readonly (byte Archetype, string Name, string Prop, float Yaw, System.Action<bool> Hide)[] Men =
         {
-            (InfantryArchetype.Flamethrower, "Flamer"),
-            (InfantryArchetype.Sentry, "Sentry"),
+            (InfantryArchetype.Flamethrower, "Flamer", "wand", 201f, v => CombatFx.HideWand = v),
+            (InfantryArchetype.Sentry, "Sentry", "plate", Yaw, v => CombatFx.HidePlate = v),
         };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
+
+        // both are static: a run that dies between the no-prop shot and the clear would hide the kit for everyone
+        [TearDown]
+        public void ShowTheKitAgain() { CombatFx.HideWand = false; CombatFx.HidePlate = false; }
 
         static IEnumerator Drain(string path)
         {
             for (int f = 0; f < 900 && CaptureRig.Pending() != "0"; f++) yield return null;
             for (int f = 0; f < 300 && !File.Exists(path); f++) yield return null;
+        }
+
+        /// <summary>Frames with the clock still pinned: the world does not move, the renderer catches up.
+        /// The three stills of one man have to be the SAME world moment. Settle() lets time run, so a Settle
+        /// between two of them put 20 frames of idle animation, grass and fog into the difference mask: the cut
+        /// came out a pale blob, and the no-prop twin would have measured the animation instead of the prop.</summary>
+        static IEnumerator Frames(int frames)
+        {
+            for (int f = 0; f < frames; f++) yield return null;
         }
 
         /// <summary>Lets the sim run for a few real frames and then pins the clock and the weather again.</summary>
@@ -127,26 +149,41 @@ namespace TW.Tests
 
                 // the man, then the same pose with the ground alone: the pair gives the cutout its alpha
                 string manPath = Path.Combine(dir, man.Name + "-man.png");
-                TestContext.Out.WriteLine(CaptureRig.Shot(manPath, pos.x, pos.z, Zoom, Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                TestContext.Out.WriteLine(CaptureRig.Shot(manPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
                 yield return Drain(manPath);
 
+                // the same man in the same pose with his prop dropped: the cut of this one, through the same crop
+                // box, is what tells the probe which portrait pixels are the wand or the plate
+                string nopropPath = Path.Combine(dir, man.Name + "-noprop.png");
+                man.Hide(true);
+                yield return Frames(4);
+                TestContext.Out.WriteLine(CaptureRig.Shot(nopropPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                yield return Drain(nopropPath);
+                man.Hide(false);
+
                 ClearField(host);
-                yield return Settle(20);
+                yield return Frames(4);
                 string emptyPath = Path.Combine(dir, man.Name + "-empty.png");
-                TestContext.Out.WriteLine(CaptureRig.Shot(emptyPath, pos.x, pos.z, Zoom, Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                TestContext.Out.WriteLine(CaptureRig.Shot(emptyPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
                 yield return Drain(emptyPath);
 
-                foreach (var pair in new[] { (Path: manPath, WantMan: true), (Path: emptyPath, WantMan: false) })
+                foreach (var pair in new[] { (Path: manPath, WantMan: true), (Path: nopropPath, WantMan: true), (Path: emptyPath, WantMan: false) })
                 {
                     string stem = Path.GetFileNameWithoutExtension(pair.Path);
                     string side = Path.ChangeExtension(pair.Path, ".json");
                     if (!File.Exists(side)) { offenders.Add(stem + ": no sidecar written"); continue; }
                     string json = File.ReadAllText(side);
                     float err = Num(json, "pose_error_m"), men = Num(json, "men_in_frame");
+                    float contrast = Num(json, "contrast_median");
                     lines.Add(stem + "\tpose_error_m " + err.ToString("0.0000", CultureInfo.InvariantCulture)
-                              + "\tmen_in_frame " + men.ToString("0", CultureInfo.InvariantCulture));
+                              + "\tmen_in_frame " + men.ToString("0", CultureInfo.InvariantCulture)
+                              + "\tcontrast_median " + contrast.ToString("0.0000", CultureInfo.InvariantCulture));
                     if (!(err < PoseBar)) offenders.Add(stem + ": pose_error_m " + err.ToString("0.0000", CultureInfo.InvariantCulture) + " (bar < 0.50)");
                     if (pair.WantMan && !(men >= 1f)) offenders.Add(stem + ": men_in_frame " + men.ToString("0", CultureInfo.InvariantCulture) + ", the man is not in his own portrait shot");
+                    // the critic's finding, measured at the source: the Flamer has to separate from the mud
+                    if (pair.Path == manPath && man.Name == "Flamer" && !(contrast >= ContrastBar))
+                        offenders.Add(stem + ": contrast_median " + contrast.ToString("0.0000", CultureInfo.InvariantCulture)
+                                      + " (bar >= " + ContrastBar.ToString("0.00", CultureInfo.InvariantCulture) + "), the man barely separates from the ground");
                 }
             }
 
