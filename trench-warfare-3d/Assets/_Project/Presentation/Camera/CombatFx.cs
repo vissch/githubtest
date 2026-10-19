@@ -1,4 +1,4 @@
-﻿// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
+// Phase: B1 (implemented; C4 VFX: the drawn bursts, hits and flares live in FlipbookFx; B5 ragdolls still stand-ins)
 // Makes the fight readable: every Shot event becomes a short-lived tracer with a muzzle flare and a spurt where it
 // lands, every Hit a spike and a puff on the man, every Explosion a drawn burst with its column and wings, every Death
 // leaves a body (banners: the Toolkit HUD's ObjectiveTracker, or OnGUI here under the old HUD). Instanced draws, no GameObjects.
@@ -97,6 +97,9 @@ namespace TW.Presentation.Tactical
         readonly Flamethrower flames = new Flamethrower();
         System.Func<int, Vector3> drawnAt; System.Func<float, float, float> groundAt;   // cached: Update must not allocate
         Material dirtMat, woodMat, smokeMat;
+        /// <summary>Painted steel for the Sentry's plate: the night ground is dirtMat's own colour, so a plate flushed
+        /// with dirtMat has no contrast against it. Light grey with a heavy outline, so the plate keeps an ink edge at T1.</summary>
+        Material plateMat;
         Material smokeThin, smokeFaint;
         readonly List<Matrix4x4> batch = new List<Matrix4x4>(1023);
         readonly Matrix4x4[] batchArray = new Matrix4x4[1023];
@@ -271,6 +274,7 @@ namespace TW.Presentation.Tactical
                 clod.SetVertices(lv); clod.SetTriangles(lt, 0); clod.RecalculateNormals(); clod.RecalculateBounds();
             }
             dirtMat = Painted(new Color(0.27f, 0.235f, 0.20f), 0.7f);
+            plateMat = Painted(new Color(0.60f, 0.62f, 0.66f), 0.9f);
             woodMat = Painted(new Color(0.43f, 0.35f, 0.25f), 0.6f);
             burstMat = Painted(new Color(0.53f, 0.46f, 0.35f), 1.1f);
             smokeMat = Transparent(unlit, new Color(0.34f, 0.32f, 0.29f, 0.36f));
@@ -493,7 +497,7 @@ namespace TW.Presentation.Tactical
             flames.Clear();
             SceneHooks.FootFall = null;
             books?.Dispose();
-            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
+            foreach (var mat in new[] { waterMat, birdMat, sparkMat, tracerNightA, tracerNightB, tracerCore, tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat, dirtMat, plateMat, woodMat, smokeMat, smokeThin, smokeFaint, flashMat }) if (mat != null) Destroy(mat);
             foreach (var mat in gasMats) if (mat != null) Destroy(mat);
             foreach (var mat in markMats) if (mat != null) Destroy(mat);
             foreach (var mat in new[] { fallenMat, brassMat, helmetMat, vapourMat }) if (mat != null) Destroy(mat);
