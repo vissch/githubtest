@@ -351,7 +351,13 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `lane/show/decision-2026-10-18-relay-harness`, is now the only way they reach integration. Default taken while he
   has not: the unit stays closed and nothing else on this lane is worked. The closing commits had also accidentally
   carried 66 `Tools/otr/test_classify`/`test_objects`/`test_render` `bin`/`obj` build files; they were removed again
-  on this lane and the paths ignored, so his hand-push from this checkout now carries docs only.
+  on this lane and the paths ignored, so his hand-push from this checkout now carries docs only. (2026-10-19) The
+  owner's own push from this checkout is of the lane's own name, and that push is not a fast-forward: origin's
+  `lane/show/relay-harness` and local `HEAD` have diverged, `git rev-list --left-right --count` between them gives
+  `89 757`, so landing the record this way would need a force that drops origin's 89 commits. The route that reaches
+  integration without a force is a cherry-pick of the five docs commits (`a759872d5`..`80898f9c8`) onto a fresh
+  `lane/show/decision-2026-10-18-relay-harness` branched off origin's integration branch, not a force-push of this
+  lane's own name.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **The close-assault fallback in `DirectFire.cs` is dead code: delete it, or make it reachable? (2026-10-18,
   found-close-assault-fallback-skips-armour-and-can-20261018-0):** the finding says the `ownHits` path
