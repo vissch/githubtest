@@ -97,10 +97,16 @@ namespace TW.Presentation.Units
         public bool Ready => figures != null && figures.Length > 0;
 
         /// <summary>The figure names, in archetype-map order; the assets are Resources/Units/Figure&lt;Name&gt;.</summary>
-        public static readonly string[] FigureNames = { "Soldier", "Sniper", "Frog" };
+        public static readonly string[] FigureNames = { "Soldier", "Sniper", "Frog", "DeathBn" };
+        /// <summary>Which slot wears another figure's bake BY DESIGN (the index of the one it borrows), -1 for a slot
+        /// that is meant to have a bake of its own. The Death Battalion is the soldier's bake under its own material:
+        /// the kit (greatcoat flare + darker cloth) is what makes it its own man, so there is no FigureDeathBn asset
+        /// to load and no warning when it is missing.</summary>
+        public static readonly int[] FigureBorrows = { -1, -1, -1, 0 };
         /// <summary>Which figure each archetype is drawn with (the sniper: the hooded man; the Frog, archetype 25: the
-        /// playground's frog, baked by TW/VAT/Bake Frog; every other man on foot: the soldier).</summary>
-        public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : 0;
+        /// playground's frog, baked by TW/VAT/Bake Frog; the Death Battalion, archetype 28: the soldier in a greatcoat;
+        /// every other man on foot: the soldier).</summary>
+        public static int FigureOfArchetype(int archetype) => archetype == 3 ? 1 : archetype == 25 ? 2 : archetype == 28 ? 3 : 0;
 
         /// <summary>Which loaded bake fills each FigureNames slot: its own (k), else the Soldier's (0, the named
         /// default). -1 in every slot when the Soldier bake itself is missing: the near tier shares one clip->row map
@@ -110,7 +116,8 @@ namespace TW.Presentation.Units
         {
             var src = new int[FigureNames.Length];
             bool soldier = has.Length > 0 && has[0];
-            for (int k = 0; k < src.Length; k++) src[k] = !soldier ? -1 : (k < has.Length && has[k]) ? k : 0;
+            for (int k = 0; k < src.Length; k++)
+                src[k] = !soldier ? -1 : FigureBorrows[k] >= 0 ? FigureBorrows[k] : (k < has.Length && has[k]) ? k : 0;
             return src;
         }
 
@@ -140,6 +147,19 @@ namespace TW.Presentation.Units
         /// <summary>The atlas the near tier plays for the first figure: the baked clips when TW/VAT/Bake Infantry has run, else the box soldier.</summary>
         public VatAsset NearAsset => figures != null && figures.Length > 0 ? figures[0].Asset : null;
         public bool ClipAtlas => clipAtlas;
+
+        /// <summary>The Death Battalion's kit, set on its figure slot's materials: a coat skirt pushed out 10 cm at the
+        /// hip (VAT_URP's _Coat, in the shared Animate, so the outline and shadow agree) and a darker, greyer cloth.</summary>
+        public const float DeathBnCoat = 0.10f;
+        public static readonly Color DeathBnKit = new Color(0.62f, 0.64f, 0.68f, 1f);
+        static readonly int CoatId = Shader.PropertyToID("_Coat"), KitId = Shader.PropertyToID("_Kit");
+
+        /// <summary>A figure's own look, on the living and the fallen alike: a corpse must wear what the man wore.</summary>
+        static void SetKit(Figure f, float coat, Color kit)
+        {
+            f.Material.SetFloat(CoatId, coat); f.Material.SetColor(KitId, kit);
+            f.Fallen.SetFloat(CoatId, coat); f.Fallen.SetColor(KitId, kit);
+        }
 
         static Figure Make(Shader shader, VatAsset a)
         {
@@ -185,6 +205,7 @@ namespace TW.Presentation.Units
             var has = new bool[FigureNames.Length];
             for (int k = 0; k < FigureNames.Length; k++)
             {
+                if (FigureBorrows[k] >= 0) continue;   // wears another's bake by design: nothing to load, nothing to warn about
                 data[k] = Resources.Load<VatAssetData>("Units/Figure" + FigureNames[k]);   // written by TW/VAT/Bake Infantry
                 has[k] = data[k] != null && data[k].Valid;
                 if (!has[k]) Debug.LogWarning("VATRenderer: no bake for figure " + FigureNames[k]);
@@ -196,6 +217,7 @@ namespace TW.Presentation.Units
                 for (int k = 0; k < src.Length; k++) asset[src[k]] ??= data[src[k]].ToAsset();   // decode only the distinct sources used
                 figures = new Figure[FigureNames.Length];
                 for (int k = 0; k < figures.Length; k++) figures[k] = Make(shader, asset[src[k]]);
+                SetKit(figures[3], DeathBnCoat, DeathBnKit);   // the Death Battalion's greatcoat and darker cloth, on the living and on their corpses
                 clipAtlas = asset[0].ClipAtlas;
                 far = Make(shader, ProceduralSoldier.Build());
                 far.Material.SetFloat(LerpId, 0f); far.Fallen.SetFloat(LerpId, 0f);

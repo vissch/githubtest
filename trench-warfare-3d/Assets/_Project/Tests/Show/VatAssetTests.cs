@@ -98,18 +98,18 @@ namespace TW.Tests
         [Test]
         public void FigureSources_AMissingBakeNeverBorrowsAnotherFigure()
         {
-            CollectionAssert.AreEqual(new[] { -1, -1, -1 }, VATRenderer.FigureSources(new[] { false, true, false }),
+            CollectionAssert.AreEqual(new[] { -1, -1, -1, -1 }, VATRenderer.FigureSources(new[] { false, true, false, false }),
                 "[found-fix-the-missing-figure-pad-it-borrows-the-wr-20261017-4] Soldier missing, Sniper baked: riflemen (slot 0) must not draw as the sniper (slot 1)");
-            CollectionAssert.AreEqual(new[] { 0, 1, 0 }, VATRenderer.FigureSources(new[] { true, true, false }),
+            CollectionAssert.AreEqual(new[] { 0, 1, 0, 0 }, VATRenderer.FigureSources(new[] { true, true, false, false }),
                 "[found-fix-the-missing-figure-pad-it-borrows-the-wr-20261017-4] Frog missing: it falls back to the Soldier (its named default), not to the Sniper");
-            CollectionAssert.AreEqual(new[] { 0, 0, 0 }, VATRenderer.FigureSources(new[] { true, false, false }),
+            CollectionAssert.AreEqual(new[] { 0, 0, 0, 0 }, VATRenderer.FigureSources(new[] { true, false, false, false }),
                 "[found-fix-the-missing-figure-pad-it-borrows-the-wr-20261017-4] Sniper and Frog missing: both fall back to the Soldier");
-            CollectionAssert.AreEqual(new[] { 0, 1, 2 }, VATRenderer.FigureSources(new[] { true, true, true }),
-                "[found-fix-the-missing-figure-pad-it-borrows-the-wr-20261017-4] a full bake is untouched");
+            CollectionAssert.AreEqual(new[] { 0, 1, 2, 0 }, VATRenderer.FigureSources(new[] { true, true, true, true }),
+                "[found-fix-the-missing-figure-pad-it-borrows-the-wr-20261017-4] a full bake is untouched; the DeathBn slot wears the Soldier's bake by design (VATRenderer.FigureBorrows)");
 
             for (int mask = 0; mask < 8; mask++)
             {
-                var has = new[] { (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0 };
+                var has = new[] { (mask & 1) != 0, (mask & 2) != 0, (mask & 4) != 0, false };
                 var src = VATRenderer.FigureSources(has);
                 for (int k = 0; k < src.Length; k++)
                     Assert.That(src[k], Is.EqualTo(-1).Or.EqualTo(0).Or.EqualTo(k),

@@ -16,6 +16,8 @@ Shader "TW/VAT Infantry (URP)"
         _VertexCount ("Vertex Count", Float) = 264
         _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
+        _Coat ("Greatcoat flare (m)", Range(0,0.25)) = 0
+        _Kit ("Cloth multiply", Color) = (1,1,1,1)
         _TeamColorA ("Team 0 cloth", Color) = (0.64, 0.56, 0.34, 1)
         _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
         _OutlineColor ("Outline", Color) = (0.13, 0.10, 0.08, 1)
@@ -49,6 +51,8 @@ Shader "TW/VAT Infantry (URP)"
         TEXTURE2D(_NrmTex); SAMPLER(sampler_NrmTex);
         CBUFFER_START(UnityPerMaterial)
             float _VertexCount, _TotalFrames, _Lerp;
+            float _Coat;    // a skirt pushed out over the lower torso and thighs: the Death Battalion greatcoat (VATRenderer sets it per figure; 0 on everyone else)
+            float4 _Kit;    // the figure's cloth multiply, (1,1,1,1) on everyone else
             float4 _PosMin, _PosSize;
             float4 _TeamColorA, _TeamColorB;
             float4 _WoundCenter, _WoundRadii;
@@ -135,6 +139,11 @@ Shader "TW/VAT Infantry (URP)"
             }
             p = _PosMin.xyz + p * _PosSize.xyz;
             n = n * 2.0 - 1.0;
+            // the greatcoat: the skirt widens from the hip down and closes again above the boots, so the man keeps his
+            // head, shoulders and feet. Done here, in the shared Animate, so the outline, shadow and depth passes agree
+            // and the silhouette really changes.
+            float coat = _Coat * saturate((0.95 - p.y) / 0.6) * step(0.33, p.y);
+            p.xz += normalize(float2(p.x, p.z) + 1e-4) * coat;
             float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
             Animated o;
             o.positionOS = p;
@@ -238,6 +247,7 @@ Shader "TW/VAT Infantry (URP)"
             #endif
                 half3 team = lerp(_TeamColorA.rgb, _TeamColorB.rgb, i.tint);
                 half3 albedo = lerp(i.color.rgb, i.color.rgb * team, i.color.a);
+                albedo *= _Kit.rgb;   // the figure's own cloth: darker and greyer on the Death Battalion, (1,1,1) on everyone else
                 // webbing, pack and puttees were baked near white, so from the gameplay pitch a man read as a stack of pale
                 // boxes with his kit brighter than his helmet: the brightest cloth is brought back towards the uniform
                 half kit = dot(albedo, half3(0.3, 0.59, 0.11));

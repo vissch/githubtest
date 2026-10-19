@@ -251,12 +251,12 @@ namespace TW.Tests
         [Test]
         public void TheFrogIsDrawnAsAFrog()
         {
-            Assert.AreEqual(3, TW.Presentation.Units.VATRenderer.FigureNames.Length);
+            Assert.AreEqual(4, TW.Presentation.Units.VATRenderer.FigureNames.Length);
             Assert.AreEqual("Frog", TW.Presentation.Units.VATRenderer.FigureNames[2]);
             Assert.AreEqual(2, TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.Frog));
             Assert.AreEqual(1, TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.Sniper));
             foreach (var u in ProvingGround.Catalogue())
-                if (!u.Machine && u.Archetype != InfantryArchetype.Frog && u.Archetype != InfantryArchetype.Sniper)
+                if (!u.Machine && u.Archetype != InfantryArchetype.Frog && u.Archetype != InfantryArchetype.Sniper && u.Archetype != InfantryArchetype.DeathBattalion)
                     Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureOfArchetype(u.Archetype), $"{u.Name} is drawn as the soldier");
 
             var frog = Resources.Load<TW.Presentation.Units.VatAssetData>("Units/FigureFrog");
@@ -273,6 +273,34 @@ namespace TW.Tests
             foreach (var v in vs) { lo = Mathf.Min(lo, v.y); hi = Mathf.Max(hi, v.y); }
             Assert.AreEqual(0f, lo, 0.08f, "his feet are on the ground in the idle frame");
             Assert.AreEqual(1.78f, hi - lo, 0.25f, "and he stands as tall as a man");
+        }
+
+        /// <summary>
+        /// The Death Battalion was mapped to the rifleman's figure and its card said "stand-in", so it was a plain
+        /// rifleman in every way. It now has a figure slot of its own (its own material: the greatcoat flare and the
+        /// darker cloth of VAT_URP's _Coat/_Kit), and the card text says what the man is rather than what he stands in
+        /// for. The rule, not a measured number: the donor is not the rifleman's, and no other archetype wears it.
+        /// </summary>
+        [Test]
+        public void DeathBattalionHasOwnDonor()
+        {
+            int own = TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.DeathBattalion);
+            Assert.AreNotEqual(TW.Presentation.Units.VATRenderer.FigureOfArchetype(InfantryArchetype.Rifle), own,
+                "the Death Battalion is drawn with the rifleman's figure");
+            Assert.AreEqual("DeathBn", TW.Presentation.Units.VATRenderer.FigureNames[own]);
+            foreach (var u in ProvingGround.Catalogue())
+                if (!u.Machine && u.Archetype != InfantryArchetype.DeathBattalion)
+                    Assert.AreNotEqual(own, TW.Presentation.Units.VATRenderer.FigureOfArchetype(u.Archetype), $"{u.Name} also wears the Death Battalion's figure");
+            // the slot wears the soldier's bake by design, so Start must not look for a FigureDeathBn asset
+            Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureBorrows[own]);
+            var has = new bool[TW.Presentation.Units.VATRenderer.FigureNames.Length];
+            has[0] = true;
+            Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureSources(has)[own]);
+            Assert.Greater(TW.Presentation.Units.VATRenderer.DeathBnCoat, 0f, "a greatcoat with no flare is a rifleman");
+
+            string tip = UnitLook.Tip(InfantryArchetype.DeathBattalion);
+            StringAssert.Contains("Death Battalion", tip);
+            Assert.IsFalse(tip.Contains("stand-in"), "the card still calls the Death Battalion a stand-in: " + tip);
         }
 
         /// <summary>

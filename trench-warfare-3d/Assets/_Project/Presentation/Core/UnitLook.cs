@@ -54,6 +54,8 @@ namespace TW.Presentation
                 case VehicleArchetype.MarkIV: case VehicleArchetype.MarkV: return "Maw";
                 case VehicleArchetype.A7V: return "Brute";
                 case VehicleArchetype.RenaultFT: case VehicleArchetype.Whippet: case VehicleArchetype.Austin: return "Tusk";
+                // the Death Battalion is drawn as its own man (VATRenderer's DeathBn figure: greatcoat, darker cloth),
+                // but the card PICTURE is still the rifleman's until one is rendered off it
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
                 case InfantryArchetype.Sentry: return "MG";
                 case InfantryArchetype.AtRifle: return "Sniper";
@@ -113,7 +115,7 @@ namespace TW.Presentation
                 case InfantryArchetype.Frog: return "Frog, prototype: a rifleman's numbers under the playground's frog";
                 case InfantryArchetype.Sentry: return "Sentry, stand-in: a machine gun behind an 8 mm plate over a 60 degree arc";
                 case InfantryArchetype.AtRifle: return "AT rifle, stand-in: pierces 20 mm at up to 70 m, one round in five seconds";
-                case InfantryArchetype.DeathBattalion: return "Death Battalion, stand-in: a harder-hitting rifleman who never stays pinned";
+                case InfantryArchetype.DeathBattalion: return "Death Battalion: a harder-hitting rifleman in a greatcoat who never stays pinned";
                 case InfantryArchetype.Sapper: return "Sapper, stand-in: carries two charges. Walks out and lays a mine or a tripwire";
                 case InfantryArchetype.Flamethrower: return "Flamethrower, stand-in: a 12 m jet that sets men and ground alight, past a plate";
                 default: return null;
