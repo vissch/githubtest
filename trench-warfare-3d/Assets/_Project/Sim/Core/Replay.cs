@@ -159,7 +159,11 @@ namespace TW.Sim
         // wide as its body is, half of WreckBlastReach x size, the same figure its shelter's reach is built from.
         // Body was the full WreckBlastReach, twice that, so a man up to 2 m off the firing line was kept down. No
         // field added, moved or dropped; shots, suppression and wreck wear move, so hashes and balance move.
-        public const ushort FormatVersion = 53;
+        // v54 (2026-10-19, [found-refund-paradrop-silver-cooldown-and-emit-an-20261018-0]): a ParaDrop that cannot
+        // put every man down pays back the silver and the wait of the men it lost and raises DropLandedShort. No
+        // field added, moved or dropped; a battle with a full field keeps silver and an ability it used to lose, so
+        // hashes and balance move.
+        public const ushort FormatVersion = 54;
         public SimConfig Config;
         public SimConfig.WorldInit Init;
         public int MapId;        // MapData.MapId of the map the replay was recorded on (0 = unknown)

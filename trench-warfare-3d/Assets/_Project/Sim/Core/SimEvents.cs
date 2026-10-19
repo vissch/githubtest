@@ -115,6 +115,7 @@ namespace TW.Sim
         // PropChanged instead): a = prop index, b = 0 a blast / 1 wear (absorbed rounds, a machine grinding it), pos = the
         // prop, dir = the way the harm went (zero when unknown), scalar = the share of this stage's hit points left, 0..1.
         PropWorn,
+        DropLandedShort,    // a = player, b = men who never came down, pos = the drop point, dir.x = the men who did land, scalar = the silver paid back (OffMapAbilitySystem)
     }
 
     /// <summary>What killed a man when no slot did (Death.b when it is negative). A shot, a claw and a crushing
