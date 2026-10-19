@@ -1,6 +1,7 @@
 // Phase: VFX pass (owner, 2026-09-28; tw3d-board catalogue IN-5) - FlipbookFx.FarGrow, how much wider the burst recipes'
 // far-reading parts (the plume, the ground ring) are drawn at a zoom: 1 up to zoom 80, then with the zoom, capped.
 using NUnit.Framework;
+using UnityEngine;
 using TW.Presentation.Tactical;
 
 namespace TW.Tests
@@ -70,11 +71,6 @@ namespace TW.Tests
             Assert.GreaterOrEqual(240f, CombatFx.IncomingFarZoom);
             Assert.IsTrue(CombatFx.DropDrawnAt(240f));
 
-            // zoom 240: a 240 m view over a 900 px frame is 3.75 px/m; the puff is 2m * FarGrow(240) = 5m wide
-            float pxPerM = 900f / 240f;
-            Assert.AreEqual(2f, CombatFx.DropDustWidth(30f), 1e-6f, "the standard view is untouched");
-            Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 12f, "readable landing dust at zoom 240");
-
             const int men = 8;
             const float seconds = 5f;
             float prev = -1f;
@@ -86,6 +82,23 @@ namespace TW.Tests
                 prev = d;
             }
             Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(men - 1, men, seconds), 1e-6f, "the last streak ends as the shell's streak would");
+        }
+
+        [Test]
+        public void DropLandingDustIsSeenAt240()
+        {
+            // the r2 critique (score 16/100): r1's dust probe measured a camp lamp going dark 570 px from the
+            // drop, under a hand-found window, rather than the puff. The fix measures from CaptureRig.Pose's own
+            // arithmetic: distance = zoom * tan(30deg) / tan(fov/2), fov = TacticalCamera.Fov = 25deg, so the view
+            // height at the focus is 2 * distance * tan(fov/2) = 2 * zoom * tan(30deg) = 1.1547 * zoom metres —
+            // 277.1 m at zoom 240 over the default 900-px-high still, which is 3.25 px/m (not r1's 3.75, which
+            // assumed the view height equals the zoom). docs/evidence/paradrop-inbound-marker-r2/dustprobe2.py
+            // measures 16 px on a still shot at this exact pose, anchoring the number to a picture, not the formula.
+            float viewHeightM = 2f * 240f * Mathf.Tan(30f * Mathf.Deg2Rad);
+            float pxPerM = 900f / viewHeightM;
+            Assert.AreEqual(2f, CombatFx.DropDustWidth(30f), 1e-6f, "the standard view is untouched");
+            Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 12f, "readable landing dust at zoom 240");
+            Assert.IsTrue(CombatFx.DropDrawnAt(240f));
         }
     }
 }

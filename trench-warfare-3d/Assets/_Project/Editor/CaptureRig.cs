@@ -130,6 +130,11 @@ namespace TW.Editor
             /// is 6, so a picture meant to show what a man carries could not be framed at all (look-07).</summary>
             public static float ZoomFloor = float.NaN;
 
+            /// <summary>A world point a capture wants to find again, so a window a probe measures around it is
+            /// found by projection, not by eye. NaN (the default) writes nothing; set it before a shot and the
+            /// sidecar carries where it actually fell on screen.</summary>
+            public static Vector3 Mark = new Vector3(float.NaN, 0f, 0f);
+
             public readonly Queue<Shot> Queue = new Queue<Shot>();
             public string Last = "", LastJson = "";
             bool running;
@@ -499,6 +504,19 @@ namespace TW.Editor
                 N(sb, "subject_in_frame", inside ? 1 : 0);
                 N(sb, "subject_height_frac", Mathf.Abs(head.y - foot.y));
                 N(sb, "subject_vx", foot.x); N(sb, "subject_vy", foot.y);
+            }
+            if (!float.IsNaN(Rig.Mark.x))
+            {
+                // through the image's own aspect (ShotPoint), not the Game view's: WorldToScreenPoint answers for the
+                // editor's view, which is not the shape of the shot (the man-box fix, 2026-10-20)
+                Vector3 markS = ShotPoint(cam, Rig.Mark, w, h);
+                float markPxX = markS.x;
+                // Unity's screen y is bottom-up; Pillow and numpy index rows from the top, so a probe reading
+                // this sidecar needs rows-from-top, not the raw screen space CaptureRig poses with everywhere else.
+                float markPxY = h - markS.y;
+                N(sb, "mark_px_x", markPxX); N(sb, "mark_px_y", markPxY);
+                N(sb, "mark_on_screen", markS.z > 0f && markS.x >= 0f && markS.x <= w && markS.y >= 0f && markS.y <= h ? 1 : 0);
+                N(sb, "mark_depth_m", markS.z);
             }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
