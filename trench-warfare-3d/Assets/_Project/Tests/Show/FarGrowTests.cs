@@ -100,5 +100,26 @@ namespace TW.Tests
             Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 12f, "readable landing dust at zoom 240");
             Assert.IsTrue(CombatFx.DropDrawnAt(240f));
         }
+
+        [Test]
+        public void ParaDropLandingDustShowsAtOverview()
+        {
+            // the r5 critique (score 22/100): dustprobe3.py compared a 0-255 channel spread against 0.06, so any
+            // 1-level drop counted and dust_minus_nopuff_px reached 1442 on render noise. With the probe's units
+            // fixed (spread on 0..1, and the count only pixels that brightened by >= 0.05 luma), FarGrow's 5 m puff
+            // did not show: the scene's luma_mean is 0.206, so clearing a 0.05 lift needs width AND brightness.
+            // docs/evidence/paradrop-inbound-marker-r6/probe.py measures the pixels on real stills at this pose.
+            Assert.AreEqual(1f, CombatFx.DropDustOverview(30f), 1e-6f, "the standard view gets no extra scale");
+            Assert.AreEqual(1f, CombatFx.DropDustOverview(CombatFx.DropDustOverviewFrom), 1e-6f, "the extra scale starts at the overview, not before it");
+            Assert.AreEqual(2f, CombatFx.DropDustWidth(30f), 1e-6f, "T3/T2/T1 are untouched by construction");
+            Assert.AreEqual(2f, CombatFx.DropDustOverview(240f), 1e-6f, "zoom 240 doubles it (240 / 120), short of the cap");
+            Assert.AreEqual(CombatFx.DropDustOverviewMax, CombatFx.DropDustOverview(600f), 1e-6f, "the Far band is held at the cap, so the puff never swallows the zone");
+            Assert.Greater(CombatFx.DropDustOverview(240f), 1f, "the overview is wider than FarGrow alone");
+
+            // 2 m * FarGrow(240) * 2.2 = 10 m, about 32 px at the pose's measured 3.25 px/m (r2's evidence)
+            float pxPerM = 900f / (2f * 240f * Mathf.Tan(30f * Mathf.Deg2Rad));
+            Assert.GreaterOrEqual(CombatFx.DropDustWidth(240f) * pxPerM, 30f, "the landing puff is a read, not a speck, at zoom 240");
+            Assert.That(CombatFx.DropDustWidth(240f), Is.LessThanOrEqualTo(12f), "and not so wide it covers the zone it marks");
+        }
     }
 }

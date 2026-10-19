@@ -1,0 +1,21 @@
+{
+  "spread_scale": 1,
+  "dust_minus_nopuff_px": 7,
+  "dust_minus_nopuff_px_p3": 7,
+  "dust_minus_nopuff_px_p6": 133,
+  "noise_puff_px": 5977,
+  "puff_luma_threshold": 0.05,
+  "landing_dust_px_z240": 65,
+  "noise_blob_px": 147,
+  "luma_delta": 0.1219,
+  "noise_luma_delta": 0.0589,
+  "yellow_px_delta": 0,
+  "centre_off_px": 31.51,
+  "yellow_before": 0,
+  "yellow_after": 0,
+  "mark_px": [
+    799.99994,
+    440.7756
+  ],
+  "window_px": 180
+}

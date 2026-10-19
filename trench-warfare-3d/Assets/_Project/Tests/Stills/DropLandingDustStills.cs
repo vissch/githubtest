@@ -1,21 +1,22 @@
-// Phase: VFX harsh-critic fix (2026-10-19, paradrop-inbound-marker-r5), on top of r2's honest pair (zoom 240, lamps
-// and rain pinned, either side of the landing tick, centred on CaptureRig's own screen projection of the landing
-// point, Rig.Mark). r2's critique (24/100): the support disc's HUD marker (Until = Time.time + 10f, real time) had
-// expired between the two shots minutes of frames apart and moved 173 px; the "after" shot alone cannot tell the
-// puff from render noise (no noise floor was measured); and the 8 landed men in the window are not split from the
-// puff. This version masks the disc (CombatFx.ShowOverlays = false, as NightLampStills/TracerStills already do for
-// their own HUD draws), shoots the "after" pose twice in the same frozen state (timeScale 0, Time.time does not
-// advance, so this is a pure render-noise pair, not a second landing) and shoots a third still with the dust puff's
-// book hidden (CombatFx.HideBookForTests) so dustprobe3.py can subtract the men from the puff.
+// Phase: VFX harsh-critic fix (2026-10-19, paradrop-inbound-marker-r6), on top of r5's three pairs (zoom 240, lamps
+// and rain pinned, centred on CaptureRig's own screen projection of the landing point, Rig.Mark). r5's critique
+// (22/100): its probe compared a 0-255 channel spread against 0.06, so any 1-level drop counted and the puff was
+// never actually shown; and one shot at landTick + 1 cannot tell a puff that holds from a single frame. This version
+// shoots at landTick + 3 and landTick + 6, each with a twin that has the puff's book hidden
+// (CombatFx.HideBookForTests), plus a re-shot of the +3 pose in the same frozen state for the noise floor, so
+// docs/evidence/paradrop-inbound-marker-r6/probe.py can take the minimum of the two ticks' puff-minus-nopuff counts.
+// The support disc stays masked (CombatFx.ShowOverlays = false, r5's fix 2: it is HUD drawn in the world and expires
+// on real time, which moved it 173 px between r2's shots).
 // Pinning: Knobs lights.realLamps 43 (every lamp keeps its real light: nothing rotates out) and lights.waterLamps 0
 // (NightLights.RealLamps.cs); Atmosphere.PinnedClock set once and never released, so every shot falls in the same
 // squall (Atmosphere.cs: RainNow is a function of the pinned clock alone). The landing tick is read from the sim's
 // own DropInbound event (its Tick is the command's real processing tick, InputDelayTicks later than the tick it was
-// issued on), not guessed from Time.time.
+// issued on), not guessed from Time.time. All eight DropLanded events fire on one tick (OffMapAbilities.cs ~409),
+// so both frames hold the same stick.
 // Run it by name WITH a graphics device (not -nographics):
 //   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testFilter DropLandingDustStills \
 //             -testResults <out.xml> -logFile <out.log>
-// Environment: TW_DROPDUST_DIR where the stills go (default docs/evidence/paradrop-inbound-marker-r5 at the repo root).
+// Environment: TW_DROPDUST_DIR where the stills go (default docs/evidence/paradrop-inbound-marker-r6 at the repo root).
 using System.Collections;
 using System.IO;
 using NUnit.Framework;
@@ -73,7 +74,7 @@ namespace TW.Tests
             }
         }
 
-        [UnityTest, Explicit("Zoom-240 before/after the paradrop landing tick, lamps and rain pinned; run by name, with a graphics device.")]
+        [UnityTest, Explicit("Zoom-240 stills at landTick -2, +3 and +6 with puff-hidden twins, lamps and rain pinned; run by name, with a graphics device.")]
         public IEnumerator DropLandingShotBeforeAndAfter()
         {
             HudBootstrap.Disabled = true;
@@ -89,7 +90,7 @@ namespace TW.Tests
 
             string dir = System.Environment.GetEnvironmentVariable("TW_DROPDUST_DIR");
             if (string.IsNullOrEmpty(dir))
-                dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "docs", "evidence", "paradrop-inbound-marker-r5"));
+                dir = Path.GetFullPath(Path.Combine(Application.dataPath, "..", "..", "docs", "evidence", "paradrop-inbound-marker-r6"));
             Directory.CreateDirectory(dir);
 
             // pin the lamps (every lamp keeps a real light: none rotates out between the two shots) and the weather
@@ -119,10 +120,16 @@ namespace TW.Tests
             uint landTick = latch.Tick + WarmupTicks;
 
             string before = Path.Combine(dir, "z240-before.png");
-            string after = Path.Combine(dir, "z240-after.png");
-            string after2 = Path.Combine(dir, "z240-after2.png");
-            string nopuff = Path.Combine(dir, "z240-nopuff.png");
-            foreach (var p in new[] { before, after, after2, nopuff }) if (File.Exists(p)) File.Delete(p);
+            string p3 = Path.Combine(dir, "z240-p3.png");
+            string p3b = Path.Combine(dir, "z240-p3b.png");
+            string nopuff3 = Path.Combine(dir, "z240-nopuff-p3.png");
+            string p6 = Path.Combine(dir, "z240-p6.png");
+            string nopuff6 = Path.Combine(dir, "z240-nopuff-p6.png");
+            var shots = new[] { before, p3, p3b, nopuff3, p6, nopuff6 };
+            foreach (var p in shots) if (File.Exists(p)) File.Delete(p);
+
+            var fx = Object.FindFirstObjectByType<CombatFx>();
+            Assert.That(fx, Is.Not.Null, "no CombatFx");
 
             Time.timeScale = 1f;
             for (int f = 0; f < 1200 && host.Local.World.Tick < landTick - 2; f++) yield return null;
@@ -130,29 +137,38 @@ namespace TW.Tests
             CaptureRig.Shot(before, dropX, dropZ, 240f, 21f, 25f);
             yield return Drain(before);
 
+            // +3: the puff is up. Shot frozen, then re-shot in the same frozen state for the noise floor, then once
+            // more with the puff's book hidden — the men and the ground are identical in all three, so the only
+            // difference the probe can see is the puff.
             Time.timeScale = 1f;
-            for (int f = 0; f < 1200 && host.Local.World.Tick < landTick + 1; f++) yield return null;
+            for (int f = 0; f < 1200 && host.Local.World.Tick < landTick + 3; f++) yield return null;
             Time.timeScale = 0f;
-            CaptureRig.Shot(after, dropX, dropZ, 240f, 21f, 25f);
-            yield return Drain(after);
-
-            // the noise pair: same frozen state, one build, no landing in between (timeScale 0, so Time.time does
-            // not move) — whatever differs here is render noise, not the puff
+            CaptureRig.Shot(p3, dropX, dropZ, 240f, 21f, 25f);
+            yield return Drain(p3);
             for (int f = 0; f < 10; f++) yield return null;
-            CaptureRig.Shot(after2, dropX, dropZ, 240f, 21f, 25f);
-            yield return Drain(after2);
-
-            var fx = Object.FindFirstObjectByType<CombatFx>();
+            CaptureRig.Shot(p3b, dropX, dropZ, 240f, 21f, 25f);
+            yield return Drain(p3b);
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, true);
-            CaptureRig.Shot(nopuff, dropX, dropZ, 240f, 21f, 25f);
-            yield return Drain(nopuff);
+            CaptureRig.Shot(nopuff3, dropX, dropZ, 240f, 21f, 25f);
+            yield return Drain(nopuff3);
+            fx.HideBookForTests(FlipbookFx.Book.DustPuff, false);
+
+            // +6: the same pair again, three ticks later, so one number proves the puff holds and is not one frame
+            Time.timeScale = 1f;
+            for (int f = 0; f < 1200 && host.Local.World.Tick < landTick + 6; f++) yield return null;
+            Time.timeScale = 0f;
+            CaptureRig.Shot(p6, dropX, dropZ, 240f, 21f, 25f);
+            yield return Drain(p6);
+            fx.HideBookForTests(FlipbookFx.Book.DustPuff, true);
+            CaptureRig.Shot(nopuff6, dropX, dropZ, 240f, 21f, 25f);
+            yield return Drain(nopuff6);
             fx.HideBookForTests(FlipbookFx.Book.DustPuff, false);
 
             Time.timeScale = 1f;
             Atmosphere.PinnedClock = -1f;
             CombatFx.ShowOverlays = true;
             Knobs.Clear();
-            Assert.That(File.Exists(before) && File.Exists(after) && File.Exists(after2) && File.Exists(nopuff), "a still was not written");
+            foreach (var p in shots) Assert.That(File.Exists(p), Is.True, Path.GetFileName(p) + " was not written");
             yield return new ExitPlayMode();
         }
     }
