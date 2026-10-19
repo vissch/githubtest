@@ -112,17 +112,21 @@ namespace TW.Editor
             }
         }
 
-        /// <summary>A frog among a few standing riflemen (so CaptureRig's contrast_median has live men to read, the
-        /// corpse alone has none), killed next tick by a tight shell at his own spot (DeathGags.FrogFlop fires off
-        /// any cause, so a shell is a fast, reliable death to capture — no waiting on an AI rifleman to notice him).</summary>
-        public static string Frog(float x = 100f, float z = 120f)
+        /// <summary>A frog, optionally among a few standing riflemen (so CaptureRig's contrast_median has live men to
+        /// read when wanted; a probe reading the frog alone wants withRow = false so no rifleman is in frame),
+        /// killed next tick by a shell 8 m off his spot (DeathGags.FrogFlop fires off any cause and overrides the
+        /// throw, so the pose is unchanged; the blast's radius still reaches him, but its smoke, dust and crater
+        /// sit away from his body so they can't be read as his legs moving) — a fast, reliable death to capture, no
+        /// waiting on an AI rifleman to notice him.</summary>
+        public static string Frog(float x = 100f, float z = 120f, bool withRow = true)
         {
             var h = Host; if (h == null) return "no SimHost";
             string s = TankCapture.Spawn(0, InfantryArchetype.Frog, x, z, 0f);
             if (!s.StartsWith("slot ")) return s;
             int slot = int.Parse(s.Substring(5));
             h.WriteWorlds(m => { m.World.Hp[slot] = 1f; m.World.Speed[slot] = 0f; });
-            return s + "; " + Row(4, x + 3f, z, 0, 1.6f) + "; " + Shell(x, z, 2f, 400f);
+            string row = withRow ? Row(4, x + 3f, z, 0, 1.6f) + "; " : "";
+            return s + "; " + row + Shell(x + 8f, z, 12f, 600f);
         }
 
         /// <summary>A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the

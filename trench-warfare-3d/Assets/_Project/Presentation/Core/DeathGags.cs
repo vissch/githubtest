@@ -246,7 +246,10 @@ namespace TW.Presentation
             fly = new float3(0f, Towards(0f, 0.35f, a), 0f);
             plan.Rolls = 0;
             plan.PulseQ = (sbyte)VatTintCode(Towards(1f, 1.12f, a)); plan.PulseDur = 0.12f;
-            plan.TwitchRoll = 2f * math.min(1f, a); plan.TwitchHz = 5f; plan.TwitchDur = 1.6f * math.min(1f, a);
+            // 3.5 Hz puts a 1 s sampling gap half a cycle out of phase (worst case becomes best case; 5 Hz was a
+            // whole number of cycles per second and could read identical at two stills 1 s apart). 6 roll steps of
+            // amplitude keeps a >=2-step gap a second apart even where the two sine terms (RollStep) nearly cancel.
+            plan.TwitchRoll = 6f * math.min(1f, a); plan.TwitchHz = 3.5f; plan.TwitchDur = 2.6f * math.min(1f, a);
             return Capped(ref plan, ref fly);
         }
 

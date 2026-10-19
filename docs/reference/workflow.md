@@ -485,7 +485,7 @@ today is listed today. Read the method's own comment for its arguments.
 | `TW.Editor.DeathLab.Fire(x, z, radius)` | Editor/DeathLab.cs | An incendiary burst: the men inside it catch fire and burn to death over the next seconds. |
 | `TW.Editor.DeathLab.Call(ability, x, z, args)` | Editor/DeathLab.cs | A support call for player 0 at a point (silver topped up first); `args` is SimCommand.B (AbilityArgs: a line ability's heading, pattern and length; 0 ... |
 | `TW.Editor.DeathLab.Scene(name, x, z)` | Editor/DeathLab.cs | A whole staging by name at (x, z): a row of men and what kills them. |
-| `TW.Editor.DeathLab.Frog(x, z)` | Editor/DeathLab.cs | A frog among a few standing riflemen (so CaptureRig's contrast_median has live men to read, the corpse alone has none), killed next tick by a tight ... |
+| `TW.Editor.DeathLab.Frog(x, z, withRow)` | Editor/DeathLab.cs | A frog, optionally among a few standing riflemen (so CaptureRig's contrast_median has live men to read when wanted; a probe reading the frog alone ... |
 | `TW.Editor.DeathLab.Machine(archetype, x, z)` | Editor/DeathLab.cs | A machine of the enemy's held where it stands, facing east, and a shell that obliterates it once the picture draws it there (a machine killed the ... |
 | `TW.Editor.DeathLab.Parts(x, z)` | Editor/DeathLab.cs | One of each of a man's parts (DebrisRenderer.Figure, cut from his figure) dropped in a row from (x, z) along x, a metre apart and a metre up, in the ... |
 | `TW.Editor.DeathLab.DriveAt(slot, x, z)` | Editor/DeathLab.cs | A machine driven straight at a point (VehicleKinematicsSystem.DriveStraight), not along a flow field (the crush stills' Maw sat still on a field goal ... |

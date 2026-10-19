@@ -40,6 +40,10 @@ namespace TW.Presentation.Units
         /// <summary>Whole turns are drawn in this many pitch steps; VAT_URP.shader decodes a step as 2 pi / 32: change both together.</summary>
         public const int PitchSteps = 32; public const float OneFlipFlight = 0.9f, TwoFlipsFlight = 1.4f;
         public int FallenCount => fallenMen.Count;
+        /// <summary>The Gag byte of the i'th fallen man, or -1 out of range: for a probe reading the drawn pose, not trusting the plan.</summary>
+        public int FallenGag(int i) => i < 0 || i >= fallenMen.Count ? -1 : fallenMen[i].Gag;
+        /// <summary>The roll step (0..31) the i'th fallen man is drawn at now, or -1 out of range.</summary>
+        public int FallenRollStep(int i) => i < 0 || i >= fallenMen.Count ? -1 : FallenFlight.RollStep(fallenMen[i].Path, Time.time - fallenMen[i].Born);
         GraphicsBuffer fallenBuffer, fallenArgs;
         NativeArray<VatInstance> fallenInstances;
         Vector3[] fallenDrawAt;   // the near men's drawn position this frame, so the near loop need not recompute FallenAt
