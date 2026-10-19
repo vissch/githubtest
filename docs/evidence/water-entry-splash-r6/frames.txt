@@ -1,0 +1,65 @@
+water-entry-splash-r6 - what each still is. Facts only; the reading of them is in probe.json and in the commit.
+
+The run. GreyboxCorridor in Play, ground ShelledForest (the scene's own default), NightMud look, rain forced to 0,
+sky pinned (Atmosphere.PinnedClock = 120), the water's own sheet pinned (WaterRings.PinnedClock = 120), sim frozen
+(SimHost.TimeScale = 0) so no man moves or wades, presentation clock running at Time.captureFramerate = 60 so every
+frame is exactly 1/60 s. A body is flung off the dry bank at (12, 128, y 0.69) into the ford at (15, 130), bed
+y -0.25, water surface y 0.15 - the two production lines CombatFx.Deaths.cs runs for a flung body,
+VATRenderer.AddFallen and WaterEntry.Throw with FallenFlight.Solve's duration as the delay. Staged by
+AgentScripts/water_entry_fling.cs in one run.
+
+fly.y is not chosen, it is BISECTED: the harness halves 0.3..0.8 until Solve's duration is 43.00000 frames at 1/60
+to within 1e-4 of a frame (fly.y 0.49, flight 0.71667 s). r5 threw with fly.y 0.5, a 43.26-frame flight, and counted
+frames forward from each thaw, so every shot missed its moment (+0.033 / +0.283 / -0.217). Here the three freezes
+are scheduled on game time from the landing instant, and timings.txt holds what was achieved, measured by the
+harness: pre -0.200, land +0.050, post +0.300, land-run2 +0.050. The throw waits 90 settled frames after Play
+starts: the first frames of a session still carry the startup's long delta times, and one of them put the pre shot
+two frames late in an earlier run.
+
+All ten stills: 1600 x 900, camera T1 (zoom 30, yaw 21, pitch 25), focus (15, 130), aimY 0.15 (the water's
+surface). Every sidecar reports pose_error_m 0 and the same mark: mark_x 15, mark_z 130, mark_px_x 800.0,
+mark_px_y 450.0, mark_px_per_m 19.222 (CaptureRig.Mark, set before the first shot).
+
+plate.png          the ford, no throw at all, clock running. Bare water, the bank and its duckboards at the left,
+                   no body, no splash. The owner's no-throw plate; it is NOT what probe.py measures against.
+pre.png            land - 0.200 s. The body is in the air above and short of the landing point. The water under it
+                   is bare: no ring, no card.
+pre-nosplash.png   the same frozen instant with the water entry lifted out (every ring slot parked, FlipbookFx's
+                   card list emptied), nothing else touched.
+land.png           land + 0.050 s. A column of white water stands out of the ford where the body went in - the
+                   crown with a wing either side of it - and the body is under the surface.
+land-noring.png    the same frozen instant with the ring slots parked but the CARDS kept: the landing without its
+                   ring, so the ring alone can be counted.
+land-nosplash.png  the landing instant with the whole water entry lifted out.
+land-run2.png      land + 0.050 s of a SECOND live throw. Between the runs the scene is put back to before the
+                   first (cards cleared, every ring slot parked, pending rings dropped, the fallen bodies emptied,
+                   FallenCount checked to be 0), UnityEngine.Random is re-seeded with the same seed (20261019) it
+                   was seeded with before run 1, and the identical from / fly / delay are thrown again. The water
+                   clock stays pinned across both, so the two landing frames have the same sheet and their
+                   difference is the splash's own repeatability. This is where noise_px comes from - r5 took it
+                   from re-rendering one frozen frame, which made "3 x noise" true by construction.
+post.png           land + 0.300 s. The column has fallen back and is breaking up.
+post-nosplash.png  the land + 0.300 s instant with the water entry lifted out.
+
+The ford starts with a clean sheet. A man waded it in the seconds of Play before the harness ran, and a wading ring
+lives about 1.4 s, so two or three were still open on the water at the first moment shot. They are not the water
+entry, but lifting the rings out for a reference lifted them too, and the first r6 run read 791 changed pixels at
+land - 0.2 s because of it. The harness now parks every slot once at staging, with the sim already frozen so no new
+one can be added, and the entry's own ring is the only ring in any frame here.
+
+Why every moment has its own reference and the plate is only for the record: the water's foam and lapping are
+animated from the water clock in TWWater.hlsl, so a still taken a second after the plate differs from it across the
+whole water sheet - about 1,600 changed pixels in a 3 m disc at the landing point, whether anything landed there or
+not. Measured that way the first run of r5's capture read ring_px_pre 1577 against ring_px_land 1703 and could not
+tell a splash from the river moving. A reference rendered at the same frozen instant with the splash lifted out has
+the same foam, the same body, the same shadows and the same sky.
+
+Two things seen in these frames that are not the claim under test, recorded because they are visible:
+ - The ring STILL does not register on its own at T1, and now there is a number for it rather than prose:
+   ring_only_px 0, peak luma move 0.019 against a 0.02 threshold (land against land-noring). r6 widened the ring
+   and opened it from a hole instead of a point, which lifted it from 0.014 to 0.019 of luma, but 0.05 s after the
+   entry it is still a thin bright line on dark night water, under what a player would notice at this zoom. What
+   the water entry shows at T1 is the crown; the ring is detail under it, and it reads later and from closer.
+ - The splash cards live 0.7 s, not r5's 0.5 s (WaterEntry.CardLife). At 0.5 s the capture measured 597 changed
+   pixels a third of a second after the entry against the owner's bar of 600, and a column of water that is gone in
+   half a second looks snatched away rather than fallen back.

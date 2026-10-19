@@ -25,6 +25,10 @@ namespace TW.Presentation.Tactical
         public const float ManCard = 2.4f;
         /// <summary>The crown's two wings: how far out they sit (times the ring) and how big against the crown.</summary>
         public const float WingOut = 0.45f, WingSize = 0.55f;
+        /// <summary>How long the crown and its wings take to collapse. 0.7 s, not 0.5: at 0.5 s the capture measured
+        /// 597 changed pixels a third of a second after the entry, where the owner's bar for "it still reads" is 600,
+        /// and a column of water that is gone in half a second looks snatched away rather than fallen back.</summary>
+        public const float CardLife = 0.7f;
 
         /// <summary>How big a thing of this mass draws against a man: a cube root, so a heavier man is not a wider
         /// splash, he is a girthier one.</summary>
@@ -90,7 +94,7 @@ namespace TW.Presentation.Tactical
                     var c = cards[i];
                     bool flip = c.Mirror ^ mirror;
                     books.Add(i == 0 ? FlipbookFx.Book.Splash : FlipbookFx.Book.Wings,
-                        new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, 0.5f,
+                        new Vector3(at.x + c.Dx, sp.Y, at.z), c.Size, CardLife,
                         FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (flip ? FlipbookFx.Kind.Mirror : 0),
                         alpha: 0.9f, delay: delay);
                 }

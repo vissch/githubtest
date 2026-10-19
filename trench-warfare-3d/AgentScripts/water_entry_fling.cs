@@ -1,50 +1,53 @@
 // water_entry_fling.cs - run with: Tools/tw run eval_file -- --file <abs path to this file>
 //
 // Stages the one thing no unit test can stand in for: a body flung into the GreyboxCorridor ford with the clock
-// RUNNING, photographed before it lands and just after. The claim under test is r2's "the ring waits out the fall":
-// WaterEntry.Throw queues the ring with the flight's own duration and WaterEntry.Pump opens it at the landing, so a
-// frame taken mid-flight must show water with no ring on it and a frame taken just after the landing must show one.
-// r2 proved that with Pump(0.4f)/Pump(0.45f) arithmetic only; this proves it in pixels.
+// RUNNING, photographed before it lands, just after, and a quarter second later. r6 answers harsh critic r1 on r5
+// (60/100) on three counts, and nothing else here changed:
+//
+//  1. Exact timings. r5 threw with FallenFlight.Solve's own 0.721 s duration, which is 43.26 frames at 1/60, and
+//     then counted frames forward from each thaw, so every shot missed its spec moment by the rounding
+//     (+0.033 / +0.283 / -0.217 instead of +0.05 / +0.3 / -0.2). Here fly.y is BISECTED until the flight is 43
+//     frames to within 1e-4 of a frame, so the body and the ring queued with that same duration both land exactly
+//     on frame throw+43, and the three freezes are scheduled on GAME TIME from the landing instant
+//     (tLand = Time.time + Dur, remembered at the throw) rather than on frame counts. Freezing stops the seconds
+//     but not the frames, so the clock reads the same after a freeze as before it and every thawed frame is
+//     exactly 1/60 s: the first frame at or past tLand + off is the spec moment. The achieved deltas are written
+//     to timings.txt.
+//  2. The noise floor comes from a SECOND LIVE THROW, not from re-rendering a frozen frame. r5's noise_px 0 was
+//     true but worthless: two renders of one frozen world differ by nothing, so "ring_px_land >= 3x noise" passed
+//     by construction. Here the scene is put back to before the throw (cards cleared, every ring slot parked, the
+//     pending rings dropped, the fallen bodies emptied), UnityEngine.Random is re-seeded with the SAME seed used
+//     before run 1, and the identical throw is made again; land-run2.png is its landing frame. The water itself is
+//     pinned for both runs (WaterRings.PinnedClock = 120), so the difference between land.png and land-run2.png is
+//     the splash's own repeatability and nothing else.
+//  3. land-noring.png: the frozen landing frame with the ring slots parked but the CARDS kept, so the probe can
+//     report ring_only_px. The critic's "the ring does not register" is answered with that number, not with prose.
 //
 // --- the reference frame, and why it is not a plate taken earlier ---------------------------------------------
-// The first run of this script shot a no-throw plate and compared every later still against it. That does not work,
-// and the failure is worth writing down: the water's foam and lapping are animated from `_Time.y` in TWWater.hlsl,
-// so a still taken a second later differs from the plate over the WHOLE water sheet - about 1,600 changed pixels in
-// the 3 m disc at the landing point, whether a body landed in it or not. Nothing about a splash is measurable that
-// way (the first run: ring_px_pre 1577, ring_px_land 1703 - the instrument could not tell them apart).
+// The first run of r5 shot a no-throw plate and compared every later still against it. That does not work, and the
+// failure is worth keeping written down: the water's foam and lapping are animated from the water clock in
+// TWWater.hlsl, so a still taken a second later differs from the plate over the WHOLE water sheet - about 1,600
+// changed pixels in the 3 m disc at the landing point, whether a body landed in it or not.
 //
 // So each moment gets its own reference, taken at the SAME frozen instant with the water entry turned off. Both
 // halves of it can be taken away without touching anything else: WaterRings keeps its sixteen rings in one array it
-// pushes to the shader global `_TWRings` every frame, and FlipbookFx keeps its live cards in one list. Emptying both
-// and re-rendering the frozen frame gives the identical picture - same foam, same body, same shadows, same sky -
-// minus the splash alone. The difference between the two is therefore the water entry and nothing else, which is
-// exactly what the claim is about. A plain no-throw plate (plate.png) is shot as well, for the record.
-//
-// Taking the rings away on their own was tried first and measured nothing: a man's ring is 1.8 m wide and opens from
-// a point, so 0.03 s after the landing it is a 0.3 m circle two pixels thick on dark night water, under the render's
-// own noise at the standard view (its peak luma change was 0.014 against a 0.011 noise floor). What a man's water
-// entry actually shows at T1 is the Splash card standing on the surface; the ring is the fine detail under it. Both
-// are turned off together, so what is measured is the splash a viewer would see.
+// pushes to the shader global every frame, and FlipbookFx keeps its live cards in one list. Emptying both and
+// re-rendering the frozen frame gives the identical picture - same foam, same body, same shadows, same sky - minus
+// the splash alone. A plain no-throw plate (plate.png) is shot as well, for the record.
 //
 // Why it is built the way it is:
 //  - CaptureRig.Hold() is NOT used. It sets Time.timeScale = 0, which would stop the fall this capture is about.
-//    The sky is pinned by hand instead (Atmosphere.PinnedClock = 120), rain is turned off (its pixels are noise),
-//    and the SIM is frozen (SimHost.TimeScale = 0) so no man takes a step and no wading man rings the ford. The
-//    PRESENTATION clock keeps running, which is what carries the body through the air.
-//  - Time.captureFramerate = 60 makes every frame exactly 1/60 s of game time however slow the editor is, so the
-//    moments below are frame-exact and two runs cannot drift.
-//  - Everything is scheduled by Time.frameCount, not by seconds: each moment is shot with Time.timeScale = 0, and
-//    seconds do not advance then, so a seconds-based timer (DeathLab.Later) would never fire again.
+//    The sky is pinned by hand (Atmosphere.PinnedClock = 120), the water clock too (WaterRings.PinnedClock = 120),
+//    rain is turned off (its pixels are noise), and the SIM is frozen (SimHost.TimeScale = 0) so no man takes a
+//    step and no wading man rings the ford. The PRESENTATION clock keeps running, which carries the body.
+//  - Time.captureFramerate = 60 makes every frame exactly 1/60 s of game time however slow the editor is.
+//  - Inside a moment the extra shots are ordered by frames, not seconds: seconds do not advance while frozen.
 //  - CaptureRig.Shot poses on the frame it is queued and renders on the NEXT one.
-//  - land.png and land-b.png are two renders of the identical frozen world: their difference is the instrument's own
-//    noise floor, which is what probe.py measures ring_px_land against.
-//  - The sim is frozen and no man is within 6 m of the ford, so the flipbook list holds this splash and nothing else
-//    at the moments shot here.
 //
-// The throw itself is the two production lines CombatFx.Deaths.cs runs for a flung body - VATRenderer.AddFallen with
-// the throw, and WaterEntry.Throw with FallenFlight.Solve's duration as the delay - and nothing else, so what is
-// photographed is the shipped path.
-var dir = "C:/Users/PC/Documents/GitHub/githubtest-relay-work2/docs/evidence/water-entry-splash-r5/";
+// The throw itself is the two production lines CombatFx.Deaths.cs runs for a flung body - VATRenderer.AddFallen
+// with the throw, and WaterEntry.Throw with FallenFlight.Solve's duration as the delay - and nothing else, so what
+// is photographed is the shipped path.
+var dir = "C:/Users/PC/Documents/GitHub/githubtest-relay-work3/docs/evidence/water-entry-splash-r6/";
 System.IO.Directory.CreateDirectory(dir);
 var log = new System.Text.StringBuilder();
 void Say(string s)
@@ -76,46 +79,63 @@ var cardField = typeof(TW.Presentation.Tactical.FlipbookFx).GetField("cards",
     System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
 var cards = (System.Collections.IList)cardField.GetValue(books);
 var cardsKeep = new System.Collections.Generic.List<object>();
+var fallenField = typeof(TW.Presentation.Units.VATRenderer).GetField("fallenMen",
+    System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+var fallenMen = (System.Collections.IList)fallenField.GetValue(units);
 
 // WaterRings.Awake parks an unused slot at (0, 0, -1000, 0): born a thousand seconds ago, so the shader draws
 // nothing for it. Parking every slot is "no rings at all" said in the renderer's own language. The flipbook cards
-// are simply lifted out of the list and put back in the same order; time is frozen while they are out, so no card
-// ages, expires or is added in between.
-void SplashOff()
+// are lifted out of the list and put back in the same order; time is frozen while they are out, so no card ages,
+// expires or is added in between.
+void RingsOff()
 {
     for (int i = 0; i < rings.Length; i++) { ringsKeep[i] = rings[i]; rings[i] = new UnityEngine.Vector4(0f, 0f, -1000f, 0f); }
-    cardsKeep.Clear();
-    foreach (var c in cards) cardsKeep.Add(c);
-    cards.Clear();
 }
-void SplashOn()
-{
-    for (int i = 0; i < rings.Length; i++) rings[i] = ringsKeep[i];
-    cards.Clear();
-    foreach (var c in cardsKeep) cards.Add(c);
-}
+void RingsOn() { for (int i = 0; i < rings.Length; i++) rings[i] = ringsKeep[i]; }
+void CardsOff() { cardsKeep.Clear(); foreach (var c in cards) cardsKeep.Add(c); cards.Clear(); }
+void CardsOn() { cards.Clear(); foreach (var c in cardsKeep) cards.Add(c); }
 
 // The ford, read off the map (never hard-coded water): the bank at (12, 128) stands about 0.97 m above a knee-deep
 // bed at (15, 130) with its surface at 0.15. A dry launch and a wet landing 3.6 m apart.
 var from = new UnityEngine.Vector3(12f, TW.Presentation.RenderGround.Sample(host.Local.Map, 12f, 128f), 128f);
-var fly = new UnityEngine.Vector3(3f, 0.5f, 2f);                 // fly.y 0.5 puts the flight at about 0.72 s: long
-var land = from + new UnityEngine.Vector3(fly.x, 0f, fly.z);     // enough that a frame 0.2 s before the landing is
-land.y = TW.Presentation.RenderGround.Sample(host.Local.Map, land.x, land.z);   // still well after the throw
+var land = from + new UnityEngine.Vector3(3f, 0f, 2f);
+land.y = TW.Presentation.RenderGround.Sample(host.Local.Map, land.x, land.z);
 if (TW.Presentation.SceneHooks.IsWater == null || !TW.Presentation.SceneHooks.IsWater(land.x, land.z))
     return "the landing point is not water: " + land;
 if (TW.Presentation.SceneHooks.IsWater(from.x, from.z)) return "the launch point is not dry: " + from;
 float waterY = TW.Presentation.SceneHooks.WaterY(land.x, land.z);
+
+// --- fly.y, bisected so the flight is a whole number of frames ------------------------------------------------
+// Solve's duration grows with the throw's height, so 0.3..0.8 brackets 43 frames (r5's fly.y 0.5 gave 43.26).
+// Sixty halvings take the bracket far below the 1e-4 of a frame the spec asks for.
+float Frames(float y) => TW.Presentation.Units.FallenFlight.Solve(from, land, y, 0f, units.ThrowGravity).Dur * 60f;
+float lo = 0.3f, hi = 0.8f;
+if (Frames(lo) > 43f || Frames(hi) < 43f) return "43 frames is not bracketed: " + Frames(lo) + ".." + Frames(hi);
+for (int i = 0; i < 60; i++) { float mid = 0.5f * (lo + hi); if (Frames(mid) < 43f) lo = mid; else hi = mid; }
+float flyY = 0.5f * (lo + hi);
+if (UnityEngine.Mathf.Abs(Frames(flyY) - 43f) > 1e-4f)
+    return "fly.y did not converge: " + flyY + " -> " + Frames(flyY) + " frames";
+var fly = new UnityEngine.Vector3(3f, flyY, 2f);
 float delay = TW.Presentation.Units.FallenFlight.Solve(from, land, fly.y, 0f, units.ThrowGravity).Dur;
+const int Seed = 20261019;
 
 // ---- the staging -----------------------------------------------------------------------------------------------
 float keepScale = UnityEngine.Time.timeScale;
 int keepCapture = UnityEngine.Time.captureFramerate;
 float keepSim = host.TimeScale, keepRain = atmo.Rain, keepPinned = TW.Presentation.Terrain.Atmosphere.PinnedClock;
+float keepWaterClock = TW.Presentation.Terrain.WaterRings.PinnedClock;
 UnityEngine.Time.captureFramerate = 60;
 UnityEngine.Time.timeScale = 1f;
 TW.Presentation.Terrain.Atmosphere.PinnedClock = 120f;
+TW.Presentation.Terrain.WaterRings.PinnedClock = 120f;   // set once, left for BOTH runs: the same water in both
 atmo.Rain = 0f;
 host.TimeScale = 0f;                       // the men stand still, so no wading man rings the ford either
+// The ford starts with a clean sheet. A man waded it in the seconds of Play before this script ran, and a wading
+// ring lives about 1.4 s, so two or three of them were still open on the water at the first moment shot. They are
+// not the water entry, but lifting the rings out for a reference lifted them too, and the first r6 run measured
+// 791 changed pixels at land - 0.2 s because of it. Parking every slot once here, with the sim already frozen so
+// no new one can be added, leaves the entry's own ring as the only ring in any frame of this capture.
+for (int i = 0; i < rings.Length; i++) rings[i] = new UnityEngine.Vector4(0f, 0f, -1000f, 0f);
 TW.Editor.CaptureRig.Mark(land.x, land.z); // every sidecar now carries this point and its projection
 
 void Freeze() { UnityEngine.Time.captureFramerate = 0; UnityEngine.Time.timeScale = 0f; }
@@ -133,59 +153,128 @@ void AtFrame(int target, System.Func<string> act)
     UnityEditor.EditorApplication.update += Tick;
 }
 
+// The first frame whose game clock has reached `when`. Every thawed frame is exactly 1/60 s and freezing does not
+// advance the clock, so this fires on the spec moment itself.
+void AtTime(float when, System.Func<string> act)
+{
+    void Tick()
+    {
+        if (!UnityEngine.Application.isPlaying) { UnityEditor.EditorApplication.update -= Tick; return; }
+        if (UnityEngine.Time.time < when - 1e-5f) return;
+        UnityEditor.EditorApplication.update -= Tick;
+        Say(act());
+    }
+    UnityEditor.EditorApplication.update += Tick;
+}
+
 string Shoot(string name) =>
     TW.Editor.CaptureRig.Shot(dir + name + ".png", land.x, land.z, 30f, 21f, 25f, 1600, 900, waterY);
 
-// One moment: freeze, shoot it, shoot it again with the rings off, put the rings back, let go. `extra` is a second
-// render of the untouched frozen frame (the noise floor) and is only asked for at the landing.
-void Moment(int at, string name, bool extra, System.Action<int> next)
+var timings = new System.Text.StringBuilder();
+timings.AppendLine("water-entry-splash-r6 - the game-time delta from the landing instant of every frozen moment, as");
+timings.AppendLine("the harness measured it (AgentScripts/water_entry_fling.cs), never typed. Spec: -0.200/+0.050/+0.300.");
+timings.AppendLine("flight_s " + delay.ToString("0.00000"));
+timings.AppendLine("flight_frames " + (delay * 60f).ToString("0.00000"));
+void Timing(string name, float tLand)
 {
-    AtFrame(at, () => { Freeze(); return name + ": frozen at frame " + UnityEngine.Time.frameCount + ", t=" + UnityEngine.Time.time.ToString("0.0000"); });
-    AtFrame(at + 2, () => name + " " + Shoot(name));
-    if (extra) AtFrame(at + 8, () => name + "-b " + Shoot(name + "-b"));
-    int off = extra ? 14 : 8;
-    AtFrame(at + off, () => { SplashOff(); return name + "-nosplash (rings and cards lifted out) " + Shoot(name + "-nosplash"); });
-    AtFrame(at + off + 6, () =>
+    timings.AppendLine(name + " " + (UnityEngine.Time.time - tLand).ToString("+0.000;-0.000"));
+    System.IO.File.WriteAllText(dir + "timings.txt", timings.ToString());
+}
+
+// One moment: freeze on its own game-time instant, shoot it, shoot it again with the water entry lifted out, put
+// the splash back, let go. `noring` adds the landing's diagnostic shot, rings parked and cards kept.
+void Shots(string name, float when, float tLand, bool noring, System.Action<int> next)
+{
+    AtTime(when, () =>
     {
-        SplashOn(); Thaw();
-        next(UnityEngine.Time.frameCount);
-        return name + " done, splash back, running again at frame " + UnityEngine.Time.frameCount
-            + ", pending=" + TW.Editor.CaptureRig.Pending();
+        Freeze(); Timing(name, tLand);
+        int at = UnityEngine.Time.frameCount;
+        AtFrame(at + 2, () => name + " " + Shoot(name));
+        int step = at + 8;
+        if (noring)
+        {
+            AtFrame(step, () => { RingsOff(); return "land-noring (ring slots parked, cards kept) " + Shoot("land-noring"); });
+            step += 6;
+            AtFrame(step, () => { CardsOff(); return name + "-nosplash (rings and cards out) " + Shoot(name + "-nosplash"); });
+        }
+        else
+        {
+            AtFrame(step, () => { RingsOff(); CardsOff(); return name + "-nosplash (rings and cards out) " + Shoot(name + "-nosplash"); });
+        }
+        AtFrame(step + 6, () =>
+        {
+            RingsOn(); CardsOn(); Thaw();
+            next(UnityEngine.Time.frameCount);
+            return name + " done, splash back, running again at frame " + UnityEngine.Time.frameCount
+                + ", pending=" + TW.Editor.CaptureRig.Pending();
+        });
+        return name + ": frozen at frame " + at + ", t=" + UnityEngine.Time.time.ToString("0.0000")
+            + ", delta=" + (UnityEngine.Time.time - tLand).ToString("+0.0000;-0.0000");
     });
+}
+
+float ThrowOnce()
+{
+    float tLand = UnityEngine.Time.time + delay;
+    units.AddFallen(new UnityEngine.Vector3(from.x, from.y - 0.02f, from.z), 0f, 0, 0, fly: fly);
+    var sp = TW.Presentation.Tactical.WaterEntry.Throw(books, land, TW.Presentation.Tactical.WaterEntry.ManKg, delay, scale);
+    Say("thrown at frame " + UnityEngine.Time.frameCount + ", t=" + UnityEngine.Time.time.ToString("0.0000")
+        + ", lands at t=" + tLand.ToString("0.0000") + " (frame " + (UnityEngine.Time.frameCount + 43) + "); any=" + sp.Any
+        + " ring=" + sp.Ring.ToString("0.000") + " card=" + sp.Card.ToString("0.000") + " cardY=" + sp.Y.ToString("0.000"));
+    return tLand;
+}
+
+void PutBack()
+{
+    UnityEngine.Time.timeScale = keepScale;
+    UnityEngine.Time.captureFramerate = keepCapture;
+    TW.Presentation.Terrain.Atmosphere.PinnedClock = keepPinned;
+    TW.Presentation.Terrain.WaterRings.PinnedClock = keepWaterClock;
+    atmo.Rain = keepRain;
+    host.TimeScale = keepSim;
+    TW.Editor.CaptureRig.Unmark();
+    TW.Presentation.Tactical.WaterEntry.Clear();
 }
 
 int f0 = UnityEngine.Time.frameCount;
 Say("ford: from=" + from + " land=" + land + " waterY=" + waterY.ToString("0.000") + " fly=" + fly
-    + " flight=" + delay.ToString("0.000") + " s (" + UnityEngine.Mathf.RoundToInt(delay * 60f) + " frames at 1/60)"
+    + " flight=" + delay.ToString("0.00000") + " s = " + (delay * 60f).ToString("0.00000") + " frames at 1/60"
     + " figureScale=" + scale.ToString("0.000"));
 Say("plate (no throw at all) queued at frame " + f0 + ": " + Shoot("plate"));
 
-AtFrame(f0 + 10, () =>
+// The throw waits a second and a half after the staging. Thrown at once, in a Play session that has only just
+// started, the first frames still carry the startup's own long delta times - Time.captureFramerate binds only the
+// frames after it is set - and one such frame put the land - 0.2 s shot two frames late (-0.167 instead of
+// -0.200). Ninety frames of settled 1/60 s clock first, and every moment lands on its spec instant.
+AtFrame(f0 + 90, () =>
 {
-    int t = UnityEngine.Time.frameCount;
-    int n = UnityEngine.Mathf.RoundToInt(delay * 60f);
-    // --- the two production lines, exactly as CombatFx.Deaths.cs runs them for a flung body ---
-    units.AddFallen(new UnityEngine.Vector3(from.x, from.y - 0.02f, from.z), 0f, 0, 0, fly: fly);
-    var sp = TW.Presentation.Tactical.WaterEntry.Throw(books, land, TW.Presentation.Tactical.WaterEntry.ManKg, delay, scale);
-
-    // land - 0.2 s. From here on the frame numbers are counted forward from each thaw, because freezing stops the
-    // seconds but not the frames: 12 frames of game time is left to the landing, and 3 more to land + 0.05 s.
-    Moment(t + n - 13, "pre", false, afterPre =>
-        Moment(afterPre + 15, "land", true, afterLand =>
-            Moment(afterLand + 15, "post", false, afterPost =>
+    UnityEngine.Random.InitState(Seed);
+    float tLand = ThrowOnce();
+    Shots("pre", tLand - 0.2f, tLand, false, _ =>
+        Shots("land", tLand + 0.05f, tLand, true, _ =>
+            Shots("post", tLand + 0.3f, tLand, false, afterPost =>
+                // --- run 2: the same throw again, from a scene put back to before run 1 ---
                 AtFrame(afterPost + 10, () =>
                 {
-                    UnityEngine.Time.timeScale = keepScale;
-                    UnityEngine.Time.captureFramerate = keepCapture;
-                    TW.Presentation.Terrain.Atmosphere.PinnedClock = keepPinned;
-                    atmo.Rain = keepRain;
-                    host.TimeScale = keepSim;
-                    TW.Editor.CaptureRig.Unmark();
+                    cards.Clear();
+                    for (int i = 0; i < rings.Length; i++) rings[i] = new UnityEngine.Vector4(0f, 0f, -1000f, 0f);
                     TW.Presentation.Tactical.WaterEntry.Clear();
-                    return "DONE, scene put back; pending=" + TW.Editor.CaptureRig.Pending();
+                    fallenMen.Clear();
+                    if (units.FallenCount != 0) { PutBack(); return "run 2 aborted: FallenCount " + units.FallenCount; }
+                    UnityEngine.Random.InitState(Seed);
+                    float tLand2 = ThrowOnce();
+                    AtTime(tLand2 + 0.05f, () =>
+                    {
+                        Freeze(); Timing("land-run2", tLand2);
+                        int at = UnityEngine.Time.frameCount;
+                        AtFrame(at + 2, () => "land-run2 " + Shoot("land-run2"));
+                        AtFrame(at + 10, () => { PutBack(); return "DONE, scene put back; pending=" + TW.Editor.CaptureRig.Pending(); });
+                        return "land-run2: frozen at frame " + at + ", delta="
+                            + (UnityEngine.Time.time - tLand2).ToString("+0.0000;-0.0000");
+                    });
+                    return "run 2 thrown (scene reset, seed " + Seed + " again), lands at t=" + tLand2.ToString("0.0000");
                 }))));
-
-    return "thrown at frame " + t + ", lands at frame " + (t + n) + "; splash any=" + sp.Any
-        + " ring=" + sp.Ring.ToString("0.000") + " card=" + sp.Card.ToString("0.000") + " cardY=" + sp.Y.ToString("0.000");
+    return "run 1 staged";
 });
-return "staged; flight " + delay.ToString("0.000") + " s; watch " + dir + "stage.log";
+return "staged; flight " + delay.ToString("0.00000") + " s (" + (delay * 60f).ToString("0.0000")
+    + " frames); watch " + dir + "stage.log";
