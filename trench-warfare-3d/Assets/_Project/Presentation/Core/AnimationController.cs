@@ -14,6 +14,7 @@ using UnityEngine;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Terrain;
+using TW.Sim.Units;
 
 namespace TW.Presentation
 {
