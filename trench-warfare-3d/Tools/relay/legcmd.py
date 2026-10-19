@@ -3,7 +3,8 @@
 
   relay.py leg gate start         start the edit gate (gate.ps1 -EditOnly) detached, for the files as they are now
   relay.py leg gate status        RUNNING | GREEN | RED | STALE (green, but the files changed since) | NONE
-  relay.py leg gate wait [--max S]   wait for the gate, at most S seconds (default 540: one tool call)
+  relay.py leg gate wait [--max S]   wait for the gate, at most S seconds (default 540: one tool call); a gate
+                                  whose log stopped growing GATE_QUIET_S ago is stopped there: RED, a GATE FAULT
   relay.py leg play <filter> [--max S]   run the PlayMode tests the filter names (a class or a full test name) in
                                   this checkout and wait for them: GREEN | RED with total, passed, failed and each
                                   failed test, or RUNNING after S seconds (the same command again waits on)
@@ -21,7 +22,7 @@ the desk folder, never in the checkout.
 TW_RELAY_GATE (a JSON list) replaces the gate command, TW_RELAY_PLAY (a JSON list, the filter and the report's path
 are added to it) the PlayMode command: the tests use stubs. Stdlib only. ASCII only.
 """
-import contextlib, io, json, os, subprocess, sys, tempfile, time
+import calendar, contextlib, io, json, os, subprocess, sys, tempfile, time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
@@ -34,6 +35,29 @@ import config, gitio, papers                      # noqa: E402
 
 GATE, PLAY = "gate.json", "play.json"
 EXIT = {"GREEN": 0, "RED": 1, "RUNNING": 2, "STALE": 3, "NONE": 4}
+# A gate whose log has not grown for this long is stopped by `leg gate wait` and called a gate fault. Measured
+# 2026-10-19: the longest quiet stretch of a healthy edit gate is the Unity run (the unity CLI's own cap is 900 s,
+# gate.ps1 TestTimeout); toolcheck prints a dot whenever a part's output grows, so a tool test no longer goes quiet
+# for its whole run (test_relay.py was 1583 s without a line). TW_RELAY_GATE_QUIET overrides it (the tests).
+GATE_QUIET_S = 1200
+# What a leg keeps after its gate for the finish, the commit and the report; a gate is capped at the leg's time
+# left minus this, and is not started at all when less than GATE_MIN_S would remain.
+CLOSE_S, GATE_MIN_S = 300, 300
+
+
+def quiet_limit():
+    return int(os.environ.get("TW_RELAY_GATE_QUIET") or GATE_QUIET_S)
+
+
+def gate_seconds(leg, now_s=None):
+    """The gate's timeout: limits.json gate_seconds, but never past the leg's own end (leg.json ends_at, written by
+    launch.run_leg) minus CLOSE_S. None when that leaves less than GATE_MIN_S."""
+    full = int(config.limits()["gate_seconds"])
+    ends = leg.get("ends_at")
+    if not isinstance(ends, (int, float)):
+        return full
+    left = int(ends - (time.time() if now_s is None else now_s) - CLOSE_S)
+    return min(full, left) if left >= GATE_MIN_S else None
 
 
 def find():
@@ -85,6 +109,11 @@ def verdict(desk, wt):
     st, detail, run = job_state(job)
     if st in ("RUNNING", "STALLED"):
         return "RUNNING", "%s, started %s" % (detail, rec["started_at"])
+    if rec.get("fault"):
+        return "RED", "GATE FAULT (not your edit): %s; the log: %s" % (rec["fault"], run.get("log"))
+    if st == "TIMEOUT":
+        return "RED", "GATE FAULT (not your edit): the gate ran out its %s s; the log: %s" % (run.get("timeout_s"),
+                                                                                           run.get("log"))
     if st != "DONE" or run.get("exit_code") != 0:
         return "RED", "%s %s; the log: %s" % (st, detail, run.get("log"))
     if working_tree(wt) != rec["tree"]:
@@ -98,18 +127,50 @@ def gate_start(desk, leg):
         raise SystemExit("relay: a gate is already running: python relay.py leg gate wait")
     if play_verdict(desk)[0] == "RUNNING":
         raise SystemExit("relay: a PlayMode run holds the project: wait for it first (python relay.py leg play <filter>)")
+    secs = gate_seconds(leg)
+    if secs is None:
+        raise SystemExit("relay: too little of the leg is left for a gate (it needs %d s and %d s to close out): run "
+                         "python relay.py leg finish now; it saves your work as a patch" % (GATE_MIN_S, CLOSE_S))
     root = gitio.git(["rev-parse", "--show-toplevel"], wt)
     job = "gate-%d" % (len(list((desk / "jobs").glob("gate-*"))) + 1 if (desk / "jobs").is_dir() else 1)
-    write_json(desk / GATE, {"job": job, "tree": working_tree(wt), "started_at": now()})
-    run_detached.main(["start", job, "--timeout", str(config.limits()["gate_seconds"]), "--cwd", root, "--"]
-                      + gate_command(root))
-    print("gate started for the files as they are now. Wait for it: python relay.py leg gate wait")
+    write_json(desk / GATE, {"job": job, "tree": working_tree(wt), "started_at": now(), "timeout_s": secs})
+    run_detached.main(["start", job, "--timeout", str(secs), "--cwd", root, "--"] + gate_command(root))
+    print("gate started for the files as they are now (at most %d s: the leg keeps %d s to close out). Wait for it: "
+          "python relay.py leg gate wait" % (secs, CLOSE_S))
     return 0
+
+
+def stop_if_stalled(desk):
+    """Stop the gate when its log has not grown for quiet_limit() seconds, and record it as a gate fault: a hung
+    test must not hold the leg until the leg's own limit (relay 4, 2026-10-19: 30 minutes on one tool test).
+    Returns the fault's words, or None."""
+    rec = read_json(desk / GATE) if (desk / GATE).exists() else None
+    job = desk / "jobs" / rec["job"] / "run.json" if rec else None
+    if not rec or not job.exists():
+        return None
+    run = read_json(job)
+    if run.get("state") != "RUNNING" or not run.get("heartbeat"):
+        return None
+    beat = calendar.timegm(time.strptime(run["heartbeat"], "%Y-%m-%dT%H:%M:%SZ"))
+    quiet = time.time() - beat
+    if quiet < quiet_limit():
+        return None
+    with contextlib.redirect_stdout(io.StringIO()):
+        old = os.environ.get("TW_RUNS")
+        os.environ["TW_RUNS"] = str(desk / "jobs")
+        try:
+            run_detached.main(["stop", rec["job"]])
+        finally:
+            os.environ.pop("TW_RUNS") if old is None else os.environ.__setitem__("TW_RUNS", old)
+    rec["fault"] = "no log growth for %d s (the limit is %d s), so the relay stopped it" % (quiet, quiet_limit())
+    write_json(desk / GATE, rec)
+    return rec["fault"]
 
 
 def gate_wait(desk, leg, max_s):
     end = time.time() + max_s
     while True:
+        stop_if_stalled(desk)
         st, why = verdict(desk, leg["worktree"])
         if st != "RUNNING" or time.time() >= end:
             print("%s: %s" % (st, why))

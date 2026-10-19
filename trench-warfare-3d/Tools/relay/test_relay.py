@@ -2222,6 +2222,16 @@ class Budget(Repo):
         self.assertIn("note: day_budget_usd 9999 is outside its bounds; using 500", out)
         self.assertEqual(stop["day_budget_usd"], 500)
 
+    def test_each_leg_records_when_it_ends_for_the_gate_cap(self):
+        self.queue("u1")
+        self.script(self.GOOD)
+        t = time.time()
+        self.go()
+        legs = [json.loads(p.read_text(encoding="utf-8")) for p in legdir.home().glob("runs/*/legs/*/leg.json")]
+        self.assertTrue(legs)
+        for leg in legs:
+            self.assertTrue(t < leg["ends_at"] <= time.time() + self.lim["leg_minutes"] * 60 + 5, leg)
+
     def test_the_budget_command_and_status_show_today(self):
         self.spent(2.5)
         buf = io.StringIO()
@@ -2577,6 +2587,38 @@ class CloseOut(Repo):
         self.assertIn("VERDICT", out)
         (desk / "critic.md").write_text(CRITIC % 80, encoding="utf-8")
         self.assertEqual(self.leg_cmd("done")[0], 0)
+
+    def test_a_gate_whose_log_stops_growing_is_stopped_and_called_a_gate_fault(self):
+        # relay 4, 2026-10-19: a gate sat 30 minutes without a line until the leg ran out its 90 minutes
+        os.environ["TW_RELAY_GATE"] = json.dumps([sys.executable, "-c", "import time; time.sleep(120)"])
+        os.environ["TW_RELAY_GATE_QUIET"] = "3"
+        try:
+            (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+            self.leg_cmd("gate", "start")
+            t = time.time()
+            code, out = self.leg_cmd("gate", "wait", "--max", "60")
+        finally:
+            os.environ.pop("TW_RELAY_GATE_QUIET")
+        self.assertEqual((code, out[:3]), (1, "RED"), out)
+        self.assertIn("GATE FAULT", out)
+        self.assertLess(time.time() - t, 45)
+        job = json.loads((legdir.desk(self.d) / "jobs" / "gate-1" / "run.json").read_text(encoding="utf-8"))
+        self.assertEqual(job["state"], "STOPPED")
+        self.assertIn("GATE FAULT", self.leg_cmd("gate", "status")[1])
+        self.assertEqual(self.leg_cmd("finish")[0], 1)                         # a red gate commits nothing
+
+    def test_a_gate_is_capped_at_the_time_the_leg_has_left(self):
+        legdir.update(self.d, ends_at=round(time.time() + 1000))
+        (self.work / "a.txt").write_text("one\n", encoding="utf-8")
+        self.leg_cmd("gate", "start")
+        job = json.loads((legdir.desk(self.d) / "jobs" / "gate-1" / "run.json").read_text(encoding="utf-8"))
+        self.assertTrue(1000 - legcmd.CLOSE_S - 15 <= job["timeout_s"] <= 1000 - legcmd.CLOSE_S, job["timeout_s"])
+        self.assertEqual(self.leg_cmd("gate", "wait", "--max", "60")[0], 0)
+        legdir.update(self.d, ends_at=round(time.time() + legcmd.CLOSE_S + legcmd.GATE_MIN_S - 30))
+        with self.assertRaises(SystemExit) as no:
+            self.leg_cmd("gate", "start")
+        self.assertIn("leg finish", str(no.exception))
+        self.assertFalse((legdir.desk(self.d) / "jobs" / "gate-2").exists())
 
     def test_outside_a_leg_the_leg_commands_refuse(self):
         os.environ.pop("TW_RUNS")
@@ -2968,5 +3010,46 @@ class PipelineSource(Repo):
         self.assertFalse((self.board / "claims" / "desktop.json").exists())
 
 
+# One test that runs longer than this is taken for hung: every thread's stack goes to stderr and the process exits 1,
+# so the gate's toolcheck shows where it stood instead of the gate sitting quiet until the leg's own limit (relay 4,
+# 2026-10-19: no line for 30 minutes inside this file under six relays). Measured that day under six relays: the
+# slowest test took 82 s, the whole file 1583 s. TW_RELAY_TEST_WATCHDOG overrides it (its own test).
+WATCHDOG_S = 600
+
+
+class Watched(unittest.TextTestResult):
+    def startTest(self, test):
+        import faulthandler
+        faulthandler.dump_traceback_later(int(os.environ.get("TW_RELAY_TEST_WATCHDOG") or WATCHDOG_S), exit=True)
+        sys.stderr.write("\n%s " % test.id().split(".", 1)[-1][:110])    # which test, as it starts
+        super().startTest(test)
+
+    def stopTest(self, test):
+        import faulthandler
+        faulthandler.cancel_dump_traceback_later()
+        super().stopTest(test)
+
+
+def main(argv=None):
+    """Run the tests of __main__ (this file, or a script that imports it) under the watchdog."""
+    return unittest.main(module="__main__", argv=argv, verbosity=1,
+                         testRunner=unittest.TextTestRunner(resultclass=Watched, verbosity=1))
+
+
+class Watchdog(unittest.TestCase):
+    def test_a_test_that_hangs_dumps_the_stacks_and_ends_the_file(self):
+        code = ("import sys, time, unittest; sys.path.insert(0, sys.argv[1]); import test_relay\n"
+                "class Stuck(unittest.TestCase):\n    def test_stuck(self): time.sleep(120)\n"
+                "test_relay.main(['x', 'Stuck'])\n")
+        t = time.time()
+        p = subprocess.run([sys.executable, "-c", code, str(HERE)], capture_output=True, timeout=90,
+                           env=dict(os.environ, TW_RELAY_TEST_WATCHDOG="2", PYTHONDONTWRITEBYTECODE="1"))
+        err = p.stderr.decode("utf-8", "replace")
+        self.assertNotEqual(p.returncode, 0, err)
+        self.assertLess(time.time() - t, 60)
+        self.assertIn("test_stuck", err)
+        self.assertIn("Timeout", err)                       # faulthandler's own header over the stacks
+
+
 if __name__ == "__main__":
-    unittest.main(verbosity=1)
+    main()

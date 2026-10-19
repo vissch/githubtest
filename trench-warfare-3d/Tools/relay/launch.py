@@ -359,7 +359,7 @@ def run_leg(d, lim, timeout_s, stop_file=None):
                 legdir.update(d, child_pid=child.pid, child_start=proc_start(child.pid), resumed=1)
             else:
                 legdir.update(d, state="RUNNING", child_pid=child.pid, child_start=proc_start(child.pid),
-                              started_at=now())
+                              started_at=now(), ends_at=round(start + timeout_s))   # legcmd caps a gate at it
             t = threading.Thread(target=_pump, args=(child.stdout, d / legdir.OUT), daemon=True)
             t.start()
             while child.poll() is None:
