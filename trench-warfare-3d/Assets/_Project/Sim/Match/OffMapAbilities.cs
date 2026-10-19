@@ -22,7 +22,8 @@
 // metres of the enemy's rear trench (the critic's ambush: a stick garrisoning the trench every fresh reinforcement
 // walks into). Every SupportFire is also checked against the caller's faction (FactionRoster.MayCall): that check
 // is now a refusal list (only a faction-only id is named), not an allow list, so a new stats case here needs no
-// second edit there.
+// second edit there. A stick that lands short (the field filled up partway through the loop) pays back the silver
+// and the wait of the men who never came down, pro rata, and raises DropLandedShort (2026-10-19, replay v54).
 using Unity.Collections;
 using Unity.Mathematics;
 using TW.Sim.Combat;
@@ -393,6 +394,7 @@ namespace TW.Sim.Match
                 }
                 if (best >= 0) goal = fields.GetGoal(GoalKey.Trench(best));
             }
+            int landed = 0;
             for (int k = 0; k < stats.Men; k++)
             {
                 var rng = SimRandom.For(w.Config.Seed, w.Tick, SimRandom.SystemId.AirDrop, (uint)(p.Player * 64 + k));
@@ -401,11 +403,20 @@ namespace TW.Sim.Match
                 float3 at = w.ClampToMap(p.Pos + new float3(SimMath.Cos(angle) * r, 0f, SimMath.Sin(angle) * r));
                 if (map != null) at = VehicleModulesSystem.OpenGround(map, at);
                 int slot = w.Spawn(team, entry.Archetype, at, entry.Hp, entry.Speed, false);
-                if (slot < 0) return;   // the field is full
+                if (slot < 0) break;   // the field is full: the rest of the stick never come down
                 w.Flags[slot] |= (uint)UnitFlags.Exposed;
                 if (goal >= 0) w.GoalId[slot] = goal;
                 w.Events.Add(w.Tick, SimEventType.DropLanded, slot, p.Player, at);
+                landed++;
             }
+            if (landed >= stats.Men) return;
+            // the stick landed short: pay back the silver and the wait of the men who never came down, and say so
+            int lost = stats.Men - landed;
+            int back = stats.Cost * lost / stats.Men;   // integer, deterministic: 260 * 5 / 8 = 162
+            w.Silver[p.Player] += back;
+            int cd = p.Player * AbilitySlots + (int)stats.Id;
+            Cooldown[cd] = Cooldown[cd] * landed / stats.Men;   // [U4c]: the wait goes back with the silver; nobody landed, ready at once
+            w.Events.Add(w.Tick, SimEventType.DropLandedShort, p.Player, lost, p.Pos, new float3(landed, 0f, 0f), back);
         }
 
         public ulong Hash(ulong h)
