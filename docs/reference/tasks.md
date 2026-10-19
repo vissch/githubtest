@@ -1287,6 +1287,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `CloseFitHeight`/`CloseAimHeight`, holds a whole tall machine in frame with headroom instead of framing the feet).
   still have their own copy until their lanes land), ViewEyeTests (the zoom is read once a frame, and no presentation
   file looks `IZoomSource` up again; VATRenderer still has its own copy until its lane lands).
+  TacticalCameraSeatTests (the standard view mirrors seated as player 1; the mine marks read a seat
+  set after they were built).
 - **Trap:** setting `Camera.main.transform` does nothing; the controller overwrites it every frame. Use `FrameFrom`.
 
 ### Aiming a film's camera (the critique's films)

@@ -20,9 +20,11 @@ namespace TW.Presentation.Tactical
         public sealed class MineMarks
         {
             public readonly List<MineMark> Marks = new List<MineMark>(64);
-            /// <summary>The seat the picture is drawn for (as the incoming markers: b == LocalPlayer is ours). Defaults
-            /// to the one source, the seat off the transport; a test may set it.</summary>
-            public int LocalPlayer = LocalSeat.Player;
+            int? seatOverride;   // null: the live seat
+            /// <summary>The seat the picture is drawn for (as the incoming markers: b == LocalPlayer is ours). Read live off
+            /// the one source, LocalSeat, because the marks are built in CombatFx's field initializer, before SimHost.Awake
+            /// takes the seat off the transport; a test may set it, and what it sets wins.</summary>
+            public int LocalPlayer { get => seatOverride ?? LocalSeat.Player; set => seatOverride = value; }
 
             /// <summary>MinePlaced: a = index, b = player, pos, dir = heading x length (zero for a mine), scalar = kind.</summary>
             public void Placed(int index, int player, Vector3 pos, Vector3 dirLength, byte kind)
