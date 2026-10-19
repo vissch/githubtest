@@ -104,7 +104,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 | `ico_smg.png` | 32x32 | - | weapon badge for the Assault card |
 | `ico_mg.png` | 32x32 | - | weapon badge for the MG card |
 
-## Portraits (30 files, `Assets/_Project/UI/Skin/Portraits/`)
+## Portraits (31 files, `Assets/_Project/UI/Skin/Portraits/`)
 
 256x256 RGBA PNG, transparent background, no frame (the card draws its own). One per unit archetype plus the two support emblems, keyed by what the unit IS, never by its slot:
 
@@ -135,6 +135,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Mercy.png`
 - `Bullfrog.png`
 - `Flamer.png`
+- `Sentry.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`
