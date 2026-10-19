@@ -24,7 +24,7 @@ namespace TW.Presentation.Tactical
             switch (archetype)
             {
                 case InfantryArchetype.Assault: return ArmsKind.Smg;
-                case InfantryArchetype.Machinegunner: return ArmsKind.Mg;
+                case InfantryArchetype.Machinegunner: case InfantryArchetype.Sentry: return ArmsKind.Mg;   // the Sentry carries the MG's weapon in the sim (UnitDefinitions.Sentry, Borrowed), so his flash is an MG's and only his plate tells them apart (2026-10-19)
                 case InfantryArchetype.Sniper: return ArmsKind.Sniper;
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
