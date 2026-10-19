@@ -1,0 +1,54 @@
+{
+  "subject": "look:night",
+  "looked_at": [
+    "live night battle in Assets/_Project/Scenes/GreyboxCorridor.unity, batch editor in Play: SimProbe.Match() = \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 0 mission ''\" (read again at tick 4876, same line). The scene's own battle never populates (HighWater 14, 3 men alive at tick 4876), so every subject below was staged with VfxLab/TankCapture.",
+    "Captures/night-1019/units_z12.png + .json (clock held 120 s, zoom 12, open field): men_in_frame 12, contrast_median 0.06304, contrast_p10 0.03053, luma_mean 0.2079, blown_frac 0, pose_error_m 0, warnings [\"men barely separate from the ground: unreadable\"]",
+    "Captures/night-1019/units_z22.png + .json: men_in_frame 21, contrast_median 0.03221, contrast_p10 0.00306, blown_frac 0.0005, pose_error_m 0, same warning",
+    "Captures/night-1019/units_z30.png + .json: men_in_frame 21, contrast_median 0.03235, contrast_p10 0.00236, blown_frac 0.00021, pose_error_m 0, same warning",
+    "Captures/night-1019/units_z60.png + .json (the play view): men_in_frame 23, contrast_median 0.01912, contrast_p10 0.0069, luma_mean 0.19986, blown_frac 0.00015, pose_error_m 0, same warning",
+    "Captures/night-1019/mix_z16.png + .json (clock held, zoom 16: a fixed lantern, a fire pool, a burning Maw, two live Maws and men of both sides in one frame): men_in_frame 13, contrast_median 0.42912, luma_mean 0.16609, luma_p95 0.45933, blown_frac 0.00202, pose_error_m 0, warnings []",
+    "Captures/night-1019/mix_z26.png + .json: men_in_frame 15, contrast_median 0.13652, luma_p95 0.45327, blown_frac 0.00307, pose_error_m 0, warnings []",
+    "Captures/night-1019/mix_z60.png + .json (the play view, same subjects): men_in_frame 15, contrast_median 0.22591, luma_mean 0.21921, blown_frac 0.0013, pose_error_m 0, warnings []",
+    "Captures/night-1019/fx4_00..09.png + .json and fx4_sheet.png (clock running, HE shell beside 8 men, zoom 20, 10 frames 6 apart): men_in_frame 2 each, luma_p95 0.59266 falling to 0.53847, blown_frac 0.00444 falling to 0.0019 - the shell's fireball and its lit smoke read against the night",
+    "Captures/night-1019/gas_00..05.png and gas_sheet.png (clock running, ChlorineGas called at 64,96 and captured 8 s later, zoom 22, 6 frames 10 apart)",
+    "Captures/night-1019/fx3_00..09.png + fx3_sheet.png - DISCARDED: men_in_frame 0, contrast_median -1 in all ten, and the camera looks off the field into fog",
+    "Captures/night-1019/teams_z9.png, teams_z16.png - DISCARDED: men_in_frame 0, contrast_median -1 in both, so they say nothing about our men against theirs",
+    "docs/found/look-look-night-20261017.json (the ban list: the star shell's wash, unlit wet mud out-brighting the men, a man taking the lamp pool's hue, the lamp pool's hard edge)",
+    "docs/reference/decisions.md rows 2026-09-29 (every light is warm, blue only moonlight; no stray blue or purple sparkles), 2026-10-01 (men at night at the CLOSE bands stay as they are), 2026-10-06, 2026-10-07 (the night stays as it is today; the chlorine bank reads green; night tracers wait for the owner's side-by-side brief), 2026-10-08 (the 8 real lamps; the one-still orange sandbag flicker)",
+    "docs/reference/tasks.md, the 'Terrain view, weather, night, biomes' and 'Combat effects' headings (the look.* and lights.* knobs, tank.lamps / tank.lampHue 2 'the lanterns' amber' / lights.machinePool)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs:1-24 (the gas is specified as 'a low rolling bank standing ON the ground (its drawing fills the bottom third of the card, so a man's legs are in it and his head is not)'; GasBankThin 0.6, GasBankFull 1, GasBankNight (0.74,0.80,0.34))",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs, VfxLab.cs, TankCapture.cs (the rig's Shot/Series/Sheet/Hold/Release and the staging calls used here)"
+  ],
+  "tasks": [
+    {
+      "title": "Night chlorine reads as a flat disc, not a bank of gas",
+      "why": "MEASURED, six frames. On Captures/night-1019/gas_00..05.png the chlorine is a flat translucent wash with a single clean elliptical rim running from about (205,215) to (1400,700); the ground's mud, planks and pickets show straight through it unchanged and nothing stands up out of it. Its rim is a step, not a falloff: on gas_03.png at y=380 the luma goes 0.160 -> 0.364 across 4 px (a 2.3x jump), and at y=520 0.097 -> 0.225. The green itself is correct and growing (cells of hue 50-170 with sat>0.15: 1350, 1393, 1508, 1550, 1573, 1608 of 5544 over the six frames, best cell hue 63-65 sat 0.55-0.56 val 0.48-0.49), so the 2026-10-07 'reads green' fix holds - what is missing is the body. CombatFx.Banks.cs:2-3 asks for 'a low rolling bank standing ON the ground... a man's legs are in it and his head is not'; at night what the player gets is a painted circle he will read as an ability marker, not as gas he must walk his men out of. It costs the clearest 'get out of there' signal the game has. Against it, the HE shell in Captures/night-1019/fx4_sheet.png reads correctly in the same session: a round fireball with its own smoke lit from below (luma_p95 0.59266 falling to 0.53847 over ten frames). GUESS: the ground sheet is drawing and the standing cards are not. A low-pitch frame (CaptureRig.Shot at pitch 5, zoom 12, men inside the bank) would settle whether any card stands at all.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/CombatFx.Banks.cs"],
+      "lane": "show",
+      "role": "destruction-vfx-simulator",
+      "done_when": "VfxLab.Call(3, 64, 96, 0) in the night GreyboxCorridor, then CaptureRig.Series(dir, \"gas\", 64, 96, 22, 30, 25, 6, 10) 8 s later: the green-hue cell count still grows across the six frames (today 1350 -> 1608 of 5544) AND the luma step across the bank's rim, sampled every 4 px over +-20 px on three scanlines, is under 0.10 on each (today 0.204 at y=380, 0.153 at y=450, 0.169 at y=520 on gas_03.png), and a pitch-5 zoom-12 frame of men inside the bank shows their legs covered and their heads clear.",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A machine's ground band is a redder orange than every other light",
+      "why": "MEASURED, three frames. In Captures/night-1019/mix_z16.png, mix_z26.png and mix_z60.png a hard-edged, strongly saturated band hugs the base of each live machine. Scanning each frame in 16 px cells, the band sits in hue 12-20 (top cell: hue 19 sat 0.84 val 0.85 at (480,400) in z16; hue 12 sat 0.71 val 0.89 at (1168,400) in z26; hue 20 sat 0.93 val 0.61 at (144,480) in z60), while every lantern pool, fire pool and burning wreck in the same frames sits in hue 35-42 (top cell: hue 40 sat 0.98 val 1.00 in z16; hue 42 sat 0.91 val 0.98 in z26; hue 35 sat 0.89 val 0.97 in z60). A 40 px scan of z26 puts two of the band's cells (hue 11, sat 0.67-0.72, val 0.72-0.73) inside the frame's twelve most saturated-and-bright cells, above the burning machine's own flame cells. So the loudest warm mark on the night field is not a fire: it is the band under a machine, and it is a different orange from the amber the lanterns and fires share. tasks.md records tank.lampHue 2 as 'the lanterns' amber' and it does not match them. It costs the player the one thing night gives him for free - orange means fire, means danger. At the play view (mix_z60, 48 band cells at sat>0.5 val>0.45) it is still as big and bright a warm mark as a real fire.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.Lights.cs", "trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Machines.cs"],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "The mix frame reshot the same way (a lantern, a fire pool, a burning Maw and two live Maws in one frame; CaptureRig.Hold(120) then Shot at zoom 16, 26 and 60): a 16 px cell scan finds the machine's band inside hue 28-45, within 8 degrees of the brightest lantern/fire cell of the same frame (today the gap is 15-30 degrees: band hue 12-20 against lamp/fire hue 35-42), and no band cell is among the frame's five most saturated-and-bright cells (today a band cell at hue 11 sat 0.72 val 0.73 is).",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "At the play view the player cannot find his own men",
+      "why": "MEASURED, four frames plus the rig's own verdict. On the open night field the capture rig writes the warning 'men barely separate from the ground: unreadable' on every frame of the ladder, and contrast_median falls with the zoom: units_z12.json 0.06304, units_z22.json 0.03221, units_z30.json 0.03235, units_z60.json 0.01912 (men_in_frame 12, 21, 21, 23; blown_frac 0 to 0.0005; pose_error_m 0 throughout). At zoom 60 - the view the game is played from - 23 men measure 0.019 against their ground while, in mix_z60.png taken the same session at the same zoom, the lamp pools, the fires, the burning Maw and both live Maws all read at a glance (contrast_median there is 0.22591, because those men stand in a lamp pool). So at the play view the only things on the field a player can pick out are the ones that carry a light, and his infantry carries none. This is deliberately NOT the figure-ground complaint of 2026-10-17 (the mud's brightness and hue) and NOT the 2026-10-01 row, which covers men at the CLOSE bands only; the close bands here measure 0.063 to 0.032 and the play view is three times worse again. If the owner meant that row to cover every band, this is already answered and should be dropped.",
+      "files": ["trench-warfare-3d/Assets/_Project/Presentation/Terrain/NightLights.Pools.cs", "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs"],
+      "lane": "show",
+      "role": "character-simulator",
+      "done_when": "CaptureRig.Hold(120) then ShotCrowd at zoom 60 on the open night field, away from any lamp, with at least 12 men in frame: contrast_median is at or above 0.06 (today units_z60.json reads 0.01912 with 23 men) and the sidecar no longer carries the warning 'men barely separate from the ground: unreadable', while luma_mean stays within 0.02 of today's 0.19986 so the night has not simply been lifted.",
+      "risk": [false, true, false, false, true],
+      "change": [false, false, true, false, true]
+    }
+  ]
+}
