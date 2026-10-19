@@ -1,0 +1,52 @@
+{
+  "subject": "look:first-assault",
+  "looked_at": [
+    "Captures/first-assault-1019/play30.png + play30.json (zoom 30, the standard play view; men_in_frame 2, contrast_median 0.1269, contrast_p10 0.08227, luma_mean 0.20202, blown_frac 0.00167, pose_error_m 0, drawn_infantry 2)",
+    "Captures/first-assault-1019/wide60.png + wide60.json (zoom 60 between the two lines; men_in_frame 2, contrast_median 0.08939, blown_frac 0.00049)",
+    "Captures/first-assault-1019/wide60yaw90.png + wide60yaw90.json (men_in_frame 2, contrast_median 0.35178, contrast_p10 0.04105)",
+    "Captures/first-assault-1019/close12.png + close12.json (zoom 12 on the same knot; men_in_frame 1, contrast_median 0.09759, blown_frac 0.0013)",
+    "Captures/first-assault-1019/advance_00..07.png + sidecars and advance_sheet.png (8-frame series over the advance; men_in_frame 0 on frames 00-02, 1 on frames 03-07)",
+    "Captures/first-assault-1019/hud.png (the only capture path with the HUD: objectives list, minimap, men/silver/time gauges, deploy bar)",
+    "SimProbe.Match() verbatim: \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 641 mission ''\" - the default field, no Proving Ground override",
+    "live probe over SimHost.Local.World and MatchSim.Sectors, three full matches: \"tick 1469 t0 alive 6 frontZ 36.5 meanZ 33.7 | t1 alive 8 frontZ 125.3 meanZ 141.9\"; \"tick 1761 t0 0 fz -99999.0 t1 2 fz 173.6\"; every read tick 0 to 5559 gave obj0-2 owner 0, obj3-5 owner 1, prog 0, cap 255",
+    "trench-warfare-3d/Assets/_Project/UI/HudText.cs:66-90 (the six support cards' names and portraits)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/UnitLook.cs:246-247, 234 (SupportPortrait, SupportCards = 3)",
+    "trench-warfare-3d/Assets/_Project/UI/HudView.cs:127-141 (support cards built, SetPortrait from HudText.Support)",
+    "trench-warfare-3d/Assets/_Project/UI/HudController.cs:175 (gauge-silver / gauge-men / gauge-time headings live in hover tips)",
+    "trench-warfare-3d/Assets/_Project/UI/ObjectiveTracker.cs:67-88 (Refresh does show capture percent and a capturing bullet - checked, so the frozen objectives list is not a HUD fault)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Core/ScriptedEnemy.cs:1-46, 169-198 (the enemy masses to about three to one before going over the top, so an idle player draws a two-man attack: the thin assault I captured is that, not a fault)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs:340-490, Assets/_Project/Editor/UI/HudCapture.cs, Assets/_Project/Editor/SimProbe.cs",
+    "docs/found/look-look-first-assault-20261016.json, look-look-every-unit-close-20261019.json, look-look-hud-20261016.json, look-look-trench-fight-20261017.json (already-said findings, dropped from this file)",
+    "docs/reference/decisions.md, docs/reference/tasks.md (checked for queued or decided overlap)"
+  ],
+  "tasks": [
+    {
+      "title": "Give each support card its own portrait, not two shared ones",
+      "why": "MEASURED, HudText.cs:87-90 with hud.png's SUPPORT row: the six support cards the HUD offers share two pictures. CREEP returns portrait \"HeBarrage\", the same as BARRAGE; STRAFE and BEAM return \"HeBarrage\" too; SMOKE returns \"ChlorineGas\", the same as GAS. Only Portraits/HeBarrage.png, ChlorineGas.png and ParaDrop.png exist, and UnitLook.cs:247 falls every other ability back to HeBarrage. In hud.png the SUPPORT row reads as six near-identical grey plates. Arming a gas cloud, a smoke line, a strafing run and a walking barrage are four different decisions with four different tips (HudText.cs:68-71), and the card art tells a player nothing apart; under the clock he picks by hotkey or by guess. It is the clearest unfinished surface in the first-assault frame.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/HudText.cs",
+        "trench-warfare-3d/Assets/_Project/Presentation/Core/UnitLook.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "An EditMode test walks the six abilities in HudView.SupportAbilities plus HeBarrage and ChlorineGas, asserts HudText.Support(id).Portrait is distinct for each, and asserts each returned name has both a .tw-portrait-<name> rule in dustfront.components.uss and a file in Assets/_Project/UI/Skin/Portraits/; it fails today on CreepingBarrage, SmokeScreen, StrafeRun and Beam.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Label the men gauge on screen; it is the only losing signal",
+      "why": "TWO-VIEW, hud.png top-left against the probe row \"tick 1761 t0 0 fz -99999.0 t1 2 fz 173.6\": at the moment the player's whole army was dead the HUD showed a small unlabelled icon and \"0 vs 2\", and nothing else on screen moved - the OBJECTIVES panel still read the six opening rows, because across three full matches no objective was ever contested (prog 0, cap 255 at every read from tick 0 to 5559). The gauge's heading \"MEN\" exists only as a hover tip (HudController.cs:175), and a player in a fight does not hover. So the owner's question - can a player tell who is winning and why - answers no on the strongest state the game has: being wiped out reads as a 0 beside an icon he has never been told the meaning of.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/HudController.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uxml",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "An EditMode test loads BattleHud.uxml and asserts the men gauge carries a visible on-screen label element reading MEN (not only a tooltip), and that the gauge takes a distinct class when the player's side is at zero; plus a HudCapture.Shoot at a tick where one side has 0 alive shows both.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
