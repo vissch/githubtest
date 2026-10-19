@@ -24,6 +24,9 @@ namespace TW.Perf
         {
             InfantryArchetype.Rifle, InfantryArchetype.Assault, InfantryArchetype.Machinegunner, InfantryArchetype.Sniper,
             InfantryArchetype.Officer, InfantryArchetype.Shield, InfantryArchetype.Jetpack,
+            // the special units' critique (2026-10-19): the flamer and the AT rifle had no staged firing view at all.
+            // Both are Proving Ground men (UnitDefinitions), in no faction pool, so adding them changes nothing else.
+            InfantryArchetype.Flamethrower, InfantryArchetype.AtRifle,
         };
         public static readonly byte[] Machines = { VehicleArchetype.Tusk, VehicleArchetype.Pavise, VehicleArchetype.Kettle, VehicleArchetype.Salvo };
         /// <summary>The bursts in a row beyond the lineup: a shell (the HE barrage), a mine, a tripwire (Explosion.a sources).</summary>
@@ -32,7 +35,7 @@ namespace TW.Perf
         /// <summary>Knob: what the lineup fires. 1 the small arms only (a still of the men), 2 the guns and the bursts only,
         /// anything else both.</summary>
         public const string FireKnob = "bench.lineupFire";
-        /// <summary>Knob: 1..7 fires only that class of Men (both rows), so one class's flare can be judged alone - the
+        /// <summary>Knob: 1..`Men.Length` fires only that class of Men (both rows), so one class's flare can be judged alone - the
         /// sniper's cross had never been positively seen among the other six (critique r13); 0 or absent, every class.</summary>
         public const string OnlyKnob = "bench.lineupOnly";
 
@@ -61,7 +64,8 @@ namespace TW.Perf
         /// <summary>How many ticks apart man `i`'s rounds go: the automatic weapons every tick, a rifle's every third, the
         /// sniper's every sixth (iso3: nine sniper rounds in 0.45 s stacked nine muzzle puffs into a white bloom over the
         /// drawing - no sniper fires like that). Each class's last round before the still lands on s-1.</summary>
-        public static int PeriodOf(int i) => Men[i] == InfantryArchetype.Sniper ? 6 : Men[i] == InfantryArchetype.Machinegunner || Men[i] == InfantryArchetype.Assault ? 1 : 3;
+        public static int PeriodOf(int i) => Men[i] == InfantryArchetype.Sniper || Men[i] == InfantryArchetype.AtRifle ? 6
+            : Men[i] == InfantryArchetype.Machinegunner || Men[i] == InfantryArchetype.Assault || Men[i] == InfantryArchetype.Flamethrower ? 1 : 3;
         public static bool FiresAt(int i, int t, int s) => ArmsAt(t, s) && ((t - (s - 1)) % PeriodOf(i) + PeriodOf(i)) % PeriodOf(i) == 0;
         public static bool MutedAt(int t, int s) => t >= s - 8 && t <= s + 8;
         /// <summary>The guns fire twice: at s-12, so their rounds' bursts and smoke have grown by the still, and at s-1, so
