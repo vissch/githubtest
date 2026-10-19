@@ -294,6 +294,16 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-16 | **A wreck's shadow is narrowed to the firing line: (a), the half-width.** The owner, to "A wreck's shadow: narrow it to match its reach, or keep it wide and fix the words": "Narrow the shadow to match the firing line, and let the guns-holding-position test be re-tuned to the new number". So (a) is built — `Shelter.Body` and the shelter's reach both come from one `body = WreckBlastReach * 0.5f * size` (`6bd7e8d89`, replay v53, `WreckDecayTests.AManOffTheLineButInsideTheOldBodyIsNotKeptDown`) — and `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` is re-tuned to the narrower shadow's measured ratio, not the body widened back. Built on this lane as `[narrow-wreck-shadow-firing-line]`. (owner, 2026-10-16, on the Decide page) |
 
 ## Open: waiting on the owner
+- **The chlorine bank is not in the picture at all (2026-10-19, ability-fx-captures-r2):** four CaptureRig stills in
+  GreyboxCorridor at night - the play zoom and the overview, each with a no-gas plate of the same pose and frame -
+  hold no gas bank, while the sim took every call (the cooldown it sets proves it) and `CombatFx.gasCards` held up to
+  133 packed cards at that moment. Pictures, numbers and what was ruled out: `docs/evidence/ability-fx-captures-r2/`.
+  So r1's claim that "the gas pools on the ground" rests on the yellow ability-area MARKER disc, not on the bank.
+  Options: (a) treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet)
+  misses `CaptureRig`'s own `Camera.Render()`, the default taken here, since it changes no look; (b) treat it as a
+  look fault and make the bank bigger, brighter or less squashed until it reads at night - a look change, and the
+  same question as the standing "how big a point effect must read from the overview"; (c) leave it. Nobody to ask in
+  this run: nothing is landed on it and the lane is blocked.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
