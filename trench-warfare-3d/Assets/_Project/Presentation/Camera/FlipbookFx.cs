@@ -70,6 +70,8 @@ namespace TW.Presentation.Tactical
             RocketHead,   // a Salvo rocket in flight: a hot head at the right, its flame tail back to the root
             SparkFan,     // a tripwire: thin sparks thrown up in a low fan from a point on the ground
             MineSmoke,    // a mine's column: the wreck's smoke drawn near black (it read as a shell's grey)
+            // the flamethrower's hot heart (owner, 2026-10-19: "an opaque white-yellow core over the first third")
+            JetCore,      // the core drawing again, banded so most of the stream lands in the white-hot band
             Count
         }
 
@@ -216,6 +218,12 @@ namespace TW.Presentation.Tactical
             new Sheet { Name = "RocketHead", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Fill = 0.98f },
             new Sheet { Name = "SparkFan", Cols = 4, Rows = 4, Frames = 9, Snap = true, Fps = 12f, Fire = true, Tint = new Color(1.35f, 0.62f, 0.17f), Low = 0.11f, High = 0.95f, Bands = new Vector4(0.11f, 0.38f, 0.57f, 0.75f), Ink = new Vector2(0.05f, 0.95f), Fill = 0.90f },
             new Sheet { Name = "WreckSmoke", Cols = 8, Rows = 4, Frames = 28, Snap = true, Fps = 12f, Cycle = true, Erode = true, Deep = true, Mood = 0.3f, Lit = 0.5f, RampIn = 0.1f, Tint = new Color(0.21f, 0.2f, 0.19f), Low = 0.11f, High = 1.20f, Ink = new Vector2(0.02f, 0.95f), Fill = 0.43f },   // MineSmoke
+            // JetCore: FireCore's row again, with the body cut moved from 0.51 down to 0.22. Bands.z is where the
+            // drawing stops being _Tint and becomes _Core, so at 0.22 most of the stream's ink lands in the hot band
+            // instead of the orange one - which is the owner's "opaque white-yellow core over the first third,
+            // orange towards the tip" of 2026-10-19. A second row may share a sheet name (MineSmoke shares
+            // WreckSmoke's), so this costs no PNG and Ready still counts one texture per row.
+            new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.12f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f },   // JetCore
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
@@ -655,6 +663,9 @@ namespace TW.Presentation.Tactical
                 m.SetFloat("_Lit", s.Additive || s.Fire ? 0f : s.Lit > 0f ? s.Lit : 1f);   // fire is its own light, like the additive books
                 m.SetFloat("_MaskOnly", s.MaskOnly ? 1f : 0f);
                 m.SetFloat("_Fire", s.Fire ? 1f : 0f);
+                // the jet's hot heart: a white-yellow core over a yellow body, so the near third of a stream reads as
+                // burning gas rather than as orange paint (owner, 2026-10-19)
+                if ((Book)k == Book.JetCore) { m.SetColor("_Core", new Color(2.0f, 1.90f, 1.35f, 1f)); m.SetColor("_Tint", new Color(1.5f, 1.15f, 0.35f, 1f)); }
                 if ((Book)k == Book.Fireball) { m.SetColor("_Smoke", new Color(0.48f, 0.40f, 0.33f, 1f)); m.SetColor("_Core", new Color(1.6f, 1.3f, 0.8f, 1f)); }   // the shell's fireball: its soot the burst cloud's lit brown (at 0.36 it ringed each fire in dark: critique c1b), its heart yellow, not the flamethrower's white (critique c2)
                 if (s.Bands.sqrMagnitude > 0f) m.SetVector("_Bands", s.Bands);
                 m.SetFloat("_Rise", s.Rise);   // how far the top of the card is rotated toward umber; standing flames only   // this book's own cel cuts, else the shader's (FireBall's)
