@@ -87,5 +87,31 @@ namespace TW.Tests
             }
             Assert.AreEqual(seconds - CombatFx.IncomingLead, CombatFx.DropStreakDelay(men - 1, men, seconds), 1e-6f, "the last streak ends as the shell's streak would");
         }
+
+        [Test]
+        public void DropInboundReadsAtZoom120()
+        {
+            // harsh critic r2 fix 2: no capture shows the marker at gameplay zoom 120; the flare must read there, not just at 240
+            float pxPerM = 900f / 120f; // CaptureRig's default frame height over the zoom's view height in metres
+            Assert.IsTrue(CombatFx.DropDrawnAt(120f));
+            Assert.GreaterOrEqual(CombatFx.DropMarkWidth(120f) * pxPerM, 120f, "the marker spans the probe's own 120 px window");
+
+            Assert.AreEqual(0f, CombatFx.DropFlareDelay(0, 5f), 1e-6f, "the mark is there on the first frame");
+
+            const float seconds = 5f;
+            int pulses = CombatFx.DropFlarePulses(seconds);
+            Assert.GreaterOrEqual(pulses, 6);
+            float max = seconds - CombatFx.IncomingLead;
+            float prev = -1f;
+            for (int k = 0; k < pulses; k++)
+            {
+                float d = CombatFx.DropFlareDelay(k, seconds);
+                Assert.That(d, Is.InRange(0f, max));
+                if (k > 0) Assert.LessOrEqual(d - prev, CombatFx.DropFlarePeriod + 1e-4f, "pulse " + k + " is no more than a period after the last");
+                prev = d;
+            }
+
+            Assert.Greater(CombatFx.DropMarkWidth(240f), CombatFx.DropMarkWidth(120f), "the 240 read is a step up, not a flat one");
+        }
     }
 }

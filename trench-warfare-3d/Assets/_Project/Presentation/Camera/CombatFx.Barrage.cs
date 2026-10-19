@@ -113,8 +113,25 @@ namespace TW.Presentation.Tactical
             return Mathf.Clamp(Mathf.Lerp(first, last, t), 0f, seconds);
         }
 
+        /// <summary>The marker's width at zero zoom: grown by FarGrow so a harsh critic at a gameplay zoom (120+)
+        /// still finds the zone — at zoom 120 this is 21 m, 157 px at the capture's 7.5 px/m, wider than the 120 px
+        /// window the probe reads.</summary>
+        public const float DropMarkBase = 14f;
+        public static float DropMarkWidth(float zoom) => DropMarkBase * FlipbookFx.FarGrow(zoom);
+
+        /// <summary>The flare re-marks the zone every DropFlarePeriod seconds so a still frame at any point before
+        /// landing catches a pulse (the harsh critic's finding at zoom 120 and 240). Pure, so a test can hold it.</summary>
+        public const float DropFlarePeriod = 0.8f;
+        public static float DropFlareDelay(int k, float seconds)
+        {
+            float max = Mathf.Max(0f, seconds - IncomingLead);
+            return Mathf.Clamp(k * DropFlarePeriod, 0f, max);
+        }
+        public static int DropFlarePulses(float seconds) => Mathf.Clamp(Mathf.FloorToInt(seconds / DropFlarePeriod) + 1, 1, 12);
+
         /// <summary>L11 (fx.recipes): a drop called in (DropInbound: pos, b = men, scalar = seconds to landing): a smoke
-        /// flare marks the zone the moment it is called, and a falling streak per man leads into the landing, so the
+        /// flare marks the zone the moment it is called, with a Star pulse train re-marking it every DropFlarePeriod
+        /// so it reads at a gameplay zoom too, and a falling streak per man leads into the landing, so the
         /// men do not just appear (the harsh critic's finding). Not a canopy (owner question Q8).</summary>
         void OnDropInbound(SimEvent e)
         {
@@ -123,8 +140,13 @@ namespace TW.Presentation.Tactical
             float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f;
             float grow = FlipbookFx.FarGrow(zoom);
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-            books.Add(FlipbookFx.Book.Smoulder, at, 6f * grow, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
-            books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
+            books.Add(FlipbookFx.Book.Smoulder, at, DropMarkWidth(zoom) * 0.6f, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
+            int pulses = DropFlarePulses(e.Scalar);
+            for (int k = 0; k < pulses; k++)
+            {
+                books.Add(FlipbookFx.Book.Star, at + Vector3.up * 1.2f, DropMarkWidth(zoom) * 0.55f, 0.7f,
+                    glow: SceneMood.Night ? 3.5f : 2.2f, delay: DropFlareDelay(k, e.Scalar));
+            }
             int men = Mathf.Clamp(e.B, 1, 8);
             for (int k = 0; k < men; k++)
             {
