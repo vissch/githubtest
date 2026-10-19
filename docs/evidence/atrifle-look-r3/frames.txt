@@ -1,0 +1,62 @@
+GreyboxCorridor, the night look (its default), read back in Play, not set here. One batch-mode editor on this
+checkout, driven over the pipeline port.
+
+ONE CAMERA FOR EVERY STILL IN THIS SET. The r1 critique threw r2's IoU out because its two men were framed on two
+different focus points, so the overlap it measured was partly the offset between two cameras. Here the camera never
+moves: the MAN is moved to the focus.
+
+  focus F        (50, 25)        the AT rifleman's drawn x,z, read back with SimProbe.Unit(1)
+  zoom           30              T1 (GymCatalogue.Bands)
+  yaw            243.6           rig yaw; the lens is then roughly side-on to the man's own drawn yaw (1.11 rad,
+                                 63.6 deg). Of the four rig yaws tried at this pose (63.6, 153.6, 243.6, 333.6)
+                                 this one gives much the best contrast_median (1.29 against 0.08-0.15), i.e. it is
+                                 the one where the man separates from the ground at all.
+  pitch          22
+  size           1600x900
+  rain           0               VfxLab.Rain(0), and every sidecar says rain 0
+  weather clock  pinned at 120   CaptureRig.Hold(120)
+  pose_error_m   0 in every sidecar
+
+The match (SimProbe.Match(), so step 9 can restage the same ground):
+  seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1)
+  stress 0 (override -1) mission ''
+
+The man (SimProbe.Unit(1) at the moment of the base stills):
+  tick 21257 slot 1 generation 5 alive True flags Alive
+  team 0 archetype 27 hp 90/90 target -1
+  sim at 50.00 0.00 25.00  trench 0 post cell 654 kind 2 stance Crouch layer Surface
+  drawn at 50.00 0.00 25.00  ground there 2.95
+  pose 1 at 50.00 0.00 25.00 yaw 1.11 row 4
+  animation clip KneelIdle rung Idle stance Crouch phase 0.13
+
+The eval lines, verbatim and in order (Tools/tw eval, or `unity cmd eval -- --code '...'`):
+
+  UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+  return TW.Editor.VfxLab.Rain(0f);
+  return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);                       // -> "slot 1"; 27 = InfantryArchetype.AtRifle
+  // then, six times with no pause, so the sim cannot walk him off while the camera is being set:
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.WriteWorlds(m=>{ m.World.Position[1]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Yaw[1]=21f*UnityEngine.Mathf.Deg2Rad; m.World.Speed[1]=0f; m.World.Hp[1]=90f; }); return 0;
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.WriteWorlds(m=>{ m.World.Position[1]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Yaw[1]=21f*UnityEngine.Mathf.Deg2Rad; m.World.Speed[1]=0f; }); h.TimeScale=0f; return "frozen";
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/base-at-1.png", 50f, 25f, 30f, 243.6f, 22f, 1600, 900);   // and -2, -3
+  // the plate: the man off the map, and the sim let RUN for two seconds, then frozen again
+  return TW.Editor.CaptureRig.Release();
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.TimeScale=1f; h.WriteWorlds(m=>{ m.World.Position[1]=new Unity.Mathematics.float3(-5000f,0f,-5000f); m.World.Hp[1]=0f; }); return "off map, running";
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.TimeScale=0f; return "frozen";
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/base-plate.png", 50f, 25f, 30f, 243.6f, 22f, 1600, 900);
+
+Two things the next leg must not relearn the hard way:
+  * While SimHost.TimeScale is 0 the PRESENTER does not move anyone. Writing a man's position or yaw into the world
+    while frozen changes nothing on screen (SimProbe then shows "sim at" and "drawn at" disagreeing). Every staging
+    write has to happen with the sim running, and the freeze comes last.
+  * The man's yaw cannot be pinned. His idle routine turns him (LookAround), so a written Yaw is gone within a
+    second. What is stable is the yaw he happens to be frozen at, which SimProbe reports. So: freeze first, read the
+    drawn yaw, and choose the camera yaw to suit — or, for the Sniper in step 9, refreeze until his drawn yaw is
+    within a few degrees of this man's 1.11 rad, and record it here.
+
+The stills:
+  base-at-1/2/3.png  the AT rifleman as the build draws him today, three repeats of one frozen pose a few frames
+                     apart. His mask is 876 / 874 / 867 px; the spread between the three is
+                     silhouette_diff_vs_sniper_base_max = 0.0126, the noise floor of the measure.
+  base-plate.png     the same camera pose with that man, and only that man, moved off the map.
