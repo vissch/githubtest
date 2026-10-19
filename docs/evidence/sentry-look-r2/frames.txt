@@ -1,0 +1,11 @@
+All three stills: GreyboxCorridor (the night look), T3 close (zoom 7.5, yaw 21, pitch 13, 1920x1080), one camera pose
+for all three, weather clock held at 120. CombatFx.PlateMask is on, so the Sentry's plate and its post are drawn flat
+magenta and a calibration bar exactly 0.50 m tall, standing on the same ground as the post, flat cyan. Everything else
+in frame is the battlefield as it ships. Shot by shoot.py, measured by probe.py.
+
+plate_t.png: the Sentry's emplaced plate, his gun bearing -134.3 degrees. He is 25 m off, firing at an enemy group
+dead ahead of him. Clock held.
+plate_t60.png: the same pose and the same moment of the weather, the group stood 60 degrees round, his gun bearing
+-41.6 degrees - 92.7 degrees of traverse. Clock held.
+plate_dead.png: the same pose again, after he was killed (SimWorld.Despawn through SimHost.WriteWorlds) and the clock
+held in the same step so his slot could not be let again. Clock held.
