@@ -1,0 +1,16 @@
+{
+  "subject": "look:trench-fight",
+  "looked_at": [
+    "live battle in Assets/_Project/Scenes/GreyboxCorridor.unity, batch editor in Play: SimProbe.Match() = \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 0 mission ''\"; at tick 1667 h.Local.World.HighWater was 14 - the scene's own battle has still not populated a trench fight on this seed (as on 2026-10-17 and 2026-10-19/night), so the fight was staged",
+    "staging: team 0 defenders (4 men, TW.Editor.VfxLab.Men) written into trench index 1 (owner team 0, Trenches[1].CellStart 96/CellCount 98) via SimHost.WriteWorlds setting TrenchId/PostKind, at the same centre (45,69) the 2026-10-17 leg used; team 1 attackers spawned and moved to within 1.5 m (45-48,67.5) of them",
+    "COULD NOT JUDGE the melee clash, the grenade throw or the trench changing hands: the attacker group never entered Stance.Melee or swapped a Foe (checked via TW.Sim.Combat.MeleeSystem's private Foe array by reflection - stayed -1 after 4 s at 1.5 m range), and a TrenchAdvance SimCommand issued for team 1's own trench (A=2, matching Trenches[2].OwnerTeam==1) moved nobody (GoalId stayed -1 for all six men after 4 s). VfxLab.Men stands riflemen still at Speed 0 and does not itself order them to fight; whatever wiring let the 2026-10-17 leg's attackers close and the trench flip could not be reproduced from the documented API in the time available, and no SimCommand or WriteWorlds path to force a melee swing or a capture tick is written down anywhere this leg could find. This is a staging gap, not a judgement of the fight itself.",
+    "Captures/trench-fight-1019/melee_z12.png + .json (zoom 12, focus 46.5,68.25, pose_error_m 0, men_in_frame 4, valid): four riflemen standing still and unposed at point-blank range, no melee stance, no weapons raised",
+    "Captures/trench-fight-1019/melee_z30.png + .json (zoom 30, same focus, pose_error_m 0, men_in_frame 9, valid): same idle cluster, wider",
+    "Captures/trench-fight-1019/bodies_z12.png + .json (zoom 12, focus 45,69, pose_error_m 0, fallen 0, valid): TW.Editor.VfxLab.Shell(45,69,6,400) queued and 150 sim steps run, no visible blast, fire or smoke, and w.HighWater's dead count stayed 0 - the shell call did not kill anyone in the window stepped, so no body shot could be judged either",
+    "docs/found/look-look-trench-fight-20261017.json (the ban list this leg must not repeat): the objectives panel's fixed \"OUR\"/\"ENEMY\" text racing the live bullet colour at ObjectiveTracker.cs:51-52 - already reported, not repeated here",
+    "docs/inbox/2026-09-28-all-melee.md and AnimationController.cs:83 (MeleeStab/Punch/Smash still mapped to AnimRow.FireStanding): already a known queued stand-in, not reported here",
+    "docs/found/look-look-night-20261019.json and look-look-every-unit-close-20261019.json: the men-against-mud contrast loss visible again in melee_z12.png/melee_z30.png (the four-man huddle reads as a dim blob against the trench lip) is the same already-measured and already-reported fault, not repeated here",
+    "docs/reference/decisions.md rows 2026-09-28 (melee at 8 m charge / 2.5 m contact, the 0.8 reach cut), 2026-09-29 (the bomb's throw band), 2026-10-06/07 (assault ratios and nearest-first retaking stay as built)"
+  ],
+  "tasks": []
+}
