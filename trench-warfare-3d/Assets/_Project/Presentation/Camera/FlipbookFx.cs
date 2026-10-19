@@ -641,6 +641,9 @@ namespace TW.Presentation.Tactical
         Mesh quad;
         public bool Ready { get; private set; }
         public int Alive => cards.Count;
+        /// <summary>A book's ordinal to skip in Draw, or -1 (set only by the stills test, to split a puff from the rest
+        /// of a frame for a diff): cards stay alive, just not drawn, so the frame differs by that book alone.</summary>
+        public int HiddenBook = -1;
 
         // A CAPTURE SWITCH, one bit per Book ordinal (so Book.Count must stay at or under 64: FlipbookHiddenTests).
         // A hidden book's card is never stored, so nothing draws it and nothing else about the frame moves. It exists
@@ -775,6 +778,7 @@ namespace TW.Presentation.Tactical
             for (int i = 0; i < cards.Count; i++) byBook[bookCursor[(int)cards[i].Book]++] = i;
             for (int b = 0; b < bookCount; b++)
             {
+                if (b == HiddenBook) continue;
                 var mat = mats[b]; if (mat == null || bookStart[b] == bookStart[b + 1]) continue;
                 int frames = Sheets[b].Frames, n = 0;
                 var rp = new RenderParams(mat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off, receiveShadows = false };
