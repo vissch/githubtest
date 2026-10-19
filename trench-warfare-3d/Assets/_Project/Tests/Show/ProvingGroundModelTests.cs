@@ -297,6 +297,12 @@ namespace TW.Tests
             has[0] = true;
             Assert.AreEqual(0, TW.Presentation.Units.VATRenderer.FigureSources(has)[own]);
             Assert.Greater(TW.Presentation.Units.VATRenderer.DeathBnCoat, 0f, "a greatcoat with no flare is a rifleman");
+            Assert.Greater(TW.Presentation.Units.VATRenderer.DeathBnHelm, 0f, "a greatcoat under the rifleman's own helmet is still a rifleman");
+            // the ceiling is read off the measured torso step in docs/evidence/death-battalion-look-r2/probe.json: a
+            // lighter multiply than this does not put his cloth 0.08 luma under the rifleman's in the dark frame.
+            var kit = TW.Presentation.Units.VATRenderer.DeathBnKit;
+            foreach (float ch in new[] { kit.r, kit.g, kit.b })
+                Assert.LessOrEqual(ch, 0.55f, "the Death Battalion's cloth multiply is too light to read darker than the rifleman's");
 
             string tip = UnitLook.Tip(InfantryArchetype.DeathBattalion);
             StringAssert.Contains("Death Battalion", tip);

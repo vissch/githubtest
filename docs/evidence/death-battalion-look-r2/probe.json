@@ -1,0 +1,132 @@
+{
+ "which": "after",
+ "db_diff": [
+  0.0878,
+  0.0876,
+  0.0853
+ ],
+ "noise_diff": [
+  0.098,
+  0.1029,
+  0.1023
+ ],
+ "head_iou": [
+  0.6911,
+  0.6911,
+  0.6911
+ ],
+ "head_iou_noise": [
+  0.9571,
+  0.9571,
+  0.9571
+ ],
+ "torso_luma_step": [
+  -0.0067,
+  -0.0014,
+  -0.0067,
+  -0.0034,
+  -0.0067,
+  -0.0034
+ ],
+ "torso_luma_noise": [
+  0.0137,
+  0.0087,
+  0.012,
+  0.0104,
+  0.0123,
+  0.0104
+ ],
+ "torso_luma_abs": [
+  [
+   [
+    0.2226,
+    0.2296,
+    0.2159
+   ],
+   [
+    0.2226,
+    0.2299,
+    0.2212
+   ]
+  ],
+  [
+   [
+    0.2226,
+    0.2279,
+    0.2159
+   ],
+   [
+    0.2226,
+    0.2296,
+    0.2193
+   ]
+  ],
+  [
+   [
+    0.2226,
+    0.2282,
+    0.2159
+   ],
+   [
+    0.2226,
+    0.2296,
+    0.2193
+   ]
+  ]
+ ],
+ "blob_px": [
+  [
+   1779,
+   1769,
+   1715
+  ],
+  [
+   1814,
+   1762,
+   1709
+  ],
+  [
+   1814,
+   1769,
+   1712
+  ]
+ ],
+ "files": [
+  [
+   "seed1_men.png",
+   "seed1_bg.png",
+   "seed1_fire.png"
+  ],
+  [
+   "seed2_men.png",
+   "seed2_bg.png",
+   "seed2_fire.png"
+  ],
+  [
+   "seed3_men.png",
+   "seed3_bg.png",
+   "seed3_fire.png"
+  ]
+ ],
+ "tolerance": 20,
+ "min_blob_px": 1200,
+ "box_px": 600,
+ "head_frac": 0.15,
+ "torso_band": [
+  0.2,
+  0.55
+ ],
+ "bars": {
+  "diff_margin": 0.15,
+  "diff_ratio": 3.0,
+  "torso_luma_step": 0.08,
+  "head_iou_max": 0.8
+ },
+ "checks": {
+  "diff_beats_noise_by_margin": false,
+  "diff_beats_noise_by_ratio": false,
+  "torso_darker_everywhere": false,
+  "head_differs": true
+ },
+ "pass": false
+}

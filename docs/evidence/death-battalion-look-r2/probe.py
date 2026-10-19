@@ -10,7 +10,12 @@ measured the same way in the same pixels.
 Per seed (1, 2, 3), from `seed<s>_men.png` against `seed<s>_bg.png`:
 
   mask        |men - bg| summed over RGB above TOL, opened 3x3, closed 5x5, labelled; the three largest blobs of
-              MIN_BLOB px or more, sorted by image x, are riflemanA, riflemanB, the Death Battalion man. The men
+              MIN_BLOB px or more, sorted by image x, are the Death Battalion man, riflemanA, riflemanB. The camera
+              looks back along x (shoot.py's yaw 90 against the scene's BaseYaw 270), so the man spawned LAST - the
+              Death Battalion, at the greatest world x - stands LEFTMOST on screen. Round 2 measured that with a
+              throwaway capture (kit (1,0,0), coat 0.25 m, helm 0.07 m): only the leftmost man changed, and his head
+              IoU against the other two was 0.674 and 0.691 while theirs against each other was 0.957. Before that
+              the probe read the rightmost blob as the Death Battalion and so scored one rifleman against another. The men
               stand still (Speed 0) and the clock is held, so the same three masks also locate them in the fire
               frame.
   db_diff     count(xor)/count(or) of the whole masks, each recentred on its own centroid in a BOX px box, the
@@ -129,32 +134,34 @@ def band(mask, lo, hi):
 
 def seed(stem_men, stem_bg, stem_fire):
     masks, sizes = men_masks(stem_men, stem_bg)
-    rifle_a, rifle_b, db = masks
+    db, rifle_a, rifle_b = masks          # left to right on screen: see the module docstring
 
-    whole = [centred(m) for m in masks]
-    db_diff = min(diff(whole[2], whole[0]), diff(whole[2], whole[1]))
-    noise_diff = diff(whole[0], whole[1])
+    whole = [centred(m) for m in (db, rifle_a, rifle_b)]
+    db_diff = min(diff(whole[0], whole[1]), diff(whole[0], whole[2]))
+    noise_diff = diff(whole[1], whole[2])
 
-    heads = [centred(band(m, 0.0, HEAD_FRAC)) for m in masks]
-    head_iou = max(iou(heads[2], heads[0]), iou(heads[2], heads[1]))
-    head_iou_noise = iou(heads[0], heads[1])
+    heads = [centred(band(m, 0.0, HEAD_FRAC)) for m in (db, rifle_a, rifle_b)]
+    head_iou = max(iou(heads[0], heads[1]), iou(heads[0], heads[2]))
+    head_iou_noise = iou(heads[1], heads[2])
 
-    torsos = [band(m, TORSO_LO, TORSO_HI) for m in masks]
-    steps, noises = [], []
+    torsos = [band(m, TORSO_LO, TORSO_HI) for m in (db, rifle_a, rifle_b)]
+    steps, noises, absolute = [], [], []
     for png in (stem_men, stem_fire):
         y = luma(rgb(png))
         med = [float(np.median(y[t])) for t in torsos]
-        steps.append(min(med[0], med[1]) - med[2])
-        noises.append(abs(med[0] - med[1]))
+        steps.append(min(med[1], med[2]) - med[0])
+        noises.append(abs(med[1] - med[2]))
+        absolute.append([round(v, 4) for v in med])   # db, rifleA, rifleB: the headroom the 0.08 bar needs
     return dict(db_diff=db_diff, noise_diff=noise_diff, head_iou=head_iou, head_iou_noise=head_iou_noise,
-                torso_luma_step=steps, torso_luma_noise=noises, blob_px=sizes)
+                torso_luma_step=steps, torso_luma_noise=noises, torso_luma_abs=absolute, blob_px=sizes)
 
 
 def main():
     before = len(sys.argv) > 1 and sys.argv[1] == 'before'
     prefix = 'before_' if before else ''
     out = {'which': 'before' if before else 'after', 'db_diff': [], 'noise_diff': [], 'head_iou': [],
-           'head_iou_noise': [], 'torso_luma_step': [], 'torso_luma_noise': [], 'blob_px': [], 'files': [],
+           'head_iou_noise': [], 'torso_luma_step': [], 'torso_luma_noise': [], 'torso_luma_abs': [], 'blob_px': [],
+           'files': [],
            'tolerance': TOL, 'min_blob_px': MIN_BLOB, 'box_px': BOX, 'head_frac': HEAD_FRAC,
            'torso_band': [TORSO_LO, TORSO_HI],
            'bars': {'diff_margin': DIFF_MARGIN, 'diff_ratio': DIFF_RATIO, 'torso_luma_step': LUMA_STEP,
@@ -172,6 +179,7 @@ def main():
         out['head_iou_noise'].append(round(r['head_iou_noise'], 4))
         out['torso_luma_step'] += [round(v, 4) for v in r['torso_luma_step']]
         out['torso_luma_noise'] += [round(v, 4) for v in r['torso_luma_noise']]
+        out['torso_luma_abs'].append(r['torso_luma_abs'])    # [[db, rifleA, rifleB] no-fire, [..] fire] per seed
         out['blob_px'].append(r['blob_px'])
         out['files'].append(names)
 

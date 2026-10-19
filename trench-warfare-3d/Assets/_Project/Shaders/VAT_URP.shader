@@ -17,6 +17,7 @@ Shader "TW/VAT Infantry (URP)"
         _TotalFrames ("Total Frames", Float) = 288
         _Lerp ("Frame Lerp (1 near, 0 far)", Range(0,1)) = 1
         _Coat ("Greatcoat flare (m)", Range(0,0.25)) = 0
+        _Helm ("Helmet flare (m)", Range(0,0.25)) = 0
         _Kit ("Cloth multiply", Color) = (1,1,1,1)
         _TeamColorA ("Team 0 cloth", Color) = (0.64, 0.56, 0.34, 1)
         _TeamColorB ("Team 1 cloth", Color) = (0.25, 0.29, 0.32, 1)
@@ -52,6 +53,7 @@ Shader "TW/VAT Infantry (URP)"
         CBUFFER_START(UnityPerMaterial)
             float _VertexCount, _TotalFrames, _Lerp;
             float _Coat;    // a skirt pushed out over the lower torso and thighs: the Death Battalion greatcoat (VATRenderer sets it per figure; 0 on everyone else)
+            float _Helm;    // the top band pushed out and its crown flattened: the Death Battalion's wide low dish of a helmet (0 on everyone else)
             float4 _Kit;    // the figure's cloth multiply, (1,1,1,1) on everyone else
             float4 _PosMin, _PosSize;
             float4 _TeamColorA, _TeamColorB;
@@ -142,8 +144,15 @@ Shader "TW/VAT Infantry (URP)"
             // the greatcoat: the skirt widens from the hip down and closes again above the boots, so the man keeps his
             // head, shoulders and feet. Done here, in the shared Animate, so the outline, shadow and depth passes agree
             // and the silhouette really changes.
-            float coat = _Coat * saturate((0.95 - p.y) / 0.6) * step(0.33, p.y);
+            // the man's height as a fraction of the bake's OWN bounds. An absolute p.y band assumed the bake runs
+            // 0..1.78 m from the feet; a bake centred on its middle then had its skirt drawn across the chest.
+            float t = saturate((p.y - _PosMin.y) / max(_PosSize.y, 1e-4));
+            float coat = _Coat * saturate((0.53 - t) / 0.35) * step(0.18, t);
             p.xz += normalize(float2(p.x, p.z) + 1e-4) * coat;
+            // the helmet: the top band pushed out radially and its crown flattened, so he wears a wide low dish
+            // instead of the rifleman's dome. Same shared Animate, so outline, shadow and depth agree.
+            p.xz += normalize(float2(p.x, p.z) + 1e-4) * _Helm * saturate((t - 0.86) / 0.06);
+            p.y -= _Helm * 0.5 * step(0.93, t);
             float s = sin(inst.yaw), c = cos(inst.yaw);   // yaw turns +Z towards +X, as Quaternion.Euler(0, yaw, 0)
             Animated o;
             o.positionOS = p;
