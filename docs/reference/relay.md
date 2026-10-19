@@ -228,7 +228,8 @@ day. A retrospective cannot move it.
   the other clone (several paths: apart by `;` on Windows), for both relays, and a leg record that is in both
   counts once.
 - `$R budget` shows today per unit and phase and the days before; `$R status` and the `STOP:` line show one line
-  of it. The stop record holds `day_pct` and `day_budget_pct` beside `day_usd`.
+  of it. The stop record holds `day_pct` and `day_budget_pct` beside `day_usd`, all four missing when the day's
+  spend could not be counted (an unreadable board folder, a file held open): the record is still written.
 
 ## The day's pace
 
@@ -405,7 +406,7 @@ record an older relay wrote does not have it.
 |---|---|
 | `started_at`, `station` | when the run began (UTC, as `stopped_at`), and on which station |
 | `hours`, `max_legs` | the run's time cap as it was taken at the start; the leg cap, only when one was given |
-| `run_usd`, `run_usd_unpriced` | what this run's own legs cost (`day_usd` is the whole day's); how many of them named no cost and count as 0 |
+| `run_usd`, `run_usd_unpriced` | what this run's own legs cost (`day_usd` is the whole day's, missing when it could not be counted); how many of them named no cost and count as 0 |
 | `now_on` | the unit that was in flight when the run stopped, which is not in `units` because it has no verdict; empty when none was |
 | `problems` | per unit that ended FAIL or BLOCKED, the lines the run printed under it: 8 at most, each cut at 300 characters |
 | `reason_kind` | the family of `reason` as one fixed word, so that nothing has to match the sentence (below) |

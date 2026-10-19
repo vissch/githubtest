@@ -290,6 +290,19 @@ class Run:
         b = self.day()
         return b["left_usd"] if b else None
 
+    def day_figures(self):
+        """The day's spend for the stop record, or {} when the ledger cannot be read (an unreadable board folder,
+        a file held open). A record without the figures is worth far more than no record at all."""
+        try:
+            b = self.day()
+            out = dict(day_usd=round(ledger.spent(self.board, lim=self.lim)["usd"], 2),
+                       day_budget_usd=self.lim["day_budget_usd"])
+            if b and b["unit"] == "pct":
+                out.update(day_pct=round(b["spent"], 2), day_budget_pct=b["cap"])
+            return out
+        except (SystemExit, Exception):              # noqa: BLE001 - a run always ends with a record
+            return {}
+
     def no_budget(self, phases, unit=None):
         """Why the day's budget does not let legs of these phases start at their usual cost, or None. Asked before
         a leg starts: a leg that runs out of budget half way leaves work nobody can use.
@@ -684,15 +697,12 @@ class Run:
                 moved = self.moved(self.heads, gitio.remote_heads(self.work))
             except Exception:                               # noqa: BLE001 - a run always ends with a record
                 pass
-        b = self.day()
-        in_pct = dict(day_pct=round(b["spent"], 2), day_budget_pct=b["cap"]) if b and b["unit"] == "pct" else {}
-        more = dict(in_pct, **(self.asked_of if reason.kind == "asked" else {}))    # who asked, and what for
+        more = dict(self.day_figures(), **(self.asked_of if reason.kind == "asked" else {}))    # who asked, and what for
         if self.a.max_legs:
             more["max_legs"] = self.a.max_legs
         boardio.stop_record(self.board, self.station, self.run, str(reason), self.legs, detail, moved_on_origin=moved,
                             units=self.units, refusals=self.refused, started_by=self.who, code=self.code,
-                            day_usd=round(ledger.spent(self.board, lim=self.lim)["usd"], 2),
-                            day_budget_usd=self.lim["day_budget_usd"], reason_kind=reason.kind,
+                            reason_kind=reason.kind,
                             started_at=self.started_at, hours=self.lim["run_hours"],
                             run_usd=round(self.run_usd, 4), run_usd_unpriced=self.unpriced, now_on=self.on,
                             problems=self.problems, **more)
@@ -702,7 +712,10 @@ class Run:
               % (reason.rstrip("."), self.legs, tally(self.units), pushed), flush=True)
         if detail:
             print("  " + detail, flush=True)
-        print("  " + ledger.one_line(self.board, self.lim["day_budget_usd"], lim=self.lim), flush=True)
+        try:
+            print("  " + ledger.one_line(self.board, self.lim["day_budget_usd"], lim=self.lim), flush=True)
+        except (SystemExit, Exception) as e:             # noqa: BLE001 - a run always ends with a record
+            print("  the day's spend could not be counted (%s)" % type(e).__name__, flush=True)
         try:                                                # the watch for wasted tokens: it never fails a run
             import leakwatch
             got = leakwatch.read_runs(self.home, [self.run])
