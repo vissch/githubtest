@@ -15,9 +15,9 @@ float _TWWaterClock;
 
 /// Pale expanding rings at a point on the water: two lines a ring, fading as they spread. stir returns how much the
 /// water inside a young ring is stirred up (a wading man or a shell clouds it with silt for as long as the ring lives).
-half TWRings(float2 xz, out half stir)
+half TWRings(float2 xz, out half stir, out half trough)
 {
-    half sum = 0; stir = 0;
+    half sum = 0; stir = 0; trough = 0;
     for (int k = 0; k < TW_RING_COUNT; k++)
     {
         float4 r = _TWRings[k];
@@ -32,8 +32,12 @@ half TWRings(float2 xz, out half stir)
         half lines = (1.0 - smoothstep(width * 0.6, width, abs(d - radius))) + 0.85 * (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.55)));
         sum += lines * (1.0 - age) * (1.0 - age) * alive;
         stir += (1.0 - smoothstep(radius * 0.35, radius * 0.95 + 0.05, d)) * (1.0 - age) * alive;
+        // the hollow just inside the crest. Harsh critic r1: a pale ring on night water moved the luma by 0.019,
+        // under the 0.02 the capture can tell from nothing, because the pale sources are the night-dimmed foam
+        // colour. A DARK trough is a value step the night cannot take away.
+        trough += (1.0 - smoothstep(width * 0.6, width, abs(d - radius * 0.78))) * (1.0 - age) * alive;
     }
-    stir = saturate(stir);
+    stir = saturate(stir); trough = saturate(trough);
     return saturate(sum);
 }
 
@@ -89,9 +93,28 @@ half TWRainSplash(float2 xz)
     return lands * saturate(speck * 1.4 + ring * 0.7);
 }
 
+/// How much a thrown ring's crest lifts the water it stands in, and how far its trough darkens it - applied to the
+/// LIT colour, after the lighting and _TWWaterDim (water entry r7).
+///
+/// MEASURED, and the measurement is the whole point. r7's first attempt put the lift into the ALBEDO (albedo + 0.26
+/// on the crest, albedo * 0.62 in the trough) and the capture moved by 0.0196 luma - the same 0.019 the harsh critic
+/// called "the ring adds nothing", and under the 0.02 the probe counts. Night water is albedo ~0.05 times a dim
+/// moon times (1 - _TWWaterDim): an albedo step of 0.26 arrives on screen as 0.02. A ring that is to READ at night
+/// has to be added after the light, not before it.
+#define TW_RING_LIFT 0.26
+#define TW_RING_TROUGH 0.45
+
+/// The thrown ring as a value step on the lit colour: a crest brighter than this water and a trough darker than it.
+/// With no ring live both weights are 0, so every other water pixel in the game is bit-identical.
+half3 TWRingValueStep(half3 color, half thrown, half trough)
+{
+    color = lerp(color, color * TW_RING_TROUGH, trough * 0.85);
+    return lerp(color, min(half3(1, 1, 1), color + TW_RING_LIFT), thrown * 0.92);
+}
+
 /// Water colour from its depth in metres: silty margin, body, dark channel, a pale wet line at the shore and slow
 /// contour rings lapping toward it. noise (0..1) breaks the rings up; shore returns how much of the pixel is shoreline.
-half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 body, half3 deep, half3 foam, half ringAmount, out half shore)
+half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 body, half3 deep, half3 foam, half ringAmount, out half shore, out half thrownOut, out half troughOut)
 {
     half margin = 1.0 - smoothstep(0.16, 0.24, depth);
     half channel = smoothstep(0.62, 0.78, depth);
@@ -100,8 +123,9 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
     float lap = frac(depth * 3.2 + TW_WTIME * 0.11 + noise * 0.35);
     half ring = smoothstep(0.0, 0.10, lap) * (1.0 - smoothstep(0.10, 0.22, lap)) * (1.0 - smoothstep(0.12, 0.62, depth)) * ringAmount;
     half3 pale = foam * lerp(half3(1, 1, 1), TWShadeTint() * 1.6, 0.7);   // under a night mood the pale lines dim with everything else
-    half stir;
-    half thrown = TWRings(xz, stir);
+    half stir, trough;
+    half thrown = TWRings(xz, stir, trough);
+    thrownOut = thrown; troughOut = trough;
     albedo = lerp(albedo, shallow * half3(1.02, 0.86, 0.66), stir * 0.7);   // stirred-up silt clouds the water brown
     half flecks = 0;
     if (_TWClose > 0.0)
@@ -112,6 +136,8 @@ half3 TWWaterAlbedo(float depth, float2 xz, half noise, half3 shallow, half3 bod
         half fleck = step(0.83, fh) * (1.0 - smoothstep(0.18, 0.42, distance(frac(sp), float2(frac(fh * 7.1), frac(fh * 3.3)) * 0.4 + 0.3)));
         flecks = fleck * smoothstep(0.02, 0.05, depth) * (1.0 - smoothstep(0.10, 0.20, depth)) * _TWClose * (1.0 - saturate((distance(_WorldSpaceCameraPos.xz, xz) - 12.0) / 14.0));
     }
+    // the pale sources as they always were (a puddle's ring, the sea's foam): the ring's VALUE step is the caller's,
+    // applied to the lit colour with TWRingValueStep
     return lerp(albedo, pale, max(max(max(shore * 0.85, flecks * 0.6), ring * 0.5), max(thrown * 0.92, TWRainRings(xz) * 0.55)));
 }
 

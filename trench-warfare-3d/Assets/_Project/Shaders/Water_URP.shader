@@ -95,7 +95,9 @@ Shader "TW/Water (URP)"
                 half shore;
                 // Rings are water being displaced - lapping at the shore, and the ones men and shells throw. A
                 // man does not ripple a frozen puddle. The shore LINE is separate and is left alone.
-                half3 albedo = TWWaterAlbedo(depth, xz, r2.b, _Shallow.rgb, _Body.rgb, _Deep.rgb, _Foam.rgb, _Rings * (1.0 - ice), shore);
+                half thrownRing, ringTrough;
+                half3 albedo = TWWaterAlbedo(depth, xz, r2.b, _Shallow.rgb, _Body.rgb, _Deep.rgb, _Foam.rgb, _Rings * (1.0 - ice), shore, thrownRing, ringTrough);
+                thrownRing *= 1.0 - ice; ringTrough *= 1.0 - ice;   // a man does not ripple a frozen puddle
 
                 // current streaks: long pale strokes where two drifting layers agree, none over the margin
                 half streak = smoothstep(0.63, 0.68, r1.b * 0.6 + r2.b * 0.4) * _Streaks * smoothstep(0.10, 0.30, depth) * (1.0 - ice);   // long pale strokes are a current's signature
@@ -137,6 +139,9 @@ Shader "TW/Water (URP)"
                 Light mainLight = GetMainLight(TransformWorldToShadowCoord(i.positionWS));
                 half3 color = albedo * lerp(_ShadeColor.rgb * TWShadeTint(), mainLight.color, 0.5 + 0.5 * mainLight.shadowAttenuation);
                 color *= 1.0 - _TWWaterDim;   // look.waterDim (Atmosphere.NightLook.cs): at night still water is dark glass, not a pale slab; 0 by day
+                // a ring thrown into the water (a body, a dropped thing, a shell) after the light and the dim, so the
+                // night cannot take it away (water entry r7; TWWater.hlsl's TW_RING_LIFT has the measurement)
+                color = TWRingValueStep(color, thrownRing, ringTrough);
 
                 float3 view = normalize(_WorldSpaceCameraPos - i.positionWS);
                 float3 n = normalize(float3(slope.x * 0.6, 1.0, slope.y * 0.6));

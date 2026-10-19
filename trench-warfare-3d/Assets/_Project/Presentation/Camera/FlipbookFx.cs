@@ -72,6 +72,9 @@ namespace TW.Presentation.Tactical
             MineSmoke,    // a mine's column: the wreck's smoke drawn near black (it read as a shell's grey)
             // the flamethrower's hot heart (owner, 2026-10-19: "an opaque white-yellow core over the first third")
             JetCore,      // the core drawing again, banded so most of the stream lands in the white-hot band
+            // water entry r7 (harsh critic r1: "the crown is blue-white on blue water"): the column's own drawing,
+            // mostly its own ink rather than the moon's dim light, so a tint can carry a value step over the foam
+            Crown,        // the crown a body or a dropped thing throws up entering water
             Count
         }
 
@@ -224,6 +227,7 @@ namespace TW.Presentation.Tactical
             // orange towards the tip" of 2026-10-19. A second row may share a sheet name (MineSmoke shares
             // WreckSmoke's), so this costs no PNG and Ready still counts one texture per row.
             new Sheet { Name = "FireCore",  Cols = 8, Rows = 4, Frames = 22, Fire = true, Snap = true, Tint = new Color(1.42f, 0.64f, 0.16f), Low = 0.11f, High = 0.76f, Fps = 12f, Bands = new Vector4(0.01f, 0.02f, 0.12f, 0.75f), Ink = new Vector2(0.23f, 0.76f), Fill = 0.90f, Solid = true },   // JetCore
+            new Sheet { Name = "Column", Cols = 4, Rows = 4, Frames = 16, Tint = new Color(0.95f, 0.98f, 1.02f), Low = 0.22f, High = 0.80f },   // Crown: the Splash book's own drawing, its window opened down to 0.22 so more of the card inks, and its VALUE carried by the tint CombatFx.ApplyTints paints (WaterEntry.CrownTint). Lit was tried at 0.35, on the reasoning that at night `lit` is the moon's dim colour: the capture came back 0.019 DARKER than the water, because the drawing's own ink is the dark half of the card. Measured, not reasoned.
         };
 
         /// <summary>IN-5 (VFX pass): how much wider a burst's far-reading parts are drawn at a zoom: 1 up to FarGrowFrom,
