@@ -1,0 +1,15 @@
+Five rocketed men planted head first in the mud (DeathGag.Planted), one man per shell, five shells, in the battle
+scene GreyboxCorridor at the standard zoom (T1: zoom 30, yaw +21, pitch 25, 1600x900). Each is taken one second
+after that man lands, while his legs are still kicking (the kick runs three seconds, then they fold).
+Each shot is aimed at ground level under the man (aimY = RenderGround.Sample at his resting x z), so the frame
+centre is where his head went in and his legs stand 0.905 m above it. The clock is NOT held: the editor is paused
+and stepped (Tools/tw pause true, stepto), so game time stands still between the step and the shot.
+The men come to rest where the sim parks them, around x 89.5; the five z are different places along that line.
+Only ground above the water line was used: the shell holes there are flooded, and a body under water shows
+nothing of any death, let alone this one.
+
+plant_1.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 166.33, landing +1.1 s, paused-and-stepped, legs upright and kicking, mud and wire behind.
+plant_2.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 163.23, landing +1.1 s, paused-and-stepped, legs upright and kicking, a sandbag parapet behind.
+plant_3.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 151.35, landing +1.0 s, paused-and-stepped, legs upright and kicking, open churned ground behind.
+plant_4.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 116.09, landing +1.0 s, paused-and-stepped, legs upright and kicking, open churned ground behind.
+plant_5.png: T1 standard, zoom 30 yaw +21 pitch 25, focus 89.50 162.26, landing +1.1 s, paused-and-stepped, legs upright and kicking, a slope and wire behind.

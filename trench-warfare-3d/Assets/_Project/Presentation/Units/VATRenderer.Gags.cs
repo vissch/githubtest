@@ -116,12 +116,17 @@ namespace TW.Presentation.Units
         /// about VatTint.Pivot) stand DeathGags.PlantLegsAboveM above it.</summary>
         static float PlantDepth(float scale) => VatTint.UpsideDownHeight(0f, 0, scale) - DeathGags.PlantLegsAboveM;
 
-        /// <summary>Where the first planted man came to rest (his Pos, sunk): what a capture aims at (DeathLab.Planted).</summary>
-        public bool TryPlantedMan(out Vector3 at)
+        /// <summary>Where the NEWEST planted man came to rest (his Pos, sunk) and the Time.time he lands there: what a
+        /// capture aims at, and when to take it, since the still wanted is one second after he plants (DeathLab.Planted).
+        /// The newest and not the first, because a body lies for the best part of a minute, and a capture set walks one
+        /// shell at a time: "the first" kept answering with the man of the shell before.</summary>
+        public bool TryPlantedMan(out Vector3 at, out float landsAt)
         {
+            int best = -1;
             for (int k = 0; k < fallenMen.Count; k++)
-                if (fallenMen[k].Gag == (byte)DeathGag.Planted) { at = fallenMen[k].Path.Rest; return true; }
-            at = Vector3.zero; return false;
+                if (fallenMen[k].Gag == (byte)DeathGag.Planted && (best < 0 || fallenMen[k].Born > fallenMen[best].Born)) best = k;
+            if (best < 0) { at = Vector3.zero; landsAt = 0f; return false; }
+            at = fallenMen[best].Path.Rest; landsAt = ArriveOf(fallenMen[best]); return true;
         }
 
         /// <summary>A gagged body's Tint: his turns, his squash and whether it all happens about his feet (VatTint).</summary>
