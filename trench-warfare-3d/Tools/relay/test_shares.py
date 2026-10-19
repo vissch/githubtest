@@ -4,7 +4,9 @@ trench-warfare-3d/: python Tools/relay/test_shares.py
 
 The board is a folder made here; its jobs' states are worked out by the pipeline's own evaluate. Nothing is started.
 The order is tested against the day it was written for (2026-10-10): fifteen ideas in flight, none landed, and the
-runner's next pick a concept that had failed, by file name ahead of a motion one step from its end."""
+runner's next pick the one nearest its item's end, by file name among ties. A stage whose last attempt failed reads
+FAILED (docs/reference/stations.md's states table) and is no candidate at all until an input moves or someone files
+feedback on it (commit 67d6d6d2ca, [O15])."""
 import json
 import os
 import sys
@@ -83,8 +85,11 @@ def main():
         config.limits = lambda *a, **k: dict(real(*a, **k), ideas_in_flight=n)
     with_cap(3)
     got = [(u["item"], u["stage"]) for u in pipe_src.candidates(ctx)]
-    case("board jobs: the one nearest its item's end goes first, a job that just failed goes last; the old order was the file's name",
-         got == [("bbb-near", "motion"), ("ccc-mid", "build"), ("ddd-failed", "concept")] and pipe_src.next(ctx)["item"] == "bbb-near", got)
+    case("board jobs: the one nearest its item's end goes first; a stage whose last attempt failed reads FAILED and is no candidate at all",
+         got == [("bbb-near", "motion"), ("ccc-mid", "build")] and pipe_src.next(ctx)["item"] == "bbb-near", got)
+    P.cmd_feedback(P.Board(board), types.SimpleNamespace(item="ddd-failed", stage="concept", words="try again", check=None))
+    case("a FAILED stage comes back once someone files feedback on it", pipe_src.candidates(ctx)[-1]["item"] == "ddd-failed"
+         and len(pipe_src.candidates(ctx)) == 3, pipe_src.candidates(ctx))
     b = P.Board(board)
     case("in flight: an item with a stage worked and not every stage done; three are, so with a cap of three no new item is started",
          pipe_src.in_flight([P.evaluate(i, b) for i in b.items().values()]) == 3 and ("aaa-new", "concept") not in got, got)
@@ -92,7 +97,8 @@ def main():
     got4 = [(u["item"], u["stage"]) for u in pipe_src.candidates(ctx)]
     with_cap(0)
     got0 = [(u["item"], u["stage"]) for u in pipe_src.candidates(ctx)]
-    case("in flight: with room under the cap, or no cap, the new item's first step takes its place by steps left",
+    case("in flight: with room under the cap, or no cap, the new item's first step takes its place by steps left; "
+         "ddd-failed is back (feedback was filed on it above) and ties aaa-new on steps left, so the name decides",
          got4 == got0 == [("bbb-near", "motion"), ("ccc-mid", "build"), ("aaa-new", "concept"), ("ddd-failed", "concept")], (got4, got0))
     with_cap(3)
     again = pipe_src.refresh(dict(item="aaa-new", stage="concept"), ctx)
