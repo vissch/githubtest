@@ -1,0 +1,66 @@
+{
+  "subject": "review:Z015",
+  "looked_at": [
+    "git diff 64a84828f..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- Sim/Combat/ (BeamSystem.cs, DirectFire.Wrecks.cs, DirectFire.cs)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Armor.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Aura.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Blast.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatCatalogue.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatStructs.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/CombatTables.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.cs (Step, FireJob.Execute, AddSuppression)",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/Engage.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/GasSmokeField.cs",
+    "trench-warfare-3d/Assets/_Project/Sim/Combat/TargetAcquisition.cs (lines 300-385, who writes Hunt)",
+    "trench-warfare-3d/Assets/_Project/Sim/Nav/VehicleKinematics.cs (VehicleProfile, Covers/Crosses, Profiles table)",
+    "trench-warfare-3d/Assets/_Project/Sim/Units/VehicleModules.cs (MineHullMargin, line 62)",
+    "trench-warfare-3d/Assets/_Project/Sim/Match/UnitDefinitions.cs (line 491, who writes Profiles)",
+    "diff of Tests/Sim/BeamTests.cs and Tests/Sim/WreckDecayTests.cs since 64a84828f",
+    "docs/reference/decisions.md (rows 221, 291, 294 and the open questions)",
+    "docs/reference/tasks.md (the wreck and beam headings)",
+    "docs/found/look-review-z015-20261015.json",
+    ".claude/agents/tw-reviewer.md, .claude/skills/tw-review/SKILL.md"
+  ],
+  "tasks": [
+    {
+      "title": "Beam hull test falls back to a table that misses defined machines",
+      "why": "BeamSystem.cs:123 takes kinematics.Profiles when the system is there and its own `compiled` (BeamSystem.cs:67-68, VehicleProfile.ForArchetype per archetype) when it is not. ForArchetype's default is the Maw (VehicleKinematics.cs:126), so in any world without VehicleKinematicsSystem every machine that exists only as a definition gets the Maw's 3.83 m half width instead of its own - BeamTests' own setup line calls the Mercy exactly that, 1.6 m. In such a world line 189's footprint test burns a Mercy 4 m off the trail: the 2026-10-18 bug the fix removed, back silently and only there. Mines.cs:191 carries the same fallback. P2 (fragile code, two sources of one truth). No hashed value moves in a real match, where UnitDefinitions.cs:491 has filled Profiles before the first Step.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/BeamSystem.cs",
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/Mines.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a test in Assets/_Project/Tests/Sim/BeamTests.cs builds a world without VehicleKinematicsSystem (or with an empty Profiles) and asserts a Mercy 3 m off the trail is untouched: red on today's fallback, green once the two systems read one table or refuse to run without it",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "A wreck's shadow suppresses hulls it was never picked for",
+      "why": "DirectFire.Wrecks.cs:117 leaves Vehicle and Airborne out of a shelter's Teams, so a wreck is only ever picked for enemy INFANTRY behind it. The one-pass InShadow (line 189) then counts and suppresses every alive enemy in the shadow, hulls included: a tank parked behind a wreck can be the only body counted, which keeps the shot alive (line 164 would otherwise return and spend no cooldown) and loads Suppression on a hull. AtWreck itself reads a hull's Suppression at line 138 and in its accuracy at line 167, so machine-gun fire at scrap now quietly gates a machine's own fire at wrecks. The set that makes a wreck worth firing at is not the set the walk keeps down. P3.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/DirectFire.Wrecks.cs"
+      ],
+      "lane": "sim",
+      "role": "review-fix",
+      "done_when": "a case in Assets/_Project/Tests/Sim/WreckDecayTests.cs with one hull alone in a wreck's shadow and the enemy infantry on its flank: the gun fires at no wreck and the hull gains no suppression - red before, green after",
+      "risk": [false, true, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Burning clears the whole nav grid every tick anything burns",
+      "why": "Burning.cs:161 writes 0 over all of cellFire (map.NavWidth x map.NavLength bytes, 65k on a 512 m map at NavCellSize 2) and line 162 then marks the handful of cells in Cells. It runs every tick from the first fire to the last, while Cells is almost always under a hundred entries. Clearing only the cells marked last tick is the same answer for a fraction of the writes. P3, cost only; nothing hashed moves (cellFire is transient, Burning.cs:65).",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Sim/Combat/Burning.cs"
+      ],
+      "lane": "sim",
+      "role": "optimizer",
+      "done_when": "BurningSystemTests still green and SimTickBenchTests' Report_TheSimTickCost shows the burning tick's cost no higher; a test asserts a man standing where a cell burnt out last tick does not catch",
+      "risk": [false, true, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
