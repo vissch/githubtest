@@ -277,6 +277,7 @@
 .tw-portrait-HeBarrage { background-image: url("Portraits/HeBarrage.png"); }
 .tw-portrait-ChlorineGas { background-image: url("Portraits/ChlorineGas.png"); }
 .tw-portrait-ParaDrop { background-image: url("Portraits/ParaDrop.png"); }
+.tw-portrait-Sapper { background-image: url("Portraits/Sapper.png"); }
 
 /* ---- corners: each component clips to the radius UiSkinGenerator paints into its sprite (v3) ------------------ */
 .tw-keycap, .tw-tab, .tw-list-row { border-radius: var(--tw-radius); }

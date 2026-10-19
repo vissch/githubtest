@@ -409,7 +409,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Shaders/VAT_URP.shader`, bake: `Editor/VATBaker.cs` + `Editor/InfantryClipTable.cs` (menu TW/VAT/Bake Infantry).
   The Sapper's own look is `Presentation/Camera/CombatFx.SapperKit.cs` (`CombatFx.SapperKitPieces`/`DrawSapperKit`,
   `SapperKitMax`): a pack and two charges drawn over the baked soldier, and his lay-charge pose (`AnimationController`,
-  `Clip.KneelInspect`, a stand-in clip) while `SapperSystem.Phase` is `Laying`.
+  `Clip.KneelInspect`, a stand-in clip) while `SapperSystem.Phase` is `Laying`. His UI portrait is his own placeholder
+  now (`UiSkinGenerator`, `UI/Skin/Portraits/Sapper.png`), no longer the Engineer's.
 - **Tests:** VatAssetTests, VatAtlasMemoryTests, VatEarlyZTests, SapperLookTests (his kit's shape, his lay-charge pose,
   and that his tooltip is no longer a stand-in's), DeathVarietyTests (VatPad char bits, the tumble's pitch),
   VatTintTests (the Tint layout, C# against the shader), FallenFlightTests (the gagged body's path),

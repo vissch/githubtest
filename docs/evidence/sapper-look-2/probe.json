@@ -1,0 +1,13 @@
+{
+  "engineer": "engineer.png",
+  "engineer_again": "engineer-again.png",
+  "sapper": "sapper.png",
+  "ground": "ground.png",
+  "man_px": 809,
+  "kit_px": 144,
+  "noise_px": 0,
+  "silhouette_diff_vs_engineer": 0.17799752781211373,
+  "noise_frac": 0.0,
+  "threshold": 0.08,
+  "noise_max": 0.02
+}
