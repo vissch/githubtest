@@ -616,10 +616,12 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   FarGrowTests. `TracerStills` (`Tests/Stills/`, explicit): the night tracer moment filmed twice, today's beams and
   tracers inside the smoke, same seed and step, for the side-by-side decision brief (`docs/reference/decisions.md`,
   2026-10-08). `DropLandingDustStills` (`Tests/Stills/`, explicit, run by name with a graphics device): a ParaDrop
-  called in GreyboxCorridor and shot at zoom 240 before and after its landing tick, lamps (`lights.realLamps 43`)
-  and the weather clock pinned so the two frames differ only by the drop; `docs/evidence/paradrop-inbound-marker-r2/
-  dustprobe2.py` measures the landing dust in a window centred on `CaptureRig.Rig.Mark`'s own screen projection of
-  the landing point (`FarGrowTests.DropLandingDustIsSeenAt240` guards the puff's size the same way).
+  called in GreyboxCorridor and shot at zoom 240 before and after its landing tick, lamps (`lights.realLamps 43`),
+  the weather clock and the support disc (`CombatFx.ShowOverlays = false`) pinned so the frames differ only by the
+  drop, plus a same-build noise pair at the landing tick and a puff-hidden still (`CombatFx.HideBookForTests`);
+  `docs/evidence/paradrop-inbound-marker-r5/dustprobe3.py` measures the landing dust against that noise floor, with
+  the puff split from the landed men, in a window centred on `CaptureRig.Rig.Mark`'s own screen projection of the
+  landing point (`FarGrowTests.DropLandingDustIsSeenAt240` guards the puff's size the same way).
 - **The AOSA look knobs** (`fx.*`, read in `Awake`/`Start` from `Presentation/Core/Knobs.cs`): the night column, soil
   heave and smoke in the shell-burst handler (`fx.columnSoil`, `fx.columnCap`, `fx.columnPlay`, `fx.smokeNight*`; the VFX
   pass's burst recipes, `fx.recipes`, on by default since 2026-10-07, 0 = the old burst, `CombatFx.Recipes.cs`; the medic's glint behind it, `CombatFx.Support.cs`, the gas and smoke banks, `CombatFx.Banks.cs`, the incoming shells, `CombatFx.Barrage.cs`; fire from far off, halo and thinning, `FlipbookFx.FarFire.cs`; the smoke weight and lean, `fx.smokeWeight`/`fx.smokeLean`, `FlipbookFx.Smoke.cs`; the fire in a shell burst, the bloom on the hole and the pockets in its cloud, `fx.shellFire`, the grit `fx.shellGrit`, `CombatFx.ShellFire.cs`; the census of which events the picture draws most, `VfxEventCensusTests.cs` (explicit, run by name); each class's small arms, `fx.classArms`, `CombatFx.Weapons.cs`; what a gun does at play zoom - the muzzle flash's cel, roll and size per shot, the muzzle's own short cloud and the dust where a round strikes a man, `CombatFx.GunFx.cs`, guarded by `GunFxTests.cs`; each machine's gun and the mortar's arc, the Salvo's ripple and each gun's own piece near the eye, `TankRenderer.Guns.cs`; each weapon's own drawing among the men and the close assault's thrown bundle, `CombatFx.Close.cs`; each burst by what made it (mortar, rocket, calibre, mine, tripwire), `CombatFx.Bursts.cs`; the effects' quality tier (Low/Medium/High/Epic: every budget, the close-up reach; the knob `fx.quality`, the setting EFFECTS DETAIL), `Presentation/Core/FxQuality.cs`, tested in `FxQualityTests.cs`), when a

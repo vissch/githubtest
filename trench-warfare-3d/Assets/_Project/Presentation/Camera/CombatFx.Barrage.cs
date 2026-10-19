@@ -118,9 +118,7 @@ namespace TW.Presentation.Tactical
         void OnDropInbound(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
-            var cam = Camera.main;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f;
-            float grow = FlipbookFx.FarGrow(zoom);
+            float grow = FlipbookFx.FarGrow(ViewEye.Zoom);
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
             books.Add(FlipbookFx.Book.Smoulder, at, 6f * grow, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
             books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
@@ -140,10 +138,8 @@ namespace TW.Presentation.Tactical
         void OnDropLanded(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
-            var cam = Camera.main;
-            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(ViewEye.Zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
         }
     }
 }
