@@ -1,0 +1,18 @@
+{
+  "ring_px_pre": 0,
+  "ring_px_land": 326,
+  "noise_px": 0,
+  "ring_px_post": 191,
+  "ring_centroid_off_m": 0.032,
+  "ring_peak_luma_pre": 0.0112,
+  "ring_peak_luma_land": 0.1083,
+  "ring_peak_luma_post": 0.1038,
+  "ring_peak_luma_noise": 0.0109,
+  "region_px": 13456,
+  "mark_px_x": 799.99994,
+  "mark_px_y": 449.99991,
+  "mark_px_per_m": 19.22227,
+  "luma_threshold": 0.02,
+  "window_m": 3.0,
+  "pass": true
+}
