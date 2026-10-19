@@ -165,6 +165,9 @@ namespace TW.Presentation.Tactical
         Material tracerMat, bodyMatA, bodyMatB, burstMat, markMine, markTheirs, aimMat;
         readonly Material[] gasMats = new Material[3];
         FlipbookFx books;   // the drawn bursts, dust, hits and flares; without its textures the older painted meshes stand in
+        /// <summary>Hide (or restore) one book's cards without killing them, so a stills test can diff a frame
+        /// against itself with and without a single effect.</summary>
+        public void HideBookForTests(FlipbookFx.Book b, bool hide) => books.HiddenBook = hide ? (int)b : -1;
         DebrisRenderer debris;   // what a blast breaks off: clods, splinters, a tree's crown, a man's limbs and kit (GPU-side arcs)
         Vector3 lastBlast; float lastBlastAt = -10f;   // the newest burst: what broke this tick fell away from it
         static readonly Color Mud = new Color(0.38f, 0.33f, 0.27f), Bark = new Color(0.36f, 0.30f, 0.24f), Charred = new Color(0.20f, 0.17f, 0.14f);

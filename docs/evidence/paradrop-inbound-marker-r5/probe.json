@@ -1,0 +1,15 @@
+{
+  "landing_dust_px_z240": 34,
+  "noise_blob_px": 0,
+  "luma_delta": 0.03443,
+  "noise_luma_delta": 0.00202,
+  "yellow_px_delta": 0,
+  "dust_minus_nopuff_px": 1442,
+  "centre_off_px": 15.66,
+  "yellow_before": 0,
+  "yellow_after": 0,
+  "mark_px": [
+    799.99994,
+    440.7756
+  ]
+}
