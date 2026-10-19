@@ -58,7 +58,6 @@ namespace TW.Presentation
                 case InfantryArchetype.Sentry: return "MG";
                 case InfantryArchetype.AtRifle: return "Sniper";
                 case InfantryArchetype.Sapper: return "Engineer";
-                case InfantryArchetype.Flamethrower: return "Assault";
                 default: return null;
             }
         }
