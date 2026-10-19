@@ -91,6 +91,22 @@ namespace TW.Presentation.Tactical
             if (m != null) m.SetFloat("_BurstLit", fire);
         }
 
+        /// <summary>Phase gas-smoke-night: the two ability banks at night (CombatFx.SmokeScreenNightKnob, GasNightKnob).
+        /// The smoke screen is painted at a fixed luma the moon can neither dim nor turn blue, as the night smoke is;
+        /// the gas bank is only lifted, never painted — its sheet puts its middle ink in the light band on purpose
+        /// (Lit 0.75, High 0.60), which is what makes it read green and not grey. Called after the biome's tints on a
+        /// moonlit field only (CombatFx.ApplyTints); screen 0 and gas 1 set nothing.</summary>
+        public void NightBanks(float screen, float gas, float warm)
+        {
+            if (screen > 0f) PaintNight(mats[(int)Book.SmokeBank], NightTint(screen, warm));
+            if (gas > 1f)
+            {
+                var m = mats[(int)Book.GasBank];
+                var t = CombatFx.GasBankNight;
+                if (m != null) m.SetColor("_Tint", new Color(t.r * gas, t.g * gas, t.b * gas, 1f));
+            }
+        }
+
         public static float SmokeLife(float weight) => Mathf.Lerp(0.6f, 1f, Mathf.Clamp01(weight));
 
         /// <summary>A smoke card's width, height, life and opacity as it is born (height 0: the drawing's own aspect, taken

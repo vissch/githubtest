@@ -1,6 +1,6 @@
 {
-  "contrast_median_day": 0.01223,
-  "contrast_median_night": 0.33882,
+  "contrast_median_day": 0.01238,
+  "contrast_median_night": 0.38366,
   "definition": "contrast = median over the centre 40 % x 30 % box of |Lc - Lg| / (Lc + Lg), Lg the median luma of the left and right tenth over the same rows; luma Rec.709 0-1 (CaptureRig's scale); zoom 30 stills",
   "ground_median_day": 0.77175,
   "ground_median_night": 0.12558,
@@ -11,19 +11,19 @@
       "ground_median": 0.77175
     },
     "gas_night": {
-      "cloud_median": 0.39858,
-      "contrast_median": 0.5224,
+      "cloud_median": 0.40902,
+      "contrast_median": 0.53106,
       "ground_median": 0.12558
     },
     "smoke_day": {
-      "cloud_median": 0.75159,
-      "contrast_median": 0.01223,
-      "ground_median": 0.75416
+      "cloud_median": 0.75107,
+      "contrast_median": 0.01238,
+      "ground_median": 0.74826
     },
     "smoke_night": {
-      "cloud_median": 0.41019,
-      "contrast_median": 0.33882,
-      "ground_median": 0.20397
+      "cloud_median": 0.54207,
+      "contrast_median": 0.38366,
+      "ground_median": 0.24485
     }
   }
 }
