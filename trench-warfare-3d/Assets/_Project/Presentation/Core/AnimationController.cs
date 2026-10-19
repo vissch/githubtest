@@ -567,7 +567,7 @@ namespace TW.Presentation
             // the stance the situation implies (Wanted): the sim's, damped against its target flicker and held by a routine
             byte want = (byte)simStance;
             if (simStance == Stance.Vault || simStance == Stance.FireStep || simStance == Stance.Sprint) want = (byte)Stance.Standing;
-            if (arche == 3 && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee
+            if ((arche == 3 || arche == InfantryArchetype.AtRifle) && inTrench && want == (byte)Stance.Standing && simStance == Stance.FireStep) want = (byte)Stance.Crouch;   // the sniper fires from the knee; the AT rifle too (atrifle-look)
             // a shell crater (docs/15 section 8): stopped in the bowl with a target or under fire, he goes down into it
             // and fires lying on its wall. The sim already counts the bowl as cover; this is its picture.
             // He goes in only once he has stopped half a second (a one-tick stop in a queue is not a stop) and comes out
@@ -840,7 +840,7 @@ namespace TW.Presentation
                 // the pistol (the shield bearer) snaps a quick shot rather than shouldering a rifle for a second
                 // Prone, the automatics fire the prone loop (the 0.9 s one-shot restarted three times a second stuttered);
                 // at a parapet they shoulder it (the stooped hip burst would put the muzzle under the sandbags).
-                Clip fire = prone ? (auto ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : auto && !inTrench ? Clip.FireStoop : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;
+                Clip fire = prone ? (auto ? Clip.FireMG : Clip.FireProne) : low ? Clip.FireKneel : auto && !inTrench ? Clip.FireStoop : arche == InfantryArchetype.AtRifle ? Clip.FireProne : bolt || arche == 13 ? Clip.FireSnap : Clip.FireStand;   // the AT rifle off his bipod
                 // and his own pace through it, within a tenth either way, so repeated shots keep drifting apart instead of
                 // falling back into step with his neighbour's (infantry-firing, 2026-10-15)
                 Start(i, ref s, fire, Rung.Fire, (i == FollowSlot ? "fires at " + shotAt[i] : null), 0.9f + 0.2f * Hash(s.Seed, 23u), 0.05f);

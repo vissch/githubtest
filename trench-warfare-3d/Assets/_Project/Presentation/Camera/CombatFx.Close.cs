@@ -17,7 +17,7 @@ namespace TW.Presentation.Tactical
     public sealed partial class CombatFx
     {
         /// <summary>What a class carries, as drawn.</summary>
-        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg }
+        public enum ArmsKind : byte { Rifle, Smg, Mg, Sniper, Pistol, Carbine, MachinePistol, HullMg, AtRifle }
 
         public static ArmsKind KindOf(byte archetype)
         {
@@ -26,6 +26,7 @@ namespace TW.Presentation.Tactical
                 case InfantryArchetype.Assault: return ArmsKind.Smg;
                 case InfantryArchetype.Machinegunner: return ArmsKind.Mg;
                 case InfantryArchetype.Sniper: return ArmsKind.Sniper;
+                case InfantryArchetype.AtRifle: return ArmsKind.AtRifle;
                 case InfantryArchetype.Officer: return ArmsKind.Carbine;
                 case InfantryArchetype.Shield: return ArmsKind.Pistol;
                 case InfantryArchetype.Jetpack: return ArmsKind.MachinePistol;
@@ -44,6 +45,7 @@ namespace TW.Presentation.Tactical
         {
             switch (kind)
             {
+                case ArmsKind.AtRifle: return 1.4f;
                 case ArmsKind.Sniper: return 1.35f;
                 case ArmsKind.HullMg: return 1.15f;
                 case ArmsKind.Mg: return 1.05f;
