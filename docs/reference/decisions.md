@@ -302,6 +302,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The barrage A/B cannot reach `baseline_blue_share_t1` 0.10 on GreyboxCorridor (2026-10-19, lane
+  `lane/show/ability-fx-captures-r5`):** the two r5 fixes are built and measured - overlays off in every shot
+  (`CaptureRig.QuietFrame()`; `outside_bbox_luma_diff` 1.96 against the 3 allowed, where r4's marker put
+  `effect_area` at 0.8097) and a baseline run that keeps its own plate and both sidecars (`pose_error_m` 0). The
+  fifth number does not come: measured 0.0183 against the 0.10 asked for. Two reasons, both measured, neither a
+  threshold to be moved. (1) Open, truly dry ground on this field is at most 13% damp cells (the whole field was
+  scanned: 0.225 over 12 m at best, and every damper point is inside 25 m of real water, which makes BOTH codes
+  splash - the first take came back byte-identical). So one or two of a dozen impacts draw the old plume. (2) The
+  authored `BiomeProfile.SplashTint` (0.62, 0.70, 0.82) leads green by 31/255, under the probe's 38/255 blue-lead
+  rule, so even a full plume is mostly not "blue" by this measurement. Options: (a) measure the plume by its card
+  shape and tint distance from `SplashTint`, not by a blue lead - the metric then sees what the eye sees;
+  (b) lower `BLUE_LEAD` to about 25 and re-measure both sides; (c) shoot the A/B on a field with wide damp ground
+  instead of GreyboxCorridor. **Default taken:** nothing is claimed as a pass - the stills, the sidecars and the
+  honest `probe.json` (NOT OK on that one row) are committed, the guard test `BarrageShotsHideTheAreaMarker` is NOT
+  committed, because its fifth assert would be red, and no landing happens on this unit until the owner picks.
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
