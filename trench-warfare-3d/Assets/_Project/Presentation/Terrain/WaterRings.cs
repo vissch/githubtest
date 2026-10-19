@@ -20,7 +20,18 @@ namespace TW.Presentation.Terrain
         int next, cursor;
         float nextStep;
         bool subscribed;
-        static readonly int RingsId = Shader.PropertyToID("_TWRings"), NowId = Shader.PropertyToID("_TWNow");
+        static readonly int RingsId = Shader.PropertyToID("_TWRings"), NowId = Shader.PropertyToID("_TWNow"),
+            ClockId = Shader.PropertyToID("_TWWaterClock");
+
+        /// <summary>Freeze the water's own animation (lapping, drift, raindrops) at this second, so two capture runs
+        /// seconds apart see the same sheet and a probe can measure what changed. 0 lets it run. The caller puts it
+        /// back, like Atmosphere.PinnedClock.</summary>
+        public static float PinnedClock;
+
+        static WaterRings() => SceneStatics.Register(nameof(WaterRings), () => PinnedClock = 0f);
+
+        /// <summary>What to push to the shader this frame: the pinned second when one is set, else the live one.</summary>
+        public static float ClockToPush(float now) => PinnedClock > 0f ? PinnedClock : now;
 
         void Awake()
         {
@@ -32,6 +43,7 @@ namespace TW.Presentation.Terrain
             if (subscribed && Host != null) Host.Events.OnEvent -= OnSimEvent;
             SceneHooks.IsWater = null; SceneHooks.WaterY = null; SceneHooks.AddRing = null;
             Awake(); Shader.SetGlobalVectorArray(RingsId, rings);
+            Shader.SetGlobalFloat(ClockId, 0f);   // no live sheet: the water goes back to its own clock
         }
 
         public void Add(float x, float z, float size)
@@ -72,6 +84,7 @@ namespace TW.Presentation.Terrain
             }
             Shader.SetGlobalVectorArray(RingsId, rings);
             Shader.SetGlobalFloat(NowId, Time.time);
+            Shader.SetGlobalFloat(ClockId, ClockToPush(Time.time));
         }
     }
 }

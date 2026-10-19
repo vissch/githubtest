@@ -83,7 +83,7 @@ Shader "TW/Water (URP)"
                 // domain scale 0.32 is about 0.13 in distance-field units, and 0.9 puts the perturbed normal
                 // in the range the ripple map used to supply. It wants a capture before anyone trusts it.
                 const float IceTap = 0.42, IceBuckle = 0.9;
-                float2 drift = _Flow.xy * _Time.y * (1.0 - ice);
+                float2 drift = _Flow.xy * TW_WTIME * (1.0 - ice);
                 // two ripple layers riding the current at different speeds; the second runs a little across it
                 half4 r1 = SAMPLE_TEXTURE2D(_RippleMap, sampler_RippleMap, (xz - drift) / 6.0);
                 half4 r2 = SAMPLE_TEXTURE2D(_RippleMap, sampler_RippleMap, (xz - drift * 0.55 + float2(-drift.y, drift.x) * 0.3) / 15.0 + 0.41);
