@@ -1,0 +1,82 @@
+{
+  "subject": "look:hud",
+  "looked_at": [
+    "Captures/hud-1019/base-1920.png + .json (1920x1080, the shipping default; shotstats: luma_mean 50.1, luma_p5 11, luma_p50 38, luma_p95 121, blown_pct 0.0, black_pct 1.82, warm_pct 7.44, grid [[52,76,63],[38,59,51],[37,37,39]])",
+    "Captures/hud-1019/base-1280.png + .json (1280x720; shotstats: luma_mean 49.0, luma_p95 118, blown_pct 0.0, warm_pct 6.84)",
+    "Captures/hud-1019/base-2560.png + .json (2560x1080 ultrawide; shotstats: luma_mean 52.3, luma_p95 129, blown_pct 0.0; two order clusters drawn at once, both reading 0 MEN)",
+    "Captures/hud-1019/armed-he.png + .json (HE barrage armed with HudController.ToggleArm, tooltip and banner forced visible by script; shotstats: luma_mean 55.5, luma_p5 15, luma_p95 131, blown_pct 0.0, black_pct 0.11)",
+    "Captures/hud-1019/armed-he-1280.png + .json, tooltip.png + .json, banner.png + .json, hint.png + .json",
+    "Captures/hud-1019/losing.png (the run ended DEFEAT, 'OUR HQ HAS FALLEN AT 30:41'; that is the debrief plate, not the match HUD, and nothing wrong was found on it)",
+    "Captures/hud-1019/world-twin.json (the no-HUD CaptureRig twin at the same pose: pose_error_m 0, luma_mean 0.17764, luma_p95 0.26462, blown_frac 0.00003, black_frac 0.0077, men_in_frame 0, contrast_median -1, contrast_p10 -1 - no man in frame, so its figure/ground rows say nothing and no finding here rests on them)",
+    "Captures/hud-1019/crop-base-1920-{gauges,objectives,minimap-bezel,speed-bar,group-support,group-infantry,bar,orders}.png and crop-base-1280-{gauges,objectives,minimap-bezel,group-support}.png and crop-armed-he-collide.png (2x crops cut from the probe rects in each capture's own sidecar)",
+    "probe rects, base-1920.png.json verbatim: gauges [14,14,264,160], gauge-silver [28,24,236,44], gauge-men [28,73,236,43], gauge-time [28,121,236,43], objectives [14,184,264,263], minimap-bezel [1455,14,448,169], speed-bar [1619,193,284,62], bar [56,837,1807,229], group-infantry [69,843,1225,214], group-armour [1334,843,517,96], group-support [1334,961,517,96], orders [1139,708,408,113]; armed-he.png.json adds tooltip [836,687,247,115] and banner [0,130,1920,120]; armed-he-1280.png.json has tooltip [557,457,167,77] and group-support [888,640,342,65]",
+    "TW.Editor.SimProbe.Match() verbatim: \"seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 36889 mission ''\"",
+    "live probe over SimHost.Local.World, three reads across the run: \"tick 4194 t0 alive 1 t1 alive 2 silver0 719 silver1 654\"; \"tick 13349 t0 alive 1 t1 alive 2 silver0 1634 silver1 1569\"; \"tick 36889 t0 alive 0 t1 alive 23 silver0 3988 silver1 2483\"",
+    "pixel samples read out of crop-base-1920-minimap-bezel.png (2x crop of rect [1455,14,448,169]): camera view box (242,166,72); enemy trench line (181,82,58) at two points; own trench line (200,201,198); minimap ground (40,38,35)",
+    "trench-warfare-3d/Assets/_Project/UI/HudView.cs (CardRefs, Build, SetPortrait, BindSupportCard, ShowHint, BarFit)",
+    "trench-warfare-3d/Assets/_Project/UI/HudLayout.cs (CardPx 72, InfantryCardPx 180, MinimapScale, MinimapBezelPx, TooltipDelaySeconds, BannerSeconds)",
+    "trench-warfare-3d/Assets/_Project/UI/HudController.cs (ToggleArm, Deploy, the gauge headings that live only in hover tips at :175)",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss:137 (.tw-card__portrait, inset 6px, scale-to-fit) and :250-277 (one .tw-portrait-<name> rule per unit)",
+    "trench-warfare-3d/Assets/_Project/UI/Skin/Portraits/Breaker.png (the placeholder artwork itself: a grey question mark on a dark disc, filling its 256 px canvas)",
+    "trench-warfare-3d/Assets/_Project/Editor/UI/HudCapture.cs (the Probes list and the sidecar rects) and Assets/_Project/Editor/CaptureRig.cs:355 (the Shot signature)",
+    "docs/found/look-look-hud-20261016.json and look-look-first-assault-20261019.json: four findings re-checked and still true in this run, so deliberately NOT repeated as tasks - the minimap draws no unit dots (crop-base-1920-minimap-bezel.png is empty of dots at tick 36889 with 23 enemy alive), .hud-hint has no backing plate, the six support cards carry no distinct portrait, and the men gauge is unlabelled (crop-base-1920-gauges.png shows a grey mound icon and '1 vs 2', no word)",
+    "docs/reference/decisions.md rows 2026-09-23 (placeholder card art now, artist textures later) and 2026-09-27 (the battle bar may shrink to 0.91 at 16:9) - both already decided, so neither is reported here; docs/reference/tasks.md, the 'Battle HUD (UI Toolkit, the live one)' heading, checked for queued overlap"
+  ],
+  "tasks": [
+    {
+      "title": "Keep the aim hint clear of the tooltip and the order cluster",
+      "why": "MEASURED, Captures/hud-1019/armed-he.png and the crop crop-armed-he-collide.png (band x 700-1560, y 670-830): with HE armed, the aim hint 'Click the map to fire.  Tab changes the pattern.  Esc or right click cancels.' runs underneath the tooltip plate (sidecar rect tooltip [836,687,247,115]), so its first three words are painted over and the orange cost '25' sits on top of the next word. The same line then crosses the order cluster (orders [1139,708,408,113]) and the cluster's '0 MEN' caption. Four HUD elements share one 40 px band at y around 790. That hint is the only text telling a player how to fire the ability he just armed, and arming by clicking the card leaves the pointer on that card, so the tooltip is up at exactly that moment: he cannot read the one instruction that matters. Confirmed again at 1280x720 in armed-he-1280.png, where the tooltip is [557,457,167,77] and the hint still crosses it. GUESS: the hint and the tooltip are both laid out from the bottom of the orders layer with nothing reserved between them.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uxml",
+        "trench-warfare-3d/Assets/_Project/UI/Resources/Hud/BattleHud.uss",
+        "trench-warfare-3d/Assets/_Project/UI/HudView.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A PlayMode test arms an off-map ability and shows the tooltip at the same time, then asserts the hint element's worldBound does not intersect the tooltip's, the orders cluster's or the cluster caption's; plus a fresh HudCapture.Shoot in that state at 1920x1080 and at 1280x720 whose sidecar rect for 'tooltip' does not overlap the hint. It fails today at both sizes.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Stop the cost and hotkey chips covering the small cards' portraits",
+      "why": "MEASURED, crop-base-1920-group-support.png and crop-base-1280-group-support.png (rects group-support [1334,961,517,96] and [888,640,342,65]): on every 72 px card the hotkey chip and the cost chip sit over the top third of the portrait. Where the portrait is the placeholder, all that survives is a grey hook. In crop-base-1920-group-support.png BARRAGE, GAS, CREEP, SMOKE, STRAFE and BEAM each show the same unrecognisable hook, and BREAKER in the ARMOUR row shows it too, while the very same placeholder on the 180 px infantry cards (OFFICER, SHIELD, ENGINEER in base-1920.png) renders as a whole, legible question mark. So the fault is the small card cropping its own art, not the art being a placeholder, which was decided on 2026-09-23. MAW, PINCER and BANNER have real portraits at 72 px and lose their top third to the chips as well. Seven of the sixteen cards on the bar read as the same grey smear at a glance, and the support row is where a player picks a barrage from a gas cloud under the clock. Confirmed at 1920x1080, 1280x720 and 2560x1080.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss",
+        "trench-warfare-3d/Assets/_Project/UI/HudView.cs",
+        "trench-warfare-3d/Assets/_Project/UI/HudLayout.cs"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A PlayMode test walks every CardRefs on the bar and asserts the hotkey chip's and the cost chip's worldBound do not overlap the portrait element's worldBound; plus a fresh HudCapture.Shoot at 1920x1080 whose crop of each card rect, taken from that capture's own sidecar, shows the whole placeholder glyph. It fails today on all four ARMOUR and all six SUPPORT cards.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Mark the six objectives and both HQs on the minimap",
+      "why": "TWO-VIEW, crop-base-1920-minimap-bezel.png and crop-base-1280-minimap-bezel.png read against the OBJECTIVES panel in those same two frames: the panel names six places (OUR MAINLINE, OUR RESERVELINE, OUR HQ, ENEMY MAINLINE, ENEMY RESERVELINE, ENEMY HQ) and the minimap marks none of them. It draws four trench ribbons, two white at the left and two red-orange at the right, plus the camera box, and no HQ, no objective pip and no label anywhere inside the 448x169 px bezel. A player reading 'OUR HQ' in the list has nothing to look at, and when that HQ falls he learns it only from the debrief (Captures/hud-1019/losing.png: 'OUR HQ HAS FALLEN AT 30:41'). The minimap is the one element meant to answer where the match is being decided; today it answers only where the trenches lie. This is a separate fault from the already-reported missing unit dots: the fixed objectives never appear on it either.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/HudMinimap.cs",
+        "trench-warfare-3d/Assets/_Project/UI/ObjectiveTracker.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.components.uss"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A PlayMode test asserts the minimap holds one marker element per objective in the match's objective list, each at that objective's mapped cell, and that a marker takes a different class per owner; plus a fresh HudCapture.Shoot whose crop of the minimap-bezel rect shows six markers.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Separate the minimap camera box from the enemy trench colour",
+      "why": "MEASURED, pixel samples out of crop-base-1920-minimap-bezel.png (2x crop of rect [1455,14,448,169]): the camera view box is (242,166,72), hue about 33 degrees; the enemy trench lines are (181,82,58), hue about 12 degrees; our own trench is neutral (200,201,198) and the ground is (40,38,35). The map therefore carries exactly two warm marks, 21 degrees of hue apart, and one means 'you are looking here' while the other means 'the enemy'. On a 169 px tall map at a glance they read as one family, and the same amber (242,166,72) is also every number in the gauges, so one orange carries three meanings on screen at once. Our own side gets the only cold, neutral mark on the map, which is the wrong way round: the player's own line should read first. Confirmed in base-1920.png, base-1280.png and base-2560.png.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/UI/HudMinimap.cs",
+        "trench-warfare-3d/Assets/_Project/UI/Skin/dustfront.tokens.uss"
+      ],
+      "lane": "show",
+      "role": "lane",
+      "done_when": "A test asserts the view-box colour and the enemy-line colour differ by at least 60 degrees of hue or by a clear value step, and a fresh HudCapture.Shoot crop of the minimap-bezel rect samples the two colours that far apart.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
