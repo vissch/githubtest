@@ -18,7 +18,7 @@ namespace TW.Tests
             const float r = 8f, columnScale = 1f, lookColumn = 1f;
 
             float wet = CombatFx.ColumnWidth(r, true, columnScale, 1f, lookColumn, false);
-            Assert.AreEqual(10f, wet, Tol, "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] wet: 8 * 1.25");
+            Assert.AreEqual(18.4f, wet, Tol, "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] wet: 8 * 2.3 - the water crown is wider than dry earth (ability-fx-captures-r3-2-2), not 60 % of it");
 
             float dryDay = CombatFx.ColumnWidth(r, false, columnScale, 1f, lookColumn, true);
             Assert.AreEqual(11.76f, dryDay, Tol, "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] dry day: 8 * 2.1 * 0.7 (DayColumnWidth)");
@@ -42,7 +42,7 @@ namespace TW.Tests
         public void Source_EveryBranchDrawsTheOneWidth()
         {
             string combat = System.IO.File.ReadAllText(System.IO.Path.Combine(Application.dataPath, "_Project", "Presentation", "Camera", "CombatFx.cs"));
-            Assert.AreEqual(0, Count(combat, "(damp ? 1.25f : 2.1f)"), "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] the product is no longer spelled out in CombatFx.cs");
+            Assert.AreEqual(0, Count(combat, "(damp ? 2.3f : 2.1f)"), "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] the product is no longer spelled out in CombatFx.cs");
             Assert.AreEqual(0, Count(combat, "DayColumnWidth"), "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] the day factor is folded into ColumnWidth, not CombatFx.cs");
             Assert.AreEqual(3, Count(combat, ", p, columnWidth,"), "[found-compute-the-burst-column-s-width-once-not-tw-20261018-3] the soil, cap and ordinary Adds all draw columnWidth");
         }
