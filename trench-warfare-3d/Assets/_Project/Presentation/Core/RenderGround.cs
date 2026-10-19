@@ -101,6 +101,8 @@ namespace TW.Presentation
         public static float CloseUp;
         /// <summary>Is there standing water here? (WaterRings)</summary>
         public static System.Func<float, float, bool> IsWater;
+        /// <summary>The height of the water's surface at x, z; the bed where there is none. (WaterRings)</summary>
+        public static System.Func<float, float, float> WaterY;
         /// <summary>Open a ring on the water: x, z, size in metres. (WaterRings)</summary>
         public static System.Action<float, float, float> AddRing;
         /// <summary>Throw some sparks from a point. (CombatFx)</summary>
@@ -165,7 +167,7 @@ namespace TW.Presentation
         public static void Reset()
         {
             CloseUp = 0f; TanksDrawn = false; SmokeSources.Clear();
-            IsWater = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
+            IsWater = null; WaterY = null; AddRing = null; Sparks = null; Biplane = null; VehicleTracks = null; VehicleGunPort = null;
             DrawnWreck = null; IsTankSlot = null; Flash = null; FireLight = null; FirePool = null; CookOff = null; FootFall = null; AimPreview = null;
             MachineGlows = null; MachineLight = null; LampOut = null; Standing = null;
         }
