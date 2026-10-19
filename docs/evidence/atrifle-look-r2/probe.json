@@ -1,0 +1,14 @@
+{
+  "silhouette_iou_vs_sniper": 0.4314,
+  "mask_px_atrifle": 5023,
+  "mask_px_sniper": 5260,
+  "pose_error_m_max": 0.0,
+  "threshold_luma": 0.04,
+  "window_xywh": [
+    640,
+    150,
+    320,
+    370
+  ],
+  "pass": true
+}
