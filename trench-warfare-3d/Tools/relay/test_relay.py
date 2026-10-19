@@ -1756,6 +1756,33 @@ class Record(Repo):
         self.assertEqual((stop["run_usd"], stop["run_usd_unpriced"], stop["now_on"]), (0, 1, "u1"))
         self.assertEqual(stop["reason_kind"], "leg")
 
+    def test_a_stop_record_is_written_when_the_days_spend_cannot_be_counted(self):
+        # [found-a-stop-record-is-lost-when-the-day-s-spend-c-20261018-0] the day's figures are not the record
+        self.queue("u1")
+        self.script(self.GOOD)
+        real_finish, real_spent, state = runner.Run.finish, ledger.spent, {"on": False}
+
+        def boom(*a, **kw):                        # an unreadable board folder, once the unit has its verdict
+            if state["on"]:
+                raise OSError("the board folder cannot be read")
+            return real_spent(*a, **kw)
+
+        def finish(s, *a):
+            v = real_finish(s, *a)
+            state["on"] = True
+            return v
+        runner.Run.finish, ledger.spent = finish, boom
+        try:
+            out, stop = self.go()
+        finally:
+            runner.Run.finish, ledger.spent = real_finish, real_spent
+        self.assertIsNotNone(stop, "[found-a-stop-record-is-lost-when-the-day-s-spend-c-20261018-0] no stop record")
+        self.assertEqual(stop["units"], {"u1": "PASS"},
+                         "[found-a-stop-record-is-lost-when-the-day-s-spend-c-20261018-0] the record lost its units")
+        self.assertIn("STOP:", out)
+        self.assertEqual(stop["reason_kind"], "done")      # no unit left; the ledger fault never reaches the loop
+        self.assertNotIn("day_usd", stop)          # no figures beats no record
+
     def test_a_unit_that_is_blocked_or_whose_lane_is_held_has_its_reason_in_the_record(self):
         self.g(["worktree", "add", "-q", str(self.tmp / "other"), "-b", "lane/show/held"])
         self.queue("u1", raw=json.dumps(dict(Runs.HELD, id="u1")))
