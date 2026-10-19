@@ -2705,6 +2705,75 @@ class PipelineSource(Repo):
         self.assertEqual((res[0]["verdict"], stop["legs"]), ("PASS", 2))
         self.assertIn("no critic round 1: the leg cap (2) is reached", res[0]["note"])
 
+    def test_the_critic_decision_asks_no_room_once_and_names_the_reason(self):
+        """[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] a second ask of no_room can disagree
+        with the first (no_budget waits and re-reads), so the note must come from the one ask that decided."""
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH})
+        real = runner.Run.no_room
+        calls = []
+
+        def stub(self, phase=None, unit=None):
+            calls.append(phase)
+            if phase == "critic" and calls.count("critic") == 1:
+                return runner.Why("pace", "the day's pace lets a critic leg start at 23:50")
+            return real(self, phase, unit)
+        runner.Run.no_room = stub
+        try:
+            out, stop = self.go_with_evidence()
+        finally:
+            runner.Run.no_room = real
+        res = self.results()
+        self.assertEqual((res[0]["verdict"], stop["legs"]),
+                          ("PASS", 2), "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                          "a disagreeing second ask must not change the verdict or leg count")
+        self.assertIn("no critic round 1: the day's pace lets a critic leg start at 23:50", res[0]["note"],
+                      "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                      "the note must name the reason the decision was made on")
+        self.assertNotIn("None", res[0]["note"],
+                         "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                         "a second, disagreeing ask must not leak None into the note")
+        self.assertEqual(calls.count("critic"), 1,
+                         "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                         "the critic decision must ask no_room exactly once")
+
+    def test_the_fix_round_decision_asks_no_room_once_and_names_the_reason(self):
+        """[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] same disagreement, for the fix-round
+        decision after a low critic score."""
+        self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute#2": self.PUSH,
+                     "critic#3": [{"write": "critic.md", "text": CRITIC % 60}]})
+        real = runner.Run.no_room
+        calls = []
+        state = {"seen_critic": False, "intercepted": False}
+
+        def stub(self, phase=None, unit=None):
+            calls.append(phase)
+            if phase == "critic":
+                state["seen_critic"] = True
+            if phase == "execute" and state["seen_critic"] and not state["intercepted"]:
+                state["intercepted"] = True
+                return runner.Why("pace", "the day's pace lets an execute leg start at 23:55")
+            return real(self, phase, unit)
+        runner.Run.no_room = stub
+        try:
+            out, stop = self.go_with_evidence()
+        finally:
+            runner.Run.no_room = real
+        res = self.results()
+        self.assertEqual((res[0]["verdict"], stop["legs"]),
+                          ("PASS", 3), "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                          "a disagreeing second ask must not change the verdict or leg count")
+        self.assertIn("critic 60/100 (target 85)", res[0]["note"])
+        self.assertIn("no fix round: the day's pace lets an execute leg start at 23:55", res[0]["note"],
+                      "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                      "the note must name the reason the decision was made on")
+        self.assertNotIn("None", res[0]["note"],
+                         "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                         "a second, disagreeing ask must not leak None into the note")
+        execute_after_critic = calls[calls.index("critic") + 1:].count("execute")
+        self.assertEqual(execute_after_critic, 1,
+                         "[found-critique-asks-no-room-twice-and-the-second-a-20261018-0] "
+                         "the fix-round decision must ask no_room exactly once after the critic round")
+
     def test_a_job_is_claimed_checked_and_completed_by_the_runner_and_master_is_left_alone(self):
         self.script({"plan": [{"write": "plan.md", "text": PLAN}], "execute": self.PUSH,
                      "critic": [{"write": "critic.md", "text": CRITIC % 88}]})

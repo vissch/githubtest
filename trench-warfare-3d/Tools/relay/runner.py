@@ -538,8 +538,9 @@ class Run:
             brief = src.critic(unit, self.ctx, r)
             if not brief:
                 return []
-            if self.no_room("critic"):                      # work that passed its checks keeps its verdict
-                note = "no critic round %d: %s" % (r, self.no_room("critic"))
+            why = self.no_room("critic")                     # work that passed its checks keeps its verdict
+            if why:
+                note = "no critic round %d: %s" % (r, why)
                 break
             d, leg = self.leg(unit, "critic", brief["body"], fill=brief["fill"])
             f = legdir.desk(d) / self.ph["critic"]["output"]
@@ -554,8 +555,9 @@ class Run:
             scores.append(score)
             if score >= target or r == last:
                 break
-            if self.no_room("execute"):
-                note = "no fix round: %s" % self.no_room("execute")
+            why = self.no_room("execute")
+            if why:
+                note = "no fix round: %s" % why
                 break
             self.ctx["since"] = time.time()                 # a fix round makes its evidence again
             d, leg = self.leg(unit, "execute", body, papers.plan_for_fixes(plan, fixes, r, score, target))
