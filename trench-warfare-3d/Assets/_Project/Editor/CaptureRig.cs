@@ -272,6 +272,9 @@ namespace TW.Editor
             N(sb, "cam_x", cam.transform.position.x); N(sb, "cam_y", cam.transform.position.y); N(sb, "cam_z", cam.transform.position.z);
             N(sb, "cam_pitch", cam.transform.eulerAngles.x); N(sb, "cam_yaw", cam.transform.eulerAngles.y);
             N(sb, "frame", Time.frameCount);
+            // the sim tick the frame was rendered on: without it "the same tick" is a claim, not evidence, and a
+            // still cannot be paired with a no-effect plate of the same moment (ability-fx-captures-r3)
+            N(sb, "sim_tick", host != null && host.Local != null ? (double)host.Local.World.Tick : -1.0);
             N(sb, "want_x", shot.Want.x); N(sb, "want_y", shot.Want.y); N(sb, "want_z", shot.Want.z);
             N(sb, "pose_error_m", Vector3.Distance(shot.Want, cam.transform.position));
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);

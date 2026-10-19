@@ -1,0 +1,89 @@
+{
+  "rows": [
+    {
+      "subject": "smoke",
+      "band": "T1",
+      "effect_area_frac": 0.20689,
+      "pose_error_m": 0.0,
+      "sim_tick": 189,
+      "plate_sim_tick": 189,
+      "tick_delta": 0
+    },
+    {
+      "subject": "smoke",
+      "band": "O240",
+      "effect_area_frac": 0.00783,
+      "pose_error_m": 0.0,
+      "sim_tick": 190,
+      "plate_sim_tick": 190,
+      "tick_delta": 0
+    },
+    {
+      "subject": "barrage",
+      "band": "T1",
+      "effect_area_frac": 0.0,
+      "pose_error_m": 0.0,
+      "sim_tick": 149,
+      "plate_sim_tick": 149,
+      "tick_delta": 0
+    },
+    {
+      "subject": "barrage",
+      "band": "O240",
+      "effect_area_frac": 0.0,
+      "pose_error_m": 0.0,
+      "sim_tick": 150,
+      "plate_sim_tick": 150,
+      "tick_delta": 0
+    },
+    {
+      "subject": "splash",
+      "band": "T1",
+      "effect_area_frac": 0.23312,
+      "pose_error_m": 0.2268,
+      "sim_tick": 102,
+      "plate_sim_tick": 102,
+      "tick_delta": 0
+    },
+    {
+      "subject": "splash",
+      "band": "O240",
+      "effect_area_frac": 0.02163,
+      "pose_error_m": 4.367,
+      "sim_tick": 103,
+      "plate_sim_tick": 103,
+      "tick_delta": 0
+    },
+    {
+      "subject": "drop",
+      "band": "T1",
+      "effect_area_frac": 0.0,
+      "pose_error_m": 0.0,
+      "sim_tick": 169,
+      "plate_sim_tick": 169,
+      "tick_delta": 0
+    },
+    {
+      "subject": "drop",
+      "band": "O240",
+      "effect_area_frac": 0.0,
+      "pose_error_m": 0.0,
+      "sim_tick": 170,
+      "plate_sim_tick": 170,
+      "tick_delta": 0
+    }
+  ],
+  "min_t1": 0.0,
+  "min_o240": 0.0,
+  "diff_threshold": 0.08,
+  "tick_tolerance": 2,
+  "failures": [
+    "smoke O240: effect_area_frac 0.0078 below 0.03 (the effect does not read)",
+    "barrage T1: effect_area_frac 0.0000 below 0.10 (the effect does not read)",
+    "barrage O240: effect_area_frac 0.0000 below 0.03 (the effect does not read)",
+    "splash O240: effect_area_frac 0.0216 below 0.03 (the effect does not read)",
+    "splash O240: pose_error_m 4.367 is 0.5 or more (the camera was not where it was asked to be)",
+    "drop T1: effect_area_frac 0.0000 below 0.10 (the effect does not read)",
+    "drop O240: effect_area_frac 0.0000 below 0.03 (the effect does not read)"
+  ]
+}
