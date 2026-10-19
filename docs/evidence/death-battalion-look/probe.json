@@ -1,0 +1,24 @@
+{
+ "silhouette_diff_vs_rifleman": 0.7285,
+ "noise_rifleman_vs_rifleman": 0.404,
+ "pixels_rifleman": 3460,
+ "pixels_rifleman2": 2300,
+ "pixels_death_battalion": 4337,
+ "tolerance": 80,
+ "box_px": 200,
+ "threshold": 0.1,
+ "files": {
+  "rifleman": [
+   "rifle_t1.png",
+   "rifle_bg.png"
+  ],
+  "rifleman2": [
+   "rifle2_t1.png",
+   "rifle2_bg.png"
+  ],
+  "death_battalion": [
+   "deathbn_t1.png",
+   "deathbn_bg.png"
+  ]
+ }
+}
