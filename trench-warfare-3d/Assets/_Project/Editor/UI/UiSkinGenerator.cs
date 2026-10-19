@@ -489,6 +489,21 @@ namespace TW.Editor
             Sdf.Union(Sdf.Sub(Sdf.Sub(Sdf.Circle(cx, cy - 8 * u, 13 * u), Sdf.Circle(cx, cy - 8 * u, 7 * u)), Sdf.Box(cx - 10 * u, cy + 2 * u, 12 * u, 10 * u)),
             Sdf.Union(Sdf.Box(cx, cy + 6 * u, 3 * u, 6 * u), Sdf.Circle(cx, cy + 20 * u, 4 * u)));
 
+        /// <summary>A weapon glyph for a portrait placeholder that is one of its own, by name; null for every other
+        /// (they keep the "?"). AtRifle: a long thin barrel, a receiver and box magazine, and two bipod legs.</summary>
+        static Func<float, float, float> WeaponGlyph(string name, float cx, float cy, float u)
+        {
+            if (name != "AtRifle") return null;
+            float bx0 = cx - 20f * u, by0 = cy - 4f * u, bx1 = cx + 18f * u, by1 = cy + 8f * u;
+            var barrel = Sdf.Segment(bx0, by0, bx1, by1, 2.2f * u);
+            var receiver = Sdf.Box(cx + 6f * u, cy + 7f * u, 7f * u, 4f * u);
+            var magazine = Sdf.Box(cx - 2f * u, cy + 13f * u, 3f * u, 5f * u);
+            float lx = cx - 6f * u, ly = cy + 1f * u;
+            var legs = Sdf.Union(Sdf.Segment(lx, ly, lx - 8f * u, ly + 16f * u, 1.6f * u),
+                Sdf.Segment(lx, ly, lx + 8f * u, ly + 16f * u, 1.6f * u));
+            return Sdf.Union(barrel, Sdf.Union(receiver, Sdf.Union(magazine, legs)));
+        }
+
         /// <summary>A "?" in a faint disc: what a card shows for a unit the baker has not drawn yet.</summary>
         public static Color32[] PaintPortraitPlaceholder(string name)
         {
@@ -497,7 +512,8 @@ namespace TW.Editor
             float cx = s * 0.5f - 0.5f, cy = s * 0.5f - 0.5f;
             c.Glyph(Sdf.Circle(cx, cy, s * 0.42f), new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
             c.Glyph(Sdf.Ring(cx, cy, s * 0.42f - 4f, 2f), Plate500, null);
-            c.Glyph(Question(cx, cy - 4f, s / 64f * 1.4f), Plate400, EdgeDark);
+            var weapon = WeaponGlyph(name, cx, cy, s / 64f);
+            c.Glyph(weapon ?? Question(cx, cy - 4f, s / 64f * 1.4f), Plate400, EdgeDark);
             // the name, as a bar of dots so each portrait differs (the verifier reads coverage, not text)
             int n = Mathf.Clamp(name.Length, 1, 12);
             for (int i = 0; i < n; i++) c.Rivet(cx - (n - 1) * 7f + i * 14f, cy + s * 0.34f, 3f, Plate500);
