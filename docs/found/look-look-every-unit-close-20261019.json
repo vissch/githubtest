@@ -1,0 +1,50 @@
+{
+  "subject": "look:every-unit-close",
+  "looked_at": [
+    "Captures/units1019/frames.txt (76 stills, 38 units, two yaws, clock HELD, pose_error_m 0 throughout)",
+    "Captures/units1019/23-Hopper-b.png",
+    "Captures/units1019/08-Censer-b.png",
+    "Captures/units1019/37-Bullfrog-a.png",
+    "Captures/units1019/37-Bullfrog-b.png",
+    "Captures/units1019/29-MarkIV-a.png",
+    "Captures/units1019/31-A7V-a.png",
+    "Captures/units1019/33-Whippet-a.png",
+    "Captures/units1019/09-Pavise-a.png",
+    "Captures/units1019/motion/sheet-Bullfrog.png",
+    "Captures/units1019/motion/sheet-Frog.png",
+    "docs/found/look-look-every-unit-close-20261016.json",
+    "docs/reference/tasks.md (The Proving Ground)",
+    "docs/reference/decisions.md (The Proving Ground)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs (the StandIns table: which model each prototype wears)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (what the sidecar measures)"
+  ],
+  "tasks": [
+    {
+      "title": "Stand-in models read as cartoon monsters beside real WWI tanks",
+      "why": "TWO-VIEW: 29-MarkIV-a and 31-A7V-a, also in 33-Whippet-a's background. `TankRenderer.cs:196` has the Mark IV and A7V wear the Maw's and Brute's models for want of their own. Beside the Renault FT and a real-looking historical tank hull (star-marked, riveted, turret and tracks, left of frame in 31-A7V-a), the stand-in reads as a blue-horned, skull-faced toy monster head bolted to treads: a different genre entirely, not a rhomboid or a boxy casemate as the comment at TankRenderer.cs:198 claims. A player who has not read the code sees two art styles sharing one battlefield, not a placeholder. Wanted: either a shape closer to the real tank it stands in for (flatten the horns and skull, square the head), or drop the Maw/Brute silhouette for these two slots until their own model exists.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Camera/TankRenderer.cs",
+        "trench-warfare-3d/Assets/_Project/Resources/Vehicles/Maw",
+        "trench-warfare-3d/Assets/_Project/Resources/Vehicles/Brute"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "A fresh CaptureRig pair of 29-MarkIV and 31-A7V (`python Tools/assetboard/gamefilm.py battle MarkIV`) put beside a historical reference tank reads to a blind critic as a tank hull, not a monster head, and TankRenderer.cs's StandIns comment at line 198 matches what is drawn.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, true, false, false]
+    },
+    {
+      "title": "Ground-sheen readability has worsened and now hits machines too",
+      "why": "MEASURED, a fresh 76-shot set (2026-10-19): 16 of 76 stills carry 'men barely separate from the ground: unreadable', up from 14 of 76 on the 2026-10-16 set, worst at 23-Hopper-b contrast_median 0.01062 and 08-Censer-b 0.02929, both well under CaptureRig.cs:295's 0.12 floor. New since the last look: the warning now fires on walker machines, not only riflemen (08-Censer-b, 37-Bullfrog-a, 07-Kettle-b, 23-Hopper-b), so the fix already proposed for 'foot units off the mud' (docs/found/look-look-every-unit-close-20261016.json) does not cover it; the ground sheen is eating legged machines' lower bodies at the same close zooms. By eye, 23-Hopper-b's legs and belly vanish into near-black mud with only its eye-lamps visible. Wanted: the reshoot of the 76 poses already asked for in the 2026-10-16 finding is widened to require every still, man or machine, clears the 0.25 contrast floor, not only the man-only ones.",
+      "files": [
+        "trench-warfare-3d/Assets/_Project/Presentation/Terrain/Atmosphere.NightLook.cs",
+        "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"
+      ],
+      "lane": "show",
+      "role": "env-simulator",
+      "done_when": "The 38 units are reshot at the rig's close zooms with CaptureRig; in the fresh sidecars no still (man or machine) carries the 'men barely separate from the ground' warning (today 16 of 76 do, worst contrast_median 0.01062).",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, true, false, false]
+    }
+  ]
+}
