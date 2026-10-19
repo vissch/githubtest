@@ -1,4 +1,4 @@
-// Phase: readability (2026-10-19, special-portraits-r2) - the two stills a card portrait is cut from.
+// Phase: readability (2026-10-19, special-portraits-r3) - the two stills a card portrait is cut from.
 // The Flamer's and the Sentry's portraits (2026-10-19, special-portraits-r2). Both files were byte copies of
 // Shield.png while the commits called them "his own portrait". A card picture has to be made from something, so this
 // test photographs each man alone in GreyboxCorridor at the game's own near zoom, where units.Sockets(slot, ...)
@@ -21,6 +21,7 @@ using UnityEngine.TestTools;
 using TW.Editor;
 using TW.Presentation;
 using TW.Presentation.Tactical;
+using TW.Presentation.Units;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.UI;
@@ -32,22 +33,24 @@ namespace TW.Tests
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         // Zoom 9 is clamped up to TacticalCamera.NearZoom (~15 m) by CaptureRig.Pose; that is still the near tier,
         // which is the point: without sockets the kit is not drawn and the portrait would be a bare soldier.
-        const float Zoom = 9f, Yaw = 21f, Pitch = 35f;
-        const int Side = 1536;
+        const float Zoom = 9f, Pitch = 35f;
+        const int Side = 1024;
+        const int ScoutSide = 512;
         const float PoseBar = 0.5f;      // the owner's evidence rule, 2026-10-19
         // The harsh critic's r1 reading of r2: "men barely separate from the ground", contrast_median 0.064. The
         // capture itself has to prove the figure reads now, so the Flamer's man still fails the test below this.
         const float ContrastBar = 0.15f;
+        static readonly float[] ScoutOffsets = { 0f, 90f, 180f, 270f };
+        static readonly float[] ScoutPitches = { 35f, 55f };
 
         // Prop is the piece of kit the third still drops, so the cut can measure how many portrait pixels it owns.
-        // Yaw is each man's own: ProvingGround.Place drops each archetype on its own spot, and at the shared yaw 21
-        // the Flamer stood behind a pale lump of scenery that hid everything but his helmet, one hand and a boot -
-        // 2 235 differing pixels, a cutout of his wand alone, and contrast_median 0.12. The camera orbits to clear
-        // the obstacle; it is the subject that decides a portrait's angle, not a constant shared with another man.
-        static readonly (byte Archetype, string Name, string Prop, float Yaw, System.Action<bool> Hide)[] Men =
+        // The angle is swept per man from his own barrel facing (step 1-2), not a constant shared with another
+        // man: at the shared yaw 21 the Flamer stood behind a pale lump of scenery that hid everything but his
+        // helmet, one hand and a boot - 2 235 differing pixels, a cutout of his wand alone.
+        static readonly (byte Archetype, string Name, string Prop, System.Action<bool> Hide)[] Men =
         {
-            (InfantryArchetype.Flamethrower, "Flamer", "wand", 201f, v => CombatFx.HideWand = v),
-            (InfantryArchetype.Sentry, "Sentry", "plate", Yaw, v => CombatFx.HidePlate = v),
+            (InfantryArchetype.Flamethrower, "Flamer", "wand", v => CombatFx.HideWand = v),
+            (InfantryArchetype.Sentry, "Sentry", "plate", v => CombatFx.HidePlate = v),
         };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
@@ -127,9 +130,9 @@ namespace TW.Tests
             var offenders = new List<string>();
             lines.Add("night " + (SceneMood.Night ? 1 : 0)
                       + "\tzoom " + Zoom.ToString("0.0", CultureInfo.InvariantCulture)
-                      + "\tyaw " + Yaw.ToString("0.0", CultureInfo.InvariantCulture)
-                      + "\tpitch " + Pitch.ToString("0.0", CultureInfo.InvariantCulture)
                       + "\tside " + Side.ToString(CultureInfo.InvariantCulture));
+
+            var units = Object.FindFirstObjectByType<VATRenderer>();
 
             foreach (var man in Men)
             {
@@ -139,17 +142,55 @@ namespace TW.Tests
                 host.WriteWorlds(m => placed = ProvingGround.Place(m, 0, man.Archetype, 1));
                 yield return Settle(60);
 
-                var pos = Vector3.zero; int alive = 0;
-                { var w = host.Local.World; for (int s = 0; s < w.HighWater; s++) if (w.IsAlive(s)) { alive++; pos = (Vector3)w.Position[s]; } }
+                var pos = Vector3.zero; int alive = 0; int slot = -1;
+                { var w = host.Local.World; for (int s = 0; s < w.HighWater; s++) if (w.IsAlive(s)) { alive++; pos = (Vector3)w.Position[s]; slot = s; } }
                 TestContext.Out.WriteLine(man.Name + ": placed " + placed + ", alive " + alive + ", at " + pos.ToString("0.00"));
                 Assert.That(alive, Is.EqualTo(1), man.Name + ": wanted exactly one man on the field, got " + alive);
                 lines.Add(man.Name + "\tpos " + pos.x.ToString("0.00", CultureInfo.InvariantCulture)
                           + " " + pos.y.ToString("0.00", CultureInfo.InvariantCulture)
                           + " " + pos.z.ToString("0.00", CultureInfo.InvariantCulture));
 
+                // read his own barrel facing: a yaw shared with another man can orbit into scenery that hides his kit
+                float faceYaw = 0f;
+                if (units != null && units.Sockets(slot, out _, out var barrel, out _))
+                    faceYaw = Mathf.Atan2(barrel.x, barrel.z) * Mathf.Rad2Deg;
+                TestContext.Out.WriteLine(man.Name + ": faceYaw " + faceYaw.ToString("0.0"));
+
+                // a scout sweep around his own facing picks the angle that reads him best, by contrast_median
+                float bestYaw = faceYaw, bestPitch = ScoutPitches[0], bestContrast = float.NegativeInfinity;
+                var scoutPaths = new List<string>();
+                foreach (float off in ScoutOffsets)
+                {
+                    foreach (float sp in ScoutPitches)
+                    {
+                        string scoutPath = Path.Combine(dir, man.Name + "-scout-" + off.ToString("0") + "-" + sp.ToString("0") + ".png");
+                        scoutPaths.Add(scoutPath);
+                        TestContext.Out.WriteLine(CaptureRig.Shot(scoutPath, pos.x, pos.z, Zoom, faceYaw + off, sp, ScoutSide, ScoutSide, pos.y + 1.2f));
+                        yield return Drain(scoutPath);
+                        string scoutSide = Path.ChangeExtension(scoutPath, ".json");
+                        float c = File.Exists(scoutSide) ? Num(File.ReadAllText(scoutSide), "contrast_median") : float.NegativeInfinity;
+                        lines.Add(man.Name + "\tscout yaw " + (faceYaw + off).ToString("0.0", CultureInfo.InvariantCulture)
+                                  + "\tpitch " + sp.ToString("0.0", CultureInfo.InvariantCulture)
+                                  + "\tcontrast_median " + c.ToString("0.0000", CultureInfo.InvariantCulture));
+                        if (c > bestContrast || (c == bestContrast && sp < bestPitch))
+                        {
+                            bestContrast = c; bestYaw = faceYaw + off; bestPitch = sp;
+                        }
+                    }
+                }
+                foreach (string sp in scoutPaths)
+                {
+                    if (File.Exists(sp)) File.Delete(sp);
+                    string sj = Path.ChangeExtension(sp, ".json");
+                    if (File.Exists(sj)) File.Delete(sj);
+                }
+                TestContext.Out.WriteLine(man.Name + ": chosen yaw " + bestYaw.ToString("0.0") + " pitch " + bestPitch.ToString("0.0") + " contrast " + bestContrast.ToString("0.0000"));
+                lines.Add(man.Name + "\tchosen yaw " + bestYaw.ToString("0.0", CultureInfo.InvariantCulture)
+                          + "\tpitch " + bestPitch.ToString("0.0", CultureInfo.InvariantCulture));
+
                 // the man, then the same pose with the ground alone: the pair gives the cutout its alpha
                 string manPath = Path.Combine(dir, man.Name + "-man.png");
-                TestContext.Out.WriteLine(CaptureRig.Shot(manPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                TestContext.Out.WriteLine(CaptureRig.Shot(manPath, pos.x, pos.z, Zoom, bestYaw, bestPitch, Side, Side, pos.y + 1.2f));
                 yield return Drain(manPath);
 
                 // the same man in the same pose with his prop dropped: the cut of this one, through the same crop
@@ -157,14 +198,14 @@ namespace TW.Tests
                 string nopropPath = Path.Combine(dir, man.Name + "-noprop.png");
                 man.Hide(true);
                 yield return Frames(4);
-                TestContext.Out.WriteLine(CaptureRig.Shot(nopropPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                TestContext.Out.WriteLine(CaptureRig.Shot(nopropPath, pos.x, pos.z, Zoom, bestYaw, bestPitch, Side, Side, pos.y + 1.2f));
                 yield return Drain(nopropPath);
                 man.Hide(false);
 
                 ClearField(host);
                 yield return Frames(4);
                 string emptyPath = Path.Combine(dir, man.Name + "-empty.png");
-                TestContext.Out.WriteLine(CaptureRig.Shot(emptyPath, pos.x, pos.z, Zoom, man.Yaw, Pitch, Side, Side, pos.y + 1.2f));
+                TestContext.Out.WriteLine(CaptureRig.Shot(emptyPath, pos.x, pos.z, Zoom, bestYaw, bestPitch, Side, Side, pos.y + 1.2f));
                 yield return Drain(emptyPath);
 
                 foreach (var pair in new[] { (Path: manPath, WantMan: true), (Path: nopropPath, WantMan: true), (Path: emptyPath, WantMan: false) })

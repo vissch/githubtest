@@ -1,9 +1,36 @@
-night 1	zoom 9.0	yaw 21.0	pitch 35.0	side 1536
+night 1	zoom 9.0	side 1024
 Flamer	pos 48.74 0.00 14.18
-Flamer-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.0732
-Flamer-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.0693
+Flamer	scout yaw -11.5	pitch 35.0	contrast_median 0.5880
+Flamer	scout yaw -11.5	pitch 55.0	contrast_median 0.4642
+Flamer	scout yaw 78.5	pitch 35.0	contrast_median 0.0546
+Flamer	scout yaw 78.5	pitch 55.0	contrast_median 0.1494
+Flamer	scout yaw 168.5	pitch 35.0	contrast_median 0.0554
+Flamer	scout yaw 168.5	pitch 55.0	contrast_median 0.0692
+Flamer	scout yaw 258.5	pitch 35.0	contrast_median 0.0263
+Flamer	scout yaw 258.5	pitch 55.0	contrast_median 0.4636
+Flamer	chosen yaw -11.5	pitch 35.0
+Flamer-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.5825
+Flamer-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.5867
 Flamer-empty	pose_error_m 0.0000	men_in_frame 0	contrast_median -1.0000
 Sentry	pos 48.76 0.00 10.63
-Sentry-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.3040
-Sentry-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.3131
+Sentry	scout yaw 1.6	pitch 35.0	contrast_median 0.1054
+Sentry	scout yaw 1.6	pitch 55.0	contrast_median 0.8639
+Sentry	scout yaw 91.6	pitch 35.0	contrast_median 0.0120
+Sentry	scout yaw 91.6	pitch 55.0	contrast_median 0.0765
+Sentry	scout yaw 181.6	pitch 35.0	contrast_median 0.0333
+Sentry	scout yaw 181.6	pitch 55.0	contrast_median 0.0657
+Sentry	scout yaw 271.6	pitch 35.0	contrast_median 0.0532
+Sentry	scout yaw 271.6	pitch 55.0	contrast_median 0.0594
+Sentry	chosen yaw 1.6	pitch 55.0
+Sentry-man	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.9152
+Sentry-noprop	pose_error_m 0.0000	men_in_frame 1	contrast_median 0.9110
 Sentry-empty	pose_error_m 0.0000	men_in_frame 0	contrast_median -1.0000
+
+note: the chosen yaw is a glare angle (contrast_median 0.58/0.92, driven by a bright specular catch, not the man
+separating from the ground) and the figure bbox the cutter finds off it is 15x10 / 31x24 px of a 1024 still - the
+cut portrait is a blurred blob, not a readable man. This confirms, with the facing-derived scout sweep this unit
+built, the same finding docs/reference/decisions.md already recorded: the night difference mask reads the kit's
+glare, never the man. The probe's five bars (flamer_man_contrast, sentry_plate_px, flamer_wand_px, flamer_min_diff,
+sentry_min_diff, unique_hashes) are met and the stills/sidecars here are the measured evidence for them, but no
+shipped portrait is written (portrait_cut.py was run with --out docs/evidence/special-portraits-r3 only): the
+owner's open decision row stands, untouched, and UI/Skin/Portraits/Flamer.png and Sentry.png are r2's, unchanged.
