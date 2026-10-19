@@ -25,7 +25,7 @@ namespace TW.Editor
     public static class VfxLab
     {
         /// <summary>Every staging Scene knows, in the order VfxStills films them by default.</summary>
-        public static readonly string[] Scenes = { "shell", "barrage", "cookoff", "burning", "gas", "smoke", "beam", "strafe", "fire", "flare", "rain" };
+        public static readonly string[] Scenes = { "shell", "barrage", "cookoff", "burning", "gas", "smoke", "beam", "strafe", "fire", "flare", "rain", "water", "paradrop" };
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -136,6 +136,8 @@ namespace TW.Editor
                 case "fire": return Men(5, x - 3f, z, 1) + "; " + Later(0.8f, () => Fire(x, z, 5f));    // an incendiary on a row: men alight
                 case "flare": return Flare();
                 case "rain": return Rain(1f);
+                case "water": return Later(0.8f, () => Shell(x, z, 6f, 400f));                          // a shell into a wet cell: the water splash
+                case "paradrop": return Later(0.5f, () => Call((int)OffMapAbilityId.ParaDrop, x, z));   // canopies in flight, then the drop landing
                 default: return "unknown scene " + name;
             }
         }

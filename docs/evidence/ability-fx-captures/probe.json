@@ -1,0 +1,98 @@
+{
+  "max_blown_frac": 0.0001,
+  "rows": [
+    {
+      "band": "o240",
+      "blown_frac": 0.0001,
+      "bytes": 148924,
+      "luma_mean": 53.3,
+      "sat_p99": 0.604,
+      "still": "barrage-o240",
+      "subject": "barrage"
+    },
+    {
+      "band": "t1",
+      "blown_frac": 0.0,
+      "bytes": 408562,
+      "luma_mean": 86.9,
+      "sat_p99": 0.788,
+      "still": "barrage-t1",
+      "subject": "barrage"
+    },
+    {
+      "band": "o240",
+      "blown_frac": 0.0,
+      "bytes": 150608,
+      "green_low_share": 0.0,
+      "luma_mean": 53.7,
+      "sat_p99": 0.71,
+      "still": "gas-o240",
+      "subject": "gas"
+    },
+    {
+      "band": "t1",
+      "blown_frac": 0.0,
+      "bytes": 398857,
+      "green_low_share": 0.064,
+      "luma_mean": 59.9,
+      "sat_p99": 0.718,
+      "still": "gas-t1",
+      "subject": "gas"
+    },
+    {
+      "band": "o240",
+      "blown_frac": 0.0,
+      "bytes": 144179,
+      "luma_mean": 52.6,
+      "sat_p99": 0.608,
+      "still": "paradrop-o240",
+      "subject": "paradrop"
+    },
+    {
+      "band": "t1",
+      "blown_frac": 0.0,
+      "bytes": 392860,
+      "luma_mean": 63.7,
+      "sat_p99": 0.961,
+      "still": "paradrop-t1",
+      "subject": "paradrop"
+    },
+    {
+      "band": "o240",
+      "blown_frac": 0.0,
+      "bytes": 136021,
+      "luma_mean": 52.0,
+      "sat_p99": 0.596,
+      "still": "smoke-o240",
+      "subject": "smoke"
+    },
+    {
+      "band": "t1",
+      "blown_frac": 0.0,
+      "bytes": 351804,
+      "luma_mean": 60.3,
+      "sat_p99": 0.612,
+      "still": "smoke-t1",
+      "subject": "smoke"
+    },
+    {
+      "band": "o240",
+      "blown_frac": 0.0,
+      "bytes": 132474,
+      "luma_mean": 53.7,
+      "sat_p99": 0.592,
+      "still": "water-o240",
+      "subject": "water"
+    },
+    {
+      "band": "t1",
+      "blown_frac": 0.0,
+      "bytes": 308990,
+      "luma_mean": 55.6,
+      "sat_p99": 0.835,
+      "still": "water-t1",
+      "subject": "water"
+    }
+  ],
+  "stills": 10
+}
