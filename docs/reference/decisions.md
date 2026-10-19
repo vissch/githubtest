@@ -282,8 +282,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   They are rebased onto the integration branch and the edit gate is green on them (EditMode 1343 run, 1312 passed,
   0 failed, 31 skipped), on **local branch `land44` in the checkout `githubtest-relay-work`** — plus one commit
   there fixing `StaticLifecycleTests` for `DebrisRenderer.Watch`, a static upstream gained since 2026-10-12.
-  Default taken: **the lane's pushed ref is left as it is**, 148 commits and unrebased; `land44` is local only and
-  is lost if that checkout goes. Only the **how** is still open.
+  Default taken: **the lane's pushed ref is left as it is**, 149 commits and unrebased.
+  Checked again 2026-10-19: every `githubtest-*` folder is a worktree of one shared repository (`git worktree
+  list`), so `land44` is a ref in that shared repo, readable from any checkout, and is **not** lost if one
+  checkout's folder goes, unlike the line above says. It is still exactly on integration's tip (`merge-base
+  land44 origin/claude/trench-warfare-2d-3d-plan-idt7lf` equals `origin/...`'s rev-parse, both `2317a9cb5`).
+  The block is wider than the push alone: a leg also cannot move the lane's pushed pointer *back* (`git reset
+  --hard`, `git branch -f` and `git commit --amend` are all refused for a leg), so the 44-only history cannot be
+  put on the lane at all by a leg, even setting the push question aside. So (a) widen `push_ok`, or (b) the owner
+  pushes by hand, is the whole choice; (c), pulling integration in, would keep the 110 unreviewed commits and
+  does not meet "land the 44, not the 110".
+  The hand command for (b), from a checkout holding `land44` (e.g. `githubtest-relay-work`), one line to paste:
+  `git push origin land44:refs/heads/lane/show/landing-2026-10-12-review-fixes --force-with-lease=refs/heads/lane/show/landing-2026-10-12-review-fixes:7b18cf77e`
+  Warning with it: that push drops the lane's two decisions-only commits made after `land44` was cut
+  (`e97402b79`, `7b18cf77e`, this row among them) from the lane's history, since they are not on `land44`; cherry-pick
+  them onto `land44` first, or this record of the question goes with them. Only the **how** is still open.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
