@@ -194,6 +194,12 @@ namespace TW.Sim
         // ------------------------------------------------------------------ systems
         public void AddSystem(ISimSystem system)
         {
+            foreach (var s in systems)
+                if (s.Order == system.Order)
+                    throw new System.ArgumentException(
+                        $"{system.GetType().Name} and {s.GetType().Name} are both registered at order {system.Order}: " +
+                        "List.Sort is unstable, so they would step in an order nobody chose and two builds of one commit " +
+                        "can diverge. Give one of them its own order (SimSystemOrder).", nameof(system));
             systems.Add(system);
             systems.Sort((a, b) => a.Order.CompareTo(b.Order));
             systemMarkers = new ProfilerMarker[systems.Count];
