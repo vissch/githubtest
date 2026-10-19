@@ -391,6 +391,16 @@ namespace TW.Editor
             return "queued " + path;
         }
 
+        /// <summary>Hide the HUD drawn in the world and still the camera, so a still is the effect and nothing else:
+        /// the yellow aim disc of an off-map ability (CombatFx.Abilities) and the shake that would move the camera
+        /// between a plate and its shot. Call it once after play starts, before the first shot.</summary>
+        public static string QuietFrame()
+        {
+            CombatFx.ShowOverlays = false;
+            CameraShake.Strength = 0f;
+            return "overlays off, shake 0";
+        }
+
         /// <summary>How many shots are still to be taken; 0 means the set is finished and the camera is back.</summary>
         public static string Pending() => rig != null ? rig.Queue.Count.ToString() : "0";
 

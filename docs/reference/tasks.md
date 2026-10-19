@@ -137,7 +137,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Tests/Stills/BarrageDryStills.cs` (the HE barrage on DRY ground at T1 and O240, with a no-effect plate at each
   band so a diff mask is the effect alone; `TW_BARRAGEDRY_DIR`, `TW_BARRAGEDRY_BASELINE`). What a shell landing in
   water draws is decided by `SceneHooks.WaterDepth` and `CombatFx.SplashDepth`, not by `SceneHooks.IsWater`, which
-  calls damp ground wet; the stills and their measurements are `docs/evidence/ability-fx-captures-r4/` (probe.py).
+  calls damp ground wet; the stills and their measurements are `docs/evidence/ability-fx-captures-r4/` and, after the
+  harsh critic's r1 (overlays off in every shot, a baseline with its own plate and sidecars),
+  `docs/evidence/ability-fx-captures-r5/` (probe.py there measures `outside_bbox_luma_diff` as well: outside the
+  burst's bbox a shot and its plate must be the same picture). `CaptureRig.QuietFrame()` is what turns the aim disc
+  and the camera shake off for a still.
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
   BarrageDryStills (Explicit, a graphics device: four stills at one pose), BurstRecipeTests
