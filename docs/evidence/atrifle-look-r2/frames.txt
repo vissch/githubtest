@@ -1,0 +1,14 @@
+GreyboxCorridor, the night look (Atmosphere.Look = Night, Biome = NightMud), read back in Play, not set here.
+All five stills: T2, zoom 16, yaw 21, pitch 22, 1600x900, weather clock pinned at 120 and the rain turned off so two
+frames of the same spot differ by the man and not by a squall. The sim was frozen (SimHost.TimeScale = 0) at the
+moment of each still, so the man's pose and the ground are the same in a still and in its plate.
+
+atrifle.png: the AT rifleman alone, team 0, archetype 27, framed on his own drawn position (50.37, 11.57). Standing,
+  kit and bipod on his back, not firing. Sidecar beside it.
+empty-a.png: the same camera pose seconds later with that man moved off the map and nothing else touched. The plate
+  for atrifle.png. Sidecar beside it.
+sniper.png: the Sniper alone, team 0, archetype 3, same framing on his own drawn position (52.09, 11.50). Standing,
+  not firing. Sidecar beside it.
+empty-b.png: the plate for sniper.png, made the same way. Sidecar beside it.
+t2-pair.png: both men together, the Sniper about 5 m beside the AT rifleman, framed on the middle of the two at the
+  same T2 zoom, yaw and pitch. Two men in frame. Sidecar beside it.
