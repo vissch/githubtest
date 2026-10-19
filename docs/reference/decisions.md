@@ -846,6 +846,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   was committed over `Flamer.png` or `Sentry.png`, which stay as r2 left them, because every option changes a look
   the owner decides. The capture fix, the cutter and the probe are committed and ready for whichever he picks
   (this leg, 20261019-164049-89816-03).
+- **The balloon frog's sac at zoom 30 in the Night look: may the fix leave the frog's own art? (2026-10-19,
+  `lane/show/balloon-frog-reads`, from the deaths critique's 27/100 "a ~20 px pale blob at zoom 30"):** measured, not
+  guessed. Eight stills of the shipping VAT frog ballooning at the T1 band, in the shipping Night look
+  (`Atmosphere.Mood.Night`, `Biome.NightMud`, your target of 2026-09-21): `docs/evidence/balloon-frog-reads/`, with
+  `probe.py` and `probe-before.json` beside them. The brightest pixel in the whole frame is Rec.709 **linear luma
+  0.130**, and 11 pixels in 1 440 000 are greener than they are blue. The sac's pale #e9f0c8 does not survive the
+  night grade: at zoom 30 the frogs are ~15 px dark silhouettes against dark mud, sac and all, and CaptureRig's own
+  sidecar warns "men barely separate from the ground: unreadable". So the sac is not small and low-contrast; it is
+  not pale at all, and no repaint of the chin texels or widening of the ball inside the frog's own art can make a
+  0.45-linear pale blob out of a frame whose ceiling is 0.130. Options: (a) let the sac be lit on its own — an
+  emissive/rim term on the sac island only, so it glows faintly through the night grade, the frog's art plus a
+  shader term; (b) keep the fix inside the frog's art (bigger ball, near-white island) and lower the bar to a local
+  contrast ratio against the mud rather than an absolute paleness, accepting that it stays dark; (c) let the night
+  grade lift fallen men generally, which touches every death, not just the frog's. **The default taken here is (b)
+  measured as a ratio** — nothing is built on it and nothing is landed, because (a) and (c) both change a look you
+  own. Blocked on this.
 Do not build any of these without asking. Ask with AskUserQuestion, then move the answer up.
 - **Can small arms pin a machine's hull guns? (2026-10-18, bug-catcher look look-code-sim-combat-20261018):** nothing
   in the suppression path excludes a machine. `AddSuppression` (DirectFire.cs:326) skips only `Airborne`, and splash
