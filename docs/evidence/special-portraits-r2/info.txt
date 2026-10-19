@@ -1,0 +1,7 @@
+night 1	zoom 9.0	yaw 21.0	pitch 12.0	side 1536
+Flamer	pos 48.74 0.00 14.18
+Flamer-man	pose_error_m 0.0000	men_in_frame 1
+Flamer-empty	pose_error_m 0.0000	men_in_frame 0
+Sentry	pos 48.76 0.00 10.63
+Sentry-man	pose_error_m 0.0000	men_in_frame 1
+Sentry-empty	pose_error_m 0.0000	men_in_frame 0

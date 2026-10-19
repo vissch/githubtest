@@ -108,6 +108,36 @@ namespace TW.Tests
             Object.DestroyImmediate(p);
         }
 
+        /// <summary>
+        /// special-portraits-r2 (2026-10-19): the Flamer's and the Sentry's portraits were byte copies of Shield.png
+        /// while the commits called them his own picture, and both were listed in placeholders.json, so a regeneration
+        /// would have painted over anything put there. Each is now a cutout of the man with his own kit. Not a blanket
+        /// uniqueness test: Officer/Breaker/Jetpack and Engineer/ParaDrop are duplicates today and are another unit's
+        /// business.
+        /// </summary>
+        [Test]
+        public void TheFlamerAndTheSentryHaveTheirOwnPicture()
+        {
+            string root = Path.GetFullPath(Path.Combine(Application.dataPath, "..", SkinSpec.Root));
+            string placeholders = File.ReadAllText(Path.Combine(root, "placeholders.json"));
+            foreach (string mine in new[] { "Flamer", "Sentry" })
+            {
+                string path = Path.Combine(root, "Portraits", mine + ".png");
+                Assert.That(File.Exists(path), Is.True, "Portraits/" + mine + ".png is missing");
+                var bytes = File.ReadAllBytes(path);
+                StringAssert.DoesNotContain("\"Portraits/" + mine + ".png\"", placeholders,
+                    "Portraits/" + mine + ".png is listed in placeholders.json again: UiSkinGenerator would paint over his own portrait");
+                foreach (string other in SkinSpec.PortraitNames)
+                {
+                    if (other == mine) continue;
+                    string op = Path.Combine(root, "Portraits", other + ".png");
+                    if (!File.Exists(op)) continue;
+                    Assert.That(bytes, Is.Not.EqualTo(File.ReadAllBytes(op)),
+                        "Portraits/" + mine + ".png is a byte copy of Portraits/" + other + ".png again");
+                }
+            }
+        }
+
         /// <summary>Round 9: a recessed window's lip (light bottom and right) runs round its corner arc, so the edge reads
         /// as one continuous lip and not as a "|" beside the digits. On the arc at 45 degrees, bottom-right is lighter than
         /// top-left (GetPixel's y is up).</summary>
