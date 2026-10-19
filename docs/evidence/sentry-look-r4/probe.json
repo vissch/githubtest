@@ -1,0 +1,97 @@
+{
+  "fallen_after_death": 2,
+  "drawn_infantry_after_death": 0,
+  "plate_px_t": 11415,
+  "plate_px_after_death": 11421,
+  "fallen_before_death": 1,
+  "drawn_infantry_before_death": 1,
+  "px_per_m": 138.0,
+  "foot_gap_m": 0.0,
+  "kill_path": "despawn_collect",
+  "luma_mean": 43.312,
+  "bar_m": 0.5,
+  "tolerance_per_channel": 40,
+  "thresholds": {
+    "fallen_after_death": ">= 1",
+    "drawn_infantry_after_death": "== 0",
+    "plate_px_after_death": "within 2% of plate_px_t"
+  },
+  "shots": {
+    "plate_t": {
+      "file": "plate_t.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 11415,
+        "top": 450,
+        "bottom": 636,
+        "centre": [
+          543.0,
+          959.5
+        ]
+      },
+      "cyan": {
+        "count": 6285,
+        "top": 566,
+        "bottom": 635,
+        "centre": [
+          600.5,
+          998.5
+        ]
+      }
+    },
+    "plate_dead": {
+      "file": "plate_dead.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 11421,
+        "top": 450,
+        "bottom": 636,
+        "centre": [
+          543.0,
+          959.5
+        ]
+      },
+      "cyan": {
+        "count": 6285,
+        "top": 566,
+        "bottom": 635,
+        "centre": [
+          600.5,
+          998.5
+        ]
+      }
+    },
+    "night_dead": {
+      "file": "night_dead.png",
+      "size": [
+        1920,
+        1080
+      ],
+      "magenta": {
+        "count": 0,
+        "top": null,
+        "bottom": null,
+        "centre": null
+      },
+      "cyan": {
+        "count": 0,
+        "top": null,
+        "bottom": null,
+        "centre": null
+      }
+    }
+  },
+  "pose_error_m": {
+    "plate_t": 0,
+    "plate_dead": 0,
+    "night_dead": 0
+  },
+  "plate_px_drift": 6,
+  "pass": true
+}
