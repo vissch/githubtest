@@ -163,7 +163,7 @@ namespace TW.Perf
                     return (GymExpect.Covered, "the Deaths tab's rifle line and the Units tab");
                 case SimEventType.Explosion: case SimEventType.CraterStamp: case SimEventType.AbilityFired:
                 case SimEventType.GasCloudSpawned: case SimEventType.SmokeSpawned: case SimEventType.CellBurning:
-                case SimEventType.DropInbound: case SimEventType.DropLanded:
+                case SimEventType.DropInbound: case SimEventType.DropLanded: case SimEventType.DropLandedShort:
                     return (GymExpect.Covered, "the Abilities tab");
                 case SimEventType.UnitSpawned: case SimEventType.UnitDeployed:
                     return (GymExpect.Covered, "the Units tab");
