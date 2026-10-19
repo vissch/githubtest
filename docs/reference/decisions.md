@@ -268,17 +268,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-12 | **Smoke does not stop fire at a wreck.** The owner, to "Covering guns save fewer attackers since a review fix": "smoke does not stop fire at a wreck". The [N5.3] fix made `DirectFireSystem.AtWreck` return when `SmokeBlindMetres` of thick smoke lay on the gun -> wreck line, which turned `AssaultLadderTests.GunsThatStayToCover_CostTheAttackFewerMen` red: guns covering an attack fire through the attack's own smoke, and their fire at the wrecks the garrison shelters behind was most of what they did. `AtWreck` no longer tests smoke at all: fire at a wreck is fire at a place, not at a man who must be seen. The other half of [N5.3] stands. A hashed value moves, so it costs a replay bump (v45 -> v46, `docs/02-contracts.md`). Built on `lane/sim/review-fixes-2` as [N5.3b]. (owner, 2026-10-12, on the Decide page) |
 
 ## Open: waiting on the owner
-- **How a relay leg pushes a rebased lane (2026-10-18, `lane/show/landing-2026-10-12-review-fixes`):** the lane is
-  147 commits ahead and must be rebased onto the integration branch to land, but a rebase rewrites those commits, so
-  origin's tip stops being an ancestor and the pre-push hook refuses the push as a force-push. That hook sanctions one
-  way out, pushing the rebased lane as a new branch `<lane>-b` .. `-j`, but the relay's command rules (`push_ok` in
-  the relay's cmdrules module) accept only `origin <lane>`, `origin HEAD`, `HEAD:<lane>` or `HEAD:refs/heads/<lane>`:
-  tried on 2026-10-18 and refused ("push only your own lane"). So no command a leg may run can push a rebased lane.
-  Options: **(a, recommended)** widen `push_ok` to accept `HEAD:refs/heads/<lane>-[b-j]`, which the pre-push hook
-  already allows, one line in a shared tool; (b) the owner rebases and force-pushes this lane by hand; (c) pull the
-  integration branch into the lane instead (the rules do allow `git pull origin <integration>`), against CLAUDE.md's
-  rebase-only rule. Default taken: **do not rebase**, so the lane stays pushable and nothing is lost; the review
-  fixes on it stay unrebased and unlanded.
+- **How a relay leg pushes a rebased lane (2026-10-18, `lane/show/landing-2026-10-12-review-fixes`):** a rebase
+  rewrites the lane's commits, so origin's tip stops being an ancestor and the pre-push hook refuses the push as a
+  force-push. That hook sanctions one way out, pushing the rebased lane as a new branch `<lane>-b` .. `-j`, but the
+  relay's command rules (`push_ok` in the relay's cmdrules module) accept only `origin <lane>`, `origin HEAD`,
+  `HEAD:<lane>` or `HEAD:refs/heads/<lane>`: tried on 2026-10-18 and refused ("push only your own lane"). So no
+  command a leg may run can push a rebased lane. Options: **(a, recommended)** widen `push_ok` to accept
+  `HEAD:refs/heads/<lane>-[b-j]`, which the pre-push hook already allows, one line in a shared tool; (b) the owner
+  rebases and pushes this lane by hand; (c) pull the integration branch into the lane instead (the rules do allow
+  `git pull origin <integration>`), against CLAUDE.md's rebase-only rule.
+  **Which** commits is decided: the owner picked the 44 already read, not the newer 110 (Decide page, 2026-10-18).
+  Those 44 are the lane's oldest 45 commits, ending `15cc6b4eb` (the 45th is the fix-up that makes them apply).
+  They are rebased onto the integration branch and the edit gate is green on them (EditMode 1343 run, 1312 passed,
+  0 failed, 31 skipped), on **local branch `land44` in the checkout `githubtest-relay-work`** — plus one commit
+  there fixing `StaticLifecycleTests` for `DebrisRenderer.Watch`, a static upstream gained since 2026-10-12.
+  Default taken: **the lane's pushed ref is left as it is**, 148 commits and unrebased; `land44` is local only and
+  is lost if that checkout goes. Only the **how** is still open.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
