@@ -135,6 +135,7 @@ Import settings (applied by `UiSkinImport`, checked by the verifier): Sprite (2D
 - `Mercy.png`
 - `Bullfrog.png`
 - `AtRifle.png`
+- `Sentry.png`
 - `HeBarrage.png`
 - `ChlorineGas.png`
 - `ParaDrop.png`

@@ -61,7 +61,6 @@ namespace TW.Presentation
                 // the Death Battalion is drawn as its own man (VATRenderer's DeathBn figure: greatcoat, darker cloth),
                 // but the card PICTURE is still the rifleman's until one is rendered off it
                 case InfantryArchetype.Frog: case InfantryArchetype.DeathBattalion: return "Rifleman";
-                case InfantryArchetype.Sentry: return "MG";
                 case InfantryArchetype.Flamethrower: return "Assault";
                 default: return null;
             }
@@ -115,7 +114,7 @@ namespace TW.Presentation
                 case InfantryArchetype.Jetpack: return "Jetpack trooper: leaps 28 m into an enemy trench. Cannot be shot in the air; blast on landing";
                 // the Proving Ground's men: numbers from UnitDefinitions (ProvingGroundTests holds them)
                 case InfantryArchetype.Frog: return "Frog, prototype: a rifleman's numbers under the playground's frog";
-                case InfantryArchetype.Sentry: return "Sentry, stand-in: a machine gun behind an 8 mm plate over a 60 degree arc";
+                case InfantryArchetype.Sentry: return "Sentry: a machine gun behind an 8 mm plate over a 60 degree arc, dug in and hard to shift";
                 case InfantryArchetype.AtRifle: return "AT rifle: a bipod-laid heavy rifle. Pierces 20 mm to 70 m, one round in five seconds";
                 case InfantryArchetype.DeathBattalion: return "Death Battalion: a harder-hitting rifleman in a greatcoat who never stays pinned";
                 case InfantryArchetype.Sapper: return "Sapper: carries two charges. Walks out and lays a mine or a tripwire";
