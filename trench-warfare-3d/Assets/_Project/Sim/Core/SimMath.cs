@@ -19,6 +19,11 @@ namespace TW.Sim
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float WrapAngle(float a)
         {
+            // Outside +-2^18 there is no angle left to wrap: a float step at 2^26 is already wider than 2*pi, so
+            // the wrap below would be noise, and the (int) cast inside Floor would differ per CPU. Written negated
+            // so NaN and both infinities take this branch too and every CPU answers a flat 0. Nothing live reaches
+            // it: every angle here is a yaw from Atan2, or a difference of two, so at most 4*pi.
+            if (!(a >= -262144f && a <= 262144f)) return 0f;
             a -= TwoPi * Floor((a + Pi) / TwoPi);
             return a;
         }
@@ -26,6 +31,13 @@ namespace TW.Sim
         [BurstCompile(CompileSynchronously = true, FloatMode = FloatMode.Strict, FloatPrecision = FloatPrecision.Standard)]
         public static float Floor(float x)
         {
+            // NaN -> 0: the one value every CPU's float->int cast could agree on, and callers cast the result
+            // straight back to int (BattlefieldGenerator.Noise). Tested as x != x so Burst's Strict float mode
+            // cannot elide it.
+            if (x != x) return 0f;
+            // Any float of magnitude 2^23 or more is already a whole number, so it is its own floor (and
+            // floor(+-inf) is +-inf). Below this the cast is in int range and stays bit-identical.
+            if (x >= 2147483648f || x <= -2147483648f) return x;
             int i = (int)x;
             return (x < 0f && i != x) ? i - 1 : i;
         }
