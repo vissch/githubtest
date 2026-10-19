@@ -7,6 +7,13 @@
 //  - CombatFx.ShowOverlays off hides the yellow ability-area disc, which is gas-coloured and would be counted as gas;
 //  - CameraShake off is the pose_error fix: the rig poses the camera one frame and photographs it the next, and shake
 //    moved it in between;
+//  - r2-3: THREE seeds per pass, not one. The critic's r1 verdict on r2-2 was that every bar passed by under 0.025
+//    on a single capture, so one lucky patch could carry the claim. The open-patch search now keeps the three best
+//    patches that stand at least SeedSpacingM apart and runs the O240 + T1 blocks once per patch, into stems
+//    gas-o240-s0 / gas-t1-s0 / ... s2 (12 stills a pass). Between seeds sits a fixed DrainFrames block, never a
+//    poll, so both passes stay frame-for-frame in step - which is the whole reason the plate subtracts cleanly -
+//    and each manifest row carries gas_cells_before, the field reading taken just before the block's first call, so
+//    a leftover cloud from the previous seed shows up in the evidence instead of being counted as this seed's gas;
 //  - SessionState "tw.gasbank.plate", or TW_GAS_PLATE=1, runs the identical script with the gas calls skipped, so
 //    only the gas cards differ; SessionState "tw.gasbank.dir" or TW_STILLS_DIR says where the stills go
 //    (default %TEMP%/tw-gasbank: never inside the checkout).
@@ -43,6 +50,24 @@ namespace TW.Tests
         const int BlockFrames = 520;
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
         const float PoseBar = 0.5f;
+        /// <summary>How many patches are shot per pass: three seeds, so no single lucky patch carries a bar.</summary>
+        const int Seeds = 3;
+        /// <summary>How far apart two seeds are asked to stand, widest first. 60 m was the plan's number, but the
+        /// greybox corridor holds only TWO open patches that far apart (the first run asserted with "only 2 open
+        /// patches 60 m apart"), so the search steps down to the widest spacing that does yield three. The floor is
+        /// 32 m: a point gas source's bank spreads about 10 m, which is why Open() clears a 10 m radius, so 32 m
+        /// still puts three times the bank's own width between two seeds and no cloud is shared. (The O240 block
+        /// paints a 160 m line of calls round its own seed in any case; what matters is that each still has its own
+        /// plate from the same pose and the same frame.)</summary>
+        static readonly float[] SeedSpacingsM = { 60f, 48f, 40f, 32f };
+        /// <summary>A fixed block between seeds that lets the previous cloud die. 420 frames (280 ticks) was the
+        /// plan's number and it was not enough: the first baseline pass still read 272 leftover cells in the field
+        /// when seed 1's overview was shot, against 524 at the shot itself, so half that frame's gas could have
+        /// been seed 0's. The plan's own rule for a non-zero gas_cells_before is to lengthen the drain, never to
+        /// re-pick the patch, so this is 1500 frames: 1000 ticks of nothing but decay on top of the block the seed
+        /// already spent, against a source that stops feeding 300 ticks after its call. Fixed, never a poll: a
+        /// poll would run the two passes out of step and the plate would stop subtracting.</summary>
+        const int DrainFrames = 1500;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -93,27 +118,53 @@ namespace TW.Tests
             var map = Host.Local.Map;
             var size = map.SizeMeters;
 
-            // one patch of open ground in the MIDDLE of the field, used by both bands: the overview frames the whole
-            // corridor round it anyway. Not near the edge - the first run searched from x = 20 and gassed x = 26,
-            // where every call was taken and no cloud ever appeared in the field (nothing is drawn out there).
-            float x = -1f, z = -1f, nearest = float.MaxValue;
+            // the three best patches of open ground in the MIDDLE of the field: open ones sorted by how near the
+            // centre they sit, then taken greedily while each stands SeedSpacingM from the ones already kept. Both
+            // bands of a seed use its patch; the overview frames the whole corridor round it anyway. Not near the
+            // edge - the first run searched from x = 20 and gassed x = 26, where every call was taken and no cloud
+            // ever appeared in the field (nothing is drawn out there).
+            var open = new List<Vector2>();
             for (float zz = 30f; zz < size.y - 30f; zz += 4f)
                 for (float xx = 12f; xx < size.x - 12f; xx += 4f)
+                    if (Open(map, xx, zz, 10f)) open.Add(new Vector2(xx, zz));
+            var centre = new Vector2(size.x * 0.5f, size.y * 0.5f);
+            open.Sort((a, b) => (a - centre).sqrMagnitude.CompareTo((b - centre).sqrMagnitude));
+            var seeds = new List<Vector2>();
+            float spacing = 0f;
+            foreach (float want in SeedSpacingsM)
+            {
+                seeds.Clear(); spacing = want;
+                foreach (var cand in open)
                 {
-                    if (!Open(map, xx, zz, 10f)) continue;
-                    float d = (xx - size.x * 0.5f) * (xx - size.x * 0.5f) + (zz - size.y * 0.5f) * (zz - size.y * 0.5f);
-                    if (d < nearest) { nearest = d; x = xx; z = zz; }
+                    bool clear = true;
+                    foreach (var kept in seeds) if (Vector2.Distance(cand, kept) < want) { clear = false; break; }
+                    if (clear) seeds.Add(cand);
+                    if (seeds.Count == Seeds) break;
                 }
-            Assert.Greater(x, 0f, "no open ground for a gas bank on this map");
-            TestContext.Out.WriteLine("gas centre " + x + ", " + z);
+                if (seeds.Count == Seeds) break;
+            }
+            TestContext.Out.WriteLine(open.Count + " open patches; seeds " + spacing + " m apart");
+            Assert.That(seeds.Count, Is.EqualTo(Seeds),
+                        "only " + seeds.Count + " open patches " + spacing + " m apart on this map, wanted " + Seeds);
+            for (int i = 0; i < seeds.Count; i++)
+                TestContext.Out.WriteLine("seed " + i + " centre " + seeds[i].x + ", " + seeds[i].y);
 
-            // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
-            var far = new List<Vector2>();
-            for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
-            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map);
+            for (int s = 0; s < seeds.Count; s++)
+            {
+                float x = seeds[s].x, z = seeds[s].y;
+                string tail = "-s" + s + (plate ? "-plate" : "");
 
-            yield return Block(dir, "gas-t1" + (plate ? "-plate" : ""), "t1", tc, x, z, 30f, 25f,
-                               new List<Vector2> { new Vector2(x, z) }, plate, map);
+                // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
+                var far = new List<Vector2>();
+                for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
+                yield return Block(dir, "gas-o240" + tail, "o240", tc, x, z, 240f, 25f, far, plate, map);
+
+                yield return Block(dir, "gas-t1" + tail, "t1", tc, x, z, 30f, 25f,
+                                   new List<Vector2> { new Vector2(x, z) }, plate, map);
+
+                // the previous seed's cloud dies here, on a fixed count, so both passes stay in step
+                for (int f = 0; f < DrainFrames; f++) yield return null;
+            }
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
@@ -137,6 +188,10 @@ namespace TW.Tests
 
             var answers = new List<string>();
             int taken = 0;
+            // the field as it stands BEFORE this block's first call: anything here is a leftover from the previous
+            // seed, not this seed's gas, and it goes into the manifest row rather than being silently counted
+            int cellsBefore; float maxBefore;
+            FieldRead(out cellsBefore, out maxBefore);
             foreach (var p in points)
             {
                 if (!plate)
@@ -183,22 +238,9 @@ namespace TW.Tests
             // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
             // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
             // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
-            // the field is read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test assembly
-            // does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit for
-            // one diagnostic. Its Gas array is an ordinary NativeArray<float>, so only the system's own type is hidden.
-            int cells = 0; float fieldMax = 0f;
-            object local = Host.Local;
-            object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
-                           ?? local.GetType().GetField("Gas")?.GetValue(local);
-            if (gasField != null
-                && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
-                && field.IsCreated)
-                for (int i = 0; i < field.Length; i++)
-                {
-                    float c = field[i];
-                    if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
-                    if (c > fieldMax) fieldMax = c;
-                }
+            // FieldRead says why the field itself is read through reflection.
+            int cells; float fieldMax;
+            FieldRead(out cells, out fieldMax);
             yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
             int cards = Cards(); float recipes = Recipes(); bool ready = Books();
 
@@ -212,6 +254,8 @@ namespace TW.Tests
               .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
               .Append(", \"calls_taken\": ").Append(taken)
               .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
+              .Append(", \"gas_cells_before\": ").Append(cellsBefore)
+              .Append(", \"gas_field_max_before\": ").Append(maxBefore.ToString("0.##"))
               .Append(", \"gas_cards\": ").Append(cards)
               .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
               .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
@@ -230,6 +274,29 @@ namespace TW.Tests
         static CombatFx Fx => Object.FindFirstObjectByType<CombatFx>();
 
         const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+
+        /// <summary>The gas field right now: how many cells stand at or over the floor DrawGasBank's Refresh uses,
+        /// and the strongest cell. Read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test
+        /// assembly does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit
+        /// for one diagnostic. Its Gas array is an ordinary NativeArray&lt;float&gt;, so only the system's own type
+        /// is hidden.</summary>
+        static void FieldRead(out int cells, out float fieldMax)
+        {
+            cells = 0; fieldMax = 0f;
+            object local = Host.Local;
+            if (local == null) return;
+            object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
+                           ?? local.GetType().GetField("Gas")?.GetValue(local);
+            if (gasField != null
+                && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
+                && field.IsCreated)
+                for (int i = 0; i < field.Length; i++)
+                {
+                    float c = field[i];
+                    if (c >= 0.8f) cells++;
+                    if (c > fieldMax) fieldMax = c;
+                }
+        }
 
         /// <summary>How many gas cards CombatFx packed in the last frame it drew (-1: no CombatFx or no such field).</summary>
         static int Cards()

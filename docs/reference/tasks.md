@@ -130,6 +130,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
   2026-10-19 found that every call was taken, and the capture frame's own `gas_cells`, `gas_cards`, `recipes`,
   `books_ready` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
+  Since r2-3 one pass shoots THREE seeds, not one: the three open patches furthest apart the corridor allows (60 m
+  if it can, else 48, 40 or 32), each at both bands, into stems `gas-t1-s0` ... `gas-o240-s2` with their plates -
+  12 stills a pass - with a fixed 1500-frame drain between seeds and `gas_cells_before` per row, so a leftover
+  cloud from the previous seed shows in the evidence instead of being counted as gas.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
@@ -138,6 +142,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
   `docs/evidence/ability-fx-captures-r2/probe.py` measures those stills in metres (`--pack <capture dir>`, `--selftest`);
+  `docs/evidence/ability-fx-captures-r2-3/probe.py` is the round-3 measure, one value per seed and a bar that must be
+  met by all three: how much of the T1 frame the bank moved, how far the ground texture under it flattened against
+  the plate, and how far its hue stands from the grass it covers at O240 (`--dir baseline` measures the
+  before-pictures; needs numpy and PIL);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
