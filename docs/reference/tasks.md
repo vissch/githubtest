@@ -562,7 +562,9 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   `Presentation/Camera/WaterEntry.cs` (the ONE place a falling thing's splash lives: a man dying in water, a flung
   body landing in it, a dropped rifle or helmet -- one ring sized by mass (a cube root, so it grows with girth, not
   weight) plus a `Splash` card at the water point, nothing on dry ground; only a shell still rings wider than a man,
-  harsh critic, idea-things-that-fall-in-the-water-splash),
+  harsh critic, idea-things-that-fall-in-the-water-splash. A delayed throw's ring waits out the fall with its card:
+  `WaterEntry.Pump`, called each frame by `CombatFx.Update`, opens it within 0.05 s of the landing instead of a
+  whole flight early),
   `Presentation/Camera/CombatFx.Bodies.cs` (gibs, tree breaks, muzzle and chest positions),
   `Presentation/Camera/CombatFx.Ambient.cs` (birds, ambient smoke), `Presentation/Camera/CameraShake.cs`,
   `Presentation/Camera/FlipbookFx.cs` + `Shaders/Flipbook_URP.shader` (painted flipbooks, textures in `Resources/VFX/`).
@@ -588,7 +590,8 @@ This task spans both lanes. The SIM lane lands steps 1-2 as a seam commit first;
   ColumnLightTests, ColumnPlayTests, ColumnWidthTests, GrenadeLookTests (the drawn bomb lands on the
   burst and lobs a man's height), FlipbookOrdinalTests (each `Book` draws its own `Sheets` row), BurstRecipeTests,
   FarGrowTests, GoreScaleTests (the gore's size curve and its cap at zoom 6, 30, 120 and beyond: `GoreScale.cs`),
-  WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan: `WaterEntry.cs`),
+  WaterEntryTests (DeathInWaterThrowsSplash, DeathOnDryGroundThrowsNoSplash, AHelmetRingsSmallerThanAMan,
+  WaterEntryRingWaitsForLanding: `WaterEntry.cs`),
   HitMarkSizeTests (the ground marks' own curve, `HitMarkGrow`, at zoom 6, 30, 120 and 600, and that it is not the
   gore curve: `CombatFx.HitBlood.cs`),
   ImpactDustFeetTests (a Hit's feet dust tracks the chest he was actually drawn with -- a fire-step, not the bare
