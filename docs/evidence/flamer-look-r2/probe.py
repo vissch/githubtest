@@ -32,7 +32,9 @@ HOW
     kit_px            pixels inside the Flamer's kit box whose luma differs by >= 8 (0-255, Rec.601) between the
                       Flamer's still and the Assault's still of that band. The box is the SAME rectangle in both,
                       because both men stood on the same spot and the camera did not move.
-    tank_vs_torso_dL  median luma of the tank box minus the median luma of the torso box, at T2. This is the
+    tank_vs_torso_dL  median luma of the Flamer's tank box minus the median luma of the SAME torso rectangle in
+                      the bare Assault's still (the camera stands behind the man, so his own chest box is hidden
+                      by the tanks), at T2. This is the
                       "dirt on dirt" number: a kit in dirtMat over a khaki soldier reads near 0.
     tank_vs_ground_dL the same against the ground box: does the kit separate from the mud he stands on.
 
@@ -154,19 +156,38 @@ def kit_px(band, with_kit, without, detail):
     return n
 
 
-def dls(still):
-    """tank_vs_torso and tank_vs_ground for one still, in luma steps (0-255)."""
+def dls(still, bare):
+    """tank_vs_torso and tank_vs_ground for one still, in luma steps (0-255).
+
+    The two stills are the SAME man in the SAME slot one frame apart, his archetype flipped (stage.cs): every pixel
+    that differs between them is kit and nothing else. So the tanks are measured on exactly those pixels inside the
+    tank box - not on the whole box, which is mostly the man and the mud behind him and whose median moved by 1 luma
+    step when the kit went from mud brown to pale steel (measured 2026-10-19).
+
+      tanks  median luma of the changed pixels in the Flamer's still   - the kit as it is drawn
+      torso  median luma of the torso box (his chest cube, +-0.18 m) in the bare Assault's still - the man the kit
+             is worn over. Read off the bare man on purpose: the camera stands behind him, where the tanks are, so
+             in the Flamer's own still that box is the kit and the number would measure the kit against itself.
+      ground median luma of the ground box, 0.6 m below his feet, in the Flamer's still
+    """
     L = luma(os.path.join(HERE, still["png"]))
+    B = luma(os.path.join(HERE, bare["png"]))
     h, w = L.shape
     man = still["man"]
-    medians = {}
     for key in ("tanks", "torso", "ground"):
         if key not in man:
             fail("boxes.json has no " + key + " box")
-        b = px_box(man[key], w, h)
-        if b is None:
-            fail("the " + key + " box falls outside the frame")
-        medians[key] = float(np.median(crop(L, b)))
+    tb = px_box(man["tanks"], w, h)
+    gb = px_box(man["ground"], w, h)
+    sb = px_box(man["torso"], w, h)
+    if tb is None or gb is None or sb is None:
+        fail("the tank, torso or ground box falls outside the frame")
+    a, b = crop(L, tb), crop(B, tb)
+    mask = np.abs(a - b) >= DIFF
+    if int(np.count_nonzero(mask)) < 20:
+        fail("fewer than 20 px of the tank box changed when the man put the kit on: there is no kit to measure")
+    medians = {"tanks": float(np.median(a[mask])), "torso": float(np.median(crop(B, sb))),
+               "ground": float(np.median(crop(L, gb)))}
     return medians["tanks"] - medians["torso"], medians["tanks"] - medians["ground"], medians
 
 
@@ -197,7 +218,7 @@ def main():
     assault_t3["man"] = dict(assault_t3["man"])
     assault_t3["man"]["kit"] = flamer["flamer_t3"]["man"]["kit"]
     result["kit_px_control"] = kit_px("control", ("assault_t3", assault_t3), ("control_t3", pair), detail)
-    torso, ground, medians = dls(flamer["flamer_t2"])
+    torso, ground, medians = dls(flamer["flamer_t2"], assault["assault_t2"])
     result["tank_vs_torso_dL_t2"] = round(torso, 2)
     result["tank_vs_ground_dL_t2"] = round(ground, 2)
 
