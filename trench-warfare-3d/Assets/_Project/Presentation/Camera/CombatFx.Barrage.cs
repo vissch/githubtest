@@ -91,15 +91,60 @@ namespace TW.Presentation.Tactical
             books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
         }
 
+        /// <summary>The dust puff's width at zero zoom (today's size, up close): grown by FarGrow so the landing stays
+        /// readable at the overview, where the drop itself has no burst to read instead.</summary>
+        public const float DropDustBase = 2f;
+        public static float DropDustWidth(float zoom) => DropDustBase * FlipbookFx.FarGrow(zoom);
+
+        /// <summary>Whether the drop is drawn at a zoom: unlike a shell's streak (IsIncoming, culled from
+        /// IncomingFarZoom because the burst is the far read instead), a drop has no burst of its own, so its marker and
+        /// landing dust are never culled. Pure, so a test can hold it.</summary>
+        public static bool DropDrawnAt(float zoom) => true;
+
+        /// <summary>When the k-th of `men` falling streaks starts, spread evenly over the last (up to) 2.5 s before
+        /// landing, the final one at IncomingLead before the ground (the streak's own last frame). Pure, so a test can
+        /// hold it.</summary>
+        public static float DropStreakDelay(int k, int men, float seconds)
+        {
+            float span = Mathf.Min(seconds, 2.5f);
+            float last = Mathf.Max(0f, seconds - IncomingLead);
+            float first = Mathf.Max(0f, last - span);
+            float t = men > 1 ? (float)k / (men - 1) : 1f;
+            return Mathf.Clamp(Mathf.Lerp(first, last, t), 0f, seconds);
+        }
+
+        /// <summary>L11 (fx.recipes): a drop called in (DropInbound: pos, b = men, scalar = seconds to landing): a smoke
+        /// flare marks the zone the moment it is called, and a falling streak per man leads into the landing, so the
+        /// men do not just appear (the harsh critic's finding). Not a canopy (owner question Q8).</summary>
+        void OnDropInbound(SimEvent e)
+        {
+            if (recipes < 0.5f || books == null || !books.Ready) return;
+            var cam = Camera.main;
+            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f;
+            float grow = FlipbookFx.FarGrow(zoom);
+            Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
+            books.Add(FlipbookFx.Book.Smoulder, at, 6f * grow, e.Scalar + 2f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.8f);
+            books.Add(FlipbookFx.Book.Star, at + Vector3.up * 0.6f, 1f, 0.08f, glow: SceneMood.Night ? 3f : 1.6f);
+            int men = Mathf.Clamp(e.B, 1, 8);
+            for (int k = 0; k < men; k++)
+            {
+                float a = Hash01(at.x, at.z, 70 + k) * 6.2832f, d = 12f * Hash01(at.x, at.z, 80 + k);
+                Vector3 p = at + new Vector3(Mathf.Cos(a) * d, 0f, Mathf.Sin(a) * d);
+                p.y = RenderGround.Sample(Host.Local.Map, p.x, p.z);
+                books.Add(FlipbookFx.Book.ShellFall, p, 3f * grow, IncomingCardLife, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored,
+                    glow: SceneMood.Night ? 1.6f : 1f, delay: DropStreakDelay(k, men, e.Scalar));
+            }
+        }
+
         /// <summary>L11 (fx.recipes): a paratrooper down (DropLanded: pos): the dust he lands in. The canopy is a mesh and
         /// owner question Q8.</summary>
         void OnDropLanded(SimEvent e)
         {
             if (recipes < 0.5f || books == null || !books.Ready) return;
             var cam = Camera.main;
-            if (cam != null && cam.TryGetComponent<IZoomSource>(out var zs) && zs.CurrentZoom >= IncomingFarZoom) return;
+            float zoom = cam != null && cam.TryGetComponent<IZoomSource>(out var zs) ? zs.CurrentZoom : 0f;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
-            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 2f, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
+            books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, DropDustWidth(zoom), 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);
         }
     }
 }
