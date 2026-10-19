@@ -71,14 +71,17 @@ namespace TW.Presentation.Tactical
                     break;
                 }
             }
-            // dust where each arc of a bouncing body comes down, timed to the landing
+            // dust where each arc of a bouncing body comes down, timed to the landing; a wet landing rings and
+            // splashes instead (FallenFlight.Make already kills the bounce below the water line, so one splash at most)
             bool near = CameraShake.DistanceToLook(p) < GagDustReach;
-            if (books != null && books.Ready && path.Arcs > 0 && near)
+            if (path.Arcs > 0)
                 for (int k = 0; k < path.Arcs; k++)
                 {
                     var a = k == 0 ? path.A0 : k == 1 ? path.A1 : path.A2;
-                    books.Add(FlipbookFx.Book.Puff, a.To + Vector3.up * 0.15f, (k == 0 ? 1.6f : 1.1f) * scale, 0.8f, FlipbookFx.Kind.Upright,
-                        velocity: Vector3.up * 0.6f, grow: 0.8f, alpha: k == 0 ? 0.7f : 0.5f, pop: 0.2f, delay: path.Delay + a.End);
+                    if (WaterEntry.Throw(near ? books : null, a.To, WaterEntry.ManKg, path.Delay + a.End, scale).Any) continue;
+                    if (books != null && books.Ready && near)
+                        books.Add(FlipbookFx.Book.Puff, a.To + Vector3.up * 0.15f, (k == 0 ? 1.6f : 1.1f) * scale, 0.8f, FlipbookFx.Kind.Upright,
+                            velocity: Vector3.up * 0.6f, grow: 0.8f, alpha: k == 0 ? 0.7f : 0.5f, pop: 0.2f, delay: path.Delay + a.End);
                 }
             GagBlood(e, rec, gag, path, p, scale, near, gib, density);
         }
