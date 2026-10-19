@@ -13,6 +13,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using NUnit.Framework;
 using UnityEngine;
@@ -179,6 +180,28 @@ namespace TW.Tests
 
             uint tick = Host.Local.World.Tick;
 
+            // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
+            // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
+            // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
+            // the field is read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test assembly
+            // does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit for
+            // one diagnostic. Its Gas array is an ordinary NativeArray<float>, so only the system's own type is hidden.
+            int cells = 0; float fieldMax = 0f;
+            object local = Host.Local;
+            object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
+                           ?? local.GetType().GetField("Gas")?.GetValue(local);
+            if (gasField != null
+                && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
+                && field.IsCreated)
+                for (int i = 0; i < field.Length; i++)
+                {
+                    float c = field[i];
+                    if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
+                    if (c > fieldMax) fieldMax = c;
+                }
+            yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
+            int cards = Cards(); float recipes = Recipes(); bool ready = Books();
+
             float ground = RenderGround.Sample(map, x, z);
             var sb = new StringBuilder();
             sb.Append("    { \"still\": \"").Append(stem).Append(".png\", \"subject\": \"chlorine gas bank\", \"band\": \"")
@@ -188,12 +211,48 @@ namespace TW.Tests
               .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
               .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
               .Append(", \"calls_taken\": ").Append(taken)
+              .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
+              .Append(", \"gas_cards\": ").Append(cards)
+              .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
+              .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
+              .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
               .Append(", \"calls\": [");
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
             sb.Append("] }");
             rows.Add(sb.ToString());
 
             for (int f = spent; f < BlockFrames; f++) yield return null;
+        }
+
+        /// <summary>The scene's CombatFx, or null: every reading below is read off it by reflection, because the
+        /// bank's card list, its recipe switch and its books are all private and none of them is worth a public
+        /// surface for one diagnostic.</summary>
+        static CombatFx Fx => Object.FindFirstObjectByType<CombatFx>();
+
+        const BindingFlags Hidden = BindingFlags.Instance | BindingFlags.NonPublic;
+
+        /// <summary>How many gas cards CombatFx packed in the last frame it drew (-1: no CombatFx or no such field).</summary>
+        static int Cards()
+        {
+            var fx = Fx; if (fx == null) return -1;
+            var f = typeof(CombatFx).GetField("gasCards", Hidden);
+            return f?.GetValue(fx) is System.Collections.ICollection list ? list.Count : -1;
+        }
+
+        /// <summary>CombatFx.recipes: under 0.5 the drawn banks are off and the old translucent blocks stand in.</summary>
+        static float Recipes()
+        {
+            var fx = Fx; if (fx == null) return -1f;
+            var f = typeof(CombatFx).GetField("recipes", Hidden);
+            return f?.GetValue(fx) is float v ? v : -1f;
+        }
+
+        /// <summary>CombatFx.books.Ready: one missing PNG disables every flipbook.</summary>
+        static bool Books()
+        {
+            var fx = Fx; if (fx == null) return false;
+            var f = typeof(CombatFx).GetField("books", Hidden);
+            return f?.GetValue(fx) is FlipbookFx books && books.Ready;
         }
 
         /// <summary>The chlorine cooldown of player 0, in ticks: 1800 right after a call the sim took, 0 after one it refused.</summary>
