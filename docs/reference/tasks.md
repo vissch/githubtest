@@ -134,6 +134,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   if it can, else 48, 40 or 32), each at both bands, into stems `gas-t1-s0` ... `gas-o240-s2` with their plates -
   12 stills a pass - with a fixed 1500-frame drain between seeds and `gas_cells_before` per row, so a leftover
   cloud from the previous seed shows in the evidence instead of being counted as gas.
+  Since r2-3-g2 a THIRD band, "side" (zoom 16, pitch 8 - `TacticalCamera.PitchMin`, `aimY` raised to clear the
+  horizon), grazes the bank instead of looking down on it: T1 and O240's steep pitch 25 reads ground lying beyond
+  the bank's footprint as height, and the side band is where thickness is actually measured
+  (`docs/evidence/ability-fx-captures-r2-3-g2/probe.py`'s `gas_side_height_m`, bias-corrected by
+  `footprint_bias_m`) - 18 stills a pass.
   The pipeline's `run_tests` selects
   no [Explicit] test, so run it as its own batch launch: `Unity.exe -batchmode -projectPath <checkout>/trench-warfare-3d
   -runTests -testPlatform EditMode -testFilter GasBankStills -testResults <xml> -logFile <log>`).
