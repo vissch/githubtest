@@ -18,15 +18,20 @@ namespace TW.Presentation.Tactical
     {
         public const float BankMergeZoom = 120f;
         public const float GasBankFirst = 17f, GasBankLast = 28f;       // the bank at its full spread (its early frames are a puff)
-        // How clearly the bank reads (film 2026-10-07: at 0.3-0.8 it was fainter than the old wisps at night and gone on snow):
-        // a thin cell's card and a full one's, and its colour by day, deeper than the sheet's so it is green ON snow
-        public const float GasBankThin = 0.6f, GasBankFull = 1f;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
-        public const float GasBankSquash = 0.55f;
+        // How clearly the bank reads: a thin cell's card and a full one's. One card is a haze now, not a tile - three
+        // stacked cards reach 1-(1-0.5)^3 = 0.875, about the old single card's core, so the bank is volume and not stripes.
+        // Its colour by day is deeper than the sheet's so it is green ON snow
+        public const float GasBankThin = 0.14f, GasBankFull = 0.5f;
+        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (14.3 m) squashed to 0.36 tops out at 1.72 m - gas to the chest, it does not stand over a man.</summary>
+        public const float GasBankSquash = 0.36f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
+
+        /// <summary>How wide a gas cell's card is drawn (m): 8-14 m on the 4 m field grid, so cards overlap two to three
+        /// deep and add up into one bank instead of tiling the field in stripes. Same card count as before.</summary>
+        public static float GasBankWidth(float thick, float hash01, int step) => (9f + 4f * thick) * (0.9f + 0.2f * hash01) * step;
 
         public const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
@@ -91,11 +96,13 @@ namespace TW.Presentation.Tactical
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
-                float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
+                float h1 = (b.Hash & 1023) / 1023f, h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
                 float slow = now * 0.22f + h3 * 6.2832f;
-                float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
+                float width = GasBankWidth(b.Thick, h2, step);
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                // a zebra of cards is what one hard silhouette per cell looked like: break the top line, the brightness
+                // (lit core, dull skirt) and the roll (+-7 degrees) by the cell's hash so no two card edges line up
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f + (h1 - 0.5f) * 0.5f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 0.75f + 0.45f * b.Thick, (h2 - 0.5f) * 0.25f, kind, GasBankAlpha(b.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
