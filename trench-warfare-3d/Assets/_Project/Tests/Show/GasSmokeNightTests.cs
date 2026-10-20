@@ -57,5 +57,40 @@ namespace TW.Tests
             Assert.AreEqual(0f, CombatFx.ReadSmokeScreenNight(), 1e-6f);
             Assert.AreEqual(1f, CombatFx.ReadGasNight(), 1e-6f);
         }
+
+        [Test]
+        public void TheGasBankHasARimAndHeight()
+        {
+            // Phase: gas-smoke-night-g2 (the owner, 2026-10-20: "a rim and some height a player can see at zoom 30").
+            // The numbers the pure helpers must hold; what they come out as on the pixels is bars.json beside
+            // docs/evidence/gas-smoke-night-g2/probe.py, set from three takes of 4ce7ef9103.
+            CombatFx.BankRim(false, 1f, out float inBright, out float inTall, out float inLift);
+            CombatFx.BankRim(true, 1f, out float edBright, out float edTall, out float edLift);
+            Assert.AreEqual(1f, inBright, 1e-6f, "an interior cell is drawn as before");
+            Assert.AreEqual(1f, inTall, 1e-6f);
+            Assert.AreEqual(0f, inLift, 1e-6f);
+            Assert.Greater(edBright, inBright, "an edge cell must be brighter: that is the lip");
+            Assert.Greater(edTall, inTall, "an edge cell must be taller");
+            Assert.Greater(edLift, inLift, "an edge cell must be denser");
+
+            // a thick cell's card stands taller than a thin one's, and the width is untouched (no bigger footprint)
+            float thin = Mathf.Lerp(1f, CombatFx.GasBankTall, 0.1f), thick = Mathf.Lerp(1f, CombatFx.GasBankTall, 1f);
+            Assert.Greater(thick, thin, "a thick cell's card must be taller than a thin one's");
+            Assert.AreEqual(CombatFx.GasBankTall, thick, 1e-6f);
+            Assert.Greater(CombatFx.GasBankTall, 1f, "the card has to grow to have height at all");
+
+            // the lifted alpha never passes 1, at any thickness, on the edge
+            for (float t = 0f; t <= 1.0001f; t += 0.1f)
+            {
+                CombatFx.BankRim(true, t, out _, out _, out float lift);
+                Assert.LessOrEqual(Mathf.Min(1f, CombatFx.GasBankAlpha(t) + lift), 1f, "the gas card's alpha passed 1");
+            }
+            Assert.AreEqual(1f, Mathf.Min(1f, CombatFx.GasBankAlpha(1f) + edLift), 1e-6f,
+                "a thick edge cell is the one that clamps: GasBankFull is already 1");
+
+            // the knobs' day guard stays: the colours the rim is drawn in have not moved
+            Assert.AreEqual(new Color(0.50f, 0.64f, 0.12f), CombatFx.GasBankDay, "the gas bank's day colour moved");
+            Assert.AreEqual(new Color(0.74f, 0.80f, 0.34f), CombatFx.GasBankNight, "the gas bank's night colour moved");
+        }
     }
 }
