@@ -10,6 +10,12 @@
 // the "before" picture, taken by the same recipe at the same pose.
 // moments.txt records the point, how many probed cells IsWater called wet and the deepest water found: that line is
 // the diagnosis in writing.
+// R5-2 (2026-10-20, plan step 3): the point is chosen by the DISAGREEMENT share - cells IsWater calls wet while
+// WaterDepth is under SplashDepth - and when the field's best is under 0.5 the test MAKES that ground: up to three
+// warm-up barrages at the point, 6 s apart, re-probing between them, because dressed shell holes are what turns
+// IsWater true without filling to SplashDepth. The 25 m dryness is re-checked after each round; a point whose
+// craters now hold real water is dropped for the next best. Every round's share goes into moments.txt. The baseline
+// toggle nulls WaterDepth only after the warm-up and the plates, so both codes stand on the same dressed ground.
 using System.Collections;
 using System.IO;
 using NUnit.Framework;
@@ -50,20 +56,36 @@ namespace TW.Tests
             }
         }
 
-        /// <summary>The deepest standing water on a 2 m grid within `r` of (x, z), and how many of those cells
-        /// IsWater calls wet. The two disagree on damp ground: that disagreement is the bug being fixed.</summary>
-        static (float deepest, int wet, int cells) Water(float x, float z, float r)
+        /// <summary>The deepest standing water on a 2 m grid within `r` of (x, z), how many of those cells IsWater
+        /// calls wet, and how many of them DISAGREE: IsWater true while WaterDepth is under SplashDepth. The
+        /// disagreeing cells are exactly the ground where the old code splashes blue and the new code throws earth,
+        /// so their share - not the wet share - is what stages this A/B (plan step 3, 2026-10-20).</summary>
+        static (float deepest, int wet, int split, int cells) Water(float x, float z, float r)
         {
-            float deepest = 0f; int wet = 0, cells = 0;
+            float deepest = 0f; int wet = 0, split = 0, cells = 0;
             for (float zz = z - r; zz <= z + r; zz += 2f)
                 for (float xx = x - r; xx <= x + r; xx += 2f)
                 {
                     cells++;
-                    if (SceneHooks.WaterDepth != null) deepest = Mathf.Max(deepest, SceneHooks.WaterDepth(xx, zz));
-                    if (SceneHooks.IsWater != null && SceneHooks.IsWater(xx, zz)) wet++;
+                    float d = SceneHooks.WaterDepth != null ? SceneHooks.WaterDepth(xx, zz) : 0f;
+                    deepest = Mathf.Max(deepest, d);
+                    bool iw = SceneHooks.IsWater != null && SceneHooks.IsWater(xx, zz);
+                    if (iw) wet++;
+                    if (iw && d < CombatFx.SplashDepth) split++;
                 }
-            return (deepest, wet, cells);
+            return (deepest, wet, split, cells);
         }
+
+        /// <summary>The disagreement share within 12 m of (x, z): the frame the plume is drawn in.</summary>
+        static float SplitShare(float x, float z)
+        {
+            var w = Water(x, z, 12f);
+            return w.cells > 0 ? w.split / (float)w.cells : 0f;
+        }
+
+        /// <summary>No standing water over SplashDepth within 25 m - the shells scatter wider than the frame, and one
+        /// landing in real water makes BOTH codes splash, which killed r5's first take.</summary>
+        static bool DryWide(float x, float z) => Water(x, z, 25f).deepest <= CombatFx.SplashDepth;
 
         [UnityTest, Explicit("The HE barrage on dry ground, with a no-effect plate at each band; run by name, with a graphics device.")]
         public IEnumerator BarrageOnDryGroundAtTwoBands()
@@ -102,46 +124,86 @@ namespace TW.Tests
             // The plate is shot at the same pose, so a prop or a trench lip in frame subtracts out of the mask.
             const float room = 8f;
 
-            // critic r1, fix 2: dry ground is not enough. r4's point was merely dry, so the OLD code drew earth there
-            // too and the A/B was 0.36% of pixels apart. What shows the bug is ground with no standing water over
-            // SplashDepth but a high share of cells the old IsWater test calls wet (a painted damp patch, dressed shell
-            // holes): there the old code splashes blue and the new code throws earth. Pick the wettest such point.
-            float x = -1f, z = -1f, deepest = 0f; int wet = 0, cells = 0; float share = -1f;
-            float bestX = -1f, bestZ = -1f, bestDeep = 0f; int bestWet = 0, bestCells = 0; float bestShare = -1f;
-            // the whole field, less the room the camera and the scatter need, at 2 m: on GreyboxCorridor the damp
-            // paint sits where r4's narrower window (x 20, z 40, 6 m) never looked, and the wettest shallow ground
-            // there reaches 0.225 of cells within 12 m against 0.071 inside it (measured 2026-10-19).
+            // critic r1, fix 2 and plan step 3 (2026-10-20): dry ground is not enough, and neither is damp ground.
+            // What shows the bug is the DISAGREEMENT: cells IsWater calls wet while WaterDepth is under SplashDepth.
+            // There the old code splashes blue and the new code throws earth; everywhere else both codes agree and the
+            // A/B comes back near pixel-identical (r5: 0.0183 against 0.0172). Score the share of such cells within
+            // 12 m, keep the 25 m dryness rule, and pick the highest.
+            float x = -1f, z = -1f, deepest = 0f; int wet = 0, split = 0, cells = 0; float share = -1f;
+            float bestX = -1f, bestZ = -1f, bestDeep = 0f; int bestWet = 0, bestSplit = 0, bestCells = 0; float bestShare = -1f;
+            // the whole field, less the room the camera and the scatter need, at 2 m.
+            var ranked = new System.Collections.Generic.List<(float sh, float xx, float zz)>();
             for (float zz = 14f; zz < size.y - 14f; zz += 2f)
                 for (float xx = 14f; xx < size.x - 14f; xx += 2f)
                 {
                     if (!VfxStills.Open(map, xx, zz, room)) continue;
                     var w = Water(xx, zz, 12f);   // 12 m: the shells' scatter, and the frame the plume is drawn in.
-                    // A 6 m core was tried on 2026-10-19 and read WORSE in the baseline (blue 0.0097 against 0.0665):
-                    // the impacts that matter are spread over the frame, not piled on the aim point.
-                    float sh = w.cells > 0 ? w.wet / (float)w.cells : 0f;
-                    if (sh > bestShare) { bestShare = sh; bestX = xx; bestZ = zz; bestDeep = w.deepest; bestWet = w.wet; bestCells = w.cells; }
+                    float sh = w.cells > 0 ? w.split / (float)w.cells : 0f;
+                    if (sh > bestShare) { bestShare = sh; bestX = xx; bestZ = zz; bestDeep = w.deepest; bestWet = w.wet; bestSplit = w.split; bestCells = w.cells; }
                     // dry over 25 m, not 12: the shells scatter wider than the frame, and one of them landing in the
                     // river makes BOTH codes splash - which is how the first r5 take came back with the before and
                     // after shot pixel for pixel the same (2026-10-19).
-                    if (Water(xx, zz, 25f).deepest > CombatFx.SplashDepth) continue;
+                    if (!DryWide(xx, zz)) continue;
+                    ranked.Add((sh, xx, zz));
                     if (sh <= share) continue;
-                    share = sh; x = xx; z = zz; deepest = w.deepest; wet = w.wet; cells = w.cells;
+                    share = sh; x = xx; z = zz; deepest = w.deepest; wet = w.wet; split = w.split; cells = w.cells;
                 }
-            bool fallback = x < 0f || share < 0.5f;
-            if (x < 0f) { x = bestX; z = bestZ; deepest = bestDeep; wet = bestWet; cells = bestCells; share = bestShare; }
+            if (x < 0f) { x = bestX; z = bestZ; deepest = bestDeep; wet = bestWet; split = bestSplit; cells = bestCells; share = bestShare; }
             Assert.Greater(x, 0f, "no open ground for a barrage at all");
-            string note = fallback
-                ? " (FALLBACK: the wettest dry point reaches only " + share.ToString("0.###") + " of cells IsWater-wet, under 0.5)"
-                : "";
+            ranked.Sort((p, q) => q.sh.CompareTo(p.sh));   // best first: the fallbacks when a warm-up floods a point
             TestContext.Out.WriteLine("barrage at " + x + ", " + z + ": deepest water " + deepest.ToString("0.###")
-                + " m, IsWater called " + wet + " of " + cells + " probed cells wet (share " + share.ToString("0.###") + ")" + note);
+                + " m, IsWater wet " + wet + " of " + cells + ", disagreeing " + split
+                + " (share " + share.ToString("0.###") + ")");
 
             var log = new System.Text.StringBuilder();
-            log.Append("barrage at ").Append(x).Append(", ").Append(z)
-               .Append(": deepest standing water ").Append(deepest.ToString("0.###")).Append(" m, SplashDepth ")
-               .Append(CombatFx.SplashDepth).Append(" m; IsWater called ").Append(wet).Append(" of ").Append(cells)
-               .Append(" probed cells wet (share ").Append(share.ToString("0.###")).Append(')').Append(note)
-               .Append(baseline ? "; BASELINE run: SceneHooks.WaterDepth nulled, CombatFx on the old IsWater test" : "")
+            log.Append("search: the disagreement share (IsWater wet AND WaterDepth < SplashDepth ")
+               .Append(CombatFx.SplashDepth).Append(" m) of cells on a 2 m grid within 12 m, no water over SplashDepth within 25 m\n");
+            log.Append("round 0: ").Append(x).Append(", ").Append(z).Append(" share ").Append(share.ToString("0.####"))
+               .Append(" (").Append(split).Append(" of ").Append(cells).Append(" cells; IsWater wet ").Append(wet)
+               .Append("; deepest ").Append(deepest.ToString("0.###")).Append(" m)\n");
+
+            // plan step 3: when the field's best point is under 0.5, MAKE the ground. Dressed shell holes are what
+            // turns IsWater true without filling to SplashDepth - the bug's real habitat - so fire a warm-up barrage,
+            // let it land and settle, and re-probe. Up to 3 rounds. A crater that now holds water deeper than
+            // SplashDepth would make both codes splash, so re-check the 25 m dryness and drop the point if it does.
+            int nextRank = 0;
+            for (int round = 1; round <= 3 && share < 0.5f; round++)
+            {
+                TestContext.Out.WriteLine("warm-up round " + round + ": barrage at " + x + ", " + z
+                    + " to dress the ground (share " + share.ToString("0.###") + " is under 0.5)");
+                VfxLab.Scene("barrage", x, z);
+                float until = Time.time + 6f;                       // the shells land and the holes settle
+                while (Time.time < until) yield return null;
+                bool dry = DryWide(x, z);
+                float sh2 = SplitShare(x, z);
+                var w2 = Water(x, z, 12f);
+                log.Append("round ").Append(round).Append(": warm-up barrage at ").Append(x).Append(", ").Append(z)
+                   .Append(" -> share ").Append(sh2.ToString("0.####")).Append(" (").Append(w2.split).Append(" of ")
+                   .Append(w2.cells).Append(" cells; deepest ").Append(w2.deepest.ToString("0.###")).Append(" m)")
+                   .Append(dry ? "" : "; FLOODED over 25 m, point dropped").Append('\n');
+                if (!dry)
+                {
+                    // move to the next best point and start its rounds there
+                    while (nextRank < ranked.Count && (Mathf.Approximately(ranked[nextRank].xx, x) && Mathf.Approximately(ranked[nextRank].zz, z)))
+                        nextRank++;
+                    if (nextRank >= ranked.Count) { log.Append("no point left to move to\n"); break; }
+                    x = ranked[nextRank].xx; z = ranked[nextRank].zz; nextRank++;
+                    share = SplitShare(x, z);
+                    log.Append("moved to ").Append(x).Append(", ").Append(z).Append(" share ").Append(share.ToString("0.####")).Append('\n');
+                    continue;
+                }
+                share = sh2; deepest = w2.deepest; wet = w2.wet; split = w2.split; cells = w2.cells;
+            }
+            bool fallback = share < 0.5f;
+            string note = fallback
+                ? " (FALLBACK: the best disagreement share after the warm-up rounds is only " + share.ToString("0.###") + ", under 0.5)"
+                : "";
+            log.Append("final: barrage at ").Append(x).Append(", ").Append(z)
+               .Append("; disagreement share ").Append(share.ToString("0.####")).Append(" (").Append(split)
+               .Append(" of ").Append(cells).Append(" cells, IsWater wet ").Append(wet)
+               .Append("); deepest standing water ").Append(deepest.ToString("0.###")).Append(" m, SplashDepth ")
+               .Append(CombatFx.SplashDepth).Append(" m").Append(note)
+               .Append(baseline ? "; BASELINE run: SceneHooks.WaterDepth nulled after the plates, CombatFx on the old IsWater test" : "")
                .Append('\n');
 
             // the plates first: the ability is not called yet, so no area marker exists to draw
