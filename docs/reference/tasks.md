@@ -134,11 +134,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `Tests/Stills/EffectFilmStills.cs` (films the commonest effects in the live match, 6 s at 24 fps, two takes at
   play zoom and one close, by day and by night, with a draw-call json a film; `TW_STILLS_DIR`, `TW_STILLS_FIELD` or
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`).
-  `Tests/Stills/GasNightStills.cs` (the gas bank and the smoke bank alone, one still each at play zoom after 10 s,
-  for the night readability question; `TW_STILLS_DIR`, `TW_STILLS_FIELD`; measured by
-  `docs/evidence/gas-smoke-night/probe.py`).
+  `Tests/Stills/GasNightStills.cs` (the gas bank and the smoke bank alone, three stills each at play zoom from one
+  locked camera (CameraShake off, `CaptureRig.Rig.YawPin` pinned), 0.5 s apart starting at 10 s, for the night
+  readability question; `TW_STILLS_DIR`, `TW_STILLS_FIELD`; measured by
+  `docs/evidence/gas-smoke-night-g1/probe.py`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
-  GasNightStills (Explicit, a graphics device, about four minutes a look: it only checks that both stills were written),
+  GasNightStills (Explicit, a graphics device, about four minutes a look: it only checks that all six stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).

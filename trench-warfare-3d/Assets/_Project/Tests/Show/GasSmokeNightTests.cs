@@ -1,8 +1,8 @@
-// Phase: gas-smoke-night (the owner, 2026-10-19: the ability clouds were tuned by day; at night black or grey smoke
-// vanishes). The guard on the two knobs that keep the gas and the smoke screen readable on a moonlit field, and on the
-// day look not moving with them. The ground it measures against is the night field's own, measured off the pixels:
-// docs/evidence/gas-smoke-night/probe.json, ground_median_night, written by probe.py beside the stills (commit
-// 2d4657bb, "film the gas and smoke banks at night and by day"). 0.12 is the phase's threshold.
+// Phase: gas-smoke-night-g1 (the owner, 2026-10-20: the ability clouds were tuned by day; at night black or grey
+// smoke vanishes). The guard on the two knobs that keep the gas and the smoke screen readable on a moonlit field,
+// and on the day look not moving with them. The ground it measures against is the night field's own, measured off
+// the pixels: docs/evidence/gas-smoke-night-g1/probe.json, ground_median_night, written by probe.py beside the
+// reshot stills (three captures a field, from one locked camera). 0.12 is the phase's threshold.
 using NUnit.Framework;
 using UnityEngine;
 using TW.Presentation;
@@ -12,7 +12,7 @@ namespace TW.Tests
 {
     public class GasSmokeNightTests
     {
-        const float GroundNight = 0.12558f;   // probe.json ground_median_night (zoom 30, NightMud)
+        const float GroundNight = 0.22895f;   // docs/evidence/gas-smoke-night-g1/probe.json ground_median_night (zoom 30, NightMud)
         const float Threshold = 0.12f;        // the phase's: contrast_median_night >= 0.12
 
         [SetUp] public void SetUp() => Knobs.Clear();

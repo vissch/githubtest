@@ -1,0 +1,113 @@
+{
+  "bar": 0.12,
+  "definition": "contrast = median over the centre 40 % x 30 % box of |Lc - Lg| / (Lc + Lg), Lg the median luma of the left and right tenth over the same rows; luma Rec.709 0-1 (CaptureRig's scale); zoom 30 stills",
+  "ground_median_night": 0.22895,
+  "per_cloud": {
+    "gas": {
+      "day": {
+        "contrasts": [
+          0.17593273125126235,
+          0.1791900909547967,
+          0.2111464391237265
+        ],
+        "max": 0.2111464391237265,
+        "median": 0.1791900909547967,
+        "min": 0.17593273125126235
+      },
+      "night": {
+        "contrasts": [
+          0.5414458545553997,
+          0.5382410293636221,
+          0.4597464299532992
+        ],
+        "max": 0.5414458545553997,
+        "median": 0.5382410293636221,
+        "min": 0.4597464299532992
+      }
+    },
+    "smoke": {
+      "day": {
+        "contrasts": [
+          0.019749778052065948,
+          0.02155080197481628,
+          0.02287892596765027
+        ],
+        "max": 0.02287892596765027,
+        "median": 0.02155080197481628,
+        "min": 0.019749778052065948
+      },
+      "night": {
+        "contrasts": [
+          0.3821283536303485,
+          0.3837733133863519,
+          0.3837530756296134
+        ],
+        "max": 0.3837733133863519,
+        "median": 0.3837530756296134,
+        "min": 0.3821283536303485
+      }
+    }
+  },
+  "per_still": {
+    "gas_nightmud_0": {
+      "cloud_median": 0.42157,
+      "contrast_median": 0.54145,
+      "ground_median": 0.12558
+    },
+    "gas_nightmud_1": {
+      "cloud_median": 0.42302,
+      "contrast_median": 0.53824,
+      "ground_median": 0.12722
+    },
+    "gas_nightmud_2": {
+      "cloud_median": 0.32659,
+      "contrast_median": 0.45975,
+      "ground_median": 0.12724
+    },
+    "gas_winter_0": {
+      "cloud_median": 0.54082,
+      "contrast_median": 0.17593,
+      "ground_median": 0.77175
+    },
+    "gas_winter_1": {
+      "cloud_median": 0.53523,
+      "contrast_median": 0.17919,
+      "ground_median": 0.76893
+    },
+    "gas_winter_2": {
+      "cloud_median": 0.49524,
+      "contrast_median": 0.21115,
+      "ground_median": 0.76035
+    },
+    "smoke_nightmud_0": {
+      "cloud_median": 0.50236,
+      "contrast_median": 0.38213,
+      "ground_median": 0.22863
+    },
+    "smoke_nightmud_1": {
+      "cloud_median": 0.50426,
+      "contrast_median": 0.38377,
+      "ground_median": 0.22905
+    },
+    "smoke_nightmud_2": {
+      "cloud_median": 0.50397,
+      "contrast_median": 0.38375,
+      "ground_median": 0.22895
+    },
+    "smoke_winter_0": {
+      "cloud_median": 0.75079,
+      "contrast_median": 0.01975,
+      "ground_median": 0.78017
+    },
+    "smoke_winter_1": {
+      "cloud_median": 0.75079,
+      "contrast_median": 0.02155,
+      "ground_median": 0.78271
+    },
+    "smoke_winter_2": {
+      "cloud_median": 0.74826,
+      "contrast_median": 0.02288,
+      "ground_median": 0.78299
+    }
+  }
+}

@@ -1,9 +1,12 @@
-// Phase: gas-smoke-night (the owner, 2026-10-19: the ability clouds were tuned by day; at night black or grey smoke
-// vanishes). The instrument for that one question: the gas bank and the smoke bank, each on its own open ground, each
-// filmed once at the zoom the game is played at (30) after ten seconds of captured time, so the cloud is at full spread.
+// Phase: gas-smoke-night-g1 (the owner, 2026-10-20: the night contrast must sit outside the spread of three day
+// captures, from one locked camera). The instrument: the gas bank and the smoke bank, each on its own open ground,
+// each filmed three times at the zoom the game is played at (30), 0.5 s apart starting at ten seconds of captured
+// time, so the three catch the flipbook moving across the bank's full spread. The camera is locked across the whole
+// run: CameraShake off (CameraShake.Strength = 0, Reset()) and CaptureRig.Rig.YawPin pinned, instead of writing
+// TacticalCamera.BaseYaw (which the rig eases back toward its own target the next frame).
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-gasnight), TW_STILLS_FIELD the look (NightMud is the night, Winter
 // the day field) — both VfxStills' own, so no new flag. It asserts only that the stills were written: the numbers come
-// from docs/evidence/gas-smoke-night/probe.py, measured off the pixels.
+// from docs/evidence/gas-smoke-night-g1/probe.py, measured off the pixels.
 using System.Collections;
 using System.IO;
 using NUnit.Framework;
@@ -12,6 +15,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine.TestTools;
 using TW.Editor;
 using TW.Presentation;
+using TW.Presentation.Tactical;
 using TW.Sim;
 using TW.Sim.Match;
 using TW.Sim.Terrain;
@@ -91,11 +95,16 @@ namespace TW.Tests
             if (sky != null) { sky.Rain = 0f; sky.Squalls = 0f; }
             TW.Presentation.Terrain.Atmosphere.PinnedClock = 30f;
             Time.captureDeltaTime = 1f / 30f;   // the game clock steps 1/30 s a frame while filming (a still stalls ~0.3 s)
-            var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
+            // the camera held dead still for the whole run: a shell burst near a man wrote CameraShake's 1-10 m
+            // push into the pose a frame after CaptureRig posed it (pose_error_m 1.51 on the smoke site), and
+            // writing BaseYaw lost its value to the rig easing yaw back toward its own target a frame later
+            CameraShake.Strength = 0f; CameraShake.Reset();
+            CaptureRig.Rig.YawPin = -90f;
 
             var map = Host.Local.Map;
             var size = map.SizeMeters;
             int written = 0;
+            const int Repeats = 3;   // hard-coded: measures the bank's own spread, not a tunable
             var used = new System.Collections.Generic.List<Vector2>();
             foreach (string scene in new[] { "gas", "smoke" })
             {
@@ -111,20 +120,26 @@ namespace TW.Tests
                 used.Add(new Vector2(x, z));
                 TestContext.Out.WriteLine(scene + " at " + x + ", " + z + ": " + VfxLab.Scene(scene, x, z));
                 // ten seconds of captured time: the gas warms up over 60 ticks and the field decays with a ~9 s
-                // half-life, so this is the bank at its fullest spread
-                float due = Time.time + 10f;
-                while (Time.time < due) yield return null;
-                string path = Path.Combine(dir, $"{scene}_{stem}.png");
-                if (tc != null) tc.BaseYaw = -90f;
-                CaptureRig.Shot(path, x, z, 30f, 40f, 25f, 1280, 720, 1f);
-                yield return Drain(path);
-                if (File.Exists(path)) written++;
+                // half-life, so this is the bank at its fullest spread. Three shots, 0.5 s apart, stay inside that
+                // decay (~4 % over the three) while the flipbook moves between them: that wobble is the spread.
+                float start = Time.time + 10f;
+                for (int k = 0; k < Repeats; k++)
+                {
+                    float due = start + 0.5f * k;
+                    while (Time.time < due) yield return null;
+                    string path = Path.Combine(dir, $"{scene}_{stem}_{k}.png");
+                    CaptureRig.Shot(path, x, z, 30f, 40f, 25f, 1280, 720, 1f);
+                    yield return Drain(path);
+                    if (File.Exists(path)) written++;
+                }
             }
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
+            CameraShake.Strength = 1f;
+            CaptureRig.Rig.YawPin = float.NaN;
             TestContext.Out.WriteLine("wrote " + written + " stills to " + dir);
             yield return new ExitPlayMode();
-            Assert.AreEqual(2, written, "both stills must be written to " + dir);
+            Assert.AreEqual(6, written, "all six stills must be written to " + dir);
         }
     }
 }
