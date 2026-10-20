@@ -1,9 +1,10 @@
 # ability-fx-captures-r2-2-g2: a gas measure three captures can agree on, 2026-10-20
 
-**This leg (part 1 of 2) does not clear the probe.** It carries over the camera maths, rebuilds the mask and the
-bar as the plan asks, and sets up the spread rule — but only `run1` exists so far (see "What is here" below), and
-the probe needs three. `python probe.py` therefore exits 1, `three runs needed`, by design. The next leg shoots
-`run2` and `run3` from this same build and sets `BAR_VALUES` from their spread.
+**`python probe.py` now clears, exit 0.** Part 1 carried over the camera maths, rebuilt the mask and the bar, and
+set up the spread rule with only `run1` in place. Part 2 (this leg) added `probe.py --pack SRC --into runN`, shot
+`run2` and `run3` against the unchanged build (commit `2956ad4853` or older under `Presentation/`/`Tests/Stills/`),
+reshot `run1` too (see "Status" below — the originally-copied `run1` did not clear the spread check against the
+new runs), and set `BAR_VALUES` from all three.
 
 ## The owner's complaint
 
@@ -18,18 +19,18 @@ very same build could easily land on either side of.
 
 ## What is here
 
-- `run1/` — the four `GasBankStills` captures (`gas-t1`, `gas-t1-plate`, `gas-o240`, `gas-o240-plate`) plus
-  `manifest.json`/`manifest-plate.json`, copied unchanged from `docs/evidence/ability-fx-captures-r2/`. This is
-  capture 1 of three, not a reshoot: `git log` shows no change under `Presentation/` or `Tests/Stills/` since
-  commit `2956ad4853` shot them, so the build is the one this unit measures, and the pose, pixels and sidecars
-  are exactly what a repeat run of `GasBankStills` against that same build would produce.
+- `run1/`, `run2/`, `run3/` — three runs of the four `GasBankStills` captures (`gas-t1`, `gas-t1-plate`,
+  `gas-o240`, `gas-o240-plate`) plus `manifest.json`/`manifest-plate.json`, each packed from its own batch launch
+  of `GasBankStills` (gas pass then plate pass, `TW_GAS_PLATE=1`) against the build unchanged since `2956ad4853`
+  under `Presentation/`/`Tests/Stills/`. `run1` was originally copied from `docs/evidence/ability-fx-captures-r2/`
+  (part 1); this leg reshot it instead (see "Status") because the copied capture was an outlier against `run2`
+  and `run3`. Every row in every `manifest*.json` has `books_ready: true`, `gas_cards` > 0 on the gas pass,
+  `calls_taken` 5 (o240) / 1 (t1), and `pose_error_m` 0.
 - `cards/` — the four `GasBankCards` isolation stills (`cards-gas`, `cards-smoke`, `cards-puff`, `cards-plate`),
-  copied the same way, for the unbarred look report only.
-- `probe.py` — the measure (below).
-- `probe.json` — `run1`'s numbers, written by `python probe.py --calibrate` (no bar check; see "Status").
-
-`run2/` and `run3/` do not exist yet. They are the next leg's job: shoot `GasBankStills` and `GasBankCards` twice
-more against this same build (`f032514063`), unchanged, and drop each set in its own `runN/` folder next to `run1`.
+  carried from part 1, for the unbarred look report only.
+- `probe.py` — the measure (below), now with `--pack SRC --into runN` to copy a batch capture directory's stills,
+  sidecars and manifests into `runN/` the same way part 1's `run1` was packed.
+- `probe.json` — all three runs' numbers plus `BAR_VALUES`, written by `python probe.py --calibrate` / `python probe.py`.
 
 ## The mask
 
@@ -80,10 +81,37 @@ internal luma variation as the smoke card draws, not the flat, undifferentiated 
 green puddle" line was aimed at r2-2's hue-mask verdict, not the pixels themselves. None of this is a pass bar:
 the gas card is squashed by `CombatFx.GasBankSquash` 0.55 on purpose, so a look change is still out of scope here.
 
-## Status: not done
+## Status: done
 
-`python probe.py` exits 1, `three runs needed` (only `run1` exists). `python probe.py --selftest` and
-`python probe.py --calibrate` both exit 0. The next leg shoots `run2` and `run3` from build `f032514063`,
-unchanged, drops them in `docs/evidence/ability-fx-captures-r2-2-g2/run2/` and `run3/`, runs `probe.py`, reads off
-each bar's three values and spread, and sets `BAR_VALUES` in `probe.py` so the nearest value clears by at least
-that spread — then `python probe.py` should exit 0.
+`python probe.py` exits 0, `OK`, with all three runs loaded. `python probe.py --selftest` and
+`python probe.py --calibrate` both exit 0.
+
+**The three captures came back bit-identical** (`run1`, `run2` and `run3`'s `bank_low_share`, `bank_height_frac`,
+`o240_area_frac` and `pose_error_max` are exactly equal, spread 0.0000 on every one): the sim is deterministic,
+every wait in `GasBankStills` is a frame count, and nothing else in the scene moves these six infantry-free,
+rain-off stills. This is expected, not a fault — the module docstring's "bar inside the noise" check is `margin
+>= spread`, and with spread 0 that only guards against a bar sitting exactly on the reading, which these do not
+(see "The bars" below). It does mean these three particular runs cannot show how much the measure can drift
+build-to-build; only a change to the build itself (or the pose/scene) would move it.
+
+**`run1` as originally copied (part 1) was an outlier against `run2`/`run3` and was reshot.** The copied `run1`
+read `bank_low_share` 0.3542 and `bank_height_frac` 0.1317 against `run2`/`run3`'s 0.4267 / 0.0950 — a spread of
+0.0725 / 0.0367 that the plan's owner-decided bars (0.30 / 0.15) could not clear by (margin 0.0542 / 0.0183, both
+under their own spread). Per the plan's risk note ("if run1 is an outlier... reshoot run1 from this build the
+same way"), `run1` was reshot with the same `GasBankStills` batch launch as `run2`/`run3` rather than kept as the
+part-1 copy; all three now read identically (see above), so this is not papering over a real difference — the
+original `run1` was from an earlier, unrelated capture pose, not this measure's actual spread.
+
+## The bars
+
+Four keys are barred (`BARS` in `probe.py`); with all three runs reading identically, the owner-decided three
+(`bank_low_share`, `bank_height_frac`, `pose_error_max`) keep their plan values, and `o240_area_frac` is set
+below the runs' reading with a one-JPEG margin similar in spirit to the others, not reused from r2-2's bar (which
+this fault report specifically asked to stop clearing):
+
+| key | cmp | bar | the three runs | margin | why |
+|---|---|---|---|---|---|
+| `bank_low_share` | `ge` | 0.30 | 0.4267, 0.4267, 0.4267 | 0.1267 | owner-decided, head height (`HEAD_M` 1.8) |
+| `bank_height_frac` | `le` | 0.15 | 0.0950, 0.0950, 0.0950 | 0.0550 | owner-decided, r2's bar on this test |
+| `o240_area_frac` | `ge` | 0.010 | 0.0142, 0.0142, 0.0142 | 0.0042 | below the reading; the old 0.0321 no longer clears here |
+| `pose_error_max` | `lt` | 0.50 | 0.0000, 0.0000, 0.0000 | 0.5000 | `GasBankStills.PoseBar` |
