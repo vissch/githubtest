@@ -411,6 +411,10 @@ It returns `queued ...`; the PNG and a `.json` beside it land a few frames later
 `contrast_median` (and `contrast_p10`) answer "can you still see the men": each man's brightness against the ground
 around him, where 0.4 means you can find him and 0.1 means he is mud. Use them, with `men_in_frame`, to judge smoke,
 fog or tints over the infantry.
+Each man the game drew also gets his own place in the frame, in slot order: `man0_slot`, `man0_archetype`,
+`man0_img_x`, `man0_img_y`, `man0_tall_px`, then `man1_*` and so on (`img_y` counts from the TOP of the image).
+A reading that must measure one man and nothing else masks inside his box from these, rather than over the whole
+frame, where a brazier is far bigger than a prone soldier.
 `Captures/` is ignored by git.
 
 **Whatever the game view shows right now:**

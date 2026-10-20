@@ -36,6 +36,29 @@ namespace TW.Editor
         /// as a man, foot soldier or rider, trench or not.</summary>
         public static bool IsFootFigure(uint flags) => (flags & (uint)UnitFlags.Alive) != 0 && (flags & (uint)UnitFlags.Vehicle) == 0;
 
+        /// <summary>Where a man was drawn, in this image's own pixels: the drawn foot point and the point 2.6 m
+        /// above it put through the camera's two matrices by hand. A reading that wants to measure one man and
+        /// nothing else needs a box that does not come from the pixels it is about to measure, and is not typed in
+        /// by whoever runs the shot; the capture that drew him is the only honest source of it. Pure arithmetic —
+        /// no `Screen`, no `cam.pixelHeight` — so a test can check it against a worked example off-screen.
+        /// `imgY` counts from the TOP, the way an image reader walks rows. False when the point is behind the
+        /// camera, where a projection says nothing.</summary>
+        public static bool ManBox(Matrix4x4 worldToCamera, Matrix4x4 projection, int w, int h, Vector3 drawn,
+            out float imgX, out float imgY, out float tallPx)
+        {
+            imgX = imgY = tallPx = float.NaN;
+            Matrix4x4 vp = projection * worldToCamera;
+            Vector4 foot = vp * new Vector4(drawn.x, drawn.y, drawn.z, 1f);
+            Vector4 head = vp * new Vector4(drawn.x, drawn.y + 2.6f, drawn.z, 1f);
+            if (foot.w <= 0.0001f || head.w <= 0.0001f) return false;        // behind the camera, or on its plane
+            float footScreenY = (foot.y / foot.w * 0.5f + 0.5f) * h;
+            float headScreenY = (head.y / head.w * 0.5f + 0.5f) * h;
+            imgX = (foot.x / foot.w * 0.5f + 0.5f) * w;
+            imgY = h - 1 - footScreenY;
+            tallPx = Mathf.Abs(headScreenY - footScreenY);
+            return true;
+        }
+
         /// <summary>
         /// Runs last in the frame (after the camera, the presenter and the renderers have all had their LateUpdate),
         /// so what it photographs is what those systems just prepared.
@@ -261,6 +284,11 @@ namespace TW.Editor
             // unit the ring sampled the ground beside the hull and called the hull an unreadable man, a reading the
             // figure path never makes (it has no sockets for a vehicle slot either, `VATRenderer.cs:312`).
             var contrasts = new List<float>();
+            // where each man was drawn, so a reading can measure inside one man's own box and nowhere else: this
+            // frame had a brazier blobbing thousands of pixels and the men a few hundred, and a frame-wide reading
+            // measured the fire every time. Slot order, so two shots of the same scene list the same men in the
+            // same places.
+            var boxes = new List<float[]>();
             int inFrame = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host != null && host.Local != null && cam != null)
@@ -271,6 +299,12 @@ namespace TW.Editor
                     if (!IsFootFigure(world.Flags[s])) continue;
                     Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
+                    // recorded before any of the contrast ring's own skips below: a man too small or too near the
+                    // border for an honest contrast reading was still drawn, and a reading that masks him needs to
+                    // know where
+                    if (ManBox(cam.worldToCameraMatrix, cam.projectionMatrix, w, h, (Vector3)host.Presenter.Drawn(s),
+                            out float bx, out float by, out float bTall))
+                        boxes.Add(new[] { s, (float)world.Archetype[s], bx, by, bTall });
                     Vector3 sp = cam.WorldToScreenPoint(chest);
                     int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
@@ -309,6 +343,14 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            // flat keys, one set per drawn man, not a nested array: this project reads its own json with
+            // CaptureRig.Number, which finds a key and takes the number up to the next comma or newline
+            for (int i = 0; i < boxes.Count; i++)
+            {
+                string k = "man" + i.ToString(CultureInfo.InvariantCulture);
+                N(sb, k + "_slot", boxes[i][0]); N(sb, k + "_archetype", boxes[i][1]);
+                N(sb, k + "_img_x", boxes[i][2]); N(sb, k + "_img_y", boxes[i][3]); N(sb, k + "_tall_px", boxes[i][4]);
+            }
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
