@@ -1,0 +1,159 @@
+{
+  "tag": "pre",
+  "throw_m": 1.712,
+  "per_body_m": [
+    0.501,
+    1.028,
+    1.054,
+    1.181,
+    1.78,
+    1.875,
+    2.139,
+    1.387,
+    1.644,
+    1.983,
+    2.301,
+    3.701,
+    3.881,
+    0.124,
+    0.744,
+    1.212,
+    2.054,
+    3.561
+  ],
+  "noise_floor_m": [
+    0.287,
+    0.076,
+    0.121
+  ],
+  "baseline_throw_m": [
+    1.181,
+    2.142,
+    1.212
+  ],
+  "px_per_m": 32.8,
+  "frame_gap": 124.0,
+  "seconds_gap": 4.0,
+  "fps_implied": 31.0,
+  "fallen_after": [
+    7,
+    13,
+    21
+  ],
+  "contrast_median_after": [
+    -1,
+    -1,
+    -1
+  ],
+  "runs": [
+    {
+      "run": "blast1",
+      "n_standing": 7,
+      "n_bodies": 7,
+      "per_body_m": [
+        0.501,
+        1.028,
+        1.054,
+        1.181,
+        1.78,
+        1.875,
+        2.139
+      ],
+      "median_m": 1.181,
+      "px_per_m": 32.61,
+      "frame_gap": 124,
+      "fallen_after": 7,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "blast2",
+      "n_standing": 6,
+      "n_bodies": 6,
+      "per_body_m": [
+        1.387,
+        1.644,
+        1.983,
+        2.301,
+        3.701,
+        3.881
+      ],
+      "median_m": 2.142,
+      "px_per_m": 33.0,
+      "frame_gap": 124,
+      "fallen_after": 13,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "blast3",
+      "n_standing": 5,
+      "n_bodies": 5,
+      "per_body_m": [
+        0.124,
+        0.744,
+        1.212,
+        2.054,
+        3.561
+      ],
+      "median_m": 1.212,
+      "px_per_m": 29.82,
+      "frame_gap": 124,
+      "fallen_after": 21,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "calm1",
+      "n_standing": 6,
+      "n_bodies": 6,
+      "per_body_m": [
+        0.116,
+        0.207,
+        0.268,
+        0.306,
+        0.321,
+        0.484
+      ],
+      "median_m": 0.287,
+      "px_per_m": 33.18,
+      "frame_gap": 125,
+      "fallen_after": 21,
+      "contrast_median_after": 0.14457
+    },
+    {
+      "run": "calm2",
+      "n_standing": 6,
+      "n_bodies": 6,
+      "per_body_m": [
+        0.028,
+        0.044,
+        0.044,
+        0.108,
+        0.395,
+        2.433
+      ],
+      "median_m": 0.076,
+      "px_per_m": 33.33,
+      "frame_gap": 124,
+      "fallen_after": 18,
+      "contrast_median_after": -1
+    },
+    {
+      "run": "calm3",
+      "n_standing": 7,
+      "n_bodies": 7,
+      "per_body_m": [
+        0.0,
+        0.086,
+        0.093,
+        0.121,
+        0.834,
+        0.913,
+        0.916
+      ],
+      "median_m": 0.121,
+      "px_per_m": 30.83,
+      "frame_gap": 124,
+      "fallen_after": 17,
+      "contrast_median_after": -1
+    }
+  ]
+}
