@@ -1,0 +1,164 @@
+{
+  "pass_diff": 0.6,
+  "threshold_luma": 0.04,
+  "min_area_m2": 0.2,
+  "max_box_share": 0.5,
+  "dominance": 1.5,
+  "man_tall_m": 2.6,
+  "box": {
+    "half_width_x_tall": 0.8,
+    "up_x_tall": 1.0,
+    "down_x_tall": 0.2
+  },
+  "camera": {
+    "zoom": 30.0,
+    "yaw": 180.0,
+    "pitch": 22.0,
+    "focus_x": 47.5,
+    "focus_z": 25.0,
+    "size": [
+      1600,
+      900
+    ]
+  },
+  "noise_px_1": 19513,
+  "slot_at-1": 4,
+  "box_at-1": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-1": 25.011,
+  "noise_in_box_px_at-1": 0,
+  "slot_sniper-1": 12,
+  "box_sniper-1": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-1": 25.033,
+  "noise_in_box_px_sniper-1": 0,
+  "dropped_px_at-1": 0,
+  "mask_px_at-1": 275,
+  "second_blob_px_at-1": 0,
+  "dropped_px_sniper-1": 0,
+  "mask_px_sniper-1": 1289,
+  "second_blob_px_sniper-1": 0,
+  "noise_px_2": 3568,
+  "slot_at-2": 4,
+  "box_at-2": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-2": 25.011,
+  "noise_in_box_px_at-2": 0,
+  "slot_sniper-2": 12,
+  "box_sniper-2": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-2": 25.033,
+  "noise_in_box_px_sniper-2": 40,
+  "dropped_px_at-2": 0,
+  "mask_px_at-2": 288,
+  "second_blob_px_at-2": 9,
+  "dropped_px_sniper-2": 12,
+  "mask_px_sniper-2": 1253,
+  "second_blob_px_sniper-2": 0,
+  "noise_px_3": 11598,
+  "slot_at-3": 4,
+  "box_at-3": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-3": 25.011,
+  "noise_in_box_px_at-3": 0,
+  "slot_sniper-3": 12,
+  "box_sniper-3": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-3": 25.033,
+  "noise_in_box_px_sniper-3": 29,
+  "dropped_px_at-3": 0,
+  "mask_px_at-3": 277,
+  "second_blob_px_at-3": 0,
+  "dropped_px_sniper-3": 0,
+  "mask_px_sniper-3": 1223,
+  "second_blob_px_sniper-3": 0,
+  "px_per_m": 25.022,
+  "px_per_m_disagreement": 0.0004,
+  "mask_px_min": 125,
+  "mask_px_max_at-1": 4148,
+  "mask_m2_at-1": 0.439,
+  "mask_px_max_at-2": 4148,
+  "mask_m2_at-2": 0.46,
+  "mask_px_max_at-3": 4148,
+  "mask_m2_at-3": 0.442,
+  "mask_px_max_sniper-1": 4148,
+  "mask_m2_sniper-1": 2.059,
+  "mask_px_max_sniper-2": 4148,
+  "mask_m2_sniper-2": 2.001,
+  "mask_px_max_sniper-3": 4148,
+  "mask_m2_sniper-3": 1.953,
+  "at_phases": [
+    0.12,
+    0.45,
+    0.73
+  ],
+  "at_clips": [
+    "ProneIdle",
+    "ProneIdle",
+    "ProneIdle"
+  ],
+  "at_phase_gap_min": 0.28,
+  "sniper_phases": [
+    0.15,
+    0.48,
+    0.8
+  ],
+  "sniper_clips": [
+    "KneelIdle",
+    "KneelIdle",
+    "KneelIdle"
+  ],
+  "sniper_phase_gap_min": 0.32,
+  "heading_diff_rad": {
+    "pair-1": 1.11,
+    "pair-2": 1.11,
+    "pair-3": 1.11
+  },
+  "at_heading_offset_rad": {
+    "at-1": 0.0,
+    "at-2": 0.0,
+    "at-3": 0.0
+  },
+  "sniper_heading_offset_rad": {
+    "sniper-1": 0.0,
+    "sniper-2": 0.0,
+    "sniper-3": 0.0
+  },
+  "silhouette_diff_readings": [
+    0.7867,
+    0.7702,
+    0.7971
+  ],
+  "silhouette_diff": 0.7702,
+  "spread_readings": 0.027,
+  "spread_at": 0.0782,
+  "spread_sniper": 0.1605,
+  "spread_max": 0.1605,
+  "bar_headroom": 0.4395,
+  "problems": [],
+  "verdict": "the prone AT rifleman reads as his own man"
+}
