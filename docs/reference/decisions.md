@@ -303,6 +303,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
+  `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
+  capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's
+  near third with it, on the first try's diagnosis that "the semi-transparent outer rim drives both bars". The
+  pinned measurement disproves that diagnosis: on the **unchanged** look, measured through the pinned clock,
+  `near_edge_corr_max` is **0.0065** against a bar of <= 0.15 (23x inside it), `core_over_tip_luma_min` is
+  **2.024** against >= 1.60, and `edge_spread` is **0.0000** against <= 0.03. `docs/evidence/flame-jet-opaque-near-2/probe.py`
+  exits 0 and the unit's done-when one-liner exits 0 on this tree. The first try's two misses were clock noise, not
+  a look fault. Doing part 2 anyway would be a look change to an accepted look with no number asking for it, which
+  is the thing this unit was set up to stop, and the destruction-VFX brief requires a concepts brief before a look
+  change. Options: (a) **stop here** — part 2 is dropped as unneeded, the unit closes on part 1's pinned clock and
+  its met bars, the default taken here; (b) build `JetBody` anyway as an unmeasured look preference, after a
+  concepts brief; (c) the eye, not the number: critic r1 scored the jet 41/100 and had more to say than fix 1 —
+  open a critique round against these four stills as a new unit, which is where the remaining value is. Default
+  taken here: (a), and (c) is recommended as the follow-up unit (this leg, because the step's own premise is
+  measured false and no bar asks for the change).
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
