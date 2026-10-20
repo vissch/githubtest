@@ -296,6 +296,17 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-20 | **The chlorine bank at zoom 30 at night is grown and brightened: option (b) after all.** The owner reopened the 2026-10-19 row on r2-2's stills: "At zoom 30 at night there is no chlorine bank. gas-t1.jpg and gas-t1-plate.jpg are the same field, and this pass has no evidence folder of its own. Put a bank in the play frame, shot three times." So the look changes after all, the way option (b) named it on 2026-10-19: the bank is grown and brightened, it keeps pooling (`GasBankSquash` 0.55 and the -0.35 anchor are untouched), and the proof is three captures of the changed build against bars frozen from three captures of the build before it. The bank now covers 3.25% of the play frame against 0.13% before, at the same draw calls (131 against 133). Pictures, numbers and the knob-by-knob working: `docs/evidence/ability-fx-captures-r2-2-g1/`. Carried by the lane `lane/show/ability-fx-captures-r2-2-g1`. (owner, 2026-10-20) |
 
 ## Open: waiting on the owner
+- **What is the chlorine bank's footprint, for the probe that measures it? (2026-10-20, ability-fx-captures-r2-2-g1-g2):**
+  the owner's word on g1 was "count the paint a player sees, keep it on the ground". The new probe counts paint only
+  inside the bank's footprint, a disc round the gas centre sized from the run's `gas_cells`. But `gas_cells` counts
+  every live cell on the MAP (599 of them on the current build, 9,584 m^2), so the disc comes out at 55 m, clamps to
+  40 m, and is wider than the zoom-30 frame: the window covers 95% of the frame, `stripe_frac` is 0, and the
+  field-wide stripes are counted as bank again - exactly the fault he threw out. Options: (a) size the footprint from
+  the live cells within 25 m of the gas centre only, **the default taken here**; (b) fix it at the chlorine ability's
+  own radius out of `SimConfig`, which ignores how far the cloud has actually drifted; (c) leave the 40 m clamp and
+  accept that the measure counts the whole frame. (a) and (b) both re-freeze the bars in
+  `docs/evidence/ability-fx-captures-r2-2-g1-g2/baseline.json` from the same three before captures; no sim change
+  either way.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

@@ -1,0 +1,68 @@
+{
+ "bars": {
+  "bank_area_bar": 0.15553,
+  "bank_fill_bar": 0.35,
+  "bank_height_max_m": 1.0,
+  "contrast_bar": 61.83,
+  "low_share": 0.85,
+  "pose_error_max": 0.5
+ },
+ "before": {
+  "t1-before-1": {
+   "bank_area_frac": 0.13454,
+   "bank_contrast_p50": 56.55,
+   "bank_fill": 0.1422,
+   "bank_height_m": 0.0,
+   "bank_px": 123990,
+   "gas_cells": 599,
+   "low_share": 0.9891,
+   "mask_px": 123990,
+   "pose_error_m": 0.0,
+   "stripe_frac": 0.0,
+   "window_far_m": 110.81,
+   "window_near_m": 30.81,
+   "window_px": 871680,
+   "window_radius_m": 40.0
+  },
+  "t1-before-2": {
+   "bank_area_frac": 0.13541,
+   "bank_contrast_p50": 55.91,
+   "bank_fill": 0.1432,
+   "bank_height_m": 0.0,
+   "bank_px": 124796,
+   "gas_cells": 505,
+   "low_share": 0.9938,
+   "mask_px": 124799,
+   "pose_error_m": 0.0,
+   "stripe_frac": 0.0,
+   "window_far_m": 110.81,
+   "window_near_m": 30.81,
+   "window_px": 871680,
+   "window_radius_m": 40.0
+  },
+  "t1-before-3": {
+   "bank_area_frac": 0.13038,
+   "bank_contrast_p50": 55.23,
+   "bank_fill": 0.1378,
+   "bank_height_m": 0.0,
+   "bank_px": 120157,
+   "gas_cells": 402,
+   "low_share": 0.9983,
+   "mask_px": 120157,
+   "pose_error_m": 0.0,
+   "stripe_frac": 0.0,
+   "window_far_m": 110.81,
+   "window_near_m": 30.81,
+   "window_px": 871680,
+   "window_radius_m": 40.0
+  }
+ },
+ "built_from_commit": "be5e6444fc",
+ "diff_bar": 40,
+ "frozen": "computed once, from the three before takes of g1's tip; never recomputed",
+ "spread": {
+  "bank_area_frac": 0.00503,
+  "bank_contrast_p50": 1.32,
+  "bank_fill": 0.0054
+ }
+}

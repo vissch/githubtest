@@ -39,8 +39,18 @@ namespace TW.Tests
         /// tick is 1.5 frames: 200 frames are 133 ticks, which is 73 ticks into the bank's life - spread out of its
         /// first puff and still thick. (470 frames, the first try, was 313 ticks: the bank had gone.)</summary>
         const int WaitFrames = 200;
-        /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame.</summary>
-        const int BlockFrames = 520;
+        /// <summary>Frames allowed for a block's framing and its ability calls before the wait starts counting. The
+        /// gas pass spends 22 of them in the T1 band and the plate pass 14 (it makes no call), so a fixed allowance
+        /// is what makes the two passes shoot the SAME block-relative frames.</summary>
+        const int SetupFrames = 40;
+        /// <summary>Frames between the T1 band's three stills: 45 frames are 30 sim ticks. The bank is alive from
+        /// tick 60 to tick 300, so three shots 30 ticks apart all land inside its life and see it move. g1 shot
+        /// three stills of ONE frame and the owner threw the numbers out: "the three after takes are one frame, so
+        /// the spread is zero". A drain costs a dozen frames, so the gap must be comfortably longer than one.</summary>
+        const int ShotGap = 45;
+        /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame. Three
+        /// T1 stills, each with up to three pose tries, need room beyond the last shot's offset.</summary>
+        const int BlockFrames = 700;
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
         const float PoseBar = 0.5f;
 
@@ -131,9 +141,11 @@ namespace TW.Tests
         static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
                                  float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
         {
-            int spent = 0;
+            // real frames, not a running guess: a drain costs a variable number of them, and the two passes only
+            // photograph the same frames if every wait below is measured against the block's own first frame
+            int frame0 = Time.frameCount;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
-            for (int f = 0; f < 10; f++) { yield return null; spent++; }
+            for (int f = 0; f < 10; f++) yield return null;
 
             var answers = new List<string>();
             int taken = 0;
@@ -149,7 +161,7 @@ namespace TW.Tests
                             a.Cooldown[0 * OffMapAbilitySystem.AbilitySlots + (int)OffMapAbilityId.ChlorineGas] = 0;
                     });
                     string said = VfxLab.Call((int)OffMapAbilityId.ChlorineGas, p.x, p.y);
-                    for (int f = 0; f < 8; f++) { yield return null; spent++; }
+                    for (int f = 0; f < 8; f++) yield return null;
                     // the sim sets the cooldown only on a call it ACCEPTED: a refusal (the match already won, no
                     // credit, the cooldown) is silent otherwise, and r2's first run shot four stills with no gas in
                     // the world at all
@@ -159,25 +171,47 @@ namespace TW.Tests
                     answers.Add(said);
                     TestContext.Out.WriteLine(band + " call at " + p.x + ", " + p.y + ": " + said);
                 }
-                for (int f = 0; f < 4; f++) { yield return null; spent++; }
+                for (int f = 0; f < 4; f++) yield return null;
             }
 
-            for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
+            // the T1 band is the play frame the probe measures, so it is shot THREE times, ShotGap frames apart, at
+            // offsets fixed from the block's first frame. The offsets are absolute on purpose: a drain costs a
+            // variable number of frames, so counting forward from the last shot would drift the two passes apart.
+            // O240 keeps its single shot, and keeps its old relative wait, so its frame is unchanged.
+            bool spaced = band == "t1";
+            int shots = spaced ? 3 : 1;
+            var targets = new int[shots];
+            for (int k = 0; k < shots; k++)
+                targets[k] = spaced ? SetupFrames + WaitFrames + k * ShotGap
+                                    : (Time.frameCount - frame0) + WaitFrames;
 
-            string path = Path.Combine(dir, stem + ".png");
-            float best = float.MaxValue;
-            for (int tryNo = 0; tryNo < 3; tryNo++)
+            for (int k = 0; k < shots; k++)
             {
-                CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
-                yield return Drain(path);
-                spent += 12;
-                float err = Sidecar(path, "pose_error_m");
-                if (err < best) best = err;
-                TestContext.Out.WriteLine(stem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
-                if (err < PoseBar) break;
-            }
-            if (best > worstPose) worstPose = best;
+                while (Time.frameCount - frame0 < targets[k]) yield return null;
 
+                string shotStem = k == 0 ? stem : stem + (k == 1 ? "-b" : "-c");
+                string path = Path.Combine(dir, shotStem + ".png");
+                float best = float.MaxValue;
+                for (int tryNo = 0; tryNo < 3; tryNo++)
+                {
+                    CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
+                    yield return Drain(path);
+                    float err = Sidecar(path, "pose_error_m");
+                    if (err < best) best = err;
+                    TestContext.Out.WriteLine(shotStem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
+                    if (err < PoseBar) break;
+                }
+                if (best > worstPose) worstPose = best;          // the worst pose over every still of the set
+                yield return Row(shotStem, band, x, z, plate, best, taken, answers, map, frame0, targets[k]);
+            }
+
+            while (Time.frameCount - frame0 < BlockFrames) yield return null;
+        }
+
+        /// <summary>One manifest row: what the frame that was just photographed held.</summary>
+        static IEnumerator Row(string stem, string band, float x, float z, bool plate, float pose, int taken,
+                               List<string> answers, MapData map, int frame0, int target)
+        {
             uint tick = Host.Local.World.Tick;
 
             // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
@@ -209,7 +243,8 @@ namespace TW.Tests
               .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
               .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
               .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
-              .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
+              .Append(", \"pose_error_m\": ").Append(pose.ToString("0.####"))
+              .Append(", \"shot_offset\": ").Append(target)
               .Append(", \"calls_taken\": ").Append(taken)
               .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
               .Append(", \"gas_cards\": ").Append(cards)
@@ -220,8 +255,6 @@ namespace TW.Tests
             for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
             sb.Append("] }");
             rows.Add(sb.ToString());
-
-            for (int f = spent; f < BlockFrames; f++) yield return null;
         }
 
         /// <summary>The scene's CombatFx, or null: every reading below is read off it by reflection, because the
