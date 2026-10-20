@@ -44,6 +44,7 @@ PACE_STEP = 30                          # seconds between two looks at the clock
 PACE_SLIDE = 30                         # minutes the pace's start time may move on during a wait before the run ends
 PACE_RESAY = 5                          # minutes it moves on before the run says the new time (not every look)
 clock = datetime.datetime.now           # the wall clock the day's pace is read from
+now = time.time   # the clock the run's own time is read from (a test gives a fake one)
 sleep = time.sleep
 said = launch.said                      # the one rule for a report's verdict; run_leg reads it too
 
@@ -92,7 +93,7 @@ class Run:
         self.work = Path(a.work).resolve()
         self.home = legdir.home()
         self.run = "%s-%d" % (time.strftime("%Y%m%d-%H%M%S"), os.getpid())
-        self.deadline = time.time() + self.lim["run_hours"] * 3600
+        self.deadline = now() + self.lim["run_hours"] * 3600
         self.ctx = {"board": self.board, "work": self.work, "station": self.station, "skip": set(), "since": 0,
                     "run": self.run}
         self.legs, self.idle, self.claimed, self.ready = 0, 0, None, False
@@ -362,7 +363,7 @@ class Run:
             wait, when = (at - clock()).total_seconds(), at.strftime("%H:%M")
             if self.a.dry_run:
                 return Why("pace", "the day's pace lets %s start at %s" % (what, when))
-            if time.time() + wait > self.deadline:
+            if now() + wait > self.deadline:
                 return Why("pace", "the day's pace lets %s start at %s, after this run's %.3g hours are up"
                            % (what, when, self.lim["run_hours"]))
             if self.stop_file.exists():
@@ -393,7 +394,7 @@ class Run:
     def no_room(self, phase=None, unit=None):
         """Why no further leg may start (the time, the leg cap, the owner's stop, the day's budget), or None.
         With a phase, the budget must also cover the usual cost of such a leg."""
-        if time.time() > self.deadline:
+        if now() > self.deadline:
             return Why("hours", "the run's %.3g hours are up" % self.lim["run_hours"])
         if self.a.max_legs and self.legs >= self.a.max_legs:
             return Why("legs", "the leg cap (%d) is reached" % self.a.max_legs)
@@ -429,7 +430,7 @@ class Run:
         self.keep("leg %02d %s %s starts" % (self.legs, phase, unit["id"]))    # committed here: no push as a leg starts
         if getattr(self.a, "view", False) and not self.no_window:
             launch.open_view(d)
-        left, head, before = self.deadline - time.time(), self.lane_head(unit), self.watch()
+        left, head, before = self.deadline - now(), self.lane_head(unit), self.watch()
         lim, day = self.lim, self.day_left()
         if day is not None and not 0 < lim["leg_budget_usd"] <= day:     # the leg may spend what the day has left
             lim = dict(lim, leg_budget_usd=round(max(day, 0.01), 2))
@@ -467,7 +468,7 @@ class Run:
                 b = self.day()
                 raise Stop(Why("budget", "leg %02d the day's budget is spent (%s, mid-leg)"
                                % (self.legs, ledger.amount(b, b["cap"], of=True) if b else "$0")), saved)
-            if leg["state"] == "TIMEOUT" and time.time() >= self.deadline:
+            if leg["state"] == "TIMEOUT" and now() >= self.deadline:
                 raise Stop(Why("hours", "leg %02d the run's %.3g hours are up (mid-leg)"
                                % (self.legs, self.lim["run_hours"])), saved)
             raise Stop(Why("leg", "leg %02d %s" % (self.legs, bad)), saved)
@@ -653,7 +654,7 @@ class Run:
             used, cap = boardio.seconds_today(self.board), self.lim["second_per_day"]
             if used >= cap:
                 return "no second opinion on round %d: today's %d are used" % (r, cap)
-            left = (self.deadline - time.time()) / 60
+            left = (self.deadline - now()) / 60
             if left < 2:
                 return "no second opinion on round %d: the run's time is up" % r
             home = self.home / "runs" / self.run / "second" / ("%02d-r%d-%s" % (self.legs, r, v))
