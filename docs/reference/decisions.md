@@ -421,6 +421,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   no set was committed with the reading, and the lane waits (this leg, because every option changes either a tool,
   the comparison or the owner's band, and all three are his). The numbers, the staging and the per-still counts are
   in `docs/evidence/atrifle-look-r3-g1-g2/frames.txt`, "PART 2".
+- **The jet's semi-transparent outer rim: no measured reason left to change it (2026-10-20, lane
+  `lane/show/flame-jet-opaque-near-2`):** this unit's plan had two parts. Part 1 (pin the burst's birth clock for a
+  capture) is built and pushed (`ee49e7ee4b`). Part 2 was to add a solid `Book.JetBody` row and draw the stream's
+  near third with it, on the first try's diagnosis that "the semi-transparent outer rim drives both bars". The
+  pinned measurement disproves that diagnosis: on the **unchanged** look, measured through the pinned clock,
+  `near_edge_corr_max` is **0.0065** against a bar of <= 0.15 (23x inside it), `core_over_tip_luma_min` is
+  **2.024** against >= 1.60, and `edge_spread` is **0.0000** against <= 0.03. `docs/evidence/flame-jet-opaque-near-2/probe.py`
+  exits 0 and the unit's done-when one-liner exits 0 on this tree. The first try's two misses were clock noise, not
+  a look fault. Doing part 2 anyway would be a look change to an accepted look with no number asking for it, which
+  is the thing this unit was set up to stop, and the destruction-VFX brief requires a concepts brief before a look
+  change. Options: (a) **stop here** — part 2 is dropped as unneeded, the unit closes on part 1's pinned clock and
+  its met bars, the default taken here; (b) build `JetBody` anyway as an unmeasured look preference, after a
+  concepts brief; (c) the eye, not the number: critic r1 scored the jet 41/100 and had more to say than fix 1 —
+  open a critique round against these four stills as a new unit, which is where the remaining value is. Default
+  taken here: (a), and (c) is recommended as the follow-up unit (this leg, because the step's own premise is
+  measured false and no bar asks for the change).
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
