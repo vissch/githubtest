@@ -302,6 +302,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **The AT rifleman's gun now reads at T1 — keep the look, or go thinner and darker? (2026-10-20,
+  atrifle-look-r3-g2):** the fattened, pale-steel barrel (`CombatFx.AtRifle.cs`, `BarrelWidth` 0.22 m, outline
+  2.5) clears `docs/evidence/atrifle-look-r3-g2/probe.py`'s gun-visibility bar at T1 (zoom 30): 420-423 mask px
+  against a 0-px base, width 9.4 px, contrast 0.105. No concept was put to the owner before this look changed
+  (`tw-character-sim`'s "Concepts first" rule). Options: (a) keep it as built, the default taken here; (b) go
+  thinner and darker for a less exaggerated look — a new look lane, since the probe's own mask (3x3 opening, 7x7
+  closing, `MIN_BLOB` 300) erased every thinner attempt tried so far and may re-erode a retuned one. Picture:
+  brief `2026-10-20-the-at-rifleman-s-gun-now-reads-at-t1-keep-it` (`crop-base-fix.png`, base left, fix right).
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every

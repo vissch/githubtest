@@ -125,3 +125,12 @@ empty in a bigger window.
 
 Done when: `python docs/evidence/atrifle-look-r3-g2/probe.py` exits 0 with the fix stills present and `problems`
 empty. It does.
+
+PART 3 (atrifle-look-r3-g2, same day): A LOOK A PERSON CAN CHECK, crop-base-fix.png.
+
+The probe above proves the gun by a mask statistic alone; nobody looking at base-gun-1.png or fix-gun-1.png full
+frame can spot the difference easily, since the gun is a small part of a 1600x900 still. crop-base-fix.png is the
+probe's own WINDOW (x 700-900, y 300-430, 200x130 px, the same box `probe.py`'s WINDOW constant reads) cut 1:1 out
+of the already-committed base-gun-1.png (left half) and fix-gun-1.png (right half), pasted side by side with no
+resizing into one 400x130 image, base on the left and fix on the right. No Unity, no editor, and no new capture —
+every pixel in crop-base-fix.png already existed in the repo before this leg.

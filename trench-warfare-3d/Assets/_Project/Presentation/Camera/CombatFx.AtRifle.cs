@@ -17,7 +17,10 @@ namespace TW.Presentation.Tactical
         /// <summary>The gun's length life-size, metres (a Boys / PTRD anti-tank rifle is 1.6 to 2.0 m long).</summary>
         public const float AtRifleLength = 1.65f;
 
-        /// <summary>The barrel's width life-size, metres (its 0.035 half-extent in BuildAtRifle, doubled).</summary>
+        /// <summary>The barrel's drawn thickness, life-size, metres — raised from 0.07 m so its fattened mask
+        /// clears the probe's own blob-area floor at T1 (docs/evidence/atrifle-look-r3-g2). BuildAtRifle reads
+        /// this value directly as its half-extent (BarrelWidth * 0.5), so the mesh and this number cannot
+        /// drift apart.</summary>
         public const float BarrelWidth = 0.22f;
 
         /// <summary>The floor the barrel is thickened to, in screen pixels (PlaygroundFx's tether rule holds a line
