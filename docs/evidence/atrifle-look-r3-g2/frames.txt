@@ -1,0 +1,72 @@
+GreyboxCorridor, the night look (its default), read back in Play, not set here. One batch-mode editor on this
+checkout, driven over the pipeline port.
+
+THE GUN, NOT THE POSE. r3 proved the AT rifleman no longer reads as the Sniper, but the 0.827 it measured is
+carried by the pose (prone vs kneeling); the 1.65 m anti-tank rifle itself is not separately legible at T1 in
+those crops. This set isolates the gun: the SAME frozen man, the SAME camera, one still with the gun drawn and
+one with `atrifle.draw` set to 0 (CombatFx.AtRifle.cs; docs/reference/feature-flags.md). Every pixel that
+differs between the pair is the gun; the pose cannot enter the number because the man never moves between the
+two shots of a pair.
+
+  focus F        (50, 25)        the AT rifleman's drawn x,z, read back with SimProbe.Unit(14)
+  zoom           30              T1 (GymCatalogue.Bands) — the band the owner's complaint is about
+  yaw            9.72            rig yaw; tried against 99.72 and 189.72 (contrast_median 0.421 and 0.057) and
+                                 the yaw the original CaptureRig.Shot call's cam_yaw landed on when given 279.72
+                                 (0.642); 9.72 gave the best separation of the four, so it is used throughout
+  pitch          22
+  size           1600x900
+  rain           0               VfxLab.Rain(0), and every sidecar says rain 0
+  weather clock  pinned at 120   CaptureRig.Hold(120)
+  pose_error_m   0 in every sidecar
+
+The match: GreyboxCorridor's default generated battlefield (this leg did not call SimProbe.Match, unlike r3 —
+the ground is not part of this probe's claim, since every mask is a difference against a plate from the SAME
+camera with nothing moved but the knob).
+
+The man (SimProbe.Unit(14), frozen, at the focus, for every still in this set):
+  tick 5019 slot 14 generation 1 alive True flags Alive
+  team 0 archetype 27 hp 90/90 target -1
+  sim at 50.00 0.00 25.00  trench 0 post cell 605 kind 2 stance Crouch layer Surface
+  drawn at 50.00 0.00 25.00  ground there 2.95  yaw 1.74
+  animation clip ProneIdle rung Idle stance Prone
+Read back after every capture in this set (base-gun-1/2/3, base-nogun): identical, tick for tick. A prone man at
+a post has no LookAround beat (r3's note), so across six captures of a frozen, un-moving pose the read-back
+never drifted.
+
+The eval lines, verbatim and in order (Tools/tw eval):
+
+  UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+  return TW.Editor.VfxLab.Rain(0f);
+  return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);                      // -> "slot 14"; CHECK IT with SimProbe.Unit(14)
+  // staged with the sim RUNNING (the presenter will not move a frozen man):
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.WriteWorlds(m=>{ m.World.Position[14]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Yaw[14]=21f*UnityEngine.Mathf.Deg2Rad; m.World.Speed[14]=0f; m.World.Hp[14]=90f; }); return 0;
+  var h=...; h.WriteWorlds(... same ...); h.TimeScale=0f; return "frozen";
+  return TW.Editor.CaptureRig.Hold(120f);
+  // four candidate camera yaws shot and their sidecars compared on contrast_median before choosing 9.72
+  return TW.Editor.CaptureRig.Shot("<dir>/base-gun-1.png", 50f, 25f, 30f, 9.72f, 22f, 1600, 900);   // and -2, -3
+  return TW.Editor.LookLab.Knob("atrifle.draw","0");                            // next frame; re-read SimProbe.Unit(14) first to confirm no drift
+  return TW.Editor.CaptureRig.Shot("<dir>/base-nogun.png", 50f, 25f, 30f, 9.72f, 22f, 1600, 900);
+  return TW.Editor.CaptureRig.Release();
+
+Two things carried over from r3's note, both held here too:
+  * While SimHost.TimeScale is 0 the presenter does not move anyone; every staging write happens with the sim
+    running, and the freeze comes last.
+  * atrifle.draw is read live (Knobs.Generation), set by LookLab from a MonoBehaviour Update which keeps running
+    in Play even while the SIM is frozen — SimProbe.Unit(14) was re-read after every knob flip to confirm the
+    man's tick, position and yaw had not moved; they never did.
+
+The stills:
+  base-gun-1/2/3.png  the AT rifleman as the build draws him TODAY (atrifle.draw=1, its default), three repeats
+                      of one frozen pose. gun_px in the probe's window is 0 / 0 / 0 after the mask's 3x3 opening
+                      and 7x7 closing drop a single stray pixel at (y382,x795) as speckle — i.e. at zoom 30 the
+                      gun does not clear the noise floor at all. This is the bug the owner described, read from
+                      the pixels, not typed: "a few dark pixels on the parapet".
+  base-nogun.png      the SAME frozen man and camera, atrifle.draw=0: the plate.
+  gun_px_base_min/max/spread:  0 / 0 / 0 — the noise floor of three repeats of the unfixed build.
+
+What this leg did NOT do (left for the next leg, part 2 of this unit):
+  The actual fix — making the long gun read in the frame a player sees — is not in this leg. This leg is the
+  switch (atrifle.draw), the probe that measures the gun alone, and the base set of the CURRENT build. A fixed
+  build's fix-gun-1/2/3.png and fix-nogun.png, captured the same way at the same pose and camera, will make the
+  probe enforce the bar: gun_px clearing MIN_GUN_PX (25) and sitting outside the base spread (0), gun_width_px
+  >= 2.5, gun_contrast >= 0.10.

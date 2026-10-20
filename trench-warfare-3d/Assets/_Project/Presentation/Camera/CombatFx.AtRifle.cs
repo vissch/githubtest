@@ -41,10 +41,19 @@ namespace TW.Presentation.Tactical
         Mesh atRifleMesh; Material atRifleMat; bool atRifleTried;
         readonly List<Matrix4x4> atRifles = new List<Matrix4x4>(64);
         Matrix4x4[] atRifleBatch = new Matrix4x4[128];
+        bool atRifleDraw = true; int atRifleDrawKnobs = -1;
 
-        /// <summary>Once a frame: one gun for every living AT rifleman, where his drawn pose puts it.</summary>
+        /// <summary>Once a frame: one gun for every living AT rifleman, where his drawn pose puts it. The
+        /// atrifle.draw knob (default on) can take the gun out of a frozen frame without moving the man, for
+        /// an evidence plate that isolates it.</summary>
         void DrawAtRifles(Bounds bounds)
         {
+            if (atRifleDrawKnobs != Knobs.Generation)
+            {
+                atRifleDrawKnobs = Knobs.Generation;
+                atRifleDraw = Knobs.Get("atrifle.draw", true);
+            }
+            if (!atRifleDraw) { atRifles.Clear(); return; }
             var w = Host.Local.World;
             atRifles.Clear();
             float scale = FigureScale();

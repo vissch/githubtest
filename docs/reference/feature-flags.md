@@ -29,6 +29,10 @@ below, which lists statics and inspector fields only.
 
 Both are read only when `StressUnits > 0`, so no other preset sees them.
 
+`atrifle.draw` (`Presentation/Camera/CombatFx.AtRifle.cs`, default on) hides the AT rifleman's drawn gun prop when
+set to 0, read live (`Knobs.Generation`), so an evidence plate can take the gun out of a frozen frame without
+moving the man: `TW.Editor.LookLab.Knob("atrifle.draw","0")`.
+
 <!-- gen:flags -->
 | Switch | Kind | Read at (under Assets/_Project) | Effect |
 |---|---|---|---|

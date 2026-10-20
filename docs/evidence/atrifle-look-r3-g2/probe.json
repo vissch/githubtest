@@ -1,0 +1,27 @@
+{
+  "gun_px_base_1": 0,
+  "gun_len_px_base_1": 0.0,
+  "gun_width_px_base_1": 0.0,
+  "gun_contrast_base_1": 0.0,
+  "gun_px_base_2": 0,
+  "gun_len_px_base_2": 0.0,
+  "gun_width_px_base_2": 0.0,
+  "gun_contrast_base_2": 0.0,
+  "gun_px_base_3": 0,
+  "gun_len_px_base_3": 0.0,
+  "gun_width_px_base_3": 0.0,
+  "gun_contrast_base_3": 0.0,
+  "gun_px_base_min": 0,
+  "gun_px_base_max": 0,
+  "gun_px_base_spread": 0,
+  "pose_error_m_max": 0.0,
+  "rain_max": 0.0,
+  "threshold_luma": 0.04,
+  "window_xywh": [
+    720,
+    300,
+    160,
+    105
+  ],
+  "problems": []
+}
