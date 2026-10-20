@@ -266,14 +266,13 @@ namespace TW.Tests
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
         [Test]
-        public void TheGasBankSurvivesTheErodeThreshold()
+        public void TheGasBankDoesNotErode_SoItsEdgeStaysSoft()
         {
-            // With Erode, the shader cuts the drawing at threshold = (1 - cardAlpha) * (0.45 + 0.55 * edge), at most
-            // (1 - cardAlpha) * 1.0 at the card's edge. The sheet's lowest measured mean ink in the frames the bank
-            // draws (frames 17-28) is 0.167 (docs/evidence/ability-fx-captures-r2/README.md, measurement 2): the
-            // threshold must stay under that or the drawing's own ink is cut away and the bank renders as nothing
-            // (r1's "flat olive smears", 22/100).
-            Assert.Less((1f - CombatFx.GasBankThin) * 1.0f, 0.167f, "the erode threshold stays under the sheet's thinnest drawn ink");
+            // r2-3-g1 step 4: Erode rebuilt the alpha as (tex.a - threshold) / 0.45, a 2.2x gain that flattened the
+            // card's middle to opaque and cut its own rim off - hard-edged lily pads showing mud in the gaps, not
+            // one soft cloud. Off, the card draws the sheet's own soft falloff; CombatFx.Banks.cs pays the lost
+            // opacity back with overlapping per-cell, 2x2 block and 4x4 mass cards.
+            Assert.IsFalse(FlipbookFx.SheetErodes(FlipbookFx.Book.GasBank), "the GasBank sheet draws its own soft falloff, not an eroded hard edge");
         }
     }
 }
