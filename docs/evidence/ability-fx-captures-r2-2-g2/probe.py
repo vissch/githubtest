@@ -48,6 +48,7 @@ import glob
 import json
 import math
 import os
+import shutil
 import sys
 
 from PIL import Image
@@ -209,6 +210,36 @@ def hue_window_count(img, plate):
     hsv = list(img.convert('HSV').getdata())
     return sum(1 for d, (h, s, v) in zip(diff, hsv)
                if d and HUE_LO <= h <= HUE_HI and s >= SAT_BAR and v >= VAL_BAR)
+
+
+def pack(src, into):
+    """Copy every still in `src` into HERE/`into`/ as a JPG under 400 KB, with its sidecar and manifests.
+
+    Lifted from docs/evidence/ability-fx-captures-r2/probe.py's `pack` (lines 131-152), so run2/run3 are packed
+    exactly as run1 was: same quality ladder, same files, just into a named run directory instead of HERE.
+    """
+    out_dir = os.path.join(HERE, into)
+    os.makedirs(out_dir, exist_ok=True)
+    written = []
+    for png in sorted(glob.glob(os.path.join(src, '*.png'))):
+        stem = os.path.splitext(os.path.basename(png))[0]
+        if stem not in STILLS:
+            continue
+        out = os.path.join(out_dir, stem + '.jpg')
+        img = Image.open(png).convert('RGB')
+        for q in range(92, 40, -6):
+            img.save(out, 'JPEG', quality=q)
+            if os.path.getsize(out) <= 400 * 1024:
+                break
+        side = os.path.splitext(png)[0] + '.json'
+        if os.path.exists(side):
+            shutil.copyfile(side, os.path.join(out_dir, stem + '.json'))
+        written.append(stem)
+    for name in ('manifest.json', 'manifest-plate.json'):
+        p = os.path.join(src, name)
+        if os.path.exists(p):
+            shutil.copyfile(p, os.path.join(out_dir, name))
+    return written
 
 
 def load(run_dir, stem):
@@ -421,6 +452,13 @@ def main():
     if '--selftest' in sys.argv:
         return selftest()
 
+    if '--pack' in sys.argv:
+        src = sys.argv[sys.argv.index('--pack') + 1]
+        into = sys.argv[sys.argv.index('--into') + 1]
+        written = pack(src, into)
+        print('packed %s -> %s/%s: %s' % (src, HERE, into, ', '.join(written)))
+        return 0
+
     runs = find_runs()
     calibrate = '--calibrate' in sys.argv
     if not calibrate and len(runs) < 3:
@@ -460,7 +498,12 @@ def main():
 
 
 # Bar values, set from the spread of run1/run2/run3 against this build's tip (see README.md "The bars").
-BAR_VALUES = {}
+BAR_VALUES = {
+    'bank_low_share': 0.30,     # owner-decided (head height, HEAD_M 1.8); run1/2/3 all read 0.4267, spread 0
+    'bank_height_frac': 0.15,   # owner-decided (r2's bar on this test); run1/2/3 all read 0.0950, spread 0
+    'o240_area_frac': 0.010,    # run1/2/3 all read 0.0142, spread 0: this no longer clears on one JPEG at 0.0321
+    'pose_error_max': 0.5,      # GasBankStills.PoseBar; run1/2/3 all read 0.0000, spread 0
+}
 
 
 if __name__ == '__main__':
