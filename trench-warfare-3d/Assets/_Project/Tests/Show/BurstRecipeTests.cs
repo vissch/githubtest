@@ -259,10 +259,29 @@ namespace TW.Tests
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed it is 1.28 m, under a man's head.
-            float top = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
+            // third of the card, so the widest card's gas must still top out below a man's head.
+            float top = CombatFx.GasBankWidth(1f, 1f, 1) * CombatFx.GasBankSquash / 3f;
+            Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBankCardsOverlapIntoOneMass()
+        {
+            // the zebra: one card per 4 m gas cell, barely overlapping, so every card's own silhouette stayed visible.
+            // A card must reach the next cell's centre, so the narrowest spans twice MapData.FieldCellSize (4 m - a
+            // literal here, this test assembly does not reference TW.Sim).
+            foreach (float thick in new[] { 0f, 1f })
+            foreach (float hash in new[] { 0f, 1f })
+                Assert.GreaterOrEqual(CombatFx.GasBankWidth(thick, hash, 1), 8f,
+                    $"a gas card at thick {thick} hash {hash} must cover two cells, so cards add up into one bank");
+        }
+        [Test]
+        public void TheGasBankStacksIntoDensity()
+        {
+            // the other half of the fix: cards may only be a haze on their own, and reach the old core when stacked
+            Assert.LessOrEqual(CombatFx.GasBankAlpha(0f), 0.2f, "a thin cell's card is a haze, not a tile");
+            float stacked = 1f - Mathf.Pow(1f - CombatFx.GasBankAlpha(1f), 3f);
+            Assert.GreaterOrEqual(stacked, 0.8f, "three full cards stacked still reach the bank's core opacity");
         }
     }
 }
