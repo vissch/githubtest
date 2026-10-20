@@ -1,0 +1,584 @@
+{
+  "min_mask_ratio": 0.5,
+  "max_noise_in_box_px": 0,
+  "candidates": [
+    {
+      "n": 1,
+      "pos": [
+        49.0,
+        27.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 16435,
+      "box_at": [
+        706,
+        814,
+        338,
+        419
+      ],
+      "mask_px_at": 1123,
+      "second_px_at": 3,
+      "noise_in_box_px_at": 85,
+      "px_per_m_at": 25.541,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1157,
+      "second_px_sniper": 6,
+      "noise_in_box_px_sniper": 26,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.9706,
+      "boxes_overlap": false,
+      "at_yaw": 2.86,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 2.86,
+      "problems": [
+        "cand1: 85 weather pixels fall inside his box, want 0",
+        "cand1: 26 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 2,
+      "pos": [
+        49.0,
+        28.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 9978,
+      "box_at": [
+        706,
+        813,
+        371,
+        452
+      ],
+      "mask_px_at": 759,
+      "second_px_at": 356,
+      "noise_in_box_px_at": 63,
+      "px_per_m_at": 25.579,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1172,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 0,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.6476,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand2: 63 weather pixels fall inside his box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 3,
+      "pos": [
+        49.0,
+        29.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 7646,
+      "box_at": [
+        706,
+        813,
+        404,
+        485
+      ],
+      "mask_px_at": 161,
+      "second_px_at": 70,
+      "noise_in_box_px_at": 72,
+      "px_per_m_at": 25.613,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1277,
+      "second_px_sniper": 3,
+      "noise_in_box_px_sniper": 39,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.1261,
+      "boxes_overlap": false,
+      "at_yaw": 1.75,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 1.75,
+      "problems": [
+        "cand3: his mask is 161 px against the kneel's 1277 px, ratio 0.126, under 0.5 - a player still cannot see him",
+        "cand3: 72 weather pixels fall inside his box, want 0",
+        "cand3: 39 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 4,
+      "pos": [
+        49.0,
+        30.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 13648,
+      "box_at": [
+        704,
+        813,
+        405,
+        487
+      ],
+      "mask_px_at": 46,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 554,
+      "px_per_m_at": 25.976,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1263,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 55,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.0364,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand4-at: 46 px is under the frame's floor of 125 px (0.2 m2)",
+        "cand4: his mask is 46 px against the kneel's 1263 px, ratio 0.036, under 0.5 - a player still cannot see him",
+        "cand4: 554 weather pixels fall inside his box, want 0",
+        "cand4: 55 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 5,
+      "pos": [
+        50.0,
+        27.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 11065,
+      "box_at": [
+        679,
+        787,
+        338,
+        418
+      ],
+      "mask_px_at": 813,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 96,
+      "px_per_m_at": 25.547,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1186,
+      "second_px_sniper": 1,
+      "noise_in_box_px_sniper": 32,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.6855,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand5: 96 weather pixels fall inside his box, want 0",
+        "cand5: 32 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 6,
+      "pos": [
+        50.0,
+        28.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 23790,
+      "box_at": [
+        679,
+        786,
+        370,
+        451
+      ],
+      "mask_px_at": 873,
+      "second_px_at": 7,
+      "noise_in_box_px_at": 1292,
+      "px_per_m_at": 25.585,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1186,
+      "second_px_sniper": 3,
+      "noise_in_box_px_sniper": 33,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.7361,
+      "boxes_overlap": false,
+      "at_yaw": 0.01,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.01,
+      "problems": [
+        "cand6: 1292 weather pixels fall inside his box, want 0",
+        "cand6: 33 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 7,
+      "pos": [
+        50.0,
+        29.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 15375,
+      "box_at": [
+        678,
+        786,
+        404,
+        485
+      ],
+      "mask_px_at": 12,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 9,
+      "px_per_m_at": 25.618,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1145,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 0,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.0105,
+      "boxes_overlap": false,
+      "at_yaw": 0.43,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.43,
+      "problems": [
+        "cand7-at: the capture warns ['men barely separate from the ground: unreadable']",
+        "cand7-at: 12 px is under the frame's floor of 125 px (0.2 m2)",
+        "cand7: his mask is 12 px against the kneel's 1145 px, ratio 0.010, under 0.5 - a player still cannot see him",
+        "cand7: 9 weather pixels fall inside his box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 8,
+      "pos": [
+        50.0,
+        30.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 11306,
+      "box_at": [
+        677,
+        786,
+        405,
+        487
+      ],
+      "mask_px_at": 7,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 287,
+      "px_per_m_at": 25.98,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1241,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 42,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.0056,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand8-at: 7 px is under the frame's floor of 125 px (0.2 m2)",
+        "cand8: his mask is 7 px against the kneel's 1241 px, ratio 0.006, under 0.5 - a player still cannot see him",
+        "cand8: 287 weather pixels fall inside his box, want 0",
+        "cand8: 42 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 9,
+      "pos": [
+        51.0,
+        27.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 13812,
+      "box_at": [
+        652,
+        760,
+        337,
+        418
+      ],
+      "mask_px_at": 936,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 50,
+      "px_per_m_at": 25.553,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1154,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 34,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.8111,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand9: 50 weather pixels fall inside his box, want 0",
+        "cand9: 34 weather pixels fall inside the kneel's box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 10,
+      "pos": [
+        51.0,
+        28.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 17147,
+      "box_at": null,
+      "mask_px_at": null,
+      "second_px_at": null,
+      "noise_in_box_px_at": null,
+      "px_per_m_at": null,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1253,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 0,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": null,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand10-at: men_in_frame 2, want 1",
+        "cand10-at: the capture drew 2 men in frame, want 1"
+      ],
+      "passes": false
+    },
+    {
+      "n": 11,
+      "pos": [
+        51.0,
+        29.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 16224,
+      "box_at": [
+        651,
+        758,
+        403,
+        484
+      ],
+      "mask_px_at": 85,
+      "second_px_at": 1,
+      "noise_in_box_px_at": 54,
+      "px_per_m_at": 25.624,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1164,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 0,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": 0.073,
+      "boxes_overlap": false,
+      "at_yaw": 1.36,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 1.36,
+      "problems": [
+        "cand11-at: 85 px is under the frame's floor of 125 px (0.2 m2)",
+        "cand11: his mask is 85 px against the kneel's 1164 px, ratio 0.073, under 0.5 - a player still cannot see him",
+        "cand11: 54 weather pixels fall inside his box, want 0"
+      ],
+      "passes": false
+    },
+    {
+      "n": 12,
+      "pos": [
+        51.0,
+        30.0
+      ],
+      "camera": {
+        "zoom": 30.0,
+        "yaw": 180.0,
+        "pitch": 22.0,
+        "focus_x": 47.5,
+        "focus_z": 25.0
+      },
+      "noise_px": 11185,
+      "box_at": [
+        649,
+        758,
+        404,
+        487
+      ],
+      "mask_px_at": 0,
+      "second_px_at": 0,
+      "noise_in_box_px_at": 25,
+      "px_per_m_at": 25.984,
+      "box_sniper": [
+        814,
+        919,
+        354,
+        433
+      ],
+      "mask_px_sniper": 1242,
+      "second_px_sniper": 0,
+      "noise_in_box_px_sniper": 0,
+      "px_per_m_sniper": 25.033,
+      "mask_px_min": 125,
+      "mask_ratio": null,
+      "boxes_overlap": false,
+      "at_yaw": 0.0,
+      "sniper_yaw": 0.0,
+      "at_clip": "ProneIdle",
+      "sniper_clip": "KneelIdle",
+      "heading_diff_rad": 0.0,
+      "problems": [
+        "cand12-at: nothing in his box differs from the plate",
+        "cand12: 25 weather pixels fall inside his box, want 0"
+      ],
+      "passes": false
+    }
+  ],
+  "passed": []
+}

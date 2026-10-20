@@ -1,0 +1,113 @@
+THE STAGING SWEEP: WHERE THE PRONE MAN CLEARS THE BAGS    (2026-10-20, atrifle-look-r3-g1-g2, part 1 of 2)
+=========================================================================================================
+
+What the owner threw out, and what this part does
+-------------------------------------------------
+The previous set (docs/evidence/atrifle-look-r3-g1, commit 1eb46aa6aa) read 0.766 for the prone AT rifleman against
+the Sniper at zoom 30, yaw 180. The owner's words: at that camera the prone man is "a dark lump in the sandbag gap",
+at-2 "looks empty", his mask is 286 to 383 px against the kneeling man's 1327 to 1633 px, and round 1 left 1057
+weather pixels in his box - so the 0.77 was "the bags plus a fixed 1.11 rad heading, not an AT rifleman".
+
+This part answers only the staging question: WHERE does the prone man have to lie for a player to see him, with both
+men still in one frame from one camera? Nothing in the game is changed by it. The bags, the sim, the clips and the
+camera are untouched; the man's place is staging, exactly as his place at (50, 25) was.
+
+The ground and the men
+----------------------
+GreyboxCorridor, its default night look, one batch-mode editor on this checkout driven over the pipeline port.
+`VfxLab.Rain(0)`; every sidecar in the set reads back rain 0, pose_error_m 0 and cam_yaw 180.
+
+  SimProbe.Match()   seed 12648430 generated True battlefield seed 1917 ground ShelledForest
+                     bombardment 0/min (override -1) stress 0 (override -1) mission ''
+
+which is the previous set's match line for line, so this is the same ground.
+
+  AT rifleman   TankCapture.Spawn(0, 27, 50f, 11f, 21f)   printed slot 12, world index 4 (read back with
+                SimProbe.Unit: the printed slot is advice). team 0, archetype 27, hp 90.
+  Sniper        TankCapture.Spawn(0, 3, 56f, 25f, 21f)    printed slot 0, world index 14. archetype 3, hp 80.
+                Staged at (45, 26) - a trench post, cell 657 kind 2 - where he kneels; at (45, 25) he stood.
+                Drawn yaw 0.00 at every capture, clip KneelIdle.
+
+Every OTHER alive man is written to (-5000, 0, -5000) with Hp 0 at the start of every candidate: moving them away is
+not enough, they walk back into the bottom of the frame, and a plate that drew a man is not a plate.
+
+The camera, unchanged from the previous set
+-------------------------------------------
+  focus (47.5, 25)   zoom 30 (T1, the owner's number)   yaw 180 with CaptureRig.Rig.YawPin = 0   pitch 22
+  1600x900           Hold(120) before every shot, Release() after
+staging.py re-reads zoom, yaw, pitch, focus_x and focus_z out of all four sidecars of a candidate and fails if any
+one of them differs, so "one camera" is checked and not asserted.
+
+The twelve candidates
+---------------------
+At yaw 180 the camera sits at high z looking toward -z, so the parapet at z about 26 stands between it and a man at
+z 25: that is the whole reason his old mask was 286-383 px. The candidates are the near side of the bags, x 49 / 50 /
+51 by z 27 / 28 / 29 / 30, four stills each in this order, one Hold(120) apiece:
+
+  cand<N>-empty.png    both men off the map        men_in_frame 0   plate A
+  cand<N>-at.png       the Sniper off the map      men_in_frame 1   the prone man alone
+  cand<N>-sniper.png   the AT rifleman off         men_in_frame 1   the kneeling man alone
+  cand<N>-floor.png    both off again              men_in_frame 0   plate B
+A and B bracket the two man stills, so |empty - floor| is the weather those two masks carry.
+
+His heading, which is the other half of the owner's complaint
+-------------------------------------------------------------
+A man's yaw cannot be written: he snaps to his post's facing, and the previous set paid 1.11 rad for it in every
+reading. `AnimationController.cs:462` sets BodyYaw = atan2(step.x, step.z) whenever the shown speed is over 0.15,
+and a staging teleport IS a step. So the staging ends with a one-metre hop along the Sniper's own drawn yaw: he is
+written a metre back along psi, then onto the target with Speed 1, then left to settle back into ProneIdle with
+Speed 0 (a settle write cannot move a heading, because the speed in it is 0). Read back per candidate in
+cand-poses.json. It works: nine of the twelve candidates come back at a heading difference of 0.00 to 0.01 rad
+instead of 1.11, and the three that do not (cand1 2.86, cand3 1.75, cand11 1.36) are candidates where the man ends
+up on a trench post that re-snaps him.
+
+What the pixels say (staging.json, measured by mask.py, which is the previous probe's code unchanged)
+----------------------------------------------------------------------------------------------------
+  cand  pos        AT mask px   kneel mask px   ratio    weather in his box   weather in the kneel's   heading
+   1    49, 27        1123          1157        0.971           85 px                26 px             2.86
+   2    49, 28         759          1172        0.648           63                    0                0.00
+   3    49, 29         161          1277        0.126           72                   39                1.75
+   4    49, 30          46          1263        0.036          554                   55                0.00
+   5    50, 27         813          1186        0.686           96                   32                0.00
+   6    50, 28         873          1186        0.736         1292                   33                0.01
+   7    50, 29          12          1145        0.011            9                    0                0.43
+   8    50, 30           7          1241        0.006          287                   42                0.00
+   9    51, 27         936          1154        0.811           50                   34                0.00
+  10    51, 28           -          1253          -              -                    0                0.00
+  11    51, 29          85          1164        0.073           54                    0                1.36
+  12    51, 30           0          1242          -             25                    0                0.00
+
+  (cand10-at drew 2 men in frame - another man had walked back in - so it has no single box to measure in, and
+  cand12's box held nothing at all: at z 30 he is behind the next fold of ground.)
+
+THE FIRST HALF OF THE OWNER'S GOAL IS MET, AND MEASURED. In front of the bags at z 27-28 the prone man masks 759 to
+1123 px where he masked 286 to 383 behind them, and the ratio against the kneeling man is 0.65 to 0.97 where the
+owner asked for 0.5. His own box is his, not the bags': px_per_m is 25.0-25.5 from the capture's own tall_px, and
+the two boxes never overlap. z 29 and z 30 are no good at any x - he drops behind the ground or out of sight
+entirely (7 to 161 px, and cand7-at is flagged "men barely separate from the ground: unreadable").
+
+THE SECOND HALF IS NOT MET, AND THAT IS WHY staging.py EXITS 2. Not one of the twelve has ZERO weather pixels inside
+his box: the best is cand9 with 50 px of the 8459 px box (and 34 in the kneel's). It is not a brazier in the box -
+three plates shot 7 FRAMES apart at this camera gave 1570 to 1826 px of weather over the whole frame and 0 inside
+either man's box - it is the SPAN. A candidate's two plates are about 135-190 frames apart, because restaging a man
+needs live frames for the presenter to move him at all, and over that span the fires flare and the lit ground under
+them moves. A tighter round was shot to buy the gate with frames instead of moving it (one stepped frame per poll
+instead of three, four staging writes instead of six): the span came down from 190 to 135 frames, the weather in the
+box did not clear (50 px at best), and the shorter writes cost a still - cand9-at came back with men_in_frame 0,
+the man not yet moved home - so the full-write version was re-shot and is what is committed here.
+
+So the gate stands at 0 and the measurement says 25-1292. That is a question for the owner, not for this leg:
+`docs/reference/decisions.md`, "Open: waiting on the owner". The default taken there is cand9, (51, 27) - the
+largest mask ratio of the clean candidates at 0.811, heading difference 0.00 rad, 50 weather pixels in his box.
+
+What this part does NOT cover
+-----------------------------
+  * No reading is claimed. The three-round capture, the silhouette difference, the spreads and the 0.6 bar are
+    part 2, and part 2 has not been shot.
+  * One Play session, one seed (12648430, battlefield 1917, ShelledForest). Nothing here says what these two men
+    look like on other ground.
+  * The 1.65 m anti-tank rifle at zoom 30 is still a few dark pixels inside a 936 px mask. No number here isolates
+    it and none should be read as saying it can be seen.
+  * The capture driver (driver.py, sweep.py, tightsweep.py) and the full log of every eval line stay in the leg
+    folder, as the plan requires: nothing but the stills, their sidecars, cand-poses.json, mask.py, staging.py,
+    staging.json and this file is committed.
