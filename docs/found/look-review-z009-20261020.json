@@ -1,0 +1,37 @@
+{
+  "subject": "review:Z009",
+  "looked_at": [
+    "trench-warfare-3d/Assets/_Project/Data/DataBaker.cs (89 lines)",
+    "trench-warfare-3d/Assets/_Project/Data/Definitions.cs (167 lines)",
+    "trench-warfare-3d/Assets/_Project/Data/FactionMap.cs (28 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (870 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/AssetScaleAudit.cs (66 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs (154 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/BuildWindows.cs (115 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs (104 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs (193 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeterminismPlatformReport.cs (42 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvKitImport.cs (81 lines)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvPropEditor.cs (550 lines)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Camera/TacticalCamera.cs (read at origin's integration branch, for NearZoom/CloseAimHeight)",
+    "trench-warfare-3d/Assets/_Project/Presentation/Units/VATRenderer.cs:300-320 (Sockets' vehicle mask)",
+    "git diff 013960fb7293c73547eb26cc3068f2f6bb7123f0..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- the twelve files",
+    "docs/03-determinism-rules.md",
+    "docs/reference/tasks.md",
+    "docs/reference/decisions.md",
+    "docs/found/look-review-z009-20261016.json",
+    "trench-warfare-3d/Assets/_Project/UI/Missions/WinterLine.asset, ShelledWood1917.asset, ShelledWoodInland.asset (grepped for a Faction field)"
+  ],
+  "tasks": [
+    {
+      "title": "CaptureRig.LastReport() can return a stale shot's measurement after a skipped shot",
+      "why": "Read in code. The diff's two new catches both leave LastJson/Last (CaptureRig.cs:74) untouched on failure: TryPose (CaptureRig.cs:122-130) catches Pose and the loop does `if (!TryPose(...)) continue;`, and Render's own try/catch (CaptureRig.cs:188-210) returns before reaching the `LastJson = Measure(...)` / `Last = shot.Path` lines at 195-198. Either failure is only logged with Debug.LogError; TacticalCamera's static LastReport() (CaptureRig.cs:590, documented at workflow.md:460 as 'the measurements from the last still, so a script can read them without opening the file') keeps returning whatever the previous successful shot wrote, with nothing in the API saying which shot it belongs to. A caller that queues a multi-shot Series and reads LastReport() after a shot that threw gets the wrong still's numbers attributed to the shot it actually asked about.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "LastJson/Last are cleared (or tagged with the failed shot's path) when TryPose returns false or Render's catch fires, so a script reading LastReport() after a skipped shot sees that no measurement exists for that shot rather than the previous one's; a test queues two shots where the first throws in Pose and asserts LastReport() does not silently report the second shot's numbers as the first's.",
+      "risk": [false, false, false, false, true],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
