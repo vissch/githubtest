@@ -1,0 +1,47 @@
+{
+  "pair-1": {
+    "at": "tick 5137 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw -2.08 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.76 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "sniper": "tick 5137 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw -1.11 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.69 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "spell_s": 0.4
+  },
+  "at-1": {
+    "at": "tick 5269 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw -2.08 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.10 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "sniper-1": {
+    "sniper": "tick 5292 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw 0.79 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.72 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "pair-2": {
+    "at": "tick 5677 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw 0.79 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.14 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "sniper": "tick 5677 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw 0.79 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.66 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "spell_s": 1.2
+  },
+  "at-2": {
+    "at": "tick 5694 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw 0.79 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.31 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "sniper-2": {
+    "sniper": "tick 5769 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw 0.79 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.25 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "pair-3": {
+    "at": "tick 6232 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw 0.79 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.37 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "sniper": "tick 6232 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw 0.79 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.13 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n",
+    "spell_s": 2.0
+  },
+  "at-3": {
+    "at": "tick 6319 slot 12 generation 4 alive True flags Alive\r\nteam 0 archetype 27 hp 90/90 target -1\r\nsim at 50.00 0.00 25.00  trench 0 post cell 705 kind 2 stance Crouch layer Surface\r\ndrawn at 50.00 0.00 25.00  ground there 2.95\r\npose 3 at 50.00 0.00 25.00 yaw 0.79 row 6\r\nanimation clip ProneIdle rung Idle stance Prone phase 0.25 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "sniper-3": {
+    "sniper": "tick 6375 slot 0 generation 5 alive True flags Alive\r\nteam 0 archetype 3 hp 80/80 target -1\r\nsim at 45.00 0.00 25.00  trench 0 post cell 747 kind 1 stance Crouch layer Surface\r\ndrawn at 45.00 0.00 25.00  ground there 3.07\r\npose 0 at 45.00 0.00 25.00 yaw 0.79 row 4\r\nanimation clip KneelIdle rung Idle stance Crouch phase 0.69 lift 0.00 hop 0.00 (per-tick reasons: Animation.Follow(slot), then Animation.TraceText(80))\r\n"
+  },
+  "camera": {
+    "focus_x": 47.5,
+    "focus_z": 25.0,
+    "zoom": 30.0,
+    "yaw": 180.0,
+    "pitch": 22.0,
+    "size": [
+      1600,
+      900
+    ]
+  },
+  "match": "seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1) stress 0 (override -1) tick 6634 mission ''"
+}
