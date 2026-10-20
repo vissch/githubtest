@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Measures the pixels of the twelve stills committed beside this file.
+"""Measures the pixels of the fifteen stills committed beside this file.
 
 The question: does the prone AT rifleman read as his own man, or as the Sniper with another name?
 
@@ -13,27 +13,45 @@ This set answers all four, and this probe gates on each of them. frames.txt tell
 length; what follows is only what reaches the number.
 
 ONE FRAME, ONE CAMERA
-  All twelve stills share one camera pose: focus (47.5, 25), zoom 30 (T1, the owner's number), yaw
+  All fifteen stills share one camera pose: focus (47.5, 25), zoom 30 (T1, the owner's number), yaw
   180 with CaptureRig.Rig.YawPin = 0, pitch 22, 1600x900. The probe reads zoom, yaw, pitch, focus_x,
-  focus_z and the image size out of every sidecar and fails if any one of the twelve differs, so
+  focus_z and the image size out of every sidecar and fails if any one of the fifteen differs, so
   "one camera" is checked, not asserted. It also requires pose_error_m 0, rain 0 and an empty
   `warnings` list everywhere: the unreadable-contrast flag that r3 carried on the Sniper is gone at
   this camera for both men, and if it ever comes back this probe goes red.
 
 ONE MAN AGAINST ONE MAN
-  Four stills per round: `pair` (both men, men_in_frame 2), `at` (the Sniper off the map, 1),
-  `sniper` (the AT rifleman off the map, 1), `empty` (both off, 0). The probe requires exactly those
-  counts from the sidecars. A man's mask is |his single - that round's empty plate|, so a mask is
-  one man against nothing, and the plate is the same camera, the same weather clock and the same few
-  seconds of fires as the still it is subtracted from.
+  Five stills per round: `pair` (both men, men_in_frame 2), `at` (the Sniper off the map, 1),
+  `sniper` (the AT rifleman off the map, 1), `empty` (both off, 0) and `floor` (both off again, 0).
+  The probe requires exactly those counts from the sidecars, and holds `floor` to the same
+  one-camera, rain-0, pose_error-0, no-warning gate as the rest. A man's mask is |his single - that
+  round's empty plate|, so a mask is one man against nothing, and the plate is the same camera, the
+  same weather clock and the same few seconds of fires as the still it is subtracted from.
 
 THE MASK
   A pixel is "the man" when its Rec.709 luma differs from the plate's by more than 0.04, as in r3;
   then a 3x3 opening drops grain speckle and a 7x7 closing joins the parts of one man (boots, back,
   helmet) that the mud happens to match. r3 then kept every surviving blob inside a hand-typed
-  window around the focus. That window is gone. Instead only the LARGEST connected component is
-  kept, and it has to earn the name "a man" three times over:
-    * at least 400 px (a man at T1 is roughly a fifth of his T2 size; r3 measured about 876 px);
+  window around the focus. That window is gone, and so is r3's typed 400 px floor. Two things
+  replace them, both read off the set.
+
+  First, WHAT MOVES ON ITS OWN IS NOT THE MAN. `floor-{r}` is a second man-less plate of the same
+  frame a few world-seconds from `empty-{r}`: nobody is there in either, so everything that differs
+  between them is weather - the fires, their light on the mud, the wind in the grass. That
+  difference mask, built with the same threshold and the same morphology and then dilated 3x3 to
+  cover the edge the flame moved to next, is subtracted from every man's difference mask before any
+  blob is labelled. `noise_px_{r}` is its size and `dropped_px_{stem}` is what it took off each man.
+
+  Second, A MAN IS THE SIZE OF A MAN, in this frame's own units. The two men were posted five metres
+  apart by design, so the distance between the largest blob of `at-{r}` and the largest blob of
+  `sniper-{r}` - centroids taken before any size test, so the test is not circular - divides by 5.0
+  into `px_per_m`, the frame's scale. `px_per_m` is the median of the three rounds. A mask is a man
+  when its area lies between `0.2 * px_per_m**2` and `2.0 * px_per_m**2`: a prone man clearing the
+  sandbags covers at least a fifth of a square metre of frame, a kneeling man at most two.
+
+  Only the LARGEST surviving component is kept, and it has to earn the name "a man" three times
+  over:
+    * an area inside those two derived bounds, both reported;
     * at least 1.5x the second-largest blob, so a flickering pool of mud can never be mistaken for
       him quietly - an ambiguous frame fails loudly instead;
     * no pixel on any frame border, because a cut mask is not a silhouette.
@@ -55,7 +73,8 @@ THREE LIVE POSES, NOT ONE
 
 THE BAR
   PASS_DIFF is 0.6, kept unchanged from r3's probe (commit 13d1158177) so the two rounds compare.
-  Everything else is read from the committed pixels and sidecars; no other number here is typed.
+  Everything else - the size bounds above most of all - is read from the committed pixels and
+  sidecars; no other number here is typed.
   Three spreads are printed and all three have to sit below the bar, while the reading stays above
   it:
     * `spread_readings`   = max - min of the three AT-against-Sniper readings;
@@ -87,14 +106,16 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THRESHOLD = 0.04
-MIN_MASK_PX = 400
+MIN_AREA_M2 = 0.2
+MAX_AREA_M2 = 2.0
+MEN_APART_M = 5.0
 DOMINANCE = 1.5
 MIN_PHASE_GAP = 0.05
 PASS_DIFF = 0.6
 
 ROUNDS = (1, 2, 3)
-KINDS = ("pair", "at", "sniper", "empty")
-MEN = {"pair": 2, "at": 1, "sniper": 1, "empty": 0}
+KINDS = ("pair", "at", "sniper", "empty", "floor")
+MEN = {"pair": 2, "at": 1, "sniper": 1, "empty": 0, "floor": 0}
 FRAME_KEYS = ("zoom", "yaw", "pitch", "focus_x", "focus_z")
 
 
@@ -112,26 +133,54 @@ def luma(stem):
     return a[..., 0] * 0.2126 + a[..., 1] * 0.7152 + a[..., 2] * 0.0722
 
 
-def mask(stem, plate, report, problems):
-    """The largest connected component of |still - plate|, or None when it is not clearly a man."""
+def raw_diff(stem, plate):
+    """The difference mask of one still against a plate: luma threshold, 3x3 open, 7x7 close."""
     d = np.abs(luma(stem) - luma(plate)) > THRESHOLD
-    d = nd.binary_closing(nd.binary_opening(d, np.ones((3, 3))), np.ones((7, 7)))
-    lab, n = nd.label(d)
+    return nd.binary_closing(nd.binary_opening(d, np.ones((3, 3))), np.ones((7, 7)))
+
+
+def biggest_two(m):
+    """(the largest component, its area, the second area) of a boolean mask; (None, 0, 0) if empty."""
+    lab, n = nd.label(m)
     if n == 0:
-        problems.append(f"{stem}: nothing differs from the plate at all")
-        return None
+        return None, 0, 0
     sizes = np.bincount(lab.ravel())
     sizes[0] = 0
     order = np.argsort(sizes)[::-1]
-    biggest = int(order[0])
-    px = int(sizes[biggest])
     second = int(sizes[order[1]]) if n > 1 else 0
+    return lab == int(order[0]), int(sizes[order[0]]), second
+
+
+def centroid(m):
+    ys, xs = np.nonzero(m)
+    return float(xs.mean()), float(ys.mean())
+
+
+def candidate(stem, plate, noise, report, problems):
+    """The largest component of the man's difference mask, after the weather's own pixels are dropped."""
+    raw = raw_diff(stem, plate)
+    cleaned = raw & ~noise
+    report["dropped_px_" + stem] = int(raw.sum() - cleaned.sum())
+    m, px, second = biggest_two(cleaned)
     report["mask_px_" + stem] = px
     report["second_blob_px_" + stem] = second
-    m = lab == biggest
+    if m is None:
+        problems.append(f"{stem}: nothing differs from the plate once the weather is dropped")
+    return m, px, second
+
+
+def judge(stem, m, px, second, lo, hi, problems):
+    """Does the largest component earn the name "a man"? Size, dominance, and not cut by the border."""
+    if m is None:
+        return None
     ok = True
-    if px < MIN_MASK_PX:
-        problems.append(f"{stem}: the largest blob is {px} px, want {MIN_MASK_PX}")
+    if px < lo:
+        problems.append(f"{stem}: the largest blob is {px} px, under the frame's own floor of "
+                        f"{lo} px ({MIN_AREA_M2} m2) - too small to be a man")
+        ok = False
+    if px > hi:
+        problems.append(f"{stem}: the largest blob is {px} px, over the frame's own ceiling of "
+                        f"{hi} px ({MAX_AREA_M2} m2) - too big to be a man")
         ok = False
     if second * DOMINANCE > px:
         problems.append(f"{stem}: the largest blob is {px} px and the next is {second} px, "
@@ -172,7 +221,8 @@ def read_pose(text, field):
 
 def main():
     report = {"pass_diff": PASS_DIFF, "threshold_luma": THRESHOLD,
-              "min_mask_px": MIN_MASK_PX, "dominance": DOMINANCE}
+              "min_area_m2": MIN_AREA_M2, "max_area_m2": MAX_AREA_M2,
+              "dominance": DOMINANCE}
     problems = []
 
     stems = [f"{k}-{r}" for r in ROUNDS for k in KINDS]
@@ -204,15 +254,43 @@ def main():
             problems.append(f"{s}: men_in_frame is {d['men_in_frame']}, want {MEN[kind]}")
 
     # --- the masks -------------------------------------------------------------------------------
-    at, sniper = [], []
+    # Pass one: what moves on its own is dropped, then the largest survivor of each man is kept
+    # with its centroid. No size test yet, so the frame's scale below is not read off itself.
+    cands = {}
     for r in ROUNDS:
-        plate = f"empty-{r}"
-        a = mask(f"at-{r}", plate, report, problems)
-        s = mask(f"sniper-{r}", plate, report, problems)
-        if a is not None:
-            at.append(a)
-        if s is not None:
-            sniper.append(s)
+        noise = nd.binary_dilation(raw_diff(f"empty-{r}", f"floor-{r}"), np.ones((3, 3)))
+        report[f"noise_px_{r}"] = int(noise.sum())
+        for k in ("at", "sniper"):
+            cands[(k, r)] = candidate(f"{k}-{r}", f"empty-{r}", noise, report, problems)
+
+    # The frame's own scale: the two men are five metres apart by design.
+    scales = []
+    for r in ROUNDS:
+        ma = cands[("at", r)][0]
+        ms = cands[("sniper", r)][0]
+        if ma is None or ms is None:
+            continue
+        (ax, ay), (sx, sy) = centroid(ma), centroid(ms)
+        s = float(np.hypot(ax - sx, ay - sy)) / MEN_APART_M
+        report[f"px_per_m_{r}"] = round(s, 3)
+        scales.append(s)
+    at, sniper = [], []
+    if scales:
+        px_per_m = float(np.median(scales))
+        lo = int(round(MIN_AREA_M2 * px_per_m ** 2))
+        hi = int(round(MAX_AREA_M2 * px_per_m ** 2))
+        report["px_per_m"] = round(px_per_m, 3)
+        report["mask_px_min"] = lo
+        report["mask_px_max"] = hi
+        # Pass two: judged against the bounds the frame itself gave.
+        for r in ROUNDS:
+            for k, bag in (("at", at), ("sniper", sniper)):
+                m, px, second = cands[(k, r)]
+                kept = judge(f"{k}-{r}", m, px, second, lo, hi, problems)
+                if kept is not None:
+                    bag.append(kept)
+    else:
+        problems.append("no round gave both men a blob, so the frame has no scale and no bounds")
 
     # --- three live poses, not one ---------------------------------------------------------------
     with open(here("poses.json"), encoding="utf-8") as f:
