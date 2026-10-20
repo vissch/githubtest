@@ -30,14 +30,14 @@
         782,
         450
       ],
-      "cloud_median": 0.48993,
-      "contrast": 0.22745,
-      "ground_median": 0.77841,
+      "cloud_median": 0.43611,
+      "contrast": 0.27634,
+      "ground_median": 0.76919,
       "height_m": 0.0,
       "height_px": 0.0,
       "mask_columns": 384,
       "px_per_m": 19.8598,
-      "rim": 0.15394
+      "rim": 0.15532
     },
     "gas_night": {
       "bars": {
@@ -60,20 +60,20 @@
         782,
         450
       ],
-      "cloud_median": 0.39864,
-      "contrast": 0.52265,
-      "ground_median": 0.12502,
+      "cloud_median": 0.41042,
+      "contrast": 0.52279,
+      "ground_median": 0.12867,
       "height_m": 0.2517,
       "height_px": 5.0,
       "mask_columns": 384,
       "px_per_m": 19.8611,
-      "rim": 0.19089
+      "rim": 0.03838
     },
     "smoke_day": {
       "bars": {
         "contrast": {
-          "min": -0.02911,
-          "why": "a floor: the cloud may not read worse than the build before it"
+          "min": 0.0,
+          "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.02 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
         }
       },
       "box": [
@@ -82,9 +82,9 @@
         931,
         370
       ],
-      "cloud_median": 0.74296,
-      "contrast": 0.01868,
-      "ground_median": 0.77123
+      "cloud_median": 0.74268,
+      "contrast": 0.01031,
+      "ground_median": 0.75554
     },
     "smoke_night": {
       "bars": {
@@ -99,9 +99,9 @@
         931,
         370
       ],
-      "cloud_median": 0.58521,
-      "contrast": 0.39915,
-      "ground_median": 0.25286
+      "cloud_median": 0.58239,
+      "contrast": 0.28288,
+      "ground_median": 0.33166
     }
   }
 }

@@ -57,10 +57,32 @@ namespace TW.Presentation.Tactical
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
 
+        // Phase: gas-smoke-night-g2 (the owner, 2026-10-20: "give the gas a rim and some height a player can see at
+        // zoom 30"). A flat stain and a cloud have the same contrast, so the look is carried by two numbers the probe
+        // beside docs/evidence/gas-smoke-night-g2 measures off the pixels: the lip on top of the bank (rim) and what
+        // stands above the cloud's own far ground edge (height_m).
+        //   the lip: the cells on the field's edge (a neighbour below the floor, or off the grid) are drawn brighter,
+        //            taller and denser, so the blanket ends in an edge instead of fading into the grass.
+        //   the height: a full cell's card is GasBankTall as tall as it is wide, its foot kept on the ground.
+        // Width is untouched: the footprint does not grow and no card is added, only reshaped (the barrage frame is
+        // already at 374 draws against 300).
+        public const float GasBankTall = 1.35f;
+        public const float GasEdgeBright = 1.25f, GasEdgeTall = 1.25f, GasEdgeAlpha = 0.15f;
+
+        /// <summary>How a gas cell's card is lifted out of the blanket: the edge of the field gets the lip, the inside
+        /// is drawn as before. Pure, so GasSmokeNightTests can hold the numbers. thick is the cell's thickness; the lip
+        /// does not ease in with it, because it is the thin outer cells that need it most.</summary>
+        public static void BankRim(bool edge, float thick, out float bright, out float tall, out float alphaLift)
+        {
+            bright = edge ? GasEdgeBright : 1f;
+            tall = edge ? GasEdgeTall : 1f;
+            alphaLift = edge ? GasEdgeAlpha : 0f;
+        }
+
         public const float SmokeBankFirst = 12f, SmokeBankLast = 20.5f; // the mound grown (the firebooks cut stops at 21)
 
         /// <summary>A card's worth of field: its hash, how thick, and where it stands.</summary>
-        struct BankCell { public uint Hash; public float Thick, X, Z, Ground; }
+        struct BankCell { public uint Hash; public float Thick, X, Z, Ground; public bool Edge; }
 
         /// <summary>One field's standing cells, found once a sim tick at one merge step.</summary>
         sealed class BankCache { public readonly List<BankCell> Cells = new List<BankCell>(1024); public uint Tick = uint.MaxValue; public int Step; }
@@ -75,6 +97,18 @@ namespace TW.Presentation.Tactical
         int CurrentBankStep()
         {
             return BankStep(ViewEye.Zoom);
+        }
+
+        /// <summary>Is the block of cells at (x, z) below the floor, or off the grid? Off the grid counts as below: the
+        /// field stops there, so the card at its last cell is on the edge.</summary>
+        static bool BlockBelow(Unity.Collections.NativeArray<float> field, int width, int length, int x, int z, int step, float floor)
+        {
+            if (x < 0 || z < 0 || x >= width || z >= length) return true;
+            float c = 0f;
+            for (int dz = 0; dz < step && z + dz < length; dz++)
+            for (int dx = 0; dx < step && x + dx < width; dx++)
+                c = Mathf.Max(c, field[(z + dz) * width + x + dx]);
+            return c < floor;
         }
 
         /// <summary>Refill a field's cells if the tick or the step has moved. floor: the least a cell must hold to stand;
@@ -93,10 +127,15 @@ namespace TW.Presentation.Tactical
                 for (int dx = 0; dx < step && x + dx < width; dx++)
                     c = Mathf.Max(c, field[(z + dz) * width + x + dx]);
                 if (c < floor) continue;
+                // on the field's edge when any of the four neighbouring blocks is below the floor or off the grid
+                bool edge = BlockBelow(field, width, length, x - step, z, step, floor)
+                         || BlockBelow(field, width, length, x + step, z, step, floor)
+                         || BlockBelow(field, width, length, x, z - step, step, floor)
+                         || BlockBelow(field, width, length, x, z + step, step, floor);
                 uint h = (uint)(x * p1 ^ z * p2);
                 float h1 = (h & 1023) / 1023f, h2 = ((h >> 10) & 1023) / 1023f;
                 float wx = (x + 0.5f * step) * cs + (h1 - 0.5f) * jitter, wz = (z + 0.5f * step) * cs + (h2 - 0.5f) * jitter;
-                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz) });
+                cache.Cells.Add(new BankCell { Hash = h, Thick = Mathf.Clamp01(c / full), X = wx, Z = wz, Ground = RenderGround.Sample(Host.Local.Map, wx, wz), Edge = edge });
             }
         }
 
@@ -124,7 +163,13 @@ namespace TW.Presentation.Tactical
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                BankRim(b.Edge, b.Thick, out float bright, out float rimTall, out float alphaLift);
+                float tall = Mathf.Lerp(1f, GasBankTall, b.Thick) * rimTall;
+                float height = width * tall;
+                // the drawing's bank sits in the bottom third of the card (the sheet's Ink), so the card's centre is
+                // lifted by half of what it grew: the bank's foot stays on the ground it lies on
+                float y = b.Ground - 0.2f + 0.5f * (height - width);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, y, b.Z), width, height, BankFrame(GasBankFirst, GasBankLast, slow), 1f, bright, 0f, kind, Mathf.Min(1f, GasBankAlpha(b.Thick) + alphaLift)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
