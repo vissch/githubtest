@@ -514,6 +514,11 @@ class PlayerBenchExitTest(unittest.TestCase):
         data = (HERE / "player_bench.sh").read_bytes()
         self.assertNotIn(b"\r\n", data,
                          "[player-bench-test-runs-on-the-desktop-20261019] a CRLF bash script exits 127")
+        attrs = (HERE.parents[2] / ".gitattributes").read_text()
+        self.assertTrue(
+            any(line.split()[0] == "*.sh" and "eol=lf" in line
+                for line in attrs.splitlines() if line.strip()),
+            "[player-bench-test-runs-on-the-desktop-20261019] .gitattributes must pin *.sh to eol=lf")
 
 
 if __name__ == "__main__":
