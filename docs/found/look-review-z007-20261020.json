@@ -1,0 +1,44 @@
+{
+  "subject": "review:Z007",
+  "looked_at": [
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the role, the P0-P3 ladder, report only what you read at the cited lines)",
+    "docs/found/look-review-z007-20261017.json (the last review of this unit: four P1 findings, two built since)",
+    "git diff 6959ad812b438a3bc3671c44f8333508a43e72aa..origin/claude/trench-warfare-2d-3d-plan-idt7lf over the twelve files: 106 insertions/58 deletions, in CaptureRig.cs and Gym.cs only",
+    "trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs (902 lines, whole, at origin's integration tip)",
+    "trench-warfare-3d/Assets/_Project/Editor/Gym.cs (704 lines, whole, at origin's integration tip)",
+    "trench-warfare-3d/Assets/_Project/Editor/AssetScaleAudit.cs (66 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs (154 lines, whole, at origin's integration tip)",
+    "trench-warfare-3d/Assets/_Project/Editor/BuildWindows.cs (115 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/CrabManifest.cs (104 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeathLab.cs (192 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/DeterminismPlatformReport.cs (42 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvKitImport.cs (81 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/EnvPropEditor.cs (550 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/GameViewFit.cs (31 lines, whole)",
+    "trench-warfare-3d/Assets/_Project/Editor/InfantryClipTable.cs (97 lines, whole)",
+    "docs/found/look-review-z009-20261020.json: a fifth finding in this same diff (CaptureRig's two new catches leave LastReport() stale) was already taken there; not repeated here",
+    "grep of docs/reference/tasks.md and docs/reference/decisions.md for captureRig/bootstrapscene/bare path/stress.json/NewScene: neither surviving 2026-10-17 finding is queued, decided or rejected"
+  ],
+  "tasks": [
+    {
+      "title": "Create the report folder only when the path has one, in CaptureRig.Profiler/Stress",
+      "why": "P1, still open from the 2026-10-17 review. CaptureRig.cs:850 (Profiler.LateUpdate) calls Directory.CreateDirectory(Path.GetDirectoryName(path)) with no guard. Stress's default path is the bare name \"stress.json\" (CaptureRig.cs:760), for which GetDirectoryName returns the empty string and CreateDirectory throws ArgumentException. The throw happens after `left` has reached 0, so LateUpdate:850 never finishes and Done (CaptureRig.cs:853) never becomes true; StressRun.Start's `while (!prof.Done) yield return null` (CaptureRig.cs:827) then spins forever, Play is never exited, and the StressUnits restore in OnPlayMode (CaptureRig.cs:794-801) never runs. Profile(path) (CaptureRig.cs:647) has the same bare-path hole. The two try/catch fixes landed since 2026-10-17 (the new TryPose/Run try-finally and Render's own try/catch) do not touch this class: Profiler and StressRun are separate types with no catch at all. Cost: a stress or frame-cost run invoked the documented way (CaptureRig.Stress(...), CaptureRig.Profile(...)) with a bare filename writes no numbers and hangs the editor in Play.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/CaptureRig.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "An EditMode test calls the same path logic with \"stress.json\" and a nested path and both write the file without throwing; by hand, `tw eval 'return TW.Editor.CaptureRig.Stress(50);'` leaves Play on its own and stress.json exists in the project folder.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    },
+    {
+      "title": "Ask before NewScene throws away unsaved scene edits in BootstrapSceneBuilder",
+      "why": "P1 (lost work), still open from the 2026-10-17 review. BootstrapSceneBuilder.cs:117 (BuildGreybox) and :147 (BuildBootstrap) call EditorSceneManager.NewScene(..., NewSceneMode.Single) with no dirty check, and BuildScenes:111 then OpenScene's the result. The dialogs at :31-34 and :95-98 only ask about replacing the committed asset and scene FILES; nothing asks about the scene open in the editor, so whatever is unsaved in it is discarded without a prompt — the same hazard Gym.Run guards with SaveCurrentModifiedScenesIfUserWantsTo (Gym.cs:51-55). It fires from the menu TW/Build Bootstrap Scenes and from SetupAll (:67-73) on a checkout missing either scene file. No commit since 2026-10-17 touches this file. Cost: an afternoon of hand scene work with no undo.",
+      "files": ["trench-warfare-3d/Assets/_Project/Editor/BootstrapSceneBuilder.cs"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "The two NewScene calls are preceded by SaveCurrentModifiedScenesIfUserWantsTo and BuildScenes returns early when it returns false; an EditMode test marks the open scene dirty, calls BuildScenes in a mode where the prompt is declined, and asserts the scene files were not rewritten.",
+      "risk": [false, false, false, false, false],
+      "change": [false, false, false, false, false]
+    }
+  ]
+}
