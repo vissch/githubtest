@@ -1,0 +1,25 @@
+{
+  "subject": "review:Z006",
+  "looked_at": [
+    "git diff 6959ad812b..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- trench-warfare-3d/Assets/_Project/Data trench-warfare-3d/Assets/_Project/Net",
+    "git log --oneline 6959ad812b..origin/claude/trench-warfare-2d-3d-plan-idt7lf -- trench-warfare-3d/Assets/_Project/Data trench-warfare-3d/Assets/_Project/Net",
+    "docs/found/look-review-z006-20261016.json",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Data/DataBaker.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Data/Definitions.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Data/FactionMap.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/CommandSeat.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/HashExchange.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/ICommandSink.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/ILockstepTransport.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/LockstepDriver.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/LoopbackTransport.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Net/Snapshot.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Presentation/Core/LockstepSession.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Tests/Sim/DataBakerTests.cs",
+    "git show origin/claude/trench-warfare-2d-3d-plan-idt7lf:trench-warfare-3d/Assets/_Project/Tests/Sim/LockstepSteppedTickTests.cs",
+    "git grep HashExchange / LastSteppedTick on origin/claude/trench-warfare-2d-3d-plan-idt7lf (no production caller found for either, only tests)",
+    "docs/reference/decisions.md (searched, no row)",
+    "docs/reference/tasks.md (searched, nothing open for this unit)"
+  ],
+  "tasks": []
+}
