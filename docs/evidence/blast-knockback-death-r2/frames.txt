@@ -1,0 +1,40 @@
+Blast knockback death, round 2 — the stills, and what is in each (pre: the build at b3f6581dc7, before any
+throw change). Every shot: BlastThrowStills, straight down (pitch 89, yaw 0), zoom 20, 1280x720, on the
+Winter day field with rain and squalls off and the weather clock pinned at 30, the game clock frozen for the
+shot (CaptureRig.Hold) so the camera cannot ease between the pose and the render: every sidecar reads
+pose_error_m 0, cam_pitch 89.0, cam_yaw 0. Time.captureDeltaTime is 1/30, so the sidecars' frame gap is 30x
+the seconds: the -1 s to +3 s pair is 4 s and 124 frames apart (31 fps implied), not r1's 2984 frames.
+
+view: one row of six men 2.5 m apart, the shot centred on the row's middle, which is where the shell bursts.
+band: T1-ish standoff (zoom 20, ~41 m x 23 m of ground in frame, 32.8 px/m).
+
+pre_blast1_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing, before the shell (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast1_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast1_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 7 bodies drawn, 7 matched one to one, median 1.181 m from where each stood (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast2_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing, before the shell (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast2_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast2_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 13 bodies drawn, 6 matched one to one, median 2.142 m from where each stood (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast3_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing, before the shell (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast3_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the burst, the men in the air (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_blast3_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: where they came to rest: 21 bodies drawn, 5 matched one to one, median 1.212 m from where each stood (six men killed by a 10 m, 600-damage shell at the row's middle (DeathLab.Shell))
+pre_calm1_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (six men left standing, nothing fired: the noise floor)
+pre_calm1_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on (six men left standing, nothing fired: the noise floor)
+pre_calm1_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 0.287 m of drift (six men left standing, nothing fired: the noise floor)
+pre_calm2_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (six men left standing, nothing fired: the noise floor)
+pre_calm2_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on (six men left standing, nothing fired: the noise floor)
+pre_calm2_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 0.076 m of drift (six men left standing, nothing fired: the noise floor)
+pre_calm3_m1_0.png | view: top-down on the row | band: zoom 20 | moment: -1 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the row standing (six men left standing, nothing fired: the noise floor)
+pre_calm3_p0_5.png | view: top-down on the row | band: zoom 20 | moment: +0.5 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, half a second on (six men left standing, nothing fired: the noise floor)
+pre_calm3_p3_0.png | view: top-down on the row | band: zoom 20 | moment: +3 s from the burst | clock held: weather pinned 30, game clock frozen for the shot | in frame: the same row, 0.121 m of drift (six men left standing, nothing fired: the noise floor)
+
+Measured by probe.py into probe.json: throw_m 1.712 m (the median of the three blast runs' per-body
+distances pooled), per-run medians [1.181, 2.142, 1.212], noise floor [0.287, 0.076, 0.121] m, px_per_m
+32.8. contrast_median is -1 in every sidecar: CaptureRig measures a man's contrast from his head
+and foot on screen, and straight down those are the same pixel, so that number cannot be read from this view.
+The readability the critic asked for is instead plain in the stills and in the probe finding six men as an
+evenly spaced row on a lit, fog-free field.
+
+What the pre set says: the bodies already come to rest 1.18-2.14 m (median per run) from where they stood,
+against a 0.08-0.29 m noise floor — so a bar at 1.5 m does not sit outside this spread. The change in part 2
+has to clear the top of it, not the bottom: the throw the controller records is 4-12 m per man (logged by the
+harness), and a body that travels a sixth of that is the fault the critic saw as 'still in a heap'.
