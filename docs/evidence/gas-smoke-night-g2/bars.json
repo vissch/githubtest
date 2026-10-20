@@ -1,0 +1,45 @@
+{
+  "note": "Set from baseline.json: three takes of 4ce7ef9103, the build before the look change. The rim and the height bars sit OUTSIDE the spread of those three takes (max + spread + 0.02), so the current build FAILS them by design; that is what part 2 of the plan has to clear. Each contrast is a FLOOR (min - spread - 0.02): the rim and the height may not be bought by making the cloud read worse. Gas and smoke are scored each on its own bar, day and night each: no min of the two.",
+  "per_still": {
+    "gas_day": {
+      "contrast": {
+        "min": 0.20745,
+        "why": "a floor: the cloud may not read worse than the build before it"
+      },
+      "height_m": {
+        "min": 0.02,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+      },
+      "rim": {
+        "min": 0.17394,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+      }
+    },
+    "gas_night": {
+      "contrast": {
+        "min": 0.47551,
+        "why": "a floor: the cloud may not read worse than the build before it"
+      },
+      "height_m": {
+        "min": 0.2717,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+      },
+      "rim": {
+        "min": 0.27397,
+        "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+      }
+    },
+    "smoke_day": {
+      "contrast": {
+        "min": 0.0,
+        "why": "a floor: the cloud may not read worse than the build before it; clamped to 0, because today's day smoke screen reads about 0.02 and min - spread - 0.02 went negative. The smoke screen's own look is out of this phase's scope: the floor only says it may not get worse."
+      }
+    },
+    "smoke_night": {
+      "contrast": {
+        "min": 0.3466,
+        "why": "a floor: the cloud may not read worse than the build before it"
+      }
+    }
+  }
+}

@@ -1,0 +1,94 @@
+{
+  "commit": "4ce7ef9103",
+  "per_still": {
+    "gas_day": {
+      "contrast": {
+        "max": 0.22745,
+        "min": 0.22745,
+        "spread": 0.0,
+        "takes": [
+          0.22745,
+          0.22745,
+          0.22745
+        ]
+      },
+      "height_m": {
+        "max": 0.0,
+        "min": 0.0,
+        "spread": 0.0,
+        "takes": [
+          0.0,
+          0.0,
+          0.0
+        ]
+      },
+      "rim": {
+        "max": 0.15394,
+        "min": 0.15394,
+        "spread": 0.0,
+        "takes": [
+          0.15394,
+          0.15394,
+          0.15394
+        ]
+      }
+    },
+    "gas_night": {
+      "contrast": {
+        "max": 0.54979,
+        "min": 0.52265,
+        "spread": 0.02714,
+        "takes": [
+          0.52265,
+          0.54979,
+          0.54979
+        ]
+      },
+      "height_m": {
+        "max": 0.2517,
+        "min": 0.2517,
+        "spread": 0.0,
+        "takes": [
+          0.2517,
+          0.2517,
+          0.2517
+        ]
+      },
+      "rim": {
+        "max": 0.22243,
+        "min": 0.19089,
+        "spread": 0.03154,
+        "takes": [
+          0.19089,
+          0.22243,
+          0.22243
+        ]
+      }
+    },
+    "smoke_day": {
+      "contrast": {
+        "max": 0.02553,
+        "min": 0.00821,
+        "spread": 0.01732,
+        "takes": [
+          0.01868,
+          0.00821,
+          0.02553
+        ]
+      }
+    },
+    "smoke_night": {
+      "contrast": {
+        "max": 0.4317,
+        "min": 0.39915,
+        "spread": 0.03255,
+        "takes": [
+          0.39915,
+          0.4317,
+          0.42367
+        ]
+      }
+    }
+  },
+  "what": "three takes of the current build, filmed by TW.Tests.GasNightStills at zoom 30, measured by probe.py beside this file. The bars in bars.json are set from these."
+}

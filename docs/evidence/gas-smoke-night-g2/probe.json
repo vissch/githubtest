@@ -1,0 +1,107 @@
+{
+  "definition": {
+    "contrast": "median over the AIMED box of |Lc - Lg| / (Lc + Lg)",
+    "ground": "median luma of ground_l and ground_r from the still's aim.json (the left and right tenth over the box's rows)",
+    "height_m": "median over the columns within 0.05 of the frame width of far_edge of the mask rows ABOVE far_edge, / px_per_m",
+    "luma": "Rec.709 on 0-1, CaptureRig's scale (0.2126 R + 0.7152 G + 0.0722 B, bytes / 255)",
+    "mask": "box pixels with contrast >= 0.12 against the ground median",
+    "note": "no min of gas and smoke: every still keeps its own numbers and its own bar",
+    "rim": "Michelson of the mask's top 6 rows per column against the mask's middle rows"
+  },
+  "per_still": {
+    "gas_day": {
+      "bars": {
+        "contrast": {
+          "min": 0.20745,
+          "why": "a floor: the cloud may not read worse than the build before it"
+        },
+        "height_m": {
+          "min": 0.02,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        },
+        "rim": {
+          "min": 0.17394,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        }
+      },
+      "box": [
+        398,
+        291,
+        782,
+        450
+      ],
+      "cloud_median": 0.48993,
+      "contrast": 0.22745,
+      "ground_median": 0.77841,
+      "height_m": 0.0,
+      "height_px": 0.0,
+      "mask_columns": 384,
+      "px_per_m": 19.8598,
+      "rim": 0.15394
+    },
+    "gas_night": {
+      "bars": {
+        "contrast": {
+          "min": 0.47551,
+          "why": "a floor: the cloud may not read worse than the build before it"
+        },
+        "height_m": {
+          "min": 0.2717,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        },
+        "rim": {
+          "min": 0.27397,
+          "why": "outside the spread of three captures of the current build (max + spread + 0.02)"
+        }
+      },
+      "box": [
+        398,
+        291,
+        782,
+        450
+      ],
+      "cloud_median": 0.39864,
+      "contrast": 0.52265,
+      "ground_median": 0.12502,
+      "height_m": 0.2517,
+      "height_px": 5.0,
+      "mask_columns": 384,
+      "px_per_m": 19.8611,
+      "rim": 0.19089
+    },
+    "smoke_day": {
+      "bars": {
+        "contrast": {
+          "min": -0.02911,
+          "why": "a floor: the cloud may not read worse than the build before it"
+        }
+      },
+      "box": [
+        547,
+        212,
+        931,
+        370
+      ],
+      "cloud_median": 0.74296,
+      "contrast": 0.01868,
+      "ground_median": 0.77123
+    },
+    "smoke_night": {
+      "bars": {
+        "contrast": {
+          "min": 0.3466,
+          "why": "a floor: the cloud may not read worse than the build before it"
+        }
+      },
+      "box": [
+        547,
+        212,
+        931,
+        370
+      ],
+      "cloud_median": 0.58521,
+      "contrast": 0.39915,
+      "ground_median": 0.25286
+    }
+  }
+}
