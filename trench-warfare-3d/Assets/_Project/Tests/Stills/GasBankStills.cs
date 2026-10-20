@@ -10,7 +10,7 @@
 //  - r2-3: THREE seeds per pass, not one. The critic's r1 verdict on r2-2 was that every bar passed by under 0.025
 //    on a single capture, so one lucky patch could carry the claim. The open-patch search now keeps the three best
 //    patches that stand at least SeedSpacingM apart and runs the O240 + T1 blocks once per patch, into stems
-//    gas-o240-s0 / gas-t1-s0 / ... s2 (12 stills a pass). Between seeds sits a fixed DrainFrames block, never a
+//    gas-o240-s0 / gas-t1-s0 / ... s2, plus r2-3-g1-g2's side view gas-side-s0 / ... (18 stills a pass). Between seeds sits a fixed DrainFrames block, never a
 //    poll, so both passes stay frame-for-frame in step - which is the whole reason the plate subtracts cleanly -
 //    and each manifest row carries gas_cells_before, the field reading taken just before the block's first call, so
 //    a leftover cloud from the previous seed shows up in the evidence instead of being counted as this seed's gas;
@@ -68,6 +68,10 @@ namespace TW.Tests
         /// already spent, against a source that stops feeding 300 ticks after its call. Fixed, never a poll: a
         /// poll would run the two passes out of step and the plate would stop subtracting.</summary>
         const int DrainFrames = 1500;
+        /// <summary>The pitch of the side view the T1 block adds (r2-3-g1-g2). TacticalCamera.PitchMin: the lowest
+        /// a player can tilt, and CaptureRig clamps the shot to it anyway, so this is the flattest look at the bank
+        /// the game ever gives - the view in which a bank flatter than the ground it sits on shows up.</summary>
+        const float SidePitchDeg = 8f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
@@ -159,8 +163,11 @@ namespace TW.Tests
                 for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
                 yield return Block(dir, "gas-o240" + tail, "o240", tc, x, z, 240f, 25f, far, plate, map);
 
+                // two stills of the SAME cloud: the play pose, and a side view at the lowest pitch a player can
+                // tilt to. Both sit inside the block's BlockFrames pad (the block spends ~250), so the pass
+                // timeline, the seed patches and the plate's frame-for-frame match are untouched.
                 yield return Block(dir, "gas-t1" + tail, "t1", tc, x, z, 30f, 25f,
-                                   new List<Vector2> { new Vector2(x, z) }, plate, map);
+                                   new List<Vector2> { new Vector2(x, z) }, plate, map, "gas-side" + tail);
 
                 // the previous seed's cloud dies here, on a fixed count, so both passes stay in step
                 for (int f = 0; f < DrainFrames; f++) yield return null;
@@ -180,7 +187,8 @@ namespace TW.Tests
         /// <summary>One band: frame it, gas it (unless this is the plate pass), wait out the cloud's life in FRAMES,
         /// photograph it, then pad to a fixed block so the two passes stay in step.</summary>
         static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
-                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
+                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map,
+                                 string sideStem = null)
         {
             int spent = 0;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
@@ -219,51 +227,60 @@ namespace TW.Tests
 
             for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
 
-            string path = Path.Combine(dir, stem + ".png");
-            float best = float.MaxValue;
-            for (int tryNo = 0; tryNo < 3; tryNo++)
+            // One still: the 3-try pose retry, the frame's own readings, and the manifest row. A local function
+            // because the T1 block takes TWO stills of the SAME cloud - the play pose at pitch 25 and a side view
+            // at TacticalCamera.PitchMin - and neither a second gas call nor a second drain may creep in between.
+            IEnumerator Shoot(string shotStem, string shotBand, float shotPitch)
             {
-                CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
-                yield return Drain(path);
-                spent += 12;
-                float err = Sidecar(path, "pose_error_m");
-                if (err < best) best = err;
-                TestContext.Out.WriteLine(stem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
-                if (err < PoseBar) break;
+                string path = Path.Combine(dir, shotStem + ".png");
+                float best = float.MaxValue;
+                for (int tryNo = 0; tryNo < 3; tryNo++)
+                {
+                    CaptureRig.Shot(path, x, z, zoom, 40f, shotPitch, 1280, 720);
+                    yield return Drain(path);
+                    spent += 12;
+                    float err = Sidecar(path, "pose_error_m");
+                    if (err < best) best = err;
+                    TestContext.Out.WriteLine(shotStem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
+                    if (err < PoseBar) break;
+                }
+                if (best > worstPose) worstPose = best;
+
+                uint tick = Host.Local.World.Tick;
+
+                // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
+                // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
+                // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
+                // FieldRead says why the field itself is read through reflection.
+                int cells; float fieldMax;
+                FieldRead(out cells, out fieldMax);
+                yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
+                int cards = Cards(); float recipes = Recipes(); bool ready = Books();
+
+                float ground = RenderGround.Sample(map, x, z);
+                var sb = new StringBuilder();
+                sb.Append("    { \"still\": \"").Append(shotStem).Append(".png\", \"subject\": \"chlorine gas bank\", \"band\": \"")
+                  .Append(shotBand).Append("\", \"plate\": ").Append(plate ? "true" : "false")
+                  .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
+                  .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
+                  .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
+                  .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
+                  .Append(", \"calls_taken\": ").Append(taken)
+                  .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
+                  .Append(", \"gas_cells_before\": ").Append(cellsBefore)
+                  .Append(", \"gas_field_max_before\": ").Append(maxBefore.ToString("0.##"))
+                  .Append(", \"gas_cards\": ").Append(cards)
+                  .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
+                  .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
+                  .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
+                  .Append(", \"calls\": [");
+                for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
+                sb.Append("] }");
+                rows.Add(sb.ToString());
             }
-            if (best > worstPose) worstPose = best;
 
-            uint tick = Host.Local.World.Tick;
-
-            // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
-            // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
-            // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
-            // FieldRead says why the field itself is read through reflection.
-            int cells; float fieldMax;
-            FieldRead(out cells, out fieldMax);
-            yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
-            int cards = Cards(); float recipes = Recipes(); bool ready = Books();
-
-            float ground = RenderGround.Sample(map, x, z);
-            var sb = new StringBuilder();
-            sb.Append("    { \"still\": \"").Append(stem).Append(".png\", \"subject\": \"chlorine gas bank\", \"band\": \"")
-              .Append(band).Append("\", \"plate\": ").Append(plate ? "true" : "false")
-              .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
-              .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
-              .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
-              .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
-              .Append(", \"calls_taken\": ").Append(taken)
-              .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
-              .Append(", \"gas_cells_before\": ").Append(cellsBefore)
-              .Append(", \"gas_field_max_before\": ").Append(maxBefore.ToString("0.##"))
-              .Append(", \"gas_cards\": ").Append(cards)
-              .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
-              .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
-              .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
-              .Append(", \"calls\": [");
-            for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
-            sb.Append("] }");
-            rows.Add(sb.ToString());
+            yield return Shoot(stem, band, pitch);
+            if (sideStem != null) yield return Shoot(sideStem, "side", SidePitchDeg);
 
             for (int f = spent; f < BlockFrames; f++) yield return null;
         }

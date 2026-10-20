@@ -146,6 +146,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   met by all three: how much of the T1 frame the bank moved, how far the ground texture under it flattened against
   the plate, and how far its hue stands from the grass it covers at O240 (`--dir baseline` measures the
   before-pictures; needs numpy and PIL);
+  `docs/evidence/ability-fx-captures-r2-3-g1/probe.py` adds `t1_gap_frac` (the mud still showing inside the bank's
+  own closed outline, lower is better); `docs/evidence/ability-fx-captures-r2-3-g1-g2/probe.py` adds a SIDE still
+  per seed (`gas-side-sN`, the same cloud and zoom at pitch 8, `TacticalCamera.PitchMin`: 18 stills a pass, not
+  12) with `side_relief_ratio` - the bank's top-edge relief over the relief of its ground edge, where at or under
+  1 the blocks are flatter than the ground - and a CEILING on `texture_var_drop` beside its floor;
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
