@@ -45,6 +45,9 @@ namespace TW.Presentation
         public const float FarCap = 14f, HighCap = 9f;
         /// <summary>m/s of the sim's knock at which a blast death is thrown as far as it goes (BlastSystem throws the dead at up to 18).</summary>
         public const float FullThrowKnock = 12f;
+        /// <summary>A shell never leaves a man it killed where he stood: every blast death clears its spot by this much,
+        /// and goes up by this much, before his stance scales it (in a trench he still goes up, not out).</summary>
+        public const float MinThrowOut = 2.2f, MinThrowUp = 1.4f;
         /// <summary>A standing death is not repeated within this many metres and ticks of the same one.</summary>
         public const float RepeatRadius = 6f; public const int RepeatWindow = 20;
         public const int RecentDeaths = 64, DeathRingSize = 256;
@@ -218,6 +221,7 @@ namespace TW.Presentation
                     toward.y = 0f; toward = math.normalizesafe(toward, new float3(0f, 0f, 1f));
                     float jitter = 0.8f + 0.4f * Hash(s.Seed, tick + 31);
                     float far = math.lerp(1.8f, 7.5f, closeness) * jitter * densityScale, high = math.lerp(1.4f, 6.0f, closeness) * jitter * densityScale;
+                    far = math.max(far, MinThrowOut); high = math.max(high, MinThrowUp);   // the floor: he leaves his spot
                     bool dug = s.PrevLayer == (byte)NavLayer.Trench;   // Despawn cleared his flags: the layer he was drawn on says
                     if (flat) { far *= 0.5f; high *= 0.5f; }
                     if (dug) { far *= 0.25f; high *= 0.8f; }   // in a trench he goes up, not out
@@ -228,7 +232,21 @@ namespace TW.Presentation
                 }
                 else if (flat) { clip = Clip.DeathProne; cause = blast ? DeathKind.Blast : DeathKind.Shot; }
                 else if (low) { clip = (s.Seed & 4) != 0 ? Clip.DeathSquat : Clip.DeathKneel; cause = blast ? DeathKind.Blast : DeathKind.Shot; }
-                else if (blast) { clip = Clip.DeathBlast; cause = DeathKind.Blast; }
+                else if (blast && blastRadius[i] >= 4f)
+                {
+                    // a shell's burst too far out for an arc, but it still killed him: he is thrown clear of his spot
+                    // along the way it came, the least a blast death ever moves (harsh critic r1, 2026-10-19). Only a
+                    // real burst does this: an aircraft's rounds and a grenade leave him where he stood (critic r6)
+                    float3 toward = math.lengthsq(simDir) > 1e-4f ? -math.normalizesafe(new float3(simDir.x, 0f, simDir.z), new float3(0f, 0f, 1f)) : math.normalizesafe(new float3(hitDir[i].x, 0f, hitDir[i].z), new float3(0f, 0f, 1f));
+                    float jitter = 0.8f + 0.4f * Hash(s.Seed, tick + 31);
+                    float far = MinThrowOut * jitter * densityScale, high = MinThrowUp * jitter * densityScale;
+                    bool dug = s.PrevLayer == (byte)NavLayer.Trench;
+                    if (flat) { far *= 0.5f; high *= 0.5f; }
+                    if (dug) { far *= 0.25f; high *= 0.8f; }   // in a trench he goes up, not out
+                    s.ThrowX = -toward.x * math.min(far, FarCap); s.ThrowZ = -toward.z * math.min(far, FarCap); s.ThrowUp = math.min(high, HighCap);
+                    s.ShownYaw = s.BodyYaw = math.atan2(toward.x, toward.z);
+                    clip = Clip.DeathThrown; cause = DeathKind.Blast;
+                }
                 else if (speed > 2.2f) clip = Clip.DeathRunning;
                 else if (speed > 0.3f) clip = Clip.DeathWalking;
                 else clip = StandingDeath(i, in s, p, hitKind[i] != 0 ? hitDir[i] : simDir);

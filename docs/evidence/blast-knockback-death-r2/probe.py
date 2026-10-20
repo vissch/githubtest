@@ -24,7 +24,8 @@ Method, per run, on the (-1 s, +3 s) pair:
   4. The run's value is the MEDIAN of its per-body distances in metres.
 
 Reported in probe.json and printed: throw_m (the median of the three blast runs' per-body distances pooled),
-per_body_m, noise_floor_m (the three calm runs' medians), baseline_throw_m, px_per_m, frame_gap, seconds_gap,
+per_body_m, noise_floor_m (the three calm runs' medians), blast_median_m, baseline_throw_m (the pre build's, a
+constant here), px_per_m, frame_gap, seconds_gap,
 fps_implied, fallen_after, contrast_median_after. Raises if a run matched fewer than MIN_BODIES bodies.
 """
 import glob
@@ -53,6 +54,9 @@ MIN_BODIES = 4         # the bar the leg card sets: n_bodies >= 4 per run
 MAX_POSE_ERROR_M = 0.6     # how far off its asked pose a still may have been shot: the translation is taken
                            # out exactly from the sidecar's own camera, so this only has to catch a wild pose
 MAX_POSE_TILT_DEG = 0.5    # and how far off in pitch or yaw
+# the three blast runs' medians measured the same way on the build before the throw change (tag `pre`, commit
+# c77ec78451): the bar the post set has to clear. The pre stills were replaced by the post ones in the same folder.
+BASELINE_THROW_M = [1.181, 2.142, 1.212]
 BLAST_RUNS = ("blast1", "blast2", "blast3")
 CALM_RUNS = ("calm1", "calm2", "calm3")
 # the ground inside the frame, away from the edges where a thrown body is half cut off
@@ -212,7 +216,8 @@ def main():
         "throw_m": round(statistics.median(pooled), 3),
         "per_body_m": [round(d, 3) for d in pooled],
         "noise_floor_m": [r["median_m"] for r in calm],
-        "baseline_throw_m": [r["median_m"] for r in blast],
+        "baseline_throw_m": BASELINE_THROW_M,
+        "blast_median_m": [r["median_m"] for r in blast],
         "px_per_m": round(statistics.median([r["px_per_m"] for r in blast + calm]), 2),
         "frame_gap": frame_gap,
         "seconds_gap": seconds_gap,
@@ -224,7 +229,7 @@ def main():
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as fh:
         json.dump(report, fh, indent=2)
         fh.write("\n")
-    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "baseline_throw_m", "px_per_m",
+    for key in ("tag", "throw_m", "per_body_m", "noise_floor_m", "blast_median_m", "baseline_throw_m", "px_per_m",
                 "frame_gap", "seconds_gap", "fps_implied", "fallen_after", "contrast_median_after"):
         print(f"{key}: {report[key]}")
     for r in report["runs"]:
