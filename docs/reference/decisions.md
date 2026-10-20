@@ -398,6 +398,19 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
 
+- **The chlorine at zoom 30 is one soft bank now, but the GasBank sheet cannot fill it (2026-10-20,
+  `lane/show/ability-fx-captures-r2-2-g1-g1`):** the zebra is gone - the paint is one patch in one place, 4.3% of the
+  night play frame, 31 m across, its rim fading over 3 px, and three real takes agree to within 0.0006. Two shape bars
+  frozen before the change are still red: `fill_frac` 0.285 against 0.45 (the patch fills under a third of its own
+  bounding box) and `stray_frac` 0.32 against 0.30. The cause is the sheet: `GasBank` draws a small eroded puff in the
+  middle of its card, so a body can only be built by layering cards, and layered cards leave holes no knob closes. Six
+  measured builds walked the floor, the alpha, the width, the squash and the layer count across their whole useful
+  range; the best `fill_frac` ever seen was 0.386, and that build broke the bank into pieces (`stray_frac` 0.54).
+  Options: (a) ship this bank and queue a rolling-cloud sheet (tw-vfx-sheets) for the fill - **the default taken
+  here**, nothing landed; (b) accept 0.285 fill as the bar for this sheet and close the row; (c) keep tuning this
+  sheet. The bars were not moved. Evidence, before and after, with the working:
+  `docs/evidence/ability-fx-captures-r2-2-g1-g1/README.md`.
+
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is
 summarised in the docs named; the files themselves are not readable from another machine or lane.
