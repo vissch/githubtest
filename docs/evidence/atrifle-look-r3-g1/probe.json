@@ -1,0 +1,51 @@
+{
+  "pass_diff": 0.6,
+  "threshold_luma": 0.04,
+  "min_mask_px": 400,
+  "dominance": 1.5,
+  "camera": {
+    "zoom": 30.0,
+    "yaw": 180.0,
+    "pitch": 22.0,
+    "focus_x": 47.5,
+    "focus_z": 25.0,
+    "size": [
+      1600,
+      900
+    ]
+  },
+  "mask_px_at-1": 1963,
+  "second_blob_px_at-1": 442,
+  "mask_px_sniper-1": 1110,
+  "second_blob_px_sniper-1": 955,
+  "mask_px_at-2": 4313,
+  "second_blob_px_at-2": 3044,
+  "mask_px_sniper-2": 2459,
+  "second_blob_px_sniper-2": 2168,
+  "mask_px_at-3": 10361,
+  "second_blob_px_at-3": 4771,
+  "mask_px_sniper-3": 13071,
+  "second_blob_px_sniper-3": 5172,
+  "at_phases": [
+    0.1,
+    0.31,
+    0.25
+  ],
+  "sniper_phases": [
+    0.72,
+    0.25,
+    0.69
+  ],
+  "at_phase_gap_min": 0.06,
+  "heading_diff_rad": {
+    "pair-1": 0.97,
+    "pair-2": 0.0,
+    "pair-3": 0.0
+  },
+  "problems": [
+    "sniper-1: the largest blob is 1110 px and the next is 955 px, under 1.5x - the mask is ambiguous",
+    "at-2: the largest blob is 4313 px and the next is 3044 px, under 1.5x - the mask is ambiguous",
+    "sniper-2: the largest blob is 2459 px and the next is 2168 px, under 1.5x - the mask is ambiguous"
+  ],
+  "verdict": "the set is not fit to measure"
+}
