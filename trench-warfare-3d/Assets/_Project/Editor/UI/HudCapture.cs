@@ -60,8 +60,11 @@ namespace TW.Editor
                 var rtScene = new RenderTexture(w, h, 24, RenderTextureFormat.ARGB32) { name = "HudCapture Scene" };
                 var oldTarget = panel.targetTexture; bool oldClear = panel.clearColor; var oldColor = panel.colorClearValue;
                 panel.targetTexture = rtUi; panel.clearColor = true; panel.colorClearValue = new Color(0f, 0f, 0f, 0f);
-                yield return new WaitForEndOfFrame();     // the panel draws into rtUi during this frame
-                yield return new WaitForEndOfFrame();     // and once more after layout settled for the new size
+                // Batch mode has no swap chain (CaptureRig.cs:130), so WaitForEndOfFrame never resumes there; the UI
+                // panel's own render-to-texture pass still runs once a frame regardless, so a plain frame yield
+                // settles layout and draws into rtUi the same way.
+                if (Application.isBatchMode) { yield return null; yield return null; }
+                else { yield return new WaitForEndOfFrame(); yield return new WaitForEndOfFrame(); }
                 string rects = Probe(panel, w, h);
                 var camTarget = cam.targetTexture;
                 cam.targetTexture = rtScene; cam.Render(); cam.targetTexture = camTarget;
@@ -101,6 +104,13 @@ namespace TW.Editor
                     }
                     foreach (var n in Probes) Add(n, doc.rootVisualElement.Q(n));
                     doc.rootVisualElement.Query(className: "hud-orders").ForEach(e => { if (!e.ClassListContains("is-hidden")) Add("orders", e); });
+                    doc.rootVisualElement.Query(className: "tw-card__portrait").ForEach(e =>
+                    {
+                        foreach (var cls in e.GetClasses())
+                        {
+                            if (cls.StartsWith("tw-portrait-")) { Add("portrait-" + cls.Substring("tw-portrait-".Length), e); break; }
+                        }
+                    });
                 }
                 var sb = new StringBuilder();
                 sb.Append("{\"w\":").Append(w).Append(",\"h\":").Append(h).Append(",\"rects\":{");
