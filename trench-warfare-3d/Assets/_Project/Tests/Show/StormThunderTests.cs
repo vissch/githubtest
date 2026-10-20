@@ -70,6 +70,34 @@ namespace TW.Tests
             }
         }
 
+        // [L1.2]
+        [Test]
+        public void SceneStatics_DestroysTheSharedThunderClips_SoAPlaySessionLeaksNone()
+        {
+            ClearShared();
+            var go = new GameObject("storm under test") { hideFlags = HideFlags.DontSave };
+            try
+            {
+                var s = go.AddComponent<Storm>();
+                CallStart(s);
+                var clips = ThunderOf(s);
+                Assert.AreEqual(3, clips.Length);
+
+                TW.Presentation.SceneStatics.ResetSession();
+
+                for (int i = 0; i < clips.Length; i++)
+                    Assert.IsTrue(clips[i] == null, "[L1.2] the session reset destroys thunder clip " + i + ": the editor must not leak three AudioClips per Play session");
+
+                var f = typeof(Storm).GetField("shared", AnyStatic);
+                Assert.IsNull(f.GetValue(null), "[L1.2] the session reset also drops the shared cache");
+            }
+            finally
+            {
+                Object.DestroyImmediate(go);
+                ClearShared();
+            }
+        }
+
         [Test]
         public void SceneStatics_DropsTheSharedClips_SoADeadSessionsClipsAreNeverReused()
         {

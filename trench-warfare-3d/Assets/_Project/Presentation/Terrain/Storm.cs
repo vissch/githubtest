@@ -12,8 +12,8 @@
 // card and one AudioSource.
 // Start logs "[Storm] thunder synth N ms" around the three MakeThunder calls — measured at 87.5/92.2 ms in a release
 // player (found 2026-10-16, see tasks.md), so the three clips are synthesized once per session and shared: `shared`
-// holds them across every Storm instance and scene load, reset to null only by SceneStatics (a gym leaving Play
-// destroys the runtime clips, so the next session must resynthesize rather than reuse dead ones).
+// holds them across every Storm instance and scene load. The session reset (SceneStatics) destroys the three clips
+// itself, then drops the cache, so nothing leaks and the next session resynthesizes rather than reusing dead ones.
 // The freeze frame (owner, 2026-09-22): the world stops for FreezeSeconds while a strike flickers, like a photograph
 // taken by its light: Time.timeScale holds at 0 (the sim, the men, the rain and every effect stand still; the camera and
 // the storm run on unscaled time), the flicker is spread across the hold so the frozen picture stays lit, and time
@@ -36,7 +36,22 @@ namespace TW.Presentation.Terrain
         /// <summary>Tooling only (the gym): while set, no strike starts (so no time freeze either) and any bolt still burning goes dark.</summary>
         public static bool Hold;
         static AudioClip[] shared;   // the three thunder clips, synthesized once per session and reused by every Storm instance
-        static Storm() => SceneStatics.Register(nameof(Storm), () => { Hold = false; shared = null; });   // a gym stopped mid-capture leaves no calm sky behind, and Play destroys the runtime clips, so the next session must resynthesize
+        static Storm() => SceneStatics.Register(nameof(Storm), DropSession);
+
+        // a gym stopped mid-capture leaves no calm sky behind; the session reset destroys the three thunder clips
+        // itself (nobody else holds a reference once this runs) before dropping the cache, so the editor leaks
+        // nothing and the next session resynthesizes rather than reusing dead clips.
+        static void DropSession()
+        {
+            Hold = false;
+            if (shared != null)
+                foreach (var c in shared)
+                    if (c != null)
+                    {
+                        if (Application.isPlaying) Destroy(c); else DestroyImmediate(c);
+                    }
+            shared = null;
+        }
 
         struct Pulse { public float At, Length, Strength; }
         readonly List<Pulse> pulses = new List<Pulse>();
@@ -110,7 +125,8 @@ namespace TW.Presentation.Terrain
             if (boltMaterial != null) Destroy(boltMaterial);
             if (glowMaterial != null) Destroy(glowMaterial);
             // thunder clips outlive this instance (shared, nameof(Storm)) — destroying them here would leave the
-            // next Storm instance in the same session holding dead AudioClip references.
+            // next Storm instance in the same session holding dead AudioClip references. The session reset
+            // (DropSession, registered above) destroys them instead, once the session itself is over.
         }
 
         /// <summary>Thunder from noise: a sharp crack (as much of it as `crack`), then rolling low rumble that swells a few times and dies away.</summary>
