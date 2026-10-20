@@ -299,14 +299,19 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 - **What is the chlorine bank's footprint, for the probe that measures it? (2026-10-20, ability-fx-captures-r2-2-g1-g2):**
   the owner's word on g1 was "count the paint a player sees, keep it on the ground". The new probe counts paint only
   inside the bank's footprint, a disc round the gas centre sized from the run's `gas_cells`. But `gas_cells` counts
-  every live cell on the MAP (599 of them on the current build, 9,584 m^2), so the disc comes out at 55 m, clamps to
-  40 m, and is wider than the zoom-30 frame: the window covers 95% of the frame, `stripe_frac` is 0, and the
-  field-wide stripes are counted as bank again - exactly the fault he threw out. Options: (a) size the footprint from
-  the live cells within 25 m of the gas centre only, **the default taken here**; (b) fix it at the chlorine ability's
+  every live cell on the MAP (599 of them on the current build, 9,584 m^2), so the disc came out at 55 m, clamped to
+  40 m, and was wider than the zoom-30 frame: the window covered 95% of the frame, `stripe_frac` was 0, and the
+  field-wide stripes were counted as bank again - exactly the fault he threw out. Options: (a) size the footprint from
+  the live cells within 25 m of the gas centre only, **the default taken**; (b) fix it at the chlorine ability's
   own radius out of `SimConfig`, which ignores how far the cloud has actually drifted; (c) leave the 40 m clamp and
   accept that the measure counts the whole frame. (a) and (b) both re-freeze the bars in
   `docs/evidence/ability-fx-captures-r2-2-g1-g2/baseline.json` from the same three before captures; no sim change
-  either way.
+  either way. **(a) is built (2026-10-21, this lane):** `GasBankStills.NearRadiusM` 25 m, the near count written into
+  the manifest as `gas_cells_near`, `CombatFx.GasBankStandFloor` holding the 0.8 stand floor in one place, and the
+  probe sizing the disc from the near count (falling back to `gas_cells` when the grid's stride cannot be read). The
+  window is now 576,288 px of 921,600 (0.625) against 871,680 (0.946), `stripe_frac` is 0.028 against 0, and the bars
+  are re-frozen from three reshot captures of the same build `6da3ac9872`: `bank_area_bar` 0.12063, `bank_fill_bar`
+  0.35, `contrast_bar` 64.59. The owner can still overturn it for (b) or (c); nothing is landed on it.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below

@@ -148,8 +148,10 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   (45 frames, 30 sim ticks, apart), as `gas-t1`, `gas-t1-b` and `gas-t1-c`, with one manifest row each; the offsets
   are absolute from the block's first frame, so the plate pass photographs the same frames whatever a drain costs.
   O240 keeps its single shot. `docs/evidence/ability-fx-captures-r2-2-g1-g2/probe.py` is the measure the owner asked
-  for after g1: paint is counted only INSIDE the bank's own footprint (the disc of `gas_cells * 16 m^2`, projected by
-  `to_ndc`), the gas stripes over the rest of the field are the `stripe_frac` row and not bank, height is one-sided
+  for after g1: paint is counted only INSIDE the bank's own footprint (the disc of `gas_cells_near * 16 m^2`, the live
+  cells within `GasBankStills.NearRadiusM` 25 m of the gas centre, projected by `to_ndc`; the whole map's `gas_cells`
+  is only the fallback when the grid's stride cannot be read, and `--baseline` refuses a window over 70% of the frame
+  or a `stripe_frac` of 0), the gas stripes over the rest of the field are the `stripe_frac` row and not bank, height is one-sided
   against the footprint's far rim (`bank_height_m`, so depth cannot read as height), each take is measured against
   its OWN plate, and `--baseline` refuses to freeze a bar on a zero spread.
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400

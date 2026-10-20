@@ -30,8 +30,11 @@ HOW
                t1-after-1..3.jpg    three captures after the look change, same three frames
   the mask     a pixel whose RGB distance from its plate is >= 40 (DIFF_BAR): a lift the eye reads
   the window   "the paint a player sees". The bank's footprint is the disc of radius R round the gas centre
-               (`focus_x`, `focus_z`, `ground_y` out of the sidecar), with R = sqrt(gas_cells * 16 / pi) clamped
-               to 7..40 m (the sim's gas grid is 4 m cells, so each live cell is 16 m^2). 64 points on that
+               (`focus_x`, `focus_z`, `ground_y` out of the sidecar), with R = sqrt(cells * 16 / pi) clamped
+               to 7..40 m (the sim's gas grid is 4 m cells, so each live cell is 16 m^2). `cells` is
+               `gas_cells_near`, the live cells within 25 m of the gas centre, because the whole field's
+               `gas_cells` sized a 40 m disc that was 95% of the frame and counted the stripes as bank again
+               (decisions.md, the open footprint row of 2026-10-20, option (a)). 64 points on that
                disc's rim are projected to pixels (`to_ndc`, the inverse of `ray`); the window is their bounding
                box, grown upward by the pixel height of 2 m at the near rim. Mask pixels INSIDE it are paint.
   the numbers  bank_area_frac    paint / 921,600 (the whole 1280x720 frame). The owner's complaint in one number.
@@ -82,6 +85,13 @@ FILL_FLOOR = 0.35
 CONTRAST_FLOOR = 30.0
 SPREAD_K = 4                # bars sit this many run-to-run spreads above the best before take
 RIM_POINTS = 64
+# A before take whose window is wider than this much of the frame is not a footprint, it is the frame. The two cases
+# this has to tell apart are both measured, on the 2026-10-21 captures of 6da3ac9872: the 25 m near footprint
+# (gas_cells_near 124) gives a window of 576,288 px of 921,600 = 0.625, and the old whole-field footprint, R clamped
+# to 40 m, gave 871,680 = 0.946 with stripe_frac 0. The bound sits between them. (The plan's 0.60 came from scaling
+# the 40 m window's AREA by (25/40)^2; the window is the bounding BOX of a disc seen at a 25 deg pitch, and a box
+# does not shrink that way -- hence the measured number here.)
+WINDOW_MAX_FRAC = 0.70
 BASELINE = os.path.join(HERE, 'baseline.json')
 SRC_GAS = ('gas-t1', 'gas-t1-b', 'gas-t1-c')
 SRC_PLATE = ('gas-t1-plate', 'gas-t1-plate-b', 'gas-t1-plate-c')
@@ -216,6 +226,8 @@ def pack(src, src_still, stem):
             data['ground_y'] = float(row['ground_y'])
         if 'gas_cells' in row:
             data['gas_cells'] = int(row['gas_cells'])
+        if 'gas_cells_near' in row:
+            data['gas_cells_near'] = int(row['gas_cells_near'])
     data['capture_dir'] = os.path.abspath(src)
     with open(os.path.join(HERE, stem + '.json'), 'w', encoding='utf-8') as f:
         json.dump(data, f, indent=1, sort_keys=True)
@@ -235,9 +247,16 @@ def distances(img, plate):
             for p, q in zip(img.getdata(), plate.getdata())]
 
 
-def footprint_radius(gas_cells):
-    """The bank's footprint radius: the disc of the same area as the live gas cells, clamped to 7..40 m."""
-    r = math.sqrt(max(1.0, float(gas_cells)) * GAS_CELL_M2 / math.pi)
+def footprint_radius(gas_cells, gas_cells_near=-1):
+    """The bank's footprint radius: the disc of the same area as the live gas cells, clamped to 7..40 m.
+
+    `gas_cells_near` is the live cells within NearRadiusM of the gas centre (GasBankStills; decisions.md's open
+    footprint row of 2026-10-20, option (a)) and is used whenever the sidecar has one. The whole field's count
+    sized a 40 m disc that covered 95% of the frame and counted the field-wide stripes as bank. A take packed
+    before the harness wrote the near count has -1, and falls back to the old wide window so it still measures.
+    """
+    cells = float(gas_cells_near) if gas_cells_near is not None and gas_cells_near > -1 else float(gas_cells)
+    r = math.sqrt(max(1.0, cells) * GAS_CELL_M2 / math.pi)
     return min(R_MAX_M, max(R_MIN_M, r))
 
 
@@ -250,7 +269,7 @@ def window(side, w, h):
     pitch, yaw = side['cam_pitch'], side['cam_yaw']
     ground = float(side.get('ground_y', 0.0))
     cx, cz = float(side['focus_x']), float(side['focus_z'])
-    r = footprint_radius(side.get('gas_cells', 0))
+    r = footprint_radius(side.get('gas_cells', 0), int(side.get('gas_cells_near', -1)))
 
     xs, ys, near_pt, near_d = [], [], None, None
     for k in range(RIM_POINTS):
@@ -293,7 +312,8 @@ def measure(stem, plate_stem):
 
     out = {'pose_error_m': round(float(side.get('pose_error_m', 99.0)), 4),
            'mask_px': mask_px,
-           'gas_cells': int(side.get('gas_cells', 0))}
+           'gas_cells': int(side.get('gas_cells', 0)),
+           'gas_cells_near': int(side.get('gas_cells_near', -1))}
     win = window(side, w, h)
     if win is None:
         out.update({'bank_area_frac': 0.0, 'bank_fill': 0.0, 'bank_contrast_p50': 0.0, 'low_share': 0.0,
@@ -387,6 +407,16 @@ def do_baseline(dirs, plate_dir):
         print(line(stem, rows[stem]))
     print('spread  area %.5f  fill %.4f  contrast %.2f'
           % (spread['bank_area_frac'], spread['bank_fill'], spread['bank_contrast_p50']))
+    wide = [s for s in sorted(rows)
+            if rows[s]['window_px'] > WINDOW_MAX_FRAC * FRAME_PX or rows[s]['stripe_frac'] <= 0.0]
+    if wide:
+        print('REFUSED: %s measure(s) the window as the frame again (window_px over %.0f%% of the frame, or '
+              'stripe_frac 0): %s. Then the field-wide stripes are counted as bank - the fault the owner threw '
+              'out on g1. The footprint must be sized from the gas NEAR the focus (gas_cells_near).'
+              % (len(wide), 100.0 * WINDOW_MAX_FRAC, ', '.join(
+                  '%s window_px %d stripe_frac %.5f' % (s, rows[s]['window_px'], rows[s]['stripe_frac'])
+                  for s in wide)))
+        return 1
     if spread['bank_area_frac'] <= 0.0 or spread['bank_contrast_p50'] <= 0.0:
         print('REFUSED: the %s spread is zero. Three takes of one frame are one take, and a bar on top of a zero '
               'spread is the before take\'s own number (the owner, on g1). Shoot three frames that can differ.'

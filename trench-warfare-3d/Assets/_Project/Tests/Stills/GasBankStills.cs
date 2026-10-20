@@ -54,6 +54,12 @@ namespace TW.Tests
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
         const float PoseBar = 0.5f;
 
+        /// <summary>How far from the gas centre a live cell still belongs to the bank a player is looking at
+        /// (decisions.md, the open footprint row of 2026-10-20, option (a) - the default taken). The whole map's live
+        /// cell count sized a 40 m footprint that covered 95% of the zoom-30 frame, so the field-wide stripes were
+        /// counted as bank again; a 25 m disc holds at most 123 live 4 m cells, so the window stays well inside the frame.</summary>
+        const float NearRadiusM = 25f;
+
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
 
         /// <summary>The character a json number ends on, held as a code because validate.py counts a file's braces.</summary>
@@ -220,19 +226,31 @@ namespace TW.Tests
             // the field is read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test assembly
             // does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit for
             // one diagnostic. Its Gas array is an ordinary NativeArray<float>, so only the system's own type is hidden.
-            int cells = 0; float fieldMax = 0f;
+            int cells = 0, near = -1; float fieldMax = 0f;
             object local = Host.Local;
             object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
                            ?? local.GetType().GetField("Gas")?.GetValue(local);
             if (gasField != null
                 && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
                 && field.IsCreated)
+            {
+                // the grid's stride, read the same way: without it a cell index cannot be turned into a place, and a
+                // guessed stride would put the near count somewhere else entirely. Unreadable: -1, and the probe falls
+                // back to the whole field's count (probe.py, footprint_radius).
+                int width = gasField.GetType().GetField("Width")?.GetValue(gasField) is int wv && wv > 0 ? wv : -1;
+                if (width > 0) near = 0;
+                float cs = MapData.FieldCellSize;
                 for (int i = 0; i < field.Length; i++)
                 {
                     float c = field[i];
-                    if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
+                    if (c >= CombatFx.GasBankStandFloor) cells++;   // the floor DrawGasBank's Refresh uses
                     if (c > fieldMax) fieldMax = c;
+                    if (width <= 0 || c < CombatFx.GasBankStandFloor) continue;
+                    // the cell centre exactly as CombatFx.Refresh places a card
+                    float cxm = (i % width + 0.5f) * cs, czm = (i / width + 0.5f) * cs;
+                    if ((cxm - x) * (cxm - x) + (czm - z) * (czm - z) <= NearRadiusM * NearRadiusM) near++;
                 }
+            }
             yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
             int cards = Cards(); float recipes = Recipes(); bool ready = Books();
 
@@ -246,7 +264,7 @@ namespace TW.Tests
               .Append(", \"pose_error_m\": ").Append(pose.ToString("0.####"))
               .Append(", \"shot_offset\": ").Append(target)
               .Append(", \"calls_taken\": ").Append(taken)
-              .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
+              .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_cells_near\": ").Append(near).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
               .Append(", \"gas_cards\": ").Append(cards)
               .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
               .Append(", \"books_ready\": ").Append(ready ? "true" : "false")

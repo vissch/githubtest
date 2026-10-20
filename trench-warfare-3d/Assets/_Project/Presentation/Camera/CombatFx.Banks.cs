@@ -23,6 +23,10 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.85f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (9.35 m) squashed to 0.55 tops out at 1.71 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>The least gas a cell must hold to stand as a card. One place, so a measure of the bank's footprint
+        /// (GasBankStills' near count; decisions.md's open footprint row of 2026-10-20, option (a)) cannot drift from
+        /// which cells DrawGasBank actually stands.</summary>
+        public const float GasBankStandFloor = 0.8f;
         public static readonly Color GasBankNight = new Color(0.86f, 0.92f, 0.52f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -88,7 +92,7 @@ namespace TW.Presentation.Tactical
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
-            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 10f, 2.4f, 73856093, 19349663);
+            Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, GasBankStandFloor, 10f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
             foreach (var b in gasBank.Cells)
             {
