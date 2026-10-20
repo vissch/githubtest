@@ -39,8 +39,14 @@ namespace TW.Tests
         /// tick is 1.5 frames: 200 frames are 133 ticks, which is 73 ticks into the bank's life - spread out of its
         /// first puff and still thick. (470 frames, the first try, was 313 ticks: the bank had gone.)</summary>
         const int WaitFrames = 200;
-        /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame.</summary>
-        const int BlockFrames = 520;
+        /// <summary>Every block is padded to this many frames, so both passes stay in step frame for frame.
+        /// r2-2-g1-g1: the T1 block now shoots THREE times, 9 frames apart, so three takes are three different
+        /// moments of the same cloud's boil. That costs 2 * 9 waiting frames and 2 * 12 photographing ones; the pad
+        /// carries 36 more so a retried shot still fits (520 + 18 + 36 = 574).</summary>
+        const int BlockFrames = 574;
+        /// <summary>Frames between the T1 block's three takes: far enough apart that the cloud has boiled on, close
+        /// enough that it is the same bank from the same pose.</summary>
+        const int TakeGap = 9;
         /// <summary>A still from the wrong pose is worthless (the critic's verdict on r1).</summary>
         const float PoseBar = 0.5f;
 
@@ -110,10 +116,10 @@ namespace TW.Tests
             // O240 FIRST: its frame holds the whole map, so it must not hold the T1 block's leavings
             var far = new List<Vector2>();
             for (int k = -2; k <= 2; k++) far.Add(new Vector2(x, Mathf.Clamp(z + k * 40f, 20f, size.y - 20f)));
-            yield return Block(dir, "gas-o240" + (plate ? "-plate" : ""), "o240", tc, x, z, 240f, 25f, far, plate, map);
+            yield return Block(dir, "gas-o240", "o240", tc, x, z, 240f, 25f, far, plate, map, 1);
 
-            yield return Block(dir, "gas-t1" + (plate ? "-plate" : ""), "t1", tc, x, z, 30f, 25f,
-                               new List<Vector2> { new Vector2(x, z) }, plate, map);
+            yield return Block(dir, "gas-t1", "t1", tc, x, z, 30f, 25f,
+                               new List<Vector2> { new Vector2(x, z) }, plate, map, 3);
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
@@ -128,8 +134,10 @@ namespace TW.Tests
 
         /// <summary>One band: frame it, gas it (unless this is the plate pass), wait out the cloud's life in FRAMES,
         /// photograph it, then pad to a fixed block so the two passes stay in step.</summary>
-        static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
-                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
+        /// <summary>`takes` stills, TakeGap frames apart, named `baseStem`, `baseStem`-b, `baseStem`-c (each with
+        /// "-plate" appended in the plate pass, so every take has its own frame-matched plate).</summary>
+        static IEnumerator Block(string dir, string baseStem, string band, TacticalCamera tc, float x, float z,
+                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map, int takes)
         {
             int spent = 0;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
@@ -164,62 +172,72 @@ namespace TW.Tests
 
             for (int f = 0; f < WaitFrames; f++) { yield return null; spent++; }
 
-            string path = Path.Combine(dir, stem + ".png");
-            float best = float.MaxValue;
-            for (int tryNo = 0; tryNo < 3; tryNo++)
+            // r2-2-g1-g1: `takes` photographs of the SAME bank, TakeGap frames apart, each with its own sidecar
+            // and its own manifest row. The owner's "t1-after-1.jpg and t1-after-2.jpg are the same file" was the
+            // old code shooting once and the probe packing that one still three times; a spread needs three frames.
+            string[] suffixes = { "", "-b", "-c" };
+            for (int t = 0; t < takes && t < suffixes.Length; t++)
             {
-                CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
-                yield return Drain(path);
-                spent += 12;
-                float err = Sidecar(path, "pose_error_m");
-                if (err < best) best = err;
-                TestContext.Out.WriteLine(stem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
-                if (err < PoseBar) break;
-            }
-            if (best > worstPose) worstPose = best;
-
-            uint tick = Host.Local.World.Tick;
-
-            // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
-            // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
-            // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
-            // the field is read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test assembly
-            // does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit for
-            // one diagnostic. Its Gas array is an ordinary NativeArray<float>, so only the system's own type is hidden.
-            int cells = 0; float fieldMax = 0f;
-            object local = Host.Local;
-            object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
-                           ?? local.GetType().GetField("Gas")?.GetValue(local);
-            if (gasField != null
-                && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
-                && field.IsCreated)
-                for (int i = 0; i < field.Length; i++)
+                if (t > 0) for (int f = 0; f < TakeGap; f++) { yield return null; spent++; }
+                string stem = baseStem + suffixes[t] + (plate ? "-plate" : "");
+                string path = Path.Combine(dir, stem + ".png");
+                float best = float.MaxValue;
+                for (int tryNo = 0; tryNo < 3; tryNo++)
                 {
-                    float c = field[i];
-                    if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
-                    if (c > fieldMax) fieldMax = c;
+                    CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
+                    yield return Drain(path);
+                    spent += 12;
+                    float err = Sidecar(path, "pose_error_m");
+                    if (err < best) best = err;
+                    TestContext.Out.WriteLine(stem + " try " + tryNo + ": pose_error_m " + err.ToString("0.000"));
+                    if (err < PoseBar) break;
                 }
-            yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
-            int cards = Cards(); float recipes = Recipes(); bool ready = Books();
+                if (best > worstPose) worstPose = best;
 
-            float ground = RenderGround.Sample(map, x, z);
-            var sb = new StringBuilder();
-            sb.Append("    { \"still\": \"").Append(stem).Append(".png\", \"subject\": \"chlorine gas bank\", \"band\": \"")
-              .Append(band).Append("\", \"plate\": ").Append(plate ? "true" : "false")
-              .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
-              .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
-              .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
-              .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
-              .Append(", \"calls_taken\": ").Append(taken)
-              .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
-              .Append(", \"gas_cards\": ").Append(cards)
-              .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
-              .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
-              .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
-              .Append(", \"calls\": [");
-            for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
-            sb.Append("] }");
-            rows.Add(sb.ToString());
+                uint tick = Host.Local.World.Tick;
+
+                // r2-2: what the FRAME that was photographed actually held. The 133-card reading of r2's README came from
+                // an ordinary play frame, not from a capture frame, and the rig turns the TacticalCamera off for the whole
+                // set - so whether the cards exist in the captured frame was still unknown, and it is the first fork.
+                // the field is read through reflection: GasSmokeSystem lives in TW.Sim.Combat, which this test assembly
+                // does not reference, and an asmdef reference list is a seam (CLAUDE.md) - not worth a seam commit for
+                // one diagnostic. Its Gas array is an ordinary NativeArray<float>, so only the system's own type is hidden.
+                int cells = 0; float fieldMax = 0f;
+                object local = Host.Local;
+                object gasField = local.GetType().GetProperty("Gas")?.GetValue(local)
+                               ?? local.GetType().GetField("Gas")?.GetValue(local);
+                if (gasField != null
+                    && gasField.GetType().GetField("Gas")?.GetValue(gasField) is Unity.Collections.NativeArray<float> field
+                    && field.IsCreated)
+                    for (int i = 0; i < field.Length; i++)
+                    {
+                        float c = field[i];
+                        if (c >= 0.8f) cells++;                 // the floor DrawGasBank's Refresh uses
+                        if (c > fieldMax) fieldMax = c;
+                    }
+                yield return null;                               // one frame on, so gasCards holds the list of a drawn frame
+                int cards = Cards(); float recipes = Recipes(); bool ready = Books();
+
+                float ground = RenderGround.Sample(map, x, z);
+                var sb = new StringBuilder();
+                sb.Append("    { \"still\": \"").Append(stem).Append(".png\", \"subject\": \"chlorine gas bank\", \"band\": \"")
+                  .Append(band).Append("\", \"plate\": ").Append(plate ? "true" : "false")
+                  .Append(", \"x\": ").Append(x.ToString("0.###")).Append(", \"z\": ").Append(z.ToString("0.###"))
+                  .Append(", \"ground_y\": ").Append(ground.ToString("0.####"))
+                  .Append(", \"sim_tick\": ").Append(tick).Append(", \"frame\": ").Append(Time.frameCount)
+                  .Append(", \"pose_error_m\": ").Append(best.ToString("0.####"))
+                  .Append(", \"calls_taken\": ").Append(taken)
+                  .Append(", \"gas_cells\": ").Append(cells).Append(", \"gas_field_max\": ").Append(fieldMax.ToString("0.##"))
+                  .Append(", \"gas_cards\": ").Append(cards)
+                  .Append(", \"recipes\": ").Append(recipes.ToString("0.##"))
+                  .Append(", \"books_ready\": ").Append(ready ? "true" : "false")
+                  .Append(", \"draw_calls\": ").Append(FrameBudget.DrawCalls)
+                  .Append(", \"calls\": [");
+                for (int i = 0; i < answers.Count; i++) sb.Append(i > 0 ? ", " : "").Append('"').Append(answers[i]).Append('"');
+                sb.Append("] }");
+                rows.Add(sb.ToString());
+            }
+
 
             for (int f = spent; f < BlockFrames; f++) yield return null;
         }
