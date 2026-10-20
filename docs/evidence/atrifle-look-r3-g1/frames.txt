@@ -299,3 +299,107 @@ thousands. Neither lever of this plan fixes that: the quietest of the four perpe
 (leg 06), and a man-less bracket plate cannot subtract a flame that moved (this leg). The set is sound as a picture
 and too small as a measure. What it would take is a frame with no fire in it, or a closer band than T1 so the man
 is the larger thing - both of which change the owner's staging and are his call, not this leg's.
+
+
+EACH MAN IN HIS OWN BOX: THE READING                          (2026-10-20, atrifle-look-r3-g1, leg 08)
+=====================================================================================================
+
+Two bugs in the capture, found by the pixels
+--------------------------------------------
+The boxes the previous leg added (`manN_img_x/img_y/tall_px`) were both wrong on a live shot, and the
+hand-computed test could not see it because it hands ManBox its own matrices:
+
+  * THE ASPECT. The shot renders into a 1600x900 render texture, but `cam.projectionMatrix` still carries
+    the aspect of this editor's game view - 482 x 797 in batch mode, aspect 0.605 against the image's 1.778.
+    Every man was reported about 2.9x too far from the middle horizontally (the Sniper drawn at x 867 was
+    reported at x 991). CaptureRig.Measure now builds `Matrix4x4.Perspective(fov, w/h, near, far)` itself.
+  * THE GROUND. The sim keeps every man's y at 0 and the renderer lifts him onto the terrain. The box was
+    projected from the sim's y, so at (45, 25) - ground 3.07 m - it sat 77 px too low and missed him
+    completely: a mask inside it came back 0 to 6 px. `Measure` now adds `Map.Height.Sample(x, z)`.
+
+Both are covered by `ManBoxFollowsTheImagesAspectAndNotTheGameViews` in CaptureRigMeasureTests, which names
+the wrong aspect's answer (x 1258 for a man the image's aspect puts at x 955.9) so it cannot creep back.
+The vertical was right all along: `fieldOfView` is the vertical one and does not depend on the aspect.
+
+The staging, this session
+-------------------------
+GreyboxCorridor, Play, `VfxLab.Rain(0)`, `TankCapture.Spawn(0, 27, 50f, 11f, 21f)` and `Spawn(0, 3, 56f, 25f,
+21f)`, six `WriteWorlds` writes per man with the sim RUNNING and Speed 0 / Hp pinned every time, `YawPin = 0`,
+`Hold(120)` per shot, `Release()` after. Two things are new, and both are written down because the next
+session will meet them:
+
+  * THE PRINTED SLOT IS ADVICE, AND SO IS THE PLACE. The spawn printed "slot 4" and "slot 14", and those were
+    the world indices this time (read back with SimProbe.Unit, as always). But at (45, 25) the Sniper took no
+    trench post at all this session - `trench -1 post cell -1 stance Standing`, ReadyIdle - and the owner's
+    staging is a KNEELING sniper. (45, 26) is a trench post (`trench 0 post cell 607 kind 2`), where he kneels.
+    The Sniper is therefore at (45, 26) here, 5.1 m from the AT rifleman instead of 5.0.
+  * EVERY OTHER MAN DEAD AND OFF THE MAP, BEFORE EVERY ROUND. Moving them away is not enough: they walk back
+    into the bottom of the frame within a round or two, and two rounds were re-shot because a plate reported
+    `drawn_infantry` 1 with `men_in_frame` 0. The driver now writes Hp 0 as well as (-5000, 0, -5000) at the
+    start of each round. The probe gates on `drawn_infantry` 0 in every plate.
+
+The editor was paused and frame-stepped around every teleport (`EditorApplication.Step()`, the recipe behind
+`Tools/tw step`), so a round's five stills are frames apart, not minutes:
+
+  round 1   empty 8787  pair 8890  at 8905  sniper 8932  floor 8947   span 160 frames
+  round 2   empty 7777  pair 7868  at 7945  sniper 7972  floor 7987   span 210
+  round 3   empty 8275  pair 8378  at 8528  sniper 8555  floor 8570   span 295
+
+(Leg 06's spans were 160 to 1100. The remaining spread is the staging writes themselves, which each need a
+handful of live frames for the presenter to move a man at all.)
+
+Three live poses, and what it took
+----------------------------------
+The first re-shoot caught the AT rifleman in `ProneToKneel` in two rounds of three: the staging writes start
+him getting up. So each still is now taken only once he is back in `ProneIdle` and the Sniper in `KneelIdle`
+(a settle loop), and then - with no write at all, which is what moves the pose - his clip is left to run on
+for 0.0 s, 0.9 s and 1.8 s in rounds 1, 2 and 3. Without that drift the settle loop landed on the same phase
+every time (0.95, 0.92, 0.89: one pose, the very thing r3 was thrown out for).
+
+  at_clips      ProneIdle, ProneIdle, ProneIdle
+  at_phases     0.95, 0.45, 0.32      (smallest gap 0.13, the gate wants 0.05)
+  sniper        KneelIdle throughout, phases 0.89, 0.89, 0.87
+  heading_diff  1.11 rad in all three rounds, reported and NOT gated: one camera cannot be side-on to two
+                men facing different ways, and part of every reading below is heading and not build.
+
+The boxes, and the fires kept out of them
+-----------------------------------------
+  px_per_m 25.022 from `tall_px / 2.6`, the rounds disagreeing by 0.04 % (the gate allows 10 %).
+  AT box     x 682-787, y 321-400      Sniper box  x 814-919, y 354-433      they do not overlap.
+
+                 mask px     m2     second blob    weather inside the box
+  at-1             383      0.61        109               1057 px
+  at-2             292      0.47          0                  0
+  at-3             286      0.46          0                  0
+  sniper-1        1633      2.61          0                  0
+  sniper-2        1420      2.27          5                 25
+  sniper-3        1327      2.12          0                  0
+
+The fires are outside both boxes, which is the whole point of the box: leg 07's frame-wide reading had a
+brazier as the largest blob in every single still. Round 1 is the one with any weather in a box at all.
+
+The three readings
+------------------
+  silhouette_diff_readings   0.7655, 0.8003, 0.7981       (the claim is made on the WORST, 0.7655)
+  spread_readings            0.0348
+  spread_at                  0.3317        the same prone man, three live poses
+  spread_sniper              0.4000        the same kneeling man, three live poses
+  PASS_DIFF                  0.6, untouched from r3 (commit 13d1158177)
+
+The bar sits outside the spread of the three, which is what the owner asked for: the worst reading, 0.766,
+clears 0.6, and the largest noise floor of the measure itself, 0.400, is below it. `probe.py` exits 0 with
+"the prone AT rifleman reads as his own man".
+
+What this set still does NOT cover
+-----------------------------------
+  * At yaw 180 the prone AT rifleman lies BEHIND the sandbag parapet: his mask is 286-383 px and the
+    kneeling Sniper's 1327-1633 px, a factor of four. Part of the 0.77 is "half a man behind bags against a
+    whole man in the open", not "an AT rifleman against a sniper". That is what the game shows from here,
+    and it is why no claim beyond "he reads as his own man at T1" is made.
+  * THE RIFLE IS STILL NOT LEGIBLE. The 1.65 m anti-tank rifle at zoom 30 is a few dark pixels inside a
+    383 px mask. No number in this set isolates it, and none should be read as saying it can be seen.
+  * The 2.0 m2 ceiling on a mask was leg 07's, set with a scale that was 3x wrong. With the capture's own
+    scale a kneeling man measures 2.1-2.6 m2, so the ceiling would have rejected the Sniper for being a man.
+    It is now "no more than half his own box" (4148 px here), which is what the check was ever for.
+  * One Play session, one seed (12648430, battlefield 1917, ShelledForest). Nothing here says what the same
+    two men look like on other ground.

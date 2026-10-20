@@ -67,6 +67,29 @@ namespace TW.Tests
             Assert.That(imgX, Is.EqualTo(800f).Within(1f));
         }
 
+        /// <summary>The horizontal half of the same hand computation, and the reason Measure builds its own
+        /// projection instead of reading the camera's. A man 2 m to the right at 10 m, 60 deg vertical fov:
+        /// through the IMAGE's 16:9 he sits 2 / (10 * tan 30 * 16/9) of a half-frame right of the middle, so
+        /// imgX = 800 + 800 * 0.1949 = 955.9. Through a batch-mode game view's 0.605 aspect the same man reads
+        /// 2.94x further out, off at x 1258 - which is how a mask built on the box came up empty on 2026-10-20.
+        /// The vertical is the same in both, because fieldOfView is the vertical one.</summary>
+        [Test]
+        public void ManBoxFollowsTheImagesAspectAndNotTheGameViews()
+        {
+            var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
+            var man = new Vector3(2f, 0f, 10f);
+
+            CaptureRig.ManBox(view, Matrix4x4.Perspective(60f, 16f / 9f, 0.1f, 1000f), 1600, 900, man,
+                out float imgX, out float imgY, out float tallPx);
+            CaptureRig.ManBox(view, Matrix4x4.Perspective(60f, 0.6051475f, 0.1f, 1000f), 1600, 900, man,
+                out float narrowX, out float narrowY, out float narrowTall);
+
+            Assert.That(imgX, Is.EqualTo(955.9f).Within(1f));
+            Assert.That(narrowX, Is.EqualTo(1258f).Within(2f));     // the wrong aspect, named so it cannot creep back
+            Assert.That(narrowY, Is.EqualTo(imgY).Within(0.01f));   // the vertical never depended on the aspect
+            Assert.That(narrowTall, Is.EqualTo(tallPx).Within(0.01f));
+        }
+
         /// <summary>A point behind the camera gets no box at all: a projection there is a number with no meaning,
         /// and a mask placed on it would measure whatever happens to live at those pixels.</summary>
         [Test]
