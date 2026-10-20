@@ -190,3 +190,80 @@ pass walks the field once a sim tick with two scratch arrays grown once and reus
 `BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` carries the new widest card (23.10 m at squash 0.20 =
 1.54 m of gas). `TheGasBankFadesAtItsRim_NotACardEdge` is new: it holds the alpha's two ends, that it is a
 smoothstep and not a line, and that the relative floor never goes under the absolute one.
+
+# Part 3: the bank gets a body card — three more measured builds, two bars still red
+
+Part 2 left the zebra gone and three bars red on the shipped takes (`fill_frac` 0.285 against 0.45, `stray_frac`
+0.32 against 0.30, `low_share` 0.28-0.30 against 0.30). The reading was that the holes are *inside* one footprint:
+the blob's box is 660 x 211 px, about what a flat 14-30 m patch at 25 deg pitch projects to, and a solid ellipse
+fills its box 0.785 — so 0.285 is holes and detached puffs, not a wrong shape. Part 2 had walked every knob *per
+cell*, so every build drew the body out of small puffs and every build had holes.
+
+Part 3 therefore draws the **body first and once**: two big cards on the core's own centre, before the per-cell
+puffs, sized from the core's own extent (`0.9 *` its widest side, capped at `GasBankBodyMax` 34 m) so the body can
+never be wider than the gas that kills. The footprint is summed in `Refresh`'s one-place pass, in the loop that
+already visits exactly the cells that are the bank, into fields on the `BankCache` object: no second pass and no
+allocation a frame.
+
+## The three after takes (the build that stands, `GasBankPuffs` 3 + the body card)
+
+| take | area | stray | fill | spread | rim | low | height | pose |
+|---|---|---|---|---|---|---|---|---|
+| t1-after-1 | 0.0328 | 0.398 | 0.235 | 29.65 m | 3.0 px | 0.320 | 0.090 | 0.000 |
+| t1-after-2 | 0.0329 | 0.381 | 0.237 | 29.31 m | 4.0 px | 0.311 | 0.094 | 0.000 |
+| t1-after-3 | 0.0335 | 0.372 | 0.237 | 29.73 m | 3.0 px | 0.330 | 0.080 | 0.000 |
+| the bar | 0.010..0.090 | <= 0.300 | >= 0.450 | <= 32.08 | >= 3.0 | >= 0.300 | <= 0.15 | < 0.5 |
+
+`low_share` is **green for the first time** (0.311-0.330 against 0.30): the body card is flatter than a puff, so
+more of the bank lies under a man's head. `area`, `spread`, `rim`, `height` and `pose` are green. `fill_frac` and
+`stray_frac` are still red, and both are a little worse than the shipped build's. **Three red bars became two.**
+
+## The three builds, and what the body card actually did
+
+Every cell is that build's median take. The shipped build is part 2's, for comparison.
+
+| build | per-cell card | puffs | body | area | stray | fill | low | cards |
+|---|---|---|---|---|---|---|---|---|
+| part 2, shipped | 15-21 m base | 3 | — | 0.043 | 0.32 | 0.285 | 0.29 | 114 |
+| (a) the plan as written | 10-14 m base | 2 | 2 cards, alpha 0.75 | 0.0101 | 0.70 | 0.255 | 0.38 | 54 |
+| (b) puffs at the head-rule cap | 13-18 m base | 2 | the same | 0.0227 | 0.48 | 0.280 | 0.27 | 54 |
+| (c) the third layer back — **stands** | 13-18 m base | 3 | the same | 0.0329 | 0.38 | 0.237 | 0.32 | 80 |
+
+What this says, measured and not argued:
+
+- **The body card is real but it is thin.** Its gas is capped by the head rule, not by a look choice: 34 m at
+  `GasBankBodySquash` 0.15, drawn in the sheet's bottom third, is 1.70 m — a 34 m wide band about 1.7 m tall. In
+  pixels that is a small share of the blob, so it closes holes along one line and not over the whole footprint.
+  It is what moved `low_share` over its bar and it is what the frame gained for 2 cards.
+- **Paying for it out of the puffs was wrong.** Build (a) cut the puff layers 3 -> 2 *and* narrowed the cards, and
+  the bank lost three quarters of its area and broke into pieces (`stray` 0.70). Narrow cards on a 4 m grid do not
+  overlap, and nothing the body card adds makes up for that. Both halves were put back, (b) then (c).
+- **`fill_frac` did not move.** 0.285 shipped, 0.237 now, 0.255-0.280 on the way. This is the third pass to leave
+  it near 0.25 and it never approached 0.45. The bar is not reachable with this sheet.
+
+## The head rule was arithmetic, not a look choice
+
+`BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` worked the widest card as `(15 + 6) * 1.1 = 23.10 m`
+and left out `DrawGasBank`'s `(0.75 + 0.5 * p1)` factor. The card that actually shipped was
+`21 * 1.25 * 1.1 = 28.88 m` = **1.93 m of gas, over a man's 1.8 m head**. The test now asserts all three factors,
+which caps the per-cell base width at 18 m: `18 * 1.25 * 1.1 = 24.75 m`, `24.75 * 0.20 / 3 = 1.65 m`. That is why
+build (c)'s cards are narrower than the shipped ones, and part of why its area is 0.033 and not 0.043 — the extra
+area the shipped build had was gas standing over a man's head.
+
+## Cost
+
+Still **one packed draw**. The card count fell from 114 to **80** (26 core cells x 3 puffs + 2 body cards at the
+captured tick), and the captured frames' draw calls are 124-126. Nothing was allocated per frame: the footprint is
+summed into fields on the existing per-field `BankCache`.
+
+## Guards
+
+`TheGasBankLiesOnTheGround_NotOverAMansHead` carries the corrected arithmetic (24.75 m -> 1.65 m, all three
+factors). `TheGasBanksBodyCardStaysUnderAMansHead` is new: the capped body card's 1.70 m by hand, that the body is
+flatter than a puff, the body alpha's range, and the puff layer count. Both numbers are worked by hand in the test,
+not read back out of the code they check. 21 of 21 `BurstRecipeTests` green.
+
+## The bars were not moved
+
+`baseline.json` is byte for byte what part 1 froze (`git diff --exit-code` on it is clean), and
+`python probe.py` exits non-zero on these takes. The open row in `docs/reference/decisions.md` carries the choice.

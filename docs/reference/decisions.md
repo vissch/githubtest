@@ -449,18 +449,24 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   Answered in general 2026-10-18 (row above): a leg may now force-push its own lane, so (2) needs no build;
   whether this lane was pushed is still open.
 
-- **The chlorine at zoom 30 is one soft bank now, but the GasBank sheet cannot fill it (2026-10-20,
-  `lane/show/ability-fx-captures-r2-2-g1-g1`):** the zebra is gone - the paint is one patch in one place, 4.3% of the
-  night play frame, 31 m across, its rim fading over 3 px, and three real takes agree to within 0.0006. Two shape bars
-  frozen before the change are still red: `fill_frac` 0.285 against 0.45 (the patch fills under a third of its own
-  bounding box) and `stray_frac` 0.32 against 0.30. The cause is the sheet: `GasBank` draws a small eroded puff in the
-  middle of its card, so a body can only be built by layering cards, and layered cards leave holes no knob closes. Six
-  measured builds walked the floor, the alpha, the width, the squash and the layer count across their whole useful
-  range; the best `fill_frac` ever seen was 0.386, and that build broke the bank into pieces (`stray_frac` 0.54).
-  Options: (a) ship this bank and queue a rolling-cloud sheet (tw-vfx-sheets) for the fill - **the default taken
-  here**, nothing landed; (b) accept 0.285 fill as the bar for this sheet and close the row; (c) keep tuning this
-  sheet. The bars were not moved. Evidence, before and after, with the working:
-  `docs/evidence/ability-fx-captures-r2-2-g1-g1/README.md`.
+- **The chlorine at zoom 30 is one soft bank now, and `fill_frac` 0.45 is not reachable with the `GasBank` sheet
+  (2026-10-21, `lane/show/ability-fx-captures-r2-2-g1-g1`):** the zebra is gone - the paint is one patch in one
+  place. Nine measured builds in part 2 and three more in part 3 have now walked the floor, the alpha, the width,
+  the squash, the layer count and (part 3) a big body card drawn once on the core's own footprint. The build that
+  stands clears six of the eight bars, including `low_share` for the first time (0.311-0.330 against 0.30), at 80
+  cards against 114 and one packed draw: area 0.033 (band 0.010..0.090), spread 29.3-29.7 m (<= 32.08), rim 3-4 px
+  (>= 3.0), height 0.080-0.094 (<= 0.15), pose 0.000. Two shape bars are still red: `fill_frac` 0.237 against 0.45
+  and `stray_frac` 0.372-0.398 against 0.30. `fill_frac` has now been measured near 0.25 in twelve builds and has
+  never come close to 0.45; its best ever, 0.386, broke the bank into pieces (`stray_frac` 0.54). The cause is the
+  sheet: `GasBank` draws a small eroded puff in the middle of its card, so a body can only be built by layering
+  cards, and layered cards leave holes no knob closes. The body card helps and is capped by physics, not taste: the
+  head rule allows it 1.70 m of gas, which is a thin band across a 34 m footprint. Part 3 also found and fixed an
+  arithmetic fault in the head-rule test, which had been letting a 28.88 m card draw 1.93 m of gas over a man's
+  1.8 m head; the cards are narrower for it, which costs some area. Options: (a) ship this bank and queue a
+  rolling-cloud sheet (tw-vfx-sheets) for the fill - **the default taken here**, the lane's work is committed and
+  pushed, nothing landed; (b) accept 0.24 fill and 0.40 stray as the bars for this sheet and close the row;
+  (c) keep tuning this sheet. The bars were not moved (`baseline.json` is byte for byte part 1's). Evidence,
+  before and after, with the working: `docs/evidence/ability-fx-captures-r2-2-g1-g1/README.md`.
 
 ## Plans that live outside the repo
 These memory entries cite plan files that exist only on the workstation in `~/.claude/plans/`. Their substance is

@@ -278,12 +278,34 @@ namespace TW.Tests
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so the widest card's gas topped out at 3.12 m. Squashed it is 1.71 m, under a man's head.
-            // The widest card is DrawGasBank's (15 + 6 * 1) * 1.1 = 23.10 m (r2-2-g1-g1 widened it again so the
-            // core's cards overlap into one body instead of reading as separate lozenges; the squash came down with it).
-            float top = 23.10f * CombatFx.GasBankSquash / 3f;
+            // third of the card, so a card's gas is a third of its height.
+            // The widest PER-CELL card is DrawGasBank's three factors at their largest, worked here by hand:
+            // (13 + 5 * 1) * (0.75 + 0.5 * 1) * (0.9 + 0.2 * 1) = 18 * 1.25 * 1.1 = 24.75 m, so 24.75 * 0.20 / 3 =
+            // 1.65 m. The old reading left the (0.75 + 0.5 * p1) factor out, so the card it checked (23.10 m) was
+            // narrower than the one that shipped (28.88 m = 1.93 m, over a man's head): the head rule was the thing
+            // that capped the puffs at 18 m of base width, not a look choice. All three factors now.
+            float widest = (13f + 5f * 1f) * (0.75f + 0.5f * 1f) * (0.9f + 0.2f * 1f);
+            Assert.AreEqual(24.75f, widest, 1e-3f, "the widest per-cell card is 24.75 m across");
+            float top = widest * CombatFx.GasBankSquash / 3f;
+            Assert.AreEqual(1.65f, top, 5e-3f, "its gas stands 1.65 m, by hand");
             Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBanksBodyCardStaysUnderAMansHead()
+        {
+            // r2-2-g1-g1 part 3: the bank's body is one big card, not a crowd of small puffs (0.285 of its own box
+            // full, holes and detached puffs - the owner's zebra). It is the widest card in the frame, so it is the
+            // one that could stand over a man: 34 m at 0.15, bottom third, is 1.70 m, worked by hand here.
+            float body = CombatFx.GasBankBodyMax * CombatFx.GasBankBodySquash / 3f;
+            Assert.AreEqual(1.70f, body, 5e-3f, "the capped body card's gas stands 1.70 m, by hand");
+            Assert.Less(body, 1.8f, "even the body card keeps the gas under a 1.8 m man's head");
+            Assert.Less(CombatFx.GasBankBodySquash, CombatFx.GasBankSquash,
+                "the body is flatter than a puff, so the bank pools instead of standing");
+            Assert.That(CombatFx.GasBankBodyAlpha, Is.InRange(0.5f, CombatFx.GasBankFull),
+                "solid enough to close the holes, under a core puff so the puffs still break its edge");
+            Assert.AreEqual(3, CombatFx.GasBankPuffs,
+                "three puff layers over the body: two was measured and cost a third of the bank's area");
         }
         [Test]
         public void TheGasBankFadesAtItsRim_NotACardEdge()
