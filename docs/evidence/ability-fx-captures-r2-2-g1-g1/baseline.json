@@ -1,0 +1,94 @@
+{
+ "bars": {
+  "bank_area_bar": 0.01,
+  "bank_area_ceiling": 0.09,
+  "fill_bar": 0.45,
+  "height_frac": 0.15,
+  "low_share": 0.3,
+  "pose_error_max": 0.5,
+  "rim_bar_px": 3.0,
+  "spread_bar_m": 32.08,
+  "stray_bar": 0.3
+ },
+ "before": {
+  "t1-before-1": {
+   "bank_area_frac": 0.01815,
+   "bank_contrast_p50": 60.07,
+   "bank_dist_m": 74.14,
+   "bank_height_m": 0.704,
+   "bank_px": 16725,
+   "bbox_px": [
+    321,
+    258,
+    1029,
+    335
+   ],
+   "columns": 673,
+   "fill_frac": 0.3024,
+   "frame_height_m": 32.87,
+   "height_frac": 0.0214,
+   "lit_px": 157690,
+   "low_share": 0.836,
+   "pose_error_m": 0.0,
+   "rim_px": 2.0,
+   "spread_m": 35.63,
+   "stray_frac": 0.8939
+  },
+  "t1-before-2": {
+   "bank_area_frac": 0.01831,
+   "bank_contrast_p50": 60.14,
+   "bank_dist_m": 74.14,
+   "bank_height_m": 0.694,
+   "bank_px": 16874,
+   "bbox_px": [
+    322,
+    258,
+    1029,
+    335
+   ],
+   "columns": 671,
+   "fill_frac": 0.3056,
+   "frame_height_m": 32.87,
+   "height_frac": 0.0211,
+   "lit_px": 156461,
+   "low_share": 0.8344,
+   "pose_error_m": 0.0,
+   "rim_px": 2.0,
+   "spread_m": 35.58,
+   "stray_frac": 0.8922
+  },
+  "t1-before-3": {
+   "bank_area_frac": 0.03192,
+   "bank_contrast_p50": 62.01,
+   "bank_dist_m": 70.12,
+   "bank_height_m": 1.672,
+   "bank_px": 29420,
+   "bbox_px": [
+    322,
+    258,
+    1038,
+    395
+   ],
+   "columns": 687,
+   "fill_frac": 0.2973,
+   "frame_height_m": 31.09,
+   "height_frac": 0.0538,
+   "lit_px": 157048,
+   "low_share": 0.458,
+   "pose_error_m": 0.0,
+   "rim_px": 2.0,
+   "spread_m": 34.92,
+   "stray_frac": 0.8127
+  }
+ },
+ "built_from_commit": "be5e6444fc",
+ "diff_bar": 40,
+ "frozen": "computed once, from the three before takes of commit be5e6444fc; never recomputed",
+ "spread": {
+  "bank_area_frac": 0.01377,
+  "fill_frac": 0.0083,
+  "rim_px": 0.0,
+  "spread_m": 0.71,
+  "stray_frac": 0.0812
+ }
+}
