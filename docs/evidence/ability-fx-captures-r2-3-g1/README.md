@@ -72,3 +72,24 @@ TW_STILLS_DIR=<dir> Unity.exe -batchmode -projectPath trench-warfare-3d -runTest
 TW_GAS_PLATE=1 TW_STILLS_DIR=<dir> ...                                       # the plate pass, same script, no gas
 python docs/evidence/ability-fx-captures-r2-3-g1/probe.py --pack <dir> --dir baseline --out baseline.json
 ```
+
+## The fix, step by step
+
+Three re-shoots, each against the gap bar `0.3559` (lower is better), worst of three seeds:
+
+| Step | Change | `t1_gap_frac` worst | Draw calls (T1 s0) | Note |
+|---|---|---|---|---|
+| baseline | unchanged build (`2ba27d4072`) | 0.6493 (s0) | 133 | the lily-pad field the owner described |
+| 4 | `GasBank.Erode = false` | 0.4003 (s0) | 134 | the hard-edge cut (shader 123-126) gone; alone, the per-cell card is now a faint wash |
+| 5 | 2x2 block card `11f -> 14f*step`; new 4x4 mass card, width 22 m, alpha `GasBankAlpha(thick) * Lerp(0.35, 1, count/16)` | 0.4002 (s0) | 134 | barely moved: the 4x4 mass card's own alpha floor (0.35) and width (22 m) were still too thin to close the gap on the sparsest seed |
+| 5 (retuned) | block card `14f -> 17f*step`; mass card `22f -> 28f*step`, alpha floor `0.35 -> 0.5`; per-cell rim feather `Lerp(1.15,1,n/4) -> Lerp(1.5,1,n/4)` | 0.3168 (s1, worst) | 134 | under the bar on all three seeds; `gas_cards` up ~6% (704-1047 of 1536), draw calls unmoved |
+| 6 | per-cell card width scaled by `Lerp(1.5f, 1f, standing-neighbour-count/4f)` (same pass as the retune above; a rim cell with fewer standing neighbours draws wider) | — | — | folded into the retune row above; a separate first pass at `1.15` alone did not move the bar enough on its own, so step 5's constants and step 6's feather were tuned together |
+
+Final: `t1_gap_frac` 0.3062 / 0.3168 / 0.2454 (s0/s1/s2), all under 0.3559. `texture_var_drop` worst 0.695 (still over
+the 0.40 floor, so the risk of the softer bank losing the plate's own texture read did not happen - overlap added
+coverage, which a measure of texture would read as more, not less, real surface hidden). Draw calls: 134/113/96
+(T1 s0/s1/s2), unchanged from baseline's 133/113/97 - the mass-card tier adds cards to the same single `DrawPacked`
+call, not a new one.
+
+A look change the owner has not seen: `Erode = false` also loses the shader's underside shading at a card's base
+(`Flipbook_URP.shader` line 259, `_Erode > 0.5`), so the bank's bottom edge is flatter than the eroded book's was.
