@@ -295,6 +295,26 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **A side view of the chlorine bank cannot pass `SIDE_BAR` while the bank stays under a 1.8 m man's head
+  (2026-10-20, `ability-fx-captures-r2-3-g1-g2`):** the owner asked for a side shot at zoom 30 that "fails a bank
+  whose blocks are flatter than the ground". The measure is `side_relief_ratio` = the bank's own top relief over
+  the ground relief under it, and its bar, set from this round's baseline by the family's own formula, is
+  **1.8128**. The look change (plan steps 7-8: a hash-driven per-card height `GasBankLift` 0.6-1.0, `GasBankThin`
+  0.95 -> 0.6, the mass tier's fullness floor 0.5 -> 0.35) was built and shot: the ratio went s0 0.616 -> 0.498,
+  s1 1.069 -> **1.729**, s2 0.325 -> 0.346. s1 is a seed whose ground barely moves (3.0 m of relief); s0 and s2
+  lie on ground that moves 7.4 m and 11.3 m, so the bar asks their bank tops to rise and fall by 13.4 m and
+  20.4 m - seven to eleven times the 1.75 m of gas a card draws at all. The only way to the bar on those seeds is
+  a taller bank, and `GasBankSquash` with `BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` is the
+  owner's standing rule that gas pools and does not stand over a man. Options: (a) **keep the man rule and report
+  the gap, the default taken here** - the look change is NOT landed, the bank is unchanged, and the side still
+  plus `side_relief_ratio` stay as the measure; (b) let the bank stand taller than 1.8 m (raise `GasBankSquash`,
+  re-tune the guard test), which buys the ratio and changes the read of every gas frame in the game; (c) measure
+  the side view against the bank's own relief in metres instead of against the ground's, so a rough ground no
+  longer sets the bar (the ratio was chosen because every baseline ground relief was well over 0.3 m, not because
+  metres are wrong). The same shoot also showed the alpha half of the fix costs coverage: `t1_gap_frac` went
+  0.24-0.32 to 0.37-0.50 against its 0.3559 bar, so (b) or (c) still needs a tuning round. Pictures and numbers:
+  `docs/evidence/ability-fx-captures-r2-3-g1-g2/` (its `baseline/` is the control; the attempt's own 18 stills
+  stayed in the leg folder, since the bank they show is not landed).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
