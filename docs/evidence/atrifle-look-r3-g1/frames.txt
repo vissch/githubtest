@@ -1,0 +1,167 @@
+ONE CAMERA, ONE FRAME, BOTH MEN                               (2026-10-20, atrifle-look-r3-g1, leg 02)
+=====================================================================================================
+
+What r3 did, and why the owner threw it out
+-------------------------------------------
+r3 shot the AT rifleman and the Sniper at ONE focus point but from TWO camera yaws (243.6 and 131.69), each man
+moved onto that focus in turn. The owner's complaint, in his words: "two places", "the sniper still is flagged
+unreadable", "the base crop has two men and the base plate still reports a man in the frame, so 0.827 is not one
+man against one man".
+
+This set answers all three. ONE camera pose for all twelve stills. The two men stand five metres apart in the SAME
+frame at the same moment (pair-1/2/3.png prove it: men_in_frame 2). Each man's mask is |his still - the empty
+plate| with every other man off the map, so a mask is one man against nothing: at-r.json says men_in_frame 1,
+sniper-r.json says 1, empty-r.json says 0. No sidecar in the set carries a warning, so the "men barely separate
+from the ground: unreadable" flag of r2/r3 is gone for BOTH men at this camera.
+
+The ground
+----------
+GreyboxCorridor, its default night look, read back in Play; one batch-mode editor on this checkout, driven over the
+pipeline port. SimProbe.Match():
+
+  seed 12648430 generated True battlefield seed 1917 ground ShelledForest bombardment 0/min (override -1)
+  stress 0 (override -1) mission ''
+
+which is r3's match line for line, so this is the same ground as the base and fix sets of 13d1158177.
+
+The camera (every still in the set)
+-----------------------------------
+  focus F        (47.5, 25)      the midpoint of the two men's drawn positions
+  yaw            180             rig yaw, with CaptureRig.Rig.YawPin = 0 so the rig yaw IS the world yaw; every
+                                 sidecar reads back cam_yaw 180 and pose_error_m 0
+  zoom           30              T1 (GymCatalogue.Bands), the owner's number
+  pitch          22
+  size           1600x900
+  rain           0               VfxLab.Rain(0); every sidecar says rain 0
+  weather clock  pinned at 120   CaptureRig.Hold(120) before every shot
+
+Why yaw 180. The men lie along the world x axis (AT at x 50, Sniper at x 45, both at z 25), so the two
+PERPENDICULAR camera yaws are 0 and 180: from either, both men sit at the same distance through the same lens and
+their silhouettes are the same scale. Both were shot as throwaway stills and read back from their sidecars
+(sweep/y*.png in the leg folder), together with +-15 and +-30 in case neither cleared the 0.12 contrast warning of
+CaptureRig.cs:327:
+
+  yaw    contrast_median   contrast_p10   men_in_frame   warning
+   0        0.173            0.053            2          -
+  180       1.118            0.370            2          -        <- chosen: perpendicular, and much the better
+   15       0.075            0.029            2          unreadable
+  165       1.217            0.213            2          -
+  195       0.748            0.296            2          -
+  345       0.052            0.018            2          unreadable
+   30       0.028            0.028            2          unreadable
+  150       1.739            0.311            2          -
+  210       0.153            0.119            2          -
+  330       0.507            0.086            2          -
+
+180 is perpendicular AND clears 0.12 by three times, so the sweep never had to leave the perpendicular pair.
+
+The two men
+-----------
+AT rifleman: TankCapture.Spawn(0, 27, 50f, 11f, 21f) printed "slot 12"; SimProbe.Unit(12) confirmed team 0,
+archetype 27, Hp 90 before anything was written to him (the printed slot is not always the world index). Staged at
+(50, 0, 25) with six WriteWorlds calls, the sim RUNNING, Speed 0 and Hp 90 pinned in every one, then frozen:
+
+  slot 12 team 0 archetype 27 hp 90/90
+  sim at 50.00 0.00 25.00   trench 0 post cell 705 kind 2 stance Crouch layer Surface
+  drawn at 50.00 0.00 25.00  ground there 2.95   yaw -2.08
+  animation clip ProneIdle rung Idle stance Prone
+
+Sniper: Spawn(0, 3, 56f, 25f, 21f) printed "slot 0", confirmed archetype 3, Hp 80.
+
+The post search (step 3). A man's yaw cannot be written: he snaps to his POST's facing. So eight candidate points
+4-8 m from the AT rifleman were tried in turn - write with the sim running, refreeze, read SimProbe.Unit - and the
+one kept is the one that is KneelIdle at a post with the drawn yaw closest to the AT's -2.08 rad. Every candidate
+(candidates.json in the leg folder):
+
+  x,z            post cell  kind  clip       drawn yaw   |yaw - AT|, wrapped
+  55.00, 25.00     747       1    KneelIdle    3.12        1.083
+  54.95, 29.95     747       1    KneelIdle    0.00        2.080
+  50.00, 30.00     747       1    KneelIdle    0.00        2.080
+  45.05, 29.95     747       1    KneelIdle    0.00        2.080
+  45.00, 25.00     747       1    KneelIdle   -3.13        1.049   <- kept
+  45.05, 20.05     747       1    KneelIdle    3.13        1.073
+  50.00, 20.00     747       1    KneelIdle    1.58        2.620
+  54.95, 20.05     747       1    KneelIdle    1.56        2.620
+
+So (45, 25): five metres due west of the AT rifleman, kneeling at a kind-1 post, in the same frame.
+
+THE HONEST LIMIT OF ONE CAMERA. The two men's own headings are set by their posts and nothing moves them. At the
+moment of pair-1 the AT rifleman is drawn at yaw -2.08 and the Sniper at -1.11: a residual heading difference of
+0.97 rad (55.6 deg) that one camera cannot remove, because one camera yaw cannot be side-on to two men facing
+different ways. From round 2 on, both men happen to be drawn at yaw 0.79 (their idle beats turned them), so the
+difference is 0.00 there; that is luck, not control, and it is recorded per still in poses.json rather than
+claimed. This is the cost of the owner's "one frame, one camera": r3 bought an equal relative angle by moving the
+camera and paid with two places; this set buys one place and pays with the heading. Neither is hidden.
+
+The frame was cleared
+---------------------
+One WriteWorlds, sim running, moved every alive non-vehicle slot except those two within 120 m of the men to
+(-5000, 0, -5000). It moved 0 men: at this point of this battle nobody else was within 120 m. The clearing is
+still what makes men_in_frame trustworthy, and the sidecars prove the result: 2 in every pair, 1 in every single,
+0 in every empty plate.
+
+Three rounds, three live poses
+------------------------------
+Before each round the sim was let RUN for a different spell - 0.4 s, 1.2 s, 2.0 s - and refrozen, so the prone
+man's clip phase moves and the set is not one frozen pose three times (r3's three fix masks were 546, 546, 546 px,
+exactly identical, because a prone man at a post has no LookAround beat). ProneIdle phase at the AT rifleman's own
+still: 0.10 (r1), 0.31 (r2), 0.25 (r3). KneelIdle phase at the Sniper's own still: 0.72, 0.25, 0.69. Every pose is
+recorded in poses.json: slot, clip, stance, drawn x/z, drawn yaw and phase, read at the moment of that capture.
+
+The eval lines, verbatim and in order (Tools/tw eval, or `unity cmd eval -- --code '...'`; the full log of every
+line and its answer is evals.log in the leg folder, and the driver is rounds.py there):
+
+  UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+  return TW.Editor.VfxLab.Rain(0f);
+  return TW.Editor.SimProbe.Match();
+  return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);      // -> "slot 12"; CHECKED with SimProbe.Unit(12)
+  return TW.Editor.TankCapture.Spawn(0, 3, 56f, 25f, 21f);       // -> "slot 0";  CHECKED with SimProbe.Unit(0)
+  // six times, the sim RUNNING (the presenter will not move a frozen man), Hp pinned every time:
+  var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.WriteWorlds(m=>{ m.World.Position[12]=new Unity.Mathematics.float3(50f,0f,25f); m.World.Speed[12]=0f; m.World.Hp[12]=90f; }); return 0;
+  // ... the same for slot 0 at (45,25) with Hp 80, then:
+  var h=...; h.TimeScale=0f; return "frozen";
+  TW.Editor.CaptureRig.Rig.YawPin = 0f; return "yaw pinned to world";
+  return TW.Editor.CaptureRig.Hold(120f);
+  return TW.Editor.CaptureRig.Shot("<dir>/pair-1.png", 47.5f, 25f, 30f, 180f, 22f, 1600, 900);
+  return TW.Editor.CaptureRig.Release();
+  // then, for each plate: TimeScale=1, write the man (or both men) to (-5000,0,-5000) with Hp kept ALIVE so he
+  // can come back, TimeScale=0, Hold(120), Shot(... at-1 / sniper-1 / empty-1 ...), Release, both men written home.
+
+Hp is pinned in every single write. r3 lost two restages to a staged man being shot dead at (50,25); this set lost
+none. A man moved off the map keeps his Hp here (r3 set it to 0): he is then still alive but outside the frame, so
+men_in_frame skips him and he can be brought home without restarting Play.
+
+What the stills are
+-------------------
+  pair-1/2/3.png    both men, one camera, one moment. men_in_frame 2. The proof that the set is one frame.
+  at-1/2/3.png      the Sniper off the map; the AT rifleman alone. men_in_frame 1.
+  sniper-1/2/3.png  the AT rifleman off the map; the Sniper alone. men_in_frame 1.
+  empty-1/2/3.png   both off the map: the plate for that round. men_in_frame 0.
+A man's mask is |single - empty| for the SAME round, so the plate is the same camera, the same weather clock and
+the same few seconds of fires as the still it is subtracted from, and it holds nobody.
+
+The sidecars, as read back (no number here is typed):
+  still        men_in_frame   contrast_median   contrast_p10   pose_error_m   rain   cam_yaw   warnings
+  pair-1              2           1.122             0.366            0          0      180        []
+  pair-2              2           1.110             0.398            0          0      180        []
+  pair-3              2           1.177             0.391            0          0      180        []
+  at-1                1           1.103             1.103            0          0      180        []
+  at-2                1           1.140             1.140            0          0      180        []
+  at-3                1           1.129             1.129            0          0      180        []
+  sniper-1            1           0.388             0.388            0          0      180        []
+  sniper-2            1           0.380             0.380            0          0      180        []
+  sniper-3            1           0.410             0.410            0          0      180        []
+  empty-1/2/3         0            -1                -1              0          0      180        []
+(contrast is -1 in an empty plate because there is no man to measure.)
+
+What this set does NOT cover - read before judging any number built on it
+-------------------------------------------------------------------------
+  * At yaw 180 the prone AT rifleman lies BEHIND the sandbag parapet and only his back, head and the top of his
+    gun clear it, while the kneeling Sniper stands clear of the bags. That is what the game shows from this
+    angle, and it is why his mask is the smaller of the two. A silhouette comparison here therefore measures
+    "a prone man half behind bags" against "a kneeling man in the open".
+  * The two men are at different places in the frame, by design: that was the owner's ask. A raw pixel IoU is
+    meaningless between them; any comparison has to align the two masks on their own bounding boxes first.
+    Settling that measure is probe.py's job and it is not in this leg (this leg is part 1 of 2).
+  * The 1.65 m anti-tank rifle is still not separately legible at T1 (zoom 30): the barrel is a few dark pixels.
+    No number in this set isolates it, and no claim about it is made.
