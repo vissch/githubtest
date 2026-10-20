@@ -17,44 +17,58 @@ ONE FRAME, ONE CAMERA
   180 with CaptureRig.Rig.YawPin = 0, pitch 22, 1600x900. The probe reads zoom, yaw, pitch, focus_x,
   focus_z and the image size out of every sidecar and fails if any one of the fifteen differs, so
   "one camera" is checked, not asserted. It also requires pose_error_m 0, rain 0 and an empty
-  `warnings` list everywhere: the unreadable-contrast flag that r3 carried on the Sniper is gone at
-  this camera for both men, and if it ever comes back this probe goes red.
+  `warnings` list everywhere.
 
 ONE MAN AGAINST ONE MAN
   Five stills per round: `pair` (both men, men_in_frame 2), `at` (the Sniper off the map, 1),
   `sniper` (the AT rifleman off the map, 1), `empty` (both off, 0) and `floor` (both off again, 0).
-  The probe requires exactly those counts from the sidecars, and holds `floor` to the same
-  one-camera, rain-0, pose_error-0, no-warning gate as the rest. A man's mask is |his single - that
-  round's empty plate|, so a mask is one man against nothing, and the plate is the same camera, the
-  same weather clock and the same few seconds of fires as the still it is subtracted from.
+  The probe requires exactly those counts, AND `drawn_infantry` 0 in every plate - round 1 of the
+  previous set reported `drawn_infantry` 1 with `men_in_frame` 0, a man drawn while the plate
+  claimed none, and a plate that holds a man is not a plate.
+
+EACH MAN INSIDE HIS OWN BOX, FROM THE CAPTURE THAT DREW HIM
+  The frame has braziers in it. A frame-wide reading measured a fire every time: leg 07 dropped the
+  pixels that move on their own and the largest surviving blob was STILL a brazier, 2241-5501 px
+  against a few hundred for the man. So the reading no longer looks at the whole frame. Every shot
+  now records where the game drew each man - `manN_slot`, `manN_img_x`, `manN_img_y`, `manN_tall_px`
+  - and this probe masks inside that box and nowhere else:
+
+      x in img_x +- 0.8 * tall_px,    y in [img_y - 1.0 * tall_px, img_y + 0.2 * tall_px]
+
+  (`img_y` counts from the top and is the man's FEET, hence the long reach upwards and the short one
+  down.) The box is not typed here and not read off the pixels it is about to measure: it is the
+  capture's own projection of the man it drew. Which slot is which man is read off the stills too -
+  the one man in frame on `at-{r}` is the AT rifleman, the one on `sniper-{r}` is the Sniper - so no
+  slot number is typed either. The two boxes must not overlap: the men are five metres apart, so
+  "only each man" is checked rather than asserted, and if a restaging ever puts them on top of each
+  other this probe goes red instead of quietly measuring both at once.
 
 THE MASK
-  A pixel is "the man" when its Rec.709 luma differs from the plate's by more than 0.04, as in r3;
-  then a 3x3 opening drops grain speckle and a 7x7 closing joins the parts of one man (boots, back,
-  helmet) that the mud happens to match. r3 then kept every surviving blob inside a hand-typed
-  window around the focus. That window is gone, and so is r3's typed 400 px floor. Two things
-  replace them, both read off the set.
+  A pixel is "the man" when its Rec.709 luma differs from that round's `empty` plate by more than
+  0.04, as in r3; then a 3x3 opening drops grain speckle and a 7x7 closing joins the parts of one man
+  (boots, back, helmet) that the mud happens to match. WHAT MOVES ON ITS OWN IS NOT THE MAN:
+  `|empty-{r} - floor-{r}|` is two man-less plates of the same frame a few world-seconds apart, so
+  everything in it is weather, and it is subtracted before any blob is labelled. It is NOT dilated -
+  leg 07's 3x3 dilation ate 1.1k to 8.3k px of real man. `noise_in_box_px_*` reports how much of that
+  weather falls inside each man's box at all; on this set it is 0 to 57 px, because the boxes sit
+  well clear of the fires.
 
-  First, WHAT MOVES ON ITS OWN IS NOT THE MAN. `floor-{r}` is a second man-less plate of the same
-  frame a few world-seconds from `empty-{r}`: nobody is there in either, so everything that differs
-  between them is weather - the fires, their light on the mud, the wind in the grass. That
-  difference mask, built with the same threshold and the same morphology and then dilated 3x3 to
-  cover the edge the flame moved to next, is subtracted from every man's difference mask before any
-  blob is labelled. `noise_px_{r}` is its size and `dropped_px_{stem}` is what it took off each man.
+  Only the LARGEST surviving component inside the box is kept, and it has to earn the name "a man":
+    * an area over 0.2 m2 of frame, and under half his own box. THE CEILING changed here. Leg 07
+      wrote it as 2.0 m2 and read the scale off the distance between the two largest blobs, which
+      were two fires: it had the frame 3x too small. With the capture's own scale a kneeling man at
+      this camera measures 2.3-2.6 m2, so 2.0 m2 now rejects a man for being a man. What the ceiling
+      is actually for is "the mask is not simply the whole patch", and the patch is his box, so it
+      is now half of it - a man who fills half the box the renderer drew him in is not a
+      silhouette. Both bounds are reported in pixels;
+    * at least 1.5x the second-largest blob in the box, so an ambiguous mask fails loudly;
+    * no pixel on a frame border, checked only along a box edge that the frame actually cuts - the
+      box edge itself is not a border, and a mask that stops at it is not a cut silhouette.
 
-  Second, A MAN IS THE SIZE OF A MAN, in this frame's own units. The two men were posted five metres
-  apart by design, so the distance between the largest blob of `at-{r}` and the largest blob of
-  `sniper-{r}` - centroids taken before any size test, so the test is not circular - divides by 5.0
-  into `px_per_m`, the frame's scale. `px_per_m` is the median of the three rounds. A mask is a man
-  when its area lies between `0.2 * px_per_m**2` and `2.0 * px_per_m**2`: a prone man clearing the
-  sandbags covers at least a fifth of a square metre of frame, a kneeling man at most two.
-
-  Only the LARGEST surviving component is kept, and it has to earn the name "a man" three times
-  over:
-    * an area inside those two derived bounds, both reported;
-    * at least 1.5x the second-largest blob, so a flickering pool of mud can never be mistaken for
-      him quietly - an ambiguous frame fails loudly instead;
-    * no pixel on any frame border, because a cut mask is not a silhouette.
+  THE FRAME'S SCALE comes from the capture as well: `px_per_m = tall_px / 2.6`, a man being 2.6 m of
+  world in the box the renderer drew. Leg 07 took it from the distance between the two largest blobs
+  and read 44, 65 and 145 px/m for one frame whose scale is one number - it was measuring between two
+  fires. The probe reports `px_per_m` for every still and fails if the rounds disagree by over 10 %.
 
 THE READING
   The two men stand five metres apart in the same frame by design, so a raw pixel IoU between them
@@ -67,33 +81,27 @@ THREE LIVE POSES, NOT ONE
   Before each round the sim was let run for a different spell (0.4 s, 1.2 s, 2.0 s) and refrozen.
   The probe checks the result two ways: the three AT masks must not be pixel-identical (r3's were),
   and the AT rifleman's ProneIdle phase, read out of poses.json at the moment of each capture, must
-  differ by at least 0.05 between every pair of rounds. The Sniper's KneelIdle phases are reported
-  for the record but not gated: he was never the frozen one, and his idle beat is free to land twice
-  on the same phase.
+  differ by at least 0.05 between every pair of rounds. The Sniper's kneeling phases are reported but
+  not gated: he was never the frozen one.
 
 THE BAR
-  PASS_DIFF is 0.6, kept unchanged from r3's probe (commit 13d1158177) so the two rounds compare.
-  Everything else - the size bounds above most of all - is read from the committed pixels and
-  sidecars; no other number here is typed.
-  Three spreads are printed and all three have to sit below the bar, while the reading stays above
-  it:
+  PASS_DIFF is 0.6, kept unchanged from r3's probe (commit 13d1158177) so the rounds compare. Three
+  spreads are printed and all three have to sit below it while the reading stays above it:
     * `spread_readings`   = max - min of the three AT-against-Sniper readings;
     * `spread_at`         = the largest 1 - IoU between any two of the three AT masks;
     * `spread_sniper`     = the same among the three Sniper masks.
-  The last two are the noise floor of the measure itself: the same man, same camera, a different
-  live pose. Pass needs every spread < PASS_DIFF and min(readings) >= PASS_DIFF, so the claim is
-  made on the WORST of the three rounds and only when it clears the floor by the whole bar.
+  The last two are the noise floor of the measure itself: the same man, same camera, a different live
+  pose. Pass needs every spread < PASS_DIFF and min(readings) >= PASS_DIFF, so the claim is made on
+  the WORST of the three rounds and only when it clears the floor by the whole bar.
 
 THE HONEST LIMIT
   One camera yaw cannot be side-on to two men facing different ways, and a man's heading is snapped
-  to his post's. At pair-1 the AT rifleman is drawn at yaw -2.08 and the Sniper at -1.11, a residual
-  0.97 rad; from round 2 on both happen to be drawn at 0.79, so the difference is 0.00 there by luck
-  and not by control. The probe reports the per-round heading difference out of poses.json as
+  to his post's. The probe reports the per-round heading difference out of poses.json as
   `heading_diff_rad` and DOES NOT gate on it: one frame was the owner's call, and this is its price,
-  stated rather than hidden. Part of each reading is therefore heading, not build. Also, at yaw 180
-  the prone man lies behind the parapet while the kneeling Sniper stands clear of it, so what is
-  measured is "a prone man half behind bags" against "a kneeling man in the open" - which is what
-  the game shows from here.
+  stated rather than hidden. At yaw 180 the prone man also lies behind the parapet while the kneeling
+  Sniper stands clear of it, so what is measured is "a prone man half behind bags" against "a
+  kneeling man in the open" - which is what the game shows from here. And at zoom 30 the 1.65 m
+  anti-tank rifle is a few dark pixels: no number here isolates it.
 """
 import json
 import os
@@ -106,9 +114,13 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THRESHOLD = 0.04
+MAN_TALL_M = 2.6            # the height CaptureRig.ManBox projects, so tall_px is 2.6 m of frame
 MIN_AREA_M2 = 0.2
-MAX_AREA_M2 = 2.0
-MEN_APART_M = 5.0
+MAX_BOX_SHARE = 0.5         # of his own box; see "the ceiling" in the docstring
+BOX_HALF_W = 0.8            # of tall_px, either side of his feet
+BOX_UP = 1.0                # of tall_px, above his feet
+BOX_DOWN = 0.2              # of tall_px, below them
+SCALE_TOLERANCE = 0.10      # how far the rounds' px_per_m may disagree
 DOMINANCE = 1.5
 MIN_PHASE_GAP = 0.05
 PASS_DIFF = 0.6
@@ -139,6 +151,39 @@ def raw_diff(stem, plate):
     return nd.binary_closing(nd.binary_opening(d, np.ones((3, 3))), np.ones((7, 7)))
 
 
+def drawn_men(stem, shape):
+    """Every man the capture says it drew INSIDE this frame: slot -> (img_x, img_y, tall_px).
+
+    A man written off the map still gets a projection, far outside the picture; those are dropped
+    here, so "the men in this still" is the capture's own answer and not a typed slot number."""
+    d = sidecar(stem)
+    h, w = shape
+    out = {}
+    i = 0
+    while ("man%d_slot" % i) in d:
+        x, y = float(d["man%d_img_x" % i]), float(d["man%d_img_y" % i])
+        tall = float(d["man%d_tall_px" % i])
+        if 0 <= x < w and 0 <= y < h and tall > 1.0:
+            out[int(d["man%d_slot" % i])] = (x, y, tall)
+        i += 1
+    return out
+
+
+def box_of(x, y, tall, shape):
+    """His own box, and whether each side of it is a real frame edge (so a cut can be told apart
+    from a mask that simply stops where the box does)."""
+    h, w = shape
+    x0, x1 = x - BOX_HALF_W * tall, x + BOX_HALF_W * tall
+    y0, y1 = y - BOX_UP * tall, y + BOX_DOWN * tall
+    i0, i1 = max(0, int(round(x0))), min(w, int(round(x1)) + 1)
+    j0, j1 = max(0, int(round(y0))), min(h, int(round(y1)) + 1)
+    m = np.zeros(shape, bool)
+    m[j0:j1, i0:i1] = True
+    cuts = {"left": i0 == 0 and x0 < 0, "right": i1 == w and x1 >= w,
+            "top": j0 == 0 and y0 < 0, "bottom": j1 == h and y1 >= h}
+    return m, (i0, i1, j0, j1), cuts
+
+
 def biggest_two(m):
     """(the largest component, its area, the second area) of a boolean mask; (None, 0, 0) if empty."""
     lab, n = nd.label(m)
@@ -151,43 +196,28 @@ def biggest_two(m):
     return lab == int(order[0]), int(sizes[order[0]]), second
 
 
-def centroid(m):
-    ys, xs = np.nonzero(m)
-    return float(xs.mean()), float(ys.mean())
-
-
-def candidate(stem, plate, noise, report, problems):
-    """The largest component of the man's difference mask, after the weather's own pixels are dropped."""
-    raw = raw_diff(stem, plate)
-    cleaned = raw & ~noise
-    report["dropped_px_" + stem] = int(raw.sum() - cleaned.sum())
-    m, px, second = biggest_two(cleaned)
-    report["mask_px_" + stem] = px
-    report["second_blob_px_" + stem] = second
-    if m is None:
-        problems.append(f"{stem}: nothing differs from the plate once the weather is dropped")
-    return m, px, second
-
-
-def judge(stem, m, px, second, lo, hi, problems):
-    """Does the largest component earn the name "a man"? Size, dominance, and not cut by the border."""
+def judge(stem, m, px, second, lo, hi, cuts, problems):
+    """Does the largest component in the box earn the name "a man"? Size, dominance, not cut."""
     if m is None:
         return None
     ok = True
     if px < lo:
-        problems.append(f"{stem}: the largest blob is {px} px, under the frame's own floor of "
-                        f"{lo} px ({MIN_AREA_M2} m2) - too small to be a man")
+        problems.append(f"{stem}: the largest blob in his box is {px} px, under the frame's own "
+                        f"floor of {lo} px ({MIN_AREA_M2} m2) - too small to be a man")
         ok = False
     if px > hi:
-        problems.append(f"{stem}: the largest blob is {px} px, over the frame's own ceiling of "
-                        f"{hi} px ({MAX_AREA_M2} m2) - too big to be a man")
+        problems.append(f"{stem}: the largest blob in his box is {px} px, over {hi} px - more "
+                        f"than {MAX_BOX_SHARE:.0%} of his own box, so it is the patch and not him")
         ok = False
     if second * DOMINANCE > px:
-        problems.append(f"{stem}: the largest blob is {px} px and the next is {second} px, "
-                        f"under {DOMINANCE}x - the mask is ambiguous")
+        problems.append(f"{stem}: the largest blob in his box is {px} px and the next is {second} "
+                        f"px, under {DOMINANCE}x - the mask is ambiguous")
         ok = False
-    if m[0].any() or m[-1].any() or m[:, 0].any() or m[:, -1].any():
-        problems.append(f"{stem}: the mask reaches a frame border - it is cut")
+    touched = [side for side, cut in cuts.items() if cut and (
+        (side == "left" and m[:, 0].any()) or (side == "right" and m[:, -1].any()) or
+        (side == "top" and m[0].any()) or (side == "bottom" and m[-1].any()))]
+    if touched:
+        problems.append(f"{stem}: the mask reaches the {', '.join(touched)} frame border - it is cut")
         ok = False
     return m if ok else None
 
@@ -221,8 +251,9 @@ def read_pose(text, field):
 
 def main():
     report = {"pass_diff": PASS_DIFF, "threshold_luma": THRESHOLD,
-              "min_area_m2": MIN_AREA_M2, "max_area_m2": MAX_AREA_M2,
-              "dominance": DOMINANCE}
+              "min_area_m2": MIN_AREA_M2, "max_box_share": MAX_BOX_SHARE,
+              "dominance": DOMINANCE, "man_tall_m": MAN_TALL_M,
+              "box": {"half_width_x_tall": BOX_HALF_W, "up_x_tall": BOX_UP, "down_x_tall": BOX_DOWN}}
     problems = []
 
     stems = [f"{k}-{r}" for r in ROUNDS for k in KINDS]
@@ -252,51 +283,87 @@ def main():
         kind = s.rsplit("-", 1)[0]
         if int(d["men_in_frame"]) != MEN[kind]:
             problems.append(f"{s}: men_in_frame is {d['men_in_frame']}, want {MEN[kind]}")
+        if MEN[kind] == 0 and int(d.get("drawn_infantry", 0)) != 0:
+            problems.append(f"{s}: a plate with no man in frame still drew "
+                            f"{d['drawn_infantry']} - that is not a plate")
 
-    # --- the masks -------------------------------------------------------------------------------
-    # Pass one: what moves on its own is dropped, then the largest survivor of each man is kept
-    # with its centroid. No size test yet, so the frame's scale below is not read off itself.
-    cands = {}
-    for r in ROUNDS:
-        noise = nd.binary_dilation(raw_diff(f"empty-{r}", f"floor-{r}"), np.ones((3, 3)))
-        report[f"noise_px_{r}"] = int(noise.sum())
-        for k in ("at", "sniper"):
-            cands[(k, r)] = candidate(f"{k}-{r}", f"empty-{r}", noise, report, problems)
+    shape = (frame["size"][1], frame["size"][0])
 
-    # The frame's own scale: the two men are five metres apart by design.
+    # --- who is who, and where, from the captures themselves -------------------------------------
+    masks = {"at": [], "sniper": []}
     scales = []
     for r in ROUNDS:
-        ma = cands[("at", r)][0]
-        ms = cands[("sniper", r)][0]
-        if ma is None or ms is None:
-            continue
-        (ax, ay), (sx, sy) = centroid(ma), centroid(ms)
-        s = float(np.hypot(ax - sx, ay - sy)) / MEN_APART_M
-        report[f"px_per_m_{r}"] = round(s, 3)
-        scales.append(s)
-    at, sniper = [], []
+        noise = raw_diff(f"empty-{r}", f"floor-{r}")      # NOT dilated: it ate real man last round
+        report[f"noise_px_{r}"] = int(noise.sum())
+        boxes = {}
+        for k in ("at", "sniper"):
+            stem = f"{k}-{r}"
+            men = drawn_men(stem, shape)
+            if len(men) != 1:
+                problems.append(f"{stem}: the capture drew {len(men)} men in frame, want 1 - "
+                                f"there is no single box to measure in")
+                boxes[k] = None
+                continue
+            slot, (x, y, tall) = next(iter(men.items()))
+            bm, span, cuts = box_of(x, y, tall, shape)
+            boxes[k] = (bm, span, cuts)
+            report[f"slot_{stem}"] = slot
+            report[f"box_{stem}"] = list(span)
+            report[f"px_per_m_{stem}"] = round(tall / MAN_TALL_M, 3)
+            scales.append(tall / MAN_TALL_M)
+            report[f"noise_in_box_px_{stem}"] = int((noise & bm).sum())
+        if boxes.get("at") and boxes.get("sniper") and (boxes["at"][0] & boxes["sniper"][0]).any():
+            problems.append(f"round {r}: the AT box {boxes['at'][1]} and the Sniper box "
+                            f"{boxes['sniper'][1]} overlap - a mask would hold both men")
+        for k in ("at", "sniper"):
+            if boxes.get(k) is None:
+                continue
+            bm, _, cuts = boxes[k]
+            stem = f"{k}-{r}"
+            raw = raw_diff(stem, f"empty-{r}") & bm
+            cleaned = raw & ~noise
+            report[f"dropped_px_{stem}"] = int(raw.sum() - cleaned.sum())
+            m, px, second = biggest_two(cleaned)
+            report[f"mask_px_{stem}"] = px
+            report[f"second_blob_px_{stem}"] = second
+            if m is None:
+                problems.append(f"{stem}: nothing in his box differs from the plate once the "
+                                f"weather is dropped")
+                continue
+            masks[k].append((stem, m, px, second, cuts, int(bm.sum())))
+
+    # --- one frame has one scale -----------------------------------------------------------------
     if scales:
         px_per_m = float(np.median(scales))
-        lo = int(round(MIN_AREA_M2 * px_per_m ** 2))
-        hi = int(round(MAX_AREA_M2 * px_per_m ** 2))
         report["px_per_m"] = round(px_per_m, 3)
+        off = max(abs(s - px_per_m) / px_per_m for s in scales)
+        report["px_per_m_disagreement"] = round(off, 4)
+        if off > SCALE_TOLERANCE:
+            problems.append(f"the stills disagree about the frame's scale by {off:.1%}, over "
+                            f"{SCALE_TOLERANCE:.0%} - these are not one camera on one set of men")
+        lo = int(round(MIN_AREA_M2 * px_per_m ** 2))
         report["mask_px_min"] = lo
-        report["mask_px_max"] = hi
-        # Pass two: judged against the bounds the frame itself gave.
-        for r in ROUNDS:
-            for k, bag in (("at", at), ("sniper", sniper)):
-                m, px, second = cands[(k, r)]
-                kept = judge(f"{k}-{r}", m, px, second, lo, hi, problems)
-                if kept is not None:
-                    bag.append(kept)
     else:
-        problems.append("no round gave both men a blob, so the frame has no scale and no bounds")
+        problems.append("no still gave a man a box, so the frame has no scale and no bounds")
+        lo = 0
+
+    at, sniper = [], []
+    for k, bag in (("at", at), ("sniper", sniper)):
+        for stem, m, px, second, cuts, box_px in masks[k]:
+            hi = int(round(MAX_BOX_SHARE * box_px))
+            report["mask_px_max_" + stem] = hi
+            report["mask_m2_" + stem] = round(px / px_per_m ** 2, 3) if scales else None
+            kept = judge(stem, m, px, second, lo, hi, cuts, problems)
+            if kept is not None:
+                bag.append(kept)
 
     # --- three live poses, not one ---------------------------------------------------------------
     with open(here("poses.json"), encoding="utf-8") as f:
         poses = json.load(f)
     at_phase = [read_pose(poses[f"at-{r}"]["at"], "phase") for r in ROUNDS]
     report["at_phases"] = at_phase
+    report["at_clips"] = [re.search(r"animation clip (\S+)", poses[f"at-{r}"]["at"]).group(1)
+                          for r in ROUNDS]
     report["sniper_phases"] = [read_pose(poses[f"sniper-{r}"]["sniper"], "phase") for r in ROUNDS]
     gaps = [abs(at_phase[i] - at_phase[j]) for i in range(3) for j in range(i + 1, 3)]
     report["at_phase_gap_min"] = round(min(gaps), 4)

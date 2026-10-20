@@ -2,8 +2,14 @@
   "pass_diff": 0.6,
   "threshold_luma": 0.04,
   "min_area_m2": 0.2,
-  "max_area_m2": 2.0,
+  "max_box_share": 0.5,
   "dominance": 1.5,
+  "man_tall_m": 2.6,
+  "box": {
+    "half_width_x_tall": 0.8,
+    "up_x_tall": 1.0,
+    "down_x_tall": 0.2
+  },
   "camera": {
     "zoom": 30.0,
     "yaw": 180.0,
@@ -15,55 +21,127 @@
       900
     ]
   },
-  "noise_px_1": 11622,
-  "dropped_px_at-1": 1737,
-  "mask_px_at-1": 2241,
-  "second_blob_px_at-1": 1315,
-  "dropped_px_sniper-1": 5875,
-  "mask_px_sniper-1": 5501,
-  "second_blob_px_sniper-1": 947,
-  "noise_px_2": 28446,
-  "dropped_px_at-2": 8306,
-  "mask_px_at-2": 1435,
-  "second_blob_px_at-2": 1424,
-  "dropped_px_sniper-2": 4821,
-  "mask_px_sniper-2": 720,
-  "second_blob_px_sniper-2": 521,
-  "noise_px_3": 18748,
-  "dropped_px_at-3": 3033,
-  "mask_px_at-3": 4208,
-  "second_blob_px_at-3": 3973,
-  "dropped_px_sniper-3": 1115,
-  "mask_px_sniper-3": 804,
-  "second_blob_px_sniper-3": 119,
-  "px_per_m_1": 44.102,
-  "px_per_m_2": 65.025,
-  "px_per_m_3": 145.437,
-  "px_per_m": 65.025,
-  "mask_px_min": 846,
-  "mask_px_max": 8456,
+  "noise_px_1": 139768,
+  "slot_at-1": 4,
+  "box_at-1": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-1": 25.011,
+  "noise_in_box_px_at-1": 1057,
+  "slot_sniper-1": 14,
+  "box_sniper-1": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-1": 25.033,
+  "noise_in_box_px_sniper-1": 0,
+  "dropped_px_at-1": 1044,
+  "mask_px_at-1": 383,
+  "second_blob_px_at-1": 109,
+  "dropped_px_sniper-1": 0,
+  "mask_px_sniper-1": 1633,
+  "second_blob_px_sniper-1": 0,
+  "noise_px_2": 34311,
+  "slot_at-2": 4,
+  "box_at-2": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-2": 25.011,
+  "noise_in_box_px_at-2": 0,
+  "slot_sniper-2": 14,
+  "box_sniper-2": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-2": 25.033,
+  "noise_in_box_px_sniper-2": 25,
+  "dropped_px_at-2": 0,
+  "mask_px_at-2": 292,
+  "second_blob_px_at-2": 0,
+  "dropped_px_sniper-2": 25,
+  "mask_px_sniper-2": 1420,
+  "second_blob_px_sniper-2": 5,
+  "noise_px_3": 8853,
+  "slot_at-3": 4,
+  "box_at-3": [
+    682,
+    787,
+    321,
+    400
+  ],
+  "px_per_m_at-3": 25.011,
+  "noise_in_box_px_at-3": 0,
+  "slot_sniper-3": 14,
+  "box_sniper-3": [
+    814,
+    919,
+    354,
+    433
+  ],
+  "px_per_m_sniper-3": 25.033,
+  "noise_in_box_px_sniper-3": 0,
+  "dropped_px_at-3": 0,
+  "mask_px_at-3": 286,
+  "second_blob_px_at-3": 0,
+  "dropped_px_sniper-3": 0,
+  "mask_px_sniper-3": 1327,
+  "second_blob_px_sniper-3": 0,
+  "px_per_m": 25.022,
+  "px_per_m_disagreement": 0.0004,
+  "mask_px_min": 125,
+  "mask_px_max_at-1": 4148,
+  "mask_m2_at-1": 0.612,
+  "mask_px_max_at-2": 4148,
+  "mask_m2_at-2": 0.466,
+  "mask_px_max_at-3": 4148,
+  "mask_m2_at-3": 0.457,
+  "mask_px_max_sniper-1": 4148,
+  "mask_m2_sniper-1": 2.608,
+  "mask_px_max_sniper-2": 4148,
+  "mask_m2_sniper-2": 2.268,
+  "mask_px_max_sniper-3": 4148,
+  "mask_m2_sniper-3": 2.119,
   "at_phases": [
-    0.9,
-    0.65,
-    0.35
+    0.95,
+    0.45,
+    0.32
+  ],
+  "at_clips": [
+    "ProneIdle",
+    "ProneIdle",
+    "ProneIdle"
   ],
   "sniper_phases": [
-    0.13,
-    0.4,
-    0.07
+    0.89,
+    0.89,
+    0.87
   ],
-  "at_phase_gap_min": 0.25,
+  "at_phase_gap_min": 0.13,
   "heading_diff_rad": {
-    "pair-1": 0.32,
-    "pair-2": 0.32,
-    "pair-3": 0.32
+    "pair-1": 1.11,
+    "pair-2": 1.11,
+    "pair-3": 1.11
   },
-  "problems": [
-    "at-2: the largest blob is 1435 px and the next is 1424 px, under 1.5x - the mask is ambiguous",
-    "sniper-2: the largest blob is 720 px, under the frame's own floor of 846 px (0.2 m2) - too small to be a man",
-    "sniper-2: the largest blob is 720 px and the next is 521 px, under 1.5x - the mask is ambiguous",
-    "at-3: the largest blob is 4208 px and the next is 3973 px, under 1.5x - the mask is ambiguous",
-    "sniper-3: the largest blob is 804 px, under the frame's own floor of 846 px (0.2 m2) - too small to be a man"
+  "silhouette_diff_readings": [
+    0.7655,
+    0.8003,
+    0.7981
   ],
-  "verdict": "the set is not fit to measure"
+  "silhouette_diff": 0.7655,
+  "spread_readings": 0.0348,
+  "spread_at": 0.3317,
+  "spread_sniper": 0.4,
+  "spread_max": 0.4,
+  "problems": [],
+  "verdict": "the prone AT rifleman reads as his own man"
 }
