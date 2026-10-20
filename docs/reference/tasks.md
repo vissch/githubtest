@@ -141,7 +141,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
   `docs/evidence/ability-fx-captures-r2-2-g1/probe.py` is the zoom-30 night pass: THREE takes of a build against one
   plate, a plate difference of 40 (a lift the eye reads, not r2's 20), and bars frozen from the before takes' own
-  run-to-run spread (`--baseline <d1> <d2> <d3> --plate <d>`, then `--after <d1> <d2> <d3>`, then no argument).
+  run-to-run spread (`--baseline <d1> <d2> <d3> --plate <d>`, then `--after <d1> <d2> <d3>`, then no argument;
+  `--plate-drift <d>` reports how far the changed build's own no-gas plate moved, as a row and not a bar). It is
+  what proved the 2026-10-20 look change: the bank went from 0.13% to 3.25% of the play frame at the same draw calls.
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
   `CaptureRig.Stress(1000, path)` runs 120 real seconds with no fixed tick or hash: never the same fight twice.

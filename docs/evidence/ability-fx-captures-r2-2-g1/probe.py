@@ -35,6 +35,9 @@ USAGE
     python probe.py --baseline <d1> <d2> <d3> --plate <d>   pack the three before takes and the plate, measure
                                                             them, and FREEZE the bars into baseline.json
     python probe.py --after <d1> <d2> <d3>                  pack the three after takes
+    python probe.py --plate-drift <d>                       pack the changed build's own plate (t1-plate2) and
+                                                            report plate_drift_px: a plate holds no gas cards, so
+                                                            a look change must not move it. A ROW, not a bar.
     python probe.py                                         measure the three after takes against the frozen bars
     python probe.py --selftest                              the camera maths, no images
 
@@ -356,9 +359,29 @@ def do_baseline(dirs, plate_dir):
     return 0
 
 
+def do_plate_drift(src):
+    """Pack the changed build's no-gas plate and count how many pixels moved from the before plate.
+
+    A plate pass skips every gas call, so the gas cards are not drawn at all and the look change cannot reach the
+    image. Any pixel that moves is JPEG or a stray in the scene, and the number is reported as a row: it is not a
+    bar and it cannot fail the probe.
+    """
+    pack(src, 'gas-t1-plate', 't1-plate2')
+    before, _ = load('t1-plate')
+    after, _ = load('t1-plate2')
+    d = distances(after, before)
+    moved = sum(1 for v in d if v >= DIFF_BAR)
+    print('plate_drift_px %d of %d (>= %d RGB distance, before plate vs the changed build plate)'
+          % (moved, FRAME_PX, DIFF_BAR))
+    return moved
+
+
 def main():
     if '--selftest' in sys.argv:
         return selftest()
+    drift = arg_dirs('--plate-drift', 1)
+    if drift is not None:
+        do_plate_drift(drift[0])
     base = arg_dirs('--baseline', 3)
     if base is not None:
         plate = arg_dirs('--plate', 1)

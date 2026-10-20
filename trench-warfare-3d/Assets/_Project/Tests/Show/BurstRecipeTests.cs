@@ -259,9 +259,10 @@ namespace TW.Tests
         public void TheGasBankLiesOnTheGround_NotOverAMansHead()
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
-            // third of the card, so a 7 m card's gas topped out at 2.33 m. Squashed it is 1.28 m, under a man's head.
-            float top = 7f * CombatFx.GasBankSquash / 3f;
-            Assert.Less(top, 1.8f, "the gas a 7 m card draws stays under a 1.8 m man's head");
+            // third of the card, so the widest card's gas topped out at 3.12 m. Squashed it is 1.71 m, under a man's head.
+            // The widest card is DrawGasBank's (6 + 2.5 * 1) * 1.1 = 9.35 m (r2-2-g1 widened it so the bank reads at zoom 30).
+            float top = 9.35f * CombatFx.GasBankSquash / 3f;
+            Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
         }
     }
