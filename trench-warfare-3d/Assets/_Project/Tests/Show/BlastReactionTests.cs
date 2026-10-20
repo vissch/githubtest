@@ -194,6 +194,28 @@ namespace TW.Tests
             }
         }
 
+        /// <summary>Harsh critic r1, 2026-10-19: men a shell killed lay in a heap where they stood. The sim throws nobody
+        /// past 0.85 of the radius, so out there the picture had no knock to work from and the controller left the body
+        /// on its own spot. Every blast death now clears its spot by at least MinThrowOut (the goal's bar is 1.5 m).</summary>
+        [Test]
+        public void ABlastDeathWithNoKnockIsStillThrownClear()
+        {
+            using var r = new Rig();
+            int man = r.Man(7f);   // inside the 8 m burst, past where the sim throws anyone
+            r.M.World.Events.Clear();
+            r.Tick();
+            Assert.AreEqual(0f, math.length(r.M.World.Knock[man]), "the sim gives him no knock at all");
+            uint at = r.M.World.Tick;
+            r.Shell();
+            r.M.World.Despawn(man, (int)DeathCause.Blast, new float3(0f, 1f, 0f), 0f);   // killed by the burst, no knock
+            r.Tick();
+
+            Assert.IsTrue(r.A.TryDeath(man, at, out var rec), "the death is on the ring");
+            Assert.AreEqual(Clip.DeathThrown, rec.Clip, "he is thrown, not folded where he stood");
+            Assert.GreaterOrEqual(math.sqrt(rec.ThrowX * rec.ThrowX + rec.ThrowZ * rec.ThrowZ), 1.5f, "and comes down at least 1.5 m out");
+            Assert.Greater(rec.ThrowUp, 0.05f, "with enough of an arc for the effects to build a path (CombatFx.Deaths)");
+        }
+
         [Test]
         public void TheCameraFeelsABurstWhenTheSoundArrives()
         {
