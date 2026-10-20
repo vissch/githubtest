@@ -1366,22 +1366,42 @@ class Runs(Repo):
         self.assertIsNone(launch.proc_start(leg["child_pid"]))
 
     def test_the_run_time_cap_ends_a_leg_and_starts_no_other(self):
+        # [run-time-cap-test-not-load-flaky-20261019] the cap used wall time, so the runner's own start-up (making
+        # a leg folder, a board commit) could spend the 3 s before leg 1 even started on a loaded desktop, leaving
+        # 0 legs instead of 1. A fake clock that only moves where this test moves it removes that race.
         self.queue("u1")
         self.script({"plan": [{"sleep": 120}]})
         r = runner.Run(self.args())
-        real = r.no_room
 
-        def from_the_leg(*a, **k):      # the 3 s count from the first leg's own check, not from the run's start-up:
-            if not r.legs:              # on a loaded desktop the start-up alone took over 3 s, and no leg ran (0 != 1)
-                r.deadline = time.time() + 3
-            return real(*a, **k)
-        r.no_room = from_the_leg
-        with contextlib.redirect_stdout(io.StringIO()):
-            r.loop()
+        class Tick:
+            t = 1_000_000.0                 # below real epoch time, on purpose: see the plan's Checks
+        tick = Tick()
+        real_now, real_run_leg = runner.now, launch.run_leg
+        seen = []
+
+        def fake_run_leg(d, lim, seconds, *a):
+            seen.append(seconds)
+            leg = real_run_leg(d, lim, seconds, *a)
+            tick.t += seconds
+            return leg
+        runner.now = lambda: tick.t
+        launch.run_leg = fake_run_leg
+        try:
+            r.deadline = tick.t + 3
+            with contextlib.redirect_stdout(io.StringIO()):
+                r.loop()
+        finally:
+            runner.now, launch.run_leg = real_now, real_run_leg
         stop = json.loads(sorted((self.board / "relay" / "desktop" / "stops").glob("*.json"))[-1].read_text(encoding="utf-8"))
-        self.assertIn("hours are up", stop["reason"])
-        self.assertEqual(stop["reason_kind"], "hours")
-        self.assertEqual(stop["legs"], 1)
+        self.assertEqual(seen, [3.0], "[run-time-cap-test-not-load-flaky-20261019] the leg's time limit did not "
+                          "come from the run-time cap")
+        self.assertIn("hours are up", stop["reason"], "[run-time-cap-test-not-load-flaky-20261019] %s" % stop)
+        self.assertEqual(stop["reason_kind"], "hours", "[run-time-cap-test-not-load-flaky-20261019] %s" % stop)
+        self.assertEqual(stop["legs"], 1, "[run-time-cap-test-not-load-flaky-20261019] the cap did not end exactly "
+                          "one leg")
+        leg = legdir.read(legdir.leg_path(stop["run"], 1))
+        self.assertEqual(leg["state"], "TIMEOUT", "[run-time-cap-test-not-load-flaky-20261019] the leg was not "
+                          "killed by the cap")
 
     def test_a_leg_that_cannot_be_trusted_stops_the_run_without_a_verdict(self):
         cases = (({"mode": "default", "plan": [{"write": "plan.md", "text": PLAN}]}, "not auto"),
