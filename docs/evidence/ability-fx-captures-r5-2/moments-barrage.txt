@@ -1,0 +1,10 @@
+search: the disagreement share (IsWater wet AND WaterDepth < SplashDepth 0.2 m) of cells on a 2 m grid within 12 m, no water over SplashDepth within 25 m
+round 0: 58, 228 share 0.1302 (22 of 169 cells; IsWater wet 22; deepest 0 m)
+round 1: warm-up barrage at 58, 228 -> share 0.1302 (22 of 169 cells; deepest 0 m); FLOODED over 25 m, point dropped
+moved to 16, 58 share 0.1243
+round 2: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0 m)
+round 3: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0.307 m); FLOODED over 25 m, point dropped
+moved to 56, 228 share 0.1006
+final: barrage at 56, 228; disagreement share 0.1006 (21 of 169 cells, IsWater wet 21); deepest standing water 0 m, SplashDepth 0.2 m (FALLBACK: the best disagreement share after the warm-up rounds is only 0.101, under 0.5)
+plate-t1 and plate-o240: the same pose, before the call, no area marker
+barrage-t1 and barrage-o240: Explosion never fired in 20 s: shot anyway

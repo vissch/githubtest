@@ -1,0 +1,31 @@
+GreyboxCorridor, NightMud (the owner's night look), clock running, weather pinned at 30 s.
+The plume is measured by card shape and chroma distance from SplashTint (decision (a), 2026-10-19), never by a frame blue share.
+search: the disagreement share (IsWater wet AND WaterDepth < SplashDepth 0.2 m) of cells on a 2 m grid within 12 m, no water over SplashDepth within 25 m
+round 0: 58, 228 share 0.1302 (22 of 169 cells; IsWater wet 22; deepest 0 m)
+round 1: warm-up barrage at 58, 228 -> share 0.1302 (22 of 169 cells; deepest 0 m); FLOODED over 25 m, point dropped
+moved to 16, 58 share 0.1243
+round 2: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0 m)
+round 3: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0.307 m); FLOODED over 25 m, point dropped
+moved to 56, 228 share 0.1006
+final: barrage at 56, 228; disagreement share 0.1006 (21 of 169 cells, IsWater wet 21); deepest standing water 0 m, SplashDepth 0.2 m (FALLBACK: the best disagreement share after the warm-up rounds is only 0.101, under 0.5); BASELINE run: SceneHooks.WaterDepth nulled after the plates, CombatFx on the old IsWater test
+plate-t1 and plate-o240: the same pose, before the call, no area marker
+barrage-t1 and barrage-o240: Explosion never fired in 20 s: shot anyway
+search: the disagreement share (IsWater wet AND WaterDepth < SplashDepth 0.2 m) of cells on a 2 m grid within 12 m, no water over SplashDepth within 25 m
+round 0: 58, 228 share 0.1302 (22 of 169 cells; IsWater wet 22; deepest 0 m)
+round 1: warm-up barrage at 58, 228 -> share 0.1302 (22 of 169 cells; deepest 0 m); FLOODED over 25 m, point dropped
+moved to 16, 58 share 0.1243
+round 2: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0 m)
+round 3: warm-up barrage at 16, 58 -> share 0.1243 (21 of 169 cells; deepest 0.307 m); FLOODED over 25 m, point dropped
+moved to 56, 228 share 0.1006
+final: barrage at 56, 228; disagreement share 0.1006 (21 of 169 cells, IsWater wet 21); deepest standing water 0 m, SplashDepth 0.2 m (FALLBACK: the best disagreement share after the warm-up rounds is only 0.101, under 0.5)
+plate-t1 and plate-o240: the same pose, before the call, no area marker
+barrage-t1 and barrage-o240: Explosion never fired in 20 s: shot anyway
+baseline-1-barrage-t1: against baseline-1-plate-t1.png | effect_area 0.1613, plume_score 0.0021, outside_bbox_luma_diff 3.632 | pose_error_m 0
+baseline-2-barrage-t1: against baseline-2-plate-t1.png | effect_area 0.1529, plume_score 0.0029, outside_bbox_luma_diff 2.561 | pose_error_m 0
+baseline-3-barrage-t1: against baseline-3-plate-t1.png | effect_area 0.1529, plume_score 0.0029, outside_bbox_luma_diff 2.561 | pose_error_m 0
+barrage-1-barrage-t1: against barrage-1-plate-t1.png | effect_area 0.1528, plume_score 0.0031, outside_bbox_luma_diff 2.565 | pose_error_m 0
+barrage-2-barrage-t1: against barrage-2-plate-t1.png | effect_area 0.1528, plume_score 0.0031, outside_bbox_luma_diff 2.565 | pose_error_m 0
+barrage-3-barrage-t1: against barrage-3-plate-t1.png | effect_area 0.1530, plume_score 0.0031, outside_bbox_luma_diff 2.566 | pose_error_m 0
+barrage-1-barrage-o240: against barrage-1-plate-o240.png | effect_area 0.0170, plume_score 0.0076, outside_bbox_luma_diff 0.815 | pose_error_m 0
+barrage-2-barrage-o240: against barrage-2-plate-o240.png | effect_area 0.0170, plume_score 0.0076, outside_bbox_luma_diff 0.815 | pose_error_m 0
+barrage-3-barrage-o240: against barrage-3-plate-o240.png | effect_area 0.0170, plume_score 0.0076, outside_bbox_luma_diff 0.815 | pose_error_m 0

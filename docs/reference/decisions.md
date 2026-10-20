@@ -304,6 +304,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-20 | **R1 C1.** **The barrage A/B measures the old water plume by card shape and colour distance from `SplashTint`, not by a frame blue share: option (a).** The r5 row above this one asked the owner to pick; nobody was there to ask, so the relay coordinator took (a) on 2026-10-19 as a **measuring** choice - it changes how the picture is read, never what the code draws, and the bar is set outside the measured noise (three baseline and three barrage shots, `min(baseline) - max(barrage) >= 3x` the wider spread, `min(baseline) >= 0.05`). Not the owner's word: a coordinator's reading, recorded so no later leg reopens it. Options (b) lowering `BLUE_LEAD` and (c) another field are not taken. Carried out on `lane/show/ability-fx-captures-r5-2`, which also carries r5's three commits and the held-back guard test `BarrageShotsHideTheAreaMarker`. (the relay coordinator, 2026-10-19; the r5 leg's measured 0.0183 against 0.10 stands as the reason) |
 
 ## Open: waiting on the owner
+- **The barrage A/B is shot and measured, and it does not separate the old code from the new one (2026-10-20, lane
+  `lane/show/ability-fx-captures-r5-2`):** six real CaptureRig runs in GreyboxCorridor at night, all at 56, 228,
+  overlays off, each shot against its own plate, measured by the card-shape and `SplashTint` chroma rule of the row
+  above (`docs/evidence/ability-fx-captures-r5-2/probe.json`). The old code's plume scores 0.0021, 0.0029, 0.0029;
+  the current code's 0.0031, 0.0031, 0.0031. The unit's bars `min(baseline) >= 0.05` and
+  `min(baseline) - max(barrage) >= 3x` the spread both fail, and the gap has the wrong sign. The other bars pass
+  (`barrage_effect_area_t1` 0.1528, `o240` 0.0170, `outside_bbox_luma_diff` 2.57, every `pose_error_m` 0), so the
+  pictures and the camera are sound. The reason is in the pictures, not the measure: the best disagreeing ground on
+  this map is 10% of cells, and all six runs logged "Explosion never fired in 20 s: shot anyway", so what was
+  photographed is the warm-up barrage's aftermath, not a shell going off in a damp patch. The rule is not loosened
+  (the unit's card). Options: (a) accept the dry-ground fix on the `BurstRecipeTests.SplashNeedsStandingWater` unit
+  test and the r4/r5 stills, and drop the pixel A/B as unprovable on this map (the default taken, because no change
+  to what the barrage draws is in this unit's scope); (b) build a map or a scene hook with real damp ground - a
+  wide flooded patch under `SplashDepth` - and reshoot the A/B there; (c) make `BarrageDryStills` wait for a shell
+  it fires itself instead of the ambient barrage, so the moment photographed is a known burst.
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every

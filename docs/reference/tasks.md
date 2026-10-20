@@ -140,7 +140,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   calls damp ground wet; the stills and their measurements are `docs/evidence/ability-fx-captures-r4/` and, after the
   harsh critic's r1 (overlays off in every shot, a baseline with its own plate and sidecars),
   `docs/evidence/ability-fx-captures-r5/` (probe.py there measures `outside_bbox_luma_diff` as well: outside the
-  burst's bbox a shot and its plate must be the same picture). `CaptureRig.QuietFrame()` is what turns the aim disc
+  burst's bbox a shot and its plate must be the same picture). The A/B's measure is the plume's card shape and its
+  chroma distance from `SplashTint`, never a frame blue share, and its stills are
+  `docs/evidence/ability-fx-captures-r5-2/` (three runs of the old code and three of the current one; measured, the
+  old plume scores 0.0021-0.0029 against the current 0.0031, so the A/B does not separate them at this point).
+  `CaptureRig.QuietFrame()` is what turns the aim disc
   and the camera shake off for a still.
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written),
