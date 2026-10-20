@@ -289,6 +289,15 @@ namespace TW.Editor
             // measured the fire every time. Slot order, so two shots of the same scene list the same men in the
             // same places.
             var boxes = new List<float[]>();
+            // NOT cam.projectionMatrix. The shot is rendered into a w x h render texture, but the camera's own
+            // projection still carries the aspect of whatever game view this editor has — 482 x 797 in batch mode,
+            // aspect 0.605 against the image's 1.778. Reading it put every man about 2.9x too far from the middle
+            // horizontally (measured 2026-10-20: the Sniper drawn at x 867 was reported at x 991), while the vertical
+            // was right, because Unity's fieldOfView is the vertical one and does not depend on the aspect. The
+            // picture's own aspect is the only honest one here.
+            Matrix4x4 boxProj = cam != null
+                ? Matrix4x4.Perspective(cam.fieldOfView, (float)w / h, cam.nearClipPlane, cam.farClipPlane)
+                : Matrix4x4.identity;
             int inFrame = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host != null && host.Local != null && cam != null)
@@ -302,7 +311,13 @@ namespace TW.Editor
                     // recorded before any of the contrast ring's own skips below: a man too small or too near the
                     // border for an honest contrast reading was still drawn, and a reading that masks him needs to
                     // know where
-                    if (ManBox(cam.worldToCameraMatrix, cam.projectionMatrix, w, h, (Vector3)host.Presenter.Drawn(s),
+                    // on the GROUND he is drawn standing on, not on world y = 0. The sim keeps every man's y at
+                    // zero and the renderer lifts him onto the terrain, so a box projected from the sim's own
+                    // position sat a whole hill too low: at (45, 25) the ground is 3.07 m up, which is 77 px of
+                    // this frame, and the box missed the man entirely (measured 2026-10-20).
+                    Vector3 drawn = (Vector3)host.Presenter.Drawn(s);
+                    drawn.y += host.Local.Map.Height.Sample(drawn.x, drawn.z);
+                    if (ManBox(cam.worldToCameraMatrix, boxProj, w, h, drawn,
                             out float bx, out float by, out float bTall))
                         boxes.Add(new[] { s, (float)world.Archetype[s], bx, by, bTall });
                     Vector3 sp = cam.WorldToScreenPoint(chest);
