@@ -1,25 +1,37 @@
-// Phase: deaths (2026-10-19, evidence) — the frog's death flop photographed ALONE and findable, after critic r1 threw
-// out frog-death-flop-r2 (12/100: "no frog can be found at the frame centre ... the stills are not frog alone ...
-// the 275 px leg motion has no noise floor"). Read DeathStills.cs's header for why this is an [Explicit] EditMode
-// test that enters Play itself.
+// Phase: deaths (2026-10-20, evidence) — the frog's death flop photographed ALONE, at the framing a player actually
+// sees, every shot taken with the clock stopped. Critic r1 gave frog-death-flop-r3 24/100: "at the player framing
+// (zoom 30, pitch 25) nothing reads as a frog at its mark; the area floor is taken at zoom 30 against takes at 4.66;
+// motion counts weather and exposure change (wind 8.3 vs 3.0)". Read DeathStills.cs's header for why this is an
+// [Explicit] EditMode test that enters Play itself.
 //
 // Run it by name WITH a graphics device (not -nographics):
 //   Unity.exe -batchmode -projectPath <project> -runTests -testPlatform EditMode -testFilter FrogFlopStills \
 //             -testResults <out.xml> -logFile <out.log>
-// Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-frogflop), TW_FROG_BASE=1 films the r2 framing
-// (zoom 30, pitch 25) as the probe's noise floor instead of the new take.
+// Environment: TW_STILLS_DIR where the stills go (default %TEMP%/tw-frogflop).
 //
-// What one take shoots, all on one frog staged by DeathLab.FrogAlone on empty ground far from the battle:
-//   <t>_p05/p10/p15.png   death +0.5 / +1.0 / +1.5 s, aimed at the body, pitch 60 (a belly-up body foreshortens
-//                         away at pitch 25), marked with CaptureRig.MarkFallen so every sidecar says where he is;
-//   <t>_frz_b/frz_c.png   the SAME held instant as p15 (CaptureRig.Hold, never released in between): the probe's
-//                         noise floor for "the legs moved", which r1 said was missing;
-//   <t>_plate.png         that same instant with the body taken away (VATRenderer.ClearFallen): p15 minus the plate
-//                         IS the frog's pixels, so the probe measures his area instead of guessing a box.
-// The zoom is not typed: take 0 shoots a trial still and reads mark_px_per_m out of its own sidecar, and the zoom is
-// scaled from that until a metre is at least 150 px (the 5%-of-an-800x600-crop bar).
-// It asserts the take is honest (men_in_frame 0, fallen_in_frame 0, mark_in_frame 1, rain 0, pose_error_m < 0.5) and
-// fails the take rather than letting a lying set be committed; judging the pictures is the probe's and the critic's job.
+// ONE framing for everything, and it is the player's: zoom 30, pitch 25, 1920x1080, the tactical camera's own aim,
+// TacticalCamera.ZoomMin and CloseFitHeight untouched. r3's zoom trial drove the takes to 4.66 and then compared
+// their area against a floor shot at 30 — a comparison of two different pictures. There is no trial here and no
+// second framing: every still of every take, frog and plate alike, comes out of the same camera, so the probe can
+// subtract one from another and what is left is the change and nothing else.
+//
+// What one take shoots, all on one frog staged by DeathLab.FrogAlone on empty ground far from the battle, each still
+// inside its OWN CaptureRig.Hold(120f) / Release():
+//   <t>_m0.png / <t>_m1.png     death +1.0 s and +2.0 s — a second apart, both inside the 2.6 s twitch whose
+//                               one-second read FrogDeathTests.TheTwitchReadsASecondApart guards. The motion pair.
+//   <t>_i0.png / <t>_i1.png     death +4.0 s and +5.0 s — the twitch is over: the same camera, the same second's
+//                               gap, nothing moving. The idle pair IS the noise floor for the motion pair.
+//   <t>_plate.png               still inside t_i1's hold, the body taken away (VATRenderer.ClearFallen): i1 minus
+//   <t>_plate2.png              the plate IS the frog's pixels. A second plate in the same hold is the floor for
+//                               that subtraction: frog-free ground against frog-free ground, same instant.
+// Why Hold for all of them: r3's live shots read wind 7.4-8.3 and its held ones 2.98 (take1_p05.json vs
+// take1_p15.json), so the blast gust rode in the live frames only and every live-versus-held difference counted the
+// weather. CaptureRig.Hold stops the clock and pins the weather clock, and r3's three held shots of one pose
+// differed by exactly 0 px — that is the instrument the critic asked for.
+//
+// It asserts every take is honest (men_in_frame 0, fallen_in_frame 0, mark_in_frame 1, rain 0, pose_error_m < 0.5)
+// and fails the take rather than letting a lying set be committed; judging the pictures is probe.py's and the
+// critic's job.
 using System.Collections;
 using System.Globalization;
 using System.IO;
@@ -42,8 +54,8 @@ namespace TW.Tests
     {
         const string Scene = "Assets/_Project/Scenes/GreyboxCorridor.unity";
         const int W = 1920, H = 1080;
-        /// <summary>A metre must be at least this many pixels for the frog to fill 5% of an 800x600 crop.</summary>
-        const float WantPerM = 150f;
+        /// <summary>The player's framing, not a framing chosen to flatter the frog.</summary>
+        const float Zoom = 30f, Pitch = 25f, Yaw = 40f;
 
         static SimHost Host => Object.FindFirstObjectByType<SimHost>();
         static VATRenderer Vat => Object.FindFirstObjectByType<VATRenderer>();
@@ -87,11 +99,35 @@ namespace TW.Tests
             Assert.That(Side(png, "fallen_in_frame"), Is.EqualTo(0f), png + ": another body shares the frame");
             Assert.That(Side(png, "rain"), Is.LessThan(0.001f), png + ": rain is not pinned off");
             Assert.That(Side(png, "pose_error_m"), Is.LessThan(0.5f), png + ": the camera is not where the shot asked");
+            Assert.That(Side(png, "zoom"), Is.EqualTo(Zoom), png + ": not the player's zoom");
+            Assert.That(Side(png, "pitch"), Is.EqualTo(Pitch), png + ": not the player's pitch");
             if (marked) Assert.That(Side(png, "mark_in_frame"), Is.EqualTo(1f), png + ": the marked frog is not in the frame");
         }
 
         /// <summary>Which fallen body the current take staged (VATRenderer's index).</summary>
         int Marked;
+
+        /// <summary>
+        /// Where the battle is, taken from the map and not from the sim: the middle of the corridor. Two different
+        /// reads of the living men threw a NullReferenceException here on four runs of this batch — CaptureRig.Crowd
+        /// (through SimHost.Presenter) and a direct read of the sim world's Position array alike, and a try/catch
+        /// around the direct read did not catch it, so whatever is null is not reachable from this test's code at
+        /// this moment in a batch-mode Play. It is not worth a blocked leg: this number only chooses WHERE to stage a
+        /// frog, GreyboxCorridor puts its two lines either side of the middle of its 90 x 276 m corridor by
+        /// construction, and Honest() is what makes a take honest — it fails any still whose sidecar counts a living
+        /// man in the frame, however the patch was picked.
+        /// </summary>
+        static Vector2 Battle(MapData map) => new Vector2(map.SizeMeters.x * 0.5f, map.SizeMeters.y * 0.5f);
+
+        /// <summary>A line straight to disk. TestContext.Out is buffered and everything written after the last
+        /// flush is lost when the coroutine throws, so four runs of this capture reported an exception with no trace
+        /// of how far the take had got. A file append is on disk before the next statement runs.</summary>
+        static string TraceDir;
+        static void Mark(string text)
+        {
+            if (!string.IsNullOrEmpty(TraceDir)) File.AppendAllText(Path.Combine(TraceDir, "trace.txt"), text + System.Environment.NewLine);
+            TestContext.Out.WriteLine(text);
+        }
 
         /// <summary>Open ground for a staging: no trench, ladder, wire, bunker or blocked cell (deep water is blocked,
         /// and the first take of this set staged a frog in the sea and photographed flat blue) and no prop within
@@ -119,7 +155,7 @@ namespace TW.Tests
         {
             Vat.ClearFallen();                       // no body from an earlier take can be in this one's frame
             DeathGags.Pin(1f);
-            TestContext.Out.WriteLine($"frog at {x}, {z}: " + DeathLab.FrogAlone(x, z));
+            Mark($"frog at {x}, {z}: " + DeathLab.FrogAlone(x, z));
             // the body that landed on this patch, whichever index he took: a death elsewhere in the battle can beat
             // him into the list, and marking index 0 blindly would mark a stranger
             for (int f = 0; f < 900 && Vat.FallenCount < 1; f++) yield return null;
@@ -133,7 +169,7 @@ namespace TW.Tests
                 float d = Vector2.Distance(new Vector2(at.x, at.z), new Vector2(x, z));
                 if (d < best) { best = d; mine = i; }
             }
-            TestContext.Out.WriteLine($"body {mine} of {Vat.FallenCount}, {best:F1} m from the patch");
+            Mark($"body {mine} of {Vat.FallenCount}, {best:F1} m from the patch");
             Marked = mine;
             CaptureRig.MarkFallen(mine);
             yield return null;
@@ -155,7 +191,8 @@ namespace TW.Tests
             string dir = System.Environment.GetEnvironmentVariable("TW_STILLS_DIR");
             if (string.IsNullOrEmpty(dir)) dir = Path.Combine(Path.GetTempPath(), "tw-frogflop");
             Directory.CreateDirectory(dir);
-            bool baseMode = System.Environment.GetEnvironmentVariable("TW_FROG_BASE") == "1";
+            TraceDir = dir;
+            Mark("--- run begins");
 
             // quiet: nobody deploys, attacks or drops a shell of their own, so the only death is the one we stage
             Host.ScriptedPeer = false; Host.PeerAttacks = false;
@@ -170,101 +207,96 @@ namespace TW.Tests
             var tc = Object.FindFirstObjectByType<TW.Presentation.Tactical.TacticalCamera>();
             Assert.That(tc, Is.Not.Null, "no TacticalCamera");
             tc.BaseYaw = -90f;
-            if (!baseMode)
-            {
-                // without this, Pose clamps every zoom up to NearZoom (~15) and the frog can never fill the crop
-                tc.ZoomMin = 1.5f; tc.CloseFitHeight = 1.2f;
-            }
-            float pitch = baseMode ? 25f : 60f;
-            // The camera looks 1.5 m above the body, not at it: at pitch 60 and ~190 px/m a body aimed at exactly
-            // sits high in the frame (the first set cut him off at the top edge), because what is drawn stands above
-            // the point the mark projects. Base mode keeps the tactical camera's own aim, as r2 had it.
-            const float AimAbove = 1.5f;
+            // ZoomMin and CloseFitHeight are deliberately NOT touched, and aimY stays NaN (the tactical camera's own
+            // aim): a still a player could not get is no evidence about what a player sees.
 
             // open ground far from the battle, a take's own patch each, found in the map rather than typed: the first
             // run of this take staged its frog off the playable ground and photographed flat blue water
             var map = Host.Local.Map;
-            var crowd = CaptureRig.Crowd();
+            Mark($"map {map.SizeMeters.x:F0} x {map.SizeMeters.y:F0} m, {map.Props.Length} props");
+            var crowd = Battle(map);
+            Mark($"battle taken as the corridor centre {crowd.x:F0}, {crowd.y:F0}");
+            // The FARTHEST open patches, not the first ones found. At zoom 30 the frame is 1920 px / 31.36 px per m =
+            // 61 m across, so the first run of this framing caught a living man walking into take2's frame from a
+            // battle 120 m away: the wide player framing sees eight times the ground r3's zoom 4.66 did. GreyboxCorridor
+            // is 90 x 276 m, so there is no corner of it a fixed distance bar can reach — a hard 120 m floor on a 90 m
+            // wide map is a bar the map cannot clear. Instead EVERY open candidate is collected, sorted by how far it
+            // lies from the thickest knot of men, and the three used are simply the most remote the map has, kept 40 m
+            // apart from each other (Stage clears the fallen list, so no neighbouring take's body can share a frame;
+            // the living are what distance has to buy). Honest() is still the guard: a man in the frame fails the take.
+            var candidates = new System.Collections.Generic.List<Vector2>();
+            try
+            {
+                for (float zz = 20f; zz < map.SizeMeters.y - 20f; zz += 4f)
+                    for (float xx = 20f; xx < map.SizeMeters.x - 20f; xx += 4f)
+                        if (Open(map, xx, zz, 8f)) candidates.Add(new Vector2(xx, zz));
+            }
+            catch (System.Exception e) { TestContext.Out.WriteLine("SCAN THREW: " + e); throw; }
+            Mark($"{candidates.Count} open candidates");
+            candidates.Sort((a, b) => Vector2.Distance(b, crowd).CompareTo(Vector2.Distance(a, crowd)));
             var spots = new System.Collections.Generic.List<Vector2>();
-            for (float zz = 20f; zz < map.SizeMeters.y - 20f && spots.Count < 4; zz += 8f)
-                for (float xx = 20f; xx < map.SizeMeters.x - 20f && spots.Count < 4; xx += 8f)
-                {
-                    // far from the fight: at 60 m the wide base framing still caught two other corpses that had
-                    // fallen on the patch while the frog was being staged
-                    if (Vector2.Distance(new Vector2(xx, zz), crowd) < 120f) continue;
-                    bool clear = true;
-                    foreach (var u in spots) if (Vector2.Distance(u, new Vector2(xx, zz)) < 16f) clear = false;
-                    if (clear && Open(map, xx, zz, 8f)) spots.Add(new Vector2(xx, zz));
-                }
-            Assert.That(spots.Count, Is.EqualTo(4), "no four patches of open ground away from the battle");
+            foreach (var c in candidates)
+            {
+                if (spots.Count >= 3) break;
+                bool clear = true;
+                foreach (var u in spots) if (Vector2.Distance(u, c) < 40f) clear = false;
+                if (clear) spots.Add(c);
+            }
+            Assert.That(spots.Count, Is.EqualTo(3), "no three remote patches of open ground on this map");
+            foreach (var s in spots) Mark($"patch {s.x:F0}, {s.y:F0} is {Vector2.Distance(s, crowd):F0} m from the battle");
             TestContext.Out.WriteLine("patches: " + string.Join(", ", spots));
             int written = 0;
-            float zoom = baseMode ? 30f : 6f;
-
-            if (!baseMode)
-            {
-                // take 0: one trial still, and the zoom read off its own sidecar instead of typed
-                yield return Stage(spots[0].x, spots[0].y);
-                for (int attempt = 0; attempt < 5; attempt++)
-                {
-                    var at = Vat.FallenPos(Marked);
-                    string trial = Path.Combine(dir, $"trial_{attempt}.png");
-                    Fresh(trial);
-                    CaptureRig.Shot(trial, at.x, at.z, zoom, 40f, pitch, W, H, at.y + AimAbove);
-                    yield return Drain(trial);
-                    float perM = Side(trial, "mark_px_per_m");
-                    TestContext.Out.WriteLine($"trial {attempt}: zoom {zoom:F2} -> {perM:F1} px/m");
-                    if (!(perM > 1f)) break;
-                    if (perM >= WantPerM) break;
-                    zoom = Mathf.Max(tc.ZoomMin, zoom * perM / (WantPerM * 1.2f));   // 20% of margin over the bar
-                }
-            }
 
             for (int take = 0; take < 3; take++)
             {
-                string stem = baseMode ? $"base{take}" : $"take{take}";
-                var spot = spots[take + (baseMode ? 0 : 1)];
+                string stem = $"take{take}";
+                var spot = spots[take];
+                Mark($"take {take} staging at {spot.x:F0}, {spot.y:F0}");
                 yield return Stage(spot.x, spot.y);
                 float death = Time.time;
+                Mark($"take {take} staged, Vat is {(Vat == null ? "NULL" : "there")}, Marked {Marked}");
                 var body = Vat.FallenPos(Marked);
-                float aimY = baseMode ? float.NaN : body.y + AimAbove;
+                Mark($"take {take} body at {body.x:F1}, {body.y:F1}, {body.z:F1}");
 
-                if (!baseMode)
+                // the four poses, each one photographed with the clock stopped and let go again: m0/m1 a second apart
+                // inside the twitch, i0/i1 a second apart after it. Same camera, same weather clock, four times.
+                foreach (var shot in new[] { (dt: 1.0f, name: "m0"), (dt: 2.0f, name: "m1"), (dt: 4.0f, name: "i0") })
                 {
-                    foreach (var shot in new[] { (dt: 0.5f, name: "p05"), (dt: 1.0f, name: "p10") })
-                    {
-                        while (Time.time < death + shot.dt) yield return null;
-                        string path = Path.Combine(dir, $"{stem}_{shot.name}.png");
-                        tc.BaseYaw = -90f;
-                        Fresh(path);
-                        CaptureRig.Shot(path, body.x, body.z, zoom, 40f, pitch, W, H, aimY);
-                        yield return Drain(path);
-                        Honest(path, true); written++;
-                    }
+                    while (Time.time < death + shot.dt) yield return null;
+                    CaptureRig.Hold(120f);
+                    string path = Path.Combine(dir, $"{stem}_{shot.name}.png");
+                    tc.BaseYaw = -90f;
+                    Fresh(path);
+                    Mark($"shooting {shot.name}");
+                    CaptureRig.Shot(path, body.x, body.z, Zoom, Yaw, Pitch, W, H);
+                    yield return Drain(path);
+                    Honest(path, true); written++;
+                    CaptureRig.Release();
+                    for (int f = 0; f < 5; f++) yield return null;
                 }
-                while (Time.time < death + 1.5f) yield return null;
 
-                // one held instant: p15, two more of the very same pose (the noise floor), then the body taken away
-                // (the plate). Never released in between, or the plate would be a different world.
+                // i1 and, without ever releasing, the two plates: the body is taken away inside the same held instant,
+                // so i1 minus plate is the frog and plate minus plate2 is what that subtraction costs on bare ground.
+                while (Time.time < death + 5.0f) yield return null;
                 CaptureRig.Hold(120f);
-                string[] frozen = baseMode ? new[] { "still" } : new[] { "p15", "frz_b", "frz_c" };
-                foreach (string name in frozen)
+                string i1 = Path.Combine(dir, $"{stem}_i1.png");
+                tc.BaseYaw = -90f;
+                Fresh(i1);
+                CaptureRig.Shot(i1, body.x, body.z, Zoom, Yaw, Pitch, W, H);
+                yield return Drain(i1);
+                Honest(i1, true); written++;
+
+                Vat.ClearFallen();
+                yield return null;
+                foreach (string name in new[] { "plate", "plate2" })
                 {
                     string path = Path.Combine(dir, $"{stem}_{name}.png");
                     tc.BaseYaw = -90f;
                     Fresh(path);
-                    CaptureRig.Shot(path, body.x, body.z, zoom, 40f, pitch, W, H, aimY);
+                    CaptureRig.Shot(path, body.x, body.z, Zoom, Yaw, Pitch, W, H);
                     yield return Drain(path);
-                    Honest(path, true); written++;
+                    Honest(path, false); written++;
                 }
-                Vat.ClearFallen();
-                yield return null;
-                string plate = Path.Combine(dir, $"{stem}_plate.png");
-                tc.BaseYaw = -90f;
-                Fresh(plate);
-                CaptureRig.Shot(plate, body.x, body.z, zoom, 40f, pitch, W, H, aimY);
-                yield return Drain(plate);
-                Honest(plate, false); written++;
                 CaptureRig.Release();
                 for (int f = 0; f < 30; f++) yield return null;
             }
@@ -274,8 +306,8 @@ namespace TW.Tests
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             Time.captureDeltaTime = 0f;
             yield return new ExitPlayMode();
-            TestContext.Out.WriteLine($"wrote {written} stills to {dir} at zoom {zoom.ToString("0.00", CultureInfo.InvariantCulture)}");
-            Assert.That(written, Is.GreaterThanOrEqualTo(baseMode ? 6 : 18), "the set is short: a take failed to land");
+            TestContext.Out.WriteLine($"wrote {written} stills to {dir} at zoom {Zoom.ToString("0.00", CultureInfo.InvariantCulture)}");
+            Assert.That(written, Is.GreaterThanOrEqualTo(15), "the set is short: a take failed to land");
         }
     }
 }
