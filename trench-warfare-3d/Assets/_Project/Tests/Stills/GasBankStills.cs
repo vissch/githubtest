@@ -17,6 +17,15 @@
 //  - SessionState "tw.gasbank.plate", or TW_GAS_PLATE=1, runs the identical script with the gas calls skipped, so
 //    only the gas cards differ; SessionState "tw.gasbank.dir" or TW_STILLS_DIR says where the stills go
 //    (default %TEMP%/tw-gasbank: never inside the checkout).
+//  - r2-3-g2: a THIRD band, "side", grazing the bank instead of looking down on it. Both T1 (pitch 25, zoom 30)
+//    and O240 (pitch 25, zoom 240) look down steeply enough that ground lying further out than the bank's own
+//    base reads as extra height: at T1's pose (zoom 30, fov 25, so distance = 30*tan(30deg)/tan(12.5deg) = 78.1 m,
+//    camera 33.0 m up, 70.8 m out) 10 m of ground beyond the bank's base sits 2.8 deg higher in frame, which turns
+//    into 70.8*tan(2.8deg) = 3.5 m of "height" that is only footprint depth - half of the 5.7-7.2 m the T1 band
+//    reports. The side band (zoom 16, pitch 8 - TacticalCamera.PitchMin, so as low as the pose allows; aimY
+//    raised to clear the horizon at this zoom) looks at the bank almost edge-on: at its pose (distance 41.7 m,
+//    camera 7.8 m up, 41.3 m out) the same 10 m of depth reads as only 41.3*tan(2.05deg) = 1.5 m, so what is left
+//    on screen is mostly the bank's own body card facing the lens, not ground sloping away under it.
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
@@ -162,6 +171,14 @@ namespace TW.Tests
                 yield return Block(dir, "gas-t1" + tail, "t1", tc, x, z, 30f, 25f,
                                    new List<Vector2> { new Vector2(x, z) }, plate, map);
 
+                // the side band: pitch 8 (TacticalCamera.PitchMin, as low as Pose allows) and zoom 16 (just above
+                // CloseZoom 15, so the lens stays at Fov 25) graze the bank instead of looking down on it. aimY is
+                // raised above the default (world y = 0) because at this zoom a raised patch would otherwise put
+                // the horizon out of frame.
+                yield return Block(dir, "gas-side" + tail, "side", tc, x, z, 16f, 8f,
+                                   new List<Vector2> { new Vector2(x, z) }, plate, map,
+                                   RenderGround.Sample(map, x, z) + 2f);
+
                 // the previous seed's cloud dies here, on a fixed count, so both passes stay in step
                 for (int f = 0; f < DrainFrames; f++) yield return null;
             }
@@ -180,7 +197,8 @@ namespace TW.Tests
         /// <summary>One band: frame it, gas it (unless this is the plate pass), wait out the cloud's life in FRAMES,
         /// photograph it, then pad to a fixed block so the two passes stay in step.</summary>
         static IEnumerator Block(string dir, string stem, string band, TacticalCamera tc, float x, float z,
-                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map)
+                                 float zoom, float pitch, List<Vector2> points, bool plate, MapData map,
+                                 float aimY = float.NaN)
         {
             int spent = 0;
             tc.BaseYaw = -90f; tc.Zoom = zoom; tc.Focus = new Vector2(x, z);
@@ -223,7 +241,7 @@ namespace TW.Tests
             float best = float.MaxValue;
             for (int tryNo = 0; tryNo < 3; tryNo++)
             {
-                CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720);
+                CaptureRig.Shot(path, x, z, zoom, 40f, pitch, 1280, 720, aimY);
                 yield return Drain(path);
                 spent += 12;
                 float err = Sidecar(path, "pose_error_m");
