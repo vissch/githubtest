@@ -135,8 +135,12 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   play zoom and one close, by day and by night, with a draw-call json a film; `TW_STILLS_DIR`, `TW_STILLS_FIELD` or
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`).
   `Tests/Stills/GasNightStills.cs` (the gas bank and the smoke bank alone, one still each at play zoom after 10 s,
-  for the night readability question; `TW_STILLS_DIR`, `TW_STILLS_FIELD`; measured by
-  `docs/evidence/gas-smoke-night/probe.py`).
+  for the night readability question; `TW_STILLS_DIR`, `TW_STILLS_FIELD`, `TW_STILLS_TAKE` (the take, appended to each
+  png as `_t<take>` so three runs of a field stand side by side). Each still gets a `<stem>.aim.json`: where the cloud
+  really stands in the frame, in pixels, from the sim field and the shot's own pose. Measured by
+  `docs/evidence/gas-smoke-night-g2/probe.py` (gas and smoke each on their own bar, from `bars.json`; the three takes
+  the bars were set from are in `baseline.json`, `--baseline` prints them). Its forerunner
+  `docs/evidence/gas-smoke-night/probe.py` published the min of the two stills and a fixed centre box.
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),
   GasNightStills (Explicit, a graphics device, about four minutes a look: it only checks that both stills were written),
   EffectFilmStills (Explicit, a graphics device, about ten minutes a look: it only checks that stills were written).
