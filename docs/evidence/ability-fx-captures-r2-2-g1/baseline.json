@@ -1,0 +1,54 @@
+{
+ "bars": {
+  "bank_area_bar": 0.03,
+  "contrast_bar": 50.57,
+  "height_frac": 0.15,
+  "low_share": 0.3,
+  "pose_error_max": 0.5
+ },
+ "before": {
+  "t1-before-1": {
+   "bank_area_frac": 0.00128,
+   "bank_contrast_p50": 50.57,
+   "bank_dist_m": 64.22,
+   "bank_height_m": 0.39,
+   "bank_px": 1182,
+   "columns": 75,
+   "frame_height_m": 28.47,
+   "height_frac": 0.0137,
+   "low_share": 0.9874,
+   "pose_error_m": 0.0
+  },
+  "t1-before-2": {
+   "bank_area_frac": 0.00128,
+   "bank_contrast_p50": 50.57,
+   "bank_dist_m": 64.22,
+   "bank_height_m": 0.39,
+   "bank_px": 1182,
+   "columns": 75,
+   "frame_height_m": 28.47,
+   "height_frac": 0.0137,
+   "low_share": 0.9874,
+   "pose_error_m": 0.0
+  },
+  "t1-before-3": {
+   "bank_area_frac": 0.00128,
+   "bank_contrast_p50": 50.57,
+   "bank_dist_m": 64.22,
+   "bank_height_m": 0.39,
+   "bank_px": 1182,
+   "columns": 75,
+   "frame_height_m": 28.47,
+   "height_frac": 0.0137,
+   "low_share": 0.9874,
+   "pose_error_m": 0.0
+  }
+ },
+ "built_from_commit": "f032514063",
+ "diff_bar": 40,
+ "frozen": "computed once, from the three before takes of commit f032514063; never recomputed",
+ "spread": {
+  "bank_area_frac": 0.0,
+  "bank_contrast_p50": 0.0
+ }
+}
