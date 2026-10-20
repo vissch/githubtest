@@ -70,15 +70,48 @@ The other three bars already pass on this baseline (`t1_changed_frac` worst 0.54
 regression bars: the soft bank must not lose them. `python probe.py --dir baseline --out baseline.json` exits 1,
 because the hull gap bar is the point of this round and the baseline is the thing it is set from.
 
+## Step 4, the toon cut off the bank (`after-hard/`)
+
+`FlipbookFx.BookHard` handed every `Deep` book `fx.smokeHard`, whose default is 1, and `GasBank` is `Deep`. With
+`Erode` off (r2-3-g1 step 4) the shader's `shape` is the sheet's own soft `tex.a`, and `Flipbook_URP.shader` line
+138 then stepped it at 0.5 over one `fwidth` - about a pixel. So the soft falloff r2-3-g1 paid for was thrown
+away at the last moment and every card was stamped as a flat pad with a crisp outline and an opaque middle. A
+`Bank` sheet now takes no cut at all (`Sheets[(int)book].Bank ? 0f : ...`); only `GasBank` has `Bank = true`, so
+no other book moves. Guarded by `BurstRecipeTests.TheGasBankTakesNoToonCut`, and
+`KnobsTests.ColumnHardKnob_DefaultIsTheOldLook_AndSetsTheCutOnTheColumnBookOnly` no longer lists `GasBank` among
+the books that take `fx.smokeHard`.
+
+Both passes re-shot frame for frame on the same build (`gas_cards` 1047 / 904 / 747, unchanged, so the harness
+did not move):
+
+| Seed | `t1_hull_gap_frac` | baseline | `t1_changed_frac` | `texture_var_drop` | `o240_hue_dist_deg` |
+|---|---|---|---|---|---|
+| s0 | 0.3308 | 0.3206 | 0.6097 | 0.7717 | 128.81 |
+| s1 | 0.3785 | 0.3702 | 0.5430 | 0.7693 | 136.57 |
+| s2 | 0.2715 | 0.2691 | 0.5911 | 0.7598 | 115.42 |
+
+The edges are soft in the picture - the crisp one-pixel outline is gone on all three seeds - and the three
+regression bars all hold with room (`t1_changed_frac` worst 0.5430 against 0.08, `texture_var_drop` worst 0.7598
+against 0.40, `o240_hue_dist_deg` worst 115.42 against 38.0). `t1_changed_frac` even rose, so the cut was indeed
+cutting the card's own rim away rather than only drawing it hard.
+
+**The hull gap did not move**: worst 0.3785 against `HULL_GAP_BAR` 0.1680, a shade *above* the baseline on every
+seed. So the hard edge and the mud in the holes are two separate faults. The cut was the "hard edges" half; what
+is left is a bank whose cards still do not cover the ground between them, and softening their rims makes each
+card's own edge cover slightly less, not more. The next step (one soft bank per seed) is what has to close it.
+`python probe.py --dir after-hard` exits 1 for that reason, on the hull gap bar alone.
+
 ## What is here
 
 | File | What it is |
 |---|---|
 | `probe.py` | the measure: r2-3's three bars (regression, unchanged) plus `t1_hull_gap_frac` (new). `--selftest`, `--pack`, `--dir`, `--out` all unchanged in shape |
+| `after-hard/` + `after-hard/probe.json` | the same three seeds and two bands with the bank's toon cut off (step 4 above): soft edges, the three regression bars held, the hull gap unmoved |
 | `baseline/` + `baseline.json` | three seeds, two bands, of the build **before** this round's fix (`f427286f0d`, the tip of `ability-fx-captures-r2-3-g1` this round starts from) - the control the hull gap bar is set against |
 
-The root of this folder holds no stills of its own yet: the "after" pictures (one soft bank per seed) are the next
-leg's work, and `probe.py` with no arguments exits 1 until they are captured and packed here.
+The root of this folder still holds no stills of its own: the final "after" pictures (one soft bank per seed) are
+the next leg's work, and `probe.py` with no arguments exits 1 until they are captured and packed into the root.
+`after-hard/` is a numbered waypoint on the way there, not the answer.
 
 The harness and commands are unchanged from r2-3-g1 (`GasBankStills.cs`, both passes on the same build, frame
 counts only; `Unity.exe` is the editor itself, `C:\Program Files\Unity\Hub\Editor\6000.0.50f1\Editor\Unity.exe`,

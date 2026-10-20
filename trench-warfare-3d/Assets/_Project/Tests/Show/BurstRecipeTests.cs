@@ -274,5 +274,14 @@ namespace TW.Tests
             // opacity back with overlapping per-cell, 2x2 block and 4x4 mass cards.
             Assert.IsFalse(FlipbookFx.SheetErodes(FlipbookFx.Book.GasBank), "the GasBank sheet draws its own soft falloff, not an eroded hard edge");
         }
+        [Test]
+        public void TheGasBankTakesNoToonCut()
+        {
+            // r2-3-g1-g1 step 4: with Erode off the card's shape is the sheet's own soft alpha, and the shader then
+            // stepped it at 0.5 over one pixel because BookHard handed every Deep book fx.smokeHard (default 1) -
+            // every card a flat green pad with a crisp outline and an opaque middle. A Bank book takes no cut at all.
+            Assert.AreEqual(0f, FlipbookFx.BookHard(FlipbookFx.Book.GasBank, 1f, 0f), "the gas bank's edge is never stepped");
+            Assert.AreEqual(0f, FlipbookFx.BookHard(FlipbookFx.Book.GasBank, 1f, 1f), "and no other knob reaches it either");
+        }
     }
 }

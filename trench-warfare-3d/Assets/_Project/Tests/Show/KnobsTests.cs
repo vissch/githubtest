@@ -419,13 +419,16 @@ namespace TW.Tests
 
             // the old values: every book is made with the _Hard the code before C102 gave it (s.Deep ? smokeHard : 0),
             // written out: the burst's cloud and the smoke take fx.smokeHard, every other book (the Column among them) 0;
-            // the VFX pass's smoke-like books (2026-09-28) are Deep like Smoke and take it too
+            // the VFX pass's smoke-like books (2026-09-28) are Deep like Smoke and take it too - except the GasBank,
+            // whose cut was taken off on purpose this round (r2-3-g1-g1 step 4): it is the one Bank book, it lies on
+            // the ground, and the toon cut stamped its soft falloff into flat hard-edged pads. See
+            // BurstRecipeTests.TheGasBankTakesNoToonCut.
             foreach (float smoke in new[] { 0f, 0.5f, 1f })
             for (int b = 0; b < (int)FlipbookFx.Book.Count; b++)
             {
                 var book = (FlipbookFx.Book)b;
                 bool deep = book == FlipbookFx.Book.Burst || book == FlipbookFx.Book.Smoke
-                    || book == FlipbookFx.Book.GasBank || book == FlipbookFx.Book.SmokeBank
+                    || book == FlipbookFx.Book.SmokeBank
                     || book == FlipbookFx.Book.Smoulder || book == FlipbookFx.Book.ShellPlume
                     || book == FlipbookFx.Book.WreckSmoke || book == FlipbookFx.Book.MineSmoke;   // the mine's: the wreck's drawing, tinted black (loop 2)
                 float old = deep ? smoke : 0f;
