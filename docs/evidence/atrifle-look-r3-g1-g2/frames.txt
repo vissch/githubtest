@@ -111,3 +111,103 @@ What this part does NOT cover
   * The capture driver (driver.py, sweep.py, tightsweep.py) and the full log of every eval line stay in the leg
     folder, as the plan requires: nothing but the stills, their sidecars, cand-poses.json, mask.py, staging.py,
     staging.json and this file is committed.
+
+
+PART 2: THE READING, AND WHY NO SET IS COMMITTED WITH IT    (2026-10-20, atrifle-look-r3-g1-g2, part 2 of 2)
+===========================================================================================================
+
+What part 2 was for
+-------------------
+Part 1 answered WHERE: the prone AT rifleman staged at (51, 27), in front of the parapet. Part 2 had to shoot the
+reading - fifteen stills, three rounds of five - with every `noise_in_box_px_*` at 0 and the worst round at or over
+the 0.6 bar `probe.py` was committed with before any still existed. It is NOT committed: three rounds were shot and
+`probe.py` stays red. Every number below is from this leg's own stills, which stay in this checkout's
+`trench-warfare-3d/Captures/atrifle-g2/` (git-ignored) rather than here, because an unfit set is not evidence.
+
+THE WEATHER IN HIS BOX IS CLEARED, AND NOT BY TRADING THE GATE
+--------------------------------------------------------------
+This is the one thing part 1 sent to the owner, and it is answered. `CaptureRig.Hold` stops the sim and pins the
+sky but NOT the night lamps: their clock advances on `Time.unscaledDeltaTime` every frame
+(`Presentation/Terrain/NightLights.RealLamps.cs:92`, the same pattern in `Storm.cs:252`), whatever `timeScale` is.
+Both lines take `Time.captureDeltaTime` instead when it is positive, so a tiny positive value freezes the fires.
+Two further facts had to be measured before that worked:
+
+  * A WRITE MADE WHILE FULLY HELD NEVER REACHES THE PICTURE. With `timeScale` 0 the sim does not step, the
+    presenter captures no poses, and a man written off the map is still drawn exactly where he was: measured here
+    with three stills, 2 men -> 2 men after the write -> 1 man only after the sim was allowed to step. So the
+    plates cannot be shot without live frames in between, which is what cost part 1 its 135-190 frame span.
+  * `Time.timeScale` ABOVE 100 IS IGNORED by Unity (assigning 1000 leaves it at its old value). So the staging
+    runs at `timeScale` 100 with `captureDeltaTime` 1e-4: 0.01 s of game time a frame, which moves a man in about
+    200 frames and costs 0.02 s of lamp time.
+  * THE IDLE FRAMES ARE THE MANY. A round spends some 15 000 frames held while the driver polls `Pending()`, and
+    the lamp clock advances on every one of them. At `captureDeltaTime` 1e-5 those alone drifted the lamps 0.15 s
+    and let 18-66 weather px into his box; at 1e-7 while held, with 1e-4 only during a restaging, round 1 came
+    back with `noise_in_box_px_at-1` 0 AND `noise_in_box_px_sniper-*` 0 in all three rounds.
+
+  Measured, with the plates bracketing the three man stills as the plan asks (`empty-{r}` first, `floor-{r}` last,
+  so `|empty - floor|` covers the whole span the masks were shot in):
+
+    round   weather frame-wide   in his box   in the kneel's box
+      1          69301 px           0 px            0 px
+      2          71243              32              0
+      3          17280             139              0
+
+  Rounds 2 and 3 still carry 32 and 139 px, from the retries they needed (a retry is more staging frames). The
+  technique is right and round 1 proves 0 px is reachable at this camera; it is not yet reliable per round.
+
+THE HEADING AND THE VISIBILITY ARE MET
+--------------------------------------
+  `heading_diff_rad` 0.00 in all three rounds (the 1.11 rad the owner threw out is gone), the AT rifleman's
+  ProneIdle phases 0.26 / 0.49 / 0.34 (gap 0.08, over the 0.05 the probe wants), the camera identical in all
+  fifteen sidecars, `pose_error_m` 0, `rain` 0, `men_in_frame` exactly 2/1/1/0/0, no plate drawing a man, and his
+  mask 894-919 px - 1.77 to 2.94 TIMES the kneeling man's, where the owner asked for half.
+
+  Two staging facts the next leg needs: the kneeling man must be placed and left to settle BEFORE his yaw is read,
+  because a position write re-snaps him to his post's facing, and the AT rifleman's one-metre hop must then run
+  along that settled yaw. The scripted peer is turned off for the shoot (`SimHost.ScriptedPeer` and its deploy and
+  attack knobs, no production file touched): with it on, reinforcements walk into the bottom of the frame between
+  the park and the still, and they shot the two staged men.
+
+WHY IT IS STILL RED: THE KNEELING REFERENCE MAN
+------------------------------------------------
+The owner's bar compares the prone man against a kneeling man, and the kneeling man has to be a still the capture
+itself is willing to measure. Where he stands decides both, and the two cannot be had at once on this ground:
+
+    his place     ground   the rig's readability      his mask      what it costs
+    (45, 26)      1.61 m   contrast 0.10, FLAGGED     1245 px       `warnings` non-empty: the set is unfit
+    (45, 27)      0.71 m   contrast 0.28, clean        610 px       half-sunk in the hollow
+    (44, 27)      0.71 m   contrast 0.80, clean        515 px       half-sunk; what the three rounds used
+    (43, 27)      0.72 m   contrast 0.00, FLAGGED      115 px
+    (45, 28)      0.71 m   contrast 0.46, clean        433 px
+    (45, 29)      0.71 m   contrast 0.04, FLAGGED      152 px
+
+`CaptureRig.Measure`'s readability ring samples the frame 1.3 m above WORLD y = 0, not above the ground the man is
+drawn on (the man BOX was fixed for that in d8d91c093e; the ring was not). On the 1.61 m ground at part 1's (45, 26)
+that sample lands in the mud under him, so the rig calls its own still "men barely separate from the ground:
+unreadable" - 0.10 against the 0.12 it wants - with the man clearly drawn and masking 1245 px. Part 1's single
+sniper still read 0.42 at that same spot from the same pixels: the disc is 6 px across, and recomputing the rig's
+formula by hand on both PNGs gives 0.19 and 0.21, so the number is a coin flip of where that disc lands, not a
+property of the still. Only the low ground at z 27-29 puts the sample on his chest, and there he is half-sunk.
+
+So the three rounds were shot with him at (44, 27), the one spot that is both readable and kneeling (KneelIdle),
+and the reading came out:
+
+    silhouette_diff_readings   0.6894 / 0.6025 / 0.6038      worst round 0.6025, at the 0.6 bar
+    spread_readings            0.0868
+    spread_at                  0.1043                        the prone man is stable
+    spread_sniper              0.7303   <-- OVER THE BAR     his mask was 313 / 413 / 505 px
+
+A half-sunk man's own silhouette moves more between rounds (0.73) than the two men differ (0.60), so the measure
+cannot carry the claim however the reading falls, and `probe.py` says so: "the spreads reach 0.7303, not under 0.6".
+An earlier set with him fully visible at part 1's (45, 26) read 0.37 - the prone body and the kneeling body are
+genuinely alike at zoom 30 - and that set is unfit for the other reason (the flagged still).
+
+WHAT IS NOT CLAIMED
+-------------------
+  * No reading. 0.60 was reached on a reference man whose own spread is 0.73; that is not a measurement.
+  * No gate was moved: `PASS_DIFF` 0.6, `MAX_NOISE_IN_BOX` 0, `MIN_MASK_RATIO` 0.5 and `MAX_HEADING_DIFF` 0.15 are
+    exactly as committed in `f65dc910fc`, before any still was shot.
+  * No production file changed. The freeze, the `timeScale` 100 staging and the silenced peer are capture
+    technique, in a driver that stays in the leg folder.
+  * One seed (12648430, battlefield 1917, ShelledForest), one camera, one ground. The 1.65 m anti-tank rifle is
+    still a few dark pixels inside a 900 px mask and no number here isolates it.
