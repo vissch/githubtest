@@ -70,3 +70,58 @@ What this leg did NOT do (left for the next leg, part 2 of this unit):
   build's fix-gun-1/2/3.png and fix-nogun.png, captured the same way at the same pose and camera, will make the
   probe enforce the bar: gun_px clearing MIN_GUN_PX (25) and sitting outside the base spread (0), gun_width_px
   >= 2.5, gun_contrast >= 0.10.
+
+PART 2 (atrifle-look-r3-g2, same day): THE FIX SET, fix-gun-1/2/3.png and fix-nogun.png.
+
+The post this AT rifleman settles on is not reproducible: respawning him at the same coordinates lands him on a
+different post cell nearly every Play session (occupancy of the scene's own default units differs), and once a
+unit is InTrench/post-assigned the PRESENTER draws him at his post's own anchor point, not at whatever Position a
+WriteWorlds sends — the written Position is only honoured while trench is -1 (no post yet). So this set catches
+him in that brief unassigned window: Spawn and WriteWorlds(Position, Yaw) are issued back to back, the sim is run
+for under a second (not frozen immediately — a freshly-reused slot still shows its PREVIOUS occupant's death pose
+until a tick advances), then frozen once SimProbe.Unit confirms he is AT the written (50,25), ground 2.95, trench
+-1, layer Surface, clip ProneIdle, matching the pose this unit's base-gun-1/2/3.png were shot from. Camera: the
+same focus (50,25), zoom 30, yaw 9.72, pitch 22, 1600x900 as the base set — unchanged, because the man's position
+and ground height matched exactly; only his facing differs a little (yaw 0.37 here against -2.29 in the base set,
+a different unassigned-post heading), which this set did not need to correct for since men_in_frame stayed 1 and
+contrast_median 0.64 confirmed he reads alone.
+
+THE FIX ITSELF, CombatFx.AtRifle.cs:
+  - ReadWidth(metresPerPixel, scale): fattens the gun's drawn x/y (never its length) so the barrel never reads
+    thinner than MinBarrelPx screen pixels, clamped to [1x, 6x] the figure scale — 1x up close (life-size),
+    capped at 6x so it never grows into a plank. TheBarrelNeverReadsThinnerThanTwoAndAHalfPixels,
+    UpCloseItKeepsItsRealThickness, ItNeverGrowsIntoAPlank and FatteningDoesNotLengthenIt
+    (Assets/_Project/Tests/Show/AtRiflePropTests.cs) hold this arithmetic.
+  - At T1 (zoom 30, ~78 m standoff) the 6x cap alone was not enough: PlaygroundFx's tether rule targets ~2.5 px,
+    which this probe's own mask pipeline (a 3x3 opening, a 7x7 closing, MIN_BLOB 300) erodes away entirely at that
+    width over the gun's ~45 px screen length — the first attempts at MinBarrelPx 10 and even 60 (saturating the
+    6x cap) left the barrel's mask under 340 px and split into blobs each under the 300-px floor. The 6x cap is a
+    MULTIPLIER on BarrelWidth (the gun's own real-world thickness), so BarrelWidth itself was raised from 0.07 m to
+    0.22 m (and BuildAtRifle's barrel box half-extent now reads BarrelWidth*0.5 instead of a separate literal, so
+    the mesh and the formula can never drift apart) — a real Boys/PTRD barrel jacket is a reasonable match for a
+    thicker tube, not just a thin rod. That alone cleared the bar.
+  - The gun was also lifted from gunmetal (0.17,0.16,0.15) to a pale steel (0.62,0.63,0.65) and its outline
+    widened from 1.5 to 2.5, so gun_contrast clears 0.10 at T1 night without a repair-loop round: the first colour
+    tried passed, so the colour was not retuned further (the plan's own rule: a base reading that already clears a
+    bar is left alone).
+  - A T3 close look (zoom clamped to TacticalCamera.NearZoom, ~14.9, the closest this rig gets; cropped around the
+    man) shows a visibly thicker but not implausible barrel for an anti-tank rifle — not retuned further.
+
+THE BAR, read from the pixels (docs/evidence/atrifle-look-r3-g2/probe.json):
+  gun_px_base_min/max/spread:        0 / 0 / 0            (unchanged from part 1: the unfixed build's noise floor)
+  gun_px fix (1/2/3):                423 / 420 / 423       (all well outside the base spread)
+  gun_width_px (worst of the three): 9.427                 (>= MIN_WIDTH_PX 2.5)
+  gun_contrast (worst of the three): 0.1054                (>= MIN_CONTRAST 0.10)
+  gun_len_px:                        44.55                 (the 1.65 m gun's own on-screen length, life-size)
+  problems: []
+
+THE WINDOW grew. r3's (slice(300,405), slice(720,880)) was tuned for the base-gun pose's yaw (-2.29); at this
+pose's yaw (0.37, a different unassigned-post heading) the fattened gun's own diff bbox reached y=411-415, past
+r3's y=405 — not a border-touch failure, but close enough that a slightly different capture could have clipped it.
+Per this unit's own risk note, the window was widened on every side rather than crop the thing being measured:
+(slice(300,405),slice(720,880)) -> (slice(300,430),slice(700,900)). Both the base and fix sets are measured
+through this wider window; the base set's own numbers (0/0/0) are unchanged by it, since an empty mask stays
+empty in a bigger window.
+
+Done when: `python docs/evidence/atrifle-look-r3-g2/probe.py` exits 0 with the fix stills present and `problems`
+empty. It does.

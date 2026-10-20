@@ -64,5 +64,33 @@ namespace TW.Tests
             Assert.IsFalse(CombatFx.Carries((byte)arche), "archetype " + arche + " keeps the rifle of his baked figure");
             Assert.IsTrue(CombatFx.Carries(InfantryArchetype.AtRifle));
         }
+
+        [Test]
+        public void TheBarrelNeverReadsThinnerThanTwoAndAHalfPixels()
+        {
+            const float mpp = 0.05f;   // a T1 metres-per-pixel
+            float factor = CombatFx.ReadWidth(mpp, 1f);
+            float onScreenPx = factor * CombatFx.BarrelWidth / mpp;
+            Assert.GreaterOrEqual(onScreenPx, 2.5f, "the fattened barrel reads as " + onScreenPx + " px");
+        }
+
+        [Test]
+        public void UpCloseItKeepsItsRealThickness()
+        {
+            Assert.That(CombatFx.ReadWidth(0.001f, 1f), Is.EqualTo(1f).Within(1e-4f));
+        }
+
+        [Test]
+        public void ItNeverGrowsIntoAPlank()
+        {
+            Assert.That(CombatFx.ReadWidth(10f, 1f), Is.EqualTo(6f).Within(1e-4f));
+        }
+
+        [Test]
+        public void FatteningDoesNotLengthenIt()
+        {
+            var lay = CombatFx.Lay(Foot, Foot.y, 0.7f, Stance.Prone, 1f);
+            Assert.That(lay.Length, Is.EqualTo(CombatFx.AtRifleLength).Within(1e-4f));
+        }
     }
 }

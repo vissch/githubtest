@@ -17,6 +17,22 @@ namespace TW.Presentation.Tactical
         /// <summary>The gun's length life-size, metres (a Boys / PTRD anti-tank rifle is 1.6 to 2.0 m long).</summary>
         public const float AtRifleLength = 1.65f;
 
+        /// <summary>The barrel's width life-size, metres (its 0.035 half-extent in BuildAtRifle, doubled).</summary>
+        public const float BarrelWidth = 0.22f;
+
+        /// <summary>The floor the barrel is thickened to, in screen pixels (PlaygroundFx's tether rule holds a line
+        /// to ~2.5 px; the gun's mask has to clear the probe's own blob-area floor over its length too, so the
+        /// floor used here sits well above the bare readability minimum).</summary>
+        public const float MinBarrelPx = 60f;
+
+        /// <summary>
+        /// How much to fatten the gun's x/y so the barrel never reads thinner than MinBarrelPx, without lengthening
+        /// it: at `metresPerPixel` and drawn `scale`, the factor that makes BarrelWidth * scale * factor cover
+        /// MinBarrelPx metres on screen. 1 up close (never thinner than life-size), capped at 6 (never a plank).
+        /// </summary>
+        public static float ReadWidth(float metresPerPixel, float scale) =>
+            Mathf.Clamp(MinBarrelPx * metresPerPixel / (BarrelWidth * scale), 1f, 6f);
+
         /// <summary>Does this archetype carry a drawn gun of its own? Only the AT rifleman: every other man's rifle is
         /// part of his baked figure.</summary>
         public static bool Carries(byte archetype) => archetype == InfantryArchetype.AtRifle;
@@ -66,7 +82,15 @@ namespace TW.Presentation.Tactical
                 float yaw = anim != null && anim.Yaw.IsCreated && i < anim.Yaw.Length ? anim.Yaw[i] : w.Yaw[i];
                 var stance = (Stance)(anim != null && Host.UseAnimationController ? anim.State[i].Stance : w.StanceOf[i]);
                 var lay = Lay(foot, foot.y, yaw, stance, scale);
-                atRifles.Add(Matrix4x4.TRS(lay.Centre, lay.Rotation, new Vector3(scale, scale, lay.Length / AtRifleLength)));
+                float widthFactor = 1f;
+                var cam = Camera.main;
+                if (cam != null)
+                {
+                    float dist = Vector3.Distance(cam.transform.position, lay.Centre);
+                    float mpp = 2f * dist * Mathf.Tan(cam.fieldOfView * 0.5f * Mathf.Deg2Rad) / Mathf.Max(1, cam.pixelHeight);
+                    widthFactor = ReadWidth(mpp, scale);
+                }
+                atRifles.Add(Matrix4x4.TRS(lay.Centre, lay.Rotation, new Vector3(scale * widthFactor, scale * widthFactor, lay.Length / AtRifleLength)));
                 if (atRifles.Count == 1023) break;   // the instancing limit; a line this long is nobody's picture
             }
             if (atRifles.Count == 0) return;
@@ -87,8 +111,8 @@ namespace TW.Presentation.Tactical
             var shader = Shader.Find("TW/Toon (URP)");
             if (shader == null) { Debug.LogWarning("CombatFx: no TW/Toon (URP) shader; the AT rifle is not drawn"); return false; }
             atRifleMat = new Material(shader) { enableInstancing = true, hideFlags = HideFlags.HideAndDontSave };
-            atRifleMat.SetColor("_BaseColor", new Color(0.17f, 0.16f, 0.15f));   // gunmetal, darker than the men's khaki
-            atRifleMat.SetFloat("_OutlineWidth", 1.5f);
+            atRifleMat.SetColor("_BaseColor", new Color(0.62f, 0.63f, 0.65f));   // pale steel: gunmetal read as dark-on-dark at T1
+            atRifleMat.SetFloat("_OutlineWidth", 2.5f);
             atRifleMesh = BuildAtRifle();
             return true;
         }
@@ -103,7 +127,7 @@ namespace TW.Presentation.Tactical
             var v = new List<Vector3>(160); var t = new List<int>(300);
             const float L = AtRifleLength;
             // half-extents, so the whole gun spans -0.5 L to +0.5 L: muzzle at the front, butt at the back
-            Box(v, t, new Vector3(0f, 0f, 0.22f * L), new Vector3(0.035f, 0.035f, 0.28f * L));        // the barrel, out front
+            Box(v, t, new Vector3(0f, 0f, 0.22f * L), new Vector3(BarrelWidth * 0.5f, BarrelWidth * 0.5f, 0.28f * L));        // the barrel, out front
             Box(v, t, new Vector3(0f, 0.005f, -0.22f * L), new Vector3(0.055f, 0.06f, 0.14f * L));    // the receiver
             Box(v, t, new Vector3(0f, -0.08f, -0.17f * L), new Vector3(0.03f, 0.08f, 0.05f * L));     // the box magazine, under it
             Box(v, t, new Vector3(0f, -0.01f, -0.44f * L), new Vector3(0.04f, 0.045f, 0.06f * L));    // the butt

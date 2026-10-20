@@ -36,7 +36,9 @@ from PIL import Image
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 THRESHOLD = 0.04
-WINDOW = (slice(300, 405), slice(720, 880))   # y, x — carried over from r3, one focus
+WINDOW = (slice(300, 430), slice(700, 900))   # y, x — r3's window widened: the fattened gun's own diff bbox at
+                                               # this leg's pose reaches y415, past r3's y405, so the window grew
+                                               # by 12+ px on every side rather than crop the thing being measured
 MIN_BLOB = 300
 MIN_GUN_PX = 25
 MIN_WIDTH_PX = 2.5
