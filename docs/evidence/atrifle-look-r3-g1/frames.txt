@@ -236,3 +236,66 @@ divided by 1.5, which was this leg's own check. So the fires still own the large
 yaws, and the measurement cannot be carried by the camera choice alone. That is the finding this leg hands on: the
 floor-plate exclusion is now not an improvement but the whole fix, and floor-1/2/3.png are the pixels it needs.
 No reading about the AT rifleman's silhouette is claimed here.
+
+
+THE PROBE WITH THE FLOOR-PLATE EXCLUSION                      (2026-10-20, atrifle-look-r3-g1, leg 07)
+=====================================================================================================
+
+What changed in probe.py
+------------------------
+Two levers replaced r3's hand-typed 400 px floor, both read off the set:
+
+  * `floor` is now a fifth KIND with MEN["floor"] = 0, so floor-1/2/3 pass the same one-camera, rain-0,
+    pose_error-0, no-warning, men_in_frame gate as the other twelve stills. Fifteen stills, one camera.
+  * WHAT MOVES ON ITS OWN IS NOT THE MAN. `noise_r` is |empty-r - floor-r| at the same 0.04 luma threshold with the
+    same 3x3 open / 7x7 close, then dilated 3x3 to cover the edge the flame moved to next. It is subtracted from
+    every man's difference mask BEFORE any blob is labelled. `noise_px_{r}` and `dropped_px_{stem}` are reported.
+  * A MAN IS THE SIZE OF A MAN, in the frame's own units. The largest blob's centroid is taken for at-{r} and
+    sniper-{r} before any size test (not circular: labelling needs no floor), so px_per_m = |centroid_at -
+    centroid_sniper| / 5.0, the men's designed gap, and px_per_m is the median of the three rounds. A mask is
+    accepted when its area lies between 0.2 * px_per_m**2 and 2.0 * px_per_m**2. Both bounds are reported.
+  * Untouched, as the plan required: DOMINANCE 1.5, the border check, PASS_DIFF 0.6, the phase-gap gate, the
+    pixel-identical-masks gate, the centroid-aligned 1 - IoU reading, and heading_diff_rad reported and not gated.
+
+The floor sidecars, as read back (no number here is typed)
+----------------------------------------------------------
+  still        men_in_frame   contrast_median   contrast_p10   pose_error_m   rain   cam_yaw   warnings
+  floor-1            0              -1               -1             0          0      180        []     frame 20600
+  floor-2            0              -1               -1             0          0      180        []     frame 22224
+  floor-3            0              -1               -1             0          0      180        []     frame 24109
+(contrast is -1 in a man-less plate because there is no man to measure. The camera matches the other twelve
+exactly, so probe.py's one-frame gate passes on all fifteen.)
+
+What the exclusion measured, and why it is not enough
+-----------------------------------------------------
+                    noise_px_r   largest floor blob      dropped_px / largest blob after, at-r    sniper-r
+  round 1             11622          2166 px              1737 / 2241 px                          5875 / 5501 px
+  round 2             28446          6281 px              8306 / 1435 px                          4821 /  720 px
+  round 3             18748          5034 px              3033 / 4208 px                          1115 /  804 px
+
+  px_per_m_1  44.102      px_per_m_2  65.025      px_per_m_3  145.437      px_per_m (median)  65.025
+  derived bounds: 846 px .. 8456 px
+
+The exclusion drops real fire pixels - 1.1k to 8.3k a still - and it is still not enough. The flames move further
+between empty-r and at-r than a 3x3 dilation of |empty-r - floor-r| reaches, so a flame leaves a crescent of fresh
+pixels that the plate never saw, and that crescent is bigger than the man.
+
+Where the men actually are, measured by intersecting the three rounds of each man (fires move, a posted man does
+not): the prone AT rifleman's only pixels that persist across all three rounds are 266 px at x 718-740, y 362-378,
+and the kneeling Sniper's are 690 px at x 854-884, y 333-372. Per round the AT rifleman's own blob reads 266-860 px
+and the Sniper's 690-804 px. The fires in frame blob at 2241-5501 px. So after the exclusion the largest surviving
+blob of at-1, at-2 and at-3 is still a brazier (x 1532-1596 or x 1233-1432), not the man, and the centroid distance
+that sets px_per_m is measured between two fires - which is why it reads 44, 65 and 145 for a frame whose scale is
+one number. The derived floor of 846 px then rejects the Sniper at 720 and 804 px as well.
+
+probe.py exits 2 with `verdict: the set is not fit to measure` and five problems: at-2 and at-3 ambiguous
+(1435 vs 1424 px, 4208 vs 3973 px), sniper-2 too small and ambiguous, sniper-3 too small. No reading about the AT
+rifleman's silhouette is claimed, and the 0.6 bar was not touched.
+
+The honest finding
+------------------
+At zoom 30, yaw 180, the prone AT rifleman behind the parapet is a few hundred pixels while the fires in frame are
+thousands. Neither lever of this plan fixes that: the quietest of the four perpendicular-pair yaws still has fires
+(leg 06), and a man-less bracket plate cannot subtract a flame that moved (this leg). The set is sound as a picture
+and too small as a measure. What it would take is a frame with no fire in it, or a closer band than T1 so the man
+is the larger thing - both of which change the owner's staging and are his call, not this leg's.
