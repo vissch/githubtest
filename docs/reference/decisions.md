@@ -304,6 +304,27 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **R2 C1 DANGEROUS SYSTEMIC MAJOR.** **A detached restart is refused while the recorded child still runs: `run_detached.py` start refuses CRASHED with a live child, as it does RUNNING and STALLED, with a test in `test_pipeline.py`.** The owner, to "Refuse a detached restart while the recorded child still runs": A, "Do it" (option: it goes on the relay's queue as a fix). Queued as `found-refuse-a-detached-restart-while-the-recorded-20261018-0` (role lane) on its own lane; it stood on the queue already when taken up. Score: R2 a refused start can stop other agents' runs, R3 the board; C2 a pipeline tool agents use. (owner, 2026-10-19 08:34, Decide page, note 2026-10-19-083459-found-refuse-a-detached-restart-while-th; taken up by relay-watch-2026-10-19) |
 
 ## Open: waiting on the owner
+- **No staged place puts the prone AT rifleman in front of the bags with ZERO weather pixels in his box
+  (2026-10-20, lane `lane/show/atrifle-look-r3-g1-g2`, part 1 of the plan):** the owner's first ask is met and
+  measured. Staged in front of the parapet at (51, 27) the prone man masks 936 px against the kneeling Sniper's
+  1154 px - a ratio of 0.811 where he asked for half, against 286-383 px behind the bags - both men stay in one
+  frame from one camera (zoom 30, yaw 180), the two boxes never overlap, and a one-metre staging hop along the
+  Sniper's own drawn yaw brings the heading difference down to 0.00 rad from the fixed 1.11 rad he threw out
+  (`docs/evidence/atrifle-look-r3-g1-g2/staging.json`, `frames.txt`, twelve candidates x four stills committed).
+  His second ask is not met: not one of the twelve candidates has zero weather pixels inside his box. The best is
+  50 px of an 8459 px box (the worst 1292). It is not a brazier in the box - three plates shot 7 FRAMES apart at
+  this camera gave 1570-1826 px of weather over the whole frame and 0 inside either man's box - it is the SPAN
+  between a candidate's two man-less plates, about 135-190 frames, because restaging a man needs live frames for
+  the presenter to move him at all, and the fires flare over that span. A tighter round was shot to buy the gate
+  with frames rather than by moving it: the span came down to 135 frames, the weather in the box did not clear,
+  and the shorter staging writes cost a still (`cand9-at` came back with `men_in_frame 0`). Options: (a) accept a
+  small weather residual in the box - the gate becomes "no weather blob the mask keeps", with the count reported
+  per still, and part 2 is shot on cand9; (b) restage on ground with no fire in frame (another seed or another
+  corner of the map), which gives up "the same ground as r3"; (c) a closer band than T1 so the man is the larger
+  thing, which gives up the owner's zoom 30. Default taken here: (a) with cand9, (51, 27) - but part 2 is NOT
+  shot on it, because the plan's `done_when` requires every `noise_in_box_px_*` to be 0 and this leg will not
+  widen a gate to fit a number; `staging.py` exits 2 as written and the lane waits (this leg, because the gate is
+  the owner's number and only he can trade it).
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
