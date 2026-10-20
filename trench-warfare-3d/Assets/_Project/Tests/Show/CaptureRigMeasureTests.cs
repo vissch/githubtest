@@ -4,6 +4,7 @@
 using NUnit.Framework;
 using TW.Editor;
 using TW.Sim;
+using UnityEngine;
 
 namespace TW.Tests
 {
@@ -45,6 +46,37 @@ namespace TW.Tests
 
             Assert.That(CaptureRig.IsFootFigure(aliveFoot), Is.EqualTo(figurePathSocketsFoot));
             Assert.That(CaptureRig.IsFootFigure(aliveVehicle), Is.EqualTo(figurePathSocketsVehicle));
+        }
+
+        /// <summary>Proof for CaptureRig.ManBox against arithmetic done by hand, not against the code's own: a man
+        /// 10 m in front of the camera, level with it, through a 60 deg vertical fov on a 900 px frame. The 2.6 m
+        /// of him subtend 900 * (2.6 / 10) / (2 * tan 30 deg) = 202.6 px, and a foot point level with the camera
+        /// lands half the frame down, imgY = 449.5 counting from the top.</summary>
+        [Test]
+        public void ManBoxMatchesAHandComputedProjection()
+        {
+            var projection = Matrix4x4.Perspective(60f, 16f / 9f, 0.1f, 1000f);
+            var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));   // Unity looks down -z; the rest is identity
+
+            bool ok = CaptureRig.ManBox(view, projection, 1600, 900, new Vector3(0f, 0f, 10f),
+                out float imgX, out float imgY, out float tallPx);
+
+            Assert.That(ok, Is.True);
+            Assert.That(tallPx, Is.EqualTo(202.6f).Within(1f));
+            Assert.That(imgY, Is.EqualTo(449.5f).Within(1f));
+            Assert.That(imgX, Is.EqualTo(800f).Within(1f));
+        }
+
+        /// <summary>A point behind the camera gets no box at all: a projection there is a number with no meaning,
+        /// and a mask placed on it would measure whatever happens to live at those pixels.</summary>
+        [Test]
+        public void ManBoxRefusesAPointBehindTheCamera()
+        {
+            var projection = Matrix4x4.Perspective(60f, 16f / 9f, 0.1f, 1000f);
+            var view = Matrix4x4.Scale(new Vector3(1f, 1f, -1f));
+
+            Assert.That(CaptureRig.ManBox(view, projection, 1600, 900, new Vector3(0f, 0f, -10f),
+                out _, out _, out _), Is.False);
         }
     }
 }

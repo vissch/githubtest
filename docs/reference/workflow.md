@@ -417,6 +417,11 @@ fog or tints over the infantry. `man_luma` and `bg_luma` are the two sides of th
 from the drawn foot stood on the terrain, and a vehicle is still skipped. The men's ink outline is never thinner
 than 1.6 px; a thicker world-space line is left as it is, and 0 restores that line. `python Tools/test_man_outline.py`
 checks both with no editor.
+fog or tints over the infantry.
+Each man the game drew also gets his own place in the frame, in slot order: `man0_slot`, `man0_archetype`,
+`man0_img_x`, `man0_img_y`, `man0_tall_px`, then `man1_*` and so on (`img_y` counts from the TOP of the image).
+A reading that must measure one man and nothing else masks inside his box from these, rather than over the whole
+frame, where a brazier is far bigger than a prone soldier.
 `Captures/` is ignored by git.
 
 **Whatever the game view shows right now:**
