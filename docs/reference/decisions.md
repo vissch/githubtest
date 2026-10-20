@@ -323,6 +323,32 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   shot on it, because the plan's `done_when` requires every `noise_in_box_px_*` to be 0 and this leg will not
   widen a gate to fit a number; `staging.py` exits 2 as written and the lane waits (this leg, because the gate is
   the owner's number and only he can trade it).
+  **PART 2, 2026-10-20, same lane: the weather ask is ANSWERED at 0 px, and not by trading the gate - and a new
+  question takes its place.** `CaptureRig.Hold` never stopped the night lamps: their clock runs on
+  `Time.unscaledDeltaTime` every frame whatever `timeScale` is (`NightLights.RealLamps.cs:92`, `Storm.cs:252`), and
+  both lines take `Time.captureDeltaTime` instead when it is positive. Held with `captureDeltaTime` 1e-7 while the
+  driver polls and 1e-4 only while a man is restaged (a write made while fully held never reaches the picture at
+  all - measured - so a restaging needs live frames, and `timeScale` above 100 is ignored by Unity), round 1 came
+  back with 0 weather px in BOTH men's boxes, and all three rounds with 0 in the kneeling man's. Options (a), (b)
+  and (c) above are not needed for the weather. The three rounds are still red, now on the KNEELING REFERENCE MAN:
+  where he stands decides both whether the capture is willing to measure his still and how much of him shows.
+  `CaptureRig.Measure`'s readability ring samples 1.3 m above WORLD y = 0, not above the ground he is drawn on (the
+  man box was fixed for that in `d8d91c093e`, the ring was not), so at part 1's (45, 26) on 1.61 m ground it
+  samples the mud under him and the rig flags its own still "men barely separate from the ground: unreadable"
+  (contrast 0.10 against the 0.12 it wants) while he masks 1245 px and is plainly drawn; part 1's one sniper still
+  read 0.42 from the same pixels, so the number is a coin flip of a 6 px disc. Only the low shelf at z 27-29
+  (0.71 m) puts the sample on his chest, and there he is half-sunk: at (44, 27) the still is clean (contrast 0.80,
+  KneelIdle) but his mask is 313-505 px between rounds, so `spread_sniper` is 0.7303 - his own silhouette moves
+  more than the two men differ - and the three readings 0.6894 / 0.6025 / 0.6038 cannot carry the claim. With him
+  fully visible at (45, 26) the reading is 0.37: at zoom 30 a prone body and a kneeling body are genuinely alike.
+  Options: (d) fix the readability ring to sample above the ground he is drawn on, a one-line SHOW change in
+  `CaptureRig.Measure` that makes part 1's (45, 26) staging measurable (it changes a tool every still's sidecar
+  reports, so it is a seam the owner should say yes to); (e) compare the prone man against a standing man, or
+  against the same archetype in another stance, instead of the kneeling Sniper; (f) accept that "reads as his own
+  man" cannot be shown at zoom 30 and judge him at a closer band. Default taken here: NONE - no gate was moved,
+  no set was committed with the reading, and the lane waits (this leg, because every option changes either a tool,
+  the comparison or the owner's band, and all three are his). The numbers, the staging and the per-still counts are
+  in `docs/evidence/atrifle-look-r3-g1-g2/frames.txt`, "PART 2".
 - **13 foot-figure stills still read below the close-range bar; the "22, all vehicle" count was wrong (2026-10-16,
   lane `found-lift-foot-units-off-the-mud-at-close-range`):** the owner's answer above (count only foot figures)
   is built: `CaptureRig.Measure` now skips a vehicle slot (`CaptureRig.IsFootFigure`), and on a fresh run every
