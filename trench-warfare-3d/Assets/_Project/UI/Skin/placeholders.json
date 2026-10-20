@@ -1,5 +1,5 @@
 {
-    "generator": 10,
+    "generator": 11,
     "files": [
         {
             "file": "Icons/ico_arrow_down.png",
@@ -143,7 +143,7 @@
         },
         {
             "file": "Portraits/Sapper.png",
-            "sha1": "81deadc86d3bd973da66fa2222325c8b85036207"
+            "sha1": "ee6968b58056e8b9a1b8a27bfa2a61acbe228135"
         },
         {
             "file": "Portraits/Shield.png",

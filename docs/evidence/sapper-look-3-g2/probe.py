@@ -12,6 +12,12 @@ full rect would include empty card plate on whichever axis is wider.
 Numbers are read from pixels, never typed. Part 1 of the plan: only the three base captures are compared to
 each other here (both metrics' spread, and zero drift on the untouched Engineer card as a control for capture
 noise); the part-2 bars against the fix come later, once card-fix-*.png exists.
+
+Part 2 adds card-fix-{1,2,3}.png (the repainted PaintSapperPortrait, same scene, same slot) and checks both
+metrics clear a bar set from the base spread: each bar is the larger of 2x the base max and a design floor
+(0.10 for kit_share, 0.30 for figure_cover), and every fix capture's value must clear it. engineer_drift_px
+between card-base-1 and card-fix-1 must stay 0: the repaint touched only the Sapper portrait, nothing else on
+the card captured in the same still.
 """
 import json
 import os
@@ -106,14 +112,25 @@ def main():
     pairs = [(1, 2), (1, 3), (2, 3)]
     engineer_drift = {f"{a}-{b}": diff_px(engineer_squares[a], engineer_squares[b]) for a, b in pairs}
 
+    fix_squares = {i: portrait_square(os.path.join(HERE, f"card-fix-{i}.png"), os.path.join(HERE, f"card-fix-{i}.png.json"), "portrait-Sapper") for i in (1, 2, 3)}
+    kit_fix = {i: kit_share(fix_squares[i]) for i in (1, 2, 3)}
+    cover_fix = {i: figure_cover(fix_squares[i]) for i in (1, 2, 3)}
+
+    base_fix_drift = diff_px(
+        portrait_square(os.path.join(HERE, "card-base-1.png"), os.path.join(HERE, "card-base-1.png.json"), "portrait-Engineer"),
+        portrait_square(os.path.join(HERE, "card-fix-1.png"), os.path.join(HERE, "card-fix-1.png.json"), "portrait-Engineer"))
+
     probe = {
         "kit_share": kit,
         "kit_share_base_max": max(kit_vals),
         "kit_share_base_spread": kit_spread,
+        "kit_share_fix": kit_fix,
         "figure_cover": cover,
         "figure_cover_base_max": max(cover_vals),
         "figure_cover_base_spread": cover_spread,
+        "figure_cover_fix": cover_fix,
         "engineer_drift_px": engineer_drift,
+        "engineer_drift_px_base_vs_fix": base_fix_drift,
     }
     with open(os.path.join(HERE, "probe.json"), "w", encoding="utf-8") as f:
         json.dump(probe, f, indent=2)
@@ -129,6 +146,22 @@ def main():
     for pair, drift in engineer_drift.items():
         if drift != 0:
             print(f"FAIL engineer_drift_px[{pair}]: {drift} != 0")
+            failed = True
+    if base_fix_drift != 0:
+        print(f"FAIL engineer_drift_px_base_vs_fix: {base_fix_drift} != 0")
+        failed = True
+
+    bars = {
+        "kit_share": max(2 * probe["kit_share_base_max"], 0.10),
+        "figure_cover": max(2 * probe["figure_cover_base_max"], 0.30),
+    }
+    fix_vals = {"kit_share": kit_fix, "figure_cover": cover_fix}
+    for key, bar in bars.items():
+        base = probe[key + "_base_max"]
+        worst = min(fix_vals[key].values())
+        print(f"{key}: base_max={base} bar={bar} fix_min={worst}")
+        if not (base < bar <= worst):
+            print(f"FAIL {key}: base_max={base} bar={bar} fix_min={worst}")
             failed = True
 
     return 1 if failed else 0

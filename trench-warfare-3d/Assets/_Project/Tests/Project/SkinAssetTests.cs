@@ -121,5 +121,54 @@ namespace TW.Tests
             Assert.That(Lum(br), Is.GreaterThan(Lum(tl) + 0.05f), $"bottom-right arc {br} is no lighter than top-left {tl}: the lip stops short of the corner");
             Object.DestroyImmediate(w);
         }
+
+        // Mirrors docs/evidence/sapper-look-3-g2/probe.py: PACK/CHARGE are sapperPackMat/sapperChargeMat
+        // (CombatFx.SapperKit.cs), DISC is the placeholder's background disc, thresholds read pixels, never typed.
+        static readonly Color32 ProbePack = new Color32(0xA8, 0x99, 0x70, 255);
+        static readonly Color32 ProbeCharge = new Color32(0x6E, 0x62, 0x45, 255);
+        static readonly Color32 ProbeDisc = new Color32(0x23, 0x25, 0x2A, 255);
+        const int KitThreshold = 24;
+        const int LumaThreshold = 24;
+
+        static float Luma(Color32 c) => 0.299f * c.r + 0.587f * c.g + 0.114f * c.b;
+
+        static float KitShare(Color32[] px, int w, int h)
+        {
+            int hits = 0;
+            foreach (var c in px)
+            {
+                int dp = Mathf.Max(Mathf.Abs(c.r - ProbePack.r), Mathf.Abs(c.g - ProbePack.g), Mathf.Abs(c.b - ProbePack.b));
+                int dc = Mathf.Max(Mathf.Abs(c.r - ProbeCharge.r), Mathf.Abs(c.g - ProbeCharge.g), Mathf.Abs(c.b - ProbeCharge.b));
+                if (dp <= KitThreshold || dc <= KitThreshold) hits++;
+            }
+            return hits / (float)(w * h);
+        }
+
+        static float FigureCover(Color32[] px, int w, int h)
+        {
+            float discLuma = Luma(ProbeDisc);
+            int y0 = h / 2, hits = 0, total = w * (h - y0);
+            for (int y = y0; y < h; y++)
+                for (int x = 0; x < w; x++)
+                    if (Luma(px[y * w + x]) - discLuma >= LumaThreshold) hits++;
+            return total > 0 ? hits / (float)total : 0f;
+        }
+
+        [Test]
+        public void TheSapperPortraitIsAManNotAMark()
+        {
+            int s = SkinSpec.PortraitSize;
+            var painted = UiSkinGenerator.PaintSapperPortrait();
+            var placeholder = UiSkinGenerator.PaintPortraitPlaceholder("Sapper");
+
+            float kitPainted = KitShare(painted, s, s), kitPlaceholder = KitShare(placeholder, s, s);
+            float coverPainted = FigureCover(painted, s, s), coverPlaceholder = FigureCover(placeholder, s, s);
+
+            Assert.That(kitPainted, Is.GreaterThanOrEqualTo(kitPlaceholder * 3f),
+                $"kit_share painted={kitPainted} placeholder={kitPlaceholder}: not a 3x clear");
+            Assert.That(coverPainted, Is.GreaterThanOrEqualTo(coverPlaceholder * 3f),
+                $"figure_cover painted={coverPainted} placeholder={coverPlaceholder}: not a 3x clear");
+            Assert.That(coverPainted, Is.GreaterThanOrEqualTo(0.30f), $"figure_cover={coverPainted} misses the 0.30 floor");
+        }
     }
 }

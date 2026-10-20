@@ -515,21 +515,25 @@ namespace TW.Editor
             float cx = s * 0.5f - 0.5f, cy = s * 0.5f - 0.5f, u = s / 64f;
             var pack = new Color32(0xA8, 0x99, 0x70, 255);    // pale canvas, mirrors sapperPackMat
             var charge = new Color32(0x6E, 0x62, 0x45, 255);  // waxed charge body, mirrors sapperChargeMat
-            c.Glyph(Sdf.Circle(cx, cy, s * 0.42f), new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
+            var disc = Sdf.Circle(cx, cy, s * 0.42f);
+            Func<float, float, float> Intersect(Func<float, float, float> a, Func<float, float, float> b) => (x, y) => Mathf.Max(a(x, y), b(x, y));
+            c.Glyph(disc, new Color32(0x23, 0x25, 0x2A, 200), EdgeDark);
             c.Glyph(Sdf.Ring(cx, cy, s * 0.42f - 4f, 2f), Plate500, null);
             // shoulders-up bust: head, helmet dome and brim below the ring's horizon
             float headCy = cy - 12f * u;
             c.Glyph(Sdf.Circle(cx, headCy + 3f * u, 9f * u), Plate400, EdgeDark);
             c.Glyph(Sdf.Sub(Sdf.Circle(cx, headCy, 11f * u), Sdf.Box(cx, headCy + 11f * u, 16f * u, 6f * u)), Plate500, EdgeDark);
             c.Glyph(Sdf.Capsule(cx - 15f * u, headCy + 3f * u, cx + 15f * u, headCy + 3f * u, 2.6f * u), Plate500, EdgeDark);
-            float shoulderCy = cy + 10f * u;
-            c.Glyph(Sdf.Box(cx, shoulderCy + 10f * u, 22f * u, 16f * u), Plate700, EdgeDark);
-            // satchel strap across the chest, from the left shoulder to the right hip
-            c.Glyph(Sdf.Capsule(cx - 16f * u, shoulderCy - 2f * u, cx + 12f * u, shoulderCy + 18f * u, 2.5f * u), pack, EdgeDark);
-            // two charge blocks at the belt, pale and dark so the three pieces do not fuse
-            c.Glyph(Sdf.Box(cx - 9f * u, shoulderCy + 16f * u, 5f * u, 4f * u), charge, EdgeDark);
-            c.Glyph(Sdf.Box(cx + 9f * u, shoulderCy + 16f * u, 5f * u, 4f * u), charge, EdgeDark);
-            c.Glyph(Sdf.Box(cx, shoulderCy + 15f * u, 6f * u, 5f * u), pack, EdgeDark);
+            // shoulders and chest: a canvas slab in pack tone across the lower disc, clipped to the disc so no
+            // square corner shows past the ring (the old Plate700 slab here was darker than the disc itself)
+            float torsoCy = cy + 20f * u;
+            c.Glyph(Intersect(Sdf.Box(cx, torsoCy, 30f * u, 24f * u), disc), pack, EdgeDark);
+            // the satchel over one shoulder, a solid block past the body line, with two waxed charges on it and a
+            // dark gap between each pair so the pieces do not fuse at card size
+            float satCx = cx + 23f * u;
+            c.Glyph(Intersect(Sdf.Box(satCx, torsoCy - 2f * u, 9f * u, 16f * u), disc), pack, EdgeDark);
+            c.Glyph(Sdf.Box(satCx, torsoCy - 9f * u, 6f * u, 3.5f * u), charge, EdgeDark);
+            c.Glyph(Sdf.Box(satCx, torsoCy + 6f * u, 6f * u, 3.5f * u), charge, EdgeDark);
             return c.Px;
         }
 
