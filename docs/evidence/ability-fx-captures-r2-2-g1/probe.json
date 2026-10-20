@@ -1,0 +1,48 @@
+{
+ "after": {
+  "t1-after-1": {
+   "bank_area_frac": 0.03252,
+   "bank_contrast_p50": 62.18,
+   "bank_dist_m": 70.12,
+   "bank_height_m": 1.798,
+   "bank_px": 29975,
+   "columns": 690,
+   "frame_height_m": 31.09,
+   "height_frac": 0.0578,
+   "low_share": 0.4553,
+   "pose_error_m": 0.0
+  },
+  "t1-after-2": {
+   "bank_area_frac": 0.03252,
+   "bank_contrast_p50": 62.18,
+   "bank_dist_m": 70.12,
+   "bank_height_m": 1.798,
+   "bank_px": 29975,
+   "columns": 690,
+   "frame_height_m": 31.09,
+   "height_frac": 0.0578,
+   "low_share": 0.4553,
+   "pose_error_m": 0.0
+  },
+  "t1-after-3": {
+   "bank_area_frac": 0.03252,
+   "bank_contrast_p50": 62.18,
+   "bank_dist_m": 70.12,
+   "bank_height_m": 1.798,
+   "bank_px": 29975,
+   "columns": 690,
+   "frame_height_m": 31.09,
+   "height_frac": 0.0578,
+   "low_share": 0.4553,
+   "pose_error_m": 0.0
+  }
+ },
+ "bars": {
+  "bank_area_bar": 0.03,
+  "contrast_bar": 50.57,
+  "height_frac": 0.15,
+  "low_share": 0.3,
+  "pose_error_max": 0.5
+ },
+ "ok": true
+}
