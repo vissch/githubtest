@@ -36,7 +36,7 @@ namespace TW.Tests
             ["CampaignSession"] = "the campaign mission in flight, carried across the scene load like MatchLaunch.Current; MatchLaunch.QuitToMenu clears it",
             ["DebrisRenderer"] = "Gore is a setting and ZoomShare the camera's share of every burst, set by CombatFx each frame; Biome and LavaLevel are set by each biome; Instance is the live renderer; Watch is a test probe the tests set and clear",
             ["EventPump"] = "ProfileSubscribers: a profiling switch",
-            ["Flamethrower"] = "Active: the live instance, replaced when the next CombatFx starts",
+            ["Flamethrower"] = "Active: the live instance, replaced when the next CombatFx starts; PinnedNow is a capture switch the caller restores",
             ["FrameBudget"] = "frame-stamped counters that roll over by themselves",
             ["GreyboxTerrainView"] = "code-made textures cached for the process (mudDetail, ripples)",
             ["HeavyWork"] = "frame-stamped claim that expires by itself",

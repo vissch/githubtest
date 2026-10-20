@@ -46,6 +46,15 @@ namespace TW.Presentation.Tactical
         /// </summary>
         public static Flamethrower Active;
 
+        /// <summary>A capture pins the jet's whole clock here, so a burst is born and aged at a time the session
+        /// can name again: with it set, every valve ramp, Perlin and Mathf.Repeat phase in the stream is a function
+        /// of this number alone and nothing of the session's own Time.time enters the picture. -1 is the live clock,
+        /// which is what the game always runs on. A capture sets it and restores it.</summary>
+        public static float PinnedNow = -1f;
+
+        /// <summary>The clock a fire is born and kept on: the pinned one during a capture, Time.time otherwise.</summary>
+        float Now => PinnedNow >= 0f ? PinnedNow : Time.time;
+
         // The books are NOT interchangeable, and which one carries a given fire is the first decision, not a detail.
         // Book.Stand is a flame drawn standing with a skirt, Book.Fire is a ball of it rolling, Book.Pool is a puddle
         // with a blob lifting off it: a thing burning on the ground is the first shape and never the second. Book.Pyre
@@ -197,13 +206,13 @@ namespace TW.Presentation.Tactical
                     var held = jets[i];
                     held.Nozzle = nozzle; held.Offset = offset; held.Rides = rides;
                     held.Aim = Vector3.Slerp(held.Aim, aim, 0.5f);                         // the stream swings onto the new target, it does not cut
-                    held.Until = Mathf.Max(held.Until, Time.time + seconds);
+                    held.Until = Mathf.Max(held.Until, Now + seconds);
                     held.Sim = sim;
                     jets[i] = held; return;
                 }
             if (jets.Count >= MaxJets) jets.RemoveAt(0);
-            jets.Add(new Jet { Slot = slot, Nozzle = nozzle, Offset = offset, Rides = rides, Aim = aim, Started = Time.time,
-                               Until = Time.time + seconds, NextPuff = 0f, NextLight = 0f, Seed = Random.value * 10f, Sim = sim });
+            jets.Add(new Jet { Slot = slot, Nozzle = nozzle, Offset = offset, Rides = rides, Aim = aim, Started = Now,
+                               Until = Now + seconds, NextPuff = 0f, NextLight = 0f, Seed = Random.value * 10f, Sim = sim });
         }
 
         /// <summary>
@@ -239,7 +248,7 @@ namespace TW.Presentation.Tactical
                 float reach = Mathf.Min(e.Size, 2.0f) * 0.8f;
                 if (dx * dx + dz * dz > reach * reach) continue;
                 e.Size = Mathf.Min(e.Size + size * 0.22f, 4.5f);              // it spreads a little, it does not double
-                e.Life = Mathf.Max(e.Life, Time.time + seconds - e.Born);     // and it is kept alight
+                e.Life = Mathf.Max(e.Life, Now + seconds - e.Born);     // and it is kept alight
                 e.LifeSim = Mathf.Max(e.LifeSim, SimNow + seconds - e.BornSim);
                 e.Sim &= sim;
                 pools[i] = e; return;
@@ -251,7 +260,7 @@ namespace TW.Presentation.Tactical
                 if (CameraShake.DistanceToLook(at) > far) return;   // the new one is further off than everything alight: let it go
                 pools.RemoveAt(worst);
             }
-            pools.Add(new Pool { At = at, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f, Sim = sim });
+            pools.Add(new Pool { At = at, Born = Now, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f, Sim = sim });
         }
 
         /// <summary>The sim's clock in seconds (CombatFx sets it every frame from the tick and the fraction of the next):
@@ -265,9 +274,9 @@ namespace TW.Presentation.Tactical
         public void Ignite(int slot, float seconds)
         {
             for (int i = 0; i < torches.Count; i++)
-                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Time.time + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); torches[i] = t; return; }
+                if (torches[i].Slot == slot) { var t = torches[i]; t.Life = Mathf.Max(t.Life, Now + seconds - t.Born); t.LifeSim = Mathf.Max(t.LifeSim, SimNow + seconds - t.BornSim); torches[i] = t; return; }
             if (torches.Count >= MaxTorches) torches.RemoveAt(0);
-            torches.Add(new Torch { Slot = slot, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f });
+            torches.Add(new Torch { Slot = slot, Born = Now, Life = seconds, BornSim = SimNow, LifeSim = seconds, Next = 0f, Seed = Random.value * 10f });
             Alighted?.Invoke(slot, seconds);
         }
 
@@ -289,10 +298,10 @@ namespace TW.Presentation.Tactical
                 // so comparing heights too would stop a raised bank's fire from ever being fed
                 if (new Vector2(pyres[i].At.x - at.x, pyres[i].At.z - at.z).sqrMagnitude < 4f)
                 {
-                    var q = pyres[i]; q.Size = Mathf.Max(q.Size, size); q.Life = Mathf.Max(q.Life, Time.time + seconds - q.Born); q.LifeSim = Mathf.Max(q.LifeSim, SimNow + seconds - q.BornSim); pyres[i] = q; return;
+                    var q = pyres[i]; q.Size = Mathf.Max(q.Size, size); q.Life = Mathf.Max(q.Life, Now + seconds - q.Born); q.LifeSim = Mathf.Max(q.LifeSim, SimNow + seconds - q.BornSim); pyres[i] = q; return;
                 }
             if (pyres.Count >= MaxPyres) pyres.RemoveAt(0);
-            pyres.Add(new Pyre { At = at, Born = Time.time, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
+            pyres.Add(new Pyre { At = at, Born = Now, Life = seconds, BornSim = SimNow, LifeSim = seconds, Size = size, Next = 0f, Seed = Random.value * 10f });
         }
 
         /// <summary>
@@ -399,6 +408,7 @@ namespace TW.Presentation.Tactical
         public void Update(float now, Camera cam, FlipbookFx books, System.Func<int, Vector3> drawn, System.Func<float, float, float> ground)
         {
             this.books = books; this.ground = ground; this.drawn = drawn;
+            if (PinnedNow >= 0f) now = PinnedNow;   // a capture drives the whole stream off the pinned clock
             if (books == null || !books.Ready) return;
             float glowNight = SceneMood.Night ? 1.0f : 0.8f, tint = SceneTints.Now.Glow;   // a fire burns, it does not flash: see the note on Relight
 
