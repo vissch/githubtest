@@ -414,7 +414,10 @@ fog or tints over the infantry.
 Each man the game drew also gets his own place in the frame, in slot order: `man0_slot`, `man0_archetype`,
 `man0_img_x`, `man0_img_y`, `man0_tall_px`, then `man1_*` and so on (`img_y` counts from the TOP of the image).
 A reading that must measure one man and nothing else masks inside his box from these, rather than over the whole
-frame, where a brazier is far bigger than a prone soldier.
+frame, where a brazier is far bigger than a prone soldier. The box is projected through the IMAGE's aspect and
+onto the GROUND he is drawn standing on, not through the camera's own projection (a batch-mode game view is
+482 x 797, which put every man about 2.9x too far from the middle) and not through the sim's y of 0 (the renderer
+lifts him onto the terrain; at a 3 m rise that is 77 px of a 900 px frame). Both were measured and fixed 2026-10-20.
 `Captures/` is ignored by git.
 
 **Whatever the game view shows right now:**
