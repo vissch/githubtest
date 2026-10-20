@@ -59,6 +59,7 @@ namespace TW.Tests
             ["CampaignSession.ResumeMap"] = "part of the mission in flight, carried across the scene load by design",
             ["EventPump.ProfileSubscribers"] = "a profiling switch, off unless a profiling run sets it",
             ["Flamethrower.Active"] = "the live instance, replaced when the next CombatFx starts",
+            ["Flamethrower.PinnedNow"] = "a capture switch: the caller that pins the jet's clock restores it",
             ["FrameBudget.frame"] = "the frame the counters below belong to: they roll over by themselves",
             ["HeavyWork.claimedFrame"] = "a frame-stamped claim that expires by itself",
             ["HudBootstrap.Disabled"] = "a test switch the tests set and restore",

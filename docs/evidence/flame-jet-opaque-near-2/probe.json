@@ -1,0 +1,15 @@
+{
+  "near_edge_corr_max": 0.0065,
+  "core_over_tip_luma_min": 2.0237,
+  "edge_spread": 0.0,
+  "near_edge_corr_each": [
+    0.0065,
+    0.0065,
+    0.0065
+  ],
+  "core_over_tip_luma_each": [
+    2.0237,
+    2.0237,
+    2.0237
+  ]
+}
