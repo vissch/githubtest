@@ -65,3 +65,26 @@ and it is this seed's gas, not another's.
 
 Reported, not barred: `t1_luma_delta` (the mean luma change over the changed pixels), `gas_t1_height_m` (the
 "visible height" claim, in metres), `pose_error_m`, and the block variances the drop is computed from.
+
+## After: what the three tuning steps moved
+
+Shot on the committed build of steps 1-5 (the ground-hugging volume with `Ground`, `Mood = 0.15`, `Low/High =
+0.17/0.60`), all three bars still missed: `texture_var_drop` 0.30 / 0.43 / 0.44 (bar 0.40, seed 0 under) and
+`o240_hue_dist_deg` 67.7 / 114.2 / **37.7** (bar 38.0, seed 2 under by 0.3). `t1_changed_frac` was already clear
+at 0.22-0.33.
+
+| Step | Change | What it moved |
+|---|---|---|
+| 1 | `GasBank.Mood` 0.15 -> 0f | `o240_hue_dist_deg` worst 37.7 -> 50.4 (the night mood's blue-cyan pull on one seed gone) |
+| 2 | `GasBankNight` (0.74, 0.80, 0.34) -> (0.78, 0.86, 0.22), more saturated | `o240_hue_dist_deg` worst 50.4 -> 68.7; `texture_var_drop` little moved (0.36-0.53) |
+| 3 | A second, ~11 m body card per 2x2 block of standing gas cells (`DrawGasBank`, same `gasCards` list, same draw call); `GasBank.Low/High` 0.17/0.60 -> 0.10/0.85 to flatten the wider card's own contrast | `texture_var_drop` worst 0.36-0.40 -> **0.61** (the extra coverage hides the gaps between per-cell cards the plate showed through) |
+
+## Final numbers (`probe.json`, this build)
+
+| Reading | Bar | s0 | s1 | s2 |
+|---|---|---|---|---|
+| `t1_changed_frac` | >= 0.08 | 0.2358 | 0.2594 | 0.2801 |
+| `texture_var_drop` | >= 0.40 | 0.6337 | 0.7521 | 0.6061 |
+| `o240_hue_dist_deg` | >= 38.0 | 100.92 | 126.42 | 68.71 |
+
+All three bars, all three seeds. `probe.py` with no arguments (a clean extract of this folder) exits 0.

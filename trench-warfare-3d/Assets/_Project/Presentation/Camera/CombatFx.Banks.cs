@@ -26,7 +26,7 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.95f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.75 tops out at 1.75 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.75f;
-        public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
+        public static readonly Color GasBankNight = new Color(0.78f, 0.86f, 0.22f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
         public static float GasBankAlpha(float thick) => Mathf.Lerp(GasBankThin, GasBankFull, Mathf.Clamp01(thick));
@@ -87,11 +87,18 @@ namespace TW.Presentation.Tactical
             else books.Add(FlipbookFx.Book.SmokeBank, at, 5f, 21f / 12f, kind, alpha: 0.7f);
         }
 
+        /// <summary>A 2 x 2 block of standing gas cells, folded into one wider body card (r2-3 step 7: the per-cell
+        /// cards alone left gaps the probe's texture_var_drop read as the bare ground showing through).</summary>
+        struct GasBlock { public int Count; public float X, Z, Ground, Thick; public uint Hash; }
+        readonly Dictionary<long, GasBlock> gasBlocks = new Dictionary<long, GasBlock>(256);
+
         void DrawGasBank(GasSmokeSystem gas, float now, Bounds bounds)
         {
             int step = CurrentBankStep();
             Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, 0.8f, 14f, 2.4f, 73856093, 19349663);
             gasCards.Clear();
+            float blockSize = 2f * MapData.FieldCellSize * step;
+            gasBlocks.Clear();
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
@@ -99,6 +106,21 @@ namespace TW.Presentation.Tactical
                 float width = (6f + 3f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                 gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.10f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+
+                long key = ((long)Mathf.FloorToInt(b.X / blockSize) << 32) ^ (uint)Mathf.FloorToInt(b.Z / blockSize);
+                gasBlocks.TryGetValue(key, out var blk);
+                blk.Count++; blk.X += b.X; blk.Z += b.Z; blk.Ground += b.Ground; blk.Thick = Mathf.Max(blk.Thick, b.Thick); blk.Hash ^= b.Hash;
+                gasBlocks[key] = blk;
+            }
+            foreach (var kv in gasBlocks)
+            {
+                var blk = kv.Value;
+                float cx = blk.X / blk.Count, cz = blk.Z / blk.Count, ground = blk.Ground / blk.Count;
+                float h3 = ((blk.Hash >> 20) & 1023) / 1023f;
+                float slow = now * 0.22f + h3 * 6.2832f;
+                float width = 11f * step;
+                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((blk.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                gasCards.Add(FlipbookFx.Pack(new Vector3(cx, ground - 0.10f, cz), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(blk.Thick)));
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
         }
