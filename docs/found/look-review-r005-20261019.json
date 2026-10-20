@@ -1,0 +1,56 @@
+{
+  "subject": "review:R005",
+  "looked_at": [
+    "trench-warfare-3d/Tools/relay/limits.json (41 lines; also read as it stands on origin's integration branch, where gate_seconds is 4800, not this lane's older 2400)",
+    "trench-warfare-3d/Tools/relay/agents.json (21 lines)",
+    "trench-warfare-3d/Tools/relay/phases.json (6 lines)",
+    "trench-warfare-3d/Tools/relay/relay-hooks.json (8 lines)",
+    "trench-warfare-3d/Tools/relay/routes.json (29 lines)",
+    "trench-warfare-3d/Tools/relay/style.json (23 lines)",
+    "trench-warfare-3d/Tools/relay/config.py (225 lines, the loader that checks four of the six)",
+    "trench-warfare-3d/Tools/relay/agents.py (lines 25-95, settings() and price())",
+    "trench-warfare-3d/Tools/relay/legcmd.py (lines 85-132 and 192, the gate and PlayMode job timeouts)",
+    "trench-warfare-3d/Tools/relay/papers.py (plan_grade, retro_tuning)",
+    "trench-warfare-3d/Tools/relay/runner.py (lines 68-155 and 583-615, where the limits are used and tuned)",
+    "trench-warfare-3d/Tools/relay/gitio.py (busy_reason, the quiet_seconds default)",
+    "trench-warfare-3d/Tools/relay/day.py, usage.py, ledger.py, sources/lane.py, sources/pipeline.py (greps: every limits.json key is read somewhere, so no dead keys)",
+    "gate.ps1 (lines 141-161 and 255-268, TestTimeout 1800 and the toolcheck branch)",
+    "docs/reference/relay.md (lines 205-300, the week_usd 2840 and the 11% day)",
+    "docs/reference/decisions.md and docs/reference/tasks.md (greps for relay, route, Sonnet, limits)",
+    "this run's leg 03 records (its hooks.json, meter.json, meter.jsonl and out.jsonl in the relay's own run folder): a live leg's meter wrote 10 samples, so relay-hooks.json's PostToolBatch event really fires and the amber/red warning is alive; the leg's model id reads claude-opus-5, which agents.json prices",
+    "the job record of a real PlayMode run of 2026-10-08 (desk 02, job play-4, in the relay's own run folder): one test class, 7 minutes 37 seconds of a 900 s cap",
+    ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md (the method)"
+  ],
+  "tasks": [
+    {
+      "title": "Raise play_seconds to the gate's Unity timeout, or say why 900 stands",
+      "why": "P2. limits.json:36 play_seconds 900 is handed straight to the Unity CLI as the whole PlayMode run's timeout (legcmd.py:126-127) and to the detached job as 960 (legcmd.py:192). gate.ps1:141 sets TestTimeout 1800 for the same kind of run, and commit f258066cd6 treats 1800 s as how long a Unity run may take. Evidence of how close 900 is: a real job of 2026-10-08 (desk 02, play-4) ran ONE filtered class, TW.Tests.HudTogglePlayTests, for 7 minutes 37 seconds of its 900 s. A leg given a broader filter, or a cold editor with a domain reload, is cut at 900 s and reads that as failed tests. Honest limit of this finding: reading cannot show a run that was actually cut; no job record I read ended on its timeout. What would settle it: one `leg play` over a whole PlayMode namespace, timed.",
+      "files": ["trench-warfare-3d/Tools/relay/limits.json", "trench-warfare-3d/Tools/relay/legcmd.py"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A test in Tools/relay/test_relay.py reads $TestTimeout out of gate.ps1 and asserts limits.json play_seconds is at least that number; it is red on play_seconds 900 and green on the new value.",
+      "risk": [false, true, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Keep only model ids that exist in agents.json prices",
+      "why": "P3. agents.json:2 says every price was looked up in Claude Code's API reference on 2026-09-25, but eight keys are not models that exist: claude-mythos-5-1 (line 9), claude-fable-5 (10), claude-opus-5-5 (11), claude-opus-4-8/4-7/4-6 (13-15), claude-sonnet-5-5 (16), claude-sonnet-4-6 (18). The live ids are claude-fable-5-1, claude-opus-5, claude-sonnet-5 and claude-haiku-4-5, all four priced, and this run's legs report claude-opus-5, so nothing is miscounted today. The cost is the safety net: agents.py:79-82 matches the longest key the id starts with and returns 'the file names it', so an invented row is indistinguishable from a looked-up one and suppresses the 'agents.json names no price for X: priced as its dearest model' line (agents.py:272). claude-opus-5-5 is entered at $4/$20, UNDER claude-opus-5's $5/$25, so if that id ever ships the week is counted low and no line says so.",
+      "files": ["trench-warfare-3d/Tools/relay/agents.json"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A test asserts every key of usd_per_million_tokens is in a pinned list of model ids that exist, and that an unknown id still comes back from agents.price() as unpriced.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    },
+    {
+      "title": "Stop the amber and red token bounds from touching",
+      "why": "P3. limits.json:2-3: amber_tokens.max is 260000 and red_tokens.min is the same 260000, and red_tokens.value 300000 is already its max. A retrospective may move both (config.py:31 RETRO_TUNES). So a tuning entirely inside the bounds, amber 260000 with red at its lowest, breaks config.py:58's amber < red check; runner.py:602-606 catches it and throws the WHOLE tuning away, including the leg_minutes line that was fine, printing only 'tuning refused'. And red can never be raised, only lowered, which the retro prompt (runner.py:591) does not say. The cost is small and bounded: a retrospective's work is silently dropped, never a broken run.",
+      "files": ["trench-warfare-3d/Tools/relay/limits.json"],
+      "lane": "show",
+      "role": "review-fix",
+      "done_when": "A test asserts amber_tokens.max < red_tokens.min, so no pair of values inside the bounds can fail config.limits(); red on the file as it stands.",
+      "risk": [false, false, false, false, false],
+      "change": [false, true, false, false, false]
+    }
+  ]
+}
