@@ -1,7 +1,8 @@
 {
   "pass_diff": 0.6,
   "threshold_luma": 0.04,
-  "min_mask_px": 400,
+  "min_area_m2": 0.2,
+  "max_area_m2": 2.0,
   "dominance": 1.5,
   "camera": {
     "zoom": 30.0,
@@ -14,18 +15,33 @@
       900
     ]
   },
-  "mask_px_at-1": 2592,
-  "second_blob_px_at-1": 2241,
+  "noise_px_1": 11622,
+  "dropped_px_at-1": 1737,
+  "mask_px_at-1": 2241,
+  "second_blob_px_at-1": 1315,
+  "dropped_px_sniper-1": 5875,
   "mask_px_sniper-1": 5501,
-  "second_blob_px_sniper-1": 2737,
-  "mask_px_at-2": 3972,
-  "second_blob_px_at-2": 3304,
-  "mask_px_sniper-2": 1401,
-  "second_blob_px_sniper-2": 1010,
-  "mask_px_at-3": 4765,
-  "second_blob_px_at-3": 3976,
+  "second_blob_px_sniper-1": 947,
+  "noise_px_2": 28446,
+  "dropped_px_at-2": 8306,
+  "mask_px_at-2": 1435,
+  "second_blob_px_at-2": 1424,
+  "dropped_px_sniper-2": 4821,
+  "mask_px_sniper-2": 720,
+  "second_blob_px_sniper-2": 521,
+  "noise_px_3": 18748,
+  "dropped_px_at-3": 3033,
+  "mask_px_at-3": 4208,
+  "second_blob_px_at-3": 3973,
+  "dropped_px_sniper-3": 1115,
   "mask_px_sniper-3": 804,
-  "second_blob_px_sniper-3": 631,
+  "second_blob_px_sniper-3": 119,
+  "px_per_m_1": 44.102,
+  "px_per_m_2": 65.025,
+  "px_per_m_3": 145.437,
+  "px_per_m": 65.025,
+  "mask_px_min": 846,
+  "mask_px_max": 8456,
   "at_phases": [
     0.9,
     0.65,
@@ -43,11 +59,11 @@
     "pair-3": 0.32
   },
   "problems": [
-    "at-1: the largest blob is 2592 px and the next is 2241 px, under 1.5x - the mask is ambiguous",
-    "at-2: the largest blob is 3972 px and the next is 3304 px, under 1.5x - the mask is ambiguous",
-    "sniper-2: the largest blob is 1401 px and the next is 1010 px, under 1.5x - the mask is ambiguous",
-    "at-3: the largest blob is 4765 px and the next is 3976 px, under 1.5x - the mask is ambiguous",
-    "sniper-3: the largest blob is 804 px and the next is 631 px, under 1.5x - the mask is ambiguous"
+    "at-2: the largest blob is 1435 px and the next is 1424 px, under 1.5x - the mask is ambiguous",
+    "sniper-2: the largest blob is 720 px, under the frame's own floor of 846 px (0.2 m2) - too small to be a man",
+    "sniper-2: the largest blob is 720 px and the next is 521 px, under 1.5x - the mask is ambiguous",
+    "at-3: the largest blob is 4208 px and the next is 3973 px, under 1.5x - the mask is ambiguous",
+    "sniper-3: the largest blob is 804 px, under the frame's own floor of 846 px (0.2 m2) - too small to be a man"
   ],
   "verdict": "the set is not fit to measure"
 }
