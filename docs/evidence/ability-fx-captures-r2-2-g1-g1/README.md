@@ -114,3 +114,79 @@ TW_STILLS_DIR=$TEMP/tw-g1g1-gas Unity.exe -batchmode -projectPath <checkout>/tre
 names the dir you meant, or the stills land in `%TEMP%/tw-gasbank` and overwrite each other.)
 
 The O240 overview stills the harness also shoots are out of scope here — the owner named zoom 30.
+
+---
+
+# Part 2: the change, the six builds it took, and where it stands
+
+**The zebra is gone and the bank is one place.** `t1-after-1..3.jpg` against `t1-before-1..3.jpg`: the paint is one
+patch over the trench, 4.3% of the frame, 31 m across, its rim fading over 3 px, instead of 670 columns of flat
+lozenges reaching from the tank into the foreground. **Two of the frozen bars are still red** (`fill_frac`,
+`stray_frac`), the bars were not moved, and the row is open for the owner in
+`docs/reference/decisions.md` ("the GasBank sheet cannot fill it").
+
+## The after takes
+
+| take | `bank_area_frac` | `stray_frac` | `fill_frac` | `spread_m` | `rim_px` | `low_share` | `height_frac` | `contrast` |
+|---|---|---|---|---|---|---|---|---|
+| t1-after-1 | 0.04288 | 0.3293 | 0.2864 | 31.25 | 3.00 | 0.2850 | 0.1126 | — |
+| t1-after-2 | 0.04280 | 0.3170 | 0.2841 | 31.30 | 3.00 | 0.3023 | 0.1028 | — |
+| t1-after-3 | 0.04337 | 0.3102 | 0.2853 | 31.44 | 3.00 | 0.2804 | 0.1119 | — |
+| bar | 0.010 .. 0.090 ✓ | <= 0.30 ✗ | >= 0.45 ✗ | <= 32.08 ✓ | >= 3.00 ✓ | >= 0.30 ~ | <= 0.15 ✓ | row |
+
+Against the before takes: area 0.018 -> 0.043 (inside the band at both ends), stray 0.89 -> 0.32, spread 35.6 ->
+31.3, rim 2.0 -> 3.0, fill 0.30 -> 0.285. The three takes are 9 frames apart and agree to 0.0006 in area, so the
+numbers are the build's, not a moment's.
+
+## What each knob did (nine measured builds, three takes each; every cell is that build's median take)
+
+| build | change | area | stray | fill | spread m | rim px |
+|---|---|---|---|---|---|---|
+| before | — | 0.018 | 0.89 | 0.30 | 35.6 | 2.0 |
+| 1 | relative floor 0.45 of peak, alpha 0.10-0.75 smoothstep, roll, anchor +0.1, sheet `Ground` 0.55 | 0.0018 | 0.92 | 0.51 | 3.3 | 3.0 |
+| 2 | + thickness read against the field's own peak | 0.0015 | 0.92 | 0.46 | 3.0 | 3.0 |
+| 3 | floor 0.15 of peak, thickness from the floor up, alpha 0.20-0.75 | 0.0015 | 0.92 | 0.45 | 3.1 | 3.0 |
+| 4 | + **one place**: only the largest connected run of standing cells, alpha 0.35-1.0 | 0.0021 | 0.90 | 0.59 | 3.2 | 3.0 |
+| 5 | cards 13-18.5 m wide (were 6-8.5), squash 0.25 | 0.0047 | 0.82 | 0.58 | 7.4 | 3.0 |
+| 6 | cards 22-31 m, squash 0.15, alpha 0.50-1.0 | 0.0227 | 0.50 | 0.23 | 25.9 | 3.0 |
+| 7 | + **3 puffs a cell**, layered and offset | 0.066 | 0.22 | 0.31 | 36.8 | 3.0 |
+| 8 | 4 puffs, cards 17-24 m, squash 0.18 | 0.060 | 0.23 | 0.30 | 33.5 | 3.0 |
+| **shipped** | **3 puffs at half-cell offsets, cards 15-21 m, squash 0.20** | **0.043** | **0.32** | **0.285** | **31.3** | **3.0** |
+| (tried) | the same with the floor at 0.35 of peak | 0.015 | 0.54 | 0.386 | 17.4 | 2.0 |
+
+Read it as two walls. Going **narrow** (a high floor, few cards) the patch is small, round and separate: `fill`
+climbs to 0.386 but the paint breaks into pieces and `stray` doubles. Going **wide** (layered puffs) the paint is
+one body and `stray` falls to 0.21, but the body is a ragged diagonal lens in an axis-aligned box, so `fill` stalls
+near 0.30. No setting of floor, alpha, width, squash or layer count put both over their bars at once.
+
+**Why:** the `GasBank` sheet draws one small eroded puff in the middle of its card. A bank can only be made of many
+such puffs, and many puffs leave holes. Filling them needs a sheet whose frame *is* a rolling body — a new sheet
+(tw-vfx-sheets), which g1 already told the owner is not a knob. That is the open row.
+
+## The knobs that shipped
+
+| knob | before | after | why |
+|---|---|---|---|
+| `GasBankPeakFrac` | — (an absolute 0.8 floor) | 0.15 of the field's own peak, never under 0.8 | the core is the bank; the 4%/tick diffusion tail is not. The absolute floor stays as the lower bound, so what kills is always at least outlined |
+| one place | — | only the largest connected run of standing cells | a player can point at a bank; he cannot point at a field's whole spread |
+| thickness | `c / 10` (a `full` the field never reaches: every card read as thin) | `(c - floor) / (peak - floor)` | the drawn cells use the whole alpha range |
+| `GasBankThin`/`Full` | 0.85 / 1.00, a lerp | 0.50 / 1.00, a `Mathf.SmoothStep` | the rim fades instead of ending on a card edge (`rim_px` 2 -> 3) |
+| roll | 0 | per card, over the full turn, from its hash | the repeated lozenge stops lining up into stripes |
+| card width | 6-8.5 m | 15-21 m | puffs on a 4 m grid must overlap to be a body |
+| `GasBankSquash` | 0.55 | 0.20 | wider cards, same 1.54 m of gas: still under a man's head (`BurstRecipeTests`) |
+| `GasBankPuffs` | 1 a cell | 3 a cell, offset half a cell, each its own roll and frame | the sheet's puff is smaller than its card |
+| anchor | `Ground - 0.35` | `Ground + 0.1` | the ground soften needs the card's foot in frame |
+| `Sheet.Ground` | `bool`; GasBank 1 (no soften) | `float`; GasBank 0.55, GroundRing 1 | the bank meets the mud in a fade, without the erasure that made it invisible before g1 |
+
+## Cost
+
+The gas book is still **one packed draw** (`books.DrawPacked`), before and after, so the frame's draw-call count is
+unchanged. What moved is the card count inside it: the whole field's standing cells before, now the core's cells
+(38 at the captured tick) times 3 puffs — about 114 cards, far under `FlipbookFx.MaxCards` (1536). The one-place
+pass walks the field once a sim tick with two scratch arrays grown once and reused: no allocation a frame.
+
+## Guards
+
+`BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead` carries the new widest card (23.10 m at squash 0.20 =
+1.54 m of gas). `TheGasBankFadesAtItsRim_NotACardEdge` is new: it holds the alpha's two ends, that it is a
+smoothstep and not a line, and that the relative floor never goes under the absolute one.

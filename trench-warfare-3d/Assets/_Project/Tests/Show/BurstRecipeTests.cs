@@ -279,10 +279,24 @@ namespace TW.Tests
         {
             // r1's critique: gas-t1 read as a standing wall (height_frac 0.32). The sheet's drawing fills the bottom
             // third of the card, so the widest card's gas topped out at 3.12 m. Squashed it is 1.71 m, under a man's head.
-            // The widest card is DrawGasBank's (6 + 2.5 * 1) * 1.1 = 9.35 m (r2-2-g1 widened it so the bank reads at zoom 30).
-            float top = 9.35f * CombatFx.GasBankSquash / 3f;
+            // The widest card is DrawGasBank's (15 + 6 * 1) * 1.1 = 23.10 m (r2-2-g1-g1 widened it again so the
+            // core's cards overlap into one body instead of reading as separate lozenges; the squash came down with it).
+            float top = 23.10f * CombatFx.GasBankSquash / 3f;
             Assert.Less(top, 1.8f, "the gas the widest card draws stays under a 1.8 m man's head");
             Assert.Greater(top, 0.6f, "and is still thick enough to read: not a painted line on the floor");
+        }
+        [Test]
+        public void TheGasBankFadesAtItsRim_NotACardEdge()
+        {
+            // r2-2-g1-g1: every card was drawn at 0.85-1.0, so the bank ended on a hard lozenge edge (rim_px 2.0, a
+            // step). The alpha is a smoothstep between a nearly clear rim cell and a solid core one.
+            Assert.AreEqual(CombatFx.GasBankThin, CombatFx.GasBankAlpha(0f), 1e-4f, "a cell holding nothing is nearly clear");
+            Assert.AreEqual(CombatFx.GasBankFull, CombatFx.GasBankAlpha(1f), 1e-4f, "a full cell is the solid core");
+            Assert.Less(CombatFx.GasBankThin, 0.75f * CombatFx.GasBankFull, "a rim cell is drawn well under a core one, so the bank fades out");
+            Assert.Less(CombatFx.GasBankAlpha(0.25f), Mathf.Lerp(CombatFx.GasBankThin, CombatFx.GasBankFull, 0.25f),
+                "a smoothstep, not a line: the thin end stays thinner than a lerp");
+            Assert.Greater(CombatFx.GasBankPeakFrac, 0f, "and only the field's core is drawn at all");
+            Assert.GreaterOrEqual(CombatFx.GasBankFloor, 0.8f, "never under the absolute floor: the gas that kills is outlined");
         }
     }
 }
