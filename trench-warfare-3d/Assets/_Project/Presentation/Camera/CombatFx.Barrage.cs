@@ -111,7 +111,7 @@ namespace TW.Presentation.Tactical
         /// a canopy comes down per man over the last seconds. Books and the kit mesh only: no new look is authored here.</summary>
         void OnDropInbound(SimEvent e)
         {
-            if (recipes < 0.5f || books == null || !books.Ready || Host == null || Host.Local == null) return;
+            if (recipes < 0.5f || !DropFx || books == null || !books.Ready || Host == null || Host.Local == null) return;
             var map = Host.Local.Map;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(map, at.x, at.z);
             float warm = Mathf.Max(0.5f, e.Scalar);
@@ -154,7 +154,7 @@ namespace TW.Presentation.Tactical
         /// overview still a plate (harsh critic r1 fix 3); from far out the cards grow instead (FlipbookFx.FarGrow).</summary>
         void OnDropLanded(SimEvent e)
         {
-            if (recipes < 0.5f || books == null || !books.Ready) return;
+            if (recipes < 0.5f || !DropFx || books == null || !books.Ready) return;
             Vector3 at = (Vector3)e.Pos; at.y = RenderGround.Sample(Host.Local.Map, at.x, at.z);
             float far = DropGrow();
             books.Add(FlipbookFx.Book.DustPuff, at + Vector3.up * 0.1f, 5f * far, 28f / 12f, FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored, alpha: 0.7f);

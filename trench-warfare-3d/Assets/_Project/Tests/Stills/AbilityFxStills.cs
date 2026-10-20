@@ -3,7 +3,11 @@
 // fix 3: "the probe never finds the effect in the frame; the yellow ability-area disc floods the T1 stills").
 // Four subjects (smoke, HE barrage, a water splash, ParaDrop) at two bands (T1 zoom 30, O240 zoom 240).
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-abilityfx), TW_ABILITYFX_PLATE=1 runs the identical script with the
-// staging call skipped — the plate pass. The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
+// staging call skipped — the plate pass. TW_ABILITYFX_REPS=N (default 1) shoots every subject and band N times over,
+// naming the files subject_band_rN.png, so a bar can be set outside the spread of one build's own captures.
+// The drop is the one subject whose plate DOES stage: its 13 paratroopers, their fallen and their fire would otherwise
+// be the whole diff, so the plate drops the same men on the same ticks with CombatFx.DropFx off (the g2 measurement,
+// the owner 2026-10-21: "hold the plate's men, turn the beams off, so the mask is the drop and not the soldiers"). The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
 // nothing else moves, so what differs between a still and its plate is the effect and nothing else.
 // It asserts only that the stills were written and that the drop really came: the numbers belong to the probe
 // (docs/evidence/ability-fx-captures-r3/probe.py).
@@ -80,7 +84,9 @@ namespace TW.Tests
                 case "smoke": return (12f, 1f, 150, 260);         // warmup 40 ticks (60 frames)
                 case "barrage": return (12f, 2f, 200, 320);       // warmup 80 ticks, 12 shells over 120 more: mid-barrage
                 case "splash": return (7f, 3f, 20, 120);          // one shell, bursting the next tick
-                default: return (12f, 12f, 155, 300);             // drop: warmup 100 ticks (150 frames), shot just after the landing
+                // the drop's block runs 360 frames so the last rep's cards (longest life 5 s = 150 frames) are gone
+                // before the next rep stages on the same point
+                default: return (12f, 12f, 155, 360);             // drop: warmup 100 ticks (150 frames), shot just after the landing
             }
         }
 
@@ -116,6 +122,9 @@ namespace TW.Tests
             bool plate = PlatePass;
 
             TW.Presentation.Tactical.CombatFx.ShowOverlays = false;   // the yellow ability-area disc is drawn here (DrawAim)
+            // the green and red night halo of the men's own fire (tracerNightA/B) washed over the drop's T1 frame; off in
+            // both passes, so none of it reaches the mask
+            TW.Presentation.Tactical.CombatFx.ShowTracers = false;
             // A burst shakes the camera, and the rig poses the camera one frame and photographs it the next, so the
             // shake pushed it off the pose it was given: baseline r1's splash came back with pose_error_m 4.4 at O240.
             TW.Presentation.Tactical.CameraShake.Strength = 0f;
@@ -139,6 +148,15 @@ namespace TW.Tests
             // 90 x 276 m map: the probe would have counted another subject's effect as this one's.
             string one = System.Environment.GetEnvironmentVariable("TW_ABILITYFX_SUBJECT");
             string[] subjects = string.IsNullOrEmpty(one) ? new[] { "smoke", "barrage", "splash", "drop" } : one.Split(',');
+            // How many times each subject and band is shot. More than one is how the spread of a single build is
+            // measured, so a bar can sit outside it.
+            int reps = 1;
+            int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REPS"), out reps);
+            if (reps < 1) reps = 1;
+            // The point a subject and band were shot on, so every rep stands on the same ground. Open ground a drop may
+            // land on is scarce, and because both passes now stage every rep, an earlier rep's men and craters sit in the
+            // still AND in the plate and cancel.
+            var points = new Dictionary<string, Vector2>();
 
             for (int f = 0; f < 120; f++) yield return null;   // let the field settle before the first block
 
@@ -147,6 +165,7 @@ namespace TW.Tests
             // CurrentZoom as they are born, not as the shot is posed, and the handlers that cull past a zoom see the
             // band they will be photographed at. The overview band goes FIRST so its frame, which holds the whole map,
             // cannot contain an earlier block's smoke, craters or paratroopers.
+            for (int rep = 1; rep <= reps; rep++)
             foreach (string subject in subjects)
             foreach (float zoom in new[] { 240f, 30f })
             {
@@ -159,6 +178,8 @@ namespace TW.Tests
                 float apart = subject == "splash" ? 20f : subject == "drop" ? 34f : 60f;
                 if (tc != null) { tc.BaseYaw = -90f; tc.Zoom = zoom; }
                 float x = -1f, z = -1f;
+                string key = subject + "_" + band;
+                if (points.TryGetValue(key, out var had)) { x = had.x; z = had.y; }
                 for (float zz = 40f; zz < size.y - 40f && x < 0f; zz += 6f)
                     for (float xx = 20f; xx < size.x - 20f && x < 0f; xx += 6f)
                     {
@@ -193,12 +214,14 @@ namespace TW.Tests
                         + ", abilities " + (abilities == null ? "null" : "found"));
                     continue;
                 }
-                used.Add(new Vector2(x, z));
+                if (!points.ContainsKey(key)) { points[key] = new Vector2(x, z); used.Add(new Vector2(x, z)); }
                 if (tc != null) tc.Focus = new Vector2(x, z);
                 for (int f = 0; f < 10; f++) yield return null;   // the camera takes the new zoom and focus
 
                 int before = Paras();
-                if (!plate)
+                // the drop's own drawing is the only thing the plate pass leaves out of a drop block
+                TW.Presentation.Tactical.CombatFx.DropFx = !plate;
+                if (!plate || subject == "drop")
                 {
                     // the first band's call put the ability on its cooldown (HeBarrage 1200 ticks, ParaDrop 1500), which
                     // would refuse the second band's; cleared here, not in the sim
@@ -214,10 +237,11 @@ namespace TW.Tests
                     TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": " + said);
                 }
                 else TestContext.Out.WriteLine(subject + " " + band + " at " + x + ", " + z + ": plate, nothing staged");
+                if (plate && subject == "drop") TestContext.Out.WriteLine("drop " + band + ": plate staged the same drop with DropFx off");
 
                 for (int f = 0; f < pl.peak; f++) yield return null;
 
-                string path = Path.Combine(dir, subject + "_" + band + (plate ? "_plate" : "") + ".png");
+                string path = Path.Combine(dir, subject + "_" + band + (reps > 1 ? "_r" + rep : "") + (plate ? "_plate" : "") + ".png");
                 CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
                 yield return Drain(path);
                 if (File.Exists(path)) written++;
@@ -226,17 +250,19 @@ namespace TW.Tests
                 if (subject == "drop")
                 {
                     dropped += Paras() - before;
-                    TestContext.Out.WriteLine("drop " + band + ": paratroopers in the world " + before + " -> " + Paras());
+                    TestContext.Out.WriteLine("drop " + band + " r" + rep + ": paratroopers in the world " + before + " -> " + Paras());
                 }
             }
 
             Time.captureDeltaTime = 0f;
             TW.Presentation.Terrain.Atmosphere.PinnedClock = -1f;
             TW.Presentation.Tactical.CameraShake.Strength = 1f;
+            TW.Presentation.Tactical.CombatFx.DropFx = true;
+            TW.Presentation.Tactical.CombatFx.ShowTracers = true;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
-            Assert.AreEqual(2 * subjects.Length, written, "a still is missing");
-            if (!plate && System.Array.IndexOf(subjects, "drop") >= 0) Assert.Greater(dropped, 0, "no paratrooper came down: the drop was refused, so the paradrop still photographs nothing");
+            Assert.AreEqual(2 * subjects.Length * reps, written, "a still is missing");
+            if (System.Array.IndexOf(subjects, "drop") >= 0) Assert.Greater(dropped, 0, "no paratrooper came down: the drop was refused, so the paradrop still photographs nothing");
         }
     }
 }

@@ -60,8 +60,17 @@ namespace TW.Presentation.Tactical
         /// aiming shape and the OnGUI banner. PerfBench's image runs with shot_hud=0 turn them off with the HUD (AOSA C56);
         /// the markers are still kept and pruned, only not drawn. Presentation only: the sim never reads it.</summary>
         public static bool ShowOverlays = true;
+        /// <summary>The ParaDrop's own look: the biplane's wake and a canopy a man (OnDropInbound) and the landing dust
+        /// (OnDropLanded). The ability-fx plate pass (AbilityFxStills) stages the same drop with this off, so the men
+        /// come down in both frames and the diff is the drop's drawing alone. Both handlers only add book cards and a
+        /// Flyover, so skipping them shifts no shared random stream. Presentation only: the sim never reads it.</summary>
+        public static bool DropFx = true;
+        /// <summary>Whether the tracers are drawn. They are still kept and pruned either way, only not drawn. The night
+        /// halo of the men's own fire (tracerNightA/B) is a wide green and red glow that an ability-fx plate pass cannot
+        /// reproduce tick for tick, so both passes turn it off. Presentation only: the sim never reads it.</summary>
+        public static bool ShowTracers = true;
         // an image run turns the overlays off; a Play session after it in the same editor must see them again
-        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => ShowOverlays = true);
+        static CombatFx() => SceneStatics.Register(nameof(CombatFx), () => { ShowOverlays = true; DropFx = true; ShowTracers = true; });
 
         struct Tracer { public Vector3 From, To; public float Born; public bool Hit; public byte Team; public float Width, Life, Streak; }   // Hit: written by the strafe run (CombatFx.Abilities); Width: 0 = the usual round; Life: its time on screen (s); Streak: its length x the usual (0 = 1)
         struct Body { public Vector3 Pos; public Quaternion Rot; public float Born; public byte Team, Variant; }
@@ -1124,7 +1133,7 @@ namespace TW.Presentation.Tactical
             float dayStreak = DayStreakAt(night, SceneHooks.CloseUp, classArms > 0f);
             if (tintEpoch != SceneTints.Epoch) ApplyTints();
             // night: three layers a tracer. side 0 / 1 = a wide additive halo in the side's colour, side 2 = the white-hot streak.
-            for (int side = 0; side < (night ? 3 : 1); side++)
+            for (int side = 0; side < (night ? 3 : 1) && ShowTracers; side++)
             {
             var rpT = new RenderParams(night ? (side == 0 ? tracerNightA : side == 1 ? tracerNightB : tracerCore) : tracerMat) { worldBounds = bounds, shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off };
             batch.Clear();
