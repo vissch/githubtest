@@ -26,10 +26,22 @@ namespace TW.Presentation.Tactical
         /// diffused tail (4%/tick) is not. Never under the absolute floor, so what kills is always at least outlined.</summary>
         public const float GasBankPeakFrac = 0.15f, GasBankFloor = 0.8f;
         /// <summary>Cards drawn per standing cell: the sheet's puff is smaller than its card, so one card a cell is a
-        /// field of separate lozenges. Layered, offset and rolled, they build one body (r2-2-g1-g1).</summary>
+        /// field of separate lozenges. Layered, offset and rolled, they break the body card's edge (r2-2-g1-g1).
+        /// Cut to 2 to pay for the body card and measured: the frame lost a third of its bank area, so the third
+        /// layer is back and the body card is paid for out of the narrower cards the head rule forces.</summary>
         public const int GasBankPuffs = 3;
-        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (23.10 m) squashed to 0.20 tops out at 1.54 m - gas pools, it does not stand over a man.</summary>
+        /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so the widest card (24.75 m) squashed to 0.20 tops out at 1.65 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.20f;
+        /// <summary>The body of the bank (r2-2-g1-g1 part 3): two big cards on the core's own centre, sized from the
+        /// core's own extent and capped here, so the body can never be wider than the gas that kills. One card of the
+        /// sheet is one eroded puff, so a 34 m card is one 34 m soft puff: it lifts every interior pixel in one card,
+        /// which is what closes the holes the per-cell puffs left between them.</summary>
+        public const float GasBankBodyMax = 34f;
+        /// <summary>The body card is flatter than a per-cell puff, so more of the bank lies under a man's head:
+        /// 34 m at 0.15, bottom third, is 1.70 m.</summary>
+        public const float GasBankBodySquash = 0.15f;
+        /// <summary>How solidly the body reads. Under the puffs' core alpha: the puffs still break its edge.</summary>
+        public const float GasBankBodyAlpha = 0.75f;
         public static readonly Color GasBankNight = new Color(0.86f, 0.92f, 0.52f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1): a smoothstep, so a rim cell fades out
@@ -49,6 +61,12 @@ namespace TW.Presentation.Tactical
             /// <summary>The one-place pass's scratch, grown once and then reused: no allocation a frame.</summary>
             public int[] Mark = System.Array.Empty<int>(), Queue = System.Array.Empty<int>();
             public void Keep(int n) { if (Mark.Length < n) { Mark = new int[n]; Queue = new int[n]; } }
+            /// <summary>The footprint of the one-place pass's core, summed while it is walked: how many cells it
+            /// holds, its centre, its box, its thickest cell, the ground under its centre, and a hash of it. The
+            /// body card is drawn from these, so it is always the shape of the gas that kills.</summary>
+            public int CoreCount; public float CoreX, CoreZ, MinX, MaxX, MinZ, MaxZ, CoreThick, CoreGround; public uint CoreHash;
+            public void NoCore() { CoreCount = 0; CoreX = CoreZ = CoreThick = CoreGround = 0f; CoreHash = 0u;
+                                   MinX = MinZ = float.MaxValue; MaxX = MaxZ = float.MinValue; }
         }
         readonly BankCache gasBank = new BankCache(), smokeBank = new BankCache();
 
@@ -72,7 +90,7 @@ namespace TW.Presentation.Tactical
         {
             uint tick = Host.Local.World.Tick;
             if (cache.Tick == tick && cache.Step == step) return;
-            cache.Tick = tick; cache.Step = step; cache.Cells.Clear();
+            cache.Tick = tick; cache.Step = step; cache.Cells.Clear(); cache.NoCore();
             float cs = MapData.FieldCellSize;
             float thickFrom = 0f;   // a cell's thickness runs from the floor it had to clear, not from nothing
             int gw = (width + step - 1) / step, gl = (length + step - 1) / step;
@@ -135,6 +153,19 @@ namespace TW.Presentation.Tactical
                 for (int dx = 0; dx < step && x + dx < width; dx++)
                     c = Mathf.Max(c, field[(z + dz) * width + x + dx]);
                 Add(cache, c, x, z, step, cs, thickFrom, full, jitter, p1, p2);
+                // and the core's own footprint, out of the cell just added: no second pass and no allocation
+                var cell = cache.Cells[cache.Cells.Count - 1];
+                cache.CoreCount++;
+                cache.CoreX += cell.X; cache.CoreZ += cell.Z;
+                cache.MinX = Mathf.Min(cache.MinX, cell.X); cache.MaxX = Mathf.Max(cache.MaxX, cell.X);
+                cache.MinZ = Mathf.Min(cache.MinZ, cell.Z); cache.MaxZ = Mathf.Max(cache.MaxZ, cell.Z);
+                cache.CoreThick = Mathf.Max(cache.CoreThick, cell.Thick);
+                cache.CoreHash ^= cell.Hash;
+            }
+            if (cache.CoreCount > 0)
+            {
+                cache.CoreX /= cache.CoreCount; cache.CoreZ /= cache.CoreCount;
+                cache.CoreGround = RenderGround.Sample(Host.Local.Map, cache.CoreX, cache.CoreZ);
             }
         }
 
@@ -167,6 +198,7 @@ namespace TW.Presentation.Tactical
             int step = CurrentBankStep();
             Refresh(gasBank, gas.Gas, gas.Width, gas.Length, step, GasBankFloor, 10f, 2.4f, 73856093, 19349663, GasBankPeakFrac);
             gasCards.Clear();
+            DrawGasBankBody(now);
             foreach (var b in gasBank.Cells)
             {
                 float h2 = ((b.Hash >> 10) & 1023) / 1023f, h3 = ((b.Hash >> 20) & 1023) / 1023f;
@@ -181,7 +213,7 @@ namespace TW.Presentation.Tactical
                     float roll = p2 * 6.2832f;
                     // r2-2-g1-g1: wide enough that the core's cards overlap into one body. 6-9 m cards on a 4 m grid
                     // read as separate lozenges - the owner's zebra.
-                    float width = (15f + 6f * b.Thick) * (0.75f + 0.5f * p1) * (0.9f + 0.2f * h2) * step;
+                    float width = (13f + 5f * b.Thick) * (0.75f + 0.5f * p1) * (0.9f + 0.2f * h2) * step;
                     float off = MapData.FieldCellSize * step * 0.5f;   // a tight layer: the bank stays one patch, not a smear
                     var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((hp >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
                     // just above the mud, not 0.35 m under it: the sheet's ground soften (GasBank's Ground 0.55) needs
@@ -191,6 +223,32 @@ namespace TW.Presentation.Tactical
                 }
             }
             books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+        }
+
+        /// <summary>The bank's body: two big soft cards on the core's centre, before the per-cell puffs. The puffs
+        /// alone were the body, and small puffs on a 4 m grid leave holes between them whatever their width (part 2
+        /// walked floor, alpha, width, squash and layer count and the frame stayed 0.285 full). One card that is the
+        /// whole footprint has no holes, so the puffs can go back to being an eroded edge.</summary>
+        void DrawGasBankBody(float now)
+        {
+            var c = gasBank;
+            if (c.CoreCount <= 0) return;
+            float extent = Mathf.Max(c.MaxX - c.MinX, c.MaxZ - c.MinZ);
+            float w = Mathf.Min(0.9f * extent, GasBankBodyMax);
+            if (w < 1f) return;
+            float off = MapData.FieldCellSize * 0.5f;
+            for (int i = 0; i < 2; i++)
+            {
+                uint hb = (c.CoreHash + (uint)i * 0x9E3779B9u) * 2654435761u;
+                float b1 = ((hb >> 6) & 1023) / 1023f, b2 = ((hb >> 16) & 1023) / 1023f, b3 = ((hb >> 26) & 63) / 63f;
+                float bw = i == 0 ? w : w * 0.85f;
+                var at = new Vector3(c.CoreX + (i == 0 ? 0f : (b1 - 0.5f) * off), c.CoreGround + 0.1f,
+                                     c.CoreZ + (i == 0 ? 0f : (b2 - 0.5f) * off));
+                var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((hb >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
+                gasCards.Add(FlipbookFx.Pack(at, bw, bw * GasBankBodySquash,
+                                             BankFrame(GasBankFirst, GasBankLast, now * 0.22f + b3 * 6.2832f),
+                                             1f, 1f, b2 * 6.2832f, kind, GasBankBodyAlpha));
+            }
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
