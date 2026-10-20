@@ -1,0 +1,44 @@
+{
+ "look": {
+  "cards-gas": {
+   "mask_px": 19857,
+   "relief": 0.1888,
+   "rise_m": 0.0
+  },
+  "cards-puff": {
+   "mask_px": 11667,
+   "relief": 0.1724,
+   "rise_m": 0.0
+  },
+  "cards-smoke": {
+   "mask_px": 17311,
+   "relief": 0.1824,
+   "rise_m": 0.0
+  },
+  "gas_smoke_relief_ratio": 1.0351,
+  "gas_smoke_rise_ratio": 0.0
+ },
+ "runs": {
+  "run1": {
+   "bank_area_frac": 0.008,
+   "bank_height_frac": 0.1317,
+   "bank_low_share": 0.3542,
+   "bank_rise_m": 2.911,
+   "gas_hue_window_px": 30,
+   "mask_px": 7397,
+   "mask_px_patch": 14805,
+   "mask_px_raw": 65336,
+   "o240_area_frac": 0.0165,
+   "o240_mask_px": 15182,
+   "o240_mask_px_patch": 29544,
+   "o240_mask_px_raw": 29544,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  }
+ }
+}
