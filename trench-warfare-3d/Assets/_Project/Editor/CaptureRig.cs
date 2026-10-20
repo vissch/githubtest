@@ -229,6 +229,7 @@ namespace TW.Editor
             // and kit behind him. Contrast is |man - background| / (background + 0.02), so it is a ratio, not a
             // difference, and 0.4 means "you can find him", 0.1 means "he is mud".
             var contrasts = new List<float>();
+            var men = new List<string>();
             int inFrame = 0;
             var host = Object.FindFirstObjectByType<SimHost>();
             if (host != null && host.Local != null && cam != null)
@@ -240,7 +241,10 @@ namespace TW.Editor
                     Vector3 chest = (Vector3)host.Presenter.Drawn(s) + Vector3.up * 1.3f;
                     if (Vector3.Dot(chest - cam.transform.position, cam.transform.forward) <= 0f) continue;
                     Vector3 sp = cam.WorldToScreenPoint(chest);
-                    int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cy = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
+                    // "Tex" coordinates here are screen/texture space, y=0 at the BOTTOM (Unity's convention,
+                    // and what GetPixels32 reads); the "men" json below flips to PNG rows, y=0 at the TOP (what
+                    // PIL reads), so the probe can crop a man straight out of the saved file with no guessing.
+                    int cx = Mathf.RoundToInt(sp.x * w / cam.pixelWidth), cyTex = Mathf.RoundToInt(sp.y * h / cam.pixelHeight);
                     // how tall he is drawn, in this image's pixels. The ring that samples the ground has to sit OUTSIDE
                     // him, and he is 80 px tall at the tactical camera and several hundred up close — a fixed radius
                     // measured the man against himself and called every frame unreadable.
@@ -250,11 +254,30 @@ namespace TW.Editor
                     if (tall < 6f) continue;                                  // too small to say anything honest about
                     int rMan = Mathf.Max(2, Mathf.RoundToInt(tall * 0.10f));
                     int rIn = Mathf.RoundToInt(tall * 0.62f), rOut = Mathf.RoundToInt(tall * 1.00f);
-                    if (cx < rOut || cy < rOut || cx >= w - rOut || cy >= h - rOut) continue;
-                    inFrame++;
-                    float man = Disc(lum, w, h, cx, cy, 0, rMan);
-                    float bg = Ring(lum, w, h, cx, cy, rIn, rOut);            // median, so a neighbour in the ring does not skew it
-                    contrasts.Add(Mathf.Abs(man - bg) / (bg + 0.02f));
+                    float contrast = -1f;                                     // -1: the ring would not fit in the image
+                    if (cx >= rOut && cyTex >= rOut && cx < w - rOut && cyTex < h - rOut)
+                    {
+                        inFrame++;
+                        float man = Disc(lum, w, h, cx, cyTex, 0, rMan);
+                        float bg = Ring(lum, w, h, cx, cyTex, rIn, rOut);     // median, so a neighbour in the ring does not skew it
+                        contrast = Mathf.Abs(man - bg) / (bg + 0.02f);
+                        contrasts.Add(contrast);
+                    }
+                    // his own footprint box: width tall*0.45 centred on him, from his foot row to tall*1.1 above it,
+                    // clipped to the image — so a crop can hold both men whether or not either passed the margin above
+                    float footYTex = footS.y * h / cam.pixelHeight;
+                    float bx0 = Mathf.Clamp(cx - tall * 0.225f, 0, w), bx1 = Mathf.Clamp(cx + tall * 0.225f, 0, w);
+                    float byTopTex = Mathf.Clamp(footYTex + tall * 1.1f, 0, h), byBotTex = Mathf.Clamp(footYTex, 0, h);
+                    int cyPng = h - 1 - cyTex;
+                    int byPng0 = Mathf.RoundToInt(h - 1 - byTopTex), byPng1 = Mathf.RoundToInt(h - 1 - byBotTex);
+                    var mb = new StringBuilder();
+                    mb.Append("{ \"slot\": ").Append(s).Append(", \"archetype\": ").Append(world.Archetype[s])
+                      .Append(", \"cx\": ").Append(cx).Append(", \"cy\": ").Append(cyPng)
+                      .Append(", \"tall\": ").Append(tall.ToString("0.##", CultureInfo.InvariantCulture))
+                      .Append(", \"contrast\": ").Append(contrast.ToString("0.####", CultureInfo.InvariantCulture))
+                      .Append(", \"box\": [").Append(Mathf.RoundToInt(bx0)).Append(", ").Append(byPng0).Append(", ")
+                      .Append(Mathf.RoundToInt(bx1)).Append(", ").Append(byPng1).Append("] }");
+                    men.Add(mb.ToString());
                 }
             }
             contrasts.Sort();
@@ -277,6 +300,10 @@ namespace TW.Editor
             N(sb, "luma_mean", mean); N(sb, "luma_p50", p50); N(sb, "luma_p95", p95);
             N(sb, "blown_frac", blown / (float)px.Length); N(sb, "black_frac", black / (float)px.Length);
             N(sb, "men_in_frame", inFrame); N(sb, "contrast_median", cMed); N(sb, "contrast_p10", c10);
+            // one entry per live man this frame drew, measured from the engine's own boxes — never hand-typed
+            sb.Append("  \"men\": [");
+            for (int i = 0; i < men.Count; i++) sb.Append(i > 0 ? ", " : "").Append(men[i]);
+            sb.Append("],\n");
             // which squall the shot was taken in: rain wanders over a ~50 s cycle and nothing used to record it, so
             // two captures minutes apart were compared in different weather without anybody knowing
             N(sb, "rain", TW.Presentation.Terrain.Atmosphere.RainNow);
