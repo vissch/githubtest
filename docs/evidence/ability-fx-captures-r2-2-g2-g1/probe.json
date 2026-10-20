@@ -1,0 +1,100 @@
+{
+ "bars": {
+  "bank_height_frac": 0.15,
+  "bank_low_share": 0.3,
+  "bank_patch_count": 60,
+  "bank_patch_share": 0.2,
+  "o240_area_frac": 0.01,
+  "pose_error_max": 0.5
+ },
+ "look": {
+  "cards-gas": {
+   "mask_px": 18342,
+   "relief": 0.173,
+   "rise_m": 0.0
+  },
+  "cards-puff": {
+   "mask_px": 10937,
+   "relief": 0.1627,
+   "rise_m": 0.0
+  },
+  "cards-smoke": {
+   "mask_px": 16780,
+   "relief": 0.1773,
+   "rise_m": 0.0
+  },
+  "gas_smoke_relief_ratio": 0.9757,
+  "gas_smoke_rise_ratio": 0.0
+ },
+ "runs": {
+  "run1": {
+   "bank_area_frac": 0.0047,
+   "bank_height_frac": 0.0799,
+   "bank_low_share": 0.4371,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.207,
+   "bank_rise_m": 1.845,
+   "gas_hue_window_px": 1,
+   "mask_px": 4324,
+   "mask_px_patch": 9670,
+   "mask_px_raw": 46705,
+   "o240_area_frac": 0.0131,
+   "o240_mask_px": 12049,
+   "o240_mask_px_patch": 23791,
+   "o240_mask_px_raw": 23791,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run2": {
+   "bank_area_frac": 0.0047,
+   "bank_height_frac": 0.0799,
+   "bank_low_share": 0.4371,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.2071,
+   "bank_rise_m": 1.845,
+   "gas_hue_window_px": 1,
+   "mask_px": 4324,
+   "mask_px_patch": 9670,
+   "mask_px_raw": 46694,
+   "o240_area_frac": 0.0131,
+   "o240_mask_px": 12054,
+   "o240_mask_px_patch": 23790,
+   "o240_mask_px_raw": 23790,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  },
+  "run3": {
+   "bank_area_frac": 0.0047,
+   "bank_height_frac": 0.0799,
+   "bank_low_share": 0.4371,
+   "bank_patch_count": 41,
+   "bank_patch_share": 0.2071,
+   "bank_rise_m": 1.845,
+   "gas_hue_window_px": 1,
+   "mask_px": 4324,
+   "mask_px_patch": 9670,
+   "mask_px_raw": 46697,
+   "o240_area_frac": 0.0131,
+   "o240_mask_px": 12054,
+   "o240_mask_px_patch": 23790,
+   "o240_mask_px_raw": 23790,
+   "pose_error_m": {
+    "gas-o240": 0.0,
+    "gas-o240-plate": 0.0,
+    "gas-t1": 0.0,
+    "gas-t1-plate": 0.0
+   },
+   "pose_error_max": 0.0
+  }
+ }
+}
