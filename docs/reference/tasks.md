@@ -139,15 +139,18 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2/probe.py` measures those stills in metres, barred against the
+  `docs/evidence/ability-fx-captures-r2-2-g2-g1-g2-g2/probe.py` measures those stills in metres, barred against the
   SPREAD of three repeat captures of the same build on THREE DIFFERENT FRAMES (it refuses captures that share a t1
-  `sim_tick` or a byte-identical still: 'three captures, one frame'), with `--calibrate`, `--selftest`, `--pack`
-  and `--against DIR`, and bars the zebra test on the paint (plate difference AND brighter than the plate, whole
-  frame): `paint_frac`, `bank_paint_share` and `bank_patch_count`
-  (`docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` is its predecessor, which barred the same test against
-  the raw plate difference and shot its three runs on one frame; `docs/evidence/ability-fx-captures-r2-2-g2/probe.py`
-  is the one before that, which a zebra of separate cards passed; `docs/evidence/ability-fx-captures-r2/probe.py`
-  is the single-capture one);
+  `sim_tick` or a byte-identical still: 'three captures, one frame'), with `--calibrate`, `--selftest`, `--pack`,
+  `--signature` (prints `GAS_DIR`/`GAS_COS`, the isolation still's own lift direction, and the cone share of each
+  isolation card) and `--against DIR`, and bars the paint by the DIRECTION it lifts rather than its hue (at night
+  the gas composites to the brightened night field, not to green, so a hue window reads near zero): `gas_paint_frac`,
+  plus the zebra test on patch coherence, `bank_paint_share` and `bank_patch_count`
+  (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g2/probe.py` is its predecessor, which barred the same zebra test
+  on `paint_frac` but by hue; `docs/evidence/ability-fx-captures-r2-2-g2-g1/probe.py` is the one before that, which
+  barred against the raw plate difference and shot its three runs on one frame;
+  `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` is the one before that, which a zebra of separate cards
+  passed; `docs/evidence/ability-fx-captures-r2/probe.py` is the single-capture one);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
