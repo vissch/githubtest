@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """The git pre-push hook the relay installs: while a relay leg holds a checkout, git itself refuses every push from
-it except a plain, forward push of the leg's own lane. It does not matter how the push command was written or
+it except a push of the leg's own lane. A force-push of that one branch is allowed (the owner, 2026-10-21: only
+the lane's own branch, never the trunk or another lane). It does not matter how the push command was written or
 wrapped: git runs this before anything leaves the machine.
 
 The hook file is shared by every checkout of the repo, but it acts only where the runner left a marker
@@ -16,6 +17,7 @@ from pipeline import proc_start   # noqa: E402
 
 MARKER = "relay-leg.json"
 ZERO = "0" * 40
+TRUNK = ("refs/heads/main", "refs/heads/claude/trench-warfare-2d-3d-plan-idt7lf")
 
 
 def git(args):
@@ -37,23 +39,22 @@ def marker():
 
 
 def rebased_name(lane, remote_ref, remote_sha):
-    """True for a NEW branch <lane>-b .. <lane>-j: where a leg that rebased its lane pushes it, since it may not
-    force-push the lane itself (2026-10-15: two legs ended BLOCKED on that, and a session pushed them by hand)."""
+    """True for a NEW branch <lane>-b .. <lane>-j. A force-push of the lane itself is also allowed; this name is the
+    plain push that does not overwrite origin's tip."""
     return bool(lane) and remote_sha == ZERO and re.fullmatch(re.escape("refs/heads/" + lane) + "-[b-j]", remote_ref) is not None
 
 
 def refusal(rec, line):
     local_ref, local_sha, remote_ref, remote_sha = line.split()[:4]
     lane = rec.get("lane")
+    if remote_ref in TRUNK:
+        return "a relay leg does not push the trunk (%s)" % remote_ref
     if local_sha != ZERO and rebased_name(lane, remote_ref, remote_sha):
         return None
     if not lane or remote_ref != "refs/heads/" + lane:
         return "a relay leg pushes only its own lane (%s), not %s" % (lane, remote_ref)
     if local_sha == ZERO:
         return "a relay leg does not delete a branch"
-    if remote_sha != ZERO and git(["merge-base", "--is-ancestor", remote_sha, local_sha])[0] != 0:
-        return ("a relay leg does not force-push: origin's %s is not an ancestor of what you push. A rebased lane is "
-                "pushed as a new branch instead: git push origin HEAD:refs/heads/%s-b (or -c .. -j when taken)" % (lane, lane))
     return None
 
 

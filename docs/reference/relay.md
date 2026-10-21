@@ -469,7 +469,8 @@ has.
 
 The stop is outside the model. While a run holds the checkout, a git pre-push hook
 (`trench-warfare-3d/Tools/relay/prepush.py`, installed by the runner in the repo's shared hooks folder) refuses every
-push from it except a forward push of the leg's own lane, and refuses a leg any push from another checkout.
+push from it except a push of the leg's own lane, including a force-push of that one branch, and refuses the trunk,
+another lane, and any push from another checkout.
 `Tools/land.py` and the pipeline's claim, complete and release refuse inside a leg. After each leg the runner checks
 the board, its own code and the push guard for changes. The rules that read a leg's commands
 (`trench-warfare-3d/Tools/relay/cmdrules.py`) are a second layer: they cannot see every way to write a command.
