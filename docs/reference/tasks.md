@@ -139,7 +139,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   GasBankStills (`Tests/Stills/GasBankStills.cs`, Explicit, a graphics device: the chlorine bank at the play zoom and
   at the overview, each with a NO-GAS PLATE of the same pose and the same frame, so the gas can be told from the field
   by subtraction. `TW_STILLS_DIR` or SessionState `tw.gasbank.dir` says where; `TW_GAS_PLATE=1` or SessionState
-  `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
+  `tw.gasbank.plate` shoots the plate pass; `TW_GAS_EXTRA_FRAMES=<n>` or SessionState `tw.gasbank.extra` adds n frames
+  to both the cloud wait and the block padding, so a repeat run of the same build photographs a different frame (all
+  three runs of 2026-10-21 landed on one tick without it). It records in `manifest.json` whether the sim TOOK each call, which is how
   2026-10-19 found that every call was taken, and the capture frame's own `gas_cells`, `gas_cards`, `recipes`,
   `books_ready` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
   The pipeline's `run_tests` selects
