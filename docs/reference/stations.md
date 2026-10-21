@@ -17,8 +17,9 @@ bring evidence for. A stage may not read its own outputs.
 A stage's `role`, when it has one, must be a name in `Tools/pipeline/roles.json`: the table gives each role the
 skill that is its brief (the `pipeline` skill, "Role skills"). An unknown role is refused, because its worker would
 run without a brief and nothing would say so. The table also holds the short names older items use (`character`,
-`critic`). Do not rename a role on an item that has results: the role is part of a stage's job id, so the finished
-stage would run again.
+`critic`). The job id hashes only what the stage consumes: its declared inputs, the lane it reads them from,
+feedback on it, and the generator version. Bands, station, outputs, role and the stages it comes after are not in
+that hash, so a band or a renamed role leaves a PASS in place. An input or a lane change makes the stage STALE.
 
 | State | Meaning | Next |
 |---|---|---|

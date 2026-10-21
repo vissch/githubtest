@@ -55,8 +55,8 @@ git work and say where to run it. Then `git -C ../tw3d-board pull --rebase -q` s
 
 The scripts read the same table from `Tools/pipeline/roles.json`: a stage or a queued unit with a role that is not
 in it is refused. A new role goes into both, in one commit; a test holds them to each other. Use the long names for
-new stages. Do not rename a role on an item that has results: the role is part of the job id, so the stage would
-run again.
+new stages. Renaming a role, or giving a finished stage a band, does not change its job id: the id hashes the
+inputs and the lane, not the role. An input or a lane change does, and the stage runs again.
 
 Driving the editor and capturing evidence at every zoom band, for all of them: `references/driving-and-evidence.md`.
 
