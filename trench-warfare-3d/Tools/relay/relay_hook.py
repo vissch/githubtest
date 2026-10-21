@@ -10,8 +10,9 @@
 <guard> is the leg's guard folder (leg.json, the meter, the logs). It is in the hook's command line only, never in
 the leg's environment, so the leg is not told where its rules are; every tool is refused a path inside it, inside
 the relay's own code, and on the board outside its evidence. For a Write-family tool that path is the file it
-names; for a command it is the paths the command writes to (a redirect, a copying or deleting program, inline code
-that opens or writes a file). A subtler write a command hides at runtime is the second line of defence to catch
+names; for a command it is the paths the command writes to: a redirect's target, a copying program's destination,
+a deleting or moving program's arguments, or a path opened for writing inside code the command runs (python -c,
+powershell -Command). A subtler write a command hides at runtime is the second line of defence to catch
 (prepush.py, land.py and pipeline.py, the runner's audit). pre-tool fails closed: rules it cannot read, or any
 error, refuse the call. The other events log the error and let the leg go on. The meter reads the
 transcript one batch late, so red sits well under the compaction size. Stdlib only. ASCII only.
@@ -25,13 +26,21 @@ RED_TEXT = ("RELAY: context is at %d tokens (red). Close the leg now. Only these
             "writing note.md in your leg folder, and python \"%s\" leg gate wait | leg finish | leg done. "
             "leg finish commits and pushes for you when the gate is green for these exact files.")
 WRITE_TOOLS = ("Write", "Edit", "NotebookEdit", "MultiEdit")
-WRITE_PROGS = ("cp", "copy", "mv", "move", "rm", "del", "erase", "touch", "tee", "dd", "truncate", "ln", "install",
-               "rsync", "robocopy", "xcopy", "mkdir", "md", "rmdir", "unzip", "tar", "7z", "copy-item", "move-item",
-               "remove-item", "new-item", "rename-item", "set-content", "add-content", "clear-content", "out-file",
-               "tee-object")
-CODE_WRITE = re.compile(
-    r"\.write|write_(text|bytes)|open\s*\([^)]*['\"][wax+]|set-content|add-content|out-file|new-item|remove-item|"
-    r"copy-item|move-item|unlink|rmtree|os\.remove|shutil\.(copy|move)|rename|mkdir|makedirs|touch", re.I)
+# A copying program only reads its source: its target is its destination argument alone (COPY_PROGS, robocopy).
+# Every other program here writes (or, for the move family, also deletes) at every argument it is given.
+WRITE_PROGS = ("mv", "move", "move-item", "rename-item", "rm", "del", "erase", "touch", "tee", "dd", "truncate",
+               "mkdir", "md", "rmdir", "unzip", "tar", "7z", "set-content", "add-content", "clear-content",
+               "out-file", "new-item", "remove-item", "tee-object")
+COPY_PROGS = ("cp", "copy", "copy-item", "install", "rsync", "xcopy", "ln")
+# A path opened for writing inside code the command runs. Each pattern both triggers on a real write and names its
+# own target, so a read (open(x), .write on a buffer that was never opened for writing) is never mistaken for one.
+WRITE_MODE = re.compile(r"(?:,|mode\s*=)\s*['\"][^'\"]*[wax+]", re.I)
+OPEN_CALL = re.compile(r"\bopen\s*\(([^)]*)", re.I)
+PATH_WRITE = re.compile(r"(.{0,200}?)\.(?:write_text|write_bytes|open\s*\(\s*['\"][^'\"]*[wax+])", re.I)
+FS_CALL = re.compile(r"(?:unlink|rmtree|os\.remove|os\.rename|os\.replace|shutil\.(?:copy\w*|move\w*)|makedirs|"
+                     r"mkdir|touch)\s*\(([^)]*)", re.I)
+PS_WRITE_ALL = re.compile(r"\b(?:set-content|add-content|clear-content|out-file|new-item|remove-item)\b", re.I)
+PS_WRITE_LAST = re.compile(r"\b(?:copy-item|move-item|rename-item)\b", re.I)
 CARD_HOOK_MAX = 9000    # characters. Claude Code hands a hook's context over whole only up to about 10,000: a
                         # longer one reaches the session as a preview and a file path, and the leg spends a call
                         # reading its own card (105 of 337 legs, 2026-10-12). Such a card rides in the prompt.
@@ -199,9 +208,64 @@ def _as_path(word, C):
     return w if ("/" in C.bare(w) or "\\" in C.bare(w)) else None
 
 
+def _paths_in(text, C):
+    out = []
+    for tok in re.findall(r"['\"]([^'\"]{1,200})['\"]", text) + text.split():
+        p = _as_path(tok, C)
+        if p:
+            out.append(p)
+    return out
+
+
+def _copy_dest(words, C):
+    """A copying program's destination: -t/--target-directory when given, else its last non-flag argument."""
+    args = words[1:]
+    for i, w in enumerate(args):
+        b = C.bare(w)
+        if b in ("-t", "--target-directory") and i + 1 < len(args):
+            return _as_path(args[i + 1], C)
+        if b.startswith("--target-directory="):
+            return _as_path(b.split("=", 1)[1], C)
+        if b.startswith("-t") and len(b) > 2:
+            return _as_path(b[2:], C)
+    rest = [w for w in args if not C.bare(w).startswith("-")]
+    return _as_path(rest[-1], C) if rest else None
+
+
+def code_targets(raw, C):
+    """The paths opened for writing inside one word of code a command runs (python -c, powershell -Command).
+    A path only read (open(x), json.load, .write on a buffer never opened for writing) is never here."""
+    out = []
+    for m in OPEN_CALL.finditer(raw):
+        if WRITE_MODE.search(m.group(1)):
+            toks = re.findall(r"['\"]([^'\"]{1,200})['\"]", m.group(1))
+            if toks:
+                p = _as_path(toks[0], C)
+                if p:
+                    out.append(p)
+    for m in PATH_WRITE.finditer(raw):
+        before = m.group(1)
+        toks = re.findall(r"['\"]([^'\"]{1,200})['\"]", before)
+        tok = toks[-1] if toks else next((t for t in reversed(before.split()) if "/" in t or "\\" in t), None)
+        if tok:
+            p = _as_path(tok, C)
+            if p:
+                out.append(p)
+    for m in FS_CALL.finditer(raw):
+        out += _paths_in(m.group(1), C)
+    if PS_WRITE_ALL.search(raw):
+        out += _paths_in(raw, C)
+    for m in PS_WRITE_LAST.finditer(raw):
+        paths = _paths_in(raw[m.end():], C)
+        if paths:
+            out.append(paths[-1])
+    return out
+
+
 def write_targets(cmd, C):
-    """The paths a command could write: a redirect, a copying or deleting program's arguments, or a path named
-    inside code a program is told to run (python -c, powershell -Command). A word only run or read is not here."""
+    """The paths a command could write: a redirect's target, a copying program's destination, a deleting or
+    moving program's arguments, or a path opened for writing inside code a program is told to run (python -c,
+    powershell -Command). A word only run or read is not here."""
     out = []
     for words in C.commands(cmd):
         redirected = set(id(w) for w in C.redirects(words))
@@ -216,19 +280,25 @@ def write_targets(cmd, C):
                 p = _as_path(words[i + 1], C)
                 if p:
                     out.append(p)
-        if C.prog(words) in WRITE_PROGS:
+        p = C.prog(words)
+        if p in WRITE_PROGS:
             for w in words[1:]:
                 if not C.bare(w).startswith("-"):
-                    p = _as_path(w, C)
-                    if p:
-                        out.append(p)
+                    t = _as_path(w, C)
+                    if t:
+                        out.append(t)
+        elif p in COPY_PROGS:
+            t = _copy_dest(words, C)
+            if t:
+                out.append(t)
+        elif p == "robocopy":
+            args = [w for w in words[1:] if not C.bare(w).startswith("-")]
+            if len(args) >= 2:
+                t = _as_path(args[1], C)
+                if t:
+                    out.append(t)
         for w in words:
-            raw = C.bare(w)
-            if CODE_WRITE.search(raw):
-                for tok in re.findall(r"['\"]([^'\"]{3,})['\"]", raw) + raw.split():
-                    p = _as_path(tok, C)
-                    if p:
-                        out.append(p)
+            out += code_targets(C.bare(w), C)
     return out
 
 
