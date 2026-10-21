@@ -11,6 +11,7 @@ an untracked file in the gate tree changes the tree land.py checks.
   python Tools/pipeline/run_detached.py status <name>     RUNNING / DONE exit=N / TIMEOUT / STOPPED / CRASHED / STALLED
   python Tools/pipeline/run_detached.py stop <name>       stop the recorded tree (only that tree)
 Commit headroom, not free RAM, decides whether a heavy job may start (workflow.md: under 10 GB, batch gate only).
+--min-headroom-gb defaults to 10. Pass 0 to start anyway.
 Stdlib only. ASCII only.
 """
 import argparse, ctypes, datetime, json, os, subprocess, sys, time
@@ -163,7 +164,7 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="op", required=True)
     s = sub.add_parser("start")
     s.add_argument("name"); s.add_argument("--timeout", type=int, required=True)
-    s.add_argument("--min-headroom-gb", type=float, default=0); s.add_argument("--cwd")
+    s.add_argument("--min-headroom-gb", type=float, default=10); s.add_argument("--cwd")  # 0 turns the guard off
     for n in ("status", "stop", "_wrap"):
         sub.add_parser(n).add_argument("name")
     a = ap.parse_args(argv)

@@ -203,6 +203,61 @@ class PipelineTest(unittest.TestCase):
         P.main(["close-feedback", fid])
         self.assertEqual(self.states()["sim"], "DONE")
 
+    def test_commit_headroom_floor_defaults_to_10(self):
+        """A forgotten --min-headroom-gb must still refuse a heavy start. 0 is the way out."""
+        import run_detached as rd
+
+        class Args(object):
+            pass
+
+        def args(name, floor):
+            a = Args()
+            a.name, a.min_headroom_gb, a.timeout, a.cwd = name, floor, 30, None
+            a.cmd = [sys.executable, "-c", "pass"]
+            return a
+
+        seen = {}
+
+        def spy(a):
+            seen["a"] = a
+            raise SystemExit("spy-stop")
+
+        old_start = rd.cmd_start
+        rd.cmd_start = spy
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                rd.main(["start", "headroom-probe", "--timeout", "30", "--", sys.executable, "-c", "pass"])
+            self.assertEqual(str(caught.exception), "spy-stop")
+        finally:
+            rd.cmd_start = old_start
+        self.assertEqual(seen["a"].min_headroom_gb, 10)
+
+        old_hr, old_root = rd.headroom_gb, rd.runs_root
+        floor = seen["a"].min_headroom_gb
+        rd.headroom_gb = lambda: floor - 7
+        rd.runs_root = lambda: Path(self.tmp.name) / "runs"
+        try:
+            with self.assertRaises(SystemExit) as caught:
+                rd.cmd_start(args("low", floor))
+            self.assertIn("refused", str(caught.exception))
+
+            def past(*_a, **_k):
+                raise RuntimeError("past-headroom")
+
+            old_popen = rd.subprocess.Popen
+            rd.subprocess.Popen = past
+            rd.cmd_start = old_start
+            try:
+                with self.assertRaises(RuntimeError) as boom:
+                    rd.main(["start", "way-out", "--timeout", "30", "--min-headroom-gb", "0", "--",
+                             sys.executable, "-c", "pass"])
+                self.assertEqual(str(boom.exception), "past-headroom")
+            finally:
+                rd.subprocess.Popen = old_popen
+        finally:
+            rd.cmd_start = old_start
+            rd.headroom_gb, rd.runs_root = old_hr, old_root
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=1)
