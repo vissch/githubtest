@@ -329,6 +329,22 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   `06-Medic-b`, `12-AT-Rifle-a` separately) is its own lane, while this lane's own decided scope (count foot
   figures only) is finished, tagged `[foot-only-mud-lift]` and pushed, and still not landed (this leg,
   `found-lift-foot-units-off-the-mud-at-close-range-20261016-0`, 2026-10-16).
+- **The gas bank: fewer, shallower, denser cards cannot hold `bank_paint_share` (2026-10-21, lane
+  `ability-fx-captures-r2-2-g2-g1-g2-g2-g1`):** the owner asked for a gas puff a player can see at the close
+  camera, with `bank_low_share` >= 0.30 and `bank_height_frac` <= 0.15. A build of `CombatFx.Banks.cs` with
+  `GasBankSquash` 0.20 (0.36 kept from the overview), `GasBankAlpha` lerped on `thick*thick` with
+  `GasBankThin` 0.06, the close-up `Refresh` floor raised and `full` 14 -> 28, and the card's base-y jitter
+  halved, **clears both of the owner's bars with room to spare** at the worst tick (637): `bank_low_share`
+  0.4699 against 0.36 wanted, `bank_height_frac` 0.0691 against 0.12 wanted, `o240_area_frac` 0.0105 against
+  0.010. It **fails the one-bank coherence bar**: `bank_paint_share` 0.0358 / 0.0358 / 0.0387 over three
+  calibration captures (floor 3.0, floor 4.5, `GasBankFull` 0.70), against the landed bar of 0.12 and the
+  0.16 this lane needed for spread headroom - the g2 build reads 0.16-0.19. Fewer and fainter cards make the
+  bank a flat, low mass, but its paint then breaks into islands the probe cannot read as one bank: the low
+  bank and the single coherent patch pull against each other on this card-per-cell drawing. Options: (a) keep
+  the g2 build and lower nothing - the default taken here, nothing was landed and `CombatFx.Banks.cs` is
+  reverted; (b) drop `bank_paint_share` from the bars and bar the bank's shape instead (`bank_aspect`, 6.2 on
+  the low build against 2.7-4.9 on g2); (c) redraw the bank as one mesh or a few large cards instead of one
+  card per 4 m cell, which is a new look and so a concepts brief first.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
