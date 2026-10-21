@@ -150,6 +150,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   ONE bank (`gas_cells_before` 0). `ClearView` beside `Open()` asks the side lens for a clear ground line to the
   patch (widths 8, 6, 4 m, last rung 0 = no check, the rung used is logged): on the greybox corridor only 2 of 71
   open patches pass even at 4 m, so it does not bite there.
+  From r2-3-g2-g2-g1-g1 the side band shoots with the tank, man and debris drawers off
+  (`TankRenderer`, `VATRenderer`, `DebrisRenderer` disabled for the block in BOTH passes, so the plate still
+  subtracts), which takes the hull out of the picture and not only out of the mask; the side rows then carry
+  `drawers_off` and `hulls_near`, and the measure is
+  `docs/evidence/ability-fx-captures-r2-3-g2-g2-g1-g1/probe.py`.
   The O240 hue is read over the blob's CORE from r2-3-g2-g2 too (`HUE_CORE_PCTL`, the top quartile of plate
   difference) with a saturation-weighted MEDIAN hue: the card is alpha-blended, so its fringe is mostly ground
   showing through and a whole-blob mean moved 42 deg between seeds; the core median holds them to 14 deg.
