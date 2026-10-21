@@ -23,6 +23,10 @@ namespace TW.Presentation.Tactical
         public const float GasBankThin = 0.6f, GasBankFull = 1f;
         /// <summary>How flat a gas card is drawn: the sheet fills the bottom third, so a 7 m card squashed to 0.55 tops out at 1.28 m - gas pools, it does not stand over a man.</summary>
         public const float GasBankSquash = 0.55f;
+        /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
+        /// height, like cards-smoke.jpg). The GasPuff drawing fills its cell (ink 0.03-0.87), so a 5-7 m card's gas
+        /// stands about 0.2-6 m: a puff, not GasBankSquash's 1.3 m puddle.</summary>
+        public const float GasPuffStand = 1f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
@@ -95,9 +99,12 @@ namespace TW.Presentation.Tactical
                 float slow = now * 0.22f + h3 * 6.2832f;
                 float width = (5f + 2f * b.Thick) * (0.9f + 0.2f * h2) * step;
                 var kind = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored | (((b.Hash >> 5) & 1) == 0 ? FlipbookFx.Kind.Mirror : 0);
-                gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                // close (step 1): the standing puff, its drawing reaching the cell's floor, so the card sits at the
+                // smoke bank's anchor and not GasBankSquash's sunk one. From the overview out: today's squashed blanket.
+                if (step == 1) gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.2f, b.Z), width, width * GasPuffStand, BankFrame(SmokeBankFirst, SmokeBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
+                else gasCards.Add(FlipbookFx.Pack(new Vector3(b.X, b.Ground - 0.35f, b.Z), width, width * GasBankSquash, BankFrame(GasBankFirst, GasBankLast, slow), 1f, 1f, 0f, kind, GasBankAlpha(b.Thick)));
             }
-            books.DrawPacked(FlipbookFx.Book.GasBank, gasCards, bounds);
+            books.DrawPacked(step == 1 ? FlipbookFx.Book.GasPuff : FlipbookFx.Book.GasBank, gasCards, bounds);
         }
 
         void DrawSmokeBank(GasSmokeSystem gas, float now, Bounds bounds)
