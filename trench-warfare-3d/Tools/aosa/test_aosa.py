@@ -433,5 +433,93 @@ class AosaTest(unittest.TestCase):
         self.assertIn("WIP 1/3, ready 5", out)
 
 
+def msys_bash():
+    """Git-for-Windows bash. PATH may lead with WindowsApps\\bash.exe, which is WSL's wsl.exe: it cannot open a
+    Windows path (exit 127) and has no cygpath."""
+    dirs = os.environ.get("PATH", "").split(os.pathsep)
+    git = shutil.which("git")
+    if git:
+        dirs.append(str(Path(git).resolve().parent.parent / "bin"))
+    dirs.append(r"C:\Program Files\Git\bin")
+    for d in dirs:
+        if not d or Path(d).name.lower() in ("windowsapps", "system32"):
+            continue
+        c = Path(d) / "bash.exe"
+        if c.exists() and subprocess.run([str(c), "-c", "command -v cygpath"],
+                                         capture_output=True).returncode == 0:
+            return str(c)
+    return None
+
+
+class PlayerBenchExitTest(unittest.TestCase):
+    # [found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0]
+    def setUp(self):
+        self.tmp = Path(tempfile.mkdtemp(prefix="player-bench-test-"))
+        (self.tmp / "aosa").mkdir(parents=True)
+        self.script = self.tmp / "aosa" / "player_bench.sh"
+        shutil.copyfile(HERE / "player_bench.sh", self.script)
+        (self.tmp / "runs").mkdir()
+        (self.tmp / "build").mkdir()
+        (self.tmp / "build" / "TrenchWarfare.exe").write_bytes(b"")
+        self.bindir = self.tmp / "bin"
+        self.bindir.mkdir()
+
+    def tearDown(self):
+        shutil.rmtree(self.tmp, ignore_errors=True)
+
+    def _bash(self):
+        b = msys_bash()
+        if not b:
+            self.skipTest("no Git Bash (a bash.exe with cygpath) on this machine")
+        return b
+
+    def _run(self, timeout_body=None):
+        bash = self._bash()
+        env = dict(os.environ)
+        env["PATH"] = str(self.bindir) + os.pathsep + env.get("PATH", "")
+        if timeout_body is not None:
+            # Git Bash's own /usr/bin leads the PATH ahead of self.bindir, so a stub file there
+            # never shadows the real timeout; an exported function always wins over a PATH lookup.
+            env["BASH_FUNC_timeout%%"] = "() { %s\n}" % timeout_body
+        p = subprocess.run([bash, str(self.script), "lbl", "", str(self.tmp / "build")],
+                            env=env, capture_output=True, text=True)
+        return p.returncode, p.stdout + p.stderr
+
+    def test_no_report_exits_non_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        rc, out = self._run("echo crashed > \"%s\"; return 7" % log)
+        self.assertNotEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] no report must not exit 0")
+        self.assertIn("NO REPORT", out)
+
+    def test_report_exits_zero(self):
+        log = (self.tmp / "runs" / "lbl.log").as_posix()
+        js = (self.tmp / "runs" / "lbl.json").as_posix()
+        rc, out = self._run("echo ok > \"%s\"; echo '{}' > \"%s\"; return 0" % (log, js))
+        self.assertEqual(0, rc, "[found-player-bench-sh-fail-when-the-player-wrote-n-20261016-0] a written report must exit 0")
+        self.assertIn("report written", out)
+
+    def test_msys_bash_skips_the_wsl_alias(self):   # [player-bench-test-runs-on-the-desktop-20261019]
+        wa = self.tmp / "WindowsApps"; wa.mkdir()
+        (wa / "bash.exe").write_bytes(b"MZ")        # stands for WSL's launcher
+        old = os.environ["PATH"]
+        os.environ["PATH"] = str(wa) + os.pathsep + old
+        try:
+            got = msys_bash()
+        finally:
+            os.environ["PATH"] = old
+        self.assertNotEqual(str(wa / "bash.exe"), got,
+                            "[player-bench-test-runs-on-the-desktop-20261019] WSL's bash.exe must not be picked")
+
+    def test_the_script_is_checked_out_with_lf_endings(self):   # [player-bench-test-runs-on-the-desktop-20261019]
+        data = (HERE / "player_bench.sh").read_bytes()
+        self.assertNotIn(b"\r\n", data,
+                         "[player-bench-test-runs-on-the-desktop-20261019] a CRLF bash script exits 127")
+        attrs = (HERE.parents[2] / ".gitattributes").read_text()
+        self.assertTrue(
+            any(line.split()[0] == "*.sh" and "eol=lf" in line
+                for line in attrs.splitlines() if line.strip()),
+            "[player-bench-test-runs-on-the-desktop-20261019] .gitattributes must pin *.sh to eol=lf")
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)
