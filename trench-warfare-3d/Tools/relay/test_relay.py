@@ -103,6 +103,19 @@ class Settings(Base):
         lim = config.limits(overrides={"red_tokens": 900000, "run_hours": 99})
         self.assertEqual((lim["red_tokens"], lim["run_hours"]), (300000, 12))
 
+    def test_amber_max_stays_below_red_min(self):
+        """A retrospective may pick any value inside each bound. When amber's max meets red's min,
+        that pair is equal, limits() refuses, and the runner drops the whole tuning."""
+        raw = json.loads((HERE / "limits.json").read_text(encoding="utf-8"))
+        amber, red = raw["amber_tokens"], raw["red_tokens"]
+        self.assertLess(amber["max"], red["min"])
+        self.assertLess(red["max"], raw["autocompact_tokens"])
+        for a in (amber["min"], amber["value"], amber["max"]):
+            for r in (red["min"], red["value"], red["max"]):
+                lim = config.limits(overrides={"amber_tokens": a, "red_tokens": r})
+                self.assertLess(lim["amber_tokens"], lim["red_tokens"])
+                self.assertLess(lim["red_tokens"], lim["autocompact_tokens"])
+
     def test_a_bad_limits_file_stops_the_run(self):
         bad = self.tmp / "cfg"
         shutil.copytree(HERE, bad, ignore=shutil.ignore_patterns("*.py", "roles", "sources", "__pycache__"))
