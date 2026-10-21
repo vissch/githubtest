@@ -136,10 +136,13 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   `-twfield`, `TW_FILM_EFFECTS`, `TW_FILM_SECONDS`),
   `Tests/Stills/AbilityFxStills.cs` (one ability effect an editor run, shot at T1 and O240 against a no-effect plate
   of the same pose and the same sim tick, the ability-area marker and the tracers hidden; `TW_STILLS_DIR`,
-  `TW_ABILITYFX_SUBJECT`, `TW_ABILITYFX_PLATE`, `TW_ABILITYFX_REPS` (N captures over, each named for its subject, band and rep);
+  `TW_ABILITYFX_SUBJECT`, `TW_ABILITYFX_PLATE`, `TW_ABILITYFX_REPS` (N captures over, each named for its subject, band and rep),
+  `TW_ABILITYFX_REP` (shoot only rep N, keeping its name: three launches are three captures of ONE sim tick),
+  `TW_ABILITYFX_DROP_PEAK` (move the drop's shot frame; a comma list sweeps one frame a rep);
   the drop's plate stages the same drop with `CombatFx.DropFx` off, so its men are in both frames and only the drop's
   own drawing is measured, and the beams are off in both; the pixels are measured by
-  `docs/evidence/ability-fx-captures-r3-2-2-g2/probe.py` (12 rows: the drop is three captures a band), whose floor is
+  `docs/evidence/ability-fx-captures-r3-2-2-g2-g1/probe.py` (12 rows: the drop is three captures a band, all three on
+  one sim tick), whose floor is
   a ground footprint for smoke, barrage and splash and a fixed bar a band for the drop, and is guarded by
   `AbilityFxReadAtEveryBand`).
 - **Tests:** VfxStills (Explicit: run by name with a graphics device; it only checks that stills were written),

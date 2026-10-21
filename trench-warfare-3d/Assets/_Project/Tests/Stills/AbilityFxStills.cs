@@ -5,6 +5,8 @@
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-abilityfx), TW_ABILITYFX_PLATE=1 runs the identical script with the
 // staging call skipped — the plate pass. TW_ABILITYFX_REPS=N (default 1) shoots every subject and band N times over,
 // naming the files subject_band_rN.png, so a bar can be set outside the spread of one build's own captures.
+// TW_ABILITYFX_REP=N shoots only rep N and keeps the _rN name, so each rep can be a fresh editor run on the same sim
+// tick; TW_ABILITYFX_DROP_PEAK=a[,b,c] moves the drop's shot frame (rep N takes the Nth value).
 // The drop is the one subject whose plate DOES stage: its 13 paratroopers, their fallen and their fire would otherwise
 // be the whole diff, so the plate drops the same men on the same ticks with CombatFx.DropFx off (the g2 measurement,
 // the owner 2026-10-21: "hold the plate's men, turn the beams off, so the mask is the drop and not the soldiers"). The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
@@ -86,8 +88,21 @@ namespace TW.Tests
                 case "splash": return (7f, 3f, 20, 120);          // one shell, bursting the next tick
                 // the drop's block runs 360 frames so the last rep's cards (longest life 5 s = 150 frames) are gone
                 // before the next rep stages on the same point
-                default: return (12f, 12f, 155, 360);             // drop: warmup 100 ticks (150 frames), shot just after the landing
+                // 220 frames is the landing dust at its fullest: a sweep of 155 / 190 / 220 / 250 at zoom 30 showed a
+                // faint haze at 155, a thin cloud at 190, a cloud over the whole landing at 220, and nothing left at 250.
+                default: return (12f, 12f, 220, 360);             // drop: warmup 100 ticks (150 frames), the landing dust at its fullest
             }
+        }
+
+        /// <summary>The drop's shot frame, overridden per rep by TW_ABILITYFX_DROP_PEAK (one number, or a comma list
+        /// where rep N takes the Nth value: that is a sweep of shot frames in one launch). -1 when unset.</summary>
+        static int DropPeakOverride(int rep)
+        {
+            var raw = System.Environment.GetEnvironmentVariable("TW_ABILITYFX_DROP_PEAK");
+            if (string.IsNullOrEmpty(raw)) return -1;
+            var parts = raw.Split(',');
+            var pick = parts[Mathf.Clamp(rep - 1, 0, parts.Length - 1)].Trim();
+            return int.TryParse(pick, out int n) && n > 0 ? n : -1;
         }
 
         /// <summary>Paratroopers alive in the local world: how a drop is proved to have come down, without reading
@@ -153,6 +168,13 @@ namespace TW.Tests
             int reps = 1;
             int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REPS"), out reps);
             if (reps < 1) reps = 1;
+            // TW_ABILITYFX_REP=N shoots exactly rep N, in its own editor run, and still writes the _rN suffix: three
+            // launches of one rep each are identical by construction, so all three reps land on the same sim tick.
+            int only = 0;
+            int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REP"), out only);
+            if (only < 1) only = 0;
+            int firstRep = only > 0 ? only : 1, lastRep = only > 0 ? only : reps;
+            bool suffix = only > 0 || reps > 1;
             // The point a subject and band were shot on, so every rep stands on the same ground. Open ground a drop may
             // land on is scarce, and because both passes now stage every rep, an earlier rep's men and craters sit in the
             // still AND in the plate and cancel.
@@ -165,12 +187,13 @@ namespace TW.Tests
             // CurrentZoom as they are born, not as the shot is posed, and the handlers that cull past a zoom see the
             // band they will be photographed at. The overview band goes FIRST so its frame, which holds the whole map,
             // cannot contain an earlier block's smoke, craters or paratroopers.
-            for (int rep = 1; rep <= reps; rep++)
+            for (int rep = firstRep; rep <= lastRep; rep++)
             foreach (string subject in subjects)
             foreach (float zoom in new[] { 240f, 30f })
             {
                 string band = zoom < 100f ? "T1" : "O240";
                 var pl = Plan(subject);
+                if (subject == "drop") { int over = DropPeakOverride(rep); if (over > 0) pl.peak = over; }
                 // How far this band's point must stand from the one the other band used. The overview band runs first,
                 // so this only keeps the standard view's frame clear of what the overview block left behind: water is
                 // scarce and a splash is gone in 1.5 s, and open ground a drop can land on is scarcer still (7 points
@@ -241,7 +264,7 @@ namespace TW.Tests
 
                 for (int f = 0; f < pl.peak; f++) yield return null;
 
-                string path = Path.Combine(dir, subject + "_" + band + (reps > 1 ? "_r" + rep : "") + (plate ? "_plate" : "") + ".png");
+                string path = Path.Combine(dir, subject + "_" + band + (suffix ? "_r" + rep : "") + (plate ? "_plate" : "") + ".png");
                 CaptureRig.Shot(path, x, z, zoom, 40f, 25f, 1280, 720, pl.aim);
                 yield return Drain(path);
                 if (File.Exists(path)) written++;
@@ -261,7 +284,7 @@ namespace TW.Tests
             TW.Presentation.Tactical.CombatFx.ShowTracers = true;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
-            Assert.AreEqual(2 * subjects.Length * reps, written, "a still is missing");
+            Assert.AreEqual(2 * subjects.Length * (lastRep - firstRep + 1), written, "a still is missing");
             if (System.Array.IndexOf(subjects, "drop") >= 0) Assert.Greater(dropped, 0, "no paratrooper came down: the drop was refused, so the paradrop still photographs nothing");
         }
     }

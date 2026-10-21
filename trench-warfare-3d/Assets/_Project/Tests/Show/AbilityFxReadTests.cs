@@ -1,13 +1,16 @@
-// Phase: ability-fx-captures-r3-2-2-g2 - how big an ability's effect must read at each zoom band.
+// Phase: ability-fx-captures-r3-2-2-g2-g1 - how big an ability's effect must read at each zoom band.
 // ability-fx-captures-r3-2-2: how big an ability's effect must read. A fixed share of the frame is not a fair test of
 // a point effect: 3% of an O240 frame is a feature about 85 m across, which no shell burst honestly is. So the floor
 // is a ground footprint, capped at the old share of the frame (R0 C1, a measuring choice taken by the coordinator
 // 2026-10-19, not the owner; the row in docs/reference/decisions.md).
 // g2: the drop is six rows, three captures a band, and is NOT measured against the footprint. Its plate now holds
 // the same men with the drop's own look and the beams off, so the diff is the biplane's wake, the canopies and the
-// landing dust - a drawing a ground footprint asks the wrong question of. Its bar is a fixed number a band, 0.8 x
-// the smallest of the three captures of THIS LANE'S TREE (parent 849d908a2b), not a sum done the way the probe does
-// it: T1 0.096479 / 0.099553 / 0.099528 -> 0.0771, O240 0.020908 / 0.021018 / 0.021418 -> 0.0167.
+// landing dust - a drawing a ground footprint asks the wrong question of. Its bar is a fixed number a band, measured
+// from the three captures of THIS LANE'S TREE, not a sum done the way the probe does it.
+// g2-g1: the three captures are now three editor runs on ONE sim tick, shot 220 frames after the call - the landing
+// dust at its fullest, a cloud a player can see - instead of three blocks of one run at three ticks, of which the
+// first was a faint haze. The spread is now 0.03%, so the bar is 0.98 x the smallest, not 0.8 x:
+// T1 0.136472 / 0.136510 / 0.136480 -> 0.1337, O240 0.013163 / 0.013165 / 0.013173 -> 0.0129.
 using System.Globalization;
 using System.IO;
 using NUnit.Framework;
@@ -18,17 +21,17 @@ namespace TW.Tests
     public class AbilityFxReadTests
     {
         /// <summary>The floor from the goal's rule: at least 400 m^2 of ground (about 20 x 20 m), never stricter than
-        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2/probe.py is the authority - it measures the
+        /// 0.10 of the frame. docs/evidence/ability-fx-captures-r3-2-2-g2-g1/probe.py is the authority - it measures the
         /// pixels and writes probe.json; this is the same arithmetic, held against hand sums below.</summary>
         static float Floor(float frameAreaM2) => Mathf.Min(0.10f, 400f / frameAreaM2);
 
         const float Tol = 1e-5f;
 
-        /// <summary>The drop's bar a band: 0.8 x the smallest of three captures of this lane's tree (parent
-        /// 849d908a2b), rounded down to four decimals, so the bar sits under the whole spread. Measured, not
-        /// derived - the probe's docstring lists the six captures.</summary>
-        const float DropBarT1 = 0.0771f;
-        const float DropBarO240 = 0.0167f;
+        /// <summary>The drop's bar a band: 0.98 x the smallest of three captures of this lane's tree, rounded down to
+        /// four decimals, so the bar sits just under the whole spread (which is 0.03% wide). Measured, not derived -
+        /// the probe's docstring lists the six captures.</summary>
+        const float DropBarT1 = 0.1337f;
+        const float DropBarO240 = 0.0129f;
 
         // [ability-fx-captures-r3-2-2]
         [Test]
@@ -42,7 +45,7 @@ namespace TW.Tests
             Assert.That(Floor(8000f), Is.EqualTo(0.05f).Within(Tol), "8000 m^2 framed: 400 m^2 is a twentieth of it");
             Assert.That(Floor(40000f), Is.EqualTo(0.01f).Within(Tol), "40000 m^2 framed: 400 m^2 is a hundredth of it");
 
-            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2");
+            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g1");
             string json = Path.Combine(dir, "probe.json");
             Assert.That(File.Exists(json), "probe.json is missing: run probe.py over " + dir);
 
