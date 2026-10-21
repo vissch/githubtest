@@ -341,6 +341,14 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **Three untracked `Tools/otr/test_*` folders block every edit gate in `githubtest-relay-work` (2026-10-22):**
+  `Tools/otr/test_classify/`, `Tools/otr/test_objects/` and `Tools/otr/test_render/` are untracked C# build output
+  (bin/obj) left in the checkout by an earlier session. Because they sit under `Tools/`, the gate reads the tree as a
+  tool change and runs `Tools/toolcheck.py`, which stalls with no log growth past the relay's 900 s limit at the step
+  after `Tools/relay/test_outcomes.py` (reproduced twice: gate-1 and gate-2 of relay run 20261022-004852-20276). No
+  SHOW edit in this checkout can reach a green gate until they go. Options: (a) delete them, they are build artifacts,
+  the default taken here is **not** to delete another session's files without his word; (b) commit them on a tool
+  lane of their own; (c) add them to `.gitignore`. Nobody was reachable, so this leg ended blocked instead.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
