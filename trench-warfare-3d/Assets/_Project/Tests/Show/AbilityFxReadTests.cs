@@ -1,13 +1,15 @@
-// Phase: ability-fx-captures-r3-2-2-g2 - how big an ability's effect must read at each zoom band.
+// Phase: ability-fx-captures-r3-2-2-g2-g3 - how big an ability's effect must read at each zoom band.
 // ability-fx-captures-r3-2-2: how big an ability's effect must read. A fixed share of the frame is not a fair test of
 // a point effect: 3% of an O240 frame is a feature about 85 m across, which no shell burst honestly is. So the floor
 // is a ground footprint, capped at the old share of the frame (R0 C1, a measuring choice taken by the coordinator
 // 2026-10-19, not the owner; the row in docs/reference/decisions.md).
-// g2: the drop is six rows, three captures a band, and is NOT measured against the footprint. Its plate now holds
-// the same men with the drop's own look and the beams off, so the diff is the biplane's wake, the canopies and the
-// landing dust - a drawing a ground footprint asks the wrong question of. Its bar is a fixed number a band, 0.8 x
-// the smallest of the three captures of THIS LANE'S TREE (parent 849d908a2b), not a sum done the way the probe does
-// it: T1 0.096479 / 0.099553 / 0.099528 -> 0.0771, O240 0.020908 / 0.021018 / 0.021418 -> 0.0167.
+// g2-g3: the drop is six rows, three captures a band at ONE paused sim tick, and is NOT measured against the
+// footprint. It is shot three times more at that same frozen tick with CombatFx.DropCanopies off (_nochute), so the
+// probe can measure the parachute canopies ALONE: everything else - the biplane's wake, the landing dust - is in
+// both frames and cancels. Each drop row must clear two fixed bars, each 0.8 x the smallest of the three captures
+// of THIS LANE'S TREE (parent bf295b416d):
+//   canopy (still vs nochute)  T1 0.175710 / 0.174276 / 0.174630 -> 0.1394, O240 0.010421 / 0.010485 / 0.009856 -> 0.0078
+//   drop   (still vs plate)    T1 the same three -> 0.1394,              O240 0.020456 / 0.020531 / 0.021010 -> 0.0163
 using System.Globalization;
 using System.IO;
 using NUnit.Framework;
@@ -24,11 +26,15 @@ namespace TW.Tests
 
         const float Tol = 1e-5f;
 
-        /// <summary>The drop's bar a band: 0.8 x the smallest of three captures of this lane's tree (parent
-        /// 849d908a2b), rounded down to four decimals, so the bar sits under the whole spread. Measured, not
-        /// derived - the probe's docstring lists the six captures.</summary>
-        const float DropBarT1 = 0.0771f;
-        const float DropBarO240 = 0.0167f;
+        /// <summary>The drop's bars a band: 0.8 x the smallest of three captures of this lane's tree (parent
+        /// bf295b416d), rounded down to four decimals, so each bar sits under the whole spread. Measured, not
+        /// derived - the probe's docstring lists the twelve captures. The canopy bar is the owner's test: it is read
+        /// off the still against its nochute, so it goes to zero when the canopies are gone however much wake and
+        /// dust remain.</summary>
+        const float DropBarT1 = 0.1394f;
+        const float DropBarO240 = 0.0163f;
+        const float CanopyBarT1 = 0.1394f;
+        const float CanopyBarO240 = 0.0078f;
 
         // [ability-fx-captures-r3-2-2]
         [Test]
@@ -42,7 +48,7 @@ namespace TW.Tests
             Assert.That(Floor(8000f), Is.EqualTo(0.05f).Within(Tol), "8000 m^2 framed: 400 m^2 is a twentieth of it");
             Assert.That(Floor(40000f), Is.EqualTo(0.01f).Within(Tol), "40000 m^2 framed: 400 m^2 is a hundredth of it");
 
-            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2");
+            string dir = Path.GetFullPath(Application.dataPath + "/../../docs/evidence/ability-fx-captures-r3-2-2-g2-g3");
             string json = Path.Combine(dir, "probe.json");
             Assert.That(File.Exists(json), "probe.json is missing: run probe.py over " + dir);
 
@@ -62,7 +68,16 @@ namespace TW.Tests
                     string.Format(CultureInfo.InvariantCulture,
                         "{0}: effect_area_frac {1:0.000000} is under the {2} {3:0.000000} ({4:0} m^2 of ground framed)",
                         who, r.effect_area_frac, isDrop ? "fixed bar" : "footprint floor", floor, r.frame_area_m2));
-                if (isDrop) drops++;
+                if (isDrop)
+                {
+                    drops++;
+                    float canopyBar = r.band == "T1" ? CanopyBarT1 : CanopyBarO240;
+                    Assert.That(r.canopy_area_frac, Is.GreaterThanOrEqualTo(canopyBar - Tol),
+                        string.Format(CultureInfo.InvariantCulture,
+                            "{0}: canopy_area_frac {1:0.000000} is under the canopy bar {2:0.000000}: the parachute "
+                            + "canopies are gone, whatever else the frame still holds", who, r.canopy_area_frac, canopyBar));
+                    Assert.That(r.canopy_px, Is.GreaterThanOrEqualTo(150), who + ": too few canopy pixels to see a canopy");
+                }
                 Assert.That(r.effect_px, Is.GreaterThanOrEqualTo(150), who + ": too few changed pixels to see anything");
                 Assert.That(r.pose_error_m, Is.LessThan(0.5f), who + ": the camera was not where it was asked to be");
             }
@@ -74,8 +89,8 @@ namespace TW.Tests
         class Row
         {
             public string subject, band;
-            public float effect_area_frac, frame_area_m2, pose_error_m;
-            public int effect_px;
+            public float effect_area_frac, canopy_area_frac, frame_area_m2, pose_error_m;
+            public int effect_px, canopy_px;
         }
 
         [System.Serializable]
