@@ -127,7 +127,9 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   GasBankStills (`Tests/Stills/GasBankStills.cs`, Explicit, a graphics device: the chlorine bank at the play zoom and
   at the overview, each with a NO-GAS PLATE of the same pose and the same frame, so the gas can be told from the field
   by subtraction. `TW_STILLS_DIR` or SessionState `tw.gasbank.dir` says where; `TW_GAS_PLATE=1` or SessionState
-  `tw.gasbank.plate` shoots the plate pass. It records in `manifest.json` whether the sim TOOK each call, which is how
+  `tw.gasbank.plate` shoots the plate pass; `TW_GAS_WAIT_FRAMES` or SessionState `tw.gasbank.waitframes` sets how many
+  frames the cloud is waited out before the shot (default 200, clamped to 120..300), which is how three runs of one
+  build land on three different frames. It records in `manifest.json` whether the sim TOOK each call, which is how
   2026-10-19 found that every call was taken, and the capture frame's own `gas_cells`, `gas_cards`, `recipes`,
   `books_ready` and `draw_calls`, which found the bank is drawn after all: `docs/evidence/ability-fx-captures-r2/`.
   The pipeline's `run_tests` selects
@@ -137,9 +139,11 @@ rather than a new static or a reference to the other part. Audit R2 will move th
   - its own FlipbookFx, ONE hand-packed card per book from an ordinary Update, four stills at one pose, gas, smoke,
   puff and a plate - so a blank still accuses one book and not the sim, the field, the cache and the capture path at
   once. Same `TW_STILLS_DIR` and the same batch launch, with `-testFilter GasBankCards`).
-  `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` measures those stills in metres, barred against the SPREAD
-  of three repeat captures of the same build, not one JPEG (`--calibrate`, `--selftest`, `--pack`;
-  `docs/evidence/ability-fx-captures-r2/probe.py` is its single-capture predecessor);
+  `docs/evidence/ability-fx-captures-r2-2-g2-g2/probe.py` measures those stills: it COUNTS THE GREEN the gas added
+  over the plate (not a brightness test), in metres, and refuses two runs that photographed the same frame, barred
+  against the SPREAD of three captures of one build at three different `TW_GAS_WAIT_FRAMES`
+  (`--calibrate`, `--selftest`, `--pack`; `docs/evidence/ability-fx-captures-r2-2-g2/probe.py` and
+  `docs/evidence/ability-fx-captures-r2/probe.py` are its predecessors);
   `sheetink.py` measures a sheet's ink per cell, and the changed pixels of a still against its plate (`--blobs`).
 - **See it:** numbers you can compare: `TW.Editor.CaptureRig.Bench("stress=1000 settle_ticks=1800 ticks=400
   quality=5 out=C:/abs/a.json")`, or `-twbench "..."` in a build, then `python Tools/perfcmp.py` (workflow section 7).
