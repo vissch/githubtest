@@ -6,7 +6,7 @@ the code nothing. It reads the pixels of the stills AbilityFxStills wrote and th
 taken at the same pose and the same sim tick, and reports, per still, the share of pixels whose Rec.709 luma moved
 by more than 0.08 - the effect's area in the frame - and how many pixels that is.
 
-    python docs/evidence/ability-fx-captures-r3-2-2-g2/probe.py
+    python docs/evidence/ability-fx-captures-r3-2-2-g2-g2/probe.py
 
 --dir defaults to this script's own folder, so the bare command above works from anywhere.
 
@@ -31,15 +31,29 @@ drop's own look off and the beams off, so the same men stand in both frames; wha
 wake, the canopies and the landing dust.
 
 That drawing is not a patch of churned ground, so the ground footprint is the wrong question to ask of it: it would
-pass or fail by accident. The owner asked instead for a bar outside the spread of three captures of the build. So
-each band's bar is 0.8 x the smallest of its three captures of this lane's own tree (parent 849d908a2b):
+pass or fail by accident. The owner asked instead for a bar outside the spread of three captures of the build.
 
-    T1    r1 0.096479  r2 0.099553  r3 0.099528   smallest 0.096479  x 0.8 -> 0.0771
-    O240  r1 0.020908  r2 0.021018  r3 0.021418   smallest 0.020908  x 0.8 -> 0.0167
+AT O240 THE THREE CAPTURES ARE OF ONE SIM TICK (g2-g2, this lane, 2026-10-21). The earlier three O240 captures were
+shot at ticks 199, 695 and 1191 of one match, so their plumes piled up in a frame that holds the whole map and the
+reading drifted; the bar was then 0.8 x the smallest, 20% under a cluster that moved 2.5%. The three O240 captures
+are now three separate editor runs, each starting the match from scratch, each a still and a plate of the SAME sim
+tick 199, beams off, the plate's men held:
 
-The 0.8 margin, rounded down to four decimals, puts the bar under the whole spread, so a green build never flickers
-red; a real loss of the drop's drawing still trips it. The 150-pixel minimum, the pose check and the same-tick check
-apply to every row, drop included.
+    O240  r1 0.020909  r2 0.020909  r3 0.020909   all at sim tick 199, 19270 changed pixels each
+
+Three runs of one tree gave the same number to six decimals, so the spread is 0. The bar is the smallest capture
+less twice the spread, never less than 0.0002 under it, rounded down to four decimals:
+
+    bar = floor_4(min - max(2 * (max - min), 0.0002))  ->  floor_4(0.020909 - 0.0002) = 0.0207
+
+With a spread of 0 the 0.0002 floor IS the whole margin: a bar 1% under the capture. A build that still draws the
+drop reads 0.020909 and passes; a real loss of the drop's drawing trips it at once.
+
+The probe now also CHECKS the "one tick" claim: the three drop rows of a band must share one sim_tick, or it fails
+and names the ticks.
+
+T1 keeps the old rule, 0.8 x the smallest of its three captures -> 0.0771, and its three captures at ticks 447, 943
+and 1439. The owner asked about zoom 240; nothing at T1 was reshot or moved.
 
 HOW frame_area_m2 IS MEASURED, from the still's own sidecar (fov, aspect, cam_height_m, cam_pitch), no code read:
 
@@ -69,7 +83,9 @@ from PIL import Image, ImageChops
 FOOTPRINT_SUBJECTS = ["smoke", "barrage", "splash"]
 BANDS = ["T1", "O240"]
 DROP_REPS = ["r1", "r2", "r3"]
-DROP_BAR = {"T1": 0.0771, "O240": 0.0167}   # see the docstring: 0.8 x the smallest of three captures a band
+ONE_TICK_BANDS = ["O240"]   # the bands whose three drop captures are separate runs of the same sim tick
+DROP_BAR = {"T1": 0.0771, "O240": 0.0207}   # see the docstring: T1 0.8 x the smallest of three; O240 just under
+                                            # the smallest of three captures of ONE sim tick
 DIFF = 0.08             # how far a pixel's luma must move to count as the effect
 MIN_GROUND_M2 = 400.0   # the ground an effect must cover: about 20 x 20 m
 FRAC_CAP = 0.10         # never stricter than the old share-of-frame floor
@@ -197,6 +213,14 @@ def main():
         elif delta > a.tick_tol:
             fails.append("%s: still is on tick %d, plate on %d (%d apart, tolerance %d)"
                          % (who, tick, ptick, delta, a.tick_tol))
+
+    # The O240 bar is read off three captures of one sim tick, so "one tick" is a check, not a claim. T1's three
+    # captures are of one match at ticks 447, 943 and 1439 and keep the 0.8 rule, so the check does not ask it.
+    for band in ONE_TICK_BANDS:
+        ticks = [r["sim_tick"] for r in rows if r["subject"].startswith("drop") and r["band"] == band]
+        if len(ticks) == len(DROP_REPS) and len(set(ticks)) > 1:
+            fails.append("drop %s: the three captures are on ticks %s, not one tick (the bar is set from three "
+                         "captures of the same moment)" % (band, ", ".join(str(t) for t in ticks)))
 
     if len(rows) < ROWS_WANTED:
         fails.append("only %d rows: %d were asked for" % (len(rows), ROWS_WANTED))

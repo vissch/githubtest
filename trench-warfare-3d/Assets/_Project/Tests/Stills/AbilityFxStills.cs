@@ -5,6 +5,8 @@
 // Env: TW_STILLS_DIR the folder (default %TEMP%/tw-abilityfx), TW_ABILITYFX_PLATE=1 runs the identical script with the
 // staging call skipped — the plate pass. TW_ABILITYFX_REPS=N (default 1) shoots every subject and band N times over,
 // naming the files subject_band_rN.png, so a bar can be set outside the spread of one build's own captures.
+// TW_ABILITYFX_BAND picks one zoom band (empty = both, O240 = zoom 240 only, T1 = zoom 30 only), so a run that
+// only needs the overview band is half as long and cannot write over the other band's committed captures.
 // The drop is the one subject whose plate DOES stage: its 13 paratroopers, their fallen and their fire would otherwise
 // be the whole diff, so the plate drops the same men on the same ticks with CombatFx.DropFx off (the g2 measurement,
 // the owner 2026-10-21: "hold the plate's men, turn the beams off, so the mask is the drop and not the soldiers"). The ability-area disc is off (CombatFx.ShowOverlays), the clock is pinned and
@@ -153,6 +155,10 @@ namespace TW.Tests
             int reps = 1;
             int.TryParse(System.Environment.GetEnvironmentVariable("TW_ABILITYFX_REPS"), out reps);
             if (reps < 1) reps = 1;
+            // One band an editor run (TW_ABILITYFX_BAND). O240 is picked first in the loop below with `used` still
+            // empty, so asking for one band cannot move the point a band is shot on.
+            string oneBand = System.Environment.GetEnvironmentVariable("TW_ABILITYFX_BAND");
+            int bands = string.IsNullOrEmpty(oneBand) ? 2 : 1;
             // The point a subject and band were shot on, so every rep stands on the same ground. Open ground a drop may
             // land on is scarce, and because both passes now stage every rep, an earlier rep's men and craters sit in the
             // still AND in the plate and cancel.
@@ -170,6 +176,7 @@ namespace TW.Tests
             foreach (float zoom in new[] { 240f, 30f })
             {
                 string band = zoom < 100f ? "T1" : "O240";
+                if (bands == 1 && band != oneBand) continue;
                 var pl = Plan(subject);
                 // How far this band's point must stand from the one the other band used. The overview band runs first,
                 // so this only keeps the standard view's frame clear of what the overview block left behind: water is
@@ -261,7 +268,7 @@ namespace TW.Tests
             TW.Presentation.Tactical.CombatFx.ShowTracers = true;
             TestContext.Out.WriteLine("wrote " + written + (plate ? " plates to " : " stills to ") + dir);
             yield return new ExitPlayMode();
-            Assert.AreEqual(2 * subjects.Length * reps, written, "a still is missing");
+            Assert.AreEqual(bands * subjects.Length * reps, written, "a still is missing");
             if (System.Array.IndexOf(subjects, "drop") >= 0) Assert.Greater(dropped, 0, "no paratrooper came down: the drop was refused, so the paradrop still photographs nothing");
         }
     }

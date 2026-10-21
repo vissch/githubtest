@@ -129,11 +129,11 @@
     {
       "subject": "drop_r1",
       "band": "O240",
-      "effect_area_frac": 0.020908,
+      "effect_area_frac": 0.020909,
       "frame_area_m2": 349623.0,
-      "effect_px": 19269,
-      "effect_ground_m2": 7310.0,
-      "floor_frac": 0.0167,
+      "effect_px": 19270,
+      "effect_ground_m2": 7310.4,
+      "floor_frac": 0.0207,
       "floor_kind": "fixed_bar",
       "pose_error_m": 0.0,
       "sim_tick": 199,
@@ -143,29 +143,29 @@
     {
       "subject": "drop_r2",
       "band": "O240",
-      "effect_area_frac": 0.021018,
+      "effect_area_frac": 0.020909,
       "frame_area_m2": 349623.0,
-      "effect_px": 19370,
-      "effect_ground_m2": 7348.3,
-      "floor_frac": 0.0167,
+      "effect_px": 19270,
+      "effect_ground_m2": 7310.4,
+      "floor_frac": 0.0207,
       "floor_kind": "fixed_bar",
       "pose_error_m": 0.0,
-      "sim_tick": 695,
-      "plate_sim_tick": 695,
+      "sim_tick": 199,
+      "plate_sim_tick": 199,
       "tick_delta": 0
     },
     {
       "subject": "drop_r3",
       "band": "O240",
-      "effect_area_frac": 0.021418,
+      "effect_area_frac": 0.020909,
       "frame_area_m2": 349623.0,
-      "effect_px": 19739,
-      "effect_ground_m2": 7488.3,
-      "floor_frac": 0.0167,
+      "effect_px": 19270,
+      "effect_ground_m2": 7310.4,
+      "floor_frac": 0.0207,
       "floor_kind": "fixed_bar",
       "pose_error_m": 0.0,
-      "sim_tick": 1191,
-      "plate_sim_tick": 1191,
+      "sim_tick": 199,
+      "plate_sim_tick": 199,
       "tick_delta": 0
     }
   ],
@@ -175,7 +175,7 @@
   "min_effect_px": 150,
   "drop_bar": {
     "T1": 0.0771,
-    "O240": 0.0167
+    "O240": 0.0207
   },
   "tick_tolerance": 2,
   "failures": []
