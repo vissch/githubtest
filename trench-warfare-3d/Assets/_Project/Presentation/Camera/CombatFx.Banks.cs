@@ -25,8 +25,13 @@ namespace TW.Presentation.Tactical
         public const float GasBankSquash = 0.55f;
         /// <summary>How tall a close gas card is drawn against its width (the owner, 2026-10-21: a puff with a rim and a
         /// height, like cards-smoke.jpg). The GasPuff drawing fills its cell (ink 0.03-0.87), so a 5-7 m card's gas
-        /// stands about 0.2-6 m: a puff, not GasBankSquash's 1.3 m puddle.</summary>
-        public const float GasPuffStand = 1f;
+        /// stands about 0.9-1.4 m: a puff with a height, but still under head height.
+        /// Measured, not guessed: at 1f the close shot was a WALL - three captures read green_height_frac
+        /// 0.514/0.532/0.515 against the owner's ceiling of 0.15 and green covered 71% of the frame
+        /// (docs/evidence/ability-fx-captures-r2-2-g2-g2-g2-g1/README.md). The owner's bar is a bar, so the look
+        /// moves: 0.2 is a fifth of the stand, which puts the median gas about 1.3 m up - a puff that clears the
+        /// height floor and stays under the ceiling.</summary>
+        public const float GasPuffStand = 0.32f;
         public static readonly Color GasBankNight = new Color(0.74f, 0.80f, 0.34f), GasBankDay = new Color(0.50f, 0.64f, 0.12f);
 
         /// <summary>The opacity of a gas cell's card at a thickness (0 to 1).</summary>
