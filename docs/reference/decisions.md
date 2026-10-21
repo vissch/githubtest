@@ -442,20 +442,22 @@ Do not build any of these without asking. Ask with AskUserQuestion, then move th
   ref; (3) land directly from this checkout without pushing first (if `land.py` allows it). Default taken: none
   acted on; the rebase stays local on this checkout pending the owner's push.
 
-- **`lane/show/pre-tool-guard-no-false-refusals-20261019` is rebased and green but cannot push (2026-10-20):**
+- **`lane/show/pre-tool-guard-no-false-refusals-20261019` is rebased and green but cannot push (2026-10-21):**
   the L1.1 fix (`relay_hook.py` `write_targets`/`code_targets`, `COPY_PROGS` destination-only, `WRITE_MODE`/
-  `OPEN_CALL`/`PATH_WRITE` guard) needed no further code change; the rebase onto
-  `origin/claude/trench-warfare-2d-3d-plan-idt7lf` is done (local tip `9f1b4c883c`, carrying
+  `OPEN_CALL`/`PATH_WRITE` guard) needed no further code change; `[L1.1] no test: already proved by
+  Guards.test_a_read_only_command_is_not_refused_as_a_write on this lane, no code change this leg`. The lane was
+  rebased again onto `origin/claude/trench-warfare-2d-3d-plan-idt7lf` (local tip `63f55fdaec`, carrying
   `[pre-tool-guard-no-false-refusals-20261019]` and `[L1.1] test:
-  Guards.test_a_read_only_command_is_not_refused_as_a_write`, all 5 Guards tests green, the edit gate green for
-  the tree). `git push origin lane/show/pre-tool-guard-no-false-refusals-20261019` is refused as non-fast-forward:
-  origin's lane tip (`bac3ec1411`) is not an ancestor of the rebased history. The `-b` route
-  (`git push origin HEAD:refs/heads/lane/show/pre-tool-guard-no-false-refusals-20261019-b`) is refused by the
+  Guards.test_a_read_only_command_is_not_refused_as_a_write`, all 3 named Guards tests green, the edit gate green
+  for the tree). Integration still lacks the fix. `git push origin lane/show/pre-tool-guard-no-false-refusals-20261019`
+  is refused as non-fast-forward: origin's lane tip is now a merge commit (`da1c21c927`), not the earlier
+  `bac3ec1411`, and it is not an ancestor of the rebased history either. The `-b` route
+  (`git push origin HEAD:refs/heads/lane/show/pre-tool-guard-no-false-refusals-20261019-b`) is still refused by the
   relay's own PreToolUse guard before git sees it: "push only your own lane". Options: (a) the owner force-pushes
   the lane by hand (`git push --force-with-lease origin lane/show/pre-tool-guard-no-false-refusals-20261019`) from
   this checkout; (b) a leg is given explicit permission to force-push this one ref; (c) the owner deletes origin's
-  stale branch (`bac3ec1411`) first, then a plain push works. Default taken: none acted on; the rebase stays
-  local because origin's `bac3ec1411` already carries the same fix, so no work is lost either way.
+  stale branch (`da1c21c927`) first, then a plain push works. Default taken: none acted on; the rebase stays
+  local because origin's branch already carries the same fix, so no work is lost either way.
   Out of scope, reported not fixed: `prepush.py`'s `rebased_name` allows a `<lane>-b` push route that
   `cmdrules.py`'s `push_ok` does not — the two disagree on what a lane may push as.
 
