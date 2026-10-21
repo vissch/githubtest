@@ -295,6 +295,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
 | 2026-10-19 | **The chlorine bank missing from the stills is a capture-path fault: (a).** To the open question "The chlorine bank is not in the picture at all" (four CaptureRig stills in GreyboxCorridor at night hold no bank, while the sim took every call and `CombatFx.gasCards` held up to 133 packed cards) the owner picked option (a): treat it as a capture-path fault and have SHOW find why the GasBank book (the only `Bank`/`Deep` sheet) misses `CaptureRig`'s own `Camera.Render()`. It is the default that changes no look: the bank is not grown, brightened or unsquashed (option (b)), and it is not left alone (option (c)). Pictures and numbers: `docs/evidence/ability-fx-captures-r2/`. Carried by the lane `lane/show/ability-fx-captures-r2-2`. (owner, 2026-10-19) **Closed by `ability-fx-captures-r2-2`:** the bank was never missing — it is drawn, reaches `CaptureRig`'s `Camera.Render()`, and covers 11% of the T1 frame; the fault was `probe.py`'s own hue test, which at night could read only 193 of the 101,253 pixels that actually changed from the plate. No look changed. `docs/evidence/ability-fx-captures-r2/probe.json` is green. |
 
 ## Open: waiting on the owner
+- **The chlorine bank now reads as one body and stands over the two bars that held it down (2026-10-21,
+  `lane/show/ability-fx-captures-r2-2-g2-g1-g1`):** the gas book draws SmokeBank's cloud, as asked. Three repeat
+  captures of that build (`docs/evidence/ability-fx-captures-r2-2-g2-g1-g1/`, spread 0.0000) read it as one mass
+  at last - `bank_patch_share` 0.6359, the new `bank_fill` 0.1791 against the rejected field's 0.1288, 33,423
+  masked pixels against 4,324 - and FAIL both bars the owner set when the complaint was the opposite one:
+  `bank_low_share` 0.1587 against >= 0.30, and `bank_height_frac` 0.2354 against <= 0.15. By the card geometry
+  the gas is not over a man's head (the widest card is 2.72 m tall, its ink tops out near 2.36 m,
+  `BurstRecipeTests.TheGasBankLiesOnTheGround_NotOverAMansHead`); the probe reads 5.835 m because it fixes one
+  distance per image column from that column's lowest pixel, which over-reads a bank that is DEEP as well as
+  wide. Options: (a) the look stands and the T1 height is made depth-aware, which re-measures the numbers those
+  two bars were set from - **the default taken here**: the cloud is committed, the probe exits 1, nothing lands;
+  (b) squash the cards until both bars pass, which by the single captures taken while tuning flattens the cloud
+  back toward the puddle he rejected; (c) move the two bars to this build's values, which this leg will not do
+  on its own because they are his. Neither (a) nor (b) can be judged from one capture: the card's flipbook frame
+  comes from a wall clock, so only a triple of runs of one unchanged binary is comparable (see that README).
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
