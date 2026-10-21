@@ -45,6 +45,27 @@ namespace TW.Presentation.Tactical
         public static float ColumnWidth(float r, bool damp, float columnScale, float earth, float lookColumn, bool dayEarth) =>
             r * (damp ? 2.3f : 2.1f) * columnScale * earth * (dayEarth ? DayColumnWidth : 1f) * lookColumn;
 
+        // ability-fx-captures-r3-2-2-g2-g2-g2 (the owner, in the goal: "make the close splash a crown of water, not the
+        // blue column in splash_T1.png"): the wet column was ONE upright Splash card, which read as a tall blue shaft with
+        // two prongs. A crown is a squat mass with spray thrown outward and up around its rim, so the wet branch now draws
+        // the centre card wider than tall (CrownHeight) and a ring of CrownJets narrow cards of the SAME Splash book around
+        // it - one instanced draw a book, so no new draw call, no new sheet and no new Book row. The concepts rule is not
+        // followed here on purpose: the owner named the look himself.
+        public const int CrownJets = 6;              // the fingers around the rim; every other one mirrored, so they are not six copies
+        public const float CrownRim = 0.42f;         // the rim, as a share of columnWidth
+        public const float CrownJetWidth = 0.28f;    // a finger's width, as a share of columnWidth
+        public const float CrownHeight = 0.75f;      // the centre card's height over its width: wider than tall, a low mass
+        public const float CrownOut = 2.6f, CrownUp = 3.4f;   // m/s: thrown outward and up
+
+        /// <summary>Where jet <paramref name="i"/> of a crown of <paramref name="count"/> sits, as an offset from the splash
+        /// point: on a circle of CrownRim * columnWidth, flat on the water (y = 0), the ring turned by <paramref name="turn"/>
+        /// (a hash of the spot, so two splashes a metre apart do not line up and nothing is random per frame).</summary>
+        public static Vector3 CrownJet(int i, int count, float columnWidth, float turn)
+        {
+            float a = turn + 6.2831853f * i / Mathf.Max(1, count), rim = CrownRim * columnWidth;
+            return new Vector3(Mathf.Cos(a) * rim, 0f, Mathf.Sin(a) * rim);
+        }
+
         /// <summary>The warm light on the young burst cloud's underside (0 with fx.shellFire 0): peach by day, an ember at night,
         /// where the moonlit grade was tuned against a darker cloud.</summary>
         public static Color EmberFor(bool night, float fire)

@@ -856,6 +856,8 @@ namespace TW.Presentation.Tactical
                         // burst running out either side, and the boiling cloud that rises off it and thins
                         float r = Mathf.Clamp(e.Scalar, 2f, 9f) * look.Size;
                         bool mirror = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 1) == 0;
+                        // the same per-point hash turns the water crown's ring of jets (CombatFx.ShellFire.cs): two splashes a metre apart do not line up
+                        float turn = ((Mathf.FloorToInt(p.x * 19f) ^ Mathf.FloorToInt(p.z * 7f)) & 7) / 8f * 6.2831853f;
                         var ground = FlipbookFx.Kind.Upright | FlipbookFx.Kind.Anchored;
                         Vector4 wind = Shader.GetGlobalVector(WindGlobalId); Vector3 drift = new Vector3(wind.x, 0f, wind.y) * 3.5f + Vector3.up * 0.55f;   // _TWWind is the breeze at 0.034 per m/s (Atmosphere)
                         // up close the flash card was wider than the picture (a white-out) and the smoke filled it for seconds:
@@ -911,7 +913,7 @@ namespace TW.Presentation.Tactical
                             }
                             else
                                 books.Add(wet ? FlipbookFx.Book.Splash : FlipbookFx.Book.Column, p, columnWidth, damp ? 1.5f : 1.8f, ground | (mirror ? FlipbookFx.Kind.Mirror : 0), grow: 0.35f, alpha: wet ? 0.85f : dayEarth ? 0.8f : 1f, pop: 0.15f,
-                                    velocity: columnLean, cut: cut);
+                                    velocity: columnLean, cut: cut, height: wet ? columnWidth * CrownHeight : 0f);   // wet: the shaft becomes the crown's low centre mass (CrownHeight)
                             // the two wings are not a mirror pair: the second is born a little later and a little smaller
                             books.Add(FlipbookFx.Book.Wings, p, r * 2.5f * look.Wings * far, 0.95f, ground, grow: 0.4f, alpha: wet ? 0.6f : 0.9f, pop: 0.2f, cut: dayEarth ? cut : 0f);
                             books.Add(FlipbookFx.Book.Wings, p + Vector3.up * 0.1f, r * 2.1f * look.Wings * far, 1.1f, ground | FlipbookFx.Kind.Mirror, grow: 0.5f, alpha: wet ? 0.5f : 0.8f, pop: 0.1f, cut: dayEarth ? cut : 0f);
@@ -923,6 +925,15 @@ namespace TW.Presentation.Tactical
                                 // read 246, 4.8/6.6 r 386). No new book, no new sheet, no new draw call - the barrage frame has none to spare.
                                 books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 6.0f * far, 1.8f, FlipbookFx.Kind.Flat, grow: 0.6f, alpha: 0.5f, delay: 0.1f);
                                 books.Add(FlipbookFx.Book.Splash, p + Vector3.up * 0.15f, r * 8.2f * far, 2.4f, FlipbookFx.Kind.Flat, grow: 0.9f, alpha: 0.45f, delay: 0.35f);
+                                // and the crown's rim: CrownJets narrow upright cards of the same Splash book around the centre mass,
+                                // each thrown outward and up, born a beat after the one before, every other one mirrored so the
+                                // fingers are not six copies. Same book, so no new draw call (CombatFx.ShellFire.cs).
+                                for (int i = 0; i < CrownJets; i++)
+                                {
+                                    Vector3 off = CrownJet(i, CrownJets, columnWidth, turn);
+                                    books.Add(FlipbookFx.Book.Splash, p + off, columnWidth * CrownJetWidth, 1.1f, ground | ((i & 1) == 1 ? FlipbookFx.Kind.Mirror : 0), grow: 0.5f, alpha: 0.7f,
+                                        velocity: off.normalized * CrownOut + Vector3.up * CrownUp, delay: 0.035f * i);
+                                }
                             }
                         }
                         // a tripwire's charge stands no column and no wings: its ring and its spark fan are its whole shape (CombatFx.Bursts.cs)
