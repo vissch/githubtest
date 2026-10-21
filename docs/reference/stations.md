@@ -40,9 +40,13 @@ python Tools/pipeline/pipeline.py status [item]
 python Tools/pipeline/pipeline.py why <item>
 python Tools/pipeline/pipeline.py next
 python Tools/pipeline/pipeline.py claim <job>
-python Tools/pipeline/pipeline.py complete <job> --verdict PASS --evidence t1=evidence/<item>/t1.jpg
+python Tools/pipeline/pipeline.py complete <job> --verdict PASS --evidence t1=evidence/<item>/<stage>/t1.jpg
 python Tools/pipeline/pipeline.py feedback <item> <stage> "<the owner's words>" --check "<a measurable check>"
 ```
+
+A PASS is refused unless each band is `evidence/<item>/<stage>/<band>.jpg`, with `<band>.json` beside it and a
+frames.txt line that starts `<band>.jpg:`. A still the rig did not shoot says `no sidecar` on that line instead of
+a sidecar. `evidence/<band>.jpg` is one folder short: the file can exist and the critic still never sees it.
 
 The pipeline follows `CLAUDE.md`: stages commit on `lane/sim/pipe-<item>` or `lane/show/pipe-<item>`, seam changes are
 seam commits, and nothing lands without the owner. A job with nobody to ask records an open question in
