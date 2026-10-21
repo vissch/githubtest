@@ -108,4 +108,23 @@ python docs/evidence/ability-fx-captures-r2-3-g1-g2/probe.py --pack <dir>
 |---|---|---|---|---|
 | baseline (artifact) | first side still, bottom-edge denominator | 0.3252 (s2) | 0.7237 (s1) | `side_base_m` -15.3 m: the measure, not the look |
 | part 1, 2026-10-21 | the measure corrected, the look untouched | 0.0214 (s0) | 0.7237 (s1) | `SIDE_BAR` re-set to 0.6428, `side_base_m` within 1.5 m |
-| | | | | the next leg fills these rows in |
+| step 6, `GasBankLift` floor 0.6 | a per-card height factor 0.6-1.0 off the card's hash, all three tiers | 0.0236 (s1) | 0.6093 (s1) | the drop lands INSIDE 0.40..0.6421, but `t1_gap_frac` goes to 0.44-0.45 over g1's 0.3559 |
+| step 6, floor 0.8 | the same, lowering cards less | 0.0296 (s0) | 0.6686 (s1) | the gap comes back to 0.26-0.37, the drop goes back over its ceiling |
+| step 7, `GasBankThin` 0.95 -> 0.90 | at floor 0.8 | 0.0248 (s1) | 0.6792 (s1) | the alpha lever moves the drop the WRONG way: three overlapping tiers set the coverage, not one card's alpha |
+| landed | **nothing** - the look is reverted | 0.0214 (s0) | 0.7237 (s1) | the baseline's own numbers; `decisions.md` option (a) stands |
+
+## Why part 2 landed no look change (2026-10-21)
+
+Three shoots under the man rule, in the table above. Two findings close the round:
+
+- **`texture_var_drop` and `t1_gap_frac` are one lever seen twice.** Lowering cards shows more ground (the drop
+  falls, which the owner asked for) and opens holes (the gap rises, which g1 bars). They move strictly against each
+  other and roughly linearly; the gap bar is met near a lift floor of 0.83, where the drop is about 0.677, over its
+  0.6421 ceiling by 0.035. No setting meets both. `GasBankThin`, step 7's lever, moves the drop the wrong way.
+- **`side_relief_ratio` is out of reach of card height.** At pitch 8 the camera is 10.9 m up and the gas tops out at
+  1.75 m a card, so the side still is a green blanket seen from above, and its top edge is a MAX over heavily
+  overlapping cards - a per-card height spread is smoothed away before it reaches the silhouette (0.02-0.35 against
+  the 0.6428 bar at every setting tried). An undulating edge needs a bank that stands up (option (b), against the
+  man rule) or a spatially correlated height, which is a new design.
+
+So the round ends where part 1 left it: a sound measure, two bars set from the control, and the open owner row.

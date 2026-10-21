@@ -330,6 +330,21 @@ Sources: `docs/11-plan-review.md` §1, `docs/archive/handoff-2026-09-22.md`, and
   asks for 1.26-1.73 m of top-edge relief, which is of the order of the 1.75 m of gas a card draws, not seven to
   eleven times it. Option (a) remains the default and nothing is landed on this row; whether the look change can
   reach the new bar under the man rule is the next step of the same lane.
+  **Update, 2026-10-21 (the same lane, part 2): it cannot, and the two bars are one lever seen twice.** The look
+  change the new bar asks for was built and shot three times under the man rule. `GasBankLift`, a per-card height
+  factor off the card's own hash applied to all three tiers (it only ever LOWERS a card, so the man rule held), at
+  a floor of 0.6: `texture_var_drop` fell 0.69-0.72 to **0.50-0.61**, inside the owner's own 0.40..0.6421 band -
+  his first complaint answered - but `t1_gap_frac` rose 0.24-0.32 to **0.44-0.45** against g1's 0.3559 bar. At a
+  floor of 0.8 the gap came back to 0.26-0.37 and the drop went back over its ceiling at 0.63-0.67. The two move
+  strictly against each other and roughly linearly: the gap bar is met only at a floor near 0.83, where the drop is
+  about 0.677, over the 0.6421 ceiling by 0.035. There is no window. `GasBankThin` 0.95 -> 0.90, step 7's own
+  lever, moved the drop the WRONG way (0.669 -> 0.679) because three overlapping card tiers set the coverage, not
+  one card's alpha. And `side_relief_ratio` barely moved at all through any of it (0.02-0.35 against the 0.6428
+  bar): at pitch 8 the camera sits 10.9 m up, ABOVE a bank whose gas tops out at 1.75 m per card, so the side still
+  shows a green blanket seen from above, and the silhouette's top edge is a MAX over heavily overlapping cards,
+  which smooths any per-card height spread away. Making that edge undulate needs the bank to stand up into a
+  silhouette - option (b), the man rule - or a spatially correlated height, which is a new design, not a tuning
+  step. Nothing is landed: the look is reverted and the bank is exactly as it was. Option (a) still stands.
 - **Blind fire at a wreck on a garrison that cannot be seen (2026-10-09, code review [N5.3]):** half of that finding
   is fixed (a wreck now shelters and suppresses only the men in its shadow: `docs/02-contracts.md`, replay v43, and a
   screen on the line does not stop the shot, the owner's answer of 2026-10-12, replay v46). The rest of it, "list and suppress only men the shooter could engage, not below
