@@ -3,7 +3,7 @@
 Each test works in a temporary folder: no real board, checkout or Claude session is touched. Runs use fake_claude.py,
 which calls the leg's real hooks, so a passing run also proves the guards and the meter were on.
 """
-import argparse, ast, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
+import argparse, ast, contextlib, datetime, io, json, os, re, shutil, subprocess, sys, tempfile, threading, time
 import unittest
 from pathlib import Path
 
@@ -150,6 +150,21 @@ class Settings(Base):
             self.assertIn("Never start the full gate", text)
             self.assertIn("Never end your turn while a gate", text)
         self.assertNotIn("full gate", prompt.system_text("lane", "plan", st, top))    # a plan leg runs no gate
+
+    def test_a_playmode_run_gets_the_gate_s_unity_timeout(self):
+        # [found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] a PlayMode run must not be cut
+        # shorter than the gate's own unity timeout, or a cut run reads as failed tests, not a timeout.
+        text = (Path(gitio.git(["rev-parse", "--show-toplevel"], HERE)) / "gate.ps1").read_text(encoding="utf-8-sig")
+        m = re.search(r"^\$TestTimeout\s*=\s*(\d+)", text, re.M)
+        self.assertIsNotNone(m, "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] "
+                                 "gate.ps1 no longer names $TestTimeout")
+        lim = self.lim
+        self.assertGreaterEqual(lim["play_seconds"], int(m.group(1)),
+            "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] a PlayMode run is cut before "
+            "the gate's own unity timeout")
+        self.assertLessEqual(lim["play_seconds"] + 60, lim["leg_minutes"] * 60,
+            "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] the detached play job would "
+            "outlast the leg")
 
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))

@@ -33,7 +33,7 @@
   "quiet_seconds": 600,
   "done_when_seconds": 900,
   "gate_seconds": 4800,
-  "play_seconds": 900,
+  "play_seconds": 1800,
   "critic_target": 85,
   "critic_rounds": 2,
   "critic_max_bytes": 8192,
