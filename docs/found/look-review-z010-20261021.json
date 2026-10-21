@@ -1,0 +1,51 @@
+{
+ "subject": "review:Z010",
+ "looked_at": [
+  "git diff 6959ad812b..origin/integration -- the 12 Z010 paths (only briefs.py, build.py, critiques.py changed)",
+  "trench-warfare-3d/Tools/assetboard/briefs.py (queued_on 273-307, take 509-560, at integration)",
+  "trench-warfare-3d/Tools/assetboard/build.py (board_dir 44-52, main 93-144, at integration)",
+  "trench-warfare-3d/Tools/assetboard/critiques.py (the save() diff at :130, at integration)",
+  "trench-warfare-3d/Tools/assetboard/src_git.py (tried, git, head, at integration)",
+  "trench-warfare-3d/Tools/assetboard/found.py (board_dir 56-57, at integration)",
+  "trench-warfare-3d/Tools/pipeline/pipeline.py (board_dir 59-60, at integration)",
+  "trench-warfare-3d/Tools/assetboard/test_briefstates.py:386-400 (the new queued_on test)",
+  "trench-warfare-3d/Tools/aosa/test_aosa.py (437 lines, whole, at integration)",
+  "trench-warfare-3d/Tools/aosa/player_bench.sh and bench.sh (whole, at integration)",
+  "git grep queued_on / board_dir / live_check across Tools at integration",
+  "docs/found/look-review-z010-20261016.json (the last review)",
+  ".claude/agents/tw-reviewer.md and .claude/skills/tw-review/SKILL.md",
+  "docs/reference/tasks.md and docs/reference/decisions.md (grep for these names only)"
+ ],
+ "tasks": [
+  {
+   "title": "take: a left-over brief must not swallow --queued",
+   "why": "briefs.py:523-525 (still, after the 2026-10-21 queued_on fix): take() calls left_over() and returns its (brief, note) before it ever looks at --queued/--outcome/--board. A session that reruns take with the unit it has just queued gets exit 0 and main prints 'closed with X (queued as <the OLD record>)', while the unit it names is written nowhere: the owner's yes is on record with the wrong outcome, and nobody is told. P1.",
+   "files": ["trench-warfare-3d/Tools/assetboard/briefs.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_briefstates.py closes a brief with outcome words, leaves one open note of his, then calls take(..., queued='u-1') and asserts it either refuses or records queued='u-1'; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "player_bench.sh: fail when the player wrote no report",
+   "why": "Tools/aosa/player_bench.sh:15-17 (unchanged since the 2026-10-16 review): rc from the timeout'd player is only echoed, and the last line is '[ -f report ] && echo ... || { echo NO REPORT; tail -20 log; }', whose exit status is tail's 0. So a crashed or timed-out bench run exits 0 and any caller or agent chaining on it reads a green where there is no measurement at all; bench.sh:15 does the opposite and exits 1 on no report. P2.",
+   "files": ["trench-warfare-3d/Tools/aosa/player_bench.sh"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "bash Tools/aosa/player_bench.sh lbl '' <a dir whose player writes no report> exits non-zero, and a run that does write one still exits 0",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  },
+  {
+   "title": "build.board_dir: say why the board could not be resolved",
+   "why": "build.py:44-52 (new on 2026-10-21) wraps pipeline.board_dir() in 'except (SystemExit, Exception): return None', so every reason is swallowed. Its three callers then each guess differently: found.py:57 falls back to GH/'tw3d-board', src_images.py:28 and ops.py:202 pass the None on. A bad TW_BOARD or a shadowed 'pipeline' module therefore makes found.py write findings to a guessed board instead of refusing, with nothing printed. It also sys.path.insert()s on every call and never removes it. P2.",
+   "files": ["trench-warfare-3d/Tools/assetboard/build.py"],
+   "lane": "show",
+   "role": "review-fix",
+   "done_when": "a test in Tools/assetboard/test_found.py makes pipeline.board_dir raise and asserts build.board_dir surfaces the reason (not a bare None) and that found.board_dir does not silently fall back to GH/'tw3d-board'; red on today's code",
+   "risk": [false, false, false, false, false],
+   "change": [false, true, false, false, false]
+  }
+ ]
+}
