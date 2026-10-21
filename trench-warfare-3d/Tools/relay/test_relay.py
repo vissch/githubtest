@@ -5,7 +5,7 @@ which calls the leg's real hooks, so a passing run also proves the guards and th
 """
 import os as _os, tempfile as _tf  # noqa: E402,E401
 _os.environ['TW_SUP_HOME'] = _tf.mkdtemp(prefix='tw-sup-test-')   # never the machine's own budget or switches
-import argparse, ast, contextlib, datetime, io, json, os, shutil, subprocess, sys, tempfile, threading, time
+import argparse, ast, contextlib, datetime, io, json, os, re, shutil, subprocess, sys, tempfile, threading, time
 import unittest
 from pathlib import Path
 
@@ -164,6 +164,22 @@ class Settings(Base):
         for role in table:                      # every role the table has, every phase, and under the byte limit
             for phase in phases:
                 prompt.system_text(role, phase, st, top)
+
+    def test_a_playmode_run_gets_the_gate_s_unity_timeout(self):
+        # [found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] a PlayMode run must not be cut
+        # shorter than the gate's own unity timeout, or a cut run reads as failed tests, not a timeout.
+        text = (Path(gitio.git(["rev-parse", "--show-toplevel"], HERE)) / "gate.ps1").read_text(encoding="utf-8-sig")
+        m = re.search(r"^\$TestTimeout\s*=\s*(\d+)", text, re.M)
+        self.assertIsNotNone(m, "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] "
+                                 "gate.ps1 no longer names $TestTimeout")
+        lim = self.lim
+        self.assertGreaterEqual(lim["play_seconds"], int(m.group(1)),
+            "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] a PlayMode run is cut before "
+            "the gate's own unity timeout")
+        self.assertLessEqual(lim["play_seconds"] + 60, lim["leg_minutes"] * 60,
+            "[found-raise-play-seconds-to-the-gate-s-unity-timeo-20261019-0] the detached play job would "
+            "outlast the leg")
+
 
     def test_every_setting_is_used_somewhere(self):
         code = "".join(p.read_text(encoding="utf-8") for p in list(HERE.glob("*.py")) + list((HERE / "sources").glob("*.py"))
