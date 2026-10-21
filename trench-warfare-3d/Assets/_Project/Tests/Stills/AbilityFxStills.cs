@@ -1,4 +1,4 @@
-// Phase: VFX pass (2026-10-19, tooling) — the ability effects photographed against a no-effect plate of the same pose
+﻿// Phase: VFX pass (2026-10-19, tooling) — the ability effects photographed against a no-effect plate of the same pose
 // and the same sim tick, so a probe can measure how much of the frame the effect actually covers (harsh critic r1
 // fix 3: "the probe never finds the effect in the frame; the yellow ability-area disc floods the T1 stills").
 // Four subjects (smoke, HE barrage, a water splash, ParaDrop) at two bands (T1 zoom 30, O240 zoom 240).
@@ -85,7 +85,10 @@ namespace TW.Tests
                 // before its men were down - which is why both read 0.0000 against their plates.
                 case "smoke": return (12f, 1f, 150, 260);         // warmup 40 ticks (60 frames)
                 case "barrage": return (12f, 2f, 200, 320);       // warmup 80 ticks, 12 shells over 120 more: mid-barrage
-                case "splash": return (7f, 3f, 20, 120);          // one shell, bursting the next tick
+                // one shell, bursting the next tick; the block runs 360 frames, not 120, because three reps now run
+                // back to back on one water point and the burst's smoke is not clear in 120 (rep 2 would photograph
+                // rep 1's leavings in the still but not in the plate, which does not stage)
+                case "splash": return (7f, 3f, 20, 360);
                 // the drop's block runs 360 frames so the last rep's cards (longest life 5 s = 150 frames) are gone
                 // before the next rep stages on the same point
                 default: return (12f, 12f, 155, 360);             // drop: warmup 100 ticks (150 frames), shot just after the landing

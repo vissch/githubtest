@@ -1,4 +1,4 @@
-// Phase: VFX pass (owner, 2026-09-28: a reference still of the snow field with "explosions with more fidelity": a shell
+﻿// Phase: VFX pass (owner, 2026-09-28: a reference still of the snow field with "explosions with more fidelity": a shell
 // burst that is FIRE inside its smoke, not a flash in a grey cloud) — part of CombatFx. Bench snow0 (WinterLine, by day)
 // drew no fire in a shell burst at all: the Flash card is additive, so on white snow it adds nothing, and what was left
 // was a cold grey cloud. So every dry shell burst now also draws
@@ -52,10 +52,16 @@ namespace TW.Presentation.Tactical
         // it - one instanced draw a book, so no new draw call, no new sheet and no new Book row. The concepts rule is not
         // followed here on purpose: the owner named the look himself.
         public const int CrownJets = 6;              // the fingers around the rim; every other one mirrored, so they are not six copies
-        public const float CrownRim = 0.42f;         // the rim, as a share of columnWidth
-        public const float CrownJetWidth = 0.28f;    // a finger's width, as a share of columnWidth
-        public const float CrownHeight = 0.75f;      // the centre card's height over its width: wider than tall, a low mass
-        public const float CrownOut = 2.6f, CrownUp = 3.4f;   // m/s: thrown outward and up
+        // The first crown shot (splash_T1_r1..r3, this folder's captures) covered 165-221 m^2 of ground against the
+        // 400 m^2 the probe asks of a splash, where the old blue shaft covered 508: the squat mass and six narrow
+        // fingers simply fill fewer pixels than one tall card did. The bar is never lowered to fit an effect
+        // (decisions.md, 2026-10-19), so the crown was made bigger instead: a wider rim, fatter fingers thrown a
+        // little higher, and a centre mass just under its own width. It is still a crown - the spray is thrown
+        // outward, not stacked into a shaft.
+        public const float CrownRim = 0.58f;         // the rim, as a share of columnWidth
+        public const float CrownJetWidth = 0.95f;    // a finger's width, as a share of columnWidth
+        public const float CrownHeight = 0.95f;      // the centre card's height over its width: wider than tall, a low mass
+        public const float CrownOut = 3.0f, CrownUp = 3.0f;   // m/s: thrown outward and up
 
         /// <summary>Where jet <paramref name="i"/> of a crown of <paramref name="count"/> sits, as an offset from the splash
         /// point: on a circle of CrownRim * columnWidth, flat on the water (y = 0), the ring turned by <paramref name="turn"/>
