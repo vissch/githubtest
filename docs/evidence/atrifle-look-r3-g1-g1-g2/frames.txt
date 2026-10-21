@@ -1,0 +1,240 @@
+atrifle-look-r3-g1-g1-g2 — the frames that hold both men are the frames that are scored
+========================================================================================
+
+Why there is a round g1-g1-g2
+-----------------------------
+The owner threw out atrifle-look-r3-g1-g1 in his own words: "The pair frames are the only shots with
+both men, and they are not the frames the probe scores. pair-3's sniper is phase 0.41 while sniper-3
+is 0.80. Score pair-1, pair-2 and pair-3, and put the silhouette bar outside the spread of three
+captures of the current build."
+
+He was right, and that set's own poses.json says how far apart the two instants were. It shot five
+stills a round and scored two of them: `at-{r}`, with the Sniper written off the map, and
+`sniper-{r}`, with the AT rifleman written off. Two stills are two shutter moments, and between them
+the driver wrote the world twice and drifted each man to his own band:
+
+    round   scored                      the pair still of the SAME round
+    1       AT 0.12   Sniper 0.15       AT 0.80   Sniper 0.18
+    2       AT 0.45   Sniper 0.48       AT 0.58   Sniper 0.53
+    3       AT 0.73   Sniper 0.80       AT 0.88   Sniper 0.41
+
+So the number was honest about two frames; it was not a reading of one instant of the game. The 0.77
+it reported was "a prone man at one moment" against "a kneeling man at another".
+
+What changed in the capture
+---------------------------
+1. **The solo stills are gone.** Nine stills, not fifteen: `pair-{r}`, `empty-{r}`, `floor-{r}`.
+   Nothing scores `at-{r}` or `sniper-{r}` any more, so they are not shot. The reading of a round is
+   the AT mask against the Sniper mask cut out of the SAME `pair-{r}` frame: one shutter, one
+   instant, both men.
+
+   That costs the measure its easy mask. In a solo still anything in the frame that was not in the
+   plate was that one man. Here each mask is confined to the box the capture itself says it drew
+   that man in, and the probe fails if the two boxes overlap. The boxes came out 27 px apart
+   (AT x 682-787, Sniper x 814-919) and the second-largest blob inside either box was 0 px in all
+   six readings, so the Sniper's shadow never reached into the AT man's box on this set. That was
+   the risk the move onto one frame carried, and it is measured, not assumed.
+
+2. **The phase search is JOINT.** Both men have to be spaced against themselves in the frames that
+   are scored, and one frame holds both, so the shutter moment has to suit both at once. A spell is
+   three stepped editor frames (about 0.05 s) with the sim's TimeScale 1 and NOTHING written to the
+   world - a staging write is exactly what pinned an earlier round's phases - and both men are read
+   in ONE eval per spell, so the two phases are of one moment:
+
+       round 1   shot as soon as both men are in their idle clip. Both phases recorded.
+       round 2   the first moment each man is a loop-distance 0.28-0.42 from his OWN round-1 phase.
+       round 3   the first moment each man is at least 0.25 from his own round-1 AND round-2 phases.
+
+   At 0.05 s the AT man advances about 0.010 of his ProneIdle loop (4.9 s) and the Sniper about
+   0.029 of his KneelIdle loop (1.7 s). Round 1 closed on the first spell, round 2 after 263 spells
+   (198 of them skipped, because a `TrenchRoutine` beat was not the idle) and round 3 after 209.
+   **Round 3 closed at the strict 0.25 floor; it was not relaxed to 0.22.**
+
+3. **A third mechanical repair, found while shooting this round.** A man fresh off his spawn walk is
+   still swinging onto his post's heading when his idle clip has already started. The first capture
+   of this set put the AT rifleman at yaw 0.06 in pair-1 and 1.12 in pair-2, and the probe's heading
+   gate bit on it - correctly, because a self-spread over two headings measures the turn and not the
+   pose. So the driver now runs `settle_heading()` before round 1's search: spells until BOTH yaws
+   are unchanged within 0.01 rad over 20 consecutive spells. It settled at AT yaw 1.11 and Sniper
+   yaw 0.00, the same headings g1-g1 shot, and after that the staging write does not move them: the
+   heading offset against pair-1 is 0.00 rad for both men in all three rounds.
+
+The three repairs from g1-g1 are kept and were not rediscovered: a man parked off the map loses his
+Alive flag and comes back DeathThrown, so the staging write ORs it back (`w.Flags[s] |= 1`);
+`Pending() == 0` is the queue and not the file, so a shot is waited for on its PNG; and a drift
+budget must cover a full loop of the slower idle. One more, from this round's shape: the sim is
+FROZEN (TimeScale 0) for the shot itself, so the frames the capture steps while it renders do not
+move the pose that was just read.
+
+The staging
+-----------
+Unchanged from atrifle-look-r3-g1-g1 except the nine stills and the joint search above.
+
+    scene            Assets/_Project/Scenes/GreyboxCorridor.unity, Play mode (batch editor)
+    weather          VfxLab.Rain(0)
+    match            SimProbe.Match()  — seed 12648430, battlefield 1917, ShelledForest
+    AT rifleman      TankCapture.Spawn(0, 27, 50, 11, 21), then written to (50, 0, 25) Hp 90
+    Sniper           TankCapture.Spawn(0, 3, 56, 25, 21), then written to (45, 0, 26) Hp 80
+                     — at (45, 25) he takes no post and does not kneel; (45, 26) is a trench post
+    each write       six WriteWorlds with the sim RUNNING and Speed 0 (a frozen man is not moved by
+                     the presenter), Suppression 0, Alarm 0, Alive flag restored
+    everyone else    Hp 0 and off the map at the start of every round (`clear_others`)
+    camera           one pose for all nine stills: focus (47.5, 25), zoom 30, yaw 180 with
+                     CaptureRig.Rig.YawPin = 0, pitch 22, 1600x900
+    per shot         CaptureRig.Hold(120), the shot, then Release()
+    the plates       `empty-{r}` and `floor-{r}` are 203 stepped frames apart (about 3.4 s of
+                     weather) with both men off the map, so their difference is weather and nothing
+                     else: that is what the probe subtracts
+    slots            read back by archetype every session — the printed slot is advice.
+                     This session: AT slot 4 (archetype 27), Sniper slot 14 (archetype 3).
+                     g1-g1 had the Sniper on slot 12, which is why no slot number is typed anywhere.
+
+The eval lines, verbatim
+------------------------
+    UnityEditor.SceneManagement.EditorSceneManager.OpenScene("Assets/_Project/Scenes/GreyboxCorridor.unity"); UnityEditor.EditorApplication.isPlaying = true; return "play";
+    return TW.Editor.VfxLab.Rain(0f);
+    return TW.Editor.SimProbe.Match();
+    return TW.Editor.TankCapture.Spawn(0, 27, 50f, 11f, 21f);
+    return TW.Editor.TankCapture.Spawn(0, 3, 56f, 25f, 21f);
+    TW.Editor.CaptureRig.Rig.YawPin = 0f; return "yaw pinned to world";
+    return TW.Editor.CaptureRig.Hold(120f);
+    return TW.Editor.CaptureRig.Shot(@"...\pair-1.png", 47.500000f, 25.000000f, 30.000000f, 180.000000f, 22.000000f, 1600, 900);
+    return TW.Editor.CaptureRig.Pending();
+    return TW.Editor.CaptureRig.Release();
+
+the staging write, per man (six times, sim running, two stepped frames each):
+
+    var h=UnityEngine.Object.FindFirstObjectByType<TW.Presentation.SimHost>(); h.TimeScale=1f;
+    h.WriteWorlds(m=>{ m.World.Position[S]=new Unity.Mathematics.float3(Xf,0f,Zf);
+      m.World.Speed[S]=0f; m.World.Hp[S]=HPf; m.World.Suppression[S]=0f; m.World.Alarm[S]=0f;
+      m.World.Flags[S]=(byte)(m.World.Flags[S]|1); }); return 0;
+
+one spell of the joint search — the sim advances and BOTH men are read in the same eval, so the two
+phases are of one moment, and nothing is written:
+
+    UnityEditor.EditorApplication.isPaused = true; for(int i=0;i<3;i++) UnityEditor.EditorApplication.Step();
+    return TW.Editor.SimProbe.Unit(4) + "@@@" + TW.Editor.SimProbe.Unit(14);
+
+finding each man by archetype, because the slot moved between sessions:
+
+    var h=...; int found=-1; var w=h.Local.World; for(int i=0;i<w.HighWater;i++)
+      if(w.Archetype[i]==27 && w.Hp[i]>0f && (w.Flags[i]&1)!=0) found=i; return found;
+
+The nine stills, as the capture reported them
+---------------------------------------------
+Every still: pose_error_m 0, rain 0, cam_yaw 180, zoom 30, pitch 22, 1600x900, warnings []. The
+plates report contrast -1 because there is no man to measure contrast against.
+
+    still      men_in_frame  drawn_infantry  contrast_median  frame
+    pair-1     2             2                0.424           3620
+    empty-1    0             0               -1               3647
+    floor-1    0             0               -1               3850
+    pair-2     2             3                0.426           4838
+    empty-2    0             0               -1               4865
+    floor-2    0             0               -1               5068
+    pair-3     2             2                0.429           6019
+    empty-3    0             0               -1               6046
+    floor-3    0             0               -1               6249
+
+`drawn_infantry` 3 on pair-2 is not a third man in the picture: slots 11 and 13 were the two men
+parked at (-5000, -5000) that frame, and the capture projects them to (2963, -359) at tall_px 1.2,
+far outside a 1600x900 frame. `men_in_frame` is 2 for all three pair stills, the probe drops any
+projection outside the picture, and it also fails a pair still that holds any archetype other than
+27 and 3 inside the frame. The plates are gated harder: `men_in_frame` 0 AND `drawn_infantry` 0, so
+a plate that drew a man anywhere is not a plate.
+
+`px_per_m` is the capture's own `tall_px / 2.6` and the six men of the three rounds agree to 0.04 %
+(25.022 px/m), so the nine stills really are one camera on one pair of men.
+
+What each man was doing when the shutter opened
+-----------------------------------------------
+Read out of poses.json, which records `SimProbe.Unit` at the frozen moment of each capture. These
+are the frames that are scored, so these are the poses that are gated.
+
+    still      man      clip        phase   yaw
+    pair-1     AT       ProneIdle   0.82    1.11
+    pair-1     Sniper   KneelIdle   0.65    0.00
+    pair-2     AT       ProneIdle   0.18    1.12
+    pair-2     Sniper   KneelIdle   0.25    0.00
+    pair-3     AT       ProneIdle   0.44    1.11
+    pair-3     Sniper   KneelIdle   0.98    0.00
+
+    AT rifleman   ProneIdle   0.82, 0.18, 0.44    smallest gap 0.26
+    Sniper        KneelIdle   0.65, 0.25, 0.98    smallest gap 0.27
+
+Both over the 0.2 the owner asked for, both men in their own idle clip in all three rounds, and
+neither man turned: the heading offset against pair-1 is 0.00 rad for both men in every round.
+
+The readings
+------------
+    round   1 - IoU, AT against Sniper, out of ONE frame
+    1       0.7628
+    2       0.7848
+    3       0.7847
+
+    silhouette_diff (the WORST round)   0.7628
+    spread_readings                     0.0220
+    spread_at                           0.0811
+    spread_sniper                       0.2353
+    spread_max                          0.2353
+    PASS_DIFF                           0.6      (unchanged since commit 13d1158177)
+    bar_headroom = 0.6 - 0.2353         0.3647
+
+The bar sits 0.36 outside the widest spread of these three captures of the current build, and the
+worst round clears it by 0.16. For comparison, the same probe run against g1-g1's committed pair
+frames reads 0.7869 / 0.7789 / 0.7785 with spreads 0.2157 and 0.2311 - the same numbers to within
+the spread, which is the point: moving the reading onto the pair frame did not change what the
+pixels say, it changed what the number is a claim about.
+
+Mask sizes, for scale: the AT rifleman masks 296, 272 and 292 px (0.43-0.47 m2) and the Sniper 1248,
+1264 and 1136 px (1.81-2.02 m2), against a floor of 125 px (0.2 m2 at 25.0 px/m) and a ceiling of
+4148 px (half his own box). The second-largest blob inside either box was 0 px in all six readings.
+The weather dropped before labelling is 12621 / 17254 / 19375 px frame-wide, of which 0-31 px falls
+inside the AT man's box and 39-127 px inside the Sniper's.
+
+What this set still does not cover
+----------------------------------
+* **The parapet halves the prone man.** At yaw 180 the AT rifleman lies behind the sandbags and the
+  Sniper kneels clear of them, so the reading is "a prone man half behind bags" against "a kneeling
+  man in the open". That is what the game shows from here, and it is why his mask is a quarter the
+  size of the Sniper's. A reading of 0.76 is honest for THIS camera; it is not a claim about the two
+  models side by side.
+* **The rifle is not legible at zoom 30.** The 1.65 m anti-tank rifle is a few dark pixels. No
+  number here isolates it, so nothing in this set says the weapon reads.
+* **The two men's headings differ by 1.11 rad**, reported as `heading_diff_rad` and NOT gated: one
+  camera yaw cannot be side-on to two men whose headings are snapped to their posts, and one frame
+  was the owner's call. What IS gated is each man against himself across the three pair stills.
+* **One seed, one ground, one time of day.** Seed 12648430, battlefield 1917, ShelledForest, night
+  with braziers lit. Nothing here says the number holds on another map or in daylight.
+* **Two figures, not two models.** Every infantry archetype except the sniper is drawn as the
+  Soldier figure (`VATRenderer.FigureOfArchetype`), so what is measured is the Soldier figure prone
+  against the Sniper figure kneeling - a pose-and-figure difference, not a per-unit model.
+* **Three poses are three poses, not the clip.** Each man was shot at three spaced phases of ONE
+  idle loop. That is a floor for the measure, not a survey of everything he does.
+
+How to re-run it
+----------------
+    python docs/evidence/atrifle-look-r3-g1-g1-g2/probe.py      # exit 0 on this set
+
+The probe writes probe.json beside itself. It needs numpy, scipy and Pillow and reads nothing but
+the nine PNGs, their sidecars and poses.json - no editor. `probe.py <another folder>` measures
+another set and prints the report WITHOUT writing probe.json, so a control cannot clobber this
+set's number.
+
+Checks
+------
+Negative control, the gate biting on the set it was written for: the same probe.py run against
+atrifle-look-r3-g1-g1's own nine pair-and-plate stills exits 2 and names exactly what the owner
+threw out -
+
+    python docs/evidence/atrifle-look-r3-g1-g1-g2/probe.py docs/evidence/atrifle-look-r3-g1-g1
+
+    FAIL: the at's ProneIdle pair phases [0.8, 0.58, 0.88] come within 0.080 of each other, want
+          0.2 - this is one pose, not three
+    FAIL: the sniper's KneelIdle pair phases [0.18, 0.53, 0.41] come within 0.120 of each other,
+          want 0.2 - this is one pose, not three
+
+That run's pixels are fine - it reads 0.7869 / 0.7789 / 0.7785 with the two boxes clear of each
+other - and it still fails, because g1-g1's PAIR frames were never driven: the driver spaced the
+solo stills and let the pair stills land wherever they landed. The 0.2 gate on the frames that are
+scored is the gate that catches that, and it is the one this round had to pass.
