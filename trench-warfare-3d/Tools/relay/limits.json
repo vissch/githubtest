@@ -1,5 +1,5 @@
 {
-  "amber_tokens": {"value": 240000, "min": 200000, "max": 260000},
+  "amber_tokens": {"value": 240000, "min": 200000, "max": 250000},
   "red_tokens": {"value": 300000, "min": 260000, "max": 300000},
   "autocompact_tokens": 400000,
   "run_hours": {"value": 3, "min": 0.25, "max": 12},
